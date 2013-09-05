@@ -1,0 +1,176 @@
+zlist(3)
+========
+
+NAME
+----
+zlist - generic type-free list container
+
+SYNOPSIS
+--------
+----
+//  Comparison function for zlist_sort method
+typedef bool (zlist_compare_fn) (void *item1, void *item2);
+
+//  Create a new list container
+CZMQ_EXPORT zlist_t *
+    zlist_new (void);
+
+//  Destroy a list container
+CZMQ_EXPORT void
+    zlist_destroy (zlist_t **self_p);
+
+//  Return first item in the list, or null
+CZMQ_EXPORT void *
+    zlist_first (zlist_t *self);
+
+//  Return last item in the list, or null
+CZMQ_EXPORT void *
+    zlist_last (zlist_t *self);
+
+//  Return first item in the list, or null, leaves the cursor
+CZMQ_EXPORT void *
+    zlist_head (zlist_t *self);
+
+//  Return last item in the list, or null, leaves the cursor
+CZMQ_EXPORT void *
+    zlist_tail (zlist_t *self);
+
+//  Return next item in the list, or null
+CZMQ_EXPORT void *
+    zlist_next (zlist_t *self);
+
+//  Append an item to the end of the list
+CZMQ_EXPORT int
+    zlist_append (zlist_t *self, void *item);
+
+//  Push an item to the start of the list
+CZMQ_EXPORT int
+    zlist_push (zlist_t *self, void *item);
+
+//  Pop the item off the start of the list, if any
+CZMQ_EXPORT void *
+    zlist_pop (zlist_t *self);
+
+//  Remove the specified item from the list if present
+CZMQ_EXPORT void
+    zlist_remove (zlist_t *self, void *item);
+
+//  Copy the entire list, return the copy
+CZMQ_EXPORT zlist_t *
+    zlist_dup (zlist_t *self);
+
+//  Copy the entire list, return the copy (deprecated)
+CZMQ_EXPORT zlist_t *
+    zlist_copy (zlist_t *self);
+
+//  Return number of items in the list
+CZMQ_EXPORT size_t
+    zlist_size (zlist_t *self);
+
+//  Sort list
+CZMQ_EXPORT void
+    zlist_sort (zlist_t *self, zlist_compare_fn *compare);
+
+//  Set list for automatic item destruction
+CZMQ_EXPORT void
+    zlist_autofree (zlist_t *self);
+
+//  Self test of this class
+CZMQ_EXPORT void
+    zlist_test (int verbose);
+----
+
+DESCRIPTION
+-----------
+
+Provides a generic container implementing a fast singly-linked list. You
+can use this to construct multi-dimensional lists, and other structures
+together with other generic containers like zhash.
+
+
+EXAMPLE
+-------
+.From zlist_test method
+----
+    zlist_t *list = zlist_new ();
+    assert (list);
+    assert (zlist_size (list) == 0);
+
+    //  Three items we'll use as test data
+    //  List items are void *, not particularly strings
+    char *cheese = "boursin";
+    char *bread = "baguette";
+    char *wine = "bordeaux";
+
+    zlist_append (list, cheese);
+    assert (zlist_size (list) == 1);
+    zlist_append (list, bread);
+    assert (zlist_size (list) == 2);
+    zlist_append (list, wine);
+    assert (zlist_size (list) == 3);
+
+    assert (zlist_head (list) == cheese);
+    assert (zlist_next (list) == cheese);
+
+    assert (zlist_first (list) == cheese);
+    assert (zlist_tail (list) == wine);
+    assert (zlist_next (list) == bread);
+
+    assert (zlist_first (list) == cheese);
+    assert (zlist_next (list) == bread);
+    assert (zlist_next (list) == wine);
+    assert (zlist_next (list) == NULL);
+    //  After we reach end of list, next wraps around
+    assert (zlist_next (list) == cheese);
+    assert (zlist_size (list) == 3);
+
+    zlist_remove (list, wine);
+    assert (zlist_size (list) == 2);
+
+    assert (zlist_first (list) == cheese);
+    zlist_remove (list, cheese);
+    assert (zlist_size (list) == 1);
+    assert (zlist_first (list) == bread);
+
+    zlist_remove (list, bread);
+    assert (zlist_size (list) == 0);
+
+    zlist_append (list, cheese);
+    zlist_append (list, bread);
+    assert (zlist_last (list) == bread);
+    zlist_remove (list, bread);
+    assert (zlist_last (list) == cheese);
+    zlist_remove (list, cheese);
+    assert (zlist_last (list) == NULL);
+
+    zlist_push (list, cheese);
+    assert (zlist_size (list) == 1);
+    assert (zlist_first (list) == cheese);
+
+    zlist_push (list, bread);
+    assert (zlist_size (list) == 2);
+    assert (zlist_first (list) == bread);
+
+    zlist_append (list, wine);
+    assert (zlist_size (list) == 3);
+    assert (zlist_first (list) == bread);
+
+    zlist_sort (list, s_compare);
+    char *item;
+    item = (char *) zlist_pop (list);
+    assert (item == bread);
+    item = (char *) zlist_pop (list);
+    assert (item == wine);
+    item = (char *) zlist_pop (list);
+    assert (item == cheese);
+    assert (zlist_size (list) == 0);
+
+    //  Destructor should be safe to call twice
+    zlist_destroy (&list);
+    zlist_destroy (&list);
+    assert (list == NULL);
+----
+
+SEE ALSO
+--------
+linkczmq:czmq[7]

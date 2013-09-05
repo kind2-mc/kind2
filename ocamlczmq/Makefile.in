@@ -1,0 +1,34 @@
+# @configure_input@
+
+# Makefile for the OCaml CZMQ library 
+
+all: Makefile.in ocamlczmq install
+
+.PHONY: ocamlczmq
+
+ocamlczmq: czmq
+	make -C src
+
+.PHONY: czmq
+
+czmq: 
+	cd czmq && sh autogen.sh && ./configure @CZMQ_CONFFLAGS@ --prefix=$(CURDIR)
+	make -C czmq
+	make -C czmq install	
+
+clean: Makefile
+	make -C src clean
+
+.PHONY: install 
+
+install: 
+	cd src && cp dll_wrap_stubs.so lib_wrap_stubs.a ZMQ.cmi ZMQ.a ZMQ.cmxa ZMQ.cma ../lib
+
+
+# Remake this Makefile if configuration has changed 
+Makefile: Makefile.in config.status
+	./config.status
+
+./config.status: ./configure
+	./config.status --recheck
+
