@@ -1,0 +1,3 @@
+[submodule "ocamlczmq"]
+	path = ocamlczmq
+	url = git@github.com:kind-mc/ocamlczmq.git

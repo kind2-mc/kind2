@@ -1,0 +1,40 @@
+OCAMLBUILD=@OCAMLBUILD@ -classic-display 
+
+kind2: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) kind2.native
+
+kind2-prof: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) -tag profile kind2.native
+
+kind-bmc: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) bmc.native
+
+clean:
+	$(OCAMLBUILD) -clean
+
+kind2-doc:
+	$(OCAMLBUILD) kind2.docdir/index.html
+
+# Compile a native-code version of Camlp4DebugParser, the
+# Debian/Ubuntu package does not contain a .cmxs file 
+# (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
+_build/Camlp4DebugParser.cmxs:
+	mkdir -p _build
+	ocamlopt -shared $(shell ocamlc -where)/camlp4/Camlp4Parsers/Camlp4DebugParser.cmx -o _build/Camlp4DebugParser.cmxs
+
+# Remake this Makefile if configuration has changed 
+Makefile: Makefile.in ../config.status
+	cd .. && ./config.status
+
+config.ml: config.ml.in ../config.status
+	cd .. && ./config.status
+
+flags.ml: flags.ml.in ../config.status
+	cd .. && ./config.status
+
+myocamlbuild.ml.in: myocamlbuild.ml.in ../config.status
+	cd .. && ./config.status
+
+../config.status: ../configure
+	cd .. && ./config.status --recheck
+
