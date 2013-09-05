@@ -1,0 +1,55 @@
+# @configure_input@
+
+# Makefile for the OCaml CZMQ library 
+
+# C compiler and flags
+CC=@CC@
+CFLAGS=@CFLAGS@ -I$(CURDIR)/../include -fPIC
+
+# Flags to compile the OCaml CZMQ library
+OCAMLCZMQ_LFLAGS=@OCAMLCZMQ_LFLAGS@ -L$(CURDIR)/../lib
+OCAMLCZMQ_CCOPTFLAGS=@OCAMLCZMQ_CCOPTFLAGS@ -ccopt -L$(CURDIR)/../lib -ccopt -Wl,-rpath,$(CURDIR)/../lib
+
+# OCaml compilers and flags 
+OCAMLCC=$(CC) $(CFLAGS)
+OCAMLC=@OCAMLC@ -cc "$(OCAMLCC)"
+OCAMLOPT=@OCAMLOPT@ -cc "$(OCAMLCC)"
+OCAMLMKLIB=@OCAMLMKLIB@ -verbose -ocamlc "@OCAMLC@ -cc $(OCAMLCC)" -ocamlopt "@OCAMLOPT@ -cc $(OCAMLCC)"
+
+
+all: Makefile ZMQ.cma ZMQ.cmxa
+	mkdir -p build
+
+czmq_stubs.o: czmq_stubs.c
+	$(OCAMLC) -c $< -o $@
+
+dll_wrap_stubs.so lib_wrap_stubs.a: czmq_stubs.o
+	$(OCAMLMKLIB) -o _wrap_stubs $< -lczmq -lzmq $(OCAMLCZMQ_LFLAGS)
+
+ZMQ.cmi: ZMQ.mli
+	$(OCAMLC) -c $< 
+
+ZMQ.cmo: ZMQ.ml ZMQ.cmi
+	$(OCAMLC) -c $<
+
+ZMQ.cma: ZMQ.cmo dll_wrap_stubs.so
+	$(OCAMLC) -a  -o $@  $<  -dllib -l_wrap_stubs \
+	-cclib -lczmq -cclib -lzmq $(OCAMLCZMQ_CCOPTFLAGS)
+
+ZMQ.cmx: ZMQ.ml ZMQ.cmi
+	$(OCAMLOPT) -c $<
+
+ZMQ.cmxa: ZMQ.cmx lib_wrap_stubs.a
+	$(OCAMLOPT) -a -o $@ $< -cclib -l_wrap_stubs \
+	-cclib -lczmq -cclib -lzmq  $(OCAMLCZMQ_CCOPTFLAGS)
+
+clean:
+	rm -f *.[oa] *.so *.cm[ixoa] *.cmxa 
+
+# Remake this Makefile if configuration has changed 
+Makefile: Makefile.in ../config.status
+	cd .. && ./config.status
+
+../config.status: ../configure
+	../config.status --recheck
+

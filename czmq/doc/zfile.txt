@@ -1,0 +1,77 @@
+zfile(3)
+========
+
+NAME
+----
+zfile - helper functions for working with files.
+
+SYNOPSIS
+--------
+----
+//  Return 1 if file exists, else zero
+CZMQ_EXPORT bool
+    zfile_exists (const char *filename);
+
+//  Return size of file, or -1 if not found
+CZMQ_EXPORT ssize_t
+    zfile_size (const char *filename);
+
+//  Return file mode
+CZMQ_EXPORT mode_t
+    zfile_mode (const char *filename);
+
+//  Delete file. Does not complain if the file is absent
+CZMQ_EXPORT int
+    zfile_delete (const char *filename);
+
+//  Check if file is 'stable'
+CZMQ_EXPORT bool
+    zfile_stable (const char *filename);
+
+//  Create a file path if it doesn't exit
+CZMQ_EXPORT int
+    zfile_mkdir (const char *pathname);
+
+//  Remove a file path if empty
+CZMQ_EXPORT int
+    zfile_rmdir (const char *pathname);
+
+//  Set private file creation mode; all files created from here will be
+//  readable/writable by the owner only.
+CZMQ_EXPORT void
+    zfile_mode_private (void);
+    
+//  Reset default file creation mode; all files created from here will use
+//  process file mode defaults.
+CZMQ_EXPORT void
+    zfile_mode_default (void);
+
+//  Self test of this class
+CZMQ_EXPORT int
+    zfile_test (bool verbose);
+----
+
+DESCRIPTION
+-----------
+
+The zfile class provides methods to work with files and directories.
+
+
+EXAMPLE
+-------
+.From zfile_test method
+----
+    int rc = zfile_delete ("nosuchfile");
+    assert (rc == -1);
+
+    bool rc_bool = zfile_exists ("nosuchfile");
+    assert (rc_bool != true);
+
+    rc = (int) zfile_size ("nosuchfile");
+    assert (rc == -1);
+
+----
+
+SEE ALSO
+--------
+linkczmq:czmq[7]
