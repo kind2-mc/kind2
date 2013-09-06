@@ -16,9 +16,10 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 
 
-all: kind2
+all: ocamlczmq kind2
 
 ocamlczmq: 
+	cd ocamlczmq && sh autogen.sh
 	make -C ocamlczmq
 
 ocamlczmq-install: 
