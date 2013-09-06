@@ -2,7 +2,7 @@
 
 # Makefile for the OCaml CZMQ library 
 
-all: Makefile.in ocamlczmq install
+all: Makefile.in ocamlczmq 
 
 .PHONY: ocamlczmq
 
@@ -12,9 +12,8 @@ ocamlczmq: czmq
 .PHONY: czmq
 
 czmq: 
-	cd czmq && sh autogen.sh && ./configure @CZMQ_CONFFLAGS@ --prefix=$(CURDIR)
+	cd czmq && sh autogen.sh && ./configure @CZMQ_CONFFLAGS@ --prefix=@prefix@
 	make -C czmq
-	make -C czmq install	
 
 clean: Makefile
 	make -C src clean
@@ -22,6 +21,7 @@ clean: Makefile
 .PHONY: install 
 
 install: 
+	make -C czmq install	
 	cd src && cp dll_wrap_stubs.so lib_wrap_stubs.a ZMQ.cmi ZMQ.a ZMQ.cmxa ZMQ.cma ../lib
 
 

@@ -8,7 +8,7 @@ CFLAGS=@CFLAGS@ -I$(CURDIR)/../include -fPIC
 
 # Flags to compile the OCaml CZMQ library
 OCAMLCZMQ_LFLAGS=@OCAMLCZMQ_LFLAGS@ -L$(CURDIR)/../lib
-OCAMLCZMQ_CCOPTFLAGS=@OCAMLCZMQ_CCOPTFLAGS@ -ccopt -L$(CURDIR)/../lib -ccopt -Wl,-rpath,$(CURDIR)/../lib
+OCAMLCZMQ_CCOPTFLAGS=@OCAMLCZMQ_CCOPTFLAGS@ -ccopt -L$(CURDIR)/../lib 
 
 # OCaml compilers and flags 
 OCAMLCC=$(CC) $(CFLAGS)
