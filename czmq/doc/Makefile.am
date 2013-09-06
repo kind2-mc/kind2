@@ -1,7 +1,6 @@
 MAN1 =
 MAN3 = zbeacon.3 \
     zclock.3 \
-    zconfig.3 \
     zctx.3 \
     zfile.3 \
     zframe.3 \
@@ -14,8 +13,7 @@ MAN3 = zbeacon.3 \
     zsockopt.3 \
     zstr.3 \
     zsys.3 \
-    zthread.3 \
-    ztree.3
+    zthread.3
 MAN7 = czmq.7
 MAN_DOC = $(MAN1) $(MAN3) $(MAN7)
 

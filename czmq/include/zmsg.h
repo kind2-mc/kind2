@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -79,7 +80,7 @@ CZMQ_EXPORT int
 //  Returns 0 on success, -1 on error.
 CZMQ_EXPORT int
     zmsg_addmem (zmsg_t *self, const void *src, size_t size);
-    
+
 //  Push string as new frame to front of message.
 //  Returns 0 on success, -1 on error.
 CZMQ_EXPORT int
@@ -125,8 +126,7 @@ CZMQ_EXPORT int
     zmsg_save (zmsg_t *self, FILE *file);
 
 //  Load/append an open file into message, create new message if
-//  null message provided. Returns NULL if the message could not 
-//  be loaded.
+//  null message provided.
 CZMQ_EXPORT zmsg_t *
     zmsg_load (zmsg_t *self, FILE *file);
 
@@ -143,20 +143,9 @@ CZMQ_EXPORT zmsg_t *
 CZMQ_EXPORT zmsg_t *
     zmsg_dup (zmsg_t *self);
 
-//  Print message to FILE stream, for debugging
-CZMQ_EXPORT void
-    zmsg_dump_to_stream (zmsg_t *self, FILE *file);
-
 //  Print message to stderr, for debugging
 CZMQ_EXPORT void
     zmsg_dump (zmsg_t *self);
-
-//  Push block of memory as new frame to end of message.
-//  The frame is constructed using zero-copy.
-//  Returns 0 on success, -1 on error.
-//  DEPRECATED - will be removed for next stable release
-CZMQ_EXPORT int
-    zmsg_addmem_zero_copy (zmsg_t *self, void *src, size_t size, zframe_free_fn *free_fn, void *arg);
 
 //  Self test of this class
 CZMQ_EXPORT int

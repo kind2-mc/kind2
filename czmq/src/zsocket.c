@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -159,70 +160,15 @@ zsocket_type_str (void *self)
     char *type_name [] = {
         "PAIR", "PUB", "SUB", "REQ", "REP",
         "DEALER", "ROUTER", "PULL", "PUSH",
-        "XPUB", "XSUB", "STREAM"
+        "XPUB", "XSUB"
     };
     int type = zsockopt_type (self);
-    if (type < 0 || type > ZMQ_STREAM)
+    if (type < 0 || type > ZMQ_XSUB)
         return "UNKNOWN";
     else
         return type_name [type];
 }
 
-//  --------------------------------------------------------------------------
-//  Send data over a socket as a single message frame.
-//  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT.
-
-int
-zsocket_sendmem (void *zocket, const void* data, size_t size, int flags)
-{
-    assert (zocket);
-    assert (size == 0 || data);
-    
-    int snd_flags = (flags & ZFRAME_MORE)? ZMQ_SNDMORE : 0;
-    snd_flags |= (flags & ZFRAME_DONTWAIT)? ZMQ_DONTWAIT : 0;
-    
-    zmq_msg_t msg;
-    zmq_msg_init_size (&msg, size);
-    memcpy (zmq_msg_data (&msg), data, size);
-    
-    int rc = zmq_sendmsg (zocket, &msg, snd_flags);
-    return rc == -1? -1: 0;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send data over a socket as a single message frame
-//  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT.
-//  NOTE: this method is DEPRECATED and is slated for removal. These are the
-//  problems with the method:
-//  - premature optimization: do we really need this? It makes the API more
-//    complex; high-performance applications would not use this in any case,
-//    they would work directly with zmq_msg objects.
-//  - selftest method leaks memory
-//  (PH, 2013/05/18)
-
-int
-zsocket_sendmem_zero_copy (void *zocket, void *data, size_t size,
-                           zsocket_free_fn *free_fn, void *hint, int flags)
-{
-    assert (zocket);
-    assert (size == 0 || data);
-    
-    int snd_flags = (flags & ZFRAME_MORE)? ZMQ_SNDMORE : 0;
-    snd_flags |= (flags & ZFRAME_DONTWAIT)? ZMQ_DONTWAIT : 0;
-    
-    zmq_msg_t msg;
-    zmq_msg_init_data (&msg, data, size, free_fn, hint);
-    int rc = zmq_sendmsg (zocket, &msg, snd_flags);
-    return rc == -1? -1: 0;
-}
-
-static void
-s_test_free_str_cb (void *str, void *arg)
-{
-    assert (str);
-    free (str);
-}
 
 //  --------------------------------------------------------------------------
 //  Selftest
@@ -256,8 +202,7 @@ zsocket_test (bool verbose)
     assert (message);
     assert (streq (message, "HELLO"));
     free (message);
-    
-    //  Test binding to ports
+
     int port = zsocket_bind (writer, "tcp://%s:*", interf);
     assert (port >= ZSOCKET_DYNFROM && port <= ZSOCKET_DYNTO);
 
@@ -265,44 +210,6 @@ zsocket_test (bool verbose)
 
     rc = zsocket_connect (reader, "txp://%s:%d", domain, service);
     assert (rc == -1);
-
-    //  Test sending frames to socket
-    rc = zsocket_sendmem (writer,"ABC", 3, ZFRAME_MORE);
-    assert (rc == 0);
-    rc = zsocket_sendmem (writer, "DEFG", 4, 0);
-    assert (rc == 0);
-    
-    zframe_t *frame = zframe_recv (reader);
-    assert (frame);
-    assert (zframe_streq (frame, "ABC"));
-    assert (zframe_more (frame));
-    zframe_destroy (&frame);
-    
-    frame = zframe_recv (reader);
-    assert (frame);
-    assert (zframe_streq (frame, "DEFG"));
-    assert (!zframe_more (frame));
-    zframe_destroy (&frame);
-
-    //  Test zframe_sendmem_zero_copy
-    rc = zsocket_sendmem_zero_copy (writer, strdup ("ABC"), 3,
-                                    s_test_free_str_cb, NULL, ZFRAME_MORE);
-    assert (rc == 0);
-    rc = zsocket_sendmem_zero_copy (writer, strdup ("DEFG"), 4,
-                                    s_test_free_str_cb, NULL, 0);
-    assert (rc == 0);
-    
-    frame = zframe_recv (reader);
-    assert (frame);
-    assert (zframe_streq (frame, "ABC"));
-    assert (zframe_more (frame));
-    zframe_destroy (&frame);
-    
-    frame = zframe_recv (reader);
-    assert (frame);
-    assert (zframe_streq (frame, "DEFG"));
-    assert (!zframe_more (frame));
-    zframe_destroy (&frame);
 
     zsocket_destroy (ctx, writer);
     zctx_destroy (&ctx);

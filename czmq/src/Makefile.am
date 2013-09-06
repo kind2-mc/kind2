@@ -8,7 +8,6 @@ include_HEADERS = \
     ../include/czmq_prelude.h \
     ../include/zbeacon.h \
     ../include/zclock.h \
-    ../include/zconfig.h \
     ../include/zctx.h \
     ../include/zfile.h \
     ../include/zframe.h \
@@ -21,13 +20,11 @@ include_HEADERS = \
     ../include/zsockopt.h \
     ../include/zstr.h \
     ../include/zsys.h \
-    ../include/zthread.h \
-    ../include/ztree.h
+    ../include/zthread.h
 
 libczmq_la_SOURCES = \
     zbeacon.c \
     zclock.c \
-    zconfig.c \
     zctx.c \
     zfile.c \
     zframe.c \
@@ -40,10 +37,7 @@ libczmq_la_SOURCES = \
     zsockopt.c \
     zstr.c \
     zsys.c \
-    zthread.c \
-    ztree.c
-
-AM_CFLAGS = -g
+    zthread.c
 
 INCLUDES = -I$(top_srcdir)/include
 bin_PROGRAMS = czmq_selftest

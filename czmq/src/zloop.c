@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -357,8 +358,7 @@ zloop_start (zloop_t *self)
                        s_tickless_timer (self) * ZMQ_POLL_MSEC);
         if (rc == -1 || zctx_interrupted) {
             if (self->verbose)
-                zclock_log ("I: zloop: interrupted (%d) - %s", rc, 
-                            zmq_strerror (zmq_errno ()));
+                zclock_log ("I: zloop: interrupted (%d) - %s", rc, strerror (errno));
             rc = 0;
             break;              //  Context has been shut down
         }
@@ -393,7 +393,7 @@ zloop_start (zloop_t *self)
                         poller->item.socket?
                             zsocket_type_str (poller->item.socket): "FD",
                         poller->item.socket, poller->item.fd,
-                        zmq_strerror (zmq_errno ()));
+                        strerror (errno));
                 //  Give handler one chance to handle error, then kill
                 //  poller because it'll disrupt the reactor otherwise.
                 if (poller->errors++) {
@@ -413,13 +413,6 @@ zloop_start (zloop_t *self)
                 rc = poller->handler (self, &self->pollset [item_nbr], poller->arg);
                 if (rc == -1)
                     break;      //  Poller handler signaled break
-                // If the poller handler calls zloop_poller_end on poller other than itself
-                // we need to force rebuild in order to avoid reading from freed memory in the handler
-                if (self->dirty) {
-                    if (self->verbose)
-                        zclock_log ("I: zloop: pollers canceled, forcing rebuild");
-                    break;
-                }
             }
         }
         //  Now handle any timer zombies
@@ -431,6 +424,7 @@ zloop_start (zloop_t *self)
                 if (timer->arg == arg) {
                     zlist_remove (self->timers, timer);
                     free (timer);
+                    break;
                 }
                 timer = (s_timer_t *) zlist_next (self->timers);
             }

@@ -8,7 +8,10 @@ AC_CONFIG_SRCDIR([src/ZMQ.ml])
 # default prefix is /usr/local
 AC_PREFIX_DEFAULT(/usr/local)
 
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIR([config])
+
+# Check for libtool
+AC_PROG_LIBTOOL
 
 # Check for OCaml  
 AC_PROG_OCAML
@@ -53,7 +56,7 @@ if test "x$search_libzmq" = "xyes"; then
         CFLAGS="-I${with_libzmq}/include ${CFLAGS}"
         LDFLAGS="-L${with_libzmq}/lib ${LDFLAGS}"
         OCAMLCZMQ_LFLAGS="-L${with_libzmq}/lib ${OCAMLCZMQ_LFLAGS}"
-        OCAMLCZMQ_CCOPTFLAGS="-ccopt -L${with_libzmq}/lib -ccopt -Wl,-rpath,${with_libzmq}/lib ${OCAMLCZMQ_CCOPTFLAGS}"
+        OCAMLCZMQ_CCOPTFLAGS="-ccopt -L${with_libzmq}/lib ${OCAMLCZMQ_CCOPTFLAGS}"
         CZMQ_CONFFLAGS="--with-libzmq=${with_libzmq}"
     else
         AC_MSG_ERROR([${with_libzmq}/include/zmq.h not found. Please check libzmq prefix])
