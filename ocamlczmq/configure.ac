@@ -53,7 +53,7 @@ if test "x$search_libzmq" = "xyes"; then
         CFLAGS="-I${with_libzmq}/include ${CFLAGS}"
         LDFLAGS="-L${with_libzmq}/lib ${LDFLAGS}"
         OCAMLCZMQ_LFLAGS="-L${with_libzmq}/lib ${OCAMLCZMQ_LFLAGS}"
-        OCAMLCZMQ_CCOPTFLAGS="-ccopt -L${with_libzmq}/lib -ccopt -Wl,-rpath,${with_libzmq}/lib ${OCAMLCZMQ_CCOPTFLAGS}"
+        OCAMLCZMQ_CCOPTFLAGS="-ccopt -L${with_libzmq}/lib ${OCAMLCZMQ_CCOPTFLAGS}"
         CZMQ_CONFFLAGS="--with-libzmq=${with_libzmq}"
     else
         AC_MSG_ERROR([${with_libzmq}/include/zmq.h not found. Please check libzmq prefix])

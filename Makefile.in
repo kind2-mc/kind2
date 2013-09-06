@@ -21,7 +21,10 @@ all: kind2
 ocamlczmq: 
 	make -C ocamlczmq
 
-kind2: ocamlczmq
+ocamlczmq-install: 
+	make -C ocamlczmq install
+
+kind2: 
 	make -C src
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2

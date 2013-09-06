@@ -47,9 +47,9 @@ clean:
 	rm -f *.[oa] *.so *.cm[ixoa] *.cmxa 
 
 # Remake this Makefile if configuration has changed 
-Makefile: Makefile.in ../config.status
-	cd .. && ./config.status
+Makefile: Makefile.in ../../config.status
+	cd ../.. && ./config.status
 
-../config.status: ../configure
-	../config.status --recheck
+../../config.status: ../../configure
+	../../config.status --recheck
 
