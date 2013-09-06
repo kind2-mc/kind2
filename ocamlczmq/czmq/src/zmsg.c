@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -127,14 +128,11 @@ zmsg_send (zmsg_t **self_p, void *zocket)
     zmsg_t *self = *self_p;
 
     int rc = 0;
-    if (zlist_size (self->frames) == 0)
-        return -1;
-    else
     if (self) {
         zframe_t *frame = (zframe_t *) zlist_pop (self->frames);
         while (frame) {
             rc = zframe_send (&frame, zocket,
-                zlist_size (self->frames)? ZFRAME_MORE: 0);
+                              zlist_size (self->frames)? ZFRAME_MORE: 0);
             if (rc != 0)
                 break;
             frame = (zframe_t *) zlist_pop (self->frames);
@@ -207,8 +205,10 @@ zmsg_add (zmsg_t *self, zframe_t *frame)
 {
     assert (self);
     assert (frame);
+    int error = 0;
     self->content_size += zframe_size (frame);
-    return zlist_append (self->frames, frame);
+    error = zlist_append (self->frames, frame);
+    return error;
 }
 
 
@@ -247,14 +247,7 @@ zmsg_addmem (zmsg_t *self, const void *src, size_t size)
 
 //  --------------------------------------------------------------------------
 //  Add block of memory to the end of the message, as a new frame.
-//  The new frame is zero-copy-constructed (see zframe_new_zero_copy(...) 
-//  for detailed description)
-//  NOTE: this method is DEPRECATED and is slated for removal. These are the
-//  problems with the method:
-//  - premature optimization: do we really need this? It makes the API more
-//    complex; high-performance applications would not use zmsg in any case,
-//    they would work directly with zmq_msg objects.
-//  (PH, 2013/05/18)
+//  The new frame is zero-copy-constructed (see zframe_new_zero_copy(...) for detailed description)
 
 int
 zmsg_addmem_zero_copy (zmsg_t *self, void *src, size_t size, zframe_free_fn *free_fn, void *arg)
@@ -279,37 +272,32 @@ zmsg_pushstr (zmsg_t *self, const char *format, ...)
     assert (format);
 
     //  Format string into buffer
-    int size = 255 + 1;
-    char stackbuffer[255+1];
-    char *string = stackbuffer;
     va_list argptr;
     va_start (argptr, format);
-    int required = vsnprintf (string, size, format, argptr);
-    va_end (argptr);
-#ifdef _MSC_VER
-    if (required < 0 || required >= size) {
-        va_start (argptr, format);
-        required = _vscprintf (format, argptr);
+    int size = 255 + 1;
+    char *string = (char *) malloc (size);
+    if (!string) {
         va_end (argptr);
+        return -1;
     }
-#endif
+    int required = vsnprintf (string, size, format, argptr);
     if (required >= size) {
         size = required + 1;
-        string = (char *) malloc (size);
+        string = (char *) realloc (string, size);
         if (!string) {
+            va_end (argptr);
             return -1;
         }
-        va_start (argptr, format);
         size = vsnprintf (string, size, format, argptr);
-        va_end (argptr);
     }
     else
         size = required;
 
+    va_end (argptr);
+
     self->content_size += size;
     zlist_push (self->frames, zframe_new (string, size));
-    if (string!=stackbuffer)
-        free (string);
+    free (string);
     return 0;
 }
 
@@ -323,37 +311,32 @@ zmsg_addstr (zmsg_t *self, const char *format, ...)
     assert (self);
     assert (format);
     //  Format string into buffer
-    int size = 255 + 1;
-    char stackbuffer[255+1];
-    char *string = stackbuffer;
     va_list argptr;
     va_start (argptr, format);
-    int required = vsnprintf (string, size, format, argptr);
-    va_end (argptr);
-#ifdef _MSC_VER
-    if (required < 0 || required >= size) {
-        va_start (argptr, format);
-        required = _vscprintf (format, argptr);
+    int size = 255 + 1;
+    char *string = (char *) malloc (size);
+    if (!string) {
         va_end (argptr);
+        return -1;
     }
-#endif    
+    int required = vsnprintf (string, size, format, argptr);
     if (required >= size) {
         size = required + 1;
-        string = (char *) malloc (size);
+        string = (char *) realloc (string, size);
         if (!string) {
+            va_end (argptr);
             return -1;
         }
-        va_start (argptr, format);
         size = vsnprintf (string, size, format, argptr);
-        va_end (argptr);
     }
     else
         size = required;
 
+    va_end (argptr);
+
     self->content_size += size;
     zlist_append (self->frames, zframe_new (string, size));
-    if (string!=stackbuffer)
-        free (string);
+    free (string);
     return 0;
 }
 
@@ -400,7 +383,7 @@ zmsg_unwrap (zmsg_t *self)
     assert (self);
     zframe_t *frame = zmsg_pop (self);
     zframe_t *empty = zmsg_first (self);
-    if (empty && zframe_size (empty) == 0) {
+    if (zframe_size (empty) == 0) {
         empty = zmsg_pop (self);
         zframe_destroy (&empty);
     }
@@ -496,22 +479,12 @@ zmsg_load (zmsg_t *self, FILE *file)
             zframe_t *frame = zframe_new (NULL, frame_size);
             rc = fread (zframe_data (frame), frame_size, 1, file);
             if (frame_size > 0 && rc != 1)
-            {
-                zframe_destroy (&frame);
                 break;          //  Unable to read properly, quit
-            }
             zmsg_add (self, frame);
         }
         else
             break;              //  Unable to read properly, quit
     }
-
-    if (zmsg_size(self) == 0)
-    {
-        zmsg_destroy(&self);
-        self = NULL;
-    }
-
     return self;
 }
 
@@ -664,39 +637,26 @@ zmsg_dup (zmsg_t *self)
 }
 
 
-
-
 //  --------------------------------------------------------------------------
-//  Dump message to FILE stream, for debugging and tracing
+//  Dump message to stderr, for debugging and tracing
 //  Truncates to first 10 frames, for readability; this may be unfortunate
 //  when debugging larger and more complex messages. Perhaps a way to hide
 //  repeated lines instead?
 
 void
-zmsg_dump_to_stream (zmsg_t *self, FILE *file)
+zmsg_dump (zmsg_t *self)
 {
-    fprintf (file, "--------------------------------------\n");
+    fprintf (stderr, "--------------------------------------\n");
     if (!self) {
-        fprintf (file, "NULL");
+        fprintf (stderr, "NULL");
         return;
     }
     zframe_t *frame = zmsg_first (self);
     int frame_nbr = 0;
     while (frame && frame_nbr++ < 10) {
-        zframe_print_to_stream(frame, NULL, file);
+        zframe_print (frame, "");
         frame = zmsg_next (self);
     }
-}
-
-
-//  --------------------------------------------------------------------------
-//  Dump message to stderr, for debugging and tracing
-//  See zmsg_dump_to_stream() for details
-
-void
-zmsg_dump (zmsg_t *self)
-{
-   zmsg_dump_to_stream (self, stderr);
 }
 
 
@@ -781,19 +741,8 @@ zmsg_test (bool verbose)
     if (verbose)
         zmsg_dump (msg);
 
-    // create empty file for null test
-    FILE *file = fopen ("zmsg.test", "w");
-    assert (file);
-    fclose (file);
-
-    file = fopen ("zmsg.test", "r");
-    zmsg_t *null_msg = zmsg_load (NULL, file);
-    assert (null_msg == NULL);
-    fclose (file);
-    remove ("zmsg.test");
-
     //  Save to a file, read back
-    file = fopen ("zmsg.test", "w");
+    FILE *file = fopen ("zmsg.test", "w");
     assert (file);
     rc = zmsg_save (msg, file);
     assert (rc == 0);
@@ -878,13 +827,10 @@ zmsg_test (bool verbose)
     msg = zmsg_new ();
     assert (msg);
     assert (zmsg_size (msg) == 0);
-    assert (zmsg_unwrap (msg) == NULL);
     assert (zmsg_first (msg) == NULL);
     assert (zmsg_last (msg) == NULL);
     assert (zmsg_next (msg) == NULL);
     assert (zmsg_pop (msg) == NULL);
-    assert (zmsg_send (&msg, output) == -1);
-    assert (msg != NULL);
     zmsg_destroy (&msg);
 
     zctx_destroy (&ctx);

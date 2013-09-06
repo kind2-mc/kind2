@@ -2,11 +2,12 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
 #
-# The version number is extracted from include/czmq.h using
-# the version.sh script. Hence, it should be updated there.
+# Change the version number below after doing a public release.
 # The version in git should reflect the *next* version planned.
+# Version must be MAJOR.MINOR.PATCH otherwise things will break.
+# Make sure you also updated include/czmq.h to match.
 #
-AC_INIT([czmq],[m4_esyscmd([./version.sh czmq])],[zeromq-dev@lists.zeromq.org])
+AC_INIT([czmq],[1.4.1],[zeromq-dev@lists.zeromq.org])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -51,7 +52,7 @@ AC_PROG_AWK
 
 # Checks for libraries
 AC_CHECK_LIB([pthread], [pthread_create])
-AC_CHECK_LIB([sodium], [sodium_init],,AC_MSG_WARN(libsodium is needed for CURVE security))
+AC_CHECK_LIB([sodium], [sodium_init])
 
 # Code coverage
 AC_ARG_WITH(gcov, [AS_HELP_STRING([--with-gcov=yes/no],
@@ -140,7 +141,6 @@ case "${host_os}" in
         # Define on Solaris to enable all library features
         CPPFLAGS="-D_PTHREADS $CPPFLAGS"
         AC_DEFINE(CZMQ_HAVE_SOLARIS, 1, [Have Solaris OS])
-        CFLAGS="${CFLAGS} -lsocket"
         ;;
     *freebsd*)
         # Define on FreeBSD to enable all library features
@@ -193,7 +193,7 @@ esac
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(errno.h arpa/inet.h netinet/tcp.h netinet/in.h stddef.h \
-stdlib.h string.h sys/socket.h sys/time.h unistd.h limits.h ifaddrs.h)
+stdlib.h string.h sys/socket.h sys/time.h unistd.h limits.h)
 AC_CHECK_HEADERS([net/if.h net/if_media.h linux/wireless.h], [], [],
 [
 #ifdef HAVE_SYS_SOCKET_H

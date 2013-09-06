@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -35,9 +36,6 @@ extern "C" {
 //  We use this when choosing a port for dynamic binding.
 #define ZSOCKET_DYNFROM     0xc000
 #define ZSOCKET_DYNTO       0xffff
-        
-//  Callback function for zero-copy methods
-typedef void (zsocket_free_fn) (void *data, void *arg);
 
 //  Create a new socket within our CZMQ context, replaces zmq_socket.
 //  Use this to get automatic management of the socket at shutdown.
@@ -78,20 +76,6 @@ CZMQ_EXPORT bool
 CZMQ_EXPORT char *
     zsocket_type_str (void *socket);
 
-//  Send data over a socket as a single frame
-//  Returns -1 on error, 0 on success
-CZMQ_EXPORT int
-    zsocket_sendmem (void *socket, const void* data, size_t size, int flags);
-
-//  Send data over a socket as a single frame
-//  Returns -1 on error, 0 on success
-//  DEPRECATED - will be removed for next stable release
-CZMQ_EXPORT int
-    zsocket_sendmem_zero_copy (void *socket, void *data, size_t size, 
-                               zsocket_free_fn *free_fn,
-                               void *hint, int flags);
-
-    
 //  Self test of this class
 CZMQ_EXPORT int
     zsocket_test (bool verbose);

@@ -8,7 +8,10 @@ AC_CONFIG_SRCDIR([src/ZMQ.ml])
 # default prefix is /usr/local
 AC_PREFIX_DEFAULT(/usr/local)
 
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIR([config])
+
+# Check for libtool
+AC_PROG_LIBTOOL
 
 # Check for OCaml  
 AC_PROG_OCAML

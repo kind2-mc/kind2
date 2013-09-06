@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -41,18 +42,6 @@ CZMQ_EXPORT void
 //  Reset interrupt handler, call this at exit if needed
 CZMQ_EXPORT void
     zsys_handler_reset (void);
-
-//  Set network interface name to use for broadcasts
-//  Use this to force the interface for beacons
-//  This is experimental; may be merged into zbeacon class.
-CZMQ_EXPORT void
-    zsys_set_interface (char *iinterface);
-
-//  Return network interface name to use for broadcasts.
-//  Returns "" if no interface was set.
-//  This is experimental; may be merged into zbeacon class.
-CZMQ_EXPORT char *
-    zsys_interface (void);
 
 //  Self test of this class
 CZMQ_EXPORT int

@@ -3,10 +3,8 @@
 .   for option
 .       if type = "uint64" | type = "int64" | type = "uint32" | type = "int"
 .           option.ctype = "int"
-.           option.ctype_const = "int"
 .       elsif type = "blob"
-.           option.ctype = "char *"   #   Enforce C strings
-.           option.ctype_const = "const char *"
+.           option.ctype = "char *"     #   Enforce C strings
 .       else
 .           echo "E: unknown type: $(type)"
 .       endif
@@ -15,11 +13,7 @@
 /*  =========================================================================
     zsockopt - get/set 0MQ socket options
 
-            ****************************************************
-            *   GENERATED SOURCE CODE, DO NOT EDIT!!           *
-            *   TO CHANGE THIS, EDIT scripts/sockopts.gsl      *
-            *   AND RUN ./generate in models/.                 *
-            ****************************************************
+    GENERATED SOURCE CODE, DO NOT EDIT
     -------------------------------------------------------------------------
     Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
@@ -28,17 +22,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -58,6 +53,9 @@ extern "C" {
 #   if (ZMQ_VERSION_MINOR == $(minor))
 .       endif
 .       if mode = "rw" | mode = "r"
+.           if type = "blob"
+//  Returns freshly allocated string, free when done
+.           endif
 CZMQ_EXPORT $(ctype) zsocket_$(name) (void *zocket);
 .       endif
 .       if defined (.minor)
@@ -71,7 +69,7 @@ CZMQ_EXPORT $(ctype) zsocket_$(name) (void *zocket);
 #   if (ZMQ_VERSION_MINOR == $(minor))
 .       endif
 .       if mode = "rw" | mode = "w"
-CZMQ_EXPORT void zsocket_set_$(name) (void *zocket, $(ctype_const) $(name));
+CZMQ_EXPORT void zsocket_set_$(name) (void *zocket, $(ctype) $(name));
 .       endif
 .       if defined (.minor)
 #   endif
@@ -118,11 +116,7 @@ int zsockopt_test (bool verbose);
 /*  =========================================================================
     zsockopt - get/set 0MQ socket options
 
-            ****************************************************
-            *   GENERATED SOURCE CODE, DO NOT EDIT!!           *
-            *   TO CHANGE THIS, EDIT scripts/sockopts.gsl      *
-            *   AND RUN ./generate in models/.                 *
-            ****************************************************
+    GENERATED SOURCE CODE, DO NOT EDIT
     -------------------------------------------------------------------------
     Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
     Copyright other contributors as noted in the AUTHORS file.
@@ -131,17 +125,18 @@ int zsockopt_test (bool verbose);
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -166,10 +161,9 @@ int zsockopt_test (bool verbose);
 .       if mode = "rw" | mode = "w"
 //  --------------------------------------------------------------------------
 //  Set socket ZMQ_$(NAME) value
-//  *** GENERATED SOURCE CODE, DO NOT EDIT, SEE INSTRUCTIONS AT START ***
 
 void
-zsocket_set_$(name) (void *zocket, $(ctype_const) $(name))
+zsocket_set_$(name) (void *zocket, $(ctype) $(name))
 {
 #   if defined (ZMQ_$(NAME))
 .           if count (restrict)
@@ -206,9 +200,7 @@ zsocket_set_$(name) (void *zocket, $(ctype_const) $(name))
 .           else
     int rc = zmq_setsockopt (zocket, ZMQ_$(NAME), $(name), strlen ($(name)));
 .           endif
-    if (rc)
-        puts (zmq_strerror (errno));
-    assert (rc == 0 || zmq_errno () == ETERM);
+    assert (rc == 0 || errno == ETERM);
 #   endif
 }
 
@@ -217,9 +209,8 @@ zsocket_set_$(name) (void *zocket, $(ctype_const) $(name))
 .           if mode = "rw" | mode = "r"
 //  --------------------------------------------------------------------------
 //  Return socket ZMQ_$(NAME) value
-//  *** GENERATED SOURCE CODE, DO NOT EDIT, SEE INSTRUCTIONS AT START ***
 
-$(ctype) 
+$(ctype)
 zsocket_$(name) (void *zocket)
 {
 #   if defined (ZMQ_$(NAME))
@@ -241,19 +232,13 @@ zsocket_$(name) (void *zocket)
     zmq_getsockopt (zocket, ZMQ_$(NAME), &$(name), &option_len);
 .           elsif type = "blob"
     size_t option_len = 255;
-    char *$(name) = (char *) zmalloc (option_len);
+    char *$(name) = zmalloc (option_len);
     zmq_getsockopt (zocket, ZMQ_$(NAME), $(name), &option_len);
 .           endif
 .           if type = "int"
     return $(name);
 .           else
     return ($(ctype)) $(name);
-.           endif
-#   else
-.           if type = "blob"
-    return NULL;
-.           else
-    return 0;
 .           endif
 #   endif
 }
@@ -273,7 +258,6 @@ $(string.trim(.):)
 .endfor
 //  --------------------------------------------------------------------------
 //  Selftest
-//  *** GENERATED SOURCE CODE, DO NOT EDIT, SEE INSTRUCTIONS AT START ***
 
 int
 zsockopt_test (bool verbose)
@@ -290,9 +274,6 @@ zsockopt_test (bool verbose)
 .       if defined (.minor)
 #   if (ZMQ_VERSION_MINOR == $(minor))
 .       endif
-.       if defined (.ifdef)
-#     if defined ($(ifdef:))
-.       endif
 #       if defined (ZMQ_$(NAME))
     zocket = zsocket_new (ctx, ZMQ_$(TEST));
     assert (zocket);
@@ -303,12 +284,12 @@ zsockopt_test (bool verbose)
     assert (zsocket_$(name) (zocket) == 1);
 .               endif
 .           else
-    zsocket_set_$(name) (zocket, "$(test_value?'test':)");
+    zsocket_set_$(name) (zocket, "test");
 .           endif
 .       endif
 .       if mode = "rw" | mode = "r"
 .           if type = "blob"
-    char *$(name) = zsocket_$(name) (zocket);
+    $(ctype)$(name) = zsocket_$(name) (zocket);
     assert ($(name));
     free ($(name));
 .           else
@@ -317,9 +298,6 @@ zsockopt_test (bool verbose)
 .       endif
     zsocket_destroy (ctx, zocket);
 #       endif
-.       if defined (.ifdef)
-#     endif
-.       endif
 .       if defined (.minor)
 #   endif
 .       endif

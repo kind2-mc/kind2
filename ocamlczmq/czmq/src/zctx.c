@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -63,7 +64,6 @@ struct _zctx_t {
     bool main;                  //  True if we're the main thread
     int iothreads;              //  Number of IO threads, default 1
     int linger;                 //  Linger timeout, default 0
-    int hwm;                    //  Send/Receive HWM for the pair sockets in zthread_fork
 };
 
 
@@ -99,7 +99,6 @@ zctx_new (void)
         return NULL;
     }
     self->iothreads = 1;
-    self->hwm = 0; // unlimited
     self->main = true;
     zsys_handler_set (s_signal_handler);
     return self;
@@ -143,8 +142,6 @@ zctx_shadow (zctx_t *ctx)
         return NULL;
 
     self->context = ctx->context;
-    self->hwm = ctx->hwm; 
-    self->linger = ctx->linger; 
     self->sockets = zlist_new ();
     if (!self->sockets) {
         free (self);
@@ -181,23 +178,22 @@ zctx_set_linger (zctx_t *self, int linger)
 
 
 //  --------------------------------------------------------------------------
-//  Set the HWM (send and receive) that will be used for zthread_fork pipes
+//  Deprecated method, does nothing - to be removed after 2013/05/14
 
 void
 zctx_set_hwm (zctx_t *self, int hwm)
 {
     assert (self);
-    self->hwm = hwm;
 }
 
 //  --------------------------------------------------------------------------
-//  Get what the HWM will be for any future zthread_forks
+//  Deprecated method, does nothing - to be removed after 2013/05/14
 
 int
 zctx_hwm (zctx_t *self)
 {
     assert (self);
-    return self->hwm;
+    return 0;
 }
 
 //  --------------------------------------------------------------------------
@@ -228,17 +224,6 @@ zctx__socket_new (zctx_t *self, int type)
     void *zocket = zmq_socket (self->context, type);
     if (!zocket)
         return NULL;
-     int rc = zmq_setsockopt(zocket, ZMQ_RCVHWM, &(self->hwm),sizeof(self->hwm));
-     if (rc != 0 )  {
-         zmq_close(zocket);
-         return NULL;
-     }
-     rc = zmq_setsockopt(zocket, ZMQ_SNDHWM, &(self->hwm),sizeof(self->hwm));
-     if (rc != 0 )  {
-         zmq_close(zocket);
-         return NULL;
-     }
-
 
     if (zlist_push (self->sockets, zocket)) {
         zmq_close (zocket);

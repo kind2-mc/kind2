@@ -9,17 +9,18 @@
     http://czmq.zeromq.org.
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
-    option) any later version.
+    the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or (at
+    your option) any later version.
 
     This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
-    Public License for more details.
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
-    along with this program. If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Lesser General Public
+    License along with this program. If not, see
+    <http://www.gnu.org/licenses/>.
     =========================================================================
 */
 
@@ -45,7 +46,7 @@ static struct sigaction sigterm_default;
 //  Set interrupt handler (NULL means external handler)
 //  Idempotent; safe to call multiple times
 
-void
+CZMQ_EXPORT void
 zsys_handler_set (zsys_handler_fn *handler_fn)
 {
 #if defined (__UNIX__)
@@ -75,7 +76,7 @@ zsys_handler_set (zsys_handler_fn *handler_fn)
 //  Reset interrupt handler, call this at exit if needed
 //  Idempotent; safe to call multiple times
 
-void
+CZMQ_EXPORT void
 zsys_handler_reset (void)
 {
 #if defined (__UNIX__)
@@ -88,34 +89,6 @@ zsys_handler_reset (void)
         s_first_time = true;
     }
 #endif
-}
-
-
-//  --------------------------------------------------------------------------
-//  Set network interface name to use for broadcasts
-//  Use this to force the interface for beacons
-//  This is experimental; may be merged into zbeacon class.
-
-//  NOT thread safe, not a good design; this is to test the feasibility
-//  of forcing a network interface name instead of writing code to find it.
-static char *s_interface = NULL;
-
-void
-zsys_set_interface (char *interface_name)
-{
-    free (s_interface);
-    s_interface = strdup (interface_name);
-}
-
-
-//  Return network interface name to use for broadcasts.
-//  Returns "" if no interface was set.
-//  This is experimental; may be merged into zbeacon class.
-
-char *
-zsys_interface (void)
-{
-    return (s_interface? s_interface: "");
 }
 
 
@@ -134,3 +107,4 @@ zsys_test (bool verbose)
     printf ("OK\n");
     return 0;
 }
+
