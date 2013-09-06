@@ -1,0 +1,44 @@
+zsys(3)
+=======
+
+NAME
+----
+zsys - system wrapper
+
+SYNOPSIS
+--------
+----
+//  Callback for interrupt signal handler
+typedef void (zsys_handler_fn) (int signal_value);
+
+//  Set interrupt handler (NULL means external handler)
+CZMQ_EXPORT void
+    zsys_handler_set (zsys_handler_fn *handler_fn);
+
+//  Reset interrupt handler, call this at exit if needed
+CZMQ_EXPORT void
+    zsys_handler_reset (void);
+
+//  Self test of this class
+CZMQ_EXPORT int
+    zsys_test (bool verbose);
+----
+
+DESCRIPTION
+-----------
+
+The zsys class provides a portable wrapper for miscellaneous functions
+that we want to wrap but which don't fit into any of the existing
+classes. Eventually all non-portable functionality might be moved here
+but for now it covers only file systems.
+
+
+EXAMPLE
+-------
+.From zsys_test method
+----
+----
+
+SEE ALSO
+--------
+linkczmq:czmq[7]
