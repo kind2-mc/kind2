@@ -19,13 +19,10 @@ bindir=@bindir@
 all: ocamlczmq kind2
 
 ocamlczmq: 
-	cd ocamlczmq && sh autogen.sh
+	cd ocamlczmq && sh autogen.sh && ./configure
 	make -C ocamlczmq
 
-ocamlczmq-install: 
-	make -C ocamlczmq install
-
-kind2: 
+kind2: ocamlczmq
 	make -C src
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2
