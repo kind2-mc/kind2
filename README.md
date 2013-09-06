@@ -7,23 +7,25 @@ Multi-engine SMT-based automatic model checker for safety properties of Lustre p
 Building
 ========
 
-The OCaml binding to ØMQ is included as a submodule, which in turn inclides the CZMQ high-level C binding for ØMQ as a submodule, hence you need to do a 
-
-    git submodule init
-    git submodule update
-
-to also clone the ocamlczmq repository. Then do 
-
-    cd ocamlczmq
-    git submodule init
-    git submodule update
-
-to clone the CZMQ repository.
-
-Then the usual
+The usual
 
     autoconf
     ./configure --with-libzmq=<path to lib/libzmq.so>
     make
 
-will build both CZMQ and the OCaml bindings. 
+will build CZMQ, the OCaml bindings and kind2. 
+
+
+CZMQ and ocamlczmq are included
+================
+
+The ocamlczmq binding is included as a subtree. Nothing is needed to work with the sources, but in order to update ocamlczmq the git-subtree plugin is required. It is part of git, but not installed by default: get the git-subtree script and put it anywhere in the your path.
+
+To pull changes from the ocamlczmq repository do 
+
+   git subtree pull --prefix=czmq --squash https://github.com/zeromq/czmq.git master
+
+For the record, initially I did 
+
+    git subtree add --prefix=ocamlczmq --squash https://github.com/kind-mc/ocamlczmq.git master
+
