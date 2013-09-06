@@ -10,20 +10,22 @@ Building
 The usual
 
     autoconf
-    ./configure --with-libzmq=<path to lib/libzmq.so>
+    ./configure 
     make
 
-will build CZMQ, the OCaml bindings and kind2. 
+will build ZeroMQ, CZMQ, the OCaml bindings and kind2. 
 
 
-CZMQ and ocamlczmq are included
-================
+ZeroMQ, CZMQ and ocamlczmq are included
+=======================================
 
 The ocamlczmq binding is included as a subtree. Nothing is needed to work with the sources, but in order to update ocamlczmq the git-subtree plugin is required. It is part of git, but not installed by default: get the git-subtree script and put it anywhere in the your path.
 
+To update ZeroMQ and CZMQ go to the ocamlczmq repository.
+
 To pull changes from the ocamlczmq repository do 
 
-   git subtree pull --prefix=czmq --squash https://github.com/zeromq/czmq.git master
+    git subtree pull --prefix=ocamlczmq --squash https://github.com/kind-mc/ocamlczmq.git master
 
 For the record, initially I did 
 
