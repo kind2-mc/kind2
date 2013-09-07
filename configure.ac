@@ -39,31 +39,6 @@ if test "x$CC" = "xno"; then
   AC_MSG_ERROR([You need a C compiler])
 fi
 
-# Check for zmq library 
-AC_ARG_WITH([libzmq],
-            [AS_HELP_STRING([--with-libzmq],
-                            [Specify libzmq prefix])],
-            [search_libzmq="yes"],
-            [])
-
-if test "x$search_libzmq" = "xyes"; then
-    if test -r "${with_libzmq}/include/zmq.h"; then
-        CFLAGS="-I${with_libzmq}/include ${CFLAGS}"
-        LDFLAGS="-L${with_libzmq}/lib ${LDFLAGS}"
-        OCAMLCZMQ_LFLAGS="-L${with_libzmq}/lib ${OCAMLCZMQ_LFLAGS}"
-        OCAMLCZMQ_CCOPTFLAGS="-ccopt -L${with_libzmq}/lib ${OCAMLCZMQ_CCOPTFLAGS}"
-        CZMQ_CONFFLAGS="--with-libzmq=${with_libzmq}"
-    else
-        AC_MSG_ERROR([${with_libzmq}/include/zmq.h not found. Please check libzmq prefix])
-    fi
-fi
-
-AC_CHECK_LIB(zmq, zmq_init, ,[AC_MSG_ERROR([cannot link with -lzmq, install libzmq.])])
-
-AC_SUBST(CZMQ_CONFFLAGS)
-AC_SUBST(OCAMLCZMQ_LFLAGS)
-AC_SUBST(OCAMLCZMQ_CCOPTFLAGS)
-
 # ######################################################################
 # Debug builds            
 # ######################################################################
