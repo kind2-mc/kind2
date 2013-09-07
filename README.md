@@ -1,20 +1,22 @@
-kind2
-=====
+Kind 2
+======
 
 Multi-engine SMT-based automatic model checker for safety properties of Lustre programs
 
 
-Building
-========
+Building and installing
+=======================
 
 The usual
 
     autoconf
     ./configure 
     make
+    make install
 
-will build ZeroMQ, CZMQ, the OCaml bindings and kind2. 
+will build ZeroMQ, CZMQ, the OCaml bindings and Kind 2 and install the binary `kind2` into `/usr/local/bin`. Call `./configure --prefix=<path>` to install the Kind 2 binary into `<path>/bin` instead. 
 
+You need a supported SMT solver, at the momemt either CVC4 or Z3 on your path. Either one or both will be picked up by the `configure` command. Alternatively, you can give one or both of the options `--with-cvc4=<cvc4-executable>` and `--with-z3=<z3-executable>`. Z3 will be chosen as default if it is available, you can override this with the option `--with-default-smtsolver=cvc4`.
 
 ZeroMQ, CZMQ and ocamlczmq are included
 =======================================
