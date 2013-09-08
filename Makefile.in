@@ -19,7 +19,7 @@ bindir=@bindir@
 all: ocamlczmq kind2
 
 ocamlczmq: 
-	cd ocamlczmq && sh autogen.sh && ./configure
+	cd ocamlczmq && autoconf && ./configure
 	make -C ocamlczmq
 
 kind2: ocamlczmq
