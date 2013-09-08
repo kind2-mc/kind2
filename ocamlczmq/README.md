@@ -8,7 +8,7 @@ Building
 
 The commands
 
-    sh autogen.sh
+    autoconf
     ./configure
     make
 
