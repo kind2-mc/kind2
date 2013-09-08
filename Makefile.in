@@ -26,7 +26,7 @@ autogen-czmq: zeromq/configure.in
 	cd czmq && sh autogen.sh
 
 configure-czmq: autogen-czmq
-	 cd czmq && ./configure --prefix=$(CURDIR)
+	 cd czmq && ./configure --prefix=$(CURDIR) --with-libzmq=$(CURDIR)/zeromq
 
 czmq: zeromq configure-czmq
 	make -C czmq
