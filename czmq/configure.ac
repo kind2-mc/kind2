@@ -83,15 +83,14 @@ if test "x$czmq_search_libzmq" = "xyes"; then
     fi
 fi
 
-# ocamlczmq: disable check for library, it is not built when we call configure
-# AC_CHECK_LIB(zmq, zmq_init, ,[AC_MSG_ERROR([cannot link with -lzmq, install libzmq.])])
+AC_CHECK_LIB(zmq, zmq_init, ,[AC_MSG_ERROR([cannot link with -lzmq, install libzmq.])])
 
-# AC_MSG_CHECKING([whether libzmq installation works])
-# AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <zmq.h>],
-#                                 [zmq_init(1);])
-#                ],
-#                [AC_MSG_RESULT([yes])],
-#                [AC_MSG_ERROR([no. Please specify libzmq installation prefix using --with-libzmq])])
+AC_MSG_CHECKING([whether libzmq installation works])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <zmq.h>],
+                                [zmq_init(1);])
+               ],
+               [AC_MSG_RESULT([yes])],
+               [AC_MSG_ERROR([no. Please specify libzmq installation prefix using --with-libzmq])])
 
 # Platform specific checks
 czmq_on_mingw32="no"
