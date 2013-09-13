@@ -10,6 +10,8 @@ OCAMLC=@OCAMLC@ -cc "$(OCAMLCC)"
 OCAMLOPT=@OCAMLOPT@ -cc "$(OCAMLCC)"
 LIBTOOL=$(SHELL) @top_builddir@/zeromq/libtool
 
+OCAMLCCLIB=$(patsubst -l%, -cclib -l%,@LIBS@)
+
 # Compile with libtool and pack all object files into one library
 
 all: install
@@ -35,7 +37,7 @@ ZMQ.cmx: ZMQ.ml ZMQ.cmi
 	$(OCAMLOPT) -c $<
 
 ZMQ.cmxa: ZMQ.cmx libczmq_stubs.la
-	$(OCAMLOPT) -a -o $@ $< -cclib -lczmq_stubs -cclib -lpthread -cclib -lrt -cclib -lstdc++ -cclib -L$(CURDIR)/../lib
+	$(OCAMLOPT) -a -o $@ $< -cclib -lczmq_stubs $(OCAMLCCLIB) -cclib -lstdc++ -cclib -L$(CURDIR)/../lib
 
 install: libczmq_stubs.la ZMQ.cmi ZMQ.cmxa 
 	$(LIBTOOL) --mode=install cp libczmq_stubs.la $(CURDIR)/../lib
