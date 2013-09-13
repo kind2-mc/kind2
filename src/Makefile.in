@@ -1,5 +1,8 @@
 OCAMLBUILD=@OCAMLBUILD@ -classic-display 
 
+# Enable debug output for sections
+export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
+
 kind2: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.native
 
