@@ -14,6 +14,10 @@ AC_CONFIG_MACRO_DIR([config])
 # LT_INIT([disable-shared])
 # AC_PROG_LIBTOOL
 
+# Checks for libraries for ZeroMQ
+AC_CHECK_LIB([pthread], [pthread_create])
+AC_CHECK_LIB([rt], [clock_gettime])
+
 # Check for OCaml  
 AC_PROG_OCAML
 
