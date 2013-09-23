@@ -50,6 +50,9 @@ val ( +% ) : numeral -> numeral -> numeral
 (** Add to infinite-precision decimals *)
 val ( +/ ) : decimal -> decimal -> decimal
 
+(** Increment the given numeral by one *)
+val incr_numeral : numeral -> numeral
+
 (** Convert an OCaml integer to an infinite-precision integer numeral *)
 val numeral_of_int : int -> numeral
 
