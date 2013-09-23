@@ -47,12 +47,12 @@ let on_exit () = ()
 (* Main entry point *)
 let main input transSys =
 
-  Event.log `Interpreter Event.L_fatal "Interpreter not implemented"
-
-(*
-
   (* Number of instants input *)
   let k = 5 in
+
+  Event.log `Interpreter Event.L_fatal "Interpreter running up to k = %d" k;
+
+  (* let inputs = InputParser.main x in *)
 
   (* Number of instants to simulate *)
   let l = 3 in
@@ -69,11 +69,55 @@ let main input transSys =
   
   (* Provide the initial case *)
   S.assert_term solver (TransSys.init_of_bound 0 transSys);
+  
+  let rec assert_t t i =
+    
+    if i <= 0 then 
 
-  S.assert_term solver (TransSys.constr_of_bound 1 transSys);
+      () 
 
-  (* ... *)
+    else  
 
+      (
+        
+        S.assert_term solver (TransSys.constr_of_bound i t);
+        
+        assert_t transSys (i - 1)
+          
+      )
+      
+  in
+
+  (* val InputParser.parse_input : string -> (StateVar.t * (Term.t list)) list *)
+  (* let inputs = InputParser.parse_input input_file in *)
+  let inputs = [] in
+
+  List.iter
+
+    (fun (state_var, values) -> 
+
+       let _ = List.fold_left
+
+         (fun instant instant_value ->
+
+            let var = Var.mk_state_var_instance state_var instant in
+            
+            let equation = Term.mk_eq [Term.mk_var var; instant_value] in
+
+            S.assert_term solver equation;
+
+            incr_numeral instant)
+
+         (numeral_of_int 0)
+         
+         values
+
+       in
+
+       ()
+    ) 
+
+    inputs;
 
   if (S.check_sat solver) then
 
@@ -88,14 +132,12 @@ let main input transSys =
 
     let m = S.get_model solver v in
 
-    `
-    
+    ()
+
   else
 
-    Event.log `INTERP Event.L_error "Transition relation not satisfiable"
+    Event.log `Interpreter Event.L_error "Transition relation not satisfiable"
   
-*)
-
 
 (* 
    Local Variables:
