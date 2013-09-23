@@ -192,6 +192,7 @@ let pt_string_of_kind_module = function
   | `IND -> "inductive step"
   | `INVGEN -> "invariant generator"
   | `INVMAN -> "invariant manager"
+  | `Interpreter -> "interpreter"
 
 
 (* Pretty-print kind module  for plain text output *)
