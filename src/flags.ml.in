@@ -139,6 +139,7 @@ let kind_module_of_string = function
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
+  | "interpreter" -> `Interpreter
   | _ -> raise (Arg.Bad "Bad value for --enable")
 
 let string_of_kind_module = function
@@ -146,6 +147,7 @@ let string_of_kind_module = function
   | `BMC -> "BMC"
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
+  | `Interpreter -> "interpreter"
 
 let rec string_of_enable' accum = function 
   | [] -> accum
