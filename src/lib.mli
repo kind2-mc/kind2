@@ -192,7 +192,7 @@ val paren_string_of_string_list : string list -> string
 (** {1 System functions} *)
 
 (** Kind modules *)
-type kind_module = [ `PDR | `BMC | `IND | `INVGEN | `INVMAN ]
+type kind_module = [ `PDR | `BMC | `IND | `INVGEN | `INVMAN | `Interpreter ]
 
 (** Wallclock timeout *)
 exception TimeoutWall

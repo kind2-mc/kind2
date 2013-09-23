@@ -192,6 +192,7 @@ let pt_string_of_kind_module = function
   | `IND -> "inductive step"
   | `INVGEN -> "invariant generator"
   | `INVMAN -> "invariant manager"
+  | `Interpreter -> "interpreter"
 
 
 (* Pretty-print kind module  for plain text output *)
@@ -284,6 +285,7 @@ let xml_src_of_kind_module = function
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
   | `INVMAN -> "invman"
+  | `Interpreter -> "interpreter"
 
 
 (* Pretty-print kind module as source attribute of log tag *)

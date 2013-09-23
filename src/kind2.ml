@@ -61,6 +61,7 @@ let main_of_process = function
   | `BMC -> BMC.main 
   | `IND -> IndStep.main 
   | `INVGEN -> InvGen.main 
+  | `Interpreter -> Interpreter.main ()
   | `INVMAN -> InvarManager.main child_pids
                        
 
@@ -70,6 +71,7 @@ let on_exit_of_process = function
   | `BMC -> BMC.on_exit 
   | `IND -> IndStep.on_exit 
   | `INVGEN -> InvGen.on_exit  
+  | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
 
 (*
@@ -89,7 +91,7 @@ let debug_ext_of_process = function
   | `IND -> "ind"
   | `INVGEN -> "invgen"
   | `INVMAN -> "invman"
-
+  | `Interpreter -> "interp"
 
 (* Exit status if child terminated normally *)
 let status_ok = 0
