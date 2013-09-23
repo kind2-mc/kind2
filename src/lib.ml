@@ -343,6 +343,7 @@ let (+/) a b =
        (float_of_string (HString.string_of_hstring a) +. 
           float_of_string (HString.string_of_hstring b)))
 
+
 (* Pretty-print an infinite-precision integer numeral *)
 let pp_print_numeral = HString.pp_print_hstring 
 
@@ -466,6 +467,10 @@ let int_of_numeral n = int_of_string (HString.string_of_hstring n)
 
 (* Convert an OCaml float to an infinite-precision real decimal *)
 let float_of_decimal d = float_of_string (HString.string_of_hstring d)
+
+
+(* Increment a numeral by one *)
+let incr_numeral n = n +% (numeral_of_int 1)
 
 
 (* Convert a bitvector to an integer *)
