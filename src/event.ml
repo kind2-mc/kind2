@@ -284,6 +284,7 @@ let xml_src_of_kind_module = function
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
   | `INVMAN -> "invman"
+  | `Interpreter -> "interpreter"
 
 
 (* Pretty-print kind module as source attribute of log tag *)
