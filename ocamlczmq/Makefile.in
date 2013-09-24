@@ -6,29 +6,33 @@ top_builddir = @top_builddir@
 
 OCAMLOPT=@OCAMLOPT@
 
-all: Makefile.in czmq_stubs 
+all: czmq_stubs
 
 # Rules to configure and compile ZeroMQ 
 
-autogen-zeromq: zeromq/configure.in
-	cd zeromq && sh autogen.sh
+# autogen-zeromq: zeromq/configure.in
+# 	cd zeromq && sh autogen.sh
 
-configure-zeromq: autogen-zeromq
-	 cd zeromq && ./configure --prefix=$(CURDIR)
+# configure-zeromq: autogen-zeromq
+# 	 cd zeromq && ./configure --prefix=$(CURDIR)
 
-zeromq: configure-zeromq
+.PHONY: zeromq
+
+zeromq: # configure-zeromq
 	make -C zeromq
 	make -C zeromq install
 
 # Rules to configure and compile CZMQ 
 
-autogen-czmq: zeromq/configure.in
-	cd czmq && sh autogen.sh
+# autogen-czmq: zeromq/configure.in
+# 	cd czmq && sh autogen.sh
 
-configure-czmq: autogen-czmq
-	 cd czmq && ./configure --prefix=$(CURDIR) --with-libzmq=$(CURDIR)
+# configure-czmq: autogen-czmq
+# 	 cd czmq && ./configure --prefix=$(CURDIR) --with-libzmq=$(CURDIR)
 
-czmq: zeromq configure-czmq
+.PHONY: czmq
+
+czmq: zeromq # configure-czmq
 	make -C czmq
 	make -C czmq install
 
@@ -69,6 +73,6 @@ zmq_test: zmq_test.ml
 Makefile: Makefile.in ../config.status
 	cd .. && ./config.status
 
-../config.status: ../configure
-	../config.status --recheck
+config.status: configure
+	./config.status --recheck
 
