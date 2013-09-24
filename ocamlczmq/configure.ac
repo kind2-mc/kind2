@@ -2,8 +2,6 @@
 AC_PREREQ(2.59)
 AC_INIT([ocamlczmq], [0.9], [christoph-sticksel@uiowa.edu])
 
-AC_MSG_WARN([Configuring ocamlczmq])
-
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/ZMQ.ml])
 
@@ -53,7 +51,26 @@ fi
 
 AC_CONFIG_FILES([Makefile src/Makefile])
 
-AC_CONFIG_SUBDIRS([zeromq czmq])
+
+AC_ARG_WITH(
+    [zeromq],
+    [AS_HELP_STRING([--with-zeromq], [Configure ZeroMQ <:@default: false@:>@])],
+    [with_zeromq=yes],
+    [with_zeromq=no])
+
+if test "x$with_zeromq" = "xyes"; then
+   AC_CONFIG_SUBDIRS([zeromq])
+fi
+
+AC_ARG_WITH(
+    [czmq],
+    [AS_HELP_STRING([--with-czmq], [Configure CZMQ <:@default: false@:>@])],
+    [with_czmq=yes],
+    [with_czmq=no])
+
+if test "x$with_czmq" = "xyes"; then
+   AC_CONFIG_SUBDIRS([czmq])
+fi
 
 AC_OUTPUT
 echo "Configure succeed. Now run make and make install."
