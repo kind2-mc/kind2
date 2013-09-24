@@ -2,6 +2,8 @@
 AC_PREREQ(2.59)
 AC_INIT([ocamlczmq], [0.9], [christoph-sticksel@uiowa.edu])
 
+AC_MSG_WARN([Configuring ocamlczmq])
+
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/ZMQ.ml])
 
@@ -26,7 +28,7 @@ if test "x$OCAMLOPT" = "xno"; then
 fi
 
 # TODO: Check for OCaml 4
-# if [[["x$OCAMLVERSION" =~ "x4"]]]; then
+# if test "x$OCAMLVERSION" =~ "x5"; then
 #   AC_MSG_ERROR([OCaml 4 is required])
 # fi
 
@@ -50,6 +52,8 @@ if test "x$CC" = "xno"; then
 fi
 
 AC_CONFIG_FILES([Makefile src/Makefile])
+
+AC_CONFIG_SUBDIRS([zeromq czmq])
 
 AC_OUTPUT
 echo "Configure succeed. Now run make and make install."
