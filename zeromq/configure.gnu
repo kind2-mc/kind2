@@ -1,4 +1,5 @@
 #!/bin/bash
 
-./configure --prefix=$PWD/..
+# Pass options to configure and override prefix
+./configure $* --prefix=$PWD/..
 
