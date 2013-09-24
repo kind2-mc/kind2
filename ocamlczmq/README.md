@@ -8,11 +8,10 @@ Building
 
 The commands
 
-    autoconf
-    ./configure
-    make
+    ./autogen.sh
+    ./build.sh
 
-will build ZeroMQ, CZMQ and the OCaml binding. 
+will build ZeroMQ, CZMQ and the OCaml binding. If you need to pass options to the configure script of any of ZeroMQ, CZMQ or ocamlczmq, add those to the `build.sh` call.
 
 CZMQ and ZeroMQ are included
 ================

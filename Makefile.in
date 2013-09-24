@@ -16,13 +16,14 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 
 
-all: ocamlczmq kind2
+all: kind2
+
+.PHONY: ocamlczmq
 
 ocamlczmq: 
-# cd ocamlczmq && autoconf && ./configure
-	make -C ocamlczmq
+	cd ocamlczmq && ./build.sh
 
-kind2: ocamlczmq
+kind2: 
 	make -C src
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2
@@ -50,7 +51,7 @@ clean:
 	make -C src clean
 	make -C ocamlczmq clean
 
-.PHONY: ocamlczmq kind2 Kind-Server clean 
+.PHONY: kind2 Kind-Server clean 
 
 
 # Remake this Makefile if configuration has changed 
