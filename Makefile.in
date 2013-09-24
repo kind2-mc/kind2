@@ -19,7 +19,7 @@ bindir=@bindir@
 all: ocamlczmq kind2
 
 ocamlczmq: 
-	cd ocamlczmq && autoconf && ./configure
+# cd ocamlczmq && autoconf && ./configure
 	make -C ocamlczmq
 
 kind2: ocamlczmq
@@ -48,6 +48,7 @@ install:
 
 clean:
 	make -C src clean
+	make -C ocamlczmq clean
 
 .PHONY: ocamlczmq kind2 Kind-Server clean 
 
