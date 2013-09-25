@@ -100,7 +100,9 @@ sig
     | Forall of lambda
     | Annot of t * attr
 
-  and t = private (t_node, unit) H.hash_consed
+  and t = private (t_node, t_prop) H.hash_consed
+
+  and t_prop = private { mutable to_string : string option } 
 
   and flat = private
     | Var of var
@@ -216,8 +218,11 @@ struct
     (* Annotated term *)
     | Annot of t * attr
 
+  (* Property of a term node *)
+  and t_prop = { mutable to_string : string option } 
+
   (* Hashconsed abstract syntax term *)
-  and t = (t_node, unit) H.hash_consed
+  and t = (t_node, t_prop) H.hash_consed
 
   (* Flattened term without binders at the top symbol *)
   type flat = 
@@ -225,6 +230,15 @@ struct
     | Const of symbol
     | App of symbol * t list
     | Attr of t * attr
+
+  (* Return property of term *)
+  let hash_of_term { H.hkey = h } = h
+
+  (* Return property of term *)
+  let prop_of_term { H.prop = p } = p
+
+  (* Set cached string representation of term *)
+  let set_to_string { H.prop = p } s = p.to_string <- Some s
 
   (* Hashconsed lambda abstraction *)
   module Lambda_node = 
@@ -234,7 +248,7 @@ struct
     type t = lambda_node 
 
     (* Type of the node property *)
-    type prop = unit 
+    type prop = unit
 
     (* Equality: abstracted terms are equal, number of variables and
        their types are equal *)
@@ -245,7 +259,7 @@ struct
         (List.for_all2 (==) i1 i2)
 
     (* Take hash of abstracted term, ignoring the type *)
-    let hash (L (_, { H.hkey = h })) = h
+    let hash (L (_, t)) = hash_of_term t
 
   end
 
@@ -258,7 +272,7 @@ struct
   (* Constructor for hashconsed lambda abstraction *)
   let hl_lambda s t = Hlambda.hashcons hl (L (s, t)) ()
 
-  (* Hashconst terms *)
+  (* Hashconsed terms *)
   module T_node = 
   struct 
 
@@ -266,7 +280,7 @@ struct
     type t = t_node
 
     (* Type of the node property *)
-    type prop = unit 
+    type prop = t_prop
 
     (* Equality of two terms *)
     let equal t1 t2 = match t1, t2 with 
@@ -376,32 +390,51 @@ struct
   (* Return unique identifier *)
   let tag { H.tag = i } = i
 
+  (* Initial property of term *)
+  let prop_of_term_node _ = { to_string = None }
+
   (* Unsafe constructor for a term *)
-  let ht_term t = Ht.hashcons ht t ()
+  let ht_term t = Ht.hashcons ht t (prop_of_term_node t)
  
   (* Unsafe constructor for free variable *)
-  let ht_free_var v = Ht.hashcons ht (FreeVar v) ()
+  let ht_free_var v = 
+    let n = (FreeVar v) in 
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for bound variable *)
-  let ht_bound_var i = Ht.hashcons ht (BoundVar i) ()
+  let ht_bound_var i = 
+    let n = (BoundVar i) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for leaf *)
-  let ht_leaf s = Ht.hashcons ht (Leaf s) ()
+  let ht_leaf s = 
+    let n = (Leaf s) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for node *)
-  let ht_node s l = Ht.hashcons ht (Node (s, l)) ()
+  let ht_node s l = 
+    let n = (Node (s, l)) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for let binding *)
-  let ht_let l b = Ht.hashcons ht (Let (l, b)) ()
+  let ht_let l b = 
+    let n = (Let (l, b)) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for existential quantifier *)
-  let ht_exists l = Ht.hashcons ht (Exists l) ()
+  let ht_exists l = 
+    let n = (Exists l) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for universal quantifier *)
-  let ht_forall l = Ht.hashcons ht (Forall l) ()
+  let ht_forall l = 
+    let n = (Forall l) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for an annotated term *)
-  let ht_annot t a = Ht.hashcons ht (Annot (t, a)) ()
+  let ht_annot t a = 
+    let n = (Annot (t, a)) in
+    Ht.hashcons ht n (prop_of_term_node n)
 
 
   (* ********************************************************************* *)
@@ -561,7 +594,43 @@ struct
 
   (* Top-level pretty-printing function, start with given de Bruijn
      index or default to zero *)
-  let pp_print_term ?(db = 0) ppf = pp_print_term' db ppf
+  let pp_print_term ?(db = 0) ppf term = 
+
+    (* String representation of term *)
+    let term_string = 
+
+      (* Get cached string *)
+      match prop_of_term term with
+
+        (* No cached string of term *)
+        | { to_string = None } -> 
+          
+          (* Create a buffer and formatter to write into buffer *)
+          let buf = Buffer.create 80 in 
+          let bppf = Format.formatter_of_buffer buf in
+          
+          (* Pretty-print term into buffer *)
+          pp_print_term' db bppf term;
+          
+          (* Flush formatter *)
+          Format.pp_print_flush bppf ();
+          
+          (* Return string representation of term from buffer *)
+          let term_string = Buffer.contents buf in
+
+          (* Write string representaion to cache *)
+          set_to_string term term_string;
+
+          (* Return string representation *)
+          term_string
+
+        (* Return cached string of term *)
+        | { to_string = Some s } -> s
+
+    in
+
+    (* Print string representation of term to formatter *)
+    Format.fprintf ppf "%s" term_string
 
 
   (* Pretty-print a flattened term *)
@@ -1530,8 +1599,9 @@ struct
               | Let (l, b) -> Let (import_lambda l, b)
               | Exists l -> Exists (import_lambda l)
               | Forall l -> Forall (import_lambda l)
+              | Annot (t, a) -> Annot (import t, a)
           in
-          Ht.hashcons ht n' ())
+          Ht.hashcons ht n' (prop_of_term_node n'))
       term
 
 end

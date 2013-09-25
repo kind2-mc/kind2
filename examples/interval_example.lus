@@ -1,0 +1,20 @@
+node top
+  (x: bool)
+returns
+  (OK: bool);
+
+var
+  V:bool;
+  first: subrange [1,3] of int;
+  second: subrange [4,8] of int;
+
+let
+  V = false -> (pre V or true);
+  first = 1 -> pre first + 1;
+  second = if (first=3) then (if V then 4 else 5) else 6 ; 
+  OK = (first >= 1) or (second<=4);
+
+--%PROPERTY OK;
+
+tel.
+

@@ -28,12 +28,12 @@ kind2:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2
 
-kind2-prof: ocamlczmq
+kind2-prof: 
 	make -C src kind2-prof
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2-prof
 
-kind2-top: ocamlczmq
+kind2-top: 
 	make -C src kind2-top
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.top $(LOCAL_BINDIR)/kind2-top

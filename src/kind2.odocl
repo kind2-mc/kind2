@@ -2,8 +2,8 @@ Debug
 Lib
 Config
 Flags
-Log
 Stat
+Event 
 
 Hashcons
 Ltree
