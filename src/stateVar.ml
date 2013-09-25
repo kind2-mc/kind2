@@ -250,6 +250,14 @@ let mk_state_var s t =
 
     with Not_found -> 
 
+      (debug stateVar
+        "Variable %s is originally %s, maps back to %s"
+        s
+        (Kind1.Tables.internal_name_to_original_name s)
+        (Kind1.Tables.original_name_to_internal_name
+           (Kind1.Tables.internal_name_to_original_name s))
+       in
+
       (* Create an uninterpreted function symbol for the state variable *)
       let u = UfSymbol.mk_uf_symbol s [Type.mk_int ()] t in
         
@@ -261,7 +269,7 @@ let mk_state_var s t =
       UfSymbol.UfSymbolHashtbl.add uf_symbols_map u sv;
 
       (* Return state variable *)
-      sv
+      sv)
 
 
 (* Import a state variable from a different instance into this
@@ -270,7 +278,7 @@ let import v =
   mk_state_var (name_of_state_var v) (Type.import (type_of_state_var v))
 
 
-(* Return a previously declared uninterpreted function symbol *)
+(* Return a previously declared state variable *)
 let state_var_of_string s = 
 
   (* Get previous declaration of symbol, raise {!Not_found} if
@@ -278,7 +286,14 @@ let state_var_of_string s =
   Hstate_var.find ht s 
 
 
+(* Return a previously declared state variable *)
+let state_var_of_original_name s = 
 
+  (* Get internal name of original name *)
+  let s' = (Kind1.Tables.internal_name_to_original_name s) in
+
+  (* Return state variable *) 
+  state_var_of_string s'
 
 (* ********************************************************************* *)
 (* Folding and utility functions on uninterpreted function symbols       *)
