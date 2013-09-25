@@ -168,8 +168,11 @@ sig
     | Forall of lambda
     | Annot of t * attr
 
+  (** Properties of a term *)
+  and t_prop = private { mutable to_string : string option } 
+
   (** Hashconsed abstract syntax term *)
-  and t = private (t_node, unit) Hashcons.hash_consed
+  and t = private (t_node, t_prop) Hashcons.hash_consed
 
   (** Term over symbols, variables and sort of the types given where
       the topmost symbol is not a binding *)
