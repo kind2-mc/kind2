@@ -88,6 +88,9 @@ let rename_sym s =
 let internal_name_to_original_name name =
   Hashtbl.find sym_renaming_table name 
 
+let original_name_to_internal_name name =
+  LongStringHash.find sym_truenaming_table name
+
 let resolve_var_name n =
   try
     Hashtbl.find sym_renaming_table n

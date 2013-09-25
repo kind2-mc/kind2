@@ -88,6 +88,9 @@ val import : t -> t
 (** Return a previously declared state variable *)
 val state_var_of_string : string -> t 
 
+(** Return a previously declared state variable by its name in the input file *)
+val state_var_of_original_name : string -> t 
+
 (** Return the name of the state variable *)
 val name_of_state_var : t -> string
 
