@@ -1,0 +1,415 @@
+
+node mode_logic(START: bool; 
+      CLEAR: bool; 
+      DOOR_CLOSED: bool; 
+      STEPS_TO_COOK: int)
+   returns (MODE: subrange [0, 3] of int; 
+      STEPS_REMAINING: int);
+
+var
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic: int;
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING: int; 
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode: int; 
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining:  int; 
+   mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic: int; 
+   mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic_RUNNING: subrange [0, 2] of int; 
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_states_mode_logic:   int; 
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_outports_steps_remaining: int; 
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_states_mode_logic:  int; 
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_outports_mode: int; 
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_outports_steps_remaining:  int; 
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_states_mode_logic: int;
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_outports_steps_remaining:  int; 
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_states_mode_logic:  int; 
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_states_mode_logic_RUNNING:   int; 
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_outports_steps_remaining: int; 
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_states_mode_logic:  int;
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_outports_steps_remaining:  int; 
+   mode_logic_main_simp_rlt_node_state5_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state3_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state17_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state17_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state17_rlt_chart_data_outports_steps_remaining:  int; 
+   mode_logic_main_simp_rlt_node_state16_rlt_chart_data_states_mode_logic_RUNNING:  int; 
+   mode_logic_main_simp_rlt_node_state16_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state16_rlt_chart_data_outports_steps_remaining: int; 
+   mode_logic_main_simp_rlt_node_state13_rlt_chart_data_outports_steps_remaining:  int; 
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_states_mode_logic:  int;
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_states_mode_logic_RUNNING: int; 
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_outports_mode:  int; 
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_outports_steps_remaining: int; 
+   mode_logic_main_simp_rlt_node_state25_rlt_chart_data_states_mode_logic_RUNNING: int; 
+   mode_logic_main_simp_rlt_node_state25_rlt_chart_data_outports_mode: int; 
+   mode_logic_main_simp_rlt_node_state37_rlt_chart_data_states_mode_logic:  int;
+   mode_logic_main_simp_rlt_node_state37_rlt_chart_data_states_mode_logic_RUNNING: int;
+   mode_logic_main_simp_rlt_node_state37_rlt_chart_data_outports_mode: int; 
+   mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic: int; 
+   mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic_RUNNING: int; 
+   mode_logic_main_rlt_state_in_rlt_chart_data_outports_mode: int; 
+   mode_logic_main_rlt_state_in_rlt_chart_data_outports_steps_remaining: int; 
+   mode_logic_main_rlt__ARROW: bool; 
+  -- all_asserts_ok: bool;
+  -- added_invariant_1, added_invariant_2, added_invariants: bool;
+
+let --%MAIN
+   mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic = (0 -> ( pre mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic));
+
+   mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic_RUNNING = (0 -> ( pre mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic_RUNNING));
+
+   mode_logic_main_rlt_state_in_rlt_chart_data_outports_mode = (0 -> ( pre MODE));
+
+   mode_logic_main_rlt_state_in_rlt_chart_data_outports_steps_remaining = (0 -> ( pre STEPS_REMAINING));
+
+   mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic = 
+      (if (not (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 0))
+         then mode_logic_main_simp_rlt_node_state39_rlt_chart_data_states_mode_logic
+         else 2);
+
+   mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (not (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 0))
+         then mode_logic_main_simp_rlt_node_state39_rlt_chart_data_states_mode_logic_RUNNING
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   MODE = 
+      (if (not (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 0))
+         then mode_logic_main_simp_rlt_node_state39_rlt_chart_data_outports_mode
+         else 1);
+
+   STEPS_REMAINING = 
+      (if (not (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 0))
+         then mode_logic_main_simp_rlt_node_state39_rlt_chart_data_outports_steps_remaining
+         else STEPS_TO_COOK);
+
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_states_mode_logic = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+         then 
+               /* Entering state: mode_logic>SETUP. */
+               2
+         else mode_logic_main_simp_rlt_node_state28_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+         then 
+               /* Entering state: mode_logic>SETUP. */
+               mode_logic_main_simp_rlt_node_state5_rlt_chart_data_states_mode_logic_RUNNING
+         else mode_logic_main_simp_rlt_node_state28_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_outports_mode = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING
+                  Transition Guarded By: uint8((steps_remaining <= FcnToAny))
+                  Destination: mode_logic>junc9 */
+               1
+         else mode_logic_main_simp_rlt_node_state28_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state29_rlt_chart_data_outports_steps_remaining = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+         then STEPS_TO_COOK
+         else mode_logic_main_simp_rlt_node_state28_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state16_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: uint8((steps_remaining > FcnToAny))
+                  Destination: mode_logic>RUNNING>rlt_outerloop_0 */
+               1
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state16_rlt_chart_data_outports_mode = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: uint8((steps_remaining > FcnToAny))
+                  Destination: mode_logic>RUNNING>rlt_outerloop_0 */
+               2
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state16_rlt_chart_data_outports_steps_remaining = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: uint8((steps_remaining > FcnToAny))
+                  Destination: mode_logic>RUNNING>rlt_outerloop_0 */
+               mode_logic_main_simp_rlt_node_state13_rlt_chart_data_outports_steps_remaining
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state13_rlt_chart_data_outports_steps_remaining = (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1);
+
+   mode_logic_main_simp_rlt_node_state37_rlt_chart_data_states_mode_logic = 
+      (if (START and 
+         (STEPS_TO_COOK > 0))
+         then 
+               /* Entering state: mode_logic>RUNNING>COOKING.
+                  Evaluating Transition
+                  Source: mode_logic>SETUP.mode_logic>junc8
+                  Transition Guarded By: (uint8(start) and uint8((steps_remaining > FcnToAny)))
+                  Destination: mode_logic>RUNNING */
+               1
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state37_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (START and 
+         (STEPS_TO_COOK > 0))
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>SETUP.mode_logic>junc8
+                  Transition Guarded By: (uint8(start) and uint8((steps_remaining > FcnToAny)))
+                  Destination: mode_logic>RUNNING */
+               
+               (if DOOR_CLOSED
+                  then 
+                        /* Entering state: mode_logic>RUNNING>COOKING. */
+                        1
+                  else 
+                        /* Entering state: mode_logic>RUNNING>SUSPENDED. */
+                        2)
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state37_rlt_chart_data_outports_mode = 
+      (if (START and 
+         (STEPS_TO_COOK > 0))
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>SETUP.mode_logic>junc8
+                  Transition Guarded By: (uint8(start) and uint8((steps_remaining > FcnToAny)))
+                  Destination: mode_logic>RUNNING */
+               
+               (if DOOR_CLOSED
+                  then 2
+                  else 3)
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state3_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 1)
+         then 0
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_states_mode_logic = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 1)
+         then mode_logic_main_simp_rlt_node_state29_rlt_chart_data_states_mode_logic
+         else mode_logic_main_simp_rlt_node_state38_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 1)
+         then mode_logic_main_simp_rlt_node_state29_rlt_chart_data_states_mode_logic_RUNNING
+         else mode_logic_main_simp_rlt_node_state38_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_outports_mode = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 1)
+         then mode_logic_main_simp_rlt_node_state29_rlt_chart_data_outports_mode
+         else mode_logic_main_simp_rlt_node_state38_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state39_rlt_chart_data_outports_steps_remaining = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 1)
+         then mode_logic_main_simp_rlt_node_state29_rlt_chart_data_outports_steps_remaining
+         else mode_logic_main_simp_rlt_node_state38_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 
+      (if mode_logic_main_rlt__ARROW
+         then 0
+         else mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if mode_logic_main_rlt__ARROW
+         then 0
+         else mode_logic_main_rlt_state_in_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode = 
+      (if mode_logic_main_rlt__ARROW
+         then 0
+         else mode_logic_main_rlt_state_in_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining = 
+      (if mode_logic_main_rlt__ARROW
+         then 0
+         else mode_logic_main_rlt_state_in_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_states_mode_logic = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 1)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: (clear or (not door_closed))
+                  Destination: mode_logic>RUNNING>SUSPENDED */
+               mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic
+         else mode_logic_main_simp_rlt_node_state27_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 1)
+         then mode_logic_main_simp_rlt_node_state17_rlt_chart_data_states_mode_logic_RUNNING
+         else mode_logic_main_simp_rlt_node_state27_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_outports_mode = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 1)
+         then mode_logic_main_simp_rlt_node_state17_rlt_chart_data_outports_mode
+         else mode_logic_main_simp_rlt_node_state27_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state28_rlt_chart_data_outports_steps_remaining = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 1)
+         then mode_logic_main_simp_rlt_node_state17_rlt_chart_data_outports_steps_remaining
+         else mode_logic_main_simp_rlt_node_state27_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state17_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (CLEAR or 
+         ( not DOOR_CLOSED))
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: (clear or (not door_closed))
+                  Destination: mode_logic>RUNNING>SUSPENDED */
+               2
+         else mode_logic_main_simp_rlt_node_state16_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state17_rlt_chart_data_outports_mode = 
+      (if (CLEAR or 
+         ( not DOOR_CLOSED))
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: (clear or (not door_closed))
+                  Destination: mode_logic>RUNNING>SUSPENDED */
+               3
+         else mode_logic_main_simp_rlt_node_state16_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state17_rlt_chart_data_outports_steps_remaining = 
+      (if (CLEAR or 
+         ( not DOOR_CLOSED))
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>COOKING
+                  Transition Guarded By: (clear or (not door_closed))
+                  Destination: mode_logic>RUNNING>SUSPENDED */
+               mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+         else mode_logic_main_simp_rlt_node_state16_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_states_mode_logic = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 2)
+         then mode_logic_main_simp_rlt_node_state37_rlt_chart_data_states_mode_logic
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 2)
+         then mode_logic_main_simp_rlt_node_state37_rlt_chart_data_states_mode_logic_RUNNING
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_outports_mode = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 2)
+         then mode_logic_main_simp_rlt_node_state37_rlt_chart_data_outports_mode
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state38_rlt_chart_data_outports_steps_remaining = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic = 2)
+         then STEPS_TO_COOK
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state5_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state3_rlt_chart_data_states_mode_logic_RUNNING = 2)
+         then 0
+         else mode_logic_main_simp_rlt_node_state3_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state25_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (START and 
+         DOOR_CLOSED)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>SUSPENDED
+                  Transition Guarded By: (start and door_closed)
+                  Destination: mode_logic>RUNNING>COOKING */
+               1
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state25_rlt_chart_data_outports_mode = 
+      (if (START and 
+         DOOR_CLOSED)
+         then 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>SUSPENDED
+                  Transition Guarded By: (start and door_closed)
+                  Destination: mode_logic>RUNNING>COOKING */
+               2
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_states_mode_logic = 
+      (if CLEAR
+         then 2
+         else 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>SUSPENDED
+                  Transition Guarded By: (start and door_closed)
+                  Destination: mode_logic>RUNNING>COOKING */
+               mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if CLEAR
+         then 
+               /* Exiting state: mode_logic>RUNNING. */
+               0
+         else mode_logic_main_simp_rlt_node_state25_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_outports_mode = 
+      (if CLEAR
+         then 1
+         else mode_logic_main_simp_rlt_node_state25_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state26_rlt_chart_data_outports_steps_remaining = 
+      (if CLEAR
+         then STEPS_TO_COOK
+         else 
+               /* Evaluating Transition
+                  Source: mode_logic>RUNNING>SUSPENDED
+                  Transition Guarded By: (start and door_closed)
+                  Destination: mode_logic>RUNNING>COOKING */
+               mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_states_mode_logic = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 2)
+         then mode_logic_main_simp_rlt_node_state26_rlt_chart_data_states_mode_logic
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic);
+
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_states_mode_logic_RUNNING = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 2)
+         then mode_logic_main_simp_rlt_node_state26_rlt_chart_data_states_mode_logic_RUNNING
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING);
+
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_outports_mode = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 2)
+         then mode_logic_main_simp_rlt_node_state26_rlt_chart_data_outports_mode
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_mode);
+
+   mode_logic_main_simp_rlt_node_state27_rlt_chart_data_outports_steps_remaining = 
+      (if (mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_mode_logic_RUNNING = 2)
+         then mode_logic_main_simp_rlt_node_state26_rlt_chart_data_outports_steps_remaining
+         else mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining);
+
+   mode_logic_main_rlt__ARROW = (true -> false);
+
+   -- added_invariant_1 = ((mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic <> 1) => (mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic_RUNNING = 0)); 
+   -- added_invariant_2 = ((MODE = 2) = (mode_logic_main_simp_rlt_node_state43_rlt_chart_data_states_mode_logic_RUNNING = 1)); 
+   -- added_invariants = added_invariant_1 and added_invariant_2 ; 
+   
+   
+   -- all_asserts_ok = (added_invariants -> (( pre all_asserts_ok) and added_invariants));
+
+	-- second part of this property is the necessary invariant.
+
+
+
+    --%PROPERTY ((MODE = 2) => DOOR_CLOSED);
+
+tel;
+
+
