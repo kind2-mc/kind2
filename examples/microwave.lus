@@ -1,0 +1,1427 @@
+
+node microwave(KP_START: bool; 
+      KP_CLEAR: bool; 
+      KP_0: bool; 
+      KP_1: bool; 
+      KP_2: bool; 
+      KP_3: bool; 
+      KP_4: bool; 
+      KP_5: bool; 
+      KP_6: bool; 
+      KP_7: bool; 
+      KP_8: bool; 
+      KP_9: bool; 
+      DOOR_CLOSED: bool)
+   returns (LEFT_DIGIT: int; 
+      MIDDLE_DIGIT: int; 
+      RIGHT_DIGIT: int; 
+      MODE: int);
+
+var
+   microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic: int; 
+   microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING: int; 
+   microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining: int; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step: bool; 
+   microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1: int; 
+   microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1: int; 
+   microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1: int; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8: bool; 
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9: bool; 
+   microwave_microwave_LE_Detector12_Logical_Operator1: bool; 
+   microwave_microwave_LE_Detector1_Logical_Operator1: bool; 
+   microwave_microwave_Unit_Delay2: bool; 
+   s1: bool; 
+   r1: bool; 
+   r3: bool; 
+   r4: bool; 
+   s2: bool; 
+   r7: bool; 
+   r8: bool; 
+   r2: bool; 
+   r5: bool; 
+   r6: bool; 
+   r10: bool; 
+   r11: bool; 
+   r12: bool; 
+   all_asserts_ok: bool;
+
+
+let --%MAIN
+   r6 = ((( not (false and 
+      (0 > 0))) or 
+      (( not (( not DOOR_CLOSED) or 
+      false)) or 
+      (MODE = 3))) -> (( not (( pre (MODE = 2)) and 
+      (( pre (((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT)) > 0))) or 
+      (( not (( not DOOR_CLOSED) or 
+      (KP_CLEAR and 
+      ( not ( pre KP_CLEAR))))) or 
+      (MODE = 3))));
+
+   r5 = ((( not (false and 
+      (0 <= 0))) or 
+      (MODE = 1)) -> (( not (( pre ((MODE = 2) or 
+      (MODE = 3))) and 
+      (( pre (((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT)) <= 0))) or 
+      (MODE = 1)));
+
+   r2 = ((( not false) or 
+      (( not (false and 
+      ((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) > 0))) or 
+      ((MODE = 2) or 
+      (MODE = 3)))) -> (( not (MODE = 1)) or 
+      (( not ((KP_START and 
+      ( not ( pre KP_START))) and 
+      ((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) > 0))) or 
+      ((MODE = 2) or 
+      (MODE = 3)))));
+
+   microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 = (0 -> 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step
+                  then 0
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR
+                  then 0
+                  else 
+               (if (
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0)))
+                     then 0
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1)))
+                     then 1
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2)))
+                     then 2
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3)))
+                     then 3
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4)))
+                     then 4
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5)))
+                     then 5
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6)))
+                     then 6
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7)))
+                     then 7
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8)))
+                     then 8
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9)))
+                     then 9
+                     else 10)))))))))) <= 9)
+                  then ( pre microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1)
+                  else ( pre microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1))))
+         else ( pre microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1)));
+
+   microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 = (0 -> 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step
+                  then 0
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR
+                  then 0
+                  else 
+               (if (
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0)))
+                     then 0
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1)))
+                     then 1
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2)))
+                     then 2
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3)))
+                     then 3
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4)))
+                     then 4
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5)))
+                     then 5
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6)))
+                     then 6
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7)))
+                     then 7
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8)))
+                     then 8
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9)))
+                     then 9
+                     else 10)))))))))) <= 9)
+                  then ( pre microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1)
+                  else ( pre microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1))))
+         else ( pre microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1)));
+
+   microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 = (
+      (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR
+         then 0
+         else 
+      (if (
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0
+            then 0
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1
+            then 1
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2
+            then 2
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3
+            then 3
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4
+            then 4
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5
+            then 5
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6
+            then 6
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7
+            then 7
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8
+            then 8
+            else 
+         (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9
+            then 9
+            else 10)))))))))) <= 9)
+         then 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0
+                  then 0
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1
+                  then 1
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2
+                  then 2
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3
+                  then 3
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4
+                  then 4
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5
+                  then 5
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6
+                  then 6
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7
+                  then 7
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8
+                  then 8
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9
+                  then 9
+                  else 10))))))))))
+         else 0)) -> 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step
+                  then 
+                        (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR
+                           then 0
+                           else 
+                        (if (
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0
+                              then 0
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1
+                              then 1
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2
+                              then 2
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3
+                              then 3
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4
+                              then 4
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5
+                              then 5
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6
+                              then 6
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7
+                              then 7
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8
+                              then 8
+                              else 
+                           (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9
+                              then 9
+                              else 10)))))))))) <= 9)
+                           then 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0
+                                    then 0
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1
+                                    then 1
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2
+                                    then 2
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3
+                                    then 3
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4
+                                    then 4
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5
+                                    then 5
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6
+                                    then 6
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7
+                                    then 7
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8
+                                    then 8
+                                    else 
+                                 (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9
+                                    then 9
+                                    else 10))))))))))
+                           else 0))
+                  else 
+               (if rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR
+                  then 0
+                  else 
+               (if (
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0)))
+                     then 0
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1)))
+                     then 1
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2)))
+                     then 2
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3)))
+                     then 3
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4)))
+                     then 4
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5)))
+                     then 5
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6)))
+                     then 6
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7)))
+                     then 7
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8)))
+                     then 8
+                     else 
+                  (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9 and 
+                     ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9)))
+                     then 9
+                     else 10)))))))))) <= 9)
+                  then 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0)))
+                           then 0
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1)))
+                           then 1
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2)))
+                           then 2
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3)))
+                           then 3
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4)))
+                           then 4
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5)))
+                           then 5
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6)))
+                           then 6
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7)))
+                           then 7
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8)))
+                           then 8
+                           else 
+                        (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9 and 
+                           ( not ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9)))
+                           then 9
+                           else 10))))))))))
+                  else ( pre microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1))))
+         else ( pre microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1)));
+
+   microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining = (0 -> ( pre 
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0))));
+
+   microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = (0 -> ( pre 
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if (
+                                    (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                                       then 0
+                                       else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING) = 2)
+                                    then 0
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                                    then 0
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          2
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: uint8((steps_remaining > uint16(0)))
+                                             Destination: microwave_mode_logic>RUNNING>rlt_outerloop_0 */
+                                          1
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          /* Exiting state: microwave_mode_logic>RUNNING. */
+                                          0
+                                    else 
+                                 (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                                    DOOR_CLOSED)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          1
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING))
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                           (
+                           (if microwave_microwave_Unit_Delay2
+                              then 
+                                    (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                       ( not microwave_microwave_Unit_Delay2))
+                                       then 0
+                                       else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                              else 0) > 0))
+                           then 
+                                 /* Evaluating Transition
+                                    Source: microwave_mode_logic>SETUP.microwave_mode_logic>junc8
+                                    Transition Guarded By: (uint8(start) and uint8((steps_remaining > uint16(0))))
+                                    Destination: microwave_mode_logic>RUNNING */
+                                 
+                                 (if DOOR_CLOSED
+                                    then 
+                                          /* Entering state: microwave_mode_logic>RUNNING>COOKING. */
+                                          1
+                                    else 
+                                          /* Entering state: microwave_mode_logic>RUNNING>SUSPENDED. */
+                                          2)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING))
+         else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING)));
+
+   microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = (0 -> ( pre 
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 /* Entering state: microwave_mode_logic>SETUP. */
+                                 2
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: microwave_mode_logic>RUNNING>COOKING
+                                    Transition Guarded By: (clear or (not door_closed))
+                                    Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                 microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 2
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                           (
+                           (if microwave_microwave_Unit_Delay2
+                              then 
+                                    (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                       ( not microwave_microwave_Unit_Delay2))
+                                       then 0
+                                       else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                              else 0) > 0))
+                           then 
+                                 /* Entering state: microwave_mode_logic>RUNNING>COOKING.
+                                    Evaluating Transition
+                                    Source: microwave_mode_logic>SETUP.microwave_mode_logic>junc8
+                                    Transition Guarded By: (uint8(start) and uint8((steps_remaining > uint16(0))))
+                                    Destination: microwave_mode_logic>RUNNING */
+                                 1
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic))
+         else 2)));
+
+   MODE = (
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: microwave_mode_logic>RUNNING
+                                    Transition Guarded By: uint8((steps_remaining <= uint16(0)))
+                                    Destination: microwave_mode_logic>junc9 */
+                                 1
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          3
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: uint8((steps_remaining > uint16(0)))
+                                             Destination: microwave_mode_logic>RUNNING>rlt_outerloop_0 */
+                                          2
+                                    else 0))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 1
+                                    else 
+                                 (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                                    DOOR_CLOSED)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          2
+                                    else 0))
+                           else 0)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                           (
+                           (if microwave_microwave_Unit_Delay2
+                              then 
+                                    (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                       ( not microwave_microwave_Unit_Delay2))
+                                       then 0
+                                       else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                              else 0) > 0))
+                           then 
+                                 /* Evaluating Transition
+                                    Source: microwave_mode_logic>SETUP.microwave_mode_logic>junc8
+                                    Transition Guarded By: (uint8(start) and uint8((steps_remaining > uint16(0))))
+                                    Destination: microwave_mode_logic>RUNNING */
+                                 
+                                 (if DOOR_CLOSED
+                                    then 2
+                                    else 3)
+                           else 0)
+                  else 0))
+         else 1) -> 
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: microwave_mode_logic>RUNNING
+                                    Transition Guarded By: uint8((steps_remaining <= uint16(0)))
+                                    Destination: microwave_mode_logic>junc9 */
+                                 1
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          3
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: uint8((steps_remaining > uint16(0)))
+                                             Destination: microwave_mode_logic>RUNNING>rlt_outerloop_0 */
+                                          2
+                                    else ( pre MODE)))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 1
+                                    else 
+                                 (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                                    DOOR_CLOSED)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          2
+                                    else ( pre MODE)))
+                           else ( pre MODE))))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if (microwave_microwave_LE_Detector12_Logical_Operator1 and 
+                           (
+                           (if microwave_microwave_Unit_Delay2
+                              then 
+                                    (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                       ( not microwave_microwave_Unit_Delay2))
+                                       then 0
+                                       else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                              else 0) > 0))
+                           then 
+                                 /* Evaluating Transition
+                                    Source: microwave_mode_logic>SETUP.microwave_mode_logic>junc8
+                                    Transition Guarded By: (uint8(start) and uint8((steps_remaining > uint16(0))))
+                                    Destination: microwave_mode_logic>RUNNING */
+                                 
+                                 (if DOOR_CLOSED
+                                    then 2
+                                    else 3)
+                           else ( pre MODE))
+                  else ( pre MODE)))
+         else 1));
+
+   MIDDLE_DIGIT = (((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) - (((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) div 60) * 60)) div 10);
+
+   RIGHT_DIGIT = (((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) - (((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) div 60) * 60)) - ((((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) - (((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) div 60) * 60)) div 10) * 10));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8 = (KP_8 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_8
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_8)));
+
+   s1 = ((not (MODE = 2)) or
+      DOOR_CLOSED);
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1 = (KP_1 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_1
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_1)));
+
+   microwave_microwave_Unit_Delay2 = (true -> ( pre (1 = MODE)));
+
+   r8 = ((( not false) or 
+      (( not ((false and 
+      DOOR_CLOSED) and 
+      ( not false))) or 
+      (MODE = 2))) -> (( not ( pre (MODE = 3))) or 
+      (( not (((KP_START and 
+      ( not ( pre KP_START))) and 
+      DOOR_CLOSED) and 
+      ( not (KP_CLEAR and 
+      ( not ( pre KP_CLEAR)))))) or 
+      (MODE = 2))));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0 = (KP_0 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_0
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_0)));
+
+   r4 = ((false or 
+      (( not ((MODE = 2) or 
+      (MODE = 3))) or 
+      (DOOR_CLOSED or 
+      (MODE = 3)))) -> (( pre ((MODE = 2) or 
+      (MODE = 3))) or 
+      (( not ((MODE = 2) or 
+      (MODE = 3))) or 
+      (DOOR_CLOSED or 
+      (MODE = 3)))));
+
+   r11 = ((( not false) or 
+      ((not (MODE = 2)) or 
+      (((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) + 1) = 0))) -> (( not ( pre (MODE = 2))) or 
+      ((not (MODE = 2)) or 
+      (((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) + 1) = ( pre (((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT))))));
+
+   r7 = ((( not false) or 
+      (( not false) or 
+      (MODE = 1))) -> (( not ( pre (MODE = 3))) or 
+      (( not (KP_CLEAR and 
+      ( not ( pre KP_CLEAR)))) or 
+      (MODE = 1))));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9 = (KP_9 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_9
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_9)));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5 = (KP_5 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_5
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_5)));
+
+   r10 = ((( not false) or 
+      (( not ((MODE = 2) or 
+      (MODE = 3))) or 
+      ((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) <= 0))) -> (( not ( pre ((MODE = 2) or 
+      (MODE = 3)))) or 
+      (( not ((MODE = 2) or 
+      (MODE = 3))) or 
+      ((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) <= ( pre (((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT))))));
+
+   LEFT_DIGIT = ((
+      (if (not (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 0))
+         then 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 1)
+                  then 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining <= 0)
+                           then 
+                                 (if microwave_microwave_Unit_Delay2
+                                    then 
+                                          (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                             ( not microwave_microwave_Unit_Delay2))
+                                             then 0
+                                             else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                    else 0)
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 1)
+                           then 
+                                 (if (microwave_microwave_LE_Detector1_Logical_Operator1 or 
+                                    ( not DOOR_CLOSED))
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>COOKING
+                                             Transition Guarded By: (clear or (not door_closed))
+                                             Destination: microwave_mode_logic>RUNNING>SUSPENDED */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining
+                                    else 
+                                 (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining > 0)
+                                    then (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining - 1)
+                                    else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+                           else 
+                        (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING = 2)
+                           then 
+                                 (if microwave_microwave_LE_Detector1_Logical_Operator1
+                                    then 
+                                          (if microwave_microwave_Unit_Delay2
+                                             then 
+                                                   (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                                      ( not microwave_microwave_Unit_Delay2))
+                                                      then 0
+                                                      else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                                             else 0)
+                                    else 
+                                          /* Evaluating Transition
+                                             Source: microwave_mode_logic>RUNNING>SUSPENDED
+                                             Transition Guarded By: (start and door_closed)
+                                             Destination: microwave_mode_logic>RUNNING>COOKING */
+                                          microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)
+                           else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining)))
+                  else 
+               (if (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic = 2)
+                  then 
+                        (if microwave_microwave_Unit_Delay2
+                           then 
+                                 (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                                    ( not microwave_microwave_Unit_Delay2))
+                                    then 0
+                                    else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+                           else 0)
+                  else microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_outports_steps_remaining))
+         else 
+      (if microwave_microwave_Unit_Delay2
+         then 
+               (if (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step and 
+                  ( not microwave_microwave_Unit_Delay2))
+                  then 0
+                  else (((microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 + (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 * 10)) + (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 * 60)) * 1))
+         else 0)) div 1) div 60);
+
+   microwave_microwave_LE_Detector1_Logical_Operator1 = (KP_CLEAR -> (KP_CLEAR and 
+      ( not ( pre KP_CLEAR))));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR = (KP_CLEAR -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_CLEAR
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_CLEAR)));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7 = (KP_7 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_7
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_7)));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6 = (KP_6 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_6
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_6)));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2 = (KP_2 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_2
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_2)));
+
+   r3 = ((false or 
+      (( not ((MODE = 2) or 
+      (MODE = 3))) or 
+      (( not DOOR_CLOSED) or 
+      (MODE = 2)))) -> (( pre ((MODE = 2) or 
+      (MODE = 3))) or 
+      (( not ((MODE = 2) or 
+      (MODE = 3))) or 
+      (( not DOOR_CLOSED) or 
+      (MODE = 2)))));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4 = (KP_4 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_4
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_4)));
+
+   r1 = ((MODE = 1) -> true);
+
+   s2 = ((( not false) or 
+      (( not false) or 
+      (not (MODE = 2)))) -> (( not ( pre (MODE = 2))) or 
+      (( not (KP_CLEAR and 
+      ( not ( pre KP_CLEAR)))) or 
+      (not (MODE = 2)))));
+
+   r12 = ((( not false) or 
+      ((not (MODE = 3)) or 
+      ((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) = 0))) -> (( not ( pre (MODE = 3))) or 
+      ((not (MODE = 3)) or 
+      ((((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT) = ( pre (((LEFT_DIGIT * 60) + (MIDDLE_DIGIT * 10)) + RIGHT_DIGIT))))));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3 = (KP_3 -> 
+      (if microwave_microwave_Unit_Delay2
+         then KP_3
+         else ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_KP_3)));
+
+   rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step = (true -> (( not microwave_microwave_Unit_Delay2) or 
+      (( not ( pre microwave_microwave_Unit_Delay2)) and 
+      ( pre rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_init_step))));
+
+   microwave_microwave_LE_Detector12_Logical_Operator1 = (KP_START -> (KP_START and 
+      ( not ( pre KP_START))));
+
+   all_asserts_ok = (true -> (( pre all_asserts_ok) and 
+      true));
+
+   -- assert (microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 >= 0 and microwave_microwave_KEYPAD_PROCESSING_RIGHT_DIGIT_Switch1 < 128);
+   -- assert (microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 >= 0 and microwave_microwave_KEYPAD_PROCESSING_MIDDLE_DIGIT_Switch1 < 128);
+   -- assert (microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 >= 0 and microwave_microwave_KEYPAD_PROCESSING_LEFT_DIGIT_Switch1 < 128);
+   -- assert (rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_STEPS_PER_SECOND >= 0 and rlt_condact_resetmicrowave_microwave_KEYPAD_PROCESSING_rlt_clocked_inp_STEPS_PER_SECOND < 128);
+
+   --assert (LEFT_DIGIT >= 0 and LEFT_DIGIT <= 9);
+   --assert (MIDDLE_DIGIT >= 0 and MIDDLE_DIGIT <= 9);
+   --assert (RIGHT_DIGIT >= 0 and RIGHT_DIGIT <= 9);
+   --assert (MODE >= 1 and MODE <= 3);
+   --assert (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic >= 0 and microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic <= 2);
+   --assert (microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING >= 0 and microwave_mode_logic_main_simp_rlt_node_state1_rlt_chart_data_states_microwave_mode_logic_RUNNING <= 2);
+
+
+ --Line 59 -compression
+  --%PROPERTY r1; 
+
+   --Line 64 -compression
+  --%PROPERTY r3; 
+
+   --Line 68 -compression
+  --%PROPERTY r4; 
+
+   --Line 72 -compression (hard)
+  --%PROPERTY s2; 
+
+   --Line 76 -compression (hard)
+  --%PROPERTY r7;
+ 
+   --Line 56 -compression (hard)
+  --%PROPERTY r8;
+  
+ --Line 97 -compression
+  --%PROPERTY r5; 
+
+   --Line 105 -compression
+  --%PROPERTY r10; 
+
+   --Line 109 -compression
+  --%PROPERTY r11; 
+
+   --Line 113 -compression
+  --%PROPERTY r12;
+
+ 
+ 
+
+tel;
