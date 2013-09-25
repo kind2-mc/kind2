@@ -45,8 +45,8 @@ let on_exit () = ()
 
 
 (* Main entry point *)
-let main input transSys =
-
+let main input_file transSys =
+  let inputs = InputParser.read_file input_file in
   (* Number of instants input *)
   let k = 5 in
 
@@ -90,7 +90,7 @@ let main input transSys =
 
   (* val InputParser.parse_input : string -> (StateVar.t * (Term.t list)) list *)
   (* let inputs = InputParser.parse_input input_file in *)
-  let inputs = [] in
+  
 
   List.iter
 
@@ -106,7 +106,7 @@ let main input transSys =
 
             S.assert_term solver equation;
 
-            incr_numeral instant)
+            (*incr_numeral*) instant)
 
          (numeral_of_int 0)
          
