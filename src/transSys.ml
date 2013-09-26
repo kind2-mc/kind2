@@ -294,7 +294,7 @@ let vars z =
 let state_vars z = 
 
   StateVar.fold
-    (fun sv a -> sv :: a)
+    (fun sv a -> if not (StateVar.is_definition sv) then sv :: a else a)
     []
 
 

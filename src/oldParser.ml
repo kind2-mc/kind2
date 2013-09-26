@@ -906,7 +906,9 @@ let rec il_expression_to_term init = function
       try
         
         (* Get variable info for substituted variable *)
-        let (_, v, t, _) = Kind1.Tables.safe_find_varinfo nk "yc_simplify_var" in
+        let (_, v, t, c) = 
+          Kind1.Tables.safe_find_varinfo nk "yc_simplify_var" 
+        in
 
         let var_type = 
 
@@ -941,7 +943,12 @@ let rec il_expression_to_term init = function
         (* Set variable info for symbol *)
         s.s <- v;
 
-        let state_var = StateVar.mk_state_var v var_type in
+        let state_var = 
+          StateVar.mk_state_var 
+            v 
+            (not (Kind1.Tables.var_is_stateful nk))
+            var_type 
+        in
 
         let var' = 
           Var.mk_state_var_instance 
@@ -1238,7 +1245,7 @@ let of_channel in_ch =
 
             let p = Term.mk_uf u [state_index] in
 *)
-            let sv = StateVar.mk_state_var v k in
+            let sv = StateVar.mk_state_var v true k in
 
             let p = 
               Term.mk_var 
