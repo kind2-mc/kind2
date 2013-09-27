@@ -344,7 +344,7 @@ type_def:
   { L_BOOL }
 | INT
   { L_INT }
-| SUBRANGE LSQBRACKET integer COMMA integer RSQBRACKET OF INT
+| SUBRANGE LSQBRACKET signed_integer COMMA signed_integer RSQBRACKET OF INT
   {
     Globals.is_inter := true;
     L_INT_RANGE($3,$5)
@@ -912,6 +912,10 @@ integer:
     else 
       int_of_string $1 
   }
+
+signed_integer:
+  integer { $1 } 
+| MINUS integer { - $2 } 
 
 real:
   FLOAT 
