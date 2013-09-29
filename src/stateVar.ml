@@ -65,6 +65,9 @@ type state_var_prop =
     (* True if variable does not occur under a pre operator *)
     mutable is_definition : bool;
 
+    (* True if variable does not occur under a pre operator *)
+    mutable is_input : bool;
+
   }
 
 (* A hashconsed state variable *)
@@ -196,6 +199,10 @@ let name_of_state_var { Hashcons.node = s } = s
 let is_definition { Hashcons.prop = { is_definition = d } } = d
 
 
+(* Return true if state variable is an input variable *)
+let is_input { Hashcons.prop = { is_input = i } } = i
+
+
 (* Original identifier of a state variable *)
 let original_name_of_state_var { Hashcons.node = s } = 
   Kind1.Tables.internal_name_to_original_name s
@@ -278,7 +285,7 @@ let mk_state_var n d t =
          Hstate_var.hashcons 
            ht 
            n 
-           { var_type = t; uf_symbol = u; is_definition = d } 
+           { var_type = t; uf_symbol = u; is_definition = d; is_input = false } 
        in
 
        (* Remember association of uninterpreted function symbol with

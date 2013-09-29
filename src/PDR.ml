@@ -292,30 +292,69 @@ let add_to_frame (_, _, solver) clause = function
    (2) B[x] |= exists y.f[x] & T[x,x'] & g[x'] *)
 let generalize transSys state f g = 
 
-  (* Construct term to be generalized with the transition relation and
-     the invariants *)
-  let term = 
-    Term.mk_and 
-      [f; 
-       TransSys.constr_of_bound 1 transSys; 
-       TransSys.invars_of_bound 0 transSys; 
-       TransSys.invars_of_bound 1 transSys; 
-       TransSys.bump_state 1 g]
+  let term, primed_vars = 
+
+    (* Eliminate only input variables, unfold all definitions *)
+    if true then 
+
+      (* Get state variables occurring primed in g[x'] *)
+      let var_defs = 
+        TransSys.constr_defs_of_state_vars 
+          transSys 
+          (List.map Var.state_var_of_state_var_instance (TransSys.vars_at_offset_of_term 0 g))
+      in
+      
+      (* Bind variables to their definitions *)
+      let constr_def_g = 
+        List.fold_left
+          (fun a d -> Term.mk_let [d] a)
+          (TransSys.bump_state 1 g)
+          var_defs
+      in
+
+      debug pdr
+        "@[<v>G with variables bound to definitions:@,%a" Term.pp_print_term constr_def_g 
+      in
+
+      (* Equivalent to f[x] & T[x,x'] & g[x'] with all primed variables being input *)
+      let term = Term.mk_and [f; constr_def_g] in
+
+      (* Get primed variables in term *)
+      let primed_vars = TransSys.vars_at_offset_of_term 1 constr_def_g in
+
+      term, primed_vars 
+
+    (* Eliminate all primed variables (old) *)
+    else
+      
+      (* Construct term to be generalized with the transition relation and
+         the invariants *)
+      let term = 
+        Term.mk_and 
+          [f; 
+           TransSys.constr_of_bound 1 transSys; 
+           TransSys.invars_of_bound 0 transSys; 
+           TransSys.invars_of_bound 1 transSys; 
+           TransSys.bump_state 1 g]
+      in
+      
+      (* Get primed variables in the transition system *)
+      let primed_vars = TransSys.vars_at_offset_of_term 1 term in 
+      
+      term, primed_vars 
+
   in
 
-  (* Get primed variables in the transition system *)
-  let primed_vars = TransSys.vars_at_offset_of_term 1 term in 
-
-  Stat.start_timer Stat.pdr_generalize_time;
-
+    Stat.start_timer Stat.pdr_generalize_time;
+    
   (* Generalize term by quantifying over and eliminating primed
      variables *)
-  let gen_term = QE.generalize state primed_vars term in
-
-  Stat.record_time Stat.pdr_generalize_time;
-
+    let gen_term = QE.generalize state primed_vars term in
+    
+    Stat.record_time Stat.pdr_generalize_time;
+    
   (* Return generalized term *)
-  gen_term
+    gen_term
 
 
 (*
