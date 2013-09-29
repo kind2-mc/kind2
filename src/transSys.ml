@@ -578,7 +578,7 @@ let rec depends_on dep sv visited = function
           dep 
           sv 
           (SVS.add h visited) 
-          (List.rev_append (SVS.elements (SVT.find dep h)) tl)
+          (try List.rev_append (SVS.elements (SVT.find dep h)) tl with Not_found -> tl)
 
       
 (* Order state variables by dependencies: a variables is smaller than all the variables is depends on *)
@@ -632,15 +632,18 @@ let rec defs_of_state_vars t dep visited accum = function
         
     else
 
-      let def = try SVT.find t.constr h with Not_found -> raise (Failure "No definition for state variable") in
+      (* Add definition if found, skip input or otherwise unspecified variables *)
+      let accum' = 
+        try (h, (SVT.find t.constr h)) :: accum with Not_found -> accum
+      in
 
       (* Recurse to children, mark variable as visited *)
       defs_of_state_vars
         t
         dep 
         (SVS.add h visited) 
-        ((h, def) :: accum)
-        (List.rev_append (SVS.elements (SVT.find dep h)) tl)
+        accum'
+        (try List.rev_append (SVS.elements (SVT.find dep h)) tl with Not_found -> tl)
 
 
 
