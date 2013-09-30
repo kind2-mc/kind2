@@ -658,6 +658,15 @@ let rec defs_of_state_vars t dep visited accum = function
 
 *)
 
+
+(* Recursively unfold definitions of state variables in dependency
+   order: leaf definitions at the head of the list 
+
+   Idea: check if the head element of the list is dependent on any of
+   the elements in the tail of the list. If it is, skip it, because
+   its definition will be unfolded later.
+*)
+
 let rec defs_of_state_vars t dep accum = function 
 
   (* Return list of definitions *)
