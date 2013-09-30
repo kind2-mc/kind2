@@ -27,7 +27,7 @@ This file is part of the Kind verifier
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *)
-
+(*./kind2 --enable interpreter --debug smt --debug parse microwave.lus*)
 open Lib
 
 
