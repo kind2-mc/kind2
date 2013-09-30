@@ -230,10 +230,10 @@ let props_of_bound i z =
 let invars_of_bound i z = 
 
   (* Create conjunction of initial state formulas *)
-  let invars_0 = Term.mk_and z.invars in 
+  let invars_1 = Term.mk_and z.invars in 
 
   (* Bump bound if greater than zero *)
-  if i = 0 then invars_0 else bump_state i invars_0 
+  if i = 1 then invars_1 else bump_state i invars_1 
 
 
 (* Get all state variables at a given offset in the term *)

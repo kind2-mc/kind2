@@ -1176,19 +1176,33 @@ let assignment_of_il_equation init l r t =
 
 
 (* Extract a list of assignments of terms to state variables from a list IL formulas *)
-let rec assignments_of_il_formulas init accum = function
+let rec assignments_of_il_formulas init invariants assignments = function
 
   (* Extract assignments from each conjunct *)
-  | F_AND (f, g) :: tl -> assignments_of_il_formulas init accum (f :: g :: tl)
+  | F_AND (f, g) :: tl -> 
+
+    assignments_of_il_formulas init invariants assignments (f :: g :: tl)
 
   (* Extract assignment from equation *)
-  | F_EQ (l, r, t) :: tl -> assignments_of_il_formulas init ((assignment_of_il_equation init l r t) :: accum) tl
-    
-  (* Return at the end of the stack *)
-  | [] -> accum
+  | F_EQ (VAR_GET (_, _, (NUM _), POSITION_VAR "M") as l, r, t) :: tl -> 
 
-  (* Each formula must be an equation or a conjunction of equations *)
-  | _ :: _ -> raise (Invalid_argument "IL formula must be a conjunction")
+    assignments_of_il_formulas 
+      init
+      invariants 
+      ((assignment_of_il_equation init l r t) :: assignments) 
+      tl
+
+  (* Treat other terms as invariants *)    
+  | e :: tl -> 
+    
+    assignments_of_il_formulas 
+      init
+      ((il_formula_to_term init e) :: invariants)
+      assignments
+      tl
+
+  (* Return at the end of the stack *)
+  | [] -> (invariants, assignments)
 
     
 
@@ -1358,11 +1372,13 @@ let of_channel in_ch =
      in
      
 
-    (* Convert internal representation to assignments in initial state *)
-    let init_assignments = assignments_of_il_formulas true [] [fd'] in
-
-    (* Convert internal representation to assignments in transition *)
-    let trans_assignments = assignments_of_il_formulas false [] [fd'] in
+     (* Convert internal representation to assignments in initial state *)
+     let _, init_assignments = assignments_of_il_formulas true [] [] [fd'] in
+     
+     (* Convert internal representation to assignments in transition *)
+     let invariants, trans_assignments = 
+       assignments_of_il_formulas false [] [] [fd'] 
+     in
 
     (* Convert assertions to a formula *)
     let assert_term =
@@ -1385,7 +1401,7 @@ let of_channel in_ch =
           il_expression_to_term true (Some L_BOOL, a)
 
     in
-
+(*
     (* Invariants of transition system *)
     let invars = 
 
@@ -1401,7 +1417,7 @@ let of_channel in_ch =
         assert_term :: TransSys.invars_of_types ()
 
     in
-
+*)
     (* Get declared variables 
 
        TODO: filter for proper state variables here, i.e. variables
@@ -1414,7 +1430,7 @@ let of_channel in_ch =
         TransSys.constr = StateVar.StateVarHashtbl.create (List.length trans_assignments);
         TransSys.trans = [];
         TransSys.props = props;
-        TransSys.invars = invars;
+        TransSys.invars = invariants;
         TransSys.props_valid = [];
         TransSys.props_invalid = [];
         TransSys.constr_dep = StateVar.StateVarHashtbl.create (List.length trans_assignments) } 

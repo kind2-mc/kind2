@@ -297,31 +297,41 @@ let generalize transSys state f g =
     (* Eliminate only input variables, unfold all definitions *)
     if true then 
 
-      (* Get state variables occurring primed in g[x'] *)
+      (* Get invariants of transition system *)
+      let invars = TransSys.invars_of_bound 1 transSys in
+ 
+      (* Get state variables occurring primed in g[x'] and in invariants *)
       let var_defs = 
         TransSys.constr_defs_of_state_vars 
           transSys 
-          (List.map Var.state_var_of_state_var_instance (TransSys.vars_at_offset_of_term 0 g))
+          ((List.map 
+              Var.state_var_of_state_var_instance 
+              (TransSys.vars_at_offset_of_term 0 g)) @
+             (List.map 
+                Var.state_var_of_state_var_instance 
+                (TransSys.vars_at_offset_of_term 1 invars)))
       in
       
       (* Bind variables to their definitions *)
       let constr_def_g = 
         List.fold_left
           (fun a d -> Term.mk_let [d] a)
-          (TransSys.bump_state 1 g)
+          (Term.mk_and [TransSys.bump_state 1 g; invars])
           var_defs
       in
-
+      
       debug pdr
-        "@[<v>G with variables bound to definitions:@,%a" Term.pp_print_term constr_def_g 
+          "@[<v>G and invariants with variables bound to definitions:@,%a" 
+          Term.pp_print_term constr_def_g 
       in
 
-      (* Equivalent to f[x] & T[x,x'] & g[x'] with all primed variables being input *)
+      (* Equivalent to f[x] & T[x,x'] & g[x'] with all primed
+         variables being input *)
       let term = Term.mk_and [f; constr_def_g] in
-
+      
       (* Get primed variables in term *)
       let primed_vars = TransSys.vars_at_offset_of_term 1 constr_def_g in
-
+      
       term, primed_vars 
 
     (* Eliminate all primed variables (old) *)
@@ -333,7 +343,6 @@ let generalize transSys state f g =
         Term.mk_and 
           [f; 
            TransSys.constr_of_bound 1 transSys; 
-           TransSys.invars_of_bound 0 transSys; 
            TransSys.invars_of_bound 1 transSys; 
            TransSys.bump_state 1 g]
       in
@@ -2179,6 +2188,10 @@ let main transSys =
    (* Assert initial state constraint in solver instance *)
    S.assert_term solver_init (TransSys.init_of_bound 0 transSys));
 
+  (* Get invariants of transition system *)
+  let invars = TransSys.invars_of_bound 1 transSys in
+
+(*
   (* Get invariants for current state *)
   let invars_0 = TransSys.invars_of_bound 0 transSys in
 
@@ -2190,6 +2203,7 @@ let main transSys =
      in
 
      S.assert_term solver_init invars_0);
+*)
 
   (* Create new solver instance to reason about counterexamples in
      frames *)
@@ -2214,10 +2228,10 @@ let main transSys =
    (* Assert transition relation from current frame *)
    S.assert_term solver_frames (TransSys.constr_of_bound 1 transSys));
 
-  if not (invars_0 == Term.t_true) then 
+  if not (invars == Term.t_true) then 
 
     (
-
+(*
       (debug smt 
           "Permanently asserting unprimed invariants"
        in
@@ -2226,15 +2240,15 @@ let main transSys =
        S.assert_term 
          solver_frames
          invars_0);
-
+*)
       (debug smt
-          "Permanently asserting primed invariants"
+          "Permanently asserting invariants"
        in
 
        (* Assert invariants for next state *)
        S.assert_term 
          solver_frames
-         (TransSys.invars_of_bound 1 transSys))
+         invars)
 
     );
 
