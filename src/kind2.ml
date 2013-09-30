@@ -61,7 +61,7 @@ let main_of_process = function
   | `BMC -> BMC.main 
   | `IND -> IndStep.main 
   | `INVGEN -> InvGen.main 
-  | `Interpreter -> Interpreter.main ()
+  | `Interpreter -> Interpreter.main "test.csv"
   | `INVMAN -> InvarManager.main child_pids
                        
 
