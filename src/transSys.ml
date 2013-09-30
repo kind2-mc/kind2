@@ -93,13 +93,22 @@ let pp_print_var ppf v =
     Type.pp_print_type (StateVar.type_of_state_var v)
 
 
-(* Pretty-print an assignments of a terms to a variable *)
+(* Pretty-print an assignments of a terms to a state variable *)
 let pp_print_assign ppf (var, term) = 
 
   Format.fprintf 
     ppf
     "@[<hv>%a :=@ %a@]"
     StateVar.pp_print_state_var var
+    Term.pp_print_term term
+    
+(* Pretty-print an assignments of a terms to a state variable instance *)
+let pp_print_var_assign ppf (var, term) = 
+
+  Format.fprintf 
+    ppf
+    "@[<hv>%a :=@ %a@]"
+    Var.pp_print_var var
     Term.pp_print_term term
     
 
@@ -580,6 +589,7 @@ let rec depends_on dep sv visited = function
           (SVS.add h visited) 
           (try List.rev_append (SVS.elements (SVT.find dep h)) tl with Not_found -> tl)
 
+(*
       
 (* Order state variables by dependencies: a variables is smaller than all the variables is depends on *)
 let compare_state_vars_depend_order dep sv1 sv2 =
@@ -646,7 +656,53 @@ let rec defs_of_state_vars t dep visited accum = function
         (try List.rev_append (SVS.elements (SVT.find dep h)) tl with Not_found -> tl)
 
 
+*)
 
+let rec defs_of_state_vars t dep accum = function 
+
+  (* Return list of definitions *)
+  | [] -> accum
+
+  | h :: tl -> 
+
+    (* State variable depends on a state variable in tail? *)
+    if depends_on dep h SVS.empty tl then 
+      
+      (* Skip and unfold definition later *)
+      defs_of_state_vars t dep accum tl 
+
+    else
+      
+      (* Add definition if found, skip input or otherwise unspecified variables *)
+      let accum' = 
+        try (Var.mk_state_var_instance h num_one, (SVT.find t.constr h)) :: accum with Not_found -> accum
+      in
+      
+      (* Recurse for tail of list *)
+      defs_of_state_vars 
+        t 
+        dep 
+        accum' 
+        (try List.rev_append (SVS.elements (SVT.find dep h)) tl with Not_found -> tl)
+
+
+let constr_defs_of_state_vars t state_vars =
+
+  (* Get hash table of dependencies *)
+  let dep = dependencies_of_constr t in
+
+  
+  let res = defs_of_state_vars t dep [] state_vars in
+
+  debug transSys
+    "@[<v>Definitions from CONSTR:@,%a@]"
+    (pp_print_list pp_print_var_assign "@ ") res
+  in
+
+  List.rev res
+
+
+(*
 let constr_defs_of_state_vars t state_vars =
 
   (* Get hash table of dependencies *)
@@ -660,9 +716,14 @@ let constr_defs_of_state_vars t state_vars =
     List.sort (function (v1, _) -> function (v2, _) -> compare_state_vars_constr_dep t v1 v2) all_defs 
   in 
 
+  debug transSys
+    "@[<v>Definitions from CONSTR:@,%a@]"
+    (pp_print_list pp_print_assign "@ ") defs_dep_order
+  in
+
   (* Turn state variables into primed variables *)
   List.rev (List.map (function (sv, t) -> (Var.mk_state_var_instance sv num_one, t)) defs_dep_order)
-
+*)
 
 
 (* 

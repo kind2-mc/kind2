@@ -121,10 +121,12 @@ val invars_of_bound : int -> t -> Term.t
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit 
 
-(** {1 Dependency order}*)
+(** {1 Dependency order} *)
 
+(*
 (** Order state variables by dependency in CONSTR: a variables is smaller than all the variables is depends on *)
 val compare_state_vars_constr_dep : t -> StateVar.t -> StateVar.t -> int 
+*)
 
 (** Get all definitions of state variables from CONSTR
 

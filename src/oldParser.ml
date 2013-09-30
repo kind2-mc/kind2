@@ -1127,9 +1127,13 @@ let assignment_of_il_equation init l r t =
 
         (* Get substituted variable from inlining if any *)
         let nk = Kind1.Tables.resolve_substitution id in
-        
+
+        (debug parse
+           "VAR_GET: %d resolved to %d" id nk
+         in
+
         (* Keep track of variables used and at what position *)
-        Kind1.Tables.update_used_vars nk d e;
+        Kind1.Tables.update_used_vars nk d e);
 
         try
           
@@ -1346,6 +1350,13 @@ let of_channel in_ch =
       il_formula_to_term false fd' 
     in
 *)
+
+    debug parse 
+         ";; Transition relation@\n%a@\n"
+         pp_print_il_formula 
+         fd' 
+     in
+     
 
     (* Convert internal representation to assignments in initial state *)
     let init_assignments = assignments_of_il_formulas true [] [fd'] in
