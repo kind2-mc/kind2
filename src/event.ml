@@ -469,6 +469,8 @@ let log_disproved mdl prop =
     | F_xml -> disproved_xml mdl prop
     | F_relay -> ()
 
+(* Log a counterexample *)
+let log_counterexample mdl _ = ()
 
 (* Output statistics of a section of a source *)
 let stat mdl stats =

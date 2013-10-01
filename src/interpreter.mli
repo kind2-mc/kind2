@@ -33,7 +33,7 @@ This file is part of the Kind verifier
     @author Baoluo Meng *)
 
 (** Entry point *)
-val main : unit -> TransSys.t -> unit
+val main : string -> TransSys.t -> unit
 
 (** Cleanup before exit *)
 val on_exit : unit -> unit
