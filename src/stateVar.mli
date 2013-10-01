@@ -71,13 +71,16 @@ module StateVarMap : Map.S with type key = t
 
 (** {1 Constructor} *)
 
-(** Declare a state variable
+(** [mk_state_var n s t] declares a state variable of name [n] and
+    type [t] and flag it as a local definition if [s] is [true]. A
+    variable is a local definition if it does not occur under a [pre]
+    operator.
 
     Declaring a state variable again with the same signature is
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : string -> Type.t -> t
+val mk_state_var : string -> bool -> Type.t -> t
 
 (** Import a state variable from a different instance into this
    hashcons table *)
@@ -107,6 +110,7 @@ val uf_symbol_of_state_var : t -> UfSymbol.t
 (** Return the uninterpreted function symbol of the variable *)
 val state_var_of_uf_symbol : UfSymbol.t -> t
 
+val is_definition : t -> bool
 
 (** {1 Iterators over defined state variables} *)
 

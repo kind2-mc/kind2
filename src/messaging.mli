@@ -61,7 +61,7 @@ type message =
   | ControlMessage of control
   | InvariantMessage of invariant
   | InductionMessage of induction
-  | CounterexampleMessage of counterexample
+  (* | CounterexampleMessage of counterexample *)
 
 
 type ctx

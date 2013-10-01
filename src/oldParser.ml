@@ -906,7 +906,9 @@ let rec il_expression_to_term init = function
       try
         
         (* Get variable info for substituted variable *)
-        let (_, v, t, _) = Kind1.Tables.safe_find_varinfo nk "yc_simplify_var" in
+        let (_, v, t, c) = 
+          Kind1.Tables.safe_find_varinfo nk "yc_simplify_var" 
+        in
 
         let var_type = 
 
@@ -941,7 +943,12 @@ let rec il_expression_to_term init = function
         (* Set variable info for symbol *)
         s.s <- v;
 
-        let state_var = StateVar.mk_state_var v var_type in
+        let state_var = 
+          StateVar.mk_state_var 
+            v 
+            (not (Kind1.Tables.var_is_stateful nk))
+            var_type 
+        in
 
         let var' = 
           Var.mk_state_var_instance 
@@ -1106,6 +1113,99 @@ and il_formula_list_to_term_list init accum = function
     il_formula_list_to_term_list init (e' :: accum) tl
 
 
+
+(* Extract assignment from an equation *)
+let assignment_of_il_equation init l r t =
+
+  (* Extract state variable from left-hand side of equation *)
+  let state_var = match l with 
+
+    (* Left-hand side must be a stream variable at position zero *)
+    | VAR_GET (s, d, (NUM id), POSITION_VAR "M") as e -> 
+
+      (
+
+        (* Get substituted variable from inlining if any *)
+        let nk = Kind1.Tables.resolve_substitution id in
+
+        (debug parse
+           "VAR_GET: %d resolved to %d" id nk
+         in
+
+        (* Keep track of variables used and at what position *)
+        Kind1.Tables.update_used_vars nk d e);
+
+        try
+          
+          (* Get variable info for substituted variable *)
+          let (_, v, t, c) = 
+            Kind1.Tables.safe_find_varinfo nk "yc_simplify_var" 
+          in
+
+          (* Type of variable *)
+          let var_type = match t with 
+            | L_BOOL -> Type.t_bool
+            | L_INT -> Type.t_int
+            | L_INT_RANGE (l, u) -> Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+            | t -> 
+              failwith ("Unsupported type " ^ (lustre_type_to_string t))
+          in
+
+          (* Set variable info for symbol *)
+          s.s <- v;
+
+          (* Create state variable *)
+          StateVar.mk_state_var 
+            v 
+            (not (Kind1.Tables.var_is_stateful nk))
+            var_type 
+
+        with Not_found -> raise (IdNotFound "??")
+
+      )
+
+    | _ -> raise (Invalid_argument "Left-hand side of equation must be primed state variable")
+
+  in
+  
+  (* Extract assigned term from right-hand side *)
+  let term = il_expression_to_term init (None, r) in 
+
+  (* Return pair of state variable and assigned term *)
+  (state_var, term)
+
+
+(* Extract a list of assignments of terms to state variables from a list IL formulas *)
+let rec assignments_of_il_formulas init invariants assignments = function
+
+  (* Extract assignments from each conjunct *)
+  | F_AND (f, g) :: tl -> 
+
+    assignments_of_il_formulas init invariants assignments (f :: g :: tl)
+
+  (* Extract assignment from equation *)
+  | F_EQ (VAR_GET (_, _, (NUM _), POSITION_VAR "M") as l, r, t) :: tl -> 
+
+    assignments_of_il_formulas 
+      init
+      invariants 
+      ((assignment_of_il_equation init l r t) :: assignments) 
+      tl
+
+  (* Treat other terms as invariants *)    
+  | e :: tl -> 
+    
+    assignments_of_il_formulas 
+      init
+      ((il_formula_to_term init e) :: invariants)
+      assignments
+      tl
+
+  (* Return at the end of the stack *)
+  | [] -> (invariants, assignments)
+
+    
+
 let of_channel in_ch =   
 
   (* Must flatten pres *)
@@ -1238,7 +1338,7 @@ let of_channel in_ch =
 
             let p = Term.mk_uf u [state_index] in
 *)
-            let sv = StateVar.mk_state_var v k in
+            let sv = StateVar.mk_state_var v true k in
 
             let p = 
               Term.mk_var 
@@ -1253,6 +1353,7 @@ let of_channel in_ch =
         
     in
 
+(*
     (* Convert internal representation to initial state constraint *)
     let init_term = 
       il_formula_to_term true fd'
@@ -1262,13 +1363,23 @@ let of_channel in_ch =
     let trans_term = 
       il_formula_to_term false fd' 
     in
+*)
 
     debug parse 
-        ";; Transition relation@\n%a@\n"
-        pp_print_il_formula 
-        fd' 
-    in
-    
+         ";; Transition relation@\n%a@\n"
+         pp_print_il_formula 
+         fd' 
+     in
+     
+
+     (* Convert internal representation to assignments in initial state *)
+     let _, init_assignments = assignments_of_il_formulas true [] [] [fd'] in
+     
+     (* Convert internal representation to assignments in transition *)
+     let invariants, trans_assignments = 
+       assignments_of_il_formulas false [] [] [fd'] 
+     in
+
     (* Convert assertions to a formula *)
     let assert_term =
 
@@ -1290,7 +1401,7 @@ let of_channel in_ch =
           il_expression_to_term true (Some L_BOOL, a)
 
     in
-
+(*
     (* Invariants of transition system *)
     let invars = 
 
@@ -1306,22 +1417,31 @@ let of_channel in_ch =
         assert_term :: TransSys.invars_of_types ()
 
     in
-
+*)
     (* Get declared variables 
 
        TODO: filter for proper state variables here, i.e. variables
        that occur under a pre *)
     let vars = StateVar.fold (fun v a -> v :: a) [] in
 
-    (* Return initial state, unprimed properties and primed properties *)
-    { TransSys.init = [init_term];
-      TransSys.constr = [trans_term];
-      TransSys.trans = [];
-      TransSys.props = props;
-      TransSys.invars = invars;
-      TransSys.props_valid = [];
-      TransSys.props_invalid = [] } 
-      
+    (* Resulting transition system *)
+    let res =
+      { TransSys.init = init_assignments;
+        TransSys.constr = StateVar.StateVarHashtbl.create (List.length trans_assignments);
+        TransSys.trans = [];
+        TransSys.props = props;
+        TransSys.invars = invariants;
+        TransSys.props_valid = [];
+        TransSys.props_invalid = [];
+        TransSys.constr_dep = StateVar.StateVarHashtbl.create (List.length trans_assignments) } 
+    in
+
+    (* Add definition to transition relation *)
+    TransSys.constr_of_def_list res.constr trans_assignments;
+
+    (* Return transition system *)
+    res
+
   with 
 
     (* Type mismatch in parsing *)

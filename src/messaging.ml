@@ -87,7 +87,7 @@ type message =
   | ControlMessage of control
   | InvariantMessage of invariant 
   | InductionMessage of induction
-  | CounterexampleMessage of counterexample
+(*  | CounterexampleMessage of counterexample *)
 
 type ctx = ZMQ.zctx
 type socket = ZMQ.zsocket
@@ -120,10 +120,10 @@ let pp_print_message ppf = function
 
   | InductionMessage (BMCSTATE (k, _)) -> 
     Format.fprintf ppf "BMCSTATE(%d, _)" k
-                                         
+(*                                         
   | CounterexampleMessage (COUNTEREXAMPLE n) -> 
     Format.fprintf ppf "COUNTEREXAMPLE(%d)" n
-
+*)
 
 (******************************)
 (*  Threadsafe locking queue  *)
@@ -373,6 +373,7 @@ let zmsg_of_msg msg =
       ignore(zmsg_pushstr zmsg "INDUCTION");
       zmsg
 
+(*
     | CounterexampleMessage payload ->
 
       (match payload with
@@ -385,6 +386,7 @@ let zmsg_of_msg msg =
       ignore(zmsg_pushstr zmsg sender);
       ignore(zmsg_pushstr zmsg "COUNTEREXAMPLE");
       zmsg
+*)
 
 
 let string_of_msg msg = 
@@ -441,12 +443,15 @@ let string_of_msg msg =
               "]))"
         )
 
+(*
       | CounterexampleMessage payload ->
 
         (match payload with
           | COUNTEREXAMPLE (n) -> 
             "CounterexampleMessage(" ^ (string_of_int n) ^ ")";
         )
+*)
+
   in 
 
   str
@@ -556,10 +561,12 @@ let msg_of_zmsg zmsg =
 
         | _ -> raise BadMessage)
 
+(*
     | "COUNTEREXAMPLE" ->
       let n = int_of_string (zmsg_popstr zmsg) in
       (sender, CounterexampleMessage(COUNTEREXAMPLE(n)))
-      
+*)
+    
     | _ -> raise BadMessage
              
 
@@ -678,6 +685,7 @@ let im_handle_messages workers worker_status invariant_id invariants =
 
             )
 
+(*
           | CounterexampleMessage(n) ->
 
             (* send as is *)
@@ -685,6 +693,8 @@ let im_handle_messages workers worker_status invariant_id invariants =
             enqueue 
               ((List.assoc sender workers), payload) 
               incoming_handled
+
+*)
 
           );
 
@@ -957,8 +967,8 @@ let worker_handle_messages
             )
             
           (* in all other cases, enqueue to incoming_handled *)
-          | InductionMessage _
-          | CounterexampleMessage _ ->              
+          | InductionMessage _ ->
+          (* | CounterexampleMessage _ -> *)
 
             enqueue
               (`INVMAN, payload) 

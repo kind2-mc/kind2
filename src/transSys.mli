@@ -42,12 +42,12 @@ type t =
 
 	 A list of formulas over system variables, no previous state
 	 variables occur here *)
-      mutable init : Term.t list;         
+      mutable init : (StateVar.t * Term.t) list;
 
       (* CONSTR: global state constraints 
 
 	 A list of formulas describing invariants of the system *)
-      mutable constr : Term.t list;   
+      mutable constr : Term.t StateVar.StateVarHashtbl.t;
 
       (* TRANS: guarded transitions
 
@@ -67,7 +67,13 @@ type t =
       (** Properties proved to be invalid *)
       mutable props_invalid : (string * Term.t) list;
 
+      (** Variable dependencies in CONSTR *)
+      constr_dep : StateVar.StateVarSet.t StateVar.StateVarHashtbl.t;
+
     }
+
+(** Add pairs of state variable and definition to hash table *)
+val constr_of_def_list : Term.t StateVar.StateVarHashtbl.t -> (StateVar.t * Term.t) list -> unit
 
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
@@ -83,11 +89,14 @@ val bump_state : int -> Term.t -> Term.t
 (** Return the variables at the given offset occurring in the term *)
 val vars_at_offset_of_term : int -> Term.t -> Var.t list
 
+(** Return the stateful variables at the given offset occurring in the term *)
+val state_vars_at_offset_of_term : int -> Term.t -> Var.t list
+
 (** Return the variables occurring in the term *)
 val vars_of_term : Term.t -> Var.t list
 
 (** Return variables of the transitions system at bounds zero and one *)
-val vars : t -> Var.t list 
+val vars : t -> Var.t list
 
 (** Return state variables of the transitions system *)
 val state_vars : t -> StateVar.t list 
@@ -111,6 +120,19 @@ val invars_of_bound : int -> t -> Term.t
 
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit 
+
+(** {1 Dependency order} *)
+
+(*
+(** Order state variables by dependency in CONSTR: a variables is smaller than all the variables is depends on *)
+val compare_state_vars_constr_dep : t -> StateVar.t -> StateVar.t -> int 
+*)
+
+(** Get all definitions of state variables from CONSTR
+
+    The definitions are returned in reverse dependency order, leaf
+    definitions at the end, ready to be applied as let bindings to a term *)
+val constr_defs_of_state_vars : t -> StateVar.t list -> (Var.t * Term.t) list
 
 (** {1 Log messages}
 

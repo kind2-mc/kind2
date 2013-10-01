@@ -62,6 +62,12 @@ val decimal_of_float : float -> decimal
 (** Convert an infinite-precision integer numeral to an OCaml integer *)
 val int_of_numeral : numeral -> int 
 
+(* Constant zero *)
+val num_zero : numeral
+
+(* Constant one *)
+val num_one : numeral
+
 (** Convert an OCaml float to an infinite-precision real decimal *)
 val float_of_decimal : decimal -> float 
 

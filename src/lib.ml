@@ -451,6 +451,11 @@ let pp_print_bitvector_x ppf b =
 (* Convert an OCaml integer to an infinite-precision integer numeral *)
 let numeral_of_int i = HString.mk_hstring (Printf.sprintf "%i%!" i)
 
+(* Constant zero *)
+let num_zero = numeral_of_int 0
+
+(* Constant one *)
+let num_one = numeral_of_int 1
 
 (* Convert an OCaml float to an infinite-precision real decimal *)
 let decimal_of_float f = 

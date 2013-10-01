@@ -317,7 +317,7 @@ let proved_xml mdl prop =
     pp_print_kind_module_xml_src mdl
 
 
-(* Output disproved property as XML*)
+(* Output disproved property as XML *)
 let disproved_xml mdl prop = 
 
   (ignore_or_fprintf L_fatal)
@@ -328,6 +328,33 @@ let disproved_xml mdl prop =
     prop
     pp_print_kind_module_xml_src mdl
   
+
+let rec pp_print_values_xml i ppf = function
+  | [] -> ()
+  | t :: [] -> Format.fprintf ppf "@[<hv 2><Value time=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" i Term.pp_print_term t
+  | t :: tl -> Format.fprintf ppf "%a@;<0 -2>%a" (pp_print_values_xml i) [t] (pp_print_values_xml (succ i)) tl
+
+
+let pp_print_state_var_values_xml ppf (state_var, values) = 
+
+  Format.fprintf 
+    ppf
+    "@[<hv 2><Signal name=\"%a\" node=\"%s\" type=\"%a\">@,\
+     @[<hv 2>%a@]@;<0 -2>\
+     </Signal>@]"
+    StateVar.pp_print_state_var state_var
+    "top"
+    Type.pp_print_type (StateVar.type_of_state_var state_var)
+    (pp_print_values_xml 0) values
+
+(* Output counterexample as XML *)
+let counterexample_xml mdl cex = 
+
+  (ignore_or_fprintf L_fatal)
+    !log_ppf 
+    "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
+    (pp_print_list pp_print_state_var_values_xml "@,") cex
+    
 
 (* Output statistics section as XML *)
 let stat_xml mdl stats =
@@ -351,7 +378,7 @@ let progress_xml mdl k =
 
   Format.fprintf
     !log_ppf
-    "@[<hv 2><progress source=\"%a\">%d@;<0 -2></stat>@]@."
+    "@[<hv 2><progress source=\"%a\">%d@;<0 -2></progress>@]@."
     pp_print_kind_module_xml_src mdl
     k
 
@@ -469,8 +496,14 @@ let log_disproved mdl prop =
     | F_xml -> disproved_xml mdl prop
     | F_relay -> ()
 
+
 (* Log a counterexample *)
-let log_counterexample mdl _ = ()
+let log_counterexample mdl cex = 
+  match !log_format with 
+    | F_pt -> counterexample_xml mdl cex
+    | F_xml -> counterexample_xml mdl cex
+    | F_relay -> ()
+
 
 (* Output statistics of a section of a source *)
 let stat mdl stats =
@@ -655,7 +688,6 @@ let recv () =
 
           (* Drop control messages *)
           | _, Messaging.ControlMessage _ 
-          | _, Messaging.CounterexampleMessage _ 
           | _, Messaging.InvariantMessage (Messaging.RESEND _) -> accum 
 
           (* Pass BMC status messages *)
