@@ -13,7 +13,7 @@ The commands
     ./build.sh
     make install
 
-will build ZeroMQ, CZMQ, the OCaml bindings and Kind 2 and install the binary `kind2` into `/usr/local/bin`. Call `./build.sh --prefix=<path>` to install the Kind 2 binary into `<path>/bin` instead. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call.
+will configure and build ZeroMQ, CZMQ, the OCaml bindings and Kind 2 and install the binary `kind2` into `/usr/local/bin`. Call `./build.sh --prefix=<path>` to install the Kind 2 binary into `<path>/bin` instead. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call. Use `./configure --help` after `autogen.sh` to see all available options.
 
 You need a supported SMT solver, at the momemt either CVC4 or Z3 on your path. Either one or both will be picked up by the `build.sh` command. Alternatively, you can give one or both of the options `--with-cvc4=<cvc4-executable>` and `--with-z3=<z3-executable>`. Z3 will be chosen as default if it is available, you can override this with the option `--with-default-smtsolver=cvc4`.
 

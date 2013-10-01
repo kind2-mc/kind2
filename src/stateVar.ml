@@ -60,8 +60,14 @@ type state_var_prop =
     var_type : Type.t;
 
     (* The uninterpreted symbol associated with the variable *)
-    uf_symbol : UfSymbol.t
+    uf_symbol : UfSymbol.t;
   
+    (* True if variable does not occur under a pre operator *)
+    mutable is_definition : bool;
+
+    (* True if variable does not occur under a pre operator *)
+    mutable is_input : bool;
+
   }
 
 (* A hashconsed state variable *)
@@ -189,9 +195,17 @@ let string_of_state_var s = string_of_t pp_print_state_var s
 let name_of_state_var { Hashcons.node = s } = s
 
 
+(* Return true if state variable is a local definition *)
+let is_definition { Hashcons.prop = { is_definition = d } } = d
+
+
+(* Return true if state variable is an input variable *)
+let is_input { Hashcons.prop = { is_input = i } } = i
+
+
 (* Original identifier of a state variable *)
 let original_name_of_state_var { Hashcons.node = s } = 
-    Kind1.Tables.internal_name_to_original_name s
+  Kind1.Tables.internal_name_to_original_name s
 
 
 (* Type of a state variable *)
@@ -214,68 +228,81 @@ let state_var_of_uf_symbol u =
 
 
 (* Hashcons a state variable *)
-let mk_state_var s t = 
+let mk_state_var n d t = 
 
   try 
-    
+
     (* Get previous declaration of identifier *)
-    let v = Hstate_var.find ht s in
+    let { Hashcons.prop = p } as v = Hstate_var.find ht n in
 
     if 
-      
+
       (* Return type matches previous declaration? *)
       type_of_state_var v = t
-        
+
     then
-      
-      (* Return previously declared symbol *)
-      v
+
+      (
+
+        (* Change from local definition to stateful, but not vice versa *)
+        p.is_definition <- p.is_definition || d;
         
+        (* Return previously declared symbol *)
+        v
+
+      )
+
     else
 
       raise 
         (Invalid_argument 
-           ("State variable " ^ s ^ " redeclared with different type"))
-        
+           ("State variable " ^ n ^ " redeclared with different type"))
+
   (* State variable is not in the hashcons table *)
   with Not_found | Hstate_var.Key_not_found _ -> 
-    
+
     try 
 
-      let _ = UfSymbol.uf_symbol_of_string s in
-      
+      let _ = UfSymbol.uf_symbol_of_string n in
+
       raise 
         (Invalid_argument 
-           ("State variable " ^ s ^ " conflicts with uninterpreted function symbol"))
+           ("State variable " ^ n ^ " conflicts with uninterpreted function symbol"))
 
     with Not_found -> 
 
       (debug stateVar
-        "Variable %s is originally %s, maps back to %s"
-        s
-        (Kind1.Tables.internal_name_to_original_name s)
-        (Kind1.Tables.original_name_to_internal_name
-           (Kind1.Tables.internal_name_to_original_name s))
+          "Variable %s, is_definition: %B"
+          n
+          d
        in
 
-      (* Create an uninterpreted function symbol for the state variable *)
-      let u = UfSymbol.mk_uf_symbol s [Type.mk_int ()] t in
-        
-      (* Hashcons state variable *)
-      let sv = Hstate_var.hashcons ht s { var_type = t; uf_symbol = u } in
-        
-      (* Remember association of uninterpreted function symbol with
-         state variable *)
-      UfSymbol.UfSymbolHashtbl.add uf_symbols_map u sv;
+       (* Create an uninterpreted function symbol for the state variable *)
+       let u = UfSymbol.mk_uf_symbol n [Type.mk_int ()] t in
 
-      (* Return state variable *)
-      sv)
+       (* Hashcons state variable *)
+       let sv = 
+         Hstate_var.hashcons 
+           ht 
+           n 
+           { var_type = t; uf_symbol = u; is_definition = d; is_input = false } 
+       in
+
+       (* Remember association of uninterpreted function symbol with
+          state variable *)
+       UfSymbol.UfSymbolHashtbl.add uf_symbols_map u sv;
+
+       (* Return state variable *)
+       sv)
 
 
 (* Import a state variable from a different instance into this
    hashcons table *)
 let import v = 
-  mk_state_var (name_of_state_var v) (Type.import (type_of_state_var v))
+  mk_state_var 
+    (name_of_state_var v) 
+    (is_definition v) 
+    (Type.import (type_of_state_var v))
 
 
 (* Return a previously declared state variable *)
