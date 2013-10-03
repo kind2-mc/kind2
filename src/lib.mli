@@ -53,6 +53,9 @@ val ( +/ ) : decimal -> decimal -> decimal
 (** Increment the given numeral by one *)
 val incr_numeral : numeral -> numeral
 
+(** Decrement the given numeral by one *)
+val decr_numeral : numeral -> numeral
+
 (** Convert an OCaml integer to an infinite-precision integer numeral *)
 val numeral_of_int : int -> numeral
 
