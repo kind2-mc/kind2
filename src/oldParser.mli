@@ -36,6 +36,13 @@ This file is part of the Kind verifier
     @author Christoph Sticksel
 *)
 
+
+(** Convert a Kind-1 IL expression to a term *)
+val il_expression_to_term : bool -> Kind1.Types.il_formula -> Term.t
+
+(** Convert a Kind-1 IL formula to a term *)
+val il_formula_to_term : bool -> Kind1.Types.il_formula -> Term.t
+
 (** Parse from the channel *)
 val of_channel : in_channel -> TransSys.t
 
