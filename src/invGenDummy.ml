@@ -71,7 +71,12 @@ let rec inv_gen_dummy k =
   (* Generate the k-th tautological invariant *)
   let inv = mk_inv k in 
 
-  Event.log `INVGEN Event.L_debug "Sending invariant %d" k;
+  Event.log 
+    `INVGEN 
+    Event.L_debug 
+    "Sending invariant %d: %a" 
+    k 
+    Term.pp_print_term inv;
 
   (* Broadcast the invariant *)
   Event.invariant `INVGEN inv;
