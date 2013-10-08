@@ -161,7 +161,7 @@ val log_disproved : Lib.kind_module -> string -> unit
 val log_proved : Lib.kind_module -> string -> unit
  
 (** Log a counterexample *)
-val log_counterexample : Lib.kind_module -> (Var.t * Term.t) list -> unit 
+val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 
 
 
 

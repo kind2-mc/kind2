@@ -6,6 +6,9 @@ export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
 kind2: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.native
 
+kind2-top: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) kind2.top
+
 kind2-prof: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) -tag profile kind2.native
 

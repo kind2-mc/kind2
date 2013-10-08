@@ -1,0 +1,941 @@
+
+node DA5(GroundTrack_OrbitalPosition: int; 
+      GroundTrack_OrbitalVelocity: int; 
+      dockVisibility_status: int; 
+      opticsAvailability_status: bool; 
+      sunlight_status: bool; 
+      GPS_satelliteVisibility_status: int; 
+      GPS_receiverAvailability_status: bool; 
+      StarPlanetTracker_planetVisibility: int; 
+      StarPlanetTracker_starVisibility: int; 
+      InertialNavigation_time: bool; 
+      GroundTrack_Time: int; 
+      RealTimeClock_time: int; 
+      StageTransition: int)
+   returns (CaptureApproachComplete: bool; 
+      DockingApproachComplete: bool; 
+      AttemptingToDock: bool; 
+      LatchCaptureComplete: bool; 
+      DockingApproach: bool; 
+      ApproachOrbitComplete: bool; 
+      FarApproachComplete: bool; 
+      ProximityOperationsComplete: bool; 
+      FailedApproach: bool; 
+      JointMission: bool; 
+      CaptureApproachFailed: bool);
+
+var
+   MWI_FcnMin_Out1: int; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer: int; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status: int; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck: subrange [0, 4] of int; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart: subrange [0, 1] of int; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates: subrange [0, 12] of int; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FailedApproach: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete: bool; 
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete: bool; 
+   sequence1: bool; 
+   sequence2: bool; 
+   sequence3: bool; 
+   sequence4: bool; 
+   sequence5: bool; 
+   sequence6: bool; 
+   sequence7: bool; 
+   sequence8: bool; 
+   sequence9: bool; 
+   sequence10: bool; 
+   sequence11: bool;
+
+
+let --%MAIN
+   sequence11 = (( not FailedApproach) or 
+      ( not ApproachOrbitComplete));
+
+   sequence10 = (( not JointMission) or 
+      CaptureApproachComplete);
+
+   sequence9 = (( not LatchCaptureComplete) or 
+      CaptureApproachComplete);
+
+   sequence8 = (( not DockingApproachComplete) or 
+      CaptureApproachComplete);
+
+   sequence7 = true;
+
+   sequence6 = ( not (CaptureApproachFailed and 
+      CaptureApproachComplete));
+
+   sequence5 = (( not CaptureApproachComplete) or 
+      FarApproachComplete);
+
+   sequence4 = (( not FarApproachComplete) or 
+      ProximityOperationsComplete);
+
+   sequence3 = (( not ProximityOperationsComplete) or 
+      ApproachOrbitComplete);
+
+   sequence2 = (( not ((((ApproachOrbitComplete and 
+      ProximityOperationsComplete) and 
+      FarApproachComplete) and 
+      CaptureApproachComplete) and 
+      DockingApproachComplete)) or 
+      (AttemptingToDock or 
+      LatchCaptureComplete));
+
+   sequence1 = (( not AttemptingToDock) or 
+      ((((ApproachOrbitComplete and 
+      ProximityOperationsComplete) and 
+      FarApproachComplete) and 
+      CaptureApproachComplete) and 
+      DockingApproachComplete));
+
+   MWI_FcnMin_Out1 = 
+      (if ((Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer + 1) < 9)
+         then (Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer + 1)
+         else 9);
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete = (false -> ( pre CaptureApproachComplete));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete = (false -> ( pre LatchCaptureComplete));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete = (false -> ( pre ApproachOrbitComplete));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete = (false -> ( pre DockingApproachComplete));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission = (false -> ( pre JointMission));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete = (false -> ( pre ProximityOperationsComplete));
+
+   DockingApproach = false;
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FailedApproach = (false -> ( pre FailedApproach));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock = (false -> ( pre AttemptingToDock));
+
+   CaptureApproachFailed = false;
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete = (false -> ( pre FarApproachComplete));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = (0 -> ( pre 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then 
+                        (if (StageTransition = 0)
+                           then 3
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then 
+                        (if (StageTransition = 8)
+                           then 
+                                 /* Entering state: Chart>MissionPhaseStates>FailedApproach. */
+                                 7
+                           else 
+                        (if (StageTransition = 6)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>CollisionAvoidanceManuever
+                                    Transition Guarded By: uint8((StageTransition == int8(6)))
+                                    Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                                 3
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        (if (StageTransition = 2)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>ApproachOrbit
+                                    Transition Guarded By: uint8((StageTransition == int8(2)))
+                                    Destination: Chart>MissionPhaseStates>ProximityOperations */
+                                 4
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        (if (StageTransition = 1)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>ProximityOperations
+                                    Transition Guarded By: uint8((StageTransition == int8(1)))
+                                    Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                                 3
+                           else 
+                        (if (StageTransition = 3)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>ProximityOperations
+                                    Transition Guarded By: uint8((StageTransition == int8(3)))
+                                    Destination: Chart>MissionPhaseStates>FarApproach */
+                                 6
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then 
+                        (if (StageTransition = 7)
+                           then 2
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then 
+                        (if (StageTransition = 5)
+                           then 2
+                           else 
+                        (if (StageTransition = 4)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>FarApproach
+                                    Transition Guarded By: uint8((StageTransition == int8(4)))
+                                    Destination: Chart>MissionPhaseStates>CaptureApproach */
+                                 9
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        (if (StageTransition = 5)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>CaptureApproach
+                                    Transition Guarded By: uint8((StageTransition == int8(5)))
+                                    Destination: Chart>MissionPhaseStates>DockingApproach */
+                                 11
+                           else 2)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then 
+                        (if (StageTransition = 9)
+                           then 5
+                           else 
+                        (if (StageTransition = 10)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>JointStabilize
+                                    Transition Guarded By: uint8((StageTransition == int8(10)))
+                                    Destination: Chart>MissionPhaseStates>JointMission */
+                                 8
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then 
+                        (if (StageTransition = 6)
+                           then 
+                                 /* Exiting state: Chart>MissionPhaseStates>DockingApproach and immediately entering: Chart>MissionPhaseStates>LatchCapture. */
+                                 12
+                           else 9)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 12)
+                  then 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 1)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 2)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 3)
+                           then 11
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 4)
+                           then 10
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates))))
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates))))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               1)));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = (0 -> ( pre 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               1)));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = (0 -> ( pre 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then 
+                        (if (StageTransition = 6)
+                           then 
+                                 /* Entering state: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>CheckLatchOpen. */
+                                 1
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 12)
+                  then 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 1)
+                           then 
+                                 (if (MWI_FcnMin_Out1 = 8)
+                                    then 3
+                                    else 
+                                          /* Exiting state: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>CheckLatchOpen and immediately entering: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>CheckLatchMated. */
+                                          2)
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 2)
+                           then 
+                                 (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status = 3)
+                                    then 
+                                          /* Evaluating Transition
+                                             Source: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>CheckLatchMated
+                                             Transition Guarded By: uint8((latch_status == MATED))
+                                             Destination: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>Docked */
+                                          4
+                                    else 
+                                 (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status = 2)
+                                    then 3
+                                    else 
+                                 (if (MWI_FcnMin_Out1 = 8)
+                                    then 3
+                                    else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck)))
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 3)
+                           then 0
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 4)
+                           then 0
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck))))
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck))))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck)));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status = (0 -> ( pre 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then 
+                        /* Exiting state: Chart>MissionPhaseStates>DockingApproach and immediately entering: Chart>MissionPhaseStates>LatchCapture. */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 12)
+                  then 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 1)
+                           then 
+                                 (if (MWI_FcnMin_Out1 = 8)
+                                    then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status
+                                    else 
+                                          /* Exiting state: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>CheckLatchOpen and immediately entering: Chart>MissionPhaseStates>LatchCapture>LatchCaptureCheck>CheckLatchMated. */
+                                          3)
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status)
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status))))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status)));
+
+   Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer = (0 -> ( pre 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then 
+                        (if (StageTransition = 6)
+                           then 0
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 12)
+                  then MWI_FcnMin_Out1
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer))))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_LatchCapture_timer)));
+
+   CaptureApproachComplete = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then ((not (StageTransition = 8)) and 
+                        ((not (StageTransition = 6)) and 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then ((StageTransition = 5) or 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete)
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete)))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_CaptureApproachComplete);
+
+   LatchCaptureComplete = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then 
+                        /* Exiting state: Chart>MissionPhaseStates>DockingApproach and immediately entering: Chart>MissionPhaseStates>LatchCapture. */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 12)
+                  then 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 1)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 2)
+                           then ((Chart_main_simp_rlt_node_state1_rlt_chart_data_vars_Chart_latch_status = 3) or 
+                                 Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete)
+                           else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete))
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete))))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_LatchCaptureComplete);
+
+   ApproachOrbitComplete = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then ((not (StageTransition = 8)) and 
+                        ((not (StageTransition = 6)) and 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then ((StageTransition = 2) or 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then ((not (StageTransition = 1)) and 
+                        
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(3)))
+                           Destination: Chart>MissionPhaseStates>FarApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete)
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ApproachOrbitComplete);
+
+   DockingApproachComplete = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then ((StageTransition = 6) or 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete)
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete)))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_DockingApproachComplete);
+
+   JointMission = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then 
+                        (if (StageTransition = 9)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission
+                           else ((StageTransition = 10) or 
+                                 Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission))
+                  else 
+                        /* Exiting state: Chart>MissionPhaseStates>DockingApproach and immediately entering: Chart>MissionPhaseStates>LatchCapture. */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_JointMission);
+
+   ProximityOperationsComplete = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then ((not (StageTransition = 8)) and 
+                        ((not (StageTransition = 6)) and 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        (if (StageTransition = 1)
+                           then 
+                                 /* Evaluating Transition
+                                    Source: Chart>MissionPhaseStates>ProximityOperations
+                                    Transition Guarded By: uint8((StageTransition == int8(1)))
+                                    Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                                 Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete
+                           else ((StageTransition = 3) or 
+                                 Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete))
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_ProximityOperationsComplete);
+
+   FailedApproach = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FailedApproach
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then ((StageTransition = 8) or 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FailedApproach)
+                  else 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FailedApproach))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FailedApproach);
+
+   AttemptingToDock = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 7)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 8)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 9)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>CaptureApproach
+                           Transition Guarded By: uint8((StageTransition == int8(5)))
+                           Destination: Chart>MissionPhaseStates>DockingApproach */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 10)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 11)
+                  then ((StageTransition = 6) or 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock)
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 12)
+                  then 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 1)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                           else 
+                        (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 2)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock
+                           else ((not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 3)) and 
+                                 ((not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates_LatchCapture_LatchCaptureCheck = 4)) and 
+                                 Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock))))
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock))))))))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_AttemptingToDock);
+
+   FarApproachComplete = 
+      (if (not (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart = 0))
+         then 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 1)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 2)
+                  then ((not (StageTransition = 8)) and 
+                        ((not (StageTransition = 6)) and 
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete))
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 3)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ApproachOrbit
+                           Transition Guarded By: uint8((StageTransition == int8(2)))
+                           Destination: Chart>MissionPhaseStates>ProximityOperations */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 4)
+                  then 
+                        /* Evaluating Transition
+                           Source: Chart>MissionPhaseStates>ProximityOperations
+                           Transition Guarded By: uint8((StageTransition == int8(1)))
+                           Destination: Chart>MissionPhaseStates>ApproachOrbit */
+                        Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 5)
+                  then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete
+                  else 
+               (if (Chart_main_simp_rlt_node_state1_rlt_chart_data_states_Chart_MissionPhaseStates = 6)
+                  then 
+                        (if (StageTransition = 5)
+                           then Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete
+                           else ((StageTransition = 4) or 
+                                 Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete))
+                  else Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete))))))
+         else 
+               /* Entering state: Chart>MissionPhaseStates>Start. */
+               Chart_main_simp_rlt_node_state1_rlt_chart_data_outports_FarApproachComplete);
+
+   --Line 168
+--%PROPERTY sequence1; 
+
+   --Line 169
+--%PROPERTY sequence2; 
+
+   --Line 170
+--%PROPERTY sequence3; 
+
+   --Line 171
+--%PROPERTY sequence4; 
+
+   --Line 172
+--%PROPERTY sequence5; 
+
+   --Line 173
+--%PROPERTY sequence6; 
+
+   --Line 174
+--%PROPERTY sequence7; 
+
+   --Line 175
+--%PROPERTY sequence8; 
+
+   --Line 176
+--%PROPERTY sequence9; 
+
+   --Line 177
+--%PROPERTY sequence10; 
+
+   --Line 178
+--%PROPERTY sequence11;
+
+tel;
+
+

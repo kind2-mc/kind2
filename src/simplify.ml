@@ -408,7 +408,7 @@ let subtract_and_normalize_polynomials
     | (c, []) when c = zero -> true, r
 
     (* Constant is zero, first coefficient is negative *)
-    | (c, (h, _) :: tl) when c = zero & h < zero -> false, negate_polynomial r
+    | (c, (h, _) :: tl) when c = zero && h < zero -> false, negate_polynomial r
 
     (* Constant is zero, first coefficient is not negative *)
     | (c, (h, _) :: tl) when c = zero -> true, r

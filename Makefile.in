@@ -18,7 +18,7 @@ bindir=@bindir@
 
 all: kind2
 
-.PHONY: ocamlczmq
+.PHONY: ocamlczmq kind2 kind2-prof kind2-top kind2-doc 
 
 ocamlczmq: 
 	cd ocamlczmq && ./build.sh
@@ -28,12 +28,12 @@ kind2:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2
 
-kind2-prof: ocamlczmq
+kind2-prof: 
 	make -C src kind2-prof
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.native $(LOCAL_BINDIR)/kind2-prof
 
-kind2-top: ocamlczmq
+kind2-top: 
 	make -C src kind2-top
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/kind2.top $(LOCAL_BINDIR)/kind2-top
@@ -43,15 +43,19 @@ kind2-doc:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/kind2.docdir/* $(LOCAL_DOCDIR)
 
+.PHONY: install clean-kind2 clean-ocamlczmq clean 
+
 install: 
 	mkdir -p ${bindir}
 	for i in $(LOCAL_BINDIR)/*; do install -m 0755 $$i ${bindir}; done
 
-clean:
+clean-kind2:
 	make -C src clean
+
+clean-ocamlczmq:
 	make -C ocamlczmq clean
 
-.PHONY: kind2 Kind-Server clean 
+clean: clean-kind2 clean-ocamlczmq
 
 
 # Remake this Makefile if configuration has changed 
