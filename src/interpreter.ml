@@ -106,7 +106,7 @@ let main input_file transSys =
 
             S.assert_term solver equation;
 
-            (*incr_numeral*) instant)
+            incr_numeral instant)
 
          (numeral_of_int 0)
          
@@ -120,19 +120,21 @@ let main input_file transSys =
     inputs;
 
   if (S.check_sat solver) then
-
+	let rec aux acc state_var k =
+		if (int_of_numeral k) < 0 then
+			acc
+		else
+			aux ((Var.mk_state_var_instance state_var k)::acc) state_var (decr_numeral k)
+			in
     let v = 
-      List.map 
-        (fun sv -> 
-           Var.mk_state_var_instance 
-             sv 
-             (numeral_of_int 0))
-        state_vars 
+      List.fold_left 
+        (fun acc sv -> 
+           aux acc sv (numeral_of_int k))
+        [] state_vars 
     in
 
     let m = S.get_model solver v in
-
-    ()
+	Event.log_counterexample `Interpreter m
 
   else
 
