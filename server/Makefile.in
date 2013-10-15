@@ -5,7 +5,7 @@
 OCAMLBUILD=@OCAMLBUILD@ -classic-display 
 
 
-all: Makefile kind2_server
+all: Makefile kind2-server
 
 kind2-server: myocamlbuild.ml 
 	$(OCAMLBUILD) server.native

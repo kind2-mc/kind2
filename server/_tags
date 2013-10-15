@@ -1,5 +1,5 @@
 # Use Unix, and ZMQ 
-<*.native>: use_unix,use_ZMQ
+<*.native>: annot,use_unix,use_ZMQ
 <*.byte>: use_unix,use_ZMQ
 <*.top>: debug,use_unixuse_ZMQ
 
