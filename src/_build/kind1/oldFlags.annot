@@ -1,0 +1,1782 @@
+"kind1/oldFlags.ml" 43 1798 1802 "kind1/oldFlags.ml" 43 1798 1815
+type(
+  bool ref
+)
+ident(
+  def inlining_mode "kind1/oldFlags.ml" 44 1855 1855 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 43 1798 1818 "kind1/oldFlags.ml" 43 1798 1821
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 43 1798 1822 "kind1/oldFlags.ml" 43 1798 1826
+type(
+  bool
+)
+"kind1/oldFlags.ml" 43 1798 1818 "kind1/oldFlags.ml" 43 1798 1826
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 44 1855 1859 "kind1/oldFlags.ml" 44 1855 1878
+type(
+  int ref
+)
+ident(
+  def aggressive_inlining "kind1/oldFlags.ml" 45 1943 1943 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 44 1855 1881 "kind1/oldFlags.ml" 44 1855 1884
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 44 1855 1885 "kind1/oldFlags.ml" 44 1855 1886
+type(
+  int
+)
+"kind1/oldFlags.ml" 44 1855 1881 "kind1/oldFlags.ml" 44 1855 1886
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 45 1943 1947 "kind1/oldFlags.ml" 45 1943 1963
+type(
+  bool ref
+)
+ident(
+  def rename_long_vars "kind1/oldFlags.ml" 46 2021 2021 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 45 1943 1966 "kind1/oldFlags.ml" 45 1943 1969
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 45 1943 1970 "kind1/oldFlags.ml" 45 1943 1974
+type(
+  bool
+)
+"kind1/oldFlags.ml" 45 1943 1966 "kind1/oldFlags.ml" 45 1943 1974
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 46 2021 2025 "kind1/oldFlags.ml" 46 2021 2041
+type(
+  int
+)
+ident(
+  def long_vars_length "kind1/oldFlags.ml" 47 2092 2092 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 46 2021 2044 "kind1/oldFlags.ml" 46 2021 2045
+type(
+  int
+)
+"kind1/oldFlags.ml" 47 2092 2096 "kind1/oldFlags.ml" 47 2092 2113
+type(
+  bool ref
+)
+ident(
+  def do_negative_index "kind1/oldFlags.ml" 48 2175 2175 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 47 2092 2116 "kind1/oldFlags.ml" 47 2092 2119
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 47 2092 2120 "kind1/oldFlags.ml" 47 2092 2124
+type(
+  bool
+)
+"kind1/oldFlags.ml" 47 2092 2116 "kind1/oldFlags.ml" 47 2092 2124
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 48 2175 2179 "kind1/oldFlags.ml" 48 2175 2192
+type(
+  bool ref
+)
+ident(
+  def loopfree_mode "kind1/oldFlags.ml" 49 2248 2248 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 48 2175 2195 "kind1/oldFlags.ml" 48 2175 2198
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 48 2175 2199 "kind1/oldFlags.ml" 48 2175 2204
+type(
+  bool
+)
+"kind1/oldFlags.ml" 48 2175 2195 "kind1/oldFlags.ml" 48 2175 2204
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 49 2248 2252 "kind1/oldFlags.ml" 49 2248 2269
+type(
+  bool ref
+)
+ident(
+  def termination_check "kind1/oldFlags.ml" 50 2325 2325 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 49 2248 2272 "kind1/oldFlags.ml" 49 2248 2275
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 49 2248 2276 "kind1/oldFlags.ml" 49 2248 2281
+type(
+  bool
+)
+"kind1/oldFlags.ml" 49 2248 2272 "kind1/oldFlags.ml" 49 2248 2281
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 50 2325 2329 "kind1/oldFlags.ml" 50 2325 2350
+type(
+  bool ref
+)
+ident(
+  def pre_refine_state_vars "kind1/oldFlags.ml" 51 2403 2403 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 50 2325 2353 "kind1/oldFlags.ml" 50 2325 2356
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 50 2325 2357 "kind1/oldFlags.ml" 50 2325 2362
+type(
+  bool
+)
+"kind1/oldFlags.ml" 50 2325 2353 "kind1/oldFlags.ml" 50 2325 2362
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 51 2403 2407 "kind1/oldFlags.ml" 51 2403 2414
+type(
+  bool ref
+)
+ident(
+  def bv_mode "kind1/oldFlags.ml" 52 2478 2478 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 51 2403 2417 "kind1/oldFlags.ml" 51 2403 2420
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 51 2403 2421 "kind1/oldFlags.ml" 51 2403 2426
+type(
+  bool
+)
+"kind1/oldFlags.ml" 51 2403 2417 "kind1/oldFlags.ml" 51 2403 2426
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 52 2478 2482 "kind1/oldFlags.ml" 52 2478 2496
+type(
+  bool ref
+)
+ident(
+  def define_mod_div "kind1/oldFlags.ml" 53 2555 2555 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 52 2478 2499 "kind1/oldFlags.ml" 52 2478 2502
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 52 2478 2503 "kind1/oldFlags.ml" 52 2478 2508
+type(
+  bool
+)
+"kind1/oldFlags.ml" 52 2478 2499 "kind1/oldFlags.ml" 52 2478 2508
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 53 2555 2559 "kind1/oldFlags.ml" 53 2555 2564
+type(
+  bool ref
+)
+ident(
+  def debug "kind1/oldFlags.ml" 54 2577 2577 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 53 2555 2567 "kind1/oldFlags.ml" 53 2555 2570
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 53 2555 2571 "kind1/oldFlags.ml" 53 2555 2576
+type(
+  bool
+)
+"kind1/oldFlags.ml" 53 2555 2567 "kind1/oldFlags.ml" 53 2555 2576
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 54 2577 2581 "kind1/oldFlags.ml" 54 2577 2595
+type(
+  bool ref
+)
+ident(
+  def do_k_induction "kind1/oldFlags.ml" 55 2630 2630 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 54 2577 2598 "kind1/oldFlags.ml" 54 2577 2601
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 54 2577 2602 "kind1/oldFlags.ml" 54 2577 2606
+type(
+  bool
+)
+"kind1/oldFlags.ml" 54 2577 2598 "kind1/oldFlags.ml" 54 2577 2606
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 55 2630 2634 "kind1/oldFlags.ml" 55 2630 2645
+type(
+  int ref
+)
+ident(
+  def k_step_size "kind1/oldFlags.ml" 56 2694 2694 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 55 2630 2648 "kind1/oldFlags.ml" 55 2630 2651
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 55 2630 2652 "kind1/oldFlags.ml" 55 2630 2653
+type(
+  int
+)
+"kind1/oldFlags.ml" 55 2630 2648 "kind1/oldFlags.ml" 55 2630 2653
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 56 2694 2698 "kind1/oldFlags.ml" 56 2694 2708
+type(
+  bool ref
+)
+ident(
+  def more_steps "kind1/oldFlags.ml" 57 2758 2758 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 56 2694 2711 "kind1/oldFlags.ml" 56 2694 2714
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 56 2694 2715 "kind1/oldFlags.ml" 56 2694 2720
+type(
+  bool
+)
+"kind1/oldFlags.ml" 56 2694 2711 "kind1/oldFlags.ml" 56 2694 2720
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 57 2758 2762 "kind1/oldFlags.ml" 57 2758 2778
+type(
+  bool ref
+)
+ident(
+  def incr_k_step_size "kind1/oldFlags.ml" 58 2835 2835 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 57 2758 2781 "kind1/oldFlags.ml" 57 2758 2784
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 57 2758 2785 "kind1/oldFlags.ml" 57 2758 2790
+type(
+  bool
+)
+"kind1/oldFlags.ml" 57 2758 2781 "kind1/oldFlags.ml" 57 2758 2790
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 58 2835 2839 "kind1/oldFlags.ml" 58 2835 2847
+type(
+  bool ref
+)
+ident(
+  def abs_mode "kind1/oldFlags.ml" 59 2888 2888 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 58 2835 2850 "kind1/oldFlags.ml" 58 2835 2853
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 58 2835 2854 "kind1/oldFlags.ml" 58 2835 2859
+type(
+  bool
+)
+"kind1/oldFlags.ml" 58 2835 2850 "kind1/oldFlags.ml" 58 2835 2859
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 59 2888 2892 "kind1/oldFlags.ml" 59 2888 2901
+type(
+  bool ref
+)
+ident(
+  def core_mode "kind1/oldFlags.ml" 60 2947 2947 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 59 2888 2904 "kind1/oldFlags.ml" 59 2888 2907
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 59 2888 2908 "kind1/oldFlags.ml" 59 2888 2913
+type(
+  bool
+)
+"kind1/oldFlags.ml" 59 2888 2904 "kind1/oldFlags.ml" 59 2888 2913
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 60 2947 2951 "kind1/oldFlags.ml" 60 2947 2968
+type(
+  bool ref
+)
+ident(
+  def full_subtree_mode "kind1/oldFlags.ml" 61 3011 3011 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 60 2947 2971 "kind1/oldFlags.ml" 60 2947 2974
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 60 2947 2975 "kind1/oldFlags.ml" 60 2947 2980
+type(
+  bool
+)
+"kind1/oldFlags.ml" 60 2947 2971 "kind1/oldFlags.ml" 60 2947 2980
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 61 3011 3015 "kind1/oldFlags.ml" 61 3011 3031
+type(
+  bool ref
+)
+ident(
+  def hybrid_core_mode "kind1/oldFlags.ml" 62 3118 3118 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 61 3011 3034 "kind1/oldFlags.ml" 61 3011 3037
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 61 3011 3038 "kind1/oldFlags.ml" 61 3011 3043
+type(
+  bool
+)
+"kind1/oldFlags.ml" 61 3011 3034 "kind1/oldFlags.ml" 61 3011 3043
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 62 3118 3122 "kind1/oldFlags.ml" 62 3118 3136
+type(
+  bool ref
+)
+ident(
+  def fine_core_mode "kind1/oldFlags.ml" 63 3236 3236 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 62 3118 3139 "kind1/oldFlags.ml" 62 3118 3142
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 62 3118 3143 "kind1/oldFlags.ml" 62 3118 3148
+type(
+  bool
+)
+"kind1/oldFlags.ml" 62 3118 3139 "kind1/oldFlags.ml" 62 3118 3148
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 63 3236 3240 "kind1/oldFlags.ml" 63 3236 3249
+type(
+  bool ref
+)
+ident(
+  def incr_mode "kind1/oldFlags.ml" 64 3295 3295 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 63 3236 3252 "kind1/oldFlags.ml" 63 3236 3255
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 63 3236 3256 "kind1/oldFlags.ml" 63 3236 3261
+type(
+  bool
+)
+"kind1/oldFlags.ml" 63 3236 3252 "kind1/oldFlags.ml" 63 3236 3261
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 64 3295 3299 "kind1/oldFlags.ml" 64 3295 3308
+type(
+  bool ref
+)
+ident(
+  def path_mode "kind1/oldFlags.ml" 65 3350 3350 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 64 3295 3311 "kind1/oldFlags.ml" 64 3295 3314
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 64 3295 3315 "kind1/oldFlags.ml" 64 3295 3320
+type(
+  bool
+)
+"kind1/oldFlags.ml" 64 3295 3311 "kind1/oldFlags.ml" 64 3295 3320
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 65 3350 3354 "kind1/oldFlags.ml" 65 3350 3364
+type(
+  bool ref
+)
+ident(
+  def hpath_mode "kind1/oldFlags.ml" 66 3431 3431 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 65 3350 3367 "kind1/oldFlags.ml" 65 3350 3370
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 65 3350 3371 "kind1/oldFlags.ml" 65 3350 3376
+type(
+  bool
+)
+"kind1/oldFlags.ml" 65 3350 3367 "kind1/oldFlags.ml" 65 3350 3376
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 66 3431 3435 "kind1/oldFlags.ml" 66 3431 3451
+type(
+  bool ref
+)
+ident(
+  def separate_solvers "kind1/oldFlags.ml" 67 3508 3508 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 66 3431 3454 "kind1/oldFlags.ml" 66 3431 3457
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 66 3431 3458 "kind1/oldFlags.ml" 66 3431 3462
+type(
+  bool
+)
+"kind1/oldFlags.ml" 66 3431 3454 "kind1/oldFlags.ml" 66 3431 3462
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 67 3508 3512 "kind1/oldFlags.ml" 67 3508 3525
+type(
+  bool ref
+)
+ident(
+  def var_defs_mode "kind1/oldFlags.ml" 68 3575 3575 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 67 3508 3528 "kind1/oldFlags.ml" 67 3508 3531
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 67 3508 3532 "kind1/oldFlags.ml" 67 3508 3536
+type(
+  bool
+)
+"kind1/oldFlags.ml" 67 3508 3528 "kind1/oldFlags.ml" 67 3508 3536
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 68 3575 3579 "kind1/oldFlags.ml" 68 3575 3591
+type(
+  bool ref
+)
+ident(
+  def checker_mode "kind1/oldFlags.ml" 69 3645 3645 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 68 3575 3594 "kind1/oldFlags.ml" 68 3575 3597
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 68 3575 3598 "kind1/oldFlags.ml" 68 3575 3603
+type(
+  bool
+)
+"kind1/oldFlags.ml" 68 3575 3594 "kind1/oldFlags.ml" 68 3575 3603
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 69 3645 3649 "kind1/oldFlags.ml" 69 3645 3672
+type(
+  bool ref
+)
+ident(
+  def no_inductive_check_mode "kind1/oldFlags.ml" 70 3690 3690 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 69 3645 3675 "kind1/oldFlags.ml" 69 3645 3678
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 69 3645 3679 "kind1/oldFlags.ml" 69 3645 3684
+type(
+  bool
+)
+"kind1/oldFlags.ml" 69 3645 3675 "kind1/oldFlags.ml" 69 3645 3684
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 70 3690 3694 "kind1/oldFlags.ml" 70 3690 3708
+type(
+  bool ref
+)
+ident(
+  def print_all_vars "kind1/oldFlags.ml" 71 3763 3763 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 70 3690 3711 "kind1/oldFlags.ml" 70 3690 3714
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 70 3690 3715 "kind1/oldFlags.ml" 70 3690 3719
+type(
+  bool
+)
+"kind1/oldFlags.ml" 70 3690 3711 "kind1/oldFlags.ml" 70 3690 3719
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 71 3763 3767 "kind1/oldFlags.ml" 71 3763 3778
+type(
+  bool ref
+)
+ident(
+  def hpath_mode1 "kind1/oldFlags.ml" 72 3827 3827 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 71 3763 3781 "kind1/oldFlags.ml" 71 3763 3784
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 71 3763 3785 "kind1/oldFlags.ml" 71 3763 3790
+type(
+  bool
+)
+"kind1/oldFlags.ml" 71 3763 3781 "kind1/oldFlags.ml" 71 3763 3790
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 72 3827 3831 "kind1/oldFlags.ml" 72 3827 3842
+type(
+  bool ref
+)
+ident(
+  def hpath_mode2 "kind1/oldFlags.ml" 73 3891 3891 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 72 3827 3845 "kind1/oldFlags.ml" 72 3827 3848
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 72 3827 3849 "kind1/oldFlags.ml" 72 3827 3854
+type(
+  bool
+)
+"kind1/oldFlags.ml" 72 3827 3845 "kind1/oldFlags.ml" 72 3827 3854
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 73 3891 3895 "kind1/oldFlags.ml" 73 3891 3913
+type(
+  bool ref
+)
+ident(
+  def rev_heuristic_mode "kind1/oldFlags.ml" 74 3962 3962 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 73 3891 3916 "kind1/oldFlags.ml" 73 3891 3919
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 73 3891 3920 "kind1/oldFlags.ml" 73 3891 3925
+type(
+  bool
+)
+"kind1/oldFlags.ml" 73 3891 3916 "kind1/oldFlags.ml" 73 3891 3925
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 74 3962 3966 "kind1/oldFlags.ml" 74 3962 3986
+type(
+  bool ref
+)
+ident(
+  def best_first_path_mode "kind1/oldFlags.ml" 75 4035 4035 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 74 3962 3989 "kind1/oldFlags.ml" 74 3962 3992
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 74 3962 3993 "kind1/oldFlags.ml" 74 3962 3998
+type(
+  bool
+)
+"kind1/oldFlags.ml" 74 3962 3989 "kind1/oldFlags.ml" 74 3962 3998
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 75 4035 4039 "kind1/oldFlags.ml" 75 4035 4052
+type(
+  bool ref
+)
+ident(
+  def print_dot_one "kind1/oldFlags.ml" 76 4084 4084 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 75 4035 4055 "kind1/oldFlags.ml" 75 4035 4058
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 75 4035 4059 "kind1/oldFlags.ml" 75 4035 4064
+type(
+  bool
+)
+"kind1/oldFlags.ml" 75 4035 4055 "kind1/oldFlags.ml" 75 4035 4064
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 76 4084 4088 "kind1/oldFlags.ml" 76 4084 4101
+type(
+  bool ref
+)
+ident(
+  def print_dot_all "kind1/oldFlags.ml" 77 4133 4133 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 76 4084 4104 "kind1/oldFlags.ml" 76 4084 4107
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 76 4084 4108 "kind1/oldFlags.ml" 76 4084 4113
+type(
+  bool
+)
+"kind1/oldFlags.ml" 76 4084 4104 "kind1/oldFlags.ml" 76 4084 4113
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 77 4133 4137 "kind1/oldFlags.ml" 77 4133 4153
+type(
+  int ref
+)
+ident(
+  def force_refinement "kind1/oldFlags.ml" 78 4204 4204 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 77 4133 4156 "kind1/oldFlags.ml" 77 4133 4159
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 77 4133 4160 "kind1/oldFlags.ml" 77 4133 4167
+type(
+  int
+)
+ident(
+  ext_ref Pervasives.max_int
+)
+"kind1/oldFlags.ml" 77 4133 4156 "kind1/oldFlags.ml" 77 4133 4167
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 78 4204 4208 "kind1/oldFlags.ml" 78 4204 4230
+type(
+  bool ref
+)
+ident(
+  def compression_in_checker "kind1/oldFlags.ml" 79 4310 4310 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 78 4204 4233 "kind1/oldFlags.ml" 78 4204 4236
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 78 4204 4237 "kind1/oldFlags.ml" 78 4204 4242
+type(
+  bool
+)
+"kind1/oldFlags.ml" 78 4204 4233 "kind1/oldFlags.ml" 78 4204 4242
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 79 4310 4314 "kind1/oldFlags.ml" 79 4310 4333
+type(
+  bool ref
+)
+ident(
+  def initial_compression "kind1/oldFlags.ml" 80 4386 4386 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 79 4310 4336 "kind1/oldFlags.ml" 79 4310 4339
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 79 4310 4340 "kind1/oldFlags.ml" 79 4310 4345
+type(
+  bool
+)
+"kind1/oldFlags.ml" 79 4310 4336 "kind1/oldFlags.ml" 79 4310 4345
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 80 4386 4390 "kind1/oldFlags.ml" 80 4386 4407
+type(
+  bool ref
+)
+ident(
+  def check_compression "kind1/oldFlags.ml" 81 4455 4455 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 80 4386 4410 "kind1/oldFlags.ml" 80 4386 4413
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 80 4386 4414 "kind1/oldFlags.ml" 80 4386 4418
+type(
+  bool
+)
+"kind1/oldFlags.ml" 80 4386 4410 "kind1/oldFlags.ml" 80 4386 4418
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 81 4455 4459 "kind1/oldFlags.ml" 81 4455 4488
+type(
+  bool ref
+)
+ident(
+  def interleave_termination_checks "kind1/oldFlags.ml" 82 4545 4545 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 81 4455 4491 "kind1/oldFlags.ml" 81 4455 4494
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 81 4455 4495 "kind1/oldFlags.ml" 81 4455 4500
+type(
+  bool
+)
+"kind1/oldFlags.ml" 81 4455 4491 "kind1/oldFlags.ml" 81 4455 4500
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 82 4545 4549 "kind1/oldFlags.ml" 82 4545 4572
+type(
+  bool array
+)
+ident(
+  def static_path_compression "kind1/oldFlags.ml" 83 4643 4643 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 82 4545 4578 "kind1/oldFlags.ml" 82 4545 4583
+type(
+  bool
+)
+"kind1/oldFlags.ml" 82 4545 4584 "kind1/oldFlags.ml" 82 4545 4589
+type(
+  bool
+)
+"kind1/oldFlags.ml" 82 4545 4575 "kind1/oldFlags.ml" 82 4545 4592
+type(
+  bool array
+)
+"kind1/oldFlags.ml" 83 4643 4647 "kind1/oldFlags.ml" 83 4643 4673
+type(
+  bool ref
+)
+ident(
+  def fully_define_initial_state "kind1/oldFlags.ml" 84 4686 4686 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 83 4643 4676 "kind1/oldFlags.ml" 83 4643 4679
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 83 4643 4680 "kind1/oldFlags.ml" 83 4643 4685
+type(
+  bool
+)
+"kind1/oldFlags.ml" 83 4643 4676 "kind1/oldFlags.ml" 83 4643 4685
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 84 4686 4690 "kind1/oldFlags.ml" 84 4686 4692
+type(
+  int ref
+)
+ident(
+  def w1 "kind1/oldFlags.ml" 85 4737 4737 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 84 4686 4695 "kind1/oldFlags.ml" 84 4686 4698
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 84 4686 4699 "kind1/oldFlags.ml" 84 4686 4700
+type(
+  int
+)
+"kind1/oldFlags.ml" 84 4686 4695 "kind1/oldFlags.ml" 84 4686 4700
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 85 4737 4741 "kind1/oldFlags.ml" 85 4737 4743
+type(
+  int ref
+)
+ident(
+  def w2 "kind1/oldFlags.ml" 86 4788 4788 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 85 4737 4746 "kind1/oldFlags.ml" 85 4737 4749
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 85 4737 4750 "kind1/oldFlags.ml" 85 4737 4751
+type(
+  int
+)
+"kind1/oldFlags.ml" 85 4737 4746 "kind1/oldFlags.ml" 85 4737 4751
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 86 4788 4792 "kind1/oldFlags.ml" 86 4788 4821
+type(
+  string ref
+)
+ident(
+  def user_specified_main_node_name "kind1/oldFlags.ml" 87 4866 4866 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 86 4788 4824 "kind1/oldFlags.ml" 86 4788 4827
+type(
+  string -> string ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 86 4788 4828 "kind1/oldFlags.ml" 86 4788 4830
+type(
+  string
+)
+"kind1/oldFlags.ml" 86 4788 4824 "kind1/oldFlags.ml" 86 4788 4830
+type(
+  string ref
+)
+"kind1/oldFlags.ml" 87 4866 4870 "kind1/oldFlags.ml" 87 4866 4878
+type(
+  int ref
+)
+ident(
+  def maxloops "kind1/oldFlags.ml" 88 4928 4928 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 87 4866 4881 "kind1/oldFlags.ml" 87 4866 4884
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 87 4866 4885 "kind1/oldFlags.ml" 87 4866 4888
+type(
+  int
+)
+"kind1/oldFlags.ml" 87 4866 4881 "kind1/oldFlags.ml" 87 4866 4888
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 88 4928 4932 "kind1/oldFlags.ml" 88 4928 4936
+type(
+  bool ref
+)
+ident(
+  def loud "kind1/oldFlags.ml" 89 4980 4980 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 88 4928 4939 "kind1/oldFlags.ml" 88 4928 4942
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 88 4928 4943 "kind1/oldFlags.ml" 88 4928 4948
+type(
+  bool
+)
+"kind1/oldFlags.ml" 88 4928 4939 "kind1/oldFlags.ml" 88 4928 4948
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 89 4980 4984 "kind1/oldFlags.ml" 89 4980 4998
+type(
+  bool ref
+)
+ident(
+  def final_cex_loud "kind1/oldFlags.ml" 90 5058 5058 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 89 4980 5001 "kind1/oldFlags.ml" 89 4980 5004
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 89 4980 5005 "kind1/oldFlags.ml" 89 4980 5009
+type(
+  bool
+)
+"kind1/oldFlags.ml" 89 4980 5001 "kind1/oldFlags.ml" 89 4980 5009
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 90 5058 5062 "kind1/oldFlags.ml" 90 5058 5072
+type(
+  bool ref
+)
+ident(
+  def do_scratch "kind1/oldFlags.ml" 91 5102 5102 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 90 5058 5075 "kind1/oldFlags.ml" 90 5058 5078
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 90 5058 5079 "kind1/oldFlags.ml" 90 5058 5084
+type(
+  bool
+)
+"kind1/oldFlags.ml" 90 5058 5075 "kind1/oldFlags.ml" 90 5058 5084
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 91 5102 5106 "kind1/oldFlags.ml" 91 5102 5118
+type(
+  int ref
+)
+ident(
+  def buffer_limit "kind1/oldFlags.ml" 92 5155 5155 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 91 5102 5121 "kind1/oldFlags.ml" 91 5102 5124
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 91 5102 5125 "kind1/oldFlags.ml" 91 5102 5131
+type(
+  int
+)
+"kind1/oldFlags.ml" 91 5102 5121 "kind1/oldFlags.ml" 91 5102 5131
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 92 5155 5159 "kind1/oldFlags.ml" 92 5155 5170
+type(
+  string ref
+)
+ident(
+  def commentchar "kind1/oldFlags.ml" 93 5181 5181 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 92 5155 5173 "kind1/oldFlags.ml" 92 5155 5176
+type(
+  string -> string ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 92 5155 5177 "kind1/oldFlags.ml" 92 5155 5180
+type(
+  string
+)
+"kind1/oldFlags.ml" 92 5155 5173 "kind1/oldFlags.ml" 92 5155 5180
+type(
+  string ref
+)
+"kind1/oldFlags.ml" 93 5181 5185 "kind1/oldFlags.ml" 93 5181 5198
+type(
+  Types.solvertype ref
+)
+ident(
+  def set_my_solver "kind1/oldFlags.ml" 94 5252 5252 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 93 5181 5201 "kind1/oldFlags.ml" 93 5181 5204
+type(
+  Types.solvertype -> Types.solvertype ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 93 5181 5205 "kind1/oldFlags.ml" 93 5181 5218
+type(
+  Types.solvertype
+)
+"kind1/oldFlags.ml" 93 5181 5201 "kind1/oldFlags.ml" 93 5181 5218
+type(
+  Types.solvertype ref
+)
+"kind1/oldFlags.ml" 94 5252 5256 "kind1/oldFlags.ml" 94 5252 5267
+type(
+  string ref
+)
+ident(
+  def solverflags "kind1/oldFlags.ml" 95 5298 5298 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 94 5252 5270 "kind1/oldFlags.ml" 94 5252 5273
+type(
+  string -> string ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 94 5252 5274 "kind1/oldFlags.ml" 94 5252 5276
+type(
+  string
+)
+"kind1/oldFlags.ml" 94 5252 5270 "kind1/oldFlags.ml" 94 5252 5276
+type(
+  string ref
+)
+"kind1/oldFlags.ml" 95 5298 5302 "kind1/oldFlags.ml" 95 5298 5320
+type(
+  bool ref
+)
+ident(
+  def only_1_abstraction "kind1/oldFlags.ml" 96 5361 5361 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 95 5298 5323 "kind1/oldFlags.ml" 95 5298 5326
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 95 5298 5327 "kind1/oldFlags.ml" 95 5298 5331
+type(
+  bool
+)
+"kind1/oldFlags.ml" 95 5298 5323 "kind1/oldFlags.ml" 95 5298 5331
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 96 5361 5365 "kind1/oldFlags.ml" 96 5361 5375
+type(
+  bool ref
+)
+ident(
+  def abstr_bool "kind1/oldFlags.ml" 97 5411 5411 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 96 5361 5378 "kind1/oldFlags.ml" 96 5361 5381
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 96 5361 5382 "kind1/oldFlags.ml" 96 5361 5387
+type(
+  bool
+)
+"kind1/oldFlags.ml" 96 5361 5378 "kind1/oldFlags.ml" 96 5361 5387
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 97 5411 5415 "kind1/oldFlags.ml" 97 5411 5424
+type(
+  bool ref
+)
+ident(
+  def abstr_ite "kind1/oldFlags.ml" 98 5456 5456 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 97 5411 5427 "kind1/oldFlags.ml" 97 5411 5430
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 97 5411 5431 "kind1/oldFlags.ml" 97 5411 5436
+type(
+  bool
+)
+"kind1/oldFlags.ml" 97 5411 5427 "kind1/oldFlags.ml" 97 5411 5436
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 98 5456 5460 "kind1/oldFlags.ml" 98 5456 5469
+type(
+  bool ref
+)
+ident(
+  def abstr_pre "kind1/oldFlags.ml" 99 5501 5501 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 98 5456 5472 "kind1/oldFlags.ml" 98 5456 5475
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 98 5456 5476 "kind1/oldFlags.ml" 98 5456 5481
+type(
+  bool
+)
+"kind1/oldFlags.ml" 98 5456 5472 "kind1/oldFlags.ml" 98 5456 5481
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 99 5501 5505 "kind1/oldFlags.ml" 99 5501 5522
+type(
+  bool ref
+)
+ident(
+  def abstr_non_var_pre "kind1/oldFlags.ml" 100 5589 5589 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 99 5501 5525 "kind1/oldFlags.ml" 99 5501 5528
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 99 5501 5529 "kind1/oldFlags.ml" 99 5501 5534
+type(
+  bool
+)
+"kind1/oldFlags.ml" 99 5501 5525 "kind1/oldFlags.ml" 99 5501 5534
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 100 5589 5593 "kind1/oldFlags.ml" 100 5589 5615
+type(
+  bool ref
+)
+ident(
+  def abstr_non_var_pre_dist "kind1/oldFlags.ml" 101 5674 5674 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 100 5589 5618 "kind1/oldFlags.ml" 100 5589 5621
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 100 5589 5622 "kind1/oldFlags.ml" 100 5589 5627
+type(
+  bool
+)
+"kind1/oldFlags.ml" 100 5589 5618 "kind1/oldFlags.ml" 100 5589 5627
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 101 5674 5678 "kind1/oldFlags.ml" 101 5674 5683
+type(
+  bool ref
+)
+ident(
+  def use_x "kind1/oldFlags.ml" 102 5746 5746 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 101 5674 5686 "kind1/oldFlags.ml" 101 5674 5689
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 101 5674 5690 "kind1/oldFlags.ml" 101 5674 5695
+type(
+  bool
+)
+"kind1/oldFlags.ml" 101 5674 5686 "kind1/oldFlags.ml" 101 5674 5695
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 102 5746 5750 "kind1/oldFlags.ml" 102 5746 5759
+type(
+  unit -> unit
+)
+ident(
+  def set_use_x "kind1/oldFlags.ml" 103 5780 5780 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 102 5746 5760 "kind1/oldFlags.ml" 102 5746 5762
+type(
+  unit
+)
+"kind1/oldFlags.ml" 102 5746 5766 "kind1/oldFlags.ml" 102 5746 5771
+type(
+  bool ref
+)
+ident(
+  int_ref use_x "kind1/oldFlags.ml" 101 5674 5678 "kind1/oldFlags.ml" 101 5674 5683
+)
+"kind1/oldFlags.ml" 102 5746 5772 "kind1/oldFlags.ml" 102 5746 5774
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/oldFlags.ml" 102 5746 5775 "kind1/oldFlags.ml" 102 5746 5779
+type(
+  bool
+)
+"kind1/oldFlags.ml" 102 5746 5766 "kind1/oldFlags.ml" 102 5746 5779
+type(
+  unit
+)
+"kind1/oldFlags.ml" 103 5780 5784 "kind1/oldFlags.ml" 103 5780 5789
+type(
+  bool ref
+)
+ident(
+  def naive "kind1/oldFlags.ml" 104 5802 5802 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 103 5780 5792 "kind1/oldFlags.ml" 103 5780 5795
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 103 5780 5796 "kind1/oldFlags.ml" 103 5780 5801
+type(
+  bool
+)
+"kind1/oldFlags.ml" 103 5780 5792 "kind1/oldFlags.ml" 103 5780 5801
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 104 5802 5806 "kind1/oldFlags.ml" 104 5802 5812
+type(
+  bool ref
+)
+ident(
+  def no_imp "kind1/oldFlags.ml" 107 5874 5874 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 104 5802 5815 "kind1/oldFlags.ml" 104 5802 5818
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 104 5802 5819 "kind1/oldFlags.ml" 104 5802 5824
+type(
+  bool
+)
+"kind1/oldFlags.ml" 104 5802 5815 "kind1/oldFlags.ml" 104 5802 5824
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 107 5874 5878 "kind1/oldFlags.ml" 107 5874 5881
+type(
+  bool ref
+)
+ident(
+  def xml "kind1/oldFlags.ml" 110 5935 5935 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 107 5874 5884 "kind1/oldFlags.ml" 107 5874 5887
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 107 5874 5888 "kind1/oldFlags.ml" 107 5874 5893
+type(
+  bool
+)
+"kind1/oldFlags.ml" 107 5874 5884 "kind1/oldFlags.ml" 107 5874 5893
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 110 5935 5939 "kind1/oldFlags.ml" 110 5935 5942
+type(
+  bool ref
+)
+ident(
+  def gui "kind1/oldFlags.ml" 113 5997 5997 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 110 5935 5945 "kind1/oldFlags.ml" 110 5935 5948
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 110 5935 5949 "kind1/oldFlags.ml" 110 5935 5954
+type(
+  bool
+)
+"kind1/oldFlags.ml" 110 5935 5945 "kind1/oldFlags.ml" 110 5935 5954
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 113 5997 6001 "kind1/oldFlags.ml" 113 5997 6015
+type(
+  bool ref
+)
+ident(
+  def invariant_bool "kind1/oldFlags.ml" 114 6028 6028 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 113 5997 6018 "kind1/oldFlags.ml" 113 5997 6021
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 113 5997 6022 "kind1/oldFlags.ml" 113 5997 6027
+type(
+  bool
+)
+"kind1/oldFlags.ml" 113 5997 6018 "kind1/oldFlags.ml" 113 5997 6027
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 114 6028 6032 "kind1/oldFlags.ml" 114 6028 6045
+type(
+  bool ref
+)
+ident(
+  def invariant_int "kind1/oldFlags.ml" 115 6058 6058 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 114 6028 6048 "kind1/oldFlags.ml" 114 6028 6051
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 114 6028 6052 "kind1/oldFlags.ml" 114 6028 6057
+type(
+  bool
+)
+"kind1/oldFlags.ml" 114 6028 6048 "kind1/oldFlags.ml" 114 6028 6057
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 115 6058 6062 "kind1/oldFlags.ml" 115 6058 6087
+type(
+  bool ref
+)
+ident(
+  def remove_trivial_invariants "kind1/oldFlags.ml" 116 6100 6100 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 115 6058 6090 "kind1/oldFlags.ml" 115 6058 6093
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 115 6058 6094 "kind1/oldFlags.ml" 115 6058 6099
+type(
+  bool
+)
+"kind1/oldFlags.ml" 115 6058 6090 "kind1/oldFlags.ml" 115 6058 6099
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 116 6100 6104 "kind1/oldFlags.ml" 116 6100 6109
+type(
+  int ref
+)
+ident(
+  def range "kind1/oldFlags.ml" 119 6164 6164 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 116 6100 6112 "kind1/oldFlags.ml" 116 6100 6115
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 116 6100 6116 "kind1/oldFlags.ml" 116 6100 6118
+type(
+  int
+)
+"kind1/oldFlags.ml" 116 6100 6112 "kind1/oldFlags.ml" 116 6100 6118
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 119 6164 6168 "kind1/oldFlags.ml" 119 6164 6181
+type(
+  int ref
+)
+ident(
+  def k_incremental "kind1/oldFlags.ml" 120 6191 6191 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 119 6164 6184 "kind1/oldFlags.ml" 119 6164 6187
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 119 6164 6188 "kind1/oldFlags.ml" 119 6164 6190
+type(
+  int
+)
+"kind1/oldFlags.ml" 119 6164 6184 "kind1/oldFlags.ml" 119 6164 6190
+type(
+  int ref
+)
+"kind1/oldFlags.ml" 120 6191 6195 "kind1/oldFlags.ml" 120 6191 6206
+type(
+  bool ref
+)
+ident(
+  def incremental "kind1/oldFlags.ml" 123 6249 6249 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 120 6191 6209 "kind1/oldFlags.ml" 120 6191 6212
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 120 6191 6213 "kind1/oldFlags.ml" 120 6191 6217
+type(
+  bool
+)
+"kind1/oldFlags.ml" 120 6191 6209 "kind1/oldFlags.ml" 120 6191 6217
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 123 6249 6253 "kind1/oldFlags.ml" 123 6249 6262
+type(
+  bool ref
+)
+ident(
+  def mpi_abort "kind1/oldFlags.ml" 124 6275 6275 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 123 6249 6265 "kind1/oldFlags.ml" 123 6249 6268
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 123 6249 6269 "kind1/oldFlags.ml" 123 6249 6274
+type(
+  bool
+)
+"kind1/oldFlags.ml" 123 6249 6265 "kind1/oldFlags.ml" 123 6249 6274
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 124 6275 6279 "kind1/oldFlags.ml" 124 6275 6293
+type(
+  bool ref
+)
+ident(
+  def stop_invariant "kind1/oldFlags.ml" 127 6328 6328 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 124 6275 6296 "kind1/oldFlags.ml" 124 6275 6299
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 124 6275 6300 "kind1/oldFlags.ml" 124 6275 6305
+type(
+  bool
+)
+"kind1/oldFlags.ml" 124 6275 6296 "kind1/oldFlags.ml" 124 6275 6305
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 127 6328 6332 "kind1/oldFlags.ml" 127 6328 6342
+type(
+  bool ref
+)
+ident(
+  def enabled_z3 "kind1/oldFlags.ml" 130 6382 6382 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 127 6328 6345 "kind1/oldFlags.ml" 127 6328 6348
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 127 6328 6349 "kind1/oldFlags.ml" 127 6328 6354
+type(
+  bool
+)
+"kind1/oldFlags.ml" 127 6328 6345 "kind1/oldFlags.ml" 127 6328 6354
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 130 6382 6386 "kind1/oldFlags.ml" 130 6382 6394
+type(
+  bool ref
+)
+ident(
+  def no_multi "kind1/oldFlags.ml" 131 6408 6408 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 130 6382 6397 "kind1/oldFlags.ml" 130 6382 6400
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 130 6382 6401 "kind1/oldFlags.ml" 130 6382 6406
+type(
+  bool
+)
+"kind1/oldFlags.ml" 130 6382 6397 "kind1/oldFlags.ml" 130 6382 6406
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 131 6408 6412 "kind1/oldFlags.ml" 131 6408 6429
+type(
+  bool ref
+)
+ident(
+  def prop_as_invariant "kind1/oldFlags.ml" 134 6484 6484 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 131 6408 6432 "kind1/oldFlags.ml" 131 6408 6435
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 131 6408 6436 "kind1/oldFlags.ml" 131 6408 6440
+type(
+  bool
+)
+"kind1/oldFlags.ml" 131 6408 6432 "kind1/oldFlags.ml" 131 6408 6440
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 134 6484 6488 "kind1/oldFlags.ml" 134 6484 6500
+type(
+  bool ref
+)
+ident(
+  def inductive_cs "kind1/oldFlags.ml" 137 6560 6560 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 134 6484 6503 "kind1/oldFlags.ml" 134 6484 6506
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 134 6484 6507 "kind1/oldFlags.ml" 134 6484 6512
+type(
+  bool
+)
+"kind1/oldFlags.ml" 134 6484 6503 "kind1/oldFlags.ml" 134 6484 6512
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 137 6560 6564 "kind1/oldFlags.ml" 137 6560 6572
+type(
+  bool ref
+)
+ident(
+  def mode_inv "kind1/oldFlags.ml" 140 6631 6631 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 137 6560 6575 "kind1/oldFlags.ml" 137 6560 6578
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 137 6560 6579 "kind1/oldFlags.ml" 137 6560 6583
+type(
+  bool
+)
+"kind1/oldFlags.ml" 137 6560 6575 "kind1/oldFlags.ml" 137 6560 6583
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 140 6631 6635 "kind1/oldFlags.ml" 140 6631 6644
+type(
+  bool ref
+)
+ident(
+  def select_mv "kind1/oldFlags.ml" 143 6709 6709 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 140 6631 6647 "kind1/oldFlags.ml" 140 6631 6650
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 140 6631 6651 "kind1/oldFlags.ml" 140 6631 6656
+type(
+  bool
+)
+"kind1/oldFlags.ml" 140 6631 6647 "kind1/oldFlags.ml" 140 6631 6656
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 143 6709 6713 "kind1/oldFlags.ml" 143 6709 6724
+type(
+  string ref
+)
+ident(
+  def solver_path "kind1/oldFlags.ml" 146 6751 6751 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 143 6709 6727 "kind1/oldFlags.ml" 143 6709 6730
+type(
+  string -> string ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 143 6709 6731 "kind1/oldFlags.ml" 143 6709 6733
+type(
+  string
+)
+"kind1/oldFlags.ml" 143 6709 6727 "kind1/oldFlags.ml" 143 6709 6733
+type(
+  string ref
+)
+"kind1/oldFlags.ml" 146 6751 6755 "kind1/oldFlags.ml" 146 6751 6758
+type(
+  bool ref
+)
+ident(
+  def gui "kind1/oldFlags.ml" 150 6788 6788 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 146 6751 6761 "kind1/oldFlags.ml" 146 6751 6764
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 146 6751 6765 "kind1/oldFlags.ml" 146 6751 6770
+type(
+  bool
+)
+"kind1/oldFlags.ml" 146 6751 6761 "kind1/oldFlags.ml" 146 6751 6770
+type(
+  bool ref
+)
+"kind1/oldFlags.ml" 150 6788 6792 "kind1/oldFlags.ml" 150 6788 6799
+type(
+  float ref
+)
+ident(
+  def timeout "kind1/oldFlags.ml" 150 6788 6811 "_none_" 1 0 -1
+)
+"kind1/oldFlags.ml" 150 6788 6802 "kind1/oldFlags.ml" 150 6788 6805
+type(
+  float -> float ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/oldFlags.ml" 150 6788 6806 "kind1/oldFlags.ml" 150 6788 6811
+type(
+  float
+)
+"kind1/oldFlags.ml" 150 6788 6802 "kind1/oldFlags.ml" 150 6788 6811
+type(
+  float ref
+)

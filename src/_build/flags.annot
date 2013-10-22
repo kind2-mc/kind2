@@ -1,0 +1,5217 @@
+"flags.ml" 80 2930 2934 "flags.ml" 80 2930 2954
+type(
+  float
+)
+ident(
+  def timeout_wall_default "flags.ml" 84 2981 2981 "_none_" 1 0 -1
+)
+"flags.ml" 80 2930 2957 "flags.ml" 80 2930 2959
+type(
+  float
+)
+"flags.ml" 84 2981 2985 "flags.ml" 84 2981 3008
+type(
+  float
+)
+ident(
+  def timeout_virtual_default "flags.ml" 88 3035 3035 "_none_" 1 0 -1
+)
+"flags.ml" 84 2981 3011 "flags.ml" 84 2981 3013
+type(
+  float
+)
+"flags.ml" 90 3118 3122 "flags.ml" 90 3118 3141
+type(
+  string -> [> `CVC4_API | `CVC4_SMTLIB | `Yices | `Z3_API | `Z3_SMTLIB ]
+)
+ident(
+  def smtsolver_of_string "flags.ml" 100 3395 3395 "_none_" 1 0 -1
+)
+"flags.ml" 91 3153 3157 "flags.ml" 91 3153 3161
+type(
+  string
+)
+"flags.ml" 91 3153 3165 "flags.ml" 91 3153 3175
+type(
+  [> `CVC4_API | `CVC4_SMTLIB | `Yices | `Z3_API | `Z3_SMTLIB ] as 'a
+)
+"flags.ml" 92 3176 3180 "flags.ml" 92 3176 3191
+type(
+  string
+)
+"flags.ml" 92 3176 3195 "flags.ml" 92 3176 3205
+type(
+  'a
+)
+"flags.ml" 93 3206 3210 "flags.ml" 93 3206 3218
+type(
+  string
+)
+"flags.ml" 93 3206 3222 "flags.ml" 93 3206 3229
+type(
+  'a
+)
+"flags.ml" 94 3230 3234 "flags.ml" 94 3230 3240
+type(
+  string
+)
+"flags.ml" 94 3230 3244 "flags.ml" 94 3230 3256
+type(
+  'a
+)
+"flags.ml" 95 3257 3261 "flags.ml" 95 3257 3274
+type(
+  string
+)
+"flags.ml" 95 3257 3278 "flags.ml" 95 3257 3290
+type(
+  'a
+)
+"flags.ml" 96 3291 3295 "flags.ml" 96 3291 3305
+type(
+  string
+)
+"flags.ml" 96 3291 3309 "flags.ml" 96 3291 3318
+type(
+  'a
+)
+"flags.ml" 97 3319 3323 "flags.ml" 97 3319 3330
+type(
+  string
+)
+"flags.ml" 97 3319 3334 "flags.ml" 97 3319 3340
+type(
+  'a
+)
+"flags.ml" 98 3341 3345 "flags.ml" 98 3341 3346
+type(
+  string
+)
+"flags.ml" 98 3341 3350 "flags.ml" 98 3341 3355
+type(
+  exn -> 'a
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"flags.ml" 98 3341 3365 "flags.ml" 98 3341 3392
+type(
+  string
+)
+"flags.ml" 98 3341 3357 "flags.ml" 98 3341 3392
+type(
+  exn
+)
+"flags.ml" 98 3341 3350 "flags.ml" 98 3341 3393
+type(
+  'a
+)
+"flags.ml" 90 3118 3144 "flags.ml" 98 3341 3393
+type(
+  string -> 'a
+)
+"flags.ml" 100 3395 3399 "flags.ml" 100 3395 3418
+type(
+  [< `CVC4_API | `CVC4_SMTLIB | `Yices | `Z3_API | `Z3_SMTLIB ] -> string
+)
+ident(
+  def string_of_smtsolver "flags.ml" 107 3570 3570 "_none_" 1 0 -1
+)
+"flags.ml" 101 3431 3435 "flags.ml" 101 3431 3445
+type(
+  [< `CVC4_API | `CVC4_SMTLIB | `Yices | `Z3_API | `Z3_SMTLIB ] as 'a
+)
+"flags.ml" 101 3431 3449 "flags.ml" 101 3431 3460
+type(
+  string
+)
+"flags.ml" 102 3461 3465 "flags.ml" 102 3461 3472
+type(
+  'a
+)
+"flags.ml" 102 3461 3476 "flags.ml" 102 3461 3484
+type(
+  string
+)
+"flags.ml" 103 3485 3489 "flags.ml" 103 3485 3501
+type(
+  'a
+)
+"flags.ml" 103 3485 3505 "flags.ml" 103 3485 3518
+type(
+  string
+)
+"flags.ml" 104 3519 3523 "flags.ml" 104 3519 3532
+type(
+  'a
+)
+"flags.ml" 104 3519 3536 "flags.ml" 104 3519 3546
+type(
+  string
+)
+"flags.ml" 105 3547 3551 "flags.ml" 105 3547 3557
+type(
+  'a
+)
+"flags.ml" 105 3547 3561 "flags.ml" 105 3547 3568
+type(
+  string
+)
+"flags.ml" 100 3395 3421 "flags.ml" 105 3547 3568
+type(
+  'a -> string
+)
+"flags.ml" 107 3570 3574 "flags.ml" 107 3570 3590
+type(
+  string
+)
+ident(
+  def smtsolver_values "flags.ml" 109 3605 3605 "_none_" 1 0 -1
+)
+"flags.ml" 107 3570 3593 "flags.ml" 107 3570 3603
+type(
+  string
+)
+"flags.ml" 109 3605 3609 "flags.ml" 109 3605 3626
+type(
+  [> `Z3_SMTLIB ]
+)
+ident(
+  def smtsolver_default "flags.ml" 113 3660 3660 "_none_" 1 0 -1
+)
+"flags.ml" 109 3605 3629 "flags.ml" 109 3605 3639
+type(
+  [> `Z3_SMTLIB ] as 'a
+)
+"flags.ml" 115 3683 3687 "flags.ml" 115 3683 3703
+type(
+  'a -> 'a
+)
+ident(
+  def z3_bin_of_string "flags.ml" 117 3711 3711 "_none_" 1 0 -1
+)
+"flags.ml" 115 3683 3704 "flags.ml" 115 3683 3705
+type(
+  'a
+)
+ident(
+  def s "flags.ml" 115 3683 3708 "flags.ml" 115 3683 3709
+)
+"flags.ml" 115 3683 3708 "flags.ml" 115 3683 3709
+type(
+  'a
+)
+ident(
+  int_ref s "flags.ml" 115 3683 3704 "flags.ml" 115 3683 3705
+)
+"flags.ml" 115 3683 3704 "flags.ml" 115 3683 3709
+type(
+  'a -> 'a
+)
+"flags.ml" 117 3711 3715 "flags.ml" 117 3711 3731
+type(
+  'a -> 'a
+)
+ident(
+  def string_of_z3_bin "flags.ml" 119 3740 3740 "_none_" 1 0 -1
+)
+"flags.ml" 117 3711 3732 "flags.ml" 117 3711 3733
+type(
+  'a
+)
+ident(
+  def s "flags.ml" 117 3711 3736 "flags.ml" 117 3711 3737
+)
+"flags.ml" 117 3711 3736 "flags.ml" 117 3711 3737
+type(
+  'a
+)
+ident(
+  int_ref s "flags.ml" 117 3711 3732 "flags.ml" 117 3711 3733
+)
+"flags.ml" 117 3711 3732 "flags.ml" 117 3711 3737
+type(
+  'a -> 'a
+)
+"flags.ml" 119 3740 3744 "flags.ml" 119 3740 3758
+type(
+  string
+)
+ident(
+  def z3_bin_default "flags.ml" 123 3795 3795 "_none_" 1 0 -1
+)
+"flags.ml" 119 3740 3761 "flags.ml" 119 3740 3774
+type(
+  string
+)
+"flags.ml" 125 3820 3824 "flags.ml" 125 3820 3842
+type(
+  'a -> 'a
+)
+ident(
+  def cvc4_bin_of_string "flags.ml" 127 3850 3850 "_none_" 1 0 -1
+)
+"flags.ml" 125 3820 3843 "flags.ml" 125 3820 3844
+type(
+  'a
+)
+ident(
+  def s "flags.ml" 125 3820 3847 "flags.ml" 125 3820 3848
+)
+"flags.ml" 125 3820 3847 "flags.ml" 125 3820 3848
+type(
+  'a
+)
+ident(
+  int_ref s "flags.ml" 125 3820 3843 "flags.ml" 125 3820 3844
+)
+"flags.ml" 125 3820 3843 "flags.ml" 125 3820 3848
+type(
+  'a -> 'a
+)
+"flags.ml" 127 3850 3854 "flags.ml" 127 3850 3872
+type(
+  'a -> 'a
+)
+ident(
+  def string_of_cvc4_bin "flags.ml" 129 3881 3881 "_none_" 1 0 -1
+)
+"flags.ml" 127 3850 3873 "flags.ml" 127 3850 3874
+type(
+  'a
+)
+ident(
+  def s "flags.ml" 127 3850 3877 "flags.ml" 127 3850 3878
+)
+"flags.ml" 127 3850 3877 "flags.ml" 127 3850 3878
+type(
+  'a
+)
+ident(
+  int_ref s "flags.ml" 127 3850 3873 "flags.ml" 127 3850 3874
+)
+"flags.ml" 127 3850 3873 "flags.ml" 127 3850 3878
+type(
+  'a -> 'a
+)
+"flags.ml" 129 3881 3885 "flags.ml" 129 3881 3901
+type(
+  string
+)
+ident(
+  def cvc4_bin_default "flags.ml" 135 3986 3986 "_none_" 1 0 -1
+)
+"flags.ml" 129 3881 3904 "flags.ml" 129 3881 3906
+type(
+  string
+)
+"flags.ml" 137 4019 4023 "flags.ml" 137 4019 4044
+type(
+  string -> [> `BMC | `IND | `INVGEN | `Interpreter | `PDR ]
+)
+ident(
+  def kind_module_of_string "flags.ml" 145 4219 4219 "_none_" 1 0 -1
+)
+"flags.ml" 138 4056 4060 "flags.ml" 138 4056 4065
+type(
+  string
+)
+"flags.ml" 138 4056 4069 "flags.ml" 138 4056 4073
+type(
+  [> `BMC | `IND | `INVGEN | `Interpreter | `PDR ] as 'a
+)
+"flags.ml" 139 4074 4078 "flags.ml" 139 4074 4083
+type(
+  string
+)
+"flags.ml" 139 4074 4087 "flags.ml" 139 4074 4091
+type(
+  'a
+)
+"flags.ml" 140 4092 4096 "flags.ml" 140 4092 4101
+type(
+  string
+)
+"flags.ml" 140 4092 4105 "flags.ml" 140 4092 4109
+type(
+  'a
+)
+"flags.ml" 141 4110 4114 "flags.ml" 141 4110 4122
+type(
+  string
+)
+"flags.ml" 141 4110 4126 "flags.ml" 141 4110 4133
+type(
+  'a
+)
+"flags.ml" 142 4134 4138 "flags.ml" 142 4134 4151
+type(
+  string
+)
+"flags.ml" 142 4134 4155 "flags.ml" 142 4134 4167
+type(
+  'a
+)
+"flags.ml" 143 4168 4172 "flags.ml" 143 4168 4173
+type(
+  string
+)
+"flags.ml" 143 4168 4177 "flags.ml" 143 4168 4182
+type(
+  exn -> 'a
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"flags.ml" 143 4168 4192 "flags.ml" 143 4168 4216
+type(
+  string
+)
+"flags.ml" 143 4168 4184 "flags.ml" 143 4168 4216
+type(
+  exn
+)
+"flags.ml" 143 4168 4177 "flags.ml" 143 4168 4217
+type(
+  'a
+)
+"flags.ml" 137 4019 4047 "flags.ml" 143 4168 4217
+type(
+  string -> 'a
+)
+"flags.ml" 145 4219 4223 "flags.ml" 145 4219 4244
+type(
+  [< `BMC | `IND | `INVGEN | `Interpreter | `PDR ] -> string
+)
+ident(
+  def string_of_kind_module "flags.ml" 152 4369 4369 "_none_" 1 0 -1
+)
+"flags.ml" 146 4256 4260 "flags.ml" 146 4256 4264
+type(
+  [< `BMC | `IND | `INVGEN | `Interpreter | `PDR ] as 'a
+)
+"flags.ml" 146 4256 4268 "flags.ml" 146 4256 4273
+type(
+  string
+)
+"flags.ml" 147 4274 4278 "flags.ml" 147 4274 4282
+type(
+  'a
+)
+"flags.ml" 147 4274 4286 "flags.ml" 147 4274 4291
+type(
+  string
+)
+"flags.ml" 148 4292 4296 "flags.ml" 148 4292 4300
+type(
+  'a
+)
+"flags.ml" 148 4292 4304 "flags.ml" 148 4292 4309
+type(
+  string
+)
+"flags.ml" 149 4310 4314 "flags.ml" 149 4310 4321
+type(
+  'a
+)
+"flags.ml" 149 4310 4325 "flags.ml" 149 4310 4333
+type(
+  string
+)
+"flags.ml" 150 4334 4338 "flags.ml" 150 4334 4350
+type(
+  'a
+)
+"flags.ml" 150 4334 4354 "flags.ml" 150 4334 4367
+type(
+  string
+)
+"flags.ml" 145 4219 4247 "flags.ml" 150 4334 4367
+type(
+  'a -> string
+)
+"flags.ml" 152 4369 4377 "flags.ml" 152 4369 4394
+type(
+  string -> [< `BMC | `IND | `INVGEN | `Interpreter | `PDR ] list -> string
+)
+ident(
+  def string_of_enable' "flags.ml" 152 4369 4369 "_none_" 1 0 -1
+)
+"flags.ml" 152 4369 4395 "flags.ml" 152 4369 4400
+type(
+  string
+)
+ident(
+  def accum "flags.ml" 152 4369 4403 "flags.ml" 158 4551 4559
+)
+"flags.ml" 153 4413 4417 "flags.ml" 153 4413 4419
+type(
+  ([< `BMC | `IND | `INVGEN | `Interpreter | `PDR ] as 'a) list
+)
+"flags.ml" 153 4413 4423 "flags.ml" 153 4413 4428
+type(
+  string
+)
+ident(
+  int_ref accum "flags.ml" 152 4369 4395 "flags.ml" 152 4369 4400
+)
+"flags.ml" 154 4429 4433 "flags.ml" 154 4429 4434
+type(
+  'a
+)
+ident(
+  def m "flags.ml" 155 4445 4449 "flags.ml" 158 4551 4559
+)
+"flags.ml" 154 4429 4438 "flags.ml" 154 4429 4440
+type(
+  'a list
+)
+ident(
+  def tl "flags.ml" 155 4445 4449 "flags.ml" 158 4551 4559
+)
+"flags.ml" 154 4429 4433 "flags.ml" 154 4429 4440
+type(
+  'a list
+)
+"flags.ml" 155 4445 4449 "flags.ml" 155 4445 4466
+type(
+  string -> 'a list -> string
+)
+ident(
+  int_ref string_of_enable' "flags.ml" 152 4369 4377 "flags.ml" 152 4369 4394
+)
+"flags.ml" 156 4467 4475 "flags.ml" 156 4467 4496
+type(
+  'a -> string
+)
+ident(
+  int_ref string_of_kind_module "flags.ml" 145 4219 4223 "flags.ml" 145 4219 4244
+)
+"flags.ml" 156 4467 4497 "flags.ml" 156 4467 4498
+type(
+  'a
+)
+ident(
+  int_ref m "flags.ml" 154 4429 4433 "flags.ml" 154 4429 4434
+)
+"flags.ml" 156 4467 4475 "flags.ml" 156 4467 4498
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 156 4467 4500 "flags.ml" 156 4467 4501
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"flags.ml" 157 4503 4517 "flags.ml" 157 4503 4520
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"flags.ml" 157 4503 4522 "flags.ml" 157 4503 4524
+type(
+  'a list
+)
+ident(
+  int_ref tl "flags.ml" 154 4429 4438 "flags.ml" 154 4429 4440
+)
+"flags.ml" 157 4503 4525 "flags.ml" 157 4503 4526
+type(
+  'a list -> 'a list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"flags.ml" 157 4503 4527 "flags.ml" 157 4503 4529
+type(
+  'a list
+)
+"flags.ml" 157 4503 4522 "flags.ml" 157 4503 4529
+type(
+  bool
+)
+"flags.ml" 157 4503 4517 "flags.ml" 157 4503 4530
+type(
+  bool
+)
+"flags.ml" 157 4503 4536 "flags.ml" 157 4503 4540
+type(
+  string
+)
+"flags.ml" 157 4503 4546 "flags.ml" 157 4503 4548
+type(
+  string
+)
+"flags.ml" 157 4503 4514 "flags.ml" 157 4503 4548
+type(
+  string
+)
+"flags.ml" 156 4467 4474 "flags.ml" 157 4503 4549
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 158 4551 4557 "flags.ml" 158 4551 4559
+type(
+  'a list
+)
+ident(
+  int_ref tl "flags.ml" 154 4429 4438 "flags.ml" 154 4429 4440
+)
+"flags.ml" 155 4445 4449 "flags.ml" 158 4551 4559
+call(
+  tail
+)
+type(
+  string
+)
+"flags.ml" 152 4369 4403 "flags.ml" 158 4551 4559
+type(
+  'a list -> string
+)
+"flags.ml" 152 4369 4395 "flags.ml" 158 4551 4559
+type(
+  string -> 'a list -> string
+)
+"flags.ml" 160 4561 4565 "flags.ml" 160 4561 4581
+type(
+  _[< `BMC | `IND | `INVGEN | `Interpreter | `PDR > `BMC `IND `PDR ] list ->
+  string
+)
+ident(
+  def string_of_enable "flags.ml" 162 4606 4606 "_none_" 1 0 -1
+)
+"flags.ml" 160 4561 4584 "flags.ml" 160 4561 4601
+type(
+  string ->
+  (_[< `BMC | `IND | `INVGEN | `Interpreter | `PDR > `BMC `IND `PDR ] as 'a)
+  list -> string
+)
+ident(
+  int_ref string_of_enable' "flags.ml" 152 4369 4377 "flags.ml" 152 4369 4394
+)
+"flags.ml" 160 4561 4602 "flags.ml" 160 4561 4604
+type(
+  string
+)
+"flags.ml" 160 4561 4584 "flags.ml" 160 4561 4604
+call(
+  stack
+)
+type(
+  'a list -> string
+)
+"flags.ml" 162 4606 4610 "flags.ml" 162 4606 4623
+type(
+  string
+)
+ident(
+  def enable_values "flags.ml" 164 4651 4651 "_none_" 1 0 -1
+)
+"flags.ml" 162 4606 4626 "flags.ml" 162 4606 4649
+type(
+  string
+)
+"flags.ml" 164 4651 4655 "flags.ml" 164 4651 4674
+type(
+  'a list
+)
+ident(
+  def enable_default_init "flags.ml" 166 4681 4681 "_none_" 1 0 -1
+)
+"flags.ml" 164 4651 4677 "flags.ml" 164 4651 4679
+type(
+  'a list
+)
+"flags.ml" 166 4681 4685 "flags.ml" 166 4681 4705
+type(
+  [> `BMC | `IND | `PDR ] list
+)
+ident(
+  def enable_default_after "flags.ml" 170 4747 4747 "_none_" 1 0 -1
+)
+"flags.ml" 166 4681 4709 "flags.ml" 166 4681 4713
+type(
+  [> `BMC | `IND | `PDR ] as 'a
+)
+"flags.ml" 166 4681 4715 "flags.ml" 166 4681 4719
+type(
+  'a
+)
+"flags.ml" 166 4681 4721 "flags.ml" 166 4681 4725
+type(
+  'a
+)
+type(
+  'a list
+)
+"flags.ml" 166 4681 4715 "flags.ml" 166 4681 4725
+type(
+  'a list
+)
+"flags.ml" 166 4681 4709 "flags.ml" 166 4681 4725
+type(
+  'a list
+)
+"flags.ml" 166 4681 4708 "flags.ml" 166 4681 4726
+type(
+  'a list
+)
+"flags.ml" 172 4780 4784 "flags.ml" 172 4780 4810
+type(
+  int -> string
+)
+ident(
+  def string_of_pdr_subs_timeout "flags.ml" 174 4828 4828 "_none_" 1 0 -1
+)
+"flags.ml" 172 4780 4813 "flags.ml" 172 4780 4826
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"flags.ml" 174 4828 4832 "flags.ml" 174 4828 4856
+type(
+  int
+)
+ident(
+  def pdr_subs_timeout_default "flags.ml" 178 4883 4883 "_none_" 1 0 -1
+)
+"flags.ml" 174 4828 4859 "flags.ml" 174 4828 4862
+type(
+  int
+)
+"flags.ml" 180 4920 4924 "flags.ml" 180 4920 4953
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_check_inductive "flags.ml" 182 4972 4972 "_none_" 1 0 -1
+)
+"flags.ml" 180 4920 4956 "flags.ml" 180 4920 4970
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 182 4972 4976 "flags.ml" 182 4972 5003
+type(
+  bool
+)
+ident(
+  def pdr_check_inductive_default "flags.ml" 186 5032 5032 "_none_" 1 0 -1
+)
+"flags.ml" 182 4972 5006 "flags.ml" 182 4972 5011
+type(
+  bool
+)
+"flags.ml" 188 5074 5078 "flags.ml" 188 5074 5112
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_fwd_prop_check_multi "flags.ml" 190 5131 5131 "_none_" 1 0 -1
+)
+"flags.ml" 188 5074 5115 "flags.ml" 188 5074 5129
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 190 5131 5135 "flags.ml" 190 5131 5167
+type(
+  bool
+)
+ident(
+  def pdr_fwd_prop_check_multi_default "flags.ml" 194 5195 5195 "_none_" 1 0 -1
+)
+"flags.ml" 190 5131 5170 "flags.ml" 190 5131 5174
+type(
+  bool
+)
+"flags.ml" 196 5242 5246 "flags.ml" 196 5242 5285
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_dump_inductive_assertions "flags.ml" 198 5304 5304 "_none_" 1 0 -1
+)
+"flags.ml" 196 5242 5288 "flags.ml" 196 5242 5302
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 198 5304 5308 "flags.ml" 198 5304 5345
+type(
+  bool
+)
+ident(
+  def pdr_dump_inductive_assertions_default "flags.ml" 202 5374 5374 "_none_" 1 0 -1
+)
+"flags.ml" 198 5304 5348 "flags.ml" 198 5304 5353
+type(
+  bool
+)
+"flags.ml" 204 5430 5434 "flags.ml" 204 5430 5471
+type(
+  'a option
+)
+ident(
+  def pdr_inductive_assertions_file_default "flags.ml" 208 5499 5499 "_none_" 1 0 -1
+)
+"flags.ml" 204 5430 5474 "flags.ml" 204 5430 5478
+type(
+  'a option
+)
+"flags.ml" 210 5533 5537 "flags.ml" 210 5533 5563
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_minimize_cex "flags.ml" 212 5582 5582 "_none_" 1 0 -1
+)
+"flags.ml" 210 5533 5566 "flags.ml" 210 5533 5580
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 212 5582 5586 "flags.ml" 212 5582 5610
+type(
+  bool
+)
+ident(
+  def pdr_minimize_cex_default "flags.ml" 216 5639 5639 "_none_" 1 0 -1
+)
+"flags.ml" 212 5582 5613 "flags.ml" 212 5582 5618
+type(
+  bool
+)
+"flags.ml" 218 5682 5686 "flags.ml" 218 5682 5721
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_tighten_to_unsat_core "flags.ml" 220 5740 5740 "_none_" 1 0 -1
+)
+"flags.ml" 218 5682 5724 "flags.ml" 218 5682 5738
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 220 5740 5744 "flags.ml" 220 5740 5777
+type(
+  bool
+)
+ident(
+  def pdr_tighten_to_unsat_core_default "flags.ml" 224 5806 5806 "_none_" 1 0 -1
+)
+"flags.ml" 220 5740 5780 "flags.ml" 220 5740 5785
+type(
+  bool
+)
+"flags.ml" 226 5843 5847 "flags.ml" 226 5843 5876
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_block_in_future "flags.ml" 228 5895 5895 "_none_" 1 0 -1
+)
+"flags.ml" 226 5843 5879 "flags.ml" 226 5843 5893
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 228 5895 5899 "flags.ml" 228 5895 5926
+type(
+  bool
+)
+ident(
+  def pdr_block_in_future_default "flags.ml" 232 5955 5955 "_none_" 1 0 -1
+)
+"flags.ml" 228 5895 5929 "flags.ml" 228 5895 5934
+type(
+  bool
+)
+"flags.ml" 234 5995 5999 "flags.ml" 234 5995 6031
+type(
+  bool -> string
+)
+ident(
+  def string_of_pdr_prop_in_last_frame "flags.ml" 236 6050 6050 "_none_" 1 0 -1
+)
+"flags.ml" 234 5995 6034 "flags.ml" 234 5995 6048
+type(
+  bool -> string
+)
+ident(
+  ext_ref Pervasives.string_of_bool
+)
+"flags.ml" 236 6050 6054 "flags.ml" 236 6050 6084
+type(
+  bool
+)
+ident(
+  def pdr_prop_in_last_frame_default "flags.ml" 240 6113 6113 "_none_" 1 0 -1
+)
+"flags.ml" 236 6050 6087 "flags.ml" 236 6050 6092
+type(
+  bool
+)
+"flags.ml" 242 6150 6154 "flags.ml" 242 6150 6170
+type(
+  string -> [> `Cooper | `Z3 ]
+)
+ident(
+  def pdr_qe_of_string "flags.ml" 247 6272 6272 "_none_" 1 0 -1
+)
+"flags.ml" 243 6182 6186 "flags.ml" 243 6182 6190
+type(
+  string
+)
+"flags.ml" 243 6182 6194 "flags.ml" 243 6182 6197
+type(
+  [> `Cooper | `Z3 ] as 'a
+)
+"flags.ml" 244 6198 6202 "flags.ml" 244 6198 6210
+type(
+  string
+)
+"flags.ml" 244 6198 6214 "flags.ml" 244 6198 6221
+type(
+  'a
+)
+"flags.ml" 245 6222 6226 "flags.ml" 245 6222 6227
+type(
+  string
+)
+"flags.ml" 245 6222 6231 "flags.ml" 245 6222 6236
+type(
+  exn -> 'a
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"flags.ml" 245 6222 6246 "flags.ml" 245 6222 6269
+type(
+  string
+)
+"flags.ml" 245 6222 6238 "flags.ml" 245 6222 6269
+type(
+  exn
+)
+"flags.ml" 245 6222 6231 "flags.ml" 245 6222 6270
+type(
+  'a
+)
+"flags.ml" 242 6150 6173 "flags.ml" 245 6222 6270
+type(
+  string -> 'a
+)
+"flags.ml" 247 6272 6276 "flags.ml" 247 6272 6292
+type(
+  [< `Cooper | `Z3 ] -> string
+)
+ident(
+  def string_of_pdr_qe "flags.ml" 251 6346 6346 "_none_" 1 0 -1
+)
+"flags.ml" 248 6305 6309 "flags.ml" 248 6305 6312
+type(
+  [< `Cooper | `Z3 ] as 'a
+)
+"flags.ml" 248 6305 6316 "flags.ml" 248 6305 6320
+type(
+  string
+)
+"flags.ml" 249 6321 6325 "flags.ml" 249 6321 6332
+type(
+  'a
+)
+"flags.ml" 249 6321 6336 "flags.ml" 249 6321 6344
+type(
+  string
+)
+"flags.ml" 247 6272 6295 "flags.ml" 249 6321 6344
+type(
+  'a -> string
+)
+"flags.ml" 251 6346 6350 "flags.ml" 251 6346 6363
+type(
+  string
+)
+ident(
+  def pdr_qe_values "flags.ml" 253 6380 6380 "_none_" 1 0 -1
+)
+"flags.ml" 251 6346 6366 "flags.ml" 251 6346 6378
+type(
+  string
+)
+"flags.ml" 253 6380 6384 "flags.ml" 253 6380 6398
+type(
+  [> `Z3 ]
+)
+ident(
+  def pdr_qe_default "flags.ml" 257 6426 6426 "_none_" 1 0 -1
+)
+"flags.ml" 253 6380 6401 "flags.ml" 253 6380 6404
+type(
+  [> `Z3 ] as 'a
+)
+"flags.ml" 259 6470 6474 "flags.ml" 259 6470 6505
+type(
+  string
+)
+ident(
+  def cooper_order_var_by_elim_values "flags.ml" 261 6524 6524 "_none_" 1 0 -1
+)
+"flags.ml" 259 6470 6508 "flags.ml" 259 6470 6521
+type(
+  string
+)
+"flags.ml" 261 6524 6528 "flags.ml" 261 6524 6560
+type(
+  bool
+)
+ident(
+  def cooper_order_var_by_elim_default "flags.ml" 265 6591 6591 "_none_" 1 0 -1
+)
+"flags.ml" 261 6524 6563 "flags.ml" 261 6524 6568
+type(
+  bool
+)
+"flags.ml" 267 6631 6635 "flags.ml" 267 6631 6663
+type(
+  string
+)
+ident(
+  def cooper_general_lbound_values "flags.ml" 269 6682 6682 "_none_" 1 0 -1
+)
+"flags.ml" 267 6631 6666 "flags.ml" 267 6631 6679
+type(
+  string
+)
+"flags.ml" 269 6682 6686 "flags.ml" 269 6682 6715
+type(
+  bool
+)
+ident(
+  def cooper_general_lbound_default "flags.ml" 273 6744 6744 "_none_" 1 0 -1
+)
+"flags.ml" 269 6682 6718 "flags.ml" 269 6682 6723
+type(
+  bool
+)
+"flags.ml" 273 6744 6748 "flags.ml" 273 6744 6761
+type(
+  'a list
+)
+ident(
+  def debug_default "flags.ml" 277 6787 6787 "_none_" 1 0 -1
+)
+"flags.ml" 273 6744 6764 "flags.ml" 273 6744 6766
+type(
+  'a list
+)
+"flags.ml" 277 6787 6791 "flags.ml" 277 6787 6808
+type(
+  'a option
+)
+ident(
+  def debug_log_default "flags.ml" 281 6836 6836 "_none_" 1 0 -1
+)
+"flags.ml" 277 6787 6811 "flags.ml" 277 6787 6815
+type(
+  'a option
+)
+"flags.ml" 281 6836 6840 "flags.ml" 281 6836 6857
+type(
+  Event.log_level
+)
+ident(
+  def log_level_default "flags.ml" 285 6893 6893 "_none_" 1 0 -1
+)
+"flags.ml" 281 6836 6860 "flags.ml" 281 6836 6872
+type(
+  Event.log_level
+)
+"flags.ml" 285 6893 6897 "flags.ml" 285 6893 6919
+type(
+  bool
+)
+ident(
+  def log_format_xml_default "flags.ml" 290 6964 6964 "_none_" 1 0 -1
+)
+"flags.ml" 285 6893 6922 "flags.ml" 285 6893 6927
+type(
+  bool
+)
+"flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+type(
+  flags
+)
+ident(
+  def flags "flags.ml" 343 9271 9271 "_none_" 1 0 -1
+)
+"flags.ml" 317 8161 8180 "flags.ml" 317 8161 8200
+type(
+  float
+)
+ident(
+  int_ref timeout_wall_default "flags.ml" 80 2930 2934 "flags.ml" 80 2930 2954
+)
+"flags.ml" 318 8202 8224 "flags.ml" 318 8202 8247
+type(
+  float
+)
+ident(
+  int_ref timeout_virtual_default "flags.ml" 84 2981 2985 "flags.ml" 84 2981 3008
+)
+"flags.ml" 319 8249 8265 "flags.ml" 319 8249 8282
+type(
+  smtsolver
+)
+ident(
+  int_ref smtsolver_default "flags.ml" 109 3605 3609 "flags.ml" 109 3605 3626
+)
+"flags.ml" 320 8284 8297 "flags.ml" 320 8284 8311
+type(
+  z3_bin
+)
+ident(
+  int_ref z3_bin_default "flags.ml" 119 3740 3744 "flags.ml" 119 3740 3758
+)
+"flags.ml" 321 8313 8328 "flags.ml" 321 8313 8344
+type(
+  cvc4_bin
+)
+ident(
+  int_ref cvc4_bin_default "flags.ml" 129 3881 3885 "flags.ml" 129 3881 3901
+)
+"flags.ml" 322 8346 8359 "flags.ml" 322 8346 8378
+type(
+  enable
+)
+ident(
+  int_ref enable_default_init "flags.ml" 164 4651 4655 "flags.ml" 164 4651 4674
+)
+"flags.ml" 323 8380 8393 "flags.ml" 323 8380 8407
+type(
+  pdr_qe
+)
+ident(
+  int_ref pdr_qe_default "flags.ml" 253 6380 6384 "flags.ml" 253 6380 6398
+)
+"flags.ml" 324 8409 8432 "flags.ml" 324 8409 8456
+type(
+  pdr_subs_timeout
+)
+ident(
+  int_ref pdr_subs_timeout_default "flags.ml" 174 4828 4832 "flags.ml" 174 4828 4856
+)
+"flags.ml" 325 8458 8484 "flags.ml" 325 8458 8511
+type(
+  pdr_check_inductive
+)
+ident(
+  int_ref pdr_check_inductive_default "flags.ml" 182 4972 4976 "flags.ml" 182 4972 5003
+)
+"flags.ml" 326 8513 8544 "flags.ml" 326 8513 8576
+type(
+  pdr_fwd_prop_check_multi
+)
+ident(
+  int_ref pdr_fwd_prop_check_multi_default "flags.ml" 190 5131 5135 "flags.ml" 190 5131 5167
+)
+"flags.ml" 327 8578 8614 "flags.ml" 327 8578 8651
+type(
+  pdr_dump_inductive_assertions
+)
+ident(
+  int_ref pdr_dump_inductive_assertions_default "flags.ml" 198 5304 5308 "flags.ml" 198 5304 5345
+)
+"flags.ml" 328 8653 8689 "flags.ml" 328 8653 8726
+type(
+  pdr_inductive_assertions_file
+)
+ident(
+  int_ref pdr_inductive_assertions_file_default "flags.ml" 204 5430 5434 "flags.ml" 204 5430 5471
+)
+"flags.ml" 329 8728 8751 "flags.ml" 329 8728 8775
+type(
+  pdr_minimize_cex
+)
+ident(
+  int_ref pdr_minimize_cex_default "flags.ml" 212 5582 5586 "flags.ml" 212 5582 5610
+)
+"flags.ml" 330 8777 8809 "flags.ml" 330 8777 8842
+type(
+  pdr_tighten_to_unsat_core
+)
+ident(
+  int_ref pdr_tighten_to_unsat_core_default "flags.ml" 220 5740 5744 "flags.ml" 220 5740 5777
+)
+"flags.ml" 331 8844 8870 "flags.ml" 331 8844 8897
+type(
+  pdr_block_in_future
+)
+ident(
+  int_ref pdr_block_in_future_default "flags.ml" 228 5895 5899 "flags.ml" 228 5895 5926
+)
+"flags.ml" 332 8899 8928 "flags.ml" 332 8899 8958
+type(
+  pdr_prop_in_last_frame
+)
+ident(
+  int_ref pdr_prop_in_last_frame_default "flags.ml" 236 6050 6054 "flags.ml" 236 6050 6084
+)
+"flags.ml" 333 8960 8991 "flags.ml" 333 8960 9023
+type(
+  cooper_order_var_by_elim
+)
+ident(
+  int_ref cooper_order_var_by_elim_default "flags.ml" 261 6524 6528 "flags.ml" 261 6524 6560
+)
+"flags.ml" 334 9025 9053 "flags.ml" 334 9025 9082
+type(
+  cooper_general_lbound
+)
+ident(
+  int_ref cooper_general_lbound_default "flags.ml" 269 6682 6686 "flags.ml" 269 6682 6715
+)
+"flags.ml" 335 9084 9096 "flags.ml" 335 9084 9109
+type(
+  string list
+)
+ident(
+  int_ref debug_default "flags.ml" 273 6744 6748 "flags.ml" 273 6744 6761
+)
+"flags.ml" 336 9111 9127 "flags.ml" 336 9111 9144
+type(
+  string option
+)
+ident(
+  int_ref debug_log_default "flags.ml" 277 6787 6791 "flags.ml" 277 6787 6808
+)
+"flags.ml" 337 9146 9162 "flags.ml" 337 9146 9179
+type(
+  Event.log_level
+)
+ident(
+  int_ref log_level_default "flags.ml" 281 6836 6840 "flags.ml" 281 6836 6857
+)
+"flags.ml" 338 9181 9202 "flags.ml" 338 9181 9224
+type(
+  bool
+)
+ident(
+  int_ref log_format_xml_default "flags.ml" 285 6893 6897 "flags.ml" 285 6893 6919
+)
+"flags.ml" 339 9226 9243 "flags.ml" 339 9226 9247
+type(
+  string option
+)
+"flags.ml" 317 8161 8163 "flags.ml" 339 9226 9249
+type(
+  flags
+)
+"flags.ml" 343 9271 9275 "flags.ml" 343 9271 9294
+type(
+  float -> unit
+)
+ident(
+  def timeout_wall_action "flags.ml" 345 9326 9326 "_none_" 1 0 -1
+)
+"flags.ml" 343 9271 9295 "flags.ml" 343 9271 9296
+type(
+  float
+)
+ident(
+  def o "flags.ml" 343 9271 9299 "flags.ml" 343 9271 9322
+)
+"flags.ml" 343 9271 9299 "flags.ml" 343 9271 9304
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 343 9271 9321 "flags.ml" 343 9271 9322
+type(
+  float
+)
+ident(
+  int_ref o "flags.ml" 343 9271 9295 "flags.ml" 343 9271 9296
+)
+"flags.ml" 343 9271 9299 "flags.ml" 343 9271 9322
+type(
+  unit
+)
+"flags.ml" 343 9271 9295 "flags.ml" 343 9271 9322
+type(
+  float -> unit
+)
+"flags.ml" 345 9326 9330 "flags.ml" 345 9326 9347
+type(
+  string * Arg.spec * string
+)
+ident(
+  def timeout_wall_spec "flags.ml" 352 9503 9503 "_none_" 1 0 -1
+)
+"flags.ml" 346 9351 9354 "flags.ml" 346 9351 9369
+type(
+  string
+)
+"flags.ml" 347 9372 9385 "flags.ml" 347 9372 9404
+type(
+  float -> unit
+)
+ident(
+  int_ref timeout_wall_action "flags.ml" 343 9271 9275 "flags.ml" 343 9271 9294
+)
+"flags.ml" 347 9372 9375 "flags.ml" 347 9372 9404
+type(
+  Arg.spec
+)
+"flags.ml" 348 9407 9410 "flags.ml" 348 9407 9424
+type(
+  (float -> string, unit, string) format -> float -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 348 9407 9425 "flags.ml" 348 9407 9460
+type(
+  (float -> string, unit, string) format
+)
+"flags.ml" 348 9407 9461 "flags.ml" 348 9407 9481
+type(
+  float
+)
+ident(
+  int_ref timeout_wall_default "flags.ml" 80 2930 2934 "flags.ml" 80 2930 2954
+)
+"flags.ml" 348 9407 9410 "flags.ml" 348 9407 9481
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 346 9351 9354 "flags.ml" 348 9407 9481
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 352 9503 9507 "flags.ml" 352 9503 9529
+type(
+  float -> unit
+)
+ident(
+  def timeout_virtual_action "flags.ml" 354 9564 9564 "_none_" 1 0 -1
+)
+"flags.ml" 352 9503 9530 "flags.ml" 352 9503 9531
+type(
+  float
+)
+ident(
+  def o "flags.ml" 352 9503 9534 "flags.ml" 352 9503 9560
+)
+"flags.ml" 352 9503 9534 "flags.ml" 352 9503 9539
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 352 9503 9559 "flags.ml" 352 9503 9560
+type(
+  float
+)
+ident(
+  int_ref o "flags.ml" 352 9503 9530 "flags.ml" 352 9503 9531
+)
+"flags.ml" 352 9503 9534 "flags.ml" 352 9503 9560
+type(
+  unit
+)
+"flags.ml" 352 9503 9530 "flags.ml" 352 9503 9560
+type(
+  float -> unit
+)
+"flags.ml" 354 9564 9568 "flags.ml" 354 9564 9588
+type(
+  string * Arg.spec * string
+)
+ident(
+  def timeout_virtual_spec "flags.ml" 361 9747 9747 "_none_" 1 0 -1
+)
+"flags.ml" 355 9592 9595 "flags.ml" 355 9592 9613
+type(
+  string
+)
+"flags.ml" 356 9616 9629 "flags.ml" 356 9616 9651
+type(
+  float -> unit
+)
+ident(
+  int_ref timeout_virtual_action "flags.ml" 352 9503 9507 "flags.ml" 352 9503 9529
+)
+"flags.ml" 356 9616 9619 "flags.ml" 356 9616 9651
+type(
+  Arg.spec
+)
+"flags.ml" 357 9654 9657 "flags.ml" 357 9654 9671
+type(
+  (float -> string, unit, string) format -> float -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 357 9654 9672 "flags.ml" 357 9654 9701
+type(
+  (float -> string, unit, string) format
+)
+"flags.ml" 357 9654 9702 "flags.ml" 357 9654 9725
+type(
+  float
+)
+ident(
+  int_ref timeout_virtual_default "flags.ml" 84 2981 2985 "flags.ml" 84 2981 3008
+)
+"flags.ml" 357 9654 9657 "flags.ml" 357 9654 9725
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 355 9592 9595 "flags.ml" 357 9654 9725
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 361 9747 9751 "flags.ml" 361 9747 9767
+type(
+  string -> unit
+)
+ident(
+  def smtsolver_action "flags.ml" 363 9818 9818 "_none_" 1 0 -1
+)
+"flags.ml" 361 9747 9768 "flags.ml" 361 9747 9769
+type(
+  string
+)
+ident(
+  def o "flags.ml" 361 9747 9772 "flags.ml" 361 9747 9814
+)
+"flags.ml" 361 9747 9772 "flags.ml" 361 9747 9777
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 361 9747 9792 "flags.ml" 361 9747 9811
+type(
+  string -> smtsolver
+)
+ident(
+  int_ref smtsolver_of_string "flags.ml" 90 3118 3122 "flags.ml" 90 3118 3141
+)
+"flags.ml" 361 9747 9812 "flags.ml" 361 9747 9813
+type(
+  string
+)
+ident(
+  int_ref o "flags.ml" 361 9747 9768 "flags.ml" 361 9747 9769
+)
+"flags.ml" 361 9747 9792 "flags.ml" 361 9747 9813
+call(
+  stack
+)
+type(
+  smtsolver
+)
+"flags.ml" 361 9747 9772 "flags.ml" 361 9747 9814
+type(
+  unit
+)
+"flags.ml" 361 9747 9768 "flags.ml" 361 9747 9814
+type(
+  string -> unit
+)
+"flags.ml" 363 9818 9822 "flags.ml" 363 9818 9836
+type(
+  string * Arg.spec * string
+)
+ident(
+  def smtsolver_spec "flags.ml" 370 10037 10037 "_none_" 1 0 -1
+)
+"flags.ml" 364 9840 9843 "flags.ml" 364 9840 9856
+type(
+  string
+)
+"flags.ml" 365 9859 9873 "flags.ml" 365 9859 9889
+type(
+  string -> unit
+)
+ident(
+  int_ref smtsolver_action "flags.ml" 361 9747 9751 "flags.ml" 361 9747 9767
+)
+"flags.ml" 365 9859 9862 "flags.ml" 365 9859 9889
+type(
+  Arg.spec
+)
+"flags.ml" 366 9892 9895 "flags.ml" 366 9892 9909
+type(
+  (string -> string -> string, unit, string) format ->
+  string -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 366 9892 9910 "flags.ml" 366 9892 9958
+type(
+  (string -> string -> string, unit, string) format
+)
+"flags.ml" 366 9892 9959 "flags.ml" 366 9892 9975
+type(
+  string
+)
+ident(
+  int_ref smtsolver_values "flags.ml" 107 3570 3574 "flags.ml" 107 3570 3590
+)
+"flags.ml" 366 9892 9977 "flags.ml" 366 9892 9996
+type(
+  _[< `CVC4_API | `CVC4_SMTLIB | `Yices | `Z3_API | `Z3_SMTLIB > `Z3_SMTLIB ] ->
+  string
+)
+ident(
+  int_ref string_of_smtsolver "flags.ml" 100 3395 3399 "flags.ml" 100 3395 3418
+)
+"flags.ml" 366 9892 9997 "flags.ml" 366 9892 10014
+type(
+  _[< `CVC4_API | `CVC4_SMTLIB | `Yices | `Z3_API | `Z3_SMTLIB > `Z3_SMTLIB ]
+  as 'a
+)
+ident(
+  int_ref smtsolver_default "flags.ml" 109 3605 3609 "flags.ml" 109 3605 3626
+)
+"flags.ml" 366 9892 9977 "flags.ml" 366 9892 10014
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 366 9892 9895 "flags.ml" 366 9892 10015
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 364 9840 9843 "flags.ml" 366 9892 10015
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 370 10037 10041 "flags.ml" 370 10037 10054
+type(
+  z3_bin -> unit
+)
+ident(
+  def z3_bin_action "flags.ml" 372 10099 10099 "_none_" 1 0 -1
+)
+"flags.ml" 370 10037 10055 "flags.ml" 370 10037 10056
+type(
+  z3_bin
+)
+ident(
+  def o "flags.ml" 370 10037 10059 "flags.ml" 370 10037 10095
+)
+"flags.ml" 370 10037 10059 "flags.ml" 370 10037 10064
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 370 10037 10076 "flags.ml" 370 10037 10092
+type(
+  z3_bin -> z3_bin
+)
+ident(
+  int_ref z3_bin_of_string "flags.ml" 115 3683 3687 "flags.ml" 115 3683 3703
+)
+"flags.ml" 370 10037 10093 "flags.ml" 370 10037 10094
+type(
+  z3_bin
+)
+ident(
+  int_ref o "flags.ml" 370 10037 10055 "flags.ml" 370 10037 10056
+)
+"flags.ml" 370 10037 10076 "flags.ml" 370 10037 10094
+call(
+  stack
+)
+type(
+  z3_bin
+)
+"flags.ml" 370 10037 10059 "flags.ml" 370 10037 10095
+type(
+  unit
+)
+"flags.ml" 370 10037 10055 "flags.ml" 370 10037 10095
+type(
+  z3_bin -> unit
+)
+"flags.ml" 372 10099 10103 "flags.ml" 372 10099 10114
+type(
+  string * Arg.spec * string
+)
+ident(
+  def z3_bin_spec "flags.ml" 379 10277 10277 "_none_" 1 0 -1
+)
+"flags.ml" 373 10118 10121 "flags.ml" 373 10118 10131
+type(
+  string
+)
+"flags.ml" 374 10134 10148 "flags.ml" 374 10134 10161
+type(
+  z3_bin -> unit
+)
+ident(
+  int_ref z3_bin_action "flags.ml" 370 10037 10041 "flags.ml" 370 10037 10054
+)
+"flags.ml" 374 10134 10137 "flags.ml" 374 10134 10161
+type(
+  Arg.spec
+)
+"flags.ml" 375 10164 10167 "flags.ml" 375 10164 10181
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 375 10164 10182 "flags.ml" 375 10164 10221
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 375 10164 10223 "flags.ml" 375 10164 10239
+type(
+  string -> string
+)
+ident(
+  int_ref string_of_z3_bin "flags.ml" 117 3711 3715 "flags.ml" 117 3711 3731
+)
+"flags.ml" 375 10164 10240 "flags.ml" 375 10164 10254
+type(
+  string
+)
+ident(
+  int_ref z3_bin_default "flags.ml" 119 3740 3744 "flags.ml" 119 3740 3758
+)
+"flags.ml" 375 10164 10223 "flags.ml" 375 10164 10254
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 375 10164 10167 "flags.ml" 375 10164 10255
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 373 10118 10121 "flags.ml" 375 10164 10255
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 379 10277 10281 "flags.ml" 379 10277 10296
+type(
+  cvc4_bin -> unit
+)
+ident(
+  def cvc4_bin_action "flags.ml" 381 10345 10345 "_none_" 1 0 -1
+)
+"flags.ml" 379 10277 10297 "flags.ml" 379 10277 10298
+type(
+  cvc4_bin
+)
+ident(
+  def o "flags.ml" 379 10277 10301 "flags.ml" 379 10277 10341
+)
+"flags.ml" 379 10277 10301 "flags.ml" 379 10277 10306
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 379 10277 10320 "flags.ml" 379 10277 10338
+type(
+  cvc4_bin -> cvc4_bin
+)
+ident(
+  int_ref cvc4_bin_of_string "flags.ml" 125 3820 3824 "flags.ml" 125 3820 3842
+)
+"flags.ml" 379 10277 10339 "flags.ml" 379 10277 10340
+type(
+  cvc4_bin
+)
+ident(
+  int_ref o "flags.ml" 379 10277 10297 "flags.ml" 379 10277 10298
+)
+"flags.ml" 379 10277 10320 "flags.ml" 379 10277 10340
+call(
+  stack
+)
+type(
+  cvc4_bin
+)
+"flags.ml" 379 10277 10301 "flags.ml" 379 10277 10341
+type(
+  unit
+)
+"flags.ml" 379 10277 10297 "flags.ml" 379 10277 10341
+type(
+  cvc4_bin -> unit
+)
+"flags.ml" 381 10345 10349 "flags.ml" 381 10345 10362
+type(
+  string * Arg.spec * string
+)
+ident(
+  def cvc4_bin_spec "flags.ml" 388 10535 10535 "_none_" 1 0 -1
+)
+"flags.ml" 382 10366 10369 "flags.ml" 382 10366 10381
+type(
+  string
+)
+"flags.ml" 383 10384 10398 "flags.ml" 383 10384 10413
+type(
+  cvc4_bin -> unit
+)
+ident(
+  int_ref cvc4_bin_action "flags.ml" 379 10277 10281 "flags.ml" 379 10277 10296
+)
+"flags.ml" 383 10384 10387 "flags.ml" 383 10384 10413
+type(
+  Arg.spec
+)
+"flags.ml" 384 10416 10419 "flags.ml" 384 10416 10433
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 384 10416 10434 "flags.ml" 384 10416 10475
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 384 10416 10477 "flags.ml" 384 10416 10495
+type(
+  string -> string
+)
+ident(
+  int_ref string_of_cvc4_bin "flags.ml" 127 3850 3854 "flags.ml" 127 3850 3872
+)
+"flags.ml" 384 10416 10496 "flags.ml" 384 10416 10512
+type(
+  string
+)
+ident(
+  int_ref cvc4_bin_default "flags.ml" 129 3881 3885 "flags.ml" 129 3881 3901
+)
+"flags.ml" 384 10416 10477 "flags.ml" 384 10416 10512
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 384 10416 10419 "flags.ml" 384 10416 10513
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 382 10366 10369 "flags.ml" 384 10416 10513
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 388 10535 10539 "flags.ml" 388 10535 10552
+type(
+  string -> unit
+)
+ident(
+  def enable_action "flags.ml" 390 10618 10618 "_none_" 1 0 -1
+)
+"flags.ml" 388 10535 10553 "flags.ml" 388 10535 10554
+type(
+  string
+)
+ident(
+  def o "flags.ml" 388 10535 10557 "flags.ml" 388 10535 10614
+)
+"flags.ml" 388 10535 10557 "flags.ml" 388 10535 10562
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 388 10535 10574 "flags.ml" 388 10535 10595
+type(
+  string -> Lib.kind_module
+)
+ident(
+  int_ref kind_module_of_string "flags.ml" 137 4019 4023 "flags.ml" 137 4019 4044
+)
+"flags.ml" 388 10535 10596 "flags.ml" 388 10535 10597
+type(
+  string
+)
+ident(
+  int_ref o "flags.ml" 388 10535 10553 "flags.ml" 388 10535 10554
+)
+"flags.ml" 388 10535 10574 "flags.ml" 388 10535 10597
+call(
+  stack
+)
+type(
+  Lib.kind_module
+)
+"flags.ml" 388 10535 10602 "flags.ml" 388 10535 10607
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 388 10535 10602 "flags.ml" 388 10535 10614
+type(
+  enable
+)
+"flags.ml" 388 10535 10573 "flags.ml" 388 10535 10614
+type(
+  enable
+)
+"flags.ml" 388 10535 10557 "flags.ml" 388 10535 10614
+type(
+  unit
+)
+"flags.ml" 388 10535 10553 "flags.ml" 388 10535 10614
+type(
+  string -> unit
+)
+"flags.ml" 390 10618 10622 "flags.ml" 390 10618 10633
+type(
+  string * Arg.spec * string
+)
+ident(
+  def enable_spec "flags.ml" 397 10826 10826 "_none_" 1 0 -1
+)
+"flags.ml" 391 10637 10640 "flags.ml" 391 10637 10650
+type(
+  string
+)
+"flags.ml" 392 10653 10667 "flags.ml" 392 10653 10680
+type(
+  string -> unit
+)
+ident(
+  int_ref enable_action "flags.ml" 388 10535 10539 "flags.ml" 388 10535 10552
+)
+"flags.ml" 392 10653 10656 "flags.ml" 392 10653 10680
+type(
+  Arg.spec
+)
+"flags.ml" 393 10683 10686 "flags.ml" 393 10683 10700
+type(
+  (string -> string -> string, unit, string) format ->
+  string -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 393 10683 10701 "flags.ml" 393 10683 10750
+type(
+  (string -> string -> string, unit, string) format
+)
+"flags.ml" 393 10683 10751 "flags.ml" 393 10683 10764
+type(
+  string
+)
+ident(
+  int_ref enable_values "flags.ml" 162 4606 4610 "flags.ml" 162 4606 4623
+)
+"flags.ml" 393 10683 10766 "flags.ml" 393 10683 10782
+type(
+  _[< `BMC | `IND | `INVGEN | `Interpreter | `PDR > `BMC `IND `PDR ] list ->
+  string
+)
+ident(
+  int_ref string_of_enable "flags.ml" 160 4561 4565 "flags.ml" 160 4561 4581
+)
+"flags.ml" 393 10683 10783 "flags.ml" 393 10683 10803
+type(
+  (_[< `BMC | `IND | `INVGEN | `Interpreter | `PDR > `BMC `IND `PDR ] as 'a)
+  list
+)
+ident(
+  int_ref enable_default_after "flags.ml" 166 4681 4685 "flags.ml" 166 4681 4705
+)
+"flags.ml" 393 10683 10766 "flags.ml" 393 10683 10803
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 393 10683 10686 "flags.ml" 393 10683 10804
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 391 10637 10640 "flags.ml" 393 10683 10804
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 397 10826 10830 "flags.ml" 397 10826 10843
+type(
+  string -> unit
+)
+ident(
+  def pdr_qe_action "flags.ml" 399 10888 10888 "_none_" 1 0 -1
+)
+"flags.ml" 397 10826 10844 "flags.ml" 397 10826 10845
+type(
+  string
+)
+ident(
+  def o "flags.ml" 397 10826 10848 "flags.ml" 397 10826 10884
+)
+"flags.ml" 397 10826 10848 "flags.ml" 397 10826 10853
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 397 10826 10865 "flags.ml" 397 10826 10881
+type(
+  string -> pdr_qe
+)
+ident(
+  int_ref pdr_qe_of_string "flags.ml" 242 6150 6154 "flags.ml" 242 6150 6170
+)
+"flags.ml" 397 10826 10882 "flags.ml" 397 10826 10883
+type(
+  string
+)
+ident(
+  int_ref o "flags.ml" 397 10826 10844 "flags.ml" 397 10826 10845
+)
+"flags.ml" 397 10826 10865 "flags.ml" 397 10826 10883
+call(
+  stack
+)
+type(
+  pdr_qe
+)
+"flags.ml" 397 10826 10848 "flags.ml" 397 10826 10884
+type(
+  unit
+)
+"flags.ml" 397 10826 10844 "flags.ml" 397 10826 10884
+type(
+  string -> unit
+)
+"flags.ml" 399 10888 10892 "flags.ml" 399 10888 10903
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_qe_spec "flags.ml" 406 11117 11117 "_none_" 1 0 -1
+)
+"flags.ml" 400 10907 10910 "flags.ml" 400 10907 10920
+type(
+  string
+)
+"flags.ml" 401 10923 10937 "flags.ml" 401 10923 10950
+type(
+  string -> unit
+)
+ident(
+  int_ref pdr_qe_action "flags.ml" 397 10826 10830 "flags.ml" 397 10826 10843
+)
+"flags.ml" 401 10923 10926 "flags.ml" 401 10923 10950
+type(
+  Arg.spec
+)
+"flags.ml" 402 10953 10956 "flags.ml" 402 10953 10970
+type(
+  (string -> string -> string, unit, string) format ->
+  string -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 402 10953 10971 "flags.ml" 402 10953 11047
+type(
+  (string -> string -> string, unit, string) format
+)
+"flags.ml" 402 10953 11048 "flags.ml" 402 10953 11061
+type(
+  string
+)
+ident(
+  int_ref pdr_qe_values "flags.ml" 251 6346 6350 "flags.ml" 251 6346 6363
+)
+"flags.ml" 402 10953 11063 "flags.ml" 402 10953 11079
+type(
+  _[< `Cooper | `Z3 > `Z3 ] -> string
+)
+ident(
+  int_ref string_of_pdr_qe "flags.ml" 247 6272 6276 "flags.ml" 247 6272 6292
+)
+"flags.ml" 402 10953 11080 "flags.ml" 402 10953 11094
+type(
+  _[< `Cooper | `Z3 > `Z3 ] as 'a
+)
+ident(
+  int_ref pdr_qe_default "flags.ml" 253 6380 6384 "flags.ml" 253 6380 6398
+)
+"flags.ml" 402 10953 11063 "flags.ml" 402 10953 11094
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 402 10953 10956 "flags.ml" 402 10953 11095
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 400 10907 10910 "flags.ml" 402 10953 11095
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 406 11117 11121 "flags.ml" 406 11117 11144
+type(
+  pdr_subs_timeout -> unit
+)
+ident(
+  def pdr_subs_timeout_action "flags.ml" 408 11180 11180 "_none_" 1 0 -1
+)
+"flags.ml" 406 11117 11145 "flags.ml" 406 11117 11146
+type(
+  pdr_subs_timeout
+)
+ident(
+  def o "flags.ml" 406 11117 11149 "flags.ml" 406 11117 11176
+)
+"flags.ml" 406 11117 11149 "flags.ml" 406 11117 11154
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 406 11117 11175 "flags.ml" 406 11117 11176
+type(
+  pdr_subs_timeout
+)
+ident(
+  int_ref o "flags.ml" 406 11117 11145 "flags.ml" 406 11117 11146
+)
+"flags.ml" 406 11117 11149 "flags.ml" 406 11117 11176
+type(
+  unit
+)
+"flags.ml" 406 11117 11145 "flags.ml" 406 11117 11176
+type(
+  pdr_subs_timeout -> unit
+)
+"flags.ml" 408 11180 11184 "flags.ml" 408 11180 11205
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_subs_timeout_spec "flags.ml" 415 11433 11433 "_none_" 1 0 -1
+)
+"flags.ml" 409 11209 11212 "flags.ml" 409 11209 11232
+type(
+  string
+)
+"flags.ml" 410 11235 11246 "flags.ml" 410 11235 11269
+type(
+  pdr_subs_timeout -> unit
+)
+ident(
+  int_ref pdr_subs_timeout_action "flags.ml" 406 11117 11121 "flags.ml" 406 11117 11144
+)
+"flags.ml" 410 11235 11238 "flags.ml" 410 11235 11269
+type(
+  Arg.spec
+)
+"flags.ml" 411 11272 11275 "flags.ml" 411 11272 11289
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 411 11272 11290 "flags.ml" 411 11272 11357
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 411 11272 11359 "flags.ml" 411 11272 11385
+type(
+  int -> string
+)
+ident(
+  int_ref string_of_pdr_subs_timeout "flags.ml" 172 4780 4784 "flags.ml" 172 4780 4810
+)
+"flags.ml" 411 11272 11386 "flags.ml" 411 11272 11410
+type(
+  int
+)
+ident(
+  int_ref pdr_subs_timeout_default "flags.ml" 174 4828 4832 "flags.ml" 174 4828 4856
+)
+"flags.ml" 411 11272 11359 "flags.ml" 411 11272 11410
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 411 11272 11275 "flags.ml" 411 11272 11411
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 409 11209 11212 "flags.ml" 411 11272 11411
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 415 11433 11437 "flags.ml" 415 11433 11463
+type(
+  pdr_check_inductive -> unit
+)
+ident(
+  def pdr_check_inductive_action "flags.ml" 417 11502 11502 "_none_" 1 0 -1
+)
+"flags.ml" 415 11433 11464 "flags.ml" 415 11433 11465
+type(
+  pdr_check_inductive
+)
+ident(
+  def o "flags.ml" 415 11433 11468 "flags.ml" 415 11433 11498
+)
+"flags.ml" 415 11433 11468 "flags.ml" 415 11433 11473
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 415 11433 11497 "flags.ml" 415 11433 11498
+type(
+  pdr_check_inductive
+)
+ident(
+  int_ref o "flags.ml" 415 11433 11464 "flags.ml" 415 11433 11465
+)
+"flags.ml" 415 11433 11468 "flags.ml" 415 11433 11498
+type(
+  unit
+)
+"flags.ml" 415 11433 11464 "flags.ml" 415 11433 11498
+type(
+  pdr_check_inductive -> unit
+)
+"flags.ml" 417 11502 11506 "flags.ml" 417 11502 11530
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_check_inductive_spec "flags.ml" 424 11765 11765 "_none_" 1 0 -1
+)
+"flags.ml" 418 11534 11537 "flags.ml" 418 11534 11560
+type(
+  string
+)
+"flags.ml" 419 11563 11575 "flags.ml" 419 11563 11601
+type(
+  pdr_check_inductive -> unit
+)
+ident(
+  int_ref pdr_check_inductive_action "flags.ml" 415 11433 11437 "flags.ml" 415 11433 11463
+)
+"flags.ml" 419 11563 11566 "flags.ml" 419 11563 11601
+type(
+  Arg.spec
+)
+"flags.ml" 420 11604 11607 "flags.ml" 420 11604 11621
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 420 11604 11622 "flags.ml" 420 11604 11683
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 420 11604 11685 "flags.ml" 420 11604 11714
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_check_inductive "flags.ml" 180 4920 4924 "flags.ml" 180 4920 4953
+)
+"flags.ml" 420 11604 11715 "flags.ml" 420 11604 11742
+type(
+  bool
+)
+ident(
+  int_ref pdr_check_inductive_default "flags.ml" 182 4972 4976 "flags.ml" 182 4972 5003
+)
+"flags.ml" 420 11604 11685 "flags.ml" 420 11604 11742
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 420 11604 11607 "flags.ml" 420 11604 11743
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 418 11534 11537 "flags.ml" 420 11604 11743
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 424 11765 11769 "flags.ml" 424 11765 11800
+type(
+  pdr_fwd_prop_check_multi -> unit
+)
+ident(
+  def pdr_fwd_prop_check_multi_action "flags.ml" 426 11844 11844 "_none_" 1 0 -1
+)
+"flags.ml" 424 11765 11801 "flags.ml" 424 11765 11802
+type(
+  pdr_fwd_prop_check_multi
+)
+ident(
+  def o "flags.ml" 424 11765 11805 "flags.ml" 424 11765 11840
+)
+"flags.ml" 424 11765 11805 "flags.ml" 424 11765 11810
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 424 11765 11839 "flags.ml" 424 11765 11840
+type(
+  pdr_fwd_prop_check_multi
+)
+ident(
+  int_ref o "flags.ml" 424 11765 11801 "flags.ml" 424 11765 11802
+)
+"flags.ml" 424 11765 11805 "flags.ml" 424 11765 11840
+type(
+  unit
+)
+"flags.ml" 424 11765 11801 "flags.ml" 424 11765 11840
+type(
+  pdr_fwd_prop_check_multi -> unit
+)
+"flags.ml" 426 11844 11848 "flags.ml" 426 11844 11877
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_fwd_prop_check_multi_spec "flags.ml" 433 12135 12135 "_none_" 1 0 -1
+)
+"flags.ml" 427 11881 11884 "flags.ml" 427 11881 11912
+type(
+  string
+)
+"flags.ml" 428 11915 11927 "flags.ml" 428 11915 11958
+type(
+  pdr_fwd_prop_check_multi -> unit
+)
+ident(
+  int_ref pdr_fwd_prop_check_multi_action "flags.ml" 424 11765 11769 "flags.ml" 424 11765 11800
+)
+"flags.ml" 428 11915 11918 "flags.ml" 428 11915 11958
+type(
+  Arg.spec
+)
+"flags.ml" 429 11961 11964 "flags.ml" 429 11961 11978
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 429 11961 11979 "flags.ml" 429 11961 12043
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 429 11961 12045 "flags.ml" 429 11961 12079
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_fwd_prop_check_multi "flags.ml" 188 5074 5078 "flags.ml" 188 5074 5112
+)
+"flags.ml" 429 11961 12080 "flags.ml" 429 11961 12112
+type(
+  bool
+)
+ident(
+  int_ref pdr_fwd_prop_check_multi_default "flags.ml" 190 5131 5135 "flags.ml" 190 5131 5167
+)
+"flags.ml" 429 11961 12045 "flags.ml" 429 11961 12112
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 429 11961 11964 "flags.ml" 429 11961 12113
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 427 11881 11884 "flags.ml" 429 11961 12113
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 433 12135 12139 "flags.ml" 433 12135 12175
+type(
+  pdr_dump_inductive_assertions -> unit
+)
+ident(
+  def pdr_dump_inductive_assertions_action "flags.ml" 436 12227 12227 "_none_" 1 0 -1
+)
+"flags.ml" 433 12135 12176 "flags.ml" 433 12135 12177
+type(
+  pdr_dump_inductive_assertions
+)
+ident(
+  def o "flags.ml" 434 12181 12183 "flags.ml" 434 12181 12223
+)
+"flags.ml" 434 12181 12183 "flags.ml" 434 12181 12188
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 434 12181 12222 "flags.ml" 434 12181 12223
+type(
+  pdr_dump_inductive_assertions
+)
+ident(
+  int_ref o "flags.ml" 433 12135 12176 "flags.ml" 433 12135 12177
+)
+"flags.ml" 434 12181 12183 "flags.ml" 434 12181 12223
+type(
+  unit
+)
+"flags.ml" 433 12135 12176 "flags.ml" 434 12181 12223
+type(
+  pdr_dump_inductive_assertions -> unit
+)
+"flags.ml" 436 12227 12231 "flags.ml" 436 12227 12265
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_dump_inductive_assertions_spec "flags.ml" 443 12534 12534 "_none_" 1 0 -1
+)
+"flags.ml" 437 12269 12272 "flags.ml" 437 12269 12305
+type(
+  string
+)
+"flags.ml" 438 12308 12320 "flags.ml" 438 12308 12356
+type(
+  pdr_dump_inductive_assertions -> unit
+)
+ident(
+  int_ref pdr_dump_inductive_assertions_action "flags.ml" 433 12135 12139 "flags.ml" 433 12135 12175
+)
+"flags.ml" 438 12308 12311 "flags.ml" 438 12308 12356
+type(
+  Arg.spec
+)
+"flags.ml" 439 12359 12362 "flags.ml" 439 12359 12376
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 439 12359 12377 "flags.ml" 439 12359 12432
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 439 12359 12434 "flags.ml" 439 12359 12473
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_dump_inductive_assertions "flags.ml" 196 5242 5246 "flags.ml" 196 5242 5285
+)
+"flags.ml" 439 12359 12474 "flags.ml" 439 12359 12511
+type(
+  bool
+)
+ident(
+  int_ref pdr_dump_inductive_assertions_default "flags.ml" 198 5304 5308 "flags.ml" 198 5304 5345
+)
+"flags.ml" 439 12359 12434 "flags.ml" 439 12359 12511
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 439 12359 12362 "flags.ml" 439 12359 12512
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 437 12269 12272 "flags.ml" 439 12359 12512
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 443 12534 12538 "flags.ml" 443 12534 12574
+type(
+  string -> unit
+)
+ident(
+  def pdr_inductive_assertions_file_action "flags.ml" 446 12631 12631 "_none_" 1 0 -1
+)
+"flags.ml" 443 12534 12575 "flags.ml" 443 12534 12576
+type(
+  string
+)
+ident(
+  def o "flags.ml" 444 12580 12582 "flags.ml" 444 12580 12627
+)
+"flags.ml" 444 12580 12582 "flags.ml" 444 12580 12587
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 444 12580 12626 "flags.ml" 444 12580 12627
+type(
+  string
+)
+ident(
+  int_ref o "flags.ml" 443 12534 12575 "flags.ml" 443 12534 12576
+)
+"flags.ml" 444 12580 12621 "flags.ml" 444 12580 12627
+type(
+  pdr_inductive_assertions_file
+)
+"flags.ml" 444 12580 12582 "flags.ml" 444 12580 12627
+type(
+  unit
+)
+"flags.ml" 443 12534 12575 "flags.ml" 444 12580 12627
+type(
+  string -> unit
+)
+"flags.ml" 446 12631 12635 "flags.ml" 446 12631 12669
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_inductive_assertions_file_spec "flags.ml" 453 12873 12873 "_none_" 1 0 -1
+)
+"flags.ml" 447 12673 12676 "flags.ml" 447 12673 12709
+type(
+  string
+)
+"flags.ml" 448 12712 12726 "flags.ml" 448 12712 12762
+type(
+  string -> unit
+)
+ident(
+  int_ref pdr_inductive_assertions_file_action "flags.ml" 443 12534 12538 "flags.ml" 443 12534 12574
+)
+"flags.ml" 448 12712 12715 "flags.ml" 448 12712 12762
+type(
+  Arg.spec
+)
+"flags.ml" 449 12765 12768 "flags.ml" 449 12765 12782
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 449 12765 12783 "flags.ml" 449 12765 12851
+type(
+  (string, unit, string) format
+)
+"flags.ml" 449 12765 12768 "flags.ml" 449 12765 12851
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 447 12673 12676 "flags.ml" 449 12765 12851
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 453 12873 12877 "flags.ml" 453 12873 12900
+type(
+  pdr_minimize_cex -> unit
+)
+ident(
+  def pdr_minimize_cex_action "flags.ml" 455 12936 12936 "_none_" 1 0 -1
+)
+"flags.ml" 453 12873 12901 "flags.ml" 453 12873 12902
+type(
+  pdr_minimize_cex
+)
+ident(
+  def o "flags.ml" 453 12873 12905 "flags.ml" 453 12873 12932
+)
+"flags.ml" 453 12873 12905 "flags.ml" 453 12873 12910
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 453 12873 12931 "flags.ml" 453 12873 12932
+type(
+  pdr_minimize_cex
+)
+ident(
+  int_ref o "flags.ml" 453 12873 12901 "flags.ml" 453 12873 12902
+)
+"flags.ml" 453 12873 12905 "flags.ml" 453 12873 12932
+type(
+  unit
+)
+"flags.ml" 453 12873 12901 "flags.ml" 453 12873 12932
+type(
+  pdr_minimize_cex -> unit
+)
+"flags.ml" 455 12936 12940 "flags.ml" 455 12936 12961
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_minimize_cex_spec "flags.ml" 462 13169 13169 "_none_" 1 0 -1
+)
+"flags.ml" 456 12965 12968 "flags.ml" 456 12965 12988
+type(
+  string
+)
+"flags.ml" 457 12991 13003 "flags.ml" 457 12991 13026
+type(
+  pdr_minimize_cex -> unit
+)
+ident(
+  int_ref pdr_minimize_cex_action "flags.ml" 453 12873 12877 "flags.ml" 453 12873 12900
+)
+"flags.ml" 457 12991 12994 "flags.ml" 457 12991 13026
+type(
+  Arg.spec
+)
+"flags.ml" 458 13029 13032 "flags.ml" 458 13029 13046
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 458 13029 13047 "flags.ml" 458 13029 13093
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 458 13029 13095 "flags.ml" 458 13029 13121
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_minimize_cex "flags.ml" 210 5533 5537 "flags.ml" 210 5533 5563
+)
+"flags.ml" 458 13029 13122 "flags.ml" 458 13029 13146
+type(
+  bool
+)
+ident(
+  int_ref pdr_minimize_cex_default "flags.ml" 212 5582 5586 "flags.ml" 212 5582 5610
+)
+"flags.ml" 458 13029 13095 "flags.ml" 458 13029 13146
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 458 13029 13032 "flags.ml" 458 13029 13147
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 456 12965 12968 "flags.ml" 458 13029 13147
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 462 13169 13173 "flags.ml" 462 13169 13205
+type(
+  pdr_tighten_to_unsat_core -> unit
+)
+ident(
+  def pdr_tighten_to_unsat_core_action "flags.ml" 464 13250 13250 "_none_" 1 0 -1
+)
+"flags.ml" 462 13169 13206 "flags.ml" 462 13169 13207
+type(
+  pdr_tighten_to_unsat_core
+)
+ident(
+  def o "flags.ml" 462 13169 13210 "flags.ml" 462 13169 13246
+)
+"flags.ml" 462 13169 13210 "flags.ml" 462 13169 13215
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 462 13169 13245 "flags.ml" 462 13169 13246
+type(
+  pdr_tighten_to_unsat_core
+)
+ident(
+  int_ref o "flags.ml" 462 13169 13206 "flags.ml" 462 13169 13207
+)
+"flags.ml" 462 13169 13210 "flags.ml" 462 13169 13246
+type(
+  unit
+)
+"flags.ml" 462 13169 13206 "flags.ml" 462 13169 13246
+type(
+  pdr_tighten_to_unsat_core -> unit
+)
+"flags.ml" 464 13250 13254 "flags.ml" 464 13250 13284
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_tighten_to_unsat_core_spec "flags.ml" 471 13553 13553 "_none_" 1 0 -1
+)
+"flags.ml" 465 13288 13291 "flags.ml" 465 13288 13320
+type(
+  string
+)
+"flags.ml" 466 13323 13335 "flags.ml" 466 13323 13367
+type(
+  pdr_tighten_to_unsat_core -> unit
+)
+ident(
+  int_ref pdr_tighten_to_unsat_core_action "flags.ml" 462 13169 13173 "flags.ml" 462 13169 13205
+)
+"flags.ml" 466 13323 13326 "flags.ml" 466 13323 13367
+type(
+  Arg.spec
+)
+"flags.ml" 467 13370 13373 "flags.ml" 467 13370 13387
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 467 13370 13388 "flags.ml" 467 13370 13459
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 467 13370 13461 "flags.ml" 467 13370 13496
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_tighten_to_unsat_core "flags.ml" 218 5682 5686 "flags.ml" 218 5682 5721
+)
+"flags.ml" 467 13370 13497 "flags.ml" 467 13370 13530
+type(
+  bool
+)
+ident(
+  int_ref pdr_tighten_to_unsat_core_default "flags.ml" 220 5740 5744 "flags.ml" 220 5740 5777
+)
+"flags.ml" 467 13370 13461 "flags.ml" 467 13370 13530
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 467 13370 13373 "flags.ml" 467 13370 13531
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 465 13288 13291 "flags.ml" 467 13370 13531
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 471 13553 13557 "flags.ml" 471 13553 13583
+type(
+  pdr_block_in_future -> unit
+)
+ident(
+  def pdr_block_in_future_action "flags.ml" 473 13622 13622 "_none_" 1 0 -1
+)
+"flags.ml" 471 13553 13584 "flags.ml" 471 13553 13585
+type(
+  pdr_block_in_future
+)
+ident(
+  def o "flags.ml" 471 13553 13588 "flags.ml" 471 13553 13618
+)
+"flags.ml" 471 13553 13588 "flags.ml" 471 13553 13593
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 471 13553 13617 "flags.ml" 471 13553 13618
+type(
+  pdr_block_in_future
+)
+ident(
+  int_ref o "flags.ml" 471 13553 13584 "flags.ml" 471 13553 13585
+)
+"flags.ml" 471 13553 13588 "flags.ml" 471 13553 13618
+type(
+  unit
+)
+"flags.ml" 471 13553 13584 "flags.ml" 471 13553 13618
+type(
+  pdr_block_in_future -> unit
+)
+"flags.ml" 473 13622 13626 "flags.ml" 473 13622 13650
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_block_in_future_spec "flags.ml" 480 13884 13884 "_none_" 1 0 -1
+)
+"flags.ml" 474 13654 13657 "flags.ml" 474 13654 13680
+type(
+  string
+)
+"flags.ml" 475 13683 13695 "flags.ml" 475 13683 13721
+type(
+  pdr_block_in_future -> unit
+)
+ident(
+  int_ref pdr_block_in_future_action "flags.ml" 471 13553 13557 "flags.ml" 471 13553 13583
+)
+"flags.ml" 475 13683 13686 "flags.ml" 475 13683 13721
+type(
+  Arg.spec
+)
+"flags.ml" 476 13724 13727 "flags.ml" 476 13724 13741
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 476 13724 13742 "flags.ml" 476 13724 13801
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 476 13724 13803 "flags.ml" 476 13724 13832
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_block_in_future "flags.ml" 226 5843 5847 "flags.ml" 226 5843 5876
+)
+"flags.ml" 476 13724 13833 "flags.ml" 476 13724 13860
+type(
+  bool
+)
+ident(
+  int_ref pdr_block_in_future_default "flags.ml" 228 5895 5899 "flags.ml" 228 5895 5926
+)
+"flags.ml" 476 13724 13803 "flags.ml" 476 13724 13860
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 476 13724 13727 "flags.ml" 476 13724 13861
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 474 13654 13657 "flags.ml" 476 13724 13861
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 480 13884 13888 "flags.ml" 480 13884 13917
+type(
+  pdr_prop_in_last_frame -> unit
+)
+ident(
+  def pdr_prop_in_last_frame_action "flags.ml" 482 13959 13959 "_none_" 1 0 -1
+)
+"flags.ml" 480 13884 13918 "flags.ml" 480 13884 13919
+type(
+  pdr_prop_in_last_frame
+)
+ident(
+  def o "flags.ml" 480 13884 13922 "flags.ml" 480 13884 13955
+)
+"flags.ml" 480 13884 13922 "flags.ml" 480 13884 13927
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 480 13884 13954 "flags.ml" 480 13884 13955
+type(
+  pdr_prop_in_last_frame
+)
+ident(
+  int_ref o "flags.ml" 480 13884 13918 "flags.ml" 480 13884 13919
+)
+"flags.ml" 480 13884 13922 "flags.ml" 480 13884 13955
+type(
+  unit
+)
+"flags.ml" 480 13884 13918 "flags.ml" 480 13884 13955
+type(
+  pdr_prop_in_last_frame -> unit
+)
+"flags.ml" 482 13959 13963 "flags.ml" 482 13959 13990
+type(
+  string * Arg.spec * string
+)
+ident(
+  def pdr_prop_in_last_frame_spec "flags.ml" 489 14251 14251 "_none_" 1 0 -1
+)
+"flags.ml" 483 13994 13997 "flags.ml" 483 13994 14023
+type(
+  string
+)
+"flags.ml" 484 14026 14038 "flags.ml" 484 14026 14067
+type(
+  pdr_prop_in_last_frame -> unit
+)
+ident(
+  int_ref pdr_prop_in_last_frame_action "flags.ml" 480 13884 13888 "flags.ml" 480 13884 13917
+)
+"flags.ml" 484 14026 14029 "flags.ml" 484 14026 14067
+type(
+  Arg.spec
+)
+"flags.ml" 485 14070 14073 "flags.ml" 485 14070 14087
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 485 14070 14088 "flags.ml" 485 14070 14162
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 485 14070 14164 "flags.ml" 485 14070 14196
+type(
+  bool -> string
+)
+ident(
+  int_ref string_of_pdr_prop_in_last_frame "flags.ml" 234 5995 5999 "flags.ml" 234 5995 6031
+)
+"flags.ml" 485 14070 14197 "flags.ml" 485 14070 14227
+type(
+  bool
+)
+ident(
+  int_ref pdr_prop_in_last_frame_default "flags.ml" 236 6050 6054 "flags.ml" 236 6050 6084
+)
+"flags.ml" 485 14070 14164 "flags.ml" 485 14070 14227
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 485 14070 14073 "flags.ml" 485 14070 14228
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 483 13994 13997 "flags.ml" 485 14070 14228
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 489 14251 14255 "flags.ml" 489 14251 14286
+type(
+  cooper_order_var_by_elim -> unit
+)
+ident(
+  def cooper_order_var_by_elim_action "flags.ml" 491 14370 14370 "_none_" 1 0 -1
+)
+"flags.ml" 489 14251 14287 "flags.ml" 489 14251 14288
+type(
+  cooper_order_var_by_elim
+)
+ident(
+  def o "flags.ml" 489 14251 14291 "flags.ml" 489 14251 14326
+)
+"flags.ml" 489 14251 14291 "flags.ml" 489 14251 14296
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 489 14251 14325 "flags.ml" 489 14251 14326
+type(
+  cooper_order_var_by_elim
+)
+ident(
+  int_ref o "flags.ml" 489 14251 14287 "flags.ml" 489 14251 14288
+)
+"flags.ml" 489 14251 14291 "flags.ml" 489 14251 14326
+type(
+  unit
+)
+"flags.ml" 489 14251 14287 "flags.ml" 489 14251 14326
+type(
+  cooper_order_var_by_elim -> unit
+)
+"flags.ml" 491 14370 14374 "flags.ml" 491 14370 14403
+type(
+  string * Arg.spec * string
+)
+ident(
+  def cooper_order_var_by_elim_spec "flags.ml" 498 14693 14693 "_none_" 1 0 -1
+)
+"flags.ml" 492 14407 14410 "flags.ml" 492 14407 14438
+type(
+  string
+)
+"flags.ml" 493 14441 14453 "flags.ml" 493 14441 14484
+type(
+  cooper_order_var_by_elim -> unit
+)
+ident(
+  int_ref cooper_order_var_by_elim_action "flags.ml" 489 14251 14255 "flags.ml" 489 14251 14286
+)
+"flags.ml" 493 14441 14444 "flags.ml" 493 14441 14484
+type(
+  Arg.spec
+)
+"flags.ml" 494 14487 14490 "flags.ml" 494 14487 14504
+type(
+  (string -> bool -> string, unit, string) format -> string -> bool -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 494 14487 14505 "flags.ml" 494 14487 14602
+type(
+  (string -> bool -> string, unit, string) format
+)
+"flags.ml" 494 14487 14603 "flags.ml" 494 14487 14634
+type(
+  string
+)
+ident(
+  int_ref cooper_order_var_by_elim_values "flags.ml" 259 6470 6474 "flags.ml" 259 6470 6505
+)
+"flags.ml" 494 14487 14635 "flags.ml" 494 14487 14667
+type(
+  bool
+)
+ident(
+  int_ref cooper_order_var_by_elim_default "flags.ml" 261 6524 6528 "flags.ml" 261 6524 6560
+)
+"flags.ml" 494 14487 14490 "flags.ml" 494 14487 14667
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 492 14407 14410 "flags.ml" 494 14487 14667
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 498 14693 14697 "flags.ml" 498 14693 14725
+type(
+  cooper_general_lbound -> unit
+)
+ident(
+  def cooper_general_lbound_action "flags.ml" 500 14803 14803 "_none_" 1 0 -1
+)
+"flags.ml" 498 14693 14726 "flags.ml" 498 14693 14727
+type(
+  cooper_general_lbound
+)
+ident(
+  def o "flags.ml" 498 14693 14730 "flags.ml" 498 14693 14762
+)
+"flags.ml" 498 14693 14730 "flags.ml" 498 14693 14735
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 498 14693 14761 "flags.ml" 498 14693 14762
+type(
+  cooper_general_lbound
+)
+ident(
+  int_ref o "flags.ml" 498 14693 14726 "flags.ml" 498 14693 14727
+)
+"flags.ml" 498 14693 14730 "flags.ml" 498 14693 14762
+type(
+  unit
+)
+"flags.ml" 498 14693 14726 "flags.ml" 498 14693 14762
+type(
+  cooper_general_lbound -> unit
+)
+"flags.ml" 500 14803 14807 "flags.ml" 500 14803 14833
+type(
+  string * Arg.spec * string
+)
+ident(
+  def cooper_general_lbound_spec "flags.ml" 507 15093 15093 "_none_" 1 0 -1
+)
+"flags.ml" 501 14837 14840 "flags.ml" 501 14837 14865
+type(
+  string
+)
+"flags.ml" 502 14868 14880 "flags.ml" 502 14868 14908
+type(
+  cooper_general_lbound -> unit
+)
+ident(
+  int_ref cooper_general_lbound_action "flags.ml" 498 14693 14697 "flags.ml" 498 14693 14725
+)
+"flags.ml" 502 14868 14871 "flags.ml" 502 14868 14908
+type(
+  Arg.spec
+)
+"flags.ml" 503 14911 14914 "flags.ml" 503 14911 14928
+type(
+  (string -> bool -> string, unit, string) format -> string -> bool -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 503 14911 14929 "flags.ml" 503 14911 15012
+type(
+  (string -> bool -> string, unit, string) format
+)
+"flags.ml" 503 14911 15013 "flags.ml" 503 14911 15041
+type(
+  string
+)
+ident(
+  int_ref cooper_general_lbound_values "flags.ml" 267 6631 6635 "flags.ml" 267 6631 6663
+)
+"flags.ml" 503 14911 15042 "flags.ml" 503 14911 15071
+type(
+  bool
+)
+ident(
+  int_ref cooper_general_lbound_default "flags.ml" 269 6682 6686 "flags.ml" 269 6682 6715
+)
+"flags.ml" 503 14911 14914 "flags.ml" 503 14911 15071
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 501 14837 14840 "flags.ml" 503 14911 15071
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 507 15093 15097 "flags.ml" 507 15093 15109
+type(
+  string -> unit
+)
+ident(
+  def debug_action "flags.ml" 509 15150 15150 "_none_" 1 0 -1
+)
+"flags.ml" 507 15093 15110 "flags.ml" 507 15093 15111
+type(
+  string
+)
+ident(
+  def o "flags.ml" 507 15093 15114 "flags.ml" 507 15093 15145
+)
+"flags.ml" 507 15093 15114 "flags.ml" 507 15093 15119
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 507 15093 15129 "flags.ml" 507 15093 15130
+type(
+  string
+)
+ident(
+  int_ref o "flags.ml" 507 15093 15110 "flags.ml" 507 15093 15111
+)
+"flags.ml" 507 15093 15134 "flags.ml" 507 15093 15139
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 507 15093 15134 "flags.ml" 507 15093 15145
+type(
+  string list
+)
+"flags.ml" 507 15093 15129 "flags.ml" 507 15093 15145
+type(
+  string list
+)
+"flags.ml" 507 15093 15114 "flags.ml" 507 15093 15145
+type(
+  unit
+)
+"flags.ml" 507 15093 15110 "flags.ml" 507 15093 15145
+type(
+  string -> unit
+)
+"flags.ml" 509 15150 15154 "flags.ml" 509 15150 15164
+type(
+  string * Arg.spec * string
+)
+ident(
+  def debug_spec "flags.ml" 516 15343 15343 "_none_" 1 0 -1
+)
+"flags.ml" 510 15168 15171 "flags.ml" 510 15168 15180
+type(
+  string
+)
+"flags.ml" 511 15183 15197 "flags.ml" 511 15183 15209
+type(
+  string -> unit
+)
+ident(
+  int_ref debug_action "flags.ml" 507 15093 15097 "flags.ml" 507 15093 15109
+)
+"flags.ml" 511 15183 15186 "flags.ml" 511 15183 15209
+type(
+  Arg.spec
+)
+"flags.ml" 512 15212 15215 "flags.ml" 512 15212 15229
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 512 15212 15230 "flags.ml" 512 15212 15321
+type(
+  (string, unit, string) format
+)
+"flags.ml" 512 15212 15215 "flags.ml" 512 15212 15321
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 510 15168 15171 "flags.ml" 512 15212 15321
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 516 15343 15347 "flags.ml" 516 15343 15363
+type(
+  string -> unit
+)
+ident(
+  def debug_log_action "flags.ml" 518 15397 15397 "_none_" 1 0 -1
+)
+"flags.ml" 516 15343 15364 "flags.ml" 516 15343 15365
+type(
+  string
+)
+ident(
+  def o "flags.ml" 516 15343 15368 "flags.ml" 516 15343 15393
+)
+"flags.ml" 516 15343 15368 "flags.ml" 516 15343 15373
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 516 15343 15392 "flags.ml" 516 15343 15393
+type(
+  string
+)
+ident(
+  int_ref o "flags.ml" 516 15343 15364 "flags.ml" 516 15343 15365
+)
+"flags.ml" 516 15343 15387 "flags.ml" 516 15343 15393
+type(
+  string option
+)
+"flags.ml" 516 15343 15368 "flags.ml" 516 15343 15393
+type(
+  unit
+)
+"flags.ml" 516 15343 15364 "flags.ml" 516 15343 15393
+type(
+  string -> unit
+)
+"flags.ml" 518 15397 15401 "flags.ml" 518 15397 15415
+type(
+  string * Arg.spec * string
+)
+ident(
+  def debug_log_spec "flags.ml" 525 15560 15560 "_none_" 1 0 -1
+)
+"flags.ml" 519 15419 15422 "flags.ml" 519 15419 15435
+type(
+  string
+)
+"flags.ml" 520 15438 15452 "flags.ml" 520 15438 15468
+type(
+  string -> unit
+)
+ident(
+  int_ref debug_log_action "flags.ml" 516 15343 15347 "flags.ml" 516 15343 15363
+)
+"flags.ml" 520 15438 15441 "flags.ml" 520 15438 15468
+type(
+  Arg.spec
+)
+"flags.ml" 521 15471 15474 "flags.ml" 521 15471 15488
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 521 15471 15489 "flags.ml" 521 15471 15538
+type(
+  (string, unit, string) format
+)
+"flags.ml" 521 15471 15474 "flags.ml" 521 15471 15538
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 519 15419 15422 "flags.ml" 521 15471 15538
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  def log_level_action "flags.ml" 527 15612 15612 "_none_" 1 0 -1
+)
+"flags.ml" 525 15560 15581 "flags.ml" 525 15560 15582
+type(
+  Event.log_level
+)
+ident(
+  def o "flags.ml" 525 15560 15583 "flags.ml" 525 15560 15608
+)
+"flags.ml" 525 15560 15583 "flags.ml" 525 15560 15585
+type(
+  unit
+)
+"flags.ml" 525 15560 15588 "flags.ml" 525 15560 15593
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 525 15560 15607 "flags.ml" 525 15560 15608
+type(
+  Event.log_level
+)
+ident(
+  int_ref o "flags.ml" 525 15560 15581 "flags.ml" 525 15560 15582
+)
+"flags.ml" 525 15560 15588 "flags.ml" 525 15560 15608
+type(
+  unit
+)
+"flags.ml" 525 15560 15583 "flags.ml" 525 15560 15608
+type(
+  unit -> unit
+)
+"flags.ml" 525 15560 15581 "flags.ml" 525 15560 15608
+type(
+  Event.log_level -> unit -> unit
+)
+"flags.ml" 527 15612 15616 "flags.ml" 527 15612 15634
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_level_off_spec "flags.ml" 532 15742 15742 "_none_" 1 0 -1
+)
+"flags.ml" 528 15638 15641 "flags.ml" 528 15638 15646
+type(
+  string
+)
+"flags.ml" 529 15649 15662 "flags.ml" 529 15649 15678
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  int_ref log_level_action "flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+)
+"flags.ml" 529 15649 15679 "flags.ml" 529 15649 15690
+type(
+  Event.log_level
+)
+"flags.ml" 529 15649 15662 "flags.ml" 529 15649 15690
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 529 15649 15652 "flags.ml" 529 15649 15691
+type(
+  Arg.spec
+)
+"flags.ml" 530 15694 15697 "flags.ml" 530 15694 15711
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 530 15694 15712 "flags.ml" 530 15694 15739
+type(
+  (string, unit, string) format
+)
+"flags.ml" 530 15694 15697 "flags.ml" 530 15694 15739
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 528 15638 15641 "flags.ml" 530 15694 15739
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 532 15742 15746 "flags.ml" 532 15742 15766
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_level_fatal_spec "flags.ml" 537 15883 15883 "_none_" 1 0 -1
+)
+"flags.ml" 533 15770 15773 "flags.ml" 533 15770 15777
+type(
+  string
+)
+"flags.ml" 534 15780 15793 "flags.ml" 534 15780 15809
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  int_ref log_level_action "flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+)
+"flags.ml" 534 15780 15810 "flags.ml" 534 15780 15823
+type(
+  Event.log_level
+)
+"flags.ml" 534 15780 15793 "flags.ml" 534 15780 15823
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 534 15780 15783 "flags.ml" 534 15780 15824
+type(
+  Arg.spec
+)
+"flags.ml" 535 15827 15830 "flags.ml" 535 15827 15844
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 535 15827 15845 "flags.ml" 535 15827 15880
+type(
+  (string, unit, string) format
+)
+"flags.ml" 535 15827 15830 "flags.ml" 535 15827 15880
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 533 15770 15773 "flags.ml" 535 15827 15880
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 537 15883 15887 "flags.ml" 537 15883 15907
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_level_error_spec "flags.ml" 542 16018 16018 "_none_" 1 0 -1
+)
+"flags.ml" 538 15911 15914 "flags.ml" 538 15911 15918
+type(
+  string
+)
+"flags.ml" 539 15921 15934 "flags.ml" 539 15921 15950
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  int_ref log_level_action "flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+)
+"flags.ml" 539 15921 15951 "flags.ml" 539 15921 15964
+type(
+  Event.log_level
+)
+"flags.ml" 539 15921 15934 "flags.ml" 539 15921 15964
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 539 15921 15924 "flags.ml" 539 15921 15965
+type(
+  Arg.spec
+)
+"flags.ml" 540 15968 15971 "flags.ml" 540 15968 15985
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 540 15968 15986 "flags.ml" 540 15968 16015
+type(
+  (string, unit, string) format
+)
+"flags.ml" 540 15968 15971 "flags.ml" 540 15968 16015
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 538 15911 15914 "flags.ml" 540 15968 16015
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 542 16018 16022 "flags.ml" 542 16018 16041
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_level_info_spec "flags.ml" 547 16153 16153 "_none_" 1 0 -1
+)
+"flags.ml" 543 16045 16048 "flags.ml" 543 16045 16052
+type(
+  string
+)
+"flags.ml" 544 16055 16068 "flags.ml" 544 16055 16084
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  int_ref log_level_action "flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+)
+"flags.ml" 544 16055 16085 "flags.ml" 544 16055 16097
+type(
+  Event.log_level
+)
+"flags.ml" 544 16055 16068 "flags.ml" 544 16055 16097
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 544 16055 16058 "flags.ml" 544 16055 16098
+type(
+  Arg.spec
+)
+"flags.ml" 545 16101 16104 "flags.ml" 545 16101 16118
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 545 16101 16119 "flags.ml" 545 16101 16150
+type(
+  (string, unit, string) format
+)
+"flags.ml" 545 16101 16104 "flags.ml" 545 16101 16150
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 543 16045 16048 "flags.ml" 545 16101 16150
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 547 16153 16157 "flags.ml" 547 16153 16177
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_level_debug_spec "flags.ml" 552 16301 16301 "_none_" 1 0 -1
+)
+"flags.ml" 548 16181 16184 "flags.ml" 548 16181 16189
+type(
+  string
+)
+"flags.ml" 549 16192 16205 "flags.ml" 549 16192 16221
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  int_ref log_level_action "flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+)
+"flags.ml" 549 16192 16222 "flags.ml" 549 16192 16235
+type(
+  Event.log_level
+)
+"flags.ml" 549 16192 16205 "flags.ml" 549 16192 16235
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 549 16192 16195 "flags.ml" 549 16192 16236
+type(
+  Arg.spec
+)
+"flags.ml" 550 16239 16242 "flags.ml" 550 16239 16256
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 550 16239 16257 "flags.ml" 550 16239 16298
+type(
+  (string, unit, string) format
+)
+"flags.ml" 550 16239 16242 "flags.ml" 550 16239 16298
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 548 16181 16184 "flags.ml" 550 16239 16298
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 552 16301 16305 "flags.ml" 552 16301 16325
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_level_trace_spec "flags.ml" 559 16476 16476 "_none_" 1 0 -1
+)
+"flags.ml" 553 16329 16332 "flags.ml" 553 16329 16338
+type(
+  string
+)
+"flags.ml" 554 16341 16354 "flags.ml" 554 16341 16370
+type(
+  Event.log_level -> unit -> unit
+)
+ident(
+  int_ref log_level_action "flags.ml" 525 15560 15564 "flags.ml" 525 15560 15580
+)
+"flags.ml" 554 16341 16371 "flags.ml" 554 16341 16384
+type(
+  Event.log_level
+)
+"flags.ml" 554 16341 16354 "flags.ml" 554 16341 16384
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 554 16341 16344 "flags.ml" 554 16341 16385
+type(
+  Arg.spec
+)
+"flags.ml" 555 16388 16391 "flags.ml" 555 16388 16405
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 555 16388 16406 "flags.ml" 555 16388 16454
+type(
+  (string, unit, string) format
+)
+"flags.ml" 555 16388 16391 "flags.ml" 555 16388 16454
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 553 16329 16332 "flags.ml" 555 16388 16454
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 559 16476 16480 "flags.ml" 559 16476 16501
+type(
+  bool -> unit -> unit
+)
+ident(
+  def log_format_xml_action "flags.ml" 561 16536 16536 "_none_" 1 0 -1
+)
+"flags.ml" 559 16476 16502 "flags.ml" 559 16476 16503
+type(
+  bool
+)
+ident(
+  def o "flags.ml" 559 16476 16504 "flags.ml" 559 16476 16534
+)
+"flags.ml" 559 16476 16504 "flags.ml" 559 16476 16506
+type(
+  unit
+)
+"flags.ml" 559 16476 16509 "flags.ml" 559 16476 16514
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 559 16476 16533 "flags.ml" 559 16476 16534
+type(
+  bool
+)
+ident(
+  int_ref o "flags.ml" 559 16476 16502 "flags.ml" 559 16476 16503
+)
+"flags.ml" 559 16476 16509 "flags.ml" 559 16476 16534
+type(
+  unit
+)
+"flags.ml" 559 16476 16504 "flags.ml" 559 16476 16534
+type(
+  unit -> unit
+)
+"flags.ml" 559 16476 16502 "flags.ml" 559 16476 16534
+type(
+  bool -> unit -> unit
+)
+"flags.ml" 561 16536 16540 "flags.ml" 561 16536 16559
+type(
+  string * Arg.spec * string
+)
+ident(
+  def log_format_xml_spec "flags.ml" 576 17127 17127 "_none_" 1 0 -1
+)
+"flags.ml" 562 16563 16566 "flags.ml" 562 16563 16572
+type(
+  string
+)
+"flags.ml" 563 16575 16588 "flags.ml" 563 16575 16609
+type(
+  bool -> unit -> unit
+)
+ident(
+  int_ref log_format_xml_action "flags.ml" 559 16476 16480 "flags.ml" 559 16476 16501
+)
+"flags.ml" 563 16575 16610 "flags.ml" 563 16575 16614
+type(
+  bool
+)
+"flags.ml" 563 16575 16588 "flags.ml" 563 16575 16614
+call(
+  stack
+)
+type(
+  unit -> unit
+)
+"flags.ml" 563 16575 16578 "flags.ml" 563 16575 16615
+type(
+  Arg.spec
+)
+"flags.ml" 564 16618 16621 "flags.ml" 564 16618 16635
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 564 16618 16636 "flags.ml" 564 16618 16658
+type(
+  (string, unit, string) format
+)
+"flags.ml" 564 16618 16621 "flags.ml" 564 16618 16658
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 562 16563 16566 "flags.ml" 564 16618 16658
+type(
+  string * Arg.spec * string
+)
+"flags.ml" 576 17127 17131 "flags.ml" 576 17127 17143
+type(
+  unit -> float
+)
+ident(
+  def timeout_wall "flags.ml" 578 17169 17169 "_none_" 1 0 -1
+)
+"flags.ml" 576 17127 17144 "flags.ml" 576 17127 17146
+type(
+  unit
+)
+"flags.ml" 576 17127 17149 "flags.ml" 576 17127 17154
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 576 17127 17149 "flags.ml" 576 17127 17167
+type(
+  float
+)
+"flags.ml" 576 17127 17144 "flags.ml" 576 17127 17167
+type(
+  unit -> float
+)
+"flags.ml" 578 17169 17173 "flags.ml" 578 17169 17188
+type(
+  unit -> float
+)
+ident(
+  def timeout_virtual "flags.ml" 580 17217 17217 "_none_" 1 0 -1
+)
+"flags.ml" 578 17169 17189 "flags.ml" 578 17169 17191
+type(
+  unit
+)
+"flags.ml" 578 17169 17194 "flags.ml" 578 17169 17199
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 578 17169 17194 "flags.ml" 578 17169 17215
+type(
+  float
+)
+"flags.ml" 578 17169 17189 "flags.ml" 578 17169 17215
+type(
+  unit -> float
+)
+"flags.ml" 580 17217 17221 "flags.ml" 580 17217 17230
+type(
+  unit -> smtsolver
+)
+ident(
+  def smtsolver "flags.ml" 582 17254 17254 "_none_" 1 0 -1
+)
+"flags.ml" 580 17217 17231 "flags.ml" 580 17217 17233
+type(
+  unit
+)
+"flags.ml" 580 17217 17236 "flags.ml" 580 17217 17241
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 580 17217 17236 "flags.ml" 580 17217 17251
+type(
+  smtsolver
+)
+"flags.ml" 580 17217 17231 "flags.ml" 580 17217 17251
+type(
+  unit -> smtsolver
+)
+"flags.ml" 582 17254 17258 "flags.ml" 582 17254 17264
+type(
+  unit -> z3_bin
+)
+ident(
+  def z3_bin "flags.ml" 584 17284 17284 "_none_" 1 0 -1
+)
+"flags.ml" 582 17254 17265 "flags.ml" 582 17254 17267
+type(
+  unit
+)
+"flags.ml" 582 17254 17270 "flags.ml" 582 17254 17275
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 582 17254 17270 "flags.ml" 582 17254 17282
+type(
+  z3_bin
+)
+"flags.ml" 582 17254 17265 "flags.ml" 582 17254 17282
+type(
+  unit -> z3_bin
+)
+"flags.ml" 584 17284 17288 "flags.ml" 584 17284 17296
+type(
+  unit -> cvc4_bin
+)
+ident(
+  def cvc4_bin "flags.ml" 586 17318 17318 "_none_" 1 0 -1
+)
+"flags.ml" 584 17284 17297 "flags.ml" 584 17284 17299
+type(
+  unit
+)
+"flags.ml" 584 17284 17302 "flags.ml" 584 17284 17307
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 584 17284 17302 "flags.ml" 584 17284 17316
+type(
+  cvc4_bin
+)
+"flags.ml" 584 17284 17297 "flags.ml" 584 17284 17316
+type(
+  unit -> cvc4_bin
+)
+"flags.ml" 586 17318 17322 "flags.ml" 586 17318 17328
+type(
+  unit -> enable
+)
+ident(
+  def enable "flags.ml" 588 17349 17349 "_none_" 1 0 -1
+)
+"flags.ml" 586 17318 17329 "flags.ml" 586 17318 17331
+type(
+  unit
+)
+"flags.ml" 586 17318 17334 "flags.ml" 586 17318 17339
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 586 17318 17334 "flags.ml" 586 17318 17346
+type(
+  enable
+)
+"flags.ml" 586 17318 17329 "flags.ml" 586 17318 17346
+type(
+  unit -> enable
+)
+"flags.ml" 588 17349 17353 "flags.ml" 588 17349 17359
+type(
+  unit -> pdr_qe
+)
+ident(
+  def pdr_qe "flags.ml" 590 17380 17380 "_none_" 1 0 -1
+)
+"flags.ml" 588 17349 17360 "flags.ml" 588 17349 17362
+type(
+  unit
+)
+"flags.ml" 588 17349 17365 "flags.ml" 588 17349 17370
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 588 17349 17365 "flags.ml" 588 17349 17377
+type(
+  pdr_qe
+)
+"flags.ml" 588 17349 17360 "flags.ml" 588 17349 17377
+type(
+  unit -> pdr_qe
+)
+"flags.ml" 590 17380 17384 "flags.ml" 590 17380 17400
+type(
+  unit -> pdr_subs_timeout
+)
+ident(
+  def pdr_subs_timeout "flags.ml" 592 17431 17431 "_none_" 1 0 -1
+)
+"flags.ml" 590 17380 17401 "flags.ml" 590 17380 17403
+type(
+  unit
+)
+"flags.ml" 590 17380 17406 "flags.ml" 590 17380 17411
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 590 17380 17406 "flags.ml" 590 17380 17428
+type(
+  pdr_subs_timeout
+)
+"flags.ml" 590 17380 17401 "flags.ml" 590 17380 17428
+type(
+  unit -> pdr_subs_timeout
+)
+"flags.ml" 592 17431 17435 "flags.ml" 592 17431 17454
+type(
+  unit -> pdr_check_inductive
+)
+ident(
+  def pdr_check_inductive "flags.ml" 594 17488 17488 "_none_" 1 0 -1
+)
+"flags.ml" 592 17431 17455 "flags.ml" 592 17431 17457
+type(
+  unit
+)
+"flags.ml" 592 17431 17460 "flags.ml" 592 17431 17465
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 592 17431 17460 "flags.ml" 592 17431 17485
+type(
+  pdr_check_inductive
+)
+"flags.ml" 592 17431 17455 "flags.ml" 592 17431 17485
+type(
+  unit -> pdr_check_inductive
+)
+"flags.ml" 594 17488 17492 "flags.ml" 594 17488 17516
+type(
+  unit -> pdr_fwd_prop_check_multi
+)
+ident(
+  def pdr_fwd_prop_check_multi "flags.ml" 596 17555 17555 "_none_" 1 0 -1
+)
+"flags.ml" 594 17488 17517 "flags.ml" 594 17488 17519
+type(
+  unit
+)
+"flags.ml" 594 17488 17522 "flags.ml" 594 17488 17527
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 594 17488 17522 "flags.ml" 594 17488 17552
+type(
+  pdr_fwd_prop_check_multi
+)
+"flags.ml" 594 17488 17517 "flags.ml" 594 17488 17552
+type(
+  unit -> pdr_fwd_prop_check_multi
+)
+"flags.ml" 596 17555 17559 "flags.ml" 596 17555 17588
+type(
+  unit -> pdr_dump_inductive_assertions
+)
+ident(
+  def pdr_dump_inductive_assertions "flags.ml" 598 17631 17631 "_none_" 1 0 -1
+)
+"flags.ml" 596 17555 17589 "flags.ml" 596 17555 17591
+type(
+  unit
+)
+"flags.ml" 596 17555 17594 "flags.ml" 596 17555 17599
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 596 17555 17594 "flags.ml" 596 17555 17629
+type(
+  pdr_dump_inductive_assertions
+)
+"flags.ml" 596 17555 17589 "flags.ml" 596 17555 17629
+type(
+  unit -> pdr_dump_inductive_assertions
+)
+"flags.ml" 598 17631 17635 "flags.ml" 598 17631 17664
+type(
+  unit -> pdr_inductive_assertions_file
+)
+ident(
+  def pdr_inductive_assertions_file "flags.ml" 600 17707 17707 "_none_" 1 0 -1
+)
+"flags.ml" 598 17631 17665 "flags.ml" 598 17631 17667
+type(
+  unit
+)
+"flags.ml" 598 17631 17670 "flags.ml" 598 17631 17675
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 598 17631 17670 "flags.ml" 598 17631 17705
+type(
+  pdr_inductive_assertions_file
+)
+"flags.ml" 598 17631 17665 "flags.ml" 598 17631 17705
+type(
+  unit -> pdr_inductive_assertions_file
+)
+"flags.ml" 600 17707 17711 "flags.ml" 600 17707 17727
+type(
+  unit -> pdr_minimize_cex
+)
+ident(
+  def pdr_minimize_cex "flags.ml" 602 17758 17758 "_none_" 1 0 -1
+)
+"flags.ml" 600 17707 17728 "flags.ml" 600 17707 17730
+type(
+  unit
+)
+"flags.ml" 600 17707 17733 "flags.ml" 600 17707 17738
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 600 17707 17733 "flags.ml" 600 17707 17755
+type(
+  pdr_minimize_cex
+)
+"flags.ml" 600 17707 17728 "flags.ml" 600 17707 17755
+type(
+  unit -> pdr_minimize_cex
+)
+"flags.ml" 602 17758 17762 "flags.ml" 602 17758 17787
+type(
+  unit -> pdr_tighten_to_unsat_core
+)
+ident(
+  def pdr_tighten_to_unsat_core "flags.ml" 604 17827 17827 "_none_" 1 0 -1
+)
+"flags.ml" 602 17758 17788 "flags.ml" 602 17758 17790
+type(
+  unit
+)
+"flags.ml" 602 17758 17793 "flags.ml" 602 17758 17798
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 602 17758 17793 "flags.ml" 602 17758 17824
+type(
+  pdr_tighten_to_unsat_core
+)
+"flags.ml" 602 17758 17788 "flags.ml" 602 17758 17824
+type(
+  unit -> pdr_tighten_to_unsat_core
+)
+"flags.ml" 604 17827 17831 "flags.ml" 604 17827 17850
+type(
+  unit -> pdr_block_in_future
+)
+ident(
+  def pdr_block_in_future "flags.ml" 606 17884 17884 "_none_" 1 0 -1
+)
+"flags.ml" 604 17827 17851 "flags.ml" 604 17827 17853
+type(
+  unit
+)
+"flags.ml" 604 17827 17856 "flags.ml" 604 17827 17861
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 604 17827 17856 "flags.ml" 604 17827 17881
+type(
+  pdr_block_in_future
+)
+"flags.ml" 604 17827 17851 "flags.ml" 604 17827 17881
+type(
+  unit -> pdr_block_in_future
+)
+"flags.ml" 606 17884 17888 "flags.ml" 606 17884 17910
+type(
+  unit -> pdr_prop_in_last_frame
+)
+ident(
+  def pdr_prop_in_last_frame "flags.ml" 608 17947 17947 "_none_" 1 0 -1
+)
+"flags.ml" 606 17884 17911 "flags.ml" 606 17884 17913
+type(
+  unit
+)
+"flags.ml" 606 17884 17916 "flags.ml" 606 17884 17921
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 606 17884 17916 "flags.ml" 606 17884 17944
+type(
+  pdr_prop_in_last_frame
+)
+"flags.ml" 606 17884 17911 "flags.ml" 606 17884 17944
+type(
+  unit -> pdr_prop_in_last_frame
+)
+"flags.ml" 608 17947 17951 "flags.ml" 608 17947 17975
+type(
+  unit -> cooper_order_var_by_elim
+)
+ident(
+  def cooper_order_var_by_elim "flags.ml" 610 18013 18013 "_none_" 1 0 -1
+)
+"flags.ml" 608 17947 17976 "flags.ml" 608 17947 17978
+type(
+  unit
+)
+"flags.ml" 608 17947 17981 "flags.ml" 608 17947 17986
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 608 17947 17981 "flags.ml" 608 17947 18011
+type(
+  cooper_order_var_by_elim
+)
+"flags.ml" 608 17947 17976 "flags.ml" 608 17947 18011
+type(
+  unit -> cooper_order_var_by_elim
+)
+"flags.ml" 610 18013 18017 "flags.ml" 610 18013 18038
+type(
+  unit -> cooper_general_lbound
+)
+ident(
+  def cooper_general_lbound "flags.ml" 612 18073 18073 "_none_" 1 0 -1
+)
+"flags.ml" 610 18013 18039 "flags.ml" 610 18013 18041
+type(
+  unit
+)
+"flags.ml" 610 18013 18044 "flags.ml" 610 18013 18049
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 610 18013 18044 "flags.ml" 610 18013 18071
+type(
+  cooper_general_lbound
+)
+"flags.ml" 610 18013 18039 "flags.ml" 610 18013 18071
+type(
+  unit -> cooper_general_lbound
+)
+"flags.ml" 612 18073 18077 "flags.ml" 612 18073 18082
+type(
+  unit -> string list
+)
+ident(
+  def debug "flags.ml" 614 18101 18101 "_none_" 1 0 -1
+)
+"flags.ml" 612 18073 18083 "flags.ml" 612 18073 18085
+type(
+  unit
+)
+"flags.ml" 612 18073 18088 "flags.ml" 612 18073 18093
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 612 18073 18088 "flags.ml" 612 18073 18099
+type(
+  string list
+)
+"flags.ml" 612 18073 18083 "flags.ml" 612 18073 18099
+type(
+  unit -> string list
+)
+"flags.ml" 614 18101 18105 "flags.ml" 614 18101 18114
+type(
+  unit -> string option
+)
+ident(
+  def debug_log "flags.ml" 616 18137 18137 "_none_" 1 0 -1
+)
+"flags.ml" 614 18101 18115 "flags.ml" 614 18101 18117
+type(
+  unit
+)
+"flags.ml" 614 18101 18120 "flags.ml" 614 18101 18125
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 614 18101 18120 "flags.ml" 614 18101 18135
+type(
+  string option
+)
+"flags.ml" 614 18101 18115 "flags.ml" 614 18101 18135
+type(
+  unit -> string option
+)
+"flags.ml" 616 18137 18141 "flags.ml" 616 18137 18150
+type(
+  unit -> Event.log_level
+)
+ident(
+  def log_level "flags.ml" 618 18173 18173 "_none_" 1 0 -1
+)
+"flags.ml" 616 18137 18151 "flags.ml" 616 18137 18153
+type(
+  unit
+)
+"flags.ml" 616 18137 18156 "flags.ml" 616 18137 18161
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 616 18137 18156 "flags.ml" 616 18137 18171
+type(
+  Event.log_level
+)
+"flags.ml" 616 18137 18151 "flags.ml" 616 18137 18171
+type(
+  unit -> Event.log_level
+)
+"flags.ml" 618 18173 18177 "flags.ml" 618 18173 18191
+type(
+  unit -> bool
+)
+ident(
+  def log_format_xml "flags.ml" 620 18219 18219 "_none_" 1 0 -1
+)
+"flags.ml" 618 18173 18192 "flags.ml" 618 18173 18194
+type(
+  unit
+)
+"flags.ml" 618 18173 18197 "flags.ml" 618 18173 18202
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 618 18173 18197 "flags.ml" 618 18173 18217
+type(
+  bool
+)
+"flags.ml" 618 18173 18192 "flags.ml" 618 18173 18217
+type(
+  unit -> bool
+)
+"flags.ml" 620 18219 18223 "flags.ml" 620 18219 18233
+type(
+  unit -> string
+)
+ident(
+  def input_file "flags.ml" 629 18562 18562 "_none_" 1 0 -1
+)
+"flags.ml" 620 18219 18234 "flags.ml" 620 18219 18236
+type(
+  unit
+)
+"flags.ml" 620 18219 18245 "flags.ml" 620 18219 18250
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 620 18219 18245 "flags.ml" 620 18219 18261
+type(
+  string option
+)
+"flags.ml" 621 18268 18277 "flags.ml" 621 18268 18278
+type(
+  string
+)
+ident(
+  def f "flags.ml" 621 18268 18282 "flags.ml" 621 18268 18283
+)
+"flags.ml" 621 18268 18272 "flags.ml" 621 18268 18278
+type(
+  string option
+)
+"flags.ml" 621 18268 18282 "flags.ml" 621 18268 18283
+type(
+  string
+)
+ident(
+  int_ref f "flags.ml" 621 18268 18277 "flags.ml" 621 18268 18278
+)
+"flags.ml" 622 18285 18289 "flags.ml" 622 18285 18293
+type(
+  string option
+)
+"flags.ml" 622 18285 18297 "flags.ml" 622 18285 18305
+type(
+  string -> string
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"flags.ml" 622 18285 18306 "flags.ml" 622 18285 18327
+type(
+  string
+)
+"flags.ml" 622 18285 18297 "flags.ml" 622 18285 18327
+call(
+  tail
+)
+type(
+  string
+)
+"flags.ml" 620 18219 18239 "flags.ml" 622 18285 18327
+type(
+  string
+)
+"flags.ml" 620 18219 18234 "flags.ml" 622 18285 18327
+type(
+  unit -> string
+)
+"flags.ml" 629 18562 18566 "flags.ml" 629 18562 18575
+type(
+  string
+)
+ident(
+  def usage_msg "flags.ml" 634 18719 18719 "_none_" 1 0 -1
+)
+"flags.ml" 630 18579 18581 "flags.ml" 630 18579 18595
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"flags.ml" 631 18597 18601 "flags.ml" 631 18597 18672
+type(
+  (string -> string, unit, string) format
+)
+"flags.ml" 632 18674 18679 "flags.ml" 632 18674 18696
+type(
+  string -> string
+)
+ident(
+  ext_ref Filename.basename
+)
+"flags.ml" 632 18674 18697 "flags.ml" 632 18674 18716
+type(
+  string
+)
+ident(
+  ext_ref Sys.executable_name
+)
+"flags.ml" 632 18674 18679 "flags.ml" 632 18674 18716
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 630 18579 18581 "flags.ml" 632 18674 18717
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 634 18719 18727 "flags.ml" 634 18719 18738
+type(
+  unit -> unit
+)
+ident(
+  def help_action "flags.ml" 634 18719 18719 "_none_" 1 0 -1
+)
+"flags.ml" 634 18719 18739 "flags.ml" 634 18719 18741
+type(
+  unit
+)
+"flags.ml" 634 18719 18744 "flags.ml" 634 18719 18749
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"flags.ml" 634 18719 18761 "flags.ml" 634 18719 18777
+type(
+  (Arg.key * Arg.spec * Arg.doc) list -> Arg.usage_msg -> string
+)
+ident(
+  ext_ref Arg.usage_string
+)
+"flags.ml" 634 18719 18778 "flags.ml" 634 18719 18786
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+ident(
+  int_ref speclist "flags.ml" 636 18800 18804 "flags.ml" 636 18800 18812
+)
+"flags.ml" 634 18719 18787 "flags.ml" 634 18719 18796
+type(
+  Arg.usage_msg
+)
+ident(
+  int_ref usage_msg "flags.ml" 629 18562 18566 "flags.ml" 629 18562 18575
+)
+"flags.ml" 634 18719 18761 "flags.ml" 634 18719 18796
+call(
+  stack
+)
+type(
+  string
+)
+"flags.ml" 634 18719 18751 "flags.ml" 634 18719 18797
+type(
+  exn
+)
+"flags.ml" 634 18719 18744 "flags.ml" 634 18719 18798
+type(
+  unit
+)
+"flags.ml" 634 18719 18739 "flags.ml" 634 18719 18798
+type(
+  unit -> unit
+)
+"flags.ml" 636 18800 18804 "flags.ml" 636 18800 18812
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+ident(
+  def speclist "flags.ml" 634 18719 18719 "_none_" 1 0 -1
+)
+"flags.ml" 640 18849 18853 "flags.ml" 640 18849 18870
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref timeout_wall_spec "flags.ml" 345 9326 9330 "flags.ml" 345 9326 9347
+)
+"flags.ml" 643 18895 18899 "flags.ml" 643 18895 18919
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref timeout_virtual_spec "flags.ml" 354 9564 9568 "flags.ml" 354 9564 9588
+)
+"flags.ml" 646 18947 18951 "flags.ml" 646 18947 18965
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref smtsolver_spec "flags.ml" 363 9818 9822 "flags.ml" 363 9818 9836
+)
+"flags.ml" 649 19007 19011 "flags.ml" 649 19007 19022
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref z3_bin_spec "flags.ml" 372 10099 10103 "flags.ml" 372 10099 10114
+)
+"flags.ml" 652 19066 19070 "flags.ml" 652 19066 19083
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref cvc4_bin_spec "flags.ml" 381 10345 10349 "flags.ml" 381 10345 10362
+)
+"flags.ml" 655 19116 19120 "flags.ml" 655 19116 19131
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref enable_spec "flags.ml" 390 10618 10622 "flags.ml" 390 10618 10633
+)
+"flags.ml" 658 19158 19162 "flags.ml" 658 19158 19173
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_qe_spec "flags.ml" 399 10888 10892 "flags.ml" 399 10888 10903
+)
+"flags.ml" 661 19237 19241 "flags.ml" 661 19237 19262
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_subs_timeout_spec "flags.ml" 408 11180 11184 "flags.ml" 408 11180 11205
+)
+"flags.ml" 664 19315 19319 "flags.ml" 664 19315 19343
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_check_inductive_spec "flags.ml" 417 11502 11506 "flags.ml" 417 11502 11530
+)
+"flags.ml" 667 19391 19395 "flags.ml" 667 19391 19424
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_fwd_prop_check_multi_spec "flags.ml" 426 11844 11848 "flags.ml" 426 11844 11877
+)
+"flags.ml" 670 19474 19478 "flags.ml" 670 19474 19512
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_dump_inductive_assertions_spec "flags.ml" 436 12227 12231 "flags.ml" 436 12227 12265
+)
+"flags.ml" 673 19564 19568 "flags.ml" 673 19564 19602
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_inductive_assertions_file_spec "flags.ml" 446 12631 12635 "flags.ml" 446 12631 12669
+)
+"flags.ml" 676 19640 19644 "flags.ml" 676 19640 19665
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_minimize_cex_spec "flags.ml" 455 12936 12940 "flags.ml" 455 12936 12961
+)
+"flags.ml" 679 19728 19732 "flags.ml" 679 19728 19762
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_tighten_to_unsat_core_spec "flags.ml" 464 13250 13254 "flags.ml" 464 13250 13284
+)
+"flags.ml" 682 19813 19817 "flags.ml" 682 19813 19841
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_block_in_future_spec "flags.ml" 473 13622 13626 "flags.ml" 473 13622 13650
+)
+"flags.ml" 685 19907 19911 "flags.ml" 685 19907 19938
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref pdr_prop_in_last_frame_spec "flags.ml" 482 13959 13963 "flags.ml" 482 13959 13990
+)
+"flags.ml" 688 19974 19978 "flags.ml" 688 19974 20007
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref cooper_order_var_by_elim_spec "flags.ml" 491 14370 14374 "flags.ml" 491 14370 14403
+)
+"flags.ml" 689 20009 20013 "flags.ml" 689 20009 20039
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref cooper_general_lbound_spec "flags.ml" 500 14803 14807 "flags.ml" 500 14803 14833
+)
+"flags.ml" 692 20072 20076 "flags.ml" 692 20072 20086
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref debug_spec "flags.ml" 509 15150 15154 "flags.ml" 509 15150 15164
+)
+"flags.ml" 695 20119 20123 "flags.ml" 695 20119 20137
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref debug_log_spec "flags.ml" 518 15397 15401 "flags.ml" 518 15397 15415
+)
+"flags.ml" 698 20174 20178 "flags.ml" 698 20174 20198
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_level_error_spec "flags.ml" 537 15883 15887 "flags.ml" 537 15883 15907
+)
+"flags.ml" 699 20200 20204 "flags.ml" 699 20200 20224
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_level_fatal_spec "flags.ml" 532 15742 15746 "flags.ml" 532 15742 15766
+)
+"flags.ml" 700 20226 20230 "flags.ml" 700 20226 20248
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_level_off_spec "flags.ml" 527 15612 15616 "flags.ml" 527 15612 15634
+)
+"flags.ml" 701 20250 20254 "flags.ml" 701 20250 20273
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_level_info_spec "flags.ml" 542 16018 16022 "flags.ml" 542 16018 16041
+)
+"flags.ml" 702 20275 20279 "flags.ml" 702 20275 20299
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_level_debug_spec "flags.ml" 547 16153 16157 "flags.ml" 547 16153 16177
+)
+"flags.ml" 703 20301 20305 "flags.ml" 703 20301 20325
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_level_trace_spec "flags.ml" 552 16301 16305 "flags.ml" 552 16301 16325
+)
+"flags.ml" 706 20363 20367 "flags.ml" 706 20363 20386
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+ident(
+  int_ref log_format_xml_spec "flags.ml" 561 16536 16540 "flags.ml" 561 16536 16559
+)
+"flags.ml" 709 20412 20417 "flags.ml" 709 20412 20424
+type(
+  Arg.key
+)
+"flags.ml" 710 20427 20441 "flags.ml" 710 20427 20452
+type(
+  unit -> unit
+)
+ident(
+  int_ref help_action "flags.ml" 634 18719 18727 "flags.ml" 634 18719 18738
+)
+"flags.ml" 710 20427 20432 "flags.ml" 710 20427 20452
+type(
+  Arg.spec
+)
+"flags.ml" 711 20455 20460 "flags.ml" 711 20455 20491
+type(
+  Arg.doc
+)
+"flags.ml" 709 20412 20417 "flags.ml" 711 20455 20491
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+"flags.ml" 712 20494 20499 "flags.ml" 712 20494 20507
+type(
+  Arg.key
+)
+"flags.ml" 713 20510 20524 "flags.ml" 713 20510 20535
+type(
+  unit -> unit
+)
+ident(
+  int_ref help_action "flags.ml" 634 18719 18727 "flags.ml" 634 18719 18738
+)
+"flags.ml" 713 20510 20515 "flags.ml" 713 20510 20535
+type(
+  Arg.spec
+)
+"flags.ml" 714 20538 20543 "flags.ml" 714 20538 20573
+type(
+  Arg.doc
+)
+"flags.ml" 712 20494 20499 "flags.ml" 714 20538 20573
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+"flags.ml" 715 20576 20581 "flags.ml" 715 20576 20585
+type(
+  Arg.key
+)
+"flags.ml" 716 20588 20602 "flags.ml" 716 20588 20613
+type(
+  unit -> unit
+)
+ident(
+  int_ref help_action "flags.ml" 634 18719 18727 "flags.ml" 634 18719 18738
+)
+"flags.ml" 716 20588 20593 "flags.ml" 716 20588 20613
+type(
+  Arg.spec
+)
+"flags.ml" 717 20616 20621 "flags.ml" 717 20616 20655
+type(
+  Arg.doc
+)
+"flags.ml" 715 20576 20581 "flags.ml" 717 20616 20655
+type(
+  Arg.key * Arg.spec * Arg.doc
+)
+"flags.ml" 715 20576 20580 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 712 20494 20498 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 709 20412 20416 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 706 20363 20367 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 703 20301 20305 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 702 20275 20279 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 701 20250 20254 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 700 20226 20230 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 699 20200 20204 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 698 20174 20178 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 695 20119 20123 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 692 20072 20076 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 689 20009 20013 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 688 19974 19978 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 685 19907 19911 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 682 19813 19817 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 679 19728 19732 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 676 19640 19644 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 673 19564 19568 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 670 19474 19478 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 667 19391 19395 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 664 19315 19319 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 661 19237 19241 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 658 19158 19162 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 655 19116 19120 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 652 19066 19070 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 649 19007 19011 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 646 18947 18951 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 643 18895 18899 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 640 18849 18853 "flags.ml" 717 20616 20656
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 637 18816 18818 "flags.ml" 718 20657 20660
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+"flags.ml" 721 20667 20671 "flags.ml" 721 20667 20682
+type(
+  string -> unit
+)
+ident(
+  def anon_action "flags.ml" 727 20829 20829 "_none_" 1 0 -1
+)
+"flags.ml" 721 20667 20683 "flags.ml" 721 20667 20684
+type(
+  string
+)
+ident(
+  def s "flags.ml" 722 20688 20690 "flags.ml" 724 20760 20824
+)
+"flags.ml" 722 20688 20696 "flags.ml" 722 20688 20701
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 722 20688 20696 "flags.ml" 722 20688 20712
+type(
+  string option
+)
+"flags.ml" 723 20719 20725 "flags.ml" 723 20719 20729
+type(
+  string option
+)
+"flags.ml" 723 20719 20733 "flags.ml" 723 20719 20738
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 723 20719 20758 "flags.ml" 723 20719 20759
+type(
+  string
+)
+ident(
+  int_ref s "flags.ml" 721 20667 20683 "flags.ml" 721 20667 20684
+)
+"flags.ml" 723 20719 20753 "flags.ml" 723 20719 20759
+type(
+  string option
+)
+"flags.ml" 723 20719 20733 "flags.ml" 723 20719 20759
+type(
+  unit
+)
+"flags.ml" 724 20760 20771 "flags.ml" 724 20760 20772
+type(
+  string
+)
+"flags.ml" 724 20760 20766 "flags.ml" 724 20760 20772
+type(
+  string option
+)
+"flags.ml" 724 20760 20776 "flags.ml" 724 20760 20781
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"flags.ml" 724 20760 20791 "flags.ml" 724 20760 20823
+type(
+  string
+)
+"flags.ml" 724 20760 20783 "flags.ml" 724 20760 20823
+type(
+  exn
+)
+"flags.ml" 724 20760 20776 "flags.ml" 724 20760 20824
+type(
+  unit
+)
+"flags.ml" 722 20688 20690 "flags.ml" 724 20760 20824
+type(
+  unit
+)
+"flags.ml" 721 20667 20683 "flags.ml" 724 20760 20824
+type(
+  string -> unit
+)
+"flags.ml" 727 20829 20833 "flags.ml" 727 20829 20843
+type(
+  unit -> unit
+)
+ident(
+  def parse_argv "flags.ml" 743 21267 21285 "_none_" 1 0 -1
+)
+"flags.ml" 727 20829 20844 "flags.ml" 727 20829 20846
+type(
+  unit
+)
+"flags.ml" 730 20890 20892 "flags.ml" 730 20890 20901
+type(
+  (Arg.key * Arg.spec * Arg.doc) list ->
+  Arg.anon_fun -> Arg.usage_msg -> unit
+)
+ident(
+  ext_ref Arg.parse
+)
+"flags.ml" 730 20890 20902 "flags.ml" 730 20890 20910
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+ident(
+  int_ref speclist "flags.ml" 636 18800 18804 "flags.ml" 636 18800 18812
+)
+"flags.ml" 730 20890 20911 "flags.ml" 730 20890 20922
+type(
+  Arg.anon_fun
+)
+ident(
+  int_ref anon_action "flags.ml" 721 20667 20671 "flags.ml" 721 20667 20682
+)
+"flags.ml" 730 20890 20923 "flags.ml" 730 20890 20932
+type(
+  Arg.usage_msg
+)
+ident(
+  int_ref usage_msg "flags.ml" 629 18562 18566 "flags.ml" 629 18562 18575
+)
+"flags.ml" 730 20890 20892 "flags.ml" 730 20890 20932
+call(
+  stack
+)
+type(
+  unit
+)
+"flags.ml" 733 20976 20981 "flags.ml" 733 20976 20986
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 733 20976 20981 "flags.ml" 733 20976 20993
+type(
+  enable
+)
+"flags.ml" 733 20976 20994 "flags.ml" 733 20976 20995
+type(
+  enable -> enable -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"flags.ml" 733 20976 20996 "flags.ml" 733 20976 21015
+type(
+  enable
+)
+ident(
+  int_ref enable_default_init "flags.ml" 164 4651 4655 "flags.ml" 164 4651 4674
+)
+"flags.ml" 733 20976 20981 "flags.ml" 733 20976 21015
+type(
+  bool
+)
+"flags.ml" 734 21022 21026 "flags.ml" 734 21022 21031
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 734 21022 21042 "flags.ml" 734 21022 21062
+type(
+  enable
+)
+ident(
+  int_ref enable_default_after "flags.ml" 166 4681 4685 "flags.ml" 166 4681 4705
+)
+"flags.ml" 734 21022 21026 "flags.ml" 734 21022 21062
+type(
+  unit
+)
+"flags.ml" 733 20976 20978 "flags.ml" 734 21022 21062
+type(
+  unit
+)
+type(
+  unit
+)
+"flags.ml" 737 21100 21108 "flags.ml" 737 21100 21113
+type(
+  flags
+)
+ident(
+  int_ref flags "flags.ml" 316 8148 8152 "flags.ml" 316 8148 8157
+)
+"flags.ml" 737 21100 21108 "flags.ml" 737 21100 21124
+type(
+  string option
+)
+"flags.ml" 738 21131 21137 "flags.ml" 738 21131 21141
+type(
+  string option
+)
+"flags.ml" 739 21146 21152 "flags.ml" 739 21146 21165
+type(
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Format.printf
+)
+"flags.ml" 740 21167 21175 "flags.ml" 740 21167 21203
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"flags.ml" 740 21167 21204 "flags.ml" 740 21167 21212
+type(
+  string array
+)
+ident(
+  ext_ref Sys.argv
+)
+"flags.ml" 740 21167 21214 "flags.ml" 740 21167 21215
+type(
+  int
+)
+"flags.ml" 740 21167 21204 "flags.ml" 740 21167 21216
+type(
+  string
+)
+type(
+  string array -> int -> string
+)
+ident(
+  ext_ref Array.get
+)
+"flags.ml" 739 21146 21152 "flags.ml" 740 21167 21216
+call(
+  stack
+)
+type(
+  unit
+)
+"flags.ml" 741 21218 21224 "flags.ml" 741 21218 21233
+type(
+  (Arg.key * Arg.spec * Arg.doc) list -> Arg.usage_msg -> unit
+)
+ident(
+  ext_ref Arg.usage
+)
+"flags.ml" 741 21218 21234 "flags.ml" 741 21218 21242
+type(
+  (Arg.key * Arg.spec * Arg.doc) list
+)
+ident(
+  int_ref speclist "flags.ml" 636 18800 18804 "flags.ml" 636 18800 18812
+)
+"flags.ml" 741 21218 21243 "flags.ml" 741 21218 21252
+type(
+  Arg.usage_msg
+)
+ident(
+  int_ref usage_msg "flags.ml" 629 18562 18566 "flags.ml" 629 18562 18575
+)
+"flags.ml" 741 21218 21224 "flags.ml" 741 21218 21252
+call(
+  stack
+)
+type(
+  unit
+)
+"flags.ml" 742 21254 21260 "flags.ml" 742 21254 21264
+type(
+  int -> unit
+)
+ident(
+  ext_ref Pervasives.exit
+)
+"flags.ml" 742 21254 21265 "flags.ml" 742 21254 21266
+type(
+  int
+)
+"flags.ml" 742 21254 21260 "flags.ml" 742 21254 21266
+call(
+  tail
+)
+type(
+  unit
+)
+"flags.ml" 741 21218 21224 "flags.ml" 742 21254 21266
+type(
+  unit
+)
+"flags.ml" 739 21146 21152 "flags.ml" 742 21254 21266
+type(
+  unit
+)
+"flags.ml" 743 21267 21278 "flags.ml" 743 21267 21279
+type(
+  string
+)
+"flags.ml" 743 21267 21273 "flags.ml" 743 21267 21279
+type(
+  string option
+)
+"flags.ml" 743 21267 21283 "flags.ml" 743 21267 21285
+type(
+  unit
+)
+"flags.ml" 737 21100 21102 "flags.ml" 743 21267 21285
+type(
+  unit
+)
+"flags.ml" 733 20976 20978 "flags.ml" 743 21267 21285
+type(
+  unit
+)
+"flags.ml" 730 20890 20892 "flags.ml" 743 21267 21285
+type(
+  unit
+)
+"flags.ml" 727 20829 20844 "flags.ml" 743 21267 21285
+type(
+  unit -> unit
+)

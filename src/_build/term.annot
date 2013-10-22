@@ -1,0 +1,8540 @@
+"term.ml" 77 3204 3210 "term.ml" 77 3204 3224
+type(
+  Symbol.t -> int
+)
+ident(
+  def hash_of_symbol "term.ml" 80 3281 3283 "term.ml" 109 3931 3934
+)
+"term.ml" 77 3204 3227 "term.ml" 77 3204 3245
+type(
+  Symbol.t -> int
+)
+ident(
+  ext_ref Symbol.hash_symbol
+)
+"term.ml" 80 3281 3287 "term.ml" 80 3281 3298
+type(
+  Var.t -> int
+)
+ident(
+  def hash_of_var "term.ml" 83 3345 3347 "term.ml" 109 3931 3934
+)
+"term.ml" 80 3281 3301 "term.ml" 80 3281 3313
+type(
+  Var.t -> int
+)
+ident(
+  ext_ref Var.hash_var
+)
+"term.ml" 83 3345 3351 "term.ml" 83 3345 3363
+type(
+  Type.t -> int
+)
+ident(
+  def hash_of_sort "term.ml" 86 3418 3420 "term.ml" 109 3931 3934
+)
+"term.ml" 83 3345 3366 "term.ml" 83 3345 3380
+type(
+  Type.t -> int
+)
+ident(
+  ext_ref Type.hash_type
+)
+"term.ml" 86 3418 3424 "term.ml" 86 3418 3436
+type(
+  TermAttr.t -> int
+)
+ident(
+  def hash_of_attr "term.ml" 89 3491 3493 "term.ml" 109 3931 3934
+)
+"term.ml" 86 3418 3439 "term.ml" 86 3418 3457
+type(
+  TermAttr.t -> int
+)
+ident(
+  ext_ref TermAttr.hash_attr
+)
+"term.ml" 89 3491 3497 "term.ml" 89 3491 3508
+type(
+  Var.t -> Type.t
+)
+ident(
+  def sort_of_var "term.ml" 91 3528 3530 "term.ml" 109 3931 3934
+)
+"term.ml" 89 3491 3511 "term.ml" 89 3491 3526
+type(
+  Var.t -> Type.t
+)
+ident(
+  ext_ref Var.type_of_var
+)
+"term.ml" 91 3528 3534 "term.ml" 91 3528 3547
+type(
+  Symbol.t -> Symbol.t
+)
+ident(
+  def import_symbol "term.ml" 93 3566 3568 "term.ml" 109 3931 3934
+)
+"term.ml" 91 3528 3550 "term.ml" 91 3528 3563
+type(
+  Symbol.t -> Symbol.t
+)
+ident(
+  ext_ref Symbol.import
+)
+"term.ml" 93 3566 3572 "term.ml" 93 3566 3582
+type(
+  Var.t -> Var.t
+)
+ident(
+  def import_var "term.ml" 95 3598 3600 "term.ml" 109 3931 3934
+)
+"term.ml" 93 3566 3585 "term.ml" 93 3566 3595
+type(
+  Var.t -> Var.t
+)
+ident(
+  ext_ref Var.import
+)
+"term.ml" 95 3598 3604 "term.ml" 95 3598 3615
+type(
+  Type.t -> Type.t
+)
+ident(
+  def import_sort "term.ml" 98 3662 3664 "term.ml" 109 3931 3934
+)
+"term.ml" 95 3598 3618 "term.ml" 95 3598 3629
+type(
+  Type.t -> Type.t
+)
+ident(
+  ext_ref Type.import
+)
+"term.ml" 98 3662 3668 "term.ml" 98 3662 3683
+type(
+  Format.formatter -> Symbol.t -> unit
+)
+ident(
+  def pp_print_symbol "term.ml" 101 3742 3744 "term.ml" 109 3931 3934
+)
+"term.ml" 98 3662 3686 "term.ml" 98 3662 3708
+type(
+  Format.formatter -> Symbol.t -> unit
+)
+ident(
+  ext_ref Symbol.pp_print_symbol
+)
+"term.ml" 101 3742 3748 "term.ml" 101 3742 3760
+type(
+  Format.formatter -> Var.t -> unit
+)
+ident(
+  def pp_print_var "term.ml" 104 3809 3811 "term.ml" 109 3931 3934
+)
+"term.ml" 101 3742 3763 "term.ml" 101 3742 3779
+type(
+  Format.formatter -> Var.t -> unit
+)
+ident(
+  ext_ref Var.pp_print_var
+)
+"term.ml" 104 3809 3815 "term.ml" 104 3809 3828
+type(
+  Format.formatter -> Type.t -> unit
+)
+ident(
+  def pp_print_sort "term.ml" 107 3885 3887 "term.ml" 109 3931 3934
+)
+"term.ml" 104 3809 3831 "term.ml" 104 3809 3849
+type(
+  Format.formatter -> Type.t -> unit
+)
+ident(
+  ext_ref Type.pp_print_type
+)
+"term.ml" 107 3885 3891 "term.ml" 107 3885 3904
+type(
+  Format.formatter -> TermAttr.t -> unit
+)
+ident(
+  def pp_print_attr "term.ml" 107 3885 3929 "term.ml" 109 3931 3934
+)
+"term.ml" 107 3885 3907 "term.ml" 107 3885 3929
+type(
+  Format.formatter -> TermAttr.t -> unit
+)
+ident(
+  ext_ref TermAttr.pp_print_attr
+)
+"term.ml" 113 3963 3974 "term.ml" 113 3963 3996
+call(
+  stack
+)
+"term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+type(
+  T.t -> T.t_node
+)
+ident(
+  def node_of_term "term.ml" 124 4165 4165 "_none_" 1 0 -1
+)
+"term.ml" 120 4101 4120 "term.ml" 120 4101 4131
+type(
+  T.t -> T.t_node
+)
+ident(
+  ext_ref T.node_of_t
+)
+"term.ml" 124 4165 4169 "term.ml" 124 4165 4177
+type(
+  T.t -> T.flat
+)
+ident(
+  def destruct "term.ml" 128 4242 4242 "_none_" 1 0 -1
+)
+"term.ml" 124 4165 4180 "term.ml" 124 4165 4190
+type(
+  T.t -> T.flat
+)
+ident(
+  ext_ref T.destruct
+)
+"term.ml" 128 4242 4246 "term.ml" 128 4242 4257
+type(
+  T.t -> bool
+)
+ident(
+  def is_free_var "term.ml" 134 4381 4381 "_none_" 1 0 -1
+)
+"term.ml" 128 4242 4258 "term.ml" 128 4242 4259
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 128 4242 4262 "term.ml" 130 4313 4327
+)
+"term.ml" 128 4242 4268 "term.ml" 128 4242 4280
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 128 4242 4281 "term.ml" 128 4242 4282
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 128 4242 4258 "term.ml" 128 4242 4259
+)
+"term.ml" 128 4242 4268 "term.ml" 128 4242 4282
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 129 4288 4302 "term.ml" 129 4288 4303
+type(
+  T.var
+)
+"term.ml" 129 4288 4292 "term.ml" 129 4288 4303
+type(
+  T.t_node
+)
+"term.ml" 129 4288 4307 "term.ml" 129 4288 4311
+type(
+  bool
+)
+"term.ml" 130 4313 4317 "term.ml" 130 4313 4318
+type(
+  T.t_node
+)
+"term.ml" 130 4313 4322 "term.ml" 130 4313 4327
+type(
+  bool
+)
+"term.ml" 128 4242 4262 "term.ml" 130 4313 4327
+type(
+  bool
+)
+"term.ml" 128 4242 4258 "term.ml" 130 4313 4327
+type(
+  T.t -> bool
+)
+"term.ml" 134 4381 4385 "term.ml" 134 4381 4401
+type(
+  T.t -> T.var
+)
+ident(
+  def free_var_of_term "term.ml" 140 4545 4545 "_none_" 1 0 -1
+)
+"term.ml" 134 4381 4402 "term.ml" 134 4381 4403
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 134 4381 4406 "term.ml" 136 4453 4492
+)
+"term.ml" 134 4381 4412 "term.ml" 134 4381 4424
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 134 4381 4425 "term.ml" 134 4381 4426
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 134 4381 4402 "term.ml" 134 4381 4403
+)
+"term.ml" 134 4381 4412 "term.ml" 134 4381 4426
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 135 4432 4446 "term.ml" 135 4432 4447
+type(
+  T.var
+)
+ident(
+  def v "term.ml" 135 4432 4451 "term.ml" 135 4432 4452
+)
+"term.ml" 135 4432 4436 "term.ml" 135 4432 4447
+type(
+  T.t_node
+)
+"term.ml" 135 4432 4451 "term.ml" 135 4432 4452
+type(
+  T.var
+)
+ident(
+  int_ref v "term.ml" 135 4432 4446 "term.ml" 135 4432 4447
+)
+"term.ml" 136 4453 4457 "term.ml" 136 4453 4458
+type(
+  T.t_node
+)
+"term.ml" 136 4453 4462 "term.ml" 136 4453 4473
+type(
+  string -> T.var
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 136 4453 4474 "term.ml" 136 4453 4492
+type(
+  string
+)
+"term.ml" 136 4453 4462 "term.ml" 136 4453 4492
+type(
+  T.var
+)
+"term.ml" 134 4381 4406 "term.ml" 136 4453 4492
+type(
+  T.var
+)
+"term.ml" 134 4381 4402 "term.ml" 136 4453 4492
+type(
+  T.t -> T.var
+)
+"term.ml" 140 4545 4549 "term.ml" 140 4545 4561
+type(
+  T.t -> bool
+)
+ident(
+  def is_bound_var "term.ml" 146 4683 4683 "_none_" 1 0 -1
+)
+"term.ml" 140 4545 4562 "term.ml" 140 4545 4563
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 140 4545 4566 "term.ml" 142 4618 4632
+)
+"term.ml" 140 4545 4572 "term.ml" 140 4545 4584
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 140 4545 4585 "term.ml" 140 4545 4586
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 140 4545 4562 "term.ml" 140 4545 4563
+)
+"term.ml" 140 4545 4572 "term.ml" 140 4545 4586
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 141 4592 4607 "term.ml" 141 4592 4608
+type(
+  int
+)
+"term.ml" 141 4592 4596 "term.ml" 141 4592 4608
+type(
+  T.t_node
+)
+"term.ml" 141 4592 4612 "term.ml" 141 4592 4616
+type(
+  bool
+)
+"term.ml" 142 4618 4622 "term.ml" 142 4618 4623
+type(
+  T.t_node
+)
+"term.ml" 142 4618 4627 "term.ml" 142 4618 4632
+type(
+  bool
+)
+"term.ml" 140 4545 4566 "term.ml" 142 4618 4632
+type(
+  bool
+)
+"term.ml" 140 4545 4562 "term.ml" 142 4618 4632
+type(
+  T.t -> bool
+)
+"term.ml" 146 4683 4687 "term.ml" 146 4683 4694
+type(
+  T.t -> bool
+)
+ident(
+  def is_leaf "term.ml" 152 4804 4804 "_none_" 1 0 -1
+)
+"term.ml" 146 4683 4695 "term.ml" 146 4683 4696
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 146 4683 4699 "term.ml" 148 4747 4761
+)
+"term.ml" 146 4683 4705 "term.ml" 146 4683 4717
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 146 4683 4718 "term.ml" 146 4683 4719
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 146 4683 4695 "term.ml" 146 4683 4696
+)
+"term.ml" 146 4683 4705 "term.ml" 146 4683 4719
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 147 4725 4736 "term.ml" 147 4725 4737
+type(
+  T.symbol
+)
+"term.ml" 147 4725 4729 "term.ml" 147 4725 4737
+type(
+  T.t_node
+)
+"term.ml" 147 4725 4741 "term.ml" 147 4725 4745
+type(
+  bool
+)
+"term.ml" 148 4747 4751 "term.ml" 148 4747 4752
+type(
+  T.t_node
+)
+"term.ml" 148 4747 4756 "term.ml" 148 4747 4761
+type(
+  bool
+)
+"term.ml" 146 4683 4699 "term.ml" 148 4747 4761
+type(
+  bool
+)
+"term.ml" 146 4683 4695 "term.ml" 148 4747 4761
+type(
+  T.t -> bool
+)
+"term.ml" 152 4804 4808 "term.ml" 152 4804 4820
+type(
+  T.t -> T.symbol
+)
+ident(
+  def leaf_of_term "term.ml" 158 4963 4963 "_none_" 1 0 -1
+)
+"term.ml" 152 4804 4821 "term.ml" 152 4804 4822
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 152 4804 4825 "term.ml" 154 4869 4904
+)
+"term.ml" 152 4804 4831 "term.ml" 152 4804 4843
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 152 4804 4844 "term.ml" 152 4804 4845
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 152 4804 4821 "term.ml" 152 4804 4822
+)
+"term.ml" 152 4804 4831 "term.ml" 152 4804 4845
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 153 4851 4862 "term.ml" 153 4851 4863
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 153 4851 4867 "term.ml" 153 4851 4868
+)
+"term.ml" 153 4851 4855 "term.ml" 153 4851 4863
+type(
+  T.t_node
+)
+"term.ml" 153 4851 4867 "term.ml" 153 4851 4868
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 153 4851 4862 "term.ml" 153 4851 4863
+)
+"term.ml" 154 4869 4873 "term.ml" 154 4869 4874
+type(
+  T.t_node
+)
+"term.ml" 154 4869 4878 "term.ml" 154 4869 4889
+type(
+  string -> T.symbol
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 154 4869 4890 "term.ml" 154 4869 4904
+type(
+  string
+)
+"term.ml" 154 4869 4878 "term.ml" 154 4869 4904
+type(
+  T.symbol
+)
+"term.ml" 152 4804 4825 "term.ml" 154 4869 4904
+type(
+  T.symbol
+)
+"term.ml" 152 4804 4821 "term.ml" 154 4869 4904
+type(
+  T.t -> T.symbol
+)
+"term.ml" 158 4963 4967 "term.ml" 158 4963 4974
+type(
+  T.t -> bool
+)
+ident(
+  def is_node "term.ml" 164 5095 5095 "_none_" 1 0 -1
+)
+"term.ml" 158 4963 4975 "term.ml" 158 4963 4976
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 158 4963 4979 "term.ml" 160 5027 5041
+)
+"term.ml" 158 4963 4985 "term.ml" 158 4963 4997
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 158 4963 4998 "term.ml" 158 4963 4999
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 158 4963 4975 "term.ml" 158 4963 4976
+)
+"term.ml" 158 4963 4985 "term.ml" 158 4963 4999
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 159 5005 5016 "term.ml" 159 5005 5017
+type(
+  T.t list
+)
+type(
+  T.symbol
+)
+"term.ml" 159 5005 5009 "term.ml" 159 5005 5017
+type(
+  T.t_node
+)
+"term.ml" 159 5005 5021 "term.ml" 159 5005 5025
+type(
+  bool
+)
+"term.ml" 160 5027 5031 "term.ml" 160 5027 5032
+type(
+  T.t_node
+)
+"term.ml" 160 5027 5036 "term.ml" 160 5027 5041
+type(
+  bool
+)
+"term.ml" 158 4963 4979 "term.ml" 160 5027 5041
+type(
+  bool
+)
+"term.ml" 158 4963 4975 "term.ml" 160 5027 5041
+type(
+  T.t -> bool
+)
+"term.ml" 164 5095 5099 "term.ml" 164 5095 5118
+type(
+  T.t -> T.symbol
+)
+ident(
+  def node_symbol_of_term "term.ml" 170 5271 5271 "_none_" 1 0 -1
+)
+"term.ml" 164 5095 5119 "term.ml" 164 5095 5120
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 164 5095 5123 "term.ml" 166 5173 5215
+)
+"term.ml" 164 5095 5129 "term.ml" 164 5095 5141
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 164 5095 5142 "term.ml" 164 5095 5143
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 164 5095 5119 "term.ml" 164 5095 5120
+)
+"term.ml" 164 5095 5129 "term.ml" 164 5095 5143
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 165 5149 5161 "term.ml" 165 5149 5162
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 165 5149 5170 "term.ml" 165 5149 5171
+)
+"term.ml" 165 5149 5164 "term.ml" 165 5149 5165
+type(
+  T.t list
+)
+"term.ml" 165 5149 5153 "term.ml" 165 5149 5166
+type(
+  T.t_node
+)
+"term.ml" 165 5149 5170 "term.ml" 165 5149 5171
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 165 5149 5161 "term.ml" 165 5149 5162
+)
+"term.ml" 166 5173 5177 "term.ml" 166 5173 5178
+type(
+  T.t_node
+)
+"term.ml" 166 5173 5182 "term.ml" 166 5173 5193
+type(
+  string -> T.symbol
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 166 5173 5194 "term.ml" 166 5173 5215
+type(
+  string
+)
+"term.ml" 166 5173 5182 "term.ml" 166 5173 5215
+type(
+  T.symbol
+)
+"term.ml" 164 5095 5123 "term.ml" 166 5173 5215
+type(
+  T.symbol
+)
+"term.ml" 164 5095 5119 "term.ml" 166 5173 5215
+type(
+  T.t -> T.symbol
+)
+"term.ml" 170 5271 5275 "term.ml" 170 5271 5292
+type(
+  T.t -> T.t list
+)
+ident(
+  def node_args_of_term "term.ml" 176 5437 5437 "_none_" 1 0 -1
+)
+"term.ml" 170 5271 5293 "term.ml" 170 5271 5294
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 170 5271 5297 "term.ml" 172 5347 5387
+)
+"term.ml" 170 5271 5303 "term.ml" 170 5271 5315
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 170 5271 5316 "term.ml" 170 5271 5317
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 170 5271 5293 "term.ml" 170 5271 5294
+)
+"term.ml" 170 5271 5303 "term.ml" 170 5271 5317
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 171 5323 5335 "term.ml" 171 5323 5336
+type(
+  T.symbol
+)
+"term.ml" 171 5323 5338 "term.ml" 171 5323 5339
+type(
+  T.t list
+)
+ident(
+  def l "term.ml" 171 5323 5344 "term.ml" 171 5323 5345
+)
+"term.ml" 171 5323 5327 "term.ml" 171 5323 5340
+type(
+  T.t_node
+)
+"term.ml" 171 5323 5344 "term.ml" 171 5323 5345
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 171 5323 5338 "term.ml" 171 5323 5339
+)
+"term.ml" 172 5347 5351 "term.ml" 172 5347 5352
+type(
+  T.t_node
+)
+"term.ml" 172 5347 5356 "term.ml" 172 5347 5367
+type(
+  string -> T.t list
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 172 5347 5368 "term.ml" 172 5347 5387
+type(
+  string
+)
+"term.ml" 172 5347 5356 "term.ml" 172 5347 5387
+type(
+  T.t list
+)
+"term.ml" 170 5271 5297 "term.ml" 172 5347 5387
+type(
+  T.t list
+)
+"term.ml" 170 5271 5293 "term.ml" 172 5347 5387
+type(
+  T.t -> T.t list
+)
+"term.ml" 176 5437 5441 "term.ml" 176 5437 5447
+type(
+  T.t -> bool
+)
+ident(
+  def is_let "term.ml" 182 5576 5576 "_none_" 1 0 -1
+)
+"term.ml" 176 5437 5448 "term.ml" 176 5437 5449
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 176 5437 5452 "term.ml" 178 5499 5513
+)
+"term.ml" 176 5437 5458 "term.ml" 176 5437 5470
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 176 5437 5471 "term.ml" 176 5437 5472
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 176 5437 5448 "term.ml" 176 5437 5449
+)
+"term.ml" 176 5437 5458 "term.ml" 176 5437 5472
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 177 5478 5488 "term.ml" 177 5478 5489
+type(
+  T.t list
+)
+type(
+  T.lambda
+)
+"term.ml" 177 5478 5482 "term.ml" 177 5478 5489
+type(
+  T.t_node
+)
+"term.ml" 177 5478 5493 "term.ml" 177 5478 5497
+type(
+  bool
+)
+"term.ml" 178 5499 5503 "term.ml" 178 5499 5504
+type(
+  T.t_node
+)
+"term.ml" 178 5499 5508 "term.ml" 178 5499 5513
+type(
+  bool
+)
+"term.ml" 176 5437 5452 "term.ml" 178 5499 5513
+type(
+  bool
+)
+"term.ml" 176 5437 5448 "term.ml" 178 5499 5513
+type(
+  T.t -> bool
+)
+"term.ml" 182 5576 5580 "term.ml" 182 5576 5589
+type(
+  T.t -> bool
+)
+ident(
+  def is_exists "term.ml" 188 5718 5718 "_none_" 1 0 -1
+)
+"term.ml" 182 5576 5590 "term.ml" 182 5576 5591
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 182 5576 5594 "term.ml" 184 5644 5658
+)
+"term.ml" 182 5576 5600 "term.ml" 182 5576 5612
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 182 5576 5613 "term.ml" 182 5576 5614
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 182 5576 5590 "term.ml" 182 5576 5591
+)
+"term.ml" 182 5576 5600 "term.ml" 182 5576 5614
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 183 5620 5633 "term.ml" 183 5620 5634
+type(
+  T.lambda
+)
+"term.ml" 183 5620 5624 "term.ml" 183 5620 5634
+type(
+  T.t_node
+)
+"term.ml" 183 5620 5638 "term.ml" 183 5620 5642
+type(
+  bool
+)
+"term.ml" 184 5644 5648 "term.ml" 184 5644 5649
+type(
+  T.t_node
+)
+"term.ml" 184 5644 5653 "term.ml" 184 5644 5658
+type(
+  bool
+)
+"term.ml" 182 5576 5594 "term.ml" 184 5644 5658
+type(
+  bool
+)
+"term.ml" 182 5576 5590 "term.ml" 184 5644 5658
+type(
+  T.t -> bool
+)
+"term.ml" 188 5718 5722 "term.ml" 188 5718 5731
+type(
+  T.t -> bool
+)
+ident(
+  def is_forall "term.ml" 200 6070 6070 "_none_" 1 0 -1
+)
+"term.ml" 188 5718 5732 "term.ml" 188 5718 5733
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 188 5718 5736 "term.ml" 190 5786 5800
+)
+"term.ml" 188 5718 5742 "term.ml" 188 5718 5754
+type(
+  T.t -> T.t_node
+)
+ident(
+  int_ref node_of_term "term.ml" 120 4101 4105 "term.ml" 120 4101 4117
+)
+"term.ml" 188 5718 5755 "term.ml" 188 5718 5756
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 188 5718 5732 "term.ml" 188 5718 5733
+)
+"term.ml" 188 5718 5742 "term.ml" 188 5718 5756
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 189 5762 5775 "term.ml" 189 5762 5776
+type(
+  T.lambda
+)
+"term.ml" 189 5762 5766 "term.ml" 189 5762 5776
+type(
+  T.t_node
+)
+"term.ml" 189 5762 5780 "term.ml" 189 5762 5784
+type(
+  bool
+)
+"term.ml" 190 5786 5790 "term.ml" 190 5786 5791
+type(
+  T.t_node
+)
+"term.ml" 190 5786 5795 "term.ml" 190 5786 5800
+type(
+  bool
+)
+"term.ml" 188 5718 5736 "term.ml" 190 5786 5800
+type(
+  bool
+)
+"term.ml" 188 5718 5732 "term.ml" 190 5786 5800
+type(
+  T.t -> bool
+)
+"term.ml" 200 6070 6074 "term.ml" 200 6070 6081
+type(
+  T.t -> T.t -> int
+)
+ident(
+  def compare "term.ml" 204 6129 6129 "_none_" 1 0 -1
+)
+"term.ml" 200 6070 6084 "term.ml" 200 6070 6093
+type(
+  T.t -> T.t -> int
+)
+ident(
+  ext_ref T.compare
+)
+"term.ml" 204 6129 6133 "term.ml" 204 6129 6138
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  def equal "term.ml" 208 6183 6183 "_none_" 1 0 -1
+)
+"term.ml" 204 6129 6141 "term.ml" 204 6129 6148
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  ext_ref T.equal
+)
+"term.ml" 208 6183 6187 "term.ml" 208 6183 6191
+type(
+  T.t -> int
+)
+ident(
+  def hash "term.ml" 212 6220 6220 "_none_" 1 0 -1
+)
+"term.ml" 208 6183 6194 "term.ml" 208 6183 6200
+type(
+  T.t -> int
+)
+ident(
+  ext_ref T.hash
+)
+"term.ml" 212 6220 6241 "term.ml" 212 6220 6257
+call(
+  stack
+)
+"term.ml" 218 6328 6345 "term.ml" 218 6328 6357
+call(
+  stack
+)
+"term.ml" 222 6370 6387 "term.ml" 222 6370 6399
+call(
+  stack
+)
+"term.ml" 231 6658 6662 "term.ml" 231 6658 6675
+type(
+  Format.formatter -> T.t -> unit
+)
+ident(
+  def pp_print_term "term.ml" 234 6770 6770 "_none_" 1 0 -1
+)
+"term.ml" 231 6658 6676 "term.ml" 231 6658 6679
+type(
+  Format.formatter
+)
+ident(
+  def ppf "term.ml" 231 6658 6680 "term.ml" 231 6658 6705
+)
+"term.ml" 231 6658 6680 "term.ml" 231 6658 6681
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 231 6658 6684 "term.ml" 231 6658 6705
+)
+"term.ml" 231 6658 6684 "term.ml" 231 6658 6699
+type(
+  ?db:int -> Format.formatter -> T.t -> unit
+)
+ident(
+  ext_ref T.pp_print_term
+)
+"term.ml" 231 6658 6700 "term.ml" 231 6658 6703
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "term.ml" 231 6658 6676 "term.ml" 231 6658 6679
+)
+"term.ml" 231 6658 6704 "term.ml" 231 6658 6705
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 231 6658 6680 "term.ml" 231 6658 6681
+)
+"term.ml" 231 6658 6684 "term.ml" 231 6658 6705
+call(
+  tail
+)
+type(
+  unit
+)
+"term.ml" 231 6658 6680 "term.ml" 231 6658 6705
+type(
+  T.t -> unit
+)
+"term.ml" 231 6658 6676 "term.ml" 231 6658 6705
+type(
+  Format.formatter -> T.t -> unit
+)
+"term.ml" 234 6770 6774 "term.ml" 234 6770 6784
+type(
+  T.t -> unit
+)
+ident(
+  def print_term "term.ml" 237 6874 6874 "_none_" 1 0 -1
+)
+"term.ml" 234 6770 6785 "term.ml" 234 6770 6786
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 234 6770 6789 "term.ml" 234 6770 6825
+)
+"term.ml" 234 6770 6789 "term.ml" 234 6770 6802
+type(
+  Format.formatter -> T.t -> unit
+)
+ident(
+  int_ref pp_print_term "term.ml" 231 6658 6662 "term.ml" 231 6658 6675
+)
+"term.ml" 234 6770 6803 "term.ml" 234 6770 6823
+type(
+  Format.formatter
+)
+ident(
+  ext_ref Format.std_formatter
+)
+"term.ml" 234 6770 6824 "term.ml" 234 6770 6825
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 234 6770 6785 "term.ml" 234 6770 6786
+)
+"term.ml" 234 6770 6789 "term.ml" 234 6770 6825
+call(
+  tail
+)
+type(
+  unit
+)
+"term.ml" 234 6770 6785 "term.ml" 234 6770 6825
+type(
+  T.t -> unit
+)
+"term.ml" 237 6874 6878 "term.ml" 237 6874 6892
+type(
+  T.t -> string
+)
+ident(
+  def string_of_term "term.ml" 249 7237 7237 "_none_" 1 0 -1
+)
+"term.ml" 237 6874 6893 "term.ml" 237 6874 6894
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 237 6874 6897 "term.ml" 237 6874 6924
+)
+"term.ml" 237 6874 6897 "term.ml" 237 6874 6908
+type(
+  (Format.formatter -> T.t -> unit) -> T.t -> string
+)
+ident(
+  ext_ref Lib.string_of_t
+)
+"term.ml" 237 6874 6909 "term.ml" 237 6874 6922
+type(
+  Format.formatter -> T.t -> unit
+)
+ident(
+  int_ref pp_print_term "term.ml" 231 6658 6662 "term.ml" 231 6658 6675
+)
+"term.ml" 237 6874 6923 "term.ml" 237 6874 6924
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 237 6874 6893 "term.ml" 237 6874 6894
+)
+"term.ml" 237 6874 6897 "term.ml" 237 6874 6924
+call(
+  tail
+)
+type(
+  string
+)
+"term.ml" 237 6874 6893 "term.ml" 237 6874 6924
+type(
+  T.t -> string
+)
+"term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+type(
+  T.t -> Type.t
+)
+ident(
+  def type_of_term "term.ml" 249 7237 7237 "_none_" 1 0 -1
+)
+"term.ml" 249 7237 7258 "term.ml" 249 7237 7259
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 249 7237 7262 "term.ml" 403 10808 10843
+)
+"term.ml" 249 7237 7268 "term.ml" 249 7237 7278
+type(
+  T.t -> T.flat
+)
+ident(
+  ext_ref T.destruct
+)
+"term.ml" 249 7237 7279 "term.ml" 249 7237 7280
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 249 7237 7258 "term.ml" 249 7237 7259
+)
+"term.ml" 249 7237 7268 "term.ml" 249 7237 7280
+call(
+  stack
+)
+type(
+  T.flat
+)
+"term.ml" 252 7328 7338 "term.ml" 252 7328 7339
+type(
+  T.var
+)
+ident(
+  def v "term.ml" 252 7328 7343 "term.ml" 252 7328 7360
+)
+"term.ml" 252 7328 7332 "term.ml" 252 7328 7339
+type(
+  T.flat
+)
+"term.ml" 252 7328 7343 "term.ml" 252 7328 7358
+type(
+  T.var -> Type.t
+)
+ident(
+  ext_ref Var.type_of_var
+)
+"term.ml" 252 7328 7359 "term.ml" 252 7328 7360
+type(
+  T.var
+)
+ident(
+  int_ref v "term.ml" 252 7328 7338 "term.ml" 252 7328 7339
+)
+"term.ml" 252 7328 7343 "term.ml" 252 7328 7360
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 255 7396 7408 "term.ml" 255 7396 7409
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 260 7445 7451 "term.ml" 279 7957 7984
+)
+"term.ml" 255 7396 7400 "term.ml" 255 7396 7409
+type(
+  T.flat
+)
+"term.ml" 260 7445 7457 "term.ml" 260 7445 7478
+type(
+  T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"term.ml" 260 7445 7479 "term.ml" 260 7445 7480
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 255 7396 7408 "term.ml" 255 7396 7409
+)
+"term.ml" 260 7445 7457 "term.ml" 260 7445 7480
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"term.ml" 263 7520 7530 "term.ml" 263 7520 7535
+type(
+  Symbol.symbol
+)
+"term.ml" 264 7537 7547 "term.ml" 264 7537 7553
+type(
+  Symbol.symbol
+)
+"term.ml" 263 7520 7530 "term.ml" 264 7537 7553
+type(
+  Symbol.symbol
+)
+"term.ml" 264 7537 7557 "term.ml" 264 7537 7569
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 264 7537 7570 "term.ml" 264 7537 7572
+type(
+  unit
+)
+"term.ml" 264 7537 7557 "term.ml" 264 7537 7572
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 267 7617 7636 "term.ml" 267 7617 7637
+type(
+  Lib.numeral
+)
+"term.ml" 267 7617 7627 "term.ml" 267 7617 7637
+type(
+  Symbol.symbol
+)
+"term.ml" 267 7617 7641 "term.ml" 267 7617 7652
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_int
+)
+"term.ml" 267 7617 7653 "term.ml" 267 7617 7655
+type(
+  unit
+)
+"term.ml" 267 7617 7641 "term.ml" 267 7617 7655
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 270 7685 7704 "term.ml" 270 7685 7705
+type(
+  Lib.decimal
+)
+"term.ml" 270 7685 7695 "term.ml" 270 7685 7705
+type(
+  Symbol.symbol
+)
+"term.ml" 270 7685 7709 "term.ml" 270 7685 7721
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_real
+)
+"term.ml" 270 7685 7722 "term.ml" 270 7685 7724
+type(
+  unit
+)
+"term.ml" 270 7685 7709 "term.ml" 270 7685 7724
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 273 7759 7773 "term.ml" 273 7759 7774
+type(
+  Lib.bitvector
+)
+ident(
+  def b "term.ml" 273 7759 7778 "term.ml" 273 7759 7812
+)
+"term.ml" 273 7759 7769 "term.ml" 273 7759 7774
+type(
+  Symbol.symbol
+)
+"term.ml" 273 7759 7778 "term.ml" 273 7759 7788
+type(
+  Lib.numeral -> Type.t
+)
+ident(
+  ext_ref Type.mk_bv
+)
+"term.ml" 273 7759 7790 "term.ml" 273 7759 7809
+type(
+  Lib.bitvector -> Lib.numeral
+)
+ident(
+  ext_ref Lib.length_of_bitvector
+)
+"term.ml" 273 7759 7810 "term.ml" 273 7759 7811
+type(
+  Lib.bitvector
+)
+ident(
+  int_ref b "term.ml" 273 7759 7773 "term.ml" 273 7759 7774
+)
+"term.ml" 273 7759 7790 "term.ml" 273 7759 7811
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"term.ml" 273 7759 7778 "term.ml" 273 7759 7812
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 276 7861 7875 "term.ml" 276 7861 7876
+type(
+  UfSymbol.t
+)
+ident(
+  def s "term.ml" 276 7861 7880 "term.ml" 276 7861 7912
+)
+"term.ml" 276 7861 7871 "term.ml" 276 7861 7876
+type(
+  Symbol.symbol
+)
+"term.ml" 276 7861 7880 "term.ml" 276 7861 7910
+type(
+  UfSymbol.t -> Type.t
+)
+ident(
+  ext_ref UfSymbol.res_type_of_uf_symbol
+)
+"term.ml" 276 7861 7911 "term.ml" 276 7861 7912
+type(
+  UfSymbol.t
+)
+ident(
+  int_ref s "term.ml" 276 7861 7875 "term.ml" 276 7861 7876
+)
+"term.ml" 276 7861 7880 "term.ml" 276 7861 7912
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 279 7957 7967 "term.ml" 279 7957 7968
+type(
+  Symbol.symbol
+)
+"term.ml" 279 7957 7972 "term.ml" 279 7957 7984
+type(
+  Type.t
+)
+"term.ml" 260 7445 7451 "term.ml" 279 7957 7984
+type(
+  Type.t
+)
+"term.ml" 284 8040 8051 "term.ml" 284 8040 8052
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 289 8096 8102 "term.ml" 398 10740 10771
+)
+"term.ml" 284 8040 8054 "term.ml" 284 8040 8055
+type(
+  T.t list
+)
+ident(
+  def l "term.ml" 289 8096 8102 "term.ml" 398 10740 10771
+)
+"term.ml" 284 8040 8044 "term.ml" 284 8040 8056
+type(
+  T.flat
+)
+"term.ml" 289 8096 8108 "term.ml" 289 8096 8129
+type(
+  T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"term.ml" 289 8096 8130 "term.ml" 289 8096 8131
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 284 8040 8051 "term.ml" 284 8040 8052
+)
+"term.ml" 289 8096 8108 "term.ml" 289 8096 8131
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 292 8178 8192
+type(
+  Symbol.symbol
+)
+"term.ml" 293 8194 8204 "term.ml" 293 8194 8212
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 293 8194 8212
+type(
+  Symbol.symbol
+)
+"term.ml" 294 8213 8223 "term.ml" 294 8213 8227
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 294 8213 8227
+type(
+  Symbol.symbol
+)
+"term.ml" 295 8228 8238 "term.ml" 295 8228 8241
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 295 8228 8241
+type(
+  Symbol.symbol
+)
+"term.ml" 296 8242 8252 "term.ml" 296 8242 8256
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 296 8242 8256
+type(
+  Symbol.symbol
+)
+"term.ml" 297 8257 8267 "term.ml" 297 8257 8274
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 297 8257 8274
+type(
+  Symbol.symbol
+)
+"term.ml" 298 8275 8285 "term.ml" 298 8275 8288
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 298 8275 8288
+type(
+  Symbol.symbol
+)
+"term.ml" 299 8289 8299 "term.ml" 299 8289 8308
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 299 8289 8308
+type(
+  Symbol.symbol
+)
+"term.ml" 300 8309 8319 "term.ml" 300 8309 8323
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 300 8309 8323
+type(
+  Symbol.symbol
+)
+"term.ml" 301 8324 8334 "term.ml" 301 8324 8337
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 301 8324 8337
+type(
+  Symbol.symbol
+)
+"term.ml" 302 8338 8348 "term.ml" 302 8338 8352
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 302 8338 8352
+type(
+  Symbol.symbol
+)
+"term.ml" 303 8353 8363 "term.ml" 303 8353 8366
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 303 8353 8366
+type(
+  Symbol.symbol
+)
+"term.ml" 304 8367 8388 "term.ml" 304 8367 8389
+type(
+  Lib.numeral
+)
+"term.ml" 304 8367 8377 "term.ml" 304 8367 8389
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 304 8367 8389
+type(
+  Symbol.symbol
+)
+"term.ml" 305 8390 8400 "term.ml" 305 8390 8406
+type(
+  Symbol.symbol
+)
+"term.ml" 292 8178 8188 "term.ml" 305 8390 8406
+type(
+  Symbol.symbol
+)
+"term.ml" 305 8390 8410 "term.ml" 305 8390 8422
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 305 8390 8423 "term.ml" 305 8390 8425
+type(
+  unit
+)
+"term.ml" 305 8390 8410 "term.ml" 305 8390 8425
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 308 8466 8476 "term.ml" 308 8466 8483
+type(
+  Symbol.symbol
+)
+"term.ml" 309 8484 8494 "term.ml" 309 8484 8498
+type(
+  Symbol.symbol
+)
+"term.ml" 308 8466 8476 "term.ml" 309 8484 8498
+type(
+  Symbol.symbol
+)
+"term.ml" 310 8499 8509 "term.ml" 310 8499 8513
+type(
+  Symbol.symbol
+)
+"term.ml" 308 8466 8476 "term.ml" 310 8499 8513
+type(
+  Symbol.symbol
+)
+"term.ml" 311 8514 8524 "term.ml" 311 8514 8531
+type(
+  Symbol.symbol
+)
+"term.ml" 308 8466 8476 "term.ml" 311 8514 8531
+type(
+  Symbol.symbol
+)
+"term.ml" 311 8514 8535 "term.ml" 311 8514 8546
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_int
+)
+"term.ml" 311 8514 8547 "term.ml" 311 8514 8549
+type(
+  unit
+)
+"term.ml" 311 8514 8535 "term.ml" 311 8514 8549
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 314 8597 8607 "term.ml" 314 8597 8615
+type(
+  Symbol.symbol
+)
+"term.ml" 315 8616 8626 "term.ml" 315 8616 8630
+type(
+  Symbol.symbol
+)
+"term.ml" 314 8597 8607 "term.ml" 315 8616 8630
+type(
+  Symbol.symbol
+)
+"term.ml" 315 8616 8634 "term.ml" 315 8616 8646
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_real
+)
+"term.ml" 315 8616 8647 "term.ml" 315 8616 8649
+type(
+  unit
+)
+"term.ml" 315 8616 8634 "term.ml" 315 8616 8649
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 318 8701 8711 "term.ml" 318 8701 8718
+type(
+  Symbol.symbol
+)
+"term.ml" 320 8724 8741 "term.ml" 320 8724 8742
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 284 8040 8054 "term.ml" 284 8040 8055
+)
+"term.ml" 323 8785 8800 "term.ml" 323 8785 8801
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 326 8882 8897 "term.ml" 333 9188 9223
+)
+"term.ml" 323 8785 8803 "term.ml" 323 8785 8804
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 326 8882 8897 "term.ml" 333 9188 9223
+)
+"term.ml" 323 8785 8800 "term.ml" 323 8785 8804
+type(
+  T.t list
+)
+"term.ml" 323 8785 8799 "term.ml" 323 8785 8805
+type(
+  T.t list
+)
+"term.ml" 327 8904 8923 "term.ml" 327 8904 8940
+type(
+  Type.t -> Type.kindtype
+)
+ident(
+  ext_ref Type.node_of_type
+)
+"term.ml" 327 8904 8942 "term.ml" 327 8904 8954
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 327 8904 8955 "term.ml" 327 8904 8956
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 323 8785 8800 "term.ml" 323 8785 8801
+)
+"term.ml" 327 8904 8942 "term.ml" 327 8904 8956
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 327 8904 8923 "term.ml" 327 8904 8957
+call(
+  stack
+)
+type(
+  Type.kindtype
+)
+"term.ml" 328 8960 8979 "term.ml" 328 8960 8996
+type(
+  Type.t -> Type.kindtype
+)
+ident(
+  ext_ref Type.node_of_type
+)
+"term.ml" 328 8960 8998 "term.ml" 328 8960 9010
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 328 8960 9011 "term.ml" 328 8960 9012
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 323 8785 8803 "term.ml" 323 8785 8804
+)
+"term.ml" 328 8960 8998 "term.ml" 328 8960 9012
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 328 8960 8979 "term.ml" 328 8960 9013
+call(
+  stack
+)
+type(
+  Type.kindtype
+)
+"term.ml" 327 8904 8923 "term.ml" 328 8960 9013
+type(
+  Type.kindtype * Type.kindtype
+)
+"term.ml" 330 9035 9062 "term.ml" 330 9035 9063
+type(
+  Lib.numeral
+)
+ident(
+  def i "term.ml" 331 9079 9097 "term.ml" 332 9109 9187
+)
+"term.ml" 330 9035 9054 "term.ml" 330 9035 9063
+type(
+  Type.kindtype
+)
+"term.ml" 330 9035 9073 "term.ml" 330 9035 9074
+type(
+  Lib.numeral
+)
+ident(
+  def j "term.ml" 331 9079 9097 "term.ml" 332 9109 9187
+)
+"term.ml" 330 9035 9065 "term.ml" 330 9035 9074
+type(
+  Type.kindtype
+)
+"term.ml" 330 9035 9054 "term.ml" 330 9035 9074
+type(
+  Type.kindtype * Type.kindtype
+)
+"term.ml" 331 9079 9097 "term.ml" 331 9079 9107
+type(
+  Lib.numeral -> Type.t
+)
+ident(
+  ext_ref Type.mk_bv
+)
+"term.ml" 332 9109 9130 "term.ml" 332 9109 9144
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"term.ml" 332 9109 9147 "term.ml" 332 9109 9161
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"term.ml" 332 9109 9162 "term.ml" 332 9109 9163
+type(
+  Lib.numeral
+)
+ident(
+  int_ref i "term.ml" 330 9035 9062 "term.ml" 330 9035 9063
+)
+"term.ml" 332 9109 9147 "term.ml" 332 9109 9163
+call(
+  stack
+)
+type(
+  int
+)
+"term.ml" 332 9109 9165 "term.ml" 332 9109 9166
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"term.ml" 332 9109 9168 "term.ml" 332 9109 9182
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"term.ml" 332 9109 9183 "term.ml" 332 9109 9184
+type(
+  Lib.numeral
+)
+ident(
+  int_ref j "term.ml" 330 9035 9073 "term.ml" 330 9035 9074
+)
+"term.ml" 332 9109 9168 "term.ml" 332 9109 9184
+call(
+  stack
+)
+type(
+  int
+)
+"term.ml" 332 9109 9146 "term.ml" 332 9109 9185
+type(
+  int
+)
+"term.ml" 332 9109 9130 "term.ml" 332 9109 9186
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"term.ml" 331 9079 9097 "term.ml" 332 9109 9187
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 333 9188 9206 "term.ml" 333 9188 9207
+type(
+  Type.kindtype * Type.kindtype
+)
+"term.ml" 333 9188 9211 "term.ml" 333 9188 9223
+type(
+  Type.t
+)
+"term.ml" 326 8882 8897 "term.ml" 333 9188 9223
+type(
+  Type.t
+)
+"term.ml" 335 9242 9256 "term.ml" 335 9242 9257
+type(
+  T.t list
+)
+"term.ml" 335 9242 9261 "term.ml" 335 9242 9273
+type(
+  Type.t
+)
+"term.ml" 320 8724 8735 "term.ml" 335 9242 9273
+type(
+  Type.t
+)
+"term.ml" 339 9334 9354 "term.ml" 339 9334 9355
+type(
+  Lib.numeral
+)
+ident(
+  def i "term.ml" 342 9428 9438 "term.ml" 343 9450 9526
+)
+"term.ml" 339 9334 9357 "term.ml" 339 9334 9358
+type(
+  Lib.numeral
+)
+ident(
+  def j "term.ml" 342 9428 9438 "term.ml" 343 9450 9526
+)
+"term.ml" 339 9334 9344 "term.ml" 339 9334 9359
+type(
+  Symbol.symbol
+)
+type(
+  Lib.numeral * Lib.numeral
+)
+"term.ml" 342 9428 9438 "term.ml" 342 9428 9448
+type(
+  Lib.numeral -> Type.t
+)
+ident(
+  ext_ref Type.mk_bv
+)
+"term.ml" 343 9450 9464 "term.ml" 343 9450 9478
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"term.ml" 343 9450 9481 "term.ml" 343 9450 9495
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"term.ml" 343 9450 9496 "term.ml" 343 9450 9497
+type(
+  Lib.numeral
+)
+ident(
+  int_ref j "term.ml" 339 9334 9357 "term.ml" 339 9334 9358
+)
+"term.ml" 343 9450 9481 "term.ml" 343 9450 9497
+call(
+  stack
+)
+type(
+  int
+)
+"term.ml" 343 9450 9499 "term.ml" 343 9450 9500
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"term.ml" 343 9450 9502 "term.ml" 343 9450 9516
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"term.ml" 343 9450 9517 "term.ml" 343 9450 9518
+type(
+  Lib.numeral
+)
+ident(
+  int_ref i "term.ml" 339 9334 9354 "term.ml" 339 9334 9355
+)
+"term.ml" 343 9450 9502 "term.ml" 343 9450 9518
+call(
+  stack
+)
+type(
+  int
+)
+"term.ml" 343 9450 9480 "term.ml" 343 9450 9519
+type(
+  int
+)
+"term.ml" 343 9450 9520 "term.ml" 343 9450 9521
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"term.ml" 343 9450 9522 "term.ml" 343 9450 9523
+type(
+  int
+)
+"term.ml" 343 9450 9480 "term.ml" 343 9450 9523
+type(
+  int
+)
+"term.ml" 343 9450 9464 "term.ml" 343 9450 9524
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"term.ml" 342 9428 9438 "term.ml" 343 9450 9526
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 346 9576 9586 "term.ml" 346 9576 9593
+type(
+  Symbol.symbol
+)
+"term.ml" 348 9599 9616 "term.ml" 348 9599 9617
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 284 8040 8054 "term.ml" 284 8040 8055
+)
+"term.ml" 351 9660 9675 "term.ml" 351 9660 9676
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 353 9690 9705 "term.ml" 355 9792 9827
+)
+"term.ml" 351 9660 9678 "term.ml" 351 9660 9679
+type(
+  T.t list
+)
+type(
+  T.t
+)
+"term.ml" 351 9660 9675 "term.ml" 351 9660 9679
+type(
+  T.t list
+)
+"term.ml" 351 9660 9674 "term.ml" 351 9660 9680
+type(
+  T.t list
+)
+"term.ml" 353 9690 9711 "term.ml" 353 9690 9728
+type(
+  Type.t -> Type.kindtype
+)
+ident(
+  ext_ref Type.node_of_type
+)
+"term.ml" 353 9690 9730 "term.ml" 353 9690 9742
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 353 9690 9743 "term.ml" 353 9690 9744
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 351 9660 9675 "term.ml" 351 9660 9676
+)
+"term.ml" 353 9690 9730 "term.ml" 353 9690 9744
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 353 9690 9711 "term.ml" 353 9690 9745
+call(
+  stack
+)
+type(
+  Type.kindtype
+)
+"term.ml" 354 9751 9781 "term.ml" 354 9751 9782
+type(
+  Type.t
+)
+"term.ml" 354 9751 9784 "term.ml" 354 9751 9785
+type(
+  Type.t
+)
+ident(
+  def t "term.ml" 354 9751 9790 "term.ml" 354 9751 9791
+)
+"term.ml" 354 9751 9769 "term.ml" 354 9751 9786
+type(
+  Type.kindtype
+)
+"term.ml" 354 9751 9790 "term.ml" 354 9751 9791
+type(
+  Type.t
+)
+ident(
+  int_ref t "term.ml" 354 9751 9784 "term.ml" 354 9751 9785
+)
+"term.ml" 355 9792 9810 "term.ml" 355 9792 9811
+type(
+  Type.kindtype
+)
+"term.ml" 355 9792 9815 "term.ml" 355 9792 9827
+type(
+  Type.t
+)
+"term.ml" 353 9690 9705 "term.ml" 355 9792 9827
+type(
+  Type.t
+)
+"term.ml" 357 9830 9844 "term.ml" 357 9830 9845
+type(
+  T.t list
+)
+"term.ml" 357 9830 9849 "term.ml" 357 9830 9861
+type(
+  Type.t
+)
+"term.ml" 348 9599 9610 "term.ml" 357 9830 9861
+type(
+  Type.t
+)
+"term.ml" 360 9908 9918 "term.ml" 360 9908 9924
+type(
+  Symbol.symbol
+)
+"term.ml" 361 9925 9935 "term.ml" 361 9925 9940
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 361 9925 9940
+type(
+  Symbol.symbol
+)
+"term.ml" 362 9941 9951 "term.ml" 362 9941 9957
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 362 9941 9957
+type(
+  Symbol.symbol
+)
+"term.ml" 363 9958 9968 "term.ml" 363 9958 9974
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 363 9958 9974
+type(
+  Symbol.symbol
+)
+"term.ml" 364 9975 9985 "term.ml" 364 9975 9991
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 364 9975 9991
+type(
+  Symbol.symbol
+)
+"term.ml" 365 9992 10002 "term.ml" 365 9992 10008
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 365 9992 10008
+type(
+  Symbol.symbol
+)
+"term.ml" 366 10009 10019 "term.ml" 366 10009 10024
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 366 10009 10024
+type(
+  Symbol.symbol
+)
+"term.ml" 367 10025 10035 "term.ml" 367 10025 10041
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 367 10025 10041
+type(
+  Symbol.symbol
+)
+"term.ml" 368 10042 10052 "term.ml" 368 10042 10058
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 368 10042 10058
+type(
+  Symbol.symbol
+)
+"term.ml" 369 10059 10069 "term.ml" 369 10059 10075
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 369 10059 10075
+type(
+  Symbol.symbol
+)
+"term.ml" 370 10076 10086 "term.ml" 370 10076 10093
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 370 10076 10093
+type(
+  Symbol.symbol
+)
+"term.ml" 371 10094 10104 "term.ml" 371 10094 10110
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 371 10094 10110
+type(
+  Symbol.symbol
+)
+"term.ml" 372 10111 10121 "term.ml" 372 10111 10128
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 372 10111 10128
+type(
+  Symbol.symbol
+)
+"term.ml" 373 10129 10139 "term.ml" 373 10129 10145
+type(
+  Symbol.symbol
+)
+"term.ml" 360 9908 9918 "term.ml" 373 10129 10145
+type(
+  Symbol.symbol
+)
+"term.ml" 375 10151 10168 "term.ml" 375 10151 10169
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 284 8040 8054 "term.ml" 284 8040 8055
+)
+"term.ml" 378 10242 10256 "term.ml" 378 10242 10257
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 378 10242 10266 "term.ml" 378 10242 10280
+)
+"term.ml" 378 10242 10261 "term.ml" 378 10242 10262
+type(
+  T.t list
+)
+"term.ml" 378 10242 10256 "term.ml" 378 10242 10262
+type(
+  T.t list
+)
+"term.ml" 378 10242 10266 "term.ml" 378 10242 10278
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 378 10242 10279 "term.ml" 378 10242 10280
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 378 10242 10256 "term.ml" 378 10242 10257
+)
+"term.ml" 378 10242 10266 "term.ml" 378 10242 10280
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 379 10281 10295 "term.ml" 379 10281 10296
+type(
+  T.t list
+)
+"term.ml" 379 10281 10300 "term.ml" 379 10281 10312
+type(
+  Type.t
+)
+"term.ml" 375 10151 10162 "term.ml" 379 10281 10312
+type(
+  Type.t
+)
+"term.ml" 382 10360 10370 "term.ml" 382 10360 10374
+type(
+  Symbol.symbol
+)
+"term.ml" 384 10380 10397 "term.ml" 384 10380 10398
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 284 8040 8054 "term.ml" 284 8040 8055
+)
+"term.ml" 387 10444 10459 "term.ml" 387 10444 10460
+type(
+  T.t
+)
+"term.ml" 387 10444 10462 "term.ml" 387 10444 10463
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 387 10444 10471 "term.ml" 387 10444 10485
+)
+"term.ml" 387 10444 10465 "term.ml" 387 10444 10466
+type(
+  T.t list
+)
+type(
+  T.t
+)
+"term.ml" 387 10444 10462 "term.ml" 387 10444 10466
+type(
+  T.t list
+)
+"term.ml" 387 10444 10459 "term.ml" 387 10444 10466
+type(
+  T.t list
+)
+"term.ml" 387 10444 10458 "term.ml" 387 10444 10467
+type(
+  T.t list
+)
+"term.ml" 387 10444 10471 "term.ml" 387 10444 10483
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 387 10444 10484 "term.ml" 387 10444 10485
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 387 10444 10462 "term.ml" 387 10444 10463
+)
+"term.ml" 387 10444 10471 "term.ml" 387 10444 10485
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 388 10486 10500 "term.ml" 388 10486 10501
+type(
+  T.t list
+)
+"term.ml" 388 10486 10505 "term.ml" 388 10486 10517
+type(
+  Type.t
+)
+"term.ml" 384 10380 10391 "term.ml" 388 10486 10517
+type(
+  Type.t
+)
+"term.ml" 391 10569 10583 "term.ml" 391 10569 10584
+type(
+  UfSymbol.t
+)
+ident(
+  def s "term.ml" 391 10569 10588 "term.ml" 391 10569 10620
+)
+"term.ml" 391 10569 10579 "term.ml" 391 10569 10584
+type(
+  Symbol.symbol
+)
+"term.ml" 391 10569 10588 "term.ml" 391 10569 10618
+type(
+  UfSymbol.t -> Type.t
+)
+ident(
+  ext_ref UfSymbol.res_type_of_uf_symbol
+)
+"term.ml" 391 10569 10619 "term.ml" 391 10569 10620
+type(
+  UfSymbol.t
+)
+ident(
+  int_ref s "term.ml" 391 10569 10583 "term.ml" 391 10569 10584
+)
+"term.ml" 391 10569 10588 "term.ml" 391 10569 10620
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 394 10665 10675 "term.ml" 394 10665 10680
+type(
+  Symbol.symbol
+)
+"term.ml" 395 10681 10691 "term.ml" 395 10681 10697
+type(
+  Symbol.symbol
+)
+"term.ml" 394 10665 10675 "term.ml" 395 10681 10697
+type(
+  Symbol.symbol
+)
+"term.ml" 396 10698 10717 "term.ml" 396 10698 10718
+type(
+  Lib.numeral
+)
+"term.ml" 396 10698 10708 "term.ml" 396 10698 10718
+type(
+  Symbol.symbol
+)
+"term.ml" 394 10665 10675 "term.ml" 396 10698 10718
+type(
+  Symbol.symbol
+)
+"term.ml" 397 10719 10738 "term.ml" 397 10719 10739
+type(
+  Lib.decimal
+)
+"term.ml" 397 10719 10729 "term.ml" 397 10719 10739
+type(
+  Symbol.symbol
+)
+"term.ml" 394 10665 10675 "term.ml" 397 10719 10739
+type(
+  Symbol.symbol
+)
+"term.ml" 398 10740 10754 "term.ml" 398 10740 10755
+type(
+  Lib.bitvector
+)
+"term.ml" 398 10740 10750 "term.ml" 398 10740 10755
+type(
+  Symbol.symbol
+)
+"term.ml" 394 10665 10675 "term.ml" 398 10740 10755
+type(
+  Symbol.symbol
+)
+"term.ml" 398 10740 10759 "term.ml" 398 10740 10771
+type(
+  Type.t
+)
+"term.ml" 289 8096 8102 "term.ml" 398 10740 10771
+type(
+  Type.t
+)
+"term.ml" 403 10808 10820 "term.ml" 403 10808 10821
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 403 10808 10829 "term.ml" 403 10808 10843
+)
+"term.ml" 403 10808 10823 "term.ml" 403 10808 10824
+type(
+  T.attr
+)
+"term.ml" 403 10808 10812 "term.ml" 403 10808 10825
+type(
+  T.flat
+)
+"term.ml" 403 10808 10829 "term.ml" 403 10808 10841
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 403 10808 10842 "term.ml" 403 10808 10843
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 403 10808 10820 "term.ml" 403 10808 10821
+)
+"term.ml" 403 10808 10829 "term.ml" 403 10808 10843
+call(
+  tail
+)
+type(
+  Type.t
+)
+"term.ml" 249 7237 7262 "term.ml" 403 10808 10843
+type(
+  Type.t
+)
+"term.ml" 249 7237 7258 "term.ml" 403 10808 10843
+type(
+  T.t -> Type.t
+)
+"term.ml" 521 14250 14254 "term.ml" 521 14250 14262
+type(
+  T.symbol -> T.t
+)
+ident(
+  def mk_const "term.ml" 525 14313 14313 "_none_" 1 0 -1
+)
+"term.ml" 521 14250 14265 "term.ml" 521 14250 14275
+type(
+  T.symbol -> T.t
+)
+ident(
+  ext_ref T.mk_const
+)
+"term.ml" 525 14313 14317 "term.ml" 525 14313 14323
+type(
+  T.var -> T.t
+)
+ident(
+  def mk_var "term.ml" 531 14415 14415 "_none_" 1 0 -1
+)
+"term.ml" 525 14313 14326 "term.ml" 525 14313 14334
+type(
+  T.var -> T.t
+)
+ident(
+  ext_ref T.mk_var
+)
+"term.ml" 531 14415 14419 "term.ml" 531 14415 14425
+type(
+  T.symbol -> T.t list -> T.t
+)
+ident(
+  def mk_app "term.ml" 535 14476 14476 "_none_" 1 0 -1
+)
+"term.ml" 531 14415 14428 "term.ml" 531 14415 14436
+type(
+  T.symbol -> T.t list -> T.t
+)
+ident(
+  ext_ref T.mk_app
+)
+"term.ml" 535 14476 14480 "term.ml" 535 14476 14487
+type(
+  T.t_node -> T.t
+)
+ident(
+  def mk_term "term.ml" 539 14540 14540 "_none_" 1 0 -1
+)
+"term.ml" 535 14476 14490 "term.ml" 535 14476 14499
+type(
+  T.t_node -> T.t
+)
+ident(
+  ext_ref T.mk_term
+)
+"term.ml" 539 14540 14544 "term.ml" 539 14540 14550
+type(
+  (T.var * T.t) list -> T.t -> T.t
+)
+ident(
+  def mk_let "term.ml" 543 14621 14621 "_none_" 1 0 -1
+)
+"term.ml" 539 14540 14554 "term.ml" 539 14540 14562
+type(
+  (T.var * T.t) list -> T.t -> T.t
+)
+ident(
+  ext_ref T.mk_let
+)
+"term.ml" 543 14621 14625 "term.ml" 543 14621 14634
+type(
+  T.var list -> T.t -> T.t
+)
+ident(
+  def mk_exists "term.ml" 547 14706 14706 "_none_" 1 0 -1
+)
+"term.ml" 543 14621 14637 "term.ml" 543 14621 14648
+type(
+  T.var list -> T.t -> T.t
+)
+ident(
+  ext_ref T.mk_exists
+)
+"term.ml" 547 14706 14710 "term.ml" 547 14706 14719
+type(
+  T.var list -> T.t -> T.t
+)
+ident(
+  def mk_forall "term.ml" 551 14807 14807 "_none_" 1 0 -1
+)
+"term.ml" 547 14706 14722 "term.ml" 547 14706 14733
+type(
+  T.var list -> T.t -> T.t
+)
+ident(
+  ext_ref T.mk_forall
+)
+"term.ml" 551 14807 14811 "term.ml" 551 14807 14817
+type(
+  T.t -> T.t
+)
+ident(
+  def import "term.ml" 554 14862 14862 "_none_" 1 0 -1
+)
+"term.ml" 551 14807 14820 "term.ml" 551 14807 14828
+type(
+  T.t -> T.t
+)
+ident(
+  ext_ref T.import
+)
+"term.ml" 554 14862 14866 "term.ml" 554 14862 14875
+type(
+  T.flat -> T.t
+)
+ident(
+  def construct "term.ml" 558 14926 14926 "_none_" 1 0 -1
+)
+"term.ml" 554 14862 14878 "term.ml" 554 14862 14889
+type(
+  T.flat -> T.t
+)
+ident(
+  ext_ref T.construct
+)
+"term.ml" 558 14926 14934 "term.ml" 558 14926 14941
+type(
+  T.t -> bool
+)
+ident(
+  def is_atom "term.ml" 558 14926 14926 "_none_" 1 0 -1
+)
+"term.ml" 558 14926 14942 "term.ml" 558 14926 14943
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 558 14926 14946 "term.ml" 622 16759 16789
+)
+"term.ml" 558 14926 14952 "term.ml" 558 14926 14962
+type(
+  T.t -> T.flat
+)
+ident(
+  ext_ref T.destruct
+)
+"term.ml" 558 14926 14963 "term.ml" 558 14926 14964
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 558 14926 14942 "term.ml" 558 14926 14943
+)
+"term.ml" 558 14926 14952 "term.ml" 558 14926 14964
+call(
+  stack
+)
+type(
+  T.flat
+)
+"term.ml" 561 15001 15012 "term.ml" 561 15001 15013
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 564 15057 15061 "term.ml" 613 16496 16505
+)
+"term.ml" 561 15001 15015 "term.ml" 561 15001 15016
+type(
+  T.t list
+)
+ident(
+  def l "term.ml" 564 15057 15061 "term.ml" 613 16496 16505
+)
+"term.ml" 561 15001 15005 "term.ml" 561 15001 15017
+type(
+  T.flat
+)
+"term.ml" 564 15057 15062 "term.ml" 564 15057 15074
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 564 15057 15075 "term.ml" 564 15057 15076
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 558 14926 14942 "term.ml" 558 14926 14943
+)
+"term.ml" 564 15057 15062 "term.ml" 564 15057 15076
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 564 15057 15077 "term.ml" 564 15057 15079
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 564 15057 15080 "term.ml" 564 15057 15092
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 564 15057 15093 "term.ml" 564 15057 15095
+type(
+  unit
+)
+"term.ml" 564 15057 15080 "term.ml" 564 15057 15095
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 564 15057 15062 "term.ml" 564 15057 15095
+type(
+  bool
+)
+"term.ml" 564 15057 15097 "term.ml" 564 15057 15099
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"term.ml" 567 15144 15149 "term.ml" 567 15144 15161
+type(
+  (T.t -> bool) -> T.t list -> bool
+)
+ident(
+  ext_ref List.for_all
+)
+"term.ml" 568 15162 15179 "term.ml" 568 15162 15180
+type(
+  T.t
+)
+ident(
+  def e "term.ml" 569 15185 15194 "term.ml" 612 16482 16494
+)
+"term.ml" 569 15185 15194 "term.ml" 569 15185 15202
+type(
+  (T.flat -> bool list -> bool) -> T.t -> bool
+)
+ident(
+  ext_ref T.eval_t
+)
+"term.ml" 573 15266 15288 "term.ml" 573 15266 15289
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 575 15304 15320 "term.ml" 589 15780 15840
+)
+"term.ml" 573 15266 15291 "term.ml" 573 15266 15292
+type(
+  T.t list
+)
+ident(
+  def l "term.ml" 575 15304 15320 "term.ml" 589 15780 15840
+)
+"term.ml" 573 15266 15281 "term.ml" 573 15266 15293
+type(
+  T.flat
+)
+"term.ml" 573 15266 15281 "term.ml" 573 15266 15298
+type(
+  T.flat
+)
+ident(
+  def f "term.ml" 575 15304 15320 "term.ml" 589 15780 15840
+)
+"term.ml" 575 15304 15329 "term.ml" 575 15304 15330
+type(
+  bool list
+)
+ident(
+  def r "term.ml" 578 15387 15404 "term.ml" 589 15780 15840
+)
+"term.ml" 578 15387 15405 "term.ml" 578 15387 15408
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"term.ml" 579 15410 15431 "term.ml" 579 15410 15443
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 579 15410 15445 "term.ml" 579 15410 15456
+type(
+  T.flat -> T.t
+)
+ident(
+  ext_ref T.construct
+)
+"term.ml" 579 15410 15457 "term.ml" 579 15410 15458
+type(
+  T.flat
+)
+ident(
+  int_ref f "term.ml" 573 15266 15281 "term.ml" 573 15266 15298
+)
+"term.ml" 579 15410 15445 "term.ml" 579 15410 15458
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 579 15410 15431 "term.ml" 579 15410 15459
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 579 15410 15460 "term.ml" 579 15410 15462
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 580 15464 15487 "term.ml" 580 15464 15499
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 580 15464 15500 "term.ml" 580 15464 15502
+type(
+  unit
+)
+"term.ml" 580 15464 15487 "term.ml" 580 15464 15502
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 579 15410 15431 "term.ml" 580 15464 15502
+type(
+  bool
+)
+"term.ml" 578 15387 15405 "term.ml" 580 15464 15503
+type(
+  bool
+)
+"term.ml" 580 15464 15505 "term.ml" 580 15464 15507
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"term.ml" 583 15573 15591 "term.ml" 583 15573 15603
+type(
+  (T.t -> bool) -> T.t list -> bool
+)
+ident(
+  ext_ref List.for_all
+)
+"term.ml" 584 15604 15634 "term.ml" 584 15604 15635
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 585 15640 15662 "term.ml" 585 15640 15701
+)
+"term.ml" 585 15640 15662 "term.ml" 585 15640 15665
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"term.ml" 585 15640 15667 "term.ml" 585 15640 15679
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 585 15640 15680 "term.ml" 585 15640 15681
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 584 15604 15634 "term.ml" 584 15604 15635
+)
+"term.ml" 585 15640 15667 "term.ml" 585 15640 15681
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 585 15640 15682 "term.ml" 585 15640 15684
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 585 15640 15685 "term.ml" 585 15640 15697
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 585 15640 15698 "term.ml" 585 15640 15700
+type(
+  unit
+)
+"term.ml" 585 15640 15685 "term.ml" 585 15640 15700
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 585 15640 15667 "term.ml" 585 15640 15700
+type(
+  bool
+)
+"term.ml" 585 15640 15662 "term.ml" 585 15640 15701
+type(
+  bool
+)
+"term.ml" 584 15604 15625 "term.ml" 585 15640 15701
+type(
+  T.t -> bool
+)
+"term.ml" 586 15703 15723 "term.ml" 586 15703 15724
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 573 15266 15291 "term.ml" 573 15266 15292
+)
+"term.ml" 583 15573 15591 "term.ml" 586 15703 15724
+call(
+  stack
+)
+type(
+  bool
+)
+"term.ml" 586 15703 15726 "term.ml" 586 15703 15728
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"term.ml" 589 15780 15798 "term.ml" 589 15780 15812
+type(
+  (bool -> bool -> bool) -> bool -> bool list -> bool
+)
+ident(
+  ext_ref List.fold_left
+)
+"term.ml" 589 15780 15818 "term.ml" 589 15780 15819
+type(
+  bool
+)
+ident(
+  def a "term.ml" 589 15780 15820 "term.ml" 589 15780 15831
+)
+"term.ml" 589 15780 15820 "term.ml" 589 15780 15821
+type(
+  bool
+)
+ident(
+  def e "term.ml" 589 15780 15825 "term.ml" 589 15780 15831
+)
+"term.ml" 589 15780 15825 "term.ml" 589 15780 15826
+type(
+  bool
+)
+ident(
+  int_ref a "term.ml" 589 15780 15818 "term.ml" 589 15780 15819
+)
+"term.ml" 589 15780 15827 "term.ml" 589 15780 15829
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"term.ml" 589 15780 15830 "term.ml" 589 15780 15831
+type(
+  bool
+)
+ident(
+  int_ref e "term.ml" 589 15780 15820 "term.ml" 589 15780 15821
+)
+"term.ml" 589 15780 15825 "term.ml" 589 15780 15831
+type(
+  bool
+)
+"term.ml" 589 15780 15820 "term.ml" 589 15780 15831
+type(
+  bool -> bool
+)
+"term.ml" 589 15780 15818 "term.ml" 589 15780 15831
+type(
+  bool -> bool -> bool
+)
+"term.ml" 589 15780 15833 "term.ml" 589 15780 15837
+type(
+  bool
+)
+"term.ml" 589 15780 15838 "term.ml" 589 15780 15839
+type(
+  bool list
+)
+ident(
+  int_ref r "term.ml" 575 15304 15329 "term.ml" 575 15304 15330
+)
+"term.ml" 589 15780 15798 "term.ml" 589 15780 15839
+call(
+  tail
+)
+type(
+  bool
+)
+"term.ml" 583 15573 15590 "term.ml" 589 15780 15840
+type(
+  bool
+)
+"term.ml" 578 15387 15404 "term.ml" 589 15780 15840
+type(
+  bool
+)
+"term.ml" 575 15304 15320 "term.ml" 589 15780 15840
+type(
+  bool list -> bool
+)
+"term.ml" 592 15899 15922 "term.ml" 592 15899 15923
+type(
+  T.symbol
+)
+"term.ml" 592 15899 15914 "term.ml" 592 15899 15923
+type(
+  T.flat
+)
+"term.ml" 592 15899 15914 "term.ml" 592 15899 15928
+type(
+  T.flat
+)
+ident(
+  def f "term.ml" 594 15934 15950 "term.ml" 599 16110 16146
+)
+"term.ml" 595 15960 15979 "term.ml" 595 15960 15981
+type(
+  bool list
+)
+"term.ml" 596 15986 16006 "term.ml" 596 15986 16009
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"term.ml" 597 16011 16034 "term.ml" 597 16011 16046
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 597 16011 16048 "term.ml" 597 16011 16059
+type(
+  T.flat -> T.t
+)
+ident(
+  ext_ref T.construct
+)
+"term.ml" 597 16011 16060 "term.ml" 597 16011 16061
+type(
+  T.flat
+)
+ident(
+  int_ref f "term.ml" 592 15899 15914 "term.ml" 592 15899 15928
+)
+"term.ml" 597 16011 16048 "term.ml" 597 16011 16061
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 597 16011 16034 "term.ml" 597 16011 16062
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 597 16011 16063 "term.ml" 597 16011 16065
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 598 16067 16092 "term.ml" 598 16067 16104
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 598 16067 16105 "term.ml" 598 16067 16107
+type(
+  unit
+)
+"term.ml" 598 16067 16092 "term.ml" 598 16067 16107
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 597 16011 16034 "term.ml" 598 16067 16107
+type(
+  bool
+)
+"term.ml" 596 15986 16006 "term.ml" 598 16067 16108
+type(
+  bool
+)
+"term.ml" 599 16110 16129 "term.ml" 599 16110 16130
+type(
+  bool list
+)
+"term.ml" 599 16110 16134 "term.ml" 599 16110 16146
+type(
+  bool
+)
+"term.ml" 594 15934 15950 "term.ml" 599 16110 16146
+type(
+  bool list -> bool
+)
+"term.ml" 602 16205 16226 "term.ml" 602 16205 16227
+type(
+  T.var
+)
+ident(
+  def v "term.ml" 604 16233 16249 "term.ml" 607 16349 16385
+)
+"term.ml" 602 16205 16220 "term.ml" 602 16205 16227
+type(
+  T.flat
+)
+"term.ml" 605 16259 16278 "term.ml" 605 16259 16280
+type(
+  bool list
+)
+"term.ml" 606 16285 16305 "term.ml" 606 16285 16308
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"term.ml" 606 16285 16310 "term.ml" 606 16285 16325
+type(
+  T.var -> Type.t
+)
+ident(
+  ext_ref Var.type_of_var
+)
+"term.ml" 606 16285 16326 "term.ml" 606 16285 16327
+type(
+  T.var
+)
+ident(
+  int_ref v "term.ml" 602 16205 16226 "term.ml" 602 16205 16227
+)
+"term.ml" 606 16285 16310 "term.ml" 606 16285 16327
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 606 16285 16328 "term.ml" 606 16285 16330
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 606 16285 16331 "term.ml" 606 16285 16343
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 606 16285 16344 "term.ml" 606 16285 16346
+type(
+  unit
+)
+"term.ml" 606 16285 16331 "term.ml" 606 16285 16346
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 606 16285 16310 "term.ml" 606 16285 16346
+type(
+  bool
+)
+"term.ml" 606 16285 16305 "term.ml" 606 16285 16347
+type(
+  bool
+)
+"term.ml" 607 16349 16368 "term.ml" 607 16349 16369
+type(
+  bool list
+)
+"term.ml" 607 16349 16373 "term.ml" 607 16349 16385
+type(
+  bool
+)
+"term.ml" 604 16233 16249 "term.ml" 607 16349 16385
+type(
+  bool list -> bool
+)
+"term.ml" 610 16422 16445 "term.ml" 610 16422 16446
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 610 16422 16455 "term.ml" 610 16422 16478
+)
+"term.ml" 610 16422 16448 "term.ml" 610 16422 16449
+type(
+  T.attr
+)
+"term.ml" 610 16422 16437 "term.ml" 610 16422 16450
+type(
+  T.flat
+)
+"term.ml" 610 16422 16464 "term.ml" 610 16422 16465
+type(
+  bool list
+)
+"term.ml" 610 16422 16469 "term.ml" 610 16422 16476
+type(
+  T.t -> bool
+)
+ident(
+  int_ref is_atom "term.ml" 558 14926 14934 "term.ml" 558 14926 14941
+)
+"term.ml" 610 16422 16477 "term.ml" 610 16422 16478
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 610 16422 16445 "term.ml" 610 16422 16446
+)
+"term.ml" 610 16422 16469 "term.ml" 610 16422 16478
+call(
+  tail
+)
+type(
+  bool
+)
+"term.ml" 610 16422 16455 "term.ml" 610 16422 16478
+type(
+  bool list -> bool
+)
+"term.ml" 570 15203 15215 "term.ml" 610 16422 16479
+type(
+  T.flat -> bool list -> bool
+)
+"term.ml" 612 16482 16493 "term.ml" 612 16482 16494
+type(
+  T.t
+)
+ident(
+  int_ref e "term.ml" 568 15162 15179 "term.ml" 568 15162 15180
+)
+"term.ml" 569 15185 15194 "term.ml" 612 16482 16494
+call(
+  tail
+)
+type(
+  bool
+)
+"term.ml" 568 15162 15170 "term.ml" 612 16482 16494
+type(
+  T.t -> bool
+)
+"term.ml" 613 16496 16503 "term.ml" 613 16496 16504
+type(
+  T.t list
+)
+ident(
+  int_ref l "term.ml" 561 15001 15015 "term.ml" 561 15001 15016
+)
+"term.ml" 567 15144 15149 "term.ml" 613 16496 16504
+call(
+  tail
+)
+type(
+  bool
+)
+"term.ml" 564 15057 15061 "term.ml" 613 16496 16505
+type(
+  bool
+)
+"term.ml" 616 16569 16581 "term.ml" 616 16569 16582
+type(
+  T.symbol
+)
+"term.ml" 616 16569 16573 "term.ml" 616 16569 16582
+type(
+  T.flat
+)
+"term.ml" 616 16569 16586 "term.ml" 616 16569 16598
+type(
+  T.t -> Type.t
+)
+ident(
+  int_ref type_of_term "term.ml" 249 7237 7245 "term.ml" 249 7237 7257
+)
+"term.ml" 616 16569 16599 "term.ml" 616 16569 16600
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 558 14926 14942 "term.ml" 558 14926 14943
+)
+"term.ml" 616 16569 16586 "term.ml" 616 16569 16600
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 616 16569 16601 "term.ml" 616 16569 16603
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 616 16569 16604 "term.ml" 616 16569 16616
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 616 16569 16617 "term.ml" 616 16569 16619
+type(
+  unit
+)
+"term.ml" 616 16569 16604 "term.ml" 616 16569 16619
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 616 16569 16586 "term.ml" 616 16569 16619
+type(
+  bool
+)
+"term.ml" 619 16683 16693 "term.ml" 619 16683 16694
+type(
+  T.var
+)
+ident(
+  def v "term.ml" 619 16683 16698 "term.ml" 619 16683 16734
+)
+"term.ml" 619 16683 16687 "term.ml" 619 16683 16694
+type(
+  T.flat
+)
+"term.ml" 619 16683 16698 "term.ml" 619 16683 16713
+type(
+  T.var -> Type.t
+)
+ident(
+  ext_ref Var.type_of_var
+)
+"term.ml" 619 16683 16714 "term.ml" 619 16683 16715
+type(
+  T.var
+)
+ident(
+  int_ref v "term.ml" 619 16683 16693 "term.ml" 619 16683 16694
+)
+"term.ml" 619 16683 16698 "term.ml" 619 16683 16715
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 619 16683 16716 "term.ml" 619 16683 16718
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 619 16683 16719 "term.ml" 619 16683 16731
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"term.ml" 619 16683 16732 "term.ml" 619 16683 16734
+type(
+  unit
+)
+"term.ml" 619 16683 16719 "term.ml" 619 16683 16734
+call(
+  stack
+)
+type(
+  Type.t
+)
+"term.ml" 619 16683 16698 "term.ml" 619 16683 16734
+type(
+  bool
+)
+"term.ml" 622 16759 16771 "term.ml" 622 16759 16772
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 622 16759 16780 "term.ml" 622 16759 16789
+)
+"term.ml" 622 16759 16774 "term.ml" 622 16759 16775
+type(
+  T.attr
+)
+"term.ml" 622 16759 16763 "term.ml" 622 16759 16776
+type(
+  T.flat
+)
+"term.ml" 622 16759 16780 "term.ml" 622 16759 16787
+type(
+  T.t -> bool
+)
+ident(
+  int_ref is_atom "term.ml" 558 14926 14934 "term.ml" 558 14926 14941
+)
+"term.ml" 622 16759 16788 "term.ml" 622 16759 16789
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 622 16759 16771 "term.ml" 622 16759 16772
+)
+"term.ml" 622 16759 16780 "term.ml" 622 16759 16789
+call(
+  tail
+)
+type(
+  bool
+)
+"term.ml" 558 14926 14946 "term.ml" 622 16759 16789
+type(
+  bool
+)
+"term.ml" 558 14926 14942 "term.ml" 622 16759 16789
+type(
+  T.t -> bool
+)
+"term.ml" 627 16855 16859 "term.ml" 627 16855 16869
+type(
+  T.t -> bool
+)
+ident(
+  def is_negated "term.ml" 633 17004 17004 "_none_" 1 0 -1
+)
+"term.ml" 627 16855 16870 "term.ml" 627 16855 16874
+type(
+  T.t
+)
+ident(
+  def term "term.ml" 627 16855 16877 "term.ml" 629 16952 16966
+)
+"term.ml" 627 16855 16883 "term.ml" 627 16855 16893
+type(
+  T.t -> T.flat
+)
+ident(
+  ext_ref T.destruct
+)
+"term.ml" 627 16855 16894 "term.ml" 627 16855 16898
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 627 16855 16870 "term.ml" 627 16855 16874
+)
+"term.ml" 627 16855 16883 "term.ml" 627 16855 16898
+call(
+  stack
+)
+type(
+  T.flat
+)
+"term.ml" 628 16904 16915 "term.ml" 628 16904 16916
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 628 16904 16926 "term.ml" 628 16904 16943
+)
+"term.ml" 628 16904 16918 "term.ml" 628 16904 16919
+type(
+  T.t list
+)
+"term.ml" 628 16904 16908 "term.ml" 628 16904 16920
+type(
+  T.flat
+)
+"term.ml" 628 16904 16926 "term.ml" 628 16904 16927
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 628 16904 16915 "term.ml" 628 16904 16916
+)
+"term.ml" 628 16904 16928 "term.ml" 628 16904 16930
+type(
+  T.symbol -> T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 628 16904 16931 "term.ml" 628 16904 16943
+type(
+  T.symbol
+)
+ident(
+  ext_ref Symbol.s_not
+)
+"term.ml" 628 16904 16926 "term.ml" 628 16904 16943
+type(
+  bool
+)
+type(
+  bool
+)
+"term.ml" 628 16904 16947 "term.ml" 628 16904 16951
+type(
+  bool
+)
+"term.ml" 629 16952 16956 "term.ml" 629 16952 16957
+type(
+  T.flat
+)
+"term.ml" 629 16952 16961 "term.ml" 629 16952 16966
+type(
+  bool
+)
+"term.ml" 627 16855 16877 "term.ml" 629 16952 16966
+type(
+  bool
+)
+"term.ml" 627 16855 16870 "term.ml" 629 16952 16966
+type(
+  T.t -> bool
+)
+"term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  def mk_const_of_symbol_node "term.ml" 640 17190 17190 "_none_" 1 0 -1
+)
+"term.ml" 633 17004 17032 "term.ml" 633 17004 17033
+type(
+  Symbol.symbol
+)
+ident(
+  def s "term.ml" 636 17096 17098 "term.ml" 636 17096 17140
+)
+"term.ml" 636 17096 17102 "term.ml" 636 17096 17104
+type(
+  Symbol.t
+)
+ident(
+  def s' "term.ml" 636 17096 17129 "term.ml" 636 17096 17140
+)
+"term.ml" 636 17096 17107 "term.ml" 636 17096 17123
+type(
+  Symbol.symbol -> Symbol.t
+)
+ident(
+  ext_ref Symbol.mk_symbol
+)
+"term.ml" 636 17096 17124 "term.ml" 636 17096 17125
+type(
+  Symbol.symbol
+)
+ident(
+  int_ref s "term.ml" 633 17004 17032 "term.ml" 633 17004 17033
+)
+"term.ml" 636 17096 17107 "term.ml" 636 17096 17125
+call(
+  stack
+)
+type(
+  Symbol.t
+)
+"term.ml" 636 17096 17129 "term.ml" 636 17096 17137
+type(
+  T.symbol -> T.t
+)
+ident(
+  int_ref mk_const "term.ml" 521 14250 14254 "term.ml" 521 14250 14262
+)
+"term.ml" 636 17096 17138 "term.ml" 636 17096 17140
+type(
+  T.symbol
+)
+ident(
+  int_ref s' "term.ml" 636 17096 17102 "term.ml" 636 17096 17104
+)
+"term.ml" 636 17096 17129 "term.ml" 636 17096 17140
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 636 17096 17098 "term.ml" 636 17096 17140
+type(
+  T.t
+)
+"term.ml" 633 17004 17032 "term.ml" 636 17096 17140
+type(
+  Symbol.symbol -> T.t
+)
+"term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  def mk_app_of_symbol_node "term.ml" 647 17389 17389 "_none_" 1 0 -1
+)
+"term.ml" 640 17190 17216 "term.ml" 640 17190 17217
+type(
+  Symbol.symbol
+)
+ident(
+  def s "term.ml" 640 17190 17218 "term.ml" 643 17286 17330
+)
+"term.ml" 640 17190 17218 "term.ml" 640 17190 17219
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 643 17286 17288 "term.ml" 643 17286 17330
+)
+"term.ml" 643 17286 17292 "term.ml" 643 17286 17294
+type(
+  Symbol.t
+)
+ident(
+  def s' "term.ml" 643 17286 17319 "term.ml" 643 17286 17330
+)
+"term.ml" 643 17286 17297 "term.ml" 643 17286 17313
+type(
+  Symbol.symbol -> Symbol.t
+)
+ident(
+  ext_ref Symbol.mk_symbol
+)
+"term.ml" 643 17286 17314 "term.ml" 643 17286 17315
+type(
+  Symbol.symbol
+)
+ident(
+  int_ref s "term.ml" 640 17190 17216 "term.ml" 640 17190 17217
+)
+"term.ml" 643 17286 17297 "term.ml" 643 17286 17315
+call(
+  stack
+)
+type(
+  Symbol.t
+)
+"term.ml" 643 17286 17319 "term.ml" 643 17286 17325
+type(
+  T.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app "term.ml" 531 14415 14419 "term.ml" 531 14415 14425
+)
+"term.ml" 643 17286 17326 "term.ml" 643 17286 17328
+type(
+  T.symbol
+)
+ident(
+  int_ref s' "term.ml" 643 17286 17292 "term.ml" 643 17286 17294
+)
+"term.ml" 643 17286 17329 "term.ml" 643 17286 17330
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 640 17190 17218 "term.ml" 640 17190 17219
+)
+"term.ml" 643 17286 17319 "term.ml" 643 17286 17330
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 643 17286 17288 "term.ml" 643 17286 17330
+type(
+  T.t
+)
+"term.ml" 640 17190 17218 "term.ml" 643 17286 17330
+type(
+  T.t list -> T.t
+)
+"term.ml" 640 17190 17216 "term.ml" 643 17286 17330
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+"term.ml" 647 17389 17393 "term.ml" 647 17389 17400
+type(
+  unit -> T.t
+)
+ident(
+  def mk_true "term.ml" 651 17482 17482 "_none_" 1 0 -1
+)
+"term.ml" 647 17389 17401 "term.ml" 647 17389 17403
+type(
+  unit
+)
+"term.ml" 647 17389 17406 "term.ml" 647 17389 17429
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 647 17389 17430 "term.ml" 647 17389 17435
+type(
+  Symbol.symbol
+)
+"term.ml" 647 17389 17406 "term.ml" 647 17389 17435
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 647 17389 17401 "term.ml" 647 17389 17435
+type(
+  unit -> T.t
+)
+"term.ml" 651 17482 17486 "term.ml" 651 17482 17492
+type(
+  T.t
+)
+ident(
+  def t_true "term.ml" 655 17565 17565 "_none_" 1 0 -1
+)
+"term.ml" 651 17482 17495 "term.ml" 651 17482 17502
+type(
+  unit -> T.t
+)
+ident(
+  int_ref mk_true "term.ml" 647 17389 17393 "term.ml" 647 17389 17400
+)
+"term.ml" 651 17482 17503 "term.ml" 651 17482 17505
+type(
+  unit
+)
+"term.ml" 651 17482 17495 "term.ml" 651 17482 17505
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 655 17565 17569 "term.ml" 655 17565 17577
+type(
+  unit -> T.t
+)
+ident(
+  def mk_false "term.ml" 659 17661 17661 "_none_" 1 0 -1
+)
+"term.ml" 655 17565 17578 "term.ml" 655 17565 17580
+type(
+  unit
+)
+"term.ml" 655 17565 17583 "term.ml" 655 17565 17606
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 655 17565 17607 "term.ml" 655 17565 17613
+type(
+  Symbol.symbol
+)
+"term.ml" 655 17565 17583 "term.ml" 655 17565 17613
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 655 17565 17578 "term.ml" 655 17565 17613
+type(
+  unit -> T.t
+)
+"term.ml" 659 17661 17665 "term.ml" 659 17661 17672
+type(
+  T.t
+)
+ident(
+  def t_false "term.ml" 663 17721 17721 "_none_" 1 0 -1
+)
+"term.ml" 659 17661 17675 "term.ml" 659 17661 17683
+type(
+  unit -> T.t
+)
+ident(
+  int_ref mk_false "term.ml" 655 17565 17569 "term.ml" 655 17565 17577
+)
+"term.ml" 659 17661 17684 "term.ml" 659 17661 17686
+type(
+  unit
+)
+"term.ml" 659 17661 17675 "term.ml" 659 17661 17686
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 663 17721 17725 "term.ml" 663 17721 17731
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_not "term.ml" 667 17799 17799 "_none_" 1 0 -1
+)
+"term.ml" 663 17721 17732 "term.ml" 663 17721 17733
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 663 17721 17736 "term.ml" 663 17721 17766
+)
+"term.ml" 663 17721 17736 "term.ml" 663 17721 17757
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 663 17721 17758 "term.ml" 663 17721 17762
+type(
+  Symbol.symbol
+)
+"term.ml" 663 17721 17764 "term.ml" 663 17721 17765
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 663 17721 17732 "term.ml" 663 17721 17733
+)
+type(
+  T.t list
+)
+"term.ml" 663 17721 17763 "term.ml" 663 17721 17766
+type(
+  T.t list
+)
+"term.ml" 663 17721 17736 "term.ml" 663 17721 17766
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 663 17721 17732 "term.ml" 663 17721 17766
+type(
+  T.t -> T.t
+)
+"term.ml" 667 17799 17803 "term.ml" 667 17799 17813
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_implies "term.ml" 676 18065 18065 "_none_" 1 0 -1
+)
+"term.ml" 668 17825 17829 "term.ml" 668 17825 17831
+type(
+  T.t list
+)
+"term.ml" 668 17825 17835 "term.ml" 668 17825 17843
+type(
+  unit -> T.t
+)
+ident(
+  int_ref mk_false "term.ml" 655 17565 17569 "term.ml" 655 17565 17577
+)
+"term.ml" 668 17825 17844 "term.ml" 668 17825 17846
+type(
+  unit
+)
+"term.ml" 668 17825 17835 "term.ml" 668 17825 17846
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 669 17847 17852 "term.ml" 669 17847 17853
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 669 17847 17858 "term.ml" 669 17847 17859
+)
+"term.ml" 669 17847 17851 "term.ml" 669 17847 17854
+type(
+  T.t list
+)
+"term.ml" 669 17847 17858 "term.ml" 669 17847 17859
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 669 17847 17852 "term.ml" 669 17847 17853
+)
+"term.ml" 670 17860 17864 "term.ml" 670 17860 17865
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 670 17860 17869 "term.ml" 670 17860 17901
+)
+"term.ml" 670 17860 17869 "term.ml" 670 17860 17890
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 670 17860 17891 "term.ml" 670 17860 17899
+type(
+  Symbol.symbol
+)
+"term.ml" 670 17860 17900 "term.ml" 670 17860 17901
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 670 17860 17864 "term.ml" 670 17860 17865
+)
+"term.ml" 670 17860 17869 "term.ml" 670 17860 17901
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 667 17799 17816 "term.ml" 670 17860 17901
+type(
+  T.t list -> T.t
+)
+"term.ml" 676 18065 18069 "term.ml" 676 18065 18075
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_and "term.ml" 685 18322 18322 "_none_" 1 0 -1
+)
+"term.ml" 677 18087 18091 "term.ml" 677 18087 18093
+type(
+  T.t list
+)
+"term.ml" 677 18087 18097 "term.ml" 677 18087 18104
+type(
+  unit -> T.t
+)
+ident(
+  int_ref mk_true "term.ml" 647 17389 17393 "term.ml" 647 17389 17400
+)
+"term.ml" 677 18087 18105 "term.ml" 677 18087 18107
+type(
+  unit
+)
+"term.ml" 677 18087 18097 "term.ml" 677 18087 18107
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 678 18108 18113 "term.ml" 678 18108 18114
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 678 18108 18119 "term.ml" 678 18108 18120
+)
+"term.ml" 678 18108 18112 "term.ml" 678 18108 18115
+type(
+  T.t list
+)
+"term.ml" 678 18108 18119 "term.ml" 678 18108 18120
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 678 18108 18113 "term.ml" 678 18108 18114
+)
+"term.ml" 679 18121 18125 "term.ml" 679 18121 18126
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 679 18121 18130 "term.ml" 679 18121 18158
+)
+"term.ml" 679 18121 18130 "term.ml" 679 18121 18151
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 679 18121 18152 "term.ml" 679 18121 18156
+type(
+  Symbol.symbol
+)
+"term.ml" 679 18121 18157 "term.ml" 679 18121 18158
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 679 18121 18125 "term.ml" 679 18121 18126
+)
+"term.ml" 679 18121 18130 "term.ml" 679 18121 18158
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 676 18065 18078 "term.ml" 679 18121 18158
+type(
+  T.t list -> T.t
+)
+"term.ml" 685 18322 18326 "term.ml" 685 18322 18331
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_or "term.ml" 693 18541 18541 "_none_" 1 0 -1
+)
+"term.ml" 686 18344 18348 "term.ml" 686 18344 18350
+type(
+  T.t list
+)
+"term.ml" 686 18344 18354 "term.ml" 686 18344 18362
+type(
+  unit -> T.t
+)
+ident(
+  int_ref mk_false "term.ml" 655 17565 17569 "term.ml" 655 17565 17577
+)
+"term.ml" 686 18344 18363 "term.ml" 686 18344 18365
+type(
+  unit
+)
+"term.ml" 686 18344 18354 "term.ml" 686 18344 18365
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 687 18366 18371 "term.ml" 687 18366 18372
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 687 18366 18377 "term.ml" 687 18366 18378
+)
+"term.ml" 687 18366 18370 "term.ml" 687 18366 18373
+type(
+  T.t list
+)
+"term.ml" 687 18366 18377 "term.ml" 687 18366 18378
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 687 18366 18371 "term.ml" 687 18366 18372
+)
+"term.ml" 688 18380 18384 "term.ml" 688 18380 18385
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 688 18380 18389 "term.ml" 688 18380 18416
+)
+"term.ml" 688 18380 18389 "term.ml" 688 18380 18410
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 688 18380 18411 "term.ml" 688 18380 18414
+type(
+  Symbol.symbol
+)
+"term.ml" 688 18380 18415 "term.ml" 688 18380 18416
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 688 18380 18384 "term.ml" 688 18380 18385
+)
+"term.ml" 688 18380 18389 "term.ml" 688 18380 18416
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 685 18322 18334 "term.ml" 688 18380 18416
+type(
+  T.t list -> T.t
+)
+"term.ml" 693 18541 18545 "term.ml" 693 18541 18551
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_xor "term.ml" 701 18735 18735 "_none_" 1 0 -1
+)
+"term.ml" 694 18563 18567 "term.ml" 694 18563 18569
+type(
+  T.t list
+)
+"term.ml" 694 18563 18573 "term.ml" 694 18563 18584
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 694 18563 18585 "term.ml" 694 18563 18598
+type(
+  string
+)
+"term.ml" 694 18563 18573 "term.ml" 694 18563 18598
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 695 18599 18604 "term.ml" 695 18599 18605
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 695 18599 18610 "term.ml" 695 18599 18611
+)
+"term.ml" 695 18599 18603 "term.ml" 695 18599 18606
+type(
+  T.t list
+)
+"term.ml" 695 18599 18610 "term.ml" 695 18599 18611
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 695 18599 18604 "term.ml" 695 18599 18605
+)
+"term.ml" 696 18612 18616 "term.ml" 696 18612 18617
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 696 18612 18621 "term.ml" 696 18612 18649
+)
+"term.ml" 696 18612 18621 "term.ml" 696 18612 18642
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 696 18612 18643 "term.ml" 696 18612 18647
+type(
+  Symbol.symbol
+)
+"term.ml" 696 18612 18648 "term.ml" 696 18612 18649
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 696 18612 18616 "term.ml" 696 18612 18617
+)
+"term.ml" 696 18612 18621 "term.ml" 696 18612 18649
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 693 18541 18554 "term.ml" 696 18612 18649
+type(
+  T.t list -> T.t
+)
+"term.ml" 701 18735 18739 "term.ml" 701 18735 18744
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_eq "term.ml" 705 18829 18829 "_none_" 1 0 -1
+)
+"term.ml" 701 18735 18745 "term.ml" 701 18735 18746
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 701 18735 18749 "term.ml" 701 18735 18776
+)
+"term.ml" 701 18735 18749 "term.ml" 701 18735 18770
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 701 18735 18771 "term.ml" 701 18735 18774
+type(
+  Symbol.symbol
+)
+"term.ml" 701 18735 18775 "term.ml" 701 18735 18776
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 701 18735 18745 "term.ml" 701 18735 18746
+)
+"term.ml" 701 18735 18749 "term.ml" 701 18735 18776
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 701 18735 18745 "term.ml" 701 18735 18776
+type(
+  T.t list -> T.t
+)
+"term.ml" 705 18829 18833 "term.ml" 705 18829 18844
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_distinct "term.ml" 709 18934 18934 "_none_" 1 0 -1
+)
+"term.ml" 705 18829 18845 "term.ml" 705 18829 18846
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 705 18829 18849 "term.ml" 705 18829 18882
+)
+"term.ml" 705 18829 18849 "term.ml" 705 18829 18870
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 705 18829 18871 "term.ml" 705 18829 18880
+type(
+  Symbol.symbol
+)
+"term.ml" 705 18829 18881 "term.ml" 705 18829 18882
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 705 18829 18845 "term.ml" 705 18829 18846
+)
+"term.ml" 705 18829 18849 "term.ml" 705 18829 18882
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 705 18829 18845 "term.ml" 705 18829 18882
+type(
+  T.t list -> T.t
+)
+"term.ml" 709 18934 18938 "term.ml" 709 18934 18944
+type(
+  T.t -> T.t -> T.t -> T.t
+)
+ident(
+  def mk_ite "term.ml" 713 19043 19043 "_none_" 1 0 -1
+)
+"term.ml" 709 18934 18945 "term.ml" 709 18934 18946
+type(
+  T.t
+)
+ident(
+  def p "term.ml" 709 18934 18947 "term.ml" 709 18934 18989
+)
+"term.ml" 709 18934 18947 "term.ml" 709 18934 18948
+type(
+  T.t
+)
+ident(
+  def l "term.ml" 709 18934 18949 "term.ml" 709 18934 18989
+)
+"term.ml" 709 18934 18949 "term.ml" 709 18934 18950
+type(
+  T.t
+)
+ident(
+  def r "term.ml" 709 18934 18953 "term.ml" 709 18934 18989
+)
+"term.ml" 709 18934 18953 "term.ml" 709 18934 18974
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 709 18934 18975 "term.ml" 709 18934 18979
+type(
+  Symbol.symbol
+)
+"term.ml" 709 18934 18981 "term.ml" 709 18934 18982
+type(
+  T.t
+)
+ident(
+  int_ref p "term.ml" 709 18934 18945 "term.ml" 709 18934 18946
+)
+"term.ml" 709 18934 18984 "term.ml" 709 18934 18985
+type(
+  T.t
+)
+ident(
+  int_ref l "term.ml" 709 18934 18947 "term.ml" 709 18934 18948
+)
+"term.ml" 709 18934 18987 "term.ml" 709 18934 18988
+type(
+  T.t
+)
+ident(
+  int_ref r "term.ml" 709 18934 18949 "term.ml" 709 18934 18950
+)
+type(
+  T.t list
+)
+"term.ml" 709 18934 18984 "term.ml" 709 18934 18988
+type(
+  T.t list
+)
+"term.ml" 709 18934 18981 "term.ml" 709 18934 18988
+type(
+  T.t list
+)
+"term.ml" 709 18934 18980 "term.ml" 709 18934 18989
+type(
+  T.t list
+)
+"term.ml" 709 18934 18953 "term.ml" 709 18934 18989
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 709 18934 18949 "term.ml" 709 18934 18989
+type(
+  T.t -> T.t
+)
+"term.ml" 709 18934 18947 "term.ml" 709 18934 18989
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 709 18934 18945 "term.ml" 709 18934 18989
+type(
+  T.t -> T.t -> T.t -> T.t
+)
+"term.ml" 713 19043 19047 "term.ml" 713 19043 19055
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_minus "term.ml" 717 19127 19127 "_none_" 1 0 -1
+)
+"term.ml" 713 19043 19056 "term.ml" 713 19043 19057
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 713 19043 19060 "term.ml" 713 19043 19090
+)
+"term.ml" 713 19043 19060 "term.ml" 713 19043 19081
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 713 19043 19082 "term.ml" 713 19043 19088
+type(
+  Symbol.symbol
+)
+"term.ml" 713 19043 19089 "term.ml" 713 19043 19090
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 713 19043 19056 "term.ml" 713 19043 19057
+)
+"term.ml" 713 19043 19060 "term.ml" 713 19043 19090
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 713 19043 19056 "term.ml" 713 19043 19090
+type(
+  T.t list -> T.t
+)
+"term.ml" 717 19127 19131 "term.ml" 717 19127 19137
+type(
+  Lib.numeral -> T.t
+)
+ident(
+  def mk_num "term.ml" 721 19232 19232 "_none_" 1 0 -1
+)
+"term.ml" 717 19127 19138 "term.ml" 717 19127 19139
+type(
+  Lib.numeral
+)
+ident(
+  def n "term.ml" 717 19127 19142 "term.ml" 717 19127 19178
+)
+"term.ml" 717 19127 19142 "term.ml" 717 19127 19165
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 717 19127 19176 "term.ml" 717 19127 19177
+type(
+  Lib.numeral
+)
+ident(
+  int_ref n "term.ml" 717 19127 19138 "term.ml" 717 19127 19139
+)
+"term.ml" 717 19127 19167 "term.ml" 717 19127 19177
+type(
+  Symbol.symbol
+)
+"term.ml" 717 19127 19142 "term.ml" 717 19127 19178
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 717 19127 19138 "term.ml" 717 19127 19178
+type(
+  Lib.numeral -> T.t
+)
+"term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+type(
+  int -> T.t
+)
+ident(
+  def mk_num_of_int "term.ml" 733 19548 19548 "_none_" 1 0 -1
+)
+"term.ml" 724 19295 19299 "term.ml" 724 19295 19300
+type(
+  int
+)
+ident(
+  def i "term.ml" 724 19295 19306 "term.ml" 724 19295 19312
+)
+"term.ml" 724 19295 19306 "term.ml" 724 19295 19307
+type(
+  int
+)
+ident(
+  int_ref i "term.ml" 724 19295 19299 "term.ml" 724 19295 19300
+)
+"term.ml" 724 19295 19308 "term.ml" 724 19295 19310
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"term.ml" 724 19295 19311 "term.ml" 724 19295 19312
+type(
+  int
+)
+"term.ml" 724 19295 19306 "term.ml" 724 19295 19312
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 725 19317 19321 "term.ml" 725 19317 19344
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 725 19317 19356 "term.ml" 725 19317 19370
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"term.ml" 725 19317 19371 "term.ml" 725 19317 19372
+type(
+  int
+)
+ident(
+  int_ref i "term.ml" 724 19295 19299 "term.ml" 724 19295 19300
+)
+"term.ml" 725 19317 19356 "term.ml" 725 19317 19372
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"term.ml" 725 19317 19346 "term.ml" 725 19317 19373
+type(
+  Symbol.symbol
+)
+"term.ml" 725 19317 19321 "term.ml" 725 19317 19374
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 728 19425 19429 "term.ml" 728 19425 19430
+type(
+  int
+)
+ident(
+  def i "term.ml" 729 19435 19439 "term.ml" 729 19435 19509
+)
+"term.ml" 729 19435 19439 "term.ml" 729 19435 19447
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_minus "term.ml" 713 19043 19047 "term.ml" 713 19043 19055
+)
+"term.ml" 729 19435 19450 "term.ml" 729 19435 19473
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 729 19435 19485 "term.ml" 729 19435 19499
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"term.ml" 729 19435 19503 "term.ml" 729 19435 19504
+type(
+  int
+)
+ident(
+  int_ref i "term.ml" 728 19425 19429 "term.ml" 728 19425 19430
+)
+"term.ml" 729 19435 19501 "term.ml" 729 19435 19504
+type(
+  int
+)
+type(
+  int -> int
+)
+ident(
+  ext_ref Pervasives.( ~- )
+)
+"term.ml" 729 19435 19485 "term.ml" 729 19435 19505
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"term.ml" 729 19435 19475 "term.ml" 729 19435 19506
+type(
+  Symbol.symbol
+)
+"term.ml" 729 19435 19450 "term.ml" 729 19435 19507
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 729 19435 19449 "term.ml" 729 19435 19508
+type(
+  T.t list
+)
+"term.ml" 729 19435 19448 "term.ml" 729 19435 19509
+type(
+  T.t list
+)
+"term.ml" 729 19435 19439 "term.ml" 729 19435 19509
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 721 19232 19252 "term.ml" 729 19435 19509
+type(
+  int -> T.t
+)
+"term.ml" 733 19548 19552 "term.ml" 733 19548 19558
+type(
+  Lib.decimal -> T.t
+)
+ident(
+  def mk_dec "term.ml" 737 19656 19656 "_none_" 1 0 -1
+)
+"term.ml" 733 19548 19559 "term.ml" 733 19548 19560
+type(
+  Lib.decimal
+)
+ident(
+  def d "term.ml" 733 19548 19563 "term.ml" 733 19548 19599
+)
+"term.ml" 733 19548 19563 "term.ml" 733 19548 19586
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 733 19548 19597 "term.ml" 733 19548 19598
+type(
+  Lib.decimal
+)
+ident(
+  int_ref d "term.ml" 733 19548 19559 "term.ml" 733 19548 19560
+)
+"term.ml" 733 19548 19588 "term.ml" 733 19548 19598
+type(
+  Symbol.symbol
+)
+"term.ml" 733 19548 19563 "term.ml" 733 19548 19599
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 733 19548 19559 "term.ml" 733 19548 19599
+type(
+  Lib.decimal -> T.t
+)
+"term.ml" 737 19656 19660 "term.ml" 737 19656 19675
+type(
+  float -> T.t
+)
+ident(
+  def mk_dec_of_float "term.ml" 749 19937 19937 "_none_" 1 0 -1
+)
+"term.ml" 740 19713 19717 "term.ml" 740 19713 19718
+type(
+  float
+)
+ident(
+  def f "term.ml" 740 19713 19724 "term.ml" 740 19713 19731
+)
+"term.ml" 740 19713 19724 "term.ml" 740 19713 19725
+type(
+  float
+)
+ident(
+  int_ref f "term.ml" 740 19713 19717 "term.ml" 740 19713 19718
+)
+"term.ml" 740 19713 19726 "term.ml" 740 19713 19728
+type(
+  float -> float -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"term.ml" 740 19713 19729 "term.ml" 740 19713 19731
+type(
+  float
+)
+"term.ml" 740 19713 19724 "term.ml" 740 19713 19731
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 741 19736 19740 "term.ml" 741 19736 19763
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 741 19736 19775 "term.ml" 741 19736 19791
+type(
+  float -> Lib.decimal
+)
+ident(
+  ext_ref Lib.decimal_of_float
+)
+"term.ml" 741 19736 19792 "term.ml" 741 19736 19793
+type(
+  float
+)
+ident(
+  int_ref f "term.ml" 740 19713 19717 "term.ml" 740 19713 19718
+)
+"term.ml" 741 19736 19775 "term.ml" 741 19736 19793
+call(
+  stack
+)
+type(
+  Lib.decimal
+)
+"term.ml" 741 19736 19765 "term.ml" 741 19736 19794
+type(
+  Symbol.symbol
+)
+"term.ml" 741 19736 19740 "term.ml" 741 19736 19795
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 744 19822 19826 "term.ml" 744 19822 19827
+type(
+  float
+)
+ident(
+  def f "term.ml" 745 19832 19836 "term.ml" 745 19832 19907
+)
+"term.ml" 745 19832 19836 "term.ml" 745 19832 19844
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_minus "term.ml" 713 19043 19047 "term.ml" 713 19043 19055
+)
+"term.ml" 745 19832 19846 "term.ml" 745 19832 19869
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 745 19832 19881 "term.ml" 745 19832 19897
+type(
+  float -> Lib.decimal
+)
+ident(
+  ext_ref Lib.decimal_of_float
+)
+"term.ml" 745 19832 19902 "term.ml" 745 19832 19903
+type(
+  float
+)
+ident(
+  int_ref f "term.ml" 744 19822 19826 "term.ml" 744 19822 19827
+)
+"term.ml" 745 19832 19899 "term.ml" 745 19832 19903
+type(
+  float
+)
+type(
+  float -> float
+)
+ident(
+  ext_ref Pervasives.( ~-. )
+)
+"term.ml" 745 19832 19881 "term.ml" 745 19832 19904
+call(
+  stack
+)
+type(
+  Lib.decimal
+)
+"term.ml" 745 19832 19871 "term.ml" 745 19832 19905
+type(
+  Symbol.symbol
+)
+"term.ml" 745 19832 19846 "term.ml" 745 19832 19906
+call(
+  stack
+)
+type(
+  T.t
+)
+type(
+  T.t list
+)
+"term.ml" 745 19832 19845 "term.ml" 745 19832 19907
+type(
+  T.t list
+)
+"term.ml" 745 19832 19836 "term.ml" 745 19832 19907
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 737 19656 19678 "term.ml" 745 19832 19907
+type(
+  float -> T.t
+)
+"term.ml" 749 19937 19941 "term.ml" 749 19937 19946
+type(
+  Lib.bitvector -> T.t
+)
+ident(
+  def mk_bv "term.ml" 753 20012 20012 "_none_" 1 0 -1
+)
+"term.ml" 749 19937 19947 "term.ml" 749 19937 19948
+type(
+  Lib.bitvector
+)
+ident(
+  def b "term.ml" 749 19937 19951 "term.ml" 749 19937 19982
+)
+"term.ml" 749 19937 19951 "term.ml" 749 19937 19974
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 749 19937 19980 "term.ml" 749 19937 19981
+type(
+  Lib.bitvector
+)
+ident(
+  int_ref b "term.ml" 749 19937 19947 "term.ml" 749 19937 19948
+)
+"term.ml" 749 19937 19976 "term.ml" 749 19937 19981
+type(
+  Symbol.symbol
+)
+"term.ml" 749 19937 19951 "term.ml" 749 19937 19982
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 749 19937 19947 "term.ml" 749 19937 19982
+type(
+  Lib.bitvector -> T.t
+)
+"term.ml" 753 20012 20016 "term.ml" 753 20012 20023
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_plus "term.ml" 760 20158 20158 "_none_" 1 0 -1
+)
+"term.ml" 754 20035 20039 "term.ml" 754 20035 20041
+type(
+  T.t list
+)
+"term.ml" 754 20035 20045 "term.ml" 754 20035 20056
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 754 20035 20057 "term.ml" 754 20035 20071
+type(
+  string
+)
+"term.ml" 754 20035 20045 "term.ml" 754 20035 20071
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 755 20072 20077 "term.ml" 755 20072 20078
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 755 20072 20083 "term.ml" 755 20072 20084
+)
+"term.ml" 755 20072 20076 "term.ml" 755 20072 20079
+type(
+  T.t list
+)
+"term.ml" 755 20072 20083 "term.ml" 755 20072 20084
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 755 20072 20077 "term.ml" 755 20072 20078
+)
+"term.ml" 756 20085 20089 "term.ml" 756 20085 20090
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 756 20085 20094 "term.ml" 756 20085 20123
+)
+"term.ml" 756 20085 20094 "term.ml" 756 20085 20115
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 756 20085 20116 "term.ml" 756 20085 20121
+type(
+  Symbol.symbol
+)
+"term.ml" 756 20085 20122 "term.ml" 756 20085 20123
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 756 20085 20089 "term.ml" 756 20085 20090
+)
+"term.ml" 756 20085 20094 "term.ml" 756 20085 20123
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 753 20012 20026 "term.ml" 756 20085 20123
+type(
+  T.t list -> T.t
+)
+"term.ml" 760 20158 20162 "term.ml" 760 20158 20170
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_times "term.ml" 767 20306 20306 "_none_" 1 0 -1
+)
+"term.ml" 761 20182 20186 "term.ml" 761 20182 20188
+type(
+  T.t list
+)
+"term.ml" 761 20182 20192 "term.ml" 761 20182 20203
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 761 20182 20204 "term.ml" 761 20182 20219
+type(
+  string
+)
+"term.ml" 761 20182 20192 "term.ml" 761 20182 20219
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 762 20220 20225 "term.ml" 762 20220 20226
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 762 20220 20231 "term.ml" 762 20220 20232
+)
+"term.ml" 762 20220 20224 "term.ml" 762 20220 20227
+type(
+  T.t list
+)
+"term.ml" 762 20220 20231 "term.ml" 762 20220 20232
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 762 20220 20225 "term.ml" 762 20220 20226
+)
+"term.ml" 763 20233 20237 "term.ml" 763 20233 20238
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 763 20233 20242 "term.ml" 763 20233 20272
+)
+"term.ml" 763 20233 20242 "term.ml" 763 20233 20263
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 763 20233 20264 "term.ml" 763 20233 20270
+type(
+  Symbol.symbol
+)
+"term.ml" 763 20233 20271 "term.ml" 763 20233 20272
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 763 20233 20237 "term.ml" 763 20233 20238
+)
+"term.ml" 763 20233 20242 "term.ml" 763 20233 20272
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 760 20158 20173 "term.ml" 763 20233 20272
+type(
+  T.t list -> T.t
+)
+"term.ml" 767 20306 20310 "term.ml" 767 20306 20316
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_div "term.ml" 774 20452 20452 "_none_" 1 0 -1
+)
+"term.ml" 768 20328 20332 "term.ml" 768 20328 20334
+type(
+  T.t list
+)
+"term.ml" 768 20328 20338 "term.ml" 768 20328 20349
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 768 20328 20350 "term.ml" 768 20328 20363
+type(
+  string
+)
+"term.ml" 768 20328 20338 "term.ml" 768 20328 20363
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 769 20364 20369 "term.ml" 769 20364 20370
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 769 20364 20375 "term.ml" 769 20364 20376
+)
+"term.ml" 769 20364 20368 "term.ml" 769 20364 20371
+type(
+  T.t list
+)
+"term.ml" 769 20364 20375 "term.ml" 769 20364 20376
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 769 20364 20369 "term.ml" 769 20364 20370
+)
+"term.ml" 770 20377 20381 "term.ml" 770 20377 20382
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 770 20377 20386 "term.ml" 770 20377 20414
+)
+"term.ml" 770 20377 20386 "term.ml" 770 20377 20407
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 770 20377 20408 "term.ml" 770 20377 20412
+type(
+  Symbol.symbol
+)
+"term.ml" 770 20377 20413 "term.ml" 770 20377 20414
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 770 20377 20381 "term.ml" 770 20377 20382
+)
+"term.ml" 770 20377 20386 "term.ml" 770 20377 20414
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 767 20306 20319 "term.ml" 770 20377 20414
+type(
+  T.t list -> T.t
+)
+"term.ml" 774 20452 20456 "term.ml" 774 20452 20465
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_intdiv "term.ml" 781 20613 20613 "_none_" 1 0 -1
+)
+"term.ml" 775 20477 20481 "term.ml" 775 20477 20483
+type(
+  T.t list
+)
+"term.ml" 775 20477 20487 "term.ml" 775 20477 20498
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 775 20477 20499 "term.ml" 775 20477 20515
+type(
+  string
+)
+"term.ml" 775 20477 20487 "term.ml" 775 20477 20515
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 776 20516 20521 "term.ml" 776 20516 20522
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 776 20516 20527 "term.ml" 776 20516 20528
+)
+"term.ml" 776 20516 20520 "term.ml" 776 20516 20523
+type(
+  T.t list
+)
+"term.ml" 776 20516 20527 "term.ml" 776 20516 20528
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 776 20516 20521 "term.ml" 776 20516 20522
+)
+"term.ml" 777 20529 20533 "term.ml" 777 20529 20534
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 777 20529 20538 "term.ml" 777 20529 20569
+)
+"term.ml" 777 20529 20538 "term.ml" 777 20529 20559
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 777 20529 20560 "term.ml" 777 20529 20567
+type(
+  Symbol.symbol
+)
+"term.ml" 777 20529 20568 "term.ml" 777 20529 20569
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 777 20529 20533 "term.ml" 777 20529 20534
+)
+"term.ml" 777 20529 20538 "term.ml" 777 20529 20569
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 774 20452 20468 "term.ml" 777 20529 20569
+type(
+  T.t list -> T.t
+)
+"term.ml" 781 20613 20617 "term.ml" 781 20613 20623
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def mk_mod "term.ml" 785 20713 20713 "_none_" 1 0 -1
+)
+"term.ml" 781 20613 20624 "term.ml" 781 20613 20625
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 781 20613 20626 "term.ml" 781 20613 20663
+)
+"term.ml" 781 20613 20626 "term.ml" 781 20613 20627
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 781 20613 20630 "term.ml" 781 20613 20663
+)
+"term.ml" 781 20613 20630 "term.ml" 781 20613 20651
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 781 20613 20652 "term.ml" 781 20613 20656
+type(
+  Symbol.symbol
+)
+"term.ml" 781 20613 20658 "term.ml" 781 20613 20659
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 781 20613 20624 "term.ml" 781 20613 20625
+)
+"term.ml" 781 20613 20661 "term.ml" 781 20613 20662
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 781 20613 20626 "term.ml" 781 20613 20627
+)
+type(
+  T.t list
+)
+"term.ml" 781 20613 20658 "term.ml" 781 20613 20662
+type(
+  T.t list
+)
+"term.ml" 781 20613 20657 "term.ml" 781 20613 20663
+type(
+  T.t list
+)
+"term.ml" 781 20613 20630 "term.ml" 781 20613 20663
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 781 20613 20626 "term.ml" 781 20613 20663
+type(
+  T.t -> T.t
+)
+"term.ml" 781 20613 20624 "term.ml" 781 20613 20663
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 785 20713 20717 "term.ml" 785 20713 20723
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_abs "term.ml" 790 20856 20856 "_none_" 1 0 -1
+)
+"term.ml" 785 20713 20724 "term.ml" 785 20713 20725
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 785 20713 20728 "term.ml" 785 20713 20758
+)
+"term.ml" 785 20713 20728 "term.ml" 785 20713 20749
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 785 20713 20750 "term.ml" 785 20713 20754
+type(
+  Symbol.symbol
+)
+"term.ml" 785 20713 20756 "term.ml" 785 20713 20757
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 785 20713 20724 "term.ml" 785 20713 20725
+)
+type(
+  T.t list
+)
+"term.ml" 785 20713 20755 "term.ml" 785 20713 20758
+type(
+  T.t list
+)
+"term.ml" 785 20713 20728 "term.ml" 785 20713 20758
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 785 20713 20724 "term.ml" 785 20713 20758
+type(
+  T.t -> T.t
+)
+"term.ml" 790 20856 20860 "term.ml" 790 20856 20866
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_leq "term.ml" 797 21046 21046 "_none_" 1 0 -1
+)
+"term.ml" 791 20878 20882 "term.ml" 791 20878 20884
+type(
+  T.t list
+)
+"term.ml" 791 20878 20888 "term.ml" 791 20878 20889
+type(
+  T.t list
+)
+type(
+  T.t
+)
+"term.ml" 791 20878 20887 "term.ml" 791 20878 20890
+type(
+  T.t list
+)
+"term.ml" 791 20878 20882 "term.ml" 791 20878 20890
+type(
+  T.t list
+)
+"term.ml" 791 20878 20894 "term.ml" 791 20878 20905
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 791 20878 20906 "term.ml" 791 20878 20919
+type(
+  string
+)
+"term.ml" 791 20878 20894 "term.ml" 791 20878 20919
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 792 20920 20924 "term.ml" 792 20920 20925
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 792 20920 20929 "term.ml" 792 20920 20957
+)
+"term.ml" 792 20920 20929 "term.ml" 792 20920 20950
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 792 20920 20951 "term.ml" 792 20920 20955
+type(
+  Symbol.symbol
+)
+"term.ml" 792 20920 20956 "term.ml" 792 20920 20957
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 792 20920 20924 "term.ml" 792 20920 20925
+)
+"term.ml" 792 20920 20929 "term.ml" 792 20920 20957
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 790 20856 20869 "term.ml" 792 20920 20957
+type(
+  T.t list -> T.t
+)
+"term.ml" 797 21046 21050 "term.ml" 797 21046 21055
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_lt "term.ml" 804 21247 21247 "_none_" 1 0 -1
+)
+"term.ml" 798 21068 21072 "term.ml" 798 21068 21074
+type(
+  T.t list
+)
+"term.ml" 798 21068 21078 "term.ml" 798 21068 21079
+type(
+  T.t list
+)
+type(
+  T.t
+)
+"term.ml" 798 21068 21077 "term.ml" 798 21068 21080
+type(
+  T.t list
+)
+"term.ml" 798 21068 21072 "term.ml" 798 21068 21080
+type(
+  T.t list
+)
+"term.ml" 798 21068 21084 "term.ml" 798 21068 21095
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 798 21068 21096 "term.ml" 798 21068 21108
+type(
+  string
+)
+"term.ml" 798 21068 21084 "term.ml" 798 21068 21108
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 799 21109 21113 "term.ml" 799 21109 21114
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 799 21109 21118 "term.ml" 799 21109 21145
+)
+"term.ml" 799 21109 21118 "term.ml" 799 21109 21139
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 799 21109 21140 "term.ml" 799 21109 21143
+type(
+  Symbol.symbol
+)
+"term.ml" 799 21109 21144 "term.ml" 799 21109 21145
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 799 21109 21113 "term.ml" 799 21109 21114
+)
+"term.ml" 799 21109 21118 "term.ml" 799 21109 21145
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 797 21046 21059 "term.ml" 799 21109 21145
+type(
+  T.t list -> T.t
+)
+"term.ml" 804 21247 21251 "term.ml" 804 21247 21257
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_geq "term.ml" 811 21442 21442 "_none_" 1 0 -1
+)
+"term.ml" 805 21270 21274 "term.ml" 805 21270 21276
+type(
+  T.t list
+)
+"term.ml" 805 21270 21280 "term.ml" 805 21270 21281
+type(
+  T.t list
+)
+type(
+  T.t
+)
+"term.ml" 805 21270 21279 "term.ml" 805 21270 21282
+type(
+  T.t list
+)
+"term.ml" 805 21270 21274 "term.ml" 805 21270 21282
+type(
+  T.t list
+)
+"term.ml" 805 21270 21286 "term.ml" 805 21270 21297
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 805 21270 21298 "term.ml" 805 21270 21311
+type(
+  string
+)
+"term.ml" 805 21270 21286 "term.ml" 805 21270 21311
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 806 21312 21316 "term.ml" 806 21312 21317
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 806 21312 21321 "term.ml" 806 21312 21349
+)
+"term.ml" 806 21312 21321 "term.ml" 806 21312 21342
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 806 21312 21343 "term.ml" 806 21312 21347
+type(
+  Symbol.symbol
+)
+"term.ml" 806 21312 21348 "term.ml" 806 21312 21349
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 806 21312 21316 "term.ml" 806 21312 21317
+)
+"term.ml" 806 21312 21321 "term.ml" 806 21312 21349
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 804 21247 21261 "term.ml" 806 21312 21349
+type(
+  T.t list -> T.t
+)
+"term.ml" 811 21442 21446 "term.ml" 811 21442 21451
+type(
+  T.t list -> T.t
+)
+ident(
+  def mk_gt "term.ml" 817 21596 21596 "_none_" 1 0 -1
+)
+"term.ml" 812 21464 21468 "term.ml" 812 21464 21470
+type(
+  T.t list
+)
+"term.ml" 812 21464 21474 "term.ml" 812 21464 21475
+type(
+  T.t list
+)
+type(
+  T.t
+)
+"term.ml" 812 21464 21473 "term.ml" 812 21464 21476
+type(
+  T.t list
+)
+"term.ml" 812 21464 21468 "term.ml" 812 21464 21476
+type(
+  T.t list
+)
+"term.ml" 812 21464 21480 "term.ml" 812 21464 21491
+type(
+  string -> T.t
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"term.ml" 812 21464 21492 "term.ml" 812 21464 21504
+type(
+  string
+)
+"term.ml" 812 21464 21480 "term.ml" 812 21464 21504
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 813 21505 21509 "term.ml" 813 21505 21510
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 813 21505 21514 "term.ml" 813 21505 21541
+)
+"term.ml" 813 21505 21514 "term.ml" 813 21505 21535
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 813 21505 21536 "term.ml" 813 21505 21539
+type(
+  Symbol.symbol
+)
+"term.ml" 813 21505 21540 "term.ml" 813 21505 21541
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 813 21505 21509 "term.ml" 813 21505 21510
+)
+"term.ml" 813 21505 21514 "term.ml" 813 21505 21541
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 811 21442 21455 "term.ml" 813 21505 21541
+type(
+  T.t list -> T.t
+)
+"term.ml" 817 21596 21600 "term.ml" 817 21596 21610
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_to_real "term.ml" 821 21708 21708 "_none_" 1 0 -1
+)
+"term.ml" 817 21596 21611 "term.ml" 817 21596 21612
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 817 21596 21615 "term.ml" 817 21596 21649
+)
+"term.ml" 817 21596 21615 "term.ml" 817 21596 21636
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 817 21596 21637 "term.ml" 817 21596 21645
+type(
+  Symbol.symbol
+)
+"term.ml" 817 21596 21647 "term.ml" 817 21596 21648
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 817 21596 21611 "term.ml" 817 21596 21612
+)
+type(
+  T.t list
+)
+"term.ml" 817 21596 21646 "term.ml" 817 21596 21649
+type(
+  T.t list
+)
+"term.ml" 817 21596 21615 "term.ml" 817 21596 21649
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 817 21596 21611 "term.ml" 817 21596 21649
+type(
+  T.t -> T.t
+)
+"term.ml" 821 21708 21712 "term.ml" 821 21708 21721
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_to_int "term.ml" 825 21831 21831 "_none_" 1 0 -1
+)
+"term.ml" 821 21708 21722 "term.ml" 821 21708 21723
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 821 21708 21726 "term.ml" 821 21708 21759
+)
+"term.ml" 821 21708 21726 "term.ml" 821 21708 21747
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 821 21708 21748 "term.ml" 821 21708 21755
+type(
+  Symbol.symbol
+)
+"term.ml" 821 21708 21757 "term.ml" 821 21708 21758
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 821 21708 21722 "term.ml" 821 21708 21723
+)
+type(
+  T.t list
+)
+"term.ml" 821 21708 21756 "term.ml" 821 21708 21759
+type(
+  T.t list
+)
+"term.ml" 821 21708 21726 "term.ml" 821 21708 21759
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 821 21708 21722 "term.ml" 821 21708 21759
+type(
+  T.t -> T.t
+)
+"term.ml" 825 21831 21835 "term.ml" 825 21831 21844
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_is_int "term.ml" 829 21947 21947 "_none_" 1 0 -1
+)
+"term.ml" 825 21831 21845 "term.ml" 825 21831 21846
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 825 21831 21849 "term.ml" 825 21831 21882
+)
+"term.ml" 825 21831 21849 "term.ml" 825 21831 21870
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 825 21831 21871 "term.ml" 825 21831 21878
+type(
+  Symbol.symbol
+)
+"term.ml" 825 21831 21880 "term.ml" 825 21831 21881
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 825 21831 21845 "term.ml" 825 21831 21846
+)
+type(
+  T.t list
+)
+"term.ml" 825 21831 21879 "term.ml" 825 21831 21882
+type(
+  T.t list
+)
+"term.ml" 825 21831 21849 "term.ml" 825 21831 21882
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 825 21831 21845 "term.ml" 825 21831 21882
+type(
+  T.t -> T.t
+)
+"term.ml" 829 21947 21951 "term.ml" 829 21947 21963
+type(
+  Lib.numeral -> T.t -> T.t
+)
+ident(
+  def mk_divisible "term.ml" 833 22038 22038 "_none_" 1 0 -1
+)
+"term.ml" 829 21947 21964 "term.ml" 829 21947 21965
+type(
+  Lib.numeral
+)
+ident(
+  def n "term.ml" 829 21947 21966 "term.ml" 829 21947 22010
+)
+"term.ml" 829 21947 21966 "term.ml" 829 21947 21967
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 829 21947 21970 "term.ml" 829 21947 22010
+)
+"term.ml" 829 21947 21970 "term.ml" 829 21947 21991
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 829 21947 22004 "term.ml" 829 21947 22005
+type(
+  Lib.numeral
+)
+ident(
+  int_ref n "term.ml" 829 21947 21964 "term.ml" 829 21947 21965
+)
+"term.ml" 829 21947 21993 "term.ml" 829 21947 22005
+type(
+  Symbol.symbol
+)
+"term.ml" 829 21947 22008 "term.ml" 829 21947 22009
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 829 21947 21966 "term.ml" 829 21947 21967
+)
+type(
+  T.t list
+)
+"term.ml" 829 21947 22007 "term.ml" 829 21947 22010
+type(
+  T.t list
+)
+"term.ml" 829 21947 21970 "term.ml" 829 21947 22010
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 829 21947 21966 "term.ml" 829 21947 22010
+type(
+  T.t -> T.t
+)
+"term.ml" 829 21947 21964 "term.ml" 829 21947 22010
+type(
+  Lib.numeral -> T.t -> T.t
+)
+"term.ml" 833 22038 22042 "term.ml" 833 22038 22047
+type(
+  unit -> int
+)
+ident(
+  def newid "term.ml" 839 22122 22122 "_none_" 1 0 -1
+)
+"term.ml" 834 22050 22056 "term.ml" 834 22050 22057
+type(
+  int ref
+)
+ident(
+  def r "term.ml" 835 22069 22075 "term.ml" 835 22069 22091
+)
+"term.ml" 834 22050 22060 "term.ml" 834 22050 22063
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"term.ml" 834 22050 22064 "term.ml" 834 22050 22065
+type(
+  int
+)
+"term.ml" 834 22050 22060 "term.ml" 834 22050 22065
+type(
+  int ref
+)
+"term.ml" 835 22069 22075 "term.ml" 835 22069 22077
+type(
+  unit
+)
+"term.ml" 835 22069 22081 "term.ml" 835 22069 22085
+type(
+  int ref -> unit
+)
+ident(
+  ext_ref Pervasives.incr
+)
+"term.ml" 835 22069 22086 "term.ml" 835 22069 22087
+type(
+  int ref
+)
+ident(
+  int_ref r "term.ml" 834 22050 22056 "term.ml" 834 22050 22057
+)
+"term.ml" 835 22069 22081 "term.ml" 835 22069 22087
+type(
+  unit
+)
+"term.ml" 835 22069 22090 "term.ml" 835 22069 22091
+type(
+  int ref
+)
+ident(
+  int_ref r "term.ml" 834 22050 22056 "term.ml" 834 22050 22057
+)
+"term.ml" 835 22069 22089 "term.ml" 835 22069 22091
+type(
+  int
+)
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"term.ml" 835 22069 22081 "term.ml" 835 22069 22091
+type(
+  int
+)
+"term.ml" 835 22069 22075 "term.ml" 835 22069 22091
+type(
+  unit -> int
+)
+"term.ml" 834 22050 22052 "term.ml" 835 22069 22091
+type(
+  unit -> int
+)
+"term.ml" 839 22122 22126 "term.ml" 839 22122 22134
+type(
+  T.t -> int * T.t
+)
+ident(
+  def mk_named "term.ml" 851 22393 22393 "_none_" 1 0 -1
+)
+"term.ml" 839 22122 22135 "term.ml" 839 22122 22136
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 842 22179 22181 "term.ml" 847 22296 22337
+)
+"term.ml" 842 22179 22185 "term.ml" 842 22179 22186
+type(
+  int
+)
+ident(
+  def n "term.ml" 847 22296 22299 "term.ml" 847 22296 22336
+)
+"term.ml" 842 22179 22189 "term.ml" 842 22179 22194
+type(
+  unit -> int
+)
+ident(
+  int_ref newid "term.ml" 833 22038 22042 "term.ml" 833 22038 22047
+)
+"term.ml" 842 22179 22195 "term.ml" 842 22179 22197
+type(
+  unit
+)
+"term.ml" 842 22179 22189 "term.ml" 842 22179 22197
+call(
+  stack
+)
+type(
+  int
+)
+"term.ml" 847 22296 22299 "term.ml" 847 22296 22300
+type(
+  int
+)
+ident(
+  int_ref n "term.ml" 842 22179 22185 "term.ml" 842 22179 22186
+)
+"term.ml" 847 22296 22302 "term.ml" 847 22296 22312
+type(
+  T.t -> T.attr -> T.t
+)
+ident(
+  ext_ref T.mk_annot
+)
+"term.ml" 847 22296 22313 "term.ml" 847 22296 22314
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 839 22122 22135 "term.ml" 839 22122 22136
+)
+"term.ml" 847 22296 22316 "term.ml" 847 22296 22333
+type(
+  int -> T.attr
+)
+ident(
+  ext_ref TermAttr.mk_named
+)
+"term.ml" 847 22296 22334 "term.ml" 847 22296 22335
+type(
+  int
+)
+ident(
+  int_ref n "term.ml" 842 22179 22185 "term.ml" 842 22179 22186
+)
+"term.ml" 847 22296 22316 "term.ml" 847 22296 22335
+call(
+  stack
+)
+type(
+  T.attr
+)
+"term.ml" 847 22296 22302 "term.ml" 847 22296 22336
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 847 22296 22299 "term.ml" 847 22296 22336
+type(
+  int * T.t
+)
+"term.ml" 842 22179 22181 "term.ml" 847 22296 22337
+type(
+  int * T.t
+)
+"term.ml" 839 22122 22135 "term.ml" 847 22296 22337
+type(
+  T.t -> int * T.t
+)
+"term.ml" 851 22393 22397 "term.ml" 851 22393 22402
+type(
+  UfSymbol.t -> T.t list -> T.t
+)
+ident(
+  def mk_uf "term.ml" 861 22674 22674 "_none_" 1 0 -1
+)
+"term.ml" 851 22393 22403 "term.ml" 851 22393 22404
+type(
+  UfSymbol.t
+)
+ident(
+  def s "term.ml" 851 22393 22407 "term.ml" 857 22588 22628
+)
+"term.ml" 854 22475 22479 "term.ml" 854 22475 22481
+type(
+  T.t list
+)
+"term.ml" 854 22475 22485 "term.ml" 854 22475 22508
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 854 22475 22514 "term.ml" 854 22475 22515
+type(
+  UfSymbol.t
+)
+ident(
+  int_ref s "term.ml" 851 22393 22403 "term.ml" 851 22393 22404
+)
+"term.ml" 854 22475 22510 "term.ml" 854 22475 22515
+type(
+  Symbol.symbol
+)
+"term.ml" 854 22475 22485 "term.ml" 854 22475 22516
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 857 22588 22592 "term.ml" 857 22588 22593
+type(
+  T.t list
+)
+ident(
+  def a "term.ml" 857 22588 22597 "term.ml" 857 22588 22628
+)
+"term.ml" 857 22588 22597 "term.ml" 857 22588 22618
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 857 22588 22624 "term.ml" 857 22588 22625
+type(
+  UfSymbol.t
+)
+ident(
+  int_ref s "term.ml" 851 22393 22403 "term.ml" 851 22393 22404
+)
+"term.ml" 857 22588 22620 "term.ml" 857 22588 22625
+type(
+  Symbol.symbol
+)
+"term.ml" 857 22588 22627 "term.ml" 857 22588 22628
+type(
+  T.t list
+)
+ident(
+  int_ref a "term.ml" 857 22588 22592 "term.ml" 857 22588 22593
+)
+"term.ml" 857 22588 22597 "term.ml" 857 22588 22628
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 851 22393 22407 "term.ml" 857 22588 22628
+type(
+  T.t list -> T.t
+)
+"term.ml" 851 22393 22403 "term.ml" 857 22588 22628
+type(
+  UfSymbol.t -> T.t list -> T.t
+)
+"term.ml" 861 22674 22678 "term.ml" 861 22674 22685
+type(
+  bool -> T.t
+)
+ident(
+  def mk_bool "term.ml" 867 22830 22830 "_none_" 1 0 -1
+)
+"term.ml" 862 22698 22702 "term.ml" 862 22698 22706
+type(
+  bool
+)
+"term.ml" 862 22698 22710 "term.ml" 862 22698 22733
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 862 22698 22734 "term.ml" 862 22698 22739
+type(
+  Symbol.symbol
+)
+"term.ml" 862 22698 22710 "term.ml" 862 22698 22739
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 863 22740 22744 "term.ml" 863 22740 22749
+type(
+  bool
+)
+"term.ml" 863 22740 22753 "term.ml" 863 22740 22776
+type(
+  Symbol.symbol -> T.t
+)
+ident(
+  int_ref mk_const_of_symbol_node "term.ml" 633 17004 17008 "term.ml" 633 17004 17031
+)
+"term.ml" 863 22740 22777 "term.ml" 863 22740 22783
+type(
+  Symbol.symbol
+)
+"term.ml" 863 22740 22753 "term.ml" 863 22740 22783
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 861 22674 22688 "term.ml" 863 22740 22783
+type(
+  bool -> T.t
+)
+"term.ml" 867 22830 22834 "term.ml" 867 22830 22841
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_succ "term.ml" 871 22945 22945 "_none_" 1 0 -1
+)
+"term.ml" 867 22830 22842 "term.ml" 867 22830 22843
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 867 22830 22846 "term.ml" 867 22830 22896
+)
+"term.ml" 867 22830 22846 "term.ml" 867 22830 22867
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 867 22830 22868 "term.ml" 867 22830 22873
+type(
+  Symbol.symbol
+)
+"term.ml" 867 22830 22875 "term.ml" 867 22830 22876
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 867 22830 22842 "term.ml" 867 22830 22843
+)
+"term.ml" 867 22830 22879 "term.ml" 867 22830 22892
+type(
+  int -> T.t
+)
+ident(
+  int_ref mk_num_of_int "term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+)
+"term.ml" 867 22830 22893 "term.ml" 867 22830 22894
+type(
+  int
+)
+"term.ml" 867 22830 22879 "term.ml" 867 22830 22894
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 867 22830 22878 "term.ml" 867 22830 22895
+type(
+  T.t list
+)
+"term.ml" 867 22830 22875 "term.ml" 867 22830 22895
+type(
+  T.t list
+)
+"term.ml" 867 22830 22874 "term.ml" 867 22830 22896
+type(
+  T.t list
+)
+"term.ml" 867 22830 22846 "term.ml" 867 22830 22896
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 867 22830 22842 "term.ml" 867 22830 22896
+type(
+  T.t -> T.t
+)
+"term.ml" 871 22945 22949 "term.ml" 871 22945 22956
+type(
+  T.t -> T.t
+)
+ident(
+  def mk_pred "term.ml" 875 23079 23079 "_none_" 1 0 -1
+)
+"term.ml" 871 22945 22957 "term.ml" 871 22945 22958
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 871 22945 22961 "term.ml" 871 22945 23012
+)
+"term.ml" 871 22945 22961 "term.ml" 871 22945 22982
+type(
+  Symbol.symbol -> T.t list -> T.t
+)
+ident(
+  int_ref mk_app_of_symbol_node "term.ml" 640 17190 17194 "term.ml" 640 17190 17215
+)
+"term.ml" 871 22945 22983 "term.ml" 871 22945 22989
+type(
+  Symbol.symbol
+)
+"term.ml" 871 22945 22991 "term.ml" 871 22945 22992
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 871 22945 22957 "term.ml" 871 22945 22958
+)
+"term.ml" 871 22945 22995 "term.ml" 871 22945 23008
+type(
+  int -> T.t
+)
+ident(
+  int_ref mk_num_of_int "term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+)
+"term.ml" 871 22945 23009 "term.ml" 871 22945 23010
+type(
+  int
+)
+"term.ml" 871 22945 22995 "term.ml" 871 22945 23010
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 871 22945 22994 "term.ml" 871 22945 23011
+type(
+  T.t list
+)
+"term.ml" 871 22945 22991 "term.ml" 871 22945 23011
+type(
+  T.t list
+)
+"term.ml" 871 22945 22990 "term.ml" 871 22945 23012
+type(
+  T.t list
+)
+"term.ml" 871 22945 22961 "term.ml" 871 22945 23012
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 871 22945 22957 "term.ml" 871 22945 23012
+type(
+  T.t -> T.t
+)
+"term.ml" 875 23079 23083 "term.ml" 875 23079 23089
+type(
+  T.t -> T.t
+)
+ident(
+  def negate "term.ml" 888 23473 23473 "_none_" 1 0 -1
+)
+"term.ml" 875 23079 23090 "term.ml" 875 23079 23091
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 875 23079 23094 "term.ml" 884 23403 23420
+)
+"term.ml" 875 23079 23100 "term.ml" 875 23079 23110
+type(
+  T.t -> T.flat
+)
+ident(
+  ext_ref T.destruct
+)
+"term.ml" 875 23079 23111 "term.ml" 875 23079 23112
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 875 23079 23090 "term.ml" 875 23079 23091
+)
+"term.ml" 875 23079 23100 "term.ml" 875 23079 23112
+call(
+  stack
+)
+type(
+  T.flat
+)
+"term.ml" 881 23294 23305 "term.ml" 881 23294 23306
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 881 23294 23318 "term.ml" 881 23294 23335
+)
+"term.ml" 881 23294 23309 "term.ml" 881 23294 23310
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 881 23294 23318 "term.ml" 881 23294 23335
+)
+"term.ml" 881 23294 23308 "term.ml" 881 23294 23311
+type(
+  T.t list
+)
+"term.ml" 881 23294 23298 "term.ml" 881 23294 23312
+type(
+  T.flat
+)
+"term.ml" 881 23294 23318 "term.ml" 881 23294 23319
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 881 23294 23305 "term.ml" 881 23294 23306
+)
+"term.ml" 881 23294 23320 "term.ml" 881 23294 23322
+type(
+  T.symbol -> T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 881 23294 23323 "term.ml" 881 23294 23335
+type(
+  T.symbol
+)
+ident(
+  ext_ref Symbol.s_not
+)
+"term.ml" 881 23294 23318 "term.ml" 881 23294 23335
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 881 23294 23339 "term.ml" 881 23294 23340
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 881 23294 23309 "term.ml" 881 23294 23310
+)
+"term.ml" 884 23403 23407 "term.ml" 884 23403 23408
+type(
+  T.flat
+)
+"term.ml" 884 23403 23412 "term.ml" 884 23403 23418
+type(
+  T.t -> T.t
+)
+ident(
+  int_ref mk_not "term.ml" 663 17721 17725 "term.ml" 663 17721 17731
+)
+"term.ml" 884 23403 23419 "term.ml" 884 23403 23420
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 875 23079 23090 "term.ml" 875 23079 23091
+)
+"term.ml" 884 23403 23412 "term.ml" 884 23403 23420
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 875 23079 23094 "term.ml" 884 23403 23420
+type(
+  T.t
+)
+"term.ml" 875 23079 23090 "term.ml" 884 23403 23420
+type(
+  T.t -> T.t
+)
+"term.ml" 888 23473 23477 "term.ml" 888 23473 23485
+type(
+  T.t -> T.t
+)
+ident(
+  def unnegate "term.ml" 901 23859 23859 "_none_" 1 0 -1
+)
+"term.ml" 888 23473 23486 "term.ml" 888 23473 23487
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 888 23473 23490 "term.ml" 897 23797 23807
+)
+"term.ml" 888 23473 23496 "term.ml" 888 23473 23506
+type(
+  T.t -> T.flat
+)
+ident(
+  ext_ref T.destruct
+)
+"term.ml" 888 23473 23507 "term.ml" 888 23473 23508
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 888 23473 23486 "term.ml" 888 23473 23487
+)
+"term.ml" 888 23473 23496 "term.ml" 888 23473 23508
+call(
+  stack
+)
+type(
+  T.flat
+)
+"term.ml" 894 23689 23700 "term.ml" 894 23689 23701
+type(
+  T.symbol
+)
+ident(
+  def s "term.ml" 894 23689 23713 "term.ml" 894 23689 23730
+)
+"term.ml" 894 23689 23704 "term.ml" 894 23689 23705
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 894 23689 23713 "term.ml" 894 23689 23730
+)
+"term.ml" 894 23689 23703 "term.ml" 894 23689 23706
+type(
+  T.t list
+)
+"term.ml" 894 23689 23693 "term.ml" 894 23689 23707
+type(
+  T.flat
+)
+"term.ml" 894 23689 23713 "term.ml" 894 23689 23714
+type(
+  T.symbol
+)
+ident(
+  int_ref s "term.ml" 894 23689 23700 "term.ml" 894 23689 23701
+)
+"term.ml" 894 23689 23715 "term.ml" 894 23689 23717
+type(
+  T.symbol -> T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 894 23689 23718 "term.ml" 894 23689 23730
+type(
+  T.symbol
+)
+ident(
+  ext_ref Symbol.s_not
+)
+"term.ml" 894 23689 23713 "term.ml" 894 23689 23730
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 894 23689 23734 "term.ml" 894 23689 23735
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 894 23689 23704 "term.ml" 894 23689 23705
+)
+"term.ml" 897 23797 23801 "term.ml" 897 23797 23802
+type(
+  T.flat
+)
+"term.ml" 897 23797 23806 "term.ml" 897 23797 23807
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 888 23473 23486 "term.ml" 888 23473 23487
+)
+"term.ml" 888 23473 23490 "term.ml" 897 23797 23807
+type(
+  T.t
+)
+"term.ml" 888 23473 23486 "term.ml" 897 23797 23807
+type(
+  T.t -> T.t
+)
+"term.ml" 901 23859 23863 "term.ml" 901 23859 23879
+type(
+  T.t -> T.t
+)
+ident(
+  def mod_to_divisible "term.ml" 944 24884 24884 "_none_" 1 0 -1
+)
+"term.ml" 901 23859 23880 "term.ml" 901 23859 23884
+type(
+  T.t
+)
+ident(
+  def term "term.ml" 903 23889 23891 "term.ml" 940 24820 24833
+)
+"term.ml" 903 23889 23895 "term.ml" 903 23889 23912
+type(
+  T.t -> T.t
+)
+ident(
+  def mod_to_divisible' "term.ml" 926 24474 24476 "term.ml" 940 24820 24833
+)
+"term.ml" 903 23889 23913 "term.ml" 903 23889 23918
+type(
+  T.t
+)
+ident(
+  def t_mod "term.ml" 905 23927 23931 "term.ml" 922 24447 24464
+)
+"term.ml" 905 23927 23937 "term.ml" 905 23927 23948
+type(
+  T.t -> T.t_node
+)
+ident(
+  ext_ref T.node_of_t
+)
+"term.ml" 905 23927 23949 "term.ml" 905 23927 23954
+type(
+  T.t
+)
+ident(
+  int_ref t_mod "term.ml" 903 23889 23913 "term.ml" 903 23889 23918
+)
+"term.ml" 905 23927 23937 "term.ml" 905 23927 23954
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 908 23998 24014 "term.ml" 908 23998 24019
+type(
+  T.symbol
+)
+ident(
+  def s_mod "term.ml" 908 23998 24040 "term.ml" 908 23998 24060
+)
+"term.ml" 908 23998 24022 "term.ml" 908 23998 24023
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 908 23998 24040 "term.ml" 908 23998 24060
+)
+"term.ml" 908 23998 24025 "term.ml" 908 23998 24032
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def t_const "term.ml" 908 23998 24040 "term.ml" 908 23998 24060
+)
+"term.ml" 908 23998 24022 "term.ml" 908 23998 24032
+type(
+  T.t list
+)
+"term.ml" 908 23998 24021 "term.ml" 908 23998 24033
+type(
+  T.t list
+)
+"term.ml" 908 23998 24006 "term.ml" 908 23998 24034
+type(
+  T.t_node
+)
+"term.ml" 908 23998 24040 "term.ml" 908 23998 24045
+type(
+  T.symbol
+)
+ident(
+  int_ref s_mod "term.ml" 908 23998 24014 "term.ml" 908 23998 24019
+)
+"term.ml" 908 23998 24046 "term.ml" 908 23998 24047
+type(
+  T.symbol -> T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"term.ml" 908 23998 24048 "term.ml" 908 23998 24060
+type(
+  T.symbol
+)
+ident(
+  ext_ref Symbol.s_mod
+)
+"term.ml" 908 23998 24040 "term.ml" 908 23998 24060
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 910 24073 24088 "term.ml" 910 24073 24099
+type(
+  T.t -> T.t_node
+)
+ident(
+  ext_ref T.node_of_t
+)
+"term.ml" 910 24073 24100 "term.ml" 910 24073 24107
+type(
+  T.t
+)
+ident(
+  int_ref t_const "term.ml" 908 23998 24025 "term.ml" 908 23998 24032
+)
+"term.ml" 910 24073 24088 "term.ml" 910 24073 24107
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 913 24159 24178 "term.ml" 913 24159 24179
+type(
+  T.symbol
+)
+ident(
+  def n "term.ml" 913 24159 24185 "term.ml" 913 24159 24204
+)
+"term.ml" 913 24159 24171 "term.ml" 913 24159 24179
+type(
+  T.t_node
+)
+"term.ml" 913 24159 24185 "term.ml" 913 24159 24202
+type(
+  T.symbol -> bool
+)
+ident(
+  ext_ref Symbol.is_numeral
+)
+"term.ml" 913 24159 24203 "term.ml" 913 24159 24204
+type(
+  T.symbol
+)
+ident(
+  int_ref n "term.ml" 913 24159 24178 "term.ml" 913 24159 24179
+)
+"term.ml" 913 24159 24185 "term.ml" 913 24159 24204
+call(
+  stack
+)
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 916 24262 24274 "term.ml" 916 24262 24286
+type(
+  Lib.numeral -> T.t -> T.t
+)
+ident(
+  int_ref mk_divisible "term.ml" 829 21947 21951 "term.ml" 829 21947 21963
+)
+"term.ml" 916 24262 24288 "term.ml" 916 24262 24312
+type(
+  T.symbol -> Lib.numeral
+)
+ident(
+  ext_ref Symbol.numeral_of_symbol
+)
+"term.ml" 916 24262 24313 "term.ml" 916 24262 24314
+type(
+  T.symbol
+)
+ident(
+  int_ref n "term.ml" 913 24159 24178 "term.ml" 913 24159 24179
+)
+"term.ml" 916 24262 24288 "term.ml" 916 24262 24314
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"term.ml" 916 24262 24316 "term.ml" 916 24262 24317
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 908 23998 24022 "term.ml" 908 23998 24023
+)
+"term.ml" 916 24262 24274 "term.ml" 916 24262 24317
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 919 24376 24388 "term.ml" 919 24376 24389
+type(
+  T.t_node
+)
+"term.ml" 919 24376 24393 "term.ml" 919 24376 24397
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 901 23859 23880 "term.ml" 901 23859 23884
+)
+"term.ml" 910 24073 24082 "term.ml" 919 24376 24397
+type(
+  T.t
+)
+"term.ml" 922 24447 24455 "term.ml" 922 24447 24456
+type(
+  T.t_node
+)
+"term.ml" 922 24447 24460 "term.ml" 922 24447 24464
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 901 23859 23880 "term.ml" 901 23859 23884
+)
+"term.ml" 905 23927 23931 "term.ml" 922 24447 24464
+type(
+  T.t
+)
+"term.ml" 903 23889 23913 "term.ml" 922 24447 24464
+type(
+  T.t -> T.t
+)
+"term.ml" 926 24474 24482 "term.ml" 926 24474 24493
+type(
+  T.t -> T.t_node
+)
+ident(
+  ext_ref T.node_of_t
+)
+"term.ml" 926 24474 24494 "term.ml" 926 24474 24498
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 901 23859 23880 "term.ml" 901 23859 23884
+)
+"term.ml" 926 24474 24482 "term.ml" 926 24474 24498
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 929 24546 24560 "term.ml" 929 24546 24564
+type(
+  T.symbol
+)
+ident(
+  def s_eq "term.ml" 930 24574 24585 "term.ml" 930 24574 24630
+)
+"term.ml" 929 24546 24567 "term.ml" 929 24546 24568
+type(
+  T.t
+)
+ident(
+  def l "term.ml" 930 24574 24585 "term.ml" 930 24574 24630
+)
+"term.ml" 929 24546 24570 "term.ml" 929 24546 24571
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def r "term.ml" 930 24574 24585 "term.ml" 930 24574 24630
+)
+"term.ml" 929 24546 24567 "term.ml" 929 24546 24571
+type(
+  T.t list
+)
+"term.ml" 929 24546 24566 "term.ml" 929 24546 24572
+type(
+  T.t list
+)
+"term.ml" 929 24546 24552 "term.ml" 929 24546 24573
+type(
+  T.t_node
+)
+"term.ml" 930 24574 24585 "term.ml" 930 24574 24589
+type(
+  T.symbol
+)
+ident(
+  int_ref s_eq "term.ml" 929 24546 24560 "term.ml" 929 24546 24564
+)
+"term.ml" 930 24574 24590 "term.ml" 930 24574 24592
+type(
+  T.symbol -> T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 930 24574 24593 "term.ml" 930 24574 24604
+type(
+  T.symbol
+)
+ident(
+  ext_ref Symbol.s_eq
+)
+"term.ml" 930 24574 24585 "term.ml" 930 24574 24604
+type(
+  bool
+)
+"term.ml" 930 24574 24605 "term.ml" 930 24574 24607
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"term.ml" 930 24574 24608 "term.ml" 930 24574 24609
+type(
+  T.t
+)
+ident(
+  int_ref l "term.ml" 929 24546 24567 "term.ml" 929 24546 24568
+)
+"term.ml" 930 24574 24610 "term.ml" 930 24574 24612
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 930 24574 24614 "term.ml" 930 24574 24627
+type(
+  int -> T.t
+)
+ident(
+  int_ref mk_num_of_int "term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+)
+"term.ml" 930 24574 24628 "term.ml" 930 24574 24629
+type(
+  int
+)
+"term.ml" 930 24574 24614 "term.ml" 930 24574 24629
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 930 24574 24608 "term.ml" 930 24574 24630
+type(
+  bool
+)
+"term.ml" 930 24574 24585 "term.ml" 930 24574 24630
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 932 24636 24642 "term.ml" 932 24636 24659
+type(
+  T.t -> T.t
+)
+ident(
+  int_ref mod_to_divisible' "term.ml" 903 23889 23895 "term.ml" 903 23889 23912
+)
+"term.ml" 932 24636 24660 "term.ml" 932 24636 24661
+type(
+  T.t
+)
+ident(
+  int_ref r "term.ml" 929 24546 24570 "term.ml" 929 24546 24571
+)
+"term.ml" 932 24636 24642 "term.ml" 932 24636 24661
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 934 24663 24677 "term.ml" 934 24663 24681
+type(
+  T.symbol
+)
+ident(
+  def s_eq "term.ml" 935 24691 24702 "term.ml" 935 24691 24747
+)
+"term.ml" 934 24663 24684 "term.ml" 934 24663 24685
+type(
+  T.t
+)
+ident(
+  def l "term.ml" 935 24691 24702 "term.ml" 935 24691 24747
+)
+"term.ml" 934 24663 24687 "term.ml" 934 24663 24688
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def r "term.ml" 935 24691 24702 "term.ml" 935 24691 24747
+)
+"term.ml" 934 24663 24684 "term.ml" 934 24663 24688
+type(
+  T.t list
+)
+"term.ml" 934 24663 24683 "term.ml" 934 24663 24689
+type(
+  T.t list
+)
+"term.ml" 934 24663 24669 "term.ml" 934 24663 24690
+type(
+  T.t_node
+)
+"term.ml" 935 24691 24702 "term.ml" 935 24691 24706
+type(
+  T.symbol
+)
+ident(
+  int_ref s_eq "term.ml" 934 24663 24677 "term.ml" 934 24663 24681
+)
+"term.ml" 935 24691 24707 "term.ml" 935 24691 24709
+type(
+  T.symbol -> T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 935 24691 24710 "term.ml" 935 24691 24721
+type(
+  T.symbol
+)
+ident(
+  ext_ref Symbol.s_eq
+)
+"term.ml" 935 24691 24702 "term.ml" 935 24691 24721
+type(
+  bool
+)
+"term.ml" 935 24691 24722 "term.ml" 935 24691 24724
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"term.ml" 935 24691 24725 "term.ml" 935 24691 24726
+type(
+  T.t
+)
+ident(
+  int_ref r "term.ml" 934 24663 24687 "term.ml" 934 24663 24688
+)
+"term.ml" 935 24691 24727 "term.ml" 935 24691 24729
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"term.ml" 935 24691 24731 "term.ml" 935 24691 24744
+type(
+  int -> T.t
+)
+ident(
+  int_ref mk_num_of_int "term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+)
+"term.ml" 935 24691 24745 "term.ml" 935 24691 24746
+type(
+  int
+)
+"term.ml" 935 24691 24731 "term.ml" 935 24691 24746
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 935 24691 24725 "term.ml" 935 24691 24747
+type(
+  bool
+)
+"term.ml" 935 24691 24702 "term.ml" 935 24691 24747
+type(
+  T.t
+)
+type(
+  bool
+)
+"term.ml" 937 24752 24758 "term.ml" 937 24752 24775
+type(
+  T.t -> T.t
+)
+ident(
+  int_ref mod_to_divisible' "term.ml" 903 23889 23895 "term.ml" 903 23889 23912
+)
+"term.ml" 937 24752 24776 "term.ml" 937 24752 24777
+type(
+  T.t
+)
+ident(
+  int_ref l "term.ml" 934 24663 24684 "term.ml" 934 24663 24685
+)
+"term.ml" 937 24752 24758 "term.ml" 937 24752 24777
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 940 24820 24824 "term.ml" 940 24820 24825
+type(
+  T.t_node
+)
+"term.ml" 940 24820 24829 "term.ml" 940 24820 24833
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 901 23859 23880 "term.ml" 901 23859 23884
+)
+"term.ml" 926 24474 24476 "term.ml" 940 24820 24833
+type(
+  T.t
+)
+"term.ml" 903 23889 23891 "term.ml" 940 24820 24833
+type(
+  T.t
+)
+"term.ml" 901 23859 23880 "term.ml" 940 24820 24833
+type(
+  T.t -> T.t
+)
+"term.ml" 944 24884 24888 "term.ml" 944 24884 24904
+type(
+  T.t -> T.t
+)
+ident(
+  def divisible_to_mod "term.ml" 966 25401 25401 "_none_" 1 0 -1
+)
+"term.ml" 944 24884 24905 "term.ml" 944 24884 24909
+type(
+  T.t
+)
+ident(
+  def term "term.ml" 946 24914 24916 "term.ml" 961 25343 25358
+)
+"term.ml" 946 24914 24922 "term.ml" 946 24914 24933
+type(
+  T.t -> T.t_node
+)
+ident(
+  ext_ref T.node_of_t
+)
+"term.ml" 946 24914 24934 "term.ml" 946 24914 24938
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 944 24884 24905 "term.ml" 944 24884 24909
+)
+"term.ml" 946 24914 24922 "term.ml" 946 24914 24938
+call(
+  stack
+)
+type(
+  T.t_node
+)
+"term.ml" 949 24996 25010 "term.ml" 949 24996 25020
+type(
+  T.symbol
+)
+ident(
+  def s_divisble "term.ml" 952 25078 25085 "term.ml" 958 25284 25303
+)
+"term.ml" 949 24996 25023 "term.ml" 949 24996 25024
+type(
+  T.t list
+)
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 952 25078 25085 "term.ml" 958 25284 25303
+)
+"term.ml" 949 24996 25022 "term.ml" 949 24996 25025
+type(
+  T.t list
+)
+"term.ml" 949 24996 25002 "term.ml" 949 24996 25026
+type(
+  T.t_node
+)
+"term.ml" 952 25078 25091 "term.ml" 952 25078 25112
+type(
+  T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"term.ml" 952 25078 25113 "term.ml" 952 25078 25123
+type(
+  T.symbol
+)
+ident(
+  int_ref s_divisble "term.ml" 949 24996 25010 "term.ml" 949 24996 25020
+)
+"term.ml" 952 25078 25091 "term.ml" 952 25078 25123
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"term.ml" 955 25171 25192 "term.ml" 955 25171 25193
+type(
+  Lib.numeral
+)
+ident(
+  def n "term.ml" 955 25171 25197 "term.ml" 955 25171 25241
+)
+"term.ml" 955 25171 25181 "term.ml" 955 25171 25193
+type(
+  Symbol.symbol
+)
+"term.ml" 955 25171 25197 "term.ml" 955 25171 25202
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_eq "term.ml" 701 18735 18739 "term.ml" 701 18735 18744
+)
+"term.ml" 955 25171 25204 "term.ml" 955 25171 25210
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  int_ref mk_mod "term.ml" 781 20613 20617 "term.ml" 781 20613 20623
+)
+"term.ml" 955 25171 25211 "term.ml" 955 25171 25212
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 949 24996 25023 "term.ml" 949 24996 25024
+)
+"term.ml" 955 25171 25214 "term.ml" 955 25171 25220
+type(
+  Lib.numeral -> T.t
+)
+ident(
+  int_ref mk_num "term.ml" 717 19127 19131 "term.ml" 717 19127 19137
+)
+"term.ml" 955 25171 25221 "term.ml" 955 25171 25222
+type(
+  Lib.numeral
+)
+ident(
+  int_ref n "term.ml" 955 25171 25192 "term.ml" 955 25171 25193
+)
+"term.ml" 955 25171 25214 "term.ml" 955 25171 25222
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 955 25171 25204 "term.ml" 955 25171 25223
+call(
+  stack
+)
+type(
+  T.t
+)
+"term.ml" 955 25171 25225 "term.ml" 955 25171 25238
+type(
+  int -> T.t
+)
+ident(
+  int_ref mk_num_of_int "term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+)
+"term.ml" 955 25171 25239 "term.ml" 955 25171 25240
+type(
+  int
+)
+"term.ml" 955 25171 25225 "term.ml" 955 25171 25240
+call(
+  stack
+)
+type(
+  T.t
+)
+type(
+  T.t list
+)
+"term.ml" 955 25171 25204 "term.ml" 955 25171 25240
+type(
+  T.t list
+)
+"term.ml" 955 25171 25203 "term.ml" 955 25171 25241
+type(
+  T.t list
+)
+"term.ml" 955 25171 25197 "term.ml" 955 25171 25241
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 958 25284 25294 "term.ml" 958 25284 25295
+type(
+  Symbol.symbol
+)
+"term.ml" 958 25284 25299 "term.ml" 958 25284 25303
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 944 24884 24905 "term.ml" 944 24884 24909
+)
+"term.ml" 952 25078 25085 "term.ml" 958 25284 25303
+type(
+  T.t
+)
+"term.ml" 961 25343 25349 "term.ml" 961 25343 25350
+type(
+  T.t_node
+)
+"term.ml" 961 25343 25354 "term.ml" 961 25343 25358
+type(
+  T.t
+)
+ident(
+  int_ref term "term.ml" 944 24884 24905 "term.ml" 944 24884 24909
+)
+"term.ml" 946 24914 24916 "term.ml" 961 25343 25358
+type(
+  T.t
+)
+"term.ml" 944 24884 24905 "term.ml" 961 25343 25358
+type(
+  T.t -> T.t
+)
+"term.ml" 969 25426 25432 "term.ml" 969 25426 25439
+type(
+  int -> T.t
+)
+ident(
+  def ?%@ "term.ml" 971 25461 25463 "term.ml" 1003 26008 26011
+)
+"term.ml" 969 25426 25440 "term.ml" 969 25426 25441
+type(
+  int
+)
+ident(
+  def i "term.ml" 969 25426 25444 "term.ml" 969 25426 25459
+)
+"term.ml" 969 25426 25444 "term.ml" 969 25426 25457
+type(
+  int -> T.t
+)
+ident(
+  int_ref mk_num_of_int "term.ml" 721 19232 19236 "term.ml" 721 19232 19249
+)
+"term.ml" 969 25426 25458 "term.ml" 969 25426 25459
+type(
+  int
+)
+ident(
+  int_ref i "term.ml" 969 25426 25440 "term.ml" 969 25426 25441
+)
+"term.ml" 969 25426 25444 "term.ml" 969 25426 25459
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 969 25426 25440 "term.ml" 969 25426 25459
+type(
+  int -> T.t
+)
+"term.ml" 971 25461 25467 "term.ml" 971 25461 25474
+type(
+  float -> T.t
+)
+ident(
+  def ?/@ "term.ml" 973 25498 25500 "term.ml" 1003 26008 26011
+)
+"term.ml" 971 25461 25475 "term.ml" 971 25461 25476
+type(
+  float
+)
+ident(
+  def f "term.ml" 971 25461 25479 "term.ml" 971 25461 25496
+)
+"term.ml" 971 25461 25479 "term.ml" 971 25461 25494
+type(
+  float -> T.t
+)
+ident(
+  int_ref mk_dec_of_float "term.ml" 737 19656 19660 "term.ml" 737 19656 19675
+)
+"term.ml" 971 25461 25495 "term.ml" 971 25461 25496
+type(
+  float
+)
+ident(
+  int_ref f "term.ml" 971 25461 25475 "term.ml" 971 25461 25476
+)
+"term.ml" 971 25461 25479 "term.ml" 971 25461 25496
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 971 25461 25475 "term.ml" 971 25461 25496
+type(
+  float -> T.t
+)
+"term.ml" 973 25498 25504 "term.ml" 973 25498 25510
+type(
+  T.t -> T.t
+)
+ident(
+  def !@ "term.ml" 975 25525 25527 "term.ml" 1003 26008 26011
+)
+"term.ml" 973 25498 25511 "term.ml" 973 25498 25512
+type(
+  T.t
+)
+ident(
+  def t "term.ml" 973 25498 25515 "term.ml" 973 25498 25523
+)
+"term.ml" 973 25498 25515 "term.ml" 973 25498 25521
+type(
+  T.t -> T.t
+)
+ident(
+  int_ref mk_not "term.ml" 663 17721 17725 "term.ml" 663 17721 17731
+)
+"term.ml" 973 25498 25522 "term.ml" 973 25498 25523
+type(
+  T.t
+)
+ident(
+  int_ref t "term.ml" 973 25498 25511 "term.ml" 973 25498 25512
+)
+"term.ml" 973 25498 25515 "term.ml" 973 25498 25523
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 973 25498 25511 "term.ml" 973 25498 25523
+type(
+  T.t -> T.t
+)
+"term.ml" 975 25525 25531 "term.ml" 975 25525 25538
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def =>@ "term.ml" 977 25564 25566 "term.ml" 1003 26008 26011
+)
+"term.ml" 975 25525 25539 "term.ml" 975 25525 25540
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 975 25525 25541 "term.ml" 975 25525 25562
+)
+"term.ml" 975 25525 25541 "term.ml" 975 25525 25542
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 975 25525 25545 "term.ml" 975 25525 25562
+)
+"term.ml" 975 25525 25545 "term.ml" 975 25525 25555
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_implies "term.ml" 667 17799 17803 "term.ml" 667 17799 17813
+)
+"term.ml" 975 25525 25557 "term.ml" 975 25525 25558
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 975 25525 25539 "term.ml" 975 25525 25540
+)
+"term.ml" 975 25525 25560 "term.ml" 975 25525 25561
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 975 25525 25541 "term.ml" 975 25525 25542
+)
+type(
+  T.t list
+)
+"term.ml" 975 25525 25557 "term.ml" 975 25525 25561
+type(
+  T.t list
+)
+"term.ml" 975 25525 25556 "term.ml" 975 25525 25562
+type(
+  T.t list
+)
+"term.ml" 975 25525 25545 "term.ml" 975 25525 25562
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 975 25525 25541 "term.ml" 975 25525 25562
+type(
+  T.t -> T.t
+)
+"term.ml" 975 25525 25539 "term.ml" 975 25525 25562
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 977 25564 25570 "term.ml" 977 25564 25576
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def &@ "term.ml" 979 25598 25600 "term.ml" 1003 26008 26011
+)
+"term.ml" 977 25564 25577 "term.ml" 977 25564 25578
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 977 25564 25579 "term.ml" 977 25564 25596
+)
+"term.ml" 977 25564 25579 "term.ml" 977 25564 25580
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 977 25564 25583 "term.ml" 977 25564 25596
+)
+"term.ml" 977 25564 25583 "term.ml" 977 25564 25589
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_and "term.ml" 676 18065 18069 "term.ml" 676 18065 18075
+)
+"term.ml" 977 25564 25591 "term.ml" 977 25564 25592
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 977 25564 25577 "term.ml" 977 25564 25578
+)
+"term.ml" 977 25564 25594 "term.ml" 977 25564 25595
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 977 25564 25579 "term.ml" 977 25564 25580
+)
+type(
+  T.t list
+)
+"term.ml" 977 25564 25591 "term.ml" 977 25564 25595
+type(
+  T.t list
+)
+"term.ml" 977 25564 25590 "term.ml" 977 25564 25596
+type(
+  T.t list
+)
+"term.ml" 977 25564 25583 "term.ml" 977 25564 25596
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 977 25564 25579 "term.ml" 977 25564 25596
+type(
+  T.t -> T.t
+)
+"term.ml" 977 25564 25577 "term.ml" 977 25564 25596
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 979 25598 25604 "term.ml" 979 25598 25610
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def |@ "term.ml" 981 25631 25633 "term.ml" 1003 26008 26011
+)
+"term.ml" 979 25598 25611 "term.ml" 979 25598 25612
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 979 25598 25613 "term.ml" 979 25598 25629
+)
+"term.ml" 979 25598 25613 "term.ml" 979 25598 25614
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 979 25598 25617 "term.ml" 979 25598 25629
+)
+"term.ml" 979 25598 25617 "term.ml" 979 25598 25622
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_or "term.ml" 685 18322 18326 "term.ml" 685 18322 18331
+)
+"term.ml" 979 25598 25624 "term.ml" 979 25598 25625
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 979 25598 25611 "term.ml" 979 25598 25612
+)
+"term.ml" 979 25598 25627 "term.ml" 979 25598 25628
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 979 25598 25613 "term.ml" 979 25598 25614
+)
+type(
+  T.t list
+)
+"term.ml" 979 25598 25624 "term.ml" 979 25598 25628
+type(
+  T.t list
+)
+"term.ml" 979 25598 25623 "term.ml" 979 25598 25629
+type(
+  T.t list
+)
+"term.ml" 979 25598 25617 "term.ml" 979 25598 25629
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 979 25598 25613 "term.ml" 979 25598 25629
+type(
+  T.t -> T.t
+)
+"term.ml" 979 25598 25611 "term.ml" 979 25598 25629
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 981 25631 25637 "term.ml" 981 25631 25643
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def =@ "term.ml" 983 25664 25666 "term.ml" 1003 26008 26011
+)
+"term.ml" 981 25631 25644 "term.ml" 981 25631 25645
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 981 25631 25646 "term.ml" 981 25631 25662
+)
+"term.ml" 981 25631 25646 "term.ml" 981 25631 25647
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 981 25631 25650 "term.ml" 981 25631 25662
+)
+"term.ml" 981 25631 25650 "term.ml" 981 25631 25655
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_eq "term.ml" 701 18735 18739 "term.ml" 701 18735 18744
+)
+"term.ml" 981 25631 25657 "term.ml" 981 25631 25658
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 981 25631 25644 "term.ml" 981 25631 25645
+)
+"term.ml" 981 25631 25660 "term.ml" 981 25631 25661
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 981 25631 25646 "term.ml" 981 25631 25647
+)
+type(
+  T.t list
+)
+"term.ml" 981 25631 25657 "term.ml" 981 25631 25661
+type(
+  T.t list
+)
+"term.ml" 981 25631 25656 "term.ml" 981 25631 25662
+type(
+  T.t list
+)
+"term.ml" 981 25631 25650 "term.ml" 981 25631 25662
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 981 25631 25646 "term.ml" 981 25631 25662
+type(
+  T.t -> T.t
+)
+"term.ml" 981 25631 25644 "term.ml" 981 25631 25662
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 983 25664 25670 "term.ml" 983 25664 25676
+type(
+  T.t -> T.t
+)
+ident(
+  def ~@ "term.ml" 985 25695 25697 "term.ml" 1003 26008 26011
+)
+"term.ml" 983 25664 25677 "term.ml" 983 25664 25678
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 983 25664 25681 "term.ml" 983 25664 25693
+)
+"term.ml" 983 25664 25681 "term.ml" 983 25664 25689
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_minus "term.ml" 713 19043 19047 "term.ml" 713 19043 19055
+)
+"term.ml" 983 25664 25691 "term.ml" 983 25664 25692
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 983 25664 25677 "term.ml" 983 25664 25678
+)
+type(
+  T.t list
+)
+"term.ml" 983 25664 25690 "term.ml" 983 25664 25693
+type(
+  T.t list
+)
+"term.ml" 983 25664 25681 "term.ml" 983 25664 25693
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 983 25664 25677 "term.ml" 983 25664 25693
+type(
+  T.t -> T.t
+)
+"term.ml" 985 25695 25701 "term.ml" 985 25695 25707
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def -@ "term.ml" 987 25731 25733 "term.ml" 1003 26008 26011
+)
+"term.ml" 985 25695 25708 "term.ml" 985 25695 25709
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 985 25695 25710 "term.ml" 985 25695 25729
+)
+"term.ml" 985 25695 25710 "term.ml" 985 25695 25711
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 985 25695 25714 "term.ml" 985 25695 25729
+)
+"term.ml" 985 25695 25714 "term.ml" 985 25695 25722
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_minus "term.ml" 713 19043 19047 "term.ml" 713 19043 19055
+)
+"term.ml" 985 25695 25724 "term.ml" 985 25695 25725
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 985 25695 25708 "term.ml" 985 25695 25709
+)
+"term.ml" 985 25695 25727 "term.ml" 985 25695 25728
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 985 25695 25710 "term.ml" 985 25695 25711
+)
+type(
+  T.t list
+)
+"term.ml" 985 25695 25724 "term.ml" 985 25695 25728
+type(
+  T.t list
+)
+"term.ml" 985 25695 25723 "term.ml" 985 25695 25729
+type(
+  T.t list
+)
+"term.ml" 985 25695 25714 "term.ml" 985 25695 25729
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 985 25695 25710 "term.ml" 985 25695 25729
+type(
+  T.t -> T.t
+)
+"term.ml" 985 25695 25708 "term.ml" 985 25695 25729
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 987 25731 25737 "term.ml" 987 25731 25743
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def +@ "term.ml" 989 25766 25768 "term.ml" 1003 26008 26011
+)
+"term.ml" 987 25731 25744 "term.ml" 987 25731 25745
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 987 25731 25746 "term.ml" 987 25731 25764
+)
+"term.ml" 987 25731 25746 "term.ml" 987 25731 25747
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 987 25731 25750 "term.ml" 987 25731 25764
+)
+"term.ml" 987 25731 25750 "term.ml" 987 25731 25757
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_plus "term.ml" 753 20012 20016 "term.ml" 753 20012 20023
+)
+"term.ml" 987 25731 25759 "term.ml" 987 25731 25760
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 987 25731 25744 "term.ml" 987 25731 25745
+)
+"term.ml" 987 25731 25762 "term.ml" 987 25731 25763
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 987 25731 25746 "term.ml" 987 25731 25747
+)
+type(
+  T.t list
+)
+"term.ml" 987 25731 25759 "term.ml" 987 25731 25763
+type(
+  T.t list
+)
+"term.ml" 987 25731 25758 "term.ml" 987 25731 25764
+type(
+  T.t list
+)
+"term.ml" 987 25731 25750 "term.ml" 987 25731 25764
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 987 25731 25746 "term.ml" 987 25731 25764
+type(
+  T.t -> T.t
+)
+"term.ml" 987 25731 25744 "term.ml" 987 25731 25764
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 989 25766 25772 "term.ml" 989 25766 25778
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def *@ "term.ml" 991 25802 25804 "term.ml" 1003 26008 26011
+)
+"term.ml" 989 25766 25779 "term.ml" 989 25766 25780
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 989 25766 25781 "term.ml" 989 25766 25800
+)
+"term.ml" 989 25766 25781 "term.ml" 989 25766 25782
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 989 25766 25785 "term.ml" 989 25766 25800
+)
+"term.ml" 989 25766 25785 "term.ml" 989 25766 25793
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_times "term.ml" 760 20158 20162 "term.ml" 760 20158 20170
+)
+"term.ml" 989 25766 25795 "term.ml" 989 25766 25796
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 989 25766 25779 "term.ml" 989 25766 25780
+)
+"term.ml" 989 25766 25798 "term.ml" 989 25766 25799
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 989 25766 25781 "term.ml" 989 25766 25782
+)
+type(
+  T.t list
+)
+"term.ml" 989 25766 25795 "term.ml" 989 25766 25799
+type(
+  T.t list
+)
+"term.ml" 989 25766 25794 "term.ml" 989 25766 25800
+type(
+  T.t list
+)
+"term.ml" 989 25766 25785 "term.ml" 989 25766 25800
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 989 25766 25781 "term.ml" 989 25766 25800
+type(
+  T.t -> T.t
+)
+"term.ml" 989 25766 25779 "term.ml" 989 25766 25800
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 991 25802 25808 "term.ml" 991 25802 25815
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def //@ "term.ml" 993 25837 25839 "term.ml" 1003 26008 26011
+)
+"term.ml" 991 25802 25816 "term.ml" 991 25802 25817
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 991 25802 25818 "term.ml" 991 25802 25835
+)
+"term.ml" 991 25802 25818 "term.ml" 991 25802 25819
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 991 25802 25822 "term.ml" 991 25802 25835
+)
+"term.ml" 991 25802 25822 "term.ml" 991 25802 25828
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_div "term.ml" 767 20306 20310 "term.ml" 767 20306 20316
+)
+"term.ml" 991 25802 25830 "term.ml" 991 25802 25831
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 991 25802 25816 "term.ml" 991 25802 25817
+)
+"term.ml" 991 25802 25833 "term.ml" 991 25802 25834
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 991 25802 25818 "term.ml" 991 25802 25819
+)
+type(
+  T.t list
+)
+"term.ml" 991 25802 25830 "term.ml" 991 25802 25834
+type(
+  T.t list
+)
+"term.ml" 991 25802 25829 "term.ml" 991 25802 25835
+type(
+  T.t list
+)
+"term.ml" 991 25802 25822 "term.ml" 991 25802 25835
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 991 25802 25818 "term.ml" 991 25802 25835
+type(
+  T.t -> T.t
+)
+"term.ml" 991 25802 25816 "term.ml" 991 25802 25835
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 993 25837 25843 "term.ml" 993 25837 25850
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def /%@ "term.ml" 995 25872 25874 "term.ml" 1003 26008 26011
+)
+"term.ml" 993 25837 25851 "term.ml" 993 25837 25852
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 993 25837 25853 "term.ml" 993 25837 25870
+)
+"term.ml" 993 25837 25853 "term.ml" 993 25837 25854
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 993 25837 25857 "term.ml" 993 25837 25870
+)
+"term.ml" 993 25837 25857 "term.ml" 993 25837 25863
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_div "term.ml" 767 20306 20310 "term.ml" 767 20306 20316
+)
+"term.ml" 993 25837 25865 "term.ml" 993 25837 25866
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 993 25837 25851 "term.ml" 993 25837 25852
+)
+"term.ml" 993 25837 25868 "term.ml" 993 25837 25869
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 993 25837 25853 "term.ml" 993 25837 25854
+)
+type(
+  T.t list
+)
+"term.ml" 993 25837 25865 "term.ml" 993 25837 25869
+type(
+  T.t list
+)
+"term.ml" 993 25837 25864 "term.ml" 993 25837 25870
+type(
+  T.t list
+)
+"term.ml" 993 25837 25857 "term.ml" 993 25837 25870
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 993 25837 25853 "term.ml" 993 25837 25870
+type(
+  T.t -> T.t
+)
+"term.ml" 993 25837 25851 "term.ml" 993 25837 25870
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 995 25872 25878 "term.ml" 995 25872 25885
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def <=@ "term.ml" 997 25907 25909 "term.ml" 1003 26008 26011
+)
+"term.ml" 995 25872 25886 "term.ml" 995 25872 25887
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 995 25872 25888 "term.ml" 995 25872 25905
+)
+"term.ml" 995 25872 25888 "term.ml" 995 25872 25889
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 995 25872 25892 "term.ml" 995 25872 25905
+)
+"term.ml" 995 25872 25892 "term.ml" 995 25872 25898
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_leq "term.ml" 790 20856 20860 "term.ml" 790 20856 20866
+)
+"term.ml" 995 25872 25900 "term.ml" 995 25872 25901
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 995 25872 25886 "term.ml" 995 25872 25887
+)
+"term.ml" 995 25872 25903 "term.ml" 995 25872 25904
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 995 25872 25888 "term.ml" 995 25872 25889
+)
+type(
+  T.t list
+)
+"term.ml" 995 25872 25900 "term.ml" 995 25872 25904
+type(
+  T.t list
+)
+"term.ml" 995 25872 25899 "term.ml" 995 25872 25905
+type(
+  T.t list
+)
+"term.ml" 995 25872 25892 "term.ml" 995 25872 25905
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 995 25872 25888 "term.ml" 995 25872 25905
+type(
+  T.t -> T.t
+)
+"term.ml" 995 25872 25886 "term.ml" 995 25872 25905
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 997 25907 25913 "term.ml" 997 25907 25919
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def <@ "term.ml" 999 25940 25942 "term.ml" 1003 26008 26011
+)
+"term.ml" 997 25907 25920 "term.ml" 997 25907 25921
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 997 25907 25922 "term.ml" 997 25907 25938
+)
+"term.ml" 997 25907 25922 "term.ml" 997 25907 25923
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 997 25907 25926 "term.ml" 997 25907 25938
+)
+"term.ml" 997 25907 25926 "term.ml" 997 25907 25931
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_lt "term.ml" 797 21046 21050 "term.ml" 797 21046 21055
+)
+"term.ml" 997 25907 25933 "term.ml" 997 25907 25934
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 997 25907 25920 "term.ml" 997 25907 25921
+)
+"term.ml" 997 25907 25936 "term.ml" 997 25907 25937
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 997 25907 25922 "term.ml" 997 25907 25923
+)
+type(
+  T.t list
+)
+"term.ml" 997 25907 25933 "term.ml" 997 25907 25937
+type(
+  T.t list
+)
+"term.ml" 997 25907 25932 "term.ml" 997 25907 25938
+type(
+  T.t list
+)
+"term.ml" 997 25907 25926 "term.ml" 997 25907 25938
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 997 25907 25922 "term.ml" 997 25907 25938
+type(
+  T.t -> T.t
+)
+"term.ml" 997 25907 25920 "term.ml" 997 25907 25938
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 999 25940 25946 "term.ml" 999 25940 25953
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def >=@ "term.ml" 1001 25975 25977 "term.ml" 1003 26008 26011
+)
+"term.ml" 999 25940 25954 "term.ml" 999 25940 25955
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 999 25940 25956 "term.ml" 999 25940 25973
+)
+"term.ml" 999 25940 25956 "term.ml" 999 25940 25957
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 999 25940 25960 "term.ml" 999 25940 25973
+)
+"term.ml" 999 25940 25960 "term.ml" 999 25940 25966
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_geq "term.ml" 804 21247 21251 "term.ml" 804 21247 21257
+)
+"term.ml" 999 25940 25968 "term.ml" 999 25940 25969
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 999 25940 25954 "term.ml" 999 25940 25955
+)
+"term.ml" 999 25940 25971 "term.ml" 999 25940 25972
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 999 25940 25956 "term.ml" 999 25940 25957
+)
+type(
+  T.t list
+)
+"term.ml" 999 25940 25968 "term.ml" 999 25940 25972
+type(
+  T.t list
+)
+"term.ml" 999 25940 25967 "term.ml" 999 25940 25973
+type(
+  T.t list
+)
+"term.ml" 999 25940 25960 "term.ml" 999 25940 25973
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 999 25940 25956 "term.ml" 999 25940 25973
+type(
+  T.t -> T.t
+)
+"term.ml" 999 25940 25954 "term.ml" 999 25940 25973
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 1001 25975 25981 "term.ml" 1001 25975 25987
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def >@ "term.ml" 1001 25975 26006 "term.ml" 1003 26008 26011
+)
+"term.ml" 1001 25975 25988 "term.ml" 1001 25975 25989
+type(
+  T.t
+)
+ident(
+  def a "term.ml" 1001 25975 25990 "term.ml" 1001 25975 26006
+)
+"term.ml" 1001 25975 25990 "term.ml" 1001 25975 25991
+type(
+  T.t
+)
+ident(
+  def b "term.ml" 1001 25975 25994 "term.ml" 1001 25975 26006
+)
+"term.ml" 1001 25975 25994 "term.ml" 1001 25975 25999
+type(
+  T.t list -> T.t
+)
+ident(
+  int_ref mk_gt "term.ml" 811 21442 21446 "term.ml" 811 21442 21451
+)
+"term.ml" 1001 25975 26001 "term.ml" 1001 25975 26002
+type(
+  T.t
+)
+ident(
+  int_ref a "term.ml" 1001 25975 25988 "term.ml" 1001 25975 25989
+)
+"term.ml" 1001 25975 26004 "term.ml" 1001 25975 26005
+type(
+  T.t
+)
+ident(
+  int_ref b "term.ml" 1001 25975 25990 "term.ml" 1001 25975 25991
+)
+type(
+  T.t list
+)
+"term.ml" 1001 25975 26001 "term.ml" 1001 25975 26005
+type(
+  T.t list
+)
+"term.ml" 1001 25975 26000 "term.ml" 1001 25975 26006
+type(
+  T.t list
+)
+"term.ml" 1001 25975 25994 "term.ml" 1001 25975 26006
+call(
+  tail
+)
+type(
+  T.t
+)
+"term.ml" 1001 25975 25990 "term.ml" 1001 25975 26006
+type(
+  T.t -> T.t
+)
+"term.ml" 1001 25975 25988 "term.ml" 1001 25975 26006
+type(
+  T.t -> T.t -> T.t
+)
+"term.ml" 1012 26290 26294 "term.ml" 1012 26290 26298
+type(
+  (T.symbol -> 'a list -> 'a) -> T.t -> 'a
+)
+ident(
+  def eval "term.ml" 1016 26397 26397 "_none_" 1 0 -1
+)
+"term.ml" 1012 26290 26301 "term.ml" 1012 26290 26307
+type(
+  (T.symbol -> 'a list -> 'a) -> T.t -> 'a
+)
+ident(
+  ext_ref T.eval
+)
+"term.ml" 1016 26397 26401 "term.ml" 1016 26397 26407
+type(
+  (T.flat -> 'a list -> 'a) -> T.t -> 'a
+)
+ident(
+  def eval_t "term.ml" 1022 26582 26582 "_none_" 1 0 -1
+)
+"term.ml" 1016 26397 26410 "term.ml" 1016 26397 26418
+type(
+  (T.flat -> 'a list -> 'a) -> T.t -> 'a
+)
+ident(
+  ext_ref T.eval_t
+)
+"term.ml" 1022 26582 26586 "term.ml" 1022 26582 26589
+type(
+  (int -> T.t -> T.t) -> T.t -> T.t
+)
+ident(
+  def map "term.ml" 1022 26582 26597 "_none_" 1 0 -1
+)
+"term.ml" 1022 26582 26592 "term.ml" 1022 26582 26597
+type(
+  (int -> T.t -> T.t) -> T.t -> T.t
+)
+ident(
+  ext_ref T.map
+)

@@ -1,0 +1,5649 @@
+"presburger.ml" 41 1911 1915 "presburger.ml" 41 1911 1944
+type(
+  iformula -> iformula -> iformula
+)
+ident(
+  def combine_singleton_to_iformula "presburger.ml" 53 2287 2287 "_none_" 1 0 -1
+)
+"presburger.ml" 41 1911 1946 "presburger.ml" 41 1911 1949
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 41 1911 1961 "presburger.ml" 48 2096 2195
+)
+"presburger.ml" 41 1911 1962 "presburger.ml" 41 1911 1965
+type(
+  iformula
+)
+ident(
+  def if2 "presburger.ml" 41 1911 1977 "presburger.ml" 48 2096 2195
+)
+"presburger.ml" 43 1992 2000 "presburger.ml" 43 1992 2003
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 41 1911 1946 "presburger.ml" 41 1911 1949
+)
+"presburger.ml" 43 1992 2005 "presburger.ml" 43 1992 2008
+type(
+  iformula
+)
+ident(
+  int_ref if2 "presburger.ml" 41 1911 1962 "presburger.ml" 41 1911 1965
+)
+"presburger.ml" 43 1992 2000 "presburger.ml" 43 1992 2008
+type(
+  iformula * iformula
+)
+"presburger.ml" 45 2015 2030 "presburger.ml" 45 2015 2035
+type(
+  Poly.cformula
+)
+type(
+  Poly.preAtom
+)
+ident(
+  def pret1 "presburger.ml" 45 2015 2053 "presburger.ml" 45 2015 2075
+)
+"presburger.ml" 45 2015 2029 "presburger.ml" 45 2015 2036
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 45 2015 2021 "presburger.ml" 45 2015 2036
+type(
+  iformula
+)
+"presburger.ml" 45 2015 2046 "presburger.ml" 45 2015 2049
+type(
+  Poly.cformula
+)
+ident(
+  def cf2 "presburger.ml" 45 2015 2053 "presburger.ml" 45 2015 2075
+)
+"presburger.ml" 45 2015 2038 "presburger.ml" 45 2015 2049
+type(
+  iformula
+)
+"presburger.ml" 45 2015 2021 "presburger.ml" 45 2015 2049
+type(
+  iformula * iformula
+)
+"presburger.ml" 45 2015 2062 "presburger.ml" 45 2015 2067
+type(
+  Poly.preAtom
+)
+ident(
+  int_ref pret1 "presburger.ml" 45 2015 2030 "presburger.ml" 45 2015 2035
+)
+"presburger.ml" 45 2015 2071 "presburger.ml" 45 2015 2074
+type(
+  Poly.cformula
+)
+ident(
+  int_ref cf2 "presburger.ml" 45 2015 2046 "presburger.ml" 45 2015 2049
+)
+"presburger.ml" 45 2015 2062 "presburger.ml" 45 2015 2074
+type(
+  Poly.cformula
+)
+"presburger.ml" 45 2015 2053 "presburger.ml" 45 2015 2075
+type(
+  iformula
+)
+"presburger.ml" 47 2085 2091 "presburger.ml" 47 2085 2092
+type(
+  iformula * iformula
+)
+"presburger.ml" 48 2096 2102 "presburger.ml" 48 2096 2110
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 48 2096 2111 "presburger.ml" 48 2096 2195
+type(
+  string
+)
+"presburger.ml" 48 2096 2102 "presburger.ml" 48 2096 2195
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 43 1992 1994 "presburger.ml" 48 2096 2195
+type(
+  iformula
+)
+type(
+  iformula
+)
+"presburger.ml" 41 1911 1961 "presburger.ml" 48 2096 2195
+type(
+  iformula -> iformula
+)
+"presburger.ml" 41 1911 1945 "presburger.ml" 48 2096 2195
+type(
+  iformula -> iformula -> iformula
+)
+"presburger.ml" 53 2287 2291 "presburger.ml" 53 2287 2308
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> Poly.poly
+)
+ident(
+  def add_iformula_list "presburger.ml" 82 3160 3160 "_none_" 1 0 -1
+)
+"presburger.ml" 53 2287 2310 "presburger.ml" 53 2287 2311
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 53 2287 2336 "presburger.ml" 77 2996 3059
+)
+"presburger.ml" 53 2287 2337 "presburger.ml" 53 2287 2340
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 53 2287 2357 "presburger.ml" 77 2996 3059
+)
+"presburger.ml" 55 2367 2375 "presburger.ml" 55 2367 2378
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 53 2287 2337 "presburger.ml" 53 2287 2340
+)
+"presburger.ml" 58 2423 2429 "presburger.ml" 58 2423 2431
+type(
+  iformula list
+)
+"presburger.ml" 58 2423 2435 "presburger.ml" 58 2423 2443
+type(
+  string -> Poly.poly
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 58 2423 2444 "presburger.ml" 58 2423 2492
+type(
+  string
+)
+"presburger.ml" 58 2423 2435 "presburger.ml" 58 2423 2492
+call(
+  tail
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 61 2538 2550 "presburger.ml" 61 2538 2552
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 61 2538 2557 "presburger.ml" 61 2538 2559
+)
+"presburger.ml" 61 2538 2545 "presburger.ml" 61 2538 2552
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 61 2538 2544 "presburger.ml" 61 2538 2553
+type(
+  iformula list
+)
+"presburger.ml" 61 2538 2557 "presburger.ml" 61 2538 2559
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 61 2538 2550 "presburger.ml" 61 2538 2552
+)
+"presburger.ml" 64 2597 2609 "presburger.ml" 64 2597 2611
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 68 2734 2740 "presburger.ml" 74 2963 2975
+)
+"presburger.ml" 64 2597 2604 "presburger.ml" 64 2597 2611
+type(
+  iformula
+)
+"presburger.ml" 64 2597 2616 "presburger.ml" 64 2597 2620
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 68 2734 2740 "presburger.ml" 74 2963 2975
+)
+"presburger.ml" 64 2597 2603 "presburger.ml" 64 2597 2620
+type(
+  iformula list
+)
+"presburger.ml" 68 2734 2740 "presburger.ml" 68 2734 2754
+type(
+  (Poly.poly -> iformula -> Poly.poly) ->
+  Poly.poly -> iformula list -> Poly.poly
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 69 2756 2769 "presburger.ml" 69 2756 2774
+type(
+  Poly.poly
+)
+ident(
+  def accum "presburger.ml" 69 2756 2775 "presburger.ml" 72 2871 2948
+)
+"presburger.ml" 69 2756 2775 "presburger.ml" 69 2756 2776
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 70 2780 2791 "presburger.ml" 72 2871 2947
+)
+"presburger.ml" 70 2780 2797 "presburger.ml" 70 2780 2802
+type(
+  Poly.poly
+)
+ident(
+  int_ref accum "presburger.ml" 69 2756 2769 "presburger.ml" 69 2756 2774
+)
+"presburger.ml" 70 2780 2804 "presburger.ml" 70 2780 2805
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 69 2756 2775 "presburger.ml" 69 2756 2776
+)
+"presburger.ml" 70 2780 2797 "presburger.ml" 70 2780 2805
+type(
+  Poly.poly * iformula
+)
+"presburger.ml" 71 2811 2825 "presburger.ml" 71 2811 2828
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 71 2811 2844 "presburger.ml" 71 2811 2870
+)
+"presburger.ml" 71 2811 2836 "presburger.ml" 71 2811 2839
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 71 2811 2844 "presburger.ml" 71 2811 2870
+)
+"presburger.ml" 71 2811 2831 "presburger.ml" 71 2811 2839
+type(
+  iformula
+)
+"presburger.ml" 71 2811 2825 "presburger.ml" 71 2811 2840
+type(
+  Poly.poly * iformula
+)
+"presburger.ml" 71 2811 2844 "presburger.ml" 71 2811 2857
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 71 2811 2858 "presburger.ml" 71 2811 2859
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 53 2287 2310 "presburger.ml" 53 2287 2311
+)
+"presburger.ml" 71 2811 2860 "presburger.ml" 71 2811 2862
+type(
+  Poly.poly
+)
+"presburger.ml" 71 2811 2863 "presburger.ml" 71 2811 2866
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 71 2811 2825 "presburger.ml" 71 2811 2828
+)
+"presburger.ml" 71 2811 2867 "presburger.ml" 71 2811 2870
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 71 2811 2836 "presburger.ml" 71 2811 2839
+)
+"presburger.ml" 71 2811 2844 "presburger.ml" 71 2811 2870
+call(
+  tail
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 72 2871 2885 "presburger.ml" 72 2871 2886
+type(
+  Poly.poly * iformula
+)
+"presburger.ml" 72 2871 2890 "presburger.ml" 72 2871 2898
+type(
+  string -> Poly.poly
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 72 2871 2899 "presburger.ml" 72 2871 2947
+type(
+  string
+)
+"presburger.ml" 72 2871 2890 "presburger.ml" 72 2871 2947
+type(
+  Poly.poly
+)
+"presburger.ml" 70 2780 2791 "presburger.ml" 72 2871 2947
+type(
+  Poly.poly
+)
+"presburger.ml" 69 2756 2775 "presburger.ml" 72 2871 2948
+type(
+  iformula -> Poly.poly
+)
+"presburger.ml" 69 2756 2769 "presburger.ml" 72 2871 2948
+type(
+  Poly.poly -> iformula -> Poly.poly
+)
+"presburger.ml" 73 2951 2959 "presburger.ml" 73 2951 2961
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 64 2597 2609 "presburger.ml" 64 2597 2611
+)
+"presburger.ml" 74 2963 2971 "presburger.ml" 74 2963 2975
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 64 2597 2616 "presburger.ml" 64 2597 2620
+)
+"presburger.ml" 68 2734 2740 "presburger.ml" 74 2963 2975
+call(
+  tail
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 76 2985 2991 "presburger.ml" 76 2985 2992
+type(
+  iformula list
+)
+"presburger.ml" 77 2996 3002 "presburger.ml" 77 2996 3010
+type(
+  string -> Poly.poly
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 77 2996 3011 "presburger.ml" 77 2996 3059
+type(
+  string
+)
+"presburger.ml" 77 2996 3002 "presburger.ml" 77 2996 3059
+type(
+  Poly.poly
+)
+"presburger.ml" 55 2367 2369 "presburger.ml" 77 2996 3059
+type(
+  Poly.poly
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 53 2287 2336 "presburger.ml" 77 2996 3059
+type(
+  iformula list -> Poly.poly
+)
+"presburger.ml" 53 2287 2309 "presburger.ml" 77 2996 3059
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> Poly.poly
+)
+"presburger.ml" 82 3160 3164 "presburger.ml" 82 3160 3186
+type(
+  iformula list -> Poly.poly
+)
+ident(
+  def multiply_iformula_list "presburger.ml" 111 4046 4046 "_none_" 1 0 -1
+)
+"presburger.ml" 82 3160 3188 "presburger.ml" 82 3160 3191
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 82 3160 3208 "presburger.ml" 107 3869 3939
+)
+"presburger.ml" 84 3219 3227 "presburger.ml" 84 3219 3230
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 82 3160 3188 "presburger.ml" 82 3160 3191
+)
+"presburger.ml" 87 3281 3287 "presburger.ml" 87 3281 3289
+type(
+  iformula list
+)
+"presburger.ml" 87 3281 3293 "presburger.ml" 87 3281 3301
+type(
+  string -> Poly.poly
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 87 3281 3302 "presburger.ml" 87 3281 3351
+type(
+  string
+)
+"presburger.ml" 87 3281 3293 "presburger.ml" 87 3281 3351
+call(
+  tail
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 90 3391 3403 "presburger.ml" 90 3391 3405
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 90 3391 3410 "presburger.ml" 90 3391 3412
+)
+"presburger.ml" 90 3391 3398 "presburger.ml" 90 3391 3405
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 90 3391 3397 "presburger.ml" 90 3391 3406
+type(
+  iformula list
+)
+"presburger.ml" 90 3391 3410 "presburger.ml" 90 3391 3412
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 90 3391 3403 "presburger.ml" 90 3391 3405
+)
+"presburger.ml" 93 3444 3456 "presburger.ml" 93 3444 3458
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 97 3588 3594 "presburger.ml" 104 3836 3848
+)
+"presburger.ml" 93 3444 3451 "presburger.ml" 93 3444 3458
+type(
+  iformula
+)
+"presburger.ml" 93 3444 3463 "presburger.ml" 93 3444 3467
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 97 3588 3594 "presburger.ml" 104 3836 3848
+)
+"presburger.ml" 93 3444 3450 "presburger.ml" 93 3444 3467
+type(
+  iformula list
+)
+"presburger.ml" 97 3588 3594 "presburger.ml" 97 3588 3608
+type(
+  (Poly.poly -> iformula -> Poly.poly) ->
+  Poly.poly -> iformula list -> Poly.poly
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 98 3610 3623 "presburger.ml" 98 3610 3628
+type(
+  Poly.poly
+)
+ident(
+  def accum "presburger.ml" 98 3610 3629 "presburger.ml" 102 3744 3822
+)
+"presburger.ml" 98 3610 3629 "presburger.ml" 98 3610 3630
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 99 3634 3644 "presburger.ml" 102 3744 3822
+)
+"presburger.ml" 99 3634 3650 "presburger.ml" 99 3634 3655
+type(
+  Poly.poly
+)
+ident(
+  int_ref accum "presburger.ml" 98 3610 3623 "presburger.ml" 98 3610 3628
+)
+"presburger.ml" 99 3634 3657 "presburger.ml" 99 3634 3658
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 98 3610 3629 "presburger.ml" 98 3610 3630
+)
+"presburger.ml" 99 3634 3650 "presburger.ml" 99 3634 3658
+type(
+  Poly.poly * iformula
+)
+"presburger.ml" 100 3664 3678 "presburger.ml" 100 3664 3681
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 100 3664 3697 "presburger.ml" 100 3664 3723
+)
+"presburger.ml" 100 3664 3689 "presburger.ml" 100 3664 3692
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 100 3664 3697 "presburger.ml" 100 3664 3723
+)
+"presburger.ml" 100 3664 3684 "presburger.ml" 100 3664 3692
+type(
+  iformula
+)
+"presburger.ml" 100 3664 3678 "presburger.ml" 100 3664 3693
+type(
+  Poly.poly * iformula
+)
+"presburger.ml" 100 3664 3697 "presburger.ml" 100 3664 3715
+type(
+  Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.multiply_two_polys
+)
+"presburger.ml" 100 3664 3716 "presburger.ml" 100 3664 3719
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 100 3664 3678 "presburger.ml" 100 3664 3681
+)
+"presburger.ml" 100 3664 3720 "presburger.ml" 100 3664 3723
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 100 3664 3689 "presburger.ml" 100 3664 3692
+)
+"presburger.ml" 100 3664 3697 "presburger.ml" 100 3664 3723
+call(
+  tail
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 101 3724 3738 "presburger.ml" 101 3724 3739
+type(
+  Poly.poly * iformula
+)
+"presburger.ml" 102 3744 3758 "presburger.ml" 102 3744 3766
+type(
+  string -> Poly.poly
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 102 3744 3767 "presburger.ml" 102 3744 3822
+type(
+  string
+)
+"presburger.ml" 102 3744 3758 "presburger.ml" 102 3744 3822
+type(
+  Poly.poly
+)
+"presburger.ml" 99 3634 3644 "presburger.ml" 102 3744 3822
+type(
+  Poly.poly
+)
+"presburger.ml" 98 3610 3629 "presburger.ml" 102 3744 3822
+type(
+  iformula -> Poly.poly
+)
+"presburger.ml" 98 3610 3623 "presburger.ml" 102 3744 3822
+type(
+  Poly.poly -> iformula -> Poly.poly
+)
+"presburger.ml" 103 3824 3832 "presburger.ml" 103 3824 3834
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 93 3444 3456 "presburger.ml" 93 3444 3458
+)
+"presburger.ml" 104 3836 3844 "presburger.ml" 104 3836 3848
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 93 3444 3463 "presburger.ml" 93 3444 3467
+)
+"presburger.ml" 97 3588 3594 "presburger.ml" 104 3836 3848
+call(
+  tail
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 106 3858 3864 "presburger.ml" 106 3858 3865
+type(
+  iformula list
+)
+"presburger.ml" 107 3869 3875 "presburger.ml" 107 3869 3883
+type(
+  string -> Poly.poly
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 107 3869 3884 "presburger.ml" 107 3869 3939
+type(
+  string
+)
+"presburger.ml" 107 3869 3875 "presburger.ml" 107 3869 3939
+type(
+  Poly.poly
+)
+"presburger.ml" 84 3219 3221 "presburger.ml" 107 3869 3939
+type(
+  Poly.poly
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 82 3160 3187 "presburger.ml" 107 3869 3939
+type(
+  iformula list -> Poly.poly
+)
+"presburger.ml" 111 4046 4050 "presburger.ml" 111 4046 4072
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  def unchain_EQ_to_iformula "presburger.ml" 152 5412 5412 "_none_" 1 0 -1
+)
+"presburger.ml" 111 4046 4074 "presburger.ml" 111 4046 4075
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 111 4046 4100 "presburger.ml" 148 5265 5274
+)
+"presburger.ml" 111 4046 4101 "presburger.ml" 111 4046 4104
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 111 4046 4121 "presburger.ml" 148 5265 5274
+)
+"presburger.ml" 113 4135 4143 "presburger.ml" 113 4135 4146
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 111 4046 4101 "presburger.ml" 111 4046 4104
+)
+"presburger.ml" 115 4153 4159 "presburger.ml" 115 4153 4160
+type(
+  iformula
+)
+"presburger.ml" 115 4153 4162 "presburger.ml" 115 4153 4164
+type(
+  iformula list
+)
+"presburger.ml" 115 4153 4159 "presburger.ml" 115 4153 4164
+type(
+  iformula list
+)
+"presburger.ml" 116 4165 4171 "presburger.ml" 116 4165 4173
+type(
+  iformula list
+)
+"presburger.ml" 115 4153 4159 "presburger.ml" 116 4165 4173
+type(
+  iformula list
+)
+"presburger.ml" 116 4165 4177 "presburger.ml" 116 4165 4185
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 116 4165 4186 "presburger.ml" 116 4165 4236
+type(
+  string
+)
+"presburger.ml" 116 4165 4177 "presburger.ml" 116 4165 4236
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 119 4245 4251 "presburger.ml" 119 4245 4254
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 122 4346 4352 "presburger.ml" 148 5265 5274
+)
+"presburger.ml" 119 4245 4258 "presburger.ml" 119 4245 4262
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 122 4346 4352 "presburger.ml" 148 5265 5274
+)
+"presburger.ml" 119 4245 4251 "presburger.ml" 119 4245 4262
+type(
+  iformula list
+)
+"presburger.ml" 122 4346 4352 "presburger.ml" 122 4346 4355
+type(
+  iformula * iformula -> iformula
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"presburger.ml" 123 4356 4365 "presburger.ml" 123 4356 4379
+type(
+  (iformula * iformula -> iformula -> iformula * iformula) ->
+  iformula * iformula -> iformula list -> iformula * iformula
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 126 4486 4503 "presburger.ml" 126 4486 4507
+type(
+  iformula
+)
+ident(
+  def prev "presburger.ml" 126 4486 4516 "presburger.ml" 144 5190 5204
+)
+"presburger.ml" 126 4486 4509 "presburger.ml" 126 4486 4514
+type(
+  iformula
+)
+ident(
+  def accum "presburger.ml" 126 4486 4516 "presburger.ml" 144 5190 5204
+)
+"presburger.ml" 126 4486 4503 "presburger.ml" 126 4486 4514
+type(
+  iformula * iformula
+)
+"presburger.ml" 126 4486 4516 "presburger.ml" 126 4486 4517
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 127 4521 4535 "presburger.ml" 143 5120 5189
+)
+"presburger.ml" 127 4521 4541 "presburger.ml" 127 4521 4545
+type(
+  iformula
+)
+ident(
+  int_ref prev "presburger.ml" 126 4486 4503 "presburger.ml" 126 4486 4507
+)
+"presburger.ml" 127 4521 4547 "presburger.ml" 127 4521 4548
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 126 4486 4516 "presburger.ml" 126 4486 4517
+)
+"presburger.ml" 127 4521 4541 "presburger.ml" 127 4521 4548
+type(
+  iformula * iformula
+)
+"presburger.ml" 130 4623 4645 "presburger.ml" 130 4623 4648
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 133 4749 4767 "presburger.ml" 140 5051 5076
+)
+"presburger.ml" 130 4623 4640 "presburger.ml" 130 4623 4648
+type(
+  iformula
+)
+"presburger.ml" 130 4623 4655 "presburger.ml" 130 4623 4658
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 133 4749 4767 "presburger.ml" 140 5051 5076
+)
+"presburger.ml" 130 4623 4650 "presburger.ml" 130 4623 4658
+type(
+  iformula
+)
+"presburger.ml" 130 4623 4640 "presburger.ml" 130 4623 4658
+type(
+  iformula * iformula
+)
+"presburger.ml" 133 4749 4767 "presburger.ml" 133 4749 4768
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 126 4486 4516 "presburger.ml" 126 4486 4517
+)
+"presburger.ml" 137 4899 4917 "presburger.ml" 137 4899 4946
+type(
+  iformula -> iformula -> iformula
+)
+ident(
+  int_ref combine_singleton_to_iformula "presburger.ml" 41 1911 1915 "presburger.ml" 41 1911 1944
+)
+"presburger.ml" 139 4978 5006 "presburger.ml" 139 4978 5019
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 139 4978 5020 "presburger.ml" 139 4978 5021
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 111 4046 4074 "presburger.ml" 111 4046 4075
+)
+"presburger.ml" 139 4978 5022 "presburger.ml" 139 4978 5024
+type(
+  Poly.poly
+)
+"presburger.ml" 139 4978 5026 "presburger.ml" 139 4978 5037
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 139 4978 5038 "presburger.ml" 139 4978 5041
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 130 4623 4645 "presburger.ml" 130 4623 4648
+)
+"presburger.ml" 139 4978 5026 "presburger.ml" 139 4978 5041
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 139 4978 5043 "presburger.ml" 139 4978 5046
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 130 4623 4655 "presburger.ml" 130 4623 4658
+)
+"presburger.ml" 139 4978 5006 "presburger.ml" 139 4978 5046
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 139 4978 5002 "presburger.ml" 139 4978 5047
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 139 4978 5001 "presburger.ml" 139 4978 5048
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 138 4948 4969 "presburger.ml" 139 4978 5048
+type(
+  iformula
+)
+"presburger.ml" 140 5051 5071 "presburger.ml" 140 5051 5076
+type(
+  iformula
+)
+ident(
+  int_ref accum "presburger.ml" 126 4486 4509 "presburger.ml" 126 4486 4514
+)
+"presburger.ml" 137 4899 4917 "presburger.ml" 140 5051 5076
+call(
+  stack
+)
+type(
+  iformula
+)
+"presburger.ml" 133 4749 4767 "presburger.ml" 140 5051 5076
+type(
+  iformula * iformula
+)
+"presburger.ml" 142 5098 5115 "presburger.ml" 142 5098 5116
+type(
+  iformula * iformula
+)
+"presburger.ml" 143 5120 5137 "presburger.ml" 143 5120 5145
+type(
+  string -> iformula * iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 143 5120 5146 "presburger.ml" 143 5120 5189
+type(
+  string
+)
+"presburger.ml" 143 5120 5137 "presburger.ml" 143 5120 5189
+call(
+  tail
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 127 4521 4535 "presburger.ml" 143 5120 5189
+type(
+  iformula * iformula
+)
+"presburger.ml" 126 4486 4516 "presburger.ml" 144 5190 5204
+type(
+  iformula -> iformula * iformula
+)
+"presburger.ml" 126 4486 4502 "presburger.ml" 144 5190 5204
+type(
+  iformula * iformula -> iformula -> iformula * iformula
+)
+"presburger.ml" 146 5219 5231 "presburger.ml" 146 5219 5234
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 119 4245 4251 "presburger.ml" 119 4245 4254
+)
+"presburger.ml" 146 5219 5244 "presburger.ml" 146 5219 5246
+type(
+  Poly.cformula
+)
+"presburger.ml" 146 5219 5236 "presburger.ml" 146 5219 5246
+type(
+  iformula
+)
+"presburger.ml" 146 5219 5231 "presburger.ml" 146 5219 5246
+type(
+  iformula * iformula
+)
+"presburger.ml" 147 5249 5260 "presburger.ml" 147 5249 5264
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 119 4245 4258 "presburger.ml" 119 4245 4262
+)
+"presburger.ml" 123 4356 4365 "presburger.ml" 147 5249 5264
+call(
+  stack
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 122 4346 4352 "presburger.ml" 148 5265 5274
+type(
+  iformula
+)
+"presburger.ml" 113 4135 4137 "presburger.ml" 148 5265 5274
+type(
+  iformula
+)
+type(
+  iformula
+)
+"presburger.ml" 111 4046 4100 "presburger.ml" 148 5265 5274
+type(
+  iformula list -> iformula
+)
+"presburger.ml" 111 4046 4073 "presburger.ml" 148 5265 5274
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+"presburger.ml" 152 5412 5416 "presburger.ml" 152 5412 5439
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  def unchain_LEQ_to_iformula "presburger.ml" 198 6871 6871 "_none_" 1 0 -1
+)
+"presburger.ml" 152 5412 5441 "presburger.ml" 152 5412 5442
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 152 5412 5467 "presburger.ml" 194 6783 6792
+)
+"presburger.ml" 152 5412 5468 "presburger.ml" 152 5412 5471
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 152 5412 5488 "presburger.ml" 194 6783 6792
+)
+"presburger.ml" 154 5504 5512 "presburger.ml" 154 5504 5515
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 152 5412 5468 "presburger.ml" 152 5412 5471
+)
+"presburger.ml" 156 5522 5528 "presburger.ml" 156 5522 5529
+type(
+  iformula
+)
+"presburger.ml" 156 5522 5531 "presburger.ml" 156 5522 5533
+type(
+  iformula list
+)
+"presburger.ml" 156 5522 5528 "presburger.ml" 156 5522 5533
+type(
+  iformula list
+)
+"presburger.ml" 157 5534 5540 "presburger.ml" 157 5534 5542
+type(
+  iformula list
+)
+"presburger.ml" 156 5522 5528 "presburger.ml" 157 5534 5542
+type(
+  iformula list
+)
+"presburger.ml" 158 5546 5552 "presburger.ml" 158 5546 5560
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 158 5546 5561 "presburger.ml" 158 5546 5612
+type(
+  string
+)
+"presburger.ml" 158 5546 5552 "presburger.ml" 158 5546 5612
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 160 5614 5620 "presburger.ml" 160 5614 5623
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 164 5731 5737 "presburger.ml" 194 6783 6792
+)
+"presburger.ml" 160 5614 5627 "presburger.ml" 160 5614 5631
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 164 5731 5737 "presburger.ml" 194 6783 6792
+)
+"presburger.ml" 160 5614 5620 "presburger.ml" 160 5614 5631
+type(
+  iformula list
+)
+"presburger.ml" 164 5731 5737 "presburger.ml" 164 5731 5740
+type(
+  iformula * iformula -> iformula
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"presburger.ml" 165 5741 5750 "presburger.ml" 165 5741 5764
+type(
+  (iformula * iformula -> iformula -> iformula * iformula) ->
+  iformula * iformula -> iformula list -> iformula * iformula
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 168 5871 5888 "presburger.ml" 168 5871 5892
+type(
+  iformula
+)
+ident(
+  def prev "presburger.ml" 168 5871 5901 "presburger.ml" 190 6709 6723
+)
+"presburger.ml" 168 5871 5894 "presburger.ml" 168 5871 5899
+type(
+  iformula
+)
+ident(
+  def accum "presburger.ml" 168 5871 5901 "presburger.ml" 190 6709 6723
+)
+"presburger.ml" 168 5871 5888 "presburger.ml" 168 5871 5899
+type(
+  iformula * iformula
+)
+"presburger.ml" 168 5871 5901 "presburger.ml" 168 5871 5902
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 169 5906 5920 "presburger.ml" 189 6637 6708
+)
+"presburger.ml" 169 5906 5926 "presburger.ml" 169 5906 5930
+type(
+  iformula
+)
+ident(
+  int_ref prev "presburger.ml" 168 5871 5888 "presburger.ml" 168 5871 5892
+)
+"presburger.ml" 169 5906 5932 "presburger.ml" 169 5906 5933
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 168 5871 5901 "presburger.ml" 168 5871 5902
+)
+"presburger.ml" 169 5906 5926 "presburger.ml" 169 5906 5933
+type(
+  iformula * iformula
+)
+"presburger.ml" 172 6008 6030 "presburger.ml" 172 6008 6033
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 175 6134 6152 "presburger.ml" 186 6567 6592
+)
+"presburger.ml" 172 6008 6025 "presburger.ml" 172 6008 6033
+type(
+  iformula
+)
+"presburger.ml" 172 6008 6040 "presburger.ml" 172 6008 6043
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 175 6134 6152 "presburger.ml" 186 6567 6592
+)
+"presburger.ml" 172 6008 6035 "presburger.ml" 172 6008 6043
+type(
+  iformula
+)
+"presburger.ml" 172 6008 6025 "presburger.ml" 172 6008 6043
+type(
+  iformula * iformula
+)
+"presburger.ml" 175 6134 6152 "presburger.ml" 175 6134 6153
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 168 5871 5901 "presburger.ml" 168 5871 5902
+)
+"presburger.ml" 178 6230 6248 "presburger.ml" 178 6230 6277
+type(
+  iformula -> iformula -> iformula
+)
+ident(
+  int_ref combine_singleton_to_iformula "presburger.ml" 41 1911 1915 "presburger.ml" 41 1911 1944
+)
+"presburger.ml" 181 6337 6365 "presburger.ml" 181 6337 6378
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 182 6380 6410 "presburger.ml" 182 6380 6411
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 152 5412 5441 "presburger.ml" 152 5412 5442
+)
+"presburger.ml" 183 6413 6443 "presburger.ml" 183 6413 6445
+type(
+  Poly.poly
+)
+"presburger.ml" 184 6447 6478 "presburger.ml" 184 6447 6491
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 184 6447 6492 "presburger.ml" 184 6447 6493
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 152 5412 5441 "presburger.ml" 152 5412 5442
+)
+"presburger.ml" 184 6447 6494 "presburger.ml" 184 6447 6496
+type(
+  Poly.poly
+)
+"presburger.ml" 184 6447 6498 "presburger.ml" 184 6447 6509
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 184 6447 6510 "presburger.ml" 184 6447 6513
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 172 6008 6030 "presburger.ml" 172 6008 6033
+)
+"presburger.ml" 184 6447 6498 "presburger.ml" 184 6447 6513
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 184 6447 6515 "presburger.ml" 184 6447 6518
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 172 6008 6040 "presburger.ml" 172 6008 6043
+)
+"presburger.ml" 184 6447 6478 "presburger.ml" 184 6447 6518
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 185 6521 6553 "presburger.ml" 185 6521 6554
+type(
+  int
+)
+"presburger.ml" 185 6521 6556 "presburger.ml" 185 6521 6560
+type(
+  Var.t option
+)
+"presburger.ml" 185 6521 6553 "presburger.ml" 185 6521 6560
+type(
+  Poly.psummand
+)
+"presburger.ml" 185 6521 6552 "presburger.ml" 185 6521 6561
+type(
+  Poly.poly
+)
+"presburger.ml" 185 6521 6551 "presburger.ml" 185 6521 6562
+type(
+  Poly.psummand list
+)
+"presburger.ml" 181 6337 6365 "presburger.ml" 185 6521 6562
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 180 6309 6333 "presburger.ml" 185 6521 6563
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 180 6309 6332 "presburger.ml" 185 6521 6564
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 179 6279 6300 "presburger.ml" 185 6521 6564
+type(
+  iformula
+)
+"presburger.ml" 186 6567 6587 "presburger.ml" 186 6567 6592
+type(
+  iformula
+)
+ident(
+  int_ref accum "presburger.ml" 168 5871 5894 "presburger.ml" 168 5871 5899
+)
+"presburger.ml" 178 6230 6248 "presburger.ml" 186 6567 6592
+call(
+  stack
+)
+type(
+  iformula
+)
+"presburger.ml" 175 6134 6152 "presburger.ml" 186 6567 6592
+type(
+  iformula * iformula
+)
+"presburger.ml" 188 6614 6631 "presburger.ml" 188 6614 6632
+type(
+  iformula * iformula
+)
+"presburger.ml" 189 6637 6654 "presburger.ml" 189 6637 6662
+type(
+  string -> iformula * iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 189 6637 6663 "presburger.ml" 189 6637 6708
+type(
+  string
+)
+"presburger.ml" 189 6637 6654 "presburger.ml" 189 6637 6708
+call(
+  tail
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 169 5906 5920 "presburger.ml" 189 6637 6708
+type(
+  iformula * iformula
+)
+"presburger.ml" 168 5871 5901 "presburger.ml" 190 6709 6723
+type(
+  iformula -> iformula * iformula
+)
+"presburger.ml" 168 5871 5887 "presburger.ml" 190 6709 6723
+type(
+  iformula * iformula -> iformula -> iformula * iformula
+)
+"presburger.ml" 192 6737 6749 "presburger.ml" 192 6737 6752
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 160 5614 5620 "presburger.ml" 160 5614 5623
+)
+"presburger.ml" 192 6737 6762 "presburger.ml" 192 6737 6764
+type(
+  Poly.cformula
+)
+"presburger.ml" 192 6737 6754 "presburger.ml" 192 6737 6764
+type(
+  iformula
+)
+"presburger.ml" 192 6737 6749 "presburger.ml" 192 6737 6764
+type(
+  iformula * iformula
+)
+"presburger.ml" 193 6767 6778 "presburger.ml" 193 6767 6782
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 160 5614 5627 "presburger.ml" 160 5614 5631
+)
+"presburger.ml" 165 5741 5750 "presburger.ml" 193 6767 6782
+call(
+  stack
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 164 5731 5737 "presburger.ml" 194 6783 6792
+type(
+  iformula
+)
+"presburger.ml" 154 5504 5506 "presburger.ml" 194 6783 6792
+type(
+  iformula
+)
+type(
+  iformula
+)
+"presburger.ml" 152 5412 5467 "presburger.ml" 194 6783 6792
+type(
+  iformula list -> iformula
+)
+"presburger.ml" 152 5412 5440 "presburger.ml" 194 6783 6792
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+"presburger.ml" 198 6871 6875 "presburger.ml" 198 6871 6897
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  def unchain_LT_to_iformula "presburger.ml" 239 8098 8098 "_none_" 1 0 -1
+)
+"presburger.ml" 198 6871 6899 "presburger.ml" 198 6871 6900
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 198 6871 6925 "presburger.ml" 235 8001 8010
+)
+"presburger.ml" 198 6871 6926 "presburger.ml" 198 6871 6929
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 198 6871 6946 "presburger.ml" 235 8001 8010
+)
+"presburger.ml" 200 6960 6968 "presburger.ml" 200 6960 6971
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 198 6871 6926 "presburger.ml" 198 6871 6929
+)
+"presburger.ml" 202 6984 6990 "presburger.ml" 202 6984 6991
+type(
+  iformula
+)
+"presburger.ml" 202 6984 6993 "presburger.ml" 202 6984 6995
+type(
+  iformula list
+)
+"presburger.ml" 202 6984 6990 "presburger.ml" 202 6984 6995
+type(
+  iformula list
+)
+"presburger.ml" 203 6996 7002 "presburger.ml" 203 6996 7004
+type(
+  iformula list
+)
+"presburger.ml" 202 6984 6990 "presburger.ml" 203 6996 7004
+type(
+  iformula list
+)
+"presburger.ml" 204 7008 7014 "presburger.ml" 204 7008 7022
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 204 7008 7023 "presburger.ml" 204 7008 7073
+type(
+  string
+)
+"presburger.ml" 204 7008 7014 "presburger.ml" 204 7008 7073
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 206 7083 7089 "presburger.ml" 206 7083 7092
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 210 7198 7204 "presburger.ml" 235 8001 8010
+)
+"presburger.ml" 206 7083 7094 "presburger.ml" 206 7083 7098
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 210 7198 7204 "presburger.ml" 235 8001 8010
+)
+"presburger.ml" 206 7083 7089 "presburger.ml" 206 7083 7098
+type(
+  iformula list
+)
+"presburger.ml" 210 7198 7204 "presburger.ml" 210 7198 7207
+type(
+  iformula * iformula -> iformula
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"presburger.ml" 211 7208 7217 "presburger.ml" 211 7208 7231
+type(
+  (iformula * iformula -> iformula -> iformula * iformula) ->
+  iformula * iformula -> iformula list -> iformula * iformula
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 214 7334 7351 "presburger.ml" 214 7334 7355
+type(
+  iformula
+)
+ident(
+  def prev "presburger.ml" 214 7334 7364 "presburger.ml" 230 7925 7939
+)
+"presburger.ml" 214 7334 7357 "presburger.ml" 214 7334 7362
+type(
+  iformula
+)
+ident(
+  def accum "presburger.ml" 214 7334 7364 "presburger.ml" 230 7925 7939
+)
+"presburger.ml" 214 7334 7351 "presburger.ml" 214 7334 7362
+type(
+  iformula * iformula
+)
+"presburger.ml" 214 7334 7364 "presburger.ml" 214 7334 7365
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 215 7369 7383 "presburger.ml" 229 7854 7924
+)
+"presburger.ml" 215 7369 7389 "presburger.ml" 215 7369 7393
+type(
+  iformula
+)
+ident(
+  int_ref prev "presburger.ml" 214 7334 7351 "presburger.ml" 214 7334 7355
+)
+"presburger.ml" 215 7369 7395 "presburger.ml" 215 7369 7396
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 214 7334 7364 "presburger.ml" 214 7334 7365
+)
+"presburger.ml" 215 7369 7389 "presburger.ml" 215 7369 7396
+type(
+  iformula * iformula
+)
+"presburger.ml" 218 7454 7476 "presburger.ml" 218 7454 7479
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 221 7580 7598 "presburger.ml" 226 7732 7809
+)
+"presburger.ml" 218 7454 7471 "presburger.ml" 218 7454 7479
+type(
+  iformula
+)
+"presburger.ml" 218 7454 7486 "presburger.ml" 218 7454 7489
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 221 7580 7598 "presburger.ml" 226 7732 7809
+)
+"presburger.ml" 218 7454 7481 "presburger.ml" 218 7454 7489
+type(
+  iformula
+)
+"presburger.ml" 218 7454 7471 "presburger.ml" 218 7454 7489
+type(
+  iformula * iformula
+)
+"presburger.ml" 221 7580 7598 "presburger.ml" 221 7580 7599
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 214 7334 7364 "presburger.ml" 214 7334 7365
+)
+"presburger.ml" 224 7653 7671 "presburger.ml" 224 7653 7700
+type(
+  iformula -> iformula -> iformula
+)
+ident(
+  int_ref combine_singleton_to_iformula "presburger.ml" 41 1911 1915 "presburger.ml" 41 1911 1944
+)
+"presburger.ml" 226 7732 7760 "presburger.ml" 226 7732 7773
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 226 7732 7774 "presburger.ml" 226 7732 7775
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 198 6871 6899 "presburger.ml" 198 6871 6900
+)
+"presburger.ml" 226 7732 7776 "presburger.ml" 226 7732 7778
+type(
+  Poly.poly
+)
+"presburger.ml" 226 7732 7780 "presburger.ml" 226 7732 7791
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 226 7732 7792 "presburger.ml" 226 7732 7795
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 218 7454 7476 "presburger.ml" 218 7454 7479
+)
+"presburger.ml" 226 7732 7780 "presburger.ml" 226 7732 7795
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 226 7732 7797 "presburger.ml" 226 7732 7800
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 218 7454 7486 "presburger.ml" 218 7454 7489
+)
+"presburger.ml" 226 7732 7760 "presburger.ml" 226 7732 7800
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 226 7732 7756 "presburger.ml" 226 7732 7801
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 226 7732 7755 "presburger.ml" 226 7732 7802
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 225 7702 7723 "presburger.ml" 226 7732 7802
+type(
+  iformula
+)
+"presburger.ml" 226 7732 7804 "presburger.ml" 226 7732 7809
+type(
+  iformula
+)
+ident(
+  int_ref accum "presburger.ml" 214 7334 7357 "presburger.ml" 214 7334 7362
+)
+"presburger.ml" 224 7653 7671 "presburger.ml" 226 7732 7809
+call(
+  stack
+)
+type(
+  iformula
+)
+"presburger.ml" 221 7580 7598 "presburger.ml" 226 7732 7809
+type(
+  iformula * iformula
+)
+"presburger.ml" 228 7831 7848 "presburger.ml" 228 7831 7849
+type(
+  iformula * iformula
+)
+"presburger.ml" 229 7854 7871 "presburger.ml" 229 7854 7879
+type(
+  string -> iformula * iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 229 7854 7880 "presburger.ml" 229 7854 7924
+type(
+  string
+)
+"presburger.ml" 229 7854 7871 "presburger.ml" 229 7854 7924
+call(
+  tail
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 215 7369 7383 "presburger.ml" 229 7854 7924
+type(
+  iformula * iformula
+)
+"presburger.ml" 214 7334 7364 "presburger.ml" 230 7925 7939
+type(
+  iformula -> iformula * iformula
+)
+"presburger.ml" 214 7334 7350 "presburger.ml" 230 7925 7939
+type(
+  iformula * iformula -> iformula -> iformula * iformula
+)
+"presburger.ml" 233 7955 7967 "presburger.ml" 233 7955 7970
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 206 7083 7089 "presburger.ml" 206 7083 7092
+)
+"presburger.ml" 233 7955 7980 "presburger.ml" 233 7955 7982
+type(
+  Poly.cformula
+)
+"presburger.ml" 233 7955 7972 "presburger.ml" 233 7955 7982
+type(
+  iformula
+)
+"presburger.ml" 233 7955 7967 "presburger.ml" 233 7955 7982
+type(
+  iformula * iformula
+)
+"presburger.ml" 234 7985 7996 "presburger.ml" 234 7985 8000
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 206 7083 7094 "presburger.ml" 206 7083 7098
+)
+"presburger.ml" 211 7208 7217 "presburger.ml" 234 7985 8000
+call(
+  stack
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 210 7198 7204 "presburger.ml" 235 8001 8010
+type(
+  iformula
+)
+"presburger.ml" 200 6960 6962 "presburger.ml" 235 8001 8010
+type(
+  iformula
+)
+type(
+  iformula
+)
+"presburger.ml" 198 6871 6925 "presburger.ml" 235 8001 8010
+type(
+  iformula list -> iformula
+)
+"presburger.ml" 198 6871 6898 "presburger.ml" 235 8001 8010
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+"presburger.ml" 239 8098 8102 "presburger.ml" 239 8098 8125
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  def unchain_GEQ_to_iformula "presburger.ml" 285 9514 9514 "_none_" 1 0 -1
+)
+"presburger.ml" 239 8098 8127 "presburger.ml" 239 8098 8128
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 239 8098 8153 "presburger.ml" 281 9426 9435
+)
+"presburger.ml" 239 8098 8154 "presburger.ml" 239 8098 8157
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 239 8098 8174 "presburger.ml" 281 9426 9435
+)
+"presburger.ml" 241 8188 8196 "presburger.ml" 241 8188 8199
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 239 8098 8154 "presburger.ml" 239 8098 8157
+)
+"presburger.ml" 243 8206 8212 "presburger.ml" 243 8206 8213
+type(
+  iformula
+)
+"presburger.ml" 243 8206 8215 "presburger.ml" 243 8206 8217
+type(
+  iformula list
+)
+"presburger.ml" 243 8206 8212 "presburger.ml" 243 8206 8217
+type(
+  iformula list
+)
+"presburger.ml" 244 8218 8224 "presburger.ml" 244 8218 8226
+type(
+  iformula list
+)
+"presburger.ml" 243 8206 8212 "presburger.ml" 244 8218 8226
+type(
+  iformula list
+)
+"presburger.ml" 245 8230 8236 "presburger.ml" 245 8230 8244
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 245 8230 8245 "presburger.ml" 245 8230 8296
+type(
+  string
+)
+"presburger.ml" 245 8230 8236 "presburger.ml" 245 8230 8296
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 247 8298 8304 "presburger.ml" 247 8298 8307
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 251 8413 8419 "presburger.ml" 281 9426 9435
+)
+"presburger.ml" 247 8298 8309 "presburger.ml" 247 8298 8313
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 251 8413 8419 "presburger.ml" 281 9426 9435
+)
+"presburger.ml" 247 8298 8304 "presburger.ml" 247 8298 8313
+type(
+  iformula list
+)
+"presburger.ml" 251 8413 8419 "presburger.ml" 251 8413 8422
+type(
+  iformula * iformula -> iformula
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"presburger.ml" 252 8423 8432 "presburger.ml" 252 8423 8446
+type(
+  (iformula * iformula -> iformula -> iformula * iformula) ->
+  iformula * iformula -> iformula list -> iformula * iformula
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 255 8550 8567 "presburger.ml" 255 8550 8571
+type(
+  iformula
+)
+ident(
+  def prev "presburger.ml" 255 8550 8580 "presburger.ml" 277 9351 9365
+)
+"presburger.ml" 255 8550 8573 "presburger.ml" 255 8550 8578
+type(
+  iformula
+)
+ident(
+  def accum "presburger.ml" 255 8550 8580 "presburger.ml" 277 9351 9365
+)
+"presburger.ml" 255 8550 8567 "presburger.ml" 255 8550 8578
+type(
+  iformula * iformula
+)
+"presburger.ml" 255 8550 8580 "presburger.ml" 255 8550 8581
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 256 8585 8599 "presburger.ml" 276 9279 9350
+)
+"presburger.ml" 256 8585 8605 "presburger.ml" 256 8585 8609
+type(
+  iformula
+)
+ident(
+  int_ref prev "presburger.ml" 255 8550 8567 "presburger.ml" 255 8550 8571
+)
+"presburger.ml" 256 8585 8611 "presburger.ml" 256 8585 8612
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 255 8550 8580 "presburger.ml" 255 8550 8581
+)
+"presburger.ml" 256 8585 8605 "presburger.ml" 256 8585 8612
+type(
+  iformula * iformula
+)
+"presburger.ml" 259 8685 8707 "presburger.ml" 259 8685 8710
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 262 8794 8812 "presburger.ml" 273 9209 9234
+)
+"presburger.ml" 259 8685 8702 "presburger.ml" 259 8685 8710
+type(
+  iformula
+)
+"presburger.ml" 259 8685 8717 "presburger.ml" 259 8685 8720
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 262 8794 8812 "presburger.ml" 273 9209 9234
+)
+"presburger.ml" 259 8685 8712 "presburger.ml" 259 8685 8720
+type(
+  iformula
+)
+"presburger.ml" 259 8685 8702 "presburger.ml" 259 8685 8720
+type(
+  iformula * iformula
+)
+"presburger.ml" 262 8794 8812 "presburger.ml" 262 8794 8813
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 255 8550 8580 "presburger.ml" 255 8550 8581
+)
+"presburger.ml" 265 8872 8890 "presburger.ml" 265 8872 8919
+type(
+  iformula -> iformula -> iformula
+)
+ident(
+  int_ref combine_singleton_to_iformula "presburger.ml" 41 1911 1915 "presburger.ml" 41 1911 1944
+)
+"presburger.ml" 268 8979 9007 "presburger.ml" 268 8979 9020
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 269 9022 9052 "presburger.ml" 269 9022 9053
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 239 8098 8127 "presburger.ml" 239 8098 8128
+)
+"presburger.ml" 270 9055 9085 "presburger.ml" 270 9055 9087
+type(
+  Poly.poly
+)
+"presburger.ml" 271 9089 9120 "presburger.ml" 271 9089 9133
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 271 9089 9134 "presburger.ml" 271 9089 9135
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 239 8098 8127 "presburger.ml" 239 8098 8128
+)
+"presburger.ml" 271 9089 9136 "presburger.ml" 271 9089 9138
+type(
+  Poly.poly
+)
+"presburger.ml" 271 9089 9139 "presburger.ml" 271 9089 9142
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 259 8685 8707 "presburger.ml" 259 8685 8710
+)
+"presburger.ml" 271 9089 9144 "presburger.ml" 271 9089 9155
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 271 9089 9156 "presburger.ml" 271 9089 9159
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 259 8685 8717 "presburger.ml" 259 8685 8720
+)
+"presburger.ml" 271 9089 9144 "presburger.ml" 271 9089 9159
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 271 9089 9120 "presburger.ml" 271 9089 9160
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 272 9163 9195 "presburger.ml" 272 9163 9196
+type(
+  int
+)
+"presburger.ml" 272 9163 9198 "presburger.ml" 272 9163 9202
+type(
+  Var.t option
+)
+"presburger.ml" 272 9163 9195 "presburger.ml" 272 9163 9202
+type(
+  Poly.psummand
+)
+"presburger.ml" 272 9163 9194 "presburger.ml" 272 9163 9203
+type(
+  Poly.poly
+)
+"presburger.ml" 272 9163 9193 "presburger.ml" 272 9163 9204
+type(
+  Poly.psummand list
+)
+"presburger.ml" 268 8979 9007 "presburger.ml" 272 9163 9204
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 267 8951 8975 "presburger.ml" 272 9163 9205
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 267 8951 8974 "presburger.ml" 272 9163 9206
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 266 8921 8942 "presburger.ml" 272 9163 9206
+type(
+  iformula
+)
+"presburger.ml" 273 9209 9229 "presburger.ml" 273 9209 9234
+type(
+  iformula
+)
+ident(
+  int_ref accum "presburger.ml" 255 8550 8573 "presburger.ml" 255 8550 8578
+)
+"presburger.ml" 265 8872 8890 "presburger.ml" 273 9209 9234
+call(
+  stack
+)
+type(
+  iformula
+)
+"presburger.ml" 262 8794 8812 "presburger.ml" 273 9209 9234
+type(
+  iformula * iformula
+)
+"presburger.ml" 275 9256 9273 "presburger.ml" 275 9256 9274
+type(
+  iformula * iformula
+)
+"presburger.ml" 276 9279 9296 "presburger.ml" 276 9279 9304
+type(
+  string -> iformula * iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 276 9279 9305 "presburger.ml" 276 9279 9350
+type(
+  string
+)
+"presburger.ml" 276 9279 9296 "presburger.ml" 276 9279 9350
+call(
+  tail
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 256 8585 8599 "presburger.ml" 276 9279 9350
+type(
+  iformula * iformula
+)
+"presburger.ml" 255 8550 8580 "presburger.ml" 277 9351 9365
+type(
+  iformula -> iformula * iformula
+)
+"presburger.ml" 255 8550 8566 "presburger.ml" 277 9351 9365
+type(
+  iformula * iformula -> iformula -> iformula * iformula
+)
+"presburger.ml" 279 9380 9392 "presburger.ml" 279 9380 9395
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 247 8298 8304 "presburger.ml" 247 8298 8307
+)
+"presburger.ml" 279 9380 9405 "presburger.ml" 279 9380 9407
+type(
+  Poly.cformula
+)
+"presburger.ml" 279 9380 9397 "presburger.ml" 279 9380 9407
+type(
+  iformula
+)
+"presburger.ml" 279 9380 9392 "presburger.ml" 279 9380 9407
+type(
+  iformula * iformula
+)
+"presburger.ml" 280 9410 9421 "presburger.ml" 280 9410 9425
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 247 8298 8309 "presburger.ml" 247 8298 8313
+)
+"presburger.ml" 252 8423 8432 "presburger.ml" 280 9410 9425
+call(
+  stack
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 251 8413 8419 "presburger.ml" 281 9426 9435
+type(
+  iformula
+)
+"presburger.ml" 241 8188 8190 "presburger.ml" 281 9426 9435
+type(
+  iformula
+)
+type(
+  iformula
+)
+"presburger.ml" 239 8098 8153 "presburger.ml" 281 9426 9435
+type(
+  iformula list -> iformula
+)
+"presburger.ml" 239 8098 8126 "presburger.ml" 281 9426 9435
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+"presburger.ml" 285 9514 9518 "presburger.ml" 285 9514 9540
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  def unchain_GT_to_iformula "presburger.ml" 322 10680 10680 "_none_" 1 0 -1
+)
+"presburger.ml" 285 9514 9542 "presburger.ml" 285 9514 9543
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 285 9514 9568 "presburger.ml" 317 10568 10573
+)
+"presburger.ml" 285 9514 9569 "presburger.ml" 285 9514 9572
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 285 9514 9589 "presburger.ml" 317 10568 10573
+)
+"presburger.ml" 287 9605 9613 "presburger.ml" 287 9605 9616
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 285 9514 9569 "presburger.ml" 285 9514 9572
+)
+"presburger.ml" 289 9623 9629 "presburger.ml" 289 9623 9630
+type(
+  iformula
+)
+"presburger.ml" 289 9623 9632 "presburger.ml" 289 9623 9634
+type(
+  iformula list
+)
+"presburger.ml" 289 9623 9629 "presburger.ml" 289 9623 9634
+type(
+  iformula list
+)
+"presburger.ml" 290 9635 9641 "presburger.ml" 290 9635 9643
+type(
+  iformula list
+)
+"presburger.ml" 289 9623 9629 "presburger.ml" 290 9635 9643
+type(
+  iformula list
+)
+"presburger.ml" 291 9647 9653 "presburger.ml" 291 9647 9661
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 291 9647 9662 "presburger.ml" 291 9647 9712
+type(
+  string
+)
+"presburger.ml" 291 9647 9653 "presburger.ml" 291 9647 9712
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 293 9714 9720 "presburger.ml" 293 9714 9723
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 297 9829 9835 "presburger.ml" 317 10568 10573
+)
+"presburger.ml" 293 9714 9725 "presburger.ml" 293 9714 9729
+type(
+  iformula list
+)
+ident(
+  def ifl' "presburger.ml" 297 9829 9835 "presburger.ml" 317 10568 10573
+)
+"presburger.ml" 293 9714 9720 "presburger.ml" 293 9714 9729
+type(
+  iformula list
+)
+"presburger.ml" 297 9829 9835 "presburger.ml" 297 9829 9838
+type(
+  iformula * iformula -> iformula
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"presburger.ml" 298 9839 9848 "presburger.ml" 298 9839 9862
+type(
+  (iformula * iformula -> iformula -> iformula * iformula) ->
+  iformula * iformula -> iformula list -> iformula * iformula
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 301 9965 9982 "presburger.ml" 301 9965 9986
+type(
+  iformula
+)
+ident(
+  def prev "presburger.ml" 301 9965 9995 "presburger.ml" 315 10522 10536
+)
+"presburger.ml" 301 9965 9988 "presburger.ml" 301 9965 9993
+type(
+  iformula
+)
+ident(
+  def accum "presburger.ml" 301 9965 9995 "presburger.ml" 315 10522 10536
+)
+"presburger.ml" 301 9965 9982 "presburger.ml" 301 9965 9993
+type(
+  iformula * iformula
+)
+"presburger.ml" 301 9965 9995 "presburger.ml" 301 9965 9996
+type(
+  iformula
+)
+ident(
+  def e "presburger.ml" 302 10000 10014 "presburger.ml" 314 10451 10521
+)
+"presburger.ml" 302 10000 10020 "presburger.ml" 302 10000 10024
+type(
+  iformula
+)
+ident(
+  int_ref prev "presburger.ml" 301 9965 9982 "presburger.ml" 301 9965 9986
+)
+"presburger.ml" 302 10000 10026 "presburger.ml" 302 10000 10027
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 301 9965 9995 "presburger.ml" 301 9965 9996
+)
+"presburger.ml" 302 10000 10020 "presburger.ml" 302 10000 10027
+type(
+  iformula * iformula
+)
+"presburger.ml" 303 10033 10055 "presburger.ml" 303 10033 10058
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 306 10159 10177 "presburger.ml" 311 10329 10406
+)
+"presburger.ml" 303 10033 10050 "presburger.ml" 303 10033 10058
+type(
+  iformula
+)
+"presburger.ml" 303 10033 10065 "presburger.ml" 303 10033 10068
+type(
+  Poly.poly
+)
+ident(
+  def pl2 "presburger.ml" 306 10159 10177 "presburger.ml" 311 10329 10406
+)
+"presburger.ml" 303 10033 10060 "presburger.ml" 303 10033 10068
+type(
+  iformula
+)
+"presburger.ml" 303 10033 10050 "presburger.ml" 303 10033 10068
+type(
+  iformula * iformula
+)
+"presburger.ml" 306 10159 10177 "presburger.ml" 306 10159 10178
+type(
+  iformula
+)
+ident(
+  int_ref e "presburger.ml" 301 9965 9995 "presburger.ml" 301 9965 9996
+)
+"presburger.ml" 309 10250 10268 "presburger.ml" 309 10250 10297
+type(
+  iformula -> iformula -> iformula
+)
+ident(
+  int_ref combine_singleton_to_iformula "presburger.ml" 41 1911 1915 "presburger.ml" 41 1911 1944
+)
+"presburger.ml" 311 10329 10357 "presburger.ml" 311 10329 10370
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 311 10329 10371 "presburger.ml" 311 10329 10372
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 285 9514 9542 "presburger.ml" 285 9514 9543
+)
+"presburger.ml" 311 10329 10373 "presburger.ml" 311 10329 10375
+type(
+  Poly.poly
+)
+"presburger.ml" 311 10329 10376 "presburger.ml" 311 10329 10379
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 303 10033 10055 "presburger.ml" 303 10033 10058
+)
+"presburger.ml" 311 10329 10381 "presburger.ml" 311 10329 10392
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 311 10329 10393 "presburger.ml" 311 10329 10396
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl2 "presburger.ml" 303 10033 10065 "presburger.ml" 303 10033 10068
+)
+"presburger.ml" 311 10329 10381 "presburger.ml" 311 10329 10396
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 311 10329 10357 "presburger.ml" 311 10329 10397
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 311 10329 10353 "presburger.ml" 311 10329 10398
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 311 10329 10352 "presburger.ml" 311 10329 10399
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 310 10299 10320 "presburger.ml" 311 10329 10399
+type(
+  iformula
+)
+"presburger.ml" 311 10329 10401 "presburger.ml" 311 10329 10406
+type(
+  iformula
+)
+ident(
+  int_ref accum "presburger.ml" 301 9965 9988 "presburger.ml" 301 9965 9993
+)
+"presburger.ml" 309 10250 10268 "presburger.ml" 311 10329 10406
+call(
+  stack
+)
+type(
+  iformula
+)
+"presburger.ml" 306 10159 10177 "presburger.ml" 311 10329 10406
+type(
+  iformula * iformula
+)
+"presburger.ml" 313 10428 10445 "presburger.ml" 313 10428 10446
+type(
+  iformula * iformula
+)
+"presburger.ml" 314 10451 10468 "presburger.ml" 314 10451 10476
+type(
+  string -> iformula * iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 314 10451 10477 "presburger.ml" 314 10451 10521
+type(
+  string
+)
+"presburger.ml" 314 10451 10468 "presburger.ml" 314 10451 10521
+call(
+  tail
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 302 10000 10014 "presburger.ml" 314 10451 10521
+type(
+  iformula * iformula
+)
+"presburger.ml" 301 9965 9995 "presburger.ml" 315 10522 10536
+type(
+  iformula -> iformula * iformula
+)
+"presburger.ml" 301 9965 9981 "presburger.ml" 315 10522 10536
+type(
+  iformula * iformula -> iformula -> iformula * iformula
+)
+"presburger.ml" 316 10537 10546 "presburger.ml" 316 10537 10549
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 293 9714 9720 "presburger.ml" 293 9714 9723
+)
+"presburger.ml" 316 10537 10559 "presburger.ml" 316 10537 10561
+type(
+  Poly.cformula
+)
+"presburger.ml" 316 10537 10551 "presburger.ml" 316 10537 10561
+type(
+  iformula
+)
+"presburger.ml" 316 10537 10546 "presburger.ml" 316 10537 10561
+type(
+  iformula * iformula
+)
+"presburger.ml" 316 10537 10563 "presburger.ml" 316 10537 10567
+type(
+  iformula list
+)
+ident(
+  int_ref ifl' "presburger.ml" 293 9714 9725 "presburger.ml" 293 9714 9729
+)
+"presburger.ml" 298 9839 9848 "presburger.ml" 316 10537 10567
+call(
+  stack
+)
+type(
+  iformula * iformula
+)
+"presburger.ml" 297 9829 9835 "presburger.ml" 317 10568 10573
+type(
+  iformula
+)
+"presburger.ml" 287 9605 9607 "presburger.ml" 317 10568 10573
+type(
+  iformula
+)
+type(
+  iformula
+)
+"presburger.ml" 285 9514 9568 "presburger.ml" 317 10568 10573
+type(
+  iformula list -> iformula
+)
+"presburger.ml" 285 9514 9541 "presburger.ml" 317 10568 10573
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+"presburger.ml" 322 10680 10684 "presburger.ml" 322 10680 10697
+type(
+  Var.t list -> Term.t -> Poly.cformula
+)
+ident(
+  def to_presburger "presburger.ml" 550 17809 17809 "_none_" 1 0 -1
+)
+"presburger.ml" 322 10680 10699 "presburger.ml" 322 10680 10700
+type(
+  Var.t list
+)
+ident(
+  def v "presburger.ml" 322 10680 10714 "presburger.ml" 546 17752 17772
+)
+"presburger.ml" 322 10680 10715 "presburger.ml" 322 10680 10717
+type(
+  Term.t
+)
+ident(
+  def gf "presburger.ml" 322 10680 10727 "presburger.ml" 546 17752 17772
+)
+"presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  def c "presburger.ml" 327 10847 10849 "presburger.ml" 546 17752 17772
+)
+"presburger.ml" 325 10812 10822 "presburger.ml" 325 10812 10839
+type(
+  Var.t list -> Var.t -> Var.t -> int
+)
+ident(
+  ext_ref Poly.compare_variables
+)
+"presburger.ml" 325 10812 10840 "presburger.ml" 325 10812 10841
+type(
+  Var.t list
+)
+ident(
+  int_ref v "presburger.ml" 322 10680 10699 "presburger.ml" 322 10680 10700
+)
+"presburger.ml" 325 10812 10822 "presburger.ml" 325 10812 10841
+call(
+  stack
+)
+type(
+  Var.t -> Var.t -> int
+)
+"presburger.ml" 327 10847 10853 "presburger.ml" 327 10847 10856
+type(
+  iformula
+)
+ident(
+  def res "presburger.ml" 544 17691 17693 "presburger.ml" 546 17752 17772
+)
+"presburger.ml" 330 10901 10905 "presburger.ml" 330 10901 10916
+type(
+  (Term.T.flat -> iformula list -> iformula) -> Term.t -> iformula
+)
+ident(
+  ext_ref Term.eval_t
+)
+"presburger.ml" 332 10924 10935 "presburger.ml" 332 10924 10940
+type(
+  Term.T.flat
+)
+ident(
+  def fterm "presburger.ml" 332 10924 10941 "presburger.ml" 538 17576 17589
+)
+"presburger.ml" 332 10924 10941 "presburger.ml" 332 10924 10945
+type(
+  iformula list
+)
+ident(
+  def args "presburger.ml" 334 10950 10958 "presburger.ml" 538 17576 17589
+)
+"presburger.ml" 334 10950 10964 "presburger.ml" 334 10950 10969
+type(
+  Term.T.flat
+)
+ident(
+  int_ref fterm "presburger.ml" 332 10924 10935 "presburger.ml" 332 10924 10940
+)
+"presburger.ml" 336 10976 10999 "presburger.ml" 336 10976 11002
+type(
+  Term.T.var
+)
+ident(
+  def var "presburger.ml" 337 11006 11018 "presburger.ml" 337 11006 11038
+)
+"presburger.ml" 336 10976 10988 "presburger.ml" 336 10976 11002
+type(
+  Term.T.flat
+)
+"presburger.ml" 337 11006 11025 "presburger.ml" 337 11006 11026
+type(
+  int
+)
+"presburger.ml" 337 11006 11033 "presburger.ml" 337 11006 11036
+type(
+  Term.T.var
+)
+ident(
+  int_ref var "presburger.ml" 336 10976 10999 "presburger.ml" 336 10976 11002
+)
+"presburger.ml" 337 11006 11028 "presburger.ml" 337 11006 11036
+type(
+  Term.T.var option
+)
+"presburger.ml" 337 11006 11025 "presburger.ml" 337 11006 11036
+type(
+  Poly.psummand
+)
+"presburger.ml" 337 11006 11024 "presburger.ml" 337 11006 11037
+type(
+  Poly.poly
+)
+"presburger.ml" 337 11006 11023 "presburger.ml" 337 11006 11038
+type(
+  Poly.psummand list
+)
+"presburger.ml" 337 11006 11018 "presburger.ml" 337 11006 11038
+type(
+  iformula
+)
+"presburger.ml" 339 11040 11065 "presburger.ml" 339 11040 11068
+type(
+  Term.T.symbol
+)
+ident(
+  def sym "presburger.ml" 341 11104 11117 "presburger.ml" 536 17501 17574
+)
+"presburger.ml" 339 11040 11052 "presburger.ml" 339 11040 11068
+type(
+  Term.T.flat
+)
+"presburger.ml" 340 11069 11093 "presburger.ml" 340 11069 11096
+type(
+  Term.T.symbol
+)
+ident(
+  def sym "presburger.ml" 341 11104 11117 "presburger.ml" 536 17501 17574
+)
+"presburger.ml" 340 11069 11098 "presburger.ml" 340 11069 11099
+type(
+  Term.T.t list
+)
+"presburger.ml" 340 11069 11081 "presburger.ml" 340 11069 11100
+type(
+  Term.T.flat
+)
+"presburger.ml" 339 11040 11052 "presburger.ml" 340 11069 11100
+type(
+  Term.T.flat
+)
+"presburger.ml" 341 11104 11123 "presburger.ml" 341 11104 11144
+type(
+  Term.T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"presburger.ml" 341 11104 11145 "presburger.ml" 341 11104 11148
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref sym "presburger.ml" 339 11040 11065 "presburger.ml" 339 11040 11068
+)
+"presburger.ml" 341 11104 11123 "presburger.ml" 341 11104 11148
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"presburger.ml" 341 11104 11150 "presburger.ml" 341 11104 11154
+type(
+  iformula list
+)
+ident(
+  int_ref args "presburger.ml" 332 10924 10941 "presburger.ml" 332 10924 10945
+)
+"presburger.ml" 341 11104 11123 "presburger.ml" 341 11104 11154
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 343 11199 11215 "presburger.ml" 343 11199 11220
+type(
+  Symbol.symbol
+)
+"presburger.ml" 343 11199 11222 "presburger.ml" 343 11199 11223
+type(
+  iformula list
+)
+"presburger.ml" 343 11199 11215 "presburger.ml" 343 11199 11223
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 343 11199 11241 "presburger.ml" 343 11199 11242
+type(
+  int
+)
+"presburger.ml" 343 11199 11244 "presburger.ml" 343 11199 11248
+type(
+  Var.t option
+)
+"presburger.ml" 343 11199 11241 "presburger.ml" 343 11199 11248
+type(
+  Poly.psummand
+)
+"presburger.ml" 343 11199 11240 "presburger.ml" 343 11199 11249
+type(
+  Poly.poly
+)
+"presburger.ml" 343 11199 11239 "presburger.ml" 343 11199 11250
+type(
+  Poly.psummand list
+)
+"presburger.ml" 343 11199 11236 "presburger.ml" 343 11199 11250
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 343 11199 11235 "presburger.ml" 343 11199 11251
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 343 11199 11227 "presburger.ml" 343 11199 11251
+type(
+  iformula
+)
+"presburger.ml" 346 11294 11310 "presburger.ml" 346 11294 11316
+type(
+  Symbol.symbol
+)
+"presburger.ml" 346 11294 11318 "presburger.ml" 346 11294 11319
+type(
+  iformula list
+)
+"presburger.ml" 346 11294 11310 "presburger.ml" 346 11294 11319
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 346 11294 11337 "presburger.ml" 346 11294 11339
+type(
+  int
+)
+"presburger.ml" 346 11294 11341 "presburger.ml" 346 11294 11345
+type(
+  Var.t option
+)
+"presburger.ml" 346 11294 11337 "presburger.ml" 346 11294 11345
+type(
+  Poly.psummand
+)
+"presburger.ml" 346 11294 11336 "presburger.ml" 346 11294 11346
+type(
+  Poly.poly
+)
+"presburger.ml" 346 11294 11335 "presburger.ml" 346 11294 11347
+type(
+  Poly.psummand list
+)
+"presburger.ml" 346 11294 11332 "presburger.ml" 346 11294 11347
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 346 11294 11331 "presburger.ml" 346 11294 11348
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 346 11294 11323 "presburger.ml" 346 11294 11348
+type(
+  iformula
+)
+"presburger.ml" 349 11403 11419 "presburger.ml" 349 11403 11423
+type(
+  Symbol.symbol
+)
+"presburger.ml" 349 11403 11438 "presburger.ml" 349 11403 11440
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 350 11446 11462 "presburger.ml" 350 11446 11524
+)
+"presburger.ml" 349 11403 11435 "presburger.ml" 349 11403 11440
+type(
+  Poly.cformula
+)
+type(
+  Poly.preAtom
+)
+"presburger.ml" 349 11403 11434 "presburger.ml" 349 11403 11441
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 349 11403 11426 "presburger.ml" 349 11403 11441
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 349 11403 11425 "presburger.ml" 349 11403 11442
+type(
+  iformula list
+)
+"presburger.ml" 349 11403 11419 "presburger.ml" 349 11403 11442
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 350 11446 11475 "presburger.ml" 350 11446 11488
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 350 11446 11489 "presburger.ml" 350 11446 11490
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 350 11446 11491 "presburger.ml" 350 11446 11493
+type(
+  Poly.poly
+)
+"presburger.ml" 350 11446 11496 "presburger.ml" 350 11446 11497
+type(
+  int
+)
+"presburger.ml" 350 11446 11499 "presburger.ml" 350 11446 11503
+type(
+  Var.t option
+)
+"presburger.ml" 350 11446 11496 "presburger.ml" 350 11446 11503
+type(
+  Poly.psummand
+)
+"presburger.ml" 350 11446 11495 "presburger.ml" 350 11446 11504
+type(
+  Poly.poly
+)
+"presburger.ml" 350 11446 11494 "presburger.ml" 350 11446 11505
+type(
+  Poly.psummand list
+)
+"presburger.ml" 350 11446 11507 "presburger.ml" 350 11446 11518
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 350 11446 11519 "presburger.ml" 350 11446 11521
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 349 11403 11438 "presburger.ml" 349 11403 11440
+)
+"presburger.ml" 350 11446 11507 "presburger.ml" 350 11446 11521
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 350 11446 11475 "presburger.ml" 350 11446 11522
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 350 11446 11471 "presburger.ml" 350 11446 11523
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 350 11446 11470 "presburger.ml" 350 11446 11524
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 350 11446 11462 "presburger.ml" 350 11446 11524
+type(
+  iformula
+)
+"presburger.ml" 353 11575 11591 "presburger.ml" 353 11575 11595
+type(
+  Symbol.symbol
+)
+"presburger.ml" 353 11575 11610 "presburger.ml" 353 11575 11612
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 353 11575 11618 "presburger.ml" 353 11575 11635
+)
+"presburger.ml" 353 11575 11607 "presburger.ml" 353 11575 11612
+type(
+  Poly.cformula
+)
+type(
+  Poly.preAtom
+)
+"presburger.ml" 353 11575 11606 "presburger.ml" 353 11575 11613
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 353 11575 11598 "presburger.ml" 353 11575 11613
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 353 11575 11597 "presburger.ml" 353 11575 11614
+type(
+  iformula list
+)
+"presburger.ml" 353 11575 11591 "presburger.ml" 353 11575 11614
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 353 11575 11632 "presburger.ml" 353 11575 11634
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 353 11575 11610 "presburger.ml" 353 11575 11612
+)
+"presburger.ml" 353 11575 11627 "presburger.ml" 353 11575 11634
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 353 11575 11626 "presburger.ml" 353 11575 11635
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 353 11575 11618 "presburger.ml" 353 11575 11635
+type(
+  iformula
+)
+"presburger.ml" 356 11686 11702 "presburger.ml" 356 11686 11706
+type(
+  Symbol.symbol
+)
+"presburger.ml" 356 11686 11723 "presburger.ml" 356 11686 11725
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 356 11686 11731 "presburger.ml" 356 11686 11746
+)
+"presburger.ml" 356 11686 11718 "presburger.ml" 356 11686 11725
+type(
+  Poly.cformula
+)
+type(
+  Poly.preAtom
+)
+"presburger.ml" 356 11686 11717 "presburger.ml" 356 11686 11726
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 356 11686 11709 "presburger.ml" 356 11686 11726
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 356 11686 11708 "presburger.ml" 356 11686 11727
+type(
+  iformula list
+)
+"presburger.ml" 356 11686 11702 "presburger.ml" 356 11686 11727
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 356 11686 11743 "presburger.ml" 356 11686 11745
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 356 11686 11723 "presburger.ml" 356 11686 11725
+)
+"presburger.ml" 356 11686 11740 "presburger.ml" 356 11686 11745
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 356 11686 11739 "presburger.ml" 356 11686 11746
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 356 11686 11731 "presburger.ml" 356 11686 11746
+type(
+  iformula
+)
+"presburger.ml" 359 11811 11827 "presburger.ml" 359 11811 11831
+type(
+  Symbol.symbol
+)
+"presburger.ml" 359 11811 11854 "presburger.ml" 359 11811 11855
+type(
+  int
+)
+ident(
+  def i "presburger.ml" 360 11866 11882 "presburger.ml" 360 11866 11911
+)
+"presburger.ml" 359 11811 11857 "presburger.ml" 359 11811 11859
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 360 11866 11882 "presburger.ml" 360 11866 11911
+)
+"presburger.ml" 359 11811 11843 "presburger.ml" 359 11811 11860
+type(
+  Poly.cformula
+)
+type(
+  Poly.preAtom
+)
+type(
+  int * Poly.poly
+)
+"presburger.ml" 359 11811 11842 "presburger.ml" 359 11811 11861
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 359 11811 11834 "presburger.ml" 359 11811 11861
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 359 11811 11833 "presburger.ml" 359 11811 11862
+type(
+  iformula list
+)
+"presburger.ml" 359 11811 11827 "presburger.ml" 359 11811 11862
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 360 11866 11904 "presburger.ml" 360 11866 11905
+type(
+  int
+)
+ident(
+  int_ref i "presburger.ml" 359 11811 11854 "presburger.ml" 359 11811 11855
+)
+"presburger.ml" 360 11866 11907 "presburger.ml" 360 11866 11909
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 359 11811 11857 "presburger.ml" 359 11811 11859
+)
+"presburger.ml" 360 11866 11891 "presburger.ml" 360 11866 11910
+type(
+  int * Poly.poly
+)
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 360 11866 11890 "presburger.ml" 360 11866 11911
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 360 11866 11882 "presburger.ml" 360 11866 11911
+type(
+  iformula
+)
+"presburger.ml" 363 11976 11992 "presburger.ml" 363 11976 11996
+type(
+  Symbol.symbol
+)
+"presburger.ml" 363 11976 12021 "presburger.ml" 363 11976 12022
+type(
+  int
+)
+ident(
+  def i "presburger.ml" 364 12033 12049 "presburger.ml" 364 12033 12076
+)
+"presburger.ml" 363 11976 12024 "presburger.ml" 363 11976 12026
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 364 12033 12049 "presburger.ml" 364 12033 12076
+)
+"presburger.ml" 363 11976 12008 "presburger.ml" 363 11976 12027
+type(
+  Poly.cformula
+)
+type(
+  Poly.preAtom
+)
+type(
+  int * Poly.poly
+)
+"presburger.ml" 363 11976 12007 "presburger.ml" 363 11976 12028
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 363 11976 11999 "presburger.ml" 363 11976 12028
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 363 11976 11998 "presburger.ml" 363 11976 12029
+type(
+  iformula list
+)
+"presburger.ml" 363 11976 11992 "presburger.ml" 363 11976 12029
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 364 12033 12069 "presburger.ml" 364 12033 12070
+type(
+  int
+)
+ident(
+  int_ref i "presburger.ml" 363 11976 12021 "presburger.ml" 363 11976 12022
+)
+"presburger.ml" 364 12033 12072 "presburger.ml" 364 12033 12074
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 363 11976 12024 "presburger.ml" 363 11976 12026
+)
+"presburger.ml" 364 12033 12058 "presburger.ml" 364 12033 12075
+type(
+  int * Poly.poly
+)
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 364 12033 12057 "presburger.ml" 364 12033 12076
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 364 12033 12049 "presburger.ml" 364 12033 12076
+type(
+  iformula
+)
+"presburger.ml" 368 12136 12152 "presburger.ml" 368 12136 12156
+type(
+  Symbol.symbol
+)
+"presburger.ml" 368 12136 12167 "presburger.ml" 368 12136 12169
+type(
+  Poly.cformula
+)
+ident(
+  def cf "presburger.ml" 369 12174 12190 "presburger.ml" 369 12174 12267
+)
+"presburger.ml" 368 12136 12159 "presburger.ml" 368 12136 12169
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 368 12136 12158 "presburger.ml" 368 12136 12170
+type(
+  iformula list
+)
+"presburger.ml" 368 12136 12152 "presburger.ml" 368 12136 12170
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 369 12174 12190 "presburger.ml" 369 12174 12198
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 369 12174 12199 "presburger.ml" 369 12174 12267
+type(
+  string
+)
+"presburger.ml" 369 12174 12190 "presburger.ml" 369 12174 12267
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 373 12324 12340 "presburger.ml" 373 12324 12348
+type(
+  Symbol.symbol
+)
+"presburger.ml" 373 12324 12350 "presburger.ml" 373 12324 12351
+type(
+  iformula list
+)
+"presburger.ml" 373 12324 12340 "presburger.ml" 373 12324 12351
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 374 12355 12371 "presburger.ml" 374 12355 12379
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 374 12355 12380 "presburger.ml" 374 12355 12425
+type(
+  string
+)
+"presburger.ml" 374 12355 12371 "presburger.ml" 374 12355 12425
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 377 12487 12503 "presburger.ml" 377 12487 12507
+type(
+  Symbol.symbol
+)
+"presburger.ml" 377 12487 12509 "presburger.ml" 377 12487 12511
+type(
+  iformula list
+)
+"presburger.ml" 377 12487 12503 "presburger.ml" 377 12487 12511
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 378 12515 12531 "presburger.ml" 378 12515 12539
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 378 12515 12540 "presburger.ml" 378 12515 12578
+type(
+  string
+)
+"presburger.ml" 378 12515 12531 "presburger.ml" 378 12515 12578
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 381 12632 12648 "presburger.ml" 381 12632 12652
+type(
+  Symbol.symbol
+)
+"presburger.ml" 381 12632 12663 "presburger.ml" 381 12632 12665
+type(
+  Poly.cformula
+)
+ident(
+  def cf "presburger.ml" 381 12632 12670 "presburger.ml" 381 12632 12680
+)
+"presburger.ml" 381 12632 12655 "presburger.ml" 381 12632 12665
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 381 12632 12654 "presburger.ml" 381 12632 12666
+type(
+  iformula list
+)
+"presburger.ml" 381 12632 12648 "presburger.ml" 381 12632 12666
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 381 12632 12678 "presburger.ml" 381 12632 12680
+type(
+  Poly.cformula
+)
+ident(
+  int_ref cf "presburger.ml" 381 12632 12663 "presburger.ml" 381 12632 12665
+)
+"presburger.ml" 381 12632 12670 "presburger.ml" 381 12632 12680
+type(
+  iformula
+)
+"presburger.ml" 384 12740 12756 "presburger.ml" 384 12740 12760
+type(
+  Symbol.symbol
+)
+"presburger.ml" 384 12740 12762 "presburger.ml" 384 12740 12765
+type(
+  iformula
+)
+ident(
+  def ifm "presburger.ml" 387 12841 12857 "presburger.ml" 403 13315 13335
+)
+"presburger.ml" 384 12740 12769 "presburger.ml" 384 12740 12771
+type(
+  iformula list
+)
+ident(
+  def l' "presburger.ml" 387 12841 12857 "presburger.ml" 403 13315 13335
+)
+"presburger.ml" 384 12740 12762 "presburger.ml" 384 12740 12771
+type(
+  iformula list
+)
+"presburger.ml" 384 12740 12756 "presburger.ml" 384 12740 12771
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 387 12841 12857 "presburger.ml" 387 12841 12871
+type(
+  (iformula -> iformula -> iformula) -> iformula -> iformula list -> iformula
+)
+ident(
+  ext_ref List.fold_left
+)
+"presburger.ml" 388 12873 12896 "presburger.ml" 388 12873 12900
+type(
+  iformula
+)
+ident(
+  def ifm1 "presburger.ml" 388 12873 12901 "presburger.ml" 400 13249 13270
+)
+"presburger.ml" 388 12873 12901 "presburger.ml" 388 12873 12905
+type(
+  iformula
+)
+ident(
+  def ifm2 "presburger.ml" 390 12910 12931 "presburger.ml" 398 13160 13247
+)
+"presburger.ml" 390 12910 12937 "presburger.ml" 390 12910 12941
+type(
+  iformula
+)
+ident(
+  int_ref ifm1 "presburger.ml" 388 12873 12896 "presburger.ml" 388 12873 12900
+)
+"presburger.ml" 390 12910 12943 "presburger.ml" 390 12910 12947
+type(
+  iformula
+)
+ident(
+  int_ref ifm2 "presburger.ml" 388 12873 12901 "presburger.ml" 388 12873 12905
+)
+"presburger.ml" 390 12910 12937 "presburger.ml" 390 12910 12947
+type(
+  iformula * iformula
+)
+"presburger.ml" 393 13016 13049 "presburger.ml" 393 13016 13052
+type(
+  Poly.cformula
+)
+ident(
+  def cf1 "presburger.ml" 395 13073 13097 "presburger.ml" 395 13073 13129
+)
+"presburger.ml" 393 13016 13041 "presburger.ml" 393 13016 13052
+type(
+  iformula
+)
+"presburger.ml" 393 13016 13064 "presburger.ml" 393 13016 13067
+type(
+  Poly.cformula
+)
+ident(
+  def cf2 "presburger.ml" 395 13073 13097 "presburger.ml" 395 13073 13129
+)
+"presburger.ml" 393 13016 13056 "presburger.ml" 393 13016 13067
+type(
+  iformula
+)
+"presburger.ml" 393 13016 13040 "presburger.ml" 393 13016 13068
+type(
+  iformula * iformula
+)
+"presburger.ml" 395 13073 13106 "presburger.ml" 395 13073 13117
+type(
+  Poly.cformula list -> Poly.cformula
+)
+ident(
+  ext_ref List.concat
+)
+"presburger.ml" 395 13073 13119 "presburger.ml" 395 13073 13122
+type(
+  Poly.cformula
+)
+ident(
+  int_ref cf1 "presburger.ml" 393 13016 13049 "presburger.ml" 393 13016 13052
+)
+"presburger.ml" 395 13073 13124 "presburger.ml" 395 13073 13127
+type(
+  Poly.cformula
+)
+ident(
+  int_ref cf2 "presburger.ml" 393 13016 13064 "presburger.ml" 393 13016 13067
+)
+type(
+  Poly.cformula list
+)
+"presburger.ml" 395 13073 13119 "presburger.ml" 395 13073 13127
+type(
+  Poly.cformula list
+)
+"presburger.ml" 395 13073 13118 "presburger.ml" 395 13073 13128
+type(
+  Poly.cformula list
+)
+"presburger.ml" 395 13073 13106 "presburger.ml" 395 13073 13128
+call(
+  stack
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 395 13073 13097 "presburger.ml" 395 13073 13129
+type(
+  iformula
+)
+"presburger.ml" 397 13131 13155 "presburger.ml" 397 13131 13156
+type(
+  iformula * iformula
+)
+"presburger.ml" 398 13160 13184 "presburger.ml" 398 13160 13192
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 398 13160 13193 "presburger.ml" 398 13160 13247
+type(
+  string
+)
+"presburger.ml" 398 13160 13184 "presburger.ml" 398 13160 13247
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 390 12910 12931 "presburger.ml" 398 13160 13247
+type(
+  iformula
+)
+"presburger.ml" 388 12873 12901 "presburger.ml" 400 13249 13270
+type(
+  iformula -> iformula
+)
+"presburger.ml" 388 12873 12896 "presburger.ml" 400 13249 13270
+type(
+  iformula -> iformula -> iformula
+)
+"presburger.ml" 402 13292 13310 "presburger.ml" 402 13292 13313
+type(
+  iformula
+)
+ident(
+  int_ref ifm "presburger.ml" 384 12740 12762 "presburger.ml" 384 12740 12765
+)
+"presburger.ml" 403 13315 13333 "presburger.ml" 403 13315 13335
+type(
+  iformula list
+)
+ident(
+  int_ref l' "presburger.ml" 384 12740 12769 "presburger.ml" 384 12740 12771
+)
+"presburger.ml" 387 12841 12857 "presburger.ml" 403 13315 13335
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 407 13378 13394 "presburger.ml" 407 13378 13397
+type(
+  Symbol.symbol
+)
+"presburger.ml" 407 13378 13399 "presburger.ml" 407 13378 13400
+type(
+  iformula list
+)
+"presburger.ml" 407 13378 13394 "presburger.ml" 407 13378 13400
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 408 13405 13421 "presburger.ml" 408 13405 13429
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 408 13405 13430 "presburger.ml" 408 13405 13470
+type(
+  string
+)
+"presburger.ml" 408 13405 13421 "presburger.ml" 408 13405 13470
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 412 13523 13539 "presburger.ml" 412 13523 13543
+type(
+  Symbol.symbol
+)
+"presburger.ml" 412 13523 13545 "presburger.ml" 412 13523 13546
+type(
+  iformula list
+)
+"presburger.ml" 412 13523 13539 "presburger.ml" 412 13523 13546
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 413 13550 13566 "presburger.ml" 413 13550 13574
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 413 13550 13575 "presburger.ml" 413 13550 13616
+type(
+  string
+)
+"presburger.ml" 413 13550 13566 "presburger.ml" 413 13550 13616
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 417 13667 13683 "presburger.ml" 417 13667 13686
+type(
+  Symbol.symbol
+)
+"presburger.ml" 417 13667 13688 "presburger.ml" 417 13667 13691
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 418 13695 13711 "presburger.ml" 418 13695 13739
+)
+"presburger.ml" 417 13667 13683 "presburger.ml" 417 13667 13691
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 418 13695 13711 "presburger.ml" 418 13695 13733
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  int_ref unchain_EQ_to_iformula "presburger.ml" 111 4046 4050 "presburger.ml" 111 4046 4072
+)
+"presburger.ml" 418 13695 13734 "presburger.ml" 418 13695 13735
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 418 13695 13736 "presburger.ml" 418 13695 13739
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 417 13667 13688 "presburger.ml" 417 13667 13691
+)
+"presburger.ml" 418 13695 13711 "presburger.ml" 418 13695 13739
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 422 13793 13809 "presburger.ml" 422 13793 13818
+type(
+  Symbol.symbol
+)
+"presburger.ml" 422 13793 13820 "presburger.ml" 422 13793 13821
+type(
+  iformula list
+)
+"presburger.ml" 422 13793 13809 "presburger.ml" 422 13793 13821
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 423 13825 13841 "presburger.ml" 423 13825 13849
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 423 13825 13850 "presburger.ml" 423 13825 13896
+type(
+  string
+)
+"presburger.ml" 423 13825 13841 "presburger.ml" 423 13825 13896
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 427 13954 13970 "presburger.ml" 427 13954 13974
+type(
+  Symbol.symbol
+)
+"presburger.ml" 427 13954 13976 "presburger.ml" 427 13954 13977
+type(
+  iformula list
+)
+"presburger.ml" 427 13954 13970 "presburger.ml" 427 13954 13977
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 428 13981 13997 "presburger.ml" 428 13981 14005
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 428 13981 14006 "presburger.ml" 428 13981 14047
+type(
+  string
+)
+"presburger.ml" 428 13981 13997 "presburger.ml" 428 13981 14047
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 432 14111 14136 "presburger.ml" 432 14111 14137
+type(
+  Lib.numeral
+)
+ident(
+  def i "presburger.ml" 433 14145 14161 "presburger.ml" 433 14145 14198
+)
+"presburger.ml" 432 14111 14127 "presburger.ml" 432 14111 14138
+type(
+  Symbol.symbol
+)
+"presburger.ml" 432 14111 14140 "presburger.ml" 432 14111 14141
+type(
+  iformula list
+)
+"presburger.ml" 432 14111 14127 "presburger.ml" 432 14111 14141
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 433 14145 14169 "presburger.ml" 433 14145 14187
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"presburger.ml" 433 14145 14188 "presburger.ml" 433 14145 14189
+type(
+  Lib.numeral
+)
+ident(
+  int_ref i "presburger.ml" 432 14111 14136 "presburger.ml" 432 14111 14137
+)
+"presburger.ml" 433 14145 14169 "presburger.ml" 433 14145 14189
+call(
+  stack
+)
+type(
+  int
+)
+"presburger.ml" 433 14145 14192 "presburger.ml" 433 14145 14196
+type(
+  Var.t option
+)
+"presburger.ml" 433 14145 14168 "presburger.ml" 433 14145 14196
+type(
+  Poly.psummand
+)
+"presburger.ml" 433 14145 14167 "presburger.ml" 433 14145 14197
+type(
+  Poly.poly
+)
+"presburger.ml" 433 14145 14166 "presburger.ml" 433 14145 14198
+type(
+  Poly.psummand list
+)
+"presburger.ml" 433 14145 14161 "presburger.ml" 433 14145 14198
+type(
+  iformula
+)
+"presburger.ml" 436 14249 14274 "presburger.ml" 436 14249 14275
+type(
+  Lib.decimal
+)
+"presburger.ml" 436 14249 14265 "presburger.ml" 436 14249 14275
+type(
+  Symbol.symbol
+)
+"presburger.ml" 436 14249 14277 "presburger.ml" 436 14249 14278
+type(
+  iformula list
+)
+"presburger.ml" 436 14249 14265 "presburger.ml" 436 14249 14278
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 437 14282 14298 "presburger.ml" 437 14282 14306
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 437 14282 14307 "presburger.ml" 437 14282 14352
+type(
+  string
+)
+"presburger.ml" 437 14282 14298 "presburger.ml" 437 14282 14352
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 440 14400 14416 "presburger.ml" 440 14400 14422
+type(
+  Symbol.symbol
+)
+"presburger.ml" 440 14400 14425 "presburger.ml" 440 14400 14428
+type(
+  iformula list
+)
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 442 14434 14451 "presburger.ml" 447 14597 14662
+)
+"presburger.ml" 440 14400 14424 "presburger.ml" 440 14400 14429
+type(
+  iformula list
+)
+"presburger.ml" 440 14400 14416 "presburger.ml" 440 14400 14429
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 442 14434 14457 "presburger.ml" 442 14434 14460
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 440 14400 14425 "presburger.ml" 440 14400 14428
+)
+"presburger.ml" 445 14541 14566 "presburger.ml" 445 14541 14569
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 445 14541 14573 "presburger.ml" 445 14541 14595
+)
+"presburger.ml" 445 14541 14561 "presburger.ml" 445 14541 14569
+type(
+  iformula
+)
+"presburger.ml" 445 14541 14579 "presburger.ml" 445 14541 14590
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 445 14541 14591 "presburger.ml" 445 14541 14594
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 445 14541 14566 "presburger.ml" 445 14541 14569
+)
+"presburger.ml" 445 14541 14579 "presburger.ml" 445 14541 14594
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 445 14541 14573 "presburger.ml" 445 14541 14595
+type(
+  iformula
+)
+"presburger.ml" 447 14597 14617 "presburger.ml" 447 14597 14618
+type(
+  iformula
+)
+"presburger.ml" 447 14597 14622 "presburger.ml" 447 14597 14630
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 447 14597 14631 "presburger.ml" 447 14597 14662
+type(
+  string
+)
+"presburger.ml" 447 14597 14622 "presburger.ml" 447 14597 14662
+type(
+  iformula
+)
+"presburger.ml" 442 14434 14451 "presburger.ml" 447 14597 14662
+type(
+  iformula
+)
+"presburger.ml" 452 14739 14755 "presburger.ml" 452 14739 14761
+type(
+  Symbol.symbol
+)
+"presburger.ml" 452 14739 14763 "presburger.ml" 452 14739 14766
+type(
+  iformula
+)
+ident(
+  def if1 "presburger.ml" 454 14790 14807 "presburger.ml" 469 15209 15274
+)
+"presburger.ml" 452 14739 14770 "presburger.ml" 452 14739 14773
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 454 14790 14807 "presburger.ml" 469 15209 15274
+)
+"presburger.ml" 452 14739 14763 "presburger.ml" 452 14739 14773
+type(
+  iformula list
+)
+"presburger.ml" 452 14739 14755 "presburger.ml" 452 14739 14773
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 454 14790 14813 "presburger.ml" 454 14790 14816
+type(
+  iformula
+)
+ident(
+  int_ref if1 "presburger.ml" 452 14739 14763 "presburger.ml" 452 14739 14766
+)
+"presburger.ml" 456 14823 14848 "presburger.ml" 456 14823 14851
+type(
+  Poly.poly
+)
+ident(
+  def pl1 "presburger.ml" 461 14972 14992 "presburger.ml" 466 15123 15188
+)
+"presburger.ml" 456 14823 14843 "presburger.ml" 456 14823 14851
+type(
+  iformula
+)
+"presburger.ml" 462 14998 15021 "presburger.ml" 462 14998 15034
+type(
+  (Var.t -> Var.t -> int) -> Poly.poly -> Poly.poly -> Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.add_two_polys
+)
+"presburger.ml" 463 15036 15061 "presburger.ml" 463 15036 15062
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 464 15064 15089 "presburger.ml" 464 15064 15091
+type(
+  Poly.poly
+)
+"presburger.ml" 465 15093 15118 "presburger.ml" 465 15093 15121
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl1 "presburger.ml" 456 14823 14848 "presburger.ml" 456 14823 14851
+)
+"presburger.ml" 466 15123 15149 "presburger.ml" 466 15123 15160
+type(
+  Poly.poly -> Poly.poly
+)
+ident(
+  ext_ref Poly.negate_poly
+)
+"presburger.ml" 466 15123 15162 "presburger.ml" 466 15123 15179
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> Poly.poly
+)
+ident(
+  int_ref add_iformula_list "presburger.ml" 53 2287 2291 "presburger.ml" 53 2287 2308
+)
+"presburger.ml" 466 15123 15180 "presburger.ml" 466 15123 15181
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 466 15123 15182 "presburger.ml" 466 15123 15185
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 452 14739 14770 "presburger.ml" 452 14739 14773
+)
+"presburger.ml" 466 15123 15162 "presburger.ml" 466 15123 15185
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 466 15123 15149 "presburger.ml" 466 15123 15186
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 462 14998 15021 "presburger.ml" 466 15123 15187
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 461 14972 14992 "presburger.ml" 466 15123 15188
+type(
+  iformula
+)
+"presburger.ml" 469 15209 15229 "presburger.ml" 469 15209 15230
+type(
+  iformula
+)
+"presburger.ml" 469 15209 15234 "presburger.ml" 469 15209 15242
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 469 15209 15243 "presburger.ml" 469 15209 15274
+type(
+  string
+)
+"presburger.ml" 469 15209 15234 "presburger.ml" 469 15209 15274
+type(
+  iformula
+)
+"presburger.ml" 454 14790 14807 "presburger.ml" 469 15209 15274
+type(
+  iformula
+)
+"presburger.ml" 475 15375 15391 "presburger.ml" 475 15375 15396
+type(
+  Symbol.symbol
+)
+"presburger.ml" 475 15375 15398 "presburger.ml" 475 15375 15401
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 475 15375 15405 "presburger.ml" 475 15375 15435
+)
+"presburger.ml" 475 15375 15391 "presburger.ml" 475 15375 15401
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 475 15375 15411 "presburger.ml" 475 15375 15428
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> Poly.poly
+)
+ident(
+  int_ref add_iformula_list "presburger.ml" 53 2287 2291 "presburger.ml" 53 2287 2308
+)
+"presburger.ml" 475 15375 15429 "presburger.ml" 475 15375 15430
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 475 15375 15431 "presburger.ml" 475 15375 15434
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 475 15375 15398 "presburger.ml" 475 15375 15401
+)
+"presburger.ml" 475 15375 15411 "presburger.ml" 475 15375 15434
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 475 15375 15405 "presburger.ml" 475 15375 15435
+type(
+  iformula
+)
+"presburger.ml" 479 15510 15526 "presburger.ml" 479 15510 15532
+type(
+  Symbol.symbol
+)
+"presburger.ml" 479 15510 15534 "presburger.ml" 479 15510 15537
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 479 15510 15541 "presburger.ml" 479 15510 15574
+)
+"presburger.ml" 479 15510 15526 "presburger.ml" 479 15510 15537
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 479 15510 15547 "presburger.ml" 479 15510 15569
+type(
+  iformula list -> Poly.poly
+)
+ident(
+  int_ref multiply_iformula_list "presburger.ml" 82 3160 3164 "presburger.ml" 82 3160 3186
+)
+"presburger.ml" 479 15510 15570 "presburger.ml" 479 15510 15573
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 479 15510 15534 "presburger.ml" 479 15510 15537
+)
+"presburger.ml" 479 15510 15547 "presburger.ml" 479 15510 15573
+call(
+  stack
+)
+type(
+  Poly.poly
+)
+"presburger.ml" 479 15510 15541 "presburger.ml" 479 15510 15574
+type(
+  iformula
+)
+"presburger.ml" 482 15624 15640 "presburger.ml" 482 15624 15644
+type(
+  Symbol.symbol
+)
+"presburger.ml" 482 15624 15646 "presburger.ml" 482 15624 15649
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 484 15654 15670 "presburger.ml" 484 15654 15699
+)
+"presburger.ml" 482 15624 15640 "presburger.ml" 482 15624 15649
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 484 15654 15670 "presburger.ml" 484 15654 15693
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  int_ref unchain_LEQ_to_iformula "presburger.ml" 152 5412 5416 "presburger.ml" 152 5412 5439
+)
+"presburger.ml" 484 15654 15694 "presburger.ml" 484 15654 15695
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 484 15654 15696 "presburger.ml" 484 15654 15699
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 482 15624 15646 "presburger.ml" 482 15624 15649
+)
+"presburger.ml" 484 15654 15670 "presburger.ml" 484 15654 15699
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 487 15740 15756 "presburger.ml" 487 15740 15759
+type(
+  Symbol.symbol
+)
+"presburger.ml" 487 15740 15761 "presburger.ml" 487 15740 15764
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 489 15769 15785 "presburger.ml" 489 15769 15813
+)
+"presburger.ml" 487 15740 15756 "presburger.ml" 487 15740 15764
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 489 15769 15785 "presburger.ml" 489 15769 15807
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  int_ref unchain_LT_to_iformula "presburger.ml" 198 6871 6875 "presburger.ml" 198 6871 6897
+)
+"presburger.ml" 489 15769 15808 "presburger.ml" 489 15769 15809
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 489 15769 15810 "presburger.ml" 489 15769 15813
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 487 15740 15761 "presburger.ml" 487 15740 15764
+)
+"presburger.ml" 489 15769 15785 "presburger.ml" 489 15769 15813
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 492 15866 15882 "presburger.ml" 492 15866 15886
+type(
+  Symbol.symbol
+)
+"presburger.ml" 492 15866 15888 "presburger.ml" 492 15866 15891
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 494 15896 15912 "presburger.ml" 494 15896 15941
+)
+"presburger.ml" 492 15866 15882 "presburger.ml" 492 15866 15891
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 494 15896 15912 "presburger.ml" 494 15896 15935
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  int_ref unchain_GEQ_to_iformula "presburger.ml" 239 8098 8102 "presburger.ml" 239 8098 8125
+)
+"presburger.ml" 494 15896 15936 "presburger.ml" 494 15896 15937
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 494 15896 15938 "presburger.ml" 494 15896 15941
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 492 15866 15888 "presburger.ml" 492 15866 15891
+)
+"presburger.ml" 494 15896 15912 "presburger.ml" 494 15896 15941
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 497 15999 16015 "presburger.ml" 497 15999 16018
+type(
+  Symbol.symbol
+)
+"presburger.ml" 497 15999 16020 "presburger.ml" 497 15999 16023
+type(
+  iformula list
+)
+ident(
+  def ifl "presburger.ml" 499 16028 16044 "presburger.ml" 499 16028 16072
+)
+"presburger.ml" 497 15999 16015 "presburger.ml" 497 15999 16023
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 499 16028 16044 "presburger.ml" 499 16028 16066
+type(
+  (Var.t -> Var.t -> int) -> iformula list -> iformula
+)
+ident(
+  int_ref unchain_GT_to_iformula "presburger.ml" 285 9514 9518 "presburger.ml" 285 9514 9540
+)
+"presburger.ml" 499 16028 16067 "presburger.ml" 499 16028 16068
+type(
+  Var.t -> Var.t -> int
+)
+ident(
+  int_ref c "presburger.ml" 325 10812 10818 "presburger.ml" 325 10812 10819
+)
+"presburger.ml" 499 16028 16069 "presburger.ml" 499 16028 16072
+type(
+  iformula list
+)
+ident(
+  int_ref ifl "presburger.ml" 497 15999 16020 "presburger.ml" 497 15999 16023
+)
+"presburger.ml" 499 16028 16044 "presburger.ml" 499 16028 16072
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 502 16116 16132 "presburger.ml" 502 16116 16136
+type(
+  Symbol.symbol
+)
+"presburger.ml" 502 16116 16138 "presburger.ml" 502 16116 16139
+type(
+  iformula list
+)
+"presburger.ml" 502 16116 16132 "presburger.ml" 502 16116 16139
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 502 16116 16143 "presburger.ml" 502 16116 16151
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 502 16116 16152 "presburger.ml" 502 16116 16193
+type(
+  string
+)
+"presburger.ml" 502 16116 16143 "presburger.ml" 502 16116 16193
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 505 16252 16268 "presburger.ml" 505 16252 16275
+type(
+  Symbol.symbol
+)
+"presburger.ml" 505 16252 16277 "presburger.ml" 505 16252 16278
+type(
+  iformula list
+)
+"presburger.ml" 505 16252 16268 "presburger.ml" 505 16252 16278
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 505 16252 16282 "presburger.ml" 505 16252 16290
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 505 16252 16291 "presburger.ml" 505 16252 16335
+type(
+  string
+)
+"presburger.ml" 505 16252 16282 "presburger.ml" 505 16252 16335
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 508 16386 16402 "presburger.ml" 508 16386 16406
+type(
+  Symbol.symbol
+)
+"presburger.ml" 508 16386 16408 "presburger.ml" 508 16386 16409
+type(
+  iformula list
+)
+"presburger.ml" 508 16386 16402 "presburger.ml" 508 16386 16409
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 508 16386 16413 "presburger.ml" 508 16386 16421
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 508 16386 16422 "presburger.ml" 508 16386 16463
+type(
+  string
+)
+"presburger.ml" 508 16386 16413 "presburger.ml" 508 16386 16463
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 511 16508 16524 "presburger.ml" 511 16508 16528
+type(
+  Symbol.symbol
+)
+"presburger.ml" 511 16508 16530 "presburger.ml" 511 16508 16531
+type(
+  iformula list
+)
+"presburger.ml" 511 16508 16524 "presburger.ml" 511 16508 16531
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 511 16508 16535 "presburger.ml" 511 16508 16543
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 511 16508 16544 "presburger.ml" 511 16508 16585
+type(
+  string
+)
+"presburger.ml" 511 16508 16535 "presburger.ml" 511 16508 16585
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 514 16635 16651 "presburger.ml" 514 16635 16659
+type(
+  Symbol.symbol
+)
+"presburger.ml" 514 16635 16661 "presburger.ml" 514 16635 16662
+type(
+  iformula list
+)
+"presburger.ml" 514 16635 16651 "presburger.ml" 514 16635 16662
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 515 16667 16683 "presburger.ml" 515 16667 16691
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 515 16667 16692 "presburger.ml" 515 16667 16737
+type(
+  string
+)
+"presburger.ml" 515 16667 16683 "presburger.ml" 515 16667 16737
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 518 16803 16819 "presburger.ml" 518 16803 16826
+type(
+  Symbol.symbol
+)
+"presburger.ml" 518 16803 16828 "presburger.ml" 518 16803 16829
+type(
+  iformula list
+)
+"presburger.ml" 518 16803 16819 "presburger.ml" 518 16803 16829
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 519 16834 16850 "presburger.ml" 519 16834 16858
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 519 16834 16859 "presburger.ml" 519 16834 16903
+type(
+  string
+)
+"presburger.ml" 519 16834 16850 "presburger.ml" 519 16834 16903
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 522 16984 17000 "presburger.ml" 522 16984 17007
+type(
+  Symbol.symbol
+)
+"presburger.ml" 522 16984 17009 "presburger.ml" 522 16984 17010
+type(
+  iformula list
+)
+"presburger.ml" 522 16984 17000 "presburger.ml" 522 16984 17010
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 523 17015 17031 "presburger.ml" 523 17015 17039
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 523 17015 17040 "presburger.ml" 523 17015 17084
+type(
+  string
+)
+"presburger.ml" 523 17015 17031 "presburger.ml" 523 17015 17084
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 527 17197 17217 "presburger.ml" 527 17197 17218
+type(
+  UfSymbol.t
+)
+ident(
+  def s "presburger.ml" 528 17227 17243 "presburger.ml" 528 17227 17288
+)
+"presburger.ml" 527 17197 17213 "presburger.ml" 527 17197 17218
+type(
+  Symbol.symbol
+)
+"presburger.ml" 527 17197 17220 "presburger.ml" 527 17197 17223
+type(
+  iformula list
+)
+ident(
+  def ags "presburger.ml" 528 17227 17243 "presburger.ml" 528 17227 17288
+)
+"presburger.ml" 527 17197 17213 "presburger.ml" 527 17197 17223
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 528 17227 17243 "presburger.ml" 528 17227 17251
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 528 17227 17252 "presburger.ml" 528 17227 17288
+type(
+  string
+)
+"presburger.ml" 528 17227 17243 "presburger.ml" 528 17227 17288
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 532 17370 17397 "presburger.ml" 532 17370 17398
+type(
+  Lib.numeral
+)
+ident(
+  def i "presburger.ml" 533 17414 17430 "presburger.ml" 533 17414 17478
+)
+"presburger.ml" 532 17370 17386 "presburger.ml" 532 17370 17399
+type(
+  Symbol.symbol
+)
+"presburger.ml" 532 17370 17407 "presburger.ml" 532 17370 17409
+type(
+  Poly.poly
+)
+ident(
+  def pl "presburger.ml" 533 17414 17430 "presburger.ml" 533 17414 17478
+)
+"presburger.ml" 532 17370 17402 "presburger.ml" 532 17370 17409
+type(
+  iformula list
+)
+type(
+  iformula
+)
+"presburger.ml" 532 17370 17401 "presburger.ml" 532 17370 17410
+type(
+  iformula list
+)
+"presburger.ml" 532 17370 17386 "presburger.ml" 532 17370 17410
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 533 17414 17451 "presburger.ml" 533 17414 17469
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"presburger.ml" 533 17414 17470 "presburger.ml" 533 17414 17471
+type(
+  Lib.numeral
+)
+ident(
+  int_ref i "presburger.ml" 532 17370 17397 "presburger.ml" 532 17370 17398
+)
+"presburger.ml" 533 17414 17451 "presburger.ml" 533 17414 17471
+call(
+  stack
+)
+type(
+  int
+)
+"presburger.ml" 533 17414 17474 "presburger.ml" 533 17414 17476
+type(
+  Poly.poly
+)
+ident(
+  int_ref pl "presburger.ml" 532 17370 17407 "presburger.ml" 532 17370 17409
+)
+"presburger.ml" 533 17414 17439 "presburger.ml" 533 17414 17477
+type(
+  int * Poly.poly
+)
+type(
+  Poly.preAtom
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 533 17414 17438 "presburger.ml" 533 17414 17478
+type(
+  Poly.preAtom list
+)
+"presburger.ml" 533 17414 17430 "presburger.ml" 533 17414 17478
+type(
+  iformula
+)
+"presburger.ml" 535 17480 17496 "presburger.ml" 535 17480 17497
+type(
+  Symbol.symbol * iformula list
+)
+"presburger.ml" 536 17501 17517 "presburger.ml" 536 17501 17525
+type(
+  string -> iformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 536 17501 17526 "presburger.ml" 536 17501 17574
+type(
+  string
+)
+"presburger.ml" 536 17501 17517 "presburger.ml" 536 17501 17574
+call(
+  tail
+)
+type(
+  iformula
+)
+"presburger.ml" 341 11104 11117 "presburger.ml" 536 17501 17574
+type(
+  iformula
+)
+"presburger.ml" 334 10950 10958 "presburger.ml" 538 17576 17589
+type(
+  iformula
+)
+"presburger.ml" 332 10924 10941 "presburger.ml" 538 17576 17589
+type(
+  iformula list -> iformula
+)
+"presburger.ml" 332 10924 10935 "presburger.ml" 538 17576 17589
+type(
+  Term.T.flat -> iformula list -> iformula
+)
+"presburger.ml" 540 17598 17604 "presburger.ml" 540 17598 17606
+type(
+  Term.t
+)
+ident(
+  int_ref gf "presburger.ml" 322 10680 10715 "presburger.ml" 322 10680 10717
+)
+"presburger.ml" 330 10901 10905 "presburger.ml" 540 17598 17606
+call(
+  stack
+)
+type(
+  iformula
+)
+"presburger.ml" 544 17691 17699 "presburger.ml" 544 17691 17702
+type(
+  iformula
+)
+ident(
+  int_ref res "presburger.ml" 327 10847 10853 "presburger.ml" 327 10847 10856
+)
+"presburger.ml" 545 17709 17720 "presburger.ml" 545 17709 17721
+type(
+  Poly.poly
+)
+"presburger.ml" 545 17709 17715 "presburger.ml" 545 17709 17721
+type(
+  iformula
+)
+"presburger.ml" 545 17709 17725 "presburger.ml" 545 17709 17733
+type(
+  string -> Poly.cformula
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"presburger.ml" 545 17709 17734 "presburger.ml" 545 17709 17751
+type(
+  string
+)
+"presburger.ml" 545 17709 17725 "presburger.ml" 545 17709 17751
+call(
+  tail
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 546 17752 17766 "presburger.ml" 546 17752 17767
+type(
+  Poly.cformula
+)
+ident(
+  def f "presburger.ml" 546 17752 17771 "presburger.ml" 546 17752 17772
+)
+"presburger.ml" 546 17752 17758 "presburger.ml" 546 17752 17767
+type(
+  iformula
+)
+"presburger.ml" 546 17752 17771 "presburger.ml" 546 17752 17772
+type(
+  Poly.cformula
+)
+ident(
+  int_ref f "presburger.ml" 546 17752 17766 "presburger.ml" 546 17752 17767
+)
+"presburger.ml" 544 17691 17693 "presburger.ml" 546 17752 17772
+type(
+  Poly.cformula
+)
+"presburger.ml" 327 10847 10849 "presburger.ml" 546 17752 17772
+type(
+  Poly.cformula
+)
+"presburger.ml" 325 10812 10814 "presburger.ml" 546 17752 17772
+type(
+  Poly.cformula
+)
+type(
+  Poly.cformula
+)
+"presburger.ml" 322 10680 10714 "presburger.ml" 546 17752 17772
+type(
+  Term.t -> Poly.cformula
+)
+"presburger.ml" 322 10680 10698 "presburger.ml" 546 17752 17772
+type(
+  Var.t list -> Term.t -> Poly.cformula
+)
+"presburger.ml" 550 17809 17813 "presburger.ml" 550 17809 17829
+type(
+  int * Var.t option -> Term.t
+)
+ident(
+  def term_of_psummand "presburger.ml" 560 18062 18062 "_none_" 1 0 -1
+)
+"presburger.ml" 553 17880 17885 "presburger.ml" 553 17880 17886
+type(
+  int
+)
+ident(
+  def c "presburger.ml" 553 17880 17899 "presburger.ml" 553 17880 17950
+)
+"presburger.ml" 553 17880 17893 "presburger.ml" 553 17880 17894
+type(
+  Var.t
+)
+ident(
+  def v "presburger.ml" 553 17880 17899 "presburger.ml" 553 17880 17950
+)
+"presburger.ml" 553 17880 17888 "presburger.ml" 553 17880 17894
+type(
+  Var.t option
+)
+"presburger.ml" 553 17880 17885 "presburger.ml" 553 17880 17894
+type(
+  int * Var.t option
+)
+"presburger.ml" 553 17880 17899 "presburger.ml" 553 17880 17912
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_times
+)
+"presburger.ml" 553 17880 17914 "presburger.ml" 553 17880 17932
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"presburger.ml" 553 17880 17933 "presburger.ml" 553 17880 17934
+type(
+  int
+)
+ident(
+  int_ref c "presburger.ml" 553 17880 17885 "presburger.ml" 553 17880 17886
+)
+"presburger.ml" 553 17880 17914 "presburger.ml" 553 17880 17934
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 553 17880 17936 "presburger.ml" 553 17880 17947
+type(
+  Var.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_var
+)
+"presburger.ml" 553 17880 17948 "presburger.ml" 553 17880 17949
+type(
+  Var.t
+)
+ident(
+  int_ref v "presburger.ml" 553 17880 17893 "presburger.ml" 553 17880 17894
+)
+"presburger.ml" 553 17880 17936 "presburger.ml" 553 17880 17949
+call(
+  stack
+)
+type(
+  Term.t
+)
+type(
+  Term.t list
+)
+"presburger.ml" 553 17880 17914 "presburger.ml" 553 17880 17949
+type(
+  Term.t list
+)
+"presburger.ml" 553 17880 17913 "presburger.ml" 553 17880 17950
+type(
+  Term.t list
+)
+"presburger.ml" 553 17880 17899 "presburger.ml" 553 17880 17950
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 556 17985 17990 "presburger.ml" 556 17985 17991
+type(
+  int
+)
+ident(
+  def c "presburger.ml" 556 17985 18002 "presburger.ml" 556 17985 18022
+)
+"presburger.ml" 556 17985 17993 "presburger.ml" 556 17985 17997
+type(
+  Var.t option
+)
+"presburger.ml" 556 17985 17990 "presburger.ml" 556 17985 17997
+type(
+  int * Var.t option
+)
+"presburger.ml" 556 17985 18002 "presburger.ml" 556 17985 18020
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"presburger.ml" 556 17985 18021 "presburger.ml" 556 17985 18022
+type(
+  int
+)
+ident(
+  int_ref c "presburger.ml" 556 17985 17990 "presburger.ml" 556 17985 17991
+)
+"presburger.ml" 556 17985 18002 "presburger.ml" 556 17985 18022
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 550 17809 17832 "presburger.ml" 556 17985 18022
+type(
+  int * Var.t option -> Term.t
+)
+"presburger.ml" 560 18062 18066 "presburger.ml" 560 18062 18078
+type(
+  (int * Var.t option) list -> Term.t
+)
+ident(
+  def term_of_poly "presburger.ml" 573 18355 18355 "_none_" 1 0 -1
+)
+"presburger.ml" 563 18116 18120 "presburger.ml" 563 18116 18122
+type(
+  (int * Var.t option) list
+)
+"presburger.ml" 563 18116 18126 "presburger.ml" 563 18116 18144
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"presburger.ml" 563 18116 18145 "presburger.ml" 563 18116 18146
+type(
+  int
+)
+"presburger.ml" 563 18116 18126 "presburger.ml" 563 18116 18146
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 566 18177 18182 "presburger.ml" 566 18177 18185
+type(
+  (int * Var.t option) list
+)
+type(
+  int * Var.t option
+)
+ident(
+  def smd "presburger.ml" 566 18177 18190 "presburger.ml" 566 18177 18210
+)
+"presburger.ml" 566 18177 18181 "presburger.ml" 566 18177 18186
+type(
+  (int * Var.t option) list
+)
+"presburger.ml" 566 18177 18190 "presburger.ml" 566 18177 18206
+type(
+  int * Var.t option -> Term.t
+)
+ident(
+  int_ref term_of_psummand "presburger.ml" 550 17809 17813 "presburger.ml" 550 17809 17829
+)
+"presburger.ml" 566 18177 18207 "presburger.ml" 566 18177 18210
+type(
+  int * Var.t option
+)
+ident(
+  int_ref smd "presburger.ml" 566 18177 18182 "presburger.ml" 566 18177 18185
+)
+"presburger.ml" 566 18177 18190 "presburger.ml" 566 18177 18210
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 569 18259 18263 "presburger.ml" 569 18259 18264
+type(
+  (int * Var.t option) list
+)
+ident(
+  def l "presburger.ml" 569 18259 18268 "presburger.ml" 569 18259 18310
+)
+"presburger.ml" 569 18259 18268 "presburger.ml" 569 18259 18280
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_plus
+)
+"presburger.ml" 569 18259 18282 "presburger.ml" 569 18259 18290
+type(
+  (int * Var.t option -> Term.t) -> (int * Var.t option) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"presburger.ml" 569 18259 18291 "presburger.ml" 569 18259 18307
+type(
+  int * Var.t option -> Term.t
+)
+ident(
+  int_ref term_of_psummand "presburger.ml" 550 17809 17813 "presburger.ml" 550 17809 17829
+)
+"presburger.ml" 569 18259 18308 "presburger.ml" 569 18259 18309
+type(
+  (int * Var.t option) list
+)
+ident(
+  int_ref l "presburger.ml" 569 18259 18263 "presburger.ml" 569 18259 18264
+)
+"presburger.ml" 569 18259 18282 "presburger.ml" 569 18259 18309
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"presburger.ml" 569 18259 18268 "presburger.ml" 569 18259 18310
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 560 18062 18081 "presburger.ml" 569 18259 18310
+type(
+  (int * Var.t option) list -> Term.t
+)
+"presburger.ml" 573 18355 18359 "presburger.ml" 573 18355 18374
+type(
+  Poly.preAtom -> Term.t
+)
+ident(
+  def term_of_preAtom "presburger.ml" 645 19710 19710 "_none_" 1 0 -1
+)
+"presburger.ml" 576 18424 18431 "presburger.ml" 576 18424 18435
+type(
+  Poly.poly
+)
+ident(
+  def poly "presburger.ml" 578 18445 18450 "presburger.ml" 583 18532 18599
+)
+"presburger.ml" 576 18424 18428 "presburger.ml" 576 18424 18435
+type(
+  Poly.preAtom
+)
+"presburger.ml" 578 18445 18456 "presburger.ml" 578 18445 18460
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 576 18424 18431 "presburger.ml" 576 18424 18435
+)
+"presburger.ml" 581 18500 18508 "presburger.ml" 581 18500 18510
+type(
+  Poly.poly
+)
+"presburger.ml" 581 18500 18514 "presburger.ml" 581 18500 18527
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_false
+)
+"presburger.ml" 581 18500 18528 "presburger.ml" 581 18500 18530
+type(
+  unit
+)
+"presburger.ml" 581 18500 18514 "presburger.ml" 581 18500 18530
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 583 18532 18540 "presburger.ml" 583 18532 18541
+type(
+  Poly.poly
+)
+"presburger.ml" 583 18532 18545 "presburger.ml" 583 18532 18555
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_gt
+)
+"presburger.ml" 583 18532 18558 "presburger.ml" 583 18532 18570
+type(
+  Poly.poly -> Term.t
+)
+ident(
+  int_ref term_of_poly "presburger.ml" 560 18062 18066 "presburger.ml" 560 18062 18078
+)
+"presburger.ml" 583 18532 18571 "presburger.ml" 583 18532 18575
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 576 18424 18431 "presburger.ml" 576 18424 18435
+)
+"presburger.ml" 583 18532 18558 "presburger.ml" 583 18532 18575
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 583 18532 18578 "presburger.ml" 583 18532 18596
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"presburger.ml" 583 18532 18597 "presburger.ml" 583 18532 18598
+type(
+  int
+)
+"presburger.ml" 583 18532 18578 "presburger.ml" 583 18532 18598
+call(
+  stack
+)
+type(
+  Term.t
+)
+type(
+  Term.t list
+)
+"presburger.ml" 583 18532 18557 "presburger.ml" 583 18532 18598
+type(
+  Term.t list
+)
+"presburger.ml" 583 18532 18556 "presburger.ml" 583 18532 18599
+type(
+  Term.t list
+)
+"presburger.ml" 583 18532 18545 "presburger.ml" 583 18532 18599
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 578 18445 18450 "presburger.ml" 583 18532 18599
+type(
+  Term.t
+)
+"presburger.ml" 588 18649 18656 "presburger.ml" 588 18649 18660
+type(
+  Poly.poly
+)
+ident(
+  def poly "presburger.ml" 590 18666 18671 "presburger.ml" 595 18757 18824
+)
+"presburger.ml" 588 18649 18653 "presburger.ml" 588 18649 18660
+type(
+  Poly.preAtom
+)
+"presburger.ml" 590 18666 18677 "presburger.ml" 590 18666 18681
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 588 18649 18656 "presburger.ml" 588 18649 18660
+)
+"presburger.ml" 593 18726 18734 "presburger.ml" 593 18726 18736
+type(
+  Poly.poly
+)
+"presburger.ml" 593 18726 18740 "presburger.ml" 593 18726 18752
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_true
+)
+"presburger.ml" 593 18726 18753 "presburger.ml" 593 18726 18755
+type(
+  unit
+)
+"presburger.ml" 593 18726 18740 "presburger.ml" 593 18726 18755
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 595 18757 18765 "presburger.ml" 595 18757 18766
+type(
+  Poly.poly
+)
+"presburger.ml" 595 18757 18770 "presburger.ml" 595 18757 18780
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_eq
+)
+"presburger.ml" 595 18757 18783 "presburger.ml" 595 18757 18795
+type(
+  Poly.poly -> Term.t
+)
+ident(
+  int_ref term_of_poly "presburger.ml" 560 18062 18066 "presburger.ml" 560 18062 18078
+)
+"presburger.ml" 595 18757 18796 "presburger.ml" 595 18757 18800
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 588 18649 18656 "presburger.ml" 588 18649 18660
+)
+"presburger.ml" 595 18757 18783 "presburger.ml" 595 18757 18800
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 595 18757 18803 "presburger.ml" 595 18757 18821
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"presburger.ml" 595 18757 18822 "presburger.ml" 595 18757 18823
+type(
+  int
+)
+"presburger.ml" 595 18757 18803 "presburger.ml" 595 18757 18823
+call(
+  stack
+)
+type(
+  Term.t
+)
+type(
+  Term.t list
+)
+"presburger.ml" 595 18757 18782 "presburger.ml" 595 18757 18823
+type(
+  Term.t list
+)
+"presburger.ml" 595 18757 18781 "presburger.ml" 595 18757 18824
+type(
+  Term.t list
+)
+"presburger.ml" 595 18757 18770 "presburger.ml" 595 18757 18824
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 590 18666 18671 "presburger.ml" 595 18757 18824
+type(
+  Term.t
+)
+"presburger.ml" 599 18875 18884 "presburger.ml" 599 18875 18888
+type(
+  Poly.poly
+)
+ident(
+  def poly "presburger.ml" 601 18894 18899 "presburger.ml" 608 19003 19079
+)
+"presburger.ml" 599 18875 18879 "presburger.ml" 599 18875 18888
+type(
+  Poly.preAtom
+)
+"presburger.ml" 601 18894 18905 "presburger.ml" 601 18894 18909
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 599 18875 18884 "presburger.ml" 599 18875 18888
+)
+"presburger.ml" 604 18956 18964 "presburger.ml" 604 18956 18966
+type(
+  Poly.poly
+)
+"presburger.ml" 604 18956 18970 "presburger.ml" 604 18956 18983
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_false
+)
+"presburger.ml" 604 18956 18984 "presburger.ml" 604 18956 18986
+type(
+  unit
+)
+"presburger.ml" 604 18956 18970 "presburger.ml" 604 18956 18986
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 606 18988 18996 "presburger.ml" 606 18988 18997
+type(
+  Poly.poly
+)
+"presburger.ml" 608 19003 19011 "presburger.ml" 608 19003 19022
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"presburger.ml" 608 19003 19024 "presburger.ml" 608 19003 19034
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_eq
+)
+"presburger.ml" 608 19003 19037 "presburger.ml" 608 19003 19049
+type(
+  Poly.poly -> Term.t
+)
+ident(
+  int_ref term_of_poly "presburger.ml" 560 18062 18066 "presburger.ml" 560 18062 18078
+)
+"presburger.ml" 608 19003 19050 "presburger.ml" 608 19003 19054
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 599 18875 18884 "presburger.ml" 599 18875 18888
+)
+"presburger.ml" 608 19003 19037 "presburger.ml" 608 19003 19054
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 608 19003 19057 "presburger.ml" 608 19003 19075
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"presburger.ml" 608 19003 19076 "presburger.ml" 608 19003 19077
+type(
+  int
+)
+"presburger.ml" 608 19003 19057 "presburger.ml" 608 19003 19077
+call(
+  stack
+)
+type(
+  Term.t
+)
+type(
+  Term.t list
+)
+"presburger.ml" 608 19003 19036 "presburger.ml" 608 19003 19077
+type(
+  Term.t list
+)
+"presburger.ml" 608 19003 19035 "presburger.ml" 608 19003 19078
+type(
+  Term.t list
+)
+"presburger.ml" 608 19003 19024 "presburger.ml" 608 19003 19078
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 608 19003 19011 "presburger.ml" 608 19003 19079
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 601 18894 18899 "presburger.ml" 608 19003 19079
+type(
+  Term.t
+)
+"presburger.ml" 613 19129 19144 "presburger.ml" 613 19129 19145
+type(
+  int
+)
+ident(
+  def i "presburger.ml" 615 19162 19167 "presburger.ml" 622 19262 19330
+)
+"presburger.ml" 613 19129 19147 "presburger.ml" 613 19129 19151
+type(
+  Poly.poly
+)
+ident(
+  def poly "presburger.ml" 615 19162 19167 "presburger.ml" 622 19262 19330
+)
+"presburger.ml" 613 19129 19133 "presburger.ml" 613 19129 19152
+type(
+  Poly.preAtom
+)
+type(
+  int * Poly.poly
+)
+"presburger.ml" 615 19162 19173 "presburger.ml" 615 19162 19177
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 613 19129 19147 "presburger.ml" 613 19129 19151
+)
+"presburger.ml" 618 19216 19224 "presburger.ml" 618 19216 19226
+type(
+  Poly.poly
+)
+"presburger.ml" 618 19216 19230 "presburger.ml" 618 19216 19242
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_true
+)
+"presburger.ml" 618 19216 19243 "presburger.ml" 618 19216 19245
+type(
+  unit
+)
+"presburger.ml" 618 19216 19230 "presburger.ml" 618 19216 19245
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 620 19247 19255 "presburger.ml" 620 19247 19256
+type(
+  Poly.poly
+)
+"presburger.ml" 622 19262 19270 "presburger.ml" 622 19262 19287
+type(
+  Lib.numeral -> Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_divisible
+)
+"presburger.ml" 622 19262 19289 "presburger.ml" 622 19262 19307
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"presburger.ml" 622 19262 19308 "presburger.ml" 622 19262 19309
+type(
+  int
+)
+ident(
+  int_ref i "presburger.ml" 613 19129 19144 "presburger.ml" 613 19129 19145
+)
+"presburger.ml" 622 19262 19289 "presburger.ml" 622 19262 19309
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"presburger.ml" 622 19262 19312 "presburger.ml" 622 19262 19324
+type(
+  Poly.poly -> Term.t
+)
+ident(
+  int_ref term_of_poly "presburger.ml" 560 18062 18066 "presburger.ml" 560 18062 18078
+)
+"presburger.ml" 622 19262 19325 "presburger.ml" 622 19262 19329
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 613 19129 19147 "presburger.ml" 613 19129 19151
+)
+"presburger.ml" 622 19262 19312 "presburger.ml" 622 19262 19329
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 622 19262 19270 "presburger.ml" 622 19262 19330
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 615 19162 19167 "presburger.ml" 622 19262 19330
+type(
+  Term.t
+)
+"presburger.ml" 627 19384 19401 "presburger.ml" 627 19384 19402
+type(
+  int
+)
+ident(
+  def i "presburger.ml" 629 19418 19423 "presburger.ml" 639 19606 19639
+)
+"presburger.ml" 627 19384 19404 "presburger.ml" 627 19384 19408
+type(
+  Poly.poly
+)
+ident(
+  def poly "presburger.ml" 629 19418 19423 "presburger.ml" 639 19606 19639
+)
+"presburger.ml" 627 19384 19388 "presburger.ml" 627 19384 19409
+type(
+  Poly.preAtom
+)
+type(
+  int * Poly.poly
+)
+"presburger.ml" 629 19418 19429 "presburger.ml" 629 19418 19433
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 627 19384 19404 "presburger.ml" 627 19384 19408
+)
+"presburger.ml" 632 19474 19482 "presburger.ml" 632 19474 19484
+type(
+  Poly.poly
+)
+"presburger.ml" 632 19474 19488 "presburger.ml" 632 19474 19501
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_false
+)
+"presburger.ml" 632 19474 19502 "presburger.ml" 632 19474 19504
+type(
+  unit
+)
+"presburger.ml" 632 19474 19488 "presburger.ml" 632 19474 19504
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 634 19506 19514 "presburger.ml" 634 19506 19515
+type(
+  Poly.poly
+)
+"presburger.ml" 636 19521 19529 "presburger.ml" 636 19521 19540
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"presburger.ml" 637 19541 19552 "presburger.ml" 637 19541 19569
+type(
+  Lib.numeral -> Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_divisible
+)
+"presburger.ml" 638 19570 19584 "presburger.ml" 638 19570 19602
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"presburger.ml" 638 19570 19603 "presburger.ml" 638 19570 19604
+type(
+  int
+)
+ident(
+  int_ref i "presburger.ml" 627 19384 19401 "presburger.ml" 627 19384 19402
+)
+"presburger.ml" 638 19570 19584 "presburger.ml" 638 19570 19604
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"presburger.ml" 639 19606 19620 "presburger.ml" 639 19606 19632
+type(
+  Poly.poly -> Term.t
+)
+ident(
+  int_ref term_of_poly "presburger.ml" 560 18062 18066 "presburger.ml" 560 18062 18078
+)
+"presburger.ml" 639 19606 19633 "presburger.ml" 639 19606 19637
+type(
+  Poly.poly
+)
+ident(
+  int_ref poly "presburger.ml" 627 19384 19404 "presburger.ml" 627 19384 19408
+)
+"presburger.ml" 639 19606 19620 "presburger.ml" 639 19606 19637
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 637 19541 19552 "presburger.ml" 639 19606 19638
+call(
+  stack
+)
+type(
+  Term.t
+)
+"presburger.ml" 636 19521 19529 "presburger.ml" 639 19606 19639
+call(
+  tail
+)
+type(
+  Term.t
+)
+"presburger.ml" 629 19418 19423 "presburger.ml" 639 19606 19639
+type(
+  Term.t
+)
+"presburger.ml" 573 18355 18377 "presburger.ml" 641 19641 19646
+type(
+  Poly.preAtom -> Term.t
+)
+"presburger.ml" 645 19710 19714 "presburger.ml" 645 19710 19730
+type(
+  Poly.preAtom list -> Term.t list
+)
+ident(
+  def term_of_cformula "presburger.ml" 645 19710 19761 "_none_" 1 0 -1
+)
+"presburger.ml" 645 19710 19731 "presburger.ml" 645 19710 19732
+type(
+  Poly.preAtom list
+)
+ident(
+  def l "presburger.ml" 645 19710 19735 "presburger.ml" 645 19710 19761
+)
+"presburger.ml" 645 19710 19735 "presburger.ml" 645 19710 19743
+type(
+  (Poly.preAtom -> Term.t) -> Poly.preAtom list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"presburger.ml" 645 19710 19744 "presburger.ml" 645 19710 19759
+type(
+  Poly.preAtom -> Term.t
+)
+ident(
+  int_ref term_of_preAtom "presburger.ml" 573 18355 18359 "presburger.ml" 573 18355 18374
+)
+"presburger.ml" 645 19710 19760 "presburger.ml" 645 19710 19761
+type(
+  Poly.preAtom list
+)
+ident(
+  int_ref l "presburger.ml" 645 19710 19731 "presburger.ml" 645 19710 19732
+)
+"presburger.ml" 645 19710 19735 "presburger.ml" 645 19710 19761
+call(
+  tail
+)
+type(
+  Term.t list
+)
+"presburger.ml" 645 19710 19731 "presburger.ml" 645 19710 19761
+type(
+  Poly.preAtom list -> Term.t list
+)

@@ -1,0 +1,5085 @@
+"SMTLIBSolver.ml" 67 3057 3061 "SMTLIBSolver.ml" 67 3057 3067
+type(
+  Flags.z3_bin
+)
+ident(
+  def z3_bin "SMTLIBSolver.ml" 71 3116 3116 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 67 3057 3070 "SMTLIBSolver.ml" 67 3057 3082
+type(
+  unit -> Flags.z3_bin
+)
+ident(
+  ext_ref Flags.z3_bin
+)
+"SMTLIBSolver.ml" 67 3057 3083 "SMTLIBSolver.ml" 67 3057 3085
+type(
+  unit
+)
+"SMTLIBSolver.ml" 67 3057 3070 "SMTLIBSolver.ml" 67 3057 3085
+call(
+  stack
+)
+type(
+  Flags.z3_bin
+)
+"SMTLIBSolver.ml" 71 3116 3120 "SMTLIBSolver.ml" 71 3116 3142
+type(
+  config
+)
+ident(
+  def smtlibsolver_config_z3 "SMTLIBSolver.ml" 76 3235 3235 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 72 3146 3166 "SMTLIBSolver.ml" 72 3146 3172
+type(
+  Flags.z3_bin
+)
+ident(
+  int_ref z3_bin "SMTLIBSolver.ml" 67 3057 3061 "SMTLIBSolver.ml" 67 3057 3067
+)
+"SMTLIBSolver.ml" 72 3146 3174 "SMTLIBSolver.ml" 72 3146 3181
+type(
+  Flags.z3_bin
+)
+"SMTLIBSolver.ml" 72 3146 3183 "SMTLIBSolver.ml" 72 3146 3188
+type(
+  Flags.z3_bin
+)
+"SMTLIBSolver.ml" 72 3146 3163 "SMTLIBSolver.ml" 72 3146 3191
+type(
+  Flags.z3_bin array
+)
+"SMTLIBSolver.ml" 72 3146 3148 "SMTLIBSolver.ml" 72 3146 3193
+type(
+  config
+)
+"SMTLIBSolver.ml" 76 3235 3239 "SMTLIBSolver.ml" 76 3235 3247
+type(
+  Flags.cvc4_bin
+)
+ident(
+  def cvc4_bin "SMTLIBSolver.ml" 80 3300 3300 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 76 3235 3250 "SMTLIBSolver.ml" 76 3235 3264
+type(
+  unit -> Flags.cvc4_bin
+)
+ident(
+  ext_ref Flags.cvc4_bin
+)
+"SMTLIBSolver.ml" 76 3235 3265 "SMTLIBSolver.ml" 76 3235 3267
+type(
+  unit
+)
+"SMTLIBSolver.ml" 76 3235 3250 "SMTLIBSolver.ml" 76 3235 3267
+call(
+  stack
+)
+type(
+  Flags.cvc4_bin
+)
+"SMTLIBSolver.ml" 80 3300 3304 "SMTLIBSolver.ml" 80 3300 3328
+type(
+  config
+)
+ident(
+  def smtlibsolver_config_cvc4 "SMTLIBSolver.ml" 85 3446 3446 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 81 3332 3352 "SMTLIBSolver.ml" 81 3332 3360
+type(
+  Flags.cvc4_bin
+)
+ident(
+  int_ref cvc4_bin "SMTLIBSolver.ml" 76 3235 3239 "SMTLIBSolver.ml" 76 3235 3247
+)
+"SMTLIBSolver.ml" 81 3332 3362 "SMTLIBSolver.ml" 81 3332 3370
+type(
+  Flags.cvc4_bin
+)
+"SMTLIBSolver.ml" 81 3332 3372 "SMTLIBSolver.ml" 81 3332 3378
+type(
+  Flags.cvc4_bin
+)
+"SMTLIBSolver.ml" 81 3332 3380 "SMTLIBSolver.ml" 81 3332 3395
+type(
+  Flags.cvc4_bin
+)
+"SMTLIBSolver.ml" 81 3332 3349 "SMTLIBSolver.ml" 81 3332 3398
+type(
+  Flags.cvc4_bin array
+)
+"SMTLIBSolver.ml" 81 3332 3334 "SMTLIBSolver.ml" 81 3332 3400
+type(
+  config
+)
+"SMTLIBSolver.ml" 85 3446 3450 "SMTLIBSolver.ml" 85 3446 3465
+type(
+  unit -> config
+)
+ident(
+  def config_of_flags "SMTLIBSolver.ml" 95 3799 3799 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 85 3446 3466 "SMTLIBSolver.ml" 85 3446 3468
+type(
+  unit
+)
+"SMTLIBSolver.ml" 85 3446 3477 "SMTLIBSolver.ml" 85 3446 3492
+type(
+  unit -> Flags.smtsolver
+)
+ident(
+  ext_ref Flags.smtsolver
+)
+"SMTLIBSolver.ml" 85 3446 3493 "SMTLIBSolver.ml" 85 3446 3495
+type(
+  unit
+)
+"SMTLIBSolver.ml" 85 3446 3477 "SMTLIBSolver.ml" 85 3446 3495
+call(
+  stack
+)
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 86 3502 3506 "SMTLIBSolver.ml" 86 3502 3516
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 86 3502 3520 "SMTLIBSolver.ml" 86 3502 3542
+type(
+  config
+)
+ident(
+  int_ref smtlibsolver_config_z3 "SMTLIBSolver.ml" 71 3116 3120 "SMTLIBSolver.ml" 71 3116 3142
+)
+"SMTLIBSolver.ml" 87 3543 3547 "SMTLIBSolver.ml" 87 3543 3559
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 87 3543 3563 "SMTLIBSolver.ml" 87 3543 3587
+type(
+  config
+)
+ident(
+  int_ref smtlibsolver_config_cvc4 "SMTLIBSolver.ml" 80 3300 3304 "SMTLIBSolver.ml" 80 3300 3328
+)
+"SMTLIBSolver.ml" 88 3588 3592 "SMTLIBSolver.ml" 88 3588 3593
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 89 3598 3603 "SMTLIBSolver.ml" 89 3598 3612
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"SMTLIBSolver.ml" 89 3598 3613 "SMTLIBSolver.ml" 89 3598 3620
+type(
+  Lib.kind_module
+)
+"SMTLIBSolver.ml" 89 3598 3621 "SMTLIBSolver.ml" 89 3598 3634
+type(
+  Event.log_level
+)
+"SMTLIBSolver.ml" 89 3598 3635 "SMTLIBSolver.ml" 89 3598 3663
+type(
+  (unit, Format.formatter, unit) format
+)
+"SMTLIBSolver.ml" 89 3598 3603 "SMTLIBSolver.ml" 89 3598 3663
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 90 3666 3670 "SMTLIBSolver.ml" 90 3666 3678
+type(
+  string -> config
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SMTLIBSolver.ml" 90 3666 3679 "SMTLIBSolver.ml" 90 3666 3709
+type(
+  string
+)
+"SMTLIBSolver.ml" 90 3666 3670 "SMTLIBSolver.ml" 90 3666 3709
+call(
+  tail
+)
+type(
+  config
+)
+"SMTLIBSolver.ml" 89 3598 3603 "SMTLIBSolver.ml" 90 3666 3709
+type(
+  config
+)
+"SMTLIBSolver.ml" 85 3446 3471 "SMTLIBSolver.ml" 90 3666 3709
+type(
+  config
+)
+"SMTLIBSolver.ml" 85 3446 3466 "SMTLIBSolver.ml" 90 3666 3709
+type(
+  unit -> config
+)
+"SMTLIBSolver.ml" 95 3799 3803 "SMTLIBSolver.ml" 95 3799 3827
+type(
+  int -> string
+)
+ident(
+  def z3_check_sat_limited_cmd "SMTLIBSolver.ml" 101 3978 3978 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 95 3799 3828 "SMTLIBSolver.ml" 95 3799 3830
+type(
+  int
+)
+ident(
+  def ms "SMTLIBSolver.ml" 96 3834 3836 "SMTLIBSolver.ml" 96 3834 3890
+)
+"SMTLIBSolver.ml" 96 3834 3836 "SMTLIBSolver.ml" 96 3834 3850
+type(
+  (int -> string, unit, string) format -> int -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 96 3834 3851 "SMTLIBSolver.ml" 96 3834 3887
+type(
+  (int -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 96 3834 3888 "SMTLIBSolver.ml" 96 3834 3890
+type(
+  int
+)
+ident(
+  int_ref ms "SMTLIBSolver.ml" 95 3799 3828 "SMTLIBSolver.ml" 95 3799 3830
+)
+"SMTLIBSolver.ml" 96 3834 3836 "SMTLIBSolver.ml" 96 3834 3890
+call(
+  tail
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 95 3799 3828 "SMTLIBSolver.ml" 96 3834 3890
+type(
+  int -> string
+)
+"SMTLIBSolver.ml" 101 3978 3982 "SMTLIBSolver.ml" 101 3978 4008
+type(
+  'a -> 'b
+)
+ident(
+  def cvc4_check_sat_limited_cmd "SMTLIBSolver.ml" 106 4151 4151 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 101 3978 4009 "SMTLIBSolver.ml" 101 3978 4010
+type(
+  'a
+)
+"SMTLIBSolver.ml" 102 4014 4016 "SMTLIBSolver.ml" 102 4014 4024
+type(
+  string -> 'b
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SMTLIBSolver.ml" 102 4014 4025 "SMTLIBSolver.ml" 102 4014 4074
+type(
+  string
+)
+"SMTLIBSolver.ml" 102 4014 4016 "SMTLIBSolver.ml" 102 4014 4074
+call(
+  tail
+)
+type(
+  'b
+)
+"SMTLIBSolver.ml" 101 3978 4009 "SMTLIBSolver.ml" 102 4014 4074
+type(
+  'a -> 'b
+)
+"SMTLIBSolver.ml" 106 4151 4155 "SMTLIBSolver.ml" 106 4151 4176
+type(
+  int -> string
+)
+ident(
+  def check_sat_limited_cmd "SMTLIBSolver.ml" 120 4719 4719 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 106 4151 4177 "SMTLIBSolver.ml" 106 4151 4179
+type(
+  int
+)
+ident(
+  def ms "SMTLIBSolver.ml" 106 4151 4182 "SMTLIBSolver.ml" 111 4387 4436
+)
+"SMTLIBSolver.ml" 106 4151 4188 "SMTLIBSolver.ml" 106 4151 4203
+type(
+  unit -> Flags.smtsolver
+)
+ident(
+  ext_ref Flags.smtsolver
+)
+"SMTLIBSolver.ml" 106 4151 4204 "SMTLIBSolver.ml" 106 4151 4206
+type(
+  unit
+)
+"SMTLIBSolver.ml" 106 4151 4188 "SMTLIBSolver.ml" 106 4151 4206
+call(
+  stack
+)
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 107 4213 4217 "SMTLIBSolver.ml" 107 4213 4227
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 107 4213 4231 "SMTLIBSolver.ml" 107 4213 4255
+type(
+  int -> string
+)
+ident(
+  int_ref z3_check_sat_limited_cmd "SMTLIBSolver.ml" 95 3799 3803 "SMTLIBSolver.ml" 95 3799 3827
+)
+"SMTLIBSolver.ml" 107 4213 4256 "SMTLIBSolver.ml" 107 4213 4258
+type(
+  int
+)
+ident(
+  int_ref ms "SMTLIBSolver.ml" 106 4151 4177 "SMTLIBSolver.ml" 106 4151 4179
+)
+"SMTLIBSolver.ml" 107 4213 4231 "SMTLIBSolver.ml" 107 4213 4258
+call(
+  tail
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 108 4259 4263 "SMTLIBSolver.ml" 108 4259 4275
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 108 4259 4279 "SMTLIBSolver.ml" 108 4259 4305
+type(
+  int -> string
+)
+ident(
+  int_ref cvc4_check_sat_limited_cmd "SMTLIBSolver.ml" 101 3978 3982 "SMTLIBSolver.ml" 101 3978 4008
+)
+"SMTLIBSolver.ml" 108 4259 4306 "SMTLIBSolver.ml" 108 4259 4308
+type(
+  int
+)
+ident(
+  int_ref ms "SMTLIBSolver.ml" 106 4151 4177 "SMTLIBSolver.ml" 106 4151 4179
+)
+"SMTLIBSolver.ml" 108 4259 4279 "SMTLIBSolver.ml" 108 4259 4308
+call(
+  tail
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 109 4309 4313 "SMTLIBSolver.ml" 109 4309 4314
+type(
+  Flags.smtsolver
+)
+"SMTLIBSolver.ml" 110 4319 4324 "SMTLIBSolver.ml" 110 4319 4333
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"SMTLIBSolver.ml" 110 4319 4334 "SMTLIBSolver.ml" 110 4319 4341
+type(
+  Lib.kind_module
+)
+"SMTLIBSolver.ml" 110 4319 4342 "SMTLIBSolver.ml" 110 4319 4355
+type(
+  Event.log_level
+)
+"SMTLIBSolver.ml" 110 4319 4356 "SMTLIBSolver.ml" 110 4319 4384
+type(
+  (unit, Format.formatter, unit) format
+)
+"SMTLIBSolver.ml" 110 4319 4324 "SMTLIBSolver.ml" 110 4319 4384
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 111 4387 4391 "SMTLIBSolver.ml" 111 4387 4399
+type(
+  string -> string
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SMTLIBSolver.ml" 111 4387 4400 "SMTLIBSolver.ml" 111 4387 4436
+type(
+  string
+)
+"SMTLIBSolver.ml" 111 4387 4391 "SMTLIBSolver.ml" 111 4387 4436
+call(
+  tail
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 110 4319 4324 "SMTLIBSolver.ml" 111 4387 4436
+type(
+  string
+)
+"SMTLIBSolver.ml" 106 4151 4182 "SMTLIBSolver.ml" 111 4387 4436
+type(
+  string
+)
+"SMTLIBSolver.ml" 106 4151 4177 "SMTLIBSolver.ml" 111 4387 4436
+type(
+  int -> string
+)
+"SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  def expr_of_solver_lexbuf "SMTLIBSolver.ml" 127 4906 4906 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 120 4719 4763 "SMTLIBSolver.ml" 120 4719 4769
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SMTLIBSolver.ml" 123 4814 4816 "SMTLIBSolver.ml" 123 4814 4855
+)
+"SMTLIBSolver.ml" 120 4719 4745 "SMTLIBSolver.ml" 120 4719 4771
+type(
+  t
+)
+"SMTLIBSolver.ml" 123 4814 4816 "SMTLIBSolver.ml" 123 4814 4832
+type(
+  (Lexing.lexbuf -> SExprParser.token) -> Lexing.lexbuf -> HStringSExpr.t
+)
+ident(
+  ext_ref SExprParser.sexp
+)
+"SMTLIBSolver.ml" 123 4814 4833 "SMTLIBSolver.ml" 123 4814 4848
+call(
+  tail
+)
+type(
+  ?buf:Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  ext_ref SExprLexer.main
+)
+"SMTLIBSolver.ml" 123 4814 4849 "SMTLIBSolver.ml" 123 4814 4855
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SMTLIBSolver.ml" 120 4719 4763 "SMTLIBSolver.ml" 120 4719 4769
+)
+"SMTLIBSolver.ml" 123 4814 4816 "SMTLIBSolver.ml" 123 4814 4855
+call(
+  tail
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 120 4719 4745 "SMTLIBSolver.ml" 123 4814 4855
+type(
+  t -> HStringSExpr.t
+)
+"SMTLIBSolver.ml" 127 4906 4910 "SMTLIBSolver.ml" 127 4906 4930
+type(
+  t -> 'a -> SMTExpr.response
+)
+ident(
+  def get_command_response "SMTLIBSolver.ml" 134 5082 5082 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 127 4906 4931 "SMTLIBSolver.ml" 127 4906 4937
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 127 4906 4938 "SMTLIBSolver.ml" 130 4974 5024
+)
+"SMTLIBSolver.ml" 127 4906 4938 "SMTLIBSolver.ml" 127 4906 4945
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 130 4974 4976 "SMTLIBSolver.ml" 130 4974 5024
+)
+"SMTLIBSolver.ml" 130 4974 4976 "SMTLIBSolver.ml" 130 4974 4993
+type(
+  HStringSExpr.t -> SMTExpr.response
+)
+ident(
+  ext_ref SMTExpr.response_of_sexpr
+)
+"SMTLIBSolver.ml" 130 4974 4995 "SMTLIBSolver.ml" 130 4974 5016
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  int_ref expr_of_solver_lexbuf "SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+)
+"SMTLIBSolver.ml" 130 4974 5017 "SMTLIBSolver.ml" 130 4974 5023
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 127 4906 4931 "SMTLIBSolver.ml" 127 4906 4937
+)
+"SMTLIBSolver.ml" 130 4974 4995 "SMTLIBSolver.ml" 130 4974 5023
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 130 4974 4976 "SMTLIBSolver.ml" 130 4974 5024
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 127 4906 4938 "SMTLIBSolver.ml" 130 4974 5024
+type(
+  'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 127 4906 4931 "SMTLIBSolver.ml" 130 4974 5024
+type(
+  t -> 'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 134 5082 5086 "SMTLIBSolver.ml" 134 5082 5108
+type(
+  t -> 'a -> SMTExpr.check_sat_response
+)
+ident(
+  def get_check_sat_response "SMTLIBSolver.ml" 141 5270 5270 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 134 5082 5109 "SMTLIBSolver.ml" 134 5082 5115
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 134 5082 5116 "SMTLIBSolver.ml" 137 5152 5212
+)
+"SMTLIBSolver.ml" 134 5082 5116 "SMTLIBSolver.ml" 134 5082 5123
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 137 5152 5154 "SMTLIBSolver.ml" 137 5152 5212
+)
+"SMTLIBSolver.ml" 137 5152 5154 "SMTLIBSolver.ml" 137 5152 5181
+type(
+  HStringSExpr.t -> SMTExpr.check_sat_response
+)
+ident(
+  ext_ref SMTExpr.check_sat_response_of_sexpr
+)
+"SMTLIBSolver.ml" 137 5152 5183 "SMTLIBSolver.ml" 137 5152 5204
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  int_ref expr_of_solver_lexbuf "SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+)
+"SMTLIBSolver.ml" 137 5152 5205 "SMTLIBSolver.ml" 137 5152 5211
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 134 5082 5109 "SMTLIBSolver.ml" 134 5082 5115
+)
+"SMTLIBSolver.ml" 137 5152 5183 "SMTLIBSolver.ml" 137 5152 5211
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 137 5152 5154 "SMTLIBSolver.ml" 137 5152 5212
+call(
+  tail
+)
+type(
+  SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 134 5082 5116 "SMTLIBSolver.ml" 137 5152 5212
+type(
+  'a -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 134 5082 5109 "SMTLIBSolver.ml" 137 5152 5212
+type(
+  t -> 'a -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 141 5270 5274 "SMTLIBSolver.ml" 141 5270 5296
+type(
+  t -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  def get_get_value_response "SMTLIBSolver.ml" 148 5469 5469 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 141 5270 5297 "SMTLIBSolver.ml" 141 5270 5303
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 141 5270 5304 "SMTLIBSolver.ml" 144 5340 5400
+)
+"SMTLIBSolver.ml" 141 5270 5304 "SMTLIBSolver.ml" 141 5270 5311
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 144 5340 5342 "SMTLIBSolver.ml" 144 5340 5400
+)
+"SMTLIBSolver.ml" 144 5340 5342 "SMTLIBSolver.ml" 144 5340 5369
+type(
+  HStringSExpr.t -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  ext_ref SMTExpr.get_value_response_of_sexpr
+)
+"SMTLIBSolver.ml" 144 5340 5371 "SMTLIBSolver.ml" 144 5340 5392
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  int_ref expr_of_solver_lexbuf "SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+)
+"SMTLIBSolver.ml" 144 5340 5393 "SMTLIBSolver.ml" 144 5340 5399
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 141 5270 5297 "SMTLIBSolver.ml" 141 5270 5303
+)
+"SMTLIBSolver.ml" 144 5340 5371 "SMTLIBSolver.ml" 144 5340 5399
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 144 5340 5342 "SMTLIBSolver.ml" 144 5340 5400
+call(
+  tail
+)
+type(
+  SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 141 5270 5304 "SMTLIBSolver.ml" 144 5340 5400
+type(
+  'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 141 5270 5297 "SMTLIBSolver.ml" 144 5340 5400
+type(
+  t -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 148 5469 5473 "SMTLIBSolver.ml" 148 5469 5500
+type(
+  t -> 'a -> SMTExpr.response * string list
+)
+ident(
+  def get_get_unsat_core_response "SMTLIBSolver.ml" 155 5660 5660 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 148 5469 5501 "SMTLIBSolver.ml" 148 5469 5507
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 148 5469 5508 "SMTLIBSolver.ml" 151 5544 5609
+)
+"SMTLIBSolver.ml" 148 5469 5508 "SMTLIBSolver.ml" 148 5469 5515
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 151 5544 5546 "SMTLIBSolver.ml" 151 5544 5609
+)
+"SMTLIBSolver.ml" 151 5544 5546 "SMTLIBSolver.ml" 151 5544 5578
+type(
+  HStringSExpr.t -> SMTExpr.response * string list
+)
+ident(
+  ext_ref SMTExpr.get_unsat_core_response_of_sexpr
+)
+"SMTLIBSolver.ml" 151 5544 5580 "SMTLIBSolver.ml" 151 5544 5601
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  int_ref expr_of_solver_lexbuf "SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+)
+"SMTLIBSolver.ml" 151 5544 5602 "SMTLIBSolver.ml" 151 5544 5608
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 148 5469 5501 "SMTLIBSolver.ml" 148 5469 5507
+)
+"SMTLIBSolver.ml" 151 5544 5580 "SMTLIBSolver.ml" 151 5544 5608
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 151 5544 5546 "SMTLIBSolver.ml" 151 5544 5609
+call(
+  tail
+)
+type(
+  SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 148 5469 5508 "SMTLIBSolver.ml" 151 5544 5609
+type(
+  'a -> SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 148 5469 5501 "SMTLIBSolver.ml" 151 5544 5609
+type(
+  t -> 'a -> SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 155 5660 5668 "SMTLIBSolver.ml" 155 5660 5693
+type(
+  t -> HStringSExpr.t list -> int -> HStringSExpr.t list
+)
+ident(
+  def get_custom_command_result "SMTLIBSolver.ml" 155 5660 5660 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 155 5660 5694 "SMTLIBSolver.ml" 155 5660 5700
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 155 5660 5701 "SMTLIBSolver.ml" 166 5971 5985
+)
+"SMTLIBSolver.ml" 155 5660 5701 "SMTLIBSolver.ml" 155 5660 5706
+type(
+  HStringSExpr.t list
+)
+ident(
+  def accum "SMTLIBSolver.ml" 155 5660 5709 "SMTLIBSolver.ml" 166 5971 5985
+)
+"SMTLIBSolver.ml" 158 5766 5770 "SMTLIBSolver.ml" 158 5766 5771
+type(
+  int
+)
+ident(
+  def i "SMTLIBSolver.ml" 158 5766 5777 "SMTLIBSolver.ml" 158 5766 5783
+)
+"SMTLIBSolver.ml" 158 5766 5777 "SMTLIBSolver.ml" 158 5766 5778
+type(
+  int
+)
+ident(
+  int_ref i "SMTLIBSolver.ml" 158 5766 5770 "SMTLIBSolver.ml" 158 5766 5771
+)
+"SMTLIBSolver.ml" 158 5766 5779 "SMTLIBSolver.ml" 158 5766 5781
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( <= )
+)
+"SMTLIBSolver.ml" 158 5766 5782 "SMTLIBSolver.ml" 158 5766 5783
+type(
+  int
+)
+"SMTLIBSolver.ml" 158 5766 5777 "SMTLIBSolver.ml" 158 5766 5783
+type(
+  HStringSExpr.t list
+)
+type(
+  bool
+)
+"SMTLIBSolver.ml" 158 5766 5787 "SMTLIBSolver.ml" 158 5766 5795
+type(
+  HStringSExpr.t list -> HStringSExpr.t list
+)
+ident(
+  ext_ref List.rev
+)
+"SMTLIBSolver.ml" 158 5766 5796 "SMTLIBSolver.ml" 158 5766 5801
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref accum "SMTLIBSolver.ml" 155 5660 5701 "SMTLIBSolver.ml" 155 5660 5706
+)
+"SMTLIBSolver.ml" 158 5766 5787 "SMTLIBSolver.ml" 158 5766 5801
+call(
+  tail
+)
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 161 5869 5873 "SMTLIBSolver.ml" 161 5869 5874
+type(
+  int
+)
+ident(
+  def i "SMTLIBSolver.ml" 163 5880 5884 "SMTLIBSolver.ml" 166 5971 5985
+)
+"SMTLIBSolver.ml" 163 5880 5884 "SMTLIBSolver.ml" 163 5880 5909
+type(
+  t -> HStringSExpr.t list -> int -> HStringSExpr.t list
+)
+ident(
+  int_ref get_custom_command_result "SMTLIBSolver.ml" 155 5660 5668 "SMTLIBSolver.ml" 155 5660 5693
+)
+"SMTLIBSolver.ml" 164 5911 5917 "SMTLIBSolver.ml" 164 5911 5923
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 155 5660 5694 "SMTLIBSolver.ml" 155 5660 5700
+)
+"SMTLIBSolver.ml" 165 5924 5931 "SMTLIBSolver.ml" 165 5924 5952
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  int_ref expr_of_solver_lexbuf "SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+)
+"SMTLIBSolver.ml" 165 5924 5953 "SMTLIBSolver.ml" 165 5924 5959
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 155 5660 5694 "SMTLIBSolver.ml" 155 5660 5700
+)
+"SMTLIBSolver.ml" 165 5924 5931 "SMTLIBSolver.ml" 165 5924 5959
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 165 5924 5963 "SMTLIBSolver.ml" 165 5924 5968
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref accum "SMTLIBSolver.ml" 155 5660 5701 "SMTLIBSolver.ml" 155 5660 5706
+)
+"SMTLIBSolver.ml" 165 5924 5931 "SMTLIBSolver.ml" 165 5924 5968
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 166 5971 5978 "SMTLIBSolver.ml" 166 5971 5982
+type(
+  int -> int
+)
+ident(
+  ext_ref Pervasives.pred
+)
+"SMTLIBSolver.ml" 166 5971 5983 "SMTLIBSolver.ml" 166 5971 5984
+type(
+  int
+)
+ident(
+  int_ref i "SMTLIBSolver.ml" 161 5869 5873 "SMTLIBSolver.ml" 161 5869 5874
+)
+"SMTLIBSolver.ml" 166 5971 5978 "SMTLIBSolver.ml" 166 5971 5984
+type(
+  int
+)
+"SMTLIBSolver.ml" 163 5880 5884 "SMTLIBSolver.ml" 166 5971 5985
+call(
+  tail
+)
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 155 5660 5709 "SMTLIBSolver.ml" 166 5971 5985
+type(
+  int -> HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 155 5660 5701 "SMTLIBSolver.ml" 166 5971 5985
+type(
+  HStringSExpr.t list -> int -> HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 155 5660 5694 "SMTLIBSolver.ml" 166 5971 5985
+type(
+  t -> HStringSExpr.t list -> int -> HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 170 6040 6044 "SMTLIBSolver.ml" 170 6040 6071
+type(
+  int -> t -> 'a -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  def get_custom_command_response "SMTLIBSolver.ml" 207 7068 7068 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 170 6040 6072 "SMTLIBSolver.ml" 170 6040 6079
+type(
+  int
+)
+ident(
+  def num_res "SMTLIBSolver.ml" 170 6040 6080 "SMTLIBSolver.ml" 203 7005 7018
+)
+"SMTLIBSolver.ml" 170 6040 6080 "SMTLIBSolver.ml" 170 6040 6086
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 170 6040 6087 "SMTLIBSolver.ml" 203 7005 7018
+)
+"SMTLIBSolver.ml" 170 6040 6087 "SMTLIBSolver.ml" 170 6040 6094
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 173 6132 6134 "SMTLIBSolver.ml" 203 7005 7018
+)
+"SMTLIBSolver.ml" 173 6132 6138 "SMTLIBSolver.ml" 173 6132 6146
+type(
+  HStringSExpr.t
+)
+ident(
+  def response "SMTLIBSolver.ml" 176 6219 6221 "SMTLIBSolver.ml" 203 7005 7018
+)
+"SMTLIBSolver.ml" 173 6132 6149 "SMTLIBSolver.ml" 173 6132 6170
+type(
+  t -> HStringSExpr.t
+)
+ident(
+  int_ref expr_of_solver_lexbuf "SMTLIBSolver.ml" 120 4719 4723 "SMTLIBSolver.ml" 120 4719 4744
+)
+"SMTLIBSolver.ml" 173 6132 6171 "SMTLIBSolver.ml" 173 6132 6177
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 170 6040 6080 "SMTLIBSolver.ml" 170 6040 6086
+)
+"SMTLIBSolver.ml" 173 6132 6149 "SMTLIBSolver.ml" 173 6132 6177
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"SMTLIBSolver.ml" 176 6219 6227 "SMTLIBSolver.ml" 176 6219 6263
+type(
+  HStringSExpr.t -> SMTExpr.response
+)
+ident(
+  ext_ref SMTExpr.get_custom_command_response_of_sexpr
+)
+"SMTLIBSolver.ml" 176 6219 6264 "SMTLIBSolver.ml" 176 6219 6272
+type(
+  HStringSExpr.t
+)
+ident(
+  int_ref response "SMTLIBSolver.ml" 173 6132 6138 "SMTLIBSolver.ml" 173 6132 6146
+)
+"SMTLIBSolver.ml" 176 6219 6227 "SMTLIBSolver.ml" 176 6219 6272
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 179 6328 6334 "SMTLIBSolver.ml" 179 6328 6341
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 182 6381 6391 "SMTLIBSolver.ml" 182 6381 6397
+type(
+  HStringSExpr.t list
+)
+ident(
+  def result "SMTLIBSolver.ml" 185 6487 6494 "SMTLIBSolver.ml" 185 6487 6509
+)
+"SMTLIBSolver.ml" 182 6381 6400 "SMTLIBSolver.ml" 182 6381 6425
+type(
+  t -> HStringSExpr.t list -> int -> HStringSExpr.t list
+)
+ident(
+  int_ref get_custom_command_result "SMTLIBSolver.ml" 155 5660 5668 "SMTLIBSolver.ml" 155 5660 5693
+)
+"SMTLIBSolver.ml" 182 6381 6426 "SMTLIBSolver.ml" 182 6381 6432
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 170 6040 6080 "SMTLIBSolver.ml" 170 6040 6086
+)
+"SMTLIBSolver.ml" 182 6381 6433 "SMTLIBSolver.ml" 182 6381 6435
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 182 6381 6436 "SMTLIBSolver.ml" 182 6381 6443
+type(
+  int
+)
+ident(
+  int_ref num_res "SMTLIBSolver.ml" 170 6040 6072 "SMTLIBSolver.ml" 170 6040 6079
+)
+"SMTLIBSolver.ml" 182 6381 6400 "SMTLIBSolver.ml" 182 6381 6443
+call(
+  stack
+)
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 185 6487 6494 "SMTLIBSolver.ml" 185 6487 6501
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 185 6487 6503 "SMTLIBSolver.ml" 185 6487 6509
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref result "SMTLIBSolver.ml" 182 6381 6391 "SMTLIBSolver.ml" 182 6381 6397
+)
+"SMTLIBSolver.ml" 185 6487 6494 "SMTLIBSolver.ml" 185 6487 6509
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 182 6381 6387 "SMTLIBSolver.ml" 185 6487 6510
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 188 6580 6586 "SMTLIBSolver.ml" 188 6580 6596
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 191 6674 6684 "SMTLIBSolver.ml" 191 6674 6690
+type(
+  HStringSExpr.t list
+)
+ident(
+  def result "SMTLIBSolver.ml" 196 6820 6827 "SMTLIBSolver.ml" 196 6820 6842
+)
+"SMTLIBSolver.ml" 192 6694 6702 "SMTLIBSolver.ml" 192 6694 6710
+type(
+  HStringSExpr.t
+)
+ident(
+  int_ref response "SMTLIBSolver.ml" 173 6132 6138 "SMTLIBSolver.ml" 173 6132 6146
+)
+"SMTLIBSolver.ml" 192 6694 6714 "SMTLIBSolver.ml" 192 6694 6739
+type(
+  t -> HStringSExpr.t list -> int -> HStringSExpr.t list
+)
+ident(
+  int_ref get_custom_command_result "SMTLIBSolver.ml" 155 5660 5668 "SMTLIBSolver.ml" 155 5660 5693
+)
+"SMTLIBSolver.ml" 192 6694 6740 "SMTLIBSolver.ml" 192 6694 6746
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 170 6040 6080 "SMTLIBSolver.ml" 170 6040 6086
+)
+"SMTLIBSolver.ml" 192 6694 6747 "SMTLIBSolver.ml" 192 6694 6749
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 192 6694 6751 "SMTLIBSolver.ml" 192 6694 6755
+type(
+  int -> int
+)
+ident(
+  ext_ref Pervasives.pred
+)
+"SMTLIBSolver.ml" 192 6694 6756 "SMTLIBSolver.ml" 192 6694 6763
+type(
+  int
+)
+ident(
+  int_ref num_res "SMTLIBSolver.ml" 170 6040 6072 "SMTLIBSolver.ml" 170 6040 6079
+)
+"SMTLIBSolver.ml" 192 6694 6751 "SMTLIBSolver.ml" 192 6694 6763
+type(
+  int
+)
+"SMTLIBSolver.ml" 192 6694 6714 "SMTLIBSolver.ml" 192 6694 6764
+call(
+  stack
+)
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 192 6694 6702 "SMTLIBSolver.ml" 192 6694 6764
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 196 6820 6827 "SMTLIBSolver.ml" 196 6820 6834
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 196 6820 6836 "SMTLIBSolver.ml" 196 6820 6842
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref result "SMTLIBSolver.ml" 191 6674 6684 "SMTLIBSolver.ml" 191 6674 6690
+)
+"SMTLIBSolver.ml" 196 6820 6827 "SMTLIBSolver.ml" 196 6820 6842
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 191 6674 6680 "SMTLIBSolver.ml" 196 6820 6843
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 199 6908 6921 "SMTLIBSolver.ml" 199 6908 6922
+type(
+  string
+)
+"SMTLIBSolver.ml" 199 6908 6915 "SMTLIBSolver.ml" 199 6908 6922
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 199 6908 6915 "SMTLIBSolver.ml" 199 6908 6927
+type(
+  SMTExpr.response
+)
+ident(
+  def r "SMTLIBSolver.ml" 203 7005 7012 "SMTLIBSolver.ml" 203 7005 7017
+)
+"SMTLIBSolver.ml" 200 6930 6937 "SMTLIBSolver.ml" 200 6930 6948
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 200 6930 6937 "SMTLIBSolver.ml" 200 6930 6953
+type(
+  SMTExpr.response
+)
+ident(
+  def r "SMTLIBSolver.ml" 203 7005 7012 "SMTLIBSolver.ml" 203 7005 7017
+)
+"SMTLIBSolver.ml" 199 6908 6914 "SMTLIBSolver.ml" 200 6930 6954
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 203 7005 7012 "SMTLIBSolver.ml" 203 7005 7013
+type(
+  SMTExpr.response
+)
+ident(
+  int_ref r "SMTLIBSolver.ml" 199 6908 6915 "SMTLIBSolver.ml" 199 6908 6927
+)
+"SMTLIBSolver.ml" 203 7005 7015 "SMTLIBSolver.ml" 203 7005 7017
+type(
+  HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 203 7005 7012 "SMTLIBSolver.ml" 203 7005 7017
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 176 6219 6221 "SMTLIBSolver.ml" 203 7005 7018
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 173 6132 6134 "SMTLIBSolver.ml" 203 7005 7018
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 170 6040 6087 "SMTLIBSolver.ml" 203 7005 7018
+type(
+  'a -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 170 6040 6080 "SMTLIBSolver.ml" 203 7005 7018
+type(
+  t -> 'a -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 170 6040 6072 "SMTLIBSolver.ml" 203 7005 7018
+type(
+  int -> t -> 'a -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+type(
+  t -> string -> (t -> 'a -> 'b) -> 'c -> 'a -> 'b
+)
+ident(
+  def send_command "SMTLIBSolver.ml" 236 7843 7843 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 208 7086 7108 "SMTLIBSolver.ml" 208 7086 7120
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdin "SMTLIBSolver.ml" 209 7135 7139 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 208 7086 7091 "SMTLIBSolver.ml" 208 7086 7123
+type(
+  t
+)
+"SMTLIBSolver.ml" 208 7086 7091 "SMTLIBSolver.ml" 208 7086 7133
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 209 7135 7139 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 209 7135 7139 "SMTLIBSolver.ml" 209 7135 7146
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 210 7148 7152 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 210 7148 7152 "SMTLIBSolver.ml" 210 7148 7166
+type(
+  t -> 'a -> 'b
+)
+ident(
+  def parse_response "SMTLIBSolver.ml" 211 7168 7172 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 211 7168 7172 "SMTLIBSolver.ml" 211 7168 7189
+type(
+  'c
+)
+ident(
+  def pp_print_response "SMTLIBSolver.ml" 212 7191 7195 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 212 7191 7195 "SMTLIBSolver.ml" 212 7191 7202
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 215 7266 7268 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 215 7266 7272 "SMTLIBSolver.ml" 215 7266 7287
+type(
+  out_channel
+)
+ident(
+  def solver_stdin_ch "SMTLIBSolver.ml" 218 7399 7401 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 215 7266 7290 "SMTLIBSolver.ml" 215 7266 7315
+type(
+  Unix.file_descr -> out_channel
+)
+ident(
+  ext_ref Unix.out_channel_of_descr
+)
+"SMTLIBSolver.ml" 215 7266 7316 "SMTLIBSolver.ml" 215 7266 7328
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdin "SMTLIBSolver.ml" 208 7086 7108 "SMTLIBSolver.ml" 208 7086 7120
+)
+"SMTLIBSolver.ml" 215 7266 7290 "SMTLIBSolver.ml" 215 7266 7328
+call(
+  stack
+)
+type(
+  out_channel
+)
+"SMTLIBSolver.ml" 218 7399 7405 "SMTLIBSolver.ml" 218 7399 7427
+type(
+  Format.formatter
+)
+ident(
+  def solver_stdin_formatter "SMTLIBSolver.ml" 223 7521 7523 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 219 7431 7435 "SMTLIBSolver.ml" 219 7431 7466
+type(
+  out_channel -> Format.formatter
+)
+ident(
+  ext_ref Format.formatter_of_out_channel
+)
+"SMTLIBSolver.ml" 219 7431 7467 "SMTLIBSolver.ml" 219 7431 7482
+type(
+  out_channel
+)
+ident(
+  int_ref solver_stdin_ch "SMTLIBSolver.ml" 215 7266 7272 "SMTLIBSolver.ml" 215 7266 7287
+)
+"SMTLIBSolver.ml" 219 7431 7435 "SMTLIBSolver.ml" 219 7431 7482
+call(
+  stack
+)
+type(
+  Format.formatter
+)
+"SMTLIBSolver.ml" 223 7521 7523 "SMTLIBSolver.ml" 223 7521 7545
+type(
+  Format.formatter -> string -> unit
+)
+ident(
+  ext_ref Format.pp_print_string
+)
+"SMTLIBSolver.ml" 223 7521 7546 "SMTLIBSolver.ml" 223 7521 7568
+type(
+  Format.formatter
+)
+ident(
+  int_ref solver_stdin_formatter "SMTLIBSolver.ml" 218 7399 7405 "SMTLIBSolver.ml" 218 7399 7427
+)
+"SMTLIBSolver.ml" 223 7521 7569 "SMTLIBSolver.ml" 223 7521 7576
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 209 7135 7139 "SMTLIBSolver.ml" 209 7135 7146
+)
+"SMTLIBSolver.ml" 223 7521 7523 "SMTLIBSolver.ml" 223 7521 7576
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 226 7621 7623 "SMTLIBSolver.ml" 226 7621 7646
+type(
+  Format.formatter -> unit -> unit
+)
+ident(
+  ext_ref Format.pp_print_newline
+)
+"SMTLIBSolver.ml" 226 7621 7647 "SMTLIBSolver.ml" 226 7621 7669
+type(
+  Format.formatter
+)
+ident(
+  int_ref solver_stdin_formatter "SMTLIBSolver.ml" 218 7399 7405 "SMTLIBSolver.ml" 218 7399 7427
+)
+"SMTLIBSolver.ml" 226 7621 7670 "SMTLIBSolver.ml" 226 7621 7672
+type(
+  unit
+)
+"SMTLIBSolver.ml" 226 7621 7623 "SMTLIBSolver.ml" 226 7621 7672
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 229 7717 7723 "SMTLIBSolver.ml" 229 7717 7726
+type(
+  'b
+)
+ident(
+  def res "SMTLIBSolver.ml" 232 7787 7789 "SMTLIBSolver.ml" 232 7787 7792
+)
+"SMTLIBSolver.ml" 229 7717 7729 "SMTLIBSolver.ml" 229 7717 7743
+type(
+  t -> 'a -> 'b
+)
+ident(
+  int_ref parse_response "SMTLIBSolver.ml" 210 7148 7152 "SMTLIBSolver.ml" 210 7148 7166
+)
+"SMTLIBSolver.ml" 229 7717 7744 "SMTLIBSolver.ml" 229 7717 7750
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 208 7086 7091 "SMTLIBSolver.ml" 208 7086 7133
+)
+"SMTLIBSolver.ml" 229 7717 7751 "SMTLIBSolver.ml" 229 7717 7758
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 212 7191 7195 "SMTLIBSolver.ml" 212 7191 7202
+)
+"SMTLIBSolver.ml" 229 7717 7729 "SMTLIBSolver.ml" 229 7717 7758
+call(
+  stack
+)
+type(
+  'b
+)
+"SMTLIBSolver.ml" 232 7787 7789 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'b
+)
+ident(
+  int_ref res "SMTLIBSolver.ml" 229 7717 7723 "SMTLIBSolver.ml" 229 7717 7726
+)
+"SMTLIBSolver.ml" 229 7717 7719 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'b
+)
+"SMTLIBSolver.ml" 226 7621 7623 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'b
+)
+"SMTLIBSolver.ml" 223 7521 7523 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'b
+)
+"SMTLIBSolver.ml" 218 7399 7401 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'b
+)
+"SMTLIBSolver.ml" 215 7266 7268 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'b
+)
+"SMTLIBSolver.ml" 212 7191 7195 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'a -> 'b
+)
+"SMTLIBSolver.ml" 211 7168 7172 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  'c -> 'a -> 'b
+)
+"SMTLIBSolver.ml" 210 7148 7152 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  (t -> 'a -> 'b) -> 'c -> 'a -> 'b
+)
+"SMTLIBSolver.ml" 209 7135 7139 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  string -> (t -> 'a -> 'b) -> 'c -> 'a -> 'b
+)
+"SMTLIBSolver.ml" 208 7086 7090 "SMTLIBSolver.ml" 232 7787 7792
+type(
+  t -> string -> (t -> 'a -> 'b) -> 'c -> 'a -> 'b
+)
+"SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+type(
+  t -> string -> 'a -> SMTExpr.response
+)
+ident(
+  def execute_command "SMTLIBSolver.ml" 247 8046 8046 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 236 7843 7863 "SMTLIBSolver.ml" 236 7843 7869
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 236 7843 7870 "SMTLIBSolver.ml" 243 7980 7991
+)
+"SMTLIBSolver.ml" 236 7843 7870 "SMTLIBSolver.ml" 236 7843 7877
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 236 7843 7878 "SMTLIBSolver.ml" 243 7980 7991
+)
+"SMTLIBSolver.ml" 236 7843 7878 "SMTLIBSolver.ml" 236 7843 7885
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 238 7890 7892 "SMTLIBSolver.ml" 243 7980 7991
+)
+"SMTLIBSolver.ml" 238 7890 7892 "SMTLIBSolver.ml" 238 7890 7904
+type(
+  t ->
+  string ->
+  (t -> 'a -> SMTExpr.response) ->
+  (Format.formatter -> SMTExpr.response -> unit) -> 'a -> SMTExpr.response
+)
+ident(
+  int_ref send_command "SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+)
+"SMTLIBSolver.ml" 239 7906 7910 "SMTLIBSolver.ml" 239 7906 7916
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 236 7843 7863 "SMTLIBSolver.ml" 236 7843 7869
+)
+"SMTLIBSolver.ml" 240 7918 7922 "SMTLIBSolver.ml" 240 7918 7929
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 236 7843 7870 "SMTLIBSolver.ml" 236 7843 7877
+)
+"SMTLIBSolver.ml" 241 7931 7935 "SMTLIBSolver.ml" 241 7931 7955
+type(
+  t -> 'a -> SMTExpr.response
+)
+ident(
+  int_ref get_command_response "SMTLIBSolver.ml" 127 4906 4910 "SMTLIBSolver.ml" 127 4906 4930
+)
+"SMTLIBSolver.ml" 242 7957 7961 "SMTLIBSolver.ml" 242 7957 7978
+type(
+  Format.formatter -> SMTExpr.response -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_response
+)
+"SMTLIBSolver.ml" 243 7980 7984 "SMTLIBSolver.ml" 243 7980 7991
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 236 7843 7878 "SMTLIBSolver.ml" 236 7843 7885
+)
+"SMTLIBSolver.ml" 238 7890 7892 "SMTLIBSolver.ml" 243 7980 7991
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 236 7843 7878 "SMTLIBSolver.ml" 243 7980 7991
+type(
+  'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 236 7843 7870 "SMTLIBSolver.ml" 243 7980 7991
+type(
+  string -> 'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 236 7843 7863 "SMTLIBSolver.ml" 243 7980 7991
+type(
+  t -> string -> 'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 247 8046 8050 "SMTLIBSolver.ml" 247 8046 8077
+type(
+  t -> string -> 'a -> SMTExpr.response
+)
+ident(
+  def execute_command_no_response "SMTLIBSolver.ml" 258 8286 8286 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 247 8046 8078 "SMTLIBSolver.ml" 247 8046 8084
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 247 8046 8085 "SMTLIBSolver.ml" 254 8214 8225
+)
+"SMTLIBSolver.ml" 247 8046 8085 "SMTLIBSolver.ml" 247 8046 8092
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 247 8046 8093 "SMTLIBSolver.ml" 254 8214 8225
+)
+"SMTLIBSolver.ml" 247 8046 8093 "SMTLIBSolver.ml" 247 8046 8100
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 249 8105 8107 "SMTLIBSolver.ml" 254 8214 8225
+)
+"SMTLIBSolver.ml" 249 8105 8107 "SMTLIBSolver.ml" 249 8105 8119
+type(
+  t ->
+  string ->
+  (t -> 'a -> SMTExpr.response) ->
+  (Format.formatter -> SMTExpr.response -> unit) -> 'a -> SMTExpr.response
+)
+ident(
+  int_ref send_command "SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+)
+"SMTLIBSolver.ml" 250 8121 8125 "SMTLIBSolver.ml" 250 8121 8131
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 247 8046 8078 "SMTLIBSolver.ml" 247 8046 8084
+)
+"SMTLIBSolver.ml" 251 8133 8137 "SMTLIBSolver.ml" 251 8133 8144
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 247 8046 8085 "SMTLIBSolver.ml" 247 8046 8092
+)
+"SMTLIBSolver.ml" 252 8146 8160 "SMTLIBSolver.ml" 252 8146 8161
+type(
+  t
+)
+"SMTLIBSolver.ml" 252 8146 8174 "SMTLIBSolver.ml" 252 8146 8175
+type(
+  'a
+)
+"SMTLIBSolver.ml" 252 8146 8179 "SMTLIBSolver.ml" 252 8146 8189
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 252 8146 8165 "SMTLIBSolver.ml" 252 8146 8189
+type(
+  'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 252 8146 8151 "SMTLIBSolver.ml" 252 8146 8189
+type(
+  t -> 'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 253 8191 8195 "SMTLIBSolver.ml" 253 8191 8212
+type(
+  Format.formatter -> SMTExpr.response -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_response
+)
+"SMTLIBSolver.ml" 254 8214 8218 "SMTLIBSolver.ml" 254 8214 8225
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 247 8046 8093 "SMTLIBSolver.ml" 247 8046 8100
+)
+"SMTLIBSolver.ml" 249 8105 8107 "SMTLIBSolver.ml" 254 8214 8225
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 247 8046 8093 "SMTLIBSolver.ml" 254 8214 8225
+type(
+  'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 247 8046 8085 "SMTLIBSolver.ml" 254 8214 8225
+type(
+  string -> 'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 247 8046 8078 "SMTLIBSolver.ml" 254 8214 8225
+type(
+  t -> string -> 'a -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 258 8286 8290 "SMTLIBSolver.ml" 258 8286 8315
+type(
+  t -> string -> 'a -> SMTExpr.check_sat_response
+)
+ident(
+  def execute_check_sat_command "SMTLIBSolver.ml" 269 8516 8516 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 258 8286 8316 "SMTLIBSolver.ml" 258 8286 8322
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 258 8286 8323 "SMTLIBSolver.ml" 265 8444 8455
+)
+"SMTLIBSolver.ml" 258 8286 8323 "SMTLIBSolver.ml" 258 8286 8330
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 258 8286 8331 "SMTLIBSolver.ml" 265 8444 8455
+)
+"SMTLIBSolver.ml" 258 8286 8331 "SMTLIBSolver.ml" 258 8286 8338
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 260 8343 8345 "SMTLIBSolver.ml" 265 8444 8455
+)
+"SMTLIBSolver.ml" 260 8343 8345 "SMTLIBSolver.ml" 260 8343 8357
+type(
+  t ->
+  string ->
+  (t -> 'a -> SMTExpr.check_sat_response) ->
+  (Format.formatter -> SMTExpr.check_sat_response -> unit) ->
+  'a -> SMTExpr.check_sat_response
+)
+ident(
+  int_ref send_command "SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+)
+"SMTLIBSolver.ml" 261 8359 8363 "SMTLIBSolver.ml" 261 8359 8369
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 258 8286 8316 "SMTLIBSolver.ml" 258 8286 8322
+)
+"SMTLIBSolver.ml" 262 8371 8375 "SMTLIBSolver.ml" 262 8371 8382
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 258 8286 8323 "SMTLIBSolver.ml" 258 8286 8330
+)
+"SMTLIBSolver.ml" 263 8383 8387 "SMTLIBSolver.ml" 263 8383 8409
+type(
+  t -> 'a -> SMTExpr.check_sat_response
+)
+ident(
+  int_ref get_check_sat_response "SMTLIBSolver.ml" 134 5082 5086 "SMTLIBSolver.ml" 134 5082 5108
+)
+"SMTLIBSolver.ml" 264 8411 8415 "SMTLIBSolver.ml" 264 8411 8442
+type(
+  Format.formatter -> SMTExpr.check_sat_response -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_check_sat_response
+)
+"SMTLIBSolver.ml" 265 8444 8448 "SMTLIBSolver.ml" 265 8444 8455
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 258 8286 8331 "SMTLIBSolver.ml" 258 8286 8338
+)
+"SMTLIBSolver.ml" 260 8343 8345 "SMTLIBSolver.ml" 265 8444 8455
+call(
+  tail
+)
+type(
+  SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 258 8286 8331 "SMTLIBSolver.ml" 265 8444 8455
+type(
+  'a -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 258 8286 8323 "SMTLIBSolver.ml" 265 8444 8455
+type(
+  string -> 'a -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 258 8286 8316 "SMTLIBSolver.ml" 265 8444 8455
+type(
+  t -> string -> 'a -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 269 8516 8520 "SMTLIBSolver.ml" 269 8516 8545
+type(
+  t -> string -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  def execute_get_value_command "SMTLIBSolver.ml" 280 8752 8752 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 269 8516 8546 "SMTLIBSolver.ml" 269 8516 8552
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 269 8516 8553 "SMTLIBSolver.ml" 276 8675 8686
+)
+"SMTLIBSolver.ml" 269 8516 8553 "SMTLIBSolver.ml" 269 8516 8560
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 269 8516 8561 "SMTLIBSolver.ml" 276 8675 8686
+)
+"SMTLIBSolver.ml" 269 8516 8561 "SMTLIBSolver.ml" 269 8516 8568
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 271 8573 8575 "SMTLIBSolver.ml" 276 8675 8686
+)
+"SMTLIBSolver.ml" 271 8573 8575 "SMTLIBSolver.ml" 271 8573 8587
+type(
+  t ->
+  string ->
+  (t -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list) ->
+  (Format.formatter ->
+   SMTExpr.response * (SMTExpr.t * SMTExpr.t) list -> unit) ->
+  'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  int_ref send_command "SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+)
+"SMTLIBSolver.ml" 272 8589 8593 "SMTLIBSolver.ml" 272 8589 8599
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 269 8516 8546 "SMTLIBSolver.ml" 269 8516 8552
+)
+"SMTLIBSolver.ml" 273 8601 8605 "SMTLIBSolver.ml" 273 8601 8612
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 269 8516 8553 "SMTLIBSolver.ml" 269 8516 8560
+)
+"SMTLIBSolver.ml" 274 8614 8618 "SMTLIBSolver.ml" 274 8614 8640
+type(
+  t -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  int_ref get_get_value_response "SMTLIBSolver.ml" 141 5270 5274 "SMTLIBSolver.ml" 141 5270 5296
+)
+"SMTLIBSolver.ml" 275 8642 8646 "SMTLIBSolver.ml" 275 8642 8673
+type(
+  Format.formatter -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_get_value_response
+)
+"SMTLIBSolver.ml" 276 8675 8679 "SMTLIBSolver.ml" 276 8675 8686
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 269 8516 8561 "SMTLIBSolver.ml" 269 8516 8568
+)
+"SMTLIBSolver.ml" 271 8573 8575 "SMTLIBSolver.ml" 276 8675 8686
+call(
+  tail
+)
+type(
+  SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 269 8516 8561 "SMTLIBSolver.ml" 276 8675 8686
+type(
+  'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 269 8516 8553 "SMTLIBSolver.ml" 276 8675 8686
+type(
+  string -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 269 8516 8546 "SMTLIBSolver.ml" 276 8675 8686
+type(
+  t -> string -> 'a -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 280 8752 8756 "SMTLIBSolver.ml" 280 8752 8786
+type(
+  t -> string -> 'a -> SMTExpr.response * string list
+)
+ident(
+  def execute_get_unsat_core_command "SMTLIBSolver.ml" 291 8995 8995 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 280 8752 8787 "SMTLIBSolver.ml" 280 8752 8793
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 280 8752 8794 "SMTLIBSolver.ml" 287 8926 8937
+)
+"SMTLIBSolver.ml" 280 8752 8794 "SMTLIBSolver.ml" 280 8752 8801
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 280 8752 8802 "SMTLIBSolver.ml" 287 8926 8937
+)
+"SMTLIBSolver.ml" 280 8752 8802 "SMTLIBSolver.ml" 280 8752 8809
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 282 8814 8816 "SMTLIBSolver.ml" 287 8926 8937
+)
+"SMTLIBSolver.ml" 282 8814 8816 "SMTLIBSolver.ml" 282 8814 8828
+type(
+  t ->
+  string ->
+  (t -> 'a -> SMTExpr.response * string list) ->
+  (Format.formatter -> SMTExpr.response * string list -> unit) ->
+  'a -> SMTExpr.response * string list
+)
+ident(
+  int_ref send_command "SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+)
+"SMTLIBSolver.ml" 283 8830 8834 "SMTLIBSolver.ml" 283 8830 8840
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 280 8752 8787 "SMTLIBSolver.ml" 280 8752 8793
+)
+"SMTLIBSolver.ml" 284 8842 8846 "SMTLIBSolver.ml" 284 8842 8853
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 280 8752 8794 "SMTLIBSolver.ml" 280 8752 8801
+)
+"SMTLIBSolver.ml" 285 8855 8859 "SMTLIBSolver.ml" 285 8855 8886
+type(
+  t -> 'a -> SMTExpr.response * string list
+)
+ident(
+  int_ref get_get_unsat_core_response "SMTLIBSolver.ml" 148 5469 5473 "SMTLIBSolver.ml" 148 5469 5500
+)
+"SMTLIBSolver.ml" 286 8888 8892 "SMTLIBSolver.ml" 286 8888 8924
+type(
+  Format.formatter -> SMTExpr.response * string list -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_get_unsat_core_response
+)
+"SMTLIBSolver.ml" 287 8926 8930 "SMTLIBSolver.ml" 287 8926 8937
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 280 8752 8802 "SMTLIBSolver.ml" 280 8752 8809
+)
+"SMTLIBSolver.ml" 282 8814 8816 "SMTLIBSolver.ml" 287 8926 8937
+call(
+  tail
+)
+type(
+  SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 280 8752 8802 "SMTLIBSolver.ml" 287 8926 8937
+type(
+  'a -> SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 280 8752 8794 "SMTLIBSolver.ml" 287 8926 8937
+type(
+  string -> 'a -> SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 280 8752 8787 "SMTLIBSolver.ml" 287 8926 8937
+type(
+  t -> string -> 'a -> SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 291 8995 8999 "SMTLIBSolver.ml" 291 8995 9022
+type(
+  t -> string -> 'a -> int -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  def execute_custom_command' "SMTLIBSolver.ml" 308 9460 9460 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 291 8995 9023 "SMTLIBSolver.ml" 291 8995 9029
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 291 8995 9030 "SMTLIBSolver.ml" 298 9179 9190
+)
+"SMTLIBSolver.ml" 291 8995 9030 "SMTLIBSolver.ml" 291 8995 9037
+type(
+  string
+)
+ident(
+  def command "SMTLIBSolver.ml" 291 8995 9038 "SMTLIBSolver.ml" 298 9179 9190
+)
+"SMTLIBSolver.ml" 291 8995 9038 "SMTLIBSolver.ml" 291 8995 9045
+type(
+  'a
+)
+ident(
+  def timeout "SMTLIBSolver.ml" 291 8995 9046 "SMTLIBSolver.ml" 298 9179 9190
+)
+"SMTLIBSolver.ml" 291 8995 9046 "SMTLIBSolver.ml" 291 8995 9053
+type(
+  int
+)
+ident(
+  def num_res "SMTLIBSolver.ml" 293 9058 9060 "SMTLIBSolver.ml" 298 9179 9190
+)
+"SMTLIBSolver.ml" 293 9058 9060 "SMTLIBSolver.ml" 293 9058 9072
+type(
+  t ->
+  string ->
+  (t -> 'a -> SMTExpr.response * HStringSExpr.t list) ->
+  (Format.formatter -> SMTExpr.response * HStringSExpr.t list -> unit) ->
+  'a -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  int_ref send_command "SMTLIBSolver.ml" 207 7068 7072 "SMTLIBSolver.ml" 207 7068 7084
+)
+"SMTLIBSolver.ml" 294 9074 9078 "SMTLIBSolver.ml" 294 9074 9084
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 291 8995 9023 "SMTLIBSolver.ml" 291 8995 9029
+)
+"SMTLIBSolver.ml" 295 9086 9090 "SMTLIBSolver.ml" 295 9086 9097
+type(
+  string
+)
+ident(
+  int_ref command "SMTLIBSolver.ml" 291 8995 9030 "SMTLIBSolver.ml" 291 8995 9037
+)
+"SMTLIBSolver.ml" 296 9099 9104 "SMTLIBSolver.ml" 296 9099 9131
+type(
+  int -> t -> 'a -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  int_ref get_custom_command_response "SMTLIBSolver.ml" 170 6040 6044 "SMTLIBSolver.ml" 170 6040 6071
+)
+"SMTLIBSolver.ml" 296 9099 9132 "SMTLIBSolver.ml" 296 9099 9139
+type(
+  int
+)
+ident(
+  int_ref num_res "SMTLIBSolver.ml" 291 8995 9046 "SMTLIBSolver.ml" 291 8995 9053
+)
+"SMTLIBSolver.ml" 296 9099 9104 "SMTLIBSolver.ml" 296 9099 9139
+call(
+  stack
+)
+type(
+  t -> 'a -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 297 9141 9145 "SMTLIBSolver.ml" 297 9141 9177
+type(
+  Format.formatter -> SMTExpr.response * HStringSExpr.t list -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_custom_command_response
+)
+"SMTLIBSolver.ml" 298 9179 9183 "SMTLIBSolver.ml" 298 9179 9190
+type(
+  'a
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 291 8995 9038 "SMTLIBSolver.ml" 291 8995 9045
+)
+"SMTLIBSolver.ml" 293 9058 9060 "SMTLIBSolver.ml" 298 9179 9190
+call(
+  tail
+)
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 291 8995 9046 "SMTLIBSolver.ml" 298 9179 9190
+type(
+  int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 291 8995 9038 "SMTLIBSolver.ml" 298 9179 9190
+type(
+  'a -> int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 291 8995 9030 "SMTLIBSolver.ml" 298 9179 9190
+type(
+  string -> 'a -> int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 291 8995 9023 "SMTLIBSolver.ml" 298 9179 9190
+type(
+  t -> string -> 'a -> int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 308 9460 9464 "SMTLIBSolver.ml" 308 9460 9475
+type(
+  t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
+)
+ident(
+  def declare_fun "SMTLIBSolver.ml" 323 9875 9875 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 308 9460 9476 "SMTLIBSolver.ml" 308 9460 9482
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 308 9460 9483 "SMTLIBSolver.ml" 319 9770 9800
+)
+"SMTLIBSolver.ml" 308 9460 9483 "SMTLIBSolver.ml" 308 9460 9493
+type(
+  string
+)
+ident(
+  def fun_symbol "SMTLIBSolver.ml" 308 9460 9494 "SMTLIBSolver.ml" 319 9770 9800
+)
+"SMTLIBSolver.ml" 308 9460 9494 "SMTLIBSolver.ml" 308 9460 9503
+type(
+  SMTExpr.sort list
+)
+ident(
+  def arg_sorts "SMTLIBSolver.ml" 308 9460 9504 "SMTLIBSolver.ml" 319 9770 9800
+)
+"SMTLIBSolver.ml" 308 9460 9504 "SMTLIBSolver.ml" 308 9460 9512
+type(
+  SMTExpr.sort
+)
+ident(
+  def res_sort "SMTLIBSolver.ml" 310 9517 9519 "SMTLIBSolver.ml" 319 9770 9800
+)
+"SMTLIBSolver.ml" 310 9517 9523 "SMTLIBSolver.ml" 310 9517 9526
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 319 9770 9772 "SMTLIBSolver.ml" 319 9770 9800
+)
+"SMTLIBSolver.ml" 311 9530 9534 "SMTLIBSolver.ml" 311 9530 9548
+type(
+  (string -> string -> string -> string, unit, string) format ->
+  string -> string -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 312 9550 9556 "SMTLIBSolver.ml" 312 9550 9590
+type(
+  (string -> string -> string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 313 9592 9598 "SMTLIBSolver.ml" 313 9592 9608
+type(
+  string
+)
+ident(
+  int_ref fun_symbol "SMTLIBSolver.ml" 308 9460 9483 "SMTLIBSolver.ml" 308 9460 9493
+)
+"SMTLIBSolver.ml" 314 9609 9616 "SMTLIBSolver.ml" 314 9609 9643
+type(
+  string list -> string
+)
+ident(
+  ext_ref Lib.paren_string_of_string_list
+)
+"SMTLIBSolver.ml" 314 9609 9645 "SMTLIBSolver.ml" 314 9609 9653
+type(
+  (SMTExpr.sort -> string) -> SMTExpr.sort list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"SMTLIBSolver.ml" 314 9609 9654 "SMTLIBSolver.ml" 314 9609 9668
+type(
+  SMTExpr.sort -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_sort
+)
+"SMTLIBSolver.ml" 314 9609 9669 "SMTLIBSolver.ml" 314 9609 9678
+type(
+  SMTExpr.sort list
+)
+ident(
+  int_ref arg_sorts "SMTLIBSolver.ml" 308 9460 9494 "SMTLIBSolver.ml" 308 9460 9503
+)
+"SMTLIBSolver.ml" 314 9609 9645 "SMTLIBSolver.ml" 314 9609 9678
+call(
+  stack
+)
+type(
+  string list
+)
+"SMTLIBSolver.ml" 314 9609 9616 "SMTLIBSolver.ml" 314 9609 9679
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 315 9681 9688 "SMTLIBSolver.ml" 315 9681 9702
+type(
+  SMTExpr.sort -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_sort
+)
+"SMTLIBSolver.ml" 315 9681 9703 "SMTLIBSolver.ml" 315 9681 9711
+type(
+  SMTExpr.sort
+)
+ident(
+  int_ref res_sort "SMTLIBSolver.ml" 308 9460 9504 "SMTLIBSolver.ml" 308 9460 9512
+)
+"SMTLIBSolver.ml" 315 9681 9688 "SMTLIBSolver.ml" 315 9681 9711
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 311 9530 9534 "SMTLIBSolver.ml" 315 9681 9712
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 319 9770 9772 "SMTLIBSolver.ml" 319 9770 9787
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 319 9770 9788 "SMTLIBSolver.ml" 319 9770 9794
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 308 9460 9476 "SMTLIBSolver.ml" 308 9460 9482
+)
+"SMTLIBSolver.ml" 319 9770 9795 "SMTLIBSolver.ml" 319 9770 9798
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 310 9517 9523 "SMTLIBSolver.ml" 310 9517 9526
+)
+"SMTLIBSolver.ml" 319 9770 9799 "SMTLIBSolver.ml" 319 9770 9800
+type(
+  int
+)
+"SMTLIBSolver.ml" 319 9770 9772 "SMTLIBSolver.ml" 319 9770 9800
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 310 9517 9519 "SMTLIBSolver.ml" 319 9770 9800
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 308 9460 9504 "SMTLIBSolver.ml" 319 9770 9800
+type(
+  SMTExpr.sort -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 308 9460 9494 "SMTLIBSolver.ml" 319 9770 9800
+type(
+  SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 308 9460 9483 "SMTLIBSolver.ml" 319 9770 9800
+type(
+  string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 308 9460 9476 "SMTLIBSolver.ml" 319 9770 9800
+type(
+  t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 323 9875 9879 "SMTLIBSolver.ml" 323 9875 9889
+type(
+  t ->
+  string ->
+  SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+)
+ident(
+  def define_fun "SMTLIBSolver.ml" 339 10280 10280 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 323 9875 9890 "SMTLIBSolver.ml" 323 9875 9896
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 323 9875 9897 "SMTLIBSolver.ml" 335 10219 10249
+)
+"SMTLIBSolver.ml" 323 9875 9897 "SMTLIBSolver.ml" 323 9875 9907
+type(
+  string
+)
+ident(
+  def fun_symbol "SMTLIBSolver.ml" 323 9875 9908 "SMTLIBSolver.ml" 335 10219 10249
+)
+"SMTLIBSolver.ml" 323 9875 9908 "SMTLIBSolver.ml" 323 9875 9917
+type(
+  SMTExpr.sort list
+)
+ident(
+  def arg_sorts "SMTLIBSolver.ml" 323 9875 9918 "SMTLIBSolver.ml" 335 10219 10249
+)
+"SMTLIBSolver.ml" 323 9875 9918 "SMTLIBSolver.ml" 323 9875 9926
+type(
+  SMTExpr.sort
+)
+ident(
+  def res_sort "SMTLIBSolver.ml" 323 9875 9927 "SMTLIBSolver.ml" 335 10219 10249
+)
+"SMTLIBSolver.ml" 323 9875 9927 "SMTLIBSolver.ml" 323 9875 9931
+type(
+  SMTExpr.t
+)
+ident(
+  def defn "SMTLIBSolver.ml" 325 9936 9938 "SMTLIBSolver.ml" 335 10219 10249
+)
+"SMTLIBSolver.ml" 325 9936 9942 "SMTLIBSolver.ml" 325 9936 9945
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 335 10219 10221 "SMTLIBSolver.ml" 335 10219 10249
+)
+"SMTLIBSolver.ml" 326 9949 9953 "SMTLIBSolver.ml" 326 9949 9967
+type(
+  (string -> string -> string -> string -> string, unit, string) format ->
+  string -> string -> string -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 327 9969 9975 "SMTLIBSolver.ml" 327 9969 10011
+type(
+  (string -> string -> string -> string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 328 10013 10019 "SMTLIBSolver.ml" 328 10013 10029
+type(
+  string
+)
+ident(
+  int_ref fun_symbol "SMTLIBSolver.ml" 323 9875 9897 "SMTLIBSolver.ml" 323 9875 9907
+)
+"SMTLIBSolver.ml" 329 10030 10037 "SMTLIBSolver.ml" 329 10030 10064
+type(
+  string list -> string
+)
+ident(
+  ext_ref Lib.paren_string_of_string_list
+)
+"SMTLIBSolver.ml" 329 10030 10066 "SMTLIBSolver.ml" 329 10030 10074
+type(
+  (SMTExpr.sort -> string) -> SMTExpr.sort list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"SMTLIBSolver.ml" 329 10030 10075 "SMTLIBSolver.ml" 329 10030 10089
+type(
+  SMTExpr.sort -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_sort
+)
+"SMTLIBSolver.ml" 329 10030 10090 "SMTLIBSolver.ml" 329 10030 10099
+type(
+  SMTExpr.sort list
+)
+ident(
+  int_ref arg_sorts "SMTLIBSolver.ml" 323 9875 9908 "SMTLIBSolver.ml" 323 9875 9917
+)
+"SMTLIBSolver.ml" 329 10030 10066 "SMTLIBSolver.ml" 329 10030 10099
+call(
+  stack
+)
+type(
+  string list
+)
+"SMTLIBSolver.ml" 329 10030 10037 "SMTLIBSolver.ml" 329 10030 10100
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 330 10102 10109 "SMTLIBSolver.ml" 330 10102 10123
+type(
+  SMTExpr.sort -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_sort
+)
+"SMTLIBSolver.ml" 330 10102 10124 "SMTLIBSolver.ml" 330 10102 10132
+type(
+  SMTExpr.sort
+)
+ident(
+  int_ref res_sort "SMTLIBSolver.ml" 323 9875 9918 "SMTLIBSolver.ml" 323 9875 9926
+)
+"SMTLIBSolver.ml" 330 10102 10109 "SMTLIBSolver.ml" 330 10102 10132
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 331 10134 10141 "SMTLIBSolver.ml" 331 10134 10155
+type(
+  SMTExpr.t -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_expr
+)
+"SMTLIBSolver.ml" 331 10134 10156 "SMTLIBSolver.ml" 331 10134 10160
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref defn "SMTLIBSolver.ml" 323 9875 9927 "SMTLIBSolver.ml" 323 9875 9931
+)
+"SMTLIBSolver.ml" 331 10134 10141 "SMTLIBSolver.ml" 331 10134 10160
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 326 9949 9953 "SMTLIBSolver.ml" 331 10134 10161
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 335 10219 10221 "SMTLIBSolver.ml" 335 10219 10236
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 335 10219 10237 "SMTLIBSolver.ml" 335 10219 10243
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 323 9875 9890 "SMTLIBSolver.ml" 323 9875 9896
+)
+"SMTLIBSolver.ml" 335 10219 10244 "SMTLIBSolver.ml" 335 10219 10247
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 325 9936 9942 "SMTLIBSolver.ml" 325 9936 9945
+)
+"SMTLIBSolver.ml" 335 10219 10248 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  int
+)
+"SMTLIBSolver.ml" 335 10219 10221 "SMTLIBSolver.ml" 335 10219 10249
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 325 9936 9938 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 323 9875 9927 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 323 9875 9918 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 323 9875 9908 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 323 9875 9897 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  string ->
+  SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 323 9875 9890 "SMTLIBSolver.ml" 335 10219 10249
+type(
+  t ->
+  string ->
+  SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 339 10280 10284 "SMTLIBSolver.ml" 339 10280 10295
+type(
+  t -> SMTExpr.t -> SMTExpr.response
+)
+ident(
+  def assert_expr "SMTLIBSolver.ml" 351 10556 10556 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 339 10280 10296 "SMTLIBSolver.ml" 339 10280 10302
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 339 10280 10303 "SMTLIBSolver.ml" 347 10462 10492
+)
+"SMTLIBSolver.ml" 339 10280 10303 "SMTLIBSolver.ml" 339 10280 10307
+type(
+  SMTExpr.t
+)
+ident(
+  def expr "SMTLIBSolver.ml" 341 10312 10314 "SMTLIBSolver.ml" 347 10462 10492
+)
+"SMTLIBSolver.ml" 341 10312 10318 "SMTLIBSolver.ml" 341 10312 10321
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 347 10462 10464 "SMTLIBSolver.ml" 347 10462 10492
+)
+"SMTLIBSolver.ml" 342 10325 10329 "SMTLIBSolver.ml" 342 10325 10343
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 343 10345 10351 "SMTLIBSolver.ml" 343 10345 10375
+type(
+  (string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 344 10377 10384 "SMTLIBSolver.ml" 344 10377 10398
+type(
+  SMTExpr.t -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_expr
+)
+"SMTLIBSolver.ml" 344 10377 10399 "SMTLIBSolver.ml" 344 10377 10403
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref expr "SMTLIBSolver.ml" 339 10280 10303 "SMTLIBSolver.ml" 339 10280 10307
+)
+"SMTLIBSolver.ml" 344 10377 10384 "SMTLIBSolver.ml" 344 10377 10403
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 342 10325 10329 "SMTLIBSolver.ml" 344 10377 10404
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 347 10462 10464 "SMTLIBSolver.ml" 347 10462 10479
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 347 10462 10480 "SMTLIBSolver.ml" 347 10462 10486
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 339 10280 10296 "SMTLIBSolver.ml" 339 10280 10302
+)
+"SMTLIBSolver.ml" 347 10462 10487 "SMTLIBSolver.ml" 347 10462 10490
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 341 10312 10318 "SMTLIBSolver.ml" 341 10312 10321
+)
+"SMTLIBSolver.ml" 347 10462 10491 "SMTLIBSolver.ml" 347 10462 10492
+type(
+  int
+)
+"SMTLIBSolver.ml" 347 10462 10464 "SMTLIBSolver.ml" 347 10462 10492
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 341 10312 10314 "SMTLIBSolver.ml" 347 10462 10492
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 339 10280 10303 "SMTLIBSolver.ml" 347 10462 10492
+type(
+  SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 339 10280 10296 "SMTLIBSolver.ml" 347 10462 10492
+type(
+  t -> SMTExpr.t -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 351 10556 10560 "SMTLIBSolver.ml" 351 10556 10564
+type(
+  t -> int -> SMTExpr.response
+)
+ident(
+  def push "SMTLIBSolver.ml" 360 10769 10769 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 351 10556 10565 "SMTLIBSolver.ml" 351 10556 10571
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 351 10556 10572 "SMTLIBSolver.ml" 356 10684 10714
+)
+"SMTLIBSolver.ml" 351 10556 10572 "SMTLIBSolver.ml" 351 10556 10578
+type(
+  int
+)
+ident(
+  def scopes "SMTLIBSolver.ml" 353 10583 10585 "SMTLIBSolver.ml" 356 10684 10714
+)
+"SMTLIBSolver.ml" 353 10583 10589 "SMTLIBSolver.ml" 353 10583 10592
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 356 10684 10686 "SMTLIBSolver.ml" 356 10684 10714
+)
+"SMTLIBSolver.ml" 353 10583 10595 "SMTLIBSolver.ml" 353 10583 10609
+type(
+  (int -> string, unit, string) format -> int -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 353 10583 10610 "SMTLIBSolver.ml" 353 10583 10621
+type(
+  (int -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 353 10583 10622 "SMTLIBSolver.ml" 353 10583 10628
+type(
+  int
+)
+ident(
+  int_ref scopes "SMTLIBSolver.ml" 351 10556 10572 "SMTLIBSolver.ml" 351 10556 10578
+)
+"SMTLIBSolver.ml" 353 10583 10595 "SMTLIBSolver.ml" 353 10583 10628
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 356 10684 10686 "SMTLIBSolver.ml" 356 10684 10701
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 356 10684 10702 "SMTLIBSolver.ml" 356 10684 10708
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 351 10556 10565 "SMTLIBSolver.ml" 351 10556 10571
+)
+"SMTLIBSolver.ml" 356 10684 10709 "SMTLIBSolver.ml" 356 10684 10712
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 353 10583 10589 "SMTLIBSolver.ml" 353 10583 10592
+)
+"SMTLIBSolver.ml" 356 10684 10713 "SMTLIBSolver.ml" 356 10684 10714
+type(
+  int
+)
+"SMTLIBSolver.ml" 356 10684 10686 "SMTLIBSolver.ml" 356 10684 10714
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 353 10583 10585 "SMTLIBSolver.ml" 356 10684 10714
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 351 10556 10572 "SMTLIBSolver.ml" 356 10684 10714
+type(
+  int -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 351 10556 10565 "SMTLIBSolver.ml" 356 10684 10714
+type(
+  t -> int -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 360 10769 10773 "SMTLIBSolver.ml" 360 10769 10776
+type(
+  t -> int -> SMTExpr.response
+)
+ident(
+  def pop "SMTLIBSolver.ml" 369 10984 10984 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 360 10769 10777 "SMTLIBSolver.ml" 360 10769 10783
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 360 10769 10784 "SMTLIBSolver.ml" 365 10896 10926
+)
+"SMTLIBSolver.ml" 360 10769 10784 "SMTLIBSolver.ml" 360 10769 10790
+type(
+  int
+)
+ident(
+  def scopes "SMTLIBSolver.ml" 362 10796 10798 "SMTLIBSolver.ml" 365 10896 10926
+)
+"SMTLIBSolver.ml" 362 10796 10802 "SMTLIBSolver.ml" 362 10796 10805
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 365 10896 10898 "SMTLIBSolver.ml" 365 10896 10926
+)
+"SMTLIBSolver.ml" 362 10796 10808 "SMTLIBSolver.ml" 362 10796 10822
+type(
+  (int -> string, unit, string) format -> int -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 362 10796 10823 "SMTLIBSolver.ml" 362 10796 10833
+type(
+  (int -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 362 10796 10834 "SMTLIBSolver.ml" 362 10796 10840
+type(
+  int
+)
+ident(
+  int_ref scopes "SMTLIBSolver.ml" 360 10769 10784 "SMTLIBSolver.ml" 360 10769 10790
+)
+"SMTLIBSolver.ml" 362 10796 10808 "SMTLIBSolver.ml" 362 10796 10840
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 365 10896 10898 "SMTLIBSolver.ml" 365 10896 10913
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 365 10896 10914 "SMTLIBSolver.ml" 365 10896 10920
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 360 10769 10777 "SMTLIBSolver.ml" 360 10769 10783
+)
+"SMTLIBSolver.ml" 365 10896 10921 "SMTLIBSolver.ml" 365 10896 10924
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 362 10796 10802 "SMTLIBSolver.ml" 362 10796 10805
+)
+"SMTLIBSolver.ml" 365 10896 10925 "SMTLIBSolver.ml" 365 10896 10926
+type(
+  int
+)
+"SMTLIBSolver.ml" 365 10896 10898 "SMTLIBSolver.ml" 365 10896 10926
+call(
+  tail
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 362 10796 10798 "SMTLIBSolver.ml" 365 10896 10926
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 360 10769 10784 "SMTLIBSolver.ml" 365 10896 10926
+type(
+  int -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 360 10769 10777 "SMTLIBSolver.ml" 365 10896 10926
+type(
+  t -> int -> SMTExpr.response
+)
+"SMTLIBSolver.ml" 369 10984 10988 "SMTLIBSolver.ml" 369 10984 10997
+type(
+  ?timeout:int -> t -> SMTExpr.check_sat_response
+)
+ident(
+  def check_sat "SMTLIBSolver.ml" 381 11295 11295 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 369 10984 11010 "SMTLIBSolver.ml" 369 10984 11011
+type(
+  int
+)
+type(
+  int
+)
+ident(
+  int_ref *sth* "SMTLIBSolver.ml" 369 10984 11010 "SMTLIBSolver.ml" 369 10984 11011
+)
+type(
+  int option
+)
+type(
+  int option
+)
+type(
+  int
+)
+"SMTLIBSolver.ml" 369 10984 10998 "SMTLIBSolver.ml" 369 10984 11012
+type(
+  int
+)
+"SMTLIBSolver.ml" 369 10984 11013 "SMTLIBSolver.ml" 369 10984 11019
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 371 11024 11026 "SMTLIBSolver.ml" 377 11207 11247
+)
+"SMTLIBSolver.ml" 371 11024 11030 "SMTLIBSolver.ml" 371 11024 11033
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 377 11207 11209 "SMTLIBSolver.ml" 377 11207 11247
+)
+"SMTLIBSolver.ml" 371 11024 11042 "SMTLIBSolver.ml" 371 11024 11049
+type(
+  int
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 369 10984 10998 "SMTLIBSolver.ml" 369 10984 11012
+)
+"SMTLIBSolver.ml" 372 11056 11062 "SMTLIBSolver.ml" 372 11056 11063
+type(
+  int
+)
+ident(
+  def i "SMTLIBSolver.ml" 372 11056 11069 "SMTLIBSolver.ml" 372 11056 11075
+)
+"SMTLIBSolver.ml" 372 11056 11069 "SMTLIBSolver.ml" 372 11056 11070
+type(
+  int
+)
+ident(
+  int_ref i "SMTLIBSolver.ml" 372 11056 11062 "SMTLIBSolver.ml" 372 11056 11063
+)
+"SMTLIBSolver.ml" 372 11056 11071 "SMTLIBSolver.ml" 372 11056 11073
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( <= )
+)
+"SMTLIBSolver.ml" 372 11056 11074 "SMTLIBSolver.ml" 372 11056 11075
+type(
+  int
+)
+"SMTLIBSolver.ml" 372 11056 11069 "SMTLIBSolver.ml" 372 11056 11075
+type(
+  string
+)
+type(
+  bool
+)
+"SMTLIBSolver.ml" 372 11056 11079 "SMTLIBSolver.ml" 372 11056 11093
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 372 11056 11094 "SMTLIBSolver.ml" 372 11056 11107
+type(
+  (string, unit, string) format
+)
+"SMTLIBSolver.ml" 372 11056 11079 "SMTLIBSolver.ml" 372 11056 11107
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 373 11109 11115 "SMTLIBSolver.ml" 373 11109 11116
+type(
+  int
+)
+"SMTLIBSolver.ml" 373 11109 11120 "SMTLIBSolver.ml" 373 11109 11141
+type(
+  int -> string
+)
+ident(
+  int_ref check_sat_limited_cmd "SMTLIBSolver.ml" 106 4151 4155 "SMTLIBSolver.ml" 106 4151 4176
+)
+"SMTLIBSolver.ml" 373 11109 11142 "SMTLIBSolver.ml" 373 11109 11149
+type(
+  int
+)
+ident(
+  int_ref timeout "SMTLIBSolver.ml" 369 10984 10998 "SMTLIBSolver.ml" 369 10984 11012
+)
+"SMTLIBSolver.ml" 373 11109 11120 "SMTLIBSolver.ml" 373 11109 11149
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 371 11024 11036 "SMTLIBSolver.ml" 373 11109 11149
+type(
+  string
+)
+"SMTLIBSolver.ml" 377 11207 11209 "SMTLIBSolver.ml" 377 11207 11234
+type(
+  t -> string -> int -> SMTExpr.check_sat_response
+)
+ident(
+  int_ref execute_check_sat_command "SMTLIBSolver.ml" 258 8286 8290 "SMTLIBSolver.ml" 258 8286 8315
+)
+"SMTLIBSolver.ml" 377 11207 11235 "SMTLIBSolver.ml" 377 11207 11241
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 369 10984 11013 "SMTLIBSolver.ml" 369 10984 11019
+)
+"SMTLIBSolver.ml" 377 11207 11242 "SMTLIBSolver.ml" 377 11207 11245
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 371 11024 11030 "SMTLIBSolver.ml" 371 11024 11033
+)
+"SMTLIBSolver.ml" 377 11207 11246 "SMTLIBSolver.ml" 377 11207 11247
+type(
+  int
+)
+"SMTLIBSolver.ml" 377 11207 11209 "SMTLIBSolver.ml" 377 11207 11247
+call(
+  tail
+)
+type(
+  SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 371 11024 11026 "SMTLIBSolver.ml" 377 11207 11247
+type(
+  SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 369 10984 11013 "SMTLIBSolver.ml" 377 11207 11247
+type(
+  t -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 369 10984 10998 "SMTLIBSolver.ml" 377 11207 11247
+type(
+  ?timeout:int -> t -> SMTExpr.check_sat_response
+)
+type(
+  t -> SMTExpr.check_sat_response
+)
+type(
+  int
+)
+type(
+  int option
+)
+ident(
+  int_ref *opt* "SMTLIBSolver.ml" 369 10984 10998 "SMTLIBSolver.ml" 377 11207 11247
+)
+type(
+  int option
+)
+"SMTLIBSolver.ml" 381 11295 11299 "SMTLIBSolver.ml" 381 11295 11308
+type(
+  t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  def get_value "SMTLIBSolver.ml" 395 11644 11644 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 381 11295 11309 "SMTLIBSolver.ml" 381 11295 11315
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 381 11295 11316 "SMTLIBSolver.ml" 391 11569 11609
+)
+"SMTLIBSolver.ml" 381 11295 11316 "SMTLIBSolver.ml" 381 11295 11325
+type(
+  SMTExpr.t list
+)
+ident(
+  def expr_list "SMTLIBSolver.ml" 384 11372 11374 "SMTLIBSolver.ml" 391 11569 11609
+)
+"SMTLIBSolver.ml" 384 11372 11378 "SMTLIBSolver.ml" 384 11372 11381
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 391 11569 11571 "SMTLIBSolver.ml" 391 11569 11609
+)
+"SMTLIBSolver.ml" 385 11385 11389 "SMTLIBSolver.ml" 385 11385 11403
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 386 11405 11411 "SMTLIBSolver.ml" 386 11405 11438
+type(
+  (string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 387 11440 11447 "SMTLIBSolver.ml" 387 11440 11474
+type(
+  string list -> string
+)
+ident(
+  ext_ref Lib.paren_string_of_string_list
+)
+"SMTLIBSolver.ml" 387 11440 11476 "SMTLIBSolver.ml" 387 11440 11484
+type(
+  (SMTExpr.t -> string) -> SMTExpr.t list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"SMTLIBSolver.ml" 387 11440 11485 "SMTLIBSolver.ml" 387 11440 11499
+type(
+  SMTExpr.t -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_expr
+)
+"SMTLIBSolver.ml" 387 11440 11500 "SMTLIBSolver.ml" 387 11440 11509
+type(
+  SMTExpr.t list
+)
+ident(
+  int_ref expr_list "SMTLIBSolver.ml" 381 11295 11316 "SMTLIBSolver.ml" 381 11295 11325
+)
+"SMTLIBSolver.ml" 387 11440 11476 "SMTLIBSolver.ml" 387 11440 11509
+call(
+  stack
+)
+type(
+  string list
+)
+"SMTLIBSolver.ml" 387 11440 11447 "SMTLIBSolver.ml" 387 11440 11510
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 385 11385 11389 "SMTLIBSolver.ml" 387 11440 11511
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 391 11569 11571 "SMTLIBSolver.ml" 391 11569 11596
+type(
+  t -> string -> int -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+ident(
+  int_ref execute_get_value_command "SMTLIBSolver.ml" 269 8516 8520 "SMTLIBSolver.ml" 269 8516 8545
+)
+"SMTLIBSolver.ml" 391 11569 11597 "SMTLIBSolver.ml" 391 11569 11603
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 381 11295 11309 "SMTLIBSolver.ml" 381 11295 11315
+)
+"SMTLIBSolver.ml" 391 11569 11604 "SMTLIBSolver.ml" 391 11569 11607
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 384 11372 11378 "SMTLIBSolver.ml" 384 11372 11381
+)
+"SMTLIBSolver.ml" 391 11569 11608 "SMTLIBSolver.ml" 391 11569 11609
+type(
+  int
+)
+"SMTLIBSolver.ml" 391 11569 11571 "SMTLIBSolver.ml" 391 11569 11609
+call(
+  tail
+)
+type(
+  SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 384 11372 11374 "SMTLIBSolver.ml" 391 11569 11609
+type(
+  SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 381 11295 11316 "SMTLIBSolver.ml" 391 11569 11609
+type(
+  SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 381 11295 11309 "SMTLIBSolver.ml" 391 11569 11609
+type(
+  t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
+)
+"SMTLIBSolver.ml" 395 11644 11648 "SMTLIBSolver.ml" 395 11644 11662
+type(
+  t -> SMTExpr.response * string list
+)
+ident(
+  def get_unsat_core "SMTLIBSolver.ml" 407 11928 11928 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 395 11644 11663 "SMTLIBSolver.ml" 395 11644 11669
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 398 11716 11718 "SMTLIBSolver.ml" 403 11825 11870
+)
+"SMTLIBSolver.ml" 398 11716 11722 "SMTLIBSolver.ml" 398 11716 11725
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 403 11825 11827 "SMTLIBSolver.ml" 403 11825 11870
+)
+"SMTLIBSolver.ml" 399 11729 11733 "SMTLIBSolver.ml" 399 11729 11747
+type(
+  (string, unit, string) format -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 399 11729 11748 "SMTLIBSolver.ml" 399 11729 11766
+type(
+  (string, unit, string) format
+)
+"SMTLIBSolver.ml" 399 11729 11733 "SMTLIBSolver.ml" 399 11729 11766
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 403 11825 11827 "SMTLIBSolver.ml" 403 11825 11857
+type(
+  t -> string -> int -> SMTExpr.response * string list
+)
+ident(
+  int_ref execute_get_unsat_core_command "SMTLIBSolver.ml" 280 8752 8756 "SMTLIBSolver.ml" 280 8752 8786
+)
+"SMTLIBSolver.ml" 403 11825 11858 "SMTLIBSolver.ml" 403 11825 11864
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 395 11644 11663 "SMTLIBSolver.ml" 395 11644 11669
+)
+"SMTLIBSolver.ml" 403 11825 11865 "SMTLIBSolver.ml" 403 11825 11868
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 398 11716 11722 "SMTLIBSolver.ml" 398 11716 11725
+)
+"SMTLIBSolver.ml" 403 11825 11869 "SMTLIBSolver.ml" 403 11825 11870
+type(
+  int
+)
+"SMTLIBSolver.ml" 403 11825 11827 "SMTLIBSolver.ml" 403 11825 11870
+call(
+  tail
+)
+type(
+  SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 398 11716 11718 "SMTLIBSolver.ml" 403 11825 11870
+type(
+  SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 395 11644 11663 "SMTLIBSolver.ml" 403 11825 11870
+type(
+  t -> SMTExpr.response * string list
+)
+"SMTLIBSolver.ml" 407 11928 11932 "SMTLIBSolver.ml" 407 11928 11954
+type(
+  t ->
+  string ->
+  SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  def execute_custom_command "SMTLIBSolver.ml" 427 12423 12423 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 407 11928 11955 "SMTLIBSolver.ml" 407 11928 11961
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 407 11928 11962 "SMTLIBSolver.ml" 423 12318 12364
+)
+"SMTLIBSolver.ml" 407 11928 11962 "SMTLIBSolver.ml" 407 11928 11965
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 407 11928 11966 "SMTLIBSolver.ml" 423 12318 12364
+)
+"SMTLIBSolver.ml" 407 11928 11966 "SMTLIBSolver.ml" 407 11928 11970
+type(
+  SMTExpr.custom_arg list
+)
+ident(
+  def args "SMTLIBSolver.ml" 407 11928 11971 "SMTLIBSolver.ml" 423 12318 12364
+)
+"SMTLIBSolver.ml" 407 11928 11971 "SMTLIBSolver.ml" 407 11928 11978
+type(
+  int
+)
+ident(
+  def num_res "SMTLIBSolver.ml" 410 12025 12027 "SMTLIBSolver.ml" 423 12318 12364
+)
+"SMTLIBSolver.ml" 410 12025 12031 "SMTLIBSolver.ml" 410 12025 12034
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 423 12318 12320 "SMTLIBSolver.ml" 423 12318 12364
+)
+"SMTLIBSolver.ml" 411 12038 12045 "SMTLIBSolver.ml" 411 12038 12049
+type(
+  SMTExpr.custom_arg list
+)
+ident(
+  int_ref args "SMTLIBSolver.ml" 407 11928 11966 "SMTLIBSolver.ml" 407 11928 11970
+)
+"SMTLIBSolver.ml" 411 12038 12050 "SMTLIBSolver.ml" 411 12038 12051
+type(
+  SMTExpr.custom_arg list -> SMTExpr.custom_arg list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"SMTLIBSolver.ml" 411 12038 12052 "SMTLIBSolver.ml" 411 12038 12054
+type(
+  SMTExpr.custom_arg list
+)
+"SMTLIBSolver.ml" 411 12038 12045 "SMTLIBSolver.ml" 411 12038 12054
+type(
+  bool
+)
+"SMTLIBSolver.ml" 412 12061 12067 "SMTLIBSolver.ml" 412 12061 12081
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 413 12083 12091 "SMTLIBSolver.ml" 413 12083 12107
+type(
+  (string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 414 12109 12117 "SMTLIBSolver.ml" 414 12109 12120
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 407 11928 11962 "SMTLIBSolver.ml" 407 11928 11965
+)
+"SMTLIBSolver.ml" 412 12061 12067 "SMTLIBSolver.ml" 414 12109 12120
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 416 12130 12136 "SMTLIBSolver.ml" 416 12130 12150
+type(
+  (string -> string -> string, unit, string) format ->
+  string -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 417 12152 12160 "SMTLIBSolver.ml" 417 12152 12180
+type(
+  (string -> string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 418 12182 12190 "SMTLIBSolver.ml" 418 12182 12193
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 407 11928 11962 "SMTLIBSolver.ml" 407 11928 11965
+)
+"SMTLIBSolver.ml" 419 12194 12203 "SMTLIBSolver.ml" 419 12194 12214
+type(
+  (Format.formatter -> SMTExpr.custom_arg list -> unit) ->
+  SMTExpr.custom_arg list -> string
+)
+ident(
+  ext_ref Lib.string_of_t
+)
+"SMTLIBSolver.ml" 419 12194 12216 "SMTLIBSolver.ml" 419 12194 12229
+type(
+  (Format.formatter -> SMTExpr.custom_arg -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> SMTExpr.custom_arg list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"SMTLIBSolver.ml" 419 12194 12230 "SMTLIBSolver.ml" 419 12194 12249
+type(
+  Format.formatter -> SMTExpr.custom_arg -> unit
+)
+ident(
+  ext_ref SMTExpr.pp_print_custom_arg
+)
+"SMTLIBSolver.ml" 419 12194 12250 "SMTLIBSolver.ml" 419 12194 12253
+type(
+  (unit, Format.formatter, unit) format
+)
+"SMTLIBSolver.ml" 419 12194 12216 "SMTLIBSolver.ml" 419 12194 12253
+call(
+  stack
+)
+type(
+  Format.formatter -> SMTExpr.custom_arg list -> unit
+)
+"SMTLIBSolver.ml" 419 12194 12255 "SMTLIBSolver.ml" 419 12194 12259
+type(
+  SMTExpr.custom_arg list
+)
+ident(
+  int_ref args "SMTLIBSolver.ml" 407 11928 11966 "SMTLIBSolver.ml" 407 11928 11970
+)
+"SMTLIBSolver.ml" 419 12194 12203 "SMTLIBSolver.ml" 419 12194 12259
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 416 12130 12136 "SMTLIBSolver.ml" 419 12194 12260
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 411 12038 12042 "SMTLIBSolver.ml" 419 12194 12260
+type(
+  string
+)
+"SMTLIBSolver.ml" 423 12318 12320 "SMTLIBSolver.ml" 423 12318 12343
+type(
+  t -> string -> int -> int -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  int_ref execute_custom_command' "SMTLIBSolver.ml" 291 8995 8999 "SMTLIBSolver.ml" 291 8995 9022
+)
+"SMTLIBSolver.ml" 423 12318 12344 "SMTLIBSolver.ml" 423 12318 12350
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 407 11928 11955 "SMTLIBSolver.ml" 407 11928 11961
+)
+"SMTLIBSolver.ml" 423 12318 12351 "SMTLIBSolver.ml" 423 12318 12354
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 410 12025 12031 "SMTLIBSolver.ml" 410 12025 12034
+)
+"SMTLIBSolver.ml" 423 12318 12355 "SMTLIBSolver.ml" 423 12318 12356
+type(
+  int
+)
+"SMTLIBSolver.ml" 423 12318 12357 "SMTLIBSolver.ml" 423 12318 12364
+type(
+  int
+)
+ident(
+  int_ref num_res "SMTLIBSolver.ml" 407 11928 11971 "SMTLIBSolver.ml" 407 11928 11978
+)
+"SMTLIBSolver.ml" 423 12318 12320 "SMTLIBSolver.ml" 423 12318 12364
+call(
+  tail
+)
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 410 12025 12027 "SMTLIBSolver.ml" 423 12318 12364
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 407 11928 11971 "SMTLIBSolver.ml" 423 12318 12364
+type(
+  int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 407 11928 11966 "SMTLIBSolver.ml" 423 12318 12364
+type(
+  SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 407 11928 11962 "SMTLIBSolver.ml" 423 12318 12364
+type(
+  string ->
+  SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 407 11928 11955 "SMTLIBSolver.ml" 423 12318 12364
+type(
+  t ->
+  string ->
+  SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+)
+"SMTLIBSolver.ml" 427 12423 12427 "SMTLIBSolver.ml" 427 12423 12459
+type(
+  string -> t -> SMTExpr.check_sat_response
+)
+ident(
+  def execute_custom_check_sat_command "SMTLIBSolver.ml" 439 12838 12838 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 427 12423 12460 "SMTLIBSolver.ml" 427 12423 12463
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 427 12423 12464 "SMTLIBSolver.ml" 430 12526 12566
+)
+"SMTLIBSolver.ml" 427 12423 12464 "SMTLIBSolver.ml" 427 12423 12470
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 430 12526 12528 "SMTLIBSolver.ml" 430 12526 12566
+)
+"SMTLIBSolver.ml" 430 12526 12528 "SMTLIBSolver.ml" 430 12526 12553
+type(
+  t -> string -> int -> SMTExpr.check_sat_response
+)
+ident(
+  int_ref execute_check_sat_command "SMTLIBSolver.ml" 258 8286 8290 "SMTLIBSolver.ml" 258 8286 8315
+)
+"SMTLIBSolver.ml" 430 12526 12554 "SMTLIBSolver.ml" 430 12526 12560
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 427 12423 12464 "SMTLIBSolver.ml" 427 12423 12470
+)
+"SMTLIBSolver.ml" 430 12526 12561 "SMTLIBSolver.ml" 430 12526 12564
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 427 12423 12460 "SMTLIBSolver.ml" 427 12423 12463
+)
+"SMTLIBSolver.ml" 430 12526 12565 "SMTLIBSolver.ml" 430 12526 12566
+type(
+  int
+)
+"SMTLIBSolver.ml" 430 12526 12528 "SMTLIBSolver.ml" 430 12526 12566
+call(
+  tail
+)
+type(
+  SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 427 12423 12464 "SMTLIBSolver.ml" 430 12526 12566
+type(
+  t -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 427 12423 12460 "SMTLIBSolver.ml" 430 12526 12566
+type(
+  string -> t -> SMTExpr.check_sat_response
+)
+"SMTLIBSolver.ml" 439 12838 12842 "SMTLIBSolver.ml" 439 12838 12857
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+)
+ident(
+  def create_instance "SMTLIBSolver.ml" 573 16841 16841 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 440 12859 12887 "SMTLIBSolver.ml" 440 12859 12892
+type(
+  bool
+)
+type(
+  bool
+)
+ident(
+  int_ref *sth* "SMTLIBSolver.ml" 440 12859 12887 "SMTLIBSolver.ml" 440 12859 12892
+)
+type(
+  bool option
+)
+type(
+  bool option
+)
+type(
+  bool
+)
+"SMTLIBSolver.ml" 440 12859 12863 "SMTLIBSolver.ml" 440 12859 12893
+type(
+  bool
+)
+"SMTLIBSolver.ml" 441 12894 12917 "SMTLIBSolver.ml" 441 12894 12922
+type(
+  bool
+)
+type(
+  bool
+)
+ident(
+  int_ref *sth* "SMTLIBSolver.ml" 441 12894 12917 "SMTLIBSolver.ml" 441 12894 12922
+)
+type(
+  bool option
+)
+type(
+  bool option
+)
+type(
+  bool
+)
+"SMTLIBSolver.ml" 441 12894 12898 "SMTLIBSolver.ml" 441 12894 12923
+type(
+  bool
+)
+"SMTLIBSolver.ml" 442 12925 12948 "SMTLIBSolver.ml" 442 12925 12953
+type(
+  bool
+)
+type(
+  bool
+)
+ident(
+  int_ref *sth* "SMTLIBSolver.ml" 442 12925 12948 "SMTLIBSolver.ml" 442 12925 12953
+)
+type(
+  bool option
+)
+type(
+  bool option
+)
+type(
+  bool
+)
+"SMTLIBSolver.ml" 442 12925 12929 "SMTLIBSolver.ml" 442 12925 12954
+type(
+  bool
+)
+"SMTLIBSolver.ml" 443 12956 12978 "SMTLIBSolver.ml" 443 12956 12983
+type(
+  bool
+)
+type(
+  bool
+)
+ident(
+  int_ref *sth* "SMTLIBSolver.ml" 443 12956 12978 "SMTLIBSolver.ml" 443 12956 12983
+)
+type(
+  bool option
+)
+type(
+  bool option
+)
+type(
+  bool
+)
+"SMTLIBSolver.ml" 443 12956 12960 "SMTLIBSolver.ml" 443 12956 12984
+type(
+  bool
+)
+"SMTLIBSolver.ml" 444 12990 12994 "SMTLIBSolver.ml" 444 12990 12999
+type(
+  SMTExpr.logic
+)
+ident(
+  def logic "SMTLIBSolver.ml" 447 13044 13046 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 447 13044 13066 "SMTLIBSolver.ml" 447 13044 13076
+type(
+  string array
+)
+ident(
+  def solver_cmd "SMTLIBSolver.ml" 452 13182 13184 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 447 13044 13051 "SMTLIBSolver.ml" 447 13044 13078
+type(
+  config
+)
+"SMTLIBSolver.ml" 447 13044 13051 "SMTLIBSolver.ml" 447 13044 13088
+type(
+  config
+)
+ident(
+  def config "SMTLIBSolver.ml" 452 13182 13184 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 447 13044 13092 "SMTLIBSolver.ml" 447 13044 13107
+type(
+  unit -> config
+)
+ident(
+  int_ref config_of_flags "SMTLIBSolver.ml" 85 3446 3450 "SMTLIBSolver.ml" 85 3446 3465
+)
+"SMTLIBSolver.ml" 447 13044 13108 "SMTLIBSolver.ml" 447 13044 13110
+type(
+  unit
+)
+"SMTLIBSolver.ml" 447 13044 13092 "SMTLIBSolver.ml" 447 13044 13110
+call(
+  stack
+)
+type(
+  config
+)
+"SMTLIBSolver.ml" 452 13182 13188 "SMTLIBSolver.ml" 452 13182 13205
+type(
+  string
+)
+ident(
+  def solver_executable "SMTLIBSolver.ml" 455 13283 13285 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 452 13182 13208 "SMTLIBSolver.ml" 452 13182 13218
+type(
+  string array
+)
+ident(
+  int_ref solver_cmd "SMTLIBSolver.ml" 447 13044 13066 "SMTLIBSolver.ml" 447 13044 13076
+)
+"SMTLIBSolver.ml" 452 13182 13220 "SMTLIBSolver.ml" 452 13182 13221
+type(
+  int
+)
+"SMTLIBSolver.ml" 452 13182 13208 "SMTLIBSolver.ml" 452 13182 13222
+type(
+  string
+)
+type(
+  string array -> int -> string
+)
+ident(
+  ext_ref Array.get
+)
+"SMTLIBSolver.ml" 455 13283 13289 "SMTLIBSolver.ml" 455 13283 13304
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdin_in "SMTLIBSolver.ml" 456 13341 13343 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 455 13283 13306 "SMTLIBSolver.ml" 455 13283 13322
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdin_out "SMTLIBSolver.ml" 456 13341 13343 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 455 13283 13289 "SMTLIBSolver.ml" 455 13283 13322
+type(
+  Unix.file_descr * Unix.file_descr
+)
+"SMTLIBSolver.ml" 455 13283 13325 "SMTLIBSolver.ml" 455 13283 13334
+type(
+  unit -> Unix.file_descr * Unix.file_descr
+)
+ident(
+  ext_ref Unix.pipe
+)
+"SMTLIBSolver.ml" 455 13283 13335 "SMTLIBSolver.ml" 455 13283 13337
+type(
+  unit
+)
+"SMTLIBSolver.ml" 455 13283 13325 "SMTLIBSolver.ml" 455 13283 13337
+call(
+  stack
+)
+type(
+  Unix.file_descr * Unix.file_descr
+)
+"SMTLIBSolver.ml" 456 13341 13347 "SMTLIBSolver.ml" 456 13341 13363
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdout_in "SMTLIBSolver.ml" 457 13402 13404 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 456 13341 13365 "SMTLIBSolver.ml" 456 13341 13382
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdout_out "SMTLIBSolver.ml" 457 13402 13404 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 456 13341 13347 "SMTLIBSolver.ml" 456 13341 13382
+type(
+  Unix.file_descr * Unix.file_descr
+)
+"SMTLIBSolver.ml" 456 13341 13385 "SMTLIBSolver.ml" 456 13341 13394
+type(
+  unit -> Unix.file_descr * Unix.file_descr
+)
+ident(
+  ext_ref Unix.pipe
+)
+"SMTLIBSolver.ml" 456 13341 13395 "SMTLIBSolver.ml" 456 13341 13397
+type(
+  unit
+)
+"SMTLIBSolver.ml" 456 13341 13385 "SMTLIBSolver.ml" 456 13341 13397
+call(
+  stack
+)
+type(
+  Unix.file_descr * Unix.file_descr
+)
+"SMTLIBSolver.ml" 457 13402 13408 "SMTLIBSolver.ml" 457 13402 13424
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stderr_in "SMTLIBSolver.ml" 460 13494 13496 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 457 13402 13426 "SMTLIBSolver.ml" 457 13402 13443
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stderr_out "SMTLIBSolver.ml" 460 13494 13496 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 457 13402 13408 "SMTLIBSolver.ml" 457 13402 13443
+type(
+  Unix.file_descr * Unix.file_descr
+)
+"SMTLIBSolver.ml" 457 13402 13446 "SMTLIBSolver.ml" 457 13402 13455
+type(
+  unit -> Unix.file_descr * Unix.file_descr
+)
+ident(
+  ext_ref Unix.pipe
+)
+"SMTLIBSolver.ml" 457 13402 13456 "SMTLIBSolver.ml" 457 13402 13458
+type(
+  unit
+)
+"SMTLIBSolver.ml" 457 13402 13446 "SMTLIBSolver.ml" 457 13402 13458
+call(
+  stack
+)
+type(
+  Unix.file_descr * Unix.file_descr
+)
+"SMTLIBSolver.ml" 460 13494 13500 "SMTLIBSolver.ml" 460 13494 13510
+type(
+  int
+)
+ident(
+  def solver_pid "SMTLIBSolver.ml" 471 13738 13740 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 461 13514 13518 "SMTLIBSolver.ml" 461 13514 13537
+type(
+  string ->
+  string array ->
+  Unix.file_descr -> Unix.file_descr -> Unix.file_descr -> int
+)
+ident(
+  ext_ref Unix.create_process
+)
+"SMTLIBSolver.ml" 462 13539 13545 "SMTLIBSolver.ml" 462 13539 13562
+type(
+  string
+)
+ident(
+  int_ref solver_executable "SMTLIBSolver.ml" 452 13182 13188 "SMTLIBSolver.ml" 452 13182 13205
+)
+"SMTLIBSolver.ml" 463 13564 13570 "SMTLIBSolver.ml" 463 13564 13580
+type(
+  string array
+)
+ident(
+  int_ref solver_cmd "SMTLIBSolver.ml" 447 13044 13066 "SMTLIBSolver.ml" 447 13044 13076
+)
+"SMTLIBSolver.ml" 464 13582 13588 "SMTLIBSolver.ml" 464 13582 13603
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdin_in "SMTLIBSolver.ml" 455 13283 13289 "SMTLIBSolver.ml" 455 13283 13304
+)
+"SMTLIBSolver.ml" 465 13604 13610 "SMTLIBSolver.ml" 465 13604 13627
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdout_out "SMTLIBSolver.ml" 456 13341 13365 "SMTLIBSolver.ml" 456 13341 13382
+)
+"SMTLIBSolver.ml" 466 13628 13634 "SMTLIBSolver.ml" 466 13628 13651
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stderr_out "SMTLIBSolver.ml" 457 13402 13426 "SMTLIBSolver.ml" 457 13402 13443
+)
+"SMTLIBSolver.ml" 461 13514 13518 "SMTLIBSolver.ml" 466 13628 13651
+call(
+  stack
+)
+type(
+  int
+)
+"SMTLIBSolver.ml" 471 13738 13740 "SMTLIBSolver.ml" 471 13738 13750
+type(
+  Unix.file_descr -> unit
+)
+ident(
+  ext_ref Unix.close
+)
+"SMTLIBSolver.ml" 471 13738 13751 "SMTLIBSolver.ml" 471 13738 13766
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdin_in "SMTLIBSolver.ml" 455 13283 13289 "SMTLIBSolver.ml" 455 13283 13304
+)
+"SMTLIBSolver.ml" 471 13738 13740 "SMTLIBSolver.ml" 471 13738 13766
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 472 13768 13770 "SMTLIBSolver.ml" 472 13768 13780
+type(
+  Unix.file_descr -> unit
+)
+ident(
+  ext_ref Unix.close
+)
+"SMTLIBSolver.ml" 472 13768 13781 "SMTLIBSolver.ml" 472 13768 13798
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdout_out "SMTLIBSolver.ml" 456 13341 13365 "SMTLIBSolver.ml" 456 13341 13382
+)
+"SMTLIBSolver.ml" 472 13768 13770 "SMTLIBSolver.ml" 472 13768 13798
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 473 13801 13803 "SMTLIBSolver.ml" 473 13801 13813
+type(
+  Unix.file_descr -> unit
+)
+ident(
+  ext_ref Unix.close
+)
+"SMTLIBSolver.ml" 473 13801 13814 "SMTLIBSolver.ml" 473 13801 13831
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stderr_out "SMTLIBSolver.ml" 457 13402 13426 "SMTLIBSolver.ml" 457 13402 13443
+)
+"SMTLIBSolver.ml" 473 13801 13803 "SMTLIBSolver.ml" 473 13801 13831
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 476 13896 13902 "SMTLIBSolver.ml" 476 13896 13918
+type(
+  in_channel
+)
+ident(
+  def solver_stdout_ch "SMTLIBSolver.ml" 479 14017 14019 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 476 13896 13921 "SMTLIBSolver.ml" 476 13896 13945
+type(
+  Unix.file_descr -> in_channel
+)
+ident(
+  ext_ref Unix.in_channel_of_descr
+)
+"SMTLIBSolver.ml" 476 13896 13946 "SMTLIBSolver.ml" 476 13896 13962
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdout_in "SMTLIBSolver.ml" 456 13341 13347 "SMTLIBSolver.ml" 456 13341 13363
+)
+"SMTLIBSolver.ml" 476 13896 13921 "SMTLIBSolver.ml" 476 13896 13962
+call(
+  stack
+)
+type(
+  in_channel
+)
+"SMTLIBSolver.ml" 479 14017 14023 "SMTLIBSolver.ml" 479 14017 14036
+type(
+  Lexing.lexbuf
+)
+ident(
+  def solver_lexbuf "SMTLIBSolver.ml" 482 14117 14119 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 479 14017 14039 "SMTLIBSolver.ml" 479 14017 14058
+type(
+  in_channel -> Lexing.lexbuf
+)
+ident(
+  ext_ref Lexing.from_channel
+)
+"SMTLIBSolver.ml" 479 14017 14059 "SMTLIBSolver.ml" 479 14017 14075
+type(
+  in_channel
+)
+ident(
+  int_ref solver_stdout_ch "SMTLIBSolver.ml" 476 13896 13902 "SMTLIBSolver.ml" 476 13896 13918
+)
+"SMTLIBSolver.ml" 479 14017 14039 "SMTLIBSolver.ml" 479 14017 14075
+call(
+  stack
+)
+type(
+  Lexing.lexbuf
+)
+"SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 493 14445 14448 "SMTLIBSolver.ml" 567 16721 16729
+)
+"SMTLIBSolver.ml" 483 14132 14154 "SMTLIBSolver.ml" 483 14132 14160
+type(
+  config
+)
+ident(
+  int_ref config "SMTLIBSolver.ml" 447 13044 13051 "SMTLIBSolver.ml" 447 13044 13088
+)
+"SMTLIBSolver.ml" 484 14162 14181 "SMTLIBSolver.ml" 484 14162 14191
+type(
+  int
+)
+ident(
+  int_ref solver_pid "SMTLIBSolver.ml" 460 13494 13500 "SMTLIBSolver.ml" 460 13494 13510
+)
+"SMTLIBSolver.ml" 485 14193 14214 "SMTLIBSolver.ml" 485 14193 14230
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdin_out "SMTLIBSolver.ml" 455 13283 13306 "SMTLIBSolver.ml" 455 13283 13322
+)
+"SMTLIBSolver.ml" 486 14233 14255 "SMTLIBSolver.ml" 486 14233 14268
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref solver_lexbuf "SMTLIBSolver.ml" 479 14017 14023 "SMTLIBSolver.ml" 479 14017 14036
+)
+"SMTLIBSolver.ml" 487 14271 14293 "SMTLIBSolver.ml" 487 14271 14309
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdout_in "SMTLIBSolver.ml" 456 13341 13347 "SMTLIBSolver.ml" 456 13341 13363
+)
+"SMTLIBSolver.ml" 488 14312 14334 "SMTLIBSolver.ml" 488 14312 14350
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stderr_in "SMTLIBSolver.ml" 457 13402 13408 "SMTLIBSolver.ml" 457 13402 13424
+)
+"SMTLIBSolver.ml" 483 14132 14136 "SMTLIBSolver.ml" 488 14312 14353
+type(
+  t
+)
+"SMTLIBSolver.ml" 494 14455 14464 "SMTLIBSolver.ml" 494 14455 14467
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 496 14536 14542 "SMTLIBSolver.ml" 496 14536 14570
+)
+"SMTLIBSolver.ml" 494 14455 14470 "SMTLIBSolver.ml" 494 14455 14504
+type(
+  string
+)
+"SMTLIBSolver.ml" 496 14536 14542 "SMTLIBSolver.ml" 496 14536 14557
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 496 14536 14558 "SMTLIBSolver.ml" 496 14536 14564
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 496 14536 14565 "SMTLIBSolver.ml" 496 14536 14568
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 494 14455 14464 "SMTLIBSolver.ml" 494 14455 14467
+)
+"SMTLIBSolver.ml" 496 14536 14569 "SMTLIBSolver.ml" 496 14536 14570
+type(
+  int
+)
+"SMTLIBSolver.ml" 496 14536 14542 "SMTLIBSolver.ml" 496 14536 14570
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 494 14455 14460 "SMTLIBSolver.ml" 496 14536 14571
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 498 14581 14588 "SMTLIBSolver.ml" 498 14581 14595
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 498 14581 14599 "SMTLIBSolver.ml" 498 14581 14601
+type(
+  unit
+)
+"SMTLIBSolver.ml" 499 14603 14610 "SMTLIBSolver.ml" 499 14603 14611
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 499 14603 14615 "SMTLIBSolver.ml" 499 14603 14620
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 499 14603 14631 "SMTLIBSolver.ml" 499 14603 14664
+type(
+  string
+)
+"SMTLIBSolver.ml" 499 14603 14622 "SMTLIBSolver.ml" 499 14603 14665
+type(
+  exn
+)
+"SMTLIBSolver.ml" 499 14603 14615 "SMTLIBSolver.ml" 499 14603 14666
+type(
+  unit
+)
+"SMTLIBSolver.ml" 493 14445 14448 "SMTLIBSolver.ml" 499 14603 14666
+type(
+  unit
+)
+"SMTLIBSolver.ml" 504 14715 14724 "SMTLIBSolver.ml" 504 14715 14727
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 506 14799 14805 "SMTLIBSolver.ml" 506 14799 14833
+)
+"SMTLIBSolver.ml" 504 14715 14730 "SMTLIBSolver.ml" 504 14715 14767
+type(
+  string
+)
+"SMTLIBSolver.ml" 506 14799 14805 "SMTLIBSolver.ml" 506 14799 14820
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 506 14799 14821 "SMTLIBSolver.ml" 506 14799 14827
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 506 14799 14828 "SMTLIBSolver.ml" 506 14799 14831
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 504 14715 14724 "SMTLIBSolver.ml" 504 14715 14727
+)
+"SMTLIBSolver.ml" 506 14799 14832 "SMTLIBSolver.ml" 506 14799 14833
+type(
+  int
+)
+"SMTLIBSolver.ml" 506 14799 14805 "SMTLIBSolver.ml" 506 14799 14833
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 504 14715 14720 "SMTLIBSolver.ml" 506 14799 14834
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 508 14844 14851 "SMTLIBSolver.ml" 508 14844 14858
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 508 14844 14862 "SMTLIBSolver.ml" 508 14844 14864
+type(
+  unit
+)
+"SMTLIBSolver.ml" 509 14866 14873 "SMTLIBSolver.ml" 509 14866 14874
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 509 14866 14878 "SMTLIBSolver.ml" 509 14866 14883
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 509 14866 14894 "SMTLIBSolver.ml" 509 14866 14930
+type(
+  string
+)
+"SMTLIBSolver.ml" 509 14866 14885 "SMTLIBSolver.ml" 509 14866 14931
+type(
+  exn
+)
+"SMTLIBSolver.ml" 509 14866 14878 "SMTLIBSolver.ml" 509 14866 14932
+type(
+  unit
+)
+"SMTLIBSolver.ml" 503 14705 14708 "SMTLIBSolver.ml" 509 14866 14932
+type(
+  unit
+)
+"SMTLIBSolver.ml" 513 14963 14972 "SMTLIBSolver.ml" 513 14963 14975
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 515 15065 15071 "SMTLIBSolver.ml" 515 15065 15099
+)
+"SMTLIBSolver.ml" 513 14963 14978 "SMTLIBSolver.ml" 513 14963 14992
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"SMTLIBSolver.ml" 513 14963 14993 "SMTLIBSolver.ml" 513 14963 15009
+type(
+  (string -> string, unit, string) format
+)
+"SMTLIBSolver.ml" 513 14963 15011 "SMTLIBSolver.ml" 513 14963 15026
+type(
+  SMTExpr.logic -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_logic
+)
+"SMTLIBSolver.ml" 513 14963 15027 "SMTLIBSolver.ml" 513 14963 15032
+type(
+  SMTExpr.logic
+)
+ident(
+  int_ref logic "SMTLIBSolver.ml" 444 12990 12994 "SMTLIBSolver.ml" 444 12990 12999
+)
+"SMTLIBSolver.ml" 513 14963 15011 "SMTLIBSolver.ml" 513 14963 15032
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 513 14963 14978 "SMTLIBSolver.ml" 513 14963 15033
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 515 15065 15071 "SMTLIBSolver.ml" 515 15065 15086
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 515 15065 15087 "SMTLIBSolver.ml" 515 15065 15093
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 515 15065 15094 "SMTLIBSolver.ml" 515 15065 15097
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 513 14963 14972 "SMTLIBSolver.ml" 513 14963 14975
+)
+"SMTLIBSolver.ml" 515 15065 15098 "SMTLIBSolver.ml" 515 15065 15099
+type(
+  int
+)
+"SMTLIBSolver.ml" 515 15065 15071 "SMTLIBSolver.ml" 515 15065 15099
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 513 14963 14968 "SMTLIBSolver.ml" 515 15065 15100
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 517 15110 15117 "SMTLIBSolver.ml" 517 15110 15124
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 517 15110 15128 "SMTLIBSolver.ml" 517 15110 15130
+type(
+  unit
+)
+"SMTLIBSolver.ml" 518 15132 15139 "SMTLIBSolver.ml" 518 15132 15140
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 519 15145 15152 "SMTLIBSolver.ml" 519 15145 15157
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 521 15178 15191 "SMTLIBSolver.ml" 521 15178 15210
+type(
+  string
+)
+"SMTLIBSolver.ml" 521 15178 15211 "SMTLIBSolver.ml" 521 15178 15212
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"SMTLIBSolver.ml" 521 15178 15214 "SMTLIBSolver.ml" 521 15178 15229
+type(
+  SMTExpr.logic -> string
+)
+ident(
+  ext_ref SMTExpr.string_of_logic
+)
+"SMTLIBSolver.ml" 521 15178 15230 "SMTLIBSolver.ml" 521 15178 15235
+type(
+  SMTExpr.logic
+)
+ident(
+  int_ref logic "SMTLIBSolver.ml" 444 12990 12994 "SMTLIBSolver.ml" 444 12990 12999
+)
+"SMTLIBSolver.ml" 521 15178 15214 "SMTLIBSolver.ml" 521 15178 15235
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 521 15178 15191 "SMTLIBSolver.ml" 521 15178 15236
+call(
+  stack
+)
+type(
+  string
+)
+"SMTLIBSolver.ml" 520 15159 15169 "SMTLIBSolver.ml" 521 15178 15237
+type(
+  exn
+)
+"SMTLIBSolver.ml" 519 15145 15152 "SMTLIBSolver.ml" 521 15178 15238
+type(
+  unit
+)
+"SMTLIBSolver.ml" 512 14954 14957 "SMTLIBSolver.ml" 521 15178 15238
+type(
+  unit
+)
+"SMTLIBSolver.ml" 525 15348 15353 "SMTLIBSolver.ml" 525 15348 15372
+type(
+  bool
+)
+ident(
+  int_ref produce_assignments "SMTLIBSolver.ml" 440 12859 12863 "SMTLIBSolver.ml" 440 12859 12893
+)
+"SMTLIBSolver.ml" 527 15390 15401 "SMTLIBSolver.ml" 527 15390 15404
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 529 15481 15489 "SMTLIBSolver.ml" 529 15481 15517
+)
+"SMTLIBSolver.ml" 527 15390 15407 "SMTLIBSolver.ml" 527 15390 15447
+type(
+  string
+)
+"SMTLIBSolver.ml" 529 15481 15489 "SMTLIBSolver.ml" 529 15481 15504
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 529 15481 15505 "SMTLIBSolver.ml" 529 15481 15511
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 529 15481 15512 "SMTLIBSolver.ml" 529 15481 15515
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 527 15390 15401 "SMTLIBSolver.ml" 527 15390 15404
+)
+"SMTLIBSolver.ml" 529 15481 15516 "SMTLIBSolver.ml" 529 15481 15517
+type(
+  int
+)
+"SMTLIBSolver.ml" 529 15481 15489 "SMTLIBSolver.ml" 529 15481 15517
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 527 15390 15397 "SMTLIBSolver.ml" 529 15481 15518
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 531 15530 15539 "SMTLIBSolver.ml" 531 15530 15546
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 531 15530 15550 "SMTLIBSolver.ml" 531 15530 15552
+type(
+  unit
+)
+"SMTLIBSolver.ml" 532 15554 15563 "SMTLIBSolver.ml" 532 15554 15564
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 532 15554 15568 "SMTLIBSolver.ml" 532 15554 15573
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 532 15554 15584 "SMTLIBSolver.ml" 532 15554 15623
+type(
+  string
+)
+"SMTLIBSolver.ml" 532 15554 15575 "SMTLIBSolver.ml" 532 15554 15624
+type(
+  exn
+)
+"SMTLIBSolver.ml" 532 15554 15568 "SMTLIBSolver.ml" 532 15554 15625
+type(
+  unit
+)
+"SMTLIBSolver.ml" 526 15378 15383 "SMTLIBSolver.ml" 532 15554 15625
+type(
+  unit
+)
+"SMTLIBSolver.ml" 525 15348 15350 "SMTLIBSolver.ml" 532 15554 15626
+type(
+  unit
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 536 15731 15736 "SMTLIBSolver.ml" 536 15731 15750
+type(
+  bool
+)
+ident(
+  int_ref produce_models "SMTLIBSolver.ml" 441 12894 12898 "SMTLIBSolver.ml" 441 12894 12923
+)
+"SMTLIBSolver.ml" 538 15768 15779 "SMTLIBSolver.ml" 538 15768 15782
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 540 15854 15862 "SMTLIBSolver.ml" 540 15854 15890
+)
+"SMTLIBSolver.ml" 538 15768 15785 "SMTLIBSolver.ml" 538 15768 15820
+type(
+  string
+)
+"SMTLIBSolver.ml" 540 15854 15862 "SMTLIBSolver.ml" 540 15854 15877
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 540 15854 15878 "SMTLIBSolver.ml" 540 15854 15884
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 540 15854 15885 "SMTLIBSolver.ml" 540 15854 15888
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 538 15768 15779 "SMTLIBSolver.ml" 538 15768 15782
+)
+"SMTLIBSolver.ml" 540 15854 15889 "SMTLIBSolver.ml" 540 15854 15890
+type(
+  int
+)
+"SMTLIBSolver.ml" 540 15854 15862 "SMTLIBSolver.ml" 540 15854 15890
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 538 15768 15775 "SMTLIBSolver.ml" 540 15854 15891
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 542 15903 15912 "SMTLIBSolver.ml" 542 15903 15919
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 542 15903 15923 "SMTLIBSolver.ml" 542 15903 15925
+type(
+  unit
+)
+"SMTLIBSolver.ml" 543 15927 15936 "SMTLIBSolver.ml" 543 15927 15937
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 543 15927 15941 "SMTLIBSolver.ml" 543 15927 15946
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 543 15927 15957 "SMTLIBSolver.ml" 543 15927 15991
+type(
+  string
+)
+"SMTLIBSolver.ml" 543 15927 15948 "SMTLIBSolver.ml" 543 15927 15992
+type(
+  exn
+)
+"SMTLIBSolver.ml" 543 15927 15941 "SMTLIBSolver.ml" 543 15927 15993
+type(
+  unit
+)
+"SMTLIBSolver.ml" 537 15756 15761 "SMTLIBSolver.ml" 543 15927 15993
+type(
+  unit
+)
+"SMTLIBSolver.ml" 536 15731 15733 "SMTLIBSolver.ml" 543 15927 15994
+type(
+  unit
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 546 16065 16070 "SMTLIBSolver.ml" 546 16065 16084
+type(
+  bool
+)
+ident(
+  int_ref produce_proofs "SMTLIBSolver.ml" 442 12925 12929 "SMTLIBSolver.ml" 442 12925 12954
+)
+"SMTLIBSolver.ml" 548 16102 16113 "SMTLIBSolver.ml" 548 16102 16116
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 550 16188 16196 "SMTLIBSolver.ml" 550 16188 16224
+)
+"SMTLIBSolver.ml" 548 16102 16119 "SMTLIBSolver.ml" 548 16102 16154
+type(
+  string
+)
+"SMTLIBSolver.ml" 550 16188 16196 "SMTLIBSolver.ml" 550 16188 16211
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 550 16188 16212 "SMTLIBSolver.ml" 550 16188 16218
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 550 16188 16219 "SMTLIBSolver.ml" 550 16188 16222
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 548 16102 16113 "SMTLIBSolver.ml" 548 16102 16116
+)
+"SMTLIBSolver.ml" 550 16188 16223 "SMTLIBSolver.ml" 550 16188 16224
+type(
+  int
+)
+"SMTLIBSolver.ml" 550 16188 16196 "SMTLIBSolver.ml" 550 16188 16224
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 548 16102 16109 "SMTLIBSolver.ml" 550 16188 16225
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 552 16237 16246 "SMTLIBSolver.ml" 552 16237 16253
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 552 16237 16257 "SMTLIBSolver.ml" 552 16237 16259
+type(
+  unit
+)
+"SMTLIBSolver.ml" 553 16261 16270 "SMTLIBSolver.ml" 553 16261 16271
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 553 16261 16275 "SMTLIBSolver.ml" 553 16261 16280
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 553 16261 16291 "SMTLIBSolver.ml" 553 16261 16325
+type(
+  string
+)
+"SMTLIBSolver.ml" 553 16261 16282 "SMTLIBSolver.ml" 553 16261 16326
+type(
+  exn
+)
+"SMTLIBSolver.ml" 553 16261 16275 "SMTLIBSolver.ml" 553 16261 16327
+type(
+  unit
+)
+"SMTLIBSolver.ml" 547 16090 16095 "SMTLIBSolver.ml" 553 16261 16327
+type(
+  unit
+)
+"SMTLIBSolver.ml" 546 16065 16067 "SMTLIBSolver.ml" 553 16261 16328
+type(
+  unit
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 557 16415 16420 "SMTLIBSolver.ml" 557 16415 16433
+type(
+  bool
+)
+ident(
+  int_ref produce_cores "SMTLIBSolver.ml" 443 12956 12960 "SMTLIBSolver.ml" 443 12956 12984
+)
+"SMTLIBSolver.ml" 559 16451 16462 "SMTLIBSolver.ml" 559 16451 16465
+type(
+  string
+)
+ident(
+  def cmd "SMTLIBSolver.ml" 561 16542 16550 "SMTLIBSolver.ml" 561 16542 16578
+)
+"SMTLIBSolver.ml" 559 16451 16468 "SMTLIBSolver.ml" 559 16451 16508
+type(
+  string
+)
+"SMTLIBSolver.ml" 561 16542 16550 "SMTLIBSolver.ml" 561 16542 16565
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command "SMTLIBSolver.ml" 236 7843 7847 "SMTLIBSolver.ml" 236 7843 7862
+)
+"SMTLIBSolver.ml" 561 16542 16566 "SMTLIBSolver.ml" 561 16542 16572
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 561 16542 16573 "SMTLIBSolver.ml" 561 16542 16576
+type(
+  string
+)
+ident(
+  int_ref cmd "SMTLIBSolver.ml" 559 16451 16462 "SMTLIBSolver.ml" 559 16451 16465
+)
+"SMTLIBSolver.ml" 561 16542 16577 "SMTLIBSolver.ml" 561 16542 16578
+type(
+  int
+)
+"SMTLIBSolver.ml" 561 16542 16550 "SMTLIBSolver.ml" 561 16542 16578
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 559 16451 16458 "SMTLIBSolver.ml" 561 16542 16579
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 563 16591 16600 "SMTLIBSolver.ml" 563 16591 16607
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 563 16591 16611 "SMTLIBSolver.ml" 563 16591 16613
+type(
+  unit
+)
+"SMTLIBSolver.ml" 564 16615 16624 "SMTLIBSolver.ml" 564 16615 16625
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 564 16615 16629 "SMTLIBSolver.ml" 564 16615 16634
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"SMTLIBSolver.ml" 564 16615 16645 "SMTLIBSolver.ml" 564 16615 16684
+type(
+  string
+)
+"SMTLIBSolver.ml" 564 16615 16636 "SMTLIBSolver.ml" 564 16615 16685
+type(
+  exn
+)
+"SMTLIBSolver.ml" 564 16615 16629 "SMTLIBSolver.ml" 564 16615 16686
+type(
+  unit
+)
+"SMTLIBSolver.ml" 558 16439 16444 "SMTLIBSolver.ml" 564 16615 16686
+type(
+  unit
+)
+"SMTLIBSolver.ml" 557 16415 16417 "SMTLIBSolver.ml" 564 16615 16687
+type(
+  unit
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 567 16721 16723 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 482 14117 14123 "SMTLIBSolver.ml" 482 14117 14129
+)
+"SMTLIBSolver.ml" 557 16415 16417 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 546 16065 16067 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 536 15731 15733 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 525 15348 15350 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 512 14954 14957 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 503 14705 14708 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 493 14445 14448 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 482 14117 14119 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 479 14017 14019 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 476 13896 13898 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 473 13801 13803 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 472 13768 13770 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 471 13738 13740 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 460 13494 13496 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 457 13402 13404 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 456 13341 13343 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 455 13283 13285 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 452 13182 13184 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 447 13044 13046 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  t
+)
+"SMTLIBSolver.ml" 444 12990 12994 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  SMTExpr.logic -> t
+)
+"SMTLIBSolver.ml" 443 12956 12960 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  SMTExpr.logic -> t
+)
+type(
+  bool
+)
+type(
+  bool option
+)
+ident(
+  int_ref *opt* "SMTLIBSolver.ml" 443 12956 12960 "SMTLIBSolver.ml" 567 16721 16729
+)
+type(
+  bool option
+)
+"SMTLIBSolver.ml" 442 12925 12929 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  bool
+)
+type(
+  bool option
+)
+ident(
+  int_ref *opt* "SMTLIBSolver.ml" 442 12925 12929 "SMTLIBSolver.ml" 567 16721 16729
+)
+type(
+  bool option
+)
+"SMTLIBSolver.ml" 441 12894 12898 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  bool
+)
+type(
+  bool option
+)
+ident(
+  int_ref *opt* "SMTLIBSolver.ml" 441 12894 12898 "SMTLIBSolver.ml" 567 16721 16729
+)
+type(
+  bool option
+)
+"SMTLIBSolver.ml" 440 12859 12863 "SMTLIBSolver.ml" 567 16721 16729
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+)
+type(
+  bool
+)
+type(
+  bool option
+)
+ident(
+  int_ref *opt* "SMTLIBSolver.ml" 440 12859 12863 "SMTLIBSolver.ml" 567 16721 16729
+)
+type(
+  bool option
+)
+"SMTLIBSolver.ml" 573 16841 16845 "SMTLIBSolver.ml" 573 16841 16860
+type(
+  t -> unit
+)
+ident(
+  def delete_instance "SMTLIBSolver.ml" 612 17984 18010 "_none_" 1 0 -1
+)
+"SMTLIBSolver.ml" 574 16862 16882 "SMTLIBSolver.ml" 574 16862 16892
+type(
+  int
+)
+ident(
+  def solver_pid "SMTLIBSolver.ml" 585 17281 17283 "SMTLIBSolver.ml" 612 17984 18010
+)
+"SMTLIBSolver.ml" 575 16895 16917 "SMTLIBSolver.ml" 575 16895 16929
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdin "SMTLIBSolver.ml" 585 17281 17283 "SMTLIBSolver.ml" 612 17984 18010
+)
+"SMTLIBSolver.ml" 576 16932 16955 "SMTLIBSolver.ml" 576 16932 16968
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stdout "SMTLIBSolver.ml" 585 17281 17283 "SMTLIBSolver.ml" 612 17984 18010
+)
+"SMTLIBSolver.ml" 577 16970 16993 "SMTLIBSolver.ml" 577 16970 17006
+type(
+  Unix.file_descr
+)
+ident(
+  def solver_stderr "SMTLIBSolver.ml" 585 17281 17283 "SMTLIBSolver.ml" 612 17984 18010
+)
+"SMTLIBSolver.ml" 574 16862 16867 "SMTLIBSolver.ml" 577 16970 17008
+type(
+  t
+)
+"SMTLIBSolver.ml" 574 16862 16867 "SMTLIBSolver.ml" 577 16970 17018
+type(
+  t
+)
+ident(
+  def solver "SMTLIBSolver.ml" 585 17281 17283 "SMTLIBSolver.ml" 612 17984 18010
+)
+"SMTLIBSolver.ml" 585 17281 17287 "SMTLIBSolver.ml" 585 17281 17288
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 585 17281 17291 "SMTLIBSolver.ml" 585 17281 17318
+type(
+  t -> string -> int -> SMTExpr.response
+)
+ident(
+  int_ref execute_command_no_response "SMTLIBSolver.ml" 247 8046 8050 "SMTLIBSolver.ml" 247 8046 8077
+)
+"SMTLIBSolver.ml" 585 17281 17319 "SMTLIBSolver.ml" 585 17281 17325
+type(
+  t
+)
+ident(
+  int_ref solver "SMTLIBSolver.ml" 574 16862 16867 "SMTLIBSolver.ml" 577 16970 17018
+)
+"SMTLIBSolver.ml" 585 17281 17326 "SMTLIBSolver.ml" 585 17281 17334
+type(
+  string
+)
+"SMTLIBSolver.ml" 585 17281 17335 "SMTLIBSolver.ml" 585 17281 17336
+type(
+  int
+)
+"SMTLIBSolver.ml" 585 17281 17291 "SMTLIBSolver.ml" 585 17281 17336
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"SMTLIBSolver.ml" 588 17379 17385 "SMTLIBSolver.ml" 588 17379 17386
+type(
+  int
+)
+"SMTLIBSolver.ml" 588 17379 17388 "SMTLIBSolver.ml" 588 17379 17402
+type(
+  Unix.process_status
+)
+ident(
+  def process_status "SMTLIBSolver.ml" 593 17490 17494 "SMTLIBSolver.ml" 612 17984 18010
+)
+"SMTLIBSolver.ml" 588 17379 17385 "SMTLIBSolver.ml" 588 17379 17402
+type(
+  int * Unix.process_status
+)
+"SMTLIBSolver.ml" 588 17379 17405 "SMTLIBSolver.ml" 588 17379 17417
+type(
+  Unix.wait_flag list -> int -> int * Unix.process_status
+)
+ident(
+  ext_ref Unix.waitpid
+)
+"SMTLIBSolver.ml" 588 17379 17418 "SMTLIBSolver.ml" 588 17379 17420
+type(
+  Unix.wait_flag list
+)
+"SMTLIBSolver.ml" 588 17379 17421 "SMTLIBSolver.ml" 588 17379 17431
+type(
+  int
+)
+ident(
+  int_ref solver_pid "SMTLIBSolver.ml" 574 16862 16882 "SMTLIBSolver.ml" 574 16862 16892
+)
+"SMTLIBSolver.ml" 588 17379 17405 "SMTLIBSolver.ml" 588 17379 17431
+call(
+  stack
+)
+type(
+  int * Unix.process_status
+)
+"SMTLIBSolver.ml" 593 17490 17500 "SMTLIBSolver.ml" 593 17490 17514
+type(
+  Unix.process_status
+)
+ident(
+  int_ref process_status "SMTLIBSolver.ml" 588 17379 17388 "SMTLIBSolver.ml" 588 17379 17402
+)
+"SMTLIBSolver.ml" 596 17548 17569 "SMTLIBSolver.ml" 596 17548 17570
+type(
+  int
+)
+ident(
+  def c "SMTLIBSolver.ml" 597 17575 17584 "SMTLIBSolver.ml" 597 17575 17628
+)
+"SMTLIBSolver.ml" 596 17548 17556 "SMTLIBSolver.ml" 596 17548 17570
+type(
+  Unix.process_status
+)
+"SMTLIBSolver.ml" 597 17575 17584 "SMTLIBSolver.ml" 597 17575 17628
+type(
+  unit
+)
+"SMTLIBSolver.ml" 600 17670 17693 "SMTLIBSolver.ml" 600 17670 17694
+type(
+  int
+)
+ident(
+  def s "SMTLIBSolver.ml" 601 17699 17708 "SMTLIBSolver.ml" 601 17699 17754
+)
+"SMTLIBSolver.ml" 600 17670 17678 "SMTLIBSolver.ml" 600 17670 17694
+type(
+  Unix.process_status
+)
+"SMTLIBSolver.ml" 601 17699 17708 "SMTLIBSolver.ml" 601 17699 17754
+type(
+  unit
+)
+"SMTLIBSolver.ml" 604 17797 17819 "SMTLIBSolver.ml" 604 17797 17820
+type(
+  int
+)
+ident(
+  def s "SMTLIBSolver.ml" 605 17825 17834 "SMTLIBSolver.ml" 605 17825 17879
+)
+"SMTLIBSolver.ml" 604 17797 17805 "SMTLIBSolver.ml" 604 17797 17820
+type(
+  Unix.process_status
+)
+"SMTLIBSolver.ml" 605 17825 17834 "SMTLIBSolver.ml" 605 17825 17879
+type(
+  unit
+)
+"SMTLIBSolver.ml" 593 17490 17494 "SMTLIBSolver.ml" 605 17825 17880
+type(
+  unit
+)
+"SMTLIBSolver.ml" 610 17929 17931 "SMTLIBSolver.ml" 610 17929 17941
+type(
+  Unix.file_descr -> unit
+)
+ident(
+  ext_ref Unix.close
+)
+"SMTLIBSolver.ml" 610 17929 17942 "SMTLIBSolver.ml" 610 17929 17954
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdin "SMTLIBSolver.ml" 575 16895 16917 "SMTLIBSolver.ml" 575 16895 16929
+)
+"SMTLIBSolver.ml" 610 17929 17931 "SMTLIBSolver.ml" 610 17929 17954
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 611 17956 17958 "SMTLIBSolver.ml" 611 17956 17968
+type(
+  Unix.file_descr -> unit
+)
+ident(
+  ext_ref Unix.close
+)
+"SMTLIBSolver.ml" 611 17956 17969 "SMTLIBSolver.ml" 611 17956 17982
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stdout "SMTLIBSolver.ml" 576 16932 16955 "SMTLIBSolver.ml" 576 16932 16968
+)
+"SMTLIBSolver.ml" 611 17956 17958 "SMTLIBSolver.ml" 611 17956 17982
+call(
+  stack
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 612 17984 17986 "SMTLIBSolver.ml" 612 17984 17996
+type(
+  Unix.file_descr -> unit
+)
+ident(
+  ext_ref Unix.close
+)
+"SMTLIBSolver.ml" 612 17984 17997 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  Unix.file_descr
+)
+ident(
+  int_ref solver_stderr "SMTLIBSolver.ml" 577 16970 16993 "SMTLIBSolver.ml" 577 16970 17006
+)
+"SMTLIBSolver.ml" 612 17984 17986 "SMTLIBSolver.ml" 612 17984 18010
+call(
+  tail
+)
+type(
+  unit
+)
+"SMTLIBSolver.ml" 611 17956 17958 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  unit
+)
+"SMTLIBSolver.ml" 610 17929 17931 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  unit
+)
+"SMTLIBSolver.ml" 593 17490 17494 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  unit
+)
+"SMTLIBSolver.ml" 588 17379 17381 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  unit
+)
+"SMTLIBSolver.ml" 585 17281 17283 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  unit
+)
+"SMTLIBSolver.ml" 574 16862 16866 "SMTLIBSolver.ml" 612 17984 18010
+type(
+  t -> unit
+)

@@ -1,0 +1,78 @@
+# Makefile.  Generated from Makefile.in by configure.
+
+# Makefile for the OCaml CZMQ library 
+
+top_builddir = .
+
+OCAMLOPT=ocamlopt.opt
+
+all: czmq_stubs
+
+# Rules to configure and compile ZeroMQ 
+
+# autogen-zeromq: zeromq/configure.in
+# 	cd zeromq && sh autogen.sh
+
+# configure-zeromq: autogen-zeromq
+# 	 cd zeromq && ./configure --prefix=$(CURDIR)
+
+.PHONY: zeromq
+
+zeromq: # configure-zeromq
+	make -C zeromq
+	make -C zeromq install
+
+# Rules to configure and compile CZMQ 
+
+# autogen-czmq: zeromq/configure.in
+# 	cd czmq && sh autogen.sh
+
+# configure-czmq: autogen-czmq
+# 	 cd czmq && ./configure --prefix=$(CURDIR) --with-libzmq=$(CURDIR)
+
+.PHONY: czmq
+
+czmq: zeromq # configure-czmq
+	make -C czmq
+	make -C czmq install
+
+czmq_stubs: czmq
+	make -C src
+
+clean:
+	rm -rf lib/*
+	make -C src clean
+	make -C zeromq clean
+	make -C czmq clean
+
+zmq_test: zmq_test.ml
+	$(OCAMLOPT) -I lib ZMQ.cmxa zmq_test.ml -o zmq_test
+
+# .PHONY: ocamlczmq
+
+# ocamlczmq: czmq
+# 	make -C src
+
+# .PHONY: czmq
+
+# czmq: 
+# 	cd czmq && sh autogen.sh && ./configure @CZMQ_CONFFLAGS@ --prefix=/usr/local
+# 	make -C czmq
+
+# clean: Makefile
+# 	make -C src clean
+
+# .PHONY: install 
+
+# install: 
+# 	make -C czmq install	
+# 	cd src && cp dll_wrap_stubs.so lib_wrap_stubs.a ZMQ.cmi ZMQ.a ZMQ.cmxa ZMQ.cma ../lib
+
+
+# Remake this Makefile if configuration has changed 
+Makefile: Makefile.in ../config.status
+	cd .. && ./config.status
+
+config.status: configure
+	./config.status --recheck
+

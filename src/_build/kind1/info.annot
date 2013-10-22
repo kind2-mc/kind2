@@ -1,0 +1,15 @@
+"kind1/info.ml" 5 28 32 "kind1/info.ml" 5 28 41
+type(
+  info_t
+)
+ident(
+  def init_info "kind1/info.ml" 7 55 56 "_none_" 1 0 -1
+)
+"kind1/info.ml" 6 46 52 "kind1/info.ml" 6 46 53
+type(
+  int
+)
+"kind1/info.ml" 5 28 44 "kind1/info.ml" 7 55 56
+type(
+  info_t
+)

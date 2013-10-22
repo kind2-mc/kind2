@@ -1,0 +1,4542 @@
+"kind2.ml" 33 1686 1690 "kind2.ml" 33 1686 1705
+type(
+  Format.formatter -> unit -> unit
+)
+ident(
+  def pp_print_banner "kind2.ml" 45 1888 1888 "_none_" 1 0 -1
+)
+"kind2.ml" 33 1686 1706 "kind2.ml" 33 1686 1709
+type(
+  Format.formatter
+)
+ident(
+  def ppf "kind2.ml" 33 1686 1710 "kind2.ml" 34 1715 1789
+)
+"kind2.ml" 33 1686 1710 "kind2.ml" 33 1686 1712
+type(
+  unit
+)
+"kind2.ml" 34 1715 1719 "kind2.ml" 34 1715 1733
+type(
+  Format.formatter ->
+  (string -> string -> unit, Format.formatter, unit) format ->
+  string -> string -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"kind2.ml" 34 1715 1734 "kind2.ml" 34 1715 1737
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "kind2.ml" 33 1686 1706 "kind2.ml" 33 1686 1709
+)
+"kind2.ml" 34 1715 1738 "kind2.ml" 34 1715 1746
+type(
+  (string -> string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 34 1715 1747 "kind2.ml" 34 1715 1766
+type(
+  string
+)
+ident(
+  ext_ref Config.package_name
+)
+"kind2.ml" 34 1715 1767 "kind2.ml" 34 1715 1789
+type(
+  string
+)
+ident(
+  ext_ref Config.package_version
+)
+"kind2.ml" 34 1715 1719 "kind2.ml" 34 1715 1789
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 33 1686 1710 "kind2.ml" 34 1715 1789
+type(
+  unit -> unit
+)
+"kind2.ml" 33 1686 1706 "kind2.ml" 34 1715 1789
+type(
+  Format.formatter -> unit -> unit
+)
+"kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  def child_pids "kind2.ml" 59 2130 2130 "_none_" 1 0 -1
+)
+"kind2.ml" 54 2068 2085 "kind2.ml" 54 2068 2088
+type(
+  (int * Lib.kind_module) list -> (int * Lib.kind_module) list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind2.ml" 54 2068 2089 "kind2.ml" 54 2068 2091
+type(
+  (int * Lib.kind_module) list
+)
+"kind2.ml" 54 2068 2085 "kind2.ml" 54 2068 2091
+type(
+  (int * Lib.kind_module) list ref
+)
+"kind2.ml" 59 2130 2134 "kind2.ml" 59 2130 2149
+type(
+  [< `BMC | `IND | `INVGEN | `INVMAN | `Interpreter | `PDR ] ->
+  TransSys.t -> unit
+)
+ident(
+  def main_of_process "kind2.ml" 69 2414 2414 "_none_" 1 0 -1
+)
+"kind2.ml" 60 2162 2166 "kind2.ml" 60 2162 2170
+type(
+  [< `BMC | `IND | `INVGEN | `INVMAN | `Interpreter | `PDR ] as 'a
+)
+"kind2.ml" 60 2162 2174 "kind2.ml" 60 2162 2182
+type(
+  TransSys.t -> unit
+)
+ident(
+  ext_ref PDR.main
+)
+"kind2.ml" 61 2183 2187 "kind2.ml" 61 2183 2191
+type(
+  'a
+)
+"kind2.ml" 61 2183 2195 "kind2.ml" 61 2183 2203
+type(
+  TransSys.t -> unit
+)
+ident(
+  ext_ref BMC.main
+)
+"kind2.ml" 62 2205 2209 "kind2.ml" 62 2205 2213
+type(
+  'a
+)
+"kind2.ml" 62 2205 2217 "kind2.ml" 62 2205 2229
+type(
+  TransSys.t -> unit
+)
+ident(
+  ext_ref IndStep.main
+)
+"kind2.ml" 63 2231 2235 "kind2.ml" 63 2231 2242
+type(
+  'a
+)
+"kind2.ml" 63 2231 2246 "kind2.ml" 63 2231 2257
+type(
+  TransSys.t -> unit
+)
+ident(
+  ext_ref InvGen.main
+)
+"kind2.ml" 64 2259 2263 "kind2.ml" 64 2259 2275
+type(
+  'a
+)
+"kind2.ml" 64 2259 2279 "kind2.ml" 64 2259 2295
+type(
+  string -> TransSys.t -> unit
+)
+ident(
+  ext_ref Interpreter.main
+)
+"kind2.ml" 64 2259 2296 "kind2.ml" 64 2259 2306
+type(
+  string
+)
+"kind2.ml" 64 2259 2279 "kind2.ml" 64 2259 2306
+call(
+  tail
+)
+type(
+  TransSys.t -> unit
+)
+"kind2.ml" 65 2307 2311 "kind2.ml" 65 2307 2318
+type(
+  'a
+)
+"kind2.ml" 65 2307 2322 "kind2.ml" 65 2307 2339
+type(
+  (int * Lib.kind_module) list ref -> TransSys.t -> unit
+)
+ident(
+  ext_ref InvarManager.main
+)
+"kind2.ml" 65 2307 2340 "kind2.ml" 65 2307 2350
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 65 2307 2322 "kind2.ml" 65 2307 2350
+call(
+  tail
+)
+type(
+  TransSys.t -> unit
+)
+"kind2.ml" 59 2130 2152 "kind2.ml" 65 2307 2350
+type(
+  'a -> TransSys.t -> unit
+)
+"kind2.ml" 69 2414 2418 "kind2.ml" 69 2414 2436
+type(
+  [< `BMC | `IND | `INVGEN | `INVMAN | `Interpreter | `PDR ] -> unit -> unit
+)
+ident(
+  def on_exit_of_process "kind2.ml" 88 2967 2967 "_none_" 1 0 -1
+)
+"kind2.ml" 70 2449 2453 "kind2.ml" 70 2449 2457
+type(
+  [< `BMC | `IND | `INVGEN | `INVMAN | `Interpreter | `PDR ] as 'a
+)
+"kind2.ml" 70 2449 2461 "kind2.ml" 70 2449 2472
+type(
+  unit -> unit
+)
+ident(
+  ext_ref PDR.on_exit
+)
+"kind2.ml" 71 2473 2477 "kind2.ml" 71 2473 2481
+type(
+  'a
+)
+"kind2.ml" 71 2473 2485 "kind2.ml" 71 2473 2496
+type(
+  unit -> unit
+)
+ident(
+  ext_ref BMC.on_exit
+)
+"kind2.ml" 72 2498 2502 "kind2.ml" 72 2498 2506
+type(
+  'a
+)
+"kind2.ml" 72 2498 2510 "kind2.ml" 72 2498 2525
+type(
+  unit -> unit
+)
+ident(
+  ext_ref IndStep.on_exit
+)
+"kind2.ml" 73 2527 2531 "kind2.ml" 73 2527 2538
+type(
+  'a
+)
+"kind2.ml" 73 2527 2542 "kind2.ml" 73 2527 2556
+type(
+  unit -> unit
+)
+ident(
+  ext_ref InvGen.on_exit
+)
+"kind2.ml" 74 2559 2563 "kind2.ml" 74 2559 2575
+type(
+  'a
+)
+"kind2.ml" 74 2559 2579 "kind2.ml" 74 2559 2598
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Interpreter.on_exit
+)
+"kind2.ml" 75 2599 2603 "kind2.ml" 75 2599 2610
+type(
+  'a
+)
+"kind2.ml" 75 2599 2614 "kind2.ml" 75 2599 2634
+type(
+  unit -> unit
+)
+ident(
+  ext_ref InvarManager.on_exit
+)
+"kind2.ml" 69 2414 2439 "kind2.ml" 75 2599 2634
+type(
+  'a -> unit -> unit
+)
+"kind2.ml" 88 2967 2971 "kind2.ml" 88 2967 2991
+type(
+  [< `BMC | `IND | `INVGEN | `INVMAN | `Interpreter | `PDR ] -> string
+)
+ident(
+  def debug_ext_of_process "kind2.ml" 97 3183 3183 "_none_" 1 0 -1
+)
+"kind2.ml" 89 3004 3008 "kind2.ml" 89 3004 3012
+type(
+  [< `BMC | `IND | `INVGEN | `INVMAN | `Interpreter | `PDR ] as 'a
+)
+"kind2.ml" 89 3004 3016 "kind2.ml" 89 3004 3021
+type(
+  string
+)
+"kind2.ml" 90 3022 3026 "kind2.ml" 90 3022 3030
+type(
+  'a
+)
+"kind2.ml" 90 3022 3034 "kind2.ml" 90 3022 3039
+type(
+  string
+)
+"kind2.ml" 91 3040 3044 "kind2.ml" 91 3040 3048
+type(
+  'a
+)
+"kind2.ml" 91 3040 3052 "kind2.ml" 91 3040 3057
+type(
+  string
+)
+"kind2.ml" 92 3058 3062 "kind2.ml" 92 3058 3069
+type(
+  'a
+)
+"kind2.ml" 92 3058 3073 "kind2.ml" 92 3058 3081
+type(
+  string
+)
+"kind2.ml" 93 3082 3086 "kind2.ml" 93 3082 3093
+type(
+  'a
+)
+"kind2.ml" 93 3082 3097 "kind2.ml" 93 3082 3105
+type(
+  string
+)
+"kind2.ml" 94 3106 3110 "kind2.ml" 94 3106 3122
+type(
+  'a
+)
+"kind2.ml" 94 3106 3126 "kind2.ml" 94 3106 3134
+type(
+  string
+)
+"kind2.ml" 88 2967 2994 "kind2.ml" 94 3106 3134
+type(
+  'a -> string
+)
+"kind2.ml" 97 3183 3187 "kind2.ml" 97 3183 3196
+type(
+  int
+)
+ident(
+  def status_ok "kind2.ml" 101 3289 3289 "_none_" 1 0 -1
+)
+"kind2.ml" 97 3183 3199 "kind2.ml" 97 3183 3200
+type(
+  int
+)
+"kind2.ml" 101 3289 3293 "kind2.ml" 101 3289 3306
+type(
+  int
+)
+ident(
+  def status_signal "kind2.ml" 104 3361 3361 "_none_" 1 0 -1
+)
+"kind2.ml" 101 3289 3309 "kind2.ml" 101 3289 3312
+type(
+  int
+)
+"kind2.ml" 104 3361 3365 "kind2.ml" 104 3361 3377
+type(
+  int
+)
+ident(
+  def status_error "kind2.ml" 107 3414 3414 "_none_" 1 0 -1
+)
+"kind2.ml" 104 3361 3380 "kind2.ml" 104 3361 3381
+type(
+  int
+)
+"kind2.ml" 107 3414 3418 "kind2.ml" 107 3414 3432
+type(
+  int
+)
+ident(
+  def status_timeout "kind2.ml" 111 3486 3486 "_none_" 1 0 -1
+)
+"kind2.ml" 107 3414 3435 "kind2.ml" 107 3414 3436
+type(
+  int
+)
+"kind2.ml" 111 3486 3490 "kind2.ml" 111 3486 3503
+type(
+  Lib.kind_module -> exn -> int
+)
+ident(
+  def status_of_exn "kind2.ml" 191 4910 4910 "_none_" 1 0 -1
+)
+"kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+type(
+  Lib.kind_module
+)
+ident(
+  def process "kind2.ml" 111 3486 3514 "kind2.ml" 187 4875 4880
+)
+"kind2.ml" 114 3553 3557 "kind2.ml" 114 3553 3561
+type(
+  exn
+)
+"kind2.ml" 114 3553 3565 "kind2.ml" 114 3553 3574
+type(
+  int
+)
+ident(
+  int_ref status_ok "kind2.ml" 97 3183 3187 "kind2.ml" 97 3183 3196
+)
+"kind2.ml" 117 3604 3608 "kind2.ml" 117 3604 3623
+type(
+  exn
+)
+"kind2.ml" 121 3639 3645 "kind2.ml" 121 3639 3654
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 121 3639 3655 "kind2.ml" 121 3639 3662
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+)
+"kind2.ml" 121 3639 3663 "kind2.ml" 121 3639 3675
+type(
+  Event.log_level
+)
+"kind2.ml" 122 3676 3684 "kind2.ml" 122 3676 3714
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 121 3639 3645 "kind2.ml" 122 3676 3714
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 124 3717 3723 "kind2.ml" 124 3717 3732
+type(
+  int
+)
+ident(
+  int_ref status_ok "kind2.ml" 97 3183 3187 "kind2.ml" 97 3183 3196
+)
+"kind2.ml" 121 3639 3645 "kind2.ml" 124 3717 3732
+type(
+  int
+)
+"kind2.ml" 129 3774 3778 "kind2.ml" 129 3774 3789
+type(
+  exn
+)
+"kind2.ml" 133 3806 3812 "kind2.ml" 133 3806 3821
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 133 3806 3822 "kind2.ml" 133 3806 3829
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+)
+"kind2.ml" 133 3806 3830 "kind2.ml" 133 3806 3843
+type(
+  Event.log_level
+)
+"kind2.ml" 134 3845 3853 "kind2.ml" 134 3845 3872
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 133 3806 3812 "kind2.ml" 134 3845 3872
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 136 3875 3881 "kind2.ml" 136 3875 3895
+type(
+  int
+)
+ident(
+  int_ref status_timeout "kind2.ml" 107 3414 3418 "kind2.ml" 107 3414 3432
+)
+"kind2.ml" 133 3806 3812 "kind2.ml" 136 3875 3895
+type(
+  int
+)
+"kind2.ml" 141 3931 3935 "kind2.ml" 141 3931 3949
+type(
+  exn
+)
+"kind2.ml" 145 3968 3974 "kind2.ml" 145 3968 3983
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 145 3968 3984 "kind2.ml" 145 3968 3991
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+)
+"kind2.ml" 145 3968 3992 "kind2.ml" 145 3968 4005
+type(
+  Event.log_level
+)
+"kind2.ml" 146 4006 4014 "kind2.ml" 146 4006 4027
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 145 3968 3974 "kind2.ml" 146 4006 4027
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 148 4031 4037 "kind2.ml" 148 4031 4051
+type(
+  int
+)
+ident(
+  int_ref status_timeout "kind2.ml" 107 3414 3418 "kind2.ml" 107 3414 3432
+)
+"kind2.ml" 145 3968 3974 "kind2.ml" 148 4031 4051
+type(
+  int
+)
+"kind2.ml" 153 4087 4098 "kind2.ml" 153 4087 4099
+type(
+  int
+)
+ident(
+  def s "kind2.ml" 157 4122 4128 "kind2.ml" 165 4397 4420
+)
+"kind2.ml" 153 4087 4091 "kind2.ml" 153 4087 4099
+type(
+  exn
+)
+"kind2.ml" 157 4122 4128 "kind2.ml" 157 4122 4137
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> unit) -> unit, Format.formatter, unit) format ->
+  (Format.formatter -> unit) -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 157 4122 4138 "kind2.ml" 157 4122 4145
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+)
+"kind2.ml" 157 4122 4146 "kind2.ml" 157 4122 4159
+type(
+  Event.log_level
+)
+"kind2.ml" 158 4160 4168 "kind2.ml" 158 4160 4199
+type(
+  ((Format.formatter -> unit) -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 159 4201 4219 "kind2.ml" 159 4201 4222
+type(
+  Format.formatter
+)
+ident(
+  def ppf "kind2.ml" 160 4227 4237 "kind2.ml" 162 4274 4338
+)
+"kind2.ml" 160 4227 4243 "kind2.ml" 160 4227 4244
+type(
+  int
+)
+ident(
+  int_ref s "kind2.ml" 153 4087 4098 "kind2.ml" 153 4087 4099
+)
+"kind2.ml" 161 4251 4265 "kind2.ml" 161 4251 4266
+type(
+  int
+)
+"kind2.ml" 161 4251 4270 "kind2.ml" 161 4251 4272
+type(
+  unit
+)
+"kind2.ml" 162 4274 4288 "kind2.ml" 162 4274 4289
+type(
+  int
+)
+"kind2.ml" 162 4274 4293 "kind2.ml" 162 4274 4307
+type(
+  Format.formatter ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"kind2.ml" 162 4274 4308 "kind2.ml" 162 4274 4311
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "kind2.ml" 159 4201 4219 "kind2.ml" 159 4201 4222
+)
+"kind2.ml" 162 4274 4312 "kind2.ml" 162 4274 4317
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 162 4274 4319 "kind2.ml" 162 4274 4335
+type(
+  int -> string
+)
+ident(
+  ext_ref Lib.string_of_signal
+)
+"kind2.ml" 162 4274 4336 "kind2.ml" 162 4274 4337
+type(
+  int
+)
+ident(
+  int_ref s "kind2.ml" 153 4087 4098 "kind2.ml" 153 4087 4099
+)
+"kind2.ml" 162 4274 4319 "kind2.ml" 162 4274 4337
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 162 4274 4293 "kind2.ml" 162 4274 4338
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 160 4227 4237 "kind2.ml" 162 4274 4338
+type(
+  unit
+)
+"kind2.ml" 159 4201 4210 "kind2.ml" 162 4274 4338
+type(
+  Format.formatter -> unit
+)
+"kind2.ml" 157 4122 4128 "kind2.ml" 162 4274 4339
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 165 4397 4403 "kind2.ml" 165 4397 4416
+type(
+  int
+)
+ident(
+  int_ref status_signal "kind2.ml" 101 3289 3293 "kind2.ml" 101 3289 3306
+)
+"kind2.ml" 165 4397 4417 "kind2.ml" 165 4397 4418
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind2.ml" 165 4397 4419 "kind2.ml" 165 4397 4420
+type(
+  int
+)
+ident(
+  int_ref s "kind2.ml" 153 4087 4098 "kind2.ml" 153 4087 4099
+)
+"kind2.ml" 165 4397 4403 "kind2.ml" 165 4397 4420
+type(
+  int
+)
+"kind2.ml" 157 4122 4128 "kind2.ml" 165 4397 4420
+type(
+  int
+)
+"kind2.ml" 170 4465 4469 "kind2.ml" 170 4465 4470
+type(
+  exn
+)
+ident(
+  def e "kind2.ml" 175 4542 4548 "kind2.ml" 185 4848 4866
+)
+"kind2.ml" 175 4542 4552 "kind2.ml" 175 4542 4561
+type(
+  string
+)
+ident(
+  def backtrace "kind2.ml" 177 4594 4600 "kind2.ml" 185 4848 4866
+)
+"kind2.ml" 175 4542 4564 "kind2.ml" 175 4542 4586
+type(
+  unit -> string
+)
+ident(
+  ext_ref Printexc.get_backtrace
+)
+"kind2.ml" 175 4542 4587 "kind2.ml" 175 4542 4589
+type(
+  unit
+)
+"kind2.ml" 175 4542 4564 "kind2.ml" 175 4542 4589
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 177 4594 4600 "kind2.ml" 177 4594 4609
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 177 4594 4610 "kind2.ml" 177 4594 4617
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+)
+"kind2.ml" 177 4594 4618 "kind2.ml" 177 4594 4631
+type(
+  Event.log_level
+)
+"kind2.ml" 178 4632 4640 "kind2.ml" 178 4632 4659
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 179 4661 4670 "kind2.ml" 179 4661 4688
+type(
+  exn -> string
+)
+ident(
+  ext_ref Printexc.to_string
+)
+"kind2.ml" 179 4661 4689 "kind2.ml" 179 4661 4690
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 170 4465 4469 "kind2.ml" 170 4465 4470
+)
+"kind2.ml" 179 4661 4670 "kind2.ml" 179 4661 4690
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 177 4594 4600 "kind2.ml" 179 4661 4691
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 181 4694 4703 "kind2.ml" 181 4694 4728
+type(
+  unit -> bool
+)
+ident(
+  ext_ref Printexc.backtrace_status
+)
+"kind2.ml" 181 4694 4729 "kind2.ml" 181 4694 4731
+type(
+  unit
+)
+"kind2.ml" 181 4694 4703 "kind2.ml" 181 4694 4731
+call(
+  stack
+)
+type(
+  bool
+)
+"kind2.ml" 182 4737 4745 "kind2.ml" 182 4737 4754
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 182 4737 4755 "kind2.ml" 182 4737 4762
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 111 3486 3504 "kind2.ml" 111 3486 3511
+)
+"kind2.ml" 182 4737 4763 "kind2.ml" 182 4737 4776
+type(
+  Event.log_level
+)
+"kind2.ml" 182 4737 4777 "kind2.ml" 182 4737 4794
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 182 4737 4795 "kind2.ml" 182 4737 4804
+type(
+  string
+)
+ident(
+  int_ref backtrace "kind2.ml" 175 4542 4552 "kind2.ml" 175 4542 4561
+)
+"kind2.ml" 182 4737 4745 "kind2.ml" 182 4737 4804
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 181 4694 4700 "kind2.ml" 182 4737 4804
+type(
+  unit
+)
+type(
+  unit
+)
+"kind2.ml" 185 4848 4854 "kind2.ml" 185 4848 4866
+type(
+  int
+)
+ident(
+  int_ref status_error "kind2.ml" 104 3361 3365 "kind2.ml" 104 3361 3377
+)
+"kind2.ml" 181 4694 4700 "kind2.ml" 185 4848 4866
+type(
+  int
+)
+"kind2.ml" 177 4594 4600 "kind2.ml" 185 4848 4866
+type(
+  int
+)
+"kind2.ml" 175 4542 4548 "kind2.ml" 185 4848 4866
+type(
+  int
+)
+"kind2.ml" 111 3486 3514 "kind2.ml" 187 4875 4880
+type(
+  exn -> int
+)
+"kind2.ml" 111 3486 3504 "kind2.ml" 187 4875 4880
+type(
+  Lib.kind_module -> exn -> int
+)
+"kind2.ml" 191 4910 4914 "kind2.ml" 191 4910 4921
+type(
+  Lib.kind_module -> exn -> unit
+)
+ident(
+  def on_exit "kind2.ml" 278 7098 7098 "_none_" 1 0 -1
+)
+"kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+type(
+  Lib.kind_module
+)
+ident(
+  def process "kind2.ml" 191 4910 4930 "kind2.ml" 271 6946 6964
+)
+"kind2.ml" 191 4910 4930 "kind2.ml" 191 4910 4933
+type(
+  exn
+)
+ident(
+  def exn "kind2.ml" 194 4973 4975 "kind2.ml" 271 6946 6964
+)
+"kind2.ml" 194 4973 4975 "kind2.ml" 194 4973 4989
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 194 4973 4990 "kind2.ml" 194 4973 5001
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigalrm
+)
+"kind2.ml" 194 4973 5002 "kind2.ml" 194 4973 5019
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 194 4973 4975 "kind2.ml" 194 4973 5019
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 197 5074 5080 "kind2.ml" 197 5074 5086
+type(
+  int
+)
+ident(
+  def status "kind2.ml" 200 5161 5163 "kind2.ml" 271 6946 6964
+)
+"kind2.ml" 197 5074 5089 "kind2.ml" 197 5074 5102
+type(
+  Lib.kind_module -> exn -> int
+)
+ident(
+  int_ref status_of_exn "kind2.ml" 111 3486 3490 "kind2.ml" 111 3486 3503
+)
+"kind2.ml" 197 5074 5103 "kind2.ml" 197 5074 5110
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 197 5074 5111 "kind2.ml" 197 5074 5114
+type(
+  exn
+)
+ident(
+  int_ref exn "kind2.ml" 191 4910 4930 "kind2.ml" 191 4910 4933
+)
+"kind2.ml" 197 5074 5089 "kind2.ml" 197 5074 5114
+call(
+  stack
+)
+type(
+  int
+)
+"kind2.ml" 200 5161 5163 "kind2.ml" 200 5161 5183
+type(
+  unit -> unit
+)
+ident(
+  ext_ref InvarManager.on_exit
+)
+"kind2.ml" 200 5161 5184 "kind2.ml" 200 5161 5186
+type(
+  unit
+)
+"kind2.ml" 200 5161 5163 "kind2.ml" 200 5161 5186
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 202 5189 5191 "kind2.ml" 202 5189 5200
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 202 5189 5201 "kind2.ml" 202 5189 5208
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 202 5189 5209 "kind2.ml" 202 5189 5221
+type(
+  Event.log_level
+)
+"kind2.ml" 202 5189 5222 "kind2.ml" 202 5189 5261
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 202 5189 5191 "kind2.ml" 202 5189 5261
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 205 5297 5299 "kind2.ml" 205 5297 5308
+type(
+  (int * Lib.kind_module -> unit) -> (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind2.ml" 206 5310 5324 "kind2.ml" 206 5310 5327
+type(
+  int
+)
+ident(
+  def pid "kind2.ml" 208 5336 5342 "kind2.ml" 210 5407 5438
+)
+"kind2.ml" 206 5310 5329 "kind2.ml" 206 5310 5330
+type(
+  Lib.kind_module
+)
+"kind2.ml" 206 5310 5324 "kind2.ml" 206 5310 5330
+type(
+  int * Lib.kind_module
+)
+"kind2.ml" 208 5336 5342 "kind2.ml" 208 5336 5351
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 208 5336 5352 "kind2.ml" 208 5336 5359
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 208 5336 5360 "kind2.ml" 208 5336 5372
+type(
+  Event.log_level
+)
+"kind2.ml" 208 5336 5373 "kind2.ml" 208 5336 5400
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 208 5336 5401 "kind2.ml" 208 5336 5404
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 206 5310 5324 "kind2.ml" 206 5310 5327
+)
+"kind2.ml" 208 5336 5342 "kind2.ml" 208 5336 5404
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 210 5407 5413 "kind2.ml" 210 5407 5422
+type(
+  int -> int -> unit
+)
+ident(
+  ext_ref Unix.kill
+)
+"kind2.ml" 210 5407 5423 "kind2.ml" 210 5407 5426
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 206 5310 5324 "kind2.ml" 206 5310 5327
+)
+"kind2.ml" 210 5407 5427 "kind2.ml" 210 5407 5438
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigterm
+)
+"kind2.ml" 210 5407 5413 "kind2.ml" 210 5407 5438
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 208 5336 5342 "kind2.ml" 210 5407 5438
+type(
+  unit
+)
+"kind2.ml" 206 5310 5315 "kind2.ml" 210 5407 5438
+type(
+  int * Lib.kind_module -> unit
+)
+"kind2.ml" 212 5441 5446 "kind2.ml" 212 5441 5456
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 212 5441 5445 "kind2.ml" 212 5441 5456
+type(
+  (int * Lib.kind_module) list
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind2.ml" 205 5297 5299 "kind2.ml" 212 5441 5456
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 214 5461 5463 "kind2.ml" 214 5461 5472
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 214 5461 5473 "kind2.ml" 214 5461 5480
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 214 5461 5481 "kind2.ml" 214 5461 5493
+type(
+  Event.log_level
+)
+"kind2.ml" 215 5495 5499 "kind2.ml" 215 5495 5551
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 214 5461 5463 "kind2.ml" 215 5495 5551
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 219 5566 5576 "kind2.ml" 219 5566 5580
+type(
+  bool
+)
+"kind2.ml" 222 5639 5649 "kind2.ml" 222 5639 5652
+type(
+  int
+)
+ident(
+  def pid "kind2.ml" 225 5724 5730 "kind2.ml" 229 5859 5917
+)
+"kind2.ml" 222 5639 5654 "kind2.ml" 222 5639 5660
+type(
+  Unix.process_status
+)
+ident(
+  def status "kind2.ml" 225 5724 5730 "kind2.ml" 229 5859 5917
+)
+"kind2.ml" 222 5639 5649 "kind2.ml" 222 5639 5660
+type(
+  int * Unix.process_status
+)
+"kind2.ml" 222 5639 5663 "kind2.ml" 222 5639 5672
+type(
+  unit -> int * Unix.process_status
+)
+ident(
+  ext_ref Unix.wait
+)
+"kind2.ml" 222 5639 5673 "kind2.ml" 222 5639 5675
+type(
+  unit
+)
+"kind2.ml" 222 5639 5663 "kind2.ml" 222 5639 5675
+call(
+  stack
+)
+type(
+  int * Unix.process_status
+)
+"kind2.ml" 225 5724 5730 "kind2.ml" 225 5724 5740
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 225 5724 5744 "kind2.ml" 225 5724 5761
+type(
+  int -> (int * Lib.kind_module) list -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref List.remove_assoc
+)
+"kind2.ml" 225 5724 5762 "kind2.ml" 225 5724 5765
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 222 5639 5649 "kind2.ml" 222 5639 5652
+)
+"kind2.ml" 225 5724 5767 "kind2.ml" 225 5724 5777
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 225 5724 5766 "kind2.ml" 225 5724 5777
+type(
+  (int * Lib.kind_module) list
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind2.ml" 225 5724 5744 "kind2.ml" 225 5724 5777
+call(
+  stack
+)
+type(
+  (int * Lib.kind_module) list
+)
+"kind2.ml" 225 5724 5730 "kind2.ml" 225 5724 5777
+type(
+  unit
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind2.ml" 228 5821 5827 "kind2.ml" 228 5821 5836
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int ->
+   (Format.formatter -> Unix.process_status -> unit) ->
+   Unix.process_status -> unit, Format.formatter, unit)
+  format ->
+  int ->
+  (Format.formatter -> Unix.process_status -> unit) ->
+  Unix.process_status -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 228 5821 5837 "kind2.ml" 228 5821 5844
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 228 5821 5845 "kind2.ml" 228 5821 5857
+type(
+  Event.log_level
+)
+"kind2.ml" 229 5859 5867 "kind2.ml" 229 5859 5882
+type(
+  (int ->
+   (Format.formatter -> Unix.process_status -> unit) ->
+   Unix.process_status -> unit, Format.formatter, unit)
+  format
+)
+"kind2.ml" 229 5859 5883 "kind2.ml" 229 5859 5886
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 222 5639 5649 "kind2.ml" 222 5639 5652
+)
+"kind2.ml" 229 5859 5887 "kind2.ml" 229 5859 5910
+type(
+  Format.formatter -> Unix.process_status -> unit
+)
+ident(
+  ext_ref Lib.pp_print_process_status
+)
+"kind2.ml" 229 5859 5911 "kind2.ml" 229 5859 5917
+type(
+  Unix.process_status
+)
+ident(
+  int_ref status "kind2.ml" 222 5639 5654 "kind2.ml" 222 5639 5660
+)
+"kind2.ml" 228 5821 5827 "kind2.ml" 229 5859 5917
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 225 5724 5730 "kind2.ml" 229 5859 5917
+type(
+  unit
+)
+"kind2.ml" 222 5639 5645 "kind2.ml" 229 5859 5917
+type(
+  unit
+)
+"kind2.ml" 219 5566 5570 "kind2.ml" 231 5927 5935
+type(
+  unit
+)
+"kind2.ml" 236 6014 6037 "kind2.ml" 236 6014 6048
+type(
+  Unix.error
+)
+"kind2.ml" 236 6014 6050 "kind2.ml" 236 6014 6051
+type(
+  string
+)
+"kind2.ml" 236 6014 6053 "kind2.ml" 236 6014 6054
+type(
+  string
+)
+"kind2.ml" 236 6014 6020 "kind2.ml" 236 6014 6055
+type(
+  exn
+)
+"kind2.ml" 239 6096 6102 "kind2.ml" 239 6096 6106
+type(
+  int -> unit
+)
+ident(
+  ext_ref Pervasives.exit
+)
+"kind2.ml" 239 6096 6107 "kind2.ml" 239 6096 6113
+type(
+  int
+)
+ident(
+  int_ref status "kind2.ml" 197 5074 5080 "kind2.ml" 197 5074 5086
+)
+"kind2.ml" 239 6096 6102 "kind2.ml" 239 6096 6113
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 242 6159 6182 "kind2.ml" 242 6159 6192
+type(
+  Unix.error
+)
+"kind2.ml" 242 6159 6194 "kind2.ml" 242 6159 6195
+type(
+  string
+)
+"kind2.ml" 242 6159 6197 "kind2.ml" 242 6159 6198
+type(
+  string
+)
+"kind2.ml" 242 6159 6165 "kind2.ml" 242 6159 6199
+type(
+  exn
+)
+"kind2.ml" 245 6237 6247 "kind2.ml" 245 6237 6254
+type(
+  int
+)
+ident(
+  def status' "kind2.ml" 247 6294 6300 "kind2.ml" 255 6544 6562
+)
+"kind2.ml" 245 6237 6257 "kind2.ml" 245 6237 6270
+type(
+  Lib.kind_module -> exn -> int
+)
+ident(
+  int_ref status_of_exn "kind2.ml" 111 3486 3490 "kind2.ml" 111 3486 3503
+)
+"kind2.ml" 245 6237 6271 "kind2.ml" 245 6237 6278
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 245 6237 6287 "kind2.ml" 245 6237 6288
+type(
+  int
+)
+"kind2.ml" 245 6237 6280 "kind2.ml" 245 6237 6288
+type(
+  exn
+)
+"kind2.ml" 245 6237 6257 "kind2.ml" 245 6237 6289
+call(
+  stack
+)
+type(
+  int
+)
+"kind2.ml" 247 6294 6300 "kind2.ml" 247 6294 6309
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> (int * Lib.kind_module) list -> unit) ->
+   (int * Lib.kind_module) list -> unit, Format.formatter, unit)
+  format ->
+  (Format.formatter -> (int * Lib.kind_module) list -> unit) ->
+  (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 247 6294 6310 "kind2.ml" 247 6294 6317
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 247 6294 6318 "kind2.ml" 247 6294 6331
+type(
+  Event.log_level
+)
+"kind2.ml" 248 6333 6341 "kind2.ml" 248 6333 6407
+type(
+  ((Format.formatter -> (int * Lib.kind_module) list -> unit) ->
+   (int * Lib.kind_module) list -> unit, Format.formatter, unit)
+  format
+)
+"kind2.ml" 249 6408 6417 "kind2.ml" 249 6408 6430
+type(
+  (Format.formatter -> int * Lib.kind_module -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"kind2.ml" 250 6432 6448 "kind2.ml" 250 6432 6451
+type(
+  Format.formatter
+)
+ident(
+  def ppf "kind2.ml" 250 6432 6452 "kind2.ml" 251 6463 6502
+)
+"kind2.ml" 250 6432 6453 "kind2.ml" 250 6432 6454
+type(
+  int
+)
+ident(
+  def p "kind2.ml" 251 6463 6477 "kind2.ml" 251 6463 6502
+)
+"kind2.ml" 250 6432 6456 "kind2.ml" 250 6432 6457
+type(
+  Lib.kind_module
+)
+"kind2.ml" 250 6432 6453 "kind2.ml" 250 6432 6457
+type(
+  int * Lib.kind_module
+)
+"kind2.ml" 251 6463 6477 "kind2.ml" 251 6463 6491
+type(
+  Format.formatter ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"kind2.ml" 251 6463 6492 "kind2.ml" 251 6463 6495
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "kind2.ml" 250 6432 6448 "kind2.ml" 250 6432 6451
+)
+"kind2.ml" 251 6463 6496 "kind2.ml" 251 6463 6500
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 251 6463 6501 "kind2.ml" 251 6463 6502
+type(
+  int
+)
+ident(
+  int_ref p "kind2.ml" 250 6432 6453 "kind2.ml" 250 6432 6454
+)
+"kind2.ml" 251 6463 6477 "kind2.ml" 251 6463 6502
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 250 6432 6452 "kind2.ml" 251 6463 6502
+type(
+  int * Lib.kind_module -> unit
+)
+"kind2.ml" 250 6432 6448 "kind2.ml" 251 6463 6502
+type(
+  Format.formatter -> int * Lib.kind_module -> unit
+)
+"kind2.ml" 252 6504 6515 "kind2.ml" 252 6504 6520
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 249 6408 6417 "kind2.ml" 252 6504 6520
+call(
+  stack
+)
+type(
+  Format.formatter -> (int * Lib.kind_module) list -> unit
+)
+"kind2.ml" 253 6522 6531 "kind2.ml" 253 6522 6541
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 253 6522 6530 "kind2.ml" 253 6522 6541
+type(
+  (int * Lib.kind_module) list
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind2.ml" 247 6294 6300 "kind2.ml" 253 6522 6541
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 255 6544 6550 "kind2.ml" 255 6544 6554
+type(
+  int -> unit
+)
+ident(
+  ext_ref Pervasives.exit
+)
+"kind2.ml" 255 6544 6555 "kind2.ml" 255 6544 6562
+type(
+  int
+)
+ident(
+  int_ref status' "kind2.ml" 245 6237 6247 "kind2.ml" 245 6237 6254
+)
+"kind2.ml" 255 6544 6550 "kind2.ml" 255 6544 6562
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 247 6294 6300 "kind2.ml" 255 6544 6562
+type(
+  unit
+)
+"kind2.ml" 245 6237 6243 "kind2.ml" 255 6544 6562
+type(
+  unit
+)
+"kind2.ml" 258 6603 6609 "kind2.ml" 258 6603 6610
+type(
+  exn
+)
+ident(
+  def e "kind2.ml" 261 6648 6654 "kind2.ml" 271 6946 6964
+)
+"kind2.ml" 261 6648 6658 "kind2.ml" 261 6648 6665
+type(
+  int
+)
+ident(
+  def status' "kind2.ml" 263 6696 6702 "kind2.ml" 271 6946 6964
+)
+"kind2.ml" 261 6648 6668 "kind2.ml" 261 6648 6681
+type(
+  Lib.kind_module -> exn -> int
+)
+ident(
+  int_ref status_of_exn "kind2.ml" 111 3486 3490 "kind2.ml" 111 3486 3503
+)
+"kind2.ml" 261 6648 6682 "kind2.ml" 261 6648 6689
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 261 6648 6690 "kind2.ml" 261 6648 6691
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 258 6603 6609 "kind2.ml" 258 6603 6610
+)
+"kind2.ml" 261 6648 6668 "kind2.ml" 261 6648 6691
+call(
+  stack
+)
+type(
+  int
+)
+"kind2.ml" 263 6696 6702 "kind2.ml" 263 6696 6711
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> (int * Lib.kind_module) list -> unit) ->
+   (int * Lib.kind_module) list -> unit, Format.formatter, unit)
+  format ->
+  (Format.formatter -> (int * Lib.kind_module) list -> unit) ->
+  (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 263 6696 6712 "kind2.ml" 263 6696 6719
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 191 4910 4922 "kind2.ml" 191 4910 4929
+)
+"kind2.ml" 263 6696 6720 "kind2.ml" 263 6696 6733
+type(
+  Event.log_level
+)
+"kind2.ml" 264 6735 6743 "kind2.ml" 264 6735 6809
+type(
+  ((Format.formatter -> (int * Lib.kind_module) list -> unit) ->
+   (int * Lib.kind_module) list -> unit, Format.formatter, unit)
+  format
+)
+"kind2.ml" 265 6810 6819 "kind2.ml" 265 6810 6832
+type(
+  (Format.formatter -> int * Lib.kind_module -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"kind2.ml" 266 6834 6850 "kind2.ml" 266 6834 6853
+type(
+  Format.formatter
+)
+ident(
+  def ppf "kind2.ml" 266 6834 6854 "kind2.ml" 267 6865 6904
+)
+"kind2.ml" 266 6834 6855 "kind2.ml" 266 6834 6856
+type(
+  int
+)
+ident(
+  def p "kind2.ml" 267 6865 6879 "kind2.ml" 267 6865 6904
+)
+"kind2.ml" 266 6834 6858 "kind2.ml" 266 6834 6859
+type(
+  Lib.kind_module
+)
+"kind2.ml" 266 6834 6855 "kind2.ml" 266 6834 6859
+type(
+  int * Lib.kind_module
+)
+"kind2.ml" 267 6865 6879 "kind2.ml" 267 6865 6893
+type(
+  Format.formatter ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"kind2.ml" 267 6865 6894 "kind2.ml" 267 6865 6897
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "kind2.ml" 266 6834 6850 "kind2.ml" 266 6834 6853
+)
+"kind2.ml" 267 6865 6898 "kind2.ml" 267 6865 6902
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 267 6865 6903 "kind2.ml" 267 6865 6904
+type(
+  int
+)
+ident(
+  int_ref p "kind2.ml" 266 6834 6855 "kind2.ml" 266 6834 6856
+)
+"kind2.ml" 267 6865 6879 "kind2.ml" 267 6865 6904
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 266 6834 6854 "kind2.ml" 267 6865 6904
+type(
+  int * Lib.kind_module -> unit
+)
+"kind2.ml" 266 6834 6850 "kind2.ml" 267 6865 6904
+type(
+  Format.formatter -> int * Lib.kind_module -> unit
+)
+"kind2.ml" 268 6906 6917 "kind2.ml" 268 6906 6922
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 265 6810 6819 "kind2.ml" 268 6906 6922
+call(
+  stack
+)
+type(
+  Format.formatter -> (int * Lib.kind_module) list -> unit
+)
+"kind2.ml" 269 6924 6933 "kind2.ml" 269 6924 6943
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 269 6924 6932 "kind2.ml" 269 6924 6943
+type(
+  (int * Lib.kind_module) list
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind2.ml" 263 6696 6702 "kind2.ml" 269 6924 6943
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 271 6946 6952 "kind2.ml" 271 6946 6956
+type(
+  int -> unit
+)
+ident(
+  ext_ref Pervasives.exit
+)
+"kind2.ml" 271 6946 6957 "kind2.ml" 271 6946 6964
+type(
+  int
+)
+ident(
+  int_ref status' "kind2.ml" 261 6648 6658 "kind2.ml" 261 6648 6665
+)
+"kind2.ml" 271 6946 6952 "kind2.ml" 271 6946 6964
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 263 6696 6702 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 261 6648 6654 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 217 5554 5556 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 214 5461 5463 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 205 5297 5299 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 202 5189 5191 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 200 5161 5163 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 197 5074 5076 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 194 4973 4975 "kind2.ml" 271 6946 6964
+type(
+  unit
+)
+"kind2.ml" 191 4910 4930 "kind2.ml" 271 6946 6964
+type(
+  exn -> unit
+)
+"kind2.ml" 191 4910 4922 "kind2.ml" 271 6946 6964
+type(
+  Lib.kind_module -> exn -> unit
+)
+"kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> 'a
+)
+ident(
+  def on_exit_child "kind2.ml" 304 7641 7641 "_none_" 1 0 -1
+)
+"kind2.ml" 278 7098 7116 "kind2.ml" 278 7098 7132
+type(
+  Event.mthread option
+)
+ident(
+  def messaging_thread "kind2.ml" 278 7098 7133 "kind2.ml" 299 7588 7602
+)
+"kind2.ml" 278 7098 7133 "kind2.ml" 278 7098 7140
+type(
+  Lib.kind_module
+)
+ident(
+  def process "kind2.ml" 278 7098 7141 "kind2.ml" 299 7588 7602
+)
+"kind2.ml" 278 7098 7141 "kind2.ml" 278 7098 7144
+type(
+  exn
+)
+ident(
+  def exn "kind2.ml" 281 7201 7203 "kind2.ml" 299 7588 7602
+)
+"kind2.ml" 281 7201 7207 "kind2.ml" 281 7201 7213
+type(
+  int
+)
+ident(
+  def status "kind2.ml" 284 7278 7280 "kind2.ml" 299 7588 7601
+)
+"kind2.ml" 281 7201 7216 "kind2.ml" 281 7201 7229
+type(
+  Lib.kind_module -> exn -> int
+)
+ident(
+  int_ref status_of_exn "kind2.ml" 111 3486 3490 "kind2.ml" 111 3486 3503
+)
+"kind2.ml" 281 7201 7230 "kind2.ml" 281 7201 7237
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 278 7098 7133 "kind2.ml" 278 7098 7140
+)
+"kind2.ml" 281 7201 7238 "kind2.ml" 281 7201 7241
+type(
+  exn
+)
+ident(
+  int_ref exn "kind2.ml" 278 7098 7141 "kind2.ml" 278 7098 7144
+)
+"kind2.ml" 281 7201 7216 "kind2.ml" 281 7201 7241
+call(
+  stack
+)
+type(
+  int
+)
+"kind2.ml" 284 7278 7281 "kind2.ml" 284 7278 7299
+type(
+  Lib.kind_module -> unit -> unit
+)
+ident(
+  int_ref on_exit_of_process "kind2.ml" 69 2414 2418 "kind2.ml" 69 2414 2436
+)
+"kind2.ml" 284 7278 7300 "kind2.ml" 284 7278 7307
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 278 7098 7133 "kind2.ml" 278 7098 7140
+)
+"kind2.ml" 284 7278 7309 "kind2.ml" 284 7278 7311
+type(
+  unit
+)
+"kind2.ml" 284 7278 7280 "kind2.ml" 284 7278 7311
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 286 7316 7318 "kind2.ml" 286 7316 7327
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 286 7316 7328 "kind2.ml" 286 7316 7335
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 278 7098 7133 "kind2.ml" 278 7098 7140
+)
+"kind2.ml" 286 7316 7336 "kind2.ml" 286 7316 7348
+type(
+  Event.log_level
+)
+"kind2.ml" 287 7350 7354 "kind2.ml" 287 7350 7375
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 286 7316 7318 "kind2.ml" 287 7350 7375
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 289 7378 7387 "kind2.ml" 289 7378 7403
+type(
+  Event.mthread option
+)
+ident(
+  int_ref messaging_thread "kind2.ml" 278 7098 7116 "kind2.ml" 278 7098 7132
+)
+"kind2.ml" 290 7410 7421 "kind2.ml" 290 7410 7422
+type(
+  Event.mthread
+)
+ident(
+  def t "kind2.ml" 290 7410 7426 "kind2.ml" 290 7410 7438
+)
+"kind2.ml" 290 7410 7416 "kind2.ml" 290 7410 7422
+type(
+  Event.mthread option
+)
+"kind2.ml" 290 7410 7426 "kind2.ml" 290 7410 7436
+type(
+  Event.mthread -> unit
+)
+ident(
+  ext_ref Event.exit
+)
+"kind2.ml" 290 7410 7437 "kind2.ml" 290 7410 7438
+type(
+  Event.mthread
+)
+ident(
+  int_ref t "kind2.ml" 290 7410 7421 "kind2.ml" 290 7410 7422
+)
+"kind2.ml" 290 7410 7426 "kind2.ml" 290 7410 7438
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 291 7439 7445 "kind2.ml" 291 7439 7449
+type(
+  Event.mthread option
+)
+"kind2.ml" 291 7439 7453 "kind2.ml" 291 7439 7455
+type(
+  unit
+)
+"kind2.ml" 289 7378 7381 "kind2.ml" 291 7439 7455
+type(
+  unit
+)
+"kind2.ml" 299 7588 7590 "kind2.ml" 299 7588 7594
+type(
+  int -> 'a
+)
+ident(
+  ext_ref Pervasives.exit
+)
+"kind2.ml" 299 7588 7595 "kind2.ml" 299 7588 7601
+type(
+  int
+)
+ident(
+  int_ref status "kind2.ml" 281 7201 7207 "kind2.ml" 281 7201 7213
+)
+"kind2.ml" 299 7588 7590 "kind2.ml" 299 7588 7601
+call(
+  tail
+)
+type(
+  'a
+)
+"kind2.ml" 289 7378 7381 "kind2.ml" 299 7588 7601
+type(
+  'a
+)
+"kind2.ml" 286 7316 7318 "kind2.ml" 299 7588 7601
+type(
+  'a
+)
+"kind2.ml" 284 7278 7280 "kind2.ml" 299 7588 7601
+type(
+  'a
+)
+"kind2.ml" 281 7201 7203 "kind2.ml" 299 7588 7602
+type(
+  'a
+)
+"kind2.ml" 278 7098 7141 "kind2.ml" 299 7588 7602
+type(
+  exn -> 'a
+)
+"kind2.ml" 278 7098 7133 "kind2.ml" 299 7588 7602
+type(
+  Lib.kind_module -> exn -> 'a
+)
+"kind2.ml" 278 7098 7116 "kind2.ml" 299 7588 7602
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> 'a
+)
+"kind2.ml" 304 7641 7645 "kind2.ml" 304 7641 7656
+type(
+  TransSys.t -> Event.messaging_setup -> Lib.kind_module -> unit
+)
+ident(
+  def run_process "kind2.ml" 418 10663 10663 "_none_" 1 0 -1
+)
+"kind2.ml" 304 7641 7657 "kind2.ml" 304 7641 7665
+type(
+  TransSys.t
+)
+ident(
+  def transSys "kind2.ml" 304 7641 7666 "kind2.ml" 414 10581 10630
+)
+"kind2.ml" 304 7641 7666 "kind2.ml" 304 7641 7681
+type(
+  Event.messaging_setup
+)
+ident(
+  def messaging_setup "kind2.ml" 304 7641 7682 "kind2.ml" 414 10581 10630
+)
+"kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+type(
+  Lib.kind_module
+)
+ident(
+  def process "kind2.ml" 307 7721 7723 "kind2.ml" 414 10581 10630
+)
+"kind2.ml" 307 7721 7727 "kind2.ml" 307 7721 7730
+type(
+  int
+)
+ident(
+  def pid "kind2.ml" 309 7750 7752 "kind2.ml" 414 10581 10630
+)
+"kind2.ml" 307 7721 7733 "kind2.ml" 307 7721 7742
+type(
+  unit -> int
+)
+ident(
+  ext_ref Unix.fork
+)
+"kind2.ml" 307 7721 7743 "kind2.ml" 307 7721 7745
+type(
+  unit
+)
+"kind2.ml" 307 7721 7733 "kind2.ml" 307 7721 7745
+call(
+  stack
+)
+type(
+  int
+)
+"kind2.ml" 309 7750 7758 "kind2.ml" 309 7750 7761
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 307 7721 7727 "kind2.ml" 307 7721 7730
+)
+"kind2.ml" 312 7804 7810 "kind2.ml" 312 7804 7811
+type(
+  int
+)
+"kind2.ml" 318 7840 7854 "kind2.ml" 318 7840 7857
+type(
+  int
+)
+ident(
+  def pid "kind2.ml" 321 7927 7937 "kind2.ml" 385 9791 9851
+)
+"kind2.ml" 318 7840 7860 "kind2.ml" 318 7840 7871
+type(
+  unit -> int
+)
+ident(
+  ext_ref Unix.getpid
+)
+"kind2.ml" 318 7840 7872 "kind2.ml" 318 7840 7874
+type(
+  unit
+)
+"kind2.ml" 318 7840 7860 "kind2.ml" 318 7840 7874
+call(
+  stack
+)
+type(
+  int
+)
+"kind2.ml" 321 7927 7937 "kind2.ml" 321 7927 7951
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 321 7927 7952 "kind2.ml" 321 7927 7963
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigalrm
+)
+"kind2.ml" 321 7927 7964 "kind2.ml" 321 7927 7981
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 321 7927 7937 "kind2.ml" 321 7927 7981
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 324 8040 8054 "kind2.ml" 324 8040 8070
+type(
+  Event.mthread
+)
+ident(
+  def messaging_thread "kind2.ml" 332 8278 8288 "kind2.ml" 385 9791 9851
+)
+"kind2.ml" 325 8073 8085 "kind2.ml" 325 8073 8102
+type(
+  Lib.kind_module -> Event.messaging_setup -> (exn -> unit) -> Event.mthread
+)
+ident(
+  ext_ref Event.run_process
+)
+"kind2.ml" 326 8104 8116 "kind2.ml" 326 8104 8123
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 327 8124 8136 "kind2.ml" 327 8124 8151
+type(
+  Event.messaging_setup
+)
+ident(
+  int_ref messaging_setup "kind2.ml" 304 7641 7666 "kind2.ml" 304 7641 7681
+)
+"kind2.ml" 328 8152 8165 "kind2.ml" 328 8152 8178
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit_child "kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+)
+"kind2.ml" 328 8152 8179 "kind2.ml" 328 8152 8183
+type(
+  Event.mthread option
+)
+"kind2.ml" 328 8152 8184 "kind2.ml" 328 8152 8191
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 328 8152 8165 "kind2.ml" 328 8152 8191
+call(
+  stack
+)
+type(
+  exn -> unit
+)
+"kind2.ml" 325 8073 8085 "kind2.ml" 328 8152 8192
+call(
+  stack
+)
+type(
+  Event.mthread
+)
+"kind2.ml" 332 8278 8288 "kind2.ml" 332 8278 8307
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Event.set_relay_log
+)
+"kind2.ml" 332 8278 8308 "kind2.ml" 332 8278 8310
+type(
+  unit
+)
+"kind2.ml" 332 8278 8288 "kind2.ml" 332 8278 8310
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 334 8313 8323 "kind2.ml" 334 8313 8332
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 334 8313 8333 "kind2.ml" 334 8313 8340
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 334 8313 8341 "kind2.ml" 334 8313 8353
+type(
+  Event.log_level
+)
+"kind2.ml" 335 8355 8367 "kind2.ml" 335 8355 8401
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 336 8403 8415 "kind2.ml" 336 8403 8418
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 318 7840 7854 "kind2.ml" 318 7840 7857
+)
+"kind2.ml" 334 8313 8323 "kind2.ml" 336 8403 8418
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 341 8492 8510 "kind2.ml" 341 8492 8525
+type(
+  unit -> string option
+)
+ident(
+  ext_ref Flags.debug_log
+)
+"kind2.ml" 341 8492 8526 "kind2.ml" 341 8492 8528
+type(
+  unit
+)
+"kind2.ml" 341 8492 8510 "kind2.ml" 341 8492 8528
+call(
+  stack
+)
+type(
+  string option
+)
+"kind2.ml" 344 8581 8597 "kind2.ml" 344 8581 8601
+type(
+  string option
+)
+"kind2.ml" 344 8581 8605 "kind2.ml" 344 8581 8607
+type(
+  unit
+)
+"kind2.ml" 348 8705 8726 "kind2.ml" 348 8705 8727
+type(
+  string
+)
+ident(
+  def f "kind2.ml" 350 8732 8748 "kind2.ml" 377 9612 9649
+)
+"kind2.ml" 348 8705 8721 "kind2.ml" 348 8705 8727
+type(
+  string option
+)
+"kind2.ml" 353 8802 8824 "kind2.ml" 353 8802 8826
+type(
+  string
+)
+ident(
+  def f' "kind2.ml" 361 9054 9072 "kind2.ml" 372 9489 9525
+)
+"kind2.ml" 354 8830 8850 "kind2.ml" 354 8830 8864
+type(
+  (string -> string -> int -> string, unit, string) format ->
+  string -> string -> int -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"kind2.ml" 354 8830 8865 "kind2.ml" 354 8830 8875
+type(
+  (string -> string -> int -> string, unit, string) format
+)
+"kind2.ml" 355 8877 8899 "kind2.ml" 355 8877 8900
+type(
+  string
+)
+ident(
+  int_ref f "kind2.ml" 348 8705 8726 "kind2.ml" 348 8705 8727
+)
+"kind2.ml" 356 8901 8924 "kind2.ml" 356 8901 8944
+type(
+  Lib.kind_module -> string
+)
+ident(
+  int_ref debug_ext_of_process "kind2.ml" 88 2967 2971 "kind2.ml" 88 2967 2991
+)
+"kind2.ml" 356 8901 8945 "kind2.ml" 356 8901 8952
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 356 8901 8924 "kind2.ml" 356 8901 8952
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 357 8954 8976 "kind2.ml" 357 8954 8979
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 318 7840 7854 "kind2.ml" 318 7840 7857
+)
+"kind2.ml" 354 8830 8850 "kind2.ml" 357 8954 8979
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 361 9054 9076 "kind2.ml" 361 9054 9078
+type(
+  out_channel
+)
+ident(
+  def oc "kind2.ml" 364 9147 9165 "kind2.ml" 372 9489 9525
+)
+"kind2.ml" 361 9054 9081 "kind2.ml" 361 9054 9089
+type(
+  string -> out_channel
+)
+ident(
+  ext_ref Pervasives.open_out
+)
+"kind2.ml" 361 9054 9090 "kind2.ml" 361 9054 9092
+type(
+  string
+)
+ident(
+  int_ref f' "kind2.ml" 353 8802 8824 "kind2.ml" 353 8802 8826
+)
+"kind2.ml" 361 9054 9081 "kind2.ml" 361 9054 9092
+call(
+  stack
+)
+type(
+  out_channel
+)
+"kind2.ml" 364 9147 9169 "kind2.ml" 364 9147 9184
+type(
+  Format.formatter
+)
+ident(
+  def debug_formatter "kind2.ml" 368 9331 9349 "kind2.ml" 372 9489 9525
+)
+"kind2.ml" 364 9147 9187 "kind2.ml" 364 9147 9218
+type(
+  out_channel -> Format.formatter
+)
+ident(
+  ext_ref Format.formatter_of_out_channel
+)
+"kind2.ml" 364 9147 9219 "kind2.ml" 364 9147 9221
+type(
+  out_channel
+)
+ident(
+  int_ref oc "kind2.ml" 361 9054 9076 "kind2.ml" 361 9054 9078
+)
+"kind2.ml" 364 9147 9187 "kind2.ml" 364 9147 9221
+call(
+  stack
+)
+type(
+  Format.formatter
+)
+"kind2.ml" 368 9331 9349 "kind2.ml" 368 9331 9358
+type(
+  (string -> unit) -> string list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind2.ml" 369 9359 9389 "kind2.ml" 369 9359 9390
+type(
+  string
+)
+ident(
+  def s "kind2.ml" 370 9395 9417 "kind2.ml" 371 9435 9487
+)
+"kind2.ml" 370 9395 9417 "kind2.ml" 370 9395 9430
+type(
+  string -> unit
+)
+ident(
+  ext_ref Debug.disable
+)
+"kind2.ml" 370 9395 9431 "kind2.ml" 370 9395 9432
+type(
+  string
+)
+ident(
+  int_ref s "kind2.ml" 369 9359 9389 "kind2.ml" 369 9359 9390
+)
+"kind2.ml" 370 9395 9417 "kind2.ml" 370 9395 9432
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 371 9435 9457 "kind2.ml" 371 9435 9469
+type(
+  string -> Format.formatter -> unit
+)
+ident(
+  ext_ref Debug.enable
+)
+"kind2.ml" 371 9435 9470 "kind2.ml" 371 9435 9471
+type(
+  string
+)
+ident(
+  int_ref s "kind2.ml" 369 9359 9389 "kind2.ml" 369 9359 9390
+)
+"kind2.ml" 371 9435 9472 "kind2.ml" 371 9435 9487
+type(
+  Format.formatter
+)
+ident(
+  int_ref debug_formatter "kind2.ml" 364 9147 9169 "kind2.ml" 364 9147 9184
+)
+"kind2.ml" 371 9435 9457 "kind2.ml" 371 9435 9487
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 370 9395 9417 "kind2.ml" 371 9435 9487
+type(
+  unit
+)
+"kind2.ml" 369 9359 9380 "kind2.ml" 371 9435 9487
+type(
+  string -> unit
+)
+"kind2.ml" 372 9489 9510 "kind2.ml" 372 9489 9521
+type(
+  unit -> string list
+)
+ident(
+  ext_ref Flags.debug
+)
+"kind2.ml" 372 9489 9522 "kind2.ml" 372 9489 9524
+type(
+  unit
+)
+"kind2.ml" 372 9489 9510 "kind2.ml" 372 9489 9524
+call(
+  stack
+)
+type(
+  string list
+)
+"kind2.ml" 368 9331 9349 "kind2.ml" 372 9489 9525
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 364 9147 9165 "kind2.ml" 372 9489 9525
+type(
+  unit
+)
+"kind2.ml" 361 9054 9072 "kind2.ml" 372 9489 9525
+type(
+  unit
+)
+"kind2.ml" 353 8802 8820 "kind2.ml" 372 9489 9525
+type(
+  unit
+)
+"kind2.ml" 377 9612 9642 "kind2.ml" 377 9612 9643
+type(
+  string
+)
+"kind2.ml" 377 9612 9632 "kind2.ml" 377 9612 9643
+type(
+  exn
+)
+"kind2.ml" 377 9612 9647 "kind2.ml" 377 9612 9649
+type(
+  unit
+)
+"kind2.ml" 350 8732 8748 "kind2.ml" 377 9612 9649
+type(
+  unit
+)
+"kind2.ml" 341 8492 8504 "kind2.ml" 377 9612 9649
+type(
+  unit
+)
+"kind2.ml" 382 9711 9722 "kind2.ml" 382 9711 9737
+type(
+  Lib.kind_module -> TransSys.t -> unit
+)
+ident(
+  int_ref main_of_process "kind2.ml" 59 2130 2134 "kind2.ml" 59 2130 2149
+)
+"kind2.ml" 382 9711 9738 "kind2.ml" 382 9711 9745
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 382 9711 9747 "kind2.ml" 382 9711 9755
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "kind2.ml" 304 7641 7657 "kind2.ml" 304 7641 7665
+)
+"kind2.ml" 382 9711 9721 "kind2.ml" 382 9711 9755
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 385 9791 9801 "kind2.ml" 385 9791 9814
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit_child "kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+)
+"kind2.ml" 385 9791 9821 "kind2.ml" 385 9791 9837
+type(
+  Event.mthread
+)
+ident(
+  int_ref messaging_thread "kind2.ml" 324 8040 8054 "kind2.ml" 324 8040 8070
+)
+"kind2.ml" 385 9791 9816 "kind2.ml" 385 9791 9837
+type(
+  Event.mthread option
+)
+"kind2.ml" 385 9791 9839 "kind2.ml" 385 9791 9846
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 385 9791 9847 "kind2.ml" 385 9791 9851
+type(
+  exn
+)
+"kind2.ml" 385 9791 9801 "kind2.ml" 385 9791 9851
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 382 9711 9721 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 341 8492 8504 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 334 8313 8323 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 332 8278 8288 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 324 8040 8050 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 321 7927 7937 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 318 7840 7850 "kind2.ml" 385 9791 9851
+type(
+  unit
+)
+"kind2.ml" 390 9913 9925 "kind2.ml" 390 9913 9940
+type(
+  exn
+)
+"kind2.ml" 390 9913 9925 "kind2.ml" 390 9913 9945
+type(
+  exn
+)
+ident(
+  def e "kind2.ml" 390 9913 9949 "kind2.ml" 390 9913 9977
+)
+"kind2.ml" 390 9913 9949 "kind2.ml" 390 9913 9962
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit_child "kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+)
+"kind2.ml" 390 9913 9963 "kind2.ml" 390 9913 9967
+type(
+  Event.mthread option
+)
+"kind2.ml" 390 9913 9968 "kind2.ml" 390 9913 9975
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 390 9913 9976 "kind2.ml" 390 9913 9977
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 390 9913 9925 "kind2.ml" 390 9913 9945
+)
+"kind2.ml" 390 9913 9949 "kind2.ml" 390 9913 9977
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 393 10022 10034 "kind2.ml" 393 10022 10035
+type(
+  exn
+)
+ident(
+  def e "kind2.ml" 396 10096 10108 "kind2.ml" 406 10432 10472
+)
+"kind2.ml" 396 10096 10112 "kind2.ml" 396 10096 10121
+type(
+  string
+)
+ident(
+  def backtrace "kind2.ml" 398 10154 10166 "kind2.ml" 406 10432 10472
+)
+"kind2.ml" 396 10096 10124 "kind2.ml" 396 10096 10146
+type(
+  unit -> string
+)
+ident(
+  ext_ref Printexc.get_backtrace
+)
+"kind2.ml" 396 10096 10147 "kind2.ml" 396 10096 10149
+type(
+  unit
+)
+"kind2.ml" 396 10096 10124 "kind2.ml" 396 10096 10149
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 398 10154 10166 "kind2.ml" 398 10154 10175
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 398 10154 10176 "kind2.ml" 398 10154 10183
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 398 10154 10184 "kind2.ml" 398 10154 10197
+type(
+  Event.log_level
+)
+"kind2.ml" 399 10198 10212 "kind2.ml" 399 10198 10231
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 400 10233 10248 "kind2.ml" 400 10233 10266
+type(
+  exn -> string
+)
+ident(
+  ext_ref Printexc.to_string
+)
+"kind2.ml" 400 10233 10267 "kind2.ml" 400 10233 10268
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 393 10022 10034 "kind2.ml" 393 10022 10035
+)
+"kind2.ml" 400 10233 10248 "kind2.ml" 400 10233 10268
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 398 10154 10166 "kind2.ml" 400 10233 10269
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 402 10272 10287 "kind2.ml" 402 10272 10312
+type(
+  unit -> bool
+)
+ident(
+  ext_ref Printexc.backtrace_status
+)
+"kind2.ml" 402 10272 10313 "kind2.ml" 402 10272 10315
+type(
+  unit
+)
+"kind2.ml" 402 10272 10287 "kind2.ml" 402 10272 10315
+call(
+  stack
+)
+type(
+  bool
+)
+"kind2.ml" 403 10321 10335 "kind2.ml" 403 10321 10344
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 403 10321 10345 "kind2.ml" 403 10321 10352
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 403 10321 10353 "kind2.ml" 403 10321 10366
+type(
+  Event.log_level
+)
+"kind2.ml" 403 10321 10367 "kind2.ml" 403 10321 10384
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 403 10321 10385 "kind2.ml" 403 10321 10394
+type(
+  string
+)
+ident(
+  int_ref backtrace "kind2.ml" 396 10096 10112 "kind2.ml" 396 10096 10121
+)
+"kind2.ml" 403 10321 10335 "kind2.ml" 403 10321 10394
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 402 10272 10284 "kind2.ml" 403 10321 10394
+type(
+  unit
+)
+type(
+  unit
+)
+"kind2.ml" 406 10432 10444 "kind2.ml" 406 10432 10457
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit_child "kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+)
+"kind2.ml" 406 10432 10458 "kind2.ml" 406 10432 10462
+type(
+  Event.mthread option
+)
+"kind2.ml" 406 10432 10463 "kind2.ml" 406 10432 10470
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 406 10432 10471 "kind2.ml" 406 10432 10472
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 393 10022 10034 "kind2.ml" 393 10022 10035
+)
+"kind2.ml" 406 10432 10444 "kind2.ml" 406 10432 10472
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 402 10272 10284 "kind2.ml" 406 10432 10472
+type(
+  unit
+)
+"kind2.ml" 398 10154 10166 "kind2.ml" 406 10432 10472
+type(
+  unit
+)
+"kind2.ml" 396 10096 10108 "kind2.ml" 406 10432 10472
+type(
+  unit
+)
+"kind2.ml" 316 7826 7834 "kind2.ml" 406 10432 10472
+type(
+  unit
+)
+"kind2.ml" 411 10519 10525 "kind2.ml" 411 10519 10526
+type(
+  int
+)
+"kind2.ml" 414 10581 10587 "kind2.ml" 414 10581 10597
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 414 10581 10602 "kind2.ml" 414 10581 10605
+type(
+  int
+)
+ident(
+  int_ref pid "kind2.ml" 307 7721 7727 "kind2.ml" 307 7721 7730
+)
+"kind2.ml" 414 10581 10607 "kind2.ml" 414 10581 10614
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref process "kind2.ml" 304 7641 7682 "kind2.ml" 304 7641 7689
+)
+"kind2.ml" 414 10581 10602 "kind2.ml" 414 10581 10614
+type(
+  int * Lib.kind_module
+)
+"kind2.ml" 414 10581 10620 "kind2.ml" 414 10581 10630
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 414 10581 10619 "kind2.ml" 414 10581 10630
+type(
+  (int * Lib.kind_module) list
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind2.ml" 414 10581 10601 "kind2.ml" 414 10581 10630
+type(
+  (int * Lib.kind_module) list
+)
+"kind2.ml" 414 10581 10587 "kind2.ml" 414 10581 10630
+type(
+  unit
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind2.ml" 309 7750 7752 "kind2.ml" 414 10581 10630
+type(
+  unit
+)
+"kind2.ml" 307 7721 7723 "kind2.ml" 414 10581 10630
+type(
+  unit
+)
+"kind2.ml" 304 7641 7682 "kind2.ml" 414 10581 10630
+type(
+  Lib.kind_module -> unit
+)
+"kind2.ml" 304 7641 7666 "kind2.ml" 414 10581 10630
+type(
+  Event.messaging_setup -> Lib.kind_module -> unit
+)
+"kind2.ml" 304 7641 7657 "kind2.ml" 414 10581 10630
+type(
+  TransSys.t -> Event.messaging_setup -> Lib.kind_module -> unit
+)
+"kind2.ml" 418 10663 10667 "kind2.ml" 418 10663 10671
+type(
+  unit -> unit
+)
+ident(
+  def main "kind2.ml" 671 16473 16473 "_none_" 1 0 -1
+)
+"kind2.ml" 418 10663 10672 "kind2.ml" 418 10663 10674
+type(
+  unit
+)
+"kind2.ml" 421 10714 10716 "kind2.ml" 421 10714 10732
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Flags.parse_argv
+)
+"kind2.ml" 421 10714 10733 "kind2.ml" 421 10714 10735
+type(
+  unit
+)
+"kind2.ml" 421 10714 10716 "kind2.ml" 421 10714 10735
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 424 10782 10787 "kind2.ml" 424 10782 10798
+type(
+  unit -> string list
+)
+ident(
+  ext_ref Flags.debug
+)
+"kind2.ml" 424 10782 10799 "kind2.ml" 424 10782 10801
+type(
+  unit
+)
+"kind2.ml" 424 10782 10787 "kind2.ml" 424 10782 10801
+call(
+  stack
+)
+type(
+  string list
+)
+"kind2.ml" 424 10782 10802 "kind2.ml" 424 10782 10803
+type(
+  string list -> string list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind2.ml" 424 10782 10804 "kind2.ml" 424 10782 10806
+type(
+  string list
+)
+"kind2.ml" 424 10782 10787 "kind2.ml" 424 10782 10806
+type(
+  bool
+)
+"kind2.ml" 427 10877 10881 "kind2.ml" 427 10877 10897
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Debug.initialize
+)
+"kind2.ml" 427 10877 10898 "kind2.ml" 427 10877 10900
+type(
+  unit
+)
+"kind2.ml" 427 10877 10881 "kind2.ml" 427 10877 10900
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 434 10964 10974 "kind2.ml" 434 10964 10989
+type(
+  Format.formatter
+)
+ident(
+  def debug_formatter "kind2.ml" 453 11491 11497 "kind2.ml" 455 11563 11587
+)
+"kind2.ml" 436 10994 11008 "kind2.ml" 436 10994 11023
+type(
+  unit -> string option
+)
+ident(
+  ext_ref Flags.debug_log
+)
+"kind2.ml" 436 10994 11024 "kind2.ml" 436 10994 11026
+type(
+  unit
+)
+"kind2.ml" 436 10994 11008 "kind2.ml" 436 10994 11026
+call(
+  stack
+)
+type(
+  string option
+)
+"kind2.ml" 439 11077 11089 "kind2.ml" 439 11077 11093
+type(
+  string option
+)
+"kind2.ml" 439 11077 11097 "kind2.ml" 439 11077 11117
+type(
+  Format.formatter
+)
+ident(
+  ext_ref Format.std_formatter
+)
+"kind2.ml" 442 11194 11211 "kind2.ml" 442 11194 11212
+type(
+  string
+)
+ident(
+  def f "kind2.ml" 444 11217 11229 "kind2.ml" 448 11362 11408
+)
+"kind2.ml" 442 11194 11206 "kind2.ml" 442 11194 11212
+type(
+  string option
+)
+"kind2.ml" 444 11217 11233 "kind2.ml" 444 11217 11235
+type(
+  out_channel
+)
+ident(
+  def oc "kind2.ml" 448 11362 11374 "kind2.ml" 448 11362 11408
+)
+"kind2.ml" 445 11239 11257 "kind2.ml" 445 11239 11265
+type(
+  string -> out_channel
+)
+ident(
+  ext_ref Pervasives.open_out
+)
+"kind2.ml" 445 11239 11266 "kind2.ml" 445 11239 11267
+type(
+  string
+)
+ident(
+  int_ref f "kind2.ml" 442 11194 11211 "kind2.ml" 442 11194 11212
+)
+"kind2.ml" 445 11239 11257 "kind2.ml" 445 11239 11267
+call(
+  stack
+)
+type(
+  out_channel
+)
+"kind2.ml" 446 11273 11301 "kind2.ml" 446 11273 11302
+type(
+  string
+)
+"kind2.ml" 446 11273 11291 "kind2.ml" 446 11273 11302
+type(
+  exn
+)
+"kind2.ml" 446 11273 11306 "kind2.ml" 446 11273 11314
+type(
+  string -> out_channel
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind2.ml" 446 11273 11315 "kind2.ml" 446 11273 11345
+type(
+  string
+)
+"kind2.ml" 446 11273 11306 "kind2.ml" 446 11273 11345
+call(
+  stack
+)
+type(
+  out_channel
+)
+"kind2.ml" 445 11239 11253 "kind2.ml" 446 11273 11345
+type(
+  out_channel
+)
+"kind2.ml" 448 11362 11374 "kind2.ml" 448 11362 11405
+type(
+  out_channel -> Format.formatter
+)
+ident(
+  ext_ref Format.formatter_of_out_channel
+)
+"kind2.ml" 448 11362 11406 "kind2.ml" 448 11362 11408
+type(
+  out_channel
+)
+ident(
+  int_ref oc "kind2.ml" 444 11217 11233 "kind2.ml" 444 11217 11235
+)
+"kind2.ml" 448 11362 11374 "kind2.ml" 448 11362 11408
+call(
+  stack
+)
+type(
+  Format.formatter
+)
+"kind2.ml" 444 11217 11229 "kind2.ml" 448 11362 11408
+type(
+  Format.formatter
+)
+"kind2.ml" 436 10994 11002 "kind2.ml" 448 11362 11408
+type(
+  Format.formatter
+)
+"kind2.ml" 453 11491 11497 "kind2.ml" 453 11491 11506
+type(
+  (string -> unit) -> string list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind2.ml" 454 11508 11526 "kind2.ml" 454 11508 11527
+type(
+  string
+)
+ident(
+  def s "kind2.ml" 454 11508 11531 "kind2.ml" 454 11508 11561
+)
+"kind2.ml" 454 11508 11531 "kind2.ml" 454 11508 11543
+type(
+  string -> Format.formatter -> unit
+)
+ident(
+  ext_ref Debug.enable
+)
+"kind2.ml" 454 11508 11544 "kind2.ml" 454 11508 11545
+type(
+  string
+)
+ident(
+  int_ref s "kind2.ml" 454 11508 11526 "kind2.ml" 454 11508 11527
+)
+"kind2.ml" 454 11508 11546 "kind2.ml" 454 11508 11561
+type(
+  Format.formatter
+)
+ident(
+  int_ref debug_formatter "kind2.ml" 434 10964 10974 "kind2.ml" 434 10964 10989
+)
+"kind2.ml" 454 11508 11531 "kind2.ml" 454 11508 11561
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 454 11508 11517 "kind2.ml" 454 11508 11561
+type(
+  string -> unit
+)
+"kind2.ml" 455 11563 11572 "kind2.ml" 455 11563 11583
+type(
+  unit -> string list
+)
+ident(
+  ext_ref Flags.debug
+)
+"kind2.ml" 455 11563 11584 "kind2.ml" 455 11563 11586
+type(
+  unit
+)
+"kind2.ml" 455 11563 11572 "kind2.ml" 455 11563 11586
+call(
+  stack
+)
+type(
+  string list
+)
+"kind2.ml" 453 11491 11497 "kind2.ml" 455 11563 11587
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 434 10964 10970 "kind2.ml" 455 11563 11588
+type(
+  unit
+)
+"kind2.ml" 424 10782 10784 "kind2.ml" 457 11590 11595
+type(
+  unit
+)
+"kind2.ml" 460 11641 11646 "kind2.ml" 460 11641 11666
+type(
+  unit -> bool
+)
+ident(
+  ext_ref Flags.log_format_xml
+)
+"kind2.ml" 460 11641 11667 "kind2.ml" 460 11641 11669
+type(
+  unit
+)
+"kind2.ml" 460 11641 11646 "kind2.ml" 460 11641 11669
+call(
+  stack
+)
+type(
+  bool
+)
+"kind2.ml" 460 11641 11675 "kind2.ml" 460 11641 11699
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Event.set_log_format_xml
+)
+"kind2.ml" 460 11641 11700 "kind2.ml" 460 11641 11702
+type(
+  unit
+)
+"kind2.ml" 460 11641 11675 "kind2.ml" 460 11641 11702
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 460 11641 11643 "kind2.ml" 460 11641 11702
+type(
+  unit
+)
+type(
+  unit
+)
+"kind2.ml" 463 11731 11736 "kind2.ml" 463 11731 11739
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"kind2.ml" 463 11731 11741 "kind2.ml" 463 11731 11756
+type(
+  unit -> Event.log_level
+)
+ident(
+  ext_ref Flags.log_level
+)
+"kind2.ml" 463 11731 11757 "kind2.ml" 463 11731 11759
+type(
+  unit
+)
+"kind2.ml" 463 11731 11741 "kind2.ml" 463 11731 11759
+call(
+  stack
+)
+type(
+  Event.log_level
+)
+"kind2.ml" 463 11731 11760 "kind2.ml" 463 11731 11761
+type(
+  Event.log_level -> Event.log_level -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind2.ml" 463 11731 11762 "kind2.ml" 463 11731 11773
+type(
+  Event.log_level
+)
+"kind2.ml" 463 11731 11741 "kind2.ml" 463 11731 11773
+type(
+  bool
+)
+"kind2.ml" 463 11731 11736 "kind2.ml" 463 11731 11774
+type(
+  bool
+)
+"kind2.ml" 468 11850 11856 "kind2.ml" 468 11850 11875
+type(
+  Event.log_level -> unit
+)
+ident(
+  ext_ref Event.set_log_level
+)
+"kind2.ml" 468 11850 11876 "kind2.ml" 468 11850 11888
+type(
+  Event.log_level
+)
+"kind2.ml" 468 11850 11856 "kind2.ml" 468 11850 11888
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 469 11890 11896 "kind2.ml" 469 11890 11905
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> unit -> unit) -> unit -> unit, Format.formatter,
+   unit)
+  format -> (Format.formatter -> unit -> unit) -> unit -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 469 11890 11906 "kind2.ml" 469 11890 11913
+type(
+  Lib.kind_module
+)
+"kind2.ml" 469 11890 11914 "kind2.ml" 469 11890 11926
+type(
+  Event.log_level
+)
+"kind2.ml" 469 11890 11927 "kind2.ml" 469 11890 11931
+type(
+  ((Format.formatter -> unit -> unit) -> unit -> unit, Format.formatter,
+   unit)
+  format
+)
+"kind2.ml" 469 11890 11932 "kind2.ml" 469 11890 11947
+type(
+  Format.formatter -> unit -> unit
+)
+ident(
+  int_ref pp_print_banner "kind2.ml" 33 1686 1690 "kind2.ml" 33 1686 1705
+)
+"kind2.ml" 469 11890 11948 "kind2.ml" 469 11890 11950
+type(
+  unit
+)
+"kind2.ml" 469 11890 11896 "kind2.ml" 469 11890 11950
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 468 11850 11856 "kind2.ml" 469 11890 11950
+type(
+  unit
+)
+"kind2.ml" 463 11731 11733 "kind2.ml" 471 11952 11957
+type(
+  unit
+)
+type(
+  unit
+)
+"kind2.ml" 474 11982 11984 "kind2.ml" 474 11982 12003
+type(
+  Event.log_level -> unit
+)
+ident(
+  ext_ref Event.set_log_level
+)
+"kind2.ml" 474 11982 12005 "kind2.ml" 474 11982 12020
+type(
+  unit -> Event.log_level
+)
+ident(
+  ext_ref Flags.log_level
+)
+"kind2.ml" 474 11982 12021 "kind2.ml" 474 11982 12023
+type(
+  unit
+)
+"kind2.ml" 474 11982 12005 "kind2.ml" 474 11982 12023
+call(
+  stack
+)
+type(
+  Event.log_level
+)
+"kind2.ml" 474 11982 11984 "kind2.ml" 474 11982 12024
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 477 12054 12059 "kind2.ml" 477 12054 12077
+type(
+  unit -> float
+)
+ident(
+  ext_ref Flags.timeout_wall
+)
+"kind2.ml" 477 12054 12078 "kind2.ml" 477 12054 12080
+type(
+  unit
+)
+"kind2.ml" 477 12054 12059 "kind2.ml" 477 12054 12080
+call(
+  stack
+)
+type(
+  float
+)
+"kind2.ml" 477 12054 12081 "kind2.ml" 477 12054 12082
+type(
+  float -> float -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind2.ml" 477 12054 12083 "kind2.ml" 477 12054 12085
+type(
+  float
+)
+"kind2.ml" 477 12054 12059 "kind2.ml" 477 12054 12085
+type(
+  bool
+)
+"kind2.ml" 482 12170 12176 "kind2.ml" 482 12170 12190
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 483 12192 12200 "kind2.ml" 483 12192 12211
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigalrm
+)
+"kind2.ml" 484 12213 12250 "kind2.ml" 484 12213 12251
+type(
+  int
+)
+"kind2.ml" 484 12213 12255 "kind2.ml" 484 12213 12260
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind2.ml" 484 12213 12261 "kind2.ml" 484 12213 12272
+type(
+  exn
+)
+"kind2.ml" 484 12213 12255 "kind2.ml" 484 12213 12272
+type(
+  unit
+)
+"kind2.ml" 484 12213 12241 "kind2.ml" 484 12213 12272
+type(
+  int -> unit
+)
+"kind2.ml" 484 12213 12222 "kind2.ml" 484 12213 12273
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 482 12170 12176 "kind2.ml" 484 12213 12274
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 487 12330 12340 "kind2.ml" 487 12330 12341
+type(
+  Unix.interval_timer_status
+)
+"kind2.ml" 488 12394 12402 "kind2.ml" 488 12394 12416
+type(
+  Unix.interval_timer ->
+  Unix.interval_timer_status -> Unix.interval_timer_status
+)
+ident(
+  ext_ref Unix.setitimer
+)
+"kind2.ml" 489 12418 12428 "kind2.ml" 489 12418 12444
+type(
+  Unix.interval_timer
+)
+"kind2.ml" 490 12446 12477 "kind2.ml" 490 12446 12479
+type(
+  float
+)
+"kind2.ml" 490 12446 12497 "kind2.ml" 490 12446 12515
+type(
+  unit -> float
+)
+ident(
+  ext_ref Flags.timeout_wall
+)
+"kind2.ml" 490 12446 12516 "kind2.ml" 490 12446 12518
+type(
+  unit
+)
+"kind2.ml" 490 12446 12497 "kind2.ml" 490 12446 12518
+call(
+  stack
+)
+type(
+  float
+)
+"kind2.ml" 490 12446 12456 "kind2.ml" 490 12446 12520
+type(
+  Unix.interval_timer_status
+)
+"kind2.ml" 488 12394 12402 "kind2.ml" 490 12446 12520
+call(
+  stack
+)
+type(
+  Unix.interval_timer_status
+)
+"kind2.ml" 493 12532 12538 "kind2.ml" 493 12532 12540
+type(
+  unit
+)
+"kind2.ml" 487 12330 12336 "kind2.ml" 493 12532 12540
+type(
+  unit
+)
+"kind2.ml" 482 12170 12176 "kind2.ml" 493 12532 12540
+type(
+  unit
+)
+"kind2.ml" 502 12619 12625 "kind2.ml" 502 12619 12639
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 503 12641 12649 "kind2.ml" 503 12641 12660
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigalrm
+)
+"kind2.ml" 504 12662 12689 "kind2.ml" 504 12662 12708
+type(
+  int -> unit
+)
+ident(
+  ext_ref Lib.exception_on_signal
+)
+"kind2.ml" 504 12662 12671 "kind2.ml" 504 12662 12708
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 502 12619 12625 "kind2.ml" 504 12662 12709
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 477 12054 12056 "kind2.ml" 506 12712 12717
+type(
+  unit
+)
+"kind2.ml" 543 13512 13514 "kind2.ml" 543 13512 13529
+type(
+  bool -> unit
+)
+ident(
+  ext_ref Sys.catch_break
+)
+"kind2.ml" 543 13512 13530 "kind2.ml" 543 13512 13534
+type(
+  bool
+)
+"kind2.ml" 543 13512 13514 "kind2.ml" 543 13512 13534
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 546 13587 13589 "kind2.ml" 546 13587 13603
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 547 13605 13609 "kind2.ml" 547 13605 13619
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigint
+)
+"kind2.ml" 548 13621 13644 "kind2.ml" 548 13621 13663
+type(
+  int -> unit
+)
+ident(
+  ext_ref Lib.exception_on_signal
+)
+"kind2.ml" 548 13621 13626 "kind2.ml" 548 13621 13663
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 546 13587 13589 "kind2.ml" 548 13621 13664
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 551 13718 13720 "kind2.ml" 551 13718 13734
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 552 13736 13740 "kind2.ml" 552 13736 13751
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigterm
+)
+"kind2.ml" 553 13753 13776 "kind2.ml" 553 13753 13795
+type(
+  int -> unit
+)
+ident(
+  ext_ref Lib.exception_on_signal
+)
+"kind2.ml" 553 13753 13758 "kind2.ml" 553 13753 13795
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 551 13718 13720 "kind2.ml" 553 13753 13796
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 556 13850 13852 "kind2.ml" 556 13850 13866
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 557 13868 13872 "kind2.ml" 557 13868 13883
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigquit
+)
+"kind2.ml" 558 13885 13908 "kind2.ml" 558 13885 13927
+type(
+  int -> unit
+)
+ident(
+  ext_ref Lib.exception_on_signal
+)
+"kind2.ml" 558 13885 13890 "kind2.ml" 558 13885 13927
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 556 13850 13852 "kind2.ml" 558 13885 13928
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 562 13939 13943 "kind2.ml" 562 13939 13952
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 562 13939 13953 "kind2.ml" 562 13939 13960
+type(
+  Lib.kind_module
+)
+"kind2.ml" 562 13939 13961 "kind2.ml" 562 13939 13973
+type(
+  Event.log_level
+)
+"kind2.ml" 563 13975 13981 "kind2.ml" 563 13975 14004
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"kind2.ml" 563 13975 14006 "kind2.ml" 563 13975 14022
+type(
+  unit -> string
+)
+ident(
+  ext_ref Flags.input_file
+)
+"kind2.ml" 563 13975 14023 "kind2.ml" 563 13975 14025
+type(
+  unit
+)
+"kind2.ml" 563 13975 14006 "kind2.ml" 563 13975 14025
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 562 13939 13943 "kind2.ml" 563 13975 14026
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 566 14084 14092 "kind2.ml" 566 14084 14100
+type(
+  TransSys.t
+)
+ident(
+  def transSys "kind2.ml" 576 14313 14318 "kind2.ml" 639 15990 16000
+)
+"kind2.ml" 566 14084 14103 "kind2.ml" 566 14084 14120
+type(
+  string -> TransSys.t
+)
+ident(
+  ext_ref OldParser.of_file
+)
+"kind2.ml" 566 14084 14122 "kind2.ml" 566 14084 14138
+type(
+  unit -> string
+)
+ident(
+  ext_ref Flags.input_file
+)
+"kind2.ml" 566 14084 14139 "kind2.ml" 566 14084 14141
+type(
+  unit
+)
+"kind2.ml" 566 14084 14122 "kind2.ml" 566 14084 14141
+call(
+  stack
+)
+type(
+  string
+)
+"kind2.ml" 566 14084 14103 "kind2.ml" 566 14084 14142
+call(
+  stack
+)
+type(
+  TransSys.t
+)
+"kind2.ml" 576 14313 14324 "kind2.ml" 576 14313 14336
+type(
+  unit -> Flags.enable
+)
+ident(
+  ext_ref Flags.enable
+)
+"kind2.ml" 576 14313 14337 "kind2.ml" 576 14313 14339
+type(
+  unit
+)
+"kind2.ml" 576 14313 14324 "kind2.ml" 576 14313 14339
+call(
+  stack
+)
+type(
+  Flags.enable
+)
+"kind2.ml" 579 14377 14385 "kind2.ml" 579 14377 14387
+type(
+  Flags.enable
+)
+"kind2.ml" 580 14392 14401 "kind2.ml" 580 14392 14410
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 580 14392 14411 "kind2.ml" 580 14392 14418
+type(
+  Lib.kind_module
+)
+"kind2.ml" 580 14392 14419 "kind2.ml" 580 14392 14432
+type(
+  Event.log_level
+)
+"kind2.ml" 580 14392 14433 "kind2.ml" 580 14392 14468
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 580 14392 14401 "kind2.ml" 580 14392 14468
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 583 14506 14515 "kind2.ml" 583 14506 14516
+type(
+  Flags.enable
+)
+type(
+  Lib.kind_module
+)
+ident(
+  def p "kind2.ml" 587 14534 14544 "kind2.ml" 597 14857 14892
+)
+"kind2.ml" 583 14506 14514 "kind2.ml" 583 14506 14517
+type(
+  Lib.kind_module list
+)
+"kind2.ml" 587 14534 14544 "kind2.ml" 587 14534 14553
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 587 14534 14554 "kind2.ml" 587 14534 14555
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref p "kind2.ml" 583 14506 14515 "kind2.ml" 583 14506 14516
+)
+"kind2.ml" 587 14534 14556 "kind2.ml" 587 14534 14568
+type(
+  Event.log_level
+)
+"kind2.ml" 588 14570 14582 "kind2.ml" 588 14570 14611
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 587 14534 14544 "kind2.ml" 588 14570 14611
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 591 14659 14670 "kind2.ml" 591 14659 14685
+type(
+  Lib.kind_module -> TransSys.t -> unit
+)
+ident(
+  int_ref main_of_process "kind2.ml" 59 2130 2134 "kind2.ml" 59 2130 2149
+)
+"kind2.ml" 591 14659 14686 "kind2.ml" 591 14659 14687
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref p "kind2.ml" 583 14506 14515 "kind2.ml" 583 14506 14516
+)
+"kind2.ml" 591 14659 14689 "kind2.ml" 591 14659 14697
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "kind2.ml" 566 14084 14092 "kind2.ml" 566 14084 14100
+)
+"kind2.ml" 591 14659 14669 "kind2.ml" 591 14659 14697
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 594 14753 14763 "kind2.ml" 594 14753 14777
+type(
+  int -> Sys.signal_behavior -> unit
+)
+ident(
+  ext_ref Sys.set_signal
+)
+"kind2.ml" 594 14753 14778 "kind2.ml" 594 14753 14789
+type(
+  int
+)
+ident(
+  ext_ref Sys.sigalrm
+)
+"kind2.ml" 594 14753 14790 "kind2.ml" 594 14753 14807
+type(
+  Sys.signal_behavior
+)
+"kind2.ml" 594 14753 14763 "kind2.ml" 594 14753 14807
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 597 14857 14867 "kind2.ml" 597 14857 14880
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit_child "kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+)
+"kind2.ml" 597 14857 14881 "kind2.ml" 597 14857 14885
+type(
+  Event.mthread option
+)
+"kind2.ml" 597 14857 14886 "kind2.ml" 597 14857 14887
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref p "kind2.ml" 583 14506 14515 "kind2.ml" 583 14506 14516
+)
+"kind2.ml" 597 14857 14888 "kind2.ml" 597 14857 14892
+type(
+  exn
+)
+"kind2.ml" 597 14857 14867 "kind2.ml" 597 14857 14892
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 594 14753 14763 "kind2.ml" 597 14857 14892
+type(
+  unit
+)
+"kind2.ml" 591 14659 14669 "kind2.ml" 597 14857 14892
+type(
+  unit
+)
+"kind2.ml" 587 14534 14544 "kind2.ml" 597 14857 14892
+type(
+  unit
+)
+"kind2.ml" 602 14966 14974 "kind2.ml" 602 14966 14976
+type(
+  Flags.enable
+)
+ident(
+  def ps "kind2.ml" 606 15001 15011 "kind2.ml" 637 15950 15980
+)
+"kind2.ml" 606 15001 15011 "kind2.ml" 606 15001 15020
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> Flags.enable -> unit) -> Flags.enable -> unit,
+   Format.formatter, unit)
+  format ->
+  (Format.formatter -> Flags.enable -> unit) -> Flags.enable -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 606 15001 15021 "kind2.ml" 606 15001 15028
+type(
+  Lib.kind_module
+)
+"kind2.ml" 606 15001 15029 "kind2.ml" 606 15001 15041
+type(
+  Event.log_level
+)
+"kind2.ml" 607 15042 15054 "kind2.ml" 607 15042 15092
+type(
+  ((Format.formatter -> Flags.enable -> unit) -> Flags.enable -> unit,
+   Format.formatter, unit)
+  format
+)
+"kind2.ml" 608 15093 15106 "kind2.ml" 608 15093 15119
+type(
+  (Format.formatter -> Lib.kind_module -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> Flags.enable -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"kind2.ml" 608 15093 15120 "kind2.ml" 608 15093 15140
+type(
+  Format.formatter -> Lib.kind_module -> unit
+)
+ident(
+  ext_ref Lib.pp_print_kind_module
+)
+"kind2.ml" 608 15093 15141 "kind2.ml" 608 15093 15146
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 608 15093 15106 "kind2.ml" 608 15093 15146
+call(
+  stack
+)
+type(
+  Format.formatter -> Flags.enable -> unit
+)
+"kind2.ml" 609 15148 15160 "kind2.ml" 609 15148 15162
+type(
+  Flags.enable
+)
+ident(
+  int_ref ps "kind2.ml" 602 14966 14974 "kind2.ml" 602 14966 14976
+)
+"kind2.ml" 606 15001 15011 "kind2.ml" 609 15148 15162
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 611 15174 15188 "kind2.ml" 611 15174 15203
+type(
+  Event.messaging_setup
+)
+ident(
+  def messaging_setup "kind2.ml" 613 15225 15235 "kind2.ml" 637 15950 15980
+)
+"kind2.ml" 611 15174 15206 "kind2.ml" 611 15174 15217
+type(
+  unit -> Event.messaging_setup
+)
+ident(
+  ext_ref Event.setup
+)
+"kind2.ml" 611 15174 15218 "kind2.ml" 611 15174 15220
+type(
+  unit
+)
+"kind2.ml" 611 15174 15206 "kind2.ml" 611 15174 15220
+call(
+  stack
+)
+type(
+  Event.messaging_setup
+)
+"kind2.ml" 613 15225 15235 "kind2.ml" 613 15225 15244
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 613 15225 15245 "kind2.ml" 613 15225 15252
+type(
+  Lib.kind_module
+)
+"kind2.ml" 613 15225 15253 "kind2.ml" 613 15225 15266
+type(
+  Event.log_level
+)
+"kind2.ml" 614 15267 15279 "kind2.ml" 614 15267 15323
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 613 15225 15235 "kind2.ml" 614 15267 15323
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 617 15378 15388 "kind2.ml" 617 15378 15397
+type(
+  (Lib.kind_module -> unit) -> Flags.enable -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind2.ml" 618 15399 15421 "kind2.ml" 618 15399 15422
+type(
+  Lib.kind_module
+)
+ident(
+  def p "kind2.ml" 619 15427 15441 "kind2.ml" 619 15427 15479
+)
+"kind2.ml" 619 15427 15441 "kind2.ml" 619 15427 15452
+type(
+  TransSys.t -> Event.messaging_setup -> Lib.kind_module -> unit
+)
+ident(
+  int_ref run_process "kind2.ml" 304 7641 7645 "kind2.ml" 304 7641 7656
+)
+"kind2.ml" 619 15427 15453 "kind2.ml" 619 15427 15461
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "kind2.ml" 566 14084 14092 "kind2.ml" 566 14084 14100
+)
+"kind2.ml" 619 15427 15462 "kind2.ml" 619 15427 15477
+type(
+  Event.messaging_setup
+)
+ident(
+  int_ref messaging_setup "kind2.ml" 611 15174 15188 "kind2.ml" 611 15174 15203
+)
+"kind2.ml" 619 15427 15478 "kind2.ml" 619 15427 15479
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref p "kind2.ml" 618 15399 15421 "kind2.ml" 618 15399 15422
+)
+"kind2.ml" 619 15427 15441 "kind2.ml" 619 15427 15479
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 618 15399 15412 "kind2.ml" 619 15427 15479
+type(
+  Lib.kind_module -> unit
+)
+"kind2.ml" 620 15481 15493 "kind2.ml" 620 15481 15495
+type(
+  Flags.enable
+)
+ident(
+  int_ref ps "kind2.ml" 602 14966 14974 "kind2.ml" 602 14966 14976
+)
+"kind2.ml" 617 15378 15388 "kind2.ml" 620 15481 15495
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 622 15498 15508 "kind2.ml" 622 15498 15517
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"kind2.ml" 622 15498 15518 "kind2.ml" 622 15498 15525
+type(
+  Lib.kind_module
+)
+"kind2.ml" 622 15498 15526 "kind2.ml" 622 15498 15539
+type(
+  Event.log_level
+)
+"kind2.ml" 622 15498 15540 "kind2.ml" 622 15498 15568
+type(
+  (unit, Format.formatter, unit) format
+)
+"kind2.ml" 622 15498 15508 "kind2.ml" 622 15498 15568
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 626 15671 15685 "kind2.ml" 626 15671 15686
+type(
+  unit
+)
+"kind2.ml" 627 15690 15702 "kind2.ml" 627 15690 15714
+type(
+  Event.messaging_setup ->
+  (int * Lib.kind_module) list -> (exn -> unit) -> unit
+)
+ident(
+  ext_ref Event.run_im
+)
+"kind2.ml" 628 15715 15729 "kind2.ml" 628 15715 15744
+type(
+  Event.messaging_setup
+)
+ident(
+  int_ref messaging_setup "kind2.ml" 611 15174 15188 "kind2.ml" 611 15174 15203
+)
+"kind2.ml" 629 15745 15760 "kind2.ml" 629 15745 15770
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 629 15745 15759 "kind2.ml" 629 15745 15770
+type(
+  (int * Lib.kind_module) list
+)
+type(
+  (int * Lib.kind_module) list ref -> (int * Lib.kind_module) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind2.ml" 630 15771 15786 "kind2.ml" 630 15771 15793
+type(
+  Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit "kind2.ml" 191 4910 4914 "kind2.ml" 191 4910 4921
+)
+"kind2.ml" 630 15771 15794 "kind2.ml" 630 15771 15801
+type(
+  Lib.kind_module
+)
+"kind2.ml" 630 15771 15786 "kind2.ml" 630 15771 15801
+call(
+  stack
+)
+type(
+  exn -> unit
+)
+"kind2.ml" 627 15690 15702 "kind2.ml" 630 15771 15802
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 634 15855 15865 "kind2.ml" 634 15855 15882
+type(
+  (int * Lib.kind_module) list ref -> TransSys.t -> unit
+)
+ident(
+  ext_ref InvarManager.main
+)
+"kind2.ml" 634 15855 15883 "kind2.ml" 634 15855 15893
+type(
+  (int * Lib.kind_module) list ref
+)
+ident(
+  int_ref child_pids "kind2.ml" 54 2068 2072 "kind2.ml" 54 2068 2082
+)
+"kind2.ml" 634 15855 15894 "kind2.ml" 634 15855 15902
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "kind2.ml" 566 14084 14092 "kind2.ml" 566 14084 14100
+)
+"kind2.ml" 634 15855 15865 "kind2.ml" 634 15855 15902
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 637 15950 15960 "kind2.ml" 637 15950 15967
+type(
+  Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit "kind2.ml" 191 4910 4914 "kind2.ml" 191 4910 4921
+)
+"kind2.ml" 637 15950 15968 "kind2.ml" 637 15950 15975
+type(
+  Lib.kind_module
+)
+"kind2.ml" 637 15950 15976 "kind2.ml" 637 15950 15980
+type(
+  exn
+)
+"kind2.ml" 637 15950 15960 "kind2.ml" 637 15950 15980
+call(
+  stack
+)
+type(
+  unit
+)
+"kind2.ml" 634 15855 15865 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 626 15671 15681 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 622 15498 15508 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 617 15378 15388 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 613 15225 15235 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 611 15174 15184 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 606 15001 15011 "kind2.ml" 637 15950 15980
+type(
+  unit
+)
+"kind2.ml" 576 14313 14318 "kind2.ml" 639 15990 16000
+type(
+  unit
+)
+"kind2.ml" 566 14084 14088 "kind2.ml" 641 16002 16008
+type(
+  unit
+)
+"kind2.ml" 646 16044 16050 "kind2.ml" 646 16044 16051
+type(
+  exn
+)
+ident(
+  def e "kind2.ml" 649 16096 16103 "kind2.ml" 665 16419 16446
+)
+"kind2.ml" 649 16096 16109 "kind2.ml" 649 16096 16121
+type(
+  unit -> Flags.enable
+)
+ident(
+  ext_ref Flags.enable
+)
+"kind2.ml" 649 16096 16122 "kind2.ml" 649 16096 16124
+type(
+  unit
+)
+"kind2.ml" 649 16096 16109 "kind2.ml" 649 16096 16124
+call(
+  stack
+)
+type(
+  Flags.enable
+)
+"kind2.ml" 652 16164 16174 "kind2.ml" 652 16164 16176
+type(
+  Flags.enable
+)
+"kind2.ml" 652 16164 16180 "kind2.ml" 652 16164 16182
+type(
+  unit
+)
+"kind2.ml" 656 16221 16232 "kind2.ml" 656 16221 16233
+type(
+  Flags.enable
+)
+type(
+  Lib.kind_module
+)
+ident(
+  def p "kind2.ml" 659 16297 16307 "kind2.ml" 659 16297 16329
+)
+"kind2.ml" 656 16221 16231 "kind2.ml" 656 16221 16234
+type(
+  Lib.kind_module list
+)
+"kind2.ml" 659 16297 16307 "kind2.ml" 659 16297 16320
+type(
+  Event.mthread option -> Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit_child "kind2.ml" 278 7098 7102 "kind2.ml" 278 7098 7115
+)
+"kind2.ml" 659 16297 16321 "kind2.ml" 659 16297 16325
+type(
+  Event.mthread option
+)
+"kind2.ml" 659 16297 16326 "kind2.ml" 659 16297 16327
+type(
+  Lib.kind_module
+)
+ident(
+  int_ref p "kind2.ml" 656 16221 16232 "kind2.ml" 656 16221 16233
+)
+"kind2.ml" 659 16297 16328 "kind2.ml" 659 16297 16329
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 646 16044 16050 "kind2.ml" 646 16044 16051
+)
+"kind2.ml" 659 16297 16307 "kind2.ml" 659 16297 16329
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 663 16394 16404 "kind2.ml" 663 16394 16405
+type(
+  Flags.enable
+)
+"kind2.ml" 665 16419 16429 "kind2.ml" 665 16419 16436
+type(
+  Lib.kind_module -> exn -> unit
+)
+ident(
+  int_ref on_exit "kind2.ml" 191 4910 4914 "kind2.ml" 191 4910 4921
+)
+"kind2.ml" 665 16419 16437 "kind2.ml" 665 16419 16444
+type(
+  Lib.kind_module
+)
+"kind2.ml" 665 16419 16445 "kind2.ml" 665 16419 16446
+type(
+  exn
+)
+ident(
+  int_ref e "kind2.ml" 646 16044 16050 "kind2.ml" 646 16044 16051
+)
+"kind2.ml" 665 16419 16429 "kind2.ml" 665 16419 16446
+call(
+  tail
+)
+type(
+  unit
+)
+"kind2.ml" 649 16096 16103 "kind2.ml" 665 16419 16446
+type(
+  unit
+)
+"kind2.ml" 562 13939 13943 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 560 13931 13933 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 556 13850 13852 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 551 13718 13720 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 546 13587 13589 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 543 13512 13514 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 477 12054 12056 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 474 11982 11984 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 463 11731 11733 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 460 11641 11643 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 424 10782 10784 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 421 10714 10716 "kind2.ml" 667 16460 16467
+type(
+  unit
+)
+"kind2.ml" 418 10663 10672 "kind2.ml" 667 16460 16467
+type(
+  unit -> unit
+)
+"kind2.ml" 671 16473 16473 "kind2.ml" 671 16473 16477
+type(
+  unit -> unit
+)
+ident(
+  int_ref main "kind2.ml" 418 10663 10667 "kind2.ml" 418 10663 10671
+)
+"kind2.ml" 671 16473 16478 "kind2.ml" 671 16473 16480
+type(
+  unit
+)
+"kind2.ml" 671 16473 16473 "kind2.ml" 671 16473 16480
+call(
+  stack
+)
+type(
+  unit
+)

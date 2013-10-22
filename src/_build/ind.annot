@@ -1,0 +1,5542 @@
+"ind.ml" 39 2024 2043 "ind.ml" 39 2024 2076
+call(
+  stack
+)
+"ind.ml" 42 2118 2129 "ind.ml" 42 2118 2159
+call(
+  stack
+)
+"ind.ml" 49 2420 2424 "ind.ml" 49 2420 2433
+type(
+  int ref
+)
+ident(
+  def bmc_state "ind.ml" 52 2477 2477 "_none_" 1 0 -1
+)
+"ind.ml" 49 2420 2436 "ind.ml" 49 2420 2439
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"ind.ml" 49 2420 2440 "ind.ml" 49 2420 2441
+type(
+  int
+)
+"ind.ml" 49 2420 2436 "ind.ml" 49 2420 2441
+type(
+  int ref
+)
+"ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+type(
+  Term.t list ref
+)
+ident(
+  def invs "ind.ml" 55 2529 2529 "_none_" 1 0 -1
+)
+"ind.ml" 52 2477 2488 "ind.ml" 52 2477 2491
+type(
+  Term.t list -> Term.t list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"ind.ml" 52 2477 2492 "ind.ml" 52 2477 2494
+type(
+  Term.t list
+)
+"ind.ml" 52 2477 2488 "ind.ml" 52 2477 2494
+type(
+  Term.t list ref
+)
+"ind.ml" 55 2529 2533 "ind.ml" 55 2529 2543
+type(
+  S.t option ref
+)
+ident(
+  def ref_solver "ind.ml" 58 2580 2580 "_none_" 1 0 -1
+)
+"ind.ml" 55 2529 2546 "ind.ml" 55 2529 2549
+type(
+  S.t option -> S.t option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"ind.ml" 55 2529 2550 "ind.ml" 55 2529 2554
+type(
+  S.t option
+)
+"ind.ml" 55 2529 2546 "ind.ml" 55 2529 2554
+type(
+  S.t option ref
+)
+"ind.ml" 58 2580 2584 "ind.ml" 58 2580 2597
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_stat "ind.ml" 70 2820 2820 "_none_" 1 0 -1
+)
+"ind.ml" 58 2580 2598 "ind.ml" 58 2580 2601
+type(
+  Format.formatter
+)
+ident(
+  def ppf "ind.ml" 60 2606 2608 "ind.ml" 66 2763 2790
+)
+"ind.ml" 60 2606 2608 "ind.ml" 60 2606 2622
+type(
+  Format.formatter ->
+  ((Format.formatter -> Lib.kind_module -> unit) ->
+   Lib.kind_module ->
+   (Format.formatter -> unit) ->
+   (Format.formatter -> unit) -> (Format.formatter -> unit) -> unit,
+   Format.formatter, unit)
+  format ->
+  (Format.formatter -> Lib.kind_module -> unit) ->
+  Lib.kind_module ->
+  (Format.formatter -> unit) ->
+  (Format.formatter -> unit) -> (Format.formatter -> unit) -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"ind.ml" 61 2623 2627 "ind.ml" 61 2623 2630
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "ind.ml" 58 2580 2598 "ind.ml" 58 2580 2601
+)
+"ind.ml" 62 2631 2635 "ind.ml" 62 2631 2675
+type(
+  ((Format.formatter -> Lib.kind_module -> unit) ->
+   Lib.kind_module ->
+   (Format.formatter -> unit) ->
+   (Format.formatter -> unit) -> (Format.formatter -> unit) -> unit,
+   Format.formatter, unit)
+  format
+)
+"ind.ml" 63 2676 2680 "ind.ml" 63 2676 2700
+type(
+  Format.formatter -> Lib.kind_module -> unit
+)
+ident(
+  ext_ref Lib.pp_print_kind_module
+)
+"ind.ml" 63 2676 2701 "ind.ml" 63 2676 2705
+type(
+  Lib.kind_module
+)
+"ind.ml" 64 2706 2710 "ind.ml" 64 2706 2734
+type(
+  Format.formatter -> unit
+)
+ident(
+  ext_ref Stat.pp_print_misc_stats
+)
+"ind.ml" 65 2735 2739 "ind.ml" 65 2735 2762
+type(
+  Format.formatter -> unit
+)
+ident(
+  ext_ref Stat.pp_print_ind_stats
+)
+"ind.ml" 66 2763 2767 "ind.ml" 66 2763 2790
+type(
+  Format.formatter -> unit
+)
+ident(
+  ext_ref Stat.pp_print_smt_stats
+)
+"ind.ml" 60 2606 2608 "ind.ml" 66 2763 2790
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 58 2580 2598 "ind.ml" 66 2763 2790
+type(
+  Format.formatter -> unit
+)
+"ind.ml" 70 2820 2824 "ind.ml" 70 2820 2831
+type(
+  unit -> unit
+)
+ident(
+  def on_exit "ind.ml" 111 4235 4235 "_none_" 1 0 -1
+)
+"ind.ml" 70 2820 2832 "ind.ml" 70 2820 2834
+type(
+  unit
+)
+"ind.ml" 73 2862 2864 "ind.ml" 73 2862 2884
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Stat.ind_stop_timers
+)
+"ind.ml" 73 2862 2885 "ind.ml" 73 2862 2887
+type(
+  unit
+)
+"ind.ml" 73 2862 2864 "ind.ml" 73 2862 2887
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 74 2889 2891 "ind.ml" 74 2889 2911
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Stat.smt_stop_timers
+)
+"ind.ml" 74 2889 2912 "ind.ml" 74 2889 2914
+type(
+  unit
+)
+"ind.ml" 74 2889 2891 "ind.ml" 74 2889 2914
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 77 2943 2945 "ind.ml" 77 2943 2955
+type(
+  Lib.kind_module -> (string * Stat.stat_item list) list -> unit
+)
+ident(
+  ext_ref Event.stat
+)
+"ind.ml" 78 2957 2961 "ind.ml" 78 2957 2965
+type(
+  Lib.kind_module
+)
+"ind.ml" 79 2967 2972 "ind.ml" 79 2967 2993
+type(
+  string
+)
+ident(
+  ext_ref Stat.misc_stats_title
+)
+"ind.ml" 79 2967 2995 "ind.ml" 79 2967 3010
+type(
+  Stat.stat_item list
+)
+ident(
+  ext_ref Stat.misc_stats
+)
+"ind.ml" 79 2967 2972 "ind.ml" 79 2967 3010
+type(
+  string * Stat.stat_item list
+)
+"ind.ml" 80 3012 3017 "ind.ml" 80 3012 3037
+type(
+  string
+)
+ident(
+  ext_ref Stat.ind_stats_title
+)
+"ind.ml" 80 3012 3039 "ind.ml" 80 3012 3053
+type(
+  Stat.stat_item list
+)
+ident(
+  ext_ref Stat.ind_stats
+)
+"ind.ml" 80 3012 3017 "ind.ml" 80 3012 3053
+type(
+  string * Stat.stat_item list
+)
+"ind.ml" 81 3055 3060 "ind.ml" 81 3055 3080
+type(
+  string
+)
+ident(
+  ext_ref Stat.smt_stats_title
+)
+"ind.ml" 81 3055 3082 "ind.ml" 81 3055 3096
+type(
+  Stat.stat_item list
+)
+ident(
+  ext_ref Stat.smt_stats
+)
+"ind.ml" 81 3055 3060 "ind.ml" 81 3055 3096
+type(
+  string * Stat.stat_item list
+)
+type(
+  (string * Stat.stat_item list) list
+)
+"ind.ml" 80 3012 3017 "ind.ml" 81 3055 3096
+type(
+  (string * Stat.stat_item list) list
+)
+"ind.ml" 79 2967 2972 "ind.ml" 81 3055 3096
+type(
+  (string * Stat.stat_item list) list
+)
+"ind.ml" 79 2967 2971 "ind.ml" 81 3055 3097
+type(
+  (string * Stat.stat_item list) list
+)
+"ind.ml" 77 2943 2945 "ind.ml" 81 3055 3097
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 85 3150 3162 "ind.ml" 85 3150 3172
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "ind.ml" 55 2529 2533 "ind.ml" 55 2529 2543
+)
+"ind.ml" 85 3150 3161 "ind.ml" 85 3150 3172
+type(
+  S.t option
+)
+type(
+  S.t option ref -> S.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 86 3179 3193 "ind.ml" 86 3179 3199
+type(
+  S.t
+)
+ident(
+  def solver "ind.ml" 87 3204 3213 "ind.ml" 88 3238 3265
+)
+"ind.ml" 86 3179 3188 "ind.ml" 86 3179 3199
+type(
+  S.t option
+)
+"ind.ml" 87 3204 3213 "ind.ml" 87 3204 3228
+type(
+  S.t -> unit
+)
+ident(
+  ext_ref S.delete_solver
+)
+"ind.ml" 87 3204 3229 "ind.ml" 87 3204 3235
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 86 3179 3193 "ind.ml" 86 3179 3199
+)
+"ind.ml" 87 3204 3213 "ind.ml" 87 3204 3235
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 88 3238 3247 "ind.ml" 88 3238 3257
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "ind.ml" 55 2529 2533 "ind.ml" 55 2529 2543
+)
+"ind.ml" 88 3238 3261 "ind.ml" 88 3238 3265
+type(
+  S.t option
+)
+"ind.ml" 88 3238 3247 "ind.ml" 88 3238 3265
+type(
+  unit
+)
+type(
+  S.t option ref -> S.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 87 3204 3213 "ind.ml" 88 3238 3265
+type(
+  unit
+)
+"ind.ml" 89 3266 3275 "ind.ml" 89 3266 3279
+type(
+  S.t option
+)
+"ind.ml" 89 3266 3283 "ind.ml" 89 3266 3285
+type(
+  unit
+)
+"ind.ml" 85 3150 3155 "ind.ml" 89 3266 3285
+type(
+  unit
+)
+"ind.ml" 91 3295 3302 "ind.ml" 91 3295 3303
+type(
+  exn
+)
+ident(
+  def e "ind.ml" 92 3308 3315 "ind.ml" 94 3388 3419
+)
+"ind.ml" 92 3308 3315 "ind.ml" 92 3308 3324
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 92 3308 3325 "ind.ml" 92 3308 3329
+type(
+  Lib.kind_module
+)
+"ind.ml" 92 3308 3330 "ind.ml" 92 3308 3343
+type(
+  Event.log_level
+)
+"ind.ml" 93 3345 3354 "ind.ml" 93 3345 3386
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"ind.ml" 94 3388 3398 "ind.ml" 94 3388 3416
+type(
+  exn -> string
+)
+ident(
+  ext_ref Printexc.to_string
+)
+"ind.ml" 94 3388 3417 "ind.ml" 94 3388 3418
+type(
+  exn
+)
+ident(
+  int_ref e "ind.ml" 91 3295 3302 "ind.ml" 91 3295 3303
+)
+"ind.ml" 94 3388 3398 "ind.ml" 94 3388 3418
+call(
+  stack
+)
+type(
+  string
+)
+"ind.ml" 92 3308 3315 "ind.ml" 94 3388 3419
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 84 3142 3145 "ind.ml" 94 3388 3419
+type(
+  unit
+)
+"ind.ml" 77 2943 2945 "ind.ml" 94 3388 3419
+type(
+  unit
+)
+"ind.ml" 74 2889 2891 "ind.ml" 94 3388 3419
+type(
+  unit
+)
+"ind.ml" 73 2862 2864 "ind.ml" 94 3388 3419
+type(
+  unit
+)
+"ind.ml" 70 2820 2832 "ind.ml" 94 3388 3420
+type(
+  unit -> unit
+)
+"ind.ml" 111 4235 4243 "ind.ml" 111 4235 4259
+type(
+  S.t ->
+  'a ->
+  int ->
+  ('b * Term.t) list ->
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+ident(
+  def filter_goal_list "ind.ml" 111 4235 4235 "_none_" 1 0 -1
+)
+"ind.ml" 111 4235 4260 "ind.ml" 111 4235 4266
+type(
+  S.t
+)
+ident(
+  def solver "ind.ml" 111 4235 4267 "ind.ml" 233 8186 8189
+)
+"ind.ml" 111 4235 4267 "ind.ml" 111 4235 4269
+type(
+  'a
+)
+ident(
+  def ts "ind.ml" 111 4235 4270 "ind.ml" 233 8186 8189
+)
+"ind.ml" 111 4235 4270 "ind.ml" 111 4235 4271
+type(
+  int
+)
+ident(
+  def k "ind.ml" 111 4235 4272 "ind.ml" 233 8186 8189
+)
+"ind.ml" 111 4235 4272 "ind.ml" 111 4235 4282
+type(
+  ('b * Term.t) list
+)
+ident(
+  def goal_pairs "ind.ml" 111 4235 4283 "ind.ml" 233 8186 8189
+)
+"ind.ml" 111 4235 4283 "ind.ml" 111 4235 4298
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  def candidate_infos "ind.ml" 114 4360 4362 "ind.ml" 233 8186 8189
+)
+"ind.ml" 114 4360 4366 "ind.ml" 114 4360 4377
+type(
+  ('b * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"ind.ml" 114 4360 4378 "ind.ml" 114 4360 4388
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 111 4235 4272 "ind.ml" 111 4235 4282
+)
+"ind.ml" 114 4360 4366 "ind.ml" 114 4360 4388
+call(
+  stack
+)
+type(
+  int
+)
+"ind.ml" 114 4360 4389 "ind.ml" 114 4360 4390
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"ind.ml" 114 4360 4391 "ind.ml" 114 4360 4392
+type(
+  int
+)
+"ind.ml" 114 4360 4366 "ind.ml" 114 4360 4392
+type(
+  bool
+)
+"ind.ml" 115 4400 4405 "ind.ml" 115 4400 4407
+type(
+  ('b * Term.t) list
+)
+"ind.ml" 115 4400 4409 "ind.ml" 115 4400 4424
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 111 4235 4283 "ind.ml" 111 4235 4298
+)
+"ind.ml" 115 4400 4405 "ind.ml" 115 4400 4424
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 120 4487 4495 "ind.ml" 120 4487 4507
+type(
+  ('b * Term.t) list
+)
+ident(
+  def k_goal_pairs "ind.ml" 128 4697 4701 "ind.ml" 232 8173 8178
+)
+"ind.ml" 121 4511 4517 "ind.ml" 121 4511 4525
+type(
+  ('b * Term.t -> 'b * Term.t) -> ('b * Term.t) list -> ('b * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 122 4527 4541 "ind.ml" 122 4527 4550
+type(
+  'b
+)
+ident(
+  def goal_name "ind.ml" 123 4567 4578 "ind.ml" 123 4567 4620
+)
+"ind.ml" 122 4527 4552 "ind.ml" 122 4527 4561
+type(
+  Term.t
+)
+ident(
+  def goal_prop "ind.ml" 123 4567 4578 "ind.ml" 123 4567 4620
+)
+"ind.ml" 122 4527 4541 "ind.ml" 122 4527 4561
+type(
+  'b * Term.t
+)
+"ind.ml" 123 4567 4578 "ind.ml" 123 4567 4587
+type(
+  'b
+)
+ident(
+  int_ref goal_name "ind.ml" 122 4527 4541 "ind.ml" 122 4527 4550
+)
+"ind.ml" 123 4567 4589 "ind.ml" 123 4567 4608
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"ind.ml" 123 4567 4609 "ind.ml" 123 4567 4610
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 111 4235 4270 "ind.ml" 111 4235 4271
+)
+"ind.ml" 123 4567 4611 "ind.ml" 123 4567 4620
+type(
+  Term.t
+)
+ident(
+  int_ref goal_prop "ind.ml" 122 4527 4552 "ind.ml" 122 4527 4561
+)
+"ind.ml" 123 4567 4589 "ind.ml" 123 4567 4620
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 123 4567 4578 "ind.ml" 123 4567 4620
+type(
+  'b * Term.t
+)
+"ind.ml" 122 4527 4540 "ind.ml" 123 4567 4621
+type(
+  'b * Term.t -> 'b * Term.t
+)
+"ind.ml" 124 4624 4632 "ind.ml" 124 4624 4642
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 111 4235 4272 "ind.ml" 111 4235 4282
+)
+"ind.ml" 121 4511 4517 "ind.ml" 124 4624 4642
+call(
+  stack
+)
+type(
+  ('b * Term.t) list
+)
+"ind.ml" 128 4697 4705 "ind.ml" 128 4697 4722
+type(
+  Var.t list
+)
+ident(
+  def concrete_var_list "ind.ml" 133 4865 4868 "ind.ml" 232 8173 8178
+)
+"ind.ml" 129 4725 4731 "ind.ml" 129 4725 4752
+type(
+  Term.t -> Var.t list
+)
+ident(
+  ext_ref TransSys.vars_of_term
+)
+"ind.ml" 129 4725 4754 "ind.ml" 129 4725 4765
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"ind.ml" 129 4725 4767 "ind.ml" 129 4725 4775
+type(
+  ('b * Term.t -> Term.t) -> ('b * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 129 4725 4776 "ind.ml" 129 4725 4779
+type(
+  'b * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 129 4725 4780 "ind.ml" 129 4725 4792
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref k_goal_pairs "ind.ml" 120 4487 4495 "ind.ml" 120 4487 4507
+)
+"ind.ml" 129 4725 4767 "ind.ml" 129 4725 4792
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 129 4725 4754 "ind.ml" 129 4725 4793
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 129 4725 4731 "ind.ml" 129 4725 4794
+call(
+  stack
+)
+type(
+  Var.t list
+)
+"ind.ml" 133 4865 4872 "ind.ml" 133 4865 4877
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "ind.ml" 137 5036 5040 "ind.ml" 232 8173 8178
+)
+"ind.ml" 133 4865 4880 "ind.ml" 133 4865 4891
+type(
+  S.t -> Var.t list -> (Var.t * Term.t) list
+)
+ident(
+  ext_ref S.get_model
+)
+"ind.ml" 133 4865 4892 "ind.ml" 133 4865 4898
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 111 4235 4260 "ind.ml" 111 4235 4266
+)
+"ind.ml" 133 4865 4899 "ind.ml" 133 4865 4916
+type(
+  Var.t list
+)
+ident(
+  int_ref concrete_var_list "ind.ml" 128 4697 4705 "ind.ml" 128 4697 4722
+)
+"ind.ml" 133 4865 4880 "ind.ml" 133 4865 4916
+call(
+  stack
+)
+type(
+  (Var.t * Term.t) list
+)
+"ind.ml" 137 5036 5044 "ind.ml" 137 5036 5058
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def abstract_model "ind.ml" 155 5535 5539 "ind.ml" 232 8173 8178
+)
+"ind.ml" 137 5036 5061 "ind.ml" 137 5036 5069
+type(
+  (Var.t * Term.t -> Var.t * Term.t) ->
+  (Var.t * Term.t) list -> (Var.t * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 138 5072 5083 "ind.ml" 138 5072 5086
+type(
+  Var.t
+)
+ident(
+  def var "ind.ml" 139 5099 5106 "ind.ml" 141 5192 5205
+)
+"ind.ml" 138 5072 5088 "ind.ml" 138 5072 5093
+type(
+  Term.t
+)
+ident(
+  def value "ind.ml" 139 5099 5106 "ind.ml" 141 5192 5205
+)
+"ind.ml" 138 5072 5083 "ind.ml" 138 5072 5093
+type(
+  Var.t * Term.t
+)
+"ind.ml" 139 5099 5107 "ind.ml" 139 5099 5144
+type(
+  Lib.numeral -> Var.t -> Var.t
+)
+ident(
+  ext_ref Var.bump_offset_of_state_var_instance
+)
+"ind.ml" 140 5146 5157 "ind.ml" 140 5146 5175
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"ind.ml" 140 5146 5177 "ind.ml" 140 5146 5179
+type(
+  int
+)
+"ind.ml" 140 5146 5180 "ind.ml" 140 5146 5181
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( * )
+)
+"ind.ml" 140 5146 5182 "ind.ml" 140 5146 5183
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 111 4235 4270 "ind.ml" 111 4235 4271
+)
+"ind.ml" 140 5146 5177 "ind.ml" 140 5146 5183
+type(
+  int
+)
+"ind.ml" 140 5146 5157 "ind.ml" 140 5146 5184
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"ind.ml" 140 5146 5186 "ind.ml" 140 5146 5189
+type(
+  Var.t
+)
+ident(
+  int_ref var "ind.ml" 138 5072 5083 "ind.ml" 138 5072 5086
+)
+"ind.ml" 139 5099 5107 "ind.ml" 140 5146 5189
+call(
+  stack
+)
+type(
+  Var.t
+)
+"ind.ml" 141 5192 5200 "ind.ml" 141 5192 5205
+type(
+  Term.t
+)
+ident(
+  int_ref value "ind.ml" 138 5072 5088 "ind.ml" 138 5072 5093
+)
+"ind.ml" 139 5099 5106 "ind.ml" 141 5192 5205
+type(
+  Var.t * Term.t
+)
+"ind.ml" 138 5072 5082 "ind.ml" 141 5192 5206
+type(
+  Var.t * Term.t -> Var.t * Term.t
+)
+"ind.ml" 142 5207 5213 "ind.ml" 142 5207 5218
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "ind.ml" 133 4865 4872 "ind.ml" 133 4865 4877
+)
+"ind.ml" 137 5036 5061 "ind.ml" 142 5207 5218
+call(
+  stack
+)
+type(
+  (Var.t * Term.t) list
+)
+"ind.ml" 155 5535 5544 "ind.ml" 155 5535 5569
+type(
+  ('b * Term.t) list
+)
+ident(
+  def potential_candidate_pairs "ind.ml" 165 5945 5949 "ind.ml" 232 8173 8178
+)
+"ind.ml" 155 5535 5571 "ind.ml" 155 5535 5582
+type(
+  ('b * Term.t) list
+)
+ident(
+  def goal_pairs' "ind.ml" 165 5945 5949 "ind.ml" 232 8173 8178
+)
+"ind.ml" 155 5535 5544 "ind.ml" 155 5535 5582
+type(
+  ('b * Term.t) list * ('b * Term.t) list
+)
+"ind.ml" 156 5587 5593 "ind.ml" 156 5587 5607
+type(
+  ('b * Term.t -> bool) ->
+  ('b * Term.t) list -> ('b * Term.t) list * ('b * Term.t) list
+)
+ident(
+  ext_ref List.partition
+)
+"ind.ml" 157 5610 5623 "ind.ml" 157 5610 5632
+type(
+  'b
+)
+ident(
+  def goal_name "ind.ml" 158 5649 5659 "ind.ml" 158 5649 5719
+)
+"ind.ml" 157 5610 5634 "ind.ml" 157 5610 5643
+type(
+  Term.t
+)
+ident(
+  def goal_prop "ind.ml" 158 5649 5659 "ind.ml" 158 5649 5719
+)
+"ind.ml" 157 5610 5623 "ind.ml" 157 5610 5643
+type(
+  'b * Term.t
+)
+"ind.ml" 158 5649 5659 "ind.ml" 158 5649 5677
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"ind.ml" 158 5649 5679 "ind.ml" 158 5649 5693
+type(
+  Term.t -> (Var.t * Term.t) list -> Eval.value
+)
+ident(
+  ext_ref Eval.eval_term
+)
+"ind.ml" 158 5649 5694 "ind.ml" 158 5649 5703
+type(
+  Term.t
+)
+ident(
+  int_ref goal_prop "ind.ml" 157 5610 5634 "ind.ml" 157 5610 5643
+)
+"ind.ml" 158 5649 5704 "ind.ml" 158 5649 5718
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref abstract_model "ind.ml" 137 5036 5044 "ind.ml" 137 5036 5058
+)
+"ind.ml" 158 5649 5679 "ind.ml" 158 5649 5718
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"ind.ml" 158 5649 5659 "ind.ml" 158 5649 5719
+call(
+  tail
+)
+type(
+  bool
+)
+"ind.ml" 157 5610 5622 "ind.ml" 158 5649 5719
+type(
+  'b * Term.t -> bool
+)
+"ind.ml" 159 5720 5728 "ind.ml" 159 5720 5738
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 111 4235 4272 "ind.ml" 111 4235 4282
+)
+"ind.ml" 156 5587 5593 "ind.ml" 159 5720 5738
+call(
+  stack
+)
+type(
+  ('b * Term.t) list * ('b * Term.t) list
+)
+"ind.ml" 165 5945 5953 "ind.ml" 165 5945 5964
+type(
+  ('b * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"ind.ml" 165 5945 5965 "ind.ml" 165 5945 5990
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref potential_candidate_pairs "ind.ml" 155 5535 5544 "ind.ml" 155 5535 5569
+)
+"ind.ml" 165 5945 5953 "ind.ml" 165 5945 5990
+call(
+  stack
+)
+type(
+  int
+)
+"ind.ml" 165 5945 5991 "ind.ml" 165 5945 5992
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"ind.ml" 165 5945 5993 "ind.ml" 165 5945 5994
+type(
+  int
+)
+"ind.ml" 165 5945 5953 "ind.ml" 165 5945 5994
+type(
+  bool
+)
+"ind.ml" 166 6001 6008 "ind.ml" 166 6001 6018
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 111 4235 4272 "ind.ml" 111 4235 4282
+)
+"ind.ml" 166 6001 6020 "ind.ml" 166 6001 6035
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 111 4235 4283 "ind.ml" 111 4235 4298
+)
+"ind.ml" 166 6001 6008 "ind.ml" 166 6001 6035
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 171 6125 6133 "ind.ml" 171 6125 6160
+type(
+  ('b * Term.t) list
+)
+ident(
+  def k_potential_candidate_pairs "ind.ml" 179 6371 6375 "ind.ml" 232 8173 8178
+)
+"ind.ml" 172 6164 6170 "ind.ml" 172 6164 6178
+type(
+  ('b * Term.t -> 'b * Term.t) -> ('b * Term.t) list -> ('b * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 173 6181 6194 "ind.ml" 173 6181 6201
+type(
+  'b
+)
+ident(
+  def pc_name "ind.ml" 174 6216 6227 "ind.ml" 174 6216 6265
+)
+"ind.ml" 173 6181 6203 "ind.ml" 173 6181 6210
+type(
+  Term.t
+)
+ident(
+  def pc_prop "ind.ml" 174 6216 6227 "ind.ml" 174 6216 6265
+)
+"ind.ml" 173 6181 6194 "ind.ml" 173 6181 6210
+type(
+  'b * Term.t
+)
+"ind.ml" 174 6216 6227 "ind.ml" 174 6216 6234
+type(
+  'b
+)
+ident(
+  int_ref pc_name "ind.ml" 173 6181 6194 "ind.ml" 173 6181 6201
+)
+"ind.ml" 174 6216 6236 "ind.ml" 174 6216 6255
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"ind.ml" 174 6216 6256 "ind.ml" 174 6216 6257
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 111 4235 4270 "ind.ml" 111 4235 4271
+)
+"ind.ml" 174 6216 6258 "ind.ml" 174 6216 6265
+type(
+  Term.t
+)
+ident(
+  int_ref pc_prop "ind.ml" 173 6181 6203 "ind.ml" 173 6181 6210
+)
+"ind.ml" 174 6216 6236 "ind.ml" 174 6216 6265
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 174 6216 6227 "ind.ml" 174 6216 6265
+type(
+  'b * Term.t
+)
+"ind.ml" 173 6181 6193 "ind.ml" 174 6216 6266
+type(
+  'b * Term.t -> 'b * Term.t
+)
+"ind.ml" 175 6267 6275 "ind.ml" 175 6267 6300
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref potential_candidate_pairs "ind.ml" 155 5535 5544 "ind.ml" 155 5535 5569
+)
+"ind.ml" 172 6164 6170 "ind.ml" 175 6267 6300
+call(
+  stack
+)
+type(
+  ('b * Term.t) list
+)
+"ind.ml" 179 6371 6379 "ind.ml" 179 6371 6411
+type(
+  Term.t
+)
+ident(
+  def k_conjuncted_potential_candidate "ind.ml" 184 6546 6550 "ind.ml" 232 8173 8178
+)
+"ind.ml" 180 6415 6422 "ind.ml" 180 6415 6433
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"ind.ml" 180 6415 6435 "ind.ml" 180 6415 6443
+type(
+  ('b * Term.t -> Term.t) -> ('b * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 180 6415 6444 "ind.ml" 180 6415 6447
+type(
+  'b * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 180 6415 6448 "ind.ml" 180 6415 6475
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref k_potential_candidate_pairs "ind.ml" 171 6125 6133 "ind.ml" 171 6125 6160
+)
+"ind.ml" 180 6415 6435 "ind.ml" 180 6415 6475
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 180 6415 6422 "ind.ml" 180 6415 6476
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 184 6546 6550 "ind.ml" 184 6546 6563
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 184 6546 6564 "ind.ml" 184 6546 6570
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 111 4235 4260 "ind.ml" 111 4235 4266
+)
+"ind.ml" 184 6546 6572 "ind.ml" 184 6546 6583
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"ind.ml" 184 6546 6584 "ind.ml" 184 6546 6616
+type(
+  Term.t
+)
+ident(
+  int_ref k_conjuncted_potential_candidate "ind.ml" 179 6371 6379 "ind.ml" 179 6371 6411
+)
+"ind.ml" 184 6546 6572 "ind.ml" 184 6546 6616
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 184 6546 6550 "ind.ml" 184 6546 6617
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 186 6624 6632 "ind.ml" 186 6624 6643
+type(
+  ?timeout:int -> S.t -> bool
+)
+ident(
+  ext_ref S.check_sat
+)
+"ind.ml" 186 6624 6644 "ind.ml" 186 6624 6650
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 111 4235 4260 "ind.ml" 111 4235 4266
+)
+"ind.ml" 186 6624 6632 "ind.ml" 186 6624 6650
+call(
+  stack
+)
+type(
+  bool
+)
+"ind.ml" 190 6802 6812 "ind.ml" 190 6802 6823
+type(
+  ('b * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"ind.ml" 190 6802 6824 "ind.ml" 190 6802 6849
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref potential_candidate_pairs "ind.ml" 155 5535 5544 "ind.ml" 155 5535 5569
+)
+"ind.ml" 190 6802 6812 "ind.ml" 190 6802 6849
+call(
+  stack
+)
+type(
+  int
+)
+"ind.ml" 190 6802 6850 "ind.ml" 190 6802 6851
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"ind.ml" 190 6802 6852 "ind.ml" 190 6802 6853
+type(
+  int
+)
+"ind.ml" 190 6802 6812 "ind.ml" 190 6802 6853
+type(
+  bool
+)
+"ind.ml" 191 6861 6870 "ind.ml" 191 6861 6880
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 111 4235 4272 "ind.ml" 111 4235 4282
+)
+"ind.ml" 191 6861 6882 "ind.ml" 191 6861 6897
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 111 4235 4283 "ind.ml" 111 4235 4298
+)
+"ind.ml" 191 6861 6870 "ind.ml" 191 6861 6897
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 198 7121 7134 "ind.ml" 198 7121 7147
+type(
+  ('b * Term.t) list
+)
+ident(
+  def refined_goals "ind.ml" 210 7552 7561 "ind.ml" 210 7552 7622
+)
+"ind.ml" 198 7121 7149 "ind.ml" 198 7121 7167
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  def refined_candidates "ind.ml" 210 7552 7561 "ind.ml" 210 7552 7622
+)
+"ind.ml" 198 7121 7134 "ind.ml" 198 7121 7167
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 199 7172 7182 "ind.ml" 199 7172 7198
+type(
+  S.t ->
+  'a ->
+  int ->
+  ('b * Term.t) list ->
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+ident(
+  int_ref filter_goal_list "ind.ml" 111 4235 4243 "ind.ml" 111 4235 4259
+)
+"ind.ml" 200 7200 7212 "ind.ml" 200 7200 7218
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 111 4235 4260 "ind.ml" 111 4235 4266
+)
+"ind.ml" 201 7220 7232 "ind.ml" 201 7220 7234
+type(
+  'a
+)
+ident(
+  int_ref ts "ind.ml" 111 4235 4267 "ind.ml" 111 4235 4269
+)
+"ind.ml" 202 7236 7248 "ind.ml" 202 7236 7249
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 111 4235 4270 "ind.ml" 111 4235 4271
+)
+"ind.ml" 203 7250 7262 "ind.ml" 203 7250 7287
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref potential_candidate_pairs "ind.ml" 155 5535 5544 "ind.ml" 155 5535 5569
+)
+"ind.ml" 204 7288 7300 "ind.ml" 204 7288 7315
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 111 4235 4283 "ind.ml" 111 4235 4298
+)
+"ind.ml" 199 7172 7182 "ind.ml" 204 7288 7315
+call(
+  stack
+)
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 210 7552 7561 "ind.ml" 210 7552 7576
+type(
+  ('b * Term.t) list -> ('b * Term.t) list -> ('b * Term.t) list
+)
+ident(
+  ext_ref List.rev_append
+)
+"ind.ml" 210 7552 7577 "ind.ml" 210 7552 7588
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs' "ind.ml" 155 5535 5571 "ind.ml" 155 5535 5582
+)
+"ind.ml" 210 7552 7589 "ind.ml" 210 7552 7602
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref refined_goals "ind.ml" 198 7121 7134 "ind.ml" 198 7121 7147
+)
+"ind.ml" 210 7552 7561 "ind.ml" 210 7552 7602
+call(
+  stack
+)
+type(
+  ('b * Term.t) list
+)
+"ind.ml" 210 7552 7604 "ind.ml" 210 7552 7622
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref refined_candidates "ind.ml" 198 7121 7149 "ind.ml" 198 7121 7167
+)
+"ind.ml" 210 7552 7561 "ind.ml" 210 7552 7622
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 198 7121 7129 "ind.ml" 210 7552 7623
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 190 6802 6808 "ind.ml" 211 7624 7631
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 219 7785 7792 "ind.ml" 221 7874 7885
+type(
+  unit
+)
+"ind.ml" 223 7897 7907 "ind.ml" 223 7897 7932
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  def potential_candidate_infos "ind.ml" 230 8085 8092 "ind.ml" 231 8106 8171
+)
+"ind.ml" 224 7935 7943 "ind.ml" 224 7935 7951
+type(
+  ('b * Term.t -> ('b * Term.t) * int) ->
+  ('b * Term.t) list -> (('b * Term.t) * int) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 225 7954 7968 "ind.ml" 225 7954 7992
+type(
+  'b * Term.t
+)
+ident(
+  def potential_candidate_pair "ind.ml" 226 7996 8009 "ind.ml" 226 7996 8036
+)
+"ind.ml" 226 7996 8009 "ind.ml" 226 7996 8033
+type(
+  'b * Term.t
+)
+ident(
+  int_ref potential_candidate_pair "ind.ml" 225 7954 7968 "ind.ml" 225 7954 7992
+)
+"ind.ml" 226 7996 8035 "ind.ml" 226 7996 8036
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 111 4235 4270 "ind.ml" 111 4235 4271
+)
+"ind.ml" 226 7996 8009 "ind.ml" 226 7996 8036
+type(
+  ('b * Term.t) * int
+)
+"ind.ml" 225 7954 7968 "ind.ml" 226 7996 8037
+type(
+  'b * Term.t -> ('b * Term.t) * int
+)
+"ind.ml" 227 8038 8048 "ind.ml" 227 8038 8073
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref potential_candidate_pairs "ind.ml" 155 5535 5544 "ind.ml" 155 5535 5569
+)
+"ind.ml" 224 7935 7943 "ind.ml" 227 8038 8073
+call(
+  stack
+)
+type(
+  (('b * Term.t) * int) list
+)
+"ind.ml" 230 8085 8092 "ind.ml" 230 8085 8103
+type(
+  ('b * Term.t) list
+)
+ident(
+  int_ref goal_pairs' "ind.ml" 155 5535 5571 "ind.ml" 155 5535 5582
+)
+"ind.ml" 231 8106 8114 "ind.ml" 231 8106 8129
+type(
+  (('b * Term.t) * int) list ->
+  (('b * Term.t) * int) list -> (('b * Term.t) * int) list
+)
+ident(
+  ext_ref List.rev_append
+)
+"ind.ml" 231 8106 8130 "ind.ml" 231 8106 8155
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref potential_candidate_infos "ind.ml" 223 7897 7907 "ind.ml" 223 7897 7932
+)
+"ind.ml" 231 8106 8156 "ind.ml" 231 8106 8171
+type(
+  (('b * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 111 4235 4283 "ind.ml" 111 4235 4298
+)
+"ind.ml" 231 8106 8114 "ind.ml" 231 8106 8171
+call(
+  stack
+)
+type(
+  (('b * Term.t) * int) list
+)
+"ind.ml" 230 8085 8092 "ind.ml" 231 8106 8171
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 223 7897 7903 "ind.ml" 231 8106 8172
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 219 7785 7792 "ind.ml" 231 8106 8172
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 186 6624 6628 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 184 6546 6550 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 179 6371 6375 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 171 6125 6129 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 165 5945 5949 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 155 5535 5539 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 137 5036 5040 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 133 4865 4868 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 128 4697 4701 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 120 4487 4491 "ind.ml" 232 8173 8178
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 114 4360 4362 "ind.ml" 233 8186 8189
+type(
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 111 4235 4283 "ind.ml" 233 8186 8189
+type(
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 111 4235 4272 "ind.ml" 233 8186 8189
+type(
+  ('b * Term.t) list ->
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 111 4235 4270 "ind.ml" 233 8186 8189
+type(
+  int ->
+  ('b * Term.t) list ->
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 111 4235 4267 "ind.ml" 233 8186 8189
+type(
+  'a ->
+  int ->
+  ('b * Term.t) list ->
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 111 4235 4260 "ind.ml" 233 8186 8189
+type(
+  S.t ->
+  'a ->
+  int ->
+  ('b * Term.t) list ->
+  (('b * Term.t) * int) list ->
+  ('b * Term.t) list * (('b * Term.t) * int) list
+)
+"ind.ml" 236 8192 8200 "ind.ml" 236 8192 8203
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+ident(
+  def ind "ind.ml" 236 8192 8192 "_none_" 1 0 -1
+)
+"ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+type(
+  S.t
+)
+ident(
+  def solver "ind.ml" 236 8192 8211 "ind.ml" 652 19656 19657
+)
+"ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+type(
+  TransSys.t
+)
+ident(
+  def ts "ind.ml" 236 8192 8214 "ind.ml" 652 19656 19657
+)
+"ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+type(
+  int
+)
+ident(
+  def k "ind.ml" 236 8192 8216 "ind.ml" 652 19656 19657
+)
+"ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+type(
+  (string * Term.t) list
+)
+ident(
+  def goal_pairs "ind.ml" 236 8192 8227 "ind.ml" 652 19656 19657
+)
+"ind.ml" 236 8192 8227 "ind.ml" 236 8192 8242
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  def candidate_infos "ind.ml" 236 8192 8243 "ind.ml" 652 19656 19657
+)
+"ind.ml" 236 8192 8243 "ind.ml" 236 8192 8251
+type(
+  Term.t list
+)
+ident(
+  def premises "ind.ml" 238 8256 8258 "ind.ml" 652 19656 19657
+)
+"ind.ml" 238 8256 8258 "ind.ml" 238 8256 8267
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 238 8256 8268 "ind.ml" 238 8256 8272
+type(
+  Lib.kind_module
+)
+"ind.ml" 238 8256 8273 "ind.ml" 238 8256 8285
+type(
+  Event.log_level
+)
+"ind.ml" 238 8256 8286 "ind.ml" 238 8256 8315
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"ind.ml" 238 8256 8316 "ind.ml" 238 8256 8317
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 238 8256 8258 "ind.ml" 238 8256 8317
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 240 8320 8322 "ind.ml" 240 8320 8336
+type(
+  Lib.kind_module -> int -> unit
+)
+ident(
+  ext_ref Event.progress
+)
+"ind.ml" 240 8320 8337 "ind.ml" 240 8320 8341
+type(
+  Lib.kind_module
+)
+"ind.ml" 240 8320 8342 "ind.ml" 240 8320 8343
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 240 8320 8322 "ind.ml" 240 8320 8343
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 242 8346 8348 "ind.ml" 242 8346 8356
+type(
+  int -> Stat.int_item -> unit
+)
+ident(
+  ext_ref Stat.set
+)
+"ind.ml" 242 8346 8357 "ind.ml" 242 8346 8358
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 242 8346 8359 "ind.ml" 242 8346 8369
+type(
+  Stat.int_item
+)
+ident(
+  ext_ref Stat.ind_k
+)
+"ind.ml" 242 8346 8348 "ind.ml" 242 8346 8369
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 244 8372 8374 "ind.ml" 244 8372 8390
+type(
+  Stat.float_item -> unit
+)
+ident(
+  ext_ref Stat.update_time
+)
+"ind.ml" 244 8372 8391 "ind.ml" 244 8372 8410
+type(
+  Stat.float_item
+)
+ident(
+  ext_ref Stat.ind_total_time
+)
+"ind.ml" 244 8372 8374 "ind.ml" 244 8372 8410
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 259 8618 8624 "ind.ml" 259 8618 8638
+type(
+  Term.t list ref
+)
+ident(
+  def new_invariants "ind.ml" 262 8682 8684 "ind.ml" 652 19656 19657
+)
+"ind.ml" 259 8618 8641 "ind.ml" 259 8618 8644
+type(
+  Term.t list -> Term.t list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"ind.ml" 259 8618 8645 "ind.ml" 259 8618 8647
+type(
+  Term.t list
+)
+"ind.ml" 259 8618 8641 "ind.ml" 259 8618 8647
+type(
+  Term.t list ref
+)
+"ind.ml" 262 8682 8688 "ind.ml" 262 8682 8696
+type(
+  Event.event list
+)
+ident(
+  def messages "ind.ml" 269 8872 8874 "ind.ml" 652 19656 19657
+)
+"ind.ml" 262 8682 8699 "ind.ml" 262 8682 8709
+type(
+  unit -> Event.event list
+)
+ident(
+  ext_ref Event.recv
+)
+"ind.ml" 262 8682 8710 "ind.ml" 262 8682 8712
+type(
+  unit
+)
+"ind.ml" 262 8682 8699 "ind.ml" 262 8682 8712
+call(
+  stack
+)
+type(
+  Event.event list
+)
+"ind.ml" 269 8872 8874 "ind.ml" 269 8872 8883
+type(
+  (Event.event -> unit) -> Event.event list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"ind.ml" 270 8886 8894 "ind.ml" 270 8886 8901
+type(
+  Event.event
+)
+ident(
+  def message "ind.ml" 271 8905 8911 "ind.ml" 330 10767 10779
+)
+"ind.ml" 271 8905 8917 "ind.ml" 271 8905 8924
+type(
+  Event.event
+)
+ident(
+  int_ref message "ind.ml" 270 8886 8894 "ind.ml" 270 8886 8901
+)
+"ind.ml" 274 9005 9033 "ind.ml" 274 9005 9034
+type(
+  Lib.kind_module
+)
+"ind.ml" 274 9005 9036 "ind.ml" 274 9005 9041
+type(
+  Term.t
+)
+ident(
+  def invar "ind.ml" 275 9047 9058 "ind.ml" 285 9339 9371
+)
+"ind.ml" 274 9005 9016 "ind.ml" 274 9005 9042
+type(
+  Event.event
+)
+"ind.ml" 275 9047 9058 "ind.ml" 278 9148 9163
+type(
+  unit
+)
+"ind.ml" 280 9167 9177 "ind.ml" 280 9167 9186
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> Term.t -> unit) -> Term.t -> unit, Format.formatter,
+   unit)
+  format -> (Format.formatter -> Term.t -> unit) -> Term.t -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 280 9167 9187 "ind.ml" 280 9167 9191
+type(
+  Lib.kind_module
+)
+"ind.ml" 280 9167 9192 "ind.ml" 280 9167 9205
+type(
+  Event.log_level
+)
+"ind.ml" 281 9206 9218 "ind.ml" 281 9206 9245
+type(
+  ((Format.formatter -> Term.t -> unit) -> Term.t -> unit, Format.formatter,
+   unit)
+  format
+)
+"ind.ml" 282 9246 9258 "ind.ml" 282 9246 9276
+type(
+  Format.formatter -> Term.t -> unit
+)
+ident(
+  ext_ref Term.pp_print_term
+)
+"ind.ml" 282 9246 9277 "ind.ml" 282 9246 9282
+type(
+  Term.t
+)
+ident(
+  int_ref invar "ind.ml" 274 9005 9036 "ind.ml" 274 9005 9041
+)
+"ind.ml" 280 9167 9177 "ind.ml" 282 9246 9282
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 284 9285 9295 "ind.ml" 284 9285 9309
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "ind.ml" 259 8618 8624 "ind.ml" 259 8618 8638
+)
+"ind.ml" 284 9285 9313 "ind.ml" 284 9285 9318
+type(
+  Term.t
+)
+ident(
+  int_ref invar "ind.ml" 274 9005 9036 "ind.ml" 274 9005 9041
+)
+"ind.ml" 284 9285 9323 "ind.ml" 284 9285 9337
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "ind.ml" 259 8618 8624 "ind.ml" 259 8618 8638
+)
+"ind.ml" 284 9285 9322 "ind.ml" 284 9285 9337
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 284 9285 9313 "ind.ml" 284 9285 9337
+type(
+  Term.t list
+)
+"ind.ml" 284 9285 9295 "ind.ml" 284 9285 9337
+type(
+  unit
+)
+type(
+  Term.t list ref -> Term.t list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 285 9339 9349 "ind.ml" 285 9339 9353
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 285 9339 9357 "ind.ml" 285 9339 9362
+type(
+  Term.t
+)
+ident(
+  int_ref invar "ind.ml" 274 9005 9036 "ind.ml" 274 9005 9041
+)
+"ind.ml" 285 9339 9367 "ind.ml" 285 9339 9371
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 285 9339 9366 "ind.ml" 285 9339 9371
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 285 9339 9357 "ind.ml" 285 9339 9371
+type(
+  Term.t list
+)
+"ind.ml" 285 9339 9349 "ind.ml" 285 9339 9371
+type(
+  unit
+)
+type(
+  Term.t list ref -> Term.t list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 284 9285 9295 "ind.ml" 285 9339 9371
+type(
+  unit
+)
+"ind.ml" 280 9167 9177 "ind.ml" 285 9339 9371
+type(
+  unit
+)
+"ind.ml" 275 9047 9058 "ind.ml" 285 9339 9371
+type(
+  unit
+)
+"ind.ml" 290 9530 9556 "ind.ml" 290 9530 9561
+type(
+  int
+)
+ident(
+  def bmc_k "ind.ml" 292 9592 9603 "ind.ml" 326 10669 10699
+)
+"ind.ml" 290 9530 9563 "ind.ml" 290 9530 9580
+type(
+  string list
+)
+ident(
+  def disproved_pn_list "ind.ml" 292 9592 9603 "ind.ml" 326 10669 10699
+)
+"ind.ml" 290 9530 9540 "ind.ml" 290 9530 9581
+type(
+  Event.event
+)
+"ind.ml" 292 9592 9603 "ind.ml" 295 9677 9692
+type(
+  unit
+)
+"ind.ml" 297 9696 9706 "ind.ml" 297 9696 9715
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 297 9696 9716 "ind.ml" 297 9696 9720
+type(
+  Lib.kind_module
+)
+"ind.ml" 297 9696 9721 "ind.ml" 297 9696 9734
+type(
+  Event.log_level
+)
+"ind.ml" 298 9735 9747 "ind.ml" 298 9735 9780
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"ind.ml" 299 9781 9793 "ind.ml" 299 9781 9798
+type(
+  int
+)
+ident(
+  int_ref bmc_k "ind.ml" 290 9530 9556 "ind.ml" 290 9530 9561
+)
+"ind.ml" 297 9696 9706 "ind.ml" 299 9781 9798
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 303 9910 9924 "ind.ml" 303 9910 9929
+type(
+  bool
+)
+ident(
+  def reset "ind.ml" 309 10074 10084 "ind.ml" 326 10669 10699
+)
+"ind.ml" 304 9932 9944 "ind.ml" 304 9932 9955
+type(
+  (string -> bool) -> string list -> bool
+)
+ident(
+  ext_ref List.exists
+)
+"ind.ml" 305 9957 9976 "ind.ml" 305 9957 9977
+type(
+  string
+)
+ident(
+  def x "ind.ml" 305 9957 9981 "ind.ml" 305 9957 10017
+)
+"ind.ml" 305 9957 9981 "ind.ml" 305 9957 9989
+type(
+  string -> string list -> bool
+)
+ident(
+  ext_ref List.mem
+)
+"ind.ml" 305 9957 9990 "ind.ml" 305 9957 9991
+type(
+  string
+)
+ident(
+  int_ref x "ind.ml" 305 9957 9976 "ind.ml" 305 9957 9977
+)
+"ind.ml" 305 9957 9993 "ind.ml" 305 9957 10001
+type(
+  (string * Term.t -> string) -> (string * Term.t) list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 305 9957 10002 "ind.ml" 305 9957 10005
+type(
+  string * Term.t -> string
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"ind.ml" 305 9957 10006 "ind.ml" 305 9957 10016
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 305 9957 9993 "ind.ml" 305 9957 10016
+call(
+  stack
+)
+type(
+  string list
+)
+"ind.ml" 305 9957 9981 "ind.ml" 305 9957 10017
+call(
+  tail
+)
+type(
+  bool
+)
+"ind.ml" 305 9957 9976 "ind.ml" 305 9957 10017
+type(
+  string -> bool
+)
+"ind.ml" 306 10020 10034 "ind.ml" 306 10020 10051
+type(
+  string list
+)
+ident(
+  int_ref disproved_pn_list "ind.ml" 290 9530 9563 "ind.ml" 290 9530 9580
+)
+"ind.ml" 304 9932 9944 "ind.ml" 306 10020 10051
+call(
+  stack
+)
+type(
+  bool
+)
+"ind.ml" 309 10074 10088 "ind.ml" 309 10074 10093
+type(
+  bool
+)
+ident(
+  int_ref reset "ind.ml" 303 9910 9924 "ind.ml" 303 9910 9929
+)
+"ind.ml" 312 10194 10210 "ind.ml" 312 10194 10221
+type(
+  (string * Term.t) list
+)
+ident(
+  def goal_pairs' "ind.ml" 319 10399 10411 "ind.ml" 320 10479 10528
+)
+"ind.ml" 313 10225 10239 "ind.ml" 313 10225 10250
+type(
+  (string * Term.t -> bool) ->
+  (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.filter
+)
+"ind.ml" 314 10253 10274 "ind.ml" 314 10253 10283
+type(
+  string
+)
+ident(
+  def prop_name "ind.ml" 315 10295 10313 "ind.ml" 315 10295 10355
+)
+"ind.ml" 314 10253 10285 "ind.ml" 314 10253 10289
+type(
+  Term.t
+)
+ident(
+  def prop "ind.ml" 315 10295 10313 "ind.ml" 315 10295 10355
+)
+"ind.ml" 314 10253 10274 "ind.ml" 314 10253 10289
+type(
+  string * Term.t
+)
+"ind.ml" 315 10295 10313 "ind.ml" 315 10295 10316
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"ind.ml" 315 10295 10318 "ind.ml" 315 10295 10326
+type(
+  string -> string list -> bool
+)
+ident(
+  ext_ref List.mem
+)
+"ind.ml" 315 10295 10327 "ind.ml" 315 10295 10336
+type(
+  string
+)
+ident(
+  int_ref prop_name "ind.ml" 314 10253 10274 "ind.ml" 314 10253 10283
+)
+"ind.ml" 315 10295 10337 "ind.ml" 315 10295 10354
+type(
+  string list
+)
+ident(
+  int_ref disproved_pn_list "ind.ml" 290 9530 9563 "ind.ml" 290 9530 9580
+)
+"ind.ml" 315 10295 10318 "ind.ml" 315 10295 10354
+call(
+  stack
+)
+type(
+  bool
+)
+"ind.ml" 315 10295 10313 "ind.ml" 315 10295 10355
+type(
+  bool
+)
+"ind.ml" 314 10253 10273 "ind.ml" 315 10295 10355
+type(
+  string * Term.t -> bool
+)
+"ind.ml" 316 10356 10372 "ind.ml" 316 10356 10382
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 313 10225 10239 "ind.ml" 316 10356 10382
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"ind.ml" 319 10399 10415 "ind.ml" 319 10399 10429
+type(
+  Term.t list
+)
+ident(
+  def reset_premises "ind.ml" 320 10479 10491 "ind.ml" 320 10479 10528
+)
+"ind.ml" 319 10399 10432 "ind.ml" 319 10399 10443
+type(
+  Term.t list -> Term.t list -> Term.t list
+)
+ident(
+  ext_ref List.append
+)
+"ind.ml" 319 10399 10445 "ind.ml" 319 10399 10453
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 319 10399 10454 "ind.ml" 319 10399 10457
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 319 10399 10458 "ind.ml" 319 10399 10468
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 319 10399 10445 "ind.ml" 319 10399 10468
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 319 10399 10471 "ind.ml" 319 10399 10475
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 319 10399 10470 "ind.ml" 319 10399 10475
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 319 10399 10432 "ind.ml" 319 10399 10475
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 320 10479 10491 "ind.ml" 320 10479 10498
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref restart "ind.ml" 654 19659 19663 "ind.ml" 654 19659 19670
+)
+"ind.ml" 320 10479 10499 "ind.ml" 320 10479 10501
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 320 10479 10502 "ind.ml" 320 10479 10513
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs' "ind.ml" 312 10194 10210 "ind.ml" 312 10194 10221
+)
+"ind.ml" 320 10479 10514 "ind.ml" 320 10479 10528
+type(
+  Term.t list
+)
+ident(
+  int_ref reset_premises "ind.ml" 319 10399 10415 "ind.ml" 319 10399 10429
+)
+"ind.ml" 320 10479 10491 "ind.ml" 320 10479 10528
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 319 10399 10411 "ind.ml" 320 10479 10528
+type(
+  unit
+)
+"ind.ml" 312 10194 10206 "ind.ml" 320 10479 10528
+type(
+  unit
+)
+"ind.ml" 326 10669 10681 "ind.ml" 326 10669 10690
+type(
+  int ref
+)
+ident(
+  int_ref bmc_state "ind.ml" 49 2420 2424 "ind.ml" 49 2420 2433
+)
+"ind.ml" 326 10669 10694 "ind.ml" 326 10669 10699
+type(
+  int
+)
+ident(
+  int_ref bmc_k "ind.ml" 290 9530 9556 "ind.ml" 290 9530 9561
+)
+"ind.ml" 326 10669 10681 "ind.ml" 326 10669 10699
+type(
+  unit
+)
+type(
+  int ref -> int -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 309 10074 10084 "ind.ml" 326 10669 10699
+type(
+  unit
+)
+"ind.ml" 303 9910 9920 "ind.ml" 326 10669 10699
+type(
+  unit
+)
+"ind.ml" 297 9696 9706 "ind.ml" 326 10669 10699
+type(
+  unit
+)
+"ind.ml" 292 9592 9603 "ind.ml" 326 10669 10699
+type(
+  unit
+)
+"ind.ml" 329 10752 10762 "ind.ml" 329 10752 10763
+type(
+  Event.event
+)
+"ind.ml" 330 10767 10777 "ind.ml" 330 10767 10779
+type(
+  unit
+)
+"ind.ml" 271 8905 8911 "ind.ml" 330 10767 10779
+type(
+  unit
+)
+"ind.ml" 270 8886 8894 "ind.ml" 330 10767 10779
+type(
+  Event.event -> unit
+)
+"ind.ml" 332 10789 10793 "ind.ml" 332 10789 10801
+type(
+  Event.event list
+)
+ident(
+  int_ref messages "ind.ml" 262 8682 8688 "ind.ml" 262 8682 8696
+)
+"ind.ml" 269 8872 8874 "ind.ml" 332 10789 10801
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 335 10846 10852 "ind.ml" 335 10846 10861
+type(
+  Term.t list
+)
+ident(
+  def premises' "ind.ml" 339 10972 10974 "ind.ml" 652 19656 19657
+)
+"ind.ml" 335 10846 10864 "ind.ml" 335 10846 10879
+type(
+  Term.t list -> Term.t list -> Term.t list
+)
+ident(
+  ext_ref List.rev_append
+)
+"ind.ml" 335 10846 10881 "ind.ml" 335 10846 10895
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "ind.ml" 259 8618 8624 "ind.ml" 259 8618 8638
+)
+"ind.ml" 335 10846 10880 "ind.ml" 335 10846 10895
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 335 10846 10896 "ind.ml" 335 10846 10904
+type(
+  Term.t list
+)
+ident(
+  int_ref premises "ind.ml" 236 8192 8243 "ind.ml" 236 8192 8251
+)
+"ind.ml" 335 10846 10864 "ind.ml" 335 10846 10904
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 339 10972 10978 "ind.ml" 339 10972 10989
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"ind.ml" 339 10972 10990 "ind.ml" 339 10972 11000
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 339 10972 10978 "ind.ml" 339 10972 11000
+call(
+  stack
+)
+type(
+  int
+)
+"ind.ml" 339 10972 11001 "ind.ml" 339 10972 11002
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"ind.ml" 339 10972 11003 "ind.ml" 339 10972 11004
+type(
+  int
+)
+"ind.ml" 339 10972 10978 "ind.ml" 339 10972 11004
+type(
+  bool
+)
+"ind.ml" 343 11110 11119 "ind.ml" 343 11110 11128
+type(
+  int ref
+)
+ident(
+  int_ref bmc_state "ind.ml" 49 2420 2424 "ind.ml" 49 2420 2433
+)
+"ind.ml" 343 11110 11118 "ind.ml" 343 11110 11128
+type(
+  int
+)
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 343 11110 11129 "ind.ml" 343 11110 11131
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"ind.ml" 343 11110 11132 "ind.ml" 343 11110 11133
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 343 11110 11118 "ind.ml" 343 11110 11133
+type(
+  bool
+)
+"ind.ml" 355 11427 11437 "ind.ml" 355 11427 11456
+type(
+  (string * Term.t) list
+)
+ident(
+  def all_candidate_pairs "ind.ml" 361 11612 11618 "ind.ml" 361 11612 11667
+)
+"ind.ml" 355 11427 11459 "ind.ml" 355 11427 11467
+type(
+  ((string * Term.t) * int -> string * Term.t) ->
+  ((string * Term.t) * int) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 355 11427 11468 "ind.ml" 355 11427 11471
+type(
+  (string * Term.t) * int -> string * Term.t
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"ind.ml" 355 11427 11472 "ind.ml" 355 11427 11487
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 236 8192 8227 "ind.ml" 236 8192 8242
+)
+"ind.ml" 355 11427 11459 "ind.ml" 355 11427 11487
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"ind.ml" 361 11612 11618 "ind.ml" 361 11612 11627
+type(
+  (string * Term.t -> unit) -> (string * Term.t) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"ind.ml" 361 11612 11629 "ind.ml" 361 11612 11641
+type(
+  Lib.kind_module -> string * Term.t -> unit
+)
+ident(
+  ext_ref Event.proved
+)
+"ind.ml" 361 11612 11642 "ind.ml" 361 11612 11646
+type(
+  Lib.kind_module
+)
+"ind.ml" 361 11612 11629 "ind.ml" 361 11612 11646
+call(
+  stack
+)
+type(
+  string * Term.t -> unit
+)
+"ind.ml" 361 11612 11648 "ind.ml" 361 11612 11667
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref all_candidate_pairs "ind.ml" 355 11427 11437 "ind.ml" 355 11427 11456
+)
+"ind.ml" 361 11612 11618 "ind.ml" 361 11612 11667
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 355 11427 11433 "ind.ml" 361 11612 11668
+type(
+  unit
+)
+"ind.ml" 386 12143 12156 "ind.ml" 386 12143 12160
+type(
+  bool
+)
+"ind.ml" 389 12209 12217 "ind.ml" 389 12209 12230
+type(
+  float -> unit
+)
+ident(
+  ext_ref Lib.minisleep
+)
+"ind.ml" 389 12209 12231 "ind.ml" 389 12209 12234
+type(
+  float
+)
+"ind.ml" 389 12209 12217 "ind.ml" 389 12209 12234
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 392 12286 12298 "ind.ml" 392 12286 12312
+type(
+  Term.t list ref
+)
+ident(
+  def new_invariants "ind.ml" 395 12362 12370 "ind.ml" 496 15664 15683
+)
+"ind.ml" 392 12286 12315 "ind.ml" 392 12286 12318
+type(
+  Term.t list -> Term.t list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"ind.ml" 392 12286 12319 "ind.ml" 392 12286 12321
+type(
+  Term.t list
+)
+"ind.ml" 392 12286 12315 "ind.ml" 392 12286 12321
+type(
+  Term.t list ref
+)
+"ind.ml" 395 12362 12374 "ind.ml" 395 12362 12382
+type(
+  Event.event list
+)
+ident(
+  def messages "ind.ml" 404 12638 12646 "ind.ml" 496 15664 15682
+)
+"ind.ml" 395 12362 12385 "ind.ml" 395 12362 12395
+type(
+  unit -> Event.event list
+)
+ident(
+  ext_ref Event.recv
+)
+"ind.ml" 395 12362 12396 "ind.ml" 395 12362 12398
+type(
+  unit
+)
+"ind.ml" 395 12362 12385 "ind.ml" 395 12362 12398
+call(
+  stack
+)
+type(
+  Event.event list
+)
+"ind.ml" 404 12638 12646 "ind.ml" 404 12638 12655
+type(
+  (Event.event -> unit) -> Event.event list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"ind.ml" 405 12658 12672 "ind.ml" 405 12658 12679
+type(
+  Event.event
+)
+ident(
+  def message "ind.ml" 406 12683 12695 "ind.ml" 494 15644 15662
+)
+"ind.ml" 406 12683 12701 "ind.ml" 406 12683 12708
+type(
+  Event.event
+)
+ident(
+  int_ref message "ind.ml" 405 12658 12672 "ind.ml" 405 12658 12679
+)
+"ind.ml" 409 12795 12829 "ind.ml" 409 12795 12830
+type(
+  Lib.kind_module
+)
+"ind.ml" 409 12795 12832 "ind.ml" 409 12795 12837
+type(
+  Term.t
+)
+ident(
+  def invar "ind.ml" 410 12843 12860 "ind.ml" 420 13183 13221
+)
+"ind.ml" 409 12795 12812 "ind.ml" 409 12795 12838
+type(
+  Event.event
+)
+"ind.ml" 410 12843 12860 "ind.ml" 413 12962 12983
+type(
+  unit
+)
+"ind.ml" 415 12987 13003 "ind.ml" 415 12987 13012
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  ((Format.formatter -> Term.t -> unit) -> Term.t -> unit, Format.formatter,
+   unit)
+  format -> (Format.formatter -> Term.t -> unit) -> Term.t -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 415 12987 13013 "ind.ml" 415 12987 13017
+type(
+  Lib.kind_module
+)
+"ind.ml" 415 12987 13018 "ind.ml" 415 12987 13031
+type(
+  Event.log_level
+)
+"ind.ml" 416 13032 13050 "ind.ml" 416 13032 13077
+type(
+  ((Format.formatter -> Term.t -> unit) -> Term.t -> unit, Format.formatter,
+   unit)
+  format
+)
+"ind.ml" 417 13078 13096 "ind.ml" 417 13078 13114
+type(
+  Format.formatter -> Term.t -> unit
+)
+ident(
+  ext_ref Term.pp_print_term
+)
+"ind.ml" 417 13078 13115 "ind.ml" 417 13078 13120
+type(
+  Term.t
+)
+ident(
+  int_ref invar "ind.ml" 409 12795 12832 "ind.ml" 409 12795 12837
+)
+"ind.ml" 415 12987 13003 "ind.ml" 417 13078 13120
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 419 13123 13139 "ind.ml" 419 13123 13153
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "ind.ml" 392 12286 12298 "ind.ml" 392 12286 12312
+)
+"ind.ml" 419 13123 13157 "ind.ml" 419 13123 13162
+type(
+  Term.t
+)
+ident(
+  int_ref invar "ind.ml" 409 12795 12832 "ind.ml" 409 12795 12837
+)
+"ind.ml" 419 13123 13167 "ind.ml" 419 13123 13181
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "ind.ml" 392 12286 12298 "ind.ml" 392 12286 12312
+)
+"ind.ml" 419 13123 13166 "ind.ml" 419 13123 13181
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 419 13123 13157 "ind.ml" 419 13123 13181
+type(
+  Term.t list
+)
+"ind.ml" 419 13123 13139 "ind.ml" 419 13123 13181
+type(
+  unit
+)
+type(
+  Term.t list ref -> Term.t list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 420 13183 13199 "ind.ml" 420 13183 13203
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 420 13183 13207 "ind.ml" 420 13183 13212
+type(
+  Term.t
+)
+ident(
+  int_ref invar "ind.ml" 409 12795 12832 "ind.ml" 409 12795 12837
+)
+"ind.ml" 420 13183 13217 "ind.ml" 420 13183 13221
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 420 13183 13216 "ind.ml" 420 13183 13221
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 420 13183 13207 "ind.ml" 420 13183 13221
+type(
+  Term.t list
+)
+"ind.ml" 420 13183 13199 "ind.ml" 420 13183 13221
+type(
+  unit
+)
+type(
+  Term.t list ref -> Term.t list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 419 13123 13139 "ind.ml" 420 13183 13221
+type(
+  unit
+)
+"ind.ml" 415 12987 13003 "ind.ml" 420 13183 13221
+type(
+  unit
+)
+"ind.ml" 410 12843 12860 "ind.ml" 420 13183 13221
+type(
+  unit
+)
+"ind.ml" 425 13398 13430 "ind.ml" 425 13398 13435
+type(
+  int
+)
+ident(
+  def bmc_k "ind.ml" 427 13460 13477 "ind.ml" 490 15555 15572
+)
+"ind.ml" 425 13398 13437 "ind.ml" 425 13398 13454
+type(
+  string list
+)
+ident(
+  def disproved_pn_list "ind.ml" 427 13460 13477 "ind.ml" 490 15555 15572
+)
+"ind.ml" 425 13398 13414 "ind.ml" 425 13398 13455
+type(
+  Event.event
+)
+"ind.ml" 427 13460 13477 "ind.ml" 430 13563 13584
+type(
+  unit
+)
+"ind.ml" 432 13588 13604 "ind.ml" 432 13588 13613
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 432 13588 13614 "ind.ml" 432 13588 13618
+type(
+  Lib.kind_module
+)
+"ind.ml" 432 13588 13619 "ind.ml" 432 13588 13632
+type(
+  Event.log_level
+)
+"ind.ml" 433 13633 13651 "ind.ml" 433 13633 13684
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"ind.ml" 434 13685 13703 "ind.ml" 434 13685 13708
+type(
+  int
+)
+ident(
+  int_ref bmc_k "ind.ml" 425 13398 13430 "ind.ml" 425 13398 13435
+)
+"ind.ml" 432 13588 13604 "ind.ml" 434 13685 13708
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 438 13832 13852 "ind.ml" 438 13832 13857
+type(
+  bool
+)
+ident(
+  def reset "ind.ml" 444 14028 14044 "ind.ml" 490 15555 15572
+)
+"ind.ml" 439 13860 13878 "ind.ml" 439 13860 13889
+type(
+  (string -> bool) -> string list -> bool
+)
+ident(
+  ext_ref List.exists
+)
+"ind.ml" 440 13891 13916 "ind.ml" 440 13891 13917
+type(
+  string
+)
+ident(
+  def x "ind.ml" 440 13891 13921 "ind.ml" 440 13891 13957
+)
+"ind.ml" 440 13891 13921 "ind.ml" 440 13891 13929
+type(
+  string -> string list -> bool
+)
+ident(
+  ext_ref List.mem
+)
+"ind.ml" 440 13891 13930 "ind.ml" 440 13891 13931
+type(
+  string
+)
+ident(
+  int_ref x "ind.ml" 440 13891 13916 "ind.ml" 440 13891 13917
+)
+"ind.ml" 440 13891 13933 "ind.ml" 440 13891 13941
+type(
+  (string * Term.t -> string) -> (string * Term.t) list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 440 13891 13942 "ind.ml" 440 13891 13945
+type(
+  string * Term.t -> string
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"ind.ml" 440 13891 13946 "ind.ml" 440 13891 13956
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 440 13891 13933 "ind.ml" 440 13891 13956
+call(
+  stack
+)
+type(
+  string list
+)
+"ind.ml" 440 13891 13921 "ind.ml" 440 13891 13957
+call(
+  tail
+)
+type(
+  bool
+)
+"ind.ml" 440 13891 13916 "ind.ml" 440 13891 13957
+type(
+  string -> bool
+)
+"ind.ml" 441 13960 13982 "ind.ml" 441 13960 13999
+type(
+  string list
+)
+ident(
+  int_ref disproved_pn_list "ind.ml" 425 13398 13437 "ind.ml" 425 13398 13454
+)
+"ind.ml" 439 13860 13878 "ind.ml" 441 13960 13999
+call(
+  stack
+)
+type(
+  bool
+)
+"ind.ml" 444 14028 14048 "ind.ml" 444 14028 14053
+type(
+  bool
+)
+ident(
+  int_ref reset "ind.ml" 438 13832 13852 "ind.ml" 438 13832 13857
+)
+"ind.ml" 448 14188 14210 "ind.ml" 448 14188 14221
+type(
+  (string * Term.t) list
+)
+ident(
+  def goal_pairs' "ind.ml" 455 14429 14447 "ind.ml" 459 14556 14611
+)
+"ind.ml" 449 14225 14245 "ind.ml" 449 14225 14256
+type(
+  (string * Term.t -> bool) ->
+  (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.filter
+)
+"ind.ml" 450 14259 14286 "ind.ml" 450 14259 14295
+type(
+  string
+)
+ident(
+  def prop_name "ind.ml" 451 14307 14331 "ind.ml" 451 14307 14373
+)
+"ind.ml" 450 14259 14297 "ind.ml" 450 14259 14301
+type(
+  Term.t
+)
+ident(
+  def prop "ind.ml" 451 14307 14331 "ind.ml" 451 14307 14373
+)
+"ind.ml" 450 14259 14286 "ind.ml" 450 14259 14301
+type(
+  string * Term.t
+)
+"ind.ml" 451 14307 14331 "ind.ml" 451 14307 14334
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"ind.ml" 451 14307 14336 "ind.ml" 451 14307 14344
+type(
+  string -> string list -> bool
+)
+ident(
+  ext_ref List.mem
+)
+"ind.ml" 451 14307 14345 "ind.ml" 451 14307 14354
+type(
+  string
+)
+ident(
+  int_ref prop_name "ind.ml" 450 14259 14286 "ind.ml" 450 14259 14295
+)
+"ind.ml" 451 14307 14355 "ind.ml" 451 14307 14372
+type(
+  string list
+)
+ident(
+  int_ref disproved_pn_list "ind.ml" 425 13398 13437 "ind.ml" 425 13398 13454
+)
+"ind.ml" 451 14307 14336 "ind.ml" 451 14307 14372
+call(
+  stack
+)
+type(
+  bool
+)
+"ind.ml" 451 14307 14331 "ind.ml" 451 14307 14373
+type(
+  bool
+)
+"ind.ml" 450 14259 14285 "ind.ml" 451 14307 14373
+type(
+  string * Term.t -> bool
+)
+"ind.ml" 452 14374 14396 "ind.ml" 452 14374 14406
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 449 14225 14245 "ind.ml" 452 14374 14406
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"ind.ml" 455 14429 14451 "ind.ml" 455 14429 14465
+type(
+  Term.t list
+)
+ident(
+  def reset_premises "ind.ml" 459 14556 14574 "ind.ml" 459 14556 14611
+)
+"ind.ml" 456 14469 14489 "ind.ml" 456 14469 14500
+type(
+  Term.t list -> Term.t list -> Term.t list
+)
+ident(
+  ext_ref List.append
+)
+"ind.ml" 456 14469 14502 "ind.ml" 456 14469 14510
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 456 14469 14511 "ind.ml" 456 14469 14514
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 456 14469 14515 "ind.ml" 456 14469 14525
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 456 14469 14502 "ind.ml" 456 14469 14525
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 456 14469 14528 "ind.ml" 456 14469 14532
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 456 14469 14527 "ind.ml" 456 14469 14532
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 456 14469 14489 "ind.ml" 456 14469 14532
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 459 14556 14574 "ind.ml" 459 14556 14581
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref restart "ind.ml" 654 19659 19663 "ind.ml" 654 19659 19670
+)
+"ind.ml" 459 14556 14582 "ind.ml" 459 14556 14584
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 459 14556 14585 "ind.ml" 459 14556 14596
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs' "ind.ml" 448 14188 14210 "ind.ml" 448 14188 14221
+)
+"ind.ml" 459 14556 14597 "ind.ml" 459 14556 14611
+type(
+  Term.t list
+)
+ident(
+  int_ref reset_premises "ind.ml" 455 14429 14451 "ind.ml" 455 14429 14465
+)
+"ind.ml" 459 14556 14574 "ind.ml" 459 14556 14611
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 455 14429 14447 "ind.ml" 459 14556 14611
+type(
+  unit
+)
+"ind.ml" 448 14188 14206 "ind.ml" 459 14556 14611
+type(
+  unit
+)
+"ind.ml" 466 14779 14797 "ind.ml" 466 14779 14806
+type(
+  int ref
+)
+ident(
+  int_ref bmc_state "ind.ml" 49 2420 2424 "ind.ml" 49 2420 2433
+)
+"ind.ml" 466 14779 14810 "ind.ml" 466 14779 14815
+type(
+  int
+)
+ident(
+  int_ref bmc_k "ind.ml" 425 13398 13430 "ind.ml" 425 13398 13435
+)
+"ind.ml" 466 14779 14797 "ind.ml" 466 14779 14815
+type(
+  unit
+)
+type(
+  int ref -> int -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 468 14818 14841 "ind.ml" 468 14818 14850
+type(
+  int ref
+)
+ident(
+  int_ref bmc_state "ind.ml" 49 2420 2424 "ind.ml" 49 2420 2433
+)
+"ind.ml" 468 14818 14840 "ind.ml" 468 14818 14850
+type(
+  int
+)
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 468 14818 14851 "ind.ml" 468 14818 14853
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"ind.ml" 468 14818 14854 "ind.ml" 468 14818 14855
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 468 14818 14840 "ind.ml" 468 14818 14855
+type(
+  bool
+)
+"ind.ml" 470 14882 14906 "ind.ml" 470 14882 14925
+type(
+  (string * Term.t) list
+)
+ident(
+  def all_candidate_pairs "ind.ml" 473 15007 15027 "ind.ml" 488 15503 15533
+)
+"ind.ml" 470 14882 14928 "ind.ml" 470 14882 14936
+type(
+  ((string * Term.t) * int -> string * Term.t) ->
+  ((string * Term.t) * int) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 470 14882 14937 "ind.ml" 470 14882 14940
+type(
+  (string * Term.t) * int -> string * Term.t
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"ind.ml" 470 14882 14941 "ind.ml" 470 14882 14956
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 236 8192 8227 "ind.ml" 236 8192 8242
+)
+"ind.ml" 470 14882 14928 "ind.ml" 470 14882 14956
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"ind.ml" 473 15007 15027 "ind.ml" 473 15007 15036
+type(
+  (string * Term.t -> unit) -> (string * Term.t) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"ind.ml" 473 15007 15038 "ind.ml" 473 15007 15050
+type(
+  Lib.kind_module -> string * Term.t -> unit
+)
+ident(
+  ext_ref Event.proved
+)
+"ind.ml" 473 15007 15051 "ind.ml" 473 15007 15055
+type(
+  Lib.kind_module
+)
+"ind.ml" 473 15007 15038 "ind.ml" 473 15007 15055
+call(
+  stack
+)
+type(
+  string * Term.t -> unit
+)
+"ind.ml" 473 15007 15057 "ind.ml" 473 15007 15076
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref all_candidate_pairs "ind.ml" 470 14882 14906 "ind.ml" 470 14882 14925
+)
+"ind.ml" 473 15007 15027 "ind.ml" 473 15007 15076
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 488 15503 15523 "ind.ml" 488 15503 15528
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"ind.ml" 488 15503 15529 "ind.ml" 488 15503 15533
+type(
+  exn
+)
+"ind.ml" 488 15503 15523 "ind.ml" 488 15503 15533
+type(
+  unit
+)
+"ind.ml" 473 15007 15027 "ind.ml" 488 15503 15533
+type(
+  unit
+)
+"ind.ml" 470 14882 14902 "ind.ml" 488 15503 15534
+type(
+  unit
+)
+"ind.ml" 468 14818 14836 "ind.ml" 489 15535 15554
+type(
+  unit
+)
+type(
+  unit
+)
+"ind.ml" 466 14779 14797 "ind.ml" 489 15535 15554
+type(
+  unit
+)
+"ind.ml" 444 14028 14044 "ind.ml" 490 15555 15572
+type(
+  unit
+)
+"ind.ml" 438 13832 13848 "ind.ml" 490 15555 15572
+type(
+  unit
+)
+"ind.ml" 432 13588 13604 "ind.ml" 490 15555 15572
+type(
+  unit
+)
+"ind.ml" 427 13460 13477 "ind.ml" 490 15555 15572
+type(
+  unit
+)
+"ind.ml" 493 15623 15639 "ind.ml" 493 15623 15640
+type(
+  Event.event
+)
+"ind.ml" 494 15644 15660 "ind.ml" 494 15644 15662
+type(
+  unit
+)
+"ind.ml" 406 12683 12695 "ind.ml" 494 15644 15662
+type(
+  unit
+)
+"ind.ml" 405 12658 12672 "ind.ml" 494 15644 15662
+type(
+  Event.event -> unit
+)
+"ind.ml" 496 15664 15674 "ind.ml" 496 15664 15682
+type(
+  Event.event list
+)
+ident(
+  int_ref messages "ind.ml" 395 12362 12374 "ind.ml" 395 12362 12382
+)
+"ind.ml" 404 12638 12646 "ind.ml" 496 15664 15682
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 395 12362 12370 "ind.ml" 496 15664 15683
+type(
+  unit
+)
+"ind.ml" 392 12286 12294 "ind.ml" 496 15664 15683
+type(
+  unit
+)
+"ind.ml" 389 12209 12217 "ind.ml" 496 15664 15683
+type(
+  unit
+)
+"ind.ml" 386 12143 12149 "ind.ml" 497 15684 15696
+type(
+  unit
+)
+"ind.ml" 502 15756 15764 "ind.ml" 502 15756 15768
+type(
+  exn
+)
+"ind.ml" 502 15756 15772 "ind.ml" 502 15756 15774
+type(
+  unit
+)
+"ind.ml" 384 12131 12137 "ind.ml" 502 15756 15774
+type(
+  unit
+)
+"ind.ml" 343 11110 11114 "ind.ml" 504 15776 15781
+type(
+  unit
+)
+"ind.ml" 509 15830 15836 "ind.ml" 509 15830 15846
+type(
+  Term.t
+)
+ident(
+  def k_premise' "ind.ml" 513 15945 15947 "ind.ml" 652 19656 19657
+)
+"ind.ml" 509 15830 15849 "ind.ml" 509 15830 15868
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"ind.ml" 509 15830 15869 "ind.ml" 509 15830 15870
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 509 15830 15872 "ind.ml" 509 15830 15883
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"ind.ml" 509 15830 15884 "ind.ml" 509 15830 15893
+type(
+  Term.t list
+)
+ident(
+  int_ref premises' "ind.ml" 335 10846 10852 "ind.ml" 335 10846 10861
+)
+"ind.ml" 509 15830 15872 "ind.ml" 509 15830 15893
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 509 15830 15849 "ind.ml" 509 15830 15894
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 513 15945 15951 "ind.ml" 513 15945 15963
+type(
+  (string * Term.t) list
+)
+ident(
+  def k_goal_pairs "ind.ml" 521 16138 16140 "ind.ml" 652 19656 19657
+)
+"ind.ml" 514 15967 15971 "ind.ml" 514 15967 15979
+type(
+  (string * Term.t -> string * Term.t) ->
+  (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 515 15981 15993 "ind.ml" 515 15981 16002
+type(
+  string
+)
+ident(
+  def goal_name "ind.ml" 516 16019 16028 "ind.ml" 516 16019 16070
+)
+"ind.ml" 515 15981 16004 "ind.ml" 515 15981 16013
+type(
+  Term.t
+)
+ident(
+  def goal_prop "ind.ml" 516 16019 16028 "ind.ml" 516 16019 16070
+)
+"ind.ml" 515 15981 15993 "ind.ml" 515 15981 16013
+type(
+  string * Term.t
+)
+"ind.ml" 516 16019 16028 "ind.ml" 516 16019 16037
+type(
+  string
+)
+ident(
+  int_ref goal_name "ind.ml" 515 15981 15993 "ind.ml" 515 15981 16002
+)
+"ind.ml" 516 16019 16039 "ind.ml" 516 16019 16058
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"ind.ml" 516 16019 16059 "ind.ml" 516 16019 16060
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 516 16019 16061 "ind.ml" 516 16019 16070
+type(
+  Term.t
+)
+ident(
+  int_ref goal_prop "ind.ml" 515 15981 16004 "ind.ml" 515 15981 16013
+)
+"ind.ml" 516 16019 16039 "ind.ml" 516 16019 16070
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 516 16019 16028 "ind.ml" 516 16019 16070
+type(
+  string * Term.t
+)
+"ind.ml" 515 15981 15992 "ind.ml" 516 16019 16071
+type(
+  string * Term.t -> string * Term.t
+)
+"ind.ml" 517 16074 16080 "ind.ml" 517 16074 16090
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 514 15967 15971 "ind.ml" 517 16074 16090
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"ind.ml" 521 16138 16144 "ind.ml" 521 16138 16161
+type(
+  Term.t
+)
+ident(
+  def k_conjuncted_goal "ind.ml" 524 16287 16289 "ind.ml" 652 19656 19657
+)
+"ind.ml" 521 16138 16165 "ind.ml" 521 16138 16176
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"ind.ml" 521 16138 16178 "ind.ml" 521 16138 16186
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 521 16138 16187 "ind.ml" 521 16138 16190
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 521 16138 16191 "ind.ml" 521 16138 16203
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref k_goal_pairs "ind.ml" 513 15945 15951 "ind.ml" 513 15945 15963
+)
+"ind.ml" 521 16138 16178 "ind.ml" 521 16138 16203
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 521 16138 16165 "ind.ml" 521 16138 16204
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 524 16287 16289 "ind.ml" 524 16287 16295
+type(
+  ?n:int -> S.t -> unit
+)
+ident(
+  ext_ref S.push
+)
+"ind.ml" 524 16287 16296 "ind.ml" 524 16287 16302
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 524 16287 16289 "ind.ml" 524 16287 16302
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 526 16307 16309 "ind.ml" 526 16307 16322
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 526 16307 16323 "ind.ml" 526 16307 16329
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 526 16307 16331 "ind.ml" 526 16307 16342
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"ind.ml" 526 16307 16343 "ind.ml" 526 16307 16360
+type(
+  Term.t
+)
+ident(
+  int_ref k_conjuncted_goal "ind.ml" 521 16138 16144 "ind.ml" 521 16138 16161
+)
+"ind.ml" 526 16307 16331 "ind.ml" 526 16307 16360
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 526 16307 16309 "ind.ml" 526 16307 16361
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 529 16436 16442 "ind.ml" 529 16436 16453
+type(
+  ?timeout:int -> S.t -> bool
+)
+ident(
+  ext_ref S.check_sat
+)
+"ind.ml" 529 16436 16454 "ind.ml" 529 16436 16460
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 529 16436 16442 "ind.ml" 529 16436 16460
+call(
+  stack
+)
+type(
+  bool
+)
+"ind.ml" 533 16516 16524 "ind.ml" 533 16516 16535
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"ind.ml" 533 16516 16536 "ind.ml" 533 16516 16546
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 533 16516 16524 "ind.ml" 533 16516 16546
+call(
+  stack
+)
+type(
+  int
+)
+"ind.ml" 533 16516 16547 "ind.ml" 533 16516 16548
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"ind.ml" 533 16516 16549 "ind.ml" 533 16516 16550
+type(
+  int
+)
+"ind.ml" 533 16516 16524 "ind.ml" 533 16516 16550
+type(
+  bool
+)
+"ind.ml" 540 16753 16759 "ind.ml" 540 16753 16764
+type(
+  ?n:int -> S.t -> unit
+)
+ident(
+  ext_ref S.pop
+)
+"ind.ml" 540 16753 16765 "ind.ml" 540 16753 16771
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 540 16753 16759 "ind.ml" 540 16753 16771
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 542 16780 16786 "ind.ml" 542 16780 16799
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 542 16780 16800 "ind.ml" 542 16780 16806
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 542 16780 16807 "ind.ml" 542 16780 16817
+type(
+  Term.t
+)
+ident(
+  int_ref k_premise' "ind.ml" 509 15830 15836 "ind.ml" 509 15830 15846
+)
+"ind.ml" 542 16780 16786 "ind.ml" 542 16780 16817
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 544 16826 16832 "ind.ml" 544 16826 16845
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 544 16826 16846 "ind.ml" 544 16826 16852
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 544 16826 16854 "ind.ml" 544 16826 16878
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.constr_of_bound
+)
+"ind.ml" 544 16826 16880 "ind.ml" 544 16826 16881
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 544 16826 16882 "ind.ml" 544 16826 16883
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"ind.ml" 544 16826 16884 "ind.ml" 544 16826 16885
+type(
+  int
+)
+"ind.ml" 544 16826 16880 "ind.ml" 544 16826 16885
+type(
+  int
+)
+"ind.ml" 544 16826 16887 "ind.ml" 544 16826 16889
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 544 16826 16854 "ind.ml" 544 16826 16889
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 544 16826 16832 "ind.ml" 544 16826 16890
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 546 16907 16913 "ind.ml" 546 16907 16916
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+ident(
+  int_ref ind "ind.ml" 236 8192 8200 "ind.ml" 236 8192 8203
+)
+"ind.ml" 546 16907 16917 "ind.ml" 546 16907 16923
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 546 16907 16924 "ind.ml" 546 16907 16926
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 546 16907 16928 "ind.ml" 546 16907 16929
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 546 16907 16930 "ind.ml" 546 16907 16931
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"ind.ml" 546 16907 16932 "ind.ml" 546 16907 16933
+type(
+  int
+)
+"ind.ml" 546 16907 16928 "ind.ml" 546 16907 16933
+type(
+  int
+)
+"ind.ml" 546 16907 16935 "ind.ml" 546 16907 16945
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 546 16907 16946 "ind.ml" 546 16907 16961
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 236 8192 8227 "ind.ml" 236 8192 8242
+)
+"ind.ml" 546 16907 16962 "ind.ml" 546 16907 16971
+type(
+  Term.t list
+)
+ident(
+  int_ref premises' "ind.ml" 335 10846 10852 "ind.ml" 335 10846 10861
+)
+"ind.ml" 546 16907 16913 "ind.ml" 546 16907 16971
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 544 16826 16832 "ind.ml" 546 16907 16971
+type(
+  unit
+)
+"ind.ml" 542 16780 16786 "ind.ml" 546 16907 16971
+type(
+  unit
+)
+"ind.ml" 540 16753 16759 "ind.ml" 546 16907 16971
+type(
+  unit
+)
+"ind.ml" 554 17088 17099 "ind.ml" 554 17088 17110
+type(
+  (string * Term.t) list
+)
+ident(
+  def goal_pairs' "ind.ml" 558 17265 17271 "ind.ml" 581 17939 17946
+)
+"ind.ml" 554 17088 17112 "ind.ml" 554 17088 17128
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  def candidate_infos' "ind.ml" 558 17265 17271 "ind.ml" 581 17939 17946
+)
+"ind.ml" 554 17088 17099 "ind.ml" 554 17088 17128
+type(
+  (string * Term.t) list * ((string * Term.t) * int) list
+)
+"ind.ml" 555 17133 17141 "ind.ml" 555 17133 17157
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list ->
+  (string * Term.t) list * ((string * Term.t) * int) list
+)
+ident(
+  int_ref filter_goal_list "ind.ml" 111 4235 4243 "ind.ml" 111 4235 4259
+)
+"ind.ml" 555 17133 17158 "ind.ml" 555 17133 17164
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 555 17133 17165 "ind.ml" 555 17133 17167
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 555 17133 17168 "ind.ml" 555 17133 17169
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 555 17133 17170 "ind.ml" 555 17133 17180
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 555 17133 17181 "ind.ml" 555 17133 17196
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 236 8192 8227 "ind.ml" 236 8192 8242
+)
+"ind.ml" 555 17133 17141 "ind.ml" 555 17133 17196
+call(
+  stack
+)
+type(
+  (string * Term.t) list * ((string * Term.t) * int) list
+)
+"ind.ml" 558 17265 17275 "ind.ml" 558 17265 17286
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"ind.ml" 558 17265 17287 "ind.ml" 558 17265 17298
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs' "ind.ml" 554 17088 17099 "ind.ml" 554 17088 17110
+)
+"ind.ml" 558 17265 17275 "ind.ml" 558 17265 17298
+call(
+  stack
+)
+type(
+  int
+)
+"ind.ml" 558 17265 17299 "ind.ml" 558 17265 17300
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"ind.ml" 558 17265 17301 "ind.ml" 558 17265 17302
+type(
+  int
+)
+"ind.ml" 558 17265 17275 "ind.ml" 558 17265 17302
+type(
+  bool
+)
+"ind.ml" 562 17350 17358 "ind.ml" 562 17350 17366
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"ind.ml" 562 17350 17367 "ind.ml" 562 17350 17392
+type(
+  string
+)
+"ind.ml" 562 17350 17358 "ind.ml" 562 17350 17392
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 573 17692 17700 "ind.ml" 573 17692 17705
+type(
+  ?n:int -> S.t -> unit
+)
+ident(
+  ext_ref S.pop
+)
+"ind.ml" 573 17692 17706 "ind.ml" 573 17692 17712
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 573 17692 17700 "ind.ml" 573 17692 17712
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 575 17723 17731 "ind.ml" 575 17723 17744
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 575 17723 17745 "ind.ml" 575 17723 17751
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 575 17723 17752 "ind.ml" 575 17723 17762
+type(
+  Term.t
+)
+ident(
+  int_ref k_premise' "ind.ml" 509 15830 15836 "ind.ml" 509 15830 15846
+)
+"ind.ml" 575 17723 17731 "ind.ml" 575 17723 17762
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 577 17773 17781 "ind.ml" 577 17773 17794
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 577 17773 17795 "ind.ml" 577 17773 17801
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 577 17773 17803 "ind.ml" 577 17773 17827
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.constr_of_bound
+)
+"ind.ml" 577 17773 17829 "ind.ml" 577 17773 17830
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 577 17773 17831 "ind.ml" 577 17773 17832
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"ind.ml" 577 17773 17833 "ind.ml" 577 17773 17834
+type(
+  int
+)
+"ind.ml" 577 17773 17829 "ind.ml" 577 17773 17834
+type(
+  int
+)
+"ind.ml" 577 17773 17836 "ind.ml" 577 17773 17838
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 577 17773 17803 "ind.ml" 577 17773 17838
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 577 17773 17781 "ind.ml" 577 17773 17839
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 579 17861 17869 "ind.ml" 579 17861 17872
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+ident(
+  int_ref ind "ind.ml" 236 8192 8200 "ind.ml" 236 8192 8203
+)
+"ind.ml" 579 17861 17873 "ind.ml" 579 17861 17879
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 579 17861 17880 "ind.ml" 579 17861 17882
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 579 17861 17884 "ind.ml" 579 17861 17885
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 579 17861 17886 "ind.ml" 579 17861 17887
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"ind.ml" 579 17861 17888 "ind.ml" 579 17861 17889
+type(
+  int
+)
+"ind.ml" 579 17861 17884 "ind.ml" 579 17861 17889
+type(
+  int
+)
+"ind.ml" 579 17861 17891 "ind.ml" 579 17861 17902
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs' "ind.ml" 554 17088 17099 "ind.ml" 554 17088 17110
+)
+"ind.ml" 579 17861 17903 "ind.ml" 579 17861 17919
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos' "ind.ml" 554 17088 17112 "ind.ml" 554 17088 17128
+)
+"ind.ml" 579 17861 17920 "ind.ml" 579 17861 17929
+type(
+  Term.t list
+)
+ident(
+  int_ref premises' "ind.ml" 335 10846 10852 "ind.ml" 335 10846 10861
+)
+"ind.ml" 579 17861 17869 "ind.ml" 579 17861 17929
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 577 17773 17781 "ind.ml" 579 17861 17929
+type(
+  unit
+)
+"ind.ml" 575 17723 17731 "ind.ml" 579 17861 17929
+type(
+  unit
+)
+"ind.ml" 573 17692 17700 "ind.ml" 579 17861 17929
+type(
+  unit
+)
+"ind.ml" 558 17265 17271 "ind.ml" 581 17939 17946
+type(
+  unit
+)
+"ind.ml" 554 17088 17094 "ind.ml" 581 17939 17946
+type(
+  unit
+)
+"ind.ml" 533 16516 16520 "ind.ml" 582 17947 17952
+type(
+  unit
+)
+"ind.ml" 590 18091 18095 "ind.ml" 590 18091 18104
+type(
+  (string * Term.t -> unit) -> (string * Term.t) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"ind.ml" 592 18112 18123 "ind.ml" 592 18112 18137
+type(
+  string
+)
+ident(
+  def goal_prop_name "ind.ml" 593 18154 18163 "ind.ml" 598 18308 18321
+)
+"ind.ml" 592 18112 18139 "ind.ml" 592 18112 18148
+type(
+  Term.t
+)
+ident(
+  def goal_prop "ind.ml" 593 18154 18163 "ind.ml" 598 18308 18321
+)
+"ind.ml" 592 18112 18123 "ind.ml" 592 18112 18148
+type(
+  string * Term.t
+)
+"ind.ml" 593 18154 18163 "ind.ml" 598 18308 18321
+type(
+  unit
+)
+"ind.ml" 592 18112 18122 "ind.ml" 598 18308 18322
+type(
+  string * Term.t -> unit
+)
+"ind.ml" 599 18323 18329 "ind.ml" 599 18323 18341
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref k_goal_pairs "ind.ml" 513 15945 15951 "ind.ml" 513 15945 15963
+)
+"ind.ml" 590 18091 18095 "ind.ml" 599 18323 18341
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 601 18344 18348 "ind.ml" 601 18344 18357
+type(
+  (string * Term.t -> unit) -> (string * Term.t) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"ind.ml" 603 18365 18376 "ind.ml" 603 18365 18390
+type(
+  string
+)
+ident(
+  def goal_prop_name "ind.ml" 604 18407 18415 "ind.ml" 608 18567 18578
+)
+"ind.ml" 603 18365 18392 "ind.ml" 603 18365 18401
+type(
+  Term.t
+)
+ident(
+  def goal_prop "ind.ml" 604 18407 18415 "ind.ml" 608 18567 18578
+)
+"ind.ml" 603 18365 18376 "ind.ml" 603 18365 18401
+type(
+  string * Term.t
+)
+"ind.ml" 604 18407 18415 "ind.ml" 604 18407 18424
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> int -> unit, Format.formatter, unit) format ->
+  string -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 604 18407 18425 "ind.ml" 604 18407 18429
+type(
+  Lib.kind_module
+)
+"ind.ml" 604 18407 18430 "ind.ml" 604 18407 18442
+type(
+  Event.log_level
+)
+"ind.ml" 605 18443 18453 "ind.ml" 606 18506 18541
+type(
+  (string -> int -> unit, Format.formatter, unit) format
+)
+"ind.ml" 607 18542 18552 "ind.ml" 607 18542 18566
+type(
+  string
+)
+ident(
+  int_ref goal_prop_name "ind.ml" 603 18365 18376 "ind.ml" 603 18365 18390
+)
+"ind.ml" 608 18567 18577 "ind.ml" 608 18567 18578
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 604 18407 18415 "ind.ml" 608 18567 18578
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 603 18365 18375 "ind.ml" 608 18567 18578
+type(
+  string * Term.t -> unit
+)
+"ind.ml" 609 18579 18585 "ind.ml" 609 18579 18597
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref k_goal_pairs "ind.ml" 513 15945 15951 "ind.ml" 513 15945 15963
+)
+"ind.ml" 601 18344 18348 "ind.ml" 609 18579 18597
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 613 18716 18724 "ind.ml" 613 18716 18743
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  def all_candidate_infos "ind.ml" 620 18924 18928 "ind.ml" 651 19601 19655
+)
+"ind.ml" 614 18747 18753 "ind.ml" 614 18747 18768
+type(
+  ((string * Term.t) * int) list ->
+  ((string * Term.t) * int) list -> ((string * Term.t) * int) list
+)
+ident(
+  ext_ref List.rev_append
+)
+"ind.ml" 615 18770 18779 "ind.ml" 615 18770 18787
+type(
+  (string * Term.t -> (string * Term.t) * int) ->
+  (string * Term.t) list -> ((string * Term.t) * int) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 615 18770 18793 "ind.ml" 615 18770 18794
+type(
+  string * Term.t
+)
+ident(
+  def x "ind.ml" 615 18770 18799 "ind.ml" 615 18770 18803
+)
+"ind.ml" 615 18770 18799 "ind.ml" 615 18770 18800
+type(
+  string * Term.t
+)
+ident(
+  int_ref x "ind.ml" 615 18770 18793 "ind.ml" 615 18770 18794
+)
+"ind.ml" 615 18770 18802 "ind.ml" 615 18770 18803
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 615 18770 18799 "ind.ml" 615 18770 18803
+type(
+  (string * Term.t) * int
+)
+"ind.ml" 615 18770 18793 "ind.ml" 615 18770 18804
+type(
+  string * Term.t -> (string * Term.t) * int
+)
+"ind.ml" 615 18770 18806 "ind.ml" 615 18770 18816
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref goal_pairs "ind.ml" 236 8192 8216 "ind.ml" 236 8192 8226
+)
+"ind.ml" 615 18770 18779 "ind.ml" 615 18770 18816
+call(
+  stack
+)
+type(
+  ((string * Term.t) * int) list
+)
+"ind.ml" 616 18819 18827 "ind.ml" 616 18819 18842
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref candidate_infos "ind.ml" 236 8192 8227 "ind.ml" 236 8192 8242
+)
+"ind.ml" 614 18747 18753 "ind.ml" 616 18819 18842
+call(
+  stack
+)
+type(
+  ((string * Term.t) * int) list
+)
+"ind.ml" 620 18924 18933 "ind.ml" 620 18924 18942
+type(
+  int ref
+)
+ident(
+  int_ref bmc_state "ind.ml" 49 2420 2424 "ind.ml" 49 2420 2433
+)
+"ind.ml" 620 18924 18932 "ind.ml" 620 18924 18942
+type(
+  int
+)
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 620 18924 18943 "ind.ml" 620 18924 18945
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"ind.ml" 620 18924 18946 "ind.ml" 620 18924 18947
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 620 18924 18932 "ind.ml" 620 18924 18947
+type(
+  bool
+)
+"ind.ml" 624 18970 18982 "ind.ml" 624 18970 19001
+type(
+  (string * Term.t) list
+)
+ident(
+  def all_candidate_pairs "ind.ml" 627 19081 19089 "ind.ml" 631 19182 19262
+)
+"ind.ml" 624 18970 19004 "ind.ml" 624 18970 19012
+type(
+  ((string * Term.t) * int -> string * Term.t) ->
+  ((string * Term.t) * int) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 624 18970 19013 "ind.ml" 624 18970 19016
+type(
+  (string * Term.t) * int -> string * Term.t
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"ind.ml" 624 18970 19017 "ind.ml" 624 18970 19036
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref all_candidate_infos "ind.ml" 613 18716 18724 "ind.ml" 613 18716 18743
+)
+"ind.ml" 624 18970 19004 "ind.ml" 624 18970 19036
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"ind.ml" 627 19081 19089 "ind.ml" 627 19081 19104
+type(
+  Lib.kind_module -> Term.t -> unit
+)
+ident(
+  ext_ref Event.invariant
+)
+"ind.ml" 628 19106 19116 "ind.ml" 628 19106 19120
+type(
+  Lib.kind_module
+)
+"ind.ml" 629 19121 19132 "ind.ml" 629 19121 19143
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"ind.ml" 629 19121 19145 "ind.ml" 629 19121 19153
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 629 19121 19154 "ind.ml" 629 19121 19157
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 629 19121 19158 "ind.ml" 629 19121 19177
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref all_candidate_pairs "ind.ml" 624 18970 18982 "ind.ml" 624 18970 19001
+)
+"ind.ml" 629 19121 19145 "ind.ml" 629 19121 19177
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 629 19121 19132 "ind.ml" 629 19121 19178
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 627 19081 19089 "ind.ml" 629 19121 19179
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 631 19182 19183 "ind.ml" 631 19182 19210
+type(
+  string -> string list -> unit
+)
+ident(
+  ext_ref TransSys.log_property_valid
+)
+"ind.ml" 631 19182 19211 "ind.ml" 631 19182 19227
+type(
+  string
+)
+"ind.ml" 631 19182 19229 "ind.ml" 631 19182 19237
+type(
+  (string * Term.t -> string) -> (string * Term.t) list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 631 19182 19238 "ind.ml" 631 19182 19241
+type(
+  string * Term.t -> string
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"ind.ml" 631 19182 19242 "ind.ml" 631 19182 19261
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref all_candidate_pairs "ind.ml" 624 18970 18982 "ind.ml" 624 18970 19001
+)
+"ind.ml" 631 19182 19229 "ind.ml" 631 19182 19261
+call(
+  stack
+)
+type(
+  string list
+)
+"ind.ml" 631 19182 19183 "ind.ml" 631 19182 19262
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 627 19081 19089 "ind.ml" 631 19182 19262
+type(
+  unit
+)
+"ind.ml" 624 18970 18978 "ind.ml" 631 19182 19263
+type(
+  unit
+)
+"ind.ml" 651 19601 19607 "ind.ml" 651 19601 19610
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+ident(
+  int_ref ind "ind.ml" 236 8192 8200 "ind.ml" 236 8192 8203
+)
+"ind.ml" 651 19601 19611 "ind.ml" 651 19601 19617
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 236 8192 8204 "ind.ml" 236 8192 8210
+)
+"ind.ml" 651 19601 19618 "ind.ml" 651 19601 19620
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 236 8192 8211 "ind.ml" 236 8192 8213
+)
+"ind.ml" 651 19601 19621 "ind.ml" 651 19601 19622
+type(
+  int
+)
+ident(
+  int_ref k "ind.ml" 236 8192 8214 "ind.ml" 236 8192 8215
+)
+"ind.ml" 651 19601 19623 "ind.ml" 651 19601 19625
+type(
+  (string * Term.t) list
+)
+"ind.ml" 651 19601 19626 "ind.ml" 651 19601 19645
+type(
+  ((string * Term.t) * int) list
+)
+ident(
+  int_ref all_candidate_infos "ind.ml" 613 18716 18724 "ind.ml" 613 18716 18743
+)
+"ind.ml" 651 19601 19646 "ind.ml" 651 19601 19655
+type(
+  Term.t list
+)
+ident(
+  int_ref premises' "ind.ml" 335 10846 10852 "ind.ml" 335 10846 10861
+)
+"ind.ml" 651 19601 19607 "ind.ml" 651 19601 19655
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 620 18924 18928 "ind.ml" 651 19601 19655
+type(
+  unit
+)
+"ind.ml" 613 18716 18720 "ind.ml" 651 19601 19655
+type(
+  unit
+)
+"ind.ml" 601 18344 18348 "ind.ml" 651 19601 19655
+type(
+  unit
+)
+"ind.ml" 590 18091 18095 "ind.ml" 651 19601 19655
+type(
+  unit
+)
+"ind.ml" 529 16436 16438 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 526 16307 16309 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 524 16287 16289 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 521 16138 16140 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 513 15945 15947 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 509 15830 15832 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 339 10972 10974 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 335 10846 10848 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 269 8872 8874 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 262 8682 8684 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 259 8618 8620 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 244 8372 8374 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 242 8346 8348 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 240 8320 8322 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 238 8256 8258 "ind.ml" 652 19656 19657
+type(
+  unit
+)
+"ind.ml" 236 8192 8243 "ind.ml" 652 19656 19657
+type(
+  Term.t list -> unit
+)
+"ind.ml" 236 8192 8227 "ind.ml" 652 19656 19657
+type(
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+"ind.ml" 236 8192 8216 "ind.ml" 652 19656 19657
+type(
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+"ind.ml" 236 8192 8214 "ind.ml" 652 19656 19657
+type(
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+"ind.ml" 236 8192 8211 "ind.ml" 652 19656 19657
+type(
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+"ind.ml" 236 8192 8204 "ind.ml" 652 19656 19657
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+"ind.ml" 654 19659 19663 "ind.ml" 654 19659 19670
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  def restart "ind.ml" 236 8192 8192 "_none_" 1 0 -1
+)
+"ind.ml" 654 19659 19671 "ind.ml" 654 19659 19673
+type(
+  TransSys.t
+)
+ident(
+  def ts "ind.ml" 654 19659 19674 "ind.ml" 663 19878 19907
+)
+"ind.ml" 654 19659 19674 "ind.ml" 654 19659 19684
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs "ind.ml" 654 19659 19685 "ind.ml" 663 19878 19907
+)
+"ind.ml" 654 19659 19685 "ind.ml" 654 19659 19693
+type(
+  Term.t list
+)
+ident(
+  def premises "ind.ml" 656 19702 19706 "ind.ml" 663 19878 19907
+)
+"ind.ml" 656 19702 19706 "ind.ml" 656 19702 19715
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 656 19702 19716 "ind.ml" 656 19702 19720
+type(
+  Lib.kind_module
+)
+"ind.ml" 656 19702 19721 "ind.ml" 656 19702 19733
+type(
+  Event.log_level
+)
+"ind.ml" 656 19702 19734 "ind.ml" 656 19702 19761
+type(
+  (unit, Format.formatter, unit) format
+)
+"ind.ml" 656 19702 19706 "ind.ml" 656 19702 19761
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 659 19797 19807 "ind.ml" 659 19797 19817
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "ind.ml" 55 2529 2533 "ind.ml" 55 2529 2543
+)
+"ind.ml" 659 19797 19806 "ind.ml" 659 19797 19817
+type(
+  S.t option
+)
+type(
+  S.t option ref -> S.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 660 19824 19835 "ind.ml" 660 19824 19836
+type(
+  S.t
+)
+ident(
+  def s "ind.ml" 660 19824 19840 "ind.ml" 660 19824 19857
+)
+"ind.ml" 660 19824 19830 "ind.ml" 660 19824 19836
+type(
+  S.t option
+)
+"ind.ml" 660 19824 19840 "ind.ml" 660 19824 19855
+type(
+  S.t -> unit
+)
+ident(
+  ext_ref S.delete_solver
+)
+"ind.ml" 660 19824 19856 "ind.ml" 660 19824 19857
+type(
+  S.t
+)
+ident(
+  int_ref s "ind.ml" 660 19824 19835 "ind.ml" 660 19824 19836
+)
+"ind.ml" 660 19824 19840 "ind.ml" 660 19824 19857
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 661 19858 19864 "ind.ml" 661 19858 19868
+type(
+  S.t option
+)
+"ind.ml" 661 19858 19872 "ind.ml" 661 19858 19874
+type(
+  unit
+)
+"ind.ml" 659 19797 19800 "ind.ml" 661 19858 19874
+type(
+  unit
+)
+"ind.ml" 663 19878 19880 "ind.ml" 663 19878 19884
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref init "ind.ml" 666 19910 19914 "ind.ml" 666 19910 19918
+)
+"ind.ml" 663 19878 19885 "ind.ml" 663 19878 19887
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "ind.ml" 654 19659 19671 "ind.ml" 654 19659 19673
+)
+"ind.ml" 663 19878 19888 "ind.ml" 663 19878 19898
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "ind.ml" 654 19659 19674 "ind.ml" 654 19659 19684
+)
+"ind.ml" 663 19878 19899 "ind.ml" 663 19878 19907
+type(
+  Term.t list
+)
+ident(
+  int_ref premises "ind.ml" 654 19659 19685 "ind.ml" 654 19659 19693
+)
+"ind.ml" 663 19878 19880 "ind.ml" 663 19878 19907
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 659 19797 19800 "ind.ml" 663 19878 19907
+type(
+  unit
+)
+"ind.ml" 656 19702 19706 "ind.ml" 663 19878 19907
+type(
+  unit
+)
+"ind.ml" 654 19659 19685 "ind.ml" 663 19878 19907
+type(
+  Term.t list -> unit
+)
+"ind.ml" 654 19659 19674 "ind.ml" 663 19878 19907
+type(
+  (string * Term.t) list -> Term.t list -> unit
+)
+"ind.ml" 654 19659 19671 "ind.ml" 663 19878 19907
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+"ind.ml" 666 19910 19914 "ind.ml" 666 19910 19918
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  def init "ind.ml" 236 8192 8192 "_none_" 1 0 -1
+)
+"ind.ml" 666 19910 19919 "ind.ml" 666 19910 19927
+type(
+  TransSys.t
+)
+ident(
+  def transSys "ind.ml" 666 19910 19928 "ind.ml" 685 20516 20564
+)
+"ind.ml" 666 19910 19928 "ind.ml" 666 19910 19938
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs "ind.ml" 666 19910 19939 "ind.ml" 685 20516 20564
+)
+"ind.ml" 666 19910 19939 "ind.ml" 666 19910 19947
+type(
+  Term.t list
+)
+ident(
+  def premises "ind.ml" 669 19996 20000 "ind.ml" 685 20516 20564
+)
+"ind.ml" 669 19996 20004 "ind.ml" 669 19996 20009
+type(
+  SMTExpr.logic
+)
+ident(
+  def logic "ind.ml" 672 20077 20081 "ind.ml" 685 20516 20564
+)
+"ind.ml" 669 19996 20012 "ind.ml" 669 19996 20030
+type(
+  TransSys.t -> SMTExpr.logic
+)
+ident(
+  ext_ref TransSys.get_logic
+)
+"ind.ml" 669 19996 20031 "ind.ml" 669 19996 20039
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "ind.ml" 666 19910 19919 "ind.ml" 666 19910 19927
+)
+"ind.ml" 669 19996 20012 "ind.ml" 669 19996 20039
+call(
+  stack
+)
+type(
+  SMTExpr.logic
+)
+"ind.ml" 672 20077 20085 "ind.ml" 672 20077 20091
+type(
+  S.t
+)
+ident(
+  def solver "ind.ml" 677 20223 20227 "ind.ml" 685 20516 20564
+)
+"ind.ml" 673 20095 20101 "ind.ml" 673 20095 20113
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> S.t
+)
+ident(
+  ext_ref S.new_solver
+)
+"ind.ml" 673 20095 20135 "ind.ml" 673 20095 20139
+type(
+  bool
+)
+"ind.ml" 673 20095 20140 "ind.ml" 673 20095 20145
+type(
+  SMTExpr.logic
+)
+ident(
+  int_ref logic "ind.ml" 669 19996 20004 "ind.ml" 669 19996 20009
+)
+"ind.ml" 673 20095 20101 "ind.ml" 673 20095 20145
+call(
+  stack
+)
+type(
+  S.t
+)
+"ind.ml" 677 20223 20227 "ind.ml" 677 20223 20237
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "ind.ml" 55 2529 2533 "ind.ml" 55 2529 2543
+)
+"ind.ml" 677 20223 20246 "ind.ml" 677 20223 20252
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 672 20077 20085 "ind.ml" 672 20077 20091
+)
+"ind.ml" 677 20223 20241 "ind.ml" 677 20223 20252
+type(
+  S.t option
+)
+"ind.ml" 677 20223 20227 "ind.ml" 677 20223 20252
+type(
+  unit
+)
+type(
+  S.t option ref -> S.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"ind.ml" 681 20393 20397 "ind.ml" 681 20393 20410
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 681 20393 20411 "ind.ml" 681 20393 20417
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 672 20077 20085 "ind.ml" 672 20077 20091
+)
+"ind.ml" 681 20393 20419 "ind.ml" 681 20393 20430
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"ind.ml" 681 20393 20431 "ind.ml" 681 20393 20439
+type(
+  Term.t list
+)
+ident(
+  int_ref premises "ind.ml" 666 19910 19939 "ind.ml" 666 19910 19947
+)
+"ind.ml" 681 20393 20419 "ind.ml" 681 20393 20439
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 681 20393 20397 "ind.ml" 681 20393 20440
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 683 20445 20449 "ind.ml" 683 20445 20462
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"ind.ml" 683 20445 20463 "ind.ml" 683 20445 20469
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 672 20077 20085 "ind.ml" 672 20077 20091
+)
+"ind.ml" 683 20445 20471 "ind.ml" 683 20445 20495
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.constr_of_bound
+)
+"ind.ml" 683 20445 20496 "ind.ml" 683 20445 20497
+type(
+  int
+)
+"ind.ml" 683 20445 20498 "ind.ml" 683 20445 20506
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "ind.ml" 666 19910 19919 "ind.ml" 666 19910 19927
+)
+"ind.ml" 683 20445 20471 "ind.ml" 683 20445 20506
+call(
+  stack
+)
+type(
+  Term.t
+)
+"ind.ml" 683 20445 20449 "ind.ml" 683 20445 20507
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 685 20516 20520 "ind.ml" 685 20516 20523
+type(
+  S.t ->
+  TransSys.t ->
+  int ->
+  (string * Term.t) list ->
+  ((string * Term.t) * int) list -> Term.t list -> unit
+)
+ident(
+  int_ref ind "ind.ml" 236 8192 8200 "ind.ml" 236 8192 8203
+)
+"ind.ml" 685 20516 20524 "ind.ml" 685 20516 20530
+type(
+  S.t
+)
+ident(
+  int_ref solver "ind.ml" 672 20077 20085 "ind.ml" 672 20077 20091
+)
+"ind.ml" 685 20516 20531 "ind.ml" 685 20516 20539
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "ind.ml" 666 19910 19919 "ind.ml" 666 19910 19927
+)
+"ind.ml" 685 20516 20540 "ind.ml" 685 20516 20541
+type(
+  int
+)
+"ind.ml" 685 20516 20542 "ind.ml" 685 20516 20552
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "ind.ml" 666 19910 19928 "ind.ml" 666 19910 19938
+)
+"ind.ml" 685 20516 20553 "ind.ml" 685 20516 20555
+type(
+  ((string * Term.t) * int) list
+)
+"ind.ml" 685 20516 20556 "ind.ml" 685 20516 20564
+type(
+  Term.t list
+)
+ident(
+  int_ref premises "ind.ml" 666 19910 19939 "ind.ml" 666 19910 19947
+)
+"ind.ml" 685 20516 20520 "ind.ml" 685 20516 20564
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 683 20445 20449 "ind.ml" 685 20516 20564
+type(
+  unit
+)
+"ind.ml" 681 20393 20397 "ind.ml" 685 20516 20564
+type(
+  unit
+)
+"ind.ml" 677 20223 20227 "ind.ml" 685 20516 20564
+type(
+  unit
+)
+"ind.ml" 672 20077 20081 "ind.ml" 685 20516 20564
+type(
+  unit
+)
+"ind.ml" 669 19996 20000 "ind.ml" 685 20516 20564
+type(
+  unit
+)
+"ind.ml" 666 19910 19939 "ind.ml" 685 20516 20564
+type(
+  Term.t list -> unit
+)
+"ind.ml" 666 19910 19928 "ind.ml" 685 20516 20564
+type(
+  (string * Term.t) list -> Term.t list -> unit
+)
+"ind.ml" 666 19910 19919 "ind.ml" 685 20516 20564
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+"ind.ml" 689 20585 20589 "ind.ml" 689 20585 20593
+type(
+  TransSys.t -> unit
+)
+ident(
+  def main "ind.ml" 702 20901 20947 "_none_" 1 0 -1
+)
+"ind.ml" 689 20585 20594 "ind.ml" 689 20585 20602
+type(
+  TransSys.t
+)
+ident(
+  def transSys "ind.ml" 691 20606 20608 "ind.ml" 702 20901 20947
+)
+"ind.ml" 691 20606 20608 "ind.ml" 691 20606 20624
+type(
+  Stat.float_item -> unit
+)
+ident(
+  ext_ref Stat.start_timer
+)
+"ind.ml" 691 20606 20625 "ind.ml" 691 20606 20644
+type(
+  Stat.float_item
+)
+ident(
+  ext_ref Stat.ind_total_time
+)
+"ind.ml" 691 20606 20608 "ind.ml" 691 20606 20644
+call(
+  stack
+)
+type(
+  unit
+)
+"ind.ml" 693 20647 20653 "ind.ml" 693 20647 20663
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs "ind.ml" 695 20694 20696 "ind.ml" 702 20901 20947
+)
+"ind.ml" 693 20647 20666 "ind.ml" 693 20647 20674
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "ind.ml" 689 20585 20594 "ind.ml" 689 20585 20602
+)
+"ind.ml" 693 20647 20666 "ind.ml" 693 20647 20689
+type(
+  (string * Term.t) list
+)
+"ind.ml" 695 20694 20700 "ind.ml" 695 20694 20708
+type(
+  Term.t list
+)
+ident(
+  def premises "ind.ml" 697 20759 20762 "ind.ml" 702 20901 20945
+)
+"ind.ml" 695 20694 20711 "ind.ml" 695 20694 20722
+type(
+  Term.t list -> Term.t list -> Term.t list
+)
+ident(
+  ext_ref List.append
+)
+"ind.ml" 695 20694 20724 "ind.ml" 695 20694 20732
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"ind.ml" 695 20694 20733 "ind.ml" 695 20694 20736
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"ind.ml" 695 20694 20737 "ind.ml" 695 20694 20747
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "ind.ml" 693 20647 20653 "ind.ml" 693 20647 20663
+)
+"ind.ml" 695 20694 20724 "ind.ml" 695 20694 20747
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 695 20694 20750 "ind.ml" 695 20694 20754
+type(
+  Term.t list ref
+)
+ident(
+  int_ref invs "ind.ml" 52 2477 2481 "ind.ml" 52 2477 2485
+)
+"ind.ml" 695 20694 20749 "ind.ml" 695 20694 20754
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"ind.ml" 695 20694 20711 "ind.ml" 695 20694 20754
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"ind.ml" 697 20759 20768 "ind.ml" 697 20759 20778
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "ind.ml" 693 20647 20653 "ind.ml" 693 20647 20663
+)
+"ind.ml" 700 20836 20842 "ind.ml" 700 20836 20844
+type(
+  (string * Term.t) list
+)
+"ind.ml" 700 20836 20848 "ind.ml" 700 20836 20857
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"ind.ml" 700 20836 20858 "ind.ml" 700 20836 20862
+type(
+  Lib.kind_module
+)
+"ind.ml" 700 20836 20863 "ind.ml" 700 20836 20876
+type(
+  Event.log_level
+)
+"ind.ml" 700 20836 20877 "ind.ml" 700 20836 20899
+type(
+  (unit, Format.formatter, unit) format
+)
+"ind.ml" 700 20836 20848 "ind.ml" 700 20836 20899
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 702 20901 20907 "ind.ml" 702 20901 20908
+type(
+  (string * Term.t) list
+)
+"ind.ml" 702 20901 20912 "ind.ml" 702 20901 20916
+type(
+  TransSys.t -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref init "ind.ml" 666 19910 19914 "ind.ml" 666 19910 19918
+)
+"ind.ml" 702 20901 20917 "ind.ml" 702 20901 20925
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "ind.ml" 689 20585 20594 "ind.ml" 689 20585 20602
+)
+"ind.ml" 702 20901 20926 "ind.ml" 702 20901 20936
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "ind.ml" 693 20647 20653 "ind.ml" 693 20647 20663
+)
+"ind.ml" 702 20901 20937 "ind.ml" 702 20901 20945
+type(
+  Term.t list
+)
+ident(
+  int_ref premises "ind.ml" 695 20694 20700 "ind.ml" 695 20694 20708
+)
+"ind.ml" 702 20901 20912 "ind.ml" 702 20901 20945
+call(
+  tail
+)
+type(
+  unit
+)
+"ind.ml" 697 20759 20762 "ind.ml" 702 20901 20945
+type(
+  unit
+)
+"ind.ml" 695 20694 20696 "ind.ml" 702 20901 20947
+type(
+  unit
+)
+"ind.ml" 693 20647 20649 "ind.ml" 702 20901 20947
+type(
+  unit
+)
+"ind.ml" 691 20606 20608 "ind.ml" 702 20901 20947
+type(
+  unit
+)
+"ind.ml" 689 20585 20594 "ind.ml" 702 20901 20947
+type(
+  TransSys.t -> unit
+)

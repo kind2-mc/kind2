@@ -1,0 +1,1304 @@
+"CNF.ml" 34 1707 1718 "CNF.ml" 34 1707 1735
+call(
+  stack
+)
+"CNF.ml" 41 1819 1827 "CNF.ml" 41 1819 1843
+type(
+  Format.formatter -> Clause.t list -> unit
+)
+ident(
+  def pp_print_clauses "CNF.ml" 41 1819 1819 "_none_" 1 0 -1
+)
+"CNF.ml" 41 1819 1844 "CNF.ml" 41 1819 1847
+type(
+  Format.formatter
+)
+ident(
+  def ppf "CNF.ml" 41 1819 1850 "CNF.ml" 49 2053 2080
+)
+"CNF.ml" 42 1860 1864 "CNF.ml" 42 1860 1866
+type(
+  Clause.t list
+)
+"CNF.ml" 42 1860 1870 "CNF.ml" 42 1860 1872
+type(
+  unit
+)
+"CNF.ml" 43 1873 1877 "CNF.ml" 43 1873 1878
+type(
+  Clause.t
+)
+ident(
+  def c "CNF.ml" 44 1889 1893 "CNF.ml" 49 2053 2080
+)
+"CNF.ml" 43 1873 1882 "CNF.ml" 43 1873 1884
+type(
+  Clause.t list
+)
+ident(
+  def tl "CNF.ml" 44 1889 1893 "CNF.ml" 49 2053 2080
+)
+"CNF.ml" 43 1873 1877 "CNF.ml" 43 1873 1884
+type(
+  Clause.t list
+)
+"CNF.ml" 44 1889 1893 "CNF.ml" 44 1889 1907
+type(
+  Format.formatter ->
+  ((Format.formatter -> Clause.t -> unit) ->
+   Clause.t -> (Format.formatter -> unit) -> unit, Format.formatter, 
+   unit)
+  format ->
+  (Format.formatter -> Clause.t -> unit) ->
+  Clause.t -> (Format.formatter -> unit) -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"CNF.ml" 45 1909 1915 "CNF.ml" 45 1909 1918
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "CNF.ml" 41 1819 1844 "CNF.ml" 41 1819 1847
+)
+"CNF.ml" 46 1920 1926 "CNF.ml" 46 1920 1940
+type(
+  ((Format.formatter -> Clause.t -> unit) ->
+   Clause.t -> (Format.formatter -> unit) -> unit, Format.formatter, 
+   unit)
+  format
+)
+"CNF.ml" 47 1942 1948 "CNF.ml" 47 1942 1970
+type(
+  Format.formatter -> Clause.t -> unit
+)
+ident(
+  ext_ref Clause.pp_print_clause
+)
+"CNF.ml" 47 1942 1971 "CNF.ml" 47 1942 1972
+type(
+  Clause.t
+)
+ident(
+  int_ref c "CNF.ml" 43 1873 1877 "CNF.ml" 43 1873 1878
+)
+"CNF.ml" 48 1973 1989 "CNF.ml" 48 1973 1992
+type(
+  Format.formatter
+)
+ident(
+  def ppf "CNF.ml" 48 1973 1996 "CNF.ml" 48 1973 2050
+)
+"CNF.ml" 48 1973 1999 "CNF.ml" 48 1973 2002
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"CNF.ml" 48 1973 2004 "CNF.ml" 48 1973 2006
+type(
+  Clause.t list
+)
+ident(
+  int_ref tl "CNF.ml" 43 1873 1882 "CNF.ml" 43 1873 1884
+)
+"CNF.ml" 48 1973 2007 "CNF.ml" 48 1973 2008
+type(
+  Clause.t list -> Clause.t list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"CNF.ml" 48 1973 2009 "CNF.ml" 48 1973 2011
+type(
+  Clause.t list
+)
+"CNF.ml" 48 1973 2004 "CNF.ml" 48 1973 2011
+type(
+  bool
+)
+"CNF.ml" 48 1973 1999 "CNF.ml" 48 1973 2012
+type(
+  bool
+)
+"CNF.ml" 48 1973 2018 "CNF.ml" 48 1973 2032
+type(
+  Format.formatter -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"CNF.ml" 48 1973 2033 "CNF.ml" 48 1973 2036
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "CNF.ml" 48 1973 1989 "CNF.ml" 48 1973 1992
+)
+"CNF.ml" 48 1973 2037 "CNF.ml" 48 1973 2042
+type(
+  (unit, Format.formatter, unit) format
+)
+"CNF.ml" 48 1973 2018 "CNF.ml" 48 1973 2042
+call(
+  tail
+)
+type(
+  unit
+)
+"CNF.ml" 48 1973 2048 "CNF.ml" 48 1973 2050
+type(
+  unit
+)
+"CNF.ml" 48 1973 1996 "CNF.ml" 48 1973 2050
+type(
+  unit
+)
+"CNF.ml" 48 1973 1980 "CNF.ml" 48 1973 2050
+type(
+  Format.formatter -> unit
+)
+"CNF.ml" 44 1889 1893 "CNF.ml" 48 1973 2051
+call(
+  stack
+)
+type(
+  unit
+)
+"CNF.ml" 49 2053 2057 "CNF.ml" 49 2053 2073
+type(
+  Format.formatter -> Clause.t list -> unit
+)
+ident(
+  int_ref pp_print_clauses "CNF.ml" 41 1819 1827 "CNF.ml" 41 1819 1843
+)
+"CNF.ml" 49 2053 2074 "CNF.ml" 49 2053 2077
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "CNF.ml" 41 1819 1844 "CNF.ml" 41 1819 1847
+)
+"CNF.ml" 49 2053 2078 "CNF.ml" 49 2053 2080
+type(
+  Clause.t list
+)
+ident(
+  int_ref tl "CNF.ml" 43 1873 1882 "CNF.ml" 43 1873 1884
+)
+"CNF.ml" 49 2053 2057 "CNF.ml" 49 2053 2080
+call(
+  tail
+)
+type(
+  unit
+)
+"CNF.ml" 44 1889 1893 "CNF.ml" 49 2053 2080
+type(
+  unit
+)
+"CNF.ml" 41 1819 1850 "CNF.ml" 49 2053 2080
+type(
+  Clause.t list -> unit
+)
+"CNF.ml" 41 1819 1844 "CNF.ml" 49 2053 2080
+type(
+  Format.formatter -> Clause.t list -> unit
+)
+"CNF.ml" 53 2150 2154 "CNF.ml" 53 2150 2166
+type(
+  Format.formatter -> T.t -> unit
+)
+ident(
+  def pp_print_cnf "CNF.ml" 59 2352 2352 "_none_" 1 0 -1
+)
+"CNF.ml" 53 2150 2167 "CNF.ml" 53 2150 2170
+type(
+  Format.formatter
+)
+ident(
+  def ppf "CNF.ml" 53 2150 2171 "CNF.ml" 55 2244 2287
+)
+"CNF.ml" 53 2150 2171 "CNF.ml" 53 2150 2174
+type(
+  T.t
+)
+ident(
+  def cnf "CNF.ml" 53 2150 2177 "CNF.ml" 55 2244 2287
+)
+"CNF.ml" 53 2150 2184 "CNF.ml" 53 2150 2194
+type(
+  T.t -> T.elt list
+)
+ident(
+  ext_ref T.elements
+)
+"CNF.ml" 53 2150 2195 "CNF.ml" 53 2150 2198
+type(
+  T.t
+)
+ident(
+  int_ref cnf "CNF.ml" 53 2150 2171 "CNF.ml" 53 2150 2174
+)
+"CNF.ml" 53 2150 2184 "CNF.ml" 53 2150 2198
+call(
+  stack
+)
+type(
+  T.elt list
+)
+"CNF.ml" 54 2205 2209 "CNF.ml" 54 2205 2211
+type(
+  T.elt list
+)
+"CNF.ml" 54 2205 2215 "CNF.ml" 54 2205 2229
+type(
+  Format.formatter -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"CNF.ml" 54 2205 2230 "CNF.ml" 54 2205 2233
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "CNF.ml" 53 2150 2167 "CNF.ml" 53 2150 2170
+)
+"CNF.ml" 54 2205 2234 "CNF.ml" 54 2205 2243
+type(
+  (unit, Format.formatter, unit) format
+)
+"CNF.ml" 54 2205 2215 "CNF.ml" 54 2205 2243
+call(
+  tail
+)
+type(
+  unit
+)
+"CNF.ml" 55 2244 2248 "CNF.ml" 55 2244 2255
+type(
+  T.elt list
+)
+ident(
+  def clauses "CNF.ml" 55 2244 2259 "CNF.ml" 55 2244 2287
+)
+"CNF.ml" 55 2244 2259 "CNF.ml" 55 2244 2275
+type(
+  Format.formatter -> T.elt list -> unit
+)
+ident(
+  int_ref pp_print_clauses "CNF.ml" 41 1819 1827 "CNF.ml" 41 1819 1843
+)
+"CNF.ml" 55 2244 2276 "CNF.ml" 55 2244 2279
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "CNF.ml" 53 2150 2167 "CNF.ml" 53 2150 2170
+)
+"CNF.ml" 55 2244 2280 "CNF.ml" 55 2244 2287
+type(
+  T.elt list
+)
+ident(
+  int_ref clauses "CNF.ml" 55 2244 2248 "CNF.ml" 55 2244 2255
+)
+"CNF.ml" 55 2244 2259 "CNF.ml" 55 2244 2287
+call(
+  tail
+)
+type(
+  unit
+)
+"CNF.ml" 53 2150 2177 "CNF.ml" 55 2244 2287
+type(
+  unit
+)
+"CNF.ml" 53 2150 2171 "CNF.ml" 55 2244 2287
+type(
+  T.t -> unit
+)
+"CNF.ml" 53 2150 2167 "CNF.ml" 55 2244 2287
+type(
+  Format.formatter -> T.t -> unit
+)
+"CNF.ml" 59 2352 2356 "CNF.ml" 59 2352 2365
+type(
+  T.t -> unit
+)
+ident(
+  def print_cnf "CNF.ml" 62 2404 2404 "_none_" 1 0 -1
+)
+"CNF.ml" 59 2352 2368 "CNF.ml" 59 2352 2380
+type(
+  Format.formatter -> T.t -> unit
+)
+ident(
+  int_ref pp_print_cnf "CNF.ml" 53 2150 2154 "CNF.ml" 53 2150 2166
+)
+"CNF.ml" 59 2352 2381 "CNF.ml" 59 2352 2401
+type(
+  Format.formatter
+)
+ident(
+  ext_ref Format.std_formatter
+)
+"CNF.ml" 59 2352 2368 "CNF.ml" 59 2352 2401
+call(
+  stack
+)
+type(
+  T.t -> unit
+)
+"CNF.ml" 62 2404 2408 "CNF.ml" 62 2404 2413
+type(
+  T.t
+)
+ident(
+  def empty "CNF.ml" 64 2425 2425 "_none_" 1 0 -1
+)
+"CNF.ml" 62 2404 2416 "CNF.ml" 62 2404 2423
+type(
+  T.t
+)
+ident(
+  ext_ref T.empty
+)
+"CNF.ml" 64 2425 2429 "CNF.ml" 64 2425 2437
+type(
+  T.t -> bool
+)
+ident(
+  def is_empty "CNF.ml" 66 2452 2452 "_none_" 1 0 -1
+)
+"CNF.ml" 64 2425 2440 "CNF.ml" 64 2425 2450
+type(
+  T.t -> bool
+)
+ident(
+  ext_ref T.is_empty
+)
+"CNF.ml" 66 2452 2456 "CNF.ml" 66 2452 2459
+type(
+  T.elt -> T.t -> bool
+)
+ident(
+  def mem "CNF.ml" 68 2469 2469 "_none_" 1 0 -1
+)
+"CNF.ml" 66 2452 2462 "CNF.ml" 66 2452 2467
+type(
+  T.elt -> T.t -> bool
+)
+ident(
+  ext_ref T.mem
+)
+"CNF.ml" 68 2469 2473 "CNF.ml" 68 2469 2476
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  def add "CNF.ml" 70 2486 2486 "_none_" 1 0 -1
+)
+"CNF.ml" 68 2469 2479 "CNF.ml" 68 2469 2484
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  ext_ref T.add
+)
+"CNF.ml" 70 2486 2490 "CNF.ml" 70 2486 2499
+type(
+  T.elt -> T.t
+)
+ident(
+  def singleton "CNF.ml" 72 2515 2515 "_none_" 1 0 -1
+)
+"CNF.ml" 70 2486 2502 "CNF.ml" 70 2486 2513
+type(
+  T.elt -> T.t
+)
+ident(
+  ext_ref T.singleton
+)
+"CNF.ml" 72 2515 2519 "CNF.ml" 72 2515 2525
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  def remove "CNF.ml" 74 2538 2538 "_none_" 1 0 -1
+)
+"CNF.ml" 72 2515 2528 "CNF.ml" 72 2515 2536
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  ext_ref T.remove
+)
+"CNF.ml" 74 2538 2542 "CNF.ml" 74 2538 2547
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def union "CNF.ml" 76 2559 2559 "_none_" 1 0 -1
+)
+"CNF.ml" 74 2538 2550 "CNF.ml" 74 2538 2557
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  ext_ref T.union
+)
+"CNF.ml" 76 2559 2563 "CNF.ml" 76 2559 2576
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def union_subsume "CNF.ml" 78 2600 2600 "_none_" 1 0 -1
+)
+"CNF.ml" 76 2559 2577 "CNF.ml" 76 2559 2579
+type(
+  T.t
+)
+ident(
+  def s1 "CNF.ml" 76 2559 2580 "CNF.ml" 76 2559 2598
+)
+"CNF.ml" 76 2559 2580 "CNF.ml" 76 2559 2582
+type(
+  T.t
+)
+ident(
+  def s2 "CNF.ml" 76 2559 2585 "CNF.ml" 76 2559 2598
+)
+"CNF.ml" 76 2559 2585 "CNF.ml" 76 2559 2592
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  ext_ref T.union
+)
+"CNF.ml" 76 2559 2593 "CNF.ml" 76 2559 2595
+type(
+  T.t
+)
+ident(
+  int_ref s1 "CNF.ml" 76 2559 2577 "CNF.ml" 76 2559 2579
+)
+"CNF.ml" 76 2559 2596 "CNF.ml" 76 2559 2598
+type(
+  T.t
+)
+ident(
+  int_ref s2 "CNF.ml" 76 2559 2580 "CNF.ml" 76 2559 2582
+)
+"CNF.ml" 76 2559 2585 "CNF.ml" 76 2559 2598
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 76 2559 2580 "CNF.ml" 76 2559 2598
+type(
+  T.t -> T.t
+)
+"CNF.ml" 76 2559 2577 "CNF.ml" 76 2559 2598
+type(
+  T.t -> T.t -> T.t
+)
+"CNF.ml" 78 2600 2604 "CNF.ml" 78 2600 2609
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def inter "CNF.ml" 80 2621 2621 "_none_" 1 0 -1
+)
+"CNF.ml" 78 2600 2612 "CNF.ml" 78 2600 2619
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  ext_ref T.inter
+)
+"CNF.ml" 80 2621 2625 "CNF.ml" 80 2621 2629
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def diff "CNF.ml" 82 2640 2640 "_none_" 1 0 -1
+)
+"CNF.ml" 80 2621 2632 "CNF.ml" 80 2621 2638
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  ext_ref T.diff
+)
+"CNF.ml" 82 2640 2644 "CNF.ml" 82 2640 2651
+type(
+  T.t -> T.t -> int
+)
+ident(
+  def compare "CNF.ml" 84 2665 2665 "_none_" 1 0 -1
+)
+"CNF.ml" 82 2640 2654 "CNF.ml" 82 2640 2663
+type(
+  T.t -> T.t -> int
+)
+ident(
+  ext_ref T.compare
+)
+"CNF.ml" 84 2665 2669 "CNF.ml" 84 2665 2674
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  def equal "CNF.ml" 86 2686 2686 "_none_" 1 0 -1
+)
+"CNF.ml" 84 2665 2677 "CNF.ml" 84 2665 2684
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  ext_ref T.equal
+)
+"CNF.ml" 86 2686 2690 "CNF.ml" 86 2686 2696
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  def subset "CNF.ml" 88 2709 2709 "_none_" 1 0 -1
+)
+"CNF.ml" 86 2686 2699 "CNF.ml" 86 2686 2707
+type(
+  T.t -> T.t -> bool
+)
+ident(
+  ext_ref T.subset
+)
+"CNF.ml" 88 2709 2713 "CNF.ml" 88 2709 2717
+type(
+  (T.elt -> unit) -> T.t -> unit
+)
+ident(
+  def iter "CNF.ml" 90 2728 2728 "_none_" 1 0 -1
+)
+"CNF.ml" 88 2709 2720 "CNF.ml" 88 2709 2726
+type(
+  (T.elt -> unit) -> T.t -> unit
+)
+ident(
+  ext_ref T.iter
+)
+"CNF.ml" 90 2728 2732 "CNF.ml" 90 2728 2736
+type(
+  (T.elt -> 'a -> 'a) -> T.t -> 'a -> 'a
+)
+ident(
+  def fold "CNF.ml" 92 2747 2747 "_none_" 1 0 -1
+)
+"CNF.ml" 90 2728 2739 "CNF.ml" 90 2728 2745
+type(
+  (T.elt -> 'a -> 'a) -> T.t -> 'a -> 'a
+)
+ident(
+  ext_ref T.fold
+)
+"CNF.ml" 92 2747 2751 "CNF.ml" 92 2747 2758
+type(
+  (T.elt -> bool) -> T.t -> bool
+)
+ident(
+  def for_all "CNF.ml" 94 2772 2772 "_none_" 1 0 -1
+)
+"CNF.ml" 92 2747 2761 "CNF.ml" 92 2747 2770
+type(
+  (T.elt -> bool) -> T.t -> bool
+)
+ident(
+  ext_ref T.for_all
+)
+"CNF.ml" 94 2772 2776 "CNF.ml" 94 2772 2782
+type(
+  (T.elt -> bool) -> T.t -> bool
+)
+ident(
+  def exists "CNF.ml" 96 2795 2795 "_none_" 1 0 -1
+)
+"CNF.ml" 94 2772 2785 "CNF.ml" 94 2772 2793
+type(
+  (T.elt -> bool) -> T.t -> bool
+)
+ident(
+  ext_ref T.exists
+)
+"CNF.ml" 96 2795 2799 "CNF.ml" 96 2795 2805
+type(
+  (T.elt -> bool) -> T.t -> T.t
+)
+ident(
+  def filter "CNF.ml" 98 2818 2818 "_none_" 1 0 -1
+)
+"CNF.ml" 96 2795 2808 "CNF.ml" 96 2795 2816
+type(
+  (T.elt -> bool) -> T.t -> T.t
+)
+ident(
+  ext_ref T.filter
+)
+"CNF.ml" 98 2818 2822 "CNF.ml" 98 2818 2831
+type(
+  (T.elt -> bool) -> T.t -> T.t * T.t
+)
+ident(
+  def partition "CNF.ml" 100 2847 2847 "_none_" 1 0 -1
+)
+"CNF.ml" 98 2818 2834 "CNF.ml" 98 2818 2845
+type(
+  (T.elt -> bool) -> T.t -> T.t * T.t
+)
+ident(
+  ext_ref T.partition
+)
+"CNF.ml" 100 2847 2851 "CNF.ml" 100 2847 2859
+type(
+  T.t -> int
+)
+ident(
+  def cardinal "CNF.ml" 102 2874 2874 "_none_" 1 0 -1
+)
+"CNF.ml" 100 2847 2862 "CNF.ml" 100 2847 2872
+type(
+  T.t -> int
+)
+ident(
+  ext_ref T.cardinal
+)
+"CNF.ml" 102 2874 2878 "CNF.ml" 102 2874 2886
+type(
+  T.t -> T.elt list
+)
+ident(
+  def elements "CNF.ml" 104 2901 2901 "_none_" 1 0 -1
+)
+"CNF.ml" 102 2874 2889 "CNF.ml" 102 2874 2899
+type(
+  T.t -> T.elt list
+)
+ident(
+  ext_ref T.elements
+)
+"CNF.ml" 104 2901 2905 "CNF.ml" 104 2901 2911
+type(
+  T.t -> T.elt
+)
+ident(
+  def choose "CNF.ml" 106 2924 2924 "_none_" 1 0 -1
+)
+"CNF.ml" 104 2901 2914 "CNF.ml" 104 2901 2922
+type(
+  T.t -> T.elt
+)
+ident(
+  ext_ref T.choose
+)
+"CNF.ml" 106 2924 2928 "CNF.ml" 106 2924 2935
+type(
+  T.elt list -> T.t
+)
+ident(
+  def of_list "CNF.ml" 110 3095 3095 "_none_" 1 0 -1
+)
+"CNF.ml" 106 2924 2936 "CNF.ml" 106 2924 2937
+type(
+  T.elt list
+)
+ident(
+  def l "CNF.ml" 106 2924 2940 "CNF.ml" 106 2924 2983
+)
+"CNF.ml" 106 2924 2940 "CNF.ml" 106 2924 2954
+type(
+  (T.t -> T.elt -> T.t) -> T.t -> T.elt list -> T.t
+)
+ident(
+  ext_ref List.fold_left
+)
+"CNF.ml" 106 2924 2960 "CNF.ml" 106 2924 2961
+type(
+  T.t
+)
+ident(
+  def a "CNF.ml" 106 2924 2962 "CNF.ml" 106 2924 2974
+)
+"CNF.ml" 106 2924 2962 "CNF.ml" 106 2924 2963
+type(
+  T.elt
+)
+ident(
+  def e "CNF.ml" 106 2924 2967 "CNF.ml" 106 2924 2974
+)
+"CNF.ml" 106 2924 2967 "CNF.ml" 106 2924 2970
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  int_ref add "CNF.ml" 68 2469 2473 "CNF.ml" 68 2469 2476
+)
+"CNF.ml" 106 2924 2971 "CNF.ml" 106 2924 2972
+type(
+  T.elt
+)
+ident(
+  int_ref e "CNF.ml" 106 2924 2962 "CNF.ml" 106 2924 2963
+)
+"CNF.ml" 106 2924 2973 "CNF.ml" 106 2924 2974
+type(
+  T.t
+)
+ident(
+  int_ref a "CNF.ml" 106 2924 2960 "CNF.ml" 106 2924 2961
+)
+"CNF.ml" 106 2924 2967 "CNF.ml" 106 2924 2974
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 106 2924 2962 "CNF.ml" 106 2924 2974
+type(
+  T.elt -> T.t
+)
+"CNF.ml" 106 2924 2960 "CNF.ml" 106 2924 2974
+type(
+  T.t -> T.elt -> T.t
+)
+"CNF.ml" 106 2924 2976 "CNF.ml" 106 2924 2981
+type(
+  T.t
+)
+ident(
+  int_ref empty "CNF.ml" 62 2404 2408 "CNF.ml" 62 2404 2413
+)
+"CNF.ml" 106 2924 2982 "CNF.ml" 106 2924 2983
+type(
+  T.elt list
+)
+ident(
+  int_ref l "CNF.ml" 106 2924 2936 "CNF.ml" 106 2924 2937
+)
+"CNF.ml" 106 2924 2940 "CNF.ml" 106 2924 2983
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 106 2924 2936 "CNF.ml" 106 2924 2983
+type(
+  T.elt list -> T.t
+)
+"CNF.ml" 110 3095 3099 "CNF.ml" 110 3095 3110
+type(
+  Clause.t -> T.t -> bool
+)
+ident(
+  def fwd_subsume "CNF.ml" 117 3353 3353 "_none_" 1 0 -1
+)
+"CNF.ml" 110 3095 3111 "CNF.ml" 110 3095 3112
+type(
+  Clause.t
+)
+ident(
+  def c "CNF.ml" 110 3095 3113 "CNF.ml" 112 3156 3216
+)
+"CNF.ml" 110 3095 3113 "CNF.ml" 110 3095 3114
+type(
+  T.t
+)
+ident(
+  def s "CNF.ml" 111 3118 3120 "CNF.ml" 112 3156 3216
+)
+"CNF.ml" 111 3118 3120 "CNF.ml" 111 3118 3133
+type(
+  Stat.float_item -> (unit -> bool) -> bool
+)
+ident(
+  ext_ref Stat.time_fun
+)
+"CNF.ml" 111 3118 3134 "CNF.ml" 111 3118 3155
+type(
+  Stat.float_item
+)
+ident(
+  ext_ref Stat.cnf_subsume_time
+)
+"CNF.ml" 112 3156 3165 "CNF.ml" 112 3156 3167
+type(
+  unit
+)
+"CNF.ml" 112 3156 3171 "CNF.ml" 112 3156 3177
+type(
+  (T.elt -> bool) -> T.t -> bool
+)
+ident(
+  int_ref exists "CNF.ml" 94 2772 2776 "CNF.ml" 94 2772 2782
+)
+"CNF.ml" 112 3156 3188 "CNF.ml" 112 3156 3190
+type(
+  T.elt
+)
+ident(
+  def c' "CNF.ml" 112 3156 3194 "CNF.ml" 112 3156 3212
+)
+"CNF.ml" 112 3156 3194 "CNF.ml" 112 3156 3207
+type(
+  T.elt -> Clause.t -> bool
+)
+ident(
+  ext_ref Clause.subset
+)
+"CNF.ml" 112 3156 3208 "CNF.ml" 112 3156 3210
+type(
+  T.elt
+)
+ident(
+  int_ref c' "CNF.ml" 112 3156 3188 "CNF.ml" 112 3156 3190
+)
+"CNF.ml" 112 3156 3211 "CNF.ml" 112 3156 3212
+type(
+  Clause.t
+)
+ident(
+  int_ref c "CNF.ml" 110 3095 3111 "CNF.ml" 110 3095 3112
+)
+"CNF.ml" 112 3156 3194 "CNF.ml" 112 3156 3212
+call(
+  tail
+)
+type(
+  bool
+)
+"CNF.ml" 112 3156 3179 "CNF.ml" 112 3156 3212
+type(
+  T.elt -> bool
+)
+"CNF.ml" 112 3156 3214 "CNF.ml" 112 3156 3215
+type(
+  T.t
+)
+ident(
+  int_ref s "CNF.ml" 110 3095 3113 "CNF.ml" 110 3095 3114
+)
+"CNF.ml" 112 3156 3171 "CNF.ml" 112 3156 3215
+call(
+  tail
+)
+type(
+  bool
+)
+"CNF.ml" 112 3156 3165 "CNF.ml" 112 3156 3215
+type(
+  unit -> bool
+)
+"CNF.ml" 111 3118 3120 "CNF.ml" 112 3156 3216
+call(
+  tail
+)
+type(
+  bool
+)
+"CNF.ml" 110 3095 3113 "CNF.ml" 112 3156 3216
+type(
+  T.t -> bool
+)
+"CNF.ml" 110 3095 3111 "CNF.ml" 112 3156 3216
+type(
+  Clause.t -> T.t -> bool
+)
+"CNF.ml" 117 3353 3357 "CNF.ml" 117 3353 3368
+type(
+  Clause.t -> T.t -> T.t
+)
+ident(
+  def bwd_subsume "CNF.ml" 125 3652 3652 "_none_" 1 0 -1
+)
+"CNF.ml" 117 3353 3369 "CNF.ml" 117 3353 3370
+type(
+  Clause.t
+)
+ident(
+  def c "CNF.ml" 117 3353 3371 "CNF.ml" 119 3414 3480
+)
+"CNF.ml" 117 3353 3371 "CNF.ml" 117 3353 3372
+type(
+  T.t
+)
+ident(
+  def s "CNF.ml" 118 3376 3378 "CNF.ml" 119 3414 3480
+)
+"CNF.ml" 118 3376 3378 "CNF.ml" 118 3376 3391
+type(
+  Stat.float_item -> (unit -> T.t) -> T.t
+)
+ident(
+  ext_ref Stat.time_fun
+)
+"CNF.ml" 118 3376 3392 "CNF.ml" 118 3376 3413
+type(
+  Stat.float_item
+)
+ident(
+  ext_ref Stat.cnf_subsume_time
+)
+"CNF.ml" 119 3414 3423 "CNF.ml" 119 3414 3425
+type(
+  unit
+)
+"CNF.ml" 119 3414 3429 "CNF.ml" 119 3414 3435
+type(
+  (T.elt -> bool) -> T.t -> T.t
+)
+ident(
+  int_ref filter "CNF.ml" 96 2795 2799 "CNF.ml" 96 2795 2805
+)
+"CNF.ml" 119 3414 3446 "CNF.ml" 119 3414 3448
+type(
+  T.elt
+)
+ident(
+  def c' "CNF.ml" 119 3414 3452 "CNF.ml" 119 3414 3476
+)
+"CNF.ml" 119 3414 3452 "CNF.ml" 119 3414 3455
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"CNF.ml" 119 3414 3457 "CNF.ml" 119 3414 3470
+type(
+  Clause.t -> T.elt -> bool
+)
+ident(
+  ext_ref Clause.subset
+)
+"CNF.ml" 119 3414 3471 "CNF.ml" 119 3414 3472
+type(
+  Clause.t
+)
+ident(
+  int_ref c "CNF.ml" 117 3353 3369 "CNF.ml" 117 3353 3370
+)
+"CNF.ml" 119 3414 3473 "CNF.ml" 119 3414 3475
+type(
+  T.elt
+)
+ident(
+  int_ref c' "CNF.ml" 119 3414 3446 "CNF.ml" 119 3414 3448
+)
+"CNF.ml" 119 3414 3457 "CNF.ml" 119 3414 3475
+call(
+  stack
+)
+type(
+  bool
+)
+"CNF.ml" 119 3414 3452 "CNF.ml" 119 3414 3476
+type(
+  bool
+)
+"CNF.ml" 119 3414 3437 "CNF.ml" 119 3414 3476
+type(
+  T.elt -> bool
+)
+"CNF.ml" 119 3414 3478 "CNF.ml" 119 3414 3479
+type(
+  T.t
+)
+ident(
+  int_ref s "CNF.ml" 117 3353 3371 "CNF.ml" 117 3353 3372
+)
+"CNF.ml" 119 3414 3429 "CNF.ml" 119 3414 3479
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 119 3414 3423 "CNF.ml" 119 3414 3479
+type(
+  unit -> T.t
+)
+"CNF.ml" 118 3376 3378 "CNF.ml" 119 3414 3480
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 117 3353 3371 "CNF.ml" 119 3414 3480
+type(
+  T.t -> T.t
+)
+"CNF.ml" 117 3353 3369 "CNF.ml" 119 3414 3480
+type(
+  Clause.t -> T.t -> T.t
+)
+"CNF.ml" 125 3652 3656 "CNF.ml" 125 3652 3667
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  def add_subsume "CNF.ml" 133 3947 3947 "_none_" 1 0 -1
+)
+"CNF.ml" 125 3652 3668 "CNF.ml" 125 3652 3669
+type(
+  T.elt
+)
+ident(
+  def c "CNF.ml" 125 3652 3670 "CNF.ml" 126 3675 3731
+)
+"CNF.ml" 125 3652 3670 "CNF.ml" 125 3652 3671
+type(
+  T.t
+)
+ident(
+  def s "CNF.ml" 126 3675 3677 "CNF.ml" 126 3675 3731
+)
+"CNF.ml" 126 3675 3680 "CNF.ml" 126 3675 3691
+type(
+  T.elt -> T.t -> bool
+)
+ident(
+  int_ref fwd_subsume "CNF.ml" 110 3095 3099 "CNF.ml" 110 3095 3110
+)
+"CNF.ml" 126 3675 3692 "CNF.ml" 126 3675 3693
+type(
+  T.elt
+)
+ident(
+  int_ref c "CNF.ml" 125 3652 3668 "CNF.ml" 125 3652 3669
+)
+"CNF.ml" 126 3675 3694 "CNF.ml" 126 3675 3695
+type(
+  T.t
+)
+ident(
+  int_ref s "CNF.ml" 125 3652 3670 "CNF.ml" 125 3652 3671
+)
+"CNF.ml" 126 3675 3680 "CNF.ml" 126 3675 3695
+call(
+  stack
+)
+type(
+  bool
+)
+"CNF.ml" 126 3675 3701 "CNF.ml" 126 3675 3702
+type(
+  T.t
+)
+ident(
+  int_ref s "CNF.ml" 125 3652 3670 "CNF.ml" 125 3652 3671
+)
+"CNF.ml" 126 3675 3708 "CNF.ml" 126 3675 3711
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  int_ref add "CNF.ml" 68 2469 2473 "CNF.ml" 68 2469 2476
+)
+"CNF.ml" 126 3675 3712 "CNF.ml" 126 3675 3713
+type(
+  T.elt
+)
+ident(
+  int_ref c "CNF.ml" 125 3652 3668 "CNF.ml" 125 3652 3669
+)
+"CNF.ml" 126 3675 3715 "CNF.ml" 126 3675 3726
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  int_ref bwd_subsume "CNF.ml" 117 3353 3357 "CNF.ml" 117 3353 3368
+)
+"CNF.ml" 126 3675 3727 "CNF.ml" 126 3675 3728
+type(
+  T.elt
+)
+ident(
+  int_ref c "CNF.ml" 125 3652 3668 "CNF.ml" 125 3652 3669
+)
+"CNF.ml" 126 3675 3729 "CNF.ml" 126 3675 3730
+type(
+  T.t
+)
+ident(
+  int_ref s "CNF.ml" 125 3652 3670 "CNF.ml" 125 3652 3671
+)
+"CNF.ml" 126 3675 3715 "CNF.ml" 126 3675 3730
+call(
+  stack
+)
+type(
+  T.t
+)
+"CNF.ml" 126 3675 3708 "CNF.ml" 126 3675 3731
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 126 3675 3677 "CNF.ml" 126 3675 3731
+type(
+  T.t
+)
+"CNF.ml" 125 3652 3670 "CNF.ml" 126 3675 3731
+type(
+  T.t -> T.t
+)
+"CNF.ml" 125 3652 3668 "CNF.ml" 126 3675 3731
+type(
+  T.elt -> T.t -> T.t
+)
+"CNF.ml" 133 3947 3951 "CNF.ml" 133 3947 3964
+type(
+  T.t -> T.t -> T.t
+)
+ident(
+  def union_subsume "CNF.ml" 138 4043 4043 "_none_" 1 0 -1
+)
+"CNF.ml" 133 3947 3965 "CNF.ml" 133 3947 3967
+type(
+  T.t
+)
+ident(
+  def c1 "CNF.ml" 133 3947 3968 "CNF.ml" 134 3974 3998
+)
+"CNF.ml" 133 3947 3968 "CNF.ml" 133 3947 3970
+type(
+  T.t
+)
+ident(
+  def c2 "CNF.ml" 134 3974 3976 "CNF.ml" 134 3974 3998
+)
+"CNF.ml" 134 3974 3976 "CNF.ml" 134 3974 3980
+type(
+  (T.elt -> T.t -> T.t) -> T.t -> T.t -> T.t
+)
+ident(
+  int_ref fold "CNF.ml" 90 2728 2732 "CNF.ml" 90 2728 2736
+)
+"CNF.ml" 134 3974 3981 "CNF.ml" 134 3974 3992
+type(
+  T.elt -> T.t -> T.t
+)
+ident(
+  int_ref add_subsume "CNF.ml" 125 3652 3656 "CNF.ml" 125 3652 3667
+)
+"CNF.ml" 134 3974 3993 "CNF.ml" 134 3974 3995
+type(
+  T.t
+)
+ident(
+  int_ref c2 "CNF.ml" 133 3947 3968 "CNF.ml" 133 3947 3970
+)
+"CNF.ml" 134 3974 3996 "CNF.ml" 134 3974 3998
+type(
+  T.t
+)
+ident(
+  int_ref c1 "CNF.ml" 133 3947 3965 "CNF.ml" 133 3947 3967
+)
+"CNF.ml" 134 3974 3976 "CNF.ml" 134 3974 3998
+call(
+  tail
+)
+type(
+  T.t
+)
+"CNF.ml" 133 3947 3968 "CNF.ml" 134 3974 3998
+type(
+  T.t -> T.t
+)
+"CNF.ml" 133 3947 3965 "CNF.ml" 134 3974 3998
+type(
+  T.t -> T.t -> T.t
+)
+"CNF.ml" 138 4043 4047 "CNF.ml" 138 4043 4054
+type(
+  T.t -> Term.t
+)
+ident(
+  def to_term "CNF.ml" 138 4043 4111 "_none_" 1 0 -1
+)
+"CNF.ml" 138 4043 4055 "CNF.ml" 138 4043 4056
+type(
+  T.t
+)
+ident(
+  def s "CNF.ml" 138 4043 4059 "CNF.ml" 138 4043 4111
+)
+"CNF.ml" 138 4043 4059 "CNF.ml" 138 4043 4070
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"CNF.ml" 138 4043 4072 "CNF.ml" 138 4043 4080
+type(
+  (T.elt -> Term.t) -> T.elt list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"CNF.ml" 138 4043 4081 "CNF.ml" 138 4043 4095
+type(
+  T.elt -> Term.t
+)
+ident(
+  ext_ref Clause.to_term
+)
+"CNF.ml" 138 4043 4097 "CNF.ml" 138 4043 4107
+type(
+  T.t -> T.elt list
+)
+ident(
+  ext_ref T.elements
+)
+"CNF.ml" 138 4043 4108 "CNF.ml" 138 4043 4109
+type(
+  T.t
+)
+ident(
+  int_ref s "CNF.ml" 138 4043 4055 "CNF.ml" 138 4043 4056
+)
+"CNF.ml" 138 4043 4097 "CNF.ml" 138 4043 4109
+call(
+  stack
+)
+type(
+  T.elt list
+)
+"CNF.ml" 138 4043 4072 "CNF.ml" 138 4043 4110
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"CNF.ml" 138 4043 4059 "CNF.ml" 138 4043 4111
+call(
+  tail
+)
+type(
+  Term.t
+)
+"CNF.ml" 138 4043 4055 "CNF.ml" 138 4043 4111
+type(
+  T.t -> Term.t
+)
