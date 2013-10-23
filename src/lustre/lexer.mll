@@ -28,190 +28,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-(* Recoginized tokens *)
-type token =
+open Parser
 
-  (* Include directive *)
-  | INCLUDE
-  | STRING of string
-
-  (* Special characters *)
-  | SEMICOLON 
-  | EQUALS 
-  | COLON 
-  | COMMA 
-  | LSQBRACKET 
-  | RSQBRACKET 
-  | LPAREN 
-  | RPAREN 
-  | DOT
-
-  (* Decimal or numeral *)
-  | DECIMAL of string
-  | NUMERAL of string 
-      
-  (* Identifier *)
-  | SYM of string 
-      
-  (* Type *)
-  | TYPE
-  | INT
-  | REAL
-  | BOOL
-  | SUBRANGE
-  | OF
-    
-  (* Arrays *)
-  | ARRAY
-  | CARET
-  | LARRAYBRACKET 
-  | RARRAYBRACKET 
-  | PIPE
-
-  (* Constant declaration *)
-  | CONST
-    
-  (* Node declaration *)
-  | NODE
-  | FUNCTION
-  | RETURNS
-  | VAR
-  | LET
-  | TEL
-    
-  (* Annotations *)
-  | PROPERTY
-  | MAIN
-  | REQUIRES
-  | ENSURES
-
-  (* Assertion *)
-  | ASSERT
-    
-  (* Boolean operators *)
-  | TRUE
-  | FALSE
-  | NOT
-  | AND
-  | XOR
-  | OR
-  | IF
-  | THEN
-  | ELSE
-  | IMPL
-    
-  (* Relations *)
-  | LTE
-  | GTE
-  | LT
-  | GT
-  | NEQ
-    
-  (* Arithmetic operators *)
-  | MINUS
-  | PLUS
-  | DIV
-  | MULT
-  | INTDIV
-  | MOD
-    
-  (* Clock operators *)
-  | WHEN
-  | CURRENT
-  | CONDACT
-    
-  (* Temporal operators *)
-  | PRE
-  | FBY
-  | ARROW
-    
-  (* End of file marker *)
-  | EOF
-    
-
-(* String representation of a token *)
-let string_of_token = function
-  | INCLUDE -> "INCLUDE"
-  | STRING p -> Format.sprintf "STRING %s" p
-  | SEMICOLON -> "SEMICOLON"  
-  | EQUALS -> "EQUALS"  
-  | COLON -> "COLON"  
-  | COMMA -> "COMMA"  
-  | LSQBRACKET -> "LSQBRACKET"  
-  | RSQBRACKET -> "RSQBRACKET"  
-  | LPAREN -> "LPAREN"  
-  | RPAREN -> "RPAREN"  
-  | DOT -> "DOT" 
-  | DECIMAL p -> Format.sprintf "DECIMAL %s" p
-  | NUMERAL p -> Format.sprintf "NUMERAL %s" p
-  | SYM p -> Format.sprintf "SYM %s" p
-  | TYPE -> "TYPE" 
-  | INT -> "INT" 
-  | REAL -> "REAL" 
-  | BOOL -> "BOOL" 
-  | SUBRANGE -> "SUBRANGE" 
-  | OF -> "OF" 
-  | ARRAY -> "ARRAY" 
-  | CARET -> "CARET" 
-  | LARRAYBRACKET -> "LARRAYBRACKET"  
-  | RARRAYBRACKET -> "RARRAYBRACKET"  
-  | PIPE -> "PIPE"
-  | CONST -> "CONST" 
-  | NODE -> "NODE" 
-  | FUNCTION -> "FUNCTION" 
-  | RETURNS -> "RETURNS" 
-  | VAR -> "VAR" 
-  | LET -> "LET" 
-  | TEL -> "TEL" 
-  | PROPERTY -> "PROPERTY" 
-  | MAIN -> "MAIN" 
-  | REQUIRES -> "REQUIRES" 
-  | ENSURES -> "ENSURES" 
-  | ASSERT -> "ASSERT" 
-  | TRUE -> "TRUE" 
-  | FALSE -> "FALSE" 
-  | NOT -> "NOT" 
-  | AND -> "AND" 
-  | XOR -> "XOR" 
-  | OR -> "OR" 
-  | IF -> "IF" 
-  | THEN -> "THEN" 
-  | ELSE -> "ELSE" 
-  | IMPL -> "IMPL" 
-  | LTE -> "LTE" 
-  | GTE -> "GTE" 
-  | LT -> "LT" 
-  | GT -> "GT" 
-  | NEQ -> "NEQ" 
-  | MINUS -> "MINUS" 
-  | PLUS -> "PLUS" 
-  | DIV -> "DIV" 
-  | MULT -> "MULT" 
-  | INTDIV -> "INTDIV" 
-  | MOD -> "MOD" 
-  | WHEN -> "WHEN" 
-  | CURRENT -> "CURRENT" 
-  | CONDACT -> "CONDACT" 
-  | PRE -> "PRE" 
-  | FBY -> "FBY" 
-  | ARROW -> "ARROW" 
-  | EOF -> "EOF" 
-
-(* Pretty-print a token *)
-let pp_print_token ppf t = 
-  Format.fprintf ppf "%s" (string_of_token t)
-
-(* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    { Lexing.pos_lnum; Lexing.pos_bol; Lexing.pos_cnum } =
-
-  Format.fprintf 
-    ppf
-    "(%d,%d)"
-    pos_lnum
-    (pos_cnum - pos_bol)
-    
 (* Create and populate a hashtable *)
 let mk_hashtbl size init =
   let tbl = Hashtbl.create size in
@@ -349,6 +167,8 @@ rule token = parse
   | ')' { RPAREN }
   | '.' { DOT }
   | '^' { CARET }
+  | "{" { LCURLYBRACKET }
+  | "}" { RCURLYBRACKET }
   | "[|" { LARRAYBRACKET }
   | "|]" { RARRAYBRACKET }
   | '|' { PIPE }
@@ -462,6 +282,7 @@ and return_at_eol t = parse
 
 {
 
+(*
   let main = 
     
 
@@ -497,5 +318,6 @@ and return_at_eol t = parse
     let lexbuf = Lexing.from_channel in_ch in
 
     Format.printf "@[<v>%t@]@." (function ppf -> aux ppf lexbuf)
+*)
 
 }
