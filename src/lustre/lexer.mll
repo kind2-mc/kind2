@@ -82,7 +82,9 @@ type token =
   (* Annotations *)
   | PROPERTY
   | MAIN
-    
+  | REQUIRES
+  | ENSURES
+
   (* Assertion *)
   | ASSERT
     
@@ -163,6 +165,8 @@ let string_of_token = function
   | TEL -> "TEL" 
   | PROPERTY -> "PROPERTY" 
   | MAIN -> "MAIN" 
+  | REQUIRES -> "REQUIRES" 
+  | ENSURES -> "ENSURES" 
   | ASSERT -> "ASSERT" 
   | TRUE -> "TRUE" 
   | FALSE -> "FALSE" 
@@ -410,6 +414,20 @@ and comment = parse
 
         (* Warn and ignore rest of line *)
         | _ -> (Format.printf "Warninng: unknown annotation %s skipped@." p; 
+	        skip_to_eol lexbuf ) }
+
+  (* Contract *)
+  | "@" (id as p) 
+      { match p with 
+
+        (* Ignore rest of line and return token *)
+        | "requires" -> REQUIRES
+
+        (* Return token, continue with rest of line *)
+        | "ensures" -> ENSURES
+
+        (* Warn and ignore rest of line *)
+        | _ -> (Format.printf "Warninng: unknown contract %s skipped@." p; 
 	        skip_to_eol lexbuf ) }
 
   (* Count new line and resume *)
