@@ -54,6 +54,7 @@ let main =
         exit 1
           
   in
-  
+
+  Format.pp_set_margin Format.std_formatter 10;
   Format.printf "@[<hv>%a@]@." Program.pp_print_expr expr
 

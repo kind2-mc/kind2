@@ -242,67 +242,68 @@ expr_main:
 expr: 
 
   (* Symbol *)
-  | s = SYM { Program.Id s } 
+  | s = SYM { Program.Id ($startpos, s) } 
 
   (* Parenthesized expression *)
   | LPAREN; e = expr; RPAREN { e } 
 
   (* Propositional constants *)
-  | TRUE { Program.True }
-  | FALSE { Program.False }
+  | TRUE { Program.True $startpos }
+  | FALSE { Program.False $startpos }
 
   (* Integer numeral and floating-point decimal constants *)
-  | s = NUMERAL { Program.Num s } 
-  | s = DECIMAL { Program.Dec s } 
+  | s = NUMERAL { Program.Num ($startpos, s) } 
+  | s = DECIMAL { Program.Dec ($startpos, s) } 
 
   (* Arithmetic operators *)
-  | e1 = expr; MINUS; e2 = expr { Program.Minus (e1, e2) }
-  | MINUS; e = expr { Program.Uminus e } 
-  | e1 = expr; PLUS; e2 = expr { Program.Plus (e1, e2) }
-  | e1 = expr; MULT; e2 = expr { Program.Times (e1, e2) }
-  | e1 = expr; DIV; e2 = expr { Program.Div (e1, e2) }
-  | e1 = expr; INTDIV; e2 = expr { Program.Intdiv (e1, e2) }
-  | e1 = expr; MOD; e2 = expr { Program.Mod (e1, e2) }
+  | e1 = expr; MINUS; e2 = expr { Program.Minus ($startpos, e1, e2) }
+  | MINUS; e = expr { Program.Uminus ($startpos, e) } 
+  | e1 = expr; PLUS; e2 = expr { Program.Plus ($startpos, e1, e2) }
+  | e1 = expr; MULT; e2 = expr { Program.Times ($startpos, e1, e2) }
+  | e1 = expr; DIV; e2 = expr { Program.Div ($startpos, e1, e2) }
+  | e1 = expr; INTDIV; e2 = expr { Program.Intdiv ($startpos, e1, e2) }
+  | e1 = expr; MOD; e2 = expr { Program.Mod ($startpos, e1, e2) }
 
   (* Boolean operators *)
-  | NOT; e = expr { Program.Not e } 
-  | e1 = expr; AND; e2 = expr { Program.And (e1, e2) }
-  | e1 = expr; OR; e2 = expr { Program.Or (e1, e2) }
-  | e1 = expr; XOR; e2 = expr { Program.Xor (e1, e2) }
-  | e1 = expr; IMPL; e2 = expr { Program.Impl (e1, e2) }
+  | NOT; e = expr { Program.Not ($startpos, e) } 
+  | e1 = expr; AND; e2 = expr { Program.And ($startpos, e1, e2) }
+  | e1 = expr; OR; e2 = expr { Program.Or ($startpos, e1, e2) }
+  | e1 = expr; XOR; e2 = expr { Program.Xor ($startpos, e1, e2) }
+  | e1 = expr; IMPL; e2 = expr { Program.Impl ($startpos, e1, e2) }
 
   (* Relations *)
-  | e1 = expr; LT; e2 = expr { Program.Lt (e1, e2) }
-  | e1 = expr; GT; e2 = expr { Program.Gt (e1, e2) }
-  | e1 = expr; LTE; e2 = expr { Program.Lte (e1, e2) }
-  | e1 = expr; GTE; e2 = expr { Program.Gte (e1, e2) }
-  | e1 = expr; EQUALS; e2 = expr { Program.Eq (e1, e2) } 
-  | e1 = expr; NEQ; e2 = expr { Program.Neq (e1, e2) } 
+  | e1 = expr; LT; e2 = expr { Program.Lt ($startpos, e1, e2) }
+  | e1 = expr; GT; e2 = expr { Program.Gt ($startpos, e1, e2) }
+  | e1 = expr; LTE; e2 = expr { Program.Lte ($startpos, e1, e2) }
+  | e1 = expr; GTE; e2 = expr { Program.Gte ($startpos, e1, e2) }
+  | e1 = expr; EQUALS; e2 = expr { Program.Eq ($startpos, e1, e2) } 
+  | e1 = expr; NEQ; e2 = expr { Program.Neq ($startpos, e1, e2) } 
 
   (* If operator *)
-  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr { Program.Ite (e1, e2, e3) }
+  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
+    { Program.Ite ($startpos, e1, e2, e3) }
 
   (* Clock operators *)
-  | e1 = expr; WHEN; e2 = expr { Program.When (e1, e2) }
-  | CURRENT; e = expr { Program.Current e }
+  | e1 = expr; WHEN; e2 = expr { Program.When ($startpos, e1, e2) }
+  | CURRENT; e = expr { Program.Current ($startpos, e) }
   | CONDACT LPAREN; e1 = expr COMMA; e2 = expr COMMA; e3 = expr RPAREN
-    { Program.Condact (e1, e2, e3) } 
+    { Program.Condact ($startpos, e1, e2, e3) } 
 
   (* Temporal operators *)
-  | PRE; e = expr { Program.Pre e }
+  | PRE; e = expr { Program.Pre ($startpos, e) }
   | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN
-    { Program.Fby (e2, (int_of_string s), e2) } 
-  | e1 = expr; ARROW; e2 = expr { Program.Arrow (e1, e2) }
+    { Program.Fby ($startpos, e2, (int_of_string s), e2) } 
+  | e1 = expr; ARROW; e2 = expr { Program.Arrow ($startpos, e1, e2) }
 
   (* Node call *)
   | s = SYM ; LPAREN; a = separated_list(COMMA, expr); RPAREN 
-    { Program.Call (s, a) }
+    { Program.Call ($startpos, s, a) }
 
   (* Record field projection *)
   | s = SYM; DOT; t = SYM 
-    { Program.RecordProject (s, t) }
+    { Program.RecordProject ($startpos, s, t) }
 
   (* Tuple projection *)
   | s = SYM; LSQBRACKET; t = NUMERAL; RSQBRACKET
-    { Program.TupleProject (s, (int_of_string t)) }
+    { Program.TupleProject ($startpos, s, (int_of_string t)) }
 

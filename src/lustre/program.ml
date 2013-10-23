@@ -29,81 +29,111 @@
 
 type t 
 
+(* Pretty-print a position *)
+let pp_print_position 
+    ppf 
+    { Lexing.pos_lnum; Lexing.pos_bol; Lexing.pos_cnum } =
+
+  Format.fprintf 
+    ppf
+    "(%d,%d)"
+    pos_lnum
+    (pos_cnum - pos_bol)
+
+
 type id = string 
 
+(* Lustre expression *)
 type expr =
 
   (* Identifier *)
-  | Id of id
-  | RecordProject of id * id
-  | TupleProject of id * int
+  | Id of Lexing.position * id
+  | RecordProject of Lexing.position * id * id
+  | TupleProject of Lexing.position * id * int
 
   (* Constants *)
-  | True 
-  | False
-  | Num of string
-  | Dec of string
+  | True of Lexing.position
+  | False of Lexing.position
+  | Num of Lexing.position * string
+  | Dec of Lexing.position * string
 
   (* Boolean operators *)
-  | Not of expr 
-  | And of expr * expr 
-  | Or of expr * expr
-  | Xor of expr * expr 
-  | Impl of expr * expr 
+  | Not of Lexing.position * expr 
+  | And of Lexing.position * expr * expr 
+  | Or of Lexing.position * expr * expr
+  | Xor of Lexing.position * expr * expr 
+  | Impl of Lexing.position * expr * expr 
 
   (* Arithmetic operators *)
-  | Uminus of expr 
-  | Mod of expr * expr
-  | Minus of expr * expr
-  | Plus of expr * expr
-  | Div of expr * expr
-  | Times of expr * expr
-  | Intdiv of expr * expr
+  | Uminus of Lexing.position * expr 
+  | Mod of Lexing.position * expr * expr
+  | Minus of Lexing.position * expr * expr
+  | Plus of Lexing.position * expr * expr
+  | Div of Lexing.position * expr * expr
+  | Times of Lexing.position * expr * expr
+  | Intdiv of Lexing.position * expr * expr
 
   (* If operator *)
-  | Ite of expr * expr * expr 
+  | Ite of Lexing.position * expr * expr * expr 
 
   (* Relations *)
-  | Eq of expr * expr 
-  | Neq of expr * expr
-  | Lte of expr * expr
-  | Lt of expr * expr
-  | Gte of expr * expr
-  | Gt of expr * expr
+  | Eq of Lexing.position * expr * expr 
+  | Neq of Lexing.position * expr * expr
+  | Lte of Lexing.position * expr * expr
+  | Lt of Lexing.position * expr * expr
+  | Gte of Lexing.position * expr * expr
+  | Gt of Lexing.position * expr * expr
 
   (* Clock operators *)
-  | When of expr * expr 
-  | Current of expr
-  | Condact of expr * expr * expr 
+  | When of Lexing.position * expr * expr 
+  | Current of Lexing.position * expr
+  | Condact of Lexing.position * expr * expr * expr 
   
   (* Temporal operators *)
-  | Pre of expr 
-  | Fby of expr * int * expr 
-  | Arrow of expr * expr 
+  | Pre of Lexing.position * expr 
+  | Fby of Lexing.position * expr * int * expr 
+  | Arrow of Lexing.position * expr * expr 
 
   (* Node call *)
-  | Call of string * expr list 
+  | Call of Lexing.position * string * expr list 
 
 
+(* Pretty-print a Lustre expression *)
 let rec pp_print_expr ppf = 
 
-  let ps = Format.fprintf ppf "%s" in 
+  let ppos ppf p =
+    (if false then Format.fprintf else Format.ifprintf)
+      ppf
+      "%a" 
+      pp_print_position p
+  in
 
-  let p1 s e = 
-    Format.fprintf ppf "@[<hv 2>(%s@ %a)@]" s pp_print_expr e 
+  (* Pretty-print a string *)
+  let ps p = Format.fprintf ppf "%a%s" ppos p in 
+
+  (* Pretty-print a unary operator *)
+  let p1 p s e = 
+    Format.fprintf ppf "@[<hv 2>%a(%s %a)@]" 
+      ppos p 
+      s 
+      pp_print_expr e 
   in 
 
-  let p2 s e1 e2 = 
+  (* Pretty-print a binary infix operator *)
+  let p2 p s e1 e2 = 
     Format.fprintf ppf
-      "@[<hv 2>(%a@ %s@ %a)@]" 
+      "@[<hv 2>%a(%a %s@ %a)@]" 
+      ppos p 
       pp_print_expr e1 
       s 
       pp_print_expr e2 
   in 
 
-  let p3 s1 s2 s3 e1 e2 e3 = 
+  (* Pretty-print a ternary infix operator *)
+  let p3 p s1 s2 s3 e1 e2 e3 = 
     Format.fprintf ppf
-      "@[<hv 2>(%s@ %a@ %s@ %a@ %s@ %a)@]" 
+      "@[<hv 2>%a(%s@ %a@;<1 -1>%s@ %a@;<1 -1>%s@ %a)@]" 
+      ppos p 
       s1 
       pp_print_expr e1 
       s2
@@ -112,93 +142,77 @@ let rec pp_print_expr ppf =
       pp_print_expr e3 
   in 
   
-  let p1p s e = 
-    Format.fprintf ppf "@[<hv 2>%s(%a)@]" s pp_print_expr e 
-  in 
-
-  let p2p s e1 e2 = 
-    Format.fprintf ppf
-      "@[<hv 2>%s(%a,@ %a)@]" 
-      s 
-      pp_print_expr e1 
-      pp_print_expr e2 
-  in 
-
-  let p3p s e1 e2 e3 = 
-    Format.fprintf ppf
-      "@[<hv 2>%s(%a,@ %a,@ %a)@]" 
-      s
-      pp_print_expr e1 
-      pp_print_expr e2 
-      pp_print_expr e2 
-  in 
-  
+  (* Pretty-print a comma-separated list of expressions *)
   let rec pl ppf = function 
     | [] -> ()
     | [e] -> Format.fprintf ppf "%a" pp_print_expr e
     | e :: tl -> Format.fprintf ppf "%a,@ %a" pl [e] pl tl
   in
 
-  let pnp s l = 
+  (* Pretty-print a variadic prefix operator *)
+  let pnp p s l = 
     Format.fprintf ppf
-      "@[<hv 2>%s(%a)@]" 
+      "@[<hv 2>%a%s(%a)@]" 
+      ppos p 
       s
       pl l
   in
 
   function
     
-    | Id id -> ps id
+    | Id (p, id) -> ps p id
+    | RecordProject (p, id, f) -> 
+      Format.fprintf ppf "%a%s.%s" ppos p id f
 
-    | RecordProject (id, f) -> Format.fprintf ppf "%s.%s" id f
-    | TupleProject (id, f) -> Format.fprintf ppf "%s[%d]" id f
+    | TupleProject (p, id, f) -> 
+      Format.fprintf ppf "%a%s[%d]" ppos p id f
 
-    | True -> ps "true"
-    | False -> ps "false"
+    | True p -> ps p "true"
+    | False p -> ps p "false"
 
-    | Num n -> ps n
-    | Dec d -> ps d
+    | Num (p, n) -> ps p n
+    | Dec (p, d) -> ps p d
 
-    | Not e -> p1 "not" e
-    | And (e1, e2) -> p2 "and" e1 e2
-    | Or (e1, e2) -> p2 "or" e1 e2
-    | Xor (e1, e2) -> p2 "xor" e1 e2
-    | Impl (e1, e2) -> p2 "=>" e1 e2
+    | Not (p, e) -> p1 p "not" e
+    | And (p, e1, e2) -> p2 p "and" e1 e2
+    | Or (p, e1, e2) -> p2 p "or" e1 e2
+    | Xor (p, e1, e2) -> p2 p "xor" e1 e2
+    | Impl (p, e1, e2) -> p2 p "=>" e1 e2
 
-    (* Arithmetic operators *)
-    | Uminus e -> p1 "-" e
-    | Mod (e1, e2) -> p2 "mod" e1 e2 
-    | Minus (e1, e2) -> p2 "-" e1 e2
-    | Plus (e1, e2) -> p2 "+" e1 e2
-    | Div (e1, e2) -> p2 "/" e1 e2
-    | Times (e1, e2) -> p2 "*" e1 e2
-    | Intdiv (e1, e2) -> p2 "div" e1 e2
+    | Uminus (p, e) -> p1 p "-" e
+    | Mod (p, e1, e2) -> p2 p "mod" e1 e2 
+    | Minus (p, e1, e2) -> p2 p "-" e1 e2
+    | Plus (p, e1, e2) -> p2 p "+" e1 e2
+    | Div (p, e1, e2) -> p2 p "/" e1 e2
+    | Times (p, e1, e2) -> p2 p "*" e1 e2
+    | Intdiv (p, e1, e2) -> p2 p "div" e1 e2
 
-    (* If operator *)
-    | Ite (e1, e2, e3) -> p3 "if" "then" "else" e1 e2 e3
+    | Ite (p, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
-    (* Relations *)
-    | Eq (e1, e2) -> p2 "=" e1 e2
-    | Neq (e1, e2) -> p2 "<>" e1 e2
-    | Lte (e1, e2) -> p2 "<=" e1 e2
-    | Lt (e1, e2) -> p2 "<" e1 e2
-    | Gte (e1, e2) -> p2 ">=" e1 e2
-    | Gt (e1, e2) -> p2 ">" e1 e2
+    | Eq (p, e1, e2) -> p2 p "=" e1 e2
+    | Neq (p, e1, e2) -> p2 p "<>" e1 e2
+    | Lte (p, e1, e2) -> p2 p "<=" e1 e2
+    | Lt (p, e1, e2) -> p2 p "<" e1 e2
+    | Gte (p, e1, e2) -> p2 p ">=" e1 e2
+    | Gt (p, e1, e2) -> p2 p ">" e1 e2
 
-    (* Clock operators *)
-    | When (e1, e2) -> p2 "when" e1 e2
-    | Current e -> p1 "current" e
-    | Condact (e1, e2, e3) -> p3p "condact" e1 e2 e3
+    | When (p, e1, e2) -> p2 p "when" e1 e2
+    | Current (p, e) -> p1 p "current" e
+    | Condact (p, e1, e2, e3) -> pnp p "condact" [e1; e2; e3]
   
-    (* Temporal operators *)
-    | Pre e -> p1 "pre" e
-    | Fby (e1, i, e2) -> 
-      Format.fprintf ppf 
-        "fby(%a,@ %d,@ %a)" pp_print_expr e1 i pp_print_expr e2
-    | Arrow (e1, e2) -> p2 "->" e1 e2
+    | Pre (p, e) -> p1 p "pre" e
+    | Fby (p, e1, i, e2) -> 
 
-    (* Node call *)
-    | Call (id, l) -> pnp id l
+      Format.fprintf ppf 
+        "%afby(p, %a,@ %d,@ %a)" 
+        ppos p 
+        pp_print_expr e1 
+        i 
+        pp_print_expr e2
+
+    | Arrow (p, e1, e2) -> p2 p "->" e1 e2
+
+    | Call (p, id, l) -> pnp p id l
 
 
 (* Constant declaration *)
