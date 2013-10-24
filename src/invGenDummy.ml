@@ -31,6 +31,7 @@ This file is part of the Kind verifier
 open Lib
 
 
+
 (* Seconds before sending the next invariant *)
 let period = 0.5
 
@@ -83,13 +84,33 @@ let rec inv_gen_dummy k =
 
   (* Recurse for the next invariant *)
   inv_gen_dummy (succ k)
-
-
+  
+(*Sending invariant*)
+let send_invariant x  =
+	Event.invariant `INVGEN (OldParser.il_formula_to_term false x)
+	
 (* Entry point *)
 let main _ = 
 
   (* Run loop *)
-  inv_gen_dummy 0
+  (*Kind1.Lus_assertions.get_assertion_term; ()*)
+  if(Kind1.Solvers_path.yicesw_path = "no") then
+	      (
+		 Kind1.Globals.my_solver#set (new Kind1.Solver_yices_cmdline.solver_yices_cmdline)
+	      )else(
+		Kind1.Globals.my_solver#set (new Kind1.Solver_yices.solver_yices)
+	      );
+  
+  Kind1.OldFlags.do_scratch := false;
+  if !Kind1.OldFlags.do_scratch then
+    begin
+    	Kind1.Channels.inv_ch := open_out ((Flags.input_file ())^"."^Kind1.Globals.my_solver#get#file_extension^"_inv_offline")
+    end;
+  Kind1.OldFlags.invariant_int := true;
+  Kind1.OldFlags.invariant_bool := true;
+  Kind1.OldFlags.mode_inv := true;
+  Kind1.Kind_inv_loop.mainloop (Flags.input_file ()) send_invariant;
+  
 
 
 (* 
