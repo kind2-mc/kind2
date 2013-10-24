@@ -52,8 +52,10 @@ let rec parse_stream = parser
             
 (*match the element type of the sequence with int, float and bool*)						
   and parse_sequence = parser
-        |[< 'Int value;  int_sequence = parse_int_sequence [Term.mk_num_of_int value] >] ->  int_sequence
-		|[<'Float value;  float_sequence = parse_float_sequence  [Term.mk_dec_of_float value] >] ->  float_sequence
+        |[< 'Int value; 
+            int_sequence = parse_int_sequence [Term.mk_num_of_int value] >] ->  int_sequence
+		|[<'Float value;
+		    float_sequence = parse_float_sequence  [Term.mk_dec_of_float value] >] ->  float_sequence
 		|[<'Kwd "true";  bool_sequence = parse_bool_sequence [ Term.t_true] >]  -> bool_sequence
 		|[<'Kwd "false"; bool_sequence = parse_bool_sequence [Term.t_false] >] ->  bool_sequence
 
