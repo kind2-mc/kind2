@@ -1,0 +1,4294 @@
+"stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+type(
+  string -> 'a -> 'a item
+)
+ident(
+  def empty_item "stat.ml" 65 2560 2560 "_none_" 1 0 -1
+)
+"stat.ml" 56 2167 2182 "stat.ml" 56 2167 2189
+type(
+  string
+)
+ident(
+  def display "stat.ml" 56 2167 2190 "stat.ml" 57 2201 2276
+)
+"stat.ml" 56 2167 2190 "stat.ml" 56 2167 2197
+type(
+  'a
+)
+ident(
+  def default "stat.ml" 57 2201 2203 "stat.ml" 57 2201 2276
+)
+"stat.ml" 57 2201 2215 "stat.ml" 57 2201 2222
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 56 2167 2182 "stat.ml" 56 2167 2189
+)
+"stat.ml" 57 2201 2232 "stat.ml" 57 2201 2239
+type(
+  'a
+)
+ident(
+  int_ref default "stat.ml" 56 2167 2190 "stat.ml" 56 2167 2197
+)
+"stat.ml" 57 2201 2251 "stat.ml" 57 2201 2258
+type(
+  'a
+)
+ident(
+  int_ref default "stat.ml" 56 2167 2190 "stat.ml" 56 2167 2197
+)
+"stat.ml" 57 2201 2267 "stat.ml" 57 2201 2274
+type(
+  'a
+)
+ident(
+  int_ref default "stat.ml" 56 2167 2190 "stat.ml" 56 2167 2197
+)
+"stat.ml" 57 2201 2203 "stat.ml" 57 2201 2276
+type(
+  'a item
+)
+"stat.ml" 56 2167 2190 "stat.ml" 57 2201 2276
+type(
+  'a -> 'a item
+)
+"stat.ml" 56 2167 2182 "stat.ml" 57 2201 2276
+type(
+  string -> 'a -> 'a item
+)
+"stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  def set_value "stat.ml" 68 2645 2645 "_none_" 1 0 -1
+)
+"stat.ml" 65 2560 2574 "stat.ml" 65 2560 2579
+type(
+  'a
+)
+ident(
+  def value "stat.ml" 65 2560 2580 "stat.ml" 65 2560 2606
+)
+"stat.ml" 65 2560 2580 "stat.ml" 65 2560 2584
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 65 2560 2587 "stat.ml" 65 2560 2606
+)
+"stat.ml" 65 2560 2587 "stat.ml" 65 2560 2591
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 65 2560 2580 "stat.ml" 65 2560 2584
+)
+"stat.ml" 65 2560 2601 "stat.ml" 65 2560 2606
+type(
+  'a
+)
+ident(
+  int_ref value "stat.ml" 65 2560 2574 "stat.ml" 65 2560 2579
+)
+"stat.ml" 65 2560 2587 "stat.ml" 65 2560 2606
+type(
+  unit
+)
+"stat.ml" 65 2560 2580 "stat.ml" 65 2560 2606
+type(
+  'a item -> unit
+)
+"stat.ml" 65 2560 2574 "stat.ml" 65 2560 2606
+type(
+  'a -> 'a item -> unit
+)
+"stat.ml" 68 2645 2649 "stat.ml" 68 2645 2652
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  def set "stat.ml" 71 2700 2700 "_none_" 1 0 -1
+)
+"stat.ml" 68 2645 2655 "stat.ml" 68 2645 2664
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 71 2700 2704 "stat.ml" 71 2700 2713
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  def set_float "stat.ml" 74 2764 2764 "_none_" 1 0 -1
+)
+"stat.ml" 71 2700 2716 "stat.ml" 71 2700 2725
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 74 2764 2768 "stat.ml" 74 2764 2780
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  def set_int_list "stat.ml" 77 2838 2838 "_none_" 1 0 -1
+)
+"stat.ml" 74 2764 2783 "stat.ml" 74 2764 2792
+type(
+  'a -> 'a item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 77 2838 2842 "stat.ml" 77 2838 2846
+type(
+  ?by:int -> int item -> unit
+)
+ident(
+  def incr "stat.ml" 80 2972 2972 "_none_" 1 0 -1
+)
+"stat.ml" 77 2838 2854 "stat.ml" 77 2838 2855
+type(
+  int
+)
+type(
+  int
+)
+ident(
+  int_ref *sth* "stat.ml" 77 2838 2854 "stat.ml" 77 2838 2855
+)
+type(
+  int option
+)
+type(
+  int option
+)
+type(
+  int
+)
+"stat.ml" 77 2838 2847 "stat.ml" 77 2838 2856
+type(
+  int
+)
+"stat.ml" 77 2838 2860 "stat.ml" 77 2838 2865
+type(
+  int
+)
+ident(
+  def value "stat.ml" 77 2838 2879 "stat.ml" 77 2838 2906
+)
+"stat.ml" 77 2838 2858 "stat.ml" 77 2838 2867
+type(
+  int item
+)
+"stat.ml" 77 2838 2858 "stat.ml" 77 2838 2875
+type(
+  int item
+)
+ident(
+  def item "stat.ml" 77 2838 2879 "stat.ml" 77 2838 2906
+)
+"stat.ml" 77 2838 2879 "stat.ml" 77 2838 2888
+type(
+  int -> int item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 77 2838 2890 "stat.ml" 77 2838 2895
+type(
+  int
+)
+ident(
+  int_ref value "stat.ml" 77 2838 2860 "stat.ml" 77 2838 2865
+)
+"stat.ml" 77 2838 2896 "stat.ml" 77 2838 2897
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"stat.ml" 77 2838 2898 "stat.ml" 77 2838 2900
+type(
+  int
+)
+ident(
+  int_ref by "stat.ml" 77 2838 2847 "stat.ml" 77 2838 2856
+)
+"stat.ml" 77 2838 2890 "stat.ml" 77 2838 2900
+type(
+  int
+)
+"stat.ml" 77 2838 2902 "stat.ml" 77 2838 2906
+type(
+  int item
+)
+ident(
+  int_ref item "stat.ml" 77 2838 2858 "stat.ml" 77 2838 2875
+)
+"stat.ml" 77 2838 2879 "stat.ml" 77 2838 2906
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 77 2838 2857 "stat.ml" 77 2838 2906
+type(
+  int item -> unit
+)
+"stat.ml" 77 2838 2847 "stat.ml" 77 2838 2906
+type(
+  ?by:int -> int item -> unit
+)
+type(
+  int item -> unit
+)
+type(
+  int
+)
+type(
+  int option
+)
+ident(
+  int_ref *opt* "stat.ml" 77 2838 2847 "stat.ml" 77 2838 2906
+)
+type(
+  int option
+)
+"stat.ml" 80 2972 2976 "stat.ml" 80 2972 2985
+type(
+  ?by:int -> int list item -> unit
+)
+ident(
+  def incr_last "stat.ml" 93 3204 3204 "_none_" 1 0 -1
+)
+"stat.ml" 80 2972 2993 "stat.ml" 80 2972 2994
+type(
+  int
+)
+type(
+  int
+)
+ident(
+  int_ref *sth* "stat.ml" 80 2972 2993 "stat.ml" 80 2972 2994
+)
+type(
+  int option
+)
+type(
+  int option
+)
+type(
+  int
+)
+"stat.ml" 80 2972 2986 "stat.ml" 80 2972 2995
+type(
+  int
+)
+"stat.ml" 80 2972 2999 "stat.ml" 80 2972 3004
+type(
+  int list
+)
+ident(
+  def value "stat.ml" 82 3020 3022 "stat.ml" 89 3129 3157
+)
+"stat.ml" 80 2972 2997 "stat.ml" 80 2972 3006
+type(
+  int list item
+)
+"stat.ml" 80 2972 2997 "stat.ml" 80 2972 3014
+type(
+  int list item
+)
+ident(
+  def item "stat.ml" 82 3020 3022 "stat.ml" 89 3129 3157
+)
+"stat.ml" 82 3020 3030 "stat.ml" 82 3020 3033
+type(
+  int list -> int list
+)
+ident(
+  def aux "stat.ml" 82 3020 3022 "stat.ml" 89 3129 3157
+)
+"stat.ml" 84 3051 3059 "stat.ml" 84 3051 3061
+type(
+  int list
+)
+"stat.ml" 84 3051 3065 "stat.ml" 84 3051 3067
+type(
+  int list
+)
+"stat.ml" 85 3068 3077 "stat.ml" 85 3068 3078
+type(
+  int list
+)
+type(
+  int
+)
+ident(
+  def l "stat.ml" 85 3068 3084 "stat.ml" 85 3068 3090
+)
+"stat.ml" 85 3068 3076 "stat.ml" 85 3068 3079
+type(
+  int list
+)
+"stat.ml" 85 3068 3084 "stat.ml" 85 3068 3085
+type(
+  int
+)
+ident(
+  int_ref l "stat.ml" 85 3068 3077 "stat.ml" 85 3068 3078
+)
+"stat.ml" 85 3068 3086 "stat.ml" 85 3068 3087
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"stat.ml" 85 3068 3088 "stat.ml" 85 3068 3090
+type(
+  int
+)
+ident(
+  int_ref by "stat.ml" 80 2972 2986 "stat.ml" 80 2972 2995
+)
+"stat.ml" 85 3068 3084 "stat.ml" 85 3068 3090
+type(
+  int
+)
+type(
+  int list
+)
+"stat.ml" 85 3068 3083 "stat.ml" 85 3068 3091
+type(
+  int list
+)
+"stat.ml" 86 3092 3100 "stat.ml" 86 3092 3101
+type(
+  int
+)
+ident(
+  def h "stat.ml" 86 3092 3111 "stat.ml" 86 3092 3122
+)
+"stat.ml" 86 3092 3105 "stat.ml" 86 3092 3107
+type(
+  int list
+)
+ident(
+  def tl "stat.ml" 86 3092 3111 "stat.ml" 86 3092 3122
+)
+"stat.ml" 86 3092 3100 "stat.ml" 86 3092 3107
+type(
+  int list
+)
+"stat.ml" 86 3092 3111 "stat.ml" 86 3092 3112
+type(
+  int
+)
+ident(
+  int_ref h "stat.ml" 86 3092 3100 "stat.ml" 86 3092 3101
+)
+"stat.ml" 86 3092 3116 "stat.ml" 86 3092 3119
+type(
+  int list -> int list
+)
+ident(
+  int_ref aux "stat.ml" 82 3020 3030 "stat.ml" 82 3020 3033
+)
+"stat.ml" 86 3092 3120 "stat.ml" 86 3092 3122
+type(
+  int list
+)
+ident(
+  int_ref tl "stat.ml" 86 3092 3105 "stat.ml" 86 3092 3107
+)
+"stat.ml" 86 3092 3116 "stat.ml" 86 3092 3122
+call(
+  stack
+)
+type(
+  int list
+)
+"stat.ml" 86 3092 3111 "stat.ml" 86 3092 3122
+type(
+  int list
+)
+"stat.ml" 83 3037 3041 "stat.ml" 86 3092 3122
+type(
+  int list -> int list
+)
+"stat.ml" 89 3129 3131 "stat.ml" 89 3129 3140
+type(
+  int list -> int list item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 89 3129 3142 "stat.ml" 89 3129 3145
+type(
+  int list -> int list
+)
+ident(
+  int_ref aux "stat.ml" 82 3020 3030 "stat.ml" 82 3020 3033
+)
+"stat.ml" 89 3129 3146 "stat.ml" 89 3129 3151
+type(
+  int list
+)
+ident(
+  int_ref value "stat.ml" 80 2972 2999 "stat.ml" 80 2972 3004
+)
+"stat.ml" 89 3129 3142 "stat.ml" 89 3129 3151
+call(
+  stack
+)
+type(
+  int list
+)
+"stat.ml" 89 3129 3153 "stat.ml" 89 3129 3157
+type(
+  int list item
+)
+ident(
+  int_ref item "stat.ml" 80 2972 2997 "stat.ml" 80 2972 3014
+)
+"stat.ml" 89 3129 3131 "stat.ml" 89 3129 3157
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 82 3020 3022 "stat.ml" 89 3129 3157
+type(
+  unit
+)
+"stat.ml" 80 2972 2996 "stat.ml" 89 3129 3157
+type(
+  int list item -> unit
+)
+"stat.ml" 80 2972 2986 "stat.ml" 89 3129 3157
+type(
+  ?by:int -> int list item -> unit
+)
+type(
+  int list item -> unit
+)
+type(
+  int
+)
+type(
+  int option
+)
+ident(
+  int_ref *opt* "stat.ml" 80 2972 2986 "stat.ml" 89 3129 3157
+)
+type(
+  int option
+)
+"stat.ml" 93 3204 3208 "stat.ml" 93 3204 3218
+type(
+  float -> float item -> unit
+)
+ident(
+  def incr_float "stat.ml" 96 3329 3329 "_none_" 1 0 -1
+)
+"stat.ml" 93 3204 3219 "stat.ml" 93 3204 3221
+type(
+  float
+)
+ident(
+  def by "stat.ml" 93 3204 3222 "stat.ml" 93 3204 3272
+)
+"stat.ml" 93 3204 3225 "stat.ml" 93 3204 3230
+type(
+  float
+)
+ident(
+  def value "stat.ml" 93 3204 3244 "stat.ml" 93 3204 3272
+)
+"stat.ml" 93 3204 3223 "stat.ml" 93 3204 3232
+type(
+  float item
+)
+"stat.ml" 93 3204 3223 "stat.ml" 93 3204 3240
+type(
+  float item
+)
+ident(
+  def item "stat.ml" 93 3204 3244 "stat.ml" 93 3204 3272
+)
+"stat.ml" 93 3204 3244 "stat.ml" 93 3204 3253
+type(
+  float -> float item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 93 3204 3255 "stat.ml" 93 3204 3260
+type(
+  float
+)
+ident(
+  int_ref value "stat.ml" 93 3204 3225 "stat.ml" 93 3204 3230
+)
+"stat.ml" 93 3204 3261 "stat.ml" 93 3204 3263
+type(
+  float -> float -> float
+)
+ident(
+  ext_ref Pervasives.( +. )
+)
+"stat.ml" 93 3204 3264 "stat.ml" 93 3204 3266
+type(
+  float
+)
+ident(
+  int_ref by "stat.ml" 93 3204 3219 "stat.ml" 93 3204 3221
+)
+"stat.ml" 93 3204 3255 "stat.ml" 93 3204 3266
+type(
+  float
+)
+"stat.ml" 93 3204 3268 "stat.ml" 93 3204 3272
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 93 3204 3223 "stat.ml" 93 3204 3240
+)
+"stat.ml" 93 3204 3244 "stat.ml" 93 3204 3272
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 93 3204 3222 "stat.ml" 93 3204 3272
+type(
+  float item -> unit
+)
+"stat.ml" 93 3204 3219 "stat.ml" 93 3204 3272
+type(
+  float -> float item -> unit
+)
+"stat.ml" 96 3329 3333 "stat.ml" 96 3329 3339
+type(
+  'a -> 'a list item -> unit
+)
+ident(
+  def append "stat.ml" 99 3451 3451 "_none_" 1 0 -1
+)
+"stat.ml" 96 3329 3340 "stat.ml" 96 3329 3344
+type(
+  'a
+)
+ident(
+  def elem "stat.ml" 96 3329 3345 "stat.ml" 96 3329 3398
+)
+"stat.ml" 96 3329 3348 "stat.ml" 96 3329 3353
+type(
+  'a list
+)
+ident(
+  def value "stat.ml" 96 3329 3367 "stat.ml" 96 3329 3398
+)
+"stat.ml" 96 3329 3346 "stat.ml" 96 3329 3355
+type(
+  'a list item
+)
+"stat.ml" 96 3329 3346 "stat.ml" 96 3329 3363
+type(
+  'a list item
+)
+ident(
+  def item "stat.ml" 96 3329 3367 "stat.ml" 96 3329 3398
+)
+"stat.ml" 96 3329 3367 "stat.ml" 96 3329 3376
+type(
+  'a list -> 'a list item -> unit
+)
+ident(
+  int_ref set_value "stat.ml" 65 2560 2564 "stat.ml" 65 2560 2573
+)
+"stat.ml" 96 3329 3378 "stat.ml" 96 3329 3383
+type(
+  'a list
+)
+ident(
+  int_ref value "stat.ml" 96 3329 3348 "stat.ml" 96 3329 3353
+)
+"stat.ml" 96 3329 3384 "stat.ml" 96 3329 3385
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"stat.ml" 96 3329 3387 "stat.ml" 96 3329 3391
+type(
+  'a
+)
+ident(
+  int_ref elem "stat.ml" 96 3329 3340 "stat.ml" 96 3329 3344
+)
+type(
+  'a list
+)
+"stat.ml" 96 3329 3386 "stat.ml" 96 3329 3392
+type(
+  'a list
+)
+"stat.ml" 96 3329 3378 "stat.ml" 96 3329 3392
+call(
+  stack
+)
+type(
+  'a list
+)
+"stat.ml" 96 3329 3394 "stat.ml" 96 3329 3398
+type(
+  'a list item
+)
+ident(
+  int_ref item "stat.ml" 96 3329 3346 "stat.ml" 96 3329 3363
+)
+"stat.ml" 96 3329 3367 "stat.ml" 96 3329 3398
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 96 3329 3345 "stat.ml" 96 3329 3398
+type(
+  'a list item -> unit
+)
+"stat.ml" 96 3329 3340 "stat.ml" 96 3329 3398
+type(
+  'a -> 'a list item -> unit
+)
+"stat.ml" 99 3451 3455 "stat.ml" 99 3451 3466
+type(
+  'a item -> unit
+)
+ident(
+  def reset_value "stat.ml" 102 3554 3554 "_none_" 1 0 -1
+)
+"stat.ml" 99 3451 3467 "stat.ml" 99 3451 3471
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 99 3451 3474 "stat.ml" 99 3451 3500
+)
+"stat.ml" 99 3451 3474 "stat.ml" 99 3451 3478
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 99 3451 3467 "stat.ml" 99 3451 3471
+)
+"stat.ml" 99 3451 3488 "stat.ml" 99 3451 3492
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 99 3451 3467 "stat.ml" 99 3451 3471
+)
+"stat.ml" 99 3451 3488 "stat.ml" 99 3451 3500
+type(
+  'a
+)
+"stat.ml" 99 3451 3474 "stat.ml" 99 3451 3500
+type(
+  unit
+)
+"stat.ml" 99 3451 3467 "stat.ml" 99 3451 3500
+type(
+  'a item -> unit
+)
+"stat.ml" 102 3554 3558 "stat.ml" 102 3554 3563
+type(
+  'a item -> unit
+)
+ident(
+  def reset "stat.ml" 105 3646 3646 "_none_" 1 0 -1
+)
+"stat.ml" 102 3554 3564 "stat.ml" 102 3554 3568
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 102 3554 3571 "stat.ml" 102 3554 3587
+)
+"stat.ml" 102 3554 3571 "stat.ml" 102 3554 3582
+type(
+  'a item -> unit
+)
+ident(
+  int_ref reset_value "stat.ml" 99 3451 3455 "stat.ml" 99 3451 3466
+)
+"stat.ml" 102 3554 3583 "stat.ml" 102 3554 3587
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 102 3554 3564 "stat.ml" 102 3554 3568
+)
+"stat.ml" 102 3554 3571 "stat.ml" 102 3554 3587
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 102 3554 3564 "stat.ml" 102 3554 3587
+type(
+  'a item -> unit
+)
+"stat.ml" 105 3646 3650 "stat.ml" 105 3646 3661
+type(
+  'a item -> unit
+)
+ident(
+  def reset_float "stat.ml" 108 3752 3752 "_none_" 1 0 -1
+)
+"stat.ml" 105 3646 3662 "stat.ml" 105 3646 3666
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 105 3646 3669 "stat.ml" 105 3646 3685
+)
+"stat.ml" 105 3646 3669 "stat.ml" 105 3646 3680
+type(
+  'a item -> unit
+)
+ident(
+  int_ref reset_value "stat.ml" 99 3451 3455 "stat.ml" 99 3451 3466
+)
+"stat.ml" 105 3646 3681 "stat.ml" 105 3646 3685
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 105 3646 3662 "stat.ml" 105 3646 3666
+)
+"stat.ml" 105 3646 3669 "stat.ml" 105 3646 3685
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 105 3646 3662 "stat.ml" 105 3646 3685
+type(
+  'a item -> unit
+)
+"stat.ml" 108 3752 3756 "stat.ml" 108 3752 3770
+type(
+  'a item -> unit
+)
+ident(
+  def reset_int_list "stat.ml" 111 3845 3845 "_none_" 1 0 -1
+)
+"stat.ml" 108 3752 3771 "stat.ml" 108 3752 3775
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 108 3752 3778 "stat.ml" 108 3752 3794
+)
+"stat.ml" 108 3752 3778 "stat.ml" 108 3752 3789
+type(
+  'a item -> unit
+)
+ident(
+  int_ref reset_value "stat.ml" 99 3451 3455 "stat.ml" 99 3451 3466
+)
+"stat.ml" 108 3752 3790 "stat.ml" 108 3752 3794
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 108 3752 3771 "stat.ml" 108 3752 3775
+)
+"stat.ml" 108 3752 3778 "stat.ml" 108 3752 3794
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 108 3752 3771 "stat.ml" 108 3752 3794
+type(
+  'a item -> unit
+)
+"stat.ml" 111 3845 3849 "stat.ml" 111 3845 3858
+type(
+  'a item -> 'a
+)
+ident(
+  def get_value "stat.ml" 114 3928 3928 "_none_" 1 0 -1
+)
+"stat.ml" 111 3845 3861 "stat.ml" 111 3845 3866
+type(
+  'a
+)
+ident(
+  def value "stat.ml" 111 3845 3871 "stat.ml" 111 3845 3876
+)
+"stat.ml" 111 3845 3859 "stat.ml" 111 3845 3868
+type(
+  'a item
+)
+"stat.ml" 111 3845 3871 "stat.ml" 111 3845 3876
+type(
+  'a
+)
+ident(
+  int_ref value "stat.ml" 111 3845 3861 "stat.ml" 111 3845 3866
+)
+"stat.ml" 111 3845 3859 "stat.ml" 111 3845 3876
+type(
+  'a item -> 'a
+)
+"stat.ml" 114 3928 3932 "stat.ml" 114 3928 3935
+type(
+  'a item -> 'a
+)
+ident(
+  def get "stat.ml" 117 4006 4006 "_none_" 1 0 -1
+)
+"stat.ml" 114 3928 3936 "stat.ml" 114 3928 3940
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 114 3928 3943 "stat.ml" 114 3928 3957
+)
+"stat.ml" 114 3928 3943 "stat.ml" 114 3928 3952
+type(
+  'a item -> 'a
+)
+ident(
+  int_ref get_value "stat.ml" 111 3845 3849 "stat.ml" 111 3845 3858
+)
+"stat.ml" 114 3928 3953 "stat.ml" 114 3928 3957
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 114 3928 3936 "stat.ml" 114 3928 3940
+)
+"stat.ml" 114 3928 3943 "stat.ml" 114 3928 3957
+call(
+  tail
+)
+type(
+  'a
+)
+"stat.ml" 114 3928 3936 "stat.ml" 114 3928 3957
+type(
+  'a item -> 'a
+)
+"stat.ml" 117 4006 4010 "stat.ml" 117 4006 4019
+type(
+  'a item -> 'a
+)
+ident(
+  def get_float "stat.ml" 120 4093 4093 "_none_" 1 0 -1
+)
+"stat.ml" 117 4006 4020 "stat.ml" 117 4006 4024
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 117 4006 4027 "stat.ml" 117 4006 4041
+)
+"stat.ml" 117 4006 4027 "stat.ml" 117 4006 4036
+type(
+  'a item -> 'a
+)
+ident(
+  int_ref get_value "stat.ml" 111 3845 3849 "stat.ml" 111 3845 3858
+)
+"stat.ml" 117 4006 4037 "stat.ml" 117 4006 4041
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 117 4006 4020 "stat.ml" 117 4006 4024
+)
+"stat.ml" 117 4006 4027 "stat.ml" 117 4006 4041
+call(
+  tail
+)
+type(
+  'a
+)
+"stat.ml" 117 4006 4020 "stat.ml" 117 4006 4041
+type(
+  'a item -> 'a
+)
+"stat.ml" 120 4093 4097 "stat.ml" 120 4093 4109
+type(
+  'a item -> 'a
+)
+ident(
+  def get_int_list "stat.ml" 123 4179 4179 "_none_" 1 0 -1
+)
+"stat.ml" 120 4093 4110 "stat.ml" 120 4093 4114
+type(
+  'a item
+)
+ident(
+  def item "stat.ml" 120 4093 4117 "stat.ml" 120 4093 4131
+)
+"stat.ml" 120 4093 4117 "stat.ml" 120 4093 4126
+type(
+  'a item -> 'a
+)
+ident(
+  int_ref get_value "stat.ml" 111 3845 3849 "stat.ml" 111 3845 3858
+)
+"stat.ml" 120 4093 4127 "stat.ml" 120 4093 4131
+type(
+  'a item
+)
+ident(
+  int_ref item "stat.ml" 120 4093 4110 "stat.ml" 120 4093 4114
+)
+"stat.ml" 120 4093 4117 "stat.ml" 120 4093 4131
+call(
+  tail
+)
+type(
+  'a
+)
+"stat.ml" 120 4093 4110 "stat.ml" 120 4093 4131
+type(
+  'a item -> 'a
+)
+"stat.ml" 123 4179 4183 "stat.ml" 123 4179 4194
+type(
+  float item -> unit
+)
+ident(
+  def start_timer "stat.ml" 129 4330 4330 "_none_" 1 0 -1
+)
+"stat.ml" 123 4179 4195 "stat.ml" 123 4179 4199
+type(
+  float item
+)
+ident(
+  def item "stat.ml" 125 4204 4206 "stat.ml" 125 4204 4241
+)
+"stat.ml" 125 4204 4206 "stat.ml" 125 4204 4210
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 123 4179 4195 "stat.ml" 123 4179 4199
+)
+"stat.ml" 125 4204 4220 "stat.ml" 125 4204 4237
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"stat.ml" 125 4204 4238 "stat.ml" 125 4204 4240
+type(
+  unit
+)
+"stat.ml" 125 4204 4220 "stat.ml" 125 4204 4240
+call(
+  stack
+)
+type(
+  float
+)
+"stat.ml" 125 4204 4206 "stat.ml" 125 4204 4241
+type(
+  unit
+)
+"stat.ml" 123 4179 4195 "stat.ml" 125 4204 4241
+type(
+  float item -> unit
+)
+"stat.ml" 129 4330 4334 "stat.ml" 129 4330 4345
+type(
+  float item -> unit
+)
+ident(
+  def record_time "stat.ml" 137 4572 4572 "_none_" 1 0 -1
+)
+"stat.ml" 129 4330 4349 "stat.ml" 129 4330 4353
+type(
+  float
+)
+ident(
+  def temp "stat.ml" 131 4369 4371 "stat.ml" 133 4455 4476
+)
+"stat.ml" 129 4330 4347 "stat.ml" 129 4330 4355
+type(
+  float item
+)
+"stat.ml" 129 4330 4347 "stat.ml" 129 4330 4363
+type(
+  float item
+)
+ident(
+  def item "stat.ml" 131 4369 4371 "stat.ml" 133 4455 4476
+)
+"stat.ml" 131 4369 4374 "stat.ml" 131 4369 4378
+type(
+  float
+)
+ident(
+  int_ref temp "stat.ml" 129 4330 4349 "stat.ml" 129 4330 4353
+)
+"stat.ml" 131 4369 4379 "stat.ml" 131 4369 4380
+type(
+  float -> float -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"stat.ml" 131 4369 4381 "stat.ml" 131 4369 4383
+type(
+  float
+)
+"stat.ml" 131 4369 4374 "stat.ml" 131 4369 4383
+type(
+  bool
+)
+"stat.ml" 132 4390 4395 "stat.ml" 132 4390 4399
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 129 4330 4347 "stat.ml" 129 4330 4363
+)
+"stat.ml" 132 4390 4409 "stat.ml" 132 4390 4413
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 129 4330 4347 "stat.ml" 129 4330 4363
+)
+"stat.ml" 132 4390 4409 "stat.ml" 132 4390 4419
+type(
+  float
+)
+"stat.ml" 132 4390 4420 "stat.ml" 132 4390 4422
+type(
+  float -> float -> float
+)
+ident(
+  ext_ref Pervasives.( +. )
+)
+"stat.ml" 132 4390 4424 "stat.ml" 132 4390 4441
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"stat.ml" 132 4390 4442 "stat.ml" 132 4390 4444
+type(
+  unit
+)
+"stat.ml" 132 4390 4424 "stat.ml" 132 4390 4444
+call(
+  stack
+)
+type(
+  float
+)
+"stat.ml" 132 4390 4445 "stat.ml" 132 4390 4447
+type(
+  float -> float -> float
+)
+ident(
+  ext_ref Pervasives.( -. )
+)
+"stat.ml" 132 4390 4448 "stat.ml" 132 4390 4452
+type(
+  float
+)
+ident(
+  int_ref temp "stat.ml" 129 4330 4349 "stat.ml" 129 4330 4353
+)
+"stat.ml" 132 4390 4424 "stat.ml" 132 4390 4452
+type(
+  float
+)
+"stat.ml" 132 4390 4409 "stat.ml" 132 4390 4453
+type(
+  float
+)
+"stat.ml" 132 4390 4395 "stat.ml" 132 4390 4453
+type(
+  unit
+)
+"stat.ml" 133 4455 4460 "stat.ml" 133 4455 4464
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 129 4330 4347 "stat.ml" 129 4330 4363
+)
+"stat.ml" 133 4455 4473 "stat.ml" 133 4455 4475
+type(
+  float
+)
+"stat.ml" 133 4455 4460 "stat.ml" 133 4455 4475
+type(
+  unit
+)
+"stat.ml" 132 4390 4395 "stat.ml" 133 4455 4475
+type(
+  unit
+)
+"stat.ml" 131 4369 4371 "stat.ml" 133 4455 4476
+type(
+  unit
+)
+type(
+  unit
+)
+"stat.ml" 129 4330 4346 "stat.ml" 133 4455 4476
+type(
+  float item -> unit
+)
+"stat.ml" 137 4572 4576 "stat.ml" 137 4572 4587
+type(
+  float item -> unit
+)
+ident(
+  def update_time "stat.ml" 145 4795 4795 "_none_" 1 0 -1
+)
+"stat.ml" 137 4572 4591 "stat.ml" 137 4572 4595
+type(
+  float
+)
+ident(
+  def temp "stat.ml" 139 4611 4613 "stat.ml" 142 4715 4735
+)
+"stat.ml" 137 4572 4589 "stat.ml" 137 4572 4597
+type(
+  float item
+)
+"stat.ml" 137 4572 4589 "stat.ml" 137 4572 4605
+type(
+  float item
+)
+ident(
+  def item "stat.ml" 139 4611 4613 "stat.ml" 142 4715 4735
+)
+"stat.ml" 139 4611 4616 "stat.ml" 139 4611 4620
+type(
+  float
+)
+ident(
+  int_ref temp "stat.ml" 137 4572 4591 "stat.ml" 137 4572 4595
+)
+"stat.ml" 139 4611 4621 "stat.ml" 139 4611 4622
+type(
+  float -> float -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"stat.ml" 139 4611 4623 "stat.ml" 139 4611 4625
+type(
+  float
+)
+"stat.ml" 139 4611 4616 "stat.ml" 139 4611 4625
+type(
+  bool
+)
+"stat.ml" 140 4632 4641 "stat.ml" 140 4632 4642
+type(
+  float
+)
+ident(
+  def t "stat.ml" 141 4669 4674 "stat.ml" 142 4715 4734
+)
+"stat.ml" 140 4632 4645 "stat.ml" 140 4632 4662
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"stat.ml" 140 4632 4663 "stat.ml" 140 4632 4665
+type(
+  unit
+)
+"stat.ml" 140 4632 4645 "stat.ml" 140 4632 4665
+call(
+  stack
+)
+type(
+  float
+)
+"stat.ml" 141 4669 4674 "stat.ml" 141 4669 4678
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 137 4572 4589 "stat.ml" 137 4572 4605
+)
+"stat.ml" 141 4669 4688 "stat.ml" 141 4669 4692
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 137 4572 4589 "stat.ml" 137 4572 4605
+)
+"stat.ml" 141 4669 4688 "stat.ml" 141 4669 4698
+type(
+  float
+)
+"stat.ml" 141 4669 4699 "stat.ml" 141 4669 4701
+type(
+  float -> float -> float
+)
+ident(
+  ext_ref Pervasives.( +. )
+)
+"stat.ml" 141 4669 4703 "stat.ml" 141 4669 4704
+type(
+  float
+)
+ident(
+  int_ref t "stat.ml" 140 4632 4641 "stat.ml" 140 4632 4642
+)
+"stat.ml" 141 4669 4705 "stat.ml" 141 4669 4707
+type(
+  float -> float -> float
+)
+ident(
+  ext_ref Pervasives.( -. )
+)
+"stat.ml" 141 4669 4708 "stat.ml" 141 4669 4712
+type(
+  float
+)
+ident(
+  int_ref temp "stat.ml" 137 4572 4591 "stat.ml" 137 4572 4595
+)
+"stat.ml" 141 4669 4703 "stat.ml" 141 4669 4712
+type(
+  float
+)
+"stat.ml" 141 4669 4688 "stat.ml" 141 4669 4713
+type(
+  float
+)
+"stat.ml" 141 4669 4674 "stat.ml" 141 4669 4713
+type(
+  unit
+)
+"stat.ml" 142 4715 4720 "stat.ml" 142 4715 4724
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 137 4572 4589 "stat.ml" 137 4572 4605
+)
+"stat.ml" 142 4715 4733 "stat.ml" 142 4715 4734
+type(
+  float
+)
+ident(
+  int_ref t "stat.ml" 140 4632 4641 "stat.ml" 140 4632 4642
+)
+"stat.ml" 142 4715 4720 "stat.ml" 142 4715 4734
+type(
+  unit
+)
+"stat.ml" 141 4669 4674 "stat.ml" 142 4715 4734
+type(
+  unit
+)
+"stat.ml" 140 4632 4637 "stat.ml" 142 4715 4734
+type(
+  unit
+)
+"stat.ml" 139 4611 4613 "stat.ml" 142 4715 4735
+type(
+  unit
+)
+type(
+  unit
+)
+"stat.ml" 137 4572 4588 "stat.ml" 142 4715 4735
+type(
+  float item -> unit
+)
+"stat.ml" 145 4795 4799 "stat.ml" 145 4795 4807
+type(
+  float item -> (unit -> 'a) -> 'a
+)
+ident(
+  def time_fun "stat.ml" 157 4925 4925 "_none_" 1 0 -1
+)
+"stat.ml" 145 4795 4808 "stat.ml" 145 4795 4812
+type(
+  float item
+)
+ident(
+  def item "stat.ml" 145 4795 4813 "stat.ml" 153 4884 4889
+)
+"stat.ml" 145 4795 4813 "stat.ml" 145 4795 4814
+type(
+  unit -> 'a
+)
+ident(
+  def f "stat.ml" 147 4819 4821 "stat.ml" 153 4884 4889
+)
+"stat.ml" 147 4819 4821 "stat.ml" 147 4819 4832
+type(
+  float item -> unit
+)
+ident(
+  int_ref start_timer "stat.ml" 123 4179 4183 "stat.ml" 123 4179 4194
+)
+"stat.ml" 147 4819 4833 "stat.ml" 147 4819 4837
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 145 4795 4808 "stat.ml" 145 4795 4812
+)
+"stat.ml" 147 4819 4821 "stat.ml" 147 4819 4837
+call(
+  stack
+)
+type(
+  unit
+)
+"stat.ml" 149 4842 4848 "stat.ml" 149 4842 4851
+type(
+  'a
+)
+ident(
+  def res "stat.ml" 151 4863 4865 "stat.ml" 153 4884 4889
+)
+"stat.ml" 149 4842 4854 "stat.ml" 149 4842 4855
+type(
+  unit -> 'a
+)
+ident(
+  int_ref f "stat.ml" 145 4795 4813 "stat.ml" 145 4795 4814
+)
+"stat.ml" 149 4842 4856 "stat.ml" 149 4842 4858
+type(
+  unit
+)
+"stat.ml" 149 4842 4854 "stat.ml" 149 4842 4858
+call(
+  stack
+)
+type(
+  'a
+)
+"stat.ml" 151 4863 4865 "stat.ml" 151 4863 4876
+type(
+  float item -> unit
+)
+ident(
+  int_ref record_time "stat.ml" 129 4330 4334 "stat.ml" 129 4330 4345
+)
+"stat.ml" 151 4863 4877 "stat.ml" 151 4863 4881
+type(
+  float item
+)
+ident(
+  int_ref item "stat.ml" 145 4795 4808 "stat.ml" 145 4795 4812
+)
+"stat.ml" 151 4863 4865 "stat.ml" 151 4863 4881
+call(
+  stack
+)
+type(
+  unit
+)
+"stat.ml" 153 4884 4886 "stat.ml" 153 4884 4889
+type(
+  'a
+)
+ident(
+  int_ref res "stat.ml" 149 4842 4848 "stat.ml" 149 4842 4851
+)
+"stat.ml" 151 4863 4865 "stat.ml" 153 4884 4889
+type(
+  'a
+)
+"stat.ml" 149 4842 4844 "stat.ml" 153 4884 4889
+type(
+  'a
+)
+"stat.ml" 147 4819 4821 "stat.ml" 153 4884 4889
+type(
+  'a
+)
+"stat.ml" 145 4795 4813 "stat.ml" 153 4884 4889
+type(
+  (unit -> 'a) -> 'a
+)
+"stat.ml" 145 4795 4808 "stat.ml" 153 4884 4889
+type(
+  float item -> (unit -> 'a) -> 'a
+)
+"stat.ml" 157 4925 4929 "stat.ml" 157 4925 4944
+type(
+  stat_item list -> unit
+)
+ident(
+  def stop_all_timers "stat.ml" 171 5320 5320 "_none_" 1 0 -1
+)
+"stat.ml" 157 4925 4945 "stat.ml" 157 4925 4950
+type(
+  stat_item list
+)
+ident(
+  def stats "stat.ml" 159 4955 4957 "stat.ml" 163 5029 5038
+)
+"stat.ml" 159 4955 4957 "stat.ml" 159 4955 4966
+type(
+  (stat_item -> unit) -> stat_item list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"stat.ml" 161 4983 4993 "stat.ml" 161 4983 4994
+type(
+  float_item
+)
+ident(
+  def i "stat.ml" 161 4983 4998 "stat.ml" 161 4983 5011
+)
+"stat.ml" 161 4983 4991 "stat.ml" 161 4983 4994
+type(
+  stat_item
+)
+"stat.ml" 161 4983 4998 "stat.ml" 161 4983 5009
+type(
+  float_item -> unit
+)
+ident(
+  int_ref record_time "stat.ml" 129 4330 4334 "stat.ml" 129 4330 4345
+)
+"stat.ml" 161 4983 5010 "stat.ml" 161 4983 5011
+type(
+  float_item
+)
+ident(
+  int_ref i "stat.ml" 161 4983 4993 "stat.ml" 161 4983 4994
+)
+"stat.ml" 161 4983 4998 "stat.ml" 161 4983 5011
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 162 5012 5020 "stat.ml" 162 5012 5021
+type(
+  stat_item
+)
+"stat.ml" 162 5012 5025 "stat.ml" 162 5012 5027
+type(
+  unit
+)
+"stat.ml" 160 4968 4973 "stat.ml" 162 5012 5027
+type(
+  stat_item -> unit
+)
+"stat.ml" 163 5029 5033 "stat.ml" 163 5029 5038
+type(
+  stat_item list
+)
+ident(
+  int_ref stats "stat.ml" 157 4925 4945 "stat.ml" 157 4925 4950
+)
+"stat.ml" 159 4955 4957 "stat.ml" 163 5029 5038
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 157 4925 4945 "stat.ml" 163 5029 5038
+type(
+  stat_item list -> unit
+)
+"stat.ml" 171 5320 5324 "stat.ml" 171 5320 5337
+type(
+  stat_item -> int
+)
+ident(
+  def display_width "stat.ml" 175 5462 5462 "_none_" 1 0 -1
+)
+"stat.ml" 172 5349 5357 "stat.ml" 172 5349 5364
+type(
+  string
+)
+ident(
+  def display "stat.ml" 172 5349 5402 "stat.ml" 172 5349 5423
+)
+"stat.ml" 172 5349 5355 "stat.ml" 172 5349 5366
+type(
+  int_item
+)
+"stat.ml" 172 5349 5353 "stat.ml" 172 5349 5366
+type(
+  stat_item
+)
+"stat.ml" 172 5349 5373 "stat.ml" 172 5349 5380
+type(
+  string
+)
+ident(
+  def display "stat.ml" 172 5349 5402 "stat.ml" 172 5349 5423
+)
+"stat.ml" 172 5349 5371 "stat.ml" 172 5349 5382
+type(
+  float_item
+)
+"stat.ml" 172 5349 5369 "stat.ml" 172 5349 5382
+type(
+  stat_item
+)
+"stat.ml" 172 5349 5353 "stat.ml" 172 5349 5382
+type(
+  stat_item
+)
+"stat.ml" 172 5349 5389 "stat.ml" 172 5349 5396
+type(
+  string
+)
+ident(
+  def display "stat.ml" 172 5349 5402 "stat.ml" 172 5349 5423
+)
+"stat.ml" 172 5349 5387 "stat.ml" 172 5349 5398
+type(
+  int_list_item
+)
+"stat.ml" 172 5349 5385 "stat.ml" 172 5349 5398
+type(
+  stat_item
+)
+"stat.ml" 172 5349 5353 "stat.ml" 172 5349 5398
+type(
+  stat_item
+)
+"stat.ml" 172 5349 5402 "stat.ml" 172 5349 5415
+type(
+  string -> int
+)
+ident(
+  ext_ref String.length
+)
+"stat.ml" 172 5349 5416 "stat.ml" 172 5349 5423
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 172 5349 5357 "stat.ml" 172 5349 5364
+)
+"stat.ml" 172 5349 5402 "stat.ml" 172 5349 5423
+type(
+  int
+)
+"stat.ml" 171 5320 5340 "stat.ml" 172 5349 5423
+type(
+  stat_item -> int
+)
+"stat.ml" 175 5462 5466 "stat.ml" 175 5462 5483
+type(
+  stat_item list -> int
+)
+ident(
+  def max_display_width "stat.ml" 179 5596 5596 "_none_" 1 0 -1
+)
+"stat.ml" 175 5462 5484 "stat.ml" 175 5462 5489
+type(
+  stat_item list
+)
+ident(
+  def stats "stat.ml" 176 5493 5495 "stat.ml" 176 5493 5554
+)
+"stat.ml" 176 5493 5495 "stat.ml" 176 5493 5509
+type(
+  (int -> stat_item -> int) -> int -> stat_item list -> int
+)
+ident(
+  ext_ref List.fold_left
+)
+"stat.ml" 176 5493 5515 "stat.ml" 176 5493 5516
+type(
+  int
+)
+ident(
+  def a "stat.ml" 176 5493 5517 "stat.ml" 176 5493 5545
+)
+"stat.ml" 176 5493 5517 "stat.ml" 176 5493 5518
+type(
+  stat_item
+)
+ident(
+  def i "stat.ml" 176 5493 5522 "stat.ml" 176 5493 5545
+)
+"stat.ml" 176 5493 5522 "stat.ml" 176 5493 5525
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.max
+)
+"stat.ml" 176 5493 5527 "stat.ml" 176 5493 5540
+type(
+  stat_item -> int
+)
+ident(
+  int_ref display_width "stat.ml" 171 5320 5324 "stat.ml" 171 5320 5337
+)
+"stat.ml" 176 5493 5541 "stat.ml" 176 5493 5542
+type(
+  stat_item
+)
+ident(
+  int_ref i "stat.ml" 176 5493 5517 "stat.ml" 176 5493 5518
+)
+"stat.ml" 176 5493 5527 "stat.ml" 176 5493 5542
+call(
+  stack
+)
+type(
+  int
+)
+"stat.ml" 176 5493 5544 "stat.ml" 176 5493 5545
+type(
+  int
+)
+ident(
+  int_ref a "stat.ml" 176 5493 5515 "stat.ml" 176 5493 5516
+)
+"stat.ml" 176 5493 5522 "stat.ml" 176 5493 5545
+call(
+  tail
+)
+type(
+  int
+)
+"stat.ml" 176 5493 5517 "stat.ml" 176 5493 5545
+type(
+  stat_item -> int
+)
+"stat.ml" 176 5493 5515 "stat.ml" 176 5493 5545
+type(
+  int -> stat_item -> int
+)
+"stat.ml" 176 5493 5547 "stat.ml" 176 5493 5548
+type(
+  int
+)
+"stat.ml" 176 5493 5549 "stat.ml" 176 5493 5554
+type(
+  stat_item list
+)
+ident(
+  int_ref stats "stat.ml" 175 5462 5484 "stat.ml" 175 5462 5489
+)
+"stat.ml" 176 5493 5495 "stat.ml" 176 5493 5554
+call(
+  tail
+)
+type(
+  int
+)
+"stat.ml" 175 5462 5484 "stat.ml" 176 5493 5554
+type(
+  stat_item list -> int
+)
+"stat.ml" 179 5596 5600 "stat.ml" 179 5596 5613
+type(
+  int -> Format.formatter -> stat_item -> unit
+)
+ident(
+  def pp_print_item "stat.ml" 196 6023 6023 "_none_" 1 0 -1
+)
+"stat.ml" 179 5596 5614 "stat.ml" 179 5596 5619
+type(
+  int
+)
+ident(
+  def width "stat.ml" 179 5596 5620 "stat.ml" 192 5958 5969
+)
+"stat.ml" 179 5596 5620 "stat.ml" 179 5596 5623
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 179 5596 5626 "stat.ml" 192 5958 5969
+)
+"stat.ml" 181 5637 5645 "stat.ml" 181 5637 5652
+type(
+  string
+)
+ident(
+  def display "stat.ml" 181 5637 5665 "stat.ml" 181 5637 5714
+)
+"stat.ml" 181 5637 5654 "stat.ml" 181 5637 5659
+type(
+  int
+)
+ident(
+  def value "stat.ml" 181 5637 5665 "stat.ml" 181 5637 5714
+)
+"stat.ml" 181 5637 5643 "stat.ml" 181 5637 5661
+type(
+  int_item
+)
+"stat.ml" 181 5637 5641 "stat.ml" 181 5637 5661
+type(
+  stat_item
+)
+"stat.ml" 181 5637 5665 "stat.ml" 181 5637 5679
+type(
+  Format.formatter ->
+  (int -> string -> int -> unit, Format.formatter, unit) format ->
+  int -> string -> int -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 181 5637 5680 "stat.ml" 181 5637 5683
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 179 5596 5620 "stat.ml" 179 5596 5623
+)
+"stat.ml" 181 5637 5684 "stat.ml" 181 5637 5694
+type(
+  (int -> string -> int -> unit, Format.formatter, unit) format
+)
+"stat.ml" 181 5637 5695 "stat.ml" 181 5637 5700
+type(
+  int
+)
+ident(
+  int_ref width "stat.ml" 179 5596 5614 "stat.ml" 179 5596 5619
+)
+"stat.ml" 181 5637 5701 "stat.ml" 181 5637 5708
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 181 5637 5645 "stat.ml" 181 5637 5652
+)
+"stat.ml" 181 5637 5709 "stat.ml" 181 5637 5714
+type(
+  int
+)
+ident(
+  int_ref value "stat.ml" 181 5637 5654 "stat.ml" 181 5637 5659
+)
+"stat.ml" 181 5637 5665 "stat.ml" 181 5637 5714
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 183 5716 5724 "stat.ml" 183 5716 5731
+type(
+  string
+)
+ident(
+  def display "stat.ml" 183 5716 5744 "stat.ml" 183 5716 5795
+)
+"stat.ml" 183 5716 5733 "stat.ml" 183 5716 5738
+type(
+  float
+)
+ident(
+  def value "stat.ml" 183 5716 5744 "stat.ml" 183 5716 5795
+)
+"stat.ml" 183 5716 5722 "stat.ml" 183 5716 5740
+type(
+  float_item
+)
+"stat.ml" 183 5716 5720 "stat.ml" 183 5716 5740
+type(
+  stat_item
+)
+"stat.ml" 183 5716 5744 "stat.ml" 183 5716 5758
+type(
+  Format.formatter ->
+  (int -> string -> float -> unit, Format.formatter, unit) format ->
+  int -> string -> float -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 183 5716 5759 "stat.ml" 183 5716 5762
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 179 5596 5620 "stat.ml" 179 5596 5623
+)
+"stat.ml" 183 5716 5763 "stat.ml" 183 5716 5775
+type(
+  (int -> string -> float -> unit, Format.formatter, unit) format
+)
+"stat.ml" 183 5716 5776 "stat.ml" 183 5716 5781
+type(
+  int
+)
+ident(
+  int_ref width "stat.ml" 179 5596 5614 "stat.ml" 179 5596 5619
+)
+"stat.ml" 183 5716 5782 "stat.ml" 183 5716 5789
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 183 5716 5724 "stat.ml" 183 5716 5731
+)
+"stat.ml" 183 5716 5790 "stat.ml" 183 5716 5795
+type(
+  float
+)
+ident(
+  int_ref value "stat.ml" 183 5716 5733 "stat.ml" 183 5716 5738
+)
+"stat.ml" 183 5716 5744 "stat.ml" 183 5716 5795
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 185 5797 5805 "stat.ml" 185 5797 5812
+type(
+  string
+)
+ident(
+  def display "stat.ml" 187 5827 5831 "stat.ml" 192 5958 5969
+)
+"stat.ml" 185 5797 5814 "stat.ml" 185 5797 5819
+type(
+  int list
+)
+ident(
+  def value "stat.ml" 187 5827 5831 "stat.ml" 192 5958 5969
+)
+"stat.ml" 185 5797 5803 "stat.ml" 185 5797 5821
+type(
+  int_list_item
+)
+"stat.ml" 185 5797 5801 "stat.ml" 185 5797 5821
+type(
+  stat_item
+)
+"stat.ml" 187 5827 5831 "stat.ml" 187 5827 5845
+type(
+  Format.formatter ->
+  (int ->
+   string -> (Format.formatter -> int list -> unit) -> int list -> unit,
+   Format.formatter, unit)
+  format ->
+  int -> string -> (Format.formatter -> int list -> unit) -> int list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 187 5827 5846 "stat.ml" 187 5827 5849
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 179 5596 5620 "stat.ml" 179 5596 5623
+)
+"stat.ml" 188 5851 5857 "stat.ml" 188 5851 5876
+type(
+  (int ->
+   string -> (Format.formatter -> int list -> unit) -> int list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 189 5878 5884 "stat.ml" 189 5878 5889
+type(
+  int
+)
+ident(
+  int_ref width "stat.ml" 179 5596 5614 "stat.ml" 179 5596 5619
+)
+"stat.ml" 190 5891 5897 "stat.ml" 190 5891 5904
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 185 5797 5805 "stat.ml" 185 5797 5812
+)
+"stat.ml" 191 5906 5913 "stat.ml" 191 5906 5930
+type(
+  (Format.formatter -> int -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> int list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"stat.ml" 191 5906 5931 "stat.ml" 191 5906 5950
+type(
+  Format.formatter -> int -> unit
+)
+ident(
+  ext_ref Format.pp_print_int
+)
+"stat.ml" 191 5906 5951 "stat.ml" 191 5906 5955
+type(
+  (unit, Format.formatter, unit) format
+)
+"stat.ml" 191 5906 5913 "stat.ml" 191 5906 5955
+call(
+  stack
+)
+type(
+  Format.formatter -> int list -> unit
+)
+"stat.ml" 192 5958 5964 "stat.ml" 192 5958 5969
+type(
+  int list
+)
+ident(
+  int_ref value "stat.ml" 185 5797 5814 "stat.ml" 185 5797 5819
+)
+"stat.ml" 187 5827 5831 "stat.ml" 192 5958 5969
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 179 5596 5626 "stat.ml" 192 5958 5969
+type(
+  stat_item -> unit
+)
+"stat.ml" 179 5596 5620 "stat.ml" 192 5958 5969
+type(
+  Format.formatter -> stat_item -> unit
+)
+"stat.ml" 179 5596 5614 "stat.ml" 192 5958 5969
+type(
+  int -> Format.formatter -> stat_item -> unit
+)
+"stat.ml" 196 6023 6027 "stat.ml" 196 6023 6041
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  def pp_print_stats "stat.ml" 205 6222 6222 "_none_" 1 0 -1
+)
+"stat.ml" 196 6023 6042 "stat.ml" 196 6023 6045
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 196 6023 6046 "stat.ml" 201 6132 6180
+)
+"stat.ml" 196 6023 6046 "stat.ml" 196 6023 6051
+type(
+  stat_item list
+)
+ident(
+  def stats "stat.ml" 199 6094 6096 "stat.ml" 201 6132 6180
+)
+"stat.ml" 199 6094 6100 "stat.ml" 199 6094 6101
+type(
+  int
+)
+ident(
+  def w "stat.ml" 201 6132 6134 "stat.ml" 201 6132 6180
+)
+"stat.ml" 199 6094 6104 "stat.ml" 199 6094 6121
+type(
+  stat_item list -> int
+)
+ident(
+  int_ref max_display_width "stat.ml" 175 5462 5466 "stat.ml" 175 5462 5483
+)
+"stat.ml" 199 6094 6122 "stat.ml" 199 6094 6127
+type(
+  stat_item list
+)
+ident(
+  int_ref stats "stat.ml" 196 6023 6046 "stat.ml" 196 6023 6051
+)
+"stat.ml" 199 6094 6104 "stat.ml" 199 6094 6127
+call(
+  stack
+)
+type(
+  int
+)
+"stat.ml" 201 6132 6134 "stat.ml" 201 6132 6147
+type(
+  (Format.formatter -> stat_item -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"stat.ml" 201 6132 6149 "stat.ml" 201 6132 6162
+type(
+  int -> Format.formatter -> stat_item -> unit
+)
+ident(
+  int_ref pp_print_item "stat.ml" 179 5596 5600 "stat.ml" 179 5596 5613
+)
+"stat.ml" 201 6132 6163 "stat.ml" 201 6132 6164
+type(
+  int
+)
+ident(
+  int_ref w "stat.ml" 199 6094 6100 "stat.ml" 199 6094 6101
+)
+"stat.ml" 201 6132 6149 "stat.ml" 201 6132 6164
+call(
+  stack
+)
+type(
+  Format.formatter -> stat_item -> unit
+)
+"stat.ml" 201 6132 6166 "stat.ml" 201 6132 6170
+type(
+  (unit, Format.formatter, unit) format
+)
+"stat.ml" 201 6132 6171 "stat.ml" 201 6132 6174
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 196 6023 6042 "stat.ml" 196 6023 6045
+)
+"stat.ml" 201 6132 6175 "stat.ml" 201 6132 6180
+type(
+  stat_item list
+)
+ident(
+  int_ref stats "stat.ml" 196 6023 6046 "stat.ml" 196 6023 6051
+)
+"stat.ml" 201 6132 6134 "stat.ml" 201 6132 6180
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 199 6094 6096 "stat.ml" 201 6132 6180
+type(
+  unit
+)
+"stat.ml" 196 6023 6046 "stat.ml" 201 6132 6180
+type(
+  stat_item list -> unit
+)
+"stat.ml" 196 6023 6042 "stat.ml" 201 6132 6180
+type(
+  Format.formatter -> stat_item list -> unit
+)
+"stat.ml" 205 6222 6226 "stat.ml" 205 6222 6243
+type(
+  Format.formatter -> stat_item -> unit
+)
+ident(
+  def pp_print_item_xml "stat.ml" 242 7047 7047 "_none_" 1 0 -1
+)
+"stat.ml" 205 6222 6244 "stat.ml" 205 6222 6247
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 205 6222 6250 "stat.ml" 238 6984 6995
+)
+"stat.ml" 207 6261 6269 "stat.ml" 207 6261 6276
+type(
+  string
+)
+ident(
+  def display "stat.ml" 209 6291 6295 "stat.ml" 215 6447 6458
+)
+"stat.ml" 207 6261 6278 "stat.ml" 207 6261 6283
+type(
+  int
+)
+ident(
+  def value "stat.ml" 209 6291 6295 "stat.ml" 215 6447 6458
+)
+"stat.ml" 207 6261 6267 "stat.ml" 207 6261 6285
+type(
+  int_item
+)
+"stat.ml" 207 6261 6265 "stat.ml" 207 6261 6285
+type(
+  stat_item
+)
+"stat.ml" 209 6291 6295 "stat.ml" 209 6291 6309
+type(
+  Format.formatter ->
+  (string -> int -> unit, Format.formatter, unit) format ->
+  string -> int -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 209 6291 6310 "stat.ml" 209 6291 6313
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 205 6222 6244 "stat.ml" 205 6222 6247
+)
+"stat.ml" 210 6315 6321 "stat.ml" 213 6413 6430
+type(
+  (string -> int -> unit, Format.formatter, unit) format
+)
+"stat.ml" 214 6432 6438 "stat.ml" 214 6432 6445
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 207 6261 6269 "stat.ml" 207 6261 6276
+)
+"stat.ml" 215 6447 6453 "stat.ml" 215 6447 6458
+type(
+  int
+)
+ident(
+  int_ref value "stat.ml" 207 6261 6278 "stat.ml" 207 6261 6283
+)
+"stat.ml" 209 6291 6295 "stat.ml" 215 6447 6458
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 217 6460 6468 "stat.ml" 217 6460 6475
+type(
+  string
+)
+ident(
+  def display "stat.ml" 219 6490 6494 "stat.ml" 225 6649 6660
+)
+"stat.ml" 217 6460 6477 "stat.ml" 217 6460 6482
+type(
+  float
+)
+ident(
+  def value "stat.ml" 219 6490 6494 "stat.ml" 225 6649 6660
+)
+"stat.ml" 217 6460 6466 "stat.ml" 217 6460 6484
+type(
+  float_item
+)
+"stat.ml" 217 6460 6464 "stat.ml" 217 6460 6484
+type(
+  stat_item
+)
+"stat.ml" 219 6490 6494 "stat.ml" 219 6490 6508
+type(
+  Format.formatter ->
+  (string -> float -> unit, Format.formatter, unit) format ->
+  string -> float -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 219 6490 6509 "stat.ml" 219 6490 6512
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 205 6222 6244 "stat.ml" 205 6222 6247
+)
+"stat.ml" 220 6513 6519 "stat.ml" 223 6615 6632
+type(
+  (string -> float -> unit, Format.formatter, unit) format
+)
+"stat.ml" 224 6634 6640 "stat.ml" 224 6634 6647
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 217 6460 6468 "stat.ml" 217 6460 6475
+)
+"stat.ml" 225 6649 6655 "stat.ml" 225 6649 6660
+type(
+  float
+)
+ident(
+  int_ref value "stat.ml" 217 6460 6477 "stat.ml" 217 6460 6482
+)
+"stat.ml" 219 6490 6494 "stat.ml" 225 6649 6660
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 227 6662 6670 "stat.ml" 227 6662 6677
+type(
+  string
+)
+ident(
+  def display "stat.ml" 229 6692 6696 "stat.ml" 238 6984 6995
+)
+"stat.ml" 227 6662 6679 "stat.ml" 227 6662 6684
+type(
+  int list
+)
+ident(
+  def value "stat.ml" 229 6692 6696 "stat.ml" 238 6984 6995
+)
+"stat.ml" 227 6662 6668 "stat.ml" 227 6662 6686
+type(
+  int_list_item
+)
+"stat.ml" 227 6662 6666 "stat.ml" 227 6662 6686
+type(
+  stat_item
+)
+"stat.ml" 229 6692 6696 "stat.ml" 229 6692 6710
+type(
+  Format.formatter ->
+  (string -> (Format.formatter -> int list -> unit) -> int list -> unit,
+   Format.formatter, unit)
+  format ->
+  string -> (Format.formatter -> int list -> unit) -> int list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 229 6692 6711 "stat.ml" 229 6692 6714
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 205 6222 6244 "stat.ml" 205 6222 6247
+)
+"stat.ml" 230 6716 6722 "stat.ml" 233 6829 6846
+type(
+  (string -> (Format.formatter -> int list -> unit) -> int list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 234 6848 6854 "stat.ml" 234 6848 6861
+type(
+  string
+)
+ident(
+  int_ref display "stat.ml" 227 6662 6670 "stat.ml" 227 6662 6677
+)
+"stat.ml" 235 6863 6870 "stat.ml" 235 6863 6887
+type(
+  (Format.formatter -> int -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> int list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"stat.ml" 236 6889 6908 "stat.ml" 236 6889 6911
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 236 6889 6915 "stat.ml" 236 6889 6966
+)
+"stat.ml" 236 6889 6915 "stat.ml" 236 6889 6929
+type(
+  Format.formatter ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 236 6889 6930 "stat.ml" 236 6889 6933
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 236 6889 6908 "stat.ml" 236 6889 6911
+)
+"stat.ml" 236 6889 6934 "stat.ml" 236 6889 6966
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"stat.ml" 236 6889 6915 "stat.ml" 236 6889 6966
+call(
+  tail
+)
+type(
+  int -> unit
+)
+"stat.ml" 236 6889 6899 "stat.ml" 236 6889 6966
+type(
+  Format.formatter -> int -> unit
+)
+"stat.ml" 237 6968 6977 "stat.ml" 237 6968 6981
+type(
+  (unit, Format.formatter, unit) format
+)
+"stat.ml" 235 6863 6870 "stat.ml" 237 6968 6981
+call(
+  stack
+)
+type(
+  Format.formatter -> int list -> unit
+)
+"stat.ml" 238 6984 6990 "stat.ml" 238 6984 6995
+type(
+  int list
+)
+ident(
+  int_ref value "stat.ml" 227 6662 6679 "stat.ml" 227 6662 6684
+)
+"stat.ml" 229 6692 6696 "stat.ml" 238 6984 6995
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 205 6222 6250 "stat.ml" 238 6984 6995
+type(
+  stat_item -> unit
+)
+"stat.ml" 205 6222 6244 "stat.ml" 238 6984 6995
+type(
+  Format.formatter -> stat_item -> unit
+)
+"stat.ml" 242 7047 7051 "stat.ml" 242 7047 7069
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  def pp_print_stats_xml "stat.ml" 252 7414 7414 "_none_" 1 0 -1
+)
+"stat.ml" 242 7047 7070 "stat.ml" 242 7047 7073
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 242 7047 7074 "stat.ml" 244 7084 7132
+)
+"stat.ml" 242 7047 7074 "stat.ml" 242 7047 7079
+type(
+  stat_item list
+)
+ident(
+  def stats "stat.ml" 244 7084 7086 "stat.ml" 244 7084 7132
+)
+"stat.ml" 244 7084 7086 "stat.ml" 244 7084 7099
+type(
+  (Format.formatter -> stat_item -> unit) ->
+  (unit, Format.formatter, unit) format ->
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  ext_ref Lib.pp_print_list
+)
+"stat.ml" 244 7084 7100 "stat.ml" 244 7084 7117
+type(
+  Format.formatter -> stat_item -> unit
+)
+ident(
+  int_ref pp_print_item_xml "stat.ml" 205 6222 6226 "stat.ml" 205 6222 6243
+)
+"stat.ml" 244 7084 7118 "stat.ml" 244 7084 7122
+type(
+  (unit, Format.formatter, unit) format
+)
+"stat.ml" 244 7084 7123 "stat.ml" 244 7084 7126
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 242 7047 7070 "stat.ml" 242 7047 7073
+)
+"stat.ml" 244 7084 7127 "stat.ml" 244 7084 7132
+type(
+  stat_item list
+)
+ident(
+  int_ref stats "stat.ml" 242 7047 7074 "stat.ml" 242 7047 7079
+)
+"stat.ml" 244 7084 7086 "stat.ml" 244 7084 7132
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 242 7047 7074 "stat.ml" 244 7084 7132
+type(
+  stat_item list -> unit
+)
+"stat.ml" 242 7047 7070 "stat.ml" 244 7084 7132
+type(
+  Format.formatter -> stat_item list -> unit
+)
+"stat.ml" 252 7414 7418 "stat.ml" 252 7414 7423
+type(
+  int item
+)
+ident(
+  def bmc_k "stat.ml" 255 7447 7447 "_none_" 1 0 -1
+)
+"stat.ml" 253 7427 7429 "stat.ml" 253 7427 7439
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 253 7427 7440 "stat.ml" 253 7427 7443
+type(
+  string
+)
+"stat.ml" 253 7427 7444 "stat.ml" 253 7427 7445
+type(
+  int
+)
+"stat.ml" 253 7427 7429 "stat.ml" 253 7427 7445
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 255 7447 7451 "stat.ml" 255 7447 7465
+type(
+  float item
+)
+ident(
+  def bmc_total_time "stat.ml" 259 7530 7530 "_none_" 1 0 -1
+)
+"stat.ml" 256 7469 7471 "stat.ml" 256 7469 7481
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 256 7469 7482 "stat.ml" 256 7469 7494
+type(
+  string
+)
+"stat.ml" 256 7469 7495 "stat.ml" 256 7469 7497
+type(
+  float
+)
+"stat.ml" 256 7469 7471 "stat.ml" 256 7469 7497
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 259 7530 7534 "stat.ml" 259 7530 7549
+type(
+  string
+)
+ident(
+  def bmc_stats_title "stat.ml" 262 7584 7584 "_none_" 1 0 -1
+)
+"stat.ml" 259 7530 7552 "stat.ml" 259 7530 7557
+type(
+  string
+)
+"stat.ml" 262 7584 7588 "stat.ml" 262 7584 7597
+type(
+  stat_item list
+)
+ident(
+  def bmc_stats "stat.ml" 267 7671 7671 "_none_" 1 0 -1
+)
+"stat.ml" 263 7601 7607 "stat.ml" 263 7601 7612
+type(
+  int_item
+)
+ident(
+  int_ref bmc_k "stat.ml" 252 7414 7418 "stat.ml" 252 7414 7423
+)
+"stat.ml" 263 7601 7605 "stat.ml" 263 7601 7612
+type(
+  stat_item
+)
+"stat.ml" 264 7614 7620 "stat.ml" 264 7614 7634
+type(
+  float_item
+)
+ident(
+  int_ref bmc_total_time "stat.ml" 255 7447 7451 "stat.ml" 255 7447 7465
+)
+"stat.ml" 264 7614 7618 "stat.ml" 264 7614 7634
+type(
+  stat_item
+)
+type(
+  stat_item list
+)
+"stat.ml" 263 7601 7605 "stat.ml" 264 7614 7634
+type(
+  stat_item list
+)
+"stat.ml" 263 7601 7603 "stat.ml" 264 7614 7636
+type(
+  stat_item list
+)
+"stat.ml" 267 7671 7675 "stat.ml" 267 7671 7690
+type(
+  unit -> unit
+)
+ident(
+  def bmc_stop_timers "stat.ml" 270 7763 7763 "_none_" 1 0 -1
+)
+"stat.ml" 267 7671 7691 "stat.ml" 267 7671 7693
+type(
+  unit
+)
+"stat.ml" 267 7671 7696 "stat.ml" 267 7671 7711
+type(
+  stat_item list -> unit
+)
+ident(
+  int_ref stop_all_timers "stat.ml" 157 4925 4929 "stat.ml" 157 4925 4944
+)
+"stat.ml" 267 7671 7712 "stat.ml" 267 7671 7721
+type(
+  stat_item list
+)
+ident(
+  int_ref bmc_stats "stat.ml" 262 7584 7588 "stat.ml" 262 7584 7597
+)
+"stat.ml" 267 7671 7696 "stat.ml" 267 7671 7721
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 267 7671 7691 "stat.ml" 267 7671 7721
+type(
+  unit -> unit
+)
+"stat.ml" 270 7763 7767 "stat.ml" 270 7763 7785
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_bmc_stats "stat.ml" 279 7941 7941 "_none_" 1 0 -1
+)
+"stat.ml" 270 7763 7786 "stat.ml" 270 7763 7789
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 272 7794 7796 "stat.ml" 274 7855 7883
+)
+"stat.ml" 272 7794 7796 "stat.ml" 272 7794 7810
+type(
+  Format.formatter ->
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format ->
+  string ->
+  (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 272 7794 7811 "stat.ml" 272 7794 7814
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 270 7763 7786 "stat.ml" 270 7763 7789
+)
+"stat.ml" 272 7794 7815 "stat.ml" 272 7794 7834
+type(
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 273 7835 7839 "stat.ml" 273 7835 7854
+type(
+  string
+)
+ident(
+  int_ref bmc_stats_title "stat.ml" 259 7530 7534 "stat.ml" 259 7530 7549
+)
+"stat.ml" 274 7855 7859 "stat.ml" 274 7855 7873
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  int_ref pp_print_stats "stat.ml" 196 6023 6027 "stat.ml" 196 6023 6041
+)
+"stat.ml" 274 7855 7874 "stat.ml" 274 7855 7883
+type(
+  stat_item list
+)
+ident(
+  int_ref bmc_stats "stat.ml" 262 7584 7588 "stat.ml" 262 7584 7597
+)
+"stat.ml" 272 7794 7796 "stat.ml" 274 7855 7883
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 270 7763 7786 "stat.ml" 274 7855 7883
+type(
+  Format.formatter -> unit
+)
+"stat.ml" 279 7941 7945 "stat.ml" 279 7941 7950
+type(
+  int item
+)
+ident(
+  def ind_k "stat.ml" 282 7974 7974 "_none_" 1 0 -1
+)
+"stat.ml" 280 7954 7956 "stat.ml" 280 7954 7966
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 280 7954 7967 "stat.ml" 280 7954 7970
+type(
+  string
+)
+"stat.ml" 280 7954 7971 "stat.ml" 280 7954 7972
+type(
+  int
+)
+"stat.ml" 280 7954 7956 "stat.ml" 280 7954 7972
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 282 7974 7978 "stat.ml" 282 7974 7990
+type(
+  int item
+)
+ident(
+  def ind_restarts "stat.ml" 285 8021 8021 "_none_" 1 0 -1
+)
+"stat.ml" 283 7994 7996 "stat.ml" 283 7994 8006
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 283 7994 8007 "stat.ml" 283 7994 8017
+type(
+  string
+)
+"stat.ml" 283 7994 8018 "stat.ml" 283 7994 8019
+type(
+  int
+)
+"stat.ml" 283 7994 7996 "stat.ml" 283 7994 8019
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 285 8021 8025 "stat.ml" 285 8021 8039
+type(
+  float item
+)
+ident(
+  def ind_total_time "stat.ml" 289 8115 8115 "_none_" 1 0 -1
+)
+"stat.ml" 286 8043 8045 "stat.ml" 286 8043 8055
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 286 8043 8056 "stat.ml" 286 8043 8068
+type(
+  string
+)
+"stat.ml" 286 8043 8069 "stat.ml" 286 8043 8071
+type(
+  float
+)
+"stat.ml" 286 8043 8045 "stat.ml" 286 8043 8071
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 289 8115 8119 "stat.ml" 289 8115 8134
+type(
+  string
+)
+ident(
+  def ind_stats_title "stat.ml" 292 8191 8191 "_none_" 1 0 -1
+)
+"stat.ml" 289 8115 8137 "stat.ml" 289 8115 8153
+type(
+  string
+)
+"stat.ml" 292 8191 8195 "stat.ml" 292 8191 8204
+type(
+  stat_item list
+)
+ident(
+  def ind_stats "stat.ml" 298 8298 8298 "_none_" 1 0 -1
+)
+"stat.ml" 293 8208 8214 "stat.ml" 293 8208 8219
+type(
+  int_item
+)
+ident(
+  int_ref ind_k "stat.ml" 279 7941 7945 "stat.ml" 279 7941 7950
+)
+"stat.ml" 293 8208 8212 "stat.ml" 293 8208 8219
+type(
+  stat_item
+)
+"stat.ml" 294 8221 8227 "stat.ml" 294 8221 8239
+type(
+  int_item
+)
+ident(
+  int_ref ind_restarts "stat.ml" 282 7974 7978 "stat.ml" 282 7974 7990
+)
+"stat.ml" 294 8221 8225 "stat.ml" 294 8221 8239
+type(
+  stat_item
+)
+"stat.ml" 295 8241 8247 "stat.ml" 295 8241 8261
+type(
+  float_item
+)
+ident(
+  int_ref ind_total_time "stat.ml" 285 8021 8025 "stat.ml" 285 8021 8039
+)
+"stat.ml" 295 8241 8245 "stat.ml" 295 8241 8261
+type(
+  stat_item
+)
+type(
+  stat_item list
+)
+"stat.ml" 294 8221 8225 "stat.ml" 295 8241 8261
+type(
+  stat_item list
+)
+"stat.ml" 293 8208 8212 "stat.ml" 295 8241 8261
+type(
+  stat_item list
+)
+"stat.ml" 293 8208 8210 "stat.ml" 295 8241 8263
+type(
+  stat_item list
+)
+"stat.ml" 298 8298 8302 "stat.ml" 298 8298 8317
+type(
+  unit -> unit
+)
+ident(
+  def ind_stop_timers "stat.ml" 301 8401 8401 "_none_" 1 0 -1
+)
+"stat.ml" 298 8298 8318 "stat.ml" 298 8298 8320
+type(
+  unit
+)
+"stat.ml" 298 8298 8323 "stat.ml" 298 8298 8338
+type(
+  stat_item list -> unit
+)
+ident(
+  int_ref stop_all_timers "stat.ml" 157 4925 4929 "stat.ml" 157 4925 4944
+)
+"stat.ml" 298 8298 8339 "stat.ml" 298 8298 8348
+type(
+  stat_item list
+)
+ident(
+  int_ref ind_stats "stat.ml" 292 8191 8195 "stat.ml" 292 8191 8204
+)
+"stat.ml" 298 8298 8323 "stat.ml" 298 8298 8348
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 298 8298 8318 "stat.ml" 298 8298 8348
+type(
+  unit -> unit
+)
+"stat.ml" 301 8401 8405 "stat.ml" 301 8401 8423
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_ind_stats "stat.ml" 310 8568 8568 "_none_" 1 0 -1
+)
+"stat.ml" 301 8401 8424 "stat.ml" 301 8401 8427
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 303 8432 8434 "stat.ml" 305 8493 8521
+)
+"stat.ml" 303 8432 8434 "stat.ml" 303 8432 8448
+type(
+  Format.formatter ->
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format ->
+  string ->
+  (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 303 8432 8449 "stat.ml" 303 8432 8452
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 301 8401 8424 "stat.ml" 301 8401 8427
+)
+"stat.ml" 303 8432 8453 "stat.ml" 303 8432 8472
+type(
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 304 8473 8477 "stat.ml" 304 8473 8492
+type(
+  string
+)
+ident(
+  int_ref ind_stats_title "stat.ml" 289 8115 8119 "stat.ml" 289 8115 8134
+)
+"stat.ml" 305 8493 8497 "stat.ml" 305 8493 8511
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  int_ref pp_print_stats "stat.ml" 196 6023 6027 "stat.ml" 196 6023 6041
+)
+"stat.ml" 305 8493 8512 "stat.ml" 305 8493 8521
+type(
+  stat_item list
+)
+ident(
+  int_ref ind_stats "stat.ml" 292 8191 8195 "stat.ml" 292 8191 8204
+)
+"stat.ml" 303 8432 8434 "stat.ml" 305 8493 8521
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 301 8401 8424 "stat.ml" 305 8493 8521
+type(
+  Format.formatter -> unit
+)
+"stat.ml" 310 8568 8572 "stat.ml" 310 8568 8577
+type(
+  int item
+)
+ident(
+  def pdr_k "stat.ml" 313 8601 8601 "_none_" 1 0 -1
+)
+"stat.ml" 311 8581 8583 "stat.ml" 311 8581 8593
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 311 8581 8594 "stat.ml" 311 8581 8597
+type(
+  string
+)
+"stat.ml" 311 8581 8598 "stat.ml" 311 8581 8599
+type(
+  int
+)
+"stat.ml" 311 8581 8583 "stat.ml" 311 8581 8599
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 313 8601 8605 "stat.ml" 313 8601 8620
+type(
+  int list item
+)
+ident(
+  def pdr_frame_sizes "stat.ml" 316 8655 8655 "_none_" 1 0 -1
+)
+"stat.ml" 314 8624 8626 "stat.ml" 314 8624 8636
+type(
+  string -> int list -> int list item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 314 8624 8637 "stat.ml" 314 8624 8650
+type(
+  string
+)
+"stat.ml" 314 8624 8651 "stat.ml" 314 8624 8653
+type(
+  int list
+)
+"stat.ml" 314 8624 8626 "stat.ml" 314 8624 8653
+call(
+  stack
+)
+type(
+  int list item
+)
+"stat.ml" 316 8655 8659 "stat.ml" 316 8655 8677
+type(
+  int item
+)
+ident(
+  def pdr_fwd_propagated "stat.ml" 319 8720 8720 "_none_" 1 0 -1
+)
+"stat.ml" 317 8681 8683 "stat.ml" 317 8681 8693
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 317 8681 8694 "stat.ml" 317 8681 8716
+type(
+  string
+)
+"stat.ml" 317 8681 8717 "stat.ml" 317 8681 8718
+type(
+  int
+)
+"stat.ml" 317 8681 8683 "stat.ml" 317 8681 8718
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 319 8720 8724 "stat.ml" 319 8720 8754
+type(
+  int item
+)
+ident(
+  def pdr_inductive_blocking_clauses "stat.ml" 322 8803 8803 "_none_" 1 0 -1
+)
+"stat.ml" 320 8758 8760 "stat.ml" 320 8758 8770
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 320 8758 8771 "stat.ml" 320 8758 8799
+type(
+  string
+)
+"stat.ml" 320 8758 8800 "stat.ml" 320 8758 8801
+type(
+  int
+)
+"stat.ml" 320 8758 8760 "stat.ml" 320 8758 8801
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 322 8803 8807 "stat.ml" 322 8803 8823
+type(
+  int item
+)
+ident(
+  def pdr_fwd_fixpoint "stat.ml" 325 8857 8857 "_none_" 1 0 -1
+)
+"stat.ml" 323 8827 8829 "stat.ml" 323 8827 8839
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 323 8827 8840 "stat.ml" 323 8827 8853
+type(
+  string
+)
+"stat.ml" 323 8827 8854 "stat.ml" 323 8827 8855
+type(
+  int
+)
+"stat.ml" 323 8827 8829 "stat.ml" 323 8827 8855
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 325 8857 8861 "stat.ml" 325 8857 8880
+type(
+  int list item
+)
+ident(
+  def pdr_counterexamples "stat.ml" 328 8929 8929 "_none_" 1 0 -1
+)
+"stat.ml" 326 8884 8886 "stat.ml" 326 8884 8896
+type(
+  string -> int list -> int list item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 326 8884 8897 "stat.ml" 326 8884 8924
+type(
+  string
+)
+"stat.ml" 326 8884 8925 "stat.ml" 326 8884 8927
+type(
+  int list
+)
+"stat.ml" 326 8884 8886 "stat.ml" 326 8884 8927
+call(
+  stack
+)
+type(
+  int list item
+)
+"stat.ml" 328 8929 8933 "stat.ml" 328 8929 8958
+type(
+  int item
+)
+ident(
+  def pdr_counterexamples_total "stat.ml" 331 9002 9002 "_none_" 1 0 -1
+)
+"stat.ml" 329 8962 8964 "stat.ml" 329 8962 8974
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 329 8962 8975 "stat.ml" 329 8962 8998
+type(
+  string
+)
+"stat.ml" 329 8962 8999 "stat.ml" 329 8962 9000
+type(
+  int
+)
+"stat.ml" 329 8962 8964 "stat.ml" 329 8962 9000
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 331 9002 9006 "stat.ml" 331 9002 9020
+type(
+  float item
+)
+ident(
+  def pdr_total_time "stat.ml" 334 9054 9054 "_none_" 1 0 -1
+)
+"stat.ml" 332 9024 9026 "stat.ml" 332 9024 9036
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 332 9024 9037 "stat.ml" 332 9024 9049
+type(
+  string
+)
+"stat.ml" 332 9024 9050 "stat.ml" 332 9024 9052
+type(
+  float
+)
+"stat.ml" 332 9024 9026 "stat.ml" 332 9024 9052
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 334 9054 9058 "stat.ml" 334 9054 9075
+type(
+  float item
+)
+ident(
+  def pdr_fwd_prop_time "stat.ml" 337 9123 9123 "_none_" 1 0 -1
+)
+"stat.ml" 335 9079 9081 "stat.ml" 335 9079 9091
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 335 9079 9092 "stat.ml" 335 9079 9118
+type(
+  string
+)
+"stat.ml" 335 9079 9119 "stat.ml" 335 9079 9121
+type(
+  float
+)
+"stat.ml" 335 9079 9081 "stat.ml" 335 9079 9121
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 337 9123 9127 "stat.ml" 337 9123 9156
+type(
+  float item
+)
+ident(
+  def pdr_block_propagated_cex_time "stat.ml" 340 9216 9216 "_none_" 1 0 -1
+)
+"stat.ml" 338 9160 9162 "stat.ml" 338 9160 9172
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 338 9160 9173 "stat.ml" 338 9160 9211
+type(
+  string
+)
+"stat.ml" 338 9160 9212 "stat.ml" 338 9160 9214
+type(
+  float
+)
+"stat.ml" 338 9160 9162 "stat.ml" 338 9160 9214
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 340 9216 9220 "stat.ml" 340 9216 9239
+type(
+  float item
+)
+ident(
+  def pdr_strengthen_time "stat.ml" 343 9287 9287 "_none_" 1 0 -1
+)
+"stat.ml" 341 9243 9245 "stat.ml" 341 9243 9255
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 341 9243 9256 "stat.ml" 341 9243 9282
+type(
+  string
+)
+"stat.ml" 341 9243 9283 "stat.ml" 341 9243 9285
+type(
+  float
+)
+"stat.ml" 341 9243 9245 "stat.ml" 341 9243 9285
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 343 9287 9291 "stat.ml" 343 9287 9310
+type(
+  float item
+)
+ident(
+  def pdr_generalize_time "stat.ml" 346 9353 9353 "_none_" 1 0 -1
+)
+"stat.ml" 344 9314 9316 "stat.ml" 344 9314 9326
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 344 9314 9327 "stat.ml" 344 9314 9348
+type(
+  string
+)
+"stat.ml" 344 9314 9349 "stat.ml" 344 9314 9351
+type(
+  float
+)
+"stat.ml" 344 9314 9316 "stat.ml" 344 9314 9351
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 346 9353 9357 "stat.ml" 346 9353 9374
+type(
+  float item
+)
+ident(
+  def pdr_find_cex_time "stat.ml" 349 9424 9424 "_none_" 1 0 -1
+)
+"stat.ml" 347 9378 9380 "stat.ml" 347 9378 9390
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 347 9378 9391 "stat.ml" 347 9378 9419
+type(
+  string
+)
+"stat.ml" 347 9378 9420 "stat.ml" 347 9378 9422
+type(
+  float
+)
+"stat.ml" 347 9378 9380 "stat.ml" 347 9378 9422
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 349 9424 9428 "stat.ml" 349 9424 9452
+type(
+  float item
+)
+ident(
+  def pdr_inductive_check_time "stat.ml" 352 9500 9500 "_none_" 1 0 -1
+)
+"stat.ml" 350 9456 9458 "stat.ml" 350 9456 9468
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 350 9456 9469 "stat.ml" 350 9456 9495
+type(
+  string
+)
+"stat.ml" 350 9456 9496 "stat.ml" 350 9456 9498
+type(
+  float
+)
+"stat.ml" 350 9456 9458 "stat.ml" 350 9456 9498
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 352 9500 9504 "stat.ml" 352 9500 9530
+type(
+  float item
+)
+ident(
+  def pdr_tighten_to_subset_time "stat.ml" 355 9579 9579 "_none_" 1 0 -1
+)
+"stat.ml" 353 9534 9536 "stat.ml" 353 9534 9546
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 353 9534 9547 "stat.ml" 353 9534 9574
+type(
+  string
+)
+"stat.ml" 353 9534 9575 "stat.ml" 353 9534 9577
+type(
+  float
+)
+"stat.ml" 353 9534 9536 "stat.ml" 353 9534 9577
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 355 9579 9583 "stat.ml" 355 9579 9613
+type(
+  int item
+)
+ident(
+  def pdr_tightened_blocking_clauses "stat.ml" 359 9692 9692 "_none_" 1 0 -1
+)
+"stat.ml" 356 9616 9618 "stat.ml" 356 9616 9628
+type(
+  string -> int -> int item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 356 9616 9629 "stat.ml" 356 9616 9657
+type(
+  string
+)
+"stat.ml" 356 9616 9658 "stat.ml" 356 9616 9659
+type(
+  int
+)
+"stat.ml" 356 9616 9618 "stat.ml" 356 9616 9659
+call(
+  stack
+)
+type(
+  int item
+)
+"stat.ml" 359 9692 9696 "stat.ml" 359 9692 9711
+type(
+  string
+)
+ident(
+  def pdr_stats_title "stat.ml" 362 9746 9746 "_none_" 1 0 -1
+)
+"stat.ml" 359 9692 9714 "stat.ml" 359 9692 9719
+type(
+  string
+)
+"stat.ml" 362 9746 9750 "stat.ml" 362 9746 9759
+type(
+  stat_item list
+)
+ident(
+  def pdr_stats "stat.ml" 381 10260 10260 "_none_" 1 0 -1
+)
+"stat.ml" 363 9763 9769 "stat.ml" 363 9763 9774
+type(
+  int_item
+)
+ident(
+  int_ref pdr_k "stat.ml" 310 8568 8572 "stat.ml" 310 8568 8577
+)
+"stat.ml" 363 9763 9767 "stat.ml" 363 9763 9774
+type(
+  stat_item
+)
+"stat.ml" 364 9777 9783 "stat.ml" 364 9777 9798
+type(
+  int_list_item
+)
+ident(
+  int_ref pdr_frame_sizes "stat.ml" 313 8601 8605 "stat.ml" 313 8601 8620
+)
+"stat.ml" 364 9777 9781 "stat.ml" 364 9777 9798
+type(
+  stat_item
+)
+"stat.ml" 365 9801 9807 "stat.ml" 365 9801 9825
+type(
+  int_item
+)
+ident(
+  int_ref pdr_fwd_propagated "stat.ml" 316 8655 8659 "stat.ml" 316 8655 8677
+)
+"stat.ml" 365 9801 9805 "stat.ml" 365 9801 9825
+type(
+  stat_item
+)
+"stat.ml" 366 9828 9834 "stat.ml" 366 9828 9850
+type(
+  int_item
+)
+ident(
+  int_ref pdr_fwd_fixpoint "stat.ml" 322 8803 8807 "stat.ml" 322 8803 8823
+)
+"stat.ml" 366 9828 9832 "stat.ml" 366 9828 9850
+type(
+  stat_item
+)
+"stat.ml" 367 9853 9859 "stat.ml" 367 9853 9889
+type(
+  int_item
+)
+ident(
+  int_ref pdr_inductive_blocking_clauses "stat.ml" 319 8720 8724 "stat.ml" 319 8720 8754
+)
+"stat.ml" 367 9853 9857 "stat.ml" 367 9853 9889
+type(
+  stat_item
+)
+"stat.ml" 368 9892 9898 "stat.ml" 368 9892 9928
+type(
+  int_item
+)
+ident(
+  int_ref pdr_tightened_blocking_clauses "stat.ml" 355 9579 9583 "stat.ml" 355 9579 9613
+)
+"stat.ml" 368 9892 9896 "stat.ml" 368 9892 9928
+type(
+  stat_item
+)
+"stat.ml" 369 9930 9936 "stat.ml" 369 9930 9955
+type(
+  int_list_item
+)
+ident(
+  int_ref pdr_counterexamples "stat.ml" 325 8857 8861 "stat.ml" 325 8857 8880
+)
+"stat.ml" 369 9930 9934 "stat.ml" 369 9930 9955
+type(
+  stat_item
+)
+"stat.ml" 370 9958 9964 "stat.ml" 370 9958 9989
+type(
+  int_item
+)
+ident(
+  int_ref pdr_counterexamples_total "stat.ml" 328 8929 8933 "stat.ml" 328 8929 8958
+)
+"stat.ml" 370 9958 9962 "stat.ml" 370 9958 9989
+type(
+  stat_item
+)
+"stat.ml" 371 9991 9997 "stat.ml" 371 9991 10011
+type(
+  float_item
+)
+ident(
+  int_ref pdr_total_time "stat.ml" 331 9002 9006 "stat.ml" 331 9002 9020
+)
+"stat.ml" 371 9991 9995 "stat.ml" 371 9991 10011
+type(
+  stat_item
+)
+"stat.ml" 372 10013 10019 "stat.ml" 372 10013 10036
+type(
+  float_item
+)
+ident(
+  int_ref pdr_fwd_prop_time "stat.ml" 334 9054 9058 "stat.ml" 334 9054 9075
+)
+"stat.ml" 372 10013 10017 "stat.ml" 372 10013 10036
+type(
+  stat_item
+)
+"stat.ml" 373 10038 10044 "stat.ml" 373 10038 10073
+type(
+  float_item
+)
+ident(
+  int_ref pdr_block_propagated_cex_time "stat.ml" 337 9123 9127 "stat.ml" 337 9123 9156
+)
+"stat.ml" 373 10038 10042 "stat.ml" 373 10038 10073
+type(
+  stat_item
+)
+"stat.ml" 374 10075 10081 "stat.ml" 374 10075 10100
+type(
+  float_item
+)
+ident(
+  int_ref pdr_strengthen_time "stat.ml" 340 9216 9220 "stat.ml" 340 9216 9239
+)
+"stat.ml" 374 10075 10079 "stat.ml" 374 10075 10100
+type(
+  stat_item
+)
+"stat.ml" 375 10102 10108 "stat.ml" 375 10102 10127
+type(
+  float_item
+)
+ident(
+  int_ref pdr_generalize_time "stat.ml" 343 9287 9291 "stat.ml" 343 9287 9310
+)
+"stat.ml" 375 10102 10106 "stat.ml" 375 10102 10127
+type(
+  stat_item
+)
+"stat.ml" 376 10130 10136 "stat.ml" 376 10130 10153
+type(
+  float_item
+)
+ident(
+  int_ref pdr_find_cex_time "stat.ml" 346 9353 9357 "stat.ml" 346 9353 9374
+)
+"stat.ml" 376 10130 10134 "stat.ml" 376 10130 10153
+type(
+  stat_item
+)
+"stat.ml" 377 10156 10162 "stat.ml" 377 10156 10186
+type(
+  float_item
+)
+ident(
+  int_ref pdr_inductive_check_time "stat.ml" 349 9424 9428 "stat.ml" 349 9424 9452
+)
+"stat.ml" 377 10156 10160 "stat.ml" 377 10156 10186
+type(
+  stat_item
+)
+"stat.ml" 378 10189 10195 "stat.ml" 378 10189 10221
+type(
+  float_item
+)
+ident(
+  int_ref pdr_tighten_to_subset_time "stat.ml" 352 9500 9504 "stat.ml" 352 9500 9530
+)
+"stat.ml" 378 10189 10193 "stat.ml" 378 10189 10221
+type(
+  stat_item
+)
+"stat.ml" 378 10189 10193 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 377 10156 10160 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 376 10130 10134 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 375 10102 10106 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 374 10075 10079 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 373 10038 10042 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 372 10013 10017 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 371 9991 9995 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 370 9958 9962 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 369 9930 9934 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 368 9892 9896 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 367 9853 9857 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 366 9828 9832 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 365 9801 9805 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 364 9777 9781 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 363 9763 9767 "stat.ml" 378 10189 10222
+type(
+  stat_item list
+)
+"stat.ml" 363 9763 9765 "stat.ml" 378 10189 10224
+type(
+  stat_item list
+)
+"stat.ml" 381 10260 10264 "stat.ml" 381 10260 10279
+type(
+  unit -> unit
+)
+ident(
+  def pdr_stop_timers "stat.ml" 384 10352 10352 "_none_" 1 0 -1
+)
+"stat.ml" 381 10260 10280 "stat.ml" 381 10260 10282
+type(
+  unit
+)
+"stat.ml" 381 10260 10285 "stat.ml" 381 10260 10300
+type(
+  stat_item list -> unit
+)
+ident(
+  int_ref stop_all_timers "stat.ml" 157 4925 4929 "stat.ml" 157 4925 4944
+)
+"stat.ml" 381 10260 10301 "stat.ml" 381 10260 10310
+type(
+  stat_item list
+)
+ident(
+  int_ref pdr_stats "stat.ml" 362 9746 9750 "stat.ml" 362 9746 9759
+)
+"stat.ml" 381 10260 10285 "stat.ml" 381 10260 10310
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 381 10260 10280 "stat.ml" 381 10260 10310
+type(
+  unit -> unit
+)
+"stat.ml" 384 10352 10356 "stat.ml" 384 10352 10374
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_pdr_stats "stat.ml" 393 10519 10519 "_none_" 1 0 -1
+)
+"stat.ml" 384 10352 10375 "stat.ml" 384 10352 10378
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 386 10383 10385 "stat.ml" 388 10444 10472
+)
+"stat.ml" 386 10383 10385 "stat.ml" 386 10383 10399
+type(
+  Format.formatter ->
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format ->
+  string ->
+  (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 386 10383 10400 "stat.ml" 386 10383 10403
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 384 10352 10375 "stat.ml" 384 10352 10378
+)
+"stat.ml" 386 10383 10404 "stat.ml" 386 10383 10423
+type(
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 387 10424 10428 "stat.ml" 387 10424 10443
+type(
+  string
+)
+ident(
+  int_ref pdr_stats_title "stat.ml" 359 9692 9696 "stat.ml" 359 9692 9711
+)
+"stat.ml" 388 10444 10448 "stat.ml" 388 10444 10462
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  int_ref pp_print_stats "stat.ml" 196 6023 6027 "stat.ml" 196 6023 6041
+)
+"stat.ml" 388 10444 10463 "stat.ml" 388 10444 10472
+type(
+  stat_item list
+)
+ident(
+  int_ref pdr_stats "stat.ml" 362 9746 9750 "stat.ml" 362 9746 9759
+)
+"stat.ml" 386 10383 10385 "stat.ml" 388 10444 10472
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 384 10352 10375 "stat.ml" 388 10444 10472
+type(
+  Format.formatter -> unit
+)
+"stat.ml" 393 10519 10523 "stat.ml" 393 10519 10541
+type(
+  float item
+)
+ident(
+  def smt_check_sat_time "stat.ml" 396 10579 10579 "_none_" 1 0 -1
+)
+"stat.ml" 394 10545 10547 "stat.ml" 394 10545 10557
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 394 10545 10558 "stat.ml" 394 10545 10574
+type(
+  string
+)
+"stat.ml" 394 10545 10575 "stat.ml" 394 10545 10577
+type(
+  float
+)
+"stat.ml" 394 10545 10547 "stat.ml" 394 10545 10577
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 396 10579 10583 "stat.ml" 396 10579 10601
+type(
+  float item
+)
+ident(
+  def smt_get_value_time "stat.ml" 400 10670 10670 "_none_" 1 0 -1
+)
+"stat.ml" 397 10605 10607 "stat.ml" 397 10605 10617
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 397 10605 10618 "stat.ml" 397 10605 10634
+type(
+  string
+)
+"stat.ml" 397 10605 10635 "stat.ml" 397 10605 10637
+type(
+  float
+)
+"stat.ml" 397 10605 10607 "stat.ml" 397 10605 10637
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 400 10670 10674 "stat.ml" 400 10670 10689
+type(
+  string
+)
+ident(
+  def smt_stats_title "stat.ml" 403 10724 10724 "_none_" 1 0 -1
+)
+"stat.ml" 400 10670 10692 "stat.ml" 400 10670 10697
+type(
+  string
+)
+"stat.ml" 403 10724 10728 "stat.ml" 403 10724 10737
+type(
+  stat_item list
+)
+ident(
+  def smt_stats "stat.ml" 408 10828 10828 "_none_" 1 0 -1
+)
+"stat.ml" 404 10741 10747 "stat.ml" 404 10741 10765
+type(
+  float_item
+)
+ident(
+  int_ref smt_check_sat_time "stat.ml" 393 10519 10523 "stat.ml" 393 10519 10541
+)
+"stat.ml" 404 10741 10745 "stat.ml" 404 10741 10765
+type(
+  stat_item
+)
+"stat.ml" 405 10767 10773 "stat.ml" 405 10767 10791
+type(
+  float_item
+)
+ident(
+  int_ref smt_get_value_time "stat.ml" 396 10579 10583 "stat.ml" 396 10579 10601
+)
+"stat.ml" 405 10767 10771 "stat.ml" 405 10767 10791
+type(
+  stat_item
+)
+type(
+  stat_item list
+)
+"stat.ml" 404 10741 10745 "stat.ml" 405 10767 10791
+type(
+  stat_item list
+)
+"stat.ml" 404 10741 10743 "stat.ml" 405 10767 10793
+type(
+  stat_item list
+)
+"stat.ml" 408 10828 10832 "stat.ml" 408 10828 10847
+type(
+  unit -> unit
+)
+ident(
+  def smt_stop_timers "stat.ml" 411 10920 10920 "_none_" 1 0 -1
+)
+"stat.ml" 408 10828 10848 "stat.ml" 408 10828 10850
+type(
+  unit
+)
+"stat.ml" 408 10828 10853 "stat.ml" 408 10828 10868
+type(
+  stat_item list -> unit
+)
+ident(
+  int_ref stop_all_timers "stat.ml" 157 4925 4929 "stat.ml" 157 4925 4944
+)
+"stat.ml" 408 10828 10869 "stat.ml" 408 10828 10878
+type(
+  stat_item list
+)
+ident(
+  int_ref smt_stats "stat.ml" 403 10724 10728 "stat.ml" 403 10724 10737
+)
+"stat.ml" 408 10828 10853 "stat.ml" 408 10828 10878
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 408 10828 10848 "stat.ml" 408 10828 10878
+type(
+  unit -> unit
+)
+"stat.ml" 411 10920 10924 "stat.ml" 411 10920 10942
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_smt_stats "stat.ml" 420 11088 11088 "_none_" 1 0 -1
+)
+"stat.ml" 411 10920 10943 "stat.ml" 411 10920 10946
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 413 10951 10953 "stat.ml" 415 11012 11040
+)
+"stat.ml" 413 10951 10953 "stat.ml" 413 10951 10967
+type(
+  Format.formatter ->
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format ->
+  string ->
+  (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 413 10951 10968 "stat.ml" 413 10951 10971
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 411 10920 10943 "stat.ml" 411 10920 10946
+)
+"stat.ml" 413 10951 10972 "stat.ml" 413 10951 10991
+type(
+  (string ->
+   (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 414 10992 10996 "stat.ml" 414 10992 11011
+type(
+  string
+)
+ident(
+  int_ref smt_stats_title "stat.ml" 400 10670 10674 "stat.ml" 400 10670 10689
+)
+"stat.ml" 415 11012 11016 "stat.ml" 415 11012 11030
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  int_ref pp_print_stats "stat.ml" 196 6023 6027 "stat.ml" 196 6023 6041
+)
+"stat.ml" 415 11012 11031 "stat.ml" 415 11012 11040
+type(
+  stat_item list
+)
+ident(
+  int_ref smt_stats "stat.ml" 403 10724 10728 "stat.ml" 403 10724 10737
+)
+"stat.ml" 413 10951 10953 "stat.ml" 415 11012 11040
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 411 10920 10943 "stat.ml" 415 11012 11040
+type(
+  Format.formatter -> unit
+)
+"stat.ml" 420 11088 11092 "stat.ml" 420 11088 11111
+type(
+  float item
+)
+ident(
+  def clause_of_term_time "stat.ml" 423 11154 11154 "_none_" 1 0 -1
+)
+"stat.ml" 421 11115 11117 "stat.ml" 421 11115 11127
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 421 11115 11128 "stat.ml" 421 11115 11149
+type(
+  string
+)
+"stat.ml" 421 11115 11150 "stat.ml" 421 11115 11152
+type(
+  float
+)
+"stat.ml" 421 11115 11117 "stat.ml" 421 11115 11152
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 423 11154 11158 "stat.ml" 423 11154 11178
+type(
+  float item
+)
+ident(
+  def smtexpr_of_term_time "stat.ml" 426 11222 11222 "_none_" 1 0 -1
+)
+"stat.ml" 424 11182 11184 "stat.ml" 424 11182 11194
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 424 11182 11195 "stat.ml" 424 11182 11217
+type(
+  string
+)
+"stat.ml" 424 11182 11218 "stat.ml" 424 11182 11220
+type(
+  float
+)
+"stat.ml" 424 11182 11184 "stat.ml" 424 11182 11220
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 426 11222 11226 "stat.ml" 426 11222 11246
+type(
+  float item
+)
+ident(
+  def term_of_smtexpr_time "stat.ml" 429 11289 11289 "_none_" 1 0 -1
+)
+"stat.ml" 427 11249 11251 "stat.ml" 427 11249 11261
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 427 11249 11262 "stat.ml" 427 11249 11284
+type(
+  string
+)
+"stat.ml" 427 11249 11285 "stat.ml" 427 11249 11287
+type(
+  float
+)
+"stat.ml" 427 11249 11251 "stat.ml" 427 11249 11287
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 429 11289 11293 "stat.ml" 429 11289 11309
+type(
+  float item
+)
+ident(
+  def cnf_subsume_time "stat.ml" 432 11359 11359 "_none_" 1 0 -1
+)
+"stat.ml" 430 11313 11315 "stat.ml" 430 11313 11325
+type(
+  string -> float -> float item
+)
+ident(
+  int_ref empty_item "stat.ml" 56 2167 2171 "stat.ml" 56 2167 2181
+)
+"stat.ml" 430 11313 11326 "stat.ml" 430 11313 11354
+type(
+  string
+)
+"stat.ml" 430 11313 11355 "stat.ml" 430 11313 11357
+type(
+  float
+)
+"stat.ml" 430 11313 11315 "stat.ml" 430 11313 11357
+call(
+  stack
+)
+type(
+  float item
+)
+"stat.ml" 432 11359 11363 "stat.ml" 432 11359 11379
+type(
+  string
+)
+ident(
+  def misc_stats_title "stat.ml" 434 11393 11393 "_none_" 1 0 -1
+)
+"stat.ml" 432 11359 11382 "stat.ml" 432 11359 11391
+type(
+  string
+)
+"stat.ml" 434 11393 11397 "stat.ml" 434 11393 11407
+type(
+  stat_item list
+)
+ident(
+  def misc_stats "stat.ml" 441 11553 11553 "_none_" 1 0 -1
+)
+"stat.ml" 435 11411 11417 "stat.ml" 435 11411 11436
+type(
+  float_item
+)
+ident(
+  int_ref clause_of_term_time "stat.ml" 420 11088 11092 "stat.ml" 420 11088 11111
+)
+"stat.ml" 435 11411 11415 "stat.ml" 435 11411 11436
+type(
+  stat_item
+)
+"stat.ml" 436 11438 11444 "stat.ml" 436 11438 11460
+type(
+  float_item
+)
+ident(
+  int_ref cnf_subsume_time "stat.ml" 429 11289 11293 "stat.ml" 429 11289 11309
+)
+"stat.ml" 436 11438 11442 "stat.ml" 436 11438 11460
+type(
+  stat_item
+)
+"stat.ml" 437 11462 11468 "stat.ml" 437 11462 11488
+type(
+  float_item
+)
+ident(
+  int_ref smtexpr_of_term_time "stat.ml" 423 11154 11158 "stat.ml" 423 11154 11178
+)
+"stat.ml" 437 11462 11466 "stat.ml" 437 11462 11488
+type(
+  stat_item
+)
+"stat.ml" 438 11491 11497 "stat.ml" 438 11491 11517
+type(
+  float_item
+)
+ident(
+  int_ref term_of_smtexpr_time "stat.ml" 426 11222 11226 "stat.ml" 426 11222 11246
+)
+"stat.ml" 438 11491 11495 "stat.ml" 438 11491 11517
+type(
+  stat_item
+)
+type(
+  stat_item list
+)
+"stat.ml" 437 11462 11466 "stat.ml" 438 11491 11517
+type(
+  stat_item list
+)
+"stat.ml" 436 11438 11442 "stat.ml" 438 11491 11517
+type(
+  stat_item list
+)
+"stat.ml" 435 11411 11415 "stat.ml" 438 11491 11517
+type(
+  stat_item list
+)
+"stat.ml" 435 11411 11413 "stat.ml" 438 11491 11519
+type(
+  stat_item list
+)
+"stat.ml" 441 11553 11557 "stat.ml" 441 11553 11573
+type(
+  unit -> unit
+)
+ident(
+  def misc_stop_timers "stat.ml" 444 11648 11648 "_none_" 1 0 -1
+)
+"stat.ml" 441 11553 11574 "stat.ml" 441 11553 11576
+type(
+  unit
+)
+"stat.ml" 441 11553 11579 "stat.ml" 441 11553 11594
+type(
+  stat_item list -> unit
+)
+ident(
+  int_ref stop_all_timers "stat.ml" 157 4925 4929 "stat.ml" 157 4925 4944
+)
+"stat.ml" 441 11553 11595 "stat.ml" 441 11553 11605
+type(
+  stat_item list
+)
+ident(
+  int_ref misc_stats "stat.ml" 434 11393 11397 "stat.ml" 434 11393 11407
+)
+"stat.ml" 441 11553 11579 "stat.ml" 441 11553 11605
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 441 11553 11574 "stat.ml" 441 11553 11605
+type(
+  unit -> unit
+)
+"stat.ml" 444 11648 11652 "stat.ml" 444 11648 11671
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_misc_stats "stat.ml" 447 11713 11742 "_none_" 1 0 -1
+)
+"stat.ml" 444 11648 11672 "stat.ml" 444 11648 11675
+type(
+  Format.formatter
+)
+ident(
+  def ppf "stat.ml" 446 11680 11682 "stat.ml" 447 11713 11742
+)
+"stat.ml" 446 11680 11682 "stat.ml" 446 11680 11696
+type(
+  Format.formatter ->
+  ((Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format ->
+  (Format.formatter -> stat_item list -> unit) -> stat_item list -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"stat.ml" 446 11680 11697 "stat.ml" 446 11680 11700
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "stat.ml" 444 11648 11672 "stat.ml" 444 11648 11675
+)
+"stat.ml" 446 11680 11701 "stat.ml" 446 11680 11712
+type(
+  ((Format.formatter -> stat_item list -> unit) -> stat_item list -> unit,
+   Format.formatter, unit)
+  format
+)
+"stat.ml" 447 11713 11717 "stat.ml" 447 11713 11731
+type(
+  Format.formatter -> stat_item list -> unit
+)
+ident(
+  int_ref pp_print_stats "stat.ml" 196 6023 6027 "stat.ml" 196 6023 6041
+)
+"stat.ml" 447 11713 11732 "stat.ml" 447 11713 11742
+type(
+  stat_item list
+)
+ident(
+  int_ref misc_stats "stat.ml" 434 11393 11397 "stat.ml" 434 11393 11407
+)
+"stat.ml" 446 11680 11682 "stat.ml" 447 11713 11742
+call(
+  tail
+)
+type(
+  unit
+)
+"stat.ml" 444 11648 11672 "stat.ml" 447 11713 11742
+type(
+  Format.formatter -> unit
+)

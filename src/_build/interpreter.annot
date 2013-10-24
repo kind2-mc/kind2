@@ -1,0 +1,1156 @@
+"interpreter.ml" 35 1791 1810 "interpreter.ml" 35 1791 1843
+call(
+  stack
+)
+"interpreter.ml" 39 1886 1897 "interpreter.ml" 39 1886 1927
+call(
+  stack
+)
+"interpreter.ml" 44 2022 2026 "interpreter.ml" 44 2022 2033
+type(
+  unit -> unit
+)
+ident(
+  def on_exit "interpreter.ml" 48 2067 2067 "_none_" 1 0 -1
+)
+"interpreter.ml" 44 2022 2034 "interpreter.ml" 44 2022 2036
+type(
+  unit
+)
+"interpreter.ml" 44 2022 2039 "interpreter.ml" 44 2022 2041
+type(
+  unit
+)
+"interpreter.ml" 44 2022 2034 "interpreter.ml" 44 2022 2041
+type(
+  unit -> unit
+)
+"interpreter.ml" 48 2067 2071 "interpreter.ml" 48 2067 2075
+type(
+  string -> TransSys.t -> unit
+)
+ident(
+  def main "interpreter.ml" 141 3976 4054 "_none_" 1 0 -1
+)
+"interpreter.ml" 48 2067 2076 "interpreter.ml" 48 2067 2086
+type(
+  string
+)
+ident(
+  def input_file "interpreter.ml" 48 2067 2087 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 48 2067 2087 "interpreter.ml" 48 2067 2095
+type(
+  TransSys.t
+)
+ident(
+  def transSys "interpreter.ml" 49 2098 2100 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 49 2098 2104 "interpreter.ml" 49 2098 2110
+type(
+  (StateVar.t * Term.t list) list
+)
+ident(
+  def inputs "interpreter.ml" 51 2182 2184 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 49 2098 2113 "interpreter.ml" 49 2098 2134
+type(
+  string -> (StateVar.t * Term.t list) list
+)
+ident(
+  ext_ref InputParser.read_file
+)
+"interpreter.ml" 49 2098 2135 "interpreter.ml" 49 2098 2145
+type(
+  string
+)
+ident(
+  int_ref input_file "interpreter.ml" 48 2067 2076 "interpreter.ml" 48 2067 2086
+)
+"interpreter.ml" 49 2098 2113 "interpreter.ml" 49 2098 2145
+call(
+  stack
+)
+type(
+  (StateVar.t * Term.t list) list
+)
+"interpreter.ml" 51 2182 2188 "interpreter.ml" 51 2182 2189
+type(
+  int
+)
+ident(
+  def k "interpreter.ml" 53 2198 2200 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 51 2182 2192 "interpreter.ml" 51 2182 2193
+type(
+  int
+)
+"interpreter.ml" 53 2198 2200 "interpreter.ml" 53 2198 2209
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"interpreter.ml" 53 2198 2210 "interpreter.ml" 53 2198 2222
+type(
+  Lib.kind_module
+)
+"interpreter.ml" 53 2198 2223 "interpreter.ml" 53 2198 2236
+type(
+  Event.log_level
+)
+"interpreter.ml" 53 2198 2237 "interpreter.ml" 53 2198 2271
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"interpreter.ml" 53 2198 2272 "interpreter.ml" 53 2198 2273
+type(
+  int
+)
+ident(
+  int_ref k "interpreter.ml" 51 2182 2188 "interpreter.ml" 51 2182 2189
+)
+"interpreter.ml" 53 2198 2200 "interpreter.ml" 53 2198 2273
+call(
+  stack
+)
+type(
+  unit
+)
+"interpreter.ml" 58 2359 2365 "interpreter.ml" 58 2359 2366
+type(
+  int
+)
+ident(
+  def l "interpreter.ml" 61 2418 2420 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 58 2359 2369 "interpreter.ml" 58 2359 2370
+type(
+  int
+)
+"interpreter.ml" 61 2418 2424 "interpreter.ml" 61 2418 2429
+type(
+  SMTExpr.logic
+)
+ident(
+  def logic "interpreter.ml" 64 2495 2497 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 61 2418 2432 "interpreter.ml" 61 2418 2450
+type(
+  TransSys.t -> SMTExpr.logic
+)
+ident(
+  ext_ref TransSys.get_logic
+)
+"interpreter.ml" 61 2418 2451 "interpreter.ml" 61 2418 2459
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "interpreter.ml" 48 2067 2087 "interpreter.ml" 48 2067 2095
+)
+"interpreter.ml" 61 2418 2432 "interpreter.ml" 61 2418 2459
+call(
+  stack
+)
+type(
+  SMTExpr.logic
+)
+"interpreter.ml" 64 2495 2501 "interpreter.ml" 64 2495 2507
+type(
+  S.t
+)
+ident(
+  def solver "interpreter.ml" 68 2572 2574 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 65 2511 2515 "interpreter.ml" 65 2511 2527
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> S.t
+)
+ident(
+  ext_ref S.new_solver
+)
+"interpreter.ml" 65 2511 2549 "interpreter.ml" 65 2511 2553
+type(
+  bool
+)
+"interpreter.ml" 65 2511 2554 "interpreter.ml" 65 2511 2559
+type(
+  SMTExpr.logic
+)
+ident(
+  int_ref logic "interpreter.ml" 61 2418 2424 "interpreter.ml" 61 2418 2429
+)
+"interpreter.ml" 65 2511 2515 "interpreter.ml" 65 2511 2559
+call(
+  stack
+)
+type(
+  S.t
+)
+"interpreter.ml" 68 2572 2578 "interpreter.ml" 68 2572 2588
+type(
+  StateVar.t list
+)
+ident(
+  def state_vars "interpreter.ml" 71 2659 2661 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 68 2572 2591 "interpreter.ml" 68 2572 2610
+type(
+  TransSys.t -> StateVar.t list
+)
+ident(
+  ext_ref TransSys.state_vars
+)
+"interpreter.ml" 68 2572 2611 "interpreter.ml" 68 2572 2619
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "interpreter.ml" 48 2067 2087 "interpreter.ml" 48 2067 2095
+)
+"interpreter.ml" 68 2572 2591 "interpreter.ml" 68 2572 2619
+call(
+  stack
+)
+type(
+  StateVar.t list
+)
+"interpreter.ml" 71 2659 2661 "interpreter.ml" 71 2659 2674
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"interpreter.ml" 71 2659 2675 "interpreter.ml" 71 2659 2681
+type(
+  S.t
+)
+ident(
+  int_ref solver "interpreter.ml" 64 2495 2501 "interpreter.ml" 64 2495 2507
+)
+"interpreter.ml" 71 2659 2683 "interpreter.ml" 71 2659 2705
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.init_of_bound
+)
+"interpreter.ml" 71 2659 2706 "interpreter.ml" 71 2659 2707
+type(
+  int
+)
+"interpreter.ml" 71 2659 2708 "interpreter.ml" 71 2659 2716
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "interpreter.ml" 48 2067 2087 "interpreter.ml" 48 2067 2095
+)
+"interpreter.ml" 71 2659 2683 "interpreter.ml" 71 2659 2716
+call(
+  stack
+)
+type(
+  Term.t
+)
+"interpreter.ml" 71 2659 2661 "interpreter.ml" 71 2659 2717
+call(
+  stack
+)
+type(
+  unit
+)
+"interpreter.ml" 73 2722 2732 "interpreter.ml" 73 2722 2740
+type(
+  TransSys.t -> int -> unit
+)
+ident(
+  def assert_t "interpreter.ml" 73 2722 2724 "interpreter.ml" 141 3976 4054
+)
+"interpreter.ml" 73 2722 2741 "interpreter.ml" 73 2722 2742
+type(
+  TransSys.t
+)
+ident(
+  def t "interpreter.ml" 73 2722 2743 "interpreter.ml" 87 2928 2935
+)
+"interpreter.ml" 73 2722 2743 "interpreter.ml" 73 2722 2744
+type(
+  int
+)
+ident(
+  def i "interpreter.ml" 75 2752 2756 "interpreter.ml" 87 2928 2935
+)
+"interpreter.ml" 75 2752 2759 "interpreter.ml" 75 2752 2760
+type(
+  int
+)
+ident(
+  int_ref i "interpreter.ml" 73 2722 2743 "interpreter.ml" 73 2722 2744
+)
+"interpreter.ml" 75 2752 2761 "interpreter.ml" 75 2752 2763
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( <= )
+)
+"interpreter.ml" 75 2752 2764 "interpreter.ml" 75 2752 2765
+type(
+  int
+)
+"interpreter.ml" 75 2752 2759 "interpreter.ml" 75 2752 2765
+type(
+  bool
+)
+"interpreter.ml" 77 2773 2779 "interpreter.ml" 77 2773 2781
+type(
+  unit
+)
+"interpreter.ml" 83 2813 2821 "interpreter.ml" 83 2813 2834
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"interpreter.ml" 83 2813 2835 "interpreter.ml" 83 2813 2841
+type(
+  S.t
+)
+ident(
+  int_ref solver "interpreter.ml" 64 2495 2501 "interpreter.ml" 64 2495 2507
+)
+"interpreter.ml" 83 2813 2843 "interpreter.ml" 83 2813 2867
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.constr_of_bound
+)
+"interpreter.ml" 83 2813 2868 "interpreter.ml" 83 2813 2869
+type(
+  int
+)
+ident(
+  int_ref i "interpreter.ml" 73 2722 2743 "interpreter.ml" 73 2722 2744
+)
+"interpreter.ml" 83 2813 2870 "interpreter.ml" 83 2813 2871
+type(
+  TransSys.t
+)
+ident(
+  int_ref t "interpreter.ml" 73 2722 2741 "interpreter.ml" 73 2722 2742
+)
+"interpreter.ml" 83 2813 2843 "interpreter.ml" 83 2813 2871
+call(
+  stack
+)
+type(
+  Term.t
+)
+"interpreter.ml" 83 2813 2821 "interpreter.ml" 83 2813 2872
+call(
+  stack
+)
+type(
+  unit
+)
+"interpreter.ml" 85 2883 2891 "interpreter.ml" 85 2883 2899
+type(
+  TransSys.t -> int -> unit
+)
+ident(
+  int_ref assert_t "interpreter.ml" 73 2722 2732 "interpreter.ml" 73 2722 2740
+)
+"interpreter.ml" 85 2883 2900 "interpreter.ml" 85 2883 2908
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "interpreter.ml" 48 2067 2087 "interpreter.ml" 48 2067 2095
+)
+"interpreter.ml" 85 2883 2910 "interpreter.ml" 85 2883 2911
+type(
+  int
+)
+ident(
+  int_ref i "interpreter.ml" 73 2722 2743 "interpreter.ml" 73 2722 2744
+)
+"interpreter.ml" 85 2883 2912 "interpreter.ml" 85 2883 2913
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"interpreter.ml" 85 2883 2914 "interpreter.ml" 85 2883 2915
+type(
+  int
+)
+"interpreter.ml" 85 2883 2910 "interpreter.ml" 85 2883 2915
+type(
+  int
+)
+"interpreter.ml" 85 2883 2891 "interpreter.ml" 85 2883 2916
+call(
+  tail
+)
+type(
+  unit
+)
+"interpreter.ml" 83 2813 2821 "interpreter.ml" 85 2883 2916
+type(
+  unit
+)
+"interpreter.ml" 75 2752 2756 "interpreter.ml" 87 2928 2935
+type(
+  unit
+)
+"interpreter.ml" 73 2722 2743 "interpreter.ml" 87 2928 2935
+type(
+  int -> unit
+)
+"interpreter.ml" 73 2722 2741 "interpreter.ml" 87 2928 2935
+type(
+  TransSys.t -> int -> unit
+)
+"interpreter.ml" 95 3094 3096 "interpreter.ml" 95 3094 3105
+type(
+  (StateVar.t * Term.t list -> unit) ->
+  (StateVar.t * Term.t list) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"interpreter.ml" 97 3107 3117 "interpreter.ml" 97 3107 3126
+type(
+  StateVar.t
+)
+ident(
+  def state_var "interpreter.ml" 99 3141 3148 "interpreter.ml" 117 3514 3523
+)
+"interpreter.ml" 97 3107 3128 "interpreter.ml" 97 3107 3134
+type(
+  Term.t list
+)
+ident(
+  def values "interpreter.ml" 99 3141 3148 "interpreter.ml" 117 3514 3523
+)
+"interpreter.ml" 97 3107 3117 "interpreter.ml" 97 3107 3134
+type(
+  StateVar.t * Term.t list
+)
+"interpreter.ml" 99 3141 3152 "interpreter.ml" 99 3141 3153
+type(
+  Lib.numeral
+)
+"interpreter.ml" 99 3141 3156 "interpreter.ml" 99 3141 3170
+type(
+  (Lib.numeral -> Term.t -> Lib.numeral) ->
+  Lib.numeral -> Term.t list -> Lib.numeral
+)
+ident(
+  ext_ref List.fold_left
+)
+"interpreter.ml" 101 3172 3186 "interpreter.ml" 101 3172 3193
+type(
+  Lib.numeral
+)
+ident(
+  def instant "interpreter.ml" 101 3172 3194 "interpreter.ml" 109 3413 3445
+)
+"interpreter.ml" 101 3172 3194 "interpreter.ml" 101 3172 3207
+type(
+  Term.t
+)
+ident(
+  def instant_value "interpreter.ml" 103 3212 3224 "interpreter.ml" 109 3413 3445
+)
+"interpreter.ml" 103 3212 3228 "interpreter.ml" 103 3212 3231
+type(
+  Var.t
+)
+ident(
+  def var "interpreter.ml" 105 3294 3306 "interpreter.ml" 109 3413 3445
+)
+"interpreter.ml" 103 3212 3234 "interpreter.ml" 103 3212 3259
+type(
+  StateVar.t -> Lib.numeral -> Var.t
+)
+ident(
+  ext_ref Var.mk_state_var_instance
+)
+"interpreter.ml" 103 3212 3260 "interpreter.ml" 103 3212 3269
+type(
+  StateVar.t
+)
+ident(
+  int_ref state_var "interpreter.ml" 97 3107 3117 "interpreter.ml" 97 3107 3126
+)
+"interpreter.ml" 103 3212 3270 "interpreter.ml" 103 3212 3277
+type(
+  Lib.numeral
+)
+ident(
+  int_ref instant "interpreter.ml" 101 3172 3186 "interpreter.ml" 101 3172 3193
+)
+"interpreter.ml" 103 3212 3234 "interpreter.ml" 103 3212 3277
+call(
+  stack
+)
+type(
+  Var.t
+)
+"interpreter.ml" 105 3294 3310 "interpreter.ml" 105 3294 3318
+type(
+  Term.t
+)
+ident(
+  def equation "interpreter.ml" 107 3369 3381 "interpreter.ml" 109 3413 3445
+)
+"interpreter.ml" 105 3294 3321 "interpreter.ml" 105 3294 3331
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_eq
+)
+"interpreter.ml" 105 3294 3333 "interpreter.ml" 105 3294 3344
+type(
+  Var.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_var
+)
+"interpreter.ml" 105 3294 3345 "interpreter.ml" 105 3294 3348
+type(
+  Var.t
+)
+ident(
+  int_ref var "interpreter.ml" 103 3212 3228 "interpreter.ml" 103 3212 3231
+)
+"interpreter.ml" 105 3294 3333 "interpreter.ml" 105 3294 3348
+call(
+  stack
+)
+type(
+  Term.t
+)
+"interpreter.ml" 105 3294 3350 "interpreter.ml" 105 3294 3363
+type(
+  Term.t
+)
+ident(
+  int_ref instant_value "interpreter.ml" 101 3172 3194 "interpreter.ml" 101 3172 3207
+)
+type(
+  Term.t list
+)
+"interpreter.ml" 105 3294 3333 "interpreter.ml" 105 3294 3363
+type(
+  Term.t list
+)
+"interpreter.ml" 105 3294 3332 "interpreter.ml" 105 3294 3364
+type(
+  Term.t list
+)
+"interpreter.ml" 105 3294 3321 "interpreter.ml" 105 3294 3364
+call(
+  stack
+)
+type(
+  Term.t
+)
+"interpreter.ml" 107 3369 3381 "interpreter.ml" 107 3369 3394
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"interpreter.ml" 107 3369 3395 "interpreter.ml" 107 3369 3401
+type(
+  S.t
+)
+ident(
+  int_ref solver "interpreter.ml" 64 2495 2501 "interpreter.ml" 64 2495 2507
+)
+"interpreter.ml" 107 3369 3402 "interpreter.ml" 107 3369 3410
+type(
+  Term.t
+)
+ident(
+  int_ref equation "interpreter.ml" 105 3294 3310 "interpreter.ml" 105 3294 3318
+)
+"interpreter.ml" 107 3369 3381 "interpreter.ml" 107 3369 3410
+call(
+  stack
+)
+type(
+  unit
+)
+"interpreter.ml" 109 3413 3425 "interpreter.ml" 109 3413 3437
+type(
+  Lib.numeral -> Lib.numeral
+)
+ident(
+  ext_ref Lib.incr_numeral
+)
+"interpreter.ml" 109 3413 3438 "interpreter.ml" 109 3413 3445
+type(
+  Lib.numeral
+)
+ident(
+  int_ref instant "interpreter.ml" 101 3172 3186 "interpreter.ml" 101 3172 3193
+)
+"interpreter.ml" 109 3413 3425 "interpreter.ml" 109 3413 3445
+call(
+  tail
+)
+type(
+  Lib.numeral
+)
+"interpreter.ml" 107 3369 3381 "interpreter.ml" 109 3413 3445
+type(
+  Lib.numeral
+)
+"interpreter.ml" 105 3294 3306 "interpreter.ml" 109 3413 3445
+type(
+  Lib.numeral
+)
+"interpreter.ml" 103 3212 3224 "interpreter.ml" 109 3413 3445
+type(
+  Lib.numeral
+)
+"interpreter.ml" 101 3172 3194 "interpreter.ml" 109 3413 3445
+type(
+  Term.t -> Lib.numeral
+)
+"interpreter.ml" 101 3172 3186 "interpreter.ml" 109 3413 3445
+type(
+  Lib.numeral -> Term.t -> Lib.numeral
+)
+"interpreter.ml" 111 3448 3458 "interpreter.ml" 111 3448 3472
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"interpreter.ml" 111 3448 3473 "interpreter.ml" 111 3448 3474
+type(
+  int
+)
+"interpreter.ml" 111 3448 3458 "interpreter.ml" 111 3448 3474
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"interpreter.ml" 113 3486 3495 "interpreter.ml" 113 3486 3501
+type(
+  Term.t list
+)
+ident(
+  int_ref values "interpreter.ml" 97 3107 3128 "interpreter.ml" 97 3107 3134
+)
+"interpreter.ml" 99 3141 3156 "interpreter.ml" 113 3486 3501
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"interpreter.ml" 117 3514 3521 "interpreter.ml" 117 3514 3523
+type(
+  unit
+)
+"interpreter.ml" 99 3141 3148 "interpreter.ml" 117 3514 3523
+type(
+  unit
+)
+"interpreter.ml" 97 3107 3116 "interpreter.ml" 117 3514 3523
+type(
+  StateVar.t * Term.t list -> unit
+)
+"interpreter.ml" 120 3532 3536 "interpreter.ml" 120 3532 3542
+type(
+  (StateVar.t * Term.t list) list
+)
+ident(
+  int_ref inputs "interpreter.ml" 49 2098 2104 "interpreter.ml" 49 2098 2110
+)
+"interpreter.ml" 95 3094 3096 "interpreter.ml" 120 3532 3542
+call(
+  stack
+)
+type(
+  unit
+)
+"interpreter.ml" 123 3552 3558 "interpreter.ml" 123 3552 3569
+type(
+  ?timeout:int -> S.t -> bool
+)
+ident(
+  ext_ref S.check_sat
+)
+"interpreter.ml" 123 3552 3570 "interpreter.ml" 123 3552 3576
+type(
+  S.t
+)
+ident(
+  int_ref solver "interpreter.ml" 64 2495 2501 "interpreter.ml" 64 2495 2507
+)
+"interpreter.ml" 123 3552 3558 "interpreter.ml" 123 3552 3576
+call(
+  stack
+)
+type(
+  bool
+)
+"interpreter.ml" 124 3583 3592 "interpreter.ml" 124 3583 3595
+type(
+  Var.t list -> StateVar.t -> Lib.numeral -> Term.t list
+)
+ident(
+  def aux "interpreter.ml" 124 3583 3584 "interpreter.ml" 137 3926 3966
+)
+"interpreter.ml" 124 3583 3596 "interpreter.ml" 124 3583 3599
+type(
+  Var.t list
+)
+ident(
+  def acc "interpreter.ml" 124 3583 3600 "interpreter.ml" 129 3717 3797
+)
+"interpreter.ml" 124 3583 3600 "interpreter.ml" 124 3583 3609
+type(
+  StateVar.t
+)
+ident(
+  def state_var "interpreter.ml" 124 3583 3610 "interpreter.ml" 129 3717 3797
+)
+"interpreter.ml" 124 3583 3610 "interpreter.ml" 124 3583 3611
+type(
+  Lib.numeral
+)
+ident(
+  def k "interpreter.ml" 125 3614 3616 "interpreter.ml" 129 3717 3797
+)
+"interpreter.ml" 125 3614 3620 "interpreter.ml" 125 3614 3634
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"interpreter.ml" 125 3614 3635 "interpreter.ml" 125 3614 3636
+type(
+  Lib.numeral
+)
+ident(
+  int_ref k "interpreter.ml" 124 3583 3610 "interpreter.ml" 124 3583 3611
+)
+"interpreter.ml" 125 3614 3620 "interpreter.ml" 125 3614 3636
+call(
+  stack
+)
+type(
+  int
+)
+"interpreter.ml" 125 3614 3638 "interpreter.ml" 125 3614 3639
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"interpreter.ml" 125 3614 3640 "interpreter.ml" 125 3614 3641
+type(
+  int
+)
+"interpreter.ml" 125 3614 3619 "interpreter.ml" 125 3614 3641
+type(
+  bool
+)
+"interpreter.ml" 126 3647 3654 "interpreter.ml" 126 3647 3659
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "interpreter.ml" 127 3688 3691 "interpreter.ml" 127 3688 3709
+)
+"interpreter.ml" 126 3647 3662 "interpreter.ml" 126 3647 3673
+type(
+  S.t -> Var.t list -> (Var.t * Term.t) list
+)
+ident(
+  ext_ref S.get_model
+)
+"interpreter.ml" 126 3647 3674 "interpreter.ml" 126 3647 3680
+type(
+  S.t
+)
+ident(
+  int_ref solver "interpreter.ml" 64 2495 2501 "interpreter.ml" 64 2495 2507
+)
+"interpreter.ml" 126 3647 3681 "interpreter.ml" 126 3647 3684
+type(
+  Var.t list
+)
+ident(
+  int_ref acc "interpreter.ml" 124 3583 3596 "interpreter.ml" 124 3583 3599
+)
+"interpreter.ml" 126 3647 3662 "interpreter.ml" 126 3647 3684
+call(
+  stack
+)
+type(
+  (Var.t * Term.t) list
+)
+"interpreter.ml" 127 3688 3691 "interpreter.ml" 127 3688 3699
+type(
+  (Var.t * Term.t -> Term.t) -> (Var.t * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"interpreter.ml" 127 3688 3700 "interpreter.ml" 127 3688 3703
+type(
+  Var.t * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"interpreter.ml" 127 3688 3704 "interpreter.ml" 127 3688 3709
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "interpreter.ml" 126 3647 3654 "interpreter.ml" 126 3647 3659
+)
+"interpreter.ml" 127 3688 3691 "interpreter.ml" 127 3688 3709
+call(
+  tail
+)
+type(
+  Term.t list
+)
+"interpreter.ml" 126 3647 3650 "interpreter.ml" 127 3688 3709
+type(
+  Term.t list
+)
+"interpreter.ml" 129 3717 3720 "interpreter.ml" 129 3717 3723
+type(
+  Var.t list -> StateVar.t -> Lib.numeral -> Term.t list
+)
+ident(
+  int_ref aux "interpreter.ml" 124 3583 3592 "interpreter.ml" 124 3583 3595
+)
+"interpreter.ml" 129 3717 3726 "interpreter.ml" 129 3717 3751
+type(
+  StateVar.t -> Lib.numeral -> Var.t
+)
+ident(
+  ext_ref Var.mk_state_var_instance
+)
+"interpreter.ml" 129 3717 3752 "interpreter.ml" 129 3717 3761
+type(
+  StateVar.t
+)
+ident(
+  int_ref state_var "interpreter.ml" 124 3583 3600 "interpreter.ml" 124 3583 3609
+)
+"interpreter.ml" 129 3717 3762 "interpreter.ml" 129 3717 3763
+type(
+  Lib.numeral
+)
+ident(
+  int_ref k "interpreter.ml" 124 3583 3610 "interpreter.ml" 124 3583 3611
+)
+"interpreter.ml" 129 3717 3726 "interpreter.ml" 129 3717 3763
+call(
+  stack
+)
+type(
+  Var.t
+)
+"interpreter.ml" 129 3717 3766 "interpreter.ml" 129 3717 3769
+type(
+  Var.t list
+)
+ident(
+  int_ref acc "interpreter.ml" 124 3583 3596 "interpreter.ml" 124 3583 3599
+)
+"interpreter.ml" 129 3717 3725 "interpreter.ml" 129 3717 3769
+type(
+  Var.t list
+)
+"interpreter.ml" 129 3717 3771 "interpreter.ml" 129 3717 3780
+type(
+  StateVar.t
+)
+ident(
+  int_ref state_var "interpreter.ml" 124 3583 3600 "interpreter.ml" 124 3583 3609
+)
+"interpreter.ml" 129 3717 3782 "interpreter.ml" 129 3717 3794
+type(
+  Lib.numeral -> Lib.numeral
+)
+ident(
+  ext_ref Lib.decr_numeral
+)
+"interpreter.ml" 129 3717 3795 "interpreter.ml" 129 3717 3796
+type(
+  Lib.numeral
+)
+ident(
+  int_ref k "interpreter.ml" 124 3583 3610 "interpreter.ml" 124 3583 3611
+)
+"interpreter.ml" 129 3717 3782 "interpreter.ml" 129 3717 3796
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"interpreter.ml" 129 3717 3720 "interpreter.ml" 129 3717 3797
+call(
+  tail
+)
+type(
+  Term.t list
+)
+"interpreter.ml" 125 3614 3616 "interpreter.ml" 129 3717 3797
+type(
+  Term.t list
+)
+"interpreter.ml" 124 3583 3610 "interpreter.ml" 129 3717 3797
+type(
+  Lib.numeral -> Term.t list
+)
+"interpreter.ml" 124 3583 3600 "interpreter.ml" 129 3717 3797
+type(
+  StateVar.t -> Lib.numeral -> Term.t list
+)
+"interpreter.ml" 124 3583 3596 "interpreter.ml" 129 3717 3797
+type(
+  Var.t list -> StateVar.t -> Lib.numeral -> Term.t list
+)
+"interpreter.ml" 131 3802 3810 "interpreter.ml" 131 3802 3811
+type(
+  (StateVar.t * Term.t list) list
+)
+ident(
+  def v "interpreter.ml" 137 3926 3927 "interpreter.ml" 137 3926 3966
+)
+"interpreter.ml" 132 3815 3821 "interpreter.ml" 132 3815 3829
+type(
+  (StateVar.t -> StateVar.t * Term.t list) ->
+  StateVar.t list -> (StateVar.t * Term.t list) list
+)
+ident(
+  ext_ref List.map
+)
+"interpreter.ml" 133 3831 3844 "interpreter.ml" 133 3831 3846
+type(
+  StateVar.t
+)
+ident(
+  def sv "interpreter.ml" 134 3851 3863 "interpreter.ml" 134 3851 3896
+)
+"interpreter.ml" 134 3851 3863 "interpreter.ml" 134 3851 3865
+type(
+  StateVar.t
+)
+ident(
+  int_ref sv "interpreter.ml" 133 3831 3844 "interpreter.ml" 133 3831 3846
+)
+"interpreter.ml" 134 3851 3867 "interpreter.ml" 134 3851 3870
+type(
+  Var.t list -> StateVar.t -> Lib.numeral -> Term.t list
+)
+ident(
+  int_ref aux "interpreter.ml" 124 3583 3592 "interpreter.ml" 124 3583 3595
+)
+"interpreter.ml" 134 3851 3871 "interpreter.ml" 134 3851 3873
+type(
+  Var.t list
+)
+"interpreter.ml" 134 3851 3874 "interpreter.ml" 134 3851 3876
+type(
+  StateVar.t
+)
+ident(
+  int_ref sv "interpreter.ml" 133 3831 3844 "interpreter.ml" 133 3831 3846
+)
+"interpreter.ml" 134 3851 3878 "interpreter.ml" 134 3851 3892
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"interpreter.ml" 134 3851 3893 "interpreter.ml" 134 3851 3894
+type(
+  int
+)
+ident(
+  int_ref k "interpreter.ml" 51 2182 2188 "interpreter.ml" 51 2182 2189
+)
+"interpreter.ml" 134 3851 3878 "interpreter.ml" 134 3851 3894
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"interpreter.ml" 134 3851 3867 "interpreter.ml" 134 3851 3895
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"interpreter.ml" 134 3851 3863 "interpreter.ml" 134 3851 3896
+type(
+  StateVar.t * Term.t list
+)
+"interpreter.ml" 133 3831 3844 "interpreter.ml" 134 3851 3897
+type(
+  StateVar.t -> StateVar.t * Term.t list
+)
+"interpreter.ml" 135 3899 3907 "interpreter.ml" 135 3899 3917
+type(
+  StateVar.t list
+)
+ident(
+  int_ref state_vars "interpreter.ml" 68 2572 2578 "interpreter.ml" 68 2572 2588
+)
+"interpreter.ml" 132 3815 3821 "interpreter.ml" 135 3899 3917
+call(
+  stack
+)
+type(
+  (StateVar.t * Term.t list) list
+)
+"interpreter.ml" 137 3926 3927 "interpreter.ml" 137 3926 3951
+type(
+  Lib.kind_module -> (StateVar.t * Term.t list) list -> unit
+)
+ident(
+  ext_ref Event.log_counterexample
+)
+"interpreter.ml" 137 3926 3952 "interpreter.ml" 137 3926 3964
+type(
+  Lib.kind_module
+)
+"interpreter.ml" 137 3926 3965 "interpreter.ml" 137 3926 3966
+type(
+  (StateVar.t * Term.t list) list
+)
+ident(
+  int_ref v "interpreter.ml" 131 3802 3810 "interpreter.ml" 131 3802 3811
+)
+"interpreter.ml" 137 3926 3927 "interpreter.ml" 137 3926 3966
+call(
+  tail
+)
+type(
+  unit
+)
+"interpreter.ml" 131 3802 3806 "interpreter.ml" 137 3926 3966
+type(
+  unit
+)
+"interpreter.ml" 124 3583 3584 "interpreter.ml" 137 3926 3966
+type(
+  unit
+)
+"interpreter.ml" 141 3976 3980 "interpreter.ml" 141 3976 3989
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"interpreter.ml" 141 3976 3990 "interpreter.ml" 141 3976 4002
+type(
+  Lib.kind_module
+)
+"interpreter.ml" 141 3976 4003 "interpreter.ml" 141 3976 4016
+type(
+  Event.log_level
+)
+"interpreter.ml" 141 3976 4017 "interpreter.ml" 141 3976 4054
+type(
+  (unit, Format.formatter, unit) format
+)
+"interpreter.ml" 141 3976 3980 "interpreter.ml" 141 3976 4054
+call(
+  tail
+)
+type(
+  unit
+)
+"interpreter.ml" 123 3552 3554 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 95 3094 3096 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 73 2722 2724 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 71 2659 2661 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 68 2572 2574 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 64 2495 2497 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 61 2418 2420 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 58 2359 2361 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 53 2198 2200 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 51 2182 2184 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 49 2098 2100 "interpreter.ml" 141 3976 4054
+type(
+  unit
+)
+"interpreter.ml" 48 2067 2087 "interpreter.ml" 141 3976 4054
+type(
+  TransSys.t -> unit
+)
+"interpreter.ml" 48 2067 2076 "interpreter.ml" 141 3976 4054
+type(
+  string -> TransSys.t -> unit
+)

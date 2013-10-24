@@ -1,0 +1,4096 @@
+"extract.ml" 33 1686 1690 "extract.ml" 33 1686 1697
+type(
+  (Var.t * Term.t) list -> Term.t -> Term.t * Term.t
+)
+ident(
+  def extract "extract.ml" 547 16119 16174 "_none_" 1 0 -1
+)
+"extract.ml" 33 1686 1698 "extract.ml" 33 1686 1701
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def env "extract.ml" 33 1686 1702 "extract.ml" 547 16119 16174
+)
+"extract.ml" 33 1686 1702 "extract.ml" 33 1686 1706
+type(
+  Term.t
+)
+ident(
+  def term "extract.ml" 35 1711 1713 "extract.ml" 547 16119 16174
+)
+"extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+type(
+  Term.t -> Eval.value
+)
+ident(
+  def eval_term "extract.ml" 38 1796 1798 "extract.ml" 547 16119 16174
+)
+"extract.ml" 35 1711 1727 "extract.ml" 35 1711 1728
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 35 1711 1731 "extract.ml" 35 1711 1751
+)
+"extract.ml" 35 1711 1731 "extract.ml" 35 1711 1745
+type(
+  Term.t -> (Var.t * Term.t) list -> Eval.value
+)
+ident(
+  ext_ref Eval.eval_term
+)
+"extract.ml" 35 1711 1746 "extract.ml" 35 1711 1747
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 35 1711 1727 "extract.ml" 35 1711 1728
+)
+"extract.ml" 35 1711 1748 "extract.ml" 35 1711 1751
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref env "extract.ml" 33 1686 1698 "extract.ml" 33 1686 1701
+)
+"extract.ml" 35 1711 1731 "extract.ml" 35 1711 1751
+call(
+  tail
+)
+type(
+  Eval.value
+)
+"extract.ml" 35 1711 1727 "extract.ml" 35 1711 1751
+type(
+  Term.t -> Eval.value
+)
+"extract.ml" 38 1796 1806 "extract.ml" 38 1796 1818
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  (Term.t * 'a * bool) list -> Term.TermSet.elt list * Term.TermSet.elt list
+)
+ident(
+  def extract_term "extract.ml" 38 1796 1798 "extract.ml" 547 16119 16174
+)
+"extract.ml" 38 1796 1821 "extract.ml" 38 1796 1825
+type(
+  Term.TermSet.t
+)
+ident(
+  def bool "extract.ml" 38 1796 1844 "extract.ml" 52 2270 2323
+)
+"extract.ml" 38 1796 1827 "extract.ml" 38 1796 1830
+type(
+  Term.TermSet.t
+)
+ident(
+  def int "extract.ml" 38 1796 1844 "extract.ml" 52 2270 2323
+)
+"extract.ml" 38 1796 1821 "extract.ml" 38 1796 1830
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+"extract.ml" 38 1796 1820 "extract.ml" 38 1796 1840
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  def accum "extract.ml" 38 1796 1844 "extract.ml" 52 2270 2323
+)
+"extract.ml" 41 1895 1901 "extract.ml" 41 1895 1903
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 41 1895 1908 "extract.ml" 41 1895 1929
+type(
+  Term.TermSet.t -> Term.TermSet.elt list
+)
+ident(
+  ext_ref Term.TermSet.elements
+)
+"extract.ml" 41 1895 1930 "extract.ml" 41 1895 1934
+type(
+  Term.TermSet.t
+)
+ident(
+  int_ref bool "extract.ml" 38 1796 1821 "extract.ml" 38 1796 1825
+)
+"extract.ml" 41 1895 1908 "extract.ml" 41 1895 1934
+call(
+  stack
+)
+type(
+  Term.TermSet.elt list
+)
+"extract.ml" 41 1895 1936 "extract.ml" 41 1895 1957
+type(
+  Term.TermSet.t -> Term.TermSet.elt list
+)
+ident(
+  ext_ref Term.TermSet.elements
+)
+"extract.ml" 41 1895 1958 "extract.ml" 41 1895 1961
+type(
+  Term.TermSet.t
+)
+ident(
+  int_ref int "extract.ml" 38 1796 1827 "extract.ml" 38 1796 1830
+)
+"extract.ml" 41 1895 1936 "extract.ml" 41 1895 1961
+call(
+  stack
+)
+type(
+  Term.TermSet.elt list
+)
+"extract.ml" 41 1895 1908 "extract.ml" 41 1895 1961
+type(
+  Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 44 2008 2015 "extract.ml" 44 2008 2019
+type(
+  Term.t
+)
+ident(
+  def term "extract.ml" 47 2106 2112 "extract.ml" 52 2270 2323
+)
+"extract.ml" 44 2008 2021 "extract.ml" 44 2008 2024
+type(
+  'a
+)
+ident(
+  def env "extract.ml" 47 2106 2112 "extract.ml" 52 2270 2323
+)
+"extract.ml" 44 2008 2026 "extract.ml" 44 2008 2034
+type(
+  bool
+)
+ident(
+  def polarity "extract.ml" 47 2106 2112 "extract.ml" 52 2270 2323
+)
+"extract.ml" 44 2008 2015 "extract.ml" 44 2008 2034
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 44 2008 2039 "extract.ml" 44 2008 2041
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  def tl "extract.ml" 47 2106 2112 "extract.ml" 52 2270 2323
+)
+"extract.ml" 44 2008 2014 "extract.ml" 44 2008 2041
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 47 2106 2116 "extract.ml" 47 2106 2122
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  def accum' "extract.ml" 52 2270 2276 "extract.ml" 52 2270 2323
+)
+"extract.ml" 47 2106 2124 "extract.ml" 47 2106 2130
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  def stack' "extract.ml" 52 2270 2276 "extract.ml" 52 2270 2323
+)
+"extract.ml" 47 2106 2116 "extract.ml" 47 2106 2130
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 48 2134 2142 "extract.ml" 48 2134 2159
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  int_ref extract_term_flat "extract.ml" 54 2325 2331 "extract.ml" 54 2325 2348
+)
+"extract.ml" 48 2134 2160 "extract.ml" 48 2134 2165
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 38 1796 1820 "extract.ml" 38 1796 1840
+)
+"extract.ml" 48 2134 2166 "extract.ml" 48 2134 2174
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 44 2008 2026 "extract.ml" 44 2008 2034
+)
+"extract.ml" 48 2134 2175 "extract.ml" 48 2134 2178
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 44 2008 2021 "extract.ml" 44 2008 2024
+)
+"extract.ml" 48 2134 2180 "extract.ml" 48 2134 2195
+type(
+  Term.t -> Term.T.flat
+)
+ident(
+  ext_ref Term.T.destruct
+)
+"extract.ml" 48 2134 2196 "extract.ml" 48 2134 2200
+type(
+  Term.t
+)
+ident(
+  int_ref term "extract.ml" 44 2008 2015 "extract.ml" 44 2008 2019
+)
+"extract.ml" 48 2134 2180 "extract.ml" 48 2134 2200
+call(
+  stack
+)
+type(
+  Term.T.flat
+)
+"extract.ml" 48 2134 2142 "extract.ml" 48 2134 2201
+call(
+  stack
+)
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 52 2270 2276 "extract.ml" 52 2270 2288
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  (Term.t * 'a * bool) list -> Term.TermSet.elt list * Term.TermSet.elt list
+)
+ident(
+  int_ref extract_term "extract.ml" 38 1796 1806 "extract.ml" 38 1796 1818
+)
+"extract.ml" 52 2270 2289 "extract.ml" 52 2270 2295
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum' "extract.ml" 47 2106 2116 "extract.ml" 47 2106 2122
+)
+"extract.ml" 52 2270 2297 "extract.ml" 52 2270 2312
+type(
+  (Term.t * 'a * bool) list ->
+  (Term.t * 'a * bool) list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.rev_append
+)
+"extract.ml" 52 2270 2313 "extract.ml" 52 2270 2319
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  int_ref stack' "extract.ml" 47 2106 2124 "extract.ml" 47 2106 2130
+)
+"extract.ml" 52 2270 2320 "extract.ml" 52 2270 2322
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  int_ref tl "extract.ml" 44 2008 2039 "extract.ml" 44 2008 2041
+)
+"extract.ml" 52 2270 2297 "extract.ml" 52 2270 2322
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 52 2270 2276 "extract.ml" 52 2270 2323
+call(
+  tail
+)
+type(
+  Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 47 2106 2112 "extract.ml" 52 2270 2323
+type(
+  Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 38 1796 1844 "extract.ml" 52 2270 2323
+type(
+  (Term.t * 'a * bool) list -> Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 38 1796 1819 "extract.ml" 52 2270 2323
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  (Term.t * 'a * bool) list -> Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 54 2325 2331 "extract.ml" 54 2325 2348
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  def extract_term_flat "extract.ml" 38 1796 1798 "extract.ml" 547 16119 16174
+)
+"extract.ml" 54 2325 2351 "extract.ml" 54 2325 2355
+type(
+  Term.TermSet.t
+)
+ident(
+  def bool "extract.ml" 54 2325 2372 "extract.ml" 478 14585 14595
+)
+"extract.ml" 54 2325 2357 "extract.ml" 54 2325 2360
+type(
+  Term.TermSet.t
+)
+ident(
+  def int "extract.ml" 54 2325 2372 "extract.ml" 478 14585 14595
+)
+"extract.ml" 54 2325 2351 "extract.ml" 54 2325 2360
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+"extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  def accum "extract.ml" 54 2325 2372 "extract.ml" 478 14585 14595
+)
+"extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+type(
+  bool
+)
+ident(
+  def polarity "extract.ml" 54 2325 2381 "extract.ml" 478 14585 14595
+)
+"extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+type(
+  'a
+)
+ident(
+  def env "extract.ml" 54 2325 2387 "extract.ml" 478 14585 14595
+)
+"extract.ml" 57 2417 2436 "extract.ml" 57 2417 2437
+type(
+  Term.T.symbol
+)
+ident(
+  def s "extract.ml" 59 2451 2458 "extract.ml" 102 3575 3602
+)
+"extract.ml" 57 2417 2423 "extract.ml" 57 2417 2437
+type(
+  Term.T.flat
+)
+"extract.ml" 57 2417 2423 "extract.ml" 57 2417 2445
+type(
+  Term.T.flat
+)
+ident(
+  def term "extract.ml" 59 2451 2458 "extract.ml" 102 3575 3602
+)
+"extract.ml" 59 2451 2464 "extract.ml" 59 2451 2485
+type(
+  Term.T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"extract.ml" 59 2451 2486 "extract.ml" 59 2451 2487
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref s "extract.ml" 57 2417 2436 "extract.ml" 57 2417 2437
+)
+"extract.ml" 59 2451 2464 "extract.ml" 59 2451 2487
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"extract.ml" 62 2547 2557 "extract.ml" 62 2547 2562
+type(
+  Symbol.symbol
+)
+"extract.ml" 62 2547 2568 "extract.ml" 62 2547 2576
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 65 2635 2646 "extract.ml" 65 2635 2651
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 65 2635 2653 "extract.ml" 65 2635 2655
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 65 2635 2646 "extract.ml" 65 2635 2655
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 69 2713 2723 "extract.ml" 69 2713 2728
+type(
+  Symbol.symbol
+)
+"extract.ml" 78 2936 2947 "extract.ml" 78 2936 2952
+type(
+  exn -> (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"extract.ml" 78 2936 2971 "extract.ml" 78 2936 3005
+type(
+  string
+)
+"extract.ml" 78 2936 2954 "extract.ml" 78 2936 3005
+type(
+  exn
+)
+"extract.ml" 78 2936 2947 "extract.ml" 78 2936 3006
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 82 3064 3074 "extract.ml" 82 3064 3080
+type(
+  Symbol.symbol
+)
+"extract.ml" 82 3064 3086 "extract.ml" 82 3064 3094
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 91 3302 3313 "extract.ml" 91 3302 3318
+type(
+  exn -> (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"extract.ml" 91 3302 3337 "extract.ml" 91 3302 3371
+type(
+  string
+)
+"extract.ml" 91 3302 3320 "extract.ml" 91 3302 3371
+type(
+  exn
+)
+"extract.ml" 91 3302 3313 "extract.ml" 91 3302 3372
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 95 3431 3441 "extract.ml" 95 3431 3447
+type(
+  Symbol.symbol
+)
+"extract.ml" 98 3506 3517 "extract.ml" 98 3506 3522
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 98 3506 3524 "extract.ml" 98 3506 3526
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 98 3506 3517 "extract.ml" 98 3506 3526
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 102 3575 3585 "extract.ml" 102 3575 3586
+type(
+  Symbol.symbol
+)
+"extract.ml" 102 3575 3590 "extract.ml" 102 3575 3602
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 59 2451 2458 "extract.ml" 102 3575 3602
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 107 3644 3662 "extract.ml" 107 3644 3663
+type(
+  Term.T.symbol
+)
+ident(
+  def s "extract.ml" 109 3681 3688 "extract.ml" 464 14305 14332
+)
+"extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+type(
+  Term.T.t list
+)
+ident(
+  def l "extract.ml" 109 3681 3688 "extract.ml" 464 14305 14332
+)
+"extract.ml" 107 3644 3650 "extract.ml" 107 3644 3667
+type(
+  Term.T.flat
+)
+"extract.ml" 107 3644 3650 "extract.ml" 107 3644 3675
+type(
+  Term.T.flat
+)
+ident(
+  def term "extract.ml" 109 3681 3688 "extract.ml" 464 14305 14332
+)
+"extract.ml" 109 3681 3694 "extract.ml" 109 3681 3715
+type(
+  Term.T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"extract.ml" 109 3681 3716 "extract.ml" 109 3681 3717
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref s "extract.ml" 107 3644 3662 "extract.ml" 107 3644 3663
+)
+"extract.ml" 109 3681 3694 "extract.ml" 109 3681 3717
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"extract.ml" 112 3755 3765 "extract.ml" 112 3755 3769
+type(
+  Symbol.symbol
+)
+"extract.ml" 115 3834 3851 "extract.ml" 115 3834 3852
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 116 3859 3873 "extract.ml" 116 3859 3875
+type(
+  Term.T.t list
+)
+"extract.ml" 116 3859 3879 "extract.ml" 116 3859 3891
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 117 3892 3907 "extract.ml" 117 3892 3908
+type(
+  Term.T.t list
+)
+type(
+  Term.T.t
+)
+ident(
+  def t "extract.ml" 117 3892 3914 "extract.ml" 117 3892 3945
+)
+"extract.ml" 117 3892 3906 "extract.ml" 117 3892 3909
+type(
+  Term.T.t list
+)
+"extract.ml" 117 3892 3914 "extract.ml" 117 3892 3919
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 117 3892 3923 "extract.ml" 117 3892 3924
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 117 3892 3907 "extract.ml" 117 3892 3908
+)
+"extract.ml" 117 3892 3926 "extract.ml" 117 3892 3929
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 117 3892 3931 "extract.ml" 117 3892 3934
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"extract.ml" 117 3892 3935 "extract.ml" 117 3892 3943
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 117 3892 3931 "extract.ml" 117 3892 3943
+type(
+  bool
+)
+"extract.ml" 117 3892 3923 "extract.ml" 117 3892 3943
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 117 3892 3922 "extract.ml" 117 3892 3944
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 117 3892 3921 "extract.ml" 117 3892 3945
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 117 3892 3914 "extract.ml" 117 3892 3945
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 118 3947 3961 "extract.ml" 118 3947 3962
+type(
+  Term.T.t list
+)
+"extract.ml" 118 3947 3966 "extract.ml" 118 3947 3978
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 115 3834 3845 "extract.ml" 118 3947 3978
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 122 4027 4037 "extract.ml" 122 4027 4045
+type(
+  Symbol.symbol
+)
+"extract.ml" 122 4027 4051 "extract.ml" 122 4027 4059
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 133 4411 4429 "extract.ml" 133 4411 4437
+type(
+  Term.T.t list -> Term.T.t list
+)
+ident(
+  ext_ref List.rev
+)
+"extract.ml" 133 4411 4438 "extract.ml" 133 4411 4439
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 133 4411 4429 "extract.ml" 133 4411 4439
+call(
+  stack
+)
+type(
+  Term.T.t list
+)
+"extract.ml" 136 4499 4515 "extract.ml" 136 4499 4517
+type(
+  Term.T.t list
+)
+"extract.ml" 136 4499 4521 "extract.ml" 136 4499 4533
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 138 4536 4552 "extract.ml" 138 4536 4553
+type(
+  Term.T.t
+)
+ident(
+  def c "extract.ml" 140 4564 4580 "extract.ml" 172 5647 5724
+)
+"extract.ml" 138 4536 4557 "extract.ml" 138 4536 4558
+type(
+  Term.T.t list
+)
+ident(
+  def p "extract.ml" 140 4564 4580 "extract.ml" 172 5647 5724
+)
+"extract.ml" 138 4536 4552 "extract.ml" 138 4536 4558
+type(
+  Term.T.t list
+)
+"extract.ml" 145 4763 4782 "extract.ml" 145 4763 4787
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 146 4789 4811 "extract.ml" 146 4789 4820
+type(
+  (Term.t -> bool) -> Term.t list -> Term.t
+)
+ident(
+  ext_ref List.find
+)
+"extract.ml" 147 4822 4856 "extract.ml" 147 4822 4857
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 148 4862 4888 "extract.ml" 149 4912 4991
+)
+"extract.ml" 148 4862 4892 "extract.ml" 148 4862 4893
+type(
+  Eval.value
+)
+ident(
+  def v "extract.ml" 149 4912 4938 "extract.ml" 149 4912 4991
+)
+"extract.ml" 148 4862 4896 "extract.ml" 148 4862 4905
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 148 4862 4906 "extract.ml" 148 4862 4907
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 147 4822 4856 "extract.ml" 147 4822 4857
+)
+"extract.ml" 148 4862 4896 "extract.ml" 148 4862 4907
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 149 4912 4938 "extract.ml" 149 4912 4959
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.value_is_unknown
+)
+"extract.ml" 149 4912 4960 "extract.ml" 149 4912 4961
+type(
+  Eval.value
+)
+ident(
+  int_ref v "extract.ml" 148 4862 4892 "extract.ml" 148 4862 4893
+)
+"extract.ml" 149 4912 4938 "extract.ml" 149 4912 4961
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 149 4912 4962 "extract.ml" 149 4912 4964
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"extract.ml" 149 4912 4965 "extract.ml" 149 4912 4968
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"extract.ml" 149 4912 4970 "extract.ml" 149 4912 4988
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 149 4912 4989 "extract.ml" 149 4912 4990
+type(
+  Eval.value
+)
+ident(
+  int_ref v "extract.ml" 148 4862 4892 "extract.ml" 148 4862 4893
+)
+"extract.ml" 149 4912 4970 "extract.ml" 149 4912 4990
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 149 4912 4965 "extract.ml" 149 4912 4991
+type(
+  bool
+)
+"extract.ml" 149 4912 4938 "extract.ml" 149 4912 4991
+type(
+  bool
+)
+"extract.ml" 148 4862 4888 "extract.ml" 149 4912 4991
+type(
+  bool
+)
+"extract.ml" 147 4822 4847 "extract.ml" 149 4912 4991
+type(
+  Term.t -> bool
+)
+"extract.ml" 150 4993 5017 "extract.ml" 150 4993 5018
+type(
+  Term.t list
+)
+ident(
+  int_ref p "extract.ml" 138 4536 4557 "extract.ml" 138 4536 4558
+)
+"extract.ml" 146 4789 4811 "extract.ml" 150 4993 5018
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 151 5021 5042 "extract.ml" 151 5021 5045
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 152 5047 5068 "extract.ml" 152 5047 5073
+type(
+  bool
+)
+"extract.ml" 146 4789 4810 "extract.ml" 152 5047 5073
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 146 4789 4809 "extract.ml" 152 5047 5074
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 146 4789 4808 "extract.ml" 152 5047 5075
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 145 4763 4782 "extract.ml" 152 5047 5075
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 154 5078 5099 "extract.ml" 154 5078 5108
+type(
+  exn
+)
+"extract.ml" 157 5180 5201 "extract.ml" 157 5180 5219
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 157 5180 5221 "extract.ml" 157 5180 5230
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 157 5180 5231 "extract.ml" 157 5180 5232
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 138 4536 4552 "extract.ml" 138 4536 4553
+)
+"extract.ml" 157 5180 5221 "extract.ml" 157 5180 5232
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 157 5180 5201 "extract.ml" 157 5180 5233
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 160 5285 5306 "extract.ml" 160 5285 5311
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 160 5285 5315 "extract.ml" 160 5285 5316
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 138 4536 4552 "extract.ml" 138 4536 4553
+)
+"extract.ml" 160 5285 5318 "extract.ml" 160 5285 5321
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 160 5285 5323 "extract.ml" 160 5285 5327
+type(
+  bool
+)
+"extract.ml" 160 5285 5315 "extract.ml" 160 5285 5327
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 160 5285 5314 "extract.ml" 160 5285 5328
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 160 5285 5313 "extract.ml" 160 5285 5329
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 160 5285 5306 "extract.ml" 160 5285 5329
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 171 5619 5640 "extract.ml" 171 5619 5645
+type(
+  exn -> (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"extract.ml" 172 5647 5688 "extract.ml" 172 5647 5722
+type(
+  string
+)
+"extract.ml" 172 5647 5671 "extract.ml" 172 5647 5722
+type(
+  exn
+)
+"extract.ml" 171 5619 5640 "extract.ml" 172 5647 5723
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 157 5180 5198 "extract.ml" 172 5647 5724
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 140 4564 4580 "extract.ml" 172 5647 5724
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 133 4411 4423 "extract.ml" 172 5647 5724
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 178 5786 5796 "extract.ml" 178 5786 5804
+type(
+  Symbol.symbol
+)
+"extract.ml" 189 6153 6171 "extract.ml" 189 6153 6179
+type(
+  Term.T.t list -> Term.T.t list
+)
+ident(
+  ext_ref List.rev
+)
+"extract.ml" 189 6153 6180 "extract.ml" 189 6153 6181
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 189 6153 6171 "extract.ml" 189 6153 6181
+call(
+  stack
+)
+type(
+  Term.T.t list
+)
+"extract.ml" 192 6258 6274 "extract.ml" 192 6258 6276
+type(
+  Term.T.t list
+)
+"extract.ml" 192 6258 6280 "extract.ml" 192 6258 6292
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 194 6295 6311 "extract.ml" 194 6295 6312
+type(
+  Term.T.t
+)
+ident(
+  def c "extract.ml" 198 6436 6453 "extract.ml" 204 6647 6677
+)
+"extract.ml" 194 6295 6316 "extract.ml" 194 6295 6317
+type(
+  Term.T.t list
+)
+ident(
+  def p "extract.ml" 198 6436 6453 "extract.ml" 204 6647 6677
+)
+"extract.ml" 194 6295 6311 "extract.ml" 194 6295 6317
+type(
+  Term.T.t list
+)
+"extract.ml" 198 6436 6453 "extract.ml" 198 6436 6458
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 199 6460 6478 "extract.ml" 199 6460 6486
+type(
+  (Term.t * 'a * bool) list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.rev
+)
+"extract.ml" 200 6487 6509 "extract.ml" 200 6487 6510
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 194 6295 6311 "extract.ml" 194 6295 6312
+)
+"extract.ml" 200 6487 6512 "extract.ml" 200 6487 6515
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 200 6487 6517 "extract.ml" 200 6487 6522
+type(
+  bool
+)
+"extract.ml" 200 6487 6509 "extract.ml" 200 6487 6522
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 201 6527 6551 "extract.ml" 201 6527 6559
+type(
+  (Term.t -> Term.t * 'a * bool) -> Term.t list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 202 6561 6597 "extract.ml" 202 6561 6598
+type(
+  Term.t
+)
+ident(
+  def e "extract.ml" 203 6603 6632 "extract.ml" 203 6603 6644
+)
+"extract.ml" 203 6603 6632 "extract.ml" 203 6603 6633
+type(
+  Term.t
+)
+ident(
+  int_ref e "extract.ml" 202 6561 6597 "extract.ml" 202 6561 6598
+)
+"extract.ml" 203 6603 6635 "extract.ml" 203 6603 6638
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 203 6603 6640 "extract.ml" 203 6603 6644
+type(
+  bool
+)
+"extract.ml" 203 6603 6632 "extract.ml" 203 6603 6644
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 202 6561 6588 "extract.ml" 203 6603 6645
+type(
+  Term.t -> Term.t * 'a * bool
+)
+"extract.ml" 204 6647 6673 "extract.ml" 204 6647 6674
+type(
+  Term.t list
+)
+ident(
+  int_ref p "extract.ml" 194 6295 6316 "extract.ml" 194 6295 6317
+)
+"extract.ml" 201 6527 6551 "extract.ml" 204 6647 6674
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 200 6487 6508 "extract.ml" 204 6647 6675
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 199 6460 6478 "extract.ml" 204 6647 6676
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 198 6436 6453 "extract.ml" 204 6647 6677
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 189 6153 6165 "extract.ml" 204 6647 6678
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 210 6739 6749 "extract.ml" 210 6739 6753
+type(
+  Symbol.symbol
+)
+"extract.ml" 210 6739 6759 "extract.ml" 210 6739 6767
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 213 6815 6826 "extract.ml" 213 6815 6831
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 213 6815 6834 "extract.ml" 213 6815 6842
+type(
+  (Term.t -> Term.t * 'a * bool) -> Term.t list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 213 6815 6853 "extract.ml" 213 6815 6854
+type(
+  Term.t
+)
+ident(
+  def c "extract.ml" 213 6815 6859 "extract.ml" 213 6815 6871
+)
+"extract.ml" 213 6815 6859 "extract.ml" 213 6815 6860
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 213 6815 6853 "extract.ml" 213 6815 6854
+)
+"extract.ml" 213 6815 6862 "extract.ml" 213 6815 6865
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 213 6815 6867 "extract.ml" 213 6815 6871
+type(
+  bool
+)
+"extract.ml" 213 6815 6859 "extract.ml" 213 6815 6871
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 213 6815 6844 "extract.ml" 213 6815 6872
+type(
+  Term.t -> Term.t * 'a * bool
+)
+"extract.ml" 213 6815 6874 "extract.ml" 213 6815 6875
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 213 6815 6834 "extract.ml" 213 6815 6875
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 213 6815 6826 "extract.ml" 213 6815 6876
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 217 6926 6936 "extract.ml" 217 6926 6940
+type(
+  Symbol.symbol
+)
+"extract.ml" 228 7377 7391 "extract.ml" 228 7377 7396
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 229 7399 7416 "extract.ml" 229 7399 7425
+type(
+  (Term.t -> bool) -> Term.t list -> Term.t
+)
+ident(
+  ext_ref List.find
+)
+"extract.ml" 230 7427 7456 "extract.ml" 230 7427 7457
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 230 7427 7461 "extract.ml" 230 7427 7499
+)
+"extract.ml" 230 7427 7461 "extract.ml" 230 7427 7464
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"extract.ml" 230 7427 7466 "extract.ml" 230 7427 7484
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 230 7427 7486 "extract.ml" 230 7427 7495
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 230 7427 7496 "extract.ml" 230 7427 7497
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 230 7427 7456 "extract.ml" 230 7427 7457
+)
+"extract.ml" 230 7427 7486 "extract.ml" 230 7427 7497
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 230 7427 7466 "extract.ml" 230 7427 7498
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 230 7427 7461 "extract.ml" 230 7427 7499
+type(
+  bool
+)
+"extract.ml" 230 7427 7447 "extract.ml" 230 7427 7499
+type(
+  Term.t -> bool
+)
+"extract.ml" 231 7502 7521 "extract.ml" 231 7502 7522
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 229 7399 7416 "extract.ml" 231 7502 7522
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 232 7525 7541 "extract.ml" 232 7525 7544
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 233 7546 7562 "extract.ml" 233 7546 7567
+type(
+  bool
+)
+"extract.ml" 229 7399 7415 "extract.ml" 233 7546 7567
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 229 7399 7414 "extract.ml" 233 7546 7568
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 229 7399 7413 "extract.ml" 233 7546 7569
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 228 7377 7391 "extract.ml" 233 7546 7569
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 237 7613 7629 "extract.ml" 237 7613 7638
+type(
+  exn
+)
+"extract.ml" 246 7864 7878 "extract.ml" 246 7864 7883
+type(
+  exn -> (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"extract.ml" 246 7864 7902 "extract.ml" 246 7864 7936
+type(
+  string
+)
+"extract.ml" 246 7864 7885 "extract.ml" 246 7864 7936
+type(
+  exn
+)
+"extract.ml" 246 7864 7878 "extract.ml" 246 7864 7937
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 219 6946 6957 "extract.ml" 246 7864 7938
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 250 7987 7997 "extract.ml" 250 7987 8000
+type(
+  Symbol.symbol
+)
+"extract.ml" 250 7987 8006 "extract.ml" 250 7987 8014
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 261 8449 8463 "extract.ml" 261 8449 8468
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 262 8470 8487 "extract.ml" 262 8470 8496
+type(
+  (Term.t -> bool) -> Term.t list -> Term.t
+)
+ident(
+  ext_ref List.find
+)
+"extract.ml" 262 8470 8507 "extract.ml" 262 8470 8508
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 262 8470 8512 "extract.ml" 262 8470 8544
+)
+"extract.ml" 262 8470 8512 "extract.ml" 262 8470 8530
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 262 8470 8532 "extract.ml" 262 8470 8541
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 262 8470 8542 "extract.ml" 262 8470 8543
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 262 8470 8507 "extract.ml" 262 8470 8508
+)
+"extract.ml" 262 8470 8532 "extract.ml" 262 8470 8543
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 262 8470 8512 "extract.ml" 262 8470 8544
+call(
+  tail
+)
+type(
+  bool
+)
+"extract.ml" 262 8470 8498 "extract.ml" 262 8470 8544
+type(
+  Term.t -> bool
+)
+"extract.ml" 262 8470 8546 "extract.ml" 262 8470 8547
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 262 8470 8487 "extract.ml" 262 8470 8547
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 263 8550 8566 "extract.ml" 263 8550 8569
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 264 8571 8587 "extract.ml" 264 8571 8591
+type(
+  bool
+)
+"extract.ml" 262 8470 8486 "extract.ml" 264 8571 8591
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 262 8470 8485 "extract.ml" 264 8571 8592
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 262 8470 8484 "extract.ml" 264 8571 8593
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 261 8449 8463 "extract.ml" 264 8571 8593
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 267 8637 8653 "extract.ml" 267 8637 8662
+type(
+  exn
+)
+"extract.ml" 276 8888 8902 "extract.ml" 276 8888 8907
+type(
+  exn -> (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"extract.ml" 276 8888 8926 "extract.ml" 276 8888 8960
+type(
+  string
+)
+"extract.ml" 276 8888 8909 "extract.ml" 276 8888 8960
+type(
+  exn
+)
+"extract.ml" 276 8888 8902 "extract.ml" 276 8888 8961
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 252 8020 8031 "extract.ml" 276 8888 8962
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 279 9011 9021 "extract.ml" 279 9011 9024
+type(
+  Symbol.symbol
+)
+"extract.ml" 282 9073 9084 "extract.ml" 282 9073 9089
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 282 9073 9092 "extract.ml" 282 9073 9100
+type(
+  (Term.t -> Term.t * 'a * bool) -> Term.t list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 282 9073 9111 "extract.ml" 282 9073 9112
+type(
+  Term.t
+)
+ident(
+  def c "extract.ml" 282 9073 9117 "extract.ml" 282 9073 9130
+)
+"extract.ml" 282 9073 9117 "extract.ml" 282 9073 9118
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 282 9073 9111 "extract.ml" 282 9073 9112
+)
+"extract.ml" 282 9073 9120 "extract.ml" 282 9073 9123
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 282 9073 9125 "extract.ml" 282 9073 9130
+type(
+  bool
+)
+"extract.ml" 282 9073 9117 "extract.ml" 282 9073 9130
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 282 9073 9102 "extract.ml" 282 9073 9131
+type(
+  Term.t -> Term.t * 'a * bool
+)
+"extract.ml" 282 9073 9133 "extract.ml" 282 9073 9134
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 282 9073 9092 "extract.ml" 282 9073 9134
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 282 9073 9084 "extract.ml" 282 9073 9135
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 285 9199 9209 "extract.ml" 285 9199 9213
+type(
+  Symbol.symbol
+)
+"extract.ml" 285 9199 9219 "extract.ml" 285 9199 9227
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 285 9199 9228 "extract.ml" 285 9199 9229
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"extract.ml" 285 9199 9230 "extract.ml" 285 9199 9234
+type(
+  bool
+)
+"extract.ml" 285 9199 9219 "extract.ml" 285 9199 9234
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+type(
+  bool
+)
+"extract.ml" 285 9199 9238 "extract.ml" 285 9199 9250
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 288 9315 9325 "extract.ml" 288 9315 9329
+type(
+  Symbol.symbol
+)
+"extract.ml" 288 9315 9333 "extract.ml" 288 9315 9345
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 291 9370 9380 "extract.ml" 291 9370 9383
+type(
+  Symbol.symbol
+)
+"extract.ml" 291 9370 9380 "extract.ml" 291 9370 9388
+type(
+  Symbol.symbol
+)
+ident(
+  def s "extract.ml" 293 9394 9405 "extract.ml" 381 12198 12215
+)
+"extract.ml" 293 9394 9411 "extract.ml" 293 9394 9412
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 296 9464 9478 "extract.ml" 296 9464 9480
+type(
+  Term.T.t list
+)
+"extract.ml" 296 9464 9485 "extract.ml" 296 9464 9497
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 297 9498 9512 "extract.ml" 297 9498 9513
+type(
+  Term.T.t
+)
+ident(
+  def h "extract.ml" 300 9580 9594 "extract.ml" 381 12198 12215
+)
+"extract.ml" 297 9498 9517 "extract.ml" 297 9498 9519
+type(
+  Term.T.t list
+)
+ident(
+  def tl "extract.ml" 300 9580 9594 "extract.ml" 381 12198 12215
+)
+"extract.ml" 297 9498 9512 "extract.ml" 297 9498 9519
+type(
+  Term.T.t list
+)
+"extract.ml" 300 9580 9597 "extract.ml" 300 9580 9614
+type(
+  Term.t -> Type.t
+)
+ident(
+  ext_ref Term.type_of_term
+)
+"extract.ml" 300 9580 9615 "extract.ml" 300 9580 9616
+type(
+  Term.t
+)
+ident(
+  int_ref h "extract.ml" 297 9498 9512 "extract.ml" 297 9498 9513
+)
+"extract.ml" 300 9580 9597 "extract.ml" 300 9580 9616
+call(
+  stack
+)
+type(
+  Type.t
+)
+"extract.ml" 300 9580 9617 "extract.ml" 300 9580 9619
+type(
+  Type.t -> Type.t -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"extract.ml" 300 9580 9620 "extract.ml" 300 9580 9632
+type(
+  unit -> Type.t
+)
+ident(
+  ext_ref Type.mk_bool
+)
+"extract.ml" 300 9580 9633 "extract.ml" 300 9580 9635
+type(
+  unit
+)
+"extract.ml" 300 9580 9620 "extract.ml" 300 9580 9635
+call(
+  stack
+)
+type(
+  Type.t
+)
+"extract.ml" 300 9580 9597 "extract.ml" 300 9580 9635
+type(
+  bool
+)
+"extract.ml" 304 9662 9686 "extract.ml" 304 9662 9694
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 307 9748 9770 "extract.ml" 307 9748 9774
+type(
+  bool
+)
+"extract.ml" 310 9831 9856 "extract.ml" 310 9831 9874
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 310 9831 9876 "extract.ml" 310 9831 9885
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 310 9831 9886 "extract.ml" 310 9831 9887
+type(
+  Term.t
+)
+ident(
+  int_ref h "extract.ml" 297 9498 9512 "extract.ml" 297 9498 9513
+)
+"extract.ml" 310 9831 9876 "extract.ml" 310 9831 9887
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 310 9831 9856 "extract.ml" 310 9831 9888
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 313 9952 9977 "extract.ml" 313 9952 9982
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 314 9985 10011 "extract.ml" 314 9985 10019
+type(
+  (Term.t -> Term.t * 'a * bool) -> Term.t list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 315 10021 10059 "extract.ml" 315 10021 10060
+type(
+  Term.t
+)
+ident(
+  def c "extract.ml" 315 10021 10065 "extract.ml" 315 10021 10077
+)
+"extract.ml" 315 10021 10065 "extract.ml" 315 10021 10066
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 315 10021 10059 "extract.ml" 315 10021 10060
+)
+"extract.ml" 315 10021 10068 "extract.ml" 315 10021 10071
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 315 10021 10073 "extract.ml" 315 10021 10077
+type(
+  bool
+)
+"extract.ml" 315 10021 10065 "extract.ml" 315 10021 10077
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 315 10021 10050 "extract.ml" 315 10021 10078
+type(
+  Term.t -> Term.t * 'a * bool
+)
+"extract.ml" 316 10080 10108 "extract.ml" 316 10080 10109
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 314 9985 10011 "extract.ml" 316 10080 10109
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 313 9952 9977 "extract.ml" 316 10080 10110
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 321 10199 10224 "extract.ml" 321 10199 10229
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 322 10232 10258 "extract.ml" 322 10232 10266
+type(
+  (Term.t -> Term.t * 'a * bool) -> Term.t list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 323 10268 10306 "extract.ml" 323 10268 10307
+type(
+  Term.t
+)
+ident(
+  def c "extract.ml" 323 10268 10312 "extract.ml" 323 10268 10325
+)
+"extract.ml" 323 10268 10312 "extract.ml" 323 10268 10313
+type(
+  Term.t
+)
+ident(
+  int_ref c "extract.ml" 323 10268 10306 "extract.ml" 323 10268 10307
+)
+"extract.ml" 323 10268 10315 "extract.ml" 323 10268 10318
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 323 10268 10320 "extract.ml" 323 10268 10325
+type(
+  bool
+)
+"extract.ml" 323 10268 10312 "extract.ml" 323 10268 10325
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 323 10268 10297 "extract.ml" 323 10268 10326
+type(
+  Term.t -> Term.t * 'a * bool
+)
+"extract.ml" 324 10328 10356 "extract.ml" 324 10328 10357
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 322 10232 10258 "extract.ml" 324 10328 10357
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 321 10199 10224 "extract.ml" 324 10328 10358
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 310 9831 9853 "extract.ml" 324 10328 10359
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 327 10408 10430 "extract.ml" 327 10408 10435
+type(
+  bool
+)
+"extract.ml" 330 10503 10526 "extract.ml" 330 10503 10531
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 331 10533 10559 "extract.ml" 331 10533 10568
+type(
+  (Term.t -> bool) -> Term.t list -> Term.t
+)
+ident(
+  ext_ref List.find
+)
+"extract.ml" 332 10570 10608 "extract.ml" 332 10570 10609
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 332 10570 10613 "extract.ml" 332 10570 10645
+)
+"extract.ml" 332 10570 10613 "extract.ml" 332 10570 10631
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 332 10570 10633 "extract.ml" 332 10570 10642
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 332 10570 10643 "extract.ml" 332 10570 10644
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 332 10570 10608 "extract.ml" 332 10570 10609
+)
+"extract.ml" 332 10570 10633 "extract.ml" 332 10570 10644
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 332 10570 10613 "extract.ml" 332 10570 10645
+call(
+  tail
+)
+type(
+  bool
+)
+"extract.ml" 332 10570 10599 "extract.ml" 332 10570 10645
+type(
+  Term.t -> bool
+)
+"extract.ml" 333 10648 10676 "extract.ml" 333 10648 10677
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 331 10533 10559 "extract.ml" 333 10648 10677
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 334 10680 10705 "extract.ml" 334 10680 10708
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 335 10710 10735 "extract.ml" 335 10710 10739
+type(
+  bool
+)
+"extract.ml" 331 10533 10558 "extract.ml" 335 10710 10739
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 336 10742 10768 "extract.ml" 336 10742 10777
+type(
+  (Term.t -> bool) -> Term.t list -> Term.t
+)
+ident(
+  ext_ref List.find
+)
+"extract.ml" 337 10779 10817 "extract.ml" 337 10779 10818
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 338 10823 10853 "extract.ml" 338 10823 10891
+)
+"extract.ml" 338 10823 10853 "extract.ml" 338 10823 10856
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"extract.ml" 338 10823 10858 "extract.ml" 338 10823 10876
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 338 10823 10878 "extract.ml" 338 10823 10887
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 338 10823 10888 "extract.ml" 338 10823 10889
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 337 10779 10817 "extract.ml" 337 10779 10818
+)
+"extract.ml" 338 10823 10878 "extract.ml" 338 10823 10889
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 338 10823 10858 "extract.ml" 338 10823 10890
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 338 10823 10853 "extract.ml" 338 10823 10891
+type(
+  bool
+)
+"extract.ml" 337 10779 10808 "extract.ml" 338 10823 10891
+type(
+  Term.t -> bool
+)
+"extract.ml" 339 10893 10921 "extract.ml" 339 10893 10922
+type(
+  Term.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 336 10742 10768 "extract.ml" 339 10893 10922
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 340 10925 10950 "extract.ml" 340 10925 10953
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 341 10955 10980 "extract.ml" 341 10955 10985
+type(
+  bool
+)
+"extract.ml" 336 10742 10767 "extract.ml" 341 10955 10985
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 336 10742 10766 "extract.ml" 341 10955 10986
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 331 10533 10557 "extract.ml" 341 10955 10986
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 331 10533 10556 "extract.ml" 341 10955 10987
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 330 10503 10526 "extract.ml" 341 10955 10987
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 304 9662 9680 "extract.ml" 341 10955 10988
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 347 11030 11053 "extract.ml" 347 11030 11054
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 350 11140 11160 "extract.ml" 350 11140 11162
+type(
+  Term.T.t list
+)
+"extract.ml" 351 11164 11184 "extract.ml" 351 11164 11185
+type(
+  Term.T.t
+)
+"extract.ml" 351 11164 11189 "extract.ml" 351 11164 11191
+type(
+  Term.T.t list
+)
+"extract.ml" 351 11164 11184 "extract.ml" 351 11164 11191
+type(
+  Term.T.t list
+)
+"extract.ml" 350 11140 11160 "extract.ml" 351 11164 11191
+type(
+  Term.T.t list
+)
+"extract.ml" 351 11164 11195 "extract.ml" 351 11164 11207
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 354 11258 11279 "extract.ml" 354 11258 11280
+type(
+  Term.T.t
+)
+ident(
+  def l "extract.ml" 356 11290 11310 "extract.ml" 356 11290 11351
+)
+"extract.ml" 354 11258 11282 "extract.ml" 354 11258 11283
+type(
+  Term.T.t list
+)
+type(
+  Term.T.t
+)
+ident(
+  def r "extract.ml" 356 11290 11310 "extract.ml" 356 11290 11351
+)
+"extract.ml" 354 11258 11279 "extract.ml" 354 11258 11283
+type(
+  Term.T.t list
+)
+"extract.ml" 354 11258 11278 "extract.ml" 354 11258 11284
+type(
+  Term.T.t list
+)
+"extract.ml" 356 11290 11310 "extract.ml" 356 11290 11327
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  int_ref extract_term_atom "extract.ml" 481 14598 14604 "extract.ml" 481 14598 14621
+)
+"extract.ml" 356 11290 11328 "extract.ml" 356 11290 11333
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 356 11290 11334 "extract.ml" 356 11290 11342
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 356 11290 11343 "extract.ml" 356 11290 11346
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 356 11290 11347 "extract.ml" 356 11290 11351
+type(
+  Term.T.flat
+)
+ident(
+  int_ref term "extract.ml" 107 3644 3650 "extract.ml" 107 3644 3675
+)
+"extract.ml" 356 11290 11310 "extract.ml" 356 11290 11351
+call(
+  tail
+)
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 371 11890 11910 "extract.ml" 371 11890 11911
+type(
+  Term.T.t list
+)
+ident(
+  def l "extract.ml" 373 11917 11937 "extract.ml" 379 12162 12196
+)
+"extract.ml" 373 11917 11941 "extract.ml" 373 11917 11943
+type(
+  Term.T.t list list
+)
+ident(
+  def l' "extract.ml" 375 11964 11985 "extract.ml" 379 12162 12195
+)
+"extract.ml" 373 11917 11946 "extract.ml" 373 11917 11956
+type(
+  Term.T.t list -> Term.T.t list list
+)
+ident(
+  ext_ref Lib.chain_list
+)
+"extract.ml" 373 11917 11957 "extract.ml" 373 11917 11958
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 371 11890 11910 "extract.ml" 371 11890 11911
+)
+"extract.ml" 373 11917 11946 "extract.ml" 373 11917 11958
+call(
+  stack
+)
+type(
+  Term.T.t list list
+)
+"extract.ml" 375 11964 11985 "extract.ml" 375 11964 11990
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 376 11993 12016 "extract.ml" 376 11993 12029
+type(
+  Term.T.symbol -> Term.T.t list -> Term.t
+)
+ident(
+  ext_ref Term.T.mk_app
+)
+"extract.ml" 376 11993 12031 "extract.ml" 376 11993 12047
+type(
+  Symbol.symbol -> Term.T.symbol
+)
+ident(
+  ext_ref Symbol.mk_symbol
+)
+"extract.ml" 376 11993 12048 "extract.ml" 376 11993 12052
+type(
+  Symbol.symbol
+)
+"extract.ml" 376 11993 12031 "extract.ml" 376 11993 12052
+call(
+  stack
+)
+type(
+  Term.T.symbol
+)
+"extract.ml" 377 12055 12081 "extract.ml" 377 12055 12089
+type(
+  (Term.T.t list -> Term.T.t) -> Term.T.t list list -> Term.T.t list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 377 12055 12091 "extract.ml" 377 12055 12104
+type(
+  Term.T.symbol -> Term.T.t list -> Term.T.t
+)
+ident(
+  ext_ref Term.T.mk_app
+)
+"extract.ml" 377 12055 12106 "extract.ml" 377 12055 12122
+type(
+  Symbol.symbol -> Term.T.symbol
+)
+ident(
+  ext_ref Symbol.mk_symbol
+)
+"extract.ml" 377 12055 12123 "extract.ml" 377 12055 12124
+type(
+  Symbol.symbol
+)
+ident(
+  int_ref s "extract.ml" 291 9370 9380 "extract.ml" 291 9370 9388
+)
+"extract.ml" 377 12055 12106 "extract.ml" 377 12055 12124
+call(
+  stack
+)
+type(
+  Term.T.symbol
+)
+"extract.ml" 377 12055 12091 "extract.ml" 377 12055 12125
+call(
+  stack
+)
+type(
+  Term.T.t list -> Term.T.t
+)
+"extract.ml" 377 12055 12127 "extract.ml" 377 12055 12129
+type(
+  Term.T.t list list
+)
+ident(
+  int_ref l' "extract.ml" 373 11917 11941 "extract.ml" 373 11917 11943
+)
+"extract.ml" 377 12055 12081 "extract.ml" 377 12055 12129
+call(
+  stack
+)
+type(
+  Term.T.t list
+)
+"extract.ml" 376 11993 12016 "extract.ml" 377 12055 12130
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 378 12133 12156 "extract.ml" 378 12133 12159
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 379 12162 12185 "extract.ml" 379 12162 12193
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 376 11993 12016 "extract.ml" 379 12162 12193
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 376 11993 12015 "extract.ml" 379 12162 12194
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 376 11993 12014 "extract.ml" 379 12162 12195
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 375 11964 11985 "extract.ml" 379 12162 12195
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 373 11917 11937 "extract.ml" 379 12162 12196
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 347 11030 11047 "extract.ml" 379 12162 12196
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 300 9580 9594 "extract.ml" 381 12198 12215
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 293 9394 9405 "extract.ml" 381 12198 12215
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 386 12291 12301 "extract.ml" 386 12291 12310
+type(
+  Symbol.symbol
+)
+"extract.ml" 386 12291 12315 "extract.ml" 386 12291 12327
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 389 12356 12366 "extract.ml" 389 12356 12370
+type(
+  Symbol.symbol
+)
+"extract.ml" 391 12376 12393 "extract.ml" 391 12376 12394
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 394 12439 12454 "extract.ml" 394 12439 12455
+type(
+  Term.T.t
+)
+ident(
+  def p "extract.ml" 397 12508 12522 "extract.ml" 406 12834 12896
+)
+"extract.ml" 394 12439 12457 "extract.ml" 394 12439 12458
+type(
+  Term.T.t
+)
+ident(
+  def t "extract.ml" 397 12508 12522 "extract.ml" 406 12834 12896
+)
+"extract.ml" 394 12439 12460 "extract.ml" 394 12439 12461
+type(
+  Term.T.t list
+)
+type(
+  Term.T.t
+)
+ident(
+  def f "extract.ml" 397 12508 12522 "extract.ml" 406 12834 12896
+)
+"extract.ml" 394 12439 12457 "extract.ml" 394 12439 12461
+type(
+  Term.T.t list
+)
+"extract.ml" 394 12439 12454 "extract.ml" 394 12439 12461
+type(
+  Term.T.t list
+)
+"extract.ml" 394 12439 12453 "extract.ml" 394 12439 12462
+type(
+  Term.T.t list
+)
+"extract.ml" 397 12508 12525 "extract.ml" 397 12508 12543
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 397 12508 12545 "extract.ml" 397 12508 12554
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 397 12508 12555 "extract.ml" 397 12508 12556
+type(
+  Term.t
+)
+ident(
+  int_ref p "extract.ml" 394 12439 12454 "extract.ml" 394 12439 12455
+)
+"extract.ml" 397 12508 12545 "extract.ml" 397 12508 12556
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 397 12508 12525 "extract.ml" 397 12508 12557
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 400 12636 12653 "extract.ml" 400 12636 12658
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 400 12636 12662 "extract.ml" 400 12636 12663
+type(
+  Term.t
+)
+ident(
+  int_ref p "extract.ml" 394 12439 12454 "extract.ml" 394 12439 12455
+)
+"extract.ml" 400 12636 12665 "extract.ml" 400 12636 12668
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 400 12636 12670 "extract.ml" 400 12636 12674
+type(
+  bool
+)
+"extract.ml" 400 12636 12662 "extract.ml" 400 12636 12674
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 400 12636 12678 "extract.ml" 400 12636 12679
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 394 12439 12457 "extract.ml" 394 12439 12458
+)
+"extract.ml" 400 12636 12681 "extract.ml" 400 12636 12684
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 400 12636 12686 "extract.ml" 400 12636 12694
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 400 12636 12678 "extract.ml" 400 12636 12694
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 400 12636 12677 "extract.ml" 400 12636 12695
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 400 12636 12661 "extract.ml" 400 12636 12695
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 400 12636 12660 "extract.ml" 400 12636 12696
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 400 12636 12653 "extract.ml" 400 12636 12696
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 406 12834 12851 "extract.ml" 406 12834 12856
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 406 12834 12860 "extract.ml" 406 12834 12861
+type(
+  Term.t
+)
+ident(
+  int_ref p "extract.ml" 394 12439 12454 "extract.ml" 394 12439 12455
+)
+"extract.ml" 406 12834 12863 "extract.ml" 406 12834 12866
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 406 12834 12868 "extract.ml" 406 12834 12873
+type(
+  bool
+)
+"extract.ml" 406 12834 12860 "extract.ml" 406 12834 12873
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 406 12834 12877 "extract.ml" 406 12834 12878
+type(
+  Term.t
+)
+ident(
+  int_ref f "extract.ml" 394 12439 12460 "extract.ml" 394 12439 12461
+)
+"extract.ml" 406 12834 12880 "extract.ml" 406 12834 12883
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 406 12834 12885 "extract.ml" 406 12834 12893
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 406 12834 12877 "extract.ml" 406 12834 12893
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 406 12834 12876 "extract.ml" 406 12834 12894
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 406 12834 12859 "extract.ml" 406 12834 12894
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 406 12834 12858 "extract.ml" 406 12834 12895
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 406 12834 12851 "extract.ml" 406 12834 12895
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 397 12508 12522 "extract.ml" 406 12834 12896
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 409 12932 12946 "extract.ml" 409 12932 12947
+type(
+  Term.T.t list
+)
+"extract.ml" 409 12932 12951 "extract.ml" 409 12932 12963
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 391 12376 12387 "extract.ml" 409 12932 12963
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 414 13050 13060 "extract.ml" 414 13050 13064
+type(
+  Symbol.symbol
+)
+"extract.ml" 415 13065 13075 "extract.ml" 415 13065 13078
+type(
+  Symbol.symbol
+)
+"extract.ml" 414 13050 13060 "extract.ml" 415 13065 13078
+type(
+  Symbol.symbol
+)
+"extract.ml" 416 13079 13089 "extract.ml" 416 13079 13093
+type(
+  Symbol.symbol
+)
+"extract.ml" 414 13050 13060 "extract.ml" 416 13079 13093
+type(
+  Symbol.symbol
+)
+"extract.ml" 417 13094 13104 "extract.ml" 417 13094 13107
+type(
+  Symbol.symbol
+)
+"extract.ml" 414 13050 13060 "extract.ml" 417 13094 13107
+type(
+  Symbol.symbol
+)
+"extract.ml" 414 13050 13060 "extract.ml" 417 13094 13112
+type(
+  Symbol.symbol
+)
+ident(
+  def s "extract.ml" 419 13117 13128 "extract.ml" 440 13818 13846
+)
+"extract.ml" 419 13117 13134 "extract.ml" 419 13117 13135
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 422 13214 13228 "extract.ml" 422 13214 13230
+type(
+  Term.T.t list
+)
+"extract.ml" 423 13232 13246 "extract.ml" 423 13232 13247
+type(
+  Term.T.t
+)
+"extract.ml" 423 13232 13251 "extract.ml" 423 13232 13253
+type(
+  Term.T.t list
+)
+"extract.ml" 423 13232 13246 "extract.ml" 423 13232 13253
+type(
+  Term.T.t list
+)
+"extract.ml" 422 13214 13228 "extract.ml" 423 13232 13253
+type(
+  Term.T.t list
+)
+"extract.ml" 423 13232 13257 "extract.ml" 423 13232 13269
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 426 13314 13329 "extract.ml" 426 13314 13330
+type(
+  Term.T.t
+)
+"extract.ml" 426 13314 13332 "extract.ml" 426 13314 13333
+type(
+  Term.T.t list
+)
+type(
+  Term.T.t
+)
+"extract.ml" 426 13314 13329 "extract.ml" 426 13314 13333
+type(
+  Term.T.t list
+)
+"extract.ml" 426 13314 13328 "extract.ml" 426 13314 13334
+type(
+  Term.T.t list
+)
+"extract.ml" 426 13314 13338 "extract.ml" 426 13314 13355
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  int_ref extract_term_atom "extract.ml" 481 14598 14604 "extract.ml" 481 14598 14621
+)
+"extract.ml" 426 13314 13356 "extract.ml" 426 13314 13361
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 426 13314 13362 "extract.ml" 426 13314 13370
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 426 13314 13371 "extract.ml" 426 13314 13374
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 426 13314 13375 "extract.ml" 426 13314 13379
+type(
+  Term.T.flat
+)
+ident(
+  int_ref term "extract.ml" 107 3644 3650 "extract.ml" 107 3644 3675
+)
+"extract.ml" 426 13314 13338 "extract.ml" 426 13314 13379
+call(
+  tail
+)
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 429 13437 13451 "extract.ml" 429 13437 13452
+type(
+  Term.T.t list
+)
+ident(
+  def l "extract.ml" 432 13516 13530 "extract.ml" 440 13818 13846
+)
+"extract.ml" 432 13516 13534 "extract.ml" 432 13516 13536
+type(
+  Term.T.t list list
+)
+ident(
+  def l' "extract.ml" 435 13624 13639 "extract.ml" 440 13818 13845
+)
+"extract.ml" 432 13516 13539 "extract.ml" 432 13516 13549
+type(
+  Term.T.t list -> Term.T.t list list
+)
+ident(
+  ext_ref Lib.chain_list
+)
+"extract.ml" 432 13516 13550 "extract.ml" 432 13516 13551
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 429 13437 13451 "extract.ml" 429 13437 13452
+)
+"extract.ml" 432 13516 13539 "extract.ml" 432 13516 13551
+call(
+  stack
+)
+type(
+  Term.T.t list list
+)
+"extract.ml" 435 13624 13639 "extract.ml" 435 13624 13644
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 436 13647 13664 "extract.ml" 436 13647 13677
+type(
+  Term.T.symbol -> Term.T.t list -> Term.t
+)
+ident(
+  ext_ref Term.T.mk_app
+)
+"extract.ml" 437 13679 13699 "extract.ml" 437 13679 13715
+type(
+  Symbol.symbol -> Term.T.symbol
+)
+ident(
+  ext_ref Symbol.mk_symbol
+)
+"extract.ml" 437 13679 13716 "extract.ml" 437 13679 13720
+type(
+  Symbol.symbol
+)
+"extract.ml" 437 13679 13699 "extract.ml" 437 13679 13720
+call(
+  stack
+)
+type(
+  Term.T.symbol
+)
+"extract.ml" 438 13723 13743 "extract.ml" 438 13723 13751
+type(
+  (Term.T.t list -> Term.T.t) -> Term.T.t list list -> Term.T.t list
+)
+ident(
+  ext_ref List.map
+)
+"extract.ml" 438 13723 13753 "extract.ml" 438 13723 13766
+type(
+  Term.T.symbol -> Term.T.t list -> Term.T.t
+)
+ident(
+  ext_ref Term.T.mk_app
+)
+"extract.ml" 438 13723 13768 "extract.ml" 438 13723 13784
+type(
+  Symbol.symbol -> Term.T.symbol
+)
+ident(
+  ext_ref Symbol.mk_symbol
+)
+"extract.ml" 438 13723 13785 "extract.ml" 438 13723 13786
+type(
+  Symbol.symbol
+)
+ident(
+  int_ref s "extract.ml" 414 13050 13060 "extract.ml" 417 13094 13112
+)
+"extract.ml" 438 13723 13768 "extract.ml" 438 13723 13786
+call(
+  stack
+)
+type(
+  Term.T.symbol
+)
+"extract.ml" 438 13723 13753 "extract.ml" 438 13723 13787
+call(
+  stack
+)
+type(
+  Term.T.t list -> Term.T.t
+)
+"extract.ml" 438 13723 13789 "extract.ml" 438 13723 13791
+type(
+  Term.T.t list list
+)
+ident(
+  int_ref l' "extract.ml" 432 13516 13534 "extract.ml" 432 13516 13536
+)
+"extract.ml" 438 13723 13743 "extract.ml" 438 13723 13791
+call(
+  stack
+)
+type(
+  Term.T.t list
+)
+"extract.ml" 436 13647 13664 "extract.ml" 438 13723 13792
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 439 13795 13812 "extract.ml" 439 13795 13815
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 440 13818 13835 "extract.ml" 440 13818 13843
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 436 13647 13664 "extract.ml" 440 13818 13843
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 436 13647 13663 "extract.ml" 440 13818 13844
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 436 13647 13662 "extract.ml" 440 13818 13845
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 435 13624 13639 "extract.ml" 440 13818 13845
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 432 13516 13530 "extract.ml" 440 13818 13846
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 419 13117 13128 "extract.ml" 440 13818 13846
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 445 13889 13899 "extract.ml" 445 13889 13906
+type(
+  Symbol.symbol
+)
+"extract.ml" 446 13908 13918 "extract.ml" 446 13908 13926
+type(
+  Symbol.symbol
+)
+"extract.ml" 445 13889 13899 "extract.ml" 446 13908 13926
+type(
+  Symbol.symbol
+)
+"extract.ml" 447 13927 13937 "extract.ml" 447 13927 13944
+type(
+  Symbol.symbol
+)
+"extract.ml" 445 13889 13899 "extract.ml" 447 13927 13944
+type(
+  Symbol.symbol
+)
+"extract.ml" 448 13946 13967 "extract.ml" 448 13946 13968
+type(
+  Lib.numeral
+)
+"extract.ml" 448 13946 13956 "extract.ml" 448 13946 13968
+type(
+  Symbol.symbol
+)
+"extract.ml" 445 13889 13899 "extract.ml" 448 13946 13968
+type(
+  Symbol.symbol
+)
+"extract.ml" 449 13969 13983 "extract.ml" 449 13969 13984
+type(
+  UfSymbol.t
+)
+"extract.ml" 449 13969 13979 "extract.ml" 449 13969 13984
+type(
+  Symbol.symbol
+)
+"extract.ml" 445 13889 13899 "extract.ml" 449 13969 13984
+type(
+  Symbol.symbol
+)
+"extract.ml" 451 13989 14006 "extract.ml" 451 13989 14007
+type(
+  Term.T.t list
+)
+ident(
+  int_ref l "extract.ml" 107 3644 3665 "extract.ml" 107 3644 3666
+)
+"extract.ml" 454 14059 14073 "extract.ml" 454 14059 14075
+type(
+  Term.T.t list
+)
+"extract.ml" 454 14059 14079 "extract.ml" 454 14059 14091
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 457 14147 14161 "extract.ml" 457 14147 14162
+type(
+  Term.T.t list
+)
+ident(
+  def l "extract.ml" 460 14234 14248 "extract.ml" 460 14234 14289
+)
+"extract.ml" 460 14234 14248 "extract.ml" 460 14234 14265
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  int_ref extract_term_atom "extract.ml" 481 14598 14604 "extract.ml" 481 14598 14621
+)
+"extract.ml" 460 14234 14266 "extract.ml" 460 14234 14271
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+ident(
+  int_ref accum "extract.ml" 54 2325 2350 "extract.ml" 54 2325 2370
+)
+"extract.ml" 460 14234 14272 "extract.ml" 460 14234 14280
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 460 14234 14281 "extract.ml" 460 14234 14284
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 54 2325 2381 "extract.ml" 54 2325 2384
+)
+"extract.ml" 460 14234 14285 "extract.ml" 460 14234 14289
+type(
+  Term.T.flat
+)
+ident(
+  int_ref term "extract.ml" 107 3644 3650 "extract.ml" 107 3644 3675
+)
+"extract.ml" 460 14234 14248 "extract.ml" 460 14234 14289
+call(
+  tail
+)
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 451 13989 14000 "extract.ml" 460 14234 14289
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 464 14305 14315 "extract.ml" 464 14305 14316
+type(
+  Symbol.symbol
+)
+"extract.ml" 464 14305 14320 "extract.ml" 464 14305 14332
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 109 3681 3688 "extract.ml" 464 14305 14332
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 469 14362 14379 "extract.ml" 469 14362 14380
+type(
+  Term.T.var
+)
+ident(
+  def v "extract.ml" 471 14386 14392 "extract.ml" 478 14585 14595
+)
+"extract.ml" 469 14362 14368 "extract.ml" 469 14362 14380
+type(
+  Term.T.flat
+)
+"extract.ml" 471 14386 14396 "extract.ml" 471 14386 14401
+type(
+  Term.t
+)
+ident(
+  def term' "extract.ml" 474 14470 14477 "extract.ml" 478 14585 14594
+)
+"extract.ml" 471 14386 14404 "extract.ml" 471 14386 14415
+type(
+  Term.T.var -> Term.t
+)
+ident(
+  ext_ref Term.mk_var
+)
+"extract.ml" 471 14386 14416 "extract.ml" 471 14386 14417
+type(
+  Term.T.var
+)
+ident(
+  int_ref v "extract.ml" 469 14362 14379 "extract.ml" 469 14362 14380
+)
+"extract.ml" 471 14386 14404 "extract.ml" 471 14386 14417
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 474 14470 14478 "extract.ml" 474 14470 14494
+type(
+  Term.TermSet.elt -> Term.TermSet.t -> Term.TermSet.t
+)
+ident(
+  ext_ref Term.TermSet.add
+)
+"extract.ml" 475 14495 14509 "extract.ml" 475 14495 14517
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 54 2325 2372 "extract.ml" 54 2325 2380
+)
+"extract.ml" 475 14495 14523 "extract.ml" 475 14495 14528
+type(
+  Term.t
+)
+ident(
+  int_ref term' "extract.ml" 471 14386 14396 "extract.ml" 471 14386 14401
+)
+"extract.ml" 475 14495 14534 "extract.ml" 475 14495 14545
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"extract.ml" 475 14495 14546 "extract.ml" 475 14495 14551
+type(
+  Term.t
+)
+ident(
+  int_ref term' "extract.ml" 471 14386 14396 "extract.ml" 471 14386 14401
+)
+"extract.ml" 475 14495 14534 "extract.ml" 475 14495 14551
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 475 14495 14506 "extract.ml" 475 14495 14551
+type(
+  Term.t
+)
+"extract.ml" 476 14553 14563 "extract.ml" 476 14553 14567
+type(
+  Term.TermSet.t
+)
+ident(
+  int_ref bool "extract.ml" 54 2325 2351 "extract.ml" 54 2325 2355
+)
+"extract.ml" 474 14470 14478 "extract.ml" 476 14553 14567
+call(
+  stack
+)
+type(
+  Term.TermSet.t
+)
+"extract.ml" 477 14570 14578 "extract.ml" 477 14570 14581
+type(
+  Term.TermSet.t
+)
+ident(
+  int_ref int "extract.ml" 54 2325 2357 "extract.ml" 54 2325 2360
+)
+"extract.ml" 474 14470 14478 "extract.ml" 477 14570 14581
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+"extract.ml" 478 14585 14592 "extract.ml" 478 14585 14594
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 474 14470 14477 "extract.ml" 478 14585 14594
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 471 14386 14392 "extract.ml" 478 14585 14595
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 54 2325 2387 "extract.ml" 478 14585 14595
+type(
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 54 2325 2381 "extract.ml" 478 14585 14595
+type(
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 54 2325 2372 "extract.ml" 478 14585 14595
+type(
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 54 2325 2349 "extract.ml" 478 14585 14595
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 481 14598 14604 "extract.ml" 481 14598 14621
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+ident(
+  def extract_term_atom "extract.ml" 38 1796 1798 "extract.ml" 547 16119 16174
+)
+"extract.ml" 481 14598 14623 "extract.ml" 481 14598 14627
+type(
+  Term.TermSet.t
+)
+ident(
+  def bool "extract.ml" 481 14598 14634 "extract.ml" 537 15964 15976
+)
+"extract.ml" 481 14598 14629 "extract.ml" 481 14598 14632
+type(
+  Term.TermSet.t
+)
+ident(
+  def int "extract.ml" 481 14598 14634 "extract.ml" 537 15964 15976
+)
+"extract.ml" 481 14598 14623 "extract.ml" 481 14598 14632
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+"extract.ml" 481 14598 14634 "extract.ml" 481 14598 14642
+type(
+  bool
+)
+ident(
+  def polarity "extract.ml" 481 14598 14643 "extract.ml" 537 15964 15976
+)
+"extract.ml" 481 14598 14643 "extract.ml" 481 14598 14646
+type(
+  'a
+)
+ident(
+  def env "extract.ml" 481 14598 14647 "extract.ml" 537 15964 15976
+)
+"extract.ml" 481 14598 14647 "extract.ml" 481 14598 14651
+type(
+  Term.T.flat
+)
+ident(
+  def term "extract.ml" 483 14656 14660 "extract.ml" 537 15964 15976
+)
+"extract.ml" 483 14656 14664 "extract.ml" 483 14656 14686
+type(
+  Term.T.flat ->
+  ((Term.t * 'a * bool) list * Term.t) list ->
+  (Term.t * 'a * bool) list * Term.t
+)
+ident(
+  def extract_term_atom_node "extract.ml" 525 15709 15713 "extract.ml" 537 15964 15976
+)
+"extract.ml" 483 14656 14687 "extract.ml" 483 14656 14692
+type(
+  Term.T.flat
+)
+ident(
+  def fterm "extract.ml" 483 14656 14693 "extract.ml" 520 15613 15669
+)
+"extract.ml" 483 14656 14693 "extract.ml" 483 14656 14697
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+ident(
+  def args "extract.ml" 485 14701 14707 "extract.ml" 520 15613 15669
+)
+"extract.ml" 485 14701 14713 "extract.ml" 485 14701 14718
+type(
+  Term.T.flat
+)
+ident(
+  int_ref fterm "extract.ml" 483 14656 14687 "extract.ml" 483 14656 14692
+)
+"extract.ml" 488 14758 14780 "extract.ml" 488 14758 14783
+type(
+  Term.T.symbol
+)
+ident(
+  def sym "extract.ml" 488 14758 14793 "extract.ml" 488 14758 14825
+)
+"extract.ml" 488 14758 14785 "extract.ml" 488 14758 14786
+type(
+  Term.T.t list
+)
+"extract.ml" 488 14758 14768 "extract.ml" 488 14758 14787
+type(
+  Term.T.flat
+)
+"extract.ml" 488 14758 14793 "extract.ml" 488 14758 14814
+type(
+  Term.T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"extract.ml" 488 14758 14815 "extract.ml" 488 14758 14818
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref sym "extract.ml" 488 14758 14780 "extract.ml" 488 14758 14783
+)
+"extract.ml" 488 14758 14793 "extract.ml" 488 14758 14818
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"extract.ml" 488 14758 14819 "extract.ml" 488 14758 14820
+type(
+  Symbol.symbol -> Symbol.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"extract.ml" 488 14758 14821 "extract.ml" 488 14758 14825
+type(
+  Symbol.symbol
+)
+"extract.ml" 488 14758 14793 "extract.ml" 488 14758 14825
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+type(
+  bool
+)
+"extract.ml" 492 14844 14862 "extract.ml" 492 14844 14866
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+ident(
+  int_ref args "extract.ml" 483 14656 14693 "extract.ml" 483 14656 14697
+)
+"extract.ml" 494 14874 14892 "extract.ml" 494 14874 14893
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 494 14874 14895 "extract.ml" 494 14874 14896
+type(
+  Term.t
+)
+ident(
+  def p "extract.ml" 497 14980 14996 "extract.ml" 505 15238 15282
+)
+"extract.ml" 494 14874 14892 "extract.ml" 494 14874 14896
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 494 14874 14900 "extract.ml" 494 14874 14902
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  def t' "extract.ml" 497 14980 14996 "extract.ml" 505 15238 15282
+)
+"extract.ml" 494 14874 14904 "extract.ml" 494 14874 14905
+type(
+  Term.t
+)
+ident(
+  def t "extract.ml" 497 14980 14996 "extract.ml" 505 15238 15282
+)
+"extract.ml" 494 14874 14900 "extract.ml" 494 14874 14905
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 494 14874 14909 "extract.ml" 494 14874 14911
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  def f' "extract.ml" 497 14980 14996 "extract.ml" 505 15238 15282
+)
+"extract.ml" 494 14874 14913 "extract.ml" 494 14874 14914
+type(
+  Term.t
+)
+ident(
+  def f "extract.ml" 497 14980 14996 "extract.ml" 505 15238 15282
+)
+"extract.ml" 494 14874 14909 "extract.ml" 494 14874 14914
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 494 14874 14908 "extract.ml" 494 14874 14915
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+"extract.ml" 494 14874 14899 "extract.ml" 494 14874 14915
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+"extract.ml" 494 14874 14891 "extract.ml" 494 14874 14915
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+"extract.ml" 494 14874 14890 "extract.ml" 494 14874 14916
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+"extract.ml" 497 14980 14999 "extract.ml" 497 14980 15017
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"extract.ml" 497 14980 15019 "extract.ml" 497 14980 15028
+type(
+  Term.t -> Eval.value
+)
+ident(
+  int_ref eval_term "extract.ml" 35 1711 1717 "extract.ml" 35 1711 1726
+)
+"extract.ml" 497 14980 15029 "extract.ml" 497 14980 15030
+type(
+  Term.t
+)
+ident(
+  int_ref p "extract.ml" 494 14874 14895 "extract.ml" 494 14874 14896
+)
+"extract.ml" 497 14980 15019 "extract.ml" 497 14980 15030
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"extract.ml" 497 14980 14999 "extract.ml" 497 14980 15031
+call(
+  stack
+)
+type(
+  bool
+)
+"extract.ml" 500 15104 15124 "extract.ml" 500 15104 15125
+type(
+  Term.t
+)
+ident(
+  int_ref p "extract.ml" 494 14874 14895 "extract.ml" 494 14874 14896
+)
+"extract.ml" 500 15104 15127 "extract.ml" 500 15104 15130
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 481 14598 14643 "extract.ml" 481 14598 14646
+)
+"extract.ml" 500 15104 15132 "extract.ml" 500 15104 15136
+type(
+  bool
+)
+"extract.ml" 500 15104 15124 "extract.ml" 500 15104 15136
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 500 15104 15141 "extract.ml" 500 15104 15143
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  int_ref t' "extract.ml" 494 14874 14900 "extract.ml" 494 14874 14902
+)
+"extract.ml" 500 15104 15123 "extract.ml" 500 15104 15143
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 500 15104 15145 "extract.ml" 500 15104 15146
+type(
+  Term.t
+)
+ident(
+  int_ref t "extract.ml" 494 14874 14904 "extract.ml" 494 14874 14905
+)
+"extract.ml" 500 15104 15123 "extract.ml" 500 15104 15146
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 505 15238 15258 "extract.ml" 505 15238 15259
+type(
+  Term.t
+)
+ident(
+  int_ref p "extract.ml" 494 14874 14895 "extract.ml" 494 14874 14896
+)
+"extract.ml" 505 15238 15261 "extract.ml" 505 15238 15264
+type(
+  'a
+)
+ident(
+  int_ref env "extract.ml" 481 14598 14643 "extract.ml" 481 14598 14646
+)
+"extract.ml" 505 15238 15266 "extract.ml" 505 15238 15271
+type(
+  bool
+)
+"extract.ml" 505 15238 15258 "extract.ml" 505 15238 15271
+type(
+  Term.t * 'a * bool
+)
+"extract.ml" 505 15238 15276 "extract.ml" 505 15238 15278
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  int_ref f' "extract.ml" 494 14874 14909 "extract.ml" 494 14874 14911
+)
+"extract.ml" 505 15238 15257 "extract.ml" 505 15238 15278
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 505 15238 15280 "extract.ml" 505 15238 15281
+type(
+  Term.t
+)
+ident(
+  int_ref f "extract.ml" 494 14874 14913 "extract.ml" 494 14874 14914
+)
+"extract.ml" 505 15238 15257 "extract.ml" 505 15238 15281
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 497 14980 14996 "extract.ml" 505 15238 15282
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 508 15333 15349 "extract.ml" 508 15333 15350
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+"extract.ml" 508 15333 15354 "extract.ml" 508 15333 15366
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 492 14844 14856 "extract.ml" 508 15333 15366
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 513 15414 15436 "extract.ml" 513 15414 15439
+type(
+  Term.T.symbol
+)
+ident(
+  def sym "extract.ml" 515 15449 15459 "extract.ml" 516 15501 15556
+)
+"extract.ml" 513 15414 15441 "extract.ml" 513 15414 15442
+type(
+  Term.T.t list
+)
+"extract.ml" 513 15414 15424 "extract.ml" 513 15414 15443
+type(
+  Term.T.flat
+)
+"extract.ml" 515 15449 15464 "extract.ml" 515 15449 15470
+type(
+  (Term.t * 'a * bool) list list
+)
+ident(
+  def accum' "extract.ml" 516 15501 15512 "extract.ml" 516 15501 15555
+)
+"extract.ml" 515 15449 15472 "extract.ml" 515 15449 15477
+type(
+  Term.t list
+)
+ident(
+  def args' "extract.ml" 516 15501 15512 "extract.ml" 516 15501 15555
+)
+"extract.ml" 515 15449 15464 "extract.ml" 515 15449 15477
+type(
+  (Term.t * 'a * bool) list list * Term.t list
+)
+"extract.ml" 515 15449 15481 "extract.ml" 515 15449 15491
+type(
+  ((Term.t * 'a * bool) list * Term.t) list ->
+  (Term.t * 'a * bool) list list * Term.t list
+)
+ident(
+  ext_ref List.split
+)
+"extract.ml" 515 15449 15492 "extract.ml" 515 15449 15496
+type(
+  ((Term.t * 'a * bool) list * Term.t) list
+)
+ident(
+  int_ref args "extract.ml" 483 14656 14693 "extract.ml" 483 14656 14697
+)
+"extract.ml" 515 15449 15481 "extract.ml" 515 15449 15496
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list list * Term.t list
+)
+"extract.ml" 516 15501 15512 "extract.ml" 516 15501 15523
+type(
+  (Term.t * 'a * bool) list list -> (Term.t * 'a * bool) list
+)
+ident(
+  ext_ref List.concat
+)
+"extract.ml" 516 15501 15524 "extract.ml" 516 15501 15530
+type(
+  (Term.t * 'a * bool) list list
+)
+ident(
+  int_ref accum' "extract.ml" 515 15449 15464 "extract.ml" 515 15449 15470
+)
+"extract.ml" 516 15501 15512 "extract.ml" 516 15501 15530
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 516 15501 15532 "extract.ml" 516 15501 15545
+type(
+  Term.T.symbol -> Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.T.mk_app
+)
+"extract.ml" 516 15501 15546 "extract.ml" 516 15501 15549
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref sym "extract.ml" 513 15414 15436 "extract.ml" 513 15414 15439
+)
+"extract.ml" 516 15501 15550 "extract.ml" 516 15501 15555
+type(
+  Term.t list
+)
+ident(
+  int_ref args' "extract.ml" 515 15449 15472 "extract.ml" 515 15449 15477
+)
+"extract.ml" 516 15501 15532 "extract.ml" 516 15501 15555
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 516 15501 15512 "extract.ml" 516 15501 15555
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 515 15449 15459 "extract.ml" 516 15501 15556
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 519 15589 15610 "extract.ml" 519 15589 15611
+type(
+  Term.T.var
+)
+"extract.ml" 519 15589 15599 "extract.ml" 519 15589 15611
+type(
+  Term.T.flat
+)
+"extract.ml" 520 15613 15636 "extract.ml" 520 15613 15637
+type(
+  Term.T.symbol
+)
+"extract.ml" 520 15613 15623 "extract.ml" 520 15613 15637
+type(
+  Term.T.flat
+)
+"extract.ml" 519 15589 15599 "extract.ml" 520 15613 15637
+type(
+  Term.T.flat
+)
+"extract.ml" 520 15613 15642 "extract.ml" 520 15613 15644
+type(
+  (Term.t * 'a * bool) list
+)
+"extract.ml" 520 15613 15646 "extract.ml" 520 15613 15662
+type(
+  Term.T.flat -> Term.t
+)
+ident(
+  ext_ref Term.T.construct
+)
+"extract.ml" 520 15613 15663 "extract.ml" 520 15613 15668
+type(
+  Term.T.flat
+)
+ident(
+  int_ref fterm "extract.ml" 483 14656 14687 "extract.ml" 483 14656 14692
+)
+"extract.ml" 520 15613 15646 "extract.ml" 520 15613 15668
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 520 15613 15642 "extract.ml" 520 15613 15668
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 485 14701 14707 "extract.ml" 520 15613 15669
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 483 14656 14693 "extract.ml" 520 15613 15669
+type(
+  ((Term.t * 'a * bool) list * Term.t) list ->
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 483 14656 14687 "extract.ml" 520 15613 15669
+type(
+  Term.T.flat ->
+  ((Term.t * 'a * bool) list * Term.t) list ->
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 525 15709 15717 "extract.ml" 525 15709 15723
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  def stack' "extract.ml" 531 15826 15830 "extract.ml" 537 15964 15976
+)
+"extract.ml" 525 15709 15725 "extract.ml" 525 15709 15730
+type(
+  Term.t
+)
+ident(
+  def term' "extract.ml" 531 15826 15830 "extract.ml" 537 15964 15976
+)
+"extract.ml" 525 15709 15717 "extract.ml" 525 15709 15730
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 526 15734 15740 "extract.ml" 526 15734 15753
+type(
+  (Term.T.flat ->
+   ((Term.t * 'a * bool) list * Term.t) list ->
+   (Term.t * 'a * bool) list * Term.t) ->
+  Term.T.t -> (Term.t * 'a * bool) list * Term.t
+)
+ident(
+  ext_ref Term.T.eval_t
+)
+"extract.ml" 527 15754 15762 "extract.ml" 527 15754 15784
+type(
+  Term.T.flat ->
+  ((Term.t * 'a * bool) list * Term.t) list ->
+  (Term.t * 'a * bool) list * Term.t
+)
+ident(
+  int_ref extract_term_atom_node "extract.ml" 483 14656 14664 "extract.ml" 483 14656 14686
+)
+"extract.ml" 528 15786 15795 "extract.ml" 528 15786 15811
+type(
+  Term.T.flat -> Term.T.t
+)
+ident(
+  ext_ref Term.T.construct
+)
+"extract.ml" 528 15786 15812 "extract.ml" 528 15786 15816
+type(
+  Term.T.flat
+)
+ident(
+  int_ref term "extract.ml" 481 14598 14647 "extract.ml" 481 14598 14651
+)
+"extract.ml" 528 15786 15795 "extract.ml" 528 15786 15816
+call(
+  stack
+)
+type(
+  Term.T.t
+)
+"extract.ml" 526 15734 15740 "extract.ml" 528 15786 15817
+call(
+  stack
+)
+type(
+  (Term.t * 'a * bool) list * Term.t
+)
+"extract.ml" 531 15826 15834 "extract.ml" 531 15826 15840
+type(
+  Term.t
+)
+ident(
+  def term'' "extract.ml" 533 15853 15858 "extract.ml" 537 15964 15975
+)
+"extract.ml" 531 15826 15843 "extract.ml" 531 15826 15848
+type(
+  Term.t
+)
+ident(
+  int_ref term' "extract.ml" 525 15709 15725 "extract.ml" 525 15709 15730
+)
+"extract.ml" 533 15853 15859 "extract.ml" 533 15853 15863
+type(
+  Term.TermSet.t
+)
+ident(
+  int_ref bool "extract.ml" 481 14598 14623 "extract.ml" 481 14598 14627
+)
+"extract.ml" 534 15866 15872 "extract.ml" 534 15866 15888
+type(
+  Term.TermSet.elt -> Term.TermSet.t -> Term.TermSet.t
+)
+ident(
+  ext_ref Term.TermSet.add
+)
+"extract.ml" 535 15890 15902 "extract.ml" 535 15890 15910
+type(
+  bool
+)
+ident(
+  int_ref polarity "extract.ml" 481 14598 14634 "extract.ml" 481 14598 14642
+)
+"extract.ml" 535 15890 15916 "extract.ml" 535 15890 15922
+type(
+  Term.t
+)
+ident(
+  int_ref term'' "extract.ml" 531 15826 15834 "extract.ml" 531 15826 15840
+)
+"extract.ml" 535 15890 15928 "extract.ml" 535 15890 15939
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"extract.ml" 535 15890 15940 "extract.ml" 535 15890 15946
+type(
+  Term.t
+)
+ident(
+  int_ref term'' "extract.ml" 531 15826 15834 "extract.ml" 531 15826 15840
+)
+"extract.ml" 535 15890 15928 "extract.ml" 535 15890 15946
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 535 15890 15899 "extract.ml" 535 15890 15946
+type(
+  Term.t
+)
+"extract.ml" 536 15949 15957 "extract.ml" 536 15949 15960
+type(
+  Term.TermSet.t
+)
+ident(
+  int_ref int "extract.ml" 481 14598 14629 "extract.ml" 481 14598 14632
+)
+"extract.ml" 534 15866 15872 "extract.ml" 536 15949 15960
+call(
+  stack
+)
+type(
+  Term.TermSet.t
+)
+"extract.ml" 533 15853 15859 "extract.ml" 536 15949 15960
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+"extract.ml" 537 15964 15969 "extract.ml" 537 15964 15975
+type(
+  (Term.t * 'a * bool) list
+)
+ident(
+  int_ref stack' "extract.ml" 525 15709 15717 "extract.ml" 525 15709 15723
+)
+"extract.ml" 533 15853 15858 "extract.ml" 537 15964 15975
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 531 15826 15830 "extract.ml" 537 15964 15976
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 525 15709 15713 "extract.ml" 537 15964 15976
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 483 14656 14660 "extract.ml" 537 15964 15976
+type(
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 481 14598 14647 "extract.ml" 537 15964 15976
+type(
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 481 14598 14643 "extract.ml" 537 15964 15976
+type(
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 481 14598 14634 "extract.ml" 537 15964 15976
+type(
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 481 14598 14622 "extract.ml" 537 15964 15976
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  bool ->
+  'a ->
+  Term.T.flat ->
+  (Term.TermSet.t * Term.TermSet.t) * (Term.t * 'a * bool) list
+)
+"extract.ml" 541 15984 15990 "extract.ml" 541 15984 16003
+type(
+  Term.TermSet.elt list
+)
+ident(
+  def literals_bool "extract.ml" 547 16119 16122 "extract.ml" 547 16119 16173
+)
+"extract.ml" 541 15984 16005 "extract.ml" 541 15984 16017
+type(
+  Term.TermSet.elt list
+)
+ident(
+  def literals_int "extract.ml" 547 16119 16122 "extract.ml" 547 16119 16173
+)
+"extract.ml" 541 15984 15990 "extract.ml" 541 15984 16017
+type(
+  Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 542 16021 16025 "extract.ml" 542 16021 16037
+type(
+  Term.TermSet.t * Term.TermSet.t ->
+  (Term.t * (Var.t * Term.t) list * bool) list ->
+  Term.TermSet.elt list * Term.TermSet.elt list
+)
+ident(
+  int_ref extract_term "extract.ml" 38 1796 1806 "extract.ml" 38 1796 1818
+)
+"extract.ml" 543 16039 16046 "extract.ml" 543 16039 16064
+type(
+  Term.TermSet.t
+)
+ident(
+  ext_ref Term.TermSet.empty
+)
+"extract.ml" 543 16039 16066 "extract.ml" 543 16039 16084
+type(
+  Term.TermSet.t
+)
+ident(
+  ext_ref Term.TermSet.empty
+)
+"extract.ml" 543 16039 16046 "extract.ml" 543 16039 16084
+type(
+  Term.TermSet.t * Term.TermSet.t
+)
+"extract.ml" 544 16086 16094 "extract.ml" 544 16086 16098
+type(
+  Term.t
+)
+ident(
+  int_ref term "extract.ml" 33 1686 1702 "extract.ml" 33 1686 1706
+)
+"extract.ml" 544 16086 16100 "extract.ml" 544 16086 16103
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref env "extract.ml" 33 1686 1698 "extract.ml" 33 1686 1701
+)
+"extract.ml" 544 16086 16105 "extract.ml" 544 16086 16109
+type(
+  bool
+)
+"extract.ml" 544 16086 16094 "extract.ml" 544 16086 16109
+type(
+  Term.t * (Var.t * Term.t) list * bool
+)
+"extract.ml" 544 16086 16093 "extract.ml" 544 16086 16110
+type(
+  (Term.t * (Var.t * Term.t) list * bool) list
+)
+"extract.ml" 544 16086 16092 "extract.ml" 544 16086 16111
+type(
+  (Term.t * (Var.t * Term.t) list * bool) list
+)
+"extract.ml" 542 16021 16025 "extract.ml" 544 16086 16111
+call(
+  stack
+)
+type(
+  Term.TermSet.elt list * Term.TermSet.elt list
+)
+"extract.ml" 547 16119 16122 "extract.ml" 547 16119 16133
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"extract.ml" 547 16119 16134 "extract.ml" 547 16119 16147
+type(
+  Term.t list
+)
+ident(
+  int_ref literals_bool "extract.ml" 541 15984 15990 "extract.ml" 541 15984 16003
+)
+"extract.ml" 547 16119 16122 "extract.ml" 547 16119 16147
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 547 16119 16149 "extract.ml" 547 16119 16160
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"extract.ml" 547 16119 16161 "extract.ml" 547 16119 16173
+type(
+  Term.t list
+)
+ident(
+  int_ref literals_int "extract.ml" 541 15984 16005 "extract.ml" 541 15984 16017
+)
+"extract.ml" 547 16119 16149 "extract.ml" 547 16119 16173
+call(
+  stack
+)
+type(
+  Term.t
+)
+"extract.ml" 547 16119 16122 "extract.ml" 547 16119 16173
+type(
+  Term.t * Term.t
+)
+"extract.ml" 541 15984 15986 "extract.ml" 547 16119 16174
+type(
+  Term.t * Term.t
+)
+"extract.ml" 38 1796 1798 "extract.ml" 547 16119 16174
+type(
+  Term.t * Term.t
+)
+"extract.ml" 35 1711 1713 "extract.ml" 547 16119 16174
+type(
+  Term.t * Term.t
+)
+"extract.ml" 33 1686 1702 "extract.ml" 547 16119 16174
+type(
+  Term.t -> Term.t * Term.t
+)
+"extract.ml" 33 1686 1698 "extract.ml" 547 16119 16174
+type(
+  (Var.t * Term.t) list -> Term.t -> Term.t * Term.t
+)

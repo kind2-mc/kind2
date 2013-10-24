@@ -1,0 +1,4820 @@
+"kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+type(
+  Globals.current_solver
+)
+ident(
+  def solver "kind1/defgen.ml" 54 2064 2064 "_none_" 1 0 -1
+)
+"kind1/defgen.ml" 47 1812 1825 "kind1/defgen.ml" 47 1812 1842
+type(
+  Globals.current_solver
+)
+ident(
+  ext_ref Globals.my_solver
+)
+"kind1/defgen.ml" 54 2064 2068 "kind1/defgen.ml" 54 2064 2088
+type(
+  (int, Types.defhashtype) Hashtbl.t -> string -> int -> Buffer.t
+)
+ident(
+  def generate_var_defs_yc "kind1/defgen.ml" 73 2661 2661 "_none_" 1 0 -1
+)
+"kind1/defgen.ml" 54 2064 2089 "kind1/defgen.ml" 54 2064 2096
+type(
+  (int, Types.defhashtype) Hashtbl.t
+)
+ident(
+  def defhash "kind1/defgen.ml" 54 2064 2097 "kind1/defgen.ml" 69 2622 2627
+)
+"kind1/defgen.ml" 54 2064 2097 "kind1/defgen.ml" 54 2064 2110
+type(
+  string
+)
+ident(
+  def def_base_name "kind1/defgen.ml" 54 2064 2111 "kind1/defgen.ml" 69 2622 2627
+)
+"kind1/defgen.ml" 54 2064 2111 "kind1/defgen.ml" 54 2064 2123
+type(
+  int
+)
+ident(
+  def ite_maxdepth "kind1/defgen.ml" 55 2126 2128 "kind1/defgen.ml" 69 2622 2627
+)
+"kind1/defgen.ml" 55 2126 2132 "kind1/defgen.ml" 55 2126 2135
+type(
+  Buffer.t
+)
+ident(
+  def buf "kind1/defgen.ml" 56 2159 2161 "kind1/defgen.ml" 69 2622 2627
+)
+"kind1/defgen.ml" 55 2126 2138 "kind1/defgen.ml" 55 2126 2151
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/defgen.ml" 55 2126 2152 "kind1/defgen.ml" 55 2126 2155
+type(
+  int
+)
+"kind1/defgen.ml" 55 2126 2138 "kind1/defgen.ml" 55 2126 2155
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 56 2159 2161 "kind1/defgen.ml" 56 2159 2173
+type(
+  (int -> Types.defhashtype -> unit) ->
+  (int, Types.defhashtype) Hashtbl.t -> unit
+)
+ident(
+  ext_ref Hashtbl.iter
+)
+"kind1/defgen.ml" 56 2159 2179 "kind1/defgen.ml" 56 2159 2180
+type(
+  int
+)
+ident(
+  def x "kind1/defgen.ml" 56 2159 2181 "kind1/defgen.ml" 66 2532 2603
+)
+"kind1/defgen.ml" 56 2159 2181 "kind1/defgen.ml" 56 2159 2182
+type(
+  Types.defhashtype
+)
+ident(
+  def y "kind1/defgen.ml" 57 2186 2190 "kind1/defgen.ml" 66 2532 2603
+)
+"kind1/defgen.ml" 57 2186 2196 "kind1/defgen.ml" 57 2186 2197
+type(
+  Types.defhashtype
+)
+ident(
+  int_ref y "kind1/defgen.ml" 56 2159 2181 "kind1/defgen.ml" 56 2159 2182
+)
+"kind1/defgen.ml" 58 2203 2219 "kind1/defgen.ml" 58 2203 2220
+type(
+  int
+)
+"kind1/defgen.ml" 58 2203 2211 "kind1/defgen.ml" 58 2203 2220
+type(
+  Types.defhashtype
+)
+"kind1/defgen.ml" 58 2203 2224 "kind1/defgen.ml" 58 2203 2226
+type(
+  unit
+)
+"kind1/defgen.ml" 59 2227 2243 "kind1/defgen.ml" 59 2227 2246
+type(
+  Types.defstrtype
+)
+ident(
+  def dhe "kind1/defgen.ml" 60 2250 2260 "kind1/defgen.ml" 66 2532 2603
+)
+"kind1/defgen.ml" 59 2227 2235 "kind1/defgen.ml" 59 2227 2246
+type(
+  Types.defhashtype
+)
+"kind1/defgen.ml" 60 2250 2263 "kind1/defgen.ml" 60 2250 2275
+type(
+  int
+)
+ident(
+  int_ref ite_maxdepth "kind1/defgen.ml" 54 2064 2111 "kind1/defgen.ml" 54 2064 2123
+)
+"kind1/defgen.ml" 60 2250 2276 "kind1/defgen.ml" 60 2250 2278
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"kind1/defgen.ml" 60 2250 2279 "kind1/defgen.ml" 60 2250 2280
+type(
+  int
+)
+"kind1/defgen.ml" 60 2250 2263 "kind1/defgen.ml" 60 2250 2280
+type(
+  bool
+)
+"kind1/defgen.ml" 61 2286 2300 "kind1/defgen.ml" 61 2286 2306
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 61 2286 2300 "kind1/defgen.ml" 61 2286 2310
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 61 2286 2300 "kind1/defgen.ml" 61 2286 2328
+call(
+  tail
+)
+type(
+  Buffer.t ->
+  string ->
+  Types.lustre_type -> (string * Types.lustre_type) list -> Buffer.t -> unit
+)
+"kind1/defgen.ml" 61 2286 2329 "kind1/defgen.ml" 61 2286 2332
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/defgen.ml" 55 2126 2132 "kind1/defgen.ml" 55 2126 2135
+)
+"kind1/defgen.ml" 62 2334 2350 "kind1/defgen.ml" 62 2334 2363
+type(
+  string
+)
+ident(
+  int_ref def_base_name "kind1/defgen.ml" 54 2064 2097 "kind1/defgen.ml" 54 2064 2110
+)
+"kind1/defgen.ml" 62 2334 2363 "kind1/defgen.ml" 62 2334 2364
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 62 2334 2364 "kind1/defgen.ml" 62 2334 2368
+type(
+  string
+)
+"kind1/defgen.ml" 62 2334 2368 "kind1/defgen.ml" 62 2334 2369
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 62 2334 2370 "kind1/defgen.ml" 62 2334 2383
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/defgen.ml" 62 2334 2384 "kind1/defgen.ml" 62 2334 2385
+type(
+  int
+)
+ident(
+  int_ref x "kind1/defgen.ml" 56 2159 2179 "kind1/defgen.ml" 56 2159 2180
+)
+"kind1/defgen.ml" 62 2334 2369 "kind1/defgen.ml" 62 2334 2386
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 62 2334 2364 "kind1/defgen.ml" 62 2334 2386
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 62 2334 2349 "kind1/defgen.ml" 62 2334 2387
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 62 2334 2396 "kind1/defgen.ml" 62 2334 2401
+type(
+  Types.lustre_type
+)
+"kind1/defgen.ml" 62 2334 2402 "kind1/defgen.ml" 62 2334 2408
+type(
+  Types.lustre_type
+)
+"kind1/defgen.ml" 62 2334 2395 "kind1/defgen.ml" 62 2334 2409
+type(
+  Types.lustre_type list
+)
+"kind1/defgen.ml" 62 2334 2388 "kind1/defgen.ml" 62 2334 2410
+type(
+  Types.lustre_type
+)
+"kind1/defgen.ml" 63 2411 2428 "kind1/defgen.ml" 63 2411 2434
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 63 2411 2428 "kind1/defgen.ml" 63 2411 2438
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 63 2411 2428 "kind1/defgen.ml" 63 2411 2452
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 63 2411 2453 "kind1/defgen.ml" 63 2411 2458
+type(
+  Types.lustre_type
+)
+"kind1/defgen.ml" 63 2411 2427 "kind1/defgen.ml" 63 2411 2459
+type(
+  string * Types.lustre_type
+)
+"kind1/defgen.ml" 63 2411 2426 "kind1/defgen.ml" 63 2411 2460
+type(
+  (string * Types.lustre_type) list
+)
+"kind1/defgen.ml" 63 2411 2461 "kind1/defgen.ml" 63 2411 2464
+type(
+  Types.defstrtype
+)
+ident(
+  int_ref dhe "kind1/defgen.ml" 59 2227 2243 "kind1/defgen.ml" 59 2227 2246
+)
+"kind1/defgen.ml" 63 2411 2461 "kind1/defgen.ml" 63 2411 2468
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 61 2286 2300 "kind1/defgen.ml" 63 2411 2468
+type(
+  unit
+)
+"kind1/defgen.ml" 65 2484 2498 "kind1/defgen.ml" 65 2484 2504
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 65 2484 2498 "kind1/defgen.ml" 65 2484 2508
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 65 2484 2498 "kind1/defgen.ml" 65 2484 2526
+call(
+  tail
+)
+type(
+  Buffer.t ->
+  string ->
+  Types.lustre_type -> (string * Types.lustre_type) list -> Buffer.t -> unit
+)
+"kind1/defgen.ml" 65 2484 2527 "kind1/defgen.ml" 65 2484 2530
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/defgen.ml" 55 2126 2132 "kind1/defgen.ml" 55 2126 2135
+)
+"kind1/defgen.ml" 66 2532 2548 "kind1/defgen.ml" 66 2532 2561
+type(
+  string
+)
+ident(
+  int_ref def_base_name "kind1/defgen.ml" 54 2064 2097 "kind1/defgen.ml" 54 2064 2110
+)
+"kind1/defgen.ml" 66 2532 2561 "kind1/defgen.ml" 66 2532 2562
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 66 2532 2562 "kind1/defgen.ml" 66 2532 2566
+type(
+  string
+)
+"kind1/defgen.ml" 66 2532 2566 "kind1/defgen.ml" 66 2532 2567
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 66 2532 2568 "kind1/defgen.ml" 66 2532 2581
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/defgen.ml" 66 2532 2582 "kind1/defgen.ml" 66 2532 2583
+type(
+  int
+)
+ident(
+  int_ref x "kind1/defgen.ml" 56 2159 2179 "kind1/defgen.ml" 56 2159 2180
+)
+"kind1/defgen.ml" 66 2532 2567 "kind1/defgen.ml" 66 2532 2584
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 66 2532 2562 "kind1/defgen.ml" 66 2532 2584
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 66 2532 2547 "kind1/defgen.ml" 66 2532 2585
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 66 2532 2586 "kind1/defgen.ml" 66 2532 2592
+type(
+  Types.lustre_type
+)
+"kind1/defgen.ml" 66 2532 2593 "kind1/defgen.ml" 66 2532 2595
+type(
+  (string * Types.lustre_type) list
+)
+"kind1/defgen.ml" 66 2532 2596 "kind1/defgen.ml" 66 2532 2599
+type(
+  Types.defstrtype
+)
+ident(
+  int_ref dhe "kind1/defgen.ml" 59 2227 2243 "kind1/defgen.ml" 59 2227 2246
+)
+"kind1/defgen.ml" 66 2532 2596 "kind1/defgen.ml" 66 2532 2603
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 65 2484 2498 "kind1/defgen.ml" 66 2532 2603
+type(
+  unit
+)
+"kind1/defgen.ml" 60 2250 2260 "kind1/defgen.ml" 66 2532 2603
+type(
+  unit
+)
+"kind1/defgen.ml" 57 2186 2190 "kind1/defgen.ml" 66 2532 2603
+type(
+  unit
+)
+"kind1/defgen.ml" 56 2159 2174 "kind1/defgen.ml" 68 2609 2612
+type(
+  int -> Types.defhashtype -> unit
+)
+"kind1/defgen.ml" 68 2609 2613 "kind1/defgen.ml" 68 2609 2620
+type(
+  (int, Types.defhashtype) Hashtbl.t
+)
+ident(
+  int_ref defhash "kind1/defgen.ml" 54 2064 2089 "kind1/defgen.ml" 54 2064 2096
+)
+"kind1/defgen.ml" 56 2159 2161 "kind1/defgen.ml" 68 2609 2620
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 69 2622 2624 "kind1/defgen.ml" 69 2622 2627
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/defgen.ml" 55 2126 2132 "kind1/defgen.ml" 55 2126 2135
+)
+"kind1/defgen.ml" 56 2159 2161 "kind1/defgen.ml" 69 2622 2627
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 55 2126 2128 "kind1/defgen.ml" 69 2622 2627
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 73 2661 2665 "kind1/defgen.ml" 73 2661 2683
+type(
+  (int, 'a) Hashtbl.t -> string -> Buffer.t
+)
+ident(
+  def generate_trans_def "kind1/defgen.ml" 81 2902 2903 "_none_" 1 0 -1
+)
+"kind1/defgen.ml" 73 2661 2684 "kind1/defgen.ml" 73 2661 2691
+type(
+  (int, 'a) Hashtbl.t
+)
+ident(
+  def defhash "kind1/defgen.ml" 73 2661 2692 "kind1/defgen.ml" 76 2866 2873
+)
+"kind1/defgen.ml" 73 2661 2692 "kind1/defgen.ml" 73 2661 2705
+type(
+  string
+)
+ident(
+  def def_base_name "kind1/defgen.ml" 74 2708 2710 "kind1/defgen.ml" 76 2866 2873
+)
+"kind1/defgen.ml" 74 2708 2714 "kind1/defgen.ml" 74 2708 2717
+type(
+  Buffer.t
+)
+ident(
+  def buf "kind1/defgen.ml" 75 2741 2745 "kind1/defgen.ml" 76 2866 2873
+)
+"kind1/defgen.ml" 74 2708 2720 "kind1/defgen.ml" 74 2708 2733
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/defgen.ml" 74 2708 2734 "kind1/defgen.ml" 74 2708 2737
+type(
+  int
+)
+"kind1/defgen.ml" 74 2708 2720 "kind1/defgen.ml" 74 2708 2737
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 75 2741 2745 "kind1/defgen.ml" 75 2741 2751
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 75 2741 2745 "kind1/defgen.ml" 75 2741 2755
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 75 2741 2745 "kind1/defgen.ml" 75 2741 2768
+call(
+  stack
+)
+type(
+  Buffer.t -> string list -> Buffer.t
+)
+"kind1/defgen.ml" 75 2741 2769 "kind1/defgen.ml" 75 2741 2772
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/defgen.ml" 74 2708 2714 "kind1/defgen.ml" 74 2708 2717
+)
+"kind1/defgen.ml" 75 2741 2774 "kind1/defgen.ml" 75 2741 2786
+type(
+  (int -> 'a -> string list -> string list) ->
+  (int, 'a) Hashtbl.t -> string list -> string list
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/defgen.ml" 75 2741 2792 "kind1/defgen.ml" 75 2741 2793
+type(
+  int
+)
+ident(
+  def x "kind1/defgen.ml" 75 2741 2794 "kind1/defgen.ml" 75 2741 2850
+)
+"kind1/defgen.ml" 75 2741 2794 "kind1/defgen.ml" 75 2741 2795
+type(
+  'a
+)
+"kind1/defgen.ml" 75 2741 2796 "kind1/defgen.ml" 75 2741 2800
+type(
+  string list
+)
+ident(
+  def rest "kind1/defgen.ml" 75 2741 2804 "kind1/defgen.ml" 75 2741 2850
+)
+"kind1/defgen.ml" 75 2741 2806 "kind1/defgen.ml" 75 2741 2819
+type(
+  string
+)
+ident(
+  int_ref def_base_name "kind1/defgen.ml" 73 2661 2692 "kind1/defgen.ml" 73 2661 2705
+)
+"kind1/defgen.ml" 75 2741 2819 "kind1/defgen.ml" 75 2741 2820
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 75 2741 2820 "kind1/defgen.ml" 75 2741 2824
+type(
+  string
+)
+"kind1/defgen.ml" 75 2741 2824 "kind1/defgen.ml" 75 2741 2825
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 75 2741 2826 "kind1/defgen.ml" 75 2741 2839
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/defgen.ml" 75 2741 2840 "kind1/defgen.ml" 75 2741 2841
+type(
+  int
+)
+ident(
+  int_ref x "kind1/defgen.ml" 75 2741 2792 "kind1/defgen.ml" 75 2741 2793
+)
+"kind1/defgen.ml" 75 2741 2825 "kind1/defgen.ml" 75 2741 2842
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 75 2741 2820 "kind1/defgen.ml" 75 2741 2842
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 75 2741 2805 "kind1/defgen.ml" 75 2741 2843
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 75 2741 2845 "kind1/defgen.ml" 75 2741 2849
+type(
+  string list
+)
+ident(
+  int_ref rest "kind1/defgen.ml" 75 2741 2796 "kind1/defgen.ml" 75 2741 2800
+)
+"kind1/defgen.ml" 75 2741 2804 "kind1/defgen.ml" 75 2741 2850
+type(
+  string list
+)
+"kind1/defgen.ml" 75 2741 2787 "kind1/defgen.ml" 75 2741 2851
+type(
+  int -> 'a -> string list -> string list
+)
+"kind1/defgen.ml" 75 2741 2852 "kind1/defgen.ml" 75 2741 2859
+type(
+  (int, 'a) Hashtbl.t
+)
+ident(
+  int_ref defhash "kind1/defgen.ml" 73 2661 2684 "kind1/defgen.ml" 73 2661 2691
+)
+"kind1/defgen.ml" 75 2741 2860 "kind1/defgen.ml" 75 2741 2862
+type(
+  string list
+)
+"kind1/defgen.ml" 75 2741 2773 "kind1/defgen.ml" 75 2741 2863
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/defgen.ml" 75 2741 2745 "kind1/defgen.ml" 75 2741 2863
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 76 2866 2870 "kind1/defgen.ml" 76 2866 2873
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/defgen.ml" 74 2708 2714 "kind1/defgen.ml" 74 2708 2717
+)
+"kind1/defgen.ml" 75 2741 2745 "kind1/defgen.ml" 76 2866 2873
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 74 2708 2710 "kind1/defgen.ml" 76 2866 2873
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 81 2902 2907 "kind1/defgen.ml" 81 2902 2912
+type(
+  string ->
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+ident(
+  def start "kind1/defgen.ml" 189 6970 6970 "_none_" 1 0 -1
+)
+"kind1/defgen.ml" 81 2902 2913 "kind1/defgen.ml" 81 2902 2921
+type(
+  string
+)
+ident(
+  def filename "kind1/defgen.ml" 82 2927 2929 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 82 2927 2933 "kind1/defgen.ml" 82 2927 2941
+type(
+  in_channel
+)
+ident(
+  def use_file "kind1/defgen.ml" 83 2964 2966 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 82 2927 2944 "kind1/defgen.ml" 82 2927 2951
+type(
+  string -> in_channel
+)
+ident(
+  ext_ref Pervasives.open_in
+)
+"kind1/defgen.ml" 82 2927 2952 "kind1/defgen.ml" 82 2927 2960
+type(
+  string
+)
+ident(
+  int_ref filename "kind1/defgen.ml" 81 2902 2913 "kind1/defgen.ml" 81 2902 2921
+)
+"kind1/defgen.ml" 82 2927 2944 "kind1/defgen.ml" 82 2927 2960
+call(
+  stack
+)
+type(
+  in_channel
+)
+"kind1/defgen.ml" 83 2964 2970 "kind1/defgen.ml" 83 2964 2975
+type(
+  in_channel
+)
+ident(
+  def in_ch "kind1/defgen.ml" 84 2990 2992 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 83 2964 2978 "kind1/defgen.ml" 83 2964 2986
+type(
+  in_channel
+)
+ident(
+  int_ref use_file "kind1/defgen.ml" 82 2927 2933 "kind1/defgen.ml" 82 2927 2941
+)
+"kind1/defgen.ml" 84 2990 2996 "kind1/defgen.ml" 84 2990 3002
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "kind1/defgen.ml" 85 3034 3036 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 84 2990 3005 "kind1/defgen.ml" 84 2990 3024
+type(
+  in_channel -> Lexing.lexbuf
+)
+ident(
+  ext_ref Lexing.from_channel
+)
+"kind1/defgen.ml" 84 2990 3025 "kind1/defgen.ml" 84 2990 3030
+type(
+  in_channel
+)
+ident(
+  int_ref in_ch "kind1/defgen.ml" 83 2964 2970 "kind1/defgen.ml" 83 2964 2975
+)
+"kind1/defgen.ml" 84 2990 3005 "kind1/defgen.ml" 84 2990 3030
+call(
+  stack
+)
+type(
+  Lexing.lexbuf
+)
+"kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+type(
+  Buffer.t
+)
+ident(
+  def outdoc "kind1/defgen.ml" 86 3071 3073 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 85 3034 3049 "kind1/defgen.ml" 85 3034 3062
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/defgen.ml" 85 3034 3063 "kind1/defgen.ml" 85 3034 3067
+type(
+  int
+)
+"kind1/defgen.ml" 85 3034 3049 "kind1/defgen.ml" 85 3034 3067
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 86 3071 3077 "kind1/defgen.ml" 86 3071 3085
+type(
+  Types.defhashtable
+)
+ident(
+  def def_hash "kind1/defgen.ml" 87 3114 3116 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 86 3071 3088 "kind1/defgen.ml" 86 3071 3108
+type(
+  unit -> Types.defhashtable
+)
+ident(
+  ext_ref Deftable.get_defhash
+)
+"kind1/defgen.ml" 86 3071 3108 "kind1/defgen.ml" 86 3071 3110
+type(
+  unit
+)
+"kind1/defgen.ml" 86 3071 3088 "kind1/defgen.ml" 86 3071 3110
+call(
+  stack
+)
+type(
+  Types.defhashtable
+)
+"kind1/defgen.ml" 87 3114 3120 "kind1/defgen.ml" 87 3114 3131
+type(
+  bool ref
+)
+ident(
+  def no_stateful "kind1/defgen.ml" 89 3148 3150 "kind1/defgen.ml" 185 6880 6904
+)
+"kind1/defgen.ml" 87 3114 3134 "kind1/defgen.ml" 87 3114 3137
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/defgen.ml" 87 3114 3138 "kind1/defgen.ml" 87 3114 3143
+type(
+  bool
+)
+"kind1/defgen.ml" 87 3114 3134 "kind1/defgen.ml" 87 3114 3143
+type(
+  bool ref
+)
+"kind1/defgen.ml" 90 3154 3163 "kind1/defgen.ml" 90 3154 3165
+type(
+  Types.il_formula
+)
+ident(
+  def cp "kind1/defgen.ml" 93 3279 3283 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 90 3154 3167 "kind1/defgen.ml" 90 3154 3168
+type(
+  Types.typed_stream
+)
+ident(
+  def p "kind1/defgen.ml" 93 3279 3283 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 90 3154 3170 "kind1/defgen.ml" 90 3154 3176
+type(
+  Types.typed_stream list
+)
+ident(
+  def list_p "kind1/defgen.ml" 93 3279 3283 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 90 3154 3178 "kind1/defgen.ml" 90 3154 3189
+type(
+  Types.node_id_t
+)
+ident(
+  def target_node "kind1/defgen.ml" 93 3279 3283 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 90 3154 3162 "kind1/defgen.ml" 90 3154 3190
+type(
+  Types.il_formula * Types.typed_stream * Types.typed_stream list *
+  Types.node_id_t
+)
+"kind1/defgen.ml" 90 3154 3193 "kind1/defgen.ml" 90 3154 3211
+type(
+  (Lexing.lexbuf -> Lustre_parser.token) ->
+  Lexing.lexbuf ->
+  Types.il_formula * Types.typed_stream * Types.typed_stream list *
+  Types.node_id_t
+)
+ident(
+  ext_ref Lustre_parser.main
+)
+"kind1/defgen.ml" 90 3154 3212 "kind1/defgen.ml" 90 3154 3230
+type(
+  Lexing.lexbuf -> Lustre_parser.token
+)
+ident(
+  ext_ref Lustre_lexer.token
+)
+"kind1/defgen.ml" 90 3154 3231 "kind1/defgen.ml" 90 3154 3237
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 84 2990 2996 "kind1/defgen.ml" 84 2990 3002
+)
+"kind1/defgen.ml" 90 3154 3193 "kind1/defgen.ml" 90 3154 3237
+call(
+  stack
+)
+type(
+  Types.il_formula * Types.typed_stream * Types.typed_stream list *
+  Types.node_id_t
+)
+"kind1/defgen.ml" 93 3279 3287 "kind1/defgen.ml" 93 3279 3295
+type(
+  Types.il_expression
+)
+ident(
+  def position "kind1/defgen.ml" 95 3347 3351 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 93 3279 3312 "kind1/defgen.ml" 93 3279 3318
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 93 3279 3312 "kind1/defgen.ml" 93 3279 3322
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 93 3279 3311 "kind1/defgen.ml" 93 3279 3337
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 93 3279 3298 "kind1/defgen.ml" 93 3279 3337
+type(
+  Types.il_expression
+)
+"kind1/defgen.ml" 95 3347 3355 "kind1/defgen.ml" 95 3347 3356
+type(
+  unit
+)
+"kind1/defgen.ml" 95 3347 3363 "kind1/defgen.ml" 95 3347 3364
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 95 3347 3364 "kind1/defgen.ml" 95 3347 3383
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.abstr_bool
+)
+"kind1/defgen.ml" 95 3347 3363 "kind1/defgen.ml" 95 3347 3383
+type(
+  bool
+)
+"kind1/defgen.ml" 95 3347 3384 "kind1/defgen.ml" 95 3347 3386
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"kind1/defgen.ml" 95 3347 3387 "kind1/defgen.ml" 95 3347 3388
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 95 3347 3388 "kind1/defgen.ml" 95 3347 3406
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.abstr_ite
+)
+"kind1/defgen.ml" 95 3347 3387 "kind1/defgen.ml" 95 3347 3406
+type(
+  bool
+)
+"kind1/defgen.ml" 95 3347 3407 "kind1/defgen.ml" 95 3347 3409
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"kind1/defgen.ml" 95 3347 3410 "kind1/defgen.ml" 95 3347 3411
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 95 3347 3411 "kind1/defgen.ml" 95 3347 3429
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.abstr_pre
+)
+"kind1/defgen.ml" 95 3347 3410 "kind1/defgen.ml" 95 3347 3429
+type(
+  bool
+)
+"kind1/defgen.ml" 95 3347 3387 "kind1/defgen.ml" 95 3347 3429
+type(
+  bool
+)
+"kind1/defgen.ml" 95 3347 3362 "kind1/defgen.ml" 95 3347 3430
+type(
+  bool
+)
+"kind1/defgen.ml" 96 3437 3443 "kind1/defgen.ml" 96 3437 3476
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Lus_flatten.flatten_all_node_defs
+)
+"kind1/defgen.ml" 96 3437 3477 "kind1/defgen.ml" 96 3437 3479
+type(
+  unit
+)
+"kind1/defgen.ml" 96 3437 3443 "kind1/defgen.ml" 96 3437 3479
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 95 3347 3359 "kind1/defgen.ml" 96 3437 3479
+type(
+  unit
+)
+"kind1/defgen.ml" 98 3484 3492 "kind1/defgen.ml" 98 3484 3494
+type(
+  Types.il_formula
+)
+ident(
+  def fd "kind1/defgen.ml" 99 3550 3554 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 98 3484 3497 "kind1/defgen.ml" 98 3484 3525
+type(
+  Types.il_expression -> Types.node_id_t -> Types.il_formula
+)
+ident(
+  ext_ref Lus_convert.convert_def_list
+)
+"kind1/defgen.ml" 98 3484 3526 "kind1/defgen.ml" 98 3484 3534
+type(
+  Types.il_expression
+)
+ident(
+  int_ref position "kind1/defgen.ml" 93 3279 3287 "kind1/defgen.ml" 93 3279 3295
+)
+"kind1/defgen.ml" 98 3484 3535 "kind1/defgen.ml" 98 3484 3546
+type(
+  Types.node_id_t
+)
+ident(
+  int_ref target_node "kind1/defgen.ml" 90 3154 3178 "kind1/defgen.ml" 90 3154 3189
+)
+"kind1/defgen.ml" 98 3484 3497 "kind1/defgen.ml" 98 3484 3546
+call(
+  stack
+)
+type(
+  Types.il_formula
+)
+"kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+type(
+  int
+)
+ident(
+  def maxdepth "kind1/defgen.ml" 100 3600 3604 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 99 3550 3569 "kind1/defgen.ml" 99 3550 3594
+type(
+  unit -> int
+)
+ident(
+  ext_ref Lus_convert.get_max_depth
+)
+"kind1/defgen.ml" 99 3550 3594 "kind1/defgen.ml" 99 3550 3596
+type(
+  unit
+)
+"kind1/defgen.ml" 99 3550 3569 "kind1/defgen.ml" 99 3550 3596
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 100 3600 3608 "kind1/defgen.ml" 100 3600 3609
+type(
+  unit
+)
+"kind1/defgen.ml" 100 3600 3615 "kind1/defgen.ml" 100 3600 3623
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+)
+"kind1/defgen.ml" 100 3600 3624 "kind1/defgen.ml" 100 3600 3625
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/defgen.ml" 100 3600 3626 "kind1/defgen.ml" 100 3600 3652
+type(
+  unit -> int
+)
+ident(
+  ext_ref Lus_convert.get_max_adepth
+)
+"kind1/defgen.ml" 100 3600 3652 "kind1/defgen.ml" 100 3600 3654
+type(
+  unit
+)
+"kind1/defgen.ml" 100 3600 3626 "kind1/defgen.ml" 100 3600 3654
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 100 3600 3615 "kind1/defgen.ml" 100 3600 3654
+type(
+  bool
+)
+"kind1/defgen.ml" 101 3660 3666 "kind1/defgen.ml" 101 3660 3671
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/defgen.ml" 101 3660 3672 "kind1/defgen.ml" 101 3660 3685
+type(
+  exn
+)
+"kind1/defgen.ml" 101 3660 3666 "kind1/defgen.ml" 101 3660 3685
+type(
+  unit
+)
+"kind1/defgen.ml" 100 3600 3612 "kind1/defgen.ml" 101 3660 3685
+type(
+  unit
+)
+"kind1/defgen.ml" 103 3691 3699 "kind1/defgen.ml" 103 3691 3702
+type(
+  Types.il_formula
+)
+ident(
+  def fd' "kind1/defgen.ml" 111 3924 3928 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 104 3705 3714 "kind1/defgen.ml" 104 3705 3715
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 104 3705 3715 "kind1/defgen.ml" 104 3705 3743
+type(
+  int ref
+)
+ident(
+  ext_ref OldFlags.aggressive_inlining
+)
+"kind1/defgen.ml" 104 3705 3714 "kind1/defgen.ml" 104 3705 3743
+type(
+  int
+)
+"kind1/defgen.ml" 104 3705 3744 "kind1/defgen.ml" 104 3705 3745
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/defgen.ml" 104 3705 3746 "kind1/defgen.ml" 104 3705 3747
+type(
+  int
+)
+"kind1/defgen.ml" 104 3705 3714 "kind1/defgen.ml" 104 3705 3747
+type(
+  bool
+)
+"kind1/defgen.ml" 105 3753 3761 "kind1/defgen.ml" 105 3753 3785
+type(
+  Types.il_formula -> Types.idtype list -> Types.il_formula
+)
+ident(
+  ext_ref Inlining.inlined_formula
+)
+"kind1/defgen.ml" 105 3753 3786 "kind1/defgen.ml" 105 3753 3788
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd "kind1/defgen.ml" 98 3484 3492 "kind1/defgen.ml" 98 3484 3494
+)
+"kind1/defgen.ml" 105 3753 3790 "kind1/defgen.ml" 105 3753 3810
+type(
+  Types.typed_stream -> Types.idtype list
+)
+ident(
+  ext_ref Coi.property_id_list
+)
+"kind1/defgen.ml" 105 3753 3811 "kind1/defgen.ml" 105 3753 3812
+type(
+  Types.typed_stream
+)
+ident(
+  int_ref p "kind1/defgen.ml" 90 3154 3167 "kind1/defgen.ml" 90 3154 3168
+)
+"kind1/defgen.ml" 105 3753 3789 "kind1/defgen.ml" 105 3753 3813
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 105 3753 3761 "kind1/defgen.ml" 105 3753 3813
+call(
+  stack
+)
+type(
+  Types.il_formula
+)
+"kind1/defgen.ml" 107 3826 3834 "kind1/defgen.ml" 107 3826 3836
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd "kind1/defgen.ml" 98 3484 3492 "kind1/defgen.ml" 98 3484 3494
+)
+"kind1/defgen.ml" 104 3705 3711 "kind1/defgen.ml" 107 3826 3836
+type(
+  Types.il_formula
+)
+"kind1/defgen.ml" 111 3924 3932 "kind1/defgen.ml" 111 3924 3933
+type(
+  unit
+)
+"kind1/defgen.ml" 111 3924 3937 "kind1/defgen.ml" 111 3924 3960
+type(
+  Types.il_formula -> unit
+)
+ident(
+  ext_ref Coi.examine_assignments
+)
+"kind1/defgen.ml" 111 3924 3961 "kind1/defgen.ml" 111 3924 3964
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd' "kind1/defgen.ml" 103 3691 3699 "kind1/defgen.ml" 103 3691 3702
+)
+"kind1/defgen.ml" 111 3924 3937 "kind1/defgen.ml" 111 3924 3964
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 112 3968 3976 "kind1/defgen.ml" 112 3968 3982
+type(
+  Types.idtype list
+)
+ident(
+  def vrefs1 "kind1/defgen.ml" 113 4011 4015 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 112 3968 3985 "kind1/defgen.ml" 112 3968 4005
+type(
+  Types.typed_stream -> Types.idtype list
+)
+ident(
+  ext_ref Coi.property_id_list
+)
+"kind1/defgen.ml" 112 3968 4006 "kind1/defgen.ml" 112 3968 4007
+type(
+  Types.typed_stream
+)
+ident(
+  int_ref p "kind1/defgen.ml" 90 3154 3167 "kind1/defgen.ml" 90 3154 3168
+)
+"kind1/defgen.ml" 112 3968 3985 "kind1/defgen.ml" 112 3968 4007
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 113 4011 4019 "kind1/defgen.ml" 113 4011 4024
+type(
+  Types.idtype list
+)
+ident(
+  def vrefs "kind1/defgen.ml" 119 4170 4176 "kind1/defgen.ml" 173 6381 6391
+)
+"kind1/defgen.ml" 114 4028 4037 "kind1/defgen.ml" 114 4028 4038
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 114 4028 4038 "kind1/defgen.ml" 114 4028 4068
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.pre_refine_state_vars
+)
+"kind1/defgen.ml" 114 4028 4037 "kind1/defgen.ml" 114 4028 4068
+type(
+  bool
+)
+"kind1/defgen.ml" 115 4074 4082 "kind1/defgen.ml" 115 4074 4097
+type(
+  Types.idtype list -> Types.idtype list -> Types.idtype list
+)
+ident(
+  ext_ref List.rev_append
+)
+"kind1/defgen.ml" 115 4074 4098 "kind1/defgen.ml" 115 4074 4104
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs1 "kind1/defgen.ml" 112 3968 3976 "kind1/defgen.ml" 112 3968 3982
+)
+"kind1/defgen.ml" 115 4074 4106 "kind1/defgen.ml" 115 4074 4133
+type(
+  unit -> Types.idtype list
+)
+ident(
+  ext_ref Lus_convert.state_vars_list
+)
+"kind1/defgen.ml" 115 4074 4133 "kind1/defgen.ml" 115 4074 4135
+type(
+  unit
+)
+"kind1/defgen.ml" 115 4074 4105 "kind1/defgen.ml" 115 4074 4136
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 115 4074 4082 "kind1/defgen.ml" 115 4074 4136
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 117 4148 4156 "kind1/defgen.ml" 117 4148 4162
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs1 "kind1/defgen.ml" 112 3968 3976 "kind1/defgen.ml" 112 3968 3982
+)
+"kind1/defgen.ml" 114 4028 4034 "kind1/defgen.ml" 117 4148 4162
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 119 4170 4176 "kind1/defgen.ml" 119 4170 4206
+type(
+  Types.idtype list -> int -> int -> unit
+)
+ident(
+  ext_ref Coi.calculate_all_dependencies
+)
+"kind1/defgen.ml" 119 4170 4207 "kind1/defgen.ml" 119 4170 4212
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs "kind1/defgen.ml" 113 4011 4019 "kind1/defgen.ml" 113 4011 4024
+)
+"kind1/defgen.ml" 119 4170 4213 "kind1/defgen.ml" 119 4170 4214
+type(
+  int
+)
+"kind1/defgen.ml" 119 4170 4215 "kind1/defgen.ml" 119 4170 4223
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+)
+"kind1/defgen.ml" 119 4170 4176 "kind1/defgen.ml" 119 4170 4223
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 123 4278 4290 "kind1/defgen.ml" 123 4278 4302
+type(
+  Buffer.t
+)
+ident(
+  def form_str_buf "kind1/defgen.ml" 125 4436 4444 "kind1/defgen.ml" 165 6207 6221
+)
+"kind1/defgen.ml" 123 4278 4305 "kind1/defgen.ml" 123 4278 4344
+type(
+  Types.modetype -> int -> Types.il_formula -> Buffer.t
+)
+ident(
+  ext_ref Lus_convert_yc.yc_formula_string_buffer
+)
+"kind1/defgen.ml" 123 4278 4345 "kind1/defgen.ml" 123 4278 4352
+type(
+  Types.modetype
+)
+"kind1/defgen.ml" 123 4278 4353 "kind1/defgen.ml" 123 4278 4361
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+)
+"kind1/defgen.ml" 123 4278 4362 "kind1/defgen.ml" 123 4278 4365
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd' "kind1/defgen.ml" 103 3691 3699 "kind1/defgen.ml" 103 3691 3702
+)
+"kind1/defgen.ml" 123 4278 4305 "kind1/defgen.ml" 123 4278 4365
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 125 4436 4448 "kind1/defgen.ml" 125 4436 4456
+type(
+  string
+)
+ident(
+  def property "kind1/defgen.ml" 126 4533 4541 "kind1/defgen.ml" 165 6207 6221
+)
+"kind1/defgen.ml" 125 4436 4460 "kind1/defgen.ml" 125 4436 4493
+type(
+  string -> Types.il_expression -> Types.typed_stream -> string
+)
+ident(
+  ext_ref Lus_convert_yc.yc_property_header
+)
+"kind1/defgen.ml" 125 4436 4494 "kind1/defgen.ml" 125 4436 4500
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 125 4436 4494 "kind1/defgen.ml" 125 4436 4504
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 125 4436 4494 "kind1/defgen.ml" 125 4436 4518
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 125 4436 4519 "kind1/defgen.ml" 125 4436 4527
+type(
+  Types.il_expression
+)
+ident(
+  int_ref position "kind1/defgen.ml" 93 3279 3287 "kind1/defgen.ml" 93 3279 3295
+)
+"kind1/defgen.ml" 125 4436 4528 "kind1/defgen.ml" 125 4436 4529
+type(
+  Types.typed_stream
+)
+ident(
+  int_ref p "kind1/defgen.ml" 90 3154 3167 "kind1/defgen.ml" 90 3154 3168
+)
+"kind1/defgen.ml" 125 4436 4460 "kind1/defgen.ml" 125 4436 4529
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 126 4533 4545 "kind1/defgen.ml" 126 4533 4555
+type(
+  string
+)
+ident(
+  def assertions "kind1/defgen.ml" 127 4631 4639 "kind1/defgen.ml" 165 6207 6221
+)
+"kind1/defgen.ml" 126 4533 4558 "kind1/defgen.ml" 126 4533 4593
+type(
+  string -> Types.il_expression -> string
+)
+ident(
+  ext_ref Lus_convert_yc.yc_assumption_string
+)
+"kind1/defgen.ml" 126 4533 4594 "kind1/defgen.ml" 126 4533 4600
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 126 4533 4594 "kind1/defgen.ml" 126 4533 4604
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 126 4533 4594 "kind1/defgen.ml" 126 4533 4618
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 126 4533 4619 "kind1/defgen.ml" 126 4533 4627
+type(
+  Types.il_expression
+)
+ident(
+  int_ref position "kind1/defgen.ml" 93 3279 3287 "kind1/defgen.ml" 93 3279 3295
+)
+"kind1/defgen.ml" 126 4533 4558 "kind1/defgen.ml" 126 4533 4627
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 127 4631 4643 "kind1/defgen.ml" 127 4631 4647
+type(
+  string
+)
+ident(
+  def vdef "kind1/defgen.ml" 128 4694 4704 "kind1/defgen.ml" 165 6207 6221
+)
+"kind1/defgen.ml" 127 4631 4650 "kind1/defgen.ml" 127 4631 4687
+type(
+  unit -> string
+)
+ident(
+  ext_ref Lus_convert_yc.yc_var_shortcut_string
+)
+"kind1/defgen.ml" 127 4631 4688 "kind1/defgen.ml" 127 4631 4690
+type(
+  unit
+)
+"kind1/defgen.ml" 127 4631 4650 "kind1/defgen.ml" 127 4631 4690
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 128 4694 4704 "kind1/defgen.ml" 128 4694 4721
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 128 4694 4722 "kind1/defgen.ml" 128 4694 4728
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 128 4694 4730 "kind1/defgen.ml" 128 4694 4736
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 128 4694 4730 "kind1/defgen.ml" 128 4694 4740
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 128 4694 4730 "kind1/defgen.ml" 128 4694 4754
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 128 4694 4754 "kind1/defgen.ml" 128 4694 4755
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 128 4694 4755 "kind1/defgen.ml" 128 4694 4759
+type(
+  string
+)
+"kind1/defgen.ml" 128 4694 4729 "kind1/defgen.ml" 128 4694 4760
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 128 4694 4704 "kind1/defgen.ml" 128 4694 4760
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 129 4762 4774 "kind1/defgen.ml" 129 4762 4791
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 129 4762 4792 "kind1/defgen.ml" 129 4762 4798
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 129 4762 4800 "kind1/defgen.ml" 129 4762 4806
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 129 4762 4800 "kind1/defgen.ml" 129 4762 4810
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 129 4762 4800 "kind1/defgen.ml" 129 4762 4813
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4813 "kind1/defgen.ml" 129 4762 4814
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 129 4762 4814 "kind1/defgen.ml" 129 4762 4827
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4827 "kind1/defgen.ml" 129 4762 4828
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 129 4762 4829 "kind1/defgen.ml" 129 4762 4842
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/defgen.ml" 129 4762 4843 "kind1/defgen.ml" 129 4762 4851
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+)
+"kind1/defgen.ml" 129 4762 4828 "kind1/defgen.ml" 129 4762 4852
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4852 "kind1/defgen.ml" 129 4762 4853
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 129 4762 4853 "kind1/defgen.ml" 129 4762 4857
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4828 "kind1/defgen.ml" 129 4762 4857
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4814 "kind1/defgen.ml" 129 4762 4857
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4799 "kind1/defgen.ml" 129 4762 4858
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 129 4762 4774 "kind1/defgen.ml" 129 4762 4858
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 130 4860 4872 "kind1/defgen.ml" 130 4860 4889
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 130 4860 4890 "kind1/defgen.ml" 130 4860 4896
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 130 4860 4898 "kind1/defgen.ml" 130 4860 4902
+type(
+  string
+)
+ident(
+  int_ref vdef "kind1/defgen.ml" 127 4631 4643 "kind1/defgen.ml" 127 4631 4647
+)
+"kind1/defgen.ml" 130 4860 4902 "kind1/defgen.ml" 130 4860 4903
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 130 4860 4903 "kind1/defgen.ml" 130 4860 4909
+type(
+  string
+)
+"kind1/defgen.ml" 130 4860 4897 "kind1/defgen.ml" 130 4860 4910
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 130 4860 4872 "kind1/defgen.ml" 130 4860 4910
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 131 4912 4915 "kind1/defgen.ml" 131 4912 4932
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 131 4912 4933 "kind1/defgen.ml" 131 4912 4939
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 131 4912 4941 "kind1/defgen.ml" 131 4912 4947
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 131 4912 4941 "kind1/defgen.ml" 131 4912 4951
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 131 4912 4941 "kind1/defgen.ml" 131 4912 4954
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 131 4912 4954 "kind1/defgen.ml" 131 4912 4955
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 131 4912 4955 "kind1/defgen.ml" 131 4912 4978
+type(
+  string
+)
+"kind1/defgen.ml" 131 4912 4940 "kind1/defgen.ml" 131 4912 4979
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 131 4912 4915 "kind1/defgen.ml" 131 4912 4979
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 133 5019 5031 "kind1/defgen.ml" 133 5019 5032
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 133 5019 5032 "kind1/defgen.ml" 133 5019 5054
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.var_defs_mode
+)
+"kind1/defgen.ml" 133 5019 5030 "kind1/defgen.ml" 133 5019 5055
+type(
+  bool
+)
+"kind1/defgen.ml" 134 5063 5073 "kind1/defgen.ml" 134 5063 5097
+type(
+  Types.defhashtable -> Types.idtype list -> unit
+)
+ident(
+  ext_ref Deftable.initialize_defs
+)
+"kind1/defgen.ml" 134 5063 5098 "kind1/defgen.ml" 134 5063 5106
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 86 3071 3077 "kind1/defgen.ml" 86 3071 3085
+)
+"kind1/defgen.ml" 134 5063 5107 "kind1/defgen.ml" 134 5063 5112
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs "kind1/defgen.ml" 113 4011 4019 "kind1/defgen.ml" 113 4011 4024
+)
+"kind1/defgen.ml" 134 5063 5073 "kind1/defgen.ml" 134 5063 5112
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 135 5115 5125 "kind1/defgen.ml" 135 5115 5142
+type(
+  Buffer.t -> Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.add_buffer
+)
+"kind1/defgen.ml" 135 5115 5143 "kind1/defgen.ml" 135 5115 5149
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 135 5115 5151 "kind1/defgen.ml" 135 5115 5171
+type(
+  Types.defhashtable -> string -> int -> Buffer.t
+)
+ident(
+  int_ref generate_var_defs_yc "kind1/defgen.ml" 54 2064 2068 "kind1/defgen.ml" 54 2064 2088
+)
+"kind1/defgen.ml" 135 5115 5172 "kind1/defgen.ml" 135 5115 5180
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 86 3071 3077 "kind1/defgen.ml" 86 3071 3085
+)
+"kind1/defgen.ml" 135 5115 5181 "kind1/defgen.ml" 135 5115 5186
+type(
+  string
+)
+"kind1/defgen.ml" 135 5115 5187 "kind1/defgen.ml" 135 5115 5188
+type(
+  int
+)
+"kind1/defgen.ml" 135 5115 5150 "kind1/defgen.ml" 135 5115 5189
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 135 5115 5125 "kind1/defgen.ml" 135 5115 5190
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 133 5019 5061 "kind1/defgen.ml" 136 5191 5200
+type(
+  unit
+)
+"kind1/defgen.ml" 137 5206 5218 "kind1/defgen.ml" 137 5206 5224
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 137 5206 5218 "kind1/defgen.ml" 137 5206 5228
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 137 5206 5218 "kind1/defgen.ml" 137 5206 5242
+call(
+  stack
+)
+type(
+  Buffer.t -> Buffer.t -> unit
+)
+"kind1/defgen.ml" 137 5206 5243 "kind1/defgen.ml" 137 5206 5249
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 137 5206 5250 "kind1/defgen.ml" 137 5206 5262
+type(
+  Buffer.t
+)
+ident(
+  int_ref form_str_buf "kind1/defgen.ml" 123 4278 4290 "kind1/defgen.ml" 123 4278 4302
+)
+"kind1/defgen.ml" 136 5191 5204 "kind1/defgen.ml" 138 5264 5273
+type(
+  unit
+)
+"kind1/defgen.ml" 133 5019 5027 "kind1/defgen.ml" 138 5264 5273
+type(
+  unit
+)
+"kind1/defgen.ml" 140 5277 5282 "kind1/defgen.ml" 140 5277 5283
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 140 5277 5283 "kind1/defgen.ml" 140 5277 5302
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.enabled_z3
+)
+"kind1/defgen.ml" 140 5277 5281 "kind1/defgen.ml" 140 5277 5303
+type(
+  bool
+)
+"kind1/defgen.ml" 141 5311 5312 "kind1/defgen.ml" 141 5311 5329
+type(
+  Buffer.t -> Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.add_buffer
+)
+"kind1/defgen.ml" 141 5311 5330 "kind1/defgen.ml" 141 5311 5336
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 141 5311 5338 "kind1/defgen.ml" 141 5311 5356
+type(
+  Types.defhashtable -> string -> Buffer.t
+)
+ident(
+  int_ref generate_trans_def "kind1/defgen.ml" 73 2661 2665 "kind1/defgen.ml" 73 2661 2683
+)
+"kind1/defgen.ml" 141 5311 5357 "kind1/defgen.ml" 141 5311 5365
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 86 3071 3077 "kind1/defgen.ml" 86 3071 3085
+)
+"kind1/defgen.ml" 141 5311 5366 "kind1/defgen.ml" 141 5311 5371
+type(
+  string
+)
+"kind1/defgen.ml" 141 5311 5337 "kind1/defgen.ml" 141 5311 5372
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 140 5277 5309 "kind1/defgen.ml" 141 5311 5373
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 140 5277 5278 "kind1/defgen.ml" 141 5311 5373
+type(
+  unit
+)
+"kind1/defgen.ml" 143 5383 5385 "kind1/defgen.ml" 143 5383 5402
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 143 5383 5403 "kind1/defgen.ml" 143 5383 5409
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 143 5383 5411 "kind1/defgen.ml" 143 5383 5417
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 143 5383 5411 "kind1/defgen.ml" 143 5383 5421
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 143 5383 5411 "kind1/defgen.ml" 143 5383 5424
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 143 5383 5424 "kind1/defgen.ml" 143 5383 5425
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 143 5383 5425 "kind1/defgen.ml" 143 5383 5442
+type(
+  string
+)
+"kind1/defgen.ml" 143 5383 5410 "kind1/defgen.ml" 143 5383 5443
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 143 5383 5385 "kind1/defgen.ml" 143 5383 5443
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 145 5498 5502 "kind1/defgen.ml" 145 5498 5503
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 145 5498 5503 "kind1/defgen.ml" 145 5498 5520
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.no_multi
+)
+"kind1/defgen.ml" 145 5498 5502 "kind1/defgen.ml" 145 5498 5520
+type(
+  bool
+)
+"kind1/defgen.ml" 146 5528 5532 "kind1/defgen.ml" 146 5528 5549
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 146 5528 5550 "kind1/defgen.ml" 146 5528 5556
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 146 5528 5558 "kind1/defgen.ml" 146 5528 5566
+type(
+  string
+)
+ident(
+  int_ref property "kind1/defgen.ml" 125 4436 4448 "kind1/defgen.ml" 125 4436 4456
+)
+"kind1/defgen.ml" 146 5528 5566 "kind1/defgen.ml" 146 5528 5567
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 146 5528 5567 "kind1/defgen.ml" 146 5528 5571
+type(
+  string
+)
+"kind1/defgen.ml" 146 5528 5557 "kind1/defgen.ml" 146 5528 5572
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 146 5528 5532 "kind1/defgen.ml" 146 5528 5572
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 147 5574 5578 "kind1/defgen.ml" 147 5574 5595
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 147 5574 5596 "kind1/defgen.ml" 147 5574 5602
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 147 5574 5604 "kind1/defgen.ml" 147 5574 5610
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 147 5574 5604 "kind1/defgen.ml" 147 5574 5614
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 147 5574 5604 "kind1/defgen.ml" 147 5574 5617
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 147 5574 5617 "kind1/defgen.ml" 147 5574 5618
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 147 5574 5618 "kind1/defgen.ml" 147 5574 5644
+type(
+  string
+)
+"kind1/defgen.ml" 147 5574 5603 "kind1/defgen.ml" 147 5574 5645
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 147 5574 5578 "kind1/defgen.ml" 147 5574 5645
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 145 5498 5526 "kind1/defgen.ml" 148 5646 5648
+type(
+  unit
+)
+"kind1/defgen.ml" 149 5656 5663 "kind1/defgen.ml" 149 5656 5674
+type(
+  Types.typed_stream list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/defgen.ml" 149 5656 5675 "kind1/defgen.ml" 149 5656 5681
+type(
+  Types.typed_stream list
+)
+ident(
+  int_ref list_p "kind1/defgen.ml" 90 3154 3170 "kind1/defgen.ml" 90 3154 3176
+)
+"kind1/defgen.ml" 149 5656 5663 "kind1/defgen.ml" 149 5656 5681
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 149 5656 5682 "kind1/defgen.ml" 149 5656 5684
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"kind1/defgen.ml" 149 5656 5685 "kind1/defgen.ml" 149 5656 5686
+type(
+  int
+)
+"kind1/defgen.ml" 149 5656 5662 "kind1/defgen.ml" 149 5656 5687
+type(
+  bool
+)
+"kind1/defgen.ml" 150 5695 5700 "kind1/defgen.ml" 150 5695 5717
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 150 5695 5718 "kind1/defgen.ml" 150 5695 5724
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 150 5695 5726 "kind1/defgen.ml" 150 5695 5734
+type(
+  string
+)
+ident(
+  int_ref property "kind1/defgen.ml" 125 4436 4448 "kind1/defgen.ml" 125 4436 4456
+)
+"kind1/defgen.ml" 150 5695 5734 "kind1/defgen.ml" 150 5695 5735
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 150 5695 5735 "kind1/defgen.ml" 150 5695 5739
+type(
+  string
+)
+"kind1/defgen.ml" 150 5695 5725 "kind1/defgen.ml" 150 5695 5740
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 149 5656 5693 "kind1/defgen.ml" 151 5742 5746
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 152 5752 5757 "kind1/defgen.ml" 152 5752 5774
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 152 5752 5775 "kind1/defgen.ml" 152 5752 5781
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 152 5752 5783 "kind1/defgen.ml" 152 5752 5789
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 152 5752 5783 "kind1/defgen.ml" 152 5752 5793
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 152 5752 5783 "kind1/defgen.ml" 152 5752 5796
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 152 5752 5796 "kind1/defgen.ml" 152 5752 5797
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 152 5752 5797 "kind1/defgen.ml" 152 5752 5815
+type(
+  string
+)
+"kind1/defgen.ml" 152 5752 5782 "kind1/defgen.ml" 152 5752 5816
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 151 5742 5750 "kind1/defgen.ml" 153 5817 5821
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 148 5646 5654 "kind1/defgen.ml" 154 5822 5824
+type(
+  unit
+)
+"kind1/defgen.ml" 145 5498 5499 "kind1/defgen.ml" 154 5822 5824
+type(
+  unit
+)
+"kind1/defgen.ml" 156 5834 5842 "kind1/defgen.ml" 156 5834 5859
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 156 5834 5860 "kind1/defgen.ml" 156 5834 5866
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 156 5834 5868 "kind1/defgen.ml" 156 5834 5878
+type(
+  string
+)
+ident(
+  int_ref assertions "kind1/defgen.ml" 126 4533 4545 "kind1/defgen.ml" 126 4533 4555
+)
+"kind1/defgen.ml" 156 5834 5878 "kind1/defgen.ml" 156 5834 5879
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 156 5834 5879 "kind1/defgen.ml" 156 5834 5883
+type(
+  string
+)
+"kind1/defgen.ml" 156 5834 5867 "kind1/defgen.ml" 156 5834 5884
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 156 5834 5842 "kind1/defgen.ml" 156 5834 5884
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 157 5886 5898 "kind1/defgen.ml" 157 5886 5899
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 157 5886 5899 "kind1/defgen.ml" 157 5886 5921
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.loopfree_mode
+)
+"kind1/defgen.ml" 157 5886 5898 "kind1/defgen.ml" 157 5886 5921
+type(
+  bool
+)
+"kind1/defgen.ml" 157 5886 5922 "kind1/defgen.ml" 157 5886 5924
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"kind1/defgen.ml" 157 5886 5925 "kind1/defgen.ml" 157 5886 5926
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 157 5886 5926 "kind1/defgen.ml" 157 5886 5952
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.termination_check
+)
+"kind1/defgen.ml" 157 5886 5925 "kind1/defgen.ml" 157 5886 5952
+type(
+  bool
+)
+"kind1/defgen.ml" 157 5886 5897 "kind1/defgen.ml" 157 5886 5953
+type(
+  bool
+)
+"kind1/defgen.ml" 159 5975 5987 "kind1/defgen.ml" 159 5975 6006
+type(
+  int -> unit
+)
+ident(
+  ext_ref Coi.clean_used_vars
+)
+"kind1/defgen.ml" 159 5975 6007 "kind1/defgen.ml" 159 5975 6015
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+)
+"kind1/defgen.ml" 159 5975 5987 "kind1/defgen.ml" 159 5975 6015
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 161 6033 6047 "kind1/defgen.ml" 161 6033 6064
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 161 6033 6065 "kind1/defgen.ml" 161 6033 6071
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 162 6073 6091 "kind1/defgen.ml" 162 6073 6126
+type(
+  unit -> string
+)
+ident(
+  ext_ref Lus_convert_yc.yc_state_vars_string
+)
+"kind1/defgen.ml" 162 6073 6126 "kind1/defgen.ml" 162 6073 6128
+type(
+  unit
+)
+"kind1/defgen.ml" 162 6073 6090 "kind1/defgen.ml" 162 6073 6129
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 162 6073 6129 "kind1/defgen.ml" 162 6073 6130
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 162 6073 6130 "kind1/defgen.ml" 162 6073 6134
+type(
+  string
+)
+"kind1/defgen.ml" 162 6073 6089 "kind1/defgen.ml" 162 6073 6135
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 161 6033 6047 "kind1/defgen.ml" 162 6073 6136
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 163 6137 6154 "kind1/defgen.ml" 163 6137 6168
+type(
+  exn
+)
+"kind1/defgen.ml" 164 6172 6186 "kind1/defgen.ml" 164 6172 6197
+type(
+  bool ref
+)
+ident(
+  int_ref no_stateful "kind1/defgen.ml" 87 3114 3120 "kind1/defgen.ml" 87 3114 3131
+)
+"kind1/defgen.ml" 164 6172 6198 "kind1/defgen.ml" 164 6172 6200
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/defgen.ml" 164 6172 6201 "kind1/defgen.ml" 164 6172 6205
+type(
+  bool
+)
+"kind1/defgen.ml" 164 6172 6186 "kind1/defgen.ml" 164 6172 6206
+type(
+  unit
+)
+"kind1/defgen.ml" 160 6017 6029 "kind1/defgen.ml" 164 6172 6206
+type(
+  unit
+)
+"kind1/defgen.ml" 158 5959 5969 "kind1/defgen.ml" 165 6207 6220
+type(
+  unit
+)
+"kind1/defgen.ml" 157 5886 5894 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 156 5834 5842 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 145 5498 5499 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 143 5383 5385 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 140 5277 5278 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 133 5019 5027 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 131 4912 4915 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 130 4860 4872 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 129 4762 4774 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 128 4694 4704 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 127 4631 4639 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 126 4533 4541 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 125 4436 4444 "kind1/defgen.ml" 165 6207 6221
+type(
+  unit
+)
+"kind1/defgen.ml" 122 4232 4238 "kind1/defgen.ml" 166 6222 6231
+type(
+  unit
+)
+"kind1/defgen.ml" 168 6292 6299 "kind1/defgen.ml" 168 6292 6314
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/defgen.ml" 168 6292 6315 "kind1/defgen.ml" 168 6292 6321
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 85 3034 3040 "kind1/defgen.ml" 85 3034 3046
+)
+"kind1/defgen.ml" 168 6292 6298 "kind1/defgen.ml" 168 6292 6322
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 169 6324 6328 "kind1/defgen.ml" 169 6324 6336
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 99 3550 3558 "kind1/defgen.ml" 99 3550 3566
+)
+"kind1/defgen.ml" 170 6338 6342 "kind1/defgen.ml" 170 6338 6350
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 86 3071 3077 "kind1/defgen.ml" 86 3071 3085
+)
+"kind1/defgen.ml" 171 6352 6356 "kind1/defgen.ml" 171 6352 6357
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 171 6352 6357 "kind1/defgen.ml" 171 6352 6368
+type(
+  bool ref
+)
+ident(
+  int_ref no_stateful "kind1/defgen.ml" 87 3114 3120 "kind1/defgen.ml" 87 3114 3131
+)
+"kind1/defgen.ml" 171 6352 6356 "kind1/defgen.ml" 171 6352 6368
+type(
+  bool
+)
+"kind1/defgen.ml" 172 6370 6374 "kind1/defgen.ml" 172 6370 6379
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs "kind1/defgen.ml" 113 4011 4019 "kind1/defgen.ml" 113 4011 4024
+)
+"kind1/defgen.ml" 173 6381 6385 "kind1/defgen.ml" 173 6381 6391
+type(
+  Types.typed_stream list
+)
+ident(
+  int_ref list_p "kind1/defgen.ml" 90 3154 3170 "kind1/defgen.ml" 90 3154 3176
+)
+"kind1/defgen.ml" 168 6292 6298 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 122 4232 4238 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 119 4170 4176 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 113 4011 4015 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 112 3968 3972 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 111 3924 3928 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 103 3691 3695 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 100 3600 3604 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 99 3550 3554 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 98 3484 3488 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 95 3347 3351 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 93 3279 3283 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 90 3154 3158 "kind1/defgen.ml" 173 6381 6391
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 174 6392 6412 "kind1/defgen.ml" 174 6392 6413
+type(
+  string
+)
+ident(
+  def s "kind1/defgen.ml" 175 6422 6426 "kind1/defgen.ml" 179 6652 6679
+)
+"kind1/defgen.ml" 174 6392 6414 "kind1/defgen.ml" 174 6392 6415
+type(
+  Types.lustre_type
+)
+ident(
+  def x "kind1/defgen.ml" 175 6422 6426 "kind1/defgen.ml" 179 6652 6679
+)
+"kind1/defgen.ml" 174 6392 6416 "kind1/defgen.ml" 174 6392 6417
+type(
+  Types.lustre_type
+)
+ident(
+  def y "kind1/defgen.ml" 175 6422 6426 "kind1/defgen.ml" 179 6652 6679
+)
+"kind1/defgen.ml" 174 6392 6399 "kind1/defgen.ml" 174 6392 6418
+type(
+  exn
+)
+"kind1/defgen.ml" 175 6422 6426 "kind1/defgen.ml" 175 6422 6439
+type(
+  (string -> Types.typename -> Types.typename -> int -> int -> unit,
+   out_channel, unit)
+  format -> string -> Types.typename -> Types.typename -> int -> int -> unit
+)
+ident(
+  ext_ref Printf.printf
+)
+"kind1/defgen.ml" 175 6422 6440 "kind1/defgen.ml" 175 6422 6497
+type(
+  (string -> Types.typename -> Types.typename -> int -> int -> unit,
+   out_channel, unit)
+  format
+)
+"kind1/defgen.ml" 175 6422 6498 "kind1/defgen.ml" 175 6422 6499
+type(
+  string
+)
+ident(
+  int_ref s "kind1/defgen.ml" 174 6392 6412 "kind1/defgen.ml" 174 6392 6413
+)
+"kind1/defgen.ml" 176 6500 6507 "kind1/defgen.ml" 176 6500 6513
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 176 6500 6507 "kind1/defgen.ml" 176 6500 6517
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 176 6500 6507 "kind1/defgen.ml" 176 6500 6529
+call(
+  stack
+)
+type(
+  Types.lustre_type -> Types.typename
+)
+"kind1/defgen.ml" 176 6500 6530 "kind1/defgen.ml" 176 6500 6531
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref x "kind1/defgen.ml" 174 6392 6414 "kind1/defgen.ml" 174 6392 6415
+)
+"kind1/defgen.ml" 176 6500 6506 "kind1/defgen.ml" 176 6500 6532
+type(
+  Types.typename
+)
+"kind1/defgen.ml" 176 6500 6534 "kind1/defgen.ml" 176 6500 6540
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 176 6500 6534 "kind1/defgen.ml" 176 6500 6544
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 176 6500 6534 "kind1/defgen.ml" 176 6500 6556
+call(
+  stack
+)
+type(
+  Types.lustre_type -> Types.typename
+)
+"kind1/defgen.ml" 176 6500 6557 "kind1/defgen.ml" 176 6500 6558
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref y "kind1/defgen.ml" 174 6392 6416 "kind1/defgen.ml" 174 6392 6417
+)
+"kind1/defgen.ml" 176 6500 6533 "kind1/defgen.ml" 176 6500 6559
+type(
+  Types.typename
+)
+"kind1/defgen.ml" 177 6561 6568 "kind1/defgen.ml" 177 6561 6569
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 177 6561 6569 "kind1/defgen.ml" 177 6561 6588
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linenum
+)
+"kind1/defgen.ml" 177 6561 6567 "kind1/defgen.ml" 177 6561 6589
+type(
+  int
+)
+"kind1/defgen.ml" 178 6591 6599 "kind1/defgen.ml" 178 6591 6618
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_start
+)
+"kind1/defgen.ml" 178 6591 6619 "kind1/defgen.ml" 178 6591 6625
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 84 2990 2996 "kind1/defgen.ml" 84 2990 3002
+)
+"kind1/defgen.ml" 178 6591 6598 "kind1/defgen.ml" 178 6591 6626
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 178 6591 6627 "kind1/defgen.ml" 178 6591 6628
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/defgen.ml" 178 6591 6629 "kind1/defgen.ml" 178 6591 6630
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 178 6591 6630 "kind1/defgen.ml" 178 6591 6649
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linepos
+)
+"kind1/defgen.ml" 178 6591 6629 "kind1/defgen.ml" 178 6591 6649
+type(
+  int
+)
+"kind1/defgen.ml" 178 6591 6597 "kind1/defgen.ml" 178 6591 6650
+type(
+  int
+)
+"kind1/defgen.ml" 175 6422 6426 "kind1/defgen.ml" 178 6591 6650
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 179 6652 6656 "kind1/defgen.ml" 179 6652 6661
+type(
+  exn ->
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/defgen.ml" 179 6652 6662 "kind1/defgen.ml" 179 6652 6679
+type(
+  exn
+)
+"kind1/defgen.ml" 179 6652 6656 "kind1/defgen.ml" 179 6652 6679
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 175 6422 6426 "kind1/defgen.ml" 179 6652 6679
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 180 6680 6686 "kind1/defgen.ml" 180 6680 6705
+type(
+  exn
+)
+"kind1/defgen.ml" 181 6709 6710 "kind1/defgen.ml" 181 6709 6723
+type(
+  (int -> int -> string -> unit, out_channel, unit) format ->
+  int -> int -> string -> unit
+)
+ident(
+  ext_ref Printf.printf
+)
+"kind1/defgen.ml" 181 6709 6724 "kind1/defgen.ml" 181 6709 6767
+type(
+  (int -> int -> string -> unit, out_channel, unit) format
+)
+"kind1/defgen.ml" 182 6769 6773 "kind1/defgen.ml" 182 6769 6774
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 182 6769 6774 "kind1/defgen.ml" 182 6769 6793
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linenum
+)
+"kind1/defgen.ml" 182 6769 6772 "kind1/defgen.ml" 182 6769 6794
+type(
+  int
+)
+"kind1/defgen.ml" 183 6796 6801 "kind1/defgen.ml" 183 6796 6820
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_start
+)
+"kind1/defgen.ml" 183 6796 6821 "kind1/defgen.ml" 183 6796 6827
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 84 2990 2996 "kind1/defgen.ml" 84 2990 3002
+)
+"kind1/defgen.ml" 183 6796 6800 "kind1/defgen.ml" 183 6796 6828
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 183 6796 6829 "kind1/defgen.ml" 183 6796 6830
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/defgen.ml" 183 6796 6831 "kind1/defgen.ml" 183 6796 6832
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 183 6796 6832 "kind1/defgen.ml" 183 6796 6851
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linepos
+)
+"kind1/defgen.ml" 183 6796 6831 "kind1/defgen.ml" 183 6796 6851
+type(
+  int
+)
+"kind1/defgen.ml" 183 6796 6799 "kind1/defgen.ml" 183 6796 6852
+type(
+  int
+)
+"kind1/defgen.ml" 184 6853 6857 "kind1/defgen.ml" 184 6853 6870
+type(
+  Lexing.lexbuf -> string
+)
+ident(
+  ext_ref Lexing.lexeme
+)
+"kind1/defgen.ml" 184 6853 6871 "kind1/defgen.ml" 184 6853 6877
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 84 2990 2996 "kind1/defgen.ml" 84 2990 3002
+)
+"kind1/defgen.ml" 184 6853 6856 "kind1/defgen.ml" 184 6853 6878
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 181 6709 6710 "kind1/defgen.ml" 184 6853 6878
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 185 6880 6881 "kind1/defgen.ml" 185 6880 6886
+type(
+  exn ->
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/defgen.ml" 185 6880 6887 "kind1/defgen.ml" 185 6880 6904
+type(
+  exn
+)
+"kind1/defgen.ml" 185 6880 6881 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 181 6709 6710 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 89 3148 3150 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 87 3114 3116 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 86 3071 3073 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 85 3034 3036 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 84 2990 2992 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 83 2964 2966 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 82 2927 2929 "kind1/defgen.ml" 185 6880 6904
+type(
+  string * int * Types.defhashtable * bool * Types.idtype list *
+  Types.typed_stream list
+)
+"kind1/defgen.ml" 189 6970 6974 "kind1/defgen.ml" 189 6970 6999
+type(
+  string -> string * int * Types.defhashtable * Types.idtype list
+)
+ident(
+  def start_invariant_generator "kind1/defgen.ml" 258 9615 9642 "_none_" 1 0 -1
+)
+"kind1/defgen.ml" 189 6970 7000 "kind1/defgen.ml" 189 6970 7008
+type(
+  string
+)
+ident(
+  def lus_file "kind1/defgen.ml" 190 7011 7013 "kind1/defgen.ml" 258 9615 9642
+)
+"kind1/defgen.ml" 190 7011 7017 "kind1/defgen.ml" 190 7011 7025
+type(
+  in_channel
+)
+ident(
+  def use_file "kind1/defgen.ml" 191 7048 7050 "kind1/defgen.ml" 258 9615 9642
+)
+"kind1/defgen.ml" 190 7011 7028 "kind1/defgen.ml" 190 7011 7035
+type(
+  string -> in_channel
+)
+ident(
+  ext_ref Pervasives.open_in
+)
+"kind1/defgen.ml" 190 7011 7036 "kind1/defgen.ml" 190 7011 7044
+type(
+  string
+)
+ident(
+  int_ref lus_file "kind1/defgen.ml" 189 6970 7000 "kind1/defgen.ml" 189 6970 7008
+)
+"kind1/defgen.ml" 190 7011 7028 "kind1/defgen.ml" 190 7011 7044
+call(
+  stack
+)
+type(
+  in_channel
+)
+"kind1/defgen.ml" 191 7048 7054 "kind1/defgen.ml" 191 7048 7059
+type(
+  in_channel
+)
+ident(
+  def in_ch "kind1/defgen.ml" 192 7074 7076 "kind1/defgen.ml" 258 9615 9642
+)
+"kind1/defgen.ml" 191 7048 7062 "kind1/defgen.ml" 191 7048 7070
+type(
+  in_channel
+)
+ident(
+  int_ref use_file "kind1/defgen.ml" 190 7011 7017 "kind1/defgen.ml" 190 7011 7025
+)
+"kind1/defgen.ml" 192 7074 7080 "kind1/defgen.ml" 192 7074 7086
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "kind1/defgen.ml" 193 7118 7120 "kind1/defgen.ml" 258 9615 9642
+)
+"kind1/defgen.ml" 192 7074 7089 "kind1/defgen.ml" 192 7074 7108
+type(
+  in_channel -> Lexing.lexbuf
+)
+ident(
+  ext_ref Lexing.from_channel
+)
+"kind1/defgen.ml" 192 7074 7109 "kind1/defgen.ml" 192 7074 7114
+type(
+  in_channel
+)
+ident(
+  int_ref in_ch "kind1/defgen.ml" 191 7048 7054 "kind1/defgen.ml" 191 7048 7059
+)
+"kind1/defgen.ml" 192 7074 7089 "kind1/defgen.ml" 192 7074 7114
+call(
+  stack
+)
+type(
+  Lexing.lexbuf
+)
+"kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+type(
+  Buffer.t
+)
+ident(
+  def outdoc "kind1/defgen.ml" 194 7155 7157 "kind1/defgen.ml" 258 9615 9642
+)
+"kind1/defgen.ml" 193 7118 7133 "kind1/defgen.ml" 193 7118 7146
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/defgen.ml" 193 7118 7147 "kind1/defgen.ml" 193 7118 7151
+type(
+  int
+)
+"kind1/defgen.ml" 193 7118 7133 "kind1/defgen.ml" 193 7118 7151
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 194 7155 7161 "kind1/defgen.ml" 194 7155 7169
+type(
+  Types.defhashtable
+)
+ident(
+  def def_hash "kind1/defgen.ml" 196 7200 7202 "kind1/defgen.ml" 258 9615 9642
+)
+"kind1/defgen.ml" 194 7155 7172 "kind1/defgen.ml" 194 7155 7192
+type(
+  unit -> Types.defhashtable
+)
+ident(
+  ext_ref Deftable.get_defhash
+)
+"kind1/defgen.ml" 194 7155 7192 "kind1/defgen.ml" 194 7155 7194
+type(
+  unit
+)
+"kind1/defgen.ml" 194 7155 7172 "kind1/defgen.ml" 194 7155 7194
+call(
+  stack
+)
+type(
+  Types.defhashtable
+)
+"kind1/defgen.ml" 197 7206 7215 "kind1/defgen.ml" 197 7206 7217
+type(
+  Types.il_formula
+)
+ident(
+  def cp "kind1/defgen.ml" 198 7290 7294 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 197 7206 7218 "kind1/defgen.ml" 197 7206 7219
+type(
+  Types.typed_stream
+)
+ident(
+  def p "kind1/defgen.ml" 198 7290 7294 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 197 7206 7220 "kind1/defgen.ml" 197 7206 7226
+type(
+  Types.typed_stream list
+)
+ident(
+  def list_p "kind1/defgen.ml" 198 7290 7294 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 197 7206 7227 "kind1/defgen.ml" 197 7206 7238
+type(
+  Types.node_id_t
+)
+ident(
+  def target_node "kind1/defgen.ml" 198 7290 7294 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 197 7206 7214 "kind1/defgen.ml" 197 7206 7239
+type(
+  Types.il_formula * Types.typed_stream * Types.typed_stream list *
+  Types.node_id_t
+)
+"kind1/defgen.ml" 197 7206 7242 "kind1/defgen.ml" 197 7206 7260
+type(
+  (Lexing.lexbuf -> Lustre_parser.token) ->
+  Lexing.lexbuf ->
+  Types.il_formula * Types.typed_stream * Types.typed_stream list *
+  Types.node_id_t
+)
+ident(
+  ext_ref Lustre_parser.main
+)
+"kind1/defgen.ml" 197 7206 7261 "kind1/defgen.ml" 197 7206 7279
+type(
+  Lexing.lexbuf -> Lustre_parser.token
+)
+ident(
+  ext_ref Lustre_lexer.token
+)
+"kind1/defgen.ml" 197 7206 7280 "kind1/defgen.ml" 197 7206 7286
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 192 7074 7080 "kind1/defgen.ml" 192 7074 7086
+)
+"kind1/defgen.ml" 197 7206 7242 "kind1/defgen.ml" 197 7206 7286
+call(
+  stack
+)
+type(
+  Types.il_formula * Types.typed_stream * Types.typed_stream list *
+  Types.node_id_t
+)
+"kind1/defgen.ml" 198 7290 7298 "kind1/defgen.ml" 198 7290 7306
+type(
+  Types.il_expression
+)
+ident(
+  def position "kind1/defgen.ml" 200 7353 7357 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 198 7290 7323 "kind1/defgen.ml" 198 7290 7329
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 198 7290 7323 "kind1/defgen.ml" 198 7290 7333
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 198 7290 7322 "kind1/defgen.ml" 198 7290 7348
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 198 7290 7309 "kind1/defgen.ml" 198 7290 7348
+type(
+  Types.il_expression
+)
+"kind1/defgen.ml" 200 7353 7361 "kind1/defgen.ml" 200 7353 7362
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 200 7353 7362 "kind1/defgen.ml" 200 7353 7381
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.abstr_bool
+)
+"kind1/defgen.ml" 200 7353 7361 "kind1/defgen.ml" 200 7353 7381
+type(
+  bool
+)
+"kind1/defgen.ml" 200 7353 7382 "kind1/defgen.ml" 200 7353 7384
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"kind1/defgen.ml" 200 7353 7385 "kind1/defgen.ml" 200 7353 7386
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 200 7353 7386 "kind1/defgen.ml" 200 7353 7404
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.abstr_ite
+)
+"kind1/defgen.ml" 200 7353 7385 "kind1/defgen.ml" 200 7353 7404
+type(
+  bool
+)
+"kind1/defgen.ml" 200 7353 7405 "kind1/defgen.ml" 200 7353 7407
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"kind1/defgen.ml" 200 7353 7408 "kind1/defgen.ml" 200 7353 7409
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 200 7353 7409 "kind1/defgen.ml" 200 7353 7427
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.abstr_pre
+)
+"kind1/defgen.ml" 200 7353 7408 "kind1/defgen.ml" 200 7353 7427
+type(
+  bool
+)
+"kind1/defgen.ml" 200 7353 7385 "kind1/defgen.ml" 200 7353 7427
+type(
+  bool
+)
+"kind1/defgen.ml" 200 7353 7360 "kind1/defgen.ml" 200 7353 7428
+type(
+  bool
+)
+"kind1/defgen.ml" 201 7435 7441 "kind1/defgen.ml" 201 7435 7474
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Lus_flatten.flatten_all_node_defs
+)
+"kind1/defgen.ml" 201 7435 7475 "kind1/defgen.ml" 201 7435 7477
+type(
+  unit
+)
+"kind1/defgen.ml" 201 7435 7441 "kind1/defgen.ml" 201 7435 7477
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 200 7353 7357 "kind1/defgen.ml" 201 7435 7477
+type(
+  unit
+)
+"kind1/defgen.ml" 203 7480 7488 "kind1/defgen.ml" 203 7480 7490
+type(
+  Types.il_formula
+)
+ident(
+  def fd "kind1/defgen.ml" 204 7546 7550 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 203 7480 7493 "kind1/defgen.ml" 203 7480 7521
+type(
+  Types.il_expression -> Types.node_id_t -> Types.il_formula
+)
+ident(
+  ext_ref Lus_convert.convert_def_list
+)
+"kind1/defgen.ml" 203 7480 7522 "kind1/defgen.ml" 203 7480 7530
+type(
+  Types.il_expression
+)
+ident(
+  int_ref position "kind1/defgen.ml" 198 7290 7298 "kind1/defgen.ml" 198 7290 7306
+)
+"kind1/defgen.ml" 203 7480 7531 "kind1/defgen.ml" 203 7480 7542
+type(
+  Types.node_id_t
+)
+ident(
+  int_ref target_node "kind1/defgen.ml" 197 7206 7227 "kind1/defgen.ml" 197 7206 7238
+)
+"kind1/defgen.ml" 203 7480 7493 "kind1/defgen.ml" 203 7480 7542
+call(
+  stack
+)
+type(
+  Types.il_formula
+)
+"kind1/defgen.ml" 204 7546 7554 "kind1/defgen.ml" 204 7546 7562
+type(
+  int
+)
+ident(
+  def maxdepth "kind1/defgen.ml" 205 7596 7600 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 204 7546 7565 "kind1/defgen.ml" 204 7546 7590
+type(
+  unit -> int
+)
+ident(
+  ext_ref Lus_convert.get_max_depth
+)
+"kind1/defgen.ml" 204 7546 7590 "kind1/defgen.ml" 204 7546 7592
+type(
+  unit
+)
+"kind1/defgen.ml" 204 7546 7565 "kind1/defgen.ml" 204 7546 7592
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 205 7596 7603 "kind1/defgen.ml" 205 7596 7611
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 204 7546 7554 "kind1/defgen.ml" 204 7546 7562
+)
+"kind1/defgen.ml" 205 7596 7612 "kind1/defgen.ml" 205 7596 7613
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/defgen.ml" 205 7596 7614 "kind1/defgen.ml" 205 7596 7640
+type(
+  unit -> int
+)
+ident(
+  ext_ref Lus_convert.get_max_adepth
+)
+"kind1/defgen.ml" 205 7596 7640 "kind1/defgen.ml" 205 7596 7642
+type(
+  unit
+)
+"kind1/defgen.ml" 205 7596 7614 "kind1/defgen.ml" 205 7596 7642
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 205 7596 7603 "kind1/defgen.ml" 205 7596 7642
+type(
+  bool
+)
+"kind1/defgen.ml" 206 7648 7654 "kind1/defgen.ml" 206 7648 7659
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/defgen.ml" 206 7648 7660 "kind1/defgen.ml" 206 7648 7673
+type(
+  exn
+)
+"kind1/defgen.ml" 206 7648 7654 "kind1/defgen.ml" 206 7648 7673
+type(
+  unit
+)
+"kind1/defgen.ml" 205 7596 7600 "kind1/defgen.ml" 206 7648 7673
+type(
+  unit
+)
+"kind1/defgen.ml" 209 7677 7685 "kind1/defgen.ml" 209 7677 7688
+type(
+  Types.il_formula
+)
+ident(
+  def fd' "kind1/defgen.ml" 218 7899 7903 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 210 7692 7701 "kind1/defgen.ml" 210 7692 7702
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 210 7692 7702 "kind1/defgen.ml" 210 7692 7730
+type(
+  int ref
+)
+ident(
+  ext_ref OldFlags.aggressive_inlining
+)
+"kind1/defgen.ml" 210 7692 7701 "kind1/defgen.ml" 210 7692 7730
+type(
+  int
+)
+"kind1/defgen.ml" 210 7692 7731 "kind1/defgen.ml" 210 7692 7732
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/defgen.ml" 210 7692 7733 "kind1/defgen.ml" 210 7692 7734
+type(
+  int
+)
+"kind1/defgen.ml" 210 7692 7701 "kind1/defgen.ml" 210 7692 7734
+type(
+  bool
+)
+"kind1/defgen.ml" 211 7740 7741 "kind1/defgen.ml" 211 7740 7765
+type(
+  Types.il_formula -> Types.idtype list -> Types.il_formula
+)
+ident(
+  ext_ref Inlining.inlined_formula
+)
+"kind1/defgen.ml" 211 7740 7766 "kind1/defgen.ml" 211 7740 7768
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd "kind1/defgen.ml" 203 7480 7488 "kind1/defgen.ml" 203 7480 7490
+)
+"kind1/defgen.ml" 211 7740 7770 "kind1/defgen.ml" 211 7740 7790
+type(
+  Types.typed_stream -> Types.idtype list
+)
+ident(
+  ext_ref Coi.property_id_list
+)
+"kind1/defgen.ml" 211 7740 7791 "kind1/defgen.ml" 211 7740 7792
+type(
+  Types.typed_stream
+)
+ident(
+  int_ref p "kind1/defgen.ml" 197 7206 7218 "kind1/defgen.ml" 197 7206 7219
+)
+"kind1/defgen.ml" 211 7740 7769 "kind1/defgen.ml" 211 7740 7793
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 211 7740 7741 "kind1/defgen.ml" 211 7740 7793
+call(
+  stack
+)
+type(
+  Types.il_formula
+)
+"kind1/defgen.ml" 213 7806 7807 "kind1/defgen.ml" 213 7806 7809
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd "kind1/defgen.ml" 203 7480 7488 "kind1/defgen.ml" 203 7480 7490
+)
+"kind1/defgen.ml" 210 7692 7698 "kind1/defgen.ml" 213 7806 7809
+type(
+  Types.il_formula
+)
+"kind1/defgen.ml" 218 7899 7907 "kind1/defgen.ml" 218 7899 7908
+type(
+  unit
+)
+"kind1/defgen.ml" 218 7899 7911 "kind1/defgen.ml" 218 7899 7934
+type(
+  Types.il_formula -> unit
+)
+ident(
+  ext_ref Coi.examine_assignments
+)
+"kind1/defgen.ml" 218 7899 7935 "kind1/defgen.ml" 218 7899 7938
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd' "kind1/defgen.ml" 209 7677 7685 "kind1/defgen.ml" 209 7677 7688
+)
+"kind1/defgen.ml" 218 7899 7911 "kind1/defgen.ml" 218 7899 7938
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 219 7942 7950 "kind1/defgen.ml" 219 7942 7956
+type(
+  Types.idtype list
+)
+ident(
+  def vrefs1 "kind1/defgen.ml" 220 7985 7989 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 219 7942 7959 "kind1/defgen.ml" 219 7942 7979
+type(
+  Types.typed_stream -> Types.idtype list
+)
+ident(
+  ext_ref Coi.property_id_list
+)
+"kind1/defgen.ml" 219 7942 7980 "kind1/defgen.ml" 219 7942 7981
+type(
+  Types.typed_stream
+)
+ident(
+  int_ref p "kind1/defgen.ml" 197 7206 7218 "kind1/defgen.ml" 197 7206 7219
+)
+"kind1/defgen.ml" 219 7942 7959 "kind1/defgen.ml" 219 7942 7981
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 220 7985 7993 "kind1/defgen.ml" 220 7985 7998
+type(
+  Types.idtype list
+)
+ident(
+  def vrefs "kind1/defgen.ml" 226 8144 8148 "kind1/defgen.ml" 246 9105 9116
+)
+"kind1/defgen.ml" 221 8002 8011 "kind1/defgen.ml" 221 8002 8012
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 221 8002 8012 "kind1/defgen.ml" 221 8002 8042
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.pre_refine_state_vars
+)
+"kind1/defgen.ml" 221 8002 8011 "kind1/defgen.ml" 221 8002 8042
+type(
+  bool
+)
+"kind1/defgen.ml" 222 8048 8056 "kind1/defgen.ml" 222 8048 8071
+type(
+  Types.idtype list -> Types.idtype list -> Types.idtype list
+)
+ident(
+  ext_ref List.rev_append
+)
+"kind1/defgen.ml" 222 8048 8072 "kind1/defgen.ml" 222 8048 8078
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs1 "kind1/defgen.ml" 219 7942 7950 "kind1/defgen.ml" 219 7942 7956
+)
+"kind1/defgen.ml" 222 8048 8080 "kind1/defgen.ml" 222 8048 8107
+type(
+  unit -> Types.idtype list
+)
+ident(
+  ext_ref Lus_convert.state_vars_list
+)
+"kind1/defgen.ml" 222 8048 8107 "kind1/defgen.ml" 222 8048 8109
+type(
+  unit
+)
+"kind1/defgen.ml" 222 8048 8079 "kind1/defgen.ml" 222 8048 8110
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 222 8048 8056 "kind1/defgen.ml" 222 8048 8110
+call(
+  stack
+)
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 224 8122 8130 "kind1/defgen.ml" 224 8122 8136
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs1 "kind1/defgen.ml" 219 7942 7950 "kind1/defgen.ml" 219 7942 7956
+)
+"kind1/defgen.ml" 221 8002 8008 "kind1/defgen.ml" 224 8122 8136
+type(
+  Types.idtype list
+)
+"kind1/defgen.ml" 226 8144 8148 "kind1/defgen.ml" 226 8144 8178
+type(
+  Types.idtype list -> int -> int -> unit
+)
+ident(
+  ext_ref Coi.calculate_all_dependencies
+)
+"kind1/defgen.ml" 226 8144 8179 "kind1/defgen.ml" 226 8144 8184
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs "kind1/defgen.ml" 220 7985 7993 "kind1/defgen.ml" 220 7985 7998
+)
+"kind1/defgen.ml" 226 8144 8185 "kind1/defgen.ml" 226 8144 8186
+type(
+  int
+)
+"kind1/defgen.ml" 226 8144 8187 "kind1/defgen.ml" 226 8144 8195
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 204 7546 7554 "kind1/defgen.ml" 204 7546 7562
+)
+"kind1/defgen.ml" 226 8144 8148 "kind1/defgen.ml" 226 8144 8195
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 229 8243 8255 "kind1/defgen.ml" 229 8243 8267
+type(
+  Buffer.t
+)
+ident(
+  def form_str_buf "kind1/defgen.ml" 230 8336 8344 "kind1/defgen.ml" 240 8912 8970
+)
+"kind1/defgen.ml" 229 8243 8271 "kind1/defgen.ml" 229 8243 8310
+type(
+  Types.modetype -> int -> Types.il_formula -> Buffer.t
+)
+ident(
+  ext_ref Lus_convert_yc.yc_formula_string_buffer
+)
+"kind1/defgen.ml" 229 8243 8311 "kind1/defgen.ml" 229 8243 8318
+type(
+  Types.modetype
+)
+"kind1/defgen.ml" 229 8243 8319 "kind1/defgen.ml" 229 8243 8327
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 204 7546 7554 "kind1/defgen.ml" 204 7546 7562
+)
+"kind1/defgen.ml" 229 8243 8328 "kind1/defgen.ml" 229 8243 8331
+type(
+  Types.il_formula
+)
+ident(
+  int_ref fd' "kind1/defgen.ml" 209 7677 7685 "kind1/defgen.ml" 209 7677 7688
+)
+"kind1/defgen.ml" 229 8243 8271 "kind1/defgen.ml" 229 8243 8331
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 230 8336 8348 "kind1/defgen.ml" 230 8336 8352
+type(
+  string
+)
+ident(
+  def vdef "kind1/defgen.ml" 231 8399 8409 "kind1/defgen.ml" 240 8912 8970
+)
+"kind1/defgen.ml" 230 8336 8355 "kind1/defgen.ml" 230 8336 8392
+type(
+  unit -> string
+)
+ident(
+  ext_ref Lus_convert_yc.yc_var_shortcut_string
+)
+"kind1/defgen.ml" 230 8336 8393 "kind1/defgen.ml" 230 8336 8395
+type(
+  unit
+)
+"kind1/defgen.ml" 230 8336 8355 "kind1/defgen.ml" 230 8336 8395
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 231 8399 8409 "kind1/defgen.ml" 231 8399 8426
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 231 8399 8427 "kind1/defgen.ml" 231 8399 8433
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 231 8399 8435 "kind1/defgen.ml" 231 8399 8441
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 231 8399 8435 "kind1/defgen.ml" 231 8399 8445
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 231 8399 8435 "kind1/defgen.ml" 231 8399 8459
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 231 8399 8459 "kind1/defgen.ml" 231 8399 8460
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 231 8399 8460 "kind1/defgen.ml" 231 8399 8464
+type(
+  string
+)
+"kind1/defgen.ml" 231 8399 8434 "kind1/defgen.ml" 231 8399 8465
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 231 8399 8409 "kind1/defgen.ml" 231 8399 8465
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 232 8467 8477 "kind1/defgen.ml" 232 8467 8494
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 232 8467 8495 "kind1/defgen.ml" 232 8467 8501
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 232 8467 8503 "kind1/defgen.ml" 232 8467 8509
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 232 8467 8503 "kind1/defgen.ml" 232 8467 8513
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 232 8467 8503 "kind1/defgen.ml" 232 8467 8516
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8516 "kind1/defgen.ml" 232 8467 8517
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 232 8467 8517 "kind1/defgen.ml" 232 8467 8530
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8530 "kind1/defgen.ml" 232 8467 8531
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 232 8467 8532 "kind1/defgen.ml" 232 8467 8545
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/defgen.ml" 232 8467 8546 "kind1/defgen.ml" 232 8467 8554
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 204 7546 7554 "kind1/defgen.ml" 204 7546 7562
+)
+"kind1/defgen.ml" 232 8467 8531 "kind1/defgen.ml" 232 8467 8555
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8555 "kind1/defgen.ml" 232 8467 8556
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 232 8467 8556 "kind1/defgen.ml" 232 8467 8560
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8531 "kind1/defgen.ml" 232 8467 8560
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8517 "kind1/defgen.ml" 232 8467 8560
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8502 "kind1/defgen.ml" 232 8467 8561
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 232 8467 8477 "kind1/defgen.ml" 232 8467 8561
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 233 8563 8573 "kind1/defgen.ml" 233 8563 8590
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 233 8563 8591 "kind1/defgen.ml" 233 8563 8597
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 233 8563 8599 "kind1/defgen.ml" 233 8563 8603
+type(
+  string
+)
+ident(
+  int_ref vdef "kind1/defgen.ml" 230 8336 8348 "kind1/defgen.ml" 230 8336 8352
+)
+"kind1/defgen.ml" 233 8563 8603 "kind1/defgen.ml" 233 8563 8604
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 233 8563 8604 "kind1/defgen.ml" 233 8563 8610
+type(
+  string
+)
+"kind1/defgen.ml" 233 8563 8598 "kind1/defgen.ml" 233 8563 8611
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 233 8563 8573 "kind1/defgen.ml" 233 8563 8611
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 234 8613 8623 "kind1/defgen.ml" 234 8613 8640
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/defgen.ml" 234 8613 8641 "kind1/defgen.ml" 234 8613 8647
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 234 8613 8649 "kind1/defgen.ml" 234 8613 8655
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 234 8613 8649 "kind1/defgen.ml" 234 8613 8659
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 234 8613 8649 "kind1/defgen.ml" 234 8613 8662
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 234 8613 8662 "kind1/defgen.ml" 234 8613 8663
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/defgen.ml" 234 8613 8663 "kind1/defgen.ml" 234 8613 8687
+type(
+  string
+)
+"kind1/defgen.ml" 234 8613 8648 "kind1/defgen.ml" 234 8613 8688
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 234 8613 8623 "kind1/defgen.ml" 234 8613 8688
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 236 8726 8738 "kind1/defgen.ml" 236 8726 8739
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 236 8726 8739 "kind1/defgen.ml" 236 8726 8761
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.var_defs_mode
+)
+"kind1/defgen.ml" 236 8726 8737 "kind1/defgen.ml" 236 8726 8762
+type(
+  bool
+)
+"kind1/defgen.ml" 237 8770 8780 "kind1/defgen.ml" 237 8770 8804
+type(
+  Types.defhashtable -> Types.idtype list -> unit
+)
+ident(
+  ext_ref Deftable.initialize_defs
+)
+"kind1/defgen.ml" 237 8770 8805 "kind1/defgen.ml" 237 8770 8813
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 194 7155 7161 "kind1/defgen.ml" 194 7155 7169
+)
+"kind1/defgen.ml" 237 8770 8814 "kind1/defgen.ml" 237 8770 8819
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs "kind1/defgen.ml" 220 7985 7993 "kind1/defgen.ml" 220 7985 7998
+)
+"kind1/defgen.ml" 237 8770 8780 "kind1/defgen.ml" 237 8770 8819
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 238 8822 8832 "kind1/defgen.ml" 238 8822 8849
+type(
+  Buffer.t -> Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.add_buffer
+)
+"kind1/defgen.ml" 238 8822 8850 "kind1/defgen.ml" 238 8822 8856
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 238 8822 8858 "kind1/defgen.ml" 238 8822 8878
+type(
+  Types.defhashtable -> string -> int -> Buffer.t
+)
+ident(
+  int_ref generate_var_defs_yc "kind1/defgen.ml" 54 2064 2068 "kind1/defgen.ml" 54 2064 2088
+)
+"kind1/defgen.ml" 238 8822 8879 "kind1/defgen.ml" 238 8822 8887
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 194 7155 7161 "kind1/defgen.ml" 194 7155 7169
+)
+"kind1/defgen.ml" 238 8822 8888 "kind1/defgen.ml" 238 8822 8893
+type(
+  string
+)
+"kind1/defgen.ml" 238 8822 8894 "kind1/defgen.ml" 238 8822 8895
+type(
+  int
+)
+"kind1/defgen.ml" 238 8822 8857 "kind1/defgen.ml" 238 8822 8896
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/defgen.ml" 238 8822 8832 "kind1/defgen.ml" 238 8822 8896
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 236 8726 8768 "kind1/defgen.ml" 238 8822 8897
+type(
+  unit
+)
+"kind1/defgen.ml" 240 8912 8924 "kind1/defgen.ml" 240 8912 8930
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 240 8912 8924 "kind1/defgen.ml" 240 8912 8934
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 240 8912 8924 "kind1/defgen.ml" 240 8912 8948
+call(
+  stack
+)
+type(
+  Buffer.t -> Buffer.t -> unit
+)
+"kind1/defgen.ml" 240 8912 8949 "kind1/defgen.ml" 240 8912 8955
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 240 8912 8956 "kind1/defgen.ml" 240 8912 8968
+type(
+  Buffer.t
+)
+ident(
+  int_ref form_str_buf "kind1/defgen.ml" 229 8243 8255 "kind1/defgen.ml" 229 8243 8267
+)
+"kind1/defgen.ml" 239 8898 8910 "kind1/defgen.ml" 240 8912 8969
+type(
+  unit
+)
+"kind1/defgen.ml" 236 8726 8734 "kind1/defgen.ml" 240 8912 8970
+type(
+  unit
+)
+"kind1/defgen.ml" 234 8613 8623 "kind1/defgen.ml" 240 8912 8970
+type(
+  unit
+)
+"kind1/defgen.ml" 233 8563 8573 "kind1/defgen.ml" 240 8912 8970
+type(
+  unit
+)
+"kind1/defgen.ml" 232 8467 8477 "kind1/defgen.ml" 240 8912 8970
+type(
+  unit
+)
+"kind1/defgen.ml" 231 8399 8409 "kind1/defgen.ml" 240 8912 8970
+type(
+  unit
+)
+"kind1/defgen.ml" 230 8336 8344 "kind1/defgen.ml" 240 8912 8970
+type(
+  unit
+)
+"kind1/defgen.ml" 228 8198 8204 "kind1/defgen.ml" 241 8971 8980
+type(
+  unit
+)
+"kind1/defgen.ml" 243 9041 9048 "kind1/defgen.ml" 243 9041 9063
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/defgen.ml" 243 9041 9064 "kind1/defgen.ml" 243 9041 9070
+type(
+  Buffer.t
+)
+ident(
+  int_ref outdoc "kind1/defgen.ml" 193 7118 7124 "kind1/defgen.ml" 193 7118 7130
+)
+"kind1/defgen.ml" 243 9041 9047 "kind1/defgen.ml" 243 9041 9071
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 244 9073 9079 "kind1/defgen.ml" 244 9073 9087
+type(
+  int
+)
+ident(
+  int_ref maxdepth "kind1/defgen.ml" 204 7546 7554 "kind1/defgen.ml" 204 7546 7562
+)
+"kind1/defgen.ml" 245 9089 9095 "kind1/defgen.ml" 245 9089 9103
+type(
+  Types.defhashtable
+)
+ident(
+  int_ref def_hash "kind1/defgen.ml" 194 7155 7161 "kind1/defgen.ml" 194 7155 7169
+)
+"kind1/defgen.ml" 246 9105 9111 "kind1/defgen.ml" 246 9105 9116
+type(
+  Types.idtype list
+)
+ident(
+  int_ref vrefs "kind1/defgen.ml" 220 7985 7993 "kind1/defgen.ml" 220 7985 7998
+)
+"kind1/defgen.ml" 243 9041 9047 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 228 8198 8204 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 226 8144 8148 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 220 7985 7989 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 219 7942 7946 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 218 7899 7903 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 209 7677 7681 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 205 7596 7600 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 204 7546 7550 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 203 7480 7484 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 200 7353 7357 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 198 7290 7294 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 197 7206 7210 "kind1/defgen.ml" 246 9105 9116
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 247 9117 9137 "kind1/defgen.ml" 247 9117 9138
+type(
+  string
+)
+ident(
+  def s "kind1/defgen.ml" 248 9147 9151 "kind1/defgen.ml" 252 9377 9404
+)
+"kind1/defgen.ml" 247 9117 9139 "kind1/defgen.ml" 247 9117 9140
+type(
+  Types.lustre_type
+)
+ident(
+  def x "kind1/defgen.ml" 248 9147 9151 "kind1/defgen.ml" 252 9377 9404
+)
+"kind1/defgen.ml" 247 9117 9141 "kind1/defgen.ml" 247 9117 9142
+type(
+  Types.lustre_type
+)
+ident(
+  def y "kind1/defgen.ml" 248 9147 9151 "kind1/defgen.ml" 252 9377 9404
+)
+"kind1/defgen.ml" 247 9117 9124 "kind1/defgen.ml" 247 9117 9143
+type(
+  exn
+)
+"kind1/defgen.ml" 248 9147 9151 "kind1/defgen.ml" 248 9147 9164
+type(
+  (string -> Types.typename -> Types.typename -> int -> int -> unit,
+   out_channel, unit)
+  format -> string -> Types.typename -> Types.typename -> int -> int -> unit
+)
+ident(
+  ext_ref Printf.printf
+)
+"kind1/defgen.ml" 248 9147 9165 "kind1/defgen.ml" 248 9147 9222
+type(
+  (string -> Types.typename -> Types.typename -> int -> int -> unit,
+   out_channel, unit)
+  format
+)
+"kind1/defgen.ml" 248 9147 9223 "kind1/defgen.ml" 248 9147 9224
+type(
+  string
+)
+ident(
+  int_ref s "kind1/defgen.ml" 247 9117 9137 "kind1/defgen.ml" 247 9117 9138
+)
+"kind1/defgen.ml" 249 9225 9232 "kind1/defgen.ml" 249 9225 9238
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 249 9225 9232 "kind1/defgen.ml" 249 9225 9242
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 249 9225 9232 "kind1/defgen.ml" 249 9225 9254
+call(
+  stack
+)
+type(
+  Types.lustre_type -> Types.typename
+)
+"kind1/defgen.ml" 249 9225 9255 "kind1/defgen.ml" 249 9225 9256
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref x "kind1/defgen.ml" 247 9117 9139 "kind1/defgen.ml" 247 9117 9140
+)
+"kind1/defgen.ml" 249 9225 9231 "kind1/defgen.ml" 249 9225 9257
+type(
+  Types.typename
+)
+"kind1/defgen.ml" 249 9225 9259 "kind1/defgen.ml" 249 9225 9265
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/defgen.ml" 47 1812 1816 "kind1/defgen.ml" 47 1812 1822
+)
+"kind1/defgen.ml" 249 9225 9259 "kind1/defgen.ml" 249 9225 9269
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/defgen.ml" 249 9225 9259 "kind1/defgen.ml" 249 9225 9281
+call(
+  stack
+)
+type(
+  Types.lustre_type -> Types.typename
+)
+"kind1/defgen.ml" 249 9225 9282 "kind1/defgen.ml" 249 9225 9283
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref y "kind1/defgen.ml" 247 9117 9141 "kind1/defgen.ml" 247 9117 9142
+)
+"kind1/defgen.ml" 249 9225 9258 "kind1/defgen.ml" 249 9225 9284
+type(
+  Types.typename
+)
+"kind1/defgen.ml" 250 9286 9293 "kind1/defgen.ml" 250 9286 9294
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 250 9286 9294 "kind1/defgen.ml" 250 9286 9313
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linenum
+)
+"kind1/defgen.ml" 250 9286 9292 "kind1/defgen.ml" 250 9286 9314
+type(
+  int
+)
+"kind1/defgen.ml" 251 9316 9324 "kind1/defgen.ml" 251 9316 9343
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_start
+)
+"kind1/defgen.ml" 251 9316 9344 "kind1/defgen.ml" 251 9316 9350
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 192 7074 7080 "kind1/defgen.ml" 192 7074 7086
+)
+"kind1/defgen.ml" 251 9316 9323 "kind1/defgen.ml" 251 9316 9351
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 251 9316 9352 "kind1/defgen.ml" 251 9316 9353
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/defgen.ml" 251 9316 9354 "kind1/defgen.ml" 251 9316 9355
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 251 9316 9355 "kind1/defgen.ml" 251 9316 9374
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linepos
+)
+"kind1/defgen.ml" 251 9316 9354 "kind1/defgen.ml" 251 9316 9374
+type(
+  int
+)
+"kind1/defgen.ml" 251 9316 9322 "kind1/defgen.ml" 251 9316 9375
+type(
+  int
+)
+"kind1/defgen.ml" 248 9147 9151 "kind1/defgen.ml" 251 9316 9375
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 252 9377 9381 "kind1/defgen.ml" 252 9377 9386
+type(
+  exn -> string * int * Types.defhashtable * Types.idtype list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/defgen.ml" 252 9377 9387 "kind1/defgen.ml" 252 9377 9404
+type(
+  exn
+)
+"kind1/defgen.ml" 252 9377 9381 "kind1/defgen.ml" 252 9377 9404
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 248 9147 9151 "kind1/defgen.ml" 252 9377 9404
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 253 9405 9409 "kind1/defgen.ml" 253 9405 9428
+type(
+  exn
+)
+"kind1/defgen.ml" 254 9432 9436 "kind1/defgen.ml" 254 9432 9449
+type(
+  (int -> int -> string -> unit, out_channel, unit) format ->
+  int -> int -> string -> unit
+)
+ident(
+  ext_ref Printf.printf
+)
+"kind1/defgen.ml" 254 9432 9450 "kind1/defgen.ml" 254 9432 9493
+type(
+  (int -> int -> string -> unit, out_channel, unit) format
+)
+"kind1/defgen.ml" 255 9495 9502 "kind1/defgen.ml" 255 9495 9503
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 255 9495 9503 "kind1/defgen.ml" 255 9495 9522
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linenum
+)
+"kind1/defgen.ml" 255 9495 9501 "kind1/defgen.ml" 255 9495 9523
+type(
+  int
+)
+"kind1/defgen.ml" 256 9525 9533 "kind1/defgen.ml" 256 9525 9552
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_start
+)
+"kind1/defgen.ml" 256 9525 9553 "kind1/defgen.ml" 256 9525 9559
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 192 7074 7080 "kind1/defgen.ml" 192 7074 7086
+)
+"kind1/defgen.ml" 256 9525 9532 "kind1/defgen.ml" 256 9525 9560
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/defgen.ml" 256 9525 9561 "kind1/defgen.ml" 256 9525 9562
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/defgen.ml" 256 9525 9563 "kind1/defgen.ml" 256 9525 9564
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/defgen.ml" 256 9525 9564 "kind1/defgen.ml" 256 9525 9583
+type(
+  int ref
+)
+ident(
+  ext_ref Lus_convert.linepos
+)
+"kind1/defgen.ml" 256 9525 9563 "kind1/defgen.ml" 256 9525 9583
+type(
+  int
+)
+"kind1/defgen.ml" 256 9525 9531 "kind1/defgen.ml" 256 9525 9584
+type(
+  int
+)
+"kind1/defgen.ml" 257 9585 9592 "kind1/defgen.ml" 257 9585 9605
+type(
+  Lexing.lexbuf -> string
+)
+ident(
+  ext_ref Lexing.lexeme
+)
+"kind1/defgen.ml" 257 9585 9606 "kind1/defgen.ml" 257 9585 9612
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "kind1/defgen.ml" 192 7074 7080 "kind1/defgen.ml" 192 7074 7086
+)
+"kind1/defgen.ml" 257 9585 9591 "kind1/defgen.ml" 257 9585 9613
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/defgen.ml" 254 9432 9436 "kind1/defgen.ml" 257 9585 9613
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/defgen.ml" 258 9615 9619 "kind1/defgen.ml" 258 9615 9624
+type(
+  exn -> string * int * Types.defhashtable * Types.idtype list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/defgen.ml" 258 9615 9625 "kind1/defgen.ml" 258 9615 9642
+type(
+  exn
+)
+"kind1/defgen.ml" 258 9615 9619 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 254 9432 9436 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 196 7200 7202 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 194 7155 7157 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 193 7118 7120 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 192 7074 7076 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 191 7048 7050 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)
+"kind1/defgen.ml" 190 7011 7013 "kind1/defgen.ml" 258 9615 9642
+type(
+  string * int * Types.defhashtable * Types.idtype list
+)

@@ -1,0 +1,996 @@
+"eval.ml" 574 15187 15191 "eval.ml" 574 15187 15204
+type(
+  value -> bool
+)
+ident(
+  def bool_of_value "eval.ml" 582 15442 15442 "_none_" 1 0 -1
+)
+"eval.ml" 575 15217 15229 "eval.ml" 575 15217 15230
+type(
+  bool
+)
+ident(
+  def b "eval.ml" 575 15217 15234 "eval.ml" 575 15217 15235
+)
+"eval.ml" 575 15217 15221 "eval.ml" 575 15217 15230
+type(
+  value
+)
+"eval.ml" 575 15217 15234 "eval.ml" 575 15217 15235
+type(
+  bool
+)
+ident(
+  int_ref b "eval.ml" 575 15217 15229 "eval.ml" 575 15217 15230
+)
+"eval.ml" 576 15236 15248 "eval.ml" 576 15236 15249
+type(
+  Term.t
+)
+ident(
+  def t "eval.ml" 577 15254 15258 "eval.ml" 577 15254 15334
+)
+"eval.ml" 576 15236 15240 "eval.ml" 576 15236 15249
+type(
+  value
+)
+"eval.ml" 577 15254 15258 "eval.ml" 577 15254 15269
+type(
+  string -> bool
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"eval.ml" 577 15254 15271 "eval.ml" 577 15254 15296
+type(
+  string
+)
+"eval.ml" 577 15254 15297 "eval.ml" 577 15254 15298
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"eval.ml" 577 15254 15300 "eval.ml" 577 15254 15311
+type(
+  (Format.formatter -> Term.t -> unit) -> Term.t -> string
+)
+ident(
+  ext_ref Lib.string_of_t
+)
+"eval.ml" 577 15254 15312 "eval.ml" 577 15254 15330
+type(
+  Format.formatter -> Term.t -> unit
+)
+ident(
+  ext_ref Term.pp_print_term
+)
+"eval.ml" 577 15254 15331 "eval.ml" 577 15254 15332
+type(
+  Term.t
+)
+ident(
+  int_ref t "eval.ml" 576 15236 15248 "eval.ml" 576 15236 15249
+)
+"eval.ml" 577 15254 15300 "eval.ml" 577 15254 15332
+call(
+  stack
+)
+type(
+  string
+)
+"eval.ml" 577 15254 15271 "eval.ml" 577 15254 15333
+call(
+  stack
+)
+type(
+  string
+)
+"eval.ml" 577 15254 15258 "eval.ml" 577 15254 15334
+call(
+  tail
+)
+type(
+  bool
+)
+"eval.ml" 578 15335 15339 "eval.ml" 578 15335 15340
+type(
+  value
+)
+"eval.ml" 578 15335 15344 "eval.ml" 578 15335 15355
+type(
+  string -> bool
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"eval.ml" 578 15335 15356 "eval.ml" 578 15335 15371
+type(
+  string
+)
+"eval.ml" 578 15335 15344 "eval.ml" 578 15335 15371
+type(
+  bool
+)
+"eval.ml" 574 15187 15207 "eval.ml" 578 15335 15371
+type(
+  value -> bool
+)
+"eval.ml" 582 15442 15446 "eval.ml" 582 15442 15458
+type(
+  value -> int
+)
+ident(
+  def int_of_value "eval.ml" 590 15687 15687 "_none_" 1 0 -1
+)
+"eval.ml" 583 15471 15482 "eval.ml" 583 15471 15483
+type(
+  int
+)
+ident(
+  def b "eval.ml" 583 15471 15487 "eval.ml" 583 15471 15488
+)
+"eval.ml" 583 15471 15475 "eval.ml" 583 15471 15483
+type(
+  value
+)
+"eval.ml" 583 15471 15487 "eval.ml" 583 15471 15488
+type(
+  int
+)
+ident(
+  int_ref b "eval.ml" 583 15471 15482 "eval.ml" 583 15471 15483
+)
+"eval.ml" 584 15489 15501 "eval.ml" 584 15489 15502
+type(
+  Term.t
+)
+ident(
+  def t "eval.ml" 585 15507 15511 "eval.ml" 585 15507 15586
+)
+"eval.ml" 584 15489 15493 "eval.ml" 584 15489 15502
+type(
+  value
+)
+"eval.ml" 585 15507 15511 "eval.ml" 585 15507 15522
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"eval.ml" 585 15507 15524 "eval.ml" 585 15507 15548
+type(
+  string
+)
+"eval.ml" 585 15507 15549 "eval.ml" 585 15507 15550
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"eval.ml" 585 15507 15552 "eval.ml" 585 15507 15563
+type(
+  (Format.formatter -> Term.t -> unit) -> Term.t -> string
+)
+ident(
+  ext_ref Lib.string_of_t
+)
+"eval.ml" 585 15507 15564 "eval.ml" 585 15507 15582
+type(
+  Format.formatter -> Term.t -> unit
+)
+ident(
+  ext_ref Term.pp_print_term
+)
+"eval.ml" 585 15507 15583 "eval.ml" 585 15507 15584
+type(
+  Term.t
+)
+ident(
+  int_ref t "eval.ml" 584 15489 15501 "eval.ml" 584 15489 15502
+)
+"eval.ml" 585 15507 15552 "eval.ml" 585 15507 15584
+call(
+  stack
+)
+type(
+  string
+)
+"eval.ml" 585 15507 15524 "eval.ml" 585 15507 15585
+call(
+  stack
+)
+type(
+  string
+)
+"eval.ml" 585 15507 15511 "eval.ml" 585 15507 15586
+call(
+  tail
+)
+type(
+  int
+)
+"eval.ml" 586 15587 15591 "eval.ml" 586 15587 15592
+type(
+  value
+)
+"eval.ml" 586 15587 15596 "eval.ml" 586 15587 15607
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"eval.ml" 586 15587 15608 "eval.ml" 586 15587 15622
+type(
+  string
+)
+"eval.ml" 586 15587 15596 "eval.ml" 586 15587 15622
+type(
+  int
+)
+"eval.ml" 582 15442 15461 "eval.ml" 586 15587 15622
+type(
+  value -> int
+)
+"eval.ml" 590 15687 15691 "eval.ml" 590 15687 15705
+type(
+  value -> float
+)
+ident(
+  def float_of_value "eval.ml" 596 15813 15813 "_none_" 1 0 -1
+)
+"eval.ml" 591 15718 15730 "eval.ml" 591 15718 15731
+type(
+  float
+)
+ident(
+  def b "eval.ml" 591 15718 15735 "eval.ml" 591 15718 15736
+)
+"eval.ml" 591 15718 15722 "eval.ml" 591 15718 15731
+type(
+  value
+)
+"eval.ml" 591 15718 15735 "eval.ml" 591 15718 15736
+type(
+  float
+)
+ident(
+  int_ref b "eval.ml" 591 15718 15730 "eval.ml" 591 15718 15731
+)
+"eval.ml" 592 15737 15741 "eval.ml" 592 15737 15742
+type(
+  value
+)
+"eval.ml" 592 15737 15746 "eval.ml" 592 15737 15757
+type(
+  string -> float
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"eval.ml" 592 15737 15758 "eval.ml" 592 15737 15774
+type(
+  string
+)
+"eval.ml" 592 15737 15746 "eval.ml" 592 15737 15774
+type(
+  float
+)
+"eval.ml" 590 15687 15708 "eval.ml" 592 15737 15774
+type(
+  value -> float
+)
+"eval.ml" 596 15813 15817 "eval.ml" 596 15813 15833
+type(
+  value -> bool
+)
+ident(
+  def value_is_unknown "eval.ml" 602 15917 15917 "_none_" 1 0 -1
+)
+"eval.ml" 597 15846 15858 "eval.ml" 597 15846 15859
+type(
+  Term.t
+)
+"eval.ml" 597 15846 15850 "eval.ml" 597 15846 15859
+type(
+  value
+)
+"eval.ml" 597 15846 15863 "eval.ml" 597 15846 15867
+type(
+  bool
+)
+"eval.ml" 598 15868 15872 "eval.ml" 598 15868 15873
+type(
+  value
+)
+"eval.ml" 598 15868 15877 "eval.ml" 598 15868 15882
+type(
+  bool
+)
+"eval.ml" 596 15813 15836 "eval.ml" 598 15868 15882
+type(
+  value -> bool
+)
+"eval.ml" 602 15917 15921 "eval.ml" 602 15917 15934
+type(
+  value -> Term.t
+)
+ident(
+  def term_of_value "eval.ml" 611 16151 16151 "_none_" 1 0 -1
+)
+"eval.ml" 603 15947 15959 "eval.ml" 603 15947 15963
+type(
+  bool
+)
+"eval.ml" 603 15947 15951 "eval.ml" 603 15947 15963
+type(
+  value
+)
+"eval.ml" 603 15947 15967 "eval.ml" 603 15947 15979
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_true
+)
+"eval.ml" 603 15947 15980 "eval.ml" 603 15947 15982
+type(
+  unit
+)
+"eval.ml" 603 15947 15967 "eval.ml" 603 15947 15982
+call(
+  tail
+)
+type(
+  Term.t
+)
+"eval.ml" 604 15983 15995 "eval.ml" 604 15983 16000
+type(
+  bool
+)
+"eval.ml" 604 15983 15987 "eval.ml" 604 15983 16000
+type(
+  value
+)
+"eval.ml" 604 15983 16004 "eval.ml" 604 15983 16017
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_false
+)
+"eval.ml" 604 15983 16018 "eval.ml" 604 15983 16020
+type(
+  unit
+)
+"eval.ml" 604 15983 16004 "eval.ml" 604 15983 16020
+call(
+  tail
+)
+type(
+  Term.t
+)
+"eval.ml" 605 16021 16032 "eval.ml" 605 16021 16033
+type(
+  int
+)
+ident(
+  def i "eval.ml" 605 16021 16037 "eval.ml" 605 16021 16057
+)
+"eval.ml" 605 16021 16025 "eval.ml" 605 16021 16033
+type(
+  value
+)
+"eval.ml" 605 16021 16037 "eval.ml" 605 16021 16055
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"eval.ml" 605 16021 16056 "eval.ml" 605 16021 16057
+type(
+  int
+)
+ident(
+  int_ref i "eval.ml" 605 16021 16032 "eval.ml" 605 16021 16033
+)
+"eval.ml" 605 16021 16037 "eval.ml" 605 16021 16057
+call(
+  tail
+)
+type(
+  Term.t
+)
+"eval.ml" 606 16058 16070 "eval.ml" 606 16058 16071
+type(
+  float
+)
+ident(
+  def f "eval.ml" 606 16058 16075 "eval.ml" 606 16058 16097
+)
+"eval.ml" 606 16058 16062 "eval.ml" 606 16058 16071
+type(
+  value
+)
+"eval.ml" 606 16058 16075 "eval.ml" 606 16058 16095
+type(
+  float -> Term.t
+)
+ident(
+  ext_ref Term.mk_dec_of_float
+)
+"eval.ml" 606 16058 16096 "eval.ml" 606 16058 16097
+type(
+  float
+)
+ident(
+  int_ref f "eval.ml" 606 16058 16070 "eval.ml" 606 16058 16071
+)
+"eval.ml" 606 16058 16075 "eval.ml" 606 16058 16097
+call(
+  tail
+)
+type(
+  Term.t
+)
+"eval.ml" 607 16098 16110 "eval.ml" 607 16098 16111
+type(
+  Term.t
+)
+ident(
+  def t "eval.ml" 607 16098 16115 "eval.ml" 607 16098 16116
+)
+"eval.ml" 607 16098 16102 "eval.ml" 607 16098 16111
+type(
+  value
+)
+"eval.ml" 607 16098 16115 "eval.ml" 607 16098 16116
+type(
+  Term.t
+)
+ident(
+  int_ref t "eval.ml" 607 16098 16110 "eval.ml" 607 16098 16111
+)
+"eval.ml" 602 15917 15937 "eval.ml" 607 16098 16116
+type(
+  value -> Term.t
+)
+"eval.ml" 611 16151 16155 "eval.ml" 611 16151 16168
+type(
+  Term.t -> value
+)
+ident(
+  def value_of_term "eval.ml" 664 17509 17509 "_none_" 1 0 -1
+)
+"eval.ml" 611 16151 16169 "eval.ml" 611 16151 16173
+type(
+  Term.t
+)
+ident(
+  def term "eval.ml" 611 16151 16176 "eval.ml" 660 17452 17473
+)
+"eval.ml" 611 16151 16182 "eval.ml" 611 16151 16195
+type(
+  Term.t -> Term.T.flat
+)
+ident(
+  ext_ref Term.destruct
+)
+"eval.ml" 611 16151 16196 "eval.ml" 611 16151 16200
+type(
+  Term.t
+)
+ident(
+  int_ref term "eval.ml" 611 16151 16169 "eval.ml" 611 16151 16173
+)
+"eval.ml" 611 16151 16182 "eval.ml" 611 16151 16200
+call(
+  stack
+)
+type(
+  Term.T.flat
+)
+"eval.ml" 614 16235 16252 "eval.ml" 614 16235 16253
+type(
+  Term.T.symbol
+)
+ident(
+  def s "eval.ml" 619 16305 16311 "eval.ml" 638 16853 16880
+)
+"eval.ml" 614 16235 16239 "eval.ml" 614 16235 16253
+type(
+  Term.T.flat
+)
+"eval.ml" 619 16305 16317 "eval.ml" 619 16305 16338
+type(
+  Term.T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"eval.ml" 619 16305 16339 "eval.ml" 619 16305 16340
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref s "eval.ml" 614 16235 16252 "eval.ml" 614 16235 16253
+)
+"eval.ml" 619 16305 16317 "eval.ml" 619 16305 16340
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"eval.ml" 622 16389 16408 "eval.ml" 622 16389 16409
+type(
+  Lib.numeral
+)
+ident(
+  def n "eval.ml" 622 16389 16413 "eval.ml" 622 16389 16438
+)
+"eval.ml" 622 16389 16399 "eval.ml" 622 16389 16409
+type(
+  Symbol.symbol
+)
+"eval.ml" 622 16389 16421 "eval.ml" 622 16389 16435
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"eval.ml" 622 16389 16436 "eval.ml" 622 16389 16437
+type(
+  Lib.numeral
+)
+ident(
+  int_ref n "eval.ml" 622 16389 16408 "eval.ml" 622 16389 16409
+)
+"eval.ml" 622 16389 16421 "eval.ml" 622 16389 16437
+call(
+  stack
+)
+type(
+  int
+)
+"eval.ml" 622 16389 16413 "eval.ml" 622 16389 16438
+type(
+  value
+)
+"eval.ml" 625 16477 16496 "eval.ml" 625 16477 16497
+type(
+  Lib.decimal
+)
+ident(
+  def d "eval.ml" 625 16477 16501 "eval.ml" 625 16477 16529
+)
+"eval.ml" 625 16477 16487 "eval.ml" 625 16477 16497
+type(
+  Symbol.symbol
+)
+"eval.ml" 625 16477 16510 "eval.ml" 625 16477 16526
+type(
+  Lib.decimal -> float
+)
+ident(
+  ext_ref Lib.float_of_decimal
+)
+"eval.ml" 625 16477 16527 "eval.ml" 625 16477 16528
+type(
+  Lib.decimal
+)
+ident(
+  int_ref d "eval.ml" 625 16477 16496 "eval.ml" 625 16477 16497
+)
+"eval.ml" 625 16477 16510 "eval.ml" 625 16477 16528
+call(
+  stack
+)
+type(
+  float
+)
+"eval.ml" 625 16477 16501 "eval.ml" 625 16477 16529
+type(
+  value
+)
+"eval.ml" 628 16578 16588 "eval.ml" 628 16578 16593
+type(
+  Symbol.symbol
+)
+"eval.ml" 628 16578 16605 "eval.ml" 628 16578 16609
+type(
+  bool
+)
+"eval.ml" 628 16578 16597 "eval.ml" 628 16578 16609
+type(
+  value
+)
+"eval.ml" 629 16610 16620 "eval.ml" 629 16610 16626
+type(
+  Symbol.symbol
+)
+"eval.ml" 629 16610 16638 "eval.ml" 629 16610 16643
+type(
+  bool
+)
+"eval.ml" 629 16610 16630 "eval.ml" 629 16610 16643
+type(
+  value
+)
+"eval.ml" 632 16686 16700 "eval.ml" 632 16686 16701
+type(
+  Lib.bitvector
+)
+"eval.ml" 632 16686 16696 "eval.ml" 632 16686 16701
+type(
+  Symbol.symbol
+)
+"eval.ml" 632 16686 16705 "eval.ml" 632 16686 16717
+type(
+  value
+)
+"eval.ml" 635 16756 16770 "eval.ml" 635 16756 16771
+type(
+  UfSymbol.t
+)
+ident(
+  def u "eval.ml" 635 16756 16775 "eval.ml" 635 16756 16787
+)
+"eval.ml" 635 16756 16766 "eval.ml" 635 16756 16771
+type(
+  Symbol.symbol
+)
+"eval.ml" 635 16756 16783 "eval.ml" 635 16756 16787
+type(
+  Term.t
+)
+ident(
+  int_ref term "eval.ml" 611 16151 16169 "eval.ml" 611 16151 16173
+)
+"eval.ml" 635 16756 16775 "eval.ml" 635 16756 16787
+type(
+  value
+)
+"eval.ml" 638 16853 16863 "eval.ml" 638 16853 16864
+type(
+  Symbol.symbol
+)
+"eval.ml" 638 16853 16868 "eval.ml" 638 16853 16880
+type(
+  value
+)
+"eval.ml" 619 16305 16311 "eval.ml" 638 16853 16880
+type(
+  value
+)
+"eval.ml" 643 16934 16950 "eval.ml" 643 16934 16951
+type(
+  Term.T.symbol
+)
+ident(
+  def s "eval.ml" 643 16934 16963 "eval.ml" 643 16934 17000
+)
+"eval.ml" 643 16934 16954 "eval.ml" 643 16934 16955
+type(
+  Term.T.t list
+)
+type(
+  Term.T.t
+)
+ident(
+  def c "eval.ml" 643 16934 16963 "eval.ml" 643 16934 17000
+)
+"eval.ml" 643 16934 16953 "eval.ml" 643 16934 16956
+type(
+  Term.T.t list
+)
+"eval.ml" 643 16934 16938 "eval.ml" 643 16934 16957
+type(
+  Term.T.flat
+)
+"eval.ml" 643 16934 16963 "eval.ml" 643 16934 16964
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref s "eval.ml" 643 16934 16950 "eval.ml" 643 16934 16951
+)
+"eval.ml" 643 16934 16965 "eval.ml" 643 16934 16967
+type(
+  Term.T.symbol -> Term.T.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"eval.ml" 643 16934 16968 "eval.ml" 643 16934 16982
+type(
+  Term.T.symbol
+)
+ident(
+  ext_ref Symbol.s_minus
+)
+"eval.ml" 643 16934 16963 "eval.ml" 643 16934 16982
+type(
+  bool
+)
+"eval.ml" 643 16934 16983 "eval.ml" 643 16934 16985
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"eval.ml" 643 16934 16986 "eval.ml" 643 16934 16998
+type(
+  Term.t -> bool
+)
+ident(
+  ext_ref Term.is_leaf
+)
+"eval.ml" 643 16934 16999 "eval.ml" 643 16934 17000
+type(
+  Term.t
+)
+ident(
+  int_ref c "eval.ml" 643 16934 16954 "eval.ml" 643 16934 16955
+)
+"eval.ml" 643 16934 16986 "eval.ml" 643 16934 17000
+call(
+  stack
+)
+type(
+  bool
+)
+"eval.ml" 643 16934 16963 "eval.ml" 643 16934 17000
+type(
+  value
+)
+type(
+  bool
+)
+"eval.ml" 648 17048 17060 "eval.ml" 648 17048 17081
+type(
+  Symbol.t -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"eval.ml" 648 17048 17083 "eval.ml" 648 17048 17100
+type(
+  Term.t -> Symbol.t
+)
+ident(
+  ext_ref Term.leaf_of_term
+)
+"eval.ml" 648 17048 17101 "eval.ml" 648 17048 17102
+type(
+  Term.t
+)
+ident(
+  int_ref c "eval.ml" 643 16934 16954 "eval.ml" 643 16934 16955
+)
+"eval.ml" 648 17048 17083 "eval.ml" 648 17048 17102
+call(
+  stack
+)
+type(
+  Symbol.t
+)
+"eval.ml" 648 17048 17060 "eval.ml" 648 17048 17103
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"eval.ml" 651 17160 17179 "eval.ml" 651 17160 17180
+type(
+  Lib.numeral
+)
+ident(
+  def n "eval.ml" 651 17160 17184 "eval.ml" 651 17160 17213
+)
+"eval.ml" 651 17160 17170 "eval.ml" 651 17160 17180
+type(
+  Symbol.symbol
+)
+"eval.ml" 651 17160 17195 "eval.ml" 651 17160 17209
+type(
+  Lib.numeral -> int
+)
+ident(
+  ext_ref Lib.int_of_numeral
+)
+"eval.ml" 651 17160 17210 "eval.ml" 651 17160 17211
+type(
+  Lib.numeral
+)
+ident(
+  int_ref n "eval.ml" 651 17160 17179 "eval.ml" 651 17160 17180
+)
+"eval.ml" 651 17160 17195 "eval.ml" 651 17160 17211
+call(
+  stack
+)
+type(
+  int
+)
+"eval.ml" 651 17160 17192 "eval.ml" 651 17160 17212
+type(
+  int
+)
+type(
+  int -> int
+)
+ident(
+  ext_ref Pervasives.( ~- )
+)
+"eval.ml" 651 17160 17184 "eval.ml" 651 17160 17213
+type(
+  value
+)
+"eval.ml" 654 17278 17297 "eval.ml" 654 17278 17298
+type(
+  Lib.decimal
+)
+ident(
+  def d "eval.ml" 654 17278 17302 "eval.ml" 654 17278 17335
+)
+"eval.ml" 654 17278 17288 "eval.ml" 654 17278 17298
+type(
+  Symbol.symbol
+)
+"eval.ml" 654 17278 17315 "eval.ml" 654 17278 17331
+type(
+  Lib.decimal -> float
+)
+ident(
+  ext_ref Lib.float_of_decimal
+)
+"eval.ml" 654 17278 17332 "eval.ml" 654 17278 17333
+type(
+  Lib.decimal
+)
+ident(
+  int_ref d "eval.ml" 654 17278 17297 "eval.ml" 654 17278 17298
+)
+"eval.ml" 654 17278 17315 "eval.ml" 654 17278 17333
+call(
+  stack
+)
+type(
+  float
+)
+"eval.ml" 654 17278 17311 "eval.ml" 654 17278 17334
+type(
+  float
+)
+type(
+  float -> float
+)
+ident(
+  ext_ref Pervasives.( ~-. )
+)
+"eval.ml" 654 17278 17302 "eval.ml" 654 17278 17335
+type(
+  value
+)
+"eval.ml" 657 17374 17384 "eval.ml" 657 17374 17385
+type(
+  Symbol.symbol
+)
+"eval.ml" 657 17374 17397 "eval.ml" 657 17374 17401
+type(
+  Term.t
+)
+ident(
+  int_ref term "eval.ml" 611 16151 16169 "eval.ml" 611 16151 16173
+)
+"eval.ml" 657 17374 17389 "eval.ml" 657 17374 17401
+type(
+  value
+)
+"eval.ml" 648 17048 17054 "eval.ml" 657 17374 17401
+type(
+  value
+)
+"eval.ml" 660 17452 17456 "eval.ml" 660 17452 17457
+type(
+  Term.T.flat
+)
+"eval.ml" 660 17452 17469 "eval.ml" 660 17452 17473
+type(
+  Term.t
+)
+ident(
+  int_ref term "eval.ml" 611 16151 16169 "eval.ml" 611 16151 16173
+)
+"eval.ml" 660 17452 17461 "eval.ml" 660 17452 17473
+type(
+  value
+)
+"eval.ml" 611 16151 16176 "eval.ml" 660 17452 17473
+type(
+  value
+)
+"eval.ml" 611 16151 16169 "eval.ml" 660 17452 17473
+type(
+  Term.t -> value
+)
+"eval.ml" 664 17509 17513 "eval.ml" 664 17509 17522
+type(
+  Term.t -> (Var.t * Term.t) list -> value
+)
+ident(
+  def eval_term "eval.ml" 667 17596 17653 "_none_" 1 0 -1
+)
+"eval.ml" 664 17509 17523 "eval.ml" 664 17509 17527
+type(
+  Term.t
+)
+ident(
+  def term "eval.ml" 664 17509 17528 "eval.ml" 667 17596 17653
+)
+"eval.ml" 664 17509 17528 "eval.ml" 664 17509 17533
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "eval.ml" 667 17596 17598 "eval.ml" 667 17596 17653
+)
+"eval.ml" 667 17596 17598 "eval.ml" 667 17596 17611
+type(
+  Term.t -> value
+)
+ident(
+  int_ref value_of_term "eval.ml" 611 16151 16155 "eval.ml" 611 16151 16168
+)
+"eval.ml" 667 17596 17613 "eval.ml" 667 17596 17641
+type(
+  (Var.t * Term.t) list -> Term.t -> Term.t
+)
+ident(
+  ext_ref Simplify.simplify_term_model
+)
+"eval.ml" 667 17596 17642 "eval.ml" 667 17596 17647
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "eval.ml" 664 17509 17528 "eval.ml" 664 17509 17533
+)
+"eval.ml" 667 17596 17648 "eval.ml" 667 17596 17652
+type(
+  Term.t
+)
+ident(
+  int_ref term "eval.ml" 664 17509 17523 "eval.ml" 664 17509 17527
+)
+"eval.ml" 667 17596 17613 "eval.ml" 667 17596 17652
+call(
+  stack
+)
+type(
+  Term.t
+)
+"eval.ml" 667 17596 17598 "eval.ml" 667 17596 17653
+call(
+  tail
+)
+type(
+  value
+)
+"eval.ml" 664 17509 17528 "eval.ml" 667 17596 17653
+type(
+  (Var.t * Term.t) list -> value
+)
+"eval.ml" 664 17509 17523 "eval.ml" 667 17596 17653
+type(
+  Term.t -> (Var.t * Term.t) list -> value
+)

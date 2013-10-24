@@ -1,0 +1,3657 @@
+"QE.ml" 34 1718 1744 "QE.ml" 34 1718 1777
+call(
+  stack
+)
+"QE.ml" 37 1804 1820 "QE.ml" 37 1804 1857
+call(
+  stack
+)
+"QE.ml" 41 1901 1905 "QE.ml" 41 1901 1914
+type(
+  Solver.t option ref
+)
+ident(
+  def solver_qe "QE.ml" 44 1969 1969 "_none_" 1 0 -1
+)
+"QE.ml" 41 1901 1917 "QE.ml" 41 1901 1920
+type(
+  Solver.t option -> Solver.t option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"QE.ml" 41 1901 1921 "QE.ml" 41 1901 1925
+type(
+  Solver.t option
+)
+"QE.ml" 41 1901 1917 "QE.ml" 41 1901 1925
+type(
+  Solver.t option ref
+)
+"QE.ml" 44 1969 1973 "QE.ml" 44 1969 1985
+type(
+  Solver.t option ref
+)
+ident(
+  def solver_check "QE.ml" 47 2062 2062 "_none_" 1 0 -1
+)
+"QE.ml" 44 1969 1988 "QE.ml" 44 1969 1991
+type(
+  Solver.t option -> Solver.t option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"QE.ml" 44 1969 1992 "QE.ml" 44 1969 1996
+type(
+  Solver.t option
+)
+"QE.ml" 44 1969 1988 "QE.ml" 44 1969 1996
+type(
+  Solver.t option ref
+)
+"QE.ml" 47 2062 2066 "QE.ml" 47 2062 2085
+type(
+  unit -> Solver.t
+)
+ident(
+  def get_solver_instance "QE.ml" 85 2895 2895 "_none_" 1 0 -1
+)
+"QE.ml" 47 2062 2086 "QE.ml" 47 2062 2088
+type(
+  unit
+)
+"QE.ml" 50 2133 2142 "QE.ml" 50 2133 2151
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_qe "QE.ml" 41 1901 1905 "QE.ml" 41 1901 1914
+)
+"QE.ml" 50 2133 2141 "QE.ml" 50 2133 2151
+type(
+  Solver.t option
+)
+type(
+  Solver.t option ref -> Solver.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"QE.ml" 53 2199 2205 "QE.ml" 53 2199 2209
+type(
+  Solver.t option
+)
+"QE.ml" 56 2251 2261 "QE.ml" 56 2251 2267
+type(
+  Solver.t
+)
+ident(
+  def solver "QE.ml" 63 2397 2403 "QE.ml" 76 2758 2770
+)
+"QE.ml" 57 2275 2283 "QE.ml" 57 2275 2300
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> Solver.t
+)
+ident(
+  ext_ref Solver.new_solver
+)
+"QE.ml" 58 2302 2333 "QE.ml" 58 2302 2337
+type(
+  bool
+)
+"QE.ml" 59 2338 2348 "QE.ml" 59 2338 2354
+type(
+  SMTExpr.logic
+)
+"QE.ml" 57 2275 2283 "QE.ml" 59 2338 2354
+call(
+  stack
+)
+type(
+  Solver.t
+)
+"QE.ml" 63 2397 2403 "QE.ml" 63 2397 2412
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_qe "QE.ml" 41 1901 1905 "QE.ml" 41 1901 1914
+)
+"QE.ml" 63 2397 2421 "QE.ml" 63 2397 2427
+type(
+  Solver.t
+)
+ident(
+  int_ref solver "QE.ml" 56 2251 2261 "QE.ml" 56 2251 2267
+)
+"QE.ml" 63 2397 2416 "QE.ml" 63 2397 2427
+type(
+  Solver.t option
+)
+"QE.ml" 63 2397 2403 "QE.ml" 63 2397 2427
+type(
+  unit
+)
+type(
+  Solver.t option ref -> Solver.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"QE.ml" 67 2530 2536 "QE.ml" 67 2530 2542
+type(
+  SMTExpr.response * HStringSExpr.t list -> unit
+)
+ident(
+  ext_ref Pervasives.ignore
+)
+"QE.ml" 68 2543 2552 "QE.ml" 68 2543 2583
+type(
+  Solver.T.t ->
+  string ->
+  SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  ext_ref Solver.T.execute_custom_command
+)
+"QE.ml" 69 2585 2596 "QE.ml" 69 2585 2602
+type(
+  Solver.t
+)
+ident(
+  int_ref solver "QE.ml" 56 2251 2261 "QE.ml" 56 2251 2267
+)
+"QE.ml" 70 2603 2614 "QE.ml" 70 2603 2626
+type(
+  string
+)
+"QE.ml" 71 2627 2657 "QE.ml" 71 2627 2672
+type(
+  string
+)
+"QE.ml" 71 2627 2639 "QE.ml" 71 2627 2672
+type(
+  SMTExpr.custom_arg
+)
+"QE.ml" 72 2675 2705 "QE.ml" 72 2675 2712
+type(
+  string
+)
+"QE.ml" 72 2675 2687 "QE.ml" 72 2675 2712
+type(
+  SMTExpr.custom_arg
+)
+type(
+  SMTExpr.custom_arg list
+)
+"QE.ml" 71 2627 2639 "QE.ml" 72 2675 2712
+type(
+  SMTExpr.custom_arg list
+)
+"QE.ml" 71 2627 2638 "QE.ml" 72 2675 2713
+type(
+  SMTExpr.custom_arg list
+)
+"QE.ml" 73 2714 2725 "QE.ml" 73 2714 2726
+type(
+  int
+)
+"QE.ml" 68 2543 2552 "QE.ml" 73 2714 2726
+call(
+  stack
+)
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"QE.ml" 67 2530 2536 "QE.ml" 73 2714 2727
+type(
+  unit
+)
+"QE.ml" 76 2758 2764 "QE.ml" 76 2758 2770
+type(
+  Solver.t
+)
+ident(
+  int_ref solver "QE.ml" 56 2251 2261 "QE.ml" 56 2251 2267
+)
+"QE.ml" 67 2530 2536 "QE.ml" 76 2758 2770
+type(
+  Solver.t
+)
+"QE.ml" 63 2397 2403 "QE.ml" 76 2758 2770
+type(
+  Solver.t
+)
+"QE.ml" 56 2251 2257 "QE.ml" 76 2758 2770
+type(
+  Solver.t
+)
+"QE.ml" 79 2807 2818 "QE.ml" 79 2807 2819
+type(
+  Solver.t
+)
+ident(
+  def s "QE.ml" 79 2807 2823 "QE.ml" 79 2807 2824
+)
+"QE.ml" 79 2807 2813 "QE.ml" 79 2807 2819
+type(
+  Solver.t option
+)
+"QE.ml" 79 2807 2823 "QE.ml" 79 2807 2824
+type(
+  Solver.t
+)
+ident(
+  int_ref s "QE.ml" 79 2807 2818 "QE.ml" 79 2807 2819
+)
+"QE.ml" 50 2133 2135 "QE.ml" 79 2807 2824
+type(
+  Solver.t
+)
+"QE.ml" 47 2062 2086 "QE.ml" 79 2807 2824
+type(
+  unit -> Solver.t
+)
+"QE.ml" 85 2895 2899 "QE.ml" 85 2895 2927
+type(
+  unit -> Solver.t
+)
+ident(
+  def get_checking_solver_instance "QE.ml" 111 3413 3413 "_none_" 1 0 -1
+)
+"QE.ml" 85 2895 2928 "QE.ml" 85 2895 2930
+type(
+  unit
+)
+"QE.ml" 88 2975 2984 "QE.ml" 88 2975 2996
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_check "QE.ml" 44 1969 1973 "QE.ml" 44 1969 1985
+)
+"QE.ml" 88 2975 2983 "QE.ml" 88 2975 2996
+type(
+  Solver.t option
+)
+type(
+  Solver.t option ref -> Solver.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"QE.ml" 91 3044 3050 "QE.ml" 91 3044 3054
+type(
+  Solver.t option
+)
+"QE.ml" 94 3095 3105 "QE.ml" 94 3095 3111
+type(
+  Solver.t
+)
+ident(
+  def solver "QE.ml" 101 3241 3247 "QE.ml" 104 3305 3317
+)
+"QE.ml" 95 3119 3127 "QE.ml" 95 3119 3144
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> Solver.t
+)
+ident(
+  ext_ref Solver.new_solver
+)
+"QE.ml" 96 3146 3177 "QE.ml" 96 3146 3181
+type(
+  bool
+)
+"QE.ml" 97 3182 3192 "QE.ml" 97 3182 3198
+type(
+  SMTExpr.logic
+)
+"QE.ml" 95 3119 3127 "QE.ml" 97 3182 3198
+call(
+  stack
+)
+type(
+  Solver.t
+)
+"QE.ml" 101 3241 3247 "QE.ml" 101 3241 3259
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_check "QE.ml" 44 1969 1973 "QE.ml" 44 1969 1985
+)
+"QE.ml" 101 3241 3268 "QE.ml" 101 3241 3274
+type(
+  Solver.t
+)
+ident(
+  int_ref solver "QE.ml" 94 3095 3105 "QE.ml" 94 3095 3111
+)
+"QE.ml" 101 3241 3263 "QE.ml" 101 3241 3274
+type(
+  Solver.t option
+)
+"QE.ml" 101 3241 3247 "QE.ml" 101 3241 3274
+type(
+  unit
+)
+type(
+  Solver.t option ref -> Solver.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"QE.ml" 104 3305 3311 "QE.ml" 104 3305 3317
+type(
+  Solver.t
+)
+ident(
+  int_ref solver "QE.ml" 94 3095 3105 "QE.ml" 94 3095 3111
+)
+"QE.ml" 101 3241 3247 "QE.ml" 104 3305 3317
+type(
+  Solver.t
+)
+"QE.ml" 94 3095 3101 "QE.ml" 104 3305 3317
+type(
+  Solver.t
+)
+"QE.ml" 107 3354 3365 "QE.ml" 107 3354 3366
+type(
+  Solver.t
+)
+ident(
+  def s "QE.ml" 107 3354 3370 "QE.ml" 107 3354 3371
+)
+"QE.ml" 107 3354 3360 "QE.ml" 107 3354 3366
+type(
+  Solver.t option
+)
+"QE.ml" 107 3354 3370 "QE.ml" 107 3354 3371
+type(
+  Solver.t
+)
+ident(
+  int_ref s "QE.ml" 107 3354 3365 "QE.ml" 107 3354 3366
+)
+"QE.ml" 88 2975 2977 "QE.ml" 107 3354 3371
+type(
+  Solver.t
+)
+"QE.ml" 85 2895 2928 "QE.ml" 107 3354 3371
+type(
+  unit -> Solver.t
+)
+"QE.ml" 111 3413 3417 "QE.ml" 111 3413 3424
+type(
+  unit -> unit
+)
+ident(
+  def on_exit "QE.ml" 142 4101 4101 "_none_" 1 0 -1
+)
+"QE.ml" 111 3413 3425 "QE.ml" 111 3413 3427
+type(
+  unit
+)
+"QE.ml" 115 3482 3494 "QE.ml" 115 3482 3503
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_qe "QE.ml" 41 1901 1905 "QE.ml" 41 1901 1914
+)
+"QE.ml" 115 3482 3493 "QE.ml" 115 3482 3503
+type(
+  Solver.t option
+)
+type(
+  Solver.t option ref -> Solver.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"QE.ml" 116 3510 3524 "QE.ml" 116 3510 3525
+type(
+  Solver.t
+)
+ident(
+  def s "QE.ml" 117 3530 3539 "QE.ml" 118 3564 3590
+)
+"QE.ml" 116 3510 3519 "QE.ml" 116 3510 3525
+type(
+  Solver.t option
+)
+"QE.ml" 117 3530 3539 "QE.ml" 117 3530 3559
+type(
+  Solver.t -> unit
+)
+ident(
+  ext_ref Solver.delete_solver
+)
+"QE.ml" 117 3530 3560 "QE.ml" 117 3530 3561
+type(
+  Solver.t
+)
+ident(
+  int_ref s "QE.ml" 116 3510 3524 "QE.ml" 116 3510 3525
+)
+"QE.ml" 117 3530 3539 "QE.ml" 117 3530 3561
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 118 3564 3573 "QE.ml" 118 3564 3582
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_qe "QE.ml" 41 1901 1905 "QE.ml" 41 1901 1914
+)
+"QE.ml" 118 3564 3586 "QE.ml" 118 3564 3590
+type(
+  Solver.t option
+)
+"QE.ml" 118 3564 3573 "QE.ml" 118 3564 3590
+type(
+  unit
+)
+type(
+  Solver.t option ref -> Solver.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"QE.ml" 117 3530 3539 "QE.ml" 118 3564 3590
+type(
+  unit
+)
+"QE.ml" 119 3591 3600 "QE.ml" 119 3591 3604
+type(
+  Solver.t option
+)
+"QE.ml" 119 3591 3608 "QE.ml" 119 3591 3610
+type(
+  unit
+)
+"QE.ml" 115 3482 3487 "QE.ml" 119 3591 3610
+type(
+  unit
+)
+"QE.ml" 121 3620 3627 "QE.ml" 121 3620 3628
+type(
+  exn
+)
+ident(
+  def e "QE.ml" 122 3633 3640 "QE.ml" 124 3711 3742
+)
+"QE.ml" 122 3633 3640 "QE.ml" 122 3633 3649
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"QE.ml" 122 3633 3650 "QE.ml" 122 3633 3654
+type(
+  Lib.kind_module
+)
+"QE.ml" 122 3633 3655 "QE.ml" 122 3633 3668
+type(
+  Event.log_level
+)
+"QE.ml" 123 3670 3679 "QE.ml" 123 3670 3709
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"QE.ml" 124 3711 3721 "QE.ml" 124 3711 3739
+type(
+  exn -> string
+)
+ident(
+  ext_ref Printexc.to_string
+)
+"QE.ml" 124 3711 3740 "QE.ml" 124 3711 3741
+type(
+  exn
+)
+ident(
+  int_ref e "QE.ml" 121 3620 3627 "QE.ml" 121 3620 3628
+)
+"QE.ml" 124 3711 3721 "QE.ml" 124 3711 3741
+call(
+  stack
+)
+type(
+  string
+)
+"QE.ml" 122 3633 3640 "QE.ml" 124 3711 3742
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 114 3474 3477 "QE.ml" 124 3711 3742
+type(
+  unit
+)
+"QE.ml" 129 3797 3809 "QE.ml" 129 3797 3821
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_check "QE.ml" 44 1969 1973 "QE.ml" 44 1969 1985
+)
+"QE.ml" 129 3797 3808 "QE.ml" 129 3797 3821
+type(
+  Solver.t option
+)
+type(
+  Solver.t option ref -> Solver.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"QE.ml" 130 3828 3842 "QE.ml" 130 3828 3843
+type(
+  Solver.t
+)
+ident(
+  def s "QE.ml" 131 3848 3857 "QE.ml" 132 3882 3911
+)
+"QE.ml" 130 3828 3837 "QE.ml" 130 3828 3843
+type(
+  Solver.t option
+)
+"QE.ml" 131 3848 3857 "QE.ml" 131 3848 3877
+type(
+  Solver.t -> unit
+)
+ident(
+  ext_ref Solver.delete_solver
+)
+"QE.ml" 131 3848 3878 "QE.ml" 131 3848 3879
+type(
+  Solver.t
+)
+ident(
+  int_ref s "QE.ml" 130 3828 3842 "QE.ml" 130 3828 3843
+)
+"QE.ml" 131 3848 3857 "QE.ml" 131 3848 3879
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 132 3882 3891 "QE.ml" 132 3882 3903
+type(
+  Solver.t option ref
+)
+ident(
+  int_ref solver_check "QE.ml" 44 1969 1973 "QE.ml" 44 1969 1985
+)
+"QE.ml" 132 3882 3907 "QE.ml" 132 3882 3911
+type(
+  Solver.t option
+)
+"QE.ml" 132 3882 3891 "QE.ml" 132 3882 3911
+type(
+  unit
+)
+type(
+  Solver.t option ref -> Solver.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"QE.ml" 131 3848 3857 "QE.ml" 132 3882 3911
+type(
+  unit
+)
+"QE.ml" 133 3912 3921 "QE.ml" 133 3912 3925
+type(
+  Solver.t option
+)
+"QE.ml" 133 3912 3929 "QE.ml" 133 3912 3931
+type(
+  unit
+)
+"QE.ml" 129 3797 3802 "QE.ml" 133 3912 3931
+type(
+  unit
+)
+"QE.ml" 135 3941 3948 "QE.ml" 135 3941 3949
+type(
+  exn
+)
+ident(
+  def e "QE.ml" 136 3954 3961 "QE.ml" 138 4034 4065
+)
+"QE.ml" 136 3954 3961 "QE.ml" 136 3954 3970
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"QE.ml" 136 3954 3971 "QE.ml" 136 3954 3975
+type(
+  Lib.kind_module
+)
+"QE.ml" 136 3954 3976 "QE.ml" 136 3954 3989
+type(
+  Event.log_level
+)
+"QE.ml" 137 3990 3999 "QE.ml" 137 3990 4032
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"QE.ml" 138 4034 4044 "QE.ml" 138 4034 4062
+type(
+  exn -> string
+)
+ident(
+  ext_ref Printexc.to_string
+)
+"QE.ml" 138 4034 4063 "QE.ml" 138 4034 4064
+type(
+  exn
+)
+ident(
+  int_ref e "QE.ml" 135 3941 3948 "QE.ml" 135 3941 3949
+)
+"QE.ml" 138 4034 4044 "QE.ml" 138 4034 4064
+call(
+  stack
+)
+type(
+  string
+)
+"QE.ml" 136 3954 3961 "QE.ml" 138 4034 4065
+call(
+  tail
+)
+type(
+  unit
+)
+"QE.ml" 128 3789 3792 "QE.ml" 138 4034 4065
+type(
+  unit
+)
+"QE.ml" 114 3474 3477 "QE.ml" 138 4034 4065
+type(
+  unit
+)
+"QE.ml" 111 3413 3425 "QE.ml" 138 4034 4066
+type(
+  unit -> unit
+)
+"QE.ml" 142 4101 4105 "QE.ml" 142 4101 4111
+type(
+  HString.t
+)
+ident(
+  def s_goal "QE.ml" 143 4144 4144 "_none_" 1 0 -1
+)
+"QE.ml" 142 4101 4114 "QE.ml" 142 4101 4132
+type(
+  string -> HString.t
+)
+ident(
+  ext_ref HString.mk_hstring
+)
+"QE.ml" 142 4101 4133 "QE.ml" 142 4101 4139
+type(
+  string
+)
+"QE.ml" 142 4101 4114 "QE.ml" 142 4101 4139
+call(
+  stack
+)
+type(
+  HString.t
+)
+"QE.ml" 143 4144 4148 "QE.ml" 143 4144 4155
+type(
+  HString.t
+)
+ident(
+  def s_goals "QE.ml" 145 4190 4190 "_none_" 1 0 -1
+)
+"QE.ml" 143 4144 4158 "QE.ml" 143 4144 4176
+type(
+  string -> HString.t
+)
+ident(
+  ext_ref HString.mk_hstring
+)
+"QE.ml" 143 4144 4177 "QE.ml" 143 4144 4184
+type(
+  string
+)
+"QE.ml" 143 4144 4158 "QE.ml" 143 4144 4184
+call(
+  stack
+)
+type(
+  HString.t
+)
+"QE.ml" 145 4190 4198 "QE.ml" 145 4190 4210
+type(
+  SMTExpr.t list -> HStringSExpr.t list -> SMTExpr.t list
+)
+ident(
+  def conj_of_goal "QE.ml" 145 4190 4190 "_none_" 1 0 -1
+)
+"QE.ml" 145 4190 4211 "QE.ml" 145 4190 4216
+type(
+  SMTExpr.t list
+)
+ident(
+  def accum "QE.ml" 145 4190 4219 "QE.ml" 159 4641 4650
+)
+"QE.ml" 148 4266 4270 "QE.ml" 148 4266 4272
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 148 4266 4276 "QE.ml" 148 4266 4284
+type(
+  SMTExpr.t list -> SMTExpr.t list
+)
+ident(
+  ext_ref List.rev
+)
+"QE.ml" 148 4266 4285 "QE.ml" 148 4266 4290
+type(
+  SMTExpr.t list
+)
+ident(
+  int_ref accum "QE.ml" 145 4190 4211 "QE.ml" 145 4190 4216
+)
+"QE.ml" 148 4266 4276 "QE.ml" 148 4266 4290
+call(
+  tail
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 151 4364 4386 "QE.ml" 151 4364 4387
+type(
+  HStringSExpr.atom
+)
+ident(
+  def a "QE.ml" 152 4395 4406 "QE.ml" 152 4395 4429
+)
+"QE.ml" 151 4364 4368 "QE.ml" 151 4364 4387
+type(
+  HStringSExpr.t
+)
+"QE.ml" 151 4364 4391 "QE.ml" 151 4364 4393
+type(
+  HStringSExpr.t list
+)
+ident(
+  def tl "QE.ml" 152 4395 4406 "QE.ml" 152 4395 4429
+)
+"QE.ml" 151 4364 4368 "QE.ml" 151 4364 4393
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 152 4395 4406 "QE.ml" 152 4395 4417
+type(
+  HStringSExpr.atom -> int -> int -> string
+)
+ident(
+  ext_ref HString.sub
+)
+"QE.ml" 152 4395 4418 "QE.ml" 152 4395 4419
+type(
+  HStringSExpr.atom
+)
+ident(
+  int_ref a "QE.ml" 151 4364 4386 "QE.ml" 151 4364 4387
+)
+"QE.ml" 152 4395 4420 "QE.ml" 152 4395 4421
+type(
+  int
+)
+"QE.ml" 152 4395 4422 "QE.ml" 152 4395 4423
+type(
+  int
+)
+"QE.ml" 152 4395 4406 "QE.ml" 152 4395 4423
+call(
+  stack
+)
+type(
+  string
+)
+"QE.ml" 152 4395 4424 "QE.ml" 152 4395 4425
+type(
+  string -> string -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"QE.ml" 152 4395 4426 "QE.ml" 152 4395 4429
+type(
+  string
+)
+"QE.ml" 152 4395 4406 "QE.ml" 152 4395 4429
+type(
+  SMTExpr.t list
+)
+type(
+  bool
+)
+"QE.ml" 152 4395 4433 "QE.ml" 152 4395 4441
+type(
+  SMTExpr.t list -> SMTExpr.t list
+)
+ident(
+  ext_ref List.rev
+)
+"QE.ml" 152 4395 4442 "QE.ml" 152 4395 4447
+type(
+  SMTExpr.t list
+)
+ident(
+  int_ref accum "QE.ml" 145 4190 4211 "QE.ml" 145 4190 4216
+)
+"QE.ml" 152 4395 4433 "QE.ml" 152 4395 4447
+call(
+  tail
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 155 4530 4534 "QE.ml" 155 4530 4535
+type(
+  HStringSExpr.t
+)
+ident(
+  def t "QE.ml" 157 4547 4552 "QE.ml" 159 4641 4650
+)
+"QE.ml" 155 4530 4539 "QE.ml" 155 4530 4541
+type(
+  HStringSExpr.t list
+)
+ident(
+  def tl "QE.ml" 157 4547 4552 "QE.ml" 159 4641 4650
+)
+"QE.ml" 155 4530 4534 "QE.ml" 155 4530 4541
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 157 4547 4552 "QE.ml" 157 4547 4564
+type(
+  SMTExpr.t list -> HStringSExpr.t list -> SMTExpr.t list
+)
+ident(
+  int_ref conj_of_goal "QE.ml" 145 4190 4198 "QE.ml" 145 4190 4210
+)
+"QE.ml" 158 4566 4574 "QE.ml" 158 4566 4597
+type(
+  SMTExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.term_of_smtexpr
+)
+"QE.ml" 158 4566 4599 "QE.ml" 158 4566 4627
+type(
+  HStringSExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.expr_of_string_sexpr
+)
+"QE.ml" 158 4566 4628 "QE.ml" 158 4566 4629
+type(
+  HStringSExpr.t
+)
+ident(
+  int_ref t "QE.ml" 155 4530 4534 "QE.ml" 155 4530 4535
+)
+"QE.ml" 158 4566 4599 "QE.ml" 158 4566 4629
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 158 4566 4574 "QE.ml" 158 4566 4630
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 158 4566 4634 "QE.ml" 158 4566 4639
+type(
+  SMTExpr.t list
+)
+ident(
+  int_ref accum "QE.ml" 145 4190 4211 "QE.ml" 145 4190 4216
+)
+"QE.ml" 158 4566 4574 "QE.ml" 158 4566 4639
+type(
+  SMTExpr.t list
+)
+"QE.ml" 159 4641 4648 "QE.ml" 159 4641 4650
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref tl "QE.ml" 155 4530 4539 "QE.ml" 155 4530 4541
+)
+"QE.ml" 157 4547 4552 "QE.ml" 159 4641 4650
+call(
+  tail
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 145 4190 4219 "QE.ml" 159 4641 4650
+type(
+  HStringSExpr.t list -> SMTExpr.t list
+)
+"QE.ml" 145 4190 4211 "QE.ml" 159 4641 4650
+type(
+  SMTExpr.t list -> HStringSExpr.t list -> SMTExpr.t list
+)
+"QE.ml" 167 4742 4746 "QE.ml" 167 4742 4758
+type(
+  HStringSExpr.t -> SMTExpr.t list
+)
+ident(
+  def goal_to_term "QE.ml" 195 5365 5365 "_none_" 1 0 -1
+)
+"QE.ml" 169 4772 4813 "QE.ml" 169 4772 4814
+type(
+  HStringSExpr.atom
+)
+ident(
+  def s "QE.ml" 169 4772 4826 "QE.ml" 169 4772 4837
+)
+"QE.ml" 169 4772 4795 "QE.ml" 169 4772 4814
+type(
+  HStringSExpr.t
+)
+"QE.ml" 169 4772 4818 "QE.ml" 169 4772 4819
+type(
+  HStringSExpr.t list
+)
+ident(
+  def c "QE.ml" 169 4772 4826 "QE.ml" 169 4772 4837
+)
+"QE.ml" 169 4772 4795 "QE.ml" 169 4772 4819
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 169 4772 4776 "QE.ml" 169 4772 4820
+type(
+  HStringSExpr.t
+)
+"QE.ml" 169 4772 4826 "QE.ml" 169 4772 4827
+type(
+  HStringSExpr.atom
+)
+ident(
+  int_ref s "QE.ml" 169 4772 4813 "QE.ml" 169 4772 4814
+)
+"QE.ml" 169 4772 4828 "QE.ml" 169 4772 4830
+type(
+  HStringSExpr.atom -> HStringSExpr.atom -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"QE.ml" 169 4772 4831 "QE.ml" 169 4772 4837
+type(
+  HStringSExpr.atom
+)
+ident(
+  int_ref s_goal "QE.ml" 142 4101 4105 "QE.ml" 142 4101 4111
+)
+"QE.ml" 169 4772 4826 "QE.ml" 169 4772 4837
+type(
+  SMTExpr.t list
+)
+type(
+  bool
+)
+"QE.ml" 171 4843 4847 "QE.ml" 171 4843 4859
+type(
+  SMTExpr.t list -> HStringSExpr.t list -> SMTExpr.t list
+)
+ident(
+  int_ref conj_of_goal "QE.ml" 145 4190 4198 "QE.ml" 145 4190 4210
+)
+"QE.ml" 171 4843 4860 "QE.ml" 171 4843 4862
+type(
+  SMTExpr.t list
+)
+"QE.ml" 171 4843 4863 "QE.ml" 171 4843 4864
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref c "QE.ml" 169 4772 4818 "QE.ml" 169 4772 4819
+)
+"QE.ml" 171 4843 4847 "QE.ml" 171 4843 4864
+call(
+  tail
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 183 5156 5160 "QE.ml" 183 5156 5161
+type(
+  HStringSExpr.t
+)
+ident(
+  def e "QE.ml" 185 5167 5171 "QE.ml" 187 5194 5254
+)
+"QE.ml" 185 5167 5171 "QE.ml" 185 5167 5176
+type(
+  exn -> SMTExpr.t list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"QE.ml" 187 5194 5204 "QE.ml" 187 5194 5252
+type(
+  string
+)
+"QE.ml" 186 5178 5185 "QE.ml" 187 5194 5253
+type(
+  exn
+)
+"QE.ml" 185 5167 5171 "QE.ml" 187 5194 5254
+type(
+  SMTExpr.t list
+)
+"QE.ml" 167 4742 4761 "QE.ml" 187 5194 5254
+type(
+  HStringSExpr.t -> SMTExpr.t list
+)
+"QE.ml" 195 5365 5369 "QE.ml" 195 5365 5383
+type(
+  HStringSExpr.t -> SMTExpr.t list
+)
+ident(
+  def goals_to_terms "QE.ml" 210 5795 5795 "_none_" 1 0 -1
+)
+"QE.ml" 199 5479 5504 "QE.ml" 199 5479 5505
+type(
+  HStringSExpr.atom
+)
+ident(
+  def s "QE.ml" 199 5479 5533 "QE.ml" 199 5479 5545
+)
+"QE.ml" 199 5479 5486 "QE.ml" 199 5479 5505
+type(
+  HStringSExpr.t
+)
+"QE.ml" 199 5479 5525 "QE.ml" 199 5479 5526
+type(
+  HStringSExpr.t list
+)
+ident(
+  def g "QE.ml" 199 5479 5533 "QE.ml" 199 5479 5545
+)
+"QE.ml" 199 5479 5507 "QE.ml" 199 5479 5526
+type(
+  HStringSExpr.t list
+)
+type(
+  HStringSExpr.t
+)
+"QE.ml" 199 5479 5486 "QE.ml" 199 5479 5526
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 199 5479 5485 "QE.ml" 199 5479 5527
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 198 5456 5460 "QE.ml" 199 5479 5527
+type(
+  HStringSExpr.t
+)
+"QE.ml" 199 5479 5533 "QE.ml" 199 5479 5534
+type(
+  HStringSExpr.atom
+)
+ident(
+  int_ref s "QE.ml" 199 5479 5504 "QE.ml" 199 5479 5505
+)
+"QE.ml" 199 5479 5535 "QE.ml" 199 5479 5537
+type(
+  HStringSExpr.atom -> HStringSExpr.atom -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"QE.ml" 199 5479 5538 "QE.ml" 199 5479 5545
+type(
+  HStringSExpr.atom
+)
+ident(
+  int_ref s_goals "QE.ml" 143 4144 4148 "QE.ml" 143 4144 4155
+)
+"QE.ml" 199 5479 5533 "QE.ml" 199 5479 5545
+type(
+  SMTExpr.t list
+)
+type(
+  bool
+)
+"QE.ml" 201 5555 5559 "QE.ml" 201 5555 5571
+type(
+  HStringSExpr.t -> SMTExpr.t list
+)
+ident(
+  int_ref goal_to_term "QE.ml" 167 4742 4746 "QE.ml" 167 4742 4758
+)
+"QE.ml" 201 5555 5591 "QE.ml" 201 5555 5592
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref g "QE.ml" 199 5479 5525 "QE.ml" 199 5479 5526
+)
+"QE.ml" 201 5555 5573 "QE.ml" 201 5555 5592
+type(
+  HStringSExpr.t
+)
+"QE.ml" 201 5555 5559 "QE.ml" 201 5555 5593
+call(
+  tail
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 204 5640 5644 "QE.ml" 204 5640 5645
+type(
+  HStringSExpr.t
+)
+"QE.ml" 205 5650 5654 "QE.ml" 205 5650 5659
+type(
+  exn -> SMTExpr.t list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"QE.ml" 207 5677 5687 "QE.ml" 207 5677 5736
+type(
+  string
+)
+"QE.ml" 206 5661 5668 "QE.ml" 207 5677 5737
+type(
+  exn
+)
+"QE.ml" 205 5650 5654 "QE.ml" 207 5677 5738
+type(
+  SMTExpr.t list
+)
+"QE.ml" 195 5365 5386 "QE.ml" 207 5677 5738
+type(
+  HStringSExpr.t -> SMTExpr.t list
+)
+"QE.ml" 210 5795 5799 "QE.ml" 210 5795 5815
+type(
+  (Var.t * Term.t) list -> Term.t
+)
+ident(
+  def formula_of_model "QE.ml" 217 5958 5958 "_none_" 1 0 -1
+)
+"QE.ml" 210 5795 5816 "QE.ml" 210 5795 5821
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "QE.ml" 213 5867 5869 "QE.ml" 214 5882 5953
+)
+"QE.ml" 213 5867 5869 "QE.ml" 213 5867 5880
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"QE.ml" 214 5882 5887 "QE.ml" 214 5882 5895
+type(
+  (Var.t * Term.t -> Term.t) -> (Var.t * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"QE.ml" 214 5882 5907 "QE.ml" 214 5882 5908
+type(
+  Var.t
+)
+ident(
+  def v "QE.ml" 214 5882 5916 "QE.ml" 214 5882 5945
+)
+"QE.ml" 214 5882 5910 "QE.ml" 214 5882 5911
+type(
+  Term.t
+)
+ident(
+  def e "QE.ml" 214 5882 5916 "QE.ml" 214 5882 5945
+)
+"QE.ml" 214 5882 5907 "QE.ml" 214 5882 5911
+type(
+  Var.t * Term.t
+)
+"QE.ml" 214 5882 5916 "QE.ml" 214 5882 5926
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_eq
+)
+"QE.ml" 214 5882 5928 "QE.ml" 214 5882 5939
+type(
+  Var.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_var
+)
+"QE.ml" 214 5882 5940 "QE.ml" 214 5882 5941
+type(
+  Var.t
+)
+ident(
+  int_ref v "QE.ml" 214 5882 5907 "QE.ml" 214 5882 5908
+)
+"QE.ml" 214 5882 5928 "QE.ml" 214 5882 5941
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 214 5882 5943 "QE.ml" 214 5882 5944
+type(
+  Term.t
+)
+ident(
+  int_ref e "QE.ml" 214 5882 5910 "QE.ml" 214 5882 5911
+)
+type(
+  Term.t list
+)
+"QE.ml" 214 5882 5928 "QE.ml" 214 5882 5944
+type(
+  Term.t list
+)
+"QE.ml" 214 5882 5927 "QE.ml" 214 5882 5945
+type(
+  Term.t list
+)
+"QE.ml" 214 5882 5916 "QE.ml" 214 5882 5945
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 214 5882 5897 "QE.ml" 214 5882 5945
+type(
+  Var.t * Term.t -> Term.t
+)
+"QE.ml" 214 5882 5947 "QE.ml" 214 5882 5952
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "QE.ml" 210 5795 5816 "QE.ml" 210 5795 5821
+)
+"QE.ml" 214 5882 5887 "QE.ml" 214 5882 5952
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 213 5867 5869 "QE.ml" 214 5882 5953
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 210 5795 5816 "QE.ml" 214 5882 5953
+type(
+  (Var.t * Term.t) list -> Term.t
+)
+"QE.ml" 217 5958 5962 "QE.ml" 217 5958 5978
+type(
+  int * Term.t option -> Term.t
+)
+ident(
+  def term_of_psummand "QE.ml" 221 6089 6089 "_none_" 1 0 -1
+)
+"QE.ml" 218 5991 5996 "QE.ml" 218 5991 5997
+type(
+  int
+)
+ident(
+  def c "QE.ml" 218 5991 6010 "QE.ml" 218 5991 6049
+)
+"QE.ml" 218 5991 6004 "QE.ml" 218 5991 6005
+type(
+  Term.t
+)
+ident(
+  def v "QE.ml" 218 5991 6010 "QE.ml" 218 5991 6049
+)
+"QE.ml" 218 5991 5999 "QE.ml" 218 5991 6005
+type(
+  Term.t option
+)
+"QE.ml" 218 5991 5996 "QE.ml" 218 5991 6005
+type(
+  int * Term.t option
+)
+"QE.ml" 218 5991 6010 "QE.ml" 218 5991 6023
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_times
+)
+"QE.ml" 218 5991 6025 "QE.ml" 218 5991 6043
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"QE.ml" 218 5991 6044 "QE.ml" 218 5991 6045
+type(
+  int
+)
+ident(
+  int_ref c "QE.ml" 218 5991 5996 "QE.ml" 218 5991 5997
+)
+"QE.ml" 218 5991 6025 "QE.ml" 218 5991 6045
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 218 5991 6047 "QE.ml" 218 5991 6048
+type(
+  Term.t
+)
+ident(
+  int_ref v "QE.ml" 218 5991 6004 "QE.ml" 218 5991 6005
+)
+type(
+  Term.t list
+)
+"QE.ml" 218 5991 6025 "QE.ml" 218 5991 6048
+type(
+  Term.t list
+)
+"QE.ml" 218 5991 6024 "QE.ml" 218 5991 6049
+type(
+  Term.t list
+)
+"QE.ml" 218 5991 6010 "QE.ml" 218 5991 6049
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 219 6050 6055 "QE.ml" 219 6050 6056
+type(
+  int
+)
+ident(
+  def c "QE.ml" 219 6050 6067 "QE.ml" 219 6050 6087
+)
+"QE.ml" 219 6050 6058 "QE.ml" 219 6050 6062
+type(
+  Term.t option
+)
+"QE.ml" 219 6050 6055 "QE.ml" 219 6050 6062
+type(
+  int * Term.t option
+)
+"QE.ml" 219 6050 6067 "QE.ml" 219 6050 6085
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"QE.ml" 219 6050 6086 "QE.ml" 219 6050 6087
+type(
+  int
+)
+ident(
+  int_ref c "QE.ml" 219 6050 6055 "QE.ml" 219 6050 6056
+)
+"QE.ml" 219 6050 6067 "QE.ml" 219 6050 6087
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 217 5958 5981 "QE.ml" 219 6050 6087
+type(
+  int * Term.t option -> Term.t
+)
+"QE.ml" 221 6089 6093 "QE.ml" 221 6089 6106
+type(
+  (int * Term.t option) list -> Term.t
+)
+ident(
+  def term_of_pterm "QE.ml" 233 6352 6352 "_none_" 1 0 -1
+)
+"QE.ml" 222 6119 6123 "QE.ml" 222 6119 6125
+type(
+  (int * Term.t option) list
+)
+"QE.ml" 222 6119 6129 "QE.ml" 222 6119 6142
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_false
+)
+"QE.ml" 222 6119 6143 "QE.ml" 222 6119 6145
+type(
+  unit
+)
+"QE.ml" 222 6119 6129 "QE.ml" 222 6119 6145
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 223 6146 6150 "QE.ml" 223 6146 6151
+type(
+  (int * Term.t option) list
+)
+ident(
+  def l "QE.ml" 224 6156 6160 "QE.ml" 231 6309 6350
+)
+"QE.ml" 224 6156 6164 "QE.ml" 224 6156 6166
+type(
+  Term.t
+)
+ident(
+  def l' "QE.ml" 231 6309 6313 "QE.ml" 231 6309 6350
+)
+"QE.ml" 225 6169 6181 "QE.ml" 225 6169 6189
+type(
+  (int * Term.t option -> Term.t) ->
+  (int * Term.t option) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"QE.ml" 225 6169 6190 "QE.ml" 225 6169 6206
+type(
+  int * Term.t option -> Term.t
+)
+ident(
+  int_ref term_of_psummand "QE.ml" 217 5958 5962 "QE.ml" 217 5958 5978
+)
+"QE.ml" 225 6169 6207 "QE.ml" 225 6169 6208
+type(
+  (int * Term.t option) list
+)
+ident(
+  int_ref l "QE.ml" 223 6146 6150 "QE.ml" 223 6146 6151
+)
+"QE.ml" 225 6169 6181 "QE.ml" 225 6169 6208
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 226 6214 6224 "QE.ml" 226 6214 6226
+type(
+  Term.t list
+)
+"QE.ml" 226 6214 6230 "QE.ml" 226 6214 6248
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"QE.ml" 226 6214 6249 "QE.ml" 226 6214 6250
+type(
+  int
+)
+"QE.ml" 226 6214 6230 "QE.ml" 226 6214 6250
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 227 6252 6263 "QE.ml" 227 6252 6264
+type(
+  Term.t list
+)
+type(
+  Term.t
+)
+ident(
+  def t "QE.ml" 227 6252 6269 "QE.ml" 227 6252 6270
+)
+"QE.ml" 227 6252 6262 "QE.ml" 227 6252 6265
+type(
+  Term.t list
+)
+"QE.ml" 227 6252 6269 "QE.ml" 227 6252 6270
+type(
+  Term.t
+)
+ident(
+  int_ref t "QE.ml" 227 6252 6263 "QE.ml" 227 6252 6264
+)
+"QE.ml" 228 6271 6281 "QE.ml" 228 6271 6282
+type(
+  Term.t list
+)
+ident(
+  def l "QE.ml" 228 6271 6286 "QE.ml" 228 6271 6300
+)
+"QE.ml" 228 6271 6286 "QE.ml" 228 6271 6298
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_plus
+)
+"QE.ml" 228 6271 6299 "QE.ml" 228 6271 6300
+type(
+  Term.t list
+)
+ident(
+  int_ref l "QE.ml" 228 6271 6281 "QE.ml" 228 6271 6282
+)
+"QE.ml" 228 6271 6286 "QE.ml" 228 6271 6300
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 225 6169 6175 "QE.ml" 228 6271 6300
+type(
+  Term.t
+)
+"QE.ml" 231 6309 6313 "QE.ml" 231 6309 6323
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_gt
+)
+"QE.ml" 231 6309 6325 "QE.ml" 231 6309 6327
+type(
+  Term.t
+)
+ident(
+  int_ref l' "QE.ml" 224 6156 6164 "QE.ml" 224 6156 6166
+)
+"QE.ml" 231 6309 6329 "QE.ml" 231 6309 6347
+type(
+  int -> Term.t
+)
+ident(
+  ext_ref Term.mk_num_of_int
+)
+"QE.ml" 231 6309 6348 "QE.ml" 231 6309 6349
+type(
+  int
+)
+"QE.ml" 231 6309 6329 "QE.ml" 231 6309 6349
+call(
+  stack
+)
+type(
+  Term.t
+)
+type(
+  Term.t list
+)
+"QE.ml" 231 6309 6325 "QE.ml" 231 6309 6349
+type(
+  Term.t list
+)
+"QE.ml" 231 6309 6324 "QE.ml" 231 6309 6350
+type(
+  Term.t list
+)
+"QE.ml" 231 6309 6313 "QE.ml" 231 6309 6350
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 224 6156 6160 "QE.ml" 231 6309 6350
+type(
+  Term.t
+)
+"QE.ml" 221 6089 6109 "QE.ml" 231 6309 6350
+type(
+  (int * Term.t option) list -> Term.t
+)
+"QE.ml" 233 6352 6356 "QE.ml" 233 6352 6372
+type(
+  (int * Term.t option) list list -> Term.t
+)
+ident(
+  def term_of_pformula "QE.ml" 239 6488 6488 "_none_" 1 0 -1
+)
+"QE.ml" 234 6385 6389 "QE.ml" 234 6385 6391
+type(
+  (int * Term.t option) list list
+)
+"QE.ml" 234 6385 6395 "QE.ml" 234 6385 6407
+type(
+  unit -> Term.t
+)
+ident(
+  ext_ref Term.mk_true
+)
+"QE.ml" 234 6385 6408 "QE.ml" 234 6385 6410
+type(
+  unit
+)
+"QE.ml" 234 6385 6395 "QE.ml" 234 6385 6410
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 235 6411 6416 "QE.ml" 235 6411 6417
+type(
+  (int * Term.t option) list list
+)
+type(
+  (int * Term.t option) list
+)
+ident(
+  def t "QE.ml" 235 6411 6422 "QE.ml" 235 6411 6437
+)
+"QE.ml" 235 6411 6415 "QE.ml" 235 6411 6418
+type(
+  (int * Term.t option) list list
+)
+"QE.ml" 235 6411 6422 "QE.ml" 235 6411 6435
+type(
+  (int * Term.t option) list -> Term.t
+)
+ident(
+  int_ref term_of_pterm "QE.ml" 221 6089 6093 "QE.ml" 221 6089 6106
+)
+"QE.ml" 235 6411 6436 "QE.ml" 235 6411 6437
+type(
+  (int * Term.t option) list
+)
+ident(
+  int_ref t "QE.ml" 235 6411 6416 "QE.ml" 235 6411 6417
+)
+"QE.ml" 235 6411 6422 "QE.ml" 235 6411 6437
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 236 6438 6442 "QE.ml" 236 6438 6443
+type(
+  (int * Term.t option) list list
+)
+ident(
+  def l "QE.ml" 236 6438 6447 "QE.ml" 236 6438 6485
+)
+"QE.ml" 236 6438 6447 "QE.ml" 236 6438 6458
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"QE.ml" 236 6438 6460 "QE.ml" 236 6438 6468
+type(
+  ((int * Term.t option) list -> Term.t) ->
+  (int * Term.t option) list list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"QE.ml" 236 6438 6469 "QE.ml" 236 6438 6482
+type(
+  (int * Term.t option) list -> Term.t
+)
+ident(
+  int_ref term_of_pterm "QE.ml" 221 6089 6093 "QE.ml" 221 6089 6106
+)
+"QE.ml" 236 6438 6483 "QE.ml" 236 6438 6484
+type(
+  (int * Term.t option) list list
+)
+ident(
+  int_ref l "QE.ml" 236 6438 6442 "QE.ml" 236 6438 6443
+)
+"QE.ml" 236 6438 6460 "QE.ml" 236 6438 6484
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 236 6438 6447 "QE.ml" 236 6438 6485
+call(
+  tail
+)
+type(
+  Term.t
+)
+"QE.ml" 233 6352 6375 "QE.ml" 236 6438 6485
+type(
+  (int * Term.t option) list list -> Term.t
+)
+"QE.ml" 239 6488 6492 "QE.ml" 239 6488 6509
+type(
+  string -> string -> SMTExpr.t -> Term.t -> unit
+)
+ident(
+  def check_implication "QE.ml" 283 7812 7812 "_none_" 1 0 -1
+)
+"QE.ml" 239 6488 6510 "QE.ml" 239 6488 6518
+type(
+  string
+)
+ident(
+  def prem_str "QE.ml" 239 6488 6519 "QE.ml" 278 7634 7659
+)
+"QE.ml" 239 6488 6519 "QE.ml" 239 6488 6527
+type(
+  string
+)
+ident(
+  def conc_str "QE.ml" 239 6488 6528 "QE.ml" 278 7634 7659
+)
+"QE.ml" 239 6488 6528 "QE.ml" 239 6488 6532
+type(
+  SMTExpr.t
+)
+ident(
+  def prem "QE.ml" 239 6488 6533 "QE.ml" 278 7634 7659
+)
+"QE.ml" 239 6488 6533 "QE.ml" 239 6488 6537
+type(
+  Term.t
+)
+ident(
+  def conc "QE.ml" 242 6599 6601 "QE.ml" 278 7634 7659
+)
+"QE.ml" 242 6599 6605 "QE.ml" 242 6599 6617
+type(
+  Solver.t
+)
+ident(
+  def solver_check "QE.ml" 245 6677 6679 "QE.ml" 278 7634 7659
+)
+"QE.ml" 242 6599 6620 "QE.ml" 242 6599 6648
+type(
+  unit -> Solver.t
+)
+ident(
+  int_ref get_checking_solver_instance "QE.ml" 85 2895 2899 "QE.ml" 85 2895 2927
+)
+"QE.ml" 242 6599 6649 "QE.ml" 242 6599 6651
+type(
+  unit
+)
+"QE.ml" 242 6599 6620 "QE.ml" 242 6599 6651
+call(
+  stack
+)
+type(
+  Solver.t
+)
+"QE.ml" 245 6677 6679 "QE.ml" 245 6677 6690
+type(
+  ?n:int -> Solver.t -> unit
+)
+ident(
+  ext_ref Solver.push
+)
+"QE.ml" 245 6677 6691 "QE.ml" 245 6677 6703
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_check "QE.ml" 242 6599 6605 "QE.ml" 242 6599 6617
+)
+"QE.ml" 245 6677 6679 "QE.ml" 245 6677 6703
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 248 6744 6746 "QE.ml" 248 6744 6770
+type(
+  SMTExpr.response -> unit
+)
+ident(
+  ext_ref Solver.fail_on_smt_error
+)
+"QE.ml" 249 6772 6777 "QE.ml" 249 6772 6797
+type(
+  Solver.T.t -> SMTExpr.t -> SMTExpr.response
+)
+ident(
+  ext_ref Solver.T.assert_expr
+)
+"QE.ml" 250 6799 6806 "QE.ml" 250 6799 6818
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_check "QE.ml" 242 6599 6605 "QE.ml" 242 6599 6617
+)
+"QE.ml" 251 6820 6827 "QE.ml" 251 6820 6831
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref prem "QE.ml" 239 6488 6528 "QE.ml" 239 6488 6532
+)
+"QE.ml" 249 6772 6777 "QE.ml" 251 6820 6831
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"QE.ml" 248 6744 6746 "QE.ml" 251 6820 6832
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 254 6873 6875 "QE.ml" 254 6873 6899
+type(
+  SMTExpr.response -> unit
+)
+ident(
+  ext_ref Solver.fail_on_smt_error
+)
+"QE.ml" 255 6901 6906 "QE.ml" 255 6901 6926
+type(
+  Solver.T.t -> SMTExpr.t -> SMTExpr.response
+)
+ident(
+  ext_ref Solver.T.assert_expr
+)
+"QE.ml" 256 6928 6935 "QE.ml" 256 6928 6947
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_check "QE.ml" 242 6599 6605 "QE.ml" 242 6599 6617
+)
+"QE.ml" 257 6949 6957 "QE.ml" 257 6949 6968
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"QE.ml" 257 6949 6969 "QE.ml" 257 6949 6973
+type(
+  Term.t
+)
+ident(
+  int_ref conc "QE.ml" 239 6488 6533 "QE.ml" 239 6488 6537
+)
+"QE.ml" 257 6949 6957 "QE.ml" 257 6949 6973
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 255 6901 6906 "QE.ml" 257 6949 6974
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"QE.ml" 254 6873 6875 "QE.ml" 257 6949 6975
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 260 6988 6994 "QE.ml" 260 6988 7035
+type(
+  string -> Solver.T.t -> SMTExpr.check_sat_response
+)
+ident(
+  ext_ref Solver.T.execute_custom_check_sat_command
+)
+"QE.ml" 261 7037 7045 "QE.ml" 261 7037 7078
+type(
+  string
+)
+"QE.ml" 262 7080 7088 "QE.ml" 262 7080 7100
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_check "QE.ml" 242 6599 6605 "QE.ml" 242 6599 6617
+)
+"QE.ml" 260 6988 6994 "QE.ml" 262 7080 7100
+call(
+  stack
+)
+type(
+  SMTExpr.check_sat_response
+)
+"QE.ml" 264 7110 7117 "QE.ml" 264 7110 7130
+type(
+  SMTExpr.check_sat_response
+)
+"QE.ml" 264 7110 7135 "QE.ml" 264 7110 7181
+type(
+  unit
+)
+"QE.ml" 265 7183 7190 "QE.ml" 265 7183 7201
+type(
+  SMTExpr.check_sat_response
+)
+"QE.ml" 265 7183 7205 "QE.ml" 265 7183 7213
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"QE.ml" 265 7183 7215 "QE.ml" 265 7183 7223
+type(
+  string
+)
+ident(
+  int_ref prem_str "QE.ml" 239 6488 6510 "QE.ml" 239 6488 6518
+)
+"QE.ml" 265 7183 7224 "QE.ml" 265 7183 7225
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"QE.ml" 265 7183 7226 "QE.ml" 265 7183 7244
+type(
+  string
+)
+"QE.ml" 265 7183 7245 "QE.ml" 265 7183 7246
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"QE.ml" 265 7183 7247 "QE.ml" 265 7183 7255
+type(
+  string
+)
+ident(
+  int_ref conc_str "QE.ml" 239 6488 6519 "QE.ml" 239 6488 6527
+)
+"QE.ml" 265 7183 7226 "QE.ml" 265 7183 7255
+call(
+  stack
+)
+type(
+  string
+)
+"QE.ml" 265 7183 7215 "QE.ml" 265 7183 7255
+call(
+  stack
+)
+type(
+  string
+)
+"QE.ml" 265 7183 7205 "QE.ml" 265 7183 7256
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 266 7257 7264 "QE.ml" 266 7257 7265
+type(
+  SMTExpr.check_sat_response
+)
+"QE.ml" 266 7257 7269 "QE.ml" 266 7257 7277
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"QE.ml" 266 7257 7278 "QE.ml" 266 7257 7307
+type(
+  string
+)
+"QE.ml" 266 7257 7269 "QE.ml" 266 7257 7307
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 259 6978 6981 "QE.ml" 266 7257 7307
+type(
+  unit
+)
+"QE.ml" 278 7634 7636 "QE.ml" 278 7634 7646
+type(
+  ?n:int -> Solver.t -> unit
+)
+ident(
+  ext_ref Solver.pop
+)
+"QE.ml" 278 7634 7647 "QE.ml" 278 7634 7659
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_check "QE.ml" 242 6599 6605 "QE.ml" 242 6599 6617
+)
+"QE.ml" 278 7634 7636 "QE.ml" 278 7634 7659
+call(
+  tail
+)
+type(
+  unit
+)
+"QE.ml" 259 6978 6981 "QE.ml" 278 7634 7659
+type(
+  unit
+)
+"QE.ml" 254 6873 6875 "QE.ml" 278 7634 7659
+type(
+  unit
+)
+"QE.ml" 248 6744 6746 "QE.ml" 278 7634 7659
+type(
+  unit
+)
+"QE.ml" 245 6677 6679 "QE.ml" 278 7634 7659
+type(
+  unit
+)
+"QE.ml" 242 6599 6601 "QE.ml" 278 7634 7659
+type(
+  unit
+)
+"QE.ml" 239 6488 6533 "QE.ml" 278 7634 7659
+type(
+  Term.t -> unit
+)
+"QE.ml" 239 6488 6528 "QE.ml" 278 7634 7659
+type(
+  SMTExpr.t -> Term.t -> unit
+)
+"QE.ml" 239 6488 6519 "QE.ml" 278 7634 7659
+type(
+  string -> SMTExpr.t -> Term.t -> unit
+)
+"QE.ml" 239 6488 6510 "QE.ml" 278 7634 7659
+type(
+  string -> string -> SMTExpr.t -> Term.t -> unit
+)
+"QE.ml" 283 7812 7816 "QE.ml" 283 7812 7832
+type(
+  (Var.t * Term.t) list -> Var.t list -> SMTExpr.t -> SMTExpr.t -> unit
+)
+ident(
+  def check_generalize "QE.ml" 307 8443 8443 "_none_" 1 0 -1
+)
+"QE.ml" 283 7812 7833 "QE.ml" 283 7812 7838
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "QE.ml" 283 7812 7839 "QE.ml" 301 8291 8302
+)
+"QE.ml" 283 7812 7839 "QE.ml" 283 7812 7843
+type(
+  Var.t list
+)
+ident(
+  def elim "QE.ml" 283 7812 7844 "QE.ml" 301 8291 8302
+)
+"QE.ml" 283 7812 7844 "QE.ml" 283 7812 7848
+type(
+  SMTExpr.t
+)
+ident(
+  def term "QE.ml" 283 7812 7849 "QE.ml" 301 8291 8302
+)
+"QE.ml" 283 7812 7849 "QE.ml" 283 7812 7854
+type(
+  SMTExpr.t
+)
+ident(
+  def term' "QE.ml" 287 7961 7963 "QE.ml" 301 8291 8302
+)
+"QE.ml" 287 7961 7967 "QE.ml" 287 7961 7974
+type(
+  SMTExpr.t
+)
+ident(
+  def qe_term "QE.ml" 291 8038 8040 "QE.ml" 301 8291 8302
+)
+"QE.ml" 288 7978 7982 "QE.ml" 288 7978 8016
+type(
+  bool -> Var.t list -> SMTExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.quantified_smtexpr_of_term
+)
+"QE.ml" 288 7978 8017 "QE.ml" 288 7978 8021
+type(
+  bool
+)
+"QE.ml" 288 7978 8022 "QE.ml" 288 7978 8026
+type(
+  Var.t list
+)
+ident(
+  int_ref elim "QE.ml" 283 7812 7839 "QE.ml" 283 7812 7843
+)
+"QE.ml" 288 7978 8027 "QE.ml" 288 7978 8031
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref term "QE.ml" 283 7812 7844 "QE.ml" 283 7812 7848
+)
+"QE.ml" 288 7978 7982 "QE.ml" 288 7978 8031
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 291 8038 8040 "QE.ml" 291 8038 8057
+type(
+  string -> string -> SMTExpr.t -> Term.t -> unit
+)
+ident(
+  int_ref check_implication "QE.ml" 239 6488 6492 "QE.ml" 239 6488 6509
+)
+"QE.ml" 292 8059 8063 "QE.ml" 292 8059 8070
+type(
+  string
+)
+"QE.ml" 293 8071 8075 "QE.ml" 293 8071 8097
+type(
+  string
+)
+"QE.ml" 294 8099 8104 "QE.ml" 294 8099 8127
+type(
+  SMTExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.smtexpr_of_term
+)
+"QE.ml" 294 8099 8129 "QE.ml" 294 8099 8145
+type(
+  (Var.t * Term.t) list -> Term.t
+)
+ident(
+  int_ref formula_of_model "QE.ml" 210 5795 5799 "QE.ml" 210 5795 5815
+)
+"QE.ml" 294 8099 8146 "QE.ml" 294 8099 8151
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "QE.ml" 283 7812 7833 "QE.ml" 283 7812 7838
+)
+"QE.ml" 294 8099 8129 "QE.ml" 294 8099 8151
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 294 8099 8104 "QE.ml" 294 8099 8152
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 295 8154 8159 "QE.ml" 295 8154 8182
+type(
+  SMTExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.smtexpr_of_term
+)
+"QE.ml" 295 8154 8183 "QE.ml" 295 8154 8188
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref term' "QE.ml" 283 7812 7849 "QE.ml" 283 7812 7854
+)
+"QE.ml" 295 8154 8159 "QE.ml" 295 8154 8188
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 291 8038 8040 "QE.ml" 295 8154 8189
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 297 8192 8194 "QE.ml" 297 8192 8211
+type(
+  string -> string -> SMTExpr.t -> Term.t -> unit
+)
+ident(
+  int_ref check_implication "QE.ml" 239 6488 6492 "QE.ml" 239 6488 6509
+)
+"QE.ml" 298 8212 8216 "QE.ml" 298 8212 8238
+type(
+  string
+)
+"QE.ml" 299 8240 8244 "QE.ml" 299 8240 8253
+type(
+  string
+)
+"QE.ml" 300 8254 8259 "QE.ml" 300 8254 8282
+type(
+  SMTExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.smtexpr_of_term
+)
+"QE.ml" 300 8254 8283 "QE.ml" 300 8254 8288
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref term' "QE.ml" 283 7812 7849 "QE.ml" 283 7812 7854
+)
+"QE.ml" 300 8254 8259 "QE.ml" 300 8254 8288
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 301 8291 8295 "QE.ml" 301 8291 8302
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref qe_term "QE.ml" 287 7961 7967 "QE.ml" 287 7961 7974
+)
+"QE.ml" 297 8192 8194 "QE.ml" 301 8291 8302
+call(
+  tail
+)
+type(
+  unit
+)
+"QE.ml" 291 8038 8040 "QE.ml" 301 8291 8302
+type(
+  unit
+)
+"QE.ml" 287 7961 7963 "QE.ml" 301 8291 8302
+type(
+  unit
+)
+"QE.ml" 283 7812 7849 "QE.ml" 301 8291 8302
+type(
+  SMTExpr.t -> unit
+)
+"QE.ml" 283 7812 7844 "QE.ml" 301 8291 8302
+type(
+  SMTExpr.t -> SMTExpr.t -> unit
+)
+"QE.ml" 283 7812 7839 "QE.ml" 301 8291 8302
+type(
+  Var.t list -> SMTExpr.t -> SMTExpr.t -> unit
+)
+"QE.ml" 283 7812 7833 "QE.ml" 301 8291 8302
+type(
+  (Var.t * Term.t) list -> Var.t list -> SMTExpr.t -> SMTExpr.t -> unit
+)
+"QE.ml" 307 8443 8447 "QE.ml" 307 8443 8454
+type(
+  Var.t list -> Term.t -> Term.t list
+)
+ident(
+  def qe_bool "QE.ml" 382 10279 10279 "_none_" 1 0 -1
+)
+"QE.ml" 307 8443 8455 "QE.ml" 307 8443 8459
+type(
+  Var.t list
+)
+ident(
+  def elim "QE.ml" 307 8443 8460 "QE.ml" 349 9404 9412
+)
+"QE.ml" 307 8443 8460 "QE.ml" 307 8443 8464
+type(
+  Term.t
+)
+ident(
+  def term "QE.ml" 310 8517 8519 "QE.ml" 349 9404 9412
+)
+"QE.ml" 310 8517 8523 "QE.ml" 310 8517 8532
+type(
+  Term.T.flat
+)
+ident(
+  def term_flat "QE.ml" 313 8597 8599 "QE.ml" 349 9404 9412
+)
+"QE.ml" 310 8517 8535 "QE.ml" 310 8517 8548
+type(
+  Term.t -> Term.T.flat
+)
+ident(
+  ext_ref Term.destruct
+)
+"QE.ml" 310 8517 8549 "QE.ml" 310 8517 8553
+type(
+  Term.t
+)
+ident(
+  int_ref term "QE.ml" 307 8443 8460 "QE.ml" 307 8443 8464
+)
+"QE.ml" 310 8517 8535 "QE.ml" 310 8517 8553
+call(
+  stack
+)
+type(
+  Term.T.flat
+)
+"QE.ml" 313 8597 8603 "QE.ml" 313 8597 8608
+type(
+  Term.t list
+)
+ident(
+  def conjs "QE.ml" 323 8803 8805 "QE.ml" 349 9404 9412
+)
+"QE.ml" 313 8597 8617 "QE.ml" 313 8597 8626
+type(
+  Term.T.flat
+)
+ident(
+  int_ref term_flat "QE.ml" 310 8517 8523 "QE.ml" 310 8517 8532
+)
+"QE.ml" 316 8670 8688 "QE.ml" 316 8670 8689
+type(
+  Term.T.symbol
+)
+ident(
+  def s "QE.ml" 316 8670 8699 "QE.ml" 316 8670 8729
+)
+"QE.ml" 316 8670 8691 "QE.ml" 316 8670 8692
+type(
+  Term.T.t list
+)
+ident(
+  def l "QE.ml" 316 8670 8699 "QE.ml" 316 8670 8729
+)
+"QE.ml" 316 8670 8676 "QE.ml" 316 8670 8693
+type(
+  Term.T.flat
+)
+"QE.ml" 316 8670 8699 "QE.ml" 316 8670 8720
+type(
+  Term.T.symbol -> Symbol.symbol
+)
+ident(
+  ext_ref Symbol.node_of_symbol
+)
+"QE.ml" 316 8670 8721 "QE.ml" 316 8670 8722
+type(
+  Term.T.symbol
+)
+ident(
+  int_ref s "QE.ml" 316 8670 8688 "QE.ml" 316 8670 8689
+)
+"QE.ml" 316 8670 8699 "QE.ml" 316 8670 8722
+call(
+  stack
+)
+type(
+  Symbol.symbol
+)
+"QE.ml" 316 8670 8723 "QE.ml" 316 8670 8724
+type(
+  Symbol.symbol -> Symbol.symbol -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"QE.ml" 316 8670 8725 "QE.ml" 316 8670 8729
+type(
+  Symbol.symbol
+)
+"QE.ml" 316 8670 8699 "QE.ml" 316 8670 8729
+type(
+  Term.t list
+)
+type(
+  bool
+)
+"QE.ml" 316 8670 8733 "QE.ml" 316 8670 8734
+type(
+  Term.t list
+)
+ident(
+  int_ref l "QE.ml" 316 8670 8691 "QE.ml" 316 8670 8692
+)
+"QE.ml" 319 8776 8782 "QE.ml" 319 8776 8783
+type(
+  Term.T.flat
+)
+ident(
+  def l "QE.ml" 319 8776 8788 "QE.ml" 319 8776 8792
+)
+"QE.ml" 319 8776 8788 "QE.ml" 319 8776 8792
+type(
+  Term.t
+)
+ident(
+  int_ref term "QE.ml" 307 8443 8460 "QE.ml" 307 8443 8464
+)
+type(
+  Term.t list
+)
+"QE.ml" 319 8776 8787 "QE.ml" 319 8776 8793
+type(
+  Term.t list
+)
+"QE.ml" 313 8597 8611 "QE.ml" 319 8776 8793
+type(
+  Term.t list
+)
+"QE.ml" 323 8803 8809 "QE.ml" 323 8803 8821
+type(
+  Term.t list
+)
+ident(
+  def elim_as_term "QE.ml" 325 8854 8856 "QE.ml" 349 9404 9412
+)
+"QE.ml" 323 8803 8824 "QE.ml" 323 8803 8832
+type(
+  (Var.t -> Term.t) -> Var.t list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"QE.ml" 323 8803 8833 "QE.ml" 323 8803 8844
+type(
+  Var.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_var
+)
+"QE.ml" 323 8803 8845 "QE.ml" 323 8803 8849
+type(
+  Var.t list
+)
+ident(
+  int_ref elim "QE.ml" 307 8443 8455 "QE.ml" 307 8443 8459
+)
+"QE.ml" 323 8803 8824 "QE.ml" 323 8803 8849
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 325 8854 8860 "QE.ml" 325 8854 8866
+type(
+  Term.t list
+)
+ident(
+  def conjs' "QE.ml" 349 9404 9406 "QE.ml" 349 9404 9412
+)
+"QE.ml" 326 8870 8874 "QE.ml" 326 8870 8885
+type(
+  (Term.t -> bool) -> Term.t list -> Term.t list
+)
+ident(
+  ext_ref List.filter
+)
+"QE.ml" 327 8887 8903 "QE.ml" 327 8887 8904
+type(
+  Term.t
+)
+ident(
+  def t "QE.ml" 327 8887 8908 "QE.ml" 327 8887 8954
+)
+"QE.ml" 327 8887 8908 "QE.ml" 327 8887 8911
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"QE.ml" 327 8887 8913 "QE.ml" 327 8887 8922
+type(
+  Term.t -> Term.t list -> bool
+)
+ident(
+  ext_ref List.memq
+)
+"QE.ml" 327 8887 8924 "QE.ml" 327 8887 8937
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.unnegate
+)
+"QE.ml" 327 8887 8938 "QE.ml" 327 8887 8939
+type(
+  Term.t
+)
+ident(
+  int_ref t "QE.ml" 327 8887 8903 "QE.ml" 327 8887 8904
+)
+"QE.ml" 327 8887 8924 "QE.ml" 327 8887 8939
+call(
+  stack
+)
+type(
+  Term.t
+)
+"QE.ml" 327 8887 8941 "QE.ml" 327 8887 8953
+type(
+  Term.t list
+)
+ident(
+  int_ref elim_as_term "QE.ml" 323 8803 8809 "QE.ml" 323 8803 8821
+)
+"QE.ml" 327 8887 8913 "QE.ml" 327 8887 8953
+call(
+  stack
+)
+type(
+  bool
+)
+"QE.ml" 327 8887 8908 "QE.ml" 327 8887 8954
+type(
+  bool
+)
+"QE.ml" 327 8887 8894 "QE.ml" 327 8887 8954
+type(
+  Term.t -> bool
+)
+"QE.ml" 328 8956 8962 "QE.ml" 328 8956 8967
+type(
+  Term.t list
+)
+ident(
+  int_ref conjs "QE.ml" 313 8597 8603 "QE.ml" 313 8597 8608
+)
+"QE.ml" 326 8870 8874 "QE.ml" 328 8956 8967
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 349 9404 9406 "QE.ml" 349 9404 9412
+type(
+  Term.t list
+)
+ident(
+  int_ref conjs' "QE.ml" 325 8854 8860 "QE.ml" 325 8854 8866
+)
+"QE.ml" 325 8854 8856 "QE.ml" 349 9404 9412
+type(
+  Term.t list
+)
+"QE.ml" 323 8803 8805 "QE.ml" 349 9404 9412
+type(
+  Term.t list
+)
+"QE.ml" 313 8597 8599 "QE.ml" 349 9404 9412
+type(
+  Term.t list
+)
+"QE.ml" 310 8517 8519 "QE.ml" 349 9404 9412
+type(
+  Term.t list
+)
+"QE.ml" 307 8443 8460 "QE.ml" 349 9404 9412
+type(
+  Term.t -> Term.t list
+)
+"QE.ml" 307 8443 8455 "QE.ml" 349 9404 9412
+type(
+  Var.t list -> Term.t -> Term.t list
+)
+"QE.ml" 382 10279 10283 "QE.ml" 382 10279 10293
+type(
+  (Var.t * Term.t) list -> Var.t list -> Term.t -> SMTExpr.t list
+)
+ident(
+  def generalize "QE.ml" 589 15631 15638 "_none_" 1 0 -1
+)
+"QE.ml" 382 10279 10294 "QE.ml" 382 10279 10299
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "QE.ml" 382 10279 10300 "QE.ml" 589 15631 15638
+)
+"QE.ml" 382 10279 10301 "QE.ml" 382 10279 10305
+type(
+  Var.t list
+)
+ident(
+  def elim "QE.ml" 382 10279 10320 "QE.ml" 589 15631 15638
+)
+"QE.ml" 382 10279 10320 "QE.ml" 382 10279 10324
+type(
+  Term.t
+)
+ident(
+  def term "QE.ml" 384 10328 10331 "QE.ml" 589 15631 15638
+)
+"QE.ml" 384 10328 10331 "QE.ml" 387 10407 10420
+type(
+  unit
+)
+"QE.ml" 389 10424 10427 "QE.ml" 392 10533 10541
+type(
+  unit
+)
+"QE.ml" 395 10595 10601 "QE.ml" 395 10595 10613
+type(
+  Term.t
+)
+ident(
+  def extract_bool "QE.ml" 397 10660 10663 "QE.ml" 589 15631 15638
+)
+"QE.ml" 395 10595 10615 "QE.ml" 395 10595 10626
+type(
+  Term.t
+)
+ident(
+  def extract_int "QE.ml" 397 10660 10663 "QE.ml" 589 15631 15638
+)
+"QE.ml" 395 10595 10601 "QE.ml" 395 10595 10626
+type(
+  Term.t * Term.t
+)
+"QE.ml" 395 10595 10629 "QE.ml" 395 10595 10644
+type(
+  (Var.t * Term.t) list -> Term.t -> Term.t * Term.t
+)
+ident(
+  ext_ref Extract.extract
+)
+"QE.ml" 395 10595 10645 "QE.ml" 395 10595 10650
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "QE.ml" 382 10279 10294 "QE.ml" 382 10279 10299
+)
+"QE.ml" 395 10595 10651 "QE.ml" 395 10595 10655
+type(
+  Term.t
+)
+ident(
+  int_ref term "QE.ml" 382 10279 10320 "QE.ml" 382 10279 10324
+)
+"QE.ml" 395 10595 10629 "QE.ml" 395 10595 10655
+call(
+  stack
+)
+type(
+  Term.t * Term.t
+)
+"QE.ml" 397 10660 10663 "QE.ml" 400 10742 10762
+type(
+  unit
+)
+"QE.ml" 402 10766 10769 "QE.ml" 405 10857 10878
+type(
+  unit
+)
+"QE.ml" 414 11118 11124 "QE.ml" 414 11118 11133
+type(
+  Var.t list
+)
+ident(
+  def elim_bool "QE.ml" 430 11589 11591 "QE.ml" 589 15631 15638
+)
+"QE.ml" 414 11118 11135 "QE.ml" 414 11118 11143
+type(
+  Var.t list
+)
+ident(
+  def elim_int "QE.ml" 430 11589 11591 "QE.ml" 589 15631 15638
+)
+"QE.ml" 414 11118 11124 "QE.ml" 414 11118 11143
+type(
+  Var.t list * Var.t list
+)
+"QE.ml" 415 11146 11150 "QE.ml" 415 11146 11164
+type(
+  (Var.t -> bool) -> Var.t list -> Var.t list * Var.t list
+)
+ident(
+  ext_ref List.partition
+)
+"QE.ml" 416 11165 11181 "QE.ml" 416 11165 11182
+type(
+  Var.t
+)
+ident(
+  def v "QE.ml" 417 11187 11195 "QE.ml" 425 11478 11515
+)
+"QE.ml" 417 11187 11201 "QE.ml" 417 11187 11218
+type(
+  Type.t -> Type.kindtype
+)
+ident(
+  ext_ref Type.node_of_type
+)
+"QE.ml" 417 11187 11220 "QE.ml" 417 11187 11235
+type(
+  Var.t -> Type.t
+)
+ident(
+  ext_ref Var.type_of_var
+)
+"QE.ml" 417 11187 11236 "QE.ml" 417 11187 11237
+type(
+  Var.t
+)
+ident(
+  int_ref v "QE.ml" 416 11165 11181 "QE.ml" 416 11165 11182
+)
+"QE.ml" 417 11187 11220 "QE.ml" 417 11187 11237
+call(
+  stack
+)
+type(
+  Type.t
+)
+"QE.ml" 417 11187 11201 "QE.ml" 417 11187 11238
+call(
+  stack
+)
+type(
+  Type.kindtype
+)
+"QE.ml" 418 11245 11257 "QE.ml" 418 11245 11266
+type(
+  Type.kindtype
+)
+"QE.ml" 418 11245 11270 "QE.ml" 418 11245 11274
+type(
+  bool
+)
+"QE.ml" 419 11275 11301 "QE.ml" 419 11275 11302
+type(
+  Lib.numeral
+)
+type(
+  Lib.numeral
+)
+"QE.ml" 419 11275 11287 "QE.ml" 419 11275 11302
+type(
+  Type.kindtype
+)
+"QE.ml" 420 11303 11315 "QE.ml" 420 11303 11323
+type(
+  Type.kindtype
+)
+"QE.ml" 419 11275 11287 "QE.ml" 420 11303 11323
+type(
+  Type.kindtype
+)
+"QE.ml" 420 11303 11327 "QE.ml" 420 11303 11332
+type(
+  bool
+)
+"QE.ml" 421 11333 11345 "QE.ml" 421 11333 11354
+type(
+  Type.kindtype
+)
+"QE.ml" 421 11333 11358 "QE.ml" 421 11333 11363
+type(
+  bool
+)
+"QE.ml" 422 11364 11376 "QE.ml" 422 11364 11377
+type(
+  Type.kindtype
+)
+"QE.ml" 423 11382 11395 "QE.ml" 423 11382 11406
+type(
+  string -> bool
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"QE.ml" 424 11408 11423 "QE.ml" 424 11408 11475
+type(
+  string
+)
+"QE.ml" 424 11408 11476 "QE.ml" 424 11408 11477
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"QE.ml" 425 11478 11496 "QE.ml" 425 11478 11513
+type(
+  string
+)
+"QE.ml" 424 11408 11423 "QE.ml" 425 11478 11513
+type(
+  string
+)
+"QE.ml" 423 11382 11395 "QE.ml" 425 11478 11514
+type(
+  bool
+)
+"QE.ml" 417 11187 11195 "QE.ml" 425 11478 11515
+type(
+  bool
+)
+"QE.ml" 416 11165 11172 "QE.ml" 425 11478 11515
+type(
+  Var.t -> bool
+)
+"QE.ml" 426 11517 11523 "QE.ml" 426 11517 11527
+type(
+  Var.t list
+)
+ident(
+  int_ref elim "QE.ml" 382 10279 10301 "QE.ml" 382 10279 10305
+)
+"QE.ml" 415 11146 11150 "QE.ml" 426 11517 11527
+call(
+  stack
+)
+type(
+  Var.t list * Var.t list
+)
+"QE.ml" 430 11589 11595 "QE.ml" 430 11589 11605
+type(
+  Term.t list
+)
+ident(
+  def term'_bool "QE.ml" 432 11643 11646 "QE.ml" 589 15631 15638
+)
+"QE.ml" 430 11589 11608 "QE.ml" 430 11589 11615
+type(
+  Var.t list -> Term.t -> Term.t list
+)
+ident(
+  int_ref qe_bool "QE.ml" 307 8443 8447 "QE.ml" 307 8443 8454
+)
+"QE.ml" 430 11589 11616 "QE.ml" 430 11589 11625
+type(
+  Var.t list
+)
+ident(
+  int_ref elim_bool "QE.ml" 414 11118 11124 "QE.ml" 414 11118 11133
+)
+"QE.ml" 430 11589 11626 "QE.ml" 430 11589 11638
+type(
+  Term.t
+)
+ident(
+  int_ref extract_bool "QE.ml" 395 10595 10601 "QE.ml" 395 10595 10613
+)
+"QE.ml" 430 11589 11608 "QE.ml" 430 11589 11638
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 432 11643 11646 "QE.ml" 435 11726 11759
+type(
+  unit
+)
+"QE.ml" 437 11763 11769 "QE.ml" 437 11763 11774
+type(
+  SMTExpr.t list
+)
+ident(
+  def term' "QE.ml" 586 15518 15521 "QE.ml" 589 15631 15638
+)
+"QE.ml" 437 11763 11783 "QE.ml" 437 11763 11795
+type(
+  unit -> Flags.pdr_qe
+)
+ident(
+  ext_ref Flags.pdr_qe
+)
+"QE.ml" 437 11763 11796 "QE.ml" 437 11763 11798
+type(
+  unit
+)
+"QE.ml" 437 11763 11783 "QE.ml" 437 11763 11798
+call(
+  stack
+)
+type(
+  Flags.pdr_qe
+)
+"QE.ml" 439 11810 11816 "QE.ml" 439 11810 11819
+type(
+  Flags.pdr_qe
+)
+"QE.ml" 445 11947 11959 "QE.ml" 445 11947 11966
+type(
+  SMTExpr.t
+)
+ident(
+  def qe_term "QE.ml" 450 12123 12131 "QE.ml" 522 14071 14088
+)
+"QE.ml" 446 11970 11980 "QE.ml" 446 11970 12014
+type(
+  bool -> Var.t list -> SMTExpr.t -> SMTExpr.t
+)
+ident(
+  ext_ref SMTExpr.quantified_smtexpr_of_term
+)
+"QE.ml" 446 11970 12015 "QE.ml" 446 11970 12019
+type(
+  bool
+)
+"QE.ml" 446 11970 12020 "QE.ml" 446 11970 12024
+type(
+  Var.t list
+)
+ident(
+  int_ref elim "QE.ml" 382 10279 10301 "QE.ml" 382 10279 10305
+)
+"QE.ml" 446 11970 12025 "QE.ml" 446 11970 12029
+type(
+  Term.t
+)
+ident(
+  int_ref term "QE.ml" 382 10279 10320 "QE.ml" 382 10279 10324
+)
+"QE.ml" 446 11970 11980 "QE.ml" 446 11970 12029
+call(
+  stack
+)
+type(
+  SMTExpr.t
+)
+"QE.ml" 450 12123 12135 "QE.ml" 450 12123 12144
+type(
+  Solver.t
+)
+ident(
+  def solver_qe "QE.ml" 465 12435 12443 "QE.ml" 522 14071 14088
+)
+"QE.ml" 450 12123 12147 "QE.ml" 450 12123 12166
+type(
+  unit -> Solver.t
+)
+ident(
+  int_ref get_solver_instance "QE.ml" 47 2062 2066 "QE.ml" 47 2062 2085
+)
+"QE.ml" 450 12123 12167 "QE.ml" 450 12123 12169
+type(
+  unit
+)
+"QE.ml" 450 12123 12147 "QE.ml" 450 12123 12169
+call(
+  stack
+)
+type(
+  Solver.t
+)
+"QE.ml" 465 12435 12443 "QE.ml" 465 12435 12454
+type(
+  ?n:int -> Solver.t -> unit
+)
+ident(
+  ext_ref Solver.push
+)
+"QE.ml" 465 12435 12455 "QE.ml" 465 12435 12464
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_qe "QE.ml" 450 12123 12135 "QE.ml" 450 12123 12144
+)
+"QE.ml" 465 12435 12443 "QE.ml" 465 12435 12464
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 468 12537 12545 "QE.ml" 468 12537 12569
+type(
+  SMTExpr.response -> unit
+)
+ident(
+  ext_ref Solver.fail_on_smt_error
+)
+"QE.ml" 469 12571 12582 "QE.ml" 469 12571 12602
+type(
+  Solver.T.t -> SMTExpr.t -> SMTExpr.response
+)
+ident(
+  ext_ref Solver.T.assert_expr
+)
+"QE.ml" 469 12571 12603 "QE.ml" 469 12571 12612
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_qe "QE.ml" 450 12123 12135 "QE.ml" 450 12123 12144
+)
+"QE.ml" 469 12571 12613 "QE.ml" 469 12571 12620
+type(
+  SMTExpr.t
+)
+ident(
+  int_ref qe_term "QE.ml" 445 11947 11959 "QE.ml" 445 11947 11966
+)
+"QE.ml" 469 12571 12582 "QE.ml" 469 12571 12620
+call(
+  stack
+)
+type(
+  SMTExpr.response
+)
+"QE.ml" 468 12537 12545 "QE.ml" 469 12571 12621
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 472 12668 12680 "QE.ml" 472 12668 12683
+type(
+  HStringSExpr.t list
+)
+ident(
+  def res "QE.ml" 506 13654 13662 "QE.ml" 522 14071 14088
+)
+"QE.ml" 476 12769 12781 "QE.ml" 476 12769 12812
+type(
+  Solver.T.t ->
+  string ->
+  SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+)
+ident(
+  ext_ref Solver.T.execute_custom_command
+)
+"QE.ml" 477 12814 12828 "QE.ml" 477 12814 12837
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_qe "QE.ml" 450 12123 12135 "QE.ml" 450 12123 12144
+)
+"QE.ml" 478 12839 12853 "QE.ml" 478 12839 12860
+type(
+  string
+)
+"QE.ml" 479 12861 12894 "QE.ml" 479 12861 12898
+type(
+  string
+)
+"QE.ml" 479 12861 12876 "QE.ml" 479 12861 12898
+type(
+  SMTExpr.custom_arg
+)
+type(
+  SMTExpr.custom_arg list
+)
+"QE.ml" 479 12861 12875 "QE.ml" 479 12861 12899
+type(
+  SMTExpr.custom_arg list
+)
+"QE.ml" 480 12900 12914 "QE.ml" 480 12900 12915
+type(
+  int
+)
+"QE.ml" 476 12769 12781 "QE.ml" 480 12900 12915
+call(
+  stack
+)
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"QE.ml" 485 12977 13005 "QE.ml" 485 12977 13006
+type(
+  string
+)
+ident(
+  def e "QE.ml" 486 13014 13028 "QE.ml" 487 13035 13088
+)
+"QE.ml" 485 12977 12991 "QE.ml" 485 12977 13006
+type(
+  SMTExpr.response
+)
+"QE.ml" 485 12977 13008 "QE.ml" 485 12977 13009
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 485 12977 12991 "QE.ml" 485 12977 13009
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"QE.ml" 486 13014 13028 "QE.ml" 486 13014 13033
+type(
+  exn -> HStringSExpr.t list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"QE.ml" 487 13035 13061 "QE.ml" 487 13035 13082
+type(
+  string
+)
+"QE.ml" 487 13035 13083 "QE.ml" 487 13035 13084
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"QE.ml" 487 13035 13085 "QE.ml" 487 13035 13086
+type(
+  string
+)
+ident(
+  int_ref e "QE.ml" 485 12977 13005 "QE.ml" 485 12977 13006
+)
+"QE.ml" 487 13035 13061 "QE.ml" 487 13035 13086
+call(
+  stack
+)
+type(
+  string
+)
+"QE.ml" 487 13035 13052 "QE.ml" 487 13035 13087
+type(
+  exn
+)
+"QE.ml" 486 13014 13028 "QE.ml" 487 13035 13088
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 490 13134 13148 "QE.ml" 490 13134 13167
+type(
+  SMTExpr.response
+)
+"QE.ml" 490 13134 13169 "QE.ml" 490 13134 13170
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 490 13134 13148 "QE.ml" 490 13134 13170
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"QE.ml" 491 13175 13189 "QE.ml" 491 13175 13194
+type(
+  exn -> HStringSExpr.t list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"QE.ml" 493 13222 13242 "QE.ml" 493 13222 13279
+type(
+  string
+)
+"QE.ml" 492 13196 13213 "QE.ml" 493 13222 13280
+type(
+  exn
+)
+"QE.ml" 491 13175 13189 "QE.ml" 493 13222 13281
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 496 13331 13345 "QE.ml" 496 13331 13363
+type(
+  SMTExpr.response
+)
+"QE.ml" 496 13331 13365 "QE.ml" 496 13331 13366
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 496 13331 13345 "QE.ml" 496 13331 13366
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"QE.ml" 497 13370 13384 "QE.ml" 497 13370 13389
+type(
+  exn -> HStringSExpr.t list
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"QE.ml" 499 13417 13437 "QE.ml" 499 13417 13473
+type(
+  string
+)
+"QE.ml" 498 13391 13408 "QE.ml" 499 13417 13474
+type(
+  exn
+)
+"QE.ml" 497 13370 13384 "QE.ml" 499 13417 13475
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 502 13536 13550 "QE.ml" 502 13536 13565
+type(
+  SMTExpr.response
+)
+"QE.ml" 502 13536 13567 "QE.ml" 502 13536 13568
+type(
+  HStringSExpr.t list
+)
+ident(
+  def r "QE.ml" 502 13536 13572 "QE.ml" 502 13536 13573
+)
+"QE.ml" 502 13536 13550 "QE.ml" 502 13536 13568
+type(
+  SMTExpr.response * HStringSExpr.t list
+)
+"QE.ml" 502 13536 13572 "QE.ml" 502 13536 13573
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref r "QE.ml" 502 13536 13567 "QE.ml" 502 13536 13568
+)
+"QE.ml" 473 12687 12697 "QE.ml" 502 13536 13573
+type(
+  HStringSExpr.t list
+)
+"QE.ml" 506 13654 13666 "QE.ml" 506 13654 13675
+type(
+  SMTExpr.t list
+)
+ident(
+  def term'_int "QE.ml" 509 13775 13783 "QE.ml" 522 14071 14088
+)
+"QE.ml" 506 13654 13678 "QE.ml" 506 13654 13692
+type(
+  HStringSExpr.t -> SMTExpr.t list
+)
+ident(
+  int_ref goals_to_terms "QE.ml" 195 5365 5369 "QE.ml" 195 5365 5383
+)
+"QE.ml" 506 13654 13694 "QE.ml" 506 13654 13701
+type(
+  HStringSExpr.t list -> HStringSExpr.t
+)
+ident(
+  ext_ref List.hd
+)
+"QE.ml" 506 13654 13702 "QE.ml" 506 13654 13705
+type(
+  HStringSExpr.t list
+)
+ident(
+  int_ref res "QE.ml" 472 12668 12680 "QE.ml" 472 12668 12683
+)
+"QE.ml" 506 13654 13694 "QE.ml" 506 13654 13705
+call(
+  stack
+)
+type(
+  HStringSExpr.t
+)
+"QE.ml" 506 13654 13678 "QE.ml" 506 13654 13706
+call(
+  stack
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 509 13775 13783 "QE.ml" 509 13775 13793
+type(
+  ?n:int -> Solver.t -> unit
+)
+ident(
+  ext_ref Solver.pop
+)
+"QE.ml" 509 13775 13794 "QE.ml" 509 13775 13803
+type(
+  Solver.t
+)
+ident(
+  int_ref solver_qe "QE.ml" 450 12123 12135 "QE.ml" 450 12123 12144
+)
+"QE.ml" 509 13775 13783 "QE.ml" 509 13775 13803
+call(
+  stack
+)
+type(
+  unit
+)
+"QE.ml" 522 14071 14079 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+ident(
+  int_ref term'_int "QE.ml" 506 13654 13666 "QE.ml" 506 13654 13675
+)
+"QE.ml" 509 13775 13783 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 506 13654 13662 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 472 12668 12676 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 468 12537 12545 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 465 12435 12443 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 450 12123 12131 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 445 11947 11955 "QE.ml" 522 14071 14088
+type(
+  SMTExpr.t list
+)
+"QE.ml" 526 14099 14105 "QE.ml" 526 14099 14112
+type(
+  Flags.pdr_qe
+)
+"QE.ml" 531 14175 14187 "QE.ml" 531 14175 14189
+type(
+  Poly.cformula
+)
+ident(
+  def cf "QE.ml" 533 14250 14259 "QE.ml" 579 15470 15500
+)
+"QE.ml" 531 14175 14192 "QE.ml" 531 14175 14216
+type(
+  Var.t list -> Term.t -> Poly.cformula
+)
+ident(
+  ext_ref Presburger.to_presburger
+)
+"QE.ml" 531 14175 14217 "QE.ml" 531 14175 14225
+type(
+  Var.t list
+)
+ident(
+  int_ref elim_int "QE.ml" 414 11118 11135 "QE.ml" 414 11118 11143
+)
+"QE.ml" 531 14175 14226 "QE.ml" 531 14175 14237
+type(
+  Term.t
+)
+ident(
+  int_ref extract_int "QE.ml" 395 10595 10615 "QE.ml" 395 10595 10626
+)
+"QE.ml" 531 14175 14192 "QE.ml" 531 14175 14237
+call(
+  stack
+)
+type(
+  Poly.cformula
+)
+"QE.ml" 533 14250 14259 "QE.ml" 537 14366 14378
+type(
+  unit
+)
+"QE.ml" 556 14864 14876 "QE.ml" 556 14864 14889
+type(
+  Poly.cformula
+)
+ident(
+  def elim_pformula "QE.ml" 560 14962 14971 "QE.ml" 579 15470 15500
+)
+"QE.ml" 557 14893 14903 "QE.ml" 557 14893 14921
+type(
+  (Var.t * Term.t) list -> Var.t list -> Poly.cformula -> Poly.cformula
+)
+ident(
+  ext_ref CooperQE.eliminate
+)
+"QE.ml" 557 14893 14922 "QE.ml" 557 14893 14927
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "QE.ml" 382 10279 10294 "QE.ml" 382 10279 10299
+)
+"QE.ml" 557 14893 14928 "QE.ml" 557 14893 14936
+type(
+  Var.t list
+)
+ident(
+  int_ref elim_int "QE.ml" 414 11118 11135 "QE.ml" 414 11118 11143
+)
+"QE.ml" 557 14893 14937 "QE.ml" 557 14893 14939
+type(
+  Poly.cformula
+)
+ident(
+  int_ref cf "QE.ml" 531 14175 14187 "QE.ml" 531 14175 14189
+)
+"QE.ml" 557 14893 14903 "QE.ml" 557 14893 14939
+call(
+  stack
+)
+type(
+  Poly.cformula
+)
+"QE.ml" 560 14962 14971 "QE.ml" 564 15082 15094
+type(
+  unit
+)
+"QE.ml" 567 15169 15181 "QE.ml" 567 15169 15190
+type(
+  Term.t list
+)
+ident(
+  def term'_int "QE.ml" 579 15470 15478 "QE.ml" 579 15470 15500
+)
+"QE.ml" 567 15169 15193 "QE.ml" 567 15169 15220
+type(
+  Poly.cformula -> Term.t list
+)
+ident(
+  ext_ref Presburger.term_of_cformula
+)
+"QE.ml" 567 15169 15221 "QE.ml" 567 15169 15234
+type(
+  Poly.cformula
+)
+ident(
+  int_ref elim_pformula "QE.ml" 556 14864 14876 "QE.ml" 556 14864 14889
+)
+"QE.ml" 567 15169 15193 "QE.ml" 567 15169 15234
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"QE.ml" 579 15470 15478 "QE.ml" 579 15470 15488
+type(
+  Term.t list
+)
+ident(
+  int_ref term'_bool "QE.ml" 430 11589 11595 "QE.ml" 430 11589 11605
+)
+"QE.ml" 579 15470 15489 "QE.ml" 579 15470 15490
+type(
+  Term.t list -> Term.t list -> SMTExpr.t list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"QE.ml" 579 15470 15491 "QE.ml" 579 15470 15500
+type(
+  Term.t list
+)
+ident(
+  int_ref term'_int "QE.ml" 567 15169 15181 "QE.ml" 567 15169 15190
+)
+"QE.ml" 579 15470 15478 "QE.ml" 579 15470 15500
+call(
+  stack
+)
+type(
+  SMTExpr.t list
+)
+"QE.ml" 567 15169 15177 "QE.ml" 579 15470 15500
+type(
+  SMTExpr.t list
+)
+"QE.ml" 560 14962 14971 "QE.ml" 579 15470 15500
+type(
+  SMTExpr.t list
+)
+"QE.ml" 556 14864 14872 "QE.ml" 579 15470 15500
+type(
+  SMTExpr.t list
+)
+"QE.ml" 533 14250 14259 "QE.ml" 579 15470 15500
+type(
+  SMTExpr.t list
+)
+"QE.ml" 531 14175 14183 "QE.ml" 579 15470 15500
+type(
+  SMTExpr.t list
+)
+"QE.ml" 437 11763 11777 "QE.ml" 581 15502 15509
+type(
+  SMTExpr.t list
+)
+"QE.ml" 586 15518 15521 "QE.ml" 586 15518 15585
+type(
+  unit
+)
+"QE.ml" 589 15631 15633 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+ident(
+  int_ref term' "QE.ml" 437 11763 11769 "QE.ml" 437 11763 11774
+)
+"QE.ml" 586 15518 15521 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 437 11763 11765 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 432 11643 11646 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 430 11589 11591 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 414 11118 11120 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 402 10766 10769 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 397 10660 10663 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 395 10595 10597 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 389 10424 10427 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 384 10328 10331 "QE.ml" 589 15631 15638
+type(
+  SMTExpr.t list
+)
+"QE.ml" 382 10279 10320 "QE.ml" 589 15631 15638
+type(
+  Term.t -> SMTExpr.t list
+)
+"QE.ml" 382 10279 10300 "QE.ml" 589 15631 15638
+type(
+  Var.t list -> Term.t -> SMTExpr.t list
+)
+"QE.ml" 382 10279 10294 "QE.ml" 589 15631 15638
+type(
+  (Var.t * Term.t) list -> Var.t list -> Term.t -> SMTExpr.t list
+)

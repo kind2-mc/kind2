@@ -1,0 +1,3250 @@
+"kind1/filter_trivial.ml" 35 1716 1720 "kind1/filter_trivial.ml" 35 1716 1736
+type(
+  'a list list -> 'a list list
+)
+ident(
+  def filter_non_empty "kind1/filter_trivial.ml" 38 1791 1791 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 35 1716 1737 "kind1/filter_trivial.ml" 35 1716 1744
+type(
+  'a list list
+)
+ident(
+  def classes "kind1/filter_trivial.ml" 36 1747 1749 "kind1/filter_trivial.ml" 36 1747 1788
+)
+"kind1/filter_trivial.ml" 36 1747 1749 "kind1/filter_trivial.ml" 36 1747 1760
+type(
+  ('a list -> bool) -> 'a list list -> 'a list list
+)
+ident(
+  ext_ref List.filter
+)
+"kind1/filter_trivial.ml" 36 1747 1766 "kind1/filter_trivial.ml" 36 1747 1767
+type(
+  'a list
+)
+ident(
+  def x "kind1/filter_trivial.ml" 36 1747 1771 "kind1/filter_trivial.ml" 36 1747 1778
+)
+"kind1/filter_trivial.ml" 36 1747 1771 "kind1/filter_trivial.ml" 36 1747 1772
+type(
+  'a list
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 36 1747 1766 "kind1/filter_trivial.ml" 36 1747 1767
+)
+"kind1/filter_trivial.ml" 36 1747 1773 "kind1/filter_trivial.ml" 36 1747 1775
+type(
+  'a list -> 'a list -> bool
+)
+ident(
+  ext_ref Pervasives.( != )
+)
+"kind1/filter_trivial.ml" 36 1747 1776 "kind1/filter_trivial.ml" 36 1747 1778
+type(
+  'a list
+)
+"kind1/filter_trivial.ml" 36 1747 1771 "kind1/filter_trivial.ml" 36 1747 1778
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 36 1747 1761 "kind1/filter_trivial.ml" 36 1747 1780
+type(
+  'a list -> bool
+)
+"kind1/filter_trivial.ml" 36 1747 1781 "kind1/filter_trivial.ml" 36 1747 1788
+type(
+  'a list list
+)
+ident(
+  int_ref classes "kind1/filter_trivial.ml" 35 1716 1737 "kind1/filter_trivial.ml" 35 1716 1744
+)
+"kind1/filter_trivial.ml" 36 1747 1749 "kind1/filter_trivial.ml" 36 1747 1788
+call(
+  tail
+)
+type(
+  'a list list
+)
+"kind1/filter_trivial.ml" 38 1791 1795 "kind1/filter_trivial.ml" 38 1791 1804
+type(
+  'a list list -> ('a * 'a) list
+)
+ident(
+  def pick_equs "kind1/filter_trivial.ml" 48 2037 2037 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 38 1791 1805 "kind1/filter_trivial.ml" 38 1791 1812
+type(
+  'a list list
+)
+ident(
+  def classes "kind1/filter_trivial.ml" 39 1815 1817 "kind1/filter_trivial.ml" 46 2009 2034
+)
+"kind1/filter_trivial.ml" 39 1815 1821 "kind1/filter_trivial.ml" 39 1815 1832
+type(
+  'a list
+)
+ident(
+  def classes_rep "kind1/filter_trivial.ml" 40 1877 1879 "kind1/filter_trivial.ml" 46 2009 2034
+)
+"kind1/filter_trivial.ml" 39 1815 1835 "kind1/filter_trivial.ml" 39 1815 1843
+type(
+  ('a list -> 'a) -> 'a list list -> 'a list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 39 1815 1849 "kind1/filter_trivial.ml" 39 1815 1850
+type(
+  'a list
+)
+ident(
+  def x "kind1/filter_trivial.ml" 39 1815 1854 "kind1/filter_trivial.ml" 39 1815 1863
+)
+"kind1/filter_trivial.ml" 39 1815 1854 "kind1/filter_trivial.ml" 39 1815 1861
+type(
+  'a list -> 'a
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/filter_trivial.ml" 39 1815 1862 "kind1/filter_trivial.ml" 39 1815 1863
+type(
+  'a list
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 39 1815 1849 "kind1/filter_trivial.ml" 39 1815 1850
+)
+"kind1/filter_trivial.ml" 39 1815 1854 "kind1/filter_trivial.ml" 39 1815 1863
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 39 1815 1844 "kind1/filter_trivial.ml" 39 1815 1865
+type(
+  'a list -> 'a
+)
+"kind1/filter_trivial.ml" 39 1815 1866 "kind1/filter_trivial.ml" 39 1815 1873
+type(
+  'a list list
+)
+ident(
+  int_ref classes "kind1/filter_trivial.ml" 38 1791 1805 "kind1/filter_trivial.ml" 38 1791 1812
+)
+"kind1/filter_trivial.ml" 39 1815 1835 "kind1/filter_trivial.ml" 39 1815 1873
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/filter_trivial.ml" 40 1877 1887 "kind1/filter_trivial.ml" 40 1877 1896
+type(
+  'b list -> ('b * 'b) list
+)
+ident(
+  def help_func "kind1/filter_trivial.ml" 40 1877 1879 "kind1/filter_trivial.ml" 46 2009 2034
+)
+"kind1/filter_trivial.ml" 40 1877 1897 "kind1/filter_trivial.ml" 40 1877 1898
+type(
+  'b list
+)
+ident(
+  def l "kind1/filter_trivial.ml" 41 1901 1905 "kind1/filter_trivial.ml" 44 1987 2003
+)
+"kind1/filter_trivial.ml" 41 1901 1911 "kind1/filter_trivial.ml" 41 1901 1912
+type(
+  'b list
+)
+ident(
+  int_ref l "kind1/filter_trivial.ml" 40 1877 1897 "kind1/filter_trivial.ml" 40 1877 1898
+)
+"kind1/filter_trivial.ml" 42 1919 1920 "kind1/filter_trivial.ml" 42 1919 1923
+type(
+  'b
+)
+ident(
+  def hd1 "kind1/filter_trivial.ml" 42 1919 1945 "kind1/filter_trivial.ml" 42 1919 1971
+)
+"kind1/filter_trivial.ml" 42 1919 1926 "kind1/filter_trivial.ml" 42 1919 1929
+type(
+  'b
+)
+ident(
+  def hd2 "kind1/filter_trivial.ml" 42 1919 1945 "kind1/filter_trivial.ml" 42 1919 1971
+)
+"kind1/filter_trivial.ml" 42 1919 1931 "kind1/filter_trivial.ml" 42 1919 1933
+type(
+  'b list
+)
+ident(
+  def tl "kind1/filter_trivial.ml" 42 1919 1945 "kind1/filter_trivial.ml" 42 1919 1971
+)
+"kind1/filter_trivial.ml" 42 1919 1926 "kind1/filter_trivial.ml" 42 1919 1933
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 42 1919 1937 "kind1/filter_trivial.ml" 42 1919 1940
+ident(
+  def tl1 "kind1/filter_trivial.ml" 42 1919 1945 "kind1/filter_trivial.ml" 42 1919 1971
+)
+"kind1/filter_trivial.ml" 42 1919 1925 "kind1/filter_trivial.ml" 42 1919 1941
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 42 1919 1920 "kind1/filter_trivial.ml" 42 1919 1941
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 42 1919 1946 "kind1/filter_trivial.ml" 42 1919 1949
+type(
+  'b
+)
+ident(
+  int_ref hd1 "kind1/filter_trivial.ml" 42 1919 1920 "kind1/filter_trivial.ml" 42 1919 1923
+)
+"kind1/filter_trivial.ml" 42 1919 1950 "kind1/filter_trivial.ml" 42 1919 1953
+type(
+  'b
+)
+ident(
+  int_ref hd2 "kind1/filter_trivial.ml" 42 1919 1926 "kind1/filter_trivial.ml" 42 1919 1929
+)
+"kind1/filter_trivial.ml" 42 1919 1945 "kind1/filter_trivial.ml" 42 1919 1954
+type(
+  'b * 'b
+)
+"kind1/filter_trivial.ml" 42 1919 1957 "kind1/filter_trivial.ml" 42 1919 1966
+type(
+  'b list -> ('b * 'b) list
+)
+ident(
+  int_ref help_func "kind1/filter_trivial.ml" 40 1877 1887 "kind1/filter_trivial.ml" 40 1877 1896
+)
+"kind1/filter_trivial.ml" 42 1919 1967 "kind1/filter_trivial.ml" 42 1919 1970
+type(
+  'b list
+)
+ident(
+  int_ref tl1 "kind1/filter_trivial.ml" 42 1919 1925 "kind1/filter_trivial.ml" 42 1919 1941
+)
+"kind1/filter_trivial.ml" 42 1919 1956 "kind1/filter_trivial.ml" 42 1919 1971
+call(
+  stack
+)
+type(
+  ('b * 'b) list
+)
+"kind1/filter_trivial.ml" 42 1919 1945 "kind1/filter_trivial.ml" 42 1919 1971
+type(
+  ('b * 'b) list
+)
+"kind1/filter_trivial.ml" 43 1972 1980 "kind1/filter_trivial.ml" 43 1972 1981
+type(
+  'b
+)
+"kind1/filter_trivial.ml" 43 1972 1983 "kind1/filter_trivial.ml" 43 1972 1985
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 43 1972 1980 "kind1/filter_trivial.ml" 43 1972 1985
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 44 1987 1995 "kind1/filter_trivial.ml" 44 1987 1997
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 43 1972 1980 "kind1/filter_trivial.ml" 44 1987 1997
+type(
+  'b list
+)
+"kind1/filter_trivial.ml" 44 1987 2001 "kind1/filter_trivial.ml" 44 1987 2003
+type(
+  ('b * 'b) list
+)
+"kind1/filter_trivial.ml" 41 1901 1905 "kind1/filter_trivial.ml" 44 1987 2003
+type(
+  ('b * 'b) list
+)
+"kind1/filter_trivial.ml" 46 2009 2013 "kind1/filter_trivial.ml" 46 2009 2022
+type(
+  'a list -> ('a * 'a) list
+)
+ident(
+  int_ref help_func "kind1/filter_trivial.ml" 40 1877 1887 "kind1/filter_trivial.ml" 40 1877 1896
+)
+"kind1/filter_trivial.ml" 46 2009 2023 "kind1/filter_trivial.ml" 46 2009 2034
+type(
+  'a list
+)
+ident(
+  int_ref classes_rep "kind1/filter_trivial.ml" 39 1815 1821 "kind1/filter_trivial.ml" 39 1815 1832
+)
+"kind1/filter_trivial.ml" 46 2009 2013 "kind1/filter_trivial.ml" 46 2009 2034
+call(
+  tail
+)
+type(
+  ('a * 'a) list
+)
+"kind1/filter_trivial.ml" 40 1877 1879 "kind1/filter_trivial.ml" 46 2009 2034
+type(
+  ('a * 'a) list
+)
+"kind1/filter_trivial.ml" 39 1815 1817 "kind1/filter_trivial.ml" 46 2009 2034
+type(
+  ('a * 'a) list
+)
+"kind1/filter_trivial.ml" 48 2037 2041 "kind1/filter_trivial.ml" 48 2037 2051
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  def mk_eq_bool "kind1/filter_trivial.ml" 51 2129 2129 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 48 2037 2053 "kind1/filter_trivial.ml" 48 2037 2054
+type(
+  string
+)
+ident(
+  def x "kind1/filter_trivial.ml" 49 2062 2064 "kind1/filter_trivial.ml" 49 2062 2127
+)
+"kind1/filter_trivial.ml" 48 2037 2056 "kind1/filter_trivial.ml" 48 2037 2057
+type(
+  string
+)
+ident(
+  def y "kind1/filter_trivial.ml" 49 2062 2064 "kind1/filter_trivial.ml" 49 2062 2127
+)
+"kind1/filter_trivial.ml" 48 2037 2052 "kind1/filter_trivial.ml" 48 2037 2058
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 49 2062 2088 "kind1/filter_trivial.ml" 49 2062 2089
+type(
+  string
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 48 2037 2053 "kind1/filter_trivial.ml" 48 2037 2054
+)
+"kind1/filter_trivial.ml" 49 2062 2090 "kind1/filter_trivial.ml" 49 2062 2092
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 49 2062 2076 "kind1/filter_trivial.ml" 49 2062 2093
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 49 2062 2106 "kind1/filter_trivial.ml" 49 2062 2107
+type(
+  string
+)
+ident(
+  int_ref y "kind1/filter_trivial.ml" 48 2037 2056 "kind1/filter_trivial.ml" 48 2037 2057
+)
+"kind1/filter_trivial.ml" 49 2062 2108 "kind1/filter_trivial.ml" 49 2062 2110
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 49 2062 2095 "kind1/filter_trivial.ml" 49 2062 2111
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 49 2062 2113 "kind1/filter_trivial.ml" 49 2062 2125
+type(
+  Types.lustre_type
+)
+"kind1/filter_trivial.ml" 49 2062 2064 "kind1/filter_trivial.ml" 49 2062 2127
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 51 2129 2133 "kind1/filter_trivial.ml" 51 2129 2144
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  def mk_imp_bool "kind1/filter_trivial.ml" 54 2232 2232 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 51 2129 2146 "kind1/filter_trivial.ml" 51 2129 2152
+type(
+  string
+)
+ident(
+  def expr_l "kind1/filter_trivial.ml" 52 2164 2166 "kind1/filter_trivial.ml" 52 2164 2230
+)
+"kind1/filter_trivial.ml" 51 2129 2154 "kind1/filter_trivial.ml" 51 2129 2160
+type(
+  string
+)
+ident(
+  def expr_r "kind1/filter_trivial.ml" 52 2164 2166 "kind1/filter_trivial.ml" 52 2164 2230
+)
+"kind1/filter_trivial.ml" 51 2129 2145 "kind1/filter_trivial.ml" 51 2129 2161
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 52 2164 2194 "kind1/filter_trivial.ml" 52 2164 2200
+type(
+  string
+)
+ident(
+  int_ref expr_l "kind1/filter_trivial.ml" 51 2129 2146 "kind1/filter_trivial.ml" 51 2129 2152
+)
+"kind1/filter_trivial.ml" 52 2164 2201 "kind1/filter_trivial.ml" 52 2164 2203
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 52 2164 2180 "kind1/filter_trivial.ml" 52 2164 2204
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 52 2164 2219 "kind1/filter_trivial.ml" 52 2164 2225
+type(
+  string
+)
+ident(
+  int_ref expr_r "kind1/filter_trivial.ml" 51 2129 2154 "kind1/filter_trivial.ml" 51 2129 2160
+)
+"kind1/filter_trivial.ml" 52 2164 2226 "kind1/filter_trivial.ml" 52 2164 2228
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 52 2164 2206 "kind1/filter_trivial.ml" 52 2164 2229
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 52 2164 2166 "kind1/filter_trivial.ml" 52 2164 2230
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 54 2232 2236 "kind1/filter_trivial.ml" 54 2232 2245
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  def mk_eq_int "kind1/filter_trivial.ml" 56 2355 2355 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 54 2232 2247 "kind1/filter_trivial.ml" 54 2232 2248
+type(
+  string
+)
+ident(
+  def x "kind1/filter_trivial.ml" 54 2232 2256 "kind1/filter_trivial.ml" 54 2232 2352
+)
+"kind1/filter_trivial.ml" 54 2232 2250 "kind1/filter_trivial.ml" 54 2232 2251
+type(
+  string
+)
+ident(
+  def y "kind1/filter_trivial.ml" 54 2232 2256 "kind1/filter_trivial.ml" 54 2232 2352
+)
+"kind1/filter_trivial.ml" 54 2232 2246 "kind1/filter_trivial.ml" 54 2232 2252
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 54 2232 2279 "kind1/filter_trivial.ml" 54 2232 2287
+type(
+  Types.relation
+)
+"kind1/filter_trivial.ml" 54 2232 2300 "kind1/filter_trivial.ml" 54 2232 2301
+type(
+  string
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 54 2232 2247 "kind1/filter_trivial.ml" 54 2232 2248
+)
+"kind1/filter_trivial.ml" 54 2232 2302 "kind1/filter_trivial.ml" 54 2232 2304
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 54 2232 2289 "kind1/filter_trivial.ml" 54 2232 2305
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 54 2232 2318 "kind1/filter_trivial.ml" 54 2232 2319
+type(
+  string
+)
+ident(
+  int_ref y "kind1/filter_trivial.ml" 54 2232 2250 "kind1/filter_trivial.ml" 54 2232 2251
+)
+"kind1/filter_trivial.ml" 54 2232 2321 "kind1/filter_trivial.ml" 54 2232 2323
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 54 2232 2307 "kind1/filter_trivial.ml" 54 2232 2324
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 54 2232 2268 "kind1/filter_trivial.ml" 54 2232 2325
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 54 2232 2327 "kind1/filter_trivial.ml" 54 2232 2336
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 54 2232 2339 "kind1/filter_trivial.ml" 54 2232 2351
+type(
+  Types.lustre_type
+)
+"kind1/filter_trivial.ml" 54 2232 2256 "kind1/filter_trivial.ml" 54 2232 2352
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 56 2355 2359 "kind1/filter_trivial.ml" 56 2355 2377
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  def mk_eq_int_oneclass "kind1/filter_trivial.ml" 61 2484 2484 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 56 2355 2378 "kind1/filter_trivial.ml" 56 2355 2389
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/filter_trivial.ml" 57 2394 2396 "kind1/filter_trivial.ml" 59 2466 2481
+)
+"kind1/filter_trivial.ml" 57 2394 2396 "kind1/filter_trivial.ml" 57 2394 2427
+type(
+  (string -> string -> Types.il_formula) ->
+  string list -> Types.il_formula list
+)
+ident(
+  ext_ref Partial_order.fold_list_with_op
+)
+"kind1/filter_trivial.ml" 58 2430 2439 "kind1/filter_trivial.ml" 58 2430 2440
+type(
+  string
+)
+ident(
+  def x "kind1/filter_trivial.ml" 58 2430 2441 "kind1/filter_trivial.ml" 58 2430 2462
+)
+"kind1/filter_trivial.ml" 58 2430 2441 "kind1/filter_trivial.ml" 58 2430 2442
+type(
+  string
+)
+ident(
+  def y "kind1/filter_trivial.ml" 58 2430 2446 "kind1/filter_trivial.ml" 58 2430 2462
+)
+"kind1/filter_trivial.ml" 58 2430 2446 "kind1/filter_trivial.ml" 58 2430 2455
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_eq_int "kind1/filter_trivial.ml" 54 2232 2236 "kind1/filter_trivial.ml" 54 2232 2245
+)
+"kind1/filter_trivial.ml" 58 2430 2457 "kind1/filter_trivial.ml" 58 2430 2458
+type(
+  string
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 58 2430 2439 "kind1/filter_trivial.ml" 58 2430 2440
+)
+"kind1/filter_trivial.ml" 58 2430 2460 "kind1/filter_trivial.ml" 58 2430 2461
+type(
+  string
+)
+ident(
+  int_ref y "kind1/filter_trivial.ml" 58 2430 2441 "kind1/filter_trivial.ml" 58 2430 2442
+)
+"kind1/filter_trivial.ml" 58 2430 2456 "kind1/filter_trivial.ml" 58 2430 2462
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 58 2430 2446 "kind1/filter_trivial.ml" 58 2430 2462
+call(
+  tail
+)
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 58 2430 2434 "kind1/filter_trivial.ml" 58 2430 2464
+type(
+  string -> string -> Types.il_formula
+)
+"kind1/filter_trivial.ml" 59 2466 2470 "kind1/filter_trivial.ml" 59 2466 2481
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/filter_trivial.ml" 56 2355 2378 "kind1/filter_trivial.ml" 56 2355 2389
+)
+"kind1/filter_trivial.ml" 57 2394 2396 "kind1/filter_trivial.ml" 59 2466 2481
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 61 2484 2488 "kind1/filter_trivial.ml" 61 2484 2498
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  def mk_imp_int "kind1/filter_trivial.ml" 85 3659 3659 "_none_" 1 0 -1
+)
+"kind1/filter_trivial.ml" 61 2484 2500 "kind1/filter_trivial.ml" 61 2484 2501
+type(
+  string
+)
+ident(
+  def x "kind1/filter_trivial.ml" 61 2484 2507 "kind1/filter_trivial.ml" 61 2484 2602
+)
+"kind1/filter_trivial.ml" 61 2484 2502 "kind1/filter_trivial.ml" 61 2484 2503
+type(
+  string
+)
+ident(
+  def y "kind1/filter_trivial.ml" 61 2484 2507 "kind1/filter_trivial.ml" 61 2484 2602
+)
+"kind1/filter_trivial.ml" 61 2484 2499 "kind1/filter_trivial.ml" 61 2484 2504
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 61 2484 2530 "kind1/filter_trivial.ml" 61 2484 2539
+type(
+  Types.relation
+)
+"kind1/filter_trivial.ml" 61 2484 2552 "kind1/filter_trivial.ml" 61 2484 2553
+type(
+  string
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 61 2484 2500 "kind1/filter_trivial.ml" 61 2484 2501
+)
+"kind1/filter_trivial.ml" 61 2484 2554 "kind1/filter_trivial.ml" 61 2484 2556
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 61 2484 2541 "kind1/filter_trivial.ml" 61 2484 2557
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 61 2484 2570 "kind1/filter_trivial.ml" 61 2484 2571
+type(
+  string
+)
+ident(
+  int_ref y "kind1/filter_trivial.ml" 61 2484 2502 "kind1/filter_trivial.ml" 61 2484 2503
+)
+"kind1/filter_trivial.ml" 61 2484 2572 "kind1/filter_trivial.ml" 61 2484 2574
+type(
+  Types.il_expression list
+)
+"kind1/filter_trivial.ml" 61 2484 2559 "kind1/filter_trivial.ml" 61 2484 2575
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 61 2484 2519 "kind1/filter_trivial.ml" 61 2484 2576
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 61 2484 2578 "kind1/filter_trivial.ml" 61 2484 2587
+type(
+  Types.il_expression
+)
+"kind1/filter_trivial.ml" 61 2484 2589 "kind1/filter_trivial.ml" 61 2484 2601
+type(
+  Types.lustre_type
+)
+"kind1/filter_trivial.ml" 61 2484 2507 "kind1/filter_trivial.ml" 61 2484 2602
+type(
+  Types.il_formula
+)
+"kind1/filter_trivial.ml" 85 3659 3681 "kind1/filter_trivial.ml" 85 3659 3699
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 86 3734 3741 "kind1/filter_trivial.ml" 86 3734 3750
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 87 3778 3785 "kind1/filter_trivial.ml" 87 3778 3802
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 88 3835 3842 "kind1/filter_trivial.ml" 88 3835 3850
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 85 3659 3680 "kind1/filter_trivial.ml" 88 3835 3851
+type(
+  string list list * (string * string) list * string list list *
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 89 3880 3887 "kind1/filter_trivial.ml" 89 3880 3893
+type(
+  < doc_of_asserts : unit -> string;
+    doc_of_bool_eqs_picked : unit -> Types.il_formula list;
+    doc_of_bool_equiv_left : unit -> Types.il_formula list;
+    doc_of_bool_imps_left : unit -> Types.il_formula list;
+    doc_of_bool_imps_picked : unit -> Types.il_formula list;
+    doc_of_int_eqs_picked : unit -> Types.il_formula list;
+    doc_of_int_equiv_left : unit -> Types.il_formula list;
+    doc_of_int_imps_left : unit -> Types.il_formula list;
+    doc_of_int_imps_picked : unit -> Types.il_formula list;
+    doc_of_picked : unit -> string;
+    filter : (string, string) Hashtbl.t -> bool;
+    picked_invs : unit ->
+                  Types.il_formula list * Types.il_formula list *
+                  Types.il_formula list * Types.il_formula list;
+    .. >
+)
+"kind1/filter_trivial.ml" 92 4002 4006 "kind1/filter_trivial.ml" 92 4002 4024
+type(
+  string list list
+)
+ident(
+  int_ref bool_equiv_classes "kind1/filter_trivial.ml" 85 3659 3681 "kind1/filter_trivial.ml" 85 3659 3699
+)
+"kind1/filter_trivial.ml" 93 4025 4059 "kind1/filter_trivial.ml" 93 4025 4061
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 94 4062 4095 "kind1/filter_trivial.ml" 94 4062 4104
+type(
+  (string * string) list
+)
+ident(
+  int_ref bool_imps "kind1/filter_trivial.ml" 86 3734 3741 "kind1/filter_trivial.ml" 86 3734 3750
+)
+"kind1/filter_trivial.ml" 107 4421 4456 "kind1/filter_trivial.ml" 107 4421 4458
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 108 4460 4501 "kind1/filter_trivial.ml" 108 4460 4518
+type(
+  string list list
+)
+ident(
+  int_ref int_equiv_classes "kind1/filter_trivial.ml" 87 3778 3785 "kind1/filter_trivial.ml" 87 3778 3802
+)
+"kind1/filter_trivial.ml" 109 4520 4553 "kind1/filter_trivial.ml" 109 4520 4555
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 110 4556 4588 "kind1/filter_trivial.ml" 110 4556 4596
+type(
+  (string * string) list
+)
+ident(
+  int_ref int_imps "kind1/filter_trivial.ml" 88 3835 3842 "kind1/filter_trivial.ml" 88 3835 3850
+)
+"kind1/filter_trivial.ml" 111 4597 4631 "kind1/filter_trivial.ml" 111 4597 4633
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  def hash_tbl "kind1/filter_trivial.ml" 114 4662 4666 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 114 4662 4670 "kind1/filter_trivial.ml" 114 4662 4677
+type(
+  bool ref
+)
+ident(
+  def changed "kind1/filter_trivial.ml" 115 4693 4697 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 114 4662 4680 "kind1/filter_trivial.ml" 114 4662 4683
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/filter_trivial.ml" 114 4662 4684 "kind1/filter_trivial.ml" 114 4662 4689
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 114 4662 4680 "kind1/filter_trivial.ml" 114 4662 4689
+type(
+  bool ref
+)
+"kind1/filter_trivial.ml" 115 4693 4701 "kind1/filter_trivial.ml" 115 4693 4716
+type(
+  string list ->
+  string list list * (string * string) list ->
+  string list list * (string * string) list
+)
+ident(
+  def bool_equiv_func "kind1/filter_trivial.ml" 126 5157 5161 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 115 4693 4717 "kind1/filter_trivial.ml" 115 4693 4726
+type(
+  string list
+)
+ident(
+  def one_class "kind1/filter_trivial.ml" 115 4693 4727 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 115 4693 4728 "kind1/filter_trivial.ml" 115 4693 4741
+type(
+  string list list
+)
+ident(
+  def equiv_classes "kind1/filter_trivial.ml" 116 4758 4764 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 115 4693 4743 "kind1/filter_trivial.ml" 115 4693 4754
+type(
+  (string * string) list
+)
+ident(
+  def picked_equs "kind1/filter_trivial.ml" 116 4758 4764 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 115 4693 4727 "kind1/filter_trivial.ml" 115 4693 4755
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 116 4758 4768 "kind1/filter_trivial.ml" 116 4758 4775
+type(
+  string list
+)
+ident(
+  def t_class "kind1/filter_trivial.ml" 120 4883 4889 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 116 4758 4777 "kind1/filter_trivial.ml" 116 4758 4784
+type(
+  string list
+)
+ident(
+  def f_class "kind1/filter_trivial.ml" 120 4883 4889 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 116 4758 4768 "kind1/filter_trivial.ml" 116 4758 4784
+type(
+  string list * string list
+)
+"kind1/filter_trivial.ml" 117 4788 4789 "kind1/filter_trivial.ml" 117 4788 4803
+type(
+  (string -> bool) -> string list -> string list * string list
+)
+ident(
+  ext_ref List.partition
+)
+"kind1/filter_trivial.ml" 117 4788 4809 "kind1/filter_trivial.ml" 117 4788 4810
+type(
+  string
+)
+ident(
+  def x "kind1/filter_trivial.ml" 118 4815 4818 "kind1/filter_trivial.ml" 118 4815 4861
+)
+"kind1/filter_trivial.ml" 118 4815 4818 "kind1/filter_trivial.ml" 118 4815 4835
+type(
+  string -> bool
+)
+ident(
+  ext_ref Imp_graph.is_true
+)
+"kind1/filter_trivial.ml" 118 4815 4837 "kind1/filter_trivial.ml" 118 4815 4849
+type(
+  (string, string) Hashtbl.t -> string -> string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/filter_trivial.ml" 118 4815 4850 "kind1/filter_trivial.ml" 118 4815 4858
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+)
+"kind1/filter_trivial.ml" 118 4815 4859 "kind1/filter_trivial.ml" 118 4815 4860
+type(
+  string
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 117 4788 4809 "kind1/filter_trivial.ml" 117 4788 4810
+)
+"kind1/filter_trivial.ml" 118 4815 4836 "kind1/filter_trivial.ml" 118 4815 4861
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 118 4815 4818 "kind1/filter_trivial.ml" 118 4815 4861
+call(
+  tail
+)
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 117 4788 4804 "kind1/filter_trivial.ml" 118 4815 4862
+type(
+  string -> bool
+)
+"kind1/filter_trivial.ml" 118 4815 4863 "kind1/filter_trivial.ml" 118 4815 4872
+type(
+  string list
+)
+ident(
+  int_ref one_class "kind1/filter_trivial.ml" 115 4693 4717 "kind1/filter_trivial.ml" 115 4693 4726
+)
+"kind1/filter_trivial.ml" 117 4788 4789 "kind1/filter_trivial.ml" 118 4815 4872
+call(
+  stack
+)
+type(
+  string list * string list
+)
+"kind1/filter_trivial.ml" 120 4883 4893 "kind1/filter_trivial.ml" 120 4883 4912
+type(
+  string list list
+)
+ident(
+  def split_equiv_classes "kind1/filter_trivial.ml" 121 4953 4959 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 120 4883 4915 "kind1/filter_trivial.ml" 120 4883 4931
+type(
+  string list list -> string list list
+)
+ident(
+  int_ref filter_non_empty "kind1/filter_trivial.ml" 35 1716 1720 "kind1/filter_trivial.ml" 35 1716 1736
+)
+"kind1/filter_trivial.ml" 120 4883 4933 "kind1/filter_trivial.ml" 120 4883 4940
+type(
+  string list
+)
+ident(
+  int_ref t_class "kind1/filter_trivial.ml" 116 4758 4768 "kind1/filter_trivial.ml" 116 4758 4775
+)
+"kind1/filter_trivial.ml" 120 4883 4941 "kind1/filter_trivial.ml" 120 4883 4948
+type(
+  string list
+)
+ident(
+  int_ref f_class "kind1/filter_trivial.ml" 116 4758 4777 "kind1/filter_trivial.ml" 116 4758 4784
+)
+"kind1/filter_trivial.ml" 120 4883 4932 "kind1/filter_trivial.ml" 120 4883 4949
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 120 4883 4915 "kind1/filter_trivial.ml" 120 4883 4949
+call(
+  stack
+)
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 121 4953 4963 "kind1/filter_trivial.ml" 121 4953 4979
+type(
+  (string * string) list
+)
+ident(
+  def non_trivial_equs "kind1/filter_trivial.ml" 122 5016 5017 "kind1/filter_trivial.ml" 124 5081 5149
+)
+"kind1/filter_trivial.ml" 121 4953 4982 "kind1/filter_trivial.ml" 121 4953 4991
+type(
+  string list list -> (string * string) list
+)
+ident(
+  int_ref pick_equs "kind1/filter_trivial.ml" 38 1791 1795 "kind1/filter_trivial.ml" 38 1791 1804
+)
+"kind1/filter_trivial.ml" 121 4953 4992 "kind1/filter_trivial.ml" 121 4953 5011
+type(
+  string list list
+)
+ident(
+  int_ref split_equiv_classes "kind1/filter_trivial.ml" 120 4883 4893 "kind1/filter_trivial.ml" 120 4883 4912
+)
+"kind1/filter_trivial.ml" 121 4953 4982 "kind1/filter_trivial.ml" 121 4953 5011
+call(
+  stack
+)
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 122 5016 5021 "kind1/filter_trivial.ml" 122 5016 5032
+type(
+  string list list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/filter_trivial.ml" 122 5016 5033 "kind1/filter_trivial.ml" 122 5016 5052
+type(
+  string list list
+)
+ident(
+  int_ref split_equiv_classes "kind1/filter_trivial.ml" 120 4883 4893 "kind1/filter_trivial.ml" 120 4883 4912
+)
+"kind1/filter_trivial.ml" 122 5016 5020 "kind1/filter_trivial.ml" 122 5016 5053
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/filter_trivial.ml" 122 5016 5054 "kind1/filter_trivial.ml" 122 5016 5055
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/filter_trivial.ml" 122 5016 5056 "kind1/filter_trivial.ml" 122 5016 5057
+type(
+  int
+)
+"kind1/filter_trivial.ml" 122 5016 5020 "kind1/filter_trivial.ml" 122 5016 5057
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 123 5059 5065 "kind1/filter_trivial.ml" 123 5059 5072
+type(
+  bool ref
+)
+ident(
+  int_ref changed "kind1/filter_trivial.ml" 114 4662 4670 "kind1/filter_trivial.ml" 114 4662 4677
+)
+"kind1/filter_trivial.ml" 123 5059 5072 "kind1/filter_trivial.ml" 123 5059 5074
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/filter_trivial.ml" 123 5059 5074 "kind1/filter_trivial.ml" 123 5059 5078
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 123 5059 5065 "kind1/filter_trivial.ml" 123 5059 5078
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 122 5016 5017 "kind1/filter_trivial.ml" 123 5059 5078
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 124 5081 5083 "kind1/filter_trivial.ml" 124 5081 5102
+type(
+  string list list
+)
+ident(
+  int_ref split_equiv_classes "kind1/filter_trivial.ml" 120 4883 4893 "kind1/filter_trivial.ml" 120 4883 4912
+)
+"kind1/filter_trivial.ml" 124 5081 5102 "kind1/filter_trivial.ml" 124 5081 5103
+type(
+  string list list -> string list list -> string list list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 124 5081 5103 "kind1/filter_trivial.ml" 124 5081 5116
+type(
+  string list list
+)
+ident(
+  int_ref equiv_classes "kind1/filter_trivial.ml" 115 4693 4728 "kind1/filter_trivial.ml" 115 4693 4741
+)
+"kind1/filter_trivial.ml" 124 5081 5082 "kind1/filter_trivial.ml" 124 5081 5117
+call(
+  stack
+)
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 124 5081 5120 "kind1/filter_trivial.ml" 124 5081 5136
+type(
+  (string * string) list
+)
+ident(
+  int_ref non_trivial_equs "kind1/filter_trivial.ml" 121 4953 4963 "kind1/filter_trivial.ml" 121 4953 4979
+)
+"kind1/filter_trivial.ml" 124 5081 5136 "kind1/filter_trivial.ml" 124 5081 5137
+type(
+  (string * string) list -> (string * string) list -> (string * string) list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 124 5081 5137 "kind1/filter_trivial.ml" 124 5081 5148
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_equs "kind1/filter_trivial.ml" 115 4693 4743 "kind1/filter_trivial.ml" 115 4693 4754
+)
+"kind1/filter_trivial.ml" 124 5081 5119 "kind1/filter_trivial.ml" 124 5081 5149
+call(
+  stack
+)
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 124 5081 5082 "kind1/filter_trivial.ml" 124 5081 5149
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 122 5016 5017 "kind1/filter_trivial.ml" 124 5081 5149
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 121 4953 4959 "kind1/filter_trivial.ml" 124 5081 5149
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 120 4883 4889 "kind1/filter_trivial.ml" 124 5081 5149
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 116 4758 4764 "kind1/filter_trivial.ml" 124 5081 5149
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 127 5166 5167 "kind1/filter_trivial.ml" 127 5166 5180
+type(
+  string list list
+)
+ident(
+  def new_equiv_cls "kind1/filter_trivial.ml" 129 5297 5303 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 127 5166 5182 "kind1/filter_trivial.ml" 127 5166 5203
+type(
+  (string * string) list
+)
+ident(
+  def new_picked_equalities "kind1/filter_trivial.ml" 129 5297 5303 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 127 5166 5167 "kind1/filter_trivial.ml" 127 5166 5203
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 128 5207 5213 "kind1/filter_trivial.ml" 128 5207 5228
+type(
+  (string list ->
+   string list list * (string * string) list ->
+   string list list * (string * string) list) ->
+  string list list ->
+  string list list * (string * string) list ->
+  string list list * (string * string) list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/filter_trivial.ml" 128 5207 5229 "kind1/filter_trivial.ml" 128 5207 5244
+type(
+  string list ->
+  string list list * (string * string) list ->
+  string list list * (string * string) list
+)
+ident(
+  int_ref bool_equiv_func "kind1/filter_trivial.ml" 115 4693 4701 "kind1/filter_trivial.ml" 115 4693 4716
+)
+"kind1/filter_trivial.ml" 128 5207 5245 "kind1/filter_trivial.ml" 128 5207 5270
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 128 5207 5272 "kind1/filter_trivial.ml" 128 5207 5274
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 128 5207 5275 "kind1/filter_trivial.ml" 128 5207 5292
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 128 5207 5271 "kind1/filter_trivial.ml" 128 5207 5293
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 128 5207 5213 "kind1/filter_trivial.ml" 128 5207 5293
+call(
+  stack
+)
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 129 5297 5332 "kind1/filter_trivial.ml" 129 5297 5345
+type(
+  string list list
+)
+ident(
+  int_ref new_equiv_cls "kind1/filter_trivial.ml" 127 5166 5167 "kind1/filter_trivial.ml" 127 5166 5180
+)
+"kind1/filter_trivial.ml" 129 5297 5303 "kind1/filter_trivial.ml" 129 5297 5345
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 130 5348 5375 "kind1/filter_trivial.ml" 130 5348 5396
+type(
+  (string * string) list
+)
+ident(
+  int_ref new_picked_equalities "kind1/filter_trivial.ml" 127 5166 5182 "kind1/filter_trivial.ml" 127 5166 5203
+)
+"kind1/filter_trivial.ml" 130 5348 5354 "kind1/filter_trivial.ml" 130 5348 5396
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 132 5405 5413 "kind1/filter_trivial.ml" 132 5405 5426
+type(
+  string * string ->
+  (string * string) list * (string * string) list ->
+  (string * string) list * (string * string) list
+)
+ident(
+  def bool_imp_func "kind1/filter_trivial.ml" 139 5703 5707 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 132 5405 5429 "kind1/filter_trivial.ml" 132 5405 5430
+type(
+  string
+)
+ident(
+  def l "kind1/filter_trivial.ml" 132 5405 5446 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 132 5405 5431 "kind1/filter_trivial.ml" 132 5405 5432
+type(
+  string
+)
+ident(
+  def r "kind1/filter_trivial.ml" 132 5405 5446 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 132 5405 5428 "kind1/filter_trivial.ml" 132 5405 5433
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 132 5405 5437 "kind1/filter_trivial.ml" 132 5405 5444
+ident(
+  def one_imp "kind1/filter_trivial.ml" 132 5405 5446 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 132 5405 5427 "kind1/filter_trivial.ml" 132 5405 5445
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 132 5405 5447 "kind1/filter_trivial.ml" 132 5405 5451
+type(
+  (string * string) list
+)
+ident(
+  def imps "kind1/filter_trivial.ml" 133 5468 5474 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 132 5405 5453 "kind1/filter_trivial.ml" 132 5405 5464
+type(
+  (string * string) list
+)
+ident(
+  def picked_imps "kind1/filter_trivial.ml" 133 5468 5474 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 132 5405 5446 "kind1/filter_trivial.ml" 132 5405 5465
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 133 5468 5478 "kind1/filter_trivial.ml" 133 5468 5481
+type(
+  string
+)
+ident(
+  def l_v "kind1/filter_trivial.ml" 134 5511 5517 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 133 5468 5484 "kind1/filter_trivial.ml" 133 5468 5496
+type(
+  (string, string) Hashtbl.t -> string -> string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/filter_trivial.ml" 133 5468 5497 "kind1/filter_trivial.ml" 133 5468 5505
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+)
+"kind1/filter_trivial.ml" 133 5468 5506 "kind1/filter_trivial.ml" 133 5468 5507
+type(
+  string
+)
+ident(
+  int_ref l "kind1/filter_trivial.ml" 132 5405 5429 "kind1/filter_trivial.ml" 132 5405 5430
+)
+"kind1/filter_trivial.ml" 133 5468 5484 "kind1/filter_trivial.ml" 133 5468 5507
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 134 5511 5521 "kind1/filter_trivial.ml" 134 5511 5524
+type(
+  string
+)
+ident(
+  def r_v "kind1/filter_trivial.ml" 135 5554 5555 "kind1/filter_trivial.ml" 137 5660 5694
+)
+"kind1/filter_trivial.ml" 134 5511 5527 "kind1/filter_trivial.ml" 134 5511 5539
+type(
+  (string, string) Hashtbl.t -> string -> string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/filter_trivial.ml" 134 5511 5540 "kind1/filter_trivial.ml" 134 5511 5548
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+)
+"kind1/filter_trivial.ml" 134 5511 5549 "kind1/filter_trivial.ml" 134 5511 5550
+type(
+  string
+)
+ident(
+  int_ref r "kind1/filter_trivial.ml" 132 5405 5431 "kind1/filter_trivial.ml" 132 5405 5432
+)
+"kind1/filter_trivial.ml" 134 5511 5527 "kind1/filter_trivial.ml" 134 5511 5550
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 135 5554 5559 "kind1/filter_trivial.ml" 135 5554 5576
+type(
+  string -> bool
+)
+ident(
+  ext_ref Imp_graph.is_true
+)
+"kind1/filter_trivial.ml" 135 5554 5577 "kind1/filter_trivial.ml" 135 5554 5580
+type(
+  string
+)
+ident(
+  int_ref l_v "kind1/filter_trivial.ml" 133 5468 5478 "kind1/filter_trivial.ml" 133 5468 5481
+)
+"kind1/filter_trivial.ml" 135 5554 5559 "kind1/filter_trivial.ml" 135 5554 5580
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 135 5554 5581 "kind1/filter_trivial.ml" 135 5554 5583
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/filter_trivial.ml" 135 5554 5584 "kind1/filter_trivial.ml" 135 5554 5602
+type(
+  string -> bool
+)
+ident(
+  ext_ref Imp_graph.is_false
+)
+"kind1/filter_trivial.ml" 135 5554 5603 "kind1/filter_trivial.ml" 135 5554 5606
+type(
+  string
+)
+ident(
+  int_ref r_v "kind1/filter_trivial.ml" 134 5511 5521 "kind1/filter_trivial.ml" 134 5511 5524
+)
+"kind1/filter_trivial.ml" 135 5554 5584 "kind1/filter_trivial.ml" 135 5554 5606
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 135 5554 5558 "kind1/filter_trivial.ml" 135 5554 5607
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 136 5609 5616 "kind1/filter_trivial.ml" 136 5609 5623
+type(
+  bool ref
+)
+ident(
+  int_ref changed "kind1/filter_trivial.ml" 114 4662 4670 "kind1/filter_trivial.ml" 114 4662 4677
+)
+"kind1/filter_trivial.ml" 136 5609 5623 "kind1/filter_trivial.ml" 136 5609 5625
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/filter_trivial.ml" 136 5609 5625 "kind1/filter_trivial.ml" 136 5609 5629
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 136 5609 5616 "kind1/filter_trivial.ml" 136 5609 5629
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 136 5609 5631 "kind1/filter_trivial.ml" 136 5609 5635
+type(
+  (string * string) list
+)
+ident(
+  int_ref imps "kind1/filter_trivial.ml" 132 5405 5447 "kind1/filter_trivial.ml" 132 5405 5451
+)
+"kind1/filter_trivial.ml" 136 5609 5637 "kind1/filter_trivial.ml" 136 5609 5644
+type(
+  string * string
+)
+ident(
+  int_ref one_imp "kind1/filter_trivial.ml" 132 5405 5427 "kind1/filter_trivial.ml" 132 5405 5445
+)
+"kind1/filter_trivial.ml" 136 5609 5646 "kind1/filter_trivial.ml" 136 5609 5657
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_imps "kind1/filter_trivial.ml" 132 5405 5453 "kind1/filter_trivial.ml" 132 5405 5464
+)
+"kind1/filter_trivial.ml" 136 5609 5637 "kind1/filter_trivial.ml" 136 5609 5657
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 136 5609 5630 "kind1/filter_trivial.ml" 136 5609 5658
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 136 5609 5615 "kind1/filter_trivial.ml" 136 5609 5659
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 137 5660 5667 "kind1/filter_trivial.ml" 137 5660 5674
+type(
+  string * string
+)
+ident(
+  int_ref one_imp "kind1/filter_trivial.ml" 132 5405 5427 "kind1/filter_trivial.ml" 132 5405 5445
+)
+"kind1/filter_trivial.ml" 137 5660 5676 "kind1/filter_trivial.ml" 137 5660 5680
+type(
+  (string * string) list
+)
+ident(
+  int_ref imps "kind1/filter_trivial.ml" 132 5405 5447 "kind1/filter_trivial.ml" 132 5405 5451
+)
+"kind1/filter_trivial.ml" 137 5660 5667 "kind1/filter_trivial.ml" 137 5660 5680
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 137 5660 5682 "kind1/filter_trivial.ml" 137 5660 5693
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_imps "kind1/filter_trivial.ml" 132 5405 5453 "kind1/filter_trivial.ml" 132 5405 5464
+)
+"kind1/filter_trivial.ml" 137 5660 5666 "kind1/filter_trivial.ml" 137 5660 5694
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 135 5554 5555 "kind1/filter_trivial.ml" 137 5660 5694
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 134 5511 5517 "kind1/filter_trivial.ml" 137 5660 5694
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 133 5468 5474 "kind1/filter_trivial.ml" 137 5660 5694
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 139 5703 5711 "kind1/filter_trivial.ml" 139 5703 5725
+type(
+  (string * string) list
+)
+ident(
+  def bool_imps_left "kind1/filter_trivial.ml" 141 5827 5833 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 139 5703 5727 "kind1/filter_trivial.ml" 139 5703 5743
+type(
+  (string * string) list
+)
+ident(
+  def picked_bool_imps "kind1/filter_trivial.ml" 141 5827 5833 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 139 5703 5711 "kind1/filter_trivial.ml" 139 5703 5743
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 140 5747 5753 "kind1/filter_trivial.ml" 140 5747 5768
+type(
+  (string * string ->
+   (string * string) list * (string * string) list ->
+   (string * string) list * (string * string) list) ->
+  (string * string) list ->
+  (string * string) list * (string * string) list ->
+  (string * string) list * (string * string) list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/filter_trivial.ml" 140 5747 5769 "kind1/filter_trivial.ml" 140 5747 5782
+type(
+  string * string ->
+  (string * string) list * (string * string) list ->
+  (string * string) list * (string * string) list
+)
+ident(
+  int_ref bool_imp_func "kind1/filter_trivial.ml" 132 5405 5413 "kind1/filter_trivial.ml" 132 5405 5426
+)
+"kind1/filter_trivial.ml" 140 5747 5783 "kind1/filter_trivial.ml" 140 5747 5799
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 140 5747 5801 "kind1/filter_trivial.ml" 140 5747 5803
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 140 5747 5804 "kind1/filter_trivial.ml" 140 5747 5822
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 140 5747 5800 "kind1/filter_trivial.ml" 140 5747 5823
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 140 5747 5753 "kind1/filter_trivial.ml" 140 5747 5823
+call(
+  stack
+)
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 141 5827 5855 "kind1/filter_trivial.ml" 141 5827 5871
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_bool_imps "kind1/filter_trivial.ml" 139 5703 5727 "kind1/filter_trivial.ml" 139 5703 5743
+)
+"kind1/filter_trivial.ml" 141 5827 5833 "kind1/filter_trivial.ml" 141 5827 5871
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 142 5873 5899 "kind1/filter_trivial.ml" 142 5873 5913
+type(
+  (string * string) list
+)
+ident(
+  int_ref bool_imps_left "kind1/filter_trivial.ml" 139 5703 5711 "kind1/filter_trivial.ml" 139 5703 5725
+)
+"kind1/filter_trivial.ml" 142 5873 5879 "kind1/filter_trivial.ml" 142 5873 5913
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 144 5916 5924 "kind1/filter_trivial.ml" 144 5916 5938
+type(
+  string list ->
+  string list list * (string * string) list ->
+  string list list * (string * string) list
+)
+ident(
+  def int_equiv_func "kind1/filter_trivial.ml" 151 6276 6280 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 144 5916 5939 "kind1/filter_trivial.ml" 144 5916 5948
+type(
+  string list
+)
+ident(
+  def one_class "kind1/filter_trivial.ml" 144 5916 5949 "kind1/filter_trivial.ml" 149 6201 6268
+)
+"kind1/filter_trivial.ml" 144 5916 5950 "kind1/filter_trivial.ml" 144 5916 5963
+type(
+  string list list
+)
+ident(
+  def equiv_classes "kind1/filter_trivial.ml" 145 5980 5986 "kind1/filter_trivial.ml" 149 6201 6268
+)
+"kind1/filter_trivial.ml" 144 5916 5965 "kind1/filter_trivial.ml" 144 5916 5976
+type(
+  (string * string) list
+)
+ident(
+  def picked_equs "kind1/filter_trivial.ml" 145 5980 5986 "kind1/filter_trivial.ml" 149 6201 6268
+)
+"kind1/filter_trivial.ml" 144 5916 5949 "kind1/filter_trivial.ml" 144 5916 5977
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 145 5980 5990 "kind1/filter_trivial.ml" 145 5980 6009
+type(
+  string list list
+)
+ident(
+  def split_equiv_classes "kind1/filter_trivial.ml" 146 6064 6070 "kind1/filter_trivial.ml" 149 6201 6268
+)
+"kind1/filter_trivial.ml" 145 5980 6011 "kind1/filter_trivial.ml" 145 5980 6012
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 145 5980 5990 "kind1/filter_trivial.ml" 145 5980 6012
+type(
+  string list list * bool
+)
+"kind1/filter_trivial.ml" 145 5980 6015 "kind1/filter_trivial.ml" 145 5980 6041
+type(
+  string list -> (string, string) Hashtbl.t -> string list list * bool
+)
+ident(
+  ext_ref Equiv_util.filter_int_func
+)
+"kind1/filter_trivial.ml" 145 5980 6042 "kind1/filter_trivial.ml" 145 5980 6051
+type(
+  string list
+)
+ident(
+  int_ref one_class "kind1/filter_trivial.ml" 144 5916 5939 "kind1/filter_trivial.ml" 144 5916 5948
+)
+"kind1/filter_trivial.ml" 145 5980 6052 "kind1/filter_trivial.ml" 145 5980 6060
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+)
+"kind1/filter_trivial.ml" 145 5980 6015 "kind1/filter_trivial.ml" 145 5980 6060
+call(
+  stack
+)
+type(
+  string list list * bool
+)
+"kind1/filter_trivial.ml" 146 6064 6074 "kind1/filter_trivial.ml" 146 6064 6090
+type(
+  (string * string) list
+)
+ident(
+  def non_trivial_equs "kind1/filter_trivial.ml" 147 6126 6132 "kind1/filter_trivial.ml" 149 6201 6268
+)
+"kind1/filter_trivial.ml" 146 6064 6093 "kind1/filter_trivial.ml" 146 6064 6102
+type(
+  string list list -> (string * string) list
+)
+ident(
+  int_ref pick_equs "kind1/filter_trivial.ml" 38 1791 1795 "kind1/filter_trivial.ml" 38 1791 1804
+)
+"kind1/filter_trivial.ml" 146 6064 6103 "kind1/filter_trivial.ml" 146 6064 6122
+type(
+  string list list
+)
+ident(
+  int_ref split_equiv_classes "kind1/filter_trivial.ml" 145 5980 5990 "kind1/filter_trivial.ml" 145 5980 6009
+)
+"kind1/filter_trivial.ml" 146 6064 6093 "kind1/filter_trivial.ml" 146 6064 6122
+call(
+  stack
+)
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 147 6126 6136 "kind1/filter_trivial.ml" 147 6126 6147
+type(
+  string list list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/filter_trivial.ml" 147 6126 6148 "kind1/filter_trivial.ml" 147 6126 6167
+type(
+  string list list
+)
+ident(
+  int_ref split_equiv_classes "kind1/filter_trivial.ml" 145 5980 5990 "kind1/filter_trivial.ml" 145 5980 6009
+)
+"kind1/filter_trivial.ml" 147 6126 6135 "kind1/filter_trivial.ml" 147 6126 6168
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/filter_trivial.ml" 147 6126 6169 "kind1/filter_trivial.ml" 147 6126 6170
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/filter_trivial.ml" 147 6126 6171 "kind1/filter_trivial.ml" 147 6126 6172
+type(
+  int
+)
+"kind1/filter_trivial.ml" 147 6126 6135 "kind1/filter_trivial.ml" 147 6126 6172
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 148 6174 6185 "kind1/filter_trivial.ml" 148 6174 6192
+type(
+  bool ref
+)
+ident(
+  int_ref changed "kind1/filter_trivial.ml" 114 4662 4670 "kind1/filter_trivial.ml" 114 4662 4677
+)
+"kind1/filter_trivial.ml" 148 6174 6192 "kind1/filter_trivial.ml" 148 6174 6194
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/filter_trivial.ml" 148 6174 6194 "kind1/filter_trivial.ml" 148 6174 6198
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 148 6174 6185 "kind1/filter_trivial.ml" 148 6174 6198
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 147 6126 6132 "kind1/filter_trivial.ml" 148 6174 6198
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 149 6201 6203 "kind1/filter_trivial.ml" 149 6201 6222
+type(
+  string list list
+)
+ident(
+  int_ref split_equiv_classes "kind1/filter_trivial.ml" 145 5980 5990 "kind1/filter_trivial.ml" 145 5980 6009
+)
+"kind1/filter_trivial.ml" 149 6201 6222 "kind1/filter_trivial.ml" 149 6201 6223
+type(
+  string list list -> string list list -> string list list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 149 6201 6223 "kind1/filter_trivial.ml" 149 6201 6236
+type(
+  string list list
+)
+ident(
+  int_ref equiv_classes "kind1/filter_trivial.ml" 144 5916 5950 "kind1/filter_trivial.ml" 144 5916 5963
+)
+"kind1/filter_trivial.ml" 149 6201 6202 "kind1/filter_trivial.ml" 149 6201 6237
+call(
+  stack
+)
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 149 6201 6239 "kind1/filter_trivial.ml" 149 6201 6255
+type(
+  (string * string) list
+)
+ident(
+  int_ref non_trivial_equs "kind1/filter_trivial.ml" 146 6064 6074 "kind1/filter_trivial.ml" 146 6064 6090
+)
+"kind1/filter_trivial.ml" 149 6201 6255 "kind1/filter_trivial.ml" 149 6201 6256
+type(
+  (string * string) list -> (string * string) list -> (string * string) list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 149 6201 6256 "kind1/filter_trivial.ml" 149 6201 6267
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_equs "kind1/filter_trivial.ml" 144 5916 5965 "kind1/filter_trivial.ml" 144 5916 5976
+)
+"kind1/filter_trivial.ml" 149 6201 6238 "kind1/filter_trivial.ml" 149 6201 6268
+call(
+  stack
+)
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 149 6201 6202 "kind1/filter_trivial.ml" 149 6201 6268
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 147 6126 6132 "kind1/filter_trivial.ml" 149 6201 6268
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 146 6064 6070 "kind1/filter_trivial.ml" 149 6201 6268
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 145 5980 5986 "kind1/filter_trivial.ml" 149 6201 6268
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 151 6276 6284 "kind1/filter_trivial.ml" 151 6276 6297
+type(
+  string list list
+)
+ident(
+  def new_equiv_cls "kind1/filter_trivial.ml" 153 6411 6417 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 151 6276 6299 "kind1/filter_trivial.ml" 151 6276 6320
+type(
+  (string * string) list
+)
+ident(
+  def new_picked_equalities "kind1/filter_trivial.ml" 153 6411 6417 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 151 6276 6284 "kind1/filter_trivial.ml" 151 6276 6320
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 152 6324 6330 "kind1/filter_trivial.ml" 152 6324 6345
+type(
+  (string list ->
+   string list list * (string * string) list ->
+   string list list * (string * string) list) ->
+  string list list ->
+  string list list * (string * string) list ->
+  string list list * (string * string) list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/filter_trivial.ml" 152 6324 6346 "kind1/filter_trivial.ml" 152 6324 6360
+type(
+  string list ->
+  string list list * (string * string) list ->
+  string list list * (string * string) list
+)
+ident(
+  int_ref int_equiv_func "kind1/filter_trivial.ml" 144 5916 5924 "kind1/filter_trivial.ml" 144 5916 5938
+)
+"kind1/filter_trivial.ml" 152 6324 6361 "kind1/filter_trivial.ml" 152 6324 6385
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 152 6324 6387 "kind1/filter_trivial.ml" 152 6324 6389
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 152 6324 6390 "kind1/filter_trivial.ml" 152 6324 6406
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 152 6324 6386 "kind1/filter_trivial.ml" 152 6324 6407
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 152 6324 6330 "kind1/filter_trivial.ml" 152 6324 6407
+call(
+  stack
+)
+type(
+  string list list * (string * string) list
+)
+"kind1/filter_trivial.ml" 153 6411 6445 "kind1/filter_trivial.ml" 153 6411 6458
+type(
+  string list list
+)
+ident(
+  int_ref new_equiv_cls "kind1/filter_trivial.ml" 151 6276 6284 "kind1/filter_trivial.ml" 151 6276 6297
+)
+"kind1/filter_trivial.ml" 153 6411 6417 "kind1/filter_trivial.ml" 153 6411 6458
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 154 6461 6487 "kind1/filter_trivial.ml" 154 6461 6508
+type(
+  (string * string) list
+)
+ident(
+  int_ref new_picked_equalities "kind1/filter_trivial.ml" 151 6276 6299 "kind1/filter_trivial.ml" 151 6276 6320
+)
+"kind1/filter_trivial.ml" 154 6461 6467 "kind1/filter_trivial.ml" 154 6461 6508
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 156 6513 6521 "kind1/filter_trivial.ml" 156 6513 6533
+type(
+  string * string ->
+  (string * string) list * (string * string) list ->
+  (string * string) list * (string * string) list
+)
+ident(
+  def int_imp_func "kind1/filter_trivial.ml" 163 6804 6808 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 156 6513 6536 "kind1/filter_trivial.ml" 156 6513 6537
+type(
+  string
+)
+ident(
+  def l "kind1/filter_trivial.ml" 156 6513 6553 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 156 6513 6538 "kind1/filter_trivial.ml" 156 6513 6539
+type(
+  string
+)
+ident(
+  def r "kind1/filter_trivial.ml" 156 6513 6553 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 156 6513 6535 "kind1/filter_trivial.ml" 156 6513 6540
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 156 6513 6544 "kind1/filter_trivial.ml" 156 6513 6551
+ident(
+  def one_imp "kind1/filter_trivial.ml" 156 6513 6553 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 156 6513 6534 "kind1/filter_trivial.ml" 156 6513 6552
+type(
+  string * string
+)
+"kind1/filter_trivial.ml" 156 6513 6554 "kind1/filter_trivial.ml" 156 6513 6558
+type(
+  (string * string) list
+)
+ident(
+  def imps "kind1/filter_trivial.ml" 157 6575 6581 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 156 6513 6560 "kind1/filter_trivial.ml" 156 6513 6571
+type(
+  (string * string) list
+)
+ident(
+  def picked_imps "kind1/filter_trivial.ml" 157 6575 6581 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 156 6513 6553 "kind1/filter_trivial.ml" 156 6513 6572
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 157 6575 6585 "kind1/filter_trivial.ml" 157 6575 6588
+type(
+  int
+)
+ident(
+  def l_v "kind1/filter_trivial.ml" 158 6634 6640 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 157 6575 6591 "kind1/filter_trivial.ml" 157 6575 6604
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.int_of_string
+)
+"kind1/filter_trivial.ml" 157 6575 6606 "kind1/filter_trivial.ml" 157 6575 6618
+type(
+  (string, string) Hashtbl.t -> string -> string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/filter_trivial.ml" 157 6575 6619 "kind1/filter_trivial.ml" 157 6575 6627
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+)
+"kind1/filter_trivial.ml" 157 6575 6628 "kind1/filter_trivial.ml" 157 6575 6629
+type(
+  string
+)
+ident(
+  int_ref l "kind1/filter_trivial.ml" 156 6513 6536 "kind1/filter_trivial.ml" 156 6513 6537
+)
+"kind1/filter_trivial.ml" 157 6575 6605 "kind1/filter_trivial.ml" 157 6575 6630
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 157 6575 6591 "kind1/filter_trivial.ml" 157 6575 6630
+type(
+  int
+)
+"kind1/filter_trivial.ml" 158 6634 6644 "kind1/filter_trivial.ml" 158 6634 6647
+type(
+  int
+)
+ident(
+  def r_v "kind1/filter_trivial.ml" 159 6693 6694 "kind1/filter_trivial.ml" 161 6761 6795
+)
+"kind1/filter_trivial.ml" 158 6634 6650 "kind1/filter_trivial.ml" 158 6634 6663
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.int_of_string
+)
+"kind1/filter_trivial.ml" 158 6634 6665 "kind1/filter_trivial.ml" 158 6634 6677
+type(
+  (string, string) Hashtbl.t -> string -> string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/filter_trivial.ml" 158 6634 6678 "kind1/filter_trivial.ml" 158 6634 6686
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/filter_trivial.ml" 113 4635 4651 "kind1/filter_trivial.ml" 113 4635 4659
+)
+"kind1/filter_trivial.ml" 158 6634 6687 "kind1/filter_trivial.ml" 158 6634 6688
+type(
+  string
+)
+ident(
+  int_ref r "kind1/filter_trivial.ml" 156 6513 6538 "kind1/filter_trivial.ml" 156 6513 6539
+)
+"kind1/filter_trivial.ml" 158 6634 6664 "kind1/filter_trivial.ml" 158 6634 6689
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 158 6634 6650 "kind1/filter_trivial.ml" 158 6634 6689
+type(
+  int
+)
+"kind1/filter_trivial.ml" 159 6693 6698 "kind1/filter_trivial.ml" 159 6693 6701
+type(
+  int
+)
+ident(
+  int_ref l_v "kind1/filter_trivial.ml" 157 6575 6585 "kind1/filter_trivial.ml" 157 6575 6588
+)
+"kind1/filter_trivial.ml" 159 6693 6702 "kind1/filter_trivial.ml" 159 6693 6703
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/filter_trivial.ml" 159 6693 6704 "kind1/filter_trivial.ml" 159 6693 6707
+type(
+  int
+)
+ident(
+  int_ref r_v "kind1/filter_trivial.ml" 158 6634 6644 "kind1/filter_trivial.ml" 158 6634 6647
+)
+"kind1/filter_trivial.ml" 159 6693 6697 "kind1/filter_trivial.ml" 159 6693 6708
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 160 6710 6717 "kind1/filter_trivial.ml" 160 6710 6724
+type(
+  bool ref
+)
+ident(
+  int_ref changed "kind1/filter_trivial.ml" 114 4662 4670 "kind1/filter_trivial.ml" 114 4662 4677
+)
+"kind1/filter_trivial.ml" 160 6710 6724 "kind1/filter_trivial.ml" 160 6710 6726
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/filter_trivial.ml" 160 6710 6726 "kind1/filter_trivial.ml" 160 6710 6730
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 160 6710 6717 "kind1/filter_trivial.ml" 160 6710 6730
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 160 6710 6732 "kind1/filter_trivial.ml" 160 6710 6736
+type(
+  (string * string) list
+)
+ident(
+  int_ref imps "kind1/filter_trivial.ml" 156 6513 6554 "kind1/filter_trivial.ml" 156 6513 6558
+)
+"kind1/filter_trivial.ml" 160 6710 6738 "kind1/filter_trivial.ml" 160 6710 6745
+type(
+  string * string
+)
+ident(
+  int_ref one_imp "kind1/filter_trivial.ml" 156 6513 6534 "kind1/filter_trivial.ml" 156 6513 6552
+)
+"kind1/filter_trivial.ml" 160 6710 6747 "kind1/filter_trivial.ml" 160 6710 6758
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_imps "kind1/filter_trivial.ml" 156 6513 6560 "kind1/filter_trivial.ml" 156 6513 6571
+)
+"kind1/filter_trivial.ml" 160 6710 6738 "kind1/filter_trivial.ml" 160 6710 6758
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 160 6710 6731 "kind1/filter_trivial.ml" 160 6710 6759
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 160 6710 6716 "kind1/filter_trivial.ml" 160 6710 6760
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 161 6761 6768 "kind1/filter_trivial.ml" 161 6761 6775
+type(
+  string * string
+)
+ident(
+  int_ref one_imp "kind1/filter_trivial.ml" 156 6513 6534 "kind1/filter_trivial.ml" 156 6513 6552
+)
+"kind1/filter_trivial.ml" 161 6761 6777 "kind1/filter_trivial.ml" 161 6761 6781
+type(
+  (string * string) list
+)
+ident(
+  int_ref imps "kind1/filter_trivial.ml" 156 6513 6554 "kind1/filter_trivial.ml" 156 6513 6558
+)
+"kind1/filter_trivial.ml" 161 6761 6768 "kind1/filter_trivial.ml" 161 6761 6781
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 161 6761 6783 "kind1/filter_trivial.ml" 161 6761 6794
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_imps "kind1/filter_trivial.ml" 156 6513 6560 "kind1/filter_trivial.ml" 156 6513 6571
+)
+"kind1/filter_trivial.ml" 161 6761 6767 "kind1/filter_trivial.ml" 161 6761 6795
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 159 6693 6694 "kind1/filter_trivial.ml" 161 6761 6795
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 158 6634 6640 "kind1/filter_trivial.ml" 161 6761 6795
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 157 6575 6581 "kind1/filter_trivial.ml" 161 6761 6795
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 163 6804 6812 "kind1/filter_trivial.ml" 163 6804 6825
+type(
+  (string * string) list
+)
+ident(
+  def int_imps_left "kind1/filter_trivial.ml" 165 6923 6929 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 163 6804 6827 "kind1/filter_trivial.ml" 163 6804 6842
+type(
+  (string * string) list
+)
+ident(
+  def picked_int_imps "kind1/filter_trivial.ml" 165 6923 6929 "kind1/filter_trivial.ml" 167 7007 7021
+)
+"kind1/filter_trivial.ml" 163 6804 6812 "kind1/filter_trivial.ml" 163 6804 6842
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 164 6846 6852 "kind1/filter_trivial.ml" 164 6846 6867
+type(
+  (string * string ->
+   (string * string) list * (string * string) list ->
+   (string * string) list * (string * string) list) ->
+  (string * string) list ->
+  (string * string) list * (string * string) list ->
+  (string * string) list * (string * string) list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/filter_trivial.ml" 164 6846 6868 "kind1/filter_trivial.ml" 164 6846 6880
+type(
+  string * string ->
+  (string * string) list * (string * string) list ->
+  (string * string) list * (string * string) list
+)
+ident(
+  int_ref int_imp_func "kind1/filter_trivial.ml" 156 6513 6521 "kind1/filter_trivial.ml" 156 6513 6533
+)
+"kind1/filter_trivial.ml" 164 6846 6881 "kind1/filter_trivial.ml" 164 6846 6896
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 164 6846 6898 "kind1/filter_trivial.ml" 164 6846 6900
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 164 6846 6901 "kind1/filter_trivial.ml" 164 6846 6918
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 164 6846 6897 "kind1/filter_trivial.ml" 164 6846 6919
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 164 6846 6852 "kind1/filter_trivial.ml" 164 6846 6919
+call(
+  stack
+)
+type(
+  (string * string) list * (string * string) list
+)
+"kind1/filter_trivial.ml" 165 6923 6950 "kind1/filter_trivial.ml" 165 6923 6965
+type(
+  (string * string) list
+)
+ident(
+  int_ref picked_int_imps "kind1/filter_trivial.ml" 163 6804 6827 "kind1/filter_trivial.ml" 163 6804 6842
+)
+"kind1/filter_trivial.ml" 165 6923 6929 "kind1/filter_trivial.ml" 165 6923 6965
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 166 6967 6992 "kind1/filter_trivial.ml" 166 6967 7005
+type(
+  (string * string) list
+)
+ident(
+  int_ref int_imps_left "kind1/filter_trivial.ml" 163 6804 6812 "kind1/filter_trivial.ml" 163 6804 6825
+)
+"kind1/filter_trivial.ml" 166 6967 6973 "kind1/filter_trivial.ml" 166 6967 7005
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 167 7007 7013 "kind1/filter_trivial.ml" 167 7007 7014
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/filter_trivial.ml" 167 7007 7014 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool ref
+)
+ident(
+  int_ref changed "kind1/filter_trivial.ml" 114 4662 4670 "kind1/filter_trivial.ml" 114 4662 4677
+)
+"kind1/filter_trivial.ml" 167 7007 7013 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 166 6967 6973 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 165 6923 6929 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 163 6804 6808 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 156 6513 6517 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 154 6461 6467 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 153 6411 6417 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 151 6276 6280 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 144 5916 5920 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 142 5873 5879 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 141 5827 5833 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 139 5703 5707 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 132 5405 5409 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 130 5348 5354 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 129 5297 5303 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 126 5157 5161 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 115 4693 4697 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 114 4662 4666 "kind1/filter_trivial.ml" 167 7007 7021
+type(
+  bool
+)
+"kind1/filter_trivial.ml" 168 7022 7054 "kind1/filter_trivial.ml" 168 7022 7056
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 169 7059 7063 "kind1/filter_trivial.ml" 169 7059 7071
+type(
+  (string * string -> Types.il_formula) ->
+  (string * string) list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 169 7059 7072 "kind1/filter_trivial.ml" 169 7059 7082
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_eq_bool "kind1/filter_trivial.ml" 48 2037 2041 "kind1/filter_trivial.ml" 48 2037 2051
+)
+"kind1/filter_trivial.ml" 169 7059 7083 "kind1/filter_trivial.ml" 169 7059 7100
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 169 7059 7063 "kind1/filter_trivial.ml" 169 7059 7100
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 170 7101 7133 "kind1/filter_trivial.ml" 170 7101 7135
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 171 7138 7142 "kind1/filter_trivial.ml" 171 7138 7157
+type(
+  (string list -> Types.il_formula list -> Types.il_formula list) ->
+  string list list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/filter_trivial.ml" 171 7138 7163 "kind1/filter_trivial.ml" 171 7138 7164
+type(
+  string list
+)
+ident(
+  def x "kind1/filter_trivial.ml" 171 7138 7165 "kind1/filter_trivial.ml" 171 7138 7216
+)
+"kind1/filter_trivial.ml" 171 7138 7165 "kind1/filter_trivial.ml" 171 7138 7166
+type(
+  Types.il_formula list
+)
+ident(
+  def y "kind1/filter_trivial.ml" 171 7138 7170 "kind1/filter_trivial.ml" 171 7138 7216
+)
+"kind1/filter_trivial.ml" 171 7138 7171 "kind1/filter_trivial.ml" 171 7138 7198
+type(
+  string list -> Types.lustre_type -> Types.il_formula list
+)
+ident(
+  ext_ref Equiv_util.mk_eqs_one_class
+)
+"kind1/filter_trivial.ml" 171 7138 7199 "kind1/filter_trivial.ml" 171 7138 7200
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 171 7138 7163 "kind1/filter_trivial.ml" 171 7138 7164
+)
+"kind1/filter_trivial.ml" 171 7138 7201 "kind1/filter_trivial.ml" 171 7138 7213
+type(
+  Types.lustre_type
+)
+"kind1/filter_trivial.ml" 171 7138 7170 "kind1/filter_trivial.ml" 171 7138 7214
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 171 7138 7214 "kind1/filter_trivial.ml" 171 7138 7215
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 171 7138 7215 "kind1/filter_trivial.ml" 171 7138 7216
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref y "kind1/filter_trivial.ml" 171 7138 7165 "kind1/filter_trivial.ml" 171 7138 7166
+)
+"kind1/filter_trivial.ml" 171 7138 7170 "kind1/filter_trivial.ml" 171 7138 7216
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 171 7138 7158 "kind1/filter_trivial.ml" 171 7138 7218
+type(
+  string list -> Types.il_formula list -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 171 7138 7219 "kind1/filter_trivial.ml" 171 7138 7244
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 171 7138 7245 "kind1/filter_trivial.ml" 171 7138 7247
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 171 7138 7142 "kind1/filter_trivial.ml" 171 7138 7247
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 172 7249 7282 "kind1/filter_trivial.ml" 172 7249 7284
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 173 7287 7291 "kind1/filter_trivial.ml" 173 7287 7299
+type(
+  (string * string -> Types.il_formula) ->
+  (string * string) list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 173 7287 7300 "kind1/filter_trivial.ml" 173 7287 7311
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_imp_bool "kind1/filter_trivial.ml" 51 2129 2133 "kind1/filter_trivial.ml" 51 2129 2144
+)
+"kind1/filter_trivial.ml" 173 7287 7312 "kind1/filter_trivial.ml" 173 7287 7330
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 173 7287 7291 "kind1/filter_trivial.ml" 173 7287 7330
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 174 7331 7362 "kind1/filter_trivial.ml" 174 7331 7364
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 175 7367 7371 "kind1/filter_trivial.ml" 175 7367 7379
+type(
+  (string * string -> Types.il_formula) ->
+  (string * string) list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 175 7367 7380 "kind1/filter_trivial.ml" 175 7367 7391
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_imp_bool "kind1/filter_trivial.ml" 51 2129 2133 "kind1/filter_trivial.ml" 51 2129 2144
+)
+"kind1/filter_trivial.ml" 175 7367 7392 "kind1/filter_trivial.ml" 175 7367 7408
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 175 7367 7371 "kind1/filter_trivial.ml" 175 7367 7408
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 177 7410 7441 "kind1/filter_trivial.ml" 177 7410 7443
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 178 7446 7450 "kind1/filter_trivial.ml" 178 7446 7458
+type(
+  (string * string -> Types.il_formula) ->
+  (string * string) list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 178 7446 7459 "kind1/filter_trivial.ml" 178 7446 7468
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_eq_int "kind1/filter_trivial.ml" 54 2232 2236 "kind1/filter_trivial.ml" 54 2232 2245
+)
+"kind1/filter_trivial.ml" 178 7446 7470 "kind1/filter_trivial.ml" 178 7446 7486
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 178 7446 7450 "kind1/filter_trivial.ml" 178 7446 7486
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 179 7487 7518 "kind1/filter_trivial.ml" 179 7487 7520
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 180 7523 7527 "kind1/filter_trivial.ml" 180 7523 7542
+type(
+  (string list -> Types.il_formula list -> Types.il_formula list) ->
+  string list list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/filter_trivial.ml" 180 7523 7548 "kind1/filter_trivial.ml" 180 7523 7549
+type(
+  string list
+)
+ident(
+  def x "kind1/filter_trivial.ml" 180 7523 7550 "kind1/filter_trivial.ml" 180 7523 7580
+)
+"kind1/filter_trivial.ml" 180 7523 7550 "kind1/filter_trivial.ml" 180 7523 7551
+type(
+  Types.il_formula list
+)
+ident(
+  def y "kind1/filter_trivial.ml" 180 7523 7555 "kind1/filter_trivial.ml" 180 7523 7580
+)
+"kind1/filter_trivial.ml" 180 7523 7556 "kind1/filter_trivial.ml" 180 7523 7574
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref mk_eq_int_oneclass "kind1/filter_trivial.ml" 56 2355 2359 "kind1/filter_trivial.ml" 56 2355 2377
+)
+"kind1/filter_trivial.ml" 180 7523 7575 "kind1/filter_trivial.ml" 180 7523 7576
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/filter_trivial.ml" 180 7523 7548 "kind1/filter_trivial.ml" 180 7523 7549
+)
+"kind1/filter_trivial.ml" 180 7523 7555 "kind1/filter_trivial.ml" 180 7523 7578
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 180 7523 7578 "kind1/filter_trivial.ml" 180 7523 7579
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 180 7523 7579 "kind1/filter_trivial.ml" 180 7523 7580
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref y "kind1/filter_trivial.ml" 180 7523 7550 "kind1/filter_trivial.ml" 180 7523 7551
+)
+"kind1/filter_trivial.ml" 180 7523 7555 "kind1/filter_trivial.ml" 180 7523 7580
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 180 7523 7543 "kind1/filter_trivial.ml" 180 7523 7582
+type(
+  string list -> Types.il_formula list -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 180 7523 7583 "kind1/filter_trivial.ml" 180 7523 7607
+type(
+  string list list
+)
+"kind1/filter_trivial.ml" 180 7523 7608 "kind1/filter_trivial.ml" 180 7523 7610
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 180 7523 7527 "kind1/filter_trivial.ml" 180 7523 7610
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 181 7612 7644 "kind1/filter_trivial.ml" 181 7612 7646
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 182 7649 7653 "kind1/filter_trivial.ml" 182 7649 7661
+type(
+  (string * string -> Types.il_formula) ->
+  (string * string) list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 182 7649 7662 "kind1/filter_trivial.ml" 182 7649 7672
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_imp_int "kind1/filter_trivial.ml" 61 2484 2488 "kind1/filter_trivial.ml" 61 2484 2498
+)
+"kind1/filter_trivial.ml" 182 7649 7673 "kind1/filter_trivial.ml" 182 7649 7690
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 182 7649 7653 "kind1/filter_trivial.ml" 182 7649 7690
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 183 7691 7721 "kind1/filter_trivial.ml" 183 7691 7723
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 184 7726 7730 "kind1/filter_trivial.ml" 184 7726 7738
+type(
+  (string * string -> Types.il_formula) ->
+  (string * string) list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/filter_trivial.ml" 184 7726 7739 "kind1/filter_trivial.ml" 184 7726 7749
+type(
+  string * string -> Types.il_formula
+)
+ident(
+  int_ref mk_imp_int "kind1/filter_trivial.ml" 61 2484 2488 "kind1/filter_trivial.ml" 61 2484 2498
+)
+"kind1/filter_trivial.ml" 184 7726 7750 "kind1/filter_trivial.ml" 184 7726 7765
+type(
+  (string * string) list
+)
+"kind1/filter_trivial.ml" 184 7726 7730 "kind1/filter_trivial.ml" 184 7726 7765
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 186 7767 7791 "kind1/filter_trivial.ml" 186 7767 7793
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 187 7796 7804 "kind1/filter_trivial.ml" 187 7796 7812
+type(
+  Types.il_formula list
+)
+ident(
+  def bool_eqs "kind1/filter_trivial.ml" 188 7849 7853 "kind1/filter_trivial.ml" 191 8006 8077
+)
+"kind1/filter_trivial.ml" 187 7796 7816 "kind1/filter_trivial.ml" 187 7796 7820
+type(
+  < doc_of_asserts : unit -> string;
+    doc_of_bool_eqs_picked : unit -> Types.il_formula list;
+    doc_of_bool_equiv_left : unit -> Types.il_formula list;
+    doc_of_bool_imps_left : unit -> Types.il_formula list;
+    doc_of_bool_imps_picked : unit -> Types.il_formula list;
+    doc_of_int_eqs_picked : unit -> Types.il_formula list;
+    doc_of_int_equiv_left : unit -> Types.il_formula list;
+    doc_of_int_imps_left : unit -> Types.il_formula list;
+    doc_of_int_imps_picked : unit -> Types.il_formula list;
+    doc_of_picked : unit -> string;
+    filter : (string, string) Hashtbl.t -> bool;
+    picked_invs : unit ->
+                  Types.il_formula list * Types.il_formula list *
+                  Types.il_formula list * Types.il_formula list;
+    .. >
+  as 'a
+)
+"kind1/filter_trivial.ml" 187 7796 7816 "kind1/filter_trivial.ml" 187 7796 7843
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 187 7796 7843 "kind1/filter_trivial.ml" 187 7796 7845
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 187 7796 7816 "kind1/filter_trivial.ml" 187 7796 7845
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 188 7849 7857 "kind1/filter_trivial.ml" 188 7849 7866
+type(
+  Types.il_formula list
+)
+ident(
+  def bool_imps "kind1/filter_trivial.ml" 189 7903 7907 "kind1/filter_trivial.ml" 191 8006 8077
+)
+"kind1/filter_trivial.ml" 188 7849 7869 "kind1/filter_trivial.ml" 188 7849 7873
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 188 7849 7869 "kind1/filter_trivial.ml" 188 7849 7895
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 188 7849 7896 "kind1/filter_trivial.ml" 188 7849 7898
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 188 7849 7869 "kind1/filter_trivial.ml" 188 7849 7898
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 189 7903 7911 "kind1/filter_trivial.ml" 189 7903 7918
+type(
+  Types.il_formula list
+)
+ident(
+  def int_eqs "kind1/filter_trivial.ml" 190 7954 7958 "kind1/filter_trivial.ml" 191 8006 8077
+)
+"kind1/filter_trivial.ml" 189 7903 7922 "kind1/filter_trivial.ml" 189 7903 7926
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 189 7903 7922 "kind1/filter_trivial.ml" 189 7903 7948
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 189 7903 7948 "kind1/filter_trivial.ml" 189 7903 7950
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 189 7903 7922 "kind1/filter_trivial.ml" 189 7903 7950
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 190 7954 7962 "kind1/filter_trivial.ml" 190 7954 7970
+type(
+  Types.il_formula list
+)
+ident(
+  def int_imps "kind1/filter_trivial.ml" 191 8006 8012 "kind1/filter_trivial.ml" 191 8006 8077
+)
+"kind1/filter_trivial.ml" 190 7954 7973 "kind1/filter_trivial.ml" 190 7954 7977
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 190 7954 7973 "kind1/filter_trivial.ml" 190 7954 7998
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 190 7954 7999 "kind1/filter_trivial.ml" 190 7954 8001
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 190 7954 7973 "kind1/filter_trivial.ml" 190 7954 8001
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 191 8006 8012 "kind1/filter_trivial.ml" 191 8006 8033
+type(
+  Types.il_formula list -> string
+)
+ident(
+  ext_ref Expr_util.mk_not_ands
+)
+"kind1/filter_trivial.ml" 191 8006 8035 "kind1/filter_trivial.ml" 191 8006 8043
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref bool_eqs "kind1/filter_trivial.ml" 187 7796 7804 "kind1/filter_trivial.ml" 187 7796 7812
+)
+"kind1/filter_trivial.ml" 191 8006 8044 "kind1/filter_trivial.ml" 191 8006 8045
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 191 8006 8046 "kind1/filter_trivial.ml" 191 8006 8055
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref bool_imps "kind1/filter_trivial.ml" 188 7849 7857 "kind1/filter_trivial.ml" 188 7849 7866
+)
+"kind1/filter_trivial.ml" 191 8006 8056 "kind1/filter_trivial.ml" 191 8006 8057
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 191 8006 8058 "kind1/filter_trivial.ml" 191 8006 8065
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_eqs "kind1/filter_trivial.ml" 189 7903 7911 "kind1/filter_trivial.ml" 189 7903 7918
+)
+"kind1/filter_trivial.ml" 191 8006 8066 "kind1/filter_trivial.ml" 191 8006 8067
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 191 8006 8068 "kind1/filter_trivial.ml" 191 8006 8076
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_imps "kind1/filter_trivial.ml" 190 7954 7962 "kind1/filter_trivial.ml" 190 7954 7970
+)
+"kind1/filter_trivial.ml" 191 8006 8058 "kind1/filter_trivial.ml" 191 8006 8076
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 191 8006 8046 "kind1/filter_trivial.ml" 191 8006 8076
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 191 8006 8034 "kind1/filter_trivial.ml" 191 8006 8077
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 191 8006 8012 "kind1/filter_trivial.ml" 191 8006 8077
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 190 7954 7958 "kind1/filter_trivial.ml" 191 8006 8077
+type(
+  string
+)
+"kind1/filter_trivial.ml" 189 7903 7907 "kind1/filter_trivial.ml" 191 8006 8077
+type(
+  string
+)
+"kind1/filter_trivial.ml" 188 7849 7853 "kind1/filter_trivial.ml" 191 8006 8077
+type(
+  string
+)
+"kind1/filter_trivial.ml" 187 7796 7800 "kind1/filter_trivial.ml" 191 8006 8077
+type(
+  string
+)
+"kind1/filter_trivial.ml" 192 8082 8104 "kind1/filter_trivial.ml" 192 8082 8106
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 193 8109 8117 "kind1/filter_trivial.ml" 193 8109 8125
+type(
+  Types.il_formula list
+)
+ident(
+  def bool_eqs "kind1/filter_trivial.ml" 194 8163 8167 "kind1/filter_trivial.ml" 197 8324 8395
+)
+"kind1/filter_trivial.ml" 193 8109 8129 "kind1/filter_trivial.ml" 193 8109 8133
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 193 8109 8129 "kind1/filter_trivial.ml" 193 8109 8156
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 193 8109 8157 "kind1/filter_trivial.ml" 193 8109 8159
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 193 8109 8129 "kind1/filter_trivial.ml" 193 8109 8159
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 194 8163 8171 "kind1/filter_trivial.ml" 194 8163 8180
+type(
+  Types.il_formula list
+)
+ident(
+  def bool_imps "kind1/filter_trivial.ml" 195 8218 8222 "kind1/filter_trivial.ml" 197 8324 8395
+)
+"kind1/filter_trivial.ml" 194 8163 8183 "kind1/filter_trivial.ml" 194 8163 8187
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 194 8163 8183 "kind1/filter_trivial.ml" 194 8163 8211
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 194 8163 8212 "kind1/filter_trivial.ml" 194 8163 8214
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 194 8163 8183 "kind1/filter_trivial.ml" 194 8163 8214
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 195 8218 8226 "kind1/filter_trivial.ml" 195 8218 8233
+type(
+  Types.il_formula list
+)
+ident(
+  def int_eqs "kind1/filter_trivial.ml" 196 8270 8274 "kind1/filter_trivial.ml" 197 8324 8395
+)
+"kind1/filter_trivial.ml" 195 8218 8237 "kind1/filter_trivial.ml" 195 8218 8241
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 195 8218 8237 "kind1/filter_trivial.ml" 195 8218 8263
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 195 8218 8264 "kind1/filter_trivial.ml" 195 8218 8266
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 195 8218 8237 "kind1/filter_trivial.ml" 195 8218 8266
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 196 8270 8278 "kind1/filter_trivial.ml" 196 8270 8286
+type(
+  Types.il_formula list
+)
+ident(
+  def int_imps "kind1/filter_trivial.ml" 197 8324 8330 "kind1/filter_trivial.ml" 197 8324 8395
+)
+"kind1/filter_trivial.ml" 196 8270 8289 "kind1/filter_trivial.ml" 196 8270 8293
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 196 8270 8289 "kind1/filter_trivial.ml" 196 8270 8316
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 196 8270 8317 "kind1/filter_trivial.ml" 196 8270 8319
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 196 8270 8289 "kind1/filter_trivial.ml" 196 8270 8319
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 197 8324 8330 "kind1/filter_trivial.ml" 197 8324 8351
+type(
+  Types.il_formula list -> string
+)
+ident(
+  ext_ref Expr_util.mk_not_ands
+)
+"kind1/filter_trivial.ml" 197 8324 8353 "kind1/filter_trivial.ml" 197 8324 8361
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref bool_eqs "kind1/filter_trivial.ml" 193 8109 8117 "kind1/filter_trivial.ml" 193 8109 8125
+)
+"kind1/filter_trivial.ml" 197 8324 8362 "kind1/filter_trivial.ml" 197 8324 8363
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 197 8324 8364 "kind1/filter_trivial.ml" 197 8324 8373
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref bool_imps "kind1/filter_trivial.ml" 194 8163 8171 "kind1/filter_trivial.ml" 194 8163 8180
+)
+"kind1/filter_trivial.ml" 197 8324 8374 "kind1/filter_trivial.ml" 197 8324 8375
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 197 8324 8376 "kind1/filter_trivial.ml" 197 8324 8383
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_eqs "kind1/filter_trivial.ml" 195 8218 8226 "kind1/filter_trivial.ml" 195 8218 8233
+)
+"kind1/filter_trivial.ml" 197 8324 8384 "kind1/filter_trivial.ml" 197 8324 8385
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/filter_trivial.ml" 197 8324 8386 "kind1/filter_trivial.ml" 197 8324 8394
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_imps "kind1/filter_trivial.ml" 196 8270 8278 "kind1/filter_trivial.ml" 196 8270 8286
+)
+"kind1/filter_trivial.ml" 197 8324 8376 "kind1/filter_trivial.ml" 197 8324 8394
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 197 8324 8364 "kind1/filter_trivial.ml" 197 8324 8394
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 197 8324 8352 "kind1/filter_trivial.ml" 197 8324 8395
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 197 8324 8330 "kind1/filter_trivial.ml" 197 8324 8395
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/filter_trivial.ml" 196 8270 8274 "kind1/filter_trivial.ml" 197 8324 8395
+type(
+  string
+)
+"kind1/filter_trivial.ml" 195 8218 8222 "kind1/filter_trivial.ml" 197 8324 8395
+type(
+  string
+)
+"kind1/filter_trivial.ml" 194 8163 8167 "kind1/filter_trivial.ml" 197 8324 8395
+type(
+  string
+)
+"kind1/filter_trivial.ml" 193 8109 8113 "kind1/filter_trivial.ml" 197 8324 8395
+type(
+  string
+)
+"kind1/filter_trivial.ml" 198 8400 8421 "kind1/filter_trivial.ml" 198 8400 8423
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 199 8426 8434 "kind1/filter_trivial.ml" 199 8426 8442
+type(
+  Types.il_formula list
+)
+ident(
+  def bool_eqs "kind1/filter_trivial.ml" 200 8480 8484 "kind1/filter_trivial.ml" 203 8641 8685
+)
+"kind1/filter_trivial.ml" 199 8426 8446 "kind1/filter_trivial.ml" 199 8426 8450
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 199 8426 8446 "kind1/filter_trivial.ml" 199 8426 8473
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 199 8426 8474 "kind1/filter_trivial.ml" 199 8426 8476
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 199 8426 8446 "kind1/filter_trivial.ml" 199 8426 8476
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 200 8480 8488 "kind1/filter_trivial.ml" 200 8480 8497
+type(
+  Types.il_formula list
+)
+ident(
+  def bool_imps "kind1/filter_trivial.ml" 201 8535 8539 "kind1/filter_trivial.ml" 203 8641 8685
+)
+"kind1/filter_trivial.ml" 200 8480 8500 "kind1/filter_trivial.ml" 200 8480 8504
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 200 8480 8500 "kind1/filter_trivial.ml" 200 8480 8528
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 200 8480 8529 "kind1/filter_trivial.ml" 200 8480 8531
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 200 8480 8500 "kind1/filter_trivial.ml" 200 8480 8531
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 201 8535 8543 "kind1/filter_trivial.ml" 201 8535 8550
+type(
+  Types.il_formula list
+)
+ident(
+  def int_eqs "kind1/filter_trivial.ml" 202 8587 8591 "kind1/filter_trivial.ml" 203 8641 8685
+)
+"kind1/filter_trivial.ml" 201 8535 8554 "kind1/filter_trivial.ml" 201 8535 8558
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 201 8535 8554 "kind1/filter_trivial.ml" 201 8535 8580
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 201 8535 8581 "kind1/filter_trivial.ml" 201 8535 8583
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 201 8535 8554 "kind1/filter_trivial.ml" 201 8535 8583
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 202 8587 8595 "kind1/filter_trivial.ml" 202 8587 8603
+type(
+  Types.il_formula list
+)
+ident(
+  def int_imps "kind1/filter_trivial.ml" 203 8641 8647 "kind1/filter_trivial.ml" 203 8641 8685
+)
+"kind1/filter_trivial.ml" 202 8587 8606 "kind1/filter_trivial.ml" 202 8587 8610
+type(
+  'a
+)
+"kind1/filter_trivial.ml" 202 8587 8606 "kind1/filter_trivial.ml" 202 8587 8633
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/filter_trivial.ml" 202 8587 8634 "kind1/filter_trivial.ml" 202 8587 8636
+type(
+  unit
+)
+"kind1/filter_trivial.ml" 202 8587 8606 "kind1/filter_trivial.ml" 202 8587 8636
+type(
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 203 8641 8647 "kind1/filter_trivial.ml" 203 8641 8655
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref bool_eqs "kind1/filter_trivial.ml" 199 8426 8434 "kind1/filter_trivial.ml" 199 8426 8442
+)
+"kind1/filter_trivial.ml" 203 8641 8657 "kind1/filter_trivial.ml" 203 8641 8666
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref bool_imps "kind1/filter_trivial.ml" 200 8480 8488 "kind1/filter_trivial.ml" 200 8480 8497
+)
+"kind1/filter_trivial.ml" 203 8641 8668 "kind1/filter_trivial.ml" 203 8641 8675
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_eqs "kind1/filter_trivial.ml" 201 8535 8543 "kind1/filter_trivial.ml" 201 8535 8550
+)
+"kind1/filter_trivial.ml" 203 8641 8677 "kind1/filter_trivial.ml" 203 8641 8685
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_imps "kind1/filter_trivial.ml" 202 8587 8595 "kind1/filter_trivial.ml" 202 8587 8603
+)
+"kind1/filter_trivial.ml" 203 8641 8647 "kind1/filter_trivial.ml" 203 8641 8685
+type(
+  Types.il_formula list * Types.il_formula list * Types.il_formula list *
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 202 8587 8591 "kind1/filter_trivial.ml" 203 8641 8685
+type(
+  Types.il_formula list * Types.il_formula list * Types.il_formula list *
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 201 8535 8539 "kind1/filter_trivial.ml" 203 8641 8685
+type(
+  Types.il_formula list * Types.il_formula list * Types.il_formula list *
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 200 8480 8484 "kind1/filter_trivial.ml" 203 8641 8685
+type(
+  Types.il_formula list * Types.il_formula list * Types.il_formula list *
+  Types.il_formula list
+)
+"kind1/filter_trivial.ml" 199 8426 8430 "kind1/filter_trivial.ml" 203 8641 8685
+type(
+  Types.il_formula list * Types.il_formula list * Types.il_formula list *
+  Types.il_formula list
+)

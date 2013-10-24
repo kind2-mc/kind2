@@ -1,0 +1,1 @@
+kind1/solver_yices_cmdline.ml: Buffer Channels Exceptions OldFlags Solver_yices Solvers_path Str String Types

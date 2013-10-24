@@ -1,0 +1,1321 @@
+"kind1/solver_yices_cmdline.ml" 48 2045 2081 "kind1/solver_yices_cmdline.ml" 48 2045 2087
+type(
+  < aggdef_header : Buffer.t -> Buffer.t -> unit;
+    assert_buffer : Buffer.t -> Buffer.t -> unit;
+    assert_plus_buffer : Buffer.t -> Buffer.t -> unit;
+    assert_plus_string : string -> string; assert_string : string -> string;
+    assertions : string; assertions_inv : string; b_and_string : string;
+    b_iff_string : string; b_impl_string : string; b_not_string : string;
+    b_or_string : string; b_xor_string : string;
+    boolean_connectives_strictly_binary : bool;
+    buffer_of_binary : Buffer.t -> string -> Buffer.t -> Buffer.t -> unit;
+    buffer_of_ite : Buffer.t -> Buffer.t -> Buffer.t -> Buffer.t -> unit;
+    buffer_of_list_op : Buffer.t -> string -> Buffer.t list -> unit;
+    buffer_of_nary : Buffer.t -> string -> Buffer.t list -> unit;
+    buffer_of_num : Buffer.t -> int -> unit;
+    buffer_of_pred : Buffer.t -> string -> Buffer.t list -> unit;
+    buffer_of_record : Buffer.t -> (string * Buffer.t) list -> unit;
+    buffer_of_record_ref : Buffer.t -> Buffer.t -> string -> unit;
+    buffer_of_tuple : Buffer.t -> Buffer.t list -> unit;
+    buffer_of_tuple_ref : Buffer.t -> Buffer.t -> int -> unit;
+    buffer_of_unary : Buffer.t -> string -> Buffer.t -> unit;
+    can_redefine : bool; cc : string; checker_setup_string : string;
+    define_const_string : string -> Types.lustre_type -> string;
+    define_fun_buffer : Buffer.t ->
+                        string ->
+                        Types.lustre_type ->
+                        (string * Types.lustre_type) list -> Buffer.t -> unit;
+    define_trans : Buffer.t -> string list -> Buffer.t;
+    define_var_string : string -> Types.lustre_type -> string;
+    div_string : string; done_string : string; eq_string : string;
+    f_and_string : string; f_eq_string : string; f_iff_string : string;
+    f_impl_string : string; f_not_string : string; f_or_string : string;
+    false_string : string; file_extension : string;
+    fresh_varname_string : string -> int -> string;
+    get_assert_id : string -> Types.idtype -> int -> unit;
+    get_cex : Types.proc ->
+              string ->
+              (string -> unit) -> in_channel -> Types.foundvarstable;
+    get_countermodel : string ->
+                       (string -> unit) -> in_channel -> Types.foundvarstable;
+    get_current_n_value : int option; get_output : in_channel -> string;
+    get_simulation_cex : Types.proc ->
+                         string ->
+                         (string -> unit) ->
+                         in_channel -> (string, string) Hashtbl.t;
+    get_simulation_value_hash : string ->
+                                (string -> unit) ->
+                                in_channel -> (string, string) Hashtbl.t;
+    get_solver_output : Types.proc -> in_channel -> string;
+    get_unsat_core : string ->
+                     (string -> unit) ->
+                     in_channel -> (Types.idtype * int) list;
+    gt_string : string; gte_string : string; header_string : string;
+    intdiv_string : string; k_position_string : string; lt_string : string;
+    lte_string : string; minus_string : string; mod_string : string;
+    mult_string : string; neq_string : string; one_string : string;
+    plus_string : string; pop_string : string; position_var1 : string;
+    position_var2 : string; property_header : string -> string -> string;
+    property_header_new : string -> string -> string; push_string : string;
+    query_buffer : Buffer.t -> Buffer.t -> unit;
+    result_is_error : string -> bool; result_is_sat : string -> bool;
+    result_is_unknown : string -> bool; result_is_unsat : string -> bool;
+    safe_pop : string; safe_push : string; solver_call : string -> string;
+    state_vars : string; state_vars_r : string; step_base_string : string;
+    string_of_binary : string -> string -> string -> string;
+    string_of_ite : string -> string -> string -> string;
+    string_of_list_op : string -> string list -> string;
+    string_of_nary : string -> string list -> string;
+    string_of_num : int -> string;
+    string_of_record : (string * string) list -> string;
+    string_of_record_ref : string -> string -> string;
+    string_of_tuple : string list -> string;
+    string_of_tuple_ref : string -> string -> string;
+    string_of_unary : string -> string -> string;
+    string_of_var_ref : string -> string -> string;
+    supports_unary_minus : bool; term_impl_available : bool;
+    true_string : string; type_string : Types.lustre_type -> Types.typename;
+    uminus_string : string; zero_string : string; .. >
+)
+"kind1/solver_yices_cmdline.ml" 53 2238 2259 "kind1/solver_yices_cmdline.ml" 53 2238 2264
+type(
+  string
+)
+ident(
+  def flags "kind1/solver_yices_cmdline.ml" 54 2268 2272 "kind1/solver_yices_cmdline.ml" 57 2355 2397
+)
+"kind1/solver_yices_cmdline.ml" 54 2268 2275 "kind1/solver_yices_cmdline.ml" 54 2268 2278
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"kind1/solver_yices_cmdline.ml" 54 2268 2279 "kind1/solver_yices_cmdline.ml" 54 2268 2280
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/solver_yices_cmdline.ml" 54 2268 2280 "kind1/solver_yices_cmdline.ml" 54 2268 2292
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.gui
+)
+"kind1/solver_yices_cmdline.ml" 54 2268 2279 "kind1/solver_yices_cmdline.ml" 54 2268 2292
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 54 2268 2275 "kind1/solver_yices_cmdline.ml" 54 2268 2292
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2305 "kind1/solver_yices_cmdline.ml" 55 2299 2328
+type(
+  string
+)
+ident(
+  ext_ref Solvers_path.yices_path
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2329 "kind1/solver_yices_cmdline.ml" 55 2299 2330
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2331 "kind1/solver_yices_cmdline.ml" 55 2299 2337
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2338 "kind1/solver_yices_cmdline.ml" 55 2299 2339
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2340 "kind1/solver_yices_cmdline.ml" 55 2299 2345
+type(
+  string
+)
+ident(
+  int_ref flags "kind1/solver_yices_cmdline.ml" 53 2238 2259 "kind1/solver_yices_cmdline.ml" 53 2238 2264
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2331 "kind1/solver_yices_cmdline.ml" 55 2299 2345
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 55 2299 2305 "kind1/solver_yices_cmdline.ml" 55 2299 2345
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2361 "kind1/solver_yices_cmdline.ml" 57 2355 2362
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2362 "kind1/solver_yices_cmdline.ml" 57 2355 2382
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.solver_path
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2361 "kind1/solver_yices_cmdline.ml" 57 2355 2382
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2382 "kind1/solver_yices_cmdline.ml" 57 2355 2383
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2383 "kind1/solver_yices_cmdline.ml" 57 2355 2389
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2390 "kind1/solver_yices_cmdline.ml" 57 2355 2391
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2392 "kind1/solver_yices_cmdline.ml" 57 2355 2397
+type(
+  string
+)
+ident(
+  int_ref flags "kind1/solver_yices_cmdline.ml" 53 2238 2259 "kind1/solver_yices_cmdline.ml" 53 2238 2264
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2383 "kind1/solver_yices_cmdline.ml" 57 2355 2397
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 57 2355 2361 "kind1/solver_yices_cmdline.ml" 57 2355 2397
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 54 2268 2272 "kind1/solver_yices_cmdline.ml" 57 2355 2397
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 61 2547 2567 "kind1/solver_yices_cmdline.ml" 61 2547 2572
+type(
+  in_channel
+)
+ident(
+  def in_ch "kind1/solver_yices_cmdline.ml" 62 2575 2579 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+)
+"kind1/solver_yices_cmdline.ml" 62 2575 2579 "kind1/solver_yices_cmdline.ml" 62 2575 2592
+type(
+  string -> unit
+)
+ident(
+  ext_ref Channels.debug_to_user
+)
+"kind1/solver_yices_cmdline.ml" 62 2575 2593 "kind1/solver_yices_cmdline.ml" 62 2575 2605
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 62 2575 2579 "kind1/solver_yices_cmdline.ml" 62 2575 2605
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 63 2607 2615 "kind1/solver_yices_cmdline.ml" 63 2607 2618
+type(
+  Buffer.t
+)
+ident(
+  def buf "kind1/solver_yices_cmdline.ml" 64 2640 2644 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+)
+"kind1/solver_yices_cmdline.ml" 63 2607 2621 "kind1/solver_yices_cmdline.ml" 63 2607 2634
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/solver_yices_cmdline.ml" 63 2607 2635 "kind1/solver_yices_cmdline.ml" 63 2607 2636
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 63 2607 2621 "kind1/solver_yices_cmdline.ml" 63 2607 2636
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/solver_yices_cmdline.ml" 64 2640 2648 "kind1/solver_yices_cmdline.ml" 64 2640 2651
+type(
+  int
+)
+ident(
+  def pos "kind1/solver_yices_cmdline.ml" 65 2659 2663 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+)
+"kind1/solver_yices_cmdline.ml" 64 2640 2654 "kind1/solver_yices_cmdline.ml" 64 2640 2655
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 66 2668 2680 "kind1/solver_yices_cmdline.ml" 66 2668 2684
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+type(
+  string
+)
+ident(
+  def line "kind1/solver_yices_cmdline.ml" 68 2728 2736 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+)
+"kind1/solver_yices_cmdline.ml" 67 2689 2708 "kind1/solver_yices_cmdline.ml" 67 2689 2718
+type(
+  in_channel -> string
+)
+ident(
+  ext_ref Pervasives.input_line
+)
+"kind1/solver_yices_cmdline.ml" 67 2689 2719 "kind1/solver_yices_cmdline.ml" 67 2689 2724
+type(
+  in_channel
+)
+ident(
+  int_ref in_ch "kind1/solver_yices_cmdline.ml" 61 2547 2567 "kind1/solver_yices_cmdline.ml" 61 2547 2572
+)
+"kind1/solver_yices_cmdline.ml" 67 2689 2708 "kind1/solver_yices_cmdline.ml" 67 2689 2724
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2740 "kind1/solver_yices_cmdline.ml" 68 2728 2751
+type(
+  bool
+)
+ident(
+  def long_enough "kind1/solver_yices_cmdline.ml" 69 2784 2792 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2755 "kind1/solver_yices_cmdline.ml" 68 2728 2768
+type(
+  string -> int
+)
+ident(
+  ext_ref String.length
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2769 "kind1/solver_yices_cmdline.ml" 68 2728 2773
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2754 "kind1/solver_yices_cmdline.ml" 68 2728 2774
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2775 "kind1/solver_yices_cmdline.ml" 68 2728 2776
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2777 "kind1/solver_yices_cmdline.ml" 68 2728 2780
+type(
+  int
+)
+ident(
+  int_ref pos "kind1/solver_yices_cmdline.ml" 64 2640 2648 "kind1/solver_yices_cmdline.ml" 64 2640 2651
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2754 "kind1/solver_yices_cmdline.ml" 68 2728 2780
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 69 2784 2792 "kind1/solver_yices_cmdline.ml" 69 2784 2805
+type(
+  string -> unit
+)
+ident(
+  ext_ref Channels.debug_to_user
+)
+"kind1/solver_yices_cmdline.ml" 69 2784 2806 "kind1/solver_yices_cmdline.ml" 69 2784 2812
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+)
+"kind1/solver_yices_cmdline.ml" 69 2784 2792 "kind1/solver_yices_cmdline.ml" 69 2784 2812
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 71 2815 2827 "kind1/solver_yices_cmdline.ml" 71 2815 2831
+type(
+  Str.regexp
+)
+ident(
+  def reg1 "kind1/solver_yices_cmdline.ml" 72 2866 2874 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+)
+"kind1/solver_yices_cmdline.ml" 71 2815 2834 "kind1/solver_yices_cmdline.ml" 71 2815 2851
+type(
+  string -> Str.regexp
+)
+ident(
+  ext_ref Str.regexp_string
+)
+"kind1/solver_yices_cmdline.ml" 71 2815 2852 "kind1/solver_yices_cmdline.ml" 71 2815 2862
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 71 2815 2834 "kind1/solver_yices_cmdline.ml" 71 2815 2862
+call(
+  stack
+)
+type(
+  Str.regexp
+)
+"kind1/solver_yices_cmdline.ml" 72 2866 2878 "kind1/solver_yices_cmdline.ml" 72 2866 2882
+type(
+  Str.regexp
+)
+ident(
+  def reg2 "kind1/solver_yices_cmdline.ml" 73 2924 2932 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+)
+"kind1/solver_yices_cmdline.ml" 72 2866 2885 "kind1/solver_yices_cmdline.ml" 72 2866 2912
+type(
+  string -> Str.regexp
+)
+ident(
+  ext_ref Str.regexp_string_case_fold
+)
+"kind1/solver_yices_cmdline.ml" 72 2866 2913 "kind1/solver_yices_cmdline.ml" 72 2866 2920
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 72 2866 2885 "kind1/solver_yices_cmdline.ml" 72 2866 2920
+call(
+  stack
+)
+type(
+  Str.regexp
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2935 "kind1/solver_yices_cmdline.ml" 73 2924 2946
+type(
+  bool
+)
+ident(
+  int_ref long_enough "kind1/solver_yices_cmdline.ml" 68 2728 2740 "kind1/solver_yices_cmdline.ml" 68 2728 2751
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2947 "kind1/solver_yices_cmdline.ml" 73 2924 2949
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2951 "kind1/solver_yices_cmdline.ml" 73 2924 2967
+type(
+  Str.regexp -> string -> int -> bool
+)
+ident(
+  ext_ref Str.string_match
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2968 "kind1/solver_yices_cmdline.ml" 73 2924 2972
+type(
+  Str.regexp
+)
+ident(
+  int_ref reg1 "kind1/solver_yices_cmdline.ml" 71 2815 2827 "kind1/solver_yices_cmdline.ml" 71 2815 2831
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2973 "kind1/solver_yices_cmdline.ml" 73 2924 2977
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2978 "kind1/solver_yices_cmdline.ml" 73 2924 2981
+type(
+  int
+)
+ident(
+  int_ref pos "kind1/solver_yices_cmdline.ml" 64 2640 2648 "kind1/solver_yices_cmdline.ml" 64 2640 2651
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2950 "kind1/solver_yices_cmdline.ml" 73 2924 2982
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2935 "kind1/solver_yices_cmdline.ml" 73 2924 2982
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 74 3014 3024 "kind1/solver_yices_cmdline.ml" 74 3014 3029
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/solver_yices_cmdline.ml" 74 3014 3030 "kind1/solver_yices_cmdline.ml" 74 3014 3041
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 74 3014 3024 "kind1/solver_yices_cmdline.ml" 74 3014 3041
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3063 "kind1/solver_yices_cmdline.ml" 75 3042 3081
+type(
+  Str.regexp -> string -> int -> int
+)
+ident(
+  ext_ref Str.search_forward
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3082 "kind1/solver_yices_cmdline.ml" 75 3042 3086
+type(
+  Str.regexp
+)
+ident(
+  int_ref reg2 "kind1/solver_yices_cmdline.ml" 72 2866 2878 "kind1/solver_yices_cmdline.ml" 72 2866 2882
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3087 "kind1/solver_yices_cmdline.ml" 75 3042 3091
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3092 "kind1/solver_yices_cmdline.ml" 75 3042 3093
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3063 "kind1/solver_yices_cmdline.ml" 75 3042 3093
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3094 "kind1/solver_yices_cmdline.ml" 75 3042 3096
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3097 "kind1/solver_yices_cmdline.ml" 75 3042 3098
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3063 "kind1/solver_yices_cmdline.ml" 75 3042 3098
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3104 "kind1/solver_yices_cmdline.ml" 75 3042 3113
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3117 "kind1/solver_yices_cmdline.ml" 75 3042 3122
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3058 "kind1/solver_yices_cmdline.ml" 75 3042 3123
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 77 3139 3149 "kind1/solver_yices_cmdline.ml" 77 3139 3154
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/solver_yices_cmdline.ml" 77 3139 3168 "kind1/solver_yices_cmdline.ml" 77 3139 3172
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+)
+"kind1/solver_yices_cmdline.ml" 77 3139 3155 "kind1/solver_yices_cmdline.ml" 77 3139 3173
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 77 3139 3149 "kind1/solver_yices_cmdline.ml" 77 3139 3173
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3197 "kind1/solver_yices_cmdline.ml" 79 3187 3214
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3215 "kind1/solver_yices_cmdline.ml" 79 3187 3218
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/solver_yices_cmdline.ml" 63 2607 2615 "kind1/solver_yices_cmdline.ml" 63 2607 2618
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3220 "kind1/solver_yices_cmdline.ml" 79 3187 3224
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 67 2689 2701 "kind1/solver_yices_cmdline.ml" 67 2689 2705
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3224 "kind1/solver_yices_cmdline.ml" 79 3187 3225
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3225 "kind1/solver_yices_cmdline.ml" 79 3187 3229
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3219 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 79 3187 3197 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 75 3042 3055 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 73 2924 2932 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 72 2866 2874 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 71 2815 2823 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 69 2784 2792 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 68 2728 2736 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 67 2689 2697 "kind1/solver_yices_cmdline.ml" 79 3187 3230
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 66 2668 2674 "kind1/solver_yices_cmdline.ml" 80 3231 3241
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 81 3243 3247 "kind1/solver_yices_cmdline.ml" 81 3243 3260
+type(
+  string -> unit
+)
+ident(
+  ext_ref Channels.debug_to_user
+)
+"kind1/solver_yices_cmdline.ml" 81 3243 3261 "kind1/solver_yices_cmdline.ml" 81 3243 3278
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 81 3243 3247 "kind1/solver_yices_cmdline.ml" 81 3243 3278
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 82 3280 3286 "kind1/solver_yices_cmdline.ml" 82 3280 3288
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 81 3243 3247 "kind1/solver_yices_cmdline.ml" 82 3280 3288
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 66 2668 2674 "kind1/solver_yices_cmdline.ml" 82 3280 3288
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 83 3289 3298 "kind1/solver_yices_cmdline.ml" 83 3289 3309
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 84 3313 3319 "kind1/solver_yices_cmdline.ml" 84 3313 3334
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/solver_yices_cmdline.ml" 84 3313 3335 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/solver_yices_cmdline.ml" 63 2607 2615 "kind1/solver_yices_cmdline.ml" 63 2607 2618
+)
+"kind1/solver_yices_cmdline.ml" 84 3313 3319 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 65 2659 2663 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 64 2640 2644 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 63 2607 2611 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 62 2575 2579 "kind1/solver_yices_cmdline.ml" 84 3313 3338
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 87 3341 3367 "kind1/solver_yices_cmdline.ml" 87 3341 3373
+type(
+  Types.proc
+)
+ident(
+  def solver "kind1/solver_yices_cmdline.ml" 87 3341 3374 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+)
+"kind1/solver_yices_cmdline.ml" 87 3341 3374 "kind1/solver_yices_cmdline.ml" 87 3341 3379
+type(
+  in_channel
+)
+ident(
+  def in_ch "kind1/solver_yices_cmdline.ml" 88 3382 3385 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+)
+"kind1/solver_yices_cmdline.ml" 88 3382 3389 "kind1/solver_yices_cmdline.ml" 88 3382 3392
+type(
+  Buffer.t
+)
+ident(
+  def buf "kind1/solver_yices_cmdline.ml" 89 3414 3417 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+)
+"kind1/solver_yices_cmdline.ml" 88 3382 3395 "kind1/solver_yices_cmdline.ml" 88 3382 3408
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/solver_yices_cmdline.ml" 88 3382 3409 "kind1/solver_yices_cmdline.ml" 88 3382 3410
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 88 3382 3395 "kind1/solver_yices_cmdline.ml" 88 3382 3410
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/solver_yices_cmdline.ml" 89 3414 3421 "kind1/solver_yices_cmdline.ml" 89 3414 3424
+type(
+  int
+)
+ident(
+  def pos "kind1/solver_yices_cmdline.ml" 90 3432 3437 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+)
+"kind1/solver_yices_cmdline.ml" 89 3414 3427 "kind1/solver_yices_cmdline.ml" 89 3414 3428
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 91 3442 3455 "kind1/solver_yices_cmdline.ml" 91 3442 3459
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+type(
+  string
+)
+ident(
+  def line "kind1/solver_yices_cmdline.ml" 93 3504 3513 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+)
+"kind1/solver_yices_cmdline.ml" 92 3464 3484 "kind1/solver_yices_cmdline.ml" 92 3464 3494
+type(
+  in_channel -> string
+)
+ident(
+  ext_ref Pervasives.input_line
+)
+"kind1/solver_yices_cmdline.ml" 92 3464 3495 "kind1/solver_yices_cmdline.ml" 92 3464 3500
+type(
+  in_channel
+)
+ident(
+  int_ref in_ch "kind1/solver_yices_cmdline.ml" 87 3341 3374 "kind1/solver_yices_cmdline.ml" 87 3341 3379
+)
+"kind1/solver_yices_cmdline.ml" 92 3464 3484 "kind1/solver_yices_cmdline.ml" 92 3464 3500
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3517 "kind1/solver_yices_cmdline.ml" 93 3504 3528
+type(
+  bool
+)
+ident(
+  def long_enough "kind1/solver_yices_cmdline.ml" 94 3561 3565 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3532 "kind1/solver_yices_cmdline.ml" 93 3504 3545
+type(
+  string -> int
+)
+ident(
+  ext_ref String.length
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3546 "kind1/solver_yices_cmdline.ml" 93 3504 3550
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3531 "kind1/solver_yices_cmdline.ml" 93 3504 3551
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3552 "kind1/solver_yices_cmdline.ml" 93 3504 3553
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3554 "kind1/solver_yices_cmdline.ml" 93 3504 3557
+type(
+  int
+)
+ident(
+  int_ref pos "kind1/solver_yices_cmdline.ml" 89 3414 3421 "kind1/solver_yices_cmdline.ml" 89 3414 3424
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3531 "kind1/solver_yices_cmdline.ml" 93 3504 3557
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 94 3561 3569 "kind1/solver_yices_cmdline.ml" 94 3561 3570
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 94 3561 3579 "kind1/solver_yices_cmdline.ml" 94 3561 3585
+type(
+  Types.proc
+)
+ident(
+  int_ref solver "kind1/solver_yices_cmdline.ml" 87 3341 3367 "kind1/solver_yices_cmdline.ml" 87 3341 3373
+)
+"kind1/solver_yices_cmdline.ml" 95 3592 3600 "kind1/solver_yices_cmdline.ml" 95 3592 3609
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 95 3592 3613 "kind1/solver_yices_cmdline.ml" 95 3592 3623
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  ext_ref Channels.debug_proc
+)
+"kind1/solver_yices_cmdline.ml" 95 3592 3624 "kind1/solver_yices_cmdline.ml" 95 3592 3633
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 95 3592 3635 "kind1/solver_yices_cmdline.ml" 95 3592 3639
+type(
+  bool option
+)
+"kind1/solver_yices_cmdline.ml" 95 3592 3640 "kind1/solver_yices_cmdline.ml" 95 3592 3646
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 95 3592 3613 "kind1/solver_yices_cmdline.ml" 95 3592 3646
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 96 3647 3653 "kind1/solver_yices_cmdline.ml" 96 3647 3664
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 96 3647 3668 "kind1/solver_yices_cmdline.ml" 96 3647 3678
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  ext_ref Channels.debug_proc
+)
+"kind1/solver_yices_cmdline.ml" 96 3647 3679 "kind1/solver_yices_cmdline.ml" 96 3647 3690
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 96 3647 3691 "kind1/solver_yices_cmdline.ml" 96 3647 3695
+type(
+  bool option
+)
+"kind1/solver_yices_cmdline.ml" 96 3647 3696 "kind1/solver_yices_cmdline.ml" 96 3647 3702
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 96 3647 3668 "kind1/solver_yices_cmdline.ml" 96 3647 3702
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 97 3703 3711 "kind1/solver_yices_cmdline.ml" 97 3703 3721
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 97 3703 3725 "kind1/solver_yices_cmdline.ml" 97 3703 3735
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  ext_ref Channels.debug_proc
+)
+"kind1/solver_yices_cmdline.ml" 97 3703 3736 "kind1/solver_yices_cmdline.ml" 97 3703 3746
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 97 3703 3747 "kind1/solver_yices_cmdline.ml" 97 3703 3751
+type(
+  bool option
+)
+"kind1/solver_yices_cmdline.ml" 97 3703 3752 "kind1/solver_yices_cmdline.ml" 97 3703 3758
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 97 3703 3725 "kind1/solver_yices_cmdline.ml" 97 3703 3758
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 98 3759 3765 "kind1/solver_yices_cmdline.ml" 98 3759 3777
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 98 3759 3782 "kind1/solver_yices_cmdline.ml" 98 3759 3792
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  ext_ref Channels.debug_proc
+)
+"kind1/solver_yices_cmdline.ml" 98 3759 3793 "kind1/solver_yices_cmdline.ml" 98 3759 3805
+type(
+  Types.proc
+)
+"kind1/solver_yices_cmdline.ml" 98 3759 3806 "kind1/solver_yices_cmdline.ml" 98 3759 3810
+type(
+  bool option
+)
+"kind1/solver_yices_cmdline.ml" 98 3759 3811 "kind1/solver_yices_cmdline.ml" 98 3759 3817
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 98 3759 3782 "kind1/solver_yices_cmdline.ml" 98 3759 3817
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 94 3561 3573 "kind1/solver_yices_cmdline.ml" 98 3759 3817
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 99 3821 3833 "kind1/solver_yices_cmdline.ml" 99 3821 3837
+type(
+  Str.regexp
+)
+ident(
+  def reg1 "kind1/solver_yices_cmdline.ml" 100 3872 3880 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+)
+"kind1/solver_yices_cmdline.ml" 99 3821 3840 "kind1/solver_yices_cmdline.ml" 99 3821 3857
+type(
+  string -> Str.regexp
+)
+ident(
+  ext_ref Str.regexp_string
+)
+"kind1/solver_yices_cmdline.ml" 99 3821 3858 "kind1/solver_yices_cmdline.ml" 99 3821 3868
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 99 3821 3840 "kind1/solver_yices_cmdline.ml" 99 3821 3868
+call(
+  stack
+)
+type(
+  Str.regexp
+)
+"kind1/solver_yices_cmdline.ml" 100 3872 3884 "kind1/solver_yices_cmdline.ml" 100 3872 3888
+type(
+  Str.regexp
+)
+ident(
+  def reg2 "kind1/solver_yices_cmdline.ml" 101 3930 3938 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+)
+"kind1/solver_yices_cmdline.ml" 100 3872 3891 "kind1/solver_yices_cmdline.ml" 100 3872 3918
+type(
+  string -> Str.regexp
+)
+ident(
+  ext_ref Str.regexp_string_case_fold
+)
+"kind1/solver_yices_cmdline.ml" 100 3872 3919 "kind1/solver_yices_cmdline.ml" 100 3872 3926
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 100 3872 3891 "kind1/solver_yices_cmdline.ml" 100 3872 3926
+call(
+  stack
+)
+type(
+  Str.regexp
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3941 "kind1/solver_yices_cmdline.ml" 101 3930 3952
+type(
+  bool
+)
+ident(
+  int_ref long_enough "kind1/solver_yices_cmdline.ml" 93 3504 3517 "kind1/solver_yices_cmdline.ml" 93 3504 3528
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3953 "kind1/solver_yices_cmdline.ml" 101 3930 3955
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3957 "kind1/solver_yices_cmdline.ml" 101 3930 3973
+type(
+  Str.regexp -> string -> int -> bool
+)
+ident(
+  ext_ref Str.string_match
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3974 "kind1/solver_yices_cmdline.ml" 101 3930 3978
+type(
+  Str.regexp
+)
+ident(
+  int_ref reg1 "kind1/solver_yices_cmdline.ml" 99 3821 3833 "kind1/solver_yices_cmdline.ml" 99 3821 3837
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3979 "kind1/solver_yices_cmdline.ml" 101 3930 3983
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3984 "kind1/solver_yices_cmdline.ml" 101 3930 3987
+type(
+  int
+)
+ident(
+  int_ref pos "kind1/solver_yices_cmdline.ml" 89 3414 3421 "kind1/solver_yices_cmdline.ml" 89 3414 3424
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3956 "kind1/solver_yices_cmdline.ml" 101 3930 3988
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3941 "kind1/solver_yices_cmdline.ml" 101 3930 3988
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 102 4020 4030 "kind1/solver_yices_cmdline.ml" 102 4020 4035
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/solver_yices_cmdline.ml" 102 4020 4036 "kind1/solver_yices_cmdline.ml" 102 4020 4047
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 102 4020 4030 "kind1/solver_yices_cmdline.ml" 102 4020 4047
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4069 "kind1/solver_yices_cmdline.ml" 103 4048 4087
+type(
+  Str.regexp -> string -> int -> int
+)
+ident(
+  ext_ref Str.search_forward
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4088 "kind1/solver_yices_cmdline.ml" 103 4048 4092
+type(
+  Str.regexp
+)
+ident(
+  int_ref reg2 "kind1/solver_yices_cmdline.ml" 100 3872 3884 "kind1/solver_yices_cmdline.ml" 100 3872 3888
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4093 "kind1/solver_yices_cmdline.ml" 103 4048 4097
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4098 "kind1/solver_yices_cmdline.ml" 103 4048 4099
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4069 "kind1/solver_yices_cmdline.ml" 103 4048 4099
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4100 "kind1/solver_yices_cmdline.ml" 103 4048 4102
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4103 "kind1/solver_yices_cmdline.ml" 103 4048 4104
+type(
+  int
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4069 "kind1/solver_yices_cmdline.ml" 103 4048 4104
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4110 "kind1/solver_yices_cmdline.ml" 103 4048 4119
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4123 "kind1/solver_yices_cmdline.ml" 103 4048 4128
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4064 "kind1/solver_yices_cmdline.ml" 103 4048 4129
+type(
+  bool
+)
+"kind1/solver_yices_cmdline.ml" 105 4145 4155 "kind1/solver_yices_cmdline.ml" 105 4145 4160
+type(
+  exn -> unit
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/solver_yices_cmdline.ml" 105 4145 4174 "kind1/solver_yices_cmdline.ml" 105 4145 4178
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 105 4145 4161 "kind1/solver_yices_cmdline.ml" 105 4145 4179
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 105 4145 4155 "kind1/solver_yices_cmdline.ml" 105 4145 4179
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4203 "kind1/solver_yices_cmdline.ml" 107 4193 4220
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4221 "kind1/solver_yices_cmdline.ml" 107 4193 4224
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/solver_yices_cmdline.ml" 88 3382 3389 "kind1/solver_yices_cmdline.ml" 88 3382 3392
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4226 "kind1/solver_yices_cmdline.ml" 107 4193 4230
+type(
+  string
+)
+ident(
+  int_ref line "kind1/solver_yices_cmdline.ml" 92 3464 3477 "kind1/solver_yices_cmdline.ml" 92 3464 3481
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4230 "kind1/solver_yices_cmdline.ml" 107 4193 4231
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4231 "kind1/solver_yices_cmdline.ml" 107 4193 4235
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4225 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 107 4193 4203 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 103 4048 4061 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 101 3930 3938 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 100 3872 3880 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 99 3821 3829 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 94 3561 3565 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 93 3504 3513 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 92 3464 3473 "kind1/solver_yices_cmdline.ml" 107 4193 4236
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 91 3442 3449 "kind1/solver_yices_cmdline.ml" 108 4237 4247
+type(
+  unit
+)
+"kind1/solver_yices_cmdline.ml" 109 4249 4255 "kind1/solver_yices_cmdline.ml" 109 4249 4257
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 91 3442 3449 "kind1/solver_yices_cmdline.ml" 109 4249 4257
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 110 4258 4268 "kind1/solver_yices_cmdline.ml" 110 4258 4279
+type(
+  exn
+)
+"kind1/solver_yices_cmdline.ml" 111 4283 4290 "kind1/solver_yices_cmdline.ml" 111 4283 4305
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/solver_yices_cmdline.ml" 111 4283 4306 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/solver_yices_cmdline.ml" 88 3382 3389 "kind1/solver_yices_cmdline.ml" 88 3382 3392
+)
+"kind1/solver_yices_cmdline.ml" 111 4283 4290 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 90 3432 3437 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 89 3414 3417 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+type(
+  string
+)
+"kind1/solver_yices_cmdline.ml" 88 3382 3385 "kind1/solver_yices_cmdline.ml" 111 4283 4309
+type(
+  string
+)

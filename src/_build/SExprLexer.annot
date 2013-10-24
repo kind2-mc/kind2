@@ -1,0 +1,4642 @@
+"SExprLexer.mll" 54 127 133 "SExprLexer.mll" 54 127 151
+type(
+  char -> char
+)
+ident(
+  def char_for_backslash "SExprLexer.mll" 61 257 259 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 55 163 169 "SExprLexer.mll" 55 163 172
+type(
+  char
+)
+"SExprLexer.mll" 55 163 176 "SExprLexer.mll" 55 163 182
+type(
+  char
+)
+"SExprLexer.mll" 56 183 189 "SExprLexer.mll" 56 183 192
+type(
+  char
+)
+"SExprLexer.mll" 56 183 196 "SExprLexer.mll" 56 183 202
+type(
+  char
+)
+"SExprLexer.mll" 57 203 209 "SExprLexer.mll" 57 203 212
+type(
+  char
+)
+"SExprLexer.mll" 57 203 216 "SExprLexer.mll" 57 203 222
+type(
+  char
+)
+"SExprLexer.mll" 58 223 229 "SExprLexer.mll" 58 223 232
+type(
+  char
+)
+"SExprLexer.mll" 58 223 236 "SExprLexer.mll" 58 223 242
+type(
+  char
+)
+"SExprLexer.mll" 59 243 249 "SExprLexer.mll" 59 243 250
+type(
+  char
+)
+ident(
+  def c "SExprLexer.mll" 59 243 254 "SExprLexer.mll" 59 243 255
+)
+"SExprLexer.mll" 59 243 254 "SExprLexer.mll" 59 243 255
+type(
+  char
+)
+ident(
+  int_ref c "SExprLexer.mll" 59 243 249 "SExprLexer.mll" 59 243 250
+)
+"SExprLexer.mll" 54 127 154 "SExprLexer.mll" 59 243 255
+type(
+  char -> char
+)
+"SExprLexer.mll" 61 257 263 "SExprLexer.mll" 61 257 265
+type(
+  char
+)
+ident(
+  def lf "SExprLexer.mll" 63 276 278 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 61 257 268 "SExprLexer.mll" 61 257 274
+type(
+  char
+)
+"SExprLexer.mll" 63 276 282 "SExprLexer.mll" 63 276 290
+type(
+  char -> char -> char -> int
+)
+ident(
+  def dec_code "SExprLexer.mll" 66 382 384 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 63 276 291 "SExprLexer.mll" 63 276 293
+type(
+  char
+)
+ident(
+  def c1 "SExprLexer.mll" 63 276 294 "SExprLexer.mll" 64 302 380
+)
+"SExprLexer.mll" 63 276 294 "SExprLexer.mll" 63 276 296
+type(
+  char
+)
+ident(
+  def c2 "SExprLexer.mll" 63 276 297 "SExprLexer.mll" 64 302 380
+)
+"SExprLexer.mll" 63 276 297 "SExprLexer.mll" 63 276 299
+type(
+  char
+)
+ident(
+  def c3 "SExprLexer.mll" 64 302 306 "SExprLexer.mll" 64 302 380
+)
+"SExprLexer.mll" 64 302 306 "SExprLexer.mll" 64 302 309
+type(
+  int
+)
+"SExprLexer.mll" 64 302 310 "SExprLexer.mll" 64 302 311
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( * )
+)
+"SExprLexer.mll" 64 302 313 "SExprLexer.mll" 64 302 322
+type(
+  char -> int
+)
+ident(
+  ext_ref Char.code
+)
+"SExprLexer.mll" 64 302 323 "SExprLexer.mll" 64 302 325
+type(
+  char
+)
+ident(
+  int_ref c1 "SExprLexer.mll" 63 276 291 "SExprLexer.mll" 63 276 293
+)
+"SExprLexer.mll" 64 302 313 "SExprLexer.mll" 64 302 325
+type(
+  int
+)
+"SExprLexer.mll" 64 302 326 "SExprLexer.mll" 64 302 327
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 64 302 328 "SExprLexer.mll" 64 302 330
+type(
+  int
+)
+"SExprLexer.mll" 64 302 313 "SExprLexer.mll" 64 302 330
+type(
+  int
+)
+"SExprLexer.mll" 64 302 306 "SExprLexer.mll" 64 302 331
+type(
+  int
+)
+"SExprLexer.mll" 64 302 332 "SExprLexer.mll" 64 302 333
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.mll" 64 302 334 "SExprLexer.mll" 64 302 336
+type(
+  int
+)
+"SExprLexer.mll" 64 302 337 "SExprLexer.mll" 64 302 338
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( * )
+)
+"SExprLexer.mll" 64 302 340 "SExprLexer.mll" 64 302 349
+type(
+  char -> int
+)
+ident(
+  ext_ref Char.code
+)
+"SExprLexer.mll" 64 302 350 "SExprLexer.mll" 64 302 352
+type(
+  char
+)
+ident(
+  int_ref c2 "SExprLexer.mll" 63 276 294 "SExprLexer.mll" 63 276 296
+)
+"SExprLexer.mll" 64 302 340 "SExprLexer.mll" 64 302 352
+type(
+  int
+)
+"SExprLexer.mll" 64 302 353 "SExprLexer.mll" 64 302 354
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 64 302 355 "SExprLexer.mll" 64 302 357
+type(
+  int
+)
+"SExprLexer.mll" 64 302 340 "SExprLexer.mll" 64 302 357
+type(
+  int
+)
+"SExprLexer.mll" 64 302 334 "SExprLexer.mll" 64 302 358
+type(
+  int
+)
+"SExprLexer.mll" 64 302 306 "SExprLexer.mll" 64 302 358
+type(
+  int
+)
+"SExprLexer.mll" 64 302 359 "SExprLexer.mll" 64 302 360
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.mll" 64 302 362 "SExprLexer.mll" 64 302 371
+type(
+  char -> int
+)
+ident(
+  ext_ref Char.code
+)
+"SExprLexer.mll" 64 302 372 "SExprLexer.mll" 64 302 374
+type(
+  char
+)
+ident(
+  int_ref c3 "SExprLexer.mll" 63 276 297 "SExprLexer.mll" 63 276 299
+)
+"SExprLexer.mll" 64 302 362 "SExprLexer.mll" 64 302 374
+type(
+  int
+)
+"SExprLexer.mll" 64 302 375 "SExprLexer.mll" 64 302 376
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 64 302 377 "SExprLexer.mll" 64 302 379
+type(
+  int
+)
+"SExprLexer.mll" 64 302 362 "SExprLexer.mll" 64 302 379
+type(
+  int
+)
+"SExprLexer.mll" 64 302 306 "SExprLexer.mll" 64 302 380
+type(
+  int
+)
+"SExprLexer.mll" 63 276 297 "SExprLexer.mll" 64 302 380
+type(
+  char -> int
+)
+"SExprLexer.mll" 63 276 294 "SExprLexer.mll" 64 302 380
+type(
+  char -> char -> int
+)
+"SExprLexer.mll" 63 276 291 "SExprLexer.mll" 64 302 380
+type(
+  char -> char -> char -> int
+)
+"SExprLexer.mll" 66 382 388 "SExprLexer.mll" 66 382 396
+type(
+  char -> char -> int
+)
+ident(
+  def hex_code "SExprLexer.mll" 79 693 695 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 66 382 397 "SExprLexer.mll" 66 382 399
+type(
+  char
+)
+ident(
+  def c1 "SExprLexer.mll" 66 382 400 "SExprLexer.mll" 77 671 691
+)
+"SExprLexer.mll" 66 382 400 "SExprLexer.mll" 66 382 402
+type(
+  char
+)
+ident(
+  def c2 "SExprLexer.mll" 67 405 409 "SExprLexer.mll" 77 671 691
+)
+"SExprLexer.mll" 67 405 413 "SExprLexer.mll" 67 405 415
+type(
+  int
+)
+ident(
+  def d1 "SExprLexer.mll" 68 434 438 "SExprLexer.mll" 77 671 691
+)
+"SExprLexer.mll" 67 405 418 "SExprLexer.mll" 67 405 427
+type(
+  char -> int
+)
+ident(
+  ext_ref Char.code
+)
+"SExprLexer.mll" 67 405 428 "SExprLexer.mll" 67 405 430
+type(
+  char
+)
+ident(
+  int_ref c1 "SExprLexer.mll" 66 382 397 "SExprLexer.mll" 66 382 399
+)
+"SExprLexer.mll" 67 405 418 "SExprLexer.mll" 67 405 430
+type(
+  int
+)
+"SExprLexer.mll" 68 434 442 "SExprLexer.mll" 68 434 446
+type(
+  int
+)
+ident(
+  def val1 "SExprLexer.mll" 72 538 542 "SExprLexer.mll" 77 671 691
+)
+"SExprLexer.mll" 69 449 458 "SExprLexer.mll" 69 449 460
+type(
+  int
+)
+ident(
+  int_ref d1 "SExprLexer.mll" 67 405 413 "SExprLexer.mll" 67 405 415
+)
+"SExprLexer.mll" 69 449 461 "SExprLexer.mll" 69 449 463
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"SExprLexer.mll" 69 449 464 "SExprLexer.mll" 69 449 466
+type(
+  int
+)
+"SExprLexer.mll" 69 449 458 "SExprLexer.mll" 69 449 466
+type(
+  bool
+)
+"SExprLexer.mll" 69 449 472 "SExprLexer.mll" 69 449 474
+type(
+  int
+)
+ident(
+  int_ref d1 "SExprLexer.mll" 67 405 413 "SExprLexer.mll" 67 405 415
+)
+"SExprLexer.mll" 69 449 475 "SExprLexer.mll" 69 449 476
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 69 449 477 "SExprLexer.mll" 69 449 479
+type(
+  int
+)
+"SExprLexer.mll" 69 449 472 "SExprLexer.mll" 69 449 479
+type(
+  int
+)
+"SExprLexer.mll" 70 480 494 "SExprLexer.mll" 70 480 496
+type(
+  int
+)
+ident(
+  int_ref d1 "SExprLexer.mll" 67 405 413 "SExprLexer.mll" 67 405 415
+)
+"SExprLexer.mll" 70 480 497 "SExprLexer.mll" 70 480 499
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"SExprLexer.mll" 70 480 500 "SExprLexer.mll" 70 480 502
+type(
+  int
+)
+"SExprLexer.mll" 70 480 494 "SExprLexer.mll" 70 480 502
+type(
+  bool
+)
+"SExprLexer.mll" 70 480 508 "SExprLexer.mll" 70 480 510
+type(
+  int
+)
+ident(
+  int_ref d1 "SExprLexer.mll" 67 405 413 "SExprLexer.mll" 67 405 415
+)
+"SExprLexer.mll" 70 480 511 "SExprLexer.mll" 70 480 512
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 70 480 513 "SExprLexer.mll" 70 480 515
+type(
+  int
+)
+"SExprLexer.mll" 70 480 508 "SExprLexer.mll" 70 480 515
+type(
+  int
+)
+"SExprLexer.mll" 71 516 527 "SExprLexer.mll" 71 516 529
+type(
+  int
+)
+ident(
+  int_ref d1 "SExprLexer.mll" 67 405 413 "SExprLexer.mll" 67 405 415
+)
+"SExprLexer.mll" 71 516 530 "SExprLexer.mll" 71 516 531
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 71 516 532 "SExprLexer.mll" 71 516 534
+type(
+  int
+)
+"SExprLexer.mll" 71 516 527 "SExprLexer.mll" 71 516 534
+type(
+  int
+)
+"SExprLexer.mll" 70 480 491 "SExprLexer.mll" 71 516 534
+type(
+  int
+)
+"SExprLexer.mll" 69 449 455 "SExprLexer.mll" 71 516 534
+type(
+  int
+)
+"SExprLexer.mll" 72 538 546 "SExprLexer.mll" 72 538 548
+type(
+  int
+)
+ident(
+  def d2 "SExprLexer.mll" 73 567 571 "SExprLexer.mll" 77 671 691
+)
+"SExprLexer.mll" 72 538 551 "SExprLexer.mll" 72 538 560
+type(
+  char -> int
+)
+ident(
+  ext_ref Char.code
+)
+"SExprLexer.mll" 72 538 561 "SExprLexer.mll" 72 538 563
+type(
+  char
+)
+ident(
+  int_ref c2 "SExprLexer.mll" 66 382 400 "SExprLexer.mll" 66 382 402
+)
+"SExprLexer.mll" 72 538 551 "SExprLexer.mll" 72 538 563
+type(
+  int
+)
+"SExprLexer.mll" 73 567 575 "SExprLexer.mll" 73 567 579
+type(
+  int
+)
+ident(
+  def val2 "SExprLexer.mll" 77 671 675 "SExprLexer.mll" 77 671 691
+)
+"SExprLexer.mll" 74 582 591 "SExprLexer.mll" 74 582 593
+type(
+  int
+)
+ident(
+  int_ref d2 "SExprLexer.mll" 72 538 546 "SExprLexer.mll" 72 538 548
+)
+"SExprLexer.mll" 74 582 594 "SExprLexer.mll" 74 582 596
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"SExprLexer.mll" 74 582 597 "SExprLexer.mll" 74 582 599
+type(
+  int
+)
+"SExprLexer.mll" 74 582 591 "SExprLexer.mll" 74 582 599
+type(
+  bool
+)
+"SExprLexer.mll" 74 582 605 "SExprLexer.mll" 74 582 607
+type(
+  int
+)
+ident(
+  int_ref d2 "SExprLexer.mll" 72 538 546 "SExprLexer.mll" 72 538 548
+)
+"SExprLexer.mll" 74 582 608 "SExprLexer.mll" 74 582 609
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 74 582 610 "SExprLexer.mll" 74 582 612
+type(
+  int
+)
+"SExprLexer.mll" 74 582 605 "SExprLexer.mll" 74 582 612
+type(
+  int
+)
+"SExprLexer.mll" 75 613 627 "SExprLexer.mll" 75 613 629
+type(
+  int
+)
+ident(
+  int_ref d2 "SExprLexer.mll" 72 538 546 "SExprLexer.mll" 72 538 548
+)
+"SExprLexer.mll" 75 613 630 "SExprLexer.mll" 75 613 632
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"SExprLexer.mll" 75 613 633 "SExprLexer.mll" 75 613 635
+type(
+  int
+)
+"SExprLexer.mll" 75 613 627 "SExprLexer.mll" 75 613 635
+type(
+  bool
+)
+"SExprLexer.mll" 75 613 641 "SExprLexer.mll" 75 613 643
+type(
+  int
+)
+ident(
+  int_ref d2 "SExprLexer.mll" 72 538 546 "SExprLexer.mll" 72 538 548
+)
+"SExprLexer.mll" 75 613 644 "SExprLexer.mll" 75 613 645
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 75 613 646 "SExprLexer.mll" 75 613 648
+type(
+  int
+)
+"SExprLexer.mll" 75 613 641 "SExprLexer.mll" 75 613 648
+type(
+  int
+)
+"SExprLexer.mll" 76 649 660 "SExprLexer.mll" 76 649 662
+type(
+  int
+)
+ident(
+  int_ref d2 "SExprLexer.mll" 72 538 546 "SExprLexer.mll" 72 538 548
+)
+"SExprLexer.mll" 76 649 663 "SExprLexer.mll" 76 649 664
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 76 649 665 "SExprLexer.mll" 76 649 667
+type(
+  int
+)
+"SExprLexer.mll" 76 649 660 "SExprLexer.mll" 76 649 667
+type(
+  int
+)
+"SExprLexer.mll" 75 613 624 "SExprLexer.mll" 76 649 667
+type(
+  int
+)
+"SExprLexer.mll" 74 582 588 "SExprLexer.mll" 76 649 667
+type(
+  int
+)
+"SExprLexer.mll" 77 671 675 "SExprLexer.mll" 77 671 679
+type(
+  int
+)
+ident(
+  int_ref val1 "SExprLexer.mll" 68 434 442 "SExprLexer.mll" 68 434 446
+)
+"SExprLexer.mll" 77 671 680 "SExprLexer.mll" 77 671 681
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( * )
+)
+"SExprLexer.mll" 77 671 682 "SExprLexer.mll" 77 671 684
+type(
+  int
+)
+"SExprLexer.mll" 77 671 675 "SExprLexer.mll" 77 671 684
+type(
+  int
+)
+"SExprLexer.mll" 77 671 685 "SExprLexer.mll" 77 671 686
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.mll" 77 671 687 "SExprLexer.mll" 77 671 691
+type(
+  int
+)
+ident(
+  int_ref val2 "SExprLexer.mll" 73 567 575 "SExprLexer.mll" 73 567 579
+)
+"SExprLexer.mll" 77 671 675 "SExprLexer.mll" 77 671 691
+type(
+  int
+)
+"SExprLexer.mll" 73 567 571 "SExprLexer.mll" 77 671 691
+type(
+  int
+)
+"SExprLexer.mll" 72 538 542 "SExprLexer.mll" 77 671 691
+type(
+  int
+)
+"SExprLexer.mll" 68 434 438 "SExprLexer.mll" 77 671 691
+type(
+  int
+)
+"SExprLexer.mll" 67 405 409 "SExprLexer.mll" 77 671 691
+type(
+  int
+)
+"SExprLexer.mll" 66 382 400 "SExprLexer.mll" 77 671 691
+type(
+  char -> int
+)
+"SExprLexer.mll" 66 382 397 "SExprLexer.mll" 77 671 691
+type(
+  char -> char -> int
+)
+"SExprLexer.mll" 79 693 699 "SExprLexer.mll" 79 693 712
+type(
+  Lexing.lexbuf -> int -> unit
+)
+ident(
+  def found_newline "SExprLexer.mll" 87 906 908 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 79 693 716 "SExprLexer.mll" 79 693 726
+type(
+  Lexing.position
+)
+ident(
+  def lex_curr_p "SExprLexer.mll" 79 693 743 "SExprLexer.mll" 85 897 904
+)
+"SExprLexer.mll" 79 693 714 "SExprLexer.mll" 79 693 731
+type(
+  Lexing.lexbuf
+)
+"SExprLexer.mll" 79 693 714 "SExprLexer.mll" 79 693 741
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.mll" 79 693 743 "SExprLexer.mll" 85 897 904
+)
+"SExprLexer.mll" 79 693 743 "SExprLexer.mll" 79 693 747
+type(
+  int
+)
+ident(
+  def diff "SExprLexer.mll" 80 750 754 "SExprLexer.mll" 85 897 904
+)
+"SExprLexer.mll" 80 750 754 "SExprLexer.mll" 80 750 760
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.mll" 79 693 714 "SExprLexer.mll" 79 693 741
+)
+"SExprLexer.mll" 82 783 791 "SExprLexer.mll" 82 783 801
+type(
+  Lexing.position
+)
+ident(
+  int_ref lex_curr_p "SExprLexer.mll" 79 693 716 "SExprLexer.mll" 79 693 726
+)
+"SExprLexer.mll" 83 807 826 "SExprLexer.mll" 83 807 836
+type(
+  Lexing.position
+)
+ident(
+  int_ref lex_curr_p "SExprLexer.mll" 79 693 716 "SExprLexer.mll" 79 693 726
+)
+"SExprLexer.mll" 83 807 826 "SExprLexer.mll" 83 807 845
+type(
+  int
+)
+"SExprLexer.mll" 83 807 846 "SExprLexer.mll" 83 807 847
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.mll" 83 807 848 "SExprLexer.mll" 83 807 849
+type(
+  int
+)
+"SExprLexer.mll" 83 807 826 "SExprLexer.mll" 83 807 849
+type(
+  int
+)
+"SExprLexer.mll" 84 851 869 "SExprLexer.mll" 84 851 879
+type(
+  Lexing.position
+)
+ident(
+  int_ref lex_curr_p "SExprLexer.mll" 79 693 716 "SExprLexer.mll" 79 693 726
+)
+"SExprLexer.mll" 84 851 869 "SExprLexer.mll" 84 851 888
+type(
+  int
+)
+"SExprLexer.mll" 84 851 889 "SExprLexer.mll" 84 851 890
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 84 851 891 "SExprLexer.mll" 84 851 895
+type(
+  int
+)
+ident(
+  int_ref diff "SExprLexer.mll" 79 693 743 "SExprLexer.mll" 79 693 747
+)
+"SExprLexer.mll" 84 851 869 "SExprLexer.mll" 84 851 895
+type(
+  int
+)
+"SExprLexer.mll" 81 775 781 "SExprLexer.mll" 85 897 904
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 80 750 754 "SExprLexer.mll" 85 897 904
+type(
+  unit
+)
+"SExprLexer.mll" 79 693 743 "SExprLexer.mll" 85 897 904
+type(
+  int -> unit
+)
+"SExprLexer.mll" 79 693 713 "SExprLexer.mll" 85 897 904
+type(
+  Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.mll" 87 906 912 "SExprLexer.mll" 87 906 922
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  def lexeme_len "SExprLexer.mll" 89 973 975 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 87 906 923 "SExprLexer.mll" 87 906 929
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.mll" 87 906 932 "SExprLexer.mll" 87 906 971
+)
+"SExprLexer.mll" 87 906 932 "SExprLexer.mll" 87 906 942
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_end
+)
+"SExprLexer.mll" 87 906 943 "SExprLexer.mll" 87 906 949
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.mll" 87 906 923 "SExprLexer.mll" 87 906 929
+)
+"SExprLexer.mll" 87 906 932 "SExprLexer.mll" 87 906 949
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 87 906 950 "SExprLexer.mll" 87 906 951
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 87 906 952 "SExprLexer.mll" 87 906 964
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_start
+)
+"SExprLexer.mll" 87 906 965 "SExprLexer.mll" 87 906 971
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.mll" 87 906 923 "SExprLexer.mll" 87 906 929
+)
+"SExprLexer.mll" 87 906 952 "SExprLexer.mll" 87 906 971
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 87 906 932 "SExprLexer.mll" 87 906 971
+type(
+  int
+)
+"SExprLexer.mll" 87 906 923 "SExprLexer.mll" 87 906 971
+type(
+  Lexing.lexbuf -> int
+)
+"SExprLexer.mll" 89 973 979 "SExprLexer.mll" 89 973 991
+type(
+  Lexing.lexbuf -> string -> 'a
+)
+ident(
+  def main_failure "SExprLexer.ml" 54 1243 1243 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 89 973 992 "SExprLexer.mll" 89 973 998
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.mll" 89 973 999 "SExprLexer.mll" 96 1204 1220
+)
+"SExprLexer.mll" 89 973 999 "SExprLexer.mll" 89 973 1002
+type(
+  string
+)
+ident(
+  def msg "SExprLexer.mll" 90 1005 1009 "SExprLexer.mll" 96 1204 1220
+)
+"SExprLexer.mll" 90 1005 1015 "SExprLexer.mll" 90 1005 1023
+type(
+  int
+)
+ident(
+  def pos_lnum "SExprLexer.mll" 91 1075 1079 "SExprLexer.mll" 96 1204 1220
+)
+"SExprLexer.mll" 90 1005 1025 "SExprLexer.mll" 90 1005 1032
+type(
+  int
+)
+ident(
+  def pos_bol "SExprLexer.mll" 91 1075 1079 "SExprLexer.mll" 96 1204 1220
+)
+"SExprLexer.mll" 90 1005 1034 "SExprLexer.mll" 90 1005 1042
+type(
+  int
+)
+ident(
+  def pos_cnum "SExprLexer.mll" 91 1075 1079 "SExprLexer.mll" 96 1204 1220
+)
+"SExprLexer.mll" 90 1005 1013 "SExprLexer.mll" 90 1005 1047
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 90 1005 1050 "SExprLexer.mll" 90 1005 1064
+type(
+  Lexing.lexbuf -> Lexing.position
+)
+ident(
+  ext_ref Lexing.lexeme_start_p
+)
+"SExprLexer.mll" 90 1005 1065 "SExprLexer.mll" 90 1005 1071
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.mll" 89 973 992 "SExprLexer.mll" 89 973 998
+)
+"SExprLexer.mll" 90 1005 1050 "SExprLexer.mll" 90 1005 1071
+call(
+  stack
+)
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 91 1075 1083 "SExprLexer.mll" 91 1075 1086
+type(
+  string
+)
+ident(
+  def msg "SExprLexer.mll" 96 1204 1208 "SExprLexer.mll" 96 1204 1220
+)
+"SExprLexer.mll" 92 1089 1095 "SExprLexer.mll" 92 1089 1102
+type(
+  (string -> int -> int -> string, unit, string) format ->
+  string -> int -> int -> string
+)
+ident(
+  ext_ref Printf.sprintf
+)
+"SExprLexer.mll" 93 1103 1111 "SExprLexer.mll" 93 1103 1154
+type(
+  (string -> int -> int -> string, unit, string) format
+)
+"SExprLexer.mll" 94 1155 1163 "SExprLexer.mll" 94 1155 1166
+type(
+  string
+)
+ident(
+  int_ref msg "SExprLexer.mll" 89 973 999 "SExprLexer.mll" 89 973 1002
+)
+"SExprLexer.mll" 94 1155 1167 "SExprLexer.mll" 94 1155 1175
+type(
+  int
+)
+ident(
+  int_ref pos_lnum "SExprLexer.mll" 90 1005 1015 "SExprLexer.mll" 90 1005 1023
+)
+"SExprLexer.mll" 94 1155 1177 "SExprLexer.mll" 94 1155 1185
+type(
+  int
+)
+ident(
+  int_ref pos_cnum "SExprLexer.mll" 90 1005 1034 "SExprLexer.mll" 90 1005 1042
+)
+"SExprLexer.mll" 94 1155 1186 "SExprLexer.mll" 94 1155 1187
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 94 1155 1188 "SExprLexer.mll" 94 1155 1195
+type(
+  int
+)
+ident(
+  int_ref pos_bol "SExprLexer.mll" 90 1005 1025 "SExprLexer.mll" 90 1005 1032
+)
+"SExprLexer.mll" 94 1155 1177 "SExprLexer.mll" 94 1155 1195
+type(
+  int
+)
+"SExprLexer.mll" 92 1089 1095 "SExprLexer.mll" 94 1155 1196
+call(
+  stack
+)
+type(
+  string
+)
+"SExprLexer.mll" 96 1204 1208 "SExprLexer.mll" 96 1204 1216
+type(
+  string -> 'a
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SExprLexer.mll" 96 1204 1217 "SExprLexer.mll" 96 1204 1220
+type(
+  string
+)
+ident(
+  int_ref msg "SExprLexer.mll" 91 1075 1083 "SExprLexer.mll" 91 1075 1086
+)
+"SExprLexer.mll" 96 1204 1208 "SExprLexer.mll" 96 1204 1220
+call(
+  tail
+)
+type(
+  'a
+)
+"SExprLexer.mll" 91 1075 1079 "SExprLexer.mll" 96 1204 1220
+type(
+  'a
+)
+"SExprLexer.mll" 90 1005 1009 "SExprLexer.mll" 96 1204 1220
+type(
+  'a
+)
+"SExprLexer.mll" 89 973 999 "SExprLexer.mll" 96 1204 1220
+type(
+  string -> 'a
+)
+"SExprLexer.mll" 89 973 992 "SExprLexer.mll" 96 1204 1220
+type(
+  Lexing.lexbuf -> string -> 'a
+)
+"SExprLexer.ml" 54 1243 1247 "SExprLexer.ml" 54 1243 1265
+type(
+  Lexing.lex_tables
+)
+ident(
+  def __ocaml_lex_tables "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 56 1291 1294 "SExprLexer.ml" 62 1711 1716
+type(
+  string
+)
+"SExprLexer.ml" 64 1742 1745 "SExprLexer.ml" 70 2162 2167
+type(
+  string
+)
+"SExprLexer.ml" 72 2193 2196 "SExprLexer.ml" 78 2613 2618
+type(
+  string
+)
+"SExprLexer.ml" 80 2642 2645 "SExprLexer.ml" 150 7542 7603
+type(
+  string
+)
+"SExprLexer.ml" 152 7627 7630 "SExprLexer.ml" 222 12527 12588
+type(
+  string
+)
+"SExprLexer.ml" 224 12616 12619 "SExprLexer.ml" 224 12616 12621
+type(
+  string
+)
+"SExprLexer.ml" 226 12652 12655 "SExprLexer.ml" 226 12652 12657
+type(
+  string
+)
+"SExprLexer.ml" 228 12688 12691 "SExprLexer.ml" 228 12688 12693
+type(
+  string
+)
+"SExprLexer.ml" 230 12722 12725 "SExprLexer.ml" 230 12722 12727
+type(
+  string
+)
+"SExprLexer.ml" 232 12756 12759 "SExprLexer.ml" 232 12756 12761
+type(
+  string
+)
+"SExprLexer.ml" 234 12784 12787 "SExprLexer.ml" 234 12784 12789
+type(
+  string
+)
+"SExprLexer.ml" 54 1243 1268 "SExprLexer.ml" 235 12791 12792
+type(
+  Lexing.lex_tables
+)
+"SExprLexer.ml" 237 12794 12802 "SExprLexer.ml" 237 12794 12806
+type(
+  Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  def main "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 237 12794 12807 "SExprLexer.ml" 237 12794 12810
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.ml" 237 12794 12811 "SExprLexer.ml" 238 12820 12857
+)
+"SExprLexer.ml" 237 12794 12811 "SExprLexer.ml" 237 12794 12817
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.ml" 238 12820 12824 "SExprLexer.ml" 238 12820 12857
+)
+"SExprLexer.ml" 238 12820 12824 "SExprLexer.ml" 238 12820 12844
+type(
+  Buffer.t -> Lexing.lexbuf -> int -> SExprParser.token
+)
+ident(
+  int_ref __ocaml_lex_main_rec "SExprLexer.ml" 239 12858 12862 "SExprLexer.ml" 239 12858 12882
+)
+"SExprLexer.ml" 238 12820 12845 "SExprLexer.ml" 238 12820 12848
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 237 12794 12807 "SExprLexer.ml" 237 12794 12810
+)
+"SExprLexer.ml" 238 12820 12849 "SExprLexer.ml" 238 12820 12855
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 237 12794 12811 "SExprLexer.ml" 237 12794 12817
+)
+"SExprLexer.ml" 238 12820 12856 "SExprLexer.ml" 238 12820 12857
+type(
+  int
+)
+"SExprLexer.ml" 238 12820 12824 "SExprLexer.ml" 238 12820 12857
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 237 12794 12811 "SExprLexer.ml" 238 12820 12857
+type(
+  Lexing.lexbuf -> SExprParser.token
+)
+"SExprLexer.ml" 237 12794 12807 "SExprLexer.ml" 238 12820 12857
+type(
+  Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+"SExprLexer.ml" 239 12858 12862 "SExprLexer.ml" 239 12858 12882
+type(
+  Buffer.t -> Lexing.lexbuf -> int -> SExprParser.token
+)
+ident(
+  def __ocaml_lex_main_rec "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 309 14448 14556
+)
+"SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.ml" 239 12858 12894 "SExprLexer.ml" 309 14448 14556
+)
+"SExprLexer.ml" 239 12858 12894 "SExprLexer.ml" 239 12858 12911
+type(
+  int
+)
+ident(
+  def __ocaml_lex_state "SExprLexer.ml" 240 12914 12916 "SExprLexer.ml" 309 14448 14556
+)
+"SExprLexer.ml" 240 12914 12922 "SExprLexer.ml" 240 12914 12935
+type(
+  Lexing.lex_tables -> int -> Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.engine
+)
+"SExprLexer.ml" 240 12914 12936 "SExprLexer.ml" 240 12914 12954
+type(
+  Lexing.lex_tables
+)
+ident(
+  int_ref __ocaml_lex_tables "SExprLexer.ml" 54 1243 1247 "SExprLexer.ml" 54 1243 1265
+)
+"SExprLexer.ml" 240 12914 12955 "SExprLexer.ml" 240 12914 12972
+type(
+  int
+)
+ident(
+  int_ref __ocaml_lex_state "SExprLexer.ml" 239 12858 12894 "SExprLexer.ml" 239 12858 12911
+)
+"SExprLexer.ml" 240 12914 12973 "SExprLexer.ml" 240 12914 12979
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 240 12914 12922 "SExprLexer.ml" 240 12914 12979
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.ml" 241 12985 12993 "SExprLexer.ml" 241 12985 12994
+type(
+  int
+)
+"SExprLexer.mll" 111 13021 13044 "SExprLexer.mll" 111 13021 13057
+type(
+  Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref found_newline "SExprLexer.mll" 79 693 699 "SExprLexer.mll" 79 693 712
+)
+"SExprLexer.mll" 111 13021 13058 "SExprLexer.mll" 111 13021 13064
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 111 13021 13065 "SExprLexer.mll" 111 13021 13066
+type(
+  int
+)
+"SExprLexer.mll" 111 13021 13044 "SExprLexer.mll" 111 13021 13066
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 111 13021 13068 "SExprLexer.mll" 111 13021 13072
+type(
+  Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  int_ref main "SExprLexer.ml" 237 12794 12802 "SExprLexer.ml" 237 12794 12806
+)
+"SExprLexer.mll" 111 13021 13073 "SExprLexer.mll" 111 13021 13076
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 111 13021 13077 "SExprLexer.mll" 111 13021 13083
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 111 13021 13068 "SExprLexer.mll" 111 13021 13083
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.mll" 111 13021 13044 "SExprLexer.mll" 111 13021 13083
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 246 13109 13113 "SExprLexer.ml" 246 13109 13114
+type(
+  int
+)
+"SExprLexer.mll" 112 13141 13173 "SExprLexer.mll" 112 13141 13177
+type(
+  Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  int_ref main "SExprLexer.ml" 237 12794 12802 "SExprLexer.ml" 237 12794 12806
+)
+"SExprLexer.mll" 112 13141 13178 "SExprLexer.mll" 112 13141 13181
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 112 13141 13182 "SExprLexer.mll" 112 13141 13188
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 112 13141 13173 "SExprLexer.mll" 112 13141 13188
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 251 13214 13218 "SExprLexer.ml" 251 13214 13219
+type(
+  int
+)
+"SExprLexer.mll" 113 13246 13256 "SExprLexer.mll" 113 13246 13262
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 256 13288 13292 "SExprLexer.ml" 256 13288 13293
+type(
+  int
+)
+"SExprLexer.mll" 114 13320 13330 "SExprLexer.mll" 114 13320 13336
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 261 13362 13366 "SExprLexer.ml" 261 13362 13367
+type(
+  int
+)
+"SExprLexer.mll" 117 13402 13410 "SExprLexer.mll" 117 13402 13421
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 117 13402 13422 "SExprLexer.mll" 117 13402 13425
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 117 13402 13427 "SExprLexer.mll" 117 13402 13441
+type(
+  Lexing.lexbuf -> Lexing.position
+)
+ident(
+  ext_ref Lexing.lexeme_start_p
+)
+"SExprLexer.mll" 117 13402 13442 "SExprLexer.mll" 117 13402 13448
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 117 13402 13427 "SExprLexer.mll" 117 13402 13448
+call(
+  stack
+)
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 117 13402 13450 "SExprLexer.mll" 117 13402 13456
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 117 13402 13410 "SExprLexer.mll" 117 13402 13456
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 118 13458 13470 "SExprLexer.mll" 118 13458 13473
+type(
+  string
+)
+ident(
+  def str "SExprLexer.mll" 119 13499 13507 "SExprLexer.mll" 120 13525 13564
+)
+"SExprLexer.mll" 118 13458 13476 "SExprLexer.mll" 118 13458 13491
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"SExprLexer.mll" 118 13458 13492 "SExprLexer.mll" 118 13458 13495
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 118 13458 13476 "SExprLexer.mll" 118 13458 13495
+call(
+  stack
+)
+type(
+  string
+)
+"SExprLexer.mll" 119 13499 13507 "SExprLexer.mll" 119 13499 13519
+type(
+  Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.clear
+)
+"SExprLexer.mll" 119 13499 13520 "SExprLexer.mll" 119 13499 13523
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 119 13499 13507 "SExprLexer.mll" 119 13499 13523
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 120 13525 13541 "SExprLexer.mll" 120 13525 13559
+type(
+  string -> HString.t
+)
+ident(
+  ext_ref HString.mk_hstring
+)
+"SExprLexer.mll" 120 13525 13560 "SExprLexer.mll" 120 13525 13563
+type(
+  string
+)
+ident(
+  int_ref str "SExprLexer.mll" 118 13458 13470 "SExprLexer.mll" 118 13458 13473
+)
+"SExprLexer.mll" 120 13525 13541 "SExprLexer.mll" 120 13525 13563
+call(
+  stack
+)
+type(
+  HString.t
+)
+"SExprLexer.mll" 120 13525 13533 "SExprLexer.mll" 120 13525 13564
+type(
+  SExprParser.token
+)
+"SExprLexer.mll" 119 13499 13507 "SExprLexer.mll" 120 13525 13564
+type(
+  SExprParser.token
+)
+"SExprLexer.mll" 118 13458 13466 "SExprLexer.mll" 120 13525 13564
+type(
+  SExprParser.token
+)
+"SExprLexer.mll" 117 13402 13410 "SExprLexer.mll" 120 13525 13564
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 271 13596 13600 "SExprLexer.ml" 271 13596 13601
+type(
+  int
+)
+"SExprLexer.mll" 122 13628 13639 "SExprLexer.mll" 122 13628 13651
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 276 13677 13681 "SExprLexer.ml" 276 13677 13682
+type(
+  int
+)
+"SExprLexer.mll" 125 13717 13725 "SExprLexer.mll" 125 13717 13743
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_block_comment "SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+)
+"SExprLexer.mll" 125 13717 13744 "SExprLexer.mll" 125 13717 13747
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 125 13717 13749 "SExprLexer.mll" 125 13717 13763
+type(
+  Lexing.lexbuf -> Lexing.position
+)
+ident(
+  ext_ref Lexing.lexeme_start_p
+)
+"SExprLexer.mll" 125 13717 13764 "SExprLexer.mll" 125 13717 13770
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 125 13717 13749 "SExprLexer.mll" 125 13717 13770
+call(
+  stack
+)
+type(
+  Lexing.position
+)
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 125 13717 13748 "SExprLexer.mll" 125 13717 13771
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 125 13717 13772 "SExprLexer.mll" 125 13717 13778
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 125 13717 13725 "SExprLexer.mll" 125 13717 13778
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 126 13780 13788 "SExprLexer.mll" 126 13780 13792
+type(
+  Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  int_ref main "SExprLexer.ml" 237 12794 12802 "SExprLexer.ml" 237 12794 12806
+)
+"SExprLexer.mll" 126 13780 13793 "SExprLexer.mll" 126 13780 13796
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.mll" 126 13780 13797 "SExprLexer.mll" 126 13780 13803
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 126 13780 13788 "SExprLexer.mll" 126 13780 13803
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.mll" 125 13717 13725 "SExprLexer.mll" 126 13780 13803
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 284 13835 13839 "SExprLexer.ml" 284 13835 13840
+type(
+  int
+)
+"SExprLexer.mll" 128 13867 13878 "SExprLexer.mll" 128 13867 13890
+type(
+  Lexing.lexbuf -> string -> SExprParser.token
+)
+ident(
+  int_ref main_failure "SExprLexer.mll" 89 973 979 "SExprLexer.mll" 89 973 991
+)
+"SExprLexer.mll" 128 13867 13891 "SExprLexer.mll" 128 13867 13897
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 128 13867 13898 "SExprLexer.mll" 128 13867 13922
+type(
+  string
+)
+"SExprLexer.mll" 128 13867 13878 "SExprLexer.mll" 128 13867 13922
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 289 13948 13952 "SExprLexer.ml" 289 13948 13953
+type(
+  int
+)
+"SExprLexer.mll" 130 13980 13988 "SExprLexer.mll" 130 13980 14000
+type(
+  Lexing.lexbuf -> string -> SExprParser.token
+)
+ident(
+  int_ref main_failure "SExprLexer.mll" 89 973 979 "SExprLexer.mll" 89 973 991
+)
+"SExprLexer.mll" 130 13980 14001 "SExprLexer.mll" 130 13980 14007
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.mll" 130 13980 14008 "SExprLexer.mll" 130 13980 14041
+type(
+  string
+)
+"SExprLexer.mll" 130 13980 13988 "SExprLexer.mll" 130 13980 14041
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 294 14067 14071 "SExprLexer.ml" 294 14067 14072
+type(
+  int
+)
+"SExprLexer.mll" 131 14103 14141 "SExprLexer.mll" 131 14103 14144
+type(
+  string
+)
+ident(
+  def str "SExprLexer.mll" 131 14275 14319 "SExprLexer.mll" 131 14275 14350
+)
+"SExprLexer.ml" 299 14167 14169 "SExprLexer.ml" 299 14167 14186
+type(
+  Lexing.lexbuf -> int -> int -> string
+)
+ident(
+  ext_ref Lexing.sub_lexeme
+)
+"SExprLexer.ml" 299 14167 14187 "SExprLexer.ml" 299 14167 14193
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 299 14167 14194 "SExprLexer.ml" 299 14167 14200
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 299 14167 14194 "SExprLexer.ml" 299 14167 14221
+type(
+  int
+)
+"SExprLexer.ml" 299 14167 14222 "SExprLexer.ml" 299 14167 14228
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 299 14167 14222 "SExprLexer.ml" 299 14167 14248
+type(
+  int
+)
+"SExprLexer.ml" 299 14167 14169 "SExprLexer.ml" 299 14167 14248
+call(
+  stack
+)
+type(
+  string
+)
+"SExprLexer.mll" 131 14275 14327 "SExprLexer.mll" 131 14275 14345
+type(
+  string -> HString.t
+)
+ident(
+  ext_ref HString.mk_hstring
+)
+"SExprLexer.mll" 131 14275 14346 "SExprLexer.mll" 131 14275 14349
+type(
+  string
+)
+ident(
+  int_ref str "SExprLexer.mll" 131 14103 14141 "SExprLexer.mll" 131 14103 14144
+)
+"SExprLexer.mll" 131 14275 14327 "SExprLexer.mll" 131 14275 14349
+call(
+  stack
+)
+type(
+  HString.t
+)
+"SExprLexer.mll" 131 14275 14319 "SExprLexer.mll" 131 14275 14350
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 295 14076 14076 "SExprLexer.ml" 131 14275 14352
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 304 14376 14380 "SExprLexer.ml" 304 14376 14382
+type(
+  int
+)
+"SExprLexer.mll" 132 14409 14419 "SExprLexer.mll" 132 14409 14422
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 309 14448 14452 "SExprLexer.ml" 309 14448 14469
+type(
+  int
+)
+ident(
+  def __ocaml_lex_state "SExprLexer.ml" 309 14448 14473 "SExprLexer.ml" 309 14448 14556
+)
+"SExprLexer.ml" 309 14448 14473 "SExprLexer.ml" 309 14448 14479
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 309 14448 14473 "SExprLexer.ml" 309 14448 14498
+type(
+  Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 309 14448 14499 "SExprLexer.ml" 309 14448 14505
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 309 14448 14473 "SExprLexer.ml" 309 14448 14505
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.ml" 309 14448 14507 "SExprLexer.ml" 309 14448 14527
+type(
+  Buffer.t -> Lexing.lexbuf -> int -> SExprParser.token
+)
+ident(
+  int_ref __ocaml_lex_main_rec "SExprLexer.ml" 239 12858 12862 "SExprLexer.ml" 239 12858 12882
+)
+"SExprLexer.ml" 309 14448 14528 "SExprLexer.ml" 309 14448 14531
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 239 12858 12886
+)
+"SExprLexer.ml" 309 14448 14532 "SExprLexer.ml" 309 14448 14538
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 239 12858 12893
+)
+"SExprLexer.ml" 309 14448 14539 "SExprLexer.ml" 309 14448 14556
+type(
+  int
+)
+ident(
+  int_ref __ocaml_lex_state "SExprLexer.ml" 309 14448 14452 "SExprLexer.ml" 309 14448 14469
+)
+"SExprLexer.ml" 309 14448 14507 "SExprLexer.ml" 309 14448 14556
+call(
+  tail
+)
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 309 14448 14473 "SExprLexer.ml" 309 14448 14556
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 240 12914 12916 "SExprLexer.ml" 309 14448 14556
+type(
+  SExprParser.token
+)
+"SExprLexer.ml" 239 12858 12894 "SExprLexer.ml" 309 14448 14556
+type(
+  int -> SExprParser.token
+)
+"SExprLexer.ml" 239 12858 12887 "SExprLexer.ml" 309 14448 14556
+type(
+  Lexing.lexbuf -> int -> SExprParser.token
+)
+"SExprLexer.ml" 239 12858 12883 "SExprLexer.ml" 309 14448 14556
+type(
+  Buffer.t -> Lexing.lexbuf -> int -> SExprParser.token
+)
+"SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  def scan_string "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 311 14558 14574 "SExprLexer.ml" 311 14558 14577
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.ml" 311 14558 14578 "SExprLexer.ml" 312 14593 14644
+)
+"SExprLexer.ml" 311 14558 14578 "SExprLexer.ml" 311 14558 14583
+type(
+  Lexing.position
+)
+ident(
+  def start "SExprLexer.ml" 311 14558 14584 "SExprLexer.ml" 312 14593 14644
+)
+"SExprLexer.ml" 311 14558 14584 "SExprLexer.ml" 311 14558 14590
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.ml" 312 14593 14597 "SExprLexer.ml" 312 14593 14644
+)
+"SExprLexer.ml" 312 14593 14597 "SExprLexer.ml" 312 14593 14624
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref __ocaml_lex_scan_string_rec "SExprLexer.ml" 313 14645 14649 "SExprLexer.ml" 313 14645 14676
+)
+"SExprLexer.ml" 312 14593 14625 "SExprLexer.ml" 312 14593 14628
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 311 14558 14574 "SExprLexer.ml" 311 14558 14577
+)
+"SExprLexer.ml" 312 14593 14629 "SExprLexer.ml" 312 14593 14634
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 311 14558 14578 "SExprLexer.ml" 311 14558 14583
+)
+"SExprLexer.ml" 312 14593 14635 "SExprLexer.ml" 312 14593 14641
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 311 14558 14584 "SExprLexer.ml" 311 14558 14590
+)
+"SExprLexer.ml" 312 14593 14642 "SExprLexer.ml" 312 14593 14644
+type(
+  int
+)
+"SExprLexer.ml" 312 14593 14597 "SExprLexer.ml" 312 14593 14644
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.ml" 311 14558 14584 "SExprLexer.ml" 312 14593 14644
+type(
+  Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 311 14558 14578 "SExprLexer.ml" 312 14593 14644
+type(
+  Lexing.position -> Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 311 14558 14574 "SExprLexer.ml" 312 14593 14644
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 313 14645 14649 "SExprLexer.ml" 313 14645 14676
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> int -> unit
+)
+ident(
+  def __ocaml_lex_scan_string_rec "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 446 18005 18126
+)
+"SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+type(
+  Lexing.position
+)
+ident(
+  def start "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 446 18005 18126
+)
+"SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.ml" 313 14645 14694 "SExprLexer.ml" 446 18005 18126
+)
+"SExprLexer.ml" 313 14645 14694 "SExprLexer.ml" 313 14645 14711
+type(
+  int
+)
+ident(
+  def __ocaml_lex_state "SExprLexer.ml" 314 14714 14716 "SExprLexer.ml" 446 18005 18126
+)
+"SExprLexer.ml" 314 14714 14722 "SExprLexer.ml" 314 14714 14735
+type(
+  Lexing.lex_tables -> int -> Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.engine
+)
+"SExprLexer.ml" 314 14714 14736 "SExprLexer.ml" 314 14714 14754
+type(
+  Lexing.lex_tables
+)
+ident(
+  int_ref __ocaml_lex_tables "SExprLexer.ml" 54 1243 1247 "SExprLexer.ml" 54 1243 1265
+)
+"SExprLexer.ml" 314 14714 14755 "SExprLexer.ml" 314 14714 14772
+type(
+  int
+)
+ident(
+  int_ref __ocaml_lex_state "SExprLexer.ml" 313 14645 14694 "SExprLexer.ml" 313 14645 14711
+)
+"SExprLexer.ml" 314 14714 14773 "SExprLexer.ml" 314 14714 14779
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 314 14714 14722 "SExprLexer.ml" 314 14714 14779
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.ml" 315 14785 14793 "SExprLexer.ml" 315 14785 14794
+type(
+  int
+)
+"SExprLexer.mll" 135 14821 14831 "SExprLexer.mll" 135 14821 14833
+type(
+  unit
+)
+"SExprLexer.ml" 320 14859 14863 "SExprLexer.ml" 320 14859 14864
+type(
+  int
+)
+"SExprLexer.mll" 138 14899 14907 "SExprLexer.mll" 138 14899 14920
+type(
+  Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref found_newline "SExprLexer.mll" 79 693 699 "SExprLexer.mll" 79 693 712
+)
+"SExprLexer.mll" 138 14899 14921 "SExprLexer.mll" 138 14899 14927
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 138 14899 14929 "SExprLexer.mll" 138 14899 14939
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  int_ref lexeme_len "SExprLexer.mll" 87 906 912 "SExprLexer.mll" 87 906 922
+)
+"SExprLexer.mll" 138 14899 14940 "SExprLexer.mll" 138 14899 14946
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 138 14899 14929 "SExprLexer.mll" 138 14899 14946
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 138 14899 14947 "SExprLexer.mll" 138 14899 14948
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 138 14899 14949 "SExprLexer.mll" 138 14899 14950
+type(
+  int
+)
+"SExprLexer.mll" 138 14899 14929 "SExprLexer.mll" 138 14899 14950
+type(
+  int
+)
+"SExprLexer.mll" 138 14899 14907 "SExprLexer.mll" 138 14899 14951
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 139 14953 14961 "SExprLexer.mll" 139 14953 14972
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 139 14953 14973 "SExprLexer.mll" 139 14953 14976
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 139 14953 14977 "SExprLexer.mll" 139 14953 14982
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 139 14953 14983 "SExprLexer.mll" 139 14953 14989
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 139 14953 14961 "SExprLexer.mll" 139 14953 14989
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 138 14899 14907 "SExprLexer.mll" 139 14953 14989
+type(
+  unit
+)
+"SExprLexer.ml" 328 15021 15025 "SExprLexer.ml" 328 15021 15026
+type(
+  int
+)
+"SExprLexer.mll" 143 15061 15069 "SExprLexer.mll" 143 15061 15082
+type(
+  Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref found_newline "SExprLexer.mll" 79 693 699 "SExprLexer.mll" 79 693 712
+)
+"SExprLexer.mll" 143 15061 15083 "SExprLexer.mll" 143 15061 15089
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 143 15061 15091 "SExprLexer.mll" 143 15061 15101
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  int_ref lexeme_len "SExprLexer.mll" 87 906 912 "SExprLexer.mll" 87 906 922
+)
+"SExprLexer.mll" 143 15061 15102 "SExprLexer.mll" 143 15061 15108
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 143 15061 15091 "SExprLexer.mll" 143 15061 15108
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 143 15061 15109 "SExprLexer.mll" 143 15061 15110
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 143 15061 15111 "SExprLexer.mll" 143 15061 15112
+type(
+  int
+)
+"SExprLexer.mll" 143 15061 15091 "SExprLexer.mll" 143 15061 15112
+type(
+  int
+)
+"SExprLexer.mll" 143 15061 15069 "SExprLexer.mll" 143 15061 15113
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 144 15115 15123 "SExprLexer.mll" 144 15115 15134
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 144 15115 15135 "SExprLexer.mll" 144 15115 15138
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 144 15115 15139 "SExprLexer.mll" 144 15115 15144
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 144 15115 15145 "SExprLexer.mll" 144 15115 15151
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 144 15115 15123 "SExprLexer.mll" 144 15115 15151
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 143 15061 15069 "SExprLexer.mll" 144 15115 15151
+type(
+  unit
+)
+"SExprLexer.ml" 336 15183 15187 "SExprLexer.ml" 336 15183 15188
+type(
+  int
+)
+"SExprLexer.mll" 146 15219 15268 "SExprLexer.mll" 146 15219 15269
+type(
+  char
+)
+ident(
+  def c "SExprLexer.mll" 148 15392 15400 "SExprLexer.mll" 149 15444 15480
+)
+"SExprLexer.ml" 341 15292 15294 "SExprLexer.ml" 341 15292 15316
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 341 15292 15317 "SExprLexer.ml" 341 15292 15323
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 341 15292 15325 "SExprLexer.ml" 341 15292 15331
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 341 15292 15325 "SExprLexer.ml" 341 15292 15352
+type(
+  int
+)
+"SExprLexer.ml" 341 15292 15353 "SExprLexer.ml" 341 15292 15354
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 341 15292 15355 "SExprLexer.ml" 341 15292 15356
+type(
+  int
+)
+"SExprLexer.ml" 341 15292 15325 "SExprLexer.ml" 341 15292 15356
+type(
+  int
+)
+"SExprLexer.ml" 341 15292 15294 "SExprLexer.ml" 341 15292 15357
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 148 15392 15400 "SExprLexer.mll" 148 15392 15415
+type(
+  Buffer.t -> char -> unit
+)
+ident(
+  ext_ref Buffer.add_char
+)
+"SExprLexer.mll" 148 15392 15416 "SExprLexer.mll" 148 15392 15419
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 148 15392 15421 "SExprLexer.mll" 148 15392 15439
+type(
+  char -> char
+)
+ident(
+  int_ref char_for_backslash "SExprLexer.mll" 54 127 133 "SExprLexer.mll" 54 127 151
+)
+"SExprLexer.mll" 148 15392 15440 "SExprLexer.mll" 148 15392 15441
+type(
+  char
+)
+ident(
+  int_ref c "SExprLexer.mll" 146 15219 15268 "SExprLexer.mll" 146 15219 15269
+)
+"SExprLexer.mll" 148 15392 15421 "SExprLexer.mll" 148 15392 15441
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 148 15392 15400 "SExprLexer.mll" 148 15392 15442
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 149 15444 15452 "SExprLexer.mll" 149 15444 15463
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 149 15444 15464 "SExprLexer.mll" 149 15444 15467
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 149 15444 15468 "SExprLexer.mll" 149 15444 15473
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 149 15444 15474 "SExprLexer.mll" 149 15444 15480
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 149 15444 15452 "SExprLexer.mll" 149 15444 15480
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 148 15392 15400 "SExprLexer.mll" 149 15444 15480
+type(
+  unit
+)
+"SExprLexer.ml" 337 15192 15192 "SExprLexer.ml" 150 15481 15488
+type(
+  unit
+)
+"SExprLexer.ml" 349 15512 15516 "SExprLexer.ml" 349 15512 15517
+type(
+  int
+)
+"SExprLexer.mll" 151 15548 15567 "SExprLexer.mll" 151 15548 15569
+type(
+  char
+)
+ident(
+  def c1 "SExprLexer.mll" 153 16008 16016 "SExprLexer.mll" 164 16432 16468
+)
+"SExprLexer.ml" 354 15592 15594 "SExprLexer.ml" 354 15592 15616
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 354 15592 15617 "SExprLexer.ml" 354 15592 15623
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 354 15592 15625 "SExprLexer.ml" 354 15592 15631
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 354 15592 15625 "SExprLexer.ml" 354 15592 15652
+type(
+  int
+)
+"SExprLexer.ml" 354 15592 15653 "SExprLexer.ml" 354 15592 15654
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 354 15592 15655 "SExprLexer.ml" 354 15592 15656
+type(
+  int
+)
+"SExprLexer.ml" 354 15592 15625 "SExprLexer.ml" 354 15592 15656
+type(
+  int
+)
+"SExprLexer.ml" 354 15592 15594 "SExprLexer.ml" 354 15592 15657
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 151 15685 15718 "SExprLexer.mll" 151 15685 15720
+type(
+  char
+)
+ident(
+  def c2 "SExprLexer.mll" 153 16008 16016 "SExprLexer.mll" 164 16432 16468
+)
+"SExprLexer.ml" 359 15743 15745 "SExprLexer.ml" 359 15743 15767
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 359 15743 15768 "SExprLexer.ml" 359 15743 15774
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 359 15743 15776 "SExprLexer.ml" 359 15743 15782
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 359 15743 15776 "SExprLexer.ml" 359 15743 15803
+type(
+  int
+)
+"SExprLexer.ml" 359 15743 15804 "SExprLexer.ml" 359 15743 15805
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 359 15743 15806 "SExprLexer.ml" 359 15743 15807
+type(
+  int
+)
+"SExprLexer.ml" 359 15743 15776 "SExprLexer.ml" 359 15743 15807
+type(
+  int
+)
+"SExprLexer.ml" 359 15743 15745 "SExprLexer.ml" 359 15743 15808
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 151 15836 15883 "SExprLexer.mll" 151 15836 15885
+type(
+  char
+)
+ident(
+  def c3 "SExprLexer.mll" 153 16008 16016 "SExprLexer.mll" 164 16432 16468
+)
+"SExprLexer.ml" 364 15908 15910 "SExprLexer.ml" 364 15908 15932
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 364 15908 15933 "SExprLexer.ml" 364 15908 15939
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 364 15908 15941 "SExprLexer.ml" 364 15908 15947
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 364 15908 15941 "SExprLexer.ml" 364 15908 15968
+type(
+  int
+)
+"SExprLexer.ml" 364 15908 15969 "SExprLexer.ml" 364 15908 15970
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 364 15908 15971 "SExprLexer.ml" 364 15908 15972
+type(
+  int
+)
+"SExprLexer.ml" 364 15908 15941 "SExprLexer.ml" 364 15908 15972
+type(
+  int
+)
+"SExprLexer.ml" 364 15908 15910 "SExprLexer.ml" 364 15908 15973
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 153 16008 16020 "SExprLexer.mll" 153 16008 16021
+type(
+  int
+)
+ident(
+  def v "SExprLexer.mll" 154 16045 16053 "SExprLexer.mll" 164 16432 16468
+)
+"SExprLexer.mll" 153 16008 16024 "SExprLexer.mll" 153 16008 16032
+type(
+  char -> char -> char -> int
+)
+ident(
+  int_ref dec_code "SExprLexer.mll" 63 276 282 "SExprLexer.mll" 63 276 290
+)
+"SExprLexer.mll" 153 16008 16033 "SExprLexer.mll" 153 16008 16035
+type(
+  char
+)
+ident(
+  int_ref c1 "SExprLexer.mll" 151 15548 15567 "SExprLexer.mll" 151 15548 15569
+)
+"SExprLexer.mll" 153 16008 16036 "SExprLexer.mll" 153 16008 16038
+type(
+  char
+)
+ident(
+  int_ref c2 "SExprLexer.mll" 151 15685 15718 "SExprLexer.mll" 151 15685 15720
+)
+"SExprLexer.mll" 153 16008 16039 "SExprLexer.mll" 153 16008 16041
+type(
+  char
+)
+ident(
+  int_ref c3 "SExprLexer.mll" 151 15836 15883 "SExprLexer.mll" 151 15836 15885
+)
+"SExprLexer.mll" 153 16008 16024 "SExprLexer.mll" 153 16008 16041
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 154 16045 16056 "SExprLexer.mll" 154 16045 16057
+type(
+  int
+)
+ident(
+  int_ref v "SExprLexer.mll" 153 16008 16020 "SExprLexer.mll" 153 16008 16021
+)
+"SExprLexer.mll" 154 16045 16058 "SExprLexer.mll" 154 16045 16059
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"SExprLexer.mll" 154 16045 16060 "SExprLexer.mll" 154 16045 16063
+type(
+  int
+)
+"SExprLexer.mll" 154 16045 16056 "SExprLexer.mll" 154 16045 16063
+type(
+  bool
+)
+"SExprLexer.mll" 155 16071 16087 "SExprLexer.mll" 155 16071 16095
+type(
+  int
+)
+ident(
+  def pos_lnum "SExprLexer.mll" 156 16145 16155 "SExprLexer.mll" 162 16365 16387
+)
+"SExprLexer.mll" 155 16071 16097 "SExprLexer.mll" 155 16071 16104
+type(
+  int
+)
+ident(
+  def pos_bol "SExprLexer.mll" 156 16145 16155 "SExprLexer.mll" 162 16365 16387
+)
+"SExprLexer.mll" 155 16071 16106 "SExprLexer.mll" 155 16071 16114
+type(
+  int
+)
+ident(
+  def pos_cnum "SExprLexer.mll" 156 16145 16155 "SExprLexer.mll" 162 16365 16387
+)
+"SExprLexer.mll" 155 16071 16085 "SExprLexer.mll" 155 16071 16119
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 155 16071 16122 "SExprLexer.mll" 155 16071 16134
+type(
+  Lexing.lexbuf -> Lexing.position
+)
+ident(
+  ext_ref Lexing.lexeme_end_p
+)
+"SExprLexer.mll" 155 16071 16135 "SExprLexer.mll" 155 16071 16141
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 155 16071 16122 "SExprLexer.mll" 155 16071 16141
+call(
+  stack
+)
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 156 16145 16159 "SExprLexer.mll" 156 16145 16162
+type(
+  string
+)
+ident(
+  def msg "SExprLexer.mll" 162 16365 16375 "SExprLexer.mll" 162 16365 16387
+)
+"SExprLexer.mll" 157 16165 16177 "SExprLexer.mll" 157 16165 16184
+type(
+  (int -> int -> char -> char -> char -> string, unit, string) format ->
+  int -> int -> char -> char -> char -> string
+)
+ident(
+  ext_ref Printf.sprintf
+)
+"SExprLexer.mll" 158 16185 16199 "SExprLexer.mll" 159 16229 16290
+type(
+  (int -> int -> char -> char -> char -> string, unit, string) format
+)
+"SExprLexer.mll" 160 16291 16305 "SExprLexer.mll" 160 16291 16313
+type(
+  int
+)
+ident(
+  int_ref pos_lnum "SExprLexer.mll" 155 16071 16087 "SExprLexer.mll" 155 16071 16095
+)
+"SExprLexer.mll" 160 16291 16315 "SExprLexer.mll" 160 16291 16323
+type(
+  int
+)
+ident(
+  int_ref pos_cnum "SExprLexer.mll" 155 16071 16106 "SExprLexer.mll" 155 16071 16114
+)
+"SExprLexer.mll" 160 16291 16324 "SExprLexer.mll" 160 16291 16325
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 160 16291 16326 "SExprLexer.mll" 160 16291 16333
+type(
+  int
+)
+ident(
+  int_ref pos_bol "SExprLexer.mll" 155 16071 16097 "SExprLexer.mll" 155 16071 16104
+)
+"SExprLexer.mll" 160 16291 16315 "SExprLexer.mll" 160 16291 16333
+type(
+  int
+)
+"SExprLexer.mll" 160 16291 16334 "SExprLexer.mll" 160 16291 16335
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 160 16291 16336 "SExprLexer.mll" 160 16291 16337
+type(
+  int
+)
+"SExprLexer.mll" 160 16291 16315 "SExprLexer.mll" 160 16291 16337
+type(
+  int
+)
+"SExprLexer.mll" 161 16339 16353 "SExprLexer.mll" 161 16339 16355
+type(
+  char
+)
+ident(
+  int_ref c1 "SExprLexer.mll" 151 15548 15567 "SExprLexer.mll" 151 15548 15569
+)
+"SExprLexer.mll" 161 16339 16356 "SExprLexer.mll" 161 16339 16358
+type(
+  char
+)
+ident(
+  int_ref c2 "SExprLexer.mll" 151 15685 15718 "SExprLexer.mll" 151 15685 15720
+)
+"SExprLexer.mll" 161 16339 16359 "SExprLexer.mll" 161 16339 16361
+type(
+  char
+)
+ident(
+  int_ref c3 "SExprLexer.mll" 151 15836 15883 "SExprLexer.mll" 151 15836 15885
+)
+"SExprLexer.mll" 157 16165 16177 "SExprLexer.mll" 161 16339 16361
+call(
+  stack
+)
+type(
+  string
+)
+"SExprLexer.mll" 162 16365 16375 "SExprLexer.mll" 162 16365 16383
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SExprLexer.mll" 162 16365 16384 "SExprLexer.mll" 162 16365 16387
+type(
+  string
+)
+ident(
+  int_ref msg "SExprLexer.mll" 156 16145 16159 "SExprLexer.mll" 156 16145 16162
+)
+"SExprLexer.mll" 162 16365 16375 "SExprLexer.mll" 162 16365 16387
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 156 16145 16155 "SExprLexer.mll" 162 16365 16387
+type(
+  unit
+)
+"SExprLexer.mll" 155 16071 16081 "SExprLexer.mll" 162 16365 16387
+type(
+  unit
+)
+"SExprLexer.mll" 154 16045 16053 "SExprLexer.mll" 162 16365 16388
+type(
+  unit
+)
+type(
+  unit
+)
+"SExprLexer.mll" 163 16390 16398 "SExprLexer.mll" 163 16390 16413
+type(
+  Buffer.t -> char -> unit
+)
+ident(
+  ext_ref Buffer.add_char
+)
+"SExprLexer.mll" 163 16390 16414 "SExprLexer.mll" 163 16390 16417
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 163 16390 16419 "SExprLexer.mll" 163 16390 16427
+type(
+  int -> char
+)
+ident(
+  ext_ref Char.chr
+)
+"SExprLexer.mll" 163 16390 16428 "SExprLexer.mll" 163 16390 16429
+type(
+  int
+)
+ident(
+  int_ref v "SExprLexer.mll" 153 16008 16020 "SExprLexer.mll" 153 16008 16021
+)
+"SExprLexer.mll" 163 16390 16419 "SExprLexer.mll" 163 16390 16429
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 163 16390 16398 "SExprLexer.mll" 163 16390 16430
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 164 16432 16440 "SExprLexer.mll" 164 16432 16451
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 164 16432 16452 "SExprLexer.mll" 164 16432 16455
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 164 16432 16456 "SExprLexer.mll" 164 16432 16461
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 164 16432 16462 "SExprLexer.mll" 164 16432 16468
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 164 16432 16440 "SExprLexer.mll" 164 16432 16468
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 163 16390 16398 "SExprLexer.mll" 164 16432 16468
+type(
+  unit
+)
+"SExprLexer.mll" 154 16045 16053 "SExprLexer.mll" 164 16432 16468
+type(
+  unit
+)
+"SExprLexer.mll" 153 16008 16016 "SExprLexer.mll" 164 16432 16468
+type(
+  unit
+)
+"SExprLexer.ml" 350 15521 15521 "SExprLexer.ml" 165 16469 16476
+type(
+  unit
+)
+"SExprLexer.ml" 382 16500 16504 "SExprLexer.ml" 382 16500 16505
+type(
+  int
+)
+"SExprLexer.mll" 166 16536 16562 "SExprLexer.mll" 166 16536 16564
+type(
+  char
+)
+ident(
+  def c1 "SExprLexer.mll" 168 16848 16856 "SExprLexer.mll" 170 16924 16960
+)
+"SExprLexer.ml" 387 16587 16589 "SExprLexer.ml" 387 16587 16611
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 387 16587 16612 "SExprLexer.ml" 387 16587 16618
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 387 16587 16620 "SExprLexer.ml" 387 16587 16626
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 387 16587 16620 "SExprLexer.ml" 387 16587 16647
+type(
+  int
+)
+"SExprLexer.ml" 387 16587 16648 "SExprLexer.ml" 387 16587 16649
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 387 16587 16650 "SExprLexer.ml" 387 16587 16651
+type(
+  int
+)
+"SExprLexer.ml" 387 16587 16620 "SExprLexer.ml" 387 16587 16651
+type(
+  int
+)
+"SExprLexer.ml" 387 16587 16589 "SExprLexer.ml" 387 16587 16652
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 166 16680 16723 "SExprLexer.mll" 166 16680 16725
+type(
+  char
+)
+ident(
+  def c2 "SExprLexer.mll" 168 16848 16856 "SExprLexer.mll" 170 16924 16960
+)
+"SExprLexer.ml" 392 16748 16750 "SExprLexer.ml" 392 16748 16772
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 392 16748 16773 "SExprLexer.ml" 392 16748 16779
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 392 16748 16781 "SExprLexer.ml" 392 16748 16787
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 392 16748 16781 "SExprLexer.ml" 392 16748 16808
+type(
+  int
+)
+"SExprLexer.ml" 392 16748 16809 "SExprLexer.ml" 392 16748 16810
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 392 16748 16811 "SExprLexer.ml" 392 16748 16812
+type(
+  int
+)
+"SExprLexer.ml" 392 16748 16781 "SExprLexer.ml" 392 16748 16812
+type(
+  int
+)
+"SExprLexer.ml" 392 16748 16750 "SExprLexer.ml" 392 16748 16813
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 168 16848 16860 "SExprLexer.mll" 168 16848 16861
+type(
+  int
+)
+ident(
+  def v "SExprLexer.mll" 169 16882 16890 "SExprLexer.mll" 170 16924 16960
+)
+"SExprLexer.mll" 168 16848 16864 "SExprLexer.mll" 168 16848 16872
+type(
+  char -> char -> int
+)
+ident(
+  int_ref hex_code "SExprLexer.mll" 66 382 388 "SExprLexer.mll" 66 382 396
+)
+"SExprLexer.mll" 168 16848 16873 "SExprLexer.mll" 168 16848 16875
+type(
+  char
+)
+ident(
+  int_ref c1 "SExprLexer.mll" 166 16536 16562 "SExprLexer.mll" 166 16536 16564
+)
+"SExprLexer.mll" 168 16848 16876 "SExprLexer.mll" 168 16848 16878
+type(
+  char
+)
+ident(
+  int_ref c2 "SExprLexer.mll" 166 16680 16723 "SExprLexer.mll" 166 16680 16725
+)
+"SExprLexer.mll" 168 16848 16864 "SExprLexer.mll" 168 16848 16878
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 169 16882 16890 "SExprLexer.mll" 169 16882 16905
+type(
+  Buffer.t -> char -> unit
+)
+ident(
+  ext_ref Buffer.add_char
+)
+"SExprLexer.mll" 169 16882 16906 "SExprLexer.mll" 169 16882 16909
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 169 16882 16911 "SExprLexer.mll" 169 16882 16919
+type(
+  int -> char
+)
+ident(
+  ext_ref Char.chr
+)
+"SExprLexer.mll" 169 16882 16920 "SExprLexer.mll" 169 16882 16921
+type(
+  int
+)
+ident(
+  int_ref v "SExprLexer.mll" 168 16848 16860 "SExprLexer.mll" 168 16848 16861
+)
+"SExprLexer.mll" 169 16882 16911 "SExprLexer.mll" 169 16882 16921
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 169 16882 16890 "SExprLexer.mll" 169 16882 16922
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 170 16924 16932 "SExprLexer.mll" 170 16924 16943
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 170 16924 16944 "SExprLexer.mll" 170 16924 16947
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 170 16924 16948 "SExprLexer.mll" 170 16924 16953
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 170 16924 16954 "SExprLexer.mll" 170 16924 16960
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 170 16924 16932 "SExprLexer.mll" 170 16924 16960
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 169 16882 16890 "SExprLexer.mll" 170 16924 16960
+type(
+  unit
+)
+"SExprLexer.mll" 168 16848 16856 "SExprLexer.mll" 170 16924 16960
+type(
+  unit
+)
+"SExprLexer.ml" 383 16509 16509 "SExprLexer.ml" 171 16961 16968
+type(
+  unit
+)
+"SExprLexer.ml" 401 16992 16996 "SExprLexer.ml" 401 16992 16997
+type(
+  int
+)
+"SExprLexer.mll" 172 17028 17043 "SExprLexer.mll" 172 17028 17044
+type(
+  char
+)
+ident(
+  def c "SExprLexer.mll" 174 17167 17175 "SExprLexer.mll" 176 17232 17268
+)
+"SExprLexer.ml" 406 17067 17069 "SExprLexer.ml" 406 17067 17091
+type(
+  Lexing.lexbuf -> int -> char
+)
+ident(
+  ext_ref Lexing.sub_lexeme_char
+)
+"SExprLexer.ml" 406 17067 17092 "SExprLexer.ml" 406 17067 17098
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 406 17067 17100 "SExprLexer.ml" 406 17067 17106
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 406 17067 17100 "SExprLexer.ml" 406 17067 17127
+type(
+  int
+)
+"SExprLexer.ml" 406 17067 17128 "SExprLexer.ml" 406 17067 17129
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"SExprLexer.ml" 406 17067 17130 "SExprLexer.ml" 406 17067 17131
+type(
+  int
+)
+"SExprLexer.ml" 406 17067 17100 "SExprLexer.ml" 406 17067 17131
+type(
+  int
+)
+"SExprLexer.ml" 406 17067 17069 "SExprLexer.ml" 406 17067 17132
+call(
+  stack
+)
+type(
+  char
+)
+"SExprLexer.mll" 174 17167 17175 "SExprLexer.mll" 174 17167 17190
+type(
+  Buffer.t -> char -> unit
+)
+ident(
+  ext_ref Buffer.add_char
+)
+"SExprLexer.mll" 174 17167 17191 "SExprLexer.mll" 174 17167 17194
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 174 17167 17195 "SExprLexer.mll" 174 17167 17199
+type(
+  char
+)
+"SExprLexer.mll" 174 17167 17175 "SExprLexer.mll" 174 17167 17199
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 175 17201 17209 "SExprLexer.mll" 175 17201 17224
+type(
+  Buffer.t -> char -> unit
+)
+ident(
+  ext_ref Buffer.add_char
+)
+"SExprLexer.mll" 175 17201 17225 "SExprLexer.mll" 175 17201 17228
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 175 17201 17229 "SExprLexer.mll" 175 17201 17230
+type(
+  char
+)
+ident(
+  int_ref c "SExprLexer.mll" 172 17028 17043 "SExprLexer.mll" 172 17028 17044
+)
+"SExprLexer.mll" 175 17201 17209 "SExprLexer.mll" 175 17201 17230
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 176 17232 17240 "SExprLexer.mll" 176 17232 17251
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 176 17232 17252 "SExprLexer.mll" 176 17232 17255
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 176 17232 17256 "SExprLexer.mll" 176 17232 17261
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 176 17232 17262 "SExprLexer.mll" 176 17232 17268
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 176 17232 17240 "SExprLexer.mll" 176 17232 17268
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 175 17201 17209 "SExprLexer.mll" 176 17232 17268
+type(
+  unit
+)
+"SExprLexer.mll" 174 17167 17175 "SExprLexer.mll" 176 17232 17268
+type(
+  unit
+)
+"SExprLexer.ml" 402 17001 17001 "SExprLexer.ml" 177 17269 17276
+type(
+  unit
+)
+"SExprLexer.ml" 415 17300 17304 "SExprLexer.ml" 415 17300 17305
+type(
+  int
+)
+"SExprLexer.mll" 180 17340 17348 "SExprLexer.mll" 180 17340 17361
+type(
+  Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref found_newline "SExprLexer.mll" 79 693 699 "SExprLexer.mll" 79 693 712
+)
+"SExprLexer.mll" 180 17340 17362 "SExprLexer.mll" 180 17340 17368
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 180 17340 17369 "SExprLexer.mll" 180 17340 17370
+type(
+  int
+)
+"SExprLexer.mll" 180 17340 17348 "SExprLexer.mll" 180 17340 17370
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 181 17372 17380 "SExprLexer.mll" 181 17372 17395
+type(
+  Buffer.t -> char -> unit
+)
+ident(
+  ext_ref Buffer.add_char
+)
+"SExprLexer.mll" 181 17372 17396 "SExprLexer.mll" 181 17372 17399
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 181 17372 17400 "SExprLexer.mll" 181 17372 17402
+type(
+  char
+)
+ident(
+  int_ref lf "SExprLexer.mll" 61 257 263 "SExprLexer.mll" 61 257 265
+)
+"SExprLexer.mll" 181 17372 17380 "SExprLexer.mll" 181 17372 17402
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 182 17404 17412 "SExprLexer.mll" 182 17404 17423
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 182 17404 17424 "SExprLexer.mll" 182 17404 17427
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 182 17404 17428 "SExprLexer.mll" 182 17404 17433
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 182 17404 17434 "SExprLexer.mll" 182 17404 17440
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 182 17404 17412 "SExprLexer.mll" 182 17404 17440
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 181 17372 17380 "SExprLexer.mll" 182 17404 17440
+type(
+  unit
+)
+"SExprLexer.mll" 180 17340 17348 "SExprLexer.mll" 182 17404 17440
+type(
+  unit
+)
+"SExprLexer.ml" 424 17472 17476 "SExprLexer.ml" 424 17472 17477
+type(
+  int
+)
+"SExprLexer.mll" 186 17512 17524 "SExprLexer.mll" 186 17512 17527
+type(
+  int
+)
+ident(
+  def ofs "SExprLexer.mll" 187 17553 17561 "SExprLexer.mll" 189 17658 17694
+)
+"SExprLexer.mll" 186 17512 17530 "SExprLexer.mll" 186 17512 17542
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_start
+)
+"SExprLexer.mll" 186 17512 17543 "SExprLexer.mll" 186 17512 17549
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 186 17512 17530 "SExprLexer.mll" 186 17512 17549
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 187 17553 17565 "SExprLexer.mll" 187 17553 17568
+type(
+  int
+)
+ident(
+  def len "SExprLexer.mll" 188 17598 17606 "SExprLexer.mll" 189 17658 17694
+)
+"SExprLexer.mll" 187 17553 17571 "SExprLexer.mll" 187 17553 17581
+type(
+  Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.lexeme_end
+)
+"SExprLexer.mll" 187 17553 17582 "SExprLexer.mll" 187 17553 17588
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 187 17553 17571 "SExprLexer.mll" 187 17553 17588
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.mll" 187 17553 17589 "SExprLexer.mll" 187 17553 17590
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 187 17553 17591 "SExprLexer.mll" 187 17553 17594
+type(
+  int
+)
+ident(
+  int_ref ofs "SExprLexer.mll" 186 17512 17524 "SExprLexer.mll" 186 17512 17527
+)
+"SExprLexer.mll" 187 17553 17571 "SExprLexer.mll" 187 17553 17594
+type(
+  int
+)
+"SExprLexer.mll" 188 17598 17606 "SExprLexer.mll" 188 17598 17626
+type(
+  Buffer.t -> string -> int -> int -> unit
+)
+ident(
+  ext_ref Buffer.add_substring
+)
+"SExprLexer.mll" 188 17598 17627 "SExprLexer.mll" 188 17598 17630
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 188 17598 17631 "SExprLexer.mll" 188 17598 17637
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 188 17598 17631 "SExprLexer.mll" 188 17598 17648
+type(
+  string
+)
+"SExprLexer.mll" 188 17598 17649 "SExprLexer.mll" 188 17598 17652
+type(
+  int
+)
+ident(
+  int_ref ofs "SExprLexer.mll" 186 17512 17524 "SExprLexer.mll" 186 17512 17527
+)
+"SExprLexer.mll" 188 17598 17653 "SExprLexer.mll" 188 17598 17656
+type(
+  int
+)
+ident(
+  int_ref len "SExprLexer.mll" 187 17553 17565 "SExprLexer.mll" 187 17553 17568
+)
+"SExprLexer.mll" 188 17598 17606 "SExprLexer.mll" 188 17598 17656
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 189 17658 17666 "SExprLexer.mll" 189 17658 17677
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 189 17658 17678 "SExprLexer.mll" 189 17658 17681
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.mll" 189 17658 17682 "SExprLexer.mll" 189 17658 17687
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 189 17658 17688 "SExprLexer.mll" 189 17658 17694
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.mll" 189 17658 17666 "SExprLexer.mll" 189 17658 17694
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 188 17598 17606 "SExprLexer.mll" 189 17658 17694
+type(
+  unit
+)
+"SExprLexer.mll" 187 17553 17561 "SExprLexer.mll" 189 17658 17694
+type(
+  unit
+)
+"SExprLexer.mll" 186 17512 17520 "SExprLexer.mll" 189 17658 17694
+type(
+  unit
+)
+"SExprLexer.ml" 434 17726 17730 "SExprLexer.ml" 434 17726 17731
+type(
+  int
+)
+"SExprLexer.mll" 193 17766 17778 "SExprLexer.mll" 193 17766 17781
+type(
+  string
+)
+ident(
+  def msg "SExprLexer.mll" 198 17953 17961 "SExprLexer.mll" 198 17953 17973
+)
+"SExprLexer.mll" 194 17784 17794 "SExprLexer.mll" 194 17784 17801
+type(
+  (int -> int -> string, unit, string) format -> int -> int -> string
+)
+ident(
+  ext_ref Printf.sprintf
+)
+"SExprLexer.mll" 195 17802 17814 "SExprLexer.mll" 195 17802 17881
+type(
+  (int -> int -> string, unit, string) format
+)
+"SExprLexer.mll" 196 17882 17894 "SExprLexer.mll" 196 17882 17899
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 196 17882 17894 "SExprLexer.mll" 196 17882 17908
+type(
+  int
+)
+"SExprLexer.mll" 196 17882 17910 "SExprLexer.mll" 196 17882 17915
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 196 17882 17910 "SExprLexer.mll" 196 17882 17924
+type(
+  int
+)
+"SExprLexer.mll" 196 17882 17925 "SExprLexer.mll" 196 17882 17926
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 196 17882 17927 "SExprLexer.mll" 196 17882 17932
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.mll" 196 17882 17927 "SExprLexer.mll" 196 17882 17940
+type(
+  int
+)
+"SExprLexer.mll" 196 17882 17910 "SExprLexer.mll" 196 17882 17940
+type(
+  int
+)
+"SExprLexer.mll" 194 17784 17794 "SExprLexer.mll" 196 17882 17941
+call(
+  stack
+)
+type(
+  string
+)
+"SExprLexer.mll" 198 17953 17961 "SExprLexer.mll" 198 17953 17969
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SExprLexer.mll" 198 17953 17970 "SExprLexer.mll" 198 17953 17973
+type(
+  string
+)
+ident(
+  int_ref msg "SExprLexer.mll" 193 17766 17778 "SExprLexer.mll" 193 17766 17781
+)
+"SExprLexer.mll" 198 17953 17961 "SExprLexer.mll" 198 17953 17973
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 193 17766 17774 "SExprLexer.mll" 198 17953 17973
+type(
+  unit
+)
+"SExprLexer.ml" 446 18005 18009 "SExprLexer.ml" 446 18005 18026
+type(
+  int
+)
+ident(
+  def __ocaml_lex_state "SExprLexer.ml" 446 18005 18030 "SExprLexer.ml" 446 18005 18126
+)
+"SExprLexer.ml" 446 18005 18030 "SExprLexer.ml" 446 18005 18036
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 446 18005 18030 "SExprLexer.ml" 446 18005 18055
+type(
+  Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 446 18005 18056 "SExprLexer.ml" 446 18005 18062
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 446 18005 18030 "SExprLexer.ml" 446 18005 18062
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.ml" 446 18005 18064 "SExprLexer.ml" 446 18005 18091
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref __ocaml_lex_scan_string_rec "SExprLexer.ml" 313 14645 14649 "SExprLexer.ml" 313 14645 14676
+)
+"SExprLexer.ml" 446 18005 18092 "SExprLexer.ml" 446 18005 18095
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 313 14645 14680
+)
+"SExprLexer.ml" 446 18005 18096 "SExprLexer.ml" 446 18005 18101
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 313 14645 14686
+)
+"SExprLexer.ml" 446 18005 18102 "SExprLexer.ml" 446 18005 18108
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 313 14645 14693
+)
+"SExprLexer.ml" 446 18005 18109 "SExprLexer.ml" 446 18005 18126
+type(
+  int
+)
+ident(
+  int_ref __ocaml_lex_state "SExprLexer.ml" 446 18005 18009 "SExprLexer.ml" 446 18005 18026
+)
+"SExprLexer.ml" 446 18005 18064 "SExprLexer.ml" 446 18005 18126
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.ml" 446 18005 18030 "SExprLexer.ml" 446 18005 18126
+type(
+  unit
+)
+"SExprLexer.ml" 314 14714 14716 "SExprLexer.ml" 446 18005 18126
+type(
+  unit
+)
+"SExprLexer.ml" 313 14645 14694 "SExprLexer.ml" 446 18005 18126
+type(
+  int -> unit
+)
+"SExprLexer.ml" 313 14645 14687 "SExprLexer.ml" 446 18005 18126
+type(
+  Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.ml" 313 14645 14681 "SExprLexer.ml" 446 18005 18126
+type(
+  Lexing.position -> Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.ml" 313 14645 14677 "SExprLexer.ml" 446 18005 18126
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  def scan_block_comment "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 448 18128 18151 "SExprLexer.ml" 448 18128 18154
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.ml" 448 18128 18155 "SExprLexer.ml" 449 18169 18226
+)
+"SExprLexer.ml" 448 18128 18155 "SExprLexer.ml" 448 18128 18159
+type(
+  Lexing.position list
+)
+ident(
+  def locs "SExprLexer.ml" 448 18128 18160 "SExprLexer.ml" 449 18169 18226
+)
+"SExprLexer.ml" 448 18128 18160 "SExprLexer.ml" 448 18128 18166
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.ml" 449 18169 18173 "SExprLexer.ml" 449 18169 18226
+)
+"SExprLexer.ml" 449 18169 18173 "SExprLexer.ml" 449 18169 18207
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref __ocaml_lex_scan_block_comment_rec "SExprLexer.ml" 450 18227 18231 "SExprLexer.ml" 450 18227 18265
+)
+"SExprLexer.ml" 449 18169 18208 "SExprLexer.ml" 449 18169 18211
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 448 18128 18151 "SExprLexer.ml" 448 18128 18154
+)
+"SExprLexer.ml" 449 18169 18212 "SExprLexer.ml" 449 18169 18216
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 448 18128 18155 "SExprLexer.ml" 448 18128 18159
+)
+"SExprLexer.ml" 449 18169 18217 "SExprLexer.ml" 449 18169 18223
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 448 18128 18160 "SExprLexer.ml" 448 18128 18166
+)
+"SExprLexer.ml" 449 18169 18224 "SExprLexer.ml" 449 18169 18226
+type(
+  int
+)
+"SExprLexer.ml" 449 18169 18173 "SExprLexer.ml" 449 18169 18226
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.ml" 448 18128 18160 "SExprLexer.ml" 449 18169 18226
+type(
+  Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 448 18128 18155 "SExprLexer.ml" 449 18169 18226
+type(
+  Lexing.position list -> Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 448 18128 18151 "SExprLexer.ml" 449 18169 18226
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 450 18227 18231 "SExprLexer.ml" 450 18227 18265
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> int -> unit
+)
+ident(
+  def __ocaml_lex_scan_block_comment_rec "SExprLexer.ml" 237 12794 12794 "_none_" 1 0 -1
+)
+"SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 507 19761 19888
+)
+"SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+type(
+  Lexing.position list
+)
+ident(
+  def locs "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 507 19761 19888
+)
+"SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+type(
+  Lexing.lexbuf
+)
+ident(
+  def lexbuf "SExprLexer.ml" 450 18227 18282 "SExprLexer.ml" 507 19761 19888
+)
+"SExprLexer.ml" 450 18227 18282 "SExprLexer.ml" 450 18227 18299
+type(
+  int
+)
+ident(
+  def __ocaml_lex_state "SExprLexer.ml" 451 18302 18304 "SExprLexer.ml" 507 19761 19888
+)
+"SExprLexer.ml" 451 18302 18310 "SExprLexer.ml" 451 18302 18323
+type(
+  Lexing.lex_tables -> int -> Lexing.lexbuf -> int
+)
+ident(
+  ext_ref Lexing.engine
+)
+"SExprLexer.ml" 451 18302 18324 "SExprLexer.ml" 451 18302 18342
+type(
+  Lexing.lex_tables
+)
+ident(
+  int_ref __ocaml_lex_tables "SExprLexer.ml" 54 1243 1247 "SExprLexer.ml" 54 1243 1265
+)
+"SExprLexer.ml" 451 18302 18343 "SExprLexer.ml" 451 18302 18360
+type(
+  int
+)
+ident(
+  int_ref __ocaml_lex_state "SExprLexer.ml" 450 18227 18282 "SExprLexer.ml" 450 18227 18299
+)
+"SExprLexer.ml" 451 18302 18361 "SExprLexer.ml" 451 18302 18367
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.ml" 451 18302 18310 "SExprLexer.ml" 451 18302 18367
+call(
+  stack
+)
+type(
+  int
+)
+"SExprLexer.ml" 452 18373 18381 "SExprLexer.ml" 452 18373 18382
+type(
+  int
+)
+"SExprLexer.mll" 203 18409 18417 "SExprLexer.mll" 203 18409 18430
+type(
+  Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref found_newline "SExprLexer.mll" 79 693 699 "SExprLexer.mll" 79 693 712
+)
+"SExprLexer.mll" 203 18409 18431 "SExprLexer.mll" 203 18409 18437
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 203 18409 18438 "SExprLexer.mll" 203 18409 18439
+type(
+  int
+)
+"SExprLexer.mll" 203 18409 18417 "SExprLexer.mll" 203 18409 18439
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 203 18409 18441 "SExprLexer.mll" 203 18409 18459
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_block_comment "SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+)
+"SExprLexer.mll" 203 18409 18460 "SExprLexer.mll" 203 18409 18463
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 203 18409 18464 "SExprLexer.mll" 203 18409 18468
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.mll" 203 18409 18469 "SExprLexer.mll" 203 18409 18475
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 203 18409 18441 "SExprLexer.mll" 203 18409 18475
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 203 18409 18417 "SExprLexer.mll" 203 18409 18475
+type(
+  unit
+)
+"SExprLexer.ml" 457 18501 18505 "SExprLexer.ml" 457 18501 18506
+type(
+  int
+)
+"SExprLexer.mll" 204 18533 18577 "SExprLexer.mll" 204 18533 18595
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_block_comment "SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+)
+"SExprLexer.mll" 204 18533 18596 "SExprLexer.mll" 204 18533 18599
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 204 18533 18600 "SExprLexer.mll" 204 18533 18604
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.mll" 204 18533 18605 "SExprLexer.mll" 204 18533 18611
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 204 18533 18577 "SExprLexer.mll" 204 18533 18611
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.ml" 462 18637 18641 "SExprLexer.ml" 462 18637 18642
+type(
+  int
+)
+"SExprLexer.mll" 207 18677 18689 "SExprLexer.mll" 207 18677 18692
+type(
+  Lexing.position
+)
+ident(
+  def cur "SExprLexer.mll" 208 18718 18726 "SExprLexer.mll" 211 18846 18888
+)
+"SExprLexer.mll" 207 18677 18695 "SExprLexer.mll" 207 18677 18707
+type(
+  Lexing.lexbuf -> Lexing.position
+)
+ident(
+  ext_ref Lexing.lexeme_end_p
+)
+"SExprLexer.mll" 207 18677 18708 "SExprLexer.mll" 207 18677 18714
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 207 18677 18695 "SExprLexer.mll" 207 18677 18714
+call(
+  stack
+)
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 208 18718 18730 "SExprLexer.mll" 208 18718 18735
+type(
+  Lexing.position
+)
+ident(
+  def start "SExprLexer.mll" 209 18782 18790 "SExprLexer.mll" 211 18846 18888
+)
+"SExprLexer.mll" 208 18718 18740 "SExprLexer.mll" 208 18718 18743
+type(
+  Lexing.position
+)
+ident(
+  int_ref cur "SExprLexer.mll" 207 18677 18689 "SExprLexer.mll" 207 18677 18692
+)
+"SExprLexer.mll" 208 18718 18760 "SExprLexer.mll" 208 18718 18763
+type(
+  Lexing.position
+)
+ident(
+  int_ref cur "SExprLexer.mll" 207 18677 18689 "SExprLexer.mll" 207 18677 18692
+)
+"SExprLexer.mll" 208 18718 18760 "SExprLexer.mll" 208 18718 18772
+type(
+  int
+)
+"SExprLexer.mll" 208 18718 18773 "SExprLexer.mll" 208 18718 18774
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 208 18718 18775 "SExprLexer.mll" 208 18718 18776
+type(
+  int
+)
+"SExprLexer.mll" 208 18718 18760 "SExprLexer.mll" 208 18718 18776
+type(
+  int
+)
+"SExprLexer.mll" 208 18718 18738 "SExprLexer.mll" 208 18718 18778
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 209 18782 18790 "SExprLexer.mll" 209 18782 18801
+type(
+  Buffer.t -> Lexing.position -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_string "SExprLexer.ml" 311 14558 14562 "SExprLexer.ml" 311 14558 14573
+)
+"SExprLexer.mll" 209 18782 18802 "SExprLexer.mll" 209 18782 18805
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 209 18782 18806 "SExprLexer.mll" 209 18782 18811
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.mll" 208 18718 18730 "SExprLexer.mll" 208 18718 18735
+)
+"SExprLexer.mll" 209 18782 18812 "SExprLexer.mll" 209 18782 18818
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 209 18782 18790 "SExprLexer.mll" 209 18782 18818
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 210 18820 18828 "SExprLexer.mll" 210 18820 18840
+type(
+  Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.clear
+)
+"SExprLexer.mll" 210 18820 18841 "SExprLexer.mll" 210 18820 18844
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 210 18820 18828 "SExprLexer.mll" 210 18820 18844
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 211 18846 18854 "SExprLexer.mll" 211 18846 18872
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_block_comment "SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+)
+"SExprLexer.mll" 211 18846 18873 "SExprLexer.mll" 211 18846 18876
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 211 18846 18877 "SExprLexer.mll" 211 18846 18881
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.mll" 211 18846 18882 "SExprLexer.mll" 211 18846 18888
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 211 18846 18854 "SExprLexer.mll" 211 18846 18888
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 210 18820 18828 "SExprLexer.mll" 211 18846 18888
+type(
+  unit
+)
+"SExprLexer.mll" 209 18782 18790 "SExprLexer.mll" 211 18846 18888
+type(
+  unit
+)
+"SExprLexer.mll" 208 18718 18726 "SExprLexer.mll" 211 18846 18888
+type(
+  unit
+)
+"SExprLexer.mll" 207 18677 18685 "SExprLexer.mll" 211 18846 18888
+type(
+  unit
+)
+"SExprLexer.ml" 473 18920 18924 "SExprLexer.ml" 473 18920 18925
+type(
+  int
+)
+"SExprLexer.mll" 215 18958 18968 "SExprLexer.mll" 215 18958 18971
+type(
+  Lexing.position
+)
+ident(
+  def cur "SExprLexer.mll" 216 18997 19003 "SExprLexer.mll" 217 19059 19110
+)
+"SExprLexer.mll" 215 18958 18974 "SExprLexer.mll" 215 18958 18986
+type(
+  Lexing.lexbuf -> Lexing.position
+)
+ident(
+  ext_ref Lexing.lexeme_end_p
+)
+"SExprLexer.mll" 215 18958 18987 "SExprLexer.mll" 215 18958 18993
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 215 18958 18974 "SExprLexer.mll" 215 18958 18993
+call(
+  stack
+)
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 216 18997 19007 "SExprLexer.mll" 216 18997 19012
+type(
+  Lexing.position
+)
+ident(
+  def start "SExprLexer.mll" 217 19059 19065 "SExprLexer.mll" 217 19059 19110
+)
+"SExprLexer.mll" 216 18997 19017 "SExprLexer.mll" 216 18997 19020
+type(
+  Lexing.position
+)
+ident(
+  int_ref cur "SExprLexer.mll" 215 18958 18968 "SExprLexer.mll" 215 18958 18971
+)
+"SExprLexer.mll" 216 18997 19037 "SExprLexer.mll" 216 18997 19040
+type(
+  Lexing.position
+)
+ident(
+  int_ref cur "SExprLexer.mll" 215 18958 18968 "SExprLexer.mll" 215 18958 18971
+)
+"SExprLexer.mll" 216 18997 19037 "SExprLexer.mll" 216 18997 19049
+type(
+  int
+)
+"SExprLexer.mll" 216 18997 19050 "SExprLexer.mll" 216 18997 19051
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 216 18997 19052 "SExprLexer.mll" 216 18997 19053
+type(
+  int
+)
+"SExprLexer.mll" 216 18997 19037 "SExprLexer.mll" 216 18997 19053
+type(
+  int
+)
+"SExprLexer.mll" 216 18997 19015 "SExprLexer.mll" 216 18997 19055
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 217 19059 19065 "SExprLexer.mll" 217 19059 19083
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_block_comment "SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+)
+"SExprLexer.mll" 217 19059 19084 "SExprLexer.mll" 217 19059 19087
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 217 19059 19089 "SExprLexer.mll" 217 19059 19094
+type(
+  Lexing.position
+)
+ident(
+  int_ref start "SExprLexer.mll" 216 18997 19007 "SExprLexer.mll" 216 18997 19012
+)
+"SExprLexer.mll" 217 19059 19098 "SExprLexer.mll" 217 19059 19102
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.mll" 217 19059 19089 "SExprLexer.mll" 217 19059 19102
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 217 19059 19104 "SExprLexer.mll" 217 19059 19110
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 217 19059 19065 "SExprLexer.mll" 217 19059 19110
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 216 18997 19003 "SExprLexer.mll" 217 19059 19110
+type(
+  unit
+)
+"SExprLexer.mll" 215 18958 18964 "SExprLexer.mll" 217 19059 19110
+type(
+  unit
+)
+"SExprLexer.ml" 482 19140 19144 "SExprLexer.ml" 482 19140 19145
+type(
+  int
+)
+"SExprLexer.mll" 221 19180 19194 "SExprLexer.mll" 221 19180 19198
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.mll" 222 19204 19215 "SExprLexer.mll" 222 19204 19216
+type(
+  Lexing.position list
+)
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 222 19204 19214 "SExprLexer.mll" 222 19204 19217
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 222 19204 19221 "SExprLexer.mll" 222 19204 19223
+type(
+  unit
+)
+"SExprLexer.mll" 223 19224 19234 "SExprLexer.mll" 223 19224 19235
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 223 19224 19239 "SExprLexer.mll" 223 19224 19240
+type(
+  Lexing.position list
+)
+ident(
+  def t "SExprLexer.mll" 223 19224 19244 "SExprLexer.mll" 223 19224 19275
+)
+"SExprLexer.mll" 223 19224 19234 "SExprLexer.mll" 223 19224 19240
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 223 19224 19244 "SExprLexer.mll" 223 19224 19262
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> unit
+)
+ident(
+  int_ref scan_block_comment "SExprLexer.ml" 448 18128 18132 "SExprLexer.ml" 448 18128 18150
+)
+"SExprLexer.mll" 223 19224 19263 "SExprLexer.mll" 223 19224 19266
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.mll" 223 19224 19267 "SExprLexer.mll" 223 19224 19268
+type(
+  Lexing.position list
+)
+ident(
+  int_ref t "SExprLexer.mll" 223 19224 19239 "SExprLexer.mll" 223 19224 19240
+)
+"SExprLexer.mll" 223 19224 19269 "SExprLexer.mll" 223 19224 19275
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.mll" 223 19224 19244 "SExprLexer.mll" 223 19224 19275
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 224 19276 19286 "SExprLexer.mll" 224 19276 19288
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 224 19276 19292 "SExprLexer.mll" 224 19276 19304
+type(
+  unit
+)
+"SExprLexer.mll" 221 19180 19188 "SExprLexer.mll" 224 19276 19304
+type(
+  unit
+)
+"SExprLexer.ml" 492 19354 19358 "SExprLexer.ml" 492 19354 19359
+type(
+  int
+)
+"SExprLexer.mll" 228 19394 19408 "SExprLexer.mll" 228 19394 19412
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.mll" 229 19418 19428 "SExprLexer.mll" 229 19418 19430
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 229 19418 19434 "SExprLexer.mll" 229 19418 19446
+type(
+  unit
+)
+"SExprLexer.mll" 230 19447 19459 "SExprLexer.mll" 230 19447 19467
+type(
+  int
+)
+ident(
+  def pos_lnum "SExprLexer.mll" 231 19500 19512 "SExprLexer.mll" 236 19705 19729
+)
+"SExprLexer.mll" 230 19447 19469 "SExprLexer.mll" 230 19447 19476
+type(
+  int
+)
+ident(
+  def pos_bol "SExprLexer.mll" 231 19500 19512 "SExprLexer.mll" 236 19705 19729
+)
+"SExprLexer.mll" 230 19447 19478 "SExprLexer.mll" 230 19447 19486
+type(
+  int
+)
+ident(
+  def pos_cnum "SExprLexer.mll" 231 19500 19512 "SExprLexer.mll" 236 19705 19729
+)
+"SExprLexer.mll" 230 19447 19457 "SExprLexer.mll" 230 19447 19491
+type(
+  Lexing.position
+)
+"SExprLexer.mll" 230 19447 19495 "SExprLexer.mll" 230 19447 19496
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 230 19447 19457 "SExprLexer.mll" 230 19447 19496
+type(
+  Lexing.position list
+)
+"SExprLexer.mll" 231 19500 19516 "SExprLexer.mll" 231 19500 19519
+type(
+  string
+)
+ident(
+  def msg "SExprLexer.mll" 236 19705 19717 "SExprLexer.mll" 236 19705 19729
+)
+"SExprLexer.mll" 232 19522 19536 "SExprLexer.mll" 232 19522 19543
+type(
+  (int -> int -> string, unit, string) format -> int -> int -> string
+)
+ident(
+  ext_ref Printf.sprintf
+)
+"SExprLexer.mll" 232 19522 19544 "SExprLexer.mll" 233 19581 19643
+type(
+  (int -> int -> string, unit, string) format
+)
+"SExprLexer.mll" 234 19644 19660 "SExprLexer.mll" 234 19644 19668
+type(
+  int
+)
+ident(
+  int_ref pos_lnum "SExprLexer.mll" 230 19447 19459 "SExprLexer.mll" 230 19447 19467
+)
+"SExprLexer.mll" 234 19644 19670 "SExprLexer.mll" 234 19644 19678
+type(
+  int
+)
+ident(
+  int_ref pos_cnum "SExprLexer.mll" 230 19447 19478 "SExprLexer.mll" 230 19447 19486
+)
+"SExprLexer.mll" 234 19644 19679 "SExprLexer.mll" 234 19644 19680
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"SExprLexer.mll" 234 19644 19681 "SExprLexer.mll" 234 19644 19688
+type(
+  int
+)
+ident(
+  int_ref pos_bol "SExprLexer.mll" 230 19447 19469 "SExprLexer.mll" 230 19447 19476
+)
+"SExprLexer.mll" 234 19644 19670 "SExprLexer.mll" 234 19644 19688
+type(
+  int
+)
+"SExprLexer.mll" 232 19522 19536 "SExprLexer.mll" 234 19644 19689
+call(
+  stack
+)
+type(
+  string
+)
+"SExprLexer.mll" 236 19705 19717 "SExprLexer.mll" 236 19705 19725
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"SExprLexer.mll" 236 19705 19726 "SExprLexer.mll" 236 19705 19729
+type(
+  string
+)
+ident(
+  int_ref msg "SExprLexer.mll" 231 19500 19516 "SExprLexer.mll" 231 19500 19519
+)
+"SExprLexer.mll" 236 19705 19717 "SExprLexer.mll" 236 19705 19729
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.mll" 231 19500 19512 "SExprLexer.mll" 236 19705 19729
+type(
+  unit
+)
+"SExprLexer.mll" 228 19394 19402 "SExprLexer.mll" 236 19705 19729
+type(
+  unit
+)
+"SExprLexer.ml" 507 19761 19765 "SExprLexer.ml" 507 19761 19782
+type(
+  int
+)
+ident(
+  def __ocaml_lex_state "SExprLexer.ml" 507 19761 19786 "SExprLexer.ml" 507 19761 19888
+)
+"SExprLexer.ml" 507 19761 19786 "SExprLexer.ml" 507 19761 19792
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.ml" 507 19761 19786 "SExprLexer.ml" 507 19761 19811
+type(
+  Lexing.lexbuf -> unit
+)
+"SExprLexer.ml" 507 19761 19812 "SExprLexer.ml" 507 19761 19818
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.ml" 507 19761 19786 "SExprLexer.ml" 507 19761 19818
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.ml" 507 19761 19820 "SExprLexer.ml" 507 19761 19854
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> int -> unit
+)
+ident(
+  int_ref __ocaml_lex_scan_block_comment_rec "SExprLexer.ml" 450 18227 18231 "SExprLexer.ml" 450 18227 18265
+)
+"SExprLexer.ml" 507 19761 19855 "SExprLexer.ml" 507 19761 19858
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 450 18227 18269
+)
+"SExprLexer.ml" 507 19761 19859 "SExprLexer.ml" 507 19761 19863
+type(
+  Lexing.position list
+)
+ident(
+  int_ref locs "SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 450 18227 18274
+)
+"SExprLexer.ml" 507 19761 19864 "SExprLexer.ml" 507 19761 19870
+type(
+  Lexing.lexbuf
+)
+ident(
+  int_ref lexbuf "SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 450 18227 18281
+)
+"SExprLexer.ml" 507 19761 19871 "SExprLexer.ml" 507 19761 19888
+type(
+  int
+)
+ident(
+  int_ref __ocaml_lex_state "SExprLexer.ml" 507 19761 19765 "SExprLexer.ml" 507 19761 19782
+)
+"SExprLexer.ml" 507 19761 19820 "SExprLexer.ml" 507 19761 19888
+call(
+  tail
+)
+type(
+  unit
+)
+"SExprLexer.ml" 507 19761 19786 "SExprLexer.ml" 507 19761 19888
+type(
+  unit
+)
+"SExprLexer.ml" 451 18302 18304 "SExprLexer.ml" 507 19761 19888
+type(
+  unit
+)
+"SExprLexer.ml" 450 18227 18282 "SExprLexer.ml" 507 19761 19888
+type(
+  int -> unit
+)
+"SExprLexer.ml" 450 18227 18275 "SExprLexer.ml" 507 19761 19888
+type(
+  Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.ml" 450 18227 18270 "SExprLexer.ml" 507 19761 19888
+type(
+  Lexing.position list -> Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.ml" 450 18227 18266 "SExprLexer.ml" 507 19761 19888
+type(
+  Buffer.t -> Lexing.position list -> Lexing.lexbuf -> int -> unit
+)
+"SExprLexer.mll" 240 19919 19925 "SExprLexer.mll" 240 19919 19929
+type(
+  ?buf:Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  def main "SExprLexer.mll" 246 20054 20066 "_none_" 1 0 -1
+)
+"SExprLexer.mll" 241 19937 19945 "SExprLexer.mll" 241 19937 19948
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.mll" 246 20054 20058 "SExprLexer.mll" 246 20054 20066
+)
+"SExprLexer.mll" 242 19951 19963 "SExprLexer.mll" 242 19951 19966
+type(
+  Buffer.t option
+)
+ident(
+  int_ref buf "SExprLexer.mll" 240 19919 19930 "SExprLexer.mll" 246 20054 20066
+)
+"SExprLexer.mll" 243 19972 19980 "SExprLexer.mll" 243 19972 19984
+type(
+  Buffer.t option
+)
+"SExprLexer.mll" 243 19972 19988 "SExprLexer.mll" 243 19972 20001
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"SExprLexer.mll" 243 19972 20002 "SExprLexer.mll" 243 19972 20004
+type(
+  int
+)
+"SExprLexer.mll" 243 19972 19988 "SExprLexer.mll" 243 19972 20004
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"SExprLexer.mll" 244 20005 20018 "SExprLexer.mll" 244 20005 20021
+type(
+  Buffer.t
+)
+ident(
+  def buf "SExprLexer.mll" 244 20005 20025 "SExprLexer.mll" 244 20005 20046
+)
+"SExprLexer.mll" 244 20005 20013 "SExprLexer.mll" 244 20005 20021
+type(
+  Buffer.t option
+)
+"SExprLexer.mll" 244 20005 20025 "SExprLexer.mll" 244 20005 20037
+type(
+  Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.clear
+)
+"SExprLexer.mll" 244 20005 20038 "SExprLexer.mll" 244 20005 20041
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.mll" 244 20005 20018 "SExprLexer.mll" 244 20005 20021
+)
+"SExprLexer.mll" 244 20005 20025 "SExprLexer.mll" 244 20005 20041
+call(
+  stack
+)
+type(
+  unit
+)
+"SExprLexer.mll" 244 20005 20043 "SExprLexer.mll" 244 20005 20046
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.mll" 244 20005 20018 "SExprLexer.mll" 244 20005 20021
+)
+"SExprLexer.mll" 244 20005 20025 "SExprLexer.mll" 244 20005 20046
+type(
+  Buffer.t
+)
+"SExprLexer.mll" 242 19951 19957 "SExprLexer.mll" 244 20005 20046
+type(
+  Buffer.t
+)
+"SExprLexer.mll" 246 20054 20058 "SExprLexer.mll" 246 20054 20062
+type(
+  Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+ident(
+  int_ref main "SExprLexer.ml" 237 12794 12802 "SExprLexer.ml" 237 12794 12806
+)
+"SExprLexer.mll" 246 20054 20063 "SExprLexer.mll" 246 20054 20066
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "SExprLexer.mll" 241 19937 19945 "SExprLexer.mll" 241 19937 19948
+)
+"SExprLexer.mll" 246 20054 20058 "SExprLexer.mll" 246 20054 20066
+call(
+  tail
+)
+type(
+  Lexing.lexbuf -> SExprParser.token
+)
+"SExprLexer.mll" 241 19937 19941 "SExprLexer.mll" 246 20054 20066
+type(
+  Lexing.lexbuf -> SExprParser.token
+)
+"SExprLexer.mll" 240 19919 19930 "SExprLexer.mll" 246 20054 20066
+type(
+  ?buf:Buffer.t -> Lexing.lexbuf -> SExprParser.token
+)
+type(
+  Buffer.t option
+)
+ident(
+  def buf "SExprLexer.mll" 241 19937 19941 "SExprLexer.mll" 246 20054 20066
+)

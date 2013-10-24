@@ -1,0 +1,6645 @@
+"kind1/new_vars.ml" 47 1853 1857 "kind1/new_vars.ml" 47 1853 1863
+type(
+  Globals.current_solver
+)
+ident(
+  def solver "kind1/new_vars.ml" 54 2069 2069 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 47 1853 1866 "kind1/new_vars.ml" 47 1853 1883
+type(
+  Globals.current_solver
+)
+ident(
+  ext_ref Globals.my_solver
+)
+"kind1/new_vars.ml" 54 2069 2073 "kind1/new_vars.ml" 54 2069 2084
+type(
+  Counter.counter
+)
+ident(
+  def nvr_counter "kind1/new_vars.ml" 56 2109 2109 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 54 2069 2087 "kind1/new_vars.ml" 54 2069 2106
+type(
+  Counter.counter
+)
+"kind1/new_vars.ml" 56 2109 2113 "kind1/new_vars.ml" 56 2109 2123
+type(
+  string
+)
+ident(
+  def nvr_prefix "kind1/new_vars.ml" 57 2135 2135 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 56 2109 2126 "kind1/new_vars.ml" 56 2109 2133
+type(
+  string
+)
+"kind1/new_vars.ml" 57 2135 2139 "kind1/new_vars.ml" 57 2135 2149
+type(
+  int -> string
+)
+ident(
+  def mk_nvr_str "kind1/new_vars.ml" 59 2189 2189 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 57 2135 2150 "kind1/new_vars.ml" 57 2135 2152
+type(
+  int
+)
+ident(
+  def id "kind1/new_vars.ml" 57 2135 2155 "kind1/new_vars.ml" 57 2135 2186
+)
+"kind1/new_vars.ml" 57 2135 2155 "kind1/new_vars.ml" 57 2135 2165
+type(
+  string
+)
+ident(
+  int_ref nvr_prefix "kind1/new_vars.ml" 56 2109 2113 "kind1/new_vars.ml" 56 2109 2123
+)
+"kind1/new_vars.ml" 57 2135 2166 "kind1/new_vars.ml" 57 2135 2167
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 57 2135 2169 "kind1/new_vars.ml" 57 2135 2182
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 57 2135 2183 "kind1/new_vars.ml" 57 2135 2185
+type(
+  int
+)
+ident(
+  int_ref id "kind1/new_vars.ml" 57 2135 2150 "kind1/new_vars.ml" 57 2135 2152
+)
+"kind1/new_vars.ml" 57 2135 2168 "kind1/new_vars.ml" 57 2135 2186
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 57 2135 2155 "kind1/new_vars.ml" 57 2135 2186
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 59 2189 2193 "kind1/new_vars.ml" 59 2189 2207
+type(
+  string
+)
+ident(
+  def nvr_def_prefix "kind1/new_vars.ml" 60 2219 2219 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 59 2189 2210 "kind1/new_vars.ml" 59 2189 2218
+type(
+  string
+)
+"kind1/new_vars.ml" 60 2219 2223 "kind1/new_vars.ml" 60 2219 2237
+type(
+  int -> string
+)
+ident(
+  def mk_nvr_def_str "kind1/new_vars.ml" 62 2282 2282 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 60 2219 2238 "kind1/new_vars.ml" 60 2219 2240
+type(
+  int
+)
+ident(
+  def id "kind1/new_vars.ml" 60 2219 2243 "kind1/new_vars.ml" 60 2219 2278
+)
+"kind1/new_vars.ml" 60 2219 2243 "kind1/new_vars.ml" 60 2219 2257
+type(
+  string
+)
+ident(
+  int_ref nvr_def_prefix "kind1/new_vars.ml" 59 2189 2193 "kind1/new_vars.ml" 59 2189 2207
+)
+"kind1/new_vars.ml" 60 2219 2258 "kind1/new_vars.ml" 60 2219 2259
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 60 2219 2261 "kind1/new_vars.ml" 60 2219 2274
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 60 2219 2275 "kind1/new_vars.ml" 60 2219 2277
+type(
+  int
+)
+ident(
+  int_ref id "kind1/new_vars.ml" 60 2219 2238 "kind1/new_vars.ml" 60 2219 2240
+)
+"kind1/new_vars.ml" 60 2219 2260 "kind1/new_vars.ml" 60 2219 2278
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 60 2219 2243 "kind1/new_vars.ml" 60 2219 2278
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 62 2282 2286 "kind1/new_vars.ml" 62 2282 2305
+type(
+  string
+)
+ident(
+  def nvr_prefix_interval "kind1/new_vars.ml" 63 2320 2320 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 62 2282 2308 "kind1/new_vars.ml" 62 2282 2318
+type(
+  string
+)
+"kind1/new_vars.ml" 63 2320 2324 "kind1/new_vars.ml" 63 2320 2343
+type(
+  int -> string
+)
+ident(
+  def mk_nvr_str_interval "kind1/new_vars.ml" 65 2392 2392 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 63 2320 2344 "kind1/new_vars.ml" 63 2320 2346
+type(
+  int
+)
+ident(
+  def id "kind1/new_vars.ml" 63 2320 2349 "kind1/new_vars.ml" 63 2320 2389
+)
+"kind1/new_vars.ml" 63 2320 2349 "kind1/new_vars.ml" 63 2320 2368
+type(
+  string
+)
+ident(
+  int_ref nvr_prefix_interval "kind1/new_vars.ml" 62 2282 2286 "kind1/new_vars.ml" 62 2282 2305
+)
+"kind1/new_vars.ml" 63 2320 2369 "kind1/new_vars.ml" 63 2320 2370
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 63 2320 2372 "kind1/new_vars.ml" 63 2320 2385
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 63 2320 2386 "kind1/new_vars.ml" 63 2320 2388
+type(
+  int
+)
+ident(
+  int_ref id "kind1/new_vars.ml" 63 2320 2344 "kind1/new_vars.ml" 63 2320 2346
+)
+"kind1/new_vars.ml" 63 2320 2371 "kind1/new_vars.ml" 63 2320 2389
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 63 2320 2349 "kind1/new_vars.ml" 63 2320 2389
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 65 2392 2396 "kind1/new_vars.ml" 65 2392 2419
+type(
+  string
+)
+ident(
+  def nvr_def_prefix_interval "kind1/new_vars.ml" 66 2434 2434 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 65 2392 2422 "kind1/new_vars.ml" 65 2392 2433
+type(
+  string
+)
+"kind1/new_vars.ml" 66 2434 2438 "kind1/new_vars.ml" 66 2434 2461
+type(
+  int -> string
+)
+ident(
+  def mk_nvr_def_str_interval "kind1/new_vars.ml" 68 2513 2513 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 66 2434 2462 "kind1/new_vars.ml" 66 2434 2464
+type(
+  int
+)
+ident(
+  def id "kind1/new_vars.ml" 66 2434 2467 "kind1/new_vars.ml" 66 2434 2511
+)
+"kind1/new_vars.ml" 66 2434 2467 "kind1/new_vars.ml" 66 2434 2490
+type(
+  string
+)
+ident(
+  int_ref nvr_def_prefix_interval "kind1/new_vars.ml" 65 2392 2396 "kind1/new_vars.ml" 65 2392 2419
+)
+"kind1/new_vars.ml" 66 2434 2491 "kind1/new_vars.ml" 66 2434 2492
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 66 2434 2494 "kind1/new_vars.ml" 66 2434 2507
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 66 2434 2508 "kind1/new_vars.ml" 66 2434 2510
+type(
+  int
+)
+ident(
+  int_ref id "kind1/new_vars.ml" 66 2434 2462 "kind1/new_vars.ml" 66 2434 2464
+)
+"kind1/new_vars.ml" 66 2434 2493 "kind1/new_vars.ml" 66 2434 2511
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 66 2434 2467 "kind1/new_vars.ml" 66 2434 2511
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 68 2513 2517 "kind1/new_vars.ml" 68 2513 2527
+type(
+  string
+)
+ident(
+  def naive_prop "kind1/new_vars.ml" 69 2537 2537 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 68 2513 2530 "kind1/new_vars.ml" 68 2513 2536
+type(
+  string
+)
+"kind1/new_vars.ml" 69 2537 2541 "kind1/new_vars.ml" 69 2537 2555
+type(
+  int -> string
+)
+ident(
+  def naive_prop_str "kind1/new_vars.ml" 74 2693 2693 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 69 2537 2556 "kind1/new_vars.ml" 69 2537 2558
+type(
+  int
+)
+ident(
+  def id "kind1/new_vars.ml" 69 2537 2561 "kind1/new_vars.ml" 69 2537 2592
+)
+"kind1/new_vars.ml" 69 2537 2561 "kind1/new_vars.ml" 69 2537 2571
+type(
+  string
+)
+ident(
+  int_ref naive_prop "kind1/new_vars.ml" 68 2513 2517 "kind1/new_vars.ml" 68 2513 2527
+)
+"kind1/new_vars.ml" 69 2537 2572 "kind1/new_vars.ml" 69 2537 2573
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 69 2537 2575 "kind1/new_vars.ml" 69 2537 2588
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 69 2537 2589 "kind1/new_vars.ml" 69 2537 2591
+type(
+  int
+)
+ident(
+  int_ref id "kind1/new_vars.ml" 69 2537 2556 "kind1/new_vars.ml" 69 2537 2558
+)
+"kind1/new_vars.ml" 69 2537 2574 "kind1/new_vars.ml" 69 2537 2592
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 69 2537 2561 "kind1/new_vars.ml" 69 2537 2592
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  def nvr_to_info_hash "kind1/new_vars.ml" 80 2854 2854 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 75 2717 2720 "kind1/new_vars.ml" 75 2717 2734
+type(
+  ?random:bool ->
+  int ->
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  ext_ref Hashtbl.create
+)
+"kind1/new_vars.ml" 75 2717 2735 "kind1/new_vars.ml" 75 2717 2739
+type(
+  int
+)
+"kind1/new_vars.ml" 75 2717 2720 "kind1/new_vars.ml" 75 2717 2739
+call(
+  stack
+)
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+"kind1/new_vars.ml" 80 2854 2858 "kind1/new_vars.ml" 80 2854 2878
+type(
+  unit -> (Types.idtype * int * int) list
+)
+ident(
+  def get_interval_id_vars "kind1/new_vars.ml" 93 3265 3265 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 80 2854 2879 "kind1/new_vars.ml" 80 2854 2881
+type(
+  unit
+)
+"kind1/new_vars.ml" 81 2885 2887 "kind1/new_vars.ml" 81 2885 2899
+type(
+  (int ->
+   Types.node_id_t * string * Types.lustre_type * Types.varclass ->
+   (Types.idtype * int * int) list -> (Types.idtype * int * int) list) ->
+  (int, Types.node_id_t * string * Types.lustre_type * Types.varclass)
+  Hashtbl.t ->
+  (Types.idtype * int * int) list -> (Types.idtype * int * int) list
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/new_vars.ml" 81 2885 2905 "kind1/new_vars.ml" 81 2885 2906
+type(
+  int
+)
+ident(
+  def i "kind1/new_vars.ml" 81 2885 2907 "kind1/new_vars.ml" 88 3163 3177
+)
+"kind1/new_vars.ml" 81 2885 2908 "kind1/new_vars.ml" 81 2885 2909
+type(
+  Types.node_id_t
+)
+ident(
+  def n "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 88 3163 3177
+)
+"kind1/new_vars.ml" 81 2885 2910 "kind1/new_vars.ml" 81 2885 2911
+type(
+  string
+)
+ident(
+  def v "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 88 3163 3177
+)
+"kind1/new_vars.ml" 81 2885 2912 "kind1/new_vars.ml" 81 2885 2913
+type(
+  Types.lustre_type
+)
+ident(
+  def t "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 88 3163 3177
+)
+"kind1/new_vars.ml" 81 2885 2914 "kind1/new_vars.ml" 81 2885 2915
+type(
+  Types.varclass
+)
+ident(
+  def c "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 88 3163 3177
+)
+"kind1/new_vars.ml" 81 2885 2907 "kind1/new_vars.ml" 81 2885 2916
+type(
+  Types.node_id_t * string * Types.lustre_type * Types.varclass
+)
+"kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 81 2885 2920
+type(
+  (Types.idtype * int * int) list
+)
+ident(
+  def acc "kind1/new_vars.ml" 82 2927 2929 "kind1/new_vars.ml" 88 3163 3177
+)
+"kind1/new_vars.ml" 82 2927 2935 "kind1/new_vars.ml" 82 2927 2936
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref t "kind1/new_vars.ml" 81 2885 2912 "kind1/new_vars.ml" 81 2885 2913
+)
+"kind1/new_vars.ml" 83 2943 2962 "kind1/new_vars.ml" 83 2943 2963
+type(
+  int
+)
+ident(
+  def x "kind1/new_vars.ml" 84 2971 2979 "kind1/new_vars.ml" 87 3103 3161
+)
+"kind1/new_vars.ml" 83 2943 2964 "kind1/new_vars.ml" 83 2943 2965
+type(
+  int
+)
+ident(
+  def y "kind1/new_vars.ml" 84 2971 2979 "kind1/new_vars.ml" 87 3103 3161
+)
+"kind1/new_vars.ml" 83 2943 2949 "kind1/new_vars.ml" 83 2943 2966
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 84 2971 2983 "kind1/new_vars.ml" 84 2971 2996
+type(
+  string
+)
+ident(
+  def internal_name "kind1/new_vars.ml" 85 3028 3031 "kind1/new_vars.ml" 87 3103 3161
+)
+"kind1/new_vars.ml" 84 2971 2999 "kind1/new_vars.ml" 84 2971 3022
+type(
+  int -> string
+)
+ident(
+  ext_ref Tables.get_varinfo_name
+)
+"kind1/new_vars.ml" 84 2971 3023 "kind1/new_vars.ml" 84 2971 3024
+type(
+  int
+)
+ident(
+  int_ref i "kind1/new_vars.ml" 81 2885 2905 "kind1/new_vars.ml" 81 2885 2906
+)
+"kind1/new_vars.ml" 84 2971 2999 "kind1/new_vars.ml" 84 2971 3024
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 85 3028 3035 "kind1/new_vars.ml" 85 3028 3063
+type(
+  string -> Types.idtype
+)
+ident(
+  ext_ref Tables.varid_lookup_interval
+)
+"kind1/new_vars.ml" 85 3028 3064 "kind1/new_vars.ml" 85 3028 3077
+type(
+  string
+)
+ident(
+  int_ref internal_name "kind1/new_vars.ml" 84 2971 2983 "kind1/new_vars.ml" 84 2971 2996
+)
+"kind1/new_vars.ml" 85 3028 3035 "kind1/new_vars.ml" 85 3028 3077
+call(
+  stack
+)
+type(
+  Types.idtype
+)
+"kind1/new_vars.ml" 85 3028 3078 "kind1/new_vars.ml" 85 3028 3079
+type(
+  Types.idtype -> Types.idtype -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/new_vars.ml" 85 3028 3080 "kind1/new_vars.ml" 85 3028 3082
+type(
+  Types.idtype
+)
+"kind1/new_vars.ml" 85 3028 3034 "kind1/new_vars.ml" 85 3028 3083
+type(
+  bool
+)
+"kind1/new_vars.ml" 85 3028 3089 "kind1/new_vars.ml" 85 3028 3092
+type(
+  (Types.idtype * int * int) list
+)
+ident(
+  int_ref acc "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 81 2885 2920
+)
+"kind1/new_vars.ml" 87 3103 3108 "kind1/new_vars.ml" 87 3103 3136
+type(
+  string -> Types.idtype
+)
+ident(
+  ext_ref Tables.varid_lookup_interval
+)
+"kind1/new_vars.ml" 87 3103 3137 "kind1/new_vars.ml" 87 3103 3150
+type(
+  string
+)
+ident(
+  int_ref internal_name "kind1/new_vars.ml" 84 2971 2983 "kind1/new_vars.ml" 84 2971 2996
+)
+"kind1/new_vars.ml" 87 3103 3107 "kind1/new_vars.ml" 87 3103 3151
+call(
+  stack
+)
+type(
+  Types.idtype
+)
+"kind1/new_vars.ml" 87 3103 3152 "kind1/new_vars.ml" 87 3103 3153
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 83 2943 2962 "kind1/new_vars.ml" 83 2943 2963
+)
+"kind1/new_vars.ml" 87 3103 3154 "kind1/new_vars.ml" 87 3103 3155
+type(
+  int
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 83 2943 2964 "kind1/new_vars.ml" 83 2943 2965
+)
+"kind1/new_vars.ml" 87 3103 3106 "kind1/new_vars.ml" 87 3103 3156
+type(
+  Types.idtype * int * int
+)
+"kind1/new_vars.ml" 87 3103 3158 "kind1/new_vars.ml" 87 3103 3161
+type(
+  (Types.idtype * int * int) list
+)
+ident(
+  int_ref acc "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 81 2885 2920
+)
+"kind1/new_vars.ml" 87 3103 3106 "kind1/new_vars.ml" 87 3103 3161
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 85 3028 3031 "kind1/new_vars.ml" 87 3103 3161
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 84 2971 2979 "kind1/new_vars.ml" 87 3103 3161
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 88 3163 3169 "kind1/new_vars.ml" 88 3163 3170
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 88 3163 3174 "kind1/new_vars.ml" 88 3163 3177
+type(
+  (Types.idtype * int * int) list
+)
+ident(
+  int_ref acc "kind1/new_vars.ml" 81 2885 2917 "kind1/new_vars.ml" 81 2885 2920
+)
+"kind1/new_vars.ml" 82 2927 2929 "kind1/new_vars.ml" 88 3163 3177
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 81 2885 2900 "kind1/new_vars.ml" 89 3178 3185
+type(
+  int ->
+  Types.node_id_t * string * Types.lustre_type * Types.varclass ->
+  (Types.idtype * int * int) list -> (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 89 3178 3186 "kind1/new_vars.ml" 89 3178 3204
+type(
+  unit ->
+  (int, Types.node_id_t * string * Types.lustre_type * Types.varclass)
+  Hashtbl.t
+)
+ident(
+  ext_ref Tables.get_varinfo
+)
+"kind1/new_vars.ml" 89 3178 3204 "kind1/new_vars.ml" 89 3178 3206
+type(
+  unit
+)
+"kind1/new_vars.ml" 89 3178 3185 "kind1/new_vars.ml" 89 3178 3207
+call(
+  stack
+)
+type(
+  (int, Types.node_id_t * string * Types.lustre_type * Types.varclass)
+  Hashtbl.t
+)
+"kind1/new_vars.ml" 89 3178 3208 "kind1/new_vars.ml" 89 3178 3210
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 81 2885 2887 "kind1/new_vars.ml" 89 3178 3210
+call(
+  tail
+)
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 93 3265 3269 "kind1/new_vars.ml" 93 3265 3286
+type(
+  unit -> (string * int * int) list
+)
+ident(
+  def get_interval_vars "kind1/new_vars.ml" 98 3538 3538 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 93 3265 3287 "kind1/new_vars.ml" 93 3265 3289
+type(
+  unit
+)
+"kind1/new_vars.ml" 94 3292 3296 "kind1/new_vars.ml" 94 3292 3312
+type(
+  (Types.idtype * int * int) list
+)
+ident(
+  def interval_list_id "kind1/new_vars.ml" 95 3342 3344 "kind1/new_vars.ml" 95 3342 3420
+)
+"kind1/new_vars.ml" 94 3292 3315 "kind1/new_vars.ml" 94 3292 3335
+type(
+  unit -> (Types.idtype * int * int) list
+)
+ident(
+  int_ref get_interval_id_vars "kind1/new_vars.ml" 80 2854 2858 "kind1/new_vars.ml" 80 2854 2878
+)
+"kind1/new_vars.ml" 94 3292 3336 "kind1/new_vars.ml" 94 3292 3338
+type(
+  unit
+)
+"kind1/new_vars.ml" 94 3292 3315 "kind1/new_vars.ml" 94 3292 3338
+call(
+  stack
+)
+type(
+  (Types.idtype * int * int) list
+)
+"kind1/new_vars.ml" 95 3342 3344 "kind1/new_vars.ml" 95 3342 3352
+type(
+  (Types.idtype * int * int -> string * int * int) ->
+  (Types.idtype * int * int) list -> (string * int * int) list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/new_vars.ml" 95 3342 3359 "kind1/new_vars.ml" 95 3342 3360
+type(
+  Types.idtype
+)
+ident(
+  def v "kind1/new_vars.ml" 95 3342 3369 "kind1/new_vars.ml" 95 3342 3402
+)
+"kind1/new_vars.ml" 95 3342 3361 "kind1/new_vars.ml" 95 3342 3362
+type(
+  int
+)
+ident(
+  def x "kind1/new_vars.ml" 95 3342 3369 "kind1/new_vars.ml" 95 3342 3402
+)
+"kind1/new_vars.ml" 95 3342 3363 "kind1/new_vars.ml" 95 3342 3364
+type(
+  int
+)
+ident(
+  def y "kind1/new_vars.ml" 95 3342 3369 "kind1/new_vars.ml" 95 3342 3402
+)
+"kind1/new_vars.ml" 95 3342 3358 "kind1/new_vars.ml" 95 3342 3365
+type(
+  Types.idtype * int * int
+)
+"kind1/new_vars.ml" 95 3342 3371 "kind1/new_vars.ml" 95 3342 3394
+type(
+  Types.idtype -> string
+)
+ident(
+  ext_ref Tables.get_varinfo_name
+)
+"kind1/new_vars.ml" 95 3342 3395 "kind1/new_vars.ml" 95 3342 3396
+type(
+  Types.idtype
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 95 3342 3359 "kind1/new_vars.ml" 95 3342 3360
+)
+"kind1/new_vars.ml" 95 3342 3370 "kind1/new_vars.ml" 95 3342 3397
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 95 3342 3398 "kind1/new_vars.ml" 95 3342 3399
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 95 3342 3361 "kind1/new_vars.ml" 95 3342 3362
+)
+"kind1/new_vars.ml" 95 3342 3400 "kind1/new_vars.ml" 95 3342 3401
+type(
+  int
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 95 3342 3363 "kind1/new_vars.ml" 95 3342 3364
+)
+"kind1/new_vars.ml" 95 3342 3369 "kind1/new_vars.ml" 95 3342 3402
+type(
+  string * int * int
+)
+"kind1/new_vars.ml" 95 3342 3352 "kind1/new_vars.ml" 95 3342 3403
+type(
+  Types.idtype * int * int -> string * int * int
+)
+"kind1/new_vars.ml" 95 3342 3404 "kind1/new_vars.ml" 95 3342 3420
+type(
+  (Types.idtype * int * int) list
+)
+ident(
+  int_ref interval_list_id "kind1/new_vars.ml" 94 3292 3296 "kind1/new_vars.ml" 94 3292 3312
+)
+"kind1/new_vars.ml" 95 3342 3344 "kind1/new_vars.ml" 95 3342 3420
+call(
+  tail
+)
+type(
+  (string * int * int) list
+)
+"kind1/new_vars.ml" 94 3292 3292 "kind1/new_vars.ml" 95 3342 3420
+type(
+  (string * int * int) list
+)
+"kind1/new_vars.ml" 98 3538 3542 "kind1/new_vars.ml" 98 3538 3554
+type(
+  unit -> bool
+)
+ident(
+  def is_range_big "kind1/new_vars.ml" 106 3962 3962 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 98 3538 3555 "kind1/new_vars.ml" 98 3538 3557
+type(
+  unit
+)
+"kind1/new_vars.ml" 99 3561 3567 "kind1/new_vars.ml" 99 3561 3586
+type(
+  bool ref
+)
+ident(
+  def gen_mode_candidates "kind1/new_vars.ml" 100 3661 3663 "kind1/new_vars.ml" 103 3802 3905
+)
+"kind1/new_vars.ml" 99 3561 3589 "kind1/new_vars.ml" 99 3561 3592
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/new_vars.ml" 99 3561 3593 "kind1/new_vars.ml" 99 3561 3597
+type(
+  bool
+)
+"kind1/new_vars.ml" 99 3561 3589 "kind1/new_vars.ml" 99 3561 3597
+type(
+  bool ref
+)
+"kind1/new_vars.ml" 100 3661 3667 "kind1/new_vars.ml" 100 3661 3676
+type(
+  (string * int * int) list
+)
+ident(
+  def list_mode "kind1/new_vars.ml" 101 3702 3706 "kind1/new_vars.ml" 103 3802 3905
+)
+"kind1/new_vars.ml" 100 3661 3679 "kind1/new_vars.ml" 100 3661 3696
+type(
+  unit -> (string * int * int) list
+)
+ident(
+  int_ref get_interval_vars "kind1/new_vars.ml" 93 3265 3269 "kind1/new_vars.ml" 93 3265 3286
+)
+"kind1/new_vars.ml" 100 3661 3696 "kind1/new_vars.ml" 100 3661 3698
+type(
+  unit
+)
+"kind1/new_vars.ml" 100 3661 3679 "kind1/new_vars.ml" 100 3661 3698
+call(
+  stack
+)
+type(
+  (string * int * int) list
+)
+"kind1/new_vars.ml" 101 3702 3706 "kind1/new_vars.ml" 101 3702 3715
+type(
+  (string * int * int -> unit) -> (string * int * int) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/new_vars.ml" 101 3702 3721 "kind1/new_vars.ml" 101 3702 3722
+type(
+  string
+)
+ident(
+  def v "kind1/new_vars.ml" 102 3734 3736 "kind1/new_vars.ml" 103 3802 3872
+)
+"kind1/new_vars.ml" 101 3702 3723 "kind1/new_vars.ml" 101 3702 3725
+type(
+  int
+)
+ident(
+  def lb "kind1/new_vars.ml" 102 3734 3736 "kind1/new_vars.ml" 103 3802 3872
+)
+"kind1/new_vars.ml" 101 3702 3726 "kind1/new_vars.ml" 101 3702 3728
+type(
+  int
+)
+ident(
+  def ub "kind1/new_vars.ml" 102 3734 3736 "kind1/new_vars.ml" 103 3802 3872
+)
+"kind1/new_vars.ml" 101 3702 3720 "kind1/new_vars.ml" 101 3702 3729
+type(
+  string * int * int
+)
+"kind1/new_vars.ml" 102 3734 3743 "kind1/new_vars.ml" 102 3734 3745
+type(
+  int
+)
+ident(
+  int_ref ub "kind1/new_vars.ml" 101 3702 3726 "kind1/new_vars.ml" 101 3702 3728
+)
+"kind1/new_vars.ml" 102 3734 3746 "kind1/new_vars.ml" 102 3734 3747
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/new_vars.ml" 102 3734 3748 "kind1/new_vars.ml" 102 3734 3750
+type(
+  int
+)
+ident(
+  int_ref lb "kind1/new_vars.ml" 101 3702 3723 "kind1/new_vars.ml" 101 3702 3725
+)
+"kind1/new_vars.ml" 102 3734 3742 "kind1/new_vars.ml" 102 3734 3751
+type(
+  int
+)
+"kind1/new_vars.ml" 102 3734 3752 "kind1/new_vars.ml" 102 3734 3753
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"kind1/new_vars.ml" 102 3734 3754 "kind1/new_vars.ml" 102 3734 3755
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/new_vars.ml" 102 3734 3755 "kind1/new_vars.ml" 102 3734 3769
+type(
+  int ref
+)
+ident(
+  ext_ref OldFlags.range
+)
+"kind1/new_vars.ml" 102 3734 3754 "kind1/new_vars.ml" 102 3734 3769
+type(
+  int
+)
+"kind1/new_vars.ml" 102 3734 3741 "kind1/new_vars.ml" 102 3734 3770
+type(
+  bool
+)
+"kind1/new_vars.ml" 102 3734 3776 "kind1/new_vars.ml" 102 3734 3795
+type(
+  bool ref
+)
+ident(
+  int_ref gen_mode_candidates "kind1/new_vars.ml" 99 3561 3567 "kind1/new_vars.ml" 99 3561 3586
+)
+"kind1/new_vars.ml" 102 3734 3795 "kind1/new_vars.ml" 102 3734 3797
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/new_vars.ml" 102 3734 3797 "kind1/new_vars.ml" 102 3734 3801
+type(
+  bool
+)
+"kind1/new_vars.ml" 102 3734 3776 "kind1/new_vars.ml" 102 3734 3801
+type(
+  unit
+)
+"kind1/new_vars.ml" 103 3802 3811 "kind1/new_vars.ml" 103 3802 3830
+type(
+  bool ref
+)
+ident(
+  int_ref gen_mode_candidates "kind1/new_vars.ml" 99 3561 3567 "kind1/new_vars.ml" 99 3561 3586
+)
+"kind1/new_vars.ml" 103 3802 3830 "kind1/new_vars.ml" 103 3802 3832
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/new_vars.ml" 103 3802 3832 "kind1/new_vars.ml" 103 3802 3837
+type(
+  bool
+)
+"kind1/new_vars.ml" 103 3802 3811 "kind1/new_vars.ml" 103 3802 3837
+type(
+  unit
+)
+"kind1/new_vars.ml" 102 3734 3736 "kind1/new_vars.ml" 103 3802 3838
+type(
+  unit
+)
+"kind1/new_vars.ml" 103 3802 3840 "kind1/new_vars.ml" 103 3802 3853
+type(
+  string -> unit
+)
+ident(
+  ext_ref Channels.print_to_user
+)
+"kind1/new_vars.ml" 103 3802 3853 "kind1/new_vars.ml" 103 3802 3872
+type(
+  string
+)
+"kind1/new_vars.ml" 103 3802 3840 "kind1/new_vars.ml" 103 3802 3872
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 102 3734 3736 "kind1/new_vars.ml" 103 3802 3872
+type(
+  unit
+)
+"kind1/new_vars.ml" 101 3702 3715 "kind1/new_vars.ml" 103 3802 3873
+type(
+  string * int * int -> unit
+)
+"kind1/new_vars.ml" 103 3802 3874 "kind1/new_vars.ml" 103 3802 3883
+type(
+  (string * int * int) list
+)
+ident(
+  int_ref list_mode "kind1/new_vars.ml" 100 3661 3667 "kind1/new_vars.ml" 100 3661 3676
+)
+"kind1/new_vars.ml" 101 3702 3706 "kind1/new_vars.ml" 103 3802 3883
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 103 3802 3885 "kind1/new_vars.ml" 103 3802 3886
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/new_vars.ml" 103 3802 3886 "kind1/new_vars.ml" 103 3802 3905
+type(
+  bool ref
+)
+ident(
+  int_ref gen_mode_candidates "kind1/new_vars.ml" 99 3561 3567 "kind1/new_vars.ml" 99 3561 3586
+)
+"kind1/new_vars.ml" 103 3802 3885 "kind1/new_vars.ml" 103 3802 3905
+type(
+  bool
+)
+"kind1/new_vars.ml" 101 3702 3706 "kind1/new_vars.ml" 103 3802 3905
+type(
+  bool
+)
+"kind1/new_vars.ml" 100 3661 3663 "kind1/new_vars.ml" 103 3802 3905
+type(
+  bool
+)
+"kind1/new_vars.ml" 99 3561 3563 "kind1/new_vars.ml" 103 3802 3905
+type(
+  bool
+)
+"kind1/new_vars.ml" 106 3962 3966 "kind1/new_vars.ml" 106 3962 3989
+type(
+  unit -> string
+)
+ident(
+  def make_interval_candidate "kind1/new_vars.ml" 141 6029 6029 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 106 3962 3990 "kind1/new_vars.ml" 106 3962 3992
+type(
+  unit
+)
+"kind1/new_vars.ml" 107 3995 4001 "kind1/new_vars.ml" 107 3995 4014
+type(
+  (string * int * int) list
+)
+ident(
+  def list_interval "kind1/new_vars.ml" 108 4042 4044 "kind1/new_vars.ml" 137 5941 5982
+)
+"kind1/new_vars.ml" 107 3995 4018 "kind1/new_vars.ml" 107 3995 4035
+type(
+  unit -> (string * int * int) list
+)
+ident(
+  int_ref get_interval_vars "kind1/new_vars.ml" 93 3265 3269 "kind1/new_vars.ml" 93 3265 3286
+)
+"kind1/new_vars.ml" 107 3995 4036 "kind1/new_vars.ml" 107 3995 4038
+type(
+  unit
+)
+"kind1/new_vars.ml" 107 3995 4018 "kind1/new_vars.ml" 107 3995 4038
+call(
+  stack
+)
+type(
+  (string * int * int) list
+)
+"kind1/new_vars.ml" 108 4042 4048 "kind1/new_vars.ml" 108 4042 4070
+type(
+  Buffer.t
+)
+ident(
+  def positive_candidate_buf "kind1/new_vars.ml" 109 4095 4097 "kind1/new_vars.ml" 137 5941 5982
+)
+"kind1/new_vars.ml" 108 4042 4073 "kind1/new_vars.ml" 108 4042 4086
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/new_vars.ml" 108 4042 4087 "kind1/new_vars.ml" 108 4042 4091
+type(
+  int
+)
+"kind1/new_vars.ml" 108 4042 4073 "kind1/new_vars.ml" 108 4042 4091
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/new_vars.ml" 109 4095 4101 "kind1/new_vars.ml" 109 4095 4123
+type(
+  Buffer.t
+)
+ident(
+  def negative_candidate_buf "kind1/new_vars.ml" 110 4147 4151 "kind1/new_vars.ml" 137 5941 5982
+)
+"kind1/new_vars.ml" 109 4095 4126 "kind1/new_vars.ml" 109 4095 4139
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/new_vars.ml" 109 4095 4140 "kind1/new_vars.ml" 109 4095 4143
+type(
+  int
+)
+"kind1/new_vars.ml" 109 4095 4126 "kind1/new_vars.ml" 109 4095 4143
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/new_vars.ml" 110 4147 4151 "kind1/new_vars.ml" 110 4147 4159
+type(
+  (string * int * int -> unit) -> (string * int * int) list -> unit list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/new_vars.ml" 110 4147 4166 "kind1/new_vars.ml" 110 4147 4167
+type(
+  string
+)
+ident(
+  def v "kind1/new_vars.ml" 110 4147 4178 "kind1/new_vars.ml" 121 4954 4983
+)
+"kind1/new_vars.ml" 110 4147 4168 "kind1/new_vars.ml" 110 4147 4170
+type(
+  int
+)
+ident(
+  def lb "kind1/new_vars.ml" 110 4147 4178 "kind1/new_vars.ml" 121 4954 4983
+)
+"kind1/new_vars.ml" 110 4147 4171 "kind1/new_vars.ml" 110 4147 4173
+type(
+  int
+)
+ident(
+  def ub "kind1/new_vars.ml" 110 4147 4178 "kind1/new_vars.ml" 121 4954 4983
+)
+"kind1/new_vars.ml" 110 4147 4165 "kind1/new_vars.ml" 110 4147 4174
+type(
+  string * int * int
+)
+"kind1/new_vars.ml" 111 4180 4182 "kind1/new_vars.ml" 111 4180 4191
+type(
+  (int -> unit) -> int list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/new_vars.ml" 111 4180 4197 "kind1/new_vars.ml" 111 4180 4198
+type(
+  int
+)
+ident(
+  def x "kind1/new_vars.ml" 112 4202 4210 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 112 4202 4214 "kind1/new_vars.ml" 112 4202 4224
+type(
+  int
+)
+ident(
+  def nvr_id_pos "kind1/new_vars.ml" 113 4247 4255 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 112 4202 4227 "kind1/new_vars.ml" 112 4202 4238
+type(
+  Counter.counter
+)
+ident(
+  int_ref nvr_counter "kind1/new_vars.ml" 54 2069 2073 "kind1/new_vars.ml" 54 2069 2084
+)
+"kind1/new_vars.ml" 112 4202 4227 "kind1/new_vars.ml" 112 4202 4243
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/new_vars.ml" 113 4247 4259 "kind1/new_vars.ml" 113 4247 4270
+type(
+  string
+)
+ident(
+  def nvr_str_pos "kind1/new_vars.ml" 114 4307 4315 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 113 4247 4273 "kind1/new_vars.ml" 113 4247 4292
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_str_interval "kind1/new_vars.ml" 63 2320 2324 "kind1/new_vars.ml" 63 2320 2343
+)
+"kind1/new_vars.ml" 113 4247 4293 "kind1/new_vars.ml" 113 4247 4303
+type(
+  int
+)
+ident(
+  int_ref nvr_id_pos "kind1/new_vars.ml" 112 4202 4214 "kind1/new_vars.ml" 112 4202 4224
+)
+"kind1/new_vars.ml" 113 4247 4273 "kind1/new_vars.ml" 113 4247 4303
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 114 4307 4319 "kind1/new_vars.ml" 114 4307 4334
+type(
+  string
+)
+ident(
+  def nvr_def_str_pos "kind1/new_vars.ml" 115 4376 4384 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 114 4307 4338 "kind1/new_vars.ml" 114 4307 4361
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_def_str_interval "kind1/new_vars.ml" 66 2434 2438 "kind1/new_vars.ml" 66 2434 2461
+)
+"kind1/new_vars.ml" 114 4307 4362 "kind1/new_vars.ml" 114 4307 4372
+type(
+  int
+)
+ident(
+  int_ref nvr_id_pos "kind1/new_vars.ml" 112 4202 4214 "kind1/new_vars.ml" 112 4202 4224
+)
+"kind1/new_vars.ml" 114 4307 4338 "kind1/new_vars.ml" 114 4307 4372
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4388 "kind1/new_vars.ml" 115 4376 4409
+type(
+  string
+)
+ident(
+  def nvr_def_decl_body_pos "kind1/new_vars.ml" 116 4454 4462 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 115 4376 4412 "kind1/new_vars.ml" 115 4376 4419
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4419 "kind1/new_vars.ml" 115 4376 4420
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 115 4376 4420 "kind1/new_vars.ml" 115 4376 4421
+type(
+  string
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 110 4147 4166 "kind1/new_vars.ml" 110 4147 4167
+)
+"kind1/new_vars.ml" 115 4376 4421 "kind1/new_vars.ml" 115 4376 4422
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 115 4376 4423 "kind1/new_vars.ml" 115 4376 4429
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4429 "kind1/new_vars.ml" 115 4376 4430
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 115 4376 4430 "kind1/new_vars.ml" 115 4376 4443
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 115 4376 4443 "kind1/new_vars.ml" 115 4376 4446
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 111 4180 4197 "kind1/new_vars.ml" 111 4180 4198
+)
+"kind1/new_vars.ml" 115 4376 4430 "kind1/new_vars.ml" 115 4376 4446
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4446 "kind1/new_vars.ml" 115 4376 4447
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 115 4376 4447 "kind1/new_vars.ml" 115 4376 4450
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4430 "kind1/new_vars.ml" 115 4376 4450
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4423 "kind1/new_vars.ml" 115 4376 4450
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4420 "kind1/new_vars.ml" 115 4376 4450
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 115 4376 4412 "kind1/new_vars.ml" 115 4376 4450
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 116 4454 4466 "kind1/new_vars.ml" 116 4454 4487
+type(
+  string
+)
+ident(
+  def interval_nvr_decl_pos "kind1/new_vars.ml" 117 4530 4538 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 116 4454 4490 "kind1/new_vars.ml" 116 4454 4500
+type(
+  string
+)
+"kind1/new_vars.ml" 116 4454 4500 "kind1/new_vars.ml" 116 4454 4501
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 116 4454 4501 "kind1/new_vars.ml" 116 4454 4512
+type(
+  string
+)
+ident(
+  int_ref nvr_str_pos "kind1/new_vars.ml" 113 4247 4259 "kind1/new_vars.ml" 113 4247 4270
+)
+"kind1/new_vars.ml" 116 4454 4512 "kind1/new_vars.ml" 116 4454 4513
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 116 4454 4513 "kind1/new_vars.ml" 116 4454 4526
+type(
+  string
+)
+"kind1/new_vars.ml" 116 4454 4501 "kind1/new_vars.ml" 116 4454 4526
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 116 4454 4490 "kind1/new_vars.ml" 116 4454 4526
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4542 "kind1/new_vars.ml" 117 4530 4562
+type(
+  string
+)
+ident(
+  def interval_nvr_def_pos "kind1/new_vars.ml" 118 4677 4687 "kind1/new_vars.ml" 120 4824 4952
+)
+"kind1/new_vars.ml" 117 4530 4565 "kind1/new_vars.ml" 117 4530 4575
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4575 "kind1/new_vars.ml" 117 4530 4576
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 117 4530 4576 "kind1/new_vars.ml" 117 4530 4591
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_pos "kind1/new_vars.ml" 114 4307 4319 "kind1/new_vars.ml" 114 4307 4334
+)
+"kind1/new_vars.ml" 117 4530 4591 "kind1/new_vars.ml" 117 4530 4592
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 117 4530 4592 "kind1/new_vars.ml" 117 4530 4637
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4637 "kind1/new_vars.ml" 117 4530 4638
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 117 4530 4638 "kind1/new_vars.ml" 117 4530 4639
+type(
+  string
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 110 4147 4166 "kind1/new_vars.ml" 110 4147 4167
+)
+"kind1/new_vars.ml" 117 4530 4639 "kind1/new_vars.ml" 117 4530 4640
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 117 4530 4641 "kind1/new_vars.ml" 117 4530 4648
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4648 "kind1/new_vars.ml" 117 4530 4649
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 117 4530 4649 "kind1/new_vars.ml" 117 4530 4662
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 117 4530 4662 "kind1/new_vars.ml" 117 4530 4665
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 111 4180 4197 "kind1/new_vars.ml" 111 4180 4198
+)
+"kind1/new_vars.ml" 117 4530 4649 "kind1/new_vars.ml" 117 4530 4665
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4665 "kind1/new_vars.ml" 117 4530 4666
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 117 4530 4666 "kind1/new_vars.ml" 117 4530 4673
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4649 "kind1/new_vars.ml" 117 4530 4673
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4641 "kind1/new_vars.ml" 117 4530 4673
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4638 "kind1/new_vars.ml" 117 4530 4673
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4592 "kind1/new_vars.ml" 117 4530 4673
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4576 "kind1/new_vars.ml" 117 4530 4673
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 117 4530 4565 "kind1/new_vars.ml" 117 4530 4673
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 118 4677 4687 "kind1/new_vars.ml" 118 4677 4704
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 118 4677 4705 "kind1/new_vars.ml" 118 4677 4727
+type(
+  Buffer.t
+)
+ident(
+  int_ref positive_candidate_buf "kind1/new_vars.ml" 108 4042 4048 "kind1/new_vars.ml" 108 4042 4070
+)
+"kind1/new_vars.ml" 118 4677 4728 "kind1/new_vars.ml" 118 4677 4749
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_decl_pos "kind1/new_vars.ml" 116 4454 4466 "kind1/new_vars.ml" 116 4454 4487
+)
+"kind1/new_vars.ml" 118 4677 4687 "kind1/new_vars.ml" 118 4677 4749
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 119 4751 4761 "kind1/new_vars.ml" 119 4751 4778
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 119 4751 4779 "kind1/new_vars.ml" 119 4751 4801
+type(
+  Buffer.t
+)
+ident(
+  int_ref positive_candidate_buf "kind1/new_vars.ml" 108 4042 4048 "kind1/new_vars.ml" 108 4042 4070
+)
+"kind1/new_vars.ml" 119 4751 4802 "kind1/new_vars.ml" 119 4751 4822
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_def_pos "kind1/new_vars.ml" 117 4530 4542 "kind1/new_vars.ml" 117 4530 4562
+)
+"kind1/new_vars.ml" 119 4751 4761 "kind1/new_vars.ml" 119 4751 4822
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 120 4824 4828 "kind1/new_vars.ml" 120 4824 4839
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string -> unit
+)
+ident(
+  ext_ref Hashtbl.add
+)
+"kind1/new_vars.ml" 120 4824 4840 "kind1/new_vars.ml" 120 4824 4856
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 120 4824 4857 "kind1/new_vars.ml" 120 4824 4868
+type(
+  string
+)
+ident(
+  int_ref nvr_str_pos "kind1/new_vars.ml" 113 4247 4259 "kind1/new_vars.ml" 113 4247 4270
+)
+"kind1/new_vars.ml" 120 4824 4874 "kind1/new_vars.ml" 120 4824 4876
+type(
+  Types.relation
+)
+"kind1/new_vars.ml" 120 4824 4883 "kind1/new_vars.ml" 120 4824 4886
+type(
+  string
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 110 4147 4166 "kind1/new_vars.ml" 110 4147 4167
+)
+"kind1/new_vars.ml" 120 4824 4877 "kind1/new_vars.ml" 120 4824 4886
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 120 4824 4890 "kind1/new_vars.ml" 120 4824 4893
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 111 4180 4197 "kind1/new_vars.ml" 111 4180 4198
+)
+"kind1/new_vars.ml" 120 4824 4887 "kind1/new_vars.ml" 120 4824 4893
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 120 4824 4870 "kind1/new_vars.ml" 120 4824 4894
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 120 4824 4895 "kind1/new_vars.ml" 120 4824 4905
+type(
+  int
+)
+ident(
+  int_ref nvr_id_pos "kind1/new_vars.ml" 112 4202 4214 "kind1/new_vars.ml" 112 4202 4224
+)
+"kind1/new_vars.ml" 120 4824 4906 "kind1/new_vars.ml" 120 4824 4912
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 120 4824 4913 "kind1/new_vars.ml" 120 4824 4928
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_pos "kind1/new_vars.ml" 114 4307 4319 "kind1/new_vars.ml" 114 4307 4334
+)
+"kind1/new_vars.ml" 120 4824 4929 "kind1/new_vars.ml" 120 4824 4950
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_body_pos "kind1/new_vars.ml" 115 4376 4388 "kind1/new_vars.ml" 115 4376 4409
+)
+"kind1/new_vars.ml" 120 4824 4869 "kind1/new_vars.ml" 120 4824 4951
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 120 4824 4828 "kind1/new_vars.ml" 120 4824 4952
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 119 4751 4761 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 118 4677 4687 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 117 4530 4538 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 116 4454 4462 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 115 4376 4384 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 114 4307 4315 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 113 4247 4255 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 112 4202 4210 "kind1/new_vars.ml" 120 4824 4952
+type(
+  unit
+)
+"kind1/new_vars.ml" 111 4180 4192 "kind1/new_vars.ml" 120 4824 4953
+type(
+  int -> unit
+)
+"kind1/new_vars.ml" 121 4954 4956 "kind1/new_vars.ml" 121 4954 4974
+type(
+  int -> int -> int list
+)
+ident(
+  ext_ref Util.interval_list
+)
+"kind1/new_vars.ml" 121 4954 4975 "kind1/new_vars.ml" 121 4954 4977
+type(
+  int
+)
+ident(
+  int_ref lb "kind1/new_vars.ml" 110 4147 4168 "kind1/new_vars.ml" 110 4147 4170
+)
+"kind1/new_vars.ml" 121 4954 4978 "kind1/new_vars.ml" 121 4954 4980
+type(
+  int
+)
+ident(
+  int_ref ub "kind1/new_vars.ml" 110 4147 4171 "kind1/new_vars.ml" 110 4147 4173
+)
+"kind1/new_vars.ml" 121 4954 4955 "kind1/new_vars.ml" 121 4954 4981
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/new_vars.ml" 110 4147 4178 "kind1/new_vars.ml" 121 4954 4983
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 110 4147 4160 "kind1/new_vars.ml" 121 4954 4984
+type(
+  string * int * int -> unit
+)
+"kind1/new_vars.ml" 121 4954 4985 "kind1/new_vars.ml" 121 4954 4998
+type(
+  (string * int * int) list
+)
+ident(
+  int_ref list_interval "kind1/new_vars.ml" 107 3995 4001 "kind1/new_vars.ml" 107 3995 4014
+)
+"kind1/new_vars.ml" 110 4147 4151 "kind1/new_vars.ml" 121 4954 4998
+call(
+  stack
+)
+type(
+  unit list
+)
+"kind1/new_vars.ml" 123 5001 5001 "kind1/new_vars.ml" 123 5001 5009
+type(
+  (string * int * int -> unit) -> (string * int * int) list -> unit list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/new_vars.ml" 123 5001 5016 "kind1/new_vars.ml" 123 5001 5017
+type(
+  string
+)
+ident(
+  def v "kind1/new_vars.ml" 123 5001 5028 "kind1/new_vars.ml" 134 5821 5856
+)
+"kind1/new_vars.ml" 123 5001 5018 "kind1/new_vars.ml" 123 5001 5020
+type(
+  int
+)
+ident(
+  def lb "kind1/new_vars.ml" 123 5001 5028 "kind1/new_vars.ml" 134 5821 5856
+)
+"kind1/new_vars.ml" 123 5001 5021 "kind1/new_vars.ml" 123 5001 5023
+type(
+  int
+)
+ident(
+  def ub "kind1/new_vars.ml" 123 5001 5028 "kind1/new_vars.ml" 134 5821 5856
+)
+"kind1/new_vars.ml" 123 5001 5015 "kind1/new_vars.ml" 123 5001 5024
+type(
+  string * int * int
+)
+"kind1/new_vars.ml" 124 5030 5035 "kind1/new_vars.ml" 124 5030 5044
+type(
+  (int -> unit) -> int list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/new_vars.ml" 124 5030 5050 "kind1/new_vars.ml" 124 5030 5051
+type(
+  int
+)
+ident(
+  def x "kind1/new_vars.ml" 125 5055 5063 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 125 5055 5067 "kind1/new_vars.ml" 125 5055 5077
+type(
+  int
+)
+ident(
+  def nvr_id_neg "kind1/new_vars.ml" 126 5100 5108 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 125 5055 5080 "kind1/new_vars.ml" 125 5055 5091
+type(
+  Counter.counter
+)
+ident(
+  int_ref nvr_counter "kind1/new_vars.ml" 54 2069 2073 "kind1/new_vars.ml" 54 2069 2084
+)
+"kind1/new_vars.ml" 125 5055 5080 "kind1/new_vars.ml" 125 5055 5096
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/new_vars.ml" 126 5100 5112 "kind1/new_vars.ml" 126 5100 5123
+type(
+  string
+)
+ident(
+  def nvr_str_neg "kind1/new_vars.ml" 127 5160 5168 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 126 5100 5126 "kind1/new_vars.ml" 126 5100 5145
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_str_interval "kind1/new_vars.ml" 63 2320 2324 "kind1/new_vars.ml" 63 2320 2343
+)
+"kind1/new_vars.ml" 126 5100 5146 "kind1/new_vars.ml" 126 5100 5156
+type(
+  int
+)
+ident(
+  int_ref nvr_id_neg "kind1/new_vars.ml" 125 5055 5067 "kind1/new_vars.ml" 125 5055 5077
+)
+"kind1/new_vars.ml" 126 5100 5126 "kind1/new_vars.ml" 126 5100 5156
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 127 5160 5172 "kind1/new_vars.ml" 127 5160 5187
+type(
+  string
+)
+ident(
+  def nvr_def_str_neg "kind1/new_vars.ml" 128 5229 5237 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 127 5160 5191 "kind1/new_vars.ml" 127 5160 5214
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_def_str_interval "kind1/new_vars.ml" 66 2434 2438 "kind1/new_vars.ml" 66 2434 2461
+)
+"kind1/new_vars.ml" 127 5160 5215 "kind1/new_vars.ml" 127 5160 5225
+type(
+  int
+)
+ident(
+  int_ref nvr_id_neg "kind1/new_vars.ml" 125 5055 5067 "kind1/new_vars.ml" 125 5055 5077
+)
+"kind1/new_vars.ml" 127 5160 5191 "kind1/new_vars.ml" 127 5160 5225
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5241 "kind1/new_vars.ml" 128 5229 5262
+type(
+  string
+)
+ident(
+  def nvr_def_decl_body_neg "kind1/new_vars.ml" 129 5308 5316 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 128 5229 5265 "kind1/new_vars.ml" 128 5229 5273
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5273 "kind1/new_vars.ml" 128 5229 5274
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 128 5229 5274 "kind1/new_vars.ml" 128 5229 5275
+type(
+  string
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 123 5001 5016 "kind1/new_vars.ml" 123 5001 5017
+)
+"kind1/new_vars.ml" 128 5229 5275 "kind1/new_vars.ml" 128 5229 5276
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 128 5229 5277 "kind1/new_vars.ml" 128 5229 5283
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5283 "kind1/new_vars.ml" 128 5229 5284
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 128 5229 5284 "kind1/new_vars.ml" 128 5229 5297
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 128 5229 5297 "kind1/new_vars.ml" 128 5229 5300
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 124 5030 5050 "kind1/new_vars.ml" 124 5030 5051
+)
+"kind1/new_vars.ml" 128 5229 5284 "kind1/new_vars.ml" 128 5229 5300
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5300 "kind1/new_vars.ml" 128 5229 5301
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 128 5229 5301 "kind1/new_vars.ml" 128 5229 5304
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5284 "kind1/new_vars.ml" 128 5229 5304
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5277 "kind1/new_vars.ml" 128 5229 5304
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5274 "kind1/new_vars.ml" 128 5229 5304
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 128 5229 5265 "kind1/new_vars.ml" 128 5229 5304
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 129 5308 5320 "kind1/new_vars.ml" 129 5308 5341
+type(
+  string
+)
+ident(
+  def interval_nvr_decl_neg "kind1/new_vars.ml" 130 5384 5392 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 129 5308 5344 "kind1/new_vars.ml" 129 5308 5354
+type(
+  string
+)
+"kind1/new_vars.ml" 129 5308 5354 "kind1/new_vars.ml" 129 5308 5355
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 129 5308 5355 "kind1/new_vars.ml" 129 5308 5366
+type(
+  string
+)
+ident(
+  int_ref nvr_str_neg "kind1/new_vars.ml" 126 5100 5112 "kind1/new_vars.ml" 126 5100 5123
+)
+"kind1/new_vars.ml" 129 5308 5366 "kind1/new_vars.ml" 129 5308 5367
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 129 5308 5367 "kind1/new_vars.ml" 129 5308 5380
+type(
+  string
+)
+"kind1/new_vars.ml" 129 5308 5355 "kind1/new_vars.ml" 129 5308 5380
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 129 5308 5344 "kind1/new_vars.ml" 129 5308 5380
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5396 "kind1/new_vars.ml" 130 5384 5416
+type(
+  string
+)
+ident(
+  def interval_nvr_def_neg "kind1/new_vars.ml" 131 5532 5542 "kind1/new_vars.ml" 133 5679 5818
+)
+"kind1/new_vars.ml" 130 5384 5419 "kind1/new_vars.ml" 130 5384 5429
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5429 "kind1/new_vars.ml" 130 5384 5430
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 130 5384 5430 "kind1/new_vars.ml" 130 5384 5445
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_neg "kind1/new_vars.ml" 127 5160 5172 "kind1/new_vars.ml" 127 5160 5187
+)
+"kind1/new_vars.ml" 130 5384 5445 "kind1/new_vars.ml" 130 5384 5446
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 130 5384 5446 "kind1/new_vars.ml" 130 5384 5492
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5492 "kind1/new_vars.ml" 130 5384 5493
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 130 5384 5493 "kind1/new_vars.ml" 130 5384 5494
+type(
+  string
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 123 5001 5016 "kind1/new_vars.ml" 123 5001 5017
+)
+"kind1/new_vars.ml" 130 5384 5494 "kind1/new_vars.ml" 130 5384 5495
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 130 5384 5496 "kind1/new_vars.ml" 130 5384 5503
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5503 "kind1/new_vars.ml" 130 5384 5504
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 130 5384 5504 "kind1/new_vars.ml" 130 5384 5517
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 130 5384 5517 "kind1/new_vars.ml" 130 5384 5520
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 124 5030 5050 "kind1/new_vars.ml" 124 5030 5051
+)
+"kind1/new_vars.ml" 130 5384 5504 "kind1/new_vars.ml" 130 5384 5520
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5520 "kind1/new_vars.ml" 130 5384 5521
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 130 5384 5521 "kind1/new_vars.ml" 130 5384 5528
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5504 "kind1/new_vars.ml" 130 5384 5528
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5496 "kind1/new_vars.ml" 130 5384 5528
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5493 "kind1/new_vars.ml" 130 5384 5528
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5446 "kind1/new_vars.ml" 130 5384 5528
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5430 "kind1/new_vars.ml" 130 5384 5528
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 130 5384 5419 "kind1/new_vars.ml" 130 5384 5528
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 131 5532 5542 "kind1/new_vars.ml" 131 5532 5559
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 131 5532 5560 "kind1/new_vars.ml" 131 5532 5582
+type(
+  Buffer.t
+)
+ident(
+  int_ref negative_candidate_buf "kind1/new_vars.ml" 109 4095 4101 "kind1/new_vars.ml" 109 4095 4123
+)
+"kind1/new_vars.ml" 131 5532 5583 "kind1/new_vars.ml" 131 5532 5604
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_decl_neg "kind1/new_vars.ml" 129 5308 5320 "kind1/new_vars.ml" 129 5308 5341
+)
+"kind1/new_vars.ml" 131 5532 5542 "kind1/new_vars.ml" 131 5532 5604
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 132 5606 5616 "kind1/new_vars.ml" 132 5606 5633
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 132 5606 5634 "kind1/new_vars.ml" 132 5606 5656
+type(
+  Buffer.t
+)
+ident(
+  int_ref negative_candidate_buf "kind1/new_vars.ml" 109 4095 4101 "kind1/new_vars.ml" 109 4095 4123
+)
+"kind1/new_vars.ml" 132 5606 5657 "kind1/new_vars.ml" 132 5606 5677
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_def_neg "kind1/new_vars.ml" 130 5384 5396 "kind1/new_vars.ml" 130 5384 5416
+)
+"kind1/new_vars.ml" 132 5606 5616 "kind1/new_vars.ml" 132 5606 5677
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 133 5679 5689 "kind1/new_vars.ml" 133 5679 5704
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string -> unit
+)
+ident(
+  ext_ref Hashtbl.replace
+)
+"kind1/new_vars.ml" 133 5679 5705 "kind1/new_vars.ml" 133 5679 5721
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 133 5679 5722 "kind1/new_vars.ml" 133 5679 5733
+type(
+  string
+)
+ident(
+  int_ref nvr_str_neg "kind1/new_vars.ml" 126 5100 5112 "kind1/new_vars.ml" 126 5100 5123
+)
+"kind1/new_vars.ml" 133 5679 5739 "kind1/new_vars.ml" 133 5679 5742
+type(
+  Types.relation
+)
+"kind1/new_vars.ml" 133 5679 5749 "kind1/new_vars.ml" 133 5679 5752
+type(
+  string
+)
+ident(
+  int_ref v "kind1/new_vars.ml" 123 5001 5016 "kind1/new_vars.ml" 123 5001 5017
+)
+"kind1/new_vars.ml" 133 5679 5743 "kind1/new_vars.ml" 133 5679 5752
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 133 5679 5756 "kind1/new_vars.ml" 133 5679 5759
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 124 5030 5050 "kind1/new_vars.ml" 124 5030 5051
+)
+"kind1/new_vars.ml" 133 5679 5753 "kind1/new_vars.ml" 133 5679 5759
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 133 5679 5735 "kind1/new_vars.ml" 133 5679 5760
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 133 5679 5761 "kind1/new_vars.ml" 133 5679 5771
+type(
+  int
+)
+ident(
+  int_ref nvr_id_neg "kind1/new_vars.ml" 125 5055 5067 "kind1/new_vars.ml" 125 5055 5077
+)
+"kind1/new_vars.ml" 133 5679 5772 "kind1/new_vars.ml" 133 5679 5778
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 133 5679 5779 "kind1/new_vars.ml" 133 5679 5794
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_neg "kind1/new_vars.ml" 127 5160 5172 "kind1/new_vars.ml" 127 5160 5187
+)
+"kind1/new_vars.ml" 133 5679 5795 "kind1/new_vars.ml" 133 5679 5816
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_body_neg "kind1/new_vars.ml" 128 5229 5241 "kind1/new_vars.ml" 128 5229 5262
+)
+"kind1/new_vars.ml" 133 5679 5734 "kind1/new_vars.ml" 133 5679 5817
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 133 5679 5689 "kind1/new_vars.ml" 133 5679 5818
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 132 5606 5616 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 131 5532 5542 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 130 5384 5392 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 129 5308 5316 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 128 5229 5237 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 127 5160 5168 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 126 5100 5108 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 125 5055 5063 "kind1/new_vars.ml" 133 5679 5818
+type(
+  unit
+)
+"kind1/new_vars.ml" 124 5030 5045 "kind1/new_vars.ml" 133 5679 5819
+type(
+  int -> unit
+)
+"kind1/new_vars.ml" 134 5821 5829 "kind1/new_vars.ml" 134 5821 5847
+type(
+  int -> int -> int list
+)
+ident(
+  ext_ref Util.interval_list
+)
+"kind1/new_vars.ml" 134 5821 5848 "kind1/new_vars.ml" 134 5821 5850
+type(
+  int
+)
+ident(
+  int_ref lb "kind1/new_vars.ml" 123 5001 5018 "kind1/new_vars.ml" 123 5001 5020
+)
+"kind1/new_vars.ml" 134 5821 5851 "kind1/new_vars.ml" 134 5821 5853
+type(
+  int
+)
+ident(
+  int_ref ub "kind1/new_vars.ml" 123 5001 5021 "kind1/new_vars.ml" 123 5001 5023
+)
+"kind1/new_vars.ml" 134 5821 5828 "kind1/new_vars.ml" 134 5821 5854
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/new_vars.ml" 123 5001 5028 "kind1/new_vars.ml" 134 5821 5856
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 123 5001 5010 "kind1/new_vars.ml" 134 5821 5857
+type(
+  string * int * int -> unit
+)
+"kind1/new_vars.ml" 134 5821 5857 "kind1/new_vars.ml" 134 5821 5870
+type(
+  (string * int * int) list
+)
+ident(
+  int_ref list_interval "kind1/new_vars.ml" 107 3995 4001 "kind1/new_vars.ml" 107 3995 4014
+)
+"kind1/new_vars.ml" 123 5001 5001 "kind1/new_vars.ml" 134 5821 5870
+call(
+  stack
+)
+type(
+  unit list
+)
+"kind1/new_vars.ml" 136 5873 5876 "kind1/new_vars.ml" 136 5873 5893
+type(
+  Buffer.t -> Buffer.t -> unit
+)
+ident(
+  ext_ref Buffer.add_buffer
+)
+"kind1/new_vars.ml" 136 5873 5894 "kind1/new_vars.ml" 136 5873 5916
+type(
+  Buffer.t
+)
+ident(
+  int_ref positive_candidate_buf "kind1/new_vars.ml" 108 4042 4048 "kind1/new_vars.ml" 108 4042 4070
+)
+"kind1/new_vars.ml" 136 5873 5917 "kind1/new_vars.ml" 136 5873 5939
+type(
+  Buffer.t
+)
+ident(
+  int_ref negative_candidate_buf "kind1/new_vars.ml" 109 4095 4101 "kind1/new_vars.ml" 109 4095 4123
+)
+"kind1/new_vars.ml" 136 5873 5876 "kind1/new_vars.ml" 136 5873 5939
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 137 5941 5944 "kind1/new_vars.ml" 137 5941 5959
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/new_vars.ml" 137 5941 5960 "kind1/new_vars.ml" 137 5941 5982
+type(
+  Buffer.t
+)
+ident(
+  int_ref positive_candidate_buf "kind1/new_vars.ml" 108 4042 4048 "kind1/new_vars.ml" 108 4042 4070
+)
+"kind1/new_vars.ml" 137 5941 5944 "kind1/new_vars.ml" 137 5941 5982
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 136 5873 5876 "kind1/new_vars.ml" 137 5941 5982
+type(
+  string
+)
+"kind1/new_vars.ml" 123 5001 5001 "kind1/new_vars.ml" 137 5941 5982
+type(
+  string
+)
+"kind1/new_vars.ml" 110 4147 4151 "kind1/new_vars.ml" 137 5941 5982
+type(
+  string
+)
+"kind1/new_vars.ml" 109 4095 4097 "kind1/new_vars.ml" 137 5941 5982
+type(
+  string
+)
+"kind1/new_vars.ml" 108 4042 4044 "kind1/new_vars.ml" 137 5941 5982
+type(
+  string
+)
+"kind1/new_vars.ml" 107 3995 3997 "kind1/new_vars.ml" 137 5941 5982
+type(
+  string
+)
+"kind1/new_vars.ml" 141 6029 6033 "kind1/new_vars.ml" 141 6029 6054
+type(
+  string -> int -> int -> string * string
+)
+ident(
+  def mk_one_mode_candidate "kind1/new_vars.ml" 168 7640 7640 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+type(
+  string
+)
+ident(
+  def mode_var "kind1/new_vars.ml" 141 6029 6064 "kind1/new_vars.ml" 164 7614 7636
+)
+"kind1/new_vars.ml" 141 6029 6064 "kind1/new_vars.ml" 141 6029 6066
+type(
+  int
+)
+ident(
+  def lb "kind1/new_vars.ml" 141 6029 6067 "kind1/new_vars.ml" 164 7614 7636
+)
+"kind1/new_vars.ml" 141 6029 6067 "kind1/new_vars.ml" 141 6029 6069
+type(
+  int
+)
+ident(
+  def ub "kind1/new_vars.ml" 142 6072 6074 "kind1/new_vars.ml" 164 7614 7636
+)
+"kind1/new_vars.ml" 142 6072 6078 "kind1/new_vars.ml" 142 6072 6085
+type(
+  string
+)
+ident(
+  def pos_can "kind1/new_vars.ml" 153 6819 6821 "kind1/new_vars.ml" 164 7614 7636
+)
+"kind1/new_vars.ml" 143 6089 6093 "kind1/new_vars.ml" 143 6089 6108
+type(
+  (int -> string -> string) -> int list -> string -> string
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/new_vars.ml" 143 6089 6114 "kind1/new_vars.ml" 143 6089 6115
+type(
+  int
+)
+ident(
+  def x "kind1/new_vars.ml" 143 6089 6116 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 143 6089 6116 "kind1/new_vars.ml" 143 6089 6117
+type(
+  string
+)
+ident(
+  def y "kind1/new_vars.ml" 144 6121 6124 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 144 6121 6128 "kind1/new_vars.ml" 144 6121 6138
+type(
+  int
+)
+ident(
+  def nvr_id_pos "kind1/new_vars.ml" 145 6161 6164 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 144 6121 6141 "kind1/new_vars.ml" 144 6121 6152
+type(
+  Counter.counter
+)
+ident(
+  int_ref nvr_counter "kind1/new_vars.ml" 54 2069 2073 "kind1/new_vars.ml" 54 2069 2084
+)
+"kind1/new_vars.ml" 144 6121 6141 "kind1/new_vars.ml" 144 6121 6157
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/new_vars.ml" 145 6161 6168 "kind1/new_vars.ml" 145 6161 6179
+type(
+  string
+)
+ident(
+  def nvr_str_pos "kind1/new_vars.ml" 146 6216 6219 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 145 6161 6182 "kind1/new_vars.ml" 145 6161 6201
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_str_interval "kind1/new_vars.ml" 63 2320 2324 "kind1/new_vars.ml" 63 2320 2343
+)
+"kind1/new_vars.ml" 145 6161 6202 "kind1/new_vars.ml" 145 6161 6212
+type(
+  int
+)
+ident(
+  int_ref nvr_id_pos "kind1/new_vars.ml" 144 6121 6128 "kind1/new_vars.ml" 144 6121 6138
+)
+"kind1/new_vars.ml" 145 6161 6182 "kind1/new_vars.ml" 145 6161 6212
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 146 6216 6223 "kind1/new_vars.ml" 146 6216 6238
+type(
+  string
+)
+ident(
+  def nvr_def_str_pos "kind1/new_vars.ml" 147 6280 6283 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 146 6216 6242 "kind1/new_vars.ml" 146 6216 6265
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_def_str_interval "kind1/new_vars.ml" 66 2434 2438 "kind1/new_vars.ml" 66 2434 2461
+)
+"kind1/new_vars.ml" 146 6216 6266 "kind1/new_vars.ml" 146 6216 6276
+type(
+  int
+)
+ident(
+  int_ref nvr_id_pos "kind1/new_vars.ml" 144 6121 6128 "kind1/new_vars.ml" 144 6121 6138
+)
+"kind1/new_vars.ml" 146 6216 6242 "kind1/new_vars.ml" 146 6216 6276
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6287 "kind1/new_vars.ml" 147 6280 6308
+type(
+  string
+)
+ident(
+  def nvr_def_decl_body_pos "kind1/new_vars.ml" 148 6360 6363 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 147 6280 6311 "kind1/new_vars.ml" 147 6280 6318
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6318 "kind1/new_vars.ml" 147 6280 6319
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 147 6280 6319 "kind1/new_vars.ml" 147 6280 6327
+type(
+  string
+)
+ident(
+  int_ref mode_var "kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+)
+"kind1/new_vars.ml" 147 6280 6327 "kind1/new_vars.ml" 147 6280 6328
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 147 6280 6329 "kind1/new_vars.ml" 147 6280 6335
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6335 "kind1/new_vars.ml" 147 6280 6336
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 147 6280 6336 "kind1/new_vars.ml" 147 6280 6349
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 147 6280 6349 "kind1/new_vars.ml" 147 6280 6352
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 143 6089 6114 "kind1/new_vars.ml" 143 6089 6115
+)
+"kind1/new_vars.ml" 147 6280 6336 "kind1/new_vars.ml" 147 6280 6352
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6352 "kind1/new_vars.ml" 147 6280 6353
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 147 6280 6353 "kind1/new_vars.ml" 147 6280 6356
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6336 "kind1/new_vars.ml" 147 6280 6356
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6329 "kind1/new_vars.ml" 147 6280 6356
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6319 "kind1/new_vars.ml" 147 6280 6356
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6311 "kind1/new_vars.ml" 147 6280 6356
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 148 6360 6367 "kind1/new_vars.ml" 148 6360 6388
+type(
+  string
+)
+ident(
+  def interval_nvr_decl_pos "kind1/new_vars.ml" 149 6431 6434 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 148 6360 6391 "kind1/new_vars.ml" 148 6360 6401
+type(
+  string
+)
+"kind1/new_vars.ml" 148 6360 6401 "kind1/new_vars.ml" 148 6360 6402
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 148 6360 6402 "kind1/new_vars.ml" 148 6360 6413
+type(
+  string
+)
+ident(
+  int_ref nvr_str_pos "kind1/new_vars.ml" 145 6161 6168 "kind1/new_vars.ml" 145 6161 6179
+)
+"kind1/new_vars.ml" 148 6360 6413 "kind1/new_vars.ml" 148 6360 6414
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 148 6360 6414 "kind1/new_vars.ml" 148 6360 6427
+type(
+  string
+)
+"kind1/new_vars.ml" 148 6360 6402 "kind1/new_vars.ml" 148 6360 6427
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 148 6360 6391 "kind1/new_vars.ml" 148 6360 6427
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6438 "kind1/new_vars.ml" 149 6431 6458
+type(
+  string
+)
+ident(
+  def interval_nvr_def_pos "kind1/new_vars.ml" 150 6580 6583 "kind1/new_vars.ml" 151 6725 6778
+)
+"kind1/new_vars.ml" 149 6431 6461 "kind1/new_vars.ml" 149 6431 6471
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6471 "kind1/new_vars.ml" 149 6431 6472
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 149 6431 6472 "kind1/new_vars.ml" 149 6431 6487
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_pos "kind1/new_vars.ml" 146 6216 6223 "kind1/new_vars.ml" 146 6216 6238
+)
+"kind1/new_vars.ml" 149 6431 6487 "kind1/new_vars.ml" 149 6431 6488
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 149 6431 6488 "kind1/new_vars.ml" 149 6431 6533
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6533 "kind1/new_vars.ml" 149 6431 6534
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 149 6431 6534 "kind1/new_vars.ml" 149 6431 6542
+type(
+  string
+)
+ident(
+  int_ref mode_var "kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+)
+"kind1/new_vars.ml" 149 6431 6542 "kind1/new_vars.ml" 149 6431 6543
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 149 6431 6544 "kind1/new_vars.ml" 149 6431 6551
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6551 "kind1/new_vars.ml" 149 6431 6552
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 149 6431 6552 "kind1/new_vars.ml" 149 6431 6565
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 149 6431 6565 "kind1/new_vars.ml" 149 6431 6568
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 143 6089 6114 "kind1/new_vars.ml" 143 6089 6115
+)
+"kind1/new_vars.ml" 149 6431 6552 "kind1/new_vars.ml" 149 6431 6568
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6568 "kind1/new_vars.ml" 149 6431 6569
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 149 6431 6569 "kind1/new_vars.ml" 149 6431 6576
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6552 "kind1/new_vars.ml" 149 6431 6576
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6544 "kind1/new_vars.ml" 149 6431 6576
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6534 "kind1/new_vars.ml" 149 6431 6576
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6488 "kind1/new_vars.ml" 149 6431 6576
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6472 "kind1/new_vars.ml" 149 6431 6576
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6461 "kind1/new_vars.ml" 149 6431 6576
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 150 6580 6587 "kind1/new_vars.ml" 150 6580 6588
+type(
+  unit
+)
+"kind1/new_vars.ml" 150 6580 6591 "kind1/new_vars.ml" 150 6580 6602
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string -> unit
+)
+ident(
+  ext_ref Hashtbl.add
+)
+"kind1/new_vars.ml" 150 6580 6603 "kind1/new_vars.ml" 150 6580 6619
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 150 6580 6620 "kind1/new_vars.ml" 150 6580 6631
+type(
+  string
+)
+ident(
+  int_ref nvr_str_pos "kind1/new_vars.ml" 145 6161 6168 "kind1/new_vars.ml" 145 6161 6179
+)
+"kind1/new_vars.ml" 150 6580 6637 "kind1/new_vars.ml" 150 6580 6639
+type(
+  Types.relation
+)
+"kind1/new_vars.ml" 150 6580 6646 "kind1/new_vars.ml" 150 6580 6656
+type(
+  string
+)
+ident(
+  int_ref mode_var "kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+)
+"kind1/new_vars.ml" 150 6580 6640 "kind1/new_vars.ml" 150 6580 6656
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 150 6580 6660 "kind1/new_vars.ml" 150 6580 6663
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 143 6089 6114 "kind1/new_vars.ml" 143 6089 6115
+)
+"kind1/new_vars.ml" 150 6580 6657 "kind1/new_vars.ml" 150 6580 6663
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 150 6580 6633 "kind1/new_vars.ml" 150 6580 6664
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 150 6580 6665 "kind1/new_vars.ml" 150 6580 6675
+type(
+  int
+)
+ident(
+  int_ref nvr_id_pos "kind1/new_vars.ml" 144 6121 6128 "kind1/new_vars.ml" 144 6121 6138
+)
+"kind1/new_vars.ml" 150 6580 6676 "kind1/new_vars.ml" 150 6580 6682
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 150 6580 6683 "kind1/new_vars.ml" 150 6580 6698
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_pos "kind1/new_vars.ml" 146 6216 6223 "kind1/new_vars.ml" 146 6216 6238
+)
+"kind1/new_vars.ml" 150 6580 6699 "kind1/new_vars.ml" 150 6580 6720
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_body_pos "kind1/new_vars.ml" 147 6280 6287 "kind1/new_vars.ml" 147 6280 6308
+)
+"kind1/new_vars.ml" 150 6580 6632 "kind1/new_vars.ml" 150 6580 6721
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 150 6580 6591 "kind1/new_vars.ml" 150 6580 6721
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 151 6725 6730 "kind1/new_vars.ml" 151 6725 6751
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_decl_pos "kind1/new_vars.ml" 148 6360 6367 "kind1/new_vars.ml" 148 6360 6388
+)
+"kind1/new_vars.ml" 151 6725 6752 "kind1/new_vars.ml" 151 6725 6753
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 151 6725 6754 "kind1/new_vars.ml" 151 6725 6774
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_def_pos "kind1/new_vars.ml" 149 6431 6438 "kind1/new_vars.ml" 149 6431 6458
+)
+"kind1/new_vars.ml" 151 6725 6775 "kind1/new_vars.ml" 151 6725 6776
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 151 6725 6777 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 143 6089 6116 "kind1/new_vars.ml" 143 6089 6117
+)
+"kind1/new_vars.ml" 151 6725 6754 "kind1/new_vars.ml" 151 6725 6778
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 151 6725 6730 "kind1/new_vars.ml" 151 6725 6778
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 150 6580 6583 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 149 6431 6434 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 148 6360 6363 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 147 6280 6283 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 146 6216 6219 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 145 6161 6164 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 144 6121 6124 "kind1/new_vars.ml" 151 6725 6778
+type(
+  string
+)
+"kind1/new_vars.ml" 143 6089 6109 "kind1/new_vars.ml" 152 6779 6786
+type(
+  int -> string -> string
+)
+"kind1/new_vars.ml" 152 6779 6787 "kind1/new_vars.ml" 152 6779 6805
+type(
+  int -> int -> int list
+)
+ident(
+  ext_ref Util.interval_list
+)
+"kind1/new_vars.ml" 152 6779 6806 "kind1/new_vars.ml" 152 6779 6808
+type(
+  int
+)
+ident(
+  int_ref lb "kind1/new_vars.ml" 141 6029 6064 "kind1/new_vars.ml" 141 6029 6066
+)
+"kind1/new_vars.ml" 152 6779 6809 "kind1/new_vars.ml" 152 6779 6811
+type(
+  int
+)
+ident(
+  int_ref ub "kind1/new_vars.ml" 141 6029 6067 "kind1/new_vars.ml" 141 6029 6069
+)
+"kind1/new_vars.ml" 152 6779 6786 "kind1/new_vars.ml" 152 6779 6812
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/new_vars.ml" 152 6779 6813 "kind1/new_vars.ml" 152 6779 6815
+type(
+  string
+)
+"kind1/new_vars.ml" 143 6089 6093 "kind1/new_vars.ml" 152 6779 6815
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 153 6819 6825 "kind1/new_vars.ml" 153 6819 6832
+type(
+  string
+)
+ident(
+  def neg_can "kind1/new_vars.ml" 164 7614 7620 "kind1/new_vars.ml" 164 7614 7636
+)
+"kind1/new_vars.ml" 154 6836 6840 "kind1/new_vars.ml" 154 6836 6855
+type(
+  (int -> string -> string) -> int list -> string -> string
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/new_vars.ml" 154 6836 6861 "kind1/new_vars.ml" 154 6836 6862
+type(
+  int
+)
+ident(
+  def x "kind1/new_vars.ml" 154 6836 6863 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 154 6836 6863 "kind1/new_vars.ml" 154 6836 6864
+type(
+  string
+)
+ident(
+  def y "kind1/new_vars.ml" 155 6868 6877 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 155 6868 6881 "kind1/new_vars.ml" 155 6868 6891
+type(
+  int
+)
+ident(
+  def nvr_id_neg "kind1/new_vars.ml" 156 6914 6923 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 155 6868 6894 "kind1/new_vars.ml" 155 6868 6905
+type(
+  Counter.counter
+)
+ident(
+  int_ref nvr_counter "kind1/new_vars.ml" 54 2069 2073 "kind1/new_vars.ml" 54 2069 2084
+)
+"kind1/new_vars.ml" 155 6868 6894 "kind1/new_vars.ml" 155 6868 6910
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/new_vars.ml" 156 6914 6927 "kind1/new_vars.ml" 156 6914 6938
+type(
+  string
+)
+ident(
+  def nvr_str_neg "kind1/new_vars.ml" 157 6975 6984 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 156 6914 6941 "kind1/new_vars.ml" 156 6914 6960
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_str_interval "kind1/new_vars.ml" 63 2320 2324 "kind1/new_vars.ml" 63 2320 2343
+)
+"kind1/new_vars.ml" 156 6914 6961 "kind1/new_vars.ml" 156 6914 6971
+type(
+  int
+)
+ident(
+  int_ref nvr_id_neg "kind1/new_vars.ml" 155 6868 6881 "kind1/new_vars.ml" 155 6868 6891
+)
+"kind1/new_vars.ml" 156 6914 6941 "kind1/new_vars.ml" 156 6914 6971
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 157 6975 6988 "kind1/new_vars.ml" 157 6975 7003
+type(
+  string
+)
+ident(
+  def nvr_def_str_neg "kind1/new_vars.ml" 158 7045 7054 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 157 6975 7007 "kind1/new_vars.ml" 157 6975 7030
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_def_str_interval "kind1/new_vars.ml" 66 2434 2438 "kind1/new_vars.ml" 66 2434 2461
+)
+"kind1/new_vars.ml" 157 6975 7031 "kind1/new_vars.ml" 157 6975 7041
+type(
+  int
+)
+ident(
+  int_ref nvr_id_neg "kind1/new_vars.ml" 155 6868 6881 "kind1/new_vars.ml" 155 6868 6891
+)
+"kind1/new_vars.ml" 157 6975 7007 "kind1/new_vars.ml" 157 6975 7041
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7058 "kind1/new_vars.ml" 158 7045 7079
+type(
+  string
+)
+ident(
+  def nvr_def_decl_body_neg "kind1/new_vars.ml" 159 7132 7141 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 158 7045 7082 "kind1/new_vars.ml" 158 7045 7090
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7090 "kind1/new_vars.ml" 158 7045 7091
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 158 7045 7091 "kind1/new_vars.ml" 158 7045 7099
+type(
+  string
+)
+ident(
+  int_ref mode_var "kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+)
+"kind1/new_vars.ml" 158 7045 7099 "kind1/new_vars.ml" 158 7045 7100
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 158 7045 7101 "kind1/new_vars.ml" 158 7045 7107
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7107 "kind1/new_vars.ml" 158 7045 7108
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 158 7045 7108 "kind1/new_vars.ml" 158 7045 7121
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 158 7045 7121 "kind1/new_vars.ml" 158 7045 7124
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 154 6836 6861 "kind1/new_vars.ml" 154 6836 6862
+)
+"kind1/new_vars.ml" 158 7045 7108 "kind1/new_vars.ml" 158 7045 7124
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7124 "kind1/new_vars.ml" 158 7045 7125
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 158 7045 7125 "kind1/new_vars.ml" 158 7045 7128
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7108 "kind1/new_vars.ml" 158 7045 7128
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7101 "kind1/new_vars.ml" 158 7045 7128
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7091 "kind1/new_vars.ml" 158 7045 7128
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7082 "kind1/new_vars.ml" 158 7045 7128
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 159 7132 7145 "kind1/new_vars.ml" 159 7132 7166
+type(
+  string
+)
+ident(
+  def interval_nvr_decl_neg "kind1/new_vars.ml" 160 7209 7218 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 159 7132 7169 "kind1/new_vars.ml" 159 7132 7179
+type(
+  string
+)
+"kind1/new_vars.ml" 159 7132 7179 "kind1/new_vars.ml" 159 7132 7180
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 159 7132 7180 "kind1/new_vars.ml" 159 7132 7191
+type(
+  string
+)
+ident(
+  int_ref nvr_str_neg "kind1/new_vars.ml" 156 6914 6927 "kind1/new_vars.ml" 156 6914 6938
+)
+"kind1/new_vars.ml" 159 7132 7191 "kind1/new_vars.ml" 159 7132 7192
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 159 7132 7192 "kind1/new_vars.ml" 159 7132 7205
+type(
+  string
+)
+"kind1/new_vars.ml" 159 7132 7180 "kind1/new_vars.ml" 159 7132 7205
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 159 7132 7169 "kind1/new_vars.ml" 159 7132 7205
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7222 "kind1/new_vars.ml" 160 7209 7242
+type(
+  string
+)
+ident(
+  def interval_nvr_def_neg "kind1/new_vars.ml" 161 7365 7374 "kind1/new_vars.ml" 162 7521 7573
+)
+"kind1/new_vars.ml" 160 7209 7245 "kind1/new_vars.ml" 160 7209 7255
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7255 "kind1/new_vars.ml" 160 7209 7256
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 160 7209 7256 "kind1/new_vars.ml" 160 7209 7271
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_neg "kind1/new_vars.ml" 157 6975 6988 "kind1/new_vars.ml" 157 6975 7003
+)
+"kind1/new_vars.ml" 160 7209 7271 "kind1/new_vars.ml" 160 7209 7272
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 160 7209 7272 "kind1/new_vars.ml" 160 7209 7318
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7318 "kind1/new_vars.ml" 160 7209 7319
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 160 7209 7319 "kind1/new_vars.ml" 160 7209 7327
+type(
+  string
+)
+ident(
+  int_ref mode_var "kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+)
+"kind1/new_vars.ml" 160 7209 7327 "kind1/new_vars.ml" 160 7209 7328
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 160 7209 7329 "kind1/new_vars.ml" 160 7209 7336
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7336 "kind1/new_vars.ml" 160 7209 7337
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 160 7209 7337 "kind1/new_vars.ml" 160 7209 7350
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/new_vars.ml" 160 7209 7350 "kind1/new_vars.ml" 160 7209 7353
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 154 6836 6861 "kind1/new_vars.ml" 154 6836 6862
+)
+"kind1/new_vars.ml" 160 7209 7337 "kind1/new_vars.ml" 160 7209 7353
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7353 "kind1/new_vars.ml" 160 7209 7354
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 160 7209 7354 "kind1/new_vars.ml" 160 7209 7361
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7337 "kind1/new_vars.ml" 160 7209 7361
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7329 "kind1/new_vars.ml" 160 7209 7361
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7319 "kind1/new_vars.ml" 160 7209 7361
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7272 "kind1/new_vars.ml" 160 7209 7361
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7256 "kind1/new_vars.ml" 160 7209 7361
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7245 "kind1/new_vars.ml" 160 7209 7361
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 161 7365 7378 "kind1/new_vars.ml" 161 7365 7379
+type(
+  unit
+)
+"kind1/new_vars.ml" 161 7365 7382 "kind1/new_vars.ml" 161 7365 7397
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string -> unit
+)
+ident(
+  ext_ref Hashtbl.replace
+)
+"kind1/new_vars.ml" 161 7365 7398 "kind1/new_vars.ml" 161 7365 7414
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 161 7365 7415 "kind1/new_vars.ml" 161 7365 7426
+type(
+  string
+)
+ident(
+  int_ref nvr_str_neg "kind1/new_vars.ml" 156 6914 6927 "kind1/new_vars.ml" 156 6914 6938
+)
+"kind1/new_vars.ml" 161 7365 7432 "kind1/new_vars.ml" 161 7365 7435
+type(
+  Types.relation
+)
+"kind1/new_vars.ml" 161 7365 7442 "kind1/new_vars.ml" 161 7365 7452
+type(
+  string
+)
+ident(
+  int_ref mode_var "kind1/new_vars.ml" 141 6029 6055 "kind1/new_vars.ml" 141 6029 6063
+)
+"kind1/new_vars.ml" 161 7365 7436 "kind1/new_vars.ml" 161 7365 7452
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 161 7365 7456 "kind1/new_vars.ml" 161 7365 7459
+type(
+  int
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 154 6836 6861 "kind1/new_vars.ml" 154 6836 6862
+)
+"kind1/new_vars.ml" 161 7365 7453 "kind1/new_vars.ml" 161 7365 7459
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 161 7365 7428 "kind1/new_vars.ml" 161 7365 7460
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 161 7365 7461 "kind1/new_vars.ml" 161 7365 7471
+type(
+  int
+)
+ident(
+  int_ref nvr_id_neg "kind1/new_vars.ml" 155 6868 6881 "kind1/new_vars.ml" 155 6868 6891
+)
+"kind1/new_vars.ml" 161 7365 7472 "kind1/new_vars.ml" 161 7365 7478
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 161 7365 7479 "kind1/new_vars.ml" 161 7365 7494
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str_neg "kind1/new_vars.ml" 157 6975 6988 "kind1/new_vars.ml" 157 6975 7003
+)
+"kind1/new_vars.ml" 161 7365 7495 "kind1/new_vars.ml" 161 7365 7516
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_body_neg "kind1/new_vars.ml" 158 7045 7058 "kind1/new_vars.ml" 158 7045 7079
+)
+"kind1/new_vars.ml" 161 7365 7427 "kind1/new_vars.ml" 161 7365 7517
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 161 7365 7382 "kind1/new_vars.ml" 161 7365 7517
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 162 7521 7525 "kind1/new_vars.ml" 162 7521 7546
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_decl_neg "kind1/new_vars.ml" 159 7132 7145 "kind1/new_vars.ml" 159 7132 7166
+)
+"kind1/new_vars.ml" 162 7521 7547 "kind1/new_vars.ml" 162 7521 7548
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 162 7521 7549 "kind1/new_vars.ml" 162 7521 7569
+type(
+  string
+)
+ident(
+  int_ref interval_nvr_def_neg "kind1/new_vars.ml" 160 7209 7222 "kind1/new_vars.ml" 160 7209 7242
+)
+"kind1/new_vars.ml" 162 7521 7570 "kind1/new_vars.ml" 162 7521 7571
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 162 7521 7572 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 154 6836 6863 "kind1/new_vars.ml" 154 6836 6864
+)
+"kind1/new_vars.ml" 162 7521 7549 "kind1/new_vars.ml" 162 7521 7573
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 162 7521 7525 "kind1/new_vars.ml" 162 7521 7573
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 161 7365 7374 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 160 7209 7218 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 159 7132 7141 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 158 7045 7054 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 157 6975 6984 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 156 6914 6923 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 155 6868 6877 "kind1/new_vars.ml" 162 7521 7573
+type(
+  string
+)
+"kind1/new_vars.ml" 154 6836 6856 "kind1/new_vars.ml" 163 7574 7581
+type(
+  int -> string -> string
+)
+"kind1/new_vars.ml" 163 7574 7582 "kind1/new_vars.ml" 163 7574 7600
+type(
+  int -> int -> int list
+)
+ident(
+  ext_ref Util.interval_list
+)
+"kind1/new_vars.ml" 163 7574 7601 "kind1/new_vars.ml" 163 7574 7603
+type(
+  int
+)
+ident(
+  int_ref lb "kind1/new_vars.ml" 141 6029 6064 "kind1/new_vars.ml" 141 6029 6066
+)
+"kind1/new_vars.ml" 163 7574 7604 "kind1/new_vars.ml" 163 7574 7606
+type(
+  int
+)
+ident(
+  int_ref ub "kind1/new_vars.ml" 141 6029 6067 "kind1/new_vars.ml" 141 6029 6069
+)
+"kind1/new_vars.ml" 163 7574 7581 "kind1/new_vars.ml" 163 7574 7607
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/new_vars.ml" 163 7574 7608 "kind1/new_vars.ml" 163 7574 7610
+type(
+  string
+)
+"kind1/new_vars.ml" 154 6836 6840 "kind1/new_vars.ml" 163 7574 7610
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 164 7614 7620 "kind1/new_vars.ml" 164 7614 7627
+type(
+  string
+)
+ident(
+  int_ref pos_can "kind1/new_vars.ml" 142 6072 6078 "kind1/new_vars.ml" 142 6072 6085
+)
+"kind1/new_vars.ml" 164 7614 7629 "kind1/new_vars.ml" 164 7614 7636
+type(
+  string
+)
+ident(
+  int_ref neg_can "kind1/new_vars.ml" 153 6819 6825 "kind1/new_vars.ml" 153 6819 6832
+)
+"kind1/new_vars.ml" 164 7614 7620 "kind1/new_vars.ml" 164 7614 7636
+type(
+  string * string
+)
+"kind1/new_vars.ml" 153 6819 6821 "kind1/new_vars.ml" 164 7614 7636
+type(
+  string * string
+)
+"kind1/new_vars.ml" 142 6072 6074 "kind1/new_vars.ml" 164 7614 7636
+type(
+  string * string
+)
+"kind1/new_vars.ml" 168 7640 7644 "kind1/new_vars.ml" 168 7640 7668
+type(
+  string -> string
+)
+ident(
+  def nvr_to_nvr_def_decl_body "kind1/new_vars.ml" 172 7776 7776 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 168 7640 7669 "kind1/new_vars.ml" 168 7640 7676
+type(
+  string
+)
+ident(
+  def nvr_str "kind1/new_vars.ml" 169 7680 7682 "kind1/new_vars.ml" 170 7754 7774
+)
+"kind1/new_vars.ml" 169 7680 7686 "kind1/new_vars.ml" 169 7680 7687
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 169 7680 7688 "kind1/new_vars.ml" 169 7680 7689
+type(
+  int
+)
+"kind1/new_vars.ml" 169 7680 7690 "kind1/new_vars.ml" 169 7680 7691
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 169 7680 7692 "kind1/new_vars.ml" 169 7680 7693
+type(
+  string
+)
+"kind1/new_vars.ml" 169 7680 7694 "kind1/new_vars.ml" 169 7680 7710
+type(
+  string
+)
+ident(
+  def nvr_def_decl_str "kind1/new_vars.ml" 170 7754 7758 "kind1/new_vars.ml" 170 7754 7774
+)
+"kind1/new_vars.ml" 169 7680 7686 "kind1/new_vars.ml" 169 7680 7710
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 169 7680 7713 "kind1/new_vars.ml" 169 7680 7725
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string -> Types.il_expression * int * Types.lustre_type * string * string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/new_vars.ml" 169 7680 7726 "kind1/new_vars.ml" 169 7680 7742
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 169 7680 7743 "kind1/new_vars.ml" 169 7680 7750
+type(
+  string
+)
+ident(
+  int_ref nvr_str "kind1/new_vars.ml" 168 7640 7669 "kind1/new_vars.ml" 168 7640 7676
+)
+"kind1/new_vars.ml" 169 7680 7713 "kind1/new_vars.ml" 169 7680 7750
+call(
+  stack
+)
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 170 7754 7758 "kind1/new_vars.ml" 170 7754 7774
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_str "kind1/new_vars.ml" 169 7680 7694 "kind1/new_vars.ml" 169 7680 7710
+)
+"kind1/new_vars.ml" 169 7680 7682 "kind1/new_vars.ml" 170 7754 7774
+type(
+  string
+)
+"kind1/new_vars.ml" 172 7776 7780 "kind1/new_vars.ml" 172 7776 7791
+type(
+  string -> Types.il_expression
+)
+ident(
+  def nvr_to_expr "kind1/new_vars.ml" 176 7875 7875 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 172 7776 7792 "kind1/new_vars.ml" 172 7776 7799
+type(
+  string
+)
+ident(
+  def nvr_str "kind1/new_vars.ml" 173 7802 7804 "kind1/new_vars.ml" 174 7864 7872
+)
+"kind1/new_vars.ml" 173 7802 7808 "kind1/new_vars.ml" 173 7802 7812
+type(
+  Types.il_expression
+)
+ident(
+  def term "kind1/new_vars.ml" 174 7864 7868 "kind1/new_vars.ml" 174 7864 7872
+)
+"kind1/new_vars.ml" 173 7802 7813 "kind1/new_vars.ml" 173 7802 7814
+type(
+  int
+)
+"kind1/new_vars.ml" 173 7802 7815 "kind1/new_vars.ml" 173 7802 7816
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 173 7802 7817 "kind1/new_vars.ml" 173 7802 7818
+type(
+  string
+)
+"kind1/new_vars.ml" 173 7802 7819 "kind1/new_vars.ml" 173 7802 7820
+type(
+  string
+)
+"kind1/new_vars.ml" 173 7802 7808 "kind1/new_vars.ml" 173 7802 7820
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 173 7802 7823 "kind1/new_vars.ml" 173 7802 7835
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string -> Types.il_expression * int * Types.lustre_type * string * string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/new_vars.ml" 173 7802 7836 "kind1/new_vars.ml" 173 7802 7852
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 173 7802 7853 "kind1/new_vars.ml" 173 7802 7860
+type(
+  string
+)
+ident(
+  int_ref nvr_str "kind1/new_vars.ml" 172 7776 7792 "kind1/new_vars.ml" 172 7776 7799
+)
+"kind1/new_vars.ml" 173 7802 7823 "kind1/new_vars.ml" 173 7802 7860
+call(
+  stack
+)
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 174 7864 7868 "kind1/new_vars.ml" 174 7864 7872
+type(
+  Types.il_expression
+)
+ident(
+  int_ref term "kind1/new_vars.ml" 173 7802 7808 "kind1/new_vars.ml" 173 7802 7812
+)
+"kind1/new_vars.ml" 173 7802 7804 "kind1/new_vars.ml" 174 7864 7872
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 176 7875 7879 "kind1/new_vars.ml" 176 7875 7893
+type(
+  string -> string
+)
+ident(
+  def nvr_to_nvr_def "kind1/new_vars.ml" 180 7983 7983 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 176 7875 7894 "kind1/new_vars.ml" 176 7875 7901
+type(
+  string
+)
+ident(
+  def nvr_str "kind1/new_vars.ml" 177 7905 7907 "kind1/new_vars.ml" 178 7970 7981
+)
+"kind1/new_vars.ml" 177 7905 7911 "kind1/new_vars.ml" 177 7905 7912
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 177 7905 7913 "kind1/new_vars.ml" 177 7905 7914
+type(
+  int
+)
+"kind1/new_vars.ml" 177 7905 7915 "kind1/new_vars.ml" 177 7905 7916
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 177 7905 7917 "kind1/new_vars.ml" 177 7905 7924
+type(
+  string
+)
+ident(
+  def nvr_def "kind1/new_vars.ml" 178 7970 7974 "kind1/new_vars.ml" 178 7970 7981
+)
+"kind1/new_vars.ml" 177 7905 7925 "kind1/new_vars.ml" 177 7905 7926
+type(
+  string
+)
+"kind1/new_vars.ml" 177 7905 7911 "kind1/new_vars.ml" 177 7905 7926
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 177 7905 7929 "kind1/new_vars.ml" 177 7905 7941
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string -> Types.il_expression * int * Types.lustre_type * string * string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/new_vars.ml" 177 7905 7942 "kind1/new_vars.ml" 177 7905 7958
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 177 7905 7959 "kind1/new_vars.ml" 177 7905 7966
+type(
+  string
+)
+ident(
+  int_ref nvr_str "kind1/new_vars.ml" 176 7875 7894 "kind1/new_vars.ml" 176 7875 7901
+)
+"kind1/new_vars.ml" 177 7905 7929 "kind1/new_vars.ml" 177 7905 7966
+call(
+  stack
+)
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 178 7970 7974 "kind1/new_vars.ml" 178 7970 7981
+type(
+  string
+)
+ident(
+  int_ref nvr_def "kind1/new_vars.ml" 177 7905 7917 "kind1/new_vars.ml" 177 7905 7924
+)
+"kind1/new_vars.ml" 177 7905 7907 "kind1/new_vars.ml" 178 7970 7981
+type(
+  string
+)
+"kind1/new_vars.ml" 180 7983 7987 "kind1/new_vars.ml" 180 7983 8002
+type(
+  int ->
+  Types.il_expression ->
+  Types.lustre_type -> string * string * string * string
+)
+ident(
+  def mk_nvr_decl_str "kind1/new_vars.ml" 196 8659 8659 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 180 7983 8003 "kind1/new_vars.ml" 180 7983 8009
+type(
+  int
+)
+ident(
+  def nvr_id "kind1/new_vars.ml" 180 7983 8010 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 180 7983 8010 "kind1/new_vars.ml" 180 7983 8014
+type(
+  Types.il_expression
+)
+ident(
+  def term "kind1/new_vars.ml" 180 7983 8015 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 180 7983 8015 "kind1/new_vars.ml" 180 7983 8017
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 181 8020 8022 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 181 8020 8026 "kind1/new_vars.ml" 181 8020 8030
+type(
+  Types.lustre_type
+)
+ident(
+  def m_ty "kind1/new_vars.ml" 182 8071 8073 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 181 8020 8036 "kind1/new_vars.ml" 181 8020 8038
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 180 7983 8015 "kind1/new_vars.ml" 180 7983 8017
+)
+"kind1/new_vars.ml" 181 8020 8039 "kind1/new_vars.ml" 181 8020 8040
+type(
+  Types.lustre_type -> Types.lustre_type -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/new_vars.ml" 181 8020 8041 "kind1/new_vars.ml" 181 8020 8047
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 181 8020 8036 "kind1/new_vars.ml" 181 8020 8047
+type(
+  bool
+)
+"kind1/new_vars.ml" 181 8020 8053 "kind1/new_vars.ml" 181 8020 8059
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 181 8020 8065 "kind1/new_vars.ml" 181 8020 8067
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 180 7983 8015 "kind1/new_vars.ml" 180 7983 8017
+)
+"kind1/new_vars.ml" 181 8020 8033 "kind1/new_vars.ml" 181 8020 8067
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 182 8071 8077 "kind1/new_vars.ml" 182 8071 8084
+type(
+  string
+)
+ident(
+  def nvr_str "kind1/new_vars.ml" 183 8108 8110 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 182 8071 8087 "kind1/new_vars.ml" 182 8071 8097
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_str "kind1/new_vars.ml" 57 2135 2139 "kind1/new_vars.ml" 57 2135 2149
+)
+"kind1/new_vars.ml" 182 8071 8098 "kind1/new_vars.ml" 182 8071 8104
+type(
+  int
+)
+ident(
+  int_ref nvr_id "kind1/new_vars.ml" 180 7983 8003 "kind1/new_vars.ml" 180 7983 8009
+)
+"kind1/new_vars.ml" 182 8071 8087 "kind1/new_vars.ml" 182 8071 8104
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 183 8108 8114 "kind1/new_vars.ml" 183 8108 8122
+type(
+  string
+)
+ident(
+  def nvr_decl "kind1/new_vars.ml" 184 8170 8172 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 183 8108 8125 "kind1/new_vars.ml" 183 8108 8131
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/new_vars.ml" 47 1853 1857 "kind1/new_vars.ml" 47 1853 1863
+)
+"kind1/new_vars.ml" 183 8108 8125 "kind1/new_vars.ml" 183 8108 8135
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/new_vars.ml" 183 8108 8125 "kind1/new_vars.ml" 183 8108 8155
+call(
+  stack
+)
+type(
+  string -> Types.lustre_type -> string
+)
+"kind1/new_vars.ml" 183 8108 8156 "kind1/new_vars.ml" 183 8108 8163
+type(
+  string
+)
+ident(
+  int_ref nvr_str "kind1/new_vars.ml" 182 8071 8077 "kind1/new_vars.ml" 182 8071 8084
+)
+"kind1/new_vars.ml" 183 8108 8164 "kind1/new_vars.ml" 183 8108 8166
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 180 7983 8015 "kind1/new_vars.ml" 180 7983 8017
+)
+"kind1/new_vars.ml" 183 8108 8125 "kind1/new_vars.ml" 183 8108 8166
+type(
+  string
+)
+"kind1/new_vars.ml" 184 8170 8176 "kind1/new_vars.ml" 184 8170 8179
+type(
+  Buffer.t
+)
+ident(
+  def buf "kind1/new_vars.ml" 185 8203 8205 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 184 8170 8182 "kind1/new_vars.ml" 184 8170 8195
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/new_vars.ml" 184 8170 8196 "kind1/new_vars.ml" 184 8170 8199
+type(
+  int
+)
+"kind1/new_vars.ml" 184 8170 8182 "kind1/new_vars.ml" 184 8170 8199
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/new_vars.ml" 185 8203 8209 "kind1/new_vars.ml" 185 8203 8217
+type(
+  Buffer.t
+)
+ident(
+  def term_buf "kind1/new_vars.ml" 186 8266 8268 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 185 8203 8220 "kind1/new_vars.ml" 185 8203 8249
+type(
+  Types.modetype -> Types.il_expression -> Buffer.t
+)
+ident(
+  ext_ref Lus_convert_yc.yc_expr_buffer
+)
+"kind1/new_vars.ml" 185 8203 8250 "kind1/new_vars.ml" 185 8203 8257
+type(
+  Types.modetype
+)
+"kind1/new_vars.ml" 185 8203 8258 "kind1/new_vars.ml" 185 8203 8262
+type(
+  Types.il_expression
+)
+ident(
+  int_ref term "kind1/new_vars.ml" 180 7983 8010 "kind1/new_vars.ml" 180 7983 8014
+)
+"kind1/new_vars.ml" 185 8203 8220 "kind1/new_vars.ml" 185 8203 8262
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/new_vars.ml" 186 8266 8272 "kind1/new_vars.ml" 186 8266 8283
+type(
+  string
+)
+ident(
+  def nvr_def_str "kind1/new_vars.ml" 187 8315 8319 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 186 8266 8288 "kind1/new_vars.ml" 186 8266 8302
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_def_str "kind1/new_vars.ml" 60 2219 2223 "kind1/new_vars.ml" 60 2219 2237
+)
+"kind1/new_vars.ml" 186 8266 8303 "kind1/new_vars.ml" 186 8266 8309
+type(
+  int
+)
+ident(
+  int_ref nvr_id "kind1/new_vars.ml" 180 7983 8003 "kind1/new_vars.ml" 180 7983 8009
+)
+"kind1/new_vars.ml" 186 8266 8287 "kind1/new_vars.ml" 186 8266 8310
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 187 8315 8319 "kind1/new_vars.ml" 187 8315 8325
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/new_vars.ml" 47 1853 1857 "kind1/new_vars.ml" 47 1853 1863
+)
+"kind1/new_vars.ml" 187 8315 8319 "kind1/new_vars.ml" 187 8315 8329
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/new_vars.ml" 187 8315 8319 "kind1/new_vars.ml" 187 8315 8347
+call(
+  stack
+)
+type(
+  Buffer.t ->
+  string ->
+  Types.lustre_type -> (string * Types.lustre_type) list -> Buffer.t -> unit
+)
+"kind1/new_vars.ml" 187 8315 8348 "kind1/new_vars.ml" 187 8315 8351
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/new_vars.ml" 184 8170 8176 "kind1/new_vars.ml" 184 8170 8179
+)
+"kind1/new_vars.ml" 188 8353 8359 "kind1/new_vars.ml" 188 8353 8370
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str "kind1/new_vars.ml" 186 8266 8272 "kind1/new_vars.ml" 186 8266 8283
+)
+"kind1/new_vars.ml" 188 8353 8379 "kind1/new_vars.ml" 188 8353 8384
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 188 8353 8385 "kind1/new_vars.ml" 188 8353 8389
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref m_ty "kind1/new_vars.ml" 181 8020 8026 "kind1/new_vars.ml" 181 8020 8030
+)
+"kind1/new_vars.ml" 188 8353 8378 "kind1/new_vars.ml" 188 8353 8390
+type(
+  Types.lustre_type list
+)
+"kind1/new_vars.ml" 188 8353 8371 "kind1/new_vars.ml" 188 8353 8391
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 189 8392 8400 "kind1/new_vars.ml" 189 8392 8406
+type(
+  Globals.current_solver
+)
+ident(
+  int_ref solver "kind1/new_vars.ml" 47 1853 1857 "kind1/new_vars.ml" 47 1853 1863
+)
+"kind1/new_vars.ml" 189 8392 8400 "kind1/new_vars.ml" 189 8392 8410
+call(
+  stack
+)
+type(
+  Solver_base.solver_base
+)
+"kind1/new_vars.ml" 189 8392 8400 "kind1/new_vars.ml" 189 8392 8424
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 189 8392 8425 "kind1/new_vars.ml" 189 8392 8430
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 189 8392 8399 "kind1/new_vars.ml" 189 8392 8431
+type(
+  string * Types.lustre_type
+)
+"kind1/new_vars.ml" 189 8392 8398 "kind1/new_vars.ml" 189 8392 8432
+type(
+  (string * Types.lustre_type) list
+)
+"kind1/new_vars.ml" 189 8392 8433 "kind1/new_vars.ml" 189 8392 8441
+type(
+  Buffer.t
+)
+ident(
+  int_ref term_buf "kind1/new_vars.ml" 185 8203 8209 "kind1/new_vars.ml" 185 8203 8217
+)
+"kind1/new_vars.ml" 187 8315 8319 "kind1/new_vars.ml" 189 8392 8441
+type(
+  unit
+)
+"kind1/new_vars.ml" 190 8443 8449 "kind1/new_vars.ml" 190 8443 8466
+type(
+  string
+)
+ident(
+  def nvr_def_decl_body "kind1/new_vars.ml" 191 8498 8500 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 190 8443 8469 "kind1/new_vars.ml" 190 8443 8484
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/new_vars.ml" 190 8443 8486 "kind1/new_vars.ml" 190 8443 8494
+type(
+  Buffer.t
+)
+ident(
+  int_ref term_buf "kind1/new_vars.ml" 185 8203 8209 "kind1/new_vars.ml" 185 8203 8217
+)
+"kind1/new_vars.ml" 190 8443 8469 "kind1/new_vars.ml" 190 8443 8494
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 191 8498 8504 "kind1/new_vars.ml" 191 8498 8516
+type(
+  string
+)
+ident(
+  def nvr_def_decl "kind1/new_vars.ml" 192 8544 8548 "kind1/new_vars.ml" 192 8544 8605
+)
+"kind1/new_vars.ml" 191 8498 8520 "kind1/new_vars.ml" 191 8498 8535
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/new_vars.ml" 191 8498 8536 "kind1/new_vars.ml" 191 8498 8539
+type(
+  Buffer.t
+)
+ident(
+  int_ref buf "kind1/new_vars.ml" 184 8170 8176 "kind1/new_vars.ml" 184 8170 8179
+)
+"kind1/new_vars.ml" 191 8498 8519 "kind1/new_vars.ml" 191 8498 8540
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 192 8544 8549 "kind1/new_vars.ml" 192 8544 8557
+type(
+  string
+)
+ident(
+  int_ref nvr_decl "kind1/new_vars.ml" 183 8108 8114 "kind1/new_vars.ml" 183 8108 8122
+)
+"kind1/new_vars.ml" 192 8544 8559 "kind1/new_vars.ml" 192 8544 8570
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str "kind1/new_vars.ml" 186 8266 8272 "kind1/new_vars.ml" 186 8266 8283
+)
+"kind1/new_vars.ml" 192 8544 8572 "kind1/new_vars.ml" 192 8544 8584
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl "kind1/new_vars.ml" 191 8498 8504 "kind1/new_vars.ml" 191 8498 8516
+)
+"kind1/new_vars.ml" 192 8544 8586 "kind1/new_vars.ml" 192 8544 8603
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_body "kind1/new_vars.ml" 190 8443 8449 "kind1/new_vars.ml" 190 8443 8466
+)
+"kind1/new_vars.ml" 192 8544 8548 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 191 8498 8500 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 190 8443 8445 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 187 8315 8319 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 186 8266 8268 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 185 8203 8205 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 184 8170 8172 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 183 8108 8110 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 182 8071 8073 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 181 8020 8022 "kind1/new_vars.ml" 192 8544 8605
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 196 8659 8663 "kind1/new_vars.ml" 196 8659 8672
+type(
+  Types.il_expression -> Types.lustre_type -> string * string
+)
+ident(
+  def setup_nvr "kind1/new_vars.ml" 209 9009 9009 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 196 8659 8673 "kind1/new_vars.ml" 196 8659 8677
+type(
+  Types.il_expression
+)
+ident(
+  def term "kind1/new_vars.ml" 196 8659 8678 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 196 8659 8678 "kind1/new_vars.ml" 196 8659 8680
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 197 8683 8685 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 197 8683 8689 "kind1/new_vars.ml" 197 8683 8695
+type(
+  int
+)
+ident(
+  def nvr_id "kind1/new_vars.ml" 198 8718 8720 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 197 8683 8698 "kind1/new_vars.ml" 197 8683 8709
+type(
+  Counter.counter
+)
+ident(
+  int_ref nvr_counter "kind1/new_vars.ml" 54 2069 2073 "kind1/new_vars.ml" 54 2069 2084
+)
+"kind1/new_vars.ml" 197 8683 8698 "kind1/new_vars.ml" 197 8683 8714
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/new_vars.ml" 198 8718 8724 "kind1/new_vars.ml" 198 8718 8731
+type(
+  string
+)
+ident(
+  def nvr_str "kind1/new_vars.ml" 199 8755 8757 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 198 8718 8734 "kind1/new_vars.ml" 198 8718 8744
+type(
+  int -> string
+)
+ident(
+  int_ref mk_nvr_str "kind1/new_vars.ml" 57 2135 2139 "kind1/new_vars.ml" 57 2135 2149
+)
+"kind1/new_vars.ml" 198 8718 8745 "kind1/new_vars.ml" 198 8718 8751
+type(
+  int
+)
+ident(
+  int_ref nvr_id "kind1/new_vars.ml" 197 8683 8689 "kind1/new_vars.ml" 197 8683 8695
+)
+"kind1/new_vars.ml" 198 8718 8734 "kind1/new_vars.ml" 198 8718 8751
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 199 8755 8761 "kind1/new_vars.ml" 199 8755 8769
+type(
+  string
+)
+ident(
+  def nvr_decl "kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 199 8755 8771 "kind1/new_vars.ml" 199 8755 8782
+type(
+  string
+)
+ident(
+  def nvr_def_str "kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 199 8755 8784 "kind1/new_vars.ml" 199 8755 8796
+type(
+  string
+)
+ident(
+  def nvr_def_decl "kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 199 8755 8798 "kind1/new_vars.ml" 199 8755 8815
+type(
+  string
+)
+ident(
+  def nvr_def_decl_body "kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 206 8977 9005
+)
+"kind1/new_vars.ml" 199 8755 8761 "kind1/new_vars.ml" 199 8755 8815
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 200 8819 8823 "kind1/new_vars.ml" 200 8819 8838
+type(
+  int ->
+  Types.il_expression ->
+  Types.lustre_type -> string * string * string * string
+)
+ident(
+  int_ref mk_nvr_decl_str "kind1/new_vars.ml" 180 7983 7987 "kind1/new_vars.ml" 180 7983 8002
+)
+"kind1/new_vars.ml" 200 8819 8839 "kind1/new_vars.ml" 200 8819 8845
+type(
+  int
+)
+ident(
+  int_ref nvr_id "kind1/new_vars.ml" 197 8683 8689 "kind1/new_vars.ml" 197 8683 8695
+)
+"kind1/new_vars.ml" 200 8819 8846 "kind1/new_vars.ml" 200 8819 8850
+type(
+  Types.il_expression
+)
+ident(
+  int_ref term "kind1/new_vars.ml" 196 8659 8673 "kind1/new_vars.ml" 196 8659 8677
+)
+"kind1/new_vars.ml" 200 8819 8851 "kind1/new_vars.ml" 200 8819 8853
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 196 8659 8678 "kind1/new_vars.ml" 196 8659 8680
+)
+"kind1/new_vars.ml" 200 8819 8823 "kind1/new_vars.ml" 200 8819 8853
+call(
+  stack
+)
+type(
+  string * string * string * string
+)
+"kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 202 8859 8878
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t ->
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string -> unit
+)
+ident(
+  ext_ref Hashtbl.replace
+)
+"kind1/new_vars.ml" 203 8880 8886 "kind1/new_vars.ml" 203 8880 8902
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 204 8904 8910 "kind1/new_vars.ml" 204 8904 8917
+type(
+  string
+)
+ident(
+  int_ref nvr_str "kind1/new_vars.ml" 198 8718 8724 "kind1/new_vars.ml" 198 8718 8731
+)
+"kind1/new_vars.ml" 205 8919 8926 "kind1/new_vars.ml" 205 8919 8930
+type(
+  Types.il_expression
+)
+ident(
+  int_ref term "kind1/new_vars.ml" 196 8659 8673 "kind1/new_vars.ml" 196 8659 8677
+)
+"kind1/new_vars.ml" 205 8919 8932 "kind1/new_vars.ml" 205 8919 8938
+type(
+  int
+)
+ident(
+  int_ref nvr_id "kind1/new_vars.ml" 197 8683 8689 "kind1/new_vars.ml" 197 8683 8695
+)
+"kind1/new_vars.ml" 205 8919 8940 "kind1/new_vars.ml" 205 8919 8942
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 196 8659 8678 "kind1/new_vars.ml" 196 8659 8680
+)
+"kind1/new_vars.ml" 205 8919 8944 "kind1/new_vars.ml" 205 8919 8955
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str "kind1/new_vars.ml" 199 8755 8771 "kind1/new_vars.ml" 199 8755 8782
+)
+"kind1/new_vars.ml" 205 8919 8957 "kind1/new_vars.ml" 205 8919 8974
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_body "kind1/new_vars.ml" 199 8755 8798 "kind1/new_vars.ml" 199 8755 8815
+)
+"kind1/new_vars.ml" 205 8919 8925 "kind1/new_vars.ml" 205 8919 8975
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 205 8919 8975
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 206 8977 8982 "kind1/new_vars.ml" 206 8977 8990
+type(
+  string
+)
+ident(
+  int_ref nvr_decl "kind1/new_vars.ml" 199 8755 8761 "kind1/new_vars.ml" 199 8755 8769
+)
+"kind1/new_vars.ml" 206 8977 8992 "kind1/new_vars.ml" 206 8977 9004
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl "kind1/new_vars.ml" 199 8755 8784 "kind1/new_vars.ml" 199 8755 8796
+)
+"kind1/new_vars.ml" 206 8977 8981 "kind1/new_vars.ml" 206 8977 9005
+type(
+  string * string
+)
+"kind1/new_vars.ml" 202 8859 8863 "kind1/new_vars.ml" 206 8977 9005
+type(
+  string * string
+)
+"kind1/new_vars.ml" 199 8755 8757 "kind1/new_vars.ml" 206 8977 9005
+type(
+  string * string
+)
+"kind1/new_vars.ml" 198 8718 8720 "kind1/new_vars.ml" 206 8977 9005
+type(
+  string * string
+)
+"kind1/new_vars.ml" 197 8683 8685 "kind1/new_vars.ml" 206 8977 9005
+type(
+  string * string
+)
+"kind1/new_vars.ml" 209 9009 9013 "kind1/new_vars.ml" 209 9009 9026
+type(
+  unit -> string list
+)
+ident(
+  def get_bool_nvrs "kind1/new_vars.ml" 213 9133 9133 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 209 9009 9027 "kind1/new_vars.ml" 209 9009 9029
+type(
+  unit
+)
+"kind1/new_vars.ml" 210 9033 9035 "kind1/new_vars.ml" 210 9033 9047
+type(
+  (string ->
+   Types.il_expression * int * Types.lustre_type * string * string ->
+   string list -> string list) ->
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t -> string list -> string list
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/new_vars.ml" 210 9033 9053 "kind1/new_vars.ml" 210 9033 9054
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 210 9033 9055 "kind1/new_vars.ml" 211 9074 9109
+)
+"kind1/new_vars.ml" 210 9033 9056 "kind1/new_vars.ml" 210 9033 9057
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 210 9033 9058 "kind1/new_vars.ml" 210 9033 9059
+type(
+  int
+)
+"kind1/new_vars.ml" 210 9033 9060 "kind1/new_vars.ml" 210 9033 9062
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 210 9033 9068 "kind1/new_vars.ml" 211 9074 9109
+)
+"kind1/new_vars.ml" 210 9033 9063 "kind1/new_vars.ml" 210 9033 9064
+type(
+  string
+)
+"kind1/new_vars.ml" 210 9033 9065 "kind1/new_vars.ml" 210 9033 9066
+type(
+  string
+)
+"kind1/new_vars.ml" 210 9033 9055 "kind1/new_vars.ml" 210 9033 9067
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 210 9033 9068 "kind1/new_vars.ml" 210 9033 9069
+type(
+  string list
+)
+ident(
+  def z "kind1/new_vars.ml" 211 9074 9078 "kind1/new_vars.ml" 211 9074 9109
+)
+"kind1/new_vars.ml" 211 9074 9081 "kind1/new_vars.ml" 211 9074 9083
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 210 9033 9060 "kind1/new_vars.ml" 210 9033 9062
+)
+"kind1/new_vars.ml" 211 9074 9084 "kind1/new_vars.ml" 211 9074 9085
+type(
+  Types.lustre_type -> Types.lustre_type -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/new_vars.ml" 211 9074 9086 "kind1/new_vars.ml" 211 9074 9092
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 211 9074 9081 "kind1/new_vars.ml" 211 9074 9092
+type(
+  bool
+)
+"kind1/new_vars.ml" 211 9074 9098 "kind1/new_vars.ml" 211 9074 9099
+type(
+  string
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 210 9033 9053 "kind1/new_vars.ml" 210 9033 9054
+)
+"kind1/new_vars.ml" 211 9074 9101 "kind1/new_vars.ml" 211 9074 9102
+type(
+  string list
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 210 9033 9068 "kind1/new_vars.ml" 210 9033 9069
+)
+"kind1/new_vars.ml" 211 9074 9098 "kind1/new_vars.ml" 211 9074 9102
+type(
+  string list
+)
+"kind1/new_vars.ml" 211 9074 9108 "kind1/new_vars.ml" 211 9074 9109
+type(
+  string list
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 210 9033 9068 "kind1/new_vars.ml" 210 9033 9069
+)
+"kind1/new_vars.ml" 211 9074 9078 "kind1/new_vars.ml" 211 9074 9109
+type(
+  string list
+)
+"kind1/new_vars.ml" 210 9033 9048 "kind1/new_vars.ml" 211 9074 9110
+type(
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string ->
+  string list -> string list
+)
+"kind1/new_vars.ml" 211 9074 9111 "kind1/new_vars.ml" 211 9074 9127
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 211 9074 9128 "kind1/new_vars.ml" 211 9074 9130
+type(
+  string list
+)
+"kind1/new_vars.ml" 210 9033 9035 "kind1/new_vars.ml" 211 9074 9130
+call(
+  tail
+)
+type(
+  string list
+)
+"kind1/new_vars.ml" 213 9133 9137 "kind1/new_vars.ml" 213 9133 9149
+type(
+  unit -> string list
+)
+ident(
+  def get_int_nvrs "kind1/new_vars.ml" 217 9255 9255 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 213 9133 9150 "kind1/new_vars.ml" 213 9133 9152
+type(
+  unit
+)
+"kind1/new_vars.ml" 214 9156 9158 "kind1/new_vars.ml" 214 9156 9170
+type(
+  (string ->
+   Types.il_expression * int * Types.lustre_type * string * string ->
+   string list -> string list) ->
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t -> string list -> string list
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/new_vars.ml" 214 9156 9176 "kind1/new_vars.ml" 214 9156 9177
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 214 9156 9178 "kind1/new_vars.ml" 215 9197 9231
+)
+"kind1/new_vars.ml" 214 9156 9179 "kind1/new_vars.ml" 214 9156 9180
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 214 9156 9181 "kind1/new_vars.ml" 214 9156 9182
+type(
+  int
+)
+"kind1/new_vars.ml" 214 9156 9183 "kind1/new_vars.ml" 214 9156 9185
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 214 9156 9191 "kind1/new_vars.ml" 215 9197 9231
+)
+"kind1/new_vars.ml" 214 9156 9186 "kind1/new_vars.ml" 214 9156 9187
+type(
+  string
+)
+"kind1/new_vars.ml" 214 9156 9188 "kind1/new_vars.ml" 214 9156 9189
+type(
+  string
+)
+"kind1/new_vars.ml" 214 9156 9178 "kind1/new_vars.ml" 214 9156 9190
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 214 9156 9191 "kind1/new_vars.ml" 214 9156 9192
+type(
+  string list
+)
+ident(
+  def z "kind1/new_vars.ml" 215 9197 9201 "kind1/new_vars.ml" 215 9197 9231
+)
+"kind1/new_vars.ml" 215 9197 9204 "kind1/new_vars.ml" 215 9197 9206
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 214 9156 9183 "kind1/new_vars.ml" 214 9156 9185
+)
+"kind1/new_vars.ml" 215 9197 9207 "kind1/new_vars.ml" 215 9197 9208
+type(
+  Types.lustre_type -> Types.lustre_type -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/new_vars.ml" 215 9197 9209 "kind1/new_vars.ml" 215 9197 9214
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 215 9197 9204 "kind1/new_vars.ml" 215 9197 9214
+type(
+  bool
+)
+"kind1/new_vars.ml" 215 9197 9220 "kind1/new_vars.ml" 215 9197 9221
+type(
+  string
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 214 9156 9176 "kind1/new_vars.ml" 214 9156 9177
+)
+"kind1/new_vars.ml" 215 9197 9223 "kind1/new_vars.ml" 215 9197 9224
+type(
+  string list
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 214 9156 9191 "kind1/new_vars.ml" 214 9156 9192
+)
+"kind1/new_vars.ml" 215 9197 9220 "kind1/new_vars.ml" 215 9197 9224
+type(
+  string list
+)
+"kind1/new_vars.ml" 215 9197 9230 "kind1/new_vars.ml" 215 9197 9231
+type(
+  string list
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 214 9156 9191 "kind1/new_vars.ml" 214 9156 9192
+)
+"kind1/new_vars.ml" 215 9197 9201 "kind1/new_vars.ml" 215 9197 9231
+type(
+  string list
+)
+"kind1/new_vars.ml" 214 9156 9171 "kind1/new_vars.ml" 215 9197 9232
+type(
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string ->
+  string list -> string list
+)
+"kind1/new_vars.ml" 215 9197 9233 "kind1/new_vars.ml" 215 9197 9249
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 215 9197 9250 "kind1/new_vars.ml" 215 9197 9252
+type(
+  string list
+)
+"kind1/new_vars.ml" 214 9156 9158 "kind1/new_vars.ml" 215 9197 9252
+call(
+  tail
+)
+type(
+  string list
+)
+"kind1/new_vars.ml" 217 9255 9259 "kind1/new_vars.ml" 217 9255 9271
+type(
+  unit -> string list
+)
+ident(
+  def get_all_nvrs "kind1/new_vars.ml" 220 9334 9334 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 217 9255 9272 "kind1/new_vars.ml" 217 9255 9274
+type(
+  unit
+)
+"kind1/new_vars.ml" 218 9277 9279 "kind1/new_vars.ml" 218 9277 9291
+type(
+  (string ->
+   Types.il_expression * int * Types.lustre_type * string * string ->
+   string list -> string list) ->
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t -> string list -> string list
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/new_vars.ml" 218 9277 9297 "kind1/new_vars.ml" 218 9277 9298
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 218 9277 9299 "kind1/new_vars.ml" 218 9277 9310
+)
+"kind1/new_vars.ml" 218 9277 9299 "kind1/new_vars.ml" 218 9277 9300
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+ident(
+  def y "kind1/new_vars.ml" 218 9277 9301 "kind1/new_vars.ml" 218 9277 9310
+)
+"kind1/new_vars.ml" 218 9277 9301 "kind1/new_vars.ml" 218 9277 9302
+type(
+  string list
+)
+ident(
+  def z "kind1/new_vars.ml" 218 9277 9306 "kind1/new_vars.ml" 218 9277 9310
+)
+"kind1/new_vars.ml" 218 9277 9306 "kind1/new_vars.ml" 218 9277 9307
+type(
+  string
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 218 9277 9297 "kind1/new_vars.ml" 218 9277 9298
+)
+"kind1/new_vars.ml" 218 9277 9309 "kind1/new_vars.ml" 218 9277 9310
+type(
+  string list
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 218 9277 9301 "kind1/new_vars.ml" 218 9277 9302
+)
+"kind1/new_vars.ml" 218 9277 9306 "kind1/new_vars.ml" 218 9277 9310
+type(
+  string list
+)
+"kind1/new_vars.ml" 218 9277 9292 "kind1/new_vars.ml" 218 9277 9311
+type(
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string ->
+  string list -> string list
+)
+"kind1/new_vars.ml" 218 9277 9312 "kind1/new_vars.ml" 218 9277 9328
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 218 9277 9329 "kind1/new_vars.ml" 218 9277 9331
+type(
+  string list
+)
+"kind1/new_vars.ml" 218 9277 9279 "kind1/new_vars.ml" 218 9277 9331
+call(
+  tail
+)
+type(
+  string list
+)
+"kind1/new_vars.ml" 220 9334 9338 "kind1/new_vars.ml" 220 9334 9350
+type(
+  unit -> string list
+)
+ident(
+  def get_all_ndef "kind1/new_vars.ml" 224 9425 9425 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 220 9334 9351 "kind1/new_vars.ml" 220 9334 9353
+type(
+  unit
+)
+"kind1/new_vars.ml" 221 9356 9359 "kind1/new_vars.ml" 221 9356 9371
+type(
+  (string ->
+   Types.il_expression * int * Types.lustre_type * string * string ->
+   string list -> string list) ->
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t -> string list -> string list
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/new_vars.ml" 221 9356 9377 "kind1/new_vars.ml" 221 9356 9378
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 221 9356 9379 "kind1/new_vars.ml" 221 9356 9400
+)
+"kind1/new_vars.ml" 221 9356 9380 "kind1/new_vars.ml" 221 9356 9381
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 221 9356 9382 "kind1/new_vars.ml" 221 9356 9383
+type(
+  int
+)
+"kind1/new_vars.ml" 221 9356 9384 "kind1/new_vars.ml" 221 9356 9385
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 221 9356 9386 "kind1/new_vars.ml" 221 9356 9387
+type(
+  string
+)
+ident(
+  def y "kind1/new_vars.ml" 221 9356 9391 "kind1/new_vars.ml" 221 9356 9400
+)
+"kind1/new_vars.ml" 221 9356 9388 "kind1/new_vars.ml" 221 9356 9389
+type(
+  string
+)
+"kind1/new_vars.ml" 221 9356 9379 "kind1/new_vars.ml" 221 9356 9390
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 221 9356 9391 "kind1/new_vars.ml" 221 9356 9392
+type(
+  string list
+)
+ident(
+  def z "kind1/new_vars.ml" 221 9356 9396 "kind1/new_vars.ml" 221 9356 9400
+)
+"kind1/new_vars.ml" 221 9356 9396 "kind1/new_vars.ml" 221 9356 9397
+type(
+  string
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 221 9356 9386 "kind1/new_vars.ml" 221 9356 9387
+)
+"kind1/new_vars.ml" 221 9356 9399 "kind1/new_vars.ml" 221 9356 9400
+type(
+  string list
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 221 9356 9391 "kind1/new_vars.ml" 221 9356 9392
+)
+"kind1/new_vars.ml" 221 9356 9396 "kind1/new_vars.ml" 221 9356 9400
+type(
+  string list
+)
+"kind1/new_vars.ml" 221 9356 9372 "kind1/new_vars.ml" 221 9356 9401
+type(
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string ->
+  string list -> string list
+)
+"kind1/new_vars.ml" 221 9356 9402 "kind1/new_vars.ml" 221 9356 9418
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 221 9356 9419 "kind1/new_vars.ml" 221 9356 9421
+type(
+  string list
+)
+"kind1/new_vars.ml" 221 9356 9359 "kind1/new_vars.ml" 221 9356 9421
+call(
+  tail
+)
+type(
+  string list
+)
+"kind1/new_vars.ml" 224 9425 9429 "kind1/new_vars.ml" 224 9425 9446
+type(
+  string -> string -> Types.lustre_type -> Types.il_expression -> string
+)
+ident(
+  def mk_one_nvr_eq_cmd "kind1/new_vars.ml" 229 9606 9606 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 224 9425 9447 "kind1/new_vars.ml" 224 9425 9454
+type(
+  string
+)
+ident(
+  def nvr_str "kind1/new_vars.ml" 224 9425 9455 "kind1/new_vars.ml" 227 9537 9603
+)
+"kind1/new_vars.ml" 224 9425 9455 "kind1/new_vars.ml" 224 9425 9466
+type(
+  string
+)
+ident(
+  def nvr_def_str "kind1/new_vars.ml" 224 9425 9467 "kind1/new_vars.ml" 227 9537 9603
+)
+"kind1/new_vars.ml" 224 9425 9467 "kind1/new_vars.ml" 224 9425 9469
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 224 9425 9470 "kind1/new_vars.ml" 227 9537 9603
+)
+"kind1/new_vars.ml" 224 9425 9470 "kind1/new_vars.ml" 224 9425 9478
+type(
+  Types.il_expression
+)
+ident(
+  def position "kind1/new_vars.ml" 225 9483 9485 "kind1/new_vars.ml" 227 9537 9603
+)
+"kind1/new_vars.ml" 225 9483 9485 "kind1/new_vars.ml" 225 9483 9521
+type(
+  Types.solver_command -> string
+)
+ident(
+  ext_ref Lus_convert_yc.simple_command_string
+)
+"kind1/new_vars.ml" 227 9537 9554 "kind1/new_vars.ml" 227 9537 9561
+type(
+  string
+)
+ident(
+  int_ref nvr_str "kind1/new_vars.ml" 224 9425 9447 "kind1/new_vars.ml" 224 9425 9454
+)
+"kind1/new_vars.ml" 227 9537 9562 "kind1/new_vars.ml" 227 9537 9564
+type(
+  Types.il_expression list
+)
+"kind1/new_vars.ml" 227 9537 9549 "kind1/new_vars.ml" 227 9537 9565
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 227 9537 9572 "kind1/new_vars.ml" 227 9537 9583
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str "kind1/new_vars.ml" 224 9425 9455 "kind1/new_vars.ml" 224 9425 9466
+)
+"kind1/new_vars.ml" 227 9537 9586 "kind1/new_vars.ml" 227 9537 9594
+type(
+  Types.il_expression
+)
+ident(
+  int_ref position "kind1/new_vars.ml" 224 9425 9470 "kind1/new_vars.ml" 224 9425 9478
+)
+"kind1/new_vars.ml" 227 9537 9585 "kind1/new_vars.ml" 227 9537 9595
+type(
+  Types.il_expression list
+)
+"kind1/new_vars.ml" 227 9537 9567 "kind1/new_vars.ml" 227 9537 9596
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 227 9537 9598 "kind1/new_vars.ml" 227 9537 9600
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 224 9425 9467 "kind1/new_vars.ml" 224 9425 9469
+)
+"kind1/new_vars.ml" 226 9523 9535 "kind1/new_vars.ml" 227 9537 9602
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 226 9523 9527 "kind1/new_vars.ml" 227 9537 9603
+type(
+  Types.solver_command
+)
+"kind1/new_vars.ml" 225 9483 9485 "kind1/new_vars.ml" 227 9537 9603
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 229 9606 9610 "kind1/new_vars.ml" 229 9606 9624
+type(
+  Types.il_expression -> string
+)
+ident(
+  def mk_nvr_eq_cmds "kind1/new_vars.ml" 235 9770 9770 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 229 9606 9625 "kind1/new_vars.ml" 229 9606 9633
+type(
+  Types.il_expression
+)
+ident(
+  def position "kind1/new_vars.ml" 230 9638 9640 "kind1/new_vars.ml" 232 9743 9766
+)
+"kind1/new_vars.ml" 230 9638 9640 "kind1/new_vars.ml" 230 9638 9652
+type(
+  (string ->
+   Types.il_expression * int * Types.lustre_type * string * string ->
+   string -> string) ->
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t -> string -> string
+)
+ident(
+  ext_ref Hashtbl.fold
+)
+"kind1/new_vars.ml" 230 9638 9658 "kind1/new_vars.ml" 230 9638 9659
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 230 9638 9660 "kind1/new_vars.ml" 231 9689 9742
+)
+"kind1/new_vars.ml" 230 9638 9661 "kind1/new_vars.ml" 230 9638 9662
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 230 9638 9663 "kind1/new_vars.ml" 230 9638 9664
+type(
+  int
+)
+"kind1/new_vars.ml" 230 9638 9665 "kind1/new_vars.ml" 230 9638 9667
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 230 9638 9683 "kind1/new_vars.ml" 231 9689 9742
+)
+"kind1/new_vars.ml" 230 9638 9668 "kind1/new_vars.ml" 230 9638 9679
+type(
+  string
+)
+ident(
+  def nvr_def_str "kind1/new_vars.ml" 230 9638 9683 "kind1/new_vars.ml" 231 9689 9742
+)
+"kind1/new_vars.ml" 230 9638 9680 "kind1/new_vars.ml" 230 9638 9681
+type(
+  string
+)
+"kind1/new_vars.ml" 230 9638 9660 "kind1/new_vars.ml" 230 9638 9682
+type(
+  Types.il_expression * int * Types.lustre_type * string * string
+)
+"kind1/new_vars.ml" 230 9638 9683 "kind1/new_vars.ml" 230 9638 9684
+type(
+  string
+)
+ident(
+  def z "kind1/new_vars.ml" 231 9689 9693 "kind1/new_vars.ml" 231 9689 9742
+)
+"kind1/new_vars.ml" 231 9689 9694 "kind1/new_vars.ml" 231 9689 9711
+type(
+  string -> string -> Types.lustre_type -> Types.il_expression -> string
+)
+ident(
+  int_ref mk_one_nvr_eq_cmd "kind1/new_vars.ml" 224 9425 9429 "kind1/new_vars.ml" 224 9425 9446
+)
+"kind1/new_vars.ml" 231 9689 9712 "kind1/new_vars.ml" 231 9689 9713
+type(
+  string
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 230 9638 9658 "kind1/new_vars.ml" 230 9638 9659
+)
+"kind1/new_vars.ml" 231 9689 9714 "kind1/new_vars.ml" 231 9689 9725
+type(
+  string
+)
+ident(
+  int_ref nvr_def_str "kind1/new_vars.ml" 230 9638 9668 "kind1/new_vars.ml" 230 9638 9679
+)
+"kind1/new_vars.ml" 231 9689 9726 "kind1/new_vars.ml" 231 9689 9728
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 230 9638 9665 "kind1/new_vars.ml" 230 9638 9667
+)
+"kind1/new_vars.ml" 231 9689 9729 "kind1/new_vars.ml" 231 9689 9737
+type(
+  Types.il_expression
+)
+ident(
+  int_ref position "kind1/new_vars.ml" 229 9606 9625 "kind1/new_vars.ml" 229 9606 9633
+)
+"kind1/new_vars.ml" 231 9689 9693 "kind1/new_vars.ml" 231 9689 9738
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 231 9689 9739 "kind1/new_vars.ml" 231 9689 9740
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/new_vars.ml" 231 9689 9741 "kind1/new_vars.ml" 231 9689 9742
+type(
+  string
+)
+ident(
+  int_ref z "kind1/new_vars.ml" 230 9638 9683 "kind1/new_vars.ml" 230 9638 9684
+)
+"kind1/new_vars.ml" 231 9689 9693 "kind1/new_vars.ml" 231 9689 9742
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 230 9638 9653 "kind1/new_vars.ml" 232 9743 9746
+type(
+  string ->
+  Types.il_expression * int * Types.lustre_type * string * string ->
+  string -> string
+)
+"kind1/new_vars.ml" 232 9743 9747 "kind1/new_vars.ml" 232 9743 9763
+type(
+  (string, Types.il_expression * int * Types.lustre_type * string * string)
+  Hashtbl.t
+)
+ident(
+  int_ref nvr_to_info_hash "kind1/new_vars.ml" 74 2693 2697 "kind1/new_vars.ml" 74 2693 2713
+)
+"kind1/new_vars.ml" 232 9743 9764 "kind1/new_vars.ml" 232 9743 9766
+type(
+  string
+)
+"kind1/new_vars.ml" 230 9638 9640 "kind1/new_vars.ml" 232 9743 9766
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 235 9770 9774 "kind1/new_vars.ml" 235 9770 9790
+type(
+  Types.il_expression list -> string
+)
+ident(
+  def bool_newvar_defs "kind1/new_vars.ml" 245 10104 10104 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 235 9770 9791 "kind1/new_vars.ml" 235 9770 9805
+type(
+  Types.il_expression list
+)
+ident(
+  def bool_sub_exprs "kind1/new_vars.ml" 236 9809 9811 "kind1/new_vars.ml" 242 10070 10101
+)
+"kind1/new_vars.ml" 236 9809 9815 "kind1/new_vars.ml" 236 9809 9826
+type(
+  Buffer.t
+)
+ident(
+  def new_var_buf "kind1/new_vars.ml" 237 9852 9858 "kind1/new_vars.ml" 242 10070 10101
+)
+"kind1/new_vars.ml" 236 9809 9829 "kind1/new_vars.ml" 236 9809 9842
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/new_vars.ml" 236 9809 9843 "kind1/new_vars.ml" 236 9809 9848
+type(
+  int
+)
+"kind1/new_vars.ml" 236 9809 9829 "kind1/new_vars.ml" 236 9809 9848
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/new_vars.ml" 237 9852 9858 "kind1/new_vars.ml" 237 9852 9867
+type(
+  (Types.il_expression -> unit) -> Types.il_expression list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/new_vars.ml" 237 9852 9873 "kind1/new_vars.ml" 237 9852 9874
+type(
+  Types.il_expression
+)
+ident(
+  def x "kind1/new_vars.ml" 238 9879 9885 "kind1/new_vars.ml" 240 9989 10044
+)
+"kind1/new_vars.ml" 238 9879 9889 "kind1/new_vars.ml" 238 9879 9901
+type(
+  string
+)
+ident(
+  def nvr_decl_str "kind1/new_vars.ml" 239 9944 9945 "kind1/new_vars.ml" 240 9989 10044
+)
+"kind1/new_vars.ml" 238 9879 9903 "kind1/new_vars.ml" 238 9879 9919
+type(
+  string
+)
+ident(
+  def nvr_def_decl_str "kind1/new_vars.ml" 239 9944 9945 "kind1/new_vars.ml" 240 9989 10044
+)
+"kind1/new_vars.ml" 238 9879 9889 "kind1/new_vars.ml" 238 9879 9919
+type(
+  string * string
+)
+"kind1/new_vars.ml" 238 9879 9922 "kind1/new_vars.ml" 238 9879 9931
+type(
+  Types.il_expression -> Types.lustre_type -> string * string
+)
+ident(
+  int_ref setup_nvr "kind1/new_vars.ml" 196 8659 8663 "kind1/new_vars.ml" 196 8659 8672
+)
+"kind1/new_vars.ml" 238 9879 9932 "kind1/new_vars.ml" 238 9879 9933
+type(
+  Types.il_expression
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 237 9852 9873 "kind1/new_vars.ml" 237 9852 9874
+)
+"kind1/new_vars.ml" 238 9879 9934 "kind1/new_vars.ml" 238 9879 9940
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 238 9879 9922 "kind1/new_vars.ml" 238 9879 9940
+call(
+  stack
+)
+type(
+  string * string
+)
+"kind1/new_vars.ml" 239 9944 9945 "kind1/new_vars.ml" 239 9944 9962
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 239 9944 9963 "kind1/new_vars.ml" 239 9944 9974
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 236 9809 9815 "kind1/new_vars.ml" 236 9809 9826
+)
+"kind1/new_vars.ml" 239 9944 9975 "kind1/new_vars.ml" 239 9944 9987
+type(
+  string
+)
+ident(
+  int_ref nvr_decl_str "kind1/new_vars.ml" 238 9879 9889 "kind1/new_vars.ml" 238 9879 9901
+)
+"kind1/new_vars.ml" 239 9944 9945 "kind1/new_vars.ml" 239 9944 9987
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 240 9989 9997 "kind1/new_vars.ml" 240 9989 10014
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 240 9989 10015 "kind1/new_vars.ml" 240 9989 10026
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 236 9809 9815 "kind1/new_vars.ml" 236 9809 9826
+)
+"kind1/new_vars.ml" 240 9989 10027 "kind1/new_vars.ml" 240 9989 10043
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl_str "kind1/new_vars.ml" 238 9879 9903 "kind1/new_vars.ml" 238 9879 9919
+)
+"kind1/new_vars.ml" 240 9989 9997 "kind1/new_vars.ml" 240 9989 10044
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 239 9944 9945 "kind1/new_vars.ml" 240 9989 10044
+type(
+  unit
+)
+"kind1/new_vars.ml" 238 9879 9885 "kind1/new_vars.ml" 240 9989 10044
+type(
+  unit
+)
+"kind1/new_vars.ml" 237 9852 9868 "kind1/new_vars.ml" 241 10045 10050
+type(
+  Types.il_expression -> unit
+)
+"kind1/new_vars.ml" 241 10045 10051 "kind1/new_vars.ml" 241 10045 10065
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref bool_sub_exprs "kind1/new_vars.ml" 235 9770 9791 "kind1/new_vars.ml" 235 9770 9805
+)
+"kind1/new_vars.ml" 237 9852 9858 "kind1/new_vars.ml" 241 10045 10065
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 242 10070 10074 "kind1/new_vars.ml" 242 10070 10089
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/new_vars.ml" 242 10070 10090 "kind1/new_vars.ml" 242 10070 10101
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 236 9809 9815 "kind1/new_vars.ml" 236 9809 9826
+)
+"kind1/new_vars.ml" 242 10070 10074 "kind1/new_vars.ml" 242 10070 10101
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 237 9852 9858 "kind1/new_vars.ml" 242 10070 10101
+type(
+  string
+)
+"kind1/new_vars.ml" 236 9809 9811 "kind1/new_vars.ml" 242 10070 10101
+type(
+  string
+)
+"kind1/new_vars.ml" 245 10104 10108 "kind1/new_vars.ml" 245 10104 10123
+type(
+  Types.il_expression list -> string
+)
+ident(
+  def int_newvar_defs "kind1/new_vars.ml" 261 10616 10616 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 245 10104 10124 "kind1/new_vars.ml" 245 10104 10137
+type(
+  Types.il_expression list
+)
+ident(
+  def int_sub_exprs "kind1/new_vars.ml" 246 10142 10144 "kind1/new_vars.ml" 258 10582 10613
+)
+"kind1/new_vars.ml" 246 10142 10148 "kind1/new_vars.ml" 246 10142 10159
+type(
+  Buffer.t
+)
+ident(
+  def new_var_buf "kind1/new_vars.ml" 247 10185 10189 "kind1/new_vars.ml" 258 10582 10613
+)
+"kind1/new_vars.ml" 246 10142 10162 "kind1/new_vars.ml" 246 10142 10175
+type(
+  int -> Buffer.t
+)
+ident(
+  ext_ref Buffer.create
+)
+"kind1/new_vars.ml" 246 10142 10176 "kind1/new_vars.ml" 246 10142 10181
+type(
+  int
+)
+"kind1/new_vars.ml" 246 10142 10162 "kind1/new_vars.ml" 246 10142 10181
+call(
+  stack
+)
+type(
+  Buffer.t
+)
+"kind1/new_vars.ml" 247 10185 10189 "kind1/new_vars.ml" 247 10185 10198
+type(
+  (Types.il_expression -> unit) -> Types.il_expression list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/new_vars.ml" 247 10185 10204 "kind1/new_vars.ml" 247 10185 10205
+type(
+  Types.il_expression
+)
+ident(
+  def x "kind1/new_vars.ml" 248 10210 10216 "kind1/new_vars.ml" 250 10316 10360
+)
+"kind1/new_vars.ml" 248 10210 10220 "kind1/new_vars.ml" 248 10210 10232
+type(
+  string
+)
+ident(
+  def nvr_decl_str "kind1/new_vars.ml" 249 10271 10272 "kind1/new_vars.ml" 250 10316 10360
+)
+"kind1/new_vars.ml" 248 10210 10234 "kind1/new_vars.ml" 248 10210 10246
+type(
+  string
+)
+ident(
+  def nvr_def_decl "kind1/new_vars.ml" 249 10271 10272 "kind1/new_vars.ml" 250 10316 10360
+)
+"kind1/new_vars.ml" 248 10210 10220 "kind1/new_vars.ml" 248 10210 10246
+type(
+  string * string
+)
+"kind1/new_vars.ml" 248 10210 10250 "kind1/new_vars.ml" 248 10210 10259
+type(
+  Types.il_expression -> Types.lustre_type -> string * string
+)
+ident(
+  int_ref setup_nvr "kind1/new_vars.ml" 196 8659 8663 "kind1/new_vars.ml" 196 8659 8672
+)
+"kind1/new_vars.ml" 248 10210 10260 "kind1/new_vars.ml" 248 10210 10261
+type(
+  Types.il_expression
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 247 10185 10204 "kind1/new_vars.ml" 247 10185 10205
+)
+"kind1/new_vars.ml" 248 10210 10262 "kind1/new_vars.ml" 248 10210 10267
+type(
+  Types.lustre_type
+)
+"kind1/new_vars.ml" 248 10210 10250 "kind1/new_vars.ml" 248 10210 10267
+call(
+  stack
+)
+type(
+  string * string
+)
+"kind1/new_vars.ml" 249 10271 10272 "kind1/new_vars.ml" 249 10271 10289
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 249 10271 10290 "kind1/new_vars.ml" 249 10271 10301
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 246 10142 10148 "kind1/new_vars.ml" 246 10142 10159
+)
+"kind1/new_vars.ml" 249 10271 10302 "kind1/new_vars.ml" 249 10271 10314
+type(
+  string
+)
+ident(
+  int_ref nvr_decl_str "kind1/new_vars.ml" 248 10210 10220 "kind1/new_vars.ml" 248 10210 10232
+)
+"kind1/new_vars.ml" 249 10271 10272 "kind1/new_vars.ml" 249 10271 10314
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 250 10316 10317 "kind1/new_vars.ml" 250 10316 10334
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 250 10316 10335 "kind1/new_vars.ml" 250 10316 10346
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 246 10142 10148 "kind1/new_vars.ml" 246 10142 10159
+)
+"kind1/new_vars.ml" 250 10316 10347 "kind1/new_vars.ml" 250 10316 10359
+type(
+  string
+)
+ident(
+  int_ref nvr_def_decl "kind1/new_vars.ml" 248 10210 10234 "kind1/new_vars.ml" 248 10210 10246
+)
+"kind1/new_vars.ml" 250 10316 10317 "kind1/new_vars.ml" 250 10316 10360
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 249 10271 10272 "kind1/new_vars.ml" 250 10316 10360
+type(
+  unit
+)
+"kind1/new_vars.ml" 248 10210 10216 "kind1/new_vars.ml" 250 10316 10360
+type(
+  unit
+)
+"kind1/new_vars.ml" 247 10185 10199 "kind1/new_vars.ml" 251 10361 10366
+type(
+  Types.il_expression -> unit
+)
+"kind1/new_vars.ml" 251 10361 10366 "kind1/new_vars.ml" 251 10361 10379
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref int_sub_exprs "kind1/new_vars.ml" 245 10104 10124 "kind1/new_vars.ml" 245 10104 10137
+)
+"kind1/new_vars.ml" 247 10185 10189 "kind1/new_vars.ml" 251 10361 10379
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 253 10386 10392 "kind1/new_vars.ml" 253 10386 10393
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/new_vars.ml" 253 10386 10393 "kind1/new_vars.ml" 253 10386 10409
+type(
+  bool ref
+)
+ident(
+  ext_ref Globals.is_inter
+)
+"kind1/new_vars.ml" 253 10386 10392 "kind1/new_vars.ml" 253 10386 10409
+type(
+  bool
+)
+"kind1/new_vars.ml" 253 10386 10410 "kind1/new_vars.ml" 253 10386 10412
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/new_vars.ml" 253 10386 10413 "kind1/new_vars.ml" 253 10386 10414
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/new_vars.ml" 253 10386 10414 "kind1/new_vars.ml" 253 10386 10431
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.mode_inv
+)
+"kind1/new_vars.ml" 253 10386 10413 "kind1/new_vars.ml" 253 10386 10431
+type(
+  bool
+)
+"kind1/new_vars.ml" 253 10386 10391 "kind1/new_vars.ml" 253 10386 10432
+type(
+  bool
+)
+"kind1/new_vars.ml" 254 10440 10448 "kind1/new_vars.ml" 254 10440 10460
+type(
+  string
+)
+ident(
+  def interval_buf "kind1/new_vars.ml" 255 10492 10498 "kind1/new_vars.ml" 256 10542 10573
+)
+"kind1/new_vars.ml" 254 10440 10463 "kind1/new_vars.ml" 254 10440 10486
+type(
+  unit -> string
+)
+ident(
+  int_ref make_interval_candidate "kind1/new_vars.ml" 106 3962 3966 "kind1/new_vars.ml" 106 3962 3989
+)
+"kind1/new_vars.ml" 254 10440 10486 "kind1/new_vars.ml" 254 10440 10488
+type(
+  unit
+)
+"kind1/new_vars.ml" 254 10440 10463 "kind1/new_vars.ml" 254 10440 10488
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 255 10492 10498 "kind1/new_vars.ml" 255 10492 10515
+type(
+  Buffer.t -> string -> unit
+)
+ident(
+  ext_ref Buffer.add_string
+)
+"kind1/new_vars.ml" 255 10492 10516 "kind1/new_vars.ml" 255 10492 10527
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 246 10142 10148 "kind1/new_vars.ml" 246 10142 10159
+)
+"kind1/new_vars.ml" 255 10492 10528 "kind1/new_vars.ml" 255 10492 10540
+type(
+  string
+)
+ident(
+  int_ref interval_buf "kind1/new_vars.ml" 254 10440 10448 "kind1/new_vars.ml" 254 10440 10460
+)
+"kind1/new_vars.ml" 255 10492 10498 "kind1/new_vars.ml" 255 10492 10540
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/new_vars.ml" 256 10542 10546 "kind1/new_vars.ml" 256 10542 10561
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/new_vars.ml" 256 10542 10562 "kind1/new_vars.ml" 256 10542 10573
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 246 10142 10148 "kind1/new_vars.ml" 246 10142 10159
+)
+"kind1/new_vars.ml" 256 10542 10546 "kind1/new_vars.ml" 256 10542 10573
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 255 10492 10498 "kind1/new_vars.ml" 256 10542 10573
+type(
+  string
+)
+"kind1/new_vars.ml" 253 10386 10438 "kind1/new_vars.ml" 256 10542 10574
+type(
+  string
+)
+"kind1/new_vars.ml" 258 10582 10586 "kind1/new_vars.ml" 258 10582 10601
+type(
+  Buffer.t -> string
+)
+ident(
+  ext_ref Buffer.contents
+)
+"kind1/new_vars.ml" 258 10582 10602 "kind1/new_vars.ml" 258 10582 10613
+type(
+  Buffer.t
+)
+ident(
+  int_ref new_var_buf "kind1/new_vars.ml" 246 10142 10148 "kind1/new_vars.ml" 246 10142 10159
+)
+"kind1/new_vars.ml" 258 10582 10586 "kind1/new_vars.ml" 258 10582 10613
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 253 10386 10388 "kind1/new_vars.ml" 258 10582 10613
+type(
+  string
+)
+"kind1/new_vars.ml" 247 10185 10189 "kind1/new_vars.ml" 258 10582 10613
+type(
+  string
+)
+"kind1/new_vars.ml" 246 10142 10144 "kind1/new_vars.ml" 258 10582 10613
+type(
+  string
+)
+"kind1/new_vars.ml" 261 10616 10620 "kind1/new_vars.ml" 261 10616 10637
+type(
+  string list ->
+  Types.lustre_type -> Types.il_expression list -> Types.il_formula list list
+)
+ident(
+  def nvr_stepn_asserts "kind1/new_vars.ml" 274 11046 11046 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 261 10616 10638 "kind1/new_vars.ml" 261 10616 10649
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/new_vars.ml" 261 10616 10650 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 261 10616 10650 "kind1/new_vars.ml" 261 10616 10652
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/new_vars.ml" 261 10616 10653 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 261 10616 10653 "kind1/new_vars.ml" 261 10616 10662
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/new_vars.ml" 262 10668 10670 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 262 10668 10674 "kind1/new_vars.ml" 262 10668 10682
+type(
+  string list
+)
+ident(
+  def nvr_defs "kind1/new_vars.ml" 263 10737 10739 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 262 10668 10685 "kind1/new_vars.ml" 262 10668 10693
+type(
+  (string -> string) -> string list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/new_vars.ml" 262 10668 10699 "kind1/new_vars.ml" 262 10668 10700
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 262 10668 10704 "kind1/new_vars.ml" 262 10668 10720
+)
+"kind1/new_vars.ml" 262 10668 10704 "kind1/new_vars.ml" 262 10668 10718
+type(
+  string -> string
+)
+ident(
+  int_ref nvr_to_nvr_def "kind1/new_vars.ml" 176 7875 7879 "kind1/new_vars.ml" 176 7875 7893
+)
+"kind1/new_vars.ml" 262 10668 10719 "kind1/new_vars.ml" 262 10668 10720
+type(
+  string
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 262 10668 10699 "kind1/new_vars.ml" 262 10668 10700
+)
+"kind1/new_vars.ml" 262 10668 10704 "kind1/new_vars.ml" 262 10668 10720
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 262 10668 10694 "kind1/new_vars.ml" 262 10668 10721
+type(
+  string -> string
+)
+"kind1/new_vars.ml" 262 10668 10722 "kind1/new_vars.ml" 262 10668 10733
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/new_vars.ml" 261 10616 10638 "kind1/new_vars.ml" 261 10616 10649
+)
+"kind1/new_vars.ml" 262 10668 10685 "kind1/new_vars.ml" 262 10668 10733
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/new_vars.ml" 263 10737 10743 "kind1/new_vars.ml" 263 10737 10752
+type(
+  string -> string -> Types.il_expression -> Types.il_formula
+)
+ident(
+  def mk_one_eq "kind1/new_vars.ml" 264 10806 10808 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 263 10737 10753 "kind1/new_vars.ml" 263 10737 10754
+type(
+  string
+)
+ident(
+  def x "kind1/new_vars.ml" 263 10737 10755 "kind1/new_vars.ml" 263 10737 10803
+)
+"kind1/new_vars.ml" 263 10737 10755 "kind1/new_vars.ml" 263 10737 10756
+type(
+  string
+)
+ident(
+  def y "kind1/new_vars.ml" 263 10737 10757 "kind1/new_vars.ml" 263 10737 10803
+)
+"kind1/new_vars.ml" 263 10737 10757 "kind1/new_vars.ml" 263 10737 10760
+type(
+  Types.il_expression
+)
+ident(
+  def pos "kind1/new_vars.ml" 263 10737 10763 "kind1/new_vars.ml" 263 10737 10803
+)
+"kind1/new_vars.ml" 263 10737 10774 "kind1/new_vars.ml" 263 10737 10775
+type(
+  string
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 263 10737 10753 "kind1/new_vars.ml" 263 10737 10754
+)
+"kind1/new_vars.ml" 263 10737 10777 "kind1/new_vars.ml" 263 10737 10780
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/new_vars.ml" 263 10737 10757 "kind1/new_vars.ml" 263 10737 10760
+)
+"kind1/new_vars.ml" 263 10737 10776 "kind1/new_vars.ml" 263 10737 10781
+type(
+  Types.il_expression list
+)
+"kind1/new_vars.ml" 263 10737 10769 "kind1/new_vars.ml" 263 10737 10782
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 263 10737 10789 "kind1/new_vars.ml" 263 10737 10790
+type(
+  string
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 263 10737 10755 "kind1/new_vars.ml" 263 10737 10756
+)
+"kind1/new_vars.ml" 263 10737 10793 "kind1/new_vars.ml" 263 10737 10796
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/new_vars.ml" 263 10737 10757 "kind1/new_vars.ml" 263 10737 10760
+)
+"kind1/new_vars.ml" 263 10737 10792 "kind1/new_vars.ml" 263 10737 10797
+type(
+  Types.il_expression list
+)
+"kind1/new_vars.ml" 263 10737 10784 "kind1/new_vars.ml" 263 10737 10798
+type(
+  Types.il_expression
+)
+"kind1/new_vars.ml" 263 10737 10800 "kind1/new_vars.ml" 263 10737 10802
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/new_vars.ml" 261 10616 10650 "kind1/new_vars.ml" 261 10616 10652
+)
+"kind1/new_vars.ml" 263 10737 10763 "kind1/new_vars.ml" 263 10737 10803
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 264 10806 10816 "kind1/new_vars.ml" 264 10806 10822
+type(
+  string list -> Types.il_expression -> Types.il_formula list
+)
+ident(
+  def mk_eqs "kind1/new_vars.ml" 264 10806 10808 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 264 10806 10823 "kind1/new_vars.ml" 264 10806 10824
+type(
+  string list
+)
+ident(
+  def l "kind1/new_vars.ml" 264 10806 10825 "kind1/new_vars.ml" 269 10911 10967
+)
+"kind1/new_vars.ml" 264 10806 10825 "kind1/new_vars.ml" 264 10806 10828
+type(
+  Types.il_expression
+)
+ident(
+  def pos "kind1/new_vars.ml" 265 10831 10835 "kind1/new_vars.ml" 269 10911 10967
+)
+"kind1/new_vars.ml" 265 10831 10841 "kind1/new_vars.ml" 265 10831 10842
+type(
+  string list
+)
+ident(
+  int_ref l "kind1/new_vars.ml" 264 10806 10823 "kind1/new_vars.ml" 264 10806 10824
+)
+"kind1/new_vars.ml" 266 10849 10856 "kind1/new_vars.ml" 266 10849 10858
+type(
+  string list
+)
+"kind1/new_vars.ml" 266 10849 10862 "kind1/new_vars.ml" 266 10849 10864
+type(
+  Types.il_formula list
+)
+"kind1/new_vars.ml" 267 10865 10873 "kind1/new_vars.ml" 267 10865 10875
+type(
+  string
+)
+ident(
+  def hd "kind1/new_vars.ml" 267 10865 10883 "kind1/new_vars.ml" 267 10865 10885
+)
+"kind1/new_vars.ml" 267 10865 10877 "kind1/new_vars.ml" 267 10865 10879
+type(
+  string list
+)
+"kind1/new_vars.ml" 267 10865 10873 "kind1/new_vars.ml" 267 10865 10879
+type(
+  string list
+)
+"kind1/new_vars.ml" 267 10865 10883 "kind1/new_vars.ml" 267 10865 10885
+type(
+  Types.il_formula list
+)
+"kind1/new_vars.ml" 268 10886 10894 "kind1/new_vars.ml" 268 10886 10896
+type(
+  string
+)
+ident(
+  def hd "kind1/new_vars.ml" 269 10911 10921 "kind1/new_vars.ml" 269 10911 10967
+)
+"kind1/new_vars.ml" 268 10886 10899 "kind1/new_vars.ml" 268 10886 10902
+type(
+  string
+)
+ident(
+  def hd2 "kind1/new_vars.ml" 269 10911 10921 "kind1/new_vars.ml" 269 10911 10967
+)
+"kind1/new_vars.ml" 268 10886 10904 "kind1/new_vars.ml" 268 10886 10906
+type(
+  string list
+)
+ident(
+  def tl "kind1/new_vars.ml" 269 10911 10921 "kind1/new_vars.ml" 269 10911 10967
+)
+"kind1/new_vars.ml" 268 10886 10898 "kind1/new_vars.ml" 268 10886 10907
+type(
+  string list
+)
+"kind1/new_vars.ml" 268 10886 10894 "kind1/new_vars.ml" 268 10886 10907
+type(
+  string list
+)
+"kind1/new_vars.ml" 269 10911 10922 "kind1/new_vars.ml" 269 10911 10931
+type(
+  string -> string -> Types.il_expression -> Types.il_formula
+)
+ident(
+  int_ref mk_one_eq "kind1/new_vars.ml" 263 10737 10743 "kind1/new_vars.ml" 263 10737 10752
+)
+"kind1/new_vars.ml" 269 10911 10932 "kind1/new_vars.ml" 269 10911 10934
+type(
+  string
+)
+ident(
+  int_ref hd "kind1/new_vars.ml" 268 10886 10894 "kind1/new_vars.ml" 268 10886 10896
+)
+"kind1/new_vars.ml" 269 10911 10935 "kind1/new_vars.ml" 269 10911 10938
+type(
+  string
+)
+ident(
+  int_ref hd2 "kind1/new_vars.ml" 268 10886 10899 "kind1/new_vars.ml" 268 10886 10902
+)
+"kind1/new_vars.ml" 269 10911 10939 "kind1/new_vars.ml" 269 10911 10942
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/new_vars.ml" 264 10806 10825 "kind1/new_vars.ml" 264 10806 10828
+)
+"kind1/new_vars.ml" 269 10911 10921 "kind1/new_vars.ml" 269 10911 10943
+call(
+  stack
+)
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 269 10911 10946 "kind1/new_vars.ml" 269 10911 10952
+type(
+  string list -> Types.il_expression -> Types.il_formula list
+)
+ident(
+  int_ref mk_eqs "kind1/new_vars.ml" 264 10806 10816 "kind1/new_vars.ml" 264 10806 10822
+)
+"kind1/new_vars.ml" 269 10911 10954 "kind1/new_vars.ml" 269 10911 10957
+type(
+  string
+)
+ident(
+  int_ref hd2 "kind1/new_vars.ml" 268 10886 10899 "kind1/new_vars.ml" 268 10886 10902
+)
+"kind1/new_vars.ml" 269 10911 10959 "kind1/new_vars.ml" 269 10911 10961
+type(
+  string list
+)
+ident(
+  int_ref tl "kind1/new_vars.ml" 268 10886 10904 "kind1/new_vars.ml" 268 10886 10906
+)
+"kind1/new_vars.ml" 269 10911 10953 "kind1/new_vars.ml" 269 10911 10962
+type(
+  string list
+)
+"kind1/new_vars.ml" 269 10911 10963 "kind1/new_vars.ml" 269 10911 10966
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/new_vars.ml" 264 10806 10825 "kind1/new_vars.ml" 264 10806 10828
+)
+"kind1/new_vars.ml" 269 10911 10945 "kind1/new_vars.ml" 269 10911 10967
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/new_vars.ml" 269 10911 10921 "kind1/new_vars.ml" 269 10911 10967
+type(
+  Types.il_formula list
+)
+"kind1/new_vars.ml" 265 10831 10835 "kind1/new_vars.ml" 269 10911 10967
+type(
+  Types.il_formula list
+)
+"kind1/new_vars.ml" 270 10971 10977 "kind1/new_vars.ml" 270 10971 10980
+type(
+  Types.il_formula list list
+)
+ident(
+  def eqs "kind1/new_vars.ml" 271 11035 11039 "kind1/new_vars.ml" 271 11035 11042
+)
+"kind1/new_vars.ml" 270 10971 10983 "kind1/new_vars.ml" 270 10971 10991
+type(
+  (Types.il_expression -> Types.il_formula list) ->
+  Types.il_expression list -> Types.il_formula list list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/new_vars.ml" 270 10971 10997 "kind1/new_vars.ml" 270 10971 10998
+type(
+  Types.il_expression
+)
+ident(
+  def x "kind1/new_vars.ml" 270 10971 11002 "kind1/new_vars.ml" 270 10971 11019
+)
+"kind1/new_vars.ml" 270 10971 11002 "kind1/new_vars.ml" 270 10971 11008
+type(
+  string list -> Types.il_expression -> Types.il_formula list
+)
+ident(
+  int_ref mk_eqs "kind1/new_vars.ml" 264 10806 10816 "kind1/new_vars.ml" 264 10806 10822
+)
+"kind1/new_vars.ml" 270 10971 11009 "kind1/new_vars.ml" 270 10971 11017
+type(
+  string list
+)
+ident(
+  int_ref nvr_defs "kind1/new_vars.ml" 262 10668 10674 "kind1/new_vars.ml" 262 10668 10682
+)
+"kind1/new_vars.ml" 270 10971 11018 "kind1/new_vars.ml" 270 10971 11019
+type(
+  Types.il_expression
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 270 10971 10997 "kind1/new_vars.ml" 270 10971 10998
+)
+"kind1/new_vars.ml" 270 10971 11002 "kind1/new_vars.ml" 270 10971 11019
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/new_vars.ml" 270 10971 10992 "kind1/new_vars.ml" 270 10971 11020
+type(
+  Types.il_expression -> Types.il_formula list
+)
+"kind1/new_vars.ml" 270 10971 11021 "kind1/new_vars.ml" 270 10971 11030
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/new_vars.ml" 261 10616 10653 "kind1/new_vars.ml" 261 10616 10662
+)
+"kind1/new_vars.ml" 270 10971 10983 "kind1/new_vars.ml" 270 10971 11030
+call(
+  stack
+)
+type(
+  Types.il_formula list list
+)
+"kind1/new_vars.ml" 271 11035 11039 "kind1/new_vars.ml" 271 11035 11042
+type(
+  Types.il_formula list list
+)
+ident(
+  int_ref eqs "kind1/new_vars.ml" 270 10971 10977 "kind1/new_vars.ml" 270 10971 10980
+)
+"kind1/new_vars.ml" 270 10971 10973 "kind1/new_vars.ml" 271 11035 11042
+type(
+  Types.il_formula list list
+)
+"kind1/new_vars.ml" 264 10806 10808 "kind1/new_vars.ml" 271 11035 11042
+type(
+  Types.il_formula list list
+)
+"kind1/new_vars.ml" 263 10737 10739 "kind1/new_vars.ml" 271 11035 11042
+type(
+  Types.il_formula list list
+)
+"kind1/new_vars.ml" 262 10668 10670 "kind1/new_vars.ml" 271 11035 11042
+type(
+  Types.il_formula list list
+)
+"kind1/new_vars.ml" 274 11046 11050 "kind1/new_vars.ml" 274 11046 11061
+type(
+  Types.il_formula list -> string
+)
+ident(
+  def mk_not_ands "kind1/new_vars.ml" 281 11305 11321 "_none_" 1 0 -1
+)
+"kind1/new_vars.ml" 274 11046 11062 "kind1/new_vars.ml" 274 11046 11070
+type(
+  Types.il_formula list
+)
+ident(
+  def fml_list "kind1/new_vars.ml" 275 11074 11078 "kind1/new_vars.ml" 281 11305 11321
+)
+"kind1/new_vars.ml" 275 11074 11082 "kind1/new_vars.ml" 275 11074 11093
+type(
+  Types.il_formula list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/new_vars.ml" 275 11074 11094 "kind1/new_vars.ml" 275 11074 11102
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref fml_list "kind1/new_vars.ml" 274 11046 11062 "kind1/new_vars.ml" 274 11046 11070
+)
+"kind1/new_vars.ml" 275 11074 11081 "kind1/new_vars.ml" 275 11074 11103
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/new_vars.ml" 275 11074 11104 "kind1/new_vars.ml" 275 11074 11105
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"kind1/new_vars.ml" 275 11074 11106 "kind1/new_vars.ml" 275 11074 11107
+type(
+  int
+)
+"kind1/new_vars.ml" 275 11074 11081 "kind1/new_vars.ml" 275 11074 11107
+type(
+  bool
+)
+"kind1/new_vars.ml" 276 11109 11118 "kind1/new_vars.ml" 276 11109 11120
+type(
+  string
+)
+"kind1/new_vars.ml" 278 11133 11143 "kind1/new_vars.ml" 278 11133 11147
+type(
+  Types.il_formula
+)
+ident(
+  def ands "kind1/new_vars.ml" 279 11209 11215 "kind1/new_vars.ml" 281 11305 11321
+)
+"kind1/new_vars.ml" 278 11133 11150 "kind1/new_vars.ml" 278 11133 11165
+type(
+  (Types.il_formula -> Types.il_formula -> Types.il_formula) ->
+  Types.il_formula list -> Types.il_formula -> Types.il_formula
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/new_vars.ml" 278 11133 11171 "kind1/new_vars.ml" 278 11133 11172
+type(
+  Types.il_formula
+)
+ident(
+  def x "kind1/new_vars.ml" 278 11133 11173 "kind1/new_vars.ml" 278 11133 11188
+)
+"kind1/new_vars.ml" 278 11133 11173 "kind1/new_vars.ml" 278 11133 11174
+type(
+  Types.il_formula
+)
+ident(
+  def y "kind1/new_vars.ml" 278 11133 11178 "kind1/new_vars.ml" 278 11133 11188
+)
+"kind1/new_vars.ml" 278 11133 11184 "kind1/new_vars.ml" 278 11133 11185
+type(
+  Types.il_formula
+)
+ident(
+  int_ref x "kind1/new_vars.ml" 278 11133 11171 "kind1/new_vars.ml" 278 11133 11172
+)
+"kind1/new_vars.ml" 278 11133 11186 "kind1/new_vars.ml" 278 11133 11187
+type(
+  Types.il_formula
+)
+ident(
+  int_ref y "kind1/new_vars.ml" 278 11133 11173 "kind1/new_vars.ml" 278 11133 11174
+)
+"kind1/new_vars.ml" 278 11133 11178 "kind1/new_vars.ml" 278 11133 11188
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 278 11133 11166 "kind1/new_vars.ml" 278 11133 11189
+type(
+  Types.il_formula -> Types.il_formula -> Types.il_formula
+)
+"kind1/new_vars.ml" 278 11133 11190 "kind1/new_vars.ml" 278 11133 11198
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref fml_list "kind1/new_vars.ml" 274 11046 11062 "kind1/new_vars.ml" 274 11046 11070
+)
+"kind1/new_vars.ml" 278 11133 11199 "kind1/new_vars.ml" 278 11133 11205
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 278 11133 11150 "kind1/new_vars.ml" 278 11133 11205
+call(
+  stack
+)
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 279 11209 11219 "kind1/new_vars.ml" 279 11209 11229
+type(
+  string
+)
+ident(
+  def fml_assert "kind1/new_vars.ml" 281 11305 11311 "kind1/new_vars.ml" 281 11305 11321
+)
+"kind1/new_vars.ml" 280 11233 11243 "kind1/new_vars.ml" 280 11233 11279
+type(
+  Types.solver_command -> string
+)
+ident(
+  ext_ref Lus_convert_yc.simple_command_string
+)
+"kind1/new_vars.ml" 280 11233 11295 "kind1/new_vars.ml" 280 11233 11299
+type(
+  Types.il_formula
+)
+ident(
+  int_ref ands "kind1/new_vars.ml" 278 11133 11143 "kind1/new_vars.ml" 278 11133 11147
+)
+"kind1/new_vars.ml" 280 11233 11288 "kind1/new_vars.ml" 280 11233 11300
+type(
+  Types.il_formula
+)
+"kind1/new_vars.ml" 280 11233 11280 "kind1/new_vars.ml" 280 11233 11301
+type(
+  Types.solver_command
+)
+"kind1/new_vars.ml" 280 11233 11243 "kind1/new_vars.ml" 280 11233 11301
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/new_vars.ml" 281 11305 11311 "kind1/new_vars.ml" 281 11305 11321
+type(
+  string
+)
+ident(
+  int_ref fml_assert "kind1/new_vars.ml" 279 11209 11219 "kind1/new_vars.ml" 279 11209 11229
+)
+"kind1/new_vars.ml" 279 11209 11215 "kind1/new_vars.ml" 281 11305 11321
+type(
+  string
+)
+"kind1/new_vars.ml" 278 11133 11139 "kind1/new_vars.ml" 281 11305 11321
+type(
+  string
+)
+"kind1/new_vars.ml" 275 11074 11078 "kind1/new_vars.ml" 281 11305 11321
+type(
+  string
+)

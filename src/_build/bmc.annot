@@ -1,0 +1,3898 @@
+"bmc.ml" 35 1719 1738 "bmc.ml" 35 1719 1771
+call(
+  stack
+)
+"bmc.ml" 39 1814 1825 "bmc.ml" 39 1814 1855
+call(
+  stack
+)
+"bmc.ml" 48 2124 2128 "bmc.ml" 48 2124 2138
+type(
+  S.t option ref
+)
+ident(
+  def ref_solver "bmc.ml" 52 2176 2176 "_none_" 1 0 -1
+)
+"bmc.ml" 48 2124 2141 "bmc.ml" 48 2124 2144
+type(
+  S.t option -> S.t option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"bmc.ml" 48 2124 2145 "bmc.ml" 48 2124 2149
+type(
+  S.t option
+)
+"bmc.ml" 48 2124 2141 "bmc.ml" 48 2124 2149
+type(
+  S.t option ref
+)
+"bmc.ml" 52 2176 2180 "bmc.ml" 52 2176 2193
+type(
+  Format.formatter -> unit
+)
+ident(
+  def pp_print_stat "bmc.ml" 64 2416 2416 "_none_" 1 0 -1
+)
+"bmc.ml" 52 2176 2194 "bmc.ml" 52 2176 2197
+type(
+  Format.formatter
+)
+ident(
+  def ppf "bmc.ml" 54 2202 2204 "bmc.ml" 60 2359 2386
+)
+"bmc.ml" 54 2202 2204 "bmc.ml" 54 2202 2218
+type(
+  Format.formatter ->
+  ((Format.formatter -> Lib.kind_module -> unit) ->
+   Lib.kind_module ->
+   (Format.formatter -> unit) ->
+   (Format.formatter -> unit) -> (Format.formatter -> unit) -> unit,
+   Format.formatter, unit)
+  format ->
+  (Format.formatter -> Lib.kind_module -> unit) ->
+  Lib.kind_module ->
+  (Format.formatter -> unit) ->
+  (Format.formatter -> unit) -> (Format.formatter -> unit) -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"bmc.ml" 55 2219 2223 "bmc.ml" 55 2219 2226
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 52 2176 2194 "bmc.ml" 52 2176 2197
+)
+"bmc.ml" 56 2227 2231 "bmc.ml" 56 2227 2271
+type(
+  ((Format.formatter -> Lib.kind_module -> unit) ->
+   Lib.kind_module ->
+   (Format.formatter -> unit) ->
+   (Format.formatter -> unit) -> (Format.formatter -> unit) -> unit,
+   Format.formatter, unit)
+  format
+)
+"bmc.ml" 57 2272 2276 "bmc.ml" 57 2272 2296
+type(
+  Format.formatter -> Lib.kind_module -> unit
+)
+ident(
+  ext_ref Lib.pp_print_kind_module
+)
+"bmc.ml" 57 2272 2297 "bmc.ml" 57 2272 2301
+type(
+  Lib.kind_module
+)
+"bmc.ml" 58 2302 2306 "bmc.ml" 58 2302 2330
+type(
+  Format.formatter -> unit
+)
+ident(
+  ext_ref Stat.pp_print_misc_stats
+)
+"bmc.ml" 59 2331 2335 "bmc.ml" 59 2331 2358
+type(
+  Format.formatter -> unit
+)
+ident(
+  ext_ref Stat.pp_print_bmc_stats
+)
+"bmc.ml" 60 2359 2363 "bmc.ml" 60 2359 2386
+type(
+  Format.formatter -> unit
+)
+ident(
+  ext_ref Stat.pp_print_smt_stats
+)
+"bmc.ml" 54 2202 2204 "bmc.ml" 60 2359 2386
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 52 2176 2194 "bmc.ml" 60 2359 2386
+type(
+  Format.formatter -> unit
+)
+"bmc.ml" 64 2416 2420 "bmc.ml" 64 2416 2427
+type(
+  unit -> unit
+)
+ident(
+  def on_exit "bmc.ml" 97 3322 3322 "_none_" 1 0 -1
+)
+"bmc.ml" 64 2416 2428 "bmc.ml" 64 2416 2430
+type(
+  unit
+)
+"bmc.ml" 67 2462 2464 "bmc.ml" 67 2462 2484
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Stat.bmc_stop_timers
+)
+"bmc.ml" 67 2462 2485 "bmc.ml" 67 2462 2487
+type(
+  unit
+)
+"bmc.ml" 67 2462 2464 "bmc.ml" 67 2462 2487
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 68 2489 2491 "bmc.ml" 68 2489 2511
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Stat.smt_stop_timers
+)
+"bmc.ml" 68 2489 2512 "bmc.ml" 68 2489 2514
+type(
+  unit
+)
+"bmc.ml" 68 2489 2491 "bmc.ml" 68 2489 2514
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 71 2543 2545 "bmc.ml" 71 2543 2555
+type(
+  Lib.kind_module -> (string * Stat.stat_item list) list -> unit
+)
+ident(
+  ext_ref Event.stat
+)
+"bmc.ml" 72 2557 2561 "bmc.ml" 72 2557 2565
+type(
+  Lib.kind_module
+)
+"bmc.ml" 73 2567 2572 "bmc.ml" 73 2567 2593
+type(
+  string
+)
+ident(
+  ext_ref Stat.misc_stats_title
+)
+"bmc.ml" 73 2567 2595 "bmc.ml" 73 2567 2610
+type(
+  Stat.stat_item list
+)
+ident(
+  ext_ref Stat.misc_stats
+)
+"bmc.ml" 73 2567 2572 "bmc.ml" 73 2567 2610
+type(
+  string * Stat.stat_item list
+)
+"bmc.ml" 74 2612 2617 "bmc.ml" 74 2612 2637
+type(
+  string
+)
+ident(
+  ext_ref Stat.bmc_stats_title
+)
+"bmc.ml" 74 2612 2639 "bmc.ml" 74 2612 2653
+type(
+  Stat.stat_item list
+)
+ident(
+  ext_ref Stat.bmc_stats
+)
+"bmc.ml" 74 2612 2617 "bmc.ml" 74 2612 2653
+type(
+  string * Stat.stat_item list
+)
+"bmc.ml" 75 2655 2660 "bmc.ml" 75 2655 2680
+type(
+  string
+)
+ident(
+  ext_ref Stat.smt_stats_title
+)
+"bmc.ml" 75 2655 2682 "bmc.ml" 75 2655 2696
+type(
+  Stat.stat_item list
+)
+ident(
+  ext_ref Stat.smt_stats
+)
+"bmc.ml" 75 2655 2660 "bmc.ml" 75 2655 2696
+type(
+  string * Stat.stat_item list
+)
+type(
+  (string * Stat.stat_item list) list
+)
+"bmc.ml" 74 2612 2617 "bmc.ml" 75 2655 2696
+type(
+  (string * Stat.stat_item list) list
+)
+"bmc.ml" 73 2567 2572 "bmc.ml" 75 2655 2696
+type(
+  (string * Stat.stat_item list) list
+)
+"bmc.ml" 73 2567 2571 "bmc.ml" 75 2655 2697
+type(
+  (string * Stat.stat_item list) list
+)
+"bmc.ml" 71 2543 2545 "bmc.ml" 75 2655 2697
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 79 2750 2762 "bmc.ml" 79 2750 2772
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "bmc.ml" 48 2124 2128 "bmc.ml" 48 2124 2138
+)
+"bmc.ml" 79 2750 2761 "bmc.ml" 79 2750 2772
+type(
+  S.t option
+)
+type(
+  S.t option ref -> S.t option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"bmc.ml" 80 2779 2793 "bmc.ml" 80 2779 2799
+type(
+  S.t
+)
+ident(
+  def solver "bmc.ml" 81 2804 2813 "bmc.ml" 82 2838 2865
+)
+"bmc.ml" 80 2779 2788 "bmc.ml" 80 2779 2799
+type(
+  S.t option
+)
+"bmc.ml" 81 2804 2813 "bmc.ml" 81 2804 2828
+type(
+  S.t -> unit
+)
+ident(
+  ext_ref S.delete_solver
+)
+"bmc.ml" 81 2804 2829 "bmc.ml" 81 2804 2835
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 80 2779 2793 "bmc.ml" 80 2779 2799
+)
+"bmc.ml" 81 2804 2813 "bmc.ml" 81 2804 2835
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 82 2838 2847 "bmc.ml" 82 2838 2857
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "bmc.ml" 48 2124 2128 "bmc.ml" 48 2124 2138
+)
+"bmc.ml" 82 2838 2861 "bmc.ml" 82 2838 2865
+type(
+  S.t option
+)
+"bmc.ml" 82 2838 2847 "bmc.ml" 82 2838 2865
+type(
+  unit
+)
+type(
+  S.t option ref -> S.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"bmc.ml" 81 2804 2813 "bmc.ml" 82 2838 2865
+type(
+  unit
+)
+"bmc.ml" 83 2866 2875 "bmc.ml" 83 2866 2879
+type(
+  S.t option
+)
+"bmc.ml" 83 2866 2883 "bmc.ml" 83 2866 2885
+type(
+  unit
+)
+"bmc.ml" 79 2750 2755 "bmc.ml" 83 2866 2885
+type(
+  unit
+)
+"bmc.ml" 85 2895 2902 "bmc.ml" 85 2895 2903
+type(
+  exn
+)
+ident(
+  def e "bmc.ml" 86 2908 2915 "bmc.ml" 88 2987 3018
+)
+"bmc.ml" 86 2908 2915 "bmc.ml" 86 2908 2924
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (string -> unit, Format.formatter, unit) format -> string -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"bmc.ml" 86 2908 2925 "bmc.ml" 86 2908 2929
+type(
+  Lib.kind_module
+)
+"bmc.ml" 86 2908 2930 "bmc.ml" 86 2908 2943
+type(
+  Event.log_level
+)
+"bmc.ml" 87 2944 2953 "bmc.ml" 87 2944 2985
+type(
+  (string -> unit, Format.formatter, unit) format
+)
+"bmc.ml" 88 2987 2997 "bmc.ml" 88 2987 3015
+type(
+  exn -> string
+)
+ident(
+  ext_ref Printexc.to_string
+)
+"bmc.ml" 88 2987 3016 "bmc.ml" 88 2987 3017
+type(
+  exn
+)
+ident(
+  int_ref e "bmc.ml" 85 2895 2902 "bmc.ml" 85 2895 2903
+)
+"bmc.ml" 88 2987 2997 "bmc.ml" 88 2987 3017
+call(
+  stack
+)
+type(
+  string
+)
+"bmc.ml" 86 2908 2915 "bmc.ml" 88 2987 3018
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 78 2742 2745 "bmc.ml" 88 2987 3018
+type(
+  unit
+)
+"bmc.ml" 71 2543 2545 "bmc.ml" 88 2987 3018
+type(
+  unit
+)
+"bmc.ml" 68 2489 2491 "bmc.ml" 88 2987 3018
+type(
+  unit
+)
+"bmc.ml" 67 2462 2464 "bmc.ml" 88 2987 3018
+type(
+  unit
+)
+"bmc.ml" 64 2416 2428 "bmc.ml" 88 2987 3019
+type(
+  unit -> unit
+)
+"bmc.ml" 97 3322 3330 "bmc.ml" 97 3322 3344
+type(
+  Format.formatter -> StateVar.t * int * int * (Var.t * Term.t) list -> unit
+)
+ident(
+  def pp_print_trace "bmc.ml" 97 3322 3322 "_none_" 1 0 -1
+)
+"bmc.ml" 97 3322 3345 "bmc.ml" 97 3322 3348
+type(
+  Format.formatter
+)
+ident(
+  def ppf "bmc.ml" 97 3322 3351 "bmc.ml" 124 3892 3899
+)
+"bmc.ml" 99 3361 3366 "bmc.ml" 99 3361 3378
+type(
+  StateVar.t
+)
+ident(
+  def abstract_var "bmc.ml" 101 3407 3411 "bmc.ml" 124 3892 3899
+)
+"bmc.ml" 99 3361 3380 "bmc.ml" 99 3361 3381
+type(
+  int
+)
+ident(
+  def k "bmc.ml" 101 3407 3411 "bmc.ml" 124 3892 3899
+)
+"bmc.ml" 99 3361 3383 "bmc.ml" 99 3361 3384
+type(
+  int
+)
+ident(
+  def i "bmc.ml" 101 3407 3411 "bmc.ml" 124 3892 3899
+)
+"bmc.ml" 99 3361 3386 "bmc.ml" 99 3361 3401
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def counter_example "bmc.ml" 101 3407 3411 "bmc.ml" 124 3892 3899
+)
+"bmc.ml" 99 3361 3366 "bmc.ml" 99 3361 3401
+type(
+  StateVar.t * int * int * (Var.t * Term.t) list
+)
+"bmc.ml" 101 3407 3415 "bmc.ml" 101 3407 3416
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 99 3361 3380 "bmc.ml" 99 3361 3381
+)
+"bmc.ml" 101 3407 3417 "bmc.ml" 101 3407 3419
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"bmc.ml" 101 3407 3420 "bmc.ml" 101 3407 3421
+type(
+  int
+)
+ident(
+  int_ref i "bmc.ml" 99 3361 3383 "bmc.ml" 99 3361 3384
+)
+"bmc.ml" 101 3407 3415 "bmc.ml" 101 3407 3421
+type(
+  bool
+)
+"bmc.ml" 105 3450 3458 "bmc.ml" 105 3450 3472
+type(
+  Format.formatter ->
+  ((Format.formatter -> Term.t -> unit) -> Term.t -> unit, Format.formatter,
+   unit)
+  format -> (Format.formatter -> Term.t -> unit) -> Term.t -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"bmc.ml" 106 3474 3484 "bmc.ml" 106 3474 3487
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 97 3322 3345 "bmc.ml" 97 3322 3348
+)
+"bmc.ml" 107 3489 3499 "bmc.ml" 107 3489 3507
+type(
+  ((Format.formatter -> Term.t -> unit) -> Term.t -> unit, Format.formatter,
+   unit)
+  format
+)
+"bmc.ml" 108 3509 3519 "bmc.ml" 108 3509 3537
+type(
+  Format.formatter -> Term.t -> unit
+)
+ident(
+  ext_ref Term.pp_print_term
+)
+"bmc.ml" 109 3539 3550 "bmc.ml" 109 3539 3560
+type(
+  Var.t -> (Var.t * Term.t) list -> Term.t
+)
+ident(
+  ext_ref List.assoc
+)
+"bmc.ml" 110 3562 3576 "bmc.ml" 110 3562 3601
+type(
+  StateVar.t -> Lib.numeral -> Var.t
+)
+ident(
+  ext_ref Var.mk_state_var_instance
+)
+"bmc.ml" 110 3562 3602 "bmc.ml" 110 3562 3614
+type(
+  StateVar.t
+)
+ident(
+  int_ref abstract_var "bmc.ml" 99 3361 3366 "bmc.ml" 99 3361 3378
+)
+"bmc.ml" 110 3562 3616 "bmc.ml" 110 3562 3634
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"bmc.ml" 110 3562 3635 "bmc.ml" 110 3562 3636
+type(
+  int
+)
+ident(
+  int_ref i "bmc.ml" 99 3361 3383 "bmc.ml" 99 3361 3384
+)
+"bmc.ml" 110 3562 3616 "bmc.ml" 110 3562 3636
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"bmc.ml" 110 3562 3576 "bmc.ml" 110 3562 3637
+call(
+  stack
+)
+type(
+  Var.t
+)
+"bmc.ml" 111 3640 3653 "bmc.ml" 111 3640 3668
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref counter_example "bmc.ml" 99 3361 3386 "bmc.ml" 99 3361 3401
+)
+"bmc.ml" 109 3539 3550 "bmc.ml" 111 3640 3668
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 105 3450 3458 "bmc.ml" 111 3640 3669
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 113 3680 3688 "bmc.ml" 113 3680 3702
+type(
+  Format.formatter -> StateVar.t * int * int * (Var.t * Term.t) list -> unit
+)
+ident(
+  int_ref pp_print_trace "bmc.ml" 97 3322 3330 "bmc.ml" 97 3322 3344
+)
+"bmc.ml" 113 3680 3703 "bmc.ml" 113 3680 3706
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 97 3322 3345 "bmc.ml" 97 3322 3348
+)
+"bmc.ml" 113 3680 3708 "bmc.ml" 113 3680 3720
+type(
+  StateVar.t
+)
+ident(
+  int_ref abstract_var "bmc.ml" 99 3361 3366 "bmc.ml" 99 3361 3378
+)
+"bmc.ml" 113 3680 3722 "bmc.ml" 113 3680 3723
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 99 3361 3380 "bmc.ml" 99 3361 3381
+)
+"bmc.ml" 113 3680 3725 "bmc.ml" 113 3680 3726
+type(
+  int
+)
+ident(
+  int_ref i "bmc.ml" 99 3361 3383 "bmc.ml" 99 3361 3384
+)
+"bmc.ml" 113 3680 3727 "bmc.ml" 113 3680 3728
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"bmc.ml" 113 3680 3729 "bmc.ml" 113 3680 3730
+type(
+  int
+)
+"bmc.ml" 113 3680 3725 "bmc.ml" 113 3680 3730
+type(
+  int
+)
+"bmc.ml" 113 3680 3732 "bmc.ml" 113 3680 3747
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref counter_example "bmc.ml" 99 3361 3386 "bmc.ml" 99 3361 3401
+)
+"bmc.ml" 113 3680 3708 "bmc.ml" 113 3680 3747
+type(
+  StateVar.t * int * int * (Var.t * Term.t) list
+)
+"bmc.ml" 113 3680 3688 "bmc.ml" 113 3680 3748
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 105 3450 3458 "bmc.ml" 113 3680 3748
+type(
+  unit
+)
+"bmc.ml" 122 3846 3854 "bmc.ml" 122 3846 3868
+type(
+  Format.formatter -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"bmc.ml" 122 3846 3869 "bmc.ml" 122 3846 3872
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 97 3322 3345 "bmc.ml" 97 3322 3348
+)
+"bmc.ml" 122 3846 3873 "bmc.ml" 122 3846 3879
+type(
+  (unit, Format.formatter, unit) format
+)
+"bmc.ml" 122 3846 3854 "bmc.ml" 122 3846 3879
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 101 3407 3411 "bmc.ml" 124 3892 3899
+type(
+  unit
+)
+"bmc.ml" 97 3322 3351 "bmc.ml" 124 3892 3899
+type(
+  StateVar.t * int * int * (Var.t * Term.t) list -> unit
+)
+"bmc.ml" 97 3322 3345 "bmc.ml" 124 3892 3899
+type(
+  Format.formatter -> StateVar.t * int * int * (Var.t * Term.t) list -> unit
+)
+"bmc.ml" 128 3944 3952 "bmc.ml" 128 3944 3976
+type(
+  Format.formatter -> StateVar.t list * int * (Var.t * Term.t) list -> unit
+)
+ident(
+  def pp_print_counter_example "bmc.ml" 128 3944 3944 "_none_" 1 0 -1
+)
+"bmc.ml" 128 3944 3977 "bmc.ml" 128 3944 3980
+type(
+  Format.formatter
+)
+ident(
+  def ppf "bmc.ml" 128 3944 3983 "bmc.ml" 136 4225 4282
+)
+"bmc.ml" 130 3996 4001 "bmc.ml" 130 3996 4003
+type(
+  StateVar.t list
+)
+"bmc.ml" 130 3996 4005 "bmc.ml" 130 3996 4006
+type(
+  int
+)
+ident(
+  def k "bmc.ml" 130 3996 4028 "bmc.ml" 130 3996 4030
+)
+"bmc.ml" 130 3996 4008 "bmc.ml" 130 3996 4023
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def counter_example "bmc.ml" 130 3996 4028 "bmc.ml" 130 3996 4030
+)
+"bmc.ml" 130 3996 4001 "bmc.ml" 130 3996 4023
+type(
+  StateVar.t list * int * (Var.t * Term.t) list
+)
+"bmc.ml" 130 3996 4028 "bmc.ml" 130 3996 4030
+type(
+  unit
+)
+"bmc.ml" 132 4036 4041 "bmc.ml" 132 4036 4053
+type(
+  StateVar.t
+)
+ident(
+  def abstract_var "bmc.ml" 134 4089 4093 "bmc.ml" 136 4225 4282
+)
+"bmc.ml" 132 4036 4057 "bmc.ml" 132 4036 4059
+type(
+  StateVar.t list
+)
+ident(
+  def tl "bmc.ml" 134 4089 4093 "bmc.ml" 136 4225 4282
+)
+"bmc.ml" 132 4036 4041 "bmc.ml" 132 4036 4059
+type(
+  StateVar.t list
+)
+"bmc.ml" 132 4036 4061 "bmc.ml" 132 4036 4062
+type(
+  int
+)
+ident(
+  def k "bmc.ml" 134 4089 4093 "bmc.ml" 136 4225 4282
+)
+"bmc.ml" 132 4036 4064 "bmc.ml" 132 4036 4079
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def counter_example "bmc.ml" 134 4089 4093 "bmc.ml" 136 4225 4282
+)
+"bmc.ml" 132 4036 4041 "bmc.ml" 132 4036 4079
+type(
+  StateVar.t list * int * (Var.t * Term.t) list
+)
+"bmc.ml" 134 4089 4093 "bmc.ml" 134 4089 4107
+type(
+  Format.formatter ->
+  ((Format.formatter -> StateVar.t -> unit) -> StateVar.t -> unit,
+   Format.formatter, unit)
+  format -> (Format.formatter -> StateVar.t -> unit) -> StateVar.t -> unit
+)
+ident(
+  ext_ref Format.fprintf
+)
+"bmc.ml" 134 4089 4108 "bmc.ml" 134 4089 4111
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 128 3944 3977 "bmc.ml" 128 3944 3980
+)
+"bmc.ml" 134 4089 4112 "bmc.ml" 134 4089 4120
+type(
+  ((Format.formatter -> StateVar.t -> unit) -> StateVar.t -> unit,
+   Format.formatter, unit)
+  format
+)
+"bmc.ml" 134 4089 4121 "bmc.ml" 134 4089 4148
+type(
+  Format.formatter -> StateVar.t -> unit
+)
+ident(
+  ext_ref StateVar.pp_print_state_var
+)
+"bmc.ml" 134 4089 4149 "bmc.ml" 134 4089 4161
+type(
+  StateVar.t
+)
+ident(
+  int_ref abstract_var "bmc.ml" 132 4036 4041 "bmc.ml" 132 4036 4053
+)
+"bmc.ml" 134 4089 4093 "bmc.ml" 134 4089 4161
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 135 4163 4167 "bmc.ml" 135 4163 4181
+type(
+  Format.formatter -> StateVar.t * int * int * (Var.t * Term.t) list -> unit
+)
+ident(
+  int_ref pp_print_trace "bmc.ml" 97 3322 3330 "bmc.ml" 97 3322 3344
+)
+"bmc.ml" 135 4163 4182 "bmc.ml" 135 4163 4185
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 128 3944 3977 "bmc.ml" 128 3944 3980
+)
+"bmc.ml" 135 4163 4187 "bmc.ml" 135 4163 4199
+type(
+  StateVar.t
+)
+ident(
+  int_ref abstract_var "bmc.ml" 132 4036 4041 "bmc.ml" 132 4036 4053
+)
+"bmc.ml" 135 4163 4201 "bmc.ml" 135 4163 4202
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 132 4036 4061 "bmc.ml" 132 4036 4062
+)
+"bmc.ml" 135 4163 4204 "bmc.ml" 135 4163 4205
+type(
+  int
+)
+"bmc.ml" 135 4163 4207 "bmc.ml" 135 4163 4222
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref counter_example "bmc.ml" 132 4036 4064 "bmc.ml" 132 4036 4079
+)
+"bmc.ml" 135 4163 4187 "bmc.ml" 135 4163 4222
+type(
+  StateVar.t * int * int * (Var.t * Term.t) list
+)
+"bmc.ml" 135 4163 4167 "bmc.ml" 135 4163 4223
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 136 4225 4229 "bmc.ml" 136 4225 4253
+type(
+  Format.formatter -> StateVar.t list * int * (Var.t * Term.t) list -> unit
+)
+ident(
+  int_ref pp_print_counter_example "bmc.ml" 128 3944 3952 "bmc.ml" 128 3944 3976
+)
+"bmc.ml" 136 4225 4254 "bmc.ml" 136 4225 4257
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "bmc.ml" 128 3944 3977 "bmc.ml" 128 3944 3980
+)
+"bmc.ml" 136 4225 4259 "bmc.ml" 136 4225 4261
+type(
+  StateVar.t list
+)
+ident(
+  int_ref tl "bmc.ml" 132 4036 4057 "bmc.ml" 132 4036 4059
+)
+"bmc.ml" 136 4225 4263 "bmc.ml" 136 4225 4264
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 132 4036 4061 "bmc.ml" 132 4036 4062
+)
+"bmc.ml" 136 4225 4266 "bmc.ml" 136 4225 4281
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref counter_example "bmc.ml" 132 4036 4064 "bmc.ml" 132 4036 4079
+)
+"bmc.ml" 136 4225 4259 "bmc.ml" 136 4225 4281
+type(
+  StateVar.t list * int * (Var.t * Term.t) list
+)
+"bmc.ml" 136 4225 4229 "bmc.ml" 136 4225 4282
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 135 4163 4167 "bmc.ml" 136 4225 4282
+type(
+  unit
+)
+"bmc.ml" 134 4089 4093 "bmc.ml" 136 4225 4282
+type(
+  unit
+)
+"bmc.ml" 128 3944 3983 "bmc.ml" 136 4225 4282
+type(
+  StateVar.t list * int * (Var.t * Term.t) list -> unit
+)
+"bmc.ml" 128 3944 3977 "bmc.ml" 136 4225 4282
+type(
+  Format.formatter -> StateVar.t list * int * (Var.t * Term.t) list -> unit
+)
+"bmc.ml" 140 4367 4375 "bmc.ml" 140 4367 4404
+type(
+  TransSys.t -> int -> Var.t list
+)
+ident(
+  def get_concrete_vars_for_k_steps "bmc.ml" 140 4367 4367 "_none_" 1 0 -1
+)
+"bmc.ml" 140 4367 4405 "bmc.ml" 140 4367 4407
+type(
+  TransSys.t
+)
+ident(
+  def ts "bmc.ml" 140 4367 4408 "bmc.ml" 164 4991 5021
+)
+"bmc.ml" 140 4367 4408 "bmc.ml" 140 4367 4409
+type(
+  int
+)
+ident(
+  def k "bmc.ml" 142 4414 4416 "bmc.ml" 164 4991 5021
+)
+"bmc.ml" 142 4414 4420 "bmc.ml" 142 4414 4421
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 140 4367 4408 "bmc.ml" 140 4367 4409
+)
+"bmc.ml" 142 4414 4422 "bmc.ml" 142 4414 4424
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"bmc.ml" 142 4414 4425 "bmc.ml" 142 4414 4426
+type(
+  int
+)
+"bmc.ml" 142 4414 4420 "bmc.ml" 142 4414 4426
+type(
+  bool
+)
+"bmc.ml" 146 4479 4487 "bmc.ml" 146 4479 4493
+type(
+  Var.t list
+)
+ident(
+  def k_vars "bmc.ml" 154 4726 4730 "bmc.ml" 154 4726 4795
+)
+"bmc.ml" 147 4497 4503 "bmc.ml" 147 4497 4511
+type(
+  (StateVar.t -> Var.t) -> StateVar.t list -> Var.t list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 148 4514 4526 "bmc.ml" 148 4514 4535
+type(
+  StateVar.t
+)
+ident(
+  def state_var "bmc.ml" 149 4539 4549 "bmc.ml" 149 4539 4607
+)
+"bmc.ml" 149 4539 4549 "bmc.ml" 149 4539 4574
+type(
+  StateVar.t -> Lib.numeral -> Var.t
+)
+ident(
+  ext_ref Var.mk_state_var_instance
+)
+"bmc.ml" 149 4539 4575 "bmc.ml" 149 4539 4584
+type(
+  StateVar.t
+)
+ident(
+  int_ref state_var "bmc.ml" 148 4514 4526 "bmc.ml" 148 4514 4535
+)
+"bmc.ml" 149 4539 4586 "bmc.ml" 149 4539 4604
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"bmc.ml" 149 4539 4605 "bmc.ml" 149 4539 4606
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 140 4367 4408 "bmc.ml" 140 4367 4409
+)
+"bmc.ml" 149 4539 4586 "bmc.ml" 149 4539 4606
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"bmc.ml" 149 4539 4549 "bmc.ml" 149 4539 4607
+call(
+  tail
+)
+type(
+  Var.t
+)
+"bmc.ml" 148 4514 4526 "bmc.ml" 149 4539 4607
+type(
+  StateVar.t -> Var.t
+)
+"bmc.ml" 150 4608 4617 "bmc.ml" 150 4608 4636
+type(
+  TransSys.t -> StateVar.t list
+)
+ident(
+  ext_ref TransSys.state_vars
+)
+"bmc.ml" 150 4608 4637 "bmc.ml" 150 4608 4639
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 140 4367 4405 "bmc.ml" 140 4367 4407
+)
+"bmc.ml" 150 4608 4617 "bmc.ml" 150 4608 4639
+call(
+  stack
+)
+type(
+  StateVar.t list
+)
+"bmc.ml" 147 4497 4503 "bmc.ml" 150 4608 4640
+call(
+  stack
+)
+type(
+  Var.t list
+)
+"bmc.ml" 154 4726 4730 "bmc.ml" 154 4726 4745
+type(
+  Var.t list -> Var.t list -> Var.t list
+)
+ident(
+  ext_ref List.rev_append
+)
+"bmc.ml" 154 4726 4746 "bmc.ml" 154 4726 4752
+type(
+  Var.t list
+)
+ident(
+  int_ref k_vars "bmc.ml" 146 4479 4487 "bmc.ml" 146 4479 4493
+)
+"bmc.ml" 154 4726 4754 "bmc.ml" 154 4726 4783
+type(
+  TransSys.t -> int -> Var.t list
+)
+ident(
+  int_ref get_concrete_vars_for_k_steps "bmc.ml" 140 4367 4375 "bmc.ml" 140 4367 4404
+)
+"bmc.ml" 154 4726 4784 "bmc.ml" 154 4726 4786
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 140 4367 4405 "bmc.ml" 140 4367 4407
+)
+"bmc.ml" 154 4726 4788 "bmc.ml" 154 4726 4789
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 140 4367 4408 "bmc.ml" 140 4367 4409
+)
+"bmc.ml" 154 4726 4790 "bmc.ml" 154 4726 4791
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"bmc.ml" 154 4726 4792 "bmc.ml" 154 4726 4793
+type(
+  int
+)
+"bmc.ml" 154 4726 4788 "bmc.ml" 154 4726 4793
+type(
+  int
+)
+"bmc.ml" 154 4726 4754 "bmc.ml" 154 4726 4794
+call(
+  stack
+)
+type(
+  Var.t list
+)
+"bmc.ml" 154 4726 4730 "bmc.ml" 154 4726 4795
+call(
+  tail
+)
+type(
+  Var.t list
+)
+"bmc.ml" 146 4479 4483 "bmc.ml" 154 4726 4795
+type(
+  Var.t list
+)
+"bmc.ml" 161 4886 4890 "bmc.ml" 161 4886 4898
+type(
+  (StateVar.t -> Var.t) -> StateVar.t list -> Var.t list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 162 4901 4911 "bmc.ml" 162 4901 4920
+type(
+  StateVar.t
+)
+ident(
+  def state_var "bmc.ml" 163 4924 4932 "bmc.ml" 163 4924 4990
+)
+"bmc.ml" 163 4924 4932 "bmc.ml" 163 4924 4957
+type(
+  StateVar.t -> Lib.numeral -> Var.t
+)
+ident(
+  ext_ref Var.mk_state_var_instance
+)
+"bmc.ml" 163 4924 4958 "bmc.ml" 163 4924 4967
+type(
+  StateVar.t
+)
+ident(
+  int_ref state_var "bmc.ml" 162 4901 4911 "bmc.ml" 162 4901 4920
+)
+"bmc.ml" 163 4924 4969 "bmc.ml" 163 4924 4987
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"bmc.ml" 163 4924 4988 "bmc.ml" 163 4924 4989
+type(
+  int
+)
+"bmc.ml" 163 4924 4969 "bmc.ml" 163 4924 4989
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"bmc.ml" 163 4924 4932 "bmc.ml" 163 4924 4990
+call(
+  tail
+)
+type(
+  Var.t
+)
+"bmc.ml" 162 4901 4911 "bmc.ml" 163 4924 4990
+type(
+  StateVar.t -> Var.t
+)
+"bmc.ml" 164 4991 4998 "bmc.ml" 164 4991 5017
+type(
+  TransSys.t -> StateVar.t list
+)
+ident(
+  ext_ref TransSys.state_vars
+)
+"bmc.ml" 164 4991 5018 "bmc.ml" 164 4991 5020
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 140 4367 4405 "bmc.ml" 140 4367 4407
+)
+"bmc.ml" 164 4991 4998 "bmc.ml" 164 4991 5020
+call(
+  stack
+)
+type(
+  StateVar.t list
+)
+"bmc.ml" 161 4886 4890 "bmc.ml" 164 4991 5021
+call(
+  tail
+)
+type(
+  Var.t list
+)
+"bmc.ml" 142 4414 4416 "bmc.ml" 164 4991 5021
+type(
+  Var.t list
+)
+"bmc.ml" 140 4367 4408 "bmc.ml" 164 4991 5021
+type(
+  int -> Var.t list
+)
+"bmc.ml" 140 4367 4405 "bmc.ml" 164 4991 5021
+type(
+  TransSys.t -> int -> Var.t list
+)
+"bmc.ml" 173 5301 5309 "bmc.ml" 173 5301 5329
+type(
+  S.t ->
+  'a ->
+  'b -> Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  def filter_property_list "bmc.ml" 173 5301 5301 "_none_" 1 0 -1
+)
+"bmc.ml" 173 5301 5330 "bmc.ml" 173 5301 5336
+type(
+  S.t
+)
+ident(
+  def solver "bmc.ml" 173 5301 5337 "bmc.ml" 305 9000 9003
+)
+"bmc.ml" 173 5301 5337 "bmc.ml" 173 5301 5339
+type(
+  'a
+)
+ident(
+  def ts "bmc.ml" 173 5301 5340 "bmc.ml" 305 9000 9003
+)
+"bmc.ml" 173 5301 5340 "bmc.ml" 173 5301 5357
+type(
+  'b
+)
+ident(
+  def abstract_var_list "bmc.ml" 173 5301 5358 "bmc.ml" 305 9000 9003
+)
+"bmc.ml" 173 5301 5358 "bmc.ml" 173 5301 5375
+type(
+  Var.t list
+)
+ident(
+  def concrete_var_list "bmc.ml" 173 5301 5376 "bmc.ml" 305 9000 9003
+)
+"bmc.ml" 173 5301 5376 "bmc.ml" 173 5301 5377
+type(
+  int
+)
+ident(
+  def k "bmc.ml" 173 5301 5378 "bmc.ml" 305 9000 9003
+)
+"bmc.ml" 173 5301 5378 "bmc.ml" 173 5301 5388
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs "bmc.ml" 174 5391 5393 "bmc.ml" 305 9000 9003
+)
+"bmc.ml" 174 5391 5397 "bmc.ml" 174 5391 5408
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"bmc.ml" 174 5391 5409 "bmc.ml" 174 5391 5419
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 173 5301 5378 "bmc.ml" 173 5301 5388
+)
+"bmc.ml" 174 5391 5397 "bmc.ml" 174 5391 5419
+call(
+  stack
+)
+type(
+  int
+)
+"bmc.ml" 174 5391 5420 "bmc.ml" 174 5391 5421
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"bmc.ml" 174 5391 5422 "bmc.ml" 174 5391 5423
+type(
+  int
+)
+"bmc.ml" 174 5391 5397 "bmc.ml" 174 5391 5423
+type(
+  bool
+)
+"bmc.ml" 175 5431 5435 "bmc.ml" 175 5431 5437
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 180 5545 5553 "bmc.ml" 180 5545 5558
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def model "bmc.ml" 184 5719 5723 "bmc.ml" 304 8994 8999
+)
+"bmc.ml" 180 5545 5561 "bmc.ml" 180 5545 5572
+type(
+  S.t -> Var.t list -> (Var.t * Term.t) list
+)
+ident(
+  ext_ref S.get_model
+)
+"bmc.ml" 180 5545 5573 "bmc.ml" 180 5545 5579
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 173 5301 5330 "bmc.ml" 173 5301 5336
+)
+"bmc.ml" 180 5545 5580 "bmc.ml" 180 5545 5597
+type(
+  Var.t list
+)
+ident(
+  int_ref concrete_var_list "bmc.ml" 173 5301 5358 "bmc.ml" 173 5301 5375
+)
+"bmc.ml" 180 5545 5561 "bmc.ml" 180 5545 5597
+call(
+  stack
+)
+type(
+  (Var.t * Term.t) list
+)
+"bmc.ml" 184 5719 5727 "bmc.ml" 184 5719 5741
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  def abstract_model "bmc.ml" 194 6058 6062 "bmc.ml" 304 8994 8999
+)
+"bmc.ml" 184 5719 5744 "bmc.ml" 184 5719 5752
+type(
+  (Var.t * Term.t -> Var.t * Term.t) ->
+  (Var.t * Term.t) list -> (Var.t * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 185 5755 5766 "bmc.ml" 185 5755 5769
+type(
+  Var.t
+)
+ident(
+  def var "bmc.ml" 186 5782 5791 "bmc.ml" 188 5878 5895
+)
+"bmc.ml" 185 5755 5771 "bmc.ml" 185 5755 5776
+type(
+  Term.t
+)
+ident(
+  def value "bmc.ml" 186 5782 5791 "bmc.ml" 188 5878 5895
+)
+"bmc.ml" 185 5755 5766 "bmc.ml" 185 5755 5776
+type(
+  Var.t * Term.t
+)
+"bmc.ml" 186 5782 5792 "bmc.ml" 186 5782 5829
+type(
+  Lib.numeral -> Var.t -> Var.t
+)
+ident(
+  ext_ref Var.bump_offset_of_state_var_instance
+)
+"bmc.ml" 187 5831 5844 "bmc.ml" 187 5831 5862
+type(
+  int -> Lib.numeral
+)
+ident(
+  ext_ref Lib.numeral_of_int
+)
+"bmc.ml" 187 5831 5864 "bmc.ml" 187 5831 5866
+type(
+  int
+)
+"bmc.ml" 187 5831 5867 "bmc.ml" 187 5831 5868
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( * )
+)
+"bmc.ml" 187 5831 5869 "bmc.ml" 187 5831 5870
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 173 5301 5376 "bmc.ml" 173 5301 5377
+)
+"bmc.ml" 187 5831 5864 "bmc.ml" 187 5831 5870
+type(
+  int
+)
+"bmc.ml" 187 5831 5844 "bmc.ml" 187 5831 5871
+call(
+  stack
+)
+type(
+  Lib.numeral
+)
+"bmc.ml" 187 5831 5873 "bmc.ml" 187 5831 5876
+type(
+  Var.t
+)
+ident(
+  int_ref var "bmc.ml" 185 5755 5766 "bmc.ml" 185 5755 5769
+)
+"bmc.ml" 186 5782 5792 "bmc.ml" 187 5831 5876
+call(
+  stack
+)
+type(
+  Var.t
+)
+"bmc.ml" 188 5878 5890 "bmc.ml" 188 5878 5895
+type(
+  Term.t
+)
+ident(
+  int_ref value "bmc.ml" 185 5755 5771 "bmc.ml" 185 5755 5776
+)
+"bmc.ml" 186 5782 5791 "bmc.ml" 188 5878 5895
+type(
+  Var.t * Term.t
+)
+"bmc.ml" 185 5755 5765 "bmc.ml" 188 5878 5896
+type(
+  Var.t * Term.t -> Var.t * Term.t
+)
+"bmc.ml" 189 5897 5903 "bmc.ml" 189 5897 5908
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref model "bmc.ml" 180 5545 5553 "bmc.ml" 180 5545 5558
+)
+"bmc.ml" 184 5719 5744 "bmc.ml" 189 5897 5908
+call(
+  stack
+)
+type(
+  (Var.t * Term.t) list
+)
+"bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6078
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs' "bmc.ml" 202 6321 6325 "bmc.ml" 304 8994 8999
+)
+"bmc.ml" 194 6058 6080 "bmc.ml" 194 6058 6100
+type(
+  (string * Term.t) list
+)
+ident(
+  def disproved_prop_pairs "bmc.ml" 202 6321 6325 "bmc.ml" 304 8994 8999
+)
+"bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6100
+type(
+  (string * Term.t) list * (string * Term.t) list
+)
+"bmc.ml" 195 6105 6111 "bmc.ml" 195 6105 6125
+type(
+  (string * Term.t -> bool) ->
+  (string * Term.t) list -> (string * Term.t) list * (string * Term.t) list
+)
+ident(
+  ext_ref List.partition
+)
+"bmc.ml" 196 6132 6145 "bmc.ml" 196 6132 6154
+type(
+  string
+)
+ident(
+  def prop_name "bmc.ml" 197 6166 6176 "bmc.ml" 197 6166 6231
+)
+"bmc.ml" 196 6132 6156 "bmc.ml" 196 6132 6160
+type(
+  Term.t
+)
+ident(
+  def prop "bmc.ml" 197 6166 6176 "bmc.ml" 197 6166 6231
+)
+"bmc.ml" 196 6132 6145 "bmc.ml" 196 6132 6160
+type(
+  string * Term.t
+)
+"bmc.ml" 197 6166 6176 "bmc.ml" 197 6166 6194
+type(
+  Eval.value -> bool
+)
+ident(
+  ext_ref Eval.bool_of_value
+)
+"bmc.ml" 197 6166 6196 "bmc.ml" 197 6166 6210
+type(
+  Term.t -> (Var.t * Term.t) list -> Eval.value
+)
+ident(
+  ext_ref Eval.eval_term
+)
+"bmc.ml" 197 6166 6211 "bmc.ml" 197 6166 6215
+type(
+  Term.t
+)
+ident(
+  int_ref prop "bmc.ml" 196 6132 6156 "bmc.ml" 196 6132 6160
+)
+"bmc.ml" 197 6166 6216 "bmc.ml" 197 6166 6230
+type(
+  (Var.t * Term.t) list
+)
+ident(
+  int_ref abstract_model "bmc.ml" 184 5719 5727 "bmc.ml" 184 5719 5741
+)
+"bmc.ml" 197 6166 6196 "bmc.ml" 197 6166 6230
+call(
+  stack
+)
+type(
+  Eval.value
+)
+"bmc.ml" 197 6166 6176 "bmc.ml" 197 6166 6231
+call(
+  tail
+)
+type(
+  bool
+)
+"bmc.ml" 196 6132 6144 "bmc.ml" 197 6166 6231
+type(
+  string * Term.t -> bool
+)
+"bmc.ml" 198 6232 6240 "bmc.ml" 198 6232 6250
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 173 5301 5378 "bmc.ml" 173 5301 5388
+)
+"bmc.ml" 195 6105 6111 "bmc.ml" 198 6232 6250
+call(
+  stack
+)
+type(
+  (string * Term.t) list * (string * Term.t) list
+)
+"bmc.ml" 202 6321 6325 "bmc.ml" 202 6321 6334
+type(
+  (string * Term.t -> unit) -> (string * Term.t) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"bmc.ml" 203 6336 6347 "bmc.ml" 203 6336 6360
+type(
+  string
+)
+ident(
+  def dis_prop_name "bmc.ml" 204 6376 6385 "bmc.ml" 208 6488 6501
+)
+"bmc.ml" 203 6336 6362 "bmc.ml" 203 6336 6370
+type(
+  Term.t
+)
+ident(
+  def dis_prop "bmc.ml" 204 6376 6385 "bmc.ml" 208 6488 6501
+)
+"bmc.ml" 203 6336 6347 "bmc.ml" 203 6336 6370
+type(
+  string * Term.t
+)
+"bmc.ml" 204 6376 6385 "bmc.ml" 208 6488 6501
+type(
+  unit
+)
+"bmc.ml" 203 6336 6346 "bmc.ml" 208 6488 6502
+type(
+  string * Term.t -> unit
+)
+"bmc.ml" 209 6503 6509 "bmc.ml" 209 6503 6529
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref disproved_prop_pairs "bmc.ml" 194 6058 6080 "bmc.ml" 194 6058 6100
+)
+"bmc.ml" 202 6321 6325 "bmc.ml" 209 6503 6529
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 211 6532 6536 "bmc.ml" 211 6532 6545
+type(
+  (string -> unit) -> string list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"bmc.ml" 211 6532 6547 "bmc.ml" 211 6532 6562
+type(
+  Lib.kind_module -> string -> unit
+)
+ident(
+  ext_ref Event.disproved
+)
+"bmc.ml" 211 6532 6563 "bmc.ml" 211 6532 6567
+type(
+  Lib.kind_module
+)
+"bmc.ml" 211 6532 6547 "bmc.ml" 211 6532 6567
+call(
+  stack
+)
+type(
+  string -> unit
+)
+"bmc.ml" 211 6532 6570 "bmc.ml" 211 6532 6578
+type(
+  (string * Term.t -> string) -> (string * Term.t) list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 211 6532 6579 "bmc.ml" 211 6532 6582
+type(
+  string * Term.t -> string
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"bmc.ml" 211 6532 6583 "bmc.ml" 211 6532 6603
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref disproved_prop_pairs "bmc.ml" 194 6058 6080 "bmc.ml" 194 6058 6100
+)
+"bmc.ml" 211 6532 6570 "bmc.ml" 211 6532 6603
+call(
+  stack
+)
+type(
+  string list
+)
+"bmc.ml" 211 6532 6536 "bmc.ml" 211 6532 6604
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 241 7186 7191 "bmc.ml" 244 7286 7325
+type(
+  unit
+)
+"bmc.ml" 250 7523 7531 "bmc.ml" 250 7523 7542
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"bmc.ml" 250 7523 7543 "bmc.ml" 250 7523 7554
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6078
+)
+"bmc.ml" 250 7523 7531 "bmc.ml" 250 7523 7554
+call(
+  stack
+)
+type(
+  int
+)
+"bmc.ml" 250 7523 7555 "bmc.ml" 250 7523 7556
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"bmc.ml" 250 7523 7557 "bmc.ml" 250 7523 7558
+type(
+  int
+)
+"bmc.ml" 250 7523 7531 "bmc.ml" 250 7523 7558
+type(
+  bool
+)
+"bmc.ml" 251 7565 7571 "bmc.ml" 251 7565 7573
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 257 7683 7693 "bmc.ml" 257 7683 7706
+type(
+  (string * Term.t) list
+)
+ident(
+  def k_prop_pairs' "bmc.ml" 265 7923 7929 "bmc.ml" 303 8986 8993
+)
+"bmc.ml" 258 7710 7718 "bmc.ml" 258 7710 7726
+type(
+  (string * Term.t -> string * Term.t) ->
+  (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 259 7729 7744 "bmc.ml" 259 7729 7754
+type(
+  string
+)
+ident(
+  def prop_name' "bmc.ml" 260 7767 7780 "bmc.ml" 260 7767 7819
+)
+"bmc.ml" 259 7729 7756 "bmc.ml" 259 7729 7761
+type(
+  Term.t
+)
+ident(
+  def prop' "bmc.ml" 260 7767 7780 "bmc.ml" 260 7767 7819
+)
+"bmc.ml" 259 7729 7744 "bmc.ml" 259 7729 7761
+type(
+  string * Term.t
+)
+"bmc.ml" 260 7767 7780 "bmc.ml" 260 7767 7790
+type(
+  string
+)
+ident(
+  int_ref prop_name' "bmc.ml" 259 7729 7744 "bmc.ml" 259 7729 7754
+)
+"bmc.ml" 260 7767 7792 "bmc.ml" 260 7767 7811
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"bmc.ml" 260 7767 7812 "bmc.ml" 260 7767 7813
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 173 5301 5376 "bmc.ml" 173 5301 5377
+)
+"bmc.ml" 260 7767 7814 "bmc.ml" 260 7767 7819
+type(
+  Term.t
+)
+ident(
+  int_ref prop' "bmc.ml" 259 7729 7756 "bmc.ml" 259 7729 7761
+)
+"bmc.ml" 260 7767 7792 "bmc.ml" 260 7767 7819
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 260 7767 7780 "bmc.ml" 260 7767 7819
+type(
+  string * Term.t
+)
+"bmc.ml" 259 7729 7743 "bmc.ml" 260 7767 7820
+type(
+  string * Term.t -> string * Term.t
+)
+"bmc.ml" 261 7821 7831 "bmc.ml" 261 7821 7842
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6078
+)
+"bmc.ml" 258 7710 7718 "bmc.ml" 261 7821 7842
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 265 7923 7933 "bmc.ml" 265 7923 7953
+type(
+  Term.t
+)
+ident(
+  def conjuncted_property' "bmc.ml" 271 8116 8122 "bmc.ml" 303 8986 8993
+)
+"bmc.ml" 266 7957 7966 "bmc.ml" 266 7957 7977
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"bmc.ml" 266 7957 7979 "bmc.ml" 266 7957 7987
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 266 7957 7988 "bmc.ml" 266 7957 7991
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"bmc.ml" 266 7957 7992 "bmc.ml" 266 7957 8005
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref k_prop_pairs' "bmc.ml" 257 7683 7693 "bmc.ml" 257 7683 7706
+)
+"bmc.ml" 266 7957 7979 "bmc.ml" 266 7957 8005
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"bmc.ml" 266 7957 7966 "bmc.ml" 266 7957 8006
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 271 8116 8122 "bmc.ml" 271 8116 8135
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"bmc.ml" 271 8116 8136 "bmc.ml" 271 8116 8142
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 173 5301 5330 "bmc.ml" 173 5301 5336
+)
+"bmc.ml" 271 8116 8144 "bmc.ml" 271 8116 8155
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"bmc.ml" 271 8116 8156 "bmc.ml" 271 8116 8176
+type(
+  Term.t
+)
+ident(
+  int_ref conjuncted_property' "bmc.ml" 265 7923 7933 "bmc.ml" 265 7923 7953
+)
+"bmc.ml" 271 8116 8144 "bmc.ml" 271 8116 8176
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 271 8116 8122 "bmc.ml" 271 8116 8177
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 274 8233 8243 "bmc.ml" 274 8233 8254
+type(
+  ?timeout:int -> S.t -> bool
+)
+ident(
+  ext_ref S.check_sat
+)
+"bmc.ml" 274 8233 8255 "bmc.ml" 274 8233 8261
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 173 5301 5330 "bmc.ml" 173 5301 5336
+)
+"bmc.ml" 274 8233 8243 "bmc.ml" 274 8233 8261
+call(
+  stack
+)
+type(
+  bool
+)
+"bmc.ml" 279 8377 8389 "bmc.ml" 279 8377 8400
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"bmc.ml" 279 8377 8401 "bmc.ml" 279 8377 8412
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6078
+)
+"bmc.ml" 279 8377 8389 "bmc.ml" 279 8377 8412
+call(
+  stack
+)
+type(
+  int
+)
+"bmc.ml" 279 8377 8413 "bmc.ml" 279 8377 8414
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"bmc.ml" 279 8377 8415 "bmc.ml" 279 8377 8416
+type(
+  int
+)
+"bmc.ml" 279 8377 8389 "bmc.ml" 279 8377 8416
+type(
+  bool
+)
+"bmc.ml" 280 8424 8433 "bmc.ml" 280 8424 8435
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 286 8578 8588 "bmc.ml" 286 8578 8608
+type(
+  S.t ->
+  'a ->
+  'b -> Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  int_ref filter_property_list "bmc.ml" 173 5301 5309 "bmc.ml" 173 5301 5329
+)
+"bmc.ml" 287 8610 8622 "bmc.ml" 287 8610 8628
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 173 5301 5330 "bmc.ml" 173 5301 5336
+)
+"bmc.ml" 288 8630 8642 "bmc.ml" 288 8630 8644
+type(
+  'a
+)
+ident(
+  int_ref ts "bmc.ml" 173 5301 5337 "bmc.ml" 173 5301 5339
+)
+"bmc.ml" 289 8646 8658 "bmc.ml" 289 8646 8675
+type(
+  'b
+)
+ident(
+  int_ref abstract_var_list "bmc.ml" 173 5301 5340 "bmc.ml" 173 5301 5357
+)
+"bmc.ml" 290 8677 8689 "bmc.ml" 290 8677 8706
+type(
+  Var.t list
+)
+ident(
+  int_ref concrete_var_list "bmc.ml" 173 5301 5358 "bmc.ml" 173 5301 5375
+)
+"bmc.ml" 291 8707 8719 "bmc.ml" 291 8707 8720
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 173 5301 5376 "bmc.ml" 173 5301 5377
+)
+"bmc.ml" 292 8721 8733 "bmc.ml" 292 8721 8744
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6078
+)
+"bmc.ml" 286 8578 8588 "bmc.ml" 292 8721 8744
+call(
+  tail
+)
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 279 8377 8385 "bmc.ml" 292 8721 8744
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 298 8839 8848 "bmc.ml" 300 8929 8942
+type(
+  unit
+)
+"bmc.ml" 302 8966 8974 "bmc.ml" 302 8966 8985
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 194 6058 6067 "bmc.ml" 194 6058 6078
+)
+"bmc.ml" 298 8839 8848 "bmc.ml" 302 8966 8985
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 274 8233 8239 "bmc.ml" 303 8986 8993
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 271 8116 8122 "bmc.ml" 303 8986 8993
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 265 7923 7929 "bmc.ml" 303 8986 8993
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 257 7683 7689 "bmc.ml" 303 8986 8993
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 250 7523 7527 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 241 7186 7191 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 211 6532 6536 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 202 6321 6325 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 194 6058 6062 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 184 5719 5723 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 180 5545 5549 "bmc.ml" 304 8994 8999
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 174 5391 5393 "bmc.ml" 305 9000 9003
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 173 5301 5378 "bmc.ml" 305 9000 9003
+type(
+  (string * Term.t) list -> (string * Term.t) list
+)
+"bmc.ml" 173 5301 5376 "bmc.ml" 305 9000 9003
+type(
+  int -> (string * Term.t) list -> (string * Term.t) list
+)
+"bmc.ml" 173 5301 5358 "bmc.ml" 305 9000 9003
+type(
+  Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+"bmc.ml" 173 5301 5340 "bmc.ml" 305 9000 9003
+type(
+  'b -> Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+"bmc.ml" 173 5301 5337 "bmc.ml" 305 9000 9003
+type(
+  'a ->
+  'b -> Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+"bmc.ml" 173 5301 5330 "bmc.ml" 305 9000 9003
+type(
+  S.t ->
+  'a ->
+  'b -> Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+"bmc.ml" 309 9035 9043 "bmc.ml" 309 9035 9046
+type(
+  S.t ->
+  TransSys.t -> 'a -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  def bmc "bmc.ml" 309 9035 9035 "_none_" 1 0 -1
+)
+"bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+type(
+  S.t
+)
+ident(
+  def solver "bmc.ml" 309 9035 9054 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+type(
+  TransSys.t
+)
+ident(
+  def ts "bmc.ml" 309 9035 9057 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 309 9035 9057 "bmc.ml" 309 9035 9074
+type(
+  'a
+)
+ident(
+  def abstract_var_list "bmc.ml" 309 9035 9075 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+type(
+  int
+)
+ident(
+  def k "bmc.ml" 309 9035 9077 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 309 9035 9077 "bmc.ml" 309 9035 9087
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs "bmc.ml" 309 9035 9088 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 309 9035 9088 "bmc.ml" 309 9035 9098
+type(
+  Term.t list
+)
+ident(
+  def invariants "bmc.ml" 311 9102 9104 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 311 9102 9104 "bmc.ml" 311 9102 9113
+type(
+  Lib.kind_module ->
+  Event.log_level ->
+  (int -> unit, Format.formatter, unit) format -> int -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"bmc.ml" 311 9102 9114 "bmc.ml" 311 9102 9118
+type(
+  Lib.kind_module
+)
+"bmc.ml" 311 9102 9119 "bmc.ml" 311 9102 9131
+type(
+  Event.log_level
+)
+"bmc.ml" 311 9102 9132 "bmc.ml" 311 9102 9150
+type(
+  (int -> unit, Format.formatter, unit) format
+)
+"bmc.ml" 311 9102 9151 "bmc.ml" 311 9102 9152
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 311 9102 9104 "bmc.ml" 311 9102 9152
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 313 9155 9157 "bmc.ml" 313 9155 9171
+type(
+  Lib.kind_module -> int -> unit
+)
+ident(
+  ext_ref Event.progress
+)
+"bmc.ml" 313 9155 9172 "bmc.ml" 313 9155 9176
+type(
+  Lib.kind_module
+)
+"bmc.ml" 313 9155 9177 "bmc.ml" 313 9155 9178
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 313 9155 9157 "bmc.ml" 313 9155 9178
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 315 9181 9183 "bmc.ml" 315 9181 9191
+type(
+  int -> Stat.int_item -> unit
+)
+ident(
+  ext_ref Stat.set
+)
+"bmc.ml" 315 9181 9192 "bmc.ml" 315 9181 9193
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 315 9181 9194 "bmc.ml" 315 9181 9204
+type(
+  Stat.int_item
+)
+ident(
+  ext_ref Stat.bmc_k
+)
+"bmc.ml" 315 9181 9183 "bmc.ml" 315 9181 9204
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 317 9207 9209 "bmc.ml" 317 9207 9225
+type(
+  Stat.float_item -> unit
+)
+ident(
+  ext_ref Stat.update_time
+)
+"bmc.ml" 317 9207 9226 "bmc.ml" 317 9207 9245
+type(
+  Stat.float_item
+)
+ident(
+  ext_ref Stat.bmc_total_time
+)
+"bmc.ml" 317 9207 9209 "bmc.ml" 317 9207 9245
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 322 9330 9336 "bmc.ml" 322 9330 9351
+type(
+  (string * Term.t) list
+)
+ident(
+  def disproved_pairs "bmc.ml" 325 9466 9469 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 322 9330 9355 "bmc.ml" 322 9330 9368
+type(
+  (string * Term.t) list -> (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  ext_ref Lib.list_subtract
+)
+"bmc.ml" 322 9330 9370 "bmc.ml" 322 9330 9372
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 322 9330 9370 "bmc.ml" 322 9330 9387
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 322 9330 9389 "bmc.ml" 322 9330 9399
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 309 9035 9077 "bmc.ml" 309 9035 9087
+)
+"bmc.ml" 322 9330 9355 "bmc.ml" 322 9330 9399
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 325 9466 9469 "bmc.ml" 328 9551 9558
+type(
+  unit
+)
+"bmc.ml" 330 9569 9571 "bmc.ml" 330 9569 9580
+type(
+  (string * Term.t -> unit) -> (string * Term.t) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"bmc.ml" 331 9582 9591 "bmc.ml" 331 9582 9604
+type(
+  string
+)
+ident(
+  def dis_prop_name "bmc.ml" 332 9620 9627 "bmc.ml" 335 9672 9683
+)
+"bmc.ml" 331 9582 9606 "bmc.ml" 331 9582 9614
+type(
+  Term.t
+)
+ident(
+  def dis_prop "bmc.ml" 332 9620 9627 "bmc.ml" 335 9672 9683
+)
+"bmc.ml" 331 9582 9591 "bmc.ml" 331 9582 9614
+type(
+  string * Term.t
+)
+"bmc.ml" 332 9620 9627 "bmc.ml" 335 9672 9683
+type(
+  unit
+)
+"bmc.ml" 331 9582 9590 "bmc.ml" 335 9672 9684
+type(
+  string * Term.t -> unit
+)
+"bmc.ml" 336 9685 9689 "bmc.ml" 336 9685 9704
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref disproved_pairs "bmc.ml" 322 9330 9336 "bmc.ml" 322 9330 9351
+)
+"bmc.ml" 330 9569 9571 "bmc.ml" 336 9685 9704
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 339 9712 9714 "bmc.ml" 339 9712 9728
+type(
+  int -> string list -> unit
+)
+ident(
+  ext_ref Event.bmcstate
+)
+"bmc.ml" 339 9712 9730 "bmc.ml" 339 9712 9731
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 339 9712 9732 "bmc.ml" 339 9712 9733
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"bmc.ml" 339 9712 9734 "bmc.ml" 339 9712 9735
+type(
+  int
+)
+"bmc.ml" 339 9712 9730 "bmc.ml" 339 9712 9735
+type(
+  int
+)
+"bmc.ml" 339 9712 9738 "bmc.ml" 339 9712 9746
+type(
+  (string * Term.t -> string) -> (string * Term.t) list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 339 9712 9747 "bmc.ml" 339 9712 9750
+type(
+  string * Term.t -> string
+)
+ident(
+  ext_ref Pervasives.fst
+)
+"bmc.ml" 339 9712 9751 "bmc.ml" 339 9712 9766
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref disproved_pairs "bmc.ml" 322 9330 9336 "bmc.ml" 322 9330 9351
+)
+"bmc.ml" 339 9712 9738 "bmc.ml" 339 9712 9766
+call(
+  stack
+)
+type(
+  string list
+)
+"bmc.ml" 339 9712 9714 "bmc.ml" 339 9712 9767
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 341 9770 9773 "bmc.ml" 344 9829 9836
+type(
+  unit
+)
+"bmc.ml" 355 9997 10003 "bmc.ml" 355 9997 10014
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"bmc.ml" 355 9997 10015 "bmc.ml" 355 9997 10025
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 309 9035 9077 "bmc.ml" 309 9035 9087
+)
+"bmc.ml" 355 9997 10003 "bmc.ml" 355 9997 10025
+call(
+  stack
+)
+type(
+  int
+)
+"bmc.ml" 355 9997 10026 "bmc.ml" 355 9997 10027
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"bmc.ml" 355 9997 10028 "bmc.ml" 355 9997 10029
+type(
+  int
+)
+"bmc.ml" 355 9997 10003 "bmc.ml" 355 9997 10029
+type(
+  bool
+)
+"bmc.ml" 358 10044 10049 "bmc.ml" 360 10094 10103
+type(
+  unit
+)
+"bmc.ml" 362 10111 10115 "bmc.ml" 362 10111 10117
+type(
+  unit
+)
+"bmc.ml" 358 10044 10049 "bmc.ml" 362 10111 10117
+type(
+  unit
+)
+"bmc.ml" 369 10183 10189 "bmc.ml" 369 10183 10203
+type(
+  Term.t list ref
+)
+ident(
+  def new_invariants "bmc.ml" 372 10247 10249 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 369 10183 10206 "bmc.ml" 369 10183 10209
+type(
+  Term.t list -> Term.t list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"bmc.ml" 369 10183 10210 "bmc.ml" 369 10183 10212
+type(
+  Term.t list
+)
+"bmc.ml" 369 10183 10206 "bmc.ml" 369 10183 10212
+type(
+  Term.t list ref
+)
+"bmc.ml" 372 10247 10253 "bmc.ml" 372 10247 10261
+type(
+  Event.event list
+)
+ident(
+  def messages "bmc.ml" 377 10379 10381 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 372 10247 10264 "bmc.ml" 372 10247 10274
+type(
+  unit -> Event.event list
+)
+ident(
+  ext_ref Event.recv
+)
+"bmc.ml" 372 10247 10275 "bmc.ml" 372 10247 10277
+type(
+  unit
+)
+"bmc.ml" 372 10247 10264 "bmc.ml" 372 10247 10277
+call(
+  stack
+)
+type(
+  Event.event list
+)
+"bmc.ml" 377 10379 10381 "bmc.ml" 377 10379 10390
+type(
+  (Event.event -> unit) -> Event.event list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"bmc.ml" 378 10393 10401 "bmc.ml" 378 10393 10408
+type(
+  Event.event
+)
+ident(
+  def message "bmc.ml" 379 10412 10418 "bmc.ml" 387 10664 10674
+)
+"bmc.ml" 379 10412 10424 "bmc.ml" 379 10412 10431
+type(
+  Event.event
+)
+ident(
+  int_ref message "bmc.ml" 378 10393 10401 "bmc.ml" 378 10393 10408
+)
+"bmc.ml" 382 10510 10536 "bmc.ml" 382 10510 10537
+type(
+  Lib.kind_module
+)
+"bmc.ml" 382 10510 10539 "bmc.ml" 382 10510 10544
+type(
+  Term.t
+)
+ident(
+  def invar "bmc.ml" 383 10550 10558 "bmc.ml" 383 10550 10600
+)
+"bmc.ml" 382 10510 10519 "bmc.ml" 382 10510 10545
+type(
+  Event.event
+)
+"bmc.ml" 383 10550 10558 "bmc.ml" 383 10550 10572
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "bmc.ml" 369 10183 10189 "bmc.ml" 369 10183 10203
+)
+"bmc.ml" 383 10550 10576 "bmc.ml" 383 10550 10581
+type(
+  Term.t
+)
+ident(
+  int_ref invar "bmc.ml" 382 10510 10539 "bmc.ml" 382 10510 10544
+)
+"bmc.ml" 383 10550 10586 "bmc.ml" 383 10550 10600
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "bmc.ml" 369 10183 10189 "bmc.ml" 369 10183 10203
+)
+"bmc.ml" 383 10550 10585 "bmc.ml" 383 10550 10600
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"bmc.ml" 383 10550 10576 "bmc.ml" 383 10550 10600
+type(
+  Term.t list
+)
+"bmc.ml" 383 10550 10558 "bmc.ml" 383 10550 10600
+type(
+  unit
+)
+type(
+  Term.t list ref -> Term.t list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"bmc.ml" 386 10651 10659 "bmc.ml" 386 10651 10660
+type(
+  Event.event
+)
+"bmc.ml" 387 10664 10672 "bmc.ml" 387 10664 10674
+type(
+  unit
+)
+"bmc.ml" 379 10412 10418 "bmc.ml" 387 10664 10674
+type(
+  unit
+)
+"bmc.ml" 378 10393 10401 "bmc.ml" 387 10664 10674
+type(
+  Event.event -> unit
+)
+"bmc.ml" 388 10681 10685 "bmc.ml" 388 10681 10693
+type(
+  Event.event list
+)
+ident(
+  int_ref messages "bmc.ml" 372 10247 10253 "bmc.ml" 372 10247 10261
+)
+"bmc.ml" 377 10379 10381 "bmc.ml" 388 10681 10693
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 390 10698 10704 "bmc.ml" 390 10698 10715
+type(
+  Term.t list
+)
+ident(
+  def invariants' "bmc.ml" 392 10765 10767 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 390 10698 10718 "bmc.ml" 390 10698 10733
+type(
+  Term.t list -> Term.t list -> Term.t list
+)
+ident(
+  ext_ref List.rev_append
+)
+"bmc.ml" 390 10698 10735 "bmc.ml" 390 10698 10749
+type(
+  Term.t list ref
+)
+ident(
+  int_ref new_invariants "bmc.ml" 369 10183 10189 "bmc.ml" 369 10183 10203
+)
+"bmc.ml" 390 10698 10734 "bmc.ml" 390 10698 10749
+type(
+  Term.t list
+)
+type(
+  Term.t list ref -> Term.t list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"bmc.ml" 390 10698 10750 "bmc.ml" 390 10698 10760
+type(
+  Term.t list
+)
+ident(
+  int_ref invariants "bmc.ml" 309 9035 9088 "bmc.ml" 309 9035 9098
+)
+"bmc.ml" 390 10698 10718 "bmc.ml" 390 10698 10760
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"bmc.ml" 392 10765 10767 "bmc.ml" 392 10765 10780
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"bmc.ml" 392 10765 10781 "bmc.ml" 392 10765 10787
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 392 10765 10789 "bmc.ml" 392 10765 10808
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"bmc.ml" 392 10765 10809 "bmc.ml" 392 10765 10810
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 392 10765 10812 "bmc.ml" 392 10765 10823
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"bmc.ml" 392 10765 10824 "bmc.ml" 392 10765 10835
+type(
+  Term.t list
+)
+ident(
+  int_ref invariants' "bmc.ml" 390 10698 10704 "bmc.ml" 390 10698 10715
+)
+"bmc.ml" 392 10765 10812 "bmc.ml" 392 10765 10835
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 392 10765 10789 "bmc.ml" 392 10765 10836
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 392 10765 10767 "bmc.ml" 392 10765 10837
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 395 10884 10890 "bmc.ml" 395 10884 10902
+type(
+  (string * Term.t) list
+)
+ident(
+  def k_prop_pairs "bmc.ml" 406 11117 11119 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 396 10906 10910 "bmc.ml" 396 10906 10918
+type(
+  (string * Term.t -> string * Term.t) ->
+  (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 398 10926 10937 "bmc.ml" 398 10926 10946
+type(
+  string
+)
+ident(
+  def prop_name "bmc.ml" 399 10958 10967 "bmc.ml" 399 10958 11004
+)
+"bmc.ml" 398 10926 10948 "bmc.ml" 398 10926 10952
+type(
+  Term.t
+)
+ident(
+  def prop "bmc.ml" 399 10958 10967 "bmc.ml" 399 10958 11004
+)
+"bmc.ml" 398 10926 10937 "bmc.ml" 398 10926 10952
+type(
+  string * Term.t
+)
+"bmc.ml" 399 10958 10967 "bmc.ml" 399 10958 10976
+type(
+  string
+)
+ident(
+  int_ref prop_name "bmc.ml" 398 10926 10937 "bmc.ml" 398 10926 10946
+)
+"bmc.ml" 399 10958 10978 "bmc.ml" 399 10958 10997
+type(
+  int -> Term.t -> Term.t
+)
+ident(
+  ext_ref TransSys.bump_state
+)
+"bmc.ml" 399 10958 10998 "bmc.ml" 399 10958 10999
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 399 10958 11000 "bmc.ml" 399 10958 11004
+type(
+  Term.t
+)
+ident(
+  int_ref prop "bmc.ml" 398 10926 10948 "bmc.ml" 398 10926 10952
+)
+"bmc.ml" 399 10958 10978 "bmc.ml" 399 10958 11004
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 399 10958 10967 "bmc.ml" 399 10958 11004
+type(
+  string * Term.t
+)
+"bmc.ml" 398 10926 10936 "bmc.ml" 399 10958 11005
+type(
+  string * Term.t -> string * Term.t
+)
+"bmc.ml" 400 11006 11012 "bmc.ml" 400 11006 11022
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 309 9035 9077 "bmc.ml" 309 9035 9087
+)
+"bmc.ml" 396 10906 10910 "bmc.ml" 400 11006 11022
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 406 11117 11123 "bmc.ml" 406 11117 11140
+type(
+  Var.t list
+)
+ident(
+  def concrete_var_list "bmc.ml" 410 11236 11238 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 406 11117 11143 "bmc.ml" 406 11117 11172
+type(
+  TransSys.t -> int -> Var.t list
+)
+ident(
+  int_ref get_concrete_vars_for_k_steps "bmc.ml" 140 4367 4375 "bmc.ml" 140 4367 4404
+)
+"bmc.ml" 406 11117 11173 "bmc.ml" 406 11117 11175
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 406 11117 11176 "bmc.ml" 406 11117 11177
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 406 11117 11143 "bmc.ml" 406 11117 11177
+call(
+  stack
+)
+type(
+  Var.t list
+)
+"bmc.ml" 410 11236 11242 "bmc.ml" 410 11236 11261
+type(
+  Term.t
+)
+ident(
+  def conjuncted_property "bmc.ml" 415 11407 11409 "bmc.ml" 475 12817 12820
+)
+"bmc.ml" 410 11236 11265 "bmc.ml" 410 11236 11276
+type(
+  Term.t list -> Term.t
+)
+ident(
+  ext_ref Term.mk_and
+)
+"bmc.ml" 410 11236 11278 "bmc.ml" 410 11236 11286
+type(
+  (string * Term.t -> Term.t) -> (string * Term.t) list -> Term.t list
+)
+ident(
+  ext_ref List.map
+)
+"bmc.ml" 410 11236 11287 "bmc.ml" 410 11236 11290
+type(
+  string * Term.t -> Term.t
+)
+ident(
+  ext_ref Pervasives.snd
+)
+"bmc.ml" 410 11236 11291 "bmc.ml" 410 11236 11303
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref k_prop_pairs "bmc.ml" 395 10884 10890 "bmc.ml" 395 10884 10902
+)
+"bmc.ml" 410 11236 11278 "bmc.ml" 410 11236 11303
+call(
+  stack
+)
+type(
+  Term.t list
+)
+"bmc.ml" 410 11236 11265 "bmc.ml" 410 11236 11304
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 415 11407 11409 "bmc.ml" 415 11407 11415
+type(
+  ?n:int -> S.t -> unit
+)
+ident(
+  ext_ref S.push
+)
+"bmc.ml" 415 11407 11416 "bmc.ml" 415 11407 11422
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 415 11407 11409 "bmc.ml" 415 11407 11422
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 417 11427 11429 "bmc.ml" 417 11427 11442
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"bmc.ml" 417 11427 11443 "bmc.ml" 417 11427 11449
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 417 11427 11451 "bmc.ml" 417 11427 11462
+type(
+  Term.t -> Term.t
+)
+ident(
+  ext_ref Term.mk_not
+)
+"bmc.ml" 417 11427 11463 "bmc.ml" 417 11427 11482
+type(
+  Term.t
+)
+ident(
+  int_ref conjuncted_property "bmc.ml" 410 11236 11242 "bmc.ml" 410 11236 11261
+)
+"bmc.ml" 417 11427 11451 "bmc.ml" 417 11427 11482
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 417 11427 11429 "bmc.ml" 417 11427 11483
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 420 11537 11543 "bmc.ml" 420 11537 11554
+type(
+  ?timeout:int -> S.t -> bool
+)
+ident(
+  ext_ref S.check_sat
+)
+"bmc.ml" 420 11537 11555 "bmc.ml" 420 11537 11561
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 420 11537 11543 "bmc.ml" 420 11537 11561
+call(
+  stack
+)
+type(
+  bool
+)
+"bmc.ml" 423 11645 11653 "bmc.ml" 423 11645 11664
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs' "bmc.ml" 435 11901 11905 "bmc.ml" 462 12503 12508
+)
+"bmc.ml" 424 11668 11674 "bmc.ml" 424 11668 11694
+type(
+  S.t ->
+  TransSys.t ->
+  'a -> Var.t list -> int -> (string * Term.t) list -> (string * Term.t) list
+)
+ident(
+  int_ref filter_property_list "bmc.ml" 173 5301 5309 "bmc.ml" 173 5301 5329
+)
+"bmc.ml" 425 11696 11704 "bmc.ml" 425 11696 11710
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 426 11712 11720 "bmc.ml" 426 11712 11722
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 427 11724 11732 "bmc.ml" 427 11724 11749
+type(
+  'a
+)
+ident(
+  int_ref abstract_var_list "bmc.ml" 309 9035 9057 "bmc.ml" 309 9035 9074
+)
+"bmc.ml" 428 11751 11759 "bmc.ml" 428 11751 11776
+type(
+  Var.t list
+)
+ident(
+  int_ref concrete_var_list "bmc.ml" 406 11117 11123 "bmc.ml" 406 11117 11140
+)
+"bmc.ml" 429 11778 11786 "bmc.ml" 429 11778 11787
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 430 11789 11797 "bmc.ml" 430 11789 11807
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 309 9035 9077 "bmc.ml" 309 9035 9087
+)
+"bmc.ml" 424 11668 11674 "bmc.ml" 430 11789 11807
+call(
+  stack
+)
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 435 11901 11909 "bmc.ml" 435 11901 11920
+type(
+  (string * Term.t) list -> int
+)
+ident(
+  ext_ref List.length
+)
+"bmc.ml" 435 11901 11921 "bmc.ml" 435 11901 11932
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 423 11645 11653 "bmc.ml" 423 11645 11664
+)
+"bmc.ml" 435 11901 11909 "bmc.ml" 435 11901 11932
+call(
+  stack
+)
+type(
+  int
+)
+"bmc.ml" 435 11901 11933 "bmc.ml" 435 11901 11934
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"bmc.ml" 435 11901 11935 "bmc.ml" 435 11901 11936
+type(
+  int
+)
+"bmc.ml" 435 11901 11909 "bmc.ml" 435 11901 11936
+type(
+  bool
+)
+"bmc.ml" 437 11950 11957 "bmc.ml" 440 12026 12037
+type(
+  unit
+)
+"bmc.ml" 457 12339 12345 "bmc.ml" 457 12339 12350
+type(
+  ?n:int -> S.t -> unit
+)
+ident(
+  ext_ref S.pop
+)
+"bmc.ml" 457 12339 12351 "bmc.ml" 457 12339 12357
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 457 12339 12345 "bmc.ml" 457 12339 12357
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 459 12366 12372 "bmc.ml" 459 12366 12385
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"bmc.ml" 459 12366 12386 "bmc.ml" 459 12366 12392
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 459 12366 12394 "bmc.ml" 459 12366 12418
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.constr_of_bound
+)
+"bmc.ml" 459 12366 12420 "bmc.ml" 459 12366 12421
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 459 12366 12422 "bmc.ml" 459 12366 12423
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"bmc.ml" 459 12366 12424 "bmc.ml" 459 12366 12425
+type(
+  int
+)
+"bmc.ml" 459 12366 12420 "bmc.ml" 459 12366 12425
+type(
+  int
+)
+"bmc.ml" 459 12366 12427 "bmc.ml" 459 12366 12429
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 459 12366 12394 "bmc.ml" 459 12366 12429
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 459 12366 12372 "bmc.ml" 459 12366 12430
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 461 12433 12439 "bmc.ml" 461 12433 12442
+type(
+  S.t ->
+  TransSys.t -> 'a -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref bmc "bmc.ml" 309 9035 9043 "bmc.ml" 309 9035 9046
+)
+"bmc.ml" 461 12433 12443 "bmc.ml" 461 12433 12449
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 461 12433 12450 "bmc.ml" 461 12433 12452
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 461 12433 12453 "bmc.ml" 461 12433 12470
+type(
+  'a
+)
+ident(
+  int_ref abstract_var_list "bmc.ml" 309 9035 9057 "bmc.ml" 309 9035 9074
+)
+"bmc.ml" 461 12433 12472 "bmc.ml" 461 12433 12473
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 461 12433 12474 "bmc.ml" 461 12433 12475
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"bmc.ml" 461 12433 12476 "bmc.ml" 461 12433 12477
+type(
+  int
+)
+"bmc.ml" 461 12433 12472 "bmc.ml" 461 12433 12477
+type(
+  int
+)
+"bmc.ml" 461 12433 12479 "bmc.ml" 461 12433 12490
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs' "bmc.ml" 423 11645 11653 "bmc.ml" 423 11645 11664
+)
+"bmc.ml" 461 12433 12491 "bmc.ml" 461 12433 12502
+type(
+  Term.t list
+)
+ident(
+  int_ref invariants' "bmc.ml" 390 10698 10704 "bmc.ml" 390 10698 10715
+)
+"bmc.ml" 461 12433 12439 "bmc.ml" 461 12433 12502
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 459 12366 12372 "bmc.ml" 461 12433 12502
+type(
+  unit
+)
+"bmc.ml" 457 12339 12345 "bmc.ml" 461 12433 12502
+type(
+  unit
+)
+"bmc.ml" 435 11901 11905 "bmc.ml" 462 12503 12508
+type(
+  unit
+)
+"bmc.ml" 423 11645 11649 "bmc.ml" 462 12503 12508
+type(
+  unit
+)
+"bmc.ml" 470 12662 12666 "bmc.ml" 470 12662 12671
+type(
+  ?n:int -> S.t -> unit
+)
+ident(
+  ext_ref S.pop
+)
+"bmc.ml" 470 12662 12672 "bmc.ml" 470 12662 12678
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 470 12662 12666 "bmc.ml" 470 12662 12678
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 472 12685 12689 "bmc.ml" 472 12685 12702
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"bmc.ml" 472 12685 12703 "bmc.ml" 472 12685 12709
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 472 12685 12711 "bmc.ml" 472 12685 12735
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.constr_of_bound
+)
+"bmc.ml" 472 12685 12737 "bmc.ml" 472 12685 12738
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 472 12685 12739 "bmc.ml" 472 12685 12740
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"bmc.ml" 472 12685 12741 "bmc.ml" 472 12685 12742
+type(
+  int
+)
+"bmc.ml" 472 12685 12737 "bmc.ml" 472 12685 12742
+type(
+  int
+)
+"bmc.ml" 472 12685 12744 "bmc.ml" 472 12685 12746
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 472 12685 12711 "bmc.ml" 472 12685 12746
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 472 12685 12689 "bmc.ml" 472 12685 12747
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 474 12750 12754 "bmc.ml" 474 12750 12757
+type(
+  S.t ->
+  TransSys.t -> 'a -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref bmc "bmc.ml" 309 9035 9043 "bmc.ml" 309 9035 9046
+)
+"bmc.ml" 474 12750 12758 "bmc.ml" 474 12750 12764
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 309 9035 9047 "bmc.ml" 309 9035 9053
+)
+"bmc.ml" 474 12750 12765 "bmc.ml" 474 12750 12767
+type(
+  TransSys.t
+)
+ident(
+  int_ref ts "bmc.ml" 309 9035 9054 "bmc.ml" 309 9035 9056
+)
+"bmc.ml" 474 12750 12768 "bmc.ml" 474 12750 12785
+type(
+  'a
+)
+ident(
+  int_ref abstract_var_list "bmc.ml" 309 9035 9057 "bmc.ml" 309 9035 9074
+)
+"bmc.ml" 474 12750 12787 "bmc.ml" 474 12750 12788
+type(
+  int
+)
+ident(
+  int_ref k "bmc.ml" 309 9035 9075 "bmc.ml" 309 9035 9076
+)
+"bmc.ml" 474 12750 12789 "bmc.ml" 474 12750 12790
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"bmc.ml" 474 12750 12791 "bmc.ml" 474 12750 12792
+type(
+  int
+)
+"bmc.ml" 474 12750 12787 "bmc.ml" 474 12750 12792
+type(
+  int
+)
+"bmc.ml" 474 12750 12794 "bmc.ml" 474 12750 12804
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 309 9035 9077 "bmc.ml" 309 9035 9087
+)
+"bmc.ml" 474 12750 12805 "bmc.ml" 474 12750 12816
+type(
+  Term.t list
+)
+ident(
+  int_ref invariants' "bmc.ml" 390 10698 10704 "bmc.ml" 390 10698 10715
+)
+"bmc.ml" 474 12750 12754 "bmc.ml" 474 12750 12816
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 472 12685 12689 "bmc.ml" 474 12750 12816
+type(
+  unit
+)
+"bmc.ml" 470 12662 12666 "bmc.ml" 474 12750 12816
+type(
+  unit
+)
+"bmc.ml" 420 11537 11539 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 417 11427 11429 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 415 11407 11409 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 410 11236 11238 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 406 11117 11119 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 395 10884 10886 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 392 10765 10767 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 390 10698 10700 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 377 10379 10381 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 372 10247 10249 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 369 10183 10185 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 355 9997 9999 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 341 9770 9773 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 339 9712 9714 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 330 9569 9571 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 325 9466 9469 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 322 9330 9332 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 317 9207 9209 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 315 9181 9183 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 313 9155 9157 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 311 9102 9104 "bmc.ml" 475 12817 12820
+type(
+  unit
+)
+"bmc.ml" 309 9035 9088 "bmc.ml" 475 12817 12820
+type(
+  Term.t list -> unit
+)
+"bmc.ml" 309 9035 9077 "bmc.ml" 475 12817 12820
+type(
+  (string * Term.t) list -> Term.t list -> unit
+)
+"bmc.ml" 309 9035 9075 "bmc.ml" 475 12817 12820
+type(
+  int -> (string * Term.t) list -> Term.t list -> unit
+)
+"bmc.ml" 309 9035 9057 "bmc.ml" 475 12817 12820
+type(
+  'a -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+"bmc.ml" 309 9035 9054 "bmc.ml" 475 12817 12820
+type(
+  TransSys.t -> 'a -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+"bmc.ml" 309 9035 9047 "bmc.ml" 475 12817 12820
+type(
+  S.t ->
+  TransSys.t -> 'a -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+"bmc.ml" 479 12843 12847 "bmc.ml" 479 12843 12851
+type(
+  TransSys.t -> unit
+)
+ident(
+  def main "bmc.ml" 510 13778 13837 "_none_" 1 0 -1
+)
+"bmc.ml" 479 12843 12852 "bmc.ml" 479 12843 12860
+type(
+  TransSys.t
+)
+ident(
+  def transSys "bmc.ml" 481 12864 12866 "bmc.ml" 510 13778 13837
+)
+"bmc.ml" 481 12864 12866 "bmc.ml" 481 12864 12882
+type(
+  Stat.float_item -> unit
+)
+ident(
+  ext_ref Stat.start_timer
+)
+"bmc.ml" 481 12864 12883 "bmc.ml" 481 12864 12902
+type(
+  Stat.float_item
+)
+ident(
+  ext_ref Stat.bmc_total_time
+)
+"bmc.ml" 481 12864 12866 "bmc.ml" 481 12864 12902
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 483 12905 12913 "bmc.ml" 483 12905 12921
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "bmc.ml" 479 12843 12852 "bmc.ml" 479 12843 12860
+)
+"bmc.ml" 483 12905 12913 "bmc.ml" 483 12905 12936
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 486 12998 13004 "bmc.ml" 486 12998 13006
+type(
+  (string * Term.t) list
+)
+"bmc.ml" 486 12998 13010 "bmc.ml" 486 12998 13019
+type(
+  Lib.kind_module ->
+  Event.log_level -> (unit, Format.formatter, unit) format -> unit
+)
+ident(
+  ext_ref Event.log
+)
+"bmc.ml" 486 12998 13020 "bmc.ml" 486 12998 13024
+type(
+  Lib.kind_module
+)
+"bmc.ml" 486 12998 13025 "bmc.ml" 486 12998 13038
+type(
+  Event.log_level
+)
+"bmc.ml" 486 12998 13039 "bmc.ml" 486 12998 13061
+type(
+  (unit, Format.formatter, unit) format
+)
+"bmc.ml" 486 12998 13010 "bmc.ml" 486 12998 13061
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 488 13063 13069 "bmc.ml" 488 13063 13079
+type(
+  (string * Term.t) list
+)
+ident(
+  def prop_pairs "bmc.ml" 491 13135 13141 "bmc.ml" 510 13778 13837
+)
+"bmc.ml" 491 13135 13145 "bmc.ml" 491 13135 13150
+type(
+  SMTExpr.logic
+)
+ident(
+  def logic "bmc.ml" 494 13220 13226 "bmc.ml" 510 13778 13837
+)
+"bmc.ml" 491 13135 13153 "bmc.ml" 491 13135 13171
+type(
+  TransSys.t -> SMTExpr.logic
+)
+ident(
+  ext_ref TransSys.get_logic
+)
+"bmc.ml" 491 13135 13172 "bmc.ml" 491 13135 13180
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "bmc.ml" 479 12843 12852 "bmc.ml" 479 12843 12860
+)
+"bmc.ml" 491 13135 13153 "bmc.ml" 491 13135 13180
+call(
+  stack
+)
+type(
+  SMTExpr.logic
+)
+"bmc.ml" 494 13220 13230 "bmc.ml" 494 13220 13236
+type(
+  S.t
+)
+ident(
+  def solver "bmc.ml" 499 13378 13384 "bmc.ml" 510 13778 13837
+)
+"bmc.ml" 495 13240 13248 "bmc.ml" 495 13240 13260
+type(
+  ?produce_assignments:bool ->
+  ?produce_models:bool ->
+  ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> S.t
+)
+ident(
+  ext_ref S.new_solver
+)
+"bmc.ml" 495 13240 13282 "bmc.ml" 495 13240 13286
+type(
+  bool
+)
+"bmc.ml" 495 13240 13287 "bmc.ml" 495 13240 13292
+type(
+  SMTExpr.logic
+)
+ident(
+  int_ref logic "bmc.ml" 491 13135 13145 "bmc.ml" 491 13135 13150
+)
+"bmc.ml" 495 13240 13248 "bmc.ml" 495 13240 13292
+call(
+  stack
+)
+type(
+  S.t
+)
+"bmc.ml" 499 13378 13384 "bmc.ml" 499 13378 13394
+type(
+  S.t option ref
+)
+ident(
+  int_ref ref_solver "bmc.ml" 48 2124 2128 "bmc.ml" 48 2124 2138
+)
+"bmc.ml" 499 13378 13403 "bmc.ml" 499 13378 13409
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 494 13220 13230 "bmc.ml" 494 13220 13236
+)
+"bmc.ml" 499 13378 13398 "bmc.ml" 499 13378 13409
+type(
+  S.t option
+)
+"bmc.ml" 499 13378 13384 "bmc.ml" 499 13378 13409
+type(
+  unit
+)
+type(
+  S.t option ref -> S.t option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"bmc.ml" 504 13521 13531 "bmc.ml" 504 13521 13548
+type(
+  StateVar.t list
+)
+ident(
+  def abstract_var_list "bmc.ml" 507 13633 13639 "bmc.ml" 510 13778 13837
+)
+"bmc.ml" 504 13521 13551 "bmc.ml" 504 13521 13570
+type(
+  TransSys.t -> StateVar.t list
+)
+ident(
+  ext_ref TransSys.state_vars
+)
+"bmc.ml" 504 13521 13571 "bmc.ml" 504 13521 13579
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "bmc.ml" 479 12843 12852 "bmc.ml" 479 12843 12860
+)
+"bmc.ml" 504 13521 13551 "bmc.ml" 504 13521 13579
+call(
+  stack
+)
+type(
+  StateVar.t list
+)
+"bmc.ml" 507 13633 13639 "bmc.ml" 507 13633 13652
+type(
+  S.t -> Term.t -> unit
+)
+ident(
+  ext_ref S.assert_term
+)
+"bmc.ml" 507 13633 13653 "bmc.ml" 507 13633 13659
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 494 13220 13230 "bmc.ml" 494 13220 13236
+)
+"bmc.ml" 507 13633 13661 "bmc.ml" 507 13633 13683
+type(
+  int -> TransSys.t -> Term.t
+)
+ident(
+  ext_ref TransSys.init_of_bound
+)
+"bmc.ml" 507 13633 13684 "bmc.ml" 507 13633 13685
+type(
+  int
+)
+"bmc.ml" 507 13633 13686 "bmc.ml" 507 13633 13694
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "bmc.ml" 479 12843 12852 "bmc.ml" 479 12843 12860
+)
+"bmc.ml" 507 13633 13661 "bmc.ml" 507 13633 13694
+call(
+  stack
+)
+type(
+  Term.t
+)
+"bmc.ml" 507 13633 13639 "bmc.ml" 507 13633 13695
+call(
+  stack
+)
+type(
+  unit
+)
+"bmc.ml" 510 13778 13784 "bmc.ml" 510 13778 13787
+type(
+  S.t ->
+  TransSys.t ->
+  StateVar.t list -> int -> (string * Term.t) list -> Term.t list -> unit
+)
+ident(
+  int_ref bmc "bmc.ml" 309 9035 9043 "bmc.ml" 309 9035 9046
+)
+"bmc.ml" 510 13778 13788 "bmc.ml" 510 13778 13794
+type(
+  S.t
+)
+ident(
+  int_ref solver "bmc.ml" 494 13220 13230 "bmc.ml" 494 13220 13236
+)
+"bmc.ml" 510 13778 13795 "bmc.ml" 510 13778 13803
+type(
+  TransSys.t
+)
+ident(
+  int_ref transSys "bmc.ml" 479 12843 12852 "bmc.ml" 479 12843 12860
+)
+"bmc.ml" 510 13778 13804 "bmc.ml" 510 13778 13821
+type(
+  StateVar.t list
+)
+ident(
+  int_ref abstract_var_list "bmc.ml" 504 13521 13531 "bmc.ml" 504 13521 13548
+)
+"bmc.ml" 510 13778 13822 "bmc.ml" 510 13778 13823
+type(
+  int
+)
+"bmc.ml" 510 13778 13824 "bmc.ml" 510 13778 13834
+type(
+  (string * Term.t) list
+)
+ident(
+  int_ref prop_pairs "bmc.ml" 488 13063 13069 "bmc.ml" 488 13063 13079
+)
+"bmc.ml" 510 13778 13835 "bmc.ml" 510 13778 13837
+type(
+  Term.t list
+)
+"bmc.ml" 510 13778 13784 "bmc.ml" 510 13778 13837
+call(
+  tail
+)
+type(
+  unit
+)
+"bmc.ml" 507 13633 13639 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 504 13521 13527 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 499 13378 13384 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 494 13220 13226 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 491 13135 13141 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 483 12905 12907 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 481 12864 12866 "bmc.ml" 510 13778 13837
+type(
+  unit
+)
+"bmc.ml" 479 12843 12852 "bmc.ml" 510 13778 13837
+type(
+  TransSys.t -> unit
+)

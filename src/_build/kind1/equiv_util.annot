@@ -1,0 +1,1764 @@
+"kind1/equiv_util.ml" 35 1702 1706 "kind1/equiv_util.ml" 35 1702 1720
+type(
+  string list -> unit
+)
+ident(
+  def print_str_list "kind1/equiv_util.ml" 39 1808 1808 "_none_" 1 0 -1
+)
+"kind1/equiv_util.ml" 35 1702 1721 "kind1/equiv_util.ml" 35 1702 1729
+type(
+  string list
+)
+ident(
+  def str_list "kind1/equiv_util.ml" 36 1732 1734 "kind1/equiv_util.ml" 36 1732 1778
+)
+"kind1/equiv_util.ml" 36 1732 1734 "kind1/equiv_util.ml" 36 1732 1743
+type(
+  (string -> unit) -> string list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/equiv_util.ml" 36 1732 1749 "kind1/equiv_util.ml" 36 1732 1750
+type(
+  string
+)
+ident(
+  def x "kind1/equiv_util.ml" 36 1732 1754 "kind1/equiv_util.ml" 36 1732 1768
+)
+"kind1/equiv_util.ml" 36 1732 1754 "kind1/equiv_util.ml" 36 1732 1756
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 36 1732 1757 "kind1/equiv_util.ml" 36 1732 1758
+type(
+  string
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 36 1732 1749 "kind1/equiv_util.ml" 36 1732 1750
+)
+"kind1/equiv_util.ml" 36 1732 1754 "kind1/equiv_util.ml" 36 1732 1758
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 36 1732 1760 "kind1/equiv_util.ml" 36 1732 1762
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 36 1732 1763 "kind1/equiv_util.ml" 36 1732 1768
+type(
+  string
+)
+"kind1/equiv_util.ml" 36 1732 1760 "kind1/equiv_util.ml" 36 1732 1768
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 36 1732 1754 "kind1/equiv_util.ml" 36 1732 1768
+type(
+  unit
+)
+"kind1/equiv_util.ml" 36 1732 1744 "kind1/equiv_util.ml" 36 1732 1769
+type(
+  string -> unit
+)
+"kind1/equiv_util.ml" 36 1732 1770 "kind1/equiv_util.ml" 36 1732 1778
+type(
+  string list
+)
+ident(
+  int_ref str_list "kind1/equiv_util.ml" 35 1702 1721 "kind1/equiv_util.ml" 35 1702 1729
+)
+"kind1/equiv_util.ml" 36 1732 1734 "kind1/equiv_util.ml" 36 1732 1778
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 39 1808 1812 "kind1/equiv_util.ml" 39 1808 1831
+type(
+  string list list -> unit
+)
+ident(
+  def print_equiv_classes "kind1/equiv_util.ml" 49 2242 2242 "_none_" 1 0 -1
+)
+"kind1/equiv_util.ml" 39 1808 1832 "kind1/equiv_util.ml" 39 1808 1839
+type(
+  string list list
+)
+ident(
+  def classes "kind1/equiv_util.ml" 40 1842 1844 "kind1/equiv_util.ml" 47 2172 2240
+)
+"kind1/equiv_util.ml" 40 1842 1848 "kind1/equiv_util.ml" 40 1842 1856
+type(
+  string list -> unit
+)
+ident(
+  def iter_fun "kind1/equiv_util.ml" 45 2096 2100 "kind1/equiv_util.ml" 47 2172 2240
+)
+"kind1/equiv_util.ml" 40 1842 1857 "kind1/equiv_util.ml" 40 1842 1858
+type(
+  string list
+)
+ident(
+  def x "kind1/equiv_util.ml" 41 1862 1866 "kind1/equiv_util.ml" 44 2041 2092
+)
+"kind1/equiv_util.ml" 41 1862 1870 "kind1/equiv_util.ml" 41 1862 1883
+type(
+  string list
+)
+ident(
+  def term_str_list "kind1/equiv_util.ml" 42 1940 1944 "kind1/equiv_util.ml" 44 2041 2092
+)
+"kind1/equiv_util.ml" 41 1862 1886 "kind1/equiv_util.ml" 41 1862 1894
+type(
+  (string -> string) -> string list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/equiv_util.ml" 41 1862 1900 "kind1/equiv_util.ml" 41 1862 1901
+type(
+  string
+)
+ident(
+  def y "kind1/equiv_util.ml" 41 1862 1905 "kind1/equiv_util.ml" 41 1862 1931
+)
+"kind1/equiv_util.ml" 41 1862 1905 "kind1/equiv_util.ml" 41 1862 1929
+type(
+  string -> string
+)
+ident(
+  ext_ref New_vars.nvr_to_nvr_def_decl_body
+)
+"kind1/equiv_util.ml" 41 1862 1930 "kind1/equiv_util.ml" 41 1862 1931
+type(
+  string
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 41 1862 1900 "kind1/equiv_util.ml" 41 1862 1901
+)
+"kind1/equiv_util.ml" 41 1862 1905 "kind1/equiv_util.ml" 41 1862 1931
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/equiv_util.ml" 41 1862 1895 "kind1/equiv_util.ml" 41 1862 1933
+type(
+  string -> string
+)
+"kind1/equiv_util.ml" 41 1862 1934 "kind1/equiv_util.ml" 41 1862 1935
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 40 1842 1857 "kind1/equiv_util.ml" 40 1842 1858
+)
+"kind1/equiv_util.ml" 41 1862 1886 "kind1/equiv_util.ml" 41 1862 1935
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/equiv_util.ml" 42 1940 1944 "kind1/equiv_util.ml" 42 1940 1946
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 42 1940 1947 "kind1/equiv_util.ml" 42 1940 1956
+type(
+  string
+)
+"kind1/equiv_util.ml" 42 1940 1944 "kind1/equiv_util.ml" 42 1940 1956
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 42 1940 1958 "kind1/equiv_util.ml" 42 1940 1972
+type(
+  string list -> unit
+)
+ident(
+  int_ref print_str_list "kind1/equiv_util.ml" 35 1702 1706 "kind1/equiv_util.ml" 35 1702 1720
+)
+"kind1/equiv_util.ml" 42 1940 1973 "kind1/equiv_util.ml" 42 1940 1974
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 40 1842 1857 "kind1/equiv_util.ml" 40 1842 1858
+)
+"kind1/equiv_util.ml" 42 1940 1958 "kind1/equiv_util.ml" 42 1940 1974
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 42 1940 1976 "kind1/equiv_util.ml" 42 1940 1978
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 42 1940 1978 "kind1/equiv_util.ml" 42 1940 1982
+type(
+  string
+)
+"kind1/equiv_util.ml" 42 1940 1976 "kind1/equiv_util.ml" 42 1940 1982
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 43 1985 1989 "kind1/equiv_util.ml" 43 1985 1991
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 43 1985 1992 "kind1/equiv_util.ml" 43 1985 2000
+type(
+  string
+)
+"kind1/equiv_util.ml" 43 1985 1989 "kind1/equiv_util.ml" 43 1985 2000
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 43 1985 2002 "kind1/equiv_util.ml" 43 1985 2016
+type(
+  string list -> unit
+)
+ident(
+  int_ref print_str_list "kind1/equiv_util.ml" 35 1702 1706 "kind1/equiv_util.ml" 35 1702 1720
+)
+"kind1/equiv_util.ml" 43 1985 2017 "kind1/equiv_util.ml" 43 1985 2030
+type(
+  string list
+)
+ident(
+  int_ref term_str_list "kind1/equiv_util.ml" 41 1862 1870 "kind1/equiv_util.ml" 41 1862 1883
+)
+"kind1/equiv_util.ml" 43 1985 2002 "kind1/equiv_util.ml" 43 1985 2030
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 43 1985 2032 "kind1/equiv_util.ml" 43 1985 2034
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 43 1985 2034 "kind1/equiv_util.ml" 43 1985 2038
+type(
+  string
+)
+"kind1/equiv_util.ml" 43 1985 2032 "kind1/equiv_util.ml" 43 1985 2038
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 44 2041 2045 "kind1/equiv_util.ml" 44 2041 2047
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 44 2041 2048 "kind1/equiv_util.ml" 44 2041 2054
+type(
+  string
+)
+"kind1/equiv_util.ml" 44 2041 2045 "kind1/equiv_util.ml" 44 2041 2054
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 44 2041 2057 "kind1/equiv_util.ml" 44 2041 2059
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 44 2041 2061 "kind1/equiv_util.ml" 44 2041 2068
+type(
+  string list -> string
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/equiv_util.ml" 44 2041 2069 "kind1/equiv_util.ml" 44 2041 2082
+type(
+  string list
+)
+ident(
+  int_ref term_str_list "kind1/equiv_util.ml" 41 1862 1870 "kind1/equiv_util.ml" 41 1862 1883
+)
+"kind1/equiv_util.ml" 44 2041 2060 "kind1/equiv_util.ml" 44 2041 2083
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/equiv_util.ml" 44 2041 2057 "kind1/equiv_util.ml" 44 2041 2083
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 44 2041 2085 "kind1/equiv_util.ml" 44 2041 2087
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 44 2041 2088 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  string
+)
+"kind1/equiv_util.ml" 44 2041 2085 "kind1/equiv_util.ml" 44 2041 2092
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 44 2041 2057 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 44 2041 2045 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 43 1985 2032 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 43 1985 2002 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 43 1985 1989 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 42 1940 1976 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 42 1940 1958 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 42 1940 1944 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 41 1862 1866 "kind1/equiv_util.ml" 44 2041 2092
+type(
+  unit
+)
+"kind1/equiv_util.ml" 45 2096 2100 "kind1/equiv_util.ml" 45 2096 2102
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 45 2096 2103 "kind1/equiv_util.ml" 45 2096 2122
+type(
+  string
+)
+"kind1/equiv_util.ml" 45 2096 2100 "kind1/equiv_util.ml" 45 2096 2122
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 46 2125 2129 "kind1/equiv_util.ml" 46 2125 2138
+type(
+  (string list -> unit) -> string list list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/equiv_util.ml" 46 2125 2144 "kind1/equiv_util.ml" 46 2125 2145
+type(
+  string list
+)
+ident(
+  def x "kind1/equiv_util.ml" 46 2125 2149 "kind1/equiv_util.ml" 46 2125 2159
+)
+"kind1/equiv_util.ml" 46 2125 2149 "kind1/equiv_util.ml" 46 2125 2157
+type(
+  string list -> unit
+)
+ident(
+  int_ref iter_fun "kind1/equiv_util.ml" 40 1842 1848 "kind1/equiv_util.ml" 40 1842 1856
+)
+"kind1/equiv_util.ml" 46 2125 2158 "kind1/equiv_util.ml" 46 2125 2159
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 46 2125 2144 "kind1/equiv_util.ml" 46 2125 2145
+)
+"kind1/equiv_util.ml" 46 2125 2149 "kind1/equiv_util.ml" 46 2125 2159
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 46 2125 2139 "kind1/equiv_util.ml" 46 2125 2161
+type(
+  string list -> unit
+)
+"kind1/equiv_util.ml" 46 2125 2162 "kind1/equiv_util.ml" 46 2125 2169
+type(
+  string list list
+)
+ident(
+  int_ref classes "kind1/equiv_util.ml" 39 1808 1832 "kind1/equiv_util.ml" 39 1808 1839
+)
+"kind1/equiv_util.ml" 46 2125 2129 "kind1/equiv_util.ml" 46 2125 2169
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 47 2172 2176 "kind1/equiv_util.ml" 47 2172 2178
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pr
+)
+"kind1/equiv_util.ml" 47 2172 2179 "kind1/equiv_util.ml" 47 2172 2207
+type(
+  string
+)
+"kind1/equiv_util.ml" 47 2172 2176 "kind1/equiv_util.ml" 47 2172 2207
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 47 2172 2209 "kind1/equiv_util.ml" 47 2172 2218
+type(
+  int -> unit
+)
+ident(
+  ext_ref Pervasives.print_int
+)
+"kind1/equiv_util.ml" 47 2172 2220 "kind1/equiv_util.ml" 47 2172 2231
+type(
+  string list list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/equiv_util.ml" 47 2172 2232 "kind1/equiv_util.ml" 47 2172 2239
+type(
+  string list list
+)
+ident(
+  int_ref classes "kind1/equiv_util.ml" 39 1808 1832 "kind1/equiv_util.ml" 39 1808 1839
+)
+"kind1/equiv_util.ml" 47 2172 2219 "kind1/equiv_util.ml" 47 2172 2240
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/equiv_util.ml" 47 2172 2209 "kind1/equiv_util.ml" 47 2172 2240
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 47 2172 2176 "kind1/equiv_util.ml" 47 2172 2240
+type(
+  unit
+)
+"kind1/equiv_util.ml" 46 2125 2129 "kind1/equiv_util.ml" 47 2172 2240
+type(
+  unit
+)
+"kind1/equiv_util.ml" 45 2096 2100 "kind1/equiv_util.ml" 47 2172 2240
+type(
+  unit
+)
+"kind1/equiv_util.ml" 40 1842 1844 "kind1/equiv_util.ml" 47 2172 2240
+type(
+  unit
+)
+"kind1/equiv_util.ml" 49 2242 2250 "kind1/equiv_util.ml" 49 2242 2266
+type(
+  string list -> Types.lustre_type -> Types.il_formula list
+)
+ident(
+  def mk_eqs_one_class "kind1/equiv_util.ml" 49 2242 2242 "_none_" 1 0 -1
+)
+"kind1/equiv_util.ml" 49 2242 2267 "kind1/equiv_util.ml" 49 2242 2276
+type(
+  string list
+)
+ident(
+  def one_class "kind1/equiv_util.ml" 49 2242 2277 "kind1/equiv_util.ml" 55 2425 2464
+)
+"kind1/equiv_util.ml" 49 2242 2277 "kind1/equiv_util.ml" 49 2242 2279
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/equiv_util.ml" 50 2282 2284 "kind1/equiv_util.ml" 55 2425 2464
+)
+"kind1/equiv_util.ml" 50 2282 2290 "kind1/equiv_util.ml" 50 2282 2299
+type(
+  string list
+)
+ident(
+  int_ref one_class "kind1/equiv_util.ml" 49 2242 2267 "kind1/equiv_util.ml" 49 2242 2276
+)
+"kind1/equiv_util.ml" 51 2306 2310 "kind1/equiv_util.ml" 51 2306 2312
+type(
+  string list
+)
+"kind1/equiv_util.ml" 52 2314 2320 "kind1/equiv_util.ml" 52 2314 2321
+type(
+  string
+)
+"kind1/equiv_util.ml" 52 2314 2323 "kind1/equiv_util.ml" 52 2314 2325
+type(
+  string list
+)
+"kind1/equiv_util.ml" 52 2314 2320 "kind1/equiv_util.ml" 52 2314 2325
+type(
+  string list
+)
+"kind1/equiv_util.ml" 51 2306 2310 "kind1/equiv_util.ml" 52 2314 2325
+type(
+  string list
+)
+"kind1/equiv_util.ml" 52 2314 2328 "kind1/equiv_util.ml" 52 2314 2330
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 53 2331 2337 "kind1/equiv_util.ml" 53 2331 2340
+type(
+  string
+)
+ident(
+  def hd1 "kind1/equiv_util.ml" 54 2356 2357 "kind1/equiv_util.ml" 55 2425 2464
+)
+"kind1/equiv_util.ml" 53 2331 2343 "kind1/equiv_util.ml" 53 2331 2346
+type(
+  string
+)
+ident(
+  def hd2 "kind1/equiv_util.ml" 54 2356 2357 "kind1/equiv_util.ml" 55 2425 2464
+)
+"kind1/equiv_util.ml" 53 2331 2348 "kind1/equiv_util.ml" 53 2331 2350
+type(
+  string list
+)
+ident(
+  def tl "kind1/equiv_util.ml" 54 2356 2357 "kind1/equiv_util.ml" 55 2425 2464
+)
+"kind1/equiv_util.ml" 53 2331 2342 "kind1/equiv_util.ml" 53 2331 2351
+type(
+  string list
+)
+"kind1/equiv_util.ml" 53 2331 2337 "kind1/equiv_util.ml" 53 2331 2351
+type(
+  string list
+)
+"kind1/equiv_util.ml" 54 2356 2361 "kind1/equiv_util.ml" 54 2356 2363
+type(
+  Types.il_formula
+)
+ident(
+  def eq "kind1/equiv_util.ml" 55 2425 2428 "kind1/equiv_util.ml" 55 2425 2464
+)
+"kind1/equiv_util.ml" 54 2356 2389 "kind1/equiv_util.ml" 54 2356 2392
+type(
+  string
+)
+ident(
+  int_ref hd1 "kind1/equiv_util.ml" 53 2331 2337 "kind1/equiv_util.ml" 53 2331 2340
+)
+"kind1/equiv_util.ml" 54 2356 2393 "kind1/equiv_util.ml" 54 2356 2395
+type(
+  Types.il_expression list
+)
+"kind1/equiv_util.ml" 54 2356 2377 "kind1/equiv_util.ml" 54 2356 2396
+type(
+  Types.il_expression
+)
+"kind1/equiv_util.ml" 54 2356 2409 "kind1/equiv_util.ml" 54 2356 2412
+type(
+  string
+)
+ident(
+  int_ref hd2 "kind1/equiv_util.ml" 53 2331 2343 "kind1/equiv_util.ml" 53 2331 2346
+)
+"kind1/equiv_util.ml" 54 2356 2413 "kind1/equiv_util.ml" 54 2356 2415
+type(
+  Types.il_expression list
+)
+"kind1/equiv_util.ml" 54 2356 2398 "kind1/equiv_util.ml" 54 2356 2416
+type(
+  Types.il_expression
+)
+"kind1/equiv_util.ml" 54 2356 2418 "kind1/equiv_util.ml" 54 2356 2420
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/equiv_util.ml" 49 2242 2277 "kind1/equiv_util.ml" 49 2242 2279
+)
+"kind1/equiv_util.ml" 54 2356 2366 "kind1/equiv_util.ml" 54 2356 2421
+type(
+  Types.il_formula
+)
+"kind1/equiv_util.ml" 55 2425 2428 "kind1/equiv_util.ml" 55 2425 2430
+type(
+  Types.il_formula
+)
+ident(
+  int_ref eq "kind1/equiv_util.ml" 54 2356 2361 "kind1/equiv_util.ml" 54 2356 2363
+)
+"kind1/equiv_util.ml" 55 2425 2434 "kind1/equiv_util.ml" 55 2425 2450
+type(
+  string list -> Types.lustre_type -> Types.il_formula list
+)
+ident(
+  int_ref mk_eqs_one_class "kind1/equiv_util.ml" 49 2242 2250 "kind1/equiv_util.ml" 49 2242 2266
+)
+"kind1/equiv_util.ml" 55 2425 2452 "kind1/equiv_util.ml" 55 2425 2455
+type(
+  string
+)
+ident(
+  int_ref hd2 "kind1/equiv_util.ml" 53 2331 2343 "kind1/equiv_util.ml" 53 2331 2346
+)
+"kind1/equiv_util.ml" 55 2425 2457 "kind1/equiv_util.ml" 55 2425 2459
+type(
+  string list
+)
+ident(
+  int_ref tl "kind1/equiv_util.ml" 53 2331 2348 "kind1/equiv_util.ml" 53 2331 2350
+)
+"kind1/equiv_util.ml" 55 2425 2451 "kind1/equiv_util.ml" 55 2425 2460
+type(
+  string list
+)
+"kind1/equiv_util.ml" 55 2425 2461 "kind1/equiv_util.ml" 55 2425 2463
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/equiv_util.ml" 49 2242 2277 "kind1/equiv_util.ml" 49 2242 2279
+)
+"kind1/equiv_util.ml" 55 2425 2433 "kind1/equiv_util.ml" 55 2425 2464
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 55 2425 2428 "kind1/equiv_util.ml" 55 2425 2464
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 54 2356 2357 "kind1/equiv_util.ml" 55 2425 2464
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 50 2282 2284 "kind1/equiv_util.ml" 55 2425 2464
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 58 2468 2472 "kind1/equiv_util.ml" 58 2468 2492
+type(
+  string list list -> Types.lustre_type -> Types.il_formula list
+)
+ident(
+  def mk_eqs_equiv_classes "kind1/equiv_util.ml" 63 2668 2668 "_none_" 1 0 -1
+)
+"kind1/equiv_util.ml" 58 2468 2493 "kind1/equiv_util.ml" 58 2468 2500
+type(
+  string list list
+)
+ident(
+  def classes "kind1/equiv_util.ml" 58 2468 2501 "kind1/equiv_util.ml" 60 2571 2591
+)
+"kind1/equiv_util.ml" 58 2468 2501 "kind1/equiv_util.ml" 58 2468 2503
+type(
+  Types.lustre_type
+)
+ident(
+  def ty "kind1/equiv_util.ml" 59 2506 2508 "kind1/equiv_util.ml" 60 2571 2591
+)
+"kind1/equiv_util.ml" 59 2506 2512 "kind1/equiv_util.ml" 59 2506 2515
+type(
+  Types.il_formula list list
+)
+ident(
+  def eqs "kind1/equiv_util.ml" 60 2571 2575 "kind1/equiv_util.ml" 60 2571 2591
+)
+"kind1/equiv_util.ml" 59 2506 2518 "kind1/equiv_util.ml" 59 2506 2526
+type(
+  (string list -> Types.il_formula list) ->
+  string list list -> Types.il_formula list list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/equiv_util.ml" 59 2506 2532 "kind1/equiv_util.ml" 59 2506 2533
+type(
+  string list
+)
+ident(
+  def x "kind1/equiv_util.ml" 59 2506 2537 "kind1/equiv_util.ml" 59 2506 2558
+)
+"kind1/equiv_util.ml" 59 2506 2537 "kind1/equiv_util.ml" 59 2506 2553
+type(
+  string list -> Types.lustre_type -> Types.il_formula list
+)
+ident(
+  int_ref mk_eqs_one_class "kind1/equiv_util.ml" 49 2242 2250 "kind1/equiv_util.ml" 49 2242 2266
+)
+"kind1/equiv_util.ml" 59 2506 2554 "kind1/equiv_util.ml" 59 2506 2555
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 59 2506 2532 "kind1/equiv_util.ml" 59 2506 2533
+)
+"kind1/equiv_util.ml" 59 2506 2556 "kind1/equiv_util.ml" 59 2506 2558
+type(
+  Types.lustre_type
+)
+ident(
+  int_ref ty "kind1/equiv_util.ml" 58 2468 2501 "kind1/equiv_util.ml" 58 2468 2503
+)
+"kind1/equiv_util.ml" 59 2506 2537 "kind1/equiv_util.ml" 59 2506 2558
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 59 2506 2527 "kind1/equiv_util.ml" 59 2506 2559
+type(
+  string list -> Types.il_formula list
+)
+"kind1/equiv_util.ml" 59 2506 2560 "kind1/equiv_util.ml" 59 2506 2567
+type(
+  string list list
+)
+ident(
+  int_ref classes "kind1/equiv_util.ml" 58 2468 2493 "kind1/equiv_util.ml" 58 2468 2500
+)
+"kind1/equiv_util.ml" 59 2506 2518 "kind1/equiv_util.ml" 59 2506 2567
+call(
+  stack
+)
+type(
+  Types.il_formula list list
+)
+"kind1/equiv_util.ml" 60 2571 2575 "kind1/equiv_util.ml" 60 2571 2587
+type(
+  Types.il_formula list list -> Types.il_formula list
+)
+ident(
+  ext_ref List.flatten
+)
+"kind1/equiv_util.ml" 60 2571 2588 "kind1/equiv_util.ml" 60 2571 2591
+type(
+  Types.il_formula list list
+)
+ident(
+  int_ref eqs "kind1/equiv_util.ml" 59 2506 2512 "kind1/equiv_util.ml" 59 2506 2515
+)
+"kind1/equiv_util.ml" 60 2571 2575 "kind1/equiv_util.ml" 60 2571 2591
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 59 2506 2508 "kind1/equiv_util.ml" 60 2571 2591
+type(
+  Types.il_formula list
+)
+"kind1/equiv_util.ml" 63 2668 2672 "kind1/equiv_util.ml" 63 2668 2687
+type(
+  'a list -> ('a, 'b) Hashtbl.t -> 'a list list * bool
+)
+ident(
+  def filter_int_func "kind1/equiv_util.ml" 81 3302 3302 "_none_" 1 0 -1
+)
+"kind1/equiv_util.ml" 63 2668 2688 "kind1/equiv_util.ml" 63 2668 2697
+type(
+  'a list
+)
+ident(
+  def one_class "kind1/equiv_util.ml" 63 2668 2698 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 63 2668 2698 "kind1/equiv_util.ml" 63 2668 2706
+type(
+  ('a, 'b) Hashtbl.t
+)
+ident(
+  def hash_tbl "kind1/equiv_util.ml" 64 2709 2711 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 64 2709 2715 "kind1/equiv_util.ml" 64 2709 2726
+type(
+  ('b, 'a) Hashtbl.t
+)
+ident(
+  def values_hash "kind1/equiv_util.ml" 65 2751 2753 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 64 2709 2729 "kind1/equiv_util.ml" 64 2709 2743
+type(
+  ?random:bool -> int -> ('b, 'a) Hashtbl.t
+)
+ident(
+  ext_ref Hashtbl.create
+)
+"kind1/equiv_util.ml" 64 2709 2744 "kind1/equiv_util.ml" 64 2709 2747
+type(
+  int
+)
+"kind1/equiv_util.ml" 64 2709 2729 "kind1/equiv_util.ml" 64 2709 2747
+call(
+  stack
+)
+type(
+  ('b, 'a) Hashtbl.t
+)
+"kind1/equiv_util.ml" 65 2751 2757 "kind1/equiv_util.ml" 65 2751 2765
+type(
+  'a -> 'b
+)
+ident(
+  def add_hash "kind1/equiv_util.ml" 69 2859 2861 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 65 2751 2766 "kind1/equiv_util.ml" 65 2751 2767
+type(
+  'a
+)
+ident(
+  def x "kind1/equiv_util.ml" 66 2771 2775 "kind1/equiv_util.ml" 68 2846 2855
+)
+"kind1/equiv_util.ml" 66 2771 2780 "kind1/equiv_util.ml" 66 2771 2781
+type(
+  'b
+)
+ident(
+  def y "kind1/equiv_util.ml" 67 2812 2816 "kind1/equiv_util.ml" 68 2846 2853
+)
+"kind1/equiv_util.ml" 66 2771 2784 "kind1/equiv_util.ml" 66 2771 2796
+type(
+  ('a, 'b) Hashtbl.t -> 'a -> 'b
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/equiv_util.ml" 66 2771 2797 "kind1/equiv_util.ml" 66 2771 2805
+type(
+  ('a, 'b) Hashtbl.t
+)
+ident(
+  int_ref hash_tbl "kind1/equiv_util.ml" 63 2668 2698 "kind1/equiv_util.ml" 63 2668 2706
+)
+"kind1/equiv_util.ml" 66 2771 2806 "kind1/equiv_util.ml" 66 2771 2807
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 65 2751 2766 "kind1/equiv_util.ml" 65 2751 2767
+)
+"kind1/equiv_util.ml" 66 2771 2784 "kind1/equiv_util.ml" 66 2771 2807
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/equiv_util.ml" 67 2812 2816 "kind1/equiv_util.ml" 67 2812 2827
+type(
+  ('b, 'a) Hashtbl.t -> 'b -> 'a -> unit
+)
+ident(
+  ext_ref Hashtbl.add
+)
+"kind1/equiv_util.ml" 67 2812 2828 "kind1/equiv_util.ml" 67 2812 2839
+type(
+  ('b, 'a) Hashtbl.t
+)
+ident(
+  int_ref values_hash "kind1/equiv_util.ml" 64 2709 2715 "kind1/equiv_util.ml" 64 2709 2726
+)
+"kind1/equiv_util.ml" 67 2812 2840 "kind1/equiv_util.ml" 67 2812 2841
+type(
+  'b
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 66 2771 2780 "kind1/equiv_util.ml" 66 2771 2781
+)
+"kind1/equiv_util.ml" 67 2812 2842 "kind1/equiv_util.ml" 67 2812 2843
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 65 2751 2766 "kind1/equiv_util.ml" 65 2751 2767
+)
+"kind1/equiv_util.ml" 67 2812 2816 "kind1/equiv_util.ml" 67 2812 2843
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 68 2846 2852 "kind1/equiv_util.ml" 68 2846 2853
+type(
+  'b
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 66 2771 2780 "kind1/equiv_util.ml" 66 2771 2781
+)
+"kind1/equiv_util.ml" 67 2812 2816 "kind1/equiv_util.ml" 68 2846 2853
+type(
+  'b
+)
+"kind1/equiv_util.ml" 66 2771 2775 "kind1/equiv_util.ml" 68 2846 2855
+type(
+  'b
+)
+"kind1/equiv_util.ml" 69 2859 2865 "kind1/equiv_util.ml" 69 2859 2875
+type(
+  'b list
+)
+ident(
+  def all_values "kind1/equiv_util.ml" 71 2944 2946 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 70 2879 2883 "kind1/equiv_util.ml" 70 2879 2898
+type(
+  ('a -> 'b list -> 'b list) -> 'a list -> 'b list -> 'b list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/equiv_util.ml" 70 2879 2904 "kind1/equiv_util.ml" 70 2879 2905
+type(
+  'a
+)
+ident(
+  def x "kind1/equiv_util.ml" 70 2879 2906 "kind1/equiv_util.ml" 70 2879 2926
+)
+"kind1/equiv_util.ml" 70 2879 2906 "kind1/equiv_util.ml" 70 2879 2907
+type(
+  'b list
+)
+ident(
+  def y "kind1/equiv_util.ml" 70 2879 2911 "kind1/equiv_util.ml" 70 2879 2926
+)
+"kind1/equiv_util.ml" 70 2879 2912 "kind1/equiv_util.ml" 70 2879 2920
+type(
+  'a -> 'b
+)
+ident(
+  int_ref add_hash "kind1/equiv_util.ml" 65 2751 2757 "kind1/equiv_util.ml" 65 2751 2765
+)
+"kind1/equiv_util.ml" 70 2879 2921 "kind1/equiv_util.ml" 70 2879 2922
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 70 2879 2904 "kind1/equiv_util.ml" 70 2879 2905
+)
+"kind1/equiv_util.ml" 70 2879 2911 "kind1/equiv_util.ml" 70 2879 2923
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/equiv_util.ml" 70 2879 2925 "kind1/equiv_util.ml" 70 2879 2926
+type(
+  'b list
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 70 2879 2906 "kind1/equiv_util.ml" 70 2879 2907
+)
+"kind1/equiv_util.ml" 70 2879 2911 "kind1/equiv_util.ml" 70 2879 2926
+type(
+  'b list
+)
+"kind1/equiv_util.ml" 70 2879 2899 "kind1/equiv_util.ml" 70 2879 2927
+type(
+  'a -> 'b list -> 'b list
+)
+"kind1/equiv_util.ml" 70 2879 2928 "kind1/equiv_util.ml" 70 2879 2937
+type(
+  'a list
+)
+ident(
+  int_ref one_class "kind1/equiv_util.ml" 63 2668 2688 "kind1/equiv_util.ml" 63 2668 2697
+)
+"kind1/equiv_util.ml" 70 2879 2938 "kind1/equiv_util.ml" 70 2879 2940
+type(
+  'b list
+)
+"kind1/equiv_util.ml" 70 2879 2883 "kind1/equiv_util.ml" 70 2879 2940
+call(
+  stack
+)
+type(
+  'b list
+)
+"kind1/equiv_util.ml" 71 2944 2950 "kind1/equiv_util.ml" 71 2944 2963
+type(
+  'b list
+)
+ident(
+  def unique_values "kind1/equiv_util.ml" 72 2992 2994 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 71 2944 2966 "kind1/equiv_util.ml" 71 2944 2977
+type(
+  'b list -> 'b list
+)
+ident(
+  ext_ref Util.unique_list
+)
+"kind1/equiv_util.ml" 71 2944 2978 "kind1/equiv_util.ml" 71 2944 2988
+type(
+  'b list
+)
+ident(
+  int_ref all_values "kind1/equiv_util.ml" 69 2859 2865 "kind1/equiv_util.ml" 69 2859 2875
+)
+"kind1/equiv_util.ml" 71 2944 2966 "kind1/equiv_util.ml" 71 2944 2988
+call(
+  stack
+)
+type(
+  'b list
+)
+"kind1/equiv_util.ml" 72 2992 2998 "kind1/equiv_util.ml" 72 2992 3005
+type(
+  bool
+)
+ident(
+  def changed "kind1/equiv_util.ml" 73 3045 3049 "kind1/equiv_util.ml" 78 3197 3226
+)
+"kind1/equiv_util.ml" 72 2992 3009 "kind1/equiv_util.ml" 72 2992 3020
+type(
+  'b list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/equiv_util.ml" 72 2992 3021 "kind1/equiv_util.ml" 72 2992 3034
+type(
+  'b list
+)
+ident(
+  int_ref unique_values "kind1/equiv_util.ml" 71 2944 2950 "kind1/equiv_util.ml" 71 2944 2963
+)
+"kind1/equiv_util.ml" 72 2992 3008 "kind1/equiv_util.ml" 72 2992 3036
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/equiv_util.ml" 72 2992 3037 "kind1/equiv_util.ml" 72 2992 3038
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/equiv_util.ml" 72 2992 3039 "kind1/equiv_util.ml" 72 2992 3040
+type(
+  int
+)
+"kind1/equiv_util.ml" 72 2992 3008 "kind1/equiv_util.ml" 72 2992 3040
+type(
+  bool
+)
+"kind1/equiv_util.ml" 73 3045 3052 "kind1/equiv_util.ml" 73 3045 3059
+type(
+  bool
+)
+ident(
+  int_ref changed "kind1/equiv_util.ml" 72 2992 2998 "kind1/equiv_util.ml" 72 2992 3005
+)
+"kind1/equiv_util.ml" 74 3066 3076 "kind1/equiv_util.ml" 74 3066 3085
+type(
+  'a list list
+)
+ident(
+  def ret_lists "kind1/equiv_util.ml" 77 3177 3178 "kind1/equiv_util.ml" 77 3177 3196
+)
+"kind1/equiv_util.ml" 74 3066 3088 "kind1/equiv_util.ml" 74 3066 3103
+type(
+  ('b -> 'a list list -> 'a list list) ->
+  'b list -> 'a list list -> 'a list list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/equiv_util.ml" 75 3105 3111 "kind1/equiv_util.ml" 75 3105 3112
+type(
+  'b
+)
+ident(
+  def x "kind1/equiv_util.ml" 75 3105 3113 "kind1/equiv_util.ml" 75 3105 3153
+)
+"kind1/equiv_util.ml" 75 3105 3113 "kind1/equiv_util.ml" 75 3105 3114
+type(
+  'a list list
+)
+ident(
+  def y "kind1/equiv_util.ml" 75 3105 3118 "kind1/equiv_util.ml" 75 3105 3153
+)
+"kind1/equiv_util.ml" 75 3105 3119 "kind1/equiv_util.ml" 75 3105 3135
+type(
+  ('b, 'a) Hashtbl.t -> 'b -> 'a list
+)
+ident(
+  ext_ref Hashtbl.find_all
+)
+"kind1/equiv_util.ml" 75 3105 3136 "kind1/equiv_util.ml" 75 3105 3147
+type(
+  ('b, 'a) Hashtbl.t
+)
+ident(
+  int_ref values_hash "kind1/equiv_util.ml" 64 2709 2715 "kind1/equiv_util.ml" 64 2709 2726
+)
+"kind1/equiv_util.ml" 75 3105 3148 "kind1/equiv_util.ml" 75 3105 3149
+type(
+  'b
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 75 3105 3111 "kind1/equiv_util.ml" 75 3105 3112
+)
+"kind1/equiv_util.ml" 75 3105 3118 "kind1/equiv_util.ml" 75 3105 3150
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/equiv_util.ml" 75 3105 3152 "kind1/equiv_util.ml" 75 3105 3153
+type(
+  'a list list
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 75 3105 3113 "kind1/equiv_util.ml" 75 3105 3114
+)
+"kind1/equiv_util.ml" 75 3105 3118 "kind1/equiv_util.ml" 75 3105 3153
+type(
+  'a list list
+)
+"kind1/equiv_util.ml" 75 3105 3106 "kind1/equiv_util.ml" 75 3105 3154
+type(
+  'b -> 'a list list -> 'a list list
+)
+"kind1/equiv_util.ml" 76 3156 3157 "kind1/equiv_util.ml" 76 3156 3170
+type(
+  'b list
+)
+ident(
+  int_ref unique_values "kind1/equiv_util.ml" 71 2944 2950 "kind1/equiv_util.ml" 71 2944 2963
+)
+"kind1/equiv_util.ml" 76 3156 3171 "kind1/equiv_util.ml" 76 3156 3173
+type(
+  'a list list
+)
+"kind1/equiv_util.ml" 74 3066 3088 "kind1/equiv_util.ml" 76 3156 3173
+call(
+  stack
+)
+type(
+  'a list list
+)
+"kind1/equiv_util.ml" 77 3177 3178 "kind1/equiv_util.ml" 77 3177 3187
+type(
+  'a list list
+)
+ident(
+  int_ref ret_lists "kind1/equiv_util.ml" 74 3066 3076 "kind1/equiv_util.ml" 74 3066 3085
+)
+"kind1/equiv_util.ml" 77 3177 3189 "kind1/equiv_util.ml" 77 3177 3196
+type(
+  bool
+)
+ident(
+  int_ref changed "kind1/equiv_util.ml" 72 2992 2998 "kind1/equiv_util.ml" 72 2992 3005
+)
+"kind1/equiv_util.ml" 77 3177 3178 "kind1/equiv_util.ml" 77 3177 3196
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 74 3066 3072 "kind1/equiv_util.ml" 77 3177 3196
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 78 3197 3207 "kind1/equiv_util.ml" 78 3197 3216
+type(
+  'a list
+)
+ident(
+  int_ref one_class "kind1/equiv_util.ml" 63 2668 2688 "kind1/equiv_util.ml" 63 2668 2697
+)
+"kind1/equiv_util.ml" 78 3197 3206 "kind1/equiv_util.ml" 78 3197 3217
+type(
+  'a list list
+)
+"kind1/equiv_util.ml" 78 3197 3219 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  bool
+)
+ident(
+  int_ref changed "kind1/equiv_util.ml" 72 2992 2998 "kind1/equiv_util.ml" 72 2992 3005
+)
+"kind1/equiv_util.ml" 78 3197 3206 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 73 3045 3049 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 72 2992 2994 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 71 2944 2946 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 69 2859 2861 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 65 2751 2753 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 64 2709 2711 "kind1/equiv_util.ml" 78 3197 3226
+type(
+  'a list list * bool
+)
+"kind1/equiv_util.ml" 81 3302 3306 "kind1/equiv_util.ml" 81 3302 3334
+type(
+  'a list -> ('a, string) Hashtbl.t -> int list -> ('a list * int list) list
+)
+ident(
+  def filter_int_func_with_history "kind1/equiv_util.ml" 96 3909 3922 "_none_" 1 0 -1
+)
+"kind1/equiv_util.ml" 81 3302 3335 "kind1/equiv_util.ml" 81 3302 3344
+type(
+  'a list
+)
+ident(
+  def one_class "kind1/equiv_util.ml" 81 3302 3345 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 81 3302 3345 "kind1/equiv_util.ml" 81 3302 3358
+type(
+  ('a, string) Hashtbl.t
+)
+ident(
+  def counter_model "kind1/equiv_util.ml" 81 3302 3359 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 81 3302 3359 "kind1/equiv_util.ml" 81 3302 3374
+type(
+  int list
+)
+ident(
+  def extra_info_list "kind1/equiv_util.ml" 82 3377 3379 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 82 3377 3383 "kind1/equiv_util.ml" 82 3377 3394
+type(
+  (int, 'a) Hashtbl.t
+)
+ident(
+  def values_hash "kind1/equiv_util.ml" 83 3419 3421 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 82 3377 3397 "kind1/equiv_util.ml" 82 3377 3411
+type(
+  ?random:bool -> int -> (int, 'a) Hashtbl.t
+)
+ident(
+  ext_ref Hashtbl.create
+)
+"kind1/equiv_util.ml" 82 3377 3412 "kind1/equiv_util.ml" 82 3377 3415
+type(
+  int
+)
+"kind1/equiv_util.ml" 82 3377 3397 "kind1/equiv_util.ml" 82 3377 3415
+call(
+  stack
+)
+type(
+  (int, 'a) Hashtbl.t
+)
+"kind1/equiv_util.ml" 83 3419 3425 "kind1/equiv_util.ml" 83 3419 3433
+type(
+  'a -> int
+)
+ident(
+  def add_hash "kind1/equiv_util.ml" 87 3551 3553 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 83 3419 3434 "kind1/equiv_util.ml" 83 3419 3435
+type(
+  'a
+)
+ident(
+  def x "kind1/equiv_util.ml" 84 3439 3443 "kind1/equiv_util.ml" 86 3538 3547
+)
+"kind1/equiv_util.ml" 84 3439 3448 "kind1/equiv_util.ml" 84 3439 3449
+type(
+  int
+)
+ident(
+  def y "kind1/equiv_util.ml" 85 3501 3508 "kind1/equiv_util.ml" 86 3538 3545
+)
+"kind1/equiv_util.ml" 84 3439 3452 "kind1/equiv_util.ml" 84 3439 3465
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.int_of_string
+)
+"kind1/equiv_util.ml" 84 3439 3467 "kind1/equiv_util.ml" 84 3439 3479
+type(
+  ('a, string) Hashtbl.t -> 'a -> string
+)
+ident(
+  ext_ref Hashtbl.find
+)
+"kind1/equiv_util.ml" 84 3439 3480 "kind1/equiv_util.ml" 84 3439 3493
+type(
+  ('a, string) Hashtbl.t
+)
+ident(
+  int_ref counter_model "kind1/equiv_util.ml" 81 3302 3345 "kind1/equiv_util.ml" 81 3302 3358
+)
+"kind1/equiv_util.ml" 84 3439 3494 "kind1/equiv_util.ml" 84 3439 3495
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 83 3419 3434 "kind1/equiv_util.ml" 83 3419 3435
+)
+"kind1/equiv_util.ml" 84 3439 3466 "kind1/equiv_util.ml" 84 3439 3496
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/equiv_util.ml" 84 3439 3452 "kind1/equiv_util.ml" 84 3439 3496
+type(
+  int
+)
+"kind1/equiv_util.ml" 85 3501 3508 "kind1/equiv_util.ml" 85 3501 3519
+type(
+  (int, 'a) Hashtbl.t -> int -> 'a -> unit
+)
+ident(
+  ext_ref Hashtbl.add
+)
+"kind1/equiv_util.ml" 85 3501 3520 "kind1/equiv_util.ml" 85 3501 3531
+type(
+  (int, 'a) Hashtbl.t
+)
+ident(
+  int_ref values_hash "kind1/equiv_util.ml" 82 3377 3383 "kind1/equiv_util.ml" 82 3377 3394
+)
+"kind1/equiv_util.ml" 85 3501 3532 "kind1/equiv_util.ml" 85 3501 3533
+type(
+  int
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 84 3439 3448 "kind1/equiv_util.ml" 84 3439 3449
+)
+"kind1/equiv_util.ml" 85 3501 3534 "kind1/equiv_util.ml" 85 3501 3535
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 83 3419 3434 "kind1/equiv_util.ml" 83 3419 3435
+)
+"kind1/equiv_util.ml" 85 3501 3508 "kind1/equiv_util.ml" 85 3501 3535
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/equiv_util.ml" 86 3538 3544 "kind1/equiv_util.ml" 86 3538 3545
+type(
+  int
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 84 3439 3448 "kind1/equiv_util.ml" 84 3439 3449
+)
+"kind1/equiv_util.ml" 85 3501 3508 "kind1/equiv_util.ml" 86 3538 3545
+type(
+  int
+)
+"kind1/equiv_util.ml" 84 3439 3443 "kind1/equiv_util.ml" 86 3538 3547
+type(
+  int
+)
+"kind1/equiv_util.ml" 87 3551 3557 "kind1/equiv_util.ml" 87 3551 3567
+type(
+  int list
+)
+ident(
+  def all_values "kind1/equiv_util.ml" 89 3636 3638 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 88 3571 3575 "kind1/equiv_util.ml" 88 3571 3590
+type(
+  ('a -> int list -> int list) -> 'a list -> int list -> int list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/equiv_util.ml" 88 3571 3596 "kind1/equiv_util.ml" 88 3571 3597
+type(
+  'a
+)
+ident(
+  def x "kind1/equiv_util.ml" 88 3571 3598 "kind1/equiv_util.ml" 88 3571 3618
+)
+"kind1/equiv_util.ml" 88 3571 3598 "kind1/equiv_util.ml" 88 3571 3599
+type(
+  int list
+)
+ident(
+  def y "kind1/equiv_util.ml" 88 3571 3603 "kind1/equiv_util.ml" 88 3571 3618
+)
+"kind1/equiv_util.ml" 88 3571 3604 "kind1/equiv_util.ml" 88 3571 3612
+type(
+  'a -> int
+)
+ident(
+  int_ref add_hash "kind1/equiv_util.ml" 83 3419 3425 "kind1/equiv_util.ml" 83 3419 3433
+)
+"kind1/equiv_util.ml" 88 3571 3613 "kind1/equiv_util.ml" 88 3571 3614
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 88 3571 3596 "kind1/equiv_util.ml" 88 3571 3597
+)
+"kind1/equiv_util.ml" 88 3571 3603 "kind1/equiv_util.ml" 88 3571 3615
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/equiv_util.ml" 88 3571 3617 "kind1/equiv_util.ml" 88 3571 3618
+type(
+  int list
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 88 3571 3598 "kind1/equiv_util.ml" 88 3571 3599
+)
+"kind1/equiv_util.ml" 88 3571 3603 "kind1/equiv_util.ml" 88 3571 3618
+type(
+  int list
+)
+"kind1/equiv_util.ml" 88 3571 3591 "kind1/equiv_util.ml" 88 3571 3619
+type(
+  'a -> int list -> int list
+)
+"kind1/equiv_util.ml" 88 3571 3620 "kind1/equiv_util.ml" 88 3571 3629
+type(
+  'a list
+)
+ident(
+  int_ref one_class "kind1/equiv_util.ml" 81 3302 3335 "kind1/equiv_util.ml" 81 3302 3344
+)
+"kind1/equiv_util.ml" 88 3571 3630 "kind1/equiv_util.ml" 88 3571 3632
+type(
+  int list
+)
+"kind1/equiv_util.ml" 88 3571 3575 "kind1/equiv_util.ml" 88 3571 3632
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/equiv_util.ml" 89 3636 3642 "kind1/equiv_util.ml" 89 3636 3655
+type(
+  int list
+)
+ident(
+  def unique_values "kind1/equiv_util.ml" 90 3684 3686 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 89 3636 3658 "kind1/equiv_util.ml" 89 3636 3669
+type(
+  int list -> int list
+)
+ident(
+  ext_ref Util.unique_list
+)
+"kind1/equiv_util.ml" 89 3636 3670 "kind1/equiv_util.ml" 89 3636 3680
+type(
+  int list
+)
+ident(
+  int_ref all_values "kind1/equiv_util.ml" 87 3551 3557 "kind1/equiv_util.ml" 87 3551 3567
+)
+"kind1/equiv_util.ml" 89 3636 3658 "kind1/equiv_util.ml" 89 3636 3680
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/equiv_util.ml" 90 3684 3690 "kind1/equiv_util.ml" 90 3684 3699
+type(
+  ('a list * int list) list
+)
+ident(
+  def ret_lists "kind1/equiv_util.ml" 96 3909 3913 "kind1/equiv_util.ml" 96 3909 3922
+)
+"kind1/equiv_util.ml" 90 3684 3702 "kind1/equiv_util.ml" 90 3684 3717
+type(
+  (int -> ('a list * int list) list -> ('a list * int list) list) ->
+  int list -> ('a list * int list) list -> ('a list * int list) list
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/equiv_util.ml" 91 3719 3728 "kind1/equiv_util.ml" 91 3719 3729
+type(
+  int
+)
+ident(
+  def x "kind1/equiv_util.ml" 91 3719 3730 "kind1/equiv_util.ml" 94 3848 3882
+)
+"kind1/equiv_util.ml" 91 3719 3730 "kind1/equiv_util.ml" 91 3719 3731
+type(
+  ('a list * int list) list
+)
+ident(
+  def y "kind1/equiv_util.ml" 92 3736 3742 "kind1/equiv_util.ml" 94 3848 3882
+)
+"kind1/equiv_util.ml" 92 3736 3746 "kind1/equiv_util.ml" 92 3736 3753
+type(
+  'a list
+)
+ident(
+  def x_items "kind1/equiv_util.ml" 93 3793 3799 "kind1/equiv_util.ml" 94 3848 3882
+)
+"kind1/equiv_util.ml" 92 3736 3757 "kind1/equiv_util.ml" 92 3736 3773
+type(
+  (int, 'a) Hashtbl.t -> int -> 'a list
+)
+ident(
+  ext_ref Hashtbl.find_all
+)
+"kind1/equiv_util.ml" 92 3736 3774 "kind1/equiv_util.ml" 92 3736 3785
+type(
+  (int, 'a) Hashtbl.t
+)
+ident(
+  int_ref values_hash "kind1/equiv_util.ml" 82 3377 3383 "kind1/equiv_util.ml" 82 3377 3394
+)
+"kind1/equiv_util.ml" 92 3736 3786 "kind1/equiv_util.ml" 92 3736 3787
+type(
+  int
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 91 3719 3728 "kind1/equiv_util.ml" 91 3719 3729
+)
+"kind1/equiv_util.ml" 92 3736 3756 "kind1/equiv_util.ml" 92 3736 3788
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/equiv_util.ml" 93 3793 3803 "kind1/equiv_util.ml" 93 3793 3822
+type(
+  int list
+)
+ident(
+  def new_extra_info_list "kind1/equiv_util.ml" 94 3848 3849 "kind1/equiv_util.ml" 94 3848 3882
+)
+"kind1/equiv_util.ml" 93 3793 3825 "kind1/equiv_util.ml" 93 3793 3840
+type(
+  int list
+)
+ident(
+  int_ref extra_info_list "kind1/equiv_util.ml" 81 3302 3359 "kind1/equiv_util.ml" 81 3302 3374
+)
+"kind1/equiv_util.ml" 93 3793 3840 "kind1/equiv_util.ml" 93 3793 3841
+type(
+  int list -> int list -> int list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/equiv_util.ml" 93 3793 3842 "kind1/equiv_util.ml" 93 3793 3843
+type(
+  int
+)
+ident(
+  int_ref x "kind1/equiv_util.ml" 91 3719 3728 "kind1/equiv_util.ml" 91 3719 3729
+)
+"kind1/equiv_util.ml" 93 3793 3841 "kind1/equiv_util.ml" 93 3793 3844
+type(
+  int list
+)
+"kind1/equiv_util.ml" 93 3793 3825 "kind1/equiv_util.ml" 93 3793 3844
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/equiv_util.ml" 94 3848 3850 "kind1/equiv_util.ml" 94 3848 3857
+type(
+  'a list
+)
+ident(
+  int_ref x_items "kind1/equiv_util.ml" 92 3736 3746 "kind1/equiv_util.ml" 92 3736 3753
+)
+"kind1/equiv_util.ml" 94 3848 3858 "kind1/equiv_util.ml" 94 3848 3877
+type(
+  int list
+)
+ident(
+  int_ref new_extra_info_list "kind1/equiv_util.ml" 93 3793 3803 "kind1/equiv_util.ml" 93 3793 3822
+)
+"kind1/equiv_util.ml" 94 3848 3849 "kind1/equiv_util.ml" 94 3848 3878
+type(
+  'a list * int list
+)
+"kind1/equiv_util.ml" 94 3848 3881 "kind1/equiv_util.ml" 94 3848 3882
+type(
+  ('a list * int list) list
+)
+ident(
+  int_ref y "kind1/equiv_util.ml" 91 3719 3730 "kind1/equiv_util.ml" 91 3719 3731
+)
+"kind1/equiv_util.ml" 94 3848 3849 "kind1/equiv_util.ml" 94 3848 3882
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 93 3793 3799 "kind1/equiv_util.ml" 94 3848 3882
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 92 3736 3742 "kind1/equiv_util.ml" 94 3848 3882
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 91 3719 3723 "kind1/equiv_util.ml" 94 3848 3883
+type(
+  int -> ('a list * int list) list -> ('a list * int list) list
+)
+"kind1/equiv_util.ml" 95 3885 3889 "kind1/equiv_util.ml" 95 3885 3902
+type(
+  int list
+)
+ident(
+  int_ref unique_values "kind1/equiv_util.ml" 89 3636 3642 "kind1/equiv_util.ml" 89 3636 3655
+)
+"kind1/equiv_util.ml" 95 3885 3903 "kind1/equiv_util.ml" 95 3885 3905
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 90 3684 3702 "kind1/equiv_util.ml" 95 3885 3905
+call(
+  stack
+)
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 96 3909 3913 "kind1/equiv_util.ml" 96 3909 3922
+type(
+  ('a list * int list) list
+)
+ident(
+  int_ref ret_lists "kind1/equiv_util.ml" 90 3684 3690 "kind1/equiv_util.ml" 90 3684 3699
+)
+"kind1/equiv_util.ml" 90 3684 3686 "kind1/equiv_util.ml" 96 3909 3922
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 89 3636 3638 "kind1/equiv_util.ml" 96 3909 3922
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 87 3551 3553 "kind1/equiv_util.ml" 96 3909 3922
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 83 3419 3421 "kind1/equiv_util.ml" 96 3909 3922
+type(
+  ('a list * int list) list
+)
+"kind1/equiv_util.ml" 82 3377 3379 "kind1/equiv_util.ml" 96 3909 3922
+type(
+  ('a list * int list) list
+)

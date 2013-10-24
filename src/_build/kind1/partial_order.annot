@@ -1,0 +1,7393 @@
+"kind1/partial_order.ml" 35 1737 1747 "kind1/partial_order.ml" 35 1737 1754
+type(
+  'a -> 'a -> int
+)
+ident(
+  def compare "kind1/partial_order.ml" 35 1737 1764 "kind1/partial_order.ml" 36 1765 1772
+)
+"kind1/partial_order.ml" 35 1737 1757 "kind1/partial_order.ml" 35 1737 1764
+type(
+  'a -> 'a -> int
+)
+ident(
+  ext_ref Pervasives.compare
+)
+"kind1/partial_order.ml" 32 1694 1696 "kind1/partial_order.ml" 36 1765 1773
+call(
+  stack
+)
+"kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+type(
+  'a list DynArray.t -> 'a list
+)
+ident(
+  def flatten_arr "kind1/partial_order.ml" 48 1957 1957 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 46 1897 1913 "kind1/partial_order.ml" 46 1897 1916
+type(
+  'a list DynArray.t
+)
+ident(
+  def arr "kind1/partial_order.ml" 46 1897 1919 "kind1/partial_order.ml" 46 1897 1954
+)
+"kind1/partial_order.ml" 46 1897 1919 "kind1/partial_order.ml" 46 1897 1931
+type(
+  'a list list -> 'a list
+)
+ident(
+  ext_ref List.flatten
+)
+"kind1/partial_order.ml" 46 1897 1933 "kind1/partial_order.ml" 46 1897 1949
+type(
+  'a list DynArray.t -> 'a list list
+)
+ident(
+  ext_ref DynArray.to_list
+)
+"kind1/partial_order.ml" 46 1897 1950 "kind1/partial_order.ml" 46 1897 1953
+type(
+  'a list DynArray.t
+)
+ident(
+  int_ref arr "kind1/partial_order.ml" 46 1897 1913 "kind1/partial_order.ml" 46 1897 1916
+)
+"kind1/partial_order.ml" 46 1897 1932 "kind1/partial_order.ml" 46 1897 1954
+call(
+  stack
+)
+type(
+  'a list list
+)
+"kind1/partial_order.ml" 46 1897 1919 "kind1/partial_order.ml" 46 1897 1954
+call(
+  tail
+)
+type(
+  'a list
+)
+"kind1/partial_order.ml" 48 1957 1961 "kind1/partial_order.ml" 48 1957 1978
+type(
+  ('a -> 'a -> 'b) -> 'a list -> 'b list
+)
+ident(
+  def fold_list_with_op "kind1/partial_order.ml" 50 2018 2018 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 48 1957 1982 "kind1/partial_order.ml" 48 1957 2009
+type(
+  ('a -> 'a -> 'b) -> 'a list -> 'b list
+)
+ident(
+  ext_ref Expr_util.fold_list_with_op
+)
+"kind1/partial_order.ml" 50 2018 2022 "kind1/partial_order.ml" 50 2018 2029
+type(
+  string -> string
+)
+ident(
+  def nvr_def "kind1/partial_order.ml" 52 2061 2061 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 50 2018 2030 "kind1/partial_order.ml" 50 2018 2031
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 50 2018 2034 "kind1/partial_order.ml" 50 2018 2059
+)
+"kind1/partial_order.ml" 50 2018 2034 "kind1/partial_order.ml" 50 2018 2057
+type(
+  string -> string
+)
+ident(
+  ext_ref New_vars.nvr_to_nvr_def
+)
+"kind1/partial_order.ml" 50 2018 2058 "kind1/partial_order.ml" 50 2018 2059
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 50 2018 2030 "kind1/partial_order.ml" 50 2018 2031
+)
+"kind1/partial_order.ml" 50 2018 2034 "kind1/partial_order.ml" 50 2018 2059
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/partial_order.ml" 52 2061 2065 "kind1/partial_order.ml" 52 2061 2074
+type(
+  string -> string -> Types.il_expression -> Types.il_formula
+)
+ident(
+  def mk_eq_pos "kind1/partial_order.ml" 54 2148 2148 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 52 2061 2075 "kind1/partial_order.ml" 52 2061 2076
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 52 2061 2077 "kind1/partial_order.ml" 52 2061 2145
+)
+"kind1/partial_order.ml" 52 2061 2077 "kind1/partial_order.ml" 52 2061 2078
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 52 2061 2079 "kind1/partial_order.ml" 52 2061 2145
+)
+"kind1/partial_order.ml" 52 2061 2079 "kind1/partial_order.ml" 52 2061 2082
+type(
+  Types.il_expression
+)
+ident(
+  def pos "kind1/partial_order.ml" 52 2061 2086 "kind1/partial_order.ml" 52 2061 2145
+)
+"kind1/partial_order.ml" 52 2061 2097 "kind1/partial_order.ml" 52 2061 2099
+type(
+  Types.relation
+)
+"kind1/partial_order.ml" 52 2061 2106 "kind1/partial_order.ml" 52 2061 2107
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 52 2061 2075 "kind1/partial_order.ml" 52 2061 2076
+)
+"kind1/partial_order.ml" 52 2061 2109 "kind1/partial_order.ml" 52 2061 2112
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/partial_order.ml" 52 2061 2079 "kind1/partial_order.ml" 52 2061 2082
+)
+"kind1/partial_order.ml" 52 2061 2108 "kind1/partial_order.ml" 52 2061 2113
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 52 2061 2101 "kind1/partial_order.ml" 52 2061 2114
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 52 2061 2121 "kind1/partial_order.ml" 52 2061 2122
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 52 2061 2077 "kind1/partial_order.ml" 52 2061 2078
+)
+"kind1/partial_order.ml" 52 2061 2125 "kind1/partial_order.ml" 52 2061 2128
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/partial_order.ml" 52 2061 2079 "kind1/partial_order.ml" 52 2061 2082
+)
+"kind1/partial_order.ml" 52 2061 2124 "kind1/partial_order.ml" 52 2061 2129
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 52 2061 2116 "kind1/partial_order.ml" 52 2061 2130
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 52 2061 2092 "kind1/partial_order.ml" 52 2061 2131
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 52 2061 2133 "kind1/partial_order.ml" 52 2061 2136
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 52 2061 2138 "kind1/partial_order.ml" 52 2061 2144
+type(
+  Types.lustre_type
+)
+"kind1/partial_order.ml" 52 2061 2086 "kind1/partial_order.ml" 52 2061 2145
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 54 2148 2152 "kind1/partial_order.ml" 54 2148 2167
+type(
+  string -> string -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  def mk_eq_positions "kind1/partial_order.ml" 57 2236 2236 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 54 2148 2168 "kind1/partial_order.ml" 54 2148 2169
+type(
+  string
+)
+ident(
+  def l "kind1/partial_order.ml" 54 2148 2170 "kind1/partial_order.ml" 55 2185 2233
+)
+"kind1/partial_order.ml" 54 2148 2170 "kind1/partial_order.ml" 54 2148 2171
+type(
+  string
+)
+ident(
+  def r "kind1/partial_order.ml" 54 2148 2172 "kind1/partial_order.ml" 55 2185 2233
+)
+"kind1/partial_order.ml" 54 2148 2172 "kind1/partial_order.ml" 54 2148 2181
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/partial_order.ml" 55 2185 2187 "kind1/partial_order.ml" 55 2185 2233
+)
+"kind1/partial_order.ml" 55 2185 2187 "kind1/partial_order.ml" 55 2185 2195
+type(
+  (Types.il_expression -> Types.il_formula) ->
+  Types.il_expression list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 55 2185 2201 "kind1/partial_order.ml" 55 2185 2202
+type(
+  Types.il_expression
+)
+ident(
+  def x "kind1/partial_order.ml" 55 2185 2206 "kind1/partial_order.ml" 55 2185 2221
+)
+"kind1/partial_order.ml" 55 2185 2206 "kind1/partial_order.ml" 55 2185 2215
+type(
+  string -> string -> Types.il_expression -> Types.il_formula
+)
+ident(
+  int_ref mk_eq_pos "kind1/partial_order.ml" 52 2061 2065 "kind1/partial_order.ml" 52 2061 2074
+)
+"kind1/partial_order.ml" 55 2185 2216 "kind1/partial_order.ml" 55 2185 2217
+type(
+  string
+)
+ident(
+  int_ref l "kind1/partial_order.ml" 54 2148 2168 "kind1/partial_order.ml" 54 2148 2169
+)
+"kind1/partial_order.ml" 55 2185 2218 "kind1/partial_order.ml" 55 2185 2219
+type(
+  string
+)
+ident(
+  int_ref r "kind1/partial_order.ml" 54 2148 2170 "kind1/partial_order.ml" 54 2148 2171
+)
+"kind1/partial_order.ml" 55 2185 2220 "kind1/partial_order.ml" 55 2185 2221
+type(
+  Types.il_expression
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 55 2185 2201 "kind1/partial_order.ml" 55 2185 2202
+)
+"kind1/partial_order.ml" 55 2185 2206 "kind1/partial_order.ml" 55 2185 2221
+call(
+  tail
+)
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 55 2185 2196 "kind1/partial_order.ml" 55 2185 2222
+type(
+  Types.il_expression -> Types.il_formula
+)
+"kind1/partial_order.ml" 55 2185 2224 "kind1/partial_order.ml" 55 2185 2233
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 54 2148 2172 "kind1/partial_order.ml" 54 2148 2181
+)
+"kind1/partial_order.ml" 55 2185 2187 "kind1/partial_order.ml" 55 2185 2233
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 57 2236 2240 "kind1/partial_order.ml" 57 2236 2258
+type(
+  string list -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  def mk_eq_pos_oneclass "kind1/partial_order.ml" 64 2398 2398 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 57 2236 2259 "kind1/partial_order.ml" 57 2236 2270
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/partial_order.ml" 57 2236 2271 "kind1/partial_order.ml" 62 2393 2396
+)
+"kind1/partial_order.ml" 57 2236 2271 "kind1/partial_order.ml" 57 2236 2280
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/partial_order.ml" 58 2284 2286 "kind1/partial_order.ml" 62 2393 2396
+)
+"kind1/partial_order.ml" 58 2284 2286 "kind1/partial_order.ml" 58 2284 2298
+type(
+  Types.il_formula list list -> Types.il_formula list
+)
+ident(
+  ext_ref List.flatten
+)
+"kind1/partial_order.ml" 59 2300 2304 "kind1/partial_order.ml" 59 2300 2321
+type(
+  (string -> string -> Types.il_formula list) ->
+  string list -> Types.il_formula list list
+)
+ident(
+  int_ref fold_list_with_op "kind1/partial_order.ml" 48 1957 1961 "kind1/partial_order.ml" 48 1957 1978
+)
+"kind1/partial_order.ml" 60 2324 2335 "kind1/partial_order.ml" 60 2324 2336
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 60 2324 2337 "kind1/partial_order.ml" 60 2324 2371
+)
+"kind1/partial_order.ml" 60 2324 2337 "kind1/partial_order.ml" 60 2324 2338
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 60 2324 2342 "kind1/partial_order.ml" 60 2324 2371
+)
+"kind1/partial_order.ml" 60 2324 2342 "kind1/partial_order.ml" 60 2324 2357
+type(
+  string -> string -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  int_ref mk_eq_positions "kind1/partial_order.ml" 54 2148 2152 "kind1/partial_order.ml" 54 2148 2167
+)
+"kind1/partial_order.ml" 60 2324 2358 "kind1/partial_order.ml" 60 2324 2359
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 60 2324 2335 "kind1/partial_order.ml" 60 2324 2336
+)
+"kind1/partial_order.ml" 60 2324 2360 "kind1/partial_order.ml" 60 2324 2361
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 60 2324 2337 "kind1/partial_order.ml" 60 2324 2338
+)
+"kind1/partial_order.ml" 60 2324 2362 "kind1/partial_order.ml" 60 2324 2371
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 57 2236 2271 "kind1/partial_order.ml" 57 2236 2280
+)
+"kind1/partial_order.ml" 60 2324 2342 "kind1/partial_order.ml" 60 2324 2371
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 60 2324 2330 "kind1/partial_order.ml" 60 2324 2372
+type(
+  string -> string -> Types.il_formula list
+)
+"kind1/partial_order.ml" 61 2374 2380 "kind1/partial_order.ml" 61 2374 2391
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/partial_order.ml" 57 2236 2259 "kind1/partial_order.ml" 57 2236 2270
+)
+"kind1/partial_order.ml" 58 2284 2298 "kind1/partial_order.ml" 62 2393 2396
+call(
+  stack
+)
+type(
+  Types.il_formula list list
+)
+"kind1/partial_order.ml" 58 2284 2286 "kind1/partial_order.ml" 62 2393 2396
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 64 2398 2402 "kind1/partial_order.ml" 64 2398 2413
+type(
+  string -> string -> Types.il_expression -> Types.il_formula
+)
+ident(
+  def mk_less_pos "kind1/partial_order.ml" 66 2486 2486 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 64 2398 2414 "kind1/partial_order.ml" 64 2398 2415
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 64 2398 2416 "kind1/partial_order.ml" 64 2398 2483
+)
+"kind1/partial_order.ml" 64 2398 2416 "kind1/partial_order.ml" 64 2398 2417
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 64 2398 2418 "kind1/partial_order.ml" 64 2398 2483
+)
+"kind1/partial_order.ml" 64 2398 2418 "kind1/partial_order.ml" 64 2398 2421
+type(
+  Types.il_expression
+)
+ident(
+  def pos "kind1/partial_order.ml" 64 2398 2424 "kind1/partial_order.ml" 64 2398 2483
+)
+"kind1/partial_order.ml" 64 2398 2435 "kind1/partial_order.ml" 64 2398 2438
+type(
+  Types.relation
+)
+"kind1/partial_order.ml" 64 2398 2445 "kind1/partial_order.ml" 64 2398 2446
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 64 2398 2414 "kind1/partial_order.ml" 64 2398 2415
+)
+"kind1/partial_order.ml" 64 2398 2448 "kind1/partial_order.ml" 64 2398 2451
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/partial_order.ml" 64 2398 2418 "kind1/partial_order.ml" 64 2398 2421
+)
+"kind1/partial_order.ml" 64 2398 2447 "kind1/partial_order.ml" 64 2398 2452
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 64 2398 2440 "kind1/partial_order.ml" 64 2398 2453
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 64 2398 2460 "kind1/partial_order.ml" 64 2398 2461
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 64 2398 2416 "kind1/partial_order.ml" 64 2398 2417
+)
+"kind1/partial_order.ml" 64 2398 2463 "kind1/partial_order.ml" 64 2398 2466
+type(
+  Types.il_expression
+)
+ident(
+  int_ref pos "kind1/partial_order.ml" 64 2398 2418 "kind1/partial_order.ml" 64 2398 2421
+)
+"kind1/partial_order.ml" 64 2398 2462 "kind1/partial_order.ml" 64 2398 2467
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 64 2398 2455 "kind1/partial_order.ml" 64 2398 2468
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 64 2398 2430 "kind1/partial_order.ml" 64 2398 2469
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 64 2398 2471 "kind1/partial_order.ml" 64 2398 2474
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 64 2398 2476 "kind1/partial_order.ml" 64 2398 2482
+type(
+  Types.lustre_type
+)
+"kind1/partial_order.ml" 64 2398 2424 "kind1/partial_order.ml" 64 2398 2483
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 66 2486 2490 "kind1/partial_order.ml" 66 2486 2507
+type(
+  string -> string -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  def mk_less_positions "kind1/partial_order.ml" 69 2580 2580 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 66 2486 2508 "kind1/partial_order.ml" 66 2486 2509
+type(
+  string
+)
+ident(
+  def l "kind1/partial_order.ml" 66 2486 2510 "kind1/partial_order.ml" 67 2525 2577
+)
+"kind1/partial_order.ml" 66 2486 2510 "kind1/partial_order.ml" 66 2486 2511
+type(
+  string
+)
+ident(
+  def r "kind1/partial_order.ml" 66 2486 2512 "kind1/partial_order.ml" 67 2525 2577
+)
+"kind1/partial_order.ml" 66 2486 2512 "kind1/partial_order.ml" 66 2486 2521
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/partial_order.ml" 67 2525 2529 "kind1/partial_order.ml" 67 2525 2577
+)
+"kind1/partial_order.ml" 67 2525 2529 "kind1/partial_order.ml" 67 2525 2537
+type(
+  (Types.il_expression -> Types.il_formula) ->
+  Types.il_expression list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 67 2525 2543 "kind1/partial_order.ml" 67 2525 2544
+type(
+  Types.il_expression
+)
+ident(
+  def x "kind1/partial_order.ml" 67 2525 2548 "kind1/partial_order.ml" 67 2525 2565
+)
+"kind1/partial_order.ml" 67 2525 2548 "kind1/partial_order.ml" 67 2525 2559
+type(
+  string -> string -> Types.il_expression -> Types.il_formula
+)
+ident(
+  int_ref mk_less_pos "kind1/partial_order.ml" 64 2398 2402 "kind1/partial_order.ml" 64 2398 2413
+)
+"kind1/partial_order.ml" 67 2525 2560 "kind1/partial_order.ml" 67 2525 2561
+type(
+  string
+)
+ident(
+  int_ref l "kind1/partial_order.ml" 66 2486 2508 "kind1/partial_order.ml" 66 2486 2509
+)
+"kind1/partial_order.ml" 67 2525 2562 "kind1/partial_order.ml" 67 2525 2563
+type(
+  string
+)
+ident(
+  int_ref r "kind1/partial_order.ml" 66 2486 2510 "kind1/partial_order.ml" 66 2486 2511
+)
+"kind1/partial_order.ml" 67 2525 2564 "kind1/partial_order.ml" 67 2525 2565
+type(
+  Types.il_expression
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 67 2525 2543 "kind1/partial_order.ml" 67 2525 2544
+)
+"kind1/partial_order.ml" 67 2525 2548 "kind1/partial_order.ml" 67 2525 2565
+call(
+  tail
+)
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 67 2525 2538 "kind1/partial_order.ml" 67 2525 2566
+type(
+  Types.il_expression -> Types.il_formula
+)
+"kind1/partial_order.ml" 67 2525 2568 "kind1/partial_order.ml" 67 2525 2577
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 66 2486 2512 "kind1/partial_order.ml" 66 2486 2521
+)
+"kind1/partial_order.ml" 67 2525 2529 "kind1/partial_order.ml" 67 2525 2577
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 69 2580 2584 "kind1/partial_order.ml" 69 2580 2604
+type(
+  string list -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  def mk_less_pos_onechain "kind1/partial_order.ml" 77 2733 2733 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 69 2580 2605 "kind1/partial_order.ml" 69 2580 2610
+type(
+  string list
+)
+ident(
+  def chain "kind1/partial_order.ml" 69 2580 2611 "kind1/partial_order.ml" 74 2727 2730
+)
+"kind1/partial_order.ml" 69 2580 2611 "kind1/partial_order.ml" 69 2580 2620
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/partial_order.ml" 70 2623 2625 "kind1/partial_order.ml" 74 2727 2730
+)
+"kind1/partial_order.ml" 70 2623 2625 "kind1/partial_order.ml" 70 2623 2637
+type(
+  Types.il_formula list list -> Types.il_formula list
+)
+ident(
+  ext_ref List.flatten
+)
+"kind1/partial_order.ml" 71 2639 2643 "kind1/partial_order.ml" 71 2639 2660
+type(
+  (string -> string -> Types.il_formula list) ->
+  string list -> Types.il_formula list list
+)
+ident(
+  int_ref fold_list_with_op "kind1/partial_order.ml" 48 1957 1961 "kind1/partial_order.ml" 48 1957 1978
+)
+"kind1/partial_order.ml" 72 2662 2673 "kind1/partial_order.ml" 72 2662 2674
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 72 2662 2675 "kind1/partial_order.ml" 72 2662 2711
+)
+"kind1/partial_order.ml" 72 2662 2675 "kind1/partial_order.ml" 72 2662 2676
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 72 2662 2680 "kind1/partial_order.ml" 72 2662 2711
+)
+"kind1/partial_order.ml" 72 2662 2680 "kind1/partial_order.ml" 72 2662 2697
+type(
+  string -> string -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  int_ref mk_less_positions "kind1/partial_order.ml" 66 2486 2490 "kind1/partial_order.ml" 66 2486 2507
+)
+"kind1/partial_order.ml" 72 2662 2698 "kind1/partial_order.ml" 72 2662 2699
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 72 2662 2673 "kind1/partial_order.ml" 72 2662 2674
+)
+"kind1/partial_order.ml" 72 2662 2700 "kind1/partial_order.ml" 72 2662 2701
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 72 2662 2675 "kind1/partial_order.ml" 72 2662 2676
+)
+"kind1/partial_order.ml" 72 2662 2702 "kind1/partial_order.ml" 72 2662 2711
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 69 2580 2611 "kind1/partial_order.ml" 69 2580 2620
+)
+"kind1/partial_order.ml" 72 2662 2680 "kind1/partial_order.ml" 72 2662 2711
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 72 2662 2668 "kind1/partial_order.ml" 72 2662 2712
+type(
+  string -> string -> Types.il_formula list
+)
+"kind1/partial_order.ml" 73 2714 2720 "kind1/partial_order.ml" 73 2714 2725
+type(
+  string list
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 69 2580 2605 "kind1/partial_order.ml" 69 2580 2610
+)
+"kind1/partial_order.ml" 70 2623 2637 "kind1/partial_order.ml" 74 2727 2730
+call(
+  stack
+)
+type(
+  Types.il_formula list list
+)
+"kind1/partial_order.ml" 70 2623 2625 "kind1/partial_order.ml" 74 2727 2730
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 77 2733 2737 "kind1/partial_order.ml" 77 2733 2742
+type(
+  string -> string -> Types.il_formula
+)
+ident(
+  def mk_eq "kind1/partial_order.ml" 79 2806 2806 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 77 2733 2743 "kind1/partial_order.ml" 77 2733 2744
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 77 2733 2745 "kind1/partial_order.ml" 77 2733 2803
+)
+"kind1/partial_order.ml" 77 2733 2745 "kind1/partial_order.ml" 77 2733 2746
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 77 2733 2750 "kind1/partial_order.ml" 77 2733 2803
+)
+"kind1/partial_order.ml" 77 2733 2761 "kind1/partial_order.ml" 77 2733 2763
+type(
+  Types.relation
+)
+"kind1/partial_order.ml" 77 2733 2770 "kind1/partial_order.ml" 77 2733 2771
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 77 2733 2743 "kind1/partial_order.ml" 77 2733 2744
+)
+"kind1/partial_order.ml" 77 2733 2772 "kind1/partial_order.ml" 77 2733 2774
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 77 2733 2765 "kind1/partial_order.ml" 77 2733 2775
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 77 2733 2782 "kind1/partial_order.ml" 77 2733 2783
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 77 2733 2745 "kind1/partial_order.ml" 77 2733 2746
+)
+"kind1/partial_order.ml" 77 2733 2785 "kind1/partial_order.ml" 77 2733 2787
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 77 2733 2777 "kind1/partial_order.ml" 77 2733 2788
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 77 2733 2756 "kind1/partial_order.ml" 77 2733 2789
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 77 2733 2791 "kind1/partial_order.ml" 77 2733 2794
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 77 2733 2796 "kind1/partial_order.ml" 77 2733 2802
+type(
+  Types.lustre_type
+)
+"kind1/partial_order.ml" 77 2733 2750 "kind1/partial_order.ml" 77 2733 2803
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 79 2806 2810 "kind1/partial_order.ml" 79 2806 2824
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  def mk_eq_oneclass "kind1/partial_order.ml" 84 2910 2910 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 79 2806 2825 "kind1/partial_order.ml" 79 2806 2836
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/partial_order.ml" 80 2841 2843 "kind1/partial_order.ml" 82 2892 2907
+)
+"kind1/partial_order.ml" 80 2841 2843 "kind1/partial_order.ml" 80 2841 2860
+type(
+  (string -> string -> Types.il_formula) ->
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref fold_list_with_op "kind1/partial_order.ml" 48 1957 1961 "kind1/partial_order.ml" 48 1957 1978
+)
+"kind1/partial_order.ml" 81 2863 2872 "kind1/partial_order.ml" 81 2863 2873
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 81 2863 2874 "kind1/partial_order.ml" 81 2863 2888
+)
+"kind1/partial_order.ml" 81 2863 2874 "kind1/partial_order.ml" 81 2863 2875
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 81 2863 2879 "kind1/partial_order.ml" 81 2863 2888
+)
+"kind1/partial_order.ml" 81 2863 2879 "kind1/partial_order.ml" 81 2863 2884
+type(
+  string -> string -> Types.il_formula
+)
+ident(
+  int_ref mk_eq "kind1/partial_order.ml" 77 2733 2737 "kind1/partial_order.ml" 77 2733 2742
+)
+"kind1/partial_order.ml" 81 2863 2885 "kind1/partial_order.ml" 81 2863 2886
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 81 2863 2872 "kind1/partial_order.ml" 81 2863 2873
+)
+"kind1/partial_order.ml" 81 2863 2887 "kind1/partial_order.ml" 81 2863 2888
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 81 2863 2874 "kind1/partial_order.ml" 81 2863 2875
+)
+"kind1/partial_order.ml" 81 2863 2879 "kind1/partial_order.ml" 81 2863 2888
+call(
+  tail
+)
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 81 2863 2867 "kind1/partial_order.ml" 81 2863 2890
+type(
+  string -> string -> Types.il_formula
+)
+"kind1/partial_order.ml" 82 2892 2896 "kind1/partial_order.ml" 82 2892 2907
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/partial_order.ml" 79 2806 2825 "kind1/partial_order.ml" 79 2806 2836
+)
+"kind1/partial_order.ml" 80 2841 2843 "kind1/partial_order.ml" 82 2892 2907
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 84 2910 2914 "kind1/partial_order.ml" 84 2910 2921
+type(
+  string -> string -> Types.il_formula
+)
+ident(
+  def mk_less "kind1/partial_order.ml" 86 2985 2985 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 84 2910 2922 "kind1/partial_order.ml" 84 2910 2923
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 84 2910 2924 "kind1/partial_order.ml" 84 2910 2982
+)
+"kind1/partial_order.ml" 84 2910 2924 "kind1/partial_order.ml" 84 2910 2925
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 84 2910 2929 "kind1/partial_order.ml" 84 2910 2982
+)
+"kind1/partial_order.ml" 84 2910 2940 "kind1/partial_order.ml" 84 2910 2943
+type(
+  Types.relation
+)
+"kind1/partial_order.ml" 84 2910 2950 "kind1/partial_order.ml" 84 2910 2951
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 84 2910 2922 "kind1/partial_order.ml" 84 2910 2923
+)
+"kind1/partial_order.ml" 84 2910 2952 "kind1/partial_order.ml" 84 2910 2954
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 84 2910 2945 "kind1/partial_order.ml" 84 2910 2955
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 84 2910 2962 "kind1/partial_order.ml" 84 2910 2963
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 84 2910 2924 "kind1/partial_order.ml" 84 2910 2925
+)
+"kind1/partial_order.ml" 84 2910 2964 "kind1/partial_order.ml" 84 2910 2966
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 84 2910 2957 "kind1/partial_order.ml" 84 2910 2967
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 84 2910 2935 "kind1/partial_order.ml" 84 2910 2968
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 84 2910 2970 "kind1/partial_order.ml" 84 2910 2973
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 84 2910 2975 "kind1/partial_order.ml" 84 2910 2981
+type(
+  Types.lustre_type
+)
+"kind1/partial_order.ml" 84 2910 2929 "kind1/partial_order.ml" 84 2910 2982
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 86 2985 2989 "kind1/partial_order.ml" 86 2985 2999
+type(
+  Types.il_formula -> string * string
+)
+ident(
+  def strip_less "kind1/partial_order.ml" 92 3123 3123 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 86 2985 3000 "kind1/partial_order.ml" 86 2985 3001
+type(
+  Types.il_formula
+)
+ident(
+  def e "kind1/partial_order.ml" 87 3004 3006 "kind1/partial_order.ml" 89 3088 3120
+)
+"kind1/partial_order.ml" 87 3004 3012 "kind1/partial_order.ml" 87 3004 3013
+type(
+  Types.il_formula
+)
+ident(
+  int_ref e "kind1/partial_order.ml" 86 2985 3000 "kind1/partial_order.ml" 86 2985 3001
+)
+"kind1/partial_order.ml" 87 3004 3030 "kind1/partial_order.ml" 87 3004 3033
+type(
+  Types.relation
+)
+"kind1/partial_order.ml" 87 3004 3040 "kind1/partial_order.ml" 87 3004 3041
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 88 3074 3083 "kind1/partial_order.ml" 88 3074 3087
+)
+"kind1/partial_order.ml" 87 3004 3042 "kind1/partial_order.ml" 87 3004 3044
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 87 3004 3035 "kind1/partial_order.ml" 87 3004 3045
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 87 3004 3052 "kind1/partial_order.ml" 87 3004 3053
+type(
+  string
+)
+ident(
+  def y "kind1/partial_order.ml" 88 3074 3083 "kind1/partial_order.ml" 88 3074 3087
+)
+"kind1/partial_order.ml" 87 3004 3054 "kind1/partial_order.ml" 87 3004 3056
+type(
+  Types.il_expression list
+)
+"kind1/partial_order.ml" 87 3004 3047 "kind1/partial_order.ml" 87 3004 3057
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 87 3004 3025 "kind1/partial_order.ml" 87 3004 3058
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 87 3004 3060 "kind1/partial_order.ml" 87 3004 3063
+type(
+  Types.il_expression
+)
+"kind1/partial_order.ml" 87 3004 3065 "kind1/partial_order.ml" 87 3004 3071
+type(
+  Types.lustre_type
+)
+"kind1/partial_order.ml" 87 3004 3019 "kind1/partial_order.ml" 87 3004 3072
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 88 3074 3083 "kind1/partial_order.ml" 88 3074 3084
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 87 3004 3040 "kind1/partial_order.ml" 87 3004 3041
+)
+"kind1/partial_order.ml" 88 3074 3086 "kind1/partial_order.ml" 88 3074 3087
+type(
+  string
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 87 3004 3052 "kind1/partial_order.ml" 87 3004 3053
+)
+"kind1/partial_order.ml" 88 3074 3083 "kind1/partial_order.ml" 88 3074 3087
+type(
+  string * string
+)
+"kind1/partial_order.ml" 89 3088 3094 "kind1/partial_order.ml" 89 3088 3095
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 89 3088 3099 "kind1/partial_order.ml" 89 3088 3107
+type(
+  string -> string * string
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/partial_order.ml" 89 3088 3108 "kind1/partial_order.ml" 89 3088 3120
+type(
+  string
+)
+"kind1/partial_order.ml" 89 3088 3099 "kind1/partial_order.ml" 89 3088 3120
+call(
+  tail
+)
+type(
+  string * string
+)
+"kind1/partial_order.ml" 87 3004 3006 "kind1/partial_order.ml" 89 3088 3120
+type(
+  string * string
+)
+"kind1/partial_order.ml" 92 3123 3127 "kind1/partial_order.ml" 92 3123 3143
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  def mk_less_onechain "kind1/partial_order.ml" 96 3218 3218 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 92 3123 3144 "kind1/partial_order.ml" 92 3123 3149
+type(
+  string list
+)
+ident(
+  def chain "kind1/partial_order.ml" 93 3152 3154 "kind1/partial_order.ml" 93 3152 3187
+)
+"kind1/partial_order.ml" 93 3152 3154 "kind1/partial_order.ml" 93 3152 3171
+type(
+  (string -> string -> Types.il_formula) ->
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref fold_list_with_op "kind1/partial_order.ml" 48 1957 1961 "kind1/partial_order.ml" 48 1957 1978
+)
+"kind1/partial_order.ml" 93 3152 3173 "kind1/partial_order.ml" 93 3152 3180
+type(
+  string -> string -> Types.il_formula
+)
+ident(
+  int_ref mk_less "kind1/partial_order.ml" 84 2910 2914 "kind1/partial_order.ml" 84 2910 2921
+)
+"kind1/partial_order.ml" 93 3152 3182 "kind1/partial_order.ml" 93 3152 3187
+type(
+  string list
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 92 3123 3144 "kind1/partial_order.ml" 92 3123 3149
+)
+"kind1/partial_order.ml" 93 3152 3154 "kind1/partial_order.ml" 93 3152 3187
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 96 3218 3222 "kind1/partial_order.ml" 96 3218 3238
+type(
+  'a list -> 'a list -> cmp_result
+)
+ident(
+  def compare_int_node "kind1/partial_order.ml" 151 5177 5177 "_none_" 1 0 -1
+)
+"kind1/partial_order.ml" 96 3218 3239 "kind1/partial_order.ml" 96 3218 3245
+type(
+  'a list
+)
+ident(
+  def node_l "kind1/partial_order.ml" 96 3218 3246 "kind1/partial_order.ml" 121 4013 4049
+)
+"kind1/partial_order.ml" 96 3218 3246 "kind1/partial_order.ml" 96 3218 3252
+type(
+  'a list
+)
+ident(
+  def node_r "kind1/partial_order.ml" 97 3256 3258 "kind1/partial_order.ml" 121 4013 4049
+)
+"kind1/partial_order.ml" 97 3256 3267 "kind1/partial_order.ml" 97 3256 3278
+type(
+  'a list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/partial_order.ml" 97 3256 3279 "kind1/partial_order.ml" 97 3256 3285
+type(
+  'a list
+)
+ident(
+  int_ref node_l "kind1/partial_order.ml" 96 3218 3239 "kind1/partial_order.ml" 96 3218 3245
+)
+"kind1/partial_order.ml" 97 3256 3266 "kind1/partial_order.ml" 97 3256 3287
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 97 3256 3288 "kind1/partial_order.ml" 97 3256 3289
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 97 3256 3291 "kind1/partial_order.ml" 97 3256 3302
+type(
+  'a list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/partial_order.ml" 97 3256 3303 "kind1/partial_order.ml" 97 3256 3309
+type(
+  'a list
+)
+ident(
+  int_ref node_r "kind1/partial_order.ml" 96 3218 3246 "kind1/partial_order.ml" 96 3218 3252
+)
+"kind1/partial_order.ml" 97 3256 3290 "kind1/partial_order.ml" 97 3256 3310
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 97 3256 3265 "kind1/partial_order.ml" 97 3256 3311
+type(
+  bool
+)
+"kind1/partial_order.ml" 97 3256 3258 "kind1/partial_order.ml" 97 3256 3311
+type(
+  unit
+)
+"kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+type(
+  'b list -> 'b list -> cmp_result -> cmp_result
+)
+ident(
+  def comp_help_func "kind1/partial_order.ml" 98 3313 3315 "kind1/partial_order.ml" 121 4013 4049
+)
+"kind1/partial_order.ml" 98 3313 3338 "kind1/partial_order.ml" 98 3313 3344
+type(
+  'b list
+)
+ident(
+  def node_l "kind1/partial_order.ml" 98 3313 3345 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 98 3313 3345 "kind1/partial_order.ml" 98 3313 3351
+type(
+  'b list
+)
+ident(
+  def node_r "kind1/partial_order.ml" 98 3313 3352 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 98 3313 3352 "kind1/partial_order.ml" 98 3313 3367
+type(
+  cmp_result
+)
+ident(
+  def expected_result "kind1/partial_order.ml" 99 3370 3374 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 99 3370 3378 "kind1/partial_order.ml" 99 3370 3380
+type(
+  'b list
+)
+"kind1/partial_order.ml" 99 3370 3381 "kind1/partial_order.ml" 99 3370 3382
+type(
+  'b list -> 'b list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 99 3370 3383 "kind1/partial_order.ml" 99 3370 3389
+type(
+  'b list
+)
+ident(
+  int_ref node_l "kind1/partial_order.ml" 98 3313 3338 "kind1/partial_order.ml" 98 3313 3344
+)
+"kind1/partial_order.ml" 99 3370 3378 "kind1/partial_order.ml" 99 3370 3389
+type(
+  bool
+)
+"kind1/partial_order.ml" 99 3370 3390 "kind1/partial_order.ml" 99 3370 3392
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/partial_order.ml" 99 3370 3393 "kind1/partial_order.ml" 99 3370 3395
+type(
+  'b list
+)
+"kind1/partial_order.ml" 99 3370 3396 "kind1/partial_order.ml" 99 3370 3397
+type(
+  'b list -> 'b list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 99 3370 3398 "kind1/partial_order.ml" 99 3370 3404
+type(
+  'b list
+)
+ident(
+  int_ref node_r "kind1/partial_order.ml" 98 3313 3345 "kind1/partial_order.ml" 98 3313 3351
+)
+"kind1/partial_order.ml" 99 3370 3393 "kind1/partial_order.ml" 99 3370 3404
+type(
+  bool
+)
+"kind1/partial_order.ml" 99 3370 3377 "kind1/partial_order.ml" 99 3370 3407
+type(
+  bool
+)
+"kind1/partial_order.ml" 100 3408 3417 "kind1/partial_order.ml" 100 3408 3432
+type(
+  cmp_result
+)
+ident(
+  int_ref expected_result "kind1/partial_order.ml" 98 3313 3352 "kind1/partial_order.ml" 98 3313 3367
+)
+"kind1/partial_order.ml" 102 3443 3453 "kind1/partial_order.ml" 102 3443 3457
+type(
+  'b
+)
+ident(
+  def l_hd "kind1/partial_order.ml" 103 3504 3510 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 102 3443 3460 "kind1/partial_order.ml" 102 3443 3467
+type(
+  'b list -> 'b
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/partial_order.ml" 102 3443 3468 "kind1/partial_order.ml" 102 3443 3474
+type(
+  'b list
+)
+ident(
+  int_ref node_l "kind1/partial_order.ml" 98 3313 3338 "kind1/partial_order.ml" 98 3313 3344
+)
+"kind1/partial_order.ml" 102 3443 3460 "kind1/partial_order.ml" 102 3443 3474
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/partial_order.ml" 102 3443 3479 "kind1/partial_order.ml" 102 3443 3483
+type(
+  'b
+)
+ident(
+  def r_hd "kind1/partial_order.ml" 103 3504 3510 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 102 3443 3486 "kind1/partial_order.ml" 102 3443 3493
+type(
+  'b list -> 'b
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/partial_order.ml" 102 3443 3494 "kind1/partial_order.ml" 102 3443 3500
+type(
+  'b list
+)
+ident(
+  int_ref node_r "kind1/partial_order.ml" 98 3313 3345 "kind1/partial_order.ml" 98 3313 3351
+)
+"kind1/partial_order.ml" 102 3443 3486 "kind1/partial_order.ml" 102 3443 3500
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/partial_order.ml" 103 3504 3514 "kind1/partial_order.ml" 103 3504 3518
+type(
+  'b list
+)
+ident(
+  def l_tl "kind1/partial_order.ml" 104 3566 3567 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 103 3504 3521 "kind1/partial_order.ml" 103 3504 3528
+type(
+  'b list -> 'b list
+)
+ident(
+  ext_ref List.tl
+)
+"kind1/partial_order.ml" 103 3504 3529 "kind1/partial_order.ml" 103 3504 3535
+type(
+  'b list
+)
+ident(
+  int_ref node_l "kind1/partial_order.ml" 98 3313 3338 "kind1/partial_order.ml" 98 3313 3344
+)
+"kind1/partial_order.ml" 103 3504 3521 "kind1/partial_order.ml" 103 3504 3535
+call(
+  stack
+)
+type(
+  'b list
+)
+"kind1/partial_order.ml" 103 3504 3540 "kind1/partial_order.ml" 103 3504 3544
+type(
+  'b list
+)
+ident(
+  def r_tl "kind1/partial_order.ml" 104 3566 3567 "kind1/partial_order.ml" 119 3960 4006
+)
+"kind1/partial_order.ml" 103 3504 3547 "kind1/partial_order.ml" 103 3504 3554
+type(
+  'b list -> 'b list
+)
+ident(
+  ext_ref List.tl
+)
+"kind1/partial_order.ml" 103 3504 3555 "kind1/partial_order.ml" 103 3504 3561
+type(
+  'b list
+)
+ident(
+  int_ref node_r "kind1/partial_order.ml" 98 3313 3345 "kind1/partial_order.ml" 98 3313 3351
+)
+"kind1/partial_order.ml" 103 3504 3547 "kind1/partial_order.ml" 103 3504 3561
+call(
+  stack
+)
+type(
+  'b list
+)
+"kind1/partial_order.ml" 104 3566 3573 "kind1/partial_order.ml" 104 3566 3588
+type(
+  cmp_result
+)
+ident(
+  int_ref expected_result "kind1/partial_order.ml" 98 3313 3352 "kind1/partial_order.ml" 98 3313 3367
+)
+"kind1/partial_order.ml" 105 3594 3597 "kind1/partial_order.ml" 105 3594 3600
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 106 3605 3613 "kind1/partial_order.ml" 106 3605 3617
+type(
+  'b
+)
+ident(
+  int_ref l_hd "kind1/partial_order.ml" 102 3443 3453 "kind1/partial_order.ml" 102 3443 3457
+)
+"kind1/partial_order.ml" 106 3605 3618 "kind1/partial_order.ml" 106 3605 3619
+type(
+  'b -> 'b -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 106 3605 3620 "kind1/partial_order.ml" 106 3605 3624
+type(
+  'b
+)
+ident(
+  int_ref r_hd "kind1/partial_order.ml" 102 3443 3479 "kind1/partial_order.ml" 102 3443 3483
+)
+"kind1/partial_order.ml" 106 3605 3613 "kind1/partial_order.ml" 106 3605 3624
+type(
+  bool
+)
+"kind1/partial_order.ml" 107 3626 3636 "kind1/partial_order.ml" 107 3626 3650
+type(
+  'b list -> 'b list -> cmp_result -> cmp_result
+)
+ident(
+  int_ref comp_help_func "kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+)
+"kind1/partial_order.ml" 107 3626 3651 "kind1/partial_order.ml" 107 3626 3655
+type(
+  'b list
+)
+ident(
+  int_ref l_tl "kind1/partial_order.ml" 103 3504 3514 "kind1/partial_order.ml" 103 3504 3518
+)
+"kind1/partial_order.ml" 107 3626 3656 "kind1/partial_order.ml" 107 3626 3660
+type(
+  'b list
+)
+ident(
+  int_ref r_tl "kind1/partial_order.ml" 103 3504 3540 "kind1/partial_order.ml" 103 3504 3544
+)
+"kind1/partial_order.ml" 107 3626 3661 "kind1/partial_order.ml" 107 3626 3664
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 107 3626 3636 "kind1/partial_order.ml" 107 3626 3664
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 108 3665 3678 "kind1/partial_order.ml" 108 3665 3682
+type(
+  'b
+)
+ident(
+  int_ref l_hd "kind1/partial_order.ml" 102 3443 3453 "kind1/partial_order.ml" 102 3443 3457
+)
+"kind1/partial_order.ml" 108 3665 3683 "kind1/partial_order.ml" 108 3665 3684
+type(
+  'b -> 'b -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/partial_order.ml" 108 3665 3685 "kind1/partial_order.ml" 108 3665 3689
+type(
+  'b
+)
+ident(
+  int_ref r_hd "kind1/partial_order.ml" 102 3443 3479 "kind1/partial_order.ml" 102 3443 3483
+)
+"kind1/partial_order.ml" 108 3665 3678 "kind1/partial_order.ml" 108 3665 3689
+type(
+  bool
+)
+"kind1/partial_order.ml" 109 3691 3701 "kind1/partial_order.ml" 109 3691 3715
+type(
+  'b list -> 'b list -> cmp_result -> cmp_result
+)
+ident(
+  int_ref comp_help_func "kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+)
+"kind1/partial_order.ml" 109 3691 3716 "kind1/partial_order.ml" 109 3691 3720
+type(
+  'b list
+)
+ident(
+  int_ref l_tl "kind1/partial_order.ml" 103 3504 3514 "kind1/partial_order.ml" 103 3504 3518
+)
+"kind1/partial_order.ml" 109 3691 3721 "kind1/partial_order.ml" 109 3691 3725
+type(
+  'b list
+)
+ident(
+  int_ref r_tl "kind1/partial_order.ml" 103 3504 3540 "kind1/partial_order.ml" 103 3504 3544
+)
+"kind1/partial_order.ml" 109 3691 3726 "kind1/partial_order.ml" 109 3691 3731
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 109 3691 3701 "kind1/partial_order.ml" 109 3691 3731
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 110 3732 3742 "kind1/partial_order.ml" 110 3732 3756
+type(
+  'b list -> 'b list -> cmp_result -> cmp_result
+)
+ident(
+  int_ref comp_help_func "kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+)
+"kind1/partial_order.ml" 110 3732 3757 "kind1/partial_order.ml" 110 3732 3761
+type(
+  'b list
+)
+ident(
+  int_ref l_tl "kind1/partial_order.ml" 103 3504 3514 "kind1/partial_order.ml" 103 3504 3518
+)
+"kind1/partial_order.ml" 110 3732 3762 "kind1/partial_order.ml" 110 3732 3766
+type(
+  'b list
+)
+ident(
+  int_ref r_tl "kind1/partial_order.ml" 103 3504 3540 "kind1/partial_order.ml" 103 3504 3544
+)
+"kind1/partial_order.ml" 110 3732 3767 "kind1/partial_order.ml" 110 3732 3771
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 110 3732 3742 "kind1/partial_order.ml" 110 3732 3771
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 108 3665 3675 "kind1/partial_order.ml" 110 3732 3771
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 106 3605 3610 "kind1/partial_order.ml" 110 3732 3771
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 111 3772 3775 "kind1/partial_order.ml" 111 3772 3779
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 112 3784 3792 "kind1/partial_order.ml" 112 3784 3796
+type(
+  'b
+)
+ident(
+  int_ref l_hd "kind1/partial_order.ml" 102 3443 3453 "kind1/partial_order.ml" 102 3443 3457
+)
+"kind1/partial_order.ml" 112 3784 3797 "kind1/partial_order.ml" 112 3784 3799
+type(
+  'b -> 'b -> bool
+)
+ident(
+  ext_ref Pervasives.( <= )
+)
+"kind1/partial_order.ml" 112 3784 3800 "kind1/partial_order.ml" 112 3784 3804
+type(
+  'b
+)
+ident(
+  int_ref r_hd "kind1/partial_order.ml" 102 3443 3479 "kind1/partial_order.ml" 102 3443 3483
+)
+"kind1/partial_order.ml" 112 3784 3792 "kind1/partial_order.ml" 112 3784 3804
+type(
+  bool
+)
+"kind1/partial_order.ml" 113 3806 3816 "kind1/partial_order.ml" 113 3806 3830
+type(
+  'b list -> 'b list -> cmp_result -> cmp_result
+)
+ident(
+  int_ref comp_help_func "kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+)
+"kind1/partial_order.ml" 113 3806 3831 "kind1/partial_order.ml" 113 3806 3835
+type(
+  'b list
+)
+ident(
+  int_ref l_tl "kind1/partial_order.ml" 103 3504 3514 "kind1/partial_order.ml" 103 3504 3518
+)
+"kind1/partial_order.ml" 113 3806 3836 "kind1/partial_order.ml" 113 3806 3840
+type(
+  'b list
+)
+ident(
+  int_ref r_tl "kind1/partial_order.ml" 103 3504 3540 "kind1/partial_order.ml" 103 3504 3544
+)
+"kind1/partial_order.ml" 113 3806 3841 "kind1/partial_order.ml" 113 3806 3845
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 113 3806 3816 "kind1/partial_order.ml" 113 3806 3845
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 114 3846 3856 "kind1/partial_order.ml" 114 3846 3863
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 112 3784 3789 "kind1/partial_order.ml" 114 3846 3863
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 115 3865 3868 "kind1/partial_order.ml" 115 3865 3873
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 116 3878 3886 "kind1/partial_order.ml" 116 3878 3890
+type(
+  'b
+)
+ident(
+  int_ref l_hd "kind1/partial_order.ml" 102 3443 3453 "kind1/partial_order.ml" 102 3443 3457
+)
+"kind1/partial_order.ml" 116 3878 3891 "kind1/partial_order.ml" 116 3878 3893
+type(
+  'b -> 'b -> bool
+)
+ident(
+  ext_ref Pervasives.( >= )
+)
+"kind1/partial_order.ml" 116 3878 3894 "kind1/partial_order.ml" 116 3878 3898
+type(
+  'b
+)
+ident(
+  int_ref r_hd "kind1/partial_order.ml" 102 3443 3479 "kind1/partial_order.ml" 102 3443 3483
+)
+"kind1/partial_order.ml" 116 3878 3886 "kind1/partial_order.ml" 116 3878 3898
+type(
+  bool
+)
+"kind1/partial_order.ml" 117 3900 3910 "kind1/partial_order.ml" 117 3900 3924
+type(
+  'b list -> 'b list -> cmp_result -> cmp_result
+)
+ident(
+  int_ref comp_help_func "kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+)
+"kind1/partial_order.ml" 117 3900 3925 "kind1/partial_order.ml" 117 3900 3929
+type(
+  'b list
+)
+ident(
+  int_ref l_tl "kind1/partial_order.ml" 103 3504 3514 "kind1/partial_order.ml" 103 3504 3518
+)
+"kind1/partial_order.ml" 117 3900 3930 "kind1/partial_order.ml" 117 3900 3934
+type(
+  'b list
+)
+ident(
+  int_ref r_tl "kind1/partial_order.ml" 103 3504 3540 "kind1/partial_order.ml" 103 3504 3544
+)
+"kind1/partial_order.ml" 117 3900 3935 "kind1/partial_order.ml" 117 3900 3940
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 117 3900 3910 "kind1/partial_order.ml" 117 3900 3940
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 118 3941 3951 "kind1/partial_order.ml" 118 3941 3958
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 116 3878 3883 "kind1/partial_order.ml" 118 3941 3958
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 119 3960 3963 "kind1/partial_order.ml" 119 3960 3964
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 119 3960 3969 "kind1/partial_order.ml" 119 3960 3977
+type(
+  string -> cmp_result
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/partial_order.ml" 119 3960 3978 "kind1/partial_order.ml" 119 3960 4006
+type(
+  string
+)
+"kind1/partial_order.ml" 119 3960 3969 "kind1/partial_order.ml" 119 3960 4006
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 104 3566 3567 "kind1/partial_order.ml" 119 3960 4006
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 103 3504 3510 "kind1/partial_order.ml" 119 3960 4006
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 102 3443 3449 "kind1/partial_order.ml" 119 3960 4006
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 99 3370 3374 "kind1/partial_order.ml" 119 3960 4006
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 121 4013 4017 "kind1/partial_order.ml" 121 4013 4031
+type(
+  'a list -> 'a list -> cmp_result -> cmp_result
+)
+ident(
+  int_ref comp_help_func "kind1/partial_order.ml" 98 3313 3323 "kind1/partial_order.ml" 98 3313 3337
+)
+"kind1/partial_order.ml" 121 4013 4032 "kind1/partial_order.ml" 121 4013 4038
+type(
+  'a list
+)
+ident(
+  int_ref node_l "kind1/partial_order.ml" 96 3218 3239 "kind1/partial_order.ml" 96 3218 3245
+)
+"kind1/partial_order.ml" 121 4013 4039 "kind1/partial_order.ml" 121 4013 4045
+type(
+  'a list
+)
+ident(
+  int_ref node_r "kind1/partial_order.ml" 96 3218 3246 "kind1/partial_order.ml" 96 3218 3252
+)
+"kind1/partial_order.ml" 121 4013 4046 "kind1/partial_order.ml" 121 4013 4049
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 121 4013 4017 "kind1/partial_order.ml" 121 4013 4049
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 98 3313 3315 "kind1/partial_order.ml" 121 4013 4049
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 97 3256 3258 "kind1/partial_order.ml" 121 4013 4049
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 151 5177 5203 "kind1/partial_order.ml" 151 5177 5212
+type(
+  int list -> int list -> cmp_result
+)
+"kind1/partial_order.ml" 152 5216 5223 "kind1/partial_order.ml" 152 5216 5229
+type(
+  < add_node : int list -> string list -> unit; changed : unit -> bool;
+    doc : unit -> Types.il_formula list;
+    doc_of_stepn_asserts : Types.il_expression list -> Types.il_formula list;
+    eq_imp : unit -> Types.il_formula list * Types.il_formula list;
+    equiv_classes : unit -> string list list;
+    id_to_nv : Int_set.elt -> string;
+    insert_edge : Int_set.elt -> Int_set.elt -> unit; print : unit -> unit;
+    .. >
+)
+"kind1/partial_order.ml" 153 5230 5246 "kind1/partial_order.ml" 153 5230 5261
+type(
+  unit -> int list DynArray.t
+)
+ident(
+  ext_ref DynArray.create
+)
+"kind1/partial_order.ml" 153 5230 5261 "kind1/partial_order.ml" 153 5230 5263
+type(
+  unit
+)
+"kind1/partial_order.ml" 153 5230 5246 "kind1/partial_order.ml" 153 5230 5263
+call(
+  stack
+)
+type(
+  int list DynArray.t
+)
+"kind1/partial_order.ml" 154 5265 5282 "kind1/partial_order.ml" 154 5265 5284
+type(
+  unit
+)
+"kind1/partial_order.ml" 154 5265 5287 "kind1/partial_order.ml" 154 5265 5290
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"kind1/partial_order.ml" 154 5265 5292 "kind1/partial_order.ml" 154 5265 5306
+type(
+  int list DynArray.t -> bool
+)
+ident(
+  ext_ref DynArray.empty
+)
+"kind1/partial_order.ml" 154 5265 5307 "kind1/partial_order.ml" 154 5265 5314
+type(
+  int list DynArray.t
+)
+"kind1/partial_order.ml" 154 5265 5291 "kind1/partial_order.ml" 154 5265 5315
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/partial_order.ml" 154 5265 5287 "kind1/partial_order.ml" 154 5265 5315
+type(
+  bool
+)
+"kind1/partial_order.ml" 155 5316 5337 "kind1/partial_order.ml" 155 5316 5352
+type(
+  unit -> string list DynArray.t
+)
+ident(
+  ext_ref DynArray.create
+)
+"kind1/partial_order.ml" 155 5316 5352 "kind1/partial_order.ml" 155 5316 5354
+type(
+  unit
+)
+"kind1/partial_order.ml" 155 5316 5337 "kind1/partial_order.ml" 155 5316 5354
+call(
+  stack
+)
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 156 5355 5381 "kind1/partial_order.ml" 156 5355 5382
+type(
+  Int_set.elt
+)
+ident(
+  def i "kind1/partial_order.ml" 157 5386 5390 "kind1/partial_order.ml" 157 5386 5412
+)
+"kind1/partial_order.ml" 157 5386 5390 "kind1/partial_order.ml" 157 5386 5402
+type(
+  int list DynArray.t -> Int_set.elt -> int list
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 157 5386 5403 "kind1/partial_order.ml" 157 5386 5410
+type(
+  int list DynArray.t
+)
+"kind1/partial_order.ml" 157 5386 5411 "kind1/partial_order.ml" 157 5386 5412
+type(
+  Int_set.elt
+)
+ident(
+  int_ref i "kind1/partial_order.ml" 156 5355 5381 "kind1/partial_order.ml" 156 5355 5382
+)
+"kind1/partial_order.ml" 157 5386 5390 "kind1/partial_order.ml" 157 5386 5412
+call(
+  tail
+)
+type(
+  int list
+)
+"kind1/partial_order.ml" 158 5414 5442 "kind1/partial_order.ml" 158 5414 5446
+type(
+  int -> int list -> unit
+)
+ident(
+  def func "kind1/partial_order.ml" 159 5451 5455 "kind1/partial_order.ml" 159 5451 5482
+)
+"kind1/partial_order.ml" 159 5451 5455 "kind1/partial_order.ml" 159 5451 5469
+type(
+  (int -> int list -> unit) -> int list DynArray.t -> unit
+)
+ident(
+  ext_ref DynArray.iteri
+)
+"kind1/partial_order.ml" 159 5451 5470 "kind1/partial_order.ml" 159 5451 5474
+type(
+  int -> int list -> unit
+)
+ident(
+  int_ref func "kind1/partial_order.ml" 158 5414 5442 "kind1/partial_order.ml" 158 5414 5446
+)
+"kind1/partial_order.ml" 159 5451 5475 "kind1/partial_order.ml" 159 5451 5482
+type(
+  int list DynArray.t
+)
+"kind1/partial_order.ml" 159 5451 5455 "kind1/partial_order.ml" 159 5451 5482
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 160 5483 5500 "kind1/partial_order.ml" 160 5483 5515
+type(
+  unit -> Int_set.elt DynArray.t DynArray.t
+)
+ident(
+  ext_ref DynArray.create
+)
+"kind1/partial_order.ml" 160 5483 5515 "kind1/partial_order.ml" 160 5483 5517
+type(
+  unit
+)
+"kind1/partial_order.ml" 160 5483 5500 "kind1/partial_order.ml" 160 5483 5517
+call(
+  stack
+)
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 161 5518 5545 "kind1/partial_order.ml" 161 5518 5546
+type(
+  int
+)
+ident(
+  def i "kind1/partial_order.ml" 162 5550 5554 "kind1/partial_order.ml" 162 5550 5577
+)
+"kind1/partial_order.ml" 162 5550 5554 "kind1/partial_order.ml" 162 5550 5566
+type(
+  Int_set.elt DynArray.t DynArray.t -> int -> Int_set.elt DynArray.t
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 162 5550 5567 "kind1/partial_order.ml" 162 5550 5575
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 162 5550 5576 "kind1/partial_order.ml" 162 5550 5577
+type(
+  int
+)
+ident(
+  int_ref i "kind1/partial_order.ml" 161 5518 5545 "kind1/partial_order.ml" 161 5518 5546
+)
+"kind1/partial_order.ml" 162 5550 5554 "kind1/partial_order.ml" 162 5550 5577
+call(
+  tail
+)
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 163 5579 5608 "kind1/partial_order.ml" 163 5579 5612
+type(
+  int -> Int_set.elt DynArray.t -> unit
+)
+ident(
+  def func "kind1/partial_order.ml" 164 5615 5619 "kind1/partial_order.ml" 164 5615 5648
+)
+"kind1/partial_order.ml" 164 5615 5619 "kind1/partial_order.ml" 164 5615 5633
+type(
+  (int -> Int_set.elt DynArray.t -> unit) ->
+  Int_set.elt DynArray.t DynArray.t -> unit
+)
+ident(
+  ext_ref DynArray.iteri
+)
+"kind1/partial_order.ml" 164 5615 5635 "kind1/partial_order.ml" 164 5615 5639
+type(
+  int -> Int_set.elt DynArray.t -> unit
+)
+ident(
+  int_ref func "kind1/partial_order.ml" 163 5579 5608 "kind1/partial_order.ml" 163 5579 5612
+)
+"kind1/partial_order.ml" 164 5615 5640 "kind1/partial_order.ml" 164 5615 5648
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 164 5615 5619 "kind1/partial_order.ml" 164 5615 5648
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 165 5649 5678 "kind1/partial_order.ml" 165 5649 5683
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  def chain "kind1/partial_order.ml" 166 5686 5692 "kind1/partial_order.ml" 168 5768 5774
+)
+"kind1/partial_order.ml" 166 5686 5692 "kind1/partial_order.ml" 166 5686 5705
+type(
+  (Int_set.elt -> unit) -> Int_set.elt DynArray.t -> unit
+)
+ident(
+  ext_ref DynArray.iter
+)
+"kind1/partial_order.ml" 166 5686 5711 "kind1/partial_order.ml" 166 5686 5712
+type(
+  Int_set.elt
+)
+ident(
+  def x "kind1/partial_order.ml" 167 5717 5718 "kind1/partial_order.ml" 167 5717 5766
+)
+"kind1/partial_order.ml" 167 5717 5718 "kind1/partial_order.ml" 167 5717 5722
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 167 5717 5723 "kind1/partial_order.ml" 167 5717 5726
+type(
+  string
+)
+"kind1/partial_order.ml" 167 5717 5718 "kind1/partial_order.ml" 167 5717 5726
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 167 5717 5728 "kind1/partial_order.ml" 167 5717 5738
+type(
+  int list -> unit
+)
+ident(
+  ext_ref Util.p_int_list
+)
+"kind1/partial_order.ml" 167 5717 5740 "kind1/partial_order.ml" 167 5717 5744
+type(
+  < add_node : int list -> string list -> unit; changed : unit -> bool;
+    doc : unit -> Types.il_formula list;
+    doc_of_stepn_asserts : Types.il_expression list -> Types.il_formula list;
+    eq_imp : unit -> Types.il_formula list * Types.il_formula list;
+    equiv_classes : unit -> string list list;
+    id_to_nv : Int_set.elt -> string;
+    insert_edge : Int_set.elt -> Int_set.elt -> unit; print : unit -> unit;
+    .. >
+  as 'a
+)
+"kind1/partial_order.ml" 167 5717 5740 "kind1/partial_order.ml" 167 5717 5753
+call(
+  stack
+)
+type(
+  Int_set.elt -> int list
+)
+"kind1/partial_order.ml" 167 5717 5754 "kind1/partial_order.ml" 167 5717 5755
+type(
+  Int_set.elt
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 166 5686 5711 "kind1/partial_order.ml" 166 5686 5712
+)
+"kind1/partial_order.ml" 167 5717 5739 "kind1/partial_order.ml" 167 5717 5756
+type(
+  int list
+)
+"kind1/partial_order.ml" 167 5717 5728 "kind1/partial_order.ml" 167 5717 5756
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 167 5717 5758 "kind1/partial_order.ml" 167 5717 5762
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 167 5717 5763 "kind1/partial_order.ml" 167 5717 5766
+type(
+  string
+)
+"kind1/partial_order.ml" 167 5717 5758 "kind1/partial_order.ml" 167 5717 5766
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 167 5717 5728 "kind1/partial_order.ml" 167 5717 5766
+type(
+  unit
+)
+"kind1/partial_order.ml" 167 5717 5718 "kind1/partial_order.ml" 167 5717 5766
+type(
+  unit
+)
+"kind1/partial_order.ml" 166 5686 5706 "kind1/partial_order.ml" 167 5717 5767
+type(
+  Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 168 5768 5769 "kind1/partial_order.ml" 168 5768 5774
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 165 5649 5678 "kind1/partial_order.ml" 165 5649 5683
+)
+"kind1/partial_order.ml" 166 5686 5692 "kind1/partial_order.ml" 168 5768 5774
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 169 5775 5807 "kind1/partial_order.ml" 169 5775 5815
+type(
+  int
+)
+ident(
+  def chain_id "kind1/partial_order.ml" 170 5818 5822 "kind1/partial_order.ml" 171 5861 5889
+)
+"kind1/partial_order.ml" 170 5818 5826 "kind1/partial_order.ml" 170 5818 5831
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  def chain "kind1/partial_order.ml" 171 5861 5867 "kind1/partial_order.ml" 171 5861 5889
+)
+"kind1/partial_order.ml" 170 5818 5834 "kind1/partial_order.ml" 170 5818 5838
+type(
+  'a
+)
+"kind1/partial_order.ml" 170 5818 5834 "kind1/partial_order.ml" 170 5818 5848
+call(
+  stack
+)
+type(
+  int -> Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 170 5818 5849 "kind1/partial_order.ml" 170 5818 5857
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 169 5775 5807 "kind1/partial_order.ml" 169 5775 5815
+)
+"kind1/partial_order.ml" 170 5818 5834 "kind1/partial_order.ml" 170 5818 5857
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 171 5861 5867 "kind1/partial_order.ml" 171 5861 5871
+type(
+  'a
+)
+"kind1/partial_order.ml" 171 5861 5867 "kind1/partial_order.ml" 171 5861 5883
+call(
+  tail
+)
+type(
+  Int_set.elt DynArray.t -> unit
+)
+"kind1/partial_order.ml" 171 5861 5884 "kind1/partial_order.ml" 171 5861 5889
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 170 5818 5826 "kind1/partial_order.ml" 170 5818 5831
+)
+"kind1/partial_order.ml" 171 5861 5867 "kind1/partial_order.ml" 171 5861 5889
+type(
+  unit
+)
+"kind1/partial_order.ml" 170 5818 5822 "kind1/partial_order.ml" 171 5861 5889
+type(
+  unit
+)
+"kind1/partial_order.ml" 172 5890 5924 "kind1/partial_order.ml" 172 5890 5932
+type(
+  int
+)
+ident(
+  def chain_id "kind1/partial_order.ml" 172 5890 5933 "kind1/partial_order.ml" 173 5947 6004
+)
+"kind1/partial_order.ml" 172 5890 5933 "kind1/partial_order.ml" 172 5890 5936
+type(
+  int
+)
+ident(
+  def loc "kind1/partial_order.ml" 172 5890 5937 "kind1/partial_order.ml" 173 5947 6004
+)
+"kind1/partial_order.ml" 172 5890 5937 "kind1/partial_order.ml" 172 5890 5944
+type(
+  Int_set.elt
+)
+ident(
+  def node_id "kind1/partial_order.ml" 173 5947 5951 "kind1/partial_order.ml" 173 5947 6004
+)
+"kind1/partial_order.ml" 173 5947 5951 "kind1/partial_order.ml" 173 5947 5966
+type(
+  Int_set.elt DynArray.t -> int -> Int_set.elt -> unit
+)
+ident(
+  ext_ref DynArray.insert
+)
+"kind1/partial_order.ml" 173 5947 5968 "kind1/partial_order.ml" 173 5947 5972
+type(
+  'a
+)
+"kind1/partial_order.ml" 173 5947 5968 "kind1/partial_order.ml" 173 5947 5982
+call(
+  stack
+)
+type(
+  int -> Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 173 5947 5983 "kind1/partial_order.ml" 173 5947 5991
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 172 5890 5924 "kind1/partial_order.ml" 172 5890 5932
+)
+"kind1/partial_order.ml" 173 5947 5967 "kind1/partial_order.ml" 173 5947 5992
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 173 5947 5993 "kind1/partial_order.ml" 173 5947 5996
+type(
+  int
+)
+ident(
+  int_ref loc "kind1/partial_order.ml" 172 5890 5933 "kind1/partial_order.ml" 172 5890 5936
+)
+"kind1/partial_order.ml" 173 5947 5997 "kind1/partial_order.ml" 173 5947 6004
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 172 5890 5937 "kind1/partial_order.ml" 172 5890 5944
+)
+"kind1/partial_order.ml" 173 5947 5951 "kind1/partial_order.ml" 173 5947 6004
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 174 6006 6020 "kind1/partial_order.ml" 174 6006 6035
+type(
+  unit -> Int_set.t DynArray.t
+)
+ident(
+  ext_ref DynArray.create
+)
+"kind1/partial_order.ml" 174 6006 6035 "kind1/partial_order.ml" 174 6006 6037
+type(
+  unit
+)
+"kind1/partial_order.ml" 174 6006 6020 "kind1/partial_order.ml" 174 6006 6037
+call(
+  stack
+)
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 175 6038 6053 "kind1/partial_order.ml" 175 6038 6068
+type(
+  unit -> Int_set.t DynArray.t
+)
+ident(
+  ext_ref DynArray.create
+)
+"kind1/partial_order.ml" 175 6038 6068 "kind1/partial_order.ml" 175 6038 6070
+type(
+  unit
+)
+"kind1/partial_order.ml" 175 6038 6053 "kind1/partial_order.ml" 175 6038 6070
+call(
+  stack
+)
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 176 6071 6089 "kind1/partial_order.ml" 176 6071 6091
+type(
+  Int_set.elt
+)
+ident(
+  def id "kind1/partial_order.ml" 177 6095 6099 "kind1/partial_order.ml" 177 6095 6137
+)
+"kind1/partial_order.ml" 177 6095 6099 "kind1/partial_order.ml" 177 6095 6106
+type(
+  string list -> string
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/partial_order.ml" 177 6095 6108 "kind1/partial_order.ml" 177 6095 6120
+type(
+  string list DynArray.t -> Int_set.elt -> string list
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 177 6095 6121 "kind1/partial_order.ml" 177 6095 6133
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 177 6095 6134 "kind1/partial_order.ml" 177 6095 6136
+type(
+  Int_set.elt
+)
+ident(
+  int_ref id "kind1/partial_order.ml" 176 6071 6089 "kind1/partial_order.ml" 176 6071 6091
+)
+"kind1/partial_order.ml" 177 6095 6107 "kind1/partial_order.ml" 177 6095 6137
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 177 6095 6099 "kind1/partial_order.ml" 177 6095 6137
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/partial_order.ml" 178 6139 6169 "kind1/partial_order.ml" 178 6139 6178
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/partial_order.ml" 179 6184 6188 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 179 6184 6192 "kind1/partial_order.ml" 179 6184 6205
+type(
+  Int_set.elt -> string
+)
+ident(
+  def id_to_nvr_def "kind1/partial_order.ml" 181 6249 6253 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 179 6184 6206 "kind1/partial_order.ml" 179 6184 6208
+type(
+  Int_set.elt
+)
+ident(
+  def id "kind1/partial_order.ml" 180 6212 6218 "kind1/partial_order.ml" 180 6212 6244
+)
+"kind1/partial_order.ml" 180 6212 6218 "kind1/partial_order.ml" 180 6212 6225
+type(
+  string -> string
+)
+ident(
+  int_ref nvr_def "kind1/partial_order.ml" 50 2018 2022 "kind1/partial_order.ml" 50 2018 2029
+)
+"kind1/partial_order.ml" 180 6212 6227 "kind1/partial_order.ml" 180 6212 6231
+type(
+  'a
+)
+"kind1/partial_order.ml" 180 6212 6227 "kind1/partial_order.ml" 180 6212 6240
+call(
+  stack
+)
+type(
+  Int_set.elt -> string
+)
+"kind1/partial_order.ml" 180 6212 6241 "kind1/partial_order.ml" 180 6212 6243
+type(
+  Int_set.elt
+)
+ident(
+  int_ref id "kind1/partial_order.ml" 179 6184 6206 "kind1/partial_order.ml" 179 6184 6208
+)
+"kind1/partial_order.ml" 180 6212 6226 "kind1/partial_order.ml" 180 6212 6244
+type(
+  string
+)
+"kind1/partial_order.ml" 180 6212 6218 "kind1/partial_order.ml" 180 6212 6244
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/partial_order.ml" 181 6249 6257 "kind1/partial_order.ml" 181 6249 6276
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  def map_node_extra_func "kind1/partial_order.ml" 185 6413 6417 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 181 6249 6277 "kind1/partial_order.ml" 181 6249 6287
+type(
+  string list
+)
+ident(
+  def node_extra "kind1/partial_order.ml" 182 6292 6298 "kind1/partial_order.ml" 183 6360 6403
+)
+"kind1/partial_order.ml" 182 6292 6302 "kind1/partial_order.ml" 182 6292 6313
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/partial_order.ml" 183 6360 6361 "kind1/partial_order.ml" 183 6360 6403
+)
+"kind1/partial_order.ml" 182 6292 6316 "kind1/partial_order.ml" 182 6292 6324
+type(
+  (string -> string) -> string list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 182 6292 6330 "kind1/partial_order.ml" 182 6292 6331
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 182 6292 6335 "kind1/partial_order.ml" 182 6292 6344
+)
+"kind1/partial_order.ml" 182 6292 6335 "kind1/partial_order.ml" 182 6292 6342
+type(
+  string -> string
+)
+ident(
+  int_ref nvr_def "kind1/partial_order.ml" 50 2018 2022 "kind1/partial_order.ml" 50 2018 2029
+)
+"kind1/partial_order.ml" 182 6292 6343 "kind1/partial_order.ml" 182 6292 6344
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 182 6292 6330 "kind1/partial_order.ml" 182 6292 6331
+)
+"kind1/partial_order.ml" 182 6292 6335 "kind1/partial_order.ml" 182 6292 6344
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/partial_order.ml" 182 6292 6325 "kind1/partial_order.ml" 182 6292 6345
+type(
+  string -> string
+)
+"kind1/partial_order.ml" 182 6292 6346 "kind1/partial_order.ml" 182 6292 6356
+type(
+  string list
+)
+ident(
+  int_ref node_extra "kind1/partial_order.ml" 181 6249 6277 "kind1/partial_order.ml" 181 6249 6287
+)
+"kind1/partial_order.ml" 182 6292 6316 "kind1/partial_order.ml" 182 6292 6356
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 183 6360 6362 "kind1/partial_order.ml" 183 6360 6380
+type(
+  string list -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  int_ref mk_eq_pos_oneclass "kind1/partial_order.ml" 57 2236 2240 "kind1/partial_order.ml" 57 2236 2258
+)
+"kind1/partial_order.ml" 183 6360 6381 "kind1/partial_order.ml" 183 6360 6392
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/partial_order.ml" 182 6292 6302 "kind1/partial_order.ml" 182 6292 6313
+)
+"kind1/partial_order.ml" 183 6360 6393 "kind1/partial_order.ml" 183 6360 6402
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 178 6139 6169 "kind1/partial_order.ml" 178 6139 6178
+)
+"kind1/partial_order.ml" 183 6360 6361 "kind1/partial_order.ml" 183 6360 6403
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 182 6292 6298 "kind1/partial_order.ml" 183 6360 6403
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 185 6413 6421 "kind1/partial_order.ml" 185 6413 6427
+type(
+  Types.il_formula list
+)
+ident(
+  def eq_ops "kind1/partial_order.ml" 187 6498 6502 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 185 6413 6430 "kind1/partial_order.ml" 185 6413 6441
+type(
+  Types.il_formula list DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref flatten_arr "kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+)
+"kind1/partial_order.ml" 185 6413 6443 "kind1/partial_order.ml" 185 6413 6455
+type(
+  (string list -> Types.il_formula list) ->
+  string list DynArray.t -> Types.il_formula list DynArray.t
+)
+ident(
+  ext_ref DynArray.map
+)
+"kind1/partial_order.ml" 185 6413 6456 "kind1/partial_order.ml" 185 6413 6475
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref map_node_extra_func "kind1/partial_order.ml" 181 6249 6257 "kind1/partial_order.ml" 181 6249 6276
+)
+"kind1/partial_order.ml" 185 6413 6476 "kind1/partial_order.ml" 185 6413 6488
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 185 6413 6442 "kind1/partial_order.ml" 185 6413 6490
+call(
+  stack
+)
+type(
+  Types.il_formula list DynArray.t
+)
+"kind1/partial_order.ml" 185 6413 6430 "kind1/partial_order.ml" 185 6413 6490
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 187 6498 6506 "kind1/partial_order.ml" 187 6498 6520
+type(
+  Int_set.elt DynArray.t -> Types.il_formula list
+)
+ident(
+  def map_chain_func "kind1/partial_order.ml" 191 6644 6648 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 187 6498 6521 "kind1/partial_order.ml" 187 6498 6526
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  def chain "kind1/partial_order.ml" 188 6530 6536 "kind1/partial_order.ml" 189 6599 6636
+)
+"kind1/partial_order.ml" 188 6530 6540 "kind1/partial_order.ml" 188 6530 6545
+type(
+  string list
+)
+ident(
+  def items "kind1/partial_order.ml" 189 6599 6600 "kind1/partial_order.ml" 189 6599 6636
+)
+"kind1/partial_order.ml" 188 6530 6548 "kind1/partial_order.ml" 188 6530 6556
+type(
+  (Int_set.elt -> string) -> Int_set.elt list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 188 6530 6557 "kind1/partial_order.ml" 188 6530 6570
+type(
+  Int_set.elt -> string
+)
+ident(
+  int_ref id_to_nvr_def "kind1/partial_order.ml" 179 6184 6192 "kind1/partial_order.ml" 179 6184 6205
+)
+"kind1/partial_order.ml" 188 6530 6572 "kind1/partial_order.ml" 188 6530 6588
+type(
+  Int_set.elt DynArray.t -> Int_set.elt list
+)
+ident(
+  ext_ref DynArray.to_list
+)
+"kind1/partial_order.ml" 188 6530 6589 "kind1/partial_order.ml" 188 6530 6594
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 187 6498 6521 "kind1/partial_order.ml" 187 6498 6526
+)
+"kind1/partial_order.ml" 188 6530 6571 "kind1/partial_order.ml" 188 6530 6595
+call(
+  stack
+)
+type(
+  Int_set.elt list
+)
+"kind1/partial_order.ml" 188 6530 6548 "kind1/partial_order.ml" 188 6530 6595
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 189 6599 6600 "kind1/partial_order.ml" 189 6599 6620
+type(
+  string list -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  int_ref mk_less_pos_onechain "kind1/partial_order.ml" 69 2580 2584 "kind1/partial_order.ml" 69 2580 2604
+)
+"kind1/partial_order.ml" 189 6599 6621 "kind1/partial_order.ml" 189 6599 6626
+type(
+  string list
+)
+ident(
+  int_ref items "kind1/partial_order.ml" 188 6530 6540 "kind1/partial_order.ml" 188 6530 6545
+)
+"kind1/partial_order.ml" 189 6599 6627 "kind1/partial_order.ml" 189 6599 6636
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 178 6139 6169 "kind1/partial_order.ml" 178 6139 6178
+)
+"kind1/partial_order.ml" 189 6599 6600 "kind1/partial_order.ml" 189 6599 6636
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 188 6530 6536 "kind1/partial_order.ml" 189 6599 6636
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 191 6644 6652 "kind1/partial_order.ml" 191 6644 6666
+type(
+  Types.il_formula list
+)
+ident(
+  def less_chain_ops "kind1/partial_order.ml" 193 6728 6732 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 191 6644 6669 "kind1/partial_order.ml" 191 6644 6680
+type(
+  Types.il_formula list DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref flatten_arr "kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+)
+"kind1/partial_order.ml" 191 6644 6682 "kind1/partial_order.ml" 191 6644 6694
+type(
+  (Int_set.elt DynArray.t -> Types.il_formula list) ->
+  Int_set.elt DynArray.t DynArray.t -> Types.il_formula list DynArray.t
+)
+ident(
+  ext_ref DynArray.map
+)
+"kind1/partial_order.ml" 191 6644 6695 "kind1/partial_order.ml" 191 6644 6709
+type(
+  Int_set.elt DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref map_chain_func "kind1/partial_order.ml" 187 6498 6506 "kind1/partial_order.ml" 187 6498 6520
+)
+"kind1/partial_order.ml" 191 6644 6710 "kind1/partial_order.ml" 191 6644 6718
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 191 6644 6681 "kind1/partial_order.ml" 191 6644 6719
+call(
+  stack
+)
+type(
+  Types.il_formula list DynArray.t
+)
+"kind1/partial_order.ml" 191 6644 6669 "kind1/partial_order.ml" 191 6644 6719
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 193 6728 6736 "kind1/partial_order.ml" 193 6728 6749
+type(
+  Int_set.elt -> Int_set.t -> Types.il_formula list
+)
+ident(
+  def map_outs_func "kind1/partial_order.ml" 199 6978 6982 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 193 6728 6750 "kind1/partial_order.ml" 193 6728 6752
+type(
+  Int_set.elt
+)
+ident(
+  def id "kind1/partial_order.ml" 193 6728 6753 "kind1/partial_order.ml" 197 6890 6970
+)
+"kind1/partial_order.ml" 193 6728 6753 "kind1/partial_order.ml" 193 6728 6757
+type(
+  Int_set.t
+)
+ident(
+  def outs "kind1/partial_order.ml" 194 6760 6766 "kind1/partial_order.ml" 197 6890 6970
+)
+"kind1/partial_order.ml" 194 6760 6770 "kind1/partial_order.ml" 194 6760 6778
+type(
+  string list
+)
+ident(
+  def out_list "kind1/partial_order.ml" 195 6831 6837 "kind1/partial_order.ml" 197 6890 6970
+)
+"kind1/partial_order.ml" 194 6760 6781 "kind1/partial_order.ml" 194 6760 6789
+type(
+  (Int_set.elt -> string) -> Int_set.elt list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 194 6760 6790 "kind1/partial_order.ml" 194 6760 6803
+type(
+  Int_set.elt -> string
+)
+ident(
+  int_ref id_to_nvr_def "kind1/partial_order.ml" 179 6184 6192 "kind1/partial_order.ml" 179 6184 6205
+)
+"kind1/partial_order.ml" 194 6760 6805 "kind1/partial_order.ml" 194 6760 6821
+type(
+  Int_set.t -> Int_set.elt list
+)
+ident(
+  ext_ref Int_set.elements
+)
+"kind1/partial_order.ml" 194 6760 6822 "kind1/partial_order.ml" 194 6760 6826
+type(
+  Int_set.t
+)
+ident(
+  int_ref outs "kind1/partial_order.ml" 193 6728 6753 "kind1/partial_order.ml" 193 6728 6757
+)
+"kind1/partial_order.ml" 194 6760 6804 "kind1/partial_order.ml" 194 6760 6827
+call(
+  stack
+)
+type(
+  Int_set.elt list
+)
+"kind1/partial_order.ml" 194 6760 6781 "kind1/partial_order.ml" 194 6760 6827
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 195 6831 6841 "kind1/partial_order.ml" 195 6831 6851
+type(
+  string
+)
+ident(
+  def id_nvr_def "kind1/partial_order.ml" 196 6874 6875 "kind1/partial_order.ml" 197 6890 6970
+)
+"kind1/partial_order.ml" 195 6831 6854 "kind1/partial_order.ml" 195 6831 6867
+type(
+  Int_set.elt -> string
+)
+ident(
+  int_ref id_to_nvr_def "kind1/partial_order.ml" 179 6184 6192 "kind1/partial_order.ml" 179 6184 6205
+)
+"kind1/partial_order.ml" 195 6831 6868 "kind1/partial_order.ml" 195 6831 6870
+type(
+  Int_set.elt
+)
+ident(
+  int_ref id "kind1/partial_order.ml" 193 6728 6750 "kind1/partial_order.ml" 193 6728 6752
+)
+"kind1/partial_order.ml" 195 6831 6854 "kind1/partial_order.ml" 195 6831 6870
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/partial_order.ml" 196 6874 6875 "kind1/partial_order.ml" 196 6874 6887
+type(
+  Types.il_formula list list -> Types.il_formula list
+)
+ident(
+  ext_ref List.flatten
+)
+"kind1/partial_order.ml" 197 6890 6899 "kind1/partial_order.ml" 197 6890 6907
+type(
+  (string -> Types.il_formula list) ->
+  string list -> Types.il_formula list list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 197 6890 6913 "kind1/partial_order.ml" 197 6890 6914
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 197 6890 6918 "kind1/partial_order.ml" 197 6890 6958
+)
+"kind1/partial_order.ml" 197 6890 6918 "kind1/partial_order.ml" 197 6890 6935
+type(
+  string -> string -> Types.il_expression list -> Types.il_formula list
+)
+ident(
+  int_ref mk_less_positions "kind1/partial_order.ml" 66 2486 2490 "kind1/partial_order.ml" 66 2486 2507
+)
+"kind1/partial_order.ml" 197 6890 6936 "kind1/partial_order.ml" 197 6890 6946
+type(
+  string
+)
+ident(
+  int_ref id_nvr_def "kind1/partial_order.ml" 195 6831 6841 "kind1/partial_order.ml" 195 6831 6851
+)
+"kind1/partial_order.ml" 197 6890 6947 "kind1/partial_order.ml" 197 6890 6948
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 197 6890 6913 "kind1/partial_order.ml" 197 6890 6914
+)
+"kind1/partial_order.ml" 197 6890 6949 "kind1/partial_order.ml" 197 6890 6958
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 178 6139 6169 "kind1/partial_order.ml" 178 6139 6178
+)
+"kind1/partial_order.ml" 197 6890 6918 "kind1/partial_order.ml" 197 6890 6958
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 197 6890 6908 "kind1/partial_order.ml" 197 6890 6959
+type(
+  string -> Types.il_formula list
+)
+"kind1/partial_order.ml" 197 6890 6960 "kind1/partial_order.ml" 197 6890 6968
+type(
+  string list
+)
+ident(
+  int_ref out_list "kind1/partial_order.ml" 194 6760 6770 "kind1/partial_order.ml" 194 6760 6778
+)
+"kind1/partial_order.ml" 196 6874 6888 "kind1/partial_order.ml" 197 6890 6970
+call(
+  stack
+)
+type(
+  Types.il_formula list list
+)
+"kind1/partial_order.ml" 196 6874 6875 "kind1/partial_order.ml" 197 6890 6970
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 195 6831 6837 "kind1/partial_order.ml" 197 6890 6970
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 194 6760 6766 "kind1/partial_order.ml" 197 6890 6970
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 199 6978 6986 "kind1/partial_order.ml" 199 6978 6998
+type(
+  Types.il_formula list
+)
+ident(
+  def less_out_ops "kind1/partial_order.ml" 201 7060 7066 "kind1/partial_order.ml" 201 7060 7102
+)
+"kind1/partial_order.ml" 199 6978 7002 "kind1/partial_order.ml" 199 6978 7013
+type(
+  Types.il_formula list DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref flatten_arr "kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+)
+"kind1/partial_order.ml" 199 6978 7015 "kind1/partial_order.ml" 199 6978 7028
+type(
+  (Int_set.elt -> Int_set.t -> Types.il_formula list) ->
+  Int_set.t DynArray.t -> Types.il_formula list DynArray.t
+)
+ident(
+  ext_ref DynArray.mapi
+)
+"kind1/partial_order.ml" 199 6978 7029 "kind1/partial_order.ml" 199 6978 7042
+type(
+  Int_set.elt -> Int_set.t -> Types.il_formula list
+)
+ident(
+  int_ref map_outs_func "kind1/partial_order.ml" 193 6728 6736 "kind1/partial_order.ml" 193 6728 6749
+)
+"kind1/partial_order.ml" 199 6978 7043 "kind1/partial_order.ml" 199 6978 7049
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 199 6978 7014 "kind1/partial_order.ml" 199 6978 7050
+call(
+  stack
+)
+type(
+  Types.il_formula list DynArray.t
+)
+"kind1/partial_order.ml" 199 6978 7002 "kind1/partial_order.ml" 199 6978 7050
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 201 7060 7067 "kind1/partial_order.ml" 201 7060 7073
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref eq_ops "kind1/partial_order.ml" 185 6413 6421 "kind1/partial_order.ml" 185 6413 6427
+)
+"kind1/partial_order.ml" 201 7060 7073 "kind1/partial_order.ml" 201 7060 7074
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/partial_order.ml" 201 7060 7074 "kind1/partial_order.ml" 201 7060 7086
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref less_out_ops "kind1/partial_order.ml" 199 6978 6986 "kind1/partial_order.ml" 199 6978 6998
+)
+"kind1/partial_order.ml" 201 7060 7066 "kind1/partial_order.ml" 201 7060 7087
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 201 7060 7087 "kind1/partial_order.ml" 201 7060 7088
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/partial_order.ml" 201 7060 7088 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref less_chain_ops "kind1/partial_order.ml" 191 6644 6652 "kind1/partial_order.ml" 191 6644 6666
+)
+"kind1/partial_order.ml" 201 7060 7066 "kind1/partial_order.ml" 201 7060 7102
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 199 6978 6982 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 193 6728 6732 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 191 6644 6648 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 187 6498 6502 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 185 6413 6417 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 181 6249 6253 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 179 6184 6188 "kind1/partial_order.ml" 201 7060 7102
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 202 7111 7132 "kind1/partial_order.ml" 202 7111 7133
+type(
+  Int_set.elt
+)
+ident(
+  def l "kind1/partial_order.ml" 202 7111 7134 "kind1/partial_order.ml" 207 7368 7403
+)
+"kind1/partial_order.ml" 202 7111 7134 "kind1/partial_order.ml" 202 7111 7135
+type(
+  Int_set.elt
+)
+ident(
+  def r "kind1/partial_order.ml" 204 7209 7213 "kind1/partial_order.ml" 207 7368 7403
+)
+"kind1/partial_order.ml" 204 7209 7217 "kind1/partial_order.ml" 204 7209 7225
+type(
+  Int_set.t
+)
+ident(
+  def new_outs "kind1/partial_order.ml" 205 7270 7276 "kind1/partial_order.ml" 207 7368 7403
+)
+"kind1/partial_order.ml" 204 7209 7228 "kind1/partial_order.ml" 204 7209 7239
+type(
+  Int_set.elt -> Int_set.t -> Int_set.t
+)
+ident(
+  ext_ref Int_set.add
+)
+"kind1/partial_order.ml" 204 7209 7240 "kind1/partial_order.ml" 204 7209 7241
+type(
+  Int_set.elt
+)
+ident(
+  int_ref r "kind1/partial_order.ml" 202 7111 7134 "kind1/partial_order.ml" 202 7111 7135
+)
+"kind1/partial_order.ml" 204 7209 7243 "kind1/partial_order.ml" 204 7209 7255
+type(
+  Int_set.t DynArray.t -> Int_set.elt -> Int_set.t
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 204 7209 7256 "kind1/partial_order.ml" 204 7209 7262
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 204 7209 7263 "kind1/partial_order.ml" 204 7209 7264
+type(
+  Int_set.elt
+)
+ident(
+  int_ref l "kind1/partial_order.ml" 202 7111 7132 "kind1/partial_order.ml" 202 7111 7133
+)
+"kind1/partial_order.ml" 204 7209 7242 "kind1/partial_order.ml" 204 7209 7266
+call(
+  stack
+)
+type(
+  Int_set.t
+)
+"kind1/partial_order.ml" 204 7209 7228 "kind1/partial_order.ml" 204 7209 7266
+call(
+  stack
+)
+type(
+  Int_set.t
+)
+"kind1/partial_order.ml" 205 7270 7276 "kind1/partial_order.ml" 205 7270 7288
+type(
+  Int_set.t DynArray.t -> Int_set.elt -> Int_set.t -> unit
+)
+ident(
+  ext_ref DynArray.set
+)
+"kind1/partial_order.ml" 205 7270 7289 "kind1/partial_order.ml" 205 7270 7295
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 205 7270 7296 "kind1/partial_order.ml" 205 7270 7297
+type(
+  Int_set.elt
+)
+ident(
+  int_ref l "kind1/partial_order.ml" 202 7111 7132 "kind1/partial_order.ml" 202 7111 7133
+)
+"kind1/partial_order.ml" 205 7270 7298 "kind1/partial_order.ml" 205 7270 7306
+type(
+  Int_set.t
+)
+ident(
+  int_ref new_outs "kind1/partial_order.ml" 204 7209 7217 "kind1/partial_order.ml" 204 7209 7225
+)
+"kind1/partial_order.ml" 205 7270 7276 "kind1/partial_order.ml" 205 7270 7306
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 206 7309 7317 "kind1/partial_order.ml" 206 7309 7324
+type(
+  Int_set.t
+)
+ident(
+  def new_ins "kind1/partial_order.ml" 207 7368 7374 "kind1/partial_order.ml" 207 7368 7403
+)
+"kind1/partial_order.ml" 206 7309 7327 "kind1/partial_order.ml" 206 7309 7338
+type(
+  Int_set.elt -> Int_set.t -> Int_set.t
+)
+ident(
+  ext_ref Int_set.add
+)
+"kind1/partial_order.ml" 206 7309 7339 "kind1/partial_order.ml" 206 7309 7340
+type(
+  Int_set.elt
+)
+ident(
+  int_ref l "kind1/partial_order.ml" 202 7111 7132 "kind1/partial_order.ml" 202 7111 7133
+)
+"kind1/partial_order.ml" 206 7309 7342 "kind1/partial_order.ml" 206 7309 7354
+type(
+  Int_set.t DynArray.t -> Int_set.elt -> Int_set.t
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 206 7309 7355 "kind1/partial_order.ml" 206 7309 7360
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 206 7309 7361 "kind1/partial_order.ml" 206 7309 7362
+type(
+  Int_set.elt
+)
+ident(
+  int_ref r "kind1/partial_order.ml" 202 7111 7134 "kind1/partial_order.ml" 202 7111 7135
+)
+"kind1/partial_order.ml" 206 7309 7341 "kind1/partial_order.ml" 206 7309 7364
+call(
+  stack
+)
+type(
+  Int_set.t
+)
+"kind1/partial_order.ml" 206 7309 7327 "kind1/partial_order.ml" 206 7309 7364
+call(
+  stack
+)
+type(
+  Int_set.t
+)
+"kind1/partial_order.ml" 207 7368 7374 "kind1/partial_order.ml" 207 7368 7386
+type(
+  Int_set.t DynArray.t -> Int_set.elt -> Int_set.t -> unit
+)
+ident(
+  ext_ref DynArray.set
+)
+"kind1/partial_order.ml" 207 7368 7387 "kind1/partial_order.ml" 207 7368 7392
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 207 7368 7393 "kind1/partial_order.ml" 207 7368 7394
+type(
+  Int_set.elt
+)
+ident(
+  int_ref r "kind1/partial_order.ml" 202 7111 7134 "kind1/partial_order.ml" 202 7111 7135
+)
+"kind1/partial_order.ml" 207 7368 7395 "kind1/partial_order.ml" 207 7368 7402
+type(
+  Int_set.t
+)
+ident(
+  int_ref new_ins "kind1/partial_order.ml" 206 7309 7317 "kind1/partial_order.ml" 206 7309 7324
+)
+"kind1/partial_order.ml" 207 7368 7374 "kind1/partial_order.ml" 207 7368 7403
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 206 7309 7313 "kind1/partial_order.ml" 207 7368 7403
+type(
+  unit
+)
+"kind1/partial_order.ml" 205 7270 7276 "kind1/partial_order.ml" 207 7368 7403
+type(
+  unit
+)
+"kind1/partial_order.ml" 204 7209 7213 "kind1/partial_order.ml" 207 7368 7403
+type(
+  unit
+)
+"kind1/partial_order.ml" 208 7404 7427 "kind1/partial_order.ml" 208 7404 7429
+type(
+  unit
+)
+"kind1/partial_order.ml" 208 7404 7432 "kind1/partial_order.ml" 208 7404 7448
+type(
+  string list DynArray.t -> string list list
+)
+ident(
+  ext_ref DynArray.to_list
+)
+"kind1/partial_order.ml" 208 7404 7449 "kind1/partial_order.ml" 208 7404 7461
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 208 7404 7432 "kind1/partial_order.ml" 208 7404 7461
+call(
+  tail
+)
+type(
+  string list list
+)
+"kind1/partial_order.ml" 209 7463 7479 "kind1/partial_order.ml" 209 7463 7481
+type(
+  unit
+)
+"kind1/partial_order.ml" 210 7485 7493 "kind1/partial_order.ml" 210 7485 7503
+type(
+  Int_set.elt DynArray.t -> string list
+)
+ident(
+  def arr_to_nvr "kind1/partial_order.ml" 211 7555 7559 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 210 7485 7504 "kind1/partial_order.ml" 210 7485 7505
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  def x "kind1/partial_order.ml" 210 7485 7508 "kind1/partial_order.ml" 210 7485 7551
+)
+"kind1/partial_order.ml" 210 7485 7508 "kind1/partial_order.ml" 210 7485 7516
+type(
+  (Int_set.elt -> string) -> Int_set.elt list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 210 7485 7517 "kind1/partial_order.ml" 210 7485 7521
+type(
+  'a
+)
+"kind1/partial_order.ml" 210 7485 7517 "kind1/partial_order.ml" 210 7485 7530
+call(
+  stack
+)
+type(
+  Int_set.elt -> string
+)
+"kind1/partial_order.ml" 210 7485 7532 "kind1/partial_order.ml" 210 7485 7548
+type(
+  Int_set.elt DynArray.t -> Int_set.elt list
+)
+ident(
+  ext_ref DynArray.to_list
+)
+"kind1/partial_order.ml" 210 7485 7549 "kind1/partial_order.ml" 210 7485 7550
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 210 7485 7504 "kind1/partial_order.ml" 210 7485 7505
+)
+"kind1/partial_order.ml" 210 7485 7531 "kind1/partial_order.ml" 210 7485 7551
+call(
+  stack
+)
+type(
+  Int_set.elt list
+)
+"kind1/partial_order.ml" 210 7485 7508 "kind1/partial_order.ml" 210 7485 7551
+call(
+  tail
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 211 7555 7563 "kind1/partial_order.ml" 211 7555 7577
+type(
+  Int_set.elt DynArray.t -> Types.il_formula list
+)
+ident(
+  def map_chain_func "kind1/partial_order.ml" 215 7668 7672 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 211 7555 7578 "kind1/partial_order.ml" 211 7555 7583
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  def chain "kind1/partial_order.ml" 212 7586 7592 "kind1/partial_order.ml" 213 7629 7657
+)
+"kind1/partial_order.ml" 212 7586 7596 "kind1/partial_order.ml" 212 7586 7606
+type(
+  string list
+)
+ident(
+  def chain_list "kind1/partial_order.ml" 213 7629 7630 "kind1/partial_order.ml" 213 7629 7657
+)
+"kind1/partial_order.ml" 212 7586 7609 "kind1/partial_order.ml" 212 7586 7619
+type(
+  Int_set.elt DynArray.t -> string list
+)
+ident(
+  int_ref arr_to_nvr "kind1/partial_order.ml" 210 7485 7493 "kind1/partial_order.ml" 210 7485 7503
+)
+"kind1/partial_order.ml" 212 7586 7620 "kind1/partial_order.ml" 212 7586 7625
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 211 7555 7578 "kind1/partial_order.ml" 211 7555 7583
+)
+"kind1/partial_order.ml" 212 7586 7609 "kind1/partial_order.ml" 212 7586 7625
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 213 7629 7630 "kind1/partial_order.ml" 213 7629 7646
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref mk_less_onechain "kind1/partial_order.ml" 92 3123 3127 "kind1/partial_order.ml" 92 3123 3143
+)
+"kind1/partial_order.ml" 213 7629 7647 "kind1/partial_order.ml" 213 7629 7657
+type(
+  string list
+)
+ident(
+  int_ref chain_list "kind1/partial_order.ml" 212 7586 7596 "kind1/partial_order.ml" 212 7586 7606
+)
+"kind1/partial_order.ml" 213 7629 7630 "kind1/partial_order.ml" 213 7629 7657
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 212 7586 7592 "kind1/partial_order.ml" 213 7629 7657
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 215 7668 7676 "kind1/partial_order.ml" 215 7668 7690
+type(
+  Types.il_formula list
+)
+ident(
+  def less_chain_ops "kind1/partial_order.ml" 217 7752 7756 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 215 7668 7694 "kind1/partial_order.ml" 215 7668 7705
+type(
+  Types.il_formula list DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref flatten_arr "kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+)
+"kind1/partial_order.ml" 215 7668 7707 "kind1/partial_order.ml" 215 7668 7719
+type(
+  (Int_set.elt DynArray.t -> Types.il_formula list) ->
+  Int_set.elt DynArray.t DynArray.t -> Types.il_formula list DynArray.t
+)
+ident(
+  ext_ref DynArray.map
+)
+"kind1/partial_order.ml" 215 7668 7720 "kind1/partial_order.ml" 215 7668 7734
+type(
+  Int_set.elt DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref map_chain_func "kind1/partial_order.ml" 211 7555 7563 "kind1/partial_order.ml" 211 7555 7577
+)
+"kind1/partial_order.ml" 215 7668 7735 "kind1/partial_order.ml" 215 7668 7743
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 215 7668 7706 "kind1/partial_order.ml" 215 7668 7744
+call(
+  stack
+)
+type(
+  Types.il_formula list DynArray.t
+)
+"kind1/partial_order.ml" 215 7668 7694 "kind1/partial_order.ml" 215 7668 7744
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 217 7752 7760 "kind1/partial_order.ml" 217 7752 7773
+type(
+  Int_set.elt -> Int_set.t -> Types.il_formula list
+)
+ident(
+  def map_outs_func "kind1/partial_order.ml" 223 8000 8004 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 217 7752 7774 "kind1/partial_order.ml" 217 7752 7776
+type(
+  Int_set.elt
+)
+ident(
+  def id "kind1/partial_order.ml" 217 7752 7777 "kind1/partial_order.ml" 221 7944 7992
+)
+"kind1/partial_order.ml" 217 7752 7777 "kind1/partial_order.ml" 217 7752 7781
+type(
+  Int_set.t
+)
+ident(
+  def outs "kind1/partial_order.ml" 218 7785 7791 "kind1/partial_order.ml" 221 7944 7992
+)
+"kind1/partial_order.ml" 218 7785 7795 "kind1/partial_order.ml" 218 7785 7808
+type(
+  Int_set.t -> string list
+)
+ident(
+  def map_list_func "kind1/partial_order.ml" 219 7861 7867 "kind1/partial_order.ml" 221 7944 7992
+)
+"kind1/partial_order.ml" 218 7785 7809 "kind1/partial_order.ml" 218 7785 7810
+type(
+  Int_set.t
+)
+ident(
+  def l "kind1/partial_order.ml" 218 7785 7813 "kind1/partial_order.ml" 218 7785 7856
+)
+"kind1/partial_order.ml" 218 7785 7813 "kind1/partial_order.ml" 218 7785 7821
+type(
+  (Int_set.elt -> string) -> Int_set.elt list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 218 7785 7822 "kind1/partial_order.ml" 218 7785 7826
+type(
+  'a
+)
+"kind1/partial_order.ml" 218 7785 7822 "kind1/partial_order.ml" 218 7785 7835
+call(
+  stack
+)
+type(
+  Int_set.elt -> string
+)
+"kind1/partial_order.ml" 218 7785 7837 "kind1/partial_order.ml" 218 7785 7853
+type(
+  Int_set.t -> Int_set.elt list
+)
+ident(
+  ext_ref Int_set.elements
+)
+"kind1/partial_order.ml" 218 7785 7854 "kind1/partial_order.ml" 218 7785 7855
+type(
+  Int_set.t
+)
+ident(
+  int_ref l "kind1/partial_order.ml" 218 7785 7809 "kind1/partial_order.ml" 218 7785 7810
+)
+"kind1/partial_order.ml" 218 7785 7836 "kind1/partial_order.ml" 218 7785 7856
+call(
+  stack
+)
+type(
+  Int_set.elt list
+)
+"kind1/partial_order.ml" 218 7785 7813 "kind1/partial_order.ml" 218 7785 7856
+call(
+  tail
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 219 7861 7871 "kind1/partial_order.ml" 219 7861 7880
+type(
+  string list
+)
+ident(
+  def outs_list "kind1/partial_order.ml" 220 7905 7911 "kind1/partial_order.ml" 221 7944 7992
+)
+"kind1/partial_order.ml" 219 7861 7883 "kind1/partial_order.ml" 219 7861 7896
+type(
+  Int_set.t -> string list
+)
+ident(
+  int_ref map_list_func "kind1/partial_order.ml" 218 7785 7795 "kind1/partial_order.ml" 218 7785 7808
+)
+"kind1/partial_order.ml" 219 7861 7897 "kind1/partial_order.ml" 219 7861 7901
+type(
+  Int_set.t
+)
+ident(
+  int_ref outs "kind1/partial_order.ml" 217 7752 7777 "kind1/partial_order.ml" 217 7752 7781
+)
+"kind1/partial_order.ml" 219 7861 7883 "kind1/partial_order.ml" 219 7861 7901
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 220 7905 7915 "kind1/partial_order.ml" 220 7905 7921
+type(
+  string
+)
+ident(
+  def id_nvr "kind1/partial_order.ml" 221 7944 7945 "kind1/partial_order.ml" 221 7944 7992
+)
+"kind1/partial_order.ml" 220 7905 7924 "kind1/partial_order.ml" 220 7905 7928
+type(
+  'a
+)
+"kind1/partial_order.ml" 220 7905 7924 "kind1/partial_order.ml" 220 7905 7937
+call(
+  stack
+)
+type(
+  Int_set.elt -> string
+)
+"kind1/partial_order.ml" 220 7905 7938 "kind1/partial_order.ml" 220 7905 7940
+type(
+  Int_set.elt
+)
+ident(
+  int_ref id "kind1/partial_order.ml" 217 7752 7774 "kind1/partial_order.ml" 217 7752 7776
+)
+"kind1/partial_order.ml" 220 7905 7924 "kind1/partial_order.ml" 220 7905 7940
+type(
+  string
+)
+"kind1/partial_order.ml" 221 7944 7945 "kind1/partial_order.ml" 221 7944 7953
+type(
+  (string -> Types.il_formula) -> string list -> Types.il_formula list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 221 7944 7959 "kind1/partial_order.ml" 221 7944 7960
+type(
+  string
+)
+ident(
+  def x "kind1/partial_order.ml" 221 7944 7964 "kind1/partial_order.ml" 221 7944 7980
+)
+"kind1/partial_order.ml" 221 7944 7964 "kind1/partial_order.ml" 221 7944 7971
+type(
+  string -> string -> Types.il_formula
+)
+ident(
+  int_ref mk_less "kind1/partial_order.ml" 84 2910 2914 "kind1/partial_order.ml" 84 2910 2921
+)
+"kind1/partial_order.ml" 221 7944 7972 "kind1/partial_order.ml" 221 7944 7978
+type(
+  string
+)
+ident(
+  int_ref id_nvr "kind1/partial_order.ml" 220 7905 7915 "kind1/partial_order.ml" 220 7905 7921
+)
+"kind1/partial_order.ml" 221 7944 7979 "kind1/partial_order.ml" 221 7944 7980
+type(
+  string
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 221 7944 7959 "kind1/partial_order.ml" 221 7944 7960
+)
+"kind1/partial_order.ml" 221 7944 7964 "kind1/partial_order.ml" 221 7944 7980
+call(
+  tail
+)
+type(
+  Types.il_formula
+)
+"kind1/partial_order.ml" 221 7944 7954 "kind1/partial_order.ml" 221 7944 7982
+type(
+  string -> Types.il_formula
+)
+"kind1/partial_order.ml" 221 7944 7983 "kind1/partial_order.ml" 221 7944 7992
+type(
+  string list
+)
+ident(
+  int_ref outs_list "kind1/partial_order.ml" 219 7861 7871 "kind1/partial_order.ml" 219 7861 7880
+)
+"kind1/partial_order.ml" 221 7944 7945 "kind1/partial_order.ml" 221 7944 7992
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 220 7905 7911 "kind1/partial_order.ml" 221 7944 7992
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 219 7861 7867 "kind1/partial_order.ml" 221 7944 7992
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 218 7785 7791 "kind1/partial_order.ml" 221 7944 7992
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 223 8000 8008 "kind1/partial_order.ml" 223 8000 8020
+type(
+  Types.il_formula list
+)
+ident(
+  def less_out_ops "kind1/partial_order.ml" 225 8081 8085 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 223 8000 8023 "kind1/partial_order.ml" 223 8000 8034
+type(
+  Types.il_formula list DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref flatten_arr "kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+)
+"kind1/partial_order.ml" 223 8000 8036 "kind1/partial_order.ml" 223 8000 8049
+type(
+  (Int_set.elt -> Int_set.t -> Types.il_formula list) ->
+  Int_set.t DynArray.t -> Types.il_formula list DynArray.t
+)
+ident(
+  ext_ref DynArray.mapi
+)
+"kind1/partial_order.ml" 223 8000 8050 "kind1/partial_order.ml" 223 8000 8063
+type(
+  Int_set.elt -> Int_set.t -> Types.il_formula list
+)
+ident(
+  int_ref map_outs_func "kind1/partial_order.ml" 217 7752 7760 "kind1/partial_order.ml" 217 7752 7773
+)
+"kind1/partial_order.ml" 223 8000 8064 "kind1/partial_order.ml" 223 8000 8070
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 223 8000 8035 "kind1/partial_order.ml" 223 8000 8071
+call(
+  stack
+)
+type(
+  Types.il_formula list DynArray.t
+)
+"kind1/partial_order.ml" 223 8000 8023 "kind1/partial_order.ml" 223 8000 8071
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 225 8081 8089 "kind1/partial_order.ml" 225 8081 8108
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  def map_node_extra_func "kind1/partial_order.ml" 228 8161 8165 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 225 8081 8109 "kind1/partial_order.ml" 225 8081 8119
+type(
+  string list
+)
+ident(
+  def node_extra "kind1/partial_order.ml" 226 8122 8128 "kind1/partial_order.ml" 226 8122 8153
+)
+"kind1/partial_order.ml" 226 8122 8128 "kind1/partial_order.ml" 226 8122 8142
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref mk_eq_oneclass "kind1/partial_order.ml" 79 2806 2810 "kind1/partial_order.ml" 79 2806 2824
+)
+"kind1/partial_order.ml" 226 8122 8143 "kind1/partial_order.ml" 226 8122 8153
+type(
+  string list
+)
+ident(
+  int_ref node_extra "kind1/partial_order.ml" 225 8081 8109 "kind1/partial_order.ml" 225 8081 8119
+)
+"kind1/partial_order.ml" 226 8122 8128 "kind1/partial_order.ml" 226 8122 8153
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 228 8161 8169 "kind1/partial_order.ml" 228 8161 8175
+type(
+  Types.il_formula list
+)
+ident(
+  def eq_ops "kind1/partial_order.ml" 230 8249 8255 "kind1/partial_order.ml" 230 8249 8294
+)
+"kind1/partial_order.ml" 229 8179 8185 "kind1/partial_order.ml" 229 8179 8196
+type(
+  Types.il_formula list DynArray.t -> Types.il_formula list
+)
+ident(
+  int_ref flatten_arr "kind1/partial_order.ml" 46 1897 1901 "kind1/partial_order.ml" 46 1897 1912
+)
+"kind1/partial_order.ml" 229 8179 8198 "kind1/partial_order.ml" 229 8179 8210
+type(
+  (string list -> Types.il_formula list) ->
+  string list DynArray.t -> Types.il_formula list DynArray.t
+)
+ident(
+  ext_ref DynArray.map
+)
+"kind1/partial_order.ml" 229 8179 8211 "kind1/partial_order.ml" 229 8179 8230
+type(
+  string list -> Types.il_formula list
+)
+ident(
+  int_ref map_node_extra_func "kind1/partial_order.ml" 225 8081 8089 "kind1/partial_order.ml" 225 8081 8108
+)
+"kind1/partial_order.ml" 229 8179 8231 "kind1/partial_order.ml" 229 8179 8243
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 229 8179 8197 "kind1/partial_order.ml" 229 8179 8244
+call(
+  stack
+)
+type(
+  Types.il_formula list DynArray.t
+)
+"kind1/partial_order.ml" 229 8179 8185 "kind1/partial_order.ml" 229 8179 8244
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 230 8249 8255 "kind1/partial_order.ml" 230 8249 8261
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref eq_ops "kind1/partial_order.ml" 228 8161 8169 "kind1/partial_order.ml" 228 8161 8175
+)
+"kind1/partial_order.ml" 230 8249 8264 "kind1/partial_order.ml" 230 8249 8276
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref less_out_ops "kind1/partial_order.ml" 223 8000 8008 "kind1/partial_order.ml" 223 8000 8020
+)
+"kind1/partial_order.ml" 230 8249 8276 "kind1/partial_order.ml" 230 8249 8277
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/partial_order.ml" 230 8249 8277 "kind1/partial_order.ml" 230 8249 8291
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref less_chain_ops "kind1/partial_order.ml" 215 7668 7676 "kind1/partial_order.ml" 215 7668 7690
+)
+"kind1/partial_order.ml" 230 8249 8263 "kind1/partial_order.ml" 230 8249 8294
+call(
+  stack
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 230 8249 8255 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 228 8161 8165 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 225 8081 8085 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 223 8000 8004 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 217 7752 7756 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 215 7668 7672 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 211 7555 7559 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 210 7485 7489 "kind1/partial_order.ml" 230 8249 8294
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 231 8295 8308 "kind1/partial_order.ml" 231 8295 8310
+type(
+  unit
+)
+"kind1/partial_order.ml" 232 8314 8322 "kind1/partial_order.ml" 232 8314 8325
+type(
+  Types.il_formula list
+)
+ident(
+  def eqs "kind1/partial_order.ml" 233 8351 8357 "kind1/partial_order.ml" 233 8351 8365
+)
+"kind1/partial_order.ml" 232 8314 8326 "kind1/partial_order.ml" 232 8314 8330
+type(
+  Types.il_formula list
+)
+ident(
+  def imps "kind1/partial_order.ml" 233 8351 8357 "kind1/partial_order.ml" 233 8351 8365
+)
+"kind1/partial_order.ml" 232 8314 8322 "kind1/partial_order.ml" 232 8314 8330
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 232 8314 8333 "kind1/partial_order.ml" 232 8314 8337
+type(
+  'a
+)
+"kind1/partial_order.ml" 232 8314 8333 "kind1/partial_order.ml" 232 8314 8344
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 232 8314 8345 "kind1/partial_order.ml" 232 8314 8347
+type(
+  unit
+)
+"kind1/partial_order.ml" 232 8314 8333 "kind1/partial_order.ml" 232 8314 8347
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 233 8351 8357 "kind1/partial_order.ml" 233 8351 8360
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref eqs "kind1/partial_order.ml" 232 8314 8322 "kind1/partial_order.ml" 232 8314 8325
+)
+"kind1/partial_order.ml" 233 8351 8360 "kind1/partial_order.ml" 233 8351 8361
+type(
+  Types.il_formula list -> Types.il_formula list -> Types.il_formula list
+)
+ident(
+  ext_ref Pervasives.( @ )
+)
+"kind1/partial_order.ml" 233 8351 8361 "kind1/partial_order.ml" 233 8351 8365
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref imps "kind1/partial_order.ml" 232 8314 8326 "kind1/partial_order.ml" 232 8314 8330
+)
+"kind1/partial_order.ml" 233 8351 8357 "kind1/partial_order.ml" 233 8351 8365
+call(
+  tail
+)
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 232 8314 8318 "kind1/partial_order.ml" 233 8351 8365
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 235 8367 8382 "kind1/partial_order.ml" 235 8367 8384
+type(
+  unit
+)
+"kind1/partial_order.ml" 236 8387 8391 "kind1/partial_order.ml" 236 8387 8395
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 236 8387 8396 "kind1/partial_order.ml" 236 8387 8451
+type(
+  string
+)
+"kind1/partial_order.ml" 236 8387 8391 "kind1/partial_order.ml" 236 8387 8451
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 237 8453 8461 "kind1/partial_order.ml" 237 8453 8476
+type(
+  int -> 'b -> unit
+)
+ident(
+  def iter_chain_func "kind1/partial_order.ml" 242 8604 8608 "kind1/partial_order.ml" 259 9035 9073
+)
+"kind1/partial_order.ml" 237 8453 8477 "kind1/partial_order.ml" 237 8453 8485
+type(
+  int
+)
+ident(
+  def chain_id "kind1/partial_order.ml" 237 8453 8486 "kind1/partial_order.ml" 240 8580 8595
+)
+"kind1/partial_order.ml" 237 8453 8486 "kind1/partial_order.ml" 237 8453 8491
+type(
+  'b
+)
+ident(
+  def chain "kind1/partial_order.ml" 238 8494 8500 "kind1/partial_order.ml" 240 8580 8595
+)
+"kind1/partial_order.ml" 238 8494 8500 "kind1/partial_order.ml" 238 8494 8504
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 238 8494 8505 "kind1/partial_order.ml" 238 8494 8514
+type(
+  string
+)
+"kind1/partial_order.ml" 238 8494 8500 "kind1/partial_order.ml" 238 8494 8514
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 238 8494 8516 "kind1/partial_order.ml" 238 8494 8520
+type(
+  int -> unit
+)
+ident(
+  ext_ref Util.pint
+)
+"kind1/partial_order.ml" 238 8494 8521 "kind1/partial_order.ml" 238 8494 8529
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 237 8453 8477 "kind1/partial_order.ml" 237 8453 8485
+)
+"kind1/partial_order.ml" 238 8494 8516 "kind1/partial_order.ml" 238 8494 8529
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 238 8494 8532 "kind1/partial_order.ml" 238 8494 8536
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 238 8494 8537 "kind1/partial_order.ml" 238 8494 8541
+type(
+  string
+)
+"kind1/partial_order.ml" 238 8494 8532 "kind1/partial_order.ml" 238 8494 8541
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 239 8543 8549 "kind1/partial_order.ml" 239 8543 8553
+type(
+  'a
+)
+"kind1/partial_order.ml" 239 8543 8549 "kind1/partial_order.ml" 239 8543 8568
+call(
+  stack
+)
+type(
+  int -> unit
+)
+"kind1/partial_order.ml" 239 8543 8569 "kind1/partial_order.ml" 239 8543 8577
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 237 8453 8477 "kind1/partial_order.ml" 237 8453 8485
+)
+"kind1/partial_order.ml" 239 8543 8549 "kind1/partial_order.ml" 239 8543 8577
+type(
+  unit
+)
+"kind1/partial_order.ml" 240 8580 8586 "kind1/partial_order.ml" 240 8580 8590
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 240 8580 8591 "kind1/partial_order.ml" 240 8580 8595
+type(
+  string
+)
+"kind1/partial_order.ml" 240 8580 8586 "kind1/partial_order.ml" 240 8580 8595
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 239 8543 8549 "kind1/partial_order.ml" 240 8580 8595
+type(
+  unit
+)
+"kind1/partial_order.ml" 238 8494 8532 "kind1/partial_order.ml" 240 8580 8595
+type(
+  unit
+)
+"kind1/partial_order.ml" 238 8494 8516 "kind1/partial_order.ml" 240 8580 8595
+type(
+  unit
+)
+"kind1/partial_order.ml" 238 8494 8500 "kind1/partial_order.ml" 240 8580 8595
+type(
+  unit
+)
+"kind1/partial_order.ml" 242 8604 8612 "kind1/partial_order.ml" 242 8604 8628
+type(
+  int -> int list -> unit
+)
+ident(
+  def iter_other_edges "kind1/partial_order.ml" 258 8994 9000 "kind1/partial_order.ml" 259 9035 9073
+)
+"kind1/partial_order.ml" 242 8604 8629 "kind1/partial_order.ml" 242 8604 8636
+type(
+  int
+)
+ident(
+  def node_id "kind1/partial_order.ml" 242 8604 8637 "kind1/partial_order.ml" 256 8969 8985
+)
+"kind1/partial_order.ml" 242 8604 8637 "kind1/partial_order.ml" 242 8604 8641
+type(
+  int list
+)
+ident(
+  def node "kind1/partial_order.ml" 243 8644 8650 "kind1/partial_order.ml" 256 8969 8985
+)
+"kind1/partial_order.ml" 243 8644 8650 "kind1/partial_order.ml" 243 8644 8654
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 243 8644 8655 "kind1/partial_order.ml" 243 8644 8677
+type(
+  string
+)
+"kind1/partial_order.ml" 243 8644 8650 "kind1/partial_order.ml" 243 8644 8677
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 243 8644 8679 "kind1/partial_order.ml" 243 8644 8689
+type(
+  int list -> unit
+)
+ident(
+  ext_ref Util.p_int_list
+)
+"kind1/partial_order.ml" 243 8644 8690 "kind1/partial_order.ml" 243 8644 8694
+type(
+  int list
+)
+ident(
+  int_ref node "kind1/partial_order.ml" 242 8604 8637 "kind1/partial_order.ml" 242 8604 8641
+)
+"kind1/partial_order.ml" 243 8644 8679 "kind1/partial_order.ml" 243 8644 8694
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 243 8644 8697 "kind1/partial_order.ml" 243 8644 8701
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 243 8644 8702 "kind1/partial_order.ml" 243 8644 8706
+type(
+  string
+)
+"kind1/partial_order.ml" 243 8644 8697 "kind1/partial_order.ml" 243 8644 8706
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 244 8708 8718 "kind1/partial_order.ml" 244 8708 8723
+type(
+  string list
+)
+ident(
+  def extra "kind1/partial_order.ml" 245 8764 8765 "kind1/partial_order.ml" 256 8969 8985
+)
+"kind1/partial_order.ml" 244 8708 8726 "kind1/partial_order.ml" 244 8708 8738
+type(
+  string list DynArray.t -> int -> string list
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 244 8708 8739 "kind1/partial_order.ml" 244 8708 8751
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 244 8708 8752 "kind1/partial_order.ml" 244 8708 8759
+type(
+  int
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 242 8604 8629 "kind1/partial_order.ml" 242 8604 8636
+)
+"kind1/partial_order.ml" 244 8708 8726 "kind1/partial_order.ml" 244 8708 8759
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 245 8764 8765 "kind1/partial_order.ml" 245 8764 8769
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 245 8764 8770 "kind1/partial_order.ml" 245 8764 8774
+type(
+  string
+)
+"kind1/partial_order.ml" 245 8764 8765 "kind1/partial_order.ml" 245 8764 8774
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 246 8776 8777 "kind1/partial_order.ml" 246 8776 8787
+type(
+  string list -> unit
+)
+ident(
+  ext_ref Util.p_str_list
+)
+"kind1/partial_order.ml" 246 8776 8788 "kind1/partial_order.ml" 246 8776 8793
+type(
+  string list
+)
+ident(
+  int_ref extra "kind1/partial_order.ml" 244 8708 8718 "kind1/partial_order.ml" 244 8708 8723
+)
+"kind1/partial_order.ml" 246 8776 8777 "kind1/partial_order.ml" 246 8776 8793
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 247 8796 8797 "kind1/partial_order.ml" 247 8796 8801
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 247 8796 8802 "kind1/partial_order.ml" 247 8796 8808
+type(
+  string
+)
+"kind1/partial_order.ml" 247 8796 8797 "kind1/partial_order.ml" 247 8796 8808
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 248 8812 8818 "kind1/partial_order.ml" 248 8812 8830
+type(
+  (Int_set.elt -> unit) -> Int_set.t -> unit
+)
+ident(
+  ext_ref Int_set.iter
+)
+"kind1/partial_order.ml" 249 8832 8838 "kind1/partial_order.ml" 249 8832 8839
+type(
+  Int_set.elt
+)
+ident(
+  def x "kind1/partial_order.ml" 250 8844 8847 "kind1/partial_order.ml" 253 8916 8931
+)
+"kind1/partial_order.ml" 250 8844 8851 "kind1/partial_order.ml" 250 8844 8855
+type(
+  int list
+)
+ident(
+  def item "kind1/partial_order.ml" 251 8878 8883 "kind1/partial_order.ml" 253 8916 8931
+)
+"kind1/partial_order.ml" 250 8844 8858 "kind1/partial_order.ml" 250 8844 8862
+type(
+  'a
+)
+"kind1/partial_order.ml" 250 8844 8858 "kind1/partial_order.ml" 250 8844 8871
+call(
+  stack
+)
+type(
+  Int_set.elt -> int list
+)
+"kind1/partial_order.ml" 250 8844 8872 "kind1/partial_order.ml" 250 8844 8873
+type(
+  Int_set.elt
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 249 8832 8838 "kind1/partial_order.ml" 249 8832 8839
+)
+"kind1/partial_order.ml" 250 8844 8858 "kind1/partial_order.ml" 250 8844 8873
+type(
+  int list
+)
+"kind1/partial_order.ml" 251 8878 8883 "kind1/partial_order.ml" 251 8878 8887
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 251 8878 8888 "kind1/partial_order.ml" 251 8878 8891
+type(
+  string
+)
+"kind1/partial_order.ml" 251 8878 8883 "kind1/partial_order.ml" 251 8878 8891
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 252 8893 8898 "kind1/partial_order.ml" 252 8893 8908
+type(
+  int list -> unit
+)
+ident(
+  ext_ref Util.p_int_list
+)
+"kind1/partial_order.ml" 252 8893 8909 "kind1/partial_order.ml" 252 8893 8913
+type(
+  int list
+)
+ident(
+  int_ref item "kind1/partial_order.ml" 250 8844 8851 "kind1/partial_order.ml" 250 8844 8855
+)
+"kind1/partial_order.ml" 252 8893 8898 "kind1/partial_order.ml" 252 8893 8913
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 253 8916 8921 "kind1/partial_order.ml" 253 8916 8925
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 253 8916 8926 "kind1/partial_order.ml" 253 8916 8929
+type(
+  string
+)
+"kind1/partial_order.ml" 253 8916 8921 "kind1/partial_order.ml" 253 8916 8931
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 252 8893 8898 "kind1/partial_order.ml" 253 8916 8931
+type(
+  unit
+)
+"kind1/partial_order.ml" 251 8878 8883 "kind1/partial_order.ml" 253 8916 8931
+type(
+  unit
+)
+"kind1/partial_order.ml" 250 8844 8847 "kind1/partial_order.ml" 253 8916 8931
+type(
+  unit
+)
+"kind1/partial_order.ml" 249 8832 8833 "kind1/partial_order.ml" 254 8933 8935
+type(
+  Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 255 8937 8939 "kind1/partial_order.ml" 255 8937 8951
+type(
+  Int_set.t DynArray.t -> int -> Int_set.t
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 255 8937 8952 "kind1/partial_order.ml" 255 8937 8958
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 255 8937 8959 "kind1/partial_order.ml" 255 8937 8966
+type(
+  int
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 242 8604 8629 "kind1/partial_order.ml" 242 8604 8636
+)
+"kind1/partial_order.ml" 255 8937 8938 "kind1/partial_order.ml" 255 8937 8967
+call(
+  stack
+)
+type(
+  Int_set.t
+)
+"kind1/partial_order.ml" 248 8812 8818 "kind1/partial_order.ml" 255 8937 8967
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 256 8969 8975 "kind1/partial_order.ml" 256 8969 8979
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 256 8969 8980 "kind1/partial_order.ml" 256 8969 8984
+type(
+  string
+)
+"kind1/partial_order.ml" 256 8969 8975 "kind1/partial_order.ml" 256 8969 8985
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 248 8812 8818 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 247 8796 8797 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 246 8776 8777 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 245 8764 8765 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 244 8708 8714 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 243 8644 8697 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 243 8644 8679 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 243 8644 8650 "kind1/partial_order.ml" 256 8969 8985
+type(
+  unit
+)
+"kind1/partial_order.ml" 258 8994 9000 "kind1/partial_order.ml" 258 8994 9004
+type(
+  'a
+)
+"kind1/partial_order.ml" 258 8994 9000 "kind1/partial_order.ml" 258 8994 9016
+call(
+  stack
+)
+type(
+  (int -> Int_set.elt DynArray.t -> unit) -> unit
+)
+"kind1/partial_order.ml" 258 8994 9017 "kind1/partial_order.ml" 258 8994 9032
+type(
+  int -> Int_set.elt DynArray.t -> unit
+)
+ident(
+  int_ref iter_chain_func "kind1/partial_order.ml" 237 8453 8461 "kind1/partial_order.ml" 237 8453 8476
+)
+"kind1/partial_order.ml" 258 8994 9000 "kind1/partial_order.ml" 258 8994 9032
+type(
+  unit
+)
+"kind1/partial_order.ml" 259 9035 9041 "kind1/partial_order.ml" 259 9035 9045
+type(
+  'a
+)
+"kind1/partial_order.ml" 259 9035 9041 "kind1/partial_order.ml" 259 9035 9056
+call(
+  tail
+)
+type(
+  (int -> int list -> unit) -> unit
+)
+"kind1/partial_order.ml" 259 9035 9057 "kind1/partial_order.ml" 259 9035 9073
+type(
+  int -> int list -> unit
+)
+ident(
+  int_ref iter_other_edges "kind1/partial_order.ml" 242 8604 8612 "kind1/partial_order.ml" 242 8604 8628
+)
+"kind1/partial_order.ml" 259 9035 9041 "kind1/partial_order.ml" 259 9035 9073
+type(
+  unit
+)
+"kind1/partial_order.ml" 258 8994 9000 "kind1/partial_order.ml" 259 9035 9073
+type(
+  unit
+)
+"kind1/partial_order.ml" 242 8604 8608 "kind1/partial_order.ml" 259 9035 9073
+type(
+  unit
+)
+"kind1/partial_order.ml" 237 8453 8457 "kind1/partial_order.ml" 259 9035 9073
+type(
+  unit
+)
+"kind1/partial_order.ml" 236 8387 8391 "kind1/partial_order.ml" 259 9035 9073
+type(
+  unit
+)
+"kind1/partial_order.ml" 260 9076 9096 "kind1/partial_order.ml" 260 9076 9100
+type(
+  int list
+)
+ident(
+  def node "kind1/partial_order.ml" 260 9076 9111 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 260 9076 9112 "kind1/partial_order.ml" 260 9076 9122
+type(
+  string list
+)
+ident(
+  def extra_info "kind1/partial_order.ml" 261 9139 9143 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 261 9139 9147 "kind1/partial_order.ml" 261 9139 9164
+type(
+  Int_set.elt DynArray.t -> int * int
+)
+ident(
+  def collect_node_info "kind1/partial_order.ml" 304 10554 10558 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 261 9139 9165 "kind1/partial_order.ml" 261 9139 9170
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  def chain "kind1/partial_order.ml" 262 9174 9180 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 262 9174 9184 "kind1/partial_order.ml" 262 9174 9193
+type(
+  int
+)
+ident(
+  def chain_len "kind1/partial_order.ml" 264 9228 9234 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 262 9174 9196 "kind1/partial_order.ml" 262 9174 9211
+type(
+  Int_set.elt DynArray.t -> int
+)
+ident(
+  ext_ref DynArray.length
+)
+"kind1/partial_order.ml" 262 9174 9212 "kind1/partial_order.ml" 262 9174 9217
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 261 9139 9165 "kind1/partial_order.ml" 261 9139 9170
+)
+"kind1/partial_order.ml" 262 9174 9196 "kind1/partial_order.ml" 262 9174 9217
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 264 9228 9238 "kind1/partial_order.ml" 264 9228 9241
+type(
+  int -> Int_set.elt
+)
+ident(
+  def ith "kind1/partial_order.ml" 266 9277 9283 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 264 9228 9242 "kind1/partial_order.ml" 264 9228 9243
+type(
+  int
+)
+ident(
+  def i "kind1/partial_order.ml" 264 9228 9246 "kind1/partial_order.ml" 264 9228 9266
+)
+"kind1/partial_order.ml" 264 9228 9246 "kind1/partial_order.ml" 264 9228 9258
+type(
+  Int_set.elt DynArray.t -> int -> Int_set.elt
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 264 9228 9259 "kind1/partial_order.ml" 264 9228 9264
+type(
+  Int_set.elt DynArray.t
+)
+ident(
+  int_ref chain "kind1/partial_order.ml" 261 9139 9165 "kind1/partial_order.ml" 261 9139 9170
+)
+"kind1/partial_order.ml" 264 9228 9265 "kind1/partial_order.ml" 264 9228 9266
+type(
+  int
+)
+ident(
+  int_ref i "kind1/partial_order.ml" 264 9228 9242 "kind1/partial_order.ml" 264 9228 9243
+)
+"kind1/partial_order.ml" 264 9228 9246 "kind1/partial_order.ml" 264 9228 9266
+call(
+  tail
+)
+type(
+  Int_set.elt
+)
+"kind1/partial_order.ml" 266 9277 9287 "kind1/partial_order.ml" 266 9277 9290
+type(
+  int -> cmp_result
+)
+ident(
+  def cmp "kind1/partial_order.ml" 268 9345 9351 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 266 9277 9291 "kind1/partial_order.ml" 266 9277 9292
+type(
+  int
+)
+ident(
+  def i "kind1/partial_order.ml" 266 9277 9295 "kind1/partial_order.ml" 266 9277 9333
+)
+"kind1/partial_order.ml" 266 9277 9295 "kind1/partial_order.ml" 266 9277 9304
+type(
+  int list -> int list -> cmp_result
+)
+"kind1/partial_order.ml" 266 9277 9305 "kind1/partial_order.ml" 266 9277 9309
+type(
+  int list
+)
+ident(
+  int_ref node "kind1/partial_order.ml" 260 9076 9096 "kind1/partial_order.ml" 260 9076 9100
+)
+"kind1/partial_order.ml" 266 9277 9311 "kind1/partial_order.ml" 266 9277 9315
+type(
+  'a
+)
+"kind1/partial_order.ml" 266 9277 9311 "kind1/partial_order.ml" 266 9277 9324
+call(
+  stack
+)
+type(
+  Int_set.elt -> int list
+)
+"kind1/partial_order.ml" 266 9277 9326 "kind1/partial_order.ml" 266 9277 9329
+type(
+  int -> Int_set.elt
+)
+ident(
+  int_ref ith "kind1/partial_order.ml" 264 9228 9238 "kind1/partial_order.ml" 264 9228 9241
+)
+"kind1/partial_order.ml" 266 9277 9330 "kind1/partial_order.ml" 266 9277 9331
+type(
+  int
+)
+ident(
+  int_ref i "kind1/partial_order.ml" 266 9277 9291 "kind1/partial_order.ml" 266 9277 9292
+)
+"kind1/partial_order.ml" 266 9277 9325 "kind1/partial_order.ml" 266 9277 9332
+call(
+  stack
+)
+type(
+  Int_set.elt
+)
+"kind1/partial_order.ml" 266 9277 9310 "kind1/partial_order.ml" 266 9277 9333
+type(
+  int list
+)
+"kind1/partial_order.ml" 266 9277 9295 "kind1/partial_order.ml" 266 9277 9333
+call(
+  tail
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 268 9345 9359 "kind1/partial_order.ml" 268 9345 9375
+type(
+  int -> int -> int
+)
+ident(
+  def binary_find_less "kind1/partial_order.ml" 268 9345 9351 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+type(
+  int
+)
+ident(
+  def l_bound "kind1/partial_order.ml" 268 9345 9384 "kind1/partial_order.ml" 282 9831 9871
+)
+"kind1/partial_order.ml" 268 9345 9384 "kind1/partial_order.ml" 268 9345 9391
+type(
+  int
+)
+ident(
+  def u_bound "kind1/partial_order.ml" 270 9467 9468 "kind1/partial_order.ml" 282 9831 9871
+)
+"kind1/partial_order.ml" 270 9467 9476 "kind1/partial_order.ml" 270 9467 9479
+type(
+  int -> cmp_result
+)
+ident(
+  int_ref cmp "kind1/partial_order.ml" 266 9277 9287 "kind1/partial_order.ml" 266 9277 9290
+)
+"kind1/partial_order.ml" 270 9467 9480 "kind1/partial_order.ml" 270 9467 9487
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+)
+"kind1/partial_order.ml" 270 9467 9475 "kind1/partial_order.ml" 270 9467 9488
+call(
+  stack
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 271 9495 9500 "kind1/partial_order.ml" 271 9495 9504
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 271 9495 9508 "kind1/partial_order.ml" 271 9495 9515
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+)
+"kind1/partial_order.ml" 272 9516 9521 "kind1/partial_order.ml" 272 9516 9524
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 272 9516 9528 "kind1/partial_order.ml" 272 9516 9536
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/partial_order.ml" 272 9516 9537 "kind1/partial_order.ml" 272 9516 9555
+type(
+  string
+)
+"kind1/partial_order.ml" 272 9516 9528 "kind1/partial_order.ml" 272 9516 9555
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 273 9556 9561 "kind1/partial_order.ml" 273 9556 9562
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 274 9567 9577 "kind1/partial_order.ml" 274 9567 9584
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+)
+"kind1/partial_order.ml" 274 9567 9585 "kind1/partial_order.ml" 274 9567 9586
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 274 9567 9587 "kind1/partial_order.ml" 274 9567 9594
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 268 9345 9384 "kind1/partial_order.ml" 268 9345 9391
+)
+"kind1/partial_order.ml" 274 9567 9577 "kind1/partial_order.ml" 274 9567 9594
+type(
+  bool
+)
+"kind1/partial_order.ml" 275 9596 9608 "kind1/partial_order.ml" 275 9596 9610
+type(
+  int
+)
+"kind1/partial_order.ml" 276 9628 9644 "kind1/partial_order.ml" 276 9628 9651
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+)
+"kind1/partial_order.ml" 276 9628 9652 "kind1/partial_order.ml" 276 9628 9653
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"kind1/partial_order.ml" 276 9628 9654 "kind1/partial_order.ml" 276 9628 9661
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 268 9345 9384 "kind1/partial_order.ml" 268 9345 9391
+)
+"kind1/partial_order.ml" 276 9628 9643 "kind1/partial_order.ml" 276 9628 9662
+type(
+  bool
+)
+"kind1/partial_order.ml" 278 9677 9683 "kind1/partial_order.ml" 278 9677 9686
+type(
+  int
+)
+ident(
+  def mid "kind1/partial_order.ml" 279 9719 9723 "kind1/partial_order.ml" 281 9788 9830
+)
+"kind1/partial_order.ml" 278 9677 9690 "kind1/partial_order.ml" 278 9677 9697
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+)
+"kind1/partial_order.ml" 278 9677 9698 "kind1/partial_order.ml" 278 9677 9699
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/partial_order.ml" 278 9677 9700 "kind1/partial_order.ml" 278 9677 9701
+type(
+  int
+)
+"kind1/partial_order.ml" 278 9677 9690 "kind1/partial_order.ml" 278 9677 9701
+type(
+  int
+)
+"kind1/partial_order.ml" 278 9677 9702 "kind1/partial_order.ml" 278 9677 9703
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/partial_order.ml" 278 9677 9704 "kind1/partial_order.ml" 278 9677 9711
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 268 9345 9384 "kind1/partial_order.ml" 268 9345 9391
+)
+"kind1/partial_order.ml" 278 9677 9689 "kind1/partial_order.ml" 278 9677 9713
+type(
+  int
+)
+"kind1/partial_order.ml" 278 9677 9713 "kind1/partial_order.ml" 278 9677 9714
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( / )
+)
+"kind1/partial_order.ml" 278 9677 9714 "kind1/partial_order.ml" 278 9677 9715
+type(
+  int
+)
+"kind1/partial_order.ml" 278 9677 9689 "kind1/partial_order.ml" 278 9677 9715
+type(
+  int
+)
+"kind1/partial_order.ml" 279 9719 9726 "kind1/partial_order.ml" 279 9719 9730
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 279 9719 9731 "kind1/partial_order.ml" 279 9719 9732
+type(
+  cmp_result -> cmp_result -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 279 9719 9733 "kind1/partial_order.ml" 279 9719 9736
+type(
+  int -> cmp_result
+)
+ident(
+  int_ref cmp "kind1/partial_order.ml" 266 9277 9287 "kind1/partial_order.ml" 266 9277 9290
+)
+"kind1/partial_order.ml" 279 9719 9737 "kind1/partial_order.ml" 279 9719 9740
+type(
+  int
+)
+ident(
+  int_ref mid "kind1/partial_order.ml" 278 9677 9683 "kind1/partial_order.ml" 278 9677 9686
+)
+"kind1/partial_order.ml" 279 9719 9733 "kind1/partial_order.ml" 279 9719 9740
+call(
+  stack
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 279 9719 9726 "kind1/partial_order.ml" 279 9719 9740
+type(
+  bool
+)
+"kind1/partial_order.ml" 280 9742 9752 "kind1/partial_order.ml" 280 9742 9768
+type(
+  int -> int -> int
+)
+ident(
+  int_ref binary_find_less "kind1/partial_order.ml" 268 9345 9359 "kind1/partial_order.ml" 268 9345 9375
+)
+"kind1/partial_order.ml" 280 9742 9770 "kind1/partial_order.ml" 280 9742 9777
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 268 9345 9376 "kind1/partial_order.ml" 268 9345 9383
+)
+"kind1/partial_order.ml" 280 9742 9778 "kind1/partial_order.ml" 280 9742 9779
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/partial_order.ml" 280 9742 9780 "kind1/partial_order.ml" 280 9742 9781
+type(
+  int
+)
+"kind1/partial_order.ml" 280 9742 9769 "kind1/partial_order.ml" 280 9742 9782
+type(
+  int
+)
+"kind1/partial_order.ml" 280 9742 9783 "kind1/partial_order.ml" 280 9742 9786
+type(
+  int
+)
+ident(
+  int_ref mid "kind1/partial_order.ml" 278 9677 9683 "kind1/partial_order.ml" 278 9677 9686
+)
+"kind1/partial_order.ml" 280 9742 9752 "kind1/partial_order.ml" 280 9742 9786
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 281 9788 9798 "kind1/partial_order.ml" 281 9788 9814
+type(
+  int -> int -> int
+)
+ident(
+  int_ref binary_find_less "kind1/partial_order.ml" 268 9345 9359 "kind1/partial_order.ml" 268 9345 9375
+)
+"kind1/partial_order.ml" 281 9788 9816 "kind1/partial_order.ml" 281 9788 9822
+type(
+  int
+)
+ident(
+  int_ref mid "kind1/partial_order.ml" 278 9677 9683 "kind1/partial_order.ml" 278 9677 9686
+)
+"kind1/partial_order.ml" 281 9788 9823 "kind1/partial_order.ml" 281 9788 9830
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 268 9345 9384 "kind1/partial_order.ml" 268 9345 9391
+)
+"kind1/partial_order.ml" 281 9788 9798 "kind1/partial_order.ml" 281 9788 9830
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 279 9719 9723 "kind1/partial_order.ml" 281 9788 9830
+type(
+  int
+)
+"kind1/partial_order.ml" 278 9677 9679 "kind1/partial_order.ml" 281 9788 9830
+type(
+  int
+)
+"kind1/partial_order.ml" 282 9831 9843 "kind1/partial_order.ml" 282 9831 9851
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/partial_order.ml" 282 9831 9852 "kind1/partial_order.ml" 282 9831 9871
+type(
+  string
+)
+"kind1/partial_order.ml" 282 9831 9843 "kind1/partial_order.ml" 282 9831 9871
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 276 9628 9640 "kind1/partial_order.ml" 282 9831 9871
+type(
+  int
+)
+"kind1/partial_order.ml" 274 9567 9574 "kind1/partial_order.ml" 282 9831 9871
+type(
+  int
+)
+"kind1/partial_order.ml" 270 9467 9468 "kind1/partial_order.ml" 282 9831 9871
+type(
+  int
+)
+"kind1/partial_order.ml" 284 9882 9896 "kind1/partial_order.ml" 284 9882 9913
+type(
+  int -> int -> int
+)
+ident(
+  def binary_find_great "kind1/partial_order.ml" 284 9882 9888 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 284 9882 9914 "kind1/partial_order.ml" 284 9882 9921
+type(
+  int
+)
+ident(
+  def l_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 298 10323 10363
+)
+"kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+type(
+  int
+)
+ident(
+  def u_bound "kind1/partial_order.ml" 286 9955 9956 "kind1/partial_order.ml" 298 10323 10363
+)
+"kind1/partial_order.ml" 286 9955 9964 "kind1/partial_order.ml" 286 9955 9967
+type(
+  int -> cmp_result
+)
+ident(
+  int_ref cmp "kind1/partial_order.ml" 266 9277 9287 "kind1/partial_order.ml" 266 9277 9290
+)
+"kind1/partial_order.ml" 286 9955 9968 "kind1/partial_order.ml" 286 9955 9975
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+)
+"kind1/partial_order.ml" 286 9955 9963 "kind1/partial_order.ml" 286 9955 9976
+call(
+  stack
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 287 9983 9988 "kind1/partial_order.ml" 287 9983 9993
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 287 9983 9997 "kind1/partial_order.ml" 287 9983 10004
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+)
+"kind1/partial_order.ml" 287 9983 10005 "kind1/partial_order.ml" 287 9983 10006
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/partial_order.ml" 287 9983 10007 "kind1/partial_order.ml" 287 9983 10008
+type(
+  int
+)
+"kind1/partial_order.ml" 287 9983 9997 "kind1/partial_order.ml" 287 9983 10008
+type(
+  int
+)
+"kind1/partial_order.ml" 288 10009 10014 "kind1/partial_order.ml" 288 10009 10017
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 288 10009 10021 "kind1/partial_order.ml" 288 10009 10029
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/partial_order.ml" 288 10009 10030 "kind1/partial_order.ml" 288 10009 10048
+type(
+  string
+)
+"kind1/partial_order.ml" 288 10009 10021 "kind1/partial_order.ml" 288 10009 10048
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 289 10049 10054 "kind1/partial_order.ml" 289 10049 10055
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 290 10060 10070 "kind1/partial_order.ml" 290 10060 10077
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 284 9882 9914 "kind1/partial_order.ml" 284 9882 9921
+)
+"kind1/partial_order.ml" 290 10060 10078 "kind1/partial_order.ml" 290 10060 10079
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 290 10060 10080 "kind1/partial_order.ml" 290 10060 10087
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+)
+"kind1/partial_order.ml" 290 10060 10070 "kind1/partial_order.ml" 290 10060 10087
+type(
+  bool
+)
+"kind1/partial_order.ml" 291 10089 10101 "kind1/partial_order.ml" 291 10089 10103
+type(
+  int
+)
+"kind1/partial_order.ml" 292 10121 10137 "kind1/partial_order.ml" 292 10121 10144
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 284 9882 9914 "kind1/partial_order.ml" 284 9882 9921
+)
+"kind1/partial_order.ml" 292 10121 10145 "kind1/partial_order.ml" 292 10121 10146
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"kind1/partial_order.ml" 292 10121 10147 "kind1/partial_order.ml" 292 10121 10154
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+)
+"kind1/partial_order.ml" 292 10121 10136 "kind1/partial_order.ml" 292 10121 10155
+type(
+  bool
+)
+"kind1/partial_order.ml" 294 10170 10176 "kind1/partial_order.ml" 294 10170 10179
+type(
+  int
+)
+ident(
+  def mid "kind1/partial_order.ml" 295 10211 10215 "kind1/partial_order.ml" 297 10282 10322
+)
+"kind1/partial_order.ml" 294 10170 10183 "kind1/partial_order.ml" 294 10170 10190
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 284 9882 9914 "kind1/partial_order.ml" 284 9882 9921
+)
+"kind1/partial_order.ml" 294 10170 10192 "kind1/partial_order.ml" 294 10170 10193
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/partial_order.ml" 294 10170 10194 "kind1/partial_order.ml" 294 10170 10201
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+)
+"kind1/partial_order.ml" 294 10170 10183 "kind1/partial_order.ml" 294 10170 10201
+type(
+  int
+)
+"kind1/partial_order.ml" 294 10170 10202 "kind1/partial_order.ml" 294 10170 10203
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/partial_order.ml" 294 10170 10203 "kind1/partial_order.ml" 294 10170 10204
+type(
+  int
+)
+"kind1/partial_order.ml" 294 10170 10182 "kind1/partial_order.ml" 294 10170 10205
+type(
+  int
+)
+"kind1/partial_order.ml" 294 10170 10205 "kind1/partial_order.ml" 294 10170 10206
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( / )
+)
+"kind1/partial_order.ml" 294 10170 10206 "kind1/partial_order.ml" 294 10170 10207
+type(
+  int
+)
+"kind1/partial_order.ml" 294 10170 10182 "kind1/partial_order.ml" 294 10170 10207
+type(
+  int
+)
+"kind1/partial_order.ml" 295 10211 10218 "kind1/partial_order.ml" 295 10211 10223
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 295 10211 10224 "kind1/partial_order.ml" 295 10211 10225
+type(
+  cmp_result -> cmp_result -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 295 10211 10226 "kind1/partial_order.ml" 295 10211 10229
+type(
+  int -> cmp_result
+)
+ident(
+  int_ref cmp "kind1/partial_order.ml" 266 9277 9287 "kind1/partial_order.ml" 266 9277 9290
+)
+"kind1/partial_order.ml" 295 10211 10230 "kind1/partial_order.ml" 295 10211 10233
+type(
+  int
+)
+ident(
+  int_ref mid "kind1/partial_order.ml" 294 10170 10176 "kind1/partial_order.ml" 294 10170 10179
+)
+"kind1/partial_order.ml" 295 10211 10226 "kind1/partial_order.ml" 295 10211 10233
+call(
+  stack
+)
+type(
+  cmp_result
+)
+"kind1/partial_order.ml" 295 10211 10218 "kind1/partial_order.ml" 295 10211 10233
+type(
+  bool
+)
+"kind1/partial_order.ml" 296 10235 10245 "kind1/partial_order.ml" 296 10235 10262
+type(
+  int -> int -> int
+)
+ident(
+  int_ref binary_find_great "kind1/partial_order.ml" 284 9882 9896 "kind1/partial_order.ml" 284 9882 9913
+)
+"kind1/partial_order.ml" 296 10235 10263 "kind1/partial_order.ml" 296 10235 10266
+type(
+  int
+)
+ident(
+  int_ref mid "kind1/partial_order.ml" 294 10170 10176 "kind1/partial_order.ml" 294 10170 10179
+)
+"kind1/partial_order.ml" 296 10235 10269 "kind1/partial_order.ml" 296 10235 10276
+type(
+  int
+)
+ident(
+  int_ref u_bound "kind1/partial_order.ml" 284 9882 9922 "kind1/partial_order.ml" 284 9882 9929
+)
+"kind1/partial_order.ml" 296 10235 10277 "kind1/partial_order.ml" 296 10235 10278
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/partial_order.ml" 296 10235 10279 "kind1/partial_order.ml" 296 10235 10280
+type(
+  int
+)
+"kind1/partial_order.ml" 296 10235 10268 "kind1/partial_order.ml" 296 10235 10281
+type(
+  int
+)
+"kind1/partial_order.ml" 296 10235 10245 "kind1/partial_order.ml" 296 10235 10281
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 297 10282 10292 "kind1/partial_order.ml" 297 10282 10309
+type(
+  int -> int -> int
+)
+ident(
+  int_ref binary_find_great "kind1/partial_order.ml" 284 9882 9896 "kind1/partial_order.ml" 284 9882 9913
+)
+"kind1/partial_order.ml" 297 10282 10311 "kind1/partial_order.ml" 297 10282 10318
+type(
+  int
+)
+ident(
+  int_ref l_bound "kind1/partial_order.ml" 284 9882 9914 "kind1/partial_order.ml" 284 9882 9921
+)
+"kind1/partial_order.ml" 297 10282 10319 "kind1/partial_order.ml" 297 10282 10322
+type(
+  int
+)
+ident(
+  int_ref mid "kind1/partial_order.ml" 294 10170 10176 "kind1/partial_order.ml" 294 10170 10179
+)
+"kind1/partial_order.ml" 297 10282 10292 "kind1/partial_order.ml" 297 10282 10322
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 295 10211 10215 "kind1/partial_order.ml" 297 10282 10322
+type(
+  int
+)
+"kind1/partial_order.ml" 294 10170 10172 "kind1/partial_order.ml" 297 10282 10322
+type(
+  int
+)
+"kind1/partial_order.ml" 298 10323 10335 "kind1/partial_order.ml" 298 10323 10343
+type(
+  string -> int
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/partial_order.ml" 298 10323 10344 "kind1/partial_order.ml" 298 10323 10363
+type(
+  string
+)
+"kind1/partial_order.ml" 298 10323 10335 "kind1/partial_order.ml" 298 10323 10363
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 292 10121 10133 "kind1/partial_order.ml" 298 10323 10363
+type(
+  int
+)
+"kind1/partial_order.ml" 290 10060 10067 "kind1/partial_order.ml" 298 10323 10363
+type(
+  int
+)
+"kind1/partial_order.ml" 286 9955 9956 "kind1/partial_order.ml" 298 10323 10363
+type(
+  int
+)
+"kind1/partial_order.ml" 300 10374 10384 "kind1/partial_order.ml" 300 10374 10392
+type(
+  int
+)
+ident(
+  def less_loc "kind1/partial_order.ml" 301 10433 10439 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 300 10374 10395 "kind1/partial_order.ml" 300 10374 10411
+type(
+  int -> int -> int
+)
+ident(
+  int_ref binary_find_less "kind1/partial_order.ml" 268 9345 9359 "kind1/partial_order.ml" 268 9345 9375
+)
+"kind1/partial_order.ml" 300 10374 10412 "kind1/partial_order.ml" 300 10374 10413
+type(
+  int
+)
+"kind1/partial_order.ml" 300 10374 10415 "kind1/partial_order.ml" 300 10374 10424
+type(
+  int
+)
+ident(
+  int_ref chain_len "kind1/partial_order.ml" 262 9174 9184 "kind1/partial_order.ml" 262 9174 9193
+)
+"kind1/partial_order.ml" 300 10374 10425 "kind1/partial_order.ml" 300 10374 10426
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/partial_order.ml" 300 10374 10427 "kind1/partial_order.ml" 300 10374 10428
+type(
+  int
+)
+"kind1/partial_order.ml" 300 10374 10414 "kind1/partial_order.ml" 300 10374 10429
+type(
+  int
+)
+"kind1/partial_order.ml" 300 10374 10395 "kind1/partial_order.ml" 300 10374 10429
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 301 10433 10443 "kind1/partial_order.ml" 301 10433 10452
+type(
+  int
+)
+ident(
+  def great_loc "kind1/partial_order.ml" 302 10494 10495 "kind1/partial_order.ml" 302 10494 10514
+)
+"kind1/partial_order.ml" 301 10433 10455 "kind1/partial_order.ml" 301 10433 10472
+type(
+  int -> int -> int
+)
+ident(
+  int_ref binary_find_great "kind1/partial_order.ml" 284 9882 9896 "kind1/partial_order.ml" 284 9882 9913
+)
+"kind1/partial_order.ml" 301 10433 10473 "kind1/partial_order.ml" 301 10433 10474
+type(
+  int
+)
+"kind1/partial_order.ml" 301 10433 10476 "kind1/partial_order.ml" 301 10433 10485
+type(
+  int
+)
+ident(
+  int_ref chain_len "kind1/partial_order.ml" 262 9174 9184 "kind1/partial_order.ml" 262 9174 9193
+)
+"kind1/partial_order.ml" 301 10433 10486 "kind1/partial_order.ml" 301 10433 10487
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/partial_order.ml" 301 10433 10488 "kind1/partial_order.ml" 301 10433 10489
+type(
+  int
+)
+"kind1/partial_order.ml" 301 10433 10475 "kind1/partial_order.ml" 301 10433 10490
+type(
+  int
+)
+"kind1/partial_order.ml" 301 10433 10455 "kind1/partial_order.ml" 301 10433 10490
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 302 10494 10495 "kind1/partial_order.ml" 302 10494 10503
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 300 10374 10384 "kind1/partial_order.ml" 300 10374 10392
+)
+"kind1/partial_order.ml" 302 10494 10505 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 301 10433 10443 "kind1/partial_order.ml" 301 10433 10452
+)
+"kind1/partial_order.ml" 302 10494 10495 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 301 10433 10439 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 300 10374 10380 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 284 9882 9888 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 268 9345 9351 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 266 9277 9283 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 264 9228 9234 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 262 9174 9180 "kind1/partial_order.ml" 302 10494 10514
+type(
+  int * int
+)
+"kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+type(
+  int
+)
+ident(
+  def node_id "kind1/partial_order.ml" 305 10600 10606 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 304 10554 10572 "kind1/partial_order.ml" 304 10554 10587
+type(
+  int list DynArray.t -> int
+)
+ident(
+  ext_ref DynArray.length
+)
+"kind1/partial_order.ml" 304 10554 10588 "kind1/partial_order.ml" 304 10554 10595
+type(
+  int list DynArray.t
+)
+"kind1/partial_order.ml" 304 10554 10572 "kind1/partial_order.ml" 304 10554 10595
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 305 10600 10606 "kind1/partial_order.ml" 305 10600 10618
+type(
+  int list DynArray.t -> int list -> unit
+)
+ident(
+  ext_ref DynArray.add
+)
+"kind1/partial_order.ml" 305 10600 10619 "kind1/partial_order.ml" 305 10600 10626
+type(
+  int list DynArray.t
+)
+"kind1/partial_order.ml" 305 10600 10627 "kind1/partial_order.ml" 305 10600 10631
+type(
+  int list
+)
+ident(
+  int_ref node "kind1/partial_order.ml" 260 9076 9096 "kind1/partial_order.ml" 260 9076 9100
+)
+"kind1/partial_order.ml" 305 10600 10606 "kind1/partial_order.ml" 305 10600 10631
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 306 10633 10639 "kind1/partial_order.ml" 306 10633 10651
+type(
+  string list DynArray.t -> string list -> unit
+)
+ident(
+  ext_ref DynArray.add
+)
+"kind1/partial_order.ml" 306 10633 10652 "kind1/partial_order.ml" 306 10633 10664
+type(
+  string list DynArray.t
+)
+"kind1/partial_order.ml" 306 10633 10665 "kind1/partial_order.ml" 306 10633 10675
+type(
+  string list
+)
+ident(
+  int_ref extra_info "kind1/partial_order.ml" 260 9076 9112 "kind1/partial_order.ml" 260 9076 9122
+)
+"kind1/partial_order.ml" 306 10633 10639 "kind1/partial_order.ml" 306 10633 10675
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 307 10677 10683 "kind1/partial_order.ml" 307 10677 10695
+type(
+  Int_set.t DynArray.t -> Int_set.t -> unit
+)
+ident(
+  ext_ref DynArray.add
+)
+"kind1/partial_order.ml" 307 10677 10696 "kind1/partial_order.ml" 307 10677 10702
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 307 10677 10703 "kind1/partial_order.ml" 307 10677 10716
+type(
+  Int_set.t
+)
+ident(
+  ext_ref Int_set.empty
+)
+"kind1/partial_order.ml" 307 10677 10683 "kind1/partial_order.ml" 307 10677 10716
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 308 10719 10725 "kind1/partial_order.ml" 308 10719 10737
+type(
+  Int_set.t DynArray.t -> Int_set.t -> unit
+)
+ident(
+  ext_ref DynArray.add
+)
+"kind1/partial_order.ml" 308 10719 10738 "kind1/partial_order.ml" 308 10719 10743
+type(
+  Int_set.t DynArray.t
+)
+"kind1/partial_order.ml" 308 10719 10744 "kind1/partial_order.ml" 308 10719 10757
+type(
+  Int_set.t
+)
+ident(
+  ext_ref Int_set.empty
+)
+"kind1/partial_order.ml" 308 10719 10725 "kind1/partial_order.ml" 308 10719 10757
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 309 10759 10767 "kind1/partial_order.ml" 309 10759 10782
+type(
+  (int * int) DynArray.t
+)
+ident(
+  def node_info_array "kind1/partial_order.ml" 310 10828 10832 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 309 10759 10785 "kind1/partial_order.ml" 309 10759 10797
+type(
+  (Int_set.elt DynArray.t -> int * int) ->
+  Int_set.elt DynArray.t DynArray.t -> (int * int) DynArray.t
+)
+ident(
+  ext_ref DynArray.map
+)
+"kind1/partial_order.ml" 309 10759 10798 "kind1/partial_order.ml" 309 10759 10815
+type(
+  Int_set.elt DynArray.t -> int * int
+)
+ident(
+  int_ref collect_node_info "kind1/partial_order.ml" 261 9139 9147 "kind1/partial_order.ml" 261 9139 9164
+)
+"kind1/partial_order.ml" 309 10759 10816 "kind1/partial_order.ml" 309 10759 10824
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 309 10759 10785 "kind1/partial_order.ml" 309 10759 10824
+call(
+  stack
+)
+type(
+  (int * int) DynArray.t
+)
+"kind1/partial_order.ml" 310 10828 10836 "kind1/partial_order.ml" 310 10828 10847
+type(
+  bool ref
+)
+ident(
+  def node_placed "kind1/partial_order.ml" 311 10864 10868 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 310 10828 10850 "kind1/partial_order.ml" 310 10828 10853
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/partial_order.ml" 310 10828 10854 "kind1/partial_order.ml" 310 10828 10859
+type(
+  bool
+)
+"kind1/partial_order.ml" 310 10828 10850 "kind1/partial_order.ml" 310 10828 10859
+type(
+  bool ref
+)
+"kind1/partial_order.ml" 311 10864 10872 "kind1/partial_order.ml" 311 10864 10887
+type(
+  int -> int * int -> unit
+)
+ident(
+  def iter_chain_func "kind1/partial_order.ml" 343 11776 11777 "kind1/partial_order.ml" 350 11997 12005
+)
+"kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+type(
+  int
+)
+ident(
+  def chain_id "kind1/partial_order.ml" 311 10864 10897 "kind1/partial_order.ml" 341 11760 11764
+)
+"kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+type(
+  int
+)
+ident(
+  def less_loc "kind1/partial_order.ml" 312 10920 10926 "kind1/partial_order.ml" 341 11760 11764
+)
+"kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+type(
+  int
+)
+ident(
+  def great_loc "kind1/partial_order.ml" 312 10920 10926 "kind1/partial_order.ml" 341 11760 11764
+)
+"kind1/partial_order.ml" 311 10864 10897 "kind1/partial_order.ml" 311 10864 10917
+type(
+  int * int
+)
+"kind1/partial_order.ml" 312 10920 10930 "kind1/partial_order.ml" 312 10920 10939
+type(
+  int
+)
+ident(
+  def chain_len "kind1/partial_order.ml" 313 10988 10994 "kind1/partial_order.ml" 341 11760 11764
+)
+"kind1/partial_order.ml" 312 10920 10942 "kind1/partial_order.ml" 312 10920 10957
+type(
+  Int_set.elt DynArray.t -> int
+)
+ident(
+  ext_ref DynArray.length
+)
+"kind1/partial_order.ml" 312 10920 10959 "kind1/partial_order.ml" 312 10920 10963
+type(
+  'a
+)
+"kind1/partial_order.ml" 312 10920 10959 "kind1/partial_order.ml" 312 10920 10973
+call(
+  stack
+)
+type(
+  int -> Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 312 10920 10974 "kind1/partial_order.ml" 312 10920 10982
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+)
+"kind1/partial_order.ml" 312 10920 10958 "kind1/partial_order.ml" 312 10920 10983
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 312 10920 10942 "kind1/partial_order.ml" 312 10920 10983
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 313 10988 10998 "kind1/partial_order.ml" 313 10988 11000
+type(
+  int
+)
+"kind1/partial_order.ml" 313 10988 11001 "kind1/partial_order.ml" 313 10988 11002
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 313 10988 11003 "kind1/partial_order.ml" 313 10988 11011
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 313 10988 10998 "kind1/partial_order.ml" 313 10988 11011
+type(
+  bool
+)
+"kind1/partial_order.ml" 313 10988 11012 "kind1/partial_order.ml" 313 10988 11014
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/partial_order.ml" 313 10988 11015 "kind1/partial_order.ml" 313 10988 11017
+type(
+  int
+)
+"kind1/partial_order.ml" 313 10988 11018 "kind1/partial_order.ml" 313 10988 11019
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 313 10988 11020 "kind1/partial_order.ml" 313 10988 11029
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 313 10988 11015 "kind1/partial_order.ml" 313 10988 11029
+type(
+  bool
+)
+"kind1/partial_order.ml" 313 10988 10997 "kind1/partial_order.ml" 313 10988 11030
+type(
+  bool
+)
+"kind1/partial_order.ml" 314 11031 11042 "kind1/partial_order.ml" 314 11031 11044
+type(
+  unit
+)
+"kind1/partial_order.ml" 315 11045 11060 "kind1/partial_order.ml" 315 11045 11068
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 315 11045 11070 "kind1/partial_order.ml" 315 11045 11071
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 315 11045 11072 "kind1/partial_order.ml" 315 11045 11081
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 315 11045 11059 "kind1/partial_order.ml" 315 11045 11082
+type(
+  bool
+)
+"kind1/partial_order.ml" 318 11103 11106 "kind1/partial_order.ml" 318 11103 11117
+type(
+  bool ref
+)
+ident(
+  int_ref node_placed "kind1/partial_order.ml" 310 10828 10836 "kind1/partial_order.ml" 310 10828 10847
+)
+"kind1/partial_order.ml" 318 11103 11118 "kind1/partial_order.ml" 318 11103 11120
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/partial_order.ml" 318 11103 11121 "kind1/partial_order.ml" 318 11103 11125
+type(
+  bool
+)
+"kind1/partial_order.ml" 318 11103 11106 "kind1/partial_order.ml" 318 11103 11125
+type(
+  unit
+)
+"kind1/partial_order.ml" 319 11127 11137 "kind1/partial_order.ml" 319 11127 11141
+type(
+  'a
+)
+"kind1/partial_order.ml" 319 11127 11137 "kind1/partial_order.ml" 319 11127 11158
+call(
+  tail
+)
+type(
+  int -> int -> Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 319 11127 11159 "kind1/partial_order.ml" 319 11127 11167
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+)
+"kind1/partial_order.ml" 319 11127 11168 "kind1/partial_order.ml" 319 11127 11176
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 319 11127 11177 "kind1/partial_order.ml" 319 11127 11184
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+)
+"kind1/partial_order.ml" 319 11127 11137 "kind1/partial_order.ml" 319 11127 11185
+type(
+  unit
+)
+"kind1/partial_order.ml" 317 11096 11097 "kind1/partial_order.ml" 320 11186 11190
+type(
+  unit
+)
+"kind1/partial_order.ml" 321 11191 11207 "kind1/partial_order.ml" 321 11191 11208
+type(
+  int
+)
+"kind1/partial_order.ml" 321 11191 11210 "kind1/partial_order.ml" 321 11191 11211
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 321 11191 11212 "kind1/partial_order.ml" 321 11191 11220
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 321 11191 11205 "kind1/partial_order.ml" 321 11191 11221
+type(
+  bool
+)
+"kind1/partial_order.ml" 324 11243 11255 "kind1/partial_order.ml" 324 11243 11257
+type(
+  int
+)
+"kind1/partial_order.ml" 324 11243 11258 "kind1/partial_order.ml" 324 11243 11259
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 324 11243 11260 "kind1/partial_order.ml" 324 11243 11269
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 324 11243 11253 "kind1/partial_order.ml" 324 11243 11270
+type(
+  bool
+)
+"kind1/partial_order.ml" 324 11243 11246 "kind1/partial_order.ml" 324 11243 11270
+type(
+  unit
+)
+"kind1/partial_order.ml" 325 11272 11275 "kind1/partial_order.ml" 325 11272 11286
+type(
+  bool ref
+)
+ident(
+  int_ref node_placed "kind1/partial_order.ml" 310 10828 10836 "kind1/partial_order.ml" 310 10828 10847
+)
+"kind1/partial_order.ml" 325 11272 11287 "kind1/partial_order.ml" 325 11272 11289
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/partial_order.ml" 325 11272 11290 "kind1/partial_order.ml" 325 11272 11294
+type(
+  bool
+)
+"kind1/partial_order.ml" 325 11272 11275 "kind1/partial_order.ml" 325 11272 11294
+type(
+  unit
+)
+"kind1/partial_order.ml" 326 11296 11299 "kind1/partial_order.ml" 326 11296 11303
+type(
+  'a
+)
+"kind1/partial_order.ml" 326 11296 11299 "kind1/partial_order.ml" 326 11296 11320
+call(
+  tail
+)
+type(
+  int -> int -> Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 326 11296 11321 "kind1/partial_order.ml" 326 11296 11329
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+)
+"kind1/partial_order.ml" 326 11296 11330 "kind1/partial_order.ml" 326 11296 11338
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 326 11296 11339 "kind1/partial_order.ml" 326 11296 11346
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+)
+"kind1/partial_order.ml" 326 11296 11299 "kind1/partial_order.ml" 326 11296 11347
+type(
+  unit
+)
+"kind1/partial_order.ml" 325 11272 11275 "kind1/partial_order.ml" 326 11296 11347
+type(
+  unit
+)
+"kind1/partial_order.ml" 323 11235 11236 "kind1/partial_order.ml" 327 11348 11352
+type(
+  unit
+)
+"kind1/partial_order.ml" 328 11354 11368 "kind1/partial_order.ml" 328 11354 11377
+type(
+  int
+)
+ident(
+  int_ref chain_len "kind1/partial_order.ml" 312 10920 10930 "kind1/partial_order.ml" 312 10920 10939
+)
+"kind1/partial_order.ml" 328 11354 11378 "kind1/partial_order.ml" 328 11354 11379
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 328 11354 11380 "kind1/partial_order.ml" 328 11354 11389
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 328 11354 11368 "kind1/partial_order.ml" 328 11354 11389
+type(
+  bool
+)
+"kind1/partial_order.ml" 331 11408 11420 "kind1/partial_order.ml" 331 11408 11422
+type(
+  int
+)
+"kind1/partial_order.ml" 331 11408 11423 "kind1/partial_order.ml" 331 11408 11424
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/partial_order.ml" 331 11408 11425 "kind1/partial_order.ml" 331 11408 11433
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 331 11408 11418 "kind1/partial_order.ml" 331 11408 11434
+type(
+  bool
+)
+"kind1/partial_order.ml" 331 11408 11411 "kind1/partial_order.ml" 331 11408 11434
+type(
+  unit
+)
+"kind1/partial_order.ml" 332 11436 11439 "kind1/partial_order.ml" 332 11436 11450
+type(
+  bool ref
+)
+ident(
+  int_ref node_placed "kind1/partial_order.ml" 310 10828 10836 "kind1/partial_order.ml" 310 10828 10847
+)
+"kind1/partial_order.ml" 332 11436 11451 "kind1/partial_order.ml" 332 11436 11453
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/partial_order.ml" 332 11436 11454 "kind1/partial_order.ml" 332 11436 11458
+type(
+  bool
+)
+"kind1/partial_order.ml" 332 11436 11439 "kind1/partial_order.ml" 332 11436 11458
+type(
+  unit
+)
+"kind1/partial_order.ml" 333 11460 11463 "kind1/partial_order.ml" 333 11460 11467
+type(
+  'a
+)
+"kind1/partial_order.ml" 333 11460 11463 "kind1/partial_order.ml" 333 11460 11484
+call(
+  tail
+)
+type(
+  int -> int -> Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 333 11460 11485 "kind1/partial_order.ml" 333 11460 11493
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+)
+"kind1/partial_order.ml" 333 11460 11494 "kind1/partial_order.ml" 333 11460 11503
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 333 11460 11504 "kind1/partial_order.ml" 333 11460 11511
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+)
+"kind1/partial_order.ml" 333 11460 11463 "kind1/partial_order.ml" 333 11460 11512
+type(
+  unit
+)
+"kind1/partial_order.ml" 332 11436 11439 "kind1/partial_order.ml" 333 11460 11512
+type(
+  unit
+)
+"kind1/partial_order.ml" 330 11401 11402 "kind1/partial_order.ml" 334 11513 11517
+type(
+  unit
+)
+"kind1/partial_order.ml" 337 11539 11546 "kind1/partial_order.ml" 337 11539 11548
+type(
+  int
+)
+"kind1/partial_order.ml" 337 11539 11549 "kind1/partial_order.ml" 337 11539 11551
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( != )
+)
+"kind1/partial_order.ml" 337 11539 11552 "kind1/partial_order.ml" 337 11539 11560
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 337 11539 11545 "kind1/partial_order.ml" 337 11539 11561
+type(
+  bool
+)
+"kind1/partial_order.ml" 338 11562 11570 "kind1/partial_order.ml" 338 11562 11574
+type(
+  'a
+)
+"kind1/partial_order.ml" 338 11562 11570 "kind1/partial_order.ml" 338 11562 11586
+call(
+  stack
+)
+type(
+  Int_set.elt -> Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 338 11562 11587 "kind1/partial_order.ml" 338 11562 11594
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+)
+"kind1/partial_order.ml" 338 11562 11596 "kind1/partial_order.ml" 338 11562 11608
+type(
+  Int_set.elt DynArray.t -> int -> Int_set.elt
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 338 11562 11610 "kind1/partial_order.ml" 338 11562 11614
+type(
+  'a
+)
+"kind1/partial_order.ml" 338 11562 11610 "kind1/partial_order.ml" 338 11562 11624
+call(
+  stack
+)
+type(
+  int -> Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 338 11562 11625 "kind1/partial_order.ml" 338 11562 11633
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+)
+"kind1/partial_order.ml" 338 11562 11609 "kind1/partial_order.ml" 338 11562 11634
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 338 11562 11635 "kind1/partial_order.ml" 338 11562 11643
+type(
+  int
+)
+ident(
+  int_ref less_loc "kind1/partial_order.ml" 311 10864 10898 "kind1/partial_order.ml" 311 10864 10906
+)
+"kind1/partial_order.ml" 338 11562 11595 "kind1/partial_order.ml" 338 11562 11644
+call(
+  stack
+)
+type(
+  Int_set.elt
+)
+"kind1/partial_order.ml" 338 11562 11570 "kind1/partial_order.ml" 338 11562 11644
+type(
+  unit
+)
+"kind1/partial_order.ml" 337 11539 11542 "kind1/partial_order.ml" 338 11562 11644
+type(
+  unit
+)
+"kind1/partial_order.ml" 339 11646 11653 "kind1/partial_order.ml" 339 11646 11655
+type(
+  int
+)
+"kind1/partial_order.ml" 339 11646 11656 "kind1/partial_order.ml" 339 11646 11658
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( != )
+)
+"kind1/partial_order.ml" 339 11646 11659 "kind1/partial_order.ml" 339 11646 11668
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 339 11646 11652 "kind1/partial_order.ml" 339 11646 11669
+type(
+  bool
+)
+"kind1/partial_order.ml" 340 11670 11678 "kind1/partial_order.ml" 340 11670 11682
+type(
+  'a
+)
+"kind1/partial_order.ml" 340 11670 11678 "kind1/partial_order.ml" 340 11670 11694
+call(
+  tail
+)
+type(
+  Int_set.elt -> Int_set.elt -> unit
+)
+"kind1/partial_order.ml" 340 11670 11696 "kind1/partial_order.ml" 340 11670 11708
+type(
+  Int_set.elt DynArray.t -> int -> Int_set.elt
+)
+ident(
+  ext_ref DynArray.get
+)
+"kind1/partial_order.ml" 340 11670 11710 "kind1/partial_order.ml" 340 11670 11714
+type(
+  'a
+)
+"kind1/partial_order.ml" 340 11670 11710 "kind1/partial_order.ml" 340 11670 11724
+call(
+  stack
+)
+type(
+  int -> Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 340 11670 11725 "kind1/partial_order.ml" 340 11670 11733
+type(
+  int
+)
+ident(
+  int_ref chain_id "kind1/partial_order.ml" 311 10864 10888 "kind1/partial_order.ml" 311 10864 10896
+)
+"kind1/partial_order.ml" 340 11670 11709 "kind1/partial_order.ml" 340 11670 11734
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 340 11670 11736 "kind1/partial_order.ml" 340 11670 11745
+type(
+  int
+)
+ident(
+  int_ref great_loc "kind1/partial_order.ml" 311 10864 10907 "kind1/partial_order.ml" 311 10864 10916
+)
+"kind1/partial_order.ml" 340 11670 11746 "kind1/partial_order.ml" 340 11670 11747
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/partial_order.ml" 340 11670 11748 "kind1/partial_order.ml" 340 11670 11749
+type(
+  int
+)
+"kind1/partial_order.ml" 340 11670 11735 "kind1/partial_order.ml" 340 11670 11750
+type(
+  int
+)
+"kind1/partial_order.ml" 340 11670 11695 "kind1/partial_order.ml" 340 11670 11751
+call(
+  stack
+)
+type(
+  Int_set.elt
+)
+"kind1/partial_order.ml" 340 11670 11752 "kind1/partial_order.ml" 340 11670 11759
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+)
+"kind1/partial_order.ml" 340 11670 11678 "kind1/partial_order.ml" 340 11670 11759
+type(
+  unit
+)
+"kind1/partial_order.ml" 339 11646 11649 "kind1/partial_order.ml" 340 11670 11759
+type(
+  unit
+)
+"kind1/partial_order.ml" 336 11531 11532 "kind1/partial_order.ml" 341 11760 11764
+type(
+  unit
+)
+"kind1/partial_order.ml" 328 11354 11365 "kind1/partial_order.ml" 341 11760 11764
+type(
+  unit
+)
+"kind1/partial_order.ml" 321 11191 11202 "kind1/partial_order.ml" 341 11760 11764
+type(
+  unit
+)
+"kind1/partial_order.ml" 315 11045 11056 "kind1/partial_order.ml" 341 11760 11764
+type(
+  unit
+)
+"kind1/partial_order.ml" 313 10988 10994 "kind1/partial_order.ml" 341 11760 11764
+type(
+  unit
+)
+"kind1/partial_order.ml" 312 10920 10926 "kind1/partial_order.ml" 341 11760 11764
+type(
+  unit
+)
+"kind1/partial_order.ml" 343 11776 11777 "kind1/partial_order.ml" 343 11776 11791
+type(
+  (int -> int * int -> unit) -> (int * int) DynArray.t -> unit
+)
+ident(
+  ext_ref DynArray.iteri
+)
+"kind1/partial_order.ml" 343 11776 11792 "kind1/partial_order.ml" 343 11776 11807
+type(
+  int -> int * int -> unit
+)
+ident(
+  int_ref iter_chain_func "kind1/partial_order.ml" 311 10864 10872 "kind1/partial_order.ml" 311 10864 10887
+)
+"kind1/partial_order.ml" 343 11776 11809 "kind1/partial_order.ml" 343 11776 11824
+type(
+  (int * int) DynArray.t
+)
+ident(
+  int_ref node_info_array "kind1/partial_order.ml" 309 10759 10767 "kind1/partial_order.ml" 309 10759 10782
+)
+"kind1/partial_order.ml" 343 11776 11777 "kind1/partial_order.ml" 343 11776 11824
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 344 11827 11832 "kind1/partial_order.ml" 344 11827 11835
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"kind1/partial_order.ml" 344 11827 11837 "kind1/partial_order.ml" 344 11827 11838
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/partial_order.ml" 344 11827 11838 "kind1/partial_order.ml" 344 11827 11849
+type(
+  bool ref
+)
+ident(
+  int_ref node_placed "kind1/partial_order.ml" 310 10828 10836 "kind1/partial_order.ml" 310 10828 10847
+)
+"kind1/partial_order.ml" 344 11827 11836 "kind1/partial_order.ml" 344 11827 11850
+type(
+  bool
+)
+"kind1/partial_order.ml" 344 11827 11831 "kind1/partial_order.ml" 344 11827 11852
+type(
+  bool
+)
+"kind1/partial_order.ml" 348 11897 11902 "kind1/partial_order.ml" 348 11897 11914
+type(
+  Int_set.elt DynArray.t DynArray.t -> Int_set.elt DynArray.t -> unit
+)
+ident(
+  ext_ref DynArray.add
+)
+"kind1/partial_order.ml" 348 11897 11915 "kind1/partial_order.ml" 348 11897 11923
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 348 11897 11925 "kind1/partial_order.ml" 348 11897 11940
+type(
+  unit -> Int_set.elt DynArray.t
+)
+ident(
+  ext_ref DynArray.create
+)
+"kind1/partial_order.ml" 348 11897 11940 "kind1/partial_order.ml" 348 11897 11942
+type(
+  unit
+)
+"kind1/partial_order.ml" 348 11897 11924 "kind1/partial_order.ml" 348 11897 11943
+call(
+  stack
+)
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 348 11897 11902 "kind1/partial_order.ml" 348 11897 11943
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 349 11945 11950 "kind1/partial_order.ml" 349 11945 11962
+type(
+  Int_set.elt DynArray.t -> Int_set.elt -> unit
+)
+ident(
+  ext_ref DynArray.add
+)
+"kind1/partial_order.ml" 349 11945 11964 "kind1/partial_order.ml" 349 11945 11977
+type(
+  Int_set.elt DynArray.t DynArray.t -> Int_set.elt DynArray.t
+)
+ident(
+  ext_ref DynArray.last
+)
+"kind1/partial_order.ml" 349 11945 11978 "kind1/partial_order.ml" 349 11945 11986
+type(
+  Int_set.elt DynArray.t DynArray.t
+)
+"kind1/partial_order.ml" 349 11945 11963 "kind1/partial_order.ml" 349 11945 11987
+call(
+  stack
+)
+type(
+  Int_set.elt DynArray.t
+)
+"kind1/partial_order.ml" 349 11945 11988 "kind1/partial_order.ml" 349 11945 11995
+type(
+  Int_set.elt
+)
+ident(
+  int_ref node_id "kind1/partial_order.ml" 304 10554 10562 "kind1/partial_order.ml" 304 10554 10569
+)
+"kind1/partial_order.ml" 349 11945 11950 "kind1/partial_order.ml" 349 11945 11996
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 346 11861 11864 "kind1/partial_order.ml" 350 11997 12003
+type(
+  unit
+)
+"kind1/partial_order.ml" 344 11827 11828 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 343 11776 11777 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 311 10864 10868 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 310 10828 10832 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 309 10759 10763 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 308 10719 10725 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 307 10677 10683 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 306 10633 10639 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 305 10600 10606 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 304 10554 10558 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 261 9139 9143 "kind1/partial_order.ml" 350 11997 12005
+type(
+  unit
+)
+"kind1/partial_order.ml" 359 12287 12308 "kind1/partial_order.ml" 359 12287 12317
+type(
+  string list
+)
+"kind1/partial_order.ml" 360 12333 12340 "kind1/partial_order.ml" 360 12333 12346
+type(
+  < doc_of_asserts : unit -> Types.il_formula list;
+    doc_of_stepn_asserts : Types.il_expression list -> string list;
+    eq_imp : unit -> Types.il_formula list * Types.il_formula list;
+    equiv_classes : unit -> string list list;
+    imps : unit -> (string * string) list; make_copy : unit -> unit;
+    print : unit -> unit; sort : (string, string) Hashtbl.t -> bool; .. >
+)
+"kind1/partial_order.ml" 361 12347 12375 "kind1/partial_order.ml" 361 12347 12384
+type(
+  string list
+)
+ident(
+  int_ref init_list "kind1/partial_order.ml" 359 12287 12308 "kind1/partial_order.ml" 359 12287 12317
+)
+"kind1/partial_order.ml" 361 12347 12385 "kind1/partial_order.ml" 361 12347 12387
+type(
+  int list
+)
+"kind1/partial_order.ml" 361 12347 12374 "kind1/partial_order.ml" 361 12347 12388
+type(
+  string list * int list
+)
+"kind1/partial_order.ml" 361 12347 12373 "kind1/partial_order.ml" 361 12347 12389
+type(
+  (string list * int list) list
+)
+"kind1/partial_order.ml" 362 12390 12419 "kind1/partial_order.ml" 362 12390 12442
+type(
+  (int list -> int list -> cmp_result) -> partial_order_graph
+)
+"kind1/partial_order.ml" 362 12390 12443 "kind1/partial_order.ml" 362 12390 12459
+type(
+  int list -> int list -> cmp_result
+)
+ident(
+  int_ref compare_int_node "kind1/partial_order.ml" 96 3218 3222 "kind1/partial_order.ml" 96 3218 3238
+)
+"kind1/partial_order.ml" 362 12390 12419 "kind1/partial_order.ml" 362 12390 12459
+call(
+  stack
+)
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 363 12461 12494 "kind1/partial_order.ml" 363 12461 12517
+type(
+  (int list -> int list -> cmp_result) -> partial_order_graph
+)
+"kind1/partial_order.ml" 363 12461 12518 "kind1/partial_order.ml" 363 12461 12534
+type(
+  int list -> int list -> cmp_result
+)
+ident(
+  int_ref compare_int_node "kind1/partial_order.ml" 96 3218 3222 "kind1/partial_order.ml" 96 3218 3238
+)
+"kind1/partial_order.ml" 363 12461 12494 "kind1/partial_order.ml" 363 12461 12534
+call(
+  stack
+)
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 365 12551 12559 "kind1/partial_order.ml" 365 12551 12570
+type(
+  string list -> int
+)
+ident(
+  ext_ref List.length
+)
+"kind1/partial_order.ml" 365 12551 12571 "kind1/partial_order.ml" 365 12551 12580
+type(
+  string list
+)
+"kind1/partial_order.ml" 365 12551 12558 "kind1/partial_order.ml" 365 12551 12581
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/partial_order.ml" 365 12551 12582 "kind1/partial_order.ml" 365 12551 12583
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/partial_order.ml" 365 12551 12583 "kind1/partial_order.ml" 365 12551 12584
+type(
+  int
+)
+"kind1/partial_order.ml" 365 12551 12558 "kind1/partial_order.ml" 365 12551 12584
+type(
+  bool
+)
+"kind1/partial_order.ml" 366 12586 12595 "kind1/partial_order.ml" 366 12586 12607
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 366 12586 12595 "kind1/partial_order.ml" 366 12586 12616
+call(
+  tail
+)
+type(
+  int list -> string list -> unit
+)
+"kind1/partial_order.ml" 366 12586 12618 "kind1/partial_order.ml" 366 12586 12619
+type(
+  int
+)
+"kind1/partial_order.ml" 366 12586 12617 "kind1/partial_order.ml" 366 12586 12620
+type(
+  int list
+)
+"kind1/partial_order.ml" 366 12586 12621 "kind1/partial_order.ml" 366 12586 12630
+type(
+  string list
+)
+"kind1/partial_order.ml" 366 12586 12595 "kind1/partial_order.ml" 366 12586 12630
+type(
+  unit
+)
+"kind1/partial_order.ml" 367 12631 12640 "kind1/partial_order.ml" 367 12631 12642
+type(
+  unit
+)
+"kind1/partial_order.ml" 365 12551 12555 "kind1/partial_order.ml" 367 12631 12642
+type(
+  (< doc_of_asserts : unit -> Types.il_formula list;
+     doc_of_stepn_asserts : Types.il_expression list -> string list;
+     eq_imp : unit -> Types.il_formula list * Types.il_formula list;
+     equiv_classes : unit -> string list list;
+     imps : unit -> (string * string) list; make_copy : unit -> unit;
+     print : unit -> unit; sort : (string, string) Hashtbl.t -> bool; .. >
+   as 'a) ->
+  unit
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 368 12643 12657 "kind1/partial_order.ml" 368 12643 12659
+type(
+  unit
+)
+"kind1/partial_order.ml" 369 12662 12666 "kind1/partial_order.ml" 369 12662 12670
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 369 12662 12671 "kind1/partial_order.ml" 369 12662 12696
+type(
+  string
+)
+"kind1/partial_order.ml" 369 12662 12666 "kind1/partial_order.ml" 369 12662 12696
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12702 "kind1/partial_order.ml" 370 12698 12711
+type(
+  (string list * int list -> unit) -> (string list * int list) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/partial_order.ml" 370 12698 12718 "kind1/partial_order.ml" 370 12698 12719
+type(
+  string list
+)
+ident(
+  def x "kind1/partial_order.ml" 370 12698 12727 "kind1/partial_order.ml" 370 12698 12791
+)
+"kind1/partial_order.ml" 370 12698 12721 "kind1/partial_order.ml" 370 12698 12722
+type(
+  int list
+)
+ident(
+  def y "kind1/partial_order.ml" 370 12698 12727 "kind1/partial_order.ml" 370 12698 12791
+)
+"kind1/partial_order.ml" 370 12698 12717 "kind1/partial_order.ml" 370 12698 12723
+type(
+  string list * int list
+)
+"kind1/partial_order.ml" 370 12698 12727 "kind1/partial_order.ml" 370 12698 12731
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 370 12698 12732 "kind1/partial_order.ml" 370 12698 12737
+type(
+  string
+)
+"kind1/partial_order.ml" 370 12698 12727 "kind1/partial_order.ml" 370 12698 12737
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12739 "kind1/partial_order.ml" 370 12698 12749
+type(
+  string list -> unit
+)
+ident(
+  ext_ref Util.p_str_list
+)
+"kind1/partial_order.ml" 370 12698 12750 "kind1/partial_order.ml" 370 12698 12751
+type(
+  string list
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 370 12698 12718 "kind1/partial_order.ml" 370 12698 12719
+)
+"kind1/partial_order.ml" 370 12698 12739 "kind1/partial_order.ml" 370 12698 12751
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12754 "kind1/partial_order.ml" 370 12698 12758
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 370 12698 12759 "kind1/partial_order.ml" 370 12698 12765
+type(
+  string
+)
+"kind1/partial_order.ml" 370 12698 12754 "kind1/partial_order.ml" 370 12698 12765
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12768 "kind1/partial_order.ml" 370 12698 12778
+type(
+  int list -> unit
+)
+ident(
+  ext_ref Util.p_int_list
+)
+"kind1/partial_order.ml" 370 12698 12779 "kind1/partial_order.ml" 370 12698 12780
+type(
+  int list
+)
+ident(
+  int_ref y "kind1/partial_order.ml" 370 12698 12721 "kind1/partial_order.ml" 370 12698 12722
+)
+"kind1/partial_order.ml" 370 12698 12768 "kind1/partial_order.ml" 370 12698 12780
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12782 "kind1/partial_order.ml" 370 12698 12786
+type(
+  string -> unit
+)
+ident(
+  ext_ref Util.pstr
+)
+"kind1/partial_order.ml" 370 12698 12787 "kind1/partial_order.ml" 370 12698 12791
+type(
+  string
+)
+"kind1/partial_order.ml" 370 12698 12782 "kind1/partial_order.ml" 370 12698 12791
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12768 "kind1/partial_order.ml" 370 12698 12791
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12754 "kind1/partial_order.ml" 370 12698 12791
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12739 "kind1/partial_order.ml" 370 12698 12791
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12727 "kind1/partial_order.ml" 370 12698 12791
+type(
+  unit
+)
+"kind1/partial_order.ml" 370 12698 12712 "kind1/partial_order.ml" 370 12698 12792
+type(
+  string list * int list -> unit
+)
+"kind1/partial_order.ml" 370 12698 12793 "kind1/partial_order.ml" 370 12698 12802
+type(
+  (string list * int list) list
+)
+"kind1/partial_order.ml" 370 12698 12702 "kind1/partial_order.ml" 370 12698 12802
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 369 12662 12666 "kind1/partial_order.ml" 370 12698 12802
+type(
+  unit
+)
+"kind1/partial_order.ml" 371 12803 12827 "kind1/partial_order.ml" 371 12803 12840
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  def counter_model "kind1/partial_order.ml" 372 12843 12847 "kind1/partial_order.ml" 376 13034 13078
+)
+"kind1/partial_order.ml" 372 12843 12851 "kind1/partial_order.ml" 372 12843 12865
+type(
+  string list * int list -> (string list * int list) list
+)
+ident(
+  def iter_list_func "kind1/partial_order.ml" 375 12975 12979 "kind1/partial_order.ml" 376 13034 13078
+)
+"kind1/partial_order.ml" 372 12843 12867 "kind1/partial_order.ml" 372 12843 12878
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/partial_order.ml" 373 12889 12895 "kind1/partial_order.ml" 373 12889 12967
+)
+"kind1/partial_order.ml" 372 12843 12879 "kind1/partial_order.ml" 372 12843 12885
+type(
+  int list
+)
+ident(
+  def values "kind1/partial_order.ml" 373 12889 12895 "kind1/partial_order.ml" 373 12889 12967
+)
+"kind1/partial_order.ml" 372 12843 12866 "kind1/partial_order.ml" 372 12843 12886
+type(
+  string list * int list
+)
+"kind1/partial_order.ml" 373 12889 12895 "kind1/partial_order.ml" 373 12889 12934
+type(
+  string list ->
+  (string, string) Hashtbl.t -> int list -> (string list * int list) list
+)
+ident(
+  ext_ref Equiv_util.filter_int_func_with_history
+)
+"kind1/partial_order.ml" 373 12889 12935 "kind1/partial_order.ml" 373 12889 12946
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/partial_order.ml" 372 12843 12867 "kind1/partial_order.ml" 372 12843 12878
+)
+"kind1/partial_order.ml" 373 12889 12947 "kind1/partial_order.ml" 373 12889 12960
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref counter_model "kind1/partial_order.ml" 371 12803 12827 "kind1/partial_order.ml" 371 12803 12840
+)
+"kind1/partial_order.ml" 373 12889 12961 "kind1/partial_order.ml" 373 12889 12967
+type(
+  int list
+)
+ident(
+  int_ref values "kind1/partial_order.ml" 372 12843 12879 "kind1/partial_order.ml" 372 12843 12885
+)
+"kind1/partial_order.ml" 373 12889 12895 "kind1/partial_order.ml" 373 12889 12967
+call(
+  tail
+)
+type(
+  (string list * int list) list
+)
+"kind1/partial_order.ml" 375 12975 12983 "kind1/partial_order.ml" 375 12975 12994
+type(
+  (string list * int list) list list
+)
+ident(
+  def new_classes "kind1/partial_order.ml" 376 13034 13040 "kind1/partial_order.ml" 376 13034 13078
+)
+"kind1/partial_order.ml" 375 12975 12997 "kind1/partial_order.ml" 375 12975 13005
+type(
+  (string list * int list -> (string list * int list) list) ->
+  (string list * int list) list -> (string list * int list) list list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 375 12975 13006 "kind1/partial_order.ml" 375 12975 13020
+type(
+  string list * int list -> (string list * int list) list
+)
+ident(
+  int_ref iter_list_func "kind1/partial_order.ml" 372 12843 12851 "kind1/partial_order.ml" 372 12843 12865
+)
+"kind1/partial_order.ml" 375 12975 13021 "kind1/partial_order.ml" 375 12975 13030
+type(
+  (string list * int list) list
+)
+"kind1/partial_order.ml" 375 12975 12997 "kind1/partial_order.ml" 375 12975 13030
+call(
+  stack
+)
+type(
+  (string list * int list) list list
+)
+"kind1/partial_order.ml" 376 13034 13053 "kind1/partial_order.ml" 376 13034 13065
+type(
+  (string list * int list) list list -> (string list * int list) list
+)
+ident(
+  ext_ref List.flatten
+)
+"kind1/partial_order.ml" 376 13034 13066 "kind1/partial_order.ml" 376 13034 13077
+type(
+  (string list * int list) list list
+)
+ident(
+  int_ref new_classes "kind1/partial_order.ml" 375 12975 12983 "kind1/partial_order.ml" 375 12975 12994
+)
+"kind1/partial_order.ml" 376 13034 13053 "kind1/partial_order.ml" 376 13034 13077
+call(
+  stack
+)
+type(
+  (string list * int list) list
+)
+"kind1/partial_order.ml" 376 13034 13040 "kind1/partial_order.ml" 376 13034 13078
+type(
+  unit
+)
+"kind1/partial_order.ml" 375 12975 12979 "kind1/partial_order.ml" 376 13034 13078
+type(
+  unit
+)
+"kind1/partial_order.ml" 372 12843 12847 "kind1/partial_order.ml" 376 13034 13078
+type(
+  unit
+)
+"kind1/partial_order.ml" 377 13079 13093 "kind1/partial_order.ml" 377 13079 13106
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  def counter_model "kind1/partial_order.ml" 378 13109 13113 "kind1/partial_order.ml" 383 13360 13390
+)
+"kind1/partial_order.ml" 378 13109 13113 "kind1/partial_order.ml" 378 13109 13117
+type(
+  'a
+)
+"kind1/partial_order.ml" 378 13109 13113 "kind1/partial_order.ml" 378 13109 13124
+call(
+  stack
+)
+type(
+  (string, string) Hashtbl.t -> unit
+)
+"kind1/partial_order.ml" 378 13109 13125 "kind1/partial_order.ml" 378 13109 13138
+type(
+  (string, string) Hashtbl.t
+)
+ident(
+  int_ref counter_model "kind1/partial_order.ml" 377 13079 13093 "kind1/partial_order.ml" 377 13079 13106
+)
+"kind1/partial_order.ml" 378 13109 13113 "kind1/partial_order.ml" 378 13109 13138
+type(
+  unit
+)
+"kind1/partial_order.ml" 379 13141 13149 "kind1/partial_order.ml" 379 13141 13159
+type(
+  partial_order_graph
+)
+ident(
+  def sort_graph "kind1/partial_order.ml" 380 13206 13210 "kind1/partial_order.ml" 383 13360 13390
+)
+"kind1/partial_order.ml" 379 13141 13162 "kind1/partial_order.ml" 379 13141 13185
+type(
+  (int list -> int list -> cmp_result) -> partial_order_graph
+)
+"kind1/partial_order.ml" 379 13141 13186 "kind1/partial_order.ml" 379 13141 13202
+type(
+  int list -> int list -> cmp_result
+)
+ident(
+  int_ref compare_int_node "kind1/partial_order.ml" 96 3218 3222 "kind1/partial_order.ml" 96 3218 3238
+)
+"kind1/partial_order.ml" 379 13141 13162 "kind1/partial_order.ml" 379 13141 13202
+call(
+  stack
+)
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 380 13206 13214 "kind1/partial_order.ml" 380 13206 13223
+type(
+  string list * int list -> unit
+)
+ident(
+  def iter_func "kind1/partial_order.ml" 381 13289 13295 "kind1/partial_order.ml" 383 13360 13390
+)
+"kind1/partial_order.ml" 380 13206 13225 "kind1/partial_order.ml" 380 13206 13236
+type(
+  string list
+)
+ident(
+  def equiv_class "kind1/partial_order.ml" 380 13206 13247 "kind1/partial_order.ml" 380 13206 13285
+)
+"kind1/partial_order.ml" 380 13206 13237 "kind1/partial_order.ml" 380 13206 13243
+type(
+  int list
+)
+ident(
+  def values "kind1/partial_order.ml" 380 13206 13247 "kind1/partial_order.ml" 380 13206 13285
+)
+"kind1/partial_order.ml" 380 13206 13224 "kind1/partial_order.ml" 380 13206 13244
+type(
+  string list * int list
+)
+"kind1/partial_order.ml" 380 13206 13247 "kind1/partial_order.ml" 380 13206 13257
+type(
+  partial_order_graph
+)
+ident(
+  int_ref sort_graph "kind1/partial_order.ml" 379 13141 13149 "kind1/partial_order.ml" 379 13141 13159
+)
+"kind1/partial_order.ml" 380 13206 13247 "kind1/partial_order.ml" 380 13206 13266
+call(
+  tail
+)
+type(
+  int list -> string list -> unit
+)
+"kind1/partial_order.ml" 380 13206 13267 "kind1/partial_order.ml" 380 13206 13273
+type(
+  int list
+)
+ident(
+  int_ref values "kind1/partial_order.ml" 380 13206 13237 "kind1/partial_order.ml" 380 13206 13243
+)
+"kind1/partial_order.ml" 380 13206 13274 "kind1/partial_order.ml" 380 13206 13285
+type(
+  string list
+)
+ident(
+  int_ref equiv_class "kind1/partial_order.ml" 380 13206 13225 "kind1/partial_order.ml" 380 13206 13236
+)
+"kind1/partial_order.ml" 380 13206 13247 "kind1/partial_order.ml" 380 13206 13285
+type(
+  unit
+)
+"kind1/partial_order.ml" 381 13289 13295 "kind1/partial_order.ml" 381 13289 13304
+type(
+  (string list * int list -> unit) -> (string list * int list) list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/partial_order.ml" 381 13289 13305 "kind1/partial_order.ml" 381 13289 13314
+type(
+  string list * int list -> unit
+)
+ident(
+  int_ref iter_func "kind1/partial_order.ml" 380 13206 13214 "kind1/partial_order.ml" 380 13206 13223
+)
+"kind1/partial_order.ml" 381 13289 13315 "kind1/partial_order.ml" 381 13289 13324
+type(
+  (string list * int list) list
+)
+"kind1/partial_order.ml" 381 13289 13295 "kind1/partial_order.ml" 381 13289 13324
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/partial_order.ml" 382 13326 13348 "kind1/partial_order.ml" 382 13326 13358
+type(
+  partial_order_graph
+)
+ident(
+  int_ref sort_graph "kind1/partial_order.ml" 379 13141 13149 "kind1/partial_order.ml" 379 13141 13159
+)
+"kind1/partial_order.ml" 382 13326 13332 "kind1/partial_order.ml" 382 13326 13358
+type(
+  unit
+)
+"kind1/partial_order.ml" 383 13360 13366 "kind1/partial_order.ml" 383 13360 13378
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 383 13360 13366 "kind1/partial_order.ml" 383 13360 13386
+call(
+  tail
+)
+type(
+  unit -> bool
+)
+"kind1/partial_order.ml" 383 13360 13387 "kind1/partial_order.ml" 383 13360 13389
+type(
+  unit
+)
+"kind1/partial_order.ml" 383 13360 13366 "kind1/partial_order.ml" 383 13360 13390
+type(
+  bool
+)
+"kind1/partial_order.ml" 382 13326 13332 "kind1/partial_order.ml" 383 13360 13390
+type(
+  bool
+)
+"kind1/partial_order.ml" 381 13289 13295 "kind1/partial_order.ml" 383 13360 13390
+type(
+  bool
+)
+"kind1/partial_order.ml" 380 13206 13210 "kind1/partial_order.ml" 383 13360 13390
+type(
+  bool
+)
+"kind1/partial_order.ml" 379 13141 13145 "kind1/partial_order.ml" 383 13360 13390
+type(
+  bool
+)
+"kind1/partial_order.ml" 378 13109 13113 "kind1/partial_order.ml" 383 13360 13390
+type(
+  bool
+)
+"kind1/partial_order.ml" 384 13391 13415 "kind1/partial_order.ml" 384 13391 13417
+type(
+  unit
+)
+"kind1/partial_order.ml" 385 13420 13424 "kind1/partial_order.ml" 385 13420 13436
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 385 13420 13424 "kind1/partial_order.ml" 385 13420 13440
+call(
+  tail
+)
+type(
+  unit -> Types.il_formula list
+)
+"kind1/partial_order.ml" 385 13420 13441 "kind1/partial_order.ml" 385 13420 13443
+type(
+  unit
+)
+"kind1/partial_order.ml" 385 13420 13424 "kind1/partial_order.ml" 385 13420 13443
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 386 13445 13466 "kind1/partial_order.ml" 386 13445 13468
+type(
+  unit
+)
+"kind1/partial_order.ml" 387 13471 13497 "kind1/partial_order.ml" 387 13471 13509
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 387 13471 13477 "kind1/partial_order.ml" 387 13471 13509
+type(
+  unit
+)
+"kind1/partial_order.ml" 388 13510 13526 "kind1/partial_order.ml" 388 13510 13528
+type(
+  unit
+)
+"kind1/partial_order.ml" 390 13562 13566 "kind1/partial_order.ml" 390 13562 13578
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 390 13562 13566 "kind1/partial_order.ml" 390 13562 13585
+call(
+  tail
+)
+type(
+  unit -> Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 390 13562 13586 "kind1/partial_order.ml" 390 13562 13588
+type(
+  unit
+)
+"kind1/partial_order.ml" 390 13562 13566 "kind1/partial_order.ml" 390 13562 13588
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 391 13590 13620 "kind1/partial_order.ml" 391 13590 13629
+type(
+  Types.il_expression list
+)
+ident(
+  def positions "kind1/partial_order.ml" 392 13632 13636 "kind1/partial_order.ml" 398 13804 13813
+)
+"kind1/partial_order.ml" 392 13632 13640 "kind1/partial_order.ml" 392 13632 13643
+type(
+  Types.il_formula list
+)
+ident(
+  def fml "kind1/partial_order.ml" 393 13695 13699 "kind1/partial_order.ml" 398 13804 13813
+)
+"kind1/partial_order.ml" 392 13632 13647 "kind1/partial_order.ml" 392 13632 13659
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 392 13632 13647 "kind1/partial_order.ml" 392 13632 13680
+call(
+  stack
+)
+type(
+  Types.il_expression list -> Types.il_formula list
+)
+"kind1/partial_order.ml" 392 13632 13681 "kind1/partial_order.ml" 392 13632 13690
+type(
+  Types.il_expression list
+)
+ident(
+  int_ref positions "kind1/partial_order.ml" 391 13590 13620 "kind1/partial_order.ml" 391 13590 13629
+)
+"kind1/partial_order.ml" 392 13632 13647 "kind1/partial_order.ml" 392 13632 13690
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 393 13695 13703 "kind1/partial_order.ml" 393 13695 13706
+type(
+  string list
+)
+ident(
+  def doc "kind1/partial_order.ml" 398 13804 13810 "kind1/partial_order.ml" 398 13804 13813
+)
+"kind1/partial_order.ml" 394 13712 13718 "kind1/partial_order.ml" 394 13712 13726
+type(
+  (Types.il_formula -> string) -> Types.il_formula list -> string list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 395 13728 13734 "kind1/partial_order.ml" 395 13728 13735
+type(
+  Types.il_formula
+)
+ident(
+  def x "kind1/partial_order.ml" 395 13728 13739 "kind1/partial_order.ml" 395 13728 13788
+)
+"kind1/partial_order.ml" 395 13728 13739 "kind1/partial_order.ml" 395 13728 13775
+type(
+  Types.solver_command -> string
+)
+ident(
+  ext_ref Lus_convert_yc.simple_command_string
+)
+"kind1/partial_order.ml" 395 13728 13784 "kind1/partial_order.ml" 395 13728 13787
+type(
+  Types.il_formula
+)
+ident(
+  int_ref x "kind1/partial_order.ml" 395 13728 13734 "kind1/partial_order.ml" 395 13728 13735
+)
+"kind1/partial_order.ml" 395 13728 13776 "kind1/partial_order.ml" 395 13728 13788
+type(
+  Types.solver_command
+)
+"kind1/partial_order.ml" 395 13728 13739 "kind1/partial_order.ml" 395 13728 13788
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/partial_order.ml" 395 13728 13729 "kind1/partial_order.ml" 395 13728 13789
+type(
+  Types.il_formula -> string
+)
+"kind1/partial_order.ml" 396 13790 13791 "kind1/partial_order.ml" 396 13790 13794
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref fml "kind1/partial_order.ml" 392 13632 13640 "kind1/partial_order.ml" 392 13632 13643
+)
+"kind1/partial_order.ml" 394 13712 13718 "kind1/partial_order.ml" 396 13790 13794
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/partial_order.ml" 398 13804 13810 "kind1/partial_order.ml" 398 13804 13813
+type(
+  string list
+)
+ident(
+  int_ref doc "kind1/partial_order.ml" 393 13695 13703 "kind1/partial_order.ml" 393 13695 13706
+)
+"kind1/partial_order.ml" 393 13695 13699 "kind1/partial_order.ml" 398 13804 13813
+type(
+  string list
+)
+"kind1/partial_order.ml" 392 13632 13636 "kind1/partial_order.ml" 398 13804 13813
+type(
+  string list
+)
+"kind1/partial_order.ml" 399 13815 13838 "kind1/partial_order.ml" 399 13815 13840
+type(
+  unit
+)
+"kind1/partial_order.ml" 400 13843 13847 "kind1/partial_order.ml" 400 13843 13859
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 400 13843 13847 "kind1/partial_order.ml" 400 13843 13873
+call(
+  tail
+)
+type(
+  unit -> string list list
+)
+"kind1/partial_order.ml" 400 13843 13874 "kind1/partial_order.ml" 400 13843 13876
+type(
+  unit
+)
+"kind1/partial_order.ml" 400 13843 13847 "kind1/partial_order.ml" 400 13843 13876
+type(
+  string list list
+)
+"kind1/partial_order.ml" 401 13878 13892 "kind1/partial_order.ml" 401 13878 13894
+type(
+  unit
+)
+"kind1/partial_order.ml" 402 13898 13906 "kind1/partial_order.ml" 402 13898 13907
+type(
+  Types.il_formula list
+)
+"kind1/partial_order.ml" 402 13898 13909 "kind1/partial_order.ml" 402 13898 13913
+type(
+  Types.il_formula list
+)
+ident(
+  def imps "kind1/partial_order.ml" 403 13941 13947 "kind1/partial_order.ml" 403 13941 13971
+)
+"kind1/partial_order.ml" 402 13898 13906 "kind1/partial_order.ml" 402 13898 13913
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 402 13898 13916 "kind1/partial_order.ml" 402 13898 13928
+type(
+  partial_order_graph
+)
+"kind1/partial_order.ml" 402 13898 13916 "kind1/partial_order.ml" 402 13898 13935
+call(
+  stack
+)
+type(
+  unit -> Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 402 13898 13935 "kind1/partial_order.ml" 402 13898 13937
+type(
+  unit
+)
+"kind1/partial_order.ml" 402 13898 13916 "kind1/partial_order.ml" 402 13898 13937
+type(
+  Types.il_formula list * Types.il_formula list
+)
+"kind1/partial_order.ml" 403 13941 13947 "kind1/partial_order.ml" 403 13941 13955
+type(
+  (Types.il_formula -> string * string) ->
+  Types.il_formula list -> (string * string) list
+)
+ident(
+  ext_ref List.map
+)
+"kind1/partial_order.ml" 403 13941 13956 "kind1/partial_order.ml" 403 13941 13966
+type(
+  Types.il_formula -> string * string
+)
+ident(
+  int_ref strip_less "kind1/partial_order.ml" 86 2985 2989 "kind1/partial_order.ml" 86 2985 2999
+)
+"kind1/partial_order.ml" 403 13941 13967 "kind1/partial_order.ml" 403 13941 13971
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref imps "kind1/partial_order.ml" 402 13898 13909 "kind1/partial_order.ml" 402 13898 13913
+)
+"kind1/partial_order.ml" 403 13941 13947 "kind1/partial_order.ml" 403 13941 13971
+call(
+  tail
+)
+type(
+  (string * string) list
+)
+"kind1/partial_order.ml" 402 13898 13902 "kind1/partial_order.ml" 403 13941 13971
+type(
+  (string * string) list
+)

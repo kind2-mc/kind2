@@ -1,0 +1,1404 @@
+"debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+type(
+  (string * debug_section) list ref
+)
+ident(
+  def section_formatters "debug.ml" 49 2236 2236 "_none_" 1 0 -1
+)
+"debug.ml" 43 1950 1975 "debug.ml" 43 1950 1978
+type(
+  (string * debug_section) list -> (string * debug_section) list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"debug.ml" 43 1950 1981 "debug.ml" 43 1950 1984
+type(
+  string
+)
+"debug.ml" 44 1987 2032 "debug.ml" 44 1987 2052
+type(
+  Format.formatter
+)
+ident(
+  ext_ref Format.std_formatter
+)
+"debug.ml" 45 2055 2103 "debug.ml" 45 2055 2120
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"debug.ml" 45 2055 2121 "debug.ml" 45 2055 2123
+type(
+  unit
+)
+"debug.ml" 45 2055 2103 "debug.ml" 45 2055 2123
+call(
+  stack
+)
+type(
+  float
+)
+"debug.ml" 46 2125 2164 "debug.ml" 46 2125 2165
+type(
+  int
+)
+"debug.ml" 44 1987 2018 "debug.ml" 46 2125 2167
+type(
+  debug_section
+)
+"debug.ml" 43 1950 1981 "debug.ml" 46 2125 2167
+type(
+  string * debug_section
+)
+"debug.ml" 43 1950 1980 "debug.ml" 46 2125 2168
+type(
+  (string * debug_section) list
+)
+"debug.ml" 43 1950 1979 "debug.ml" 46 2125 2169
+type(
+  (string * debug_section) list
+)
+"debug.ml" 43 1950 1975 "debug.ml" 46 2125 2169
+type(
+  (string * debug_section) list ref
+)
+"debug.ml" 49 2236 2240 "debug.ml" 49 2236 2251
+type(
+  bool ref
+)
+ident(
+  def initialized "debug.ml" 53 2327 2327 "_none_" 1 0 -1
+)
+"debug.ml" 49 2236 2254 "debug.ml" 49 2236 2257
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"debug.ml" 49 2236 2258 "debug.ml" 49 2236 2263
+type(
+  bool
+)
+"debug.ml" 49 2236 2254 "debug.ml" 49 2236 2263
+type(
+  bool ref
+)
+"debug.ml" 53 2327 2331 "debug.ml" 53 2327 2341
+type(
+  unit -> unit
+)
+ident(
+  def initialize "debug.ml" 60 2505 2505 "_none_" 1 0 -1
+)
+"debug.ml" 53 2327 2342 "debug.ml" 53 2327 2344
+type(
+  unit
+)
+"debug.ml" 56 2386 2391 "debug.ml" 56 2386 2394
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"debug.ml" 56 2386 2396 "debug.ml" 56 2386 2407
+type(
+  bool ref
+)
+ident(
+  int_ref initialized "debug.ml" 49 2236 2240 "debug.ml" 49 2236 2251
+)
+"debug.ml" 56 2386 2395 "debug.ml" 56 2386 2407
+type(
+  bool
+)
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 56 2386 2391 "debug.ml" 56 2386 2407
+type(
+  bool
+)
+"debug.ml" 56 2386 2414 "debug.ml" 56 2386 2425
+type(
+  bool ref
+)
+ident(
+  int_ref initialized "debug.ml" 49 2236 2240 "debug.ml" 49 2236 2251
+)
+"debug.ml" 56 2386 2429 "debug.ml" 56 2386 2433
+type(
+  bool
+)
+"debug.ml" 56 2386 2414 "debug.ml" 56 2386 2433
+type(
+  unit
+)
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"debug.ml" 56 2386 2435 "debug.ml" 56 2386 2453
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 56 2386 2457 "debug.ml" 56 2386 2459
+type(
+  (string * debug_section) list
+)
+"debug.ml" 56 2386 2435 "debug.ml" 56 2386 2459
+type(
+  unit
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"debug.ml" 56 2386 2414 "debug.ml" 56 2386 2459
+type(
+  unit
+)
+"debug.ml" 56 2386 2388 "debug.ml" 56 2386 2460
+type(
+  unit
+)
+type(
+  unit
+)
+"debug.ml" 53 2327 2342 "debug.ml" 56 2386 2460
+type(
+  unit -> unit
+)
+"debug.ml" 60 2505 2509 "debug.ml" 60 2505 2513
+type(
+  string -> bool
+)
+ident(
+  def mode "debug.ml" 72 2911 2911 "_none_" 1 0 -1
+)
+"debug.ml" 60 2505 2514 "debug.ml" 60 2505 2521
+type(
+  string
+)
+ident(
+  def section "debug.ml" 64 2634 2636 "debug.ml" 65 2685 2729
+)
+"debug.ml" 64 2634 2637 "debug.ml" 64 2634 2651
+type(
+  string -> (string * debug_section) list -> bool
+)
+ident(
+  ext_ref List.mem_assoc
+)
+"debug.ml" 64 2634 2652 "debug.ml" 64 2634 2659
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 60 2505 2514 "debug.ml" 60 2505 2521
+)
+"debug.ml" 64 2634 2661 "debug.ml" 64 2634 2679
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 64 2634 2660 "debug.ml" 64 2634 2679
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 64 2634 2637 "debug.ml" 64 2634 2679
+call(
+  stack
+)
+type(
+  bool
+)
+"debug.ml" 64 2634 2681 "debug.ml" 64 2634 2683
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( || )
+)
+"debug.ml" 65 2685 2690 "debug.ml" 65 2685 2704
+type(
+  string -> (string * debug_section) list -> bool
+)
+ident(
+  ext_ref List.mem_assoc
+)
+"debug.ml" 65 2685 2705 "debug.ml" 65 2685 2708
+type(
+  string
+)
+"debug.ml" 65 2685 2710 "debug.ml" 65 2685 2728
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 65 2685 2709 "debug.ml" 65 2685 2728
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 65 2685 2690 "debug.ml" 65 2685 2728
+call(
+  tail
+)
+type(
+  bool
+)
+"debug.ml" 64 2634 2636 "debug.ml" 65 2685 2729
+type(
+  bool
+)
+"debug.ml" 60 2505 2514 "debug.ml" 65 2685 2729
+type(
+  string -> bool
+)
+"debug.ml" 72 2911 2915 "debug.ml" 72 2911 2935
+type(
+  string -> Format.formatter
+)
+ident(
+  def formatter_of_section "debug.ml" 89 3373 3373 "_none_" 1 0 -1
+)
+"debug.ml" 72 2911 2936 "debug.ml" 72 2911 2943
+type(
+  string
+)
+ident(
+  def section "debug.ml" 74 2948 2950 "debug.ml" 82 3141 3191
+)
+"debug.ml" 77 3011 3016 "debug.ml" 77 3011 3026
+type(
+  string -> (string * debug_section) list -> debug_section
+)
+ident(
+  ext_ref List.assoc
+)
+"debug.ml" 77 3011 3027 "debug.ml" 77 3011 3034
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 72 2911 2936 "debug.ml" 72 2911 2943
+)
+"debug.ml" 77 3011 3036 "debug.ml" 77 3011 3054
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 77 3011 3035 "debug.ml" 77 3011 3054
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 77 3011 3016 "debug.ml" 77 3011 3054
+call(
+  stack
+)
+type(
+  debug_section
+)
+"debug.ml" 77 3011 3015 "debug.ml" 77 3011 3065
+type(
+  Format.formatter
+)
+"debug.ml" 79 3067 3074 "debug.ml" 79 3067 3083
+type(
+  exn
+)
+"debug.ml" 82 3141 3146 "debug.ml" 82 3141 3156
+type(
+  string -> (string * debug_section) list -> debug_section
+)
+ident(
+  ext_ref List.assoc
+)
+"debug.ml" 82 3141 3157 "debug.ml" 82 3141 3160
+type(
+  string
+)
+"debug.ml" 82 3141 3162 "debug.ml" 82 3141 3180
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 82 3141 3161 "debug.ml" 82 3141 3180
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 82 3141 3146 "debug.ml" 82 3141 3180
+call(
+  stack
+)
+type(
+  debug_section
+)
+"debug.ml" 82 3141 3145 "debug.ml" 82 3141 3191
+type(
+  Format.formatter
+)
+"debug.ml" 74 2948 2950 "debug.ml" 82 3141 3191
+type(
+  Format.formatter
+)
+"debug.ml" 72 2911 2936 "debug.ml" 82 3141 3191
+type(
+  string -> Format.formatter
+)
+"debug.ml" 89 3373 3377 "debug.ml" 89 3373 3397
+type(
+  string -> float
+)
+ident(
+  def timestamp_of_section "debug.ml" 112 3951 3951 "_none_" 1 0 -1
+)
+"debug.ml" 89 3373 3398 "debug.ml" 89 3373 3405
+type(
+  string
+)
+ident(
+  def section "debug.ml" 91 3410 3412 "debug.ml" 105 3723 3763
+)
+"debug.ml" 91 3410 3416 "debug.ml" 91 3410 3428
+type(
+  float
+)
+ident(
+  def enabled_time "debug.ml" 105 3723 3725 "debug.ml" 105 3723 3763
+)
+"debug.ml" 96 3506 3513 "debug.ml" 96 3506 3523
+type(
+  string -> (string * debug_section) list -> debug_section
+)
+ident(
+  ext_ref List.assoc
+)
+"debug.ml" 96 3506 3524 "debug.ml" 96 3506 3531
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 89 3373 3398 "debug.ml" 89 3373 3405
+)
+"debug.ml" 96 3506 3533 "debug.ml" 96 3506 3551
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 96 3506 3532 "debug.ml" 96 3506 3551
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 96 3506 3513 "debug.ml" 96 3506 3551
+call(
+  stack
+)
+type(
+  debug_section
+)
+"debug.ml" 96 3506 3512 "debug.ml" 96 3506 3565
+type(
+  float
+)
+"debug.ml" 98 3575 3584 "debug.ml" 98 3575 3593
+type(
+  exn
+)
+"debug.ml" 101 3659 3666 "debug.ml" 101 3659 3676
+type(
+  string -> (string * debug_section) list -> debug_section
+)
+ident(
+  ext_ref List.assoc
+)
+"debug.ml" 101 3659 3677 "debug.ml" 101 3659 3680
+type(
+  string
+)
+"debug.ml" 101 3659 3682 "debug.ml" 101 3659 3700
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 101 3659 3681 "debug.ml" 101 3659 3700
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 101 3659 3666 "debug.ml" 101 3659 3700
+call(
+  stack
+)
+type(
+  debug_section
+)
+"debug.ml" 101 3659 3665 "debug.ml" 101 3659 3714
+type(
+  float
+)
+"debug.ml" 93 3433 3437 "debug.ml" 101 3659 3714
+type(
+  float
+)
+"debug.ml" 105 3723 3726 "debug.ml" 105 3723 3743
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"debug.ml" 105 3723 3744 "debug.ml" 105 3723 3746
+type(
+  unit
+)
+"debug.ml" 105 3723 3726 "debug.ml" 105 3723 3746
+call(
+  stack
+)
+type(
+  float
+)
+"debug.ml" 105 3723 3748 "debug.ml" 105 3723 3750
+type(
+  float -> float -> float
+)
+ident(
+  ext_ref Pervasives.( -. )
+)
+"debug.ml" 105 3723 3751 "debug.ml" 105 3723 3763
+type(
+  float
+)
+ident(
+  int_ref enabled_time "debug.ml" 91 3410 3416 "debug.ml" 91 3410 3428
+)
+"debug.ml" 105 3723 3725 "debug.ml" 105 3723 3763
+type(
+  float
+)
+"debug.ml" 91 3410 3412 "debug.ml" 105 3723 3763
+type(
+  float
+)
+"debug.ml" 89 3373 3398 "debug.ml" 105 3723 3763
+type(
+  string -> float
+)
+"debug.ml" 112 3951 3955 "debug.ml" 112 3951 3969
+type(
+  string -> int
+)
+ident(
+  def seq_of_section "debug.ml" 137 4351 4351 "_none_" 1 0 -1
+)
+"debug.ml" 112 3951 3970 "debug.ml" 112 3951 3977
+type(
+  string
+)
+ident(
+  def section "debug.ml" 114 3982 3984 "debug.ml" 132 4313 4318
+)
+"debug.ml" 114 3982 3988 "debug.ml" 114 3982 3993
+type(
+  debug_section
+)
+ident(
+  def entry "debug.ml" 128 4255 4257 "debug.ml" 132 4313 4318
+)
+"debug.ml" 119 4069 4075 "debug.ml" 119 4069 4085
+type(
+  string -> (string * debug_section) list -> debug_section
+)
+ident(
+  ext_ref List.assoc
+)
+"debug.ml" 119 4069 4086 "debug.ml" 119 4069 4093
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 112 3951 3970 "debug.ml" 112 3951 3977
+)
+"debug.ml" 119 4069 4095 "debug.ml" 119 4069 4113
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 119 4069 4094 "debug.ml" 119 4069 4113
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 119 4069 4075 "debug.ml" 119 4069 4113
+call(
+  stack
+)
+type(
+  debug_section
+)
+"debug.ml" 121 4123 4132 "debug.ml" 121 4123 4141
+type(
+  exn
+)
+"debug.ml" 124 4207 4213 "debug.ml" 124 4207 4223
+type(
+  string -> (string * debug_section) list -> debug_section
+)
+ident(
+  ext_ref List.assoc
+)
+"debug.ml" 124 4207 4224 "debug.ml" 124 4207 4227
+type(
+  string
+)
+"debug.ml" 124 4207 4229 "debug.ml" 124 4207 4247
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 124 4207 4228 "debug.ml" 124 4207 4247
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 124 4207 4213 "debug.ml" 124 4207 4247
+call(
+  stack
+)
+type(
+  debug_section
+)
+"debug.ml" 116 3998 4002 "debug.ml" 124 4207 4247
+type(
+  debug_section
+)
+"debug.ml" 128 4255 4261 "debug.ml" 128 4255 4264
+type(
+  int
+)
+ident(
+  def res "debug.ml" 130 4281 4283 "debug.ml" 132 4313 4318
+)
+"debug.ml" 128 4255 4267 "debug.ml" 128 4255 4272
+type(
+  debug_section
+)
+ident(
+  int_ref entry "debug.ml" 114 3982 3988 "debug.ml" 114 3982 3993
+)
+"debug.ml" 128 4255 4267 "debug.ml" 128 4255 4276
+type(
+  int
+)
+"debug.ml" 130 4281 4283 "debug.ml" 130 4281 4288
+type(
+  debug_section
+)
+ident(
+  int_ref entry "debug.ml" 114 3982 3988 "debug.ml" 114 3982 3993
+)
+"debug.ml" 130 4281 4296 "debug.ml" 130 4281 4300
+type(
+  int -> int
+)
+ident(
+  ext_ref Pervasives.succ
+)
+"debug.ml" 130 4281 4301 "debug.ml" 130 4281 4306
+type(
+  debug_section
+)
+ident(
+  int_ref entry "debug.ml" 114 3982 3988 "debug.ml" 114 3982 3993
+)
+"debug.ml" 130 4281 4301 "debug.ml" 130 4281 4310
+type(
+  int
+)
+"debug.ml" 130 4281 4296 "debug.ml" 130 4281 4310
+type(
+  int
+)
+"debug.ml" 130 4281 4283 "debug.ml" 130 4281 4310
+type(
+  unit
+)
+"debug.ml" 132 4313 4315 "debug.ml" 132 4313 4318
+type(
+  int
+)
+ident(
+  int_ref res "debug.ml" 128 4255 4261 "debug.ml" 128 4255 4264
+)
+"debug.ml" 130 4281 4283 "debug.ml" 132 4313 4318
+type(
+  int
+)
+"debug.ml" 128 4255 4257 "debug.ml" 132 4313 4318
+type(
+  int
+)
+"debug.ml" 114 3982 3984 "debug.ml" 132 4313 4318
+type(
+  int
+)
+"debug.ml" 112 3951 3970 "debug.ml" 132 4313 4318
+type(
+  string -> int
+)
+"debug.ml" 137 4351 4355 "debug.ml" 137 4351 4361
+type(
+  string -> Format.formatter -> unit
+)
+ident(
+  def enable "debug.ml" 162 5067 5067 "_none_" 1 0 -1
+)
+"debug.ml" 137 4351 4362 "debug.ml" 137 4351 4369
+type(
+  string
+)
+ident(
+  def section "debug.ml" 137 4351 4370 "debug.ml" 158 5008 5035
+)
+"debug.ml" 137 4351 4370 "debug.ml" 137 4351 4373
+type(
+  Format.formatter
+)
+ident(
+  def fmt "debug.ml" 140 4447 4449 "debug.ml" 158 5008 5035
+)
+"debug.ml" 140 4447 4449 "debug.ml" 140 4447 4459
+type(
+  unit -> unit
+)
+ident(
+  int_ref initialize "debug.ml" 53 2327 2331 "debug.ml" 53 2327 2341
+)
+"debug.ml" 140 4447 4460 "debug.ml" 140 4447 4462
+type(
+  unit
+)
+"debug.ml" 140 4447 4449 "debug.ml" 140 4447 4462
+call(
+  stack
+)
+type(
+  unit
+)
+"debug.ml" 143 4527 4532 "debug.ml" 143 4527 4536
+type(
+  string -> bool
+)
+ident(
+  int_ref mode "debug.ml" 60 2505 2509 "debug.ml" 60 2505 2513
+)
+"debug.ml" 143 4527 4537 "debug.ml" 143 4527 4544
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 137 4351 4362 "debug.ml" 137 4351 4369
+)
+"debug.ml" 143 4527 4532 "debug.ml" 143 4527 4544
+call(
+  stack
+)
+type(
+  bool
+)
+"debug.ml" 147 4689 4693 "debug.ml" 147 4689 4704
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"debug.ml" 148 4706 4713 "debug.ml" 148 4706 4727
+type(
+  (string -> string, unit, string) format -> string -> string
+)
+ident(
+  ext_ref Format.sprintf
+)
+"debug.ml" 148 4706 4728 "debug.ml" 148 4706 4765
+type(
+  (string -> string, unit, string) format
+)
+"debug.ml" 148 4706 4766 "debug.ml" 148 4706 4773
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 137 4351 4362 "debug.ml" 137 4351 4369
+)
+"debug.ml" 148 4706 4713 "debug.ml" 148 4706 4773
+call(
+  stack
+)
+type(
+  string
+)
+"debug.ml" 147 4689 4693 "debug.ml" 148 4706 4774
+call(
+  tail
+)
+type(
+  unit
+)
+"debug.ml" 153 4867 4871 "debug.ml" 153 4867 4889
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 154 4894 4901 "debug.ml" 154 4894 4908
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 137 4351 4362 "debug.ml" 137 4351 4369
+)
+"debug.ml" 155 4911 4932 "debug.ml" 155 4911 4935
+type(
+  Format.formatter
+)
+ident(
+  int_ref fmt "debug.ml" 137 4351 4370 "debug.ml" 137 4351 4373
+)
+"debug.ml" 156 4938 4962 "debug.ml" 156 4938 4979
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"debug.ml" 156 4938 4980 "debug.ml" 156 4938 4982
+type(
+  unit
+)
+"debug.ml" 156 4938 4962 "debug.ml" 156 4938 4982
+call(
+  stack
+)
+type(
+  float
+)
+"debug.ml" 157 4984 4999 "debug.ml" 157 4984 5000
+type(
+  int
+)
+"debug.ml" 155 4911 4918 "debug.ml" 157 4984 5002
+type(
+  debug_section
+)
+"debug.ml" 154 4894 4901 "debug.ml" 157 4984 5002
+type(
+  string * debug_section
+)
+"debug.ml" 158 5008 5017 "debug.ml" 158 5008 5035
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 158 5008 5016 "debug.ml" 158 5008 5035
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 154 4894 4900 "debug.ml" 158 5008 5035
+type(
+  (string * debug_section) list
+)
+"debug.ml" 153 4867 4871 "debug.ml" 158 5008 5035
+type(
+  unit
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"debug.ml" 143 4527 4529 "debug.ml" 158 5008 5035
+type(
+  unit
+)
+"debug.ml" 140 4447 4449 "debug.ml" 158 5008 5035
+type(
+  unit
+)
+"debug.ml" 137 4351 4370 "debug.ml" 158 5008 5035
+type(
+  Format.formatter -> unit
+)
+"debug.ml" 137 4351 4362 "debug.ml" 158 5008 5035
+type(
+  string -> Format.formatter -> unit
+)
+"debug.ml" 162 5067 5071 "debug.ml" 162 5067 5081
+type(
+  Format.formatter -> unit
+)
+ident(
+  def enable_all "debug.ml" 187 5695 5695 "_none_" 1 0 -1
+)
+"debug.ml" 162 5067 5082 "debug.ml" 162 5067 5085
+type(
+  Format.formatter
+)
+ident(
+  def ppf "debug.ml" 165 5159 5161 "debug.ml" 183 5594 5654
+)
+"debug.ml" 165 5159 5161 "debug.ml" 165 5159 5171
+type(
+  unit -> unit
+)
+ident(
+  int_ref initialize "debug.ml" 53 2327 2331 "debug.ml" 53 2327 2341
+)
+"debug.ml" 165 5159 5172 "debug.ml" 165 5159 5174
+type(
+  unit
+)
+"debug.ml" 165 5159 5161 "debug.ml" 165 5159 5174
+call(
+  stack
+)
+type(
+  unit
+)
+"debug.ml" 168 5221 5230 "debug.ml" 168 5221 5248
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 168 5221 5229 "debug.ml" 168 5221 5248
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 171 5318 5324 "debug.ml" 171 5318 5326
+type(
+  (string * debug_section) list
+)
+"debug.ml" 173 5332 5338 "debug.ml" 173 5332 5356
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 174 5361 5371 "debug.ml" 174 5361 5374
+type(
+  string
+)
+"debug.ml" 175 5377 5401 "debug.ml" 175 5377 5404
+type(
+  Format.formatter
+)
+ident(
+  int_ref ppf "debug.ml" 162 5067 5082 "debug.ml" 162 5067 5085
+)
+"debug.ml" 176 5407 5434 "debug.ml" 176 5407 5451
+type(
+  unit -> float
+)
+ident(
+  ext_ref Unix.gettimeofday
+)
+"debug.ml" 176 5407 5452 "debug.ml" 176 5407 5454
+type(
+  unit
+)
+"debug.ml" 176 5407 5434 "debug.ml" 176 5407 5454
+call(
+  stack
+)
+type(
+  float
+)
+"debug.ml" 177 5456 5474 "debug.ml" 177 5456 5475
+type(
+  int
+)
+"debug.ml" 175 5377 5387 "debug.ml" 177 5456 5477
+type(
+  debug_section
+)
+"debug.ml" 174 5361 5371 "debug.ml" 177 5456 5477
+type(
+  string * debug_section
+)
+"debug.ml" 174 5361 5370 "debug.ml" 177 5456 5478
+type(
+  (string * debug_section) list
+)
+"debug.ml" 174 5361 5369 "debug.ml" 177 5456 5479
+type(
+  (string * debug_section) list
+)
+"debug.ml" 173 5332 5338 "debug.ml" 177 5456 5479
+type(
+  unit
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"debug.ml" 179 5481 5487 "debug.ml" 179 5481 5488
+type(
+  (string * debug_section) list
+)
+"debug.ml" 183 5594 5600 "debug.ml" 183 5594 5611
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"debug.ml" 183 5594 5612 "debug.ml" 183 5594 5654
+type(
+  string
+)
+"debug.ml" 183 5594 5600 "debug.ml" 183 5594 5654
+call(
+  tail
+)
+type(
+  unit
+)
+"debug.ml" 168 5221 5223 "debug.ml" 183 5594 5654
+type(
+  unit
+)
+"debug.ml" 165 5159 5161 "debug.ml" 183 5594 5654
+type(
+  unit
+)
+"debug.ml" 162 5067 5082 "debug.ml" 183 5594 5654
+type(
+  Format.formatter -> unit
+)
+"debug.ml" 187 5695 5699 "debug.ml" 187 5695 5706
+type(
+  string -> unit
+)
+ident(
+  def disable "debug.ml" 197 5974 5974 "_none_" 1 0 -1
+)
+"debug.ml" 187 5695 5707 "debug.ml" 187 5695 5714
+type(
+  string
+)
+ident(
+  def section "debug.ml" 190 5788 5790 "debug.ml" 193 5872 5941
+)
+"debug.ml" 190 5788 5790 "debug.ml" 190 5788 5800
+type(
+  unit -> unit
+)
+ident(
+  int_ref initialize "debug.ml" 53 2327 2331 "debug.ml" 53 2327 2341
+)
+"debug.ml" 190 5788 5801 "debug.ml" 190 5788 5803
+type(
+  unit
+)
+"debug.ml" 190 5788 5790 "debug.ml" 190 5788 5803
+call(
+  stack
+)
+type(
+  unit
+)
+"debug.ml" 193 5872 5874 "debug.ml" 193 5872 5892
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 193 5872 5896 "debug.ml" 193 5872 5913
+type(
+  string -> (string * debug_section) list -> (string * debug_section) list
+)
+ident(
+  ext_ref List.remove_assoc
+)
+"debug.ml" 193 5872 5914 "debug.ml" 193 5872 5921
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 187 5695 5707 "debug.ml" 187 5695 5714
+)
+"debug.ml" 193 5872 5923 "debug.ml" 193 5872 5941
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 193 5872 5922 "debug.ml" 193 5872 5941
+type(
+  (string * debug_section) list
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"debug.ml" 193 5872 5896 "debug.ml" 193 5872 5941
+call(
+  stack
+)
+type(
+  (string * debug_section) list
+)
+"debug.ml" 193 5872 5874 "debug.ml" 193 5872 5941
+type(
+  unit
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"debug.ml" 190 5788 5790 "debug.ml" 193 5872 5941
+type(
+  unit
+)
+"debug.ml" 187 5695 5707 "debug.ml" 193 5872 5941
+type(
+  string -> unit
+)
+"debug.ml" 197 5974 5978 "debug.ml" 197 5974 5989
+type(
+  unit -> unit
+)
+ident(
+  def disable_all "debug.ml" 204 6134 6134 "_none_" 1 0 -1
+)
+"debug.ml" 197 5974 5990 "debug.ml" 197 5974 5992
+type(
+  unit
+)
+"debug.ml" 200 6061 6063 "debug.ml" 200 6061 6081
+type(
+  (string * debug_section) list ref
+)
+ident(
+  int_ref section_formatters "debug.ml" 43 1950 1954 "debug.ml" 43 1950 1972
+)
+"debug.ml" 200 6061 6085 "debug.ml" 200 6061 6087
+type(
+  (string * debug_section) list
+)
+"debug.ml" 200 6061 6063 "debug.ml" 200 6061 6087
+type(
+  unit
+)
+type(
+  (string * debug_section) list ref -> (string * debug_section) list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"debug.ml" 197 5974 5990 "debug.ml" 200 6061 6087
+type(
+  unit -> unit
+)
+"debug.ml" 204 6134 6138 "debug.ml" 204 6134 6144
+type(
+  string -> ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+)
+ident(
+  def printf "debug.ml" 213 6416 6444 "_none_" 1 0 -1
+)
+"debug.ml" 204 6134 6145 "debug.ml" 204 6134 6152
+type(
+  string
+)
+ident(
+  def section "debug.ml" 204 6134 6153 "debug.ml" 213 6416 6444
+)
+"debug.ml" 204 6134 6153 "debug.ml" 204 6134 6156
+type(
+  ('a, Format.formatter, unit, unit, unit, unit) format6
+)
+ident(
+  def fmt "debug.ml" 207 6234 6236 "debug.ml" 213 6416 6444
+)
+"debug.ml" 207 6234 6236 "debug.ml" 207 6234 6250
+type(
+  Format.formatter ->
+  (int -> string -> float -> int -> 'a, Format.formatter, unit) format ->
+  int -> string -> float -> int -> 'a
+)
+ident(
+  ext_ref Format.fprintf
+)
+"debug.ml" 208 6251 6256 "debug.ml" 208 6251 6276
+type(
+  string -> Format.formatter
+)
+ident(
+  int_ref formatter_of_section "debug.ml" 72 2911 2915 "debug.ml" 72 2911 2935
+)
+"debug.ml" 208 6251 6277 "debug.ml" 208 6251 6284
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 204 6134 6145 "debug.ml" 204 6134 6152
+)
+"debug.ml" 208 6251 6256 "debug.ml" 208 6251 6284
+call(
+  stack
+)
+type(
+  Format.formatter
+)
+"debug.ml" 209 6286 6291 "debug.ml" 209 6286 6316
+type(
+  (int -> string -> float -> int -> 'a, Format.formatter, unit, unit, 
+   unit, 'a)
+  format6
+)
+"debug.ml" 209 6286 6317 "debug.ml" 209 6286 6319
+type(
+  (int -> string -> float -> int -> 'a, Format.formatter, unit, unit, 
+   unit, 'a)
+  format6 ->
+  ('a, Format.formatter, unit, unit, unit, unit) format6 ->
+  (int -> string -> float -> int -> 'a, Format.formatter, unit) format
+)
+ident(
+  ext_ref Pervasives.( ^^ )
+)
+"debug.ml" 209 6286 6320 "debug.ml" 209 6286 6323
+type(
+  ('a, Format.formatter, unit, unit, unit, unit) format6
+)
+ident(
+  int_ref fmt "debug.ml" 204 6134 6153 "debug.ml" 204 6134 6156
+)
+"debug.ml" 209 6286 6324 "debug.ml" 209 6286 6326
+type(
+  ('a, Format.formatter, unit, unit, unit, unit) format6 ->
+  (unit, Format.formatter, unit, unit, unit, unit) format6 ->
+  ('a, Format.formatter, unit, unit, unit, unit) format6
+)
+ident(
+  ext_ref Pervasives.( ^^ )
+)
+"debug.ml" 209 6286 6327 "debug.ml" 209 6286 6333
+type(
+  (unit, Format.formatter, unit, unit, unit, unit) format6
+)
+"debug.ml" 209 6286 6320 "debug.ml" 209 6286 6333
+call(
+  stack
+)
+type(
+  ('a, Format.formatter, unit, unit, unit, unit) format6
+)
+"debug.ml" 209 6286 6291 "debug.ml" 209 6286 6333
+call(
+  stack
+)
+type(
+  (int -> string -> float -> int -> 'a, Format.formatter, unit) format
+)
+"debug.ml" 210 6335 6341 "debug.ml" 210 6335 6354
+type(
+  string -> int
+)
+ident(
+  ext_ref String.length
+)
+"debug.ml" 210 6335 6355 "debug.ml" 210 6335 6362
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 204 6134 6145 "debug.ml" 204 6134 6152
+)
+"debug.ml" 210 6335 6341 "debug.ml" 210 6335 6362
+type(
+  int
+)
+"debug.ml" 210 6335 6364 "debug.ml" 210 6335 6365
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"debug.ml" 210 6335 6366 "debug.ml" 210 6335 6367
+type(
+  int
+)
+"debug.ml" 210 6335 6340 "debug.ml" 210 6335 6367
+type(
+  int
+)
+"debug.ml" 211 6369 6373 "debug.ml" 211 6369 6380
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 204 6134 6145 "debug.ml" 204 6134 6152
+)
+"debug.ml" 212 6381 6386 "debug.ml" 212 6381 6406
+type(
+  string -> float
+)
+ident(
+  int_ref timestamp_of_section "debug.ml" 89 3373 3377 "debug.ml" 89 3373 3397
+)
+"debug.ml" 212 6381 6407 "debug.ml" 212 6381 6414
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 204 6134 6145 "debug.ml" 204 6134 6152
+)
+"debug.ml" 212 6381 6386 "debug.ml" 212 6381 6414
+call(
+  stack
+)
+type(
+  float
+)
+"debug.ml" 213 6416 6421 "debug.ml" 213 6416 6435
+type(
+  string -> int
+)
+ident(
+  int_ref seq_of_section "debug.ml" 112 3951 3955 "debug.ml" 112 3951 3969
+)
+"debug.ml" 213 6416 6436 "debug.ml" 213 6416 6443
+type(
+  string
+)
+ident(
+  int_ref section "debug.ml" 204 6134 6145 "debug.ml" 204 6134 6152
+)
+"debug.ml" 213 6416 6421 "debug.ml" 213 6416 6443
+call(
+  stack
+)
+type(
+  int
+)
+"debug.ml" 207 6234 6236 "debug.ml" 213 6416 6444
+call(
+  tail
+)
+type(
+  'a
+)
+"debug.ml" 204 6134 6153 "debug.ml" 213 6416 6444
+type(
+  ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+)
+"debug.ml" 204 6134 6145 "debug.ml" 213 6416 6444
+type(
+  string -> ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+)

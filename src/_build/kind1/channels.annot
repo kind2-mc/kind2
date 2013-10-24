@@ -1,0 +1,6132 @@
+"kind1/channels.ml" 43 1822 1826 "kind1/channels.ml" 43 1822 1833
+type(
+  out_channel ref
+)
+ident(
+  def main_ch "kind1/channels.ml" 44 1899 1899 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 43 1822 1836 "kind1/channels.ml" 43 1822 1839
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 43 1822 1840 "kind1/channels.ml" 43 1822 1846
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 43 1822 1836 "kind1/channels.ml" 43 1822 1846
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 44 1899 1903 "kind1/channels.ml" 44 1899 1911
+type(
+  out_channel ref
+)
+ident(
+  def main2_ch "kind1/channels.ml" 45 1979 1979 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 44 1899 1914 "kind1/channels.ml" 44 1899 1917
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 44 1899 1918 "kind1/channels.ml" 44 1899 1924
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 44 1899 1914 "kind1/channels.ml" 44 1899 1924
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+type(
+  out_channel ref
+)
+ident(
+  def base_ch "kind1/channels.ml" 46 2031 2031 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 45 1979 1993 "kind1/channels.ml" 45 1979 1996
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 45 1979 1997 "kind1/channels.ml" 45 1979 2003
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 45 1979 1993 "kind1/channels.ml" 45 1979 2003
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 46 2031 2035 "kind1/channels.ml" 46 2031 2044
+type(
+  out_channel ref
+)
+ident(
+  def induct_ch "kind1/channels.ml" 47 2090 2090 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 46 2031 2047 "kind1/channels.ml" 46 2031 2050
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 46 2031 2051 "kind1/channels.ml" 46 2031 2057
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 46 2031 2047 "kind1/channels.ml" 46 2031 2057
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 47 2090 2094 "kind1/channels.ml" 47 2090 2102
+type(
+  out_channel ref
+)
+ident(
+  def extra_ch "kind1/channels.ml" 48 2167 2167 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 47 2090 2105 "kind1/channels.ml" 47 2090 2108
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 47 2090 2109 "kind1/channels.ml" 47 2090 2115
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 47 2090 2105 "kind1/channels.ml" 47 2090 2115
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 48 2167 2171 "kind1/channels.ml" 48 2167 2177
+type(
+  out_channel ref
+)
+ident(
+  def inv_ch "kind1/channels.ml" 49 2233 2233 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 48 2167 2180 "kind1/channels.ml" 48 2167 2183
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 48 2167 2184 "kind1/channels.ml" 48 2167 2190
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 48 2167 2180 "kind1/channels.ml" 48 2167 2190
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 49 2233 2237 "kind1/channels.ml" 49 2233 2245
+type(
+  out_channel ref
+)
+ident(
+  def check_ch "kind1/channels.ml" 50 2288 2288 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 49 2233 2248 "kind1/channels.ml" 49 2233 2251
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 49 2233 2252 "kind1/channels.ml" 49 2233 2258
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 49 2233 2248 "kind1/channels.ml" 49 2233 2258
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 50 2288 2292 "kind1/channels.ml" 50 2288 2304
+type(
+  out_channel ref
+)
+ident(
+  def to_solver_ch "kind1/channels.ml" 51 2339 2339 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 50 2288 2307 "kind1/channels.ml" 50 2288 2310
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 50 2288 2311 "kind1/channels.ml" 50 2288 2317
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 50 2288 2307 "kind1/channels.ml" 50 2288 2317
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 51 2339 2343 "kind1/channels.ml" 51 2339 2356
+type(
+  out_channel ref
+)
+ident(
+  def to_checker_ch "kind1/channels.ml" 52 2392 2392 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 51 2339 2359 "kind1/channels.ml" 51 2339 2362
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 51 2339 2363 "kind1/channels.ml" 51 2339 2369
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 51 2339 2359 "kind1/channels.ml" 51 2339 2369
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 52 2392 2396 "kind1/channels.ml" 52 2392 2409
+type(
+  out_channel ref
+)
+ident(
+  def to_solver2_ch "kind1/channels.ml" 53 2445 2445 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 52 2392 2412 "kind1/channels.ml" 52 2392 2415
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 52 2392 2416 "kind1/channels.ml" 52 2392 2422
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 52 2392 2412 "kind1/channels.ml" 52 2392 2422
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 53 2445 2449 "kind1/channels.ml" 53 2445 2462
+type(
+  out_channel ref
+)
+ident(
+  def to_solver3_ch "kind1/channels.ml" 54 2498 2498 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 53 2445 2465 "kind1/channels.ml" 53 2445 2468
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 53 2445 2469 "kind1/channels.ml" 53 2445 2475
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 53 2445 2465 "kind1/channels.ml" 53 2445 2475
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 54 2498 2502 "kind1/channels.ml" 54 2498 2515
+type(
+  out_channel ref
+)
+ident(
+  def to_solver4_ch "kind1/channels.ml" 55 2551 2551 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 54 2498 2518 "kind1/channels.ml" 54 2498 2521
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 54 2498 2522 "kind1/channels.ml" 54 2498 2528
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 54 2498 2518 "kind1/channels.ml" 54 2498 2528
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 55 2551 2555 "kind1/channels.ml" 55 2551 2568
+type(
+  out_channel ref
+)
+ident(
+  def to_solver5_ch "kind1/channels.ml" 56 2604 2604 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 55 2551 2571 "kind1/channels.ml" 55 2551 2574
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 55 2551 2575 "kind1/channels.ml" 55 2551 2581
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 55 2551 2571 "kind1/channels.ml" 55 2551 2581
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 56 2604 2608 "kind1/channels.ml" 56 2604 2613
+type(
+  in_channel
+)
+ident(
+  def dummy "kind1/channels.ml" 57 2634 2634 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 56 2604 2616 "kind1/channels.ml" 56 2604 2621
+type(
+  in_channel
+)
+ident(
+  ext_ref Pervasives.stdin
+)
+"kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+type(
+  out_channel ref
+)
+ident(
+  def debug_ch "kind1/channels.ml" 58 2686 2686 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 57 2634 2649 "kind1/channels.ml" 57 2634 2652
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 57 2634 2653 "kind1/channels.ml" 57 2634 2659
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 57 2634 2649 "kind1/channels.ml" 57 2634 2659
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 58 2686 2690 "kind1/channels.ml" 58 2686 2696
+type(
+  out_channel ref
+)
+ident(
+  def xml_ch "kind1/channels.ml" 61 2771 2771 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 58 2686 2699 "kind1/channels.ml" 58 2686 2702
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 58 2686 2703 "kind1/channels.ml" 58 2686 2709
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 58 2686 2699 "kind1/channels.ml" 58 2686 2709
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 61 2771 2775 "kind1/channels.ml" 61 2771 2783
+type(
+  out_channel ref
+)
+ident(
+  def inv_file "kind1/channels.ml" 62 2812 2812 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 61 2771 2786 "kind1/channels.ml" 61 2771 2789
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 61 2771 2790 "kind1/channels.ml" 61 2771 2796
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 61 2771 2786 "kind1/channels.ml" 61 2771 2796
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 62 2812 2816 "kind1/channels.ml" 62 2812 2835
+type(
+  out_channel ref
+)
+ident(
+  def file_plus_invariant "kind1/channels.ml" 65 2936 2936 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 62 2812 2838 "kind1/channels.ml" 62 2812 2841
+type(
+  out_channel -> out_channel ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/channels.ml" 62 2812 2842 "kind1/channels.ml" 62 2812 2848
+type(
+  out_channel
+)
+ident(
+  ext_ref Pervasives.stdout
+)
+"kind1/channels.ml" 62 2812 2838 "kind1/channels.ml" 62 2812 2848
+type(
+  out_channel ref
+)
+"kind1/channels.ml" 65 2936 2940 "kind1/channels.ml" 65 2936 2955
+type(
+  string -> unit
+)
+ident(
+  def print_to_solver "kind1/channels.ml" 75 3206 3206 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 65 2936 2956 "kind1/channels.ml" 65 2936 2959
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 66 2962 2964 "kind1/channels.ml" 71 3118 3132
+)
+"kind1/channels.ml" 66 2962 2967 "kind1/channels.ml" 66 2962 2968
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 66 2962 2968 "kind1/channels.ml" 66 2962 2987
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 66 2962 2967 "kind1/channels.ml" 66 2962 2987
+type(
+  bool
+)
+"kind1/channels.ml" 67 2993 2997 "kind1/channels.ml" 67 2993 3010
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 67 2993 3011 "kind1/channels.ml" 67 2993 3012
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 67 2993 3012 "kind1/channels.ml" 67 2993 3019
+type(
+  out_channel ref
+)
+ident(
+  int_ref base_ch "kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+)
+"kind1/channels.ml" 67 2993 3011 "kind1/channels.ml" 67 2993 3019
+type(
+  out_channel
+)
+"kind1/channels.ml" 67 2993 3020 "kind1/channels.ml" 67 2993 3023
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 65 2936 2956 "kind1/channels.ml" 65 2936 2959
+)
+"kind1/channels.ml" 67 2993 2997 "kind1/channels.ml" 67 2993 3023
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 66 2962 2964 "kind1/channels.ml" 67 2993 3023
+type(
+  unit
+)
+"kind1/channels.ml" 68 3025 3027 "kind1/channels.ml" 68 3025 3040
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 68 3025 3041 "kind1/channels.ml" 68 3025 3042
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 68 3025 3042 "kind1/channels.ml" 68 3025 3054
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver_ch "kind1/channels.ml" 50 2288 2292 "kind1/channels.ml" 50 2288 2304
+)
+"kind1/channels.ml" 68 3025 3041 "kind1/channels.ml" 68 3025 3054
+type(
+  out_channel
+)
+"kind1/channels.ml" 68 3025 3055 "kind1/channels.ml" 68 3025 3058
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 65 2936 2956 "kind1/channels.ml" 65 2936 2959
+)
+"kind1/channels.ml" 68 3025 3027 "kind1/channels.ml" 68 3025 3058
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 69 3060 3065 "kind1/channels.ml" 69 3060 3066
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 69 3060 3066 "kind1/channels.ml" 69 3060 3080
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 69 3060 3065 "kind1/channels.ml" 69 3060 3080
+type(
+  bool
+)
+"kind1/channels.ml" 70 3086 3090 "kind1/channels.ml" 70 3086 3103
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 70 3086 3104 "kind1/channels.ml" 70 3086 3105
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 70 3086 3105 "kind1/channels.ml" 70 3086 3112
+type(
+  out_channel ref
+)
+ident(
+  int_ref base_ch "kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+)
+"kind1/channels.ml" 70 3086 3104 "kind1/channels.ml" 70 3086 3112
+type(
+  out_channel
+)
+"kind1/channels.ml" 70 3086 3113 "kind1/channels.ml" 70 3086 3116
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 65 2936 2956 "kind1/channels.ml" 65 2936 2959
+)
+"kind1/channels.ml" 70 3086 3090 "kind1/channels.ml" 70 3086 3116
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 69 3060 3062 "kind1/channels.ml" 70 3086 3116
+type(
+  unit
+)
+"kind1/channels.ml" 71 3118 3120 "kind1/channels.ml" 71 3118 3129
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 71 3118 3130 "kind1/channels.ml" 71 3118 3132
+type(
+  unit
+)
+"kind1/channels.ml" 71 3118 3120 "kind1/channels.ml" 71 3118 3132
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 69 3060 3062 "kind1/channels.ml" 71 3118 3132
+type(
+  unit
+)
+"kind1/channels.ml" 68 3025 3027 "kind1/channels.ml" 71 3118 3132
+type(
+  unit
+)
+"kind1/channels.ml" 66 2962 2964 "kind1/channels.ml" 71 3118 3132
+type(
+  unit
+)
+"kind1/channels.ml" 75 3206 3210 "kind1/channels.ml" 75 3206 3226
+type(
+  string -> unit
+)
+ident(
+  def print_to_solver2 "kind1/channels.ml" 84 3485 3485 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 75 3206 3227 "kind1/channels.ml" 75 3206 3230
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 76 3233 3235 "kind1/channels.ml" 81 3394 3408
+)
+"kind1/channels.ml" 76 3233 3238 "kind1/channels.ml" 76 3233 3239
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 76 3233 3239 "kind1/channels.ml" 76 3233 3258
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 76 3233 3238 "kind1/channels.ml" 76 3233 3258
+type(
+  bool
+)
+"kind1/channels.ml" 77 3264 3268 "kind1/channels.ml" 77 3264 3281
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 77 3264 3282 "kind1/channels.ml" 77 3264 3283
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 77 3264 3283 "kind1/channels.ml" 77 3264 3292
+type(
+  out_channel ref
+)
+ident(
+  int_ref induct_ch "kind1/channels.ml" 46 2031 2035 "kind1/channels.ml" 46 2031 2044
+)
+"kind1/channels.ml" 77 3264 3282 "kind1/channels.ml" 77 3264 3292
+type(
+  out_channel
+)
+"kind1/channels.ml" 77 3264 3293 "kind1/channels.ml" 77 3264 3296
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 75 3206 3227 "kind1/channels.ml" 75 3206 3230
+)
+"kind1/channels.ml" 77 3264 3268 "kind1/channels.ml" 77 3264 3296
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 76 3233 3235 "kind1/channels.ml" 77 3264 3296
+type(
+  unit
+)
+"kind1/channels.ml" 78 3298 3300 "kind1/channels.ml" 78 3298 3313
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 78 3298 3314 "kind1/channels.ml" 78 3298 3315
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 78 3298 3315 "kind1/channels.ml" 78 3298 3328
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver2_ch "kind1/channels.ml" 52 2392 2396 "kind1/channels.ml" 52 2392 2409
+)
+"kind1/channels.ml" 78 3298 3314 "kind1/channels.ml" 78 3298 3328
+type(
+  out_channel
+)
+"kind1/channels.ml" 78 3298 3329 "kind1/channels.ml" 78 3298 3332
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 75 3206 3227 "kind1/channels.ml" 75 3206 3230
+)
+"kind1/channels.ml" 78 3298 3300 "kind1/channels.ml" 78 3298 3332
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 79 3334 3339 "kind1/channels.ml" 79 3334 3340
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 79 3334 3340 "kind1/channels.ml" 79 3334 3354
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 79 3334 3339 "kind1/channels.ml" 79 3334 3354
+type(
+  bool
+)
+"kind1/channels.ml" 80 3360 3364 "kind1/channels.ml" 80 3360 3377
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 80 3360 3378 "kind1/channels.ml" 80 3360 3379
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 80 3360 3379 "kind1/channels.ml" 80 3360 3388
+type(
+  out_channel ref
+)
+ident(
+  int_ref induct_ch "kind1/channels.ml" 46 2031 2035 "kind1/channels.ml" 46 2031 2044
+)
+"kind1/channels.ml" 80 3360 3378 "kind1/channels.ml" 80 3360 3388
+type(
+  out_channel
+)
+"kind1/channels.ml" 80 3360 3389 "kind1/channels.ml" 80 3360 3392
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 75 3206 3227 "kind1/channels.ml" 75 3206 3230
+)
+"kind1/channels.ml" 80 3360 3364 "kind1/channels.ml" 80 3360 3392
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 79 3334 3336 "kind1/channels.ml" 80 3360 3392
+type(
+  unit
+)
+"kind1/channels.ml" 81 3394 3396 "kind1/channels.ml" 81 3394 3405
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 81 3394 3406 "kind1/channels.ml" 81 3394 3408
+type(
+  unit
+)
+"kind1/channels.ml" 81 3394 3396 "kind1/channels.ml" 81 3394 3408
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 79 3334 3336 "kind1/channels.ml" 81 3394 3408
+type(
+  unit
+)
+"kind1/channels.ml" 78 3298 3300 "kind1/channels.ml" 81 3394 3408
+type(
+  unit
+)
+"kind1/channels.ml" 76 3233 3235 "kind1/channels.ml" 81 3394 3408
+type(
+  unit
+)
+"kind1/channels.ml" 84 3485 3489 "kind1/channels.ml" 84 3485 3505
+type(
+  string -> unit
+)
+ident(
+  def print_to_solver3 "kind1/channels.ml" 92 3683 3683 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 84 3485 3506 "kind1/channels.ml" 84 3485 3509
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 85 3512 3514 "kind1/channels.ml" 90 3667 3681
+)
+"kind1/channels.ml" 85 3512 3517 "kind1/channels.ml" 85 3512 3518
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 85 3512 3518 "kind1/channels.ml" 85 3512 3537
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 85 3512 3517 "kind1/channels.ml" 85 3512 3537
+type(
+  bool
+)
+"kind1/channels.ml" 86 3543 3547 "kind1/channels.ml" 86 3543 3560
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 86 3543 3561 "kind1/channels.ml" 86 3543 3562
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 86 3543 3562 "kind1/channels.ml" 86 3543 3568
+type(
+  out_channel ref
+)
+ident(
+  int_ref inv_ch "kind1/channels.ml" 48 2167 2171 "kind1/channels.ml" 48 2167 2177
+)
+"kind1/channels.ml" 86 3543 3561 "kind1/channels.ml" 86 3543 3568
+type(
+  out_channel
+)
+"kind1/channels.ml" 86 3543 3569 "kind1/channels.ml" 86 3543 3572
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 84 3485 3506 "kind1/channels.ml" 84 3485 3509
+)
+"kind1/channels.ml" 86 3543 3547 "kind1/channels.ml" 86 3543 3572
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 85 3512 3514 "kind1/channels.ml" 86 3543 3572
+type(
+  unit
+)
+"kind1/channels.ml" 87 3574 3576 "kind1/channels.ml" 87 3574 3589
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 87 3574 3590 "kind1/channels.ml" 87 3574 3591
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 87 3574 3591 "kind1/channels.ml" 87 3574 3604
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver3_ch "kind1/channels.ml" 53 2445 2449 "kind1/channels.ml" 53 2445 2462
+)
+"kind1/channels.ml" 87 3574 3590 "kind1/channels.ml" 87 3574 3604
+type(
+  out_channel
+)
+"kind1/channels.ml" 87 3574 3605 "kind1/channels.ml" 87 3574 3608
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 84 3485 3506 "kind1/channels.ml" 84 3485 3509
+)
+"kind1/channels.ml" 87 3574 3576 "kind1/channels.ml" 87 3574 3608
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 88 3610 3615 "kind1/channels.ml" 88 3610 3616
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 88 3610 3616 "kind1/channels.ml" 88 3610 3630
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 88 3610 3615 "kind1/channels.ml" 88 3610 3630
+type(
+  bool
+)
+"kind1/channels.ml" 89 3636 3640 "kind1/channels.ml" 89 3636 3653
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 89 3636 3654 "kind1/channels.ml" 89 3636 3655
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 89 3636 3655 "kind1/channels.ml" 89 3636 3661
+type(
+  out_channel ref
+)
+ident(
+  int_ref inv_ch "kind1/channels.ml" 48 2167 2171 "kind1/channels.ml" 48 2167 2177
+)
+"kind1/channels.ml" 89 3636 3654 "kind1/channels.ml" 89 3636 3661
+type(
+  out_channel
+)
+"kind1/channels.ml" 89 3636 3662 "kind1/channels.ml" 89 3636 3665
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 84 3485 3506 "kind1/channels.ml" 84 3485 3509
+)
+"kind1/channels.ml" 89 3636 3640 "kind1/channels.ml" 89 3636 3665
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 88 3610 3612 "kind1/channels.ml" 89 3636 3665
+type(
+  unit
+)
+"kind1/channels.ml" 90 3667 3669 "kind1/channels.ml" 90 3667 3678
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 90 3667 3679 "kind1/channels.ml" 90 3667 3681
+type(
+  unit
+)
+"kind1/channels.ml" 90 3667 3669 "kind1/channels.ml" 90 3667 3681
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 88 3610 3612 "kind1/channels.ml" 90 3667 3681
+type(
+  unit
+)
+"kind1/channels.ml" 87 3574 3576 "kind1/channels.ml" 90 3667 3681
+type(
+  unit
+)
+"kind1/channels.ml" 85 3512 3514 "kind1/channels.ml" 90 3667 3681
+type(
+  unit
+)
+"kind1/channels.ml" 92 3683 3687 "kind1/channels.ml" 92 3683 3703
+type(
+  string -> unit
+)
+ident(
+  def print_to_solver4 "kind1/channels.ml" 100 3884 3884 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 92 3683 3704 "kind1/channels.ml" 92 3683 3707
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 93 3710 3712 "kind1/channels.ml" 98 3868 3882
+)
+"kind1/channels.ml" 93 3710 3715 "kind1/channels.ml" 93 3710 3716
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 93 3710 3716 "kind1/channels.ml" 93 3710 3735
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 93 3710 3715 "kind1/channels.ml" 93 3710 3735
+type(
+  bool
+)
+"kind1/channels.ml" 94 3741 3745 "kind1/channels.ml" 94 3741 3758
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 94 3741 3759 "kind1/channels.ml" 94 3741 3760
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 94 3741 3760 "kind1/channels.ml" 94 3741 3767
+type(
+  out_channel ref
+)
+ident(
+  int_ref base_ch "kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+)
+"kind1/channels.ml" 94 3741 3759 "kind1/channels.ml" 94 3741 3767
+type(
+  out_channel
+)
+"kind1/channels.ml" 94 3741 3768 "kind1/channels.ml" 94 3741 3771
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 92 3683 3704 "kind1/channels.ml" 92 3683 3707
+)
+"kind1/channels.ml" 94 3741 3745 "kind1/channels.ml" 94 3741 3771
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 93 3710 3712 "kind1/channels.ml" 94 3741 3771
+type(
+  unit
+)
+"kind1/channels.ml" 95 3773 3775 "kind1/channels.ml" 95 3773 3788
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 95 3773 3789 "kind1/channels.ml" 95 3773 3790
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 95 3773 3790 "kind1/channels.ml" 95 3773 3803
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver4_ch "kind1/channels.ml" 54 2498 2502 "kind1/channels.ml" 54 2498 2515
+)
+"kind1/channels.ml" 95 3773 3789 "kind1/channels.ml" 95 3773 3803
+type(
+  out_channel
+)
+"kind1/channels.ml" 95 3773 3804 "kind1/channels.ml" 95 3773 3807
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 92 3683 3704 "kind1/channels.ml" 92 3683 3707
+)
+"kind1/channels.ml" 95 3773 3775 "kind1/channels.ml" 95 3773 3807
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 96 3809 3814 "kind1/channels.ml" 96 3809 3815
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 96 3809 3815 "kind1/channels.ml" 96 3809 3829
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 96 3809 3814 "kind1/channels.ml" 96 3809 3829
+type(
+  bool
+)
+"kind1/channels.ml" 97 3835 3839 "kind1/channels.ml" 97 3835 3852
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 97 3835 3853 "kind1/channels.ml" 97 3835 3854
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 97 3835 3854 "kind1/channels.ml" 97 3835 3862
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 97 3835 3853 "kind1/channels.ml" 97 3835 3862
+type(
+  out_channel
+)
+"kind1/channels.ml" 97 3835 3863 "kind1/channels.ml" 97 3835 3866
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 92 3683 3704 "kind1/channels.ml" 92 3683 3707
+)
+"kind1/channels.ml" 97 3835 3839 "kind1/channels.ml" 97 3835 3866
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 96 3809 3811 "kind1/channels.ml" 97 3835 3866
+type(
+  unit
+)
+"kind1/channels.ml" 98 3868 3870 "kind1/channels.ml" 98 3868 3879
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 98 3868 3880 "kind1/channels.ml" 98 3868 3882
+type(
+  unit
+)
+"kind1/channels.ml" 98 3868 3870 "kind1/channels.ml" 98 3868 3882
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 96 3809 3811 "kind1/channels.ml" 98 3868 3882
+type(
+  unit
+)
+"kind1/channels.ml" 95 3773 3775 "kind1/channels.ml" 98 3868 3882
+type(
+  unit
+)
+"kind1/channels.ml" 93 3710 3712 "kind1/channels.ml" 98 3868 3882
+type(
+  unit
+)
+"kind1/channels.ml" 100 3884 3888 "kind1/channels.ml" 100 3884 3904
+type(
+  string -> unit
+)
+ident(
+  def print_to_solver5 "kind1/channels.ml" 109 4087 4087 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 100 3884 3905 "kind1/channels.ml" 100 3884 3908
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 101 3911 3913 "kind1/channels.ml" 106 4070 4084
+)
+"kind1/channels.ml" 101 3911 3916 "kind1/channels.ml" 101 3911 3917
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 101 3911 3917 "kind1/channels.ml" 101 3911 3936
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 101 3911 3916 "kind1/channels.ml" 101 3911 3936
+type(
+  bool
+)
+"kind1/channels.ml" 102 3942 3946 "kind1/channels.ml" 102 3942 3959
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 102 3942 3960 "kind1/channels.ml" 102 3942 3961
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 102 3942 3961 "kind1/channels.ml" 102 3942 3969
+type(
+  out_channel ref
+)
+ident(
+  int_ref extra_ch "kind1/channels.ml" 47 2090 2094 "kind1/channels.ml" 47 2090 2102
+)
+"kind1/channels.ml" 102 3942 3960 "kind1/channels.ml" 102 3942 3969
+type(
+  out_channel
+)
+"kind1/channels.ml" 102 3942 3970 "kind1/channels.ml" 102 3942 3973
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 100 3884 3905 "kind1/channels.ml" 100 3884 3908
+)
+"kind1/channels.ml" 102 3942 3946 "kind1/channels.ml" 102 3942 3973
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 101 3911 3913 "kind1/channels.ml" 102 3942 3973
+type(
+  unit
+)
+"kind1/channels.ml" 103 3975 3977 "kind1/channels.ml" 103 3975 3990
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 103 3975 3991 "kind1/channels.ml" 103 3975 3992
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 103 3975 3992 "kind1/channels.ml" 103 3975 4005
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver5_ch "kind1/channels.ml" 55 2551 2555 "kind1/channels.ml" 55 2551 2568
+)
+"kind1/channels.ml" 103 3975 3991 "kind1/channels.ml" 103 3975 4005
+type(
+  out_channel
+)
+"kind1/channels.ml" 103 3975 4006 "kind1/channels.ml" 103 3975 4009
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 100 3884 3905 "kind1/channels.ml" 100 3884 3908
+)
+"kind1/channels.ml" 103 3975 3977 "kind1/channels.ml" 103 3975 4009
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 104 4011 4016 "kind1/channels.ml" 104 4011 4017
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 104 4011 4017 "kind1/channels.ml" 104 4011 4031
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 104 4011 4016 "kind1/channels.ml" 104 4011 4031
+type(
+  bool
+)
+"kind1/channels.ml" 105 4037 4041 "kind1/channels.ml" 105 4037 4054
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 105 4037 4055 "kind1/channels.ml" 105 4037 4056
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 105 4037 4056 "kind1/channels.ml" 105 4037 4064
+type(
+  out_channel ref
+)
+ident(
+  int_ref extra_ch "kind1/channels.ml" 47 2090 2094 "kind1/channels.ml" 47 2090 2102
+)
+"kind1/channels.ml" 105 4037 4055 "kind1/channels.ml" 105 4037 4064
+type(
+  out_channel
+)
+"kind1/channels.ml" 105 4037 4065 "kind1/channels.ml" 105 4037 4068
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 100 3884 3905 "kind1/channels.ml" 100 3884 3908
+)
+"kind1/channels.ml" 105 4037 4041 "kind1/channels.ml" 105 4037 4068
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 104 4011 4013 "kind1/channels.ml" 105 4037 4068
+type(
+  unit
+)
+"kind1/channels.ml" 106 4070 4072 "kind1/channels.ml" 106 4070 4081
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 106 4070 4082 "kind1/channels.ml" 106 4070 4084
+type(
+  unit
+)
+"kind1/channels.ml" 106 4070 4072 "kind1/channels.ml" 106 4070 4084
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 104 4011 4013 "kind1/channels.ml" 106 4070 4084
+type(
+  unit
+)
+"kind1/channels.ml" 103 3975 3977 "kind1/channels.ml" 106 4070 4084
+type(
+  unit
+)
+"kind1/channels.ml" 101 3911 3913 "kind1/channels.ml" 106 4070 4084
+type(
+  unit
+)
+"kind1/channels.ml" 109 4087 4091 "kind1/channels.ml" 109 4087 4105
+type(
+  Types.solver_type -> string -> unit
+)
+ident(
+  def send_to_solver "kind1/channels.ml" 147 5277 5277 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 109 4087 4106 "kind1/channels.ml" 109 4087 4112
+type(
+  Types.solver_type
+)
+ident(
+  def solver "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 143 5180 5203
+)
+"kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 110 4119 4121 "kind1/channels.ml" 143 5180 5203
+)
+"kind1/channels.ml" 110 4119 4127 "kind1/channels.ml" 110 4119 4133
+type(
+  Types.solver_type
+)
+ident(
+  int_ref solver "kind1/channels.ml" 109 4087 4106 "kind1/channels.ml" 109 4087 4112
+)
+"kind1/channels.ml" 111 4139 4145 "kind1/channels.ml" 111 4139 4148
+type(
+  Types.solver_type
+)
+"kind1/channels.ml" 113 4159 4165 "kind1/channels.ml" 113 4159 4166
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 113 4159 4166 "kind1/channels.ml" 113 4159 4185
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 113 4159 4165 "kind1/channels.ml" 113 4159 4185
+type(
+  bool
+)
+"kind1/channels.ml" 113 4159 4191 "kind1/channels.ml" 113 4159 4204
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 113 4159 4205 "kind1/channels.ml" 113 4159 4206
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 113 4159 4206 "kind1/channels.ml" 113 4159 4213
+type(
+  out_channel ref
+)
+ident(
+  int_ref base_ch "kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+)
+"kind1/channels.ml" 113 4159 4205 "kind1/channels.ml" 113 4159 4213
+type(
+  out_channel
+)
+"kind1/channels.ml" 113 4159 4214 "kind1/channels.ml" 113 4159 4217
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 113 4159 4191 "kind1/channels.ml" 113 4159 4217
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 113 4159 4162 "kind1/channels.ml" 113 4159 4217
+type(
+  unit
+)
+"kind1/channels.ml" 114 4219 4222 "kind1/channels.ml" 114 4219 4235
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 114 4219 4236 "kind1/channels.ml" 114 4219 4237
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 114 4219 4237 "kind1/channels.ml" 114 4219 4249
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver_ch "kind1/channels.ml" 50 2288 2292 "kind1/channels.ml" 50 2288 2304
+)
+"kind1/channels.ml" 114 4219 4236 "kind1/channels.ml" 114 4219 4249
+type(
+  out_channel
+)
+"kind1/channels.ml" 114 4219 4250 "kind1/channels.ml" 114 4219 4253
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 114 4219 4222 "kind1/channels.ml" 114 4219 4253
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 115 4255 4261 "kind1/channels.ml" 115 4255 4262
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 115 4255 4262 "kind1/channels.ml" 115 4255 4276
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 115 4255 4261 "kind1/channels.ml" 115 4255 4276
+type(
+  bool
+)
+"kind1/channels.ml" 115 4255 4282 "kind1/channels.ml" 115 4255 4295
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 115 4255 4296 "kind1/channels.ml" 115 4255 4297
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 115 4255 4297 "kind1/channels.ml" 115 4255 4305
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 115 4255 4296 "kind1/channels.ml" 115 4255 4305
+type(
+  out_channel
+)
+"kind1/channels.ml" 115 4255 4306 "kind1/channels.ml" 115 4255 4309
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 115 4255 4282 "kind1/channels.ml" 115 4255 4309
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 115 4255 4258 "kind1/channels.ml" 115 4255 4309
+type(
+  unit
+)
+"kind1/channels.ml" 115 4255 4311 "kind1/channels.ml" 115 4255 4320
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 115 4255 4321 "kind1/channels.ml" 115 4255 4323
+type(
+  unit
+)
+"kind1/channels.ml" 115 4255 4311 "kind1/channels.ml" 115 4255 4323
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 115 4255 4258 "kind1/channels.ml" 115 4255 4323
+type(
+  unit
+)
+"kind1/channels.ml" 114 4219 4222 "kind1/channels.ml" 115 4255 4323
+type(
+  unit
+)
+"kind1/channels.ml" 112 4152 4153 "kind1/channels.ml" 116 4324 4328
+type(
+  unit
+)
+"kind1/channels.ml" 117 4329 4335 "kind1/channels.ml" 117 4329 4341
+type(
+  Types.solver_type
+)
+"kind1/channels.ml" 119 4352 4358 "kind1/channels.ml" 119 4352 4359
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 119 4352 4359 "kind1/channels.ml" 119 4352 4378
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 119 4352 4358 "kind1/channels.ml" 119 4352 4378
+type(
+  bool
+)
+"kind1/channels.ml" 119 4352 4384 "kind1/channels.ml" 119 4352 4397
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 119 4352 4398 "kind1/channels.ml" 119 4352 4399
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 119 4352 4399 "kind1/channels.ml" 119 4352 4408
+type(
+  out_channel ref
+)
+ident(
+  int_ref induct_ch "kind1/channels.ml" 46 2031 2035 "kind1/channels.ml" 46 2031 2044
+)
+"kind1/channels.ml" 119 4352 4398 "kind1/channels.ml" 119 4352 4408
+type(
+  out_channel
+)
+"kind1/channels.ml" 119 4352 4409 "kind1/channels.ml" 119 4352 4412
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 119 4352 4384 "kind1/channels.ml" 119 4352 4412
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 119 4352 4355 "kind1/channels.ml" 119 4352 4412
+type(
+  unit
+)
+"kind1/channels.ml" 120 4414 4417 "kind1/channels.ml" 120 4414 4430
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 120 4414 4431 "kind1/channels.ml" 120 4414 4432
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 120 4414 4432 "kind1/channels.ml" 120 4414 4445
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver2_ch "kind1/channels.ml" 52 2392 2396 "kind1/channels.ml" 52 2392 2409
+)
+"kind1/channels.ml" 120 4414 4431 "kind1/channels.ml" 120 4414 4445
+type(
+  out_channel
+)
+"kind1/channels.ml" 120 4414 4446 "kind1/channels.ml" 120 4414 4449
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 120 4414 4417 "kind1/channels.ml" 120 4414 4449
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 121 4451 4457 "kind1/channels.ml" 121 4451 4458
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 121 4451 4458 "kind1/channels.ml" 121 4451 4472
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 121 4451 4457 "kind1/channels.ml" 121 4451 4472
+type(
+  bool
+)
+"kind1/channels.ml" 121 4451 4478 "kind1/channels.ml" 121 4451 4491
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 121 4451 4492 "kind1/channels.ml" 121 4451 4493
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 121 4451 4493 "kind1/channels.ml" 121 4451 4501
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 121 4451 4492 "kind1/channels.ml" 121 4451 4501
+type(
+  out_channel
+)
+"kind1/channels.ml" 121 4451 4502 "kind1/channels.ml" 121 4451 4505
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 121 4451 4478 "kind1/channels.ml" 121 4451 4505
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 121 4451 4454 "kind1/channels.ml" 121 4451 4505
+type(
+  unit
+)
+"kind1/channels.ml" 121 4451 4507 "kind1/channels.ml" 121 4451 4516
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 121 4451 4517 "kind1/channels.ml" 121 4451 4519
+type(
+  unit
+)
+"kind1/channels.ml" 121 4451 4507 "kind1/channels.ml" 121 4451 4519
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 121 4451 4454 "kind1/channels.ml" 121 4451 4519
+type(
+  unit
+)
+"kind1/channels.ml" 120 4414 4417 "kind1/channels.ml" 121 4451 4519
+type(
+  unit
+)
+"kind1/channels.ml" 118 4345 4346 "kind1/channels.ml" 122 4520 4524
+type(
+  unit
+)
+"kind1/channels.ml" 123 4525 4531 "kind1/channels.ml" 123 4525 4535
+type(
+  Types.solver_type
+)
+"kind1/channels.ml" 125 4547 4554 "kind1/channels.ml" 125 4547 4555
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 125 4547 4555 "kind1/channels.ml" 125 4547 4574
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 125 4547 4554 "kind1/channels.ml" 125 4547 4574
+type(
+  bool
+)
+"kind1/channels.ml" 125 4547 4580 "kind1/channels.ml" 125 4547 4593
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 125 4547 4594 "kind1/channels.ml" 125 4547 4595
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 125 4547 4595 "kind1/channels.ml" 125 4547 4601
+type(
+  out_channel ref
+)
+ident(
+  int_ref inv_ch "kind1/channels.ml" 48 2167 2171 "kind1/channels.ml" 48 2167 2177
+)
+"kind1/channels.ml" 125 4547 4594 "kind1/channels.ml" 125 4547 4601
+type(
+  out_channel
+)
+"kind1/channels.ml" 125 4547 4602 "kind1/channels.ml" 125 4547 4605
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 125 4547 4580 "kind1/channels.ml" 125 4547 4605
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 125 4547 4551 "kind1/channels.ml" 125 4547 4605
+type(
+  unit
+)
+"kind1/channels.ml" 126 4607 4610 "kind1/channels.ml" 126 4607 4623
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 126 4607 4624 "kind1/channels.ml" 126 4607 4625
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 126 4607 4625 "kind1/channels.ml" 126 4607 4638
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver3_ch "kind1/channels.ml" 53 2445 2449 "kind1/channels.ml" 53 2445 2462
+)
+"kind1/channels.ml" 126 4607 4624 "kind1/channels.ml" 126 4607 4638
+type(
+  out_channel
+)
+"kind1/channels.ml" 126 4607 4639 "kind1/channels.ml" 126 4607 4642
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 126 4607 4610 "kind1/channels.ml" 126 4607 4642
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 127 4644 4650 "kind1/channels.ml" 127 4644 4651
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 127 4644 4651 "kind1/channels.ml" 127 4644 4665
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 127 4644 4650 "kind1/channels.ml" 127 4644 4665
+type(
+  bool
+)
+"kind1/channels.ml" 127 4644 4671 "kind1/channels.ml" 127 4644 4684
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 127 4644 4685 "kind1/channels.ml" 127 4644 4686
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 127 4644 4686 "kind1/channels.ml" 127 4644 4694
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 127 4644 4685 "kind1/channels.ml" 127 4644 4694
+type(
+  out_channel
+)
+"kind1/channels.ml" 127 4644 4695 "kind1/channels.ml" 127 4644 4698
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 127 4644 4671 "kind1/channels.ml" 127 4644 4698
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 127 4644 4647 "kind1/channels.ml" 127 4644 4698
+type(
+  unit
+)
+"kind1/channels.ml" 127 4644 4699 "kind1/channels.ml" 127 4644 4708
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 127 4644 4709 "kind1/channels.ml" 127 4644 4711
+type(
+  unit
+)
+"kind1/channels.ml" 127 4644 4699 "kind1/channels.ml" 127 4644 4711
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 127 4644 4647 "kind1/channels.ml" 127 4644 4711
+type(
+  unit
+)
+"kind1/channels.ml" 126 4607 4610 "kind1/channels.ml" 127 4644 4711
+type(
+  unit
+)
+"kind1/channels.ml" 124 4540 4541 "kind1/channels.ml" 128 4712 4718
+type(
+  unit
+)
+"kind1/channels.ml" 129 4719 4725 "kind1/channels.ml" 129 4719 4735
+type(
+  Types.solver_type
+)
+"kind1/channels.ml" 132 4775 4782 "kind1/channels.ml" 132 4775 4783
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 132 4775 4783 "kind1/channels.ml" 132 4775 4802
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 132 4775 4782 "kind1/channels.ml" 132 4775 4802
+type(
+  bool
+)
+"kind1/channels.ml" 132 4775 4808 "kind1/channels.ml" 132 4775 4821
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 132 4775 4822 "kind1/channels.ml" 132 4775 4823
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 132 4775 4823 "kind1/channels.ml" 132 4775 4830
+type(
+  out_channel ref
+)
+ident(
+  int_ref base_ch "kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+)
+"kind1/channels.ml" 132 4775 4822 "kind1/channels.ml" 132 4775 4830
+type(
+  out_channel
+)
+"kind1/channels.ml" 132 4775 4831 "kind1/channels.ml" 132 4775 4834
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 132 4775 4808 "kind1/channels.ml" 132 4775 4834
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 132 4775 4779 "kind1/channels.ml" 132 4775 4834
+type(
+  unit
+)
+"kind1/channels.ml" 133 4836 4839 "kind1/channels.ml" 133 4836 4852
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 133 4836 4853 "kind1/channels.ml" 133 4836 4854
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 133 4836 4854 "kind1/channels.ml" 133 4836 4867
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver4_ch "kind1/channels.ml" 54 2498 2502 "kind1/channels.ml" 54 2498 2515
+)
+"kind1/channels.ml" 133 4836 4853 "kind1/channels.ml" 133 4836 4867
+type(
+  out_channel
+)
+"kind1/channels.ml" 133 4836 4868 "kind1/channels.ml" 133 4836 4871
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 133 4836 4839 "kind1/channels.ml" 133 4836 4871
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 134 4873 4879 "kind1/channels.ml" 134 4873 4880
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 134 4873 4880 "kind1/channels.ml" 134 4873 4894
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 134 4873 4879 "kind1/channels.ml" 134 4873 4894
+type(
+  bool
+)
+"kind1/channels.ml" 134 4873 4900 "kind1/channels.ml" 134 4873 4913
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 134 4873 4914 "kind1/channels.ml" 134 4873 4915
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 134 4873 4915 "kind1/channels.ml" 134 4873 4923
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 134 4873 4914 "kind1/channels.ml" 134 4873 4923
+type(
+  out_channel
+)
+"kind1/channels.ml" 134 4873 4924 "kind1/channels.ml" 134 4873 4927
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 134 4873 4900 "kind1/channels.ml" 134 4873 4927
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 134 4873 4876 "kind1/channels.ml" 134 4873 4927
+type(
+  unit
+)
+"kind1/channels.ml" 134 4873 4928 "kind1/channels.ml" 134 4873 4937
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 134 4873 4938 "kind1/channels.ml" 134 4873 4940
+type(
+  unit
+)
+"kind1/channels.ml" 134 4873 4928 "kind1/channels.ml" 134 4873 4940
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 134 4873 4876 "kind1/channels.ml" 134 4873 4940
+type(
+  unit
+)
+"kind1/channels.ml" 133 4836 4839 "kind1/channels.ml" 134 4873 4940
+type(
+  unit
+)
+"kind1/channels.ml" 130 4740 4741 "kind1/channels.ml" 135 4941 4947
+type(
+  unit
+)
+"kind1/channels.ml" 136 4948 4954 "kind1/channels.ml" 136 4948 4966
+type(
+  Types.solver_type
+)
+"kind1/channels.ml" 139 5008 5014 "kind1/channels.ml" 139 5008 5015
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 139 5008 5015 "kind1/channels.ml" 139 5008 5034
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 139 5008 5014 "kind1/channels.ml" 139 5008 5034
+type(
+  bool
+)
+"kind1/channels.ml" 139 5008 5040 "kind1/channels.ml" 139 5008 5053
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 139 5008 5054 "kind1/channels.ml" 139 5008 5055
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 139 5008 5055 "kind1/channels.ml" 139 5008 5064
+type(
+  out_channel ref
+)
+ident(
+  int_ref induct_ch "kind1/channels.ml" 46 2031 2035 "kind1/channels.ml" 46 2031 2044
+)
+"kind1/channels.ml" 139 5008 5054 "kind1/channels.ml" 139 5008 5064
+type(
+  out_channel
+)
+"kind1/channels.ml" 139 5008 5065 "kind1/channels.ml" 139 5008 5068
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 139 5008 5040 "kind1/channels.ml" 139 5008 5068
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 139 5008 5011 "kind1/channels.ml" 139 5008 5068
+type(
+  unit
+)
+"kind1/channels.ml" 140 5070 5073 "kind1/channels.ml" 140 5070 5086
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 140 5070 5087 "kind1/channels.ml" 140 5070 5088
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 140 5070 5088 "kind1/channels.ml" 140 5070 5101
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver5_ch "kind1/channels.ml" 55 2551 2555 "kind1/channels.ml" 55 2551 2568
+)
+"kind1/channels.ml" 140 5070 5087 "kind1/channels.ml" 140 5070 5101
+type(
+  out_channel
+)
+"kind1/channels.ml" 140 5070 5102 "kind1/channels.ml" 140 5070 5105
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 140 5070 5073 "kind1/channels.ml" 140 5070 5105
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 141 5107 5113 "kind1/channels.ml" 141 5107 5114
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 141 5107 5114 "kind1/channels.ml" 141 5107 5128
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 141 5107 5113 "kind1/channels.ml" 141 5107 5128
+type(
+  bool
+)
+"kind1/channels.ml" 141 5107 5134 "kind1/channels.ml" 141 5107 5147
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 141 5107 5148 "kind1/channels.ml" 141 5107 5149
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 141 5107 5149 "kind1/channels.ml" 141 5107 5157
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 141 5107 5148 "kind1/channels.ml" 141 5107 5157
+type(
+  out_channel
+)
+"kind1/channels.ml" 141 5107 5158 "kind1/channels.ml" 141 5107 5161
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 109 4087 4113 "kind1/channels.ml" 109 4087 4116
+)
+"kind1/channels.ml" 141 5107 5134 "kind1/channels.ml" 141 5107 5161
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 141 5107 5110 "kind1/channels.ml" 141 5107 5161
+type(
+  unit
+)
+"kind1/channels.ml" 141 5107 5162 "kind1/channels.ml" 141 5107 5171
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 141 5107 5172 "kind1/channels.ml" 141 5107 5174
+type(
+  unit
+)
+"kind1/channels.ml" 141 5107 5162 "kind1/channels.ml" 141 5107 5174
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 141 5107 5110 "kind1/channels.ml" 141 5107 5174
+type(
+  unit
+)
+"kind1/channels.ml" 140 5070 5073 "kind1/channels.ml" 141 5107 5174
+type(
+  unit
+)
+"kind1/channels.ml" 137 4971 4972 "kind1/channels.ml" 142 5175 5179
+type(
+  unit
+)
+"kind1/channels.ml" 143 5180 5186 "kind1/channels.ml" 143 5180 5187
+type(
+  Types.solver_type
+)
+"kind1/channels.ml" 143 5180 5191 "kind1/channels.ml" 143 5180 5203
+type(
+  unit
+)
+"kind1/channels.ml" 110 4119 4121 "kind1/channels.ml" 143 5180 5203
+type(
+  unit
+)
+"kind1/channels.ml" 147 5277 5281 "kind1/channels.ml" 147 5277 5297
+type(
+  string -> unit
+)
+ident(
+  def print_to_checker "kind1/channels.ml" 156 5583 5583 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 147 5277 5298 "kind1/channels.ml" 147 5277 5301
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 148 5304 5306 "kind1/channels.ml" 153 5496 5510
+)
+"kind1/channels.ml" 148 5304 5309 "kind1/channels.ml" 148 5304 5310
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 148 5304 5310 "kind1/channels.ml" 148 5304 5329
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 148 5304 5309 "kind1/channels.ml" 148 5304 5329
+type(
+  bool
+)
+"kind1/channels.ml" 149 5335 5339 "kind1/channels.ml" 149 5335 5352
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 149 5335 5353 "kind1/channels.ml" 149 5335 5354
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 149 5335 5354 "kind1/channels.ml" 149 5335 5362
+type(
+  out_channel ref
+)
+ident(
+  int_ref check_ch "kind1/channels.ml" 49 2233 2237 "kind1/channels.ml" 49 2233 2245
+)
+"kind1/channels.ml" 149 5335 5353 "kind1/channels.ml" 149 5335 5362
+type(
+  out_channel
+)
+"kind1/channels.ml" 149 5335 5363 "kind1/channels.ml" 149 5335 5366
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 147 5277 5298 "kind1/channels.ml" 147 5277 5301
+)
+"kind1/channels.ml" 149 5335 5339 "kind1/channels.ml" 149 5335 5366
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 148 5304 5306 "kind1/channels.ml" 149 5335 5366
+type(
+  unit
+)
+"kind1/channels.ml" 150 5368 5370 "kind1/channels.ml" 150 5368 5383
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 150 5368 5384 "kind1/channels.ml" 150 5368 5385
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 150 5368 5385 "kind1/channels.ml" 150 5368 5398
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_checker_ch "kind1/channels.ml" 51 2339 2343 "kind1/channels.ml" 51 2339 2356
+)
+"kind1/channels.ml" 150 5368 5384 "kind1/channels.ml" 150 5368 5398
+type(
+  out_channel
+)
+"kind1/channels.ml" 150 5368 5399 "kind1/channels.ml" 150 5368 5402
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 147 5277 5298 "kind1/channels.ml" 147 5277 5301
+)
+"kind1/channels.ml" 150 5368 5370 "kind1/channels.ml" 150 5368 5402
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 151 5404 5409 "kind1/channels.ml" 151 5404 5410
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 151 5404 5410 "kind1/channels.ml" 151 5404 5424
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 151 5404 5409 "kind1/channels.ml" 151 5404 5424
+type(
+  bool
+)
+"kind1/channels.ml" 152 5430 5434 "kind1/channels.ml" 152 5430 5447
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 152 5430 5448 "kind1/channels.ml" 152 5430 5449
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 152 5430 5449 "kind1/channels.ml" 152 5430 5457
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 152 5430 5448 "kind1/channels.ml" 152 5430 5457
+type(
+  out_channel
+)
+"kind1/channels.ml" 152 5430 5459 "kind1/channels.ml" 152 5430 5460
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 152 5430 5460 "kind1/channels.ml" 152 5430 5480
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 152 5430 5459 "kind1/channels.ml" 152 5430 5480
+type(
+  string
+)
+"kind1/channels.ml" 152 5430 5480 "kind1/channels.ml" 152 5430 5481
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 152 5430 5481 "kind1/channels.ml" 152 5430 5489
+type(
+  string
+)
+"kind1/channels.ml" 152 5430 5489 "kind1/channels.ml" 152 5430 5490
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 152 5430 5490 "kind1/channels.ml" 152 5430 5493
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 147 5277 5298 "kind1/channels.ml" 147 5277 5301
+)
+"kind1/channels.ml" 152 5430 5481 "kind1/channels.ml" 152 5430 5493
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 152 5430 5458 "kind1/channels.ml" 152 5430 5494
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 152 5430 5434 "kind1/channels.ml" 152 5430 5494
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 151 5404 5406 "kind1/channels.ml" 152 5430 5494
+type(
+  unit
+)
+"kind1/channels.ml" 153 5496 5498 "kind1/channels.ml" 153 5496 5507
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 153 5496 5508 "kind1/channels.ml" 153 5496 5510
+type(
+  unit
+)
+"kind1/channels.ml" 153 5496 5498 "kind1/channels.ml" 153 5496 5510
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 151 5404 5406 "kind1/channels.ml" 153 5496 5510
+type(
+  unit
+)
+"kind1/channels.ml" 150 5368 5370 "kind1/channels.ml" 153 5496 5510
+type(
+  unit
+)
+"kind1/channels.ml" 148 5304 5306 "kind1/channels.ml" 153 5496 5510
+type(
+  unit
+)
+"kind1/channels.ml" 156 5583 5587 "kind1/channels.ml" 156 5583 5600
+type(
+  string -> unit
+)
+ident(
+  def print_to_both "kind1/channels.ml" 183 6191 6191 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 156 5583 5601 "kind1/channels.ml" 156 5583 5604
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 157 5607 5609 "kind1/channels.ml" 178 6109 6116
+)
+"kind1/channels.ml" 157 5607 5612 "kind1/channels.ml" 157 5607 5613
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 157 5607 5613 "kind1/channels.ml" 157 5607 5632
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 157 5607 5612 "kind1/channels.ml" 157 5607 5632
+type(
+  bool
+)
+"kind1/channels.ml" 159 5648 5654 "kind1/channels.ml" 159 5648 5667
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 159 5648 5668 "kind1/channels.ml" 159 5648 5669
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 159 5648 5669 "kind1/channels.ml" 159 5648 5676
+type(
+  out_channel ref
+)
+ident(
+  int_ref main_ch "kind1/channels.ml" 43 1822 1826 "kind1/channels.ml" 43 1822 1833
+)
+"kind1/channels.ml" 159 5648 5668 "kind1/channels.ml" 159 5648 5676
+type(
+  out_channel
+)
+"kind1/channels.ml" 159 5648 5677 "kind1/channels.ml" 159 5648 5680
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 156 5583 5601 "kind1/channels.ml" 156 5583 5604
+)
+"kind1/channels.ml" 159 5648 5654 "kind1/channels.ml" 159 5648 5680
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 160 5682 5688 "kind1/channels.ml" 160 5682 5693
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 160 5682 5694 "kind1/channels.ml" 160 5682 5695
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 160 5682 5695 "kind1/channels.ml" 160 5682 5702
+type(
+  out_channel ref
+)
+ident(
+  int_ref main_ch "kind1/channels.ml" 43 1822 1826 "kind1/channels.ml" 43 1822 1833
+)
+"kind1/channels.ml" 160 5682 5694 "kind1/channels.ml" 160 5682 5702
+type(
+  out_channel
+)
+"kind1/channels.ml" 160 5682 5688 "kind1/channels.ml" 160 5682 5702
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 158 5638 5642 "kind1/channels.ml" 161 5703 5710
+type(
+  unit
+)
+"kind1/channels.ml" 157 5607 5609 "kind1/channels.ml" 161 5703 5710
+type(
+  unit
+)
+"kind1/channels.ml" 162 5712 5714 "kind1/channels.ml" 162 5712 5727
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 162 5712 5728 "kind1/channels.ml" 162 5712 5729
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 162 5712 5729 "kind1/channels.ml" 162 5712 5741
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver_ch "kind1/channels.ml" 50 2288 2292 "kind1/channels.ml" 50 2288 2304
+)
+"kind1/channels.ml" 162 5712 5728 "kind1/channels.ml" 162 5712 5741
+type(
+  out_channel
+)
+"kind1/channels.ml" 162 5712 5742 "kind1/channels.ml" 162 5712 5745
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 156 5583 5601 "kind1/channels.ml" 156 5583 5604
+)
+"kind1/channels.ml" 162 5712 5714 "kind1/channels.ml" 162 5712 5745
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 163 5747 5749 "kind1/channels.ml" 163 5747 5754
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 163 5747 5755 "kind1/channels.ml" 163 5747 5756
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 163 5747 5756 "kind1/channels.ml" 163 5747 5768
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver_ch "kind1/channels.ml" 50 2288 2292 "kind1/channels.ml" 50 2288 2304
+)
+"kind1/channels.ml" 163 5747 5755 "kind1/channels.ml" 163 5747 5768
+type(
+  out_channel
+)
+"kind1/channels.ml" 163 5747 5749 "kind1/channels.ml" 163 5747 5768
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 164 5770 5775 "kind1/channels.ml" 164 5770 5776
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 164 5770 5776 "kind1/channels.ml" 164 5770 5797
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.checker_mode
+)
+"kind1/channels.ml" 164 5770 5775 "kind1/channels.ml" 164 5770 5797
+type(
+  bool
+)
+"kind1/channels.ml" 166 5813 5822 "kind1/channels.ml" 166 5813 5823
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 166 5813 5823 "kind1/channels.ml" 166 5813 5842
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 166 5813 5822 "kind1/channels.ml" 166 5813 5842
+type(
+  bool
+)
+"kind1/channels.ml" 168 5862 5872 "kind1/channels.ml" 168 5862 5885
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 168 5862 5886 "kind1/channels.ml" 168 5862 5887
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 168 5862 5887 "kind1/channels.ml" 168 5862 5895
+type(
+  out_channel ref
+)
+ident(
+  int_ref check_ch "kind1/channels.ml" 49 2233 2237 "kind1/channels.ml" 49 2233 2245
+)
+"kind1/channels.ml" 168 5862 5886 "kind1/channels.ml" 168 5862 5895
+type(
+  out_channel
+)
+"kind1/channels.ml" 168 5862 5896 "kind1/channels.ml" 168 5862 5899
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 156 5583 5601 "kind1/channels.ml" 156 5583 5604
+)
+"kind1/channels.ml" 168 5862 5872 "kind1/channels.ml" 168 5862 5899
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 169 5901 5911 "kind1/channels.ml" 169 5901 5916
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 169 5901 5917 "kind1/channels.ml" 169 5901 5918
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 169 5901 5918 "kind1/channels.ml" 169 5901 5926
+type(
+  out_channel ref
+)
+ident(
+  int_ref check_ch "kind1/channels.ml" 49 2233 2237 "kind1/channels.ml" 49 2233 2245
+)
+"kind1/channels.ml" 169 5901 5917 "kind1/channels.ml" 169 5901 5926
+type(
+  out_channel
+)
+"kind1/channels.ml" 169 5901 5911 "kind1/channels.ml" 169 5901 5926
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 167 5848 5856 "kind1/channels.ml" 170 5927 5938
+type(
+  unit
+)
+"kind1/channels.ml" 166 5813 5819 "kind1/channels.ml" 170 5927 5938
+type(
+  unit
+)
+"kind1/channels.ml" 171 5940 5946 "kind1/channels.ml" 171 5940 5959
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 171 5940 5960 "kind1/channels.ml" 171 5940 5961
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 171 5940 5961 "kind1/channels.ml" 171 5940 5974
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_checker_ch "kind1/channels.ml" 51 2339 2343 "kind1/channels.ml" 51 2339 2356
+)
+"kind1/channels.ml" 171 5940 5960 "kind1/channels.ml" 171 5940 5974
+type(
+  out_channel
+)
+"kind1/channels.ml" 171 5940 5975 "kind1/channels.ml" 171 5940 5978
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 156 5583 5601 "kind1/channels.ml" 156 5583 5604
+)
+"kind1/channels.ml" 171 5940 5946 "kind1/channels.ml" 171 5940 5978
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 172 5980 5986 "kind1/channels.ml" 172 5980 5991
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 172 5980 5992 "kind1/channels.ml" 172 5980 5993
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 172 5980 5993 "kind1/channels.ml" 172 5980 6006
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_checker_ch "kind1/channels.ml" 51 2339 2343 "kind1/channels.ml" 51 2339 2356
+)
+"kind1/channels.ml" 172 5980 5992 "kind1/channels.ml" 172 5980 6006
+type(
+  out_channel
+)
+"kind1/channels.ml" 172 5980 5986 "kind1/channels.ml" 172 5980 6006
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 171 5940 5946 "kind1/channels.ml" 172 5980 6006
+type(
+  unit
+)
+"kind1/channels.ml" 165 5803 5807 "kind1/channels.ml" 173 6007 6014
+type(
+  unit
+)
+"kind1/channels.ml" 164 5770 5772 "kind1/channels.ml" 173 6007 6014
+type(
+  unit
+)
+"kind1/channels.ml" 174 6016 6021 "kind1/channels.ml" 174 6016 6022
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 174 6016 6022 "kind1/channels.ml" 174 6016 6036
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 174 6016 6021 "kind1/channels.ml" 174 6016 6036
+type(
+  bool
+)
+"kind1/channels.ml" 176 6052 6058 "kind1/channels.ml" 176 6052 6071
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 176 6052 6072 "kind1/channels.ml" 176 6052 6073
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 176 6052 6073 "kind1/channels.ml" 176 6052 6081
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 176 6052 6072 "kind1/channels.ml" 176 6052 6081
+type(
+  out_channel
+)
+"kind1/channels.ml" 176 6052 6082 "kind1/channels.ml" 176 6052 6085
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 156 5583 5601 "kind1/channels.ml" 156 5583 5604
+)
+"kind1/channels.ml" 176 6052 6058 "kind1/channels.ml" 176 6052 6085
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 177 6087 6093 "kind1/channels.ml" 177 6087 6098
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 177 6087 6099 "kind1/channels.ml" 177 6087 6100
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 177 6087 6100 "kind1/channels.ml" 177 6087 6108
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 177 6087 6099 "kind1/channels.ml" 177 6087 6108
+type(
+  out_channel
+)
+"kind1/channels.ml" 177 6087 6093 "kind1/channels.ml" 177 6087 6108
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 175 6042 6046 "kind1/channels.ml" 178 6109 6116
+type(
+  unit
+)
+"kind1/channels.ml" 174 6016 6018 "kind1/channels.ml" 178 6109 6116
+type(
+  unit
+)
+"kind1/channels.ml" 164 5770 5772 "kind1/channels.ml" 178 6109 6116
+type(
+  unit
+)
+"kind1/channels.ml" 163 5747 5749 "kind1/channels.ml" 178 6109 6116
+type(
+  unit
+)
+"kind1/channels.ml" 162 5712 5714 "kind1/channels.ml" 178 6109 6116
+type(
+  unit
+)
+"kind1/channels.ml" 157 5607 5609 "kind1/channels.ml" 178 6109 6116
+type(
+  unit
+)
+"kind1/channels.ml" 183 6191 6195 "kind1/channels.ml" 183 6191 6209
+type(
+  string -> unit
+)
+ident(
+  def print_to_both2 "kind1/channels.ml" 208 6820 6820 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 183 6191 6210 "kind1/channels.ml" 183 6191 6213
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 184 6216 6222 "kind1/channels.ml" 205 6806 6817
+)
+"kind1/channels.ml" 184 6216 6225 "kind1/channels.ml" 184 6216 6226
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 184 6216 6226 "kind1/channels.ml" 184 6216 6245
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 184 6216 6225 "kind1/channels.ml" 184 6216 6245
+type(
+  bool
+)
+"kind1/channels.ml" 186 6265 6275 "kind1/channels.ml" 186 6265 6288
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 186 6265 6289 "kind1/channels.ml" 186 6265 6290
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 186 6265 6290 "kind1/channels.ml" 186 6265 6298
+type(
+  out_channel ref
+)
+ident(
+  int_ref main2_ch "kind1/channels.ml" 44 1899 1903 "kind1/channels.ml" 44 1899 1911
+)
+"kind1/channels.ml" 186 6265 6289 "kind1/channels.ml" 186 6265 6298
+type(
+  out_channel
+)
+"kind1/channels.ml" 186 6265 6299 "kind1/channels.ml" 186 6265 6302
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 183 6191 6210 "kind1/channels.ml" 183 6191 6213
+)
+"kind1/channels.ml" 186 6265 6275 "kind1/channels.ml" 186 6265 6302
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 187 6304 6314 "kind1/channels.ml" 187 6304 6319
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 187 6304 6320 "kind1/channels.ml" 187 6304 6321
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 187 6304 6321 "kind1/channels.ml" 187 6304 6329
+type(
+  out_channel ref
+)
+ident(
+  int_ref main2_ch "kind1/channels.ml" 44 1899 1903 "kind1/channels.ml" 44 1899 1911
+)
+"kind1/channels.ml" 187 6304 6320 "kind1/channels.ml" 187 6304 6329
+type(
+  out_channel
+)
+"kind1/channels.ml" 187 6304 6314 "kind1/channels.ml" 187 6304 6329
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 185 6251 6259 "kind1/channels.ml" 188 6330 6341
+type(
+  unit
+)
+"kind1/channels.ml" 184 6216 6222 "kind1/channels.ml" 188 6330 6341
+type(
+  unit
+)
+"kind1/channels.ml" 189 6343 6349 "kind1/channels.ml" 189 6343 6362
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 189 6343 6363 "kind1/channels.ml" 189 6343 6364
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 189 6343 6364 "kind1/channels.ml" 189 6343 6377
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver2_ch "kind1/channels.ml" 52 2392 2396 "kind1/channels.ml" 52 2392 2409
+)
+"kind1/channels.ml" 189 6343 6363 "kind1/channels.ml" 189 6343 6377
+type(
+  out_channel
+)
+"kind1/channels.ml" 189 6343 6378 "kind1/channels.ml" 189 6343 6381
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 183 6191 6210 "kind1/channels.ml" 183 6191 6213
+)
+"kind1/channels.ml" 189 6343 6349 "kind1/channels.ml" 189 6343 6381
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 190 6383 6389 "kind1/channels.ml" 190 6383 6394
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 190 6383 6395 "kind1/channels.ml" 190 6383 6396
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 190 6383 6396 "kind1/channels.ml" 190 6383 6409
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_solver2_ch "kind1/channels.ml" 52 2392 2396 "kind1/channels.ml" 52 2392 2409
+)
+"kind1/channels.ml" 190 6383 6395 "kind1/channels.ml" 190 6383 6409
+type(
+  out_channel
+)
+"kind1/channels.ml" 190 6383 6389 "kind1/channels.ml" 190 6383 6409
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 191 6411 6420 "kind1/channels.ml" 191 6411 6421
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 191 6411 6421 "kind1/channels.ml" 191 6411 6442
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.checker_mode
+)
+"kind1/channels.ml" 191 6411 6420 "kind1/channels.ml" 191 6411 6442
+type(
+  bool
+)
+"kind1/channels.ml" 193 6462 6475 "kind1/channels.ml" 193 6462 6476
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 193 6462 6476 "kind1/channels.ml" 193 6462 6495
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 193 6462 6475 "kind1/channels.ml" 193 6462 6495
+type(
+  bool
+)
+"kind1/channels.ml" 195 6519 6533 "kind1/channels.ml" 195 6519 6546
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 195 6519 6547 "kind1/channels.ml" 195 6519 6548
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 195 6519 6548 "kind1/channels.ml" 195 6519 6556
+type(
+  out_channel ref
+)
+ident(
+  int_ref check_ch "kind1/channels.ml" 49 2233 2237 "kind1/channels.ml" 49 2233 2245
+)
+"kind1/channels.ml" 195 6519 6547 "kind1/channels.ml" 195 6519 6556
+type(
+  out_channel
+)
+"kind1/channels.ml" 195 6519 6557 "kind1/channels.ml" 195 6519 6560
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 183 6191 6210 "kind1/channels.ml" 183 6191 6213
+)
+"kind1/channels.ml" 195 6519 6533 "kind1/channels.ml" 195 6519 6560
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 196 6562 6576 "kind1/channels.ml" 196 6562 6581
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 196 6562 6582 "kind1/channels.ml" 196 6562 6583
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 196 6562 6583 "kind1/channels.ml" 196 6562 6591
+type(
+  out_channel ref
+)
+ident(
+  int_ref check_ch "kind1/channels.ml" 49 2233 2237 "kind1/channels.ml" 49 2233 2245
+)
+"kind1/channels.ml" 196 6562 6582 "kind1/channels.ml" 196 6562 6591
+type(
+  out_channel
+)
+"kind1/channels.ml" 196 6562 6576 "kind1/channels.ml" 196 6562 6591
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 194 6501 6513 "kind1/channels.ml" 197 6592 6607
+type(
+  unit
+)
+"kind1/channels.ml" 193 6462 6472 "kind1/channels.ml" 197 6592 6607
+type(
+  unit
+)
+"kind1/channels.ml" 198 6609 6619 "kind1/channels.ml" 198 6609 6632
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 198 6609 6633 "kind1/channels.ml" 198 6609 6634
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 198 6609 6634 "kind1/channels.ml" 198 6609 6647
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_checker_ch "kind1/channels.ml" 51 2339 2343 "kind1/channels.ml" 51 2339 2356
+)
+"kind1/channels.ml" 198 6609 6633 "kind1/channels.ml" 198 6609 6647
+type(
+  out_channel
+)
+"kind1/channels.ml" 198 6609 6648 "kind1/channels.ml" 198 6609 6651
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 183 6191 6210 "kind1/channels.ml" 183 6191 6213
+)
+"kind1/channels.ml" 198 6609 6619 "kind1/channels.ml" 198 6609 6651
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 199 6653 6663 "kind1/channels.ml" 199 6653 6668
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 199 6653 6669 "kind1/channels.ml" 199 6653 6670
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 199 6653 6670 "kind1/channels.ml" 199 6653 6683
+type(
+  out_channel ref
+)
+ident(
+  int_ref to_checker_ch "kind1/channels.ml" 51 2339 2343 "kind1/channels.ml" 51 2339 2356
+)
+"kind1/channels.ml" 199 6653 6669 "kind1/channels.ml" 199 6653 6683
+type(
+  out_channel
+)
+"kind1/channels.ml" 199 6653 6663 "kind1/channels.ml" 199 6653 6683
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 198 6609 6619 "kind1/channels.ml" 199 6653 6683
+type(
+  unit
+)
+"kind1/channels.ml" 192 6448 6456 "kind1/channels.ml" 200 6684 6695
+type(
+  unit
+)
+"kind1/channels.ml" 191 6411 6417 "kind1/channels.ml" 200 6684 6695
+type(
+  unit
+)
+"kind1/channels.ml" 201 6697 6706 "kind1/channels.ml" 201 6697 6707
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 201 6697 6707 "kind1/channels.ml" 201 6697 6721
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 201 6697 6706 "kind1/channels.ml" 201 6697 6721
+type(
+  bool
+)
+"kind1/channels.ml" 203 6741 6751 "kind1/channels.ml" 203 6741 6764
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 203 6741 6765 "kind1/channels.ml" 203 6741 6766
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 203 6741 6766 "kind1/channels.ml" 203 6741 6774
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 203 6741 6765 "kind1/channels.ml" 203 6741 6774
+type(
+  out_channel
+)
+"kind1/channels.ml" 203 6741 6775 "kind1/channels.ml" 203 6741 6778
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 183 6191 6210 "kind1/channels.ml" 183 6191 6213
+)
+"kind1/channels.ml" 203 6741 6751 "kind1/channels.ml" 203 6741 6778
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 204 6780 6790 "kind1/channels.ml" 204 6780 6795
+type(
+  out_channel -> unit
+)
+ident(
+  ext_ref Pervasives.flush
+)
+"kind1/channels.ml" 204 6780 6796 "kind1/channels.ml" 204 6780 6797
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 204 6780 6797 "kind1/channels.ml" 204 6780 6805
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 204 6780 6796 "kind1/channels.ml" 204 6780 6805
+type(
+  out_channel
+)
+"kind1/channels.ml" 204 6780 6790 "kind1/channels.ml" 204 6780 6805
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 202 6727 6735 "kind1/channels.ml" 205 6806 6817
+type(
+  unit
+)
+"kind1/channels.ml" 201 6697 6703 "kind1/channels.ml" 205 6806 6817
+type(
+  unit
+)
+"kind1/channels.ml" 191 6411 6417 "kind1/channels.ml" 205 6806 6817
+type(
+  unit
+)
+"kind1/channels.ml" 190 6383 6389 "kind1/channels.ml" 205 6806 6817
+type(
+  unit
+)
+"kind1/channels.ml" 189 6343 6349 "kind1/channels.ml" 205 6806 6817
+type(
+  unit
+)
+"kind1/channels.ml" 184 6216 6222 "kind1/channels.ml" 205 6806 6817
+type(
+  unit
+)
+"kind1/channels.ml" 208 6820 6824 "kind1/channels.ml" 208 6820 6837
+type(
+  string -> unit
+)
+ident(
+  def print_to_user "kind1/channels.ml" 220 7111 7111 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 208 6820 6838 "kind1/channels.ml" 208 6820 6841
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 209 6844 6846 "kind1/channels.ml" 215 6987 7001
+)
+"kind1/channels.ml" 209 6844 6849 "kind1/channels.ml" 209 6844 6850
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 209 6844 6850 "kind1/channels.ml" 209 6844 6869
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 209 6844 6849 "kind1/channels.ml" 209 6844 6869
+type(
+  bool
+)
+"kind1/channels.ml" 211 6885 6891 "kind1/channels.ml" 211 6885 6904
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 211 6885 6905 "kind1/channels.ml" 211 6885 6906
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 211 6885 6906 "kind1/channels.ml" 211 6885 6914
+type(
+  out_channel ref
+)
+ident(
+  int_ref main2_ch "kind1/channels.ml" 44 1899 1903 "kind1/channels.ml" 44 1899 1911
+)
+"kind1/channels.ml" 211 6885 6905 "kind1/channels.ml" 211 6885 6914
+type(
+  out_channel
+)
+"kind1/channels.ml" 211 6885 6915 "kind1/channels.ml" 211 6885 6918
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 208 6820 6838 "kind1/channels.ml" 208 6820 6841
+)
+"kind1/channels.ml" 210 6875 6879 "kind1/channels.ml" 212 6920 6927
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 209 6844 6846 "kind1/channels.ml" 212 6920 6927
+type(
+  unit
+)
+"kind1/channels.ml" 213 6929 6934 "kind1/channels.ml" 213 6929 6935
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 213 6929 6935 "kind1/channels.ml" 213 6929 6948
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.loud
+)
+"kind1/channels.ml" 213 6929 6934 "kind1/channels.ml" 213 6929 6948
+type(
+  bool
+)
+"kind1/channels.ml" 214 6954 6958 "kind1/channels.ml" 214 6954 6971
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 214 6954 6972 "kind1/channels.ml" 214 6954 6973
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 214 6954 6973 "kind1/channels.ml" 214 6954 6981
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 214 6954 6972 "kind1/channels.ml" 214 6954 6981
+type(
+  out_channel
+)
+"kind1/channels.ml" 214 6954 6982 "kind1/channels.ml" 214 6954 6985
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 208 6820 6838 "kind1/channels.ml" 208 6820 6841
+)
+"kind1/channels.ml" 214 6954 6958 "kind1/channels.ml" 214 6954 6985
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 213 6929 6931 "kind1/channels.ml" 214 6954 6985
+type(
+  unit
+)
+"kind1/channels.ml" 215 6987 6989 "kind1/channels.ml" 215 6987 6998
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 215 6987 6999 "kind1/channels.ml" 215 6987 7001
+type(
+  unit
+)
+"kind1/channels.ml" 215 6987 6989 "kind1/channels.ml" 215 6987 7001
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 213 6929 6931 "kind1/channels.ml" 215 6987 7001
+type(
+  unit
+)
+"kind1/channels.ml" 209 6844 6846 "kind1/channels.ml" 215 6987 7001
+type(
+  unit
+)
+"kind1/channels.ml" 220 7111 7115 "kind1/channels.ml" 220 7111 7134
+type(
+  string -> unit
+)
+ident(
+  def print_to_user_final "kind1/channels.ml" 227 7336 7336 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 220 7111 7135 "kind1/channels.ml" 220 7111 7138
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 221 7141 7143 "kind1/channels.ml" 222 7172 7186
+)
+"kind1/channels.ml" 221 7141 7143 "kind1/channels.ml" 221 7141 7156
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 221 7141 7157 "kind1/channels.ml" 221 7141 7158
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 221 7141 7158 "kind1/channels.ml" 221 7141 7166
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 221 7141 7157 "kind1/channels.ml" 221 7141 7166
+type(
+  out_channel
+)
+"kind1/channels.ml" 221 7141 7167 "kind1/channels.ml" 221 7141 7170
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 220 7111 7135 "kind1/channels.ml" 220 7111 7138
+)
+"kind1/channels.ml" 221 7141 7143 "kind1/channels.ml" 221 7141 7170
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 222 7172 7174 "kind1/channels.ml" 222 7172 7183
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 222 7172 7184 "kind1/channels.ml" 222 7172 7186
+type(
+  unit
+)
+"kind1/channels.ml" 222 7172 7174 "kind1/channels.ml" 222 7172 7186
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 221 7141 7143 "kind1/channels.ml" 222 7172 7186
+type(
+  unit
+)
+"kind1/channels.ml" 227 7336 7340 "kind1/channels.ml" 227 7336 7353
+type(
+  string -> unit
+)
+ident(
+  def debug_to_user "kind1/channels.ml" 238 7601 7601 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 227 7336 7354 "kind1/channels.ml" 227 7336 7357
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 228 7360 7362 "kind1/channels.ml" 235 7559 7566
+)
+"kind1/channels.ml" 228 7360 7366 "kind1/channels.ml" 228 7360 7367
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 228 7360 7367 "kind1/channels.ml" 228 7360 7381
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.debug
+)
+"kind1/channels.ml" 228 7360 7365 "kind1/channels.ml" 228 7360 7382
+type(
+  bool
+)
+"kind1/channels.ml" 230 7398 7408 "kind1/channels.ml" 230 7398 7409
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 231 7448 7454 "kind1/channels.ml" 234 7545 7558
+)
+"kind1/channels.ml" 230 7398 7413 "kind1/channels.ml" 230 7398 7414
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 230 7398 7414 "kind1/channels.ml" 230 7398 7434
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 230 7398 7412 "kind1/channels.ml" 230 7398 7435
+type(
+  string
+)
+"kind1/channels.ml" 230 7398 7435 "kind1/channels.ml" 230 7398 7436
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 230 7398 7436 "kind1/channels.ml" 230 7398 7439
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 227 7336 7354 "kind1/channels.ml" 227 7336 7357
+)
+"kind1/channels.ml" 230 7398 7439 "kind1/channels.ml" 230 7398 7440
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 230 7398 7440 "kind1/channels.ml" 230 7398 7444
+type(
+  string
+)
+"kind1/channels.ml" 230 7398 7436 "kind1/channels.ml" 230 7398 7444
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 230 7398 7412 "kind1/channels.ml" 230 7398 7444
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 231 7448 7457 "kind1/channels.ml" 231 7448 7458
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 231 7448 7458 "kind1/channels.ml" 231 7448 7477
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 231 7448 7457 "kind1/channels.ml" 231 7448 7477
+type(
+  bool
+)
+"kind1/channels.ml" 232 7483 7491 "kind1/channels.ml" 232 7483 7504
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 232 7483 7505 "kind1/channels.ml" 232 7483 7506
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 232 7483 7506 "kind1/channels.ml" 232 7483 7513
+type(
+  out_channel ref
+)
+ident(
+  int_ref main_ch "kind1/channels.ml" 43 1822 1826 "kind1/channels.ml" 43 1822 1833
+)
+"kind1/channels.ml" 232 7483 7505 "kind1/channels.ml" 232 7483 7513
+type(
+  out_channel
+)
+"kind1/channels.ml" 232 7483 7514 "kind1/channels.ml" 232 7483 7515
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 230 7398 7408 "kind1/channels.ml" 230 7398 7409
+)
+"kind1/channels.ml" 232 7483 7491 "kind1/channels.ml" 232 7483 7515
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 231 7448 7454 "kind1/channels.ml" 232 7483 7515
+type(
+  unit
+)
+"kind1/channels.ml" 233 7517 7518 "kind1/channels.ml" 233 7517 7531
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 233 7517 7532 "kind1/channels.ml" 233 7517 7533
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 233 7517 7533 "kind1/channels.ml" 233 7517 7541
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 233 7517 7532 "kind1/channels.ml" 233 7517 7541
+type(
+  out_channel
+)
+"kind1/channels.ml" 233 7517 7542 "kind1/channels.ml" 233 7517 7543
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 230 7398 7408 "kind1/channels.ml" 230 7398 7409
+)
+"kind1/channels.ml" 233 7517 7518 "kind1/channels.ml" 233 7517 7543
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 234 7545 7546 "kind1/channels.ml" 234 7545 7555
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 234 7545 7556 "kind1/channels.ml" 234 7545 7558
+type(
+  unit
+)
+"kind1/channels.ml" 234 7545 7546 "kind1/channels.ml" 234 7545 7558
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 233 7517 7518 "kind1/channels.ml" 234 7545 7558
+type(
+  unit
+)
+"kind1/channels.ml" 231 7448 7454 "kind1/channels.ml" 234 7545 7558
+type(
+  unit
+)
+"kind1/channels.ml" 229 7388 7392 "kind1/channels.ml" 235 7559 7566
+type(
+  unit
+)
+"kind1/channels.ml" 228 7360 7362 "kind1/channels.ml" 235 7559 7566
+type(
+  unit
+)
+"kind1/channels.ml" 238 7601 7605 "kind1/channels.ml" 238 7601 7615
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  def debug_proc "kind1/channels.ml" 300 9145 9145 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 238 7601 7616 "kind1/channels.ml" 238 7601 7620
+type(
+  Types.proc
+)
+ident(
+  def proc "kind1/channels.ml" 238 7601 7621 "kind1/channels.ml" 297 9099 9104
+)
+"kind1/channels.ml" 238 7601 7621 "kind1/channels.ml" 238 7601 7628
+type(
+  bool option
+)
+ident(
+  def verbose "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 297 9099 9104
+)
+"kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 240 7638 7640 "kind1/channels.ml" 297 9099 9104
+)
+"kind1/channels.ml" 240 7638 7643 "kind1/channels.ml" 240 7638 7644
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 240 7638 7644 "kind1/channels.ml" 240 7638 7657
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.loud
+)
+"kind1/channels.ml" 240 7638 7643 "kind1/channels.ml" 240 7638 7657
+type(
+  bool
+)
+"kind1/channels.ml" 242 7669 7679 "kind1/channels.ml" 242 7669 7683
+type(
+  Types.proc
+)
+ident(
+  int_ref proc "kind1/channels.ml" 238 7601 7616 "kind1/channels.ml" 238 7601 7620
+)
+"kind1/channels.ml" 242 7669 7685 "kind1/channels.ml" 242 7669 7692
+type(
+  bool option
+)
+ident(
+  int_ref verbose "kind1/channels.ml" 238 7601 7621 "kind1/channels.ml" 238 7601 7628
+)
+"kind1/channels.ml" 242 7669 7679 "kind1/channels.ml" 242 7669 7692
+type(
+  Types.proc * bool option
+)
+"kind1/channels.ml" 243 7699 7700 "kind1/channels.ml" 243 7699 7709
+type(
+  Types.proc
+)
+"kind1/channels.ml" 243 7699 7716 "kind1/channels.ml" 243 7699 7720
+type(
+  bool
+)
+"kind1/channels.ml" 243 7699 7711 "kind1/channels.ml" 243 7699 7720
+type(
+  bool option
+)
+"kind1/channels.ml" 243 7699 7700 "kind1/channels.ml" 243 7699 7720
+type(
+  Types.proc * bool option
+)
+"kind1/channels.ml" 245 7732 7741 "kind1/channels.ml" 245 7732 7742
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 246 7793 7800 "kind1/channels.ml" 247 7827 7846
+)
+"kind1/channels.ml" 245 7732 7745 "kind1/channels.ml" 245 7732 7746
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 245 7732 7746 "kind1/channels.ml" 245 7732 7766
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 245 7732 7745 "kind1/channels.ml" 245 7732 7766
+type(
+  string
+)
+"kind1/channels.ml" 245 7732 7766 "kind1/channels.ml" 245 7732 7767
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 245 7732 7767 "kind1/channels.ml" 245 7732 7780
+type(
+  string
+)
+"kind1/channels.ml" 245 7732 7780 "kind1/channels.ml" 245 7732 7781
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 245 7732 7781 "kind1/channels.ml" 245 7732 7784
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 245 7732 7784 "kind1/channels.ml" 245 7732 7785
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 245 7732 7785 "kind1/channels.ml" 245 7732 7789
+type(
+  string
+)
+"kind1/channels.ml" 245 7732 7781 "kind1/channels.ml" 245 7732 7789
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 245 7732 7767 "kind1/channels.ml" 245 7732 7789
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 245 7732 7745 "kind1/channels.ml" 245 7732 7789
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 246 7793 7800 "kind1/channels.ml" 246 7793 7813
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 246 7793 7814 "kind1/channels.ml" 246 7793 7815
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 246 7793 7815 "kind1/channels.ml" 246 7793 7823
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 246 7793 7814 "kind1/channels.ml" 246 7793 7823
+type(
+  out_channel
+)
+"kind1/channels.ml" 246 7793 7824 "kind1/channels.ml" 246 7793 7825
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 245 7732 7741 "kind1/channels.ml" 245 7732 7742
+)
+"kind1/channels.ml" 246 7793 7800 "kind1/channels.ml" 246 7793 7825
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 247 7827 7834 "kind1/channels.ml" 247 7827 7843
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 247 7827 7844 "kind1/channels.ml" 247 7827 7846
+type(
+  unit
+)
+"kind1/channels.ml" 247 7827 7834 "kind1/channels.ml" 247 7827 7846
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 246 7793 7800 "kind1/channels.ml" 247 7827 7846
+type(
+  unit
+)
+"kind1/channels.ml" 244 7723 7726 "kind1/channels.ml" 248 7847 7853
+type(
+  unit
+)
+"kind1/channels.ml" 249 7854 7862 "kind1/channels.ml" 249 7854 7873
+type(
+  Types.proc
+)
+"kind1/channels.ml" 249 7854 7880 "kind1/channels.ml" 249 7854 7884
+type(
+  bool
+)
+"kind1/channels.ml" 249 7854 7875 "kind1/channels.ml" 249 7854 7884
+type(
+  bool option
+)
+"kind1/channels.ml" 249 7854 7862 "kind1/channels.ml" 249 7854 7884
+type(
+  Types.proc * bool option
+)
+"kind1/channels.ml" 251 7896 7905 "kind1/channels.ml" 251 7896 7906
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 252 7963 7970 "kind1/channels.ml" 253 7997 8016
+)
+"kind1/channels.ml" 251 7896 7909 "kind1/channels.ml" 251 7896 7910
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 251 7896 7910 "kind1/channels.ml" 251 7896 7930
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 251 7896 7909 "kind1/channels.ml" 251 7896 7930
+type(
+  string
+)
+"kind1/channels.ml" 251 7896 7930 "kind1/channels.ml" 251 7896 7931
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 251 7896 7931 "kind1/channels.ml" 251 7896 7950
+type(
+  string
+)
+"kind1/channels.ml" 251 7896 7950 "kind1/channels.ml" 251 7896 7951
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 251 7896 7951 "kind1/channels.ml" 251 7896 7954
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 251 7896 7954 "kind1/channels.ml" 251 7896 7955
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 251 7896 7955 "kind1/channels.ml" 251 7896 7959
+type(
+  string
+)
+"kind1/channels.ml" 251 7896 7951 "kind1/channels.ml" 251 7896 7959
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 251 7896 7931 "kind1/channels.ml" 251 7896 7959
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 251 7896 7909 "kind1/channels.ml" 251 7896 7959
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 252 7963 7970 "kind1/channels.ml" 252 7963 7983
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 252 7963 7984 "kind1/channels.ml" 252 7963 7985
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 252 7963 7985 "kind1/channels.ml" 252 7963 7993
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 252 7963 7984 "kind1/channels.ml" 252 7963 7993
+type(
+  out_channel
+)
+"kind1/channels.ml" 252 7963 7994 "kind1/channels.ml" 252 7963 7995
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 251 7896 7905 "kind1/channels.ml" 251 7896 7906
+)
+"kind1/channels.ml" 252 7963 7970 "kind1/channels.ml" 252 7963 7995
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 253 7997 8004 "kind1/channels.ml" 253 7997 8013
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 253 7997 8014 "kind1/channels.ml" 253 7997 8016
+type(
+  unit
+)
+"kind1/channels.ml" 253 7997 8004 "kind1/channels.ml" 253 7997 8016
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 252 7963 7970 "kind1/channels.ml" 253 7997 8016
+type(
+  unit
+)
+"kind1/channels.ml" 250 7887 7890 "kind1/channels.ml" 254 8017 8023
+type(
+  unit
+)
+"kind1/channels.ml" 255 8024 8032 "kind1/channels.ml" 255 8024 8044
+type(
+  Types.proc
+)
+"kind1/channels.ml" 255 8024 8051 "kind1/channels.ml" 255 8024 8055
+type(
+  bool
+)
+"kind1/channels.ml" 255 8024 8046 "kind1/channels.ml" 255 8024 8055
+type(
+  bool option
+)
+"kind1/channels.ml" 255 8024 8032 "kind1/channels.ml" 255 8024 8055
+type(
+  Types.proc * bool option
+)
+"kind1/channels.ml" 257 8067 8076 "kind1/channels.ml" 257 8067 8077
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 258 8140 8147 "kind1/channels.ml" 259 8174 8193
+)
+"kind1/channels.ml" 257 8067 8080 "kind1/channels.ml" 257 8067 8081
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 257 8067 8081 "kind1/channels.ml" 257 8067 8101
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 257 8067 8080 "kind1/channels.ml" 257 8067 8101
+type(
+  string
+)
+"kind1/channels.ml" 257 8067 8101 "kind1/channels.ml" 257 8067 8102
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 257 8067 8102 "kind1/channels.ml" 257 8067 8127
+type(
+  string
+)
+"kind1/channels.ml" 257 8067 8127 "kind1/channels.ml" 257 8067 8128
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 257 8067 8128 "kind1/channels.ml" 257 8067 8131
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 257 8067 8131 "kind1/channels.ml" 257 8067 8132
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 257 8067 8132 "kind1/channels.ml" 257 8067 8136
+type(
+  string
+)
+"kind1/channels.ml" 257 8067 8128 "kind1/channels.ml" 257 8067 8136
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 257 8067 8102 "kind1/channels.ml" 257 8067 8136
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 257 8067 8080 "kind1/channels.ml" 257 8067 8136
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 258 8140 8147 "kind1/channels.ml" 258 8140 8160
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 258 8140 8161 "kind1/channels.ml" 258 8140 8162
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 258 8140 8162 "kind1/channels.ml" 258 8140 8170
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 258 8140 8161 "kind1/channels.ml" 258 8140 8170
+type(
+  out_channel
+)
+"kind1/channels.ml" 258 8140 8171 "kind1/channels.ml" 258 8140 8172
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 257 8067 8076 "kind1/channels.ml" 257 8067 8077
+)
+"kind1/channels.ml" 258 8140 8147 "kind1/channels.ml" 258 8140 8172
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 259 8174 8181 "kind1/channels.ml" 259 8174 8190
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 259 8174 8191 "kind1/channels.ml" 259 8174 8193
+type(
+  unit
+)
+"kind1/channels.ml" 259 8174 8181 "kind1/channels.ml" 259 8174 8193
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 258 8140 8147 "kind1/channels.ml" 259 8174 8193
+type(
+  unit
+)
+"kind1/channels.ml" 256 8058 8061 "kind1/channels.ml" 260 8194 8200
+type(
+  unit
+)
+"kind1/channels.ml" 261 8201 8207 "kind1/channels.ml" 261 8201 8217
+type(
+  Types.proc
+)
+"kind1/channels.ml" 261 8201 8224 "kind1/channels.ml" 261 8201 8228
+type(
+  bool
+)
+"kind1/channels.ml" 261 8201 8219 "kind1/channels.ml" 261 8201 8228
+type(
+  bool option
+)
+"kind1/channels.ml" 261 8201 8207 "kind1/channels.ml" 261 8201 8228
+type(
+  Types.proc * bool option
+)
+"kind1/channels.ml" 263 8241 8251 "kind1/channels.ml" 263 8241 8252
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 264 8306 8314 "kind1/channels.ml" 265 8341 8361
+)
+"kind1/channels.ml" 263 8241 8255 "kind1/channels.ml" 263 8241 8256
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 263 8241 8256 "kind1/channels.ml" 263 8241 8276
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 263 8241 8255 "kind1/channels.ml" 263 8241 8276
+type(
+  string
+)
+"kind1/channels.ml" 263 8241 8276 "kind1/channels.ml" 263 8241 8277
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 263 8241 8277 "kind1/channels.ml" 263 8241 8293
+type(
+  string
+)
+"kind1/channels.ml" 263 8241 8293 "kind1/channels.ml" 263 8241 8294
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 263 8241 8294 "kind1/channels.ml" 263 8241 8297
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 263 8241 8297 "kind1/channels.ml" 263 8241 8298
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 263 8241 8298 "kind1/channels.ml" 263 8241 8302
+type(
+  string
+)
+"kind1/channels.ml" 263 8241 8294 "kind1/channels.ml" 263 8241 8302
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 263 8241 8277 "kind1/channels.ml" 263 8241 8302
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 263 8241 8255 "kind1/channels.ml" 263 8241 8302
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 264 8306 8314 "kind1/channels.ml" 264 8306 8327
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 264 8306 8328 "kind1/channels.ml" 264 8306 8329
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 264 8306 8329 "kind1/channels.ml" 264 8306 8337
+type(
+  out_channel ref
+)
+ident(
+  int_ref debug_ch "kind1/channels.ml" 57 2634 2638 "kind1/channels.ml" 57 2634 2646
+)
+"kind1/channels.ml" 264 8306 8328 "kind1/channels.ml" 264 8306 8337
+type(
+  out_channel
+)
+"kind1/channels.ml" 264 8306 8338 "kind1/channels.ml" 264 8306 8339
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 263 8241 8251 "kind1/channels.ml" 263 8241 8252
+)
+"kind1/channels.ml" 264 8306 8314 "kind1/channels.ml" 264 8306 8339
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 265 8341 8349 "kind1/channels.ml" 265 8341 8358
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 265 8341 8359 "kind1/channels.ml" 265 8341 8361
+type(
+  unit
+)
+"kind1/channels.ml" 265 8341 8349 "kind1/channels.ml" 265 8341 8361
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 264 8306 8314 "kind1/channels.ml" 265 8341 8361
+type(
+  unit
+)
+"kind1/channels.ml" 262 8231 8235 "kind1/channels.ml" 266 8362 8369
+type(
+  unit
+)
+"kind1/channels.ml" 267 8370 8378 "kind1/channels.ml" 267 8370 8379
+type(
+  Types.proc
+)
+"kind1/channels.ml" 267 8370 8382 "kind1/channels.ml" 267 8370 8386
+type(
+  bool option
+)
+"kind1/channels.ml" 267 8370 8378 "kind1/channels.ml" 267 8370 8386
+type(
+  Types.proc * bool option
+)
+"kind1/channels.ml" 267 8370 8390 "kind1/channels.ml" 267 8370 8399
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 267 8370 8400 "kind1/channels.ml" 267 8370 8402
+type(
+  unit
+)
+"kind1/channels.ml" 267 8370 8390 "kind1/channels.ml" 267 8370 8402
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 241 7663 7667 "kind1/channels.ml" 268 8403 8408
+type(
+  unit
+)
+"kind1/channels.ml" 240 7638 7640 "kind1/channels.ml" 268 8403 8408
+type(
+  unit
+)
+"kind1/channels.ml" 269 8411 8416 "kind1/channels.ml" 269 8411 8417
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 269 8411 8417 "kind1/channels.ml" 269 8411 8436
+type(
+  bool ref
+)
+ident(
+  ext_ref OldFlags.do_scratch
+)
+"kind1/channels.ml" 269 8411 8416 "kind1/channels.ml" 269 8411 8436
+type(
+  bool
+)
+"kind1/channels.ml" 271 8448 8458 "kind1/channels.ml" 271 8448 8462
+type(
+  Types.proc
+)
+ident(
+  int_ref proc "kind1/channels.ml" 238 7601 7616 "kind1/channels.ml" 238 7601 7620
+)
+"kind1/channels.ml" 272 8469 8470 "kind1/channels.ml" 272 8469 8479
+type(
+  Types.proc
+)
+"kind1/channels.ml" 274 8492 8501 "kind1/channels.ml" 274 8492 8502
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 275 8549 8556 "kind1/channels.ml" 276 8582 8601
+)
+"kind1/channels.ml" 274 8492 8505 "kind1/channels.ml" 274 8492 8506
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 274 8492 8506 "kind1/channels.ml" 274 8492 8526
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 274 8492 8505 "kind1/channels.ml" 274 8492 8526
+type(
+  string
+)
+"kind1/channels.ml" 274 8492 8526 "kind1/channels.ml" 274 8492 8527
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 274 8492 8527 "kind1/channels.ml" 274 8492 8536
+type(
+  string
+)
+"kind1/channels.ml" 274 8492 8536 "kind1/channels.ml" 274 8492 8537
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 274 8492 8537 "kind1/channels.ml" 274 8492 8540
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 274 8492 8540 "kind1/channels.ml" 274 8492 8541
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 274 8492 8541 "kind1/channels.ml" 274 8492 8545
+type(
+  string
+)
+"kind1/channels.ml" 274 8492 8537 "kind1/channels.ml" 274 8492 8545
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 274 8492 8527 "kind1/channels.ml" 274 8492 8545
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 274 8492 8505 "kind1/channels.ml" 274 8492 8545
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 275 8549 8556 "kind1/channels.ml" 275 8549 8569
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 275 8549 8570 "kind1/channels.ml" 275 8549 8571
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 275 8549 8571 "kind1/channels.ml" 275 8549 8578
+type(
+  out_channel ref
+)
+ident(
+  int_ref base_ch "kind1/channels.ml" 45 1979 1983 "kind1/channels.ml" 45 1979 1990
+)
+"kind1/channels.ml" 275 8549 8570 "kind1/channels.ml" 275 8549 8578
+type(
+  out_channel
+)
+"kind1/channels.ml" 275 8549 8579 "kind1/channels.ml" 275 8549 8580
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 274 8492 8501 "kind1/channels.ml" 274 8492 8502
+)
+"kind1/channels.ml" 275 8549 8556 "kind1/channels.ml" 275 8549 8580
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 276 8582 8589 "kind1/channels.ml" 276 8582 8598
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 276 8582 8599 "kind1/channels.ml" 276 8582 8601
+type(
+  unit
+)
+"kind1/channels.ml" 276 8582 8589 "kind1/channels.ml" 276 8582 8601
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 275 8549 8556 "kind1/channels.ml" 276 8582 8601
+type(
+  unit
+)
+"kind1/channels.ml" 273 8483 8486 "kind1/channels.ml" 277 8602 8608
+type(
+  unit
+)
+"kind1/channels.ml" 278 8609 8617 "kind1/channels.ml" 278 8609 8628
+type(
+  Types.proc
+)
+"kind1/channels.ml" 280 8641 8650 "kind1/channels.ml" 280 8641 8651
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 281 8700 8707 "kind1/channels.ml" 282 8735 8754
+)
+"kind1/channels.ml" 280 8641 8654 "kind1/channels.ml" 280 8641 8655
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 280 8641 8655 "kind1/channels.ml" 280 8641 8675
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 280 8641 8654 "kind1/channels.ml" 280 8641 8675
+type(
+  string
+)
+"kind1/channels.ml" 280 8641 8675 "kind1/channels.ml" 280 8641 8676
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 280 8641 8676 "kind1/channels.ml" 280 8641 8687
+type(
+  string
+)
+"kind1/channels.ml" 280 8641 8687 "kind1/channels.ml" 280 8641 8688
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 280 8641 8688 "kind1/channels.ml" 280 8641 8691
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 280 8641 8691 "kind1/channels.ml" 280 8641 8692
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 280 8641 8692 "kind1/channels.ml" 280 8641 8696
+type(
+  string
+)
+"kind1/channels.ml" 280 8641 8688 "kind1/channels.ml" 280 8641 8696
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 280 8641 8676 "kind1/channels.ml" 280 8641 8696
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 280 8641 8654 "kind1/channels.ml" 280 8641 8696
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 281 8700 8707 "kind1/channels.ml" 281 8700 8720
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 281 8700 8721 "kind1/channels.ml" 281 8700 8722
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 281 8700 8722 "kind1/channels.ml" 281 8700 8731
+type(
+  out_channel ref
+)
+ident(
+  int_ref induct_ch "kind1/channels.ml" 46 2031 2035 "kind1/channels.ml" 46 2031 2044
+)
+"kind1/channels.ml" 281 8700 8721 "kind1/channels.ml" 281 8700 8731
+type(
+  out_channel
+)
+"kind1/channels.ml" 281 8700 8732 "kind1/channels.ml" 281 8700 8733
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 280 8641 8650 "kind1/channels.ml" 280 8641 8651
+)
+"kind1/channels.ml" 281 8700 8707 "kind1/channels.ml" 281 8700 8733
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 282 8735 8742 "kind1/channels.ml" 282 8735 8751
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 282 8735 8752 "kind1/channels.ml" 282 8735 8754
+type(
+  unit
+)
+"kind1/channels.ml" 282 8735 8742 "kind1/channels.ml" 282 8735 8754
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 281 8700 8707 "kind1/channels.ml" 282 8735 8754
+type(
+  unit
+)
+"kind1/channels.ml" 279 8632 8635 "kind1/channels.ml" 283 8755 8761
+type(
+  unit
+)
+"kind1/channels.ml" 284 8762 8770 "kind1/channels.ml" 284 8762 8782
+type(
+  Types.proc
+)
+"kind1/channels.ml" 286 8795 8804 "kind1/channels.ml" 286 8795 8805
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 287 8855 8862 "kind1/channels.ml" 288 8887 8906
+)
+"kind1/channels.ml" 286 8795 8808 "kind1/channels.ml" 286 8795 8809
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 286 8795 8809 "kind1/channels.ml" 286 8795 8829
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 286 8795 8808 "kind1/channels.ml" 286 8795 8829
+type(
+  string
+)
+"kind1/channels.ml" 286 8795 8829 "kind1/channels.ml" 286 8795 8830
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 286 8795 8830 "kind1/channels.ml" 286 8795 8842
+type(
+  string
+)
+"kind1/channels.ml" 286 8795 8842 "kind1/channels.ml" 286 8795 8843
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 286 8795 8843 "kind1/channels.ml" 286 8795 8846
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 286 8795 8846 "kind1/channels.ml" 286 8795 8847
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 286 8795 8847 "kind1/channels.ml" 286 8795 8851
+type(
+  string
+)
+"kind1/channels.ml" 286 8795 8843 "kind1/channels.ml" 286 8795 8851
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 286 8795 8830 "kind1/channels.ml" 286 8795 8851
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 286 8795 8808 "kind1/channels.ml" 286 8795 8851
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 287 8855 8862 "kind1/channels.ml" 287 8855 8875
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 287 8855 8876 "kind1/channels.ml" 287 8855 8877
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 287 8855 8877 "kind1/channels.ml" 287 8855 8883
+type(
+  out_channel ref
+)
+ident(
+  int_ref inv_ch "kind1/channels.ml" 48 2167 2171 "kind1/channels.ml" 48 2167 2177
+)
+"kind1/channels.ml" 287 8855 8876 "kind1/channels.ml" 287 8855 8883
+type(
+  out_channel
+)
+"kind1/channels.ml" 287 8855 8884 "kind1/channels.ml" 287 8855 8885
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 286 8795 8804 "kind1/channels.ml" 286 8795 8805
+)
+"kind1/channels.ml" 287 8855 8862 "kind1/channels.ml" 287 8855 8885
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 288 8887 8894 "kind1/channels.ml" 288 8887 8903
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 288 8887 8904 "kind1/channels.ml" 288 8887 8906
+type(
+  unit
+)
+"kind1/channels.ml" 288 8887 8894 "kind1/channels.ml" 288 8887 8906
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 287 8855 8862 "kind1/channels.ml" 288 8887 8906
+type(
+  unit
+)
+"kind1/channels.ml" 285 8786 8789 "kind1/channels.ml" 289 8907 8913
+type(
+  unit
+)
+"kind1/channels.ml" 290 8914 8920 "kind1/channels.ml" 290 8914 8930
+type(
+  Types.proc
+)
+"kind1/channels.ml" 292 8944 8954 "kind1/channels.ml" 292 8944 8955
+type(
+  string
+)
+ident(
+  def s "kind1/channels.ml" 293 9009 9017 "kind1/channels.ml" 294 9044 9064
+)
+"kind1/channels.ml" 292 8944 8958 "kind1/channels.ml" 292 8944 8959
+type(
+  string ref -> string
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 292 8944 8959 "kind1/channels.ml" 292 8944 8979
+type(
+  string ref
+)
+ident(
+  ext_ref OldFlags.commentchar
+)
+"kind1/channels.ml" 292 8944 8958 "kind1/channels.ml" 292 8944 8979
+type(
+  string
+)
+"kind1/channels.ml" 292 8944 8979 "kind1/channels.ml" 292 8944 8980
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 292 8944 8980 "kind1/channels.ml" 292 8944 8996
+type(
+  string
+)
+"kind1/channels.ml" 292 8944 8996 "kind1/channels.ml" 292 8944 8997
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 292 8944 8997 "kind1/channels.ml" 292 8944 9000
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 238 7601 7629 "kind1/channels.ml" 238 7601 7632
+)
+"kind1/channels.ml" 292 8944 9000 "kind1/channels.ml" 292 8944 9001
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 292 8944 9001 "kind1/channels.ml" 292 8944 9005
+type(
+  string
+)
+"kind1/channels.ml" 292 8944 8997 "kind1/channels.ml" 292 8944 9005
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 292 8944 8980 "kind1/channels.ml" 292 8944 9005
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 292 8944 8958 "kind1/channels.ml" 292 8944 9005
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 293 9009 9017 "kind1/channels.ml" 293 9009 9030
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 293 9009 9031 "kind1/channels.ml" 293 9009 9032
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 293 9009 9032 "kind1/channels.ml" 293 9009 9040
+type(
+  out_channel ref
+)
+ident(
+  int_ref extra_ch "kind1/channels.ml" 47 2090 2094 "kind1/channels.ml" 47 2090 2102
+)
+"kind1/channels.ml" 293 9009 9031 "kind1/channels.ml" 293 9009 9040
+type(
+  out_channel
+)
+"kind1/channels.ml" 293 9009 9041 "kind1/channels.ml" 293 9009 9042
+type(
+  string
+)
+ident(
+  int_ref s "kind1/channels.ml" 292 8944 8954 "kind1/channels.ml" 292 8944 8955
+)
+"kind1/channels.ml" 293 9009 9017 "kind1/channels.ml" 293 9009 9042
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 294 9044 9052 "kind1/channels.ml" 294 9044 9061
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 294 9044 9062 "kind1/channels.ml" 294 9044 9064
+type(
+  unit
+)
+"kind1/channels.ml" 294 9044 9052 "kind1/channels.ml" 294 9044 9064
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 293 9009 9017 "kind1/channels.ml" 294 9044 9064
+type(
+  unit
+)
+"kind1/channels.ml" 291 8934 8938 "kind1/channels.ml" 295 9065 9072
+type(
+  unit
+)
+"kind1/channels.ml" 296 9073 9081 "kind1/channels.ml" 296 9073 9082
+type(
+  Types.proc
+)
+"kind1/channels.ml" 296 9073 9086 "kind1/channels.ml" 296 9073 9095
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 296 9073 9096 "kind1/channels.ml" 296 9073 9098
+type(
+  unit
+)
+"kind1/channels.ml" 296 9073 9086 "kind1/channels.ml" 296 9073 9098
+type(
+  unit
+)
+"kind1/channels.ml" 270 8442 8446 "kind1/channels.ml" 297 9099 9104
+type(
+  unit
+)
+"kind1/channels.ml" 269 8411 8413 "kind1/channels.ml" 297 9099 9104
+type(
+  unit
+)
+"kind1/channels.ml" 240 7638 7640 "kind1/channels.ml" 297 9099 9104
+type(
+  unit
+)
+"kind1/channels.ml" 300 9145 9153 "kind1/channels.ml" 300 9145 9162
+type(
+  string list -> string
+)
+ident(
+  def mk_string "kind1/channels.ml" 300 9145 9145 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 300 9145 9163 "kind1/channels.ml" 300 9145 9173
+type(
+  string list
+)
+ident(
+  def list_props "kind1/channels.ml" 301 9177 9179 "kind1/channels.ml" 304 9232 9267
+)
+"kind1/channels.ml" 301 9177 9185 "kind1/channels.ml" 301 9177 9195
+type(
+  string list
+)
+ident(
+  int_ref list_props "kind1/channels.ml" 300 9145 9163 "kind1/channels.ml" 300 9145 9173
+)
+"kind1/channels.ml" 302 9202 9208 "kind1/channels.ml" 302 9202 9210
+type(
+  string list
+)
+"kind1/channels.ml" 302 9202 9214 "kind1/channels.ml" 302 9202 9216
+type(
+  string
+)
+"kind1/channels.ml" 303 9217 9224 "kind1/channels.ml" 303 9217 9225
+type(
+  string
+)
+ident(
+  def a "kind1/channels.ml" 303 9217 9230 "kind1/channels.ml" 303 9217 9231
+)
+"kind1/channels.ml" 303 9217 9223 "kind1/channels.ml" 303 9217 9226
+type(
+  string list
+)
+"kind1/channels.ml" 303 9217 9230 "kind1/channels.ml" 303 9217 9231
+type(
+  string
+)
+ident(
+  int_ref a "kind1/channels.ml" 303 9217 9224 "kind1/channels.ml" 303 9217 9225
+)
+"kind1/channels.ml" 304 9232 9238 "kind1/channels.ml" 304 9232 9239
+type(
+  string
+)
+ident(
+  def h "kind1/channels.ml" 304 9232 9246 "kind1/channels.ml" 304 9232 9267
+)
+"kind1/channels.ml" 304 9232 9241 "kind1/channels.ml" 304 9232 9242
+type(
+  string list
+)
+ident(
+  def l "kind1/channels.ml" 304 9232 9246 "kind1/channels.ml" 304 9232 9267
+)
+"kind1/channels.ml" 304 9232 9238 "kind1/channels.ml" 304 9232 9242
+type(
+  string list
+)
+"kind1/channels.ml" 304 9232 9246 "kind1/channels.ml" 304 9232 9247
+type(
+  string
+)
+ident(
+  int_ref h "kind1/channels.ml" 304 9232 9238 "kind1/channels.ml" 304 9232 9239
+)
+"kind1/channels.ml" 304 9232 9248 "kind1/channels.ml" 304 9232 9249
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 304 9232 9250 "kind1/channels.ml" 304 9232 9253
+type(
+  string
+)
+"kind1/channels.ml" 304 9232 9254 "kind1/channels.ml" 304 9232 9255
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 304 9232 9256 "kind1/channels.ml" 304 9232 9265
+type(
+  string list -> string
+)
+ident(
+  int_ref mk_string "kind1/channels.ml" 300 9145 9153 "kind1/channels.ml" 300 9145 9162
+)
+"kind1/channels.ml" 304 9232 9266 "kind1/channels.ml" 304 9232 9267
+type(
+  string list
+)
+ident(
+  int_ref l "kind1/channels.ml" 304 9232 9241 "kind1/channels.ml" 304 9232 9242
+)
+"kind1/channels.ml" 304 9232 9256 "kind1/channels.ml" 304 9232 9267
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 304 9232 9250 "kind1/channels.ml" 304 9232 9267
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 304 9232 9246 "kind1/channels.ml" 304 9232 9267
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/channels.ml" 301 9177 9179 "kind1/channels.ml" 304 9232 9267
+type(
+  string
+)
+"kind1/channels.ml" 306 9269 9277 "kind1/channels.ml" 306 9269 9282
+type(
+  int list -> string
+)
+ident(
+  def mk_id "kind1/channels.ml" 306 9269 9269 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 306 9269 9283 "kind1/channels.ml" 306 9269 9293
+type(
+  int list
+)
+ident(
+  def list_props "kind1/channels.ml" 307 9297 9299 "kind1/channels.ml" 310 9367 9413
+)
+"kind1/channels.ml" 307 9297 9305 "kind1/channels.ml" 307 9297 9315
+type(
+  int list
+)
+ident(
+  int_ref list_props "kind1/channels.ml" 306 9269 9283 "kind1/channels.ml" 306 9269 9293
+)
+"kind1/channels.ml" 308 9322 9328 "kind1/channels.ml" 308 9322 9330
+type(
+  int list
+)
+"kind1/channels.ml" 308 9322 9334 "kind1/channels.ml" 308 9322 9336
+type(
+  string
+)
+"kind1/channels.ml" 309 9337 9344 "kind1/channels.ml" 309 9337 9345
+type(
+  int
+)
+ident(
+  def a "kind1/channels.ml" 309 9337 9350 "kind1/channels.ml" 309 9337 9366
+)
+"kind1/channels.ml" 309 9337 9343 "kind1/channels.ml" 309 9337 9346
+type(
+  int list
+)
+"kind1/channels.ml" 309 9337 9350 "kind1/channels.ml" 309 9337 9363
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/channels.ml" 309 9337 9363 "kind1/channels.ml" 309 9337 9366
+type(
+  int
+)
+ident(
+  int_ref a "kind1/channels.ml" 309 9337 9344 "kind1/channels.ml" 309 9337 9345
+)
+"kind1/channels.ml" 309 9337 9350 "kind1/channels.ml" 309 9337 9366
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/channels.ml" 310 9367 9373 "kind1/channels.ml" 310 9367 9374
+type(
+  int
+)
+ident(
+  def h "kind1/channels.ml" 310 9367 9381 "kind1/channels.ml" 310 9367 9413
+)
+"kind1/channels.ml" 310 9367 9376 "kind1/channels.ml" 310 9367 9377
+type(
+  int list
+)
+ident(
+  def l "kind1/channels.ml" 310 9367 9381 "kind1/channels.ml" 310 9367 9413
+)
+"kind1/channels.ml" 310 9367 9373 "kind1/channels.ml" 310 9367 9377
+type(
+  int list
+)
+"kind1/channels.ml" 310 9367 9381 "kind1/channels.ml" 310 9367 9394
+type(
+  int -> string
+)
+ident(
+  ext_ref Pervasives.string_of_int
+)
+"kind1/channels.ml" 310 9367 9394 "kind1/channels.ml" 310 9367 9397
+type(
+  int
+)
+ident(
+  int_ref h "kind1/channels.ml" 310 9367 9373 "kind1/channels.ml" 310 9367 9374
+)
+"kind1/channels.ml" 310 9367 9381 "kind1/channels.ml" 310 9367 9397
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 310 9367 9398 "kind1/channels.ml" 310 9367 9399
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 310 9367 9400 "kind1/channels.ml" 310 9367 9403
+type(
+  string
+)
+"kind1/channels.ml" 310 9367 9404 "kind1/channels.ml" 310 9367 9405
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/channels.ml" 310 9367 9406 "kind1/channels.ml" 310 9367 9411
+type(
+  int list -> string
+)
+ident(
+  int_ref mk_id "kind1/channels.ml" 306 9269 9277 "kind1/channels.ml" 306 9269 9282
+)
+"kind1/channels.ml" 310 9367 9412 "kind1/channels.ml" 310 9367 9413
+type(
+  int list
+)
+ident(
+  int_ref l "kind1/channels.ml" 310 9367 9376 "kind1/channels.ml" 310 9367 9377
+)
+"kind1/channels.ml" 310 9367 9406 "kind1/channels.ml" 310 9367 9413
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 310 9367 9400 "kind1/channels.ml" 310 9367 9413
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 310 9367 9381 "kind1/channels.ml" 310 9367 9413
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/channels.ml" 307 9297 9299 "kind1/channels.ml" 310 9367 9413
+type(
+  string
+)
+"kind1/channels.ml" 312 9415 9419 "kind1/channels.ml" 312 9415 9433
+type(
+  Types.proc -> string list -> unit
+)
+ident(
+  def debug_prop_var "kind1/channels.ml" 316 9509 9509 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 312 9415 9434 "kind1/channels.ml" 312 9415 9438
+type(
+  Types.proc
+)
+ident(
+  def proc "kind1/channels.ml" 312 9415 9439 "kind1/channels.ml" 314 9475 9507
+)
+"kind1/channels.ml" 312 9415 9439 "kind1/channels.ml" 312 9415 9440
+type(
+  string list
+)
+ident(
+  def l "kind1/channels.ml" 313 9444 9446 "kind1/channels.ml" 314 9475 9507
+)
+"kind1/channels.ml" 313 9444 9450 "kind1/channels.ml" 313 9444 9457
+type(
+  string
+)
+ident(
+  def st_list "kind1/channels.ml" 314 9475 9479 "kind1/channels.ml" 314 9475 9507
+)
+"kind1/channels.ml" 313 9444 9460 "kind1/channels.ml" 313 9444 9469
+type(
+  string list -> string
+)
+ident(
+  int_ref mk_string "kind1/channels.ml" 300 9145 9153 "kind1/channels.ml" 300 9145 9162
+)
+"kind1/channels.ml" 313 9444 9470 "kind1/channels.ml" 313 9444 9471
+type(
+  string list
+)
+ident(
+  int_ref l "kind1/channels.ml" 312 9415 9439 "kind1/channels.ml" 312 9415 9440
+)
+"kind1/channels.ml" 313 9444 9460 "kind1/channels.ml" 313 9444 9471
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 314 9475 9479 "kind1/channels.ml" 314 9475 9489
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  int_ref debug_proc "kind1/channels.ml" 238 7601 7605 "kind1/channels.ml" 238 7601 7615
+)
+"kind1/channels.ml" 314 9475 9490 "kind1/channels.ml" 314 9475 9494
+type(
+  Types.proc
+)
+ident(
+  int_ref proc "kind1/channels.ml" 312 9415 9434 "kind1/channels.ml" 312 9415 9438
+)
+"kind1/channels.ml" 314 9475 9495 "kind1/channels.ml" 314 9475 9499
+type(
+  bool option
+)
+"kind1/channels.ml" 314 9475 9500 "kind1/channels.ml" 314 9475 9507
+type(
+  string
+)
+ident(
+  int_ref st_list "kind1/channels.ml" 313 9444 9450 "kind1/channels.ml" 313 9444 9457
+)
+"kind1/channels.ml" 314 9475 9479 "kind1/channels.ml" 314 9475 9507
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 313 9444 9446 "kind1/channels.ml" 314 9475 9507
+type(
+  unit
+)
+"kind1/channels.ml" 316 9509 9513 "kind1/channels.ml" 316 9509 9526
+type(
+  Types.proc -> int list -> unit
+)
+ident(
+  def debug_prop_id "kind1/channels.ml" 321 9622 9622 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 316 9509 9527 "kind1/channels.ml" 316 9509 9531
+type(
+  Types.proc
+)
+ident(
+  def proc "kind1/channels.ml" 316 9509 9532 "kind1/channels.ml" 318 9564 9596
+)
+"kind1/channels.ml" 316 9509 9532 "kind1/channels.ml" 316 9509 9533
+type(
+  int list
+)
+ident(
+  def l "kind1/channels.ml" 317 9537 9539 "kind1/channels.ml" 318 9564 9596
+)
+"kind1/channels.ml" 317 9537 9543 "kind1/channels.ml" 317 9537 9550
+type(
+  string
+)
+ident(
+  def st_list "kind1/channels.ml" 318 9564 9568 "kind1/channels.ml" 318 9564 9596
+)
+"kind1/channels.ml" 317 9537 9553 "kind1/channels.ml" 317 9537 9558
+type(
+  int list -> string
+)
+ident(
+  int_ref mk_id "kind1/channels.ml" 306 9269 9277 "kind1/channels.ml" 306 9269 9282
+)
+"kind1/channels.ml" 317 9537 9559 "kind1/channels.ml" 317 9537 9560
+type(
+  int list
+)
+ident(
+  int_ref l "kind1/channels.ml" 316 9509 9532 "kind1/channels.ml" 316 9509 9533
+)
+"kind1/channels.ml" 317 9537 9553 "kind1/channels.ml" 317 9537 9560
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/channels.ml" 318 9564 9568 "kind1/channels.ml" 318 9564 9578
+type(
+  Types.proc -> bool option -> string -> unit
+)
+ident(
+  int_ref debug_proc "kind1/channels.ml" 238 7601 7605 "kind1/channels.ml" 238 7601 7615
+)
+"kind1/channels.ml" 318 9564 9579 "kind1/channels.ml" 318 9564 9583
+type(
+  Types.proc
+)
+ident(
+  int_ref proc "kind1/channels.ml" 316 9509 9527 "kind1/channels.ml" 316 9509 9531
+)
+"kind1/channels.ml" 318 9564 9584 "kind1/channels.ml" 318 9564 9588
+type(
+  bool option
+)
+"kind1/channels.ml" 318 9564 9589 "kind1/channels.ml" 318 9564 9596
+type(
+  string
+)
+ident(
+  int_ref st_list "kind1/channels.ml" 317 9537 9543 "kind1/channels.ml" 317 9537 9550
+)
+"kind1/channels.ml" 318 9564 9568 "kind1/channels.ml" 318 9564 9596
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 317 9537 9539 "kind1/channels.ml" 318 9564 9596
+type(
+  unit
+)
+"kind1/channels.ml" 321 9622 9626 "kind1/channels.ml" 321 9622 9635
+type(
+  string -> unit
+)
+ident(
+  def print_xml "kind1/channels.ml" 323 9671 9685 "_none_" 1 0 -1
+)
+"kind1/channels.ml" 321 9622 9636 "kind1/channels.ml" 321 9622 9639
+type(
+  string
+)
+ident(
+  def str "kind1/channels.ml" 322 9642 9644 "kind1/channels.ml" 323 9671 9685
+)
+"kind1/channels.ml" 322 9642 9644 "kind1/channels.ml" 322 9642 9657
+type(
+  out_channel -> string -> unit
+)
+ident(
+  ext_ref Pervasives.output_string
+)
+"kind1/channels.ml" 322 9642 9658 "kind1/channels.ml" 322 9642 9659
+type(
+  out_channel ref -> out_channel
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/channels.ml" 322 9642 9659 "kind1/channels.ml" 322 9642 9665
+type(
+  out_channel ref
+)
+ident(
+  int_ref xml_ch "kind1/channels.ml" 58 2686 2690 "kind1/channels.ml" 58 2686 2696
+)
+"kind1/channels.ml" 322 9642 9658 "kind1/channels.ml" 322 9642 9665
+type(
+  out_channel
+)
+"kind1/channels.ml" 322 9642 9666 "kind1/channels.ml" 322 9642 9669
+type(
+  string
+)
+ident(
+  int_ref str "kind1/channels.ml" 321 9622 9636 "kind1/channels.ml" 321 9622 9639
+)
+"kind1/channels.ml" 322 9642 9644 "kind1/channels.ml" 322 9642 9669
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/channels.ml" 323 9671 9673 "kind1/channels.ml" 323 9671 9682
+type(
+  unit -> unit
+)
+ident(
+  ext_ref Pervasives.flush_all
+)
+"kind1/channels.ml" 323 9671 9683 "kind1/channels.ml" 323 9671 9685
+type(
+  unit
+)
+"kind1/channels.ml" 323 9671 9673 "kind1/channels.ml" 323 9671 9685
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/channels.ml" 322 9642 9644 "kind1/channels.ml" 323 9671 9685
+type(
+  unit
+)

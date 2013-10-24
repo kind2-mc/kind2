@@ -1,0 +1,6512 @@
+"kind1/enum.ml" 31 1136 1140 "kind1/enum.ml" 31 1136 1146
+type(
+  unit -> 'a
+)
+ident(
+  def _dummy "kind1/enum.ml" 33 1166 1166 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 31 1136 1147 "kind1/enum.ml" 31 1136 1149
+type(
+  unit
+)
+"kind1/enum.ml" 31 1136 1152 "kind1/enum.ml" 31 1136 1164
+type(
+  'a
+)
+"kind1/enum.ml" 33 1166 1170 "kind1/enum.ml" 33 1166 1174
+type(
+  next:(unit -> 'a) -> count:(unit -> int) -> clone:(unit -> 'a t) -> 'a t
+)
+ident(
+  def make "kind1/enum.ml" 41 1268 1268 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 33 1166 1176 "kind1/enum.ml" 33 1166 1180
+type(
+  unit -> 'a
+)
+ident(
+  def next "kind1/enum.ml" 33 1166 1181 "kind1/enum.ml" 39 1264 1266
+)
+"kind1/enum.ml" 33 1166 1182 "kind1/enum.ml" 33 1166 1187
+type(
+  unit -> int
+)
+ident(
+  def count "kind1/enum.ml" 33 1166 1188 "kind1/enum.ml" 39 1264 1266
+)
+"kind1/enum.ml" 33 1166 1189 "kind1/enum.ml" 33 1166 1194
+type(
+  unit -> 'a t
+)
+ident(
+  def clone "kind1/enum.ml" 34 1197 1198 "kind1/enum.ml" 39 1264 1266
+)
+"kind1/enum.ml" 35 1200 1210 "kind1/enum.ml" 35 1200 1215
+type(
+  unit -> int
+)
+ident(
+  int_ref count "kind1/enum.ml" 33 1166 1182 "kind1/enum.ml" 33 1166 1187
+)
+"kind1/enum.ml" 36 1217 1226 "kind1/enum.ml" 36 1217 1230
+type(
+  unit -> 'a
+)
+ident(
+  int_ref next "kind1/enum.ml" 33 1166 1176 "kind1/enum.ml" 33 1166 1180
+)
+"kind1/enum.ml" 37 1232 1242 "kind1/enum.ml" 37 1232 1247
+type(
+  unit -> 'a t
+)
+ident(
+  int_ref clone "kind1/enum.ml" 33 1166 1189 "kind1/enum.ml" 33 1166 1194
+)
+"kind1/enum.ml" 38 1249 1258 "kind1/enum.ml" 38 1249 1262
+type(
+  bool
+)
+"kind1/enum.ml" 34 1197 1198 "kind1/enum.ml" 39 1264 1266
+type(
+  'a t
+)
+"kind1/enum.ml" 41 1268 1276 "kind1/enum.ml" 41 1268 1280
+type(
+  int -> (int -> 'a) -> 'a t
+)
+ident(
+  def init "kind1/enum.ml" 41 1268 1268 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 41 1268 1281 "kind1/enum.ml" 41 1268 1282
+type(
+  int
+)
+ident(
+  def n "kind1/enum.ml" 41 1268 1283 "kind1/enum.ml" 54 1559 1561
+)
+"kind1/enum.ml" 41 1268 1283 "kind1/enum.ml" 41 1268 1284
+type(
+  int -> 'a
+)
+ident(
+  def f "kind1/enum.ml" 42 1287 1288 "kind1/enum.ml" 54 1559 1561
+)
+"kind1/enum.ml" 42 1287 1291 "kind1/enum.ml" 42 1287 1292
+type(
+  int
+)
+ident(
+  int_ref n "kind1/enum.ml" 41 1268 1281 "kind1/enum.ml" 41 1268 1282
+)
+"kind1/enum.ml" 42 1287 1293 "kind1/enum.ml" 42 1287 1294
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"kind1/enum.ml" 42 1287 1295 "kind1/enum.ml" 42 1287 1296
+type(
+  int
+)
+"kind1/enum.ml" 42 1287 1291 "kind1/enum.ml" 42 1287 1296
+type(
+  bool
+)
+"kind1/enum.ml" 42 1287 1302 "kind1/enum.ml" 42 1287 1313
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.invalid_arg
+)
+"kind1/enum.ml" 42 1287 1314 "kind1/enum.ml" 42 1287 1325
+type(
+  string
+)
+"kind1/enum.ml" 42 1287 1302 "kind1/enum.ml" 42 1287 1325
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 42 1287 1288 "kind1/enum.ml" 42 1287 1325
+type(
+  unit
+)
+"kind1/enum.ml" 43 1327 1332 "kind1/enum.ml" 43 1327 1337
+type(
+  int ref
+)
+ident(
+  def count "kind1/enum.ml" 44 1349 1350 "kind1/enum.ml" 54 1559 1561
+)
+"kind1/enum.ml" 43 1327 1340 "kind1/enum.ml" 43 1327 1343
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 43 1327 1344 "kind1/enum.ml" 43 1327 1345
+type(
+  int
+)
+ident(
+  int_ref n "kind1/enum.ml" 41 1268 1281 "kind1/enum.ml" 41 1268 1282
+)
+"kind1/enum.ml" 43 1327 1340 "kind1/enum.ml" 43 1327 1345
+type(
+  int ref
+)
+"kind1/enum.ml" 45 1352 1367 "kind1/enum.ml" 45 1352 1369
+type(
+  unit
+)
+"kind1/enum.ml" 45 1352 1373 "kind1/enum.ml" 45 1352 1374
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 45 1352 1374 "kind1/enum.ml" 45 1352 1379
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 43 1327 1332 "kind1/enum.ml" 43 1327 1337
+)
+"kind1/enum.ml" 45 1352 1373 "kind1/enum.ml" 45 1352 1379
+type(
+  int
+)
+"kind1/enum.ml" 45 1352 1362 "kind1/enum.ml" 45 1352 1380
+type(
+  unit -> int
+)
+"kind1/enum.ml" 46 1382 1396 "kind1/enum.ml" 46 1382 1398
+type(
+  unit
+)
+"kind1/enum.ml" 47 1402 1411 "kind1/enum.ml" 47 1402 1412
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 47 1402 1412 "kind1/enum.ml" 47 1402 1417
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 43 1327 1332 "kind1/enum.ml" 43 1327 1337
+)
+"kind1/enum.ml" 47 1402 1411 "kind1/enum.ml" 47 1402 1417
+type(
+  int
+)
+"kind1/enum.ml" 48 1423 1428 "kind1/enum.ml" 48 1423 1429
+type(
+  int
+)
+"kind1/enum.ml" 48 1423 1433 "kind1/enum.ml" 48 1423 1438
+type(
+  exn -> 'a
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/enum.ml" 48 1423 1439 "kind1/enum.ml" 48 1423 1455
+type(
+  exn
+)
+"kind1/enum.ml" 48 1423 1433 "kind1/enum.ml" 48 1423 1455
+type(
+  'a
+)
+"kind1/enum.ml" 49 1456 1461 "kind1/enum.ml" 49 1456 1462
+type(
+  int
+)
+"kind1/enum.ml" 50 1466 1470 "kind1/enum.ml" 50 1466 1474
+type(
+  int ref -> unit
+)
+ident(
+  ext_ref Pervasives.decr
+)
+"kind1/enum.ml" 50 1466 1475 "kind1/enum.ml" 50 1466 1480
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 43 1327 1332 "kind1/enum.ml" 43 1327 1337
+)
+"kind1/enum.ml" 50 1466 1470 "kind1/enum.ml" 50 1466 1480
+type(
+  unit
+)
+"kind1/enum.ml" 51 1482 1486 "kind1/enum.ml" 51 1482 1487
+type(
+  int -> 'a
+)
+ident(
+  int_ref f "kind1/enum.ml" 41 1268 1283 "kind1/enum.ml" 41 1268 1284
+)
+"kind1/enum.ml" 51 1482 1489 "kind1/enum.ml" 51 1482 1490
+type(
+  int
+)
+ident(
+  int_ref n "kind1/enum.ml" 41 1268 1281 "kind1/enum.ml" 41 1268 1282
+)
+"kind1/enum.ml" 51 1482 1491 "kind1/enum.ml" 51 1482 1492
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/enum.ml" 51 1482 1493 "kind1/enum.ml" 51 1482 1494
+type(
+  int
+)
+"kind1/enum.ml" 51 1482 1489 "kind1/enum.ml" 51 1482 1494
+type(
+  int
+)
+"kind1/enum.ml" 51 1482 1495 "kind1/enum.ml" 51 1482 1496
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( - )
+)
+"kind1/enum.ml" 51 1482 1497 "kind1/enum.ml" 51 1482 1498
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 51 1482 1498 "kind1/enum.ml" 51 1482 1503
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 43 1327 1332 "kind1/enum.ml" 43 1327 1337
+)
+"kind1/enum.ml" 51 1482 1497 "kind1/enum.ml" 51 1482 1503
+type(
+  int
+)
+"kind1/enum.ml" 51 1482 1488 "kind1/enum.ml" 51 1482 1504
+type(
+  int
+)
+"kind1/enum.ml" 51 1482 1486 "kind1/enum.ml" 51 1482 1504
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 50 1466 1470 "kind1/enum.ml" 51 1482 1504
+type(
+  'a
+)
+"kind1/enum.ml" 47 1402 1405 "kind1/enum.ml" 51 1482 1504
+type(
+  'a
+)
+"kind1/enum.ml" 46 1382 1391 "kind1/enum.ml" 51 1482 1505
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 52 1507 1522 "kind1/enum.ml" 52 1507 1524
+type(
+  unit
+)
+"kind1/enum.ml" 52 1507 1528 "kind1/enum.ml" 52 1507 1532
+type(
+  int -> (int -> 'a) -> 'a t
+)
+ident(
+  int_ref init "kind1/enum.ml" 41 1268 1276 "kind1/enum.ml" 41 1268 1280
+)
+"kind1/enum.ml" 52 1507 1533 "kind1/enum.ml" 52 1507 1534
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 52 1507 1534 "kind1/enum.ml" 52 1507 1539
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 43 1327 1332 "kind1/enum.ml" 43 1327 1337
+)
+"kind1/enum.ml" 52 1507 1533 "kind1/enum.ml" 52 1507 1539
+type(
+  int
+)
+"kind1/enum.ml" 52 1507 1540 "kind1/enum.ml" 52 1507 1541
+type(
+  int -> 'a
+)
+ident(
+  int_ref f "kind1/enum.ml" 41 1268 1283 "kind1/enum.ml" 41 1268 1284
+)
+"kind1/enum.ml" 52 1507 1528 "kind1/enum.ml" 52 1507 1541
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 52 1507 1517 "kind1/enum.ml" 52 1507 1542
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 53 1544 1553 "kind1/enum.ml" 53 1544 1557
+type(
+  bool
+)
+"kind1/enum.ml" 44 1349 1350 "kind1/enum.ml" 54 1559 1561
+type(
+  'a t
+)
+"kind1/enum.ml" 43 1327 1328 "kind1/enum.ml" 54 1559 1561
+type(
+  'a t
+)
+"kind1/enum.ml" 42 1287 1288 "kind1/enum.ml" 54 1559 1561
+type(
+  'a t
+)
+"kind1/enum.ml" 56 1566 1574 "kind1/enum.ml" 56 1566 1579
+type(
+  unit -> 'a t
+)
+ident(
+  def empty "kind1/enum.ml" 56 1566 1566 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 56 1566 1580 "kind1/enum.ml" 56 1566 1582
+type(
+  unit
+)
+"kind1/enum.ml" 58 1588 1603 "kind1/enum.ml" 58 1588 1605
+type(
+  unit
+)
+"kind1/enum.ml" 58 1588 1609 "kind1/enum.ml" 58 1588 1610
+type(
+  int
+)
+"kind1/enum.ml" 58 1588 1598 "kind1/enum.ml" 58 1588 1611
+type(
+  unit -> int
+)
+"kind1/enum.ml" 59 1613 1627 "kind1/enum.ml" 59 1613 1629
+type(
+  unit
+)
+"kind1/enum.ml" 59 1613 1633 "kind1/enum.ml" 59 1613 1638
+type(
+  exn -> 'a
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/enum.ml" 59 1613 1639 "kind1/enum.ml" 59 1613 1655
+type(
+  exn
+)
+"kind1/enum.ml" 59 1613 1633 "kind1/enum.ml" 59 1613 1655
+type(
+  'a
+)
+"kind1/enum.ml" 59 1613 1622 "kind1/enum.ml" 59 1613 1656
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 60 1658 1673 "kind1/enum.ml" 60 1658 1675
+type(
+  unit
+)
+"kind1/enum.ml" 60 1658 1679 "kind1/enum.ml" 60 1658 1684
+type(
+  unit -> 'a t
+)
+ident(
+  int_ref empty "kind1/enum.ml" 56 1566 1574 "kind1/enum.ml" 56 1566 1579
+)
+"kind1/enum.ml" 60 1658 1684 "kind1/enum.ml" 60 1658 1686
+type(
+  unit
+)
+"kind1/enum.ml" 60 1658 1679 "kind1/enum.ml" 60 1658 1686
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 60 1658 1668 "kind1/enum.ml" 60 1658 1687
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 61 1689 1698 "kind1/enum.ml" 61 1689 1702
+type(
+  bool
+)
+"kind1/enum.ml" 57 1585 1586 "kind1/enum.ml" 62 1704 1706
+type(
+  'a t
+)
+"kind1/enum.ml" 69 1771 1775 "kind1/enum.ml" 69 1771 1780
+type(
+  'a t -> unit
+)
+ident(
+  def force "kind1/enum.ml" 106 2559 2559 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 70 1785 1786 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 70 1785 1794 "kind1/enum.ml" 70 1785 1799
+type(
+  'b list ref -> int ref -> 'b t
+)
+ident(
+  def clone "kind1/enum.ml" 70 1785 1786 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 70 1785 1800 "kind1/enum.ml" 70 1785 1804
+type(
+  'b list ref
+)
+ident(
+  def enum "kind1/enum.ml" 70 1785 1805 "kind1/enum.ml" 84 2135 2138
+)
+"kind1/enum.ml" 70 1785 1805 "kind1/enum.ml" 70 1785 1810
+type(
+  int ref
+)
+ident(
+  def count "kind1/enum.ml" 71 1813 1815 "kind1/enum.ml" 84 2135 2138
+)
+"kind1/enum.ml" 71 1813 1819 "kind1/enum.ml" 71 1813 1823
+type(
+  'b list ref
+)
+ident(
+  def enum "kind1/enum.ml" 73 1864 1866 "kind1/enum.ml" 84 2135 2138
+)
+"kind1/enum.ml" 71 1813 1826 "kind1/enum.ml" 71 1813 1829
+type(
+  'b list -> 'b list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 71 1813 1830 "kind1/enum.ml" 71 1813 1831
+type(
+  'b list ref -> 'b list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 71 1813 1831 "kind1/enum.ml" 71 1813 1835
+type(
+  'b list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 70 1785 1800 "kind1/enum.ml" 70 1785 1804
+)
+"kind1/enum.ml" 71 1813 1830 "kind1/enum.ml" 71 1813 1835
+type(
+  'b list
+)
+"kind1/enum.ml" 71 1813 1826 "kind1/enum.ml" 71 1813 1835
+type(
+  'b list ref
+)
+"kind1/enum.ml" 72 1836 1842 "kind1/enum.ml" 72 1836 1847
+type(
+  int ref
+)
+ident(
+  def count "kind1/enum.ml" 73 1864 1866 "kind1/enum.ml" 84 2135 2138
+)
+"kind1/enum.ml" 72 1836 1850 "kind1/enum.ml" 72 1836 1853
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 72 1836 1854 "kind1/enum.ml" 72 1836 1855
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 72 1836 1855 "kind1/enum.ml" 72 1836 1860
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 70 1785 1805 "kind1/enum.ml" 70 1785 1810
+)
+"kind1/enum.ml" 72 1836 1854 "kind1/enum.ml" 72 1836 1860
+type(
+  int
+)
+"kind1/enum.ml" 72 1836 1850 "kind1/enum.ml" 72 1836 1860
+type(
+  int ref
+)
+"kind1/enum.ml" 74 1868 1884 "kind1/enum.ml" 74 1868 1886
+type(
+  unit
+)
+"kind1/enum.ml" 74 1868 1890 "kind1/enum.ml" 74 1868 1891
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 74 1868 1891 "kind1/enum.ml" 74 1868 1896
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 72 1836 1842 "kind1/enum.ml" 72 1836 1847
+)
+"kind1/enum.ml" 74 1868 1890 "kind1/enum.ml" 74 1868 1896
+type(
+  int
+)
+"kind1/enum.ml" 74 1868 1879 "kind1/enum.ml" 74 1868 1897
+type(
+  unit -> int
+)
+"kind1/enum.ml" 75 1899 1914 "kind1/enum.ml" 75 1899 1916
+type(
+  unit
+)
+"kind1/enum.ml" 76 1920 1930 "kind1/enum.ml" 76 1920 1931
+type(
+  'b list ref -> 'b list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 76 1920 1931 "kind1/enum.ml" 76 1920 1935
+type(
+  'b list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 71 1813 1819 "kind1/enum.ml" 71 1813 1823
+)
+"kind1/enum.ml" 76 1920 1930 "kind1/enum.ml" 76 1920 1935
+type(
+  'b list
+)
+"kind1/enum.ml" 77 1941 1947 "kind1/enum.ml" 77 1941 1949
+type(
+  'b list
+)
+"kind1/enum.ml" 77 1941 1953 "kind1/enum.ml" 77 1941 1958
+type(
+  exn -> 'b
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/enum.ml" 77 1941 1959 "kind1/enum.ml" 77 1941 1975
+type(
+  exn
+)
+"kind1/enum.ml" 77 1941 1953 "kind1/enum.ml" 77 1941 1975
+type(
+  'b
+)
+"kind1/enum.ml" 78 1976 1982 "kind1/enum.ml" 78 1976 1983
+type(
+  'b
+)
+ident(
+  def h "kind1/enum.ml" 78 1976 1992 "kind1/enum.ml" 78 1976 2016
+)
+"kind1/enum.ml" 78 1976 1987 "kind1/enum.ml" 78 1976 1988
+type(
+  'b list
+)
+ident(
+  def t "kind1/enum.ml" 78 1976 1992 "kind1/enum.ml" 78 1976 2016
+)
+"kind1/enum.ml" 78 1976 1982 "kind1/enum.ml" 78 1976 1988
+type(
+  'b list
+)
+"kind1/enum.ml" 78 1976 1992 "kind1/enum.ml" 78 1976 1996
+type(
+  int ref -> unit
+)
+ident(
+  ext_ref Pervasives.decr
+)
+"kind1/enum.ml" 78 1976 1997 "kind1/enum.ml" 78 1976 2002
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 72 1836 1842 "kind1/enum.ml" 72 1836 1847
+)
+"kind1/enum.ml" 78 1976 1992 "kind1/enum.ml" 78 1976 2002
+type(
+  unit
+)
+"kind1/enum.ml" 78 1976 2004 "kind1/enum.ml" 78 1976 2008
+type(
+  'b list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 71 1813 1819 "kind1/enum.ml" 71 1813 1823
+)
+"kind1/enum.ml" 78 1976 2009 "kind1/enum.ml" 78 1976 2011
+type(
+  'b list ref -> 'b list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 78 1976 2012 "kind1/enum.ml" 78 1976 2013
+type(
+  'b list
+)
+ident(
+  int_ref t "kind1/enum.ml" 78 1976 1987 "kind1/enum.ml" 78 1976 1988
+)
+"kind1/enum.ml" 78 1976 2004 "kind1/enum.ml" 78 1976 2013
+type(
+  unit
+)
+"kind1/enum.ml" 78 1976 2015 "kind1/enum.ml" 78 1976 2016
+type(
+  'b
+)
+ident(
+  int_ref h "kind1/enum.ml" 78 1976 1982 "kind1/enum.ml" 78 1976 1983
+)
+"kind1/enum.ml" 78 1976 2004 "kind1/enum.ml" 78 1976 2016
+type(
+  'b
+)
+"kind1/enum.ml" 78 1976 1992 "kind1/enum.ml" 78 1976 2016
+type(
+  'b
+)
+"kind1/enum.ml" 76 1920 1924 "kind1/enum.ml" 78 1976 2016
+type(
+  'b
+)
+"kind1/enum.ml" 75 1899 1909 "kind1/enum.ml" 78 1976 2017
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 79 2019 2035 "kind1/enum.ml" 79 2019 2037
+type(
+  unit
+)
+"kind1/enum.ml" 80 2041 2049 "kind1/enum.ml" 80 2041 2053
+type(
+  'b list ref
+)
+ident(
+  def enum "kind1/enum.ml" 82 2096 2100 "kind1/enum.ml" 82 2096 2116
+)
+"kind1/enum.ml" 80 2041 2056 "kind1/enum.ml" 80 2041 2059
+type(
+  'b list -> 'b list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 80 2041 2060 "kind1/enum.ml" 80 2041 2061
+type(
+  'b list ref -> 'b list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 80 2041 2061 "kind1/enum.ml" 80 2041 2065
+type(
+  'b list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 71 1813 1819 "kind1/enum.ml" 71 1813 1823
+)
+"kind1/enum.ml" 80 2041 2060 "kind1/enum.ml" 80 2041 2065
+type(
+  'b list
+)
+"kind1/enum.ml" 80 2041 2056 "kind1/enum.ml" 80 2041 2065
+type(
+  'b list ref
+)
+"kind1/enum.ml" 81 2066 2074 "kind1/enum.ml" 81 2066 2079
+type(
+  int ref
+)
+ident(
+  def count "kind1/enum.ml" 82 2096 2100 "kind1/enum.ml" 82 2096 2116
+)
+"kind1/enum.ml" 81 2066 2082 "kind1/enum.ml" 81 2066 2085
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 81 2066 2086 "kind1/enum.ml" 81 2066 2087
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 81 2066 2087 "kind1/enum.ml" 81 2066 2092
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 72 1836 1842 "kind1/enum.ml" 72 1836 1847
+)
+"kind1/enum.ml" 81 2066 2086 "kind1/enum.ml" 81 2066 2092
+type(
+  int
+)
+"kind1/enum.ml" 81 2066 2082 "kind1/enum.ml" 81 2066 2092
+type(
+  int ref
+)
+"kind1/enum.ml" 82 2096 2100 "kind1/enum.ml" 82 2096 2105
+type(
+  'b list ref -> int ref -> 'b t
+)
+ident(
+  int_ref clone "kind1/enum.ml" 70 1785 1794 "kind1/enum.ml" 70 1785 1799
+)
+"kind1/enum.ml" 82 2096 2106 "kind1/enum.ml" 82 2096 2110
+type(
+  'b list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 80 2041 2049 "kind1/enum.ml" 80 2041 2053
+)
+"kind1/enum.ml" 82 2096 2111 "kind1/enum.ml" 82 2096 2116
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 81 2066 2074 "kind1/enum.ml" 81 2066 2079
+)
+"kind1/enum.ml" 82 2096 2100 "kind1/enum.ml" 82 2096 2116
+call(
+  tail
+)
+type(
+  'b t
+)
+"kind1/enum.ml" 80 2041 2045 "kind1/enum.ml" 82 2096 2116
+type(
+  'b t
+)
+"kind1/enum.ml" 79 2019 2030 "kind1/enum.ml" 82 2096 2117
+type(
+  unit -> 'b t
+)
+"kind1/enum.ml" 83 2119 2129 "kind1/enum.ml" 83 2119 2133
+type(
+  bool
+)
+"kind1/enum.ml" 73 1864 1866 "kind1/enum.ml" 84 2135 2138
+type(
+  'b t
+)
+"kind1/enum.ml" 71 1813 1815 "kind1/enum.ml" 84 2135 2138
+type(
+  'b t
+)
+"kind1/enum.ml" 86 2143 2148 "kind1/enum.ml" 86 2143 2153
+type(
+  int ref
+)
+ident(
+  def count "kind1/enum.ml" 87 2165 2166 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 86 2143 2156 "kind1/enum.ml" 86 2143 2159
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 86 2143 2160 "kind1/enum.ml" 86 2143 2161
+type(
+  int
+)
+"kind1/enum.ml" 86 2143 2156 "kind1/enum.ml" 86 2143 2161
+type(
+  int ref
+)
+"kind1/enum.ml" 87 2165 2170 "kind1/enum.ml" 87 2165 2176
+type(
+  'c
+)
+ident(
+  def _empty "kind1/enum.ml" 88 2195 2196 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 87 2165 2179 "kind1/enum.ml" 87 2165 2188
+type(
+  '_d list -> 'c
+)
+ident(
+  ext_ref Obj.magic
+)
+"kind1/enum.ml" 87 2165 2189 "kind1/enum.ml" 87 2165 2191
+type(
+  '_d list
+)
+"kind1/enum.ml" 87 2165 2179 "kind1/enum.ml" 87 2165 2191
+type(
+  'c
+)
+"kind1/enum.ml" 88 2195 2204 "kind1/enum.ml" 88 2195 2208
+type(
+  'a _mut_list -> 'e
+)
+ident(
+  def loop "kind1/enum.ml" 88 2195 2196 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 88 2195 2209 "kind1/enum.ml" 88 2195 2212
+type(
+  'a _mut_list
+)
+ident(
+  def dst "kind1/enum.ml" 89 2215 2217 "kind1/enum.ml" 92 2288 2296
+)
+"kind1/enum.ml" 89 2215 2221 "kind1/enum.ml" 89 2215 2222
+type(
+  'a _mut_list
+)
+ident(
+  def x "kind1/enum.ml" 90 2259 2261 "kind1/enum.ml" 92 2288 2296
+)
+"kind1/enum.ml" 89 2215 2232 "kind1/enum.ml" 89 2215 2233
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+)
+"kind1/enum.ml" 89 2215 2232 "kind1/enum.ml" 89 2215 2238
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 89 2215 2238 "kind1/enum.ml" 89 2215 2240
+type(
+  unit
+)
+"kind1/enum.ml" 89 2215 2232 "kind1/enum.ml" 89 2215 2240
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 89 2215 2247 "kind1/enum.ml" 89 2215 2253
+type(
+  'a _mut_list
+)
+ident(
+  int_ref _empty "kind1/enum.ml" 87 2165 2170 "kind1/enum.ml" 87 2165 2176
+)
+"kind1/enum.ml" 89 2215 2225 "kind1/enum.ml" 89 2215 2255
+type(
+  'a _mut_list
+)
+"kind1/enum.ml" 90 2259 2261 "kind1/enum.ml" 90 2259 2265
+type(
+  int ref -> unit
+)
+ident(
+  ext_ref Pervasives.incr
+)
+"kind1/enum.ml" 90 2259 2266 "kind1/enum.ml" 90 2259 2271
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 86 2143 2148 "kind1/enum.ml" 86 2143 2153
+)
+"kind1/enum.ml" 90 2259 2261 "kind1/enum.ml" 90 2259 2271
+type(
+  unit
+)
+"kind1/enum.ml" 91 2273 2275 "kind1/enum.ml" 91 2273 2278
+type(
+  'a _mut_list
+)
+ident(
+  int_ref dst "kind1/enum.ml" 88 2195 2209 "kind1/enum.ml" 88 2195 2212
+)
+"kind1/enum.ml" 91 2273 2285 "kind1/enum.ml" 91 2273 2286
+type(
+  'a _mut_list
+)
+ident(
+  int_ref x "kind1/enum.ml" 89 2215 2221 "kind1/enum.ml" 89 2215 2222
+)
+"kind1/enum.ml" 91 2273 2275 "kind1/enum.ml" 91 2273 2286
+type(
+  unit
+)
+"kind1/enum.ml" 92 2288 2290 "kind1/enum.ml" 92 2288 2294
+type(
+  'a _mut_list -> 'e
+)
+ident(
+  int_ref loop "kind1/enum.ml" 88 2195 2204 "kind1/enum.ml" 88 2195 2208
+)
+"kind1/enum.ml" 92 2288 2295 "kind1/enum.ml" 92 2288 2296
+type(
+  'a _mut_list
+)
+ident(
+  int_ref x "kind1/enum.ml" 89 2215 2221 "kind1/enum.ml" 89 2215 2222
+)
+"kind1/enum.ml" 92 2288 2290 "kind1/enum.ml" 92 2288 2296
+call(
+  tail
+)
+type(
+  'e
+)
+"kind1/enum.ml" 91 2273 2275 "kind1/enum.ml" 92 2288 2296
+type(
+  'e
+)
+"kind1/enum.ml" 90 2259 2261 "kind1/enum.ml" 92 2288 2296
+type(
+  'e
+)
+"kind1/enum.ml" 89 2215 2217 "kind1/enum.ml" 92 2288 2296
+type(
+  'e
+)
+"kind1/enum.ml" 94 2301 2306 "kind1/enum.ml" 94 2301 2310
+type(
+  'a _mut_list ref
+)
+ident(
+  def enum "kind1/enum.ml" 95 2329 2330 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 94 2301 2313 "kind1/enum.ml" 94 2301 2316
+type(
+  'a _mut_list -> 'a _mut_list ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 94 2301 2317 "kind1/enum.ml" 94 2301 2323
+type(
+  'a _mut_list
+)
+ident(
+  int_ref _empty "kind1/enum.ml" 87 2165 2170 "kind1/enum.ml" 87 2165 2176
+)
+"kind1/enum.ml" 94 2301 2313 "kind1/enum.ml" 94 2301 2323
+type(
+  'a _mut_list ref
+)
+"kind1/enum.ml" 96 2335 2337 "kind1/enum.ml" 96 2335 2341
+type(
+  'a _mut_list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 94 2301 2306 "kind1/enum.ml" 94 2301 2310
+)
+"kind1/enum.ml" 96 2335 2342 "kind1/enum.ml" 96 2335 2344
+type(
+  'a _mut_list ref -> 'a _mut_list -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 96 2335 2352 "kind1/enum.ml" 96 2335 2353
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+)
+"kind1/enum.ml" 96 2335 2352 "kind1/enum.ml" 96 2335 2358
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 96 2335 2358 "kind1/enum.ml" 96 2335 2360
+type(
+  unit
+)
+"kind1/enum.ml" 96 2335 2352 "kind1/enum.ml" 96 2335 2360
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 96 2335 2367 "kind1/enum.ml" 96 2335 2373
+type(
+  'a _mut_list
+)
+ident(
+  int_ref _empty "kind1/enum.ml" 87 2165 2170 "kind1/enum.ml" 87 2165 2176
+)
+"kind1/enum.ml" 96 2335 2345 "kind1/enum.ml" 96 2335 2375
+type(
+  'a _mut_list
+)
+"kind1/enum.ml" 96 2335 2337 "kind1/enum.ml" 96 2335 2375
+type(
+  unit
+)
+"kind1/enum.ml" 97 2377 2379 "kind1/enum.ml" 97 2377 2383
+type(
+  int ref -> unit
+)
+ident(
+  ext_ref Pervasives.incr
+)
+"kind1/enum.ml" 97 2377 2384 "kind1/enum.ml" 97 2377 2389
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 86 2143 2148 "kind1/enum.ml" 86 2143 2153
+)
+"kind1/enum.ml" 97 2377 2379 "kind1/enum.ml" 97 2377 2389
+type(
+  unit
+)
+"kind1/enum.ml" 98 2391 2393 "kind1/enum.ml" 98 2391 2397
+type(
+  'a _mut_list -> unit
+)
+ident(
+  int_ref loop "kind1/enum.ml" 88 2195 2204 "kind1/enum.ml" 88 2195 2208
+)
+"kind1/enum.ml" 98 2391 2398 "kind1/enum.ml" 98 2391 2399
+type(
+  'a _mut_list ref -> 'a _mut_list
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 98 2391 2399 "kind1/enum.ml" 98 2391 2403
+type(
+  'a _mut_list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 94 2301 2306 "kind1/enum.ml" 94 2301 2310
+)
+"kind1/enum.ml" 98 2391 2398 "kind1/enum.ml" 98 2391 2403
+type(
+  'a _mut_list
+)
+"kind1/enum.ml" 98 2391 2393 "kind1/enum.ml" 98 2391 2404
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 97 2377 2379 "kind1/enum.ml" 98 2391 2404
+type(
+  unit
+)
+"kind1/enum.ml" 96 2335 2337 "kind1/enum.ml" 98 2391 2404
+type(
+  unit
+)
+"kind1/enum.ml" 99 2405 2411 "kind1/enum.ml" 99 2405 2427
+type(
+  exn
+)
+"kind1/enum.ml" 99 2405 2431 "kind1/enum.ml" 99 2405 2433
+type(
+  unit
+)
+"kind1/enum.ml" 95 2329 2330 "kind1/enum.ml" 99 2405 2434
+type(
+  unit
+)
+"kind1/enum.ml" 100 2436 2441 "kind1/enum.ml" 100 2436 2443
+type(
+  'a t
+)
+ident(
+  def tc "kind1/enum.ml" 101 2478 2479 "kind1/enum.ml" 104 2542 2557
+)
+"kind1/enum.ml" 100 2436 2446 "kind1/enum.ml" 100 2436 2451
+type(
+  'a list ref -> int ref -> 'a t
+)
+ident(
+  int_ref clone "kind1/enum.ml" 70 1785 1794 "kind1/enum.ml" 70 1785 1799
+)
+"kind1/enum.ml" 100 2436 2453 "kind1/enum.ml" 100 2436 2462
+type(
+  'a _mut_list ref -> 'a list ref
+)
+ident(
+  ext_ref Obj.magic
+)
+"kind1/enum.ml" 100 2436 2463 "kind1/enum.ml" 100 2436 2467
+type(
+  'a _mut_list ref
+)
+ident(
+  int_ref enum "kind1/enum.ml" 94 2301 2306 "kind1/enum.ml" 94 2301 2310
+)
+"kind1/enum.ml" 100 2436 2452 "kind1/enum.ml" 100 2436 2468
+type(
+  'a list ref
+)
+"kind1/enum.ml" 100 2436 2469 "kind1/enum.ml" 100 2436 2474
+type(
+  int ref
+)
+ident(
+  int_ref count "kind1/enum.ml" 86 2143 2148 "kind1/enum.ml" 86 2143 2153
+)
+"kind1/enum.ml" 100 2436 2446 "kind1/enum.ml" 100 2436 2474
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 101 2478 2479 "kind1/enum.ml" 101 2478 2480
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+)
+"kind1/enum.ml" 101 2478 2490 "kind1/enum.ml" 101 2478 2492
+type(
+  'a t
+)
+ident(
+  int_ref tc "kind1/enum.ml" 100 2436 2441 "kind1/enum.ml" 100 2436 2443
+)
+"kind1/enum.ml" 101 2478 2490 "kind1/enum.ml" 101 2478 2498
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 101 2478 2479 "kind1/enum.ml" 101 2478 2498
+type(
+  unit
+)
+"kind1/enum.ml" 102 2500 2501 "kind1/enum.ml" 102 2500 2502
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+)
+"kind1/enum.ml" 102 2500 2511 "kind1/enum.ml" 102 2500 2513
+type(
+  'a t
+)
+ident(
+  int_ref tc "kind1/enum.ml" 100 2436 2441 "kind1/enum.ml" 100 2436 2443
+)
+"kind1/enum.ml" 102 2500 2511 "kind1/enum.ml" 102 2500 2518
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 102 2500 2501 "kind1/enum.ml" 102 2500 2518
+type(
+  unit
+)
+"kind1/enum.ml" 103 2520 2521 "kind1/enum.ml" 103 2520 2522
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+)
+"kind1/enum.ml" 103 2520 2532 "kind1/enum.ml" 103 2520 2534
+type(
+  'a t
+)
+ident(
+  int_ref tc "kind1/enum.ml" 100 2436 2441 "kind1/enum.ml" 100 2436 2443
+)
+"kind1/enum.ml" 103 2520 2532 "kind1/enum.ml" 103 2520 2540
+type(
+  unit -> int
+)
+"kind1/enum.ml" 103 2520 2521 "kind1/enum.ml" 103 2520 2540
+type(
+  unit
+)
+"kind1/enum.ml" 104 2542 2543 "kind1/enum.ml" 104 2542 2544
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 69 1771 1781 "kind1/enum.ml" 69 1771 1782
+)
+"kind1/enum.ml" 104 2542 2553 "kind1/enum.ml" 104 2542 2557
+type(
+  bool
+)
+"kind1/enum.ml" 104 2542 2543 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 103 2520 2521 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 102 2500 2501 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 101 2478 2479 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 100 2436 2437 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 95 2329 2330 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 94 2301 2302 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 88 2195 2196 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 87 2165 2166 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 86 2143 2144 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 70 1785 1786 "kind1/enum.ml" 104 2542 2557
+type(
+  unit
+)
+"kind1/enum.ml" 106 2559 2563 "kind1/enum.ml" 106 2559 2567
+type(
+  (unit -> 'a) -> 'a t
+)
+ident(
+  def from "kind1/enum.ml" 117 2745 2745 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 106 2559 2568 "kind1/enum.ml" 106 2559 2569
+type(
+  unit -> 'a
+)
+ident(
+  def f "kind1/enum.ml" 107 2572 2573 "kind1/enum.ml" 115 2741 2743
+)
+"kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+type(
+  'a t
+)
+ident(
+  def e "kind1/enum.ml" 113 2653 2654 "kind1/enum.ml" 115 2741 2743
+)
+"kind1/enum.ml" 108 2583 2592 "kind1/enum.ml" 108 2583 2593
+type(
+  unit -> 'a
+)
+ident(
+  int_ref f "kind1/enum.ml" 106 2559 2568 "kind1/enum.ml" 106 2559 2569
+)
+"kind1/enum.ml" 109 2595 2605 "kind1/enum.ml" 109 2595 2611
+type(
+  unit -> int
+)
+ident(
+  int_ref _dummy "kind1/enum.ml" 31 1136 1140 "kind1/enum.ml" 31 1136 1146
+)
+"kind1/enum.ml" 110 2613 2623 "kind1/enum.ml" 110 2613 2629
+type(
+  unit -> 'a t
+)
+ident(
+  int_ref _dummy "kind1/enum.ml" 31 1136 1140 "kind1/enum.ml" 31 1136 1146
+)
+"kind1/enum.ml" 111 2631 2640 "kind1/enum.ml" 111 2631 2645
+type(
+  bool
+)
+"kind1/enum.ml" 107 2572 2581 "kind1/enum.ml" 112 2647 2649
+type(
+  'a t
+)
+"kind1/enum.ml" 113 2653 2654 "kind1/enum.ml" 113 2653 2655
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 113 2653 2670 "kind1/enum.ml" 113 2653 2672
+type(
+  unit
+)
+"kind1/enum.ml" 113 2653 2676 "kind1/enum.ml" 113 2653 2681
+type(
+  'a t -> unit
+)
+ident(
+  int_ref force "kind1/enum.ml" 69 1771 1775 "kind1/enum.ml" 69 1771 1780
+)
+"kind1/enum.ml" 113 2653 2682 "kind1/enum.ml" 113 2653 2683
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 113 2653 2676 "kind1/enum.ml" 113 2653 2683
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 113 2653 2685 "kind1/enum.ml" 113 2653 2686
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 113 2653 2685 "kind1/enum.ml" 113 2653 2692
+type(
+  unit -> int
+)
+"kind1/enum.ml" 113 2653 2692 "kind1/enum.ml" 113 2653 2694
+type(
+  unit
+)
+"kind1/enum.ml" 113 2653 2685 "kind1/enum.ml" 113 2653 2694
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/enum.ml" 113 2653 2676 "kind1/enum.ml" 113 2653 2694
+type(
+  int
+)
+"kind1/enum.ml" 113 2653 2665 "kind1/enum.ml" 113 2653 2695
+type(
+  unit -> int
+)
+"kind1/enum.ml" 113 2653 2654 "kind1/enum.ml" 113 2653 2695
+type(
+  unit
+)
+"kind1/enum.ml" 114 2697 2698 "kind1/enum.ml" 114 2697 2699
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 114 2697 2714 "kind1/enum.ml" 114 2697 2716
+type(
+  unit
+)
+"kind1/enum.ml" 114 2697 2720 "kind1/enum.ml" 114 2697 2725
+type(
+  'a t -> unit
+)
+ident(
+  int_ref force "kind1/enum.ml" 69 1771 1775 "kind1/enum.ml" 69 1771 1780
+)
+"kind1/enum.ml" 114 2697 2726 "kind1/enum.ml" 114 2697 2727
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 114 2697 2720 "kind1/enum.ml" 114 2697 2727
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 114 2697 2729 "kind1/enum.ml" 114 2697 2730
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 114 2697 2729 "kind1/enum.ml" 114 2697 2736
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 114 2697 2736 "kind1/enum.ml" 114 2697 2738
+type(
+  unit
+)
+"kind1/enum.ml" 114 2697 2729 "kind1/enum.ml" 114 2697 2738
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 114 2697 2720 "kind1/enum.ml" 114 2697 2738
+type(
+  'a t
+)
+"kind1/enum.ml" 114 2697 2709 "kind1/enum.ml" 114 2697 2739
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 114 2697 2698 "kind1/enum.ml" 114 2697 2739
+type(
+  unit
+)
+"kind1/enum.ml" 115 2741 2742 "kind1/enum.ml" 115 2741 2743
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 107 2572 2577 "kind1/enum.ml" 107 2572 2578
+)
+"kind1/enum.ml" 114 2697 2698 "kind1/enum.ml" 115 2741 2743
+type(
+  'a t
+)
+"kind1/enum.ml" 113 2653 2654 "kind1/enum.ml" 115 2741 2743
+type(
+  'a t
+)
+"kind1/enum.ml" 107 2572 2573 "kind1/enum.ml" 115 2741 2743
+type(
+  'a t
+)
+"kind1/enum.ml" 117 2745 2749 "kind1/enum.ml" 117 2745 2754
+type(
+  (unit -> 'a) -> (unit -> 'a t) -> 'a t
+)
+ident(
+  def from2 "kind1/enum.ml" 127 2899 2899 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 117 2745 2755 "kind1/enum.ml" 117 2745 2759
+type(
+  unit -> 'a
+)
+ident(
+  def next "kind1/enum.ml" 117 2745 2760 "kind1/enum.ml" 125 2895 2897
+)
+"kind1/enum.ml" 117 2745 2760 "kind1/enum.ml" 117 2745 2765
+type(
+  unit -> 'a t
+)
+ident(
+  def clone "kind1/enum.ml" 118 2768 2769 "kind1/enum.ml" 125 2895 2897
+)
+"kind1/enum.ml" 118 2768 2773 "kind1/enum.ml" 118 2768 2774
+type(
+  'a t
+)
+ident(
+  def e "kind1/enum.ml" 124 2851 2852 "kind1/enum.ml" 125 2895 2897
+)
+"kind1/enum.ml" 119 2779 2788 "kind1/enum.ml" 119 2779 2792
+type(
+  unit -> 'a
+)
+ident(
+  int_ref next "kind1/enum.ml" 117 2745 2755 "kind1/enum.ml" 117 2745 2759
+)
+"kind1/enum.ml" 120 2794 2804 "kind1/enum.ml" 120 2794 2810
+type(
+  unit -> int
+)
+ident(
+  int_ref _dummy "kind1/enum.ml" 31 1136 1140 "kind1/enum.ml" 31 1136 1146
+)
+"kind1/enum.ml" 121 2812 2822 "kind1/enum.ml" 121 2812 2827
+type(
+  unit -> 'a t
+)
+ident(
+  int_ref clone "kind1/enum.ml" 117 2745 2760 "kind1/enum.ml" 117 2745 2765
+)
+"kind1/enum.ml" 122 2829 2838 "kind1/enum.ml" 122 2829 2843
+type(
+  bool
+)
+"kind1/enum.ml" 118 2768 2777 "kind1/enum.ml" 123 2845 2847
+type(
+  'a t
+)
+"kind1/enum.ml" 124 2851 2852 "kind1/enum.ml" 124 2851 2853
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 118 2768 2773 "kind1/enum.ml" 118 2768 2774
+)
+"kind1/enum.ml" 124 2851 2868 "kind1/enum.ml" 124 2851 2870
+type(
+  unit
+)
+"kind1/enum.ml" 124 2851 2874 "kind1/enum.ml" 124 2851 2879
+type(
+  'a t -> unit
+)
+ident(
+  int_ref force "kind1/enum.ml" 69 1771 1775 "kind1/enum.ml" 69 1771 1780
+)
+"kind1/enum.ml" 124 2851 2880 "kind1/enum.ml" 124 2851 2881
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 118 2768 2773 "kind1/enum.ml" 118 2768 2774
+)
+"kind1/enum.ml" 124 2851 2874 "kind1/enum.ml" 124 2851 2881
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 124 2851 2883 "kind1/enum.ml" 124 2851 2884
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 118 2768 2773 "kind1/enum.ml" 118 2768 2774
+)
+"kind1/enum.ml" 124 2851 2883 "kind1/enum.ml" 124 2851 2890
+type(
+  unit -> int
+)
+"kind1/enum.ml" 124 2851 2890 "kind1/enum.ml" 124 2851 2892
+type(
+  unit
+)
+"kind1/enum.ml" 124 2851 2883 "kind1/enum.ml" 124 2851 2892
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/enum.ml" 124 2851 2874 "kind1/enum.ml" 124 2851 2892
+type(
+  int
+)
+"kind1/enum.ml" 124 2851 2863 "kind1/enum.ml" 124 2851 2893
+type(
+  unit -> int
+)
+"kind1/enum.ml" 124 2851 2852 "kind1/enum.ml" 124 2851 2893
+type(
+  unit
+)
+"kind1/enum.ml" 125 2895 2896 "kind1/enum.ml" 125 2895 2897
+type(
+  'a t
+)
+ident(
+  int_ref e "kind1/enum.ml" 118 2768 2773 "kind1/enum.ml" 118 2768 2774
+)
+"kind1/enum.ml" 124 2851 2852 "kind1/enum.ml" 125 2895 2897
+type(
+  'a t
+)
+"kind1/enum.ml" 118 2768 2769 "kind1/enum.ml" 125 2895 2897
+type(
+  'a t
+)
+"kind1/enum.ml" 127 2899 2903 "kind1/enum.ml" 127 2899 2906
+type(
+  'a t -> 'a option
+)
+ident(
+  def get "kind1/enum.ml" 133 2968 2968 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 127 2899 2907 "kind1/enum.ml" 127 2899 2908
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 128 2911 2912 "kind1/enum.ml" 131 2940 2966
+)
+"kind1/enum.ml" 129 2916 2924 "kind1/enum.ml" 129 2916 2925
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 127 2899 2907 "kind1/enum.ml" 127 2899 2908
+)
+"kind1/enum.ml" 129 2916 2924 "kind1/enum.ml" 129 2916 2930
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 129 2916 2930 "kind1/enum.ml" 129 2916 2932
+type(
+  unit
+)
+"kind1/enum.ml" 129 2916 2923 "kind1/enum.ml" 129 2916 2933
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 129 2916 2918 "kind1/enum.ml" 129 2916 2933
+type(
+  'a option
+)
+"kind1/enum.ml" 131 2940 2942 "kind1/enum.ml" 131 2940 2958
+type(
+  exn
+)
+"kind1/enum.ml" 131 2940 2962 "kind1/enum.ml" 131 2940 2966
+type(
+  'a option
+)
+"kind1/enum.ml" 128 2911 2912 "kind1/enum.ml" 131 2940 2966
+type(
+  'a option
+)
+"kind1/enum.ml" 133 2968 2972 "kind1/enum.ml" 133 2968 2976
+type(
+  'a t -> 'a -> unit
+)
+ident(
+  def push "kind1/enum.ml" 155 3418 3418 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 133 2968 2977 "kind1/enum.ml" 133 2968 2978
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 133 2968 2979 "kind1/enum.ml" 153 3409 3416
+)
+"kind1/enum.ml" 133 2968 2979 "kind1/enum.ml" 133 2968 2980
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 134 2983 2984 "kind1/enum.ml" 153 3409 3416
+)
+"kind1/enum.ml" 134 2983 2992 "kind1/enum.ml" 134 2983 2996
+type(
+  'a t -> unit
+)
+ident(
+  def make "kind1/enum.ml" 134 2983 2984 "kind1/enum.ml" 153 3409 3416
+)
+"kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 135 3001 3003 "kind1/enum.ml" 151 3397 3404
+)
+"kind1/enum.ml" 135 3001 3007 "kind1/enum.ml" 135 3001 3012
+type(
+  unit -> 'a
+)
+ident(
+  def fnext "kind1/enum.ml" 136 3025 3027 "kind1/enum.ml" 151 3397 3404
+)
+"kind1/enum.ml" 135 3001 3015 "kind1/enum.ml" 135 3001 3016
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 135 3001 3015 "kind1/enum.ml" 135 3001 3021
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 136 3025 3031 "kind1/enum.ml" 136 3025 3037
+type(
+  unit -> int
+)
+ident(
+  def fcount "kind1/enum.ml" 137 3051 3053 "kind1/enum.ml" 151 3397 3404
+)
+"kind1/enum.ml" 136 3025 3040 "kind1/enum.ml" 136 3025 3041
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 136 3025 3040 "kind1/enum.ml" 136 3025 3047
+type(
+  unit -> int
+)
+"kind1/enum.ml" 137 3051 3057 "kind1/enum.ml" 137 3051 3063
+type(
+  unit -> 'a t
+)
+ident(
+  def fclone "kind1/enum.ml" 138 3077 3079 "kind1/enum.ml" 151 3397 3404
+)
+"kind1/enum.ml" 137 3051 3066 "kind1/enum.ml" 137 3051 3067
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 137 3051 3066 "kind1/enum.ml" 137 3051 3073
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 138 3077 3083 "kind1/enum.ml" 138 3077 3094
+type(
+  bool ref
+)
+ident(
+  def next_called "kind1/enum.ml" 139 3110 3112 "kind1/enum.ml" 151 3397 3404
+)
+"kind1/enum.ml" 138 3077 3097 "kind1/enum.ml" 138 3077 3100
+type(
+  bool -> bool ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 138 3077 3101 "kind1/enum.ml" 138 3077 3106
+type(
+  bool
+)
+"kind1/enum.ml" 138 3077 3097 "kind1/enum.ml" 138 3077 3106
+type(
+  bool ref
+)
+"kind1/enum.ml" 139 3110 3112 "kind1/enum.ml" 139 3110 3113
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 139 3110 3127 "kind1/enum.ml" 139 3110 3129
+type(
+  unit
+)
+"kind1/enum.ml" 140 3133 3136 "kind1/enum.ml" 140 3133 3147
+type(
+  bool ref
+)
+ident(
+  int_ref next_called "kind1/enum.ml" 138 3077 3083 "kind1/enum.ml" 138 3077 3094
+)
+"kind1/enum.ml" 140 3133 3148 "kind1/enum.ml" 140 3133 3150
+type(
+  bool ref -> bool -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 140 3133 3151 "kind1/enum.ml" 140 3133 3155
+type(
+  bool
+)
+"kind1/enum.ml" 140 3133 3136 "kind1/enum.ml" 140 3133 3155
+type(
+  unit
+)
+"kind1/enum.ml" 141 3157 3160 "kind1/enum.ml" 141 3157 3161
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 141 3157 3170 "kind1/enum.ml" 141 3157 3175
+type(
+  unit -> 'a
+)
+ident(
+  int_ref fnext "kind1/enum.ml" 135 3001 3007 "kind1/enum.ml" 135 3001 3012
+)
+"kind1/enum.ml" 141 3157 3160 "kind1/enum.ml" 141 3157 3175
+type(
+  unit
+)
+"kind1/enum.ml" 142 3177 3180 "kind1/enum.ml" 142 3177 3181
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 142 3177 3191 "kind1/enum.ml" 142 3177 3197
+type(
+  unit -> int
+)
+ident(
+  int_ref fcount "kind1/enum.ml" 136 3025 3031 "kind1/enum.ml" 136 3025 3037
+)
+"kind1/enum.ml" 142 3177 3180 "kind1/enum.ml" 142 3177 3197
+type(
+  unit
+)
+"kind1/enum.ml" 143 3199 3202 "kind1/enum.ml" 143 3199 3203
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 143 3199 3213 "kind1/enum.ml" 143 3199 3219
+type(
+  unit -> 'a t
+)
+ident(
+  int_ref fclone "kind1/enum.ml" 137 3051 3057 "kind1/enum.ml" 137 3051 3063
+)
+"kind1/enum.ml" 143 3199 3202 "kind1/enum.ml" 143 3199 3219
+type(
+  unit
+)
+"kind1/enum.ml" 144 3221 3224 "kind1/enum.ml" 144 3221 3225
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 133 2968 2979 "kind1/enum.ml" 133 2968 2980
+)
+"kind1/enum.ml" 143 3199 3202 "kind1/enum.ml" 144 3221 3225
+type(
+  'a
+)
+"kind1/enum.ml" 142 3177 3180 "kind1/enum.ml" 144 3221 3225
+type(
+  'a
+)
+"kind1/enum.ml" 141 3157 3160 "kind1/enum.ml" 144 3221 3225
+type(
+  'a
+)
+"kind1/enum.ml" 140 3133 3136 "kind1/enum.ml" 144 3221 3225
+type(
+  'a
+)
+"kind1/enum.ml" 139 3110 3122 "kind1/enum.ml" 144 3221 3226
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 139 3110 3112 "kind1/enum.ml" 144 3221 3226
+type(
+  unit
+)
+"kind1/enum.ml" 145 3228 3230 "kind1/enum.ml" 145 3228 3231
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 145 3228 3246 "kind1/enum.ml" 145 3228 3248
+type(
+  unit
+)
+"kind1/enum.ml" 146 3252 3259 "kind1/enum.ml" 146 3252 3260
+type(
+  int
+)
+ident(
+  def n "kind1/enum.ml" 147 3275 3278 "kind1/enum.ml" 147 3275 3309
+)
+"kind1/enum.ml" 146 3252 3263 "kind1/enum.ml" 146 3252 3269
+type(
+  unit -> int
+)
+ident(
+  int_ref fcount "kind1/enum.ml" 136 3025 3031 "kind1/enum.ml" 136 3025 3037
+)
+"kind1/enum.ml" 146 3252 3269 "kind1/enum.ml" 146 3252 3271
+type(
+  unit
+)
+"kind1/enum.ml" 146 3252 3263 "kind1/enum.ml" 146 3252 3271
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/enum.ml" 147 3275 3281 "kind1/enum.ml" 147 3275 3282
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 147 3275 3282 "kind1/enum.ml" 147 3275 3293
+type(
+  bool ref
+)
+ident(
+  int_ref next_called "kind1/enum.ml" 138 3077 3083 "kind1/enum.ml" 138 3077 3094
+)
+"kind1/enum.ml" 147 3275 3281 "kind1/enum.ml" 147 3275 3293
+type(
+  bool
+)
+"kind1/enum.ml" 147 3275 3299 "kind1/enum.ml" 147 3275 3300
+type(
+  int
+)
+ident(
+  int_ref n "kind1/enum.ml" 146 3252 3259 "kind1/enum.ml" 146 3252 3260
+)
+"kind1/enum.ml" 147 3275 3306 "kind1/enum.ml" 147 3275 3307
+type(
+  int
+)
+ident(
+  int_ref n "kind1/enum.ml" 146 3252 3259 "kind1/enum.ml" 146 3252 3260
+)
+"kind1/enum.ml" 147 3275 3307 "kind1/enum.ml" 147 3275 3308
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/enum.ml" 147 3275 3308 "kind1/enum.ml" 147 3275 3309
+type(
+  int
+)
+"kind1/enum.ml" 147 3275 3306 "kind1/enum.ml" 147 3275 3309
+type(
+  int
+)
+"kind1/enum.ml" 147 3275 3278 "kind1/enum.ml" 147 3275 3309
+type(
+  int
+)
+"kind1/enum.ml" 146 3252 3255 "kind1/enum.ml" 147 3275 3309
+type(
+  int
+)
+"kind1/enum.ml" 145 3228 3241 "kind1/enum.ml" 147 3275 3310
+type(
+  unit -> int
+)
+"kind1/enum.ml" 145 3228 3230 "kind1/enum.ml" 147 3275 3310
+type(
+  unit
+)
+"kind1/enum.ml" 148 3312 3314 "kind1/enum.ml" 148 3312 3315
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 134 2983 2997 "kind1/enum.ml" 134 2983 2998
+)
+"kind1/enum.ml" 148 3312 3330 "kind1/enum.ml" 148 3312 3332
+type(
+  unit
+)
+"kind1/enum.ml" 149 3336 3343 "kind1/enum.ml" 149 3336 3345
+type(
+  'a t
+)
+ident(
+  def tc "kind1/enum.ml" 150 3360 3363 "kind1/enum.ml" 151 3397 3402
+)
+"kind1/enum.ml" 149 3336 3348 "kind1/enum.ml" 149 3336 3354
+type(
+  unit -> 'a t
+)
+ident(
+  int_ref fclone "kind1/enum.ml" 137 3051 3057 "kind1/enum.ml" 137 3051 3063
+)
+"kind1/enum.ml" 149 3336 3354 "kind1/enum.ml" 149 3336 3356
+type(
+  unit
+)
+"kind1/enum.ml" 149 3336 3348 "kind1/enum.ml" 149 3336 3356
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 150 3360 3366 "kind1/enum.ml" 150 3360 3369
+type(
+  bool -> bool
+)
+ident(
+  ext_ref Pervasives.not
+)
+"kind1/enum.ml" 150 3360 3370 "kind1/enum.ml" 150 3360 3371
+type(
+  bool ref -> bool
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 150 3360 3371 "kind1/enum.ml" 150 3360 3382
+type(
+  bool ref
+)
+ident(
+  int_ref next_called "kind1/enum.ml" 138 3077 3083 "kind1/enum.ml" 138 3077 3094
+)
+"kind1/enum.ml" 150 3360 3370 "kind1/enum.ml" 150 3360 3382
+type(
+  bool
+)
+"kind1/enum.ml" 150 3360 3366 "kind1/enum.ml" 150 3360 3382
+type(
+  bool
+)
+"kind1/enum.ml" 150 3360 3388 "kind1/enum.ml" 150 3360 3392
+type(
+  'a t -> unit
+)
+ident(
+  int_ref make "kind1/enum.ml" 134 2983 2992 "kind1/enum.ml" 134 2983 2996
+)
+"kind1/enum.ml" 150 3360 3393 "kind1/enum.ml" 150 3360 3395
+type(
+  'a t
+)
+ident(
+  int_ref tc "kind1/enum.ml" 149 3336 3343 "kind1/enum.ml" 149 3336 3345
+)
+"kind1/enum.ml" 150 3360 3388 "kind1/enum.ml" 150 3360 3395
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 150 3360 3363 "kind1/enum.ml" 150 3360 3395
+type(
+  unit
+)
+"kind1/enum.ml" 151 3397 3400 "kind1/enum.ml" 151 3397 3402
+type(
+  'a t
+)
+ident(
+  int_ref tc "kind1/enum.ml" 149 3336 3343 "kind1/enum.ml" 149 3336 3345
+)
+"kind1/enum.ml" 150 3360 3363 "kind1/enum.ml" 151 3397 3402
+type(
+  'a t
+)
+"kind1/enum.ml" 149 3336 3339 "kind1/enum.ml" 151 3397 3402
+type(
+  'a t
+)
+"kind1/enum.ml" 148 3312 3325 "kind1/enum.ml" 151 3397 3403
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 148 3312 3314 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 145 3228 3230 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 139 3110 3112 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 138 3077 3079 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 137 3051 3053 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 136 3025 3027 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 135 3001 3003 "kind1/enum.ml" 151 3397 3404
+type(
+  unit
+)
+"kind1/enum.ml" 153 3409 3410 "kind1/enum.ml" 153 3409 3414
+type(
+  'a t -> unit
+)
+ident(
+  int_ref make "kind1/enum.ml" 134 2983 2992 "kind1/enum.ml" 134 2983 2996
+)
+"kind1/enum.ml" 153 3409 3415 "kind1/enum.ml" 153 3409 3416
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 133 2968 2977 "kind1/enum.ml" 133 2968 2978
+)
+"kind1/enum.ml" 153 3409 3410 "kind1/enum.ml" 153 3409 3416
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/enum.ml" 134 2983 2984 "kind1/enum.ml" 153 3409 3416
+type(
+  unit
+)
+"kind1/enum.ml" 155 3418 3422 "kind1/enum.ml" 155 3418 3426
+type(
+  'a t -> 'a option
+)
+ident(
+  def peek "kind1/enum.ml" 162 3500 3500 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 155 3418 3427 "kind1/enum.ml" 155 3418 3428
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 156 3431 3432 "kind1/enum.ml" 160 3490 3498
+)
+"kind1/enum.ml" 156 3431 3438 "kind1/enum.ml" 156 3431 3441
+type(
+  'a t -> 'a option
+)
+ident(
+  int_ref get "kind1/enum.ml" 127 2899 2903 "kind1/enum.ml" 127 2899 2906
+)
+"kind1/enum.ml" 156 3431 3442 "kind1/enum.ml" 156 3431 3443
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 155 3418 3427 "kind1/enum.ml" 155 3418 3428
+)
+"kind1/enum.ml" 156 3431 3438 "kind1/enum.ml" 156 3431 3443
+call(
+  stack
+)
+type(
+  'a option
+)
+"kind1/enum.ml" 157 3449 3452 "kind1/enum.ml" 157 3449 3456
+type(
+  'a option
+)
+"kind1/enum.ml" 157 3449 3460 "kind1/enum.ml" 157 3449 3464
+type(
+  'a option
+)
+"kind1/enum.ml" 158 3465 3473 "kind1/enum.ml" 158 3465 3474
+type(
+  'a
+)
+ident(
+  def x "kind1/enum.ml" 159 3478 3480 "kind1/enum.ml" 160 3490 3498
+)
+"kind1/enum.ml" 158 3465 3468 "kind1/enum.ml" 158 3465 3474
+type(
+  'a option
+)
+"kind1/enum.ml" 159 3478 3480 "kind1/enum.ml" 159 3478 3484
+type(
+  'a t -> 'a -> unit
+)
+ident(
+  int_ref push "kind1/enum.ml" 133 2968 2972 "kind1/enum.ml" 133 2968 2976
+)
+"kind1/enum.ml" 159 3478 3485 "kind1/enum.ml" 159 3478 3486
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 155 3418 3427 "kind1/enum.ml" 155 3418 3428
+)
+"kind1/enum.ml" 159 3478 3487 "kind1/enum.ml" 159 3478 3488
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/enum.ml" 158 3465 3473 "kind1/enum.ml" 158 3465 3474
+)
+"kind1/enum.ml" 159 3478 3480 "kind1/enum.ml" 159 3478 3488
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 160 3490 3497 "kind1/enum.ml" 160 3490 3498
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/enum.ml" 158 3465 3473 "kind1/enum.ml" 158 3465 3474
+)
+"kind1/enum.ml" 160 3490 3492 "kind1/enum.ml" 160 3490 3498
+type(
+  'a option
+)
+"kind1/enum.ml" 159 3478 3480 "kind1/enum.ml" 160 3490 3498
+type(
+  'a option
+)
+"kind1/enum.ml" 156 3431 3432 "kind1/enum.ml" 160 3490 3498
+type(
+  'a option
+)
+"kind1/enum.ml" 162 3500 3504 "kind1/enum.ml" 162 3500 3508
+type(
+  'a t -> unit
+)
+ident(
+  def junk "kind1/enum.ml" 168 3569 3569 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 162 3500 3509 "kind1/enum.ml" 162 3500 3510
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 163 3513 3514 "kind1/enum.ml" 166 3543 3567
+)
+"kind1/enum.ml" 164 3518 3520 "kind1/enum.ml" 164 3518 3526
+type(
+  'a -> unit
+)
+ident(
+  ext_ref Pervasives.ignore
+)
+"kind1/enum.ml" 164 3518 3527 "kind1/enum.ml" 164 3518 3528
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 162 3500 3509 "kind1/enum.ml" 162 3500 3510
+)
+"kind1/enum.ml" 164 3518 3527 "kind1/enum.ml" 164 3518 3533
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 164 3518 3533 "kind1/enum.ml" 164 3518 3535
+type(
+  unit
+)
+"kind1/enum.ml" 164 3518 3526 "kind1/enum.ml" 164 3518 3536
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 164 3518 3520 "kind1/enum.ml" 164 3518 3536
+type(
+  unit
+)
+"kind1/enum.ml" 166 3543 3545 "kind1/enum.ml" 166 3543 3561
+type(
+  exn
+)
+"kind1/enum.ml" 166 3543 3565 "kind1/enum.ml" 166 3543 3567
+type(
+  unit
+)
+"kind1/enum.ml" 163 3513 3514 "kind1/enum.ml" 166 3543 3567
+type(
+  unit
+)
+"kind1/enum.ml" 168 3569 3573 "kind1/enum.ml" 168 3569 3581
+type(
+  'a t -> bool
+)
+ident(
+  def is_empty "kind1/enum.ml" 174 3641 3641 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 168 3569 3582 "kind1/enum.ml" 168 3569 3583
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 169 3586 3587 "kind1/enum.ml" 172 3624 3639
+)
+"kind1/enum.ml" 169 3586 3590 "kind1/enum.ml" 169 3586 3591
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 168 3569 3582 "kind1/enum.ml" 168 3569 3583
+)
+"kind1/enum.ml" 169 3586 3590 "kind1/enum.ml" 169 3586 3596
+type(
+  bool
+)
+"kind1/enum.ml" 170 3602 3604 "kind1/enum.ml" 170 3602 3605
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 168 3569 3582 "kind1/enum.ml" 168 3569 3583
+)
+"kind1/enum.ml" 170 3602 3604 "kind1/enum.ml" 170 3602 3611
+type(
+  unit -> int
+)
+"kind1/enum.ml" 170 3602 3611 "kind1/enum.ml" 170 3602 3613
+type(
+  unit
+)
+"kind1/enum.ml" 170 3602 3604 "kind1/enum.ml" 170 3602 3613
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/enum.ml" 170 3602 3614 "kind1/enum.ml" 170 3602 3615
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/enum.ml" 170 3602 3616 "kind1/enum.ml" 170 3602 3617
+type(
+  int
+)
+"kind1/enum.ml" 170 3602 3604 "kind1/enum.ml" 170 3602 3617
+type(
+  bool
+)
+"kind1/enum.ml" 172 3624 3626 "kind1/enum.ml" 172 3624 3630
+type(
+  'a t -> 'a option
+)
+ident(
+  int_ref peek "kind1/enum.ml" 155 3418 3422 "kind1/enum.ml" 155 3418 3426
+)
+"kind1/enum.ml" 172 3624 3631 "kind1/enum.ml" 172 3624 3632
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 168 3569 3582 "kind1/enum.ml" 168 3569 3583
+)
+"kind1/enum.ml" 172 3624 3626 "kind1/enum.ml" 172 3624 3632
+call(
+  stack
+)
+type(
+  'a option
+)
+"kind1/enum.ml" 172 3624 3633 "kind1/enum.ml" 172 3624 3634
+type(
+  'a option -> 'a option -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/enum.ml" 172 3624 3635 "kind1/enum.ml" 172 3624 3639
+type(
+  'a option
+)
+"kind1/enum.ml" 172 3624 3626 "kind1/enum.ml" 172 3624 3639
+type(
+  bool
+)
+"kind1/enum.ml" 169 3586 3587 "kind1/enum.ml" 172 3624 3639
+type(
+  bool
+)
+"kind1/enum.ml" 174 3641 3645 "kind1/enum.ml" 174 3641 3650
+type(
+  'a t -> int
+)
+ident(
+  def count "kind1/enum.ml" 177 3667 3667 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 174 3641 3651 "kind1/enum.ml" 174 3641 3652
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 175 3655 3656 "kind1/enum.ml" 175 3655 3665
+)
+"kind1/enum.ml" 175 3655 3656 "kind1/enum.ml" 175 3655 3657
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 174 3641 3651 "kind1/enum.ml" 174 3641 3652
+)
+"kind1/enum.ml" 175 3655 3656 "kind1/enum.ml" 175 3655 3663
+type(
+  unit -> int
+)
+"kind1/enum.ml" 175 3655 3663 "kind1/enum.ml" 175 3655 3665
+type(
+  unit
+)
+"kind1/enum.ml" 175 3655 3656 "kind1/enum.ml" 175 3655 3665
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/enum.ml" 177 3667 3671 "kind1/enum.ml" 177 3667 3681
+type(
+  'a t -> bool
+)
+ident(
+  def fast_count "kind1/enum.ml" 180 3695 3695 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 177 3667 3682 "kind1/enum.ml" 177 3667 3683
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 178 3686 3687 "kind1/enum.ml" 178 3686 3693
+)
+"kind1/enum.ml" 178 3686 3687 "kind1/enum.ml" 178 3686 3688
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 177 3667 3682 "kind1/enum.ml" 177 3667 3683
+)
+"kind1/enum.ml" 178 3686 3687 "kind1/enum.ml" 178 3686 3693
+type(
+  bool
+)
+"kind1/enum.ml" 180 3695 3699 "kind1/enum.ml" 180 3695 3704
+type(
+  'a t -> 'a t
+)
+ident(
+  def clone "kind1/enum.ml" 183 3721 3721 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 180 3695 3705 "kind1/enum.ml" 180 3695 3706
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 181 3709 3710 "kind1/enum.ml" 181 3709 3719
+)
+"kind1/enum.ml" 181 3709 3710 "kind1/enum.ml" 181 3709 3711
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 180 3695 3705 "kind1/enum.ml" 180 3695 3706
+)
+"kind1/enum.ml" 181 3709 3710 "kind1/enum.ml" 181 3709 3717
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 181 3709 3717 "kind1/enum.ml" 181 3709 3719
+type(
+  unit
+)
+"kind1/enum.ml" 181 3709 3710 "kind1/enum.ml" 181 3709 3719
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 183 3721 3725 "kind1/enum.ml" 183 3721 3729
+type(
+  ('a -> 'b) -> 'a t -> unit
+)
+ident(
+  def iter "kind1/enum.ml" 193 3832 3832 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 183 3721 3730 "kind1/enum.ml" 183 3721 3731
+type(
+  'a -> 'b
+)
+ident(
+  def f "kind1/enum.ml" 183 3721 3732 "kind1/enum.ml" 191 3806 3830
+)
+"kind1/enum.ml" 183 3721 3732 "kind1/enum.ml" 183 3721 3733
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 184 3736 3737 "kind1/enum.ml" 191 3806 3830
+)
+"kind1/enum.ml" 184 3736 3745 "kind1/enum.ml" 184 3736 3749
+type(
+  unit -> 'c
+)
+ident(
+  def loop "kind1/enum.ml" 184 3736 3737 "kind1/enum.ml" 191 3806 3830
+)
+"kind1/enum.ml" 184 3736 3750 "kind1/enum.ml" 184 3736 3752
+type(
+  unit
+)
+"kind1/enum.ml" 185 3755 3757 "kind1/enum.ml" 185 3755 3758
+type(
+  'a -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 183 3721 3730 "kind1/enum.ml" 183 3721 3731
+)
+"kind1/enum.ml" 185 3755 3760 "kind1/enum.ml" 185 3755 3761
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 183 3721 3732 "kind1/enum.ml" 183 3721 3733
+)
+"kind1/enum.ml" 185 3755 3760 "kind1/enum.ml" 185 3755 3766
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 185 3755 3766 "kind1/enum.ml" 185 3755 3768
+type(
+  unit
+)
+"kind1/enum.ml" 185 3755 3759 "kind1/enum.ml" 185 3755 3769
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 185 3755 3757 "kind1/enum.ml" 185 3755 3769
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 186 3771 3773 "kind1/enum.ml" 186 3771 3777
+type(
+  unit -> 'c
+)
+ident(
+  int_ref loop "kind1/enum.ml" 184 3736 3745 "kind1/enum.ml" 184 3736 3749
+)
+"kind1/enum.ml" 186 3771 3777 "kind1/enum.ml" 186 3771 3779
+type(
+  unit
+)
+"kind1/enum.ml" 186 3771 3773 "kind1/enum.ml" 186 3771 3780
+call(
+  tail
+)
+type(
+  'c
+)
+"kind1/enum.ml" 185 3755 3757 "kind1/enum.ml" 186 3771 3780
+type(
+  'c
+)
+"kind1/enum.ml" 189 3790 3792 "kind1/enum.ml" 189 3790 3796
+type(
+  unit -> unit
+)
+ident(
+  int_ref loop "kind1/enum.ml" 184 3736 3745 "kind1/enum.ml" 184 3736 3749
+)
+"kind1/enum.ml" 189 3790 3796 "kind1/enum.ml" 189 3790 3798
+type(
+  unit
+)
+"kind1/enum.ml" 189 3790 3792 "kind1/enum.ml" 189 3790 3799
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 191 3806 3808 "kind1/enum.ml" 191 3806 3824
+type(
+  exn
+)
+"kind1/enum.ml" 191 3806 3828 "kind1/enum.ml" 191 3806 3830
+type(
+  unit
+)
+"kind1/enum.ml" 188 3785 3786 "kind1/enum.ml" 191 3806 3830
+type(
+  unit
+)
+"kind1/enum.ml" 184 3736 3737 "kind1/enum.ml" 191 3806 3830
+type(
+  unit
+)
+"kind1/enum.ml" 193 3832 3836 "kind1/enum.ml" 193 3832 3841
+type(
+  (int -> 'a -> 'b) -> 'a t -> unit
+)
+ident(
+  def iteri "kind1/enum.ml" 203 3955 3955 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 193 3832 3842 "kind1/enum.ml" 193 3832 3843
+type(
+  int -> 'a -> 'b
+)
+ident(
+  def f "kind1/enum.ml" 193 3832 3844 "kind1/enum.ml" 201 3929 3953
+)
+"kind1/enum.ml" 193 3832 3844 "kind1/enum.ml" 193 3832 3845
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 194 3848 3849 "kind1/enum.ml" 201 3929 3953
+)
+"kind1/enum.ml" 194 3848 3857 "kind1/enum.ml" 194 3848 3861
+type(
+  int -> 'c
+)
+ident(
+  def loop "kind1/enum.ml" 194 3848 3849 "kind1/enum.ml" 201 3929 3953
+)
+"kind1/enum.ml" 194 3848 3862 "kind1/enum.ml" 194 3848 3865
+type(
+  int
+)
+ident(
+  def idx "kind1/enum.ml" 195 3868 3870 "kind1/enum.ml" 196 3888 3903
+)
+"kind1/enum.ml" 195 3868 3870 "kind1/enum.ml" 195 3868 3871
+type(
+  int -> 'a -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 193 3832 3842 "kind1/enum.ml" 193 3832 3843
+)
+"kind1/enum.ml" 195 3868 3872 "kind1/enum.ml" 195 3868 3875
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 194 3848 3862 "kind1/enum.ml" 194 3848 3865
+)
+"kind1/enum.ml" 195 3868 3877 "kind1/enum.ml" 195 3868 3878
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 193 3832 3844 "kind1/enum.ml" 193 3832 3845
+)
+"kind1/enum.ml" 195 3868 3877 "kind1/enum.ml" 195 3868 3883
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 195 3868 3883 "kind1/enum.ml" 195 3868 3885
+type(
+  unit
+)
+"kind1/enum.ml" 195 3868 3876 "kind1/enum.ml" 195 3868 3886
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 195 3868 3870 "kind1/enum.ml" 195 3868 3886
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 196 3888 3890 "kind1/enum.ml" 196 3888 3894
+type(
+  int -> 'c
+)
+ident(
+  int_ref loop "kind1/enum.ml" 194 3848 3857 "kind1/enum.ml" 194 3848 3861
+)
+"kind1/enum.ml" 196 3888 3896 "kind1/enum.ml" 196 3888 3899
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 194 3848 3862 "kind1/enum.ml" 194 3848 3865
+)
+"kind1/enum.ml" 196 3888 3899 "kind1/enum.ml" 196 3888 3900
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/enum.ml" 196 3888 3900 "kind1/enum.ml" 196 3888 3901
+type(
+  int
+)
+"kind1/enum.ml" 196 3888 3895 "kind1/enum.ml" 196 3888 3902
+type(
+  int
+)
+"kind1/enum.ml" 196 3888 3890 "kind1/enum.ml" 196 3888 3903
+call(
+  tail
+)
+type(
+  'c
+)
+"kind1/enum.ml" 195 3868 3870 "kind1/enum.ml" 196 3888 3903
+type(
+  'c
+)
+"kind1/enum.ml" 199 3913 3915 "kind1/enum.ml" 199 3913 3919
+type(
+  int -> unit
+)
+ident(
+  int_ref loop "kind1/enum.ml" 194 3848 3857 "kind1/enum.ml" 194 3848 3861
+)
+"kind1/enum.ml" 199 3913 3920 "kind1/enum.ml" 199 3913 3921
+type(
+  int
+)
+"kind1/enum.ml" 199 3913 3915 "kind1/enum.ml" 199 3913 3922
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 201 3929 3931 "kind1/enum.ml" 201 3929 3947
+type(
+  exn
+)
+"kind1/enum.ml" 201 3929 3951 "kind1/enum.ml" 201 3929 3953
+type(
+  unit
+)
+"kind1/enum.ml" 198 3908 3909 "kind1/enum.ml" 201 3929 3953
+type(
+  unit
+)
+"kind1/enum.ml" 194 3848 3849 "kind1/enum.ml" 201 3929 3953
+type(
+  unit
+)
+"kind1/enum.ml" 203 3955 3959 "kind1/enum.ml" 203 3955 3964
+type(
+  ('a -> 'b -> 'c) -> 'a t -> 'b t -> unit
+)
+ident(
+  def iter2 "kind1/enum.ml" 221 4220 4220 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 203 3955 3965 "kind1/enum.ml" 203 3955 3966
+type(
+  'a -> 'b -> 'c
+)
+ident(
+  def f "kind1/enum.ml" 203 3955 3967 "kind1/enum.ml" 219 4206 4218
+)
+"kind1/enum.ml" 203 3955 3967 "kind1/enum.ml" 203 3955 3968
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 203 3955 3969 "kind1/enum.ml" 219 4206 4218
+)
+"kind1/enum.ml" 203 3955 3969 "kind1/enum.ml" 203 3955 3970
+type(
+  'b t
+)
+ident(
+  def u "kind1/enum.ml" 204 3973 3974 "kind1/enum.ml" 219 4206 4218
+)
+"kind1/enum.ml" 204 3973 3978 "kind1/enum.ml" 204 3973 3984
+type(
+  'a option ref
+)
+ident(
+  def push_t "kind1/enum.ml" 205 3999 4000 "kind1/enum.ml" 219 4206 4218
+)
+"kind1/enum.ml" 204 3973 3987 "kind1/enum.ml" 204 3973 3990
+type(
+  'a option -> 'a option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 204 3973 3991 "kind1/enum.ml" 204 3973 3995
+type(
+  'a option
+)
+"kind1/enum.ml" 204 3973 3987 "kind1/enum.ml" 204 3973 3995
+type(
+  'a option ref
+)
+"kind1/enum.ml" 205 3999 4008 "kind1/enum.ml" 205 3999 4012
+type(
+  unit -> 'd
+)
+ident(
+  def loop "kind1/enum.ml" 205 3999 4000 "kind1/enum.ml" 219 4206 4218
+)
+"kind1/enum.ml" 205 3999 4013 "kind1/enum.ml" 205 3999 4015
+type(
+  unit
+)
+"kind1/enum.ml" 206 4018 4020 "kind1/enum.ml" 206 4018 4026
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 204 3973 3978 "kind1/enum.ml" 204 3973 3984
+)
+"kind1/enum.ml" 206 4018 4027 "kind1/enum.ml" 206 4018 4029
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 206 4018 4030 "kind1/enum.ml" 206 4018 4034
+type(
+  'a option
+)
+"kind1/enum.ml" 206 4018 4020 "kind1/enum.ml" 206 4018 4034
+type(
+  unit
+)
+"kind1/enum.ml" 207 4036 4042 "kind1/enum.ml" 207 4036 4043
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 208 4058 4060 "kind1/enum.ml" 210 4096 4105
+)
+"kind1/enum.ml" 207 4036 4046 "kind1/enum.ml" 207 4036 4047
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 203 3955 3967 "kind1/enum.ml" 203 3955 3968
+)
+"kind1/enum.ml" 207 4036 4046 "kind1/enum.ml" 207 4036 4052
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 207 4036 4052 "kind1/enum.ml" 207 4036 4054
+type(
+  unit
+)
+"kind1/enum.ml" 207 4036 4046 "kind1/enum.ml" 207 4036 4054
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 208 4058 4060 "kind1/enum.ml" 208 4058 4066
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 204 3973 3978 "kind1/enum.ml" 204 3973 3984
+)
+"kind1/enum.ml" 208 4058 4067 "kind1/enum.ml" 208 4058 4069
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 208 4058 4075 "kind1/enum.ml" 208 4058 4076
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 207 4036 4042 "kind1/enum.ml" 207 4036 4043
+)
+"kind1/enum.ml" 208 4058 4070 "kind1/enum.ml" 208 4058 4076
+type(
+  'a option
+)
+"kind1/enum.ml" 208 4058 4060 "kind1/enum.ml" 208 4058 4076
+type(
+  unit
+)
+"kind1/enum.ml" 209 4078 4080 "kind1/enum.ml" 209 4078 4081
+type(
+  'a -> 'b -> 'c
+)
+ident(
+  int_ref f "kind1/enum.ml" 203 3955 3965 "kind1/enum.ml" 203 3955 3966
+)
+"kind1/enum.ml" 209 4078 4082 "kind1/enum.ml" 209 4078 4083
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 207 4036 4042 "kind1/enum.ml" 207 4036 4043
+)
+"kind1/enum.ml" 209 4078 4085 "kind1/enum.ml" 209 4078 4086
+type(
+  'b t
+)
+ident(
+  int_ref u "kind1/enum.ml" 203 3955 3969 "kind1/enum.ml" 203 3955 3970
+)
+"kind1/enum.ml" 209 4078 4085 "kind1/enum.ml" 209 4078 4091
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 209 4078 4091 "kind1/enum.ml" 209 4078 4093
+type(
+  unit
+)
+"kind1/enum.ml" 209 4078 4084 "kind1/enum.ml" 209 4078 4094
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 209 4078 4080 "kind1/enum.ml" 209 4078 4094
+call(
+  stack
+)
+type(
+  'c
+)
+"kind1/enum.ml" 210 4096 4098 "kind1/enum.ml" 210 4096 4102
+type(
+  unit -> 'd
+)
+ident(
+  int_ref loop "kind1/enum.ml" 205 3999 4008 "kind1/enum.ml" 205 3999 4012
+)
+"kind1/enum.ml" 210 4096 4103 "kind1/enum.ml" 210 4096 4105
+type(
+  unit
+)
+"kind1/enum.ml" 210 4096 4098 "kind1/enum.ml" 210 4096 4105
+call(
+  tail
+)
+type(
+  'd
+)
+"kind1/enum.ml" 209 4078 4080 "kind1/enum.ml" 210 4096 4105
+type(
+  'd
+)
+"kind1/enum.ml" 208 4058 4060 "kind1/enum.ml" 210 4096 4105
+type(
+  'd
+)
+"kind1/enum.ml" 207 4036 4038 "kind1/enum.ml" 210 4096 4105
+type(
+  'd
+)
+"kind1/enum.ml" 206 4018 4020 "kind1/enum.ml" 210 4096 4105
+type(
+  'd
+)
+"kind1/enum.ml" 213 4115 4117 "kind1/enum.ml" 213 4115 4121
+type(
+  unit -> unit
+)
+ident(
+  int_ref loop "kind1/enum.ml" 205 3999 4008 "kind1/enum.ml" 205 3999 4012
+)
+"kind1/enum.ml" 213 4115 4122 "kind1/enum.ml" 213 4115 4124
+type(
+  unit
+)
+"kind1/enum.ml" 213 4115 4117 "kind1/enum.ml" 213 4115 4124
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 215 4131 4133 "kind1/enum.ml" 215 4131 4149
+type(
+  exn
+)
+"kind1/enum.ml" 216 4153 4162 "kind1/enum.ml" 216 4153 4163
+type(
+  'a option ref -> 'a option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 216 4153 4163 "kind1/enum.ml" 216 4153 4169
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 204 3973 3978 "kind1/enum.ml" 204 3973 3984
+)
+"kind1/enum.ml" 216 4153 4162 "kind1/enum.ml" 216 4153 4169
+type(
+  'a option
+)
+"kind1/enum.ml" 217 4175 4180 "kind1/enum.ml" 217 4175 4184
+type(
+  'a option
+)
+"kind1/enum.ml" 217 4175 4188 "kind1/enum.ml" 217 4175 4190
+type(
+  unit
+)
+"kind1/enum.ml" 218 4191 4201 "kind1/enum.ml" 218 4191 4202
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 219 4206 4210 "kind1/enum.ml" 219 4206 4218
+)
+"kind1/enum.ml" 218 4191 4196 "kind1/enum.ml" 218 4191 4202
+type(
+  'a option
+)
+"kind1/enum.ml" 219 4206 4210 "kind1/enum.ml" 219 4206 4214
+type(
+  'a t -> 'a -> unit
+)
+ident(
+  int_ref push "kind1/enum.ml" 133 2968 2972 "kind1/enum.ml" 133 2968 2976
+)
+"kind1/enum.ml" 219 4206 4215 "kind1/enum.ml" 219 4206 4216
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 203 3955 3967 "kind1/enum.ml" 203 3955 3968
+)
+"kind1/enum.ml" 219 4206 4217 "kind1/enum.ml" 219 4206 4218
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 218 4191 4201 "kind1/enum.ml" 218 4191 4202
+)
+"kind1/enum.ml" 219 4206 4210 "kind1/enum.ml" 219 4206 4218
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/enum.ml" 216 4153 4156 "kind1/enum.ml" 219 4206 4218
+type(
+  unit
+)
+"kind1/enum.ml" 212 4110 4111 "kind1/enum.ml" 219 4206 4218
+type(
+  unit
+)
+"kind1/enum.ml" 205 3999 4000 "kind1/enum.ml" 219 4206 4218
+type(
+  unit
+)
+"kind1/enum.ml" 204 3973 3974 "kind1/enum.ml" 219 4206 4218
+type(
+  unit
+)
+"kind1/enum.ml" 221 4220 4224 "kind1/enum.ml" 221 4220 4230
+type(
+  (int -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> unit
+)
+ident(
+  def iter2i "kind1/enum.ml" 238 4493 4493 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 221 4220 4231 "kind1/enum.ml" 221 4220 4232
+type(
+  int -> 'a -> 'b -> 'c
+)
+ident(
+  def f "kind1/enum.ml" 221 4220 4233 "kind1/enum.ml" 236 4468 4491
+)
+"kind1/enum.ml" 221 4220 4233 "kind1/enum.ml" 221 4220 4234
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 221 4220 4235 "kind1/enum.ml" 236 4468 4491
+)
+"kind1/enum.ml" 221 4220 4235 "kind1/enum.ml" 221 4220 4236
+type(
+  'b t
+)
+ident(
+  def u "kind1/enum.ml" 222 4239 4240 "kind1/enum.ml" 236 4468 4491
+)
+"kind1/enum.ml" 222 4239 4244 "kind1/enum.ml" 222 4239 4250
+type(
+  'a option ref
+)
+ident(
+  def push_t "kind1/enum.ml" 223 4265 4266 "kind1/enum.ml" 236 4468 4491
+)
+"kind1/enum.ml" 222 4239 4253 "kind1/enum.ml" 222 4239 4256
+type(
+  'a option -> 'a option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 222 4239 4257 "kind1/enum.ml" 222 4239 4261
+type(
+  'a option
+)
+"kind1/enum.ml" 222 4239 4253 "kind1/enum.ml" 222 4239 4261
+type(
+  'a option ref
+)
+"kind1/enum.ml" 223 4265 4274 "kind1/enum.ml" 223 4265 4278
+type(
+  int -> 'd
+)
+ident(
+  def loop "kind1/enum.ml" 223 4265 4266 "kind1/enum.ml" 236 4468 4491
+)
+"kind1/enum.ml" 223 4265 4279 "kind1/enum.ml" 223 4265 4282
+type(
+  int
+)
+ident(
+  def idx "kind1/enum.ml" 224 4285 4287 "kind1/enum.ml" 228 4367 4383
+)
+"kind1/enum.ml" 224 4285 4287 "kind1/enum.ml" 224 4285 4293
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 222 4239 4244 "kind1/enum.ml" 222 4239 4250
+)
+"kind1/enum.ml" 224 4285 4294 "kind1/enum.ml" 224 4285 4296
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 224 4285 4297 "kind1/enum.ml" 224 4285 4301
+type(
+  'a option
+)
+"kind1/enum.ml" 224 4285 4287 "kind1/enum.ml" 224 4285 4301
+type(
+  unit
+)
+"kind1/enum.ml" 225 4303 4309 "kind1/enum.ml" 225 4303 4310
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 226 4325 4327 "kind1/enum.ml" 228 4367 4383
+)
+"kind1/enum.ml" 225 4303 4313 "kind1/enum.ml" 225 4303 4314
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 221 4220 4233 "kind1/enum.ml" 221 4220 4234
+)
+"kind1/enum.ml" 225 4303 4313 "kind1/enum.ml" 225 4303 4319
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 225 4303 4319 "kind1/enum.ml" 225 4303 4321
+type(
+  unit
+)
+"kind1/enum.ml" 225 4303 4313 "kind1/enum.ml" 225 4303 4321
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 226 4325 4327 "kind1/enum.ml" 226 4325 4333
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 222 4239 4244 "kind1/enum.ml" 222 4239 4250
+)
+"kind1/enum.ml" 226 4325 4334 "kind1/enum.ml" 226 4325 4336
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 226 4325 4342 "kind1/enum.ml" 226 4325 4343
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 225 4303 4309 "kind1/enum.ml" 225 4303 4310
+)
+"kind1/enum.ml" 226 4325 4337 "kind1/enum.ml" 226 4325 4343
+type(
+  'a option
+)
+"kind1/enum.ml" 226 4325 4327 "kind1/enum.ml" 226 4325 4343
+type(
+  unit
+)
+"kind1/enum.ml" 227 4345 4347 "kind1/enum.ml" 227 4345 4348
+type(
+  int -> 'a -> 'b -> 'c
+)
+ident(
+  int_ref f "kind1/enum.ml" 221 4220 4231 "kind1/enum.ml" 221 4220 4232
+)
+"kind1/enum.ml" 227 4345 4349 "kind1/enum.ml" 227 4345 4352
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 223 4265 4279 "kind1/enum.ml" 223 4265 4282
+)
+"kind1/enum.ml" 227 4345 4353 "kind1/enum.ml" 227 4345 4354
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 225 4303 4309 "kind1/enum.ml" 225 4303 4310
+)
+"kind1/enum.ml" 227 4345 4356 "kind1/enum.ml" 227 4345 4357
+type(
+  'b t
+)
+ident(
+  int_ref u "kind1/enum.ml" 221 4220 4235 "kind1/enum.ml" 221 4220 4236
+)
+"kind1/enum.ml" 227 4345 4356 "kind1/enum.ml" 227 4345 4362
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 227 4345 4362 "kind1/enum.ml" 227 4345 4364
+type(
+  unit
+)
+"kind1/enum.ml" 227 4345 4355 "kind1/enum.ml" 227 4345 4365
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 227 4345 4347 "kind1/enum.ml" 227 4345 4365
+call(
+  stack
+)
+type(
+  'c
+)
+"kind1/enum.ml" 228 4367 4369 "kind1/enum.ml" 228 4367 4373
+type(
+  int -> 'd
+)
+ident(
+  int_ref loop "kind1/enum.ml" 223 4265 4274 "kind1/enum.ml" 223 4265 4278
+)
+"kind1/enum.ml" 228 4367 4375 "kind1/enum.ml" 228 4367 4378
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 223 4265 4279 "kind1/enum.ml" 223 4265 4282
+)
+"kind1/enum.ml" 228 4367 4379 "kind1/enum.ml" 228 4367 4380
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/enum.ml" 228 4367 4381 "kind1/enum.ml" 228 4367 4382
+type(
+  int
+)
+"kind1/enum.ml" 228 4367 4374 "kind1/enum.ml" 228 4367 4383
+type(
+  int
+)
+"kind1/enum.ml" 228 4367 4369 "kind1/enum.ml" 228 4367 4383
+call(
+  tail
+)
+type(
+  'd
+)
+"kind1/enum.ml" 227 4345 4347 "kind1/enum.ml" 228 4367 4383
+type(
+  'd
+)
+"kind1/enum.ml" 226 4325 4327 "kind1/enum.ml" 228 4367 4383
+type(
+  'd
+)
+"kind1/enum.ml" 225 4303 4305 "kind1/enum.ml" 228 4367 4383
+type(
+  'd
+)
+"kind1/enum.ml" 224 4285 4287 "kind1/enum.ml" 228 4367 4383
+type(
+  'd
+)
+"kind1/enum.ml" 231 4393 4395 "kind1/enum.ml" 231 4393 4399
+type(
+  int -> unit
+)
+ident(
+  int_ref loop "kind1/enum.ml" 223 4265 4274 "kind1/enum.ml" 223 4265 4278
+)
+"kind1/enum.ml" 231 4393 4400 "kind1/enum.ml" 231 4393 4401
+type(
+  int
+)
+"kind1/enum.ml" 231 4393 4395 "kind1/enum.ml" 231 4393 4401
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 233 4408 4410 "kind1/enum.ml" 233 4408 4426
+type(
+  exn
+)
+"kind1/enum.ml" 234 4430 4439 "kind1/enum.ml" 234 4430 4440
+type(
+  'a option ref -> 'a option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 234 4430 4440 "kind1/enum.ml" 234 4430 4446
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 222 4239 4244 "kind1/enum.ml" 222 4239 4250
+)
+"kind1/enum.ml" 234 4430 4439 "kind1/enum.ml" 234 4430 4446
+type(
+  'a option
+)
+"kind1/enum.ml" 235 4452 4457 "kind1/enum.ml" 235 4452 4461
+type(
+  'a option
+)
+"kind1/enum.ml" 235 4452 4465 "kind1/enum.ml" 235 4452 4467
+type(
+  unit
+)
+"kind1/enum.ml" 236 4468 4478 "kind1/enum.ml" 236 4468 4479
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 236 4468 4483 "kind1/enum.ml" 236 4468 4491
+)
+"kind1/enum.ml" 236 4468 4473 "kind1/enum.ml" 236 4468 4479
+type(
+  'a option
+)
+"kind1/enum.ml" 236 4468 4483 "kind1/enum.ml" 236 4468 4487
+type(
+  'a t -> 'a -> unit
+)
+ident(
+  int_ref push "kind1/enum.ml" 133 2968 2972 "kind1/enum.ml" 133 2968 2976
+)
+"kind1/enum.ml" 236 4468 4488 "kind1/enum.ml" 236 4468 4489
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 221 4220 4233 "kind1/enum.ml" 221 4220 4234
+)
+"kind1/enum.ml" 236 4468 4490 "kind1/enum.ml" 236 4468 4491
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 236 4468 4478 "kind1/enum.ml" 236 4468 4479
+)
+"kind1/enum.ml" 236 4468 4483 "kind1/enum.ml" 236 4468 4491
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/enum.ml" 234 4430 4433 "kind1/enum.ml" 236 4468 4491
+type(
+  unit
+)
+"kind1/enum.ml" 230 4388 4389 "kind1/enum.ml" 236 4468 4491
+type(
+  unit
+)
+"kind1/enum.ml" 223 4265 4266 "kind1/enum.ml" 236 4468 4491
+type(
+  unit
+)
+"kind1/enum.ml" 222 4239 4240 "kind1/enum.ml" 236 4468 4491
+type(
+  unit
+)
+"kind1/enum.ml" 238 4493 4497 "kind1/enum.ml" 238 4493 4501
+type(
+  ('a -> 'b -> 'b) -> 'b -> 'a t -> 'b
+)
+ident(
+  def fold "kind1/enum.ml" 249 4643 4643 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 238 4493 4502 "kind1/enum.ml" 238 4493 4503
+type(
+  'a -> 'b -> 'b
+)
+ident(
+  def f "kind1/enum.ml" 238 4493 4504 "kind1/enum.ml" 247 4615 4641
+)
+"kind1/enum.ml" 238 4493 4504 "kind1/enum.ml" 238 4493 4508
+type(
+  'b
+)
+ident(
+  def init "kind1/enum.ml" 238 4493 4509 "kind1/enum.ml" 247 4615 4641
+)
+"kind1/enum.ml" 238 4493 4509 "kind1/enum.ml" 238 4493 4510
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 239 4513 4514 "kind1/enum.ml" 247 4615 4641
+)
+"kind1/enum.ml" 239 4513 4518 "kind1/enum.ml" 239 4513 4521
+type(
+  'b ref
+)
+ident(
+  def acc "kind1/enum.ml" 240 4536 4537 "kind1/enum.ml" 247 4615 4641
+)
+"kind1/enum.ml" 239 4513 4524 "kind1/enum.ml" 239 4513 4527
+type(
+  'b -> 'b ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 239 4513 4528 "kind1/enum.ml" 239 4513 4532
+type(
+  'b
+)
+ident(
+  int_ref init "kind1/enum.ml" 238 4493 4504 "kind1/enum.ml" 238 4493 4508
+)
+"kind1/enum.ml" 239 4513 4524 "kind1/enum.ml" 239 4513 4532
+type(
+  'b ref
+)
+"kind1/enum.ml" 240 4536 4545 "kind1/enum.ml" 240 4536 4549
+type(
+  unit -> 'c
+)
+ident(
+  def loop "kind1/enum.ml" 240 4536 4537 "kind1/enum.ml" 247 4615 4641
+)
+"kind1/enum.ml" 240 4536 4549 "kind1/enum.ml" 240 4536 4551
+type(
+  unit
+)
+"kind1/enum.ml" 241 4554 4556 "kind1/enum.ml" 241 4554 4559
+type(
+  'b ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 239 4513 4518 "kind1/enum.ml" 239 4513 4521
+)
+"kind1/enum.ml" 241 4554 4560 "kind1/enum.ml" 241 4554 4562
+type(
+  'b ref -> 'b -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 241 4554 4563 "kind1/enum.ml" 241 4554 4564
+type(
+  'a -> 'b -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 238 4493 4502 "kind1/enum.ml" 238 4493 4503
+)
+"kind1/enum.ml" 241 4554 4566 "kind1/enum.ml" 241 4554 4567
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 238 4493 4509 "kind1/enum.ml" 238 4493 4510
+)
+"kind1/enum.ml" 241 4554 4566 "kind1/enum.ml" 241 4554 4572
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 241 4554 4572 "kind1/enum.ml" 241 4554 4574
+type(
+  unit
+)
+"kind1/enum.ml" 241 4554 4565 "kind1/enum.ml" 241 4554 4575
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 241 4554 4576 "kind1/enum.ml" 241 4554 4577
+type(
+  'b ref -> 'b
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 241 4554 4577 "kind1/enum.ml" 241 4554 4580
+type(
+  'b ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 239 4513 4518 "kind1/enum.ml" 239 4513 4521
+)
+"kind1/enum.ml" 241 4554 4576 "kind1/enum.ml" 241 4554 4580
+type(
+  'b
+)
+"kind1/enum.ml" 241 4554 4563 "kind1/enum.ml" 241 4554 4580
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 241 4554 4556 "kind1/enum.ml" 241 4554 4580
+type(
+  unit
+)
+"kind1/enum.ml" 242 4582 4584 "kind1/enum.ml" 242 4582 4588
+type(
+  unit -> 'c
+)
+ident(
+  int_ref loop "kind1/enum.ml" 240 4536 4545 "kind1/enum.ml" 240 4536 4549
+)
+"kind1/enum.ml" 242 4582 4588 "kind1/enum.ml" 242 4582 4590
+type(
+  unit
+)
+"kind1/enum.ml" 242 4582 4584 "kind1/enum.ml" 242 4582 4590
+call(
+  tail
+)
+type(
+  'c
+)
+"kind1/enum.ml" 241 4554 4556 "kind1/enum.ml" 242 4582 4590
+type(
+  'c
+)
+"kind1/enum.ml" 245 4600 4602 "kind1/enum.ml" 245 4600 4606
+type(
+  unit -> 'b
+)
+ident(
+  int_ref loop "kind1/enum.ml" 240 4536 4545 "kind1/enum.ml" 240 4536 4549
+)
+"kind1/enum.ml" 245 4600 4606 "kind1/enum.ml" 245 4600 4608
+type(
+  unit
+)
+"kind1/enum.ml" 245 4600 4602 "kind1/enum.ml" 245 4600 4608
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 247 4615 4617 "kind1/enum.ml" 247 4615 4633
+type(
+  exn
+)
+"kind1/enum.ml" 247 4615 4637 "kind1/enum.ml" 247 4615 4638
+type(
+  'b ref -> 'b
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 247 4615 4638 "kind1/enum.ml" 247 4615 4641
+type(
+  'b ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 239 4513 4518 "kind1/enum.ml" 239 4513 4521
+)
+"kind1/enum.ml" 247 4615 4637 "kind1/enum.ml" 247 4615 4641
+type(
+  'b
+)
+"kind1/enum.ml" 244 4595 4596 "kind1/enum.ml" 247 4615 4641
+type(
+  'b
+)
+"kind1/enum.ml" 240 4536 4537 "kind1/enum.ml" 247 4615 4641
+type(
+  'b
+)
+"kind1/enum.ml" 239 4513 4514 "kind1/enum.ml" 247 4615 4641
+type(
+  'b
+)
+"kind1/enum.ml" 249 4643 4647 "kind1/enum.ml" 249 4643 4652
+type(
+  (int -> 'a -> 'b -> 'b) -> 'b -> 'a t -> 'b
+)
+ident(
+  def foldi "kind1/enum.ml" 260 4808 4808 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 249 4643 4653 "kind1/enum.ml" 249 4643 4654
+type(
+  int -> 'a -> 'b -> 'b
+)
+ident(
+  def f "kind1/enum.ml" 249 4643 4655 "kind1/enum.ml" 258 4780 4806
+)
+"kind1/enum.ml" 249 4643 4655 "kind1/enum.ml" 249 4643 4659
+type(
+  'b
+)
+ident(
+  def init "kind1/enum.ml" 249 4643 4660 "kind1/enum.ml" 258 4780 4806
+)
+"kind1/enum.ml" 249 4643 4660 "kind1/enum.ml" 249 4643 4661
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 250 4664 4665 "kind1/enum.ml" 258 4780 4806
+)
+"kind1/enum.ml" 250 4664 4669 "kind1/enum.ml" 250 4664 4672
+type(
+  'b ref
+)
+ident(
+  def acc "kind1/enum.ml" 251 4687 4688 "kind1/enum.ml" 258 4780 4806
+)
+"kind1/enum.ml" 250 4664 4675 "kind1/enum.ml" 250 4664 4678
+type(
+  'b -> 'b ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 250 4664 4679 "kind1/enum.ml" 250 4664 4683
+type(
+  'b
+)
+ident(
+  int_ref init "kind1/enum.ml" 249 4643 4655 "kind1/enum.ml" 249 4643 4659
+)
+"kind1/enum.ml" 250 4664 4675 "kind1/enum.ml" 250 4664 4683
+type(
+  'b ref
+)
+"kind1/enum.ml" 251 4687 4696 "kind1/enum.ml" 251 4687 4700
+type(
+  int -> 'c
+)
+ident(
+  def loop "kind1/enum.ml" 251 4687 4688 "kind1/enum.ml" 258 4780 4806
+)
+"kind1/enum.ml" 251 4687 4701 "kind1/enum.ml" 251 4687 4704
+type(
+  int
+)
+ident(
+  def idx "kind1/enum.ml" 252 4707 4709 "kind1/enum.ml" 253 4739 4755
+)
+"kind1/enum.ml" 252 4707 4709 "kind1/enum.ml" 252 4707 4712
+type(
+  'b ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 250 4664 4669 "kind1/enum.ml" 250 4664 4672
+)
+"kind1/enum.ml" 252 4707 4713 "kind1/enum.ml" 252 4707 4715
+type(
+  'b ref -> 'b -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 252 4707 4716 "kind1/enum.ml" 252 4707 4717
+type(
+  int -> 'a -> 'b -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 249 4643 4653 "kind1/enum.ml" 249 4643 4654
+)
+"kind1/enum.ml" 252 4707 4718 "kind1/enum.ml" 252 4707 4721
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 251 4687 4701 "kind1/enum.ml" 251 4687 4704
+)
+"kind1/enum.ml" 252 4707 4723 "kind1/enum.ml" 252 4707 4724
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 249 4643 4660 "kind1/enum.ml" 249 4643 4661
+)
+"kind1/enum.ml" 252 4707 4723 "kind1/enum.ml" 252 4707 4729
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 252 4707 4729 "kind1/enum.ml" 252 4707 4731
+type(
+  unit
+)
+"kind1/enum.ml" 252 4707 4722 "kind1/enum.ml" 252 4707 4732
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 252 4707 4733 "kind1/enum.ml" 252 4707 4734
+type(
+  'b ref -> 'b
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 252 4707 4734 "kind1/enum.ml" 252 4707 4737
+type(
+  'b ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 250 4664 4669 "kind1/enum.ml" 250 4664 4672
+)
+"kind1/enum.ml" 252 4707 4733 "kind1/enum.ml" 252 4707 4737
+type(
+  'b
+)
+"kind1/enum.ml" 252 4707 4716 "kind1/enum.ml" 252 4707 4737
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 252 4707 4709 "kind1/enum.ml" 252 4707 4737
+type(
+  unit
+)
+"kind1/enum.ml" 253 4739 4741 "kind1/enum.ml" 253 4739 4745
+type(
+  int -> 'c
+)
+ident(
+  int_ref loop "kind1/enum.ml" 251 4687 4696 "kind1/enum.ml" 251 4687 4700
+)
+"kind1/enum.ml" 253 4739 4747 "kind1/enum.ml" 253 4739 4750
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 251 4687 4701 "kind1/enum.ml" 251 4687 4704
+)
+"kind1/enum.ml" 253 4739 4751 "kind1/enum.ml" 253 4739 4752
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/enum.ml" 253 4739 4753 "kind1/enum.ml" 253 4739 4754
+type(
+  int
+)
+"kind1/enum.ml" 253 4739 4746 "kind1/enum.ml" 253 4739 4755
+type(
+  int
+)
+"kind1/enum.ml" 253 4739 4741 "kind1/enum.ml" 253 4739 4755
+call(
+  tail
+)
+type(
+  'c
+)
+"kind1/enum.ml" 252 4707 4709 "kind1/enum.ml" 253 4739 4755
+type(
+  'c
+)
+"kind1/enum.ml" 256 4765 4767 "kind1/enum.ml" 256 4765 4771
+type(
+  int -> 'b
+)
+ident(
+  int_ref loop "kind1/enum.ml" 251 4687 4696 "kind1/enum.ml" 251 4687 4700
+)
+"kind1/enum.ml" 256 4765 4772 "kind1/enum.ml" 256 4765 4773
+type(
+  int
+)
+"kind1/enum.ml" 256 4765 4767 "kind1/enum.ml" 256 4765 4773
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 258 4780 4782 "kind1/enum.ml" 258 4780 4798
+type(
+  exn
+)
+"kind1/enum.ml" 258 4780 4802 "kind1/enum.ml" 258 4780 4803
+type(
+  'b ref -> 'b
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 258 4780 4803 "kind1/enum.ml" 258 4780 4806
+type(
+  'b ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 250 4664 4669 "kind1/enum.ml" 250 4664 4672
+)
+"kind1/enum.ml" 258 4780 4802 "kind1/enum.ml" 258 4780 4806
+type(
+  'b
+)
+"kind1/enum.ml" 255 4760 4761 "kind1/enum.ml" 258 4780 4806
+type(
+  'b
+)
+"kind1/enum.ml" 251 4687 4688 "kind1/enum.ml" 258 4780 4806
+type(
+  'b
+)
+"kind1/enum.ml" 250 4664 4665 "kind1/enum.ml" 258 4780 4806
+type(
+  'b
+)
+"kind1/enum.ml" 260 4808 4812 "kind1/enum.ml" 260 4808 4817
+type(
+  ('a -> 'b -> 'c -> 'c) -> 'c -> 'a t -> 'b t -> 'c
+)
+ident(
+  def fold2 "kind1/enum.ml" 280 5122 5122 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 260 4808 4818 "kind1/enum.ml" 260 4808 4819
+type(
+  'a -> 'b -> 'c -> 'c
+)
+ident(
+  def f "kind1/enum.ml" 260 4808 4820 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 260 4808 4820 "kind1/enum.ml" 260 4808 4824
+type(
+  'c
+)
+ident(
+  def init "kind1/enum.ml" 260 4808 4825 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 260 4808 4825 "kind1/enum.ml" 260 4808 4826
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 260 4808 4827 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 260 4808 4827 "kind1/enum.ml" 260 4808 4828
+type(
+  'b t
+)
+ident(
+  def u "kind1/enum.ml" 261 4831 4832 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 261 4831 4836 "kind1/enum.ml" 261 4831 4839
+type(
+  'c ref
+)
+ident(
+  def acc "kind1/enum.ml" 262 4854 4855 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 261 4831 4842 "kind1/enum.ml" 261 4831 4845
+type(
+  'c -> 'c ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 261 4831 4846 "kind1/enum.ml" 261 4831 4850
+type(
+  'c
+)
+ident(
+  int_ref init "kind1/enum.ml" 260 4808 4820 "kind1/enum.ml" 260 4808 4824
+)
+"kind1/enum.ml" 261 4831 4842 "kind1/enum.ml" 261 4831 4850
+type(
+  'c ref
+)
+"kind1/enum.ml" 262 4854 4859 "kind1/enum.ml" 262 4854 4865
+type(
+  'a option ref
+)
+ident(
+  def push_t "kind1/enum.ml" 263 4880 4881 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 262 4854 4868 "kind1/enum.ml" 262 4854 4871
+type(
+  'a option -> 'a option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 262 4854 4872 "kind1/enum.ml" 262 4854 4876
+type(
+  'a option
+)
+"kind1/enum.ml" 262 4854 4868 "kind1/enum.ml" 262 4854 4876
+type(
+  'a option ref
+)
+"kind1/enum.ml" 263 4880 4889 "kind1/enum.ml" 263 4880 4893
+type(
+  unit -> 'd
+)
+ident(
+  def loop "kind1/enum.ml" 263 4880 4881 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 263 4880 4893 "kind1/enum.ml" 263 4880 4895
+type(
+  unit
+)
+"kind1/enum.ml" 264 4898 4900 "kind1/enum.ml" 264 4898 4906
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 262 4854 4859 "kind1/enum.ml" 262 4854 4865
+)
+"kind1/enum.ml" 264 4898 4907 "kind1/enum.ml" 264 4898 4909
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 264 4898 4910 "kind1/enum.ml" 264 4898 4914
+type(
+  'a option
+)
+"kind1/enum.ml" 264 4898 4900 "kind1/enum.ml" 264 4898 4914
+type(
+  unit
+)
+"kind1/enum.ml" 265 4916 4922 "kind1/enum.ml" 265 4916 4923
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 266 4938 4940 "kind1/enum.ml" 268 4988 4996
+)
+"kind1/enum.ml" 265 4916 4926 "kind1/enum.ml" 265 4916 4927
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 260 4808 4825 "kind1/enum.ml" 260 4808 4826
+)
+"kind1/enum.ml" 265 4916 4926 "kind1/enum.ml" 265 4916 4932
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 265 4916 4932 "kind1/enum.ml" 265 4916 4934
+type(
+  unit
+)
+"kind1/enum.ml" 265 4916 4926 "kind1/enum.ml" 265 4916 4934
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 266 4938 4940 "kind1/enum.ml" 266 4938 4946
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 262 4854 4859 "kind1/enum.ml" 262 4854 4865
+)
+"kind1/enum.ml" 266 4938 4947 "kind1/enum.ml" 266 4938 4949
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 266 4938 4955 "kind1/enum.ml" 266 4938 4956
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 265 4916 4922 "kind1/enum.ml" 265 4916 4923
+)
+"kind1/enum.ml" 266 4938 4950 "kind1/enum.ml" 266 4938 4956
+type(
+  'a option
+)
+"kind1/enum.ml" 266 4938 4940 "kind1/enum.ml" 266 4938 4956
+type(
+  unit
+)
+"kind1/enum.ml" 267 4958 4960 "kind1/enum.ml" 267 4958 4963
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 261 4831 4836 "kind1/enum.ml" 261 4831 4839
+)
+"kind1/enum.ml" 267 4958 4964 "kind1/enum.ml" 267 4958 4966
+type(
+  'c ref -> 'c -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 267 4958 4967 "kind1/enum.ml" 267 4958 4968
+type(
+  'a -> 'b -> 'c -> 'c
+)
+ident(
+  int_ref f "kind1/enum.ml" 260 4808 4818 "kind1/enum.ml" 260 4808 4819
+)
+"kind1/enum.ml" 267 4958 4969 "kind1/enum.ml" 267 4958 4970
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 265 4916 4922 "kind1/enum.ml" 265 4916 4923
+)
+"kind1/enum.ml" 267 4958 4972 "kind1/enum.ml" 267 4958 4973
+type(
+  'b t
+)
+ident(
+  int_ref u "kind1/enum.ml" 260 4808 4827 "kind1/enum.ml" 260 4808 4828
+)
+"kind1/enum.ml" 267 4958 4972 "kind1/enum.ml" 267 4958 4978
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 267 4958 4978 "kind1/enum.ml" 267 4958 4980
+type(
+  unit
+)
+"kind1/enum.ml" 267 4958 4971 "kind1/enum.ml" 267 4958 4981
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 267 4958 4982 "kind1/enum.ml" 267 4958 4983
+type(
+  'c ref -> 'c
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 267 4958 4983 "kind1/enum.ml" 267 4958 4986
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 261 4831 4836 "kind1/enum.ml" 261 4831 4839
+)
+"kind1/enum.ml" 267 4958 4982 "kind1/enum.ml" 267 4958 4986
+type(
+  'c
+)
+"kind1/enum.ml" 267 4958 4967 "kind1/enum.ml" 267 4958 4986
+call(
+  stack
+)
+type(
+  'c
+)
+"kind1/enum.ml" 267 4958 4960 "kind1/enum.ml" 267 4958 4986
+type(
+  unit
+)
+"kind1/enum.ml" 268 4988 4990 "kind1/enum.ml" 268 4988 4994
+type(
+  unit -> 'd
+)
+ident(
+  int_ref loop "kind1/enum.ml" 263 4880 4889 "kind1/enum.ml" 263 4880 4893
+)
+"kind1/enum.ml" 268 4988 4994 "kind1/enum.ml" 268 4988 4996
+type(
+  unit
+)
+"kind1/enum.ml" 268 4988 4990 "kind1/enum.ml" 268 4988 4996
+call(
+  tail
+)
+type(
+  'd
+)
+"kind1/enum.ml" 267 4958 4960 "kind1/enum.ml" 268 4988 4996
+type(
+  'd
+)
+"kind1/enum.ml" 266 4938 4940 "kind1/enum.ml" 268 4988 4996
+type(
+  'd
+)
+"kind1/enum.ml" 265 4916 4918 "kind1/enum.ml" 268 4988 4996
+type(
+  'd
+)
+"kind1/enum.ml" 264 4898 4900 "kind1/enum.ml" 268 4988 4996
+type(
+  'd
+)
+"kind1/enum.ml" 271 5006 5008 "kind1/enum.ml" 271 5006 5012
+type(
+  unit -> 'c
+)
+ident(
+  int_ref loop "kind1/enum.ml" 263 4880 4889 "kind1/enum.ml" 263 4880 4893
+)
+"kind1/enum.ml" 271 5006 5012 "kind1/enum.ml" 271 5006 5014
+type(
+  unit
+)
+"kind1/enum.ml" 271 5006 5008 "kind1/enum.ml" 271 5006 5014
+call(
+  stack
+)
+type(
+  'c
+)
+"kind1/enum.ml" 273 5021 5023 "kind1/enum.ml" 273 5021 5039
+type(
+  exn
+)
+"kind1/enum.ml" 274 5043 5052 "kind1/enum.ml" 274 5043 5053
+type(
+  'a option ref -> 'a option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 274 5043 5053 "kind1/enum.ml" 274 5043 5059
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 262 4854 4859 "kind1/enum.ml" 262 4854 4865
+)
+"kind1/enum.ml" 274 5043 5052 "kind1/enum.ml" 274 5043 5059
+type(
+  'a option
+)
+"kind1/enum.ml" 275 5065 5070 "kind1/enum.ml" 275 5065 5074
+type(
+  'a option
+)
+"kind1/enum.ml" 275 5065 5078 "kind1/enum.ml" 275 5065 5079
+type(
+  'c ref -> 'c
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 275 5065 5079 "kind1/enum.ml" 275 5065 5082
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 261 4831 4836 "kind1/enum.ml" 261 4831 4839
+)
+"kind1/enum.ml" 275 5065 5078 "kind1/enum.ml" 275 5065 5082
+type(
+  'c
+)
+"kind1/enum.ml" 276 5083 5093 "kind1/enum.ml" 276 5083 5094
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 277 5098 5102 "kind1/enum.ml" 278 5112 5120
+)
+"kind1/enum.ml" 276 5083 5088 "kind1/enum.ml" 276 5083 5094
+type(
+  'a option
+)
+"kind1/enum.ml" 277 5098 5102 "kind1/enum.ml" 277 5098 5106
+type(
+  'a t -> 'a -> unit
+)
+ident(
+  int_ref push "kind1/enum.ml" 133 2968 2972 "kind1/enum.ml" 133 2968 2976
+)
+"kind1/enum.ml" 277 5098 5107 "kind1/enum.ml" 277 5098 5108
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 260 4808 4825 "kind1/enum.ml" 260 4808 4826
+)
+"kind1/enum.ml" 277 5098 5109 "kind1/enum.ml" 277 5098 5110
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 276 5083 5093 "kind1/enum.ml" 276 5083 5094
+)
+"kind1/enum.ml" 277 5098 5102 "kind1/enum.ml" 277 5098 5110
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 278 5112 5116 "kind1/enum.ml" 278 5112 5117
+type(
+  'c ref -> 'c
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 278 5112 5117 "kind1/enum.ml" 278 5112 5120
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 261 4831 4836 "kind1/enum.ml" 261 4831 4839
+)
+"kind1/enum.ml" 278 5112 5116 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 277 5098 5102 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 274 5043 5046 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 270 5001 5002 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 263 4880 4881 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 262 4854 4855 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 261 4831 4832 "kind1/enum.ml" 278 5112 5120
+type(
+  'c
+)
+"kind1/enum.ml" 280 5122 5126 "kind1/enum.ml" 280 5122 5132
+type(
+  (int -> 'a -> 'b -> 'c -> 'c) -> 'c -> 'a t -> 'b t -> 'c
+)
+ident(
+  def fold2i "kind1/enum.ml" 300 5451 5451 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 280 5122 5133 "kind1/enum.ml" 280 5122 5134
+type(
+  int -> 'a -> 'b -> 'c -> 'c
+)
+ident(
+  def f "kind1/enum.ml" 280 5122 5135 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 280 5122 5135 "kind1/enum.ml" 280 5122 5139
+type(
+  'c
+)
+ident(
+  def init "kind1/enum.ml" 280 5122 5140 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 280 5122 5140 "kind1/enum.ml" 280 5122 5141
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 280 5122 5142 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 280 5122 5142 "kind1/enum.ml" 280 5122 5143
+type(
+  'b t
+)
+ident(
+  def u "kind1/enum.ml" 281 5146 5147 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 281 5146 5151 "kind1/enum.ml" 281 5146 5154
+type(
+  'c ref
+)
+ident(
+  def acc "kind1/enum.ml" 282 5169 5170 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 281 5146 5157 "kind1/enum.ml" 281 5146 5160
+type(
+  'c -> 'c ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 281 5146 5161 "kind1/enum.ml" 281 5146 5165
+type(
+  'c
+)
+ident(
+  int_ref init "kind1/enum.ml" 280 5122 5135 "kind1/enum.ml" 280 5122 5139
+)
+"kind1/enum.ml" 281 5146 5157 "kind1/enum.ml" 281 5146 5165
+type(
+  'c ref
+)
+"kind1/enum.ml" 282 5169 5174 "kind1/enum.ml" 282 5169 5180
+type(
+  'a option ref
+)
+ident(
+  def push_t "kind1/enum.ml" 283 5195 5196 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 282 5169 5183 "kind1/enum.ml" 282 5169 5186
+type(
+  'a option -> 'a option ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 282 5169 5187 "kind1/enum.ml" 282 5169 5191
+type(
+  'a option
+)
+"kind1/enum.ml" 282 5169 5183 "kind1/enum.ml" 282 5169 5191
+type(
+  'a option ref
+)
+"kind1/enum.ml" 283 5195 5204 "kind1/enum.ml" 283 5195 5208
+type(
+  int -> 'd
+)
+ident(
+  def loop "kind1/enum.ml" 283 5195 5196 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 283 5195 5209 "kind1/enum.ml" 283 5195 5212
+type(
+  int
+)
+ident(
+  def idx "kind1/enum.ml" 284 5215 5217 "kind1/enum.ml" 288 5309 5325
+)
+"kind1/enum.ml" 284 5215 5217 "kind1/enum.ml" 284 5215 5223
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 282 5169 5174 "kind1/enum.ml" 282 5169 5180
+)
+"kind1/enum.ml" 284 5215 5224 "kind1/enum.ml" 284 5215 5226
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 284 5215 5227 "kind1/enum.ml" 284 5215 5231
+type(
+  'a option
+)
+"kind1/enum.ml" 284 5215 5217 "kind1/enum.ml" 284 5215 5231
+type(
+  unit
+)
+"kind1/enum.ml" 285 5233 5239 "kind1/enum.ml" 285 5233 5240
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 286 5255 5257 "kind1/enum.ml" 288 5309 5325
+)
+"kind1/enum.ml" 285 5233 5243 "kind1/enum.ml" 285 5233 5244
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 280 5122 5140 "kind1/enum.ml" 280 5122 5141
+)
+"kind1/enum.ml" 285 5233 5243 "kind1/enum.ml" 285 5233 5249
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 285 5233 5249 "kind1/enum.ml" 285 5233 5251
+type(
+  unit
+)
+"kind1/enum.ml" 285 5233 5243 "kind1/enum.ml" 285 5233 5251
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 286 5255 5257 "kind1/enum.ml" 286 5255 5263
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 282 5169 5174 "kind1/enum.ml" 282 5169 5180
+)
+"kind1/enum.ml" 286 5255 5264 "kind1/enum.ml" 286 5255 5266
+type(
+  'a option ref -> 'a option -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 286 5255 5272 "kind1/enum.ml" 286 5255 5273
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 285 5233 5239 "kind1/enum.ml" 285 5233 5240
+)
+"kind1/enum.ml" 286 5255 5267 "kind1/enum.ml" 286 5255 5273
+type(
+  'a option
+)
+"kind1/enum.ml" 286 5255 5257 "kind1/enum.ml" 286 5255 5273
+type(
+  unit
+)
+"kind1/enum.ml" 287 5275 5277 "kind1/enum.ml" 287 5275 5280
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 281 5146 5151 "kind1/enum.ml" 281 5146 5154
+)
+"kind1/enum.ml" 287 5275 5281 "kind1/enum.ml" 287 5275 5283
+type(
+  'c ref -> 'c -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 287 5275 5284 "kind1/enum.ml" 287 5275 5285
+type(
+  int -> 'a -> 'b -> 'c -> 'c
+)
+ident(
+  int_ref f "kind1/enum.ml" 280 5122 5133 "kind1/enum.ml" 280 5122 5134
+)
+"kind1/enum.ml" 287 5275 5286 "kind1/enum.ml" 287 5275 5289
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 283 5195 5209 "kind1/enum.ml" 283 5195 5212
+)
+"kind1/enum.ml" 287 5275 5290 "kind1/enum.ml" 287 5275 5291
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 285 5233 5239 "kind1/enum.ml" 285 5233 5240
+)
+"kind1/enum.ml" 287 5275 5293 "kind1/enum.ml" 287 5275 5294
+type(
+  'b t
+)
+ident(
+  int_ref u "kind1/enum.ml" 280 5122 5142 "kind1/enum.ml" 280 5122 5143
+)
+"kind1/enum.ml" 287 5275 5293 "kind1/enum.ml" 287 5275 5299
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 287 5275 5299 "kind1/enum.ml" 287 5275 5301
+type(
+  unit
+)
+"kind1/enum.ml" 287 5275 5292 "kind1/enum.ml" 287 5275 5302
+call(
+  stack
+)
+type(
+  'b
+)
+"kind1/enum.ml" 287 5275 5303 "kind1/enum.ml" 287 5275 5304
+type(
+  'c ref -> 'c
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 287 5275 5304 "kind1/enum.ml" 287 5275 5307
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 281 5146 5151 "kind1/enum.ml" 281 5146 5154
+)
+"kind1/enum.ml" 287 5275 5303 "kind1/enum.ml" 287 5275 5307
+type(
+  'c
+)
+"kind1/enum.ml" 287 5275 5284 "kind1/enum.ml" 287 5275 5307
+call(
+  stack
+)
+type(
+  'c
+)
+"kind1/enum.ml" 287 5275 5277 "kind1/enum.ml" 287 5275 5307
+type(
+  unit
+)
+"kind1/enum.ml" 288 5309 5311 "kind1/enum.ml" 288 5309 5315
+type(
+  int -> 'd
+)
+ident(
+  int_ref loop "kind1/enum.ml" 283 5195 5204 "kind1/enum.ml" 283 5195 5208
+)
+"kind1/enum.ml" 288 5309 5317 "kind1/enum.ml" 288 5309 5320
+type(
+  int
+)
+ident(
+  int_ref idx "kind1/enum.ml" 283 5195 5209 "kind1/enum.ml" 283 5195 5212
+)
+"kind1/enum.ml" 288 5309 5321 "kind1/enum.ml" 288 5309 5322
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/enum.ml" 288 5309 5323 "kind1/enum.ml" 288 5309 5324
+type(
+  int
+)
+"kind1/enum.ml" 288 5309 5316 "kind1/enum.ml" 288 5309 5325
+type(
+  int
+)
+"kind1/enum.ml" 288 5309 5311 "kind1/enum.ml" 288 5309 5325
+call(
+  tail
+)
+type(
+  'd
+)
+"kind1/enum.ml" 287 5275 5277 "kind1/enum.ml" 288 5309 5325
+type(
+  'd
+)
+"kind1/enum.ml" 286 5255 5257 "kind1/enum.ml" 288 5309 5325
+type(
+  'd
+)
+"kind1/enum.ml" 285 5233 5235 "kind1/enum.ml" 288 5309 5325
+type(
+  'd
+)
+"kind1/enum.ml" 284 5215 5217 "kind1/enum.ml" 288 5309 5325
+type(
+  'd
+)
+"kind1/enum.ml" 291 5335 5337 "kind1/enum.ml" 291 5335 5341
+type(
+  int -> 'c
+)
+ident(
+  int_ref loop "kind1/enum.ml" 283 5195 5204 "kind1/enum.ml" 283 5195 5208
+)
+"kind1/enum.ml" 291 5335 5342 "kind1/enum.ml" 291 5335 5343
+type(
+  int
+)
+"kind1/enum.ml" 291 5335 5337 "kind1/enum.ml" 291 5335 5343
+call(
+  stack
+)
+type(
+  'c
+)
+"kind1/enum.ml" 293 5350 5352 "kind1/enum.ml" 293 5350 5368
+type(
+  exn
+)
+"kind1/enum.ml" 294 5372 5381 "kind1/enum.ml" 294 5372 5382
+type(
+  'a option ref -> 'a option
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 294 5372 5382 "kind1/enum.ml" 294 5372 5388
+type(
+  'a option ref
+)
+ident(
+  int_ref push_t "kind1/enum.ml" 282 5169 5174 "kind1/enum.ml" 282 5169 5180
+)
+"kind1/enum.ml" 294 5372 5381 "kind1/enum.ml" 294 5372 5388
+type(
+  'a option
+)
+"kind1/enum.ml" 295 5394 5399 "kind1/enum.ml" 295 5394 5403
+type(
+  'a option
+)
+"kind1/enum.ml" 295 5394 5407 "kind1/enum.ml" 295 5394 5408
+type(
+  'c ref -> 'c
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 295 5394 5408 "kind1/enum.ml" 295 5394 5411
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 281 5146 5151 "kind1/enum.ml" 281 5146 5154
+)
+"kind1/enum.ml" 295 5394 5407 "kind1/enum.ml" 295 5394 5411
+type(
+  'c
+)
+"kind1/enum.ml" 296 5412 5422 "kind1/enum.ml" 296 5412 5423
+type(
+  'a
+)
+ident(
+  def e "kind1/enum.ml" 297 5427 5431 "kind1/enum.ml" 298 5441 5449
+)
+"kind1/enum.ml" 296 5412 5417 "kind1/enum.ml" 296 5412 5423
+type(
+  'a option
+)
+"kind1/enum.ml" 297 5427 5431 "kind1/enum.ml" 297 5427 5435
+type(
+  'a t -> 'a -> unit
+)
+ident(
+  int_ref push "kind1/enum.ml" 133 2968 2972 "kind1/enum.ml" 133 2968 2976
+)
+"kind1/enum.ml" 297 5427 5436 "kind1/enum.ml" 297 5427 5437
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 280 5122 5140 "kind1/enum.ml" 280 5122 5141
+)
+"kind1/enum.ml" 297 5427 5438 "kind1/enum.ml" 297 5427 5439
+type(
+  'a
+)
+ident(
+  int_ref e "kind1/enum.ml" 296 5412 5422 "kind1/enum.ml" 296 5412 5423
+)
+"kind1/enum.ml" 297 5427 5431 "kind1/enum.ml" 297 5427 5439
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/enum.ml" 298 5441 5445 "kind1/enum.ml" 298 5441 5446
+type(
+  'c ref -> 'c
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 298 5441 5446 "kind1/enum.ml" 298 5441 5449
+type(
+  'c ref
+)
+ident(
+  int_ref acc "kind1/enum.ml" 281 5146 5151 "kind1/enum.ml" 281 5146 5154
+)
+"kind1/enum.ml" 298 5441 5445 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 297 5427 5431 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 294 5372 5375 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 290 5330 5331 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 283 5195 5196 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 282 5169 5170 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 281 5146 5147 "kind1/enum.ml" 298 5441 5449
+type(
+  'c
+)
+"kind1/enum.ml" 300 5451 5455 "kind1/enum.ml" 300 5451 5459
+type(
+  ('a -> bool) -> 'a t -> 'a
+)
+ident(
+  def find "kind1/enum.ml" 310 5598 5598 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 300 5451 5460 "kind1/enum.ml" 300 5451 5461
+type(
+  'a -> bool
+)
+ident(
+  def f "kind1/enum.ml" 300 5451 5462 "kind1/enum.ml" 308 5559 5596
+)
+"kind1/enum.ml" 300 5451 5462 "kind1/enum.ml" 300 5451 5463
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 301 5466 5467 "kind1/enum.ml" 308 5559 5596
+)
+"kind1/enum.ml" 301 5466 5475 "kind1/enum.ml" 301 5466 5479
+type(
+  unit -> 'a
+)
+ident(
+  def loop "kind1/enum.ml" 301 5466 5467 "kind1/enum.ml" 308 5559 5596
+)
+"kind1/enum.ml" 301 5466 5480 "kind1/enum.ml" 301 5466 5482
+type(
+  unit
+)
+"kind1/enum.ml" 302 5485 5491 "kind1/enum.ml" 302 5485 5492
+type(
+  'a
+)
+ident(
+  def x "kind1/enum.ml" 303 5507 5509 "kind1/enum.ml" 303 5507 5534
+)
+"kind1/enum.ml" 302 5485 5495 "kind1/enum.ml" 302 5485 5496
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 300 5451 5462 "kind1/enum.ml" 300 5451 5463
+)
+"kind1/enum.ml" 302 5485 5495 "kind1/enum.ml" 302 5485 5501
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 302 5485 5501 "kind1/enum.ml" 302 5485 5503
+type(
+  unit
+)
+"kind1/enum.ml" 302 5485 5495 "kind1/enum.ml" 302 5485 5503
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 303 5507 5512 "kind1/enum.ml" 303 5507 5513
+type(
+  'a -> bool
+)
+ident(
+  int_ref f "kind1/enum.ml" 300 5451 5460 "kind1/enum.ml" 300 5451 5461
+)
+"kind1/enum.ml" 303 5507 5514 "kind1/enum.ml" 303 5507 5515
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/enum.ml" 302 5485 5491 "kind1/enum.ml" 302 5485 5492
+)
+"kind1/enum.ml" 303 5507 5512 "kind1/enum.ml" 303 5507 5515
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/enum.ml" 303 5507 5521 "kind1/enum.ml" 303 5507 5522
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/enum.ml" 302 5485 5491 "kind1/enum.ml" 302 5485 5492
+)
+"kind1/enum.ml" 303 5507 5528 "kind1/enum.ml" 303 5507 5532
+type(
+  unit -> 'a
+)
+ident(
+  int_ref loop "kind1/enum.ml" 301 5466 5475 "kind1/enum.ml" 301 5466 5479
+)
+"kind1/enum.ml" 303 5507 5532 "kind1/enum.ml" 303 5507 5534
+type(
+  unit
+)
+"kind1/enum.ml" 303 5507 5528 "kind1/enum.ml" 303 5507 5534
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 303 5507 5509 "kind1/enum.ml" 303 5507 5534
+type(
+  'a
+)
+"kind1/enum.ml" 302 5485 5487 "kind1/enum.ml" 303 5507 5534
+type(
+  'a
+)
+"kind1/enum.ml" 306 5544 5546 "kind1/enum.ml" 306 5544 5550
+type(
+  unit -> 'a
+)
+ident(
+  int_ref loop "kind1/enum.ml" 301 5466 5475 "kind1/enum.ml" 301 5466 5479
+)
+"kind1/enum.ml" 306 5544 5550 "kind1/enum.ml" 306 5544 5552
+type(
+  unit
+)
+"kind1/enum.ml" 306 5544 5546 "kind1/enum.ml" 306 5544 5552
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 308 5559 5561 "kind1/enum.ml" 308 5559 5577
+type(
+  exn
+)
+"kind1/enum.ml" 308 5559 5581 "kind1/enum.ml" 308 5559 5586
+type(
+  exn -> 'a
+)
+ident(
+  ext_ref Pervasives.raise
+)
+"kind1/enum.ml" 308 5559 5587 "kind1/enum.ml" 308 5559 5596
+type(
+  exn
+)
+"kind1/enum.ml" 308 5559 5581 "kind1/enum.ml" 308 5559 5596
+type(
+  'a
+)
+"kind1/enum.ml" 305 5539 5540 "kind1/enum.ml" 308 5559 5596
+type(
+  'a
+)
+"kind1/enum.ml" 301 5466 5467 "kind1/enum.ml" 308 5559 5596
+type(
+  'a
+)
+"kind1/enum.ml" 310 5598 5606 "kind1/enum.ml" 310 5598 5609
+type(
+  ('a -> 'b) -> 'a t -> 'b t
+)
+ident(
+  def map "kind1/enum.ml" 310 5598 5598 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 310 5598 5610 "kind1/enum.ml" 310 5598 5611
+type(
+  'a -> 'b
+)
+ident(
+  def f "kind1/enum.ml" 310 5598 5612 "kind1/enum.ml" 316 5731 5733
+)
+"kind1/enum.ml" 310 5598 5612 "kind1/enum.ml" 310 5598 5613
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 311 5616 5617 "kind1/enum.ml" 316 5731 5733
+)
+"kind1/enum.ml" 312 5619 5629 "kind1/enum.ml" 312 5619 5630
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 310 5598 5612 "kind1/enum.ml" 310 5598 5613
+)
+"kind1/enum.ml" 312 5619 5629 "kind1/enum.ml" 312 5619 5636
+type(
+  unit -> int
+)
+"kind1/enum.ml" 313 5638 5652 "kind1/enum.ml" 313 5638 5654
+type(
+  unit
+)
+"kind1/enum.ml" 313 5638 5658 "kind1/enum.ml" 313 5638 5659
+type(
+  'a -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 310 5598 5610 "kind1/enum.ml" 310 5598 5611
+)
+"kind1/enum.ml" 313 5638 5661 "kind1/enum.ml" 313 5638 5662
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 310 5598 5612 "kind1/enum.ml" 310 5598 5613
+)
+"kind1/enum.ml" 313 5638 5661 "kind1/enum.ml" 313 5638 5667
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 313 5638 5667 "kind1/enum.ml" 313 5638 5669
+type(
+  unit
+)
+"kind1/enum.ml" 313 5638 5660 "kind1/enum.ml" 313 5638 5670
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 313 5638 5658 "kind1/enum.ml" 313 5638 5670
+call(
+  tail
+)
+type(
+  'b
+)
+"kind1/enum.ml" 313 5638 5647 "kind1/enum.ml" 313 5638 5671
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 314 5673 5688 "kind1/enum.ml" 314 5673 5690
+type(
+  unit
+)
+"kind1/enum.ml" 314 5673 5694 "kind1/enum.ml" 314 5673 5697
+type(
+  ('a -> 'b) -> 'a t -> 'b t
+)
+ident(
+  int_ref map "kind1/enum.ml" 310 5598 5606 "kind1/enum.ml" 310 5598 5609
+)
+"kind1/enum.ml" 314 5673 5698 "kind1/enum.ml" 314 5673 5699
+type(
+  'a -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 310 5598 5610 "kind1/enum.ml" 310 5598 5611
+)
+"kind1/enum.ml" 314 5673 5701 "kind1/enum.ml" 314 5673 5702
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 310 5598 5612 "kind1/enum.ml" 310 5598 5613
+)
+"kind1/enum.ml" 314 5673 5701 "kind1/enum.ml" 314 5673 5708
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 314 5673 5708 "kind1/enum.ml" 314 5673 5710
+type(
+  unit
+)
+"kind1/enum.ml" 314 5673 5700 "kind1/enum.ml" 314 5673 5711
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 314 5673 5694 "kind1/enum.ml" 314 5673 5711
+call(
+  tail
+)
+type(
+  'b t
+)
+"kind1/enum.ml" 314 5673 5683 "kind1/enum.ml" 314 5673 5712
+type(
+  unit -> 'b t
+)
+"kind1/enum.ml" 315 5714 5723 "kind1/enum.ml" 315 5714 5724
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 310 5598 5612 "kind1/enum.ml" 310 5598 5613
+)
+"kind1/enum.ml" 315 5714 5723 "kind1/enum.ml" 315 5714 5729
+type(
+  bool
+)
+"kind1/enum.ml" 311 5616 5617 "kind1/enum.ml" 316 5731 5733
+type(
+  'b t
+)
+"kind1/enum.ml" 318 5735 5743 "kind1/enum.ml" 318 5735 5747
+type(
+  (int -> 'a -> 'b) -> 'a t -> 'b t
+)
+ident(
+  def mapi "kind1/enum.ml" 318 5735 5735 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 318 5735 5748 "kind1/enum.ml" 318 5735 5749
+type(
+  int -> 'a -> 'b
+)
+ident(
+  def f "kind1/enum.ml" 318 5735 5750 "kind1/enum.ml" 325 5908 5910
+)
+"kind1/enum.ml" 318 5735 5750 "kind1/enum.ml" 318 5735 5751
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 319 5754 5755 "kind1/enum.ml" 325 5908 5910
+)
+"kind1/enum.ml" 319 5754 5759 "kind1/enum.ml" 319 5754 5762
+type(
+  int ref
+)
+ident(
+  def idx "kind1/enum.ml" 320 5777 5778 "kind1/enum.ml" 325 5908 5910
+)
+"kind1/enum.ml" 319 5754 5765 "kind1/enum.ml" 319 5754 5768
+type(
+  int -> int ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 319 5754 5769 "kind1/enum.ml" 319 5754 5773
+type(
+  int
+)
+"kind1/enum.ml" 319 5754 5765 "kind1/enum.ml" 319 5754 5773
+type(
+  int ref
+)
+"kind1/enum.ml" 321 5780 5790 "kind1/enum.ml" 321 5780 5791
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 318 5735 5750 "kind1/enum.ml" 318 5735 5751
+)
+"kind1/enum.ml" 321 5780 5790 "kind1/enum.ml" 321 5780 5797
+type(
+  unit -> int
+)
+"kind1/enum.ml" 322 5799 5813 "kind1/enum.ml" 322 5799 5815
+type(
+  unit
+)
+"kind1/enum.ml" 322 5799 5819 "kind1/enum.ml" 322 5799 5823
+type(
+  int ref -> unit
+)
+ident(
+  ext_ref Pervasives.incr
+)
+"kind1/enum.ml" 322 5799 5824 "kind1/enum.ml" 322 5799 5827
+type(
+  int ref
+)
+ident(
+  int_ref idx "kind1/enum.ml" 319 5754 5759 "kind1/enum.ml" 319 5754 5762
+)
+"kind1/enum.ml" 322 5799 5819 "kind1/enum.ml" 322 5799 5827
+type(
+  unit
+)
+"kind1/enum.ml" 322 5799 5829 "kind1/enum.ml" 322 5799 5830
+type(
+  int -> 'a -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 318 5735 5748 "kind1/enum.ml" 318 5735 5749
+)
+"kind1/enum.ml" 322 5799 5831 "kind1/enum.ml" 322 5799 5832
+type(
+  int ref -> int
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 322 5799 5832 "kind1/enum.ml" 322 5799 5835
+type(
+  int ref
+)
+ident(
+  int_ref idx "kind1/enum.ml" 319 5754 5759 "kind1/enum.ml" 319 5754 5762
+)
+"kind1/enum.ml" 322 5799 5831 "kind1/enum.ml" 322 5799 5835
+type(
+  int
+)
+"kind1/enum.ml" 322 5799 5837 "kind1/enum.ml" 322 5799 5838
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 318 5735 5750 "kind1/enum.ml" 318 5735 5751
+)
+"kind1/enum.ml" 322 5799 5837 "kind1/enum.ml" 322 5799 5843
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 322 5799 5843 "kind1/enum.ml" 322 5799 5845
+type(
+  unit
+)
+"kind1/enum.ml" 322 5799 5836 "kind1/enum.ml" 322 5799 5846
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 322 5799 5829 "kind1/enum.ml" 322 5799 5846
+call(
+  tail
+)
+type(
+  'b
+)
+"kind1/enum.ml" 322 5799 5819 "kind1/enum.ml" 322 5799 5846
+type(
+  'b
+)
+"kind1/enum.ml" 322 5799 5808 "kind1/enum.ml" 322 5799 5847
+type(
+  unit -> 'b
+)
+"kind1/enum.ml" 323 5849 5864 "kind1/enum.ml" 323 5849 5866
+type(
+  unit
+)
+"kind1/enum.ml" 323 5849 5870 "kind1/enum.ml" 323 5849 5874
+type(
+  (int -> 'a -> 'b) -> 'a t -> 'b t
+)
+ident(
+  int_ref mapi "kind1/enum.ml" 318 5735 5743 "kind1/enum.ml" 318 5735 5747
+)
+"kind1/enum.ml" 323 5849 5875 "kind1/enum.ml" 323 5849 5876
+type(
+  int -> 'a -> 'b
+)
+ident(
+  int_ref f "kind1/enum.ml" 318 5735 5748 "kind1/enum.ml" 318 5735 5749
+)
+"kind1/enum.ml" 323 5849 5878 "kind1/enum.ml" 323 5849 5879
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 318 5735 5750 "kind1/enum.ml" 318 5735 5751
+)
+"kind1/enum.ml" 323 5849 5878 "kind1/enum.ml" 323 5849 5885
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 323 5849 5885 "kind1/enum.ml" 323 5849 5887
+type(
+  unit
+)
+"kind1/enum.ml" 323 5849 5877 "kind1/enum.ml" 323 5849 5888
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 323 5849 5870 "kind1/enum.ml" 323 5849 5888
+call(
+  tail
+)
+type(
+  'b t
+)
+"kind1/enum.ml" 323 5849 5859 "kind1/enum.ml" 323 5849 5889
+type(
+  unit -> 'b t
+)
+"kind1/enum.ml" 324 5891 5900 "kind1/enum.ml" 324 5891 5901
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 318 5735 5750 "kind1/enum.ml" 318 5735 5751
+)
+"kind1/enum.ml" 324 5891 5900 "kind1/enum.ml" 324 5891 5906
+type(
+  bool
+)
+"kind1/enum.ml" 320 5777 5778 "kind1/enum.ml" 325 5908 5910
+type(
+  'b t
+)
+"kind1/enum.ml" 319 5754 5755 "kind1/enum.ml" 325 5908 5910
+type(
+  'b t
+)
+"kind1/enum.ml" 327 5912 5920 "kind1/enum.ml" 327 5912 5926
+type(
+  ('a -> bool) -> 'a t -> 'a t
+)
+ident(
+  def filter "kind1/enum.ml" 327 5912 5912 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 327 5912 5927 "kind1/enum.ml" 327 5912 5928
+type(
+  'a -> bool
+)
+ident(
+  def f "kind1/enum.ml" 327 5912 5929 "kind1/enum.ml" 332 6005 6049
+)
+"kind1/enum.ml" 327 5912 5929 "kind1/enum.ml" 327 5912 5930
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 328 5933 5934 "kind1/enum.ml" 332 6005 6049
+)
+"kind1/enum.ml" 328 5933 5942 "kind1/enum.ml" 328 5933 5946
+type(
+  unit -> 'a
+)
+ident(
+  def next "kind1/enum.ml" 328 5933 5934 "kind1/enum.ml" 332 6005 6049
+)
+"kind1/enum.ml" 328 5933 5946 "kind1/enum.ml" 328 5933 5948
+type(
+  unit
+)
+"kind1/enum.ml" 329 5951 5957 "kind1/enum.ml" 329 5951 5958
+type(
+  'a
+)
+ident(
+  def x "kind1/enum.ml" 330 5973 5975 "kind1/enum.ml" 330 5973 6000
+)
+"kind1/enum.ml" 329 5951 5961 "kind1/enum.ml" 329 5951 5962
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 327 5912 5929 "kind1/enum.ml" 327 5912 5930
+)
+"kind1/enum.ml" 329 5951 5961 "kind1/enum.ml" 329 5951 5967
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 329 5951 5967 "kind1/enum.ml" 329 5951 5969
+type(
+  unit
+)
+"kind1/enum.ml" 329 5951 5961 "kind1/enum.ml" 329 5951 5969
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 330 5973 5978 "kind1/enum.ml" 330 5973 5979
+type(
+  'a -> bool
+)
+ident(
+  int_ref f "kind1/enum.ml" 327 5912 5927 "kind1/enum.ml" 327 5912 5928
+)
+"kind1/enum.ml" 330 5973 5980 "kind1/enum.ml" 330 5973 5981
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/enum.ml" 329 5951 5957 "kind1/enum.ml" 329 5951 5958
+)
+"kind1/enum.ml" 330 5973 5978 "kind1/enum.ml" 330 5973 5981
+call(
+  stack
+)
+type(
+  bool
+)
+"kind1/enum.ml" 330 5973 5987 "kind1/enum.ml" 330 5973 5988
+type(
+  'a
+)
+ident(
+  int_ref x "kind1/enum.ml" 329 5951 5957 "kind1/enum.ml" 329 5951 5958
+)
+"kind1/enum.ml" 330 5973 5994 "kind1/enum.ml" 330 5973 5998
+type(
+  unit -> 'a
+)
+ident(
+  int_ref next "kind1/enum.ml" 328 5933 5942 "kind1/enum.ml" 328 5933 5946
+)
+"kind1/enum.ml" 330 5973 5998 "kind1/enum.ml" 330 5973 6000
+type(
+  unit
+)
+"kind1/enum.ml" 330 5973 5994 "kind1/enum.ml" 330 5973 6000
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 330 5973 5975 "kind1/enum.ml" 330 5973 6000
+type(
+  'a
+)
+"kind1/enum.ml" 329 5951 5953 "kind1/enum.ml" 330 5973 6000
+type(
+  'a
+)
+"kind1/enum.ml" 332 6005 6006 "kind1/enum.ml" 332 6005 6011
+type(
+  (unit -> 'a) -> (unit -> 'a t) -> 'a t
+)
+ident(
+  int_ref from2 "kind1/enum.ml" 117 2745 2749 "kind1/enum.ml" 117 2745 2754
+)
+"kind1/enum.ml" 332 6005 6012 "kind1/enum.ml" 332 6005 6016
+type(
+  unit -> 'a
+)
+ident(
+  int_ref next "kind1/enum.ml" 328 5933 5942 "kind1/enum.ml" 328 5933 5946
+)
+"kind1/enum.ml" 332 6005 6022 "kind1/enum.ml" 332 6005 6024
+type(
+  unit
+)
+"kind1/enum.ml" 332 6005 6028 "kind1/enum.ml" 332 6005 6034
+type(
+  ('a -> bool) -> 'a t -> 'a t
+)
+ident(
+  int_ref filter "kind1/enum.ml" 327 5912 5920 "kind1/enum.ml" 327 5912 5926
+)
+"kind1/enum.ml" 332 6005 6035 "kind1/enum.ml" 332 6005 6036
+type(
+  'a -> bool
+)
+ident(
+  int_ref f "kind1/enum.ml" 327 5912 5927 "kind1/enum.ml" 327 5912 5928
+)
+"kind1/enum.ml" 332 6005 6038 "kind1/enum.ml" 332 6005 6039
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 327 5912 5929 "kind1/enum.ml" 327 5912 5930
+)
+"kind1/enum.ml" 332 6005 6038 "kind1/enum.ml" 332 6005 6045
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 332 6005 6045 "kind1/enum.ml" 332 6005 6047
+type(
+  unit
+)
+"kind1/enum.ml" 332 6005 6037 "kind1/enum.ml" 332 6005 6048
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 332 6005 6028 "kind1/enum.ml" 332 6005 6048
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 332 6005 6017 "kind1/enum.ml" 332 6005 6049
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 332 6005 6006 "kind1/enum.ml" 332 6005 6049
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 328 5933 5934 "kind1/enum.ml" 332 6005 6049
+type(
+  'a t
+)
+"kind1/enum.ml" 334 6051 6059 "kind1/enum.ml" 334 6051 6069
+type(
+  ('a -> 'b option) -> 'a t -> 'b t
+)
+ident(
+  def filter_map "kind1/enum.ml" 334 6051 6051 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 334 6051 6070 "kind1/enum.ml" 334 6051 6071
+type(
+  'a -> 'b option
+)
+ident(
+  def f "kind1/enum.ml" 334 6051 6072 "kind1/enum.ml" 340 6184 6232
+)
+"kind1/enum.ml" 334 6051 6072 "kind1/enum.ml" 334 6051 6073
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 335 6076 6080 "kind1/enum.ml" 340 6184 6232
+)
+"kind1/enum.ml" 335 6076 6088 "kind1/enum.ml" 335 6076 6092
+type(
+  unit -> 'b
+)
+ident(
+  def next "kind1/enum.ml" 335 6076 6080 "kind1/enum.ml" 340 6184 6232
+)
+"kind1/enum.ml" 335 6076 6093 "kind1/enum.ml" 335 6076 6095
+type(
+  unit
+)
+"kind1/enum.ml" 336 6098 6112 "kind1/enum.ml" 336 6098 6113
+type(
+  'a -> 'b option
+)
+ident(
+  int_ref f "kind1/enum.ml" 334 6051 6070 "kind1/enum.ml" 334 6051 6071
+)
+"kind1/enum.ml" 336 6098 6115 "kind1/enum.ml" 336 6098 6116
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 334 6051 6072 "kind1/enum.ml" 334 6051 6073
+)
+"kind1/enum.ml" 336 6098 6115 "kind1/enum.ml" 336 6098 6121
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 336 6098 6121 "kind1/enum.ml" 336 6098 6123
+type(
+  unit
+)
+"kind1/enum.ml" 336 6098 6114 "kind1/enum.ml" 336 6098 6124
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 336 6098 6112 "kind1/enum.ml" 336 6098 6124
+call(
+  stack
+)
+type(
+  'b option
+)
+"kind1/enum.ml" 337 6130 6140 "kind1/enum.ml" 337 6130 6144
+type(
+  'b option
+)
+"kind1/enum.ml" 337 6130 6148 "kind1/enum.ml" 337 6130 6152
+type(
+  unit -> 'b
+)
+ident(
+  int_ref next "kind1/enum.ml" 335 6076 6088 "kind1/enum.ml" 335 6076 6092
+)
+"kind1/enum.ml" 337 6130 6152 "kind1/enum.ml" 337 6130 6154
+type(
+  unit
+)
+"kind1/enum.ml" 337 6130 6148 "kind1/enum.ml" 337 6130 6154
+call(
+  tail
+)
+type(
+  'b
+)
+"kind1/enum.ml" 338 6155 6170 "kind1/enum.ml" 338 6155 6171
+type(
+  'b
+)
+ident(
+  def x "kind1/enum.ml" 338 6155 6175 "kind1/enum.ml" 338 6155 6176
+)
+"kind1/enum.ml" 338 6155 6165 "kind1/enum.ml" 338 6155 6171
+type(
+  'b option
+)
+"kind1/enum.ml" 338 6155 6175 "kind1/enum.ml" 338 6155 6176
+type(
+  'b
+)
+ident(
+  int_ref x "kind1/enum.ml" 338 6155 6170 "kind1/enum.ml" 338 6155 6171
+)
+"kind1/enum.ml" 336 6098 6106 "kind1/enum.ml" 338 6155 6176
+type(
+  'b
+)
+"kind1/enum.ml" 340 6184 6185 "kind1/enum.ml" 340 6184 6190
+type(
+  (unit -> 'b) -> (unit -> 'b t) -> 'b t
+)
+ident(
+  int_ref from2 "kind1/enum.ml" 117 2745 2749 "kind1/enum.ml" 117 2745 2754
+)
+"kind1/enum.ml" 340 6184 6191 "kind1/enum.ml" 340 6184 6195
+type(
+  unit -> 'b
+)
+ident(
+  int_ref next "kind1/enum.ml" 335 6076 6088 "kind1/enum.ml" 335 6076 6092
+)
+"kind1/enum.ml" 340 6184 6201 "kind1/enum.ml" 340 6184 6203
+type(
+  unit
+)
+"kind1/enum.ml" 340 6184 6207 "kind1/enum.ml" 340 6184 6217
+type(
+  ('a -> 'b option) -> 'a t -> 'b t
+)
+ident(
+  int_ref filter_map "kind1/enum.ml" 334 6051 6059 "kind1/enum.ml" 334 6051 6069
+)
+"kind1/enum.ml" 340 6184 6218 "kind1/enum.ml" 340 6184 6219
+type(
+  'a -> 'b option
+)
+ident(
+  int_ref f "kind1/enum.ml" 334 6051 6070 "kind1/enum.ml" 334 6051 6071
+)
+"kind1/enum.ml" 340 6184 6221 "kind1/enum.ml" 340 6184 6222
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 334 6051 6072 "kind1/enum.ml" 334 6051 6073
+)
+"kind1/enum.ml" 340 6184 6221 "kind1/enum.ml" 340 6184 6228
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 340 6184 6228 "kind1/enum.ml" 340 6184 6230
+type(
+  unit
+)
+"kind1/enum.ml" 340 6184 6220 "kind1/enum.ml" 340 6184 6231
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 340 6184 6207 "kind1/enum.ml" 340 6184 6231
+call(
+  tail
+)
+type(
+  'b t
+)
+"kind1/enum.ml" 340 6184 6196 "kind1/enum.ml" 340 6184 6232
+type(
+  unit -> 'b t
+)
+"kind1/enum.ml" 340 6184 6185 "kind1/enum.ml" 340 6184 6232
+call(
+  tail
+)
+type(
+  'b t
+)
+"kind1/enum.ml" 335 6076 6080 "kind1/enum.ml" 340 6184 6232
+type(
+  'b t
+)
+"kind1/enum.ml" 342 6234 6242 "kind1/enum.ml" 342 6234 6248
+type(
+  'a t -> 'a t -> 'a t
+)
+ident(
+  def append "kind1/enum.ml" 342 6234 6234 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 342 6234 6249 "kind1/enum.ml" 342 6234 6251
+type(
+  'a t
+)
+ident(
+  def ta "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 361 6700 6702
+)
+"kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+type(
+  'a t
+)
+ident(
+  def tb "kind1/enum.ml" 343 6258 6259 "kind1/enum.ml" 361 6700 6702
+)
+"kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+type(
+  'a t
+)
+ident(
+  def t "kind1/enum.ml" 349 6424 6425 "kind1/enum.ml" 361 6700 6702
+)
+"kind1/enum.ml" 344 6269 6284 "kind1/enum.ml" 344 6269 6286
+type(
+  unit
+)
+"kind1/enum.ml" 344 6269 6290 "kind1/enum.ml" 344 6269 6292
+type(
+  'a t
+)
+ident(
+  int_ref ta "kind1/enum.ml" 342 6234 6249 "kind1/enum.ml" 342 6234 6251
+)
+"kind1/enum.ml" 344 6269 6290 "kind1/enum.ml" 344 6269 6298
+type(
+  unit -> int
+)
+"kind1/enum.ml" 344 6269 6298 "kind1/enum.ml" 344 6269 6300
+type(
+  unit
+)
+"kind1/enum.ml" 344 6269 6290 "kind1/enum.ml" 344 6269 6300
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/enum.ml" 344 6269 6301 "kind1/enum.ml" 344 6269 6302
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/enum.ml" 344 6269 6303 "kind1/enum.ml" 344 6269 6305
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 344 6269 6303 "kind1/enum.ml" 344 6269 6311
+type(
+  unit -> int
+)
+"kind1/enum.ml" 344 6269 6311 "kind1/enum.ml" 344 6269 6313
+type(
+  unit
+)
+"kind1/enum.ml" 344 6269 6303 "kind1/enum.ml" 344 6269 6313
+call(
+  stack
+)
+type(
+  int
+)
+"kind1/enum.ml" 344 6269 6290 "kind1/enum.ml" 344 6269 6313
+type(
+  int
+)
+"kind1/enum.ml" 344 6269 6279 "kind1/enum.ml" 344 6269 6314
+type(
+  unit -> int
+)
+"kind1/enum.ml" 345 6316 6325 "kind1/enum.ml" 345 6316 6331
+type(
+  unit -> 'a
+)
+ident(
+  int_ref _dummy "kind1/enum.ml" 31 1136 1140 "kind1/enum.ml" 31 1136 1146
+)
+"kind1/enum.ml" 346 6333 6348 "kind1/enum.ml" 346 6333 6350
+type(
+  unit
+)
+"kind1/enum.ml" 346 6333 6354 "kind1/enum.ml" 346 6333 6360
+type(
+  'a t -> 'a t -> 'a t
+)
+ident(
+  int_ref append "kind1/enum.ml" 342 6234 6242 "kind1/enum.ml" 342 6234 6248
+)
+"kind1/enum.ml" 346 6333 6362 "kind1/enum.ml" 346 6333 6364
+type(
+  'a t
+)
+ident(
+  int_ref ta "kind1/enum.ml" 342 6234 6249 "kind1/enum.ml" 342 6234 6251
+)
+"kind1/enum.ml" 346 6333 6362 "kind1/enum.ml" 346 6333 6370
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 346 6333 6370 "kind1/enum.ml" 346 6333 6372
+type(
+  unit
+)
+"kind1/enum.ml" 346 6333 6361 "kind1/enum.ml" 346 6333 6373
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 346 6333 6375 "kind1/enum.ml" 346 6333 6377
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 346 6333 6375 "kind1/enum.ml" 346 6333 6383
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 346 6333 6383 "kind1/enum.ml" 346 6333 6385
+type(
+  unit
+)
+"kind1/enum.ml" 346 6333 6374 "kind1/enum.ml" 346 6333 6386
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 346 6333 6354 "kind1/enum.ml" 346 6333 6386
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 346 6333 6343 "kind1/enum.ml" 346 6333 6387
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 347 6389 6398 "kind1/enum.ml" 347 6389 6400
+type(
+  'a t
+)
+ident(
+  int_ref ta "kind1/enum.ml" 342 6234 6249 "kind1/enum.ml" 342 6234 6251
+)
+"kind1/enum.ml" 347 6389 6398 "kind1/enum.ml" 347 6389 6405
+type(
+  bool
+)
+"kind1/enum.ml" 347 6389 6406 "kind1/enum.ml" 347 6389 6408
+type(
+  bool -> bool -> bool
+)
+ident(
+  ext_ref Pervasives.( && )
+)
+"kind1/enum.ml" 347 6389 6409 "kind1/enum.ml" 347 6389 6411
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 347 6389 6409 "kind1/enum.ml" 347 6389 6416
+type(
+  bool
+)
+"kind1/enum.ml" 347 6389 6398 "kind1/enum.ml" 347 6389 6416
+type(
+  bool
+)
+"kind1/enum.ml" 343 6258 6267 "kind1/enum.ml" 348 6418 6420
+type(
+  'a t
+)
+"kind1/enum.ml" 349 6424 6425 "kind1/enum.ml" 349 6424 6426
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 349 6424 6440 "kind1/enum.ml" 349 6424 6442
+type(
+  unit
+)
+"kind1/enum.ml" 351 6452 6455 "kind1/enum.ml" 351 6452 6457
+type(
+  'a t
+)
+ident(
+  int_ref ta "kind1/enum.ml" 342 6234 6249 "kind1/enum.ml" 342 6234 6251
+)
+"kind1/enum.ml" 351 6452 6455 "kind1/enum.ml" 351 6452 6462
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 351 6452 6462 "kind1/enum.ml" 351 6452 6464
+type(
+  unit
+)
+"kind1/enum.ml" 351 6452 6455 "kind1/enum.ml" 351 6452 6464
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 353 6472 6475 "kind1/enum.ml" 353 6472 6491
+type(
+  exn
+)
+"kind1/enum.ml" 355 6545 6549 "kind1/enum.ml" 355 6545 6550
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 355 6545 6564 "kind1/enum.ml" 355 6545 6566
+type(
+  unit
+)
+"kind1/enum.ml" 355 6545 6570 "kind1/enum.ml" 355 6545 6572
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 355 6545 6570 "kind1/enum.ml" 355 6545 6577
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 355 6545 6577 "kind1/enum.ml" 355 6545 6579
+type(
+  unit
+)
+"kind1/enum.ml" 355 6545 6570 "kind1/enum.ml" 355 6545 6579
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 355 6545 6559 "kind1/enum.ml" 355 6545 6580
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 355 6545 6549 "kind1/enum.ml" 355 6545 6580
+type(
+  unit
+)
+"kind1/enum.ml" 356 6582 6586 "kind1/enum.ml" 356 6582 6587
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 356 6582 6602 "kind1/enum.ml" 356 6582 6604
+type(
+  unit
+)
+"kind1/enum.ml" 356 6582 6608 "kind1/enum.ml" 356 6582 6610
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 356 6582 6608 "kind1/enum.ml" 356 6582 6616
+type(
+  unit -> int
+)
+"kind1/enum.ml" 356 6582 6616 "kind1/enum.ml" 356 6582 6618
+type(
+  unit
+)
+"kind1/enum.ml" 356 6582 6608 "kind1/enum.ml" 356 6582 6618
+call(
+  tail
+)
+type(
+  int
+)
+"kind1/enum.ml" 356 6582 6597 "kind1/enum.ml" 356 6582 6619
+type(
+  unit -> int
+)
+"kind1/enum.ml" 356 6582 6586 "kind1/enum.ml" 356 6582 6619
+type(
+  unit
+)
+"kind1/enum.ml" 357 6621 6625 "kind1/enum.ml" 357 6621 6626
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 357 6621 6641 "kind1/enum.ml" 357 6621 6643
+type(
+  unit
+)
+"kind1/enum.ml" 357 6621 6647 "kind1/enum.ml" 357 6621 6649
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 357 6621 6647 "kind1/enum.ml" 357 6621 6655
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 357 6621 6655 "kind1/enum.ml" 357 6621 6657
+type(
+  unit
+)
+"kind1/enum.ml" 357 6621 6647 "kind1/enum.ml" 357 6621 6657
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 357 6621 6636 "kind1/enum.ml" 357 6621 6658
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 357 6621 6625 "kind1/enum.ml" 357 6621 6658
+type(
+  unit
+)
+"kind1/enum.ml" 358 6660 6664 "kind1/enum.ml" 358 6660 6665
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 358 6660 6674 "kind1/enum.ml" 358 6660 6676
+type(
+  'a t
+)
+ident(
+  int_ref tb "kind1/enum.ml" 342 6234 6252 "kind1/enum.ml" 342 6234 6254
+)
+"kind1/enum.ml" 358 6660 6674 "kind1/enum.ml" 358 6660 6681
+type(
+  bool
+)
+"kind1/enum.ml" 358 6660 6664 "kind1/enum.ml" 358 6660 6681
+type(
+  unit
+)
+"kind1/enum.ml" 359 6683 6687 "kind1/enum.ml" 359 6683 6688
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 359 6683 6687 "kind1/enum.ml" 359 6683 6693
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 359 6683 6693 "kind1/enum.ml" 359 6683 6695
+type(
+  unit
+)
+"kind1/enum.ml" 359 6683 6687 "kind1/enum.ml" 359 6683 6695
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 358 6660 6664 "kind1/enum.ml" 359 6683 6695
+type(
+  'a
+)
+"kind1/enum.ml" 357 6621 6625 "kind1/enum.ml" 359 6683 6695
+type(
+  'a
+)
+"kind1/enum.ml" 356 6582 6586 "kind1/enum.ml" 359 6683 6695
+type(
+  'a
+)
+"kind1/enum.ml" 355 6545 6549 "kind1/enum.ml" 359 6683 6695
+type(
+  'a
+)
+"kind1/enum.ml" 350 6446 6448 "kind1/enum.ml" 359 6683 6695
+type(
+  'a
+)
+"kind1/enum.ml" 349 6424 6435 "kind1/enum.ml" 360 6696 6698
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 349 6424 6425 "kind1/enum.ml" 360 6696 6698
+type(
+  unit
+)
+"kind1/enum.ml" 361 6700 6701 "kind1/enum.ml" 361 6700 6702
+type(
+  'a t
+)
+ident(
+  int_ref t "kind1/enum.ml" 343 6258 6263 "kind1/enum.ml" 343 6258 6264
+)
+"kind1/enum.ml" 349 6424 6425 "kind1/enum.ml" 361 6700 6702
+type(
+  'a t
+)
+"kind1/enum.ml" 343 6258 6259 "kind1/enum.ml" 361 6700 6702
+type(
+  'a t
+)
+"kind1/enum.ml" 363 6704 6712 "kind1/enum.ml" 363 6704 6718
+type(
+  'a t t -> 'a t
+)
+ident(
+  def concat "kind1/enum.ml" 363 6704 6704 "_none_" 1 0 -1
+)
+"kind1/enum.ml" 363 6704 6719 "kind1/enum.ml" 363 6704 6720
+type(
+  'a t t
+)
+ident(
+  def t "kind1/enum.ml" 364 6723 6724 "kind1/enum.ml" 376 6953 7017
+)
+"kind1/enum.ml" 364 6723 6728 "kind1/enum.ml" 364 6723 6738
+type(
+  (unit -> 'a) ref
+)
+ident(
+  def concat_ref "kind1/enum.ml" 365 6755 6756 "kind1/enum.ml" 376 6953 7017
+)
+"kind1/enum.ml" 364 6723 6741 "kind1/enum.ml" 364 6723 6744
+type(
+  (unit -> 'a) -> (unit -> 'a) ref
+)
+ident(
+  ext_ref Pervasives.ref
+)
+"kind1/enum.ml" 364 6723 6745 "kind1/enum.ml" 364 6723 6751
+type(
+  unit -> 'a
+)
+ident(
+  int_ref _dummy "kind1/enum.ml" 31 1136 1140 "kind1/enum.ml" 31 1136 1146
+)
+"kind1/enum.ml" 364 6723 6741 "kind1/enum.ml" 364 6723 6751
+type(
+  (unit -> 'a) ref
+)
+"kind1/enum.ml" 365 6755 6764 "kind1/enum.ml" 365 6755 6775
+type(
+  unit -> 'a
+)
+ident(
+  def concat_next "kind1/enum.ml" 365 6755 6756 "kind1/enum.ml" 376 6953 7017
+)
+"kind1/enum.ml" 365 6755 6775 "kind1/enum.ml" 365 6755 6777
+type(
+  unit
+)
+"kind1/enum.ml" 366 6780 6786 "kind1/enum.ml" 366 6780 6788
+type(
+  'a t
+)
+ident(
+  def tn "kind1/enum.ml" 367 6803 6805 "kind1/enum.ml" 373 6904 6920
+)
+"kind1/enum.ml" 366 6780 6791 "kind1/enum.ml" 366 6780 6792
+type(
+  'a t t
+)
+ident(
+  int_ref t "kind1/enum.ml" 363 6704 6719 "kind1/enum.ml" 363 6704 6720
+)
+"kind1/enum.ml" 366 6780 6791 "kind1/enum.ml" 366 6780 6797
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 366 6780 6797 "kind1/enum.ml" 366 6780 6799
+type(
+  unit
+)
+"kind1/enum.ml" 366 6780 6791 "kind1/enum.ml" 366 6780 6799
+call(
+  stack
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 367 6803 6805 "kind1/enum.ml" 367 6803 6815
+type(
+  (unit -> 'a) ref
+)
+ident(
+  int_ref concat_ref "kind1/enum.ml" 364 6723 6728 "kind1/enum.ml" 364 6723 6738
+)
+"kind1/enum.ml" 367 6803 6816 "kind1/enum.ml" 367 6803 6818
+type(
+  (unit -> 'a) ref -> (unit -> 'a) -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 367 6803 6824 "kind1/enum.ml" 367 6803 6826
+type(
+  unit
+)
+"kind1/enum.ml" 369 6837 6841 "kind1/enum.ml" 369 6837 6843
+type(
+  'a t
+)
+ident(
+  int_ref tn "kind1/enum.ml" 366 6780 6786 "kind1/enum.ml" 366 6780 6788
+)
+"kind1/enum.ml" 369 6837 6841 "kind1/enum.ml" 369 6837 6848
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 369 6837 6848 "kind1/enum.ml" 369 6837 6850
+type(
+  unit
+)
+"kind1/enum.ml" 369 6837 6841 "kind1/enum.ml" 369 6837 6850
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/enum.ml" 371 6859 6863 "kind1/enum.ml" 371 6859 6879
+type(
+  exn
+)
+"kind1/enum.ml" 372 6883 6888 "kind1/enum.ml" 372 6883 6899
+type(
+  unit -> 'a
+)
+ident(
+  int_ref concat_next "kind1/enum.ml" 365 6755 6764 "kind1/enum.ml" 365 6755 6775
+)
+"kind1/enum.ml" 372 6883 6899 "kind1/enum.ml" 372 6883 6901
+type(
+  unit
+)
+"kind1/enum.ml" 372 6883 6888 "kind1/enum.ml" 372 6883 6901
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 368 6830 6833 "kind1/enum.ml" 372 6883 6901
+type(
+  'a
+)
+"kind1/enum.ml" 367 6803 6819 "kind1/enum.ml" 372 6883 6902
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 367 6803 6805 "kind1/enum.ml" 372 6883 6902
+type(
+  unit
+)
+"kind1/enum.ml" 373 6904 6906 "kind1/enum.ml" 373 6904 6907
+type(
+  (unit -> 'a) ref -> unit -> 'a
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 373 6904 6907 "kind1/enum.ml" 373 6904 6917
+type(
+  (unit -> 'a) ref
+)
+ident(
+  int_ref concat_ref "kind1/enum.ml" 364 6723 6728 "kind1/enum.ml" 364 6723 6738
+)
+"kind1/enum.ml" 373 6904 6906 "kind1/enum.ml" 373 6904 6917
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 373 6904 6918 "kind1/enum.ml" 373 6904 6920
+type(
+  unit
+)
+"kind1/enum.ml" 373 6904 6906 "kind1/enum.ml" 373 6904 6920
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 367 6803 6805 "kind1/enum.ml" 373 6904 6920
+type(
+  'a
+)
+"kind1/enum.ml" 366 6780 6782 "kind1/enum.ml" 373 6904 6920
+type(
+  'a
+)
+"kind1/enum.ml" 375 6925 6926 "kind1/enum.ml" 375 6925 6936
+type(
+  (unit -> 'a) ref
+)
+ident(
+  int_ref concat_ref "kind1/enum.ml" 364 6723 6728 "kind1/enum.ml" 364 6723 6738
+)
+"kind1/enum.ml" 375 6925 6937 "kind1/enum.ml" 375 6925 6939
+type(
+  (unit -> 'a) ref -> (unit -> 'a) -> unit
+)
+ident(
+  ext_ref Pervasives.( := )
+)
+"kind1/enum.ml" 375 6925 6940 "kind1/enum.ml" 375 6925 6951
+type(
+  unit -> 'a
+)
+ident(
+  int_ref concat_next "kind1/enum.ml" 365 6755 6764 "kind1/enum.ml" 365 6755 6775
+)
+"kind1/enum.ml" 375 6925 6926 "kind1/enum.ml" 375 6925 6951
+type(
+  unit
+)
+"kind1/enum.ml" 376 6953 6954 "kind1/enum.ml" 376 6953 6959
+type(
+  (unit -> 'a) -> (unit -> 'a t) -> 'a t
+)
+ident(
+  int_ref from2 "kind1/enum.ml" 117 2745 2749 "kind1/enum.ml" 117 2745 2754
+)
+"kind1/enum.ml" 376 6953 6965 "kind1/enum.ml" 376 6953 6967
+type(
+  unit
+)
+"kind1/enum.ml" 376 6953 6971 "kind1/enum.ml" 376 6953 6972
+type(
+  (unit -> 'a) ref -> unit -> 'a
+)
+ident(
+  ext_ref Pervasives.( ! )
+)
+"kind1/enum.ml" 376 6953 6972 "kind1/enum.ml" 376 6953 6982
+type(
+  (unit -> 'a) ref
+)
+ident(
+  int_ref concat_ref "kind1/enum.ml" 364 6723 6728 "kind1/enum.ml" 364 6723 6738
+)
+"kind1/enum.ml" 376 6953 6971 "kind1/enum.ml" 376 6953 6982
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 376 6953 6983 "kind1/enum.ml" 376 6953 6985
+type(
+  unit
+)
+"kind1/enum.ml" 376 6953 6971 "kind1/enum.ml" 376 6953 6985
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/enum.ml" 376 6953 6960 "kind1/enum.ml" 376 6953 6986
+type(
+  unit -> 'a
+)
+"kind1/enum.ml" 376 6953 6992 "kind1/enum.ml" 376 6953 6994
+type(
+  unit
+)
+"kind1/enum.ml" 376 6953 6998 "kind1/enum.ml" 376 6953 7004
+type(
+  'a t t -> 'a t
+)
+ident(
+  int_ref concat "kind1/enum.ml" 363 6704 6712 "kind1/enum.ml" 363 6704 6718
+)
+"kind1/enum.ml" 376 6953 7006 "kind1/enum.ml" 376 6953 7007
+type(
+  'a t t
+)
+ident(
+  int_ref t "kind1/enum.ml" 363 6704 6719 "kind1/enum.ml" 363 6704 6720
+)
+"kind1/enum.ml" 376 6953 7006 "kind1/enum.ml" 376 6953 7013
+type(
+  unit -> 'a t t
+)
+"kind1/enum.ml" 376 6953 7013 "kind1/enum.ml" 376 6953 7015
+type(
+  unit
+)
+"kind1/enum.ml" 376 6953 7005 "kind1/enum.ml" 376 6953 7016
+call(
+  stack
+)
+type(
+  'a t t
+)
+"kind1/enum.ml" 376 6953 6998 "kind1/enum.ml" 376 6953 7016
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 376 6953 6987 "kind1/enum.ml" 376 6953 7017
+type(
+  unit -> 'a t
+)
+"kind1/enum.ml" 376 6953 6954 "kind1/enum.ml" 376 6953 7017
+call(
+  tail
+)
+type(
+  'a t
+)
+"kind1/enum.ml" 375 6925 6926 "kind1/enum.ml" 376 6953 7017
+type(
+  'a t
+)
+"kind1/enum.ml" 365 6755 6756 "kind1/enum.ml" 376 6953 7017
+type(
+  'a t
+)
+"kind1/enum.ml" 364 6723 6724 "kind1/enum.ml" 376 6953 7017
+type(
+  'a t
+)

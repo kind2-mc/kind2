@@ -1,0 +1,2236 @@
+"kind1/util.ml" 32 1678 1682 "kind1/util.ml" 32 1678 1686
+type(
+  string -> unit
+)
+ident(
+  def pstr "kind1/util.ml" 33 1702 1702 "_none_" 1 0 -1
+)
+"kind1/util.ml" 32 1678 1689 "kind1/util.ml" 32 1678 1701
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.print_string
+)
+"kind1/util.ml" 33 1702 1706 "kind1/util.ml" 33 1702 1708
+type(
+  string -> unit
+)
+ident(
+  def pr "kind1/util.ml" 34 1725 1725 "_none_" 1 0 -1
+)
+"kind1/util.ml" 33 1702 1711 "kind1/util.ml" 33 1702 1723
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.print_string
+)
+"kind1/util.ml" 34 1725 1729 "kind1/util.ml" 34 1725 1733
+type(
+  int -> unit
+)
+ident(
+  def pint "kind1/util.ml" 35 1747 1747 "_none_" 1 0 -1
+)
+"kind1/util.ml" 34 1725 1736 "kind1/util.ml" 34 1725 1745
+type(
+  int -> unit
+)
+ident(
+  ext_ref Pervasives.print_int
+)
+"kind1/util.ml" 35 1747 1751 "kind1/util.ml" 35 1747 1756
+type(
+  bool -> unit
+)
+ident(
+  def pbool "kind1/util.ml" 36 1799 1799 "_none_" 1 0 -1
+)
+"kind1/util.ml" 35 1747 1757 "kind1/util.ml" 35 1747 1758
+type(
+  bool
+)
+ident(
+  def b "kind1/util.ml" 35 1747 1761 "kind1/util.ml" 35 1747 1797
+)
+"kind1/util.ml" 35 1747 1761 "kind1/util.ml" 35 1747 1765
+type(
+  string -> unit
+)
+ident(
+  int_ref pstr "kind1/util.ml" 32 1678 1682 "kind1/util.ml" 32 1678 1686
+)
+"kind1/util.ml" 35 1747 1770 "kind1/util.ml" 35 1747 1771
+type(
+  bool
+)
+ident(
+  int_ref b "kind1/util.ml" 35 1747 1757 "kind1/util.ml" 35 1747 1758
+)
+"kind1/util.ml" 35 1747 1777 "kind1/util.ml" 35 1747 1783
+type(
+  string
+)
+"kind1/util.ml" 35 1747 1789 "kind1/util.ml" 35 1747 1796
+type(
+  string
+)
+"kind1/util.ml" 35 1747 1766 "kind1/util.ml" 35 1747 1797
+type(
+  string
+)
+"kind1/util.ml" 35 1747 1761 "kind1/util.ml" 35 1747 1797
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 36 1799 1803 "kind1/util.ml" 36 1799 1813
+type(
+  string list -> unit
+)
+ident(
+  def p_str_list "kind1/util.ml" 37 1859 1859 "_none_" 1 0 -1
+)
+"kind1/util.ml" 36 1799 1814 "kind1/util.ml" 36 1799 1815
+type(
+  string list
+)
+ident(
+  def l "kind1/util.ml" 36 1799 1818 "kind1/util.ml" 36 1799 1857
+)
+"kind1/util.ml" 36 1799 1818 "kind1/util.ml" 36 1799 1827
+type(
+  (string -> unit) -> string list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/util.ml" 36 1799 1833 "kind1/util.ml" 36 1799 1834
+type(
+  string
+)
+ident(
+  def x "kind1/util.ml" 36 1799 1838 "kind1/util.ml" 36 1799 1854
+)
+"kind1/util.ml" 36 1799 1838 "kind1/util.ml" 36 1799 1842
+type(
+  string -> unit
+)
+ident(
+  int_ref pstr "kind1/util.ml" 32 1678 1682 "kind1/util.ml" 32 1678 1686
+)
+"kind1/util.ml" 36 1799 1843 "kind1/util.ml" 36 1799 1844
+type(
+  string
+)
+ident(
+  int_ref x "kind1/util.ml" 36 1799 1833 "kind1/util.ml" 36 1799 1834
+)
+"kind1/util.ml" 36 1799 1838 "kind1/util.ml" 36 1799 1844
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/util.ml" 36 1799 1846 "kind1/util.ml" 36 1799 1850
+type(
+  string -> unit
+)
+ident(
+  int_ref pstr "kind1/util.ml" 32 1678 1682 "kind1/util.ml" 32 1678 1686
+)
+"kind1/util.ml" 36 1799 1851 "kind1/util.ml" 36 1799 1854
+type(
+  string
+)
+"kind1/util.ml" 36 1799 1846 "kind1/util.ml" 36 1799 1854
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 36 1799 1838 "kind1/util.ml" 36 1799 1854
+type(
+  unit
+)
+"kind1/util.ml" 36 1799 1828 "kind1/util.ml" 36 1799 1855
+type(
+  string -> unit
+)
+"kind1/util.ml" 36 1799 1856 "kind1/util.ml" 36 1799 1857
+type(
+  string list
+)
+ident(
+  int_ref l "kind1/util.ml" 36 1799 1814 "kind1/util.ml" 36 1799 1815
+)
+"kind1/util.ml" 36 1799 1818 "kind1/util.ml" 36 1799 1857
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 37 1859 1863 "kind1/util.ml" 37 1859 1873
+type(
+  int list -> unit
+)
+ident(
+  def p_int_list "kind1/util.ml" 39 1920 1920 "_none_" 1 0 -1
+)
+"kind1/util.ml" 37 1859 1874 "kind1/util.ml" 37 1859 1875
+type(
+  int list
+)
+ident(
+  def l "kind1/util.ml" 37 1859 1878 "kind1/util.ml" 37 1859 1917
+)
+"kind1/util.ml" 37 1859 1878 "kind1/util.ml" 37 1859 1887
+type(
+  (int -> unit) -> int list -> unit
+)
+ident(
+  ext_ref List.iter
+)
+"kind1/util.ml" 37 1859 1893 "kind1/util.ml" 37 1859 1894
+type(
+  int
+)
+ident(
+  def x "kind1/util.ml" 37 1859 1898 "kind1/util.ml" 37 1859 1914
+)
+"kind1/util.ml" 37 1859 1898 "kind1/util.ml" 37 1859 1902
+type(
+  int -> unit
+)
+ident(
+  int_ref pint "kind1/util.ml" 34 1725 1729 "kind1/util.ml" 34 1725 1733
+)
+"kind1/util.ml" 37 1859 1903 "kind1/util.ml" 37 1859 1904
+type(
+  int
+)
+ident(
+  int_ref x "kind1/util.ml" 37 1859 1893 "kind1/util.ml" 37 1859 1894
+)
+"kind1/util.ml" 37 1859 1898 "kind1/util.ml" 37 1859 1904
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/util.ml" 37 1859 1906 "kind1/util.ml" 37 1859 1910
+type(
+  string -> unit
+)
+ident(
+  int_ref pstr "kind1/util.ml" 32 1678 1682 "kind1/util.ml" 32 1678 1686
+)
+"kind1/util.ml" 37 1859 1911 "kind1/util.ml" 37 1859 1914
+type(
+  string
+)
+"kind1/util.ml" 37 1859 1906 "kind1/util.ml" 37 1859 1914
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 37 1859 1898 "kind1/util.ml" 37 1859 1914
+type(
+  unit
+)
+"kind1/util.ml" 37 1859 1888 "kind1/util.ml" 37 1859 1915
+type(
+  int -> unit
+)
+"kind1/util.ml" 37 1859 1916 "kind1/util.ml" 37 1859 1917
+type(
+  int list
+)
+ident(
+  int_ref l "kind1/util.ml" 37 1859 1874 "kind1/util.ml" 37 1859 1875
+)
+"kind1/util.ml" 37 1859 1878 "kind1/util.ml" 37 1859 1917
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 39 1920 1924 "kind1/util.ml" 39 1920 1938
+type(
+  string -> string -> unit
+)
+ident(
+  def pause_or_break "kind1/util.ml" 48 2168 2168 "_none_" 1 0 -1
+)
+"kind1/util.ml" 39 1920 1939 "kind1/util.ml" 39 1920 1943
+type(
+  string
+)
+ident(
+  def hint "kind1/util.ml" 39 1920 1944 "kind1/util.ml" 45 2154 2165
+)
+"kind1/util.ml" 39 1920 1944 "kind1/util.ml" 39 1920 1956
+type(
+  string
+)
+ident(
+  def quit_command "kind1/util.ml" 40 1960 1962 "kind1/util.ml" 45 2154 2165
+)
+"kind1/util.ml" 40 1960 1962 "kind1/util.ml" 40 1960 1974
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.print_string
+)
+"kind1/util.ml" 40 1960 1975 "kind1/util.ml" 40 1960 1979
+type(
+  string
+)
+ident(
+  int_ref hint "kind1/util.ml" 39 1920 1939 "kind1/util.ml" 39 1920 1943
+)
+"kind1/util.ml" 40 1960 1962 "kind1/util.ml" 40 1960 1979
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/util.ml" 41 1981 1987 "kind1/util.ml" 41 1981 1997
+type(
+  string
+)
+ident(
+  def user_input "kind1/util.ml" 42 2036 2038 "kind1/util.ml" 45 2154 2165
+)
+"kind1/util.ml" 41 1981 2000 "kind1/util.ml" 41 1981 2016
+type(
+  string -> string
+)
+ident(
+  ext_ref String.uppercase
+)
+"kind1/util.ml" 41 1981 2018 "kind1/util.ml" 41 1981 2027
+type(
+  unit -> string
+)
+ident(
+  ext_ref Pervasives.read_line
+)
+"kind1/util.ml" 41 1981 2028 "kind1/util.ml" 41 1981 2030
+type(
+  unit
+)
+"kind1/util.ml" 41 1981 2017 "kind1/util.ml" 41 1981 2032
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/util.ml" 41 1981 2000 "kind1/util.ml" 41 1981 2032
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/util.ml" 42 2036 2042 "kind1/util.ml" 42 2036 2050
+type(
+  string
+)
+ident(
+  def quit_cmd "kind1/util.ml" 43 2087 2091 "kind1/util.ml" 45 2154 2165
+)
+"kind1/util.ml" 42 2036 2054 "kind1/util.ml" 42 2036 2070
+type(
+  string -> string
+)
+ident(
+  ext_ref String.uppercase
+)
+"kind1/util.ml" 42 2036 2071 "kind1/util.ml" 42 2036 2083
+type(
+  string
+)
+ident(
+  int_ref quit_command "kind1/util.ml" 39 1920 1944 "kind1/util.ml" 39 1920 1956
+)
+"kind1/util.ml" 42 2036 2054 "kind1/util.ml" 42 2036 2083
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/util.ml" 43 2087 2095 "kind1/util.ml" 43 2087 2105
+type(
+  string
+)
+ident(
+  int_ref user_input "kind1/util.ml" 41 1981 1987 "kind1/util.ml" 41 1981 1997
+)
+"kind1/util.ml" 43 2087 2106 "kind1/util.ml" 43 2087 2107
+type(
+  string -> string -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 43 2087 2108 "kind1/util.ml" 43 2087 2116
+type(
+  string
+)
+ident(
+  int_ref quit_cmd "kind1/util.ml" 42 2036 2042 "kind1/util.ml" 42 2036 2050
+)
+"kind1/util.ml" 43 2087 2094 "kind1/util.ml" 43 2087 2118
+type(
+  bool
+)
+"kind1/util.ml" 44 2120 2129 "kind1/util.ml" 44 2120 2137
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/util.ml" 44 2120 2138 "kind1/util.ml" 44 2120 2153
+type(
+  string
+)
+"kind1/util.ml" 44 2120 2129 "kind1/util.ml" 44 2120 2153
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 45 2154 2163 "kind1/util.ml" 45 2154 2165
+type(
+  unit
+)
+"kind1/util.ml" 43 2087 2091 "kind1/util.ml" 45 2154 2165
+type(
+  unit
+)
+"kind1/util.ml" 42 2036 2038 "kind1/util.ml" 45 2154 2165
+type(
+  unit
+)
+"kind1/util.ml" 41 1981 1983 "kind1/util.ml" 45 2154 2165
+type(
+  unit
+)
+"kind1/util.ml" 40 1960 1962 "kind1/util.ml" 45 2154 2165
+type(
+  unit
+)
+"kind1/util.ml" 48 2168 2176 "kind1/util.ml" 48 2168 2189
+type(
+  'a list -> 'a list
+)
+ident(
+  def unique_sorted "kind1/util.ml" 48 2168 2168 "_none_" 1 0 -1
+)
+"kind1/util.ml" 48 2168 2190 "kind1/util.ml" 48 2168 2191
+type(
+  'a list
+)
+ident(
+  def l "kind1/util.ml" 49 2195 2197 "kind1/util.ml" 57 2409 2459
+)
+"kind1/util.ml" 49 2195 2203 "kind1/util.ml" 49 2195 2204
+type(
+  'a list
+)
+ident(
+  int_ref l "kind1/util.ml" 48 2168 2190 "kind1/util.ml" 48 2168 2191
+)
+"kind1/util.ml" 50 2211 2217 "kind1/util.ml" 50 2211 2219
+type(
+  'a list
+)
+"kind1/util.ml" 50 2211 2223 "kind1/util.ml" 50 2211 2225
+type(
+  'a list
+)
+"kind1/util.ml" 51 2226 2232 "kind1/util.ml" 51 2226 2234
+type(
+  'a
+)
+ident(
+  def hd "kind1/util.ml" 51 2226 2242 "kind1/util.ml" 51 2226 2243
+)
+"kind1/util.ml" 51 2226 2236 "kind1/util.ml" 51 2226 2238
+type(
+  'a list
+)
+"kind1/util.ml" 51 2226 2232 "kind1/util.ml" 51 2226 2238
+type(
+  'a list
+)
+"kind1/util.ml" 51 2226 2242 "kind1/util.ml" 51 2226 2243
+type(
+  'a list
+)
+ident(
+  int_ref l "kind1/util.ml" 48 2168 2190 "kind1/util.ml" 48 2168 2191
+)
+"kind1/util.ml" 52 2244 2250 "kind1/util.ml" 52 2244 2252
+type(
+  'a
+)
+ident(
+  def hd "kind1/util.ml" 53 2260 2261 "kind1/util.ml" 57 2409 2459
+)
+"kind1/util.ml" 52 2244 2254 "kind1/util.ml" 52 2244 2256
+type(
+  'a list
+)
+ident(
+  def tl "kind1/util.ml" 53 2260 2261 "kind1/util.ml" 57 2409 2459
+)
+"kind1/util.ml" 52 2244 2250 "kind1/util.ml" 52 2244 2256
+type(
+  'a list
+)
+"kind1/util.ml" 53 2260 2265 "kind1/util.ml" 53 2260 2269
+type(
+  'a list
+)
+ident(
+  def rest "kind1/util.ml" 54 2292 2293 "kind1/util.ml" 57 2409 2459
+)
+"kind1/util.ml" 53 2260 2272 "kind1/util.ml" 53 2260 2285
+type(
+  'a list -> 'a list
+)
+ident(
+  int_ref unique_sorted "kind1/util.ml" 48 2168 2176 "kind1/util.ml" 48 2168 2189
+)
+"kind1/util.ml" 53 2260 2286 "kind1/util.ml" 53 2260 2288
+type(
+  'a list
+)
+ident(
+  int_ref tl "kind1/util.ml" 52 2244 2254 "kind1/util.ml" 52 2244 2256
+)
+"kind1/util.ml" 53 2260 2272 "kind1/util.ml" 53 2260 2288
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 54 2292 2297 "kind1/util.ml" 54 2292 2306
+type(
+  int
+)
+ident(
+  def cp_result "kind1/util.ml" 55 2338 2339 "kind1/util.ml" 57 2409 2459
+)
+"kind1/util.ml" 54 2292 2309 "kind1/util.ml" 54 2292 2316
+type(
+  'a -> 'a -> int
+)
+ident(
+  ext_ref Pervasives.compare
+)
+"kind1/util.ml" 54 2292 2317 "kind1/util.ml" 54 2292 2319
+type(
+  'a
+)
+ident(
+  int_ref hd "kind1/util.ml" 52 2244 2250 "kind1/util.ml" 52 2244 2252
+)
+"kind1/util.ml" 54 2292 2321 "kind1/util.ml" 54 2292 2328
+type(
+  'a list -> 'a
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/util.ml" 54 2292 2329 "kind1/util.ml" 54 2292 2333
+type(
+  'a list
+)
+ident(
+  int_ref rest "kind1/util.ml" 53 2260 2265 "kind1/util.ml" 53 2260 2269
+)
+"kind1/util.ml" 54 2292 2320 "kind1/util.ml" 54 2292 2334
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/util.ml" 54 2292 2309 "kind1/util.ml" 54 2292 2334
+type(
+  int
+)
+"kind1/util.ml" 55 2338 2343 "kind1/util.ml" 55 2338 2344
+type(
+  int
+)
+"kind1/util.ml" 55 2338 2345 "kind1/util.ml" 55 2338 2346
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 55 2338 2347 "kind1/util.ml" 55 2338 2356
+type(
+  int
+)
+ident(
+  int_ref cp_result "kind1/util.ml" 54 2292 2297 "kind1/util.ml" 54 2292 2306
+)
+"kind1/util.ml" 55 2338 2342 "kind1/util.ml" 55 2338 2357
+type(
+  bool
+)
+"kind1/util.ml" 55 2338 2363 "kind1/util.ml" 55 2338 2367
+type(
+  'a list
+)
+ident(
+  int_ref rest "kind1/util.ml" 53 2260 2265 "kind1/util.ml" 53 2260 2269
+)
+"kind1/util.ml" 56 2368 2379 "kind1/util.ml" 56 2368 2388
+type(
+  int
+)
+ident(
+  int_ref cp_result "kind1/util.ml" 54 2292 2297 "kind1/util.ml" 54 2292 2306
+)
+"kind1/util.ml" 56 2368 2389 "kind1/util.ml" 56 2368 2390
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( < )
+)
+"kind1/util.ml" 56 2368 2391 "kind1/util.ml" 56 2368 2392
+type(
+  int
+)
+"kind1/util.ml" 56 2368 2377 "kind1/util.ml" 56 2368 2394
+type(
+  bool
+)
+"kind1/util.ml" 56 2368 2400 "kind1/util.ml" 56 2368 2402
+type(
+  'a
+)
+ident(
+  int_ref hd "kind1/util.ml" 52 2244 2250 "kind1/util.ml" 52 2244 2252
+)
+"kind1/util.ml" 56 2368 2404 "kind1/util.ml" 56 2368 2408
+type(
+  'a list
+)
+ident(
+  int_ref rest "kind1/util.ml" 53 2260 2265 "kind1/util.ml" 53 2260 2269
+)
+"kind1/util.ml" 56 2368 2400 "kind1/util.ml" 56 2368 2408
+type(
+  'a list
+)
+"kind1/util.ml" 57 2409 2415 "kind1/util.ml" 57 2409 2423
+type(
+  string -> 'a list
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/util.ml" 57 2409 2424 "kind1/util.ml" 57 2409 2459
+type(
+  string
+)
+"kind1/util.ml" 57 2409 2415 "kind1/util.ml" 57 2409 2459
+call(
+  tail
+)
+type(
+  'a list
+)
+"kind1/util.ml" 56 2368 2374 "kind1/util.ml" 57 2409 2459
+type(
+  'a list
+)
+"kind1/util.ml" 55 2338 2339 "kind1/util.ml" 57 2409 2459
+type(
+  'a list
+)
+"kind1/util.ml" 54 2292 2293 "kind1/util.ml" 57 2409 2459
+type(
+  'a list
+)
+"kind1/util.ml" 53 2260 2261 "kind1/util.ml" 57 2409 2459
+type(
+  'a list
+)
+"kind1/util.ml" 49 2195 2197 "kind1/util.ml" 57 2409 2459
+type(
+  'a list
+)
+"kind1/util.ml" 60 2463 2467 "kind1/util.ml" 60 2463 2478
+type(
+  'a list -> 'a list
+)
+ident(
+  def unique_list "kind1/util.ml" 80 3177 3177 "_none_" 1 0 -1
+)
+"kind1/util.ml" 60 2463 2479 "kind1/util.ml" 60 2463 2480
+type(
+  'a list
+)
+ident(
+  def l "kind1/util.ml" 61 2483 2485 "kind1/util.ml" 62 2523 2547
+)
+"kind1/util.ml" 61 2483 2489 "kind1/util.ml" 61 2483 2497
+type(
+  'a list
+)
+ident(
+  def l_sorted "kind1/util.ml" 62 2523 2525 "kind1/util.ml" 62 2523 2547
+)
+"kind1/util.ml" 61 2483 2500 "kind1/util.ml" 61 2483 2509
+type(
+  ('a -> 'a -> int) -> 'a list -> 'a list
+)
+ident(
+  ext_ref List.sort
+)
+"kind1/util.ml" 61 2483 2510 "kind1/util.ml" 61 2483 2517
+type(
+  'a -> 'a -> int
+)
+ident(
+  ext_ref Pervasives.compare
+)
+"kind1/util.ml" 61 2483 2518 "kind1/util.ml" 61 2483 2519
+type(
+  'a list
+)
+ident(
+  int_ref l "kind1/util.ml" 60 2463 2479 "kind1/util.ml" 60 2463 2480
+)
+"kind1/util.ml" 61 2483 2500 "kind1/util.ml" 61 2483 2519
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 62 2523 2525 "kind1/util.ml" 62 2523 2538
+type(
+  'a list -> 'a list
+)
+ident(
+  int_ref unique_sorted "kind1/util.ml" 48 2168 2176 "kind1/util.ml" 48 2168 2189
+)
+"kind1/util.ml" 62 2523 2539 "kind1/util.ml" 62 2523 2547
+type(
+  'a list
+)
+ident(
+  int_ref l_sorted "kind1/util.ml" 61 2483 2489 "kind1/util.ml" 61 2483 2497
+)
+"kind1/util.ml" 62 2523 2525 "kind1/util.ml" 62 2523 2547
+call(
+  tail
+)
+type(
+  'a list
+)
+"kind1/util.ml" 61 2483 2485 "kind1/util.ml" 62 2523 2547
+type(
+  'a list
+)
+"kind1/util.ml" 80 3177 3185 "kind1/util.ml" 80 3177 3201
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  def filter_forbidden "kind1/util.ml" 80 3177 3177 "_none_" 1 0 -1
+)
+"kind1/util.ml" 80 3177 3202 "kind1/util.ml" 80 3177 3216
+type(
+  'a list
+)
+ident(
+  def forbidden_list "kind1/util.ml" 80 3177 3217 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 80 3177 3217 "kind1/util.ml" 80 3177 3231
+type(
+  'a list
+)
+ident(
+  def candidate_list "kind1/util.ml" 81 3235 3237 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 81 3235 3240 "kind1/util.ml" 81 3235 3242
+type(
+  'a list
+)
+"kind1/util.ml" 81 3235 3243 "kind1/util.ml" 81 3235 3244
+type(
+  'a list -> 'a list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 81 3235 3245 "kind1/util.ml" 81 3235 3259
+type(
+  'a list
+)
+ident(
+  int_ref forbidden_list "kind1/util.ml" 80 3177 3202 "kind1/util.ml" 80 3177 3216
+)
+"kind1/util.ml" 81 3235 3240 "kind1/util.ml" 81 3235 3259
+type(
+  bool
+)
+"kind1/util.ml" 81 3235 3265 "kind1/util.ml" 81 3235 3279
+type(
+  'a list
+)
+ident(
+  int_ref candidate_list "kind1/util.ml" 80 3177 3217 "kind1/util.ml" 80 3177 3231
+)
+"kind1/util.ml" 82 3280 3290 "kind1/util.ml" 82 3280 3292
+type(
+  'a list
+)
+"kind1/util.ml" 82 3280 3293 "kind1/util.ml" 82 3280 3294
+type(
+  'a list -> 'a list -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 82 3280 3295 "kind1/util.ml" 82 3280 3309
+type(
+  'a list
+)
+ident(
+  int_ref candidate_list "kind1/util.ml" 80 3177 3217 "kind1/util.ml" 80 3177 3231
+)
+"kind1/util.ml" 82 3280 3290 "kind1/util.ml" 82 3280 3309
+type(
+  bool
+)
+"kind1/util.ml" 82 3280 3315 "kind1/util.ml" 82 3280 3317
+type(
+  'a list
+)
+"kind1/util.ml" 83 3318 3329 "kind1/util.ml" 83 3318 3335
+type(
+  'a
+)
+ident(
+  def fbd_hd "kind1/util.ml" 87 3490 3492 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 83 3318 3338 "kind1/util.ml" 83 3318 3345
+type(
+  'a list -> 'a
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/util.ml" 83 3318 3346 "kind1/util.ml" 83 3318 3360
+type(
+  'a list
+)
+ident(
+  int_ref forbidden_list "kind1/util.ml" 80 3177 3202 "kind1/util.ml" 80 3177 3216
+)
+"kind1/util.ml" 83 3318 3338 "kind1/util.ml" 83 3318 3360
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/util.ml" 84 3365 3371 "kind1/util.ml" 84 3365 3377
+type(
+  'a
+)
+ident(
+  def cdt_hd "kind1/util.ml" 87 3490 3492 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 84 3365 3380 "kind1/util.ml" 84 3365 3387
+type(
+  'a list -> 'a
+)
+ident(
+  ext_ref List.hd
+)
+"kind1/util.ml" 84 3365 3388 "kind1/util.ml" 84 3365 3402
+type(
+  'a list
+)
+ident(
+  int_ref candidate_list "kind1/util.ml" 80 3177 3217 "kind1/util.ml" 80 3177 3231
+)
+"kind1/util.ml" 84 3365 3380 "kind1/util.ml" 84 3365 3402
+call(
+  stack
+)
+type(
+  'a
+)
+"kind1/util.ml" 85 3407 3413 "kind1/util.ml" 85 3407 3419
+type(
+  'a list
+)
+ident(
+  def fbd_tl "kind1/util.ml" 87 3490 3492 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 85 3407 3422 "kind1/util.ml" 85 3407 3429
+type(
+  'a list -> 'a list
+)
+ident(
+  ext_ref List.tl
+)
+"kind1/util.ml" 85 3407 3430 "kind1/util.ml" 85 3407 3444
+type(
+  'a list
+)
+ident(
+  int_ref forbidden_list "kind1/util.ml" 80 3177 3202 "kind1/util.ml" 80 3177 3216
+)
+"kind1/util.ml" 85 3407 3422 "kind1/util.ml" 85 3407 3444
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 86 3449 3455 "kind1/util.ml" 86 3449 3461
+type(
+  'a list
+)
+ident(
+  def cdt_tl "kind1/util.ml" 87 3490 3492 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 86 3449 3464 "kind1/util.ml" 86 3449 3471
+type(
+  'a list -> 'a list
+)
+ident(
+  ext_ref List.tl
+)
+"kind1/util.ml" 86 3449 3472 "kind1/util.ml" 86 3449 3486
+type(
+  'a list
+)
+ident(
+  int_ref candidate_list "kind1/util.ml" 80 3177 3217 "kind1/util.ml" 80 3177 3231
+)
+"kind1/util.ml" 86 3449 3464 "kind1/util.ml" 86 3449 3486
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 87 3490 3496 "kind1/util.ml" 87 3490 3503
+type(
+  int
+)
+ident(
+  def cmp_res "kind1/util.ml" 88 3531 3535 "kind1/util.ml" 90 3657 3714
+)
+"kind1/util.ml" 87 3490 3506 "kind1/util.ml" 87 3490 3513
+type(
+  'a -> 'a -> int
+)
+ident(
+  ext_ref Pervasives.compare
+)
+"kind1/util.ml" 87 3490 3514 "kind1/util.ml" 87 3490 3520
+type(
+  'a
+)
+ident(
+  int_ref fbd_hd "kind1/util.ml" 83 3318 3329 "kind1/util.ml" 83 3318 3335
+)
+"kind1/util.ml" 87 3490 3521 "kind1/util.ml" 87 3490 3527
+type(
+  'a
+)
+ident(
+  int_ref cdt_hd "kind1/util.ml" 84 3365 3371 "kind1/util.ml" 84 3365 3377
+)
+"kind1/util.ml" 87 3490 3506 "kind1/util.ml" 87 3490 3527
+type(
+  int
+)
+"kind1/util.ml" 88 3531 3538 "kind1/util.ml" 88 3531 3539
+type(
+  int
+)
+"kind1/util.ml" 88 3531 3540 "kind1/util.ml" 88 3531 3541
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 88 3531 3542 "kind1/util.ml" 88 3531 3549
+type(
+  int
+)
+ident(
+  int_ref cmp_res "kind1/util.ml" 87 3490 3496 "kind1/util.ml" 87 3490 3503
+)
+"kind1/util.ml" 88 3531 3538 "kind1/util.ml" 88 3531 3549
+type(
+  bool
+)
+"kind1/util.ml" 88 3531 3555 "kind1/util.ml" 88 3531 3571
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  int_ref filter_forbidden "kind1/util.ml" 80 3177 3185 "kind1/util.ml" 80 3177 3201
+)
+"kind1/util.ml" 88 3531 3572 "kind1/util.ml" 88 3531 3578
+type(
+  'a list
+)
+ident(
+  int_ref fbd_tl "kind1/util.ml" 85 3407 3413 "kind1/util.ml" 85 3407 3419
+)
+"kind1/util.ml" 88 3531 3579 "kind1/util.ml" 88 3531 3585
+type(
+  'a list
+)
+ident(
+  int_ref cdt_tl "kind1/util.ml" 86 3449 3455 "kind1/util.ml" 86 3449 3461
+)
+"kind1/util.ml" 88 3531 3555 "kind1/util.ml" 88 3531 3585
+call(
+  tail
+)
+type(
+  'a list
+)
+"kind1/util.ml" 89 3587 3599 "kind1/util.ml" 89 3587 3606
+type(
+  int
+)
+ident(
+  int_ref cmp_res "kind1/util.ml" 87 3490 3496 "kind1/util.ml" 87 3490 3503
+)
+"kind1/util.ml" 89 3587 3607 "kind1/util.ml" 89 3587 3609
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( <= )
+)
+"kind1/util.ml" 89 3587 3610 "kind1/util.ml" 89 3587 3611
+type(
+  int
+)
+"kind1/util.ml" 89 3587 3599 "kind1/util.ml" 89 3587 3611
+type(
+  bool
+)
+"kind1/util.ml" 89 3587 3617 "kind1/util.ml" 89 3587 3633
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  int_ref filter_forbidden "kind1/util.ml" 80 3177 3185 "kind1/util.ml" 80 3177 3201
+)
+"kind1/util.ml" 89 3587 3634 "kind1/util.ml" 89 3587 3640
+type(
+  'a list
+)
+ident(
+  int_ref fbd_tl "kind1/util.ml" 85 3407 3413 "kind1/util.ml" 85 3407 3419
+)
+"kind1/util.ml" 89 3587 3641 "kind1/util.ml" 89 3587 3655
+type(
+  'a list
+)
+ident(
+  int_ref candidate_list "kind1/util.ml" 80 3177 3217 "kind1/util.ml" 80 3177 3231
+)
+"kind1/util.ml" 89 3587 3617 "kind1/util.ml" 89 3587 3655
+call(
+  tail
+)
+type(
+  'a list
+)
+"kind1/util.ml" 90 3657 3666 "kind1/util.ml" 90 3657 3672
+type(
+  'a
+)
+ident(
+  int_ref cdt_hd "kind1/util.ml" 84 3365 3371 "kind1/util.ml" 84 3365 3377
+)
+"kind1/util.ml" 90 3657 3675 "kind1/util.ml" 90 3657 3691
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  int_ref filter_forbidden "kind1/util.ml" 80 3177 3185 "kind1/util.ml" 80 3177 3201
+)
+"kind1/util.ml" 90 3657 3692 "kind1/util.ml" 90 3657 3706
+type(
+  'a list
+)
+ident(
+  int_ref forbidden_list "kind1/util.ml" 80 3177 3202 "kind1/util.ml" 80 3177 3216
+)
+"kind1/util.ml" 90 3657 3707 "kind1/util.ml" 90 3657 3713
+type(
+  'a list
+)
+ident(
+  int_ref cdt_tl "kind1/util.ml" 86 3449 3455 "kind1/util.ml" 86 3449 3461
+)
+"kind1/util.ml" 90 3657 3674 "kind1/util.ml" 90 3657 3714
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 90 3657 3666 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 89 3587 3596 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 88 3531 3535 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 87 3490 3492 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 83 3318 3325 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 82 3280 3287 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 81 3235 3237 "kind1/util.ml" 90 3657 3714
+type(
+  'a list
+)
+"kind1/util.ml" 93 3717 3722 "kind1/util.ml" 93 3717 3738
+type(
+  string -> unit
+)
+ident(
+  def print_solver_out "kind1/util.ml" 102 3935 3935 "_none_" 1 0 -1
+)
+"kind1/util.ml" 93 3717 3739 "kind1/util.ml" 93 3717 3743
+type(
+  string
+)
+ident(
+  def out1 "kind1/util.ml" 94 3747 3749 "kind1/util.ml" 100 3909 3933
+)
+"kind1/util.ml" 94 3747 3753 "kind1/util.ml" 94 3747 3760
+type(
+  string
+)
+ident(
+  def newout1 "kind1/util.ml" 99 3870 3874 "kind1/util.ml" 100 3909 3933
+)
+"kind1/util.ml" 95 3764 3768 "kind1/util.ml" 95 3764 3783
+type(
+  (string -> string -> string) -> string list -> string -> string
+)
+ident(
+  ext_ref List.fold_right
+)
+"kind1/util.ml" 96 3785 3796 "kind1/util.ml" 96 3785 3797
+type(
+  string
+)
+ident(
+  def x "kind1/util.ml" 96 3785 3798 "kind1/util.ml" 96 3785 3811
+)
+"kind1/util.ml" 96 3785 3798 "kind1/util.ml" 96 3785 3799
+type(
+  string
+)
+ident(
+  def y "kind1/util.ml" 96 3785 3803 "kind1/util.ml" 96 3785 3811
+)
+"kind1/util.ml" 96 3785 3803 "kind1/util.ml" 96 3785 3804
+type(
+  string
+)
+ident(
+  int_ref x "kind1/util.ml" 96 3785 3796 "kind1/util.ml" 96 3785 3797
+)
+"kind1/util.ml" 96 3785 3804 "kind1/util.ml" 96 3785 3805
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/util.ml" 96 3785 3805 "kind1/util.ml" 96 3785 3809
+type(
+  string
+)
+"kind1/util.ml" 96 3785 3809 "kind1/util.ml" 96 3785 3810
+type(
+  string -> string -> string
+)
+ident(
+  ext_ref Pervasives.( ^ )
+)
+"kind1/util.ml" 96 3785 3810 "kind1/util.ml" 96 3785 3811
+type(
+  string
+)
+ident(
+  int_ref y "kind1/util.ml" 96 3785 3798 "kind1/util.ml" 96 3785 3799
+)
+"kind1/util.ml" 96 3785 3805 "kind1/util.ml" 96 3785 3811
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/util.ml" 96 3785 3803 "kind1/util.ml" 96 3785 3811
+call(
+  tail
+)
+type(
+  string
+)
+"kind1/util.ml" 96 3785 3791 "kind1/util.ml" 96 3785 3812
+type(
+  string -> string -> string
+)
+"kind1/util.ml" 97 3814 3821 "kind1/util.ml" 97 3814 3830
+type(
+  Str.regexp -> string -> string list
+)
+ident(
+  ext_ref Str.split
+)
+"kind1/util.ml" 97 3814 3832 "kind1/util.ml" 97 3814 3842
+type(
+  string -> Str.regexp
+)
+ident(
+  ext_ref Str.regexp
+)
+"kind1/util.ml" 97 3814 3843 "kind1/util.ml" 97 3814 3850
+type(
+  string
+)
+"kind1/util.ml" 97 3814 3831 "kind1/util.ml" 97 3814 3851
+call(
+  stack
+)
+type(
+  Str.regexp
+)
+"kind1/util.ml" 97 3814 3852 "kind1/util.ml" 97 3814 3856
+type(
+  string
+)
+ident(
+  int_ref out1 "kind1/util.ml" 93 3717 3739 "kind1/util.ml" 93 3717 3743
+)
+"kind1/util.ml" 97 3814 3820 "kind1/util.ml" 97 3814 3857
+call(
+  stack
+)
+type(
+  string list
+)
+"kind1/util.ml" 98 3858 3864 "kind1/util.ml" 98 3858 3866
+type(
+  string
+)
+"kind1/util.ml" 95 3764 3768 "kind1/util.ml" 98 3858 3866
+call(
+  stack
+)
+type(
+  string
+)
+"kind1/util.ml" 99 3870 3874 "kind1/util.ml" 99 3870 3886
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.print_string
+)
+"kind1/util.ml" 99 3870 3887 "kind1/util.ml" 99 3870 3907
+type(
+  string
+)
+"kind1/util.ml" 99 3870 3874 "kind1/util.ml" 99 3870 3907
+call(
+  stack
+)
+type(
+  unit
+)
+"kind1/util.ml" 100 3909 3913 "kind1/util.ml" 100 3909 3925
+type(
+  string -> unit
+)
+ident(
+  ext_ref Pervasives.print_string
+)
+"kind1/util.ml" 100 3909 3926 "kind1/util.ml" 100 3909 3933
+type(
+  string
+)
+ident(
+  int_ref newout1 "kind1/util.ml" 94 3747 3753 "kind1/util.ml" 94 3747 3760
+)
+"kind1/util.ml" 100 3909 3913 "kind1/util.ml" 100 3909 3933
+call(
+  tail
+)
+type(
+  unit
+)
+"kind1/util.ml" 99 3870 3874 "kind1/util.ml" 100 3909 3933
+type(
+  unit
+)
+"kind1/util.ml" 94 3747 3749 "kind1/util.ml" 100 3909 3933
+type(
+  unit
+)
+"kind1/util.ml" 102 3935 3943 "kind1/util.ml" 102 3935 3949
+type(
+  int -> int -> int list
+)
+ident(
+  def n_to_m "kind1/util.ml" 102 3935 3935 "_none_" 1 0 -1
+)
+"kind1/util.ml" 102 3935 3950 "kind1/util.ml" 102 3935 3951
+type(
+  int
+)
+ident(
+  def n "kind1/util.ml" 102 3935 3952 "kind1/util.ml" 105 4018 4044
+)
+"kind1/util.ml" 102 3935 3952 "kind1/util.ml" 102 3935 3953
+type(
+  int
+)
+ident(
+  def m "kind1/util.ml" 103 3956 3958 "kind1/util.ml" 105 4018 4044
+)
+"kind1/util.ml" 103 3956 3962 "kind1/util.ml" 103 3956 3963
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 102 3935 3950 "kind1/util.ml" 102 3935 3951
+)
+"kind1/util.ml" 103 3956 3964 "kind1/util.ml" 103 3956 3965
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/util.ml" 103 3956 3966 "kind1/util.ml" 103 3956 3967
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 102 3935 3952 "kind1/util.ml" 102 3935 3953
+)
+"kind1/util.ml" 103 3956 3962 "kind1/util.ml" 103 3956 3967
+type(
+  bool
+)
+"kind1/util.ml" 103 3956 3973 "kind1/util.ml" 103 3956 3981
+type(
+  string -> int list
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/util.ml" 103 3956 3982 "kind1/util.ml" 103 3956 3992
+type(
+  string
+)
+"kind1/util.ml" 103 3956 3973 "kind1/util.ml" 103 3956 3992
+call(
+  tail
+)
+type(
+  int list
+)
+"kind1/util.ml" 104 3993 4003 "kind1/util.ml" 104 3993 4004
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 102 3935 3950 "kind1/util.ml" 102 3935 3951
+)
+"kind1/util.ml" 104 3993 4005 "kind1/util.ml" 104 3993 4006
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 104 3993 4007 "kind1/util.ml" 104 3993 4008
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 102 3935 3952 "kind1/util.ml" 102 3935 3953
+)
+"kind1/util.ml" 104 3993 4003 "kind1/util.ml" 104 3993 4008
+type(
+  bool
+)
+"kind1/util.ml" 104 3993 4015 "kind1/util.ml" 104 3993 4016
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 102 3935 3952 "kind1/util.ml" 102 3935 3953
+)
+"kind1/util.ml" 104 3993 4014 "kind1/util.ml" 104 3993 4017
+type(
+  int list
+)
+"kind1/util.ml" 105 4018 4025 "kind1/util.ml" 105 4018 4026
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 102 3935 3950 "kind1/util.ml" 102 3935 3951
+)
+"kind1/util.ml" 105 4018 4029 "kind1/util.ml" 105 4018 4035
+type(
+  int -> int -> int list
+)
+ident(
+  int_ref n_to_m "kind1/util.ml" 102 3935 3943 "kind1/util.ml" 102 3935 3949
+)
+"kind1/util.ml" 105 4018 4037 "kind1/util.ml" 105 4018 4038
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 102 3935 3950 "kind1/util.ml" 102 3935 3951
+)
+"kind1/util.ml" 105 4018 4038 "kind1/util.ml" 105 4018 4039
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/util.ml" 105 4018 4039 "kind1/util.ml" 105 4018 4040
+type(
+  int
+)
+"kind1/util.ml" 105 4018 4036 "kind1/util.ml" 105 4018 4041
+type(
+  int
+)
+"kind1/util.ml" 105 4018 4042 "kind1/util.ml" 105 4018 4043
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 102 3935 3952 "kind1/util.ml" 102 3935 3953
+)
+"kind1/util.ml" 105 4018 4028 "kind1/util.ml" 105 4018 4044
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/util.ml" 105 4018 4025 "kind1/util.ml" 105 4018 4044
+type(
+  int list
+)
+"kind1/util.ml" 104 3993 4000 "kind1/util.ml" 105 4018 4044
+type(
+  int list
+)
+"kind1/util.ml" 103 3956 3958 "kind1/util.ml" 105 4018 4044
+type(
+  int list
+)
+"kind1/util.ml" 107 4046 4054 "kind1/util.ml" 107 4046 4064
+type(
+  int -> int -> int list
+)
+ident(
+  def n_to_m_inc "kind1/util.ml" 107 4046 4046 "_none_" 1 0 -1
+)
+"kind1/util.ml" 107 4046 4065 "kind1/util.ml" 107 4046 4066
+type(
+  int
+)
+ident(
+  def n "kind1/util.ml" 107 4046 4067 "kind1/util.ml" 109 4091 4121
+)
+"kind1/util.ml" 107 4046 4067 "kind1/util.ml" 107 4046 4068
+type(
+  int
+)
+ident(
+  def m "kind1/util.ml" 108 4071 4073 "kind1/util.ml" 109 4091 4121
+)
+"kind1/util.ml" 108 4071 4076 "kind1/util.ml" 108 4071 4077
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 107 4046 4065 "kind1/util.ml" 107 4046 4066
+)
+"kind1/util.ml" 108 4071 4078 "kind1/util.ml" 108 4071 4079
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 108 4071 4080 "kind1/util.ml" 108 4071 4081
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 107 4046 4067 "kind1/util.ml" 107 4046 4068
+)
+"kind1/util.ml" 108 4071 4076 "kind1/util.ml" 108 4071 4081
+type(
+  bool
+)
+"kind1/util.ml" 108 4071 4088 "kind1/util.ml" 108 4071 4089
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 107 4046 4067 "kind1/util.ml" 107 4046 4068
+)
+"kind1/util.ml" 108 4071 4087 "kind1/util.ml" 108 4071 4090
+type(
+  int list
+)
+"kind1/util.ml" 109 4091 4098 "kind1/util.ml" 109 4091 4099
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 107 4046 4065 "kind1/util.ml" 107 4046 4066
+)
+"kind1/util.ml" 109 4091 4102 "kind1/util.ml" 109 4091 4112
+type(
+  int -> int -> int list
+)
+ident(
+  int_ref n_to_m_inc "kind1/util.ml" 107 4046 4054 "kind1/util.ml" 107 4046 4064
+)
+"kind1/util.ml" 109 4091 4114 "kind1/util.ml" 109 4091 4115
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 107 4046 4065 "kind1/util.ml" 107 4046 4066
+)
+"kind1/util.ml" 109 4091 4115 "kind1/util.ml" 109 4091 4116
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/util.ml" 109 4091 4116 "kind1/util.ml" 109 4091 4117
+type(
+  int
+)
+"kind1/util.ml" 109 4091 4113 "kind1/util.ml" 109 4091 4118
+type(
+  int
+)
+"kind1/util.ml" 109 4091 4119 "kind1/util.ml" 109 4091 4120
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 107 4046 4067 "kind1/util.ml" 107 4046 4068
+)
+"kind1/util.ml" 109 4091 4101 "kind1/util.ml" 109 4091 4121
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/util.ml" 109 4091 4098 "kind1/util.ml" 109 4091 4121
+type(
+  int list
+)
+"kind1/util.ml" 108 4071 4073 "kind1/util.ml" 109 4091 4121
+type(
+  int list
+)
+"kind1/util.ml" 111 4123 4127 "kind1/util.ml" 111 4123 4137
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  def list_minus "kind1/util.ml" 129 4533 4533 "_none_" 1 0 -1
+)
+"kind1/util.ml" 111 4123 4138 "kind1/util.ml" 111 4123 4144
+type(
+  'a list
+)
+ident(
+  def l_list "kind1/util.ml" 111 4123 4145 "kind1/util.ml" 126 4514 4527
+)
+"kind1/util.ml" 111 4123 4145 "kind1/util.ml" 111 4123 4151
+type(
+  'a list
+)
+ident(
+  def r_list "kind1/util.ml" 112 4154 4156 "kind1/util.ml" 126 4514 4527
+)
+"kind1/util.ml" 112 4154 4160 "kind1/util.ml" 112 4154 4161
+type(
+  'a list
+)
+ident(
+  def l "kind1/util.ml" 113 4186 4188 "kind1/util.ml" 126 4514 4527
+)
+"kind1/util.ml" 112 4154 4164 "kind1/util.ml" 112 4154 4175
+type(
+  'a list -> 'a list
+)
+ident(
+  int_ref unique_list "kind1/util.ml" 60 2463 2467 "kind1/util.ml" 60 2463 2478
+)
+"kind1/util.ml" 112 4154 4176 "kind1/util.ml" 112 4154 4182
+type(
+  'a list
+)
+ident(
+  int_ref l_list "kind1/util.ml" 111 4123 4138 "kind1/util.ml" 111 4123 4144
+)
+"kind1/util.ml" 112 4154 4164 "kind1/util.ml" 112 4154 4182
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 113 4186 4192 "kind1/util.ml" 113 4186 4193
+type(
+  'a list
+)
+ident(
+  def r "kind1/util.ml" 114 4218 4220 "kind1/util.ml" 126 4514 4527
+)
+"kind1/util.ml" 113 4186 4196 "kind1/util.ml" 113 4186 4207
+type(
+  'a list -> 'a list
+)
+ident(
+  int_ref unique_list "kind1/util.ml" 60 2463 2467 "kind1/util.ml" 60 2463 2478
+)
+"kind1/util.ml" 113 4186 4208 "kind1/util.ml" 113 4186 4214
+type(
+  'a list
+)
+ident(
+  int_ref r_list "kind1/util.ml" 111 4123 4145 "kind1/util.ml" 111 4123 4151
+)
+"kind1/util.ml" 113 4186 4196 "kind1/util.ml" 113 4186 4214
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/util.ml" 114 4218 4228 "kind1/util.ml" 114 4218 4233
+type(
+  'b list -> 'b list -> 'b list
+)
+ident(
+  def minus "kind1/util.ml" 114 4218 4220 "kind1/util.ml" 126 4514 4527
+)
+"kind1/util.ml" 114 4218 4234 "kind1/util.ml" 114 4218 4235
+type(
+  'b list
+)
+ident(
+  def l "kind1/util.ml" 114 4218 4236 "kind1/util.ml" 125 4490 4510
+)
+"kind1/util.ml" 114 4218 4236 "kind1/util.ml" 114 4218 4237
+type(
+  'b list
+)
+ident(
+  def r "kind1/util.ml" 115 4240 4244 "kind1/util.ml" 125 4490 4510
+)
+"kind1/util.ml" 115 4240 4250 "kind1/util.ml" 115 4240 4251
+type(
+  'b list
+)
+ident(
+  int_ref l "kind1/util.ml" 114 4218 4234 "kind1/util.ml" 114 4218 4235
+)
+"kind1/util.ml" 115 4240 4253 "kind1/util.ml" 115 4240 4254
+type(
+  'b list
+)
+ident(
+  int_ref r "kind1/util.ml" 114 4218 4236 "kind1/util.ml" 114 4218 4237
+)
+"kind1/util.ml" 115 4240 4250 "kind1/util.ml" 115 4240 4254
+type(
+  'b list * 'b list
+)
+"kind1/util.ml" 116 4261 4267 "kind1/util.ml" 116 4261 4270
+type(
+  'b
+)
+ident(
+  def hd1 "kind1/util.ml" 117 4290 4291 "kind1/util.ml" 122 4408 4434
+)
+"kind1/util.ml" 116 4261 4272 "kind1/util.ml" 116 4261 4275
+type(
+  'b list
+)
+ident(
+  def tl1 "kind1/util.ml" 117 4290 4291 "kind1/util.ml" 122 4408 4434
+)
+"kind1/util.ml" 116 4261 4267 "kind1/util.ml" 116 4261 4275
+type(
+  'b list
+)
+"kind1/util.ml" 116 4261 4277 "kind1/util.ml" 116 4261 4280
+type(
+  'b
+)
+ident(
+  def hd2 "kind1/util.ml" 117 4290 4291 "kind1/util.ml" 122 4408 4434
+)
+"kind1/util.ml" 116 4261 4282 "kind1/util.ml" 116 4261 4285
+type(
+  'b list
+)
+ident(
+  def tl2 "kind1/util.ml" 117 4290 4291 "kind1/util.ml" 122 4408 4434
+)
+"kind1/util.ml" 116 4261 4277 "kind1/util.ml" 116 4261 4285
+type(
+  'b list
+)
+"kind1/util.ml" 116 4261 4267 "kind1/util.ml" 116 4261 4285
+type(
+  'b list * 'b list
+)
+"kind1/util.ml" 117 4290 4295 "kind1/util.ml" 117 4290 4301
+type(
+  int
+)
+ident(
+  def cp_res "kind1/util.ml" 118 4323 4326 "kind1/util.ml" 122 4408 4434
+)
+"kind1/util.ml" 117 4290 4304 "kind1/util.ml" 117 4290 4311
+type(
+  'b -> 'b -> int
+)
+ident(
+  ext_ref Pervasives.compare
+)
+"kind1/util.ml" 117 4290 4312 "kind1/util.ml" 117 4290 4315
+type(
+  'b
+)
+ident(
+  int_ref hd1 "kind1/util.ml" 116 4261 4267 "kind1/util.ml" 116 4261 4270
+)
+"kind1/util.ml" 117 4290 4316 "kind1/util.ml" 117 4290 4319
+type(
+  'b
+)
+ident(
+  int_ref hd2 "kind1/util.ml" 116 4261 4277 "kind1/util.ml" 116 4261 4280
+)
+"kind1/util.ml" 117 4290 4304 "kind1/util.ml" 117 4290 4319
+type(
+  int
+)
+"kind1/util.ml" 118 4323 4329 "kind1/util.ml" 118 4323 4330
+type(
+  int
+)
+"kind1/util.ml" 118 4323 4331 "kind1/util.ml" 118 4323 4333
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( == )
+)
+"kind1/util.ml" 118 4323 4334 "kind1/util.ml" 118 4323 4340
+type(
+  int
+)
+ident(
+  int_ref cp_res "kind1/util.ml" 117 4290 4295 "kind1/util.ml" 117 4290 4301
+)
+"kind1/util.ml" 118 4323 4329 "kind1/util.ml" 118 4323 4340
+type(
+  bool
+)
+"kind1/util.ml" 119 4342 4350 "kind1/util.ml" 119 4342 4355
+type(
+  'b list -> 'b list -> 'b list
+)
+ident(
+  int_ref minus "kind1/util.ml" 114 4218 4228 "kind1/util.ml" 114 4218 4233
+)
+"kind1/util.ml" 119 4342 4356 "kind1/util.ml" 119 4342 4359
+type(
+  'b list
+)
+ident(
+  int_ref tl1 "kind1/util.ml" 116 4261 4272 "kind1/util.ml" 116 4261 4275
+)
+"kind1/util.ml" 119 4342 4360 "kind1/util.ml" 119 4342 4363
+type(
+  'b list
+)
+ident(
+  int_ref tl2 "kind1/util.ml" 116 4261 4282 "kind1/util.ml" 116 4261 4285
+)
+"kind1/util.ml" 119 4342 4350 "kind1/util.ml" 119 4342 4363
+call(
+  tail
+)
+type(
+  'b list
+)
+"kind1/util.ml" 120 4365 4376 "kind1/util.ml" 120 4365 4377
+type(
+  int
+)
+"kind1/util.ml" 120 4365 4378 "kind1/util.ml" 120 4365 4379
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 120 4365 4380 "kind1/util.ml" 120 4365 4386
+type(
+  int
+)
+ident(
+  int_ref cp_res "kind1/util.ml" 117 4290 4295 "kind1/util.ml" 117 4290 4301
+)
+"kind1/util.ml" 120 4365 4376 "kind1/util.ml" 120 4365 4386
+type(
+  bool
+)
+"kind1/util.ml" 121 4388 4396 "kind1/util.ml" 121 4388 4401
+type(
+  'b list -> 'b list -> 'b list
+)
+ident(
+  int_ref minus "kind1/util.ml" 114 4218 4228 "kind1/util.ml" 114 4218 4233
+)
+"kind1/util.ml" 121 4388 4402 "kind1/util.ml" 121 4388 4403
+type(
+  'b list
+)
+ident(
+  int_ref l "kind1/util.ml" 114 4218 4234 "kind1/util.ml" 114 4218 4235
+)
+"kind1/util.ml" 121 4388 4404 "kind1/util.ml" 121 4388 4407
+type(
+  'b list
+)
+ident(
+  int_ref tl2 "kind1/util.ml" 116 4261 4282 "kind1/util.ml" 116 4261 4285
+)
+"kind1/util.ml" 121 4388 4396 "kind1/util.ml" 121 4388 4407
+call(
+  tail
+)
+type(
+  'b list
+)
+"kind1/util.ml" 122 4408 4416 "kind1/util.ml" 122 4408 4419
+type(
+  'b
+)
+ident(
+  int_ref hd1 "kind1/util.ml" 116 4261 4267 "kind1/util.ml" 116 4261 4270
+)
+"kind1/util.ml" 122 4408 4422 "kind1/util.ml" 122 4408 4427
+type(
+  'b list -> 'b list -> 'b list
+)
+ident(
+  int_ref minus "kind1/util.ml" 114 4218 4228 "kind1/util.ml" 114 4218 4233
+)
+"kind1/util.ml" 122 4408 4428 "kind1/util.ml" 122 4408 4431
+type(
+  'b list
+)
+ident(
+  int_ref tl1 "kind1/util.ml" 116 4261 4272 "kind1/util.ml" 116 4261 4275
+)
+"kind1/util.ml" 122 4408 4432 "kind1/util.ml" 122 4408 4433
+type(
+  'b list
+)
+ident(
+  int_ref r "kind1/util.ml" 114 4218 4236 "kind1/util.ml" 114 4218 4237
+)
+"kind1/util.ml" 122 4408 4421 "kind1/util.ml" 122 4408 4434
+call(
+  stack
+)
+type(
+  'b list
+)
+"kind1/util.ml" 122 4408 4416 "kind1/util.ml" 122 4408 4434
+type(
+  'b list
+)
+"kind1/util.ml" 120 4365 4373 "kind1/util.ml" 122 4408 4434
+type(
+  'b list
+)
+"kind1/util.ml" 118 4323 4326 "kind1/util.ml" 122 4408 4434
+type(
+  'b list
+)
+"kind1/util.ml" 117 4290 4291 "kind1/util.ml" 122 4408 4434
+type(
+  'b list
+)
+"kind1/util.ml" 123 4435 4443 "kind1/util.ml" 123 4435 4445
+type(
+  'b list
+)
+"kind1/util.ml" 123 4435 4447 "kind1/util.ml" 123 4435 4450
+type(
+  'b
+)
+ident(
+  def hd2 "kind1/util.ml" 123 4435 4459 "kind1/util.ml" 123 4435 4461
+)
+"kind1/util.ml" 123 4435 4452 "kind1/util.ml" 123 4435 4455
+type(
+  'b list
+)
+ident(
+  def tl2 "kind1/util.ml" 123 4435 4459 "kind1/util.ml" 123 4435 4461
+)
+"kind1/util.ml" 123 4435 4447 "kind1/util.ml" 123 4435 4455
+type(
+  'b list
+)
+"kind1/util.ml" 123 4435 4443 "kind1/util.ml" 123 4435 4455
+type(
+  'b list * 'b list
+)
+"kind1/util.ml" 123 4435 4459 "kind1/util.ml" 123 4435 4461
+type(
+  'b list
+)
+"kind1/util.ml" 124 4462 4471 "kind1/util.ml" 124 4462 4474
+type(
+  'b
+)
+ident(
+  def hdl "kind1/util.ml" 124 4462 4487 "kind1/util.ml" 124 4462 4488
+)
+"kind1/util.ml" 124 4462 4476 "kind1/util.ml" 124 4462 4479
+type(
+  'b list
+)
+ident(
+  def tl1 "kind1/util.ml" 124 4462 4487 "kind1/util.ml" 124 4462 4488
+)
+"kind1/util.ml" 124 4462 4471 "kind1/util.ml" 124 4462 4479
+type(
+  'b list
+)
+"kind1/util.ml" 124 4462 4481 "kind1/util.ml" 124 4462 4483
+type(
+  'b list
+)
+"kind1/util.ml" 124 4462 4471 "kind1/util.ml" 124 4462 4483
+type(
+  'b list * 'b list
+)
+"kind1/util.ml" 124 4462 4487 "kind1/util.ml" 124 4462 4488
+type(
+  'b list
+)
+ident(
+  int_ref l "kind1/util.ml" 114 4218 4234 "kind1/util.ml" 114 4218 4235
+)
+"kind1/util.ml" 125 4490 4498 "kind1/util.ml" 125 4490 4500
+type(
+  'b list
+)
+"kind1/util.ml" 125 4490 4502 "kind1/util.ml" 125 4490 4504
+type(
+  'b list
+)
+"kind1/util.ml" 125 4490 4498 "kind1/util.ml" 125 4490 4504
+type(
+  'b list * 'b list
+)
+"kind1/util.ml" 125 4490 4508 "kind1/util.ml" 125 4490 4510
+type(
+  'b list
+)
+"kind1/util.ml" 115 4240 4244 "kind1/util.ml" 125 4490 4510
+type(
+  'b list
+)
+"kind1/util.ml" 126 4514 4518 "kind1/util.ml" 126 4514 4523
+type(
+  'a list -> 'a list -> 'a list
+)
+ident(
+  int_ref minus "kind1/util.ml" 114 4218 4228 "kind1/util.ml" 114 4218 4233
+)
+"kind1/util.ml" 126 4514 4524 "kind1/util.ml" 126 4514 4525
+type(
+  'a list
+)
+ident(
+  int_ref l "kind1/util.ml" 112 4154 4160 "kind1/util.ml" 112 4154 4161
+)
+"kind1/util.ml" 126 4514 4526 "kind1/util.ml" 126 4514 4527
+type(
+  'a list
+)
+ident(
+  int_ref r "kind1/util.ml" 113 4186 4192 "kind1/util.ml" 113 4186 4193
+)
+"kind1/util.ml" 126 4514 4518 "kind1/util.ml" 126 4514 4527
+call(
+  tail
+)
+type(
+  'a list
+)
+"kind1/util.ml" 114 4218 4220 "kind1/util.ml" 126 4514 4527
+type(
+  'a list
+)
+"kind1/util.ml" 113 4186 4188 "kind1/util.ml" 126 4514 4527
+type(
+  'a list
+)
+"kind1/util.ml" 112 4154 4156 "kind1/util.ml" 126 4514 4527
+type(
+  'a list
+)
+"kind1/util.ml" 129 4533 4541 "kind1/util.ml" 129 4533 4554
+type(
+  int -> int -> int list
+)
+ident(
+  def interval_list "kind1/util.ml" 129 4533 4533 "_none_" 1 0 -1
+)
+"kind1/util.ml" 129 4533 4555 "kind1/util.ml" 129 4533 4556
+type(
+  int
+)
+ident(
+  def n "kind1/util.ml" 129 4533 4557 "kind1/util.ml" 132 4635 4661
+)
+"kind1/util.ml" 129 4533 4557 "kind1/util.ml" 129 4533 4558
+type(
+  int
+)
+ident(
+  def m "kind1/util.ml" 130 4561 4563 "kind1/util.ml" 132 4635 4661
+)
+"kind1/util.ml" 130 4561 4567 "kind1/util.ml" 130 4561 4568
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 129 4533 4555 "kind1/util.ml" 129 4533 4556
+)
+"kind1/util.ml" 130 4561 4569 "kind1/util.ml" 130 4561 4570
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( > )
+)
+"kind1/util.ml" 130 4561 4571 "kind1/util.ml" 130 4561 4572
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 129 4533 4557 "kind1/util.ml" 129 4533 4558
+)
+"kind1/util.ml" 130 4561 4567 "kind1/util.ml" 130 4561 4572
+type(
+  bool
+)
+"kind1/util.ml" 130 4561 4578 "kind1/util.ml" 130 4561 4586
+type(
+  string -> int list
+)
+ident(
+  ext_ref Pervasives.failwith
+)
+"kind1/util.ml" 130 4561 4587 "kind1/util.ml" 130 4561 4609
+type(
+  string
+)
+"kind1/util.ml" 130 4561 4578 "kind1/util.ml" 130 4561 4609
+call(
+  tail
+)
+type(
+  int list
+)
+"kind1/util.ml" 131 4610 4620 "kind1/util.ml" 131 4610 4621
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 129 4533 4555 "kind1/util.ml" 129 4533 4556
+)
+"kind1/util.ml" 131 4610 4622 "kind1/util.ml" 131 4610 4623
+type(
+  int -> int -> bool
+)
+ident(
+  ext_ref Pervasives.( = )
+)
+"kind1/util.ml" 131 4610 4624 "kind1/util.ml" 131 4610 4625
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 129 4533 4557 "kind1/util.ml" 129 4533 4558
+)
+"kind1/util.ml" 131 4610 4620 "kind1/util.ml" 131 4610 4625
+type(
+  bool
+)
+"kind1/util.ml" 131 4610 4632 "kind1/util.ml" 131 4610 4633
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 129 4533 4557 "kind1/util.ml" 129 4533 4558
+)
+"kind1/util.ml" 131 4610 4631 "kind1/util.ml" 131 4610 4634
+type(
+  int list
+)
+"kind1/util.ml" 132 4635 4642 "kind1/util.ml" 132 4635 4643
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 129 4533 4555 "kind1/util.ml" 129 4533 4556
+)
+"kind1/util.ml" 132 4635 4646 "kind1/util.ml" 132 4635 4652
+type(
+  int -> int -> int list
+)
+ident(
+  int_ref n_to_m "kind1/util.ml" 102 3935 3943 "kind1/util.ml" 102 3935 3949
+)
+"kind1/util.ml" 132 4635 4654 "kind1/util.ml" 132 4635 4655
+type(
+  int
+)
+ident(
+  int_ref n "kind1/util.ml" 129 4533 4555 "kind1/util.ml" 129 4533 4556
+)
+"kind1/util.ml" 132 4635 4655 "kind1/util.ml" 132 4635 4656
+type(
+  int -> int -> int
+)
+ident(
+  ext_ref Pervasives.( + )
+)
+"kind1/util.ml" 132 4635 4656 "kind1/util.ml" 132 4635 4657
+type(
+  int
+)
+"kind1/util.ml" 132 4635 4653 "kind1/util.ml" 132 4635 4658
+type(
+  int
+)
+"kind1/util.ml" 132 4635 4659 "kind1/util.ml" 132 4635 4660
+type(
+  int
+)
+ident(
+  int_ref m "kind1/util.ml" 129 4533 4557 "kind1/util.ml" 129 4533 4558
+)
+"kind1/util.ml" 132 4635 4645 "kind1/util.ml" 132 4635 4661
+call(
+  stack
+)
+type(
+  int list
+)
+"kind1/util.ml" 132 4635 4642 "kind1/util.ml" 132 4635 4661
+type(
+  int list
+)
+"kind1/util.ml" 131 4610 4617 "kind1/util.ml" 132 4635 4661
+type(
+  int list
+)
+"kind1/util.ml" 130 4561 4563 "kind1/util.ml" 132 4635 4661
+type(
+  int list
+)
