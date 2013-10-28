@@ -280,6 +280,12 @@ let interpreter_input_file_default = ""
 
 (* ********** *) 
 
+type interpreter_steps = int 
+
+let interpreter_steps_default = 0
+
+(* ********** *) 
+
 let debug_default = []
 
 (* ********** *) 
@@ -317,6 +323,7 @@ type flags =
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable interpreter_input_file : interpreter_input_file;
+      mutable interpreter_steps : interpreter_steps;
       mutable debug : string list;
       mutable debug_log : string option;
       mutable log_level : Event.log_level;
@@ -344,6 +351,7 @@ let flags =
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     interpreter_input_file = interpreter_input_file_default;
+    interpreter_steps = interpreter_steps_default;
     debug = debug_default;
     debug_log = debug_log_default;
     log_level = log_level_default;
@@ -525,6 +533,15 @@ let interpreter_input_file_spec =
 
 (* ********** *) 
 
+let interpreter_steps_action o = flags.interpreter_steps <- o
+                                       
+let interpreter_steps_spec = 
+  ("--interpreter_steps", 
+   Arg.String interpreter_steps_action, 
+   Format.sprintf "(Interpreter) Run number of steps, override the number of steps given in the input file")
+
+(* ********** *) 
+
 let debug_action o = flags.debug <- o :: flags.debug 
   
 let debug_spec = 
@@ -632,6 +649,8 @@ let cooper_general_lbound () = flags.cooper_general_lbound
 
 let interpreter_input_file () = flags.interpreter_input_file
 
+let interpreter_steps () = flags.interpreter_steps
+
 let debug () = flags.debug
 
 let debug_log () = flags.debug_log
@@ -712,6 +731,10 @@ and speclist =
     cooper_general_lbound_spec;
 
     (* Read input from file *)
+    interpreter_input_file_spec;
+
+    (* Run number of steps, override the number of steps given in the
+       input file *)
     interpreter_input_file_spec;
 
     (* Enable debug output *)

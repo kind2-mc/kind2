@@ -47,8 +47,9 @@ let on_exit () = ()
 (* Main entry point *)
 let main input_file transSys =
   let inputs = InputParser.read_file input_file in
+
   (* Number of instants input *)
-  let k = 5 in
+  let k = Flags.interpreter_steps () in
 
   Event.log `Interpreter Event.L_fatal "Interpreter running up to k = %d" k;
 
