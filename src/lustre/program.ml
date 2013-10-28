@@ -32,11 +32,12 @@ type t
 (* Pretty-print a position *)
 let pp_print_position 
     ppf 
-    { Lexing.pos_lnum; Lexing.pos_bol; Lexing.pos_cnum } =
+    { Lexing.pos_fname; Lexing.pos_lnum; Lexing.pos_bol; Lexing.pos_cnum } =
 
   Format.fprintf 
     ppf
-    "(%d,%d)"
+    "(%s,%d,%d)"
+    pos_fname
     pos_lnum
     (pos_cnum - pos_bol)
 
