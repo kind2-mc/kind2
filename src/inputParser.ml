@@ -45,7 +45,7 @@ let rec parse_stream = parser
   [< 'Ident name; 'Kwd "," ; sequence = parse_sequence>] ->
     try
       (*Find the state variable "name"*) 
-      StateVar.state_var_of_string name, sequence
+      StateVar.state_var_of_original_name name, sequence
     with Not_found ->
       Event.log `Interpreter Event.L_fatal "Cannot find state variable: %s\n" name;
       failwith (Format.sprintf "Cannot find state variable: %s" name)
