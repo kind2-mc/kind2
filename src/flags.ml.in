@@ -270,6 +270,16 @@ let cooper_general_lbound_default = false
 
 (* ********** *) 
 
+type interpreter_input_file = string 
+
+let interpreter_input_file_of_string s = s
+
+let string_of_interpreter_input_file s = s 
+
+let interpreter_input_file_default = ""
+
+(* ********** *) 
+
 let debug_default = []
 
 (* ********** *) 
@@ -306,6 +316,7 @@ type flags =
       mutable pdr_prop_in_last_frame : pdr_prop_in_last_frame;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
+      mutable interpreter_input_file : interpreter_input_file;
       mutable debug : string list;
       mutable debug_log : string option;
       mutable log_level : Event.log_level;
@@ -332,6 +343,7 @@ let flags =
     pdr_prop_in_last_frame = pdr_prop_in_last_frame_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
+    interpreter_input_file = interpreter_input_file_default;
     debug = debug_default;
     debug_log = debug_log_default;
     log_level = log_level_default;
@@ -504,6 +516,15 @@ let cooper_general_lbound_spec =
 
 (* ********** *) 
 
+let interpreter_input_file_action o = flags.interpreter_input_file <- o
+                                       
+let interpreter_input_file_spec = 
+  ("--interpreter_input_file", 
+   Arg.String interpreter_input_file_action, 
+   Format.sprintf "(Interpreter) Read input from file")
+
+(* ********** *) 
+
 let debug_action o = flags.debug <- o :: flags.debug 
   
 let debug_spec = 
@@ -609,6 +630,8 @@ let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
 
+let interpreter_input_file () = flags.interpreter_input_file
+
 let debug () = flags.debug
 
 let debug_log () = flags.debug_log
@@ -687,6 +710,9 @@ and speclist =
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
     cooper_general_lbound_spec;
+
+    (* Read input from file *)
+    interpreter_input_file_spec;
 
     (* Enable debug output *)
     debug_spec;

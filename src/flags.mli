@@ -119,6 +119,11 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
+(** Choose lower bounds containing variables **)
+type interpreter_input_file = string
+val interpreter_input_file : unit -> interpreter_input_file
+
+
 (** Input file *)
 val input_file : unit -> string 
 
