@@ -48,7 +48,7 @@ let rec pp_print_int_array i ppf a =
       Format.fprintf ppf "%d" a.(i);
 
       if i+2 = Array.length a then 
-	Format.fprintf ppf ";@ ";
+        Format.fprintf ppf ";@ ";
       
       pp_print_int_array (succ i) ppf a
     
@@ -250,20 +250,6 @@ let keyword_table =
       ("if", IF);
       ("then", THEN);
       ("else", ELSE);
-      ("=>", IMPL);
-      
-      (* Relations *)
-      ("<=", LTE);
-      (">=", GTE);
-      ("<", LT);
-      (">", GT);
-      ("<>", NEQ);
-      
-      (* Arithmetic operators *)
-      ("-", MINUS);
-      ("+", PLUS);
-      ("/", DIV);
-      ("*", MULT);
       ("div", INTDIV);
       ("mod", MOD);
       
@@ -275,21 +261,27 @@ let keyword_table =
       (* Temporal operators *)
       ("pre", PRE);
       ("fby", FBY);
-      ("->",  ARROW)
       
     ]
     
 }
 
 
-(* Identifier *)
-let id = ['a'-'z' 'A'-'Z' '_' '~'] ['a'-'z' 'A'-'Z' '_' '~' '0'-'9']*
+(* Identifier 
+
+   C syntax: alphanumeric characters including the underscore, starting 
+   with a letter or the underscore *)
+let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
   
-(* Keep these separated from alphabetic characters, otherwise a->b would be one token *)
+(* Keep these separated from alphabetic characters, otherwise a->b would 
+   be one token *)
 let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
 
 (* Floating point decimal *)
 let decimal = ['0'-'9']+ '.' ['0'-'9']+ ('E' ('+'|'-')? ['0'-'9']+)?
+
+(* Floating-point decimal with exponent only *)
+let exponent_decimal = ['0'-'9']+ 'E' ('+'|'-')? ['0'-'9']+
 
 (* Integer numeral *)
 let numeral = ['0'-'9']+
@@ -302,60 +294,53 @@ let newline = '\r'* '\n'
 
 (* Toplevel function *)
 rule token = parse
-(*
-  (* Annotation *)
-  | "--%" (id as p) 
-      { try Hashtbl.find annotation_table p with 
-	| Not_found -> 
-	  (Format.printf "Warninng: unknown annotation %s skipped@." p; 
-	   skip_to_eol lexbuf ) }
-
-  (* Comment until end of line *)
-  | "--" [^'\n'] * newline { Lexing.new_line lexbuf; token lexbuf }
-*)
 
   (* Comment until end of line 
 
-     Need to have the '-'* here, otherwise "---" would be matched as operator *)
+     Need to have the '-'* here, otherwise "---" would be matched 
+     as operator *)
   | "--" '-'* { comment lexbuf }
 
   (* Multi-line comment *)
-  |  "/*" { skip_commented lexbuf }
+  |  "/*" { skip_commented_slashstar lexbuf }
+
+  (* Multi-line comment *)
+  |  "(*" { skip_commented_parenstar lexbuf }
 
   (* Include file *)
   | "include" whitespace* '\"' ([^'\"']* as p) '\"' 
 
       { 
 
-	(* Open include file *)
-	let include_channel = 
-	  try open_in p with 
-	    | Sys_error e -> 
-	      failwith (Format.sprintf "Error opening include file %s: %s" p e)
-	in
-	
-	(* New lexing buffer from include file *)
-	lexbuf_switch_to_channel lexbuf include_channel;
-	
-	Lexing.flush_input lexbuf;
+        (* Open include file *)
+        let include_channel = 
+          try open_in p with 
+            | Sys_error e -> 
+              failwith (Format.sprintf "Error opening include file %s: %s" p e)
+        in
+        
+        (* New lexing buffer from include file *)
+        lexbuf_switch_to_channel lexbuf include_channel;
+        
+        Lexing.flush_input lexbuf;
 
-	(* Starting position in new file *)
-	let zero_pos = 
-	  { Lexing.pos_fname = p;
-	    Lexing.pos_lnum = 1;
-	    Lexing.pos_bol = 0;
-	    Lexing.pos_cnum = 0 } 
-	in
+        (* Starting position in new file *)
+        let zero_pos = 
+          { Lexing.pos_fname = p;
+            Lexing.pos_lnum = 1;
+            Lexing.pos_bol = 0;
+            Lexing.pos_cnum = 0 } 
+        in
 
-	(* Set new position in lexing buffer *)
-	lexbuf.Lexing.lex_curr_p <- zero_pos;
+        (* Set new position in lexing buffer *)
+        lexbuf.Lexing.lex_curr_p <- zero_pos;
 
-	(* Continue with included file *)
-	token lexbuf
-	  
+        (* Continue with included file *)
+        token lexbuf
+          
       }
 
-  (* Delimiters *)
+  (* Operators that are not identifiers *)
   | ';' { SEMICOLON }
   | '=' { EQUALS }
   | ':' { COLON }
@@ -371,20 +356,29 @@ rule token = parse
   | "[|" { LARRAYBRACKET }
   | "|]" { RARRAYBRACKET }
   | '|' { PIPE }
+  | "<<" { LPARAMBRACKET }
+  | ">>" { RPARAMBRACKET }
+  | "=>" { IMPL }
+  | "<=" { LTE }
+  | ">=" { GTE }
+  | "<" { LT }
+  | ">" { GT }
+  | "<>" { NEQ }
+  | "-" { MINUS }
+  | "+" { PLUS }
+  | "/" { DIV }
+  | "*" { MULT }
+  | "->" { ARROW }
 
   (* Decimal or numeral *)
   | decimal as p { DECIMAL p }
+  | exponent_decimal as p { DECIMAL p }
   | numeral as p { NUMERAL p } 
 
   (* Keyword *)
   | id as p 
       { try Hashtbl.find keyword_table p with 
-	| Not_found -> (SYM p) }
-
-  (* Symbol that is not a delimiter *)
-  | printable+ as p 
-      { try Hashtbl.find keyword_table p with 
-	| Not_found -> failwith (Format.sprintf "Unknown operator %s" p) }
+        | Not_found -> (SYM p) }
 
   (* Whitespace *)
   | whitespace { token lexbuf }
@@ -405,19 +399,36 @@ rule token = parse
 
 (* Parse until end of comment, count newlines and otherwise discard
    characters *)
-and skip_commented = parse 
+and skip_commented_slashstar = parse 
 
   (* End of comment *)
   | "*/" { token lexbuf } 
 
   (* Count new line *)
-  | newline { Lexing.new_line lexbuf; skip_commented lexbuf } 
+  | newline { Lexing.new_line lexbuf; skip_commented_slashstar lexbuf } 
 
   | eof 
       { failwith (Format.sprintf "Unterminated comment") }
 
   (* Ignore characters in comments *)
-  | _ { skip_commented lexbuf }
+  | _ { skip_commented_slashstar lexbuf }
+
+
+(* Parse until end of comment, count newlines and otherwise discard
+   characters *)
+and skip_commented_parenstar = parse 
+
+  (* End of comment *)
+  | "*)" { token lexbuf } 
+
+  (* Count new line *)
+  | newline { Lexing.new_line lexbuf; skip_commented_parenstar lexbuf } 
+
+  | eof 
+      { failwith (Format.sprintf "Unterminated comment") }
+
+  (* Ignore characters in comments *)
+  | _ { skip_commented_parenstar lexbuf }
 
 
 (* Parse until end of line and otherwise discard characters *)
@@ -435,7 +446,7 @@ and comment = parse
 
         (* Warn and ignore rest of line *)
         | _ -> (Format.printf "Warninng: unknown annotation %s skipped@." p; 
-	        skip_to_eol lexbuf ) }
+                skip_to_eol lexbuf ) }
 
   (* Contract *)
   | "@" (id as p) 
@@ -449,7 +460,7 @@ and comment = parse
 
         (* Warn and ignore rest of line *)
         | _ -> (Format.printf "Warninng: unknown contract %s skipped@." p; 
-	        skip_to_eol lexbuf ) }
+                skip_to_eol lexbuf ) }
 
   (* Count new line and resume *)
   | newline { Lexing.new_line lexbuf; token lexbuf } 
@@ -517,19 +528,19 @@ and return_at_eol t = parse
     (* Read from file or standard input *)
     let in_ch = 
       if Array.length Sys.argv > 1 then 
-	(let fname = Sys.argv.(1) in 	
+        (let fname = Sys.argv.(1) in    
 
-	 let zero_pos = 
-	   { Lexing.pos_fname = fname;
-	     Lexing.pos_lnum = 1;
-	     Lexing.pos_bol = 0;
-	     Lexing.pos_cnum = 0 } 
-	in
-	 lexbuf.Lexing.lex_curr_p <- zero_pos; 
+         let zero_pos = 
+           { Lexing.pos_fname = fname;
+             Lexing.pos_lnum = 1;
+             Lexing.pos_bol = 0;
+             Lexing.pos_cnum = 0 } 
+        in
+         lexbuf.Lexing.lex_curr_p <- zero_pos; 
 
-	 open_in fname) 
+         open_in fname) 
       else
-	stdin
+        stdin
     in
 
     (* Initialize lexing buffer with channel *)
@@ -543,3 +554,11 @@ and return_at_eol t = parse
 main ()
 
 }
+
+(* 
+   Local Variables:
+   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
+   indent-tabs-mode: nil
+   End: 
+*)
+  

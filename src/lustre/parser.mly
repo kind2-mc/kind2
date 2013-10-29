@@ -82,6 +82,8 @@
     
 (* Node declaration *)
 %token NODE
+%token LPARAMBRACKET
+%token RPARAMBRACKET
 %token FUNCTION
 %token RETURNS
 %token VAR
@@ -156,50 +158,64 @@
 
 %%
 
-(* Not supported: packages *)
-
-
-(* An identifier *)
-ident: s = SYM { s }
-
-
-(* A list of identifiers *)
-ident_list:
-  | a = separated_list(COMMA, ident) { a }
-
 
 (* A Lustre program is a list of declarations *)
 main: p = list(decl) EOF { List.flatten p }
 
 
-(* A declaration is a type, a constant or a node declaration *)
+(* A declaration is a type, a constant, a node or a function declaration *)
 decl:
+  | CONST; d = const_decl { List.map (function e -> Program.ConstDecl e) d }
   | d = type_decl { List.map (function e -> Program.TypeDecl e) d }
-  | d = const_decl { [Program.ConstDecl d] }
-(*
-  | d = node_decl { Program.NodeDecl d }
-*)
+  | d = node_decl { [Program.NodeDecl d] }
+  | d = func_decl { [Program.FuncDecl d] }
 
 
-(* A type declaration *) 
+(* ********************************************************************** *)
+
+
+(* Constant declaration *)
+const_decl: 
+
+  (* Imported (free) constant *)
+  | l = ident_list; COLON; t = lustre_type; SEMICOLON 
+    { List.map (function e -> Program.FreeConst (e, t)) l } 
+
+  (* Defined constant without a type *)
+  | s = ident; EQUALS; e = expr; SEMICOLON 
+    { [Program.UntypedConst (s, e)] }
+
+  (* Defined constant with a type *)
+  | c = typed_ident; EQUALS; e = expr; SEMICOLON 
+    { let (s, t) = c in [Program.TypedConst (s, e, t)] }
+
+
+typed_ident: s = ident; COLON; t = lustre_type { (s, t) }
+
+
+(* ********************************************************************** *)
+
+
+(* Type declaration *) 
 type_decl: 
 
-  | TYPE; l = separated_nonempty_list(COMMA, ident); EQUALS; t = lustre_type; SEMICOLON 
-
-    (* Pair each identfier with its type *)
-    { List.map (function e -> (e, t)) l }
-
+  (* Type definition (alias) *)
+  | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
+     { List.map (function e -> (e, t)) l }
 
 (* A type *)
 lustre_type:
 
-  (* Built-in types *)
+  (* Predefined types *)
   | BOOL { Program.Bool }
   | INT { Program.Int }
   | REAL { Program.Real }
 
   (* User-defined type *)
   | s = ident { Program.UserType s }
+
+  (* Tuple type *)
+  | t = tuple_type { Program.TupleType t } 
 
   (* Record type *)
   | t = record_type { Program.RecordType t } 
@@ -211,26 +227,20 @@ lustre_type:
   | t = enum_type { Program.EnumType t }
 
 
-(* Record type *)
+(* Tuple type *)
+tuple_type:
+
+  (* Tuples are between square brackets *)
+  | LSQBRACKET; l = lustre_type_list; RSQBRACKET { l } 
+
+
+(* A record type (V6) *)
 record_type:
 
   (* Keyword "struct" is optional *)
-  | STRUCT LCURLYBRACKET; f = field_list; RCURLYBRACKET 
-  | LCURLYBRACKET; f = field_list; RCURLYBRACKET
+  | STRUCT LCURLYBRACKET; f = typed_idents_list; SEMICOLON?; RCURLYBRACKET 
+  | LCURLYBRACKET; f = typed_idents_list; SEMICOLON?; RCURLYBRACKET
     { f }
-
-
-(* A list of record fields *)
-field_list:
-  | a = separated_list(SEMICOLON, field) { List.flatten a }
-
-
-(* A field of a record *)
-field:
-  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
-
-    (* Pair each identifier with its type *)
-    { List.map (function e -> (e, t)) l }
 
 
 (* Array type *)
@@ -238,16 +248,139 @@ array_type:
   | t = lustre_type; CARET; s = expr { t, s }
 
 
-(* Enum type *)
+(* Enum type (V6) *)
 enum_type:
   | ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
 
 
-(* Constant declaration *)
-const_decl: 
-  | CONST; s = ident; EQUALS; e = expr; SEMICOLON { s, e, None }
-  | CONST; s = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON { s, e, Some t }
 
+
+
+
+
+
+
+
+
+(* An identifier *)
+ident: s = SYM { s }
+
+(* A comma-separated list of identifiers *)
+ident_list:
+  | l = separated_nonempty_list(COMMA, ident) { l }
+
+(* A comma-separated list of types *)
+lustre_type_list:
+  | l = separated_nonempty_list(COMMA, lustre_type) { l }
+  
+(* A list of lists of typed identifiers *)
+typed_idents_list: 
+  | a = separated_list(SEMICOLON, typed_idents) { List.flatten a }
+
+(* A list of comma-separated identifiers with a type *)
+typed_idents: 
+  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
+
+    (* Pair each identifier with its type *)
+    { List.map (function e -> (e, t)) l }
+  
+
+
+
+
+(* Node declaration *)
+node_decl:
+  | NODE; 
+    n = ident; 
+    p = option(static_params); 
+    LPAREN;
+    i = typed_idents_list; 
+    RPAREN;
+    RETURNS; 
+    LPAREN;
+    o = typed_idents_list; 
+    RPAREN;
+    SEMICOLON;
+    l = list(node_local_decl);
+    LET;
+    e = list(node_equation);
+    TEL
+    option(node_sep) 
+
+    { (n, 
+       (match p with None -> [] | Some l -> l), 
+       i, 
+       o, 
+       (List.flatten l), 
+       e)  }
+
+
+(* Static parameters of a node *)
+static_params:
+  | LPARAMBRACKET; l = separated_nonempty_list(SEMICOLON, static_param); RPARAMBRACKET { l } 
+
+
+(* Support type and constant parameters *)
+static_param:
+  | TYPE; t = ident { Program.TypeParam t }
+  | CONST; c = ident; COLON; t = lustre_type { Program.ConstParam (c, t) }
+
+
+(* Local declarations of constants or variables *)
+node_local_decl:
+  | c = const_decl { List.map (function e -> Program.NodeConstDecl e) c }
+  | v = var_decls { List.map (function e -> Program.NodeVarDecl e) v }
+
+
+(* A variable declaration section of a node *)
+var_decls: 
+  | VAR; l = nonempty_list(var_decl); SEMICOLON { List.flatten l }
+
+
+(* A declaration of variables *)
+var_decl:
+
+  (* A clock-less variable *)
+  | l = typed_idents 
+    { List.map (function (s, t) -> (s, t, None)) l }
+
+  (* A variable with a clock *)
+  | l = typed_idents; WHEN; c = clock_expr
+    { List.map (function (s, t) -> (s, t, Some c)) l }
+
+  (* A list of variables with a clock *)
+  | LPAREN; l = typed_idents_list; RPAREN; c = clock_expr
+    { List.map (function (s, t) -> (s, t, Some c)) l }
+
+
+(* Equations of a node *)
+node_equation:
+
+  (* An assertion *)
+  | ASSERT; e = expr; SEMICOLON
+    { Program.Assert e }
+
+  (* An equation *)
+  | l = ident_list; EQUALS; e = expr; SEMICOLON
+    { Program.Equation (l, e) }
+
+
+(* Nodes are separated by a period or a semicolon *)
+node_sep: DOT | SEMICOLON { } 
+
+func_decl:
+  | FUNCTION; 
+    n = ident; 
+    LPAREN;
+    i = typed_idents_list; 
+    RPAREN;
+    RETURNS; 
+    LPAREN;
+    o = typed_idents_list; 
+    RPAREN;
+    SEMICOLON;
+
+    { (n, i, o)  }
 
 (*
 expr_main:
@@ -322,3 +455,18 @@ expr:
   | s = SYM; LSQBRACKET; t = NUMERAL; RSQBRACKET
     { Program.TupleProject ($startpos, s, (int_of_string t)) }
 
+
+clock_expr:
+  | c = ident { Program.ClockPos c } 
+  | NOT; c = ident { Program.ClockNeg c } 
+  | NOT; LPAREN; c = ident; RPAREN { Program.ClockNeg c } 
+
+
+
+(* 
+   Local Variables:
+   compile-command: "ocmlabuild -use-menhir -tag debug -tag annot test.native"
+   indent-tabs-mode: nil
+   End: 
+*)
+  

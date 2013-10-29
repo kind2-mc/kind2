@@ -27,8 +27,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-type t 
+(* ********************************************************************** *)
+(* Helper functions                                                       *)
+(* ********************************************************************** *)
 
+(* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 
 
   (* Output nothing for the empty list *) 
@@ -51,7 +54,6 @@ let rec pp_print_list pp sep ppf = function
     pp_print_list pp sep ppf tl
 
 
-
 (* Pretty-print a position *)
 let pp_print_position 
     ppf 
@@ -65,9 +67,16 @@ let pp_print_position
     (pos_cnum - pos_bol)
 
 
+(* ********************************************************************** *)
+(* Type declarations                                                      *)
+(* ********************************************************************** *)
+
+
+(* An identifier *)
 type id = string 
 
-(* Lustre expression *)
+
+(* A Lustre expression *)
 type expr =
 
   (* Identifier *)
@@ -75,11 +84,11 @@ type expr =
   | RecordProject of Lexing.position * id * id
   | TupleProject of Lexing.position * id * int
 
-  (* Constants *)
+  (* Values *)
   | True of Lexing.position
   | False of Lexing.position
-  | Num of Lexing.position * string
-  | Dec of Lexing.position * string
+  | Num of Lexing.position * id
+  | Dec of Lexing.position * id
 
   (* Boolean operators *)
   | Not of Lexing.position * expr 
@@ -118,9 +127,90 @@ type expr =
   | Fby of Lexing.position * expr * int * expr 
   | Arrow of Lexing.position * expr * expr 
 
-  (* Node call *)
-  | Call of Lexing.position * string * expr list 
+  (* A node call *)
+  | Call of Lexing.position * id * expr list 
 
+
+(* A built-in type *)
+type lustre_type = 
+  | Bool
+  | Int
+  | Real
+  | UserType of id 
+  | TupleType of lustre_type list
+  | RecordType of typed_ident list
+  | ArrayType of (lustre_type * expr)
+  | EnumType of id list
+
+
+(* A record field *)
+and typed_ident = id * lustre_type
+
+
+(* A declaration of a type *)
+type type_decl = id * lustre_type  
+
+
+(* A declaration of a constant *)
+type const_decl = 
+  | FreeConst of id * lustre_type
+  | UntypedConst of id * expr 
+  | TypedConst of id * expr * lustre_type
+
+
+(* A clock expression *)
+type clock_expr =
+  | ClockPos of id
+  | ClockNeg of id
+
+
+(* A variable declaration *)
+type var_decl = id * lustre_type * clock_expr option
+
+
+(* A static parameter of a node *)
+type node_param = 
+  | TypeParam of id
+  | ConstParam of (id * lustre_type)
+
+
+(* A local declaration in a node *)
+type node_local_decl =
+  | NodeConstDecl of const_decl 
+  | NodeVarDecl of var_decl
+
+
+(* An equation or assertion in the node body *)
+type node_equation =
+  | Assert of expr
+  | Equation of id list * expr 
+
+
+(* A node declaration *)
+type node_decl = id * node_param list * (id * lustre_type) list * (id * lustre_type) list * node_local_decl list * node_equation list 
+  
+
+(* A function declaration *)
+type func_decl = id * (id * lustre_type) list * (id * lustre_type) list
+  
+
+(* A declaration as parsed *)
+type declaration = 
+  | TypeDecl of type_decl
+  | ConstDecl of const_decl
+  | NodeDecl of node_decl
+  | FuncDecl of func_decl
+
+
+(* A Lustre program *)
+type t = declaration list
+
+
+(* ********************************************************************** *)
+(* Pretty-printing functions                                              *)
+(* ********************************************************************** *)
+
+let pp_print_ident = Format.pp_print_string
 
 (* Pretty-print a Lustre expression *)
 let rec pp_print_expr ppf = 
@@ -239,48 +329,180 @@ let rec pp_print_expr ppf =
     | Call (p, id, l) -> pnp p id l
 
 
-(* Constant declaration *)
-type const = id * expr 
+let pp_print_clock_expr ppf = function
 
-type lustre_type = 
-  | Bool
-  | Int
-  | Real
-  | UserType of string 
-  | RecordType of field list
-  | ArrayType of (lustre_type * expr)
-  | EnumType of string list
+  | ClockPos s -> Format.fprintf ppf "%a" pp_print_ident s
+  | ClockNeg s -> Format.fprintf ppf "not %a" pp_print_ident s
 
-and field = string * lustre_type
 
-(* Type definition *)
-type type_decl = string * lustre_type  
-
-type const_decl = string * expr * lustre_type option
-
-type declaration = 
-  | TypeDecl of type_decl
-  | ConstDecl of const_decl
-
-(* Node definition *)
-type node 
-
+(* Pretty-print a Lustre type *)
 let rec pp_print_lustre_type ppf = function
+
   | Bool -> Format.fprintf ppf "bool"
   | Int -> Format.fprintf ppf "int"
   | Real -> Format.fprintf ppf "real"
   | UserType s -> Format.fprintf ppf "%s" s
-  | RecordType l -> Format.fprintf ppf "struct @[<hv 2>{ %a }@]" (pp_print_list pp_print_field ";@ ") l
-  | ArrayType (t, e) -> Format.fprintf ppf "%a^%a" pp_print_lustre_type t pp_print_expr e
-  | EnumType l -> 
-    Format.fprintf ppf "enum @[<hv 2>{ %a }@]" (pp_print_list Format.pp_print_string ";@ ") l
 
-and pp_print_field ppf (s, t) = 
+  | TupleType l -> 
+
+    Format.fprintf ppf 
+      "@[<hv 2>[%a]@]" 
+      (pp_print_list pp_print_lustre_type ",@ ") l
+
+  | RecordType l -> 
+
+    Format.fprintf ppf 
+      "struct @[<hv 2>{ %a }@]" 
+      (pp_print_list pp_print_typed_ident ";@ ") l
+
+  | ArrayType (t, e) -> 
+
+    Format.fprintf ppf 
+      "%a^%a" 
+      pp_print_lustre_type t 
+      pp_print_expr e
+
+  | EnumType l -> 
+
+    Format.fprintf ppf 
+      "enum @[<hv 2>{ %a }@]" 
+      (pp_print_list Format.pp_print_string ";@ ") l
+
+(* Pretty-print a record field *)
+and pp_print_typed_ident ppf (s, t) = 
   Format.fprintf ppf "%s: %a" s pp_print_lustre_type t
 
 
+let pp_print_node_param ppf = function
+
+  | TypeParam t -> 
+
+    Format.fprintf ppf "type %s" t
+
+  | ConstParam (s, t) -> 
+
+    Format.fprintf ppf "const %s : %a" s pp_print_lustre_type t
+
+
+let pp_print_node_param_list ppf = function 
+
+  | [] -> ()
+
+  | l -> 
+    
+    Format.fprintf ppf 
+      "@[<hv 2><<%a>>@]" 
+      (pp_print_list pp_print_node_param ";@ ") l
+
+
+let pp_print_var_decl ppf = function 
+
+  | s, t, None -> 
+
+    Format.fprintf ppf "%a : %a;" pp_print_ident s pp_print_lustre_type t
+
+  | s, t, Some c -> 
+
+    Format.fprintf ppf 
+      "%a : %a when %a;" 
+      pp_print_ident s 
+      pp_print_lustre_type t
+      pp_print_clock_expr c
+
+
+let pp_print_const_decl ppf = function
+
+  | FreeConst (s, t) -> 
+
+    Format.fprintf ppf 
+      "const %a : %a;" 
+      pp_print_ident s 
+      pp_print_lustre_type t
+
+  | UntypedConst (s, e) -> 
+
+    Format.fprintf ppf 
+      "const %a = %a;" 
+      pp_print_ident s 
+      pp_print_expr e
+
+  | TypedConst (s, e, t) -> 
+
+    Format.fprintf ppf 
+      "const %a : %a = %a;" 
+      pp_print_ident s 
+      pp_print_lustre_type t
+      pp_print_expr e
+
+
+let pp_print_node_local_decl_var ppf = function
+  | NodeVarDecl v -> pp_print_var_decl ppf v
+  | _ -> ()
+
+
+let pp_print_node_local_decl_const ppf = function
+  | NodeConstDecl c -> pp_print_const_decl ppf c
+  | _ -> ()
+
+
+let pp_print_node_local_decl ppf l = 
+
+  let c, v = 
+    List.partition (function NodeConstDecl _ -> true | _ -> false) l 
+  in
+
+  Format.fprintf ppf 
+    "%a" 
+    (pp_print_list pp_print_node_local_decl_const "@ ") c;
+
+  if v = [] then () else 
+
+    Format.fprintf ppf
+      "var@ @[<hv 2>%a@]"
+      (pp_print_list pp_print_node_local_decl_var "@ ") v 
+
+
+let pp_print_node_equation ppf = function
+
+  | Assert e -> 
+
+    Format.fprintf ppf "assert %a;" pp_print_expr e
+
+  | Equation (l, e) -> 
+    
+    Format.fprintf ppf 
+      "%a@ =@ %a;" 
+      (pp_print_list pp_print_ident ",@ ") l
+      pp_print_expr e
+                  
+
+(* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
-  | TypeDecl (s, t) -> Format.fprintf ppf "type %s = %a;" s pp_print_lustre_type t
-  | ConstDecl (s, e, None) -> Format.fprintf ppf "type %s = %a;" s pp_print_expr e
-  | ConstDecl (s, e, Some t) -> 
-    Format.fprintf ppf "type %s : %a = %a;" s pp_print_lustre_type t pp_print_expr e
+
+  | TypeDecl (s, t) -> 
+
+    Format.fprintf ppf "type %s = %a;" s pp_print_lustre_type t
+
+  | ConstDecl c -> pp_print_const_decl ppf c
+
+  | NodeDecl (n, p, i, o, l, e) -> 
+
+    Format.fprintf ppf
+      "@[<hv 2>node %s@[<hv 2>%a@]@ (@[<hv 1>%a@])@ returns (@[<hv 1>%a@]);@ \
+       %a
+       let@ @[<hv 2>%a@]tel; @]" 
+      n 
+      pp_print_node_param_list p
+      (pp_print_list pp_print_typed_ident ";@ ") i
+      (pp_print_list pp_print_typed_ident ";@ ") o
+      pp_print_node_local_decl l
+      (pp_print_list pp_print_node_equation "@ ") e 
+
+
+(* 
+   Local Variables:
+   compile-command: "ocmlabuild -use-menhir -tag debug -tag annot test.native"
+   indent-tabs-mode: nil
+   End: 
+*)
+  

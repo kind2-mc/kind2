@@ -51,13 +51,13 @@ let main () =
   (* Read from file or standard input *)
   let in_ch = 
     if Array.length Sys.argv > 1 then 
-      (let fname = Sys.argv.(1) in 	
+      (let fname = Sys.argv.(1) in 
        
        let zero_pos = 
-	 { Lexing.pos_fname = fname;
-	   Lexing.pos_lnum = 1;
-	   Lexing.pos_bol = 0;
-	   Lexing.pos_cnum = 0 } 
+         { Lexing.pos_fname = fname;
+           Lexing.pos_lnum = 1;
+           Lexing.pos_bol = 0;
+           Lexing.pos_cnum = 0 } 
        in
        lexbuf.Lexing.lex_curr_p <- zero_pos; 
        
@@ -78,21 +78,21 @@ let main () =
     with 
       | Parser.Error ->
 
-	let 
-	    { Lexing.pos_fname; 
-	      Lexing.pos_lnum; 
-	      Lexing.pos_bol; 
-	      Lexing.pos_cnum } = 
-	  Lexing.lexeme_start_p lexbuf 
-	in
+        let 
+            { Lexing.pos_fname; 
+              Lexing.pos_lnum; 
+              Lexing.pos_bol; 
+              Lexing.pos_cnum } = 
+          Lexing.lexeme_start_p lexbuf 
+        in
         
-	Format.printf 
+        Format.printf 
           "Syntax error in line %d at column %d in %s: %s@." 
           pos_lnum
-	  (pos_cnum - pos_bol)
-	  pos_fname
+          (pos_cnum - pos_bol)
+          pos_fname
           (Lexing.lexeme lexbuf);
-	
+        
         exit 1
           
   in
@@ -102,3 +102,11 @@ let main () =
 ;;
 
 main ()
+
+(* 
+   Local Variables:
+   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
+   indent-tabs-mode: nil
+   End: 
+*)
+  

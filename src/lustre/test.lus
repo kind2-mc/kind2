@@ -1,11 +1,45 @@
-type x, y = int;
-type z = bool;
+/* This is a comment 
+  over several lines */ 
+
+(* OCaml-style comments are 
+  also valid -- and that officially *)
+
+-- Free constants, must have a type
+const a1, a2, a3: a;
+
+-- Defined constant
+const b1 = 1;
+const pi = 3.14;
+
+-- Defined constant with optional type 
+const c1 : bool = true;
+
+-- Predefined type bool
+type a = bool;
+
+-- Declaration of multiple aliases for predefined type int
+type b, c = int;
+
+-- Predefined type real
+type d = real;
+
+-- User-defined type
+type e = a;
+
+-- Tuple type
+type f = [int, real, bool];
+type g = [d, [int, bool]];
+
+-- Record type
+type d = { one: struct { a : int; b: bool };  two : bool; };
+
+
+
+
 type a = real;
-type b = z;
 type c = struct { a: a; b, c: int };
-type d = { one: struct { a : int };  two : bool; one: struct { a : int };  two : bool; one: struct { a : int }; two : bool };
 type e = enum {blue, green, red };
-type e = enum {};
+type e = enum { unit };
 type f = int^5;
 type g = int^5^5;
 type h = int^5*h;
@@ -13,3 +47,11 @@ type h = int^5*h;
 const a = 1;
 
 const b : b = true;
+
+
+node x() returns ();
+let tel;
+
+node y<<type t>>() returns ();
+var c : t;
+let c = 0 -> 1; tel;
