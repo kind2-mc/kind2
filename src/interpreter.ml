@@ -47,8 +47,9 @@ let on_exit () = ()
 (* Main entry point *)
 let main input_file transSys =
   let inputs = InputParser.read_file input_file in
+
   (* Number of instants input *)
-  let k = 5 in
+  let k = Flags.interpreter_steps () in
 
   Event.log `Interpreter Event.L_fatal "Interpreter running up to k = %d" k;
 
@@ -79,7 +80,7 @@ let main input_file transSys =
     else  
 
       (
-        
+  (**)      
         S.assert_term solver (TransSys.constr_of_bound i t);
         
         assert_t transSys (i - 1)
@@ -106,7 +107,7 @@ let main input_file transSys =
 
             S.assert_term solver equation;
 
-            (*incr_numeral*) instant)
+            incr_numeral instant)
 
          (numeral_of_int 0)
          
@@ -118,21 +119,35 @@ let main input_file transSys =
     ) 
 
     inputs;
-
+    
+  
   if (S.check_sat solver) then
-
+		
+	let rec aux acc state_var k =
+		
+		if (int_of_numeral k) < 0 then
+			
+			let model = S.get_model solver acc in
+			
+			List.map snd model
+			
+		else
+			
+			aux ((Var.mk_state_var_instance state_var k)::acc) state_var (decr_numeral k)
+	in
     let v = 
+			
       List.map 
+			
         (fun sv -> 
-           Var.mk_state_var_instance 
-             sv 
-             (numeral_of_int 0))
+					
+           (sv,(aux [] sv (numeral_of_int k))))
+					
         state_vars 
+				
     in
-
-    let m = S.get_model solver v in
-
-    ()
+		
+	Event.log_counterexample `Interpreter v
 
   else
 
