@@ -175,8 +175,8 @@ main: p = list(decl) EOF { List.flatten p }
 (* A declaration is a type, a constant or a node declaration *)
 decl:
   | d = type_decl { List.map (function e -> Program.TypeDecl e) d }
+  | d = const_decl { [Program.ConstDecl d] }
 (*
-  | d = const_decl { Program.ConstDecl d }
   | d = node_decl { Program.NodeDecl d }
 *)
 
@@ -241,6 +241,13 @@ array_type:
 (* Enum type *)
 enum_type:
   | ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
+
+
+(* Constant declaration *)
+const_decl: 
+  | CONST; s = ident; EQUALS; e = expr; SEMICOLON { s, e, None }
+  | CONST; s = ident; COLON; t = lustre_type; EQUALS; e = expr; SEMICOLON { s, e, Some t }
+
 
 (*
 expr_main:

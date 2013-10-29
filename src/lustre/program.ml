@@ -256,8 +256,11 @@ and field = string * lustre_type
 (* Type definition *)
 type type_decl = string * lustre_type  
 
+type const_decl = string * expr * lustre_type option
+
 type declaration = 
   | TypeDecl of type_decl
+  | ConstDecl of const_decl
 
 (* Node definition *)
 type node 
@@ -278,3 +281,6 @@ and pp_print_field ppf (s, t) =
 
 let pp_print_declaration ppf = function
   | TypeDecl (s, t) -> Format.fprintf ppf "type %s = %a;" s pp_print_lustre_type t
+  | ConstDecl (s, e, None) -> Format.fprintf ppf "type %s = %a;" s pp_print_expr e
+  | ConstDecl (s, e, Some t) -> 
+    Format.fprintf ppf "type %s : %a = %a;" s pp_print_lustre_type t pp_print_expr e

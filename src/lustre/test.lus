@@ -9,3 +9,7 @@ type e = enum {};
 type f = int^5;
 type g = int^5^5;
 type h = int^5*h;
+
+const a = 1;
+
+const b : b = true;
