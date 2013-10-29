@@ -223,6 +223,8 @@ let keyword_table =
       ("subrange", SUBRANGE);
       ("of", OF);
       ("array", ARRAY);
+      ("struct", STRUCT);
+      ("enum", ENUM);
 
       (* Constant declaration *)
       ("const", CONST);

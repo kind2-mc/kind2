@@ -29,6 +29,29 @@
 
 type t 
 
+let rec pp_print_list pp sep ppf = function 
+
+  (* Output nothing for the empty list *) 
+  | [] -> ()
+
+  (* Output a single element in the list  *) 
+  | e :: [] -> 
+    pp ppf e
+
+  (* Output a single element and a space *) 
+  | e :: tl -> 
+
+    (* Output one element *)
+    pp_print_list pp sep ppf [e]; 
+
+    (* Output separator *)
+    Format.fprintf ppf sep; 
+
+    (* Output the rest of the list *)
+    pp_print_list pp sep ppf tl
+
+
+
 (* Pretty-print a position *)
 let pp_print_position 
     ppf 
@@ -219,10 +242,39 @@ let rec pp_print_expr ppf =
 (* Constant declaration *)
 type const = id * expr 
 
+type lustre_type = 
+  | Bool
+  | Int
+  | Real
+  | UserType of string 
+  | RecordType of field list
+  | ArrayType of (lustre_type * expr)
+  | EnumType of string list
+
+and field = string * lustre_type
+
 (* Type definition *)
-type typedef
+type type_decl = string * lustre_type  
+
+type declaration = 
+  | TypeDecl of type_decl
 
 (* Node definition *)
 type node 
 
+let rec pp_print_lustre_type ppf = function
+  | Bool -> Format.fprintf ppf "bool"
+  | Int -> Format.fprintf ppf "int"
+  | Real -> Format.fprintf ppf "real"
+  | UserType s -> Format.fprintf ppf "%s" s
+  | RecordType l -> Format.fprintf ppf "struct @[<hv 2>{ %a }@]" (pp_print_list pp_print_field ";@ ") l
+  | ArrayType (t, e) -> Format.fprintf ppf "%a^%a" pp_print_lustre_type t pp_print_expr e
+  | EnumType l -> 
+    Format.fprintf ppf "enum @[<hv 2>{ %a }@]" (pp_print_list Format.pp_print_string ";@ ") l
 
+and pp_print_field ppf (s, t) = 
+  Format.fprintf ppf "%s: %a" s pp_print_lustre_type t
+
+
+let pp_print_declaration ppf = function
+  | TypeDecl (s, t) -> Format.fprintf ppf "type %s = %a;" s pp_print_lustre_type t

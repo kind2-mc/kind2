@@ -1,0 +1,11 @@
+type x, y = int;
+type z = bool;
+type a = real;
+type b = z;
+type c = struct { a: a; b, c: int };
+type d = { one: struct { a : int };  two : bool; one: struct { a : int };  two : bool; one: struct { a : int }; two : bool };
+type e = enum {blue, green, red };
+type e = enum {};
+type f = int^5;
+type g = int^5^5;
+type h = int^5*h;

@@ -46,7 +46,11 @@
 %token LPAREN 
 %token RPAREN 
 
+(* Enums *)
+%token ENUM
+
 (* Records *)
+%token STRUCT
 %token DOT
 %token LCURLYBRACKET 
 %token RCURLYBRACKET 
@@ -134,6 +138,7 @@
 %token EOF
     
 
+%nonassoc /* IF THEN */ ELSE
 %right ARROW
 %right IMPL
 %left OR XOR
@@ -141,19 +146,106 @@
 %nonassoc EQUALS LT GT LTE GTE NEQ
 %left MINUS PLUS
 %left MULT DIV INTDIV MOD
-%left UMINUS NOT
-%left PRE FBY
+%left /* UMINUS */ NOT
+%nonassoc CURRENT WHEN
+%left PRE /* FBY */
 
 
-/* %start <Program.t> main */
-
-%start <Program.expr> expr_main 
+%start <Program.declaration list> main
+(* %start <Program.expr> expr_main *)
 
 %%
 
+(* Not supported: packages *)
 
+
+(* An identifier *)
+ident: s = SYM { s }
+
+
+(* A list of identifiers *)
+ident_list:
+  | a = separated_list(COMMA, ident) { a }
+
+
+(* A Lustre program is a list of declarations *)
+main: p = list(decl) EOF { List.flatten p }
+
+
+(* A declaration is a type, a constant or a node declaration *)
+decl:
+  | d = type_decl { List.map (function e -> Program.TypeDecl e) d }
+(*
+  | d = const_decl { Program.ConstDecl d }
+  | d = node_decl { Program.NodeDecl d }
+*)
+
+
+(* A type declaration *) 
+type_decl: 
+
+  | TYPE; l = separated_nonempty_list(COMMA, ident); EQUALS; t = lustre_type; SEMICOLON 
+
+    (* Pair each identfier with its type *)
+    { List.map (function e -> (e, t)) l }
+
+
+(* A type *)
+lustre_type:
+
+  (* Built-in types *)
+  | BOOL { Program.Bool }
+  | INT { Program.Int }
+  | REAL { Program.Real }
+
+  (* User-defined type *)
+  | s = ident { Program.UserType s }
+
+  (* Record type *)
+  | t = record_type { Program.RecordType t } 
+
+  (* Array type *)
+  | t = array_type { Program.ArrayType t }
+
+  (* Enum type *)
+  | t = enum_type { Program.EnumType t }
+
+
+(* Record type *)
+record_type:
+
+  (* Keyword "struct" is optional *)
+  | STRUCT LCURLYBRACKET; f = field_list; RCURLYBRACKET 
+  | LCURLYBRACKET; f = field_list; RCURLYBRACKET
+    { f }
+
+
+(* A list of record fields *)
+field_list:
+  | a = separated_list(SEMICOLON, field) { List.flatten a }
+
+
+(* A field of a record *)
+field:
+  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
+
+    (* Pair each identifier with its type *)
+    { List.map (function e -> (e, t)) l }
+
+
+(* Array type *)
+array_type:
+  | t = lustre_type; CARET; s = expr { t, s }
+
+
+(* Enum type *)
+enum_type:
+  | ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
+
+(*
 expr_main:
   expr EOF { $1 }
+*)
 
 expr: 
 

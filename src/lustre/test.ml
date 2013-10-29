@@ -27,34 +27,78 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-let main = 
+let pp_print_position ppf 
+    { Lexing.pos_fname;
+      Lexing.pos_lnum;
+      Lexing.pos_bol;
+      Lexing.pos_cnum } =
 
-  (* Read from file given on command-line or from stdin *)
+  Format.fprintf ppf 
+    "@[<hv 2>{ pos_fname : %s;@ \
+     pos_lnum : %d;@ \
+     pos_bol : %d;@ \
+     pos_cnum : %d; }@]"
+    pos_fname
+    pos_lnum
+    pos_bol
+    pos_cnum
+
+let main () = 
+
+  (* Create lexing buffer *)
+  let lexbuf = Lexing.from_function Lexer.read_from_lexbuf_stack in
+  
+  (* Read from file or standard input *)
   let in_ch = 
-    if Array.length Sys.argv > 1 then open_in Sys.argv.(1) else stdin
+    if Array.length Sys.argv > 1 then 
+      (let fname = Sys.argv.(1) in 	
+       
+       let zero_pos = 
+	 { Lexing.pos_fname = fname;
+	   Lexing.pos_lnum = 1;
+	   Lexing.pos_bol = 0;
+	   Lexing.pos_cnum = 0 } 
+       in
+       lexbuf.Lexing.lex_curr_p <- zero_pos; 
+       
+       open_in fname) 
+    else
+      stdin
   in
-
-  (* Lexer from input *)
-  let lexbuf = Lexing.from_channel in_ch in
-
-  let expr = 
+  
+  (* Initialize lexing buffer with channel *)
+  Lexer.lexbuf_init in_ch;
+  
+  let declarations = 
 
     try 
       
-      Parser.expr_main Lexer.token lexbuf 
+      Parser.main Lexer.token lexbuf 
 
     with 
       | Parser.Error ->
 
-        Format.printf 
-          "At offset %d: syntax error %s@." 
-          (Lexing.lexeme_start lexbuf)
+	let 
+	    { Lexing.pos_fname; 
+	      Lexing.pos_lnum; 
+	      Lexing.pos_bol; 
+	      Lexing.pos_cnum } = 
+	  Lexing.lexeme_start_p lexbuf 
+	in
+        
+	Format.printf 
+          "Syntax error in line %d at column %d in %s: %s@." 
+          pos_lnum
+	  (pos_cnum - pos_bol)
+	  pos_fname
           (Lexing.lexeme lexbuf);
-
+	
         exit 1
           
   in
 
-  Format.pp_set_margin Format.std_formatter 10;
-  Format.printf "@[<hv>%a@]@." Program.pp_print_expr expr
+  Format.printf "@[<hv>%a@]@." (Program.pp_print_list Program.pp_print_declaration "@ ") declarations
 
+;;
+
+main ()
