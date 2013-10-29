@@ -537,7 +537,7 @@ let interpreter_steps_action o = flags.interpreter_steps <- o
                                        
 let interpreter_steps_spec = 
   ("--interpreter_steps", 
-   Arg.String interpreter_steps_action, 
+   Arg.Int interpreter_steps_action, 
    Format.sprintf "(Interpreter) Run number of steps, override the number of steps given in the input file")
 
 (* ********** *) 
@@ -735,7 +735,7 @@ and speclist =
 
     (* Run number of steps, override the number of steps given in the
        input file *)
-    interpreter_input_file_spec;
+    interpreter_steps_spec;
 
     (* Enable debug output *)
     debug_spec;
