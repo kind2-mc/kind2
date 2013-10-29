@@ -43,19 +43,43 @@ module S = SolverMethods.Make (BMCSolver)
    are interrupted *)
 let on_exit () = ()
 
+let len = ref 500
+
+let calculate_shortest_length_of_instance l =
+
+  List.iter 
+    (fun(y,x) -> 
+      if (List.length x) < !len 
+      then len := (List.length x)) 
+      l;
+    !len
+
 
 (* Main entry point *)
 let main input_file transSys =
+  
   let inputs = InputParser.read_file input_file in
-
+  
+  (* user interpreter steps input*)
+  let steps = Flags.interpreter_steps () in
+  
+  (* Number of instants to simulate *)
+  let shortest_length = calculate_shortest_length_of_instance inputs in
+  
   (* Number of instants input *)
-  let k = Flags.interpreter_steps () in
+  let k = if steps > shortest_length
+          then (
+            Event.log `Interpreter Event.L_fatal 
+            	"Warning: Instances provided are not enough.";
+          	shortest_length)
+          else steps
+  in
 
   Event.log `Interpreter Event.L_fatal "Interpreter running up to k = %d" k;
 
   (* let inputs = InputParser.main x in *)
 
-  (* Number of instants to simulate *)
+  
   let l = 3 in
 
   (* Determine logic for the SMT solver *)
@@ -96,19 +120,16 @@ let main input_file transSys =
   List.iter
 
     (fun (state_var, values) -> 
-
        let _ = List.fold_left
 
          (fun instant instant_value ->
-
-            let var = Var.mk_state_var_instance state_var instant in
+           if ((int_of_numeral instant) <= k)
+           then(
+         	 let var = Var.mk_state_var_instance state_var instant in
+             let equation = Term.mk_eq [Term.mk_var var; instant_value] in
+             S.assert_term solver equation);	
+             incr_numeral instant)
             
-            let equation = Term.mk_eq [Term.mk_var var; instant_value] in
-
-            S.assert_term solver equation;
-
-            incr_numeral instant)
-
          (numeral_of_int 0)
          
          values
