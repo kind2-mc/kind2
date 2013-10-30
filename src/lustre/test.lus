@@ -47,10 +47,50 @@ type f = int^5;
 type g = int^5^5;
 type h = int^5*h;
 
+-- A node declaration
+node x 
+  (a, b: [int, [bool, bool]]; 
+   const c: z; d, e: int when a; 
+   (f, g: int; h: real) when b) 
+returns 
+  (x: y when z; 
+   (a, b: [int, [bool, real]]; c: struct {one: real; two: int }) when x;
+   d: int);
+-- Variable declarations are optional
+let 
+tel;
 
-node x() returns ();
+node y (const a: bool) returns (b: int);
+-- A local (free) constant declaration
+const c : int; d = 1;
+let
+  -- Main node annotation, anything can follow, semicolon is not necessary
+  --%MAIN
+  --%MAIN;
+  --%MAIN xyz
+  b = 1;
+  (exxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, fxxxxxxxxxxxxxxxxxxxx, gxxxxxxxxxxxxxxxxxxxx) = x(c);
+  assert x;
+
+  -- Property, must be terminated with a semicolon
+  --%PROPERTY k; 
+
+  -- Annotations can be commented 
+  -- --%PROPERTY j;
+
+-- A node can end with tel; tel. or tel
+tel.
+
+
+--@requires x;
+--@ensures y;
+node g () returns ();
 let tel;
 
-node y<<type t>>() returns ();
-var c : t;
-let c = 0 -> 1; tel;
+-- A parameterized node 
+node y<<type t>> () returns ();
+var c : t when true; 
+let c = 0 -> 1; tel
+
+-- An uninterpreted function, parameters cannot be clocked or constant
+function y (a: bool; c: int) returns (b: int);

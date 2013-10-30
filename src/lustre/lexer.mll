@@ -350,6 +350,7 @@ rule token = parse
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '.' { DOT }
+  | ".." { DOTDOT }
   | '^' { CARET }
   | "{" { LCURLYBRACKET }
   | "}" { RCURLYBRACKET }
@@ -359,6 +360,7 @@ rule token = parse
   | "<<" { LPARAMBRACKET }
   | ">>" { RPARAMBRACKET }
   | "=>" { IMPL }
+  | "#" { HASH }
   | "<=" { LTE }
   | ">=" { GTE }
   | "<" { LT }
