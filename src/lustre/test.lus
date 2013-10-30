@@ -7,12 +7,15 @@
 -- Free constants, must have a type
 const a1, a2, a3: a;
 
--- Defined constant
+-- Defined constants without type
 const b1 = 1;
-const pi = 3.14;
+      pi = 3.14;
 
 -- Defined constant with optional type 
 const c1 : bool = true;
+      c2 = 5;
+      c3, c4 : real;
+
 
 -- Predefined type bool
 type a = bool;
@@ -31,22 +34,18 @@ type f = [int, real, bool];
 type g = [d, [int, bool]];
 
 -- Record type
-type d = { one: struct { a : int; b: bool };  two : bool; };
+type h = struct { one : int; two : bool };
 
+-- Record types can be nested, struct is optional
+type i = { one: struct { a : int; b: bool };  two : bool };
 
-
-
-type a = real;
-type c = struct { a: a; b, c: int };
+-- Enum type
 type e = enum {blue, green, red };
-type e = enum { unit };
+
+-- Array types
 type f = int^5;
 type g = int^5^5;
 type h = int^5*h;
-
-const a = 1;
-
-const b : b = true;
 
 
 node x() returns ();

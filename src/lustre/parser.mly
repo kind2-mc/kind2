@@ -139,8 +139,8 @@
 (* End of file marker *)
 %token EOF
     
-
-%nonassoc /* IF THEN */ ELSE
+(*
+%nonassoc IF THEN ELSE
 %right ARROW
 %right IMPL
 %left OR XOR
@@ -148,9 +148,27 @@
 %nonassoc EQUALS LT GT LTE GTE NEQ
 %left MINUS PLUS
 %left MULT DIV INTDIV MOD
-%left /* UMINUS */ NOT
+%left UMINUS NOT
 %nonassoc CURRENT WHEN
-%left PRE /* FBY */
+%left PRE FBY
+*)
+
+
+%nonassoc IF THEN ELSE
+%right ARROW
+%right IMPL
+%left OR XOR
+%left AND
+%left LT LTE EQUALS NEQ GEQ GT
+%left PLUS MINUS
+%left MULT INTDIV MOD DIV
+%nonassoc WHEN
+%nonassoc HASH
+%nonassoc NOT 
+%nonassoc CURRENT 
+%nonassoc PRE 
+%nonassoc INT REAL 
+%nonassoc LSQBRACKET RSQBRACKET
 
 
 %start <Program.declaration list> main
@@ -165,7 +183,7 @@ main: p = list(decl) EOF { List.flatten p }
 
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
-  | CONST; d = const_decl { List.map (function e -> Program.ConstDecl e) d }
+  | d = const_decl { List.map (function e -> Program.ConstDecl e) d }
   | d = type_decl { List.map (function e -> Program.TypeDecl e) d }
   | d = node_decl { [Program.NodeDecl d] }
   | d = func_decl { [Program.FuncDecl d] }
@@ -175,11 +193,20 @@ decl:
 
 
 (* Constant declaration *)
-const_decl: 
+const_decl: CONST; l = nonempty_list(const_decl_body) { List.flatten l }
+
+
+const_decl_body:
+
+  (* Imported (free) constant 
+
+     Separate rule to avoid shift/reduce conflict *)
+  | h = ident; COLON; t = lustre_type; SEMICOLON 
+    { [Program.FreeConst (h, t)] } 
 
   (* Imported (free) constant *)
-  | l = ident_list; COLON; t = lustre_type; SEMICOLON 
-    { List.map (function e -> Program.FreeConst (e, t)) l } 
+  | h = ident; COMMA; l = ident_list; COLON; t = lustre_type; SEMICOLON 
+    { List.map (function e -> Program.FreeConst (e, t)) (h :: l) } 
 
   (* Defined constant without a type *)
   | s = ident; EQUALS; e = expr; SEMICOLON 
@@ -188,9 +215,6 @@ const_decl:
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
     { let (s, t) = c in [Program.TypedConst (s, e, t)] }
-
-
-typed_ident: s = ident; COLON; t = lustre_type { (s, t) }
 
 
 (* ********************************************************************** *)
@@ -217,13 +241,13 @@ lustre_type:
   (* Tuple type *)
   | t = tuple_type { Program.TupleType t } 
 
-  (* Record type *)
+  (* Record type (V6) *)
   | t = record_type { Program.RecordType t } 
 
-  (* Array type *)
+  (* Array type (V6) *)
   | t = array_type { Program.ArrayType t }
 
-  (* Enum type *)
+  (* Enum type (V6) *)
   | t = enum_type { Program.EnumType t }
 
 
@@ -234,58 +258,37 @@ tuple_type:
   | LSQBRACKET; l = lustre_type_list; RSQBRACKET { l } 
 
 
-(* A record type (V6) *)
+(* Record type (V6) *)
 record_type:
 
   (* Keyword "struct" is optional *)
-  | STRUCT LCURLYBRACKET; f = typed_idents_list; SEMICOLON?; RCURLYBRACKET 
-  | LCURLYBRACKET; f = typed_idents_list; SEMICOLON?; RCURLYBRACKET
-    { f }
+  | option(STRUCT); LCURLYBRACKET; f = typed_idents_list; RCURLYBRACKET { f }
 
 
-(* Array type *)
-array_type:
-  | t = lustre_type; CARET; s = expr { t, s }
+(* Array type (V6) *)
+array_type: t = lustre_type; CARET; s = expr { t, s }
 
 
 (* Enum type (V6) *)
-enum_type:
-  | ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
+enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
 
 
+(* ********************************************************************** *)
 
+(* Uninterpreted function declaration *)
+func_decl:
+  | FUNCTION; 
+    n = ident; 
+    LPAREN;
+    i = typed_idents_list; 
+    RPAREN;
+    RETURNS; 
+    LPAREN;
+    o = typed_idents_list; 
+    RPAREN;
+    SEMICOLON;
 
-
-
-
-
-
-
-
-(* An identifier *)
-ident: s = SYM { s }
-
-(* A comma-separated list of identifiers *)
-ident_list:
-  | l = separated_nonempty_list(COMMA, ident) { l }
-
-(* A comma-separated list of types *)
-lustre_type_list:
-  | l = separated_nonempty_list(COMMA, lustre_type) { l }
-  
-(* A list of lists of typed identifiers *)
-typed_idents_list: 
-  | a = separated_list(SEMICOLON, typed_idents) { List.flatten a }
-
-(* A list of comma-separated identifiers with a type *)
-typed_idents: 
-  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
-
-    (* Pair each identifier with its type *)
-    { List.map (function e -> (e, t)) l }
-  
-
-
+    { (n, i, o)  }
 
 
 (* Node declaration *)
@@ -294,11 +297,11 @@ node_decl:
     n = ident; 
     p = option(static_params); 
     LPAREN;
-    i = typed_idents_list; 
+    i = const_clocked_typed_idents_list; 
     RPAREN;
     RETURNS; 
     LPAREN;
-    o = typed_idents_list; 
+    o = clocked_typed_idents_list; 
     RPAREN;
     SEMICOLON;
     l = list(node_local_decl);
@@ -334,24 +337,24 @@ node_local_decl:
 
 (* A variable declaration section of a node *)
 var_decls: 
-  | VAR; l = nonempty_list(var_decl); SEMICOLON { List.flatten l }
+  | VAR; l = separated_nonempty_list(SEMICOLON, clocked_typed_idents); SEMICOLON { List.flatten l }
 
-
+(*
 (* A declaration of variables *)
 var_decl:
 
   (* A clock-less variable *)
   | l = typed_idents 
-    { List.map (function (s, t) -> (s, t, None)) l }
+    { List.map (function (s, t) -> (s, t, Program.ClockTrue)) l }
 
   (* A variable with a clock *)
   | l = typed_idents; WHEN; c = clock_expr
-    { List.map (function (s, t) -> (s, t, Some c)) l }
+    { List.map (function (s, t) -> (s, t, c)) l }
 
   (* A list of variables with a clock *)
   | LPAREN; l = typed_idents_list; RPAREN; c = clock_expr
-    { List.map (function (s, t) -> (s, t, Some c)) l }
-
+    { List.map (function (s, t) -> (s, t, c)) l }
+*)
 
 (* Equations of a node *)
 node_equation:
@@ -368,20 +371,6 @@ node_equation:
 (* Nodes are separated by a period or a semicolon *)
 node_sep: DOT | SEMICOLON { } 
 
-func_decl:
-  | FUNCTION; 
-    n = ident; 
-    LPAREN;
-    i = typed_idents_list; 
-    RPAREN;
-    RETURNS; 
-    LPAREN;
-    o = typed_idents_list; 
-    RPAREN;
-    SEMICOLON;
-
-    { (n, i, o)  }
-
 (*
 expr_main:
   expr EOF { $1 }
@@ -390,10 +379,7 @@ expr_main:
 expr: 
 
   (* Symbol *)
-  | s = SYM { Program.Id ($startpos, s) } 
-
-  (* Parenthesized expression *)
-  | LPAREN; e = expr; RPAREN { e } 
+  | s = ident { Program.Id ($startpos, s) } 
 
   (* Propositional constants *)
   | TRUE { Program.True $startpos }
@@ -402,6 +388,20 @@ expr:
   (* Integer numeral and floating-point decimal constants *)
   | s = NUMERAL { Program.Num ($startpos, s) } 
   | s = DECIMAL { Program.Dec ($startpos, s) } 
+
+  (* Parenthesized single expression *)
+  | LPAREN; e = expr; RPAREN { e } 
+
+  (* Expression list *)
+  | LPAREN; e = expr_list; RPAREN { Program.ExprList ($startpos, e) } 
+
+  (* Tuple expression *)
+  | LSQBRACKET; l = expr_list; RSQBRACKET { Program.TupleExpr ($startpos, l) }
+
+  (* Tuple projection *)
+  | e = expr; LSQBRACKET; t = NUMERAL; RSQBRACKET
+    { Program.TupleProject ($startpos, e, (int_of_string t)) }
+
 
   (* Arithmetic operators *)
   | e1 = expr; MINUS; e2 = expr { Program.Minus ($startpos, e1, e2) }
@@ -451,21 +451,108 @@ expr:
   | s = SYM; DOT; t = SYM 
     { Program.RecordProject ($startpos, s, t) }
 
-  (* Tuple projection *)
-  | s = SYM; LSQBRACKET; t = NUMERAL; RSQBRACKET
-    { Program.TupleProject ($startpos, s, (int_of_string t)) }
+expr_list: l = separated_nonempty_list(COMMA, expr) { l }
 
 
 clock_expr:
   | c = ident { Program.ClockPos c } 
   | NOT; c = ident { Program.ClockNeg c } 
   | NOT; LPAREN; c = ident; RPAREN { Program.ClockNeg c } 
+  | TRUE { Program.ClockTrue }
+
+
+(* ********************************************************************** *)
+
+
+(* An identifier *)
+ident: s = SYM { s }
+
+(* An identifier with a type *)
+typed_ident: s = ident; COLON; t = lustre_type { (s, t) }
+
+(* A comma-separated list of identifiers *)
+ident_list:
+  | l = separated_nonempty_list(COMMA, ident) { l }
+
+(* A comma-separated list of types *)
+lustre_type_list:
+  | l = separated_nonempty_list(COMMA, lustre_type) { l }
+  
+(* A list of comma-separated identifiers with a type *)
+typed_idents: 
+  | l = separated_nonempty_list(COMMA, ident); COLON; t = lustre_type 
+
+    (* Pair each identifier with the type *)
+    { List.map (function e -> (e, t)) l }
+
+(* A list of lists of typed identifiers *)
+typed_idents_list: 
+  | a = separated_list(SEMICOLON, typed_idents) { List.flatten a }
+
+
+(* Typed identifiers that may be constant *)
+const_typed_idents:
+
+  (* Pair each typed identifier with a flag *)
+  | o = boption(CONST); l = typed_idents { List.map (function (e, t) -> (e, t, o)) l }
+
+
+(* A list of lists of typed identifiers that may be constant *)
+const_typed_idents_list: 
+  | a = separated_list(SEMICOLON, const_typed_idents) { List.flatten a }
+
+
+
+(* A list of comma-separated identifiers with a type *)
+clocked_typed_idents: 
+
+  (* Unclocked typed identifiers *)
+  | l = typed_idents
+
+    (* Pair each typed identifier with the base clock *)
+    { List.map (function (e, t) -> (e, t, Program.ClockTrue)) l }
+
+  (* Clocked typed identifiers *)
+  | l = typed_idents; WHEN; c = clock_expr
+  | LPAREN; l = typed_idents; RPAREN; WHEN; c = clock_expr
+  | LPAREN; l = typed_idents_list; RPAREN; WHEN; c = clock_expr
+
+    (* Pair each types identifier the given clock *)
+    { List.map (function (e, t) -> (e, t, c)) l }
+
+(* A list of lists of typed and clocked identifiers *)
+clocked_typed_idents_list: 
+  | a = separated_list(SEMICOLON, clocked_typed_idents) { List.flatten a }
+
+
+(* A list of comma-separated identifiers with a type and a clock that may be constant *)
+const_clocked_typed_idents: 
+
+  (* Unclocked typed identifiers *)
+  | l = const_typed_idents
+
+    (* Pair each typed identifier with the base clock *)
+    { List.map (function (e, t, o) -> (e, t, Program.ClockTrue, o)) l }
+
+  (* Clocked typed identifiers *)
+  | l = const_typed_idents; WHEN; c = clock_expr
+  | LPAREN; l = const_typed_idents; RPAREN; WHEN; c = clock_expr
+  | LPAREN; l = const_typed_idents_list; RPAREN; WHEN; c = clock_expr
+
+    (* Pair each types identifier the given clock *)
+    { List.map (function (e, t, o) -> (e, t, c, o)) l }
+
+(* A list of lists of typed and clocked identifiers that may be constant *)
+const_clocked_typed_idents_list: 
+  | a = separated_list(SEMICOLON, const_clocked_typed_idents) { List.flatten a }
+
+
 
 
 
 (* 
    Local Variables:
-   compile-command: "ocmlabuild -use-menhir -tag debug -tag annot test.native"
+   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
    indent-tabs-mode: nil
    End: 
 *)

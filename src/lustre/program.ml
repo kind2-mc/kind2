@@ -82,13 +82,20 @@ type expr =
   (* Identifier *)
   | Id of Lexing.position * id
   | RecordProject of Lexing.position * id * id
-  | TupleProject of Lexing.position * id * int
+  | TupleProject of Lexing.position * expr * int
 
   (* Values *)
   | True of Lexing.position
   | False of Lexing.position
   | Num of Lexing.position * id
   | Dec of Lexing.position * id
+
+  (* List of expressions *)
+  | ExprList of Lexing.position * expr list 
+
+  (* Tuple expression *)
+  | TupleExpr of Lexing.position * expr list 
+
 
   (* Boolean operators *)
   | Not of Lexing.position * expr 
@@ -146,9 +153,22 @@ type lustre_type =
 (* A record field *)
 and typed_ident = id * lustre_type
 
-
 (* A declaration of a type *)
 type type_decl = id * lustre_type  
+
+(* A clock expression *)
+type clock_expr =
+  | ClockPos of id
+  | ClockNeg of id
+  | ClockTrue 
+
+
+(* A declaration of a clocked type *)
+type clocked_typed_decl = id * lustre_type * clock_expr
+
+
+(* A declaration of a clocked type *)
+type const_clocked_typed_decl = id * lustre_type * clock_expr * bool
 
 
 (* A declaration of a constant *)
@@ -158,14 +178,8 @@ type const_decl =
   | TypedConst of id * expr * lustre_type
 
 
-(* A clock expression *)
-type clock_expr =
-  | ClockPos of id
-  | ClockNeg of id
-
-
 (* A variable declaration *)
-type var_decl = id * lustre_type * clock_expr option
+type var_decl = id * lustre_type * clock_expr
 
 
 (* A static parameter of a node *)
@@ -187,7 +201,7 @@ type node_equation =
 
 
 (* A node declaration *)
-type node_decl = id * node_param list * (id * lustre_type) list * (id * lustre_type) list * node_local_decl list * node_equation list 
+type node_decl = id * node_param list * const_clocked_typed_decl list * clocked_typed_decl list * node_local_decl list * node_equation list 
   
 
 (* A function declaration *)
@@ -275,11 +289,17 @@ let rec pp_print_expr ppf =
   function
     
     | Id (p, id) -> ps p id
+ 
+    | ExprList (p, l) -> Format.fprintf ppf "%a%a" ppos p pl l
+
+    | TupleExpr (p, l) -> Format.fprintf ppf "%a@[<hv 1>[%a]@]" ppos p pl l
+
+
     | RecordProject (p, id, f) -> 
       Format.fprintf ppf "%a%s.%s" ppos p id f
 
-    | TupleProject (p, id, f) -> 
-      Format.fprintf ppf "%a%s[%d]" ppos p id f
+    | TupleProject (p, e, f) -> 
+      Format.fprintf ppf "%a%a[%d]" ppos p pp_print_expr e f
 
     | True p -> ps p "true"
     | False p -> ps p "false"
@@ -331,8 +351,9 @@ let rec pp_print_expr ppf =
 
 let pp_print_clock_expr ppf = function
 
-  | ClockPos s -> Format.fprintf ppf "%a" pp_print_ident s
-  | ClockNeg s -> Format.fprintf ppf "not %a" pp_print_ident s
+  | ClockPos s -> Format.fprintf ppf "@ when %a" pp_print_ident s
+  | ClockNeg s -> Format.fprintf ppf "@ when not %a" pp_print_ident s
+  | ClockTrue -> ()
 
 
 (* Pretty-print a Lustre type *)
@@ -366,11 +387,26 @@ let rec pp_print_lustre_type ppf = function
 
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
-      (pp_print_list Format.pp_print_string ";@ ") l
+      (pp_print_list Format.pp_print_string ",@ ") l
+
+
+(* Pretty-print a type declaration *)
+and pp_print_typed_ident ppf (s, t) = 
+  Format.fprintf ppf "%a: %a" pp_print_ident s pp_print_lustre_type t
+
 
 (* Pretty-print a record field *)
-and pp_print_typed_ident ppf (s, t) = 
-  Format.fprintf ppf "%s: %a" s pp_print_lustre_type t
+and pp_print_clocked_typed_ident ppf (s, t, c) = 
+  Format.fprintf ppf "%a: %a%a" pp_print_ident s pp_print_lustre_type t pp_print_clock_expr c
+
+
+(* Pretty-print a record field *)
+and pp_print_const_clocked_typed_ident ppf (s, t, c, o) = 
+  Format.fprintf ppf "%t%a: %a%a" 
+    (function ppf -> if o then Format.fprintf ppf "const")
+    pp_print_ident s 
+    pp_print_lustre_type t 
+    pp_print_clock_expr c
 
 
 let pp_print_node_param ppf = function
@@ -397,14 +433,10 @@ let pp_print_node_param_list ppf = function
 
 let pp_print_var_decl ppf = function 
 
-  | s, t, None -> 
-
-    Format.fprintf ppf "%a : %a;" pp_print_ident s pp_print_lustre_type t
-
-  | s, t, Some c -> 
+  | s, t, c -> 
 
     Format.fprintf ppf 
-      "%a : %a when %a;" 
+      "%a : %a%a;" 
       pp_print_ident s 
       pp_print_lustre_type t
       pp_print_clock_expr c
@@ -493,15 +525,23 @@ let pp_print_declaration ppf = function
        let@ @[<hv 2>%a@]tel; @]" 
       n 
       pp_print_node_param_list p
-      (pp_print_list pp_print_typed_ident ";@ ") i
-      (pp_print_list pp_print_typed_ident ";@ ") o
+      (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
+      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e 
+
+  | FuncDecl (n, i, o) -> 
+
+    Format.fprintf ppf
+      "@[<hv 2>function %s(@[<hv 1>%a@])@ returns (@[<hv 1>%a@]);"
+      n 
+      (pp_print_list pp_print_typed_ident ";@ ") i
+      (pp_print_list pp_print_typed_ident ";@ ") o
 
 
 (* 
    Local Variables:
-   compile-command: "ocmlabuild -use-menhir -tag debug -tag annot test.native"
+   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
    indent-tabs-mode: nil
    End: 
 *)
