@@ -583,7 +583,7 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
       find_rough_lower_bounds_in_cformula c v cf' l
 
-
+(*
   | (INEQ pl) :: cf' ->
 
       if get_coe_in_poly v pl > 0 then
@@ -625,7 +625,8 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
       find_rough_lower_bounds_in_cformula c v cf' l
 
-
+*)
+  | INEQ _ :: cf' 
   | (DIVISIBLE _) :: cf'
   | (INDIVISIBLE _) :: cf' ->
 
