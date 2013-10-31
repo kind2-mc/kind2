@@ -72,11 +72,11 @@
 %token OF
     
 (* Tokens for arrays *)
-%token ARRAY
+(* %token ARRAY *)
 %token CARET
 %token DOTDOT
-%token LARRAYBRACKET 
-%token RARRAYBRACKET 
+(* %token LARRAYBRACKET *)
+(* %token RARRAYBRACKET *)
 %token PIPE
 
 (* Token for constant declarations *)
@@ -143,6 +143,7 @@
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
+%left CARET PIPE
 %nonassoc IF THEN ELSE
 %right ARROW
 %right IMPL
@@ -152,12 +153,11 @@
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
 %nonassoc WHEN
-%nonassoc HASH
 %nonassoc NOT 
 %nonassoc CURRENT 
 %nonassoc PRE 
 %nonassoc INT REAL 
-%nonassoc LSQBRACKET RSQBRACKET
+%nonassoc LSQBRACKET
 
 (* Start token *)
 %start <Program.declaration list> main
@@ -211,9 +211,12 @@ const_decl_body:
 (* A type declaration *) 
 type_decl: 
 
+  | TYPE; l = ident_list; SEMICOLON 
+     { List.map (function e -> Program.FreeType e) l }
+
   (* Type definition (alias) *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (function e -> (e, t)) l }
+     { List.map (function e -> Program.AliasType (e, t)) l }
 
 
 (* A type *)
@@ -223,6 +226,16 @@ lustre_type:
   | BOOL { Program.Bool }
   | INT { Program.Int }
   | REAL { Program.Real }
+
+  | SUBRANGE;
+    LSQBRACKET;
+    l = expr; 
+    COMMA; 
+    u = expr; 
+    RSQBRACKET 
+    OF
+    INT 
+    { Program.IntRange (l, u)}
 
   (* User-defined type *)
   | s = ident { Program.UserType s }
@@ -363,8 +376,7 @@ node_equation:
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
      the left-hand side, an expression on the right *)
-  | LPAREN; l = ident_list; RPAREN; EQUALS; e = expr; SEMICOLON
-  | l = ident_list; EQUALS; e = expr; SEMICOLON
+  | l = left_side; EQUALS; e = expr; SEMICOLON
     { Program.Equation (l, e) }
 
   (* Node annotation *)
@@ -374,13 +386,45 @@ node_equation:
   | PROPERTY; e = expr; SEMICOLON { Program.AnnotProperty e }
 
 
+left_side:
+
+  (* List without parentheses *)
+  | l = struct_item_list { l }
+
+  (* Parenthesized list *)
+  | LPAREN; l = struct_item_list; RPAREN { l }
+
+
+(* Item in a structured equation *)
+struct_item:
+
+  (* Single identifier *)
+  | s = ident { Program.SingleIdent s }
+
+  (* Filter array values *)
+  | LSQBRACKET; l = struct_item_list; RSQBRACKET 
+    { Program.TupleStructItem l }
+
+  (* Select from tuple *)
+  | e = ident; LSQBRACKET; i = expr; RSQBRACKET 
+    { Program.TupleSelection (e, i) }
+
+  (* Select from record *)
+  | e = ident; DOT; i = ident 
+    { Program.FieldSelection (e, i) }
+ 
+(* List of structured items *)
+struct_item_list:
+ | l = separated_nonempty_list(COMMA, struct_item) { l }
+
+
 (* ********************************************************************** *)
 
 (* An expression *)
 expr: 
   
   (* An identifier *)
-  | s = ident { Program.Id ($startpos, s) } 
+  | s = ident { Program.Ident ($startpos, s) } 
 
   (* A propositional constant *)
   | TRUE { Program.True $startpos }
@@ -390,11 +434,18 @@ expr:
   | s = NUMERAL { Program.Num ($startpos, s) } 
   | s = DECIMAL { Program.Dec ($startpos, s) } 
 
+  (* Conversions *)
+  | INT; e = expr { Program.ToInt ($startpos, e) }
+  | REAL; e = expr { Program.ToReal ($startpos, e) }
+
   (* A parenthesized single expression *)
   | LPAREN; e = expr; RPAREN { e } 
 
-  (* An expression list *)
-  | LPAREN; e = expr_list; RPAREN { Program.ExprList ($startpos, e) } 
+  (* An expression list 
+
+     Singleton list is in production above *)
+  | LPAREN; h = expr; COMMA; l = expr_list; RPAREN 
+    { Program.ExprList ($startpos, h :: l) } 
 
   (* A tuple expression *)
   | LSQBRACKET; l = expr_list; RSQBRACKET { Program.TupleExpr ($startpos, l) }
@@ -406,9 +457,9 @@ expr:
   | e = expr; LSQBRACKET; i = expr ; RSQBRACKET
     { Program.TupleProject ($startpos, e, i) }
 
-  (* An array slice *)
-  | e = expr; LSQBRACKET; il = expr; DOTDOT; iu = expr; RSQBRACKET
-    { Program.ArraySlice ($startpos, e, il, iu) }
+  (* A multidimensional array slice *)
+  | e = expr; LSQBRACKET; l = array_slice_list; RSQBRACKET
+    { Program.ArraySlice ($startpos, e, l) }
 
   (* A record field projection *)
   | s = ident; DOT; t = ident 
@@ -478,6 +529,12 @@ node_call:
 (* A list of expressions *)
 expr_list: l = separated_nonempty_list(COMMA, expr) { l }
 
+
+(* An array slice *)
+array_slice: il = expr; DOTDOT; iu = expr { il, iu }
+
+(* A list of array slices *)
+array_slice_list: l = separated_nonempty_list(COMMA, array_slice) { l }
 
 (* ********************************************************************** *)
 

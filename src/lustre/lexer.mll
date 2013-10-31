@@ -222,7 +222,7 @@ let keyword_table =
       ("bool", BOOL);
       ("subrange", SUBRANGE);
       ("of", OF);
-      ("array", ARRAY);
+(*      ("array", ARRAY); *)
       ("struct", STRUCT);
       ("enum", ENUM);
 
@@ -277,7 +277,9 @@ let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']*
    be one token *)
 let printable = ['+' '-' '*' '/' '>' '<' '=' ]+
 
-(* Floating point decimal *)
+(* Floating point decimal 
+
+   Don't allow floats like "2." this will conflict with array slicing "2..3" *)
 let decimal = ['0'-'9']+ '.' ['0'-'9']+ ('E' ('+'|'-')? ['0'-'9']+)?
 
 (* Floating-point decimal with exponent only *)
@@ -354,8 +356,8 @@ rule token = parse
   | '^' { CARET }
   | "{" { LCURLYBRACKET }
   | "}" { RCURLYBRACKET }
-  | "[|" { LARRAYBRACKET }
-  | "|]" { RARRAYBRACKET }
+(*  | "[|" { LARRAYBRACKET } *)
+(*  | "|]" { RARRAYBRACKET } *)
   | '|' { PIPE }
   | "<<" { LPARAMBRACKET }
   | ">>" { RPARAMBRACKET }
