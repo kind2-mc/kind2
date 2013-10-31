@@ -49,7 +49,7 @@ let main () =
   let lexbuf = Lexing.from_function Lexer.read_from_lexbuf_stack in
   
   (* Read from file or standard input *)
-  let in_ch = 
+  let in_ch, curdir = 
     if Array.length Sys.argv > 1 then 
       (let fname = Sys.argv.(1) in 
        
@@ -61,13 +61,17 @@ let main () =
        in
        lexbuf.Lexing.lex_curr_p <- zero_pos; 
        
-       open_in fname) 
+       let curdir = 
+         Filename.dirname fname
+       in
+
+       open_in fname, curdir) 
     else
-      stdin
+      (stdin, Sys.getcwd ())
   in
   
   (* Initialize lexing buffer with channel *)
-  Lexer.lexbuf_init in_ch;
+  Lexer.lexbuf_init in_ch curdir;
   
   let declarations = 
 
@@ -97,7 +101,7 @@ let main () =
           
   in
 
-  Format.printf "@[<hv>%a@]@." (Program.pp_print_list Program.pp_print_declaration "@ ") declarations
+  Format.printf "@[<hv>%a@]@." (Ast.pp_print_list Ast.pp_print_declaration "@ ") declarations
 
 ;;
 
@@ -105,7 +109,7 @@ main ()
 
 (* 
    Local Variables:
-   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
+   compile-command: "make -k"
    indent-tabs-mode: nil
    End: 
 *)

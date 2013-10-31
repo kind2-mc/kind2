@@ -54,22 +54,58 @@ let rec pp_print_list pp sep ppf = function
     pp_print_list pp sep ppf tl
 
 
+(* ********************************************************************** *)
+(* Type declarations                                                      *)
+(* ********************************************************************** *)
+
+
+(* A position in a file
+
+   The column is the actual colum number, not an offset from the
+   beginning of the file as in Lexing.position *)
+type position =
+  { pos_fname : string; pos_lnum: int; pos_cnum: int }
+
+
 (* Pretty-print a position *)
 let pp_print_position 
     ppf 
-    { Lexing.pos_fname; Lexing.pos_lnum; Lexing.pos_bol; Lexing.pos_cnum } =
+    { pos_fname; pos_lnum; pos_cnum } =
 
   Format.fprintf 
     ppf
     "(%s,%d,%d)"
     pos_fname
     pos_lnum
-    (pos_cnum - pos_bol)
+    pos_cnum
 
 
-(* ********************************************************************** *)
-(* Type declarations                                                      *)
-(* ********************************************************************** *)
+(* A dummy position, different from any valid position *)
+let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* A dummy position in the specified file *)
+let dummy_pos_in_file fname = 
+  { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* Convert a position from Lexing to a position *)
+let position_of_lexing 
+    { Lexing.pos_fname;
+      Lexing.pos_lnum;
+      Lexing.pos_bol;
+      Lexing.pos_cnum } = 
+
+  (* Colum number is relative to the beginning of the file *)
+  { pos_fname = pos_fname; 
+    pos_lnum = pos_lnum; 
+    pos_cnum = pos_cnum - pos_bol } 
+
+
+(* Return true if position is a dummy position *)
+let is_dummy_pos = function 
+  | { pos_cnum = -1 } -> true 
+  | _ -> false
 
 
 (* An identifier *)
@@ -80,75 +116,81 @@ type ident = string
 type expr =
 
   (* Identifier *)
-  | Ident of Lexing.position * ident
-  | RecordProject of Lexing.position * ident * ident
-  | TupleProject of Lexing.position * expr * expr
+  | Ident of position * ident
+  | RecordProject of position * ident * ident
+  | TupleProject of position * expr * expr
 
   (* Values *)
-  | True of Lexing.position
-  | False of Lexing.position
-  | Num of Lexing.position * ident
-  | Dec of Lexing.position * ident
+  | True of position
+  | False of position
+  | Num of position * ident
+  | Dec of position * ident
 
   (* Conversions *)
-  | ToInt of Lexing.position * expr
-  | ToReal of Lexing.position * expr
+  | ToInt of position * expr
+  | ToReal of position * expr
 
   (* List of expressions *)
-  | ExprList of Lexing.position * expr list 
+  | ExprList of position * expr list 
 
   (* Tuple expression *)
-  | TupleExpr of Lexing.position * expr list 
+  | TupleExpr of position * expr list 
 
   (* Array constructor of single expression *)
-  | ArrayConstr of Lexing.position * expr * expr 
+  | ArrayConstr of position * expr * expr 
 
   (* Array constructor of single expression *)
-  | ArraySlice of Lexing.position * expr * (expr * expr) list
+  | ArraySlice of position * expr * (expr * expr) list
 
   (* Array constructor of single expression *)
-  | ArrayConcat of Lexing.position * expr * expr
+  | ArrayConcat of position * expr * expr
+
+  (* Construction of a record *)
+  | RecordConstruct of position * (ident * expr) list
 
   (* Boolean operators *)
-  | Not of Lexing.position * expr 
-  | And of Lexing.position * expr * expr 
-  | Or of Lexing.position * expr * expr
-  | Xor of Lexing.position * expr * expr 
-  | Impl of Lexing.position * expr * expr 
-  | OneHot of Lexing.position * expr list
+  | Not of position * expr 
+  | And of position * expr * expr 
+  | Or of position * expr * expr
+  | Xor of position * expr * expr 
+  | Impl of position * expr * expr 
+  | OneHot of position * expr list
 
   (* Arithmetic operators *)
-  | Uminus of Lexing.position * expr 
-  | Mod of Lexing.position * expr * expr
-  | Minus of Lexing.position * expr * expr
-  | Plus of Lexing.position * expr * expr
-  | Div of Lexing.position * expr * expr
-  | Times of Lexing.position * expr * expr
-  | Intdiv of Lexing.position * expr * expr
+  | Uminus of position * expr 
+  | Mod of position * expr * expr
+  | Minus of position * expr * expr
+  | Plus of position * expr * expr
+  | Div of position * expr * expr
+  | Times of position * expr * expr
+  | Intdiv of position * expr * expr
 
   (* If operator *)
-  | Ite of Lexing.position * expr * expr * expr 
+  | Ite of position * expr * expr * expr 
+
+  (* With operator for recursive definitions *)
+  | With of position * expr * expr * expr 
 
   (* Relations *)
-  | Eq of Lexing.position * expr * expr 
-  | Neq of Lexing.position * expr * expr
-  | Lte of Lexing.position * expr * expr
-  | Lt of Lexing.position * expr * expr
-  | Gte of Lexing.position * expr * expr
-  | Gt of Lexing.position * expr * expr
+  | Eq of position * expr * expr 
+  | Neq of position * expr * expr
+  | Lte of position * expr * expr
+  | Lt of position * expr * expr
+  | Gte of position * expr * expr
+  | Gt of position * expr * expr
 
   (* Clock operators *)
-  | When of Lexing.position * expr * expr 
-  | Current of Lexing.position * expr
-  | Condact of Lexing.position * expr * expr * expr list 
+  | When of position * expr * expr 
+  | Current of position * expr
+  | Condact of position * expr * expr * expr list 
   
   (* Temporal operators *)
-  | Pre of Lexing.position * expr 
-  | Fby of Lexing.position * expr * int * expr 
-  | Arrow of Lexing.position * expr * expr 
+  | Pre of position * expr 
+  | Fby of position * expr * int * expr 
+  | Arrow of position * expr * expr 
 
   (* A node call *)
-  | Call of Lexing.position * ident * expr list 
+  | Call of position * ident * expr list 
 
 
 (* A built-in type *)
@@ -198,12 +240,6 @@ type const_decl =
 type var_decl = ident * lustre_type * clock_expr
 
 
-(* A static parameter of a node *)
-type node_param = 
-  | TypeParam of ident
-  | ConstParam of (ident * lustre_type)
-
-
 (* A local declaration in a node *)
 type node_local_decl =
   | NodeConstDecl of const_decl 
@@ -215,6 +251,9 @@ type struct_item =
   | TupleStructItem of struct_item list
   | TupleSelection of ident * expr
   | FieldSelection of ident * ident
+  | ArraySliceStructItem of ident * (expr * expr) list
+
+
 
 (* An equation or assertion in the node body *)
 type node_equation =
@@ -232,7 +271,7 @@ type contract_clause =
 type contract = contract_clause list 
 
 (* A node declaration *)
-type node_decl = ident * node_param list * const_clocked_typed_decl list * clocked_typed_decl list * node_local_decl list * node_equation list * contract 
+type node_decl = ident * const_clocked_typed_decl list * clocked_typed_decl list * node_local_decl list * node_equation list * contract 
   
 
 (* A function declaration *)
@@ -329,7 +368,7 @@ let rec pp_print_expr ppf =
     | ArrayConstr (p, e1, e2) -> 
 
       Format.fprintf ppf 
-        "%a@[<hv 1>%a^%a@]" 
+        "%a@[<hv 1>(%a^%a)@]" 
         ppos p 
         pp_print_expr e1 
         pp_print_expr e2
@@ -351,9 +390,22 @@ let rec pp_print_expr ppf =
         pp_print_expr e2 
 
     | RecordProject (p, id, f) -> 
-      Format.fprintf ppf "%a%s.%s" ppos p id f
+
+      Format.fprintf ppf 
+        "%a%a.%a" 
+        ppos p 
+        pp_print_ident id 
+        pp_print_ident f
+
+    | RecordConstruct (p, l) -> 
+
+      Format.fprintf ppf 
+        "%a@[<hv 1>{%a}@]" 
+        ppos p 
+        (pp_print_list pp_print_field_assign ";@ ") l
 
     | TupleProject (p, e, f) -> 
+
       Format.fprintf ppf "%a%a[%a]" ppos p pp_print_expr e pp_print_expr f
 
     | True p -> ps p "true"
@@ -381,6 +433,8 @@ let rec pp_print_expr ppf =
     | Intdiv (p, e1, e2) -> p2 p "div" e1 e2
 
     | Ite (p, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
+
+    | With (p, e1, e2, e3) -> p3 p "with" "then" "else" e1 e2 e3
 
     | Eq (p, e1, e2) -> p2 p "=" e1 e2
     | Neq (p, e1, e2) -> p2 p "<>" e1 e2
@@ -412,6 +466,13 @@ let rec pp_print_expr ppf =
 and pp_print_array_slice ppf (l, u) =
   
   Format.fprintf ppf "%a..%a" pp_print_expr l pp_print_expr u
+
+and pp_print_field_assign ppf (i, e) = 
+
+  Format.fprintf ppf 
+    "@[<hv 2>%a =@ %a@]"
+    pp_print_ident i
+    pp_print_expr e
 
 
 (* Pretty-print a clock expression *)
@@ -446,7 +507,7 @@ let rec pp_print_lustre_type ppf = function
   | ArrayType (t, e) -> 
 
     Format.fprintf ppf 
-      "%a^%a" 
+      "(%a^%a)" 
       pp_print_lustre_type t 
       pp_print_expr e
 
@@ -496,30 +557,6 @@ let pp_print_type_decl ppf = function
   | FreeType t -> 
 
     Format.fprintf ppf "%a" pp_print_ident t 
-
-
-(* Pretty-print a single static node parameter *)
-let pp_print_node_param ppf = function
-
-  | TypeParam t -> 
-
-    Format.fprintf ppf "type %s" t
-
-  | ConstParam (s, t) -> 
-
-    Format.fprintf ppf "const %s : %a" s pp_print_lustre_type t
-
-
-(* Pretty-print a list of static node parameters *)
-let pp_print_node_param_list ppf = function 
-
-  | [] -> ()
-
-  | l -> 
-    
-    Format.fprintf ppf 
-      "@[<hv 2><<%a>>@]" 
-      (pp_print_list pp_print_node_param ";@ ") l
 
 
 (* Pretty-print a variable declaration *)
@@ -602,10 +639,30 @@ let rec pp_print_struct_item ppf = function
 
   | TupleStructItem l -> 
 
-    Format.fprintf ppf "@[<hv 1>[%a]@]" (pp_print_list pp_print_struct_item ",@ ") l
+    Format.fprintf ppf 
+      "@[<hv 1>[%a]@]" 
+      (pp_print_list pp_print_struct_item ",@ ") l
 
-  | TupleSelection (e, i) -> Format.fprintf ppf "%a[%a]" pp_print_ident e pp_print_expr i
-  | FieldSelection (e, i) -> Format.fprintf ppf "%a.%a" pp_print_ident e pp_print_ident i
+  | TupleSelection (e, i) -> 
+
+    Format.fprintf ppf
+      "%a[%a]"
+      pp_print_ident e
+      pp_print_expr i
+
+  | FieldSelection (e, i) -> 
+
+    Format.fprintf ppf
+      "%a.%a"
+      pp_print_ident e
+      pp_print_ident i
+
+  | ArraySliceStructItem (e, i) -> 
+
+    Format.fprintf ppf
+      "%a@[<hv 1>[%a]@]" 
+      pp_print_ident e
+      (pp_print_list pp_print_array_slice ",@ ") i
 
 
 (* Pretty-print a node equation *)
@@ -665,21 +722,21 @@ let pp_print_declaration ppf = function
 
   | ConstDecl c -> pp_print_const_decl ppf c
 
-  | NodeDecl (n, p, i, o, l, e, r) -> 
+  | NodeDecl (n, i, o, l, e, r) -> 
 
     Format.fprintf ppf
-      "@[<hv>%a@[<hv 2>node %a@[<hv 2>%a@]@ \
+      "@[<hv>@[<hv 2>node %a@ \
        @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]@ \
+       %a\
        %a\
        @[<hv 2>let@ \
        %a@;<1 -2>\
        tel;@]@]" 
-      pp_print_contract r
       pp_print_ident n 
-      pp_print_node_param_list p
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
+      pp_print_contract r
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e 
 
@@ -696,7 +753,7 @@ let pp_print_declaration ppf = function
 
 (* 
    Local Variables:
-   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
+   compile-command: "make -k"
    indent-tabs-mode: nil
    End: 
 *)

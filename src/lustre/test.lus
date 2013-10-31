@@ -22,7 +22,7 @@ type a = bool;
 -- Declaration of multiple aliases for predefined type int
 type b, c = int;
 
--- Predefined type integer range
+-- Predefined type integer range (our extension)
 type r1 = subrange [1, 2] of int;
 type r2 = subrange [-2, 2] of int;
 type r3 = subrange [b, c] of int;
@@ -35,15 +35,17 @@ type e = a;
 
 -- Tuple type
 type f = [int, real, bool];
+
+-- Nested tuple type
 type g = [d, [int, bool]];
 
--- Record type
+-- Record type (V6)
 type h = struct { one : int; two : bool };
 
 -- Record types can be nested, struct is optional
-type i = { one: struct { a : int; b: bool };  two : bool };
+type i = { one: struct { a : int; b: bool };  two : bool; };
 
--- Enum type
+-- Enum type (V6) 
 type e = enum {blue, green, red };
 
 -- Array types
@@ -55,27 +57,33 @@ type h = int^5*h;
 node x 
   (a, b: [int, [bool, bool]]; 
    const c: z; d, e: int when a; 
-   (f, g: int; h: real) when b) 
+   (f, g: int; h: real;) when b) 
 returns 
   (x: y when z; 
    (a, b: [int, [bool, real]]; c: struct {one: real; two: int }) when x;
    d: int);
 -- Variable declarations are optional
 let 
+-- Node equations are optional
 tel;
 
 node y (const a: bool) returns (b: int);
--- Local (free) constant declarations
+-- Local constant declarations
 const c : int; d = 1;
+var t : {a: int; b: real};
 let
-  -- Main node annotation, anything can follow, semicolon is not necessary
-  --%MAIN
-  --%MAIN;
-  --%MAIN xyz
+
   e = 1;
   (f) = 2;
 
-  -- List of identifiers 
+  -- Main node annotation, anything can follow, semicolon is not
+  --necessary,  can be anywhere in the node body 
+
+  --%MAIN 
+  --%MAIN; 
+  --%MAIN xyz
+
+  -- Assignment to a list
   g, h, i = x(c);
 
   -- List can be in parentheses
@@ -87,12 +95,19 @@ let
   -- Structural assignment
   [c, [A[0], A[1]]] = e;
 
-  -- Tuple 
+  -- Structural assignment to tuple 
   [q, r] = [true, 5];
 
-  -- Record 
-  a.one = y(5);
+  -- Assignment to array slices 
+  A[i..j] = 3^(i-j);
+  B[i..j, k..l] = 3^(j-i)^(l-k);
+
+  -- Assignment to record field
+  t.a = y(5);
   
+  -- Record construction
+  t = { b = 2.0; a = 1 };
+
   -- Assertion
   assert x;
 
@@ -106,22 +121,19 @@ let
 tel.
 
 
+-- Node contracts right after its signature 
+node g () returns ();
 --@requires x;
 --@ensures y;
-node g () returns ();
-let tel;
+const n = 5;
+var t : int;
+let t = n; tel;
 
--- A parameterized node 
-node y<<type t>> () returns ();
-var c : t when true; 
-let 
-  c = 0 -> 1; 
-tel
 
--- An uninterpreted function, parameters cannot be clocked or constant
+-- An uninterpreted function, parameters cannot be clocked or have
+-- constant parameters
 function y (a: bool; c: int) returns (b: int);
-
-
+function y (a: bool; c: int; ) returns (b: int);
 
 
 ------------------------------------------------------------------------
@@ -417,3 +429,26 @@ let
   delayed = window[n-1];
   window = [X]|(default^(n-1) -> pre(window[0..n-2]));
 tel
+
+-- Examples from the V6 draft manual
+type color1 = enum { blue, white, black };
+type color2 = enum { green, orange, yellow };
+
+node enum0 (x: color1) returns (y: color2);
+let
+  y = if x = blue then green else if x = white then orange else yellow;
+tel
+
+type complex = { re: real; im: real };
+const j = { re = -sqrt(3)/2; im = sqrt(3)/2 };
+
+node get_im(c: complex) returns (x: real);
+let
+  x = c.im;
+tel
+
+type matrix_3_3 = int^3^3;
+const m1 = 0^3^3;
+const m2 = [1, 2, 3]^3;
+const sm2 = m2[2];
+

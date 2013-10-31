@@ -29,6 +29,8 @@
 
 %{
 
+let mk_pos = Ast.position_of_lexing 
+
 %}
 
 (*
@@ -84,8 +86,8 @@
     
 (* Tokens for node declarations *)
 %token NODE
-%token LPARAMBRACKET
-%token RPARAMBRACKET
+(* %token LPARAMBRACKET *)
+(* %token RPARAMBRACKET *)
 %token FUNCTION
 %token RETURNS
 %token VAR
@@ -109,6 +111,7 @@
 %token XOR
 %token OR
 %token IF
+%token WITH
 %token THEN
 %token ELSE
 %token IMPL
@@ -144,7 +147,7 @@
     
 (* Priorities and associativity of operators, lowest first *)
 %left CARET PIPE
-%nonassoc IF THEN ELSE
+%nonassoc IF WITH THEN ELSE
 %right ARROW
 %right IMPL
 %left OR XOR
@@ -160,7 +163,7 @@
 %nonassoc LSQBRACKET
 
 (* Start token *)
-%start <Program.declaration list> main
+%start <Ast.declaration list> main
 
 %%
 
@@ -171,10 +174,10 @@ main: p = list(decl) EOF { List.flatten p }
 
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
-  | d = const_decl { List.map (function e -> Program.ConstDecl e) d }
-  | d = type_decl { List.map (function e -> Program.TypeDecl e) d }
-  | d = node_decl { [Program.NodeDecl d] }
-  | d = func_decl { [Program.FuncDecl d] }
+  | d = const_decl { List.map (function e -> Ast.ConstDecl e) d }
+  | d = type_decl { List.map (function e -> Ast.TypeDecl e) d }
+  | d = node_decl { [Ast.NodeDecl d] }
+  | d = func_decl { [Ast.FuncDecl d] }
 
 
 (* ********************************************************************** *)
@@ -190,19 +193,19 @@ const_decl_body:
 
      Separate rule for singleton list to avoid shift/reduce conflict *)
   | h = ident; COLON; t = lustre_type; SEMICOLON 
-    { [Program.FreeConst (h, t)] } 
+    { [Ast.FreeConst (h, t)] } 
 
   (* Imported (free) constant *)
   | h = ident; COMMA; l = ident_list; COLON; t = lustre_type; SEMICOLON 
-    { List.map (function e -> Program.FreeConst (e, t)) (h :: l) } 
+    { List.map (function e -> Ast.FreeConst (e, t)) (h :: l) } 
 
   (* Defined constant without a type *)
   | s = ident; EQUALS; e = expr; SEMICOLON 
-    { [Program.UntypedConst (s, e)] }
+    { [Ast.UntypedConst (s, e)] }
 
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
-    { let (s, t) = c in [Program.TypedConst (s, e, t)] }
+    { let (s, t) = c in [Ast.TypedConst (s, e, t)] }
 
 
 (* ********************************************************************** *)
@@ -212,20 +215,20 @@ const_decl_body:
 type_decl: 
 
   | TYPE; l = ident_list; SEMICOLON 
-     { List.map (function e -> Program.FreeType e) l }
+     { List.map (function e -> Ast.FreeType e) l }
 
   (* Type definition (alias) *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (function e -> Program.AliasType (e, t)) l }
+     { List.map (function e -> Ast.AliasType (e, t)) l }
 
 
 (* A type *)
 lustre_type:
 
   (* Predefined types *)
-  | BOOL { Program.Bool }
-  | INT { Program.Int }
-  | REAL { Program.Real }
+  | BOOL { Ast.Bool }
+  | INT { Ast.Int }
+  | REAL { Ast.Real }
 
   | SUBRANGE;
     LSQBRACKET;
@@ -235,22 +238,22 @@ lustre_type:
     RSQBRACKET 
     OF
     INT 
-    { Program.IntRange (l, u)}
+    { Ast.IntRange (l, u)}
 
   (* User-defined type *)
-  | s = ident { Program.UserType s }
+  | s = ident { Ast.UserType s }
 
   (* Tuple type *)
-  | t = tuple_type { Program.TupleType t } 
+  | t = tuple_type { Ast.TupleType t } 
 
   (* Record type (V6) *)
-  | t = record_type { Program.RecordType t } 
+  | t = record_type { Ast.RecordType t } 
 
   (* Array type (V6) *)
-  | t = array_type { Program.ArrayType t }
+  | t = array_type { Ast.ArrayType t }
 
   (* Enum type (V6) *)
-  | t = enum_type { Program.EnumType t }
+  | t = enum_type { Ast.EnumType t }
 
 
 (* A tuple type *)
@@ -264,12 +267,20 @@ tuple_type:
 record_type:
 
   (* Keyword "struct" is optional *)
-  | option(STRUCT); LCURLYBRACKET; f = typed_idents_list; RCURLYBRACKET { f }
+  | option(STRUCT); 
+    f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, typed_idents)
+  
+    { List.flatten f  }
 
 
 (* An array type (V6) *)
-array_type: t = lustre_type; CARET; s = expr { t, s }
+array_type: 
+  | t = lustre_type; CARET; s = expr { t, s }
 
+(*
+  (* Alternate syntax: array [size] of type *)
+  | ARRAY; s = expr; OF; LSQBRACKET; t = lustre_type; RSQBRACKET { t, s }
+*)
 
 (* An enum type (V6) *)
 enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l } 
@@ -282,32 +293,24 @@ enum_type: ENUM LCURLYBRACKET; l = ident_list; RCURLYBRACKET { l }
 func_decl:
   | FUNCTION; 
     n = ident; 
-    LPAREN;
-    i = typed_idents_list; 
-    RPAREN;
+    i = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
     RETURNS; 
-    LPAREN;
-    o = typed_idents_list; 
-    RPAREN;
+    o = tlist(LPAREN, SEMICOLON, RPAREN, typed_idents);
     SEMICOLON;
 
-    { (n, i, o)  }
+    { (n, List.flatten i, List.flatten o)  }
 
 
 (* A node declaration *)
 node_decl:
-  | r = contract;
-    NODE; 
+  | NODE; 
     n = ident; 
-    p = option(static_params); 
-    LPAREN;
-    i = const_clocked_typed_idents_list; 
-    RPAREN;
+    (* p = option(static_params); *)
+    i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
     RETURNS; 
-    LPAREN;
-    o = clocked_typed_idents_list; 
-    RPAREN;
+    o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
+    r = contract;
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -315,9 +318,9 @@ node_decl:
     option(node_sep) 
 
     { (n, 
-       (match p with None -> [] | Some l -> l), 
-       i, 
-       o, 
+       (* (match p with None -> [] | Some l -> l), *)
+       List.flatten i, 
+       List.flatten o, 
        (List.flatten l), 
        e,
        r)  }
@@ -332,10 +335,10 @@ contract:
 
 (* A requires or ensures annotation *)
 contract_clause:
-  | REQUIRES; e = expr; SEMICOLON { Program.Requires e }
-  | ENSURES; e = expr; SEMICOLON { Program.Ensures e }
+  | REQUIRES; e = expr; SEMICOLON { Ast.Requires e }
+  | ENSURES; e = expr; SEMICOLON { Ast.Ensures e }
 
-
+(*
 (* The static parameters of a node *)
 static_params:
   | LPARAMBRACKET; 
@@ -347,14 +350,14 @@ static_params:
 
 (* A static parameter is a type or a constant *)
 static_param:
-  | TYPE; t = ident { Program.TypeParam t }
-  | CONST; c = ident; COLON; t = lustre_type { Program.ConstParam (c, t) }
-
+  | TYPE; t = ident { Ast.TypeParam t }
+  | CONST; c = ident; COLON; t = lustre_type { Ast.ConstParam (c, t) }
+*)
 
 (* A node-local declaration of constants or variables *)
 node_local_decl:
-  | c = const_decl { List.map (function e -> Program.NodeConstDecl e) c }
-  | v = var_decls { List.map (function e -> Program.NodeVarDecl e) v }
+  | c = const_decl { List.map (function e -> Ast.NodeConstDecl e) c }
+  | v = var_decls { List.map (function e -> Ast.NodeVarDecl e) v }
 
 
 (* A variable declaration section of a node *)
@@ -372,18 +375,18 @@ node_equation:
 
   (* An assertion *)
   | ASSERT; e = expr; SEMICOLON
-    { Program.Assert e }
+    { Ast.Assert e }
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
      the left-hand side, an expression on the right *)
   | l = left_side; EQUALS; e = expr; SEMICOLON
-    { Program.Equation (l, e) }
+    { Ast.Equation (l, e) }
 
   (* Node annotation *)
-  | MAIN { Program.AnnotMain }
+  | MAIN { Ast.AnnotMain }
 
   (* Property annotation *)
-  | PROPERTY; e = expr; SEMICOLON { Program.AnnotProperty e }
+  | PROPERTY; e = expr; SEMICOLON { Ast.AnnotProperty e }
 
 
 left_side:
@@ -399,20 +402,23 @@ left_side:
 struct_item:
 
   (* Single identifier *)
-  | s = ident { Program.SingleIdent s }
+  | s = ident { Ast.SingleIdent s }
 
   (* Filter array values *)
   | LSQBRACKET; l = struct_item_list; RSQBRACKET 
-    { Program.TupleStructItem l }
+    { Ast.TupleStructItem l }
 
   (* Select from tuple *)
   | e = ident; LSQBRACKET; i = expr; RSQBRACKET 
-    { Program.TupleSelection (e, i) }
+    { Ast.TupleSelection (e, i) }
 
   (* Select from record *)
   | e = ident; DOT; i = ident 
-    { Program.FieldSelection (e, i) }
+    { Ast.FieldSelection (e, i) }
  
+  | e = ident; LSQBRACKET; s = array_slice_list; RSQBRACKET 
+    { Ast.ArraySliceStructItem (e, s) }
+
 (* List of structured items *)
 struct_item_list:
  | l = separated_nonempty_list(COMMA, struct_item) { l }
@@ -424,19 +430,19 @@ struct_item_list:
 expr: 
   
   (* An identifier *)
-  | s = ident { Program.Ident ($startpos, s) } 
+  | s = ident { Ast.Ident (mk_pos $startpos, s) } 
 
   (* A propositional constant *)
-  | TRUE { Program.True $startpos }
-  | FALSE { Program.False $startpos }
+  | TRUE { Ast.True (mk_pos $startpos) }
+  | FALSE { Ast.False (mk_pos $startpos) }
 
   (* An integer numeral or a floating-point decimal constant *)
-  | s = NUMERAL { Program.Num ($startpos, s) } 
-  | s = DECIMAL { Program.Dec ($startpos, s) } 
+  | s = NUMERAL { Ast.Num (mk_pos $startpos, s) } 
+  | s = DECIMAL { Ast.Dec (mk_pos $startpos, s) } 
 
   (* Conversions *)
-  | INT; e = expr { Program.ToInt ($startpos, e) }
-  | REAL; e = expr { Program.ToReal ($startpos, e) }
+  | INT; e = expr { Ast.ToInt (mk_pos $startpos, e) }
+  | REAL; e = expr { Ast.ToReal (mk_pos $startpos, e) }
 
   (* A parenthesized single expression *)
   | LPAREN; e = expr; RPAREN { e } 
@@ -445,61 +451,69 @@ expr:
 
      Singleton list is in production above *)
   | LPAREN; h = expr; COMMA; l = expr_list; RPAREN 
-    { Program.ExprList ($startpos, h :: l) } 
+    { Ast.ExprList (mk_pos $startpos, h :: l) } 
 
   (* A tuple expression *)
-  | LSQBRACKET; l = expr_list; RSQBRACKET { Program.TupleExpr ($startpos, l) }
+  | LSQBRACKET; l = expr_list; RSQBRACKET { Ast.TupleExpr (mk_pos $startpos, l) }
 
   (* An array constructor *)
-  | e1 = expr; CARET; e2 = expr { Program.ArrayConstr ($startpos, e1, e2) }
+  | e1 = expr; CARET; e2 = expr { Ast.ArrayConstr (mk_pos $startpos, e1, e2) }
 
   (* A tuple projection *)
   | e = expr; LSQBRACKET; i = expr ; RSQBRACKET
-    { Program.TupleProject ($startpos, e, i) }
+    { Ast.TupleProject (mk_pos $startpos, e, i) }
 
   (* A multidimensional array slice *)
   | e = expr; LSQBRACKET; l = array_slice_list; RSQBRACKET
-    { Program.ArraySlice ($startpos, e, l) }
+    { Ast.ArraySlice (mk_pos $startpos, e, l) }
 
   (* A record field projection *)
   | s = ident; DOT; t = ident 
-    { Program.RecordProject ($startpos, s, t) }
+    { Ast.RecordProject (mk_pos $startpos, s, t) }
+
+  (* A record *)
+  | f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
+    { Ast.RecordConstruct (mk_pos $startpos, f) }
 
   (* An array concatenation *)
-  | e1 = expr; PIPE; e2 = expr { Program.ArrayConcat ($startpos, e1, e2) } 
+  | e1 = expr; PIPE; e2 = expr { Ast.ArrayConcat (mk_pos $startpos, e1, e2) } 
 
   (* An arithmetic operation *)
-  | e1 = expr; MINUS; e2 = expr { Program.Minus ($startpos, e1, e2) }
-  | MINUS; e = expr { Program.Uminus ($startpos, e) } 
-  | e1 = expr; PLUS; e2 = expr { Program.Plus ($startpos, e1, e2) }
-  | e1 = expr; MULT; e2 = expr { Program.Times ($startpos, e1, e2) }
-  | e1 = expr; DIV; e2 = expr { Program.Div ($startpos, e1, e2) }
-  | e1 = expr; INTDIV; e2 = expr { Program.Intdiv ($startpos, e1, e2) }
-  | e1 = expr; MOD; e2 = expr { Program.Mod ($startpos, e1, e2) }
+  | e1 = expr; MINUS; e2 = expr { Ast.Minus (mk_pos $startpos, e1, e2) }
+  | MINUS; e = expr { Ast.Uminus (mk_pos $startpos, e) } 
+  | e1 = expr; PLUS; e2 = expr { Ast.Plus (mk_pos $startpos, e1, e2) }
+  | e1 = expr; MULT; e2 = expr { Ast.Times (mk_pos $startpos, e1, e2) }
+  | e1 = expr; DIV; e2 = expr { Ast.Div (mk_pos $startpos, e1, e2) }
+  | e1 = expr; INTDIV; e2 = expr { Ast.Intdiv (mk_pos $startpos, e1, e2) }
+  | e1 = expr; MOD; e2 = expr { Ast.Mod (mk_pos $startpos, e1, e2) }
 
   (* A Boolean operation *)
-  | NOT; e = expr { Program.Not ($startpos, e) } 
-  | e1 = expr; AND; e2 = expr { Program.And ($startpos, e1, e2) }
-  | e1 = expr; OR; e2 = expr { Program.Or ($startpos, e1, e2) }
-  | e1 = expr; XOR; e2 = expr { Program.Xor ($startpos, e1, e2) }
-  | e1 = expr; IMPL; e2 = expr { Program.Impl ($startpos, e1, e2) }
-  | HASH; LPAREN; e = expr_list; RPAREN { Program.OneHot ($startpos, e) }
+  | NOT; e = expr { Ast.Not (mk_pos $startpos, e) } 
+  | e1 = expr; AND; e2 = expr { Ast.And (mk_pos $startpos, e1, e2) }
+  | e1 = expr; OR; e2 = expr { Ast.Or (mk_pos $startpos, e1, e2) }
+  | e1 = expr; XOR; e2 = expr { Ast.Xor (mk_pos $startpos, e1, e2) }
+  | e1 = expr; IMPL; e2 = expr { Ast.Impl (mk_pos $startpos, e1, e2) }
+  | HASH; LPAREN; e = expr_list; RPAREN { Ast.OneHot (mk_pos $startpos, e) }
 
   (* A relation *)
-  | e1 = expr; LT; e2 = expr { Program.Lt ($startpos, e1, e2) }
-  | e1 = expr; GT; e2 = expr { Program.Gt ($startpos, e1, e2) }
-  | e1 = expr; LTE; e2 = expr { Program.Lte ($startpos, e1, e2) }
-  | e1 = expr; GTE; e2 = expr { Program.Gte ($startpos, e1, e2) }
-  | e1 = expr; EQUALS; e2 = expr { Program.Eq ($startpos, e1, e2) } 
-  | e1 = expr; NEQ; e2 = expr { Program.Neq ($startpos, e1, e2) } 
+  | e1 = expr; LT; e2 = expr { Ast.Lt (mk_pos $startpos, e1, e2) }
+  | e1 = expr; GT; e2 = expr { Ast.Gt (mk_pos $startpos, e1, e2) }
+  | e1 = expr; LTE; e2 = expr { Ast.Lte (mk_pos $startpos, e1, e2) }
+  | e1 = expr; GTE; e2 = expr { Ast.Gte (mk_pos $startpos, e1, e2) }
+  | e1 = expr; EQUALS; e2 = expr { Ast.Eq (mk_pos $startpos, e1, e2) } 
+  | e1 = expr; NEQ; e2 = expr { Ast.Neq (mk_pos $startpos, e1, e2) } 
 
   (* An if operation *)
   | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
-    { Program.Ite ($startpos, e1, e2, e3) }
+    { Ast.Ite (mk_pos $startpos, e1, e2, e3) }
+
+  (* An if operation *)
+  | WITH; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
+    { Ast.With (mk_pos $startpos, e1, e2, e3) }
 
   (* A clock operation *)
-  | e1 = expr; WHEN; e2 = expr { Program.When ($startpos, e1, e2) }
-  | CURRENT; e = expr { Program.Current ($startpos, e) }
+  | e1 = expr; WHEN; e2 = expr { Ast.When (mk_pos $startpos, e1, e2) }
+  | CURRENT; e = expr { Ast.Current (mk_pos $startpos, e) }
   | CONDACT 
     LPAREN; 
     e1 = expr; 
@@ -508,13 +522,13 @@ expr:
     COMMA; 
     e3 = expr_list 
     RPAREN
-    { Program.Condact ($startpos, e1, e2, e3) } 
+    { Ast.Condact (mk_pos $startpos, e1, e2, e3) } 
 
   (* A temporal operation *)
-  | PRE; e = expr { Program.Pre ($startpos, e) }
+  | PRE; e = expr { Ast.Pre (mk_pos $startpos, e) }
   | FBY LPAREN; e1 = expr COMMA; s = NUMERAL; COMMA; e2 = expr RPAREN
-    { Program.Fby ($startpos, e2, (int_of_string s), e2) } 
-  | e1 = expr; ARROW; e2 = expr { Program.Arrow ($startpos, e1, e2) }
+    { Ast.Fby (mk_pos $startpos, e2, (int_of_string s), e2) } 
+  | e1 = expr; ARROW; e2 = expr { Ast.Arrow (mk_pos $startpos, e1, e2) }
 
   (* A node or function call *)
   | e = node_call { e } 
@@ -523,7 +537,7 @@ expr:
 (* A node or function call *)
 node_call:
   | s = SYM ; LPAREN; a = separated_list(COMMA, expr); RPAREN 
-    { Program.Call ($startpos, s, a) }
+    { Ast.Call (mk_pos $startpos, s, a) }
 
 
 (* A list of expressions *)
@@ -536,14 +550,19 @@ array_slice: il = expr; DOTDOT; iu = expr { il, iu }
 (* A list of array slices *)
 array_slice_list: l = separated_nonempty_list(COMMA, array_slice) { l }
 
+
+(* An assignment to a record field *)
+record_field_assign: s = ident; EQUALS; e = expr { (s, e) } 
+
+
 (* ********************************************************************** *)
 
 
 clock_expr:
-  | c = ident { Program.ClockPos c } 
-  | NOT; c = ident { Program.ClockNeg c } 
-  | NOT; LPAREN; c = ident; RPAREN { Program.ClockNeg c } 
-  | TRUE { Program.ClockTrue }
+  | c = ident { Ast.ClockPos c } 
+  | NOT; c = ident { Ast.ClockNeg c } 
+  | NOT; LPAREN; c = ident; RPAREN { Ast.ClockNeg c } 
+  | TRUE { Ast.ClockTrue }
 
 
 (* ********************************************************************** *)
@@ -574,14 +593,14 @@ typed_idents:
     (* Pair each identifier with the type *)
     { List.map (function e -> (e, t)) l }
 
-
+(*
 (* A list of lists of typed identifiers *)
-typed_idents_list: 
+typed_idents_list:
   | a = separated_list(SEMICOLON, typed_idents) 
 
     (* Return a flat list *)
     { List.flatten a }
-
+*)
 
 (* Typed identifiers that may be constant *)
 const_typed_idents: 
@@ -590,14 +609,14 @@ const_typed_idents:
     (* Pair each typed identifier with a flag *)
     { List.map (function (e, t) -> (e, t, o)) l }
 
-
+(*
 (* A list of lists of typed identifiers that may be constant *)
 const_typed_idents_list: 
-  | a = separated_list(SEMICOLON, const_typed_idents) 
+  | a = separated_list(SEMICOLON, const_typed_idents)
 
     (* Return a flat list *)
     { List.flatten a }
-
+*)
 
 (* A list of comma-separated identifiers with a type *)
 clocked_typed_idents: 
@@ -606,7 +625,7 @@ clocked_typed_idents:
   | l = typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (e, t) -> (e, t, Program.ClockTrue)) l }
+    { List.map (function (e, t) -> (e, t, Ast.ClockTrue)) l }
 
   (* Clocked typed identifiers *)
   | l = typed_idents; WHEN; c = clock_expr
@@ -615,27 +634,26 @@ clocked_typed_idents:
     (* Pair each types identifier the given clock *)
     { List.map (function (e, t) -> (e, t, c)) l }
 
-  (* Separate rule for non-singleton list to avaoid shift/reduce conflict *)
+  (* Separate rule for non-singleton list to avoid shift/reduce conflict *)
   | LPAREN; 
     h = typed_idents; 
     SEMICOLON; 
-    l = typed_idents_list; 
-    RPAREN; 
+    l = tlist_tail(SEMICOLON, RPAREN, typed_idents); 
     WHEN; 
     c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t) -> (e, t, c)) (h @ l) }
+    { List.map (function (e, t) -> (e, t, c)) (h @ (List.flatten l)) }
 
 
-
+(*
 (* A list of lists of typed and clocked identifiers *)
 clocked_typed_idents_list: 
-  | a = separated_list(SEMICOLON, clocked_typed_idents) 
+  | a = separated_list(SEMICOLON, clocked_typed_idents)
 
     (* Return a flat list *)
     { List.flatten a }
-
+*)
 
 (* A list of comma-separated identifiers with a type and a clock that may be constant *)
 const_clocked_typed_idents: 
@@ -644,7 +662,7 @@ const_clocked_typed_idents:
   | l = const_typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (e, t, o) -> (e, t, Program.ClockTrue, o)) l }
+    { List.map (function (e, t, o) -> (e, t, Ast.ClockTrue, o)) l }
 
   (* Clocked typed identifiers *)
   | l = const_typed_idents; WHEN; c = clock_expr
@@ -657,24 +675,37 @@ const_clocked_typed_idents:
   | LPAREN; 
     h = const_typed_idents; 
     SEMICOLON; 
-    l = const_typed_idents_list; 
-    RPAREN; 
+    l = tlist_tail(SEMICOLON, RPAREN, const_typed_idents); 
     WHEN; 
     c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t, o) -> (e, t, c, o)) (h @ l) }
+    { List.map (function (e, t, o) -> (e, t, c, o)) (h @ (List.flatten l)) }
 
-
+(*
 (* A list of lists of typed and clocked identifiers that may be constant *)
 const_clocked_typed_idents_list: 
-  | a = separated_list(SEMICOLON, const_clocked_typed_idents) { List.flatten a }
+  | a = separated_list(SEMICOLON, const_clocked_typed_idents)
 
+      { List.flatten a }
+*)
+
+(* The tail of a list of X *)
+tlist_tail(separator, closing, X):
+  | x = X; option(separator); closing { [ x ] }
+  | x = X; separator; xs = tlist_tail(separator, closing, X)
+    { x :: xs }
+
+(* A list of elements between opening and closing, separated by separator, 
+   the separator may occur at the end of the list *)
+tlist(opening, separator, closing, X):
+  | opening; l = tlist_tail(separator, closing, X) { l }
+  | opening; closing { [ ] }
 
 
 (* 
    Local Variables:
-   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
+   compile-command: "make -k"
    indent-tabs-mode: nil
    End: 
 *)

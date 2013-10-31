@@ -112,11 +112,13 @@ let pp_print_lexbuf ppf
 
  
 
-(* A stack of pairs of channels and lexing buffers to handle included files 
+(* A stack of pairs of channels, a directory and lexing buffers to
+   handle included files 
 
    The channel at the head of the list is the current channel to read
-   from, the lexing buffer is the one to return to once all characters
-   have been read from the channel.
+   from, the directory is the directory the channel is in, the lexing 
+   buffer is the one to return to once all characters have been read 
+   from the channel.
 
    Have only one lexing buffer and push a shallow copy of it to this
    stack when switching to an included file. At the end of the
@@ -132,22 +134,26 @@ let lexbuf_stack = ref []
 
 
 (* Initialize the stack *)
-let lexbuf_init channel = 
+let lexbuf_init channel curdir = 
 
   (* A dummy lexing buffer to return to *)
   let lexbuf = Lexing.from_channel channel in
 
   (* Initialize the stack *)
-  lexbuf_stack := [(channel, lexbuf)]
+  lexbuf_stack := [(channel, curdir, lexbuf)]
 
 
 (* Switch to a new channel *)
-let lexbuf_switch_to_channel lexbuf channel = 
+let lexbuf_switch_to_channel lexbuf channel curdir = 
 
   (* Add channel and shallow copy of the previous lexing buffer to the top of the stack *)
   lexbuf_stack := 
-    (channel, { lexbuf with Lexing.lex_buffer = String.copy lexbuf.Lexing.lex_buffer}) :: !lexbuf_stack;
-
+    (channel, 
+     curdir, 
+     { lexbuf with 
+         Lexing.lex_buffer = String.copy lexbuf.Lexing.lex_buffer}) :: 
+      !lexbuf_stack;
+  
   (*
     Format.printf "Pushing buffer to stack@\n%a@." pp_print_lexbuf lexbuf; 
   *)
@@ -168,7 +174,7 @@ let pop_channel_of_lexbuf lexbuf =
     | [] -> raise End_of_file
 
     (* Take channel and lexing buffer from top of stack *)
-    | (ch, prev_lexbuf) :: tl -> 
+    | (ch, _, prev_lexbuf) :: tl -> 
 
 
       (* Close channel *)
@@ -189,13 +195,19 @@ let pop_channel_of_lexbuf lexbuf =
       Format.printf "Resulting buffer@\n%a@." pp_print_lexbuf lexbuf
 *)
 
+(* Get the directory associated with the current channel *)
+let curdir_of_lexbuf_stack () = match !lexbuf_stack with 
+  | [] -> Sys.getcwd ()
+  | (_, curdir, _) :: _ -> curdir
+
+
 
 (* Function to read from the channel at the top of the stack *)
 let read_from_lexbuf_stack buf n = 
 
   match !lexbuf_stack with 
     | [] -> 0
-    | (ch, _) :: _ -> input ch buf 0 n
+    | (ch, _, _) :: _ -> input ch buf 0 n
 
 
 (* Create and populate a hashtable *)
@@ -248,6 +260,7 @@ let keyword_table =
       ("xor", XOR);
       ("or", OR);
       ("if", IF);
+      ("with", WITH);
       ("then", THEN);
       ("else", ELSE);
       ("div", INTDIV);
@@ -315,14 +328,23 @@ rule token = parse
       { 
 
         (* Open include file *)
-        let include_channel = 
-          try open_in p with 
+        let include_channel, include_curdir = 
+          try 
+
+            let include_channel = 
+              open_in (Filename.concat (curdir_of_lexbuf_stack ()) p) in
+
+            let include_curdir = Filename.dirname p in
+
+            include_channel, include_curdir 
+
+          with 
             | Sys_error e -> 
               failwith (Format.sprintf "Error opening include file %s: %s" p e)
         in
         
         (* New lexing buffer from include file *)
-        lexbuf_switch_to_channel lexbuf include_channel;
+        lexbuf_switch_to_channel lexbuf include_channel include_curdir;
         
         Lexing.flush_input lexbuf;
 
@@ -351,27 +373,29 @@ rule token = parse
   | ']' { RSQBRACKET }
   | '(' { LPAREN }
   | ')' { RPAREN }
+  | ')' { RPAREN }
   | '.' { DOT }
   | ".." { DOTDOT }
   | '^' { CARET }
-  | "{" { LCURLYBRACKET }
-  | "}" { RCURLYBRACKET }
+  | '{' { LCURLYBRACKET }
+  | '}' { RCURLYBRACKET }
+  | '}' { RCURLYBRACKET }
 (*  | "[|" { LARRAYBRACKET } *)
 (*  | "|]" { RARRAYBRACKET } *)
   | '|' { PIPE }
-  | "<<" { LPARAMBRACKET }
-  | ">>" { RPARAMBRACKET }
+(*  | "<<" { LPARAMBRACKET } *)
+(*  | ">>" { RPARAMBRACKET } *)
   | "=>" { IMPL }
-  | "#" { HASH }
+  | '#' { HASH }
   | "<=" { LTE }
   | ">=" { GTE }
-  | "<" { LT }
-  | ">" { GT }
+  | '<' { LT }
+  | '>' { GT }
   | "<>" { NEQ }
-  | "-" { MINUS }
-  | "+" { PLUS }
-  | "/" { DIV }
-  | "*" { MULT }
+  | '-' { MINUS }
+  | '+' { PLUS }
+  | '/' { DIV }
+  | '*' { MULT }
   | "->" { ARROW }
 
   (* Decimal or numeral *)
@@ -502,6 +526,8 @@ and return_at_eol t = parse
 
 {
 
+(*
+
   (* Test code *)
   let main () = 
     
@@ -556,12 +582,13 @@ and return_at_eol t = parse
 ;;
 
 main ()
+*)
 
 }
 
 (* 
    Local Variables:
-   compile-command: "ocamlbuild -use-menhir -tag debug -tag annot test.native"
+   compile-command: "make -k"
    indent-tabs-mode: nil
    End: 
 *)
