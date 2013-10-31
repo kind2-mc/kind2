@@ -42,15 +42,18 @@ module S = SolverMethods.Make (BMCSolver)
 (* Dummy exit method, need to terminate all processes here in case we
    are interrupted *)
 let on_exit () = ()
+let len_different = ref false
 
-let len = ref 500
-
-let calculate_shortest_length_of_instance l =
-
+let calculate_shortest_length_of_input_stream l =
+  let len = ref (List.length (snd (List.hd l))) in
   List.iter 
-    (fun(y,x) -> 
-      if (List.length x) < !len 
-      then len := (List.length x)) 
+    (fun(y,x) ->
+      if (List.length x) = 0
+      then (Event.log `Interpreter Event.L_fatal 
+            "Warning: No input is provided for state variable %s" 
+              (StateVar.name_of_state_var y)) 
+      else if ((List.length x) < !len) 
+           then (len_different := true;len := (List.length x))) 
       l;
     !len
 
@@ -64,14 +67,23 @@ let main input_file transSys =
   let steps = Flags.interpreter_steps () in
   
   (* Number of instants to simulate *)
-  let shortest_length = calculate_shortest_length_of_instance inputs in
+  let shortest_length = calculate_shortest_length_of_input_stream inputs in
   
   (* Number of instants input *)
-  let k = if steps > shortest_length
-          then (
+  let k =
+    if steps = 0
+    then ((if !len_different 
+          then 
             Event.log `Interpreter Event.L_fatal 
-            	"Warning: Instances provided are not enough.";
-          	shortest_length)
+            "Warning: Input streams have different lengths. Simulation up to the shortest length of the input stream.");
+          shortest_length) 
+    else if steps > shortest_length
+         then ((if !len_different 
+                 then (Event.log `Interpreter Event.L_fatal 
+                       "Warning: The length of input streams are not long enough to simulate up to %d steps" steps;
+                       Event.log `Interpreter Event.L_fatal 
+                       "Warning: Simulation will continue nondeterministically after %d instant" (shortest_length-1)));
+          	   steps)
           else steps
   in
 
@@ -123,7 +135,7 @@ let main input_file transSys =
        let _ = List.fold_left
 
          (fun instant instant_value ->
-           if ((int_of_numeral instant) <= k)
+           if ((int_of_numeral instant) < k)
            then(
          	 let var = Var.mk_state_var_instance state_var instant in
              let equation = Term.mk_eq [Term.mk_var var; instant_value] in
@@ -162,7 +174,7 @@ let main input_file transSys =
 			
         (fun sv -> 
 					
-           (sv,(aux [] sv (numeral_of_int k))))
+           (sv,(aux [] sv (numeral_of_int (k-1)))))
 					
         state_vars 
 				
