@@ -383,8 +383,8 @@ rule token = parse
 (*  | "[|" { LARRAYBRACKET } *)
 (*  | "|]" { RARRAYBRACKET } *)
   | '|' { PIPE }
-(*  | "<<" { LPARAMBRACKET } *)
-(*  | ">>" { RPARAMBRACKET } *)
+  | "<<" { LPARAMBRACKET } 
+  | ">>" { RPARAMBRACKET } 
   | "=>" { IMPL }
   | '#' { HASH }
   | "<=" { LTE }
