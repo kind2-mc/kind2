@@ -132,6 +132,20 @@ var t : int;
 let t = n; tel;
 
 
+-- A node with a type parameter 
+node changed<<type t>> (b: t) returns (ok: bool); 
+let ok = false ->  not (pre b = b); tel; 
+
+-- A node using a parametric node
+node x (x: bool; y: int;) returns (z: bool);
+let z = changed<<bool>>(x) or changed<<int>>(y); tel
+
+-- Nodes defined as instances of a parametric node 
+node changed_int = changed<<int>>;
+node changed_bool = changed<<bool>>;
+
+
+
 -- An uninterpreted function, parameters cannot be clocked or have
 -- constant parameters
 function y (a: bool; c: int) returns (b: int);

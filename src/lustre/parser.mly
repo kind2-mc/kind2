@@ -86,8 +86,8 @@ let mk_pos = Ast.position_of_lexing
     
 (* Tokens for node declarations *)
 %token NODE
-(* %token LPARAMBRACKET *)
-(* %token RPARAMBRACKET *)
+%token LPARAMBRACKET
+%token RPARAMBRACKET
 %token FUNCTION
 %token RETURNS
 %token VAR
@@ -178,6 +178,7 @@ decl:
   | d = type_decl { List.map (function e -> Ast.TypeDecl e) d }
   | d = node_decl { [Ast.NodeDecl d] }
   | d = func_decl { [Ast.FuncDecl d] }
+  | d = node_param_inst { [Ast.NodeParamInst d] }
 
 
 (* ********************************************************************** *)
@@ -305,7 +306,7 @@ func_decl:
 node_decl:
   | NODE; 
     n = ident; 
-    (* p = option(static_params); *)
+    p = loption(static_params);
     i = tlist(LPAREN, SEMICOLON, RPAREN, const_clocked_typed_idents); 
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
@@ -318,12 +319,25 @@ node_decl:
     option(node_sep) 
 
     { (n, 
-       (* (match p with None -> [] | Some l -> l), *)
+       p,
        List.flatten i, 
        List.flatten o, 
        (List.flatten l), 
        e,
        r)  }
+
+
+(* A node declaration as an instance of a paramterized node *)
+node_param_inst: 
+  | NODE; 
+    n = ident; 
+    EQUALS;
+    s = ident; 
+    p = tlist 
+         (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, node_call_static_param); 
+    SEMICOLON
+        
+    { (n, s, p) } 
 
 
 (* A node declaration is optionally terminated by a period or a semicolon *)
@@ -333,26 +347,24 @@ node_sep: DOT | SEMICOLON { }
 contract:
   | l = list(contract_clause) { l }
 
+
 (* A requires or ensures annotation *)
 contract_clause:
   | REQUIRES; e = expr; SEMICOLON { Ast.Requires e }
   | ENSURES; e = expr; SEMICOLON { Ast.Ensures e }
 
-(*
-(* The static parameters of a node *)
-static_params:
-  | LPARAMBRACKET; 
-    l = separated_nonempty_list(SEMICOLON, static_param); 
-    RPARAMBRACKET 
 
-    { l } 
-
-
-(* A static parameter is a type or a constant *)
+(* A static parameter is a type *)
 static_param:
   | TYPE; t = ident { Ast.TypeParam t }
-  | CONST; c = ident; COLON; t = lustre_type { Ast.ConstParam (c, t) }
-*)
+
+
+(* The static parameters of a node *)
+static_params:
+  | l = tlist (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, static_param)
+    
+    { l }  
+
 
 (* A node-local declaration of constants or variables *)
 node_local_decl:
@@ -534,10 +546,26 @@ expr:
   | e = node_call { e } 
 
 
+(* Static parameters are only types *)
+node_call_static_param:
+  | t = lustre_type { t }
+      
+
 (* A node or function call *)
 node_call:
-  | s = SYM ; LPAREN; a = separated_list(COMMA, expr); RPAREN 
+
+  (* Call a node without static parameters *)
+  | s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN 
     { Ast.Call (mk_pos $startpos, s, a) }
+
+  (* Call a node with static parameters *)
+  | s = ident; 
+    p = tlist 
+         (LPARAMBRACKET, SEMICOLON, RPARAMBRACKET, node_call_static_param); 
+    LPAREN; 
+    a = separated_list(COMMA, expr); 
+    RPAREN 
+    { Ast.CallParam (mk_pos $startpos, s, p, a) }
 
 
 (* A list of expressions *)
