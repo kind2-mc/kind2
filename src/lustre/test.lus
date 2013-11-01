@@ -107,7 +107,9 @@ let
   
   -- Record construction
   t = { b = 2.0; a = 1 };
-
+  
+  t.b = if a xor d then #(a, b, c) else false; 
+  
   -- Assertion
   assert x;
 
