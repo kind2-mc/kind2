@@ -49,8 +49,9 @@ This file is part of the Kind verifier
 
   open Lexing
 
-  let parse_failure what =
-    let pos = symbol_start_pos () in
+  let parse_failure pos what =
+    (* Removed for menhir *)
+    (* let pos = symbol_start_pos () in *)
     let msg =
       Printf.sprintf "Sexplib.Parser: failed to parse line %d char %d: %s"
         pos.pos_lnum (pos.pos_cnum - pos.pos_bol) what in
@@ -78,8 +79,8 @@ sexp
   : STRING { HStringSExpr.Atom $1 }
   | LPAREN RPAREN { HStringSExpr.List [] }
   | LPAREN rev_sexps_aux RPAREN { HStringSExpr.List (List.rev $2) }
-  | EOF { parse_failure "Read EOF, empty sexpr token" }
-  | error { parse_failure "sexp" }
+  | EOF { parse_failure $startpos "Read EOF, empty sexpr token" }
+  | error { parse_failure $startpos "sexp" }
 
 sexp_comment
   : SEXP_COMMENT sexp { () }
