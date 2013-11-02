@@ -27,14 +27,24 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+(** Lustre identifiers 
+
+    An identifier can be indexed either by another identifier, which
+    models acces of a record field, or by an integer, which models
+    access of tuple or array elements.
+
+    In Lustre all indexes must be static at compile time, we can
+    flatten all record, tuple and array expressions to expressions
+    over such indexed identifiers.
+
+    @author Christoph Sticksel *)
+
+
 (** An identifier *)
 type t
 
 (** Pretty-print an identifier *)
 val pp_print_ident : Format.formatter -> t -> unit 
-
-(** Return a string representation of an identifier *)
-val string_of_ident : t -> string
 
 (** Construct an identifier of a string *)
 val mk_string_id : string -> t

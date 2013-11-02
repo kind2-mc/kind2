@@ -27,80 +27,26 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-(* A node declaration *)
-type t =
+(** Lustre types 
 
-    { 
-      
-      (* ID of the node *)
-      ident : Ident.t;
+    @author Christoph Sticksel *)
 
-      (* Input *)
-      in_params : Ident.t * Type.t list;
 
-      (* Output *)
-      out_params : Ident.t * Type.t list;
+(** A type *)
+type t = private
+  | Bool                     (** The Boolean type *)
+  | Int                      (** The integer type *)
+  | Real                     (** The real type *)
+  | IntRange of (int * int)  (** An integer range type *)
 
-      (* Local constants *)
-      consts : (Ident.t * (Type.t * Expr.t)) list;
 
-      (* Local variables *)
-      vars : (Ident.t * Type.t) list;
+(** Pretty-print a type *)
+val pp_print_type : Format.formatter -> t -> unit 
 
-      (* Equations *)
-      equations : (Ident.t * Expr.t) list;
-  
-      (* Calls to nodes *)
-      node_calls : Ident.t * Ident.t list;
-
-      (* Assertions *)
-      asserts : Expr.t list;
-
-      (* Properties *)
-      properties : Expr.t list;
-      
-      (* Pre-conditions *)
-      requires : Expr.t list;
-      
-      (* Post-conditions *)
-      ensures : Expr.t list;
-      
-    } 
-
-let pp_print_typed_ident ppf (i, t) =
-  Format.fprintf ppf "@[<hv 2>%a:@ %a@]"
-    
-  
-  
-
-let pp_print_node 
-    ppf 
-    { ident; 
-      in_params; 
-      out_params; 
-      consts; 
-      vars; 
-      equations; 
-      asserts; 
-      properties;
-      requires;
-      ensures }
-
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
-       %a\
-       @[<hv 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]" 
-      Ident.pp_print_ident n 
-      (pp_print_list pp_print_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e 
+val bool : t
+val int : t
+val real : t
+val mk_int_range : int -> int -> t
 
 
 (* 
