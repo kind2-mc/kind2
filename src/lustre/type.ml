@@ -27,81 +27,30 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-(* A node declaration *)
-type t =
 
-    { 
-      
-      (* ID of the node *)
-      ident : Ident.t;
+(* ********************************************************************** *)
+(* Types                                                                  *)
+(* ********************************************************************** *)
 
-      (* Input *)
-      in_params : Ident.t * Type.t list;
-
-      (* Output *)
-      out_params : Ident.t * Type.t list;
-
-      (* Local constants *)
-      consts : (Ident.t * (Type.t * Expr.t)) list;
-
-      (* Local variables *)
-      vars : (Ident.t * Type.t) list;
-
-      (* Equations *)
-      equations : (Ident.t * Expr.t) list;
-  
-      (* Calls to nodes *)
-      node_calls : Ident.t * Ident.t list;
-
-      (* Assertions *)
-      asserts : Expr.t list;
-
-      (* Properties *)
-      properties : Expr.t list;
-      
-      (* Pre-conditions *)
-      requires : Expr.t list;
-      
-      (* Post-conditions *)
-      ensures : Expr.t list;
-      
-    } 
-
-let pp_print_typed_ident ppf (i, t) =
-  Format.fprintf ppf "@[<hv 2>%a:@ %a@]"
+(* A type *)
+type t = 
+  | Bool
+  | Int
+  | Real
+  | IntRange of (int * int)
     
-  
-  
+(* Pretty-print a type *)
+let pp_print_type ppf = function   
+  | Bool -> Format.fprintf ppf "bool"
+  | Int -> Format.fprintf ppf "int"
+  | Real -> Format.fprintf ppf "real"
+  | IntRange (i, j) -> Format.fprintf ppf "subrange [%d,%d] of int" i j
 
-let pp_print_node 
-    ppf 
-    { ident; 
-      in_params; 
-      out_params; 
-      consts; 
-      vars; 
-      equations; 
-      asserts; 
-      properties;
-      requires;
-      ensures }
 
-    Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a@ \
-       @[<hv 1>(%a)@]@;<1 -2>\
-       returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
-       %a\
-       @[<hv 2>let@ \
-       %a@;<1 -2>\
-       tel;@]@]" 
-      Ident.pp_print_ident n 
-      (pp_print_list pp_print_typed_ident ";@ ") i
-      (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract r
-      pp_print_node_local_decl l
-      (pp_print_list pp_print_node_equation "@ ") e 
-
+let bool = Bool
+let int = Int
+let real = Real
+let mk_int_range i j = IntRange (min i j, max i j)
 
 (* 
    Local Variables:

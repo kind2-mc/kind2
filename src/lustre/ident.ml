@@ -68,19 +68,6 @@ and pp_print_index ppf = function
   | IntIndex i -> Format.fprintf ppf "%d" i
 
 
-(* Return a string representation of an identifier *)
-let string_of_ident i = 
-
-  (* Create a buffer and a formatter to write into buffer *)
-  let buf = Buffer.create 10 in
-  let ppf = Format.formatter_of_buffer buf in
-
-  (* Pretty-print into buffer and flush *)
-  Format.fprintf ppf "%a@?" pp_print_ident i;
-
-  (* Return buffer *)
-  Buffer.contents buf
-
 (* ********************************************************************** *)
 (* Constructors                                                           *)
 (* ********************************************************************** *)
