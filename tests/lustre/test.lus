@@ -4,6 +4,10 @@
 (* OCaml-style comments are 
   also valid -- and that officially *)
 
+-- Include file, the name must be in quotes, the path is relative to this file, 
+-- can be anywhere in the file
+include "inc.lus"
+
 -- Free constants, must have a type
 const a1, a2, a3: a;
 

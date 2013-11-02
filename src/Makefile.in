@@ -15,6 +15,9 @@ kind2-prof: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 kind-bmc: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) bmc.native
 
+lustre-checker: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) lustreChecker.native
+
 clean:
 	$(OCAMLBUILD) -clean
 

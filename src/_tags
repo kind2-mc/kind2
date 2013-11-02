@@ -28,6 +28,9 @@ true: -traverse
 <messaging.mli>: thread
 <lib.ml>: thread
 
+# Use menhir instead of ocamlyacc
+true: use_menhir
+
 # Obsolete 
 
 # <invarManager.ml>: thread
