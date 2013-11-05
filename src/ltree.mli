@@ -112,7 +112,7 @@ sig
   (** Pretty-print a sort *)
   val pp_print_sort : Format.formatter -> sort -> unit
 
-  (** Pretty-print a sort *)
+  (** Pretty-print an attribute *)
   val pp_print_attr : Format.formatter -> attr -> unit
 
 end

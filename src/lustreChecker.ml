@@ -46,7 +46,7 @@ let pp_print_position ppf
 let main () = 
 
   (* Create lexing buffer *)
-  let lexbuf = Lexing.from_function Lexer.read_from_lexbuf_stack in
+  let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
   
   (* Read from file or standard input *)
   let in_ch, curdir = 
@@ -71,16 +71,16 @@ let main () =
   in
   
   (* Initialize lexing buffer with channel *)
-  Lexer.lexbuf_init in_ch curdir;
+  LustreLexer.lexbuf_init in_ch curdir;
   
   let declarations = 
 
     try 
       
-      Parser.main Lexer.token lexbuf 
+      LustreParser.main LustreLexer.token lexbuf 
 
     with 
-      | Parser.Error ->
+      | LustreParser.Error ->
 
         let 
             { Lexing.pos_fname; 
@@ -101,7 +101,10 @@ let main () =
           
   in
 
-  Format.printf "@[<hv>%a@]@." (Ast.pp_print_list Ast.pp_print_declaration "@ ") declarations
+  Format.printf 
+    "@[<v>%a@]@." 
+    (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
+    declarations
 
 ;;
 
