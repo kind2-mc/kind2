@@ -119,6 +119,15 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
+(** Read input from file **)
+type interpreter_input_file = string
+val interpreter_input_file : unit -> interpreter_input_file
+
+(** Run number of steps, override the number of steps given in the
+    input file **)
+type interpreter_steps = int
+val interpreter_steps : unit -> interpreter_steps
+
 (** Input file *)
 val input_file : unit -> string 
 
