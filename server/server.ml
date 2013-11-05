@@ -21,7 +21,7 @@ let helpmessage = "usage: kind2_server -[p] [port]"
 let default_port = 5558
 
 (* command to invoke kind *)
-let kind_command = "/home/chris/bin/pkind";;
+let kind_command = "/usr/local/bin/pkind";;
 let kind_default_args = ["-xml"; "-xml-to-stdout"]
 
 
