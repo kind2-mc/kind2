@@ -44,8 +44,10 @@ module S = SolverMethods.Make (BMCSolver)
 let on_exit () = ()
 let len_different = ref false
 
+(**If the lengths of input streams are different, return the shortest length.*)
 let calculate_shortest_length_of_input_stream l =
   let len = ref (List.length (snd (List.hd l))) in
+  
   List.iter 
     (fun(y,x) ->
       if (List.length x) = 0
@@ -71,11 +73,11 @@ let main input_file transSys =
   
   (* Number of instants input *)
   let k =
-    if steps = 0
+    if steps <= 0
     then ((if !len_different 
           then 
             Event.log `Interpreter Event.L_fatal 
-            "Warning: Input streams have different lengths. Simulation up to the shortest length of the input stream.");
+            "Warning: Input streams have different lengths. Simulation up to the shortest length of the input streams.");
           shortest_length) 
     else if steps > shortest_length
          then ((if !len_different 
@@ -124,11 +126,8 @@ let main input_file transSys =
       )
       
   in
-
-  (* val InputParser.parse_input : string -> (StateVar.t * (Term.t list)) list *)
-  (* let inputs = InputParser.parse_input input_file in *)
   
-
+(**assert equation of state varariable and its value at each instance*)
   List.iter
 
     (fun (state_var, values) -> 
@@ -153,7 +152,7 @@ let main input_file transSys =
 
     inputs;
     
-  
+  (**Get value for each variable*)
   if (S.check_sat solver) then
 		
 	let rec aux acc state_var k =
@@ -180,7 +179,7 @@ let main input_file transSys =
 				
     in
 		
-	Event.log_counterexample `Interpreter v
+    Event.log_counterexample `Interpreter v
 
   else
 
