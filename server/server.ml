@@ -21,7 +21,7 @@ let helpmessage = "usage: kind2_server -[p] [port]"
 let default_port = 5558
 
 (* command to invoke kind *)
-let kind_command = "/usr/local/bin/pkind";;
+let kind_command = "/home/chris/bin/pkind";;
 let kind_default_args = ["-xml"; "-xml-to-stdout"]
 
 
@@ -189,12 +189,24 @@ let port =
 
 (* running_jobs: a Hashtbl of ID -> ( pid * stdin_file * stdout_file *
    stderr_file ) *)
-
 let running_jobs = (Hashtbl.create 50)
 
 (* completed_jobs: a Hashtbl of ID -> completion_time *)
 let completed_jobs = (Hashtbl.create 50)
 
+(* Association list of job ID to PID and timestamp of cancel request *)
+let cancel_requested_jobs = ref [] 
+
+(* Time in seconds after cancel request after which SIGKILL is sent
+
+   Must be greater than sigterm_time *)
+let cancel_sigkill_time = 5. 
+
+(* Time in seconds after cancel request after which SIGTERM is sent 
+
+   Must be less than sigkill_time *)
+let cancel_sigterm_time = 2.
+    
 (* how long (in seconds) should a job remain before being purged? *)
 let job_lifespan = 2629740 (* about one month *)
 
@@ -342,6 +354,80 @@ let create_job sock server_flags payload checksum kind_args =
   minisleep 0.01
 
 
+(* Return message after job has terminated, factored out from
+   {!retrieve_job} and {!cancel_job} *)
+let output_of_job_status 
+    log 
+    job_id
+    (job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn) 
+    job_status = 
+
+  (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
+
+  let output_string = 
+
+    match job_status with 
+
+      (* Terminated with signal *)
+      | Unix.WSIGNALED signal -> 
+        
+        log ("killed by signal %d" ^^ "") signal;
+        
+        (* Read from stderr *)
+        let errors = read_bytes stderr_fn in
+        
+        (* Create message to client *)
+        Format.sprintf 
+          "<Jobstatus msg=\"aborted\">\
+           Job with ID %s aborted before completion.\
+           Contents of stderr:@\n\
+           %s
+           </Jobstatus>"
+          job_id
+          errors
+
+      (* Stopped by signal *)
+      | Unix.WSTOPPED signal -> 
+
+        log "stopped by signal %d" signal;
+
+        (* Read from stderr *)
+        let errors = read_bytes stderr_fn in
+
+        (* Create message to client *)
+        Format.sprintf 
+          "<Jobstatus msg=\"aborted\">\
+           Job with ID %s aborted before completion.\
+           Contents of stderr:@\n\
+           %s
+           </Jobstatus>"
+          job_id
+          errors
+
+      (* Exited with code *)
+      | Unix.WEXITED code ->
+
+        log "exited with code %d" code;
+
+        (* Message to client is from stdout *)
+        read_bytes stdout_fn
+
+  in
+
+  (* Remove job from table of working jobs *)
+  Hashtbl.remove running_jobs job_id;
+
+  (* Add to table of completed jobs *)
+  Hashtbl.add completed_jobs job_id (Unix.gmtime (Unix.time ()));
+
+  (* Delete temp files for process *)
+  (try (Sys.remove stdin_fn) with _ -> ());
+  (try (Sys.remove stdout_fn) with _ -> ());
+  (try (Sys.remove stderr_fn) with _ -> ());
+
+  output_string
+
+
 (* Retrieve job *)
 let retrieve_job sock server_flags job_id = 
 
@@ -363,7 +449,7 @@ let retrieve_job sock server_flags job_id =
       (
 
         (* Find job in table of running jobs *)
-        let job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn = 
+        let job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn as job_param = 
           Hashtbl.find running_jobs job_id 
         in
 
@@ -371,11 +457,11 @@ let retrieve_job sock server_flags job_id =
         let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_pid in 
 
         (* Job has not exited yet? *)
-        if job_pid = 0 then 
+        if status_pid = 0 then 
 
           (                        
 
-            log "running as PID %d" status_pid;
+            log ("running as PID %d") status_pid;
 
             (* Message to client *)
             Format.sprintf 
@@ -388,74 +474,118 @@ let retrieve_job sock server_flags job_id =
 
         else
 
-          (
+          output_of_job_status log job_id job_param job_status
+              
+      )
 
-            let output_string =
+    (* Job not found in table of running jobs *)
+    with Not_found -> 
 
-              (* Job has terminated *)
-              match job_status with
+      try 
 
-              (* Terminated with signal *)
-              | Unix.WSIGNALED signal -> 
+        (
 
-                log "killed by signal %d" signal;
+          (* Get time of retrieval *)
+          let job_tm = Hashtbl.find completed_jobs job_id in
 
-                (* Read from stderr *)
-                let errors = read_bytes stderr_fn in
+          log "completed at %a UTC" pp_print_time job_tm;
 
-                (* Create message to client *)
-                Format.sprintf 
-                  "<Jobstatus msg=\"aborted\">\
-                   Job with ID %s aborted before completion.\
-                   Contents of stderr:@\n\
-                   %s
-                    </Jobstatus>"
-                  job_id
-                  errors
+          Format.sprintf 
+            "<Jobstatus msg=\"completed\">\
+             Job with ID %s has completed and was retrieved at %s UTC\
+             </Jobstatus>"
+            job_id
+            (string_of_time job_tm)
 
-              (* Stopped by signal *)
-              | Unix.WSTOPPED signal -> 
+        ) 
 
-                log "stopped by signal %d" signal;
+      with Not_found ->
 
-                (* Read from stderr *)
-                let errors = read_bytes stderr_fn in
+        log "not found";
 
-                (* Create message to client *)
-                Format.sprintf 
-                  "<Jobstatus msg=\"aborted\">\
-                   Job with ID %s aborted before completion.\
-                   Contents of stderr:@\n\
-                   %s
-                    </Jobstatus>"
-                  job_id
-                  errors
+        Format.sprintf
+          "<Jobstatus msg=\"notfound\">\
+           Job with ID %s not found.\
+           </Jobstatus>"
+          job_id
 
-              (* Exited with code *)
-              | Unix.WEXITED code ->
+  in
 
-                log "exited with code %d" code;
+  (* Compute checksum of results *)
+  let output_digest = Digest.string output_string in
+  
+  (* Message frame for output *)
+  let output_frame = 
+    zframe_new output_string (String.length output_string) 
+  in
+  
+  (* Message frame for digest *)
+  let checksum_frame = 
+    zframe_new output_digest (String.length output_digest) 
+  in
+  
+  (* Compose message of frames and send *)
+  ignore(zmsg_push status checksum_frame);
+  ignore(zmsg_push status output_frame);
+  ignore(zmsg_send status sock)
+    
 
-                (* Message to client is from stdout *)
-                read_bytes stdout_fn
+(* Register a request to cancel a job *)
+let cancel_job sock server_flags job_id = 
 
-            in
+  (* Local log function *)
+  let log fmt = 
+    log 
+      ("Request cancelling of job %s: " ^^ fmt)
+      job_id 
+  in
+
+  (* New message as reply *)
+  let status = zmsg_new () in
+
+  (* String message to client *)
+  let output_string = 
+
+    try 
+
+      (
+
+        (* Find job in table of running jobs *)
+        let job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn as job_param = 
+          Hashtbl.find running_jobs job_id 
+        in
+
+        (* Check status of job by its PID *)
+        let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_pid in 
+
+        (* Job has not exited yet? *)
+        if status_pid = 0 then 
+
+          (                        
+
+            log "running as PID %d" status_pid;
+
+            (* Send SIGINT (Ctrl+C) to job *)
+            Unix.kill job_pid Sys.sigint;
+
+            (* Add cancel request to list *)
+            cancel_requested_jobs := 
+              (job_id, job_pid, Unix.gettimeofday ()) :: 
+                         !cancel_requested_jobs;
+
+            (* Message to client *)
+            Format.sprintf 
+              "<Jobstatus msg=\"inprogress\">\
+               Requested canceling of job with ID %s .\
+               </Jobstatus>"
+              job_id
+
+          ) 
+
+        else
+
+          output_of_job_status log job_id job_param job_status
             
-            (* Remove job from table of working jobs *)
-            Hashtbl.remove running_jobs job_id;
-            
-            (* Add to table of completed jobs *)
-            Hashtbl.add completed_jobs job_id (Unix.gmtime (Unix.time ()));
-            
-            (* Delete temp files for process *)
-            (try (Sys.remove stdin_fn) with _ -> ());
-            (try (Sys.remove stdout_fn) with _ -> ());
-            (try (Sys.remove stderr_fn) with _ -> ());
-
-            output_string
-
-          )
-
       )
 
     (* Job not found in table of running jobs *)
@@ -587,6 +717,15 @@ let rec get_requests sock last_purge =
           (* Retrieve job *)
           retrieve_job sock s (zframe_strdup payload)
 
+        (* Cancel job *)
+        | s when String.contains s 'k' ->
+
+          (* Second part contains job ID *)
+          let payload = zmsg_pop msg in
+
+          (* Retrieve job *)
+          cancel_job sock s (zframe_strdup payload)
+
         (* Creating job? *)
         | s when String.contains s 'c' ->
 
@@ -641,6 +780,47 @@ let rec get_requests sock last_purge =
       
     in
 
+    (* New list of cancel requests *)
+    let cancel_requested_jobs' = 
+      List.fold_left
+
+        (* Cancel job by sending a cascade of signals: SIGINT at t=0,
+           then wait and send SIGNTERM, finally send SIGKILL and
+           forget about request *)
+        (fun accum ((job_id, job_pid, cancel_timestamp) as r) ->
+
+          (* Get time since cancel request *) 
+          let time_since_request = 
+            Unix.gettimeofday () -. cancel_timestamp 
+          in
+
+          (* Finally: kill with SIGKILL (-9) *)
+          if time_since_request > cancel_sigkill_time then
+            (log 
+               "Sending SIGKILL to job %s (PID %d)"
+               job_id
+               job_pid;
+              (try Unix.kill job_pid Sys.sigkill with _ -> ());
+              accum)
+            
+          (* Kill with SIGTERM, then send SIGKILL later *)
+          else if time_since_request > cancel_sigterm_time then
+            (log 
+               "Sending SIGTERM to job %s (PID %d)"
+               job_id
+               job_pid;(try Unix.kill job_pid Sys.sigterm with _ -> ());
+              r :: accum)
+
+          (* Wait *)
+          else
+            r :: accum)
+        []
+        !cancel_requested_jobs
+    in
+
+    (* Continue with new list of cancel requests *)
+    cancel_requested_jobs := cancel_requested_jobs';
+      
     (* Continue with next message *)
     get_requests sock last_purge'
 
