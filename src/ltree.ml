@@ -632,6 +632,61 @@ struct
     (* Print string representation of term to formatter *)
     Format.fprintf ppf "%s" term_string
 
+(*
+
+  let pp_print_term_infix' db ppf = function 
+
+    (* Delegate printing of free variables to function in input module *)
+    | { H.node = FreeVar v } -> T.pp_print_var ppf v
+
+    (* Print bound variable with its de Bruijn index *)
+    | { H.node = BoundVar db } -> Format.fprintf ppf "X%i" db
+
+    (* Delegate printing of leaf to function in input module *)
+    | { H.node = Leaf s } -> T.pp_print_symbol ppf s
+
+    (* Print a function application as S-expression *)
+    | { H.node = Node (s, a) } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(%a)@]" 
+        T.pp_print_node s a 
+        (pp_print_term_list db) a
+
+    (* Print a let binding *)
+    | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
+        (pp_print_let_bindings db) b
+        (pp_print_term' (db + List.length b)) t
+
+    (* Print an existential quantification *)
+    | { H.node = Exists { H.node = L (x, t) } } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(exists@ @[<hv 1>(%a)@ %a@])@]" 
+        (pp_print_typed_var_list db) x
+        (pp_print_term' (db + List.length x)) t
+
+    (* Print a universal quantification *)
+    | { H.node = Forall { H.node = L (x, t) } } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
+        (pp_print_typed_var_list db) x
+        (pp_print_term' (db + List.length x)) t
+
+    (* Print an annotated term *)
+    | { H.node = Annot (t, a) } ->
+
+      Format.fprintf ppf 
+        "@[<hv 1>(!@ @[<hv 1>%a@] @[<hv 1>%a@])@]" 
+        (pp_print_term' db) t
+        T.pp_print_attr a
+
+*)
+
 
   (* Pretty-print a flattened term *)
   let rec pp_print_flat ppf = function 
