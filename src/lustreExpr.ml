@@ -27,6 +27,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+module T = LustreType
+module I = LustreIdent
 
 let listmin = List.fold_left min max_int
 let listmax = List.fold_left max min_int
@@ -60,21 +62,21 @@ type var_op =
   | OneHot
 
 type expr =
-  | Ident of Ident.t
+  | Ident of I.t
   | True
   | False
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * (expr * expr)
   | Ite of expr * expr * expr
-  | Pre of Ident.t
+  | Pre of I.t
 
 
 type t =
   { 
 
-    clock: Ident.t;
+    clock: I.t;
 
-    ltype: Type.t;
+    ltype: T.t;
 
     expr: expr;
 
@@ -87,7 +89,7 @@ let type_of_unary_expr = function
   | Not -> 
 
     (function 
-      | Type.Bool -> Type.bool
+      | T.Bool -> T.bool
       | _ -> raise Type_error)
 
   (* Int -> Int *)
@@ -96,16 +98,16 @@ let type_of_unary_expr = function
   | Uminus -> 
 
     (function 
-      | Type.Int -> Type.int
-      | Type.Real -> Type.real
-      | Type.IntRange (i, j) -> Type.mk_int_range (-j) (-i)
+      | T.Int -> T.int
+      | T.Real -> T.real
+      | T.IntRange (i, j) -> T.mk_int_range (-j) (-i)
       | _ -> raise Type_error)
 
 
 let int_range_of_binary_op op (a, b) (c, d) = match op with 
   
   (* [a,b] mod [c,d] = [0, *)
-  | Mod -> Type.mk_int_range (min 0 d) (max 0 d)
+  | Mod -> T.mk_int_range (min 0 d) (max 0 d)
 
   (*  *)
   | IntDiv -> 
@@ -113,29 +115,29 @@ let int_range_of_binary_op op (a, b) (c, d) = match op with
     (match c < 0, d < 0 with
       
       (* c and d positive *)
-      | false, false -> Type.mk_int_range (min 0 a) (max 0 b)
+      | false, false -> T.mk_int_range (min 0 a) (max 0 b)
 
       (* c and d negative *)
-      | true, true -> Type.mk_int_range (min 0 (-b)) (max 0 (-a))
+      | true, true -> T.mk_int_range (min 0 (-b)) (max 0 (-a))
 
       (* c negative and d positive *)
       | true, false 
       | false, true -> 
 
         let m = max (abs a) (abs b) in 
-        Type.mk_int_range (-m) m
+        T.mk_int_range (-m) m
 
     )
 
   (* [a,b] + [c,d] = [a+c, b+d] *)
-  | Plus -> Type.mk_int_range (a + c) (b + d)
+  | Plus -> T.mk_int_range (a + c) (b + d)
 
   (* [a,b] - [c,d] = [a-d, b-c] *)
-  | Minus -> Type.mk_int_range (a - d) (b - c)
+  | Minus -> T.mk_int_range (a - d) (b - c)
 
   (* Take the minimum and maximum of all pairs *)
   | Times -> 
-    Type.mk_int_range
+    T.mk_int_range
       (listmin [a*c; a*d; b*c; b*d])
       (listmax [a*c; a*d; b*c; b*d])
 
@@ -151,7 +153,7 @@ let type_of_binary_expr = function
   | Impl -> 
 
     (function 
-      | Type.Bool, Type.Bool -> Type.bool
+      | T.Bool, T.Bool -> T.bool
       | _ -> raise Type_error)
 
   (* Int -> Int -> Int *)
@@ -160,12 +162,12 @@ let type_of_binary_expr = function
 
     (function 
 
-      | Type.Int, Type.Int
-      | Type.Int, Type.IntRange _
-      | Type.IntRange _, Type.Int -> Type.int
+      | T.Int, T.Int
+      | T.Int, T.IntRange _
+      | T.IntRange _, T.Int -> T.int
 
-      | Type.IntRange r1, 
-        Type.IntRange r2 -> 
+      | T.IntRange r1, 
+        T.IntRange r2 -> 
 
         int_range_of_binary_op op r1 r2
 
@@ -177,7 +179,7 @@ let type_of_binary_expr = function
 
     (function 
 
-      | Type.Real, Type.Real -> Type.real
+      | T.Real, T.Real -> T.real
 
       | _ -> raise Type_error)
 
@@ -190,16 +192,16 @@ let type_of_binary_expr = function
 
     (function 
 
-      | Type.Int, Type.Int
-      | Type.Int, Type.IntRange _
-      | Type.IntRange _, Type.Int -> Type.int
+      | T.Int, T.Int
+      | T.Int, T.IntRange _
+      | T.IntRange _, T.Int -> T.int
 
-      | Type.IntRange r1, 
-        Type.IntRange r2 -> 
+      | T.IntRange r1, 
+        T.IntRange r2 -> 
        
         int_range_of_binary_op op r1 r2
 
-      | Type.Real, Type.Real -> Type.real
+      | T.Real, T.Real -> T.real
 
       | _ -> raise Type_error)
  
@@ -211,14 +213,14 @@ let type_of_binary_expr = function
   | Neq ->
 
     (function 
-      | Type.Bool, Type.Bool  -> Type.bool
+      | T.Bool, T.Bool  -> T.bool
 
-      | Type.Int, Type.Int
-      | Type.IntRange _, Type.Int
-      | Type.Int, Type.IntRange _
-      | Type.IntRange _, Type.IntRange _  -> Type.bool
+      | T.Int, T.Int
+      | T.IntRange _, T.Int
+      | T.Int, T.IntRange _
+      | T.IntRange _, T.IntRange _  -> T.bool
 
-      | Type.Real, Type.Real -> Type.bool
+      | T.Real, T.Real -> T.bool
 
       | _ -> raise Type_error)
  
@@ -232,12 +234,12 @@ let type_of_binary_expr = function
 
     (function 
 
-      | Type.Int, Type.Int
-      | Type.IntRange _, Type.Int
-      | Type.Int, Type.IntRange _
-      | Type.IntRange _, Type.IntRange _ -> Type.bool
+      | T.Int, T.Int
+      | T.IntRange _, T.Int
+      | T.Int, T.IntRange _
+      | T.IntRange _, T.IntRange _ -> T.bool
 
-      | Type.Real, Type.Real -> Type.bool
+      | T.Real, T.Real -> T.bool
 
       | _ -> raise Type_error)
  
@@ -247,16 +249,16 @@ let type_of_binary_expr = function
 
     (function 
 
-      | Type.Int, Type.Int 
-      | Type.IntRange _, Type.Int
-      | Type.Int, Type.IntRange _ -> Type.int
+      | T.Int, T.Int 
+      | T.IntRange _, T.Int
+      | T.Int, T.IntRange _ -> T.int
 
-      | Type.IntRange (i1, j1), 
-        Type.IntRange (i2, j2) -> 
+      | T.IntRange (i1, j1), 
+        T.IntRange (i2, j2) -> 
 
-        Type.mk_int_range (min i1 i2) (max j1 j2)
+        T.mk_int_range (min i1 i2) (max j1 j2)
 
-      | Type.Real, Type.Real -> Type.real
+      | T.Real, T.Real -> T.real
 
       | _ -> raise Type_error)
 

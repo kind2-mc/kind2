@@ -29,7 +29,7 @@
  *)
 
 
-open Parser
+open LustreParser
 
 (* Pretty-print an array of integers *)
 let rec pp_print_int_array i ppf a = 

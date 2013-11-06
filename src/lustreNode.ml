@@ -33,37 +33,37 @@ type t =
     { 
       
       (* ID of the node *)
-      ident : Ident.t;
+      ident : LustreIdent.t;
 
       (* Input *)
-      in_params : Ident.t * Type.t list;
+      in_params : LustreIdent.t * LustreType.t list;
 
       (* Output *)
-      out_params : Ident.t * Type.t list;
+      out_params : LustreIdent.t * LustreType.t list;
 
       (* Local constants *)
-      consts : (Ident.t * (Type.t * Expr.t)) list;
+      consts : (LustreIdent.t * (LustreType.t * LustreExpr.t)) list;
 
       (* Local variables *)
-      vars : (Ident.t * Type.t) list;
+      vars : (LustreIdent.t * LustreType.t) list;
 
       (* Equations *)
-      equations : (Ident.t * Expr.t) list;
+      equations : (LustreIdent.t * LustreExpr.t) list;
   
       (* Calls to nodes *)
-      node_calls : Ident.t * Ident.t list;
+      node_calls : LustreIdent.t * LustreIdent.t list;
 
       (* Assertions *)
-      asserts : Expr.t list;
+      asserts : LustreExpr.t list;
 
       (* Properties *)
-      properties : Expr.t list;
+      properties : LustreExpr.t list;
       
       (* Pre-conditions *)
-      requires : Expr.t list;
+      requires : LustreExpr.t list;
       
       (* Post-conditions *)
-      ensures : Expr.t list;
+      ensures : LustreExpr.t list;
       
     } 
 
@@ -72,7 +72,7 @@ let pp_print_typed_ident ppf (i, t) =
     
   
   
-
+(*
 let pp_print_node 
     ppf 
     { ident; 
@@ -84,7 +84,7 @@ let pp_print_node
       asserts; 
       properties;
       requires;
-      ensures }
+      ensures } =
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a@ \
@@ -95,13 +95,13 @@ let pp_print_node
        @[<hv 2>let@ \
        %a@;<1 -2>\
        tel;@]@]" 
-      Ident.pp_print_ident n 
+      I.pp_print_ident ident
       (pp_print_list pp_print_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
       pp_print_contract r
-      pp_print_node_local_decl l
+      pp_print_node_local_decl lc
       (pp_print_list pp_print_node_equation "@ ") e 
-
+*)
 
 (* 
    Local Variables:

@@ -235,7 +235,17 @@ let print_term t = pp_print_term Format.std_formatter t
 
 (* Return a string representation of a term *)
 let string_of_term t = string_of_t pp_print_term t
+(*
+(* Pretty-print a term in infix notation *)
+let pp_print_term_infix = T.pp_print_term_infix ppf t
+*)
+(* Pretty-print a hashconsed term to the standard formatter *)
+let print_term t = pp_print_term Format.std_formatter t
 
+(* Return a string representation of a term *)
+let string_of_term t = string_of_t pp_print_term t
+
+  
 
 (* ********************************************************************* *)
 (* Type checking for terms                                               *)
