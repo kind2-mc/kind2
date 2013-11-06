@@ -254,12 +254,14 @@ let rec substitute_type_in_lustre_type type_map = function
 let substitute_type_in_const_decl type_map = function
 
   | A.FreeConst (n, t) -> 
-    (n, substitute_type_in_lustre_type type_map t)
+
+    A.FreeConst (n, substitute_type_in_lustre_type type_map t)
 
   | A.UntypedConst _ as c -> c
 
   | A.TypedConst (n, e, t) -> 
-    (n, e, substitute_type_in_lustre_type type_map t)
+
+    A.TypedConst(n, e, substitute_type_in_lustre_type type_map t)
 
 
 let substitute_type_in_var_decl type_map (n, t, c) = 
@@ -270,7 +272,7 @@ let substitute_type_in_typed_decl type_map (n, t) =
   (n, substitute_type_in_lustre_type type_map t)
 
 
-let substitute_type_in_clocked_typed_decl type_map (n, t, c, s) =
+let substitute_type_in_clocked_typed_decl type_map (n, t, c) =
   (n, substitute_type_in_lustre_type type_map t, c)
 
 
@@ -286,19 +288,350 @@ let substitute_type_in_node_local_decl type_map = function
 
   | A.NodeVarDecl v -> 
 
-    A.NodeConstDecl (substitute_type_in_var_decl type_map v)
+    A.NodeVarDecl (substitute_type_in_var_decl type_map v)
     
+let rec substitute_type_in_expr type_map = function
+
+  | A.Ident _
+  | A.RecordProject _ as e -> e
+
+  | A.TupleProject(p, e1, e2) -> 
+
+    A.TupleProject 
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.True  _ 
+  | A.False _ 
+  | A.Num _ 
+  | A.Dec _ as e -> e
+
+  | A.ToInt (p, e) -> 
+
+    A.ToInt 
+      (p, 
+       substitute_type_in_expr type_map e)
+
+  | A.ToReal (p, e) -> 
+
+    A.ToReal 
+      (p, 
+       substitute_type_in_expr type_map e)
+
+  | A.ExprList (p, l) -> 
+
+    A.ExprList (p, List.map (substitute_type_in_expr type_map) l)
+
+  | A.TupleExpr (p, l) -> 
+
+    A.TupleExpr (p, List.map (substitute_type_in_expr type_map) l)
+
+  | A.ArrayConstr (p, e1, e2) ->
+
+    A.ArrayConstr
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+      
+  | A.ArraySlice (p, e, l) ->
+
+    A.ArraySlice
+      (p,
+       substitute_type_in_expr type_map e, 
+       List.map
+         (function (e1, e2) -> 
+           (substitute_type_in_expr type_map e1, 
+            substitute_type_in_expr type_map e2))
+         l)
+        
+  | A.ArrayConcat (p, e1, e2) ->
+
+    A.ArrayConcat
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+        
+  | A.RecordConstruct (p, l) -> 
+
+    A.RecordConstruct
+      (p,
+       List.map
+         (function (n, e) -> 
+           (n, substitute_type_in_expr type_map e))
+         l)
+
+  | A.Not (p, e) -> 
+
+    A.Not
+      (p, 
+       substitute_type_in_expr type_map e)
+
+  | A.And (p, e1, e2) -> 
+
+    A.And 
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Or (p, e1, e2) ->
+
+    A.Or
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+      
+  | A.Xor (p, e1, e2) ->
+    
+    A.Xor
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+      
+  | A.Impl (p, e1, e2) ->
+    
+    A.Impl
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.OneHot (p, l) -> 
+
+    A.OneHot
+      (p,
+       List.map (substitute_type_in_expr type_map) l)
+
+  | A.Uminus (p, e) ->
+
+    A.Uminus
+      (p, 
+       substitute_type_in_expr type_map e)
+
+  | A.Mod (p, e1, e2) ->
+    
+    A.Mod
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+ 
+  | A.Minus (p, e1, e2) ->
+    
+    A.Minus
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Plus (p, e1, e2) ->
+    
+    A.Plus
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Div (p, e1, e2) ->
+    
+    A.Div
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Times (p, e1, e2) ->
+    
+    A.Times
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Intdiv (p, e1, e2) ->
+    
+    A.Intdiv
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Ite (p, e1, e2, e3) -> 
+
+    A.Ite 
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2,
+       substitute_type_in_expr type_map e3)
+
+  | A.With (p, e1, e2, e3) -> 
+
+    A.With
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2,
+       substitute_type_in_expr type_map e3)
+
+  | A.Eq (p, e1, e2) ->
+    
+    A.Eq
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+ 
+  | A.Neq (p, e1, e2) ->
+    
+    A.Neq
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Lte (p, e1, e2) ->
+    
+    A.Lte
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Lt (p, e1, e2) ->
+    
+    A.Lt
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Gte (p, e1, e2) ->
+    
+    A.Gte
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Gt (p, e1, e2) ->
+    
+    A.Gt
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.When (p, e1, e2)  ->
+    
+    A.When
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Current (p, e) -> 
+
+    A.Current
+      (p, 
+       substitute_type_in_expr type_map e)
+
+  | A.Condact (p, e1, e2, l) ->
+
+    A.Condact
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2,
+       List.map (substitute_type_in_expr type_map) l)
+
+  | A.Pre (p, e) -> 
+
+    A.Pre
+      (p, 
+       substitute_type_in_expr type_map e)
+
+  | A.Fby (p, e1, i, e2) ->
+
+    A.Fby
+      (p, 
+       substitute_type_in_expr type_map e1,
+       i,
+       substitute_type_in_expr type_map e2)
+
+  | A.Arrow (p, e1, e2)  ->
+    
+    A.Arrow
+      (p, 
+       substitute_type_in_expr type_map e1, 
+       substitute_type_in_expr type_map e2)
+
+  | A.Call (p, n, l) -> 
+
+    A.Call (p, n, List.map (substitute_type_in_expr type_map) l)
+
+  | A.CallParam (p, n, t, l) -> 
+
+    A.CallParam 
+      (p,
+       n,
+       List.map (substitute_type_in_lustre_type type_map) t,
+       List.map (substitute_type_in_expr type_map) l)
+
+let rec substitute_type_in_struct_item type_map = function
+
+  | A.SingleIdent _ as c -> c
+
+  | A.TupleStructItem l -> 
+
+    A.TupleStructItem
+      (List.map (substitute_type_in_struct_item type_map) l)
+
+  | A.TupleSelection (n, e) -> 
+
+    A.TupleSelection 
+      (n,
+       substitute_type_in_expr type_map e)
+
+  | A.FieldSelection _ as c -> c
+
+  | A.ArraySliceStructItem (n, l) -> 
+
+    A.ArraySliceStructItem
+      (n,
+       List.map 
+         (function (e1, e2) -> 
+           (substitute_type_in_expr type_map e1,
+            substitute_type_in_expr type_map e2))
+         l)
 
 
+let substitute_type_in_node_equation type_map  = function
+
+  | A.Assert e -> 
+
+    A.Assert (substitute_type_in_expr type_map e)
+
+  | A.Equation (l, e) -> 
+
+    A.Equation
+      (List.map 
+         (substitute_type_in_struct_item type_map) 
+         l, 
+       substitute_type_in_expr type_map e)
+
+  | A.AnnotMain as c -> c
+
+  | A.AnnotProperty e -> 
+
+    A.AnnotProperty
+      (substitute_type_in_expr type_map e)
+
+
+let substitute_type_in_contract_clause type_map  = function
+
+  | A.Requires e -> 
+
+    A.Requires
+      (substitute_type_in_expr type_map e)
+
+  | A.Ensures e -> 
+
+    A.Ensures
+      (substitute_type_in_expr type_map e)
 
 
 let substitute_type_in_declaration type_map accum = function
 
-  (* Keep tuple, record, array and enum type declarations *)
+  (* Keep tuple, record, array, enum and free type declarations *)
   | A.TypeDecl (A.AliasType (_, A.TupleType _))
   | A.TypeDecl (A.AliasType (_, A.RecordType _ ))
   | A.TypeDecl (A.AliasType (_, A.ArrayType _))
-  | A.TypeDecl (A.AliasType (_, A.EnumType _)) as t -> t :: accum
+  | A.TypeDecl (A.AliasType (_, A.EnumType _))
+  | A.TypeDecl (A.FreeType _) as t -> t :: accum
 
   (* Remove alias type declarations *)
   | A.TypeDecl (A.AliasType (_, A.Bool))
@@ -307,13 +640,28 @@ let substitute_type_in_declaration type_map accum = function
   | A.TypeDecl (A.AliasType (_, A.Real))
   | A.TypeDecl (A.AliasType (_, A.UserType _)) -> accum
 
-  (* Substitute type in constant declaration *)
   | A.ConstDecl (A.FreeConst (n, t)) -> 
 
     (A.ConstDecl 
-      (A.FreeConst (n, substitute_type_in_lustre_type type_map t))) :: accum
+      (A.FreeConst 
+         (n, 
+          substitute_type_in_lustre_type type_map t))) :: accum
 
-  (* Substitute type in a node declaration *)
+  | A.ConstDecl (A.UntypedConst (n, e)) ->
+
+    (A.ConstDecl 
+      (A.UntypedConst
+         (n, 
+          substitute_type_in_expr type_map e))) :: accum
+
+  | A.ConstDecl (A.TypedConst (n, e, t)) -> 
+
+    (A.ConstDecl 
+      (A.TypedConst 
+         (n, 
+          substitute_type_in_expr type_map e,
+          substitute_type_in_lustre_type type_map t))) :: accum
+
   | A.NodeDecl (n, p, i, o, d, e, c) -> 
 
     A.NodeDecl 
@@ -323,19 +671,70 @@ let substitute_type_in_declaration type_map accum = function
        List.map (substitute_type_in_clocked_typed_decl type_map) o,
        List.map (substitute_type_in_node_local_decl type_map) d,
        List.map (substitute_type_in_node_equation type_map) e,
-       List.map (substitute_type_in_contract type_map) c)
+       List.map (substitute_type_in_contract_clause type_map) c) :: accum
+
+  | A.FuncDecl (n, i, o) -> 
+
+    A.FuncDecl
+      (n,
+       List.map (substitute_type_in_typed_decl type_map) i,
+       List.map (substitute_type_in_typed_decl type_map) o) :: accum
+
+  | A.NodeParamInst (n, s, p) -> 
+
+    A.NodeParamInst 
+      (n, 
+       s, 
+      List.map (substitute_type_in_lustre_type type_map) p) :: accum
+
+
+let all_transforms decl = 
+
+  (* 1. Eliminate all alias types with basic types *)
+  let decl = 
+
+    (* Get map of alias type to basic type *)
+    let type_map, free_types = resolve_type_aliases decl in
+    
+    (* Eliminate alias types *)
+    List.fold_left (substitute_type_in_declaration type_map) [] decl
+      
+  in
+
+  debug lustreTransform
+    "All alias types eliminated@,%a"
+    A.pp_print_decl_list decl 
+  in
+
+  (* 2. Propagate global and local constants to expressions and types *)
+  let decl = decl in
+  
+  (* 3. Expand records, tuples and arrays, and structural assignments *)
+  let decl = decl in
+  
+  (* 4. Type and clock check *)
+  let decl = decl in
+
+  (* 5. Check for unguarded pre and algebraic loops *)  
+  let decl = decl in
+
+  (* 6. Abstract non-variable arguments of pre operators to new
+     variables, and abstract node calls to new variables *)
+  let decl = decl in
+
+  ()
 
 ;;
 
 let decl = [
   A.TypeDecl (A.FreeType "t1");
   A.TypeDecl (A.AliasType ("t2", A.UserType "t1"))
-  ]
+]
 
 ;;
 
 resolve_type_aliases decl;;
-    
+
 (* 
    Local Variables:
    compile-command: "ocamlbuild -tag menhir lustreTransform.native"
