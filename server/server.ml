@@ -96,77 +96,83 @@ let configured_programs =
 
 let parse_argv argv = 
 
-  (* Comma-separated string of values for argument *)
-  let prgs = 
-    asprintf 
-      "@[<h>%a@]" 
-      (pp_print_list Format.pp_print_string ",@ ") 
-      (List.map fst configured_programs) 
-  in
+  try 
 
-  (* Program to run, set to default *)
-  let config = 
-    ref (List.assoc "kind2" configured_programs)
-  in
-  
-  (* Port set by user *)
-  let port = ref None in
+    (* Comma-separated string of values for argument *)
+    let prgs = 
+      asprintf 
+        "@[<h>%a@]" 
+        (pp_print_list Format.pp_print_string ",@ ") 
+        (List.map fst configured_programs) 
+    in
 
-  (* Action for -p option *)
-  let port_action p = port := Some p in
+    (* Program to run, set to default *)
+    let config = 
+      ref (List.assoc "kind2" configured_programs)
+    in
 
-  (* Action for argument *)
-  let anon_action s = 
-    try config := List.assoc s configured_programs with 
-      | Not_found -> 
-        raise 
-          (Arg.Bad 
-             (asprintf 
-                "No program %s configured. Possible values are %s"
-                s
-                prgs))
-  in
+    (* Port set by user *)
+    let port = ref None in
 
-  (* Usage message for --help etc. *)
-  let usage_msg = 
-    asprintf
-      "Usage: %s [-p port] PRG@\n\
-       Start a server for PRG, possible values are %s"
-      (Filename.basename Sys.executable_name)
-      prgs
-  in
-      
-  (* Action for --help etc. *)
-  let rec help_action () = 
-    raise (Arg.Help (Arg.usage_string speclist usage_msg))
+    (* Action for -p option *)
+    let port_action p = port := Some p in
 
-  (* Arguments *)
-  and speclist = 
-    [
-      
-      ("-p",
-       Arg.Int port_action,
-       "Run server on port");
+    (* Action for argument *)
+    let anon_action s = 
+      try config := List.assoc s configured_programs with 
+        | Not_found -> 
+          raise 
+            (Arg.Bad 
+               (asprintf 
+                  "No program %s configured. Possible values are %s"
+                  s
+                  prgs))
+    in
 
-      (* Display help *)
-      ("-help", 
-       Arg.Unit help_action, 
-       " Display this list of options");
-      ("--help", 
-       Arg.Unit help_action, 
-       "Display this list of options");
-      ("-h", 
-       Arg.Unit help_action, 
-       "    Display this list of options")
-    ]
-    
-  in
-  
-  (* Parse arguments *)
-  Arg.parse_argv argv speclist anon_action usage_msg;
+    (* Usage message for --help etc. *)
+    let usage_msg = 
+      asprintf
+        "Usage: %s [-p port] PRG@\n\
+         Start a server for PRG, possible values are %s"
+        (Filename.basename Sys.executable_name)
+        prgs
+    in
 
-  (* Override port in chosen configuration *)
-  match !port with None -> !config | Some p -> {!config with port = p}
+    (* Action for --help etc. *)
+    let rec help_action () = 
+      raise (Arg.Help (Arg.usage_string speclist usage_msg))
+
+    (* Arguments *)
+    and speclist = 
+      [
+
+        ("-p",
+         Arg.Int port_action,
+         "    Run server on port");
+
+        (* Display help *)
+        ("-help", 
+         Arg.Unit help_action, 
+         " Display this list of options");
+        ("--help", 
+         Arg.Unit help_action, 
+         "Display this list of options");
+        ("-h", 
+         Arg.Unit help_action, 
+         "    Display this list of options")
+      ]
+
+    in
+
+    (* Parse arguments *)
+    Arg.parse_argv argv speclist anon_action usage_msg;
+
+    (* Override port in chosen configuration *)
+    match !port with None -> !config | Some p -> {!config with port = p}
+
+  with Arg.Help s | Arg.Bad s -> 
+
+    Format.printf "%s" s; exit 1
 
 
 (* ********************************************************************** *)
