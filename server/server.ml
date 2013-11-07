@@ -11,18 +11,152 @@ open ZMQ
 
 exception Checksum_failure
 
+(* Pretty-print a list *)
+let rec pp_print_list pp sep ppf = function 
+
+  (* Output nothing for the empty list *) 
+  | [] -> ()
+
+  (* Output a single element in the list  *) 
+  | e :: [] -> 
+    pp ppf e
+
+  (* Output a single element and a space *) 
+  | e :: tl -> 
+
+    (* Output one element *)
+    pp_print_list pp sep ppf [e]; 
+
+    (* Output separator *)
+    Format.fprintf ppf sep; 
+
+    (* Output the rest of the list *)
+    pp_print_list pp sep ppf tl
+
+
 (* ********************************************************************** *)
 (* Defaults                                                               *)
 (* ********************************************************************** *)
 
-let helpmessage = "usage: kind2_server -[p] [port]"
+(* Configuration of a program *)
+type program_config = 
 
-(* Default port for the server *)
-let default_port = 5558
+  { 
 
-(* command to invoke kind *)
-let kind_command = "/usr/local/bin/pkind";;
-let kind_default_args = ["-xml"; "-xml-to-stdout"]
+    (* Port to run server on *)
+    port : int;
+
+    (* Command to execute *)
+    command : string;
+
+    (* Arguments to program *)
+    args : string list 
+
+  }
+
+
+let pp_print_program_config ppf { port; command; args } =
+
+  Format.fprintf ppf
+    "Running command %s with arguments @[<h>%a@] on port %d"
+    command
+    (pp_print_list Format.pp_print_string "@ ") args
+    port
+
+
+(* Configured programs *)
+let configured_programs = 
+
+  [
+
+    (* PKind *)
+    ("pkind", 
+     { port = 5558;
+       command = "/usr/local/bin/pkind";
+       args = ["-xml"; "-xml-to-stdout"]});
+    
+    (* Kind 2 *)
+    ("kind2", 
+     { port = 5559;
+       command = "/usr/local/bin/kind2";
+       args = ["-xml"]});
+   
+  ]
+
+
+let parse_argv argv = 
+
+  (* Comma-separated string of values for argument *)
+  let prgs = 
+    Format.asprintf 
+      "@[<h>%a@]" 
+      (pp_print_list Format.pp_print_string ",@ ") 
+      (List.map fst configured_programs) 
+  in
+
+  (* Program to run, set to default *)
+  let config = 
+    ref (List.assoc "kind2" configured_programs)
+  in
+  
+  (* Port set by user *)
+  let port = ref None in
+
+  (* Action for -p option *)
+  let port_action p = port := Some p in
+
+  (* Action for argument *)
+  let anon_action s = 
+    try config := List.assoc s configured_programs with 
+      | Not_found -> 
+        raise 
+          (Arg.Bad 
+             (Format.sprintf 
+                "No program %s configured. Possible values are %s"
+                s
+                prgs))
+  in
+
+  (* Usage message for --help etc. *)
+  let usage_msg = 
+    Format.sprintf
+      "Usage: %s [-p port] PRG@\n\
+       Start a server for PRG, possible values are %s"
+      (Filename.basename Sys.executable_name)
+      prgs
+  in
+      
+  (* Action for --help etc. *)
+  let rec help_action () = 
+    raise (Arg.Help (Arg.usage_string speclist usage_msg))
+
+  (* Arguments *)
+  and speclist = 
+    [
+      
+      ("-p",
+       Arg.Int port_action,
+       "Run server on port");
+
+      (* Display help *)
+      ("-help", 
+       Arg.Unit help_action, 
+       " Display this list of options");
+      ("--help", 
+       Arg.Unit help_action, 
+       "Display this list of options");
+      ("-h", 
+       Arg.Unit help_action, 
+       "    Display this list of options")
+    ]
+    
+  in
+  
+  (* Parse arguments *)
+  Arg.parse_argv argv speclist anon_action usage_msg;
+
+  (* Override port in chosen configuration *)
+  match !port with None -> !config | Some p -> {!config with port = p}
 
 
 (* ********************************************************************** *)
@@ -165,6 +299,7 @@ let log fmt =
 (* State of the server                                                    *)
 (* ********************************************************************** *)
 
+(*
 (* on which port does the server run? *)
 let port = 
   match (Array.length Sys.argv) with 
@@ -178,12 +313,14 @@ let port =
         exit 1
       );
     ) else (
-      print_endline helpmessage;
+      Format.printf helpmessage Sys.argv.(0);
       exit 1
     )
-  | _ -> print_endline helpmessage;
-         exit 1
+  | _ -> 
 
+    Format.printf helpmessage Sys.argv.(0);
+    exit 1
+*)
 
 (* print_endline ("launching Kind 2 server on port " ^ (string_of_int port)) *)
 
@@ -245,7 +382,13 @@ let read_bytes filename =
 
 (* create new kind job using flags 'server_flags',
     and the content of 'payload'. send results over 'sock' *)
-let create_job sock server_flags payload checksum kind_args =
+let create_job 
+    sock 
+    server_flags 
+    payload 
+    checksum 
+    job_command
+    job_args =
   
   (* Generate a unique job ID *)
   let job_id = generate_uid () in 
@@ -317,14 +460,14 @@ let create_job sock server_flags payload checksum kind_args =
   
   log 
     "Executing %s %a"
-    kind_command
-    (pp_print_list Format.pp_print_string " ") kind_args;
+    job_command
+    (pp_print_list Format.pp_print_string " ") job_args;
 
   (* Create kind process *)
   let kind_pid = 
     Unix.create_process 
-      kind_command
-      (Array.of_list (kind_command :: kind_args @ [stdin_fn])) 
+      job_command
+      (Array.of_list (job_command :: job_args @ [stdin_fn])) 
       kind_stdin_in
       kind_stdout_out
       kind_stderr_out
@@ -689,7 +832,7 @@ let rec collect_args msg accum =
 
 
 (* Main loop: get requests from socket *)
-let rec get_requests sock last_purge =
+let rec get_requests ({ command; args } as config) sock last_purge =
 
   (* Catch all errors *)
   try 
@@ -699,7 +842,7 @@ let rec get_requests sock last_purge =
 
       (* Wait for next message, restart when interrupted *)
       try zmsg_recv sock with 
-        | Failure "break" -> get_requests sock last_purge 
+        | Failure "break" -> get_requests config sock last_purge 
 
     in
 
@@ -738,11 +881,11 @@ let rec get_requests sock last_purge =
             let checksum  = zmsg_popstr msg in
             
             (* Collect arguments from remaining frames *)
-            let kind_args = kind_default_args @ (collect_args msg []) in 
+            let job_args = args @ (collect_args msg []) in 
             
             try 
               
-              create_job sock s payload checksum kind_args;
+              create_job sock s payload checksum command job_args;
               
             with Checksum_failure -> 
               
@@ -822,7 +965,7 @@ let rec get_requests sock last_purge =
     cancel_requested_jobs := cancel_requested_jobs';
       
     (* Continue with next message *)
-    get_requests sock last_purge'
+    get_requests config sock last_purge'
 
   (* Catch runtime errors *)
   with e ->
@@ -847,6 +990,8 @@ let rec get_requests sock last_purge =
 
 (* Entry point *)
 let main () = 
+
+  let { port } as config = parse_argv Sys.argv in
 
   (* Double fork to start server as daemon *)
   (match Unix.fork () with 
@@ -881,6 +1026,8 @@ let main () =
   Unix.close fd;
 
   log "Server started";
+
+  log "%a" pp_print_program_config config;
 
   (* ZeroMQ context *)
   let ctx = zctx_new () in
@@ -925,10 +1072,17 @@ let main () =
   );
 
   (* Enter main loop, last purge of old files was right now *)
-  get_requests rep_sock (int_of_float (Unix.time ()));
+  get_requests config rep_sock (int_of_float (Unix.time ()));
   
   exit 0
     
 ;;
 
 main ()
+
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k kind2-server"
+   indent-tabs-mode: nil
+   End: 
+*)
