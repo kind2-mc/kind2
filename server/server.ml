@@ -11,6 +11,16 @@ open ZMQ
 
 exception Checksum_failure
 
+let asprintf fmt =
+  let b = Buffer.create 512 in
+  let k ppf = 
+    Format.pp_print_flush ppf ();
+    Buffer.contents b
+  in
+  let ppf = Format.formatter_of_buffer b in
+  Format.kfprintf k ppf fmt
+
+
 (* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 
 
@@ -58,7 +68,7 @@ type program_config =
 let pp_print_program_config ppf { port; command; args } =
 
   Format.fprintf ppf
-    "Running command %s with arguments @[<h>%a@] on port %d"
+    "@[<h>Running command %s with arguments @[<h>%a@] on port %d@]"
     command
     (pp_print_list Format.pp_print_string "@ ") args
     port
@@ -88,7 +98,7 @@ let parse_argv argv =
 
   (* Comma-separated string of values for argument *)
   let prgs = 
-    Format.asprintf 
+    asprintf 
       "@[<h>%a@]" 
       (pp_print_list Format.pp_print_string ",@ ") 
       (List.map fst configured_programs) 
@@ -111,7 +121,7 @@ let parse_argv argv =
       | Not_found -> 
         raise 
           (Arg.Bad 
-             (Format.sprintf 
+             (asprintf 
                 "No program %s configured. Possible values are %s"
                 s
                 prgs))
@@ -119,7 +129,7 @@ let parse_argv argv =
 
   (* Usage message for --help etc. *)
   let usage_msg = 
-    Format.sprintf
+    asprintf
       "Usage: %s [-p port] PRG@\n\
        Start a server for PRG, possible values are %s"
       (Filename.basename Sys.executable_name)
@@ -349,10 +359,10 @@ let job_lifespan = 2629740 (* about one month *)
 
 
 (* Location of temporary directory *)
-let tmpdir = Format.sprintf "/tmp/kind2-%s" (generate_uid ())
+let tmpdir = asprintf "/tmp/kind2-%s" (generate_uid ())
 
 (* Name of log file *)
-let logfile = Format.sprintf "%s.log" tmpdir
+let logfile = asprintf "%s.log" tmpdir
 
 
 
@@ -520,7 +530,7 @@ let output_of_job_status
         let errors = read_bytes stderr_fn in
         
         (* Create message to client *)
-        Format.sprintf 
+        asprintf 
           "<Jobstatus msg=\"aborted\">\
            Job with ID %s aborted before completion.\
            Contents of stderr:@\n\
@@ -538,7 +548,7 @@ let output_of_job_status
         let errors = read_bytes stderr_fn in
 
         (* Create message to client *)
-        Format.sprintf 
+        asprintf 
           "<Jobstatus msg=\"aborted\">\
            Job with ID %s aborted before completion.\
            Contents of stderr:@\n\
@@ -607,7 +617,7 @@ let retrieve_job sock server_flags job_id =
             log ("running as PID %d") status_pid;
 
             (* Message to client *)
-            Format.sprintf 
+            asprintf 
               "<Jobstatus msg=\"inprogress\">\
                Job with ID %s is in progress.\
                </Jobstatus>"
@@ -633,7 +643,7 @@ let retrieve_job sock server_flags job_id =
 
           log "completed at %a UTC" pp_print_time job_tm;
 
-          Format.sprintf 
+          asprintf 
             "<Jobstatus msg=\"completed\">\
              Job with ID %s has completed and was retrieved at %s UTC\
              </Jobstatus>"
@@ -646,7 +656,7 @@ let retrieve_job sock server_flags job_id =
 
         log "not found";
 
-        Format.sprintf
+        asprintf
           "<Jobstatus msg=\"notfound\">\
            Job with ID %s not found.\
            </Jobstatus>"
@@ -717,7 +727,7 @@ let cancel_job sock server_flags job_id =
                          !cancel_requested_jobs;
 
             (* Message to client *)
-            Format.sprintf 
+            asprintf 
               "<Jobstatus msg=\"inprogress\">\
                Requested canceling of job with ID %s .\
                </Jobstatus>"
@@ -743,7 +753,7 @@ let cancel_job sock server_flags job_id =
 
           log "completed at %a UTC" pp_print_time job_tm;
 
-          Format.sprintf 
+          asprintf 
             "<Jobstatus msg=\"completed\">\
              Job with ID %s has completed and was retrieved at %s UTC\
              </Jobstatus>"
@@ -756,7 +766,7 @@ let cancel_job sock server_flags job_id =
 
         log "not found";
 
-        Format.sprintf
+        asprintf
           "<Jobstatus msg=\"notfound\">\
            Job with ID %s not found.\
            </Jobstatus>"
