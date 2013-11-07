@@ -51,7 +51,7 @@ let calculate_shortest_length_of_input_stream l =
   List.iter 
     (fun(y,x) ->
       if (List.length x) = 0
-      then (Event.log `Interpreter Event.L_fatal 
+      then (Event.log `Interpreter Event.L_warn 
             "Warning: No input is provided for state variable %s" 
               (StateVar.name_of_state_var y)) 
       else if ((List.length x) < !len) 
@@ -76,20 +76,20 @@ let main input_file transSys =
     if steps <= 0
     then ((if !len_different 
           then 
-            Event.log `Interpreter Event.L_fatal 
+            Event.log `Interpreter Event.L_warn 
             "Warning: Input streams have different lengths. Simulation up to the shortest length of the input streams.");
           shortest_length) 
     else if steps > shortest_length
          then ((if !len_different 
-                 then (Event.log `Interpreter Event.L_fatal 
+                 then (Event.log `Interpreter Event.L_warn 
                        "Warning: The length of input streams are not long enough to simulate up to %d steps" steps;
-                       Event.log `Interpreter Event.L_fatal 
+                       Event.log `Interpreter Event.L_warn 
                        "Warning: Simulation will continue nondeterministically after %d instant" (shortest_length-1)));
           	   steps)
           else steps
   in
 
-  Event.log `Interpreter Event.L_fatal "Interpreter running up to k = %d" k;
+  Event.log `Interpreter Event.L_info "Interpreter running up to k = %d" k;
 
   (* let inputs = InputParser.main x in *)
 
