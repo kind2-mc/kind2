@@ -1,0 +1,13 @@
+KP_START,true,true,false
+KP_CLEAR,true,true,false
+KP_0,true,true,false
+KP_1,true,true,false
+KP_2,true,true,false
+KP_3,true,true
+KP_4,true,true,false
+KP_5,true,true,true
+KP_6,true,true,true
+KP_7,true,true,true
+KP_8,true,true,true
+KP_9,true,true,true
+DOOR_CLOSED,true,true,true
