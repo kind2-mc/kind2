@@ -14,53 +14,53 @@ type(
   string
 )
 ident(
-  def cvc3_path "kind1/solvers_path.ml" 3 58 58 "_none_" 1 0 -1
+  def cvc3_path "kind1/solvers_path.ml" 3 56 56 "_none_" 1 0 -1
 )
-"kind1/solvers_path.ml" 2 28 44 "kind1/solvers_path.ml" 2 28 57
+"kind1/solvers_path.ml" 2 28 44 "kind1/solvers_path.ml" 2 28 55
 type(
   string
 )
-"kind1/solvers_path.ml" 3 58 62 "kind1/solvers_path.ml" 3 58 71
-type(
-  string
-)
-ident(
-  def cvc4_path "kind1/solvers_path.ml" 4 88 88 "_none_" 1 0 -1
-)
-"kind1/solvers_path.ml" 3 58 74 "kind1/solvers_path.ml" 3 58 87
-type(
-  string
-)
-"kind1/solvers_path.ml" 4 88 92 "kind1/solvers_path.ml" 4 88 102
+"kind1/solvers_path.ml" 3 56 60 "kind1/solvers_path.ml" 3 56 69
 type(
   string
 )
 ident(
-  def yices_path "kind1/solvers_path.ml" 5 120 120 "_none_" 1 0 -1
+  def cvc4_path "kind1/solvers_path.ml" 4 84 84 "_none_" 1 0 -1
 )
-"kind1/solvers_path.ml" 4 88 105 "kind1/solvers_path.ml" 4 88 119
+"kind1/solvers_path.ml" 3 56 72 "kind1/solvers_path.ml" 3 56 83
 type(
   string
 )
-"kind1/solvers_path.ml" 5 120 124 "kind1/solvers_path.ml" 5 120 135
-type(
-  string
-)
-ident(
-  def yicesw_path "kind1/solvers_path.ml" 6 154 154 "_none_" 1 0 -1
-)
-"kind1/solvers_path.ml" 5 120 138 "kind1/solvers_path.ml" 5 120 153
-type(
-  string
-)
-"kind1/solvers_path.ml" 6 154 158 "kind1/solvers_path.ml" 6 154 170
+"kind1/solvers_path.ml" 4 84 88 "kind1/solvers_path.ml" 4 84 98
 type(
   string
 )
 ident(
-  def kind_ai_path "kind1/solvers_path.ml" 6 154 189 "_none_" 1 0 -1
+  def yices_path "kind1/solvers_path.ml" 5 118 118 "_none_" 1 0 -1
 )
-"kind1/solvers_path.ml" 6 154 173 "kind1/solvers_path.ml" 6 154 189
+"kind1/solvers_path.ml" 4 84 101 "kind1/solvers_path.ml" 4 84 117
+type(
+  string
+)
+"kind1/solvers_path.ml" 5 118 122 "kind1/solvers_path.ml" 5 118 133
+type(
+  string
+)
+ident(
+  def yicesw_path "kind1/solvers_path.ml" 6 141 141 "_none_" 1 0 -1
+)
+"kind1/solvers_path.ml" 5 118 136 "kind1/solvers_path.ml" 5 118 140
+type(
+  string
+)
+"kind1/solvers_path.ml" 6 141 145 "kind1/solvers_path.ml" 6 141 157
+type(
+  string
+)
+ident(
+  def kind_ai_path "kind1/solvers_path.ml" 6 141 171 "_none_" 1 0 -1
+)
+"kind1/solvers_path.ml" 6 141 160 "kind1/solvers_path.ml" 6 141 171
 type(
   string
 )

@@ -6358,7 +6358,7 @@ type(
   bool
 )
 ident(
-  def init "oldParser.ml" 584 13792 13829 "oldParser.ml" 999 25097 25132
+  def init "oldParser.ml" 584 13792 13829 "oldParser.ml" 1001 25180 25255
 )
 "oldParser.ml" 587 13905 13909 "oldParser.ml" 587 13905 13913
 type(
@@ -10331,7 +10331,7 @@ type(
   Term.t list
 )
 ident(
-  int_ref il_expression_list_to_term_list "oldParser.ml" 1004 25141 25145 "oldParser.ml" 1004 25141 25176
+  int_ref il_expression_list_to_term_list "oldParser.ml" 1006 25265 25269 "oldParser.ml" 1006 25265 25300
 )
 "oldParser.ml" 832 20308 20316 "oldParser.ml" 832 20308 20320
 type(
@@ -10571,7 +10571,7 @@ type(
   Term.t list
 )
 ident(
-  int_ref il_expression_list_to_term_list "oldParser.ml" 1004 25141 25145 "oldParser.ml" 1004 25141 25176
+  int_ref il_expression_list_to_term_list "oldParser.ml" 1006 25265 25269 "oldParser.ml" 1006 25265 25300
 )
 "oldParser.ml" 849 20679 20687 "oldParser.ml" 849 20679 20691
 type(
@@ -11341,28 +11341,28 @@ type(
   Kind1.Types.lustre_type option
 )
 ident(
-  def tt "oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+  def tt "oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 893 21833 21851 "oldParser.ml" 893 21833 21852
 type(
   Kind1.Types.mutable_string
 )
 ident(
-  def s "oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+  def s "oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 893 21833 21854 "oldParser.ml" 893 21833 21855
 type(
   int
 )
 ident(
-  def d "oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+  def d "oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 893 21833 21862 "oldParser.ml" 893 21833 21864
 type(
   int
 )
 ident(
-  def id "oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+  def id "oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 893 21833 21858 "oldParser.ml" 893 21833 21864
 type(
@@ -11373,7 +11373,7 @@ type(
   Kind1.Types.il_expression
 )
 ident(
-  def p "oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+  def p "oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 893 21833 21842 "oldParser.ml" 893 21833 21869
 type(
@@ -11384,7 +11384,7 @@ type(
   Kind1.Types.il_expression
 )
 ident(
-  def e "oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+  def e "oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 893 21833 21837 "oldParser.ml" 893 21833 21875
 type(
@@ -11395,7 +11395,7 @@ type(
   Kind1.Types.idtype
 )
 ident(
-  def nk "oldParser.ml" 901 22076 22082 "oldParser.ml" 972 24455 24502
+  def nk "oldParser.ml" 901 22076 22082 "oldParser.ml" 974 24539 24586
 )
 "oldParser.ml" 898 21952 21967 "oldParser.ml" 898 21952 22000
 type(
@@ -11462,21 +11462,21 @@ type(
   string
 )
 ident(
-  def v "oldParser.ml" 913 22409 22417 "oldParser.ml" 970 24419 24443
+  def v "oldParser.ml" 913 22409 22417 "oldParser.ml" 972 24503 24527
 )
 "oldParser.ml" 909 22306 22325 "oldParser.ml" 909 22306 22326
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def t "oldParser.ml" 913 22409 22417 "oldParser.ml" 970 24419 24443
+  def t "oldParser.ml" 913 22409 22417 "oldParser.ml" 972 24503 24527
 )
 "oldParser.ml" 909 22306 22328 "oldParser.ml" 909 22306 22329
 type(
   Kind1.Types.varclass
 )
 ident(
-  def c "oldParser.ml" 913 22409 22417 "oldParser.ml" 970 24419 24443
+  def c "oldParser.ml" 913 22409 22417 "oldParser.ml" 972 24503 24527
 )
 "oldParser.ml" 909 22306 22319 "oldParser.ml" 909 22306 22329
 type(
@@ -11517,7 +11517,7 @@ type(
   Type.t
 )
 ident(
-  def var_type "oldParser.ml" 944 23655 23663 "oldParser.ml" 970 24419 24443
+  def var_type "oldParser.ml" 944 23655 23663 "oldParser.ml" 972 24503 24527
 )
 "oldParser.ml" 916 22461 22477 "oldParser.ml" 916 22461 22479
 type(
@@ -12306,7 +12306,7 @@ type(
   StateVar.t
 )
 ident(
-  def state_var "oldParser.ml" 953 23833 23841 "oldParser.ml" 970 24419 24443
+  def state_var "oldParser.ml" 953 23833 23841 "oldParser.ml" 972 24503 24527
 )
 "oldParser.ml" 947 23699 23709 "oldParser.ml" 947 23699 23730
 type(
@@ -12373,7 +12373,7 @@ type(
   Var.t
 )
 ident(
-  def var' "oldParser.ml" 970 24419 24427 "oldParser.ml" 970 24419 24443
+  def var' "oldParser.ml" 972 24503 24511 "oldParser.ml" 972 24503 24527
 )
 "oldParser.ml" 954 23853 23863 "oldParser.ml" 954 23853 23888
 type(
@@ -12404,103 +12404,139 @@ type(
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 958 23976 23995 "oldParser.ml" 958 23976 23999
+"oldParser.ml" 958 23973 24002 "oldParser.ml" 958 23973 24006
+type(
+  string
+)
+"oldParser.ml" 958 23973 23989 "oldParser.ml" 958 23973 24006
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 957 23939 23955 "oldParser.ml" 958 23973 24006
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 959 24010 24029 "oldParser.ml" 959 24010 24033
 type(
   bool
 )
 ident(
   int_ref init "oldParser.ml" 584 13792 13822 "oldParser.ml" 584 13792 13826
 )
-"oldParser.ml" 958 23976 24005 "oldParser.ml" 958 23976 24023
+"oldParser.ml" 959 24010 24039 "oldParser.ml" 959 24010 24057
 type(
   int -> Lib.numeral
 )
 ident(
   ext_ref Lib.numeral_of_int
 )
-"oldParser.ml" 958 23976 24024 "oldParser.ml" 958 23976 24025
+"oldParser.ml" 959 24010 24058 "oldParser.ml" 959 24010 24059
 type(
   int
 )
-"oldParser.ml" 958 23976 24005 "oldParser.ml" 958 23976 24025
+"oldParser.ml" 959 24010 24039 "oldParser.ml" 959 24010 24059
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 958 23976 24031 "oldParser.ml" 958 23976 24049
+"oldParser.ml" 959 24010 24065 "oldParser.ml" 959 24010 24083
 type(
   int -> Lib.numeral
 )
 ident(
   ext_ref Lib.numeral_of_int
 )
-"oldParser.ml" 958 23976 24050 "oldParser.ml" 958 23976 24051
+"oldParser.ml" 959 24010 24084 "oldParser.ml" 959 24010 24085
 type(
   int
 )
-"oldParser.ml" 958 23976 24031 "oldParser.ml" 958 23976 24051
+"oldParser.ml" 959 24010 24065 "oldParser.ml" 959 24010 24085
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 958 23976 23992 "oldParser.ml" 958 23976 24051
+"oldParser.ml" 959 24010 24026 "oldParser.ml" 959 24010 24085
 type(
   Lib.numeral
 )
-"oldParser.ml" 959 24052 24088 "oldParser.ml" 959 24052 24091
+"oldParser.ml" 960 24086 24122 "oldParser.ml" 960 24086 24125
 type(
   string
 )
-"oldParser.ml" 959 24052 24075 "oldParser.ml" 959 24052 24091
+"oldParser.ml" 960 24086 24109 "oldParser.ml" 960 24086 24125
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 959 24052 24097 "oldParser.ml" 959 24052 24098
+"oldParser.ml" 960 24086 24131 "oldParser.ml" 960 24086 24132
 type(
   int
 )
-"oldParser.ml" 959 24052 24093 "oldParser.ml" 959 24052 24098
+"oldParser.ml" 960 24086 24127 "oldParser.ml" 960 24086 24132
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 959 24052 24068 "oldParser.ml" 959 24052 24099
+"oldParser.ml" 960 24086 24102 "oldParser.ml" 960 24086 24133
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 959 24052 24103 "oldParser.ml" 959 24052 24121
+"oldParser.ml" 961 24135 24171 "oldParser.ml" 961 24135 24175
+type(
+  string
+)
+"oldParser.ml" 961 24135 24158 "oldParser.ml" 961 24135 24175
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 961 24135 24181 "oldParser.ml" 961 24135 24182
+type(
+  int
+)
+"oldParser.ml" 961 24135 24177 "oldParser.ml" 961 24135 24182
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 961 24135 24151 "oldParser.ml" 961 24135 24183
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 960 24086 24102 "oldParser.ml" 961 24135 24183
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 961 24135 24187 "oldParser.ml" 961 24135 24205
 type(
   int -> Lib.numeral
 )
 ident(
   ext_ref Lib.numeral_of_int
 )
-"oldParser.ml" 959 24052 24122 "oldParser.ml" 959 24052 24123
+"oldParser.ml" 961 24135 24206 "oldParser.ml" 961 24135 24207
 type(
   int
 )
-"oldParser.ml" 959 24052 24103 "oldParser.ml" 959 24052 24123
+"oldParser.ml" 961 24135 24187 "oldParser.ml" 961 24135 24207
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 960 24124 24140 "oldParser.ml" 960 24124 24141
+"oldParser.ml" 962 24208 24224 "oldParser.ml" 962 24208 24225
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 961 24146 24162 "oldParser.ml" 961 24146 24170
+"oldParser.ml" 963 24230 24246 "oldParser.ml" 963 24230 24254
 type(
   string -> Lib.numeral
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 962 24172 24191 "oldParser.ml" 962 24172 24205
+"oldParser.ml" 964 24256 24275 "oldParser.ml" 964 24256 24289
 type(
   Format.formatter ->
   ((Format.formatter -> Kind1.Types.il_expression -> unit) ->
@@ -12512,161 +12548,161 @@ type(
 ident(
   ext_ref Format.fprintf
 )
-"oldParser.ml" 963 24207 24228 "oldParser.ml" 963 24207 24241
+"oldParser.ml" 965 24291 24312 "oldParser.ml" 965 24291 24325
 type(
   Format.formatter
 )
 ident(
   ext_ref Format.str_formatter
 )
-"oldParser.ml" 964 24242 24263 "oldParser.ml" 964 24242 24292
+"oldParser.ml" 966 24326 24347 "oldParser.ml" 966 24326 24376
 type(
   ((Format.formatter -> Kind1.Types.il_expression -> unit) ->
    Kind1.Types.il_expression -> unit, Format.formatter, unit)
   format
 )
-"oldParser.ml" 965 24294 24315 "oldParser.ml" 965 24294 24337
+"oldParser.ml" 967 24378 24399 "oldParser.ml" 967 24378 24421
 type(
   Format.formatter -> Kind1.Types.il_expression -> unit
 )
 ident(
   int_ref pp_print_il_expression "oldParser.ml" 171 4887 4895 "oldParser.ml" 171 4887 4917
 )
-"oldParser.ml" 966 24339 24360 "oldParser.ml" 966 24339 24361
+"oldParser.ml" 968 24423 24444 "oldParser.ml" 968 24423 24445
 type(
   Kind1.Types.il_expression
 )
 ident(
   int_ref p "oldParser.ml" 893 21833 21867 "oldParser.ml" 893 21833 21868
 )
-"oldParser.ml" 962 24172 24191 "oldParser.ml" 966 24339 24361
+"oldParser.ml" 964 24256 24275 "oldParser.ml" 968 24423 24445
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 967 24363 24382 "oldParser.ml" 967 24363 24401
+"oldParser.ml" 969 24447 24466 "oldParser.ml" 969 24447 24485
 type(
   unit -> string
 )
 ident(
   ext_ref Format.flush_str_formatter
 )
-"oldParser.ml" 967 24363 24402 "oldParser.ml" 967 24363 24404
+"oldParser.ml" 969 24447 24486 "oldParser.ml" 969 24447 24488
 type(
   unit
 )
-"oldParser.ml" 967 24363 24382 "oldParser.ml" 967 24363 24404
+"oldParser.ml" 969 24447 24466 "oldParser.ml" 969 24447 24488
 call(
   stack
 )
 type(
   string
 )
-"oldParser.ml" 962 24172 24191 "oldParser.ml" 967 24363 24404
+"oldParser.ml" 964 24256 24275 "oldParser.ml" 969 24447 24488
 type(
   string
 )
-"oldParser.ml" 961 24146 24162 "oldParser.ml" 967 24363 24405
+"oldParser.ml" 963 24230 24246 "oldParser.ml" 969 24447 24489
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 956 23912 23925 "oldParser.ml" 967 24363 24405
+"oldParser.ml" 956 23912 23925 "oldParser.ml" 969 24447 24489
 type(
   Lib.numeral
 )
-"oldParser.ml" 954 23853 23863 "oldParser.ml" 967 24363 24406
+"oldParser.ml" 954 23853 23863 "oldParser.ml" 969 24447 24490
 call(
   stack
 )
 type(
   Var.t
 )
-"oldParser.ml" 970 24419 24427 "oldParser.ml" 970 24419 24438
+"oldParser.ml" 972 24503 24511 "oldParser.ml" 972 24503 24522
 type(
   Var.t -> Term.t
 )
 ident(
   ext_ref Term.mk_var
 )
-"oldParser.ml" 970 24419 24439 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 972 24503 24523 "oldParser.ml" 972 24503 24527
 type(
   Var.t
 )
 ident(
   int_ref var' "oldParser.ml" 953 23833 23845 "oldParser.ml" 953 23833 23849
 )
-"oldParser.ml" 970 24419 24427 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 972 24503 24511 "oldParser.ml" 972 24503 24527
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 953 23833 23841 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 953 23833 23841 "oldParser.ml" 972 24503 24527
 type(
   Term.t
 )
-"oldParser.ml" 946 23674 23682 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 946 23674 23682 "oldParser.ml" 972 24503 24527
 type(
   Term.t
 )
-"oldParser.ml" 944 23655 23663 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 944 23655 23663 "oldParser.ml" 972 24503 24527
 type(
   Term.t
 )
-"oldParser.ml" 913 22409 22417 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 913 22409 22417 "oldParser.ml" 972 24503 24527
 type(
   Term.t
 )
-"oldParser.ml" 909 22306 22314 "oldParser.ml" 970 24419 24443
+"oldParser.ml" 909 22306 22314 "oldParser.ml" 972 24503 24527
 type(
   Term.t
 )
-"oldParser.ml" 972 24455 24466 "oldParser.ml" 972 24455 24475
+"oldParser.ml" 974 24539 24550 "oldParser.ml" 974 24539 24559
 type(
   exn
 )
-"oldParser.ml" 972 24455 24479 "oldParser.ml" 972 24455 24484
+"oldParser.ml" 974 24539 24563 "oldParser.ml" 974 24539 24568
 type(
   exn -> Term.t
 )
 ident(
   ext_ref Pervasives.raise
 )
-"oldParser.ml" 972 24455 24497 "oldParser.ml" 972 24455 24501
+"oldParser.ml" 974 24539 24581 "oldParser.ml" 974 24539 24585
 type(
   string
 )
-"oldParser.ml" 972 24455 24486 "oldParser.ml" 972 24455 24501
+"oldParser.ml" 974 24539 24570 "oldParser.ml" 974 24539 24585
 type(
   exn
 )
-"oldParser.ml" 972 24455 24479 "oldParser.ml" 972 24455 24502
+"oldParser.ml" 974 24539 24563 "oldParser.ml" 974 24539 24586
 type(
   Term.t
 )
-"oldParser.ml" 906 22230 22236 "oldParser.ml" 972 24455 24502
+"oldParser.ml" 906 22230 22236 "oldParser.ml" 974 24539 24586
 type(
   Term.t
 )
-"oldParser.ml" 901 22076 22082 "oldParser.ml" 972 24455 24502
+"oldParser.ml" 901 22076 22082 "oldParser.ml" 974 24539 24586
 type(
   Term.t
 )
-"oldParser.ml" 898 21952 21958 "oldParser.ml" 972 24455 24502
+"oldParser.ml" 898 21952 21958 "oldParser.ml" 974 24539 24586
 type(
   Term.t
 )
-"oldParser.ml" 976 24511 24515 "oldParser.ml" 976 24511 24516
+"oldParser.ml" 978 24595 24599 "oldParser.ml" 978 24595 24600
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 976 24511 24526 "oldParser.ml" 976 24511 24527
+"oldParser.ml" 978 24595 24610 "oldParser.ml" 978 24595 24611
 type(
   Kind1.Types.il_expression
 )
@@ -12679,248 +12715,285 @@ type(
 type(
   Kind1.Types.mutable_string
 )
-"oldParser.ml" 976 24511 24518 "oldParser.ml" 976 24511 24527
+"oldParser.ml" 978 24595 24602 "oldParser.ml" 978 24595 24611
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 976 24511 24515 "oldParser.ml" 976 24511 24527
+"oldParser.ml" 978 24595 24599 "oldParser.ml" 978 24595 24611
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 977 24532 24536 "oldParser.ml" 977 24532 24544
+"oldParser.ml" 979 24616 24620 "oldParser.ml" 979 24616 24628
 type(
   string -> Term.t
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 977 24532 24545 "oldParser.ml" 977 24532 24572
+"oldParser.ml" 979 24616 24629 "oldParser.ml" 979 24616 24656
 type(
   string
 )
-"oldParser.ml" 977 24532 24536 "oldParser.ml" 977 24532 24572
+"oldParser.ml" 979 24616 24620 "oldParser.ml" 979 24616 24656
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 980 24612 24616 "oldParser.ml" 980 24612 24617
+"oldParser.ml" 982 24696 24700 "oldParser.ml" 982 24696 24701
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 980 24612 24630 "oldParser.ml" 980 24612 24631
+"oldParser.ml" 982 24696 24714 "oldParser.ml" 982 24696 24715
 type(
   (string * Kind1.Types.il_expression) list
 )
 ident(
-  def l "oldParser.ml" 981 24636 24640 "oldParser.ml" 981 24636 24677
+  def l "oldParser.ml" 983 24720 24724 "oldParser.ml" 983 24720 24761
 )
-"oldParser.ml" 980 24612 24619 "oldParser.ml" 980 24612 24631
+"oldParser.ml" 982 24696 24703 "oldParser.ml" 982 24696 24715
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 980 24612 24616 "oldParser.ml" 980 24612 24631
+"oldParser.ml" 982 24696 24700 "oldParser.ml" 982 24696 24715
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 981 24636 24640 "oldParser.ml" 981 24636 24648
+"oldParser.ml" 983 24720 24724 "oldParser.ml" 983 24720 24732
 type(
   string -> Term.t
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 981 24636 24649 "oldParser.ml" 981 24636 24677
+"oldParser.ml" 983 24720 24733 "oldParser.ml" 983 24720 24761
 type(
   string
 )
-"oldParser.ml" 981 24636 24640 "oldParser.ml" 981 24636 24677
+"oldParser.ml" 983 24720 24724 "oldParser.ml" 983 24720 24761
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 984 24712 24716 "oldParser.ml" 984 24712 24717
+"oldParser.ml" 986 24796 24800 "oldParser.ml" 986 24796 24801
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 984 24712 24730 "oldParser.ml" 984 24712 24731
+"oldParser.ml" 986 24796 24814 "oldParser.ml" 986 24796 24815
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def e "oldParser.ml" 985 24740 24744 "oldParser.ml" 985 24740 24780
+  def e "oldParser.ml" 987 24824 24828 "oldParser.ml" 987 24824 24864
 )
-"oldParser.ml" 984 24712 24733 "oldParser.ml" 984 24712 24734
+"oldParser.ml" 986 24796 24817 "oldParser.ml" 986 24796 24818
 type(
   string
 )
 ident(
-  def s "oldParser.ml" 985 24740 24744 "oldParser.ml" 985 24740 24780
+  def s "oldParser.ml" 987 24824 24828 "oldParser.ml" 987 24824 24864
 )
-"oldParser.ml" 984 24712 24719 "oldParser.ml" 984 24712 24735
+"oldParser.ml" 986 24796 24803 "oldParser.ml" 986 24796 24819
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 984 24712 24716 "oldParser.ml" 984 24712 24735
+"oldParser.ml" 986 24796 24800 "oldParser.ml" 986 24796 24819
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 985 24740 24744 "oldParser.ml" 985 24740 24752
+"oldParser.ml" 987 24824 24828 "oldParser.ml" 987 24824 24836
 type(
   string -> Term.t
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 985 24740 24753 "oldParser.ml" 985 24740 24780
+"oldParser.ml" 987 24824 24837 "oldParser.ml" 987 24824 24864
 type(
   string
 )
-"oldParser.ml" 985 24740 24744 "oldParser.ml" 985 24740 24780
+"oldParser.ml" 987 24824 24828 "oldParser.ml" 987 24824 24864
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 988 24815 24819 "oldParser.ml" 988 24815 24820
+"oldParser.ml" 990 24899 24903 "oldParser.ml" 990 24899 24904
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 988 24815 24832 "oldParser.ml" 988 24815 24833
+"oldParser.ml" 990 24899 24916 "oldParser.ml" 990 24899 24917
 type(
   Kind1.Types.il_expression list
 )
 ident(
-  def l "oldParser.ml" 989 24838 24842 "oldParser.ml" 989 24838 24878
+  def l "oldParser.ml" 991 24922 24926 "oldParser.ml" 991 24922 24962
 )
-"oldParser.ml" 988 24815 24822 "oldParser.ml" 988 24815 24833
+"oldParser.ml" 990 24899 24906 "oldParser.ml" 990 24899 24917
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 988 24815 24819 "oldParser.ml" 988 24815 24833
+"oldParser.ml" 990 24899 24903 "oldParser.ml" 990 24899 24917
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 989 24838 24842 "oldParser.ml" 989 24838 24850
+"oldParser.ml" 991 24922 24926 "oldParser.ml" 991 24922 24934
 type(
   string -> Term.t
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 989 24838 24851 "oldParser.ml" 989 24838 24878
+"oldParser.ml" 991 24922 24935 "oldParser.ml" 991 24922 24962
 type(
   string
 )
-"oldParser.ml" 989 24838 24842 "oldParser.ml" 989 24838 24878
+"oldParser.ml" 991 24922 24926 "oldParser.ml" 991 24922 24962
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 992 24916 24920 "oldParser.ml" 992 24916 24921
+"oldParser.ml" 994 25000 25004 "oldParser.ml" 994 25000 25005
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 992 24916 24933 "oldParser.ml" 992 24916 24934
+"oldParser.ml" 994 25000 25017 "oldParser.ml" 994 25000 25018
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def e "oldParser.ml" 993 24943 24947 "oldParser.ml" 993 24943 24982
+  def e "oldParser.ml" 995 25027 25031 "oldParser.ml" 995 25027 25066
 )
-"oldParser.ml" 992 24916 24936 "oldParser.ml" 992 24916 24937
+"oldParser.ml" 994 25000 25020 "oldParser.ml" 994 25000 25021
 type(
   int
 )
 ident(
-  def i "oldParser.ml" 993 24943 24947 "oldParser.ml" 993 24943 24982
+  def i "oldParser.ml" 995 25027 25031 "oldParser.ml" 995 25027 25066
 )
-"oldParser.ml" 992 24916 24923 "oldParser.ml" 992 24916 24938
+"oldParser.ml" 994 25000 25007 "oldParser.ml" 994 25000 25022
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 992 24916 24920 "oldParser.ml" 992 24916 24938
+"oldParser.ml" 994 25000 25004 "oldParser.ml" 994 25000 25022
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 993 24943 24947 "oldParser.ml" 993 24943 24955
+"oldParser.ml" 995 25027 25031 "oldParser.ml" 995 25027 25039
 type(
   string -> Term.t
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 993 24943 24956 "oldParser.ml" 993 24943 24982
+"oldParser.ml" 995 25027 25040 "oldParser.ml" 995 25027 25066
 type(
   string
 )
-"oldParser.ml" 993 24943 24947 "oldParser.ml" 993 24943 24982
+"oldParser.ml" 995 25027 25031 "oldParser.ml" 995 25027 25066
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 998 25073 25077 "oldParser.ml" 998 25073 25078
+"oldParser.ml" 1000 25157 25161 "oldParser.ml" 1000 25157 25162
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 998 25073 25086 "oldParser.ml" 998 25073 25087
+"oldParser.ml" 1000 25157 25170 "oldParser.ml" 1000 25157 25171
 type(
   string
 )
 ident(
-  def s "oldParser.ml" 999 25097 25101 "oldParser.ml" 999 25097 25132
+  def s "oldParser.ml" 1001 25180 25184 "oldParser.ml" 1001 25180 25255
 )
-"oldParser.ml" 998 25073 25089 "oldParser.ml" 998 25073 25090
+"oldParser.ml" 1000 25157 25173 "oldParser.ml" 1000 25157 25174
 type(
   Kind1.Types.il_expression list
 )
 ident(
-  def l "oldParser.ml" 999 25097 25101 "oldParser.ml" 999 25097 25132
+  def l "oldParser.ml" 1001 25180 25184 "oldParser.ml" 1001 25180 25255
 )
-"oldParser.ml" 998 25073 25080 "oldParser.ml" 998 25073 25091
+"oldParser.ml" 1000 25157 25164 "oldParser.ml" 1000 25157 25175
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 998 25073 25077 "oldParser.ml" 998 25073 25091
+"oldParser.ml" 1000 25157 25161 "oldParser.ml" 1000 25157 25175
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 999 25097 25101 "oldParser.ml" 999 25097 25109
+"oldParser.ml" 1001 25180 25184 "oldParser.ml" 1001 25180 25205
 type(
-  string -> Term.t
+  bool ->
+  Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
 )
 ident(
-  ext_ref Pervasives.failwith
+  int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
 )
-"oldParser.ml" 999 25097 25110 "oldParser.ml" 999 25097 25132
+"oldParser.ml" 1001 25180 25206 "oldParser.ml" 1001 25180 25210
+type(
+  bool
+)
+ident(
+  int_ref init "oldParser.ml" 584 13792 13822 "oldParser.ml" 584 13792 13826
+)
+"oldParser.ml" 1001 25180 25217 "oldParser.ml" 1001 25180 25223
+type(
+  Kind1.Types.lustre_type
+)
+"oldParser.ml" 1001 25180 25212 "oldParser.ml" 1001 25180 25223
+type(
+  Kind1.Types.lustre_type option
+)
+"oldParser.ml" 1001 25180 25225 "oldParser.ml" 1001 25180 25251
+type(
+  string -> Kind1.Types.il_expression
+)
+ident(
+  ext_ref Kind1.New_vars.nvr_to_expr
+)
+"oldParser.ml" 1001 25180 25252 "oldParser.ml" 1001 25180 25253
 type(
   string
 )
-"oldParser.ml" 999 25097 25101 "oldParser.ml" 999 25097 25132
+ident(
+  int_ref s "oldParser.ml" 1000 25157 25170 "oldParser.ml" 1000 25157 25171
+)
+"oldParser.ml" 1001 25180 25225 "oldParser.ml" 1001 25180 25253
+call(
+  stack
+)
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 1001 25180 25212 "oldParser.ml" 1001 25180 25254
+type(
+  Kind1.Types.lustre_type option * Kind1.Types.il_expression
+)
+"oldParser.ml" 1001 25180 25184 "oldParser.ml" 1001 25180 25255
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 584 13792 13829 "oldParser.ml" 999 25097 25132
+"oldParser.ml" 584 13792 13829 "oldParser.ml" 1001 25180 25255
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
 )
-"oldParser.ml" 584 13792 13822 "oldParser.ml" 999 25097 25132
+"oldParser.ml" 584 13792 13822 "oldParser.ml" 1001 25180 25255
 type(
   bool ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
 )
-"oldParser.ml" 1004 25141 25145 "oldParser.ml" 1004 25141 25176
+"oldParser.ml" 1006 25265 25269 "oldParser.ml" 1006 25265 25300
 type(
   bool ->
   Term.t list ->
@@ -12930,76 +13003,76 @@ type(
 ident(
   def il_expression_list_to_term_list "oldParser.ml" 584 13792 13792 "_none_" 1 0 -1
 )
-"oldParser.ml" 1004 25141 25177 "oldParser.ml" 1004 25141 25181
+"oldParser.ml" 1006 25265 25301 "oldParser.ml" 1006 25265 25305
 type(
   bool
 )
 ident(
-  def init "oldParser.ml" 1004 25141 25182 "oldParser.ml" 1012 25296 25358
+  def init "oldParser.ml" 1006 25265 25306 "oldParser.ml" 1014 25420 25482
 )
-"oldParser.ml" 1004 25141 25182 "oldParser.ml" 1004 25141 25187
+"oldParser.ml" 1006 25265 25306 "oldParser.ml" 1006 25265 25311
 type(
   Term.t list
 )
 ident(
-  def accum "oldParser.ml" 1004 25141 25190 "oldParser.ml" 1012 25296 25358
+  def accum "oldParser.ml" 1006 25265 25314 "oldParser.ml" 1014 25420 25482
 )
-"oldParser.ml" 1006 25201 25206 "oldParser.ml" 1006 25201 25207
+"oldParser.ml" 1008 25325 25330 "oldParser.ml" 1008 25325 25331
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 1006 25201 25209 "oldParser.ml" 1006 25201 25211
+"oldParser.ml" 1008 25325 25333 "oldParser.ml" 1008 25325 25335
 type(
   Kind1.Types.il_expression list
 )
-"oldParser.ml" 1006 25201 25206 "oldParser.ml" 1006 25201 25211
+"oldParser.ml" 1008 25325 25330 "oldParser.ml" 1008 25325 25335
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression list
 )
-"oldParser.ml" 1006 25201 25216 "oldParser.ml" 1006 25201 25221
+"oldParser.ml" 1008 25325 25340 "oldParser.ml" 1008 25325 25345
 type(
   Term.t list
 )
 ident(
-  int_ref accum "oldParser.ml" 1004 25141 25182 "oldParser.ml" 1004 25141 25187
+  int_ref accum "oldParser.ml" 1006 25265 25306 "oldParser.ml" 1006 25265 25311
 )
-"oldParser.ml" 1008 25223 25228 "oldParser.ml" 1008 25223 25229
+"oldParser.ml" 1010 25347 25352 "oldParser.ml" 1010 25347 25353
 type(
   Kind1.Types.lustre_type option
 )
 ident(
-  def t "oldParser.ml" 1010 25245 25249 "oldParser.ml" 1012 25296 25358
+  def t "oldParser.ml" 1012 25369 25373 "oldParser.ml" 1014 25420 25482
 )
-"oldParser.ml" 1008 25223 25231 "oldParser.ml" 1008 25223 25232
+"oldParser.ml" 1010 25347 25355 "oldParser.ml" 1010 25347 25356
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def e "oldParser.ml" 1010 25245 25249 "oldParser.ml" 1012 25296 25358
+  def e "oldParser.ml" 1012 25369 25373 "oldParser.ml" 1014 25420 25482
 )
-"oldParser.ml" 1008 25223 25236 "oldParser.ml" 1008 25223 25238
+"oldParser.ml" 1010 25347 25360 "oldParser.ml" 1010 25347 25362
 type(
   Kind1.Types.il_expression list
 )
 ident(
-  def tl "oldParser.ml" 1010 25245 25249 "oldParser.ml" 1012 25296 25358
+  def tl "oldParser.ml" 1012 25369 25373 "oldParser.ml" 1014 25420 25482
 )
-"oldParser.ml" 1008 25223 25231 "oldParser.ml" 1008 25223 25238
+"oldParser.ml" 1010 25347 25355 "oldParser.ml" 1010 25347 25362
 type(
   Kind1.Types.il_expression list
 )
-"oldParser.ml" 1008 25223 25228 "oldParser.ml" 1008 25223 25238
+"oldParser.ml" 1010 25347 25352 "oldParser.ml" 1010 25347 25362
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression list
 )
-"oldParser.ml" 1010 25245 25253 "oldParser.ml" 1010 25245 25255
+"oldParser.ml" 1012 25369 25377 "oldParser.ml" 1012 25369 25379
 type(
   Term.t
 )
 ident(
-  def e' "oldParser.ml" 1012 25296 25300 "oldParser.ml" 1012 25296 25358
+  def e' "oldParser.ml" 1014 25420 25424 "oldParser.ml" 1014 25420 25482
 )
-"oldParser.ml" 1010 25245 25258 "oldParser.ml" 1010 25245 25279
+"oldParser.ml" 1012 25369 25382 "oldParser.ml" 1012 25369 25403
 type(
   bool ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
@@ -13007,39 +13080,39 @@ type(
 ident(
   int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
 )
-"oldParser.ml" 1010 25245 25280 "oldParser.ml" 1010 25245 25284
+"oldParser.ml" 1012 25369 25404 "oldParser.ml" 1012 25369 25408
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1004 25141 25177 "oldParser.ml" 1004 25141 25181
+  int_ref init "oldParser.ml" 1006 25265 25301 "oldParser.ml" 1006 25265 25305
 )
-"oldParser.ml" 1010 25245 25286 "oldParser.ml" 1010 25245 25287
+"oldParser.ml" 1012 25369 25410 "oldParser.ml" 1012 25369 25411
 type(
   Kind1.Types.lustre_type option
 )
 ident(
-  int_ref t "oldParser.ml" 1008 25223 25228 "oldParser.ml" 1008 25223 25229
+  int_ref t "oldParser.ml" 1010 25347 25352 "oldParser.ml" 1010 25347 25353
 )
-"oldParser.ml" 1010 25245 25289 "oldParser.ml" 1010 25245 25290
+"oldParser.ml" 1012 25369 25413 "oldParser.ml" 1012 25369 25414
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref e "oldParser.ml" 1008 25223 25231 "oldParser.ml" 1008 25223 25232
+  int_ref e "oldParser.ml" 1010 25347 25355 "oldParser.ml" 1010 25347 25356
 )
-"oldParser.ml" 1010 25245 25286 "oldParser.ml" 1010 25245 25290
+"oldParser.ml" 1012 25369 25410 "oldParser.ml" 1012 25369 25414
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 1010 25245 25258 "oldParser.ml" 1010 25245 25291
+"oldParser.ml" 1012 25369 25382 "oldParser.ml" 1012 25369 25415
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1012 25296 25300 "oldParser.ml" 1012 25296 25331
+"oldParser.ml" 1014 25420 25424 "oldParser.ml" 1014 25420 25455
 type(
   bool ->
   Term.t list ->
@@ -13047,257 +13120,257 @@ type(
   Term.t list
 )
 ident(
-  int_ref il_expression_list_to_term_list "oldParser.ml" 1004 25141 25145 "oldParser.ml" 1004 25141 25176
+  int_ref il_expression_list_to_term_list "oldParser.ml" 1006 25265 25269 "oldParser.ml" 1006 25265 25300
 )
-"oldParser.ml" 1012 25296 25332 "oldParser.ml" 1012 25296 25336
+"oldParser.ml" 1014 25420 25456 "oldParser.ml" 1014 25420 25460
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1004 25141 25177 "oldParser.ml" 1004 25141 25181
+  int_ref init "oldParser.ml" 1006 25265 25301 "oldParser.ml" 1006 25265 25305
 )
-"oldParser.ml" 1012 25296 25338 "oldParser.ml" 1012 25296 25340
+"oldParser.ml" 1014 25420 25462 "oldParser.ml" 1014 25420 25464
 type(
   Term.t
 )
 ident(
-  int_ref e' "oldParser.ml" 1010 25245 25253 "oldParser.ml" 1010 25245 25255
+  int_ref e' "oldParser.ml" 1012 25369 25377 "oldParser.ml" 1012 25369 25379
 )
-"oldParser.ml" 1012 25296 25344 "oldParser.ml" 1012 25296 25349
+"oldParser.ml" 1014 25420 25468 "oldParser.ml" 1014 25420 25473
 type(
   Term.t list
 )
 ident(
-  int_ref accum "oldParser.ml" 1004 25141 25182 "oldParser.ml" 1004 25141 25187
+  int_ref accum "oldParser.ml" 1006 25265 25306 "oldParser.ml" 1006 25265 25311
 )
-"oldParser.ml" 1012 25296 25338 "oldParser.ml" 1012 25296 25349
+"oldParser.ml" 1014 25420 25462 "oldParser.ml" 1014 25420 25473
 type(
   Term.t list
 )
-"oldParser.ml" 1012 25296 25352 "oldParser.ml" 1012 25296 25353
+"oldParser.ml" 1014 25420 25476 "oldParser.ml" 1014 25420 25477
 type(
   Kind1.Types.lustre_type option
 )
 ident(
-  int_ref t "oldParser.ml" 1008 25223 25228 "oldParser.ml" 1008 25223 25229
+  int_ref t "oldParser.ml" 1010 25347 25352 "oldParser.ml" 1010 25347 25353
 )
-"oldParser.ml" 1012 25296 25355 "oldParser.ml" 1012 25296 25357
+"oldParser.ml" 1014 25420 25479 "oldParser.ml" 1014 25420 25481
 type(
   Kind1.Types.il_expression list
 )
 ident(
-  int_ref tl "oldParser.ml" 1008 25223 25236 "oldParser.ml" 1008 25223 25238
+  int_ref tl "oldParser.ml" 1010 25347 25360 "oldParser.ml" 1010 25347 25362
 )
-"oldParser.ml" 1012 25296 25352 "oldParser.ml" 1012 25296 25357
+"oldParser.ml" 1014 25420 25476 "oldParser.ml" 1014 25420 25481
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression list
 )
-"oldParser.ml" 1012 25296 25300 "oldParser.ml" 1012 25296 25358
+"oldParser.ml" 1014 25420 25424 "oldParser.ml" 1014 25420 25482
 call(
   tail
 )
 type(
   Term.t list
 )
-"oldParser.ml" 1010 25245 25249 "oldParser.ml" 1012 25296 25358
+"oldParser.ml" 1012 25369 25373 "oldParser.ml" 1014 25420 25482
 type(
   Term.t list
 )
-"oldParser.ml" 1004 25141 25190 "oldParser.ml" 1012 25296 25358
+"oldParser.ml" 1006 25265 25314 "oldParser.ml" 1014 25420 25482
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression list ->
   Term.t list
 )
-"oldParser.ml" 1004 25141 25182 "oldParser.ml" 1012 25296 25358
+"oldParser.ml" 1006 25265 25306 "oldParser.ml" 1014 25420 25482
 type(
   Term.t list ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression list ->
   Term.t list
 )
-"oldParser.ml" 1004 25141 25177 "oldParser.ml" 1012 25296 25358
+"oldParser.ml" 1006 25265 25301 "oldParser.ml" 1014 25420 25482
 type(
   bool ->
   Term.t list ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression list ->
   Term.t list
 )
-"oldParser.ml" 1015 25361 25369 "oldParser.ml" 1015 25361 25387
+"oldParser.ml" 1017 25485 25493 "oldParser.ml" 1017 25485 25511
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
 ident(
-  def il_formula_to_term "oldParser.ml" 1015 25361 25361 "_none_" 1 0 -1
+  def il_formula_to_term "oldParser.ml" 1017 25485 25485 "_none_" 1 0 -1
 )
-"oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+"oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 type(
   bool
 )
 ident(
-  def init "oldParser.ml" 1015 25361 25395 "oldParser.ml" 1102 27314 27351
+  def init "oldParser.ml" 1017 25485 25519 "oldParser.ml" 1105 27502 27577
 )
-"oldParser.ml" 1018 25445 25449 "oldParser.ml" 1018 25445 25455
+"oldParser.ml" 1020 25569 25573 "oldParser.ml" 1020 25569 25579
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1018 25445 25459 "oldParser.ml" 1018 25445 25471
+"oldParser.ml" 1020 25569 25583 "oldParser.ml" 1020 25569 25595
 type(
   unit -> Term.t
 )
 ident(
   ext_ref Term.mk_true
 )
-"oldParser.ml" 1018 25445 25472 "oldParser.ml" 1018 25445 25474
+"oldParser.ml" 1020 25569 25596 "oldParser.ml" 1020 25569 25598
 type(
   unit
 )
-"oldParser.ml" 1018 25445 25459 "oldParser.ml" 1018 25445 25474
+"oldParser.ml" 1020 25569 25583 "oldParser.ml" 1020 25569 25598
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1021 25516 25520 "oldParser.ml" 1021 25516 25527
+"oldParser.ml" 1023 25640 25644 "oldParser.ml" 1023 25640 25651
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1021 25516 25531 "oldParser.ml" 1021 25516 25544
+"oldParser.ml" 1023 25640 25655 "oldParser.ml" 1023 25640 25668
 type(
   unit -> Term.t
 )
 ident(
   ext_ref Term.mk_false
 )
-"oldParser.ml" 1021 25516 25545 "oldParser.ml" 1021 25516 25547
+"oldParser.ml" 1023 25640 25669 "oldParser.ml" 1023 25640 25671
 type(
   unit
 )
-"oldParser.ml" 1021 25516 25531 "oldParser.ml" 1021 25516 25547
+"oldParser.ml" 1023 25640 25655 "oldParser.ml" 1023 25640 25671
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1024 25581 25591 "oldParser.ml" 1024 25581 25592
+"oldParser.ml" 1026 25705 25715 "oldParser.ml" 1026 25705 25716
 type(
   string
 )
 ident(
-  def s "oldParser.ml" 1024 25581 25596 "oldParser.ml" 1024 25581 25608
+  def s "oldParser.ml" 1026 25705 25720 "oldParser.ml" 1026 25705 25732
 )
-"oldParser.ml" 1024 25581 25585 "oldParser.ml" 1024 25581 25592
+"oldParser.ml" 1026 25705 25709 "oldParser.ml" 1026 25705 25716
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1024 25581 25596 "oldParser.ml" 1024 25581 25608
+"oldParser.ml" 1026 25705 25720 "oldParser.ml" 1026 25705 25732
 type(
   Term.t
 )
-"oldParser.ml" 1032 25742 25752 "oldParser.ml" 1032 25742 25753
+"oldParser.ml" 1034 25866 25876 "oldParser.ml" 1034 25866 25877
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def f "oldParser.ml" 1035 25806 25810 "oldParser.ml" 1037 25849 25867
+  def f "oldParser.ml" 1037 25930 25934 "oldParser.ml" 1039 25973 25991
 )
-"oldParser.ml" 1032 25742 25746 "oldParser.ml" 1032 25742 25753
+"oldParser.ml" 1034 25866 25870 "oldParser.ml" 1034 25866 25877
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1035 25806 25814 "oldParser.ml" 1035 25806 25816
+"oldParser.ml" 1037 25930 25938 "oldParser.ml" 1037 25930 25940
 type(
   Term.t
 )
 ident(
-  def f' "oldParser.ml" 1037 25849 25853 "oldParser.ml" 1037 25849 25867
+  def f' "oldParser.ml" 1039 25973 25977 "oldParser.ml" 1039 25973 25991
 )
-"oldParser.ml" 1035 25806 25819 "oldParser.ml" 1035 25806 25837
+"oldParser.ml" 1037 25930 25943 "oldParser.ml" 1037 25930 25961
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
 ident(
-  int_ref il_formula_to_term "oldParser.ml" 1015 25361 25369 "oldParser.ml" 1015 25361 25387
+  int_ref il_formula_to_term "oldParser.ml" 1017 25485 25493 "oldParser.ml" 1017 25485 25511
 )
-"oldParser.ml" 1035 25806 25838 "oldParser.ml" 1035 25806 25842
+"oldParser.ml" 1037 25930 25962 "oldParser.ml" 1037 25930 25966
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1035 25806 25843 "oldParser.ml" 1035 25806 25844
+"oldParser.ml" 1037 25930 25967 "oldParser.ml" 1037 25930 25968
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref f "oldParser.ml" 1032 25742 25752 "oldParser.ml" 1032 25742 25753
+  int_ref f "oldParser.ml" 1034 25866 25876 "oldParser.ml" 1034 25866 25877
 )
-"oldParser.ml" 1035 25806 25819 "oldParser.ml" 1035 25806 25844
+"oldParser.ml" 1037 25930 25943 "oldParser.ml" 1037 25930 25968
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1037 25849 25853 "oldParser.ml" 1037 25849 25864
+"oldParser.ml" 1039 25973 25977 "oldParser.ml" 1039 25973 25988
 type(
   Term.t -> Term.t
 )
 ident(
   ext_ref Term.mk_not
 )
-"oldParser.ml" 1037 25849 25865 "oldParser.ml" 1037 25849 25867
+"oldParser.ml" 1039 25973 25989 "oldParser.ml" 1039 25973 25991
 type(
   Term.t
 )
 ident(
-  int_ref f' "oldParser.ml" 1035 25806 25814 "oldParser.ml" 1035 25806 25816
+  int_ref f' "oldParser.ml" 1037 25930 25938 "oldParser.ml" 1037 25930 25940
 )
-"oldParser.ml" 1037 25849 25853 "oldParser.ml" 1037 25849 25867
+"oldParser.ml" 1039 25973 25977 "oldParser.ml" 1039 25973 25991
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1035 25806 25810 "oldParser.ml" 1037 25849 25867
+"oldParser.ml" 1037 25930 25934 "oldParser.ml" 1039 25973 25991
 type(
   Term.t
 )
-"oldParser.ml" 1040 25910 25920 "oldParser.ml" 1040 25910 25921
+"oldParser.ml" 1042 26034 26044 "oldParser.ml" 1042 26034 26045
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def l "oldParser.ml" 1043 25983 25987 "oldParser.ml" 1054 26397 26420
+  def l "oldParser.ml" 1045 26107 26111 "oldParser.ml" 1056 26521 26544
 )
-"oldParser.ml" 1040 25910 25923 "oldParser.ml" 1040 25910 25924
+"oldParser.ml" 1042 26034 26047 "oldParser.ml" 1042 26034 26048
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def r "oldParser.ml" 1043 25983 25987 "oldParser.ml" 1054 26397 26420
+  def r "oldParser.ml" 1045 26107 26111 "oldParser.ml" 1056 26521 26544
 )
-"oldParser.ml" 1040 25910 25926 "oldParser.ml" 1040 25910 25927
+"oldParser.ml" 1042 26034 26050 "oldParser.ml" 1042 26034 26051
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def t "oldParser.ml" 1043 25983 25987 "oldParser.ml" 1054 26397 26420
+  def t "oldParser.ml" 1045 26107 26111 "oldParser.ml" 1056 26521 26544
 )
-"oldParser.ml" 1040 25910 25914 "oldParser.ml" 1040 25910 25928
+"oldParser.ml" 1042 26034 26038 "oldParser.ml" 1042 26034 26052
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1043 25983 25991 "oldParser.ml" 1043 25983 25993
+"oldParser.ml" 1045 26107 26115 "oldParser.ml" 1045 26107 26117
 type(
   Term.t
 )
 ident(
-  def l' "oldParser.ml" 1048 26189 26193 "oldParser.ml" 1054 26397 26420
+  def l' "oldParser.ml" 1050 26313 26317 "oldParser.ml" 1056 26521 26544
 )
-"oldParser.ml" 1046 26138 26144 "oldParser.ml" 1046 26138 26165
+"oldParser.ml" 1048 26262 26268 "oldParser.ml" 1048 26262 26289
 type(
   bool ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
@@ -13305,43 +13378,43 @@ type(
 ident(
   int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
 )
-"oldParser.ml" 1046 26138 26166 "oldParser.ml" 1046 26138 26170
+"oldParser.ml" 1048 26262 26290 "oldParser.ml" 1048 26262 26294
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1046 26138 26172 "oldParser.ml" 1046 26138 26176
+"oldParser.ml" 1048 26262 26296 "oldParser.ml" 1048 26262 26300
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 1046 26138 26178 "oldParser.ml" 1046 26138 26179
+"oldParser.ml" 1048 26262 26302 "oldParser.ml" 1048 26262 26303
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref l "oldParser.ml" 1040 25910 25920 "oldParser.ml" 1040 25910 25921
+  int_ref l "oldParser.ml" 1042 26034 26044 "oldParser.ml" 1042 26034 26045
 )
-"oldParser.ml" 1046 26138 26172 "oldParser.ml" 1046 26138 26179
+"oldParser.ml" 1048 26262 26296 "oldParser.ml" 1048 26262 26303
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 1046 26138 26144 "oldParser.ml" 1046 26138 26180
+"oldParser.ml" 1048 26262 26268 "oldParser.ml" 1048 26262 26304
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1048 26189 26197 "oldParser.ml" 1048 26189 26199
+"oldParser.ml" 1050 26313 26321 "oldParser.ml" 1050 26313 26323
 type(
   Term.t
 )
 ident(
-  def r' "oldParser.ml" 1054 26397 26401 "oldParser.ml" 1054 26397 26420
+  def r' "oldParser.ml" 1056 26521 26525 "oldParser.ml" 1056 26521 26544
 )
-"oldParser.ml" 1051 26345 26351 "oldParser.ml" 1051 26345 26372
+"oldParser.ml" 1053 26469 26475 "oldParser.ml" 1053 26469 26496
 type(
   bool ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
@@ -13349,126 +13422,126 @@ type(
 ident(
   int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
 )
-"oldParser.ml" 1051 26345 26373 "oldParser.ml" 1051 26345 26377
+"oldParser.ml" 1053 26469 26497 "oldParser.ml" 1053 26469 26501
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1051 26345 26379 "oldParser.ml" 1051 26345 26383
+"oldParser.ml" 1053 26469 26503 "oldParser.ml" 1053 26469 26507
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 1051 26345 26385 "oldParser.ml" 1051 26345 26386
+"oldParser.ml" 1053 26469 26509 "oldParser.ml" 1053 26469 26510
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref r "oldParser.ml" 1040 25910 25923 "oldParser.ml" 1040 25910 25924
+  int_ref r "oldParser.ml" 1042 26034 26047 "oldParser.ml" 1042 26034 26048
 )
-"oldParser.ml" 1051 26345 26379 "oldParser.ml" 1051 26345 26386
+"oldParser.ml" 1053 26469 26503 "oldParser.ml" 1053 26469 26510
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 1051 26345 26351 "oldParser.ml" 1051 26345 26387
+"oldParser.ml" 1053 26469 26475 "oldParser.ml" 1053 26469 26511
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1054 26397 26401 "oldParser.ml" 1054 26397 26411
+"oldParser.ml" 1056 26521 26525 "oldParser.ml" 1056 26521 26535
 type(
   Term.t list -> Term.t
 )
 ident(
   ext_ref Term.mk_eq
 )
-"oldParser.ml" 1054 26397 26413 "oldParser.ml" 1054 26397 26415
+"oldParser.ml" 1056 26521 26537 "oldParser.ml" 1056 26521 26539
 type(
   Term.t
 )
 ident(
-  int_ref l' "oldParser.ml" 1043 25983 25991 "oldParser.ml" 1043 25983 25993
+  int_ref l' "oldParser.ml" 1045 26107 26115 "oldParser.ml" 1045 26107 26117
 )
-"oldParser.ml" 1054 26397 26417 "oldParser.ml" 1054 26397 26419
+"oldParser.ml" 1056 26521 26541 "oldParser.ml" 1056 26521 26543
 type(
   Term.t
 )
 ident(
-  int_ref r' "oldParser.ml" 1048 26189 26197 "oldParser.ml" 1048 26189 26199
+  int_ref r' "oldParser.ml" 1050 26313 26321 "oldParser.ml" 1050 26313 26323
 )
 type(
   Term.t list
 )
-"oldParser.ml" 1054 26397 26413 "oldParser.ml" 1054 26397 26419
+"oldParser.ml" 1056 26521 26537 "oldParser.ml" 1056 26521 26543
 type(
   Term.t list
 )
-"oldParser.ml" 1054 26397 26412 "oldParser.ml" 1054 26397 26420
+"oldParser.ml" 1056 26521 26536 "oldParser.ml" 1056 26521 26544
 type(
   Term.t list
 )
-"oldParser.ml" 1054 26397 26401 "oldParser.ml" 1054 26397 26420
+"oldParser.ml" 1056 26521 26525 "oldParser.ml" 1056 26521 26544
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1048 26189 26193 "oldParser.ml" 1054 26397 26420
+"oldParser.ml" 1050 26313 26317 "oldParser.ml" 1056 26521 26544
 type(
   Term.t
 )
-"oldParser.ml" 1043 25983 25987 "oldParser.ml" 1054 26397 26420
+"oldParser.ml" 1045 26107 26111 "oldParser.ml" 1056 26521 26544
 type(
   Term.t
 )
-"oldParser.ml" 1058 26445 26455 "oldParser.ml" 1058 26445 26456
+"oldParser.ml" 1060 26569 26579 "oldParser.ml" 1060 26569 26580
 type(
   Kind1.Types.il_formula
 )
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1058 26445 26449 "oldParser.ml" 1058 26445 26456
+"oldParser.ml" 1060 26569 26573 "oldParser.ml" 1060 26569 26580
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1058 26445 26449 "oldParser.ml" 1058 26445 26461
+"oldParser.ml" 1060 26569 26573 "oldParser.ml" 1060 26569 26585
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def f "oldParser.ml" 1061 26504 26508 "oldParser.ml" 1068 26623 26641
+  def f "oldParser.ml" 1063 26628 26632 "oldParser.ml" 1070 26747 26765
 )
-"oldParser.ml" 1061 26504 26512 "oldParser.ml" 1061 26504 26514
+"oldParser.ml" 1063 26628 26636 "oldParser.ml" 1063 26628 26638
 type(
   Term.t list
 )
 ident(
-  def f' "oldParser.ml" 1068 26623 26627 "oldParser.ml" 1068 26623 26641
+  def f' "oldParser.ml" 1070 26747 26751 "oldParser.ml" 1070 26747 26765
 )
-"oldParser.ml" 1062 26518 26524 "oldParser.ml" 1062 26518 26552
+"oldParser.ml" 1064 26642 26648 "oldParser.ml" 1064 26642 26676
 type(
   bool -> Term.t list -> Kind1.Types.il_formula list -> Term.t list
 )
 ident(
-  int_ref il_formula_list_to_term_list "oldParser.ml" 1105 27358 27362 "oldParser.ml" 1105 27358 27390
+  int_ref il_formula_list_to_term_list "oldParser.ml" 1108 27584 27588 "oldParser.ml" 1108 27584 27616
 )
-"oldParser.ml" 1063 26554 26562 "oldParser.ml" 1063 26554 26566
+"oldParser.ml" 1065 26678 26686 "oldParser.ml" 1065 26678 26690
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1064 26568 26576 "oldParser.ml" 1064 26568 26578
+"oldParser.ml" 1066 26692 26700 "oldParser.ml" 1066 26692 26702
 type(
   Term.t list
 )
-"oldParser.ml" 1065 26580 26589 "oldParser.ml" 1065 26580 26602
+"oldParser.ml" 1067 26704 26713 "oldParser.ml" 1067 26704 26726
 type(
   Kind1.Types.il_formula list ->
   Kind1.Types.il_formula list -> Kind1.Types.il_formula list
@@ -13476,107 +13549,107 @@ type(
 ident(
   int_ref flatten_f_and "oldParser.ml" 149 4428 4436 "oldParser.ml" 149 4428 4449
 )
-"oldParser.ml" 1065 26580 26603 "oldParser.ml" 1065 26580 26605
+"oldParser.ml" 1067 26704 26727 "oldParser.ml" 1067 26704 26729
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1065 26580 26607 "oldParser.ml" 1065 26580 26608
+"oldParser.ml" 1067 26704 26731 "oldParser.ml" 1067 26704 26732
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref f "oldParser.ml" 1058 26445 26449 "oldParser.ml" 1058 26445 26461
+  int_ref f "oldParser.ml" 1060 26569 26573 "oldParser.ml" 1060 26569 26585
 )
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1065 26580 26606 "oldParser.ml" 1065 26580 26609
+"oldParser.ml" 1067 26704 26730 "oldParser.ml" 1067 26704 26733
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1065 26580 26589 "oldParser.ml" 1065 26580 26609
+"oldParser.ml" 1067 26704 26713 "oldParser.ml" 1067 26704 26733
 call(
   stack
 )
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1062 26518 26524 "oldParser.ml" 1065 26580 26610
+"oldParser.ml" 1064 26642 26648 "oldParser.ml" 1067 26704 26734
 call(
   stack
 )
 type(
   Term.t list
 )
-"oldParser.ml" 1068 26623 26627 "oldParser.ml" 1068 26623 26638
+"oldParser.ml" 1070 26747 26751 "oldParser.ml" 1070 26747 26762
 type(
   Term.t list -> Term.t
 )
 ident(
   ext_ref Term.mk_and
 )
-"oldParser.ml" 1068 26623 26639 "oldParser.ml" 1068 26623 26641
+"oldParser.ml" 1070 26747 26763 "oldParser.ml" 1070 26747 26765
 type(
   Term.t list
 )
 ident(
-  int_ref f' "oldParser.ml" 1061 26504 26512 "oldParser.ml" 1061 26504 26514
+  int_ref f' "oldParser.ml" 1063 26628 26636 "oldParser.ml" 1063 26628 26638
 )
-"oldParser.ml" 1068 26623 26627 "oldParser.ml" 1068 26623 26641
+"oldParser.ml" 1070 26747 26751 "oldParser.ml" 1070 26747 26765
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1061 26504 26508 "oldParser.ml" 1068 26623 26641
+"oldParser.ml" 1063 26628 26632 "oldParser.ml" 1070 26747 26765
 type(
   Term.t
 )
-"oldParser.ml" 1071 26665 26674 "oldParser.ml" 1071 26665 26675
+"oldParser.ml" 1073 26789 26798 "oldParser.ml" 1073 26789 26799
 type(
   Kind1.Types.il_formula
 )
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1071 26665 26669 "oldParser.ml" 1071 26665 26675
+"oldParser.ml" 1073 26789 26793 "oldParser.ml" 1073 26789 26799
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1071 26665 26669 "oldParser.ml" 1071 26665 26680
+"oldParser.ml" 1073 26789 26793 "oldParser.ml" 1073 26789 26804
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def f "oldParser.ml" 1074 26723 26727 "oldParser.ml" 1081 26841 26858
+  def f "oldParser.ml" 1076 26847 26851 "oldParser.ml" 1083 26965 26982
 )
-"oldParser.ml" 1074 26723 26731 "oldParser.ml" 1074 26723 26733
+"oldParser.ml" 1076 26847 26855 "oldParser.ml" 1076 26847 26857
 type(
   Term.t list
 )
 ident(
-  def f' "oldParser.ml" 1081 26841 26845 "oldParser.ml" 1081 26841 26858
+  def f' "oldParser.ml" 1083 26965 26969 "oldParser.ml" 1083 26965 26982
 )
-"oldParser.ml" 1075 26737 26743 "oldParser.ml" 1075 26737 26771
+"oldParser.ml" 1077 26861 26867 "oldParser.ml" 1077 26861 26895
 type(
   bool -> Term.t list -> Kind1.Types.il_formula list -> Term.t list
 )
 ident(
-  int_ref il_formula_list_to_term_list "oldParser.ml" 1105 27358 27362 "oldParser.ml" 1105 27358 27390
+  int_ref il_formula_list_to_term_list "oldParser.ml" 1108 27584 27588 "oldParser.ml" 1108 27584 27616
 )
-"oldParser.ml" 1076 26773 26781 "oldParser.ml" 1076 26773 26785
+"oldParser.ml" 1078 26897 26905 "oldParser.ml" 1078 26897 26909
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1077 26787 26795 "oldParser.ml" 1077 26787 26797
+"oldParser.ml" 1079 26911 26919 "oldParser.ml" 1079 26911 26921
 type(
   Term.t list
 )
-"oldParser.ml" 1078 26799 26808 "oldParser.ml" 1078 26799 26820
+"oldParser.ml" 1080 26923 26932 "oldParser.ml" 1080 26923 26944
 type(
   Kind1.Types.il_formula list ->
   Kind1.Types.il_formula list -> Kind1.Types.il_formula list
@@ -13584,597 +13657,685 @@ type(
 ident(
   int_ref flatten_f_or "oldParser.ml" 160 4693 4701 "oldParser.ml" 160 4693 4713
 )
-"oldParser.ml" 1078 26799 26821 "oldParser.ml" 1078 26799 26823
+"oldParser.ml" 1080 26923 26945 "oldParser.ml" 1080 26923 26947
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1078 26799 26825 "oldParser.ml" 1078 26799 26826
+"oldParser.ml" 1080 26923 26949 "oldParser.ml" 1080 26923 26950
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref f "oldParser.ml" 1071 26665 26669 "oldParser.ml" 1071 26665 26680
+  int_ref f "oldParser.ml" 1073 26789 26793 "oldParser.ml" 1073 26789 26804
 )
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1078 26799 26824 "oldParser.ml" 1078 26799 26827
+"oldParser.ml" 1080 26923 26948 "oldParser.ml" 1080 26923 26951
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1078 26799 26808 "oldParser.ml" 1078 26799 26827
+"oldParser.ml" 1080 26923 26932 "oldParser.ml" 1080 26923 26951
 call(
   stack
 )
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1075 26737 26743 "oldParser.ml" 1078 26799 26828
+"oldParser.ml" 1077 26861 26867 "oldParser.ml" 1080 26923 26952
 call(
   stack
 )
 type(
   Term.t list
 )
-"oldParser.ml" 1081 26841 26845 "oldParser.ml" 1081 26841 26855
+"oldParser.ml" 1083 26965 26969 "oldParser.ml" 1083 26965 26979
 type(
   Term.t list -> Term.t
 )
 ident(
   ext_ref Term.mk_or
 )
-"oldParser.ml" 1081 26841 26856 "oldParser.ml" 1081 26841 26858
+"oldParser.ml" 1083 26965 26980 "oldParser.ml" 1083 26965 26982
 type(
   Term.t list
 )
 ident(
-  int_ref f' "oldParser.ml" 1074 26723 26731 "oldParser.ml" 1074 26723 26733
+  int_ref f' "oldParser.ml" 1076 26847 26855 "oldParser.ml" 1076 26847 26857
 )
-"oldParser.ml" 1081 26841 26845 "oldParser.ml" 1081 26841 26858
+"oldParser.ml" 1083 26965 26969 "oldParser.ml" 1083 26965 26982
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1074 26723 26727 "oldParser.ml" 1081 26841 26858
+"oldParser.ml" 1076 26847 26851 "oldParser.ml" 1083 26965 26982
 type(
   Term.t
 )
-"oldParser.ml" 1084 26883 26895 "oldParser.ml" 1084 26883 26896
+"oldParser.ml" 1086 27007 27019 "oldParser.ml" 1086 27007 27020
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def f "oldParser.ml" 1087 26954 26958 "oldParser.ml" 1090 27043 27071
+  def f "oldParser.ml" 1089 27078 27082 "oldParser.ml" 1092 27167 27195
 )
-"oldParser.ml" 1084 26883 26898 "oldParser.ml" 1084 26883 26899
+"oldParser.ml" 1086 27007 27022 "oldParser.ml" 1086 27007 27023
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def g "oldParser.ml" 1087 26954 26958 "oldParser.ml" 1090 27043 27071
+  def g "oldParser.ml" 1089 27078 27082 "oldParser.ml" 1092 27167 27195
 )
-"oldParser.ml" 1084 26883 26887 "oldParser.ml" 1084 26883 26900
+"oldParser.ml" 1086 27007 27011 "oldParser.ml" 1086 27007 27024
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1087 26954 26962 "oldParser.ml" 1087 26954 26964
+"oldParser.ml" 1089 27078 27086 "oldParser.ml" 1089 27078 27088
 type(
   Term.t
 )
 ident(
-  def f' "oldParser.ml" 1088 26996 27000 "oldParser.ml" 1090 27043 27071
+  def f' "oldParser.ml" 1090 27120 27124 "oldParser.ml" 1092 27167 27195
 )
-"oldParser.ml" 1087 26954 26967 "oldParser.ml" 1087 26954 26985
+"oldParser.ml" 1089 27078 27091 "oldParser.ml" 1089 27078 27109
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
 ident(
-  int_ref il_formula_to_term "oldParser.ml" 1015 25361 25369 "oldParser.ml" 1015 25361 25387
+  int_ref il_formula_to_term "oldParser.ml" 1017 25485 25493 "oldParser.ml" 1017 25485 25511
 )
-"oldParser.ml" 1087 26954 26986 "oldParser.ml" 1087 26954 26990
+"oldParser.ml" 1089 27078 27110 "oldParser.ml" 1089 27078 27114
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1087 26954 26991 "oldParser.ml" 1087 26954 26992
+"oldParser.ml" 1089 27078 27115 "oldParser.ml" 1089 27078 27116
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref f "oldParser.ml" 1084 26883 26895 "oldParser.ml" 1084 26883 26896
+  int_ref f "oldParser.ml" 1086 27007 27019 "oldParser.ml" 1086 27007 27020
 )
-"oldParser.ml" 1087 26954 26967 "oldParser.ml" 1087 26954 26992
+"oldParser.ml" 1089 27078 27091 "oldParser.ml" 1089 27078 27116
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1088 26996 27004 "oldParser.ml" 1088 26996 27006
+"oldParser.ml" 1090 27120 27128 "oldParser.ml" 1090 27120 27130
 type(
   Term.t
 )
 ident(
-  def g' "oldParser.ml" 1090 27043 27047 "oldParser.ml" 1090 27043 27071
+  def g' "oldParser.ml" 1092 27167 27171 "oldParser.ml" 1092 27167 27195
 )
-"oldParser.ml" 1088 26996 27009 "oldParser.ml" 1088 26996 27027
+"oldParser.ml" 1090 27120 27133 "oldParser.ml" 1090 27120 27151
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
 ident(
-  int_ref il_formula_to_term "oldParser.ml" 1015 25361 25369 "oldParser.ml" 1015 25361 25387
+  int_ref il_formula_to_term "oldParser.ml" 1017 25485 25493 "oldParser.ml" 1017 25485 25511
 )
-"oldParser.ml" 1088 26996 27028 "oldParser.ml" 1088 26996 27032
+"oldParser.ml" 1090 27120 27152 "oldParser.ml" 1090 27120 27156
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1015 25361 25388 "oldParser.ml" 1015 25361 25392
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
 )
-"oldParser.ml" 1088 26996 27033 "oldParser.ml" 1088 26996 27034
+"oldParser.ml" 1090 27120 27157 "oldParser.ml" 1090 27120 27158
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref g "oldParser.ml" 1084 26883 26898 "oldParser.ml" 1084 26883 26899
+  int_ref g "oldParser.ml" 1086 27007 27022 "oldParser.ml" 1086 27007 27023
 )
-"oldParser.ml" 1088 26996 27009 "oldParser.ml" 1088 26996 27034
+"oldParser.ml" 1090 27120 27133 "oldParser.ml" 1090 27120 27158
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1090 27043 27047 "oldParser.ml" 1090 27043 27062
+"oldParser.ml" 1092 27167 27171 "oldParser.ml" 1092 27167 27186
 type(
   Term.t list -> Term.t
 )
 ident(
   ext_ref Term.mk_implies
 )
-"oldParser.ml" 1090 27043 27064 "oldParser.ml" 1090 27043 27066
+"oldParser.ml" 1092 27167 27188 "oldParser.ml" 1092 27167 27190
 type(
   Term.t
 )
 ident(
-  int_ref f' "oldParser.ml" 1087 26954 26962 "oldParser.ml" 1087 26954 26964
+  int_ref f' "oldParser.ml" 1089 27078 27086 "oldParser.ml" 1089 27078 27088
 )
-"oldParser.ml" 1090 27043 27068 "oldParser.ml" 1090 27043 27070
+"oldParser.ml" 1092 27167 27192 "oldParser.ml" 1092 27167 27194
 type(
   Term.t
 )
 ident(
-  int_ref g' "oldParser.ml" 1088 26996 27004 "oldParser.ml" 1088 26996 27006
+  int_ref g' "oldParser.ml" 1090 27120 27128 "oldParser.ml" 1090 27120 27130
 )
 type(
   Term.t list
 )
-"oldParser.ml" 1090 27043 27064 "oldParser.ml" 1090 27043 27070
+"oldParser.ml" 1092 27167 27188 "oldParser.ml" 1092 27167 27194
 type(
   Term.t list
 )
-"oldParser.ml" 1090 27043 27063 "oldParser.ml" 1090 27043 27071
+"oldParser.ml" 1092 27167 27187 "oldParser.ml" 1092 27167 27195
 type(
   Term.t list
 )
-"oldParser.ml" 1090 27043 27047 "oldParser.ml" 1090 27043 27071
+"oldParser.ml" 1092 27167 27171 "oldParser.ml" 1092 27167 27195
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1088 26996 27000 "oldParser.ml" 1090 27043 27071
+"oldParser.ml" 1090 27120 27124 "oldParser.ml" 1092 27167 27195
 type(
   Term.t
 )
-"oldParser.ml" 1087 26954 26958 "oldParser.ml" 1090 27043 27071
+"oldParser.ml" 1089 27078 27082 "oldParser.ml" 1092 27167 27195
 type(
   Term.t
 )
-"oldParser.ml" 1093 27125 27137 "oldParser.ml" 1093 27125 27138
+"oldParser.ml" 1095 27249 27261 "oldParser.ml" 1095 27249 27262
 type(
   string
 )
 ident(
-  def p "oldParser.ml" 1093 27125 27147 "oldParser.ml" 1093 27125 27159
+  def p "oldParser.ml" 1096 27272 27276 "oldParser.ml" 1096 27272 27347
 )
-"oldParser.ml" 1093 27125 27140 "oldParser.ml" 1093 27125 27142
+"oldParser.ml" 1095 27249 27264 "oldParser.ml" 1095 27249 27266
 type(
   Kind1.Types.il_expression list
 )
-"oldParser.ml" 1093 27125 27129 "oldParser.ml" 1093 27125 27143
+"oldParser.ml" 1095 27249 27253 "oldParser.ml" 1095 27249 27267
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1093 27125 27147 "oldParser.ml" 1093 27125 27159
+"oldParser.ml" 1096 27272 27276 "oldParser.ml" 1096 27272 27297
 type(
-  Term.t
+  bool ->
+  Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
 )
-"oldParser.ml" 1101 27292 27304 "oldParser.ml" 1101 27292 27305
+ident(
+  int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
+)
+"oldParser.ml" 1096 27272 27298 "oldParser.ml" 1096 27272 27302
+type(
+  bool
+)
+ident(
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
+)
+"oldParser.ml" 1096 27272 27309 "oldParser.ml" 1096 27272 27315
+type(
+  Kind1.Types.lustre_type
+)
+"oldParser.ml" 1096 27272 27304 "oldParser.ml" 1096 27272 27315
+type(
+  Kind1.Types.lustre_type option
+)
+"oldParser.ml" 1096 27272 27317 "oldParser.ml" 1096 27272 27343
+type(
+  string -> Kind1.Types.il_expression
+)
+ident(
+  ext_ref Kind1.New_vars.nvr_to_expr
+)
+"oldParser.ml" 1096 27272 27344 "oldParser.ml" 1096 27272 27345
 type(
   string
 )
 ident(
-  def p "oldParser.ml" 1102 27314 27318 "oldParser.ml" 1102 27314 27351
+  int_ref p "oldParser.ml" 1095 27249 27261 "oldParser.ml" 1095 27249 27262
 )
-"oldParser.ml" 1101 27292 27307 "oldParser.ml" 1101 27292 27308
+"oldParser.ml" 1096 27272 27317 "oldParser.ml" 1096 27272 27345
+call(
+  stack
+)
 type(
-  Kind1.Types.il_expression list
+  Kind1.Types.il_expression
 )
-ident(
-  def l "oldParser.ml" 1102 27314 27318 "oldParser.ml" 1102 27314 27351
-)
-"oldParser.ml" 1101 27292 27296 "oldParser.ml" 1101 27292 27309
+"oldParser.ml" 1096 27272 27304 "oldParser.ml" 1096 27272 27346
 type(
-  Kind1.Types.il_formula
+  Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 1102 27314 27318 "oldParser.ml" 1102 27314 27326
-type(
-  string -> Term.t
-)
-ident(
-  ext_ref Pervasives.failwith
-)
-"oldParser.ml" 1102 27314 27327 "oldParser.ml" 1102 27314 27351
-type(
-  string
-)
-"oldParser.ml" 1102 27314 27318 "oldParser.ml" 1102 27314 27351
+"oldParser.ml" 1096 27272 27276 "oldParser.ml" 1096 27272 27347
 call(
   tail
 )
 type(
   Term.t
 )
-"oldParser.ml" 1015 25361 25395 "oldParser.ml" 1102 27314 27351
+"oldParser.ml" 1104 27480 27492 "oldParser.ml" 1104 27480 27493
+type(
+  string
+)
+ident(
+  def p "oldParser.ml" 1105 27502 27506 "oldParser.ml" 1105 27502 27577
+)
+"oldParser.ml" 1104 27480 27495 "oldParser.ml" 1104 27480 27496
+type(
+  Kind1.Types.il_expression list
+)
+ident(
+  def l "oldParser.ml" 1105 27502 27506 "oldParser.ml" 1105 27502 27577
+)
+"oldParser.ml" 1104 27480 27484 "oldParser.ml" 1104 27480 27497
+type(
+  Kind1.Types.il_formula
+)
+"oldParser.ml" 1105 27502 27506 "oldParser.ml" 1105 27502 27527
+type(
+  bool ->
+  Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
+)
+ident(
+  int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
+)
+"oldParser.ml" 1105 27502 27528 "oldParser.ml" 1105 27502 27532
+type(
+  bool
+)
+ident(
+  int_ref init "oldParser.ml" 1017 25485 25512 "oldParser.ml" 1017 25485 25516
+)
+"oldParser.ml" 1105 27502 27539 "oldParser.ml" 1105 27502 27545
+type(
+  Kind1.Types.lustre_type
+)
+"oldParser.ml" 1105 27502 27534 "oldParser.ml" 1105 27502 27545
+type(
+  Kind1.Types.lustre_type option
+)
+"oldParser.ml" 1105 27502 27547 "oldParser.ml" 1105 27502 27573
+type(
+  string -> Kind1.Types.il_expression
+)
+ident(
+  ext_ref Kind1.New_vars.nvr_to_expr
+)
+"oldParser.ml" 1105 27502 27574 "oldParser.ml" 1105 27502 27575
+type(
+  string
+)
+ident(
+  int_ref p "oldParser.ml" 1104 27480 27492 "oldParser.ml" 1104 27480 27493
+)
+"oldParser.ml" 1105 27502 27547 "oldParser.ml" 1105 27502 27575
+call(
+  stack
+)
+type(
+  Kind1.Types.il_expression
+)
+"oldParser.ml" 1105 27502 27534 "oldParser.ml" 1105 27502 27576
+type(
+  Kind1.Types.lustre_type option * Kind1.Types.il_expression
+)
+"oldParser.ml" 1105 27502 27506 "oldParser.ml" 1105 27502 27577
+call(
+  tail
+)
+type(
+  Term.t
+)
+"oldParser.ml" 1017 25485 25519 "oldParser.ml" 1105 27502 27577
 type(
   Kind1.Types.il_formula -> Term.t
 )
-"oldParser.ml" 1015 25361 25388 "oldParser.ml" 1102 27314 27351
+"oldParser.ml" 1017 25485 25512 "oldParser.ml" 1105 27502 27577
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
-"oldParser.ml" 1105 27358 27362 "oldParser.ml" 1105 27358 27390
+"oldParser.ml" 1108 27584 27588 "oldParser.ml" 1108 27584 27616
 type(
   bool -> Term.t list -> Kind1.Types.il_formula list -> Term.t list
 )
 ident(
-  def il_formula_list_to_term_list "oldParser.ml" 1015 25361 25361 "_none_" 1 0 -1
+  def il_formula_list_to_term_list "oldParser.ml" 1017 25485 25485 "_none_" 1 0 -1
 )
-"oldParser.ml" 1105 27358 27391 "oldParser.ml" 1105 27358 27395
+"oldParser.ml" 1108 27584 27617 "oldParser.ml" 1108 27584 27621
 type(
   bool
 )
 ident(
-  def init "oldParser.ml" 1105 27358 27396 "oldParser.ml" 1113 27492 27546
+  def init "oldParser.ml" 1108 27584 27622 "oldParser.ml" 1116 27718 27772
 )
-"oldParser.ml" 1105 27358 27396 "oldParser.ml" 1105 27358 27401
+"oldParser.ml" 1108 27584 27622 "oldParser.ml" 1108 27584 27627
 type(
   Term.t list
 )
 ident(
-  def accum "oldParser.ml" 1105 27358 27404 "oldParser.ml" 1113 27492 27546
+  def accum "oldParser.ml" 1108 27584 27630 "oldParser.ml" 1116 27718 27772
 )
-"oldParser.ml" 1107 27415 27419 "oldParser.ml" 1107 27415 27421
+"oldParser.ml" 1110 27641 27645 "oldParser.ml" 1110 27641 27647
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1107 27415 27425 "oldParser.ml" 1107 27415 27430
+"oldParser.ml" 1110 27641 27651 "oldParser.ml" 1110 27641 27656
 type(
   Term.t list
 )
 ident(
-  int_ref accum "oldParser.ml" 1105 27358 27396 "oldParser.ml" 1105 27358 27401
+  int_ref accum "oldParser.ml" 1108 27584 27622 "oldParser.ml" 1108 27584 27627
 )
-"oldParser.ml" 1109 27432 27436 "oldParser.ml" 1109 27432 27437
+"oldParser.ml" 1112 27658 27662 "oldParser.ml" 1112 27658 27663
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def e "oldParser.ml" 1111 27449 27453 "oldParser.ml" 1113 27492 27546
+  def e "oldParser.ml" 1114 27675 27679 "oldParser.ml" 1116 27718 27772
 )
-"oldParser.ml" 1109 27432 27441 "oldParser.ml" 1109 27432 27443
+"oldParser.ml" 1112 27658 27667 "oldParser.ml" 1112 27658 27669
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  def tl "oldParser.ml" 1111 27449 27453 "oldParser.ml" 1113 27492 27546
+  def tl "oldParser.ml" 1114 27675 27679 "oldParser.ml" 1116 27718 27772
 )
-"oldParser.ml" 1109 27432 27436 "oldParser.ml" 1109 27432 27443
+"oldParser.ml" 1112 27658 27662 "oldParser.ml" 1112 27658 27669
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1111 27449 27457 "oldParser.ml" 1111 27449 27459
+"oldParser.ml" 1114 27675 27683 "oldParser.ml" 1114 27675 27685
 type(
   Term.t
 )
 ident(
-  def e' "oldParser.ml" 1113 27492 27496 "oldParser.ml" 1113 27492 27546
+  def e' "oldParser.ml" 1116 27718 27722 "oldParser.ml" 1116 27718 27772
 )
-"oldParser.ml" 1111 27449 27462 "oldParser.ml" 1111 27449 27480
+"oldParser.ml" 1114 27675 27688 "oldParser.ml" 1114 27675 27706
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
 ident(
-  int_ref il_formula_to_term "oldParser.ml" 1015 25361 25369 "oldParser.ml" 1015 25361 25387
+  int_ref il_formula_to_term "oldParser.ml" 1017 25485 25493 "oldParser.ml" 1017 25485 25511
 )
-"oldParser.ml" 1111 27449 27481 "oldParser.ml" 1111 27449 27485
+"oldParser.ml" 1114 27675 27707 "oldParser.ml" 1114 27675 27711
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1105 27358 27391 "oldParser.ml" 1105 27358 27395
+  int_ref init "oldParser.ml" 1108 27584 27617 "oldParser.ml" 1108 27584 27621
 )
-"oldParser.ml" 1111 27449 27486 "oldParser.ml" 1111 27449 27487
+"oldParser.ml" 1114 27675 27712 "oldParser.ml" 1114 27675 27713
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref e "oldParser.ml" 1109 27432 27436 "oldParser.ml" 1109 27432 27437
+  int_ref e "oldParser.ml" 1112 27658 27662 "oldParser.ml" 1112 27658 27663
 )
-"oldParser.ml" 1111 27449 27462 "oldParser.ml" 1111 27449 27487
+"oldParser.ml" 1114 27675 27688 "oldParser.ml" 1114 27675 27713
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1113 27492 27496 "oldParser.ml" 1113 27492 27524
+"oldParser.ml" 1116 27718 27722 "oldParser.ml" 1116 27718 27750
 type(
   bool -> Term.t list -> Kind1.Types.il_formula list -> Term.t list
 )
 ident(
-  int_ref il_formula_list_to_term_list "oldParser.ml" 1105 27358 27362 "oldParser.ml" 1105 27358 27390
+  int_ref il_formula_list_to_term_list "oldParser.ml" 1108 27584 27588 "oldParser.ml" 1108 27584 27616
 )
-"oldParser.ml" 1113 27492 27525 "oldParser.ml" 1113 27492 27529
+"oldParser.ml" 1116 27718 27751 "oldParser.ml" 1116 27718 27755
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1105 27358 27391 "oldParser.ml" 1105 27358 27395
+  int_ref init "oldParser.ml" 1108 27584 27617 "oldParser.ml" 1108 27584 27621
 )
-"oldParser.ml" 1113 27492 27531 "oldParser.ml" 1113 27492 27533
+"oldParser.ml" 1116 27718 27757 "oldParser.ml" 1116 27718 27759
 type(
   Term.t
 )
 ident(
-  int_ref e' "oldParser.ml" 1111 27449 27457 "oldParser.ml" 1111 27449 27459
+  int_ref e' "oldParser.ml" 1114 27675 27683 "oldParser.ml" 1114 27675 27685
 )
-"oldParser.ml" 1113 27492 27537 "oldParser.ml" 1113 27492 27542
+"oldParser.ml" 1116 27718 27763 "oldParser.ml" 1116 27718 27768
 type(
   Term.t list
 )
 ident(
-  int_ref accum "oldParser.ml" 1105 27358 27396 "oldParser.ml" 1105 27358 27401
+  int_ref accum "oldParser.ml" 1108 27584 27622 "oldParser.ml" 1108 27584 27627
 )
-"oldParser.ml" 1113 27492 27531 "oldParser.ml" 1113 27492 27542
+"oldParser.ml" 1116 27718 27757 "oldParser.ml" 1116 27718 27768
 type(
   Term.t list
 )
-"oldParser.ml" 1113 27492 27544 "oldParser.ml" 1113 27492 27546
+"oldParser.ml" 1116 27718 27770 "oldParser.ml" 1116 27718 27772
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  int_ref tl "oldParser.ml" 1109 27432 27441 "oldParser.ml" 1109 27432 27443
+  int_ref tl "oldParser.ml" 1112 27658 27667 "oldParser.ml" 1112 27658 27669
 )
-"oldParser.ml" 1113 27492 27496 "oldParser.ml" 1113 27492 27546
+"oldParser.ml" 1116 27718 27722 "oldParser.ml" 1116 27718 27772
 call(
   tail
 )
 type(
   Term.t list
 )
-"oldParser.ml" 1111 27449 27453 "oldParser.ml" 1113 27492 27546
+"oldParser.ml" 1114 27675 27679 "oldParser.ml" 1116 27718 27772
 type(
   Term.t list
 )
-"oldParser.ml" 1105 27358 27404 "oldParser.ml" 1113 27492 27546
+"oldParser.ml" 1108 27584 27630 "oldParser.ml" 1116 27718 27772
 type(
   Kind1.Types.il_formula list -> Term.t list
 )
-"oldParser.ml" 1105 27358 27396 "oldParser.ml" 1113 27492 27546
+"oldParser.ml" 1108 27584 27622 "oldParser.ml" 1116 27718 27772
 type(
   Term.t list -> Kind1.Types.il_formula list -> Term.t list
 )
-"oldParser.ml" 1105 27358 27391 "oldParser.ml" 1113 27492 27546
+"oldParser.ml" 1108 27584 27617 "oldParser.ml" 1116 27718 27772
 type(
   bool -> Term.t list -> Kind1.Types.il_formula list -> Term.t list
 )
-"oldParser.ml" 1118 27592 27596 "oldParser.ml" 1118 27592 27621
+"oldParser.ml" 1121 27818 27822 "oldParser.ml" 1121 27818 27847
 type(
   bool ->
   Kind1.Types.il_expression ->
   Kind1.Types.il_expression -> 'a -> StateVar.t * Term.t
 )
 ident(
-  def assignment_of_il_equation "oldParser.ml" 1179 29373 29373 "_none_" 1 0 -1
+  def assignment_of_il_equation "oldParser.ml" 1182 29599 29599 "_none_" 1 0 -1
 )
-"oldParser.ml" 1118 27592 27622 "oldParser.ml" 1118 27592 27626
+"oldParser.ml" 1121 27818 27848 "oldParser.ml" 1121 27818 27852
 type(
   bool
 )
 ident(
-  def init "oldParser.ml" 1118 27592 27627 "oldParser.ml" 1175 29263 29282
+  def init "oldParser.ml" 1121 27818 27853 "oldParser.ml" 1178 29489 29508
 )
-"oldParser.ml" 1118 27592 27627 "oldParser.ml" 1118 27592 27628
+"oldParser.ml" 1121 27818 27853 "oldParser.ml" 1121 27818 27854
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def l "oldParser.ml" 1118 27592 27629 "oldParser.ml" 1175 29263 29282
+  def l "oldParser.ml" 1121 27818 27855 "oldParser.ml" 1178 29489 29508
 )
-"oldParser.ml" 1118 27592 27629 "oldParser.ml" 1118 27592 27630
+"oldParser.ml" 1121 27818 27855 "oldParser.ml" 1121 27818 27856
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def r "oldParser.ml" 1118 27592 27631 "oldParser.ml" 1175 29263 29282
+  def r "oldParser.ml" 1121 27818 27857 "oldParser.ml" 1178 29489 29508
 )
-"oldParser.ml" 1118 27592 27631 "oldParser.ml" 1118 27592 27632
+"oldParser.ml" 1121 27818 27857 "oldParser.ml" 1121 27818 27858
 type(
   'a
 )
 ident(
-  def t "oldParser.ml" 1121 27699 27701 "oldParser.ml" 1175 29263 29282
+  def t "oldParser.ml" 1124 27925 27927 "oldParser.ml" 1178 29489 29508
 )
-"oldParser.ml" 1121 27699 27705 "oldParser.ml" 1121 27699 27714
+"oldParser.ml" 1124 27925 27931 "oldParser.ml" 1124 27925 27940
 type(
   StateVar.t
 )
 ident(
-  def state_var "oldParser.ml" 1172 29152 29154 "oldParser.ml" 1175 29263 29282
+  def state_var "oldParser.ml" 1175 29378 29380 "oldParser.ml" 1178 29489 29508
 )
-"oldParser.ml" 1121 27699 27723 "oldParser.ml" 1121 27699 27724
+"oldParser.ml" 1124 27925 27949 "oldParser.ml" 1124 27925 27950
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref l "oldParser.ml" 1118 27592 27627 "oldParser.ml" 1118 27592 27628
+  int_ref l "oldParser.ml" 1121 27818 27853 "oldParser.ml" 1121 27818 27854
 )
-"oldParser.ml" 1124 27800 27815 "oldParser.ml" 1124 27800 27816
+"oldParser.ml" 1127 28026 28041 "oldParser.ml" 1127 28026 28042
 type(
   Kind1.Types.mutable_string
 )
 ident(
-  def s "oldParser.ml" 1129 27928 27936 "oldParser.ml" 1163 28937 28986
+  def s "oldParser.ml" 1132 28154 28162 "oldParser.ml" 1166 29163 29212
 )
-"oldParser.ml" 1124 27800 27818 "oldParser.ml" 1124 27800 27819
+"oldParser.ml" 1127 28026 28044 "oldParser.ml" 1127 28026 28045
 type(
   int
 )
 ident(
-  def d "oldParser.ml" 1129 27928 27936 "oldParser.ml" 1163 28937 28986
+  def d "oldParser.ml" 1132 28154 28162 "oldParser.ml" 1166 29163 29212
 )
-"oldParser.ml" 1124 27800 27826 "oldParser.ml" 1124 27800 27828
+"oldParser.ml" 1127 28026 28052 "oldParser.ml" 1127 28026 28054
 type(
   int
 )
 ident(
-  def id "oldParser.ml" 1129 27928 27936 "oldParser.ml" 1163 28937 28986
+  def id "oldParser.ml" 1132 28154 28162 "oldParser.ml" 1166 29163 29212
 )
-"oldParser.ml" 1124 27800 27822 "oldParser.ml" 1124 27800 27828
+"oldParser.ml" 1127 28026 28048 "oldParser.ml" 1127 28026 28054
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1124 27800 27844 "oldParser.ml" 1124 27800 27847
+"oldParser.ml" 1127 28026 28070 "oldParser.ml" 1127 28026 28073
 type(
   string
 )
-"oldParser.ml" 1124 27800 27831 "oldParser.ml" 1124 27800 27847
+"oldParser.ml" 1127 28026 28057 "oldParser.ml" 1127 28026 28073
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1124 27800 27806 "oldParser.ml" 1124 27800 27848
+"oldParser.ml" 1127 28026 28032 "oldParser.ml" 1127 28026 28074
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1124 27800 27806 "oldParser.ml" 1124 27800 27853
+"oldParser.ml" 1127 28026 28032 "oldParser.ml" 1127 28026 28079
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def e "oldParser.ml" 1129 27928 27936 "oldParser.ml" 1163 28937 28986
+  def e "oldParser.ml" 1132 28154 28162 "oldParser.ml" 1166 29163 29212
 )
-"oldParser.ml" 1129 27928 27940 "oldParser.ml" 1129 27928 27942
+"oldParser.ml" 1132 28154 28166 "oldParser.ml" 1132 28154 28168
 type(
   Kind1.Types.idtype
 )
 ident(
-  def nk "oldParser.ml" 1136 28130 28138 "oldParser.ml" 1163 28937 28986
+  def nk "oldParser.ml" 1139 28356 28364 "oldParser.ml" 1166 29163 29212
 )
-"oldParser.ml" 1129 27928 27945 "oldParser.ml" 1129 27928 27978
+"oldParser.ml" 1132 28154 28171 "oldParser.ml" 1132 28154 28204
 type(
   Kind1.Types.idtype -> Kind1.Types.idtype
 )
 ident(
   ext_ref Kind1.Tables.resolve_substitution
 )
-"oldParser.ml" 1129 27928 27979 "oldParser.ml" 1129 27928 27981
+"oldParser.ml" 1132 28154 28205 "oldParser.ml" 1132 28154 28207
 type(
   Kind1.Types.idtype
 )
 ident(
-  int_ref id "oldParser.ml" 1124 27800 27826 "oldParser.ml" 1124 27800 27828
+  int_ref id "oldParser.ml" 1127 28026 28052 "oldParser.ml" 1127 28026 28054
 )
-"oldParser.ml" 1129 27928 27945 "oldParser.ml" 1129 27928 27981
+"oldParser.ml" 1132 28154 28171 "oldParser.ml" 1132 28154 28207
 call(
   stack
 )
 type(
   Kind1.Types.idtype
 )
-"oldParser.ml" 1136 28130 28138 "oldParser.ml" 1136 28130 28167
+"oldParser.ml" 1139 28356 28364 "oldParser.ml" 1139 28356 28393
 type(
   Kind1.Types.idtype -> int -> Kind1.Types.il_expression -> unit
 )
 ident(
   ext_ref Kind1.Tables.update_used_vars
 )
-"oldParser.ml" 1136 28130 28168 "oldParser.ml" 1136 28130 28170
+"oldParser.ml" 1139 28356 28394 "oldParser.ml" 1139 28356 28396
 type(
   Kind1.Types.idtype
 )
 ident(
-  int_ref nk "oldParser.ml" 1129 27928 27940 "oldParser.ml" 1129 27928 27942
+  int_ref nk "oldParser.ml" 1132 28154 28166 "oldParser.ml" 1132 28154 28168
 )
-"oldParser.ml" 1136 28130 28171 "oldParser.ml" 1136 28130 28172
+"oldParser.ml" 1139 28356 28397 "oldParser.ml" 1139 28356 28398
 type(
   int
 )
 ident(
-  int_ref d "oldParser.ml" 1124 27800 27818 "oldParser.ml" 1124 27800 27819
+  int_ref d "oldParser.ml" 1127 28026 28044 "oldParser.ml" 1127 28026 28045
 )
-"oldParser.ml" 1136 28130 28173 "oldParser.ml" 1136 28130 28174
+"oldParser.ml" 1139 28356 28399 "oldParser.ml" 1139 28356 28400
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref e "oldParser.ml" 1124 27800 27806 "oldParser.ml" 1124 27800 27853
+  int_ref e "oldParser.ml" 1127 28026 28032 "oldParser.ml" 1127 28026 28079
 )
-"oldParser.ml" 1136 28130 28138 "oldParser.ml" 1136 28130 28174
+"oldParser.ml" 1139 28356 28364 "oldParser.ml" 1139 28356 28400
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1141 28260 28275 "oldParser.ml" 1141 28260 28276
+"oldParser.ml" 1144 28486 28501 "oldParser.ml" 1144 28486 28502
 type(
   Kind1.Types.node_id_t
 )
-"oldParser.ml" 1141 28260 28278 "oldParser.ml" 1141 28260 28279
+"oldParser.ml" 1144 28486 28504 "oldParser.ml" 1144 28486 28505
 type(
   string
 )
 ident(
-  def v "oldParser.ml" 1146 28402 28412 "oldParser.ml" 1161 28914 28934
+  def v "oldParser.ml" 1149 28628 28638 "oldParser.ml" 1164 29140 29160
 )
-"oldParser.ml" 1141 28260 28281 "oldParser.ml" 1141 28260 28282
+"oldParser.ml" 1144 28486 28507 "oldParser.ml" 1144 28486 28508
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def t "oldParser.ml" 1146 28402 28412 "oldParser.ml" 1161 28914 28934
+  def t "oldParser.ml" 1149 28628 28638 "oldParser.ml" 1164 29140 29160
 )
-"oldParser.ml" 1141 28260 28284 "oldParser.ml" 1141 28260 28285
+"oldParser.ml" 1144 28486 28510 "oldParser.ml" 1144 28486 28511
 type(
   Kind1.Types.varclass
 )
 ident(
-  def c "oldParser.ml" 1146 28402 28412 "oldParser.ml" 1161 28914 28934
+  def c "oldParser.ml" 1149 28628 28638 "oldParser.ml" 1164 29140 29160
 )
-"oldParser.ml" 1141 28260 28275 "oldParser.ml" 1141 28260 28285
+"oldParser.ml" 1144 28486 28501 "oldParser.ml" 1144 28486 28511
 type(
   Kind1.Types.node_id_t * string * Kind1.Types.lustre_type *
   Kind1.Types.varclass
 )
-"oldParser.ml" 1142 28290 28302 "oldParser.ml" 1142 28290 28332
+"oldParser.ml" 1145 28516 28528 "oldParser.ml" 1145 28516 28558
 type(
   Kind1.Types.idtype ->
   string ->
@@ -14184,18 +14345,18 @@ type(
 ident(
   ext_ref Kind1.Tables.safe_find_varinfo
 )
-"oldParser.ml" 1142 28290 28333 "oldParser.ml" 1142 28290 28335
+"oldParser.ml" 1145 28516 28559 "oldParser.ml" 1145 28516 28561
 type(
   Kind1.Types.idtype
 )
 ident(
-  int_ref nk "oldParser.ml" 1129 27928 27940 "oldParser.ml" 1129 27928 27942
+  int_ref nk "oldParser.ml" 1132 28154 28166 "oldParser.ml" 1132 28154 28168
 )
-"oldParser.ml" 1142 28290 28336 "oldParser.ml" 1142 28290 28353
+"oldParser.ml" 1145 28516 28562 "oldParser.ml" 1145 28516 28579
 type(
   string
 )
-"oldParser.ml" 1142 28290 28302 "oldParser.ml" 1142 28290 28353
+"oldParser.ml" 1145 28516 28528 "oldParser.ml" 1145 28516 28579
 call(
   stack
 )
@@ -14203,340 +14364,340 @@ type(
   Kind1.Types.node_id_t * string * Kind1.Types.lustre_type *
   Kind1.Types.varclass
 )
-"oldParser.ml" 1146 28402 28416 "oldParser.ml" 1146 28402 28424
+"oldParser.ml" 1149 28628 28642 "oldParser.ml" 1149 28628 28650
 type(
   Type.t
 )
 ident(
-  def var_type "oldParser.ml" 1155 28755 28765 "oldParser.ml" 1161 28914 28934
+  def var_type "oldParser.ml" 1158 28981 28991 "oldParser.ml" 1164 29140 29160
 )
-"oldParser.ml" 1146 28402 28433 "oldParser.ml" 1146 28402 28434
+"oldParser.ml" 1149 28628 28659 "oldParser.ml" 1149 28628 28660
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  int_ref t "oldParser.ml" 1141 28260 28281 "oldParser.ml" 1141 28260 28282
+  int_ref t "oldParser.ml" 1144 28486 28507 "oldParser.ml" 1144 28486 28508
 )
-"oldParser.ml" 1147 28441 28455 "oldParser.ml" 1147 28441 28461
+"oldParser.ml" 1150 28667 28681 "oldParser.ml" 1150 28667 28687
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1147 28441 28465 "oldParser.ml" 1147 28441 28476
+"oldParser.ml" 1150 28667 28691 "oldParser.ml" 1150 28667 28702
 type(
   Type.t
 )
 ident(
   ext_ref Type.t_bool
 )
-"oldParser.ml" 1148 28477 28491 "oldParser.ml" 1148 28477 28496
+"oldParser.ml" 1151 28703 28717 "oldParser.ml" 1151 28703 28722
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1148 28477 28500 "oldParser.ml" 1148 28477 28510
+"oldParser.ml" 1151 28703 28726 "oldParser.ml" 1151 28703 28736
 type(
   Type.t
 )
 ident(
   ext_ref Type.t_int
 )
-"oldParser.ml" 1149 28511 28538 "oldParser.ml" 1149 28511 28539
+"oldParser.ml" 1152 28737 28764 "oldParser.ml" 1152 28737 28765
 type(
   int
 )
 ident(
-  def l "oldParser.ml" 1149 28511 28547 "oldParser.ml" 1149 28511 28602
+  def l "oldParser.ml" 1152 28737 28773 "oldParser.ml" 1152 28737 28828
 )
-"oldParser.ml" 1149 28511 28541 "oldParser.ml" 1149 28511 28542
+"oldParser.ml" 1152 28737 28767 "oldParser.ml" 1152 28737 28768
 type(
   int
 )
 ident(
-  def u "oldParser.ml" 1149 28511 28547 "oldParser.ml" 1149 28511 28602
+  def u "oldParser.ml" 1152 28737 28773 "oldParser.ml" 1152 28737 28828
 )
-"oldParser.ml" 1149 28511 28525 "oldParser.ml" 1149 28511 28543
+"oldParser.ml" 1152 28737 28751 "oldParser.ml" 1152 28737 28769
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1149 28511 28547 "oldParser.ml" 1149 28511 28564
+"oldParser.ml" 1152 28737 28773 "oldParser.ml" 1152 28737 28790
 type(
   Lib.numeral -> Lib.numeral -> Type.t
 )
 ident(
   ext_ref Type.mk_int_range
 )
-"oldParser.ml" 1149 28511 28566 "oldParser.ml" 1149 28511 28580
+"oldParser.ml" 1152 28737 28792 "oldParser.ml" 1152 28737 28806
 type(
   int -> Lib.numeral
 )
 ident(
   ext_ref Lib.numeral_of_int
 )
-"oldParser.ml" 1149 28511 28581 "oldParser.ml" 1149 28511 28582
+"oldParser.ml" 1152 28737 28807 "oldParser.ml" 1152 28737 28808
 type(
   int
 )
 ident(
-  int_ref l "oldParser.ml" 1149 28511 28538 "oldParser.ml" 1149 28511 28539
+  int_ref l "oldParser.ml" 1152 28737 28764 "oldParser.ml" 1152 28737 28765
 )
-"oldParser.ml" 1149 28511 28566 "oldParser.ml" 1149 28511 28582
+"oldParser.ml" 1152 28737 28792 "oldParser.ml" 1152 28737 28808
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 1149 28511 28585 "oldParser.ml" 1149 28511 28599
+"oldParser.ml" 1152 28737 28811 "oldParser.ml" 1152 28737 28825
 type(
   int -> Lib.numeral
 )
 ident(
   ext_ref Lib.numeral_of_int
 )
-"oldParser.ml" 1149 28511 28600 "oldParser.ml" 1149 28511 28601
+"oldParser.ml" 1152 28737 28826 "oldParser.ml" 1152 28737 28827
 type(
   int
 )
 ident(
-  int_ref u "oldParser.ml" 1149 28511 28541 "oldParser.ml" 1149 28511 28542
+  int_ref u "oldParser.ml" 1152 28737 28767 "oldParser.ml" 1152 28737 28768
 )
-"oldParser.ml" 1149 28511 28585 "oldParser.ml" 1149 28511 28601
+"oldParser.ml" 1152 28737 28811 "oldParser.ml" 1152 28737 28827
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 1149 28511 28547 "oldParser.ml" 1149 28511 28602
+"oldParser.ml" 1152 28737 28773 "oldParser.ml" 1152 28737 28828
 call(
   stack
 )
 type(
   Type.t
 )
-"oldParser.ml" 1150 28603 28617 "oldParser.ml" 1150 28603 28618
+"oldParser.ml" 1153 28829 28843 "oldParser.ml" 1153 28829 28844
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def t "oldParser.ml" 1151 28623 28637 "oldParser.ml" 1151 28623 28695
+  def t "oldParser.ml" 1154 28849 28863 "oldParser.ml" 1154 28849 28921
 )
-"oldParser.ml" 1151 28623 28637 "oldParser.ml" 1151 28623 28645
+"oldParser.ml" 1154 28849 28863 "oldParser.ml" 1154 28849 28871
 type(
   string -> Type.t
 )
 ident(
   ext_ref Pervasives.failwith
 )
-"oldParser.ml" 1151 28623 28647 "oldParser.ml" 1151 28623 28666
+"oldParser.ml" 1154 28849 28873 "oldParser.ml" 1154 28849 28892
 type(
   string
 )
-"oldParser.ml" 1151 28623 28667 "oldParser.ml" 1151 28623 28668
+"oldParser.ml" 1154 28849 28893 "oldParser.ml" 1154 28849 28894
 type(
   string -> string -> string
 )
 ident(
   ext_ref Pervasives.( ^ )
 )
-"oldParser.ml" 1151 28623 28670 "oldParser.ml" 1151 28623 28691
+"oldParser.ml" 1154 28849 28896 "oldParser.ml" 1154 28849 28917
 type(
   Kind1.Types.lustre_type -> string
 )
 ident(
   int_ref lustre_type_to_string "oldParser.ml" 99 3154 3158 "oldParser.ml" 99 3154 3179
 )
-"oldParser.ml" 1151 28623 28692 "oldParser.ml" 1151 28623 28693
+"oldParser.ml" 1154 28849 28918 "oldParser.ml" 1154 28849 28919
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  int_ref t "oldParser.ml" 1150 28603 28617 "oldParser.ml" 1150 28603 28618
+  int_ref t "oldParser.ml" 1153 28829 28843 "oldParser.ml" 1153 28829 28844
 )
-"oldParser.ml" 1151 28623 28670 "oldParser.ml" 1151 28623 28693
+"oldParser.ml" 1154 28849 28896 "oldParser.ml" 1154 28849 28919
 call(
   stack
 )
 type(
   string
 )
-"oldParser.ml" 1151 28623 28647 "oldParser.ml" 1151 28623 28694
+"oldParser.ml" 1154 28849 28873 "oldParser.ml" 1154 28849 28920
 call(
   stack
 )
 type(
   string
 )
-"oldParser.ml" 1151 28623 28637 "oldParser.ml" 1151 28623 28695
+"oldParser.ml" 1154 28849 28863 "oldParser.ml" 1154 28849 28921
 call(
   stack
 )
 type(
   Type.t
 )
-"oldParser.ml" 1146 28402 28427 "oldParser.ml" 1151 28623 28695
+"oldParser.ml" 1149 28628 28653 "oldParser.ml" 1154 28849 28921
 type(
   Type.t
 )
-"oldParser.ml" 1155 28755 28765 "oldParser.ml" 1155 28755 28766
+"oldParser.ml" 1158 28981 28991 "oldParser.ml" 1158 28981 28992
 type(
   Kind1.Types.mutable_string
 )
 ident(
-  int_ref s "oldParser.ml" 1124 27800 27815 "oldParser.ml" 1124 27800 27816
+  int_ref s "oldParser.ml" 1127 28026 28041 "oldParser.ml" 1127 28026 28042
 )
-"oldParser.ml" 1155 28755 28772 "oldParser.ml" 1155 28755 28773
+"oldParser.ml" 1158 28981 28998 "oldParser.ml" 1158 28981 28999
 type(
   string
 )
 ident(
-  int_ref v "oldParser.ml" 1141 28260 28278 "oldParser.ml" 1141 28260 28279
+  int_ref v "oldParser.ml" 1144 28486 28504 "oldParser.ml" 1144 28486 28505
 )
-"oldParser.ml" 1155 28755 28765 "oldParser.ml" 1155 28755 28773
+"oldParser.ml" 1158 28981 28991 "oldParser.ml" 1158 28981 28999
 type(
   unit
 )
-"oldParser.ml" 1158 28814 28824 "oldParser.ml" 1158 28814 28845
+"oldParser.ml" 1161 29040 29050 "oldParser.ml" 1161 29040 29071
 type(
   string -> bool -> Type.t -> StateVar.t
 )
 ident(
   ext_ref StateVar.mk_state_var
 )
-"oldParser.ml" 1159 28847 28859 "oldParser.ml" 1159 28847 28860
+"oldParser.ml" 1162 29073 29085 "oldParser.ml" 1162 29073 29086
 type(
   string
 )
 ident(
-  int_ref v "oldParser.ml" 1141 28260 28278 "oldParser.ml" 1141 28260 28279
+  int_ref v "oldParser.ml" 1144 28486 28504 "oldParser.ml" 1144 28486 28505
 )
-"oldParser.ml" 1160 28862 28875 "oldParser.ml" 1160 28862 28878
+"oldParser.ml" 1163 29088 29101 "oldParser.ml" 1163 29088 29104
 type(
   bool -> bool
 )
 ident(
   ext_ref Pervasives.not
 )
-"oldParser.ml" 1160 28862 28880 "oldParser.ml" 1160 28862 28908
+"oldParser.ml" 1163 29088 29106 "oldParser.ml" 1163 29088 29134
 type(
   Kind1.Types.idtype -> bool
 )
 ident(
   ext_ref Kind1.Tables.var_is_stateful
 )
-"oldParser.ml" 1160 28862 28909 "oldParser.ml" 1160 28862 28911
+"oldParser.ml" 1163 29088 29135 "oldParser.ml" 1163 29088 29137
 type(
   Kind1.Types.idtype
 )
 ident(
-  int_ref nk "oldParser.ml" 1129 27928 27940 "oldParser.ml" 1129 27928 27942
+  int_ref nk "oldParser.ml" 1132 28154 28166 "oldParser.ml" 1132 28154 28168
 )
-"oldParser.ml" 1160 28862 28880 "oldParser.ml" 1160 28862 28911
+"oldParser.ml" 1163 29088 29106 "oldParser.ml" 1163 29088 29137
 call(
   stack
 )
 type(
   bool
 )
-"oldParser.ml" 1160 28862 28875 "oldParser.ml" 1160 28862 28912
+"oldParser.ml" 1163 29088 29101 "oldParser.ml" 1163 29088 29138
 type(
   bool
 )
-"oldParser.ml" 1161 28914 28926 "oldParser.ml" 1161 28914 28934
+"oldParser.ml" 1164 29140 29152 "oldParser.ml" 1164 29140 29160
 type(
   Type.t
 )
 ident(
-  int_ref var_type "oldParser.ml" 1146 28402 28416 "oldParser.ml" 1146 28402 28424
+  int_ref var_type "oldParser.ml" 1149 28628 28642 "oldParser.ml" 1149 28628 28650
 )
-"oldParser.ml" 1158 28814 28824 "oldParser.ml" 1161 28914 28934
+"oldParser.ml" 1161 29040 29050 "oldParser.ml" 1164 29140 29160
 call(
   stack
 )
 type(
   StateVar.t
 )
-"oldParser.ml" 1155 28755 28765 "oldParser.ml" 1161 28914 28934
+"oldParser.ml" 1158 28981 28991 "oldParser.ml" 1164 29140 29160
 type(
   StateVar.t
 )
-"oldParser.ml" 1146 28402 28412 "oldParser.ml" 1161 28914 28934
+"oldParser.ml" 1149 28628 28638 "oldParser.ml" 1164 29140 29160
 type(
   StateVar.t
 )
-"oldParser.ml" 1141 28260 28270 "oldParser.ml" 1161 28914 28934
+"oldParser.ml" 1144 28486 28496 "oldParser.ml" 1164 29140 29160
 type(
   StateVar.t
 )
-"oldParser.ml" 1163 28937 28950 "oldParser.ml" 1163 28937 28959
+"oldParser.ml" 1166 29163 29176 "oldParser.ml" 1166 29163 29185
 type(
   exn
 )
-"oldParser.ml" 1163 28937 28963 "oldParser.ml" 1163 28937 28968
+"oldParser.ml" 1166 29163 29189 "oldParser.ml" 1166 29163 29194
 type(
   exn -> StateVar.t
 )
 ident(
   ext_ref Pervasives.raise
 )
-"oldParser.ml" 1163 28937 28981 "oldParser.ml" 1163 28937 28985
+"oldParser.ml" 1166 29163 29207 "oldParser.ml" 1166 29163 29211
 type(
   string
 )
-"oldParser.ml" 1163 28937 28970 "oldParser.ml" 1163 28937 28985
+"oldParser.ml" 1166 29163 29196 "oldParser.ml" 1166 29163 29211
 type(
   exn
 )
-"oldParser.ml" 1163 28937 28963 "oldParser.ml" 1163 28937 28986
+"oldParser.ml" 1166 29163 29189 "oldParser.ml" 1166 29163 29212
 type(
   StateVar.t
 )
-"oldParser.ml" 1138 28178 28186 "oldParser.ml" 1163 28937 28986
+"oldParser.ml" 1141 28404 28412 "oldParser.ml" 1166 29163 29212
 type(
   StateVar.t
 )
-"oldParser.ml" 1136 28130 28138 "oldParser.ml" 1163 28937 28986
+"oldParser.ml" 1139 28356 28364 "oldParser.ml" 1166 29163 29212
 type(
   StateVar.t
 )
-"oldParser.ml" 1129 27928 27936 "oldParser.ml" 1163 28937 28986
+"oldParser.ml" 1132 28154 28162 "oldParser.ml" 1166 29163 29212
 type(
   StateVar.t
 )
-"oldParser.ml" 1167 28997 29003 "oldParser.ml" 1167 28997 29004
+"oldParser.ml" 1170 29223 29229 "oldParser.ml" 1170 29223 29230
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1167 28997 29008 "oldParser.ml" 1167 28997 29013
+"oldParser.ml" 1170 29223 29234 "oldParser.ml" 1170 29223 29239
 type(
   exn -> StateVar.t
 )
 ident(
   ext_ref Pervasives.raise
 )
-"oldParser.ml" 1167 28997 29032 "oldParser.ml" 1167 28997 29090
+"oldParser.ml" 1170 29223 29258 "oldParser.ml" 1170 29223 29316
 type(
   string
 )
-"oldParser.ml" 1167 28997 29015 "oldParser.ml" 1167 28997 29090
+"oldParser.ml" 1170 29223 29241 "oldParser.ml" 1170 29223 29316
 type(
   exn
 )
-"oldParser.ml" 1167 28997 29008 "oldParser.ml" 1167 28997 29091
+"oldParser.ml" 1170 29223 29234 "oldParser.ml" 1170 29223 29317
 type(
   StateVar.t
 )
-"oldParser.ml" 1121 27699 27717 "oldParser.ml" 1167 28997 29091
+"oldParser.ml" 1124 27925 27943 "oldParser.ml" 1170 29223 29317
 type(
   StateVar.t
 )
-"oldParser.ml" 1172 29152 29158 "oldParser.ml" 1172 29152 29162
+"oldParser.ml" 1175 29378 29384 "oldParser.ml" 1175 29378 29388
 type(
   Term.t
 )
 ident(
-  def term "oldParser.ml" 1175 29263 29266 "oldParser.ml" 1175 29263 29281
+  def term "oldParser.ml" 1178 29489 29492 "oldParser.ml" 1178 29489 29507
 )
-"oldParser.ml" 1172 29152 29165 "oldParser.ml" 1172 29152 29186
+"oldParser.ml" 1175 29378 29391 "oldParser.ml" 1175 29378 29412
 type(
   bool ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
@@ -14544,81 +14705,81 @@ type(
 ident(
   int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
 )
-"oldParser.ml" 1172 29152 29187 "oldParser.ml" 1172 29152 29191
+"oldParser.ml" 1175 29378 29413 "oldParser.ml" 1175 29378 29417
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1118 27592 27622 "oldParser.ml" 1118 27592 27626
+  int_ref init "oldParser.ml" 1121 27818 27848 "oldParser.ml" 1121 27818 27852
 )
-"oldParser.ml" 1172 29152 29193 "oldParser.ml" 1172 29152 29197
+"oldParser.ml" 1175 29378 29419 "oldParser.ml" 1175 29378 29423
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 1172 29152 29199 "oldParser.ml" 1172 29152 29200
+"oldParser.ml" 1175 29378 29425 "oldParser.ml" 1175 29378 29426
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref r "oldParser.ml" 1118 27592 27629 "oldParser.ml" 1118 27592 27630
+  int_ref r "oldParser.ml" 1121 27818 27855 "oldParser.ml" 1121 27818 27856
 )
-"oldParser.ml" 1172 29152 29193 "oldParser.ml" 1172 29152 29200
+"oldParser.ml" 1175 29378 29419 "oldParser.ml" 1175 29378 29426
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 1172 29152 29165 "oldParser.ml" 1172 29152 29201
+"oldParser.ml" 1175 29378 29391 "oldParser.ml" 1175 29378 29427
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1175 29263 29266 "oldParser.ml" 1175 29263 29275
+"oldParser.ml" 1178 29489 29492 "oldParser.ml" 1178 29489 29501
 type(
   StateVar.t
 )
 ident(
-  int_ref state_var "oldParser.ml" 1121 27699 27705 "oldParser.ml" 1121 27699 27714
+  int_ref state_var "oldParser.ml" 1124 27925 27931 "oldParser.ml" 1124 27925 27940
 )
-"oldParser.ml" 1175 29263 29277 "oldParser.ml" 1175 29263 29281
+"oldParser.ml" 1178 29489 29503 "oldParser.ml" 1178 29489 29507
 type(
   Term.t
 )
 ident(
-  int_ref term "oldParser.ml" 1172 29152 29158 "oldParser.ml" 1172 29152 29162
+  int_ref term "oldParser.ml" 1175 29378 29384 "oldParser.ml" 1175 29378 29388
 )
-"oldParser.ml" 1175 29263 29266 "oldParser.ml" 1175 29263 29281
+"oldParser.ml" 1178 29489 29492 "oldParser.ml" 1178 29489 29507
 type(
   StateVar.t * Term.t
 )
-"oldParser.ml" 1172 29152 29154 "oldParser.ml" 1175 29263 29282
+"oldParser.ml" 1175 29378 29380 "oldParser.ml" 1178 29489 29508
 type(
   StateVar.t * Term.t
 )
-"oldParser.ml" 1121 27699 27701 "oldParser.ml" 1175 29263 29282
+"oldParser.ml" 1124 27925 27927 "oldParser.ml" 1178 29489 29508
 type(
   StateVar.t * Term.t
 )
-"oldParser.ml" 1118 27592 27631 "oldParser.ml" 1175 29263 29282
+"oldParser.ml" 1121 27818 27857 "oldParser.ml" 1178 29489 29508
 type(
   'a -> StateVar.t * Term.t
 )
-"oldParser.ml" 1118 27592 27629 "oldParser.ml" 1175 29263 29282
+"oldParser.ml" 1121 27818 27855 "oldParser.ml" 1178 29489 29508
 type(
   Kind1.Types.il_expression -> 'a -> StateVar.t * Term.t
 )
-"oldParser.ml" 1118 27592 27627 "oldParser.ml" 1175 29263 29282
+"oldParser.ml" 1121 27818 27853 "oldParser.ml" 1178 29489 29508
 type(
   Kind1.Types.il_expression ->
   Kind1.Types.il_expression -> 'a -> StateVar.t * Term.t
 )
-"oldParser.ml" 1118 27592 27622 "oldParser.ml" 1175 29263 29282
+"oldParser.ml" 1121 27818 27848 "oldParser.ml" 1178 29489 29508
 type(
   bool ->
   Kind1.Types.il_expression ->
   Kind1.Types.il_expression -> 'a -> StateVar.t * Term.t
 )
-"oldParser.ml" 1179 29373 29381 "oldParser.ml" 1179 29373 29407
+"oldParser.ml" 1182 29599 29607 "oldParser.ml" 1182 29599 29633
 type(
   bool ->
   Term.t list ->
@@ -14626,59 +14787,59 @@ type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
 ident(
-  def assignments_of_il_formulas "oldParser.ml" 1179 29373 29373 "_none_" 1 0 -1
+  def assignments_of_il_formulas "oldParser.ml" 1182 29599 29599 "_none_" 1 0 -1
 )
-"oldParser.ml" 1179 29373 29408 "oldParser.ml" 1179 29373 29412
+"oldParser.ml" 1182 29599 29634 "oldParser.ml" 1182 29599 29638
 type(
   bool
 )
 ident(
-  def init "oldParser.ml" 1179 29373 29413 "oldParser.ml" 1205 30073 30108
+  def init "oldParser.ml" 1182 29599 29639 "oldParser.ml" 1208 30299 30334
 )
-"oldParser.ml" 1179 29373 29413 "oldParser.ml" 1179 29373 29423
+"oldParser.ml" 1182 29599 29639 "oldParser.ml" 1182 29599 29649
 type(
   Term.t list
 )
 ident(
-  def invariants "oldParser.ml" 1179 29373 29424 "oldParser.ml" 1205 30073 30108
+  def invariants "oldParser.ml" 1182 29599 29650 "oldParser.ml" 1208 30299 30334
 )
-"oldParser.ml" 1179 29373 29424 "oldParser.ml" 1179 29373 29435
+"oldParser.ml" 1182 29599 29650 "oldParser.ml" 1182 29599 29661
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  def assignments "oldParser.ml" 1179 29373 29438 "oldParser.ml" 1205 30073 30108
+  def assignments "oldParser.ml" 1182 29599 29664 "oldParser.ml" 1208 30299 30334
 )
-"oldParser.ml" 1182 29495 29506 "oldParser.ml" 1182 29495 29507
+"oldParser.ml" 1185 29721 29732 "oldParser.ml" 1185 29721 29733
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def f "oldParser.ml" 1184 29523 29527 "oldParser.ml" 1184 29523 29596
+  def f "oldParser.ml" 1187 29749 29753 "oldParser.ml" 1187 29749 29822
 )
-"oldParser.ml" 1182 29495 29509 "oldParser.ml" 1182 29495 29510
+"oldParser.ml" 1185 29721 29735 "oldParser.ml" 1185 29721 29736
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def g "oldParser.ml" 1184 29523 29527 "oldParser.ml" 1184 29523 29596
+  def g "oldParser.ml" 1187 29749 29753 "oldParser.ml" 1187 29749 29822
 )
-"oldParser.ml" 1182 29495 29499 "oldParser.ml" 1182 29495 29511
+"oldParser.ml" 1185 29721 29725 "oldParser.ml" 1185 29721 29737
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1182 29495 29515 "oldParser.ml" 1182 29495 29517
+"oldParser.ml" 1185 29721 29741 "oldParser.ml" 1185 29721 29743
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  def tl "oldParser.ml" 1184 29523 29527 "oldParser.ml" 1184 29523 29596
+  def tl "oldParser.ml" 1187 29749 29753 "oldParser.ml" 1187 29749 29822
 )
-"oldParser.ml" 1182 29495 29499 "oldParser.ml" 1182 29495 29517
+"oldParser.ml" 1185 29721 29725 "oldParser.ml" 1185 29721 29743
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1184 29523 29527 "oldParser.ml" 1184 29523 29553
+"oldParser.ml" 1187 29749 29753 "oldParser.ml" 1187 29749 29779
 type(
   bool ->
   Term.t list ->
@@ -14686,130 +14847,130 @@ type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments_of_il_formulas "oldParser.ml" 1179 29373 29381 "oldParser.ml" 1179 29373 29407
+  int_ref assignments_of_il_formulas "oldParser.ml" 1182 29599 29607 "oldParser.ml" 1182 29599 29633
 )
-"oldParser.ml" 1184 29523 29554 "oldParser.ml" 1184 29523 29558
+"oldParser.ml" 1187 29749 29780 "oldParser.ml" 1187 29749 29784
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1179 29373 29408 "oldParser.ml" 1179 29373 29412
+  int_ref init "oldParser.ml" 1182 29599 29634 "oldParser.ml" 1182 29599 29638
 )
-"oldParser.ml" 1184 29523 29559 "oldParser.ml" 1184 29523 29569
+"oldParser.ml" 1187 29749 29785 "oldParser.ml" 1187 29749 29795
 type(
   Term.t list
 )
 ident(
-  int_ref invariants "oldParser.ml" 1179 29373 29413 "oldParser.ml" 1179 29373 29423
+  int_ref invariants "oldParser.ml" 1182 29599 29639 "oldParser.ml" 1182 29599 29649
 )
-"oldParser.ml" 1184 29523 29570 "oldParser.ml" 1184 29523 29581
+"oldParser.ml" 1187 29749 29796 "oldParser.ml" 1187 29749 29807
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments "oldParser.ml" 1179 29373 29424 "oldParser.ml" 1179 29373 29435
+  int_ref assignments "oldParser.ml" 1182 29599 29650 "oldParser.ml" 1182 29599 29661
 )
-"oldParser.ml" 1184 29523 29583 "oldParser.ml" 1184 29523 29584
+"oldParser.ml" 1187 29749 29809 "oldParser.ml" 1187 29749 29810
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref f "oldParser.ml" 1182 29495 29506 "oldParser.ml" 1182 29495 29507
+  int_ref f "oldParser.ml" 1185 29721 29732 "oldParser.ml" 1185 29721 29733
 )
-"oldParser.ml" 1184 29523 29588 "oldParser.ml" 1184 29523 29589
+"oldParser.ml" 1187 29749 29814 "oldParser.ml" 1187 29749 29815
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref g "oldParser.ml" 1182 29495 29509 "oldParser.ml" 1182 29495 29510
+  int_ref g "oldParser.ml" 1185 29721 29735 "oldParser.ml" 1185 29721 29736
 )
-"oldParser.ml" 1184 29523 29593 "oldParser.ml" 1184 29523 29595
+"oldParser.ml" 1187 29749 29819 "oldParser.ml" 1187 29749 29821
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  int_ref tl "oldParser.ml" 1182 29495 29515 "oldParser.ml" 1182 29495 29517
+  int_ref tl "oldParser.ml" 1185 29721 29741 "oldParser.ml" 1185 29721 29743
 )
-"oldParser.ml" 1184 29523 29588 "oldParser.ml" 1184 29523 29595
+"oldParser.ml" 1187 29749 29814 "oldParser.ml" 1187 29749 29821
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1184 29523 29583 "oldParser.ml" 1184 29523 29595
+"oldParser.ml" 1187 29749 29809 "oldParser.ml" 1187 29749 29821
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1184 29523 29527 "oldParser.ml" 1184 29523 29596
+"oldParser.ml" 1187 29749 29753 "oldParser.ml" 1187 29749 29822
 call(
   tail
 )
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1187 29639 29658 "oldParser.ml" 1187 29639 29659
+"oldParser.ml" 1190 29865 29884 "oldParser.ml" 1190 29865 29885
 type(
   Kind1.Types.mutable_string
 )
-"oldParser.ml" 1187 29639 29661 "oldParser.ml" 1187 29639 29662
+"oldParser.ml" 1190 29865 29887 "oldParser.ml" 1190 29865 29888
 type(
   int
 )
-"oldParser.ml" 1187 29639 29669 "oldParser.ml" 1187 29639 29670
+"oldParser.ml" 1190 29865 29895 "oldParser.ml" 1190 29865 29896
 type(
   int
 )
-"oldParser.ml" 1187 29639 29665 "oldParser.ml" 1187 29639 29670
+"oldParser.ml" 1190 29865 29891 "oldParser.ml" 1190 29865 29896
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1187 29639 29686 "oldParser.ml" 1187 29639 29689
+"oldParser.ml" 1190 29865 29912 "oldParser.ml" 1190 29865 29915
 type(
   string
 )
-"oldParser.ml" 1187 29639 29673 "oldParser.ml" 1187 29639 29689
+"oldParser.ml" 1190 29865 29899 "oldParser.ml" 1190 29865 29915
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1187 29639 29649 "oldParser.ml" 1187 29639 29690
+"oldParser.ml" 1190 29865 29875 "oldParser.ml" 1190 29865 29916
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1187 29639 29649 "oldParser.ml" 1187 29639 29695
-type(
-  Kind1.Types.il_expression
-)
-ident(
-  def l "oldParser.ml" 1189 29714 29718 "oldParser.ml" 1193 29838 29846
-)
-"oldParser.ml" 1187 29639 29697 "oldParser.ml" 1187 29639 29698
+"oldParser.ml" 1190 29865 29875 "oldParser.ml" 1190 29865 29921
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def r "oldParser.ml" 1189 29714 29718 "oldParser.ml" 1193 29838 29846
+  def l "oldParser.ml" 1192 29940 29944 "oldParser.ml" 1196 30064 30072
 )
-"oldParser.ml" 1187 29639 29700 "oldParser.ml" 1187 29639 29701
+"oldParser.ml" 1190 29865 29923 "oldParser.ml" 1190 29865 29924
+type(
+  Kind1.Types.il_expression
+)
+ident(
+  def r "oldParser.ml" 1192 29940 29944 "oldParser.ml" 1196 30064 30072
+)
+"oldParser.ml" 1190 29865 29926 "oldParser.ml" 1190 29865 29927
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def t "oldParser.ml" 1189 29714 29718 "oldParser.ml" 1193 29838 29846
+  def t "oldParser.ml" 1192 29940 29944 "oldParser.ml" 1196 30064 30072
 )
-"oldParser.ml" 1187 29639 29643 "oldParser.ml" 1187 29639 29702
+"oldParser.ml" 1190 29865 29869 "oldParser.ml" 1190 29865 29928
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1187 29639 29706 "oldParser.ml" 1187 29639 29708
+"oldParser.ml" 1190 29865 29932 "oldParser.ml" 1190 29865 29934
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  def tl "oldParser.ml" 1189 29714 29718 "oldParser.ml" 1193 29838 29846
+  def tl "oldParser.ml" 1192 29940 29944 "oldParser.ml" 1196 30064 30072
 )
-"oldParser.ml" 1187 29639 29643 "oldParser.ml" 1187 29639 29708
+"oldParser.ml" 1190 29865 29869 "oldParser.ml" 1190 29865 29934
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1189 29714 29718 "oldParser.ml" 1189 29714 29744
+"oldParser.ml" 1192 29940 29944 "oldParser.ml" 1192 29940 29970
 type(
   bool ->
   Term.t list ->
@@ -14817,110 +14978,110 @@ type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments_of_il_formulas "oldParser.ml" 1179 29373 29381 "oldParser.ml" 1179 29373 29407
+  int_ref assignments_of_il_formulas "oldParser.ml" 1182 29599 29607 "oldParser.ml" 1182 29599 29633
 )
-"oldParser.ml" 1190 29746 29752 "oldParser.ml" 1190 29746 29756
+"oldParser.ml" 1193 29972 29978 "oldParser.ml" 1193 29972 29982
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1179 29373 29408 "oldParser.ml" 1179 29373 29412
+  int_ref init "oldParser.ml" 1182 29599 29634 "oldParser.ml" 1182 29599 29638
 )
-"oldParser.ml" 1191 29757 29763 "oldParser.ml" 1191 29757 29773
+"oldParser.ml" 1194 29983 29989 "oldParser.ml" 1194 29983 29999
 type(
   Term.t list
 )
 ident(
-  int_ref invariants "oldParser.ml" 1179 29373 29413 "oldParser.ml" 1179 29373 29423
+  int_ref invariants "oldParser.ml" 1182 29599 29639 "oldParser.ml" 1182 29599 29649
 )
-"oldParser.ml" 1192 29775 29783 "oldParser.ml" 1192 29775 29808
+"oldParser.ml" 1195 30001 30009 "oldParser.ml" 1195 30001 30034
 type(
   bool ->
   Kind1.Types.il_expression ->
   Kind1.Types.il_expression -> Kind1.Types.lustre_type -> StateVar.t * Term.t
 )
 ident(
-  int_ref assignment_of_il_equation "oldParser.ml" 1118 27592 27596 "oldParser.ml" 1118 27592 27621
+  int_ref assignment_of_il_equation "oldParser.ml" 1121 27818 27822 "oldParser.ml" 1121 27818 27847
 )
-"oldParser.ml" 1192 29775 29809 "oldParser.ml" 1192 29775 29813
+"oldParser.ml" 1195 30001 30035 "oldParser.ml" 1195 30001 30039
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1179 29373 29408 "oldParser.ml" 1179 29373 29412
+  int_ref init "oldParser.ml" 1182 29599 29634 "oldParser.ml" 1182 29599 29638
 )
-"oldParser.ml" 1192 29775 29814 "oldParser.ml" 1192 29775 29815
+"oldParser.ml" 1195 30001 30040 "oldParser.ml" 1195 30001 30041
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref l "oldParser.ml" 1187 29639 29649 "oldParser.ml" 1187 29639 29695
+  int_ref l "oldParser.ml" 1190 29865 29875 "oldParser.ml" 1190 29865 29921
 )
-"oldParser.ml" 1192 29775 29816 "oldParser.ml" 1192 29775 29817
+"oldParser.ml" 1195 30001 30042 "oldParser.ml" 1195 30001 30043
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref r "oldParser.ml" 1187 29639 29697 "oldParser.ml" 1187 29639 29698
+  int_ref r "oldParser.ml" 1190 29865 29923 "oldParser.ml" 1190 29865 29924
 )
-"oldParser.ml" 1192 29775 29818 "oldParser.ml" 1192 29775 29819
+"oldParser.ml" 1195 30001 30044 "oldParser.ml" 1195 30001 30045
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  int_ref t "oldParser.ml" 1187 29639 29700 "oldParser.ml" 1187 29639 29701
+  int_ref t "oldParser.ml" 1190 29865 29926 "oldParser.ml" 1190 29865 29927
 )
-"oldParser.ml" 1192 29775 29783 "oldParser.ml" 1192 29775 29819
+"oldParser.ml" 1195 30001 30009 "oldParser.ml" 1195 30001 30045
 call(
   stack
 )
 type(
   StateVar.t * Term.t
 )
-"oldParser.ml" 1192 29775 29824 "oldParser.ml" 1192 29775 29835
+"oldParser.ml" 1195 30001 30050 "oldParser.ml" 1195 30001 30061
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments "oldParser.ml" 1179 29373 29424 "oldParser.ml" 1179 29373 29435
+  int_ref assignments "oldParser.ml" 1182 29599 29650 "oldParser.ml" 1182 29599 29661
 )
-"oldParser.ml" 1192 29775 29782 "oldParser.ml" 1192 29775 29835
+"oldParser.ml" 1195 30001 30008 "oldParser.ml" 1195 30001 30061
 type(
   (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1193 29838 29844 "oldParser.ml" 1193 29838 29846
+"oldParser.ml" 1196 30064 30070 "oldParser.ml" 1196 30064 30072
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  int_ref tl "oldParser.ml" 1187 29639 29706 "oldParser.ml" 1187 29639 29708
+  int_ref tl "oldParser.ml" 1190 29865 29932 "oldParser.ml" 1190 29865 29934
 )
-"oldParser.ml" 1189 29714 29718 "oldParser.ml" 1193 29838 29846
+"oldParser.ml" 1192 29940 29944 "oldParser.ml" 1196 30064 30072
 call(
   tail
 )
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1196 29892 29896 "oldParser.ml" 1196 29892 29897
+"oldParser.ml" 1199 30118 30122 "oldParser.ml" 1199 30118 30123
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def e "oldParser.ml" 1198 29913 29917 "oldParser.ml" 1202 30024 30032
+  def e "oldParser.ml" 1201 30139 30143 "oldParser.ml" 1205 30250 30258
 )
-"oldParser.ml" 1196 29892 29901 "oldParser.ml" 1196 29892 29903
+"oldParser.ml" 1199 30118 30127 "oldParser.ml" 1199 30118 30129
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  def tl "oldParser.ml" 1198 29913 29917 "oldParser.ml" 1202 30024 30032
+  def tl "oldParser.ml" 1201 30139 30143 "oldParser.ml" 1205 30250 30258
 )
-"oldParser.ml" 1196 29892 29896 "oldParser.ml" 1196 29892 29903
+"oldParser.ml" 1199 30118 30122 "oldParser.ml" 1199 30118 30129
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1198 29913 29917 "oldParser.ml" 1198 29913 29943
+"oldParser.ml" 1201 30139 30143 "oldParser.ml" 1201 30139 30169
 type(
   bool ->
   Term.t list ->
@@ -14928,145 +15089,145 @@ type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments_of_il_formulas "oldParser.ml" 1179 29373 29381 "oldParser.ml" 1179 29373 29407
+  int_ref assignments_of_il_formulas "oldParser.ml" 1182 29599 29607 "oldParser.ml" 1182 29599 29633
 )
-"oldParser.ml" 1199 29945 29951 "oldParser.ml" 1199 29945 29955
+"oldParser.ml" 1202 30171 30177 "oldParser.ml" 1202 30171 30181
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1179 29373 29408 "oldParser.ml" 1179 29373 29412
+  int_ref init "oldParser.ml" 1182 29599 29634 "oldParser.ml" 1182 29599 29638
 )
-"oldParser.ml" 1200 29956 29964 "oldParser.ml" 1200 29956 29982
+"oldParser.ml" 1203 30182 30190 "oldParser.ml" 1203 30182 30208
 type(
   bool -> Kind1.Types.il_formula -> Term.t
 )
 ident(
-  int_ref il_formula_to_term "oldParser.ml" 1015 25361 25369 "oldParser.ml" 1015 25361 25387
+  int_ref il_formula_to_term "oldParser.ml" 1017 25485 25493 "oldParser.ml" 1017 25485 25511
 )
-"oldParser.ml" 1200 29956 29983 "oldParser.ml" 1200 29956 29987
+"oldParser.ml" 1203 30182 30209 "oldParser.ml" 1203 30182 30213
 type(
   bool
 )
 ident(
-  int_ref init "oldParser.ml" 1179 29373 29408 "oldParser.ml" 1179 29373 29412
+  int_ref init "oldParser.ml" 1182 29599 29634 "oldParser.ml" 1182 29599 29638
 )
-"oldParser.ml" 1200 29956 29988 "oldParser.ml" 1200 29956 29989
+"oldParser.ml" 1203 30182 30214 "oldParser.ml" 1203 30182 30215
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref e "oldParser.ml" 1196 29892 29896 "oldParser.ml" 1196 29892 29897
+  int_ref e "oldParser.ml" 1199 30118 30122 "oldParser.ml" 1199 30118 30123
 )
-"oldParser.ml" 1200 29956 29964 "oldParser.ml" 1200 29956 29989
+"oldParser.ml" 1203 30182 30190 "oldParser.ml" 1203 30182 30215
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1200 29956 29994 "oldParser.ml" 1200 29956 30004
+"oldParser.ml" 1203 30182 30220 "oldParser.ml" 1203 30182 30230
 type(
   Term.t list
 )
 ident(
-  int_ref invariants "oldParser.ml" 1179 29373 29413 "oldParser.ml" 1179 29373 29423
+  int_ref invariants "oldParser.ml" 1182 29599 29639 "oldParser.ml" 1182 29599 29649
 )
-"oldParser.ml" 1200 29956 29963 "oldParser.ml" 1200 29956 30004
+"oldParser.ml" 1203 30182 30189 "oldParser.ml" 1203 30182 30230
 type(
   Term.t list
 )
-"oldParser.ml" 1201 30006 30012 "oldParser.ml" 1201 30006 30023
+"oldParser.ml" 1204 30232 30238 "oldParser.ml" 1204 30232 30249
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments "oldParser.ml" 1179 29373 29424 "oldParser.ml" 1179 29373 29435
+  int_ref assignments "oldParser.ml" 1182 29599 29650 "oldParser.ml" 1182 29599 29661
 )
-"oldParser.ml" 1202 30024 30030 "oldParser.ml" 1202 30024 30032
+"oldParser.ml" 1205 30250 30256 "oldParser.ml" 1205 30250 30258
 type(
   Kind1.Types.il_formula list
 )
 ident(
-  int_ref tl "oldParser.ml" 1196 29892 29901 "oldParser.ml" 1196 29892 29903
+  int_ref tl "oldParser.ml" 1199 30118 30127 "oldParser.ml" 1199 30118 30129
 )
-"oldParser.ml" 1198 29913 29917 "oldParser.ml" 1202 30024 30032
+"oldParser.ml" 1201 30139 30143 "oldParser.ml" 1205 30250 30258
 call(
   tail
 )
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1205 30073 30077 "oldParser.ml" 1205 30073 30079
+"oldParser.ml" 1208 30299 30303 "oldParser.ml" 1208 30299 30305
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1205 30073 30084 "oldParser.ml" 1205 30073 30094
+"oldParser.ml" 1208 30299 30310 "oldParser.ml" 1208 30299 30320
 type(
   Term.t list
 )
 ident(
-  int_ref invariants "oldParser.ml" 1179 29373 29413 "oldParser.ml" 1179 29373 29423
+  int_ref invariants "oldParser.ml" 1182 29599 29639 "oldParser.ml" 1182 29599 29649
 )
-"oldParser.ml" 1205 30073 30096 "oldParser.ml" 1205 30073 30107
+"oldParser.ml" 1208 30299 30322 "oldParser.ml" 1208 30299 30333
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments "oldParser.ml" 1179 29373 29424 "oldParser.ml" 1179 29373 29435
+  int_ref assignments "oldParser.ml" 1182 29599 29650 "oldParser.ml" 1182 29599 29661
 )
-"oldParser.ml" 1205 30073 30084 "oldParser.ml" 1205 30073 30107
+"oldParser.ml" 1208 30299 30310 "oldParser.ml" 1208 30299 30333
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1179 29373 29438 "oldParser.ml" 1205 30073 30108
+"oldParser.ml" 1182 29599 29664 "oldParser.ml" 1208 30299 30334
 type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1179 29373 29424 "oldParser.ml" 1205 30073 30108
+"oldParser.ml" 1182 29599 29650 "oldParser.ml" 1208 30299 30334
 type(
   (StateVar.t * Term.t) list ->
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1179 29373 29413 "oldParser.ml" 1205 30073 30108
+"oldParser.ml" 1182 29599 29639 "oldParser.ml" 1208 30299 30334
 type(
   Term.t list ->
   (StateVar.t * Term.t) list ->
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1179 29373 29408 "oldParser.ml" 1205 30073 30108
+"oldParser.ml" 1182 29599 29634 "oldParser.ml" 1208 30299 30334
 type(
   bool ->
   Term.t list ->
   (StateVar.t * Term.t) list ->
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1209 30116 30120 "oldParser.ml" 1209 30116 30130
+"oldParser.ml" 1212 30342 30346 "oldParser.ml" 1212 30342 30356
 type(
   in_channel -> TransSys.t
 )
 ident(
-  def of_channel "oldParser.ml" 1469 37121 37121 "_none_" 1 0 -1
+  def of_channel "oldParser.ml" 1472 37347 37347 "_none_" 1 0 -1
 )
-"oldParser.ml" 1209 30116 30131 "oldParser.ml" 1209 30116 30136
+"oldParser.ml" 1212 30342 30357 "oldParser.ml" 1212 30342 30362
 type(
   in_channel
 )
 ident(
-  def in_ch "oldParser.ml" 1212 30169 30171 "oldParser.ml" 1466 37089 37118
+  def in_ch "oldParser.ml" 1215 30395 30397 "oldParser.ml" 1469 37315 37344
 )
-"oldParser.ml" 1212 30169 30171 "oldParser.ml" 1212 30169 30203
+"oldParser.ml" 1215 30395 30397 "oldParser.ml" 1215 30395 30429
 type(
   bool ref
 )
 ident(
   ext_ref Kind1.OldFlags.abstr_non_var_pre
 )
-"oldParser.ml" 1212 30169 30207 "oldParser.ml" 1212 30169 30211
+"oldParser.ml" 1215 30395 30433 "oldParser.ml" 1215 30395 30437
 type(
   bool
 )
-"oldParser.ml" 1212 30169 30171 "oldParser.ml" 1212 30169 30211
+"oldParser.ml" 1215 30395 30397 "oldParser.ml" 1215 30395 30437
 type(
   unit
 )
@@ -15076,137 +15237,137 @@ type(
 ident(
   ext_ref Pervasives.( := )
 )
-"oldParser.ml" 1218 30342 30348 "oldParser.ml" 1218 30342 30354
+"oldParser.ml" 1221 30568 30574 "oldParser.ml" 1221 30568 30580
 type(
   Lexing.lexbuf
 )
 ident(
-  def lexbuf "oldParser.ml" 1221 30419 30421 "oldParser.ml" 1466 37089 37118
+  def lexbuf "oldParser.ml" 1224 30645 30647 "oldParser.ml" 1469 37315 37344
 )
-"oldParser.ml" 1218 30342 30357 "oldParser.ml" 1218 30342 30376
+"oldParser.ml" 1221 30568 30583 "oldParser.ml" 1221 30568 30602
 type(
   in_channel -> Lexing.lexbuf
 )
 ident(
   ext_ref Lexing.from_channel
 )
-"oldParser.ml" 1218 30342 30377 "oldParser.ml" 1218 30342 30382
+"oldParser.ml" 1221 30568 30603 "oldParser.ml" 1221 30568 30608
 type(
   in_channel
 )
 ident(
-  int_ref in_ch "oldParser.ml" 1209 30116 30131 "oldParser.ml" 1209 30116 30136
+  int_ref in_ch "oldParser.ml" 1212 30342 30357 "oldParser.ml" 1212 30342 30362
 )
-"oldParser.ml" 1218 30342 30357 "oldParser.ml" 1218 30342 30382
+"oldParser.ml" 1221 30568 30583 "oldParser.ml" 1221 30568 30608
 call(
   stack
 )
 type(
   Lexing.lexbuf
 )
-"oldParser.ml" 1221 30419 30425 "oldParser.ml" 1221 30419 30431
+"oldParser.ml" 1224 30645 30651 "oldParser.ml" 1224 30645 30657
 type(
   Buffer.t
 )
 ident(
-  def outdoc "oldParser.ml" 1224 30504 30506 "oldParser.ml" 1466 37089 37118
+  def outdoc "oldParser.ml" 1227 30730 30732 "oldParser.ml" 1469 37315 37344
 )
-"oldParser.ml" 1221 30419 30434 "oldParser.ml" 1221 30419 30447
+"oldParser.ml" 1224 30645 30660 "oldParser.ml" 1224 30645 30673
 type(
   int -> Buffer.t
 )
 ident(
   ext_ref Buffer.create
 )
-"oldParser.ml" 1221 30419 30448 "oldParser.ml" 1221 30419 30452
+"oldParser.ml" 1224 30645 30674 "oldParser.ml" 1224 30645 30678
 type(
   int
 )
-"oldParser.ml" 1221 30419 30434 "oldParser.ml" 1221 30419 30452
+"oldParser.ml" 1224 30645 30660 "oldParser.ml" 1224 30645 30678
 call(
   stack
 )
 type(
   Buffer.t
 )
-"oldParser.ml" 1224 30504 30510 "oldParser.ml" 1224 30504 30518
+"oldParser.ml" 1227 30730 30736 "oldParser.ml" 1227 30730 30744
 type(
   Kind1.Types.defhashtable
 )
 ident(
-  def def_hash "oldParser.ml" 1227 30568 30570 "oldParser.ml" 1466 37089 37118
+  def def_hash "oldParser.ml" 1230 30794 30796 "oldParser.ml" 1469 37315 37344
 )
-"oldParser.ml" 1224 30504 30521 "oldParser.ml" 1224 30504 30547
+"oldParser.ml" 1227 30730 30747 "oldParser.ml" 1227 30730 30773
 type(
   unit -> Kind1.Types.defhashtable
 )
 ident(
   ext_ref Kind1.Deftable.get_defhash
 )
-"oldParser.ml" 1224 30504 30548 "oldParser.ml" 1224 30504 30550
+"oldParser.ml" 1227 30730 30774 "oldParser.ml" 1227 30730 30776
 type(
   unit
 )
-"oldParser.ml" 1224 30504 30521 "oldParser.ml" 1224 30504 30550
+"oldParser.ml" 1227 30730 30747 "oldParser.ml" 1227 30730 30776
 call(
   stack
 )
 type(
   Kind1.Types.defhashtable
 )
-"oldParser.ml" 1227 30568 30574 "oldParser.ml" 1227 30568 30585
+"oldParser.ml" 1230 30794 30800 "oldParser.ml" 1230 30794 30811
 type(
   bool ref
 )
 ident(
-  def no_stateful "oldParser.ml" 1229 30602 30604 "oldParser.ml" 1466 37089 37118
+  def no_stateful "oldParser.ml" 1232 30828 30830 "oldParser.ml" 1469 37315 37344
 )
-"oldParser.ml" 1227 30568 30588 "oldParser.ml" 1227 30568 30591
+"oldParser.ml" 1230 30794 30814 "oldParser.ml" 1230 30794 30817
 type(
   bool -> bool ref
 )
 ident(
   ext_ref Pervasives.ref
 )
-"oldParser.ml" 1227 30568 30592 "oldParser.ml" 1227 30568 30597
+"oldParser.ml" 1230 30794 30818 "oldParser.ml" 1230 30794 30823
 type(
   bool
 )
-"oldParser.ml" 1227 30568 30588 "oldParser.ml" 1227 30568 30597
+"oldParser.ml" 1230 30794 30814 "oldParser.ml" 1230 30794 30823
 type(
   bool ref
 )
-"oldParser.ml" 1235 30797 30805 "oldParser.ml" 1235 30797 30806
+"oldParser.ml" 1238 31023 31031 "oldParser.ml" 1238 31023 31032
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1235 30797 30808 "oldParser.ml" 1235 30797 30809
+"oldParser.ml" 1238 31023 31034 "oldParser.ml" 1238 31023 31035
 type(
   Kind1.Types.typed_stream
 )
 ident(
-  def p "oldParser.ml" 1239 30910 30914 "oldParser.ml" 1444 36439 36446
+  def p "oldParser.ml" 1242 31136 31140 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1235 30797 30811 "oldParser.ml" 1235 30797 30817
+"oldParser.ml" 1238 31023 31037 "oldParser.ml" 1238 31023 31043
 type(
   Kind1.Types.typed_stream list
 )
 ident(
-  def list_p "oldParser.ml" 1239 30910 30914 "oldParser.ml" 1444 36439 36446
+  def list_p "oldParser.ml" 1242 31136 31140 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1235 30797 30819 "oldParser.ml" 1235 30797 30830
+"oldParser.ml" 1238 31023 31045 "oldParser.ml" 1238 31023 31056
 type(
   Kind1.Types.node_id_t
 )
 ident(
-  def target_node "oldParser.ml" 1239 30910 30914 "oldParser.ml" 1444 36439 36446
+  def target_node "oldParser.ml" 1242 31136 31140 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1235 30797 30805 "oldParser.ml" 1235 30797 30830
+"oldParser.ml" 1238 31023 31031 "oldParser.ml" 1238 31023 31056
 type(
   Kind1.Types.il_formula * Kind1.Types.typed_stream *
   Kind1.Types.typed_stream list * Kind1.Types.node_id_t
 )
-"oldParser.ml" 1236 30834 30840 "oldParser.ml" 1236 30834 30864
+"oldParser.ml" 1239 31060 31066 "oldParser.ml" 1239 31060 31090
 type(
   (Lexing.lexbuf -> Kind1.Lustre_parser.token) ->
   Lexing.lexbuf ->
@@ -15216,21 +15377,21 @@ type(
 ident(
   ext_ref Kind1.Lustre_parser.main
 )
-"oldParser.ml" 1236 30834 30865 "oldParser.ml" 1236 30834 30889
+"oldParser.ml" 1239 31060 31091 "oldParser.ml" 1239 31060 31115
 type(
   Lexing.lexbuf -> Kind1.Lustre_parser.token
 )
 ident(
   ext_ref Kind1.Lustre_lexer.token
 )
-"oldParser.ml" 1236 30834 30890 "oldParser.ml" 1236 30834 30896
+"oldParser.ml" 1239 31060 31116 "oldParser.ml" 1239 31060 31122
 type(
   Lexing.lexbuf
 )
 ident(
-  int_ref lexbuf "oldParser.ml" 1218 30342 30348 "oldParser.ml" 1218 30342 30354
+  int_ref lexbuf "oldParser.ml" 1221 30568 30574 "oldParser.ml" 1221 30568 30580
 )
-"oldParser.ml" 1236 30834 30840 "oldParser.ml" 1236 30834 30896
+"oldParser.ml" 1239 31060 31066 "oldParser.ml" 1239 31060 31122
 call(
   stack
 )
@@ -15238,29 +15399,29 @@ type(
   Kind1.Types.il_formula * Kind1.Types.typed_stream *
   Kind1.Types.typed_stream list * Kind1.Types.node_id_t
 )
-"oldParser.ml" 1239 30910 30918 "oldParser.ml" 1239 30910 30926
+"oldParser.ml" 1242 31136 31144 "oldParser.ml" 1242 31136 31152
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def position "oldParser.ml" 1241 30950 30954 "oldParser.ml" 1444 36439 36446
+  def position "oldParser.ml" 1244 31176 31180 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1239 30910 30942 "oldParser.ml" 1239 30910 30945
+"oldParser.ml" 1242 31136 31168 "oldParser.ml" 1242 31136 31171
 type(
   string
 )
-"oldParser.ml" 1239 30910 30929 "oldParser.ml" 1239 30910 30945
+"oldParser.ml" 1242 31136 31155 "oldParser.ml" 1242 31136 31171
 type(
   Kind1.Types.il_expression
 )
-"oldParser.ml" 1244 30986 30993 "oldParser.ml" 1244 30986 31018
+"oldParser.ml" 1247 31212 31219 "oldParser.ml" 1247 31212 31244
 type(
   bool ref
 )
 ident(
   ext_ref Kind1.OldFlags.abstr_bool
 )
-"oldParser.ml" 1244 30986 30992 "oldParser.ml" 1244 30986 31018
+"oldParser.ml" 1247 31212 31218 "oldParser.ml" 1247 31212 31244
 type(
   bool
 )
@@ -15270,21 +15431,21 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1244 30986 31019 "oldParser.ml" 1244 30986 31021
+"oldParser.ml" 1247 31212 31245 "oldParser.ml" 1247 31212 31247
 type(
   bool -> bool -> bool
 )
 ident(
   ext_ref Pervasives.( || )
 )
-"oldParser.ml" 1245 31023 31032 "oldParser.ml" 1245 31023 31056
+"oldParser.ml" 1248 31249 31258 "oldParser.ml" 1248 31249 31282
 type(
   bool ref
 )
 ident(
   ext_ref Kind1.OldFlags.abstr_ite
 )
-"oldParser.ml" 1245 31023 31031 "oldParser.ml" 1245 31023 31056
+"oldParser.ml" 1248 31249 31257 "oldParser.ml" 1248 31249 31282
 type(
   bool
 )
@@ -15294,21 +15455,21 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1245 31023 31057 "oldParser.ml" 1245 31023 31059
+"oldParser.ml" 1248 31249 31283 "oldParser.ml" 1248 31249 31285
 type(
   bool -> bool -> bool
 )
 ident(
   ext_ref Pervasives.( || )
 )
-"oldParser.ml" 1246 31061 31070 "oldParser.ml" 1246 31061 31094
+"oldParser.ml" 1249 31287 31296 "oldParser.ml" 1249 31287 31320
 type(
   bool ref
 )
 ident(
   ext_ref Kind1.OldFlags.abstr_pre
 )
-"oldParser.ml" 1246 31061 31069 "oldParser.ml" 1246 31061 31094
+"oldParser.ml" 1249 31287 31295 "oldParser.ml" 1249 31287 31320
 type(
   bool
 )
@@ -15318,21 +15479,21 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1246 31061 31095 "oldParser.ml" 1246 31061 31097
+"oldParser.ml" 1249 31287 31321 "oldParser.ml" 1249 31287 31323
 type(
   bool -> bool -> bool
 )
 ident(
   ext_ref Pervasives.( || )
 )
-"oldParser.ml" 1247 31099 31108 "oldParser.ml" 1247 31099 31140
+"oldParser.ml" 1250 31325 31334 "oldParser.ml" 1250 31325 31366
 type(
   bool ref
 )
 ident(
   ext_ref Kind1.OldFlags.abstr_non_var_pre
 )
-"oldParser.ml" 1247 31099 31107 "oldParser.ml" 1247 31099 31140
+"oldParser.ml" 1250 31325 31333 "oldParser.ml" 1250 31325 31366
 type(
   bool
 )
@@ -15342,51 +15503,51 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1246 31061 31069 "oldParser.ml" 1247 31099 31140
+"oldParser.ml" 1249 31287 31295 "oldParser.ml" 1250 31325 31366
 type(
   bool
 )
-"oldParser.ml" 1245 31023 31031 "oldParser.ml" 1247 31099 31140
+"oldParser.ml" 1248 31249 31257 "oldParser.ml" 1250 31325 31366
 type(
   bool
 )
-"oldParser.ml" 1244 30986 30992 "oldParser.ml" 1247 31099 31140
+"oldParser.ml" 1247 31212 31218 "oldParser.ml" 1250 31325 31366
 type(
   bool
 )
-"oldParser.ml" 1252 31192 31198 "oldParser.ml" 1252 31192 31237
+"oldParser.ml" 1255 31418 31424 "oldParser.ml" 1255 31418 31463
 type(
   unit -> unit
 )
 ident(
   ext_ref Kind1.Lus_flatten.flatten_all_node_defs
 )
-"oldParser.ml" 1252 31192 31238 "oldParser.ml" 1252 31192 31240
+"oldParser.ml" 1255 31418 31464 "oldParser.ml" 1255 31418 31466
 type(
   unit
 )
-"oldParser.ml" 1252 31192 31198 "oldParser.ml" 1252 31192 31240
+"oldParser.ml" 1255 31418 31424 "oldParser.ml" 1255 31418 31466
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1241 30950 30954 "oldParser.ml" 1252 31192 31240
+"oldParser.ml" 1244 31176 31180 "oldParser.ml" 1255 31418 31466
 type(
   unit
 )
 type(
   unit
 )
-"oldParser.ml" 1255 31296 31304 "oldParser.ml" 1255 31296 31306
+"oldParser.ml" 1258 31522 31530 "oldParser.ml" 1258 31522 31532
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def fd "oldParser.ml" 1258 31423 31427 "oldParser.ml" 1444 36439 36446
+  def fd "oldParser.ml" 1261 31649 31653 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1255 31296 31309 "oldParser.ml" 1255 31296 31343
+"oldParser.ml" 1258 31522 31535 "oldParser.ml" 1258 31522 31569
 type(
   Kind1.Types.il_expression ->
   Kind1.Types.node_id_t -> Kind1.Types.il_formula
@@ -15394,125 +15555,125 @@ type(
 ident(
   ext_ref Kind1.Lus_convert.convert_def_list
 )
-"oldParser.ml" 1255 31296 31344 "oldParser.ml" 1255 31296 31352
+"oldParser.ml" 1258 31522 31570 "oldParser.ml" 1258 31522 31578
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref position "oldParser.ml" 1239 30910 30918 "oldParser.ml" 1239 30910 30926
+  int_ref position "oldParser.ml" 1242 31136 31144 "oldParser.ml" 1242 31136 31152
 )
-"oldParser.ml" 1255 31296 31353 "oldParser.ml" 1255 31296 31364
+"oldParser.ml" 1258 31522 31579 "oldParser.ml" 1258 31522 31590
 type(
   Kind1.Types.node_id_t
 )
 ident(
-  int_ref target_node "oldParser.ml" 1235 30797 30819 "oldParser.ml" 1235 30797 30830
+  int_ref target_node "oldParser.ml" 1238 31023 31045 "oldParser.ml" 1238 31023 31056
 )
-"oldParser.ml" 1255 31296 31309 "oldParser.ml" 1255 31296 31364
+"oldParser.ml" 1258 31522 31535 "oldParser.ml" 1258 31522 31590
 call(
   stack
 )
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1258 31423 31431 "oldParser.ml" 1258 31423 31439
+"oldParser.ml" 1261 31649 31657 "oldParser.ml" 1261 31649 31665
 type(
   int
 )
 ident(
-  def maxdepth "oldParser.ml" 1260 31481 31485 "oldParser.ml" 1444 36439 36446
+  def maxdepth "oldParser.ml" 1263 31707 31711 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1258 31423 31442 "oldParser.ml" 1258 31423 31473
+"oldParser.ml" 1261 31649 31668 "oldParser.ml" 1261 31649 31699
 type(
   unit -> int
 )
 ident(
   ext_ref Kind1.Lus_convert.get_max_depth
 )
-"oldParser.ml" 1258 31423 31474 "oldParser.ml" 1258 31423 31476
+"oldParser.ml" 1261 31649 31700 "oldParser.ml" 1261 31649 31702
 type(
   unit
 )
-"oldParser.ml" 1258 31423 31442 "oldParser.ml" 1258 31423 31476
+"oldParser.ml" 1261 31649 31668 "oldParser.ml" 1261 31649 31702
 call(
   stack
 )
 type(
   int
 )
-"oldParser.ml" 1263 31560 31566 "oldParser.ml" 1263 31560 31574
+"oldParser.ml" 1266 31786 31792 "oldParser.ml" 1266 31786 31800
 type(
   int
 )
 ident(
-  int_ref maxdepth "oldParser.ml" 1258 31423 31431 "oldParser.ml" 1258 31423 31439
+  int_ref maxdepth "oldParser.ml" 1261 31649 31657 "oldParser.ml" 1261 31649 31665
 )
-"oldParser.ml" 1263 31560 31575 "oldParser.ml" 1263 31560 31576
+"oldParser.ml" 1266 31786 31801 "oldParser.ml" 1266 31786 31802
 type(
   int -> int -> bool
 )
 ident(
   ext_ref Pervasives.( > )
 )
-"oldParser.ml" 1263 31560 31577 "oldParser.ml" 1263 31560 31609
+"oldParser.ml" 1266 31786 31803 "oldParser.ml" 1266 31786 31835
 type(
   unit -> int
 )
 ident(
   ext_ref Kind1.Lus_convert.get_max_adepth
 )
-"oldParser.ml" 1263 31560 31610 "oldParser.ml" 1263 31560 31612
+"oldParser.ml" 1266 31786 31836 "oldParser.ml" 1266 31786 31838
 type(
   unit
 )
-"oldParser.ml" 1263 31560 31577 "oldParser.ml" 1263 31560 31612
+"oldParser.ml" 1266 31786 31803 "oldParser.ml" 1266 31786 31838
 call(
   stack
 )
 type(
   int
 )
-"oldParser.ml" 1263 31560 31566 "oldParser.ml" 1263 31560 31612
+"oldParser.ml" 1266 31786 31792 "oldParser.ml" 1266 31786 31838
 type(
   bool
 )
-"oldParser.ml" 1268 31671 31677 "oldParser.ml" 1268 31671 31682
+"oldParser.ml" 1271 31897 31903 "oldParser.ml" 1271 31897 31908
 type(
   exn -> unit
 )
 ident(
   ext_ref Pervasives.raise
 )
-"oldParser.ml" 1268 31671 31683 "oldParser.ml" 1268 31671 31696
+"oldParser.ml" 1271 31897 31909 "oldParser.ml" 1271 31897 31922
 type(
   exn
 )
-"oldParser.ml" 1268 31671 31677 "oldParser.ml" 1268 31671 31696
+"oldParser.ml" 1271 31897 31903 "oldParser.ml" 1271 31897 31922
 type(
   unit
 )
-"oldParser.ml" 1260 31481 31485 "oldParser.ml" 1268 31671 31696
+"oldParser.ml" 1263 31707 31711 "oldParser.ml" 1271 31897 31922
 type(
   unit
 )
 type(
   unit
 )
-"oldParser.ml" 1271 31735 31743 "oldParser.ml" 1271 31735 31746
+"oldParser.ml" 1274 31961 31969 "oldParser.ml" 1274 31961 31972
 type(
   Kind1.Types.il_formula
 )
 ident(
-  def fd' "oldParser.ml" 1287 32084 32088 "oldParser.ml" 1444 36439 36446
+  def fd' "oldParser.ml" 1290 32310 32314 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1274 31786 31796 "oldParser.ml" 1274 31786 31830
+"oldParser.ml" 1277 32012 32022 "oldParser.ml" 1277 32012 32056
 type(
   int ref
 )
 ident(
   ext_ref Kind1.OldFlags.aggressive_inlining
 )
-"oldParser.ml" 1274 31786 31795 "oldParser.ml" 1274 31786 31830
+"oldParser.ml" 1277 32012 32021 "oldParser.ml" 1277 32012 32056
 type(
   int
 )
@@ -15522,138 +15683,138 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1274 31786 31831 "oldParser.ml" 1274 31786 31832
+"oldParser.ml" 1277 32012 32057 "oldParser.ml" 1277 32012 32058
 type(
   int -> int -> bool
 )
 ident(
   ext_ref Pervasives.( > )
 )
-"oldParser.ml" 1274 31786 31833 "oldParser.ml" 1274 31786 31834
+"oldParser.ml" 1277 32012 32059 "oldParser.ml" 1277 32012 32060
 type(
   int
 )
-"oldParser.ml" 1274 31786 31795 "oldParser.ml" 1274 31786 31834
+"oldParser.ml" 1277 32012 32021 "oldParser.ml" 1277 32012 32060
 type(
   bool
 )
-"oldParser.ml" 1277 31907 31915 "oldParser.ml" 1277 31907 31945
+"oldParser.ml" 1280 32133 32141 "oldParser.ml" 1280 32133 32171
 type(
   Kind1.Types.il_formula -> Kind1.Types.idtype list -> Kind1.Types.il_formula
 )
 ident(
   ext_ref Kind1.Inlining.inlined_formula
 )
-"oldParser.ml" 1277 31907 31946 "oldParser.ml" 1277 31907 31948
+"oldParser.ml" 1280 32133 32172 "oldParser.ml" 1280 32133 32174
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref fd "oldParser.ml" 1255 31296 31304 "oldParser.ml" 1255 31296 31306
+  int_ref fd "oldParser.ml" 1258 31522 31530 "oldParser.ml" 1258 31522 31532
 )
-"oldParser.ml" 1277 31907 31950 "oldParser.ml" 1277 31907 31976
+"oldParser.ml" 1280 32133 32176 "oldParser.ml" 1280 32133 32202
 type(
   Kind1.Types.typed_stream -> Kind1.Types.idtype list
 )
 ident(
   ext_ref Kind1.Coi.property_id_list
 )
-"oldParser.ml" 1277 31907 31977 "oldParser.ml" 1277 31907 31978
+"oldParser.ml" 1280 32133 32203 "oldParser.ml" 1280 32133 32204
 type(
   Kind1.Types.typed_stream
 )
 ident(
-  int_ref p "oldParser.ml" 1235 30797 30808 "oldParser.ml" 1235 30797 30809
+  int_ref p "oldParser.ml" 1238 31023 31034 "oldParser.ml" 1238 31023 31035
 )
-"oldParser.ml" 1277 31907 31950 "oldParser.ml" 1277 31907 31978
+"oldParser.ml" 1280 32133 32176 "oldParser.ml" 1280 32133 32204
 call(
   stack
 )
 type(
   Kind1.Types.idtype list
 )
-"oldParser.ml" 1277 31907 31915 "oldParser.ml" 1277 31907 31979
+"oldParser.ml" 1280 32133 32141 "oldParser.ml" 1280 32133 32205
 call(
   stack
 )
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1282 32021 32029 "oldParser.ml" 1282 32021 32031
+"oldParser.ml" 1285 32247 32255 "oldParser.ml" 1285 32247 32257
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref fd "oldParser.ml" 1255 31296 31304 "oldParser.ml" 1255 31296 31306
+  int_ref fd "oldParser.ml" 1258 31522 31530 "oldParser.ml" 1258 31522 31532
 )
-"oldParser.ml" 1274 31786 31792 "oldParser.ml" 1282 32021 32031
+"oldParser.ml" 1277 32012 32018 "oldParser.ml" 1285 32247 32257
 type(
   Kind1.Types.il_formula
 )
-"oldParser.ml" 1287 32084 32088 "oldParser.ml" 1287 32084 32117
+"oldParser.ml" 1290 32310 32314 "oldParser.ml" 1290 32310 32343
 type(
   Kind1.Types.il_formula -> unit
 )
 ident(
   ext_ref Kind1.Coi.examine_assignments
 )
-"oldParser.ml" 1287 32084 32118 "oldParser.ml" 1287 32084 32121
+"oldParser.ml" 1290 32310 32344 "oldParser.ml" 1290 32310 32347
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref fd' "oldParser.ml" 1271 31735 31743 "oldParser.ml" 1271 31735 31746
+  int_ref fd' "oldParser.ml" 1274 31961 31969 "oldParser.ml" 1274 31961 31972
 )
-"oldParser.ml" 1287 32084 32088 "oldParser.ml" 1287 32084 32121
+"oldParser.ml" 1290 32310 32314 "oldParser.ml" 1290 32310 32347
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1291 32209 32217 "oldParser.ml" 1291 32209 32222
+"oldParser.ml" 1294 32435 32443 "oldParser.ml" 1294 32435 32448
 type(
   Kind1.Types.idtype list
 )
 ident(
-  def vrefs "oldParser.ml" 1294 32292 32296 "oldParser.ml" 1444 36439 36446
+  def vrefs "oldParser.ml" 1297 32518 32522 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1291 32209 32225 "oldParser.ml" 1291 32209 32251
+"oldParser.ml" 1294 32435 32451 "oldParser.ml" 1294 32435 32477
 type(
   Kind1.Types.typed_stream -> Kind1.Types.idtype list
 )
 ident(
   ext_ref Kind1.Coi.property_id_list
 )
-"oldParser.ml" 1291 32209 32252 "oldParser.ml" 1291 32209 32253
+"oldParser.ml" 1294 32435 32478 "oldParser.ml" 1294 32435 32479
 type(
   Kind1.Types.typed_stream
 )
 ident(
-  int_ref p "oldParser.ml" 1235 30797 30808 "oldParser.ml" 1235 30797 30809
+  int_ref p "oldParser.ml" 1238 31023 31034 "oldParser.ml" 1238 31023 31035
 )
-"oldParser.ml" 1291 32209 32225 "oldParser.ml" 1291 32209 32253
+"oldParser.ml" 1294 32435 32451 "oldParser.ml" 1294 32435 32479
 call(
   stack
 )
 type(
   Kind1.Types.idtype list
 )
-"oldParser.ml" 1294 32292 32300 "oldParser.ml" 1294 32292 32306
+"oldParser.ml" 1297 32518 32526 "oldParser.ml" 1297 32518 32532
 type(
   Kind1.Types.idtype list
 )
 ident(
-  def vrefs' "oldParser.ml" 1311 32702 32706 "oldParser.ml" 1444 36439 36446
+  def vrefs' "oldParser.ml" 1314 32928 32932 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1297 32353 32363 "oldParser.ml" 1297 32353 32399
+"oldParser.ml" 1300 32579 32589 "oldParser.ml" 1300 32579 32625
 type(
   bool ref
 )
 ident(
   ext_ref Kind1.OldFlags.pre_refine_state_vars
 )
-"oldParser.ml" 1297 32353 32362 "oldParser.ml" 1297 32353 32399
+"oldParser.ml" 1300 32579 32588 "oldParser.ml" 1300 32579 32625
 type(
   bool
 )
@@ -15663,7 +15824,7 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1300 32448 32456 "oldParser.ml" 1300 32448 32471
+"oldParser.ml" 1303 32674 32682 "oldParser.ml" 1303 32674 32697
 type(
   Kind1.Types.idtype list ->
   Kind1.Types.idtype list -> Kind1.Types.idtype list
@@ -15671,97 +15832,97 @@ type(
 ident(
   ext_ref List.rev_append
 )
-"oldParser.ml" 1300 32448 32472 "oldParser.ml" 1300 32448 32477
+"oldParser.ml" 1303 32674 32698 "oldParser.ml" 1303 32674 32703
 type(
   Kind1.Types.idtype list
 )
 ident(
-  int_ref vrefs "oldParser.ml" 1291 32209 32217 "oldParser.ml" 1291 32209 32222
+  int_ref vrefs "oldParser.ml" 1294 32435 32443 "oldParser.ml" 1294 32435 32448
 )
-"oldParser.ml" 1300 32448 32479 "oldParser.ml" 1300 32448 32512
+"oldParser.ml" 1303 32674 32705 "oldParser.ml" 1303 32674 32738
 type(
   unit -> Kind1.Types.idtype list
 )
 ident(
   ext_ref Kind1.Lus_convert.state_vars_list
 )
-"oldParser.ml" 1300 32448 32512 "oldParser.ml" 1300 32448 32514
+"oldParser.ml" 1303 32674 32738 "oldParser.ml" 1303 32674 32740
 type(
   unit
 )
-"oldParser.ml" 1300 32448 32479 "oldParser.ml" 1300 32448 32514
+"oldParser.ml" 1303 32674 32705 "oldParser.ml" 1303 32674 32740
 call(
   stack
 )
 type(
   Kind1.Types.idtype list
 )
-"oldParser.ml" 1300 32448 32456 "oldParser.ml" 1300 32448 32515
+"oldParser.ml" 1303 32674 32682 "oldParser.ml" 1303 32674 32741
 call(
   stack
 )
 type(
   Kind1.Types.idtype list
 )
-"oldParser.ml" 1305 32572 32580 "oldParser.ml" 1305 32572 32585
+"oldParser.ml" 1308 32798 32806 "oldParser.ml" 1308 32798 32811
 type(
   Kind1.Types.idtype list
 )
 ident(
-  int_ref vrefs "oldParser.ml" 1291 32209 32217 "oldParser.ml" 1291 32209 32222
+  int_ref vrefs "oldParser.ml" 1294 32435 32443 "oldParser.ml" 1294 32435 32448
 )
-"oldParser.ml" 1297 32353 32359 "oldParser.ml" 1305 32572 32585
+"oldParser.ml" 1300 32579 32585 "oldParser.ml" 1308 32798 32811
 type(
   Kind1.Types.idtype list
 )
-"oldParser.ml" 1311 32702 32706 "oldParser.ml" 1311 32702 32742
+"oldParser.ml" 1314 32928 32932 "oldParser.ml" 1314 32928 32968
 type(
   Kind1.Types.idtype list -> int -> int -> unit
 )
 ident(
   ext_ref Kind1.Coi.calculate_all_dependencies
 )
-"oldParser.ml" 1311 32702 32743 "oldParser.ml" 1311 32702 32749
+"oldParser.ml" 1314 32928 32969 "oldParser.ml" 1314 32928 32975
 type(
   Kind1.Types.idtype list
 )
 ident(
-  int_ref vrefs' "oldParser.ml" 1294 32292 32300 "oldParser.ml" 1294 32292 32306
+  int_ref vrefs' "oldParser.ml" 1297 32518 32526 "oldParser.ml" 1297 32518 32532
 )
-"oldParser.ml" 1311 32702 32750 "oldParser.ml" 1311 32702 32751
+"oldParser.ml" 1314 32928 32976 "oldParser.ml" 1314 32928 32977
 type(
   int
 )
-"oldParser.ml" 1311 32702 32752 "oldParser.ml" 1311 32702 32760
+"oldParser.ml" 1314 32928 32978 "oldParser.ml" 1314 32928 32986
 type(
   int
 )
 ident(
-  int_ref maxdepth "oldParser.ml" 1258 31423 31431 "oldParser.ml" 1258 31423 31439
+  int_ref maxdepth "oldParser.ml" 1261 31649 31657 "oldParser.ml" 1261 31649 31665
 )
-"oldParser.ml" 1311 32702 32706 "oldParser.ml" 1311 32702 32760
+"oldParser.ml" 1314 32928 32932 "oldParser.ml" 1314 32928 32986
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1314 32786 32794 "oldParser.ml" 1314 32786 32799
+"oldParser.ml" 1317 33012 33020 "oldParser.ml" 1317 33012 33025
 type(
   (string * Term.t) list
 )
 ident(
-  def props "oldParser.ml" 1377 34477 34482 "oldParser.ml" 1444 36439 36446
+  def props "oldParser.ml" 1380 34703 34708 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1314 32786 32801 "oldParser.ml" 1314 32786 32802
+"oldParser.ml" 1317 33012 33027 "oldParser.ml" 1317 33012 33028
 type(
   int
 )
-"oldParser.ml" 1314 32786 32794 "oldParser.ml" 1314 32786 32802
+"oldParser.ml" 1317 33012 33020 "oldParser.ml" 1317 33012 33028
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1316 32807 32813 "oldParser.ml" 1316 32807 32827
+"oldParser.ml" 1319 33033 33039 "oldParser.ml" 1319 33033 33053
 type(
   ((string * Term.t) list * int ->
    Kind1.Types.idtype -> (string * Term.t) list * int) ->
@@ -15771,87 +15932,87 @@ type(
 ident(
   ext_ref List.fold_left
 )
-"oldParser.ml" 1318 32838 32857 "oldParser.ml" 1318 32838 32862
+"oldParser.ml" 1321 33064 33083 "oldParser.ml" 1321 33064 33088
 type(
   (string * Term.t) list
 )
 ident(
-  def accum "oldParser.ml" 1319 32871 32881 "oldParser.ml" 1349 33883 33934
+  def accum "oldParser.ml" 1322 33097 33107 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1318 32838 32864 "oldParser.ml" 1318 32838 32865
+"oldParser.ml" 1321 33064 33090 "oldParser.ml" 1321 33064 33091
 type(
   int
 )
 ident(
-  def i "oldParser.ml" 1319 32871 32881 "oldParser.ml" 1349 33883 33934
+  def i "oldParser.ml" 1322 33097 33107 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1318 32838 32857 "oldParser.ml" 1318 32838 32865
+"oldParser.ml" 1321 33064 33083 "oldParser.ml" 1321 33064 33091
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1319 32871 32890 "oldParser.ml" 1319 32871 32892
+"oldParser.ml" 1322 33097 33116 "oldParser.ml" 1322 33097 33118
 type(
   Kind1.Types.idtype
 )
 ident(
-  def id "oldParser.ml" 1322 32974 32986 "oldParser.ml" 1349 33883 33934
+  def id "oldParser.ml" 1325 33200 33212 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1322 32974 32990 "oldParser.ml" 1322 32974 32992
+"oldParser.ml" 1325 33200 33216 "oldParser.ml" 1325 33200 33218
 type(
   Kind1.Types.idtype
 )
 ident(
-  def nk "oldParser.ml" 1325 33109 33121 "oldParser.ml" 1349 33883 33934
+  def nk "oldParser.ml" 1328 33335 33347 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1322 32974 32995 "oldParser.ml" 1322 32974 33028
+"oldParser.ml" 1325 33200 33221 "oldParser.ml" 1325 33200 33254
 type(
   Kind1.Types.idtype -> Kind1.Types.idtype
 )
 ident(
   ext_ref Kind1.Tables.resolve_substitution
 )
-"oldParser.ml" 1322 32974 33029 "oldParser.ml" 1322 32974 33031
+"oldParser.ml" 1325 33200 33255 "oldParser.ml" 1325 33200 33257
 type(
   Kind1.Types.idtype
 )
 ident(
-  int_ref id "oldParser.ml" 1319 32871 32890 "oldParser.ml" 1319 32871 32892
+  int_ref id "oldParser.ml" 1322 33097 33116 "oldParser.ml" 1322 33097 33118
 )
-"oldParser.ml" 1322 32974 32995 "oldParser.ml" 1322 32974 33031
+"oldParser.ml" 1325 33200 33221 "oldParser.ml" 1325 33200 33257
 call(
   stack
 )
 type(
   Kind1.Types.idtype
 )
-"oldParser.ml" 1325 33109 33126 "oldParser.ml" 1325 33109 33127
+"oldParser.ml" 1328 33335 33352 "oldParser.ml" 1328 33335 33353
 type(
   Kind1.Types.node_id_t
 )
-"oldParser.ml" 1325 33109 33129 "oldParser.ml" 1325 33109 33130
+"oldParser.ml" 1328 33335 33355 "oldParser.ml" 1328 33335 33356
 type(
   string
 )
 ident(
-  def v "oldParser.ml" 1329 33236 33248 "oldParser.ml" 1349 33883 33934
+  def v "oldParser.ml" 1332 33462 33474 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1325 33109 33132 "oldParser.ml" 1325 33109 33133
+"oldParser.ml" 1328 33335 33358 "oldParser.ml" 1328 33335 33359
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def t "oldParser.ml" 1329 33236 33248 "oldParser.ml" 1349 33883 33934
+  def t "oldParser.ml" 1332 33462 33474 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1325 33109 33135 "oldParser.ml" 1325 33109 33136
+"oldParser.ml" 1328 33335 33361 "oldParser.ml" 1328 33335 33362
 type(
   Kind1.Types.varclass
 )
-"oldParser.ml" 1325 33109 33126 "oldParser.ml" 1325 33109 33136
+"oldParser.ml" 1328 33335 33352 "oldParser.ml" 1328 33335 33362
 type(
   Kind1.Types.node_id_t * string * Kind1.Types.lustre_type *
   Kind1.Types.varclass
 )
-"oldParser.ml" 1326 33141 33155 "oldParser.ml" 1326 33141 33185
+"oldParser.ml" 1329 33367 33381 "oldParser.ml" 1329 33367 33411
 type(
   Kind1.Types.idtype ->
   string ->
@@ -15861,18 +16022,18 @@ type(
 ident(
   ext_ref Kind1.Tables.safe_find_varinfo
 )
-"oldParser.ml" 1326 33141 33186 "oldParser.ml" 1326 33141 33188
+"oldParser.ml" 1329 33367 33412 "oldParser.ml" 1329 33367 33414
 type(
   Kind1.Types.idtype
 )
 ident(
-  int_ref nk "oldParser.ml" 1322 32974 32990 "oldParser.ml" 1322 32974 32992
+  int_ref nk "oldParser.ml" 1325 33200 33216 "oldParser.ml" 1325 33200 33218
 )
-"oldParser.ml" 1326 33141 33189 "oldParser.ml" 1326 33141 33206
+"oldParser.ml" 1329 33367 33415 "oldParser.ml" 1329 33367 33432
 type(
   string
 )
-"oldParser.ml" 1326 33141 33155 "oldParser.ml" 1326 33141 33206
+"oldParser.ml" 1329 33367 33381 "oldParser.ml" 1329 33367 33432
 call(
   stack
 )
@@ -15880,303 +16041,303 @@ type(
   Kind1.Types.node_id_t * string * Kind1.Types.lustre_type *
   Kind1.Types.varclass
 )
-"oldParser.ml" 1329 33236 33252 "oldParser.ml" 1329 33236 33253
+"oldParser.ml" 1332 33462 33478 "oldParser.ml" 1332 33462 33479
 type(
   Type.t
 )
 ident(
-  def k "oldParser.ml" 1342 33693 33705 "oldParser.ml" 1349 33883 33934
+  def k "oldParser.ml" 1345 33919 33931 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1329 33236 33262 "oldParser.ml" 1329 33236 33263
+"oldParser.ml" 1332 33462 33488 "oldParser.ml" 1332 33462 33489
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  int_ref t "oldParser.ml" 1325 33109 33132 "oldParser.ml" 1325 33109 33133
+  int_ref t "oldParser.ml" 1328 33335 33358 "oldParser.ml" 1328 33335 33359
 )
-"oldParser.ml" 1330 33270 33286 "oldParser.ml" 1330 33270 33304
+"oldParser.ml" 1333 33496 33512 "oldParser.ml" 1333 33496 33530
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1330 33270 33308 "oldParser.ml" 1330 33270 33319
+"oldParser.ml" 1333 33496 33534 "oldParser.ml" 1333 33496 33545
 type(
   Type.t
 )
 ident(
   ext_ref Type.t_bool
 )
-"oldParser.ml" 1331 33320 33336 "oldParser.ml" 1331 33320 33353
+"oldParser.ml" 1334 33546 33562 "oldParser.ml" 1334 33546 33579
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1331 33320 33357 "oldParser.ml" 1331 33320 33367
+"oldParser.ml" 1334 33546 33583 "oldParser.ml" 1334 33546 33593
 type(
   Type.t
 )
 ident(
   ext_ref Type.t_int
 )
-"oldParser.ml" 1332 33368 33384 "oldParser.ml" 1332 33368 33402
+"oldParser.ml" 1335 33594 33610 "oldParser.ml" 1335 33594 33628
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1332 33368 33406 "oldParser.ml" 1332 33368 33417
+"oldParser.ml" 1335 33594 33632 "oldParser.ml" 1335 33594 33643
 type(
   Type.t
 )
 ident(
   ext_ref Type.t_real
 )
-"oldParser.ml" 1333 33418 33434 "oldParser.ml" 1333 33418 33435
+"oldParser.ml" 1336 33644 33660 "oldParser.ml" 1336 33644 33661
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1333 33418 33439 "oldParser.ml" 1333 33418 33450
+"oldParser.ml" 1336 33644 33665 "oldParser.ml" 1336 33644 33676
 type(
   Type.t
 )
 ident(
   ext_ref Type.t_bool
 )
-"oldParser.ml" 1329 33236 33256 "oldParser.ml" 1333 33418 33450
+"oldParser.ml" 1332 33462 33482 "oldParser.ml" 1336 33644 33676
 type(
   Type.t
 )
-"oldParser.ml" 1342 33693 33709 "oldParser.ml" 1342 33693 33711
+"oldParser.ml" 1345 33919 33935 "oldParser.ml" 1345 33919 33937
 type(
   StateVar.t
 )
 ident(
-  def sv "oldParser.ml" 1344 33749 33761 "oldParser.ml" 1349 33883 33934
+  def sv "oldParser.ml" 1347 33975 33987 "oldParser.ml" 1352 34109 34160
 )
-"oldParser.ml" 1342 33693 33714 "oldParser.ml" 1342 33693 33735
+"oldParser.ml" 1345 33919 33940 "oldParser.ml" 1345 33919 33961
 type(
   string -> bool -> Type.t -> StateVar.t
 )
 ident(
   ext_ref StateVar.mk_state_var
 )
-"oldParser.ml" 1342 33693 33736 "oldParser.ml" 1342 33693 33737
+"oldParser.ml" 1345 33919 33962 "oldParser.ml" 1345 33919 33963
 type(
   string
 )
 ident(
-  int_ref v "oldParser.ml" 1325 33109 33129 "oldParser.ml" 1325 33109 33130
+  int_ref v "oldParser.ml" 1328 33335 33355 "oldParser.ml" 1328 33335 33356
 )
-"oldParser.ml" 1342 33693 33738 "oldParser.ml" 1342 33693 33742
+"oldParser.ml" 1345 33919 33964 "oldParser.ml" 1345 33919 33968
 type(
   bool
 )
-"oldParser.ml" 1342 33693 33743 "oldParser.ml" 1342 33693 33744
+"oldParser.ml" 1345 33919 33969 "oldParser.ml" 1345 33919 33970
 type(
   Type.t
 )
 ident(
-  int_ref k "oldParser.ml" 1329 33236 33252 "oldParser.ml" 1329 33236 33253
+  int_ref k "oldParser.ml" 1332 33462 33478 "oldParser.ml" 1332 33462 33479
 )
-"oldParser.ml" 1342 33693 33714 "oldParser.ml" 1342 33693 33744
+"oldParser.ml" 1345 33919 33940 "oldParser.ml" 1345 33919 33970
 call(
   stack
 )
 type(
   StateVar.t
 )
-"oldParser.ml" 1344 33749 33765 "oldParser.ml" 1344 33749 33766
+"oldParser.ml" 1347 33975 33991 "oldParser.ml" 1347 33975 33992
 type(
   Term.t
 )
 ident(
-  def p "oldParser.ml" 1349 33883 33896 "oldParser.ml" 1349 33883 33933
+  def p "oldParser.ml" 1352 34109 34122 "oldParser.ml" 1352 34109 34159
 )
-"oldParser.ml" 1345 33770 33784 "oldParser.ml" 1345 33770 33795
+"oldParser.ml" 1348 33996 34010 "oldParser.ml" 1348 33996 34021
 type(
   Var.t -> Term.t
 )
 ident(
   ext_ref Term.mk_var
 )
-"oldParser.ml" 1346 33797 33814 "oldParser.ml" 1346 33797 33839
+"oldParser.ml" 1349 34023 34040 "oldParser.ml" 1349 34023 34065
 type(
   StateVar.t -> Lib.numeral -> Var.t
 )
 ident(
   ext_ref Var.mk_state_var_instance
 )
-"oldParser.ml" 1346 33797 33840 "oldParser.ml" 1346 33797 33842
+"oldParser.ml" 1349 34023 34066 "oldParser.ml" 1349 34023 34068
 type(
   StateVar.t
 )
 ident(
-  int_ref sv "oldParser.ml" 1342 33693 33709 "oldParser.ml" 1342 33693 33711
+  int_ref sv "oldParser.ml" 1345 33919 33935 "oldParser.ml" 1345 33919 33937
 )
-"oldParser.ml" 1346 33797 33844 "oldParser.ml" 1346 33797 33862
+"oldParser.ml" 1349 34023 34070 "oldParser.ml" 1349 34023 34088
 type(
   int -> Lib.numeral
 )
 ident(
   ext_ref Lib.numeral_of_int
 )
-"oldParser.ml" 1346 33797 33863 "oldParser.ml" 1346 33797 33864
+"oldParser.ml" 1349 34023 34089 "oldParser.ml" 1349 34023 34090
 type(
   int
 )
-"oldParser.ml" 1346 33797 33844 "oldParser.ml" 1346 33797 33864
+"oldParser.ml" 1349 34023 34070 "oldParser.ml" 1349 34023 34090
 call(
   stack
 )
 type(
   Lib.numeral
 )
-"oldParser.ml" 1346 33797 33814 "oldParser.ml" 1346 33797 33865
+"oldParser.ml" 1349 34023 34040 "oldParser.ml" 1349 34023 34091
 call(
   stack
 )
 type(
   Var.t
 )
-"oldParser.ml" 1345 33770 33784 "oldParser.ml" 1346 33797 33866
+"oldParser.ml" 1348 33996 34010 "oldParser.ml" 1349 34023 34092
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1349 33883 33897 "oldParser.ml" 1349 33883 33910
+"oldParser.ml" 1352 34109 34123 "oldParser.ml" 1352 34109 34136
 type(
   int -> string
 )
 ident(
   ext_ref Pervasives.string_of_int
 )
-"oldParser.ml" 1349 33883 33911 "oldParser.ml" 1349 33883 33912
+"oldParser.ml" 1352 34109 34137 "oldParser.ml" 1352 34109 34138
 type(
   int
 )
 ident(
-  int_ref i "oldParser.ml" 1318 32838 32864 "oldParser.ml" 1318 32838 32865
+  int_ref i "oldParser.ml" 1321 33064 33090 "oldParser.ml" 1321 33064 33091
 )
-"oldParser.ml" 1349 33883 33897 "oldParser.ml" 1349 33883 33912
+"oldParser.ml" 1352 34109 34123 "oldParser.ml" 1352 34109 34138
 call(
   stack
 )
 type(
   string
 )
-"oldParser.ml" 1349 33883 33914 "oldParser.ml" 1349 33883 33915
+"oldParser.ml" 1352 34109 34140 "oldParser.ml" 1352 34109 34141
 type(
   Term.t
 )
 ident(
-  int_ref p "oldParser.ml" 1344 33749 33765 "oldParser.ml" 1344 33749 33766
+  int_ref p "oldParser.ml" 1347 33975 33991 "oldParser.ml" 1347 33975 33992
 )
-"oldParser.ml" 1349 33883 33897 "oldParser.ml" 1349 33883 33915
+"oldParser.ml" 1352 34109 34123 "oldParser.ml" 1352 34109 34141
 type(
   string * Term.t
 )
-"oldParser.ml" 1349 33883 33920 "oldParser.ml" 1349 33883 33925
+"oldParser.ml" 1352 34109 34146 "oldParser.ml" 1352 34109 34151
 type(
   (string * Term.t) list
 )
 ident(
-  int_ref accum "oldParser.ml" 1318 32838 32857 "oldParser.ml" 1318 32838 32862
+  int_ref accum "oldParser.ml" 1321 33064 33083 "oldParser.ml" 1321 33064 33088
 )
-"oldParser.ml" 1349 33883 33896 "oldParser.ml" 1349 33883 33925
+"oldParser.ml" 1352 34109 34122 "oldParser.ml" 1352 34109 34151
 type(
   (string * Term.t) list
 )
-"oldParser.ml" 1349 33883 33927 "oldParser.ml" 1349 33883 33931
+"oldParser.ml" 1352 34109 34153 "oldParser.ml" 1352 34109 34157
 type(
   int -> int
 )
 ident(
   ext_ref Pervasives.succ
 )
-"oldParser.ml" 1349 33883 33932 "oldParser.ml" 1349 33883 33933
+"oldParser.ml" 1352 34109 34158 "oldParser.ml" 1352 34109 34159
 type(
   int
 )
 ident(
-  int_ref i "oldParser.ml" 1318 32838 32864 "oldParser.ml" 1318 32838 32865
+  int_ref i "oldParser.ml" 1321 33064 33090 "oldParser.ml" 1321 33064 33091
 )
-"oldParser.ml" 1349 33883 33927 "oldParser.ml" 1349 33883 33933
+"oldParser.ml" 1352 34109 34153 "oldParser.ml" 1352 34109 34159
 type(
   int
 )
-"oldParser.ml" 1349 33883 33896 "oldParser.ml" 1349 33883 33933
+"oldParser.ml" 1352 34109 34122 "oldParser.ml" 1352 34109 34159
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1344 33749 33761 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1347 33975 33987 "oldParser.ml" 1352 34109 34160
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1342 33693 33705 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1345 33919 33931 "oldParser.ml" 1352 34109 34160
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1329 33236 33248 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1332 33462 33474 "oldParser.ml" 1352 34109 34160
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1325 33109 33121 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1328 33335 33347 "oldParser.ml" 1352 34109 34160
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1322 32974 32986 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1325 33200 33212 "oldParser.ml" 1352 34109 34160
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1319 32871 32881 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1322 33097 33107 "oldParser.ml" 1352 34109 34160
 type(
   Kind1.Types.idtype -> (string * Term.t) list * int
 )
-"oldParser.ml" 1318 32838 32847 "oldParser.ml" 1349 33883 33934
+"oldParser.ml" 1321 33064 33073 "oldParser.ml" 1352 34109 34160
 type(
   (string * Term.t) list * int ->
   Kind1.Types.idtype -> (string * Term.t) list * int
 )
-"oldParser.ml" 1352 33954 33963 "oldParser.ml" 1352 33954 33965
+"oldParser.ml" 1355 34180 34189 "oldParser.ml" 1355 34180 34191
 type(
   (string * Term.t) list
 )
-"oldParser.ml" 1352 33954 33967 "oldParser.ml" 1352 33954 33968
+"oldParser.ml" 1355 34180 34193 "oldParser.ml" 1355 34180 34194
 type(
   int
 )
-"oldParser.ml" 1352 33954 33963 "oldParser.ml" 1352 33954 33968
+"oldParser.ml" 1355 34180 34189 "oldParser.ml" 1355 34180 34194
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1353 33970 33978 "oldParser.ml" 1353 33970 33984
+"oldParser.ml" 1356 34196 34204 "oldParser.ml" 1356 34196 34210
 type(
   Kind1.Types.idtype list
 )
 ident(
-  int_ref vrefs' "oldParser.ml" 1294 32292 32300 "oldParser.ml" 1294 32292 32306
+  int_ref vrefs' "oldParser.ml" 1297 32518 32526 "oldParser.ml" 1297 32518 32532
 )
-"oldParser.ml" 1316 32807 32813 "oldParser.ml" 1353 33970 33984
+"oldParser.ml" 1319 33033 33039 "oldParser.ml" 1356 34196 34210
 call(
   stack
 )
 type(
   (string * Term.t) list * int
 )
-"oldParser.ml" 1377 34477 34486 "oldParser.ml" 1377 34477 34487
+"oldParser.ml" 1380 34703 34712 "oldParser.ml" 1380 34703 34713
 type(
   Term.t list
 )
-"oldParser.ml" 1377 34477 34489 "oldParser.ml" 1377 34477 34505
+"oldParser.ml" 1380 34703 34715 "oldParser.ml" 1380 34703 34731
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  def init_assignments "oldParser.ml" 1380 34633 34638 "oldParser.ml" 1444 36439 36446
+  def init_assignments "oldParser.ml" 1383 34859 34864 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1377 34477 34486 "oldParser.ml" 1377 34477 34505
+"oldParser.ml" 1380 34703 34712 "oldParser.ml" 1380 34703 34731
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1377 34477 34508 "oldParser.ml" 1377 34477 34534
+"oldParser.ml" 1380 34703 34734 "oldParser.ml" 1380 34703 34760
 type(
   bool ->
   Term.t list ->
@@ -16184,60 +16345,60 @@ type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments_of_il_formulas "oldParser.ml" 1179 29373 29381 "oldParser.ml" 1179 29373 29407
+  int_ref assignments_of_il_formulas "oldParser.ml" 1182 29599 29607 "oldParser.ml" 1182 29599 29633
 )
-"oldParser.ml" 1377 34477 34535 "oldParser.ml" 1377 34477 34539
+"oldParser.ml" 1380 34703 34761 "oldParser.ml" 1380 34703 34765
 type(
   bool
 )
-"oldParser.ml" 1377 34477 34540 "oldParser.ml" 1377 34477 34542
+"oldParser.ml" 1380 34703 34766 "oldParser.ml" 1380 34703 34768
 type(
   Term.t list
 )
-"oldParser.ml" 1377 34477 34543 "oldParser.ml" 1377 34477 34545
+"oldParser.ml" 1380 34703 34769 "oldParser.ml" 1380 34703 34771
 type(
   (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1377 34477 34547 "oldParser.ml" 1377 34477 34550
+"oldParser.ml" 1380 34703 34773 "oldParser.ml" 1380 34703 34776
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref fd' "oldParser.ml" 1271 31735 31743 "oldParser.ml" 1271 31735 31746
+  int_ref fd' "oldParser.ml" 1274 31961 31969 "oldParser.ml" 1274 31961 31972
 )
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1377 34477 34546 "oldParser.ml" 1377 34477 34551
+"oldParser.ml" 1380 34703 34772 "oldParser.ml" 1380 34703 34777
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1377 34477 34508 "oldParser.ml" 1377 34477 34551
+"oldParser.ml" 1380 34703 34734 "oldParser.ml" 1380 34703 34777
 call(
   stack
 )
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1380 34633 34642 "oldParser.ml" 1380 34633 34652
+"oldParser.ml" 1383 34859 34868 "oldParser.ml" 1383 34859 34878
 type(
   Term.t list
 )
 ident(
-  def invariants "oldParser.ml" 1385 34779 34783 "oldParser.ml" 1444 36439 36446
+  def invariants "oldParser.ml" 1388 35005 35009 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1380 34633 34654 "oldParser.ml" 1380 34633 34671
+"oldParser.ml" 1383 34859 34880 "oldParser.ml" 1383 34859 34897
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  def trans_assignments "oldParser.ml" 1385 34779 34783 "oldParser.ml" 1444 36439 36446
+  def trans_assignments "oldParser.ml" 1388 35005 35009 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1380 34633 34642 "oldParser.ml" 1380 34633 34671
+"oldParser.ml" 1383 34859 34868 "oldParser.ml" 1383 34859 34897
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1381 34675 34682 "oldParser.ml" 1381 34675 34708
+"oldParser.ml" 1384 34901 34908 "oldParser.ml" 1384 34901 34934
 type(
   bool ->
   Term.t list ->
@@ -16245,89 +16406,89 @@ type(
   Kind1.Types.il_formula list -> Term.t list * (StateVar.t * Term.t) list
 )
 ident(
-  int_ref assignments_of_il_formulas "oldParser.ml" 1179 29373 29381 "oldParser.ml" 1179 29373 29407
+  int_ref assignments_of_il_formulas "oldParser.ml" 1182 29599 29607 "oldParser.ml" 1182 29599 29633
 )
-"oldParser.ml" 1381 34675 34709 "oldParser.ml" 1381 34675 34714
+"oldParser.ml" 1384 34901 34935 "oldParser.ml" 1384 34901 34940
 type(
   bool
 )
-"oldParser.ml" 1381 34675 34715 "oldParser.ml" 1381 34675 34717
+"oldParser.ml" 1384 34901 34941 "oldParser.ml" 1384 34901 34943
 type(
   Term.t list
 )
-"oldParser.ml" 1381 34675 34718 "oldParser.ml" 1381 34675 34720
+"oldParser.ml" 1384 34901 34944 "oldParser.ml" 1384 34901 34946
 type(
   (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1381 34675 34722 "oldParser.ml" 1381 34675 34725
+"oldParser.ml" 1384 34901 34948 "oldParser.ml" 1384 34901 34951
 type(
   Kind1.Types.il_formula
 )
 ident(
-  int_ref fd' "oldParser.ml" 1271 31735 31743 "oldParser.ml" 1271 31735 31746
+  int_ref fd' "oldParser.ml" 1274 31961 31969 "oldParser.ml" 1274 31961 31972
 )
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1381 34675 34721 "oldParser.ml" 1381 34675 34726
+"oldParser.ml" 1384 34901 34947 "oldParser.ml" 1384 34901 34952
 type(
   Kind1.Types.il_formula list
 )
-"oldParser.ml" 1381 34675 34682 "oldParser.ml" 1381 34675 34726
+"oldParser.ml" 1384 34901 34908 "oldParser.ml" 1384 34901 34952
 call(
   stack
 )
 type(
   Term.t list * (StateVar.t * Term.t) list
 )
-"oldParser.ml" 1385 34779 34787 "oldParser.ml" 1385 34779 34798
+"oldParser.ml" 1388 35005 35013 "oldParser.ml" 1388 35005 35024
 type(
   Term.t
 )
 ident(
-  def assert_term "oldParser.ml" 1426 35767 35771 "oldParser.ml" 1444 36439 36446
+  def assert_term "oldParser.ml" 1429 35993 35997 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1388 34829 34841 "oldParser.ml" 1388 34829 34880
+"oldParser.ml" 1391 35055 35067 "oldParser.ml" 1391 35055 35106
 type(
   unit -> Kind1.Types.il_expression option
 )
 ident(
   ext_ref Kind1.Lus_assertions.get_assertion_term
 )
-"oldParser.ml" 1388 34829 34881 "oldParser.ml" 1388 34829 34883
+"oldParser.ml" 1391 35055 35107 "oldParser.ml" 1391 35055 35109
 type(
   unit
 )
-"oldParser.ml" 1388 34829 34841 "oldParser.ml" 1388 34829 34883
+"oldParser.ml" 1391 35055 35067 "oldParser.ml" 1391 35055 35109
 call(
   stack
 )
 type(
   Kind1.Types.il_expression option
 )
-"oldParser.ml" 1391 34918 34928 "oldParser.ml" 1391 34918 34932
+"oldParser.ml" 1394 35144 35154 "oldParser.ml" 1394 35144 35158
 type(
   Kind1.Types.il_expression option
 )
-"oldParser.ml" 1391 34918 34936 "oldParser.ml" 1391 34918 34947
+"oldParser.ml" 1394 35144 35162 "oldParser.ml" 1394 35144 35173
 type(
   Term.t
 )
 ident(
   ext_ref Term.t_true
 )
-"oldParser.ml" 1394 34982 34997 "oldParser.ml" 1394 34982 34998
+"oldParser.ml" 1397 35208 35223 "oldParser.ml" 1397 35208 35224
 type(
   Kind1.Types.il_expression
 )
 ident(
-  def a "oldParser.ml" 1402 35206 35216 "oldParser.ml" 1402 35206 35259
+  def a "oldParser.ml" 1405 35432 35442 "oldParser.ml" 1405 35432 35485
 )
-"oldParser.ml" 1394 34982 34992 "oldParser.ml" 1394 34982 34998
+"oldParser.ml" 1397 35208 35218 "oldParser.ml" 1397 35208 35224
 type(
   Kind1.Types.il_expression option
 )
-"oldParser.ml" 1402 35206 35216 "oldParser.ml" 1402 35206 35237
+"oldParser.ml" 1405 35432 35442 "oldParser.ml" 1405 35432 35463
 type(
   bool ->
   Kind1.Types.lustre_type option * Kind1.Types.il_expression -> Term.t
@@ -16335,48 +16496,48 @@ type(
 ident(
   int_ref il_expression_to_term "oldParser.ml" 584 13792 13800 "oldParser.ml" 584 13792 13821
 )
-"oldParser.ml" 1402 35206 35238 "oldParser.ml" 1402 35206 35242
+"oldParser.ml" 1405 35432 35464 "oldParser.ml" 1405 35432 35468
 type(
   bool
 )
-"oldParser.ml" 1402 35206 35249 "oldParser.ml" 1402 35206 35255
+"oldParser.ml" 1405 35432 35475 "oldParser.ml" 1405 35432 35481
 type(
   Kind1.Types.lustre_type
 )
-"oldParser.ml" 1402 35206 35244 "oldParser.ml" 1402 35206 35255
+"oldParser.ml" 1405 35432 35470 "oldParser.ml" 1405 35432 35481
 type(
   Kind1.Types.lustre_type option
 )
-"oldParser.ml" 1402 35206 35257 "oldParser.ml" 1402 35206 35258
+"oldParser.ml" 1405 35432 35483 "oldParser.ml" 1405 35432 35484
 type(
   Kind1.Types.il_expression
 )
 ident(
-  int_ref a "oldParser.ml" 1394 34982 34997 "oldParser.ml" 1394 34982 34998
+  int_ref a "oldParser.ml" 1397 35208 35223 "oldParser.ml" 1397 35208 35224
 )
-"oldParser.ml" 1402 35206 35244 "oldParser.ml" 1402 35206 35258
+"oldParser.ml" 1405 35432 35470 "oldParser.ml" 1405 35432 35484
 type(
   Kind1.Types.lustre_type option * Kind1.Types.il_expression
 )
-"oldParser.ml" 1402 35206 35216 "oldParser.ml" 1402 35206 35259
+"oldParser.ml" 1405 35432 35442 "oldParser.ml" 1405 35432 35485
 call(
   stack
 )
 type(
   Term.t
 )
-"oldParser.ml" 1388 34829 34835 "oldParser.ml" 1402 35206 35259
+"oldParser.ml" 1391 35055 35061 "oldParser.ml" 1405 35432 35485
 type(
   Term.t
 )
-"oldParser.ml" 1426 35767 35775 "oldParser.ml" 1426 35767 35779
+"oldParser.ml" 1429 35993 36001 "oldParser.ml" 1429 35993 36005
 type(
   StateVar.t list
 )
 ident(
-  def vars "oldParser.ml" 1429 35861 35865 "oldParser.ml" 1444 36439 36446
+  def vars "oldParser.ml" 1432 36087 36091 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1426 35767 35782 "oldParser.ml" 1426 35767 35795
+"oldParser.ml" 1429 35993 36008 "oldParser.ml" 1429 35993 36021
 type(
   (StateVar.t -> StateVar.t list -> StateVar.t list) ->
   StateVar.t list -> StateVar.t list
@@ -16384,308 +16545,308 @@ type(
 ident(
   ext_ref StateVar.fold
 )
-"oldParser.ml" 1426 35767 35801 "oldParser.ml" 1426 35767 35802
+"oldParser.ml" 1429 35993 36027 "oldParser.ml" 1429 35993 36028
 type(
   StateVar.t
 )
 ident(
-  def v "oldParser.ml" 1426 35767 35803 "oldParser.ml" 1426 35767 35814
+  def v "oldParser.ml" 1429 35993 36029 "oldParser.ml" 1429 35993 36040
 )
-"oldParser.ml" 1426 35767 35803 "oldParser.ml" 1426 35767 35804
+"oldParser.ml" 1429 35993 36029 "oldParser.ml" 1429 35993 36030
 type(
   StateVar.t list
 )
 ident(
-  def a "oldParser.ml" 1426 35767 35808 "oldParser.ml" 1426 35767 35814
+  def a "oldParser.ml" 1429 35993 36034 "oldParser.ml" 1429 35993 36040
 )
-"oldParser.ml" 1426 35767 35808 "oldParser.ml" 1426 35767 35809
+"oldParser.ml" 1429 35993 36034 "oldParser.ml" 1429 35993 36035
 type(
   StateVar.t
 )
 ident(
-  int_ref v "oldParser.ml" 1426 35767 35801 "oldParser.ml" 1426 35767 35802
+  int_ref v "oldParser.ml" 1429 35993 36027 "oldParser.ml" 1429 35993 36028
 )
-"oldParser.ml" 1426 35767 35813 "oldParser.ml" 1426 35767 35814
+"oldParser.ml" 1429 35993 36039 "oldParser.ml" 1429 35993 36040
 type(
   StateVar.t list
 )
 ident(
-  int_ref a "oldParser.ml" 1426 35767 35803 "oldParser.ml" 1426 35767 35804
+  int_ref a "oldParser.ml" 1429 35993 36029 "oldParser.ml" 1429 35993 36030
 )
-"oldParser.ml" 1426 35767 35808 "oldParser.ml" 1426 35767 35814
+"oldParser.ml" 1429 35993 36034 "oldParser.ml" 1429 35993 36040
 type(
   StateVar.t list
 )
-"oldParser.ml" 1426 35767 35803 "oldParser.ml" 1426 35767 35814
+"oldParser.ml" 1429 35993 36029 "oldParser.ml" 1429 35993 36040
 type(
   StateVar.t list -> StateVar.t list
 )
-"oldParser.ml" 1426 35767 35801 "oldParser.ml" 1426 35767 35814
+"oldParser.ml" 1429 35993 36027 "oldParser.ml" 1429 35993 36040
 type(
   StateVar.t -> StateVar.t list -> StateVar.t list
 )
-"oldParser.ml" 1426 35767 35816 "oldParser.ml" 1426 35767 35818
+"oldParser.ml" 1429 35993 36042 "oldParser.ml" 1429 35993 36044
 type(
   StateVar.t list
 )
-"oldParser.ml" 1426 35767 35782 "oldParser.ml" 1426 35767 35818
+"oldParser.ml" 1429 35993 36008 "oldParser.ml" 1429 35993 36044
 call(
   stack
 )
 type(
   StateVar.t list
 )
-"oldParser.ml" 1429 35861 35869 "oldParser.ml" 1429 35861 35872
+"oldParser.ml" 1432 36087 36095 "oldParser.ml" 1432 36087 36098
 type(
   TransSys.t
 )
 ident(
-  def res "oldParser.ml" 1441 36332 36336 "oldParser.ml" 1444 36439 36446
+  def res "oldParser.ml" 1444 36558 36562 "oldParser.ml" 1447 36665 36672
 )
-"oldParser.ml" 1430 35875 35899 "oldParser.ml" 1430 35875 35915
+"oldParser.ml" 1433 36101 36125 "oldParser.ml" 1433 36101 36141
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref init_assignments "oldParser.ml" 1377 34477 34489 "oldParser.ml" 1377 34477 34505
+  int_ref init_assignments "oldParser.ml" 1380 34703 34715 "oldParser.ml" 1380 34703 34731
 )
-"oldParser.ml" 1431 35917 35943 "oldParser.ml" 1431 35917 35974
+"oldParser.ml" 1434 36143 36169 "oldParser.ml" 1434 36143 36200
 type(
   int -> Term.t StateVar.StateVarHashtbl.t
 )
 ident(
   ext_ref StateVar.StateVarHashtbl.create
 )
-"oldParser.ml" 1431 35917 35976 "oldParser.ml" 1431 35917 35987
+"oldParser.ml" 1434 36143 36202 "oldParser.ml" 1434 36143 36213
 type(
   (StateVar.t * Term.t) list -> int
 )
 ident(
   ext_ref List.length
 )
-"oldParser.ml" 1431 35917 35988 "oldParser.ml" 1431 35917 36005
+"oldParser.ml" 1434 36143 36214 "oldParser.ml" 1434 36143 36231
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref trans_assignments "oldParser.ml" 1380 34633 34654 "oldParser.ml" 1380 34633 34671
+  int_ref trans_assignments "oldParser.ml" 1383 34859 34880 "oldParser.ml" 1383 34859 34897
 )
-"oldParser.ml" 1431 35917 35976 "oldParser.ml" 1431 35917 36005
+"oldParser.ml" 1434 36143 36202 "oldParser.ml" 1434 36143 36231
 call(
   stack
 )
 type(
   int
 )
-"oldParser.ml" 1431 35917 35943 "oldParser.ml" 1431 35917 36006
+"oldParser.ml" 1434 36143 36169 "oldParser.ml" 1434 36143 36232
 call(
   stack
 )
 type(
   Term.t StateVar.StateVarHashtbl.t
 )
-"oldParser.ml" 1432 36008 36033 "oldParser.ml" 1432 36008 36035
+"oldParser.ml" 1435 36234 36259 "oldParser.ml" 1435 36234 36261
 type(
   (Term.t * (StateVar.t * Term.t) list) list
 )
-"oldParser.ml" 1433 36037 36062 "oldParser.ml" 1433 36037 36067
+"oldParser.ml" 1436 36263 36288 "oldParser.ml" 1436 36263 36293
 type(
   (string * Term.t) list
 )
 ident(
-  int_ref props "oldParser.ml" 1314 32786 32794 "oldParser.ml" 1314 32786 32799
+  int_ref props "oldParser.ml" 1317 33012 33020 "oldParser.ml" 1317 33012 33025
 )
-"oldParser.ml" 1434 36069 36095 "oldParser.ml" 1434 36069 36105
+"oldParser.ml" 1437 36295 36321 "oldParser.ml" 1437 36295 36331
 type(
   Term.t list
 )
 ident(
-  int_ref invariants "oldParser.ml" 1380 34633 34642 "oldParser.ml" 1380 34633 34652
+  int_ref invariants "oldParser.ml" 1383 34859 34868 "oldParser.ml" 1383 34859 34878
 )
-"oldParser.ml" 1435 36107 36138 "oldParser.ml" 1435 36107 36140
+"oldParser.ml" 1438 36333 36364 "oldParser.ml" 1438 36333 36366
 type(
   (string * Term.t) list
 )
-"oldParser.ml" 1436 36142 36175 "oldParser.ml" 1436 36142 36177
+"oldParser.ml" 1439 36368 36401 "oldParser.ml" 1439 36368 36403
 type(
   (string * Term.t) list
 )
-"oldParser.ml" 1437 36179 36209 "oldParser.ml" 1437 36179 36240
+"oldParser.ml" 1440 36405 36435 "oldParser.ml" 1440 36405 36466
 type(
   int -> StateVar.StateVarSet.t StateVar.StateVarHashtbl.t
 )
 ident(
   ext_ref StateVar.StateVarHashtbl.create
 )
-"oldParser.ml" 1437 36179 36242 "oldParser.ml" 1437 36179 36253
+"oldParser.ml" 1440 36405 36468 "oldParser.ml" 1440 36405 36479
 type(
   (StateVar.t * Term.t) list -> int
 )
 ident(
   ext_ref List.length
 )
-"oldParser.ml" 1437 36179 36254 "oldParser.ml" 1437 36179 36271
+"oldParser.ml" 1440 36405 36480 "oldParser.ml" 1440 36405 36497
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref trans_assignments "oldParser.ml" 1380 34633 34654 "oldParser.ml" 1380 34633 34671
+  int_ref trans_assignments "oldParser.ml" 1383 34859 34880 "oldParser.ml" 1383 34859 34897
 )
-"oldParser.ml" 1437 36179 36242 "oldParser.ml" 1437 36179 36271
+"oldParser.ml" 1440 36405 36468 "oldParser.ml" 1440 36405 36497
 call(
   stack
 )
 type(
   int
 )
-"oldParser.ml" 1437 36179 36209 "oldParser.ml" 1437 36179 36272
+"oldParser.ml" 1440 36405 36435 "oldParser.ml" 1440 36405 36498
 call(
   stack
 )
 type(
   StateVar.StateVarSet.t StateVar.StateVarHashtbl.t
 )
-"oldParser.ml" 1430 35875 35881 "oldParser.ml" 1437 36179 36274
+"oldParser.ml" 1433 36101 36107 "oldParser.ml" 1440 36405 36500
 type(
   TransSys.t
 )
-"oldParser.ml" 1441 36332 36336 "oldParser.ml" 1441 36332 36363
+"oldParser.ml" 1444 36558 36562 "oldParser.ml" 1444 36558 36589
 type(
   Term.t StateVar.StateVarHashtbl.t -> (StateVar.t * Term.t) list -> unit
 )
 ident(
   ext_ref TransSys.constr_of_def_list
 )
-"oldParser.ml" 1441 36332 36364 "oldParser.ml" 1441 36332 36367
+"oldParser.ml" 1444 36558 36590 "oldParser.ml" 1444 36558 36593
 type(
   TransSys.t
 )
 ident(
-  int_ref res "oldParser.ml" 1429 35861 35869 "oldParser.ml" 1429 35861 35872
+  int_ref res "oldParser.ml" 1432 36087 36095 "oldParser.ml" 1432 36087 36098
 )
-"oldParser.ml" 1441 36332 36364 "oldParser.ml" 1441 36332 36383
+"oldParser.ml" 1444 36558 36590 "oldParser.ml" 1444 36558 36609
 type(
   Term.t StateVar.StateVarHashtbl.t
 )
-"oldParser.ml" 1441 36332 36384 "oldParser.ml" 1441 36332 36401
+"oldParser.ml" 1444 36558 36610 "oldParser.ml" 1444 36558 36627
 type(
   (StateVar.t * Term.t) list
 )
 ident(
-  int_ref trans_assignments "oldParser.ml" 1380 34633 34654 "oldParser.ml" 1380 34633 34671
+  int_ref trans_assignments "oldParser.ml" 1383 34859 34880 "oldParser.ml" 1383 34859 34897
 )
-"oldParser.ml" 1441 36332 36336 "oldParser.ml" 1441 36332 36401
+"oldParser.ml" 1444 36558 36562 "oldParser.ml" 1444 36558 36627
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1444 36439 36443 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1447 36665 36669 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
 ident(
-  int_ref res "oldParser.ml" 1429 35861 35869 "oldParser.ml" 1429 35861 35872
+  int_ref res "oldParser.ml" 1432 36087 36095 "oldParser.ml" 1432 36087 36098
 )
-"oldParser.ml" 1441 36332 36336 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1444 36558 36562 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1429 35861 35865 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1432 36087 36091 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1426 35767 35771 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1429 35993 35997 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1385 34779 34783 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1388 35005 35009 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1380 34633 34638 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1383 34859 34864 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1377 34477 34482 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1380 34703 34708 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1314 32786 32790 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1317 33012 33016 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1311 32702 32706 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1314 32928 32932 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1294 32292 32296 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1297 32518 32522 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1291 32209 32213 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1294 32435 32439 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1287 32084 32088 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1290 32310 32314 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1271 31735 31739 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1274 31961 31965 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1260 31481 31485 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1263 31707 31711 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1258 31423 31427 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1261 31649 31653 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1255 31296 31300 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1258 31522 31526 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1241 30950 30954 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1244 31176 31180 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1239 30910 30914 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1242 31136 31140 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1235 30797 30801 "oldParser.ml" 1444 36439 36446
+"oldParser.ml" 1238 31023 31027 "oldParser.ml" 1447 36665 36672
 type(
   TransSys.t
 )
-"oldParser.ml" 1449 36492 36512 "oldParser.ml" 1449 36492 36513
+"oldParser.ml" 1452 36718 36738 "oldParser.ml" 1452 36718 36739
 type(
   string
 )
 ident(
-  def s "oldParser.ml" 1451 36525 36531 "oldParser.ml" 1458 36798 36827
+  def s "oldParser.ml" 1454 36751 36757 "oldParser.ml" 1461 37024 37053
 )
-"oldParser.ml" 1449 36492 36515 "oldParser.ml" 1449 36492 36516
+"oldParser.ml" 1452 36718 36741 "oldParser.ml" 1452 36718 36742
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def x "oldParser.ml" 1451 36525 36531 "oldParser.ml" 1458 36798 36827
+  def x "oldParser.ml" 1454 36751 36757 "oldParser.ml" 1461 37024 37053
 )
-"oldParser.ml" 1449 36492 36518 "oldParser.ml" 1449 36492 36519
+"oldParser.ml" 1452 36718 36744 "oldParser.ml" 1452 36718 36745
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  def y "oldParser.ml" 1451 36525 36531 "oldParser.ml" 1458 36798 36827
+  def y "oldParser.ml" 1454 36751 36757 "oldParser.ml" 1461 37024 37053
 )
-"oldParser.ml" 1449 36492 36498 "oldParser.ml" 1449 36492 36520
+"oldParser.ml" 1452 36718 36724 "oldParser.ml" 1452 36718 36746
 type(
   exn
 )
-"oldParser.ml" 1451 36525 36531 "oldParser.ml" 1451 36525 36544
+"oldParser.ml" 1454 36751 36757 "oldParser.ml" 1454 36751 36770
 type(
   (string ->
    (Format.formatter -> Kind1.Types.lustre_type -> unit) ->
@@ -16702,7 +16863,7 @@ type(
 ident(
   ext_ref Format.printf
 )
-"oldParser.ml" 1452 36546 36554 "oldParser.ml" 1452 36546 36616
+"oldParser.ml" 1455 36772 36780 "oldParser.ml" 1455 36772 36842
 type(
   (string ->
    (Format.formatter -> Kind1.Types.lustre_type -> unit) ->
@@ -16711,49 +16872,49 @@ type(
    Kind1.Types.lustre_type -> int -> int -> unit, Format.formatter, unit)
   format
 )
-"oldParser.ml" 1453 36618 36626 "oldParser.ml" 1453 36618 36627
+"oldParser.ml" 1456 36844 36852 "oldParser.ml" 1456 36844 36853
 type(
   string
 )
 ident(
-  int_ref s "oldParser.ml" 1449 36492 36512 "oldParser.ml" 1449 36492 36513
+  int_ref s "oldParser.ml" 1452 36718 36738 "oldParser.ml" 1452 36718 36739
 )
-"oldParser.ml" 1454 36628 36636 "oldParser.ml" 1454 36628 36656
+"oldParser.ml" 1457 36854 36862 "oldParser.ml" 1457 36854 36882
 type(
   Format.formatter -> Kind1.Types.lustre_type -> unit
 )
 ident(
   int_ref pp_print_lustre_type "oldParser.ml" 38 1792 1800 "oldParser.ml" 38 1792 1820
 )
-"oldParser.ml" 1454 36628 36657 "oldParser.ml" 1454 36628 36658
+"oldParser.ml" 1457 36854 36883 "oldParser.ml" 1457 36854 36884
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  int_ref x "oldParser.ml" 1449 36492 36515 "oldParser.ml" 1449 36492 36516
+  int_ref x "oldParser.ml" 1452 36718 36741 "oldParser.ml" 1452 36718 36742
 )
-"oldParser.ml" 1455 36660 36668 "oldParser.ml" 1455 36660 36688
+"oldParser.ml" 1458 36886 36894 "oldParser.ml" 1458 36886 36914
 type(
   Format.formatter -> Kind1.Types.lustre_type -> unit
 )
 ident(
   int_ref pp_print_lustre_type "oldParser.ml" 38 1792 1800 "oldParser.ml" 38 1792 1820
 )
-"oldParser.ml" 1455 36660 36689 "oldParser.ml" 1455 36660 36690
+"oldParser.ml" 1458 36886 36915 "oldParser.ml" 1458 36886 36916
 type(
   Kind1.Types.lustre_type
 )
 ident(
-  int_ref y "oldParser.ml" 1449 36492 36518 "oldParser.ml" 1449 36492 36519
+  int_ref y "oldParser.ml" 1452 36718 36744 "oldParser.ml" 1452 36718 36745
 )
-"oldParser.ml" 1456 36691 36701 "oldParser.ml" 1456 36691 36726
+"oldParser.ml" 1459 36917 36927 "oldParser.ml" 1459 36917 36952
 type(
   int ref
 )
 ident(
   ext_ref Kind1.Lus_convert.linenum
 )
-"oldParser.ml" 1456 36691 36700 "oldParser.ml" 1456 36691 36726
+"oldParser.ml" 1459 36917 36926 "oldParser.ml" 1459 36917 36952
 type(
   int
 )
@@ -16763,42 +16924,42 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1457 36729 36739 "oldParser.ml" 1457 36729 36758
+"oldParser.ml" 1460 36955 36965 "oldParser.ml" 1460 36955 36984
 type(
   Lexing.lexbuf -> int
 )
 ident(
   ext_ref Lexing.lexeme_start
 )
-"oldParser.ml" 1457 36729 36759 "oldParser.ml" 1457 36729 36765
+"oldParser.ml" 1460 36955 36985 "oldParser.ml" 1460 36955 36991
 type(
   Lexing.lexbuf
 )
 ident(
-  int_ref lexbuf "oldParser.ml" 1218 30342 30348 "oldParser.ml" 1218 30342 30354
+  int_ref lexbuf "oldParser.ml" 1221 30568 30574 "oldParser.ml" 1221 30568 30580
 )
-"oldParser.ml" 1457 36729 36739 "oldParser.ml" 1457 36729 36765
+"oldParser.ml" 1460 36955 36965 "oldParser.ml" 1460 36955 36991
 call(
   stack
 )
 type(
   int
 )
-"oldParser.ml" 1457 36729 36767 "oldParser.ml" 1457 36729 36768
+"oldParser.ml" 1460 36955 36993 "oldParser.ml" 1460 36955 36994
 type(
   int -> int -> int
 )
 ident(
   ext_ref Pervasives.( - )
 )
-"oldParser.ml" 1457 36729 36770 "oldParser.ml" 1457 36729 36795
+"oldParser.ml" 1460 36955 36996 "oldParser.ml" 1460 36955 37021
 type(
   int ref
 )
 ident(
   ext_ref Kind1.Lus_convert.linepos
 )
-"oldParser.ml" 1457 36729 36769 "oldParser.ml" 1457 36729 36795
+"oldParser.ml" 1460 36955 36995 "oldParser.ml" 1460 36955 37021
 type(
   int
 )
@@ -16808,41 +16969,41 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1457 36729 36738 "oldParser.ml" 1457 36729 36795
+"oldParser.ml" 1460 36955 36964 "oldParser.ml" 1460 36955 37021
 type(
   int
 )
-"oldParser.ml" 1451 36525 36531 "oldParser.ml" 1457 36729 36796
+"oldParser.ml" 1454 36751 36757 "oldParser.ml" 1460 36955 37022
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1458 36798 36804 "oldParser.ml" 1458 36798 36809
+"oldParser.ml" 1461 37024 37030 "oldParser.ml" 1461 37024 37035
 type(
   exn -> TransSys.t
 )
 ident(
   ext_ref Pervasives.raise
 )
-"oldParser.ml" 1458 36798 36810 "oldParser.ml" 1458 36798 36827
+"oldParser.ml" 1461 37024 37036 "oldParser.ml" 1461 37024 37053
 type(
   exn
 )
-"oldParser.ml" 1458 36798 36804 "oldParser.ml" 1458 36798 36827
+"oldParser.ml" 1461 37024 37030 "oldParser.ml" 1461 37024 37053
 type(
   TransSys.t
 )
-"oldParser.ml" 1451 36525 36531 "oldParser.ml" 1458 36798 36827
+"oldParser.ml" 1454 36751 36757 "oldParser.ml" 1461 37024 37053
 type(
   TransSys.t
 )
-"oldParser.ml" 1461 36856 36862 "oldParser.ml" 1461 36856 36881
+"oldParser.ml" 1464 37082 37088 "oldParser.ml" 1464 37082 37107
 type(
   exn
 )
-"oldParser.ml" 1462 36885 36891 "oldParser.ml" 1462 36885 36904
+"oldParser.ml" 1465 37111 37117 "oldParser.ml" 1465 37111 37130
 type(
   (int -> int -> string -> unit, Format.formatter, unit) format ->
   int -> int -> string -> unit
@@ -16850,18 +17011,18 @@ type(
 ident(
   ext_ref Format.printf
 )
-"oldParser.ml" 1462 36885 36905 "oldParser.ml" 1462 36885 36949
+"oldParser.ml" 1465 37111 37131 "oldParser.ml" 1465 37111 37175
 type(
   (int -> int -> string -> unit, Format.formatter, unit) format
 )
-"oldParser.ml" 1463 36951 36961 "oldParser.ml" 1463 36951 36986
+"oldParser.ml" 1466 37177 37187 "oldParser.ml" 1466 37177 37212
 type(
   int ref
 )
 ident(
   ext_ref Kind1.Lus_convert.linenum
 )
-"oldParser.ml" 1463 36951 36960 "oldParser.ml" 1463 36951 36986
+"oldParser.ml" 1466 37177 37186 "oldParser.ml" 1466 37177 37212
 type(
   int
 )
@@ -16871,42 +17032,42 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1464 36989 36999 "oldParser.ml" 1464 36989 37018
+"oldParser.ml" 1467 37215 37225 "oldParser.ml" 1467 37215 37244
 type(
   Lexing.lexbuf -> int
 )
 ident(
   ext_ref Lexing.lexeme_start
 )
-"oldParser.ml" 1464 36989 37019 "oldParser.ml" 1464 36989 37025
+"oldParser.ml" 1467 37215 37245 "oldParser.ml" 1467 37215 37251
 type(
   Lexing.lexbuf
 )
 ident(
-  int_ref lexbuf "oldParser.ml" 1218 30342 30348 "oldParser.ml" 1218 30342 30354
+  int_ref lexbuf "oldParser.ml" 1221 30568 30574 "oldParser.ml" 1221 30568 30580
 )
-"oldParser.ml" 1464 36989 36999 "oldParser.ml" 1464 36989 37025
+"oldParser.ml" 1467 37215 37225 "oldParser.ml" 1467 37215 37251
 call(
   stack
 )
 type(
   int
 )
-"oldParser.ml" 1464 36989 37027 "oldParser.ml" 1464 36989 37028
+"oldParser.ml" 1467 37215 37253 "oldParser.ml" 1467 37215 37254
 type(
   int -> int -> int
 )
 ident(
   ext_ref Pervasives.( - )
 )
-"oldParser.ml" 1464 36989 37030 "oldParser.ml" 1464 36989 37055
+"oldParser.ml" 1467 37215 37256 "oldParser.ml" 1467 37215 37281
 type(
   int ref
 )
 ident(
   ext_ref Kind1.Lus_convert.linepos
 )
-"oldParser.ml" 1464 36989 37029 "oldParser.ml" 1464 36989 37055
+"oldParser.ml" 1467 37215 37255 "oldParser.ml" 1467 37215 37281
 type(
   int
 )
@@ -16916,171 +17077,171 @@ type(
 ident(
   ext_ref Pervasives.( ! )
 )
-"oldParser.ml" 1464 36989 36998 "oldParser.ml" 1464 36989 37055
+"oldParser.ml" 1467 37215 37224 "oldParser.ml" 1467 37215 37281
 type(
   int
 )
-"oldParser.ml" 1465 37057 37066 "oldParser.ml" 1465 37057 37079
+"oldParser.ml" 1468 37283 37292 "oldParser.ml" 1468 37283 37305
 type(
   Lexing.lexbuf -> string
 )
 ident(
   ext_ref Lexing.lexeme
 )
-"oldParser.ml" 1465 37057 37080 "oldParser.ml" 1465 37057 37086
+"oldParser.ml" 1468 37283 37306 "oldParser.ml" 1468 37283 37312
 type(
   Lexing.lexbuf
 )
 ident(
-  int_ref lexbuf "oldParser.ml" 1218 30342 30348 "oldParser.ml" 1218 30342 30354
+  int_ref lexbuf "oldParser.ml" 1221 30568 30574 "oldParser.ml" 1221 30568 30580
 )
-"oldParser.ml" 1465 37057 37066 "oldParser.ml" 1465 37057 37086
+"oldParser.ml" 1468 37283 37292 "oldParser.ml" 1468 37283 37312
 call(
   stack
 )
 type(
   string
 )
-"oldParser.ml" 1462 36885 36891 "oldParser.ml" 1465 37057 37087
+"oldParser.ml" 1465 37111 37117 "oldParser.ml" 1468 37283 37313
 call(
   stack
 )
 type(
   unit
 )
-"oldParser.ml" 1466 37089 37095 "oldParser.ml" 1466 37089 37100
+"oldParser.ml" 1469 37315 37321 "oldParser.ml" 1469 37315 37326
 type(
   exn -> TransSys.t
 )
 ident(
   ext_ref Pervasives.raise
 )
-"oldParser.ml" 1466 37089 37101 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1469 37315 37327 "oldParser.ml" 1469 37315 37344
 type(
   exn
 )
-"oldParser.ml" 1466 37089 37095 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1469 37315 37321 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1462 36885 36891 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1465 37111 37117 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1229 30602 30604 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1232 30828 30830 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1227 30568 30570 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1230 30794 30796 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1224 30504 30506 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1227 30730 30732 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1221 30419 30421 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1224 30645 30647 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1218 30342 30344 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1221 30568 30570 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1212 30169 30171 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1215 30395 30397 "oldParser.ml" 1469 37315 37344
 type(
   TransSys.t
 )
-"oldParser.ml" 1209 30116 30131 "oldParser.ml" 1466 37089 37118
+"oldParser.ml" 1212 30342 30357 "oldParser.ml" 1469 37315 37344
 type(
   in_channel -> TransSys.t
 )
-"oldParser.ml" 1469 37121 37125 "oldParser.ml" 1469 37121 37132
+"oldParser.ml" 1472 37347 37351 "oldParser.ml" 1472 37347 37358
 type(
   string -> TransSys.t
 )
 ident(
-  def of_file "oldParser.ml" 1475 37249 37267 "_none_" 1 0 -1
+  def of_file "oldParser.ml" 1478 37475 37493 "_none_" 1 0 -1
 )
-"oldParser.ml" 1469 37121 37133 "oldParser.ml" 1469 37121 37141
+"oldParser.ml" 1472 37347 37359 "oldParser.ml" 1472 37347 37367
 type(
   string
 )
 ident(
-  def filename "oldParser.ml" 1472 37185 37187 "oldParser.ml" 1475 37249 37267
+  def filename "oldParser.ml" 1475 37411 37413 "oldParser.ml" 1478 37475 37493
 )
-"oldParser.ml" 1472 37185 37191 "oldParser.ml" 1472 37185 37199
+"oldParser.ml" 1475 37411 37417 "oldParser.ml" 1475 37411 37425
 type(
   in_channel
 )
 ident(
-  def use_file "oldParser.ml" 1473 37222 37224 "oldParser.ml" 1475 37249 37267
+  def use_file "oldParser.ml" 1476 37448 37450 "oldParser.ml" 1478 37475 37493
 )
-"oldParser.ml" 1472 37185 37202 "oldParser.ml" 1472 37185 37209
+"oldParser.ml" 1475 37411 37428 "oldParser.ml" 1475 37411 37435
 type(
   string -> in_channel
 )
 ident(
   ext_ref Pervasives.open_in
 )
-"oldParser.ml" 1472 37185 37210 "oldParser.ml" 1472 37185 37218
+"oldParser.ml" 1475 37411 37436 "oldParser.ml" 1475 37411 37444
 type(
   string
 )
 ident(
-  int_ref filename "oldParser.ml" 1469 37121 37133 "oldParser.ml" 1469 37121 37141
+  int_ref filename "oldParser.ml" 1472 37347 37359 "oldParser.ml" 1472 37347 37367
 )
-"oldParser.ml" 1472 37185 37202 "oldParser.ml" 1472 37185 37218
+"oldParser.ml" 1475 37411 37428 "oldParser.ml" 1475 37411 37444
 call(
   stack
 )
 type(
   in_channel
 )
-"oldParser.ml" 1473 37222 37228 "oldParser.ml" 1473 37222 37233
+"oldParser.ml" 1476 37448 37454 "oldParser.ml" 1476 37448 37459
 type(
   in_channel
 )
 ident(
-  def in_ch "oldParser.ml" 1475 37249 37251 "oldParser.ml" 1475 37249 37267
+  def in_ch "oldParser.ml" 1478 37475 37477 "oldParser.ml" 1478 37475 37493
 )
-"oldParser.ml" 1473 37222 37236 "oldParser.ml" 1473 37222 37244
+"oldParser.ml" 1476 37448 37462 "oldParser.ml" 1476 37448 37470
 type(
   in_channel
 )
 ident(
-  int_ref use_file "oldParser.ml" 1472 37185 37191 "oldParser.ml" 1472 37185 37199
+  int_ref use_file "oldParser.ml" 1475 37411 37417 "oldParser.ml" 1475 37411 37425
 )
-"oldParser.ml" 1475 37249 37251 "oldParser.ml" 1475 37249 37261
+"oldParser.ml" 1478 37475 37477 "oldParser.ml" 1478 37475 37487
 type(
   in_channel -> TransSys.t
 )
 ident(
-  int_ref of_channel "oldParser.ml" 1209 30116 30120 "oldParser.ml" 1209 30116 30130
+  int_ref of_channel "oldParser.ml" 1212 30342 30346 "oldParser.ml" 1212 30342 30356
 )
-"oldParser.ml" 1475 37249 37262 "oldParser.ml" 1475 37249 37267
+"oldParser.ml" 1478 37475 37488 "oldParser.ml" 1478 37475 37493
 type(
   in_channel
 )
 ident(
-  int_ref in_ch "oldParser.ml" 1473 37222 37228 "oldParser.ml" 1473 37222 37233
+  int_ref in_ch "oldParser.ml" 1476 37448 37454 "oldParser.ml" 1476 37448 37459
 )
-"oldParser.ml" 1475 37249 37251 "oldParser.ml" 1475 37249 37267
+"oldParser.ml" 1478 37475 37477 "oldParser.ml" 1478 37475 37493
 call(
   tail
 )
 type(
   TransSys.t
 )
-"oldParser.ml" 1473 37222 37224 "oldParser.ml" 1475 37249 37267
+"oldParser.ml" 1476 37448 37450 "oldParser.ml" 1478 37475 37493
 type(
   TransSys.t
 )
-"oldParser.ml" 1472 37185 37187 "oldParser.ml" 1475 37249 37267
+"oldParser.ml" 1475 37411 37413 "oldParser.ml" 1478 37475 37493
 type(
   TransSys.t
 )
-"oldParser.ml" 1469 37121 37133 "oldParser.ml" 1475 37249 37267
+"oldParser.ml" 1472 37347 37359 "oldParser.ml" 1478 37475 37493
 type(
   string -> TransSys.t
 )

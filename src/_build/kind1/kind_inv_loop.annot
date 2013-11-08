@@ -1603,56 +1603,56 @@ type(
   string -> (Types.il_formula -> 'a) -> unit
 )
 ident(
-  def mainloop "kind1/kind_inv_loop.ml" 404 15524 15530 "_none_" 1 0 -1
+  def mainloop "kind1/kind_inv_loop.ml" 408 15766 15772 "_none_" 1 0 -1
 )
 "kind1/kind_inv_loop.ml" 90 3407 3420 "kind1/kind_inv_loop.ml" 90 3407 3428
 type(
   string
 )
 ident(
-  def filename "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def filename "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
 type(
   Types.il_formula -> 'a
 )
 ident(
-  def send_invariant "kind1/kind_inv_loop.ml" 91 3446 3448 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def send_invariant "kind1/kind_inv_loop.ml" 91 3446 3448 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 91 3446 3452 "kind1/kind_inv_loop.ml" 91 3446 3458
 type(
   string
 )
 ident(
-  def defdoc "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def defdoc "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 91 3446 3459 "kind1/kind_inv_loop.ml" 91 3446 3467
 type(
   int
 )
 ident(
-  def maxdepth "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def maxdepth "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 91 3446 3468 "kind1/kind_inv_loop.ml" 91 3446 3476
 type(
   Types.defhashtable
 )
 ident(
-  def def_hash "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def def_hash "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 91 3446 3477 "kind1/kind_inv_loop.ml" 91 3446 3488
 type(
   bool
 )
 ident(
-  def no_stateful "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def no_stateful "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 91 3446 3489 "kind1/kind_inv_loop.ml" 91 3446 3494
 type(
   Types.idtype list
 )
 ident(
-  def pvars "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def pvars "kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 91 3446 3496 "kind1/kind_inv_loop.ml" 91 3446 3497
 type(
@@ -1849,7 +1849,7 @@ type(
   Types.il_expression list
 )
 ident(
-  def all_terms "kind1/kind_inv_loop.ml" 104 4048 4050 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def all_terms "kind1/kind_inv_loop.ml" 104 4048 4050 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 103 3991 4009 "kind1/kind_inv_loop.ml" 103 3991 4041
 type(
@@ -1874,21 +1874,21 @@ type(
   Types.il_expression list
 )
 ident(
-  def bool_sub_exprs "kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def bool_sub_exprs "kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 104 4048 4070 "kind1/kind_inv_loop.ml" 104 4048 4083
 type(
   Types.il_expression list
 )
 ident(
-  def int_sub_exprs "kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def int_sub_exprs "kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 104 4048 4085 "kind1/kind_inv_loop.ml" 104 4048 4100
 type(
   Types.il_expression list
 )
 ident(
-  def float_sub_exprs "kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def float_sub_exprs "kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 104 4048 4054 "kind1/kind_inv_loop.ml" 104 4048 4100
 type(
@@ -1954,7 +1954,7 @@ type(
   string
 )
 ident(
-  def nvar "kind1/kind_inv_loop.ml" 107 4255 4257 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def nvar "kind1/kind_inv_loop.ml" 107 4255 4257 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 106 4210 4223 "kind1/kind_inv_loop.ml" 106 4210 4229
 type(
@@ -1982,7 +1982,7 @@ type(
   Types.addtype
 )
 ident(
-  def add "kind1/kind_inv_loop.ml" 108 4293 4295 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def add "kind1/kind_inv_loop.ml" 108 4293 4295 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 107 4255 4267 "kind1/kind_inv_loop.ml" 107 4255 4287
 type(
@@ -2007,7 +2007,7 @@ type(
   string
 )
 ident(
-  def nstart "kind1/kind_inv_loop.ml" 109 4339 4341 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def nstart "kind1/kind_inv_loop.ml" 109 4339 4341 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 108 4293 4308 "kind1/kind_inv_loop.ml" 108 4293 4314
 type(
@@ -2035,7 +2035,7 @@ type(
   int
 )
 ident(
-  def startdepth "kind1/kind_inv_loop.ml" 110 4374 4376 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def startdepth "kind1/kind_inv_loop.ml" 110 4374 4376 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 109 4339 4358 "kind1/kind_inv_loop.ml" 109 4339 4366
 type(
@@ -2064,21 +2064,21 @@ type(
   in_channel
 )
 ident(
-  def from_solver_ch "kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def from_solver_ch "kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 110 4374 4396 "kind1/kind_inv_loop.ml" 110 4374 4411
 type(
   in_channel
 )
 ident(
-  def from_checker_ch "kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def from_checker_ch "kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 110 4374 4413 "kind1/kind_inv_loop.ml" 110 4374 4428
 type(
   in_channel
 )
 ident(
-  def from_solver2_ch "kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def from_solver2_ch "kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 110 4374 4380 "kind1/kind_inv_loop.ml" 110 4374 4428
 type(
@@ -2682,7 +2682,7 @@ type(
   Imp_graph.bool_imp_graph
 )
 ident(
-  def bool_imp_graph "kind1/kind_inv_loop.ml" 142 5673 5675 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def bool_imp_graph "kind1/kind_inv_loop.ml" 142 5673 5675 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 137 5524 5528 "kind1/kind_inv_loop.ml" 137 5524 5556
 type(
@@ -2773,7 +2773,7 @@ type(
   Partial_order.partial_order
 )
 ident(
-  def ints_partial_order "kind1/kind_inv_loop.ml" 149 5831 5833 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def ints_partial_order "kind1/kind_inv_loop.ml" 149 5831 5833 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 143 5701 5705 "kind1/kind_inv_loop.ml" 143 5701 5736
 type(
@@ -3071,7 +3071,7 @@ type(
   bool
 )
 ident(
-  def filter_final "kind1/kind_inv_loop.ml" 193 7562 7564 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def filter_final "kind1/kind_inv_loop.ml" 193 7562 7564 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 156 6213 6232 "kind1/kind_inv_loop.ml" 156 6213 6238
 type(
@@ -3908,7 +3908,7 @@ type(
   Types.il_expression list -> bool
 )
 ident(
-  def filter_imp_equiv_classes_one_round "kind1/kind_inv_loop.ml" 193 7562 7564 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def filter_imp_equiv_classes_one_round "kind1/kind_inv_loop.ml" 193 7562 7564 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 193 7562 7607 "kind1/kind_inv_loop.ml" 193 7562 7622
 type(
@@ -5381,7 +5381,7 @@ type(
   int ref
 )
 ident(
-  def cur_depth "kind1/kind_inv_loop.ml" 264 10011 10013 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def cur_depth "kind1/kind_inv_loop.ml" 264 10011 10013 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 263 9976 9994 "kind1/kind_inv_loop.ml" 263 9976 9997
 type(
@@ -5406,7 +5406,7 @@ type(
   int ref
 )
 ident(
-  def last_changed "kind1/kind_inv_loop.ml" 265 10050 10052 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def last_changed "kind1/kind_inv_loop.ml" 265 10050 10052 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 264 10011 10032 "kind1/kind_inv_loop.ml" 264 10011 10035
 type(
@@ -5442,7 +5442,7 @@ type(
   bool ref
 )
 ident(
-  def local_stop "kind1/kind_inv_loop.ml" 268 10128 10130 "kind1/kind_inv_loop.ml" 404 15524 15530
+  def local_stop "kind1/kind_inv_loop.ml" 268 10128 10130 "kind1/kind_inv_loop.ml" 408 15766 15772
 )
 "kind1/kind_inv_loop.ml" 265 10050 10069 "kind1/kind_inv_loop.ml" 265 10050 10072
 type(
@@ -7516,7 +7516,7 @@ type(
   int
 )
 ident(
-  def base_num "kind1/kind_inv_loop.ml" 334 13257 13262 "kind1/kind_inv_loop.ml" 403 15509 15523
+  def base_num "kind1/kind_inv_loop.ml" 334 13257 13262 "kind1/kind_inv_loop.ml" 407 15751 15765
 )
 "kind1/kind_inv_loop.ml" 333 13217 13237 "kind1/kind_inv_loop.ml" 333 13217 13238
 type(
@@ -7559,7 +7559,7 @@ type(
   Types.il_formula
 )
 ident(
-  def assert_base "kind1/kind_inv_loop.ml" 335 13332 13337 "kind1/kind_inv_loop.ml" 403 15509 15523
+  def assert_base "kind1/kind_inv_loop.ml" 335 13332 13337 "kind1/kind_inv_loop.ml" 407 15751 15765
 )
 "kind1/kind_inv_loop.ml" 334 13257 13298 "kind1/kind_inv_loop.ml" 334 13257 13306
 type(
@@ -7639,7 +7639,7 @@ type(
   Types.il_expression list
 )
 ident(
-  def stepn_positions "kind1/kind_inv_loop.ml" 341 13566 13571 "kind1/kind_inv_loop.ml" 403 15509 15523
+  def stepn_positions "kind1/kind_inv_loop.ml" 341 13566 13571 "kind1/kind_inv_loop.ml" 407 15751 15765
 )
 "kind1/kind_inv_loop.ml" 338 13462 13469 "kind1/kind_inv_loop.ml" 338 13462 13477
 type(
@@ -7977,14 +7977,14 @@ type(
   Types.il_formula list
 )
 ident(
-  def b_eqs "kind1/kind_inv_loop.ml" 356 14098 14104 "kind1/kind_inv_loop.ml" 364 14334 14383
+  def b_eqs "kind1/kind_inv_loop.ml" 356 14098 14104 "kind1/kind_inv_loop.ml" 368 14576 14625
 )
 "kind1/kind_inv_loop.ml" 351 13945 13961 "kind1/kind_inv_loop.ml" 351 13945 13967
 type(
   Types.il_formula list
 )
 ident(
-  def b_imps "kind1/kind_inv_loop.ml" 356 14098 14104 "kind1/kind_inv_loop.ml" 364 14334 14383
+  def b_imps "kind1/kind_inv_loop.ml" 356 14098 14104 "kind1/kind_inv_loop.ml" 368 14576 14625
 )
 "kind1/kind_inv_loop.ml" 351 13945 13955 "kind1/kind_inv_loop.ml" 351 13945 13967
 type(
@@ -8080,14 +8080,14 @@ type(
   Types.il_formula list
 )
 ident(
-  def int_eqs "kind1/kind_inv_loop.ml" 361 14233 14241 "kind1/kind_inv_loop.ml" 364 14334 14383
+  def int_eqs "kind1/kind_inv_loop.ml" 361 14233 14240 "kind1/kind_inv_loop.ml" 368 14576 14625
 )
 "kind1/kind_inv_loop.ml" 356 14098 14116 "kind1/kind_inv_loop.ml" 356 14098 14124
 type(
   Types.il_formula list
 )
 ident(
-  def int_imps "kind1/kind_inv_loop.ml" 361 14233 14241 "kind1/kind_inv_loop.ml" 364 14334 14383
+  def int_imps "kind1/kind_inv_loop.ml" 361 14233 14240 "kind1/kind_inv_loop.ml" 368 14576 14625
 )
 "kind1/kind_inv_loop.ml" 356 14098 14108 "kind1/kind_inv_loop.ml" 356 14098 14124
 type(
@@ -8151,23 +8151,251 @@ type(
 )
 "kind1/kind_inv_loop.ml" 361 14233 14244 "kind1/kind_inv_loop.ml" 361 14233 14245
 type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 361 14233 14247 "kind1/kind_inv_loop.ml" 361 14233 14255
+type(
+  (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
+)
+ident(
+  ext_ref ExtList.List.map
+)
+"kind1/kind_inv_loop.ml" 361 14233 14260 "kind1/kind_inv_loop.ml" 361 14233 14261
+type(
+  Types.il_formula
+)
+ident(
+  def x "kind1/kind_inv_loop.ml" 361 14233 14265 "kind1/kind_inv_loop.ml" 361 14233 14281
+)
+"kind1/kind_inv_loop.ml" 361 14233 14265 "kind1/kind_inv_loop.ml" 361 14233 14279
+type(
+  Types.il_formula -> 'a
+)
+ident(
+  int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
+)
+"kind1/kind_inv_loop.ml" 361 14233 14280 "kind1/kind_inv_loop.ml" 361 14233 14281
+type(
+  Types.il_formula
+)
+ident(
+  int_ref x "kind1/kind_inv_loop.ml" 361 14233 14260 "kind1/kind_inv_loop.ml" 361 14233 14261
+)
+"kind1/kind_inv_loop.ml" 361 14233 14265 "kind1/kind_inv_loop.ml" 361 14233 14281
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/kind_inv_loop.ml" 361 14233 14255 "kind1/kind_inv_loop.ml" 361 14233 14282
+type(
+  Types.il_formula -> 'a
+)
+"kind1/kind_inv_loop.ml" 361 14233 14283 "kind1/kind_inv_loop.ml" 361 14233 14288
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref b_eqs "kind1/kind_inv_loop.ml" 351 13945 13955 "kind1/kind_inv_loop.ml" 351 13945 13960
+)
+"kind1/kind_inv_loop.ml" 361 14233 14247 "kind1/kind_inv_loop.ml" 361 14233 14288
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 362 14292 14303 "kind1/kind_inv_loop.ml" 362 14292 14304
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 362 14292 14306 "kind1/kind_inv_loop.ml" 362 14292 14314
+type(
+  (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
+)
+ident(
+  ext_ref ExtList.List.map
+)
+"kind1/kind_inv_loop.ml" 362 14292 14319 "kind1/kind_inv_loop.ml" 362 14292 14320
+type(
+  Types.il_formula
+)
+ident(
+  def x "kind1/kind_inv_loop.ml" 362 14292 14324 "kind1/kind_inv_loop.ml" 362 14292 14340
+)
+"kind1/kind_inv_loop.ml" 362 14292 14324 "kind1/kind_inv_loop.ml" 362 14292 14338
+type(
+  Types.il_formula -> 'a
+)
+ident(
+  int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
+)
+"kind1/kind_inv_loop.ml" 362 14292 14339 "kind1/kind_inv_loop.ml" 362 14292 14340
+type(
+  Types.il_formula
+)
+ident(
+  int_ref x "kind1/kind_inv_loop.ml" 362 14292 14319 "kind1/kind_inv_loop.ml" 362 14292 14320
+)
+"kind1/kind_inv_loop.ml" 362 14292 14324 "kind1/kind_inv_loop.ml" 362 14292 14340
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/kind_inv_loop.ml" 362 14292 14314 "kind1/kind_inv_loop.ml" 362 14292 14341
+type(
+  Types.il_formula -> 'a
+)
+"kind1/kind_inv_loop.ml" 362 14292 14342 "kind1/kind_inv_loop.ml" 362 14292 14348
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref b_imps "kind1/kind_inv_loop.ml" 351 13945 13961 "kind1/kind_inv_loop.ml" 351 13945 13967
+)
+"kind1/kind_inv_loop.ml" 362 14292 14306 "kind1/kind_inv_loop.ml" 362 14292 14348
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 363 14352 14363 "kind1/kind_inv_loop.ml" 363 14352 14364
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 363 14352 14366 "kind1/kind_inv_loop.ml" 363 14352 14374
+type(
+  (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
+)
+ident(
+  ext_ref ExtList.List.map
+)
+"kind1/kind_inv_loop.ml" 363 14352 14379 "kind1/kind_inv_loop.ml" 363 14352 14380
+type(
+  Types.il_formula
+)
+ident(
+  def x "kind1/kind_inv_loop.ml" 363 14352 14384 "kind1/kind_inv_loop.ml" 363 14352 14400
+)
+"kind1/kind_inv_loop.ml" 363 14352 14384 "kind1/kind_inv_loop.ml" 363 14352 14398
+type(
+  Types.il_formula -> 'a
+)
+ident(
+  int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
+)
+"kind1/kind_inv_loop.ml" 363 14352 14399 "kind1/kind_inv_loop.ml" 363 14352 14400
+type(
+  Types.il_formula
+)
+ident(
+  int_ref x "kind1/kind_inv_loop.ml" 363 14352 14379 "kind1/kind_inv_loop.ml" 363 14352 14380
+)
+"kind1/kind_inv_loop.ml" 363 14352 14384 "kind1/kind_inv_loop.ml" 363 14352 14400
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/kind_inv_loop.ml" 363 14352 14374 "kind1/kind_inv_loop.ml" 363 14352 14401
+type(
+  Types.il_formula -> 'a
+)
+"kind1/kind_inv_loop.ml" 363 14352 14402 "kind1/kind_inv_loop.ml" 363 14352 14409
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_eqs "kind1/kind_inv_loop.ml" 356 14098 14108 "kind1/kind_inv_loop.ml" 356 14098 14115
+)
+"kind1/kind_inv_loop.ml" 363 14352 14366 "kind1/kind_inv_loop.ml" 363 14352 14409
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 364 14413 14424 "kind1/kind_inv_loop.ml" 364 14413 14425
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 364 14413 14427 "kind1/kind_inv_loop.ml" 364 14413 14435
+type(
+  (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
+)
+ident(
+  ext_ref ExtList.List.map
+)
+"kind1/kind_inv_loop.ml" 364 14413 14440 "kind1/kind_inv_loop.ml" 364 14413 14441
+type(
+  Types.il_formula
+)
+ident(
+  def x "kind1/kind_inv_loop.ml" 364 14413 14445 "kind1/kind_inv_loop.ml" 364 14413 14461
+)
+"kind1/kind_inv_loop.ml" 364 14413 14445 "kind1/kind_inv_loop.ml" 364 14413 14459
+type(
+  Types.il_formula -> 'a
+)
+ident(
+  int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
+)
+"kind1/kind_inv_loop.ml" 364 14413 14460 "kind1/kind_inv_loop.ml" 364 14413 14461
+type(
+  Types.il_formula
+)
+ident(
+  int_ref x "kind1/kind_inv_loop.ml" 364 14413 14440 "kind1/kind_inv_loop.ml" 364 14413 14441
+)
+"kind1/kind_inv_loop.ml" 364 14413 14445 "kind1/kind_inv_loop.ml" 364 14413 14461
+call(
+  tail
+)
+type(
+  'a
+)
+"kind1/kind_inv_loop.ml" 364 14413 14435 "kind1/kind_inv_loop.ml" 364 14413 14462
+type(
+  Types.il_formula -> 'a
+)
+"kind1/kind_inv_loop.ml" 364 14413 14463 "kind1/kind_inv_loop.ml" 364 14413 14471
+type(
+  Types.il_formula list
+)
+ident(
+  int_ref int_imps "kind1/kind_inv_loop.ml" 356 14098 14116 "kind1/kind_inv_loop.ml" 356 14098 14124
+)
+"kind1/kind_inv_loop.ml" 364 14413 14427 "kind1/kind_inv_loop.ml" 364 14413 14471
+call(
+  stack
+)
+type(
+  'a list
+)
+"kind1/kind_inv_loop.ml" 365 14475 14486 "kind1/kind_inv_loop.ml" 365 14475 14487
+type(
   bool ref -> bool
 )
 ident(
   ext_ref Pervasives.( ! )
 )
-"kind1/kind_inv_loop.ml" 361 14233 14245 "kind1/kind_inv_loop.ml" 361 14233 14260
+"kind1/kind_inv_loop.ml" 365 14475 14487 "kind1/kind_inv_loop.ml" 365 14475 14502
 type(
   bool ref
 )
 ident(
   ext_ref OldFlags.no_imp
 )
-"kind1/kind_inv_loop.ml" 361 14233 14244 "kind1/kind_inv_loop.ml" 361 14233 14260
+"kind1/kind_inv_loop.ml" 365 14475 14486 "kind1/kind_inv_loop.ml" 365 14475 14502
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 362 14267 14272 "kind1/kind_inv_loop.ml" 362 14267 14286
+"kind1/kind_inv_loop.ml" 366 14509 14514 "kind1/kind_inv_loop.ml" 366 14509 14528
 type(
   Types.il_formula list ->
   Types.il_formula list ->
@@ -8176,49 +8404,49 @@ type(
 ident(
   int_ref pr_func_no_imp "kind1/kind_inv_loop.ml" 71 2735 2739 "kind1/kind_inv_loop.ml" 71 2735 2753
 )
-"kind1/kind_inv_loop.ml" 362 14267 14288 "kind1/kind_inv_loop.ml" 362 14267 14293
+"kind1/kind_inv_loop.ml" 366 14509 14530 "kind1/kind_inv_loop.ml" 366 14509 14535
 type(
   Types.il_formula list
 )
 ident(
   int_ref b_eqs "kind1/kind_inv_loop.ml" 351 13945 13955 "kind1/kind_inv_loop.ml" 351 13945 13960
 )
-"kind1/kind_inv_loop.ml" 362 14267 14294 "kind1/kind_inv_loop.ml" 362 14267 14300
+"kind1/kind_inv_loop.ml" 366 14509 14536 "kind1/kind_inv_loop.ml" 366 14509 14542
 type(
   Types.il_formula list
 )
 ident(
   int_ref b_imps "kind1/kind_inv_loop.ml" 351 13945 13961 "kind1/kind_inv_loop.ml" 351 13945 13967
 )
-"kind1/kind_inv_loop.ml" 362 14267 14301 "kind1/kind_inv_loop.ml" 362 14267 14308
+"kind1/kind_inv_loop.ml" 366 14509 14543 "kind1/kind_inv_loop.ml" 366 14509 14550
 type(
   Types.il_formula list
 )
 ident(
   int_ref int_eqs "kind1/kind_inv_loop.ml" 356 14098 14108 "kind1/kind_inv_loop.ml" 356 14098 14115
 )
-"kind1/kind_inv_loop.ml" 362 14267 14309 "kind1/kind_inv_loop.ml" 362 14267 14317
+"kind1/kind_inv_loop.ml" 366 14509 14551 "kind1/kind_inv_loop.ml" 366 14509 14559
 type(
   Types.il_formula list
 )
 ident(
   int_ref int_imps "kind1/kind_inv_loop.ml" 356 14098 14116 "kind1/kind_inv_loop.ml" 356 14098 14124
 )
-"kind1/kind_inv_loop.ml" 362 14267 14318 "kind1/kind_inv_loop.ml" 362 14267 14326
+"kind1/kind_inv_loop.ml" 366 14509 14560 "kind1/kind_inv_loop.ml" 366 14509 14568
 type(
   int
 )
 ident(
   int_ref maxdepth "kind1/kind_inv_loop.ml" 91 3446 3459 "kind1/kind_inv_loop.ml" 91 3446 3467
 )
-"kind1/kind_inv_loop.ml" 362 14267 14272 "kind1/kind_inv_loop.ml" 362 14267 14326
+"kind1/kind_inv_loop.ml" 366 14509 14514 "kind1/kind_inv_loop.ml" 366 14509 14568
 call(
   stack
 )
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 364 14334 14337 "kind1/kind_inv_loop.ml" 364 14334 14344
+"kind1/kind_inv_loop.ml" 368 14576 14579 "kind1/kind_inv_loop.ml" 368 14576 14586
 type(
   Types.il_formula list ->
   Types.il_formula list ->
@@ -8227,422 +8455,438 @@ type(
 ident(
   int_ref pr_func "kind1/kind_inv_loop.ml" 53 2054 2058 "kind1/kind_inv_loop.ml" 53 2054 2065
 )
-"kind1/kind_inv_loop.ml" 364 14334 14345 "kind1/kind_inv_loop.ml" 364 14334 14350
+"kind1/kind_inv_loop.ml" 368 14576 14587 "kind1/kind_inv_loop.ml" 368 14576 14592
 type(
   Types.il_formula list
 )
 ident(
   int_ref b_eqs "kind1/kind_inv_loop.ml" 351 13945 13955 "kind1/kind_inv_loop.ml" 351 13945 13960
 )
-"kind1/kind_inv_loop.ml" 364 14334 14351 "kind1/kind_inv_loop.ml" 364 14334 14357
+"kind1/kind_inv_loop.ml" 368 14576 14593 "kind1/kind_inv_loop.ml" 368 14576 14599
 type(
   Types.il_formula list
 )
 ident(
   int_ref b_imps "kind1/kind_inv_loop.ml" 351 13945 13961 "kind1/kind_inv_loop.ml" 351 13945 13967
 )
-"kind1/kind_inv_loop.ml" 364 14334 14358 "kind1/kind_inv_loop.ml" 364 14334 14365
+"kind1/kind_inv_loop.ml" 368 14576 14600 "kind1/kind_inv_loop.ml" 368 14576 14607
 type(
   Types.il_formula list
 )
 ident(
   int_ref int_eqs "kind1/kind_inv_loop.ml" 356 14098 14108 "kind1/kind_inv_loop.ml" 356 14098 14115
 )
-"kind1/kind_inv_loop.ml" 364 14334 14366 "kind1/kind_inv_loop.ml" 364 14334 14374
+"kind1/kind_inv_loop.ml" 368 14576 14608 "kind1/kind_inv_loop.ml" 368 14576 14616
 type(
   Types.il_formula list
 )
 ident(
   int_ref int_imps "kind1/kind_inv_loop.ml" 356 14098 14116 "kind1/kind_inv_loop.ml" 356 14098 14124
 )
-"kind1/kind_inv_loop.ml" 364 14334 14375 "kind1/kind_inv_loop.ml" 364 14334 14383
+"kind1/kind_inv_loop.ml" 368 14576 14617 "kind1/kind_inv_loop.ml" 368 14576 14625
 type(
   int
 )
 ident(
   int_ref maxdepth "kind1/kind_inv_loop.ml" 91 3446 3459 "kind1/kind_inv_loop.ml" 91 3446 3467
 )
-"kind1/kind_inv_loop.ml" 364 14334 14337 "kind1/kind_inv_loop.ml" 364 14334 14383
+"kind1/kind_inv_loop.ml" 368 14576 14579 "kind1/kind_inv_loop.ml" 368 14576 14625
 call(
   stack
 )
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 361 14233 14241 "kind1/kind_inv_loop.ml" 364 14334 14383
+"kind1/kind_inv_loop.ml" 365 14475 14483 "kind1/kind_inv_loop.ml" 368 14576 14625
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 356 14098 14104 "kind1/kind_inv_loop.ml" 364 14334 14383
+"kind1/kind_inv_loop.ml" 364 14413 14420 "kind1/kind_inv_loop.ml" 368 14576 14625
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 350 13939 13943 "kind1/kind_inv_loop.ml" 366 14385 14390
+"kind1/kind_inv_loop.ml" 363 14352 14359 "kind1/kind_inv_loop.ml" 368 14576 14625
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 369 14435 14444 "kind1/kind_inv_loop.ml" 369 14435 14462
+"kind1/kind_inv_loop.ml" 362 14292 14299 "kind1/kind_inv_loop.ml" 368 14576 14625
+type(
+  unit
+)
+"kind1/kind_inv_loop.ml" 361 14233 14240 "kind1/kind_inv_loop.ml" 368 14576 14625
+type(
+  unit
+)
+"kind1/kind_inv_loop.ml" 356 14098 14104 "kind1/kind_inv_loop.ml" 368 14576 14625
+type(
+  unit
+)
+"kind1/kind_inv_loop.ml" 350 13939 13943 "kind1/kind_inv_loop.ml" 370 14627 14632
+type(
+  unit
+)
+"kind1/kind_inv_loop.ml" 373 14677 14686 "kind1/kind_inv_loop.ml" 373 14677 14704
 type(
   Imp_graph.equiv_class_type list
 )
 ident(
-  def bool_equiv_classes "kind1/kind_inv_loop.ml" 374 14629 14634 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def bool_equiv_classes "kind1/kind_inv_loop.ml" 378 14871 14876 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 369 14435 14464 "kind1/kind_inv_loop.ml" 369 14435 14473
+"kind1/kind_inv_loop.ml" 373 14677 14706 "kind1/kind_inv_loop.ml" 373 14677 14715
 type(
   (string * string) list
 )
 ident(
-  def bool_imps "kind1/kind_inv_loop.ml" 374 14629 14634 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def bool_imps "kind1/kind_inv_loop.ml" 378 14871 14876 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 369 14435 14444 "kind1/kind_inv_loop.ml" 369 14435 14473
+"kind1/kind_inv_loop.ml" 373 14677 14686 "kind1/kind_inv_loop.ml" 373 14677 14715
 type(
   Imp_graph.equiv_class_type list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 370 14477 14488 "kind1/kind_inv_loop.ml" 370 14477 14489
+"kind1/kind_inv_loop.ml" 374 14719 14730 "kind1/kind_inv_loop.ml" 374 14719 14731
 type(
   bool ref -> bool
 )
 ident(
   ext_ref Pervasives.( ! )
 )
-"kind1/kind_inv_loop.ml" 370 14477 14489 "kind1/kind_inv_loop.ml" 370 14477 14512
+"kind1/kind_inv_loop.ml" 374 14719 14731 "kind1/kind_inv_loop.ml" 374 14719 14754
 type(
   bool ref
 )
 ident(
   ext_ref OldFlags.invariant_bool
 )
-"kind1/kind_inv_loop.ml" 370 14477 14488 "kind1/kind_inv_loop.ml" 370 14477 14512
+"kind1/kind_inv_loop.ml" 374 14719 14730 "kind1/kind_inv_loop.ml" 374 14719 14754
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 370 14477 14513 "kind1/kind_inv_loop.ml" 370 14477 14515
+"kind1/kind_inv_loop.ml" 374 14719 14755 "kind1/kind_inv_loop.ml" 374 14719 14757
 type(
   bool -> bool -> bool
 )
 ident(
   ext_ref Pervasives.( || )
 )
-"kind1/kind_inv_loop.ml" 370 14477 14516 "kind1/kind_inv_loop.ml" 370 14477 14517
+"kind1/kind_inv_loop.ml" 374 14719 14758 "kind1/kind_inv_loop.ml" 374 14719 14759
 type(
   bool ref -> bool
 )
 ident(
   ext_ref Pervasives.( ! )
 )
-"kind1/kind_inv_loop.ml" 370 14477 14517 "kind1/kind_inv_loop.ml" 370 14477 14534
+"kind1/kind_inv_loop.ml" 374 14719 14759 "kind1/kind_inv_loop.ml" 374 14719 14776
 type(
   bool ref
 )
 ident(
   ext_ref OldFlags.mode_inv
 )
-"kind1/kind_inv_loop.ml" 370 14477 14516 "kind1/kind_inv_loop.ml" 370 14477 14534
+"kind1/kind_inv_loop.ml" 374 14719 14758 "kind1/kind_inv_loop.ml" 374 14719 14776
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 370 14477 14487 "kind1/kind_inv_loop.ml" 370 14477 14535
+"kind1/kind_inv_loop.ml" 374 14719 14729 "kind1/kind_inv_loop.ml" 374 14719 14777
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 371 14536 14548 "kind1/kind_inv_loop.ml" 371 14536 14562
+"kind1/kind_inv_loop.ml" 375 14778 14790 "kind1/kind_inv_loop.ml" 375 14778 14804
 type(
   Imp_graph.bool_imp_graph
 )
 ident(
   int_ref bool_imp_graph "kind1/kind_inv_loop.ml" 136 5496 5502 "kind1/kind_inv_loop.ml" 136 5496 5516
 )
-"kind1/kind_inv_loop.ml" 371 14536 14548 "kind1/kind_inv_loop.ml" 371 14536 14576
+"kind1/kind_inv_loop.ml" 375 14778 14790 "kind1/kind_inv_loop.ml" 375 14778 14818
 call(
   stack
 )
 type(
   unit -> Imp_graph.equiv_class_type list
 )
-"kind1/kind_inv_loop.ml" 371 14536 14576 "kind1/kind_inv_loop.ml" 371 14536 14578
+"kind1/kind_inv_loop.ml" 375 14778 14818 "kind1/kind_inv_loop.ml" 375 14778 14820
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 371 14536 14548 "kind1/kind_inv_loop.ml" 371 14536 14578
+"kind1/kind_inv_loop.ml" 375 14778 14790 "kind1/kind_inv_loop.ml" 375 14778 14820
 type(
   Imp_graph.equiv_class_type list
 )
-"kind1/kind_inv_loop.ml" 371 14536 14580 "kind1/kind_inv_loop.ml" 371 14536 14594
+"kind1/kind_inv_loop.ml" 375 14778 14822 "kind1/kind_inv_loop.ml" 375 14778 14836
 type(
   Imp_graph.bool_imp_graph
 )
 ident(
   int_ref bool_imp_graph "kind1/kind_inv_loop.ml" 136 5496 5502 "kind1/kind_inv_loop.ml" 136 5496 5516
 )
-"kind1/kind_inv_loop.ml" 371 14536 14580 "kind1/kind_inv_loop.ml" 371 14536 14599
+"kind1/kind_inv_loop.ml" 375 14778 14822 "kind1/kind_inv_loop.ml" 375 14778 14841
 call(
   stack
 )
 type(
   unit -> (string * string) list
 )
-"kind1/kind_inv_loop.ml" 371 14536 14599 "kind1/kind_inv_loop.ml" 371 14536 14601
+"kind1/kind_inv_loop.ml" 375 14778 14841 "kind1/kind_inv_loop.ml" 375 14778 14843
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 371 14536 14580 "kind1/kind_inv_loop.ml" 371 14536 14601
+"kind1/kind_inv_loop.ml" 375 14778 14822 "kind1/kind_inv_loop.ml" 375 14778 14843
 type(
   (string * string) list
 )
-"kind1/kind_inv_loop.ml" 371 14536 14548 "kind1/kind_inv_loop.ml" 371 14536 14601
+"kind1/kind_inv_loop.ml" 375 14778 14790 "kind1/kind_inv_loop.ml" 375 14778 14843
 type(
   Imp_graph.equiv_class_type list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 372 14602 14614 "kind1/kind_inv_loop.ml" 372 14602 14616
+"kind1/kind_inv_loop.ml" 376 14844 14856 "kind1/kind_inv_loop.ml" 376 14844 14858
 type(
   Imp_graph.equiv_class_type list
 )
-"kind1/kind_inv_loop.ml" 372 14602 14617 "kind1/kind_inv_loop.ml" 372 14602 14619
+"kind1/kind_inv_loop.ml" 376 14844 14859 "kind1/kind_inv_loop.ml" 376 14844 14861
 type(
   (string * string) list
 )
-"kind1/kind_inv_loop.ml" 372 14602 14614 "kind1/kind_inv_loop.ml" 372 14602 14619
+"kind1/kind_inv_loop.ml" 376 14844 14856 "kind1/kind_inv_loop.ml" 376 14844 14861
 type(
   Imp_graph.equiv_class_type list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 370 14477 14484 "kind1/kind_inv_loop.ml" 372 14602 14619
+"kind1/kind_inv_loop.ml" 374 14719 14726 "kind1/kind_inv_loop.ml" 376 14844 14861
 type(
   Imp_graph.equiv_class_type list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 374 14629 14638 "kind1/kind_inv_loop.ml" 374 14629 14655
+"kind1/kind_inv_loop.ml" 378 14871 14880 "kind1/kind_inv_loop.ml" 378 14871 14897
 type(
   string list list
 )
 ident(
-  def int_equiv_classes "kind1/kind_inv_loop.ml" 379 14803 14808 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def int_equiv_classes "kind1/kind_inv_loop.ml" 383 15045 15050 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 374 14629 14656 "kind1/kind_inv_loop.ml" 374 14629 14664
+"kind1/kind_inv_loop.ml" 378 14871 14898 "kind1/kind_inv_loop.ml" 378 14871 14906
 type(
   (string * string) list
 )
 ident(
-  def int_imps "kind1/kind_inv_loop.ml" 379 14803 14808 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def int_imps "kind1/kind_inv_loop.ml" 383 15045 15050 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 374 14629 14638 "kind1/kind_inv_loop.ml" 374 14629 14664
+"kind1/kind_inv_loop.ml" 378 14871 14880 "kind1/kind_inv_loop.ml" 378 14871 14906
 type(
   string list list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 375 14667 14678 "kind1/kind_inv_loop.ml" 375 14667 14679
+"kind1/kind_inv_loop.ml" 379 14909 14920 "kind1/kind_inv_loop.ml" 379 14909 14921
 type(
   bool ref -> bool
 )
 ident(
   ext_ref Pervasives.( ! )
 )
-"kind1/kind_inv_loop.ml" 375 14667 14679 "kind1/kind_inv_loop.ml" 375 14667 14701
+"kind1/kind_inv_loop.ml" 379 14909 14921 "kind1/kind_inv_loop.ml" 379 14909 14943
 type(
   bool ref
 )
 ident(
   ext_ref OldFlags.invariant_int
 )
-"kind1/kind_inv_loop.ml" 375 14667 14677 "kind1/kind_inv_loop.ml" 375 14667 14702
+"kind1/kind_inv_loop.ml" 379 14909 14919 "kind1/kind_inv_loop.ml" 379 14909 14944
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 376 14703 14715 "kind1/kind_inv_loop.ml" 376 14703 14733
+"kind1/kind_inv_loop.ml" 380 14945 14957 "kind1/kind_inv_loop.ml" 380 14945 14975
 type(
   Partial_order.partial_order
 )
 ident(
   int_ref ints_partial_order "kind1/kind_inv_loop.ml" 142 5673 5679 "kind1/kind_inv_loop.ml" 142 5673 5697
 )
-"kind1/kind_inv_loop.ml" 376 14703 14715 "kind1/kind_inv_loop.ml" 376 14703 14747
+"kind1/kind_inv_loop.ml" 380 14945 14957 "kind1/kind_inv_loop.ml" 380 14945 14989
 call(
   stack
 )
 type(
   unit -> string list list
 )
-"kind1/kind_inv_loop.ml" 376 14703 14747 "kind1/kind_inv_loop.ml" 376 14703 14749
+"kind1/kind_inv_loop.ml" 380 14945 14989 "kind1/kind_inv_loop.ml" 380 14945 14991
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 376 14703 14715 "kind1/kind_inv_loop.ml" 376 14703 14749
+"kind1/kind_inv_loop.ml" 380 14945 14957 "kind1/kind_inv_loop.ml" 380 14945 14991
 type(
   string list list
 )
-"kind1/kind_inv_loop.ml" 376 14703 14751 "kind1/kind_inv_loop.ml" 376 14703 14769
+"kind1/kind_inv_loop.ml" 380 14945 14993 "kind1/kind_inv_loop.ml" 380 14945 15011
 type(
   Partial_order.partial_order
 )
 ident(
   int_ref ints_partial_order "kind1/kind_inv_loop.ml" 142 5673 5679 "kind1/kind_inv_loop.ml" 142 5673 5697
 )
-"kind1/kind_inv_loop.ml" 376 14703 14751 "kind1/kind_inv_loop.ml" 376 14703 14774
+"kind1/kind_inv_loop.ml" 380 14945 14993 "kind1/kind_inv_loop.ml" 380 14945 15016
 call(
   stack
 )
 type(
   unit -> (string * string) list
 )
-"kind1/kind_inv_loop.ml" 376 14703 14774 "kind1/kind_inv_loop.ml" 376 14703 14776
+"kind1/kind_inv_loop.ml" 380 14945 15016 "kind1/kind_inv_loop.ml" 380 14945 15018
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 376 14703 14751 "kind1/kind_inv_loop.ml" 376 14703 14776
+"kind1/kind_inv_loop.ml" 380 14945 14993 "kind1/kind_inv_loop.ml" 380 14945 15018
 type(
   (string * string) list
 )
-"kind1/kind_inv_loop.ml" 376 14703 14715 "kind1/kind_inv_loop.ml" 376 14703 14776
+"kind1/kind_inv_loop.ml" 380 14945 14957 "kind1/kind_inv_loop.ml" 380 14945 15018
 type(
   string list list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 377 14777 14789 "kind1/kind_inv_loop.ml" 377 14777 14791
+"kind1/kind_inv_loop.ml" 381 15019 15031 "kind1/kind_inv_loop.ml" 381 15019 15033
 type(
   string list list
 )
-"kind1/kind_inv_loop.ml" 377 14777 14792 "kind1/kind_inv_loop.ml" 377 14777 14794
+"kind1/kind_inv_loop.ml" 381 15019 15034 "kind1/kind_inv_loop.ml" 381 15019 15036
 type(
   (string * string) list
 )
-"kind1/kind_inv_loop.ml" 377 14777 14789 "kind1/kind_inv_loop.ml" 377 14777 14794
+"kind1/kind_inv_loop.ml" 381 15019 15031 "kind1/kind_inv_loop.ml" 381 15019 15036
 type(
   string list list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 375 14667 14674 "kind1/kind_inv_loop.ml" 377 14777 14794
+"kind1/kind_inv_loop.ml" 379 14909 14916 "kind1/kind_inv_loop.ml" 381 15019 15036
 type(
   string list list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 379 14803 14812 "kind1/kind_inv_loop.ml" 379 14803 14818
+"kind1/kind_inv_loop.ml" 383 15045 15054 "kind1/kind_inv_loop.ml" 383 15045 15060
 type(
   Filter_trivial.filter_trivial
 )
 ident(
-  def filter "kind1/kind_inv_loop.ml" 386 14942 14949 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def filter "kind1/kind_inv_loop.ml" 390 15184 15191 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 380 14822 14829 "kind1/kind_inv_loop.ml" 380 14822 14862
+"kind1/kind_inv_loop.ml" 384 15064 15071 "kind1/kind_inv_loop.ml" 384 15064 15104
 type(
   Imp_graph.equiv_class_type list * (string * string) list *
   string list list * (string * string) list -> Filter_trivial.filter_trivial
 )
-"kind1/kind_inv_loop.ml" 381 14865 14867 "kind1/kind_inv_loop.ml" 381 14865 14885
+"kind1/kind_inv_loop.ml" 385 15107 15109 "kind1/kind_inv_loop.ml" 385 15107 15127
 type(
   Imp_graph.equiv_class_type list
 )
 ident(
-  int_ref bool_equiv_classes "kind1/kind_inv_loop.ml" 369 14435 14444 "kind1/kind_inv_loop.ml" 369 14435 14462
+  int_ref bool_equiv_classes "kind1/kind_inv_loop.ml" 373 14677 14686 "kind1/kind_inv_loop.ml" 373 14677 14704
 )
-"kind1/kind_inv_loop.ml" 382 14887 14889 "kind1/kind_inv_loop.ml" 382 14887 14898
+"kind1/kind_inv_loop.ml" 386 15129 15131 "kind1/kind_inv_loop.ml" 386 15129 15140
 type(
   (string * string) list
 )
 ident(
-  int_ref bool_imps "kind1/kind_inv_loop.ml" 369 14435 14464 "kind1/kind_inv_loop.ml" 369 14435 14473
+  int_ref bool_imps "kind1/kind_inv_loop.ml" 373 14677 14706 "kind1/kind_inv_loop.ml" 373 14677 14715
 )
-"kind1/kind_inv_loop.ml" 383 14900 14902 "kind1/kind_inv_loop.ml" 383 14900 14919
+"kind1/kind_inv_loop.ml" 387 15142 15144 "kind1/kind_inv_loop.ml" 387 15142 15161
 type(
   string list list
 )
 ident(
-  int_ref int_equiv_classes "kind1/kind_inv_loop.ml" 374 14629 14638 "kind1/kind_inv_loop.ml" 374 14629 14655
+  int_ref int_equiv_classes "kind1/kind_inv_loop.ml" 378 14871 14880 "kind1/kind_inv_loop.ml" 378 14871 14897
 )
-"kind1/kind_inv_loop.ml" 384 14921 14923 "kind1/kind_inv_loop.ml" 384 14921 14931
+"kind1/kind_inv_loop.ml" 388 15163 15165 "kind1/kind_inv_loop.ml" 388 15163 15173
 type(
   (string * string) list
 )
 ident(
-  int_ref int_imps "kind1/kind_inv_loop.ml" 374 14629 14656 "kind1/kind_inv_loop.ml" 374 14629 14664
+  int_ref int_imps "kind1/kind_inv_loop.ml" 378 14871 14898 "kind1/kind_inv_loop.ml" 378 14871 14906
 )
-"kind1/kind_inv_loop.ml" 380 14822 14863 "kind1/kind_inv_loop.ml" 384 14921 14932
+"kind1/kind_inv_loop.ml" 384 15064 15105 "kind1/kind_inv_loop.ml" 388 15163 15174
 type(
   Imp_graph.equiv_class_type list * (string * string) list *
   string list list * (string * string) list
 )
-"kind1/kind_inv_loop.ml" 380 14822 14829 "kind1/kind_inv_loop.ml" 384 14921 14932
+"kind1/kind_inv_loop.ml" 384 15064 15071 "kind1/kind_inv_loop.ml" 388 15163 15174
 call(
   stack
 )
 type(
   Filter_trivial.filter_trivial
 )
-"kind1/kind_inv_loop.ml" 386 14942 14956 "kind1/kind_inv_loop.ml" 386 14942 14968
+"kind1/kind_inv_loop.ml" 390 15184 15198 "kind1/kind_inv_loop.ml" 390 15184 15210
 type(
   Filter_trivial.filter_trivial -> bool
 )
 ident(
   int_ref filter_final "kind1/kind_inv_loop.ml" 156 6213 6219 "kind1/kind_inv_loop.ml" 156 6213 6231
 )
-"kind1/kind_inv_loop.ml" 386 14942 14969 "kind1/kind_inv_loop.ml" 386 14942 14975
+"kind1/kind_inv_loop.ml" 390 15184 15211 "kind1/kind_inv_loop.ml" 390 15184 15217
 type(
   Filter_trivial.filter_trivial
 )
 ident(
-  int_ref filter "kind1/kind_inv_loop.ml" 379 14803 14812 "kind1/kind_inv_loop.ml" 379 14803 14818
+  int_ref filter "kind1/kind_inv_loop.ml" 383 15045 15054 "kind1/kind_inv_loop.ml" 383 15045 15060
 )
-"kind1/kind_inv_loop.ml" 386 14942 14955 "kind1/kind_inv_loop.ml" 386 14942 14976
+"kind1/kind_inv_loop.ml" 390 15184 15197 "kind1/kind_inv_loop.ml" 390 15184 15218
 call(
   stack
 )
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 387 14981 14983 "kind1/kind_inv_loop.ml" 387 14981 14989
+"kind1/kind_inv_loop.ml" 391 15223 15225 "kind1/kind_inv_loop.ml" 391 15223 15231
 type(
   unit -> unit
 )
 ident(
   ext_ref Pervasives.ignore
 )
-"kind1/kind_inv_loop.ml" 387 14981 14989 "kind1/kind_inv_loop.ml" 387 14981 14991
+"kind1/kind_inv_loop.ml" 391 15223 15231 "kind1/kind_inv_loop.ml" 391 15223 15233
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 387 14981 14983 "kind1/kind_inv_loop.ml" 387 14981 14992
+"kind1/kind_inv_loop.ml" 391 15223 15225 "kind1/kind_inv_loop.ml" 391 15223 15234
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 386 14942 14949 "kind1/kind_inv_loop.ml" 388 14993 15004
+"kind1/kind_inv_loop.ml" 390 15184 15191 "kind1/kind_inv_loop.ml" 392 15235 15246
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 389 15007 15018 "kind1/kind_inv_loop.ml" 389 15007 15023
+"kind1/kind_inv_loop.ml" 393 15249 15260 "kind1/kind_inv_loop.ml" 393 15249 15265
 type(
   Types.il_formula list
 )
 ident(
-  def b_eqs "kind1/kind_inv_loop.ml" 390 15073 15080 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def b_eqs "kind1/kind_inv_loop.ml" 394 15315 15322 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 389 15007 15025 "kind1/kind_inv_loop.ml" 389 15007 15031
+"kind1/kind_inv_loop.ml" 393 15249 15267 "kind1/kind_inv_loop.ml" 393 15249 15273
 type(
   Types.il_formula list
 )
 ident(
-  def b_imps "kind1/kind_inv_loop.ml" 390 15073 15080 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def b_imps "kind1/kind_inv_loop.ml" 394 15315 15322 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 389 15007 15033 "kind1/kind_inv_loop.ml" 389 15007 15038
+"kind1/kind_inv_loop.ml" 393 15249 15275 "kind1/kind_inv_loop.ml" 393 15249 15280
 type(
   Types.il_formula list
 )
 ident(
-  def i_eqs "kind1/kind_inv_loop.ml" 390 15073 15080 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def i_eqs "kind1/kind_inv_loop.ml" 394 15315 15322 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 389 15007 15040 "kind1/kind_inv_loop.ml" 389 15007 15046
+"kind1/kind_inv_loop.ml" 393 15249 15282 "kind1/kind_inv_loop.ml" 393 15249 15288
 type(
   Types.il_formula list
 )
 ident(
-  def i_imps "kind1/kind_inv_loop.ml" 390 15073 15080 "kind1/kind_inv_loop.ml" 397 15401 15446
+  def i_imps "kind1/kind_inv_loop.ml" 394 15315 15322 "kind1/kind_inv_loop.ml" 401 15643 15688
 )
-"kind1/kind_inv_loop.ml" 389 15007 15018 "kind1/kind_inv_loop.ml" 389 15007 15046
+"kind1/kind_inv_loop.ml" 393 15249 15260 "kind1/kind_inv_loop.ml" 393 15249 15288
 type(
   Types.il_formula list * Types.il_formula list * Types.il_formula list *
   Types.il_formula list
 )
-"kind1/kind_inv_loop.ml" 389 15007 15049 "kind1/kind_inv_loop.ml" 389 15007 15055
+"kind1/kind_inv_loop.ml" 393 15249 15291 "kind1/kind_inv_loop.ml" 393 15249 15297
 type(
   Filter_trivial.filter_trivial
 )
 ident(
-  int_ref filter "kind1/kind_inv_loop.ml" 379 14803 14812 "kind1/kind_inv_loop.ml" 379 14803 14818
+  int_ref filter "kind1/kind_inv_loop.ml" 383 15045 15054 "kind1/kind_inv_loop.ml" 383 15045 15060
 )
-"kind1/kind_inv_loop.ml" 389 15007 15049 "kind1/kind_inv_loop.ml" 389 15007 15067
+"kind1/kind_inv_loop.ml" 393 15249 15291 "kind1/kind_inv_loop.ml" 393 15249 15309
 call(
   stack
 )
@@ -8651,262 +8895,262 @@ type(
   Types.il_formula list * Types.il_formula list * Types.il_formula list *
   Types.il_formula list
 )
-"kind1/kind_inv_loop.ml" 389 15007 15067 "kind1/kind_inv_loop.ml" 389 15007 15069
+"kind1/kind_inv_loop.ml" 393 15249 15309 "kind1/kind_inv_loop.ml" 393 15249 15311
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 389 15007 15049 "kind1/kind_inv_loop.ml" 389 15007 15069
+"kind1/kind_inv_loop.ml" 393 15249 15291 "kind1/kind_inv_loop.ml" 393 15249 15311
 type(
   Types.il_formula list * Types.il_formula list * Types.il_formula list *
   Types.il_formula list
 )
-"kind1/kind_inv_loop.ml" 390 15073 15084 "kind1/kind_inv_loop.ml" 390 15073 15085
+"kind1/kind_inv_loop.ml" 394 15315 15326 "kind1/kind_inv_loop.ml" 394 15315 15327
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 390 15073 15087 "kind1/kind_inv_loop.ml" 390 15073 15095
+"kind1/kind_inv_loop.ml" 394 15315 15329 "kind1/kind_inv_loop.ml" 394 15315 15337
 type(
   (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
 )
 ident(
   ext_ref ExtList.List.map
 )
-"kind1/kind_inv_loop.ml" 390 15073 15100 "kind1/kind_inv_loop.ml" 390 15073 15101
+"kind1/kind_inv_loop.ml" 394 15315 15342 "kind1/kind_inv_loop.ml" 394 15315 15343
 type(
   Types.il_formula
 )
 ident(
-  def x "kind1/kind_inv_loop.ml" 390 15073 15105 "kind1/kind_inv_loop.ml" 390 15073 15121
+  def x "kind1/kind_inv_loop.ml" 394 15315 15347 "kind1/kind_inv_loop.ml" 394 15315 15363
 )
-"kind1/kind_inv_loop.ml" 390 15073 15105 "kind1/kind_inv_loop.ml" 390 15073 15119
+"kind1/kind_inv_loop.ml" 394 15315 15347 "kind1/kind_inv_loop.ml" 394 15315 15361
 type(
   Types.il_formula -> 'a
 )
 ident(
   int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
 )
-"kind1/kind_inv_loop.ml" 390 15073 15120 "kind1/kind_inv_loop.ml" 390 15073 15121
+"kind1/kind_inv_loop.ml" 394 15315 15362 "kind1/kind_inv_loop.ml" 394 15315 15363
 type(
   Types.il_formula
 )
 ident(
-  int_ref x "kind1/kind_inv_loop.ml" 390 15073 15100 "kind1/kind_inv_loop.ml" 390 15073 15101
+  int_ref x "kind1/kind_inv_loop.ml" 394 15315 15342 "kind1/kind_inv_loop.ml" 394 15315 15343
 )
-"kind1/kind_inv_loop.ml" 390 15073 15105 "kind1/kind_inv_loop.ml" 390 15073 15121
+"kind1/kind_inv_loop.ml" 394 15315 15347 "kind1/kind_inv_loop.ml" 394 15315 15363
 call(
   tail
 )
 type(
   'a
 )
-"kind1/kind_inv_loop.ml" 390 15073 15095 "kind1/kind_inv_loop.ml" 390 15073 15122
+"kind1/kind_inv_loop.ml" 394 15315 15337 "kind1/kind_inv_loop.ml" 394 15315 15364
 type(
   Types.il_formula -> 'a
 )
-"kind1/kind_inv_loop.ml" 390 15073 15123 "kind1/kind_inv_loop.ml" 390 15073 15128
+"kind1/kind_inv_loop.ml" 394 15315 15365 "kind1/kind_inv_loop.ml" 394 15315 15370
 type(
   Types.il_formula list
 )
 ident(
-  int_ref b_eqs "kind1/kind_inv_loop.ml" 389 15007 15018 "kind1/kind_inv_loop.ml" 389 15007 15023
+  int_ref b_eqs "kind1/kind_inv_loop.ml" 393 15249 15260 "kind1/kind_inv_loop.ml" 393 15249 15265
 )
-"kind1/kind_inv_loop.ml" 390 15073 15087 "kind1/kind_inv_loop.ml" 390 15073 15128
+"kind1/kind_inv_loop.ml" 394 15315 15329 "kind1/kind_inv_loop.ml" 394 15315 15370
 call(
   stack
 )
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 391 15132 15143 "kind1/kind_inv_loop.ml" 391 15132 15144
+"kind1/kind_inv_loop.ml" 395 15374 15385 "kind1/kind_inv_loop.ml" 395 15374 15386
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 391 15132 15146 "kind1/kind_inv_loop.ml" 391 15132 15154
+"kind1/kind_inv_loop.ml" 395 15374 15388 "kind1/kind_inv_loop.ml" 395 15374 15396
 type(
   (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
 )
 ident(
   ext_ref ExtList.List.map
 )
-"kind1/kind_inv_loop.ml" 391 15132 15159 "kind1/kind_inv_loop.ml" 391 15132 15160
+"kind1/kind_inv_loop.ml" 395 15374 15401 "kind1/kind_inv_loop.ml" 395 15374 15402
 type(
   Types.il_formula
 )
 ident(
-  def x "kind1/kind_inv_loop.ml" 391 15132 15164 "kind1/kind_inv_loop.ml" 391 15132 15180
+  def x "kind1/kind_inv_loop.ml" 395 15374 15406 "kind1/kind_inv_loop.ml" 395 15374 15422
 )
-"kind1/kind_inv_loop.ml" 391 15132 15164 "kind1/kind_inv_loop.ml" 391 15132 15178
+"kind1/kind_inv_loop.ml" 395 15374 15406 "kind1/kind_inv_loop.ml" 395 15374 15420
 type(
   Types.il_formula -> 'a
 )
 ident(
   int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
 )
-"kind1/kind_inv_loop.ml" 391 15132 15179 "kind1/kind_inv_loop.ml" 391 15132 15180
+"kind1/kind_inv_loop.ml" 395 15374 15421 "kind1/kind_inv_loop.ml" 395 15374 15422
 type(
   Types.il_formula
 )
 ident(
-  int_ref x "kind1/kind_inv_loop.ml" 391 15132 15159 "kind1/kind_inv_loop.ml" 391 15132 15160
+  int_ref x "kind1/kind_inv_loop.ml" 395 15374 15401 "kind1/kind_inv_loop.ml" 395 15374 15402
 )
-"kind1/kind_inv_loop.ml" 391 15132 15164 "kind1/kind_inv_loop.ml" 391 15132 15180
+"kind1/kind_inv_loop.ml" 395 15374 15406 "kind1/kind_inv_loop.ml" 395 15374 15422
 call(
   tail
 )
 type(
   'a
 )
-"kind1/kind_inv_loop.ml" 391 15132 15154 "kind1/kind_inv_loop.ml" 391 15132 15181
+"kind1/kind_inv_loop.ml" 395 15374 15396 "kind1/kind_inv_loop.ml" 395 15374 15423
 type(
   Types.il_formula -> 'a
 )
-"kind1/kind_inv_loop.ml" 391 15132 15182 "kind1/kind_inv_loop.ml" 391 15132 15188
+"kind1/kind_inv_loop.ml" 395 15374 15424 "kind1/kind_inv_loop.ml" 395 15374 15430
 type(
   Types.il_formula list
 )
 ident(
-  int_ref b_imps "kind1/kind_inv_loop.ml" 389 15007 15025 "kind1/kind_inv_loop.ml" 389 15007 15031
+  int_ref b_imps "kind1/kind_inv_loop.ml" 393 15249 15267 "kind1/kind_inv_loop.ml" 393 15249 15273
 )
-"kind1/kind_inv_loop.ml" 391 15132 15146 "kind1/kind_inv_loop.ml" 391 15132 15188
+"kind1/kind_inv_loop.ml" 395 15374 15388 "kind1/kind_inv_loop.ml" 395 15374 15430
 call(
   stack
 )
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 392 15192 15203 "kind1/kind_inv_loop.ml" 392 15192 15204
+"kind1/kind_inv_loop.ml" 396 15434 15445 "kind1/kind_inv_loop.ml" 396 15434 15446
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 392 15192 15206 "kind1/kind_inv_loop.ml" 392 15192 15214
+"kind1/kind_inv_loop.ml" 396 15434 15448 "kind1/kind_inv_loop.ml" 396 15434 15456
 type(
   (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
 )
 ident(
   ext_ref ExtList.List.map
 )
-"kind1/kind_inv_loop.ml" 392 15192 15219 "kind1/kind_inv_loop.ml" 392 15192 15220
+"kind1/kind_inv_loop.ml" 396 15434 15461 "kind1/kind_inv_loop.ml" 396 15434 15462
 type(
   Types.il_formula
 )
 ident(
-  def x "kind1/kind_inv_loop.ml" 392 15192 15224 "kind1/kind_inv_loop.ml" 392 15192 15240
+  def x "kind1/kind_inv_loop.ml" 396 15434 15466 "kind1/kind_inv_loop.ml" 396 15434 15482
 )
-"kind1/kind_inv_loop.ml" 392 15192 15224 "kind1/kind_inv_loop.ml" 392 15192 15238
+"kind1/kind_inv_loop.ml" 396 15434 15466 "kind1/kind_inv_loop.ml" 396 15434 15480
 type(
   Types.il_formula -> 'a
 )
 ident(
   int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
 )
-"kind1/kind_inv_loop.ml" 392 15192 15239 "kind1/kind_inv_loop.ml" 392 15192 15240
+"kind1/kind_inv_loop.ml" 396 15434 15481 "kind1/kind_inv_loop.ml" 396 15434 15482
 type(
   Types.il_formula
 )
 ident(
-  int_ref x "kind1/kind_inv_loop.ml" 392 15192 15219 "kind1/kind_inv_loop.ml" 392 15192 15220
+  int_ref x "kind1/kind_inv_loop.ml" 396 15434 15461 "kind1/kind_inv_loop.ml" 396 15434 15462
 )
-"kind1/kind_inv_loop.ml" 392 15192 15224 "kind1/kind_inv_loop.ml" 392 15192 15240
+"kind1/kind_inv_loop.ml" 396 15434 15466 "kind1/kind_inv_loop.ml" 396 15434 15482
 call(
   tail
 )
 type(
   'a
 )
-"kind1/kind_inv_loop.ml" 392 15192 15214 "kind1/kind_inv_loop.ml" 392 15192 15241
+"kind1/kind_inv_loop.ml" 396 15434 15456 "kind1/kind_inv_loop.ml" 396 15434 15483
 type(
   Types.il_formula -> 'a
 )
-"kind1/kind_inv_loop.ml" 392 15192 15242 "kind1/kind_inv_loop.ml" 392 15192 15247
+"kind1/kind_inv_loop.ml" 396 15434 15484 "kind1/kind_inv_loop.ml" 396 15434 15489
 type(
   Types.il_formula list
 )
 ident(
-  int_ref i_eqs "kind1/kind_inv_loop.ml" 389 15007 15033 "kind1/kind_inv_loop.ml" 389 15007 15038
+  int_ref i_eqs "kind1/kind_inv_loop.ml" 393 15249 15275 "kind1/kind_inv_loop.ml" 393 15249 15280
 )
-"kind1/kind_inv_loop.ml" 392 15192 15206 "kind1/kind_inv_loop.ml" 392 15192 15247
+"kind1/kind_inv_loop.ml" 396 15434 15448 "kind1/kind_inv_loop.ml" 396 15434 15489
 call(
   stack
 )
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 393 15251 15262 "kind1/kind_inv_loop.ml" 393 15251 15263
+"kind1/kind_inv_loop.ml" 397 15493 15504 "kind1/kind_inv_loop.ml" 397 15493 15505
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 393 15251 15265 "kind1/kind_inv_loop.ml" 393 15251 15273
+"kind1/kind_inv_loop.ml" 397 15493 15507 "kind1/kind_inv_loop.ml" 397 15493 15515
 type(
   (Types.il_formula -> 'a) -> Types.il_formula list -> 'a list
 )
 ident(
   ext_ref ExtList.List.map
 )
-"kind1/kind_inv_loop.ml" 393 15251 15278 "kind1/kind_inv_loop.ml" 393 15251 15279
+"kind1/kind_inv_loop.ml" 397 15493 15520 "kind1/kind_inv_loop.ml" 397 15493 15521
 type(
   Types.il_formula
 )
 ident(
-  def x "kind1/kind_inv_loop.ml" 393 15251 15283 "kind1/kind_inv_loop.ml" 393 15251 15299
+  def x "kind1/kind_inv_loop.ml" 397 15493 15525 "kind1/kind_inv_loop.ml" 397 15493 15541
 )
-"kind1/kind_inv_loop.ml" 393 15251 15283 "kind1/kind_inv_loop.ml" 393 15251 15297
+"kind1/kind_inv_loop.ml" 397 15493 15525 "kind1/kind_inv_loop.ml" 397 15493 15539
 type(
   Types.il_formula -> 'a
 )
 ident(
   int_ref send_invariant "kind1/kind_inv_loop.ml" 90 3407 3429 "kind1/kind_inv_loop.ml" 90 3407 3443
 )
-"kind1/kind_inv_loop.ml" 393 15251 15298 "kind1/kind_inv_loop.ml" 393 15251 15299
+"kind1/kind_inv_loop.ml" 397 15493 15540 "kind1/kind_inv_loop.ml" 397 15493 15541
 type(
   Types.il_formula
 )
 ident(
-  int_ref x "kind1/kind_inv_loop.ml" 393 15251 15278 "kind1/kind_inv_loop.ml" 393 15251 15279
+  int_ref x "kind1/kind_inv_loop.ml" 397 15493 15520 "kind1/kind_inv_loop.ml" 397 15493 15521
 )
-"kind1/kind_inv_loop.ml" 393 15251 15283 "kind1/kind_inv_loop.ml" 393 15251 15299
+"kind1/kind_inv_loop.ml" 397 15493 15525 "kind1/kind_inv_loop.ml" 397 15493 15541
 call(
   tail
 )
 type(
   'a
 )
-"kind1/kind_inv_loop.ml" 393 15251 15273 "kind1/kind_inv_loop.ml" 393 15251 15300
+"kind1/kind_inv_loop.ml" 397 15493 15515 "kind1/kind_inv_loop.ml" 397 15493 15542
 type(
   Types.il_formula -> 'a
 )
-"kind1/kind_inv_loop.ml" 393 15251 15301 "kind1/kind_inv_loop.ml" 393 15251 15307
+"kind1/kind_inv_loop.ml" 397 15493 15543 "kind1/kind_inv_loop.ml" 397 15493 15549
 type(
   Types.il_formula list
 )
 ident(
-  int_ref i_imps "kind1/kind_inv_loop.ml" 389 15007 15040 "kind1/kind_inv_loop.ml" 389 15007 15046
+  int_ref i_imps "kind1/kind_inv_loop.ml" 393 15249 15282 "kind1/kind_inv_loop.ml" 393 15249 15288
 )
-"kind1/kind_inv_loop.ml" 393 15251 15265 "kind1/kind_inv_loop.ml" 393 15251 15307
+"kind1/kind_inv_loop.ml" 397 15493 15507 "kind1/kind_inv_loop.ml" 397 15493 15549
 call(
   stack
 )
 type(
   'a list
 )
-"kind1/kind_inv_loop.ml" 394 15311 15316 "kind1/kind_inv_loop.ml" 394 15311 15317
+"kind1/kind_inv_loop.ml" 398 15553 15558 "kind1/kind_inv_loop.ml" 398 15553 15559
 type(
   bool ref -> bool
 )
 ident(
   ext_ref Pervasives.( ! )
 )
-"kind1/kind_inv_loop.ml" 394 15311 15317 "kind1/kind_inv_loop.ml" 394 15311 15332
+"kind1/kind_inv_loop.ml" 398 15553 15559 "kind1/kind_inv_loop.ml" 398 15553 15574
 type(
   bool ref
 )
 ident(
   ext_ref OldFlags.no_imp
 )
-"kind1/kind_inv_loop.ml" 394 15311 15316 "kind1/kind_inv_loop.ml" 394 15311 15332
+"kind1/kind_inv_loop.ml" 398 15553 15558 "kind1/kind_inv_loop.ml" 398 15553 15574
 type(
   bool
 )
-"kind1/kind_inv_loop.ml" 395 15338 15343 "kind1/kind_inv_loop.ml" 395 15338 15357
+"kind1/kind_inv_loop.ml" 399 15580 15585 "kind1/kind_inv_loop.ml" 399 15580 15599
 type(
   Types.il_formula list ->
   Types.il_formula list ->
@@ -8915,49 +9159,49 @@ type(
 ident(
   int_ref pr_func_no_imp "kind1/kind_inv_loop.ml" 71 2735 2739 "kind1/kind_inv_loop.ml" 71 2735 2753
 )
-"kind1/kind_inv_loop.ml" 395 15338 15359 "kind1/kind_inv_loop.ml" 395 15338 15364
+"kind1/kind_inv_loop.ml" 399 15580 15601 "kind1/kind_inv_loop.ml" 399 15580 15606
 type(
   Types.il_formula list
 )
 ident(
-  int_ref b_eqs "kind1/kind_inv_loop.ml" 389 15007 15018 "kind1/kind_inv_loop.ml" 389 15007 15023
+  int_ref b_eqs "kind1/kind_inv_loop.ml" 393 15249 15260 "kind1/kind_inv_loop.ml" 393 15249 15265
 )
-"kind1/kind_inv_loop.ml" 395 15338 15365 "kind1/kind_inv_loop.ml" 395 15338 15371
+"kind1/kind_inv_loop.ml" 399 15580 15607 "kind1/kind_inv_loop.ml" 399 15580 15613
 type(
   Types.il_formula list
 )
 ident(
-  int_ref b_imps "kind1/kind_inv_loop.ml" 389 15007 15025 "kind1/kind_inv_loop.ml" 389 15007 15031
+  int_ref b_imps "kind1/kind_inv_loop.ml" 393 15249 15267 "kind1/kind_inv_loop.ml" 393 15249 15273
 )
-"kind1/kind_inv_loop.ml" 395 15338 15372 "kind1/kind_inv_loop.ml" 395 15338 15377
+"kind1/kind_inv_loop.ml" 399 15580 15614 "kind1/kind_inv_loop.ml" 399 15580 15619
 type(
   Types.il_formula list
 )
 ident(
-  int_ref i_eqs "kind1/kind_inv_loop.ml" 389 15007 15033 "kind1/kind_inv_loop.ml" 389 15007 15038
+  int_ref i_eqs "kind1/kind_inv_loop.ml" 393 15249 15275 "kind1/kind_inv_loop.ml" 393 15249 15280
 )
-"kind1/kind_inv_loop.ml" 395 15338 15378 "kind1/kind_inv_loop.ml" 395 15338 15384
+"kind1/kind_inv_loop.ml" 399 15580 15620 "kind1/kind_inv_loop.ml" 399 15580 15626
 type(
   Types.il_formula list
 )
 ident(
-  int_ref i_imps "kind1/kind_inv_loop.ml" 389 15007 15040 "kind1/kind_inv_loop.ml" 389 15007 15046
+  int_ref i_imps "kind1/kind_inv_loop.ml" 393 15249 15282 "kind1/kind_inv_loop.ml" 393 15249 15288
 )
-"kind1/kind_inv_loop.ml" 395 15338 15385 "kind1/kind_inv_loop.ml" 395 15338 15393
+"kind1/kind_inv_loop.ml" 399 15580 15627 "kind1/kind_inv_loop.ml" 399 15580 15635
 type(
   int
 )
 ident(
   int_ref maxdepth "kind1/kind_inv_loop.ml" 91 3446 3459 "kind1/kind_inv_loop.ml" 91 3446 3467
 )
-"kind1/kind_inv_loop.ml" 395 15338 15343 "kind1/kind_inv_loop.ml" 395 15338 15393
+"kind1/kind_inv_loop.ml" 399 15580 15585 "kind1/kind_inv_loop.ml" 399 15580 15635
 call(
   stack
 )
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 397 15401 15404 "kind1/kind_inv_loop.ml" 397 15401 15411
+"kind1/kind_inv_loop.ml" 401 15643 15646 "kind1/kind_inv_loop.ml" 401 15643 15653
 type(
   Types.il_formula list ->
   Types.il_formula list ->
@@ -8966,289 +9210,289 @@ type(
 ident(
   int_ref pr_func "kind1/kind_inv_loop.ml" 53 2054 2058 "kind1/kind_inv_loop.ml" 53 2054 2065
 )
-"kind1/kind_inv_loop.ml" 397 15401 15412 "kind1/kind_inv_loop.ml" 397 15401 15417
+"kind1/kind_inv_loop.ml" 401 15643 15654 "kind1/kind_inv_loop.ml" 401 15643 15659
 type(
   Types.il_formula list
 )
 ident(
-  int_ref b_eqs "kind1/kind_inv_loop.ml" 389 15007 15018 "kind1/kind_inv_loop.ml" 389 15007 15023
+  int_ref b_eqs "kind1/kind_inv_loop.ml" 393 15249 15260 "kind1/kind_inv_loop.ml" 393 15249 15265
 )
-"kind1/kind_inv_loop.ml" 397 15401 15418 "kind1/kind_inv_loop.ml" 397 15401 15424
+"kind1/kind_inv_loop.ml" 401 15643 15660 "kind1/kind_inv_loop.ml" 401 15643 15666
 type(
   Types.il_formula list
 )
 ident(
-  int_ref b_imps "kind1/kind_inv_loop.ml" 389 15007 15025 "kind1/kind_inv_loop.ml" 389 15007 15031
+  int_ref b_imps "kind1/kind_inv_loop.ml" 393 15249 15267 "kind1/kind_inv_loop.ml" 393 15249 15273
 )
-"kind1/kind_inv_loop.ml" 397 15401 15425 "kind1/kind_inv_loop.ml" 397 15401 15430
+"kind1/kind_inv_loop.ml" 401 15643 15667 "kind1/kind_inv_loop.ml" 401 15643 15672
 type(
   Types.il_formula list
 )
 ident(
-  int_ref i_eqs "kind1/kind_inv_loop.ml" 389 15007 15033 "kind1/kind_inv_loop.ml" 389 15007 15038
+  int_ref i_eqs "kind1/kind_inv_loop.ml" 393 15249 15275 "kind1/kind_inv_loop.ml" 393 15249 15280
 )
-"kind1/kind_inv_loop.ml" 397 15401 15431 "kind1/kind_inv_loop.ml" 397 15401 15437
+"kind1/kind_inv_loop.ml" 401 15643 15673 "kind1/kind_inv_loop.ml" 401 15643 15679
 type(
   Types.il_formula list
 )
 ident(
-  int_ref i_imps "kind1/kind_inv_loop.ml" 389 15007 15040 "kind1/kind_inv_loop.ml" 389 15007 15046
+  int_ref i_imps "kind1/kind_inv_loop.ml" 393 15249 15282 "kind1/kind_inv_loop.ml" 393 15249 15288
 )
-"kind1/kind_inv_loop.ml" 397 15401 15438 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 401 15643 15680 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   int
 )
 ident(
   int_ref maxdepth "kind1/kind_inv_loop.ml" 91 3446 3459 "kind1/kind_inv_loop.ml" 91 3446 3467
 )
-"kind1/kind_inv_loop.ml" 397 15401 15404 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 401 15643 15646 "kind1/kind_inv_loop.ml" 401 15643 15688
 call(
   stack
 )
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 394 15311 15313 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 398 15553 15555 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 393 15251 15258 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 397 15493 15500 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 392 15192 15199 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 396 15434 15441 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 391 15132 15139 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 395 15374 15381 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 390 15073 15080 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 394 15315 15322 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 389 15007 15014 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 393 15249 15256 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 386 14942 14949 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 390 15184 15191 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 379 14803 14808 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 383 15045 15050 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 374 14629 14634 "kind1/kind_inv_loop.ml" 397 15401 15446
+"kind1/kind_inv_loop.ml" 378 14871 14876 "kind1/kind_inv_loop.ml" 401 15643 15688
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 368 14398 14401 "kind1/kind_inv_loop.ml" 398 15447 15451
+"kind1/kind_inv_loop.ml" 372 14640 14643 "kind1/kind_inv_loop.ml" 402 15689 15693
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 347 13833 13845 "kind1/kind_inv_loop.ml" 399 15453 15461
+"kind1/kind_inv_loop.ml" 347 13833 13845 "kind1/kind_inv_loop.ml" 403 15695 15703
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 401 15476 15478 "kind1/kind_inv_loop.ml" 401 15476 15480
+"kind1/kind_inv_loop.ml" 405 15718 15720 "kind1/kind_inv_loop.ml" 405 15718 15722
 type(
   string -> unit
 )
 ident(
   ext_ref Util.pr
 )
-"kind1/kind_inv_loop.ml" 401 15476 15481 "kind1/kind_inv_loop.ml" 401 15476 15497
+"kind1/kind_inv_loop.ml" 405 15718 15723 "kind1/kind_inv_loop.ml" 405 15718 15739
 type(
   string
 )
-"kind1/kind_inv_loop.ml" 400 15462 15474 "kind1/kind_inv_loop.ml" 402 15499 15507
+"kind1/kind_inv_loop.ml" 404 15704 15716 "kind1/kind_inv_loop.ml" 406 15741 15749
 call(
   stack
 )
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 346 13772 13779 "kind1/kind_inv_loop.ml" 402 15499 15507
+"kind1/kind_inv_loop.ml" 346 13772 13779 "kind1/kind_inv_loop.ml" 406 15741 15749
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 403 15509 15516 "kind1/kind_inv_loop.ml" 403 15509 15520
+"kind1/kind_inv_loop.ml" 407 15751 15758 "kind1/kind_inv_loop.ml" 407 15751 15762
 type(
   int -> unit
 )
 ident(
   ext_ref Pervasives.exit
 )
-"kind1/kind_inv_loop.ml" 403 15509 15521 "kind1/kind_inv_loop.ml" 403 15509 15522
+"kind1/kind_inv_loop.ml" 407 15751 15763 "kind1/kind_inv_loop.ml" 407 15751 15764
 type(
   int
 )
-"kind1/kind_inv_loop.ml" 403 15509 15516 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 407 15751 15758 "kind1/kind_inv_loop.ml" 407 15751 15765
 call(
   tail
 )
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 346 13772 13779 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 346 13772 13779 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 341 13566 13571 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 341 13566 13571 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 337 13433 13438 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 337 13433 13438 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 335 13332 13337 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 335 13332 13337 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 334 13257 13262 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 334 13257 13262 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 333 13217 13222 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 333 13217 13222 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 332 13138 13143 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 332 13138 13143 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 331 13085 13090 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 331 13085 13090 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 330 13030 13035 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 330 13030 13035 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 329 12976 12981 "kind1/kind_inv_loop.ml" 403 15509 15523
+"kind1/kind_inv_loop.ml" 329 12976 12981 "kind1/kind_inv_loop.ml" 407 15751 15765
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 327 12904 12907 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 327 12904 12907 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 268 10128 10130 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 268 10128 10130 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 265 10050 10052 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 265 10050 10052 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 264 10011 10013 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 264 10011 10013 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 263 9976 9978 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 263 9976 9978 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 193 7562 7564 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 193 7562 7564 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 156 6213 6215 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 156 6213 6215 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 154 6147 6149 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 154 6147 6149 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 153 6084 6086 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 153 6084 6086 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 152 6034 6036 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 152 6034 6036 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 151 5947 5949 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 151 5947 5949 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 150 5894 5896 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 150 5894 5896 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 149 5831 5833 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 149 5831 5833 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 142 5673 5675 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 142 5673 5675 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 136 5496 5498 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 136 5496 5498 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 129 5232 5234 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 129 5232 5234 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 122 4939 4941 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 122 4939 4941 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 117 4699 4701 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 117 4699 4701 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 116 4647 4649 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 116 4647 4649 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 113 4494 4496 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 110 4374 4376 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 110 4374 4376 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 109 4339 4341 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 109 4339 4341 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 108 4293 4295 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 108 4293 4295 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 107 4255 4257 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 107 4255 4257 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 106 4210 4212 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 106 4210 4212 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 105 4163 4165 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 104 4048 4050 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 104 4048 4050 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 103 3991 3993 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 103 3991 3993 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 94 3575 3577 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )
-"kind1/kind_inv_loop.ml" 91 3446 3448 "kind1/kind_inv_loop.ml" 404 15524 15530
+"kind1/kind_inv_loop.ml" 91 3446 3448 "kind1/kind_inv_loop.ml" 408 15766 15772
 type(
   unit
 )

@@ -622,11 +622,20 @@ touch kind1.mli  ; if  /usr/local/bin/ocamlopt.opt -pack -I kind1 kind1/types.cm
 # Target: invGenDummy.ml.depends, tags: { annot, debug, extension:ml, file:invGenDummy.ml, ocaml, ocamldep, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
 /usr/local/bin/ocamldep.opt -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -modules invGenDummy.ml > invGenDummy.ml.depends # cached
 # Target: oldParser.ml.depends, tags: { annot, debug, extension:ml, file:oldParser.ml, ocaml, ocamldep, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
-/usr/local/bin/ocamldep.opt -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -modules oldParser.ml > oldParser.ml.depends # cached
+/usr/local/bin/ocamldep.opt -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -modules oldParser.ml > oldParser.ml.depends
 # Target: oldParser.cmx, tags: { annot, compile, debug, extension:cmx, extension:ml, file:oldParser.cmx, file:oldParser.ml, implem, native, ocaml, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
-/usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o oldParser.cmx oldParser.ml # cached
-# Target: invGenDummy.cmx, tags: { annot, compile, debug, extension:cmx, extension:ml, file:invGenDummy.cmx, file:invGenDummy.ml, implem, native, ocaml, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
-/usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o invGenDummy.cmx invGenDummy.ml # cached
+/usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o oldParser.cmx oldParser.ml
++ /usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o oldParser.cmx oldParser.ml
+File "oldParser.ml", line 1224, characters 6-12:
+Warning 26: unused variable outdoc.
+File "oldParser.ml", line 1227, characters 6-14:
+Warning 26: unused variable def_hash.
+File "oldParser.ml", line 1230, characters 6-17:
+Warning 26: unused variable no_stateful.
+File "oldParser.ml", line 1388, characters 8-19:
+Warning 26: unused variable assert_term.
+File "oldParser.ml", line 1429, characters 8-12:
+Warning 26: unused variable vars.
 # Target: invarManager.ml.depends, tags: { annot, debug, extension:ml, file:invarManager.ml, ocaml, ocamldep, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
 /usr/local/bin/ocamldep.opt -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -modules invarManager.ml > invarManager.ml.depends # cached
 # Target: invarManager.cmx, tags: { annot, compile, debug, extension:cmx, extension:ml, file:invarManager.cmx, file:invarManager.ml, implem, native, ocaml, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
@@ -707,8 +716,10 @@ touch kind1.mli  ; if  /usr/local/bin/ocamlopt.opt -pack -I kind1 kind1/types.cm
 /usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o QE.cmx QE.ml # cached
 # Target: PDR.cmx, tags: { annot, compile, debug, extension:cmx, extension:ml, file:PDR.cmx, file:PDR.ml, implem, native, ocaml, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
 /usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o PDR.cmx PDR.ml # cached
+# Target: invGenDummy.cmx, tags: { annot, compile, debug, extension:cmx, extension:ml, file:invGenDummy.cmx, file:invGenDummy.ml, implem, native, ocaml, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
+/usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o invGenDummy.cmx invGenDummy.ml
 # Target: kind2.cmx, tags: { annot, compile, debug, extension:cmx, extension:ml, file:kind2.cmx, file:kind2.ml, implem, native, ocaml, pp(camlp4o.opt -parser Camlp4DebugParser.cmxs), quiet }
-/usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o kind2.cmx kind2.ml # cached
+/usr/local/bin/ocamlopt.opt -c -g -annot -pp 'camlp4o.opt -parser Camlp4DebugParser.cmxs' -o kind2.cmx kind2.ml
 # Target: kind2.native, tags: { dont_link_with, extension:native, file:kind2.native, link, native, ocaml, program, quiet, thread, use_ZMQ, use_str, use_unix }
-/usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa threads.cmxa -thread -I ../../ocamlczmq/lib ZMQ.cmxa hashcons.cmx hString.cmx kind1.cmx lib.cmx ltree.cmx type.cmx ufSymbol.cmx stateVar.cmx symbol.cmx termAttr.cmx var.cmx term.cmx literal.cmx stat.cmx clause.cmx CNF.cmx SExprBase.cmx hStringSExpr.cmx SExprParser.cmx SExprLexer.cmx SMTExpr.cmx messaging.cmx event.cmx flags.cmx SMTLIBSolver.cmx SMTSolver.cmx config.cmx simplify.cmx eval.cmx poly.cmx cooperQE.cmx extract.cmx presburger.cmx transSys.cmx solverMethods.cmx QE.cmx lustre.cmx PDR.cmx bmc.cmx debug.cmx ind.cmx inputParser.cmx interpreter.cmx oldParser.cmx invGenDummy.cmx invarManager.cmx kind2.cmx -o kind2.native # cached
+/usr/local/bin/ocamlopt.opt unix.cmxa str.cmxa threads.cmxa -thread -I ../../ocamlczmq/lib ZMQ.cmxa hashcons.cmx hString.cmx kind1.cmx lib.cmx ltree.cmx type.cmx ufSymbol.cmx stateVar.cmx symbol.cmx termAttr.cmx var.cmx term.cmx literal.cmx stat.cmx clause.cmx CNF.cmx SExprBase.cmx hStringSExpr.cmx SExprParser.cmx SExprLexer.cmx SMTExpr.cmx messaging.cmx event.cmx flags.cmx SMTLIBSolver.cmx SMTSolver.cmx config.cmx simplify.cmx eval.cmx poly.cmx cooperQE.cmx extract.cmx presburger.cmx transSys.cmx solverMethods.cmx QE.cmx lustre.cmx PDR.cmx bmc.cmx debug.cmx ind.cmx inputParser.cmx interpreter.cmx oldParser.cmx invGenDummy.cmx invarManager.cmx kind2.cmx -o kind2.native
 # Compilation successful.

@@ -49,6 +49,8 @@ val of_channel : in_channel -> TransSys.t
 (** Parse from the file *)
 val of_file : string -> TransSys.t
 
+val pp_print_il_formula: Format.formatter -> Kind1.Types.il_formula -> unit
+
 
 (* 
    Local Variables:

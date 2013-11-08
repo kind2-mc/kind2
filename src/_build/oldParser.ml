@@ -954,9 +954,11 @@ let rec il_expression_to_term init = function
           Var.mk_state_var_instance 
             state_var
             (match p with 
-              | POSITION_VAR "M" -> 
+              | POSITION_VAR "M" 
+              | POSITION_VAR "_M"-> 
                 if init then Lib.numeral_of_int 0 else Lib.numeral_of_int 1
-              | MINUS (POSITION_VAR "M", NUM 1) -> Lib.numeral_of_int 0
+              | MINUS (POSITION_VAR "M", NUM 1) 
+              | MINUS (POSITION_VAR "_M", NUM 1) -> Lib.numeral_of_int 0
               | _ -> 
                 failwith 
                   (Format.fprintf 
@@ -995,8 +997,8 @@ let rec il_expression_to_term init = function
   (* used when comparing symbolic positions
 
      string * il_expression list *)  
-  | _, PRED (s, l)  -> 
-    failwith "PRED not implemented"
+  | _, PRED (s, l)  ->
+    il_expression_to_term init (Some L_BOOL,(Kind1.New_vars.nvr_to_expr s)) 
     
 
 
@@ -1090,7 +1092,8 @@ let rec il_formula_to_term init = function
     Term.mk_implies [f'; g']
 
   (* A propositonal constant (nullary predicate) *)
-  | F_PRED (p, []) -> assert false
+  | F_PRED (p, []) -> 
+    il_expression_to_term init (Some L_BOOL,(Kind1.New_vars.nvr_to_expr p))
 
 (*
     let u = UfSymbol.mk_uf_symbol p [Type.Int] Type.Bool in
@@ -1099,7 +1102,7 @@ let rec il_formula_to_term init = function
 
   (* A predicate *)
   | F_PRED (p, l) -> 
-    failwith "F_PRED not implemented"
+    il_expression_to_term init (Some L_BOOL,(Kind1.New_vars.nvr_to_expr p))
     
 
 and il_formula_list_to_term_list init accum = function 

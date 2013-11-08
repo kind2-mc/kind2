@@ -358,6 +358,10 @@ let mainloop filename send_invariant =
 	       then ints_partial_order#eq_imp()
 	       else [],[]
 	     in
+	      let _= List.map(fun x -> send_invariant x) b_eqs in
+	      let _= List.map(fun x -> send_invariant x) b_imps in
+	      let _= List.map(fun x -> send_invariant x) int_eqs in
+	      let _= List.map(fun x -> send_invariant x) int_imps in
 	       if !OldFlags.no_imp then 
 		   pr_func_no_imp  b_eqs b_imps int_eqs int_imps maxdepth
 		else
