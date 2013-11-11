@@ -104,7 +104,16 @@ let main () =
   Format.printf 
     "@[<v>%a@]@." 
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
-    declarations
+    declarations;
+
+  let declarations = LustreTransform.all_transforms declarations in
+
+  Format.printf 
+    "@[<v>----------------------------------------------------------------------\
+          %a@]@." 
+    (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
+    declarations;
+
 
 ;;
 
@@ -112,7 +121,7 @@ main ()
 
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -C .. lustre-checker"
    indent-tabs-mode: nil
    End: 
 *)

@@ -29,6 +29,7 @@
 
 %{
 
+module I = LustreIdent
 module A = LustreAst
 
 let mk_pos = A.position_of_lexing 
@@ -165,7 +166,7 @@ let mk_pos = A.position_of_lexing
 %nonassoc LSQBRACKET
 
 (* Start token *)
-%start <LustreAst.declaration list> main
+%start <LustreAst.t> main
 
 %%
 
@@ -599,7 +600,7 @@ clock_expr:
 
 
 (* An identifier *)
-ident: s = SYM { s }
+ident: s = SYM { I.mk_string_id s }
 
 
 (* An identifier with a type *)
