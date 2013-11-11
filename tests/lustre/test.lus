@@ -50,12 +50,12 @@ type h = struct { one : int; two : bool };
 type i = { one: struct { a : int; b: bool };  two : bool; };
 
 -- Enum type (V6) 
-type e = enum {blue, green, red };
+type j = enum {blue, green, red };
 
 -- Array types
-type f = int^5;
-type g = int^5^5; -- ^ is left-associative
-type h = int^5*h;
+type k = int^5;
+type l = int^5^5; -- ^ is left-associative
+type m = int^5*h;
 
 -- A node declaration
 node x 
@@ -300,8 +300,8 @@ let
   X = N(unknown); -- is rejected
 tel
 
-type T = int^3^5;
-type complex = [real, real];
+type T2 = int^3^5;
+type complex1 = [real, real];
 
 node x22 () returns ();
 var x, y: complex;

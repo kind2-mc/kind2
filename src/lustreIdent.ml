@@ -32,24 +32,18 @@
 (* Types                                                                  *)
 (* ********************************************************************** *)
 
-
-(* An identifier *)
-type t = 
-
-  (* A string identifier *)
-  | StringId of string 
-
-  (* An indexed identifier  *)
-  | IndexedId of string * index
-
 (* An index of an identifier *)
-and index = 
+type index = 
 
-  (* Identifier as index *)
-  | IdentIndex of t
+  (* String as index *)
+  | StringIndex of string
 
   (* Integer as index *)
   | IntIndex of int
+
+
+(* An identifier *)
+type t = string * (index list)
 
 
 (* ********************************************************************** *)
@@ -57,16 +51,22 @@ and index =
 (* ********************************************************************** *)
 
 
-(* Pretty-print an identifier *)
-let rec pp_print_ident ppf = function
-  | StringId i -> Format.fprintf ppf "%s" i
-  | IndexedId (i, j) -> Format.fprintf ppf "%s.%a" i pp_print_index j
-
 (* Pretty-print an index *)
-and pp_print_index ppf = function 
-  | IdentIndex i -> Format.fprintf ppf "%a" pp_print_ident i
-  | IntIndex i -> Format.fprintf ppf "%d" i
+let pp_print_index ppf = function 
+  | StringIndex i -> Format.fprintf ppf ".%s" i
+  | IntIndex i -> Format.fprintf ppf "[%d]" i
 
+
+(* Pretty-print a list of indexes *)
+let rec pp_print_index_list ppf = function 
+  | [] -> ()
+  | h :: tl -> pp_print_index ppf h; pp_print_index_list ppf tl
+
+
+(* Pretty-print an identifier *)
+let rec pp_print_ident ppf (s, i) = 
+
+  Format.fprintf ppf "%s%a" s pp_print_index_list i
 
 (* ********************************************************************** *)
 (* Constructors                                                           *)
@@ -74,13 +74,16 @@ and pp_print_index ppf = function
 
 
 (* Construct an identifier of a string *)
-let mk_string_id s = StringId s
+let mk_string_id s = (s, [])
 
-(* Construct an identifier indexed by an integer *)
-let mk_indexed_id_of_int s i = IndexedId (s, IntIndex i)
 
-(* Construct an identifier indexed by an identifier *)
-let mk_indexed_id_of_ident s i = IndexedId (s, IdentIndex i)
+(* Add a string as an index to an identifier *)
+let add_string_index (s, i) j = (s, i @ [StringIndex j])
+
+
+(* Add an integer as an index to an identifier *)
+let add_int_index (s, i) j = (s, i @ [IntIndex j])
+
 
 (* 
    Local Variables:

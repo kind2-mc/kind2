@@ -45,7 +45,7 @@ val position_of_lexing : Lexing.position -> position
 
 val is_dummy_pos : position -> bool
 
-type ident = string
+type ident = LustreIdent.t
 
 type expr =
     Ident of position * ident
@@ -53,8 +53,8 @@ type expr =
   | TupleProject of position * expr * expr
   | True of position
   | False of position
-  | Num of position * ident
-  | Dec of position * ident
+  | Num of position * string
+  | Dec of position * string
   | ToInt of position * expr
   | ToReal of position * expr
   | ExprList of position * expr list
@@ -164,7 +164,6 @@ type declaration =
 
 type t = declaration list
 
-val pp_print_ident : Format.formatter -> string -> unit
 val pp_print_expr : Format.formatter -> expr -> unit
 val pp_print_array_slice : Format.formatter -> expr * expr -> unit
 val pp_print_field_assign : Format.formatter -> ident * expr -> unit
@@ -172,12 +171,12 @@ val pp_print_clock_expr : Format.formatter -> clock_expr -> unit
 val pp_print_lustre_type : Format.formatter -> lustre_type -> unit
 val pp_print_typed_ident : Format.formatter -> typed_ident -> unit
 val pp_print_clocked_typed_ident :
-  Format.formatter -> string * lustre_type * clock_expr -> unit
+  Format.formatter -> ident * lustre_type * clock_expr -> unit
 val pp_print_const_clocked_typed_ident :
-  Format.formatter -> string * lustre_type * clock_expr * bool -> unit
+  Format.formatter -> ident * lustre_type * clock_expr * bool -> unit
 val pp_print_type_decl : Format.formatter -> type_decl -> unit
 val pp_print_var_decl :
-  Format.formatter -> string * lustre_type * clock_expr -> unit
+  Format.formatter -> ident * lustre_type * clock_expr -> unit
 val pp_print_const_decl : Format.formatter -> const_decl -> unit
 val pp_print_node_local_decl_var :
   Format.formatter -> node_local_decl -> unit
@@ -190,3 +189,4 @@ val pp_print_node_equation : Format.formatter -> node_equation -> unit
 val pp_print_contract_clause : Format.formatter -> contract_clause -> unit
 val pp_print_contract : Format.formatter -> contract_clause list -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
+val pp_print_program : Format.formatter -> t -> unit

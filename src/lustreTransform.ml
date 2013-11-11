@@ -52,7 +52,7 @@ let add_type_alias_from_decl (type_map, free_types) =
         (Failure 
            (Format.asprintf 
               "Type %a defined in %a is redeclared in %a" 
-              A.pp_print_ident t
+              I.pp_print_ident t
               A.pp_print_position A.dummy_pos
               A.pp_print_position A.dummy_pos))
         
@@ -116,7 +116,7 @@ let add_type_alias_from_decl (type_map, free_types) =
               (Failure 
                  (Format.asprintf 
                     "Cyclic type alias involving %a" 
-                    A.pp_print_ident t));
+                    I.pp_print_ident t));
             
           | _ -> ()
 
@@ -225,7 +225,11 @@ let rec substitute_type_in_lustre_type type_map = function
   | A.EnumType _ as t -> t
   
   (* Substitute for type *)
-  | A.UserType t -> List.assoc t type_map  
+  | A.UserType t as s -> 
+
+    (* Do not fail on free types *)
+    (try List.assoc t type_map with Not_found -> s)
+
 
   (* Substitute within tuple type *)
   | A.TupleType l -> 
@@ -697,14 +701,16 @@ let all_transforms decl =
     let type_map, free_types = resolve_type_aliases decl in
     
     (* Eliminate alias types *)
-    List.fold_left (substitute_type_in_declaration type_map) [] decl
+    List.rev (List.fold_left (substitute_type_in_declaration type_map) [] decl)
       
   in
 
+(*
   debug lustreTransform
     "All alias types eliminated@,%a"
-    A.pp_print_decl_list decl 
+    A.pp_print_program decl 
   in
+*)
 
   (* 2. Propagate global and local constants to expressions and types *)
   let decl = decl in
@@ -722,18 +728,7 @@ let all_transforms decl =
      variables, and abstract node calls to new variables *)
   let decl = decl in
 
-  ()
-
-;;
-
-let decl = [
-  A.TypeDecl (A.FreeType "t1");
-  A.TypeDecl (A.AliasType ("t2", A.UserType "t1"))
-]
-
-;;
-
-resolve_type_aliases decl;;
+  decl
 
 (* 
    Local Variables:

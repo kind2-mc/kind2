@@ -27,6 +27,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+val all_transforms : LustreAst.declaration list -> LustreAst.declaration list
+
 (* 
    Local Variables:
    compile-command: "make -k"
