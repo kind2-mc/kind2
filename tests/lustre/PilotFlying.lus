@@ -23,6 +23,12 @@ var
 
   inhibit_count_bounded : bool;
   pfs_state_consistency : bool;
+  state : subrange [1,5] of int;
+const St_Inhibited = 2;
+const St_Listening = 3;
+const St_Pilot_Flying = 4;
+const St_Start = 1;
+const St_Stop = 5;
 
   -- state_bounded : bool;
 

@@ -64,7 +64,6 @@ type program_config =
 
   }
 
-<<<<<<< Updated upstream
 
 let pp_print_program_config ppf { port; command; args } =
 
@@ -75,18 +74,6 @@ let pp_print_program_config ppf { port; command; args } =
     port
 
 
-=======
-
-let pp_print_program_config ppf { port; command; args } =
-
-  Format.fprintf ppf
-    "@[<h>Running command %s with arguments @[<h>%a@] on port %d@]"
-    command
-    (pp_print_list Format.pp_print_string "@ ") args
-    port
-
-
->>>>>>> Stashed changes
 (* Configured programs *)
 let configured_programs = 
 
@@ -101,11 +88,7 @@ let configured_programs =
     (* Kind 2 *)
     ("kind2", 
      { port = 5559;
-<<<<<<< Updated upstream
        command = "/usr/local/bin/kind2";
-=======
-       command = "/home/chris/kind-mc/kind2/bin/kind2";
->>>>>>> Stashed changes
        args = ["-xml"]});
    
   ]
@@ -354,7 +337,6 @@ let port =
     Format.printf helpmessage Sys.argv.(0);
     exit 1
 *)
-<<<<<<< Updated upstream
 
 (* Status of running job *)
 type running_job_info =
@@ -373,26 +355,6 @@ type running_job_info =
       (* Name of file to write standard output to *)
       job_stdout_fn : string;
 
-=======
-
-(* Status of running job *)
-type running_job_info =
-
-    { 
-
-      (* PID of process *)
-      job_pid : int;
-
-      (* Timestamp of job start *)
-      job_start_timestamp : int;
-
-      (* Name of file to be fed to standard input *)
-      job_stdin_fn : string;
-
-      (* Name of file to write standard output to *)
-      job_stdout_fn : string;
-
->>>>>>> Stashed changes
       (* Name of file to write standard error to *)
       job_stderr_fn : string; 
 
@@ -456,7 +418,6 @@ let read_bytes start filename =
 
   (* Get length of bytes available to read *)
   let n = (in_channel_length ic) - start in
-<<<<<<< Updated upstream
 
   (* Characters available to read after start? *)
   if n > 0 then
@@ -480,31 +441,6 @@ let read_bytes start filename =
 
     )
 
-=======
-
-  (* Characters available to read after start? *)
-  if n > 0 then
-
-    (
-      
-      (* Go to starting position in file *)
-      seek_in ic start;
-      
-      (* Create string of fixed size *)
-      let s = String.create n in
-
-      (* Read into string *)
-      really_input ic s 0 n;
-
-      (* Close input channel *)
-      close_in ic;
-
-      (* Return new position and string *)
-      (start + n, s)
-
-    )
-
->>>>>>> Stashed changes
   else
     
     (* Position is unchanged, string is empty *)
@@ -645,11 +581,7 @@ let output_of_job_status
   (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
 
   (* Read from standard output file *)
-<<<<<<< Updated upstream
   let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
-=======
-  let new_stdout_pos, stdin_string = read_bytes job_stdout_pos job_stdout_fn in
->>>>>>> Stashed changes
 
   (* Update position in file *)
   job_info.job_stdout_pos <- new_stdout_pos;
@@ -668,12 +600,8 @@ let output_of_job_status
         
         (* Create message to client *)
         asprintf 
-<<<<<<< Updated upstream
           "%s\
            <Jobstatus msg=\"aborted\">\
-=======
-          "<Jobstatus msg=\"aborted\">\
->>>>>>> Stashed changes
            Job with ID %s aborted before completion.\
            Contents of stderr:@\n\
            %s
@@ -692,12 +620,8 @@ let output_of_job_status
 
         (* Create message to client *)
         asprintf 
-<<<<<<< Updated upstream
           "%s\
            <Jobstatus msg=\"aborted\">\
-=======
-          "<Jobstatus msg=\"aborted\">\
->>>>>>> Stashed changes
            Job with ID %s aborted before completion.\
            Contents of stderr:@\n\
            %s
@@ -712,14 +636,8 @@ let output_of_job_status
         log "exited with code %d" code;
 
         (* Message to client is from stdout *)
-<<<<<<< Updated upstream
         stdout_string
 
-=======
-        let pos, output = read_bytes 0 job_stdout_fn in
-    
-        output
->>>>>>> Stashed changes
   in
 
   (* Remove job from table of working jobs *)
@@ -757,11 +675,7 @@ let retrieve_job sock server_flags job_id =
       (
 
         (* Find job in table of running jobs *)
-<<<<<<< Updated upstream
         let { job_pid; job_stdout_fn; job_stdout_pos } as job_param = 
-=======
-        let { job_pid } as job_param = 
->>>>>>> Stashed changes
           Hashtbl.find running_jobs job_id 
         in
 
@@ -775,7 +689,6 @@ let retrieve_job sock server_flags job_id =
 
             log ("running as PID %d") status_pid;
 
-<<<<<<< Updated upstream
             (* Read from standard output file *)
             let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
 
@@ -784,14 +697,6 @@ let retrieve_job sock server_flags job_id =
 
             (* Message to client is from stdout *)
             stdout_string
-=======
-            (* Message to client *)
-            asprintf 
-              "<Jobstatus msg=\"inprogress\">\
-               Job with ID %s is in progress.\
-               </Jobstatus>"
-              job_id
->>>>>>> Stashed changes
 
           ) 
 
@@ -874,11 +779,7 @@ let cancel_job sock server_flags job_id =
       (
 
         (* Find job in table of running jobs *)
-<<<<<<< Updated upstream
         let { job_pid; job_stdout_fn; job_stdout_pos } as job_param = 
-=======
-        let { job_pid } as job_param = 
->>>>>>> Stashed changes
           Hashtbl.find running_jobs job_id 
         in
 
@@ -908,14 +809,9 @@ let cancel_job sock server_flags job_id =
 
             (* Message to client *)
             asprintf 
-<<<<<<< Updated upstream
               "%s\
                <Jobstatus msg=\"inprogress\">\
                Requested canceling of job with ID %s.\
-=======
-              "<Jobstatus msg=\"inprogress\">\
-               Requested canceling of job with ID %s .\
->>>>>>> Stashed changes
                </Jobstatus>"
               stdout_string
               job_id
