@@ -372,7 +372,7 @@ let rec pp_print_expr ppf =
   (* Pretty-print a variadic prefix operator *)
   let pnp p s l = 
     Format.fprintf ppf
-      "@[<hv 2>%a%s(%a)@]" 
+      "@[<hv 2>%a%s@,@[<hv 1>(%a)@]@]" 
       ppos p 
       s
       pl l
@@ -783,7 +783,7 @@ let pp_print_declaration ppf = function
   | NodeDecl (n, p, i, o, l, e, r) -> 
 
     Format.fprintf ppf
-      "@[<hv>@[<hv 2>node %a@[<hv 2>%a@]@ \
+      "@[<hv>@[<hv 2>node %a%t@ \
        @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]@ \
        %a\
@@ -792,7 +792,7 @@ let pp_print_declaration ppf = function
        %a@;<1 -2>\
        tel;@]@]" 
       I.pp_print_ident n 
-      pp_print_node_param_list p
+      (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
       pp_print_contract r

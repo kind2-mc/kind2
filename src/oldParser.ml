@@ -1437,7 +1437,7 @@ let of_channel in_ch =
     in
 
     (* Add definition to transition relation *)
-    TransSys.constr_of_def_list res.constr trans_assignments;
+    TransSys.constr_of_def_list res.TransSys.constr trans_assignments;
 
     (* Return transition system *)
     res

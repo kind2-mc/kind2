@@ -923,7 +923,7 @@ let find_cex
              (
                
                (debug pdr 
-                   "Counterexample does not hold in a successor of the\
+                   "Counterexample does not hold in a successor of the \
                     initial state"
                 in
                 
