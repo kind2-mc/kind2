@@ -68,9 +68,10 @@ let get_solver_instance () =
         (Solver.T.execute_custom_command 
            solver
            "set-option"
-           [SMTExpr.ArgString ":PP_MAX_DEPTH"; 
+           [SMTExpr.ArgString ":pp.max_depth"; 
             SMTExpr.ArgString "65536"]
            0);
+
 
       (* Return instance *)
       solver

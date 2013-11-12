@@ -317,7 +317,7 @@ let state_var_of_string s =
 let state_var_of_original_name s = 
 
   (* Get internal name of original name *)
-  let s' = (Kind1.Tables.internal_name_to_original_name s) in
+  let s' = (Kind1.Tables.original_name_to_internal_name s) in
 
   (* Return state variable *) 
   state_var_of_string s'
