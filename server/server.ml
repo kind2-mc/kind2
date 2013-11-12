@@ -88,7 +88,7 @@ let configured_programs =
     (* Kind 2 *)
     ("kind2", 
      { port = 5559;
-       command = "/Users/chris/kind-mv/kind2/bin/kind2";
+       command = "/usr/local/bin/kind2";
        args = ["-xml"]});
    
   ]
