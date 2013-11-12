@@ -581,7 +581,7 @@ let output_of_job_status
   (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
 
   (* Read from standard output file *)
-  let new_stdout_pos, stdin_string = read_bytes job_stdout_pos job_stdout_fn in
+  let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
 
   (* Update position in file *)
   job_info.job_stdout_pos <- new_stdout_pos;
@@ -600,11 +600,13 @@ let output_of_job_status
         
         (* Create message to client *)
         asprintf 
-          "<Jobstatus msg=\"aborted\">\
+          "%s\
+           <Jobstatus msg=\"aborted\">\
            Job with ID %s aborted before completion.\
            Contents of stderr:@\n\
            %s
            </Jobstatus>"
+          stdout_string
           job_id
           errors
 
@@ -618,11 +620,13 @@ let output_of_job_status
 
         (* Create message to client *)
         asprintf 
-          "<Jobstatus msg=\"aborted\">\
+          "%s\
+           <Jobstatus msg=\"aborted\">\
            Job with ID %s aborted before completion.\
            Contents of stderr:@\n\
            %s
            </Jobstatus>"
+          stdout_string
           job_id
           errors
 
@@ -632,9 +636,8 @@ let output_of_job_status
         log "exited with code %d" code;
 
         (* Message to client is from stdout *)
-        let pos, output = read_bytes 0 job_stdout_fn in
-    
-        output
+        stdout_string
+
   in
 
   (* Remove job from table of working jobs *)
@@ -672,7 +675,7 @@ let retrieve_job sock server_flags job_id =
       (
 
         (* Find job in table of running jobs *)
-        let { job_pid } as job_param = 
+        let { job_pid; job_stdout_fn; job_stdout_pos } as job_param = 
           Hashtbl.find running_jobs job_id 
         in
 
@@ -686,12 +689,14 @@ let retrieve_job sock server_flags job_id =
 
             log ("running as PID %d") status_pid;
 
-            (* Message to client *)
-            asprintf 
-              "<Jobstatus msg=\"inprogress\">\
-               Job with ID %s is in progress.\
-               </Jobstatus>"
-              job_id
+            (* Read from standard output file *)
+            let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
+
+            (* Update position in file *)
+            job_param.job_stdout_pos <- new_stdout_pos;
+
+            (* Message to client is from stdout *)
+            stdout_string
 
           ) 
 
@@ -774,7 +779,7 @@ let cancel_job sock server_flags job_id =
       (
 
         (* Find job in table of running jobs *)
-        let { job_pid } as job_param = 
+        let { job_pid; job_stdout_fn; job_stdout_pos } as job_param = 
           Hashtbl.find running_jobs job_id 
         in
 
@@ -788,6 +793,12 @@ let cancel_job sock server_flags job_id =
 
             log "running as PID %d" status_pid;
 
+            (* Read from standard output file *)
+            let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
+
+            (* Update position in file *)
+            job_param.job_stdout_pos <- new_stdout_pos;
+
             (* Send SIGINT (Ctrl+C) to job *)
             Unix.kill job_pid Sys.sigint;
 
@@ -798,9 +809,11 @@ let cancel_job sock server_flags job_id =
 
             (* Message to client *)
             asprintf 
-              "<Jobstatus msg=\"inprogress\">\
-               Requested canceling of job with ID %s .\
+              "%s\
+               <Jobstatus msg=\"inprogress\">\
+               Requested canceling of job with ID %s.\
                </Jobstatus>"
+              stdout_string
               job_id
 
           ) 
