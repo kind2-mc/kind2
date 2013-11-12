@@ -538,21 +538,101 @@ let find_cex
                                  
            in
 
-           debug pdr
-               "@[<v>Unsat core of cube is@,@[<v>%a@]"
-               (pp_print_list Term.pp_print_term "@,") (Clause.elements core)
-           in
-           
            S.pop solver_init;
-           
-           (* Negate all literals in clause now *)
-           let ncore, nrest = 
-             Clause.map Term.negate core,
-             Clause.map Term.negate rest
-           in
-           
-           (* Return generalized counterexample *)
-           false, (ncore, nrest))
+
+           (* Push a new scope level to the context *)
+           S.push solver_init;
+
+           (* Assert each literal of the counterexample in the initial
+              state *)
+           List.iter (S.assert_term solver_init) cex_gen_named';
+
+           if
+
+             debug smt
+                 "Checking if counterexample holds in successors of the\
+                  initial state"
+             in
+
+             (* Is the counterexample a model of the initial state? 
+                
+                We must check with the generalized counterexample here, not
+                with the specific model. *)
+             S.check_sat solver_init 
+               
+           then
+             
+             (
+               
+               debug pdr 
+                   "Counterexample holds in a successor of the initial state"
+               in
+               
+               (* Pop scope level from the context *)
+               S.pop solver_init;
+               
+               (* Counterexample holds in the initial state *)
+               raise Counterexample
+                 
+             )
+             
+           else
+             
+             (
+               
+               (debug pdr 
+                   "Counterexample does not hold in a successor of the \
+                    initial state"
+                in
+                
+                (* Partition counterexample into subclause in the unsat
+                   core and subclause of remaining literals *)
+                let core', rest' = 
+                  
+                  if Flags.pdr_tighten_to_unsat_core () then 
+                    
+                    partition_core 
+                      solver_init 
+                      cex_gen'_name_to_term 
+                      cex_gen'_clause
+                      
+                  else
+                    
+                    cex_gen'_clause, Clause.empty
+                                       
+                in
+                
+                debug pdr
+                    "@[<v>Unsat core of cube is@,@[<v>%a@]"
+                    (pp_print_list Term.pp_print_term "@,") 
+                    (Clause.elements core')
+                in
+                
+                S.pop solver_init;
+
+                (* Negate all literals in clause now *)
+                let ncore', nrest' = 
+                  Clause.map 
+                    (function t -> Term.negate (TransSys.bump_state (- 1) t)) 
+                    core',
+                  Clause.map 
+                    (function t -> Term.negate (TransSys.bump_state (- 1) t)) 
+                    rest'
+                in
+                
+
+                (* Negate all literals in clause now *)
+                let ncore, nrest = 
+                  Clause.map Term.negate core,
+                  Clause.map Term.negate rest
+                in
+                
+                (* Return generalized counterexample *)
+                false, (Clause.union ncore ncore', Clause.inter nrest nrest'))
+
+             )
+
+          )
           
         )
 
