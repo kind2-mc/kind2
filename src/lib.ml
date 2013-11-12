@@ -337,6 +337,12 @@ let (+%) a b =
        (int_of_string (HString.string_of_hstring a) + 
           int_of_string (HString.string_of_hstring b)))
 
+let (-%) a b = 
+  HString.mk_hstring 
+    (string_of_int 
+       (int_of_string (HString.string_of_hstring a) - 
+          int_of_string (HString.string_of_hstring b)))
+
 let (+/) a b = 
   HString.mk_hstring 
     (string_of_float 
@@ -476,6 +482,9 @@ let float_of_decimal d = float_of_string (HString.string_of_hstring d)
 
 (* Increment a numeral by one *)
 let incr_numeral n = n +% (numeral_of_int 1)
+
+(* Decrement a numeral by one *)
+let decr_numeral n = n -% (numeral_of_int 1)
 
 
 (* Convert a bitvector to an integer *)

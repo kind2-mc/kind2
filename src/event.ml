@@ -339,10 +339,10 @@ let pp_print_state_var_values_xml ppf (state_var, values) =
 
   Format.fprintf 
     ppf
-    "@[<hv 2><Signal name=\"%a\" node=\"%s\" type=\"%a\">@,\
-     @[<hv 2>%a@]@;<0 -2>\
+    "@[<hv 2>@[<hv 3><Signal@ name=\"%a\"@ node=\"%s\"@ type=\"%a\">@]@,\
+     @[<v 2>%a@]@;<0 -2>\
      </Signal>@]"
-    StateVar.pp_print_state_var state_var
+    StateVar.pp_print_state_var_original state_var
     "top"
     Type.pp_print_type (StateVar.type_of_state_var state_var)
     (pp_print_values_xml 0) values

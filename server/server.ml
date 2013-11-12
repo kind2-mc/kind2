@@ -11,18 +11,168 @@ open ZMQ
 
 exception Checksum_failure
 
+let asprintf fmt =
+  let b = Buffer.create 512 in
+  let k ppf = 
+    Format.pp_print_flush ppf ();
+    Buffer.contents b
+  in
+  let ppf = Format.formatter_of_buffer b in
+  Format.kfprintf k ppf fmt
+
+
+(* Pretty-print a list *)
+let rec pp_print_list pp sep ppf = function 
+
+  (* Output nothing for the empty list *) 
+  | [] -> ()
+
+  (* Output a single element in the list  *) 
+  | e :: [] -> 
+    pp ppf e
+
+  (* Output a single element and a space *) 
+  | e :: tl -> 
+
+    (* Output one element *)
+    pp_print_list pp sep ppf [e]; 
+
+    (* Output separator *)
+    Format.fprintf ppf sep; 
+
+    (* Output the rest of the list *)
+    pp_print_list pp sep ppf tl
+
+
 (* ********************************************************************** *)
 (* Defaults                                                               *)
 (* ********************************************************************** *)
 
-let helpmessage = "usage: kind2_server -[p] [port]"
+(* Configuration of a program *)
+type program_config = 
 
-(* Default port for the server *)
-let default_port = 5558
+  { 
 
-(* command to invoke kind *)
-let kind_command = "/usr/local/bin/pkind";;
-let kind_default_args = ["-xml"; "-xml-to-stdout"]
+    (* Port to run server on *)
+    port : int;
+
+    (* Command to execute *)
+    command : string;
+
+    (* Arguments to program *)
+    args : string list 
+
+  }
+
+
+let pp_print_program_config ppf { port; command; args } =
+
+  Format.fprintf ppf
+    "@[<h>Running command %s with arguments @[<h>%a@] on port %d@]"
+    command
+    (pp_print_list Format.pp_print_string "@ ") args
+    port
+
+
+(* Configured programs *)
+let configured_programs = 
+
+  [
+
+    (* PKind *)
+    ("pkind", 
+     { port = 5558;
+       command = "/usr/local/bin/pkind";
+       args = ["-xml"; "-xml-to-stdout"]});
+    
+    (* Kind 2 *)
+    ("kind2", 
+     { port = 5559;
+       command = "/usr/local/bin/kind2";
+       args = ["-xml"]});
+   
+  ]
+
+
+let parse_argv argv = 
+
+  try 
+
+    (* Comma-separated string of values for argument *)
+    let prgs = 
+      asprintf 
+        "@[<h>%a@]" 
+        (pp_print_list Format.pp_print_string ",@ ") 
+        (List.map fst configured_programs) 
+    in
+
+    (* Program to run, set to default *)
+    let config = 
+      ref (List.assoc "kind2" configured_programs)
+    in
+
+    (* Port set by user *)
+    let port = ref None in
+
+    (* Action for -p option *)
+    let port_action p = port := Some p in
+
+    (* Action for argument *)
+    let anon_action s = 
+      try config := List.assoc s configured_programs with 
+        | Not_found -> 
+          raise 
+            (Arg.Bad 
+               (asprintf 
+                  "No program %s configured. Possible values are %s"
+                  s
+                  prgs))
+    in
+
+    (* Usage message for --help etc. *)
+    let usage_msg = 
+      asprintf
+        "Usage: %s [-p port] PRG@\n\
+         Start a server for PRG, possible values are %s"
+        (Filename.basename Sys.executable_name)
+        prgs
+    in
+
+    (* Action for --help etc. *)
+    let rec help_action () = 
+      raise (Arg.Help (Arg.usage_string speclist usage_msg))
+
+    (* Arguments *)
+    and speclist = 
+      [
+
+        ("-p",
+         Arg.Int port_action,
+         "    Run server on port");
+
+        (* Display help *)
+        ("-help", 
+         Arg.Unit help_action, 
+         " Display this list of options");
+        ("--help", 
+         Arg.Unit help_action, 
+         "Display this list of options");
+        ("-h", 
+         Arg.Unit help_action, 
+         "    Display this list of options")
+      ]
+
+    in
+
+    (* Parse arguments *)
+    Arg.parse_argv argv speclist anon_action usage_msg;
+
+    (* Override port in chosen configuration *)
+    match !port with None -> !config | Some p -> {!config with port = p}
+
+  with Arg.Help s | Arg.Bad s -> 
+
+    Format.printf "%s" s; exit 1
 
 
 (* ********************************************************************** *)
@@ -165,6 +315,7 @@ let log fmt =
 (* State of the server                                                    *)
 (* ********************************************************************** *)
 
+(*
 (* on which port does the server run? *)
 let port = 
   match (Array.length Sys.argv) with 
@@ -178,32 +329,46 @@ let port =
         exit 1
       );
     ) else (
-      print_endline helpmessage;
+      Format.printf helpmessage Sys.argv.(0);
       exit 1
     )
-  | _ -> print_endline helpmessage;
-         exit 1
+  | _ -> 
 
+    Format.printf helpmessage Sys.argv.(0);
+    exit 1
+*)
 
 (* print_endline ("launching Kind 2 server on port " ^ (string_of_int port)) *)
 
 (* running_jobs: a Hashtbl of ID -> ( pid * stdin_file * stdout_file *
    stderr_file ) *)
-
 let running_jobs = (Hashtbl.create 50)
 
 (* completed_jobs: a Hashtbl of ID -> completion_time *)
 let completed_jobs = (Hashtbl.create 50)
 
+(* Association list of job ID to PID and timestamp of cancel request *)
+let cancel_requested_jobs = ref [] 
+
+(* Time in seconds after cancel request after which SIGKILL is sent
+
+   Must be greater than sigterm_time *)
+let cancel_sigkill_time = 5. 
+
+(* Time in seconds after cancel request after which SIGTERM is sent 
+
+   Must be less than sigkill_time *)
+let cancel_sigterm_time = 2.
+    
 (* how long (in seconds) should a job remain before being purged? *)
 let job_lifespan = 2629740 (* about one month *)
 
 
 (* Location of temporary directory *)
-let tmpdir = Format.sprintf "/tmp/kind2-%s" (generate_uid ())
+let tmpdir = asprintf "/tmp/kind2-%s" (generate_uid ())
 
 (* Name of log file *)
-let logfile = Format.sprintf "%s.log" tmpdir
+let logfile = asprintf "%s.log" tmpdir
 
 
 
@@ -233,7 +398,13 @@ let read_bytes filename =
 
 (* create new kind job using flags 'server_flags',
     and the content of 'payload'. send results over 'sock' *)
-let create_job sock server_flags payload checksum kind_args =
+let create_job 
+    sock 
+    server_flags 
+    payload 
+    checksum 
+    job_command
+    job_args =
   
   (* Generate a unique job ID *)
   let job_id = generate_uid () in 
@@ -305,14 +476,14 @@ let create_job sock server_flags payload checksum kind_args =
   
   log 
     "Executing %s %a"
-    kind_command
-    (pp_print_list Format.pp_print_string " ") kind_args;
+    job_command
+    (pp_print_list Format.pp_print_string " ") job_args;
 
   (* Create kind process *)
   let kind_pid = 
     Unix.create_process 
-      kind_command
-      (Array.of_list (kind_command :: kind_args @ [stdin_fn])) 
+      job_command
+      (Array.of_list (job_command :: job_args @ [stdin_fn])) 
       kind_stdin_in
       kind_stdout_out
       kind_stderr_out
@@ -342,6 +513,80 @@ let create_job sock server_flags payload checksum kind_args =
   minisleep 0.01
 
 
+(* Return message after job has terminated, factored out from
+   {!retrieve_job} and {!cancel_job} *)
+let output_of_job_status 
+    log 
+    job_id
+    (job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn) 
+    job_status = 
+
+  (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
+
+  let output_string = 
+
+    match job_status with 
+
+      (* Terminated with signal *)
+      | Unix.WSIGNALED signal -> 
+        
+        log ("killed by signal %d" ^^ "") signal;
+        
+        (* Read from stderr *)
+        let errors = read_bytes stderr_fn in
+        
+        (* Create message to client *)
+        asprintf 
+          "<Jobstatus msg=\"aborted\">\
+           Job with ID %s aborted before completion.\
+           Contents of stderr:@\n\
+           %s
+           </Jobstatus>"
+          job_id
+          errors
+
+      (* Stopped by signal *)
+      | Unix.WSTOPPED signal -> 
+
+        log "stopped by signal %d" signal;
+
+        (* Read from stderr *)
+        let errors = read_bytes stderr_fn in
+
+        (* Create message to client *)
+        asprintf 
+          "<Jobstatus msg=\"aborted\">\
+           Job with ID %s aborted before completion.\
+           Contents of stderr:@\n\
+           %s
+           </Jobstatus>"
+          job_id
+          errors
+
+      (* Exited with code *)
+      | Unix.WEXITED code ->
+
+        log "exited with code %d" code;
+
+        (* Message to client is from stdout *)
+        read_bytes stdout_fn
+
+  in
+
+  (* Remove job from table of working jobs *)
+  Hashtbl.remove running_jobs job_id;
+
+  (* Add to table of completed jobs *)
+  Hashtbl.add completed_jobs job_id (Unix.gmtime (Unix.time ()));
+
+  (* Delete temp files for process *)
+  (try (Sys.remove stdin_fn) with _ -> ());
+  (try (Sys.remove stdout_fn) with _ -> ());
+  (try (Sys.remove stderr_fn) with _ -> ());
+
+  output_string
+
+
 (* Retrieve job *)
 let retrieve_job sock server_flags job_id = 
 
@@ -363,7 +608,7 @@ let retrieve_job sock server_flags job_id =
       (
 
         (* Find job in table of running jobs *)
-        let job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn = 
+        let job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn as job_param = 
           Hashtbl.find running_jobs job_id 
         in
 
@@ -371,14 +616,14 @@ let retrieve_job sock server_flags job_id =
         let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_pid in 
 
         (* Job has not exited yet? *)
-        if job_pid = 0 then 
+        if status_pid = 0 then 
 
           (                        
 
-            log "running as PID %d" status_pid;
+            log ("running as PID %d") status_pid;
 
             (* Message to client *)
-            Format.sprintf 
+            asprintf 
               "<Jobstatus msg=\"inprogress\">\
                Job with ID %s is in progress.\
                </Jobstatus>"
@@ -388,74 +633,8 @@ let retrieve_job sock server_flags job_id =
 
         else
 
-          (
-
-            let output_string =
-
-              (* Job has terminated *)
-              match job_status with
-
-              (* Terminated with signal *)
-              | Unix.WSIGNALED signal -> 
-
-                log "killed by signal %d" signal;
-
-                (* Read from stderr *)
-                let errors = read_bytes stderr_fn in
-
-                (* Create message to client *)
-                Format.sprintf 
-                  "<Jobstatus msg=\"aborted\">\
-                   Job with ID %s aborted before completion.\
-                   Contents of stderr:@\n\
-                   %s
-                    </Jobstatus>"
-                  job_id
-                  errors
-
-              (* Stopped by signal *)
-              | Unix.WSTOPPED signal -> 
-
-                log "stopped by signal %d" signal;
-
-                (* Read from stderr *)
-                let errors = read_bytes stderr_fn in
-
-                (* Create message to client *)
-                Format.sprintf 
-                  "<Jobstatus msg=\"aborted\">\
-                   Job with ID %s aborted before completion.\
-                   Contents of stderr:@\n\
-                   %s
-                    </Jobstatus>"
-                  job_id
-                  errors
-
-              (* Exited with code *)
-              | Unix.WEXITED code ->
-
-                log "exited with code %d" code;
-
-                (* Message to client is from stdout *)
-                read_bytes stdout_fn
-
-            in
-            
-            (* Remove job from table of working jobs *)
-            Hashtbl.remove running_jobs job_id;
-            
-            (* Add to table of completed jobs *)
-            Hashtbl.add completed_jobs job_id (Unix.gmtime (Unix.time ()));
-            
-            (* Delete temp files for process *)
-            (try (Sys.remove stdin_fn) with _ -> ());
-            (try (Sys.remove stdout_fn) with _ -> ());
-            (try (Sys.remove stderr_fn) with _ -> ());
-
-            output_string
-
-          )
-
+          output_of_job_status log job_id job_param job_status
+              
       )
 
     (* Job not found in table of running jobs *)
@@ -470,7 +649,7 @@ let retrieve_job sock server_flags job_id =
 
           log "completed at %a UTC" pp_print_time job_tm;
 
-          Format.sprintf 
+          asprintf 
             "<Jobstatus msg=\"completed\">\
              Job with ID %s has completed and was retrieved at %s UTC\
              </Jobstatus>"
@@ -483,7 +662,117 @@ let retrieve_job sock server_flags job_id =
 
         log "not found";
 
-        Format.sprintf
+        asprintf
+          "<Jobstatus msg=\"notfound\">\
+           Job with ID %s not found.\
+           </Jobstatus>"
+          job_id
+
+  in
+
+  (* Compute checksum of results *)
+  let output_digest = Digest.string output_string in
+  
+  (* Message frame for output *)
+  let output_frame = 
+    zframe_new output_string (String.length output_string) 
+  in
+  
+  (* Message frame for digest *)
+  let checksum_frame = 
+    zframe_new output_digest (String.length output_digest) 
+  in
+  
+  (* Compose message of frames and send *)
+  ignore(zmsg_push status checksum_frame);
+  ignore(zmsg_push status output_frame);
+  ignore(zmsg_send status sock)
+    
+
+(* Register a request to cancel a job *)
+let cancel_job sock server_flags job_id = 
+
+  (* Local log function *)
+  let log fmt = 
+    log 
+      ("Request cancelling of job %s: " ^^ fmt)
+      job_id 
+  in
+
+  (* New message as reply *)
+  let status = zmsg_new () in
+
+  (* String message to client *)
+  let output_string = 
+
+    try 
+
+      (
+
+        (* Find job in table of running jobs *)
+        let job_pid, timestamp, stdin_fn, stdout_fn, stderr_fn as job_param = 
+          Hashtbl.find running_jobs job_id 
+        in
+
+        (* Check status of job by its PID *)
+        let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_pid in 
+
+        (* Job has not exited yet? *)
+        if status_pid = 0 then 
+
+          (                        
+
+            log "running as PID %d" status_pid;
+
+            (* Send SIGINT (Ctrl+C) to job *)
+            Unix.kill job_pid Sys.sigint;
+
+            (* Add cancel request to list *)
+            cancel_requested_jobs := 
+              (job_id, job_pid, Unix.gettimeofday ()) :: 
+                         !cancel_requested_jobs;
+
+            (* Message to client *)
+            asprintf 
+              "<Jobstatus msg=\"inprogress\">\
+               Requested canceling of job with ID %s .\
+               </Jobstatus>"
+              job_id
+
+          ) 
+
+        else
+
+          output_of_job_status log job_id job_param job_status
+            
+      )
+
+    (* Job not found in table of running jobs *)
+    with Not_found -> 
+
+      try 
+
+        (
+
+          (* Get time of retrieval *)
+          let job_tm = Hashtbl.find completed_jobs job_id in
+
+          log "completed at %a UTC" pp_print_time job_tm;
+
+          asprintf 
+            "<Jobstatus msg=\"completed\">\
+             Job with ID %s has completed and was retrieved at %s UTC\
+             </Jobstatus>"
+            job_id
+            (string_of_time job_tm)
+
+        ) 
+
+      with Not_found ->
+
+        log "not found";
+
+        asprintf
           "<Jobstatus msg=\"notfound\">\
            Job with ID %s not found.\
            </Jobstatus>"
@@ -559,7 +848,7 @@ let rec collect_args msg accum =
 
 
 (* Main loop: get requests from socket *)
-let rec get_requests sock last_purge =
+let rec get_requests ({ command; args } as config) sock last_purge =
 
   (* Catch all errors *)
   try 
@@ -569,7 +858,7 @@ let rec get_requests sock last_purge =
 
       (* Wait for next message, restart when interrupted *)
       try zmsg_recv sock with 
-        | Failure "break" -> get_requests sock last_purge 
+        | Failure "break" -> get_requests config sock last_purge 
 
     in
 
@@ -587,6 +876,15 @@ let rec get_requests sock last_purge =
           (* Retrieve job *)
           retrieve_job sock s (zframe_strdup payload)
 
+        (* Cancel job *)
+        | s when String.contains s 'k' ->
+
+          (* Second part contains job ID *)
+          let payload = zmsg_pop msg in
+
+          (* Retrieve job *)
+          cancel_job sock s (zframe_strdup payload)
+
         (* Creating job? *)
         | s when String.contains s 'c' ->
 
@@ -599,11 +897,11 @@ let rec get_requests sock last_purge =
             let checksum  = zmsg_popstr msg in
             
             (* Collect arguments from remaining frames *)
-            let kind_args = kind_default_args @ (collect_args msg []) in 
+            let job_args = args @ (collect_args msg []) in 
             
             try 
               
-              create_job sock s payload checksum kind_args;
+              create_job sock s payload checksum command job_args;
               
             with Checksum_failure -> 
               
@@ -641,8 +939,49 @@ let rec get_requests sock last_purge =
       
     in
 
+    (* New list of cancel requests *)
+    let cancel_requested_jobs' = 
+      List.fold_left
+
+        (* Cancel job by sending a cascade of signals: SIGINT at t=0,
+           then wait and send SIGNTERM, finally send SIGKILL and
+           forget about request *)
+        (fun accum ((job_id, job_pid, cancel_timestamp) as r) ->
+
+          (* Get time since cancel request *) 
+          let time_since_request = 
+            Unix.gettimeofday () -. cancel_timestamp 
+          in
+
+          (* Finally: kill with SIGKILL (-9) *)
+          if time_since_request > cancel_sigkill_time then
+            (log 
+               "Sending SIGKILL to job %s (PID %d)"
+               job_id
+               job_pid;
+              (try Unix.kill job_pid Sys.sigkill with _ -> ());
+              accum)
+            
+          (* Kill with SIGTERM, then send SIGKILL later *)
+          else if time_since_request > cancel_sigterm_time then
+            (log 
+               "Sending SIGTERM to job %s (PID %d)"
+               job_id
+               job_pid;(try Unix.kill job_pid Sys.sigterm with _ -> ());
+              r :: accum)
+
+          (* Wait *)
+          else
+            r :: accum)
+        []
+        !cancel_requested_jobs
+    in
+
+    (* Continue with new list of cancel requests *)
+    cancel_requested_jobs := cancel_requested_jobs';
+      
     (* Continue with next message *)
-    get_requests sock last_purge'
+    get_requests config sock last_purge'
 
   (* Catch runtime errors *)
   with e ->
@@ -667,6 +1006,8 @@ let rec get_requests sock last_purge =
 
 (* Entry point *)
 let main () = 
+
+  let { port } as config = parse_argv Sys.argv in
 
   (* Double fork to start server as daemon *)
   (match Unix.fork () with 
@@ -701,6 +1042,8 @@ let main () =
   Unix.close fd;
 
   log "Server started";
+
+  log "%a" pp_print_program_config config;
 
   (* ZeroMQ context *)
   let ctx = zctx_new () in
@@ -745,10 +1088,17 @@ let main () =
   );
 
   (* Enter main loop, last purge of old files was right now *)
-  get_requests rep_sock (int_of_float (Unix.time ()));
+  get_requests config rep_sock (int_of_float (Unix.time ()));
   
   exit 0
     
 ;;
 
 main ()
+
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k kind2-server"
+   indent-tabs-mode: nil
+   End: 
+*)
