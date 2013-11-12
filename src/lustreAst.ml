@@ -791,11 +791,7 @@ let pp_print_declaration ppf = function
        @[<hv 2>let@ \
        %a@;<1 -2>\
        tel;@]@]" 
-<<<<<<< Updated upstream
       I.pp_print_ident n 
-=======
-      pp_print_ident n 
->>>>>>> Stashed changes
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
