@@ -261,7 +261,6 @@ let progress_pt mdl k =
 (* XML output                                                             *)
 (* ********************************************************************** *)
 
-
 (* Level to class attribute of log tag *)
 let xml_cls_of_level = function
   | L_off -> assert false
@@ -293,6 +292,21 @@ let pp_print_kind_module_xml_src ppf m =
   Format.fprintf ppf "%s" (xml_src_of_kind_module m)
 
 
+(* XML at the beginning the output *)
+let print_xml_header () = 
+
+  Format.fprintf 
+    !log_ppf 
+    "@[<v><?xml version=\"1.0\"?>@,\
+     <Results xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">@]@."
+
+
+(* XML at the end of the output *)
+let print_xml_trailer () = 
+
+  Format.fprintf !log_ppf "</Results>@."
+
+
 (* Output message as XML *)
 let printf_xml mdl level fmt = 
 
@@ -308,24 +322,34 @@ let printf_xml mdl level fmt =
 (* Output proved property as XML *)
 let proved_xml mdl prop = 
 
+  (* Update time *)
+  Stat.update_time Stat.total_time;
+
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hv 2><property name=\"%s\">@,\
-      <answer source=\"%a\">valid</answer>@;<0 -2>\
-      </property>@]@.") 
+    ("@[<hv 2><Property name=\"%s\">@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      <Answer source=\"%a\">valid</answer>@;<0 -2>\
+      </Property>@]@.") 
     prop
+    (Stat.get_float Stat.total_time)
     pp_print_kind_module_xml_src mdl
 
 
 (* Output disproved property as XML *)
 let disproved_xml mdl prop = 
 
+  (* Update time *)
+  Stat.update_time Stat.total_time;
+
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hv 2><property name=\"%s\">@,\
-      <answer source=\"%a\">invalid</answer>@;<0 -2>\
-      </property>@]@.") 
+    ("@[<hv 2><Property name=\"%s\">@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      <Answer source=\"%a\">invalid</answer>@;<0 -2>\
+      </Property>@]@.") 
     prop
+    (Stat.get_float Stat.total_time)
     pp_print_kind_module_xml_src mdl
   
 
@@ -463,7 +487,13 @@ let log_format = ref F_pt
 let set_log_format_pt () = log_format := F_pt
 
 (* Set log format to XML *)
-let set_log_format_xml () = log_format := F_xml
+let set_log_format_xml () = 
+
+  log_format := F_xml;
+
+  (* Print XML header *)
+  print_xml_header ()
+               
 
 (* Relay log messages to invariant manager *)
 let set_relay_log () = log_format := F_relay
@@ -520,6 +550,14 @@ let progress mdl k =
     | F_xml -> progress_xml mdl k
     | F_relay -> progress_relay k
   
+
+(* Terminate log output *)
+let terminate_log () = 
+  match !log_format with 
+    | F_pt -> ()
+    | F_xml -> print_xml_trailer ()
+    | F_relay -> ()
+
 
 (* ********************************************************************** *)
 (* Initialization for the messaging system                                *)

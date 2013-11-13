@@ -163,6 +163,10 @@ val log_proved : Lib.kind_module -> string -> unit
 (** Log a counterexample *)
 val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 
 
+(** Terminate log
+
+    Output closing tags for XML output. *)
+val terminate_log : unit -> unit 
 
 
 (* 
