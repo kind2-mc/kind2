@@ -1345,7 +1345,7 @@ let of_channel in_ch =
                 (Var.mk_state_var_instance sv (Lib.numeral_of_int 0))
             in
 
-            ((string_of_int i, p) :: accum, succ i)
+            ((StateVar.original_name_of_state_var sv, p) :: accum, succ i)
         )
         
         ([], 0)

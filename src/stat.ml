@@ -417,6 +417,9 @@ let pp_print_smt_stats ppf =
 
 (* ********** Misc statistics ********** *)
 
+let total_time = 
+  empty_item "Total time" 0.
+
 let clause_of_term_time = 
   empty_item "clause_of_term time" 0.
 
@@ -432,7 +435,8 @@ let cnf_subsume_time =
 let misc_stats_title = "General"
 
 let misc_stats = 
-  [ F clause_of_term_time;
+  [ F total_time;
+    F clause_of_term_time;
     F cnf_subsume_time;
     F smtexpr_of_term_time; 
     F term_of_smtexpr_time ]

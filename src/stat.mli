@@ -245,6 +245,9 @@ val pp_print_smt_stats : Format.formatter -> unit
 
 (** {2 Misc.} *)
 
+(** Total time *)
+val total_time : float_item
+
 val clause_of_term_time : float_item
 
 val smtexpr_of_term_time : float_item

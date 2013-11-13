@@ -234,7 +234,9 @@ let on_exit process exn =
     
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
-      
+
+      Event.terminate_log ();
+
       (* Exit with status *)
       exit status
         
@@ -252,6 +254,8 @@ let on_exit process exn =
            ",@ ")
         !child_pids;
 
+      Event.terminate_log ();
+
       exit status' 
 
     (* Exception in Unix.wait loop *)
@@ -267,6 +271,8 @@ let on_exit process exn =
               Format.fprintf ppf "%d" p)
            ",@ ")
         !child_pids;
+
+      Event.terminate_log ();
 
       exit status' 
 
@@ -286,6 +292,8 @@ let on_exit_child messaging_thread process exn =
   Event.log process Event.L_info 
     "Process terminating";
 
+  Event.terminate_log ();
+  
   (match messaging_thread with 
     | Some t -> Event.exit t
     | None -> ());
@@ -556,6 +564,8 @@ let main () =
   Sys.set_signal 
     Sys.sigquit 
     (Sys.Signal_handle exception_on_signal);
+
+  Stat.start_timer Stat.total_time;
 
   try 
 

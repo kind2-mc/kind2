@@ -733,7 +733,7 @@ let pp_print_process_status ppf = function
 
 (* Raise exception on signal *)
 let exception_on_signal signal = 
-  Format.printf "Signal %a caught" pp_print_signal signal;
+  (* Format.printf "Signal %a caught" pp_print_signal signal; *)
   raise (Signal signal)
 
 
