@@ -48,6 +48,15 @@ let rec pp_print_list pp sep ppf = function
 (* Defaults                                                               *)
 (* ********************************************************************** *)
 
+(* Maximum one minute load average *)
+let load1_max = ref 8.
+
+(* Maximum five minutes load average *)
+let load5_max = ref 4.
+
+(* Maximum 15 minutes load average *)
+let load15_max = ref 0.
+
 (* Configuration of a program *)
 type program_config = 
 
@@ -149,6 +158,21 @@ let parse_argv argv =
         ("-p",
          Arg.Int port_action,
          "    Run server on port");
+
+        ("-l1",
+         Arg.Set_float load1_max,
+         "   Maximal one-minute load average to accept jobs, \
+             (0. = unlimited)");
+
+        ("-l5",
+         Arg.Set_float load5_max,
+         "   Maximal five-minute load average to accept jobs, \
+             (0. = unlimited)");
+
+        ("-l15",
+         Arg.Set_float load15_max,
+         "  Maximal 15-minute load average to accept jobs, \
+             (0. = unlimited)");
 
         (* Display help *)
         ("-help", 
@@ -456,118 +480,170 @@ let create_job
     checksum 
     job_command
     job_args =
-  
-  (* Generate a unique job ID *)
-  let job_id = generate_uid () in 
-  
-  (* Create temporary files for input, output and error output *)
-  let stdin_fn = ("kind_job_" ^ job_id ^ "_input") in
-  let stdout_fn = ("kind_job_" ^ job_id ^ "_output") in
-  
-  (* Write data from client to stdin of new kind process *)
-  write_bytes_to_file (zframe_getbytes payload) stdin_fn;
-  
-  (* Open file for input *)
-  let kind_stdin_in = 
-    Unix.openfile stdin_fn [Unix.O_CREAT; Unix.O_RDONLY; Unix.O_NONBLOCK] 0o600 
-  in
-  
-  (* Open file for output *)
-  let kind_stdout_out = 
-    Unix.openfile stdout_fn [Unix.O_CREAT; Unix.O_RDWR; Unix.O_NONBLOCK] 0o600 
-  in
-  
-  (* Temporary file for stderr *)
-  let stderr_fn, kind_stderr_out = 
 
-    (* Should stdout and stderr be seperated? *)
-    if String.contains server_flags 's' then 
-      
-      (
+  (* Open file *)
+  let loadavg_ch = open_in "/proc/loadavg" in
 
-        (* Separate file for stderr *)
-        ("kind_job_" ^ job_id ^ "_error"),
-        
-        (* Open file *)
-        Unix.openfile 
-          ("kind_job_" ^ job_id ^ "_error") 
-          [Unix.O_CREAT; Unix.O_RDWR; Unix.O_NONBLOCK] 0o600
-      ) 
-
-    else 
-
-      (
-
-        (* By default merge stdout and stderr *)
-        stdout_fn, kind_stdout_out
-
-      )
-
+  (* Read load averages from file *)
+  let load1, load5, load15 =
+    Scanf.fscanf loadavg_ch "%f %f %f" (fun l1 l5 l15 -> (l1,l5,l15))
   in
 
-  (* Get string of input *)
-  let input_string = zframe_strdup payload in
+  (* Close file *)
+  close_in loadavg_ch;
 
-  (* Compute checksum of input *)
-  let input_digest = Digest.string input_string in
+  log
+    "Current system load: %.2f %.2f %.2f"
+    load1
+    load5
+    load15;
 
-  (* Checksums differ? *)
-  if (input_digest <> checksum) then 
+  if 
+
+    (* System load above of limit? *)
+    (!load1_max = 0. || load1 > !load1_max) &&  
+    (!load5_max = 0. || load5 > !load5_max) &&  
+    (!load15_max = 0. || load15 > !load15_max) 
+
+  then 
 
     (
-      
+
+      (* Send job ID to client *)
+      let msg = zmsg_new () in
+      ignore 
+        (zmsg_pushstr msg "");
+      ignore
+        (zmsg_pushstr 
+           msg 
+           "Job rejected due to high system load. Try again later");
+      ignore(zmsg_send msg sock);
+
+      log "Job rejected due to high system load";
+
+    )
+
+  else
+
+    (
+
+      (* Generate a unique job ID *)
+      let job_id = generate_uid () in 
+
+      (* Create temporary files for input, output and error output *)
+      let stdin_fn = ("kind_job_" ^ job_id ^ "_input") in
+      let stdout_fn = ("kind_job_" ^ job_id ^ "_output") in
+
+      (* Write data from client to stdin of new kind process *)
+      write_bytes_to_file (zframe_getbytes payload) stdin_fn;
+
+      (* Open file for input *)
+      let kind_stdin_in = 
+        Unix.openfile 
+          stdin_fn 
+          [Unix.O_CREAT; Unix.O_RDONLY; Unix.O_NONBLOCK] 0o600 
+      in
+
+      (* Open file for output *)
+      let kind_stdout_out = 
+        Unix.openfile 
+          stdout_fn 
+          [Unix.O_CREAT; Unix.O_RDWR; Unix.O_NONBLOCK] 0o600 
+      in
+
+      (* Temporary file for stderr *)
+      let stderr_fn, kind_stderr_out = 
+
+        (* Should stdout and stderr be seperated? *)
+        if String.contains server_flags 's' then 
+
+          (
+
+            (* Separate file for stderr *)
+            ("kind_job_" ^ job_id ^ "_error"),
+
+            (* Open file *)
+            Unix.openfile 
+              ("kind_job_" ^ job_id ^ "_error") 
+              [Unix.O_CREAT; Unix.O_RDWR; Unix.O_NONBLOCK] 0o600
+          ) 
+
+        else 
+
+          (
+
+            (* By default merge stdout and stderr *)
+            stdout_fn, kind_stdout_out
+
+          )
+
+      in
+
+      (* Get string of input *)
+      let input_string = zframe_strdup payload in
+
+      (* Compute checksum of input *)
+      let input_digest = Digest.string input_string in
+
+      (* Checksums differ? *)
+      if (input_digest <> checksum) then 
+
+        (
+
+          log 
+            "Received file with bad MD5sum. Expected MD5sum %s, got %s."
+            checksum
+            input_digest;
+
+          raise Checksum_failure
+
+        );
+
       log 
-        "Received file with bad MD5sum. Expected MD5sum %s, got %s."
-        checksum
-        input_digest;
+        "Executing %s %a"
+        job_command
+        (pp_print_list Format.pp_print_string " ") job_args;
 
-      raise Checksum_failure
-        
-    );
-  
-  log 
-    "Executing %s %a"
-    job_command
-    (pp_print_list Format.pp_print_string " ") job_args;
+      (* Create kind process *)
+      let kind_pid = 
+        Unix.create_process 
+          job_command
+          (Array.of_list (job_command :: job_args @ [stdin_fn])) 
+          kind_stdin_in
+          kind_stdout_out
+          kind_stderr_out
+      in
 
-  (* Create kind process *)
-  let kind_pid = 
-    Unix.create_process 
-      job_command
-      (Array.of_list (job_command :: job_args @ [stdin_fn])) 
-      kind_stdin_in
-      kind_stdout_out
-      kind_stderr_out
-  in
-  
-  (* Close our end of the pipe which has been duplicated by the
-     process *)
-  if (not (kind_stderr_out == kind_stdout_out)) then 
-    (Unix.close kind_stderr_out); 
-  
-  Unix.close kind_stdin_in;
-  Unix.close kind_stdout_out; 
-  
-  (* Add job to Hashtbl of running jobs and associated files *)
-  Hashtbl.add 
-    running_jobs 
-    job_id 
-    { job_pid = kind_pid;
-      job_start_timestamp = int_of_float (Unix.time ());
-      job_stdin_fn = stdin_fn;
-      job_stdout_fn = stdout_fn;
-      job_stderr_fn = stderr_fn;
-      job_stdout_pos = 0 };
+      (* Close our end of the pipe which has been duplicated by the
+         process *)
+      if (not (kind_stderr_out == kind_stdout_out)) then 
+        (Unix.close kind_stderr_out); 
 
-  (* Send job ID to client *)
-  let msg = zmsg_new () in
-  ignore(zmsg_pushstr msg job_id);
-  ignore(zmsg_send msg sock);
-  
-  log "Job created with ID %s" job_id;
+      Unix.close kind_stdin_in;
+      Unix.close kind_stdout_out; 
 
-  (* guarantee that next generated ID is unique *)
-  minisleep 0.01
+      (* Add job to Hashtbl of running jobs and associated files *)
+      Hashtbl.add 
+        running_jobs 
+        job_id 
+        { job_pid = kind_pid;
+          job_start_timestamp = int_of_float (Unix.time ());
+          job_stdin_fn = stdin_fn;
+          job_stdout_fn = stdout_fn;
+          job_stderr_fn = stderr_fn;
+          job_stdout_pos = 0 };
+
+      (* Send job ID to client *)
+      let msg = zmsg_new () in
+      ignore(zmsg_pushstr msg job_id);
+      ignore(zmsg_send msg sock);
+
+      log "Job created with ID %s" job_id;
+
+      (* guarantee that next generated ID is unique *)
+      minisleep 0.01
+
+    )
 
 
 (* Return message after job has terminated, factored out from
