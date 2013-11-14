@@ -483,7 +483,7 @@ expr:
     { A.ArraySlice (mk_pos $startpos, e, l) }
 
   (* A record field projection *)
-  | s = ident; DOT; t = ident 
+  | s = expr; DOT; t = ident 
     { A.RecordProject (mk_pos $startpos, s, t) }
 
   (* A record *)

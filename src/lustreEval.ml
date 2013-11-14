@@ -35,8 +35,61 @@ type value =
   | ValBool of bool
   | ValNum of string
   | ValDec of string
+  | ValEnum of ident
+  | ValTuple of value list
+  | ValRecord of (I.t * value) list
+
 
 let rec eval ident_map = 
+
+  let eval_int ident_map e = match eval ident_map e with
+
+    | ValNum n -> 
+
+      (try int_of_string n with 
+        | Failure _ -> 
+
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a is not a constant integer" 
+                  A.pp_print_expr e)))
+        
+    | ValBool _
+    | ValDec _ -> 
+      
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Expression %a is not a constant integer" 
+              A.pp_print_expr e))
+
+  in
+
+  let eval_int ident_map e = match eval ident_map e with
+
+    | ValNum n -> 
+
+      (try int_of_string n with 
+        | Failure _ -> 
+
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a is not a constant integer" 
+                  A.pp_print_expr e)))
+        
+    | ValBool _
+    | ValDec _ -> 
+      
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Expression %a is not a constant integer" 
+              A.pp_print_expr e))
+
+  in
+
 
   let find_value ident_map i = 
     try List.assoc ident_map i with 
@@ -50,10 +103,19 @@ let rec eval ident_map =
       
     | A.RecordProject (_, r, i) -> 
       
-      let ident_map' = add_record_to_ident_map ident_map (eval ident_map r) in
-      
-      find_value ident_map (I.add_string_index r (eval ident_map i))
-        
+      (match eval r with 
+        | ValRecord l -> 
+          (let e = 
+             try List.assoc l i with
+               | Not_found ->         
+                 failwith (Format.asprintf "No value for %a" I.pp_print_ident i)
+           in
+
+           eval ident_map e)
+        | _ ->                  
+          failwith (Format.asprintf "Not a record: %a" A.pp_print_expr e))
+
+       
     | A.TupleProject(p, e1, e2) -> 
       
       let ident_map' = add_tuple_to_ident_map ident_map (eval ident_map e1) in
@@ -323,30 +385,6 @@ let rec eval ident_map =
          List.map (substitute_type_in_lustre_type type_map) t,
          List.map (substitute_type_in_expr type_map) l)
 
-
-and eval_int ident_map e = 
-
-  match eval ident_map e with
-
-    | ValNum n -> 
-
-      (try int_of_string n with 
-        | Failure _ -> 
-
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Expression %a is not a constant integer" 
-                  A.pp_print_expr e)))
-        
-    | ValBool _
-    | ValDec _ -> 
-      
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Expression %a is not a constant integer" 
-              A.pp_print_expr e))
 
 (* 
    Local Variables:

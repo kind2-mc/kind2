@@ -114,6 +114,7 @@ let main () =
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
     declarations;
 
+  LustreCheckType.check_program declarations
 
 ;;
 
