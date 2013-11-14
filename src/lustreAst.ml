@@ -119,7 +119,7 @@ type expr =
 
   (* Identifier *)
   | Ident of position * ident
-  | RecordProject of position * ident * ident
+  | RecordProject of position * expr * ident
   | TupleProject of position * expr * expr
 
   (* Values *)
@@ -415,7 +415,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a%a.%a" 
         ppos p 
-        I.pp_print_ident id 
+        pp_print_expr id 
         I.pp_print_ident f
 
     | RecordConstruct (p, l) -> 
