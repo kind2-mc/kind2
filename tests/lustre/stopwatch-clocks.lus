@@ -1,0 +1,30 @@
+node Switch (on, off: bool) returns (s: bool);
+let
+  s = if (false -> pre s) then not off else on; 
+tel
+
+node Count (reset,x: bool) returns (c: int);
+let
+  c = if reset then 0
+      else if x then (0->pre c) + 1
+           else (0->pre c);
+tel
+
+node Stopwatch 
+  (on_off, reset, freeze : bool)
+returns 
+  (time: int);
+var 
+  running, freezed : bool;
+  cpt_ena, tim_ena : bool;
+  (cpt:int) when cpt_ena;
+let
+  running = Switch(on_off, on_off);
+  freezed = Switch(freeze and running,
+                   freeze or on_off);
+  cpt_ena = true -> reset or running;
+  cpt = Count((not running, true) when cpt_ena);
+  tim_ena = true -> not freezed;
+  time = current(current(cpt) when tim_ena);
+tel
+
