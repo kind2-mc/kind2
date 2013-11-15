@@ -27,6 +27,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+open Lib
+
+module I = LustreIdent
+
+module IdentSet = Set.Make (I)
 
 (* ********************************************************************** *)
 (* Types                                                                  *)
@@ -38,19 +43,114 @@ type t =
   | Int
   | Real
   | IntRange of (int * int)
+  | FreeType of I.t
+  | Enum of I.t list
+
+
+(* Lexicographic comparison of pairs *)
+let compare_int_range (al, au) (bl, bu) = 
+
+  match compare al bl with
+
+    (* First elements are equal: compare second elements *)
+    | 0 -> compare au bu
+      
+    (* Return order of first elements *)
+    | c -> c
+
+
+(* Compare lists of identifiers as sets *)
+let compare_enum a b = 
+
+  (* Set of identifiers in a *)
+  let a_set = 
+    List.fold_left (fun a i -> IdentSet.add i a)  IdentSet.empty a
+  in
+
+  (* Set of identifiers in b *)
+  let b_set = 
+    List.fold_left (fun a i -> IdentSet.add i a)  IdentSet.empty b
+  in
+
+  (* Return true if e and f contain the same identifiers *)
+  IdentSet.compare a_set b_set
+  
+
+(* Compare types *)
+let compare s t = match s, t with 
+
+  | Bool, Bool -> 0
+  | Bool, Int
+  | Bool, Real
+  | Bool, IntRange _
+  | Bool, FreeType _
+  | Bool, Enum _ -> -1 
+
+  | Int, Bool -> 1
+  | Int, Int -> 0
+  | Int, Real
+  | Int, IntRange _
+  | Int, FreeType _
+  | Int, Enum _ -> -1
+
+  | Real, Bool 
+  | Real, Int -> 1
+  | Real, Real -> 0
+  | Real, IntRange _
+  | Real, FreeType _
+  | Real, Enum _ -> -1 
+
+  | IntRange _, Bool
+  | IntRange _, Int 
+  | IntRange _, Real -> 1
+  | IntRange a, IntRange b -> compare_int_range a b
+  | IntRange _, FreeType _ 
+  | IntRange _, Enum _ -> -1
+
+  | FreeType _, Bool
+  | FreeType _, Int
+  | FreeType _, Real
+  | FreeType _, IntRange _ -> 1
+  | FreeType a, FreeType b -> compare a b
+  | FreeType _, Enum _-> -1
+
+  | Enum _, Bool
+  | Enum _, Int
+  | Enum _, Real
+  | Enum _, IntRange _
+  | Enum _, FreeType _ -> 1
+  | Enum a, Enum b -> compare_enum a b
+
     
+(* Reduce equality to comparision *)
+let equal a b = compare a b = 0
+
+
 (* Pretty-print a type *)
-let pp_print_type ppf = function   
+let pp_print_lustre_type ppf = function   
   | Bool -> Format.fprintf ppf "bool"
   | Int -> Format.fprintf ppf "int"
   | Real -> Format.fprintf ppf "real"
   | IntRange (i, j) -> Format.fprintf ppf "subrange [%d,%d] of int" i j
+  | FreeType t -> Format.fprintf ppf "%a" I.pp_print_ident t
+  | Enum l ->     
+    Format.fprintf ppf 
+      "enum @[<hv 2>{ %a }@]" 
+      (pp_print_list I.pp_print_ident ",@ ") l
 
 
 let bool = Bool
+
 let int = Int
+
 let real = Real
+
 let mk_int_range i j = IntRange (min i j, max i j)
+
+let mk_free_type t = FreeType t
+
+let mk_enum l = Enum l
+
 
 (* 
    Local Variables:
