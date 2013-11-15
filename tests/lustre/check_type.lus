@@ -9,4 +9,4 @@ type d = [a, b, c];
 type e = struct { first: d; second: c};
 
 
-const c: c;
+const c: t;

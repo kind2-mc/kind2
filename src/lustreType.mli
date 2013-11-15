@@ -34,20 +34,39 @@
 
 (** A type *)
 type t = private
-  | Bool                     (** The Boolean type *)
-  | Int                      (** The integer type *)
-  | Real                     (** The real type *)
-  | IntRange of (int * int)  (** An integer range type *)
+  | Bool                        (** The Boolean type *)
+  | Int                         (** The integer type *)
+  | Real                        (** The real type *)
+  | IntRange of (int * int)     (** An integer range type *)
+  | FreeType of LustreIdent.t   (** A free (uninterpreted) type *)
+  | Enum of LustreIdent.t list  (** An enumeration type *)
 
+(** Total ordering of types *)
+val compare : t -> t -> int
+
+(** Equality of types *)
+val equal : t -> t -> bool
 
 (** Pretty-print a type *)
-val pp_print_type : Format.formatter -> t -> unit 
+val pp_print_lustre_type : Format.formatter -> t -> unit 
 
+(** Return the Boolean type *)
 val bool : t
+
+(** Return the integer type *)
 val int : t
+
+(** Return the real type *)
 val real : t
+
+(** Construct an integer range type *)
 val mk_int_range : int -> int -> t
 
+(** Construct a free type *)
+val mk_free_type : LustreIdent.t -> t
+
+(** Construct an enumerated type *)
+val mk_enum : LustreIdent.t list -> t
 
 (* 
    Local Variables:

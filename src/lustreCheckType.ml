@@ -30,6 +30,8 @@
 module A = LustreAst
 module I = LustreIdent
 
+module T = LustreType
+
 module IdentSet = Set.Make (I)
 
 
@@ -54,23 +56,27 @@ let type_is_declared free_types type_map t =
     (List.exists (function (s, _) -> s = t) type_map)
 
 
-(* Return true if lists of identifiers are equal *)
-let enums_equal e f = 
+(* Convert a parsed type to a built-in type *)
+let lustre_type_of_ast_type = function
+  | A.Bool -> T.bool
+  | A.Int -> T.int
+  | A.Real -> T.real
+  | A.EnumType l -> T.mk_enum l
+  | A.UserType t -> T.mk_free_type t
+  | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
 
-  (* Set of identifiers in e *)
-  let e_set = 
-    List.fold_left (fun a i -> IdentSet.add i a)  IdentSet.empty e 
-  in
 
-  (* Set of identifiers in f *)
-  let f_set = 
-    List.fold_left (fun a i -> IdentSet.add i a)  IdentSet.empty f
-  in
+(* Convert a built-in type to a parsed type *)
+let ast_type_of_lustre_type = function 
+  | T.Bool -> A.Bool
+  | T.Int -> A.Int
+  | T.Real -> A.Real
+  | T.IntRange (i, j) -> 
+    A.IntRange (A.Num (A.dummy_pos, string_of_int i), A.Num (A.dummy_pos, string_of_int j))
+  | T.Enum l -> A.EnumType l
+  | T.FreeType t -> A.UserType t
 
-  (* Return true if e and f contain the same identifiers *)
-  IdentSet.equal e_set f_set
 
-  
 (* Return type of expression *)
 let rec type_of_expr (type_ctx : (I.t * A.lustre_type) list) const_val = function
 
@@ -314,6 +320,8 @@ let rec check_declaration
                 A.pp_print_position A.dummy_pos
                 A.pp_print_position A.dummy_pos));
 
+      (* TODO: evaluate e to a constant integer, then expand declaration *)
+
       assert false
 
     )
@@ -408,7 +416,7 @@ let rec check_declaration
 
                 (* Expand to declaration [type t.j = s] *)
                 aux 
-                  ((A.TypeDecl (A.AliasType (I.add_index t j, s))) :: accum)
+                  ((A.TypeDecl (A.AliasType (I.add_index t j, ast_type_of_lustre_type s))) :: accum)
                   tl 
             in
 
@@ -434,16 +442,16 @@ let rec check_declaration
             (* All types in type_map are basic *)
             List.assoc t' type_map
               
-          (* t' is free  *)
-          with Not_found -> A.UserType t'
+          (* t' is free *)
+          with Not_found -> T.mk_free_type t'
             
         in
         
         (* Output dropped normalized type declaration *)
         Format.printf 
-          "-- %a@." 
-          A.pp_print_declaration 
-          (A.TypeDecl (A.AliasType (t, t'')));
+          "-- type %a = %a@." 
+          I.pp_print_ident t
+          T.pp_print_lustre_type t'';
 
         check_declaration
           (
@@ -474,7 +482,6 @@ let rec check_declaration
      where t' is a basic type. *)
   | A.TypeDecl (A.AliasType (t, (A.Bool as t'))) :: tl
   | A.TypeDecl (A.AliasType (t, (A.Int as t'))) :: tl
-  | A.TypeDecl (A.AliasType (t, (A.IntRange _ as t'))) :: tl
   | A.TypeDecl (A.AliasType (t, (A.Real as t'))) :: tl ->
 
     (
@@ -504,7 +511,7 @@ let rec check_declaration
         (
 
           (* Add alias type to map *)
-          (t, t') :: type_map, 
+          (t, lustre_type_of_ast_type t') :: type_map, 
 
           (* No new free types *)
           free_types, 
@@ -523,6 +530,34 @@ let rec check_declaration
 
     )
 
+
+  (* type t = subrange [a, b] of int; 
+
+     Need to convert a and b to constants *)
+  | A.TypeDecl (A.AliasType (t, (A.IntRange _ as t'))) :: tl -> 
+
+    (
+
+      if
+
+        (* Type t must not be declared *)
+        type_is_declared free_types type_map t
+
+      then
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Type %a defined in %a is redeclared in %a" 
+                I.pp_print_ident t
+                A.pp_print_position A.dummy_pos
+                A.pp_print_position A.dummy_pos));
+
+
+      assert false
+        
+    )
 
   (* type t = enum { x1, ..., xn }; 
 
@@ -547,6 +582,8 @@ let rec check_declaration
                 A.pp_print_position A.dummy_pos
                 A.pp_print_position A.dummy_pos));
 
+      let t'' = lustre_type_of_ast_type t' in
+
       (* Append enum elements to typing context *)
       let rec aux accum = function 
 
@@ -560,10 +597,10 @@ let rec check_declaration
             match List.assoc e type_ctx with 
 
               (* Identifier is in another enum type *)
-              | A.EnumType k as s -> 
+              | T.Enum _ as s -> 
 
                 (* Allow if enums are equal *)
-                if enums_equal l k then raise Not_found else
+                if T.equal s t'' then raise Not_found else
 
                   (* Fail *)
                   raise 
@@ -573,7 +610,7 @@ let rec check_declaration
                            is also in enum of type %a in %a" 
                           I.pp_print_ident e
                           A.pp_print_position A.dummy_pos
-                          A.pp_print_lustre_type s
+                          T.pp_print_lustre_type s
                           A.pp_print_position A.dummy_pos))
                 
               | s ->
@@ -586,14 +623,14 @@ let rec check_declaration
                          declared as of type %a in %a" 
                         I.pp_print_ident e
                         A.pp_print_position A.dummy_pos
-                        A.pp_print_lustre_type s
+                        T.pp_print_lustre_type s
                         A.pp_print_position A.dummy_pos))
                 
           with Not_found -> 
             
             (* Append type of identifier to typing context  *)
             aux
-              ((e, t') :: accum)
+              ((e, t'') :: accum)
               tl
             
       in
@@ -604,8 +641,8 @@ let rec check_declaration
       check_declaration
         (
 
-          (* No new alias type *)
-          (t, t') :: type_map, 
+          (* New alias type for enum *)
+          (t, t'') :: type_map, 
 
           (* Add type to free types *)
           free_types, 
@@ -670,12 +707,9 @@ let rec check_declaration
 
     )
 
-  (* const c : t; 
-
-  *)
+  (* const c : t; *)
   | (A.ConstDecl (A.FreeConst (c, (A.Bool as t))) as d) :: tl 
   | (A.ConstDecl (A.FreeConst (c, (A.Int as t))) as d) :: tl 
-  | (A.ConstDecl (A.FreeConst (c, (A.IntRange _ as t))) as d) :: tl
   | (A.ConstDecl (A.FreeConst (c, (A.Real as t))) as d) :: tl 
   | (A.ConstDecl (A.FreeConst (c, (A.EnumType _ as t))) as d) :: tl -> 
 
@@ -689,7 +723,7 @@ let rec check_declaration
         free_types, 
 
         (* Add to typing context *)
-        (c, t) :: type_ctx, 
+        (c, lustre_type_of_ast_type t) :: type_ctx, 
 
         (* No new constant declaration *)
         const_val,
@@ -700,22 +734,39 @@ let rec check_declaration
       )
       tl
 
+  (* const c : subrange [a, b] of int; *)
+  | (A.ConstDecl (A.FreeConst (c, (A.IntRange _ as t))) as d) :: tl -> 
 
+    assert false
+
+  (* const c : t; 
+
+     where t is an alias or free type *)
   | A.ConstDecl (A.FreeConst (c, (A.UserType t))) as d :: tl -> 
 
+    if       
+      
+      (* Type t must be declared *)
+      not (type_is_declared free_types type_map t)
+        
+    then
+
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Type %a in %a is not declared" 
+              I.pp_print_ident t
+              A.pp_print_position A.dummy_pos));
+
     let t' = 
-
+      
+      (* Resolve alias type *)
       try List.assoc t type_map with 
+          
+        (* Type is a free type *)
+        | Not_found -> T.mk_free_type t
 
-        | Not_found -> 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Type %a in %a is not declared" 
-                    I.pp_print_ident t
-                    A.pp_print_position A.dummy_pos))
     in
 
     check_declaration
@@ -737,11 +788,10 @@ let rec check_declaration
         accum
 
       )
-      ((A.ConstDecl (A.FreeConst (c, t'))) :: tl)
+      ((A.ConstDecl (A.FreeConst (c, ast_type_of_lustre_type t'))) :: tl)
       
     
-
-
+(*
   (* const c = e; *)
   | A.ConstDecl (A.UntypedConst (c, e)) as d :: tl ->
 
@@ -824,6 +874,7 @@ let rec check_declaration
       )
       tl
       
+*)
 
 let check_program p = 
 
