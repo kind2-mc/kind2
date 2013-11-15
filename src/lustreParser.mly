@@ -487,8 +487,9 @@ expr:
     { A.RecordProject (mk_pos $startpos, s, t) }
 
   (* A record *)
-  | f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
-    { A.RecordConstruct (mk_pos $startpos, f) }
+  | t = ident; 
+    f = tlist(LCURLYBRACKET, SEMICOLON, RCURLYBRACKET, record_field_assign)
+    { A.RecordConstruct (mk_pos $startpos, t, f) }
 
   (* An array concatenation *)
   | e1 = expr; PIPE; e2 = expr { A.ArrayConcat (mk_pos $startpos, e1, e2) } 

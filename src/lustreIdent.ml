@@ -46,6 +46,58 @@ type index =
 type t = string * (index list)
 
 
+(* Comparision of indexes *)
+let compare_index a b = match a, b with 
+
+  (* Compare strings *)
+  | StringIndex a, StringIndex b -> compare a b
+
+  (* Compare integers *)
+  | IntIndex a, IntIndex b -> compare a b
+
+  (* String indexes are greater than integer indexes *)
+  | StringIndex _, IntIndex _ -> 1 
+
+  (* Integer indexes are smaller than string indexes *)
+  | IntIndex _, StringIndex _ -> 1 
+
+
+(* Lexicographic comparison of lists of indexes *)
+let rec compare_index_list a b = match a, b with 
+
+  (* Lists are equal *)
+  | [], [] -> 0
+
+  (* Longer list is greater *)
+  | _, [] -> 1 
+
+  (* Shorter list is smaller *)
+  | [], _ -> -1 
+
+  (* Compare head elements of lists *)
+  | a :: atl, b :: btl -> match compare_index a b with 
+    
+    (* Head elements are equal, recurse to compare tails *)
+    | 0 -> compare_index_list atl btl 
+             
+    (* Return comparison of head elements *)
+    | c -> c 
+
+
+(* Compare indexed identifiers *)
+let compare (a, ia)  (b, ib) = 
+
+  (* Compare strings *)
+  match compare a b with 
+
+    (* Strings are equal, compare indexes *)
+    | 0 -> compare_index_list ia ib
+
+    (* Return comparison of strings *)
+    | c -> c
+  
+  
+
 (* ********************************************************************** *)
 (* Pretty-printers                                                        *)
 (* ********************************************************************** *)
@@ -68,6 +120,7 @@ let rec pp_print_ident ppf (s, i) =
 
   Format.fprintf ppf "%s%a" s pp_print_index_list i
 
+
 (* ********************************************************************** *)
 (* Constructors                                                           *)
 (* ********************************************************************** *)
@@ -83,6 +136,56 @@ let add_string_index (s, i) j = (s, i @ [StringIndex j])
 
 (* Add an integer as an index to an identifier *)
 let add_int_index (s, i) j = (s, i @ [IntIndex j])
+
+
+let add_ident_index (s, i) = function
+  | (j, []) -> (s, i @ [StringIndex j])
+  | _ -> raise (Invalid_argument ("Cannot add indexed identifier as index"))
+
+let add_index (s, i) j = (s, i @ j)
+
+
+(* ********************************************************************** *)
+(* Utility functions                                                      *)
+(* ********************************************************************** *)
+
+(* Remove i as prefix from j and return remainder of j *)
+let rec get_suffix' i j = match i, j with 
+
+  (* All of j consumed, return j *)
+  | [], j -> j
+
+  (* i is not a prefix of j *)
+  | _, [] ->
+    raise (Invalid_argument ("get_suffix"))
+
+  (* First element is identical *)
+  | StringIndex i :: itl, StringIndex j :: jtl when i = j -> 
+
+    get_suffix' itl jtl
+
+  (* First element is identical *)
+  | IntIndex i :: itl, IntIndex j :: jtl when i = j -> 
+
+    get_suffix' itl jtl
+
+  (* First element is different, no common prefix *)
+  | StringIndex _ :: _, StringIndex _ :: _
+  | IntIndex _ :: _, IntIndex _ :: _
+  | IntIndex _ :: _, StringIndex _ :: _
+  | StringIndex _ :: _, IntIndex _ :: _ ->
+    raise (Invalid_argument ("get_suffix"))
+
+
+
+(* [i] is a prefix of [j], return the indexes of [j] with the commonp
+   prefix removed *)
+let get_suffix (i, li) (j, lj) = 
+
+  (* *)
+  if i = j then get_suffix' li lj else 
+    
+    raise (Invalid_argument ("get_suffix"))
 
 
 (* 

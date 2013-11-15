@@ -62,7 +62,7 @@ type expr =
   | ArrayConstr of position * expr * expr
   | ArraySlice of position * expr * (expr * expr) list
   | ArrayConcat of position * expr * expr
-  | RecordConstruct of position * (ident * expr) list
+  | RecordConstruct of position * ident * (ident * expr) list
   | Not of position * expr
   | And of position * expr * expr
   | Or of position * expr * expr

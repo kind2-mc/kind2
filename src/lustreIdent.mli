@@ -43,17 +43,34 @@
 (** An identifier *)
 type t
 
+(** An index *)
+type index 
+
+val compare : t -> t -> int
+
 (** Pretty-print an identifier *)
 val pp_print_ident : Format.formatter -> t -> unit 
 
 (** Construct an identifier of a string *)
 val mk_string_id : string -> t
 
+(** Add an index to an identifier *)
+val add_ident_index : t -> t -> t
+
+(** Add an identifier as an index to an identifier *)
+val add_index : t -> index list -> t
+
 (** Add a string as an index to an identifier *)
 val add_string_index : t -> string -> t
 
 (** Add an integer as an index to an identifier *)
 val add_int_index : t -> int -> t
+
+(** [get_suffix i j] assumes that [i] and [j] index the same
+    identifier and the indexes of [i] are a prefix of the indexes of
+    [j]. Return the suffix of [j] with the common prefix with [i]
+    removed, raise [Invalid_argument "get_suffix"] otherwise. *)
+val get_suffix : t -> t -> index list
 
 (* 
    Local Variables:

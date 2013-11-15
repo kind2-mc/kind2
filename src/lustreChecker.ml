@@ -105,7 +105,7 @@ let main () =
     "@[<v>%a@]@." 
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
     declarations;
-
+(*
   let declarations = LustreTransform.all_transforms declarations in
 
   Format.printf 
@@ -113,8 +113,15 @@ let main () =
           %a@]@." 
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
     declarations;
+*)
+  let declarations = LustreCheckType.check_program declarations in
 
-  LustreCheckType.check_program declarations
+  Format.printf 
+    "@[<v>----------------------------------------------------------------------@,\
+          %a@]@." 
+    (LustreAst.pp_print_list LustreAst.pp_print_declaration "@,") 
+    declarations;
+
 
 ;;
 

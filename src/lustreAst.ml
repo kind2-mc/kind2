@@ -148,7 +148,7 @@ type expr =
   | ArrayConcat of position * expr * expr
 
   (* Construction of a record *)
-  | RecordConstruct of position * (ident * expr) list
+  | RecordConstruct of position * ident * (ident * expr) list
 
   (* Boolean operators *)
   | Not of position * expr 
@@ -418,11 +418,12 @@ let rec pp_print_expr ppf =
         pp_print_expr id 
         I.pp_print_ident f
 
-    | RecordConstruct (p, l) -> 
+    | RecordConstruct (p, t, l) -> 
 
       Format.fprintf ppf 
-        "%a@[<hv 1>{%a}@]" 
+        "%a@[<hv 1>%a {%a}@]" 
         ppos p 
+        I.pp_print_ident t
         (pp_print_list pp_print_field_assign ";@ ") l
 
     | TupleProject (p, e, f) -> 
