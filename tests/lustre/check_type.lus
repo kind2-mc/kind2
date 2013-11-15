@@ -1,0 +1,12 @@
+type t = enum { x, y, z };
+type a = t;
+type b = a;
+
+type c = { one: t; two: { a: a; b: b } };
+
+type d = [a, b, c];
+
+type e = struct { first: d; second: c};
+
+
+const c: c;
