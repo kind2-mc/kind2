@@ -31,21 +31,33 @@ module A = LustreAst
 module I = LustreIdent
 
 module T = LustreType
+module E = LustreExpr
 
 module IdentSet = Set.Make (I)
 
 
-type expr_val = 
+type const_val =
   | ConstInt of int
   | ConstFloat of float
   | ConstBool of bool
-  | Expr of A.expr
-  | IndexdExpr of (I.t * expr_val) list
+  | ConstEnum of I.t
+
+type expr_val = 
+  | Const of const_val
+  | Expr of E.t
+  | IndexedExpr of (I.t * expr_val) list
 
 
 type expr_type = 
-  | Type of A.lustre_type 
-  | IndexedType of  (I.index list * A.lustre_type) list
+  | Type of T.t 
+  | IndexedType of  (I.index list * T.t) list
+
+
+(* Return an integer of a value *)
+let int_of_expr_val = function
+  | Const (ConstInt n) -> n
+  | _ -> raise (Invalid_argument "int_of_expr_val")
+
 
 
 (* Raise exception if type [t] was already declared as free or alias *)
@@ -56,29 +68,26 @@ let type_is_declared free_types type_map t =
     (List.exists (function (s, _) -> s = t) type_map)
 
 
-(* Convert a parsed type to a built-in type *)
-let lustre_type_of_ast_type = function
-  | A.Bool -> T.bool
-  | A.Int -> T.int
-  | A.Real -> T.real
-  | A.EnumType l -> T.mk_enum l
-  | A.UserType t -> T.mk_free_type t
-  | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
-
-
-(* Convert a built-in type to a parsed type *)
-let ast_type_of_lustre_type = function 
-  | T.Bool -> A.Bool
-  | T.Int -> A.Int
-  | T.Real -> A.Real
-  | T.IntRange (i, j) -> 
-    A.IntRange (A.Num (A.dummy_pos, string_of_int i), A.Num (A.dummy_pos, string_of_int j))
-  | T.Enum l -> A.EnumType l
-  | T.FreeType t -> A.UserType t
-
-
 (* Return type of expression *)
-let rec type_of_expr (type_ctx : (I.t * A.lustre_type) list) const_val = function
+let rec type_of_expr type_ctx const_val = function
+
+  | A.True p -> (Const (ConstBool true), Type T.bool)
+
+  | A.False p -> (Const (ConstBool false), Type T.bool)
+
+  | A.Num (p, n) -> 
+
+    let v = int_of_string n in 
+    let t = T.mk_int_range v v in
+
+    (Const (ConstInt v), Type t)
+
+  | A.Dec (p, n) -> 
+
+    let v = float_of_string n in 
+    let t = T.real in
+
+    (Const (ConstFloat v), Type t)
 
   (* Identifier *)
   | A.Ident (p, i) as e -> 
@@ -125,7 +134,9 @@ let rec type_of_expr (type_ctx : (I.t * A.lustre_type) list) const_val = functio
       let v = 
         
         (* Substitute value if identifier is a constant *)
-        try List.assoc i const_val with Not_found -> e
+        try Const (List.assoc i const_val) with 
+
+          | Not_found -> Expr (E.mk_ident i)
 
       in
 
@@ -161,7 +172,98 @@ let rec type_of_expr (type_ctx : (I.t * A.lustre_type) list) const_val = functio
 
     *)
 
+
+  | A.Uminus (p, e) -> 
+
+    (match type_of_expr type_ctx const_val e with 
+
+      | Const (ConstInt i), (Type T.Int as t) -> 
+
+        (Const (ConstInt (- i)), t)
+
+      | Const (ConstInt i), (Type T.IntRange (l, u) as t)
+        when l <= i && i <= u -> 
+
+        (Const (ConstInt (- i)), t) 
+
+      | Const (ConstFloat i), (Type T.Real as t) -> 
+
+        (Const (ConstFloat (-. i)), t)
+
+      | Expr e, (Type T.Int as t) 
+      | Expr e, (Type T.Real as t) -> 
+
+        (Expr (E.mk_uminus  e), t)
+
+      | Expr e, (Type (T.IntRange (l, u)) as t) ->
+
+        (Expr (E.mk_uminus e), Type (T.mk_int_range (- u) (- l)))
+   
+    )
+
+
+
+let int_const_of_expr type_ctx const_val c = 
+
+  try 
+    
+    int_of_expr_val (fst (type_of_expr type_ctx const_val c))
+      
+  with Invalid_argument "int_of_expr_val" ->  
+    
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Expression %a must be a constant integer in %a" 
+            A.pp_print_expr c
+            A.pp_print_position A.dummy_pos))
+      
          
+(* Convert a built-in type to a parsed type *)
+let ast_type_of_lustre_type = function 
+
+  | T.Bool -> A.Bool
+
+  | T.Int -> A.Int
+
+  | T.Real -> A.Real
+
+  | T.IntRange (i, j) -> 
+
+    A.IntRange 
+      (A.Num (A.dummy_pos, string_of_int i), 
+       A.Num (A.dummy_pos, string_of_int j))
+
+  | T.Enum l -> A.EnumType l
+
+  | T.FreeType t -> A.UserType t
+
+
+(* Convert a parsed type to a built-in type *)
+let lustre_type_of_ast_type type_ctx const_val = function
+
+  | A.Bool -> T.bool
+
+  | A.Int -> T.int
+
+  | A.Real -> T.real
+
+  | A.IntRange (i, j) -> 
+
+    let ci = int_const_of_expr type_ctx const_val i in
+
+    let cj = int_const_of_expr type_ctx const_val j in
+
+    T.mk_int_range ci cj
+
+  | A.EnumType l -> T.mk_enum l
+
+  | A.UserType t -> T.mk_free_type t
+
+  | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
+
+
 
 (* 
    
@@ -172,6 +274,10 @@ let rec check_declaration
 
   (* All declarations processed, return in original order *)
   | [] -> List.rev accum
+
+  (* ******************************************************************** *)
+  (* Type declarations                                                    *)
+  (* ******************************************************************** *)
 
   (* type t = struct { i1: t1; ...; in: tn };
 
@@ -322,17 +428,46 @@ let rec check_declaration
 
       (* TODO: evaluate e to a constant integer, then expand declaration *)
 
-      assert false
+      let n = int_const_of_expr type_ctx const_val e in
 
+      if n <= 0 then 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Expression %a must be positive in %a" 
+                A.pp_print_expr e
+                A.pp_print_position A.dummy_pos));
+
+          
+      let rec aux accum = function
+        | 0 -> accum
+        | i -> 
+        
+          aux 
+            (A.TypeDecl (A.AliasType (I.add_int_index t (pred i), t')) :: accum)
+            (pred i)
+
+      in
+
+      let tl' = aux tl n in
+
+      let tl' = aux tl n in
+
+      (* Recurse with new declarations *)
+      check_declaration
+        (type_map, free_types, type_ctx, const_val, accum)
+        tl'
+      
     )
-
 
   (* type t = t'; 
 
      If t' was defined as 
 
      type t' = t'';
-     
+
      expand to
 
      type t = t'';
@@ -342,7 +477,7 @@ let rec check_declaration
      type t'.i1 = t1;
      ...
      type t'.in = tn;
-     
+
      expand to 
 
      type t.i1 = t1;
@@ -438,15 +573,15 @@ let rec check_declaration
         let t'' = 
 
           try 
-             
+
             (* All types in type_map are basic *)
             List.assoc t' type_map
-              
+
           (* t' is free *)
           with Not_found -> T.mk_free_type t'
-            
+
         in
-        
+
         (* Output dropped normalized type declaration *)
         Format.printf 
           "-- type %a = %a@." 
@@ -482,7 +617,8 @@ let rec check_declaration
      where t' is a basic type. *)
   | A.TypeDecl (A.AliasType (t, (A.Bool as t'))) :: tl
   | A.TypeDecl (A.AliasType (t, (A.Int as t'))) :: tl
-  | A.TypeDecl (A.AliasType (t, (A.Real as t'))) :: tl ->
+  | A.TypeDecl (A.AliasType (t, (A.Real as t'))) :: tl 
+  | A.TypeDecl (A.AliasType (t, (A.IntRange _ as t'))) :: tl -> 
 
     (
 
@@ -511,7 +647,7 @@ let rec check_declaration
         (
 
           (* Add alias type to map *)
-          (t, lustre_type_of_ast_type t') :: type_map, 
+          (t, lustre_type_of_ast_type type_ctx const_val t') :: type_map, 
 
           (* No new free types *)
           free_types, 
@@ -530,34 +666,6 @@ let rec check_declaration
 
     )
 
-
-  (* type t = subrange [a, b] of int; 
-
-     Need to convert a and b to constants *)
-  | A.TypeDecl (A.AliasType (t, (A.IntRange _ as t'))) :: tl -> 
-
-    (
-
-      if
-
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
-
-      then
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
-
-
-      assert false
-        
-    )
 
   (* type t = enum { x1, ..., xn }; 
 
@@ -582,7 +690,7 @@ let rec check_declaration
                 A.pp_print_position A.dummy_pos
                 A.pp_print_position A.dummy_pos));
 
-      let t'' = lustre_type_of_ast_type t' in
+      let t'' = lustre_type_of_ast_type type_ctx const_val t' in
 
       (* Append enum elements to typing context *)
       let rec aux accum = function 
@@ -612,7 +720,7 @@ let rec check_declaration
                           A.pp_print_position A.dummy_pos
                           T.pp_print_lustre_type s
                           A.pp_print_position A.dummy_pos))
-                
+
               | s ->
 
                 (* Fail *)
@@ -625,18 +733,27 @@ let rec check_declaration
                         A.pp_print_position A.dummy_pos
                         T.pp_print_lustre_type s
                         A.pp_print_position A.dummy_pos))
-                
+
           with Not_found -> 
-            
+
             (* Append type of identifier to typing context  *)
             aux
               ((e, t'') :: accum)
               tl
-            
+
       in
 
       (* Push types of enum constants to typing context *)
       let type_ctx' = aux type_ctx l in
+
+      (* TODO: push enum types as constant declarations *)
+
+      let rec aux accum = function
+        | [] -> accum
+        | e :: tl -> (e, ConstEnum e) :: accum 
+      in
+
+      let const_val' = aux const_val l in
 
       check_declaration
         (
@@ -651,7 +768,7 @@ let rec check_declaration
           type_ctx', 
 
           (* No new constant declaration *)
-          const_val,
+          const_val',
 
           (* Keep type declaration *)
           d :: accum
@@ -707,11 +824,36 @@ let rec check_declaration
 
     )
 
-  (* const c : t; *)
+  (* ******************************************************************** *)
+  (* Constant declarations                                                *)
+  (* ******************************************************************** *)
+
+  (* const c : t; 
+
+     Free constant of basic type *)
   | (A.ConstDecl (A.FreeConst (c, (A.Bool as t))) as d) :: tl 
   | (A.ConstDecl (A.FreeConst (c, (A.Int as t))) as d) :: tl 
   | (A.ConstDecl (A.FreeConst (c, (A.Real as t))) as d) :: tl 
-  | (A.ConstDecl (A.FreeConst (c, (A.EnumType _ as t))) as d) :: tl -> 
+  | (A.ConstDecl (A.FreeConst (c, (A.EnumType _ as t))) as d) :: tl 
+  | (A.ConstDecl (A.FreeConst (c, (A.IntRange _ as t))) as d) :: tl -> 
+
+    if
+
+      (* Identifier must not be declared *)
+      List.exists (function (n, _) -> n = c) type_ctx 
+
+    then
+
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Identifier %a is redeclared as constant in %a" 
+              I.pp_print_ident c
+              A.pp_print_position A.dummy_pos));
+
+    (* Output dropped const declaration *)
+    Format.printf "-- %a@." A.pp_print_declaration d;
 
     check_declaration
       (
@@ -723,7 +865,7 @@ let rec check_declaration
         free_types, 
 
         (* Add to typing context *)
-        (c, lustre_type_of_ast_type t) :: type_ctx, 
+        (c, lustre_type_of_ast_type type_ctx const_val t) :: type_ctx, 
 
         (* No new constant declaration *)
         const_val,
@@ -734,118 +876,185 @@ let rec check_declaration
       )
       tl
 
-  (* const c : subrange [a, b] of int; *)
-  | (A.ConstDecl (A.FreeConst (c, (A.IntRange _ as t))) as d) :: tl -> 
-
-    assert false
-
   (* const c : t; 
 
-     where t is an alias or free type *)
+     Free constant of alias or free type *)
   | A.ConstDecl (A.FreeConst (c, (A.UserType t))) as d :: tl -> 
 
-    if       
-      
-      (* Type t must be declared *)
-      not (type_is_declared free_types type_map t)
-        
+    (
+
+      if
+
+        (* Identifier must not be declared *)
+        List.exists (function (n, _) -> n = c) type_ctx 
+
+      then
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Identifier %a is redeclared as constant in %a" 
+                I.pp_print_ident c
+                A.pp_print_position A.dummy_pos));
+
+      try 
+
+        (* Resolve alias type *)
+        let t' = List.assoc t type_map in 
+
+        (* Output dropped const declaration *)
+        Format.printf "-- %a@." A.pp_print_declaration d;
+
+        check_declaration
+          (type_map, free_types, (c, t') :: type_ctx, const_val, accum)
+          tl
+
+      with 
+
+        (* Type is free or indexed *)
+        | Not_found -> 
+
+          (* Type has been declared as free? *)
+          if List.mem t free_types then 
+
+            (
+
+              (* Output dropped const declaration *)
+              Format.printf "-- %a@." A.pp_print_declaration d;
+
+              check_declaration
+                (type_map, 
+                 free_types, 
+                 (c, T.mk_free_type t) :: type_ctx, 
+                 const_val, 
+                 accum)
+                tl
+
+            )
+
+          else
+
+            (* Find all identifiers with this identifier as prefix *)
+            let suffixes = 
+              List.fold_left 
+                (fun a (s, s') -> 
+                   try 
+                     (I.get_suffix t s, s') :: a 
+                   with Invalid_argument _ -> a)
+                []
+                type_map
+            in
+
+            (* Identifier was not declared and no identifier with
+               prefix declared *)
+            if suffixes = [] then 
+
+              (* Fail *)
+              raise 
+                (Failure 
+                   (Format.asprintf 
+                      "Type %a in %a is not declared" 
+                      I.pp_print_ident t
+                      A.pp_print_position A.dummy_pos))
+
+            else
+
+              (* Append declarations with all suffixes appended  *)
+              let rec aux accum = function 
+
+                (* All tuple fields consumed *)
+                | [] -> accum
+
+                (* Suffix j with type s *)
+                | (j, s) :: tl -> 
+
+                  let d' = 
+                    A.ConstDecl 
+                      (A.FreeConst 
+                         (I.add_index c j, ast_type_of_lustre_type s))
+                  in
+
+                  (* Expand to declaration [const c.j;] *)
+                  aux 
+                    (d' :: accum)
+                    tl 
+              in
+
+              (* Push declarations for indexed identifiers *)
+              let tl' = aux tl suffixes in
+
+              (* Output dropped const declaration *)
+              Format.printf "-- %a@." A.pp_print_declaration d;
+
+              check_declaration
+                (type_map, free_types, type_ctx, const_val, accum)
+                tl'
+
+    )
+
+  (* const c = e; *)
+  | A.ConstDecl (A.UntypedConst (c, e)) as d :: tl ->
+
+    if
+
+      (* Identifier must not be declared *)
+      List.exists (function (n, _) -> n = c) type_ctx 
+
     then
 
       (* Fail *)
       raise 
         (Failure 
            (Format.asprintf 
-              "Type %a in %a is not declared" 
-              I.pp_print_ident t
+              "Identifier %a is redeclared as constant in %a" 
+              I.pp_print_ident c
               A.pp_print_position A.dummy_pos));
 
-    let t' = 
-      
-      (* Resolve alias type *)
-      try List.assoc t type_map with 
-          
-        (* Type is a free type *)
-        | Not_found -> T.mk_free_type t
+    (match type_of_expr type_ctx const_val e with 
 
-    in
+      | Const v, Type t ->
 
-    check_declaration
-      (
+        (* Output dropped const declaration *)
+        Format.printf "-- %a@." A.pp_print_declaration d;
 
-        (* No new alias type *)
-        type_map, 
+        check_declaration
+          (
 
-        (* No new free types *)
-        free_types, 
+            (* No new alias type *)
+            type_map, 
 
-        (* Add to typing context *)
-        type_ctx, 
+            (* No new free types *)
+            free_types, 
 
-        (* No new constant declaration *)
-        const_val,
+            (* Add to typing context *)
+            (c, t) :: type_ctx, 
 
-        (* Drop constant declaration *)
-        accum
+            (* Add to constant declaration *)
+            (c, v) :: const_val,
 
-      )
-      ((A.ConstDecl (A.FreeConst (c, ast_type_of_lustre_type t'))) :: tl)
-      
-    
+            (* Drop constant declaration *)
+            accum
+
+          )
+          tl
+
+      | Expr _, _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Expression %a in %a is not constant" 
+                A.pp_print_expr e
+                A.pp_print_position A.dummy_pos))
+
+      | IndexedExpr lc, IndexedType lt -> assert false
+
+    )
+
+
 (*
-  (* const c = e; *)
-  | A.ConstDecl (A.UntypedConst (c, e)) as d :: tl ->
-
-
-    match type_of_expr type_ctx const_val e with 
-
-      | Const c, Type t ->
-
-        check_declaration
-          (
-            
-            (* No new alias type *)
-            type_map, 
-            
-            (* No new free types *)
-            free_types, 
-            
-            (* Add to typing context *)
-            (c, t) :: type_ctx, 
-            
-            (* Add to constant declaration *)
-            (c, v) :: const_val,
-            
-            (* Drop constant declaration *)
-            accum
-            
-          )
-          tl
-
-      | IndexedValue lc, IndexedType lt -> 
-
-        check_declaration
-          (
-            
-            (* No new alias type *)
-            type_map, 
-            
-            (* No new free types *)
-            free_types, 
-            
-            (* Add to typing context *)
-            (c, t) :: type_ctx, 
-            
-            (* Add to constant declaration *)
-            (c, v) :: const_val,
-            
-            (* Drop constant declaration *)
-            accum
-            
-          )
-          tl
-        
-
-
 
   (* const c : t = e; *)
   | A.ConstDecl (A.TypedConst (c, e, t)) as d :: tl ->

@@ -1,6 +1,7 @@
+const max = 1;
 type t = enum { x, y, z };
 type a = t;
-type b = a;
+type b = subrange [0, max] of int;
 
 type c = { one: t; two: { a: a; b: b } };
 
@@ -8,5 +9,11 @@ type d = [a, b, c];
 
 type e = struct { first: d; second: c};
 
+type f = int^2^3;
 
-const c: t;
+type g = int^(-1);
+const c0: c;
+
+const a = 1;
+const b = x;
+

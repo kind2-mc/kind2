@@ -69,19 +69,6 @@ type position =
   { pos_fname : string; pos_lnum: int; pos_cnum: int }
 
 
-(* Pretty-print a position *)
-let pp_print_position 
-    ppf 
-    { pos_fname; pos_lnum; pos_cnum } =
-
-  Format.fprintf 
-    ppf
-    "(%s,%d,%d)"
-    pos_fname
-    pos_lnum
-    pos_cnum
-
-
 (* A dummy position, different from any valid position *)
 let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
 
@@ -89,6 +76,30 @@ let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
 (* A dummy position in the specified file *)
 let dummy_pos_in_file fname = 
   { pos_fname = fname; pos_lnum = 0; pos_cnum = -1 }
+
+
+(* Pretty-print a position *)
+let pp_print_position 
+    ppf 
+    ({ pos_fname; pos_lnum; pos_cnum } as pos) =
+
+  if pos = dummy_pos then 
+
+    Format.fprintf ppf "(unknown)"
+
+  else if pos_lnum = 0 && pos_cnum = -1 then
+
+    Format.fprintf ppf "%s" pos_fname
+
+  else
+
+    Format.fprintf 
+      ppf
+      "@[<hv>%tline %d@ col. %d@]"
+      (function ppf -> 
+        if pos_fname = "" then () else Format.fprintf ppf "%s@ " pos_fname)
+      pos_lnum
+      pos_cnum
 
 
 (* Convert a position from Lexing to a position *)
