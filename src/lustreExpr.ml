@@ -30,10 +30,13 @@
 module T = LustreType
 module I = LustreIdent
 
+(*
 let listmin = List.fold_left min max_int
 let listmax = List.fold_left max min_int
 
 exception Type_error
+
+*)
 
 type unary_op =
   | Not
@@ -63,15 +66,18 @@ type var_op =
 
 type expr =
   | Ident of I.t
+  | Pre of I.t
   | True
   | False
+  | Int of int
+  | Real of float
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * (expr * expr)
   | Ite of expr * expr * expr
-  | Pre of I.t
 
 
-type t =
+type t = expr
+(*
   { 
 
     clock: I.t;
@@ -81,6 +87,65 @@ type t =
     expr: expr;
 
   }
+*)
+
+let t_true = True
+
+let t_false = False
+
+let mk_int n = Int n
+
+let mk_real r = Real r
+
+let mk_ident n = Ident n
+
+let mk_pre n = Pre n
+
+let mk_unary op e = UnaryOp (op, e)
+
+let mk_not = mk_unary Not 
+
+let mk_uminus = mk_unary Uminus
+
+let mk_binary op e1 e2 = BinaryOp (op, (e1, e2))
+
+let mk_and = mk_binary And 
+
+let mk_or = mk_binary Or
+
+let mk_xor = mk_binary Xor
+
+let mk_impl = mk_binary Impl
+
+let mk_mod = mk_binary Mod
+
+let mk_minus = mk_binary Minus
+
+let mk_plus = mk_binary Plus 
+
+let mk_div = mk_binary Div
+
+let mk_times = mk_binary Times 
+
+let mk_intdiv = mk_binary IntDiv
+
+let mk_eq = mk_binary Eq
+
+let mk_neq = mk_binary Neq
+
+let mk_lte = mk_binary Lte
+
+let mk_lt = mk_binary Lt
+
+let mk_gte = mk_binary Gte
+
+let mk_gt = mk_binary Gt
+
+let mk_arraw = mk_binary Arrow
+
+let mk_ite p e1 e2 = Ite (p, e1, e2)
+
+(*
 
 
 let type_of_unary_expr = function 
@@ -314,6 +379,8 @@ let mk_binary_expr
   let e' = BinaryOp (op, (e1, e2)) in
 
   { clock = c'; ltype = t'; expr = e' }
+
+*)
 
 (* 
    Local Variables:
