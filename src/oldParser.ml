@@ -1147,6 +1147,7 @@ let assignment_of_il_equation init l r t =
             | L_BOOL -> Type.t_bool
             | L_INT -> Type.t_int
             | L_INT_RANGE (l, u) -> Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+            | L_REAL -> Type.t_real
             | t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
           in
