@@ -668,7 +668,52 @@ let rec il_expression_to_term init = function
   | Some t, STRING _ -> 
     failwith ("Unsupported type " ^ (lustre_type_to_string t) ^ " for STRING")
 
-  | None, STRING _ -> failwith "No type information for STRING"
+  | None, STRING s -> 
+
+    let original_name = Kind1.Tables.internal_name_to_original_name s 
+
+        in
+
+    let id = Kind1.Tables.varid_lookup s  
+
+        in
+    (* Get variable info for substituted variable *)
+    let (_, v, t, c) = 
+          Kind1.Tables.safe_find_varinfo id "yc_simplify_var" 
+        in
+    let var_type = 
+
+          (* Type check *)
+          match t with 
+            | L_BOOL -> Type.t_bool
+            | L_INT -> Type.t_int
+            | L_INT_RANGE (l, u) -> 
+              Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+            | L_REAL -> Type.t_real
+
+            | _ -> 
+              failwith 
+                "Type mismatch"
+        in
+    let state_var = 
+          StateVar.mk_state_var 
+            v 
+            (not (Kind1.Tables.var_is_stateful id))
+            var_type 
+        in
+    let var' = 
+          Var.mk_state_var_instance 
+            state_var (Lib.numeral_of_int 0)
+        in
+    Term.mk_var var'
+    
+    (*Event.log `INVGEN Event.L_error " Find the variable: %s original name = %s 
+	and id = %d and state_var = %s and var type = %s" s original_name id
+           (StateVar.string_of_state_var state_var) (Type.string_of_type var_type);
+
+    failwith "!!!!!!!!!!!!!No type information for STRING"
+      
+  Format.fprintf "String = %a@." pp_print_il_expression e;*)
 
   (* An integer *)
   | Some L_INT, NUM i -> Term.mk_num_of_int i
@@ -677,7 +722,9 @@ let rec il_expression_to_term init = function
 
   | Some t, (NUM _ as e) -> failwith (type_mismatch_to_string e t L_INT)
 
-  | None, NUM _ -> failwith "No type information for NUM"
+  | None, NUM i -> Term.mk_num_of_int i
+  (*Event.log `INVGEN Event.L_error "%d" i;
+  failwith "No type information for NUM"*)
   
   (* A float *)
   | Some L_REAL, FLOAT f -> Term.mk_dec_of_float f
@@ -929,6 +976,7 @@ let rec il_expression_to_term init = function
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
             | Some tt', t when tt' = t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
+            | Some L_INT, L_INT_RANGE(l, u) -> Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
             | Some tt', t -> 
               failwith 
                 ("Type mismatch for " ^ 
@@ -954,11 +1002,13 @@ let rec il_expression_to_term init = function
           Var.mk_state_var_instance 
             state_var
             (match p with 
-              | POSITION_VAR "M" 
-              | POSITION_VAR "_M"-> 
+              | POSITION_VAR "M"
+              | POSITION_VAR "_M" 
+              -> 
                 if init then Lib.numeral_of_int 0 else Lib.numeral_of_int 1
               | MINUS (POSITION_VAR "M", NUM 1) 
-              | MINUS (POSITION_VAR "_M", NUM 1) -> Lib.numeral_of_int 0
+              | MINUS (POSITION_VAR "_M", NUM 1)
+               -> Lib.numeral_of_int 0
               | _ -> 
                 failwith 
                   (Format.fprintf 
@@ -998,7 +1048,7 @@ let rec il_expression_to_term init = function
 
      string * il_expression list *)  
   | _, PRED (s, l)  ->
-    il_expression_to_term init (Some L_BOOL,(Kind1.New_vars.nvr_to_expr s)) 
+    il_expression_to_term init (Some (Kind1.New_vars.nvr_to_type s),(Kind1.New_vars.nvr_to_expr s)) 
     
 
 
@@ -1093,7 +1143,7 @@ let rec il_formula_to_term init = function
 
   (* A propositonal constant (nullary predicate) *)
   | F_PRED (p, []) -> 
-    il_expression_to_term init (Some L_BOOL,(Kind1.New_vars.nvr_to_expr p))
+    il_expression_to_term init (Some (Kind1.New_vars.nvr_to_type p),(Kind1.New_vars.nvr_to_expr p))
 
 (*
     let u = UfSymbol.mk_uf_symbol p [Type.Int] Type.Bool in
@@ -1102,7 +1152,7 @@ let rec il_formula_to_term init = function
 
   (* A predicate *)
   | F_PRED (p, l) -> 
-    il_expression_to_term init (Some L_BOOL,(Kind1.New_vars.nvr_to_expr p))
+    il_expression_to_term init (Some (Kind1.New_vars.nvr_to_type p),(Kind1.New_vars.nvr_to_expr p))
     
 
 and il_formula_list_to_term_list init accum = function 

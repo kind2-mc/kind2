@@ -173,6 +173,10 @@ let nvr_to_expr nvr_str =
   let term,_,_,_,_ = Hashtbl.find nvr_to_info_hash nvr_str in
     term 
 
+let nvr_to_type nvr_str =
+  let _,_,ty,_,_ = Hashtbl.find nvr_to_info_hash nvr_str in
+    ty 
+
 let nvr_to_nvr_def nvr_str = 
   let _,_,_,nvr_def,_ = Hashtbl.find nvr_to_info_hash nvr_str in
     nvr_def

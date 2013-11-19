@@ -87,7 +87,12 @@ let rec inv_gen_dummy k =
   
 (*Sending invariant*)
 let send_invariant x  =
-	Event.invariant `INVGEN (OldParser.il_formula_to_term false x)
+    debug invgen 
+         "debuging il formula: @\n%a@\n"
+         OldParser.pp_print_il_formula x in
+    let invariant = OldParser.il_formula_to_term false x in
+    debug invgen "invariant@ %a" Term.pp_print_term invariant in
+	Event.invariant `INVGEN invariant
 	
 (* Entry point *)
 let main _ = 
@@ -101,7 +106,7 @@ let main _ =
 		Kind1.Globals.my_solver#set (new Kind1.Solver_yices.solver_yices)
 	      );
   
-  Kind1.OldFlags.do_scratch := false;
+  Kind1.OldFlags.do_scratch := true;
   if !Kind1.OldFlags.do_scratch then
     begin
     	Kind1.Channels.inv_ch := open_out ((Flags.input_file ())^"."^Kind1.Globals.my_solver#get#file_extension^"_inv_offline")
