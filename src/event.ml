@@ -329,7 +329,7 @@ let proved_xml mdl prop =
     !log_ppf 
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-      <Answer source=\"%a\">valid</answer>@;<0 -2>\
+      <Answer source=\"%a\">valid</Answer>@;<0 -2>\
       </Property>@]@.") 
     prop
     (Stat.get_float Stat.total_time)
@@ -346,7 +346,7 @@ let disproved_xml mdl prop =
     !log_ppf 
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-      <Answer source=\"%a\">invalid</answer>@;<0 -2>\
+      <Answer source=\"%a\">invalid</Answer>@;<0 -2>\
       </Property>@]@.") 
     prop
     (Stat.get_float Stat.total_time)

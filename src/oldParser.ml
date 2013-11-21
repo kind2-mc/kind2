@@ -1147,6 +1147,7 @@ let assignment_of_il_equation init l r t =
             | L_BOOL -> Type.t_bool
             | L_INT -> Type.t_int
             | L_INT_RANGE (l, u) -> Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+            | L_REAL -> Type.t_real
             | t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
           in
@@ -1373,10 +1374,12 @@ let of_channel in_ch =
      
 
      (* Convert internal representation to assignments in initial state *)
-     let _, init_assignments = assignments_of_il_formulas true [] [] [fd'] in
+     let invariants, init_assignments = 
+       assignments_of_il_formulas true [] [] [fd'] 
+     in
      
      (* Convert internal representation to assignments in transition *)
-     let invariants, trans_assignments = 
+     let _, trans_assignments = 
        assignments_of_il_formulas false [] [] [fd'] 
      in
 
