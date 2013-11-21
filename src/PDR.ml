@@ -298,7 +298,8 @@ let generalize transSys state f g =
     if true then 
 
       (* Get invariants of transition system *)
-      let invars = TransSys.invars_of_bound 1 transSys in
+      let invars = TransSys.invars_of_bound 0 transSys in
+      let invars' = TransSys.invars_of_bound 1 transSys in
  
       (* Get state variables occurring primed in g[x'] and in invariants *)
       let var_defs = 
@@ -316,7 +317,7 @@ let generalize transSys state f g =
       let constr_def_g = 
         List.fold_left
           (fun a d -> Term.mk_let [d] a)
-          (Term.mk_and [TransSys.bump_state 1 g; invars])
+          (Term.mk_and [TransSys.bump_state 1 g; invars; invars'])
           var_defs
       in
       
@@ -842,6 +843,16 @@ let find_cex
               "Counterexample holds in the initial state"
           in
 
+          debug pdr
+              "@[<v>Current context@,%a@]"
+              HStringSExpr.pp_print_sexpr_list
+              (let r, a = 
+                S.T.execute_custom_command solver_init "get-assertions" [] 1 
+               in
+               S.fail_on_smt_error r;
+               a)
+          in
+
           (* Pop scope level from the context *)
           S.pop solver_init;
 
@@ -882,6 +893,7 @@ let find_cex
 
            S.pop solver_init;
 
+(*
            (* Push a new scope level to the context *)
            S.push solver_init;
 
@@ -897,59 +909,69 @@ let find_cex
              in
 
              (* Is the counterexample a model of the initial state? 
-                
+
                 We must check with the generalized counterexample here, not
                 with the specific model. *)
              S.check_sat solver_init 
-               
+
            then
-             
+
              (
-               
+
                debug pdr 
                    "Counterexample holds in a successor of the initial state"
                in
-               
+
+               debug pdr
+                   "@[<v>Current context@,%a@]"
+                   HStringSExpr.pp_print_sexpr_list
+                   (let r, a = 
+                     S.T.execute_custom_command solver_init "get-assertions" [] 1 
+                    in
+                    S.fail_on_smt_error r;
+                    a)
+               in
+
                (* Pop scope level from the context *)
                S.pop solver_init;
-               
+
                (* Counterexample holds in the initial state *)
                raise Counterexample
-                 
+
              )
-             
+
            else
-             
+
              (
-               
+
                (debug pdr 
                    "Counterexample does not hold in a successor of the\
                     initial state"
                 in
-                
+
                 (* Partition counterexample into subclause in the unsat
                    core and subclause of remaining literals *)
                 let core', rest' = 
-                  
+
                   if Flags.pdr_tighten_to_unsat_core () then 
-                    
+
                     partition_core 
                       solver_init 
                       cex_gen'_name_to_term 
                       cex_gen'_clause
-                      
+
                   else
-                    
+
                     cex_gen'_clause, Clause.empty
-                                       
+
                 in
-                
+
                 debug pdr
                     "@[<v>Unsat core of cube is@,@[<v>%a@]"
                     (pp_print_list Term.pp_print_term "@,") 
                     (Clause.elements core')
                 in
-                
+
                 S.pop solver_init;
 
                 (* Negate all literals in clause now *)
@@ -961,25 +983,28 @@ let find_cex
                     (function t -> Term.negate (TransSys.bump_state (- 1) t)) 
                     rest'
                 in
-                
 
+
+*)
                 (* Negate all literals in clause now *)
                 let ncore, nrest = 
                   Clause.map Term.negate core,
                   Clause.map Term.negate rest
                 in
-                
+
                 (* Return generalized counterexample *)
-                false, (Clause.union ncore ncore', Clause.inter nrest nrest'))
+                false, (Clause.union ncore ncore, Clause.inter nrest nrest)
 
+                       (* ) *)
+(*
              )
-
+*)
           )
-          
+
         )
-      
+
     )
-  
+
   else
 
     (
@@ -2189,9 +2214,8 @@ let main transSys =
    S.assert_term solver_init (TransSys.init_of_bound 0 transSys));
 
   (* Get invariants of transition system *)
-  let invars = TransSys.invars_of_bound 1 transSys in
+  let invars_1 = TransSys.invars_of_bound 1 transSys in
 
-(*
   (* Get invariants for current state *)
   let invars_0 = TransSys.invars_of_bound 0 transSys in
 
@@ -2202,8 +2226,10 @@ let main transSys =
         "Permanently asserting invariants in solver instance"
      in
 
-     S.assert_term solver_init invars_0);
-*)
+     S.assert_term solver_init invars_0;
+
+     S.assert_term solver_init invars_1);
+
 
   (* Create new solver instance to reason about counterexamples in
      frames *)
@@ -2228,10 +2254,10 @@ let main transSys =
    (* Assert transition relation from current frame *)
    S.assert_term solver_frames (TransSys.constr_of_bound 1 transSys));
 
-  if not (invars == Term.t_true) then 
+  if not (invars_0 == Term.t_true) then 
 
     (
-(*
+
       (debug smt 
           "Permanently asserting unprimed invariants"
        in
@@ -2240,7 +2266,7 @@ let main transSys =
        S.assert_term 
          solver_frames
          invars_0);
-*)
+
       (debug smt
           "Permanently asserting invariants"
        in
@@ -2248,7 +2274,7 @@ let main transSys =
        (* Assert invariants for next state *)
        S.assert_term 
          solver_frames
-         invars)
+         invars_1)
 
     );
 
