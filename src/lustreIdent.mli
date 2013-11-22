@@ -54,11 +54,17 @@ val pp_print_ident : Format.formatter -> t -> unit
 (** Construct an identifier of a string *)
 val mk_string_id : string -> t
 
+(** Construct an index of an identifier *)
+val index_of_ident : t -> index 
+
+(** Construct an index of an integer *)
+val index_of_int : t -> index 
+
 (** Add an index to an identifier *)
 val add_ident_index : t -> t -> t
 
 (** Add an identifier as an index to an identifier *)
-val add_index : t -> index list -> t
+val add_index : t -> index -> t
 
 (** Add a string as an index to an identifier *)
 val add_string_index : t -> string -> t
@@ -70,7 +76,7 @@ val add_int_index : t -> int -> t
     identifier and the indexes of [i] are a prefix of the indexes of
     [j]. Return the suffix of [j] with the common prefix with [i]
     removed, raise [Invalid_argument "get_suffix"] otherwise. *)
-val get_suffix : t -> t -> index list
+val get_suffix : t -> t -> index
 
 (* 
    Local Variables:
