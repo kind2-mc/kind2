@@ -33,13 +33,17 @@
 (* ********************************************************************** *)
 
 (* An index of an identifier *)
-type index = 
+type one_index = 
 
   (* String as index *)
   | StringIndex of string
 
   (* Integer as index *)
   | IntIndex of int
+
+
+(* A list of indexes *)
+type index = one_index list
 
 
 (* An identifier *)
@@ -128,6 +132,14 @@ let rec pp_print_ident ppf (s, i) =
 
 (* Construct an identifier of a string *)
 let mk_string_id s = (s, [])
+
+
+(* Construct an index of an identifier *)
+let index_of_ident (s, i) = StringIndex s :: i
+
+
+(* Construct an index of an integer *)
+let index_of_int i = [IntIndex i]
 
 
 (* Add a string as an index to an identifier *)

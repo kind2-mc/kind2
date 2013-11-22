@@ -50,7 +50,7 @@ type h = struct { one : int; two : bool };
 type i = { one: struct { a : int; b: bool };  two : bool; };
 
 -- Enum type (V6) 
-type j = enum {blue, green, red };
+type j = enum { blue, green, red };
 
 -- Array types
 type k = int^5;
@@ -64,7 +64,7 @@ node x
    (f, g: int; h: real;) when b) 
 returns 
   (x: y when z; 
-   (a, b: [int, [bool, real]]; c: struct {one: real; two: int }) when x;
+   (a, b: [int, [bool, real]]; c: struct { one: real; two: int }) when x;
    d: int);
 -- Variable declarations are optional
 let 
@@ -74,7 +74,7 @@ tel;
 node y (const a: bool) returns (b: int);
 -- Local constant declarations
 const c : int; d = 1;
-var t : {a: int; b: real};
+var t : { a: int; b: real };
 let
 
   e = 1;
