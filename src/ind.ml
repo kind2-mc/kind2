@@ -259,7 +259,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
   let new_invariants = ref [] in
   
   (* Receiving messages. *)
-  let messages = Event.recv () in
+  let messages = Event.recv () in 
   
   (* Terminate when ControlMessage TERM is received.
      
@@ -271,7 +271,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
       match message with
       
         (* Add invariant to a temparary list when it's received. *)
-        | (Event.Invariant (_, invar)) ->
+        (*| (Event.Invariant (_, invar)) ->
           (debug ind
             "Invariant received: @. %a @."
             Term.pp_print_term invar
@@ -282,7 +282,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
             Term.pp_print_term invar;
 
           new_invariants := invar :: !new_invariants;
-          invs := invar :: !invs;
+          invs := invar :: !invs;*)
         
         (* FIXME *)
         (* We only need to look at the lastest BMCSTATE message. *)
@@ -394,6 +394,8 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
         (* Receiving messages. *)
         let messages = Event.recv () in
 
+	
+
         (* Terminate when ControlMessage TERM is received.
      
            Add all the new invariants. 
@@ -404,7 +406,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
         List.iter (
           fun message ->
             match message with
-      
+      (*
               (* Add invariant to a temparary list when it's received. *)
               | (Event.Invariant (_, invar)) ->
                 (debug ind
@@ -417,7 +419,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
                   Term.pp_print_term invar;
 
                 new_invariants := invar :: !new_invariants;
-                invs := invar :: !invs;
+                invs := invar :: !invs;*)
         
               (* FIXME *)
               (* We only need to look at the lastest BMCSTATE message. *)
@@ -687,7 +689,7 @@ and init transSys prop_pairs premises =
 
 (* Entry point *)
 let main transSys =
-
+  Lib.minisleep 1.5;
   Stat.start_timer Stat.ind_total_time;
 
   let prop_pairs = transSys.TransSys.props in

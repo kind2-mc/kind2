@@ -27,7 +27,6 @@ This file is part of the Kind verifier
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *)
-
 open Lib
 
 
@@ -307,7 +306,7 @@ let rec filter_property_list solver ts abstract_var_list concrete_var_list k pro
 
 (* Bounded model checking *)
 let rec bmc solver ts abstract_var_list k prop_pairs invariants =
-
+  
   Event.log `BMC Event.L_info "BMC loop at k=%d" k;
 
   Event.progress `BMC k;
@@ -326,7 +325,7 @@ let rec bmc solver ts abstract_var_list k prop_pairs invariants =
     "Disproved properties so far: %d"
     (List.length disproved_pairs)
     end);
-       
+
   List.iter(
     fun (dis_prop_name, dis_prop) -> 
       (debug bmc
@@ -334,8 +333,20 @@ let rec bmc solver ts abstract_var_list k prop_pairs invariants =
         dis_prop_name
         end)
   ) disproved_pairs;
-  
-  
+
+
+  (debug bmc
+    "-------------Properties need to be proved so far:"
+    end);
+       
+    List.iter(
+    fun (prop_name, invar) -> 
+      (debug bmc
+        "%s: %a" prop_name
+        Term.pp_print_term invar
+        end)
+  ) prop_pairs;
+
   Event.bmcstate (k + 1) (List.map fst disproved_pairs);
 
   (debug bmc
@@ -377,10 +388,11 @@ let rec bmc solver ts abstract_var_list k prop_pairs invariants =
   List.iter (
     fun message ->
       match message with
-      
+      (*
       (* Add invariant to a temparary list when it's received. *)
       | (Event.Invariant (_, invar)) ->
-        new_invariants := invar :: !new_invariants;
+	debug bmc "-----------invariant@ %a" Term.pp_print_term invar in
+        new_invariants := invar :: !new_invariants;*)
        
       (* Irrelevant message received. *)
       | _ ->
@@ -477,16 +489,42 @@ let rec bmc solver ts abstract_var_list k prop_pairs invariants =
 
 (* Entry point *)
 let main transSys =
-
+  
+  (* Prepare to receive new invariants. *)
+  Lib.minisleep 3.0;
   Stat.start_timer Stat.bmc_total_time;
+  let messages = Event.recv () in
+  
+     (* Terminate when ControlMessage TERM is received. *)
+     let counter = ref 0 in
+     let pps = ref [] in 
+     List.iter (
+      fun message ->
+      match message with
+      
+      (* Add invariant to the property list to verify when it's received. *)
+      | (Event.Invariant (_, invar)) ->
+	transSys.TransSys.props <- ("invariant_property_"^(string_of_int !counter), invar) :: transSys.TransSys.props;
+        pps := ("property_as_invariant_"^(string_of_int !counter), invar) :: !pps;
+	counter := !counter + 1;
+(*	debug bmc "-----------invariant@ %a" Term.pp_print_term invar in
+        new_invariants := invar :: !new_invariants;*)
+       
+      (* Irrelevant message received. *)
+      | _ ->
+        ()      
+      ) messages; 
+  
+  
 
+  
   match transSys.TransSys.props with
     
     (* Terminate when there is nothing to check *)
     | [] -> Event.log `BMC Event.L_error "No property to check"
 
-    | prop_pairs ->
-    
+    | props_pairs ->
+
       (* Determine logic for the SMT solver *)
       let logic = TransSys.get_logic transSys in
 
@@ -507,7 +545,7 @@ let main transSys =
       S.assert_term solver (TransSys.init_of_bound 0 transSys);
 
       (* Enter the bounded model checking loop begin with the initial state. *)
-      bmc solver transSys abstract_var_list 0 prop_pairs []
+      bmc solver transSys abstract_var_list 0 props_pairs []
 
 
   
@@ -641,7 +679,6 @@ let main () =
 
 main ()
 *)
-
 
 (* 
    Local Variables:

@@ -44,7 +44,7 @@ end
 
 module BMC = Bmc
 module IndStep = Ind
-module InvGen = InvGenDummy
+module InvGen = InvGen
 
 (* module PDR = Dummy *)
   
