@@ -93,7 +93,7 @@ let rec type_of_expr type_ctx const_val = function
 
           (* Identifier may be indexed *)
           | Not_found -> 
-            
+
             (* Find all identifiers with this identifier as prefix *)
             let suffixes = 
               List.fold_left 
@@ -232,28 +232,6 @@ let ast_type_of_lustre_type = function
   | T.FreeType t -> A.UserType t
 
 
-(* Convert a parsed type to a built-in type *)
-let lustre_type_of_ast_type type_ctx const_val = function
-
-  | A.Bool -> T.bool
-
-  | A.Int -> T.int
-
-  | A.Real -> T.real
-
-  | A.IntRange (i, j) -> 
-
-    let ci = int_const_of_expr type_ctx const_val i in
-
-    let cj = int_const_of_expr type_ctx const_val j in
-
-    T.mk_int_range ci cj
-
-  | A.EnumType l -> T.mk_enum l
-
-  | A.UserType t -> T.mk_free_type t
-
-  | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
 
 
 
@@ -272,55 +250,41 @@ let rec check_declaration
 
   (* Return true if type [t] was already declared *)
   let type_is_declared t = 
-    
+
     (* Check for [t] in list of free types *)
     (List.exists (function s -> s = t) free_types) ||
 
-      (* Check for [t] in type aliases *)
-      (List.exists (function (s, _) -> s = t) type_aliases) || 
+    (* Check for [t] in type aliases *)
+    (List.exists (function (s, _) -> s = t) type_aliases) || 
 
-      (* Check if [t] is an indexed type *)
-      (List.exists (function (s, _) -> s = t) indexed_types) 
-      
+    (* Check if [t] is an indexed type *)
+    (List.exists (function (s, _) -> s = t) indexed_types) 
+
   in
-  
-(*
 
-  let basic_type_of_lustre_type t = function 
+  (* Convert a parsed type to a built-in type *)
+  let lustre_type_of_ast_type = function
 
-    (* Basic types *)
     | A.Bool -> T.bool
+
     | A.Int -> T.int
+
     | A.Real -> T.real
 
-    (* Integer range *)
     | A.IntRange (i, j) -> 
-      
-      (* Evaluate bounds to integer constants *)
-      let (ci, cj) = 
-        (int_const_of_expr type_ctx const_val i, 
-         int_const_of_expr type_ctx const_val j)
-      in
-      
-      (* Return integer range type *)
+
+      let ci = int_const_of_expr type_ctx const_val i in
+
+      let cj = int_const_of_expr type_ctx const_val j in
+
       T.mk_int_range ci cj
 
-    (* Enumeration type *)
     | A.EnumType l -> T.mk_enum l
-      
-    (* A type with a user-defined identifier *)
-    | A.UserType t -> 
 
-      (* *)
-      try List.assoc t type_aliases 
+    | A.UserType t -> T.mk_free_type t
 
-      with Not_found -> T.mk_free_type t
-      
+    | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
   
-*)
-        
-
-  let expand_ast_type = function
 
 
   (* ******************************************************************** *)
@@ -330,12 +294,12 @@ let rec check_declaration
   let check_alias_type_declaration t t' defs_stack = 
 
     if       
-      
+
       (* Type t must not be declared *)
       type_is_declared t
-        
+
     then
-      
+
       (* Fail *)
       raise 
         (Failure 
@@ -347,25 +311,27 @@ let rec check_declaration
 
 
     (* An alias declarations may add a new alias, a new indexed type
-       or append new flattened type declarations *)
-    let type_aliases', indexed_types', defs_stack' = match t with 
-        
+       or push new flattened type declarations to be parsed *)
+    let type_aliases', indexed_types', defs_stack' = match t' with 
+
+      (* ********************************************************** *)
+
       (* type t = struct { i1: t1; ...; in: tn };
-         
+
          Expand to declarations
-         
+
          type t.i1 = t1;
          ...
          type t.in = tn;
-         
+
       *)
       | A.RecordType l -> 
 
         (* Append type declarations for indexed identifiers *)
-        let rec aux (indexes, defs_stack) as accum = function 
-        
+        let rec aux defs_stack = function 
+
           (* All record fields consumed *)
-          | [] -> accum
+          | [] -> defs_stack
 
           (* A record field with identifier j of type s *)
           | (j, s) :: tl -> 
@@ -373,130 +339,271 @@ let rec check_declaration
             (* Construct an index of an identifier *)
             let idx = I.index_of_ident j in
 
-            let s' = 
-
-
-            in
-
-                       
-
-
-
+            (* Expand to declaration [type t.j = s] *)
             aux 
-              (
-
-                (* Collect indexes and their types *)
-                (idx, s) :: indexes,
-
-                (* Expand to declaration [type t.j = s] *)
-                ((A.TypeDecl (A.AliasType (I.add_index t idx, s))) :: defs_stack)
-
-              )
+              ((A.TypeDecl 
+                  (A.AliasType (I.add_index t idx, s))) :: defs_stack)
               tl 
 
         in
-        
-        (* Push declarations for indexed identifiers *)
-        let indexes, defs_stack' = aux ([], defs_stack) l in
 
-        (* Associate identifier with indexes and unfold to new indexed declarations *)
-        (type_aliases, (t, indexes) :: indexed_types, defs_stack')
-      
+        (* Push declarations for indexed identifiers *)
+        let defs_stack' = aux defs_stack l in
+
+        (* Associate identifier with indexes and unfold to new indexed
+           declarations *)
+        (type_aliases, indexed_types, defs_stack')
+
+
+      (* ********************************************************** *)
 
       (* type t = [ t1, ..., tn ];
-         
+
          Expand to declarations
-         
+
          type t[0] = t1;
          ...
          type t[n-1] = tn;
-         
+
       *)
       | A.TupleType l -> 
-        
+
         (* Append type declarations for indexed identifiers *)
-        let rec aux ((indexes, defs_stack) as accum, j) = function 
-        
+        let rec aux (defs_stack, j) = function 
+
           (* All tuple fields consumed *)
-          | [] -> accum
+          | [] -> defs_stack
 
           (* A tuple field type s *)
           | s :: tl -> 
 
             (* Construct an index of an integer *)
             let idx = I.index_of_int j in
-            
+
+            (* Expand to declaration to [type t[j] = s] *)
             aux 
-              ((
-                (* Collect indexes and their types *)
-                (idx, s) :: indexes,
-                
-                (* Expand to declaration to [type t.j = s] *)
-                (A.TypeDecl (A.AliasType (I.add_index t idx, s))) :: accum), 
-               
+              (((A.TypeDecl 
+                   (A.AliasType (I.add_index t idx, s))) :: accum), 
                succ j)
               tl
-              
+
         in
-        
+
         (* Push declarations for indexed identifiers *)
-        let indexes, defs_stack' = aux (0, defs_stack) l in
-        
-        (* Associate identifier with indexes and unfold to new indexed declarations *)
-        (type_aliases, (t, indexes) :: indexed_types, defs_stack')
+        let defs_stack' = aux (defs_stack, 0) l in
+
+        (* Associate identifier with indexes and unfold to new indexed
+           declarations *)
+        (type_aliases, indexed_types, defs_stack')
 
 
-      (* type t = t'^e;
-             
+      (* ********************************************************** *)
+
+      (* type t = s^e;
+
          Expand to declarations
-         
-         type t[0] = t';
+
+         type t[0] = s;
          ...
-         type t[e] = t';
+         type t[e-1] = s;
+
+      *)
+      | A.ArrayType (s, e) -> 
+
+        (* Evaluate size of array to a constant integer *)
+        let n = int_const_of_expr type_ctx const_val e in
+
+        (* Array size must must be at least one *)
+        if n <= 0 then 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a must be positive in %a" 
+                  A.pp_print_expr e
+                  A.pp_print_position A.dummy_pos));
+
+        (* Append type declarations for indexed identifiers *)
+        let rec aux defs_stack = function
+
+          (* All array fields consumed *)
+          | 0 -> defs_stack
+
+          (* An array field *)
+          | i -> 
+
+            (* Construct an index of an integer *)
+            let idx = I.index_of_int (pred i) in
+
+            (* Expand to declaration to [type t[j] = s] *)
+            aux 
+              (A.TypeDecl 
+                 (A.AliasType (I.add_index t idx, s)) :: defs_stack)
+              (pred i)
+
+        in
+
+        (* Push declarations for indexed identifiers *)
+        let defs_stack' = aux defs_stack n in
+
+        (* Associate identifier with indexes and unfold to new indexed
+             declarations *)
+        (type_aliases, indexed_types, defs_stack')
+
+
+      (* ********************************************************** *)
+
+      (* type t = t';
+
+         If t' was defined as 
+
+         type t' = t'';
+
+         expand to
+
+         type t = t'';
+
+      *)
+      | A.UserType t' when List.mem_assoc t' basic_types -> 
+
+        (* Add association of type to basic type *)
+        let basic_types' = 
+          (t, List.assoc t' basic_types) :: basic_types 
+        in
+
+        (* Continue with next declarations *)
+        (basic_types', indexed_types, defs_stack)
+
+
+      (* type t = t';
+
+         If there were definitions
+
+         type t'.i1 = t1;
+         ...
+         type t'.in = tn;
+
+         expand to 
+
+         type t.i1 = t1;
+         ...
+         type t.in = tn;
+
+      *)
+      | A.UserType t' when List.mem_assoc t' indexed_types -> 
+
+        (* Append declarations with all suffixes appended  *)
+        let rec aux defs_stack = function 
+
+          (* All indexes consumed *)
+          | [] -> defs_stack
+
+          (* Suffix j with type s *)
+          | (j, s) :: tl -> 
+
+            (* Expand to declaration [type t.j = s] *)
+            aux 
+              ((A.TypeDecl 
+                  (A.AliasType (I.add_index t j, s))) :: defs_stack)
+              tl 
+        in
+
+        (* Push declarations for indexed identifiers *)
+        let defs_stack' = aux defs_stack (List.assoc t' indexed_types) in 
+
+        (* Continue with next declarations *)
+        (basic_types, indexed_types, defs_stack')
+
+      (* type t = t';
+
+         If t' was defined as
+
+         type t';;
+
+         expand to
+
+         type t = t'';
          
       *)
-      | A.ArrayType (t', e) -> 
+      | A.UserType t' when List.mem t' free_types ->  
         
-        (
+        (* Add association of type to free type *)
+        let basic_types' = 
+          (t, T.mk_free_type t') :: basic_types 
+        in
+        
+        (* Continue with next declarations *)
+        (basic_types', indexed_types, defs_stack)
+        
 
-          (* Evaluate size of array to a constant integer *)
-          let n = int_const_of_expr type_ctx const_val e in
+      (* type t = t';
 
-          (* Array size must must be at least one *)
-          if n <= 0 then 
-            
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Expression %a must be positive in %a" 
-                    A.pp_print_expr e
-                    A.pp_print_position A.dummy_pos));
-          
-          
-          (* Append type declarations for indexed identifiers *)
-          let rec aux accum = function
+         if t' is not in basic_types, indexed_types or free_types 
 
-            | 0 -> accum
-            
-            | i -> 
-              
-              aux 
-                (A.TypeDecl (A.AliasType (I.add_int_index t (pred i), t')) :: accum)
-                (pred i)
-                
-          in
-          
-          let tl' = aux tl n in
+      *)
+      | A.UserType t' ->  
 
-      let tl' = aux tl n in
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Type %a in %a is not declared" 
+                I.pp_print_ident t'
+                A.pp_print_position A.dummy_pos))
 
-      (* Recurse with new declarations *)
-      check_declaration
-        (type_map, free_types, type_ctx, const_val, accum)
-        tl'
-      
-    )
+
+      (* ********************************************************** *)
+
+      (* type t = t'; 
+
+         where t' is a basic type. *)
+      | A.Bool as t'
+      | A.Int as t'
+      | A.Real as t'
+      | A.IntRange _ as t' -> 
+
+        (* Basic type of type in AST *)
+        let t'' = lustre_type_of_ast_type t' in
+
+        (* Add alias for basic type *)
+        let basic_types' = (t, t'') :: basic_types in
+
+        (* Get indexes of identifier of type *)
+        let (id, suf) = t in
+        
+        let aux indexed_types = function 
+          | [] -> indexed_types
+          | j :: tl -> 
+
+            let rec aux2 accum = function
+
+              (* Prefix of identifier not found *)
+              | [] -> 
+
+                (* Add association of prefix with suffix and type *)
+                (t, [(j, t'')]) :: accum
+
+              (* Prefix of identifier found *)
+              | (s, l) :: tl when s = t -> 
+
+                (* Add association of prefix with suffix and type, and
+                   finish *)
+                List.rev_append ((s, (j, t'') :: l) :: tl) accum
+
+              (* Recurse to keep searching for prefix of identifier *)
+              | h :: tl -> aux2 (h :: accum) tl
+
+            in
+
+            aux (aux2 [] indexed_types) tl
+
+        in
+
+        let indexed_types' = aux indexed_types suf in
+        
+        (* Continue with next declarations *)
+        (basic_types', indexed_types', defs_stack)
 
     in
 
@@ -504,330 +611,386 @@ let rec check_declaration
     check_declaration
       (type_aliases', free_types, indexed_types', type_ctx, const_val, accum)
       tl'
-      
+
   in
 
-  
   function
 
     (* All declarations processed, return in original order *)
     | [] -> List.rev accum
 
 
-  (* type t = struct { i1: t1; ...; in: tn };
+    (* type t = struct { i1: t1; ...; in: tn };
 
-     Expand to declarations
+       Expand to declarations
 
-     type t.i1 = t1;
-     ...
-     type t.in = tn;
+       type t.i1 = t1;
+       ...
+       type t.in = tn;
 
-  *)
-  | A.TypeDecl (A.AliasType (t, A.RecordType l)) as d :: tl -> 
+    *)
+    | A.TypeDecl (A.AliasType (t, A.RecordType l)) as d :: tl -> 
 
-    (
+      (
 
-      if       
+        if       
 
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
 
-      then
+        then
 
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
 
-      (* Append type declarations for indexed identifiers *)
-      let rec aux accum = function 
+        (* Append type declarations for indexed identifiers *)
+        let rec aux accum = function 
 
-        (* All record fields consumed *)
-        | [] -> accum
+          (* All record fields consumed *)
+          | [] -> accum
 
-        (* A record field j of type s *)
-        | (j, s) :: tl -> 
+          (* A record field j of type s *)
+          | (j, s) :: tl -> 
 
-          (* Expand to declaration [type t.j = s] *)
-          aux 
-            ((A.TypeDecl (A.AliasType (I.add_ident_index t j, s))) :: accum)
-            tl 
-      in
+            (* Expand to declaration [type t.j = s] *)
+            aux 
+              ((A.TypeDecl (A.AliasType (I.add_ident_index t j, s))) :: accum)
+              tl 
+        in
 
-      (* Push declarations for indexed identifiers *)
-      let tl' = aux tl l in
+        (* Push declarations for indexed identifiers *)
+        let tl' = aux tl l in
 
-      (* Output dropped type declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration d;
+        (* Output dropped type declaration *)
+        Format.printf "-- %a@." A.pp_print_declaration d;
 
-      (* Recurse with new declarations *)
-      check_declaration
-        (type_map, free_types, type_ctx, const_val, accum)
-        tl'
+        (* Recurse with new declarations *)
+        check_declaration
+          (type_map, free_types, type_ctx, const_val, accum)
+          tl'
 
-    )
+      )
 
-  (* type t = [ t1, ..., tn ];
+    (* type t = [ t1, ..., tn ];
 
-     Expand to declarations
+       Expand to declarations
 
-     type t[0] = t1;
-     ...
-     type t[n-1] = tn;
+       type t[0] = t1;
+       ...
+       type t[n-1] = tn;
 
-  *)
-  | A.TypeDecl (A.AliasType (t, A.TupleType l)) as d :: tl -> 
+    *)
+    | A.TypeDecl (A.AliasType (t, A.TupleType l)) as d :: tl -> 
 
-    (
+      (
 
-      if       
+        if       
 
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
 
-      then
+        then
 
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
 
-      (* Append type declarations for indexed identifiers *)
-      let rec aux (accum, j) = function 
+        (* Append type declarations for indexed identifiers *)
+        let rec aux (accum, j) = function 
 
-        (* All tuple fields consumed *)
-        | [] -> accum
+          (* All tuple fields consumed *)
+          | [] -> accum
 
-        (* A tuple field type s *)
-        | s :: tl -> 
+          (* A tuple field type s *)
+          | s :: tl -> 
 
-          (* Expand to declaration to [type t.j = s] *)
-          aux 
-            (
-              (A.TypeDecl (A.AliasType (I.add_int_index t j, s))) :: accum, 
-              succ j)
-            tl
-
-      in
-
-      (* Push declarations for indexed identifiers *)
-      let tl' = aux (tl, 0) l in
-
-      (* Output dropped type declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration d;
-
-      (* Recurse with new declarations *)
-      check_declaration
-        (type_map, free_types, type_ctx, const_val, accum)
-        tl'
-
-    )
-
-
-  (* type t = t'^e;
-
-     Expand to declarations
-
-     type t[0] = t';
-     ...
-     type t[e] = t';
-
-  *)
-  | A.TypeDecl (A.AliasType (t, A.ArrayType (t', e))) as d :: tl -> 
-
-    (
-
-      if       
-
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
-
-      then
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
-
-      (* TODO: evaluate e to a constant integer, then expand declaration *)
-
-      let n = int_const_of_expr type_ctx const_val e in
-
-      if n <= 0 then 
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Expression %a must be positive in %a" 
-                A.pp_print_expr e
-                A.pp_print_position A.dummy_pos));
-
-          
-      let rec aux accum = function
-        | 0 -> accum
-        | i -> 
-        
-          aux 
-            (A.TypeDecl (A.AliasType (I.add_int_index t (pred i), t')) :: accum)
-            (pred i)
-
-      in
-
-      let tl' = aux tl n in
-
-      let tl' = aux tl n in
-
-      (* Recurse with new declarations *)
-      check_declaration
-        (type_map, free_types, type_ctx, const_val, accum)
-        tl'
-      
-    )
-
-  (* type t = t'; 
-
-     If t' was defined as 
-
-     type t' = t'';
-
-     expand to
-
-     type t = t'';
-
-     Othwise, there must have been definitions
-
-     type t'.i1 = t1;
-     ...
-     type t'.in = tn;
-
-     expand to 
-
-     type t.i1 = t1;
-     ...
-     type t.in = tn;
-
-  *)
-  | A.TypeDecl (A.AliasType (t, A.UserType t')) as d :: tl -> 
-
-    (
-
-      if       
-
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
-
-      then
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
-
-
-      if
-
-        (* Type t' must have been declared *)
-        not (type_is_declared free_types type_map t')
-
-      then
-
-        (
-
-          (* Find all identifiers with this identifier as prefix *)
-          let suffixes = 
-            List.fold_left 
-              (fun a (s, s') -> 
-                 try 
-                   (I.get_suffix t' s, s') :: a 
-                 with Invalid_argument _ -> a)
-              []
-              type_map
-          in
-
-          (* Identifier was not declared and no identifier with prefix
-             declared *)
-          if suffixes = [] then 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Type %a in %a is not declared" 
-                    I.pp_print_ident t'
-                    A.pp_print_position A.dummy_pos))
-
-          else
-
-            (* Append declarations with all suffixes appended  *)
-            let rec aux accum = function 
-
-              (* All tuple fields consumed *)
-              | [] -> accum
-
-              (* Suffix j with type s *)
-              | (j, s) :: tl -> 
-
-                (* Expand to declaration [type t.j = s] *)
-                aux 
-                  ((A.TypeDecl (A.AliasType (I.add_index t j, ast_type_of_lustre_type s))) :: accum)
-                  tl 
-            in
-
-            (* Push declarations for indexed identifiers *)
-            let tl' = aux tl suffixes in
-
-            (* Output dropped type declaration *)
-            Format.printf "-- %a@." A.pp_print_declaration d;
-
-            check_declaration
-              (type_map, free_types, type_ctx, const_val, accum)
-              tl'
-
-        )
-
-      else
-
-        (* Reduce type t' *)
-        let t'' = 
-
-          try 
-
-            (* All types in type_map are basic *)
-            List.assoc t' type_map
-
-          (* t' is free *)
-          with Not_found -> T.mk_free_type t'
+            (* Expand to declaration to [type t.j = s] *)
+            aux 
+              (
+                (A.TypeDecl (A.AliasType (I.add_int_index t j, s))) :: accum, 
+                succ j)
+              tl
 
         in
 
-        (* Output dropped normalized type declaration *)
+        (* Push declarations for indexed identifiers *)
+        let tl' = aux (tl, 0) l in
+
+        (* Output dropped type declaration *)
+        Format.printf "-- %a@." A.pp_print_declaration d;
+
+        (* Recurse with new declarations *)
+        check_declaration
+          (type_map, free_types, type_ctx, const_val, accum)
+          tl'
+
+      )
+
+
+    (* type t = t'^e;
+
+       Expand to declarations
+
+       type t[0] = t';
+       ...
+       type t[e] = t';
+
+    *)
+    | A.TypeDecl (A.AliasType (t, A.ArrayType (t', e))) as d :: tl -> 
+
+      (
+
+        if       
+
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
+
+        then
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
+
+        (* TODO: evaluate e to a constant integer, then expand declaration *)
+
+        let n = int_const_of_expr type_ctx const_val e in
+
+        if n <= 0 then 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a must be positive in %a" 
+                  A.pp_print_expr e
+                  A.pp_print_position A.dummy_pos));
+
+
+        let rec aux accum = function
+          | 0 -> accum
+          | i -> 
+
+            aux 
+              (A.TypeDecl (A.AliasType (I.add_int_index t (pred i), t')) :: accum)
+              (pred i)
+
+        in
+
+        let tl' = aux tl n in
+
+        let tl' = aux tl n in
+
+        (* Recurse with new declarations *)
+        check_declaration
+          (type_map, free_types, type_ctx, const_val, accum)
+          tl'
+
+      )
+
+    (* type t = t'; 
+
+       If t' was defined as 
+
+       type t' = t'';
+
+       expand to
+
+       type t = t'';
+
+       Othwise, there must have been definitions
+
+       type t'.i1 = t1;
+       ...
+       type t'.in = tn;
+
+       expand to 
+
+       type t.i1 = t1;
+       ...
+       type t.in = tn;
+
+    *)
+    | A.TypeDecl (A.AliasType (t, A.UserType t')) as d :: tl -> 
+
+      (
+
+        if       
+
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
+
+        then
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
+
+
+        if
+
+          (* Type t' must have been declared *)
+          not (type_is_declared free_types type_map t')
+
+        then
+
+          (
+
+            (* Find all identifiers with this identifier as prefix *)
+            let suffixes = 
+              List.fold_left 
+                (fun a (s, s') -> 
+                   try 
+                     (I.get_suffix t' s, s') :: a 
+                   with Invalid_argument _ -> a)
+                []
+                type_map
+            in
+
+            (* Identifier was not declared and no identifier with prefix
+               declared *)
+            if suffixes = [] then 
+
+              (* Fail *)
+              raise 
+                (Failure 
+                   (Format.asprintf 
+                      "Type %a in %a is not declared" 
+                      I.pp_print_ident t'
+                      A.pp_print_position A.dummy_pos))
+
+            else
+
+              (* Append declarations with all suffixes appended  *)
+              let rec aux accum = function 
+
+                (* All tuple fields consumed *)
+                | [] -> accum
+
+                (* Suffix j with type s *)
+                | (j, s) :: tl -> 
+
+                  (* Expand to declaration [type t.j = s] *)
+                  aux 
+                    ((A.TypeDecl (A.AliasType (I.add_index t j, ast_type_of_lustre_type s))) :: accum)
+                    tl 
+              in
+
+              (* Push declarations for indexed identifiers *)
+              let tl' = aux tl suffixes in
+
+              (* Output dropped type declaration *)
+              Format.printf "-- %a@." A.pp_print_declaration d;
+
+              check_declaration
+                (type_map, free_types, type_ctx, const_val, accum)
+                tl'
+
+          )
+
+        else
+
+          (* Reduce type t' *)
+          let t'' = 
+
+            try 
+
+              (* All types in type_map are basic *)
+              List.assoc t' type_map
+
+            (* t' is free *)
+            with Not_found -> T.mk_free_type t'
+
+          in
+
+          (* Output dropped normalized type declaration *)
+          Format.printf 
+            "-- type %a = %a@." 
+            I.pp_print_ident t
+            T.pp_print_lustre_type t'';
+
+          check_declaration
+            (
+
+              (* Add alias type to map *)
+              (t, t'') :: type_map, 
+
+              (* No new free types *)
+              free_types, 
+
+              (* Typing context unchanged *)
+              type_ctx, 
+
+              (* No new constant declaration *)
+              const_val,
+
+              (* Remove alias declaration *)
+              accum
+
+            )
+            tl
+
+      )
+
+
+    (* type t = t'; 
+
+       where t' is a basic type. *)
+    | A.TypeDecl (A.AliasType (t, (A.Bool as t'))) :: tl
+    | A.TypeDecl (A.AliasType (t, (A.Int as t'))) :: tl
+    | A.TypeDecl (A.AliasType (t, (A.Real as t'))) :: tl 
+    | A.TypeDecl (A.AliasType (t, (A.IntRange _ as t'))) :: tl -> 
+
+      (
+
+        (* TODO: add all prefixes of the identifier to indexed_types *)
+
+        if       
+
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
+
+        then
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
+
         Format.printf 
-          "-- type %a = %a@." 
-          I.pp_print_ident t
-          T.pp_print_lustre_type t'';
+          "-- %a@." 
+          A.pp_print_declaration 
+          (A.TypeDecl (A.AliasType (t, t')));
 
         check_declaration
           (
 
             (* Add alias type to map *)
-            (t, t'') :: type_map, 
+            (t, lustre_type_of_ast_type type_ctx const_val t') :: type_map, 
 
             (* No new free types *)
             free_types, 
@@ -844,279 +1007,178 @@ let rec check_declaration
           )
           tl
 
-    )
+      )
 
 
-  (* type t = t'; 
+    (* type t = enum { x1, ..., xn }; 
 
-     where t' is a basic type. *)
-  | A.TypeDecl (A.AliasType (t, (A.Bool as t'))) :: tl
-  | A.TypeDecl (A.AliasType (t, (A.Int as t'))) :: tl
-  | A.TypeDecl (A.AliasType (t, (A.Real as t'))) :: tl 
-  | A.TypeDecl (A.AliasType (t, (A.IntRange _ as t'))) :: tl -> 
+       where t' is a basic type. *)
+    | A.TypeDecl (A.AliasType (t, (A.EnumType l as t'))) as d :: tl -> 
 
-    (
+      (
 
-      if       
+        if
 
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
 
-      then
+        then
 
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
 
-      Format.printf 
-        "-- %a@." 
-        A.pp_print_declaration 
-        (A.TypeDecl (A.AliasType (t, t')));
+        let t'' = lustre_type_of_ast_type type_ctx const_val t' in
 
-      check_declaration
-        (
+        (* Append enum elements to typing context *)
+        let rec aux accum = function 
 
-          (* Add alias type to map *)
-          (t, lustre_type_of_ast_type type_ctx const_val t') :: type_map, 
+          | [] -> accum
 
-          (* No new free types *)
-          free_types, 
+          | e :: tl -> 
 
-          (* Typing context unchanged *)
-          type_ctx, 
+            try 
 
-          (* No new constant declaration *)
-          const_val,
+              (* Check if identifier declared with a different type *)
+              match List.assoc e type_ctx with 
 
-          (* Remove alias declaration *)
-          accum
+                (* Identifier is in another enum type *)
+                | T.Enum _ as s -> 
 
-        )
-        tl
+                  (* Allow if enums are equal *)
+                  if T.equal s t'' then raise Not_found else
 
-    )
+                    (* Fail *)
+                    raise 
+                      (Failure 
+                         (Format.asprintf 
+                            "Enum element %a defined in %a \
+                             is also in enum of type %a in %a" 
+                            I.pp_print_ident e
+                            A.pp_print_position A.dummy_pos
+                            T.pp_print_lustre_type s
+                            A.pp_print_position A.dummy_pos))
 
-
-  (* type t = enum { x1, ..., xn }; 
-
-     where t' is a basic type. *)
-  | A.TypeDecl (A.AliasType (t, (A.EnumType l as t'))) as d :: tl -> 
-
-    (
-
-      if
-
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
-
-      then
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
-
-      let t'' = lustre_type_of_ast_type type_ctx const_val t' in
-
-      (* Append enum elements to typing context *)
-      let rec aux accum = function 
-
-        | [] -> accum
-
-        | e :: tl -> 
-
-          try 
-
-            (* Check if identifier declared with a different type *)
-            match List.assoc e type_ctx with 
-
-              (* Identifier is in another enum type *)
-              | T.Enum _ as s -> 
-
-                (* Allow if enums are equal *)
-                if T.equal s t'' then raise Not_found else
+                | s ->
 
                   (* Fail *)
                   raise 
                     (Failure 
                        (Format.asprintf 
                           "Enum element %a defined in %a \
-                           is also in enum of type %a in %a" 
+                           declared as of type %a in %a" 
                           I.pp_print_ident e
                           A.pp_print_position A.dummy_pos
                           T.pp_print_lustre_type s
                           A.pp_print_position A.dummy_pos))
 
-              | s ->
+            with Not_found -> 
 
-                (* Fail *)
-                raise 
-                  (Failure 
-                     (Format.asprintf 
-                        "Enum element %a defined in %a \
-                         declared as of type %a in %a" 
-                        I.pp_print_ident e
-                        A.pp_print_position A.dummy_pos
-                        T.pp_print_lustre_type s
-                        A.pp_print_position A.dummy_pos))
+              (* Append type of identifier to typing context  *)
+              aux
+                ((e, t'') :: accum)
+                tl
 
-          with Not_found -> 
+        in
 
-            (* Append type of identifier to typing context  *)
-            aux
-              ((e, t'') :: accum)
-              tl
+        (* Push types of enum constants to typing context *)
+        let type_ctx' = aux type_ctx l in
 
-      in
+        (* TODO: push enum types as constant declarations *)
 
-      (* Push types of enum constants to typing context *)
-      let type_ctx' = aux type_ctx l in
+        let rec aux accum = function
+          | [] -> accum
+          | e :: tl -> (e, ConstEnum e) :: accum 
+        in
 
-      (* TODO: push enum types as constant declarations *)
+        let const_val' = aux const_val l in
 
-      let rec aux accum = function
-        | [] -> accum
-        | e :: tl -> (e, ConstEnum e) :: accum 
-      in
+        check_declaration
+          (
 
-      let const_val' = aux const_val l in
+            (* New alias type for enum *)
+            (t, t'') :: type_map, 
 
-      check_declaration
-        (
+            (* Add type to free types *)
+            free_types, 
 
-          (* New alias type for enum *)
-          (t, t'') :: type_map, 
+            (* Enum elements addedd to typing context *)
+            type_ctx', 
 
-          (* Add type to free types *)
-          free_types, 
+            (* No new constant declaration *)
+            const_val',
 
-          (* Enum elements addedd to typing context *)
-          type_ctx', 
+            (* Keep type declaration *)
+            d :: accum
 
-          (* No new constant declaration *)
-          const_val',
-
-          (* Keep type declaration *)
-          d :: accum
-
-        )
-        tl
-
-    )
-
-  (* type t; 
-
-     t is a free type *)
-  | A.TypeDecl (A.FreeType t) as d :: tl -> 
-
-    (
-
-      if
-
-        (* Type t must not be declared *)
-        type_is_declared free_types type_map t
-
-      then
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a defined in %a is redeclared in %a" 
-                I.pp_print_ident t
-                A.pp_print_position A.dummy_pos
-                A.pp_print_position A.dummy_pos));
-
-      check_declaration
-        (
-
-          (* No new alias type *)
-          type_map, 
-
-          (* Add type to free types *)
-          t :: free_types, 
-
-          (* Typing context unchanged *)
-          type_ctx, 
-
-          (* No new constant declaration *)
-          const_val,
-
-          (* Keep type declaration *)
-          d :: accum
-
-        )
-        tl
-
-    )
-
-  (* ******************************************************************** *)
-  (* Constant declarations                                                *)
-  (* ******************************************************************** *)
-
-  (* const c : t; 
-
-     Free constant of basic type *)
-  | (A.ConstDecl (A.FreeConst (c, (A.Bool as t))) as d) :: tl 
-  | (A.ConstDecl (A.FreeConst (c, (A.Int as t))) as d) :: tl 
-  | (A.ConstDecl (A.FreeConst (c, (A.Real as t))) as d) :: tl 
-  | (A.ConstDecl (A.FreeConst (c, (A.EnumType _ as t))) as d) :: tl 
-  | (A.ConstDecl (A.FreeConst (c, (A.IntRange _ as t))) as d) :: tl -> 
-
-    if
-
-      (* Identifier must not be declared *)
-      List.exists (function (n, _) -> n = c) type_ctx 
-
-    then
-
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Identifier %a is redeclared as constant in %a" 
-              I.pp_print_ident c
-              A.pp_print_position A.dummy_pos));
-
-    (* Output dropped const declaration *)
-    Format.printf "-- %a@." A.pp_print_declaration d;
-
-    check_declaration
-      (
-
-        (* No new alias type *)
-        type_map, 
-
-        (* No new free types *)
-        free_types, 
-
-        (* Add to typing context *)
-        (c, lustre_type_of_ast_type type_ctx const_val t) :: type_ctx, 
-
-        (* No new constant declaration *)
-        const_val,
-
-        (* Drop constant declaration *)
-        accum
+          )
+          tl
 
       )
-      tl
 
-  (* const c : t; 
+    (* type t; 
 
-     Free constant of alias or free type *)
-  | A.ConstDecl (A.FreeConst (c, (A.UserType t))) as d :: tl -> 
+       t is a free type *)
+    | A.TypeDecl (A.FreeType t) as d :: tl -> 
 
-    (
+      (
+
+        if
+
+          (* Type t must not be declared *)
+          type_is_declared free_types type_map t
+
+        then
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type %a defined in %a is redeclared in %a" 
+                  I.pp_print_ident t
+                  A.pp_print_position A.dummy_pos
+                  A.pp_print_position A.dummy_pos));
+
+        check_declaration
+          (
+
+            (* No new alias type *)
+            type_map, 
+
+            (* Add type to free types *)
+            t :: free_types, 
+
+            (* Typing context unchanged *)
+            type_ctx, 
+
+            (* No new constant declaration *)
+            const_val,
+
+            (* Keep type declaration *)
+            d :: accum
+
+          )
+          tl
+
+      )
+
+    (* ******************************************************************** *)
+    (* Constant declarations                                                *)
+    (* ******************************************************************** *)
+
+    (* const c : t; 
+
+       Free constant of basic type *)
+    | (A.ConstDecl (A.FreeConst (c, (A.Bool as t))) as d) :: tl 
+    | (A.ConstDecl (A.FreeConst (c, (A.Int as t))) as d) :: tl 
+    | (A.ConstDecl (A.FreeConst (c, (A.Real as t))) as d) :: tl 
+    | (A.ConstDecl (A.FreeConst (c, (A.EnumType _ as t))) as d) :: tl 
+    | (A.ConstDecl (A.FreeConst (c, (A.IntRange _ as t))) as d) :: tl -> 
 
       if
 
@@ -1133,160 +1195,206 @@ let rec check_declaration
                 I.pp_print_ident c
                 A.pp_print_position A.dummy_pos));
 
-      try 
+      (* Output dropped const declaration *)
+      Format.printf "-- %a@." A.pp_print_declaration d;
 
-        (* Resolve alias type *)
-        let t' = List.assoc t type_map in 
+      check_declaration
+        (
 
-        (* Output dropped const declaration *)
-        Format.printf "-- %a@." A.pp_print_declaration d;
+          (* No new alias type *)
+          type_map, 
 
-        check_declaration
-          (type_map, free_types, (c, t') :: type_ctx, const_val, accum)
-          tl
+          (* No new free types *)
+          free_types, 
 
-      with 
+          (* Add to typing context *)
+          (c, lustre_type_of_ast_type type_ctx const_val t) :: type_ctx, 
 
-        (* Type is free or indexed *)
-        | Not_found -> 
+          (* No new constant declaration *)
+          const_val,
 
-          (* Type has been declared as free? *)
-          if List.mem t free_types then 
+          (* Drop constant declaration *)
+          accum
 
-            (
+        )
+        tl
 
-              (* Output dropped const declaration *)
-              Format.printf "-- %a@." A.pp_print_declaration d;
+    (* const c : t; 
 
-              check_declaration
-                (type_map, 
-                 free_types, 
-                 (c, T.mk_free_type t) :: type_ctx, 
-                 const_val, 
-                 accum)
-                tl
+       Free constant of alias or free type *)
+    | A.ConstDecl (A.FreeConst (c, (A.UserType t))) as d :: tl -> 
 
-            )
+      (
 
-          else
+        if
 
-            (* Find all identifiers with this identifier as prefix *)
-            let suffixes = 
-              List.fold_left 
-                (fun a (s, s') -> 
-                   try 
-                     (I.get_suffix t s, s') :: a 
-                   with Invalid_argument _ -> a)
-                []
-                type_map
-            in
+          (* Identifier must not be declared *)
+          List.exists (function (n, _) -> n = c) type_ctx 
 
-            (* Identifier was not declared and no identifier with
-               prefix declared *)
-            if suffixes = [] then 
+        then
 
-              (* Fail *)
-              raise 
-                (Failure 
-                   (Format.asprintf 
-                      "Type %a in %a is not declared" 
-                      I.pp_print_ident t
-                      A.pp_print_position A.dummy_pos))
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Identifier %a is redeclared as constant in %a" 
+                  I.pp_print_ident c
+                  A.pp_print_position A.dummy_pos));
+
+        try 
+
+          (* Resolve alias type *)
+          let t' = List.assoc t type_map in 
+
+          (* Output dropped const declaration *)
+          Format.printf "-- %a@." A.pp_print_declaration d;
+
+          check_declaration
+            (type_map, free_types, (c, t') :: type_ctx, const_val, accum)
+            tl
+
+        with 
+
+          (* Type is free or indexed *)
+          | Not_found -> 
+
+            (* Type has been declared as free? *)
+            if List.mem t free_types then 
+
+              (
+
+                (* Output dropped const declaration *)
+                Format.printf "-- %a@." A.pp_print_declaration d;
+
+                check_declaration
+                  (type_map, 
+                   free_types, 
+                   (c, T.mk_free_type t) :: type_ctx, 
+                   const_val, 
+                   accum)
+                  tl
+
+              )
 
             else
 
-              (* Append declarations with all suffixes appended  *)
-              let rec aux accum = function 
-
-                (* All tuple fields consumed *)
-                | [] -> accum
-
-                (* Suffix j with type s *)
-                | (j, s) :: tl -> 
-
-                  let d' = 
-                    A.ConstDecl 
-                      (A.FreeConst 
-                         (I.add_index c j, ast_type_of_lustre_type s))
-                  in
-
-                  (* Expand to declaration [const c.j;] *)
-                  aux 
-                    (d' :: accum)
-                    tl 
+              (* Find all identifiers with this identifier as prefix *)
+              let suffixes = 
+                List.fold_left 
+                  (fun a (s, s') -> 
+                     try 
+                       (I.get_suffix t s, s') :: a 
+                     with Invalid_argument _ -> a)
+                  []
+                  type_map
               in
 
-              (* Push declarations for indexed identifiers *)
-              let tl' = aux tl suffixes in
+              (* Identifier was not declared and no identifier with
+                 prefix declared *)
+              if suffixes = [] then 
 
-              (* Output dropped const declaration *)
-              Format.printf "-- %a@." A.pp_print_declaration d;
+                (* Fail *)
+                raise 
+                  (Failure 
+                     (Format.asprintf 
+                        "Type %a in %a is not declared" 
+                        I.pp_print_ident t
+                        A.pp_print_position A.dummy_pos))
 
-              check_declaration
-                (type_map, free_types, type_ctx, const_val, accum)
-                tl'
+              else
 
-    )
+                (* Append declarations with all suffixes appended  *)
+                let rec aux accum = function 
 
-  (* const c = e; *)
-  | A.ConstDecl (A.UntypedConst (c, e)) as d :: tl ->
+                  (* All tuple fields consumed *)
+                  | [] -> accum
 
-    if
+                  (* Suffix j with type s *)
+                  | (j, s) :: tl -> 
 
-      (* Identifier must not be declared *)
-      List.exists (function (n, _) -> n = c) type_ctx 
+                    let d' = 
+                      A.ConstDecl 
+                        (A.FreeConst 
+                           (I.add_index c j, ast_type_of_lustre_type s))
+                    in
 
-    then
+                    (* Expand to declaration [const c.j;] *)
+                    aux 
+                      (d' :: accum)
+                      tl 
+                in
 
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Identifier %a is redeclared as constant in %a" 
-              I.pp_print_ident c
-              A.pp_print_position A.dummy_pos));
+                (* Push declarations for indexed identifiers *)
+                let tl' = aux tl suffixes in
 
-    (match type_of_expr type_ctx const_val e with 
+                (* Output dropped const declaration *)
+                Format.printf "-- %a@." A.pp_print_declaration d;
 
-      | Const v, Type t ->
+                check_declaration
+                  (type_map, free_types, type_ctx, const_val, accum)
+                  tl'
 
-        (* Output dropped const declaration *)
-        Format.printf "-- %a@." A.pp_print_declaration d;
+      )
 
-        check_declaration
-          (
+    (* const c = e; *)
+    | A.ConstDecl (A.UntypedConst (c, e)) as d :: tl ->
 
-            (* No new alias type *)
-            type_map, 
+      if
 
-            (* No new free types *)
-            free_types, 
+        (* Identifier must not be declared *)
+        List.exists (function (n, _) -> n = c) type_ctx 
 
-            (* Add to typing context *)
-            (c, t) :: type_ctx, 
-
-            (* Add to constant declaration *)
-            (c, v) :: const_val,
-
-            (* Drop constant declaration *)
-            accum
-
-          )
-          tl
-
-      | Expr _, _ -> 
+      then
 
         (* Fail *)
         raise 
           (Failure 
              (Format.asprintf 
-                "Expression %a in %a is not constant" 
-                A.pp_print_expr e
-                A.pp_print_position A.dummy_pos))
+                "Identifier %a is redeclared as constant in %a" 
+                I.pp_print_ident c
+                A.pp_print_position A.dummy_pos));
 
-      | IndexedExpr lc, IndexedType lt -> assert false
+      (match type_of_expr type_ctx const_val e with 
 
-    )
+        | Const v, Type t ->
+
+          (* Output dropped const declaration *)
+          Format.printf "-- %a@." A.pp_print_declaration d;
+
+          check_declaration
+            (
+
+              (* No new alias type *)
+              type_map, 
+
+              (* No new free types *)
+              free_types, 
+
+              (* Add to typing context *)
+              (c, t) :: type_ctx, 
+
+              (* Add to constant declaration *)
+              (c, v) :: const_val,
+
+              (* Drop constant declaration *)
+              accum
+
+            )
+            tl
+
+        | Expr _, _ -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a is not constant" 
+                  A.pp_print_expr e
+                  A.pp_print_position A.dummy_pos))
+
+        | IndexedExpr lc, IndexedType lt -> assert false
+
+      )
 
 
 (*
