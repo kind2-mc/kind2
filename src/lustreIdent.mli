@@ -41,10 +41,20 @@
 
 
 (** An identifier *)
-type t
+type t = string * (index list)
 
 (** An index *)
-type index 
+type index = one_index list 
+
+
+type one_index = private
+
+  (* String as index *)
+  | StringIndex of string
+
+  (* Integer as index *)
+  | IntIndex of int
+
 
 val compare : t -> t -> int
 

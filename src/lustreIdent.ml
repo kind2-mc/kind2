@@ -47,7 +47,7 @@ type index = one_index list
 
 
 (* An identifier *)
-type t = string * (index list)
+type t = string * index
 
 
 (* Comparision of indexes *)
