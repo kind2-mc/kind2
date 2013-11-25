@@ -54,8 +54,8 @@ type var_op =
   | OneHot
 
 type expr = private
-  | Ident of LustreIdent.t
-  | Pre of LustreIdent.t
+  | Var of LustreIdent.t
+  | VarPre of LustreIdent.t
   | True
   | False
   | Int of int
@@ -74,9 +74,9 @@ val mk_int : int -> t
 
 val mk_real : float -> t
 
-val mk_ident : LustreIdent.t -> t
+val mk_var : LustreIdent.t -> t
 
-val mk_pre : LustreIdent.t -> t
+val mk_var_pre : LustreIdent.t -> t
 
 val mk_unary : unary_op -> t -> t
 

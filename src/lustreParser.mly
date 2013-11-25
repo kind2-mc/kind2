@@ -164,6 +164,7 @@ let mk_pos = A.position_of_lexing
 %nonassoc PRE 
 %nonassoc INT REAL 
 %nonassoc LSQBRACKET
+%left DOT
 
 (* Start token *)
 %start <LustreAst.t> main
@@ -218,12 +219,17 @@ const_decl_body:
 (* A type declaration *) 
 type_decl: 
 
+  (* A free type *)
   | TYPE; l = ident_list; SEMICOLON 
      { List.map (function e -> A.FreeType e) l }
 
-  (* Type definition (alias) *)
+  (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
      { List.map (function e -> A.AliasType (e, t)) l }
+
+  (* A record type, can only be defined as alias *)
+  | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
+     { List.map (function e -> A.AliasType (e, A.RecordType t)) l }
 
 
 (* A type *)
@@ -250,8 +256,10 @@ lustre_type:
   (* Tuple type *)
   | t = tuple_type { A.TupleType t } 
 
+(* Record types can only be defined as aliases 
   (* Record type (V6) *)
   | t = record_type { A.RecordType t } 
+*)
 
   (* Array type (V6) *)
   | t = array_type { A.ArrayType t }
@@ -483,7 +491,7 @@ expr:
     { A.ArraySlice (mk_pos $startpos, e, l) }
 
   (* A record field projection *)
-  | s = expr; DOT; t = ident 
+  | s = ident; DOT; t = ident 
     { A.RecordProject (mk_pos $startpos, s, t) }
 
   (* A record *)
@@ -523,7 +531,7 @@ expr:
   | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
     { A.Ite (mk_pos $startpos, e1, e2, e3) }
 
-  (* An if operation *)
+  (* Recursive node call *)
   | WITH; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr 
     { A.With (mk_pos $startpos, e1, e2, e3) }
 

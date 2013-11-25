@@ -114,6 +114,7 @@ let main () =
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
     declarations;
 *)
+(*
   let declarations = LustreCheckType.check_program declarations in
 
   Format.printf 
@@ -121,7 +122,8 @@ let main () =
           %a@]@." 
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@,") 
     declarations;
-
+*)
+  LustreCheckType.check_program declarations
 
 ;;
 

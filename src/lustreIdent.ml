@@ -108,21 +108,21 @@ let compare (a, ia)  (b, ib) =
 
 
 (* Pretty-print an index *)
-let pp_print_index ppf = function 
+let pp_print_one_index ppf = function 
   | StringIndex i -> Format.fprintf ppf ".%s" i
   | IntIndex i -> Format.fprintf ppf "[%d]" i
 
 
 (* Pretty-print a list of indexes *)
-let rec pp_print_index_list ppf = function 
+let rec pp_print_index ppf = function 
   | [] -> ()
-  | h :: tl -> pp_print_index ppf h; pp_print_index_list ppf tl
+  | h :: tl -> pp_print_one_index ppf h; pp_print_index ppf tl
 
 
 (* Pretty-print an identifier *)
 let rec pp_print_ident ppf (s, i) = 
 
-  Format.fprintf ppf "%s%a" s pp_print_index_list i
+  Format.fprintf ppf "%s%a" s pp_print_index i
 
 
 (* ********************************************************************** *)

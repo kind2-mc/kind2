@@ -65,8 +65,8 @@ type var_op =
   | OneHot
 
 type expr =
-  | Ident of I.t
-  | Pre of I.t
+  | Var of I.t
+  | VarPre of I.t
   | True
   | False
   | Int of int
@@ -97,9 +97,9 @@ let mk_int n = Int n
 
 let mk_real r = Real r
 
-let mk_ident n = Ident n
+let mk_var n = Var n
 
-let mk_pre n = Pre n
+let mk_var_pre n = VarPre n
 
 let mk_unary op e = UnaryOp (op, e)
 

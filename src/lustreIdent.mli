@@ -40,12 +40,6 @@
     @author Christoph Sticksel *)
 
 
-(** An identifier *)
-type t = string * (index list)
-
-(** An index *)
-type index = one_index list 
-
 
 type one_index = private
 
@@ -56,10 +50,23 @@ type one_index = private
   | IntIndex of int
 
 
+(** An index *)
+type index = one_index list 
+
+(** An identifier *)
+type t = string * index
+
+
 val compare : t -> t -> int
 
 (** Pretty-print an identifier *)
 val pp_print_ident : Format.formatter -> t -> unit 
+
+(** Pretty-print an index *)
+val pp_print_index : Format.formatter -> index -> unit 
+
+(** Pretty-print an index element *)
+val pp_print_one_index : Format.formatter -> one_index -> unit 
 
 (** Construct an identifier of a string *)
 val mk_string_id : string -> t
@@ -68,7 +75,7 @@ val mk_string_id : string -> t
 val index_of_ident : t -> index 
 
 (** Construct an index of an integer *)
-val index_of_int : t -> index 
+val index_of_int : int -> index 
 
 (** Add an index to an identifier *)
 val add_ident_index : t -> t -> t
