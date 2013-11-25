@@ -49,7 +49,7 @@ type ident = LustreIdent.t
 
 type expr =
     Ident of position * ident
-  | RecordProject of position * expr * ident
+  | RecordProject of position * ident * ident
   | TupleProject of position * expr * expr
   | True of position
   | False of position

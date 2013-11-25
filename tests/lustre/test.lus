@@ -8,17 +8,8 @@
 -- can be anywhere in the file
 include "inc.lus"
 
--- Free constants, must have a type
-const a1, a2, a3: a;
-
--- Defined constants without type
-const b1 = 1;
-      pi = 3.14;
-
--- Defined constant with optional type 
-const c1 : bool = true;
-      c2 = 5;
-      c3, c4 : real;
+-- Fail: type must be declared
+-- type a = a;
 
 -- Predefined type bool
 type a = bool;
@@ -27,9 +18,9 @@ type a = bool;
 type b, c = int;
 
 -- Predefined type integer range (our extension)
-type r1 = subrange [1, 2] of int;
-type r2 = subrange [-2, 2] of int;
-type r3 = subrange [b, c] of int;
+-- type r1 = subrange [1, 2] of int;
+-- type r2 = subrange [-2, 2] of int;
+-- type r3 = subrange [b, c] of int;
 
 -- Predefined type real
 type d = real;
@@ -47,15 +38,29 @@ type g = [d, [int, bool]];
 type h = struct { one : int; two : bool };
 
 -- Record types can be nested, struct is optional
-type i = { one: struct { a : int; b: bool };  two : bool; };
+type i2 = struct { a : int; b: bool };
+type i = { one: i2;  two : bool; };
 
 -- Enum type (V6) 
-type j = enum { blue, green, red };
+type j = enum { init, step, stop };
 
 -- Array types
 type k = int^5;
 type l = int^5^5; -- ^ is left-associative
 type m = int^5*h;
+
+-- Free constants, must have a type
+const a1, a2, a3: a;
+
+-- Defined constants without type
+const b1 = 1;
+      pi = 3.14;
+
+-- Defined constant with optional type 
+const c1 : bool = true;
+      c2 = 5;
+      c3, c4 : real;
+
 
 -- A node declaration
 node x 
@@ -64,17 +69,19 @@ node x
    (f, g: int; h: real;) when b) 
 returns 
   (x: y when z; 
-   (a, b: [int, [bool, real]]; c: struct { one: real; two: int }) when x;
+   (a, b: [int, [bool, real]]; c: i2) when x;
    d: int);
 -- Variable declarations are optional
 let 
 -- Node equations are optional
 tel;
 
+type y_t = { a: int; b: real };
+
 node y (const a: bool) returns (b: int);
 -- Local constant declarations
 const c : int; d = 1;
-var t : { a: int; b: real };
+var t : y_t;
 let
 
   e = 1;
@@ -110,7 +117,7 @@ let
   t.a = y(5);
   
   -- Record construction
-  t = { b = 2.0; a = 1 };
+  t = y_t { b = 2.0; a = 1 };
   
   t.b = if a xor d then #(a, b, c) else false; 
   
@@ -460,7 +467,7 @@ let
 tel
 
 type complex = { re: real; im: real };
-const j = { re = -sqrt(3)/2; im = sqrt(3)/2 };
+const j = complex { re = -sqrt(3)/2; im = sqrt(3)/2 };
 
 node get_im(c: complex) returns (x: real);
 let
