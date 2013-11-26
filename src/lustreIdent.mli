@@ -89,6 +89,11 @@ val add_string_index : t -> string -> t
 (** Add an integer as an index to an identifier *)
 val add_int_index : t -> int -> t
 
+val add_int_to_index : index -> int -> index
+
+
+val get_index_suffix : index -> index -> index
+
 (** [get_suffix i j] assumes that [i] and [j] index the same
     identifier and the indexes of [i] are a prefix of the indexes of
     [j]. Return the suffix of [j] with the common prefix with [i]

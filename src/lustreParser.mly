@@ -483,16 +483,16 @@ expr:
   | e1 = expr; CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
   (* A tuple projection *)
-  | e = expr; LSQBRACKET; i = expr ; RSQBRACKET
+  | e = ident; LSQBRACKET; i = expr ; RSQBRACKET
     { A.TupleProject (mk_pos $startpos, e, i) }
 
   (* A multidimensional array slice *)
-  | e = expr; LSQBRACKET; l = array_slice_list; RSQBRACKET
+  | e = ident; LSQBRACKET; l = array_slice_list; RSQBRACKET
     { A.ArraySlice (mk_pos $startpos, e, l) }
 
   (* A record field projection *)
   | s = ident; DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, t) }
+    { A.RecordProject (mk_pos $startpos, s, I.index_of_ident t) }
 
   (* A record *)
   | t = ident; 

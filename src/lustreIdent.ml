@@ -157,12 +157,16 @@ let add_ident_index (s, i) = function
 let add_index (s, i) j = (s, i @ j)
 
 
+let add_int_to_index i j = i @ [IntIndex j]
+
+  
+
 (* ********************************************************************** *)
 (* Utility functions                                                      *)
 (* ********************************************************************** *)
 
 (* Remove i as prefix from j and return remainder of j *)
-let rec get_suffix' i j = match i, j with 
+let rec get_index_suffix i j = match i, j with 
 
   (* All of j consumed, return j *)
   | [], j -> j
@@ -174,19 +178,19 @@ let rec get_suffix' i j = match i, j with
   (* First element is identical *)
   | StringIndex i :: itl, StringIndex j :: jtl when i = j -> 
 
-    get_suffix' itl jtl
+    get_index_suffix itl jtl
 
   (* First element is identical *)
   | IntIndex i :: itl, IntIndex j :: jtl when i = j -> 
 
-    get_suffix' itl jtl
+    get_index_suffix itl jtl
 
   (* First element is different, no common prefix *)
   | StringIndex _ :: _, StringIndex _ :: _
   | IntIndex _ :: _, IntIndex _ :: _
   | IntIndex _ :: _, StringIndex _ :: _
   | StringIndex _ :: _, IntIndex _ :: _ ->
-    raise (Invalid_argument ("get_suffix"))
+    raise (Invalid_argument ("get_index_suffix"))
 
 
 
@@ -194,11 +198,17 @@ let rec get_suffix' i j = match i, j with
    prefix removed *)
 let get_suffix (i, li) (j, lj) = 
 
-  (* *)
-  if i = j then get_suffix' li lj else 
-    
-    raise (Invalid_argument ("get_suffix"))
+  try 
 
+    if i = j then get_index_suffix li lj else 
+      
+      raise (Invalid_argument ("get_suffix"))
+
+  with 
+
+    | Invalid_argument "get_index_suffix" -> 
+
+      raise (Invalid_argument ("get_suffix"))
 
 (* 
    Local Variables:

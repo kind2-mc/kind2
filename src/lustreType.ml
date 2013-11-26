@@ -139,11 +139,11 @@ let pp_print_lustre_type ppf = function
       (pp_print_list I.pp_print_ident ",@ ") l
 
 
-let bool = Bool
+let t_bool = Bool
 
-let int = Int
+let t_int = Int
 
-let real = Real
+let t_real = Real
 
 let mk_int_range i j = IntRange (min i j, max i j)
 

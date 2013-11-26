@@ -51,13 +51,13 @@ val equal : t -> t -> bool
 val pp_print_lustre_type : Format.formatter -> t -> unit 
 
 (** Return the Boolean type *)
-val bool : t
+val t_bool : t
 
 (** Return the integer type *)
-val int : t
+val t_int : t
 
 (** Return the real type *)
-val real : t
+val t_real : t
 
 (** Construct an integer range type *)
 val mk_int_range : int -> int -> t

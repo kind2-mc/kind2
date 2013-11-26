@@ -30,6 +30,8 @@
 type unary_op =
   | Not
   | Uminus
+  | ToInt
+  | ToReal
 
 type binary_op =
   | And 
@@ -79,6 +81,10 @@ val mk_var : LustreIdent.t -> t
 val mk_var_pre : LustreIdent.t -> t
 
 val mk_unary : unary_op -> t -> t
+
+val mk_to_int : t -> t
+
+val mk_to_real : t -> t
 
 val mk_binary : binary_op -> t -> t -> t
 
