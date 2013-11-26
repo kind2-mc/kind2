@@ -124,14 +124,15 @@ let is_dummy_pos = function
 (* An identifier *)
 type ident = LustreIdent.t
 
+type index = LustreIdent.index
 
 (* A Lustre expression *)
 type expr =
 
   (* Identifier *)
   | Ident of position * ident
-  | RecordProject of position * ident * ident
-  | TupleProject of position * expr * expr
+  | RecordProject of position * ident * index
+  | TupleProject of position * ident * expr
 
   (* Values *)
   | True of position
@@ -152,10 +153,10 @@ type expr =
   (* Array constructor of single expression *)
   | ArrayConstr of position * expr * expr 
 
-  (* Array constructor of single expression *)
-  | ArraySlice of position * expr * (expr * expr) list
+  (* Slice of array *)
+  | ArraySlice of position * ident * (expr * expr) list
 
-  (* Array constructor of single expression *)
+  (* Array concatenation *)
   | ArrayConcat of position * expr * expr
 
   (* Construction of a record *)
@@ -427,7 +428,7 @@ let rec pp_print_expr ppf =
         "%a%a.%a" 
         ppos p 
         I.pp_print_ident id 
-        I.pp_print_ident f
+        I.pp_print_index f
 
     | RecordConstruct (p, t, l) -> 
 
@@ -439,7 +440,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a[%a]" ppos p pp_print_expr e pp_print_expr f
+      Format.fprintf ppf "%a%a[%a]" ppos p I.pp_print_ident  e pp_print_expr f
 
     | True p -> ps p "true"
     | False p -> ps p "false"

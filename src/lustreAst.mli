@@ -47,10 +47,12 @@ val is_dummy_pos : position -> bool
 
 type ident = LustreIdent.t
 
+type index = LustreIdent.index
+
 type expr =
     Ident of position * ident
-  | RecordProject of position * ident * ident
-  | TupleProject of position * expr * expr
+  | RecordProject of position * ident * index
+  | TupleProject of position * ident * expr
   | True of position
   | False of position
   | Num of position * string
@@ -60,7 +62,7 @@ type expr =
   | ExprList of position * expr list
   | TupleExpr of position * expr list
   | ArrayConstr of position * expr * expr
-  | ArraySlice of position * expr * (expr * expr) list
+  | ArraySlice of position * ident * (expr * expr) list
   | ArrayConcat of position * expr * expr
   | RecordConstruct of position * ident * (ident * expr) list
   | Not of position * expr

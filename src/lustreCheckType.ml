@@ -92,7 +92,9 @@ type check_declaration_state =
       basic_types : (LustreIdent.t * LustreType.t) list; 
 
       (* Prefixes of indexed type identifiers, their suffixes and types *)
-      indexed_types : (LustreIdent.t * (LustreIdent.index * LustreAst.lustre_type) list) list; 
+      indexed_types : 
+        (LustreIdent.t * 
+           (LustreIdent.index * LustreAst.lustre_type) list) list; 
 
       (* Type identifiers for free types *)
       free_types : LustreIdent.t list; 
@@ -202,30 +204,30 @@ let rec check_declarations
     (* Check if [t] is a basic types *)
     (List.mem_assoc t basic_types) ||
 
-      (* Check is [t] is an indexed type *)
-      (List.mem_assoc t indexed_types) || 
+    (* Check is [t] is an indexed type *)
+    (List.mem_assoc t indexed_types) || 
 
-      (* Check if [t] is a free type *)
-      (List.mem t free_types) 
+    (* Check if [t] is a free type *)
+    (List.mem t free_types) 
 
   in
 
   (* Convert a parsed type to a built-in type *)
   let lustre_type_of_ast_type = function
 
-    | A.Bool -> T.bool
+    | A.Bool -> T.t_bool
 
-    | A.Int -> T.int
+    | A.Int -> T.t_int
 
-    | A.Real -> T.real
+    | A.Real -> T.t_real
 
     | A.IntRange (i, j) -> 
 
       (* let ci = int_const_of_expr type_ctx const_val i in
 
-      let cj = int_const_of_expr type_ctx const_val j in
+         let cj = int_const_of_expr type_ctx const_val j in
 
-      T.mk_int_range ci cj *)
+         T.mk_int_range ci cj *)
       assert false 
 
 
@@ -234,8 +236,24 @@ let rec check_declarations
     | A.UserType t -> T.mk_free_type t
 
     | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
-  
+
   in
+
+
+  (* Apply function pointwise *)
+  let apply_to f = function 
+
+    | Expr e -> Expr (f e)
+    | IndexedExpr l -> IndexedExpr (List.map (function (i, e) -> (i, f e)) l)
+
+  in
+
+  (* Filter the indexed expression for the given indexes, flatten if
+     necessary *)
+  let slice_indexed_expr =
+
+  in
+
 
   (* Return type of expression *)
   let rec check_expr = function
@@ -246,15 +264,15 @@ let rec check_declarations
       (* Simplify expression by susbtituting value of constant if
          possible *)
       let expr_sim = 
-        
+
         (* Return value of constant *)
         try List.assoc id consts with 
 
           (* Otherwise return variable *)
           | Not_found -> E.mk_var id 
-            
+
       in
-      
+
       (* Type of expression is type of identifier *)
       let expr_type = List.assoc id type_ctx in 
 
@@ -265,31 +283,37 @@ let rec check_declarations
       Expr {expr_sim = expr_sim; expr_type = expr_type; expr_clock = expr_clock}
 
 
-    (* An identifier with indexes *)
+    (* An nested identifier with indexes *)
     | A.Ident (p, id) when List.mem_assoc id index_ctx -> 
 
-      (* Simlifiy each *)
+      (* Simlifiy each index *)
       let res = 
         List.fold_left 
           (fun a idx -> 
-            match check_expr (A.Ident (p, I.add_index id idx)) with 
-              | Expr e -> (idx, e) :: a 
-              | IndexedExpr l -> 
-                List.fold_left 
-                  (fun a (i, e) -> (idx @ i, e) :: a)
-                  a
-                  l)
+             match check_expr (A.Ident (p, I.add_index id idx)) with 
+
+               (* Expresssion is simple *)
+               | Expr e -> (idx, e) :: a 
+
+               (* Expression is nested*)
+               | IndexedExpr l -> 
+
+                 (* Flatten *)
+                 List.fold_left 
+                   (fun a (i, e) -> (idx @ i, e) :: a)
+                   a
+                   l)
           []
           (List.assoc id index_ctx)
       in
-      
+
       (* Return list of indexed simplified expresssions *)
       IndexedExpr res
 
-        
+
     (* Identifier must have a type or indexes *)
     | A.Ident (p, id) -> 
-        
+
       (* Fail *)
       raise 
         (Failure 
@@ -300,34 +324,65 @@ let rec check_declarations
 
 
     (* Projection to a record field *)
-    | RecordProject (p, id, idx) -> 
+    | A.RecordProject (p, id, idx) -> 
 
       (match check_expr (A.Ident (p, id)) with 
 
-        (* .a.b, .a.c, .d, .e with a -> .b .c  
-
-           Remove first index, if index becomes empty return Expr, else return IndexedExpr *)
-
-
         | IndexedExpr l -> 
 
-          match 
+          (
 
-            List.filter
-              (function 
-                | h :: tl when h = -> 
+            match 
 
-          
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Identifier %a in %a does not have fields" 
-                  I.pp_print_ident id
-                  A.pp_print_position p))
-            
-            
+              (* Filter for expresssions matching index:
 
+                 Querying for a on .a.b, .a.c, .d, .e returns .b .c
+
+              *)
+              List.fold_left
+                (function a -> function 
+
+                   (* Index has projected index at its head: remove
+                      head and add to accumulator *)
+                   | (i, e) -> 
+
+                     try 
+
+                       let i' = I.get_index_suffix idx i in 
+
+                       (i', e) :: a
+
+                     with Invalid_argument "get_index_suffix" -> a
+
+                        (* Skip index *)
+                        | _ -> a)
+
+                []
+                l
+
+            with 
+
+              (* Index not found *)
+              | [] -> 
+
+                (* Fail *)
+                raise 
+                  (Failure 
+                     (Format.asprintf 
+                        "Identifier %a in %a does not have field %a" 
+                        I.pp_print_ident id
+                        A.pp_print_position p
+                        I.pp_print_index idx))
+
+              (* Reduced to a single expression *)
+              | [([], e)] -> Expr e
+
+              (* Reduced to a nested expression *)
+              | l' -> IndexedExpr l'
+
+          )
+
+        (* Identifier is no record *)
         | Expr _ -> 
 
           (* Fail *)
@@ -337,17 +392,295 @@ let rec check_declarations
                   "Identifier %a in %a does not have fields" 
                   I.pp_print_ident id
                   A.pp_print_position p))
-            
+
       )
 
+    (* Projection of a tuple or array *)
+    | A.TupleProject (p, id, e) -> 
+
+      (match check_expr (A.Ident (p, id)) with 
+
+        | IndexedExpr l -> 
+
+          let idx = 
+
+            match check_expr e with 
+
+              (* Expresssion must be simplified to zero or a
+                 positive integer *)
+              | Expr { expr_sim = E.Int i } when i >= 0 -> 
+
+                I.index_of_int i 
+
+              (* Expression cannot be nested *)
+              | Expr _
+              | IndexedExpr _ -> 
+
+                (* Fail *)
+                raise 
+                  (Failure 
+                     (Format.asprintf 
+                        "Expression %a in %a cannot be used as index" 
+                        A.pp_print_expr e
+                        A.pp_print_position p))
+
+          in
+
+          (
+
+            match 
+
+              (* Filter for expresssions matching index:
+
+                 Querying for a on .a.b, .a.c, .d, .e returns .b .c
+
+              *)
+              List.fold_left
+                (function a -> function 
+
+                   (* Index has projected index at its head: remove
+                      head and add to accumulator *)
+                   | (i, e) -> 
+
+                     try 
+
+                       let i' = I.get_index_suffix idx i in 
+
+                       (i', e) :: a
+
+                     with Invalid_argument "get_index_suffix" -> a
+
+                        (* Skip index *)
+                        | _ -> a)
+
+                []
+                l
+
+            with 
+
+              (* Index not found *)
+              | [] -> 
+
+                (* Fail *)
+                raise 
+                  (Failure 
+                     (Format.asprintf 
+                        "Identifier %a in %a does not have field %a" 
+                        I.pp_print_ident id
+                        A.pp_print_position p
+                        I.pp_print_index idx))
+
+              (* Reduced to a single expression *)
+              | [([], e)] -> Expr e
+
+              (* Reduced to a nested expression *)
+              | l' -> IndexedExpr l'
+
+          )
+
+        (* Identifier is not nested *)
+        | Expr _ -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Identifier %a in %a does not have fields" 
+                  I.pp_print_ident id
+                  A.pp_print_position p))
+
+      )
+
+    | A.True p -> 
+
+      Expr 
+        { expr_sim = E.t_true; 
+          expr_type = T.t_bool; 
+          expr_clock = E.t_true } 
+
+    | A.False p -> 
+
+      Expr 
+        { expr_sim = E.t_false; 
+          expr_type = T.t_bool; 
+          expr_clock = E.t_true } 
+
+    | A.Num (p, d) -> 
+
+      Expr 
+        { expr_sim = E.mk_int (int_of_string d); 
+          expr_type = T.t_int; 
+          expr_clock = E.t_true } 
+
+    | A.Dec (p, f) -> 
+
+      Expr 
+        { expr_sim = E.mk_real (float_of_string f); 
+          expr_type = T.t_real; 
+          expr_clock = E.t_true } 
+
+
+    | A.ToInt (p, e) -> 
+
+      apply_to 
+        (function 
+
+          | { expr_sim = E.Real f; expr_type = T.Real } as expr -> 
+
+            { expr with 
+                expr_sim = E.mk_int (int_of_float f); 
+                expr_type = T.t_int }
+
+          | { expr_sim = e; expr_type = T.Real } as expr -> 
+
+            { expr with 
+                expr_sim = E.mk_to_int e; 
+                expr_type = T.t_int }
+
+          | _ ->
+
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Expression %a in %a must have type real" 
+                    A.pp_print_expr e
+                    A.pp_print_position p)))
+        (check_expr e)
+
+    (* TODO *)
+    | A.ExprList _ -> assert false 
+
+    | A.TupleExpr (p, l) -> 
+
+      IndexedExpr 
+        (snd
+           (List.fold_left
+              (fun (i, a) e -> 
+                 match check_expr e with 
+                   | Expr e -> (succ i, (I.index_of_int i, e) :: a)
+                   | IndexedExpr l -> 
+                     (succ i, 
+                      List.fold_left
+                        (fun a (j, e) -> (I.add_int_to_index j i, e) :: a)
+                        a
+                        l))
+              (0, [])
+              l))
+
+
+    | A.ArrayConstr (p, e1, e2) -> 
+
+      let n = 
+
+        match check_expr e2 with 
+
+          (* Expresssion must be simplified to a non-zero positive
+             integer *)
+          | Expr { expr_sim = E.Int i } when i >= 1 -> i 
+
+          (* Expression cannot be nested *)
+          | Expr _
+          | IndexedExpr _ -> 
+
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Expression %a in %a cannot be used to \
+                     construct an array" 
+                    A.pp_print_expr e2
+                    A.pp_print_position p))
+
+      in
+
+      let e = check_expr e1 in
+
+      IndexedExpr 
+        (let rec aux accum = function
+           | 0 -> accum
+           | i -> 
+             match e with 
+               | Expr e -> 
+                 aux ((I.index_of_int (pred i), e) :: accum) (pred i)
+
+               | IndexedExpr l -> 
+                 
+                 aux 
+                   (List.fold_left
+                      (fun a (j, e) -> 
+                         (I.add_int_to_index j i, e) :: a)
+                      accum
+                      l)
+                   (pred i)
+         in
+         aux [] n)
+
+    | A.ArraySlice (p, e, (el, eu)) ->
+
+      let il = 
+
+        match check_expr el with 
+
+          (* Expresssion must be simplified to zero or a positive
+             integer *)
+          | Expr { expr_sim = E.Int i } when i >= 0 -> i 
+
+          (* Expression cannot be nested *)
+          | Expr _
+          | IndexedExpr _ -> 
+
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Expression %a in %a cannot be used as \
+                     the lower bound of an array" 
+                    A.pp_print_expr el
+                    A.pp_print_position p))
+
+      in
+
+      let iu = 
+
+        match check_expr e2 with 
+
+          (* Expresssion must be simplified to a non-zero positive
+             integer *)
+          | Expr { expr_sim = E.Int i } when i >= il -> i 
+
+          (* Expression cannot be nested *)
+          | Expr _
+          | IndexedExpr _ -> 
+
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Expression %a in %a cannot be used as \
+                     the upper bound of an array slice" 
+                    A.pp_print_expr e2
+                    A.pp_print_position p))
+
+      in
+
+      IndexedExpr
+        (let rec aux accum = function
+           | i when i > iu -> accum
+           | i -> 
+             match check_expr (A.RecordProject (p, 
+         in
+         aux [] il
+
+
   in
-        
+
 
 (*
     | A.True p -> (Const (ConstBool true), Type T.bool)
-      
+
     | A.False p -> (Const (ConstBool false), Type T.bool)
-      
+
     | A.Num (p, n) -> 
 
     let v = int_of_string n in 
@@ -385,7 +718,7 @@ let rec check_declarations
                 []
                 type_ctx
             in
-            
+
             (* Identifier was not declared and no identifier with
                prefix declared *)
             if suffixes = [] then 
@@ -397,16 +730,16 @@ let rec check_declarations
                       "Identifier %a in %a is not declared" 
                       I.pp_print_ident i
                       A.pp_print_position p))
-                
+
             else
-              
+
               (* IndexedType suffixes  *)
               assert false
 
       in
 
       let v = 
-        
+
         (* Substitute value if identifier is a constant *)
         try Const (List.assoc i const_val) with 
 
@@ -435,13 +768,13 @@ let rec check_declarations
 
     (* [1, 2, 3] 
        [0] = 1, [1] = 2, [2] = 3 *)
-    
+
 
 
     (* Point-wise operators
 
        [ [0] = 1, [1] = 2, [2] = 3 ] + [ [0] = 4, [1] = 5, [2] = 6]
-       
+
        [ [0] = 5, [1] = 7, [2] = 9 ]
 
     *)
@@ -472,7 +805,7 @@ let rec check_declarations
       | Expr e, (Type (T.IntRange (l, u)) as t) ->
 
         (Expr (E.mk_uminus e), Type (T.mk_int_range (- u) (- l)))
-   
+
     )
 
 
@@ -480,11 +813,11 @@ let rec check_declarations
 let int_const_of_expr type_ctx const_val c = 
 
   try 
-    
+
     int_of_expr_val (fst (type_of_expr type_ctx const_val c))
-      
+
   with Invalid_argument "int_of_expr_val" ->  
-    
+
     (* Fail *)
     raise 
       (Failure 
@@ -492,9 +825,9 @@ let int_const_of_expr type_ctx const_val c =
             "Expression %a must be a constant integer in %a" 
             A.pp_print_expr c
             A.pp_print_position A.dummy_pos))
-      
+
 *)
-         
+
   (* ******************************************************************** *)
   (* Alias type declarations                                              *)
   (* ******************************************************************** *)
@@ -541,12 +874,12 @@ let int_const_of_expr type_ctx const_val c =
 
             (fun a (j, s) -> 
 
-              (* Construct an index of an identifier *)
-              let idx = I.index_of_ident j in
-              
-              (* Expand to declaration [type t.j = s] *)
-              ((A.TypeDecl 
-                  (A.AliasType (I.add_index t idx, s))) :: a))
+               (* Construct an index of an identifier *)
+               let idx = I.index_of_ident j in
+
+               (* Expand to declaration [type t.j = s] *)
+               ((A.TypeDecl 
+                   (A.AliasType (I.add_index t idx, s))) :: a))
 
             decls
             l
@@ -576,14 +909,14 @@ let int_const_of_expr type_ctx const_val c =
 
             (fun (a, j) s -> 
 
-              (* Construct an index of an identifier *)
-              let idx = I.index_of_int j in
-              
-              (* Expand to declaration to [type t[j] = s] *)
-              ((A.TypeDecl 
-                  (A.AliasType (I.add_index t idx, s))) :: a, 
-               succ j))
-            
+               (* Construct an index of an identifier *)
+               let idx = I.index_of_int j in
+
+               (* Expand to declaration to [type t[j] = s] *)
+               ((A.TypeDecl 
+                   (A.AliasType (I.add_index t idx, s))) :: a, 
+                succ j))
+
             (decls, 0)
             l
         in
@@ -987,6 +1320,11 @@ let int_const_of_expr type_ctx const_val c =
                 I.pp_print_ident t'
                 A.pp_print_position A.dummy_pos))
           
+
+      (* TODO *)
+      | A.RecordType _
+      | A.ArrayType _
+      | A.TupleType _ -> assert false 
 
         
   in

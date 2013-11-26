@@ -41,6 +41,8 @@ exception Type_error
 type unary_op =
   | Not
   | Uminus
+  | ToInt
+  | ToReal
 
 type binary_op =
   | And 
@@ -106,6 +108,10 @@ let mk_unary op e = UnaryOp (op, e)
 let mk_not = mk_unary Not 
 
 let mk_uminus = mk_unary Uminus
+
+let mk_to_int = mk_unary ToInt
+
+let mk_to_real = mk_unary ToReal
 
 let mk_binary op e1 e2 = BinaryOp (op, (e1, e2))
 
