@@ -204,11 +204,11 @@ let rec check_declarations
     (* Check if [t] is a basic types *)
     (List.mem_assoc t basic_types) ||
 
-    (* Check is [t] is an indexed type *)
-    (List.mem_assoc t indexed_types) || 
+      (* Check is [t] is an indexed type *)
+      (List.mem_assoc t indexed_types) || 
 
-    (* Check if [t] is a free type *)
-    (List.mem t free_types) 
+      (* Check if [t] is a free type *)
+      (List.mem t free_types) 
 
   in
 
@@ -310,19 +310,19 @@ let rec check_declarations
       let res = 
         List.fold_left 
           (fun a idx -> 
-             match check_expr (A.Ident (p, I.add_index id idx)) with 
+            match check_expr (A.Ident (p, I.add_index id idx)) with 
 
-               (* Expresssion is simple *)
-               | Expr e -> (idx, e) :: a 
+              (* Expresssion is simple *)
+              | Expr e -> (idx, e) :: a 
 
-               (* Expression is nested *)
-               | IndexedExpr l -> 
+              (* Expression is nested *)
+              | IndexedExpr l -> 
 
-                 (* Flatten *)
-                 List.fold_left 
-                   (fun a (i, e) -> (idx @ i, e) :: a)
-                   a
-                   l)
+                (* Flatten *)
+                List.fold_left 
+                  (fun a (i, e) -> (idx @ i, e) :: a)
+                  a
+                  l)
           []
           (List.assoc id index_ctx)
       in
@@ -473,14 +473,14 @@ let rec check_declarations
         | { expr_sim = E.Real f; expr_type = T.Real } as expr -> 
 
           { expr with 
-              expr_sim = E.mk_int (int_of_float f); 
-              expr_type = T.t_int }
+            expr_sim = E.mk_int (int_of_float f); 
+            expr_type = T.t_int }
 
         | { expr_sim = e; expr_type = T.Real } as expr -> 
 
           { expr with 
-              expr_sim = E.mk_to_int e; 
-              expr_type = T.t_int }
+            expr_sim = E.mk_to_int e; 
+            expr_type = T.t_int }
 
         | _ ->
 
@@ -507,14 +507,14 @@ let rec check_declarations
         (snd
            (List.fold_left
               (fun (i, a) e -> 
-                 match check_expr e with 
-                   | Expr e -> (succ i, (I.index_of_int i, e) :: a)
-                   | IndexedExpr l -> 
-                     (succ i, 
-                      List.fold_left
-                        (fun a (j, e) -> (I.add_int_to_index j i, e) :: a)
-                        a
-                        l))
+                match check_expr e with 
+                  | Expr e -> (succ i, (I.index_of_int i, e) :: a)
+                  | IndexedExpr l -> 
+                    (succ i, 
+                     List.fold_left
+                       (fun a (j, e) -> (I.add_int_to_index j i, e) :: a)
+                       a
+                       l))
               (0, [])
               l))
 
@@ -548,116 +548,158 @@ let rec check_declarations
 
       IndexedExpr 
         (let rec aux accum = function
-           | 0 -> accum
-           | i -> 
-             match e with 
-               | Expr e -> 
-                 aux ((I.index_of_int (pred i), e) :: accum) (pred i)
+          | 0 -> accum
+          | i -> 
+            match e with 
+              | Expr e -> 
+                aux ((I.index_of_int (pred i), e) :: accum) (pred i)
 
-               | IndexedExpr l -> 
+              | IndexedExpr l -> 
 
-                 aux 
-                   (List.fold_left
-                      (fun a (j, e) -> 
-                         (I.add_int_to_index j i, e) :: a)
-                      accum
-                      l)
-                   (pred i)
+                aux 
+                  (List.fold_left
+                     (fun a (j, e) -> 
+                       (I.add_int_to_index j i, e) :: a)
+                     accum
+                     l)
+                  (pred i)
          in
          aux [] n)
 
-    | A.ArraySlice (p, i, l) ->  
+    | A.ArraySlice (p, id, l) ->  
 
-      (* Fold l until empty, each time popping a pair (l, u) and
-         filter expression for indexes between l and u. *)
-
-      let rec aux = function
-
-        (* Expression is not nested  *)
+      let expr_list = match check_expr (A.Ident (p, id)) with 
+        | IndexedExpr l -> l 
         | Expr _ -> 
 
-          (function _ -> 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Identifier %a in %a does not have fields" 
-                    I.pp_print_ident id
-                    A.pp_print_position p)))
-
-
-        | IndexedExpr l -> 
-
-          (function 
-
-            | [] -> IndexedExpr l 
-
-            | (l, u) :: tl -> 
-
-              let il = 
-                
-                match check_expr el with 
-
-                  (* Expresssion must be simplified to zero or a positive
-                     integer *)
-                  | Expr { expr_sim = E.Int i } when i >= 0 -> i 
-
-                  (* Expression cannot be nested *)
-                  | Expr _
-                  | IndexedExpr _ -> 
-
-                    (* Fail *)
-                    raise 
-                      (Failure 
-                         (Format.asprintf 
-                            "Expression %a in %a cannot be used as \
-                             the lower bound of an array" 
-                            A.pp_print_expr el
-                            A.pp_print_position p))
-
-              in
-
-              let iu = 
-
-                match check_expr e2 with 
-
-                  (* Expresssion must be simplified to a non-zero positive
-                     integer *)
-                  | Expr { expr_sim = E.Int i } when i >= il -> i 
-
-                  (* Expression cannot be nested *)
-                  | Expr _
-                  | IndexedExpr _ -> 
-
-                    (* Fail *)
-                    raise 
-                      (Failure 
-                         (Format.asprintf 
-                            "Expression %a in %a cannot be used as \
-                             the upper bound of an array slice" 
-                            A.pp_print_expr e2
-                            A.pp_print_position p))
-
-              in
-
-              let rec aux2 = function 
-                
-                expr_find_index idx [] l 
-                  
-           
-              in
-
-
-              (* Must store  *)
-
-              aux (aux2 [] ) 
-              
-
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Identifier %a in %a does not have fields" 
+                  I.pp_print_ident id
+                  A.pp_print_position p))
+            
       in
 
-      aux (check_expr (A.Ident (p, i)) l
+      (* Maintain a list of pairs of indexes: an index in the array
+         that is sliced and the corresponding index in the new array.
 
+         [aux m a l u i] appends to each index pair in [m] all
+         integers from [i] to [u] to the first index, the difference
+         between [i] and [l] to the second index in the pair and add
+         the resulting pair to [a] *)
+      let rec aux indexes lbound ubound accum = function 
+
+        (* Reached maximum, return result *)
+        | i when i > ubound -> accum
+
+        (* Need to add integer i as index *)
+        | i -> 
+
+          (* Add to all elements in accum and recurse for next *)
+          aux 
+            indexes
+            lbound 
+            ubound
+            (List.fold_left
+               (fun a (j, j') -> 
+                 (I.add_int_to_index j i, 
+                  I.add_int_to_index j' (i - lbound)) :: a)
+               []
+               indexes)
+            (succ i)
+      in
+
+      (* Indexes to slice from array *)
+      let index_map = 
+
+        List.fold_left
+          (fun a (el, eu) -> 
+            
+            (* Evaluate expression for lower bound to an integer *)
+            let il = 
+              
+              match check_expr el with 
+                  
+                (* Expresssion must be simplified to zero or a positive
+                   integer *)
+                | Expr { expr_sim = E.Int i } when i >= 0 -> i 
+                  
+                (* Expression cannot be nested *)
+                | Expr _
+                | IndexedExpr _ -> 
+                  
+                  (* Fail *)
+                  raise 
+                    (Failure 
+                       (Format.asprintf 
+                          "Expression %a in %a cannot be used as \
+                         the lower bound of an array" 
+                          A.pp_print_expr el
+                          A.pp_print_position p))
+                    
+            in
+
+            (* Evaluate expression for lower bound to an integer *)
+            let iu = 
+              
+              match check_expr eu with 
+                  
+                (* Expresssion must be simplified to a non-zero
+                   positive integer *)
+                | Expr { expr_sim = E.Int i } when i >= il -> i 
+                  
+                (* Expression cannot be nested *)
+                | Expr _
+                | IndexedExpr _ -> 
+                  
+                  (* Fail *)
+                  raise 
+                    (Failure 
+                       (Format.asprintf 
+                          "Expression %a in %a cannot be used as \
+                             the upper bound of an array slice" 
+                          A.pp_print_expr eu
+                          A.pp_print_position p))
+                    
+            in
+           
+            (* Append all indexes between il und iu to indexes in accumulator *)
+            aux a il iu [] il)
+          []
+          l
+
+      in
+      
+      IndexedExpr 
+        (List.fold_left 
+           (fun a (i, i') -> 
+          
+             (match expr_find_index i [] expr_list with 
+                 
+               (* Index not found *)
+               | [] -> 
+                 
+                 (* Fail *)
+                 raise 
+                   (Failure 
+                      (Format.asprintf 
+                         "Array %a in %a does not have index %a" 
+                         I.pp_print_ident id
+                         A.pp_print_position p
+                         I.pp_print_index i))
+                   
+               | l -> 
+                 
+                 List.fold_left
+                   (fun a (j, e) -> (i' @ j, e) :: a)
+                   a
+                   []))
+           
+           []
+           index_map)
+           
   in
 
 
