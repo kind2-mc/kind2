@@ -41,7 +41,7 @@
 
 
 
-type one_index = private
+type one_index = 
 
   (* String as index *)
   | StringIndex of string

@@ -241,9 +241,21 @@ let rec check_declarations
 
 
   (* Apply function pointwise *)
-  let apply_to f = function 
+  let unary_apply_to f = function 
     | Expr e -> Expr (f e)
     | IndexedExpr l -> IndexedExpr (List.map (function (i, e) -> (i, f e)) l)
+  in
+
+  (* Apply function pointwise *)
+  let binary_apply_to f = function 
+    | Expr e1, Expr e2 -> Expr (f e1 e2)
+    | IndexedExpr l1, IndexedExpr l2 -> 
+      
+      (* Match indexes from l1 with indexes from l2 *)
+ 
+
+      IndexedExpr (List.map (function (i, e) -> (i, f e)) l)
+
   in
 
   (* Filter the indexed expression for the given indexes, flatten if
@@ -699,7 +711,231 @@ let rec check_declarations
            
            []
            index_map)
-           
+
+
+  | A.ArrayConcat (p, e1, e2) -> 
+
+    IndexedExpr
+      (match check_expr e1, check_expr e2 with 
+
+        | IndexedExpr l1, IndexedExpr l2 -> 
+
+          (let n = List.length l1 in 
+
+            List.fold_left
+              (fun a (i, e) -> 
+                 (match i with 
+
+                   | I.IntIndex i :: tl -> 
+                     (I.IntIndex (i + n) :: tl, e) :: a
+
+                   | _ -> 
+
+                     (* Fail *)
+                     raise 
+                       (Failure 
+                          (Format.asprintf 
+                             "Expression %a in %a is not an array" 
+                             A.pp_print_expr e2
+                             A.pp_print_position p))))
+              l1
+              l2)
+
+        | Expr _, _ -> 
+          
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a is not an array" 
+                  A.pp_print_expr e1
+                  A.pp_print_position p))
+
+        | _, Expr _ -> 
+          
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a is not an array" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p)))
+            
+  | A.RecordConstruct (p, t, l) -> 
+
+    (
+
+      let indexes = 
+
+        try 
+
+          List.assoc t index_ctx 
+
+        with Not_found -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Record type %a in %a is not defined" 
+                  I.pp_print_ident t
+                  A.pp_print_position p))
+
+      in
+  
+      let l' = 
+        List.fold_left
+          (fun a (i, e) -> 
+             
+             if List.mem (I.index_of_ident i) indexes then 
+
+                 match check_expr e with 
+                   
+                   | Expr e -> (I.index_of_ident i, e) :: a
+                   | IndexedExpr l -> 
+                     List.fold_left 
+                       (fun a (j, e) -> 
+                          (I.index_of_ident i @ j, e) :: a)
+                       a
+                       l
+
+               
+                     
+             else
+               
+               (* Fail *)
+               raise 
+                 (Failure 
+                    (Format.asprintf 
+                       "Record type %a in %a does not have a field %a" 
+                       I.pp_print_ident t
+                       A.pp_print_position p
+                       I.pp_print_ident i)))
+          []
+          l
+      in
+
+      if 
+
+        List.for_all 
+          (fun i -> List.mem_assoc i l')
+          indexes 
+
+      then 
+
+        IndexedExpr l'
+
+      else 
+
+               (* Fail *)
+               raise 
+                 (Failure 
+                    (Format.asprintf 
+                       "Not all fields of record type %a assigned in %a" 
+                       I.pp_print_ident t
+                       A.pp_print_position p)))
+
+  | A.Not (p, e) -> 
+
+      let eval = function 
+
+        | { expr_sim = E.True } as expr -> 
+
+          { expr with expr_sim = E.t_false }
+
+        | { expr_sim = E.False } as expr -> 
+
+          { expr with expr_sim = E.t_true }
+
+        | { expr_sim = e; expr_type = T.Bool } as expr -> 
+
+          { expr with expr_sim = E.mk_not e }
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e
+                  A.pp_print_position p))
+
+      in
+
+      apply_to 
+        eval
+        (check_expr e)
+
+  | A.And (p, e1, e2) -> 
+
+    let check_clock _ _ = true in
+
+      let eval = function 
+
+        | { expr_clock = c1 }, { expr_clock = c2 } when 
+            not (check_clock c1 c2) -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expressions in %a must have the same clock" 
+                  A.pp_print_position p))
+
+        | { expr_sim = E.True }, 
+          ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
+
+          expr2
+
+        | ({ expr_sim = e; expr_type = T.Bool } as expr1),
+          { expr_sim = E.True } ->
+
+          expr1
+
+        | ({ expr_sim = E.False } as expr1), 
+          { expr_sim = e; expr_type = T.Bool } -> 
+
+          expr1
+
+        | { expr_sim = e; expr_type = T.Bool },
+          ({ expr_sim = E.False } as expr2) ->
+
+          expr2
+
+        | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
+          { expr_sim = e2; expr_type = T.Bool } -> 
+
+          { expr_sim = E.mk_and e1 e2; 
+            expr_type = T.t_bool; 
+            expr_clock = c }
+
+        | { expr_type = T.Bool },  _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      apply_to 
+        eval
+        (check_expr e1, check_expr e2)
+   
   in
 
 
