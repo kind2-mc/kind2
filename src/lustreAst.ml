@@ -411,7 +411,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
         ppos p 
-        pp_print_expr e
+        I.pp_print_ident e
         (pp_print_list pp_print_array_slice ",@ ") l 
 
     | ArrayConcat (p, e1, e2) -> 
