@@ -482,7 +482,9 @@ expr:
   (* An array constructor *)
   | e1 = expr; CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  (* A tuple projection *)
+  (* A tuple projection 
+
+     TODO: allow multiple projections, return a list: a[0][0][0] *)
   | e = ident; LSQBRACKET; i = expr ; RSQBRACKET
     { A.TupleProject (mk_pos $startpos, e, i) }
 

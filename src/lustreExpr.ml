@@ -38,11 +38,23 @@ exception Type_error
 
 *)
 
+
 type unary_op =
   | Not
   | Uminus
   | ToInt
   | ToReal
+
+
+let pp_print_unary_op ppf = 
+  let p = Format.fprintf ppf "%s" in
+  
+  function
+    | Not -> p "not"
+    | Uminus -> p "-"
+    | ToInt -> p "int"
+    | ToReal -> p "real"
+      
 
 type binary_op =
   | And 
@@ -63,8 +75,40 @@ type binary_op =
   | Gt
   | Arrow
 
+
+let pp_print_binary_op ppf = 
+  let p = Format.fprintf ppf "%s" in
+  
+  function
+    | And -> p "and"
+    | Or -> p "or"
+    | Xor -> p "xor"
+    | Impl -> p "=>"
+    | Mod -> p "mod"
+    | Minus -> p "-"
+    | Plus  -> p "+"
+    | Div -> p "/"
+    | Times  -> p "*"
+    | IntDiv -> p "div"
+    | Eq -> p "="
+    | Neq -> p "<>"
+    | Lte -> p "<="
+    | Lt -> p "<"
+    | Gte -> p ">="
+    | Gt -> p ">"
+    | Arrow -> p "->"
+
+
 type var_op =
   | OneHot
+
+
+let pp_print_var_op ppf = 
+  let p = Format.fprintf ppf "%s" in
+  
+  function
+    | OneHot -> "#"
+
 
 type expr =
   | Var of I.t
@@ -76,6 +120,40 @@ type expr =
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * (expr * expr)
   | Ite of expr * expr * expr
+
+
+
+let rec pp_print_expr ppf = function 
+  | Var x -> Format.fprintf ppf "%a" I.pp_print_ident x
+  | VarPre x -> Format.fprintf ppf "@[<hv 1>(pre@ %a)@]" I.pp_print_ident x
+  | True -> Format.fprintf ppf "true"
+  | False -> Format.fprintf ppf "false"
+  | Int i -> Format.fprintf ppf "%d" i
+  | Real f -> Format.fprintf ppf "%f" f
+
+  | UnaryOp (o, e) -> 
+
+    Format.fprintf ppf
+      "@[<hv 1>(%a@ %a)@]" 
+      pp_print_unary_op o 
+      pp_print_expr e
+
+  | BinaryOp (o, (e1, e2)) -> 
+
+    Format.fprintf ppf 
+      "@[<hv 1>(%a@ %a@ %a)@]" 
+      pp_print_binary_op o 
+      pp_print_expr e1 
+      pp_print_expr e2
+
+  | Ite (p, l, r) -> 
+
+    Format.fprintf ppf 
+      "@[<hv 1>(if %a@;<1 -1>then@ %a@:<1 -1>else@ %a)@]" 
+      pp_print_expr p
+      pp_print_expr l 
+      pp_print_expr r
+
 
 
 type t = expr

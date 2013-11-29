@@ -68,6 +68,8 @@ type expr = private
 
 type t = expr
 
+val pp_print_expr : Format.formatter -> t -> unit 
+
 val t_true : t
 
 val t_false : t

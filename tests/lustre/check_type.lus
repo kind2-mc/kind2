@@ -1,19 +1,14 @@
-const max = 1;
-type t = enum { x, y, z };
-type a = t;
-type b = subrange [0, max] of int;
-
-type c = { one: t; two: { a: a; b: b } };
-
-type d = [a, b, c];
-
-type e = struct { first: d; second: c};
-
-type f = int^2^3;
-
-type g = int^(-1);
-const c0: c;
+type j = enum { red, green, blue };
 
 const a = 1;
-const b = x;
-
+const b = 2E1;
+const c = 2.0;
+const d = true;
+const e = red;
+const f = [red, a, [d, e]];
+const g = a^(int c);
+const h1 = false xor d;
+const h2 = false xor true;
+const h3 = true xor false;
+const i = [1, 2]|[3, 4];
+const j = i[0..2];

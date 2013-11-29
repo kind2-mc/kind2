@@ -46,7 +46,9 @@ type j = enum { init, step, stop };
 
 -- Array types
 type k = int^5;
-type l = int^5^5; -- ^ is left-associative
+type l = int^5^3; -- ^ is left-associative
+
+const h = 2;
 type m = int^5*h;
 
 -- Free constants, must have a type
@@ -60,7 +62,6 @@ const b1 = 1;
 const c1 : bool = true;
       c2 = 5;
       c3, c4 : real;
-
 
 -- A node declaration
 node x 
@@ -379,7 +380,7 @@ node x63 (e: [bool, [int, int]]) returns (c: bool; a, b: int; A: [int, int]);
 let
   [c, [a, b]] = e;
   [c, A] = e;
-  c = e[0]; a = e[1][0]; b = e[1][1];
+  c = e[0]; -- a = e[1][0]; b = e[1][1];
   c = e[0]; A = e[1];
   [c, [A[0], A[1]]] = e;
 tel;
@@ -432,12 +433,12 @@ let
   b2 = A[2..4];
   b3 = A[4..2];
   b4 = A[2..2];
-  b5 = A[2..4][0];
+  -- b5 = A[2..4][0];
 tel
 
 node x76 (A: T^10^5) returns (B1: T^10^2; B2: T^2^4; B3: int^5 );
 let
-  B1 = A[1..4][1..2];
+  -- B1 = A[1..4][1..2];
   B2 = A[1..4, 1..2];
   B3 = [1, 2, 3] | [4, 3];
 tel
