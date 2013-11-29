@@ -247,42 +247,42 @@ let rec check_declarations
 
         (* Sort indexed expression lists *)
         let l1', l2' = sort_indexed_expr l1, sort_indexed_expr l2 in
-        
+
         try 
 
           IndexedExpr 
             (List.map2 
                (fun (i1, e1) (i2, e2) -> 
-                 
-                 (* Indexes must match *)
-                 if i1 = i2 then 
-                   
-                   (* Clocks must match *)
-                   if check_clocks e1.expr_clock e2.expr_clock then 
-                     
-                     (* Apply function to expressions *)
-                     (i1, f (e1, e2))
-                       
-                   else
-                     
-                     (* Fail *)
-                     raise 
-                       (Failure 
-                          (Format.asprintf 
-                             "Clock mismatch for expressions at %a" 
-                             A.pp_print_position pos))
-                       
-                 else
-                   
-                   (* Fail *)
-                   raise 
-                     (Failure 
-                        (Format.asprintf 
-                           "Type mismatch for expressions at %a" 
-                           A.pp_print_position pos)))
+
+                  (* Indexes must match *)
+                  if i1 = i2 then 
+
+                    (* Clocks must match *)
+                    if check_clocks e1.expr_clock e2.expr_clock then 
+
+                      (* Apply function to expressions *)
+                      (i1, f (e1, e2))
+
+                    else
+
+                      (* Fail *)
+                      raise 
+                        (Failure 
+                           (Format.asprintf 
+                              "Clock mismatch for expressions at %a" 
+                              A.pp_print_position pos))
+
+                  else
+
+                    (* Fail *)
+                    raise 
+                      (Failure 
+                         (Format.asprintf 
+                            "Type mismatch for expressions at %a" 
+                            A.pp_print_position pos)))
                l1'
                l2')
-            
+
         with Invalid_argument _ -> 
 
           (* Fail *)
@@ -291,17 +291,17 @@ let rec check_declarations
                (Format.asprintf 
                   "Type mismatch for expressions at %a" 
                   A.pp_print_position pos))
-            
+
       )
 
     | _ -> 
 
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Type mismatch for expressions at %a" 
-                  A.pp_print_position pos))
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Type mismatch for expressions at %a" 
+              A.pp_print_position pos))
 
   in
 
@@ -369,19 +369,19 @@ let rec check_declarations
       let res = 
         List.fold_left 
           (fun a idx -> 
-            match check_expr (A.Ident (p, I.add_index id idx)) with 
+             match check_expr (A.Ident (p, I.add_index id idx)) with 
 
-              (* Expresssion is simple *)
-              | Expr e -> (idx, e) :: a 
+               (* Expresssion is simple *)
+               | Expr e -> (idx, e) :: a 
 
-              (* Expression is nested *)
-              | IndexedExpr l -> 
+               (* Expression is nested *)
+               | IndexedExpr l -> 
 
-                (* Flatten *)
-                List.fold_left 
-                  (fun a (i, e) -> (idx @ i, e) :: a)
-                  a
-                  l)
+                 (* Flatten *)
+                 List.fold_left 
+                   (fun a (i, e) -> (idx @ i, e) :: a)
+                   a
+                   l)
           []
           (List.assoc id index_ctx)
       in
@@ -532,14 +532,14 @@ let rec check_declarations
         | { expr_sim = E.Real f; expr_type = T.Real } as expr -> 
 
           { expr with 
-            expr_sim = E.mk_int (int_of_float f); 
-            expr_type = T.t_int }
+              expr_sim = E.mk_int (int_of_float f); 
+              expr_type = T.t_int }
 
         | { expr_sim = e; expr_type = T.Real } as expr -> 
 
           { expr with 
-            expr_sim = E.mk_to_int e; 
-            expr_type = T.t_int }
+              expr_sim = E.mk_to_int e; 
+              expr_type = T.t_int }
 
         | _ ->
 
@@ -564,14 +564,14 @@ let rec check_declarations
         | { expr_sim = E.Int d; expr_type = T.Int } as expr -> 
 
           { expr with 
-            expr_sim = E.mk_real (float_of_int d); 
-            expr_type = T.t_real }
+              expr_sim = E.mk_real (float_of_int d); 
+              expr_type = T.t_real }
 
         | { expr_sim = e; expr_type = T.Int } as expr -> 
 
           { expr with 
-            expr_sim = E.mk_to_real e; 
-            expr_type = T.t_real }
+              expr_sim = E.mk_to_real e; 
+              expr_type = T.t_real }
 
         | _ ->
 
@@ -598,14 +598,14 @@ let rec check_declarations
         (snd
            (List.fold_left
               (fun (i, a) e -> 
-                match check_expr e with 
-                  | Expr e -> (succ i, (I.index_of_int i, e) :: a)
-                  | IndexedExpr l -> 
-                    (succ i, 
-                     List.fold_left
-                       (fun a (j, e) -> (I.IntIndex i :: j, e) :: a)
-                       a
-                       l))
+                 match check_expr e with 
+                   | Expr e -> (succ i, (I.index_of_int i, e) :: a)
+                   | IndexedExpr l -> 
+                     (succ i, 
+                      List.fold_left
+                        (fun a (j, e) -> (I.IntIndex i :: j, e) :: a)
+                        a
+                        l))
               (0, [])
               l))
 
@@ -639,21 +639,21 @@ let rec check_declarations
 
       IndexedExpr 
         (let rec aux accum = function
-          | 0 -> accum
-          | i -> 
-            match e with 
-              | Expr e -> 
-                aux ((I.index_of_int (pred i), e) :: accum) (pred i)
+           | 0 -> accum
+           | i -> 
+             match e with 
+               | Expr e -> 
+                 aux ((I.index_of_int (pred i), e) :: accum) (pred i)
 
-              | IndexedExpr l -> 
+               | IndexedExpr l -> 
 
-                aux 
-                  (List.fold_left
-                     (fun a (j, e) -> 
-                       (I.add_int_to_index j i, e) :: a)
-                     accum
-                     l)
-                  (pred i)
+                 aux 
+                   (List.fold_left
+                      (fun a (j, e) -> 
+                         (I.add_int_to_index j i, e) :: a)
+                      accum
+                      l)
+                   (pred i)
          in
          aux [] n)
 
@@ -670,7 +670,7 @@ let rec check_declarations
                   "Identifier %a in %a does not have fields" 
                   I.pp_print_ident id
                   A.pp_print_position p))
-            
+
       in
 
       (* Maintain a list of pairs of indexes: an index in the array
@@ -684,27 +684,27 @@ let rec check_declarations
 
         function 
 
-        (* Reached maximum, return result *)
-        | i when i > ubound -> accum
+          (* Reached maximum, return result *)
+          | i when i > ubound -> accum
 
-        (* Need to add integer i as index *)
-        | i -> 
+          (* Need to add integer i as index *)
+          | i -> 
 
-          (* FIXME *)
+            (* FIXME *)
+              
+            (* Add to all elements in accum and recurse for next *)
+            aux 
+              indexes
+              lbound 
+              ubound
+              (List.fold_left
+                 (fun a (j, j') -> 
 
-          (* Add to all elements in accum and recurse for next *)
-          aux 
-            indexes
-            lbound 
-            ubound
-            (List.fold_left
-               (fun a (j, j') -> 
-
-                 (I.add_int_to_index j i, 
-                  I.add_int_to_index j' (i - lbound)) :: a)
-               accum
-               indexes)
-            (succ i)
+                    (I.add_int_to_index j i, 
+                     I.add_int_to_index j' (i - lbound)) :: a)
+                 accum
+                 indexes)
+              (succ i)
 
       in
 
@@ -713,87 +713,92 @@ let rec check_declarations
 
         List.fold_left
           (fun a (el, eu) -> 
-            
-            (* Evaluate expression for lower bound to an integer *)
-            let il = 
-              
-              match check_expr el with 
-                  
-                (* Expresssion must be simplified to zero or a positive
-                   integer *)
-                | Expr { expr_sim = E.Int i } when i >= 0 -> i 
-                  
-                (* Expression cannot be nested *)
-                | Expr _
-                | IndexedExpr _ -> 
-                  
-                  (* Fail *)
-                  raise 
-                    (Failure 
-                       (Format.asprintf 
-                          "Expression %a in %a cannot be used as \
-                         the lower bound of an array" 
-                          A.pp_print_expr el
-                          A.pp_print_position p))
-                    
-            in
 
-            (* Evaluate expression for lower bound to an integer *)
-            let iu = 
-              
-              match check_expr eu with 
-                  
-                (* Expresssion must be simplified to a non-zero
-                   positive integer *)
-                | Expr { expr_sim = E.Int i } when i >= il -> i 
-                  
-                (* Expression cannot be nested *)
-                | Expr _
-                | IndexedExpr _ -> 
-                  
-                  (* Fail *)
-                  raise 
-                    (Failure 
-                       (Format.asprintf 
-                          "Expression %a in %a cannot be used as \
-                             the upper bound of an array slice" 
-                          A.pp_print_expr eu
-                          A.pp_print_position p))
-                    
-            in
-            
-            (* Append all indexes between il und iu to indexes in accumulator *)
-            aux a il iu [] il)
-          []
+             (* Evaluate expression for lower bound to an integer *)
+             let il = 
+
+               match check_expr el with 
+
+                 (* Expresssion must be simplified to zero or a positive
+                    integer *)
+                 | Expr { expr_sim = E.Int i } when i >= 0 -> i 
+
+                 (* Expression cannot be nested *)
+                 | Expr _
+                 | IndexedExpr _ -> 
+
+                   (* Fail *)
+                   raise 
+                     (Failure 
+                        (Format.asprintf 
+                           "Expression %a in %a cannot be used as \
+                            the lower bound of an array" 
+                           A.pp_print_expr el
+                           A.pp_print_position p))
+
+             in
+
+             (* Evaluate expression for lower bound to an integer *)
+             let iu = 
+
+               match check_expr eu with 
+
+                 (* Expresssion must be simplified to a non-zero
+                    positive integer *)
+                 | Expr { expr_sim = E.Int i } when i >= il -> i 
+
+                 (* Expression cannot be nested *)
+                 | Expr _
+                 | IndexedExpr _ -> 
+
+                   (* Fail *)
+                   raise 
+                     (Failure 
+                        (Format.asprintf 
+                           "Expression %a in %a cannot be used as \
+                            the upper bound of an array slice" 
+                           A.pp_print_expr eu
+                           A.pp_print_position p))
+
+             in
+
+             (* Append all indexes between il und iu to indexes in
+                accumulator *)
+             aux a il iu [] il)
+          [([],[])]
           l
 
       in
-      
+
       IndexedExpr 
         (List.fold_left 
            (fun a (i, i') -> 
-             
-             (match expr_find_index i [] expr_list with 
-                 
-               (* Index not found *)
-               | [] -> 
-                 
-                 (* Fail *)
-                 raise 
-                   (Failure 
-                      (Format.asprintf 
-                         "Array %a in %a does not have index %a" 
-                         I.pp_print_ident id
-                         A.pp_print_position p
-                         I.pp_print_index i))
-                   
-               | l -> 
-                 
-                 List.fold_left
-                   (fun a (j, e) -> (i' @ j, e) :: a)
-                   []
-                   a))
-           
+              
+              Format.printf "%a -> %a@." 
+                I.pp_print_index i
+                I.pp_print_index i';
+
+              (match expr_find_index i [] expr_list with 
+
+                (* Index not found *)
+                | [] -> 
+
+                  (* Fail *)
+                  raise 
+                    (Failure 
+                       (Format.asprintf 
+                          "Array %a in %a does not have index %a" 
+                          I.pp_print_ident id
+                          A.pp_print_position p
+                          I.pp_print_index i))
+
+                | l -> 
+
+                  List.fold_left
+                    (fun a (j, e) -> (i' @ j, e) :: a)
+                    a
+                    l))
+
            []
            index_map)
 
@@ -809,25 +814,25 @@ let rec check_declarations
 
              List.fold_left
                (fun a (i, e) -> 
-                 (match i with 
+                  (match i with 
 
-                   | I.IntIndex i :: tl -> 
-                     (I.IntIndex (i + n) :: tl, e) :: a
+                    | I.IntIndex i :: tl -> 
+                      (I.IntIndex (i + n) :: tl, e) :: a
 
-                   | _ -> 
+                    | _ -> 
 
-                     (* Fail *)
-                     raise 
-                       (Failure 
-                          (Format.asprintf 
-                             "Expression %a in %a is not an array" 
-                             A.pp_print_expr e2
-                             A.pp_print_position p))))
+                      (* Fail *)
+                      raise 
+                        (Failure 
+                           (Format.asprintf 
+                              "Expression %a in %a is not an array" 
+                              A.pp_print_expr e2
+                              A.pp_print_position p))))
                l1
                l2)
 
           | Expr _, _ -> 
-            
+
             (* Fail *)
             raise 
               (Failure 
@@ -837,7 +842,7 @@ let rec check_declarations
                     A.pp_print_position p))
 
           | _, Expr _ -> 
-            
+
             (* Fail *)
             raise 
               (Failure 
@@ -845,7 +850,7 @@ let rec check_declarations
                     "Expression %a in %a is not an array" 
                     A.pp_print_expr e2
                     A.pp_print_position p)))
-        
+
     | A.RecordConstruct (p, t, l) -> 
 
       (
@@ -867,35 +872,35 @@ let rec check_declarations
                     A.pp_print_position p))
 
         in
-        
+
         let l' = 
           List.fold_left
             (fun a (i, e) -> 
-              
-              if List.mem (I.index_of_ident i) indexes then 
 
-                match check_expr e with 
-                    
-                  | Expr e -> (I.index_of_ident i, e) :: a
-                  | IndexedExpr l -> 
-                    List.fold_left 
-                      (fun a (j, e) -> 
-                        (I.index_of_ident i @ j, e) :: a)
-                      a
-                      l
+               if List.mem (I.index_of_ident i) indexes then 
 
-                      
-                      
-              else
-                
-                (* Fail *)
-                raise 
-                  (Failure 
-                     (Format.asprintf 
-                        "Record type %a in %a does not have a field %a" 
-                        I.pp_print_ident t
-                        A.pp_print_position p
-                        I.pp_print_ident i)))
+                 match check_expr e with 
+
+                   | Expr e -> (I.index_of_ident i, e) :: a
+                   | IndexedExpr l -> 
+                     List.fold_left 
+                       (fun a (j, e) -> 
+                          (I.index_of_ident i @ j, e) :: a)
+                       a
+                       l
+
+
+
+               else
+
+                 (* Fail *)
+                 raise 
+                   (Failure 
+                      (Format.asprintf 
+                         "Record type %a in %a does not have a field %a" 
+                         I.pp_print_ident t
+                         A.pp_print_position p
+                         I.pp_print_ident i)))
             []
             l
         in
@@ -957,27 +962,27 @@ let rec check_declarations
       let eval = function 
 
         | { expr_sim = E.True }, 
-              ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
+          ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
 
           expr2
 
         | ({ expr_sim = e; expr_type = T.Bool } as expr1),
-                { expr_sim = E.True } ->
+          { expr_sim = E.True } ->
 
           expr1
 
         | ({ expr_sim = E.False } as expr1), 
-                  { expr_sim = e; expr_type = T.Bool } -> 
+          { expr_sim = e; expr_type = T.Bool } -> 
 
           expr1
 
         | { expr_sim = e; expr_type = T.Bool },
-                    ({ expr_sim = E.False } as expr2) ->
+          ({ expr_sim = E.False } as expr2) ->
 
           expr2
 
         | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
-                      { expr_sim = e2; expr_type = T.Bool } -> 
+          { expr_sim = e2; expr_type = T.Bool } -> 
 
           { expr_sim = E.mk_and e1 e2; 
             expr_type = T.t_bool; 
@@ -1009,33 +1014,33 @@ let rec check_declarations
         p
         eval
         (check_expr e1, check_expr e2)
-        
+
     | A.Or (p, e1, e2) -> 
 
       let eval = function 
 
         | { expr_sim = E.False }, 
-              ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
+          ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
 
           expr2
 
         | ({ expr_sim = e; expr_type = T.Bool } as expr1),
-                { expr_sim = E.False } ->
+          { expr_sim = E.False } ->
 
           expr1
 
         | ({ expr_sim = E.True } as expr1), 
-                  { expr_sim = e; expr_type = T.Bool } -> 
+          { expr_sim = e; expr_type = T.Bool } -> 
 
           expr1
 
         | { expr_sim = e; expr_type = T.Bool },
-                    ({ expr_sim = E.True } as expr2) ->
+          ({ expr_sim = E.True } as expr2) ->
 
           expr2
 
         | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
-                      { expr_sim = e2; expr_type = T.Bool } -> 
+          { expr_sim = e2; expr_type = T.Bool } -> 
 
           { expr_sim = E.mk_or e1 e2; 
             expr_type = T.t_bool; 
@@ -1074,16 +1079,16 @@ let rec check_declarations
 
         | ({ expr_sim = E.False }, 
            ({ expr_type = T.Bool } as expr2)) -> 
-          
+
           expr2
 
         | (({ expr_type = T.Bool } as expr1),
            { expr_sim = E.False }) ->
 
           expr1
-            
+
         | ({ expr_sim = E.True } as expr1, 
-           { expr_sim = E.True }) -> 
+                                    { expr_sim = E.True }) -> 
 
           { expr1 with expr_sim = E.t_false }
 
@@ -1093,8 +1098,8 @@ let rec check_declarations
           { expr2 with expr_sim = E.mk_not e }
 
         | ({ expr_sim = e; expr_type = T.Bool } as expr1,
-           { expr_sim = E.True }) -> 
-          
+                                                   { expr_sim = E.True }) -> 
+
           { expr1 with expr_sim = E.mk_not e }
 
         | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
@@ -1103,7 +1108,7 @@ let rec check_declarations
           { expr_sim = E.mk_xor e1 e2; 
             expr_type = T.t_bool; 
             expr_clock = c }
-            
+
         | { expr_type = T.Bool },  _ ->
 
           (* Fail *)
@@ -1142,11 +1147,11 @@ let rec check_declarations
 
         | ({ expr_sim = E.True }, 
            ({ expr_sim = e; expr_type = T.Bool } as expr2)) -> 
-          
+
           expr2
-            
+
         | ({ expr_sim = e; expr_type = T.Bool } as expr1,
-           { expr_sim = E.False }) ->
+                                                   { expr_sim = E.False }) ->
 
           { expr1 with expr_sim = E.mk_not e }
 
@@ -1156,7 +1161,7 @@ let rec check_declarations
           expr2
 
         | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
-                      { expr_sim = e2; expr_type = T.Bool } -> 
+          { expr_sim = e2; expr_type = T.Bool } -> 
 
           { expr_sim = E.mk_impl e1 e2; 
             expr_type = T.t_bool; 
@@ -1191,7 +1196,7 @@ let rec check_declarations
 
     (* TODO *)
     | A.OneHot _ -> assert false 
-        
+
     | A.Uminus (p, e) -> 
 
       let eval = function 
@@ -1242,9 +1247,9 @@ let rec check_declarations
           { expr1 with expr_sim = E.mk_int (d1 mod d2) }
 
         | ({ expr_sim = e1; expr_type = T.Int } as expr1,
-           { expr_sim = e2; expr_type = T.Int }) ->
+                                                   { expr_sim = e2; expr_type = T.Int }) ->
 
-            { expr1 with expr_sim = E.mk_mod e1 e2 }
+          { expr1 with expr_sim = E.mk_mod e1 e2 }
 
         | _ ->
 
@@ -1262,7 +1267,7 @@ let rec check_declarations
         p
         eval
         (check_expr e1, check_expr e2)
-        
+
     | A.Times (p, e1, e2) -> 
 
       let eval = function 
@@ -1278,14 +1283,14 @@ let rec check_declarations
           { expr1 with expr_sim = E.mk_real (d1 *. d2) }
 
         | ({ expr_sim = e1; expr_type = T.Int } as expr1,
-           { expr_sim = e2; expr_type = T.Int }) ->
+                                                   { expr_sim = e2; expr_type = T.Int }) ->
 
-            { expr1 with expr_sim = E.mk_times e1 e2 }
+          { expr1 with expr_sim = E.mk_times e1 e2 }
 
         | ({ expr_sim = e1; expr_type = T.Real } as expr1,
-           { expr_sim = e2; expr_type = T.Real }) ->
+                                                    { expr_sim = e2; expr_type = T.Real }) ->
 
-            { expr1 with expr_sim = E.mk_times e1 e2 }
+          { expr1 with expr_sim = E.mk_times e1 e2 }
 
         | _ ->
 
@@ -1303,7 +1308,7 @@ let rec check_declarations
         p
         eval
         (check_expr e1, check_expr e2)
-        
+
     | A.Plus (p, e1, e2) -> 
 
       (* TODO: adjust integer ranges *)
@@ -1320,14 +1325,14 @@ let rec check_declarations
           { expr1 with expr_sim = E.mk_real (d1 +. d2) }
 
         | ({ expr_sim = e1; expr_type = T.Int } as expr1,
-           { expr_sim = e2; expr_type = T.Int }) ->
+                                                   { expr_sim = e2; expr_type = T.Int }) ->
 
-            { expr1 with expr_sim = E.mk_plus e1 e2 }
+          { expr1 with expr_sim = E.mk_plus e1 e2 }
 
         | ({ expr_sim = e1; expr_type = T.Real } as expr1,
-           { expr_sim = e2; expr_type = T.Real }) ->
+                                                    { expr_sim = e2; expr_type = T.Real }) ->
 
-            { expr1 with expr_sim = E.mk_plus e1 e2 }
+          { expr1 with expr_sim = E.mk_plus e1 e2 }
 
         | _ ->
 
@@ -1345,7 +1350,7 @@ let rec check_declarations
         p
         eval
         (check_expr e1, check_expr e2)
-        
+
 
   in
 
