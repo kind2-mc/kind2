@@ -138,17 +138,40 @@ let pp_print_indexed_type ppf (i, t) =
     I.pp_print_ident i 
     (pp_print_list pp_print_index_type ";@ ") t
 
+let pp_print_type_ctx ppf (i, t) = 
+  Format.fprintf ppf "%a: %a" I.pp_print_ident i T.pp_print_lustre_type t
 
-let pp_print_state ppf { basic_types; indexed_types; free_types; type_ctx; consts; result } =
+let pp_print_index_ctx ppf (i, j) = 
+
+  Format.fprintf ppf 
+    "%a: @[<hv 1>[%a]@]" 
+    I.pp_print_ident i 
+    (pp_print_list I.pp_print_index ";@ ") j
+
+let pp_print_consts ppf (i, e) = 
+  Format.fprintf ppf "%a: %a" I.pp_print_ident i E.pp_print_expr e
+
+  
+
+
+let pp_print_state 
+    ppf 
+    { basic_types; indexed_types; free_types; type_ctx; index_ctx; consts; result } =
   
   Format.fprintf ppf
     "@[<v>@[<v>basic_types:@,%a@]@,\
           @[<v>indexed_types:@,%a@]@,\
-          @[<v>free_types:@,@[<hv>%a@]@]\
+          @[<v>free_types:@,@[<hv>%a@]@,@]\
+          @[<v>type_ctx:@,%a@]@,\
+          @[<v>index_ctx:@,%a@]@,\
+          @[<v>consts:@,%a@]@,\
      @]" 
     (pp_print_list pp_print_basic_type "@,") basic_types
     (pp_print_list pp_print_indexed_type "@,") indexed_types
     (pp_print_list I.pp_print_ident ",@ ") free_types
+    (pp_print_list pp_print_type_ctx "@,") type_ctx
+    (pp_print_list pp_print_index_ctx "@,") index_ctx
+    (pp_print_list pp_print_consts "@,") consts
 
 
 (* An well-typed and well-clocked expression with its type and clock *)
@@ -198,46 +221,9 @@ let rec check_declarations
        result } as state) = 
 
 
-  (* Return true if type [t] was already declared *)
-  let type_is_declared t = 
 
-    (* Check if [t] is a basic types *)
-    (List.mem_assoc t basic_types) ||
-
-      (* Check is [t] is an indexed type *)
-      (List.mem_assoc t indexed_types) || 
-
-      (* Check if [t] is a free type *)
-      (List.mem t free_types) 
-
-  in
-
-  (* Convert a parsed type to a built-in type *)
-  let lustre_type_of_ast_type = function
-
-    | A.Bool -> T.t_bool
-
-    | A.Int -> T.t_int
-
-    | A.Real -> T.t_real
-
-    | A.IntRange (i, j) -> 
-
-      (* let ci = int_const_of_expr type_ctx const_val i in
-
-         let cj = int_const_of_expr type_ctx const_val j in
-
-         T.mk_int_range ci cj *)
-      assert false 
-
-
-    | A.EnumType l -> T.mk_enum l
-
-    | A.UserType t -> T.mk_free_type t
-
-    | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
-
-  in
+  (* TODO: check clocks *)
+  let check_clocks _ _ = true in
 
 
   (* Apply function pointwise *)
@@ -246,15 +232,76 @@ let rec check_declarations
     | IndexedExpr l -> IndexedExpr (List.map (function (i, e) -> (i, f e)) l)
   in
 
-  (* Apply function pointwise *)
-  let binary_apply_to f = function 
-    | Expr e1, Expr e2 -> Expr (f e1 e2)
-    | IndexedExpr l1, IndexedExpr l2 -> 
-      
-      (* Match indexes from l1 with indexes from l2 *)
- 
 
-      IndexedExpr (List.map (function (i, e) -> (i, f e)) l)
+  (* Apply function pointwise *)
+  let binary_apply_to pos f = function 
+
+    | Expr e1, Expr e2 -> Expr (f (e1, e2))
+
+    | IndexedExpr l1, IndexedExpr l2 -> 
+
+      (
+
+        (* Sort a list indexed expressions *)
+        let sort_indexed_expr = List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) in
+
+        (* Sort indexed expression lists *)
+        let l1', l2' = sort_indexed_expr l1, sort_indexed_expr l2 in
+        
+        try 
+
+          IndexedExpr 
+            (List.map2 
+               (fun (i1, e1) (i2, e2) -> 
+                 
+                 (* Indexes must match *)
+                 if i1 = i2 then 
+                   
+                   (* Clocks must match *)
+                   if check_clocks e1.expr_clock e2.expr_clock then 
+                     
+                     (* Apply function to expressions *)
+                     (i1, f (e1, e2))
+                       
+                   else
+                     
+                     (* Fail *)
+                     raise 
+                       (Failure 
+                          (Format.asprintf 
+                             "Clock mismatch for expressions at %a" 
+                             A.pp_print_position pos))
+                       
+                 else
+                   
+                   (* Fail *)
+                   raise 
+                     (Failure 
+                        (Format.asprintf 
+                           "Type mismatch for expressions at %a" 
+                           A.pp_print_position pos)))
+               l1'
+               l2')
+            
+        with Invalid_argument _ -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type mismatch for expressions at %a" 
+                  A.pp_print_position pos))
+            
+      )
+
+    | _ -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Type mismatch for expressions at %a" 
+                  A.pp_print_position pos))
 
   in
 
@@ -506,7 +553,39 @@ let rec check_declarations
 
       in
 
-      apply_to 
+      unary_apply_to 
+        eval
+        (check_expr e)
+
+    | A.ToReal (p, e) -> 
+
+      let eval = function 
+
+        | { expr_sim = E.Int d; expr_type = T.Int } as expr -> 
+
+          { expr with 
+            expr_sim = E.mk_real (float_of_int d); 
+            expr_type = T.t_real }
+
+        | { expr_sim = e; expr_type = T.Int } as expr -> 
+
+          { expr with 
+            expr_sim = E.mk_to_real e; 
+            expr_type = T.t_real }
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type int" 
+                  A.pp_print_expr e
+                  A.pp_print_position p))
+
+      in
+
+      unary_apply_to 
         eval
         (check_expr e)
 
@@ -524,7 +603,7 @@ let rec check_declarations
                   | IndexedExpr l -> 
                     (succ i, 
                      List.fold_left
-                       (fun a (j, e) -> (I.add_int_to_index j i, e) :: a)
+                       (fun a (j, e) -> (I.IntIndex i :: j, e) :: a)
                        a
                        l))
               (0, [])
@@ -601,13 +680,17 @@ let rec check_declarations
          integers from [i] to [u] to the first index, the difference
          between [i] and [l] to the second index in the pair and add
          the resulting pair to [a] *)
-      let rec aux indexes lbound ubound accum = function 
+      let rec aux indexes lbound ubound accum = 
+
+        function 
 
         (* Reached maximum, return result *)
         | i when i > ubound -> accum
 
         (* Need to add integer i as index *)
         | i -> 
+
+          (* FIXME *)
 
           (* Add to all elements in accum and recurse for next *)
           aux 
@@ -616,11 +699,13 @@ let rec check_declarations
             ubound
             (List.fold_left
                (fun a (j, j') -> 
+
                  (I.add_int_to_index j i, 
                   I.add_int_to_index j' (i - lbound)) :: a)
-               []
+               accum
                indexes)
             (succ i)
+
       in
 
       (* Indexes to slice from array *)
@@ -676,7 +761,7 @@ let rec check_declarations
                           A.pp_print_position p))
                     
             in
-           
+            
             (* Append all indexes between il und iu to indexes in accumulator *)
             aux a il iu [] il)
           []
@@ -687,7 +772,7 @@ let rec check_declarations
       IndexedExpr 
         (List.fold_left 
            (fun a (i, i') -> 
-          
+             
              (match expr_find_index i [] expr_list with 
                  
                (* Index not found *)
@@ -706,24 +791,24 @@ let rec check_declarations
                  
                  List.fold_left
                    (fun a (j, e) -> (i' @ j, e) :: a)
-                   a
-                   []))
+                   []
+                   a))
            
            []
            index_map)
 
 
-  | A.ArrayConcat (p, e1, e2) -> 
+    | A.ArrayConcat (p, e1, e2) -> 
 
-    IndexedExpr
-      (match check_expr e1, check_expr e2 with 
+      IndexedExpr
+        (match check_expr e1, check_expr e2 with 
 
-        | IndexedExpr l1, IndexedExpr l2 -> 
+          | IndexedExpr l1, IndexedExpr l2 -> 
 
-          (let n = List.length l1 in 
+            (let n = List.length l1 in 
 
-            List.fold_left
-              (fun a (i, e) -> 
+             List.fold_left
+               (fun a (i, e) -> 
                  (match i with 
 
                    | I.IntIndex i :: tl -> 
@@ -738,104 +823,104 @@ let rec check_declarations
                              "Expression %a in %a is not an array" 
                              A.pp_print_expr e2
                              A.pp_print_position p))))
-              l1
-              l2)
+               l1
+               l2)
 
-        | Expr _, _ -> 
-          
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Expression %a in %a is not an array" 
-                  A.pp_print_expr e1
-                  A.pp_print_position p))
-
-        | _, Expr _ -> 
-          
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Expression %a in %a is not an array" 
-                  A.pp_print_expr e2
-                  A.pp_print_position p)))
+          | Expr _, _ -> 
             
-  | A.RecordConstruct (p, t, l) -> 
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Expression %a in %a is not an array" 
+                    A.pp_print_expr e1
+                    A.pp_print_position p))
 
-    (
+          | _, Expr _ -> 
+            
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Expression %a in %a is not an array" 
+                    A.pp_print_expr e2
+                    A.pp_print_position p)))
+        
+    | A.RecordConstruct (p, t, l) -> 
 
-      let indexes = 
+      (
 
-        try 
+        let indexes = 
 
-          List.assoc t index_ctx 
+          try 
 
-        with Not_found -> 
+            List.assoc t index_ctx 
+
+          with Not_found -> 
+
+            (* Fail *)
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Record type %a in %a is not defined" 
+                    I.pp_print_ident t
+                    A.pp_print_position p))
+
+        in
+        
+        let l' = 
+          List.fold_left
+            (fun a (i, e) -> 
+              
+              if List.mem (I.index_of_ident i) indexes then 
+
+                match check_expr e with 
+                    
+                  | Expr e -> (I.index_of_ident i, e) :: a
+                  | IndexedExpr l -> 
+                    List.fold_left 
+                      (fun a (j, e) -> 
+                        (I.index_of_ident i @ j, e) :: a)
+                      a
+                      l
+
+                      
+                      
+              else
+                
+                (* Fail *)
+                raise 
+                  (Failure 
+                     (Format.asprintf 
+                        "Record type %a in %a does not have a field %a" 
+                        I.pp_print_ident t
+                        A.pp_print_position p
+                        I.pp_print_ident i)))
+            []
+            l
+        in
+
+        if 
+
+          List.for_all 
+            (fun i -> List.mem_assoc i l')
+            indexes 
+
+        then 
+
+          IndexedExpr l'
+
+        else 
 
           (* Fail *)
           raise 
             (Failure 
                (Format.asprintf 
-                  "Record type %a in %a is not defined" 
+                  "Not all fields of record type %a assigned in %a" 
                   I.pp_print_ident t
-                  A.pp_print_position p))
+                  A.pp_print_position p)))
 
-      in
-  
-      let l' = 
-        List.fold_left
-          (fun a (i, e) -> 
-             
-             if List.mem (I.index_of_ident i) indexes then 
-
-                 match check_expr e with 
-                   
-                   | Expr e -> (I.index_of_ident i, e) :: a
-                   | IndexedExpr l -> 
-                     List.fold_left 
-                       (fun a (j, e) -> 
-                          (I.index_of_ident i @ j, e) :: a)
-                       a
-                       l
-
-               
-                     
-             else
-               
-               (* Fail *)
-               raise 
-                 (Failure 
-                    (Format.asprintf 
-                       "Record type %a in %a does not have a field %a" 
-                       I.pp_print_ident t
-                       A.pp_print_position p
-                       I.pp_print_ident i)))
-          []
-          l
-      in
-
-      if 
-
-        List.for_all 
-          (fun i -> List.mem_assoc i l')
-          indexes 
-
-      then 
-
-        IndexedExpr l'
-
-      else 
-
-               (* Fail *)
-               raise 
-                 (Failure 
-                    (Format.asprintf 
-                       "Not all fields of record type %a assigned in %a" 
-                       I.pp_print_ident t
-                       A.pp_print_position p)))
-
-  | A.Not (p, e) -> 
+    | A.Not (p, e) -> 
 
       let eval = function 
 
@@ -863,48 +948,36 @@ let rec check_declarations
 
       in
 
-      apply_to 
+      unary_apply_to 
         eval
         (check_expr e)
 
-  | A.And (p, e1, e2) -> 
-
-    let check_clock _ _ = true in
+    | A.And (p, e1, e2) -> 
 
       let eval = function 
 
-        | { expr_clock = c1 }, { expr_clock = c2 } when 
-            not (check_clock c1 c2) -> 
-
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Expressions in %a must have the same clock" 
-                  A.pp_print_position p))
-
         | { expr_sim = E.True }, 
-          ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
+              ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
 
           expr2
 
         | ({ expr_sim = e; expr_type = T.Bool } as expr1),
-          { expr_sim = E.True } ->
+                { expr_sim = E.True } ->
 
           expr1
 
         | ({ expr_sim = E.False } as expr1), 
-          { expr_sim = e; expr_type = T.Bool } -> 
+                  { expr_sim = e; expr_type = T.Bool } -> 
 
           expr1
 
         | { expr_sim = e; expr_type = T.Bool },
-          ({ expr_sim = E.False } as expr2) ->
+                    ({ expr_sim = E.False } as expr2) ->
 
           expr2
 
         | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
-          { expr_sim = e2; expr_type = T.Bool } -> 
+                      { expr_sim = e2; expr_type = T.Bool } -> 
 
           { expr_sim = E.mk_and e1 e2; 
             expr_type = T.t_bool; 
@@ -932,14 +1005,352 @@ let rec check_declarations
 
       in
 
-      apply_to 
+      binary_apply_to 
+        p
         eval
         (check_expr e1, check_expr e2)
-   
+        
+    | A.Or (p, e1, e2) -> 
+
+      let eval = function 
+
+        | { expr_sim = E.False }, 
+              ({ expr_sim = e; expr_type = T.Bool } as expr2) -> 
+
+          expr2
+
+        | ({ expr_sim = e; expr_type = T.Bool } as expr1),
+                { expr_sim = E.False } ->
+
+          expr1
+
+        | ({ expr_sim = E.True } as expr1), 
+                  { expr_sim = e; expr_type = T.Bool } -> 
+
+          expr1
+
+        | { expr_sim = e; expr_type = T.Bool },
+                    ({ expr_sim = E.True } as expr2) ->
+
+          expr2
+
+        | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
+                      { expr_sim = e2; expr_type = T.Bool } -> 
+
+          { expr_sim = E.mk_or e1 e2; 
+            expr_type = T.t_bool; 
+            expr_clock = c }
+
+        | { expr_type = T.Bool },  _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      binary_apply_to 
+        p
+        eval
+        (check_expr e1, check_expr e2)
+
+    | A.Xor (p, e1, e2) -> 
+
+      let eval = function 
+
+        | ({ expr_sim = E.False }, 
+           ({ expr_type = T.Bool } as expr2)) -> 
+          
+          expr2
+
+        | (({ expr_type = T.Bool } as expr1),
+           { expr_sim = E.False }) ->
+
+          expr1
+            
+        | ({ expr_sim = E.True } as expr1, 
+           { expr_sim = E.True }) -> 
+
+          { expr1 with expr_sim = E.t_false }
+
+        | ({ expr_sim = E.True }, 
+           ({ expr_sim = e; expr_type = T.Bool } as expr2)) -> 
+
+          { expr2 with expr_sim = E.mk_not e }
+
+        | ({ expr_sim = e; expr_type = T.Bool } as expr1,
+           { expr_sim = E.True }) -> 
+          
+          { expr1 with expr_sim = E.mk_not e }
+
+        | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
+          { expr_sim = e2; expr_type = T.Bool } -> 
+
+          { expr_sim = E.mk_xor e1 e2; 
+            expr_type = T.t_bool; 
+            expr_clock = c }
+            
+        | { expr_type = T.Bool },  _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      binary_apply_to 
+        p
+        eval
+        (check_expr e1, check_expr e2)
+
+    | A.Impl (p, e1, e2) -> 
+
+      let eval = function 
+
+        | (({ expr_sim = E.False } as expr1), 
+           { expr_sim = e; expr_type = T.Bool }) -> 
+
+          { expr1 with expr_sim = E.t_true }
+
+        | ({ expr_sim = E.True }, 
+           ({ expr_sim = e; expr_type = T.Bool } as expr2)) -> 
+          
+          expr2
+            
+        | ({ expr_sim = e; expr_type = T.Bool } as expr1,
+           { expr_sim = E.False }) ->
+
+          { expr1 with expr_sim = E.mk_not e }
+
+        | ({ expr_type = T.Bool },
+           ({ expr_sim = E.True } as expr2)) ->
+
+          expr2
+
+        | { expr_sim = e1; expr_type = T.Bool; expr_clock = c },
+                      { expr_sim = e2; expr_type = T.Bool } -> 
+
+          { expr_sim = E.mk_impl e1 e2; 
+            expr_type = T.t_bool; 
+            expr_clock = c }
+
+        | { expr_type = T.Bool },  _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type bool" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      binary_apply_to 
+        p
+        eval
+        (check_expr e1, check_expr e2)
+
+    (* TODO *)
+    | A.OneHot _ -> assert false 
+        
+    | A.Uminus (p, e) -> 
+
+      let eval = function 
+
+        | { expr_sim = E.Int d } as expr -> 
+
+          { expr with expr_sim = E.mk_int (- d) }
+
+        | { expr_sim = E.Real f } as expr -> 
+
+          { expr with expr_sim = E.mk_real (-. f) }
+
+        | { expr_sim = e; expr_type = T.Int } as expr -> 
+
+          { expr with expr_sim = E.mk_uminus e }
+
+        | { expr_sim = e; expr_type = T.Real } as expr -> 
+
+          { expr with expr_sim = E.mk_uminus e }
+
+        | { expr_sim = e; expr_type = T.IntRange (l, u) } as expr -> 
+
+          { expr with expr_sim = E.mk_uminus e; expr_type = T.mk_int_range (- u) (- l)  }
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type int or real" 
+                  A.pp_print_expr e
+                  A.pp_print_position p))
+
+      in
+
+      unary_apply_to 
+        eval
+        (check_expr e)
+
+    | A.Mod (p, e1, e2) -> 
+
+      let eval = function 
+
+        | (({ expr_sim = E.Int d1 } as expr1),
+           { expr_sim = E.Int d2 }) -> 
+
+          { expr1 with expr_sim = E.mk_int (d1 mod d2) }
+
+        | ({ expr_sim = e1; expr_type = T.Int } as expr1,
+           { expr_sim = e2; expr_type = T.Int }) ->
+
+            { expr1 with expr_sim = E.mk_mod e1 e2 }
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type int" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      binary_apply_to 
+        p
+        eval
+        (check_expr e1, check_expr e2)
+        
+    | A.Times (p, e1, e2) -> 
+
+      let eval = function 
+
+        | (({ expr_sim = E.Int d1 } as expr1),
+           { expr_sim = E.Int d2 }) -> 
+
+          { expr1 with expr_sim = E.mk_int (d1 * d2) }
+
+        | (({ expr_sim = E.Real d1 } as expr1),
+           { expr_sim = E.Real d2 }) -> 
+
+          { expr1 with expr_sim = E.mk_real (d1 *. d2) }
+
+        | ({ expr_sim = e1; expr_type = T.Int } as expr1,
+           { expr_sim = e2; expr_type = T.Int }) ->
+
+            { expr1 with expr_sim = E.mk_times e1 e2 }
+
+        | ({ expr_sim = e1; expr_type = T.Real } as expr1,
+           { expr_sim = e2; expr_type = T.Real }) ->
+
+            { expr1 with expr_sim = E.mk_times e1 e2 }
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type int" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      binary_apply_to 
+        p
+        eval
+        (check_expr e1, check_expr e2)
+        
+    | A.Plus (p, e1, e2) -> 
+
+      (* TODO: adjust integer ranges *)
+      let eval = function 
+
+        | (({ expr_sim = E.Int d1 } as expr1),
+           { expr_sim = E.Int d2 }) -> 
+
+          { expr1 with expr_sim = E.mk_int (d1 + d2) }
+
+        | (({ expr_sim = E.Real d1 } as expr1),
+           { expr_sim = E.Real d2 }) -> 
+
+          { expr1 with expr_sim = E.mk_real (d1 +. d2) }
+
+        | ({ expr_sim = e1; expr_type = T.Int } as expr1,
+           { expr_sim = e2; expr_type = T.Int }) ->
+
+            { expr1 with expr_sim = E.mk_plus e1 e2 }
+
+        | ({ expr_sim = e1; expr_type = T.Real } as expr1,
+           { expr_sim = e2; expr_type = T.Real }) ->
+
+            { expr1 with expr_sim = E.mk_plus e1 e2 }
+
+        | _ ->
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must have type int" 
+                  A.pp_print_expr e2
+                  A.pp_print_position p))
+
+      in
+
+      binary_apply_to 
+        p
+        eval
+        (check_expr e1, check_expr e2)
+        
+
   in
 
 
-(*
+  (*
     | A.True p -> (Const (ConstBool true), Type T.bool)
 
     | A.False p -> (Const (ConstBool false), Type T.bool)
@@ -951,7 +1362,7 @@ let rec check_declarations
 
     (Const (ConstInt v), Type t)
 
-  | A.Dec (p, n) -> 
+    | A.Dec (p, n) -> 
 
     let v = float_of_string n in 
     let t = T.real in
@@ -959,115 +1370,115 @@ let rec check_declarations
     (Const (ConstFloat v), Type t)
 
   (* Identifier *)
-  | A.Ident (p, i) as e -> 
+    | A.Ident (p, i) as e -> 
 
     (
 
-      let t = 
+    let t = 
 
-        (* Get type from context *)
-        try Type (List.assoc i type_ctx) with 
+  (* Get type from context *)
+    try Type (List.assoc i type_ctx) with 
 
-          (* Identifier may be indexed *)
-          | Not_found -> 
+  (* Identifier may be indexed *)
+    | Not_found -> 
 
-            (* Find all identifiers with this identifier as prefix *)
-            let suffixes = 
-              List.fold_left 
-                (fun a (s, s') -> 
-                   try 
-                     (I.get_suffix i s, s') :: a 
-                   with Invalid_argument _ -> a)
-                []
-                type_ctx
-            in
+  (* Find all identifiers with this identifier as prefix *)
+    let suffixes = 
+    List.fold_left 
+    (fun a (s, s') -> 
+    try 
+    (I.get_suffix i s, s') :: a 
+    with Invalid_argument _ -> a)
+    []
+    type_ctx
+    in
 
-            (* Identifier was not declared and no identifier with
-               prefix declared *)
-            if suffixes = [] then 
+  (* Identifier was not declared and no identifier with
+    prefix declared *)
+    if suffixes = [] then 
 
-              (* Fail *)
-              raise 
-                (Failure 
-                   (Format.asprintf 
-                      "Identifier %a in %a is not declared" 
-                      I.pp_print_ident i
-                      A.pp_print_position p))
+  (* Fail *)
+    raise 
+    (Failure 
+    (Format.asprintf 
+    "Identifier %a in %a is not declared" 
+    I.pp_print_ident i
+    A.pp_print_position p))
 
-            else
+    else
 
-              (* IndexedType suffixes  *)
-              assert false
+  (* IndexedType suffixes  *)
+    assert false
 
-      in
+    in
 
-      let v = 
+    let v = 
 
-        (* Substitute value if identifier is a constant *)
-        try Const (List.assoc i const_val) with 
+  (* Substitute value if identifier is a constant *)
+    try Const (List.assoc i const_val) with 
 
-          | Not_found -> Expr (E.mk_ident i)
+    | Not_found -> Expr (E.mk_ident i)
 
-      in
+    in
 
-      (* Return value and type *)
-      (v, t)
+  (* Return value and type *)
+    (v, t)
 
     )
 
 
   (* t { a = s { x = 1; y = 2 }; b = 3 } 
 
-     { a.x = 1; a.y = 2; b = 3 }
-*)
-(*
-  | A.RecordConstruct (p, t, l) -> 
+    { a.x = 1; a.y = 2; b = 3 }
+  *)
+  (*
+    | A.RecordConstruct (p, t, l) -> 
 
-  | A.ArrayConstruct (p, e1, e2) -> 
+    | A.ArrayConstruct (p, e1, e2) -> 
 
-  | A.TupleExpr (p, l) ->
-*)
-
-
-    (* [1, 2, 3] 
-       [0] = 1, [1] = 2, [2] = 3 *)
+    | A.TupleExpr (p, l) ->
+  *)
 
 
-
-    (* Point-wise operators
-
-       [ [0] = 1, [1] = 2, [2] = 3 ] + [ [0] = 4, [1] = 5, [2] = 6]
-
-       [ [0] = 5, [1] = 7, [2] = 9 ]
-
-    *)
+  (* [1, 2, 3] 
+    [0] = 1, [1] = 2, [2] = 3 *)
 
 
-  | A.Uminus (p, e) -> 
+
+  (* Point-wise operators
+
+    [ [0] = 1, [1] = 2, [2] = 3 ] + [ [0] = 4, [1] = 5, [2] = 6]
+
+    [ [0] = 5, [1] = 7, [2] = 9 ]
+
+  *)
+
+
+    | A.Uminus (p, e) -> 
 
     (match type_of_expr type_ctx const_val e with 
 
-      | Const (ConstInt i), (Type T.Int as t) -> 
+    | Const (ConstInt i), (Type T.Int as t) -> 
 
-        (Const (ConstInt (- i)), t)
+    (Const (ConstInt (- i)), t)
 
-      | Const (ConstInt i), (Type T.IntRange (l, u) as t)
-        when l <= i && i <= u -> 
+    | Const (ConstInt i), (Type T.IntRange (l, u) as t)
+    when l <= i && i <= u -> 
 
-        (Const (ConstInt (- i)), t) 
+    (Const (ConstInt (- i)), t) 
 
-      | Const (ConstFloat i), (Type T.Real as t) -> 
+    | Const (ConstFloat i), (Type T.Real as t) -> 
 
-        (Const (ConstFloat (-. i)), t)
+    (Const (ConstFloat (-. i)), t)
 
-      | Expr e, (Type T.Int as t) 
-      | Expr e, (Type T.Real as t) -> 
+    | Expr e, (Type T.Int as t) 
+    | Expr e, (Type T.Real as t) -> 
 
-        (Expr (E.mk_uminus  e), t)
+    (Expr (E.mk_uminus  e), t)
 
-      | Expr e, (Type (T.IntRange (l, u)) as t) ->
+    | Expr e, (Type (T.IntRange (l, u)) as t) ->
 
-        (Expr (E.mk_uminus e), Type (T.mk_int_range (- u) (- l)))
+    (Expr (E.mk_uminus e), Type (T.mk_int_range (- u) (- l)))
 
     )
 
@@ -1090,6 +1501,60 @@ let int_const_of_expr type_ctx const_val c =
             A.pp_print_position A.dummy_pos))
 
 *)
+
+  let int_const_of_expr e = match check_expr e with
+    | Expr { expr_sim = E.Int d } -> d
+    | _ -> 
+
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Expression %a in %a must be a constant integer" 
+              A.pp_print_expr e
+              A.pp_print_position A.dummy_pos))
+
+  in
+
+  (* Return true if type [t] was already declared *)
+  let type_is_declared t = 
+
+    (* Check if [t] is a basic types *)
+    (List.mem_assoc t basic_types) ||
+
+      (* Check is [t] is an indexed type *)
+      (List.mem_assoc t indexed_types) || 
+
+      (* Check if [t] is a free type *)
+      (List.mem t free_types) 
+
+  in
+
+  (* Convert a parsed type to a built-in type *)
+  let lustre_type_of_ast_type = function
+
+    | A.Bool -> T.t_bool
+
+    | A.Int -> T.t_int
+
+    | A.Real -> T.t_real
+
+    | A.IntRange (i, j) -> 
+
+      let ci = int_const_of_expr i in
+
+      let cj = int_const_of_expr j in
+      
+      T.mk_int_range ci cj
+
+    | A.EnumType l -> T.mk_enum l
+
+    | A.UserType t -> T.mk_free_type t
+
+    | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
+
+  in
+
 
   (* ******************************************************************** *)
   (* Alias type declarations                                              *)
@@ -1201,13 +1666,8 @@ let int_const_of_expr type_ctx const_val c =
       *)
       | A.ArrayType (s, e) -> 
 
-        (*
-
         (* Evaluate size of array to a constant integer *)
-        let n = int_const_of_expr type_ctx const_val e in
-        *)
-
-        let n = 1 in
+        let n = int_const_of_expr e in
 
         (* Array size must must be at least one *)
         if n <= 0 then 
@@ -1483,10 +1943,10 @@ let int_const_of_expr type_ctx const_val c =
   (* ******************************************************************** *)
   (* Free constant declarations                                           *)
   (* ******************************************************************** *)
-
-    (* const c : t; 
-
-       Free constant of basic type *)
+  
+  (* const c : t; 
+     
+     Free constant of basic type *)
   let check_free_const_decl c t decls = 
     
     if
@@ -1589,7 +2049,95 @@ let int_const_of_expr type_ctx const_val c =
       | A.ArrayType _
       | A.TupleType _ -> assert false 
 
+  in
+
+  (* ******************************************************************** *)
+  (* Untyped constant declarations                                        *)
+  (* ******************************************************************** *)
+  
+  (* const c = e; *)
+  let check_const_decl c e decls = 
         
+    match check_expr e with 
+        
+      | Expr { expr_sim = (E.Int d as e) } -> 
+
+        ({ state with 
+           consts = (c, e) :: consts; 
+           type_ctx = (c, T.mk_int_range d d) :: type_ctx },
+         decls)
+            
+      | Expr { expr_sim = (E.Real f as e) } -> 
+
+        ({ state with 
+           consts = (c, e) :: consts; 
+           type_ctx = (c, T.t_real) :: type_ctx },
+         decls)
+        
+      | Expr { expr_sim = (E.True as e) }
+      | Expr { expr_sim = (E.False as e) } -> 
+
+        ({ state with 
+           consts = (c, e) :: consts; 
+           type_ctx = (c, T.t_bool) :: type_ctx },
+         decls)
+
+      | Expr { expr_sim = e; expr_type = (T.Enum _ as t) } -> 
+
+        ({ state with 
+           consts = (c, e) :: consts; 
+           type_ctx = (c, t) :: type_ctx },
+         decls)
+        
+      | Expr _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Expression %a in %a is not constant" 
+                A.pp_print_expr e
+                A.pp_print_position A.dummy_pos))
+
+      | IndexedExpr l -> 
+
+
+        let rec aux i accum = function 
+
+          | [] -> (c, [i]) :: accum
+
+          | (d, l) :: tl when d = c -> List.rev_append tl ((c, i ::l) :: accum)
+            
+          | h :: tl -> aux i (h :: accum) tl
+
+        in
+
+
+        (* Push declarations for indexed identifiers *)
+        let (type_ctx', index_ctx', consts') = 
+          List.fold_left 
+            (fun (type_ctx, index_ctx, consts) (j, { expr_sim; expr_type }) -> 
+              
+              (
+
+                (* Add indexed identifier to type context *)
+                (I.add_index c j, expr_type) :: type_ctx,
+
+                (* Append index to index context *)
+                aux j [] index_ctx,
+
+                (* Expand to declaration [const c.j;] *)
+                (I.add_index c j, expr_sim) :: consts
+
+            ))
+            
+            (type_ctx, index_ctx, consts)
+            l
+        in 
+        
+        (* State with extended index map, new declarations pushed *)
+        ({ state with type_ctx = type_ctx'; index_ctx = index_ctx'; consts = consts' }, decls)
+  
   in
   
 
@@ -1634,6 +2182,18 @@ let int_const_of_expr type_ctx const_val c =
 
       (* Check const declaration *)
       let state', decls' = check_free_const_decl c t decls in
+
+      (* Recurse for next declarations *)
+      check_declarations state' decls' 
+
+    (* Identifier [c] of type [t] is a free constant *)
+    | (A.ConstDecl (A.UntypedConst (c, e)) as d) :: decls ->
+
+      (* Output const declaration *)
+      Format.printf "-- %a@." A.pp_print_declaration d;
+
+      (* Check const declaration *)
+      let state', decls' = check_const_decl c e decls in
 
       (* Recurse for next declarations *)
       check_declarations state' decls' 

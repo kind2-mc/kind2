@@ -51,7 +51,7 @@ type t = string * index
 
 
 (* Comparision of indexes *)
-let compare_index a b = match a, b with 
+let compare_one_index a b = match a, b with 
 
   (* Compare strings *)
   | StringIndex a, StringIndex b -> compare a b
@@ -67,7 +67,7 @@ let compare_index a b = match a, b with
 
 
 (* Lexicographic comparison of lists of indexes *)
-let rec compare_index_list a b = match a, b with 
+let rec compare_index a b = match a, b with 
 
   (* Lists are equal *)
   | [], [] -> 0
@@ -79,10 +79,10 @@ let rec compare_index_list a b = match a, b with
   | [], _ -> -1 
 
   (* Compare head elements of lists *)
-  | a :: atl, b :: btl -> match compare_index a b with 
+  | a :: atl, b :: btl -> match compare_one_index a b with 
     
     (* Head elements are equal, recurse to compare tails *)
-    | 0 -> compare_index_list atl btl 
+    | 0 -> compare_index atl btl 
              
     (* Return comparison of head elements *)
     | c -> c 
@@ -95,7 +95,7 @@ let compare (a, ia)  (b, ib) =
   match compare a b with 
 
     (* Strings are equal, compare indexes *)
-    | 0 -> compare_index_list ia ib
+    | 0 -> compare_index ia ib
 
     (* Return comparison of strings *)
     | c -> c

@@ -57,6 +57,8 @@ type index = one_index list
 type t = string * index
 
 
+val compare_one_index : one_index -> one_index -> int
+val compare_index : index -> index -> int
 val compare : t -> t -> int
 
 (** Pretty-print an identifier *)
