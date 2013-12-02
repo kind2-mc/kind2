@@ -1,4 +1,13 @@
+type i = int;
 type j = enum { red, green, blue };
+type j2 = enum { red, green, blue };
+type k = { one: int; two: real; three : enum { red, green, blue } };
+type l = { one: k; two: k };
+
+
+type m0 = { one: int };
+type m1 = { one: m0 };
+type m2 = { one: m1 };
 
 const a = 1;
 const b = 2E1;
@@ -10,5 +19,8 @@ const g = a^(int c);
 const h1 = false xor d;
 const h2 = false xor true;
 const h3 = true xor false;
-const i = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+const i = [[1, 2 ]|[ 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
 const j = i[1..2, 1..1];
+const k = k { one = 1; two = 2.0; three = red };
+
+const m = m1 { one = m0 { one = 1} };
