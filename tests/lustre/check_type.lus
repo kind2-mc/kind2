@@ -1,4 +1,101 @@
+-- Records 
+
+-- Record type 
+type r_1 = { one: int; two: real; three : enum { red, green, blue } };
+
+-- Two records can have the same field 
+type r_2 = { one: r_1; two: r_1 };
+
+-- Records can be nested
+type r_3 = { one: int };
+type r_4 = { one: r_3 };
+
+-- Records cannot be recursive
+-- type re_1 = { one: e_1 };
+
+
+-- Tuples 
+
+-- Tuple type 
+type t_1 = [ int, real ];
+
+type t_2 = [ t_1, r_1 ];
+
+--Tuples cannot be recursive 
+-- type te_1 = [ te_1, [ int, int ] ];
+
+-- Arrays (treated as tuples where all elements have the same type)
+
+type a_1 = int^2;
+
+type a_2 = int^2^3;
+
+
+-- Alias types 
+
+type f_1;
+
+type b_1 = int;
+
+type l_2 = r_1;
+
+type l_3 = l_2;
+
+type l_4 = b_1;
+
+type l_5 = f_1;
+
+type r_5 = { one: f_1 };
+
+type r_6 = r_5;
+
+-- Free constants
+
+const f_1: b_1;
+
+const f_2: int;
+
+const f_3: r_6;
+
+const f_4: a_2;
+
+const f_5: r_1;
+
+
+type e_1 = enum { red, green, blue };
+
+const f_6: e_1;
+
+const f_7 : enum { red, green, blue };
+
+const f_8 : subrange [-2, 2] of int;
+
+const c_1 = [0, 1, 2, 3, 4, 5];
+
+const c_2 = [[0, 1], [2, 3]];
+
+const c_3 = c_2[0];
+
+type g_1 = subrange [c_1[0], c_1[1]] of int;
+
+const f_9: g_1;
+
+const f_10 : r_1;
+
+const f_11 : r_2;
+
+const f_12 : int^2;
+
+const f_13 : a_1;
+
+const f_14 : t_2;
+
+/*
+-- ----------------------------------------------------------------------
+
+
 type i = int;
+
 type j = enum { red, green, blue };
 type j2 = enum { red, green, blue };
 type k = { one: int; two: real; three : enum { red, green, blue } };
@@ -24,3 +121,5 @@ const j = i[1..2, 1..1];
 const k = k { one = 1; two = 2.0; three = red };
 
 const m = m1 { one = m0 { one = 1} };
+
+*/
