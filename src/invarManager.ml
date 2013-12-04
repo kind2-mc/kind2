@@ -115,7 +115,7 @@ let handle_event transSys = function
       in
       
       (* Log property as proved *)
-      List.iter (Event.log_proved m) (List.map fst props_valid);
+      List.iter (Event.log_proved m None) (List.map fst props_valid);
 
       transSys.TransSys.props <- props';
 
@@ -135,7 +135,7 @@ let handle_event transSys = function
     )
 
   (* Output property as disproved *)
-  | Event.Disproved (m, p) -> 
+  | Event.Disproved (m, k, p) -> 
 
     (
 
@@ -147,7 +147,7 @@ let handle_event transSys = function
       in
       
       (* Log property as disproved *)
-      List.iter (Event.log_disproved m) (List.map fst props_invalid);
+      List.iter (Event.log_disproved m k) (List.map fst props_invalid);
 
       transSys.TransSys.props <- props';
 
@@ -167,7 +167,7 @@ let handle_event transSys = function
     )
 
   (* Output property as disproved *)
-  | Event.Proved (m, p) -> 
+  | Event.Proved (m, k, p) -> 
 
     (
 
@@ -179,7 +179,7 @@ let handle_event transSys = function
       in
       
       (* Log property as proved *)
-      List.iter (Event.log_proved m) (List.map fst props_valid);
+      List.iter (Event.log_proved m k) (List.map fst props_valid);
 
       transSys.TransSys.props <- props';
 

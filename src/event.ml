@@ -43,8 +43,8 @@ exception Terminate
 (* Events exposed to the processes *)
 type event = 
   | Invariant of kind_module * Term.t 
-  | Proved of kind_module * string 
-  | Disproved of kind_module * string 
+  | Proved of kind_module * int option * string 
+  | Disproved of kind_module * int option * string 
   | BMCState of int * (string list)
 
 
@@ -59,18 +59,24 @@ let pp_print_event ppf = function
       Term.pp_print_term t
       pp_print_kind_module m
 
-  | Proved (m, p) -> 
+  | Proved (m, k, p) -> 
     Format.fprintf 
       ppf 
-      "@[<hv>Proved@ %s@ by %a@]" 
+      "@[<hv>Proved@ %s@ %tby %a@]" 
       p 
+      (function ppf -> match k with 
+         | None -> ()
+         | Some k -> Format.fprintf ppf "at %d@ " k)
       pp_print_kind_module m
 
-  | Disproved (m, p) -> 
+  | Disproved (m, k, p) -> 
     Format.fprintf 
       ppf 
-      "@[<hv>Disproved@ %s@ by %a@]" 
+      "@[<hv>Disproved@ %s@ %tby %a@]" 
       p 
+      (function ppf -> match k with 
+         | None -> ()
+         | Some k -> Format.fprintf ppf "at %d@ " k)
       pp_print_kind_module m
 
   | BMCState (k, p) -> 
@@ -212,22 +218,28 @@ let printf_pt mdl level fmt =
     
 
 (* Output proved property as plain text *)
-let proved_pt mdl prop = 
+let proved_pt mdl k prop = 
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hov>Success: Property %s is valid in %a@.@.") 
+    ("@[<hov>Success: Property %s is valid %tin %a@.@.") 
     prop
+    (function ppf -> match k with
+       | None -> ()
+       | Some k -> Format.fprintf ppf "for k=%d" k)
     pp_print_kind_module_pt mdl
 
 
 (* Output disproved property as plain text *)
-let disproved_pt mdl prop = 
+let disproved_pt mdl k prop = 
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hov>Failure: Property %s is invalid in %a@.@.") 
+    ("@[<hov>Failure: Property %s is invalid %tin %a@.@.") 
     prop
+    (function ppf -> match k with
+       | None -> ()
+       | Some k -> Format.fprintf ppf "for k=%d" k)
     pp_print_kind_module_pt mdl
 
 
@@ -320,7 +332,7 @@ let printf_xml mdl level fmt =
 
 
 (* Output proved property as XML *)
-let proved_xml mdl prop = 
+let proved_xml mdl k prop = 
 
   (* Update time *)
   Stat.update_time Stat.total_time;
@@ -329,15 +341,19 @@ let proved_xml mdl prop =
     !log_ppf 
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      %t\
       <Answer source=\"%a\">valid</Answer>@;<0 -2>\
       </Property>@]@.") 
     prop
     (Stat.get_float Stat.total_time)
+    (function ppf -> match k with 
+       | None -> () 
+       | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
     pp_print_kind_module_xml_src mdl
 
 
 (* Output disproved property as XML *)
-let disproved_xml mdl prop = 
+let disproved_xml mdl k prop = 
 
   (* Update time *)
   Stat.update_time Stat.total_time;
@@ -346,10 +362,14 @@ let disproved_xml mdl prop =
     !log_ppf 
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      %t\
       <Answer source=\"%a\">invalid</Answer>@;<0 -2>\
       </Property>@]@.") 
     prop
     (Stat.get_float Stat.total_time)
+    (function ppf -> match k with 
+       | None -> () 
+       | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
     pp_print_kind_module_xml_src mdl
   
 
@@ -512,18 +532,18 @@ let log mdl level fmt =
 
 
 (* Log a message with source and log level *)
-let log_proved mdl prop =
+let log_proved mdl k prop =
   match !log_format with 
-    | F_pt -> proved_pt mdl prop
-    | F_xml -> proved_xml mdl prop
+    | F_pt -> proved_pt mdl k prop
+    | F_xml -> proved_xml mdl k prop
     | F_relay -> ()
 
 
 (* Log a message with source and log level *)
-let log_disproved mdl prop =
+let log_disproved mdl k prop =
   match !log_format with 
-    | F_pt -> disproved_pt mdl prop
-    | F_xml -> disproved_xml mdl prop
+    | F_pt -> disproved_pt mdl k prop
+    | F_xml -> disproved_xml mdl k prop
     | F_relay -> ()
 
 
@@ -619,34 +639,40 @@ let invariant mdl (term : Term.t) =
 
 
 (* Broadcast a disproved property *)
-let disproved mdl prop = 
+let disproved mdl k prop = 
 
   (* Output property as disproved *)
-  log_disproved mdl prop;
+  log_disproved mdl k prop;
 
   try
 
     (* Send invariant message *)
     Messaging.send 
       (Messaging.InvariantMessage 
-         (Messaging.DISPROVED (prop, 0)))
+         (Messaging.DISPROVED 
+            (prop, 
+             (match k with None -> -1 | Some k -> k), 
+             0)))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
 
 (* Broadcast a proved property as an invariant *)
-let proved mdl (prop, term) = 
+let proved mdl k (prop, term) = 
 
   (* Output property as proved *)
-  log_proved mdl prop;
+  log_proved mdl k prop;
 
   try
 
     (* Send invariant message *)
     Messaging.send 
       (Messaging.InvariantMessage 
-         (Messaging.PROVED (prop, 0)))
+         (Messaging.PROVED 
+            (prop, 
+             (match k with None -> -1 | Some k -> k), 
+             0)))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -742,14 +768,14 @@ let recv () =
             Invariant (mdl, t) :: accum
 
           (* Pass disproved messages as string without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.PROVED (p, _)) ->
+          | mdl, Messaging.InvariantMessage (Messaging.PROVED (p, k, _)) ->
 
-            Proved (mdl, p) :: accum
+            Proved (mdl, (if k < 0 then None else Some k), p) :: accum
 
           (* Pass disproved messages as string without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.DISPROVED (p, _)) ->
+          | mdl, Messaging.InvariantMessage (Messaging.DISPROVED (p, k, _)) ->
 
-            Disproved (mdl, p) :: accum
+            Disproved (mdl, (if k < 0 then None else Some k), p) :: accum
 
         )
       )

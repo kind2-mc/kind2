@@ -358,7 +358,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
       (* Event.invariant 
         (Term.mk_and (List.map snd all_candidate_pairs)); *)
 
-      List.iter (Event.proved `IND) all_candidate_pairs;
+      List.iter (Event.proved `IND (Some k)) all_candidate_pairs;
       
 (*
       (* Print out all the properties being proved. *)
@@ -470,7 +470,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
                     let all_candidate_pairs = List.map fst candidate_infos in
 
                     (* Send the invariant. *)
-                    List.iter (Event.proved `IND) all_candidate_pairs;
+                    List.iter (Event.proved `IND (Some k)) all_candidate_pairs;
 
 (*
                     (* Print out all the properties being proved. *)

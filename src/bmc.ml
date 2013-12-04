@@ -208,7 +208,9 @@ let rec filter_property_list solver ts abstract_var_list concrete_var_list k pro
           end)
     ) disproved_prop_pairs;
 
-    List.iter (Event.disproved `BMC) (List.map fst disproved_prop_pairs);
+    List.iter 
+      (Event.disproved `BMC (Some k)) 
+      (List.map fst disproved_prop_pairs);
     
 (*
 
