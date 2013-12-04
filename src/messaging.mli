@@ -48,8 +48,8 @@ type control = READY | PING | TERM
 
 type invariant =
   | INVAR of string * int
-  | PROVED of string * int
-  | DISPROVED of string * int
+  | PROVED of string * int * int
+  | DISPROVED of string * int * int
   | RESEND of int
 
 type induction = BMCSTATE of int * (string list)
