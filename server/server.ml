@@ -447,10 +447,10 @@ let read_bytes start filename =
   if n > 0 then
 
     (
-      
+
       (* Go to starting position in file *)
       seek_in ic start;
-      
+
       (* Create string of fixed size *)
       let s = String.create n in
 
@@ -466,10 +466,16 @@ let read_bytes start filename =
     )
 
   else
-    
-    (* Position is unchanged, string is empty *)
-    (start, "")
-      
+
+    (
+
+      (* Close input channel *)
+      close_in ic;
+
+      (* Position is unchanged, string is empty *)
+      (start, "")
+
+    )
       
 (* create new kind job using flags 'server_flags',
     and the content of 'payload'. send results over 'sock' *)
