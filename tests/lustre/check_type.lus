@@ -90,15 +90,15 @@ const f_13 : a_1;
 
 const f_14 : t_2;
 
-/*
 -- ----------------------------------------------------------------------
 
 
-type i = int;
 
 type j = enum { red, green, blue };
 type j2 = enum { red, green, blue };
 type k = { one: int; two: real; three : enum { red, green, blue } };
+type k2 = { one: int; two: real; three : enum { red, green, blue }; four: int };
+
 type l = { one: k; two: k };
 
 
@@ -106,20 +106,22 @@ type m0 = { one: int };
 type m1 = { one: m0 };
 type m2 = { one: m1 };
 
+type g = int^(1+1);
+type i = int^4^3;
+type cj = int^2^1;
+
 const a = 1;
-const b = 2E1;
+const b : real = 2E1;
 const c = 2.0;
-const d = true;
-const e = red;
-const f = [red, a, [d, e]];
-const g = a^(int c);
+const d : bool = true;
+const e : enum { red, green, blue, yellow } = red;
+const f : [j, int, [bool, j]] = [red, a, [d, e]];
+const g : g = a^(int c);
 const h1 = false xor d;
 const h2 = false xor true;
 const h3 = true xor false;
-const i = [[1, 2 ]|[ 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
-const j = i[1..2, 1..1];
-const k = k { one = 1; two = 2.0; three = red };
+const i : i = [[1, 2]|[3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+const j : cj = i[1..2, 1..1];
+const k : l = k { one = 1; two = 2.0; three = red };
 
 const m = m1 { one = m0 { one = 1} };
-
-*/
