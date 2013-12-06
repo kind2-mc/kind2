@@ -68,6 +68,9 @@ val mk_free_type : LustreIdent.t -> t
 (** Construct an enumerated type *)
 val mk_enum : LustreIdent.t list -> t
 
+(** [check_type s t] returns [true] if [s] is a subtype of [t] *)
+val check_type : t -> t -> bool
+
 (* 
    Local Variables:
    compile-command: "make -k"

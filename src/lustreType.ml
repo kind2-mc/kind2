@@ -151,6 +151,34 @@ let mk_free_type t = FreeType t
 
 let mk_enum l = Enum l
 
+(* Check if [t1] is a subtype of [t2] *)
+let rec check_type t1 t2 = match t1, t2 with 
+
+  (* Types are identical *)
+  | Int, Int
+  | Real, Real
+  | Bool, Bool -> true
+
+  (* IntRange is a subtype of Int *)
+  | IntRange _, Int -> true
+
+  (* IntRange is subtype of IntRange if the interval is a subset *)
+  | IntRange (l1, u1), IntRange (l2, u2) when l1 >= l2 && u1 <= u1 -> true
+
+  (* Enum types are subtypes if the sets of elements are subsets *)
+  | Enum l1, Enum l2 -> 
+
+    List.for_all
+      (function e -> List.mem e l2)
+      l1
+
+  (* Free types are subtypes if identifiers match *)
+  | FreeType i1, FreeType i2 when i1 = i2 -> true
+
+  (* No other subtype relationships *)
+  | _ -> false
+
+
 
 (* 
    Local Variables:

@@ -30,13 +30,9 @@
 module T = LustreType
 module I = LustreIdent
 
-(*
-let listmin = List.fold_left min max_int
-let listmax = List.fold_left max min_int
+exception Type_mismatch
 
-exception Type_error
-
-*)
+exception Clock_mismatch
 
 
 type unary_op =
@@ -107,10 +103,10 @@ let pp_print_var_op ppf =
   let p = Format.fprintf ppf "%s" in
   
   function
-    | OneHot -> "#"
+    | OneHot -> p "#"
 
 
-type expr =
+type expr = 
   | Var of I.t
   | VarPre of I.t
   | True
@@ -120,6 +116,19 @@ type expr =
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * (expr * expr)
   | Ite of expr * expr * expr
+
+type clock = unit
+
+type t = { 
+  
+  (* Lustre expression *)
+  expr: expr;
+  
+  (* Clock of expression *)
+  expr_clock: unit;
+  
+  (* Type of expression *)
+  expr_type: T.t }
 
 
 
@@ -154,317 +163,591 @@ let rec pp_print_expr ppf = function
       pp_print_expr l 
       pp_print_expr r
 
+let pp_print_lustre_expr ppf { expr } = pp_print_expr ppf expr
 
+let base_clock = ()
 
-type t = expr
-(*
-  { 
 
-    clock: I.t;
+(* TODO: clock checking *)
+let clock_check _ _ = true
 
-    ltype: T.t;
 
-    expr: expr;
+(* Boolean constant true on base clock *)
+let t_true = 
 
-  }
-*)
+  { expr = True; 
+    expr_type = T.t_bool; 
+    expr_clock = base_clock } 
 
-let t_true = True
 
-let t_false = False
+(* Boolean constant false on base clock *)
+let t_false =  
 
-let mk_int n = Int n
+  { expr = False; 
+    expr_type = T.t_bool; 
+    expr_clock = base_clock } 
 
-let mk_real r = Real r
 
-let mk_var n = Var n
+(* Integer constant on base clock *)
+let mk_int d =  
 
-let mk_var_pre n = VarPre n
+  { expr = Int d; 
+    expr_type = T.mk_int_range d d; 
+    expr_clock = base_clock } 
 
-let mk_unary op e = UnaryOp (op, e)
 
-let mk_not = mk_unary Not 
+(* Real constant on base clock *)
+let mk_real f =  
 
-let mk_uminus = mk_unary Uminus
+  { expr = Real f; 
+    expr_type = T.t_real; 
+    expr_clock = base_clock } 
 
-let mk_to_int = mk_unary ToInt
 
-let mk_to_real = mk_unary ToReal
+(* Current-state variable *)
+let mk_var ident expr_type expr_clock = 
 
-let mk_binary op e1 e2 = BinaryOp (op, (e1, e2))
+  { expr = Var ident;
+    expr_type = expr_type;
+    expr_clock = expr_clock } 
 
-let mk_and = mk_binary And 
 
-let mk_or = mk_binary Or
+(* Previous-state variable *)
+let mk_var_pre  ident expr_type expr_clock = 
 
-let mk_xor = mk_binary Xor
+  { expr = VarPre ident;
+    expr_type = expr_type;
+    expr_clock = expr_clock } 
 
-let mk_impl = mk_binary Impl
 
-let mk_mod = mk_binary Mod
+(* Construct a unary expression *)
+let mk_unary op expr expr_type expr_clock = 
 
-let mk_minus = mk_binary Minus
+  { expr = UnaryOp (op, expr);
+    expr_type = expr_type;
+    expr_clock = expr_clock } 
 
-let mk_plus = mk_binary Plus 
 
-let mk_div = mk_binary Div
+(* Construct a binary expression *)
+let mk_binary op expr1 expr2 expr_type expr1_clock expr2_clock = 
 
-let mk_times = mk_binary Times 
+  if clock_check expr1_clock expr2_clock then 
 
-let mk_intdiv = mk_binary IntDiv
+    { expr = BinaryOp (op, (expr1, expr2));
+      expr_type = expr_type;
+      expr_clock = expr1_clock } 
+    
+  else
+    
+    raise Clock_mismatch
 
-let mk_eq = mk_binary Eq
 
-let mk_neq = mk_binary Neq
+(* not: bool -> bool *)
+let mk_not = function 
 
-let mk_lte = mk_binary Lte
+  | { expr; expr_type = T.Bool; expr_clock } -> 
 
-let mk_lt = mk_binary Lt
+    mk_unary Not expr T.t_bool expr_clock
 
-let mk_gte = mk_binary Gte
+  | _ -> raise Type_mismatch
 
-let mk_gt = mk_binary Gt
 
-let mk_arraw = mk_binary Arrow
+(* -: int -> int, 
+      real -> real, 
+      int_range(l,u) -> int_range(-u,-l) *)
+let mk_uminus = function
 
-let mk_ite p e1 e2 = Ite (p, e1, e2)
+  | { expr; expr_type = T.Int; expr_clock } -> 
 
-(*
+    mk_unary Uminus expr T.t_int expr_clock
 
+  | { expr; expr_type = T.Real; expr_clock } -> 
 
-let type_of_unary_expr = function 
+    mk_unary Uminus expr T.t_real expr_clock
 
-  (* Bool -> Bool *)
-  | Not -> 
+  | { expr; expr_type = T.IntRange (lbound, ubound); expr_clock } -> 
 
-    (function 
-      | T.Bool -> T.bool
-      | _ -> raise Type_error)
+    mk_unary 
+      Uminus 
+      expr
+      (T.mk_int_range (- ubound) (- lbound)) 
+      expr_clock
 
-  (* Int -> Int *)
-  (* Real -> Real *)
-  (* IntRange (i, j) -> IntRange (-j,-i) *)
-  | Uminus -> 
+  | _ -> raise Type_mismatch
 
-    (function 
-      | T.Int -> T.int
-      | T.Real -> T.real
-      | T.IntRange (i, j) -> T.mk_int_range (-j) (-i)
-      | _ -> raise Type_error)
 
+(* int: real -> int *)
+let mk_to_int = function 
 
-let int_range_of_binary_op op (a, b) (c, d) = match op with 
-  
-  (* [a,b] mod [c,d] = [0, *)
-  | Mod -> T.mk_int_range (min 0 d) (max 0 d)
+  | { expr; expr_type = T.Real; expr_clock } -> 
 
-  (*  *)
-  | IntDiv -> 
+    mk_unary ToInt expr T.t_int expr_clock
 
-    (match c < 0, d < 0 with
-      
-      (* c and d positive *)
-      | false, false -> T.mk_int_range (min 0 a) (max 0 b)
+  | _ -> raise Type_mismatch
 
-      (* c and d negative *)
-      | true, true -> T.mk_int_range (min 0 (-b)) (max 0 (-a))
 
-      (* c negative and d positive *)
-      | true, false 
-      | false, true -> 
+(* real: int -> real *)
+let mk_to_real = function
 
-        let m = max (abs a) (abs b) in 
-        T.mk_int_range (-m) m
+  | { expr; expr_type = T.Int; expr_clock } -> 
 
-    )
+    mk_unary ToInt expr T.t_real expr_clock
 
-  (* [a,b] + [c,d] = [a+c, b+d] *)
-  | Plus -> T.mk_int_range (a + c) (b + d)
+  | _ -> raise Type_mismatch
 
-  (* [a,b] - [c,d] = [a-d, b-c] *)
-  | Minus -> T.mk_int_range (a - d) (b - c)
 
-  (* Take the minimum and maximum of all pairs *)
-  | Times -> 
-    T.mk_int_range
-      (listmin [a*c; a*d; b*c; b*d])
-      (listmax [a*c; a*d; b*c; b*d])
+(* and: bool -> bool -> bool *)
+let mk_and = function 
 
-  | _ -> assert false
+    | { expr = expr1; expr_type = T.Bool; expr_clock = expr1_clock } -> 
 
+      (function 
 
-let type_of_binary_expr = function
+        | { expr = expr2; expr_type = T.Bool; expr_clock = expr2_clock } -> 
+          
+          mk_binary And expr1 expr2 T.t_bool expr1_clock expr2_clock
 
-  (* Bool -> Bool -> Bool *)
-  | And
-  | Or
-  | Xor
-  | Impl -> 
+        | _ -> raise Type_mismatch)
 
-    (function 
-      | T.Bool, T.Bool -> T.bool
-      | _ -> raise Type_error)
+    | _ -> raise Type_mismatch
 
-  (* Int -> Int -> Int *)
-  | Mod
-  | IntDiv as op -> 
 
-    (function 
+(* or: bool -> bool -> bool *)
+let mk_or = function
 
-      | T.Int, T.Int
-      | T.Int, T.IntRange _
-      | T.IntRange _, T.Int -> T.int
+    | { expr = expr1; expr_type = T.Bool; expr_clock = expr1_clock } -> 
 
-      | T.IntRange r1, 
-        T.IntRange r2 -> 
+      (function 
 
-        int_range_of_binary_op op r1 r2
+        | { expr = expr2; expr_type = T.Bool; expr_clock = expr2_clock } -> 
+          
+          mk_binary Or expr1 expr2 T.t_bool expr1_clock expr2_clock
 
-      | _ -> raise Type_error)
+        | _ -> raise Type_mismatch)
 
+    | _ -> raise Type_mismatch
 
-  (* Real -> Real -> Real *)
-  | Div ->
 
-    (function 
+(* xor: bool -> bool -> bool *)
+let mk_xor = function
 
-      | T.Real, T.Real -> T.real
+    | { expr = expr1; expr_type = T.Bool; expr_clock = expr1_clock } -> 
 
-      | _ -> raise Type_error)
+      (function 
 
+        | { expr = expr2; expr_type = T.Bool; expr_clock = expr2_clock } -> 
+          
+          mk_binary Xor expr1 expr2 T.t_bool expr1_clock expr2_clock
 
-  (* Int -> Int -> Int *)
-  (* Real -> Real -> Real *)
-  | Minus
-  | Plus 
-  | Times as op -> 
+        | _ -> raise Type_mismatch)
 
-    (function 
+    | _ -> raise Type_mismatch
 
-      | T.Int, T.Int
-      | T.Int, T.IntRange _
-      | T.IntRange _, T.Int -> T.int
 
-      | T.IntRange r1, 
-        T.IntRange r2 -> 
-       
-        int_range_of_binary_op op r1 r2
+(* =>: bool -> bool -> bool *)
+let mk_impl = function
 
-      | T.Real, T.Real -> T.real
+    | { expr = expr1; expr_type = T.Bool; expr_clock = expr1_clock } -> 
 
-      | _ -> raise Type_error)
+      (function 
+
+        | { expr = expr2; expr_type = T.Bool; expr_clock = expr2_clock } -> 
+          
+          mk_binary Impl expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* mod: int -> int -> int
+
+   Expand integer range types to integer type *)
+let mk_mod = function 
+
+    | { expr = expr1; expr_type = T.Int; expr_clock = expr1_clock } 
+    | { expr = expr1; expr_type = T.IntRange _; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = T.Int; 
+            expr_clock = expr2_clock } 
+
+        | { expr = expr2; 
+            expr_type = T.IntRange _; 
+            expr_clock = expr2_clock } -> 
+          
+          mk_binary Mod expr1 expr2 T.t_int expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* -: int -> int -> int
+      real -> real -> real
+
+   Expand integer range types to integer type *)
+let mk_minus = function
+
+    | { expr = expr1; expr_type = T.Int; expr_clock = expr1_clock } 
+    | { expr = expr1; expr_type = T.IntRange _; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = T.Int; 
+            expr_clock = expr2_clock } 
  
+        | { expr = expr2; 
+            expr_type = T.IntRange _; 
+            expr_clock = expr2_clock } -> 
+         
+          mk_binary Minus expr1 expr2 T.t_int expr1_clock expr2_clock
 
-  (* Bool -> Bool -> Bool *)
-  (* Int -> Int -> Bool *)
-  (* Real -> Real -> Bool *)
-  | Eq
-  | Neq ->
+        | _ -> raise Type_mismatch)
+
+    | { expr = expr1; expr_type = T.Real; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; expr_type = T.Real; expr_clock = expr2_clock } -> 
+          
+          mk_binary Minus expr1 expr2 T.t_real expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* +: int -> int -> int
+      real -> real -> real
+
+   Expand integer range types to integer type *)
+let mk_plus = function
+
+    | { expr = expr1; expr_type = T.Int; expr_clock = expr1_clock } 
+    | { expr = expr1; expr_type = T.IntRange _; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = T.Int; 
+            expr_clock = expr2_clock } 
+
+        | { expr = expr2; 
+            expr_type = T.IntRange _; 
+            expr_clock = expr2_clock } -> 
+          
+          mk_binary Plus expr1 expr2 T.t_int expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | { expr = expr1; expr_type = T.Real; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; expr_type = T.Real; expr_clock = expr2_clock } -> 
+          
+          mk_binary Plus expr1 expr2 T.t_real expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* /: real -> real -> real *)
+let mk_div = function
+
+    | { expr = expr1; expr_type = T.Real; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; expr_type = T.Real; expr_clock = expr2_clock } -> 
+          
+          mk_binary Div expr1 expr2 T.t_real expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* *: int -> int -> int
+      real -> real -> real
+
+   Expand integer range types to integer type *)
+let mk_times = function
+
+    | { expr = expr1; expr_type = T.Int; expr_clock = expr1_clock } 
+    | { expr = expr1; expr_type = T.IntRange _; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = T.Int; 
+            expr_clock = expr2_clock } 
+
+        | { expr = expr2; 
+            expr_type = T.IntRange _; 
+            expr_clock = expr2_clock } -> 
+          
+          mk_binary Times expr1 expr2 T.t_int expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | { expr = expr1; expr_type = T.Real; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; expr_type = T.Real; expr_clock = expr2_clock } -> 
+          
+          mk_binary Times expr1 expr2 T.t_real expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* div: int -> int -> int
+
+   Expand integer range types to integer type *)
+let mk_intdiv = function
+
+    | { expr = expr1; expr_type = T.Int; expr_clock = expr1_clock } 
+    | { expr = expr1; expr_type = T.IntRange _; expr_clock = expr1_clock } -> 
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = T.Int; 
+            expr_clock = expr2_clock } 
+
+        | { expr = expr2; 
+            expr_type = T.IntRange _; 
+            expr_clock = expr2_clock } -> 
+          
+          mk_binary IntDiv expr1 expr2 T.t_int expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+    | _ -> raise Type_mismatch
+
+
+(* =: 'a -> 'a -> bool
+
+   Either the first type is a subtype of the second or vice versa *)
+let mk_eq = function
+
+    | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = expr2_type; 
+            expr_clock = expr2_clock } 
+          when 
+            T.check_type expr1_type expr2_type ||
+            T.check_type expr2_type expr1_type ->
+
+          mk_binary Eq expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+
+(* <>: 'a -> 'a -> bool 
+
+   Either the first type is a subtype of the second or vice versa *)
+let mk_neq = function
+
+    | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = expr2_type; 
+            expr_clock = expr2_clock } 
+          when 
+            T.check_type expr1_type expr2_type || 
+            T.check_type expr2_type expr1_type ->
+
+          mk_binary Eq expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+
+(* <=: 'a -> 'a -> bool 
+
+   Either the first type is a subtype of the second or vice versa *)
+let mk_lte = function
+
+    | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = expr2_type; 
+            expr_clock = expr2_clock } 
+          when 
+            T.check_type expr1_type expr2_type || 
+            T.check_type expr2_type expr1_type ->
+
+          mk_binary Lte expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+
+(* <: 'a -> 'a -> bool 
+
+   Either the first type is a subtype of the second or vice versa *)
+let mk_lt = function
+
+    | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = expr2_type; 
+            expr_clock = expr2_clock } 
+          when 
+            T.check_type expr1_type expr2_type || 
+            T.check_type expr2_type expr1_type ->
+
+          mk_binary Lt expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+
+(* >=: 'a -> 'a -> bool 
+
+   Either the first type is a subtype of the second or vice versa *)
+let mk_gte = function
+
+    | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = expr2_type; 
+            expr_clock = expr2_clock } 
+          when 
+            T.check_type expr1_type expr2_type || 
+            T.check_type expr2_type expr1_type ->
+
+          mk_binary Gte expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+
+(* >: 'a -> 'a -> bool 
+
+   Either the first type is a subtype of the second or vice versa *)
+let mk_gt = function
+
+    | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
+
+      (function 
+
+        | { expr = expr2; 
+            expr_type = expr2_type; 
+            expr_clock = expr2_clock } 
+          when 
+            T.check_type expr1_type expr2_type || 
+            T.check_type expr2_type expr1_type ->
+
+          mk_binary Gt expr1 expr2 T.t_bool expr1_clock expr2_clock
+
+        | _ -> raise Type_mismatch)
+
+
+(* ->: 'a -> 'a -> 'a 
+
+   Either the first type is a subtype of the second or vice versa,
+   choose the greater type for the resulting type *)
+let mk_arrow = function
+
+  | { expr = expr1; expr_type = expr1_type; expr_clock = expr1_clock } ->
 
     (function 
-      | T.Bool, T.Bool  -> T.bool
 
-      | T.Int, T.Int
-      | T.IntRange _, T.Int
-      | T.Int, T.IntRange _
-      | T.IntRange _, T.IntRange _  -> T.bool
+      | { expr = expr2; 
+          expr_type = expr2_type; 
+          expr_clock = expr2_clock } 
+        when 
+          T.check_type expr1_type expr2_type ->
 
-      | T.Real, T.Real -> T.bool
+        mk_binary Gt expr1 expr2 expr2_type expr1_clock expr2_clock
 
-      | _ -> raise Type_error)
- 
+      | { expr = expr2; 
+          expr_type = expr2_type; 
+          expr_clock = expr2_clock } 
+        when 
+          T.check_type expr2_type expr1_type ->
 
-  (* Int -> Int -> Bool *)
-  (* Real -> Real -> Bool *)
-  | Lte
-  | Lt
-  | Gte
-  | Gt ->
+        mk_binary Gt expr1 expr2 expr1_type expr1_clock expr2_clock
 
-    (function 
+      | _ -> raise Type_mismatch)
 
-      | T.Int, T.Int
-      | T.IntRange _, T.Int
-      | T.Int, T.IntRange _
-      | T.IntRange _, T.IntRange _ -> T.bool
 
-      | T.Real, T.Real -> T.bool
+(* ite: bool -> 'a -> 'a -> 'a 
 
-      | _ -> raise Type_error)
- 
+   Either the second type is a subtype of the third or vice versa,
+   choose the greater type for the resulting type *)
+let mk_ite = function
 
-  (* 'a -> 'a -> 'a *)
-  | Arrow -> 
+  | { expr = expr1; expr_type = T.Bool; expr_clock = expr1_clock } ->
 
     (function 
 
-      | T.Int, T.Int 
-      | T.IntRange _, T.Int
-      | T.Int, T.IntRange _ -> T.int
+      | { expr = expr2; 
+          expr_type = expr2_type; 
+          expr_clock = expr2_clock } -> 
 
-      | T.IntRange (i1, j1), 
-        T.IntRange (i2, j2) -> 
+        (function 
 
-        T.mk_int_range (min i1 i2) (max j1 j2)
+          (* Type of second argument is subtype of third argument *)
+            | { expr = expr3; 
+                expr_type = expr3_type; 
+                expr_clock = expr3_clock } 
+              when 
+                T.check_type expr2_type expr3_type ->
 
-      | T.Real, T.Real -> T.real
+              (* All clocks identical? *)
+              if clock_check expr1_clock expr2_clock && 
+                 clock_check expr2_clock expr3_clock then
 
-      | _ -> raise Type_error)
+                (* Use type of third arguement *)
+                { expr = Ite (expr1, expr2, expr3);
+                  expr_type = expr3_type;
+                  expr_clock = expr1_clock } 
+                
+              else
+                
+                raise Clock_mismatch
 
+            (* Type of third argument is subtype of second argument *)
+            | { expr = expr3; 
+                expr_type = expr3_type; 
+                expr_clock = expr3_clock } 
+              when 
+                T.check_type expr3_type expr2_type ->
 
-let clock_of_unary_expr op clock = 
+              if clock_check expr1_clock expr2_clock && 
+                 clock_check expr2_clock expr3_clock then
 
-  match op with 
-    | Not -> clock
-    | Uminus -> clock
+                (* Use type of second arguement *)
+                { expr = Ite (expr1, expr2, expr3);
+                  expr_type = expr2_type;
+                  expr_clock = expr1_clock } 
+                
+              else
+                
+                raise Clock_mismatch
 
-let clock_of_binary_expr op (clock, _)  = 
+            | _ -> raise Type_mismatch))
 
-  match op with 
-    | And 
-    | Or
-    | Xor
-    | Impl
-    | Mod
-    | Minus
-    | Plus 
-    | Div
-    | Times 
-    | IntDiv
-    | Eq
-    | Neq
-    | Lte
-    | Lt
-    | Gte
-    | Gt
-    | Arrow -> clock
+    | _ -> raise Type_mismatch
 
-
-let mk_unary_expr op { ltype = t; clock = c; expr = e } = 
-
-  let t' = type_of_unary_expr op t in
-
-  let c' = clock_of_unary_expr op c in 
-
-  let e' = UnaryOp (op, e) in
-
-  { clock = c'; ltype = t'; expr = e' }
-
-
-let mk_binary_expr 
-    op 
-    { ltype = t1; clock = c1; expr = e1}  
-    { ltype = t2; clock = c2; expr = e2} =
-
-  let t' = type_of_binary_expr op (t1, t2) in
-
-  let c' = clock_of_binary_expr op (c1, c2) in 
-
-  let e' = BinaryOp (op, (e1, e2)) in
-
-  { clock = c'; ltype = t'; expr = e' }
-
-*)
 
 (* 
    Local Variables:

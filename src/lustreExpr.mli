@@ -66,9 +66,20 @@ type expr = private
   | BinaryOp of binary_op * (expr * expr)
   | Ite of expr * expr * expr
 
-type t = expr
+type clock = unit
 
-val pp_print_expr : Format.formatter -> t -> unit 
+type t = private { 
+  
+  expr: expr;                 (** Lustre expression *)
+
+  expr_clock: clock;           (** Clock of expression *)
+  
+  expr_type: LustreType.t     (** Type of expression *) } 
+
+
+val pp_print_lustre_expr : Format.formatter -> t -> unit 
+
+val base_clock : clock
 
 val t_true : t
 
@@ -78,17 +89,13 @@ val mk_int : int -> t
 
 val mk_real : float -> t
 
-val mk_var : LustreIdent.t -> t
+val mk_var : LustreIdent.t -> LustreType.t -> clock -> t
 
-val mk_var_pre : LustreIdent.t -> t
-
-val mk_unary : unary_op -> t -> t
+val mk_var_pre : LustreIdent.t -> LustreType.t -> clock -> t
 
 val mk_to_int : t -> t
 
 val mk_to_real : t -> t
-
-val mk_binary : binary_op -> t -> t -> t
 
 val mk_ite : t -> t -> t -> t
 
@@ -128,7 +135,7 @@ val mk_gte : t -> t -> t
 
 val mk_gt : t -> t -> t 
 
-val mk_arraw : t -> t -> t
+val mk_arrow : t -> t -> t
 
 
 (* 
