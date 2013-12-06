@@ -83,8 +83,8 @@ let ast_type_of_lustre_type = function
 
 
 
-(* The state of the type checker and preprocessor *)
-type check_declaration_state = 
+(* A context of the type checker and preprocessor *)
+type lustre_context = 
 
     { 
 
@@ -94,7 +94,7 @@ type check_declaration_state =
       (* Prefixes of indexed type identifiers, their suffixes and types *)
       indexed_types : 
         (LustreIdent.t * 
-           (LustreIdent.index * LustreAst.lustre_type) list) list; 
+           (LustreIdent.index * LustreType.t) list) list; 
 
       (* Type identifiers for free types *)
       free_types : LustreIdent.t list; 
@@ -113,8 +113,8 @@ type check_declaration_state =
 
     }
 
-(* Initial state *)
-let init_state = 
+(* Initial context *)
+let init_lustre_context = 
   { basic_types = [];
     indexed_types = [];
     free_types = [];
@@ -129,7 +129,7 @@ let pp_print_basic_type ppf (i, t) =
   Format.fprintf ppf "%a: %a" I.pp_print_ident i T.pp_print_lustre_type t
 
 let pp_print_index_type ppf (i, t) = 
-  Format.fprintf ppf "%a: %a" I.pp_print_index i A.pp_print_lustre_type t
+  Format.fprintf ppf "%a: %a" I.pp_print_index i T.pp_print_lustre_type t
 
 let pp_print_indexed_type ppf (i, t) = 
 
@@ -149,12 +149,12 @@ let pp_print_index_ctx ppf (i, j) =
     (pp_print_list I.pp_print_index ";@ ") j
 
 let pp_print_consts ppf (i, e) = 
-  Format.fprintf ppf "%a: %a" I.pp_print_ident i E.pp_print_expr e
+  Format.fprintf ppf "%a: %a" I.pp_print_ident i E.pp_print_lustre_expr e
 
   
 
 
-let pp_print_state 
+let pp_print_lustre_context 
     ppf 
     { basic_types;
       indexed_types; 
@@ -208,8 +208,136 @@ type expr =
 
 
 
-(* 
-   
+(* For an identifier t = t.i1...in associate each prefix with suffix
+   and type t'': add (t, (i1...in, t'')), ..., (t.i1..in-1, (in, t''))
+   to indexed_types *)
+let add_to_prefix_map map ident (value : 'a) =
+
+  let rec aux prefix map = function 
+
+    (* Do not add full index to list *)
+    | [] -> map
+
+    (* [index] is second to last or earlier *)
+    | index :: tl as suffix -> 
+
+      (* Add association of suffix and type to prefix *)
+      let rec aux2 accum = function
+
+        (* Prefix of identifier not found *)
+        | [] -> 
+
+          (* Add association of prefix with suffix and value *)
+          (prefix, [(suffix, value)]) :: accum
+
+        (* Prefix of identifier found *)
+        | (p, l) :: tl when p = prefix -> 
+
+          (* Add association of prefix with suffix and type, and
+             finish *)
+          List.rev_append ((p, (suffix, value) :: l) :: tl) accum
+
+        (* Recurse to keep searching for prefix of identifier *)
+        | h :: tl -> aux2 (h :: accum) tl
+
+      in
+
+      (* Add index to prefix *)
+      let prefix' = I.add_index prefix [index] in
+
+      (* Recurse for remaining suffix *)
+      aux prefix' (aux2 [] map) tl
+
+  in
+
+  (* Get indexes of identifier of type *)
+  let (ident_base, suffix) = ident in
+
+  (* Add types of all suffixes *)
+  aux (ident_base, []) map suffix 
+
+
+
+
+(* Add type declaration for an alias type to a context
+
+   Associate possibly indexed identifier with its Lustre type;
+   associate all prefixes of an indexed identifier with its suffixes
+   and their basic types; and for enum type associate the enum type to
+   each constant.
+*)
+let add_alias_type_decl 
+    ident
+    ({ basic_types; indexed_types; type_ctx } as context) 
+    index 
+    basic_type =
+
+  (* Add index to identifier *)
+  let indexed_ident = I.add_index ident index in
+
+  (* Output type declaration *)
+  Format.printf 
+    "-- type %a = %a;@." 
+    I.pp_print_ident indexed_ident
+    T.pp_print_lustre_type basic_type;
+
+  (* Add alias for basic type *)
+  let basic_types' = (indexed_ident, basic_type) :: basic_types in
+
+  (* Add types of all suffixes *)
+  let indexed_types' = 
+    add_to_prefix_map indexed_types indexed_ident basic_type
+  in
+
+  (* Add enum constants to typing context *)
+  let type_ctx' = match basic_type with 
+
+    (* Type is an enumeration *)
+    | T.Enum l -> 
+
+      List.fold_left
+        (fun type_ctx enum_element -> 
+           
+           try 
+
+             (* Get type of constant *)
+             let enum_element_type = List.assoc enum_element type_ctx in 
+
+             (* Skip if constant declared with the same (enum) type *)
+             if basic_type = enum_element_type then type_ctx else
+
+               (* Fail *)
+               raise 
+                 (Failure 
+                    (Format.asprintf 
+                       "Enum constant %a declared with \
+                        different type in %a" 
+                       I.pp_print_ident enum_element
+                       A.pp_print_position A.dummy_pos));
+             
+           (* Constant not declared *)
+           with Not_found -> 
+
+             (* Push constant to typing context *)
+             (enum_element, basic_type) :: type_ctx)
+        type_ctx
+        l
+
+    (* Other basic types do not change typing context *)
+    | _ -> type_ctx
+
+  in
+
+  (* Changes to context *)
+  { context with 
+      basic_types = basic_types'; 
+      indexed_types = indexed_types';
+      type_ctx = type_ctx' }
+  
+
+
+(*
+
    type_aliases is an association list from type names to basic types,
    free_types is a list of types 
    indexed_types is an association list of type names to their indexes 
@@ -224,42 +352,12 @@ let rec check_declarations
        type_ctx; 
        index_ctx; 
        consts; 
-       result } as state) = 
+       result } as global_context) = 
 
 
 
-  (* TODO: check clocks *)
-  let check_clocks _ _ = true in
+(*
 
-
-  (* Check if [t1] is a subtype of t2 *)
-  let rec check_type t1 t2 = match t1, t2 with 
-
-    (* Types are identical *)
-    | T.Int, T.Int
-    | T.Real, T.Real
-    | T.Bool, T.Bool -> true
-
-    (* IntRange is a subtype of Int *)
-    | T.IntRange _, T.Int -> true
-
-    (* IntRange is subtype of IntRange if the interval is a subset *)
-    | T.IntRange (l1, u1), T.IntRange (l2, u2) when l1 >= l2 && u1 <= u1 -> true
-
-    (* Enum types are subtypes if the sets of elements are subsets *)
-    | T.Enum l1, T.Enum l2 -> 
-
-      List.for_all
-        (function e -> List.mem e l2)
-        l1
-
-    (* Free types are subtypes if identifiers match *)
-    | T.FreeType i1, T.FreeType i2 when i1 = i2 -> true
-
-    (* No other subtype relationships *)
-    | _ -> false
-
-  in
 
   (* Apply function pointwise *)
   let unary_apply_to f = function 
@@ -366,7 +464,6 @@ let rec check_declarations
          expr_find_index index accum tl)
 
   in
-
 
   (* Return type of expression *)
   let rec check_expr = function
@@ -1469,6 +1566,7 @@ let rec check_declarations
               A.pp_print_position A.dummy_pos))
 
   in
+*)
 
   (* Return true if type [t] was already declared *)
   let type_is_declared t = 
@@ -1484,6 +1582,7 @@ let rec check_declarations
 
   in
 
+(*
   (* Convert a parsed type to a built-in type *)
   let lustre_type_of_ast_type = function
 
@@ -1516,64 +1615,219 @@ let rec check_declarations
     | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
 
   in
-
+*)
 
   (* ******************************************************************** *)
   (* Alias type declarations                                              *)
   (* ******************************************************************** *)
 
 
-  (* For an identifier t = t.i1...in associate each prefix with suffix
-     and type t'': add (t, (i1...in, t'')), ..., (t.i1..in-1, (in, t''))
-     to indexed_types *)
-  let add_to_indexed_types t t' =
 
-    let rec aux prefix indexed_types = function 
 
-      (* Do not add full index to list, this is in basic_types already *)
-      | [] -> indexed_types
+  (* ******************************************************************** *)
+  (* Evaluation of expressions                                            *)
+  (* ******************************************************************** *)
 
-      (* [index] is second to last or earlier *)
-      | index :: tl as suffix -> 
+  let 
 
-        (* Add association of suffix and type to prefix *)
-        let rec aux2 accum = function
+  let rec eval_ast_expr' result = function
 
-          (* Prefix of identifier not found *)
-          | [] -> 
+    (* All expressions evaluated, return result *)
+    | [] -> result
 
-            (* Add association of prefix with suffix and type *)
-            (prefix, [(suffix, t')]) :: accum
 
-          (* Prefix of identifier found *)
-          | (p, l) :: tl when p = prefix -> 
+    (* An identifier without indexes *)
+    | (index, A.Ident (_, ident)) :: tl when 
+        List.mem_assoc (I.add_index ident index) type_ctx -> 
 
-            (* Add association of prefix with suffix and type, and
-               finish *)
-            List.rev_append ((p, (suffix, t') :: l) :: tl) accum
+      (* Construct expression *)
+      let expr = 
 
-          (* Recurse to keep searching for prefix of identifier *)
-          | h :: tl -> aux2 (h :: accum) tl
+        (* Return value of constant *)
+        try List.assoc ident consts with 
 
-        in
+          (* Identifier is not constant *)
+          | Not_found -> 
 
-        (* Add index to prefix *)
-        let prefix' = I.add_index prefix [index] in
+            (* Return variable of defined type on the base clock *)
+            E.mk_var ident (List.assoc ident type_ctx) E.base_clock
 
-        (* Recurse for remaining suffix *)
-        aux prefix' (aux2 [] indexed_types) tl
+      in
 
-    in
+      (* Add expression to result *)
+      eval_ast_expr' ((index, expr) :: result) tl
 
-    (* Get indexes of identifier of type *)
-    let (id, suffix) = t in
 
-    (* Add types of all suffixes *)
-    aux (id, []) indexed_types suffix 
+    (* A nested identifier with indexes *)
+    | (index, (A.Ident (_, ident) as e)) :: tl when 
+        List.mem_assoc ident index_ctx -> 
+
+      (* Expand indexed identifier *)
+      let tl' = 
+        List.fold_left 
+          (fun a j -> (index @ j, e) :: a)
+          tl
+          (List.assoc ident index_ctx)
+      in
+
+      (* Continue with unfolded indexes *)
+      eval_ast_expr' result tl'
+
+
+    (* Identifier must have a type or indexes *)
+    | (_, A.Ident (pos, ident)) :: _ -> 
+
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Identifier %a not declared in %a" 
+              I.pp_print_ident ident
+              A.pp_print_position pos))
+
+
+    (* Projection to a record field *)
+    | (index, A.RecordProject (pos, ident, field)) :: tl -> 
+
+      (try
+
+         (* Check if identifier has index *)
+         if List.mem field (List.assoc ident index_ctx) then
+
+           (* Append index to identifier *)
+           let expr' = 
+             A.Ident (pos, I.add_index ident field) 
+           in
+
+           (* Continue with record field *)
+           eval_ast_expr' result ((index, expr') :: tl)
+
+         else
+
+           raise Not_found
+
+       with Not_found ->
+
+         (* Fail *)
+         raise 
+           (Failure 
+              (Format.asprintf 
+                 "Identifier %a does not have field %a in %a" 
+                 I.pp_print_ident ident
+                 A.pp_print_position pos
+                 I.pp_print_index field)))
+
+
+    (* Projection to a tuple or array field *)
+    | (index, A.TupleProject (pos, ident, field_expr)) :: tl -> 
+
+      (try
+
+         (* Evaluate expression to an integer constant *)
+         let field_index = 
+           I.index_of_int (int_const_of_expr field_expr) 
+         in
+
+         (* Check if identifier has index *)
+         if List.mem field_index (List.assoc ident index_ctx) then
+
+           (* Append index to identifier *)
+           let expr' = 
+             A.Ident (pos, I.add_index ident field_index) 
+           in
+
+           (* Continue with array or tuple field *)
+           eval_ast_expr' result ((index, expr') :: tl)
+
+         else
+
+           raise Not_found 
+
+       with Not_found -> 
+
+         (* Fail *)
+         raise 
+           (Failure 
+              (Format.asprintf 
+                 "Identifier %a does not have field %a in %a" 
+                 I.pp_print_ident ident
+                 A.pp_print_expr field_expr
+                 A.pp_print_position pos)))
+
+
+    (* Boolean constant true *)
+    | (index, A.True pos) :: tl -> 
+
+      (* Add expression to result *)
+      eval_ast_expr' ((index, E.t_true) :: result) tl
+
+
+    (* Boolean constant true *)
+    | (index, A.False pos) :: tl -> 
+
+      (* Add expression to result *)
+      eval_ast_expr' ((index, E.t_false) :: result) tl
+
+
+    (* Integer constant *)
+    | (index, A.Num (pos, d)) :: tl -> 
+
+      (* Add expression to result *)
+      eval_ast_expr' ((index, E.mk_int (int_of_string d)) :: result) tl
+
+
+    (* Real constant *)
+    | (index, A.Dec (pos, f)) :: tl -> 
+
+      (* Add expression to result *)
+      eval_ast_expr' ((index, E.mk_real (float_of_string f)) :: result) tl
+
+
+    (* Conversion to an integer  *)
+    | (index, A.ToInt (pos, expr)) :: tl -> 
+
+      let eval = function 
+
+        | { E.expr = E.Real f } -> E.mk_int (int_of_float f)
+
+        | e -> E.mk_to_int e
+
+      in
+
+      let result' = 
+        List.fold_left
+          (fun a (j, e) -> (j, eval e) :: a)
+          result
+          (eval_ast_expr expr)
+      in
+
+      (* Add expression to result *)
+      eval_ast_expr' result' tl
+
+
+  and eval_ast_expr expr = eval_ast_expr' [] [([], expr)]
+
+  and int_const_of_expr expr = 
+
+    (* Evaluate expression *)
+    match eval_ast_expr expr with
+
+      (* Expression must evaluate to a singleton list of an integer
+         expression without index *)
+      | [ [], { E.expr = E.Int d } ] -> d 
+
+      (* Expression is not a constant integer *)
+      | _ ->       
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Expression %a in %a must be a constant integer" 
+                A.pp_print_expr expr
+                A.pp_print_position A.dummy_pos))
 
   in
-
-
 
 
   (* ******************************************************************** *)
@@ -1582,103 +1836,102 @@ let rec check_declarations
 
 
   (* Expand a possibly nested type expression to indexed basic types
-     and apply [f] to each *)
-  let rec fold_ast_type' f accum = function 
+     and apply [f] to each 
 
+     The context of the unfolding cannot be modified by f, this is a
+     good thing and disallows defining types recursively. *)
+  let rec fold_ast_type' f accum = function 
 
     (* All types seen *)
     | [] -> accum 
 
-
     (* Basic Lustre types *)
-    | (idx, A.Bool) :: tl -> fold_ast_type' f (f accum idx T.t_bool) tl
-    | (idx, A.Int) :: tl -> fold_ast_type' f (f accum idx T.t_int) tl
-    | (idx, A.Real) :: tl -> fold_ast_type' f (f accum idx T.t_real) tl
+    | (index, A.Bool) :: tl -> fold_ast_type' f (f accum index T.t_bool) tl
+    | (index, A.Int) :: tl -> fold_ast_type' f (f accum index T.t_int) tl
+    | (index, A.Real) :: tl -> fold_ast_type' f (f accum index T.t_real) tl
 
+    (* Integer range type needs to be constructed from evaluated
+       expressions for bounds *)
+    | (index, A.IntRange (lbound, ubound)) :: tl -> 
 
-    (* Integer range type needs to be constructed *)
-    | (idx, A.IntRange (l, u)) :: tl -> 
-
-      (* Evaluate expression for lower bound to a constant *)
-      let cl = int_const_of_expr l in
-
-      (* Evaluate expression for upper bound to a constant *)
-      let cu = int_const_of_expr u in
+      (* Evaluate expressions for bounds to constants *)
+      let const_lbound, const_ubound = 
+        (int_const_of_expr lbound, int_const_of_expr ubound) 
+      in
 
       (* Construct an integer range type *)
-      fold_ast_type' f (f accum idx (T.mk_int_range cl cu)) tl
-
+      fold_ast_type' 
+        f 
+        (f accum index (T.mk_int_range const_lbound const_ubound)) 
+        tl
 
     (* Enum type needs to be constructed *)
-    | (idx, A.EnumType l) :: tl -> 
+    | (index, A.EnumType enum_elements) :: tl -> 
 
       (* Construct an enum type *)
-      fold_ast_type' f (f accum idx (T.mk_enum l)) tl
+      fold_ast_type' f (f accum index (T.mk_enum enum_elements)) tl
 
 
     (* User type that is an alias *)
-    | (idx, A.UserType t) :: tl when 
-        List.mem_assoc t basic_types -> 
+    | (index, A.UserType ident) :: tl when 
+        List.mem_assoc ident basic_types -> 
 
       (* Substitute basic type *)
       fold_ast_type' 
         f 
-        (f accum idx (List.assoc t basic_types)) 
+        (f accum index (List.assoc ident basic_types)) 
         tl
 
+    (* User type that is an alias for an indexed type *)
+    | (index, A.UserType ident) :: tl when 
+        List.mem_assoc ident indexed_types -> 
+
+      (* Apply f to basic types with index *)
+      let accum' = 
+        List.fold_left
+          (fun a (j, s) -> f a (index @ j) s)
+          accum
+          (List.assoc ident indexed_types)
+      in
+
+      (* Recurse for tail of list *)
+      fold_ast_type' f accum' tl
 
     (* User type that is a free type *)
-    | (idx, A.UserType t) :: tl when
-        List.mem_assoc t indexed_types -> 
-      
-      (* Substitute basic type *)
-      fold_ast_type' 
-        f 
-        accum
-        (List.fold_left
-           (fun a (j, s) -> (idx @ j, s) :: a)
-           tl
-           (List.assoc t indexed_types))
-
-
-    (* User type that is a free type *)
-    | (idx, A.UserType t) :: tl when 
-        List.mem t free_types -> 
+    | (index, A.UserType ident) :: tl when 
+        List.mem ident free_types -> 
 
       (* Substitute free type *)
       fold_ast_type' 
         f 
-        (f accum idx (T.mk_free_type t)) 
+        (f accum index (T.mk_free_type ident)) 
         tl
 
-
-    (* User type that is not defined *)
-    | (idx, A.UserType t) :: _ -> 
+    (* User type that is neither an alias nor free *)
+    | (index, A.UserType ident) :: _ -> 
 
       (* Fail *)
       raise 
         (Failure 
            (Format.asprintf 
               "Type %a in %a is not declared" 
-              I.pp_print_ident t
+              I.pp_print_ident ident
               A.pp_print_position A.dummy_pos))
 
-
     (* Record type *)
-    | (idx, A.RecordType l) :: tl -> 
+    | (index, A.RecordType record_fields) :: tl -> 
 
       (* Substitute with indexed types of fields *)
       fold_ast_type' 
         f 
         accum 
         (List.fold_left
-           (fun a (j, s) -> (idx @ (I.index_of_ident j), s) :: a)
+           (fun a (j, s) -> (index @ (I.index_of_ident j), s) :: a)
            tl
-           l)
-
+           record_fields)
 
     (* Tuple type *)
-    | (idx, A.TupleType l) :: tl -> 
+    | (index, A.TupleType tuple_fields) :: tl -> 
 
       (* Substitute with indexed types of elements *)
       fold_ast_type' 
@@ -1686,44 +1939,43 @@ let rec check_declarations
         accum 
         (fst
            (List.fold_left
-              (fun (a, j) s -> (idx @ (I.index_of_int j), s) :: a, succ j)
+              (fun (a, j) s -> (index @ (I.index_of_int j), s) :: a, succ j)
               (tl, 0)
-              l))
-
+              tuple_fields))
 
     (* Array type *)
-    | (idx, A.ArrayType (s, e)) :: tl -> 
+    | (index, A.ArrayType (type_expr, size_expr)) :: tl -> 
 
       (* Evaluate size of array to a constant integer *)
-      let n = int_const_of_expr e in
+      let array_size = int_const_of_expr size_expr in
 
       (* Array size must must be at least one *)
-      if n <= 0 then 
+      if array_size <= 0 then 
 
         (* Fail *)
         raise 
           (Failure 
              (Format.asprintf 
                 "Expression %a must be positive as array size in %a" 
-                A.pp_print_expr e
+                A.pp_print_expr size_expr
                 A.pp_print_position A.dummy_pos));
 
       (* Append indexed types *)
-      let rec aux a = function
-        | 0 -> a
+      let rec aux accum = function
+        | 0 -> accum
         | j -> 
 
           aux 
-            ((idx @ (I.index_of_int (pred j)), s) :: a)
+            ((index @ (I.index_of_int (pred j)), type_expr) :: accum)
             (pred j)
 
       in
-      
+
       (* Substitute with indexed types of elements *)
       fold_ast_type' 
         f 
         accum 
-        (aux tl n)
+        (aux tl array_size)
 
   in
 
@@ -1731,6 +1983,10 @@ let rec check_declarations
   let fold_ast_type f accum t = fold_ast_type' f accum [([], t)] in 
 
 
+
+
+
+(*
   let check_alias_type_decl t t' decls = 
 
     if       
@@ -1954,8 +2210,9 @@ let rec check_declarations
          type t.in = tn;
 
       *)
-      | A.UserType t' when List.mem_assoc t' indexed_types -> 
+      | A.UserType t' when List.mem_assoc t' indexed_types -> assert false
 
+(*
         (* Push declarations for indexed identifiers *)
         let decls' = 
           List.fold_left 
@@ -1968,6 +2225,7 @@ let rec check_declarations
 
         (* State unchanged, new declarations pushed *)
         (state, decls')
+*)
 
       (* type t = t';
 
@@ -1980,8 +2238,9 @@ let rec check_declarations
          type t = t'';
 
       *)
-      | A.UserType t' when List.mem t' free_types ->  
+      | A.UserType t' when List.mem t' free_types ->  assert false
 
+(*
         (* Add association of type to free type *)
         let basic_types' = 
           (t, T.mk_free_type t') :: basic_types 
@@ -1995,7 +2254,7 @@ let rec check_declarations
              basic_types = basic_types'; 
              indexed_types = indexed_types' }, 
          decls)
-
+*)
 
       (* type t = t';
 
@@ -2022,8 +2281,9 @@ let rec check_declarations
       | A.Int 
       | A.Real 
       | A.IntRange _ 
-      | A.EnumType _ as t' -> 
+      | A.EnumType _ as t' -> assert false 
 
+(*
         (* Basic type of type in AST *)
         let t'' = lustre_type_of_ast_type t' in
 
@@ -2079,6 +2339,7 @@ let rec check_declarations
                indexed_types = indexed_types';
                type_ctx = type_ctx' }, 
          decls)
+*)
 
     )
 
@@ -2117,11 +2378,12 @@ let rec check_declarations
 
   in
 
+*)
 
   (* ******************************************************************** *)
   (* Free constant declarations                                           *)
   (* ******************************************************************** *)
-
+(*
   (* const c : t; 
 
      Free constant of basic type *)
@@ -2160,7 +2422,7 @@ let rec check_declarations
         let type_ctx' = (c, lustre_type_of_ast_type t') :: type_ctx in
 
         (* State modified *)
-        ({ state with type_ctx = type_ctx' }, decls)
+        ({ global_context with type_ctx = type_ctx' }, decls)
 
 
       (* const c : t'; 
@@ -2172,14 +2434,15 @@ let rec check_declarations
         let type_ctx' = (c, List.assoc t' basic_types) :: type_ctx in
 
         (* State modified *)
-        ({ state with type_ctx = type_ctx' }, decls)
+        ({ global_context with type_ctx = type_ctx' }, decls)
 
 
       (* const c : t'; 
 
          where t' is an indexed type *)
-      | A.UserType t' when List.mem_assoc t' indexed_types -> 
+      | A.UserType t' when List.mem_assoc t' indexed_types -> assert false
 
+(*
         (* Push declarations for indexed identifiers *)
         let decls' = 
           List.fold_left 
@@ -2195,7 +2458,7 @@ let rec check_declarations
 
         (* State unchanged, new declarations pushed *)
         (state, decls')
-
+*)
 
       (* const c : t'; 
 
@@ -2204,11 +2467,12 @@ let rec check_declarations
       *)
       | A.UserType t' when List.mem t' free_types -> 
 
+
         (* Add to typing context *)
         let type_ctx' = (c, T.mk_free_type t') :: type_ctx in
 
         (* State modified *)
-        ({ state with type_ctx = type_ctx' }, decls)
+        ({ global_context with type_ctx = type_ctx' }, decls)
 
 
       (* const c : t';
@@ -2254,7 +2518,7 @@ let rec check_declarations
         in
 
         (* State unchanged, new declarations pushed *)
-        (state, decls')
+        (global_context, decls')
 
 
       (* const c : t';
@@ -2302,7 +2566,7 @@ let rec check_declarations
         let decls' = aux decls n in
 
         (* State unchanged, new declarations pushed *)
-        (state, decls')
+        (global_context, decls')
 
 
       (* const c : t';
@@ -2332,7 +2596,7 @@ let rec check_declarations
         in
 
         (* State unchanged, new declarations pushed *)
-        (state, decls')
+        (global_context, decls')
 
 
   in
@@ -2355,7 +2619,7 @@ let rec check_declarations
               | None -> true 
               | Some t -> check_type t' (lustre_type_of_ast_type t) -> 
 
-          ({ state with 
+          ({ global_context with 
                consts = (c, e) :: consts; 
                type_ctx = (c, T.mk_int_range d d) :: type_ctx },
            decls)
@@ -2367,7 +2631,7 @@ let rec check_declarations
               | None -> true 
               | Some t -> check_type t' (lustre_type_of_ast_type t) -> 
 
-          ({ state with 
+          ({ global_context with 
                consts = (c, e) :: consts; 
                type_ctx = (c, T.t_real) :: type_ctx },
            decls)
@@ -2380,7 +2644,7 @@ let rec check_declarations
               | None -> true 
               | Some t -> check_type t' (lustre_type_of_ast_type t) -> 
 
-          ({ state with 
+          ({ global_context with 
                consts = (c, e) :: consts; 
                type_ctx = (c, T.t_bool) :: type_ctx },
            decls)
@@ -2392,7 +2656,7 @@ let rec check_declarations
               | None -> true 
               | Some t -> check_type t' (lustre_type_of_ast_type t) -> 
 
-          ({ state with 
+          ({ global_context with 
                consts = (c, e) :: consts; 
                type_ctx = (c, t') :: type_ctx },
            decls)
@@ -2404,7 +2668,7 @@ let rec check_declarations
               | None -> true 
               | Some t -> check_type t' (lustre_type_of_ast_type t) -> 
 
-          ({ state with 
+          ({ global_context with 
                consts = (c, e) :: consts; 
                type_ctx = (c, t') :: type_ctx },
            decls)
@@ -2484,7 +2748,7 @@ let rec check_declarations
           in 
 
           (* State with extended index map *)
-          ({ state with 
+          ({ global_context with 
                type_ctx = type_ctx'; 
                index_ctx = index_ctx'; 
                consts = consts' }, 
@@ -2503,47 +2767,142 @@ let rec check_declarations
               A.pp_print_position A.dummy_pos))
 
   in
-
+*)
   function
 
     (* All declarations processed, return result *)
-    | [] -> state
+    | [] -> global_context
 
-
-    (* Identifier [t] is an alias for type [t'] *)
-    | A.TypeDecl (A.AliasType (t, t')) as d :: decls ->
+    (* Declaration of a type as alias or free *)
+    | (A.TypeDecl (A.AliasType (ident, _) as type_decl) as decl) :: decls
+    | (A.TypeDecl (A.FreeType ident as type_decl) as decl) :: decls -> 
 
       (* Output type declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration d;
-(*
-      (* Check alias type declaration *)
-      let state', decls' = check_alias_type_decl t t' decls in
-*)
+      Format.printf "-- %a@." A.pp_print_declaration decl;
 
-      let state', decls' =
-        fold_ast_type 
-          (fun (state, decls) idx s -> state, decls)
-          (state, decls)
-          t'
+      if       
+
+        (* Type t must not be declared *)
+        type_is_declared ident
+
+      then
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Type %a is redeclared in %a" 
+                I.pp_print_ident ident
+                A.pp_print_position A.dummy_pos));
+
+      (* Change context with alias type declaration *)
+      let global_context' = match type_decl with 
+
+        (* Identifier is an alias for a type *)
+        | A.AliasType (ident, type_expr) -> 
+
+          (* Add alias type declarations for the possibly indexed
+             type expression *)
+          let global_context' = 
+            fold_ast_type 
+              (add_alias_type_decl ident) 
+              global_context 
+              type_expr
+          in
+
+          (* Return changed context and unchanged declarations *)
+          global_context'
+
+        (* Identifier is a free type *)
+        | A.FreeType ident -> 
+
+          (* Add type identifier to free types *)
+          let free_types' = ident :: free_types in
+
+          (* Changes to global context *)
+          { global_context with free_types = free_types' }
+
       in
-        
 
       (* Recurse for next declarations *)
-      check_declarations state' decls' 
+      check_declarations global_context' decls
+
+    (* Declaration of a typed, untyped or free constant *)
+    | (A.ConstDecl (A.FreeConst (ident, _) as const_decl) as decl) :: decls 
+    | (A.ConstDecl (A.UntypedConst (ident, _) as const_decl) as decl) :: decls 
+    | (A.ConstDecl (A.TypedConst (ident, _, _) as const_decl) as decl) :: decls ->
+
+      (* Output constant declaration *)
+      Format.printf "-- %a@." A.pp_print_declaration decl;
+
+      if
+
+        (* Identifier must not be declared *)
+        List.mem_assoc ident type_ctx 
+
+      then
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Identifier %a is redeclared as constant in %a" 
+                I.pp_print_ident ident
+                A.pp_print_position A.dummy_pos));
+
+      (* Change context with constant declaration *)
+      let global_context' = match const_decl with 
+
+        (* Identifier is a free constant with given type *)
+        | A.FreeConst (ident, type_expr) -> 
+
+          let global_context' = global_context 
+(*            fold_ast_type 
+              (add_const_decl ident)
+              global_context 
+              type_expr *)
+          in
 
 
-    (* Identifier [t] is a free type *)
-    | A.TypeDecl (A.FreeType t) as d :: decls -> 
+          global_context'
 
-      (* Output type declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration d;
+        (* Identifier is a constant without given type *)
+        | A.UntypedConst (ident, expr) -> 
 
-      (* Check free type declaration *)
-      let state', decls' = check_free_type_decl t decls in
+          let global_context' = global_context 
+(*            fold_ast_expr 
+              (add_const_val ident)
+              global_context
+              expr *)
+          in
+
+          global_context'
+
+        (* Identifier is a constant with given type *)
+        | A.TypedConst (ident, expr, type_expr) -> 
+
+          let global_context' = global_context 
+(*            fold_ast_type 
+              (add_const_decl ident)
+              global_context 
+              type_expr *)
+          in
+
+          let global_context'' = global_context 
+(*            fold_ast_expr 
+              (add_const_val ident)
+              global_context
+              expr *)
+          in
+
+          global_context''
+
+      in
 
       (* Recurse for next declarations *)
-      check_declarations state' decls' 
+      check_declarations global_context' decls
 
+(*
 
     (* Identifier [c] of type [t] is a free constant *)
     | (A.ConstDecl (A.FreeConst (c, t)) as d) :: decls ->
@@ -2580,6 +2939,7 @@ let rec check_declarations
 
       (* Recurse for next declarations *)
       check_declarations state' decls' 
+*)
 
     | d :: decls ->
 
@@ -2587,13 +2947,13 @@ let rec check_declarations
       Format.printf "-- skipped: %a@." A.pp_print_declaration d;
 
       (* Recurse for next declarations *)
-      check_declarations state decls
+      check_declarations global_context decls
 
 
 let check_program p = 
-  let state = check_declarations init_state p in
+  let global_context = check_declarations init_lustre_context p in
 
-  Format.printf "%a@." pp_print_state state
+  Format.printf "%a@." pp_print_lustre_context global_context
 
 
 (* 

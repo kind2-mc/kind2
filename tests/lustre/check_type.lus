@@ -11,7 +11,7 @@ type r_3 = { one: int };
 type r_4 = { one: r_3 };
 
 -- Records cannot be recursive
--- type re_1 = { one: e_1 };
+-- type re_1 = { one: re_1 };
 
 
 -- Tuples 
@@ -49,6 +49,8 @@ type r_5 = { one: f_1 };
 
 type r_6 = r_5;
 
+(*
+
 -- Free constants
 
 const f_1: b_1;
@@ -61,8 +63,19 @@ const f_4: a_2;
 
 const f_5: r_1;
 
+*)
 
 type e_1 = enum { red, green, blue };
+
+-- Enum types can be redeclared
+type e_1d = enum { red, green, blue };
+
+-- Constant can only belong to one enum
+-- type ee_2 = enum { red, green, blue, yellow };
+
+type e_2 = enum { yellow, black };
+
+(*
 
 const f_6: e_1;
 
@@ -76,7 +89,9 @@ const c_2 = [[0, 1], [2, 3]];
 
 const c_3 = c_2[0];
 
+
 type g_1 = subrange [c_1[0], c_1[1]] of int;
+
 
 const f_9: g_1;
 
@@ -91,7 +106,7 @@ const f_13 : a_1;
 const f_14 : t_2;
 
 -- ----------------------------------------------------------------------
-
+*)
 
 
 type j = enum { red, green, blue };
@@ -110,6 +125,7 @@ type g = int^(1+1);
 type i = int^4^3;
 type cj = int^2^1;
 
+(*
 const a = 1;
 const b : real = 2E1;
 const c = 2.0;
@@ -122,6 +138,8 @@ const h2 = false xor true;
 const h3 = true xor false;
 const i : i = [[1, 2]|[3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
 const j : cj = i[1..2, 1..1];
-const k : l = k { one = 1; two = 2.0; three = red };
+-- const k : l = k { one = 1; two = 2.0; three = red };
 
-const m = m1 { one = m0 { one = 1} };
+-- const m = m1 { one = m0 { one = 1} };
+
+*)
