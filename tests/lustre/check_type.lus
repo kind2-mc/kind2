@@ -1,3 +1,14 @@
+const a = [1, [2, [3]]];
+
+const b = 2^2^3;
+
+const c = a;
+
+const d = c[0];
+
+/*
+
+
 -- Records 
 
 -- Record type 
@@ -143,3 +154,5 @@ const j : cj = i[1..2, 1..1];
 -- const m = m1 { one = m0 { one = 1} };
 
 *)
+
+*/
