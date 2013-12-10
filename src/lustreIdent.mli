@@ -56,6 +56,8 @@ type index = one_index list
 (** An identifier *)
 type t = string * index
 
+(** A set of identifiers*)
+module LustreIdentSet : Set.S with type elt = t
 
 val compare_one_index : one_index -> one_index -> int
 val compare_index : index -> index -> int

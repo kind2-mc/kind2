@@ -100,7 +100,15 @@ let compare (a, ia)  (b, ib) =
     (* Return comparison of strings *)
     | c -> c
   
-  
+
+(* Set of identifiers *)  
+module LustreIdentSet = Set.Make 
+    (struct 
+      type z = t
+      type t = z
+      let compare = compare
+    end)
+
 
 (* ********************************************************************** *)
 (* Pretty-printers                                                        *)
