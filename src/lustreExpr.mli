@@ -50,7 +50,6 @@ type binary_op =
   | Lt
   | Gte
   | Gt
-  | Arrow
 
 type var_op =
   | OneHot
@@ -64,18 +63,32 @@ type expr = private
   | Real of float
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * (expr * expr)
+  | VarOp of var_op * expr list
   | Ite of expr * expr * expr
 
 type clock = unit
 
 type t = private { 
-  
-  expr: expr;                 (** Lustre expression *)
 
-  expr_clock: clock;           (** Clock of expression *)
-  
-  expr_type: LustreType.t     (** Type of expression *) } 
+  expr_init: expr;                     (** Lustre expression for
+                                           initial state *)
 
+  expr_step: expr;                     (** Lustre expression after
+                                           initial state *)
+
+  expr_clock: clock;                   (** Clock of expression *)
+
+  expr_type: LustreType.t;             (** Type of expression *) 
+
+  expr_vars : LustreIdent.LustreIdentSet.t;   (** Current-state variables the
+                                                  expression depends on *)
+
+  expr_pre_vars : LustreIdent.LustreIdentSet.t;  (** Pre-state
+                                                     variables the
+                                                     expression
+                                                     depends on *)
+
+}
 
 val pp_print_lustre_expr : Format.formatter -> t -> unit 
 

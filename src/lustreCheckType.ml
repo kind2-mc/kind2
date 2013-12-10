@@ -29,13 +29,13 @@
 
 open Lib
 
+(* Abbreviations *)
 module A = LustreAst
 module I = LustreIdent
-
 module T = LustreType
 module E = LustreExpr
+module ISet = I.LustreIdentSet
 
-module IdentSet = Set.Make (I)
 
 
 type const_val =
@@ -543,48 +543,40 @@ let rec eval_ast_expr'
   | (index, A.Num (pos, d)) :: tl -> 
 
     (* Add expression to result *)
-    eval_ast_expr' context ((index, E.mk_int (int_of_string d)) :: result) tl
+    eval_ast_expr' 
+      context 
+      ((index, E.mk_int (int_of_string d)) :: result) 
+      tl
 
 
   (* Real constant *)
   | (index, A.Dec (pos, f)) :: tl -> 
 
     (* Add expression to result *)
-    eval_ast_expr' context ((index, E.mk_real (float_of_string f)) :: result) tl
+    eval_ast_expr' 
+      context 
+      ((index, E.mk_real (float_of_string f)) :: result) 
+      tl
 
 
   (* Conversion to an integer  *)
   | (index, A.ToInt (pos, expr)) :: tl -> 
 
-    let eval = function 
-
-      (* Evaluate with real constant as argument *)
-      | { E.expr = E.Real f } -> E.mk_int (int_of_float f)
-
-      (* Evaluate with other term *)
-      | e -> E.mk_to_int e
-
-    in
-
     (* Add expression to result *)
-    eval_ast_expr' context (unary_apply_to context eval expr result)  tl
+    eval_ast_expr' 
+      context 
+      (unary_apply_to context E.mk_to_int expr result)  
+      tl
 
 
   (* Conversion to an integer  *)
   | (index, A.ToReal (pos, expr)) :: tl -> 
 
-    let eval = function 
-
-      (* Evaluate with real constant as argument *)
-      | { E.expr = E.Int d } -> E.mk_real (float_of_int d)
-
-      (* Evaluate with other term *)
-      | e -> E.mk_to_real e
-
-    in
-
     (* Add expression to result *)
-    eval_ast_expr' context (unary_apply_to context eval expr result)  tl
+    eval_ast_expr' 
+      context 
+      (unary_apply_to context E.mk_to_real expr result) 
+      tl
 
 
   (* Tuple constructor *)
@@ -783,26 +775,50 @@ let rec eval_ast_expr'
 
   | (index, A.Not (pos, expr)) :: tl -> 
 
-    let eval = function 
-
-      (* Evaluate with Boolean constant as argument *)
-      | { E.expr = E.True } -> E.t_false
-      | { E.expr = E.False } -> E.t_true
-
-      (* Evaluate with other term *)
-      | e -> E.mk_not e
-
-    in
-
     (* Add expression to result *)
-    eval_ast_expr' context (unary_apply_to context eval expr result)  tl
+    eval_ast_expr' 
+      context 
+      (unary_apply_to context E.mk_not expr result)  
+      tl
 
-and unary_apply_to context eval expr accum = 
+and unary_apply_to context mk expr accum = 
+
+  let expr' = eval_ast_expr context expr in
 
   List.fold_right
-    (fun (j, e) a -> (j, eval e) :: a)
-    (eval_ast_expr context expr)
+    (fun (j, e) a -> (j, mk e) :: a)
+    expr'
     accum
+
+and binary_apply_to context mk expr1 expr2 accum = 
+
+  (* Sort a list indexed expressions *)
+  let sort_indexed_expr = 
+    List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) 
+  in
+  
+  (* Evaluate and sort first expression by indexes *)
+  let expr1' = sort_indexed_expr (eval_ast_expr context expr1) in
+
+  (* Evaluate and sort second expression by indexes *)
+  let expr2' = sort_indexed_expr (eval_ast_expr context expr2) in
+
+  List.fold_right2
+    (fun (j1, e1) (j2, e2) a -> 
+
+       if j1 = j2 then (j1, mk e1 e2) else          
+
+         (* Fail *)
+         raise 
+           (Failure 
+              (Format.asprintf 
+                 "Type mismatch for expressions at %a" 
+                 A.pp_print_position A.dummy_pos)))
+    expr1'
+    expr2'
+    accum
+  
+  
 
 
 and eval_ast_expr context expr = eval_ast_expr' context [] [([], expr)]
@@ -814,7 +830,10 @@ and int_const_of_ast_expr context expr =
 
     (* Expression must evaluate to a singleton list of an integer
        expression without index *)
-    | [ [], { E.expr = E.Int d } ] -> d 
+    | [ [], { E.expr_pre_vars; 
+              E.expr_init = E.Int di; 
+              E.expr_step = E.Int ds } ] 
+      when ISet.is_empty expr_pre_vars && di = ds -> di
 
     (* Expression is not a constant integer *)
     | _ ->       
