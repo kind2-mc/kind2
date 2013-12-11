@@ -517,12 +517,12 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore 
-        (zmsg_pushstr msg "");
       ignore
         (zmsg_pushstr 
            msg 
            "Job rejected due to high system load. Try again later");
+      ignore 
+        (zmsg_pushstr msg "");
       ignore(zmsg_send msg sock);
 
       log "Job rejected due to high system load";
@@ -657,7 +657,11 @@ let create_job
 let output_of_job_status 
     log 
     job_id
-    ({ job_pid; job_stdin_fn; job_stdout_fn; job_stderr_fn; job_stdout_pos } as job_info)
+    ({ job_pid; 
+       job_stdin_fn; 
+       job_stdout_fn; 
+       job_stderr_fn; 
+       job_stdout_pos } as job_info)
     job_status = 
 
   (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
