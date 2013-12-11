@@ -32,11 +32,11 @@ open Lib
 
 
 (* Raised when the properties have been proved *)
-exception Success
+exception Success of int
 
 
 (* Raised when one property has been disproved *)
-exception Counterexample
+exception Counterexample 
 
 
 (* Use configured SMT solver *)
@@ -1875,7 +1875,7 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
               (succ (List.length accum))
               Stat.pdr_fwd_fixpoint;
 
-            raise Success
+            raise (Success (List.length frames))
 
           );
 
@@ -2013,12 +2013,12 @@ let handle_events ((solver_init, solver_frames, _) as solvers) transSys bmc_k =
          (* Property has been proved by other module 
             
             TODO: add as invariant and remove from properties to prove *)
-         | Event.Proved (_, prop) -> bmc_k
+         | Event.Proved (_, _, prop) -> bmc_k
            
          (* Property has been disproved by other module
           
             TODO: remove from properties to prove *)
-         | Event.Disproved (_, prop) -> bmc_k
+         | Event.Disproved (_, _, prop) -> bmc_k
            
        )
        bmc_k
@@ -2106,10 +2106,10 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames c
       fwd_propagate solvers transSys frames 
 
     (* Fixed point reached *)
-    with Success -> 
+    with Success pdr_k -> 
 
       (* Must have checked for 0 and 1 step counterexamples *)
-      if bmc_k' > 1 then raise Success else
+      if bmc_k' > 1 then raise (Success pdr_k) else
 
         (* Wait until BMC process has passed k=1 *)
         let rec wait_for_bmc bmc_k = 
@@ -2121,7 +2121,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames c
           if bmc_k' > 1 then 
 
             (* Raise exception again *)
-            raise Success 
+            raise (Success pdr_k)
 
           else
 
@@ -2356,11 +2356,11 @@ let main transSys =
     with 
 
       (* All properties are valid *)
-      | Success -> 
+      | Success k -> 
 
         (
 
-          List.iter (Event.proved `PDR) transSys.TransSys.props
+          List.iter (Event.proved `PDR (Some k)) transSys.TransSys.props
          
         )
 
@@ -2370,7 +2370,7 @@ let main transSys =
         (
           
           List.iter 
-            (function (p, _) -> Event.disproved `PDR p) 
+            (function (p, _) -> Event.disproved `PDR None p) 
             transSys.TransSys.props
 
         )

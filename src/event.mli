@@ -47,8 +47,8 @@ exception Terminate
 type event = 
   | Invariant of Lib.kind_module * Term.t (** Module has discovered
                                                an invariant *)
-  | Proved of Lib.kind_module * string (** Module has proved a property *)
-  | Disproved of Lib.kind_module * string (** Module has disproved a
+  | Proved of Lib.kind_module * int option * string (** Module has proved a property *)
+  | Disproved of Lib.kind_module * int option * string (** Module has disproved a
                                               property *)
   | BMCState of int * (string list) (** BMC entered a new step where
                                         the given properties are
@@ -61,10 +61,10 @@ val pp_print_event : Format.formatter -> event -> unit
 val invariant : Lib.kind_module -> Term.t -> unit 
 
 (** Broadcast a proved property *)
-val proved : Lib.kind_module -> (string * Term.t) -> unit 
+val proved : Lib.kind_module -> int option -> (string * Term.t) -> unit 
 
 (** Broadcast a disproved property *)
-val disproved : Lib.kind_module -> string -> unit 
+val disproved : Lib.kind_module -> int option -> string -> unit 
 
 (** Broadcast status of BMC *)
 val bmcstate : int -> string list -> unit
@@ -155,10 +155,10 @@ val stat : Lib.kind_module -> (string * Stat.stat_item list) list -> unit
 val progress : Lib.kind_module -> int -> unit
 
 (** Log a disproved property *)
-val log_disproved : Lib.kind_module -> string -> unit 
+val log_disproved : Lib.kind_module -> int option -> string -> unit 
 
 (** Log a proved property *)
-val log_proved : Lib.kind_module -> string -> unit
+val log_proved : Lib.kind_module -> int option -> string -> unit
  
 (** Log a counterexample *)
 val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 

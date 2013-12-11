@@ -72,8 +72,8 @@ type control =
 
 type invariant = 
   | INVAR of string * int
-  | PROVED of string * int
-  | DISPROVED of string * int
+  | PROVED of string * int * int
+  | DISPROVED of string * int * int
   | RESEND of int
 
 type induction = 
@@ -110,11 +110,11 @@ let pp_print_message ppf = function
   | InvariantMessage (INVAR (_, n)) -> 
     Format.fprintf ppf "INVAR (_,%d))" n
 
-  | InvariantMessage (DISPROVED (_, n)) -> 
-    Format.fprintf ppf "DISPROVED (_,%d))" n
+  | InvariantMessage (DISPROVED (_, k, n)) -> 
+    Format.fprintf ppf "DISPROVED (_,%d,%d))" k n
 
-  | InvariantMessage (PROVED (_, n)) -> 
-    Format.fprintf ppf "PROVED (_,%d))" n
+  | InvariantMessage (PROVED (_, k, n)) -> 
+    Format.fprintf ppf "PROVED (_,%d,%d))" k n
 
   | InvariantMessage (RESEND n) -> Format.fprintf ppf "RESEND(%d)" n
 
@@ -328,13 +328,15 @@ let zmsg_of_msg msg =
           ignore(zmsg_pushbstr zmsg f (String.length f));
           ignore(zmsg_pushstr zmsg "INVAR")
 
-        | PROVED (p, n) -> 
+        | PROVED (p, k, n) -> 
           ignore(zmsg_pushstr zmsg (string_of_int n));
+          ignore(zmsg_pushstr zmsg (string_of_int k));
           ignore(zmsg_pushstr zmsg p);
           ignore(zmsg_pushstr zmsg "PROVED")
 
-        | DISPROVED (p, n) -> 
+        | DISPROVED (p, k, n) -> 
           ignore(zmsg_pushstr zmsg (string_of_int n));
+          ignore(zmsg_pushstr zmsg (string_of_int k));
           ignore(zmsg_pushstr zmsg p);
           ignore(zmsg_pushstr zmsg "DISPROVED")
 
@@ -414,11 +416,21 @@ let string_of_msg msg =
           | INVAR (f, n) -> 
             "InvariantMessage(INVAR(" ^ f ^ ", " ^ (string_of_int n) ^ "))"
 
-          | PROVED (p, n) -> 
-            "InvariantMessage(PROVED(" ^ p ^ ", " ^ (string_of_int n) ^ "))"
+          | PROVED (p, k, n) -> 
 
-          | DISPROVED (p, n) -> 
-            "InvariantMessage(DISPROVED(" ^ p ^ ", " ^ (string_of_int n) ^ "))"
+            Format.sprintf 
+              "InvariantMessage(PROVED(%s,%d,%d))"
+              p
+              k
+              n
+
+          | DISPROVED (p, k, n) -> 
+
+            Format.sprintf 
+              "InvariantMessage(DISPROVED(%s,%d,%d))"
+              p
+              k
+              n
 
           | RESEND n -> "InvariantMessage(RESEND(" ^ (string_of_int n) ^ "))"
 
@@ -521,15 +533,17 @@ let msg_of_zmsg zmsg =
 
             (* get P and n *)
             let p = zmsg_popstr zmsg in
+            let k = int_of_string (zmsg_popstr zmsg) in
             let n = int_of_string (zmsg_popstr zmsg) in
-            (sender, InvariantMessage (DISPROVED (p, n)))
+            (sender, InvariantMessage (DISPROVED (p, k, n)))
 
         | "PROVED"-> 
 
             (* get P and n *)
             let p = zmsg_popstr zmsg in
+            let k = int_of_string (zmsg_popstr zmsg) in
             let n = int_of_string (zmsg_popstr zmsg) in
-            (sender, InvariantMessage (PROVED (p, n)))
+            (sender, InvariantMessage (PROVED (p, k, n)))
 
         | "RESEND" ->
 
@@ -631,10 +645,10 @@ let im_handle_messages workers worker_status invariant_id invariants =
                   ((List.assoc sender workers), payload) 
                   incoming_handled
 
-              | PROVED (p, n) -> 
+              | PROVED (p, k, n) -> 
               
                 let identified_msg = 
-                  InvariantMessage (PROVED (p, !invariant_id))
+                  InvariantMessage (PROVED (p, k, !invariant_id))
                 in
 
                 Hashtbl.add invariants !invariant_id identified_msg;
@@ -644,10 +658,10 @@ let im_handle_messages workers worker_status invariant_id invariants =
                   ((List.assoc sender workers), payload) 
                   incoming_handled
 
-              | DISPROVED (p, n) -> 
+              | DISPROVED (p, k, n) -> 
               
                 let identified_msg = 
-                  InvariantMessage (DISPROVED (p, !invariant_id))
+                  InvariantMessage (DISPROVED (p, k, !invariant_id))
                 in
 
                 Hashtbl.add invariants !invariant_id identified_msg;
@@ -850,13 +864,13 @@ let worker_handle_messages
 
                   )
 
-              | DISPROVED (p, n)  ->
+              | DISPROVED (p, k, n) ->
 
                 if 
 
                   Hashtbl.mem 
                     unconfirmed_invariants 
-                    (InvariantMessage (DISPROVED (p, 0)))
+                    (InvariantMessage (DISPROVED (p, k, 0)))
 
                 then 
 
@@ -864,7 +878,7 @@ let worker_handle_messages
                   
                     Hashtbl.remove 
                       unconfirmed_invariants 
-                      (InvariantMessage (DISPROVED (p, 0)));
+                      (InvariantMessage (DISPROVED (p, k, 0)));
 
                     Hashtbl.add confirmed_invariants n p;
 
@@ -906,13 +920,13 @@ let worker_handle_messages
 
                   )
 
-              | PROVED (p, n)  ->
+              | PROVED (p, k, n)  ->
 
                 if 
 
                   Hashtbl.mem 
                     unconfirmed_invariants 
-                    (InvariantMessage (PROVED (p, 0)))
+                    (InvariantMessage (PROVED (p, k, 0)))
 
                 then 
 
@@ -920,7 +934,7 @@ let worker_handle_messages
                   
                     Hashtbl.remove 
                       unconfirmed_invariants 
-                      (InvariantMessage (PROVED (p, 0)));
+                      (InvariantMessage (PROVED (p, k, 0)));
 
                     Hashtbl.add confirmed_invariants n p;
 

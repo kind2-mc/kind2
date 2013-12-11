@@ -447,10 +447,10 @@ let read_bytes start filename =
   if n > 0 then
 
     (
-      
+
       (* Go to starting position in file *)
       seek_in ic start;
-      
+
       (* Create string of fixed size *)
       let s = String.create n in
 
@@ -466,10 +466,16 @@ let read_bytes start filename =
     )
 
   else
-    
-    (* Position is unchanged, string is empty *)
-    (start, "")
-      
+
+    (
+
+      (* Close input channel *)
+      close_in ic;
+
+      (* Position is unchanged, string is empty *)
+      (start, "")
+
+    )
       
 (* create new kind job using flags 'server_flags',
     and the content of 'payload'. send results over 'sock' *)
@@ -511,14 +517,18 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore 
-        (zmsg_pushstr msg "");
-      ignore
-        (zmsg_pushstr 
-           msg 
-           "Job rejected due to high system load. Try again later");
-      ignore(zmsg_send msg sock);
 
+      let msg_str = 
+        asprintf
+          "<Jobstatus msg=\"aborted\">\
+           Job rejected due to high system load. Try again later.\
+           </Jobstatus>"
+      in
+
+      ignore 
+        (zmsg_pushstr msg msg_str);
+      ignore(zmsg_send msg sock);
+      
       log "Job rejected due to high system load";
 
     )
@@ -635,7 +645,17 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore(zmsg_pushstr msg job_id);
+
+      let msg_str = 
+        asprintf
+          "<Jobstatus msg=\"started\" jobid=\"%s\">\
+           Job started with ID %s.\
+           </Jobstatus>"
+          job_id
+          job_id
+      in
+
+      ignore(zmsg_pushstr msg msg_str);
       ignore(zmsg_send msg sock);
 
       log "Job created with ID %s" job_id;
@@ -651,7 +671,11 @@ let create_job
 let output_of_job_status 
     log 
     job_id
-    ({ job_pid; job_stdin_fn; job_stdout_fn; job_stderr_fn; job_stdout_pos } as job_info)
+    ({ job_pid; 
+       job_stdin_fn; 
+       job_stdout_fn; 
+       job_stderr_fn; 
+       job_stdout_pos } as job_info)
     job_status = 
 
   (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
@@ -1065,7 +1089,15 @@ let rec get_requests ({ command; args } as config) sock last_purge : unit =
             with Checksum_failure -> 
               
               let error_msg = zmsg_new () in
-              ignore(zmsg_pushstr error_msg "checksum match failure.");
+
+              let msg_str = 
+                asprintf
+                  "<Jobstatus msg=\"aborted\">\
+                   Checksum match failure.\
+                   </Jobstatus>"
+              in
+              
+              ignore(zmsg_pushstr error_msg msg_str);
               ignore(zmsg_send error_msg sock);
               
           )

@@ -1404,7 +1404,7 @@ let of_channel in_ch =
           il_expression_to_term true (Some L_BOOL, a)
 
     in
-(*
+
     (* Invariants of transition system *)
     let invars = 
 
@@ -1420,7 +1420,7 @@ let of_channel in_ch =
         assert_term :: TransSys.invars_of_types ()
 
     in
-*)
+
     (* Get declared variables 
 
        TODO: filter for proper state variables here, i.e. variables
@@ -1433,7 +1433,7 @@ let of_channel in_ch =
         TransSys.constr = StateVar.StateVarHashtbl.create (List.length trans_assignments);
         TransSys.trans = [];
         TransSys.props = props;
-        TransSys.invars = invariants;
+        TransSys.invars = invars;
         TransSys.props_valid = [];
         TransSys.props_invalid = [];
         TransSys.constr_dep = StateVar.StateVarHashtbl.create (List.length trans_assignments) } 
