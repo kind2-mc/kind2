@@ -517,14 +517,18 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore
-        (zmsg_pushstr 
-           msg 
-           "Job rejected due to high system load. Try again later");
-      ignore 
-        (zmsg_pushstr msg "");
-      ignore(zmsg_send msg sock);
 
+      let msg_str = 
+        asprintf
+          "<Jobstatus msg=\"aborted\">\
+           Job rejected due to high system load. Try again later.\
+           </Jobstatus>"
+      in
+
+      ignore 
+        (zmsg_pushstr msg msg_str);
+      ignore(zmsg_send msg sock);
+      
       log "Job rejected due to high system load";
 
     )
@@ -641,7 +645,17 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore(zmsg_pushstr msg job_id);
+
+      let msg_str = 
+        asprintf
+          "<Jobstatus msg=\"started\" jobid=\"%s\">\
+           Job started with ID %s.\
+           </Jobstatus>"
+          job_id
+          job_id
+      in
+
+      ignore(zmsg_pushstr msg msg_str);
       ignore(zmsg_send msg sock);
 
       log "Job created with ID %s" job_id;
@@ -1075,7 +1089,15 @@ let rec get_requests ({ command; args } as config) sock last_purge : unit =
             with Checksum_failure -> 
               
               let error_msg = zmsg_new () in
-              ignore(zmsg_pushstr error_msg "checksum match failure.");
+
+              let msg_str = 
+                asprintf
+                  "<Jobstatus msg=\"aborted\">\
+                   Checksum match failure.\
+                   </Jobstatus>"
+              in
+              
+              ignore(zmsg_pushstr error_msg msg_str);
               ignore(zmsg_send error_msg sock);
               
           )
