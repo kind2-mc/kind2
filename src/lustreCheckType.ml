@@ -37,49 +37,9 @@ module E = LustreExpr
 module ISet = I.LustreIdentSet
 
 
-
-type const_val =
-  | ConstInt of int
-  | ConstFloat of float
-  | ConstBool of bool
-  | ConstEnum of I.t
-
-type expr_val = 
-  | Const of const_val
-  | Expr of E.t
-  | IndexedExpr of (I.t * expr_val) list
-
-
-type expr_type = 
-  | Type of T.t 
-  | IndexedType of  (I.index list * T.t) list
-
-
-(* Return an integer of a value *)
-let int_of_expr_val = function
-  | Const (ConstInt n) -> n
-  | _ -> raise (Invalid_argument "int_of_expr_val")
-
-
-
-(* Convert a built-in type to a parsed type *)
-let ast_type_of_lustre_type = function 
-
-  | T.Bool -> A.Bool
-
-  | T.Int -> A.Int
-
-  | T.Real -> A.Real
-
-  | T.IntRange (i, j) -> 
-
-    A.IntRange 
-      (A.Num (A.dummy_pos, string_of_int i), 
-       A.Num (A.dummy_pos, string_of_int j))
-
-  | T.Enum l -> A.EnumType l
-
-  | T.FreeType t -> A.UserType t
+(* Sort a list indexed expressions *)
+let sort_indexed_pairs (list : (I.index * 'a) list) : (I.index * 'a) list = 
+  List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) list
 
 
 
@@ -87,17 +47,24 @@ type node_context =
 
   { 
 
-    (* Constant inputs of node *)
-    node_input_consts : (LustreIdent.t  * LustreType.t) list;
+    (* Input variables of node, some flagged as constant
 
-    (* Input variables of node *)
-    node_inputs : (LustreIdent.t * LustreType.t) list;
+       The order of the list is important *)
+    node_inputs : 
+      (LustreIdent.t * (((LustreIdent.index * LustreType.t) list) * bool)) list;
 
-    (* Output variables of node *)
-    node_outputs : (LustreIdent.t * LustreType.t) list;
+    (* Output variables of node 
+
+       The order of the list is important *)
+    node_outputs : 
+      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
     
-    (* Local variables of node *)
-    node_vars : (LustreIdent.t * LustreType.t) list;
+    (* Local variables of node 
+
+       The order of the list is irrelevant. Local constants are
+       propagated and do not need to be stored. *)
+    node_vars :
+      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
 
     (* Equations for local and output variables *)
     node_eqs : (LustreIdent.t * LustreExpr.t) list;
@@ -106,25 +73,145 @@ type node_context =
     node_asserts : LustreExpr.t list;
 
     (* Proof obligations for node *)
-    node_prop : LustreExpr.t list;
+    node_props : LustreExpr.t list;
 
     (* Contract for node, assumptions *)
     node_requires : LustreExpr.t list;
 
     (* Contract for node, guarantees *)
-    node_ensures : LustreExpr.t list }
+    node_ensures : LustreExpr.t list;
+
+    (* Node is annotated as main node *)
+    node_is_main : bool }
 
 
 let init_node_context = 
-  { node_input_consts = [];
-    node_inputs = [];
+  { node_inputs = [];
     node_outputs = [];
     node_vars = [];
     node_eqs = [];
     node_asserts = [];
-    node_prop = [];
+    node_props = [];
     node_requires = [];
-    node_ensures = [] }
+    node_ensures = [];
+    node_is_main = false }
+
+
+let pp_print_node_input ppf (ident, (index_list, is_const)) =
+
+  Format.fprintf ppf
+    "%t%a"
+    (function ppf -> if is_const then Format.fprintf ppf "const ")
+    (pp_print_list 
+       (fun ppf (j, t) -> 
+         Format.fprintf ppf 
+           "%a: %a" 
+           I.pp_print_ident (I.add_index ident j)
+           T.pp_print_lustre_type t)
+       ";@ ")
+    index_list
+
+
+let pp_print_node_output ppf (ident, index_list) =
+
+  Format.fprintf ppf
+    "%a"
+    (pp_print_list 
+       (fun ppf (j, t) -> 
+         Format.fprintf ppf 
+           "%a: %a" 
+           I.pp_print_ident (I.add_index ident j)
+           T.pp_print_lustre_type t)
+       ";@ ")
+    index_list
+
+let pp_print_node_var ppf (ident, index_list) =
+
+  Format.fprintf ppf
+    "%a"
+    (pp_print_list 
+       (fun ppf (j, t) -> 
+         Format.fprintf ppf 
+           "%a: %a;" 
+           I.pp_print_ident (I.add_index ident j)
+           T.pp_print_lustre_type t)
+       "@ ")
+    index_list
+
+let pp_print_node_assert ppf expr = 
+
+  Format.fprintf ppf
+    "@[<hv 2>assert@ %a;@]"
+    E.pp_print_lustre_expr expr
+
+
+let pp_print_node_eq ppf (ident, expr) = 
+
+  Format.fprintf ppf
+    "@[<hv 2>%a@ =@ %a;@]"
+    I.pp_print_ident ident
+    E.pp_print_lustre_expr expr
+
+
+let pp_print_node_prop ppf expr = 
+
+  Format.fprintf ppf
+    "@[<hv 2>--%%PROPERTY@ %a;@]"
+    E.pp_print_lustre_expr expr
+
+
+let pp_print_node_requires ppf expr = 
+
+  Format.fprintf ppf
+    "@[<hv 2>--@@requires@ %a;@]"
+    E.pp_print_lustre_expr expr
+
+
+let pp_print_node_ensures ppf expr = 
+
+  Format.fprintf ppf
+    "@[<hv 2>--@@ensures %a;@]"
+    E.pp_print_lustre_expr expr
+
+
+let pp_print_node_context 
+    node_ident 
+    ppf 
+    { node_inputs; 
+      node_outputs; 
+      node_vars; 
+      node_eqs; 
+      node_asserts; 
+      node_props; 
+      node_requires; 
+      node_ensures } = 
+
+  Format.fprintf ppf 
+    "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
+       returns@ @[<hv 1>(%a)@];@]@ \
+     %t@ \
+     @[<hv 2>let@ \
+     %a@;\
+     %a@;\
+     %a@;\
+     %a@;\
+     %a@;<1 -2>\
+     tel;@]@]"  
+    I.pp_print_ident node_ident
+    (pp_print_list pp_print_node_input ";@ ") node_inputs
+    (pp_print_list pp_print_node_output ";@ ") node_outputs
+    (function ppf -> 
+      if node_vars = [] then () else 
+        Format.fprintf ppf 
+          "@[<hv 2>var@ %a@]" 
+          (pp_print_list pp_print_node_var "@ ") node_vars)
+    (pp_print_list pp_print_node_requires "@ ") node_requires
+    (pp_print_list pp_print_node_ensures "@ ") node_ensures
+    (pp_print_list pp_print_node_prop "@ ") node_props
+    (pp_print_list pp_print_node_assert "@ ") node_asserts
+    (pp_print_list pp_print_node_eq "@ ") node_eqs
+    
+
 
 
 (* A context of the type checker and preprocessor *)
@@ -157,6 +244,9 @@ type lustre_context =
       (* Defined nodes *)
       nodes : (LustreIdent.t * node_context) list;
 
+      (* Distinguished main node *)
+      main_node : LustreIdent.t option;
+
       (* Preprocessed and checked Lustre program *)
       result : unit 
 
@@ -171,6 +261,7 @@ let init_lustre_context =
     index_ctx = [];
     consts = [];
     nodes = [];
+    main_node = None;
     result = () }
 
 
@@ -233,34 +324,6 @@ let pp_print_lustre_context
     (pp_print_list pp_print_consts "@,") consts
 
 
-(* An well-typed and well-clocked expression with its type and clock *)
-type typed_clocked_expr = 
-    { 
-      
-      (* Simplified expression *)
-      expr_sim : LustreExpr.t;
-
-      (* Type of expression *)
-      expr_type : LustreType.t;
-
-      (* Clock of expression  *)
-      expr_clock : LustreExpr.t 
-
-    }
-
-
-(* A well-typed and well-clocked expression or a set of indexed
-   well-typed and well-typed expressions *)
-type expr = 
-
-  (* An expression *)
-  | Expr of typed_clocked_expr
-
-  (* A set of indexed expressions *)
-  | IndexedExpr of (LustreIdent.index * typed_clocked_expr) list
-
-
-
 (* For an identifier t = t.i1...in associate each prefix with suffix
    and type t'': add (t, (i1...in, t'')), ..., (t.i1..in-1, (in, t''))
    to indexed_types *)
@@ -310,6 +373,44 @@ let add_to_prefix_map map ident (value : 'a) =
   aux (ident_base, []) map suffix 
 
 
+(* Add enum constants to context if type is an enumeration *)
+let add_enum_to_context type_ctx = function
+
+  (* Type is an enumeration *)
+  | T.Enum l as basic_type -> 
+    
+    List.fold_left
+      (fun type_ctx enum_element -> 
+         
+         try 
+           
+             (* Get type of constant *)
+             let enum_element_type = List.assoc enum_element type_ctx in 
+
+             (* Skip if constant declared with the same (enum) type *)
+             if basic_type = enum_element_type then type_ctx else
+
+               (* Fail *)
+               raise 
+                 (Failure 
+                    (Format.asprintf 
+                       "Enum constant %a declared with \
+                        different type in %a" 
+                       I.pp_print_ident enum_element
+                       A.pp_print_position A.dummy_pos));
+             
+           (* Constant not declared *)
+           with Not_found -> 
+
+             (* Push constant to typing context *)
+             (enum_element, basic_type) :: type_ctx)
+        type_ctx
+        l
+
+  (* Other basic types do not change typing context *)
+  | _ -> type_ctx
+
+
 
 
 (* Add type declaration for an alias type to a context
@@ -342,44 +443,8 @@ let add_alias_type_decl
     add_to_prefix_map indexed_types indexed_ident basic_type
   in
 
-  (* Add enum constants to typing context *)
-  let type_ctx' = match basic_type with 
-
-    (* Type is an enumeration *)
-    | T.Enum l -> 
-
-      List.fold_left
-        (fun type_ctx enum_element -> 
-           
-           try 
-
-             (* Get type of constant *)
-             let enum_element_type = List.assoc enum_element type_ctx in 
-
-             (* Skip if constant declared with the same (enum) type *)
-             if basic_type = enum_element_type then type_ctx else
-
-               (* Fail *)
-               raise 
-                 (Failure 
-                    (Format.asprintf 
-                       "Enum constant %a declared with \
-                        different type in %a" 
-                       I.pp_print_ident enum_element
-                       A.pp_print_position A.dummy_pos));
-             
-           (* Constant not declared *)
-           with Not_found -> 
-
-             (* Push constant to typing context *)
-             (enum_element, basic_type) :: type_ctx)
-        type_ctx
-        l
-
-    (* Other basic types do not change typing context *)
-    | _ -> type_ctx
-
-  in
+  (* Add enum constants to type context if type is an enumeration *)
+  let type_ctx' = add_enum_to_context type_ctx basic_type in
 
   (* Changes to context *)
   { context with 
@@ -410,17 +475,22 @@ let rec eval_ast_expr'
   | (index, A.Ident (_, ident)) :: tl when 
       List.mem_assoc (I.add_index ident index) type_ctx -> 
 
+    let ident' = I.add_index ident index in
+
     (* Construct expression *)
     let expr = 
 
       (* Return value of constant *)
-      try List.assoc ident consts with 
+      try List.assoc ident' consts with 
 
         (* Identifier is not constant *)
         | Not_found -> 
 
           (* Return variable of defined type on the base clock *)
-          E.mk_var ident (List.assoc ident type_ctx) E.base_clock
+          E.mk_var 
+            ident' 
+            (List.assoc ident' type_ctx) 
+            E.base_clock
 
     in
 
@@ -579,6 +649,16 @@ let rec eval_ast_expr'
       tl
 
 
+  | (index, A.ExprList (pos, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Expression lists not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
   (* Tuple constructor *)
   | (index, A.TupleExpr (pos, expr_list)) :: tl -> 
 
@@ -664,6 +744,37 @@ let rec eval_ast_expr'
 
     (* Continue with result added *)
     eval_ast_expr' context result' tl
+
+
+  | (index, A.ArraySlice (pos, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Array slices not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.ArrayConcat (pos, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Array concatenation not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.RecordConstruct (pos, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Records not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
 
 (*
     | (index, A.ArraySlice (p, ident, slices)) :: tl ->  
@@ -781,48 +892,358 @@ let rec eval_ast_expr'
       (unary_apply_to context E.mk_not expr result)  
       tl
 
+
+  | (index, A.And (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_and expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Or (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_or expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Xor (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_xor expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Impl (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_impl expr1 expr2 result)  
+      tl
+
+
+  | (index, A.OneHot (pos, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "One-hot expression not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Uminus (pos, expr)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (unary_apply_to context E.mk_uminus expr result)  
+      tl
+
+
+  | (index, A.Mod (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_mod expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Minus (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_minus expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Plus (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_plus expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Div (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_div expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Times (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_times expr1 expr2 result)  
+      tl
+
+
+  | (index, A.IntDiv (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_intdiv expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Ite (pos, expr1, expr2, expr3)) :: tl -> 
+
+    let expr1' = eval_ast_expr context expr1 in
+
+    (* Check evaluated expression *)
+    (match expr1' with 
+
+      (* Boolean expression without indexes *)
+      | [ [], 
+          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr1) ] -> 
+
+
+        (* Add expression to result *)
+        eval_ast_expr' 
+          context 
+          (binary_apply_to context (E.mk_ite expr1) expr2 expr3 result)  
+          tl
+
+
+      (* Expression is not Boolean or is indexed *)
+      | _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Condition is not of Boolean type in %a" 
+                A.pp_print_position A.dummy_pos)))
+
+
+  | (index, A.With (pos, _, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "With expression not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Eq (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_eq expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Neq (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_neq expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Lte (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_lte expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Lt (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_lt expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Gte (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_gte expr1 expr2 result)  
+      tl
+
+
+  | (index, A.Gt (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_gt expr1 expr2 result)  
+      tl
+
+
+  | (index, A.When (pos, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "When expression not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Current (pos, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Current expression not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Condact (pos, _, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Condact expression not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Pre (pos, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Condact expression not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Fby (pos, _, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Condact expression not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.Arrow (pos, expr1, expr2)) :: tl -> 
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      (binary_apply_to context E.mk_arrow expr1 expr2 result)  
+      tl
+
+  | (index, A.Call (pos, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Node calls not implemented in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+  | (index, A.CallParam (pos, _, _, _)) :: tl -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Parametric nodes not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+
+(* Apply operation to expression component-wise *)
 and unary_apply_to context mk expr accum = 
 
-  let expr' = eval_ast_expr context expr in
+  try 
 
-  List.fold_right
-    (fun (j, e) a -> (j, mk e) :: a)
-    expr'
-    accum
+    (* Evaluate expression *)
+    let expr' = eval_ast_expr context expr in
 
+    List.fold_right
+      (fun (j, e) a -> (j, mk e) :: a)
+      expr'
+      accum
+
+  with E.Type_mismatch ->
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Type mismatch for expressions at %a"
+            A.pp_print_position A.dummy_pos))
+
+
+(* Apply operation to expressions component-wise *)
 and binary_apply_to context mk expr1 expr2 accum = 
 
-  (* Sort a list indexed expressions *)
-  let sort_indexed_expr = 
-    List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) 
-  in
-  
   (* Evaluate and sort first expression by indexes *)
-  let expr1' = sort_indexed_expr (eval_ast_expr context expr1) in
+  let expr1' = sort_indexed_pairs (eval_ast_expr context expr1) in
 
   (* Evaluate and sort second expression by indexes *)
-  let expr2' = sort_indexed_expr (eval_ast_expr context expr2) in
+  let expr2' = sort_indexed_pairs (eval_ast_expr context expr2) in
 
-  List.fold_right2
-    (fun (j1, e1) (j2, e2) a -> 
+  try 
 
-       if j1 = j2 then (j1, mk e1 e2) else          
+    List.fold_right2
+      (fun (index1, expr1) (index2, expr2) accum -> 
 
-         (* Fail *)
-         raise 
-           (Failure 
-              (Format.asprintf 
-                 "Type mismatch for expressions at %a" 
-                 A.pp_print_position A.dummy_pos)))
-    expr1'
-    expr2'
-    accum
-  
-  
+         (* Indexes must match *)
+         if index1 = index2 then 
+
+           (index1, mk expr1 expr2) :: accum
+
+         else          
+
+           (* Fail *)
+           raise 
+             (Failure 
+                (Format.asprintf 
+                   "Type mismatch for expressions at %a" 
+                   A.pp_print_position A.dummy_pos)))
+      expr1'
+      expr2'
+      accum
+
+  (* Type checking error or one expression has more indexes *)
+  with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Type mismatch for expressions at %a"
+            A.pp_print_position A.dummy_pos))
 
 
+(* Evaluate expression with new context *)
 and eval_ast_expr context expr = eval_ast_expr' context [] [([], expr)]
 
+(* Evaluate expression to an integer constant *)
 and int_const_of_ast_expr context expr = 
 
   (* Evaluate expression *)
@@ -1019,13 +1440,17 @@ let fold_ast_type context f accum t =
   fold_ast_type' context f accum [([], t)] 
 
 
+(* ******************************************************************** *)
+(* Node declarations                                                    *)
+(* ******************************************************************** *)
 
-(* TODO: preserve order of positional parameters or add indexes *)
 
-let add_const_node_input_decl
+(* Add declaration of a node input to contexts *)
+let add_node_input_decl
     ident
+    is_const
     (({ type_ctx; index_ctx } as context), 
-     ({ node_input_consts } as node))
+     ({ node_inputs } as node))
     index 
     basic_type =
   
@@ -1033,40 +1458,136 @@ let add_const_node_input_decl
   let ident' = I.add_index ident index in
 
   (* Add to typing context *)
-  let type_ctx' = (ident', basic_type) :: type_ctx in
+  let type_ctx' = 
+    (ident', basic_type) :: 
+      (add_enum_to_context type_ctx basic_type) 
+  in
+
+  (* Add indexed identifier to context *)
+  let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   (* Add to constant node inputs *)
-  let node_input_consts' = (ident', basic_type) :: node_input_consts in
+  let node_inputs' = match node_inputs with 
 
-  ({ context with type_ctx = type_ctx' }, 
-   { node with node_input_consts = node_input_consts' })
+    | (i, (l, c)) :: tl when i = ident -> 
+      
+      (ident, ((index, basic_type) :: l, c)) :: tl 
+        
+    | _ -> (ident, ([(index, basic_type)], is_const)) :: node_inputs 
+
+  in
+
+  ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
+   { node with node_inputs = node_inputs' })
 
 
+(* Add declaration of a node output to contexts *)
+let add_node_output_decl
+    ident
+    (({ type_ctx; index_ctx } as context), 
+     ({ node_outputs } as node))
+    index 
+    basic_type =
+  
+  (* Add index to identifier *)
+  let ident' = I.add_index ident index in
 
-let rec parse_node_input_signature context node = function
+  (* Add to typing context *)
+  let type_ctx' = 
+    (ident', basic_type) :: 
+      (add_enum_to_context type_ctx basic_type) 
+  in
+  
+  (* Add indexed identifier to context *)
+  let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-  | [] -> (context, node)
+  (* Add to constant node inputs *)
+  let node_outputs' = match node_outputs with 
 
-  (* A constant input *)
-  | (ident, var_type, A.ClockTrue, true) :: tl -> 
+    | (i, l) :: tl when i = ident -> 
+      
+      (ident, (index, basic_type) :: l) :: tl 
+        
+    | _ -> (ident, [(index, basic_type)]) :: node_outputs 
 
+  in
+
+  ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
+   { node with node_outputs = node_outputs' })
+
+
+(* Add declaration of a node local variable or constant to contexts *)
+let add_node_var_decl
+    ident
+    (({ type_ctx; index_ctx } as context), 
+     ({ node_vars } as node))
+    index 
+    basic_type =
+  
+  (* Add index to identifier *)
+  let ident' = I.add_index ident index in
+
+  (* Add to typing context *)
+  let type_ctx' = 
+    (ident', basic_type) :: 
+      (add_enum_to_context type_ctx basic_type) 
+  in
+
+  (* Add indexed identifier to context *)
+  let index_ctx' = add_to_prefix_map index_ctx ident' () in
+
+  (* Add to constant node inputs *)
+  let node_vars' = match node_vars with 
+
+    | (i, l) :: tl when i = ident -> 
+      
+      (ident, (index, basic_type) :: l) :: tl 
+        
+    | _ -> (ident, [(index, basic_type)]) :: node_vars 
+
+  in
+
+  ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
+   { node with node_vars = node_vars' })
+
+
+(* Add all node inputs to contexts *)
+let rec parse_node_inputs context node = function
+
+  (* All inputs parsed, return in original order *)
+  | [] -> (context, { node with node_inputs = List.rev node.node_inputs })
+
+
+  (* Identifier must not be declared *)
+  | (ident, _, _, _) :: _ 
+    when 
+      List.mem_assoc ident context.type_ctx || 
+      List.mem_assoc ident context.index_ctx -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Node input %a already declared in %a" 
+            I.pp_print_ident ident
+            A.pp_print_position A.dummy_pos))
+
+
+  (* Input on the base clock *)
+  | (ident, var_type, A.ClockTrue, is_const) :: tl -> 
+
+    (* Add declaration of possibly indexed type to contexts *)
     let context', node' = 
       fold_ast_type 
         context
-        (add_const_node_input_decl ident)
+        (add_node_input_decl ident is_const)
         (context, node)
         var_type
     in
 
-    parse_node_input_signature context' node' tl
+    (* Continue with following inputs *)
+    parse_node_inputs context' node' tl
 
-  (* A variable input *)
-  | (ident, var_type, A.ClockTrue, false) :: tl -> 
-
-    let context', node' = context, node in
-
-    parse_node_input_signature context' node' tl
-    
   | _ -> 
 
     (* Fail *)
@@ -1077,9 +1598,392 @@ let rec parse_node_input_signature context node = function
             A.pp_print_position A.dummy_pos))
 
 
+(* Add all node outputs to contexts *)
+let rec parse_node_outputs context node = function
+
+  (* All outputs parsed, return in original order *)
+  | [] -> (context, { node with node_outputs = List.rev node.node_outputs })
+
+
+  (* Identifier must not be declared *)
+  | (ident, _, _) :: _ 
+    when 
+      List.mem_assoc ident context.type_ctx || 
+      List.mem_assoc ident context.index_ctx -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Node output %a already declared in %a" 
+            I.pp_print_ident ident
+            A.pp_print_position A.dummy_pos))
+
+
+  (* Output on the base clock *)
+  | (ident, var_type, A.ClockTrue) :: tl -> 
+
+    (* Add declaration of possibly indexed type to contexts *)
+    let context', node' = 
+      fold_ast_type 
+        context
+        (add_node_output_decl ident)
+        (context, node)
+        var_type
+    in
+
+    (* Continue with following outputs *)
+    parse_node_outputs context' node' tl
+
+  | _ -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Clocked node outputs not supported in %a" 
+            A.pp_print_position A.dummy_pos))
 
 
 
+(* Add all node local declarations to contexts *)
+let rec parse_node_locals context node = function
+
+  (* All local declarations parsed, order does not matter *)
+  | [] -> (context, node)
+
+
+  (* Identifier must not be declared *)
+  | A.NodeVarDecl (ident, _, _) :: _ 
+  | A.NodeConstDecl (A.FreeConst (ident, _)) :: _
+  | A.NodeConstDecl (A.UntypedConst (ident, _)) :: _
+  | A.NodeConstDecl (A.TypedConst (ident, _, _)) :: _
+    when 
+      List.mem_assoc ident context.type_ctx || 
+      List.mem_assoc ident context.index_ctx -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Node local variable or constant %a already declared in %a" 
+            I.pp_print_ident ident
+            A.pp_print_position A.dummy_pos))
+
+
+  (* Output on the base clock *)
+  | A.NodeVarDecl (ident, var_type, A.ClockTrue) :: tl -> 
+
+    (* Add declaration of possibly indexed type to contexts *)
+    let context', node' = 
+      fold_ast_type 
+        context
+        (add_node_var_decl ident)
+        (context, node)
+        var_type
+    in
+
+    (* Continue with following outputs *)
+    parse_node_locals context' node' tl
+
+  | _ -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Clocked node local variables not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+
+let rec parse_node_equations context node = function
+
+  | [] -> node 
+
+  (* Assertion *)
+  | A.Assert expr :: tl -> 
+
+    (* Evaluate expression *)
+    let expr' = eval_ast_expr context expr in
+
+    (* Check evaluated expression *)
+    (match expr' with 
+
+      (* Boolean expression without indexes *)
+      | [ [], 
+          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+        parse_node_equations 
+          context 
+          { node with node_asserts = (expr :: node.node_asserts) }
+          tl
+
+      (* Expression is not Boolean or is indexed *)
+      | _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Assertion is not of Boolean type in %a" 
+                A.pp_print_position A.dummy_pos)))
+
+
+  (* Property annotation *)
+  | A.AnnotProperty expr :: tl -> 
+
+    (* Evaluate expression *)
+    let expr' = eval_ast_expr context expr in
+
+    (* Check evaluated expression *)
+    (match expr' with 
+
+      (* Boolean expression without indexes *)
+      | [ [], 
+          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+        parse_node_equations 
+          context 
+          { node with node_props = (expr :: node.node_props) }
+          tl
+
+      (* Expression is not Boolean or is indexed *)
+      | _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Property is not of Boolean type in %a" 
+                A.pp_print_position A.dummy_pos)))
+
+
+  (* Equation x = f(x) *)
+  | A.Equation ([A.SingleIdent ident], expr) :: tl -> 
+
+    (* Type of equation *)
+    let eq_type = 
+
+      (* Sort by indexes *)
+      sort_indexed_pairs
+
+        (try 
+
+           (* Return type if assigning to an output *)
+           List.assoc ident node.node_outputs 
+
+         with Not_found -> 
+
+           (* Return type if assigning to a local variable *)
+           try List.assoc ident node.node_vars 
+
+           with Not_found -> 
+
+             (* Fail *)
+             raise 
+               (Failure 
+                  (Format.asprintf 
+                     "Equation does not assign to output or local \
+                      variable in %a" 
+                     A.pp_print_position A.dummy_pos)))
+
+    in
+
+    (* Evaluate expression and sort by indexes *)
+    let expr' = sort_indexed_pairs (eval_ast_expr context expr) in
+
+    (* Add node equations *)
+    let node_eqs', node_props' = 
+
+      List.fold_right2
+
+        (fun 
+          (def_index, def_type) 
+          (expr_index, ({ E.expr_type } as expr)) 
+          (node_eqs, node_props) -> 
+
+           (* Indexes must match *)
+           if def_index = expr_index then 
+
+             (* Equation to add to node *)
+             let eq = I.add_index ident def_index, expr in
+
+             (* Type must be a subtype of declared type *)
+             if T.check_type expr_type def_type then
+
+               (* Add equation *)
+               (eq :: node_eqs, node_props) 
+
+             else
+
+               (* Type of expression may not be subtype of declared
+                  type *)
+               (match def_type, expr_type with 
+
+                 (* Declared type is integer range, expression is of
+                    type integer *)
+                 | T.IntRange (lbound, ubound), T.Int -> 
+
+                   (* Value of expression is in range of declared
+                      type: lbound <= expr and expr <= ubound *)
+                   let range_expr = 
+                     (E.mk_and 
+                        (E.mk_lte (E.mk_int lbound) expr) 
+                        (E.mk_lte expr (E.mk_int ubound)))
+                   in
+
+                   Format.printf 
+                     "@[<v>Expression may not be in subrange of variable. \
+                      Need to add property@;%a@]@."
+                     E.pp_print_lustre_expr range_expr;
+
+                   (eq :: node_eqs, range_expr :: node_props) 
+
+                 | _ -> 
+
+                   (* Fail *)
+                   raise 
+                     (Failure 
+                        (Format.asprintf 
+                           "Type mismatch for expressions at %a" 
+                           A.pp_print_position A.dummy_pos)))
+           else       
+
+             (* Fail *)
+             raise 
+               (Failure 
+                  (Format.asprintf 
+                     "Type mismatch for expressions at %a" 
+                     A.pp_print_position A.dummy_pos)))
+        eq_type
+        expr'
+        (node.node_eqs, node.node_props)
+    in
+
+    parse_node_equations 
+      context 
+      { node with 
+          node_eqs = node_eqs'; 
+          node_props = node_props' }
+      tl
+
+
+  (* Annotation for main node *)
+  | A.AnnotMain :: tl -> 
+
+    parse_node_equations 
+      context 
+      { node with node_is_main = true }
+      tl
+
+
+let rec parse_node_contract context node = function
+
+  | [] -> node 
+
+  (* Assumption *)
+  | A.Requires expr :: tl -> 
+
+    (* Evaluate expression *)
+    let expr' = eval_ast_expr context expr in
+
+    (* Check evaluated expression *)
+    (match expr' with 
+
+      (* Boolean expression without indexes *)
+      | [ [], 
+          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+        parse_node_contract 
+          context 
+          { node with node_requires = (expr :: node.node_requires) }
+          tl
+
+      (* Expression is not Boolean or is indexed *)
+      | _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Requires clause is not of Boolean type in %a" 
+                A.pp_print_position A.dummy_pos)))
+
+  (* Guarantee *)
+  | A.Ensures expr :: tl -> 
+
+    (* Evaluate expression *)
+    let expr' = eval_ast_expr context expr in
+
+    (* Check evaluated expression *)
+    (match expr' with 
+
+      (* Boolean expression without indexes *)
+      | [ [], 
+          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+        parse_node_contract 
+          context 
+          { node with node_ensures = (expr :: node.node_ensures) }
+          tl
+
+      (* Expression is not Boolean or is indexed *)
+      | _ -> 
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Ensures clause is not of Boolean type in %a" 
+                A.pp_print_position A.dummy_pos)))
+
+
+
+let parse_node_signature  
+    node_ident
+    global_context
+    inputs 
+    outputs 
+    locals 
+    equations 
+    contract =
+
+  (* Initialize context for the node *)
+  let node_context = init_node_context in
+
+  (* Parse inputs, add to global context and node context *)
+  let local_context_inputs, node_context_inputs = 
+    parse_node_inputs global_context init_node_context inputs
+  in
+
+  (* Parse outputs, add to local context and node context *)
+  let local_context_outputs, node_context_outputs = 
+    parse_node_outputs local_context_inputs node_context_inputs outputs
+  in
+
+  (* Parse contract
+
+     Must check here, may not use local variables *)
+  let node_context_contract = 
+    parse_node_contract local_context_outputs node_context_outputs contract
+  in
+
+  (* Parse local declarations, add to local context and node context *)
+  let local_context_locals, node_context_locals = 
+    parse_node_locals local_context_outputs node_context_contract locals
+  in
+
+  (* Parse equations and assertions, add to node context, local
+     context is not modified *)
+  let node_context_equations = 
+    parse_node_equations local_context_locals node_context_locals equations
+  in
+
+  Format.printf "%a@." pp_print_lustre_context local_context_locals;
+
+  Format.printf "%a@." (pp_print_node_context node_ident) node_context_equations;
+
+  node_context_locals
 
 
 
@@ -2315,464 +3219,6 @@ let rec check_declarations
   in
 *)
 
-  (* Return true if type [t] was already declared *)
-  let type_is_declared t = 
-
-    (* Check if [t] is a basic types *)
-    (List.mem_assoc t basic_types) ||
-
-    (* Check is [t] is an indexed type *)
-    (List.mem_assoc t indexed_types) || 
-
-    (* Check if [t] is a free type *)
-    (List.mem t free_types) 
-
-  in
-
-(*
-  (* Convert a parsed type to a built-in type *)
-  let lustre_type_of_ast_type = function
-
-    | A.Bool -> T.t_bool
-
-    | A.Int -> T.t_int
-
-    | A.Real -> T.t_real
-
-    | A.IntRange (i, j) -> 
-
-      (* Evaluate expression for lower bound to a constant *)
-      let ci = int_const_of_expr i in
-
-      (* Evaluate expression for upper bound to a constant *)
-      let cj = int_const_of_expr j in
-
-      (* Construct an integer range type *)
-      T.mk_int_range ci cj
-
-    | A.EnumType l -> T.mk_enum l
-
-    | A.UserType t when List.mem_assoc t basic_types -> 
-
-      List.assoc t basic_types
-
-    | A.UserType t -> T.mk_free_type t
-
-    (* All other types are nested and must be flattended to indexed types *)
-    | _ -> raise (Invalid_argument "lustre_type_of_ast_type")
-
-  in
-*)
-
-  (* ******************************************************************** *)
-  (* Alias type declarations                                              *)
-  (* ******************************************************************** *)
-
-
-
-
-
-  (* ******************************************************************** *)
-  (* Helper functions for type expressions                                *)
-  (* ******************************************************************** *)
-
-
-
-
-
-(*
-  let check_alias_type_decl t t' decls = 
-
-    if       
-
-      (* Type t must not be declared *)
-      type_is_declared t
-
-    then
-
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Type %a defined in %a is redeclared in %a" 
-              I.pp_print_ident t
-              A.pp_print_position A.dummy_pos
-              A.pp_print_position A.dummy_pos));
-
-
-    (* Change state or add new declarations *)
-    (match t' with 
-
-      (* ********************************************************** *)
-
-      (* type t = struct { i1: t1; ...; in: tn };
-
-         Expand to declarations
-
-         type t.i1 = t1;
-         ...
-         type t.in = tn;
-
-      *)
-      | A.RecordType l -> 
-
-        (* Push declarations for indexed identifiers *)
-        let decls' = 
-
-          List.fold_left
-
-            (fun a (j, s) -> 
-
-               (* Construct an index of an identifier *)
-               let idx = I.index_of_ident j in
-
-               (* Fail if type of field is the type defined
-
-                  Need this check because record definitions are
-                  unfolded; no other check is needed, since nesting of
-                  records can only happen through an alias type that
-                  must have been defined before. *)
-               if s = A.UserType t then 
-
-                 (* Fail *)
-                 raise 
-                   (Failure 
-                      (Format.asprintf 
-                         "Type %a is defined recursively in %a" 
-                         I.pp_print_ident t
-                         A.pp_print_position A.dummy_pos));
-
-               (* Expand to declaration [type t.j = s] *)
-               ((A.TypeDecl 
-                   (A.AliasType (I.add_index t idx, s))) :: a))
-
-            decls
-            l
-
-        in
-
-        (* State unchanged, new declarations pushed *)
-        (state, decls')
-
-
-      (* ********************************************************** *)
-
-      (* type t = [ t1, ..., tn ];
-
-         Expand to declarations
-
-         type t[0] = t1;
-         ...
-         type t[n-1] = tn;
-
-      *)
-      | A.TupleType l -> 
-
-        (* Push declarations for indexed identifiers *)
-        let decls', _ = 
-
-          List.fold_left
-
-            (fun (a, j) s -> 
-
-               (* Construct an index of an identifier *)
-               let idx = I.index_of_int j in
-
-               (* Fail if type of field is the type defined
-
-                  Need this check because record definitions are
-                  unfolded; no other check is needed, since nesting of
-                  records can only happen through an alias type that
-                  must have been defined before. *)
-               if s = A.UserType t then 
-
-                 (* Fail *)
-                 raise 
-                   (Failure 
-                      (Format.asprintf 
-                         "Type %a is defined recursively in %a" 
-                         I.pp_print_ident t
-                         A.pp_print_position A.dummy_pos));
-
-               (* Expand to declaration to [type t[j] = s] *)
-               ((A.TypeDecl 
-                   (A.AliasType (I.add_index t idx, s))) :: a, 
-                succ j))
-
-            (decls, 0)
-            l
-        in
-
-        (* State unchanged, new declarations pushed *)
-        (state, decls')
-
-
-      (* ********************************************************** *)
-
-      (* type t = s^e;
-
-         Expand to declarations
-
-         type t[0] = s;
-         ...
-         type t[e-1] = s;
-
-      *)
-      | A.ArrayType (s, e) -> 
-
-        (* Evaluate size of array to a constant integer *)
-        let n = int_const_of_ast_expr context e in
-
-        (* Array size must must be at least one *)
-        if n <= 0 then 
-
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Expression %a must be positive as array size in %a" 
-                  A.pp_print_expr e
-                  A.pp_print_position A.dummy_pos));
-
-        (* Append type declarations for indexed identifiers *)
-        let rec aux accum = function
-
-          (* All array fields consumed *)
-          | 0 -> accum
-
-          (* An array field *)
-          | i -> 
-
-            (* Construct an index of an integer *)
-            let idx = I.index_of_int (pred i) in
-
-            (* Expand to declaration to [type t[j] = s] *)
-            aux 
-              (A.TypeDecl 
-                 (A.AliasType (I.add_index t idx, s)) :: accum)
-              (pred i)
-
-        in
-
-        (* Push declarations for indexed identifiers *)
-        let decls' = aux decls n in
-
-        (* State unchanged, new declarations pushed *)
-        (state, decls')
-
-
-      (* ********************************************************** *)
-
-      (* type t = t';
-
-         If t' was defined as 
-
-         type t' = t'';
-
-         expand to
-
-         type t = t'';
-
-      *)
-      | A.UserType t' when List.mem_assoc t' basic_types -> 
-
-        (* Replace declaration with alias replaced by actual type *)
-        let decls' = 
-          A.TypeDecl 
-            (A.AliasType 
-               (t, 
-                ast_type_of_lustre_type (List.assoc t' basic_types))) :: 
-            decls
-        in
-
-        (* State unchanged, new declarations pushed *)
-        (state, decls')
-
-
-      (* type t = t';
-
-         If there were definitions
-
-         type t'.i1 = t1;
-         ...
-         type t'.in = tn;
-
-         expand to 
-
-         type t.i1 = t1;
-         ...
-         type t.in = tn;
-
-      *)
-      | A.UserType t' when List.mem_assoc t' indexed_types -> assert false
-
-(*
-        (* Push declarations for indexed identifiers *)
-        let decls' = 
-          List.fold_left 
-            (fun a (j, s) -> 
-               (A.TypeDecl 
-                  (A.AliasType (I.add_index t j, s))) :: a)
-            decls
-            (List.assoc t' indexed_types) 
-        in 
-
-        (* State unchanged, new declarations pushed *)
-        (state, decls')
-*)
-
-      (* type t = t';
-
-         If t' was defined as
-
-         type t';
-
-         expand to
-
-         type t = t'';
-
-      *)
-      | A.UserType t' when List.mem t' free_types ->  assert false
-
-(*
-        (* Add association of type to free type *)
-        let basic_types' = 
-          (t, T.mk_free_type t') :: basic_types 
-        in
-
-        (* Add types of all suffixes *)
-        let indexed_types' = add_to_indexed_types t (A.UserType t') in
-
-        (* Changed aliases of basic types *)
-        ({ state with 
-             basic_types = basic_types'; 
-             indexed_types = indexed_types' }, 
-         decls)
-*)
-
-      (* type t = t';
-
-         if t' is not in basic_types, indexed_types or free_types 
-
-      *)
-      | A.UserType t' ->  
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Type %a in %a is not declared" 
-                I.pp_print_ident t'
-                A.pp_print_position A.dummy_pos))
-
-
-      (* ********************************************************** *)
-
-      (* type t = t'; 
-
-         where t' is a basic type. *)
-      | A.Bool 
-      | A.Int 
-      | A.Real 
-      | A.IntRange _ 
-      | A.EnumType _ as t' -> assert false 
-
-(*
-        (* Basic type of type in AST *)
-        let t'' = lustre_type_of_ast_type t' in
-
-        (* Add alias for basic type *)
-        let basic_types' = (t, t'') :: basic_types in
-
-        (* Add types of all suffixes *)
-        let indexed_types' = add_to_indexed_types t t' in
-
-        (* Add enum constants to typing context *)
-        let type_ctx' = match t' with 
-
-          (* Type is an enumeration *)
-          | A.EnumType l -> 
-
-            List.fold_left
-              (fun a e -> 
-
-                 try 
-
-                   (* Get type of constant *)
-                   let s = List.assoc e a in 
-
-                   (* Skip if constant declared with the same (enum) type *)
-                   if t'' = s then a else
-
-                     (* Fail *)
-                     raise 
-                       (Failure 
-                          (Format.asprintf 
-                             "Enum constant %a declared with\
-                              different type in %a" 
-                             I.pp_print_ident e
-                             A.pp_print_position A.dummy_pos));
-
-                   (* Constant not declared *)
-                 with Not_found -> 
-
-                   (* Push constant to typing context *)
-                   (e, t'') :: a)
-              type_ctx
-              l
-
-          (* Other basic types do not change typing context *)
-          | _ -> type_ctx
-
-        in
-
-        (* Changes to state *)
-        ({ state 
-           with 
-               basic_types = basic_types'; 
-               indexed_types = indexed_types';
-               type_ctx = type_ctx' }, 
-         decls)
-*)
-
-    )
-
-  in
-
-  (* ******************************************************************** *)
-  (* Free type declarations                                               *)
-  (* ******************************************************************** *)
-
-  (* type t; 
-
-     t is a free type *)
-  let check_free_type_decl t decls = 
-
-    if
-
-      (* Type t must not be declared *)
-      type_is_declared t
-
-    then
-
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Type %a defined in %a is redeclared in %a" 
-              I.pp_print_ident t
-              A.pp_print_position A.dummy_pos
-              A.pp_print_position A.dummy_pos));
-
-    (* Add type identifier to free types *)
-    let free_types' = t :: free_types in
-
-    (* Changes to state *)
-    ({ state with free_types = free_types' }, decls)
-
-  in
-
-*)
 
   (* ******************************************************************** *)
   (* Free constant declarations                                           *)
@@ -3162,6 +3608,21 @@ let rec check_declarations
 
   in
 *)
+
+  (* Return true if type [t] was already declared *)
+  let type_is_declared t = 
+
+    (* Check if [t] is a basic types *)
+    (List.mem_assoc t basic_types) ||
+
+    (* Check is [t] is an indexed type *)
+    (List.mem_assoc t indexed_types) || 
+
+    (* Check if [t] is a free type *)
+    (List.mem t free_types) 
+
+  in
+
   function
 
     (* All declarations processed, return result *)
@@ -3320,12 +3781,13 @@ let rec check_declarations
       check_declarations global_context' decls
 
 
+    (* Node declaration without parameters *)
     | (A.NodeDecl 
          (node_ident, 
           [], 
           inputs, 
           outputs, 
-          vars, 
+          locals, 
           equations, 
           contract)) as decl :: decls ->
 
@@ -3333,12 +3795,15 @@ let rec check_declarations
       Format.printf "-- %a@." A.pp_print_declaration decl;
       
       (* Add declarations to global context *)
-      let local_context, node_context = global_context, init_node_context
-(*        parse_node_signature
+      let node_context = 
+        parse_node_signature
+          node_ident
+          global_context 
           inputs 
           outputs
-          vars
-          global_context *)
+          locals
+          equations 
+          contract
       in
 
       (* Recurse for next declarations *)

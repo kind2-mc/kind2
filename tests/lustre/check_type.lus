@@ -1,10 +1,29 @@
-const a = [1, [2, [3]]];
+const ac = 2;
 
-const b = 2^2^3;
+type colors = enum { red, green, blue };
 
-const c = a;
+node X 
+  (a: enum { one, two }^2; const b: int) 
+returns 
+  (d: [bool, int, real]; f: subrange [-1, 1] of int);
+  --@requires 1 > 2;
+  --@ensures d[0];
+var
+  e: enum { one, two };
+-- const a : int;
+-- const b = 2;
+-- const d : int = 1;
+let
+  assert if a[1] = one then false -> true else true -> false;
+  assert if a[1] = one then false -> true else true -> false;
+  d = [false, 1, 2.0];
+  f = 3+b;
+--  c = real a;
+--  b = false;
+  --%PROPERTY true -> d[1] > b;
 
-const d = c[0];
+tel
+
 
 /*
 

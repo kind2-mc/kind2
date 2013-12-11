@@ -163,7 +163,7 @@ let rec check_type t1 t2 = match t1, t2 with
   | IntRange _, Int -> true
 
   (* IntRange is subtype of IntRange if the interval is a subset *)
-  | IntRange (l1, u1), IntRange (l2, u2) when l1 >= l2 && u1 <= u1 -> true
+  | IntRange (l1, u1), IntRange (l2, u2) when l1 >= l2 && u1 <= u2 -> true
 
   (* Enum types are subtypes if the sets of elements are subsets *)
   | Enum l1, Enum l2 -> 

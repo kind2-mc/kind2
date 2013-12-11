@@ -27,6 +27,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+(** Exceptions *)
+exception Type_mismatch
+exception Clock_mismatch
+
 type unary_op =
   | Not
   | Uminus

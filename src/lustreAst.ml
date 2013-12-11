@@ -177,7 +177,7 @@ type expr =
   | Plus of position * expr * expr
   | Div of position * expr * expr
   | Times of position * expr * expr
-  | Intdiv of position * expr * expr
+  | IntDiv of position * expr * expr
 
   (* If operator *)
   | Ite of position * expr * expr * expr 
@@ -464,7 +464,7 @@ let rec pp_print_expr ppf =
     | Plus (p, e1, e2) -> p2 p "+" e1 e2
     | Div (p, e1, e2) -> p2 p "/" e1 e2
     | Times (p, e1, e2) -> p2 p "*" e1 e2
-    | Intdiv (p, e1, e2) -> p2 p "div" e1 e2
+    | IntDiv (p, e1, e2) -> p2 p "div" e1 e2
 
     | Ite (p, e1, e2, e3) -> p3 p "if" "then" "else" e1 e2 e3
 
