@@ -510,7 +510,7 @@ expr:
   | e1 = expr; PLUS; e2 = expr { A.Plus (mk_pos $startpos, e1, e2) }
   | e1 = expr; MULT; e2 = expr { A.Times (mk_pos $startpos, e1, e2) }
   | e1 = expr; DIV; e2 = expr { A.Div (mk_pos $startpos, e1, e2) }
-  | e1 = expr; INTDIV; e2 = expr { A.Intdiv (mk_pos $startpos, e1, e2) }
+  | e1 = expr; INTDIV; e2 = expr { A.IntDiv (mk_pos $startpos, e1, e2) }
   | e1 = expr; MOD; e2 = expr { A.Mod (mk_pos $startpos, e1, e2) }
 
   (* A Boolean operation *)

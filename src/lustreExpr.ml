@@ -178,8 +178,8 @@ let rec pp_print_expr ppf = function
 
     Format.fprintf ppf 
       "@[<hv 1>(%a@ %a@ %a)@]" 
-      pp_print_binary_op o 
       pp_print_expr e1 
+      pp_print_binary_op o 
       pp_print_expr e2
 
   | VarOp (o, l) -> 
@@ -441,45 +441,29 @@ let type_of_num_num_num = function
 
 
 (* Type check for 'a -> 'a -> 'a *)
-let type_of_a_a_a = function
+let type_of_a_a_a type1 type2 = 
 
-  | T.Int | T.IntRange _ -> 
-    (function 
-      | T.Int | T.IntRange _ -> T.t_int 
-      | _ -> raise Type_mismatch)
+  (* If first type is subtype of second, choose second type *)
+  if T.check_type type1 type2 then type2 else 
 
-  | T.Real -> 
-    (function 
-      | T.Real -> T.t_real
-      | _ -> raise Type_mismatch)
+  (* If second type is subtype of first, choose first type *)
+  if T.check_type type2 type1 then type1 else 
     
-  | T.Bool -> 
-    (function 
-      | T.Bool -> T.t_bool
-      | _ -> raise Type_mismatch)
-    
-  | _ -> raise Type_mismatch
+    (* Fail if types are incompatible *)
+    raise Type_mismatch
 
 
 (* Type check for 'a -> 'a -> bool *)
-let type_of_a_a_bool = function
+let type_of_a_a_bool type1 type2 = 
 
-  | T.Int | T.IntRange _ -> 
-    (function 
-      | T.Int | T.IntRange _ -> T.t_bool 
-      | _ -> raise Type_mismatch)
+  (* One type must be subtype of the other *)
+  if T.check_type type1 type2 || T.check_type type2 type1 then 
 
-  | T.Real -> 
-    (function 
-      | T.Real -> T.t_bool
-      | _ -> raise Type_mismatch)
+    T.t_bool 
+
+  else 
     
-  | T.Bool -> 
-    (function 
-      | T.Bool -> T.t_bool
-      | _ -> raise Type_mismatch)
-    
-  | _ -> raise Type_mismatch
+    raise Type_mismatch
 
 
 (* Type check for int -> int -> bool, real -> real -> bool *)

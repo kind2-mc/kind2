@@ -77,7 +77,7 @@ type expr =
   | Plus of position * expr * expr
   | Div of position * expr * expr
   | Times of position * expr * expr
-  | Intdiv of position * expr * expr
+  | IntDiv of position * expr * expr
   | Ite of position * expr * expr * expr
   | With of position * expr * expr * expr
   | Eq of position * expr * expr
