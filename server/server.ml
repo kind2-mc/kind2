@@ -517,12 +517,16 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore
-        (zmsg_pushstr 
-           msg 
-           "Job rejected due to high system load. Try again later");
+
+      let msg_str = 
+        asprintf
+          "<Jobstatus msg=\"aborted\">\
+           Job rejected due to high system load. Try again later.\
+           </Jobstatus>"
+      in
+
       ignore 
-        (zmsg_pushstr msg "");
+        (zmsg_pushstr msg msg_str);
       ignore(zmsg_send msg sock);
 
       log "Job rejected due to high system load";
@@ -641,7 +645,17 @@ let create_job
 
       (* Send job ID to client *)
       let msg = zmsg_new () in
-      ignore(zmsg_pushstr msg job_id);
+
+      let msg_str = 
+        asprintf
+          "<Jobstatus msg=\"started\" jobid=\"%s\">\
+           Job started with ID %s.\
+           </Jobstatus>"
+          job_id
+          job_id
+      in
+
+      ignore(zmsg_pushstr msg msg_str);
       ignore(zmsg_send msg sock);
 
       log "Job created with ID %s" job_id;
