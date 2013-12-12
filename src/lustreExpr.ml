@@ -153,7 +153,7 @@ type t = {
 
   (* Pre-state variables the expression depends on *)
   expr_pre_vars : ISet.t;
-  
+
 }
 
 
@@ -1059,12 +1059,68 @@ let mk_arrow expr1 expr2 =
   
 
 
+let mk_pre_expr mk_new_var_ident = function 
+
+  | Var ident as expr -> (expr, None) 
+
+  | expr -> 
+
+    let new_var_ident = mk_new_var_ident () in
+
+    (VarPre new_var_ident, Some (new_var_ident, expr))
 
 
+let mk_pre mk_new_var_ident new_defs ({ expr_init; expr_step } as expr) = 
 
+  let expr_init', new_defs' = match expr_init with 
 
+    (* Expression is a variable *)
+    | Var ident -> (VarPre ident, new_defs)
 
+    (* Expression is a constant *)
+    | True
+    | False
+    | Int _
+    | Real _ -> (expr_init, new_defs)
 
+    (* Expression is not constant and no variable *)
+    | _ -> 
+      
+      (* Identifier for a fresh variable *)
+      let new_var_ident = mk_new_var_ident () in
+      
+      (* Abstract expression to fresh variable *)
+      (VarPre new_var_ident, (new_var_ident, expr) :: new_defs)
+
+  in
+
+  let expr_step', new_defs'' = match expr_step with 
+
+    (* Expression is identical to initial state *)
+    | _ when expr_step = expr_init -> 
+
+      (* Re-use abstraction for initial state *)
+      (expr_init', new_defs')
+
+    (* Expression is a variable *)
+    | Var ident -> (VarPre ident, new_defs')
+
+    (* Expression is not constant and no variable *)
+    | _ -> 
+      
+      (* Identifier for a fresh variable *)
+      let new_var_ident = mk_new_var_ident () in
+      
+      (* Abstract expression to fresh variable *)
+      (VarPre new_var_ident, (new_var_ident, expr) :: new_defs)
+
+  in
+
+  (* Return expression and new definitions *)
+  ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
+   new_defs'') 
+
+  
 
 (* 
    Local Variables:

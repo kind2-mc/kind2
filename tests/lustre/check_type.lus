@@ -1,26 +1,37 @@
 const ac = 2;
 
+-- const __abs = [1, 2];
+
 type colors = enum { red, green, blue };
 
 node X 
-  (a: enum { one, two }^2; const b: int) 
+  (a: int; const b: int) 
 returns 
   (d: [bool, int, real]; f: subrange [-1, 1] of int);
-  --@requires 1 > 2;
-  --@ensures d[0];
+  --@requires pre (pre a > 2);
+  --@ensures pre (d[0] => false);
 var
   e: enum { one, two };
+  a1, a2, a3, a4: int;
 -- const a : int;
 -- const b = 2;
 -- const d : int = 1;
 let
-  assert if a[1] = one then false -> true else true -> false;
-  assert if a[1] = one then false -> true else true -> false;
-  d = [false, 1, 2.0];
+  -- assert if a[1] = one then false -> true else true -> false;
+  -- assert if a[1] = one then false -> true else true -> false;
+  a1 = pre 1;
+  a2 = pre (a + 1);
+  a3 = pre (pre (a + 1 -> b));
+  a4 = pre (a -> b);
+
+
+--  d = [pre false, pre (a + 1), pre (pre (a -> b))];
   f = 3+b;
 --  c = real a;
 --  b = false;
-  --%PROPERTY true -> d[1] > b;
+  --%PROPERTY true -> pre (d[1] > b);
+
+  assert pre (not d[0]);
 
 tel
 
