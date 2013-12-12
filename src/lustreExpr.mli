@@ -154,6 +154,8 @@ val mk_gt : t -> t -> t
 
 val mk_arrow : t -> t -> t
 
+val mk_pre : (unit -> LustreIdent.t) -> (LustreIdent.t * t) list -> t -> (t * (LustreIdent.t * t) list)
+
 
 (* 
    Local Variables:
