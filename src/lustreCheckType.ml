@@ -40,6 +40,9 @@ module ISet = I.LustreIdentSet
 (* Identifier for new variables from abstrations *)
 let new_var_ident = I.mk_string_id "__abs" 
 
+(* Identifier for new variables from node calls *)
+let new_call_ident = I.mk_string_id "__call" 
+
 
 (* Sort a list indexed expressions *)
 let sort_indexed_pairs (list : (I.index * 'a) list) : (I.index * 'a) list = 
@@ -73,6 +76,11 @@ type node_context =
     (* Equations for local and output variables *)
     node_eqs : (LustreIdent.t * LustreExpr.t) list;
 
+    (* Node calls: variables capturing the outputs, name of the called
+       node and expressions for input parameters *)
+    node_calls : 
+      ((LustreIdent.t * LustreType.t) list * LustreIdent.t * LustreExpr.t list) list;
+
     (* Assertions of node *)
     node_asserts : LustreExpr.t list;
 
@@ -94,6 +102,7 @@ let init_node_context =
     node_outputs = [];
     node_vars = [];
     node_eqs = [];
+    node_calls = [];
     node_asserts = [];
     node_props = [];
     node_requires = [];
@@ -157,6 +166,18 @@ let pp_print_node_eq ppf (ident, expr) =
     E.pp_print_lustre_expr expr
 
 
+let pp_print_node_call ppf (out_vars, node, exprs) = 
+
+  Format.fprintf ppf
+    "@[<hv 2>%a@ =@ %a(%a);@]"
+    (pp_print_list 
+       (fun ppf (i, _) -> I.pp_print_ident ppf i)
+       ",@ ") 
+    out_vars
+    I.pp_print_ident node
+    (pp_print_list E.pp_print_lustre_expr ",@ ") exprs
+
+
 let pp_print_node_prop ppf expr = 
 
   Format.fprintf ppf
@@ -185,6 +206,7 @@ let pp_print_node_context
       node_outputs; 
       node_vars; 
       node_eqs; 
+      node_calls; 
       node_asserts; 
       node_props; 
       node_requires; 
@@ -193,12 +215,13 @@ let pp_print_node_context
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]@ \
-     %t@ \
+     %t@,\
      @[<hv 2>let@ \
-     %a@;\
-     %a@;\
-     %a@;\
-     %a@;\
+     %a@,\
+     %a@,\
+     %a@,\
+     %a@,\
+     %a@,\
      %a@;<1 -2>\
      tel;@]@]"  
     I.pp_print_ident node_ident
@@ -213,6 +236,7 @@ let pp_print_node_context
     (pp_print_list pp_print_node_ensures "@ ") node_ensures
     (pp_print_list pp_print_node_prop "@ ") node_props
     (pp_print_list pp_print_node_assert "@ ") node_asserts
+    (pp_print_list pp_print_node_call "@ ") node_calls
     (pp_print_list pp_print_node_eq "@ ") node_eqs
     
 
@@ -344,7 +368,7 @@ let ident_in_context { type_ctx; index_ctx } i =
   if 
 
     (* Identifier must not be reserved *)
-    i = new_var_ident
+    i = new_var_ident || i = new_call_ident 
 
   then
 
@@ -499,20 +523,23 @@ let add_alias_type_decl
 
 let rec eval_ast_expr'     
     mk_new_var_ident 
+    mk_new_call_ident
     ({ basic_types; 
        indexed_types; 
        free_types; 
        type_ctx; 
        index_ctx; 
-       consts } as context)
+       consts;
+       nodes } as context)
     result
-    new_defs = 
+    ((new_vars, new_calls) as new_defs) = 
 
   let eval_unary_ast_expr mk expr tl = 
 
     let expr', new_defs' = 
       unary_apply_to 
         mk_new_var_ident 
+        mk_new_call_ident 
         context 
         new_defs 
         mk
@@ -523,6 +550,7 @@ let rec eval_ast_expr'
     (* Add expression to result *)
     eval_ast_expr' 
       mk_new_var_ident 
+      mk_new_call_ident 
       context 
       expr'
       new_defs'
@@ -535,6 +563,7 @@ let rec eval_ast_expr'
     let expr', new_defs' = 
       binary_apply_to 
         mk_new_var_ident 
+        mk_new_call_ident 
         context 
         new_defs 
         mk
@@ -546,6 +575,7 @@ let rec eval_ast_expr'
     (* Add expression to result *)
     eval_ast_expr' 
       mk_new_var_ident 
+      mk_new_call_ident 
       context 
       expr'
       new_defs'
@@ -585,6 +615,7 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         mk_new_var_ident 
+        mk_new_call_ident 
         context 
         ((index, expr) :: result) 
         new_defs 
@@ -604,7 +635,13 @@ let rec eval_ast_expr'
       in
 
       (* Continue with unfolded indexes *)
-      eval_ast_expr' mk_new_var_ident context result new_defs tl'
+      eval_ast_expr' 
+        mk_new_var_ident 
+        mk_new_call_ident 
+        context 
+        result 
+        new_defs 
+        tl'
 
 
     (* Identifier must have a type or indexes *)
@@ -635,6 +672,7 @@ let rec eval_ast_expr'
            (* Continue with record field *)
            eval_ast_expr' 
              mk_new_var_ident 
+             mk_new_call_ident 
              context 
              result 
              new_defs 
@@ -677,6 +715,7 @@ let rec eval_ast_expr'
            (* Continue with array or tuple field *)
            eval_ast_expr' 
              mk_new_var_ident 
+             mk_new_call_ident 
              context 
              result 
              new_defs 
@@ -704,6 +743,7 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         mk_new_var_ident 
+        mk_new_call_ident 
         context 
         ((index, E.t_true) :: result) 
         new_defs 
@@ -716,6 +756,7 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr'
         mk_new_var_ident 
+        mk_new_call_ident 
         context
         ((index, E.t_false) :: result) 
         new_defs 
@@ -728,6 +769,7 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         mk_new_var_ident 
+        mk_new_call_ident 
         context 
         ((index, E.mk_int (int_of_string d)) :: result) 
         new_defs 
@@ -740,6 +782,7 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         mk_new_var_ident 
+        mk_new_call_ident 
         context 
         ((index, E.mk_real (float_of_string f)) :: result) 
         new_defs 
@@ -779,7 +822,12 @@ let rec eval_ast_expr'
 
              (* Evaluate one expression *)
              let expr', new_defs' = 
-               eval_ast_expr mk_new_var_ident context new_defs expr
+               eval_ast_expr 
+                 mk_new_var_ident
+                 mk_new_call_ident 
+                 context 
+                 new_defs 
+                 expr
              in
 
              (* Index of counter *)
@@ -803,7 +851,13 @@ let rec eval_ast_expr'
       in
 
       (* Continue with result added *)
-      eval_ast_expr' mk_new_var_ident context result' new_defs' tl
+      eval_ast_expr' 
+        mk_new_var_ident
+        mk_new_call_ident 
+        context 
+        result' 
+        new_defs' 
+        tl
 
 
     (* Array constructor *)
@@ -826,7 +880,12 @@ let rec eval_ast_expr'
 
       (* Evaluate expression for array elements *)
       let expr_val, new_defs' = 
-        eval_ast_expr mk_new_var_ident context new_defs expr 
+        eval_ast_expr 
+          mk_new_var_ident 
+          mk_new_call_ident 
+          context 
+          new_defs 
+          expr 
       in 
 
       let result' = 
@@ -859,7 +918,13 @@ let rec eval_ast_expr'
       in
 
       (* Continue with result added *)
-      eval_ast_expr' mk_new_var_ident context result' new_defs' tl
+      eval_ast_expr' 
+        mk_new_var_ident
+        mk_new_call_ident 
+        context
+        result' 
+        new_defs' 
+        tl
 
 
     | (index, A.ArraySlice (pos, _, _)) :: tl -> 
@@ -1060,7 +1125,7 @@ let rec eval_ast_expr'
 
 
     | (index, A.Times (pos, expr1, expr2)) :: tl -> 
- 
+
       eval_binary_ast_expr E.mk_times expr1 expr2 tl
 
 
@@ -1072,7 +1137,12 @@ let rec eval_ast_expr'
     | (index, A.Ite (pos, expr1, expr2, expr3)) :: tl -> 
 
       let expr1', new_defs' = 
-        eval_ast_expr mk_new_var_ident context new_defs expr1 
+        eval_ast_expr 
+          mk_new_var_ident 
+          mk_new_call_ident 
+          context
+          new_defs 
+          expr1 
       in
 
       (* Check evaluated expression *)
@@ -1085,6 +1155,7 @@ let rec eval_ast_expr'
           let expr', new_defs' = 
             binary_apply_to 
               mk_new_var_ident 
+              mk_new_call_ident 
               context 
               new_defs' 
               (E.mk_ite expr1) 
@@ -1096,6 +1167,7 @@ let rec eval_ast_expr'
           (* Add expression to result *)
           eval_ast_expr' 
             mk_new_var_ident 
+            mk_new_call_ident 
             context 
             expr'
             new_defs' 
@@ -1189,7 +1261,12 @@ let rec eval_ast_expr'
 
          (* Evaluate expression *)
          let expr', new_defs' = 
-           eval_ast_expr mk_new_var_ident context new_defs expr 
+           eval_ast_expr 
+             mk_new_var_ident 
+             mk_new_call_ident 
+             context 
+             new_defs 
+             expr 
          in
 
          let expr'', new_defs'' = 
@@ -1208,6 +1285,7 @@ let rec eval_ast_expr'
          (* Add expression to result *)
          eval_ast_expr' 
            mk_new_var_ident 
+           mk_new_call_ident 
            context 
            expr'' 
            new_defs'' 
@@ -1238,14 +1316,134 @@ let rec eval_ast_expr'
       eval_binary_ast_expr E.mk_arrow expr1 expr2 tl
 
 
-    | (index, A.Call (pos, _, _)) :: tl -> 
+    | (index, A.Call (pos, ident, expr_list)) :: tl -> 
 
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Node calls not implemented in %a" 
-              A.pp_print_position A.dummy_pos))
+      (try 
+
+         let { node_inputs; node_outputs } = List.assoc ident nodes in
+
+         let expr_list', ((vars', calls') as new_defs') = 
+           eval_ast_expr_list
+             mk_new_var_ident 
+             mk_new_call_ident 
+             context 
+             new_defs 
+             expr_list
+         in
+
+         let call_ident = mk_new_call_ident ident in
+
+         let node_input_exprs =
+
+           try
+
+             List.fold_right2
+               (fun (_, (in_param, is_const)) in_expr accum ->
+
+                  (* TODO: check if expression is actually constant. How
+                     to optimize in that case? *)
+
+                  List.fold_right2 
+                    (fun 
+                      (in_index, in_type) 
+                      (index, ({ E.expr_type } as expr))
+                      accum ->
+
+                      (* Indexes must match *)
+                      if in_index = index then 
+                        
+                        (* Expression must be of a subtype of input
+                           type*)
+                        if T.check_type expr_type in_type then 
+
+                          expr :: accum
+
+                        else
+
+                          raise E.Type_mismatch
+
+                      else
+
+                        raise E.Type_mismatch)
+                    (sort_indexed_pairs in_param)
+                    (sort_indexed_pairs in_expr)
+                    accum
+               )
+               node_inputs 
+               expr_list'
+               []
+
+           (* Type checking error or one expression has more indexes *)
+           with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
+
+             (* Fail *)
+             raise 
+               (Failure 
+                  (Format.asprintf 
+                     "Type mismatch for expressions at %a"
+                     A.pp_print_position A.dummy_pos))
+         in
+         
+         let node_output_idents = 
+           
+           match node_outputs with 
+             
+             (* Node must have outputs *)
+             | [] ->  
+               
+               (* Fail *)
+               raise 
+                 (Failure 
+                    (Format.asprintf 
+                       "Node %a cannot be called, it does not have \
+                        outputs in %a" 
+                       I.pp_print_ident ident
+                       A.pp_print_position pos))
+                 
+             | _ -> 
+               
+               List.fold_left
+                 (fun accum (out_ident, out_type) -> 
+                 
+                    let out_ident = 
+                      I.add_ident_index call_ident out_ident 
+                    in
+
+                    List.fold_left 
+                      (fun accum (index, out_type) ->
+                         (I.add_index out_ident index, out_type) :: accum)
+                      accum
+                      out_type)
+                 []
+                 node_outputs
+                 
+         in
+
+         let result' = match node_output_idents with 
+           | [] -> assert false
+           | [(var_ident, var_type)] -> 
+             (index, E.mk_var var_ident var_type E.base_clock) :: result
+           | _ -> failwith "stop"
+         in
+
+         (* Add expression to result *)
+         eval_ast_expr' 
+           mk_new_var_ident 
+           mk_new_call_ident 
+           context 
+           result' 
+           (vars', (node_output_idents, ident, node_input_exprs) :: calls') 
+           tl
+
+       with Not_found -> 
+
+         (* Fail *)
+         raise 
+           (Failure 
+              (Format.asprintf 
+                 "Node %a not defined or forward-referenced in %a" 
+                 I.pp_print_ident ident
+                 A.pp_print_position A.dummy_pos)))
 
 
     | (index, A.CallParam (pos, _, _, _)) :: tl -> 
@@ -1260,13 +1458,25 @@ let rec eval_ast_expr'
 
 
 (* Apply operation to expression component-wise *)
-and unary_apply_to mk_new_var_ident context new_defs mk expr accum = 
+and unary_apply_to 
+    mk_new_var_ident
+    mk_new_call_ident 
+    context 
+    new_defs 
+    mk 
+    expr 
+    accum = 
 
   try 
 
     (* Evaluate expression *)
     let expr', new_defs' = 
-      eval_ast_expr mk_new_var_ident context new_defs expr 
+      eval_ast_expr 
+        mk_new_var_ident 
+        mk_new_call_ident 
+        context 
+        new_defs 
+        expr 
     in
 
     (List.fold_right
@@ -1286,16 +1496,34 @@ and unary_apply_to mk_new_var_ident context new_defs mk expr accum =
 
 
 (* Apply operation to expressions component-wise *)
-and binary_apply_to mk_new_var_ident context new_defs mk expr1 expr2 accum = 
+and binary_apply_to 
+    mk_new_var_ident
+    mk_new_call_ident 
+    context 
+    new_defs 
+    mk 
+    expr1 
+    expr2 
+    accum = 
 
   (* Evaluate and sort first expression by indexes *)
   let expr1', new_defs' = 
-    eval_ast_expr mk_new_var_ident context new_defs expr1 
+    eval_ast_expr 
+      mk_new_var_ident 
+      mk_new_call_ident 
+      context 
+      new_defs 
+      expr1 
   in
 
   (* Evaluate and sort second expression by indexes *)
   let expr2', new_defs' = 
-    eval_ast_expr mk_new_var_ident context new_defs' expr2 
+    eval_ast_expr 
+      mk_new_var_ident 
+      mk_new_call_ident 
+      context 
+      new_defs' 
+      expr2 
   in
 
   try 
@@ -1310,12 +1538,7 @@ and binary_apply_to mk_new_var_ident context new_defs mk expr1 expr2 accum =
 
           else          
 
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Type mismatch for expressions at %a" 
-                    A.pp_print_position A.dummy_pos)))
+            raise E.Type_mismatch)
        (sort_indexed_pairs expr1')
        (sort_indexed_pairs expr2')
        accum,
@@ -1332,9 +1555,45 @@ and binary_apply_to mk_new_var_ident context new_defs mk expr1 expr2 accum =
             A.pp_print_position A.dummy_pos))
 
 
-(* Evaluate expression with new context *)
-and eval_ast_expr mk_new_var_ident context new_defs expr = 
-  eval_ast_expr' mk_new_var_ident context [] new_defs [([], expr)]
+(* Evaluate expression *)
+and eval_ast_expr 
+    mk_new_var_ident 
+    mk_new_call_ident 
+    context 
+    new_defs 
+    expr = 
+
+  eval_ast_expr' 
+    mk_new_var_ident
+    mk_new_call_ident 
+    context
+    [] 
+    new_defs 
+    [([], expr)]
+
+
+(* Evaluate list of expressions *)
+and eval_ast_expr_list 
+    mk_new_var_ident
+    mk_new_call_ident 
+    context 
+    new_defs 
+    expr_list =
+
+  List.fold_right 
+    (fun expr (accum, new_defs) -> 
+       let expr', new_defs' = 
+         eval_ast_expr 
+           mk_new_var_ident 
+           mk_new_call_ident 
+           context 
+           new_defs 
+           expr
+       in
+       (expr' :: accum, new_defs'))
+    expr_list
+    ([], new_defs)
+
 
 (* Evaluate expression to an integer constant *)
 and int_const_of_ast_expr context expr = 
@@ -1346,7 +1605,7 @@ and int_const_of_ast_expr context expr =
 
       (* Immediately fail when abstraction expressions to a
          definition *)
-      (fun () ->       
+      (fun _ ->       
          (* Fail *)
          raise 
            (Failure 
@@ -1354,8 +1613,20 @@ and int_const_of_ast_expr context expr =
                  "Expression %a in %a must be a constant integer" 
                  A.pp_print_expr expr
                  A.pp_print_position A.dummy_pos))) 
+
+      (* Immediately fail when abstraction expressions to a
+         node call *)
+      (fun _ ->       
+         (* Fail *)
+         raise 
+           (Failure 
+              (Format.asprintf 
+                 "Expression %a in %a must be a constant integer" 
+                 A.pp_print_expr expr
+                 A.pp_print_position A.dummy_pos))) 
+
       context
-      [] 
+      ([], [])
       expr 
 
   with
@@ -1365,7 +1636,7 @@ and int_const_of_ast_expr context expr =
     | ([ [], { E.expr_pre_vars; 
                E.expr_init = E.Int di; 
                E.expr_step = E.Int ds } ],
-       [])
+       ([], []))
       when ISet.is_empty expr_pre_vars && di = ds -> di
 
     (* Expression is not a constant integer *)
@@ -1800,295 +2071,362 @@ let rec parse_node_locals context node = function
             A.pp_print_position A.dummy_pos))
 
 
-let new_defs_to_context context node new_defs =
+let new_defs_to_context context node (vars, calls) =
 
-  List.fold_left 
-    (fun (context, node) ((ident, index), { E.expr_type }) -> 
-       add_node_var_decl 
-         (I.mk_string_id ident)
-         (context, node)
-         index 
-         expr_type)
-    (context, node)
-    new_defs
+  let context', node' = 
+
+    List.fold_left 
+      (fun (context, node) ((ident, index), { E.expr_type }) -> 
+         add_node_var_decl 
+           (I.mk_string_id ident)
+           (context, node)
+           index 
+           expr_type)
+      (context, node)
+      vars
+
+  in
+
+  List.fold_left
+    (fun accum (outputs, _, _) ->
+       List.fold_left 
+         (fun (context, node) ((ident, index), expr_type) -> 
+            add_node_var_decl 
+              (I.mk_string_id ident)
+              (context, node)
+              index
+              expr_type)
+         accum
+         outputs)
+    (context', node')
+    calls
 
 
-let rec parse_node_equations mk_new_var_ident context node = function
 
-  | [] -> node 
+let rec parse_node_equations 
+    mk_new_var_ident
+    mk_new_call_ident 
+    context 
+    node = 
 
-  (* Assertion *)
-  | A.Assert expr :: tl -> 
+  function
 
-    (* Evaluate expression *)
-    let expr', new_defs = 
-      eval_ast_expr mk_new_var_ident context [] expr 
-    in
+    | [] -> node 
 
-    (* Add new definitions to context *)
-    let context', node' = new_defs_to_context context node new_defs in
+    (* Assertion *)
+    | A.Assert expr :: tl -> 
 
-    (* Check evaluated expression *)
-    (match expr' with 
-
-      (* Boolean expression without indexes *)
-      | [ [], 
-          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
-
-        parse_node_equations 
+      (* Evaluate expression *)
+      let expr', ((new_vars, new_calls) as new_defs) = 
+        eval_ast_expr 
           mk_new_var_ident 
-          context'
-          { node' with 
-              node_asserts = (expr :: node.node_asserts); 
-              node_eqs = new_defs @ node.node_eqs }
-          tl
+          mk_new_call_ident 
+          context 
+          ([], []) 
+          expr 
+      in
 
-      (* Expression is not Boolean or is indexed *)
-      | _ -> 
+      (* Add new definitions to context *)
+      let context', node' = new_defs_to_context context node new_defs in
 
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Assertion is not of Boolean type in %a" 
-                A.pp_print_position A.dummy_pos)))
+      (* Check evaluated expression *)
+      (match expr' with 
 
+        (* Boolean expression without indexes *)
+        | [ [], 
+            ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
 
-  (* Property annotation *)
-  | A.AnnotProperty expr :: tl -> 
+          parse_node_equations 
+            mk_new_var_ident 
+            mk_new_call_ident 
+            context'
+            { node' with 
+                node_asserts = (expr :: node.node_asserts); 
+                node_eqs = new_vars @ node.node_eqs; 
+                node_calls = new_calls @ node.node_calls }
+            tl
 
-    (* Evaluate expression *)
-    let expr', new_defs = 
-      eval_ast_expr mk_new_var_ident context [] expr 
-    in
-
-    (* Add new definitions to context *)
-    let context', node' = new_defs_to_context context node new_defs in
-
-    (* Check evaluated expression *)
-    (match expr' with 
-
-      (* Boolean expression without indexes *)
-      | [ [], 
-          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
-
-        parse_node_equations 
-          mk_new_var_ident 
-          context' 
-          { node' with 
-              node_props = (expr :: node.node_props); 
-              node_eqs = new_defs @ node.node_eqs }
-          tl
-
-      (* Expression is not Boolean or is indexed *)
-      | _ -> 
-
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Property is not of Boolean type in %a" 
-                A.pp_print_position A.dummy_pos)))
-
-
-  (* Equation x = f(x) *)
-  | A.Equation ([A.SingleIdent ident], expr) :: tl -> 
-
-    (* Type of equation *)
-    let eq_type = 
-
-      try 
-
-        (* Return type if assigning to an output *)
-        List.assoc ident node.node_outputs 
-
-      with Not_found -> 
-
-        (* Return type if assigning to a local variable *)
-        try List.assoc ident node.node_vars 
-
-        with Not_found -> 
+        (* Expression is not Boolean or is indexed *)
+        | _ -> 
 
           (* Fail *)
           raise 
             (Failure 
                (Format.asprintf 
-                  "Equation does not assign to output or local \
-                   variable in %a" 
-                  A.pp_print_position A.dummy_pos))
+                  "Assertion is not of Boolean type in %a" 
+                  A.pp_print_position A.dummy_pos)))
 
-    in
 
-    (* Evaluate expression and sort by indexes *)
-    let expr', new_defs = 
-      eval_ast_expr mk_new_var_ident context [] expr 
-    in
+    (* Property annotation *)
+    | A.AnnotProperty expr :: tl -> 
 
-    (* Add new definitions to context *)
-    let context', node' = new_defs_to_context context node new_defs in
+      (* Evaluate expression *)
+      let expr', ((new_vars, new_calls) as new_defs) = 
+        eval_ast_expr 
+          mk_new_var_ident 
+          mk_new_call_ident 
+          context 
+          ([], []) 
+          expr 
+      in
 
-    (* Add node equations *)
-    let node_eqs', node_props' = 
+      (* Add new definitions to context *)
+      let context', node' = new_defs_to_context context node new_defs in
 
-      List.fold_right2
+      (* Check evaluated expression *)
+      (match expr' with 
 
-        (fun 
-          (def_index, def_type) 
-          (expr_index, ({ E.expr_type } as expr)) 
-          (node_eqs, node_props) -> 
+        (* Boolean expression without indexes *)
+        | [ [], 
+            ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
 
-          (* Indexes must match *)
-          if def_index = expr_index then 
+          parse_node_equations 
+            mk_new_var_ident 
+            mk_new_call_ident 
+            context' 
+            { node' with 
+                node_props = (expr :: node.node_props); 
+                node_eqs = new_vars @ node.node_eqs; 
+                node_calls = new_calls @ node.node_calls }
+            tl
 
-            (* Equation to add to node *)
-            let eq = I.add_index ident def_index, expr in
+        (* Expression is not Boolean or is indexed *)
+        | _ -> 
 
-            (* Type must be a subtype of declared type *)
-            if T.check_type expr_type def_type then
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Property is not of Boolean type in %a" 
+                  A.pp_print_position A.dummy_pos)))
 
-              (* Add equation *)
-              (eq :: node_eqs, node_props) 
 
-            else
+    (* Equation x = f(x) *)
+    | A.Equation ([A.SingleIdent ident], expr) :: tl -> 
 
-              (* Type of expression may not be subtype of declared
-                 type *)
-              (match def_type, expr_type with 
+      (* Type of equation *)
+      let eq_type = 
 
-                (* Declared type is integer range, expression is of
-                   type integer *)
-                | T.IntRange (lbound, ubound), T.Int -> 
+        try 
 
-                  (* Value of expression is in range of declared
-                     type: lbound <= expr and expr <= ubound *)
-                  let range_expr = 
-                    (E.mk_and 
-                       (E.mk_lte (E.mk_int lbound) expr) 
-                       (E.mk_lte expr (E.mk_int ubound)))
-                  in
+          (* Return type if assigning to an output *)
+          List.assoc ident node.node_outputs 
 
-                  Format.printf 
-                    "@[<v>Expression may not be in subrange of variable. \
-                     Need to add property@;%a@]@."
-                    E.pp_print_lustre_expr range_expr;
+        with Not_found -> 
 
-                  (eq :: node_eqs, range_expr :: node_props) 
+          (* Return type if assigning to a local variable *)
+          try List.assoc ident node.node_vars 
 
-                | _ -> 
-
-                  (* Fail *)
-                  raise 
-                    (Failure 
-                       (Format.asprintf 
-                          "Type mismatch for expressions at %a" 
-                          A.pp_print_position A.dummy_pos)))
-          else       
+          with Not_found -> 
 
             (* Fail *)
             raise 
               (Failure 
                  (Format.asprintf 
-                    "Type mismatch for expressions at %a" 
-                    A.pp_print_position A.dummy_pos)))
-        (sort_indexed_pairs eq_type)
-        (sort_indexed_pairs expr')
-        (node'.node_eqs, node'.node_props)
-    in
+                    "Equation does not assign to output or local \
+                     variable in %a" 
+                    A.pp_print_position A.dummy_pos))
 
-    parse_node_equations 
-      mk_new_var_ident 
-      context 
-      { node' with 
-          node_eqs = new_defs @ node_eqs'; 
-          node_props = node_props' }
-      tl
+      in
 
-
-  (* Annotation for main node *)
-  | A.AnnotMain :: tl -> 
-
-    parse_node_equations 
-      mk_new_var_ident 
-      context 
-      { node with node_is_main = true }
-      tl
-
-
-let rec parse_node_contract mk_new_var_ident context node = function
-
-  | [] -> node 
-
-  (* Assumption *)
-  | A.Requires expr :: tl -> 
-
-    (* Evaluate expression *)
-    let expr', new_defs = 
-      eval_ast_expr mk_new_var_ident context [] expr 
-    in
-
-    (* Add new definitions to context *)
-    let context', node' = new_defs_to_context context node new_defs in
-
-    (* Check evaluated expression *)
-    (match expr' with 
-
-      (* Boolean expression without indexes *)
-      | [ [], 
-          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
-
-        parse_node_contract 
+      (* Evaluate expression and sort by indexes *)
+      let expr', ((new_vars, new_calls) as new_defs) = 
+        eval_ast_expr 
           mk_new_var_ident 
-          context' 
-          { node' with 
-              node_requires = (expr :: node.node_requires); 
-              node_eqs = new_defs @ node.node_eqs }
-          tl
+          mk_new_call_ident 
+          context 
+          ([], []) 
+          expr 
+      in
 
-      (* Expression is not Boolean or is indexed *)
-      | _ -> 
+      (* Add new definitions to context *)
+      let context', node' = new_defs_to_context context node new_defs in
 
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Requires clause is not of Boolean type in %a" 
-                A.pp_print_position A.dummy_pos)))
+      (* Add node equations *)
+      let node_eqs', node_props' = 
 
-  (* Guarantee *)
-  | A.Ensures expr :: tl -> 
+        List.fold_right2
 
-    (* Evaluate expression *)
-    let expr', new_defs = 
-      eval_ast_expr mk_new_var_ident context [] expr 
-    in
+          (fun 
+            (def_index, def_type) 
+            (expr_index, ({ E.expr_type } as expr)) 
+            (node_eqs, node_props) -> 
 
-    (* Add new definitions to context *)
-    let context', node' = new_defs_to_context context node new_defs in
+            (* Indexes must match *)
+            if def_index = expr_index then 
 
-    (* Check evaluated expression *)
-    (match expr' with 
+              (* Equation to add to node *)
+              let eq = I.add_index ident def_index, expr in
 
-      (* Boolean expression without indexes *)
-      | [ [], 
-          ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+              (* Type must be a subtype of declared type *)
+              if T.check_type expr_type def_type then
 
-        parse_node_contract 
+                (* Add equation *)
+                (eq :: node_eqs, node_props) 
+
+              else
+
+                (* Type of expression may not be subtype of declared
+                   type *)
+                (match def_type, expr_type with 
+
+                  (* Declared type is integer range, expression is of
+                     type integer *)
+                  | T.IntRange (lbound, ubound), T.Int -> 
+
+                    (* Value of expression is in range of declared
+                       type: lbound <= expr and expr <= ubound *)
+                    let range_expr = 
+                      (E.mk_and 
+                         (E.mk_lte (E.mk_int lbound) expr) 
+                         (E.mk_lte expr (E.mk_int ubound)))
+                    in
+
+                    Format.printf 
+                      "@[<v>Expression may not be in subrange of variable. \
+                       Need to add property@;%a@]@."
+                      E.pp_print_lustre_expr range_expr;
+
+                    (eq :: node_eqs, range_expr :: node_props) 
+
+                  | _ -> 
+
+                    (* Fail *)
+                    raise 
+                      (Failure 
+                         (Format.asprintf 
+                            "Type mismatch for expressions at %a" 
+                            A.pp_print_position A.dummy_pos)))
+            else       
+
+              (* Fail *)
+              raise 
+                (Failure 
+                   (Format.asprintf 
+                      "Type mismatch for expressions at %a" 
+                      A.pp_print_position A.dummy_pos)))
+          (sort_indexed_pairs eq_type)
+          (sort_indexed_pairs expr')
+          (node'.node_eqs, node'.node_props)
+      in
+
+      parse_node_equations 
+        mk_new_var_ident 
+        mk_new_call_ident 
+        context 
+        { node' with 
+            node_eqs = new_vars @ node_eqs'; 
+            node_props = node_props'; 
+            node_calls = new_calls @ node.node_calls }
+        tl
+
+
+    (* Annotation for main node *)
+    | A.AnnotMain :: tl -> 
+
+      parse_node_equations 
+        mk_new_var_ident 
+        mk_new_call_ident 
+        context 
+        { node with node_is_main = true }
+        tl
+
+
+let rec parse_node_contract 
+    mk_new_var_ident 
+    mk_new_call_ident
+    context 
+    node = 
+
+  function
+
+    | [] -> node 
+
+    (* Assumption *)
+    | A.Requires expr :: tl -> 
+
+      (* Evaluate expression *)
+      let expr', ((new_vars, new_calls) as new_defs) = 
+        eval_ast_expr 
           mk_new_var_ident 
-          context' 
-          { node' with 
-              node_ensures = (expr :: node.node_ensures); 
-                  node_eqs = new_defs @ node.node_eqs }
-          tl
+          mk_new_call_ident 
+          context 
+          ([], []) 
+          expr 
+      in
 
-      (* Expression is not Boolean or is indexed *)
-      | _ -> 
+      (* Add new definitions to context *)
+      let context', node' = new_defs_to_context context node new_defs in
 
-        (* Fail *)
-        raise 
-          (Failure 
-             (Format.asprintf 
-                "Ensures clause is not of Boolean type in %a" 
-                A.pp_print_position A.dummy_pos)))
+      (* Check evaluated expression *)
+      (match expr' with 
+
+        (* Boolean expression without indexes *)
+        | [ [], 
+            ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+          parse_node_contract 
+            mk_new_var_ident 
+            mk_new_call_ident 
+            context' 
+            { node' with 
+                node_requires = (expr :: node.node_requires); 
+                node_eqs = new_vars @ node.node_eqs; 
+                node_calls = new_calls @ node.node_calls }
+            tl
+
+        (* Expression is not Boolean or is indexed *)
+        | _ -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Requires clause is not of Boolean type in %a" 
+                  A.pp_print_position A.dummy_pos)))
+
+    (* Guarantee *)
+    | A.Ensures expr :: tl -> 
+
+      (* Evaluate expression *)
+      let expr', ((new_vars, new_calls) as new_defs) = 
+        eval_ast_expr 
+          mk_new_var_ident 
+          mk_new_call_ident 
+          context 
+          ([], []) 
+          expr 
+      in
+
+      (* Add new definitions to context *)
+      let context', node' = new_defs_to_context context node new_defs in
+
+      (* Check evaluated expression *)
+      (match expr' with 
+
+        (* Boolean expression without indexes *)
+        | [ [], 
+            ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+          parse_node_contract 
+            mk_new_var_ident 
+            mk_new_call_ident 
+            context' 
+            { node' with 
+                node_ensures = (expr :: node.node_ensures); 
+                node_eqs = new_vars @ node.node_eqs;
+                node_calls = new_calls @ node.node_calls }
+            tl
+
+        (* Expression is not Boolean or is indexed *)
+        | _ -> 
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Ensures clause is not of Boolean type in %a" 
+                  A.pp_print_position A.dummy_pos)))
 
 
 
@@ -2106,6 +2444,18 @@ let parse_node_signature
     fun () -> incr r; I.add_int_index new_var_ident !r
   in
 
+  let rec mk_new_call_ident =
+    let l = ref [] in
+    fun ident -> 
+      try 
+        let r = List.assoc ident !l in
+        incr r;
+        I.add_int_index (I.add_ident_index new_call_ident ident) !r
+      with Not_found -> 
+        l := (ident, ref (-1)) :: !l;
+        mk_new_call_ident ident
+  in
+  
   (* Parse inputs, add to global context and node context *)
   let local_context_inputs, node_context_inputs = 
     parse_node_inputs global_context init_node_context inputs
@@ -2122,6 +2472,7 @@ let parse_node_signature
   let node_context_contract = 
     parse_node_contract 
       mk_new_var_ident 
+      mk_new_call_ident 
       local_context_outputs 
       node_context_outputs 
       contract
@@ -2137,6 +2488,7 @@ let parse_node_signature
   let node_context_equations = 
     parse_node_equations 
       mk_new_var_ident 
+      mk_new_call_ident 
       local_context_locals 
       node_context_locals 
       equations
@@ -2166,6 +2518,7 @@ let rec check_declarations
        type_ctx; 
        index_ctx; 
        consts; 
+       nodes;
        result } as global_context) = 
 
 
@@ -2772,7 +3125,18 @@ let rec check_declarations
 
               (* Immediately fail when abstraction expressions to a
                  definition *)
-              (fun () ->       
+              (fun _ ->       
+                 (* Fail *)
+                 raise 
+                   (Failure 
+                      (Format.asprintf 
+                         "Expression %a in %a must be a constant" 
+                         A.pp_print_expr expr
+                         A.pp_print_position A.dummy_pos))) 
+
+              (* Immediately fail when abstraction expressions to a
+                 node call *)
+              (fun _ ->       
                  (* Fail *)
                  raise 
                    (Failure 
@@ -2782,7 +3146,7 @@ let rec check_declarations
                          A.pp_print_position A.dummy_pos))) 
 
               global_context 
-              [] 
+              ([], [])
               expr 
           in
 
@@ -2866,7 +3230,10 @@ let rec check_declarations
       in
 
       (* Recurse for next declarations *)
-      check_declarations global_context decls
+      check_declarations 
+        { global_context with 
+            nodes = (node_ident, node_context) :: nodes }
+        decls
 
 
     | d :: decls ->
