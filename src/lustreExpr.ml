@@ -1070,18 +1070,21 @@ let mk_pre_expr mk_new_var_ident = function
     (VarPre new_var_ident, Some (new_var_ident, expr))
 
 
-let mk_pre mk_new_var_ident new_defs ({ expr_init; expr_step } as expr) = 
+let mk_pre 
+    mk_new_var_ident 
+    ((vars, calls) as defs)
+    ({ expr_init; expr_step } as expr) = 
 
-  let expr_init', new_defs' = match expr_init with 
+  let expr_init', ((vars', calls') as defs') = match expr_init with 
 
     (* Expression is a variable *)
-    | Var ident -> (VarPre ident, new_defs)
+    | Var ident -> (VarPre ident, defs)
 
     (* Expression is a constant *)
     | True
     | False
     | Int _
-    | Real _ -> (expr_init, new_defs)
+    | Real _ -> (expr_init, defs)
 
     (* Expression is not constant and no variable *)
     | _ -> 
@@ -1090,20 +1093,21 @@ let mk_pre mk_new_var_ident new_defs ({ expr_init; expr_step } as expr) =
       let new_var_ident = mk_new_var_ident () in
       
       (* Abstract expression to fresh variable *)
-      (VarPre new_var_ident, (new_var_ident, expr) :: new_defs)
+      (VarPre new_var_ident, 
+       ((new_var_ident, expr) :: vars, calls))
 
   in
 
-  let expr_step', new_defs'' = match expr_step with 
+  let expr_step', defs'' = match expr_step with 
 
     (* Expression is identical to initial state *)
     | _ when expr_step = expr_init -> 
 
       (* Re-use abstraction for initial state *)
-      (expr_init', new_defs')
+      (expr_init', defs')
 
     (* Expression is a variable *)
-    | Var ident -> (VarPre ident, new_defs')
+    | Var ident -> (VarPre ident, defs')
 
     (* Expression is not constant and no variable *)
     | _ -> 
@@ -1112,13 +1116,14 @@ let mk_pre mk_new_var_ident new_defs ({ expr_init; expr_step } as expr) =
       let new_var_ident = mk_new_var_ident () in
       
       (* Abstract expression to fresh variable *)
-      (VarPre new_var_ident, (new_var_ident, expr) :: new_defs)
+      (VarPre new_var_ident, 
+       ((new_var_ident, expr) :: vars', calls'))
 
   in
 
   (* Return expression and new definitions *)
   ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
-   new_defs'') 
+   defs'') 
 
   
 

@@ -1,3 +1,26 @@
+type pair = {one, two: int};
+
+node X (a1, a2: int) returns (b: int; b2: bool);
+let b = a1; tel
+
+node Z (a1, a2: int) returns (b: int);
+let b = a1; tel
+
+node Y (a: int) returns (b: int);
+var c: int;
+let
+  -- b = X([a + 1, a+2],  [a-1, a-2]) + X([b+1, b+2], [b-1, b-2]) + Z(a, b);
+  -- b = X(pair {one = a+1; two = a-1});
+  b = X(c+1, c-1);
+tel
+
+
+/*
+
+
+
+
+
 const ac = 2;
 
 -- const __abs = [1, 2];
@@ -24,6 +47,7 @@ let
   a3 = pre (pre (a + 1 -> b));
   a4 = pre (a -> b);
 
+  d = [true, if a > 0 then 1 else 2, 2.0];
 
 --  d = [pre false, pre (a + 1), pre (pre (a -> b))];
   f = 3+b;
@@ -34,7 +58,7 @@ let
   assert pre (not d[0]);
 
 tel
-
+*/
 
 /*
 
@@ -186,3 +210,4 @@ const j : cj = i[1..2, 1..1];
 *)
 
 */
+
