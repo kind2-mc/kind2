@@ -801,14 +801,16 @@ let rec eval_ast_expr'
       eval_unary_ast_expr E.mk_to_real expr tl
 
 
-    | (index, A.ExprList (pos, _)) :: tl -> 
+    | (index, A.ExprList (pos, expr_list)) :: tl -> 
 
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Expression lists not implemented in %a" 
-              A.pp_print_position A.dummy_pos))
+      (* Treat as tuple *)
+      eval_ast_expr' 
+        mk_new_var_ident
+        mk_new_call_ident 
+        context 
+        result
+        new_defs 
+        ((index, A.TupleExpr (pos, expr_list)) :: tl)
 
 
     (* Tuple constructor *)
@@ -2207,6 +2209,14 @@ let rec parse_node_equations
       (* Type of equation *)
       let eq_type = 
 
+        (* TODO: Could have an indexed identifier and assign to one field of it:
+           
+           x[0] = c;
+
+           Would need to search for type instead of looking up in the
+           list, but some fields could be left unassigned without
+           warning. *)
+
         try 
 
           (* Return type if assigning to an output *)
@@ -2229,7 +2239,7 @@ let rec parse_node_equations
 
       in
 
-      (* Evaluate expression and sort by indexes *)
+      (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
         eval_ast_expr 
           mk_new_var_ident 
@@ -2319,6 +2329,58 @@ let rec parse_node_equations
             node_props = node_props'; 
             node_calls = new_calls @ node.node_calls }
         tl
+
+    (* TODO: catch all singleton lists here *)
+
+    (* TODO: This would need a change for SingleIdent, see note there
+    | A.Equation ([A.TupleSelection (ident, index_expr)], expr) :: tl -> 
+
+      let index = int_const_of_ast_expr context index_expr in 
+
+      let ident' = I.add_int_index ident index in 
+
+      parse_node_equations 
+        mk_new_var_ident 
+        mk_new_call_ident 
+        context 
+        node
+        (A.Equation ([A.SingleIdent ident'], expr) :: tl)
+      
+      *)      
+
+(*
+    (* Equations with more than one variable on the left-hand side *)
+    | A.Equation (struct_items, expr) :: tl -> 
+      
+      let _, tl' = 
+
+        List.fold_left 
+          (function (i, accum) -> 
+
+            (function 
+              | A.SingleIdent ident -> 
+
+                let eq = 
+                  A.Equation 
+                    ([A.SingleIdent ident], 
+                     A.TupleProject (A.dummy_pos, expr, A.Num i))
+                in
+
+                (succ i, eq :: accum)))
+          
+          (0, tl)
+          struct_items
+
+      in
+
+      parse_node_equations 
+        mk_new_var_ident 
+        mk_new_call_ident 
+        context 
+        node
+        tl'
+*)
+      
 
 
     (* Annotation for main node *)

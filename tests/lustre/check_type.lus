@@ -1,7 +1,16 @@
 type pair = {one, two: int};
 
-node X (a1, a2: int) returns (b: int; b2: bool);
-let b = a1; tel
+node X (a1, a2: int) returns (b: int);
+var
+  b1: pair;
+  b2: int^3;
+let 
+  b = a1; 
+  b2[1] = 3;
+  b2 = (1, 2, 3) + [3, 2, 1] - (4^3);
+  -- (b2, b) = ([a1, a2, 0], 1);
+  -- ([b2[2], b2[1], b2[0]], b1) = (b2, {one = 1, two = 2});
+tel
 
 node Z (a1, a2: int) returns (b: int);
 let b = a1; tel
