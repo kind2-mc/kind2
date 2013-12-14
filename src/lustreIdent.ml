@@ -116,21 +116,31 @@ module LustreIdentSet = Set.Make
 
 
 (* Pretty-print an index *)
-let pp_print_one_index ppf = function 
-  | StringIndex i -> Format.fprintf ppf ".%s" i
-  | IntIndex i -> Format.fprintf ppf "[%d]" i
+let pp_print_one_index = function 
+  
+  | false -> 
+    
+    (function ppf -> function 
+       | StringIndex i -> Format.fprintf ppf ".%s" i
+       | IntIndex i -> Format.fprintf ppf "[%d]" i)
+
+  | true -> 
+    
+    (function ppf -> function 
+       | StringIndex i -> Format.fprintf ppf "_%s" i
+       | IntIndex i -> Format.fprintf ppf "_%d" i)
 
 
 (* Pretty-print a list of indexes *)
-let rec pp_print_index ppf = function 
+let rec pp_print_index safe ppf = function 
   | [] -> ()
-  | h :: tl -> pp_print_one_index ppf h; pp_print_index ppf tl
+  | h :: tl -> pp_print_one_index safe ppf h; pp_print_index safe ppf tl
 
 
 (* Pretty-print an identifier *)
-let rec pp_print_ident ppf (s, i) = 
+let rec pp_print_ident safe ppf (s, i) = 
 
-  Format.fprintf ppf "%s%a" s pp_print_index i
+  Format.fprintf ppf "%s%a" s (pp_print_index safe) i
 
 
 (* ********************************************************************** *)

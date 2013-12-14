@@ -1,3 +1,14 @@
+node Rise 
+  (I : bool)
+returns 
+  (O : bool);
+let 
+  O = false -> pre(I) and I;
+tel;
+
+
+const inhibit_count_max = 2;
+
 node PFS_Logic
   (riseTS, riseOSPF : bool;
    const Primary_Side : bool; 
@@ -5,8 +16,6 @@ node PFS_Logic
 
 returns 
   (PFS : bool);
-
-const inhibit_count_max = 2;
 
 var
   Start_to_Pilot_Flying, 
@@ -23,12 +32,12 @@ var
 
   inhibit_count_bounded : bool;
   pfs_state_consistency : bool;
-  state : subrange [1,5] of int;
-const St_Inhibited = 2;
-const St_Listening = 3;
-const St_Pilot_Flying = 4;
-const St_Start = 1;
-const St_Stop = 5;
+--  state : subrange [1,5] of int;
+-- const St_Inhibited = 2;
+-- const St_Listening = 3;
+-- const St_Pilot_Flying = 4;
+-- const St_Start = 1;
+-- const St_Stop = 5;
 
   -- state_bounded : bool;
 
@@ -41,24 +50,24 @@ const St_Stop = 5;
 let
  
   Start_to_Pilot_Flying = 
-    (St_Start -> pre(state)) = St_Start and Primary_Side;
+    ((St_Start -> pre(state)) = St_Start) and Primary_Side;
 
   Start_to_Inhibited = 
-    (St_Start -> pre(state)) = St_Start and (not Primary_Side);
+    ((St_Start -> pre(state)) = St_Start) and (not Primary_Side);
 
   Inhibited_to_Listening = 
-    (St_Start -> pre(state)) = St_Inhibited and 
+    ((St_Start -> pre(state)) = St_Inhibited) and 
       (0 -> pre(inhibit_count)) >= inhibit_count_max;
   
   Inhibited_to_Inhibited = 
-    (St_Start -> pre(state)) = St_Inhibited and 
+    ((St_Start -> pre(state)) = St_Inhibited) and 
       not Inhibited_to_Listening;
 
   Listening_to_Pilot_Flying = 
-    (St_Start -> pre(state)) = St_Listening and riseTS;
+    ((St_Start -> pre(state)) = St_Listening) and riseTS;
 
   Pilot_Flying_to_Inhibited = 
-    (St_Start -> pre(state)) = St_Pilot_Flying and riseOSPF;
+    ((St_Start -> pre(state)) = St_Pilot_Flying) and riseOSPF;
 
   state =
     if
@@ -194,17 +203,17 @@ let
       (St_Start -> pre(state));
 
   prev_I = 
-    if St_Start_to_Step then I
-    else if St_Step_to_Step then I
+    if Start_to_Step then I
+    else if Step_to_Step then I
          else prev_I_Initial_Value -> pre(prev_I);
 
   O = 
     if 
-      St_Start_to_Step 
+      Start_to_Step 
     then 
       prev_I_Initial_Value -> pre(prev_I)
     else if 
-      St_Step_to_Step 
+      Step_to_Step 
     then 
       prev_I_Initial_Value -> pre(prev_I)
     else 
@@ -230,16 +239,20 @@ var
 let
 
   LS_PFS = 
-    condact(CLK1, PFS_Side(TS, RL_O, true, true), true);
+    -- condact(CLK1, PFS_Side(TS, RL_O, true, true), true);
+    PFS_Side(TS, RL_O, true, true);
 
   RS_PFS = 
-    condact(CLK3, PFS_Side(TS, LR_O, false, false), false);
+    -- condact(CLK3, PFS_Side(TS, LR_O, false, false), false);
+    PFS_Side(TS, LR_O, false, false);
 
   LR_O = 
-    condact(CLK2, Cross_Channel_Bus (LS_PFS, true, true), true);
+    -- condact(CLK2, Cross_Channel_Bus (LS_PFS, true, true), true);
+    Cross_Channel_Bus (LS_PFS, true, true);
 
   RL_O = 
-    condact(CLK4, Cross_Channel_Bus (RS_PFS, false, false), false);
+    -- condact(CLK4, Cross_Channel_Bus (RS_PFS, false, false), false);
+    Cross_Channel_Bus (RS_PFS, false, false);
 
   LPFS = LS_PFS;
 
@@ -247,14 +260,71 @@ let
   
 tel;
 
-node Rise 
-  (I : bool)
-returns 
-  (O : bool);
-let 
-  O = false -> pre(I) and I;
+
+
+node qs_dfa (p, q : bool) returns (ok : bool);
+
+var
+  r : subrange [-2, 2] of int;
+
+let
+
+  ok = not (((0 -> pre r) = 2 and p) or ((0 -> pre r) = -2 and q));
+  
+  r = if p and q then 0 
+      else if p then (if (0 -> pre r) < 0 then 1 else ((0 -> pre r)) + 1)
+           else if q then (if (0 -> pre r) > 0 then -1 else ((0 -> pre r)) - 1)
+                else (0 -> pre r);
+
 tel;
 
+node calendar
+  (CLK1 : bool; CLK3 : bool; CLK2 : bool; CLK4 : bool)
+returns
+  (ok : bool);
+let
+  ok = 
+    qs_dfa(CLK1, CLK3) and
+      qs_dfa(CLK1, CLK2) and
+        qs_dfa(CLK1, CLK4) and
+          qs_dfa(CLK3, CLK2) and
+            qs_dfa(CLK3, CLK4) and
+              qs_dfa(CLK2, CLK4);
+tel;
+
+
+node PRESSED (p : bool) returns (b : bool);
+let
+  b = false -> (not pre p and p);
+tel;
+
+node PRESSED_SEEN (p, c : bool) returns (b : bool);
+let
+  b = false -> (not pre p and pre c) and (p and c);
+tel;
+
+node CHANGED (p : bool) returns (b : bool);
+let
+  b = false ->  not (p = pre p);
+tel;
+  
+node ticked(c: bool) returns (b: bool);
+let 
+  b = (false -> pre b) or c;
+tel;
+  
+node false_longer_than (p: bool; const n: int) returns (ok: bool);
+
+var
+  c: int;
+
+let
+
+  c = if p then 0 else (1 -> pre c + 1);
+  
+  ok = c > n;
+
+tel;
 
 node main
   (TS, CLK1, CLK3, CLK2, CLK4 : bool)
@@ -296,6 +366,7 @@ let
   agree_on_pilot_flying_side = quiescent => LPFS = not RPFS;
      
   transfer_switch_changes_sides = 
+    true ->
     pre quiescent => 
       (not pre LPFS and PRESSED_SEEN(TS,CLK1) => LPFS) and 
         (not pre RPFS and PRESSED_SEEN(TS,CLK3) => RPFS);
@@ -311,69 +382,4 @@ let
   --%PROPERTY left_side_initial_pilot_flying_side;
   --%PROPERTY pilot_flying_side_unchanged_unless_transfer_switch_pressed;
 
-tel;
-
-node PRESSED (p : bool) returns (b : bool);
-let
-  b = false -> (not pre p and p);
-tel;
-
-node PRESSED_SEEN (p, c : bool) returns (b : bool);
-let
-  b = false -> (not pre p and pre c) and (p and c);
-tel;
-
-node CHANGED (p : bool) returns (b : bool);
-let
-  b = false ->  not (p = pre p);
-tel;
-  
-node ticked(c: bool) returns (b: bool);
-let 
-  b = (false -> pre b) or c;
-tel;
-  
-node false_longer_than (p: bool; const n: int) returns (ok: bool);
-
-var
-  c: int;
-
-let
-
-  c = if p then 0 else (1 -> pre c + 1);
-  
-  ok = c > n;
-
-tel;
-
-
-node qs_dfa (p, q : bool) returns (ok : bool);
-
-var
-  r : subrange [-2, 2] of int;
-
-let
-
-  ok = not (((0 -> pre r) = 2 and p) or ((0 -> pre r) = -2 and q));
-  
-  r = if p and q then 0 
-      else if p then (if (0 -> pre r) < 0 then 1 else ((0 -> pre r)) + 1)
-           else if q then (if (0 -> pre r) > 0 then -1 else ((0 -> pre r)) - 1)
-                else (0 -> pre r);
-
-tel;
-
-
-node calendar
-  (CLK1 : bool; CLK3 : bool; CLK2 : bool; CLK4 : bool)
-returns
-  (ok : bool);
-let
-  ok = 
-    qs_dfa(CLK1, CLK3) and
-      qs_dfa(CLK1, CLK2) and
-        qs_dfa(CLK1, CLK4) and
-          qs_dfa(CLK3, CLK2) and
-            qs_dfa(CLK3, CLK4) and
-              qs_dfa(CLK2, CLK4);
 tel;

@@ -127,16 +127,16 @@ let equal a b = compare a b = 0
 
 
 (* Pretty-print a type *)
-let pp_print_lustre_type ppf = function   
+let pp_print_lustre_type safe ppf = function   
   | Bool -> Format.fprintf ppf "bool"
   | Int -> Format.fprintf ppf "int"
   | Real -> Format.fprintf ppf "real"
   | IntRange (i, j) -> Format.fprintf ppf "subrange [%d,%d] of int" i j
-  | FreeType t -> Format.fprintf ppf "%a" I.pp_print_ident t
+  | FreeType t -> Format.fprintf ppf "%a" (I.pp_print_ident safe) t
   | Enum l ->     
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
-      (pp_print_list I.pp_print_ident ",@ ") l
+      (pp_print_list (I.pp_print_ident safe) ",@ ") l
 
 
 let t_bool = Bool
