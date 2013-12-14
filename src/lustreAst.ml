@@ -325,8 +325,8 @@ type t = declaration list
 (* Pretty-print a clock expression *)
 let pp_print_clock_expr ppf = function
 
-  | ClockPos s -> Format.fprintf ppf "@ when %a" I.pp_print_ident s
-  | ClockNeg s -> Format.fprintf ppf "@ when not %a" I.pp_print_ident s
+  | ClockPos s -> Format.fprintf ppf "@ when %a" (I.pp_print_ident false) s
+  | ClockNeg s -> Format.fprintf ppf "@ when not %a" (I.pp_print_ident false) s
   | ClockTrue -> ()
 
 
@@ -392,7 +392,7 @@ let rec pp_print_expr ppf =
 
   function
     
-    | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p I.pp_print_ident id
+    | Ident (p, id) -> Format.fprintf ppf "%a%a" ppos p (I.pp_print_ident false) id
  
     | ExprList (p, l) -> Format.fprintf ppf "%a@[<hv 1>(%a)@]" ppos p pl l
 
@@ -411,7 +411,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
         ppos p 
-        I.pp_print_ident e
+        (I.pp_print_ident false) e
         (pp_print_list pp_print_array_slice ",@ ") l 
 
     | ArrayConcat (p, e1, e2) -> 
@@ -427,20 +427,20 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a%a.%a" 
         ppos p 
-        I.pp_print_ident id 
-        I.pp_print_index f
+        (I.pp_print_ident false) id 
+        (I.pp_print_index false) f
 
     | RecordConstruct (p, t, l) -> 
 
       Format.fprintf ppf 
         "%a@[<hv 1>%a {%a}@]" 
         ppos p 
-        I.pp_print_ident t
+        (I.pp_print_ident false) t
         (pp_print_list pp_print_field_assign ";@ ") l
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a[%a]" ppos p I.pp_print_ident  e pp_print_expr f
+      Format.fprintf ppf "%a%a[%a]" ppos p (I.pp_print_ident false)  e pp_print_expr f
 
     | True p -> ps p "true"
     | False p -> ps p "false"
@@ -498,7 +498,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a%a(%a)" 
         ppos p
-        I.pp_print_ident id
+        (I.pp_print_ident false) id
         (pp_print_list pp_print_expr ",@ ") l
 
     | CallParam (p, id, t, l) -> 
@@ -506,7 +506,7 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a%a<<%a>>(%a)" 
         ppos p
-        I.pp_print_ident id
+        (I.pp_print_ident false) id
         (pp_print_list pp_print_lustre_type "@ ") t
         (pp_print_list pp_print_expr ",@ ") l
         
@@ -520,7 +520,7 @@ and pp_print_field_assign ppf (i, e) =
 
   Format.fprintf ppf 
     "@[<hv 2>%a =@ %a@]"
-    I.pp_print_ident i
+    (I.pp_print_ident false) i
     pp_print_expr e
 
 
@@ -542,7 +542,7 @@ and pp_print_lustre_type ppf = function
 
   | UserType s -> 
 
-    Format.fprintf ppf "%a" I.pp_print_ident s
+    Format.fprintf ppf "%a" (I.pp_print_ident false) s
 
   | TupleType l -> 
 
@@ -567,14 +567,14 @@ and pp_print_lustre_type ppf = function
 
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
-      (pp_print_list I.pp_print_ident ",@ ") l
+      (pp_print_list (I.pp_print_ident false) ",@ ") l
 
 
 (* Pretty-print a typed identifier *)
 and pp_print_typed_ident ppf (s, t) = 
   Format.fprintf ppf 
     "@[<hov 2>%a:@ %a@]" 
-    I.pp_print_ident s 
+    (I.pp_print_ident false) s 
     pp_print_lustre_type t
 
 
@@ -582,7 +582,7 @@ and pp_print_typed_ident ppf (s, t) =
 and pp_print_clocked_typed_ident ppf (s, t, c) = 
   Format.fprintf ppf 
     "@[<hov 2>%a:@ %a%a@]" 
-    I.pp_print_ident s 
+    (I.pp_print_ident false) s 
     pp_print_lustre_type t 
     pp_print_clock_expr c
 
@@ -591,7 +591,7 @@ and pp_print_clocked_typed_ident ppf (s, t, c) =
 and pp_print_const_clocked_typed_ident ppf (s, t, c, o) = 
   Format.fprintf ppf "@[<hov 2>%t%a:@ %a%a@]" 
     (function ppf -> if o then Format.fprintf ppf "const ")
-    I.pp_print_ident s 
+    (I.pp_print_ident false) s 
     pp_print_lustre_type t 
     pp_print_clock_expr c
 
@@ -603,12 +603,12 @@ let pp_print_type_decl ppf = function
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a@]" 
-      I.pp_print_ident s 
+      (I.pp_print_ident false) s 
       pp_print_lustre_type t
 
   | FreeType t -> 
 
-    Format.fprintf ppf "%a" I.pp_print_ident t 
+    Format.fprintf ppf "%a" (I.pp_print_ident false) t 
 
 
 (* Pretty-print a variable declaration *)
@@ -618,7 +618,7 @@ let pp_print_var_decl ppf = function
 
     Format.fprintf ppf 
       "@[<hov 2>%a:@ %a%a;@]" 
-      I.pp_print_ident s 
+      (I.pp_print_ident false) s 
       pp_print_lustre_type t
       pp_print_clock_expr c
 
@@ -630,21 +630,21 @@ let pp_print_const_decl ppf = function
 
     Format.fprintf ppf 
       "@[<hov 2>const %a:@ %a;@]" 
-      I.pp_print_ident s 
+      (I.pp_print_ident false) s 
       pp_print_lustre_type t
 
   | UntypedConst (s, e) -> 
 
     Format.fprintf ppf 
       "@[<hov 2>const %a =@ %a;@]" 
-      I.pp_print_ident s 
+      (I.pp_print_ident false) s 
       pp_print_expr e
 
   | TypedConst (s, e, t) -> 
 
     Format.fprintf ppf 
       "@[<hov 2>const %a:@ %a =@ %a;@]" 
-      I.pp_print_ident s 
+      (I.pp_print_ident false) s 
       pp_print_lustre_type t
       pp_print_expr e
 
@@ -653,7 +653,7 @@ let pp_print_const_decl ppf = function
 let pp_print_node_param ppf = function
 
   | TypeParam t ->
-    Format.fprintf ppf "type %a" I.pp_print_ident t
+    Format.fprintf ppf "type %a" (I.pp_print_ident false) t
 
 
 (* Pretty-print a list of static node parameters *)
@@ -706,7 +706,7 @@ let pp_print_node_local_decl ppf l =
 
 let rec pp_print_struct_item ppf = function
 
-  | SingleIdent s -> Format.fprintf ppf "%a" I.pp_print_ident s
+  | SingleIdent s -> Format.fprintf ppf "%a" (I.pp_print_ident false) s
 
   | TupleStructItem l -> 
 
@@ -718,21 +718,21 @@ let rec pp_print_struct_item ppf = function
 
     Format.fprintf ppf
       "%a[%a]"
-      I.pp_print_ident e
+      (I.pp_print_ident false) e
       pp_print_expr i
 
   | FieldSelection (e, i) -> 
 
     Format.fprintf ppf
       "%a.%a"
-      I.pp_print_ident e
-      I.pp_print_ident i
+      (I.pp_print_ident false) e
+      (I.pp_print_ident false) i
 
   | ArraySliceStructItem (e, i) -> 
 
     Format.fprintf ppf
       "%a@[<hv 1>[%a]@]" 
-      I.pp_print_ident e
+      (I.pp_print_ident false) e
       (pp_print_list pp_print_array_slice ",@ ") i
 
 
@@ -804,7 +804,7 @@ let pp_print_declaration ppf = function
        @[<hv 2>let@ \
        %a@;<1 -2>\
        tel;@]@]" 
-      I.pp_print_ident n 
+      (I.pp_print_ident false) n 
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
@@ -818,7 +818,7 @@ let pp_print_declaration ppf = function
       "@[<hv 2>function %a@ \
        @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]" 
-      I.pp_print_ident n 
+      (I.pp_print_ident false) n 
       (pp_print_list pp_print_typed_ident ";@ ") i
       (pp_print_list pp_print_typed_ident ";@ ") o
 
@@ -826,8 +826,8 @@ let pp_print_declaration ppf = function
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><<%a>>@];@]" 
-      I.pp_print_ident n 
-      I.pp_print_ident n 
+      (I.pp_print_ident false) n 
+      (I.pp_print_ident false) n 
       (pp_print_list pp_print_lustre_type "@ ") p
 
 

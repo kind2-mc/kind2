@@ -110,7 +110,7 @@ let init_node_context =
     node_is_main = false }
 
 
-let pp_print_node_input ppf (ident, (index_list, is_const)) =
+let pp_print_node_input safe ppf (ident, (index_list, is_const)) =
 
   Format.fprintf ppf
     "%t%a"
@@ -119,13 +119,13 @@ let pp_print_node_input ppf (ident, (index_list, is_const)) =
        (fun ppf (j, t) -> 
          Format.fprintf ppf 
            "%a: %a" 
-           I.pp_print_ident (I.add_index ident j)
-           T.pp_print_lustre_type t)
+           (I.pp_print_ident safe) (I.add_index ident j)
+           (T.pp_print_lustre_type safe) t)
        ";@ ")
     index_list
 
 
-let pp_print_node_output ppf (ident, index_list) =
+let pp_print_node_output safe ppf (ident, index_list) =
 
   Format.fprintf ppf
     "%a"
@@ -133,12 +133,12 @@ let pp_print_node_output ppf (ident, index_list) =
        (fun ppf (j, t) -> 
          Format.fprintf ppf 
            "%a: %a" 
-           I.pp_print_ident (I.add_index ident j)
-           T.pp_print_lustre_type t)
+           (I.pp_print_ident safe) (I.add_index ident j)
+           (T.pp_print_lustre_type safe) t)
        ";@ ")
     index_list
 
-let pp_print_node_var ppf (ident, index_list) =
+let pp_print_node_var safe ppf (ident, index_list) =
 
   Format.fprintf ppf
     "%a"
@@ -146,60 +146,61 @@ let pp_print_node_var ppf (ident, index_list) =
        (fun ppf (j, t) -> 
          Format.fprintf ppf 
            "%a: %a;" 
-           I.pp_print_ident (I.add_index ident j)
-           T.pp_print_lustre_type t)
+           (I.pp_print_ident safe) (I.add_index ident j)
+           (T.pp_print_lustre_type safe) t)
        "@ ")
     index_list
 
-let pp_print_node_assert ppf expr = 
+let pp_print_node_assert safe ppf expr = 
 
   Format.fprintf ppf
     "@[<hv 2>assert@ %a;@]"
-    E.pp_print_lustre_expr expr
+    (E.pp_print_lustre_expr safe) expr
 
 
-let pp_print_node_eq ppf (ident, expr) = 
+let pp_print_node_eq safe ppf (ident, expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>%a@ =@ %a;@]"
-    I.pp_print_ident ident
-    E.pp_print_lustre_expr expr
+    (I.pp_print_ident safe) ident
+    (E.pp_print_lustre_expr safe) expr
 
 
-let pp_print_node_call ppf (out_vars, node, exprs) = 
+let pp_print_node_call safe ppf (out_vars, node, exprs) = 
 
   Format.fprintf ppf
     "@[<hv 2>%a@ =@ %a(%a);@]"
     (pp_print_list 
-       (fun ppf (i, _) -> I.pp_print_ident ppf i)
+       (fun ppf (i, _) -> I.pp_print_ident safe ppf i)
        ",@ ") 
     out_vars
-    I.pp_print_ident node
-    (pp_print_list E.pp_print_lustre_expr ",@ ") exprs
+    (I.pp_print_ident safe) node
+    (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
 
 
-let pp_print_node_prop ppf expr = 
+let pp_print_node_prop safe ppf expr = 
 
   Format.fprintf ppf
     "@[<hv 2>--%%PROPERTY@ %a;@]"
-    E.pp_print_lustre_expr expr
+    (E.pp_print_lustre_expr safe) expr
+    
 
-
-let pp_print_node_requires ppf expr = 
+let pp_print_node_requires safe ppf expr = 
 
   Format.fprintf ppf
     "@[<hv 2>--@@requires@ %a;@]"
-    E.pp_print_lustre_expr expr
+    (E.pp_print_lustre_expr safe) expr
 
 
-let pp_print_node_ensures ppf expr = 
+let pp_print_node_ensures safe ppf expr = 
 
   Format.fprintf ppf
     "@[<hv 2>--@@ensures %a;@]"
-    E.pp_print_lustre_expr expr
+    (E.pp_print_lustre_expr safe) expr
 
 
 let pp_print_node_context 
+    safe
     node_ident 
     ppf 
     { node_inputs; 
@@ -224,20 +225,20 @@ let pp_print_node_context
      %a@,\
      %a@;<1 -2>\
      tel;@]@]"  
-    I.pp_print_ident node_ident
-    (pp_print_list pp_print_node_input ";@ ") node_inputs
-    (pp_print_list pp_print_node_output ";@ ") node_outputs
+    (I.pp_print_ident safe) node_ident
+    (pp_print_list (pp_print_node_input safe) ";@ ") node_inputs
+    (pp_print_list (pp_print_node_output safe) ";@ ") node_outputs
     (function ppf -> 
       if node_vars = [] then () else 
         Format.fprintf ppf 
           "@[<hv 2>var@ %a@]" 
-          (pp_print_list pp_print_node_var "@ ") node_vars)
-    (pp_print_list pp_print_node_requires "@ ") node_requires
-    (pp_print_list pp_print_node_ensures "@ ") node_ensures
-    (pp_print_list pp_print_node_prop "@ ") node_props
-    (pp_print_list pp_print_node_assert "@ ") node_asserts
-    (pp_print_list pp_print_node_call "@ ") node_calls
-    (pp_print_list pp_print_node_eq "@ ") node_eqs
+          (pp_print_list (pp_print_node_var safe) "@ ") node_vars)
+    (pp_print_list (pp_print_node_requires safe) "@ ") node_requires
+    (pp_print_list (pp_print_node_ensures safe) "@ ") node_ensures
+    (pp_print_list (pp_print_node_prop safe) "@ ") node_props
+    (pp_print_list (pp_print_node_assert safe) "@ ") node_asserts
+    (pp_print_list (pp_print_node_call safe) "@ ") node_calls
+    (pp_print_list (pp_print_node_eq safe) "@ ") node_eqs
     
 
 
@@ -290,39 +291,51 @@ let init_lustre_context =
 
 
 
-let pp_print_basic_type ppf (i, t) = 
-  Format.fprintf ppf "%a: %a" I.pp_print_ident i T.pp_print_lustre_type t
+let pp_print_basic_type safe ppf (i, t) = 
+  Format.fprintf ppf 
+    "%a: %a" 
+    (I.pp_print_ident safe) i 
+    (T.pp_print_lustre_type safe) t
 
-let pp_print_index_type ppf (i, t) = 
-  Format.fprintf ppf "%a: %a" I.pp_print_index i T.pp_print_lustre_type t
+let pp_print_index_type safe ppf (i, t) = 
+  Format.fprintf ppf 
+    "%a: %a" 
+    (I.pp_print_index safe) i 
+    (T.pp_print_lustre_type safe) t
 
-let pp_print_indexed_type ppf (i, t) = 
+let pp_print_indexed_type safe ppf (i, t) = 
 
   Format.fprintf ppf 
     "%a: @[<hv 1>[%a]@]" 
-    I.pp_print_ident i 
-    (pp_print_list pp_print_index_type ";@ ") t
+    (I.pp_print_ident safe) i 
+    (pp_print_list (pp_print_index_type safe) ";@ ") t
 
-let pp_print_type_ctx ppf (i, t) = 
-  Format.fprintf ppf "%a: %a" I.pp_print_ident i T.pp_print_lustre_type t
+let pp_print_type_ctx safe ppf (i, t) = 
+  Format.fprintf ppf "%a: %a" 
+    (I.pp_print_ident safe) i 
+    (T.pp_print_lustre_type safe) t
 
-let pp_print_index_ctx ppf (i, j) = 
+let pp_print_index_ctx safe ppf (i, j) = 
 
   Format.fprintf ppf 
     "%a: @[<hv 1>[%a]@]" 
-    I.pp_print_ident i 
+    (I.pp_print_ident safe) i 
     (pp_print_list 
-       (fun ppf (i, _) -> I.pp_print_index ppf i)
+       (fun ppf (i, _) -> I.pp_print_index safe ppf i)
        ";@ ") 
     j
 
-let pp_print_consts ppf (i, e) = 
-  Format.fprintf ppf "%a: %a" I.pp_print_ident i E.pp_print_lustre_expr e
+let pp_print_consts safe ppf (i, e) = 
+  Format.fprintf ppf 
+    "%a: %a" 
+    (I.pp_print_ident safe) i 
+    (E.pp_print_lustre_expr safe) e
 
   
 
 
 let pp_print_lustre_context 
+    safe
     ppf 
     { basic_types;
       indexed_types; 
@@ -340,12 +353,12 @@ let pp_print_lustre_context
           @[<v>*** index_ctx:@,%a@]@,\
           @[<v>*** consts:@,%a@]@,\
      @]" 
-    (pp_print_list pp_print_basic_type "@,") basic_types
-    (pp_print_list pp_print_indexed_type "@,") indexed_types
-    (pp_print_list I.pp_print_ident ",@ ") free_types
-    (pp_print_list pp_print_type_ctx "@,") type_ctx
-    (pp_print_list pp_print_index_ctx "@,") index_ctx
-    (pp_print_list pp_print_consts "@,") consts
+    (pp_print_list (pp_print_basic_type safe) "@,") basic_types
+    (pp_print_list (pp_print_indexed_type safe) "@,") indexed_types
+    (pp_print_list (I.pp_print_ident safe) ",@ ") free_types
+    (pp_print_list (pp_print_type_ctx safe) "@,") type_ctx
+    (pp_print_list (pp_print_index_ctx safe) "@,") index_ctx
+    (pp_print_list (pp_print_consts safe) "@,") consts
 
 
 
@@ -377,7 +390,7 @@ let ident_in_context { type_ctx; index_ctx } i =
       (Failure 
          (Format.asprintf 
             "Identifier %a is reserved internal use in %a" 
-            I.pp_print_ident new_var_ident
+            (I.pp_print_ident false) new_var_ident
             A.pp_print_position A.dummy_pos))
 
   else
@@ -459,7 +472,7 @@ let add_enum_to_context type_ctx = function
                     (Format.asprintf 
                        "Enum constant %a declared with \
                         different type in %a" 
-                       I.pp_print_ident enum_element
+                       (I.pp_print_ident false) enum_element
                        A.pp_print_position A.dummy_pos));
              
            (* Constant not declared *)
@@ -492,11 +505,13 @@ let add_alias_type_decl
   (* Add index to identifier *)
   let indexed_ident = I.add_index ident index in
 
+(*
   (* Output type declaration *)
   Format.printf 
     "-- type %a = %a;@." 
     I.pp_print_ident indexed_ident
     T.pp_print_lustre_type basic_type;
+*)
 
   (* Add alias for basic type *)
   let basic_types' = (indexed_ident, basic_type) :: basic_types in
@@ -652,7 +667,7 @@ let rec eval_ast_expr'
         (Failure 
            (Format.asprintf 
               "Identifier %a not declared in %a" 
-              I.pp_print_ident ident
+              (I.pp_print_ident false) ident
               A.pp_print_position pos))
 
 
@@ -689,9 +704,9 @@ let rec eval_ast_expr'
            (Failure 
               (Format.asprintf 
                  "Identifier %a does not have field %a in %a" 
-                 I.pp_print_ident ident
+                 (I.pp_print_ident false) ident
                  A.pp_print_position pos
-                 I.pp_print_index field)))
+                 (I.pp_print_index false) field)))
 
 
     (* Projection to a tuple or array field *)
@@ -732,7 +747,7 @@ let rec eval_ast_expr'
            (Failure 
               (Format.asprintf 
                  "Identifier %a does not have field %a in %a" 
-                 I.pp_print_ident ident
+                 (I.pp_print_ident false) ident
                  A.pp_print_expr field_expr
                  A.pp_print_position pos)))
 
@@ -1151,8 +1166,7 @@ let rec eval_ast_expr'
       (match expr1' with 
 
         (* Boolean expression without indexes *)
-        | [ [], 
-            ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr1) ] -> 
+        | [ [], ({ E.expr_type = T.Bool } as expr1) ] -> 
 
           let expr', new_defs' = 
             binary_apply_to 
@@ -1353,7 +1367,7 @@ let rec eval_ast_expr'
 
                       (* Indexes must match *)
                       if in_index = index then 
-                        
+
                         (* Expression must be of a subtype of input
                            type*)
                         if T.check_type expr_type in_type then 
@@ -1385,28 +1399,28 @@ let rec eval_ast_expr'
                      "Type mismatch for expressions at %a"
                      A.pp_print_position A.dummy_pos))
          in
-         
+
          let node_output_idents = 
-           
+
            match node_outputs with 
-             
+
              (* Node must have outputs *)
              | [] ->  
-               
+
                (* Fail *)
                raise 
                  (Failure 
                     (Format.asprintf 
                        "Node %a cannot be called, it does not have \
                         outputs in %a" 
-                       I.pp_print_ident ident
+                       (I.pp_print_ident false) ident
                        A.pp_print_position pos))
-                 
+
              | _ -> 
-               
-               List.fold_left
-                 (fun accum (out_ident, out_type) -> 
-                 
+
+               List.fold_right
+                 (fun (out_ident, out_type) accum -> 
+
                     let out_ident = 
                       I.add_ident_index call_ident out_ident 
                     in
@@ -1416,16 +1430,26 @@ let rec eval_ast_expr'
                          (I.add_index out_ident index, out_type) :: accum)
                       accum
                       out_type)
-                 []
                  node_outputs
-                 
+                 []
+
          in
 
          let result' = match node_output_idents with 
            | [] -> assert false
            | [(var_ident, var_type)] -> 
              (index, E.mk_var var_ident var_type E.base_clock) :: result
-           | _ -> failwith "stop"
+           | _ -> 
+
+             snd
+               (List.fold_right
+                  (fun (var_ident, var_type) (i, accum) -> 
+                     (succ i,
+                      (I.add_int_to_index index i, 
+                       E.mk_var var_ident var_type E.base_clock) :: accum))
+                  node_output_idents
+                  (0, result))
+
          in
 
          (* Add expression to result *)
@@ -1444,7 +1468,7 @@ let rec eval_ast_expr'
            (Failure 
               (Format.asprintf 
                  "Node %a not defined or forward-referenced in %a" 
-                 I.pp_print_ident ident
+                 (I.pp_print_ident false) ident
                  A.pp_print_position A.dummy_pos)))
 
 
@@ -1553,7 +1577,9 @@ and binary_apply_to
     raise 
       (Failure 
          (Format.asprintf 
-            "Type mismatch for expressions at %a"
+            "@[<v>Type mismatch for expressions@ %a and@ %a@ at %a@]"
+            A.pp_print_expr expr1
+            A.pp_print_expr expr2
             A.pp_print_position A.dummy_pos))
 
 
@@ -1754,7 +1780,7 @@ let rec fold_ast_type'
       (Failure 
          (Format.asprintf 
             "Type %a in %a is not declared" 
-            I.pp_print_ident ident
+            (I.pp_print_ident false) ident
             A.pp_print_position A.dummy_pos))
 
   (* Record type *)
@@ -1951,7 +1977,7 @@ let rec parse_node_inputs context node = function
       (Failure 
          (Format.asprintf 
             "Node input %a already declared in %a" 
-            I.pp_print_ident ident
+            (I.pp_print_ident false) ident
             A.pp_print_position A.dummy_pos))
 
 
@@ -1995,7 +2021,7 @@ let rec parse_node_outputs context node = function
       (Failure 
          (Format.asprintf 
             "Node output %a already declared in %a" 
-            I.pp_print_ident ident
+            (I.pp_print_ident false) ident
             A.pp_print_position A.dummy_pos))
 
 
@@ -2044,7 +2070,7 @@ let rec parse_node_locals context node = function
       (Failure 
          (Format.asprintf 
             "Node local variable or constant %a already declared in %a" 
-            I.pp_print_ident ident
+            (I.pp_print_ident false) ident
             A.pp_print_position A.dummy_pos))
 
 
@@ -2063,13 +2089,14 @@ let rec parse_node_locals context node = function
     (* Continue with following outputs *)
     parse_node_locals context' node' tl
 
-  | _ -> 
+  |  A.NodeVarDecl (ident, _, _) :: _ -> 
 
     (* Fail *)
     raise 
       (Failure 
          (Format.asprintf 
-            "Clocked node local variables not supported in %a" 
+            "Clocked node local variables not supported for %a in %a" 
+            (I.pp_print_ident false) ident
             A.pp_print_position A.dummy_pos))
 
 
@@ -2104,6 +2131,75 @@ let new_defs_to_context context node (vars, calls) =
     calls
 
 
+let node_eq_of_expr ident eq_type expr node_eqs node_props =
+ 
+  List.fold_right2
+
+    (fun 
+      (def_index, def_type) 
+      (expr_index, ({ E.expr_type } as expr)) 
+      (node_eqs, node_props) -> 
+
+      (* Indexes must match *)
+      if def_index = expr_index then 
+
+        (* Equation to add to node *)
+        let eq = I.add_index ident def_index, expr in
+
+        (* Type must be a subtype of declared type *)
+        if T.check_type expr_type def_type then
+
+          (* Add equation *)
+          (eq :: node_eqs, node_props) 
+
+        else
+
+          (* Type of expression may not be subtype of
+             declared type *)
+          (match def_type, expr_type with 
+
+            (* Declared type is integer range,
+               expression is of type integer *)
+            | T.IntRange (lbound, ubound), T.Int -> 
+
+              (* Value of expression is in range of
+                 declared type: lbound <= expr and
+                 expr <= ubound *)
+              let range_expr = 
+                (E.mk_and 
+                   (E.mk_lte (E.mk_int lbound) expr) 
+                   (E.mk_lte expr (E.mk_int ubound)))
+              in
+(*
+              Format.printf 
+                "@[<v>Expression may not be in \
+                 subrange of variable. \
+                 Need to add property@;%a@]@."
+                E.pp_print_lustre_expr range_expr;
+*)
+              (eq :: node_eqs, range_expr :: node_props) 
+
+            | _ -> 
+
+              (* Fail *)
+              raise 
+                (Failure 
+                   (Format.asprintf 
+                      "Type mismatch for expressions at %a" 
+                      A.pp_print_position A.dummy_pos)))
+
+      else       
+
+        (* Fail *)
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "Type mismatch for expressions at %a" 
+                A.pp_print_position A.dummy_pos)))
+    (sort_indexed_pairs eq_type)
+    (sort_indexed_pairs expr)
+    (node_eqs, node_props)
+
 
 let rec parse_node_equations 
     mk_new_var_ident
@@ -2116,7 +2212,7 @@ let rec parse_node_equations
     | [] -> node 
 
     (* Assertion *)
-    | A.Assert expr :: tl -> 
+    | A.Assert ast_expr :: tl -> 
 
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
@@ -2125,7 +2221,7 @@ let rec parse_node_equations
           mk_new_call_ident 
           context 
           ([], []) 
-          expr 
+          ast_expr 
       in
 
       (* Add new definitions to context *)
@@ -2137,6 +2233,14 @@ let rec parse_node_equations
         (* Boolean expression without indexes *)
         | [ [], 
             ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+
+          if E.pre_is_unguarded expr then 
+
+            Format.printf 
+              "@[<h>Warning: unguarded pre in %a in %a@]@." 
+              A.pp_print_expr ast_expr
+              A.pp_print_position A.dummy_pos;
 
           parse_node_equations 
             mk_new_var_ident 
@@ -2160,7 +2264,7 @@ let rec parse_node_equations
 
 
     (* Property annotation *)
-    | A.AnnotProperty expr :: tl -> 
+    | A.AnnotProperty ast_expr :: tl -> 
 
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
@@ -2169,7 +2273,7 @@ let rec parse_node_equations
           mk_new_call_ident 
           context 
           ([], []) 
-          expr 
+          ast_expr 
       in
 
       (* Add new definitions to context *)
@@ -2181,6 +2285,13 @@ let rec parse_node_equations
         (* Boolean expression without indexes *)
         | [ [], 
             ({ E.expr_init; E.expr_step; E.expr_type = T.Bool } as expr) ] -> 
+
+          if E.pre_is_unguarded expr then 
+
+            Format.printf 
+              "@[<h>Warning: unguarded pre in %a in %a@]@." 
+              A.pp_print_expr ast_expr
+              A.pp_print_position A.dummy_pos;
 
           parse_node_equations 
             mk_new_var_ident 
@@ -2204,13 +2315,13 @@ let rec parse_node_equations
 
 
     (* Equation x = f(x) *)
-    | A.Equation ([A.SingleIdent ident], expr) :: tl -> 
+    | A.Equation ([A.SingleIdent ident], ast_expr) :: tl -> 
 
       (* Type of equation *)
       let eq_type = 
 
         (* TODO: Could have an indexed identifier and assign to one field of it:
-           
+
            x[0] = c;
 
            Would need to search for type instead of looking up in the
@@ -2246,7 +2357,7 @@ let rec parse_node_equations
           mk_new_call_ident 
           context 
           ([], []) 
-          expr 
+          ast_expr 
       in
 
       (* Add new definitions to context *)
@@ -2254,71 +2365,15 @@ let rec parse_node_equations
 
       (* Add node equations *)
       let node_eqs', node_props' = 
-
-        List.fold_right2
-
-          (fun 
-            (def_index, def_type) 
-            (expr_index, ({ E.expr_type } as expr)) 
-            (node_eqs, node_props) -> 
-
-            (* Indexes must match *)
-            if def_index = expr_index then 
-
-              (* Equation to add to node *)
-              let eq = I.add_index ident def_index, expr in
-
-              (* Type must be a subtype of declared type *)
-              if T.check_type expr_type def_type then
-
-                (* Add equation *)
-                (eq :: node_eqs, node_props) 
-
-              else
-
-                (* Type of expression may not be subtype of declared
-                   type *)
-                (match def_type, expr_type with 
-
-                  (* Declared type is integer range, expression is of
-                     type integer *)
-                  | T.IntRange (lbound, ubound), T.Int -> 
-
-                    (* Value of expression is in range of declared
-                       type: lbound <= expr and expr <= ubound *)
-                    let range_expr = 
-                      (E.mk_and 
-                         (E.mk_lte (E.mk_int lbound) expr) 
-                         (E.mk_lte expr (E.mk_int ubound)))
-                    in
-
-                    Format.printf 
-                      "@[<v>Expression may not be in subrange of variable. \
-                       Need to add property@;%a@]@."
-                      E.pp_print_lustre_expr range_expr;
-
-                    (eq :: node_eqs, range_expr :: node_props) 
-
-                  | _ -> 
-
-                    (* Fail *)
-                    raise 
-                      (Failure 
-                         (Format.asprintf 
-                            "Type mismatch for expressions at %a" 
-                            A.pp_print_position A.dummy_pos)))
-            else       
-
-              (* Fail *)
-              raise 
-                (Failure 
-                   (Format.asprintf 
-                      "Type mismatch for expressions at %a" 
-                      A.pp_print_position A.dummy_pos)))
-          (sort_indexed_pairs eq_type)
-          (sort_indexed_pairs expr')
-          (node'.node_eqs, node'.node_props)
+        node_eq_of_expr ident eq_type expr' node'.node_eqs node'.node_props
       in
+
+      if List.exists (function (_, e) -> E.pre_is_unguarded e) expr' then 
+
+        Format.printf 
+          "@[<h>Warning: unguarded pre in %a in %a@]@." 
+          A.pp_print_expr ast_expr
+          A.pp_print_position A.dummy_pos;
 
       parse_node_equations 
         mk_new_var_ident 
@@ -2330,45 +2385,115 @@ let rec parse_node_equations
             node_calls = new_calls @ node.node_calls }
         tl
 
-    (* TODO: catch all singleton lists here *)
-
-    (* TODO: This would need a change for SingleIdent, see note there
-    | A.Equation ([A.TupleSelection (ident, index_expr)], expr) :: tl -> 
-
-      let index = int_const_of_ast_expr context index_expr in 
-
-      let ident' = I.add_int_index ident index in 
-
-      parse_node_equations 
-        mk_new_var_ident 
-        mk_new_call_ident 
-        context 
-        node
-        (A.Equation ([A.SingleIdent ident'], expr) :: tl)
-      
-      *)      
-
-(*
     (* Equations with more than one variable on the left-hand side *)
-    | A.Equation (struct_items, expr) :: tl -> 
-      
-      let _, tl' = 
+    | A.Equation (struct_items, ast_expr) :: tl -> 
+
+      (* Evaluate expression *)
+      let expr', ((new_vars, new_calls) as new_defs) = 
+        eval_ast_expr 
+          mk_new_var_ident 
+          mk_new_call_ident 
+          context 
+          ([], []) 
+          ast_expr 
+      in
+
+      (* Add new definitions to context *)
+      let context', node' = new_defs_to_context context node new_defs in
+
+
+      let _, node_eqs', node_props' = 
 
         List.fold_left 
-          (function (i, accum) -> 
+          (function (index, node_eqs, node_props) -> 
 
             (function 
               | A.SingleIdent ident -> 
 
-                let eq = 
-                  A.Equation 
-                    ([A.SingleIdent ident], 
-                     A.TupleProject (A.dummy_pos, expr, A.Num i))
+                (* Filter expression for current index *)
+                let expr = 
+                  List.fold_right 
+                    (fun (i, e) a -> 
+                       match i with
+
+                         (* Expression must be indexed *)
+                         | [] -> 
+
+                           (* Fail *)
+                           raise 
+                             (Failure 
+                                (Format.asprintf 
+                                   "Assignment to expression list \
+                                    is not a list in %a" 
+                                   A.pp_print_position A.dummy_pos))
+
+                         (* Index matches, remove first index and keep *)
+                         | (j :: jtl) when j = I.IntIndex index -> 
+                           (jtl, e) :: a
+
+                         (* Index does not match, skip *)
+                         | (j :: _) -> a)
+                    expr'
+                    []
                 in
 
-                (succ i, eq :: accum)))
-          
-          (0, tl)
+                (* Type of equation *)
+                let eq_type = 
+
+                  (* TODO: Could have an indexed identifier and assign to one
+                     field of it:
+
+                     x[0] = c;
+
+                     Would need to search for type instead of looking up in the
+                     list, but some fields could be left unassigned without
+                     warning. *)
+
+                  try 
+
+                    (* Return type if assigning to an output *)
+                    List.assoc ident node.node_outputs 
+
+                  with Not_found -> 
+
+                    (* Return type if assigning to a local variable *)
+                    try List.assoc ident node.node_vars 
+
+                    with Not_found -> 
+
+                      (* Fail *)
+                      raise 
+                        (Failure 
+                           (Format.asprintf 
+                              "Equation does not assign to output or local \
+                               variable in %a" 
+                              A.pp_print_position A.dummy_pos))
+
+                in
+
+                if List.exists (function (_, e) -> E.pre_is_unguarded e) expr then 
+
+                  Format.printf 
+                    "@[<h>-- Warning: unguarded pre in %a in %a@]@." 
+                    A.pp_print_expr ast_expr
+                    A.pp_print_position A.dummy_pos;
+
+                (* Add node equations *)
+                let node_eqs', node_props' = 
+                  node_eq_of_expr ident eq_type expr node_eqs node_props
+                in
+                (succ index, node_eqs', node_props')
+
+              | _ ->       
+
+                (* Fail *)
+                raise 
+                  (Failure 
+                     (Format.asprintf 
+                        "Assignments not supported in %a" 
+                        A.pp_print_position A.dummy_pos))))
+
+          (0, node'.node_eqs, node'.node_props)
           struct_items
 
       in
@@ -2376,11 +2501,12 @@ let rec parse_node_equations
       parse_node_equations 
         mk_new_var_ident 
         mk_new_call_ident 
-        context 
-        node
-        tl'
-*)
-      
+        context'
+        { node' with
+            node_eqs = new_vars @ node_eqs'; 
+            node_props = node_props'; 
+            node_calls = new_calls @ node.node_calls }
+        tl
 
 
     (* Annotation for main node *)
@@ -2556,9 +2682,11 @@ let parse_node_signature
       equations
   in
 
+  (*
   Format.printf "%a@." pp_print_lustre_context local_context_locals;
+*)
+  Format.printf "%a@." (pp_print_node_context true node_ident) node_context_equations;
 
-  Format.printf "%a@." (pp_print_node_context node_ident) node_context_equations;
 
   node_context_locals
 
@@ -2675,7 +2803,7 @@ let rec check_declarations
             (Failure 
                (Format.asprintf 
                   "Identifier %a in %a does not have fields" 
-                  I.pp_print_ident id
+                  (I.pp_print_ident false) id
                   A.pp_print_position p))
 
       )
@@ -3085,12 +3213,15 @@ let rec check_declarations
     (* All declarations processed, return result *)
     | [] -> global_context
 
+
     (* Declaration of a type as alias or free *)
     | (A.TypeDecl (A.AliasType (ident, _) as type_decl) as decl) :: decls
     | (A.TypeDecl (A.FreeType ident as type_decl) as decl) :: decls -> 
 
+(*
       (* Output type declaration *)
       Format.printf "-- %a@." A.pp_print_declaration decl;
+*)
 
       if       
 
@@ -3104,7 +3235,7 @@ let rec check_declarations
           (Failure 
              (Format.asprintf 
                 "Type %a is redeclared in %a" 
-                I.pp_print_ident ident
+                (I.pp_print_ident false) ident
                 A.pp_print_position A.dummy_pos));
 
       (* Change context with alias type declaration *)
@@ -3140,14 +3271,15 @@ let rec check_declarations
       (* Recurse for next declarations *)
       check_declarations global_context' decls
 
+
     (* Declaration of a typed, untyped or free constant *)
     | (A.ConstDecl (A.FreeConst (ident, _) as const_decl) as decl) :: decls 
     | (A.ConstDecl (A.UntypedConst (ident, _) as const_decl) as decl) :: decls 
     | (A.ConstDecl (A.TypedConst (ident, _, _) as const_decl) as decl) :: decls ->
-
+(*
       (* Output constant declaration *)
       Format.printf "-- %a@." A.pp_print_declaration decl;
-
+*)
       if
 
         (* Identifier must not be declared *)
@@ -3160,7 +3292,7 @@ let rec check_declarations
           (Failure 
              (Format.asprintf 
                 "Identifier %a is redeclared as constant in %a" 
-                I.pp_print_ident ident
+                (I.pp_print_ident false) ident
                 A.pp_print_position A.dummy_pos));
 
       (* Change context with constant declaration *)
@@ -3275,10 +3407,10 @@ let rec check_declarations
           locals, 
           equations, 
           contract)) as decl :: decls ->
-
+(*
       (* Output node declaration *)
       Format.printf "-- %a@." A.pp_print_declaration decl;
-      
+  *)    
       (* Add declarations to global context *)
       let node_context = 
         parse_node_signature
@@ -3297,23 +3429,37 @@ let rec check_declarations
             nodes = (node_ident, node_context) :: nodes }
         decls
 
+    (* Node declaration without parameters *)
+    | (A.FuncDecl _) :: _ ->
 
-    | d :: decls ->
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Functions not supported in %a" 
+              A.pp_print_position A.dummy_pos))
 
-      (* Output const declaration *)
-      Format.printf "-- skipped: %a@." A.pp_print_declaration d;
 
-      (* Recurse for next declarations *)
-      check_declarations global_context decls
+    (* Node declaration without parameters *)
+    | (A.NodeParamInst _) :: _
+    | (A.NodeDecl _) :: _ ->
+
+      (* Fail *)
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Parametric nodes not supported in %a" 
+              A.pp_print_position A.dummy_pos))
 
 
 let check_program p = 
   let global_context = check_declarations init_lustre_context p in
+  ()
 
-  Format.printf "%a@." pp_print_lustre_context global_context
+  (* Format.printf "%a@." pp_print_lustre_context global_context
+  *)
 
-
-(* 
+  (* 
    Local Variables:
    compile-command: "make -C .. lustre-checker"
    indent-tabs-mode: nil

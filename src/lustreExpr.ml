@@ -158,10 +158,11 @@ type t = {
 
 
 (* Pretty-print a Lustre expression *)
-let rec pp_print_expr ppf = function 
+let rec pp_print_expr safe ppf = function 
   
-  | Var x -> Format.fprintf ppf "%a" I.pp_print_ident x
-  | VarPre x -> Format.fprintf ppf "@[<hv 1>(pre@ %a)@]" I.pp_print_ident x
+  | Var x -> Format.fprintf ppf "%a" (I.pp_print_ident safe) x
+  | VarPre x -> 
+    Format.fprintf ppf "@[<hv 1>(pre@ %a)@]" (I.pp_print_ident safe) x
   | True -> Format.fprintf ppf "true"
   | False -> Format.fprintf ppf "false"
   | Int i -> Format.fprintf ppf "%d" i
@@ -172,39 +173,39 @@ let rec pp_print_expr ppf = function
     Format.fprintf ppf
       "@[<hv 1>(%a@ %a)@]" 
       pp_print_unary_op o 
-      pp_print_expr e
+      (pp_print_expr safe) e
 
   | BinaryOp (o, (e1, e2)) -> 
 
     Format.fprintf ppf 
       "@[<hv 1>(%a@ %a@ %a)@]" 
-      pp_print_expr e1 
+      (pp_print_expr safe) e1 
       pp_print_binary_op o 
-      pp_print_expr e2
+      (pp_print_expr safe) e2
 
   | VarOp (o, l) -> 
 
     Format.fprintf ppf 
       "@[<hv 1>%a(%a)@]" 
       pp_print_var_op o 
-      (pp_print_list pp_print_expr ",@ ") l
+      (pp_print_list (pp_print_expr safe) ",@ ") l
 
   | Ite (p, l, r) -> 
 
     Format.fprintf ppf 
       "@[<hv 1>(if %a@;<1 -1>then@ %a@;<1 -1>else@ %a)@]" 
-      pp_print_expr p
-      pp_print_expr l 
-      pp_print_expr r
+      (pp_print_expr safe) p
+      (pp_print_expr safe) l 
+      (pp_print_expr safe) r
 
 
 (* Pretty-print a clocked and typed Lustre expression *)
-let pp_print_lustre_expr ppf = function
+let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
   | { expr_init; expr_step } when expr_init = expr_step -> 
 
-    pp_print_expr ppf expr_step
+    pp_print_expr safe ppf expr_step
 
   (* Print expression of initial state followed by expression for
      following states *)
@@ -212,8 +213,8 @@ let pp_print_lustre_expr ppf = function
 
     Format.fprintf ppf 
       "@[<hv 1>(%a@ ->@ %a)@]" 
-      pp_print_expr expr_init
-      pp_print_expr expr_step
+      (pp_print_expr safe) expr_init
+      (pp_print_expr safe) expr_step
 
 
 (* ********************************************************************** *)
@@ -446,11 +447,17 @@ let type_of_a_a_a type1 type2 =
   (* If first type is subtype of second, choose second type *)
   if T.check_type type1 type2 then type2 else 
 
-  (* If second type is subtype of first, choose first type *)
+    (* If second type is subtype of first, choose first type *)
   if T.check_type type2 type1 then type1 else 
-    
-    (* Fail if types are incompatible *)
-    raise Type_mismatch
+
+    (* Extend integer ranges *)
+    (match type1, type2 with 
+      | T.IntRange _, T.IntRange _ 
+      | T.IntRange _, T.Int
+      | T.Int, T.IntRange _ -> T.t_int
+
+      (* Fail if types are incompatible *)
+      | _ -> raise Type_mismatch)
 
 
 (* Type check for 'a -> 'a -> bool *)
@@ -462,8 +469,17 @@ let type_of_a_a_bool type1 type2 =
     T.t_bool 
 
   else 
-    
-    raise Type_mismatch
+
+    (* Extend integer ranges *)
+    (match type1, type2 with 
+      | T.IntRange _, T.IntRange _ 
+      | T.IntRange _, T.Int
+      | T.Int, T.IntRange _ -> T.t_bool
+
+      (* Fail if types are incompatible *)
+      | _ -> raise Type_mismatch)
+
+
 
 
 (* Type check for int -> int -> bool, real -> real -> bool *)
@@ -1007,25 +1023,22 @@ let eval_ite = function
 let type_of_ite = function 
   | T.Bool -> 
 
-    (function 
+    (function type2 -> function type3 ->
 
-      | T.Int | T.IntRange _ -> 
-        (function 
-          | T.Int | T.IntRange _ -> T.t_int 
-          | _ -> raise Type_mismatch)
+       (* If first type is subtype of second, choose second type *)
+       if T.check_type type2 type3 then type3 else 
 
-      | T.Real -> 
-        (function 
-          | T.Real -> T.t_real
-          | _ -> raise Type_mismatch)
-        
-      | T.Bool -> 
-        (function 
-          | T.Bool -> T.t_bool
-          | _ -> raise Type_mismatch)
-        
-      | _ -> raise Type_mismatch)
-         
+         (* If second type is subtype of first, choose first type *)
+       if T.check_type type3 type2 then type2 else 
+
+         (* Extend integer ranges *)
+         (match type2, type3 with 
+           | T.IntRange _, T.IntRange _ 
+           | T.IntRange _, T.Int
+           | T.Int, T.IntRange _ -> T.t_int
+
+           | _ -> raise Type_mismatch))
+
   | _ -> (function _ -> function _ -> raise Type_mismatch)
 
 
@@ -1125,7 +1138,27 @@ let mk_pre
   ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
    defs'') 
 
+
+let rec pre_is_unguarded_in_expr = function 
+
+  | VarPre _ :: _ -> true
+
+  | [] -> false
+
+  | Var _ :: tl -> pre_is_unguarded_in_expr tl
+
+  | True :: tl -> pre_is_unguarded_in_expr tl
+  | False :: tl -> pre_is_unguarded_in_expr tl
+  | Int _ :: tl -> pre_is_unguarded_in_expr tl
+  | Real _ :: tl -> pre_is_unguarded_in_expr tl
+  | UnaryOp (_, e) :: tl -> pre_is_unguarded_in_expr (e :: tl)
+  | BinaryOp (_, (e1, e2)) :: tl -> pre_is_unguarded_in_expr (e1 :: e2 :: tl)
+  | VarOp (_, l) :: tl -> pre_is_unguarded_in_expr (l @ tl)
+  | Ite (e1, e2, e3) :: tl -> pre_is_unguarded_in_expr (e1 :: e2 :: e3 :: tl)
+
   
+
+let pre_is_unguarded { expr_init } =  pre_is_unguarded_in_expr [ expr_init ]
 
 (* 
    Local Variables:

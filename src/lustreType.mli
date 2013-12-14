@@ -48,7 +48,7 @@ val compare : t -> t -> int
 val equal : t -> t -> bool
 
 (** Pretty-print a type *)
-val pp_print_lustre_type : Format.formatter -> t -> unit 
+val pp_print_lustre_type : bool -> Format.formatter -> t -> unit 
 
 (** Return the Boolean type *)
 val t_bool : t

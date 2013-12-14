@@ -94,7 +94,7 @@ type t = private {
 
 }
 
-val pp_print_lustre_expr : Format.formatter -> t -> unit 
+val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 
 val base_clock : clock
 
@@ -156,6 +156,7 @@ val mk_arrow : t -> t -> t
 
 val mk_pre : (unit -> LustreIdent.t) -> ((LustreIdent.t * t) list * 'a) -> t -> (t * (((LustreIdent.t * t) list) * 'a))
 
+val pre_is_unguarded : t -> bool
 
 (* 
    Local Variables:

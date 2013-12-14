@@ -101,11 +101,13 @@ let main () =
           
   in
 
+(*
+
   Format.printf 
     "@[<v>%a@]@." 
     (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
     declarations;
-(*
+
   let declarations = LustreTransform.all_transforms declarations in
 
   Format.printf 

@@ -64,13 +64,13 @@ val compare_index : index -> index -> int
 val compare : t -> t -> int
 
 (** Pretty-print an identifier *)
-val pp_print_ident : Format.formatter -> t -> unit 
+val pp_print_ident : bool -> Format.formatter -> t -> unit 
 
 (** Pretty-print an index *)
-val pp_print_index : Format.formatter -> index -> unit 
+val pp_print_index : bool -> Format.formatter -> index -> unit 
 
 (** Pretty-print an index element *)
-val pp_print_one_index : Format.formatter -> one_index -> unit 
+val pp_print_one_index : bool -> Format.formatter -> one_index -> unit 
 
 (** Construct an identifier of a string *)
 val mk_string_id : string -> t
