@@ -239,20 +239,20 @@ var
 let
 
   LS_PFS = 
-    -- condact(CLK1, PFS_Side(TS, RL_O, true, true), true);
-    PFS_Side(TS, RL_O, true, true);
+    condact(CLK1, PFS_Side(TS, RL_O, true, true), true);
+    -- PFS_Side(TS, RL_O, true, true);
 
   RS_PFS = 
-    -- condact(CLK3, PFS_Side(TS, LR_O, false, false), false);
-    PFS_Side(TS, LR_O, false, false);
+    condact(CLK3, PFS_Side(TS, LR_O, false, false), false);
+    -- PFS_Side(TS, LR_O, false, false);
 
   LR_O = 
-    -- condact(CLK2, Cross_Channel_Bus (LS_PFS, true, true), true);
-    Cross_Channel_Bus (LS_PFS, true, true);
+    condact(CLK2, Cross_Channel_Bus (LS_PFS, true, true), true);
+    -- Cross_Channel_Bus (LS_PFS, true, true);
 
   RL_O = 
-    -- condact(CLK4, Cross_Channel_Bus (RS_PFS, false, false), false);
-    Cross_Channel_Bus (RS_PFS, false, false);
+    condact(CLK4, Cross_Channel_Bus (RS_PFS, false, false), false);
+    -- Cross_Channel_Bus (RS_PFS, false, false);
 
   LPFS = LS_PFS;
 

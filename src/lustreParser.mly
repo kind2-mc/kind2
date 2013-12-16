@@ -544,11 +544,11 @@ expr:
     LPAREN; 
     e1 = expr; 
     COMMA; 
-    e2 = node_call; 
+    s = ident; LPAREN; a = separated_list(COMMA, expr); RPAREN; 
     COMMA; 
-    e3 = expr_list 
+    v = expr_list 
     RPAREN
-    { A.Condact (mk_pos $startpos, e1, e2, e3) } 
+    { A.Condact (mk_pos $startpos, e1, s, a, v) } 
 
   (* A temporal operation *)
   | PRE; e = expr { A.Pre (mk_pos $startpos, e) }

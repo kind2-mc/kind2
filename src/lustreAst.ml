@@ -196,7 +196,7 @@ type expr =
   (* Clock operators *)
   | When of position * expr * expr 
   | Current of position * expr
-  | Condact of position * expr * expr * expr list 
+  | Condact of position * expr * ident * expr list * expr list 
   
   (* Temporal operators *)
   | Pre of position * expr 
@@ -479,8 +479,16 @@ let rec pp_print_expr ppf =
 
     | When (p, e1, e2) -> p2 p "when" e1 e2
     | Current (p, e) -> p1 p "current" e
-    | Condact (p, e1, e2, e3) -> pnp p "condact" (e1 :: e2 :: e3)
+    | Condact (p, e1, n, e2, e3) -> 
   
+      Format.fprintf ppf 
+        "%acondact(%a,%a(%a),%a)" 
+        ppos p
+        pp_print_expr e1
+        (I.pp_print_ident false) n
+        (pp_print_list pp_print_expr ",@ ") e2
+        (pp_print_list pp_print_expr ",@ ") e3
+
     | Pre (p, e) -> p1 p "pre" e
     | Fby (p, e1, i, e2) -> 
 

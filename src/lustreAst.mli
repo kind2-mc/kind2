@@ -88,7 +88,7 @@ type expr =
   | Gt of position * expr * expr
   | When of position * expr * expr
   | Current of position * expr
-  | Condact of position * expr * expr * expr list
+  | Condact of position * expr * ident * expr list * expr list
   | Pre of position * expr
   | Fby of position * expr * int * expr
   | Arrow of position * expr * expr
