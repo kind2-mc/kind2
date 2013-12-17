@@ -839,6 +839,19 @@ let rec eval_ast_expr'
 
     | (index, A.ExprList (pos, expr_list)) :: tl -> 
 
+      let rec flatten_expr_list accum = function 
+
+        | [] -> List.rev accum
+
+        | A.ExprList (pos, expr_list) :: tl -> 
+          flatten_expr_list accum (expr_list @ tl)
+
+        | expr :: tl -> flatten_expr_list (expr :: accum) tl
+
+      in
+
+      let expr_list' = flatten_expr_list [] expr_list in
+
       (* Treat as tuple *)
       eval_ast_expr' 
         mk_new_var_ident
@@ -846,7 +859,7 @@ let rec eval_ast_expr'
         context 
         result
         new_defs 
-        ((index, A.TupleExpr (pos, expr_list)) :: tl)
+        ((index, A.TupleExpr (pos, expr_list')) :: tl)
 
 
     (* Tuple constructor *)
@@ -1332,7 +1345,7 @@ let rec eval_ast_expr'
 
 
          let result' = 
-           add_node_ouput_to_result index result node_output_idents
+           add_node_output_to_result index result node_output_idents
          in
 
          (* Add expression to result *)
@@ -1428,13 +1441,24 @@ let rec eval_ast_expr'
          let { node_inputs; node_outputs } = List.assoc ident nodes in
 
          let expr_list', ((vars', calls') as new_defs') = 
-           eval_ast_expr_list
+           eval_ast_expr
              mk_new_var_ident 
              mk_new_call_ident 
              context 
              new_defs 
-             expr_list
+             (A.ExprList (A.dummy_pos, expr_list))
          in
+
+
+         Format.printf
+           "%a@."
+           (pp_print_list 
+             (fun ppf (i, e) -> 
+               Format.fprintf ppf "%a: %a" 
+                 (I.pp_print_index false) i
+                 (E.pp_print_lustre_expr false) e)
+             "@ ")
+             expr_list';
 
          let call_ident = mk_new_call_ident ident in
 
@@ -1448,7 +1472,7 @@ let rec eval_ast_expr'
          in
 
          let result' = 
-           add_node_ouput_to_result index result node_output_idents
+           add_node_output_to_result index result node_output_idents
          in
 
          (* Add expression to result *)
@@ -1458,7 +1482,10 @@ let rec eval_ast_expr'
            context 
            result' 
            (vars', 
-            (node_output_idents, E.t_true, ident, node_input_exprs, []) :: calls') 
+            (node_output_idents, 
+             E.t_true, 
+             ident, 
+             node_input_exprs, []) :: calls') 
            tl
 
        with Not_found -> 
@@ -1556,6 +1583,11 @@ and binary_apply_to
 
     (List.fold_right2
        (fun (index1, expr1) (index2, expr2) accum -> 
+
+          Format.printf 
+            "indexes: %a %a@."
+            (I.pp_print_index false) index1
+            (I.pp_print_index false) index2;
 
          (* Indexes must match *)
          if index1 = index2 then 
@@ -1678,44 +1710,77 @@ and int_const_of_ast_expr context expr =
               A.pp_print_expr expr
               A.pp_print_position A.dummy_pos))
 
+
 and node_inputs_of_exprs node_inputs expr_list =
 
+  let _, node_inputs' = 
+    List.fold_right 
+      (fun (_, (indexes, is_const)) (j, accum) -> 
+         (succ j,
+          (List.fold_right
+             (fun (index, expr_type) accum -> 
+                (I.IntIndex j :: index, 
+                 (expr_type, is_const)) :: accum)
+             indexes
+             accum)))
+      node_inputs
+      (0, [])
+  in
+
+  Format.printf
+    "node_inputs' %a@."
+    (pp_print_list 
+      (fun ppf (i, (t, _)) -> 
+        Format.fprintf ppf "%a %a" 
+          (I.pp_print_index false) i 
+          (T.pp_print_lustre_type false) t)
+      "@ ")
+    node_inputs';
+    
+
+  Format.printf
+    "expr_list %a@."
+    (pp_print_list 
+      (fun ppf (i, e) -> 
+        Format.fprintf ppf "%a %a" 
+          (I.pp_print_index false) i 
+          (E.pp_print_lustre_expr false) e)
+      "@ ")
+    expr_list;
+    
   try
 
     List.fold_right2
-      (fun (_, (in_param, is_const)) in_expr accum ->
+      (fun 
+        (in_index, (in_type, is_const)) 
+        (expr_index, ({ E.expr_type } as expr)) 
+        accum ->
         
         (* TODO: check if expression is actually constant. How
            to optimize in that case? *)
-        
-        List.fold_right2 
-          (fun 
-            (in_index, in_type) 
-            (index, ({ E.expr_type } as expr))
-            accum ->
-              
-              (* Indexes must match *)
-              if in_index = index then 
-                
-                (* Expression must be of a subtype of input
-                   type*)
-                if T.check_type expr_type in_type then 
-                  
-                  expr :: accum
-                    
-                else
-                  
-                  raise E.Type_mismatch
-                    
-              else
-                
-                raise E.Type_mismatch)
-          (sort_indexed_pairs in_param)
-          (sort_indexed_pairs in_expr)
-          accum
-      )
-      node_inputs 
-      expr_list
+
+        Format.printf
+          "at %a: %a %a@."
+          (I.pp_print_index false) in_index
+          (I.pp_print_index false) expr_index
+          (E.pp_print_lustre_expr false) expr;
+
+        (* Indexes must match *)
+        if in_index = expr_index then 
+          
+          (* Expression must be of a subtype of input type *)
+          if T.check_type expr_type in_type then 
+
+            expr :: accum
+
+          else
+
+            raise E.Type_mismatch
+        else
+          
+          raise E.Type_mismatch)
+      (sort_indexed_pairs node_inputs')
+      (sort_indexed_pairs expr_list)
       []
       
   (* Type checking error or one expression has more indexes *)
@@ -1762,7 +1827,7 @@ and output_idents_of_node ident pos call_ident = function
       []
 
 
-and add_node_ouput_to_result index result = function
+and add_node_output_to_result index result = function
 
   | [] -> assert false
 
@@ -1777,7 +1842,7 @@ and add_node_ouput_to_result index result = function
       (List.fold_right
          (fun (var_ident, var_type) (i, accum) -> 
            (succ i,
-            (I.add_int_to_index index i, 
+            (I.IntIndex i :: index, 
              E.mk_var var_ident var_type E.base_clock) :: accum))
          node_output_idents
          (0, result))
@@ -2236,7 +2301,7 @@ let new_defs_to_context context node (vars, calls) =
 
 
 let node_eq_of_expr ident eq_type expr node_eqs node_props =
- 
+
   List.fold_right2
 
     (fun 
@@ -2245,7 +2310,7 @@ let node_eq_of_expr ident eq_type expr node_eqs node_props =
       (node_eqs, node_props) -> 
 
       (* Indexes must match *)
-      if def_index = expr_index then 
+      if (* def_index = expr_index *) true then 
 
         (* Equation to add to node *)
         let eq = I.add_index ident def_index, expr in
@@ -2507,12 +2572,19 @@ let rec parse_node_equations
           mk_new_call_ident 
           context 
           ([], []) 
-          (match ast_expr with 
-            | A.ExprList _
-            | A.Call _ 
-            | A.Condact _ -> ast_expr 
-            | _ -> A.ExprList (A.dummy_pos, [ast_expr]))
+          (A.ExprList (A.dummy_pos, [ast_expr]))
       in
+
+      Format.printf 
+        "@[<hv>expr:@ %a@]@." 
+        (pp_print_list 
+           (fun ppf (i, e) -> 
+              Format.fprintf ppf "%a, %a" 
+                (I.pp_print_index false) i 
+                (E.pp_print_lustre_expr false) e)
+           "@ ")
+        expr';
+      
 
       (* Add new definitions to context *)
       let context', node' = new_defs_to_context context node new_defs in
@@ -2544,11 +2616,14 @@ let rec parse_node_equations
                                    A.pp_print_position A.dummy_pos))
 
                          (* Index matches, remove first index and keep *)
-                         | (j :: jtl) when j = I.IntIndex index -> 
+                         | (I.IntIndex j :: jtl) when j = index -> 
                            (jtl, e) :: a
 
                          (* Index does not match, skip *)
-                         | (j :: _) -> a)
+                         | (I.IntIndex _ :: jtl) -> a
+
+                         (* Must have an integer index *)
+                         | _ -> assert false) 
                     expr'
                     []
                 in
@@ -2587,7 +2662,13 @@ let rec parse_node_equations
 
                 in
 
-                if List.exists (function (_, e) -> E.pre_is_unguarded e) expr then 
+                if 
+
+                  List.exists 
+                    (function (_, e) -> E.pre_is_unguarded e) 
+                    expr 
+
+                then 
 
                   Format.printf 
                     "@[<h>-- Warning: unguarded pre in %a in %a@]@." 
@@ -2598,6 +2679,7 @@ let rec parse_node_equations
                 let node_eqs', node_props' = 
                   node_eq_of_expr ident eq_type expr node_eqs node_props
                 in
+
                 (succ index, node_eqs', node_props')
 
               | _ ->       
