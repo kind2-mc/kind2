@@ -46,6 +46,10 @@ type one_index =
 type index = one_index list
 
 
+(* The empty index *)
+let empty_index = []
+
+
 (* An identifier *)
 type t = string * index
 
@@ -132,9 +136,8 @@ let pp_print_one_index = function
 
 
 (* Pretty-print a list of indexes *)
-let rec pp_print_index safe ppf = function 
-  | [] -> ()
-  | h :: tl -> pp_print_one_index safe ppf h; pp_print_index safe ppf tl
+let pp_print_index safe ppf index = 
+  List.iter (pp_print_one_index safe ppf) index
 
 
 (* Pretty-print an identifier *)
@@ -143,13 +146,74 @@ let rec pp_print_ident safe ppf (s, i) =
   Format.fprintf ppf "%s%a" s (pp_print_index safe) i
 
 
-(* ********************************************************************** *)
-(* Constructors                                                           *)
-(* ********************************************************************** *)
+(* Construct an identifier of a string *)
+let mk_string_ident string = (string, empty_index)
 
 
 (* Construct an identifier of a string *)
-let mk_string_id s = (s, [])
+let mk_string_index string = [StringIndex string]
+
+
+(* Construct an identifier of a string *)
+let mk_int_index string = [IntIndex string]
+
+
+
+(* Push the index as an element index to the given index *)
+let push_one_index_to_index index1 index2 = index1 :: index2
+
+
+(* Push the string as an element index to the given index *)
+let push_string_index_to_index string index = StringIndex string :: index 
+
+
+(* Push the integer as an element index to the given index *)
+let push_int_index_to_index int index = IntIndex int :: index 
+
+
+(* Push the integer as an element index to the given index *)
+let push_ident_index_to_index (base_ident, index1) index2 = 
+
+  StringIndex base_ident :: index1 @ index2
+
+
+(* Push the index as an element index to the given index *)
+let push_index_to_index index1 index2 = index1 @ index2
+
+
+let push_string_index string (base, index) = 
+  (base, push_string_index_to_index string index)
+
+
+let push_int_index int (base, index) = 
+  (base, push_int_index_to_index int index)
+
+
+let push_ident_index ident (base, index) = 
+  (base, push_ident_index_to_index ident index)
+
+
+let push_one_index one_index (base, index) = 
+  (base, push_one_index_to_index one_index index)
+
+
+let push_index index1 (base, index2) = 
+  (base, push_index_to_index index1 index2)
+
+
+(* Construct an index of an identifier *)
+let index_of_ident (base, index) = push_string_index base index
+
+
+let split_ident (base, index) = ((base, empty_index), index)
+
+let split_index index = index
+
+let index_of_one_index_list one_index_list = one_index_list 
+
+(* ********************************************************************** *)
+(* Constructors                                                           *)
+(* ********************************************************************** *)
 
 
 (* Construct an index of an identifier *)
