@@ -611,7 +611,7 @@ clock_expr:
 
 
 (* An identifier *)
-ident: s = SYM { I.mk_string_id s }
+ident: s = SYM { I.mk_string_ident s }
 
 
 (* An identifier with a type *)

@@ -37,11 +37,18 @@
     flatten all record, tuple and array expressions to expressions
     over such indexed identifiers.
 
+    An index is a list of strings or integers, the head of the list is
+    the "least significant index", that is, the one that is used first
+    when derefencing an indexed identifier.
+
+    If a[i][j] is a tuple indexed in two dimensions, then the index is
+    stored as the list [j; i].
+
     @author Christoph Sticksel *)
 
 
-
-type one_index = 
+(** An index element *)
+type one_index = private
 
   (* String as index *)
   | StringIndex of string
@@ -51,17 +58,13 @@ type one_index =
 
 
 (** An index *)
-type index = one_index list 
+type index = private one_index list 
 
-(** An identifier *)
-type t = string * index
+(** An indexed identifier *)
+type t = private string * index
 
-(** A set of identifiers*)
+(** A set of identifiers *)
 module LustreIdentSet : Set.S with type elt = t
-
-val compare_one_index : one_index -> one_index -> int
-val compare_index : index -> index -> int
-val compare : t -> t -> int
 
 (** Pretty-print an identifier *)
 val pp_print_ident : bool -> Format.formatter -> t -> unit 
@@ -72,11 +75,60 @@ val pp_print_index : bool -> Format.formatter -> index -> unit
 (** Pretty-print an index element *)
 val pp_print_one_index : bool -> Format.formatter -> one_index -> unit 
 
-(** Construct an identifier of a string *)
-val mk_string_id : string -> t
+(** Total order on indexes *)
+val compare_index : index -> index -> int
+
+(** Total order on indexed identifiers *)
+val compare : t -> t -> int
+
+
+(** Construct an identifier with empty index of a string *)
+val mk_string_index : string -> index
+
+
+(** Construct a singleton index of an integer *)
+val mk_int_index : int -> index
+
+
+(** Construct a singleton index of a string *)
+val mk_string_ident : string -> t
+
+
+(** An empty index *)
+val empty_index : index
 
 (** Construct an index of an identifier *)
 val index_of_ident : t -> index 
+
+
+val push_string_index : string -> t -> t 
+
+val push_int_index : int -> t -> t
+
+val push_one_index : one_index -> t -> t
+
+val push_ident_index : t -> t -> t 
+
+val push_index : index -> t -> t 
+
+
+val push_string_index_to_index : string -> index -> index 
+
+val push_int_index_to_index : int -> index -> index 
+
+val push_ident_index_to_index : t -> index -> index 
+
+val push_one_index_to_index : one_index -> index -> index 
+
+val push_index_to_index : index -> index -> index 
+
+val split_ident : t -> t * one_index list
+
+val split_index : index -> one_index list
+
+val index_of_one_index_list : one_index list -> index
+
+(*
 
 (** Construct an index of an integer *)
 val index_of_int : int -> index 
@@ -103,6 +155,11 @@ val get_index_suffix : index -> index -> index
     [j]. Return the suffix of [j] with the common prefix with [i]
     removed, raise [Invalid_argument "get_suffix"] otherwise. *)
 val get_suffix : t -> t -> index
+
+
+*)
+
+
 
 (* 
    Local Variables:

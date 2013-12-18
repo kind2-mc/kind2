@@ -1,5 +1,17 @@
 const c_cond = if true then 1 else 2;
 
+type r = { three: [int, bool]; one: int; two: real };
+
+type s = [r, int];
+
+type t = s^2;
+
+-- const a = r { two = 2.0; one = 1; three = [1, false] };
+
+-- const b = [ r { two = 2.0; one = 1; three = [1, false] }, 1 ];
+
+
+
 type pair = {one, two: int};
 
 node A() returns ();
@@ -7,12 +19,13 @@ var
   a : [int, real, bool];
   a1: int; a2: real; a3: bool; a4: int;
 let
-  (a1, a2, a3, a4) = ((1, 2.0), (false, 3));
+  (a1, a2, a3, a4) = ((1 + 5, 2.0), (false, 3));
 tel
 
-/*
 
 node X (a1, a2: int) returns (b: [real, int]; c: [int,  bool]);
+  --@ensures a1 > 0;
+  --@requires a1 > 0;
 var
   a3: int;
   b1: pair;
@@ -23,6 +36,8 @@ let
   b2 = (1, 2, 3) + [3, 2, 1] - (4^3);
   (b2, b) = ([a1, a2, 0], [1.0, 0]);
   -- ([b2[2], b2[1], b2[0]], b1) = (b2, {one = 1, two = 2});
+
+  --%PROPERTY a1 > 0;
 tel
 
 
@@ -32,15 +47,17 @@ let b = a1; tel
 node Y (a: int) returns (b: [real, int]);
 var c: [int, bool];
 var d: [[real, int], [int, bool]];
+var d1: [real, int];
+var d2: [int, bool];
 var e: int;
 let
   -- b = X([a + 1, a+2],  [a-1, a-2]) + X([b+1, b+2], [b-1, b-2]) + Z(a, b);
   -- b = X(pair {one = a+1; two = a-1});
   e = Z(1, 0);
   d = X(c[0]+1, c[0]-1);
+  (d1, d2) = X(c[0]+1, c[0]-1);-- ([5.5, 1], [0, false]);
 tel
 
-*/
 
 /*
 
