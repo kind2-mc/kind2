@@ -102,25 +102,34 @@ val index_of_ident : t -> index
 
 
 val push_string_index : string -> t -> t 
+val push_back_string_index : string -> t -> t 
 
 val push_int_index : int -> t -> t
+val push_back_int_index : int -> t -> t
 
 val push_one_index : one_index -> t -> t
+val push_back_one_index : one_index -> t -> t
 
 val push_ident_index : t -> t -> t 
+val push_back_ident_index : t -> t -> t 
 
 val push_index : index -> t -> t 
-
+val push_back_index : index -> t -> t 
 
 val push_string_index_to_index : string -> index -> index 
+val push_back_string_index_to_index : string -> index -> index 
 
 val push_int_index_to_index : int -> index -> index 
+val push_back_int_index_to_index : int -> index -> index 
 
 val push_ident_index_to_index : t -> index -> index 
+val push_back_ident_index_to_index : t -> index -> index 
 
 val push_one_index_to_index : one_index -> index -> index 
+val push_back_one_index_to_index : one_index -> index -> index 
 
 val push_index_to_index : index -> index -> index 
+val push_back_index_to_index : index -> index -> index 
 
 val split_ident : t -> t * one_index list
 
