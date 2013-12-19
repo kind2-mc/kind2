@@ -1165,6 +1165,47 @@ let rec pre_is_unguarded_in_expr = function
 
 let pre_is_unguarded { expr_init } =  pre_is_unguarded_in_expr [ expr_init ]
 
+
+let rec vars_of_expr' accum = function 
+
+  (* All expression processed: return *)
+  | [] -> accum 
+
+  (* Expression is a variable: add variable and continue  *)
+  | Var ident :: tl -> vars_of_expr' (ISet.add ident accum) tl
+
+  (* Expresssion is a non-variable leaf: continue *)
+  | (VarPre _
+    | True
+    | False
+    | Int _ 
+    | Real _) :: tl -> accum
+
+  (* Expression is unary: add variables in argument *)
+  | UnaryOp (_, expr) :: tl -> 
+
+    vars_of_expr' accum (expr :: tl)
+
+  (* Expression is binary: add variables in arguments *)
+  | BinaryOp (_, (expr1, expr2)) :: tl -> 
+
+    vars_of_expr' accum (expr1 :: expr2 :: tl)
+
+  (* Expression is variadic: add variables in arguments *)
+  | VarOp (_, expr_list) :: tl -> 
+
+    vars_of_expr' accum (expr_list @ tl)
+
+  (* Expression is ternary: add variables in arguments *)
+  | Ite (expr1, expr2, expr3) :: tl -> 
+
+    vars_of_expr' accum (expr1 :: expr2 :: expr3 :: tl)
+
+
+
+let vars_of_expr expr = ISet.elements (vars_of_expr' ISet.empty [expr])
+
+
 (* 
    Local Variables:
    compile-command: "make -k"

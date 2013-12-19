@@ -3154,6 +3154,88 @@ let rec parse_node_contract
 
 
 
+let rec node_var_dependencies init_or_step node accum = 
+
+  (* Return expression either for the initial state or a step state *)
+  let init_or_step_of_expr { E.expr_init; E.expr_step } = 
+    if init_or_step then expr_init else expr_step 
+  in
+
+  function 
+    
+    | [] -> accum
+      
+    | ident :: tl -> 
+      
+      if 
+        
+        (* Variable is an input variable *)
+        List.exists 
+          (fun (ident', (indexes, _)) -> 
+             List.exists 
+               (fun (index', _) -> ident = I.push_index index' ident')
+               indexes)
+          node.node_inputs 
+          
+      then 
+        
+        (* No dependencies for inputs *)
+        node_var_dependencies 
+          init_or_step 
+          node
+          ((ident, ISet.empty) :: accum) 
+          tl
+          
+      else
+        
+        try 
+          
+          (* Get expression defining variable *)
+          let expr = 
+            List.assoc ident node.node_eqs 
+          in
+          
+          (* Get variables in expression *)
+          let vars = E.vars_of_expr (init_or_step_of_expr expr) in
+          
+          let vars_visited, vars_not_visited = 
+            List.partition
+              (fun ident -> List.mem_assoc ident accum)
+              vars
+          in
+
+          (* All dependent variables visited? *)
+          if vars_not_visited = [] then 
+            
+            let dependent_vars = 
+              List.fold_left
+                (fun a i -> 
+                   ISet.union a (List.assoc i accum))
+                ISet.empty
+                vars_visited
+            in
+            
+            (* First get dependencies of all dependent variables *)
+            node_var_dependencies 
+              init_or_step 
+              node 
+              ((ident, dependent_vars) :: accum)
+              tl
+              
+          else
+            
+            (* First get dependencies of all dependent variables *)
+            node_var_dependencies 
+              init_or_step 
+              node 
+              accum 
+              (vars_not_visited @ tl)
+              
+        (* Variable is not input or defined in an equation *)
+        with Not_found -> assert false
+
+
+
 let parse_node_signature  
     node_ident
     global_context
