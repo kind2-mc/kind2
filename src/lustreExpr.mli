@@ -158,6 +158,8 @@ val mk_pre : (unit -> LustreIdent.t) -> ((LustreIdent.t * t) list * 'a) -> t -> 
 
 val pre_is_unguarded : t -> bool
 
+val vars_of_expr : expr -> LustreIdent.t list
+
 (* 
    Local Variables:
    compile-command: "make -k"

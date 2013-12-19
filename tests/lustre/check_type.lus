@@ -63,6 +63,15 @@ let
 tel
 
 
+
+node id (x: int) returns (y: int); let y = x; tel
+
+node A () returns ();
+var x: int;
+let
+  x = id(x);
+tel
+
 /*
 
 
