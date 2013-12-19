@@ -162,13 +162,19 @@ let mk_int_index string = [IntIndex string]
 (* Push the index as an element index to the given index *)
 let push_one_index_to_index index1 index2 = index1 :: index2
 
+let push_back_one_index_to_index index1 index2 = index2 @ [index1]
+
 
 (* Push the string as an element index to the given index *)
 let push_string_index_to_index string index = StringIndex string :: index 
 
+let push_back_string_index_to_index string index = index @ [StringIndex string]
+
 
 (* Push the integer as an element index to the given index *)
 let push_int_index_to_index int index = IntIndex int :: index 
+
+let push_back_int_index_to_index int index = index @ [IntIndex int]
 
 
 (* Push the integer as an element index to the given index *)
@@ -176,29 +182,51 @@ let push_ident_index_to_index (base_ident, index1) index2 =
 
   StringIndex base_ident :: index1 @ index2
 
+let push_back_ident_index_to_index (base_ident, index1) index2 = 
+
+  index2 @ (StringIndex base_ident :: index1)
+
 
 (* Push the index as an element index to the given index *)
 let push_index_to_index index1 index2 = index1 @ index2
+
+let push_back_index_to_index index1 index2 = index2 @ index1
 
 
 let push_string_index string (base, index) = 
   (base, push_string_index_to_index string index)
 
 
+let push_back_string_index string (base, index) = 
+  (base, push_back_string_index_to_index string index)
+
+
 let push_int_index int (base, index) = 
   (base, push_int_index_to_index int index)
+
+let push_back_int_index int (base, index) = 
+  (base, push_back_int_index_to_index int index)
 
 
 let push_ident_index ident (base, index) = 
   (base, push_ident_index_to_index ident index)
 
+let push_back_ident_index ident (base, index) = 
+  (base, push_back_ident_index_to_index ident index)
+
 
 let push_one_index one_index (base, index) = 
   (base, push_one_index_to_index one_index index)
 
+let push_back_one_index one_index (base, index) = 
+  (base, push_back_one_index_to_index one_index index)
+
 
 let push_index index1 (base, index2) = 
   (base, push_index_to_index index1 index2)
+
+let push_back_index index1 (base, index2) = 
+  (base, push_back_index_to_index index1 index2)
 
 
 (* Construct an index of an identifier *)

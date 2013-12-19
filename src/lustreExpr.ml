@@ -193,7 +193,7 @@ let rec pp_print_expr safe ppf = function
   | Ite (p, l, r) -> 
 
     Format.fprintf ppf 
-      "@[<hv 1>(if %a@;<1 -1>then@ %a@;<1 -1>else@ %a)@]" 
+      "@[<hv 3>(if@ %a@;<1 -2>then@ %a@;<1 -2>else@ %a)@]" 
       (pp_print_expr safe) p
       (pp_print_expr safe) l 
       (pp_print_expr safe) r
@@ -839,28 +839,32 @@ let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2
 
 
 (* Evaluate equality *)
-let eval_eq = function
+let eval_eq expr1 expr2 = match expr1, expr2 with
 
   (* true = e2 -> e2 *)
-  | True -> (function expr2 -> expr2)
+  | True, _ ->  expr2
 
   (* false = e2 -> not e2 *)
-  | False -> (function expr2 -> UnaryOp(Not, expr2))
+  | False, _ -> UnaryOp(Not, expr2)
 
-  | expr1 -> 
+  (* e1 = true -> e1 *)
+  | _, True -> expr1
 
-    (function
+  (* e1 = false -> not e1 *)
+  | _, False -> (UnaryOp(Not, expr1))
 
-      (* e1 = true -> e1 *)
-      | True -> expr1
+  | Int d1, Int d2 when d1 = d2 -> True
 
-      (* e1 = false -> not e1 *)
-      | False -> (UnaryOp(Not, expr1))
+  | Int d1, Int d2 -> False
 
-      (* e = e -> true *)
-      | expr2 when expr1 = expr2 -> True
+  | Real f1, Real f2 when f1 = f2 -> True
 
-      | expr2 -> BinaryOp(Eq, (expr1, expr2)))
+  | Real f1, Real f2 -> False
+
+  (* e = e -> true *)
+  | _ when expr1 = expr2 -> True
+
+  | _ -> BinaryOp(Eq, (expr1, expr2))
 
 
 (* Type of equality
@@ -1014,7 +1018,8 @@ let eval_ite = function
   | False -> (function _ -> (function expr3 -> expr3))
   | expr1 -> 
     (function expr2 -> 
-      (function expr3 -> (Ite (expr1, expr2, expr3)))) 
+      (function expr3 -> 
+        if expr2 = expr3 then expr2 else  (Ite (expr1, expr2, expr3)))) 
 
 
 (* Type of if-then-else
