@@ -141,7 +141,7 @@ struct
     let id = gentag () in
 
     debug smt
-      "@[<v>[%d]@,@[<hv 1>(set-option@ :print-success@ true)@]@,@[<hv 1>(set-logic@ %a)@]@,@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-cores@ %B)@]@]"
+      "@[<v>[%d]@,@[<hv 1>(set-option@ :print-success@ true)@]@,@[<hv 1>(set-logic@ %a)@]@,@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]@]"
       id
       SMTExpr.pp_print_logic l
       produce_assignments
@@ -216,7 +216,7 @@ struct
 
   let assert_expr { solver = s; id = id } e = 
     
-    debug smt "@[<v>[%d]@,@[<hv 1>(assert@ %a)@]@]" 
+    debug smt "@[<v>[%d]@,@[<hv 1>(assert@ @[<hv>%a@])@]@]" 
       id 
       SMTExpr.pp_print_expr e 
     in 
