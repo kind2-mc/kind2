@@ -892,7 +892,7 @@ struct
   
 
   (* *)
-  let destruct t = match destruct' 0 t with
+  let rec destruct t = match destruct' 0 t with
 
     (* Constant *)
     | { H.node = Leaf s } -> Const s
@@ -905,6 +905,9 @@ struct
 
     (* Bound variable *)
     | { H.node = BoundVar _ } -> invalid_arg "destruct: bound variable"
+
+    (* Skip over annotations *)
+    | { H.node = Annot (t, _) } -> destruct t
 
     (* No other terms returned by destrcut' *)
     | _ -> assert false

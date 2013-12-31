@@ -226,7 +226,7 @@ let proved_pt mdl k prop =
     prop
     (function ppf -> match k with
        | None -> ()
-       | Some k -> Format.fprintf ppf "for k=%d" k)
+       | Some k -> Format.fprintf ppf "for k=%d " k)
     pp_print_kind_module_pt mdl
 
 
@@ -239,7 +239,7 @@ let disproved_pt mdl k prop =
     prop
     (function ppf -> match k with
        | None -> ()
-       | Some k -> Format.fprintf ppf "for k=%d" k)
+       | Some k -> Format.fprintf ppf "for k=%d " k)
     pp_print_kind_module_pt mdl
 
 
