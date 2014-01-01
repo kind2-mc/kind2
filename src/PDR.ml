@@ -935,6 +935,16 @@ let find_cex
        (* Remove scope from the context *)
        S.pop solver_frames;
 
+       if not (Clause.is_empty rest) then 
+
+         (debug pdr
+             "@[<v>Reduced blocking clause to unsat core:@,%a@,%a@]"
+             Clause.pp_print_clause core
+             Clause.pp_print_clause rest
+          in
+          
+          Stat.incr Stat.pdr_tightened_blocking_clauses);
+
        (* Entailment holds, no counterexample *)
        (true, (Clause.union core prop_core, Clause.union rest prop_rest)))
 
