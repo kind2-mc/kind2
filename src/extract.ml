@@ -30,6 +30,9 @@ This file is part of the Kind verifier
 
 open Lib
 
+let choose_term accum = function [] -> raise Not_found | terms -> List.hd terms 
+
+
 let extract env term = 
 
   let eval_term t = Eval.eval_term t env in
@@ -142,14 +145,19 @@ let extract env term =
                   (* Try to find one of the premises to be false and
                      return the extracted term from the first false
                      premise negated *)
+                  let cand_terms = 
+                    List.filter
+                      (function t -> 
+                        let v = eval_term t in 
+                        Eval.value_is_unknown v || not (Eval.bool_of_value v))
+                      p
+                  in
+                    
+                  (* Try to find one of the premises to be false and
+                     return the extracted term from the first false
+                     premise negated *)
                   (accum,
-                   [((List.find 
-                        (function t -> 
-                          let v = eval_term t in 
-                          Eval.value_is_unknown v || not (Eval.bool_of_value v))
-                        p),
-                     env,
-                     false)])
+                   [(choose_term accum cand_terms, env, false)])
 
                 with Not_found -> 
 

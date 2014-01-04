@@ -149,7 +149,7 @@ let rec pp_print_clause' ppf = function
 
 (* Pretty-print a clause *)
 let pp_print_clause ppf clause = 
-  Format.fprintf ppf "{@[<hv 1>%a@]}" pp_print_clause' (elements clause)
+  Format.fprintf ppf "@[<hv 1>{%a}@]" pp_print_clause' (elements clause)
   
 
 (* Pretty-print a clause to the standard formatter *)
