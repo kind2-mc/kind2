@@ -217,7 +217,7 @@ type pdr_tighten_to_unsat_core = bool
     
 let string_of_pdr_tighten_to_unsat_core = string_of_bool
 
-let pdr_tighten_to_unsat_core_default = false
+let pdr_tighten_to_unsat_core_default = true
 
 (* ********** *) 
 
@@ -250,7 +250,7 @@ let string_of_pdr_qe = function
 
 let pdr_qe_values = "Z3, cooper"
 
-let pdr_qe_default = `Z3
+let pdr_qe_default = `Cooper
 
 (* ********** *) 
  

@@ -955,18 +955,17 @@ let find_cex
 (* Blocking of counterexamples to induction                               *)
 (* ********************************************************************** *)
 
-(*
+
 (* Add cube to block in future frames *)
-let add_to_cex_tl block_clause = function
+let add_to_block_tl block_clause = function
   
   (* Last frame has no successors *)
   | [] -> [] 
           
   (* Add cube as proof obligation in next frame *)
-  | (cex_cubes, r_succ_i) :: cex_tl_tl -> 
-    (cex_cube :: cex_cubes, r_succ_i) :: cex_tl_tl
+  | (block_clauses, r_succ_i) :: block_clauses_tl -> 
+    (block_clause :: block_clauses, r_succ_i) :: block_clauses_tl
 
-*)    
 
 
 (* Recursively block counterexamples 
@@ -1006,7 +1005,7 @@ let add_to_cex_tl block_clause = function
    remaining counterexamples on the stack.
 
 *)
-let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses = 
+let rec block ((_, solver_frames, _) as solvers) transSys = 
 
   function 
 
@@ -1020,7 +1019,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
         in
 
         (* Return frames unchanged and no new counterexamples *)
-        frames, new_block_clauses
+        frames
 
       )
 
@@ -1039,7 +1038,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
          S.pop solver_frames;
          
          (* Return to counterexamples to block in R_i+1 *)
-         block solvers transSys new_block_clauses block_tl (r_i :: frames)))
+         block solvers transSys block_tl (r_i :: frames)))
 
 
     (* Take the first cube to be blocked in current frame *)
@@ -1056,9 +1055,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
            in
            
            Event.log `PDR Event.L_trace "Blocking reached R_1";
-(*           
-           let block_clause = Clause.union core_block_clause rest_block_clause in
-*)
+
            (debug pdr
                "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
                Clause.pp_print_clause core_block_clause
@@ -1068,30 +1065,24 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
                to be blocked *)
             let r_i' = CNF.add_subsume core_block_clause r_i in 
 
-(*
-
-            (* Add cube to block to next higher frame and to all
-               future frames if flag is set *)
-            let block_clause_tl', new_block_clauses' = 
+            (* Add cube to block to next higher frame if flag is set *)
+            let block_tl' = 
 
               if Flags.pdr_block_in_future () then 
 
-                add_to_block_tl 
-                  core_block_clause block_tl, (cex_cube :: new_cex)
+                add_to_block_tl block_clause block_tl
 
               else
 
-                cex_tl, new_cex
+                block_tl
 
             in
-*)
 
             (* Return frame with blocked counterexample *)
             block 
               solvers 
               transSys 
-              new_block_clauses
-              ((block_clauses_tl, r_i') :: block_tl) 
+              ((block_clauses_tl, r_i') :: block_tl') 
               []))
 
         (* Block counterexample in preceding frame *)
@@ -1148,7 +1139,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
           with
 
             (* No counterexample, nothing to block in lower frames *)
-            | true, (core_block_clause', _) -> 
+            | true, ((core_block_clause, _) as block_clause) -> 
 
               Event.log `PDR Event.L_trace
                 "Counterexample is unreachable in R_%d"
@@ -1158,36 +1149,34 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
                   "@[<v>Adding blocking clause to R_k%t@,@[<hv>%a@]@]"
                   (function ppf -> if block_tl = [] then () else 
                       Format.fprintf ppf "-%d" (succ (List.length block_tl)))
-                  Clause.pp_print_clause core_block_clause'
+                  Clause.pp_print_clause core_block_clause
                in
 
                (* Add blocking clause to all frames up to where it has
                   to be blocked *)
-               let r_i' = CNF.add_subsume core_block_clause' r_i in 
+               let r_i' = CNF.add_subsume core_block_clause r_i in 
 
                (* Pop the previous frame from the context *)
                S.pop solver_frames;
-(*
-               (* Add cube to block to next higher frame and to all
-                  future frames if flag is set *)
-               let cex_tl', new_cex' = 
+
+               (* Add cube to block to next higher frame if flag is set *)
+               let block_tl' = 
 
                  if Flags.pdr_block_in_future () then 
 
-                   add_to_cex_tl cex_cube cex_tl, (cex_cube :: new_cex)
+                   add_to_block_tl block_clause block_tl
 
                  else
 
-                   cex_tl, new_cex
+                   block_tl
 
                in
-*)
+
                (* Return frame with blocked counterexample *)
                block 
                  solvers 
                  transSys 
-                 new_block_clauses
-                 ((block_clauses_tl, r_i') :: block_tl) 
+                 ((block_clauses_tl, r_i') :: block_tl') 
                  frames)
 
             (* We have found a counterexample we need to block recursively *)
@@ -1204,7 +1193,6 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
                block 
                  solvers 
                  transSys 
-                 new_block_clauses
                  (([block_clause'], r_pred_i) :: trace) 
                  frames_tl))
 
@@ -1217,7 +1205,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys new_block_clauses =
 
    The list of frames must not be empty, we start with k=1. *)
 let rec strengthen
-    ((_, solver_frames, _) as solvers) transSys new_block_clauses = 
+    ((_, solver_frames, _) as solvers) transSys = 
 
   function 
 
@@ -1278,7 +1266,7 @@ let rec strengthen
            S.pop solver_frames;
 
            (* Return frames and counterexamples *)
-           (r_k :: frames_tl), new_block_clauses)
+           (r_k :: frames_tl))
 
         (* We have found a counterexample we need to block
            recursively *)
@@ -1297,17 +1285,16 @@ let rec strengthen
              (List.length frames);
 
            (* Block counterexample in all lower frames *)
-           let frames', new_block_clauses' = 
+           let frames' = 
              block 
                solvers 
                transSys 
-               new_block_clauses 
                [([block_clause], r_k)] 
                frames_tl
            in
 
            (* Find next counterexample to block *)
-           strengthen solvers transSys new_block_clauses' frames')
+           strengthen solvers transSys frames')
         
 
 (*
@@ -1977,7 +1964,7 @@ let handle_events ((solver_init, solver_frames, _) as solvers) transSys bmc_k =
    [Counterexample] is raised, see {!strengthen}.
 
 *)
-let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames cex = 
+let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames = 
 
   let pdr_k = succ (List.length frames) in
 
@@ -2064,30 +2051,20 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames c
      pp_print_frames frames'
    in
 
-  Stat.start_timer Stat.pdr_block_propagated_cex_time;
-
-(*
-  (* Block counterexamples in earlier frames *)
-  let frames'', cex'' = block_propagated_cex solvers transSys cex frames' in
-*)
-  let frames'', cex'' = frames', cex in
-
-  Stat.record_time Stat.pdr_block_propagated_cex_time;
-
   Stat.append 0 Stat.pdr_counterexamples;
 
   Stat.start_timer Stat.pdr_strengthen_time;
 
   (* Recursively block counterexamples in frontier state *)
-  let frames''', cex''' = strengthen solvers transSys cex'' frames'' in
+  let frames'' = strengthen solvers transSys frames' in
 
   Stat.record_time Stat.pdr_strengthen_time;
 
   Stat.set_int_list (frame_sizes frames'') Stat.pdr_frame_sizes;
 
-    (* No reachable state violates the property, continue with the
+  (* No reachable state violates the property, continue with the
        next k *)
-  pdr solvers transSys bmc_k' frames''' cex'''))
+  pdr solvers transSys bmc_k' frames''))
 
 
 (* Entry point
@@ -2264,7 +2241,7 @@ let main transSys =
        S.assert_term solver_init (TransSys.constr_of_bound 1 transSys));
       
       (* Run PDR procedure *)
-      pdr (solver_init, solver_frames, solver_misc) transSys bmc_init_k [] [];
+      pdr (solver_init, solver_frames, solver_misc) transSys bmc_init_k [];
 
     with 
 
