@@ -163,7 +163,8 @@ let pp_print_trans_sys
 (* Determine the required logic for the SMT solver 
 
    TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = `QF_UFLIA
+let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+  
 
 (* Add to offset of state variable instances *)
 let bump_state i term = 
@@ -253,7 +254,9 @@ let state_vars_at_offset_of_term i term =
         | Term.T.Var _ 
         | Term.T.Const _ -> 
           (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
+        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
       term
   in
 
@@ -274,7 +277,9 @@ let vars_at_offset_of_term i term =
         | Term.T.Var _ 
         | Term.T.Const _ -> 
           (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
+        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
       term
   in
 
@@ -293,7 +298,9 @@ let vars_of_term term =
           (function [] -> Var.VarSet.singleton v | _ -> assert false)
         | Term.T.Const _ -> 
           (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
+        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
       term
   in
 
@@ -317,7 +324,9 @@ let state_vars_of_term term  =
       | Term.T.App _ -> 
         List.fold_left 
           SVS.union 
-          SVS.empty)
+          SVS.empty
+      | Term.T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
     term
   
 
@@ -552,7 +561,9 @@ let dependencies_of_constr t =
                 (function [] -> SVS.empty | _ -> assert false)
               | Term.T.Const _ -> 
                 (function [] -> SVS.empty | _ -> assert false)
-              | Term.T.App _ -> List.fold_left SVS.union SVS.empty)
+              | Term.T.App _ -> List.fold_left SVS.union SVS.empty
+              | Term.T.Attr (t, _) -> 
+                (function [s] -> s | _ -> assert false))
             term
         in
         SVT.add t.constr_dep state_var defining_vars)

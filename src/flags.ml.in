@@ -110,6 +110,25 @@ let smtsolver_default = `Z3_SMTLIB
 
 (* ********** *) 
 
+type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
+    
+let smtlogic_of_string = function
+  | "LIA" -> `QF_LIA
+  | "LRA" -> `QF_LRA
+  | "detect" -> `detect
+  | _ -> raise (Arg.Bad "Bad value for --smtlogic")
+
+let string_of_smtlogic = function 
+  | `QF_LIA -> "LIA"
+  | `QF_LRA -> "LRA"
+  | `detect -> "detect"
+
+let smtlogic_values = "LIA, LRA, detect"
+
+let smtlogic_default = `detect
+
+(* ********** *) 
+
 type z3_bin = string 
 
 let z3_bin_of_string s = s
@@ -307,6 +326,7 @@ type flags =
     { mutable timeout_wall : float;
       mutable timeout_virtual : float;
       mutable smtsolver : smtsolver;
+      mutable smtlogic : smtlogic;
       mutable z3_bin : z3_bin;
       mutable cvc4_bin : cvc4_bin;
       mutable enable : enable;
@@ -335,6 +355,7 @@ let flags =
   { timeout_wall = timeout_wall_default;
     timeout_virtual = timeout_virtual_default;
     smtsolver = smtsolver_default;
+    smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
     cvc4_bin = cvc4_bin_default;
     enable = enable_default_init;
@@ -384,6 +405,15 @@ let smtsolver_spec =
   ("--smtsolver", 
    Arg.String smtsolver_action, 
    Format.sprintf "choose SMT solver (available: %s, default: %s)" smtsolver_values (string_of_smtsolver smtsolver_default))
+
+(* ********** *) 
+
+let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
+  
+let smtlogic_spec = 
+  ("--smtlogic", 
+   Arg.String smtlogic_action, 
+   Format.sprintf "choose SMT logic (available: %s, default: %s)" smtlogic_values (string_of_smtlogic smtlogic_default))
 
 (* ********** *) 
 
@@ -617,6 +647,8 @@ let timeout_virtual () = flags.timeout_virtual
 
 let smtsolver () = flags.smtsolver 
 
+let smtlogic () = flags.smtlogic 
+
 let z3_bin () = flags.z3_bin
 
 let cvc4_bin () = flags.cvc4_bin
@@ -686,6 +718,9 @@ and speclist =
 
     (* Set SMT solver *)
     smtsolver_spec;
+
+    (* Set SMT logic *)
+    smtlogic_spec;
 
     (* Set executable for Z3 solver *)
     z3_bin_spec;
