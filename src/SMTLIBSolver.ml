@@ -509,16 +509,19 @@ let create_instance
      | _ -> raise (Failure ("Cannot set option interactive-mode")));
 
   (* Set logic *)
-  (match
-     let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> 
-       raise 
-         (Failure 
-            ("Cannot set logic " ^ (string_of_logic logic))));
+  (match logic with 
+    | `detect -> () 
+    | _ -> 
+      (match
+         let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
+         (debug smt "%s" cmd in
+          execute_command solver cmd 0)
+       with 
+         | Success -> () 
+         | _ -> 
+           raise 
+             (Failure 
+                ("Cannot set logic " ^ (string_of_logic logic)))));
 
   (* Produce assignments to be queried with get-values, default is
      false per SMTLIB specification *)
