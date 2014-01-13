@@ -36,7 +36,7 @@ type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
 val smtsolver : unit -> smtsolver 
 
 (** SMT Logic to use *)
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
