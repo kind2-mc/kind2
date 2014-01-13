@@ -141,9 +141,14 @@ struct
     let id = gentag () in
 
     debug smt
-      "@[<v>[%d]@,@[<hv 1>(set-option@ :print-success@ true)@]@,@[<hv 1>(set-logic@ %a)@]@,@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]@]"
+      "@[<v>[%d]@,@[<hv 1>(set-option@ :print-success@ true)@]@,%t@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]@]"
       id
-      SMTExpr.pp_print_logic l
+      (function ppf -> match l with
+         | `detect -> ()
+         | _ -> 
+           Format.fprintf ppf
+             "@[<hv 1>(set-logic@ %a)@]@," 
+             SMTExpr.pp_print_logic l)
       produce_assignments
       produce_models 
       produce_proofs
