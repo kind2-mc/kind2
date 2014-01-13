@@ -56,7 +56,8 @@ let string_of_expr t =
 
 (* The defined logics in SMTLIB *)
 type logic = 
-  [ `AUFLIA
+  [ `detect
+  | `AUFLIA
   | `AUFLIRA
   | `AUFNIRA
   | `LRA 

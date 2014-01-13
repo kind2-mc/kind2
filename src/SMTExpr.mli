@@ -36,7 +36,8 @@ This file is part of the Kind verifier
 
 (** The defined logics in SMTLIB *)
 type logic = 
-  [ `AUFLIA
+  [ `detect
+  | `AUFLIA
   | `AUFLIRA
   | `AUFNIRA
   | `LRA 
