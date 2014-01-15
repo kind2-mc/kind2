@@ -152,24 +152,32 @@ let choose_term (bool_terms, int_terms) =
             Term.TermSet.fold 
               (fun t a -> 
                 Var.VarSet.union a (var_set_of_list (vars_of_term t)))
-              int_terms 
+              (Term.TermSet.union int_terms bool_terms) 
               Var.VarSet.empty 
           in
 
           (* Calculate number of variables if term was added to 
              accumulator *)
           let num_of_vars_of_union term = 
-            Var.VarSet.cardinal 
-              (Var.VarSet.union
-                 vars_accum 
-                 (var_set_of_list (vars_of_term term)))
+            let res = 
+              Var.VarSet.cardinal 
+                (Var.VarSet.union
+                   vars_accum 
+                   (var_set_of_list (vars_of_term term)))
+            in
+            debug extract
+                "Number of variables with@ %a@ is %d"
+                Term.pp_print_term term
+                res
+            in
+            res
           in
           
           let term, _ = 
             List.fold_left
               (fun (t, s) t' -> 
                  let s' = num_of_vars_of_union t' in
-                 if num_of_vars_of_union t' < s then (t', s') else (t, s))
+                 if s' < s then (t', s') else (t, s))
               (h, num_of_vars_of_union h)
               tl
           in
