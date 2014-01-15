@@ -256,20 +256,39 @@ let pdr_prop_in_last_frame_default = false
 
 (* ********** *) 
 
-type pdr_qe = [ `Z3 | `Cooper ]
+type pdr_qe = [ `Z3 | `Z3_impl | `Cooper ]
     
 let pdr_qe_of_string = function
   | "Z3" -> `Z3
+  | "Z3-impl" -> `Z3_impl
   | "cooper" -> `Cooper
-  | _ -> raise (Arg.Bad "Bad value for -pdr_qe")
+  | _ -> raise (Arg.Bad "Bad value for --pdr_qe")
 
 let string_of_pdr_qe = function 
   | `Z3 -> "Z3"
+  |  `Z3_impl -> "Z3-impl"
   | `Cooper -> "cooper"
 
-let pdr_qe_values = "Z3, cooper"
+let pdr_qe_values = "Z3, Z3-impl, cooper"
 
 let pdr_qe_default = `Cooper
+
+(* ********** *) 
+
+type pdr_extract = [ `First | `Vars ]
+    
+let pdr_extract_of_string = function
+  | "first" -> `First
+  | "vars" -> `Vars
+  | _ -> raise (Arg.Bad "Bad value for --pdr_extract")
+
+let string_of_pdr_extract = function 
+  | `First -> "first"
+  | `Vars -> "vars"
+
+let pdr_extract_values = "first, vars"
+
+let pdr_extract_default = `First
 
 (* ********** *) 
  
@@ -331,6 +350,7 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable enable : enable;
       mutable pdr_qe : pdr_qe;
+      mutable pdr_extract : pdr_extract;
       mutable pdr_subs_timeout : pdr_subs_timeout;
       mutable pdr_check_inductive : pdr_check_inductive;
       mutable pdr_fwd_prop_check_multi : pdr_fwd_prop_check_multi;
@@ -360,6 +380,7 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     enable = enable_default_init;
     pdr_qe = pdr_qe_default;
+    pdr_extract = pdr_extract_default;
     pdr_subs_timeout = pdr_subs_timeout_default;
     pdr_check_inductive = pdr_check_inductive_default;
     pdr_fwd_prop_check_multi = pdr_fwd_prop_check_multi_default;
@@ -450,6 +471,15 @@ let pdr_qe_spec =
   ("--pdr_qe", 
    Arg.String pdr_qe_action, 
    Format.sprintf "(PDR) choose quantifier elimination algorithm (available: %s, default: %s)" pdr_qe_values (string_of_pdr_qe pdr_qe_default))
+
+(* ********** *) 
+
+let pdr_extract_action o = flags.pdr_extract <- (pdr_extract_of_string o)
+  
+let pdr_extract_spec = 
+  ("--pdr_extract", 
+   Arg.String pdr_extract_action, 
+   Format.sprintf "(PDR) Heuristics for extraction of implicant (available: %s, default: %s)" pdr_extract_values (string_of_pdr_extract pdr_extract_default))
 
 (* ********** *) 
 
@@ -657,6 +687,8 @@ let enable () = flags.enable
 
 let pdr_qe () = flags.pdr_qe 
 
+let pdr_extract () = flags.pdr_extract 
+
 let pdr_subs_timeout () = flags.pdr_subs_timeout 
 
 let pdr_check_inductive () = flags.pdr_check_inductive 
@@ -733,6 +765,9 @@ and speclist =
 
     (* Set QE in PDR *)
     pdr_qe_spec;
+
+    (* Heuristic for extraction of implicant *)
+    pdr_extract_spec;
 
     (* Set timeout for subsumption check in frames in PDR *)
     pdr_subs_timeout_spec;
