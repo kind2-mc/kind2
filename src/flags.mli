@@ -64,8 +64,12 @@ type enable = Lib.kind_module list
 val enable : unit -> enable 
 
 (** Algorithm for quantifier elimination in PDR *)
-type pdr_qe = [ `Z3 | `Cooper ]
+type pdr_qe = [ `Z3 | `Z3_impl | `Cooper ]
 val pdr_qe : unit -> pdr_qe
+
+(** Heuristics for extraction of implicant *)
+type pdr_extract = [ `First | `Vars ]
+val pdr_extract : unit -> pdr_extract
 
 (** Timeout in ms for subsumption check in frames *)
 type pdr_subs_timeout = int
