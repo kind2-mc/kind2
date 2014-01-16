@@ -32,8 +32,16 @@ val string_of_numeral : t -> string
 (** Convert an integer to a numeral *)
 val of_int : int -> t
 
+val of_big_int : Big_int.big_int -> t
+
+val of_string : string -> t
+
 (** Convert a numeral to an integer *)
 val to_int : t -> int
+
+val of_big_int : Big_int.big_int -> t
+
+val to_big_int : t -> Big_int.big_int
 
 (** {1 Constants} *)
 
@@ -112,6 +120,20 @@ val geq : t -> t -> bool
 
 (** Greater than predicate *)
 val gt : t -> t -> bool
+
+(** {2 Infix operators} *)
+
+val ( <= ) : t -> t -> bool
+
+val ( < ) : t -> t -> bool
+
+val ( >= ) : t -> t -> bool
+
+val ( > ) : t -> t -> bool
+
+val ( = ) : t -> t -> bool
+
+val ( <> ) : t -> t -> bool
 
 
 

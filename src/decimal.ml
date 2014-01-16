@@ -48,9 +48,50 @@ let pp_print_decimal ppf = function
 let string_of_decimal = string_of_t pp_print_decimal 
 
 
-
 (* Convert an integer to a numeral *)
 let of_int = Num.num_of_int
+
+let s_div = HString.mk_hstring "/"
+
+let of_string s = 
+
+  match SExprParser.sexp SExprLexer.main (Lexing.from_string s) with 
+
+    | HStringSExpr.List
+        [HStringSExpr.Atom o; HStringSExpr.Atom n; HStringSExpr.Atom d] 
+      when o = s_div -> 
+
+      let n' = 
+        try 
+
+          Num.num_of_string (HString.string_of_hstring n) 
+
+        with Failure _ -> raise (Failure "of_string")
+
+      in
+
+      let d' = 
+
+        try 
+
+          Num.num_of_string (HString.string_of_hstring d) 
+
+        with Failure _ -> raise (Failure "of_string")
+
+      in
+
+      Num.div_num n' d'
+
+    | HStringSExpr.Atom n -> 
+
+      (try 
+
+        Num.num_of_string (HString.string_of_hstring n) 
+
+      with Failure _ -> raise (Failure "of_string"))
+
+
+    | _ -> raise (Failure "of_string")
 
 
 (* Convert a numeral to an integer *)
@@ -64,6 +105,11 @@ let to_int d =
   (* Conversion failed because of limited precision *)
   with Failure _ -> raise (Failure "to_int")
 
+
+let to_big_int d = Num.big_int_of_num (Num.floor_num d)
+
+
+let of_big_int n = Num.num_of_big_int n
 
 
 (* The numeral zero *)
@@ -134,9 +180,31 @@ let ( / ) = div
 
 let ( mod ) = rem
 
+let ( <= ) = leq
+
+let ( < ) = lt
+
+let ( >= ) = geq
+
+let ( > ) = gt
+
+let ( = ) = equal
+
+let ( <> ) a b = not (equal a b)
 
 
 
+let ( <= ) = leq
+
+let ( < ) = lt
+
+let ( >= ) = geq
+
+let ( > ) = gt
+
+let ( = ) = equal
+
+let ( <> ) a b = not (equal a b)
 
 
 (* 

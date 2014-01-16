@@ -40,8 +40,8 @@ let string_of_symbol = function
   | `OR -> "or"
   | `XOR -> "xor"
   | `EQ -> "="
-  | `NUMERAL n -> string_of_numeral n
-  | `DECIMAL d -> string_of_decimal d
+  | `NUMERAL n -> Numeral.string_of_numeral n
+  | `DECIMAL d -> Decimal.string_of_decimal d
   | `MINUS -> "-"
   | `PLUS -> "+"
   | `TIMES -> "*"
@@ -73,7 +73,7 @@ and pp_print_term_node depth ppf t = match Term.T.destruct t with
   | Term.T.Var var -> 
 
     pp_print_var 
-      (depth - (int_of_numeral (Var.offset_of_state_var_instance var))) 
+      (depth - (Numeral.to_int (Var.offset_of_state_var_instance var))) 
       ppf 
       var
       
@@ -255,7 +255,7 @@ and pp_print_app depth ppf = function
           [Term.T.mk_app 
              (Symbol.mk_symbol `MOD) 
              [a; Term.T.mk_const (Symbol.mk_symbol (`NUMERAL n))];
-           Term.T.mk_const (Symbol.mk_symbol (`NUMERAL (numeral_of_int 0)))]
+           Term.T.mk_const (Symbol.mk_symbol (`NUMERAL Numeral.zero))]
 	  
 	| _ -> assert false)
 	

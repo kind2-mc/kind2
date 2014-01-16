@@ -36,7 +36,7 @@ This file is part of the Kind verifier
 *)
 
 (** psummand is a constant or a variable with coefficient *)
-type psummand = int * (Var.t option)
+type psummand = Numeral.t * (Var.t option)
 
 (** poly is a list of psummands *)
 type poly = psummand list
@@ -46,8 +46,8 @@ type preAtom =
    | GT of poly
    | EQ of poly
    | INEQ of poly
-   | DIVISIBLE of (int * poly)
-   | INDIVISIBLE of (int * poly)
+   | DIVISIBLE of (Numeral.t * poly)
+   | INDIVISIBLE of (Numeral.t * poly)
 
 (** cformula is a list of Presburger Atom conjuncted together *)
 type cformula = preAtom list
@@ -62,7 +62,7 @@ val pp_print_cformula : Format.formatter -> cformula -> unit
 val poly_is_constant : poly -> bool
 
 (** Return the coefficient of a variable in a polynomial *)
-val get_coe_in_poly : Var.t -> poly -> int
+val get_coe_in_poly : Var.t -> poly -> Numeral.t
 
 (** Multiply two polynomials, one of them must be constant *)
 val multiply_two_polys : poly -> poly -> poly
@@ -81,7 +81,7 @@ val cformula_contains_variable : Var.t -> cformula -> bool
 
 (** Comparison of variables: variables to be eliminated earlier are
     smaller, compare as terms if none is to be eliminated *)
-val compare_variables : Var.t list -> Var.t -> Var.t -> int 
+val compare_variables : Var.t list -> Var.t -> Var.t -> int
 
 (* 
    Local Variables:

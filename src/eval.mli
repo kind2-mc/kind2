@@ -35,8 +35,8 @@ This file is part of the Kind verifier
 (** Type of value of a term *)
 type value =
   | ValBool of bool
-  | ValInt of int
-  | ValReal of float
+  | ValNum of Numeral.t
+  | ValDec of Decimal.t
   | ValTerm of Term.t
 
 (** Cast a value to a Boolean, raise [Invalid_argument] if value is
@@ -45,11 +45,11 @@ val bool_of_value : value -> bool
 
 (** Cast a value to an integer, raise [Invalid_argument] if value is
     not an integer *)
-val int_of_value : value -> int
+val num_of_value : value -> Numeral.t
 
 (** Cast a value to a float, raise [Invalid_argument] if value is
     not a float *)
-val float_of_value : value -> float
+val dec_of_value : value -> Decimal.t
 
 (** Cast a value to a term, raise [Invalid_argument] if value is
     unknown *)

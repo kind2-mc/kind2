@@ -169,7 +169,7 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 (* Add to offset of state variable instances *)
 let bump_state i term = 
 
-  let i' = numeral_of_int i in
+  let i' = Numeral.of_int i in
 
   (* Bump offset of state variables *)
   Term.T.map
@@ -191,7 +191,7 @@ let init_of_bound i z =
       (List.map 
          (function (v, t) -> 
            Term.mk_eq 
-             [Term.mk_var (Var.mk_state_var_instance v num_zero); t])
+             [Term.mk_var (Var.mk_state_var_instance v Numeral.zero); t])
          z.init)
   in 
 
@@ -209,7 +209,7 @@ let constr_of_bound i z =
       (List.map 
          (function (v, t) -> 
            Term.mk_eq 
-             [Term.mk_var (Var.mk_state_var_instance v num_one); t])
+             [Term.mk_var (Var.mk_state_var_instance v Numeral.one); t])
          (def_list_of_constr z))
   in 
 
@@ -240,7 +240,7 @@ let invars_of_bound i z =
 (* Get all state variables at a given offset in the term *)
 let state_vars_at_offset_of_term i term = 
 
-  let i' = numeral_of_int i in
+  let i' = Numeral.of_int i in
 
   (* Collect all variables in a set *)
   let var_set = 
@@ -266,7 +266,7 @@ let state_vars_at_offset_of_term i term =
 (* Get all state variables at a given offset in the term *)
 let vars_at_offset_of_term i term = 
 
-  let i' = numeral_of_int i in
+  let i' = Numeral.of_int i in
 
   (* Collect all variables in a set *)
   let var_set = 
@@ -359,8 +359,8 @@ let vars z =
 
   StateVar.fold
     (fun sv a -> 
-       Var.mk_state_var_instance sv (Lib.numeral_of_int 0) ::
-         Var.mk_state_var_instance sv (Lib.numeral_of_int 1) ::
+       Var.mk_state_var_instance sv Numeral.zero ::
+         Var.mk_state_var_instance sv Numeral.one ::
          a)
     []
 
@@ -384,7 +384,7 @@ let invars_of_types () =
        | Type.IntRange (l, u) -> 
          Term.mk_leq 
            [Term.mk_num l; 
-            Term.mk_var (Var.mk_state_var_instance v (numeral_of_int 0)); 
+            Term.mk_var (Var.mk_state_var_instance v Numeral.zero); 
             Term.mk_num u] :: 
            a
        | _ -> a)
@@ -553,7 +553,7 @@ let dependencies_of_constr t =
         let defining_vars = 
           Term.eval_t
             (function 
-              | Term.T.Var v when Var.offset_of_state_var_instance v = num_one -> 
+              | Term.T.Var v when Var.offset_of_state_var_instance v = Numeral.one -> 
                 (function 
                   | [] -> SVS.singleton (Var.state_var_of_state_var_instance v) 
                   | _ -> SVS.empty)
@@ -695,7 +695,9 @@ let rec defs_of_state_vars t dep accum = function
       
       (* Add definition if found, skip input or otherwise unspecified variables *)
       let accum' = 
-        try (Var.mk_state_var_instance h num_one, (SVT.find t.constr h)) :: accum with Not_found -> accum
+        try 
+          (Var.mk_state_var_instance h Numeral.one, (SVT.find t.constr h)) :: accum 
+        with Not_found -> accum
       in
       
       (* Recurse for tail of list *)

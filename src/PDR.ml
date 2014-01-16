@@ -964,7 +964,7 @@ let add_to_block_tl block_clause = function
           
   (* Add cube as proof obligation in next frame *)
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
-    (block_clause :: block_clauses, r_succ_i) :: block_clauses_tl
+    (block_clauses @ [block_clause], r_succ_i) :: block_clauses_tl
 
 
 
@@ -1098,9 +1098,10 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
                a)
           in
 
-          debug smt
-              "Adding clauses in frame R_%d" 
+          debug pdr
+              "Adding clauses in frame R_%d, %d clauses to block" 
               (succ (List.length frames_tl))
+              ((List.length block_clauses_tl) + 1)
           in
 
           (* Push a new scope onto the context *)

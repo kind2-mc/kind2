@@ -342,7 +342,7 @@ let const_of_smtlib_token b t =
     try
       
       (* Return decimal of string *)
-      Term.mk_dec (decimal_of_hstring t)
+      Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
         
     (* String is not a decimal *)
     with Invalid_argument _ -> 
@@ -350,7 +350,7 @@ let const_of_smtlib_token b t =
       try 
         
         (* Return numeral of string *)
-        Term.mk_num (numeral_of_hstring t)
+        Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
 
       with Invalid_argument _ -> 
         
@@ -652,7 +652,7 @@ let quantified_smtexpr_of_term quantifier vars term =
             type converted to an SMT sort *)
          let v' = 
            Var.mk_temp_var 
-             (HString.mk_hstring (sv ^ string_of_numeral o))
+             (HString.mk_hstring (sv ^ Numeral.string_of_numeral o))
              t'
          in
 

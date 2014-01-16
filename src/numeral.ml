@@ -31,6 +31,20 @@ let string_of_numeral = Big_int.string_of_big_int
 let of_int i = Big_int.big_int_of_int i
 
 
+let of_big_int i = i
+
+let to_big_int n = n
+
+
+let of_string s = 
+
+  try 
+
+    Big_int.big_int_of_string s 
+
+  with Failure _ -> raise (Failure "of_string")
+
+
 (* Convert a numeral to an integer *)
 let to_int n = 
 
@@ -109,6 +123,18 @@ let ( * ) = mult
 let ( / ) = div
 
 let ( mod ) = rem
+
+let ( <= ) = leq
+
+let ( < ) = lt
+
+let ( >= ) = geq
+
+let ( > ) = gt
+
+let ( = ) = equal
+
+let ( <> ) a b = not (equal a b)
 
 
 (* 

@@ -565,8 +565,8 @@ let eval_subterms cache term env =
 (* Value of an expression *)
 type value =
   | ValBool of bool
-  | ValInt of int
-  | ValReal of float
+  | ValNum of Numeral.t
+  | ValDec of Decimal.t
   | ValTerm of Term.t
 
 
@@ -579,17 +579,17 @@ let bool_of_value = function
     
 
 (* Extract the integer value from the value of an expression *)
-let int_of_value = function 
-  | ValInt b -> b
+let num_of_value = function 
+  | ValNum b -> b
   | ValTerm t -> 
-    invalid_arg ("int_of_value for term " ^ (string_of_t Term.pp_print_term t))
-  | _ -> invalid_arg "int_of_value"
+    invalid_arg ("num_of_value for term " ^ (string_of_t Term.pp_print_term t))
+  | _ -> invalid_arg "num_of_value"
 
 
 (* Extract the float value from the value of an expression *)
-let float_of_value = function 
-  | ValReal b -> b
-  | _ -> invalid_arg "float_of_value"
+let dec_of_value = function 
+  | ValDec b -> b
+  | _ -> invalid_arg "dec_of_value"
 
 
 (* Check if the value is unknown *)
@@ -602,8 +602,8 @@ let value_is_unknown = function
 let term_of_value = function 
   | ValBool true -> Term.mk_true ()
   | ValBool false -> Term.mk_false ()
-  | ValInt i -> Term.mk_num_of_int i
-  | ValReal f -> Term.mk_dec_of_float f
+  | ValNum n -> Term.mk_num n
+  | ValDec d -> Term.mk_dec d
   | ValTerm t -> t
 
 
@@ -619,10 +619,10 @@ let value_of_term term = match Term.destruct term with
       match Symbol.node_of_symbol s with 
 
         (* Term is an integer numeral *)
-        | `NUMERAL n -> ValInt (int_of_numeral n)
+        | `NUMERAL n -> ValNum n
 
         (* Term is a real decimal *)
-        | `DECIMAL d -> ValReal (float_of_decimal d)
+        | `DECIMAL d -> ValDec d
 
         (* Term is a propositional constant *)
         | `TRUE -> ValBool true
@@ -648,10 +648,10 @@ let value_of_term term = match Term.destruct term with
       match Symbol.node_of_symbol (Term.leaf_of_term c) with 
         
         (* Term is an integer numeral *)
-        | `NUMERAL n -> ValInt (- (int_of_numeral n))
+        | `NUMERAL n -> ValNum (Numeral.neg n)
                           
         (* Term is a real decimal *)
-        | `DECIMAL d -> ValReal (-. (float_of_decimal d))
+        | `DECIMAL d -> ValDec (Decimal.neg d)
 
         (* Term is not a constant *)
         | _ -> ValTerm term)

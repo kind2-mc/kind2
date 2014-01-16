@@ -52,8 +52,8 @@ type 'a polynomial = 'a * 'a monomial list
    negation normal form and contain only conjunctions,
    disjunctions and negations. *)
 type t = 
-  | Int of int polynomial
-  | Real of float polynomial
+  | Num of Numeral.t polynomial
+  | Dec of Decimal.t polynomial
   | Bool of Term.t 
 
 
@@ -138,27 +138,27 @@ let term_of_polynomial is_zero is_one mk_zero mk_const = function
 
 
 (* Convert an integer polynomial to a term *)
-let term_of_int_polynomial = 
+let term_of_num_polynomial = 
   term_of_polynomial 
-    ((=) 0)
-    ((=) 1)
-    (function () -> Term.mk_num_of_int 0)
-    (Term.mk_num_of_int)
+    (Numeral.equal Numeral.zero)
+    (Numeral.equal Numeral.one)
+    (function () -> Term.mk_num Numeral.zero)
+    Term.mk_num
 
 
 (* Convert a real polynomial to a term *)
-let term_of_real_polynomial = 
+let term_of_dec_polynomial = 
   term_of_polynomial 
-    ((=) 0.)
-    ((=) 1.)
-    (function () -> Term.mk_dec_of_float 0.)
-    (Term.mk_dec_of_float)
+    (Decimal.equal Decimal.zero)
+    (Decimal.equal Decimal.one) 
+    (function () -> Term.mk_dec Decimal.zero)
+    Term.mk_dec
 
 
 (* Convert a normal form to a term *)
 let term_of_nf = function 
-  | Int p -> term_of_int_polynomial p
-  | Real p -> term_of_real_polynomial p
+  | Num p -> term_of_num_polynomial p
+  | Dec p -> term_of_dec_polynomial p
   | Bool b -> b
 
 
@@ -168,14 +168,14 @@ let term_of_nf = function
 
 
 (* Return the integer polynomial in an integer normal form *)
-let int_polynomial_of_nf = function 
-  | Int p -> p
+let num_polynomial_of_nf = function 
+  | Num p -> p
   | _ -> assert false
 
 
 (* Return the real polynomial in a real normal form *)
-let real_polynomial_of_nf = function 
-  | Real p -> p
+let dec_polynomial_of_nf = function 
+  | Dec p -> p
   | _ -> assert false
 
 
@@ -192,11 +192,11 @@ let bool_of_nf = function
 
 (* Return true if normal form is variable-free *)
 let is_constant = function 
-  | Int (_, [])
-  | Real (_, [])  -> true
+  | Num (_, [])
+  | Dec (_, [])  -> true
   | Bool b when b == Term.t_true || b == Term.t_false -> true
-  | Int _
-  | Real _ 
+  | Num _
+  | Dec _ 
   | Bool _ -> false
 
 
@@ -211,14 +211,14 @@ let const_of_polynomial = function (c, _) -> c
 
 
 (* Return the constant of an integer polynomial *)
-let const_of_int_polynomial = function 
-  | Int p -> const_of_polynomial p
+let const_of_num_polynomial = function 
+  | Num p -> const_of_polynomial p
   | _ -> assert false 
 
 
 (* Return the constant of a real polynomial *)
-let const_of_real_polynomial = function 
-  | Real p -> const_of_polynomial p
+let const_of_dec_polynomial = function 
+  | Dec p -> const_of_polynomial p
   | _ -> assert false 
   
 
@@ -425,25 +425,26 @@ let subtract_and_normalize_polynomials
 (* ********************************************************************** *)
 
 
-let add_int_monomial_lists = add_monomial_lists (+) ((=) 0)
+let add_num_monomial_lists = add_monomial_lists Numeral.(+) (Numeral.equal Numeral.zero)
 
-let add_int_polynomials = add_polynomials (+) 0 ((=) 0)
+let add_num_polynomials = add_polynomials Numeral.(+) Numeral.zero (Numeral.equal Numeral.zero)
 
-let const_multiply_int_monomial_list = const_multiply_monomial_list ( * )
+let const_multiply_num_monomial_list = const_multiply_monomial_list Numeral.( * )
 
-let const_multiply_int_polynomial = const_multiply_polynomial ( * )
+let const_multiply_num_polynomial = const_multiply_polynomial Numeral.( * )
 
-let negate_int_monomial_list = negate_monomial_list ( * ) (- 1)
+let negate_num_monomial_list = negate_monomial_list Numeral.( * ) (Numeral.neg Numeral.one)
 
-let negate_int_polynomial = negate_polynomial ( * ) (- 1)
+let negate_num_polynomial = negate_polynomial Numeral.( * ) (Numeral.neg Numeral.one)
 
-let multiply_int_polynomials = multiply_polynomials ( * ) ((=) 0) 0
+let multiply_num_polynomials = 
+  multiply_polynomials Numeral.( * ) (Numeral.equal Numeral.zero) Numeral.zero
 
-let subtract_and_normalize_int_polynomials = 
+let subtract_and_normalize_num_polynomials = 
   subtract_and_normalize_polynomials 
-    add_int_polynomials 
-    negate_int_polynomial 
-    0
+    add_num_polynomials 
+    negate_num_polynomial 
+    Numeral.zero
 
 
 (* ********************************************************************** *)
@@ -451,25 +452,26 @@ let subtract_and_normalize_int_polynomials =
 (* ********************************************************************** *)
 
 
-let add_real_monomial_lists = add_monomial_lists (+.) ((=) 0.)
+let add_dec_monomial_lists = add_monomial_lists Decimal.(+) (Decimal.equal Decimal.zero)
 
-let add_real_polynomials = add_polynomials (+.) 0. ((=) 0.)
+let add_dec_polynomials = add_polynomials Decimal.(+) Decimal.zero (Decimal.equal Decimal.zero)
 
-let const_multiply_real_monomial_list = const_multiply_monomial_list ( *. )
+let const_multiply_dec_monomial_list = const_multiply_monomial_list Decimal.( * )
 
-let const_multiply_real_polynomial = const_multiply_polynomial ( *. )
+let const_multiply_dec_polynomial = const_multiply_polynomial Decimal.( * )
 
-let negate_real_monomial_list = negate_monomial_list ( *. ) (-. 1.)
+let negate_dec_monomial_list = negate_monomial_list Decimal.( * ) (Decimal.neg Decimal.one)
 
-let negate_real_polynomial = negate_polynomial ( *. ) (-. 1.)
+let negate_dec_polynomial = negate_polynomial Decimal.( * ) (Decimal.neg Decimal.one)
 
-let multiply_real_polynomials = multiply_polynomials ( *. ) ((=) 0.) 0.
+let multiply_dec_polynomials = 
+  multiply_polynomials Decimal.( * ) (Decimal.equal Decimal.zero) Decimal.zero
 
-let subtract_and_normalize_real_polynomials = 
+let subtract_and_normalize_dec_polynomials = 
   subtract_and_normalize_polynomials 
-    add_real_polynomials 
-    negate_real_polynomial 
-    0.
+    add_dec_polynomials 
+    negate_dec_polynomial 
+    Decimal.zero
 
 
 (* ********************************************************************** *)
@@ -478,35 +480,35 @@ let subtract_and_normalize_real_polynomials =
 
 
 (* Sum up a list of integer polynomials *)
-let add_int args = 
+let add_num args = 
 
-  let args' = List.map int_polynomial_of_nf args in
+  let args' = List.map num_polynomial_of_nf args in
 
-  add_int_polynomials args'
+  add_num_polynomials args'
 
 
 (* Sum up a list of real polynomials *)
-let add_real args = 
+let add_dec args = 
 
-  let args' = List.map real_polynomial_of_nf args in
+  let args' = List.map dec_polynomial_of_nf args in
 
-  add_real_polynomials args'
+  add_dec_polynomials args'
 
 
 (* Multiply two integer polynomials *)
-let multiply_int p1 p2 = 
+let multiply_num p1 p2 = 
 
-  let p1', p2' = int_polynomial_of_nf p1, int_polynomial_of_nf p2 in
+  let p1', p2' = num_polynomial_of_nf p1, num_polynomial_of_nf p2 in
 
-  multiply_int_polynomials p1' p2'
+  multiply_num_polynomials p1' p2'
 
 
 (* Multiply two real polynomials *)
-let multiply_real p1 p2 = 
+let multiply_dec p1 p2 = 
 
-  let p1', p2' = real_polynomial_of_nf p1, real_polynomial_of_nf p2 in
+  let p1', p2' = dec_polynomial_of_nf p1, dec_polynomial_of_nf p2 in
 
-  multiply_real_polynomials p1' p2'
+  multiply_dec_polynomials p1' p2'
 
 
 (* Sum up a list of real or integer normal forms *)
@@ -516,10 +518,10 @@ let add = function
   | [] -> assert false 
     
   (* Add as integer polynomials if head of list is integer *)
-  | Int _ :: _ as args -> Int (add_int args)
+  | Num _ :: _ as args -> Num (add_num args)
                     
   (* Add as real polynomials if head of list is real *)
-  | Real _ :: _ as args -> Real (add_real args)
+  | Dec _ :: _ as args -> Dec (add_dec args)
                      
   (* Cannot add other types *)
   | _ -> assert false
@@ -532,22 +534,22 @@ let minus = function
   | [] -> assert false 
 
   (* Unary integer minus: negate polynomial to (- c - p) *)
-  | [Int p] -> Int (negate_int_polynomial p)
+  | [Num p] -> Num (negate_num_polynomial p)
 
   (* Unary real minus: negate polynomial to (- c - p) *)
-  | [Real p] -> Real (negate_real_polynomial p)
+  | [Dec p] -> Dec (negate_dec_polynomial p)
 
   (* Binary integer minus or higher arity: (h - s1 - ... - sn) reduce
      to (h - (s1 + ... + sn) *)
-  | Int p :: tl -> 
+  | Num p :: tl -> 
 
-    Int (add_int_polynomials [p; negate_int_polynomial (add_int tl)])
+    Num (add_num_polynomials [p; negate_num_polynomial (add_num tl)])
 
   (* Binary real minus or higher arity: (h - s1 - ... - sn) reduce to
      (h - (s1 + ... + sn) *)
-  | Real p :: tl -> 
+  | Dec p :: tl -> 
 
-    Real (add_real_polynomials [p; negate_real_polynomial (add_real tl)])
+    Dec (add_dec_polynomials [p; negate_dec_polynomial (add_dec tl)])
 
   (* Cannot subtract other types *)
   | _ -> assert false
@@ -560,22 +562,22 @@ let times = function
   | [] -> assert false 
     
   (* Multiply as integer polynomials if head of list is integer *)
-  | Int p :: tl -> 
+  | Num p :: tl -> 
     
-    Int 
+    Num 
       (List.fold_left 
-         multiply_int_polynomials 
+         multiply_num_polynomials 
          p 
-         (List.map int_polynomial_of_nf tl))
+         (List.map num_polynomial_of_nf tl))
                     
   (* Multiply as real polynomials if head of list is real *)
-  | Real p :: tl -> 
+  | Dec p :: tl -> 
 
-    Real
+    Dec
       (List.fold_left 
-         multiply_real_polynomials 
+         multiply_dec_polynomials 
          p 
-         (List.map real_polynomial_of_nf tl))
+         (List.map dec_polynomial_of_nf tl))
                      
   (* Cannot multiply other types *)
   | _ -> assert false
@@ -619,8 +621,8 @@ let flatten_bool_subterms s l =
       flatten_bool_subterms' symbol accum' tl
 
     (* Fail on non-boolean arguments *)
-    | Int _ :: _ 
-    | Real _ :: _ -> assert false
+    | Num _ :: _ 
+    | Dec _ :: _ -> assert false
 
   in
 
@@ -755,8 +757,8 @@ let implies_to_or args =
     | [] -> assert false
     | [a] -> List.rev (a :: accum)
     | Bool h :: tl -> implies_to_or' (Bool (negate_nnf h) :: accum) tl
-    | Int _ :: _
-    | Real _ :: _ -> assert false
+    | Num _ :: _
+    | Dec _ :: _ -> assert false
   in
 
   implies_to_or' [] args 
@@ -767,12 +769,12 @@ let implies_to_or args =
 let subtract_and_normalize a b = match a, b with 
 
   (* Two integer polynomials *)
-  | Int a, Int b -> 
-    let s, r = subtract_and_normalize_int_polynomials a b in s, Int r
+  | Num a, Num b -> 
+    let s, r = subtract_and_normalize_num_polynomials a b in s, Num r
 
   (* Two real polynomials *)
-  | Real a, Real b -> 
-    let s, r = subtract_and_normalize_real_polynomials a b in s, Real r
+  | Dec a, Dec b -> 
+    let s, r = subtract_and_normalize_dec_polynomials a b in s, Dec r
 
   (* Cannot subtract *)
   | _ -> assert false
@@ -877,17 +879,17 @@ let relation
     | [_] -> assert false
 
     (* Relation between integers *)
-    | Int _ :: _ as args -> 
+    | Num _ :: _ as args -> 
 
       (* Compute relation between constant integer polynomials *)
       let irel p q = 
-        rel (const_of_int_polynomial p) (const_of_int_polynomial q) 
+        rel (const_of_num_polynomial p) (const_of_num_polynomial q) 
       in
 
       (* Compute converse of relation between constant integer
          polynomials *)
       let irel' p q = 
-        rel' (const_of_int_polynomial p) (const_of_int_polynomial q) 
+        rel' (const_of_num_polynomial p) (const_of_num_polynomial q) 
       in
 
       (* Normalize relation *)
@@ -897,22 +899,22 @@ let relation
         irel'
         mk_rel 
         mk_rel' 
-        (Int (0, [])) 
-        (Term.mk_num_of_int 0)
+        (Num (Numeral.zero, [])) 
+        (Term.mk_num Numeral.zero)
         args
 
     (* Relation between reals *)
-    | Real _ :: _ as args -> 
+    | Dec _ :: _ as args -> 
 
       (* Compute relation between constant real polynomials *)
       let rrel p q = 
-        rel (const_of_real_polynomial p) (const_of_real_polynomial q) 
+        rel (const_of_dec_polynomial p) (const_of_dec_polynomial q) 
       in
 
       (* Compute converse of relation between constant real
          polynomials *)
       let rrel' p q = 
-        rel' (const_of_real_polynomial p) (const_of_real_polynomial q) 
+        rel' (const_of_dec_polynomial p) (const_of_dec_polynomial q) 
       in
 
       (* Normalize relation *)
@@ -922,8 +924,8 @@ let relation
         rrel' 
         mk_rel 
         mk_rel' 
-        (Real (0., [])) 
-        (Term.mk_dec_of_float 0.)
+        (Dec (Decimal.zero, [])) 
+        (Term.mk_dec Decimal.zero)
         args
 
     (* Relation must be between integers or reals *)
@@ -966,15 +968,15 @@ let atom_of_term t =
   if Type.is_int tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
-    Int (0, [1, [t]])
+    Num (Numeral.zero, [Numeral.one, [t]])
 
-        (* Term is of type real *)
+  (* Term is of type real *)
   else if Type.is_real tt then
 
     (* Real polynomial for a variable is (0 + 1 * x) *)
-    Real (0., [1., [t]])
+    Dec (Decimal.zero, [Decimal.one, [t]])
 
-         (* Term is of type Boolean *)
+  (* Term is of type Boolean *)
   else if Type.is_bool tt then
 
     (* Variable is an atom *)
@@ -1014,10 +1016,10 @@ let rec simplify_term_node fterm args =
         match Symbol.node_of_symbol s with 
 
           (* Polynomial for a numeral is n *)
-          | `NUMERAL n -> Int (int_of_numeral n, [])
+          | `NUMERAL n -> Num (n, [])
 
-          (* Polynomial for a numeral is n *)
-          | `DECIMAL d -> Real (float_of_decimal d, [])
+          (* Polynomial for a decimal is d *)
+          | `DECIMAL d -> Dec (d, [])
 
           (* Propositional constant *)
           | `TRUE -> Bool (Term.t_true)
@@ -1298,10 +1300,10 @@ let rec simplify_term_node fterm args =
                   (Bool term' :: tl)
 
               (* Not well-typed arguments *)
-              | Bool _ :: Int _ :: _
-              | Bool _ :: Real _ :: _
-              | Int _ :: _ 
-              | Real _ :: _  -> assert false
+              | Bool _ :: Num _ :: _
+              | Bool _ :: Dec _ :: _
+              | Num _ :: _ 
+              | Dec _ :: _  -> assert false
 
             )
 
@@ -1359,34 +1361,34 @@ let rec simplify_term_node fterm args =
 
               (* Choose left branch if predicate is true *)
               | [Bool p; Bool l; _] when p == Term.t_true -> Bool l
-              | [Bool p; Int l; _] when p == Term.t_true -> Int l
-              | [Bool p; Real l; _] when p == Term.t_true -> Real l
+              | [Bool p; Num l; _] when p == Term.t_true -> Num l
+              | [Bool p; Dec l; _] when p == Term.t_true -> Dec l
 
               (* Choose right branch if predicate is false *)
               | [Bool p; _; Bool r] when p == Term.t_false -> Bool r
-              | [Bool p; _; Int r] when p == Term.t_false -> Int r
-              | [Bool p; _; Real r] when p == Term.t_false -> Real r
+              | [Bool p; _; Num r] when p == Term.t_false -> Num r
+              | [Bool p; _; Dec r] when p == Term.t_false -> Dec r
 
               (* Evaluate to a Boolean *)
               | [Bool p; Bool l; Bool r] -> Bool (Term.mk_ite p l r)
 
               (* Evaluate to an integer atom *)
-              | [Bool p; Int l; Int r] -> 
+              | [Bool p; Num l; Num r] -> 
 
                 (atom_of_term
                    (Term.mk_ite 
                       p 
-                      (term_of_int_polynomial l) 
-                      (term_of_int_polynomial r)))
+                      (term_of_num_polynomial l) 
+                      (term_of_num_polynomial r)))
 
               (* Evaluate to a real atom *)
-              | [Bool p; Real l; Real r] -> 
+              | [Bool p; Dec l; Dec r] -> 
 
                   (atom_of_term
                      (Term.mk_ite 
                         p 
-                        (term_of_real_polynomial l) 
-                        (term_of_real_polynomial r)))
+                        (term_of_dec_polynomial l) 
+                        (term_of_dec_polynomial r)))
 
               (* Not well-typed or wrong arity *)
               | _ -> assert false 
@@ -1399,7 +1401,7 @@ let rec simplify_term_node fterm args =
             (match args with 
 
               (* Divisibility is a unary predicate of an integer *)
-              | [Int d] -> 
+              | [Num d] -> 
                 
                 (* Argument is constant? *)
                 if is_constant_polynomial d then
@@ -1407,7 +1409,9 @@ let rec simplify_term_node fterm args =
                   (if 
                     
                     (* Evaluate (t divisible n) as (= 0 (mod t n)) *)
-                    (const_of_polynomial d) mod (int_of_numeral n) = 0 
+                    Numeral.equal 
+                      (Numeral.(mod) (const_of_polynomial d) n)
+                      Numeral.zero
                     
                    then 
                      
@@ -1423,7 +1427,7 @@ let rec simplify_term_node fterm args =
                   
                   (* Divisibility predicate becomes new atom *)
                   atom_of_term 
-                    (Term.mk_divisible n (term_of_int_polynomial d))
+                    (Term.mk_divisible n (term_of_num_polynomial d))
 
               (* Not well-typed or wrong arity *)
               | _ -> assert false)
@@ -1444,14 +1448,14 @@ let rec simplify_term_node fterm args =
             if List.for_all is_constant args then 
 
               (* Get all constants of polynomials *)
-              match List.map const_of_real_polynomial args with 
+              match List.map const_of_dec_polynomial args with 
 
                 (* Integer division must be at least binary *)
                 | [] 
                 | [_] -> assert false 
 
                 (* Divide first argument by remaining arguments *)
-                | h :: tl -> Real ((List.fold_left (/.) h tl), [])
+                | h :: tl -> Dec ((List.fold_left Decimal.( / ) h tl), [])
 
             else
 
@@ -1460,7 +1464,7 @@ let rec simplify_term_node fterm args =
                  TODO: `DIV is variadic and left-associative, we
                  could simplify terms like (div 2 2 a) = (div 1 a) and
                  also (div a 2 2) = (div a 1) = a *)
-              Int (0, [1, [Term.mk_div (List.map term_of_nf args)]])
+              Num (Numeral.zero, [Numeral.one, [Term.mk_div (List.map term_of_nf args)]])
 
           (* Integer division is a monomial with polynomial subterms *)
           | `INTDIV -> 
@@ -1468,14 +1472,14 @@ let rec simplify_term_node fterm args =
             (* Evaluate to a polynomial if all arguemnts constant *)
             if List.for_all is_constant args then 
 
-              match List.map const_of_int_polynomial args with 
+              match List.map const_of_num_polynomial args with 
 
                 (* Integer division must be at least binary *)
                 | [] 
                 | [_] -> assert false 
 
                 (* Divide first argument by remaining arguments *)
-                | h :: tl -> Int ((List.fold_left (/) h tl), [])
+                | h :: tl -> Num ((List.fold_left Numeral.(/) h tl), [])
 
             else
 
@@ -1484,7 +1488,7 @@ let rec simplify_term_node fterm args =
                   TODO: `INTDIV is variadic and left-associative, we
                   could simplify terms like (div 2 2 a) = (div 1 a)
                   and also (div a 2 2) = (div a 1) = a *)
-              Int (0, [1, [Term.mk_intdiv (List.map term_of_nf args)]])
+              Num (Numeral.zero, [Numeral.one, [Term.mk_intdiv (List.map term_of_nf args)]])
 
           (* Moudulus is a monomial with polynomial subterms *)
           | `MOD -> 
@@ -1492,13 +1496,13 @@ let rec simplify_term_node fterm args =
             (match args with 
 
               (* Evaluate to a polynomial if both arguments are constant *)
-              | [Int (n, []); Int (m, [])] -> Int ((n mod m), [])
+              | [Num (n, []); Num (m, [])] -> Num (Numeral.(n mod m), [])
 
               (* Non-constant polynomial arguments *)
               | [a; b] -> 
 
                 (* New polynomial with modulus as atom *)
-                Int (0, [1, [Term.mk_mod (term_of_nf a) (term_of_nf b)]])
+                Num (Numeral.zero, [Numeral.one, [Term.mk_mod (term_of_nf a) (term_of_nf b)]])
 
               (* Modulus is only binary *)
               | _ -> assert false 
@@ -1512,17 +1516,17 @@ let rec simplify_term_node fterm args =
 
               (* Evaluate to a polynomial if integer argument is
                  constant *)
-              | [Int (n, [])] -> Int ((abs n), [])
+              | [Num (n, [])] -> Num ((Numeral.abs n), [])
 
               (* Evaluate to a polynomial if real argument is
                  constant *)
-              | [Real (d, [])] -> Real ((abs_float d), [])
+              | [Dec (d, [])] -> Dec ((Decimal.abs d), [])
 
               (* Non-constant real or integer polynomial argument *)
               | [a] ->
 
                 (* New polynomial with absolute value as atom *)
-                Int (0, [1, [Term.mk_abs (term_of_nf a)]])
+                Num (Numeral.zero, [Numeral.one, [Term.mk_abs (term_of_nf a)]])
 
               (* Absolute value is only unary *)
               | _ -> assert false 
@@ -1537,13 +1541,13 @@ let rec simplify_term_node fterm args =
 
               (* Evaluate to a polynomial if real argument is
                  constant *)
-              | [Real (d, [])] -> Int (int_of_float (floor d), [])
+              | [Dec (d, [])] -> Num (Numeral.of_big_int (Decimal.to_big_int d), [])
 
               (* Non-constant polynomial argument *)
-              | [Real _ as a] -> 
+              | [Dec _ as a] -> 
 
                 (* New polynomial with integer value as atom *)
-                Int (0, [1, [Term.mk_to_int (term_of_nf a)]])
+                Num (Numeral.zero, [Numeral.one, [Term.mk_to_int (term_of_nf a)]])
 
               (* Conversion is only unary *)
               | _ -> assert false 
@@ -1558,13 +1562,13 @@ let rec simplify_term_node fterm args =
 
               (* Evaluate to a polynomial if integer argument is
                  constant *)
-              | [Int (n, [])] -> Real (float_of_int n, [])
+              | [Num (n, [])] -> Dec (Decimal.of_big_int (Numeral.to_big_int n), [])
 
               (* Non-constant polynomial argument *)
-              | [Int _ as a] -> 
+              | [Num _ as a] -> 
 
                 (* New polynomial with integer value as atom *)
-                Int (0, [1, [Term.mk_to_int (term_of_nf a)]])
+                Dec (Decimal.zero, [Decimal.one, [Term.mk_to_int (term_of_nf a)]])
 
               (* Conversion is only unary *)
               | _ -> assert false 
