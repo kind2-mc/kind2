@@ -182,7 +182,7 @@ let unchain_LEQ_to_iformula (c: Var.t -> Var.t -> int) (ifl: iformula list) : if
                               c 
                               [] 
                               (add_two_polys c [] (negate_poly pl1) pl2) 
-                              [(1, None)])]) 
+                              [(Numeral.one, None)])]) 
                     accum)
                    
                | _ -> 
@@ -269,7 +269,7 @@ let unchain_GEQ_to_iformula (c: Var.t -> Var.t -> int) (ifl: iformula list) : if
                               c 
                               [] 
                               (add_two_polys c [] pl1 (negate_poly pl2)) 
-                              [(1, None)])]) 
+                              [(Numeral.one, None)])]) 
                     accum)
                    
                | _ -> 
@@ -334,20 +334,20 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
         match fterm with
 
      	    | Term.T.Var var ->
-            Poly [(1, Some var)]
+            Poly [(Numeral.one, Some var)]
 
           | Term.T.Const sym
           | Term.T.App (sym, _) ->
             (match Symbol.node_of_symbol sym, args with
               (* true becomes 1 > 0 *)
-              | `TRUE, _ -> Formula [GT [(1, None)]]
+              | `TRUE, _ -> Formula [GT [(Numeral.one, None)]]
 
               (* false becomes -1 > 0 *)
-              | `FALSE, _ -> Formula [GT [(-1, None)]]
+              | `FALSE, _ -> Formula [GT [(Numeral.(neg one), None)]]
 
               (* not (p > 0) becomes (-p + 1 > 0) *)
               | `NOT, [Formula [GT pl]] ->
-                Formula [GT (add_two_polys c [] [(1, None)] (negate_poly pl))]
+                Formula [GT (add_two_polys c [] [(Numeral.one, None)] (negate_poly pl))]
 
               (* not (p = 0) becomes (p != 0) *)
               | `NOT, [Formula [EQ pl]] -> Formula [INEQ pl]
@@ -429,8 +429,8 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
 
               (* Turn numeral into polynomial of constant *)
-              | `NUMERAL(i), _ ->
-                Poly [((Lib.int_of_numeral i), None)]
+              | `NUMERAL i, _ ->
+                Poly [(i, None)]
 
               (* Fail on not integer numerals *)
               | `DECIMAL _, _ ->
@@ -529,8 +529,8 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
               
               (* Turn divisibility predicate into an iformula *)
-              | `DIVISIBLE(i), [Poly pl] ->
-                Formula [DIVISIBLE ((Lib.int_of_numeral i), pl)]
+              | `DIVISIBLE i, [Poly pl] ->
+                Formula [DIVISIBLE (i, pl)]
 
               | _ ->
                 failwith "Illegal symbol and arguments in to_presburger."
@@ -550,17 +550,17 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 let term_of_psummand = function 
 
   (* Monomial contains a variable *)
-  | (c, Some v) -> Term.mk_times [Term.mk_num_of_int c; Term.mk_var v]
+  | (c, Some v) -> Term.mk_times [Term.mk_num c; Term.mk_var v]
   
   (* Monomial is a constant *)
-  | (c, None) -> Term.mk_num_of_int c
+  | (c, None) -> Term.mk_num c
 
 
 (* Convert a polynomial to a term *)
 let term_of_poly = function
 
   (* Empty polynomial *)
-  | [] -> Term.mk_num_of_int 0
+  | [] -> Term.mk_num Numeral.zero
 
   (* Singleton polynomial *)
   | [smd] -> term_of_psummand smd
@@ -580,7 +580,7 @@ let term_of_preAtom = function
       (* 0 > 0 becomes false *)
       | [] -> Term.mk_false ()
 
-      | _ -> Term.mk_gt [(term_of_poly poly); Term.mk_num_of_int 0]
+      | _ -> Term.mk_gt [(term_of_poly poly); Term.mk_num Numeral.zero]
         
     )
 
@@ -619,7 +619,7 @@ let term_of_preAtom = function
 
       | _ -> 
 
-        Term.mk_divisible (Lib.numeral_of_int i) (term_of_poly poly)
+        Term.mk_divisible i (term_of_poly poly)
 
     )
 
@@ -634,9 +634,7 @@ let term_of_preAtom = function
       | _ -> 
 
         Term.mk_not
-          (Term.mk_divisible
-             (Lib.numeral_of_int i)
-             (term_of_poly poly))
+          (Term.mk_divisible i (term_of_poly poly))
 
     )
           

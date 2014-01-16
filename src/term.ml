@@ -328,9 +328,10 @@ let rec type_of_term t = match T.destruct t with
                    Type.node_of_type (type_of_term b))
                with
                  | Type.BV i, Type.BV j -> 
-                  Type.mk_bv 
-                    (numeral_of_int ((int_of_numeral i) + (int_of_numeral j)))
-                | _ -> assert false)
+
+                   Type.mk_bv (i + j)
+
+                 | _ -> assert false)
                 
             | _ -> assert false)
      
@@ -339,8 +340,9 @@ let rec type_of_term t = match T.destruct t with
         | `EXTRACT (i, j) -> 
           
           (* Compute width of resulting bitvector *)
-          Type.mk_bv 
-            ((numeral_of_int ((int_of_numeral j) - (int_of_numeral i) + 1)))
+          Type.mk_bv
+            ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+
             
         (* Array-valued function *)
         | `SELECT -> 
@@ -722,16 +724,17 @@ let mk_num_of_int = function
 
   (* Positive numeral or zero *)
   | i when i >= 0 -> 
-    mk_const_of_symbol_node (`NUMERAL (numeral_of_int i))
+    mk_const_of_symbol_node (`NUMERAL (Numeral.of_int i))
 
   (* Wrap a negative numeral in a unary minus *)
   | i -> 
-    mk_minus [(mk_const_of_symbol_node (`NUMERAL (numeral_of_int (- i))))]
+    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.of_int (- i))))]
       
 
 (* Hashcons a real decimal *)
 let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
 
+(*
 
 (* Hashcons a floating-point decimal given a float *)
 let mk_dec_of_float = function
@@ -743,7 +746,7 @@ let mk_dec_of_float = function
   (* Negative decimal *)
   | f -> 
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
-
+*)
 
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
@@ -968,7 +971,9 @@ struct
 
   let ( ?%@ ) i = mk_num_of_int i
 
+(*
   let ( ?/@ ) f = mk_dec_of_float f
+*)
 
   let ( !@ ) t = mk_not t
 

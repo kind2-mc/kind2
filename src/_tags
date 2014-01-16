@@ -16,9 +16,9 @@ true: -traverse
 <kind1/*.ml>: debug,annot
 
 # Use Unix, Str, ZMQ and Thread modules  
-<*.native>: use_unix,use_str,use_ZMQ,thread
-<*.byte>: use_unix,use_str,use_ZMQ,thread
-<*.top>: debug,use_unix,use_str,use_ZMQ,thread
+<*.native>: use_nums,use_unix,use_str,use_ZMQ,thread
+<*.byte>: use_nums,use_unix,use_str,use_ZMQ,thread
+<*.top>: debug,use_nums,use_unix,use_str,use_ZMQ,thread
 
 # Source files that use the Thread and ZMQ modules
 <messaging.ml>: thread,use_ZMQ

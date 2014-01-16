@@ -42,7 +42,7 @@ open Lib
 type var = 
 
   (* Variable is an instance of a state variable *)
-  | StateVarInstance of StateVar.t * numeral 
+  | StateVarInstance of StateVar.t * Numeral.t
 
   (* Temporary variable to be bound to in a let expression or by a
      quantifier *)
@@ -90,7 +90,7 @@ module Var_node = struct
 
       (* Equal if the state variables are physically equal and the
          indexes are equal *)
-      sv1 == sv2 && i1 = i2
+      sv1 == sv2 && Numeral.equal i1 i2
 
     (* Two temporary variables *)
     | TempVar (s1, t1), TempVar (s2, t2) -> 
@@ -184,7 +184,10 @@ let pp_print_var_node ppf = function
 
   (* Pretty-print an instance of a state variable *)
   | StateVarInstance (v, o) ->
-    Format.fprintf ppf "%a'%a" StateVar.pp_print_state_var v pp_print_numeral o
+    Format.fprintf ppf 
+      "%a'%a" 
+      StateVar.pp_print_state_var v
+      Numeral.pp_print_numeral o
       
   (* Pretty-print a temporary variable *)
   | TempVar (s, _) -> 
@@ -272,7 +275,7 @@ let import = function
 let bump_offset_of_state_var_instance i = function 
 
   | { Hashcons.node = StateVarInstance (v, o) } -> 
-    mk_state_var_instance v (o +% i)
+    mk_state_var_instance v Numeral.(o + i)
 
   | { Hashcons.node = TempVar _ } -> 
     raise (Invalid_argument "bump_offset_of_state_var_instance")

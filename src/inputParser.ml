@@ -54,19 +54,21 @@ let rec parse_stream = parser
   and parse_sequence = parser
         |[< 'Int value; 
             int_sequence = parse_int_sequence [Term.mk_num_of_int value] >] ->  int_sequence
+(* TODO: parse this as a rational number with numerator and denominator 
 		|[<'Float value;
 		    float_sequence = parse_float_sequence  [Term.mk_dec_of_float value] >] ->  float_sequence
+*)
 		|[<'Kwd "true";  bool_sequence = parse_bool_sequence [ Term.t_true] >]  -> bool_sequence
 		|[<'Kwd "false"; bool_sequence = parse_bool_sequence [Term.t_false] >] ->  bool_sequence
 
   and parse_int_sequence l = parser
 		|[<'Kwd "," ;'Int value; int_sequence = parse_int_sequence ((Term.mk_num_of_int value)::l) >] -> int_sequence
 		|[<>] -> List.rev l
-				
+(*				
   and parse_float_sequence l = parser
 		|[<'Kwd "," ;'Float value;  float_sequence = parse_float_sequence ((Term.mk_dec_of_float value)::l)>] -> float_sequence
 		|[<>] -> List.rev l
-				
+*)				
   and parse_bool_sequence l  = parser
 		|[<'Kwd "," ; b = parse_bool_sequence_aux l >] -> b
 		|[<>] -> List.rev l

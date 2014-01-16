@@ -59,8 +59,8 @@ type interpreted_symbol =
   | `DISTINCT             (* Pairwise distinct predicate (chainable) *)
   | `ITE                  (* If-then-else (ternary) *) 
 
-  | `NUMERAL of numeral   (* Infinite precision integer numeral (nullary) *)
-  | `DECIMAL of decimal 
+  | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
+  | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
   | `BV of bitvector      (* Constant bitvector *)
 
@@ -79,11 +79,11 @@ type interpreted_symbol =
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
   | `IS_INT               (* Real is an integer (unary) *)
 
-  | `DIVISIBLE of numeral 
+  | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
 
   | `CONCAT               (* Concatenation of bitvectors (binary) *)
-  | `EXTRACT of numeral * numeral 
+  | `EXTRACT of Numeral.t * Numeral.t 
                           (* Extract subsequence from bitvector (unary) *)
   | `BVNOT                (* Bit-wise negation (unary) *)
   | `BVNEG                (* Arithmetic negation (unary) *)
@@ -144,7 +144,11 @@ module Symbol_node = struct
   type prop = symbol_prop
 
   (* Equality of two symbols *)
-  let equal = (=)
+  let equal s1 s2 = match s1, s2 with 
+    | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
+    | _, `NUMERAL _ 
+    | `NUMERAL _, _ -> false
+    | _ -> s1 = s2
 
   (* Return hash of a symbol *)
   let hash = Hashtbl.hash
@@ -243,8 +247,8 @@ let rec pp_print_symbol_node ppf = function
   | `DISTINCT -> Format.pp_print_string ppf "distinct"
   | `ITE -> Format.pp_print_string ppf "ite" 
 
-  | `NUMERAL i -> pp_print_numeral ppf i
-  | `DECIMAL f -> pp_print_decimal ppf f
+  | `NUMERAL i -> Numeral.pp_print_numeral ppf i
+  | `DECIMAL f -> Decimal.pp_print_decimal ppf f
   | `BV b -> pp_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -267,15 +271,15 @@ let rec pp_print_symbol_node ppf = function
   | `DIVISIBLE n -> 
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
-    pp_print_numeral ppf n
+    Numeral.pp_print_numeral ppf n
 
   | `CONCAT -> Format.pp_print_string ppf "to_real"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
       ppf 
       "(_ extract %a %a)" 
-      pp_print_numeral i
-      pp_print_numeral j
+      Numeral.pp_print_numeral i
+      Numeral.pp_print_numeral j
 
   | `BVNOT -> Format.pp_print_string ppf "bvnot"
   | `BVNEG -> Format.pp_print_string ppf "bvneg"

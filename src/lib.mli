@@ -35,72 +35,11 @@ This file is part of the Kind verifier
 
 (** {1 Infinite-precision numbers and bit-vectors} *)
 
-(** Infinite-precision integer numeral *)
-type numeral
-
-(** Infinite-precision real decimal *)
-type decimal
-
 (** Constant bitvector *)
 type bitvector
 
-(** Add to infinite-precision numerals *)
-val ( +% ) : numeral -> numeral -> numeral
-
-(** Add to infinite-precision decimals *)
-val ( +/ ) : decimal -> decimal -> decimal
-
-(** Increment the given numeral by one *)
-val incr_numeral : numeral -> numeral
-
-(** Decrement the given numeral by one *)
-val decr_numeral : numeral -> numeral
-
-(** Convert an OCaml integer to an infinite-precision integer numeral *)
-val numeral_of_int : int -> numeral
-
-(** Convert an infinite-precision real decimal to an OCaml float *)
-val decimal_of_float : float -> decimal
-
-(** Convert an infinite-precision integer numeral to an OCaml integer *)
-val int_of_numeral : numeral -> int 
-
-(* Constant zero *)
-val num_zero : numeral
-
-(* Constant one *)
-val num_one : numeral
-
-(** Convert an OCaml float to an infinite-precision real decimal *)
-val float_of_decimal : decimal -> float 
-
 (** Return the length of a bitvector as a numeral *)
-val length_of_bitvector : bitvector -> numeral
-
-(** Convert a string to an infinite-precision integer numeral 
-
-    Integer numerals are not negative and strings must be as defined
-    in the SMTLIB standard: a sequence of digits without leading zero.
-    As a regular expression: [0|(\[1-9\]\[0-9\]\* )].
-    
-*)
-val numeral_of_string : string -> numeral
-
-(** Convert a hashconsed string to a numeral, store all converted
-    values in a cache *)
-val numeral_of_hstring : HString.t -> numeral
-
-(** Convert a string to an infinite-precision real decimal 
-
-    Real decimal are not negative and strings must be as defined in
-    the SMTLIB standard: an integer numeral followed by a period
-    followed by a non-empty sequence of digits. As a regular expression:
-    [0|(\[1-9\]\[0-9\]\* )[.](0-9)+]. *)
-val decimal_of_string : string -> decimal
-
-(** Convert a hashconsed string to a decimal, store all converted
-    values in a cache *)
-val decimal_of_hstring : HString.t -> decimal
+val length_of_bitvector : bitvector -> int
 
 (** Convert a string to a bitvector
 
@@ -114,18 +53,6 @@ val bitvector_of_hstring : HString.t -> bitvector
 
 (** Convert a hashconsed string to a Boolean value *)
 val bool_of_hstring : HString.t -> bool
-
-(** Convert an infinite-precision integer numeral to a string *)
-val string_of_numeral : numeral -> string 
-
-(** Convert an infinite-precision real decimal to a string *)
-val string_of_decimal : decimal -> string
-
-(** Pretty-print an infinite-precision integer numeral *)
-val pp_print_numeral : Format.formatter -> numeral -> unit
-
-(** Pretty-print an infinite-precision real decimal *)
-val pp_print_decimal : Format.formatter -> decimal -> unit
 
 (** Pretty-print a constant bitvector in binary format *)
 val pp_print_bitvector_b : Format.formatter -> bitvector -> unit

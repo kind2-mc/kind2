@@ -38,6 +38,86 @@ This file is part of the Kind verifier
 
 open Lib
 
+(*
+
+type ('a, 'b) flag =
+  { longname : string;
+    shortname : string option;
+    mutable value : 'a;
+    of_arg : 'a -> 'b -> 'a;
+    pp : Format.formatter -> 'a -> unit }
+    
+
+type int_flag = (int, int) flag 
+
+type float_flag = (float, float) flag 
+
+type bool_flag = (bool, bool) flag
+
+type unit_flag = (unit, bool) flag 
+
+type 'a string_flag = ('a, string) flag
+
+
+
+type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+
+let smtsolver_of_string = function
+  | "Z3" -> `Z3_SMTLIB
+  | "Z3_SMTLIB" -> `Z3_SMTLIB
+  | "Z3_API" -> `Z3_API
+  | "CVC4" -> `CVC4_SMTLIB
+  | "CVC4_SMTLIB" -> `CVC4_SMTLIB
+  | "CVC4_API" -> `CVC4_API
+  | "Yices" -> `Yices
+  | _ -> raise (Invalid_argument "smtsolver_of_string")
+
+let pp_print_smtsolver ppf = 
+  let p = Format.fprintf ppf in 
+  function 
+    | `Z3_SMTLIB -> p "Z3_SMTLIB"
+    | `Z3_API -> p "Z3_API"
+    | `CVC4_SMTLIB -> p "CVC4_SMTLIB"
+    | `CVC4_API -> p "CVC4_API"
+    | `Yices -> p "Yices"
+
+let smtsolver_flag = 
+  { longname = "smtsolver";
+    shortname = None;
+    value = `Z3_SMTLIB;
+    of_arg = (function _ -> smtsolver_of_string);
+    pp = pp_print_smtsolver }
+
+
+let kind_module_of_string = function
+  | "PDR" -> `PDR
+  | "BMC" -> `BMC
+  | "IND" -> `IND
+  | "INVGEN" -> `INVGEN
+  | "interpreter" -> `Interpreter
+  | _ -> raise (Invalid_argument "smtsolver_of_string")
+
+
+let pp_print_kind_module ppf = 
+  let p = Format.fprintf ppf in 
+  function
+    | `PDR -> p "PDR"
+    | `BMC -> p "BMC"
+    | `IND -> p "IND"
+    | `INVGEN -> p "INVGEN"
+    | `Interpreter -> p "interpreter"
+
+
+let enable_flag = 
+  { longname = "enable";
+    shortname = Some "e";
+    value = [];
+    of_arg = (function curval -> (function arg -> kind_module_of_string arg :: curval));
+    pp = (pp_print_list pp_print_kind_module ",@ ") }
+
+*)
+
+
 (* ********************************************************************** *)
 (* Types and defaults for flags                                            *)
 (* ********************************************************************** *)

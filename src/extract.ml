@@ -165,12 +165,15 @@ let choose_term (bool_terms, int_terms) =
                    vars_accum 
                    (var_set_of_list (vars_of_term term)))
             in
+
             debug extract
                 "Number of variables with@ %a@ is %d"
                 Term.pp_print_term term
                 res
             in
+
             res
+
           in
           
           let term, _ = 
@@ -196,7 +199,7 @@ let extract env term =
     let res = Eval.eval_term t env in
 
     debug extract 
-        "@[<hv>%a@]@ evaluates to@ @[<hv>%a@]" 
+        "%a@ evaluates to@ @[<hv>%a@]" 
         Term.pp_print_term t
         Term.pp_print_term (Eval.term_of_value res)
     in

@@ -341,17 +341,17 @@ let const_of_smtlib_token b t =
 
     try
       
-      (* Return decimal of string *)
-      Term.mk_dec (decimal_of_hstring t)
-        
+      (* Return numeral of string *)
+      Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
+
     (* String is not a decimal *)
     with Invalid_argument _ -> 
       
       try 
         
-        (* Return numeral of string *)
-        Term.mk_num (numeral_of_hstring t)
-
+        (* Return decimal of string *)
+        Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
+        
       with Invalid_argument _ -> 
         
         try 
@@ -581,9 +581,10 @@ let rec var_of_smtexpr e =
                 with Not_found -> 
 
                   invalid_arg 
-                    "var_of_smtexpr: \
-                     No state variable found for uninterpreted function symbol"
-
+                    (Format.asprintf 
+                       "var_of_smtexpr: %a\
+                        No state variable found for uninterpreted function symbol"
+                       Term.pp_print_term e)
               in
 
               (* Create state variable instance *)
@@ -593,8 +594,10 @@ let rec var_of_smtexpr e =
             | _ -> 
 
               invalid_arg 
-                "var_of_smtexpr: \
-                 Invalid argument to uninterpreted function"
+                (Format.asprintf 
+                   "var_of_smtexpr: %a\
+                    Invalid argument to uninterpreted function"
+                   Term.pp_print_term e)
 
         )
 
@@ -652,7 +655,7 @@ let quantified_smtexpr_of_term quantifier vars term =
             type converted to an SMT sort *)
          let v' = 
            Var.mk_temp_var 
-             (HString.mk_hstring (sv ^ string_of_numeral o))
+             (HString.mk_hstring (sv ^ Numeral.string_of_numeral o))
              t'
          in
 
