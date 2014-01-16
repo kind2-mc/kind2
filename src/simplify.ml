@@ -748,6 +748,8 @@ let rec negate_nnf term = match Term.destruct term with
 
     )    
 
+  | Term.T.Attr (t, _) -> t
+
 
 (* Negate all but the last term *)
 let implies_to_or args = 
@@ -856,13 +858,6 @@ let rec relation_to_nf
             (Term.destruct 
                (Term.mk_and (List.map term_of_nf args')))
             args'))
-
-
-(* We need a record type for first-class polymorphism, modules or
-   objects would also work. 
-
-   The field f is a relation and f' is its converse. *)
-type 'a rel = { f : 'a . 'a -> 'a -> bool; f' : 'a . 'a -> 'a -> bool }
 
 
 (* Normalize an n-ary relation by unchaining *)
@@ -1651,6 +1646,9 @@ let rec simplify_term_node fterm args =
           | `BV _ -> assert false
             
       )
+
+    (* Skip over attributed term *)
+    | Term.T.Attr _ -> match args with [a] -> a | _ -> assert false
 
 
 (* ********************************************************************** *)

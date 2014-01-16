@@ -16,6 +16,11 @@
 
 *)
 
+(** Arbitrary precision real numbers
+
+    @author Christoph Sticksel
+*)
+
 (** Type of arbitrary precision rational numbers *)
 type t 
 
@@ -35,21 +40,28 @@ val of_int : int -> t
 (** Convert a floating-point number to a rational *)
 val of_float : float -> t
 
-val of_string : string -> t
-
-(** Convert a numeral to an rational *)
-val to_int : t -> int
-
+(** Convert an arbitrary large integer to a rational *)
 val of_big_int : Big_int.big_int -> t
 
+(** Convert a string to rational number *)
+val of_string : string -> t
+
+(** Convert a rational number to a rational
+
+    Truncates the rational number to an integer and raises the
+    exception [Failure "int_of_big_int"] if the numeral cannot be
+    represented as an integer.  *)
+val to_int : t -> int
+
+(** Convert a rational number to an arbitrary large integer *)
 val to_big_int : t -> Big_int.big_int
 
 (** {1 Constants} *)
 
-(** The numeral zero *)
+(** The rational number zero *)
 val zero : t
 
-(** The numeral one *)
+(** The rational number one *)
 val one : t
 
 (** {1 Arithmetic operations} *)
@@ -124,17 +136,23 @@ val gt : t -> t -> bool
 
 (** {2 Infix operators} *)
 
-val ( <= ) : t -> t -> bool
-
-val ( < ) : t -> t -> bool
-
-val ( >= ) : t -> t -> bool
-
-val ( > ) : t -> t -> bool
-
+(** Equality *)
 val ( = ) : t -> t -> bool
 
+(** Disequality *)
 val ( <> ) : t -> t -> bool
+
+(** Less than or equal predicate *)
+val ( <= ) : t -> t -> bool
+
+(** Less than predicate *)
+val ( < ) : t -> t -> bool
+
+(** Greater than or equal predicate *)
+val ( >= ) : t -> t -> bool
+
+(** Greater than predicate *)
+val ( > ) : t -> t -> bool
 
 
 (* 

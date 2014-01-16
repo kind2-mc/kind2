@@ -18,15 +18,25 @@
 
 open Lib
 
+(* ********************************************************************** *)
+(* Types                                                                  *)
+(* ********************************************************************** *)
+
+(* Arbitrary precision rational numbers are numerals *)
 type t = Num.num
 
-(* The numeral zero *)
+
+(* The rational number zero *)
 let zero = Num.num_of_int 0
 
 
-(* The numeral one *)
+(* The rational number one *)
 let one = Num.num_of_int 1
 
+
+(* ********************************************************************** *)
+(* Pretty-printing                                                        *)
+(* ********************************************************************** *)
 
 
 (* Pretty-print a numeral *)
@@ -56,8 +66,14 @@ let pp_print_decimal ppf = function
 let string_of_decimal = string_of_t pp_print_decimal 
 
 
-(* Convert an integer to a numeral *)
+(* ********************************************************************** *)
+(* Conversions                                                            *)
+(* ********************************************************************** *)
+
+
+(* Convert an integer to a rational number *)
 let of_int = Num.num_of_int
+
 
 (* Integer exponentiation *)
 let pow x n = 
@@ -69,9 +85,11 @@ let pow x n =
   in
   pow' 1 x n
 
-(* Convert a floating-point number to a decimal *)
+
+(* Convert a floating-point number to a rational number *)
 let of_float f = 
 
+  (* Catch infinity and NaN values *)
   match classify_float f with 
 
     (* Zero *)
@@ -105,26 +123,33 @@ let of_float f =
         (Num.power_num (Num.num_of_int 2) (Num.num_of_int e))
       
 
-
+(* Division symbol *)
 let s_div = HString.mk_hstring "/"
 
+
+(* Convert a string to a rational number *)
 let of_string s = 
 
+  (* Parse S-expression *)
   match SExprParser.sexp SExprLexer.main (Lexing.from_string s) with 
 
+    (* (/ n d) is a rational number *)
     | HStringSExpr.List
         [HStringSExpr.Atom o; HStringSExpr.Atom n; HStringSExpr.Atom d] 
       when o = s_div -> 
 
+      (* Convert first argument to an integer as numerator *)
       let n' = 
-        try 
 
+        try 
+          
           Num.num_of_string (HString.string_of_hstring n) 
 
         with Failure _ -> raise (Invalid_argument "of_string")
 
       in
 
+      (* Convert first argument to an integer as denominator *)
       let d' = 
 
         try 
@@ -135,29 +160,39 @@ let of_string s =
 
       in
 
+      (* Divide numeratorby denominator *)
       Num.div_num n' d'
 
+
+    (* Single string is a rational number *)
     | HStringSExpr.Atom n -> 
 
       (try 
-         
+
+
+         (* Convert whole string to a rational number *)
          Num.num_of_string (HString.string_of_hstring n)
            
        with Failure _ -> 
 
          try 
 
+           (* Convert whole string as floating-point number *)
            of_float (float_of_string (HString.string_of_hstring n))
 
          with Invalid_argument _ | Failure _ -> 
            
            raise (Invalid_argument "of_string"))
-
-
+      
+    (* Fail on other S-expressions *)
     | _ -> raise (Invalid_argument "of_string")
 
 
-(* Convert a numeral to an integer *)
+(* Convert an arbitrary large integer to a rational number *)
+let of_big_int n = Num.num_of_big_int n
+
+
+(* Convert a rational number to an integer *)
 let to_int d = 
 
   try 
@@ -169,23 +204,23 @@ let to_int d =
   with Failure _ -> raise (Failure "to_int")
 
 
+(* Convert a rational number to an arbitrary large integer *)
 let to_big_int d = Num.big_int_of_num (Num.floor_num d)
 
 
-let of_big_int n = Num.num_of_big_int n
+(* ********************************************************************** *)
+(* Arithmetic operators                                                   *)
+(* ********************************************************************** *)
 
 
 (* Increment a decimal by one *)
 let succ d = Num.succ_num d
 
-
 (* Decrement a decimal by one *)
 let pred d = Num.pred_num d
 
-
 (* Absolute value *)
 let abs = Num.abs_num
-
 
 (* Unary negation *)
 let neg = Num.minus_num
@@ -205,6 +240,12 @@ let div = Num.div_num
 (* Remainder *)
 let rem = Num.mod_num
 
+
+(* ********************************************************************** *)
+(* Comparison operators                                                   *)
+(* ********************************************************************** *)
+
+
 (* Equality *)
 let equal = Num.eq_num
 
@@ -223,43 +264,47 @@ let geq = Num.ge_num
 (* Greater than predicate *)
 let gt = Num.gt_num
 
+
+(* ********************************************************************** *)
+(* Infix operators                                                        *)
+(* ********************************************************************** *)
+
+
+(* Unary negation *)
 let ( ~- ) = neg
 
+(* Sum *)
 let ( + ) = add
 
+(* Difference *)
 let ( - ) = sub
 
+(* Product *)
 let ( * ) = mult
 
+(* Quotient *)
 let ( / ) = div
 
+(* Remainder *)
 let ( mod ) = rem
 
-let ( <= ) = leq
-
-let ( < ) = lt
-
-let ( >= ) = geq
-
-let ( > ) = gt
-
+(* Equality *)
 let ( = ) = equal
 
+(* Disequality *)
 let ( <> ) a b = not (equal a b)
 
-
-
+(* Less than or equal predicate *)
 let ( <= ) = leq
 
+(* Less than predicate *)
 let ( < ) = lt
 
+(* Greater than or equal predicate *)
 let ( >= ) = geq
 
+(* Greater than predicate *)
 let ( > ) = gt
-
-let ( = ) = equal
-
-let ( <> ) a b = not (equal a b)
 
 
 (* 

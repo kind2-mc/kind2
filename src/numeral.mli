@@ -16,6 +16,11 @@
 
 *)
 
+(** Arbitrary precision integers
+
+    @author Christoph Sticksel
+*)
+
 (** Type of arbitrary precision numerals *)
 type t 
 
@@ -32,18 +37,22 @@ val string_of_numeral : t -> string
 (** Convert an integer to a numeral *)
 val of_int : int -> t
 
+(** Convert an arbitrary large integer numeral to numeral *)
 val of_big_int : Big_int.big_int -> t
 
+(** Convert a string to numeral *)
 val of_string : string -> t
 
-(** Convert a numeral to an integer *)
+(** Convert a numeral to an integer 
+
+    Raises the exception [Failure "int_of_big_int"] if the numeral
+    cannot be represented as an integer. *)
 val to_int : t -> int
 
-val of_big_int : Big_int.big_int -> t
-
+(** Convert a numeral to an arbitrary large integer *)
 val to_big_int : t -> Big_int.big_int
 
-(** {1 Constants} *)
+(** {1 Constructors} *)
 
 (** The numeral zero *)
 val zero : t
@@ -77,10 +86,12 @@ val mult : t -> t -> t
 (** Quotient *)
 val div : t -> t -> t
 
-(** Remainder *)
+(** Remainder
+
+    Identical to [mod], but the latter is an infix operator. *)
 val rem : t -> t -> t
 
-(** {2 Infix operators} *)
+(** {2 Infix arithmetic operators} *)
 
 (** Unary negation *)
 val ( ~- ) : t -> t
@@ -121,19 +132,25 @@ val geq : t -> t -> bool
 (** Greater than predicate *)
 val gt : t -> t -> bool
 
-(** {2 Infix operators} *)
+(** {2 Infix comparison operators} *)
 
-val ( <= ) : t -> t -> bool
-
-val ( < ) : t -> t -> bool
-
-val ( >= ) : t -> t -> bool
-
-val ( > ) : t -> t -> bool
-
+(** Equality *)
 val ( = ) : t -> t -> bool
 
+(** Disequality *)
 val ( <> ) : t -> t -> bool
+
+(** Less than or equal predicate *)
+val ( <= ) : t -> t -> bool
+
+(** Less than predicate *)
+val ( < ) : t -> t -> bool
+
+(** Greater than or equal predicate *)
+val ( >= ) : t -> t -> bool
+
+(** Greater than predicate *)
+val ( > ) : t -> t -> bool
 
 
 
