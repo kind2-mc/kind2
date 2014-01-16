@@ -435,17 +435,21 @@ let generalize model (elim : Var.t list) term =
      Term.pp_print_term 
      (Term.mk_and term'_bool) end);
 
-  let term' = match Flags.pdr_qe () with 
+  let term' = let pdr_qe = Flags.pdr_qe () in match pdr_qe with 
     
-    | `Z3 ->
-
+    | `Z3
+    | `Z3_impl ->
+      
       (
 
         (* Substitute fresh variables for terms to be eliminated and
            existentially quantify formula *)
         let qe_term = 
-          SMTExpr.quantified_smtexpr_of_term true elim term
-          (* SMTExpr.quantified_smtexpr_of_term true elim extract_int *)
+          match pdr_qe with 
+            | `Z3 -> 
+              SMTExpr.quantified_smtexpr_of_term true elim term
+            | `Z3_impl -> 
+              SMTExpr.quantified_smtexpr_of_term true elim extract_int
         in
         
         let solver_qe = get_solver_instance () in
@@ -518,10 +522,10 @@ let generalize model (elim : Var.t list) term =
 *)
 
         (* Return quantifier eliminated term *)
-        (* Term.mk_and [term'_bool; term'_int] *)
-
-        term'_int
-
+        (match pdr_qe with 
+          | `Z3 -> term'_int
+          | `Z3_impl -> term'_bool @ term'_int)
+        
       )
 
     | `Cooper ->

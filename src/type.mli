@@ -40,9 +40,9 @@ This file is part of the Kind verifier
 type kindtype = 
   | Bool
   | Int
-  | IntRange of Lib.numeral * Lib.numeral
+  | IntRange of Numeral.t * Numeral.t
   | Real
-  | BV of Lib.numeral
+  | BV of int
   | Array of t * t
 
 (** Hashconsed type *)
@@ -84,13 +84,13 @@ val mk_bool : unit -> t
 val mk_int : unit -> t 
 
 (** Return the integer range type *)
-val mk_int_range : Lib.numeral -> Lib.numeral -> t
+val mk_int_range : Numeral.t -> Numeral.t -> t
 
 (** Return the real decimal type *)
 val mk_real : unit -> t
 
 (** Return the bitvector type *)
-val mk_bv : Lib.numeral -> t
+val mk_bv : int -> t
 
 (** Return the array type *)
 val mk_array : t -> t -> t

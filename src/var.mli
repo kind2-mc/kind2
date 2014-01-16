@@ -66,7 +66,7 @@ module VarMap : Map.S with type key = t
 (** {1 Constructor} *)
 
 (** Return an instance of a state variables *)
-val mk_state_var_instance : StateVar.t -> Lib.numeral -> t
+val mk_state_var_instance : StateVar.t -> Numeral.t -> t
 
 (** Return a temporary variable *)
 val mk_temp_var : HString.t -> Type.t -> t
@@ -83,7 +83,7 @@ val type_of_var : t -> Type.t
 val state_var_of_state_var_instance : t -> StateVar.t
 
 (** Return the offset of a state variable instance *)
-val offset_of_state_var_instance : t -> Lib.numeral
+val offset_of_state_var_instance : t -> Numeral.t
 
 (** Return the offset of a state variable instance *)
 val hstring_of_temp_var : t -> HString.t
@@ -91,7 +91,7 @@ val hstring_of_temp_var : t -> HString.t
 (** Add to the offset of a state variable instance
 
     Negative values are allowed *)
-val bump_offset_of_state_var_instance : Lib.numeral -> t -> t   
+val bump_offset_of_state_var_instance : Numeral.t -> t -> t   
 
 (** {1 Pretty-printing} *)
 

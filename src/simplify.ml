@@ -1623,7 +1623,16 @@ let simplify_term term =
 let simplify_term_model model term = 
 
   (* Bind variables in the model to their values and simplify term *)
-  let term' = Term.mk_let model term in simplify_term term'
+  let term' = Term.mk_let model term in 
+  let res = simplify_term term' in
+  
+  debug simplify 
+    "Simplified@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+    Term.pp_print_term term'
+    Term.pp_print_term res 
+  in
+
+  res
 
 
 (*

@@ -121,8 +121,8 @@ type interpreted_symbol =
   | `DISTINCT             (** Pairwise distinct predicate (chainable) *)
   | `ITE                  (** If-then-else (ternary)*) 
 
-  | `NUMERAL of Lib.numeral (** Infinite precision integer numeral (nullary) *)
-  | `DECIMAL of Lib.decimal (** infinite precision floating-point decimal (nullary) *)
+  | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
+  | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
   | `BV of Lib.bitvector    (** Constant bitvector *)
 
   | `MINUS                (** Difference or unary negation (left-associative) *)
@@ -140,11 +140,11 @@ type interpreted_symbol =
   | `TO_INT               (** Conversion to an integer numeral (unary) *)
   | `IS_INT               (** Real is an integer (unary) *)
 
-  | `DIVISIBLE of Lib.numeral 
+  | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
 
   | `CONCAT               (** Concatenation of bitvectors (binary) *)
-  | `EXTRACT of Lib.numeral * Lib.numeral 
+  | `EXTRACT of Numeral.t * Numeral.t 
                           (** Extract subsequence from bitvector (unary) *)
   | `BVNOT                (** Bit-wise negation (unary) *)
   | `BVNEG                (** Arithmetic negation (unary) *)
@@ -247,10 +247,10 @@ val is_bitvector : t -> bool
 val is_bool : t -> bool
 
 (** Return the numeral in a [`NUMERAL _] symbol *)
-val numeral_of_symbol : t -> Lib.numeral 
+val numeral_of_symbol : t -> Numeral.t 
 
 (** Return the decimal in a [`DECIMAL _] symbol *)
-val decimal_of_symbol : t -> Lib.decimal 
+val decimal_of_symbol : t -> Decimal.t 
 
 (** Return the bitvector in a [`BV _] symbol *)
 val bitvector_of_symbol : t -> Lib.bitvector 

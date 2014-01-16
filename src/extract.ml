@@ -165,12 +165,15 @@ let choose_term (bool_terms, int_terms) =
                    vars_accum 
                    (var_set_of_list (vars_of_term term)))
             in
+
             debug extract
                 "Number of variables with@ %a@ is %d"
                 Term.pp_print_term term
                 res
             in
+
             res
+
           in
           
           let term, _ = 

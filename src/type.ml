@@ -43,9 +43,9 @@ open Lib
 type kindtype = 
   | Bool
   | Int
-  | IntRange of numeral * numeral
+  | IntRange of Numeral.t * Numeral.t
   | Real
-  | BV of numeral
+  | BV of int
   | Array of t * t
 
 
@@ -176,16 +176,16 @@ let rec pp_print_type_node ppf = function
     Format.fprintf
       ppf 
       "IntRange %a %a" 
-      pp_print_numeral i 
-      pp_print_numeral j
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
 
   | Real -> Format.pp_print_string ppf "Real"
 
   | BV i -> 
     Format.fprintf
       ppf 
-      "BitVec %a" 
-      pp_print_numeral i 
+      "BitVec %d" 
+      i 
 
   | Array (s, t) -> 
     Format.fprintf

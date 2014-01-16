@@ -121,16 +121,18 @@ val mk_distinct : t list -> t
 val mk_ite : t -> t -> t -> t
 
 (** Create an integer numeral *)
-val mk_num : Lib.numeral -> t
+val mk_num : Numeral.t -> t
 
 (** Create an integer numeral *)
 val mk_num_of_int : int -> t
 
 (** Create a floating point decimal *)
-val mk_dec : Lib.decimal -> t
+val mk_dec : Decimal.t -> t
 
+(*
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
+*)
 
 (** Create a constant bitvector *)
 val mk_bv : Lib.bitvector -> t
@@ -178,7 +180,7 @@ val mk_to_int : t -> t
 val mk_is_int : t -> t
 
 (** Create a predicate for divisibility by a constant integer *)
-val mk_divisible : Lib.numeral -> t -> t
+val mk_divisible : Numeral.t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)
@@ -215,10 +217,10 @@ sig
 
   (** Prefix operator to create an numeral *)
   val ( ?%@ ) : int -> t
-
+(*
   (** Prefix operator to create an decimal *)
   val ( ?/@ ) : float -> t
-
+*)
   (** Prefix operator to create an Boolean negation *)
   val ( !@ ) : t -> t
 
