@@ -206,7 +206,7 @@ let printf section fmt =
   (* We know that the section is enabled, {!List.assoc} will not fail *)
   Format.fprintf
     (formatter_of_section section)
-    ("@[<hv %i>[%s, %.3f/%d] " ^^ fmt ^^ "@]@.")
+    ("@[<hv %i>[%s, %.3f/%d]@ @[<hv>" ^^ fmt ^^ "@]@]@.")
     ((String.length section) + 3)
     section
     (timestamp_of_section section)

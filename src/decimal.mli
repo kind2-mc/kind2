@@ -16,25 +16,28 @@
 
 *)
 
-(** Type of arbitrary precision numerals *)
+(** Type of arbitrary precision rational numbers *)
 type t 
 
 (** {1 Pretty-printing and String Representation} *)
 
-(** Pretty-print a numeral *)
+(** Pretty-print a rational *)
 val pp_print_decimal : Format.formatter -> t -> unit
 
-(** Return a string representation of a numeral *)
+(** Return a string representation of a rational *)
 val string_of_decimal : t -> string
 
 (** {1 Conversions} *)
 
-(** Convert an integer to a numeral *)
+(** Convert an integer to a rational *)
 val of_int : int -> t
+
+(** Convert a floating-point number to a rational *)
+val of_float : float -> t
 
 val of_string : string -> t
 
-(** Convert a numeral to an integer *)
+(** Convert a numeral to an rational *)
 val to_int : t -> int
 
 val of_big_int : Big_int.big_int -> t

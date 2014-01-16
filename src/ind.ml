@@ -137,7 +137,7 @@ let rec filter_goal_list solver ts k goal_pairs candidate_infos =
     let abstract_model = List.map (
       fun (var, value) -> 
       ((Var.bump_offset_of_state_var_instance 
-          (Lib.numeral_of_int (-1 * k)) var),
+          (Numeral.of_int (-1 * k)) var),
         value)
     ) model 
     in

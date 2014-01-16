@@ -272,7 +272,8 @@ let vars_at_offset_of_term i term =
   let var_set = 
     Term.eval_t
       (function 
-        | Term.T.Var v when Var.offset_of_state_var_instance v = i' -> 
+        | Term.T.Var v 
+          when Numeral.(Var.offset_of_state_var_instance v = i') -> 
           (function [] -> Var.VarSet.singleton v | _ -> assert false)
         | Term.T.Var _ 
         | Term.T.Const _ -> 
@@ -553,7 +554,8 @@ let dependencies_of_constr t =
         let defining_vars = 
           Term.eval_t
             (function 
-              | Term.T.Var v when Var.offset_of_state_var_instance v = Numeral.one -> 
+              | Term.T.Var v when 
+                  Numeral.(Var.offset_of_state_var_instance v = one) -> 
                 (function 
                   | [] -> SVS.singleton (Var.state_var_of_state_var_instance v) 
                   | _ -> SVS.empty)

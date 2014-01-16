@@ -90,7 +90,7 @@ module Var_node = struct
 
       (* Equal if the state variables are physically equal and the
          indexes are equal *)
-      sv1 == sv2 && i1 = i2
+      sv1 == sv2 && Numeral.equal i1 i2
 
     (* Two temporary variables *)
     | TempVar (s1, t1), TempVar (s2, t2) -> 

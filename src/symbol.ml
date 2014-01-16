@@ -144,7 +144,11 @@ module Symbol_node = struct
   type prop = symbol_prop
 
   (* Equality of two symbols *)
-  let equal = (=)
+  let equal s1 s2 = match s1, s2 with 
+    | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
+    | _, `NUMERAL _ 
+    | `NUMERAL _, _ -> false
+    | _ -> s1 = s2
 
   (* Return hash of a symbol *)
   let hash = Hashtbl.hash

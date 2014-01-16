@@ -107,7 +107,7 @@ let rec pp_print_trace ppf = function
           "%a    " 
           Term.pp_print_term 
           (List.assoc 
-             (Var.mk_state_var_instance abstract_var (Lib.numeral_of_int i)) 
+             (Var.mk_state_var_instance abstract_var (Numeral.of_int i)) 
              counter_example);
         
         pp_print_trace ppf (abstract_var, k, i + 1, counter_example)
@@ -146,7 +146,7 @@ let rec get_concrete_vars_for_k_steps ts k =
     let k_vars = 
       List.map (
         fun state_var ->
-          Var.mk_state_var_instance state_var (Lib.numeral_of_int k)
+          Var.mk_state_var_instance state_var (Numeral.of_int k)
       ) (TransSys.state_vars ts)
     in
 
@@ -160,7 +160,7 @@ let rec get_concrete_vars_for_k_steps ts k =
     (* For the base case, get the variables for the initial state. *)
     List.map (
       fun state_var ->
-        Var.mk_state_var_instance state_var (Lib.numeral_of_int 0)
+        Var.mk_state_var_instance state_var Numeral.zero
     ) (TransSys.state_vars ts)
 
 
@@ -184,7 +184,7 @@ let rec filter_property_list solver ts abstract_var_list concrete_var_list k pro
     let abstract_model = List.map (
       fun (var, value) -> 
         ((Var.bump_offset_of_state_var_instance 
-            (Lib.numeral_of_int (-1 * k)) var)
+            (Numeral.of_int (-1 * k)) var)
           , value)
     ) model 
     in

@@ -20,6 +20,14 @@ open Lib
 
 type t = Num.num
 
+(* The numeral zero *)
+let zero = Num.num_of_int 0
+
+
+(* The numeral one *)
+let one = Num.num_of_int 1
+
+
 
 (* Pretty-print a numeral *)
 let pp_print_decimal ppf = function
@@ -51,6 +59,53 @@ let string_of_decimal = string_of_t pp_print_decimal
 (* Convert an integer to a numeral *)
 let of_int = Num.num_of_int
 
+(* Integer exponentiation *)
+let pow x n = 
+  let rec pow' accum x = 
+    function 
+      | 0 -> accum 
+      | n when n < 0 -> invalid_arg "pow" 
+      | n -> pow' (accum * x) x (pred n)
+  in
+  pow' 1 x n
+
+(* Convert a floating-point number to a decimal *)
+let of_float f = 
+
+  match classify_float f with 
+
+    (* Zero *)
+    | FP_zero -> zero
+
+    (* Do not convert infinity, NaN and subnormal numbers (too close
+       to 1.0 for full precision) *)
+    | FP_infinite
+    | FP_nan
+    | FP_subnormal -> raise (Invalid_argument "of_float")
+
+    (* A normal floating-point number *)
+    | FP_normal -> 
+
+      (* Number of digits of a double float *)
+      let precision = 16 in
+
+      (* Get mantissa and exponent *)
+      let m, e = frexp f in
+
+      (* Numerator is m * (10 ^ precision) *)
+      let n = int_of_float (m *. (10. ** float_of_int precision)) in
+
+      (* Denominator is (10 ^ precision) *)
+      let d = pow 10 precision in
+
+      (* Construct decimal by dividing numerator by denominator and
+         multiplying by the exponent *)
+      Num.mult_num 
+        (Num.div_num (Num.num_of_int n) (Num.num_of_int d)) 
+        (Num.power_num (Num.num_of_int 2) (Num.num_of_int e))
+      
+
+
 let s_div = HString.mk_hstring "/"
 
 let of_string s = 
@@ -66,7 +121,7 @@ let of_string s =
 
           Num.num_of_string (HString.string_of_hstring n) 
 
-        with Failure _ -> raise (Failure "of_string")
+        with Failure _ -> raise (Invalid_argument "of_string")
 
       in
 
@@ -76,7 +131,7 @@ let of_string s =
 
           Num.num_of_string (HString.string_of_hstring d) 
 
-        with Failure _ -> raise (Failure "of_string")
+        with Failure _ -> raise (Invalid_argument "of_string")
 
       in
 
@@ -85,13 +140,21 @@ let of_string s =
     | HStringSExpr.Atom n -> 
 
       (try 
+         
+         Num.num_of_string (HString.string_of_hstring n)
+           
+       with Failure _ -> 
 
-        Num.num_of_string (HString.string_of_hstring n) 
+         try 
 
-      with Failure _ -> raise (Failure "of_string"))
+           of_float (float_of_string (HString.string_of_hstring n))
+
+         with Invalid_argument _ | Failure _ -> 
+           
+           raise (Invalid_argument "of_string"))
 
 
-    | _ -> raise (Failure "of_string")
+    | _ -> raise (Invalid_argument "of_string")
 
 
 (* Convert a numeral to an integer *)
@@ -110,14 +173,6 @@ let to_big_int d = Num.big_int_of_num (Num.floor_num d)
 
 
 let of_big_int n = Num.num_of_big_int n
-
-
-(* The numeral zero *)
-let zero = Num.num_of_int 0
-
-
-(* The numeral one *)
-let one = Num.num_of_int 1
 
 
 (* Increment a decimal by one *)

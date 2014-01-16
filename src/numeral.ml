@@ -42,7 +42,7 @@ let of_string s =
 
     Big_int.big_int_of_string s 
 
-  with Failure _ -> raise (Failure "of_string")
+  with Failure _ -> raise (Invalid_argument "of_string")
 
 
 (* Convert a numeral to an integer *)

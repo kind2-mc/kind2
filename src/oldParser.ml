@@ -673,14 +673,14 @@ let rec il_expression_to_term init = function
   (* An integer *)
   | Some L_INT, NUM i -> Term.mk_num_of_int i
 
-  | Some L_REAL, NUM i -> Term.mk_dec_of_float (float_of_int i)
+  | Some L_REAL, NUM i -> Term.mk_dec (Decimal.of_int i)
 
   | Some t, (NUM _ as e) -> failwith (type_mismatch_to_string e t L_INT)
 
   | None, NUM _ -> failwith "No type information for NUM"
   
   (* A float *)
-  | Some L_REAL, FLOAT f -> Term.mk_dec_of_float f
+  | Some L_REAL, FLOAT f -> Term.mk_dec (Decimal.of_float f)
 
   | Some t, (FLOAT _ as e) -> failwith (type_mismatch_to_string e t L_REAL)
 
@@ -917,13 +917,13 @@ let rec il_expression_to_term init = function
             | None, L_BOOL -> Type.t_bool
             | None, L_INT -> Type.t_int
             | None, L_INT_RANGE (l, u) -> 
-              Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+              Type.mk_int_range (Numeral.of_int l) (Numeral.of_int u)
             | None, L_REAL -> Type.t_real
             | Some L_BOOL, L_BOOL -> Type.t_bool
             | Some L_INT, L_INT -> Type.t_int
             | Some (L_INT_RANGE (l, u)), L_INT_RANGE (l', u') 
               when l = l' && u = u' -> 
-              Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+              Type.mk_int_range (Numeral.of_int l) (Numeral.of_int u)
             | Some L_REAL, L_REAL -> Type.t_real
             | None, t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
@@ -955,8 +955,8 @@ let rec il_expression_to_term init = function
             state_var
             (match p with 
               | POSITION_VAR "M" -> 
-                if init then Lib.numeral_of_int 0 else Lib.numeral_of_int 1
-              | MINUS (POSITION_VAR "M", NUM 1) -> Lib.numeral_of_int 0
+                if init then Numeral.zero else Numeral.one
+              | MINUS (POSITION_VAR "M", NUM 1) -> Numeral.zero
               | _ -> 
                 failwith 
                   (Format.fprintf 
@@ -1146,7 +1146,8 @@ let assignment_of_il_equation init l r t =
           let var_type = match t with 
             | L_BOOL -> Type.t_bool
             | L_INT -> Type.t_int
-            | L_INT_RANGE (l, u) -> Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+            | L_INT_RANGE (l, u) -> 
+              Type.mk_int_range (Numeral.of_int l) (Numeral.of_int u)
             | L_REAL -> Type.t_real
             | t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
@@ -1343,7 +1344,7 @@ let of_channel in_ch =
 
             let p = 
               Term.mk_var 
-                (Var.mk_state_var_instance sv (Lib.numeral_of_int 0))
+                (Var.mk_state_var_instance sv Numeral.zero)
             in
 
             ((StateVar.original_name_of_state_var sv, p) :: accum, succ i)

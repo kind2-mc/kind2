@@ -199,7 +199,7 @@ let extract env term =
     let res = Eval.eval_term t env in
 
     debug extract 
-        "@[<hv>%a@]@ evaluates to@ @[<hv>%a@]" 
+        "%a@ evaluates to@ @[<hv>%a@]" 
         Term.pp_print_term t
         Term.pp_print_term (Eval.term_of_value res)
     in

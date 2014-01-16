@@ -868,7 +868,10 @@ type 'a rel = { f : 'a . 'a -> 'a -> bool; f' : 'a . 'a -> 'a -> bool }
 (* Normalize an n-ary relation by unchaining *)
 let relation 
     simplify_term_node 
-    { f = rel; f' = rel' } 
+    rel_num
+    rel'_num
+    rel_dec
+    rel'_dec
     mk_rel 
     mk_rel' = 
   
@@ -883,13 +886,13 @@ let relation
 
       (* Compute relation between constant integer polynomials *)
       let irel p q = 
-        rel (const_of_num_polynomial p) (const_of_num_polynomial q) 
+        rel_num (const_of_num_polynomial p) (const_of_num_polynomial q) 
       in
 
       (* Compute converse of relation between constant integer
          polynomials *)
       let irel' p q = 
-        rel' (const_of_num_polynomial p) (const_of_num_polynomial q) 
+        rel'_num (const_of_num_polynomial p) (const_of_num_polynomial q) 
       in
 
       (* Normalize relation *)
@@ -908,13 +911,13 @@ let relation
 
       (* Compute relation between constant real polynomials *)
       let rrel p q = 
-        rel (const_of_dec_polynomial p) (const_of_dec_polynomial q) 
+        rel_dec (const_of_dec_polynomial p) (const_of_dec_polynomial q) 
       in
 
       (* Compute converse of relation between constant real
          polynomials *)
       let rrel' p q = 
-        rel' (const_of_dec_polynomial p) (const_of_dec_polynomial q) 
+        rel'_dec (const_of_dec_polynomial p) (const_of_dec_polynomial q) 
       in
 
       (* Normalize relation *)
@@ -934,27 +937,67 @@ let relation
 
 (* Normalize equality relation between normal forms *)
 let relation_eq simplify_term_node args = 
-  relation simplify_term_node { f = (=); f' = (=) } Term.mk_eq Term.mk_eq args
+
+  relation 
+    simplify_term_node 
+    Numeral.(=)
+    Numeral.(=) 
+    Decimal.(=)
+    Decimal.(=) 
+    Term.mk_eq 
+    Term.mk_eq args
 
 
 (* Normalize less than or equal relation between normal forms *)
 let relation_leq simplify_term_node = 
-  relation simplify_term_node { f = (<=); f' = (>=) } Term.mk_leq Term.mk_geq 
+
+  relation 
+    simplify_term_node
+    Numeral.(<=)
+    Numeral.(>=)
+    Decimal.(<=)
+    Decimal.(>=)
+    Term.mk_leq 
+    Term.mk_geq 
 
 
 (* Normalize less than relation between normal forms *)
 let relation_lt simplify_term_node = 
-  relation simplify_term_node { f = (<); f' = (>) } Term.mk_lt Term.mk_gt
+
+  relation 
+    simplify_term_node
+    Numeral.(<)
+    Numeral.(>)
+    Decimal.(<)
+    Decimal.(>)
+    Term.mk_lt 
+    Term.mk_gt
 
 
 (* Normalize greater than or equal relation between normal forms *)
 let relation_geq simplify_term_node = 
-  relation simplify_term_node { f = (>=); f' = (<=) } Term.mk_geq Term.mk_leq 
+
+  relation 
+    simplify_term_node 
+    Numeral.(>=)
+    Numeral.(<=) 
+    Decimal.(>=)
+    Decimal.(<=) 
+    Term.mk_geq 
+    Term.mk_leq 
 
 
 (* Normalize greater than relation between normal forms *)
 let relation_gt simplify_term_node = 
-  relation simplify_term_node { f = (>); f' = (<) } Term.mk_gt Term.mk_lt 
+  
+  relation 
+    simplify_term_node
+    Numeral.(>)
+    Numeral.(<)
+    Decimal.(>)
+    Decimal.(<)
+    Term.mk_gt 
+    Term.mk_lt 
 
 
 (* Create an atom of the given term (a variable or an uninterpreted

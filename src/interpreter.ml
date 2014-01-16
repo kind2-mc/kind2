@@ -134,14 +134,14 @@ let main input_file transSys =
        let _ = List.fold_left
 
          (fun instant instant_value ->
-           if ((int_of_numeral instant) < k)
+           if ((Numeral.to_int instant) < k)
            then(
          	 let var = Var.mk_state_var_instance state_var instant in
              let equation = Term.mk_eq [Term.mk_var var; instant_value] in
              S.assert_term solver equation);	
-             incr_numeral instant)
+             Numeral.succ instant)
             
-         (numeral_of_int 0)
+         Numeral.zero
          
          values
 
@@ -157,7 +157,7 @@ let main input_file transSys =
 		
 	let rec aux acc state_var k =
 		
-		if (int_of_numeral k) < 0 then
+		if (Numeral.to_int k) < 0 then
 			
 			let model = S.get_model solver acc in
 			
@@ -165,7 +165,7 @@ let main input_file transSys =
 			
 		else
 			
-			aux ((Var.mk_state_var_instance state_var k)::acc) state_var (decr_numeral k)
+			aux ((Var.mk_state_var_instance state_var k)::acc) state_var (Numeral.pred k)
 	in
     let v = 
 			
@@ -173,7 +173,7 @@ let main input_file transSys =
 			
         (fun sv -> 
 					
-           (sv,(aux [] sv (numeral_of_int (k-1)))))
+           (sv,(aux [] sv (Numeral.of_int (k-1)))))
 					
         state_vars 
 				
