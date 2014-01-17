@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2012 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
    
 (* In the step case checking for k-induction, the properties are categorized
@@ -134,14 +122,14 @@ let rec filter_goal_list solver ts k goal_pairs candidate_infos =
   
     (* Abstract the model so that it corresponds with the properties which 
        contain only initial state *)
-    let abstract_model = List.map (
+        
+		 let abstract_model = List.map (
       fun (var, value) -> 
       ((Var.bump_offset_of_state_var_instance 
           (Lib.numeral_of_int (-1 * k)) var),
         value)
     ) model 
     in
-        
     (*
     (debug ind
       "@[<hv>The model is:@ @[<hv>%a@]@]@."
@@ -155,8 +143,8 @@ let rec filter_goal_list solver ts k goal_pairs candidate_infos =
     let (potential_candidate_pairs, goal_pairs') = 
       List.partition (
         fun (goal_name, goal_prop) -> 
-          Eval.bool_of_value (Eval.eval_term goal_prop abstract_model)
-      ) goal_pairs 
+          Eval.bool_of_value (Eval.eval_term (TransSys.bump_state k goal_prop) model)
+      ) ts.TransSys.props 
     in
       
     (* If all the properties are faultified by the counterexample, nothing is
@@ -233,7 +221,7 @@ let rec filter_goal_list solver ts k goal_pairs candidate_infos =
   )
 
 
-let rec ind solver ts k goal_pairs candidate_infos premises = 
+let rec ind solver ts k goal_pairs candidate_infos premises invariants_1 premises_1 = 
 
   Event.log `IND Event.L_info "Inductive step loop at k=%d" k;
 
@@ -259,7 +247,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
   let new_invariants = ref [] in
   
   (* Receiving messages. *)
-  let messages = Event.recv () in 
+  let messages = Event.recv () in
   
   (* Terminate when ControlMessage TERM is received.
      
@@ -271,18 +259,8 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
       match message with
       
         (* Add invariant to a temparary list when it's received. *)
-        (*| (Event.Invariant (_, invar)) ->
-          (debug ind
-            "Invariant received: @. %a @."
-            Term.pp_print_term invar
-            end);
-
-          Event.log `IND Event.L_debug
-            "Invariant received: @. %a"
-            Term.pp_print_term invar;
-
-          new_invariants := invar :: !new_invariants;
-          invs := invar :: !invs;*)
+        | (Event.Invariant (_, invar)) ->
+          ();
         
         (* FIXME *)
         (* We only need to look at the lastest BMCSTATE message. *)
@@ -317,7 +295,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
             in
 
             let reset_premises = List.append (List.map snd goal_pairs) !invs in
-            restart ts goal_pairs' reset_premises
+            restart ts goal_pairs' reset_premises invariants_1 premises_1
           )
           
           (* Nothing in goal_pair is disproved for now record which state is bmc 
@@ -357,8 +335,14 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
       (* Send the invariant. *)
       (* Event.invariant 
         (Term.mk_and (List.map snd all_candidate_pairs)); *)
-
-      List.iter (Event.proved `IND) all_candidate_pairs;
+       List.iter (
+					fun x ->
+					Event.proved 
+          `IND
+					x
+					)
+          (all_candidate_pairs);
+      (*List.iter (Event.proved `IND (Some k)) all_candidate_pairs;*)
       
 (*
       (* Print out all the properties being proved. *)
@@ -385,6 +369,9 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
 
       while (true) do
       (
+				(debug ind
+         "looping here!"
+          end);
         (* Wait for 0.5 seconds. *)
         Lib.minisleep 0.5;
 
@@ -393,8 +380,6 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
   
         (* Receiving messages. *)
         let messages = Event.recv () in
-
-	
 
         (* Terminate when ControlMessage TERM is received.
      
@@ -406,20 +391,10 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
         List.iter (
           fun message ->
             match message with
-      (*
+      
               (* Add invariant to a temparary list when it's received. *)
               | (Event.Invariant (_, invar)) ->
-                (debug ind
-                  "Invariant received: @. %a @."
-                  Term.pp_print_term invar
-                  end);
-
-                Event.log `IND Event.L_debug
-                  "Invariant received: @. %a"
-                  Term.pp_print_term invar;
-
-                new_invariants := invar :: !new_invariants;
-                invs := invar :: !invs;*)
+                ();
         
               (* FIXME *)
               (* We only need to look at the lastest BMCSTATE message. *)
@@ -442,7 +417,7 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
                     (fun x -> List.mem x (List.map fst goal_pairs)) 
                       disproved_pn_list
                 in
-        
+								bmc_state := bmc_k;
                 if (reset) then
                 (
                   (* Remove all the disproved property pairs, and restart step 
@@ -458,22 +433,34 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
                     List.append (List.map snd goal_pairs) !invs 
                   in
 
-                  restart ts goal_pairs' reset_premises
+                  restart ts goal_pairs' reset_premises invariants_1 premises_1
                 )
           
                 (* Nothing in goal_pair is disproved for now record which state 
                    is bmc in. *)
                 else (
 
-                  bmc_state := bmc_k;
+                  
 
                   if (!bmc_state >= k) then
                   (
+										debug ind
+          					"3. Enter here!!!!!!!!"
+          					end;
                     let all_candidate_pairs = List.map fst candidate_infos in
+										
+										List.iter 
+                    (
+                     fun (cdd_prop_name, cdd_prop) -> 
+                     debug ind
+                     "#############Property %s proved for k = %d "
+                     cdd_prop_name
+                     k
+                     end) all_candidate_pairs;
 
                     (* Send the invariant. *)
-                    List.iter (Event.proved `IND) all_candidate_pairs;
-
+                     List.iter ( fun x -> Event.proved `IND x ) (all_candidate_pairs);
+											
 (*
                     (* Print out all the properties being proved. *)
                     List.iter 
@@ -544,8 +531,9 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
       S.assert_term solver k_premise';
       
       S.assert_term solver (TransSys.constr_of_bound (k + 1) ts);
-              
-      ind solver ts (k + 1) goal_pairs candidate_infos premises'
+      
+			ts.TransSys.props <- invariants_1@(ts.TransSys.props);
+      ind solver ts (k + 1) goal_pairs candidate_infos premises' [] []
         
     )
       
@@ -577,8 +565,9 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
         S.assert_term solver k_premise';
         
         S.assert_term solver (TransSys.constr_of_bound (k + 1) ts);       
-            
-        ind solver ts (k + 1) goal_pairs' candidate_infos' premises'
+        
+				ts.TransSys.props <- invariants_1@ts.TransSys.props;
+        ind solver ts (k + 1) (goal_pairs'@invariants_1) candidate_infos' (premises'@premises_1) [] []
         
       )
     )
@@ -622,15 +611,22 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
     if (!bmc_state >= k) then
 
       (
+				debug ind
+          "1. Enter here!!!!!!!!"
+          end;
       
         let all_candidate_pairs = List.map fst all_candidate_infos in
       
         (* Send the invariant. *)
-        Event.invariant 
-          `BMC
-          (Term.mk_and (List.map snd all_candidate_pairs));
+        List.iter (
+					fun x ->
+					Event.proved 
+          `IND
+					x
+					)
+          all_candidate_pairs;
 
-	TransSys.log_property_valid "inductive step" (List.map fst all_candidate_pairs);
+        TransSys.log_property_valid "inductive step" (List.map fst all_candidate_pairs);
  
 (*
         (* Print out all the properties being proved. *)
@@ -648,12 +644,15 @@ let rec ind solver ts k goal_pairs candidate_infos premises =
 *)
       )
 
-    else 
-
-      ind solver ts k [] all_candidate_infos premises'
+    else (
+			debug ind
+          "2. Enter here!!!!!!!!"
+          end;
+      ind solver ts k [] all_candidate_infos premises' [] []
+			)
 )
 
-and restart ts prop_pairs premises = 
+and restart ts prop_pairs premises invariants_1 premises_1 = 
     
     Event.log `IND Event.L_info "Restarting inductive step";
   
@@ -662,10 +661,10 @@ and restart ts prop_pairs premises =
     | Some s -> S.delete_solver s
     | None -> ());
 
-  init ts prop_pairs premises
+  init ts prop_pairs premises invariants_1 premises_1
 
 
-and init transSys prop_pairs premises =
+and init transSys prop_pairs premises invariants_1 premises_1=
 
     (* Determine logic for the SMT solver *)
     let logic = TransSys.get_logic transSys in
@@ -684,13 +683,61 @@ and init transSys prop_pairs premises =
   
     S.assert_term solver (TransSys.constr_of_bound 1 transSys);
       
-    ind solver transSys 1 prop_pairs [] premises
+    ind solver transSys 1 prop_pairs [] premises invariants_1 premises_1
 
 
 (* Entry point *)
 let main transSys =
-  Lib.minisleep 1.5;
+
   Stat.start_timer Stat.ind_total_time;
+	let invariants_1 = ref [] in 
+	let premises_1 = ref [] in 
+	let flag = ref true in
+	let counter = ref 0 in
+  (* Terminate when ControlMessage TERM is received. *)
+	while !flag do
+		 Lib.minisleep 0.5;				
+		 let messages = Event.recv () in
+     List.iter
+	     (fun message -> 
+         match message with
+        
+  		    (* Add invariant to the property list to verify when it's received. *)
+          | (Event.Invariant (_, invar)) ->
+
+					  flag := false;
+	          if 
+					    List.for_all 
+	               (fun v -> 
+							     (int_of_numeral (Var.offset_of_state_var_instance v)) = 0) 
+						     (TransSys.vars_of_term invar) 
+					  then
+						  (
+	             (debug indtrace
+                 "invariant_'0 invariant_property_%d = %a" !counter
+                 Term.pp_print_term invar
+                 end);
+	              transSys.TransSys.props <- ("invariant_property_"^(string_of_int !counter), invar) :: transSys.TransSys.props;
+						  )
+	          
+	          else
+	           (
+	             (debug indtrace
+                 "invariant_'1 invariant_property_%d = %a" !counter
+                 Term.pp_print_term invar
+                 end);
+							 premises_1 := invar :: !premises_1;
+	             invariants_1 := ("invariant_property_"^(string_of_int !counter), invar) :: !invariants_1;
+	           ); 
+        
+	          counter := !counter + 1;
+       
+        (* Irrelevant message received. *)
+        | _ ->
+					()
+    
+        ) messages;
+	done;
 
   let prop_pairs = transSys.TransSys.props in
 
@@ -701,104 +748,7 @@ let main transSys =
     (* Terminate when there is nothing to check *)
     | [] -> Event.log `IND Event.L_error "No property to check"
 
-    | _ -> init transSys prop_pairs premises);
-
- 
-
-
-(*
-let main () =
-
-  (* Parse command-line flags *)
-  Flags.parse_argv ();
-  
-  (* At least one debug section enabled? *)
-  if not (Flags.debug () = []) then
-    
-    (
-      
-      (* Formatter to write debug output to *)
-      let debug_formatter = 
-        match Flags.debug_log () with 
-          (* Write to stdout by default *)
-          | None -> Format.std_formatter
-
-          (* Open channel to given file and create formatter on channel *)
-          | Some f ->
-            
-            let oc = 
-              try open_out f with
-                | Sys_error _ -> failwith "Could not open debug logfile"
-            in 
-            Format.formatter_of_out_channel oc
-      in
-      
-      (* Enable each requested debug section and write to formatter *)
-      List.iter 
-        (function s -> Debug.enable s debug_formatter)
-        (Flags.debug ());
-
-    );
-
-  (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then
-    
-    (
-
-      (* Install signal handler for SIGALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutWall));
-      
-      (* Set interval timer for wallclock timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_REAL 
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_wall () } 
-      in
-
-      ()
-
-    );
-
-  (* CPU timeout? *)
-  if Flags.timeout_virtual () > 0. then
-
-    (
-
-      (* Install signal handler for SIGVTALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigvtalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutVirtual));
-      
-      (* Set interval timer for CPU timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_VIRTUAL
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_virtual () } 
-      in
-
-      ()
-
-    );
-
-  let ts = OldParser.of_file (Flags.input_file ()) in
-
-  (* Output the transition system *)
-  (debug ind
-    "%a"
-    TransSys.pp_print_trans_sys
-    ts
-    end);
-    
-  let property_pairs = ts.TransSys.props in
-  let premises = List.map snd property_pairs in
-
-  kind_ind ts property_pairs premises
-;;
-
-main ()
-*)
+    | _ -> init transSys prop_pairs premises !invariants_1 !premises_1);
 
 
 (* 

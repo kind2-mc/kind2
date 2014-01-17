@@ -362,7 +362,11 @@ let mainloop filename send_invariant =
 	      let _= List.map(fun x -> send_invariant x) b_imps in
 	      let _= List.map(fun x -> send_invariant x) int_eqs in
 	      let _= List.map(fun x -> send_invariant x) int_imps in
-	       ()
+	        if !OldFlags.no_imp then 
+                   pr_func_no_imp  b_eqs b_imps int_eqs int_imps maxdepth
+                else
+                 pr_func b_eqs b_imps int_eqs int_imps maxdepth
+	  
 
 	   )
 	else 
@@ -388,10 +392,10 @@ let mainloop filename send_invariant =
 		ignore();
 	      done ;
 	      let b_eqs, b_imps, i_eqs, i_imps = filter#picked_invs() in
-	      let _= List.map(fun x -> send_invariant x) b_eqs in
+	    (*  let _= List.map(fun x -> send_invariant x) b_eqs in
 	      let _= List.map(fun x -> send_invariant x) b_imps in
 	      let _= List.map(fun x -> send_invariant x) i_eqs in
-	      let _= List.map(fun x -> send_invariant x) i_imps in
+	      let _= List.map(fun x -> send_invariant x) i_imps in*)
 		if !OldFlags.no_imp then
 		   pr_func_no_imp  b_eqs b_imps i_eqs i_imps maxdepth
 		else

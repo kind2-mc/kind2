@@ -361,11 +361,14 @@ let vars z =
    We return all declared state variables regardless of those used in
    the transition system. *)
 let state_vars z = 
-
+  StateVar.fold
+    (fun sv a -> if true then sv :: a else a)
+    []
+(*
   StateVar.fold
     (fun sv a -> if not (StateVar.is_definition sv) then sv :: a else a)
     []
-
+*)
 
 (* Return constraints for types like integer ranges *)
 let invars_of_types () = 

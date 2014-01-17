@@ -132,6 +132,14 @@ let handle_event transSys = function
 
         )
 
+			else
+				
+        ( 
+
+          Event.log `INVMAN Event.L_info "%d properties remaining" (List.length props');
+
+        )
+
     )
 
   (* Output property as disproved *)
@@ -164,6 +172,14 @@ let handle_event transSys = function
 
         )
 
+			else
+				
+        ( 
+
+          Event.log `INVMAN Event.L_info "%d properties remaining" (List.length props');
+
+        )
+
     )
 
   (* Output property as disproved *)
@@ -193,6 +209,14 @@ let handle_event transSys = function
           Event.log `INVMAN Event.L_info "All properties proved or disproved";
 
           Event.terminate ()
+
+        )
+	
+			else
+				
+        ( 
+
+          Event.log `INVMAN Event.L_info "%d properties remaining" (List.length props');
 
         )
 

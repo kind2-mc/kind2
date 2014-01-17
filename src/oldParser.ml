@@ -703,7 +703,7 @@ let rec il_expression_to_term init = function
         in
     let var' = 
           Var.mk_state_var_instance 
-            state_var (Lib.numeral_of_int 0)
+            state_var (if init then Lib.numeral_of_int 0 else Lib.numeral_of_int 1)
         in
     Term.mk_var var'
     
@@ -1048,6 +1048,8 @@ let rec il_expression_to_term init = function
 
      string * il_expression list *)  
   | _, PRED (s, l)  ->
+		debug resolve_to
+           "pred: %s resolved to %a" s pp_print_il_expression (Kind1.New_vars.nvr_to_expr s) in
     il_expression_to_term init (Some (Kind1.New_vars.nvr_to_type s),(Kind1.New_vars.nvr_to_expr s)) 
     
 
@@ -1455,7 +1457,7 @@ let of_channel in_ch =
           il_expression_to_term true (Some L_BOOL, a)
 
     in
-(*
+
     (* Invariants of transition system *)
     let invars = 
 
@@ -1471,7 +1473,7 @@ let of_channel in_ch =
         assert_term :: TransSys.invars_of_types ()
 
     in
-*)
+
     (* Get declared variables 
 
        TODO: filter for proper state variables here, i.e. variables
@@ -1484,7 +1486,7 @@ let of_channel in_ch =
         TransSys.constr = StateVar.StateVarHashtbl.create (List.length trans_assignments);
         TransSys.trans = [];
         TransSys.props = props;
-        TransSys.invars = invariants;
+        TransSys.invars = invars;
         TransSys.props_valid = [];
         TransSys.props_invalid = [];
         TransSys.constr_dep = StateVar.StateVarHashtbl.create (List.length trans_assignments) } 
