@@ -84,10 +84,31 @@ let rec inv_gen_dummy k =
 
   (* Recurse for the next invariant *)
   inv_gen_dummy (succ k)
-  
+	
 (*Sending invariant*)
 let send_invariant x  =
-	Event.invariant `INVGEN (OldParser.il_formula_to_term false x)
+  debug il_inv 
+    "debuging il formula: @\n%a@\n"
+    OldParser.pp_print_il_formula x in
+  let invariant = OldParser.il_formula_to_term false x in
+	
+  debug il_inv "il_formula to invariant@ %a" Term.pp_print_term invariant in
+	
+	if
+	  List.exists(
+			fun v -> 
+				(int_of_numeral (Var.offset_of_state_var_instance v)) = 1
+    ) (TransSys.vars_of_term invariant)
+	then
+		(
+			debug il_inv "****************@ %a" Term.pp_print_term (TransSys.bump_state (-1) invariant) in
+			Event.invariant `INVGEN (TransSys.bump_state (-1) invariant);
+		)
+	else
+		(
+			Event.invariant `INVGEN invariant
+		)
+		
 	
 (* Entry point *)
 let main _ = 
