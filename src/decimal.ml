@@ -74,6 +74,7 @@ let string_of_decimal = string_of_t pp_print_decimal
 (* Convert an integer to a rational number *)
 let of_int = Num.num_of_int
 
+(*
 
 (* Integer exponentiation *)
 let pow x n = 
@@ -86,6 +87,52 @@ let pow x n =
   pow' 1 x n
 
 
+let bin_digits_of_float f precision =
+  
+  let rec bin_digits_of_float' f accum = function
+    | p when p <= 0 -> List.rev accum 
+    | p -> 
+      let rest, digit = modf f in
+      bin_digits_of_float' (rest *. 2.) (int_of_float digit :: accum) (pred p)
+  in
+
+  bin_digits_of_float' f [] precision
+
+
+
+let big_int_of_bin_digits digits exp = 
+
+  let rec big_int_of_bin_digits' accum = function 
+    | [] -> 
+      (function 
+        | e when e <= 0 -> accum
+            
+        | e -> 
+          big_int_of_bin_digits' 
+            (Big_int.mult_big_int 
+               accum
+               (Big_int.big_int_of_int 2))
+            digits 
+            (pred e))
+
+    | (h :: digits) -> 
+      (function 
+        | e when e <= 0 -> 
+          Big_int.add_big_int accum (Big_int.big_int_of_int h)
+            
+        | e -> 
+          big_int_of_bin_digits' 
+            (Big_int.mult_big_int 
+               (Big_int.add_big_int accum (Big_int.big_int_of_int h)) 
+               (Big_int.big_int_of_int 2))
+            digits 
+            (pred e))
+  in
+
+  big_int_of_bin_digits' Big_int.zero_big_int digits exp
+
+*)
+
 (* Convert a floating-point number to a rational number *)
 let of_float f = 
 
@@ -97,29 +144,61 @@ let of_float f =
   (* Catch infinity and NaN values *)
   match classify_float f with 
 
-    (* Zero *)
-    | FP_zero -> zero
-
     (* Do not convert infinity, NaN and subnormal numbers (too close
        to 1.0 for full precision) *)
     | FP_infinite
     | FP_nan
     | FP_subnormal -> raise (Invalid_argument "of_float")
 
+    (* Zero *)
+    | FP_zero -> zero
+
     (* A normal floating-point number *)
     | FP_normal -> 
 
-      (* Number of digits of a double float *)
-      let precision = 16 in
+      (* Get fractional and integer part of number *)
+      let r, i = modf f in
+      
+      if classify_float r = FP_zero then 
+
+        Num.num_of_int (int_of_float i)
+
+      else
+
+        (* TODO: convert float to rational *)
+        raise 
+          (Invalid_argument
+             (Format.asprintf "of_float %f" f))
+
+(*
+      (* Number of bits in the mantiassa of a double float *)
+      let precision = 54 in
 
       (* Get mantissa and exponent *)
       let m, e = frexp f in
 
+      let bin_digits = bin_digits_of_float m precision in
+
+      Num.big_int_of_bin_digits digits e
+*)
+(*
+      (* Get digits of mantissa up to precision *)
+      let m' = int_of_float (m *. (10. ** float_of_int precision)) in
+
+      (* Get exponent *)
+      let e' = Big_int.power_int_positive_int 2 e in
+      
+      debug decimal
+          "of_float (m * 10 ^ precision) = %d" m'
+      in
+       
+      debug decimal
+          "of_float e = %s" (Big_int.string_of_big_int e')
+      in
+       
       (* Numerator is m * (10 ^ precision) * (2 ^ exponent)  *)
       let n = 
-        Big_int.mult_int_big_int
-          (int_of_float (m *. (10. ** float_of_int precision))) 
-          (Big_int.power_int_positive_int 2 e)
+        Big_int.mult_int_big_int m' e'
       in
 
       (* Denominator is (10 ^ precision) *)
@@ -141,13 +220,15 @@ let of_float f =
       else
 
         (debug decimal
-            "of_float is an fraction" 
+            "of_float is a fraction: q=%s, r=%s" 
+            (Big_int.string_of_big_int q)
+            (Big_int.string_of_big_int r)
          in
          
         (* Construct a fraction *)
         Num.num_of_ratio (Ratio.create_ratio n d))
 
-
+*)
 
 (* Division symbol *)
 let s_div = HString.mk_hstring "/"

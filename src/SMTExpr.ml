@@ -324,65 +324,65 @@ let const_of_smtlib_token b t =
     (* Empty strings are invalid *)
     if HString.length t = 0 then
 
-    (* String is empty *)
-    raise (Invalid_argument "num_expr_of_smtlib_token")
+      (* String is empty *)
+      raise (Invalid_argument "num_expr_of_smtlib_token")
 
-  else
+    else
 
-    try
-      
-      (* Return numeral of string *)
-      Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
+      try
 
-    (* String is not a decimal *)
-    with Invalid_argument _ -> 
-      
-      try 
-        
-        (* Return decimal of string *)
-        Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
-        
+        (* Return numeral of string *)
+        Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
+
+      (* String is not a decimal *)
       with Invalid_argument _ -> 
-        
-        try 
-          
-          (* Return bitvector of string *)
-          Term.mk_bv (bitvector_of_hstring t)
-            
-        with Invalid_argument _ -> 
-          
-          try 
-            
-            (* Return symbol of string *)
-            Term.mk_bool (bool_of_hstring t)
 
-          (* String is not an interpreted symbol *)
+        try 
+
+          (* Return decimal of string *)
+          Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
+
+        with Invalid_argument _ -> 
+
+          try 
+
+            (* Return bitvector of string *)
+            Term.mk_bv (bitvector_of_hstring t)
+
           with Invalid_argument _ -> 
 
             try 
 
-              (* Return bound symbol *)
-              Term.mk_var (List.assq t b)
-                
-            (* String is not a bound variable *)
-            with Not_found -> 
-              
-              try 
-                
-                (* Return uninterpreted constant *)
-                Term.mk_uf 
-                  (UfSymbol.uf_symbol_of_string (HString.string_of_hstring t))
-                  []
+              (* Return symbol of string *)
+              Term.mk_bool (bool_of_hstring t)
 
+            (* String is not an interpreted symbol *)
+            with Invalid_argument _ -> 
+
+              try 
+
+                (* Return bound symbol *)
+                Term.mk_var (List.assq t b)
+
+              (* String is not a bound variable *)
               with Not_found -> 
 
-                debug smtexpr 
-                    "const_of_smtlib_token %s failed" 
-                    (HString.string_of_hstring t)
-                in
+                try 
 
-                (* Cannot convert to an expression *)
-                failwith "Invalid constant symbol in S-expression"
+                  (* Return uninterpreted constant *)
+                  Term.mk_uf 
+                    (UfSymbol.uf_symbol_of_string (HString.string_of_hstring t))
+                    []
+
+                with Not_found -> 
+
+                  debug smtexpr 
+                      "const_of_smtlib_token %s failed" 
+                      (HString.string_of_hstring t)
+                  in
+
+                  (* Cannot convert to an expression *)
+                  failwith "Invalid constant symbol in S-expression"
 
   in
 
@@ -393,7 +393,6 @@ let const_of_smtlib_token b t =
   in
 
   res
-
 
 (* Convert a string S-expression to an expression *)
 let rec expr_of_string_sexpr' b = function 
