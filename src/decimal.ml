@@ -89,6 +89,11 @@ let pow x n =
 (* Convert a floating-point number to a rational number *)
 let of_float f = 
 
+  debug decimal
+    "of_float %f"
+    f
+  in
+
   (* Catch infinity and NaN values *)
   match classify_float f with 
 
@@ -110,25 +115,48 @@ let of_float f =
       (* Get mantissa and exponent *)
       let m, e = frexp f in
 
-      (* Numerator is m * (10 ^ precision) *)
-      let n = int_of_float (m *. (10. ** float_of_int precision)) in
+      (* Numerator is m * (10 ^ precision) * (2 ^ exponent)  *)
+      let n = 
+        Big_int.mult_int_big_int
+          (int_of_float (m *. (10. ** float_of_int precision))) 
+          (Big_int.power_int_positive_int 2 e)
+      in
 
       (* Denominator is (10 ^ precision) *)
-      let d = pow 10 precision in
+      let d = Big_int.power_int_positive_int 10 precision in
 
-      (* Construct decimal by dividing numerator by denominator and
-         multiplying by the exponent *)
-      Num.mult_num 
-        (Num.div_num (Num.num_of_int n) (Num.num_of_int d)) 
-        (Num.power_num (Num.num_of_int 2) (Num.num_of_int e))
+      (* Divide numerator by denominator *)
+      let q, r = Big_int.quomod_big_int n d in
       
+      (* Remainder of division is zero? *)
+      if Big_int.eq_big_int r Big_int.zero_big_int then
+
+        (debug decimal
+            "of_float is an integer" 
+         in
+         
+         (* Return as integer number instead of fraction *)
+         Num.num_of_big_int q)
+
+      else
+
+        (debug decimal
+            "of_float is an fraction" 
+         in
+         
+        (* Construct a fraction *)
+        Num.num_of_ratio (Ratio.create_ratio n d))
+
+
 
 (* Division symbol *)
 let s_div = HString.mk_hstring "/"
 
+let s_unimus = HString.mk_hstring "-"
+
 
 (* Convert a string to a rational number *)
-let of_string s = 
+let rec of_string s = 
 
   (* Parse S-expression *)
   match SExprParser.sexp SExprLexer.main (Lexing.from_string s) with 
@@ -145,7 +173,14 @@ let of_string s =
           
           Num.num_of_string (HString.string_of_hstring n) 
 
-        with Failure _ -> raise (Invalid_argument "of_string")
+        with Failure _ -> 
+
+          (debug decimal
+              "of_string: %a is not a numerator" 
+              HString.pp_print_hstring n
+           in
+
+           raise (Invalid_argument "of_string"))
 
       in
 
@@ -156,16 +191,23 @@ let of_string s =
 
           Num.num_of_string (HString.string_of_hstring d) 
 
-        with Failure _ -> raise (Invalid_argument "of_string")
+        with Failure _ -> 
+
+          (debug decimal
+              "of_string: %a is not a denominator" 
+              HString.pp_print_hstring n
+           in
+
+           raise (Invalid_argument "of_string"))
 
       in
 
-      (* Divide numeratorby denominator *)
+      (* Divide numerator by denominator *)
       Num.div_num n' d'
 
 
     (* Single string is a rational number *)
-    | HStringSExpr.Atom n -> 
+    | HStringSExpr.Atom n as s -> 
 
       (try 
 
@@ -177,16 +219,38 @@ let of_string s =
 
          try 
 
+           (debug decimal
+               "of_string: Trying to convert %a as a float" 
+               HStringSExpr.pp_print_sexpr s
+            in
+
+
            (* Convert whole string as floating-point number *)
-           of_float (float_of_string (HString.string_of_hstring n))
+           of_float (float_of_string (HString.string_of_hstring n)))
 
          with Invalid_argument _ | Failure _ -> 
            
-           raise (Invalid_argument "of_string"))
+           (debug decimal
+             "of_string %a" 
+             HStringSExpr.pp_print_sexpr s
+            in
+
+            raise 
+              (Invalid_argument 
+                 (Format.asprintf "of_string %a" HStringSExpr.pp_print_sexpr s))))
       
     (* Fail on other S-expressions *)
-    | _ -> raise (Invalid_argument "of_string")
-
+    | s -> 
+      
+      (debug decimal
+          "of_string %a" 
+          HStringSExpr.pp_print_sexpr s
+       in
+       
+       raise 
+         (Invalid_argument 
+            (Format.asprintf "of_string %a" HStringSExpr.pp_print_sexpr s)))
+         
 
 (* Convert an arbitrary large integer to a rational number *)
 let of_big_int n = Num.num_of_big_int n
