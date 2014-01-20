@@ -133,6 +133,7 @@ let big_int_of_bin_digits digits exp =
 
 *)
 
+(*
 (* Convert a floating-point number to a rational number *)
 let of_float f = 
 
@@ -229,16 +230,70 @@ let of_float f =
         Num.num_of_ratio (Ratio.create_ratio n d))
 
 *)
+*)
+
+let num_of_int_string s = 
+
+  try 
+
+    (* Get index of decimal point in string *)
+    let pindex = String.index s '.' in 
+
+    (* Create new string for integer part *)
+    let int_string =  String.create pindex in
+
+    (* Copy integer part in string *)
+    String.blit s 0 int_string 0 pindex;
+
+    (* Create new string for fractional part *)
+    let frac_string = String.create ((String.length s) - pindex - 1) in
+
+    (* Copy fractional part in string *)
+    String.blit s (pindex + 1) frac_string 0 ((String.length s) - pindex - 1);
+
+    (* Ensure that all characters in fractional part are zeros, raise
+       exception otherwise *)
+    String.iter 
+      (fun c -> 
+         if c = '0' then
+           () 
+         else
+           raise (Invalid_argument "num_of_int_string")) 
+      frac_string;
+
+    (try 
+
+       (* Convert string before decimal point *)
+       Num.num_of_string int_string
+         
+     with Failure _ -> 
+       
+       raise (Invalid_argument "num_of_int_string"))
+
+
+  (* No decimal point in string *)
+  with Not_found -> 
+
+    try 
+
+      (* Convert string as integer *)
+      Num.num_of_string s 
+
+    with Failure _ -> 
+
+      raise (Invalid_argument "num_of_int_string")
+
+
 
 (* Division symbol *)
 let s_div = HString.mk_hstring "/"
 
 let s_unimus = HString.mk_hstring "-"
 
-
 (* Convert a string to a rational number *)
 let rec of_string s = 
 
+(*
   (* Parse S-expression *)
   match SExprParser.sexp SExprLexer.main (Lexing.from_string s) with 
 
@@ -246,6 +301,12 @@ let rec of_string s =
     | HStringSExpr.List
         [HStringSExpr.Atom o; HStringSExpr.Atom n; HStringSExpr.Atom d] 
       when o = s_div -> 
+
+      debug decimal
+        "of_string: (/ %a %a)"
+        HString.pp_print_hstring n
+        HString.pp_print_hstring d
+       in
 
       (* Convert first argument to an integer as numerator *)
       let n' = 
@@ -284,42 +345,31 @@ let rec of_string s =
       in
 
       (* Divide numerator by denominator *)
-      Num.div_num n' d'
+      let res = Num.div_num n' d' in
 
+      debug decimal
+        "of_string: %s"
+        (Num.string_of_num res)
+      in
+
+      res
 
     (* Single string is a rational number *)
     | HStringSExpr.Atom n as s -> 
+*)
 
-      (try 
-
-
-         (* Convert whole string to a rational number *)
-         Num.num_of_string (HString.string_of_hstring n)
-           
-       with Failure _ -> 
-
-         try 
-
-           (debug decimal
-               "of_string: Trying to convert %a as a float" 
-               HStringSExpr.pp_print_sexpr s
-            in
-
-
-           (* Convert whole string as floating-point number *)
-           of_float (float_of_string (HString.string_of_hstring n)))
-
-         with Invalid_argument _ | Failure _ -> 
-           
-           (debug decimal
-             "of_string %a" 
-             HStringSExpr.pp_print_sexpr s
-            in
-
-            raise 
-              (Invalid_argument 
-                 (Format.asprintf "of_string %a" HStringSExpr.pp_print_sexpr s))))
-      
+  (try 
+     
+     (* Convert integer string or floating-point as an integer *)
+     num_of_int_string s
+       
+   with Invalid_argument _ -> 
+     
+     raise 
+       (Invalid_argument 
+          (Format.asprintf "of_string %s" s)))
+  
+(*
     (* Fail on other S-expressions *)
     | s -> 
       
@@ -331,7 +381,7 @@ let rec of_string s =
        raise 
          (Invalid_argument 
             (Format.asprintf "of_string %a" HStringSExpr.pp_print_sexpr s)))
-         
+*)       
 
 (* Convert an arbitrary large integer to a rational number *)
 let of_big_int n = Num.num_of_big_int n

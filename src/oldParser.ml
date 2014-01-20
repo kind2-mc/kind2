@@ -668,7 +668,7 @@ let rec il_expression_to_term init = function
   | None, NUM _ -> failwith "No type information for NUM"
   
   (* A float *)
-  | Some L_REAL, FLOAT f -> Term.mk_dec (Decimal.of_float f)
+  | Some L_REAL, FLOAT f -> Term.mk_dec (Decimal.of_string (string_of_float f))
 
   | Some t, (FLOAT _ as e) -> failwith (type_mismatch_to_string e t L_REAL)
 

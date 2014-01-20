@@ -1491,7 +1491,7 @@ let rec simplify_term_node fterm args =
                            then 
                              Decimal.zero 
                            else 
-                             Decimal.( / ) a e)
+                             Decimal.(a / e))
                         h 
                         tl), 
                      [])
