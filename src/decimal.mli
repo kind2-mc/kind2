@@ -37,8 +37,10 @@ val string_of_decimal : t -> string
 (** Convert an integer to a rational *)
 val of_int : int -> t
 
+(*
 (** Convert a floating-point number to a rational *)
 val of_float : float -> t
+*)
 
 (** Convert an arbitrary large integer to a rational *)
 val of_big_int : Big_int.big_int -> t

@@ -734,6 +734,18 @@ let find_cex
       debug pdr 
           "Counterexample found"
       in
+
+(*      
+      debug pdr
+          "@[<v>Current context@,@[<hv>%a@]@]"
+          HStringSExpr.pp_print_sexpr_list
+          (let r, a = 
+            S.T.execute_custom_command solver_frames "get-assertions" [] 1 
+           in
+           S.fail_on_smt_error r;
+           a)
+      in
+*)     
       
       (* Get counterexample to entailment from satisfiable formula *)
       let cex = 

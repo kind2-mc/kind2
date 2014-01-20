@@ -1481,7 +1481,20 @@ let rec simplify_term_node fterm args =
                 | [_] -> assert false 
 
                 (* Divide first argument by remaining arguments *)
-                | h :: tl -> Dec ((List.fold_left Decimal.( / ) h tl), [])
+                | h :: tl -> 
+
+                  Dec 
+                    ((List.fold_left 
+                        (fun a e -> 
+                           if 
+                             Decimal.(a = zero) 
+                           then
+                             raise (Failure "simplify_term: division by zero")
+                           else 
+                             Decimal.(a / e))
+                        h 
+                        tl), 
+                     [])
 
             else
 
@@ -1490,7 +1503,10 @@ let rec simplify_term_node fterm args =
                  TODO: `DIV is variadic and left-associative, we
                  could simplify terms like (div 2 2 a) = (div 1 a) and
                  also (div a 2 2) = (div a 1) = a *)
-              Num (Numeral.zero, [Numeral.one, [Term.mk_div (List.map term_of_nf args)]])
+              Num 
+                (Numeral.zero, 
+                 [Numeral.one, 
+                  [Term.mk_div (List.map term_of_nf args)]])
 
           (* Integer division is a monomial with polynomial subterms *)
           | `INTDIV -> 

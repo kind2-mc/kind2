@@ -319,65 +319,80 @@ let symbol_of_hstring s =
    function symbols and variables. *)
 let const_of_smtlib_token b t = 
 
-  (* Empty strings are invalid *)
-  if HString.length t = 0 then
+  let res = 
 
-    (* String is empty *)
-    raise (Invalid_argument "num_expr_of_smtlib_token")
+    (* Empty strings are invalid *)
+    if HString.length t = 0 then
 
-  else
+      (* String is empty *)
+      raise (Invalid_argument "num_expr_of_smtlib_token")
 
-    try
-      
-      (* Return numeral of string *)
-      Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
+    else
 
-    (* String is not a decimal *)
-    with Invalid_argument _ -> 
-      
-      try 
-        
-        (* Return decimal of string *)
-        Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
-        
+      try
+
+        (* Return numeral of string *)
+        Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
+
+      (* String is not a decimal *)
       with Invalid_argument _ -> 
-        
-        try 
-          
-          (* Return bitvector of string *)
-          Term.mk_bv (bitvector_of_hstring t)
-            
-        with Invalid_argument _ -> 
-          
-          try 
-            
-            (* Return symbol of string *)
-            Term.mk_bool (bool_of_hstring t)
 
-          (* String is not an interpreted symbol *)
+        try 
+
+          (* Return decimal of string *)
+          Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
+
+        with Invalid_argument _ -> 
+
+          try 
+
+            (* Return bitvector of string *)
+            Term.mk_bv (bitvector_of_hstring t)
+
           with Invalid_argument _ -> 
 
             try 
 
-              (* Return bound symbol *)
-              Term.mk_var (List.assq t b)
-                
-            (* String is not a bound variable *)
-            with Not_found -> 
-              
-              try 
-                
-                (* Return uninterpreted constant *)
-                Term.mk_uf 
-                  (UfSymbol.uf_symbol_of_string (HString.string_of_hstring t))
-                  []
+              (* Return symbol of string *)
+              Term.mk_bool (bool_of_hstring t)
 
+            (* String is not an interpreted symbol *)
+            with Invalid_argument _ -> 
+
+              try 
+
+                (* Return bound symbol *)
+                Term.mk_var (List.assq t b)
+
+              (* String is not a bound variable *)
               with Not_found -> 
 
-                (* Cannot convert to an expression *)
-                failwith "Invalid constant symbol in S-expression"
+                try 
 
-                
+                  (* Return uninterpreted constant *)
+                  Term.mk_uf 
+                    (UfSymbol.uf_symbol_of_string (HString.string_of_hstring t))
+                    []
+
+                with Not_found -> 
+
+                  debug smtexpr 
+                      "const_of_smtlib_token %s failed" 
+                      (HString.string_of_hstring t)
+                  in
+
+                  (* Cannot convert to an expression *)
+                  failwith "Invalid constant symbol in S-expression"
+
+  in
+
+  debug smtexpr 
+      "const_of_smtlib_token %s is %a" 
+      (HString.string_of_hstring t)
+      Term.pp_print_term res
+  in
+
+  res
 
 (* Convert a string S-expression to an expression *)
 let rec expr_of_string_sexpr' b = function 
@@ -839,11 +854,19 @@ let check_sat_response_of_sexpr = function
 let rec get_value_response_of_sexpr' accum = function 
   | [] -> (Success, List.rev accum)
   | HStringSExpr.List [ e; v ] :: tl -> 
-    get_value_response_of_sexpr' 
-      ((((expr_of_string_sexpr e) :> t), 
-        ((expr_of_string_sexpr v :> t))) :: 
-          accum) 
-      tl
+
+    (debug smtexpr
+        "get_value_response_of_sexpr: %a is %a"
+        HStringSExpr.pp_print_sexpr e
+        HStringSExpr.pp_print_sexpr v
+     in
+     
+     get_value_response_of_sexpr' 
+       ((((expr_of_string_sexpr e) :> t), 
+         ((expr_of_string_sexpr v :> t))) :: 
+        accum) 
+       tl)
+
   | _ -> invalid_arg "get_value_response_of_sexpr"
 
 (* Return a solver response to a get-value command as expression pairs *)
