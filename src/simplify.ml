@@ -1487,7 +1487,7 @@ let rec simplify_term_node fterm args =
                     ((List.fold_left 
                         (fun a e -> 
                            if 
-                             Decimal.(a = zero) 
+                             Decimal.(e = zero) 
                            then
                              raise (Failure "simplify_term: division by zero")
                            else 
@@ -1670,6 +1670,19 @@ let simplify_term term =
 
 (* Simplify a term with a model *)
 let simplify_term_model model term = 
+
+  debug simplify 
+    "Simplifying@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+    Term.pp_print_term term
+    (pp_print_list 
+       (fun ppf (v, t) -> 
+          Format.fprintf ppf
+            "@[<hv 2>%a =@ %a@]" 
+            Var.pp_print_var v 
+            Term.pp_print_term t) 
+       "@ ")
+    model 
+  in
 
   (* Bind variables in the model to their values and simplify term *)
   let term' = Term.mk_let model term in 
