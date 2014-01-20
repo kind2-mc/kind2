@@ -1488,8 +1488,8 @@ let rec simplify_term_node fterm args =
                         (fun a e -> 
                            if 
                              Decimal.(a = zero) 
-                           then 
-                             Decimal.zero 
+                           then
+                             raise (Failure "simplify_term: division by zero")
                            else 
                              Decimal.(a / e))
                         h 
