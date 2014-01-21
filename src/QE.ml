@@ -509,10 +509,13 @@ let generalize model (elim : Var.t list) term =
           (Term.mk_and [term'_bool; term'_int]);
 *)
 
+        (* Extract again from result *)
+        let term''_int, term''_bool =  Extract.extract model (Term.mk_and term'_int) in
+
         (* Return quantifier eliminated term *)
         (match pdr_qe with 
           | `Z3 -> term'_int
-          | `Z3_impl -> term'_bool @ term'_int)
+          | `Z3_impl -> term'_bool @ [term''_int; term''_bool])
         
       )
 
