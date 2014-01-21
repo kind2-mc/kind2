@@ -343,6 +343,9 @@ let pdr_tighten_to_subset_time =
 let pdr_tightened_blocking_clauses =
   empty_item "Tightened blocking clauses" 0
 
+let pdr_tightened_propagated_clauses =
+  empty_item "Tightened forward propagated clauses" 0
+
 (* Title for PDR statistics *)
 let pdr_stats_title = "PDR"
 
@@ -354,6 +357,7 @@ let pdr_stats =
     I pdr_fwd_fixpoint; 
     I pdr_inductive_blocking_clauses; 
     I pdr_tightened_blocking_clauses;
+    I pdr_tightened_propagated_clauses;
     L pdr_counterexamples; 
     I pdr_counterexamples_total;
     F pdr_total_time;

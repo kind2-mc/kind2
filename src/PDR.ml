@@ -1740,6 +1740,8 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
             CNF.of_list (List.map Clause.of_term fwd_terms)
 
           else
+            
+          if false then
 
             (* Partition clauses into propagatable and not propagatable *)
             CNF.partition 
@@ -1748,6 +1750,69 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                   solver_frames
                   [Term.negate (TransSys.bump_state 1 (Clause.to_term c))])
               f'
+
+          else
+
+            CNF.fold
+              (fun clause (keep, fwd) ->
+
+                 (* Negate and prime literals *)
+                 let clause' = 
+                   Clause.map 
+                     (fun c -> (Term.negate (TransSys.bump_state 1 c)))
+                     clause
+                 in
+
+                 (* Add a name to each literal *)
+                 let literals'_named, name_to_literal = 
+                   name_terms (Clause.elements clause')
+                 in
+
+                 (* Assert negated literals *)
+                 List.iter
+                   (S.assert_term solver_frames)
+                   literals'_named;
+
+                 (* Check for entailment *)
+                 if S.check_sat solver_frames then
+                   
+                   (* Clause does not propagate *)
+                   (CNF.add clause keep, fwd)
+
+                 else
+
+                   (* Get clause literals in unsat core *)
+                   let clause'_core, clause'_rest = 
+
+                     partition_core
+                       solver_frames
+                       name_to_literal
+                       (Clause.of_literals literals'_named)
+
+                   in
+
+                   (* Remove primes and negate literals *)
+                   let clause_core =
+                     Clause.map
+                       (fun l -> 
+                          (Term.negate (TransSys.bump_state (- 1) l)))
+                       clause'_core
+                   in
+
+                   if Clause.is_empty clause'_rest then 
+                     
+                     (debug pdr
+                       "Tightened clause@ %a to@ %a"
+                       Clause.pp_print_clause clause
+                       Clause.pp_print_clause clause_core
+                      in
+
+                      Stat.incr Stat.pdr_tightened_propagated_clauses);
+
+                   (* Propagate shortened clause *)
+                   (keep, CNF.add clause_core fwd))
+              f'
+              (CNF.empty, CNF.empty)
 
         in
 

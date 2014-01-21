@@ -392,6 +392,23 @@ let interpreter_steps_default = 0
 
 (* ********** *) 
 
+type input_format = [ `Lustre | `Horn ]
+    
+let input_format_of_string = function
+  | "lustre" -> `Lustre
+  | "horn" -> `Horn
+  | _ -> raise (Arg.Bad "Bad value for --input-format")
+
+let string_of_input_format = function 
+  | `Lustre -> "lustre"
+  | `Horn -> "horn"
+
+let input_format_values = "lustre, horn"
+
+let input_format_default = `Lustre
+
+(* ********** *) 
+
 let debug_default = []
 
 (* ********** *) 
@@ -436,6 +453,7 @@ type flags =
       mutable debug_log : string option;
       mutable log_level : Event.log_level;
       mutable log_format_xml : bool;
+      mutable input_format : input_format;
       mutable input_file : string option }
     
 (* Defaults for all flags *)
@@ -466,6 +484,7 @@ let flags =
     debug_log = debug_log_default;
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
+    input_format = input_format_default;
     input_file = None } 
 
 (* ********** *) 
@@ -729,6 +748,15 @@ let log_format_xml_spec =
    Arg.Unit (log_format_xml_action true), 
    Format.sprintf "Output in XML format")
 
+(* ********** *) 
+
+let input_format_action o = flags.input_format <- (input_format_of_string o)
+  
+let input_format_spec = 
+  ("--input-format", 
+   Arg.String input_format_action, 
+   Format.sprintf "Format of input file (available: %s, default: %s)" input_format_values (string_of_input_format input_format_default))
+
 
 (* ********************************************************************** *)
 (* Pretty-printing of flags                                               *)
@@ -790,6 +818,8 @@ let debug_log () = flags.debug_log
 let log_level () = flags.log_level
 
 let log_format_xml () = flags.log_format_xml
+
+let input_format () = flags.input_format 
 
 let input_file () = match flags.input_file with 
   | Some f -> f 
@@ -891,6 +921,9 @@ and speclist =
 
     (* Set output format to XML *)
     log_format_xml_spec;
+
+    (* Set input format *)
+    input_format_spec;
 
     (* Display help *)
     ("-help", 

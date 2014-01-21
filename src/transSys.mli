@@ -60,6 +60,9 @@ type t =
 
     }
 
+(** The empty transition system *)
+val empty : t
+
 (** Add pairs of state variable and definition to hash table *)
 val constr_of_def_list : Term.t StateVar.StateVarHashtbl.t -> (StateVar.t * Term.t) list -> unit
 
