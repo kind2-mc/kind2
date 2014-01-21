@@ -561,7 +561,17 @@ let main () =
       "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
-    let transSys = OldParser.of_file (Flags.input_file ()) in
+    let transSys = match (Flags.input_format ()) with 
+
+      | `Lustre -> 
+
+        OldParser.of_file (Flags.input_file ()) 
+
+      | `Horn -> 
+
+        Horn.of_file (Flags.input_file ()) 
+
+    in
 
     (* Output the transition system *)
     debug parse

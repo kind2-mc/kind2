@@ -62,6 +62,19 @@ type t =
     }
 
 
+(* The empty transition system *)
+let empty = 
+
+  { init = [];
+    constr = SVT.create 7;
+    trans = [];
+    props = [];
+    invars = [];
+    props_valid = [];
+    props_invalid = [];
+    constr_dep = SVT.create 7 }
+
+
 (* Return list of pairs of entries in hash table *)
 let def_list_of_constr t = SVT.fold (fun v t a -> (v, t) :: a) t.constr []
 

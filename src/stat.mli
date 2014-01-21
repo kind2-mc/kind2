@@ -199,6 +199,9 @@ val pdr_tighten_to_subset_time : float_item
 (** Number of tightened blocking clauses *)
 val pdr_tightened_blocking_clauses : int_item
 
+(** Number of tightened clauses in forward propagation *)
+val pdr_tightened_propagated_clauses : int_item
+
 (** Stop and record all timers *)
 val pdr_stop_timers : unit -> unit 
 
