@@ -1768,6 +1768,8 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                    name_terms (Clause.elements clause')
                  in
 
+                 S.push solver_frames;
+
                  (* Assert negated literals *)
                  List.iter
                    (S.assert_term solver_frames)
@@ -1776,8 +1778,10 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                  (* Check for entailment *)
                  if S.check_sat solver_frames then
                    
+                   (S.pop solver_frames;
+
                    (* Clause does not propagate *)
-                   (CNF.add clause keep, fwd)
+                    (CNF.add clause keep, fwd))
 
                  else
 
@@ -1808,6 +1812,8 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                       in
 
                       Stat.incr Stat.pdr_tightened_propagated_clauses);
+
+                   S.pop solver_frames;
 
                    (* Propagate shortened clause *)
                    (keep, CNF.add clause_core fwd))
