@@ -1922,7 +1922,8 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                               Clause.pp_print_clause clause_core
                               Clause.pp_print_clause clause'_rest
                            in
-                           
+
+                           (* Extra checks
                            S.push solver_frames;
                            
                            S.assert_term 
@@ -1944,11 +1945,10 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                            assert (not (S.check_sat solver_frames));
                            
                            S.pop solver_frames;
+                           *)
                            
                            Stat.incr Stat.pdr_tightened_propagated_clauses;
                            
-                           (* Propagate shortened clause, keep original *)
-                           (* (CNF.add clause keep, CNF.add clause_core fwd)) *)
                            (keep, CNF.add clause_core fwd))))
 
                    else
