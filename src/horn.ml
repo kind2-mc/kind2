@@ -19,11 +19,78 @@
 open Lib
 
 
+let s_set_info = HString.mk_hstring "set-info"
+
+let s_set_logic = HString.mk_hstring "set-logic"
+
+let s_horn = HString.mk_hstring "HORN"
+
+let s_declare_fun = HString.mk_hstring "declare-fun"
+
+let s_pred = HString.mk_hstring "p"
+
+let s_assert = HString.mk_hstring "assert"
+
+
 let rec parse lexbuf transSys = 
 
   (* Parse S-expression *)
   match SExprParser.sexp SExprLexer.main lexbuf with 
+
+    (* (set-info ...) *)
+    | HStringSExpr.List (HStringSExpr.Atom s :: _) when s == s_set_info -> 
   
+      (* Skip *)
+      parse lexbuf transSys
+
+    (* (set-logic HORN) *)
+    | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.Atom l]
+      when s == s_set_logic && l == s_horn -> 
+  
+      (* Skip *)
+      parse lexbuf transSys
+
+    (* (set-logic ...) *)
+    | HStringSExpr.List [HStringSExpr.Atom s; e] when s == s_set_logic -> 
+  
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "@[<hv>Invalid logic %a, must be HORN" 
+              HStringSExpr.pp_print_sexpr e))
+
+    (* (declare-fun p ...) *)
+    | HStringSExpr.List (HStringSExpr.Atom s :: HStringSExpr.Atom p :: _)
+      when s == s_declare_fun && p == s_pred -> 
+  
+      (* Skip *)
+      parse lexbuf transSys
+
+    (* (declare-fun ...) *)
+    | HStringSExpr.List (HStringSExpr.Atom s :: e :: _) 
+      when s == s_declare_fun -> 
+  
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "@[<hv>Invalid predicate declaration %a, only the monolithic predicate %a allowed@]" 
+              HStringSExpr.pp_print_sexpr e
+              HString.pp_print_hstring s_pred))
+
+    (* (assert ...) *)
+    | HStringSExpr.List [HStringSExpr.Atom s; e] when s == s_assert -> 
+      
+      (let expr = SMTExpr.expr_of_string_sexpr e in
+
+       debug horn
+        "%a"
+        SMTExpr.pp_print_expr expr
+       in
+      
+       (* Skip *)
+       parse lexbuf transSys)
+
+
     | e -> 
 
       raise 

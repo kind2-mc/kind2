@@ -1575,7 +1575,7 @@ let push_and_assert solver cnf =
      subsumption in its new frame
 
 *)
-let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
+let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
 
   (* Recursively forward propagate from lower frame to higher frames *)
   let rec fwd_propagate_aux 
@@ -1703,6 +1703,35 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                 Format.fprintf ppf "-%d" (List.length accum))
         in
 
+        debug pdr 
+            "@[<v>Frames before forward propagation@,@[<hv>%a@]@]"
+            pp_print_frames (f :: accum)
+        in
+
+        (* Assert clauses propagated to this frame *)
+        CNF.iter
+          (fun c -> S.assert_term solver_frames (Clause.to_term c))
+          prop;
+
+        if not (S.check_sat solver_frames) then 
+
+          (debug pdr 
+              "Frame is unsatisfiable without propagated clauses:@,%a@,%a"
+              CNF.pp_print_cnf prop
+              HStringSExpr.pp_print_sexpr_list
+              (let r, a = 
+                S.T.execute_custom_command 
+                  solver_frames
+                  "get-assertions"
+                  [] 
+                  1 
+               in
+               S.fail_on_smt_error r;
+               a)
+           in
+                                 
+           assert false);
+
         (* Add clauses propagated from the previous frame 
 
            No check for subsumption necessary: if a clause is not
@@ -1756,6 +1785,11 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
             CNF.fold
               (fun clause (keep, fwd) ->
 
+                 debug pdr
+                     "@[<v>Checking if clause can be propagated@,%a@]"
+                     Clause.pp_print_clause clause
+                 in
+
                  (* Negate and prime literals *)
                  let clause' = 
                    Clause.map 
@@ -1763,9 +1797,11 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                      clause
                  in
 
+                 let literals' = Clause.elements clause' in
+
                  (* Add a name to each literal *)
-                 let literals'_named, name_to_literal = 
-                   name_terms (Clause.elements clause')
+                 let literals'_named, name_to_literal' = 
+                   name_terms literals'
                  in
 
                  S.push solver_frames;
@@ -1790,8 +1826,8 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
 
                      partition_core
                        solver_frames
-                       name_to_literal
-                       (Clause.of_literals literals'_named)
+                       name_to_literal'
+                       (Clause.of_literals literals')
 
                    in
 
@@ -1803,20 +1839,124 @@ let fwd_propagate ((_, solver_frames, _) as solvers) transSys frames =
                        clause'_core
                    in
 
-                   if Clause.is_empty clause'_rest then 
-                     
-                     (debug pdr
-                       "Tightened clause@ %a to@ %a"
+                   if Clause.is_empty clause_core then 
+
+                     (debug pdr 
+                       "Context is unsatisfiable without clause:@,%a@,%a"
                        Clause.pp_print_clause clause
-                       Clause.pp_print_clause clause_core
+                       HStringSExpr.pp_print_sexpr_list
+                       (let r, a = 
+                         S.T.execute_custom_command 
+                           solver_frames
+                           "get-assertions"
+                           [] 
+                           1 
+                        in
+                        S.fail_on_smt_error r;
+                        a)
                       in
-
-                      Stat.incr Stat.pdr_tightened_propagated_clauses);
-
+                       
+                      assert false);
+                   
                    S.pop solver_frames;
 
-                   (* Propagate shortened clause *)
-                   (keep, CNF.add clause_core fwd))
+                   (* Clause was tightened? *)
+                   if not (Clause.is_empty clause'_rest) then 
+
+                     (
+
+                       (* Get literals in clause *)
+                       let literals = 
+                         List.map
+                           Term.negate
+                           (Clause.elements clause) 
+                       in
+
+                       (* Add a name to each literal *)
+                       let literals_named, name_to_literal = 
+                         name_terms literals
+                       in
+
+                       S.push solver_init;
+                       
+                       (* Assert literals in initial state *)
+                       List.iter
+                         (S.assert_term solver_init)
+                         literals_named;
+
+                       (* Check for entailment *)
+                       if S.check_sat solver_init then
+                   
+                         (debug pdr
+                           "Blocking clause intersects with initial state@ %a"
+                           Clause.pp_print_clause clause
+                           in
+
+                           assert false)
+
+                       else
+
+                         (
+
+                           (* Get clause literals in unsat core *)
+                          let clause_core_init, clause_rest_init = 
+                            
+                            partition_core
+                              solver_init
+                              name_to_literal
+                              (Clause.of_literals literals)
+                              
+                          in
+
+                          S.pop solver_init;
+                          
+                          let clause_core = 
+                            Clause.union 
+                              clause_core
+                              (Clause.map Term.negate clause_core_init)
+                          in
+
+                          (debug pdr
+                              "Tightened clause@ %a to@ %a@ dropping@ %a"
+                              Clause.pp_print_clause clause
+                              Clause.pp_print_clause clause_core
+                              Clause.pp_print_clause clause'_rest
+                           in
+
+                           (* Extra checks
+                           S.push solver_frames;
+                           
+                           S.assert_term 
+                             solver_frames
+                             (Clause.to_term clause_core);
+                           
+                           (* Shortening the clause must not make the frame
+                              unsatisfiable *)
+                           assert (S.check_sat solver_frames);
+                           
+                           S.assert_term 
+                             solver_frames 
+                             (Term.negate 
+                                (TransSys.bump_state
+                                   1
+                                   (Clause.to_term clause_core)));
+                           
+                           (* The shortened clause must propagate *)
+                           assert (not (S.check_sat solver_frames));
+                           
+                           S.pop solver_frames;
+                           *)
+                           
+                           Stat.incr Stat.pdr_tightened_propagated_clauses;
+                           
+                           (keep, CNF.add clause_core fwd))))
+
+                   else
+                     
+                     (
+                       
+                       (* Propagate unchanged clause *)
+                       (keep, CNF.add clause fwd)))
               f'
               (CNF.empty, CNF.empty)
 
@@ -2055,6 +2195,11 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
 
   (* Handle messages in the queue and return current k in BMC process *)
   let bmc_k' = handle_events solvers transSys bmc_k in
+
+   debug pdr 
+       "@[<v>Frames before forward propagation@,@[<hv>%a@]@]"
+       pp_print_frames frames
+   in
 
   (debug smt
      "@[<v>Context only contains properties, invariants and the \
