@@ -208,6 +208,9 @@ sig
   (** Return the node of a hashconsed term *)
   val node_of_t : t -> t_node
 
+  (** Return the sorts of a hashconsed lambda abstraction *)
+  val sorts_of_lambda : lambda -> sort list
+
   (** Return the unique tag of a hashconsed term *)
   val tag_of_t : t -> int
 
@@ -234,6 +237,8 @@ sig
       If the top symbol of a term is a let binding, the binding is
       distributed over the subterms. *)
   val destruct : t -> flat
+
+  val instantiate : lambda -> t list -> t
 
   (** Convert the flattened representation back into a higher-oder
       abstract syntax term. *)

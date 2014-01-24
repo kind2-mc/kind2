@@ -257,6 +257,65 @@ let import = function
     mk_temp_var (HString.import s) (Type.import t)
 
 
+(* Counter for index of fresh uninterpreted symbols *)
+let fresh_var_ids = Type.TypeHashtbl.create 7
+
+
+(* Return name of a fresh uninterpreted symbol  *)
+let rec next_fresh_var_node var_type = 
+
+  let fresh_var_id = 
+
+    try 
+      
+      Type.TypeHashtbl.find fresh_var_ids var_type 
+        
+    with Not_found -> 1
+
+  in
+
+  Type.TypeHashtbl.replace fresh_var_ids var_type (succ fresh_var_id);
+
+  let fresh_var_name = 
+
+    HString.mk_hstring 
+      (Format.asprintf 
+         "__X_%a_%d" 
+         Type.pp_print_type var_type
+         fresh_var_id)
+      
+  in
+
+  (* Candidate name for next fresh symbol *)
+  let v = 
+    TempVar (fresh_var_name, var_type)
+  in
+
+  try 
+
+    (* Check if candidate symbol is already declared *)
+    let _ = Hvar.find ht v in
+  
+    (* Recurse to get another fresh symbol *)
+    next_fresh_var_node var_type
+
+  (* Candidiate symbol is not declared and can be used *)
+  with Not_found | Hvar.Key_not_found _ -> fresh_var_name
+    
+    
+(* Return a fresh uninterpreted symbol 
+
+   TODO: How to make a completely separate namespace so that a symbol
+   declared later does not clash? *)
+let mk_fresh_var var_type = 
+
+  (* Get name of a fresh uninterpreted symbol *)
+  let v = next_fresh_var_node var_type in
+
+  (* Create symbol with given signature *)
+  mk_temp_var v var_type 
+
+
 (* Add to the offset of a state variable instance
 
    Negative values are allowed *)

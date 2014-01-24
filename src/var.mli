@@ -59,6 +59,9 @@ val mk_state_var_instance : StateVar.t -> Numeral.t -> t
 (** Return a temporary variable *)
 val mk_temp_var : HString.t -> Type.t -> t
 
+(** Return a fresh temporary variable *)
+val mk_fresh_var : Type.t -> t
+
 (** Import a variable from a different instance into this hashcons table *)
 val import : t -> t
 

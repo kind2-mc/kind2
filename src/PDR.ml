@@ -1801,7 +1801,18 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
 
                  (* Add a name to each literal *)
                  let literals'_named, name_to_literal' = 
-                   name_terms literals'
+
+                   (* Naming for unsat core only if flag is set *)
+                   if Flags.pdr_tighten_to_unsat_core () then 
+
+                     (* Name each literal *)
+                     name_terms literals'
+
+                   else
+
+                     (* Don't name anything *)
+                     literals', []
+               
                  in
 
                  S.push solver_frames;
@@ -1824,10 +1835,19 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                    (* Get clause literals in unsat core *)
                    let clause'_core, clause'_rest = 
 
-                     partition_core
-                       solver_frames
-                       name_to_literal'
-                       (Clause.of_literals literals')
+                     (* Get unsat core only if flag is set *)
+                     if Flags.pdr_tighten_to_unsat_core () then 
+                       
+                       partition_core
+                         solver_frames
+                         name_to_literal'
+                         (Clause.of_literals literals')
+                         
+                     else
+                       
+                       (* Return entire clause as core, empty clause
+                          as rest *)
+                       (Clause.of_literals literals'), Clause.empty
 
                    in
 

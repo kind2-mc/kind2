@@ -31,73 +31,356 @@ let s_pred = HString.mk_hstring "p"
 
 let s_assert = HString.mk_hstring "assert"
 
+let s_check_sat = HString.mk_hstring "check-sat"
 
-let rec parse lexbuf transSys = 
+(*
+
+horn ::= 
+  |   (forall (quantified-variables) body) 
+  |   (not (exists (quantified-variables) co-body)) 
+
+body ::= 
+  |   (=> co-body body)
+  |   (or literal* )
+  |   literal
+
+co-body ::=
+  |   (and literal* )
+  |   literal
+
+literal ::=
+  |   formula over interpreted relations (such as =, <=, >, ...)
+  |   (negated) uninterpreted predicate with arguments
+
+A body has at most one uninterpreted relation with positive polarity, 
+and a co-body uses only uninterpreted relations with positive polarity.
+
+*)
+
+module H = Hashcons
+
+
+(* Collect literals from a horn clause body *)
+let rec literals_of_body accum = function
+
+  (* All expressions parsed, return *)
+  | [] -> accum
+
+  (* Take first expression *)
+  | (polarity, expr) :: tl -> match Term.destruct expr with 
+
+    (* Expression is a disjunction in a body or a conjunction in a
+       co-body *)
+    | Term.T.App (s, l) 
+      when 
+        (polarity && s == Symbol.s_or) ||
+        (not polarity && s == Symbol.s_and) -> 
+
+      (* Parse disjuncts or conjuncts as body or co-body, respectively *)
+      literals_of_body 
+        accum 
+        ((List.map (function d -> (polarity, d)) l) @ tl)
+
+    (* Expression is an implication of arity zero *)
+    | Term.T.App (s, []) when polarity && s == Symbol.s_implies -> 
+
+      assert false
+
+    (* Expression is an implication in a body *)
+    | Term.T.App (s, l :: r) when polarity && s == Symbol.s_implies -> 
+
+      (* Parse *)
+      literals_of_body 
+        accum
+        ((false, l) :: 
+         (polarity, 
+          match r with 
+            | [] -> assert false 
+            | [d] -> d
+            | _ -> Term.mk_implies r) :: 
+         tl)
+
+    (* Expression is a literal, add to accumulator *)
+    | _ -> 
+
+      literals_of_body
+        ((if not polarity then Term.negate expr else expr) :: accum) 
+        tl
+
+
+(* Return list of literals of a horn clause *)
+let clause_of_expr expr = 
+
+  (* Return a list of temporary variables to instantiate a lambda
+     abstraction with *)
+  let instantiate_lambda lambda =
+
+    (* Get sorts of binders in lambda abstraction *)
+    let sorts = Term.T.sorts_of_lambda lambda in 
+
+    (* For each sort create a temporary variable *)
+    let vars = 
+      List.map
+        (function t -> Term.mk_var (Var.mk_fresh_var t)) 
+        sorts 
+    in
+
+    (* Instantiate bound variables in lambda abstraction with fresh
+       variables *)
+    Term.T.instantiate lambda vars 
+
+  in
+
+  (* Get node of term *)
+  match Term.T.node_of_t expr with 
+
+    (* Universally quantified expression *)
+    | Term.T.Forall l -> 
+
+      (* Instantiate bound variables in lambda abstraction with fresh
+         variables *)
+      let l' = instantiate_lambda l in
+
+      (* Get literals in body of horn clause *)
+      let literals = literals_of_body [] [(true, l')] in
+
+      literals
+
+    (* Negated expression *)
+    | Term.T.Node (s, [t]) when s == Symbol.s_not -> 
+
+      (match Term.T.node_of_t t with 
+
+        (* Negated existentially quantified expression *)
+        | Term.T.Exists l -> 
+
+          (* Instantiate bound variables in lambda abstraction with fresh
+             variables *)
+          let l' = instantiate_lambda l in
+
+          (* Get literals in co-body of horn clause *)
+          let literals = 
+            literals_of_body
+              [] 
+              [(false, l')]
+          in
+
+          literals
+
+        | _ -> 
+
+          raise 
+            (Invalid_argument 
+               (Format.asprintf 
+                  "Expression is not a horn clause: %a"
+                  SMTExpr.pp_print_expr expr)))
+
+    | _ -> 
+
+      raise 
+        (Invalid_argument 
+           (Format.asprintf 
+              "Expression is not a horn clause: %a"
+              SMTExpr.pp_print_expr expr))
+
+(*
+
+   I(s) => p(s)
+   p(s) & T(s, s') => p(s')
+   p(s) & !Prop(s) => false
+
+*)
+
+(* Return the polarity of the monolithic predicate in a literal as
+   Some true ot Some false. If the literal does not contain the
+   predicate, return None. *)
+let rec polarity_of_pred sym_p polarity expr = match Term.destruct expr with 
+  | Term.T.App (s, a) when s == sym_p -> Some (polarity, a)
+  | Term.T.App (s, [e]) when s == Symbol.s_not -> 
+    polarity_of_pred sym_p (not polarity) e
+  | _ -> None
+
+
+(*
+
+   I(s) => p(s)
+   p(s) & T(s, s') => p(s')
+   p(s) & !Prop(s) => false
+
+*)
+
+(* Classify a clause, return a pair of Booleans indicating whether the
+   clause contains the monolithic predicate with positive or negative
+   polarity, respectively *)
+let classify_clause sym_p literals =
+
+  List.fold_left 
+    (fun (pos, neg) expr -> 
+
+       (* Get polarity of predicate in literal *)
+       match polarity_of_pred sym_p true expr with 
+         | Some (true, args) -> 
+
+           if pos = [] then (args, neg) else
+
+             raise 
+               (Invalid_argument 
+                  "Predicate must occur at most once positvely")
+
+         | Some (false, args) -> 
+           
+           if neg = [] then (pos, args) else 
+
+             raise 
+               (Invalid_argument 
+                  "Predicate must occur at most once positvely")
+     
+         | None -> (pos, neg))
+
+    ([], [])
+    literals
+
+
+let add_expr_to_trans_sys transSys p_pos p_neg expr = 
+
+  transSys
+
+
+let rec parse sym_p_opt lexbuf transSys = 
 
   (* Parse S-expression *)
-  match SExprParser.sexp SExprLexer.main lexbuf with 
+  match 
+    
+    (try
+       
+       Some (SExprParser.sexp SExprLexer.main lexbuf) 
+         
+     with End_of_file -> None)
 
-    (* (set-info ...) *)
-    | HStringSExpr.List (HStringSExpr.Atom s :: _) when s == s_set_info -> 
-  
-      (* Skip *)
-      parse lexbuf transSys
+  with 
 
-    (* (set-logic HORN) *)
-    | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.Atom l]
-      when s == s_set_logic && l == s_horn -> 
-  
-      (* Skip *)
-      parse lexbuf transSys
+    | None -> transSys
 
-    (* (set-logic ...) *)
-    | HStringSExpr.List [HStringSExpr.Atom s; e] when s == s_set_logic -> 
-  
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "@[<hv>Invalid logic %a, must be HORN" 
-              HStringSExpr.pp_print_sexpr e))
+    | Some s -> match s with 
 
-    (* (declare-fun p ...) *)
-    | HStringSExpr.List (HStringSExpr.Atom s :: HStringSExpr.Atom p :: _)
-      when s == s_declare_fun && p == s_pred -> 
-  
-      (* Skip *)
-      parse lexbuf transSys
+      (* (set-info ...) *)
+      | HStringSExpr.List (HStringSExpr.Atom s :: _) when s == s_set_info -> 
+        
+        (* Skip *)
+        parse sym_p_opt lexbuf transSys
 
-    (* (declare-fun ...) *)
-    | HStringSExpr.List (HStringSExpr.Atom s :: e :: _) 
-      when s == s_declare_fun -> 
-  
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "@[<hv>Invalid predicate declaration %a, only the monolithic predicate %a allowed@]" 
-              HStringSExpr.pp_print_sexpr e
-              HString.pp_print_hstring s_pred))
+      (* (set-logic HORN) *)
+      | HStringSExpr.List [HStringSExpr.Atom s; HStringSExpr.Atom l]
+        when s == s_set_logic && l == s_horn -> 
 
-    (* (assert ...) *)
-    | HStringSExpr.List [HStringSExpr.Atom s; e] when s == s_assert -> 
-      
-      (let expr = SMTExpr.expr_of_string_sexpr e in
+        (* Skip *)
+        parse sym_p_opt lexbuf transSys
 
-       debug horn
-        "%a"
-        SMTExpr.pp_print_expr expr
-       in
-      
-       (* Skip *)
-       parse lexbuf transSys)
+      (* (set-logic ...) *)
+      | HStringSExpr.List [HStringSExpr.Atom s; e] when s == s_set_logic -> 
+
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "@[<hv>Invalid logic %a, must be HORN" 
+                HStringSExpr.pp_print_sexpr e))
+
+      (* (declare-fun p a r) *)
+      | HStringSExpr.List 
+          [HStringSExpr.Atom s; 
+           HStringSExpr.Atom p; 
+           HStringSExpr.List a; 
+           (HStringSExpr.Atom _ as r)]
+        when s == s_declare_fun && p == s_pred -> 
+
+        (* Types of argument of monolithic predicate *)
+        let arg_types = List.map SMTExpr.type_of_string_sexpr a in
+
+        (* Types of result of monolithic predicate *)
+        let res_type = SMTExpr.type_of_string_sexpr r in
+
+        (* Declare predicate *)
+        let sym_p = 
+          Symbol.mk_symbol 
+            (`UF 
+               (UfSymbol.mk_uf_symbol
+                  (HString.string_of_hstring p) 
+                  arg_types 
+                  res_type))
+        in
+
+        (* Continue *)
+        parse (Some sym_p) lexbuf transSys
+
+      (* (declare-fun ...) *)
+      | HStringSExpr.List (HStringSExpr.Atom s :: e :: _) 
+        when s == s_declare_fun -> 
+
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "@[<hv>Invalid predicate declaration %a, only the monolithic predicate %a allowed@]" 
+                HStringSExpr.pp_print_sexpr e
+                HString.pp_print_hstring s_pred))
+
+      (* (assert ...) *)
+      | HStringSExpr.List [HStringSExpr.Atom s; e] when s == s_assert -> 
+
+        (match sym_p_opt with 
+
+          | None -> 
+
+            raise 
+              (Failure 
+                 (Format.asprintf 
+                    "Predicate %a must be declared before assert"
+                    HString.pp_print_hstring s_pred))
+
+          | Some sym_p -> 
+
+            let expr = SMTExpr.expr_of_string_sexpr e in
+
+            let clause = clause_of_expr expr in
+
+            let p_pos, p_neg = classify_clause sym_p clause in
+
+            debug horn
+                "@[<v>%t%a@]"
+                (function ppf -> match p_pos, p_neg with
+
+                   | [], [] -> 
+
+                     raise 
+                       (Failure 
+                          (Format.asprintf 
+                             "Clause without occurrence of predicate %a"
+                             HString.pp_print_hstring s_pred))
+
+                   | [], _ -> Format.fprintf ppf "Property clause@,"
+
+                   | _, [] -> Format.fprintf ppf "Initiation clause@,"
+
+                   | _, _ -> Format.fprintf ppf "Transition clause@,")
+                SMTExpr.pp_print_expr expr
+         in
+
+         (* Continue *)
+         parse sym_p_opt lexbuf transSys)
 
 
-    | e -> 
+      (* (check-sat) *)
+      | HStringSExpr.List [HStringSExpr.Atom s] when s == s_check_sat -> 
 
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "@[<hv>Unexpected S-expression@ @[<hv 1>%a@]@]" 
-              HStringSExpr.pp_print_sexpr e))
+        (* Skip *)
+        parse sym_p_opt lexbuf transSys
+
+      | e -> 
+
+        raise 
+          (Failure 
+             (Format.asprintf 
+                "@[<hv>Unexpected S-expression@ @[<hv 1>%a@]@]" 
+                HStringSExpr.pp_print_sexpr e))
 
 
 (* Parse SMTLIB2 Horn format from channel *)
@@ -106,7 +389,7 @@ let of_channel in_ch =
   (* Initialise buffer for lexing *)
   let lexbuf = Lexing.from_channel in_ch in
 
-  parse lexbuf TransSys.empty
+  parse None lexbuf TransSys.empty
 
 
 (* Parse SMTLIB2 Horn format from file *)
@@ -116,7 +399,9 @@ let of_file filename =
   let use_file = open_in filename in
   let in_ch = use_file in
 
-  of_channel in_ch
+  let transSys = of_channel in_ch in
+
+  assert false
 
       
 (* 

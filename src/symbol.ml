@@ -384,6 +384,9 @@ let s_and = mk_symbol `AND
 let s_or = mk_symbol `OR
 
 (* Constant conjunction symbol *)
+let s_implies = mk_symbol `IMPLIES
+
+(* Constant conjunction symbol *)
 let s_eq = mk_symbol `EQ
 
 (* Constant modulus operator symbol *)
