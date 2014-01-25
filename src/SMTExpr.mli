@@ -115,6 +115,9 @@ val declare_smt_symbols : (string -> sort list -> sort -> response) -> response
 (** {1 Conversions from S-expressions} *)
 
 (** Convert an S-expression of strings to a term *)
+val type_of_string_sexpr : HStringSExpr.t -> sort
+
+(** Convert an S-expression of strings to a term *)
 val expr_of_string_sexpr : HStringSExpr.t -> t
 
 (** Convert an S-expression of strings to a command response *)

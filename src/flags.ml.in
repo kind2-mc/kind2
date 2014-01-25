@@ -312,7 +312,7 @@ type pdr_block_in_future = bool
     
 let string_of_pdr_block_in_future = string_of_bool
 
-let pdr_block_in_future_default = false
+let pdr_block_in_future_default = true
 
 (* ********** *) 
 

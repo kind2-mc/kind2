@@ -124,6 +124,8 @@ sig
 
   val node_of_t : t -> t_node
 
+  val sorts_of_lambda : lambda -> sort list
+
   val tag_of_t : t -> int
 
   val eval : (symbol -> 'a list -> 'a) -> t -> 'a
@@ -133,6 +135,8 @@ sig
   val map : (int -> t -> t) -> t -> t
 
   val destruct : t -> flat
+
+  val instantiate : lambda -> t list -> t
 
   val construct : flat -> t
 
@@ -780,6 +784,9 @@ struct
   (* Return the node of a hashconsed term *)
   let node_of_t { Hashcons.node = n } = n
 
+  (* Return the sorts of a hashconsed lambda abstraction *)
+  let sorts_of_lambda { Hashcons.node = L (v, _) } = v
+
   (* Return the tag of a hashconsed term *)
   let tag_of_t { Hashcons.tag = n } = n
 
@@ -900,6 +907,9 @@ struct
     (* No other terms returned by destrcut' *)
     | _ -> assert false
 
+
+  let instantiate l b = ht_let l b
+    
 
   (* ********************************************************************* *)
   (* Folding function                                                      *)

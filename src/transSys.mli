@@ -30,12 +30,14 @@ type t =
 
 	 A list of formulas over system variables, no previous state
 	 variables occur here *)
-      mutable init : (StateVar.t * Term.t) list;
+      mutable init_assign : (StateVar.t * Term.t) list;
+      mutable init_constr : Term.t list;
 
       (* CONSTR: global state constraints 
 
 	 A list of formulas describing invariants of the system *)
-      mutable constr : Term.t StateVar.StateVarHashtbl.t;
+      mutable constr_assign : Term.t StateVar.StateVarHashtbl.t;
+      mutable constr_constr : Term.t list;
 
       (* TRANS: guarded transitions
 

@@ -153,6 +153,29 @@ let pp_print_sort = Type.pp_print_type
 
 let string_of_sort = string_of_t Type.pp_print_type
 
+(* Static hashconsed strings *)
+let s_int = HString.mk_hstring "Int"
+let s_real = HString.mk_hstring "Real"
+let s_bool = HString.mk_hstring "Bool"
+
+
+(* Convert an S-expression to a sort *)
+let type_of_string_sexpr = function 
+  
+  | HStringSExpr.Atom s when s == s_int -> Type.t_int
+
+  | HStringSExpr.Atom s when s == s_real -> Type.t_real
+
+  | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
+
+  | HStringSExpr.Atom _
+  | HStringSExpr.List _ as s -> 
+    
+    raise
+      (Invalid_argument 
+         (Format.asprintf 
+           "Sort %a not supported" 
+           HStringSExpr.pp_print_sexpr s))
 
 
 (* Convert a type to an SMT sort *)
@@ -277,6 +300,8 @@ let _ =
 
 (* Static hashconsed strings *)
 let s_let = HString.mk_hstring "let"
+let s_forall = HString.mk_hstring "forall"
+let s_exists = HString.mk_hstring "exists"
 let s_success = HString.mk_hstring "success"
 let s_unsupported = HString.mk_hstring "unsupported"
 let s_error = HString.mk_hstring "error"
@@ -395,7 +420,7 @@ let const_of_smtlib_token b t =
   res
 
 (* Convert a string S-expression to an expression *)
-let rec expr_of_string_sexpr' b = function 
+let rec expr_of_string_sexpr' bound_vars = function 
 
   (* An empty list *)
   | HStringSExpr.List [] -> 
@@ -409,11 +434,11 @@ let rec expr_of_string_sexpr' b = function
     when s == s_let -> 
 
     (* Convert bindings and obtain a list of bound variables *)
-    let bindings = bindings_of_string_sexpr b [] v in
+    let bindings = bindings_of_string_sexpr bound_vars [] v in
 
     (* Convert bindings to an association list from strings to
        variables *)
-    let b' = 
+    let bound_vars' = 
       List.map 
         (function (v, _) -> (Var.hstring_of_temp_var v, v))
         bindings 
@@ -421,7 +446,33 @@ let rec expr_of_string_sexpr' b = function
 
     (* Parse the subterm, giving an association list of bound
        variables and return a let bound term *)
-    Term.mk_let bindings (expr_of_string_sexpr' (b @ b') t)
+    Term.mk_let 
+      bindings
+      (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
+
+  (*  A universal or existential quantifier *)
+  | HStringSExpr.List 
+      ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
+    when s == s_forall || s == s_exists -> 
+
+    (* Get list of variables bound by the quantifier *)
+    let quantified_vars = bound_vars_of_string_sexpr bound_vars [] v in
+
+    (* Convert bindings to an association list from strings to
+       variables *)
+    let bound_vars' = 
+      List.map 
+        (function v -> (Var.hstring_of_temp_var v, v))
+        quantified_vars
+    in
+
+    (* Parse the subterm, giving an association list of bound
+       variables and return a universally or existenially quantified term *)
+    (if s == s_forall then Term.mk_forall 
+     else if s == s_exists then Term.mk_exists
+     else assert false)
+      quantified_vars
+      (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
 
   (* A singleton list *)
   | HStringSExpr.List [_] as e -> 
@@ -441,7 +492,7 @@ let rec expr_of_string_sexpr' b = function
   | HStringSExpr.Atom s ->
 
     (* Leaf in the symbol tree *)
-    (const_of_smtlib_token b s)
+    (const_of_smtlib_token bound_vars s)
 
   (*  A list with more than one element *)
   | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
@@ -486,7 +537,7 @@ let rec expr_of_string_sexpr' b = function
 
       (* Create an application of the function symbol to the subterms *)
       let t = 
-        Term.mk_app s (List.map (expr_of_string_sexpr' b) tl)
+        Term.mk_app s (List.map (expr_of_string_sexpr' bound_vars) tl)
       in
 
       (* Convert (= 0 (mod t n)) to (t divisible n) *)
@@ -514,6 +565,32 @@ and bindings_of_string_sexpr b accum = function
 
     (* Add bound expresssion to accumulator *)
     bindings_of_string_sexpr b ((tvar, expr) :: accum) tl
+
+  (* Expression must be a pair *)
+  | e :: _ -> 
+
+    failwith 
+      ("Invalid expression in let binding: " ^
+         (string_of_t HStringSExpr.pp_print_sexpr e))
+      
+
+(* Convert a list of typed variables *)
+and bound_vars_of_string_sexpr b accum = function 
+
+  (* All bindings consumed: return accumulator in original order *)
+  | [] -> List.rev accum
+
+  (* Take first binding *)
+  | HStringSExpr.List [HStringSExpr.Atom v; t] :: tl -> 
+
+    (* Get the type of the expression *)
+    let var_type = type_of_string_sexpr t in
+
+    (* Create a variable of the identifier and the type of the expression *)
+    let tvar = Var.mk_temp_var v var_type in
+
+    (* Add bound expresssion to accumulator *)
+    bound_vars_of_string_sexpr b (tvar :: accum) tl
 
   (* Expression must be a pair *)
   | e :: _ -> 

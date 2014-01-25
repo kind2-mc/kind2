@@ -133,9 +133,27 @@ module Symbol_node = struct
 
   (* Equality of two symbols *)
   let equal s1 s2 = match s1, s2 with 
+
     | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
+
     | _, `NUMERAL _ 
     | `NUMERAL _, _ -> false
+
+    | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
+
+    | _, `DECIMAL _ 
+    | `DECIMAL _, _ -> false
+
+    | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
+
+    | _, `DIVISIBLE _
+    | `DIVISIBLE _, _ -> false
+
+    | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
+
+    | _, `EXTRACT _
+    | `EXTRACT _, _ -> false
+
     | _ -> s1 = s2
 
   (* Return hash of a symbol *)
@@ -382,6 +400,9 @@ let s_and = mk_symbol `AND
 
 (* Constant conjunction symbol *)
 let s_or = mk_symbol `OR
+
+(* Constant conjunction symbol *)
+let s_implies = mk_symbol `IMPLIES
 
 (* Constant conjunction symbol *)
 let s_eq = mk_symbol `EQ

@@ -40,7 +40,7 @@
   let parse_failure what =
     let pos = symbol_start_pos () in
     let msg =
-      Printf.sprintf "Sexplib.Parser: failed to parse line %d char %d: %s"
+      Printf.sprintf "SExprParser: failed to parse line %d char %d: %s"
         pos.pos_lnum (pos.pos_cnum - pos.pos_bol) what in
     failwith msg
 %}
@@ -66,7 +66,7 @@ sexp
   : STRING { HStringSExpr.Atom $1 }
   | LPAREN RPAREN { HStringSExpr.List [] }
   | LPAREN rev_sexps_aux RPAREN { HStringSExpr.List (List.rev $2) }
-  | EOF { parse_failure "Read EOF, empty sexpr token" }
+  | EOF { raise End_of_file }
   | error { parse_failure "sexp" }
 
 sexp_comment
@@ -78,9 +78,9 @@ sexp_comments
   | sexp_comments sexp_comment { () }
 
 sexp_opt
-  : sexp { Some $1 }
+  : EOF { None }
+  | sexp { Some $1 }
   | sexp_comments sexp { Some $2 }
-  | EOF { None }
 
 rev_sexps_aux
   : sexp { [$1] }

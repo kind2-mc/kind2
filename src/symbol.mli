@@ -205,6 +205,9 @@ val s_and : t
 (** Constant disjunction symbol *)
 val s_or : t
 
+(** Constant implication symbol *)
+val s_implies : t
+
 (** Constant equality symbol *)
 val s_eq : t
 
