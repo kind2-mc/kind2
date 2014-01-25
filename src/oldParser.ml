@@ -1418,8 +1418,10 @@ let of_channel in_ch =
 
     (* Resulting transition system *)
     let res =
-      { TransSys.init = init_assignments;
-        TransSys.constr = StateVar.StateVarHashtbl.create (List.length trans_assignments);
+      { TransSys.init_assign = init_assignments;
+        TransSys.init_constr = [];
+        TransSys.constr_assign = StateVar.StateVarHashtbl.create (List.length trans_assignments);
+        TransSys.constr_constr = [];
         TransSys.trans = [];
         TransSys.props = props;
         TransSys.invars = invars;
@@ -1429,7 +1431,7 @@ let of_channel in_ch =
     in
 
     (* Add definition to transition relation *)
-    TransSys.constr_of_def_list res.TransSys.constr trans_assignments;
+    TransSys.constr_of_def_list res.TransSys.constr_assign trans_assignments;
 
     (* Return transition system *)
     res

@@ -283,7 +283,7 @@ let generalize transSys state f g =
   let term, primed_vars = 
 
     (* Eliminate only input variables, unfold all definitions *)
-    if true then 
+    if transSys.TransSys.init_constr = [] && transSys.TransSys.constr_constr = [] then 
 
       (* Get invariants of transition system *)
       let invars = TransSys.invars_of_bound 0 transSys in

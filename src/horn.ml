@@ -338,7 +338,7 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
 
       let term = 
         unlet_term
-          (temp_vars_to_consts
+          (temp_vars_to_state_vars
              (Term.mk_let 
                 (List.combine var_neg (List.map Term.mk_var vars_0))
                 (Term.mk_or literals)))
@@ -349,13 +349,13 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
           Term.pp_print_term term 
       in
 
-      ()
+      transSys.TransSys.props <- ("P", term) :: transSys.TransSys.props
 
     | _, [] -> 
 
       let term = 
         unlet_term
-          (temp_vars_to_consts
+          (temp_vars_to_state_vars
              (Term.mk_let 
                 (List.combine var_pos (List.map Term.mk_var vars_0))
                 (Term.mk_and (List.map Term.negate literals))))
@@ -366,7 +366,7 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
           Term.pp_print_term term 
       in
 
-      ()
+      transSys.TransSys.init_constr <- term :: transSys.TransSys.init_constr
 
     | _, _ -> 
 
@@ -386,8 +386,7 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
           Term.pp_print_term term 
       in
 
-      ());
-
+      transSys.TransSys.constr_constr <- term :: transSys.TransSys.constr_constr);
 
 
   transSys
@@ -565,7 +564,12 @@ let of_file filename =
 
   let transSys = of_channel in_ch in
 
-  assert false
+  debug horn
+     "%a"
+     TransSys.pp_print_trans_sys transSys
+  in
+
+  transSys
 
       
 (* 

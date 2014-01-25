@@ -30,13 +30,15 @@ type t =
 
 	 A list of formulas over system variables, no previous state
 	 variables occur here *)
-      mutable init : (StateVar.t * Term.t) list;
+      mutable init_assign : (StateVar.t * Term.t) list;
+      mutable init_constr : Term.t list;
 
       (* CONSTR: global state constraints 
 
 	 An equations defining the next-state value for each state
 	 variabe from current-state and next-state variables *)
-      mutable constr : Term.t SVT.t;
+      mutable constr_assign : Term.t SVT.t;
+      mutable constr_constr : Term.t list;
 
       (* TRANS: guarded transitions
 
@@ -65,8 +67,10 @@ type t =
 (* The empty transition system *)
 let empty = 
 
-  { init = [];
-    constr = SVT.create 7;
+  { init_assign = [];
+    init_constr = [];
+    constr_assign = SVT.create 7;
+    constr_constr = [];
     trans = [];
     props = [];
     invars = [];
@@ -76,7 +80,7 @@ let empty =
 
 
 (* Return list of pairs of entries in hash table *)
-let def_list_of_constr t = SVT.fold (fun v t a -> (v, t) :: a) t.constr []
+let def_list_of_constr t = SVT.fold (fun v t a -> (v, t) :: a) t.constr_assign []
 
 (* Add definitions in list to hash table *)
 let constr_of_def_list c l = 
@@ -136,7 +140,13 @@ let pp_print_prop ppf (name, term) =
 (* Pretty-print a transition system *)
 let pp_print_trans_sys 
     ppf 
-    ( { init = i; constr = c; trans = g; invars = n; props = p  } as t) =
+    ( { init_assign = ia; 
+        init_constr = ic; 
+        constr_assign = ca; 
+        constr_constr = cc; 
+        trans = g; 
+        invars = n; 
+        props = p  } as t) =
 
   (* Collect declared state variables in a list 
 
@@ -148,14 +158,18 @@ let pp_print_trans_sys
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(vars@ (@[<v>%a@]))@]@ \
+          @[<hv 2>(init_assign@ (@[<v>%a@]))@]@ \
           @[<hv 2>(init@ (@[<v>%a@]))@]@ \
+          @[<hv 2>(trans_assign@ (@[<v>%a@]))@]@ \
           @[<hv 2>(trans@ (@[<v>%a@]))@]@ \
           @[<hv 2>(rules@ (@[<v>%a@]))@]@ \
           @[<hv 2>(invar@ (@[<v>%a@]))@]@ \
           @[<hv 2>(props@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_var "@ ") v
-    (pp_print_list pp_print_assign "@ ") i
+    (pp_print_list pp_print_assign "@ ") ia
+    (pp_print_list Term.pp_print_term "@ ") ic 
     (pp_print_list pp_print_assign "@ ") (def_list_of_constr t)
+    (pp_print_list Term.pp_print_term "@ ") cc
     (pp_print_list pp_print_trans_rule "@ ") g 
     (pp_print_list Term.pp_print_term "@ ") n 
     (pp_print_list pp_print_prop "@ ") p
@@ -187,15 +201,16 @@ let bump_state i term =
 let init_of_bound i z = 
 
   (* Create conjunction of initial state formulas *)
-  let init_0 = 
+  let init_assign_0 = 
     Term.mk_and 
       (List.map 
          (function (v, t) -> 
            Term.mk_eq 
              [Term.mk_var (Var.mk_state_var_instance v Numeral.zero); t])
-         z.init)
+         z.init_assign)
   in 
 
+  let init_0 = Term.mk_and (init_assign_0 :: z.init_constr) in
 
   (* Bump bound if greater than zero *)
   if i = 0 then init_0 else bump_state i init_0 
@@ -205,7 +220,7 @@ let init_of_bound i z =
 let constr_of_bound i z = 
 
   (* Create conjunction of initial state formulas *)
-  let constr_1 = 
+  let constr_assign_1 = 
     Term.mk_and 
       (List.map 
          (function (v, t) -> 
@@ -213,6 +228,8 @@ let constr_of_bound i z =
              [Term.mk_var (Var.mk_state_var_instance v Numeral.one); t])
          (def_list_of_constr z))
   in 
+
+  let constr_1 = Term.mk_and (constr_assign_1 :: z.constr_constr) in
 
   (* Bump bound if greater than zero *)
   if i = 1 then constr_1 else bump_state (i - 1) constr_1 
@@ -570,7 +587,7 @@ let dependencies_of_constr t =
             term
         in
         SVT.add t.constr_dep state_var defining_vars)
-      t.constr;
+      t.constr_assign;
   
   (* Return dependency hash table *)
   t.constr_dep
@@ -699,7 +716,7 @@ let rec defs_of_state_vars t dep accum = function
       (* Add definition if found, skip input or otherwise unspecified variables *)
       let accum' = 
         try 
-          (Var.mk_state_var_instance h Numeral.one, (SVT.find t.constr h)) :: accum 
+          (Var.mk_state_var_instance h Numeral.one, (SVT.find t.constr_assign h)) :: accum 
         with Not_found -> accum
       in
       
