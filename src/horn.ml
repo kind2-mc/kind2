@@ -195,10 +195,60 @@ let clause_of_expr expr =
    Some true ot Some false. If the literal does not contain the
    predicate, return None. *)
 let rec polarity_of_pred sym_p polarity expr = match Term.destruct expr with 
-  | Term.T.App (s, a) when s == sym_p -> Some (polarity, a)
+
+  | Term.T.App (s, a) when s == sym_p -> 
+
+    Some 
+      (polarity, 
+
+       (* Extract variables from arguments to predicate *)
+       List.map 
+         (function t -> match Term.destruct t with 
+            | Term.T.Var v -> v
+            | _ -> 
+              raise 
+                 (Invalid_argument 
+                    (Format.asprintf 
+                       "Arguments of predicate must be variables %a"
+                       Term.pp_print_term t)))
+           a)
+      
   | Term.T.App (s, [e]) when s == Symbol.s_not -> 
     polarity_of_pred sym_p (not polarity) e
+
   | _ -> None
+
+
+(* Classify a clause, return a pair of Booleans indicating whether the
+   clause contains the monolithic predicate with positive or negative
+   polarity, respectively *)
+let classify_clause sym_p literals =
+
+  List.fold_left 
+    (fun (pos, neg, accum) expr -> 
+
+       (* Get polarity of predicate in literal *)
+       match polarity_of_pred sym_p true expr with 
+         | Some (true, args) -> 
+
+           if pos = [] then (args, neg, accum) else
+
+             raise 
+               (Invalid_argument 
+                  "Predicate must occur at most once positvely")
+
+         | Some (false, args) -> 
+           
+           if neg = [] then (pos, args, accum) else 
+
+             raise 
+               (Invalid_argument 
+                  "Predicate must occur at most once positvely")
+
+         | None -> (pos, neg, (expr :: accum)))
+
+    ([], [], [])
+    literals
 
 
 (*
@@ -209,39 +259,136 @@ let rec polarity_of_pred sym_p polarity expr = match Term.destruct expr with
 
 *)
 
-(* Classify a clause, return a pair of Booleans indicating whether the
-   clause contains the monolithic predicate with positive or negative
-   polarity, respectively *)
-let classify_clause sym_p literals =
 
-  List.fold_left 
-    (fun (pos, neg) expr -> 
+(* Return the list of temporary variables in the term *)
+let temp_vars_of_term term = 
 
-       (* Get polarity of predicate in literal *)
-       match polarity_of_pred sym_p true expr with 
-         | Some (true, args) -> 
+  Var.VarSet.elements
+    (Term.eval_t
+       (function 
+         | Term.T.Var v when Var.is_temp_var v -> 
+           (function [] -> Var.VarSet.singleton v | _ -> assert false)
+         | Term.T.Var _
+         | Term.T.Const _ -> 
+           (function [] -> Var.VarSet.empty | _ -> assert false)
+         | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+         | Term.T.Attr (t, _) -> 
+           (function [s] -> s | _ -> assert false))
+       term)
+    
 
-           if pos = [] then (args, neg) else
+(* Bind each temporary variable to a fresh constant *)
+let temp_vars_to_consts term = 
 
-             raise 
-               (Invalid_argument 
-                  "Predicate must occur at most once positvely")
+  let vars = temp_vars_of_term term in
 
-         | Some (false, args) -> 
-           
-           if neg = [] then (pos, args) else 
+  let consts = 
+    List.map
+      (function v -> 
+        Term.mk_uf (UfSymbol.mk_fresh_uf_symbol [] (Var.type_of_var v)) [])
+      vars
+  in
 
-             raise 
-               (Invalid_argument 
-                  "Predicate must occur at most once positvely")
-     
-         | None -> (pos, neg))
-
-    ([], [])
-    literals
+  Term.mk_let 
+    (List.combine vars consts)
+    term
 
 
-let add_expr_to_trans_sys transSys p_pos p_neg expr = 
+
+(* Bind each temporary variable to a fresh state variable *)
+let temp_vars_to_state_vars term = 
+
+  let vars = temp_vars_of_term term in
+
+  let _, state_vars = 
+    List.fold_left
+      (fun (i, a) v -> 
+         (succ i,
+          Term.mk_var
+            (Var.mk_state_var_instance
+               (StateVar.mk_state_var 
+                  (Format.sprintf "I%d" i)
+                  true
+                  (Var.type_of_var v))
+               Numeral.zero) :: a))
+      (1, [])
+      vars
+  in
+  
+  Term.mk_let 
+    (List.combine vars (List.rev state_vars))
+    term
+       
+
+let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
+
+let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg = 
+
+  (match var_pos, var_neg with 
+
+    | [], [] -> 
+
+      raise 
+        (Failure 
+           (Format.asprintf 
+              "Clause without occurrence of predicate %a"
+              HString.pp_print_hstring s_pred))
+
+    | [], _ -> 
+
+      let term = 
+        unlet_term
+          (temp_vars_to_consts
+             (Term.mk_let 
+                (List.combine var_neg (List.map Term.mk_var vars_0))
+                (Term.mk_or literals)))
+      in
+
+      debug horn
+          "Property clause@,%a"
+          Term.pp_print_term term 
+      in
+
+      ()
+
+    | _, [] -> 
+
+      let term = 
+        unlet_term
+          (temp_vars_to_consts
+             (Term.mk_let 
+                (List.combine var_pos (List.map Term.mk_var vars_0))
+                (Term.mk_and (List.map Term.negate literals))))
+      in
+
+      debug horn
+          "Initiation clause@,%a"
+          Term.pp_print_term term 
+      in
+
+      ()
+
+    | _, _ -> 
+
+      let term = 
+        unlet_term
+          (temp_vars_to_state_vars
+             (Term.mk_let 
+                (List.combine var_neg (List.map Term.mk_var vars_0))
+                (Term.mk_let 
+                   (List.combine var_pos (List.map Term.mk_var vars_1))
+                   (Term.mk_and (List.map Term.negate literals)))))
+      in
+
+
+      debug horn
+          "Transition clause@,%a"
+          Term.pp_print_term term 
+      in
+
+      ());
+
+
 
   transSys
 
@@ -309,8 +456,29 @@ let rec parse sym_p_opt lexbuf transSys =
                   res_type))
         in
 
+        let _, vars_0, vars_1 =
+          List.fold_left 
+            (fun (i, vars_0, vars_1) t -> 
+               
+               let sv = 
+                 StateVar.mk_state_var
+                   (Format.sprintf "Y%d" i)
+                   true
+                   t
+               in
+               
+               (succ i, 
+                (Var.mk_state_var_instance sv Numeral.zero) :: vars_0, 
+                (Var.mk_state_var_instance sv Numeral.one) :: vars_1))
+            (1, [], [])
+            arg_types
+        in
+
         (* Continue *)
-        parse (Some sym_p) lexbuf transSys
+        parse 
+          (Some (sym_p, List.rev vars_0, List.rev vars_1)) 
+          lexbuf 
+          transSys
 
       (* (declare-fun ...) *)
       | HStringSExpr.List (HStringSExpr.Atom s :: e :: _) 
@@ -336,33 +504,29 @@ let rec parse sym_p_opt lexbuf transSys =
                     "Predicate %a must be declared before assert"
                     HString.pp_print_hstring s_pred))
 
-          | Some sym_p -> 
+          | Some (sym_p, vars_0, vars_1) -> 
 
             let expr = SMTExpr.expr_of_string_sexpr e in
 
             let clause = clause_of_expr expr in
 
-            let p_pos, p_neg = classify_clause sym_p clause in
+            let var_pos, var_neg, clause' = classify_clause sym_p clause in
 
             debug horn
-                "@[<v>%t%a@]"
-                (function ppf -> match p_pos, p_neg with
+                "@[<v>%a@,%a@,%a@,%a@]"
+                (pp_print_list Var.pp_print_var "@ ") var_pos
+                (pp_print_list Var.pp_print_var "@ ") var_neg
+                (pp_print_list Var.pp_print_var "@ ") vars_0
+                (pp_print_list Var.pp_print_var "@ ") vars_1
+            in
 
-                   | [], [] -> 
-
-                     raise 
-                       (Failure 
-                          (Format.asprintf 
-                             "Clause without occurrence of predicate %a"
-                             HString.pp_print_hstring s_pred))
-
-                   | [], _ -> Format.fprintf ppf "Property clause@,"
-
-                   | _, [] -> Format.fprintf ppf "Initiation clause@,"
-
-                   | _, _ -> Format.fprintf ppf "Transition clause@,")
-                SMTExpr.pp_print_expr expr
-         in
+            add_expr_to_trans_sys
+              transSys 
+              clause' 
+              vars_0 
+              vars_1 
+              var_pos 
+              var_neg;
 
          (* Continue *)
          parse sym_p_opt lexbuf transSys)

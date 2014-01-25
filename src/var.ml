@@ -226,6 +226,11 @@ let hstring_of_temp_var = function
   | { Hashcons.node = TempVar (s, _) } -> s
 
 
+let is_temp_var = function 
+  | { Hashcons.node = TempVar (s, _) } -> true
+  | _ -> false
+
+
 (* ********************************************************************* *)
 (* Constructors                                                          *)
 (* ********************************************************************* *)
