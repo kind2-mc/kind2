@@ -251,15 +251,6 @@ let classify_clause sym_p literals =
     literals
 
 
-(*
-
-   I(s) => p(s)
-   p(s) & T(s, s') => p(s')
-   p(s) & !Prop(s) => false
-
-*)
-
-
 (* Return the list of temporary variables in the term *)
 let temp_vars_of_term term = 
 
@@ -294,6 +285,21 @@ let temp_vars_to_consts term =
     term
 
 
+let next_fresh_state_var_id = ref 1
+
+let mk_fresh_state_var var_type = 
+
+  let res = 
+    StateVar.mk_state_var 
+      (Format.sprintf "I%d" !next_fresh_state_var_id)
+      true
+      var_type
+  in
+
+  incr next_fresh_state_var_id;
+
+  res
+
 
 (* Bind each temporary variable to a fresh state variable *)
 let temp_vars_to_state_vars term = 
@@ -306,10 +312,7 @@ let temp_vars_to_state_vars term =
          (succ i,
           Term.mk_var
             (Var.mk_state_var_instance
-               (StateVar.mk_state_var 
-                  (Format.sprintf "I%d" i)
-                  true
-                  (Var.type_of_var v))
+               (mk_fresh_state_var (Var.type_of_var v))
                Numeral.zero) :: a))
       (1, [])
       vars
@@ -322,9 +325,20 @@ let temp_vars_to_state_vars term =
 
 let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
 
+
+(*
+
+   I(s) => p(s)
+   p(s) & T(s, s') => p(s')
+   p(s) & !Prop(s) => false
+
+*)
+
+
+
 let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg = 
 
-  (match var_pos, var_neg with 
+  match var_pos, var_neg with 
 
     | [], [] -> 
 
@@ -334,6 +348,12 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
               "Clause without occurrence of predicate %a"
               HString.pp_print_hstring s_pred))
 
+
+    (* Predicate occurs only negated: property clause 
+
+       p(s) & !Prop(s) => false
+
+    *)
     | [], _ -> 
 
       let term = 
@@ -344,13 +364,14 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
                 (Term.mk_or literals)))
       in
 
-      debug horn
-          "Property clause@,%a"
-          Term.pp_print_term term 
-      in
-
       transSys.TransSys.props <- ("P", term) :: transSys.TransSys.props
 
+
+    (* Predicate occurs only positive: initial state constraint
+
+       I(s) => p(s)
+       
+    *)
     | _, [] -> 
 
       let term = 
@@ -361,13 +382,14 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
                 (Term.mk_and (List.map Term.negate literals))))
       in
 
-      debug horn
-          "Initiation clause@,%a"
-          Term.pp_print_term term 
-      in
-
       transSys.TransSys.init_constr <- term :: transSys.TransSys.init_constr
 
+
+    (* Predicate occurs positive and negative: transition relation
+
+        p(s) & T(s, s') => p(s')
+       
+    *)
     | _, _ -> 
 
       let term = 
@@ -380,16 +402,7 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
                    (Term.mk_and (List.map Term.negate literals)))))
       in
 
-
-      debug horn
-          "Transition clause@,%a"
-          Term.pp_print_term term 
-      in
-
-      transSys.TransSys.constr_constr <- term :: transSys.TransSys.constr_constr);
-
-
-  transSys
+      transSys.TransSys.constr_constr <- term :: transSys.TransSys.constr_constr
 
 
 let rec parse sym_p_opt lexbuf transSys = 
@@ -510,14 +523,6 @@ let rec parse sym_p_opt lexbuf transSys =
             let clause = clause_of_expr expr in
 
             let var_pos, var_neg, clause' = classify_clause sym_p clause in
-
-            debug horn
-                "@[<v>%a@,%a@,%a@,%a@]"
-                (pp_print_list Var.pp_print_var "@ ") var_pos
-                (pp_print_list Var.pp_print_var "@ ") var_neg
-                (pp_print_list Var.pp_print_var "@ ") vars_0
-                (pp_print_list Var.pp_print_var "@ ") vars_1
-            in
 
             add_expr_to_trans_sys
               transSys 
