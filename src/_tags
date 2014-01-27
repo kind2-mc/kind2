@@ -1,3 +1,6 @@
+# Build native code debug parser
+<Camlp4DebugParser.ml>: pp(camlp4rf),use_camlp4,use_dynlink
+
 # Use native code version of camlp4 and native code debug parser
 # (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
 <*.ml{,i}>: pp(camlp4o.opt -parser Camlp4DebugParser.cmxs)
