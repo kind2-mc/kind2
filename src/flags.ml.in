@@ -324,20 +324,22 @@ let pdr_prop_in_last_frame_default = false
 
 (* ********** *) 
 
-type pdr_qe = [ `Z3 | `Z3_impl | `Cooper ]
+type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
     
 let pdr_qe_of_string = function
   | "Z3" -> `Z3
   | "Z3-impl" -> `Z3_impl
+  | "Z3-impl2" -> `Z3_impl2
   | "cooper" -> `Cooper
   | _ -> raise (Arg.Bad "Bad value for --pdr_qe")
 
 let string_of_pdr_qe = function 
   | `Z3 -> "Z3"
   |  `Z3_impl -> "Z3-impl"
+  |  `Z3_impl2 -> "Z3-impl2"
   | `Cooper -> "cooper"
 
-let pdr_qe_values = "Z3, Z3-impl, cooper"
+let pdr_qe_values = "Z3, Z3-impl, Z3-impl-2, cooper"
 
 let pdr_qe_default = `Cooper
 

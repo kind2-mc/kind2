@@ -52,7 +52,7 @@ type enable = Lib.kind_module list
 val enable : unit -> enable 
 
 (** Algorithm for quantifier elimination in PDR *)
-type pdr_qe = [ `Z3 | `Z3_impl | `Cooper ]
+type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val pdr_qe : unit -> pdr_qe
 
 (** Heuristics for extraction of implicant *)
