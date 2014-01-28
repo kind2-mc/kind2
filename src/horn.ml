@@ -18,6 +18,8 @@
 
 open Lib
 
+module SVS = StateVar.StateVarSet
+
 
 let s_set_info = HString.mk_hstring "set-info"
 
@@ -325,7 +327,6 @@ let temp_vars_to_state_vars term =
 
 let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
 
-
 (*
 
    I(s) => p(s)
@@ -336,7 +337,98 @@ let unlet_term term = Term.construct (Term.eval_t (fun t _ -> t) term)
 
 
 
+let rec let_for_args accum = function 
+
+  (* No more terms in list *)
+  | [] -> List.rev accum
+
+  (* Term without equations *)
+  | (t, []) :: tl -> let_for_args (t :: accum) tl
+
+  (* Add term with let binding to accumulator *)
+  | (t, e) :: tl -> let_for_args (Term.mk_let e t :: accum) tl
+
+  (* Lists must be of equal length *)
+  | _ -> raise (Invalid_argument "let_for_args")
+
+
+let eq_to_let state_vars term accum = match term with
+
+  (* An equation *)
+  | Term.T.App (s, [l; r]) when s == Symbol.s_eq -> 
+
+    (* Match left-hand side and right-hand side of equation *)
+    (match Term.destruct l, Term.destruct r with
+
+      (* Equation between state variable and free variable *)
+      | Term.T.Var v1, Term.T.Var v2 when 
+          SVS.mem 
+            (Var.state_var_of_state_var_instance v1) 
+            state_vars && 
+          (not 
+             (SVS.mem
+                (Var.state_var_of_state_var_instance v2) 
+                state_vars)) -> 
+        
+        (* Initialize accumulator with single equation, binding the
+           free variable to the state variable *)
+        (Term.construct term, [(v2, Term.mk_var v1)])
+
+      (* Equation between state variable and free variable *)
+      | Term.T.Var v1, Term.T.Var v2 when 
+          SVS.mem
+            (Var.state_var_of_state_var_instance v2)
+            state_vars
+          && 
+          (not
+             (SVS.mem
+                (Var.state_var_of_state_var_instance v1)
+                state_vars)) -> 
+        
+        (* Initialize accumulator with single equation, binding the
+           free variable to the state variable *)
+        (Term.construct term, [(v1, Term.mk_var v2)])
+        
+      (* Other equation, add let binding for collected equations *)
+      | _ -> (Term.mk_eq (let_for_args [] accum), [])
+        
+    )
+
+  (* Conjunction, can join equations from all conjuncts *)
+  | Term.T.App (s, l) when s == Symbol.s_and -> 
+
+    (* Keep term unchanged and concatenate lists of equations *)
+    (Term.mk_and (List.map fst accum),
+     List.concat (List.map snd accum))
+
+  (* Neither conjunction nor equation, add respective collected
+     equations as let binding to each subterm *)
+  | Term.T.App (s, l) -> (Term.mk_app s (let_for_args [] accum), [])
+
+  (* No equations for constants and variables *)
+  | Term.T.Const s -> (Term.mk_const s, [])
+  | Term.T.Var v -> (Term.mk_var v, [])
+
+  (* Remove attributed terms *)
+  | Term.T.Attr (t, _) -> (t, snd (List.hd accum))
+
+
+let solve_eqs state_vars term =
+
+  unlet_term
+    (match Term.eval_t (eq_to_let state_vars) term with
+      | t, [] -> t
+      | t, e -> Term.mk_let e t)
+                
+
 let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg = 
+
+  let state_vars = 
+    List.fold_left
+      (fun a e -> SVS.add e a)
+      SVS.empty
+      (List.map Var.state_var_of_state_var_instance vars_0)
+  in
 
   match var_pos, var_neg with 
 
@@ -364,7 +456,9 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
                 (Term.mk_or literals)))
       in
 
-      transSys.TransSys.props <- ("P", term) :: transSys.TransSys.props
+      let term' = if true then solve_eqs state_vars term else term in
+
+      transSys.TransSys.props <- ("P", term') :: transSys.TransSys.props
 
 
     (* Predicate occurs only positive: initial state constraint
@@ -382,7 +476,9 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
                 (Term.mk_and (List.map Term.negate literals))))
       in
 
-      transSys.TransSys.init_constr <- term :: transSys.TransSys.init_constr
+      let term' = if true then solve_eqs state_vars term else term in
+
+      transSys.TransSys.init_constr <- term' :: transSys.TransSys.init_constr
 
 
     (* Predicate occurs positive and negative: transition relation
@@ -402,7 +498,9 @@ let add_expr_to_trans_sys transSys literals vars_0 vars_1 var_pos var_neg =
                    (Term.mk_and (List.map Term.negate literals)))))
       in
 
-      transSys.TransSys.constr_constr <- term :: transSys.TransSys.constr_constr
+      let term' = if true then solve_eqs state_vars term else term in
+
+      transSys.TransSys.constr_constr <- term' :: transSys.TransSys.constr_constr
 
 
 let rec parse sym_p_opt lexbuf transSys = 
