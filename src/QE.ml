@@ -426,7 +426,8 @@ let generalize model (elim : Var.t list) term =
   let term' = let pdr_qe = Flags.pdr_qe () in match pdr_qe with 
     
     | `Z3
-    | `Z3_impl ->
+    | `Z3_impl
+    | `Z3_impl2 ->
       
       (
 
@@ -436,7 +437,8 @@ let generalize model (elim : Var.t list) term =
           match pdr_qe with 
             | `Z3 -> 
               SMTExpr.quantified_smtexpr_of_term true elim term
-            | `Z3_impl -> 
+            | `Z3_impl
+            | `Z3_impl2 -> 
               SMTExpr.quantified_smtexpr_of_term true elim extract_int
         in
         
@@ -509,13 +511,18 @@ let generalize model (elim : Var.t list) term =
           (Term.mk_and [term'_bool; term'_int]);
 *)
 
-        (* Extract again from result *)
-        let term''_int, term''_bool =  Extract.extract model (Term.mk_and term'_int) in
-
         (* Return quantifier eliminated term *)
         (match pdr_qe with 
-          | `Z3 -> term'_int
-          | `Z3_impl -> term'_bool @ [term''_int; term''_bool])
+          | `Z3 
+          | `Z3_impl -> term'_bool @ term'_int
+          | `Z3_impl2 -> 
+
+            (* Extract again from result *)
+            let term''_int, term''_bool = 
+                Extract.extract model (Term.mk_and term'_int) 
+            in
+            
+            term'_bool @ [term''_int; term''_bool])
         
       )
 
