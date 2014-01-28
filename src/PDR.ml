@@ -1737,7 +1737,7 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
            No check for subsumption necessary: if a clause is not
            subsumed in one frame, it cannot be subsumed in the next
            frame, which is a subset of the previous frame *)
-        let f' = CNF.union prop f in
+        let f' = CNF.union_subsume prop f in
 
 (*
         (* Split into clauses that can and cannot be propagated 
@@ -1828,7 +1828,7 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                    (S.pop solver_frames;
 
                    (* Clause does not propagate *)
-                    (CNF.add clause keep, fwd))
+                    (CNF.add_subsume clause keep, fwd))
 
                  else
 
@@ -1969,14 +1969,14 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                            
                            Stat.incr Stat.pdr_tightened_propagated_clauses;
                            
-                           (keep, CNF.add clause_core fwd))))
+                           (keep, CNF.add_subsume clause_core fwd))))
 
                    else
                      
                      (
                        
                        (* Propagate unchanged clause *)
-                       (keep, CNF.add clause fwd)))
+                       (keep, CNF.add_subsume clause fwd)))
               f'
               (CNF.empty, CNF.empty)
 
