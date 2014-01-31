@@ -250,7 +250,7 @@ let enable_values = "PDR, BMC, IND, INVGEN"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR; `BMC; `IND]
+let enable_default_after = [`PDR]
 
 (* ********** *) 
 
@@ -266,7 +266,7 @@ type pdr_check_inductive = bool
     
 let string_of_pdr_check_inductive = string_of_bool
 
-let pdr_check_inductive_default = false
+let pdr_check_inductive_default = true
 
 (* ********** *) 
 
@@ -274,7 +274,7 @@ type pdr_fwd_prop_check_multi = bool
     
 let string_of_pdr_fwd_prop_check_multi = string_of_bool
 
-let pdr_fwd_prop_check_multi_default = true
+let pdr_fwd_prop_check_multi_default = false
 
 (* ********** *) 
 
