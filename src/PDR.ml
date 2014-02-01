@@ -694,7 +694,7 @@ let find_cex
      ((if Flags.pdr_tighten_to_unsat_core () then
          S.assert_named_term
        else
-         S.assert_named_term)
+         S.assert_term)
         solver_frames) 
      neg_prop_terms');
   
@@ -789,7 +789,7 @@ let find_cex
         ((if Flags.pdr_tighten_to_unsat_core () then
             S.assert_named_term
           else
-            S.assert_named_term) 
+            S.assert_term) 
            solver_init) 
         cex_gen;
       
@@ -1779,7 +1779,7 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                    ((if Flags.pdr_tighten_to_unsat_core () then
                        S.assert_named_term
                      else
-                       S.assert_named_term)
+                       S.assert_term)
                       solver_frames)
                    literals';
 
