@@ -35,6 +35,8 @@ sig
 
   val assert_term : t -> Term.t -> unit
 
+  val assert_named_term : t -> SMTExpr.t -> unit
+
   val push : ?n:int -> t -> unit
 
   val pop : ?n:int -> t -> unit
@@ -43,7 +45,7 @@ sig
 
   val get_model : t -> Var.t list -> (Var.t * Term.t) list
 
-  val get_unsat_core : t -> int list
+  val get_unsat_core : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
@@ -65,6 +67,8 @@ struct
   (* The encapsulated module for lower level access to the solver *)
   module T = struct include S end
 
+  (* Hashtable associating generated names to terms *)
+  let term_names = Hashtbl.create 7 
 
   (* Type of a solver instance *)
   type t = S.t
@@ -177,6 +181,14 @@ struct
     fail_on_smt_error (S.assert_expr solver expr)
       
 
+  let assert_named_term solver term = 
+
+    let term_name, term' = Term.mk_named term in
+
+    Hashtbl.add term_names term_name term;
+
+    assert_term solver term'
+
   (* Push a new scope to the context and fail on error *)
   let push ?(n = 1) solver = fail_on_smt_error (S.push solver n)
 
@@ -280,7 +292,16 @@ struct
         try 
 
           (* Convert strings t<int> to integer *)
-          List.map (function s -> Scanf.sscanf s "t%d" (function x -> x)) c
+          let core_names = 
+            List.map 
+              (function s -> Scanf.sscanf s "t%d" (function x -> x)) 
+              c
+          in
+
+          List.fold_left 
+            (fun a n -> Hashtbl.find term_names n :: a)
+            []
+            core_names
 
         with
 

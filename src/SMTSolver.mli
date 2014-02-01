@@ -103,7 +103,7 @@ sig
 end
 
 
-(** Input signature of the {!Make} functor *)
+(** Output signature of the {!Make} functor *)
 module type S =
 sig
 
