@@ -51,6 +51,10 @@ sig
   (** Assert a formula in the current context *)
   val assert_term : t -> Term.t -> unit
 
+  (** Assert the expression, naming it internally to retrieve it from
+      an unsatisfiable core later *)
+  val assert_named_term : t -> SMTExpr.t -> unit
+
   (** Push a new scope to the context stack *)
   val push : ?n:int -> t -> unit
 
@@ -68,7 +72,7 @@ sig
 
   (** Return an unsatisfiable core of named expressions if the current
       context is unsatisfiable *)
-  val get_unsat_core : t -> int list
+  val get_unsat_core : t -> Term.t list
 
   (** {1 Higher-level functions} 
 

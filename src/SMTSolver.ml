@@ -223,7 +223,6 @@ struct
 
     res
 
-
   let push { solver = s; id = id } i = 
 
     debug smt "@[<v>[%d]@,@[<hv 1>(push@ %i)@]@]" id i in

@@ -589,22 +589,16 @@ let name_terms terms =
    unsatisfiable core to terms and returns those terms in the first
    list, the terms that are not in the first list but in the list [t]
    as the second list. *)
-let partition_core solver name_to_term_map all_clause =
+let partition_core solver clause =
 
   (* Get names of terms in the unsatifiable core *)
-  let names_in_core = S.get_unsat_core solver in
+  let terms_in_core = S.get_unsat_core solver in
 
   (* Create set of terms in unsat core *)
-  let core_clause = 
-    List.fold_left 
-      (fun a n -> 
-         try Clause.add (List.assoc n name_to_term_map) a with Not_found -> a)
-      Clause.empty
-      names_in_core
-  in
+  let core_clause = Clause.of_literals terms_in_core in
 
   (* Subtract term in core from all terms *)
-  let rest_clause = Clause.diff all_clause core_clause in
+  let rest_clause = Clause.diff clause core_clause in
 
   (* Return list of terms in core and remaining terms *)
   core_clause, rest_clause
@@ -662,22 +656,6 @@ let find_cex
      Clause.to_term prop_clause) 
   in
   
-  (* Give a unique name to each literal in the blocking clause *)
-  let (state_named, state_name_to_term), (neg_prop_named', neg_prop_name_to_term') = 
-    
-    (* Naming for unsat core only if flag is set *)
-    if Flags.pdr_tighten_to_unsat_core () then 
-      
-      (* Only name terms in property *)
-      (state_terms, []), (name_terms neg_prop_terms')
-                         
-    else
-      
-      (* Don't name any term *)
-      (state_terms, []), (neg_prop_terms', [])
-                         
-  in 
-  
   debug pdr
       "Searching for counterexample"
   in
@@ -705,7 +683,7 @@ let find_cex
    in
    
    (* Assert blocking clause in current frame *)
-   S.assert_term solver_frames (Term.mk_or state_named));
+   S.assert_term solver_frames state);
   
   (debug smt
       "Asserting bad property"
@@ -713,8 +691,12 @@ let find_cex
    
    (* Assert bad property of next frame *)
    List.iter 
-     (S.assert_term solver_frames) 
-     neg_prop_named');
+     ((if Flags.pdr_tighten_to_unsat_core () then
+         S.assert_named_term
+       else
+         S.assert_term)
+        solver_frames) 
+     neg_prop_terms');
   
   if 
     
@@ -797,26 +779,19 @@ let find_cex
           Clause.empty
           cex_gen
       in              
-      
-      (* Give a unique name to each literal in the counterexample *)
-      let cex_gen_named, cex_gen_name_to_term = 
-        
-        if Flags.pdr_tighten_to_unsat_core () then 
-          
-          name_terms cex_gen 
-            
-        else
-          
-          cex_gen, []
-                   
-      in
-      
+
       (* Push a new scope level to the context *)
       S.push solver_init;
       
       (* Assert each literal of the counterexample in the initial
          state *)
-      List.iter (S.assert_term solver_init) cex_gen_named;
+      List.iter 
+        ((if Flags.pdr_tighten_to_unsat_core () then
+            S.assert_named_term
+          else
+            S.assert_term) 
+           solver_init) 
+        cex_gen;
       
       if
         
@@ -872,7 +847,6 @@ let find_cex
                
                partition_core 
                  solver_init 
-                 cex_gen_name_to_term 
                  cex_gen_clause
                  
              else
@@ -917,7 +891,6 @@ let find_cex
            
            partition_core 
              solver_frames 
-             neg_prop_name_to_term' 
              neg_prop_clause'
              
          else
@@ -1799,28 +1772,16 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
 
                  let literals' = Clause.elements clause' in
 
-                 (* Add a name to each literal *)
-                 let literals'_named, name_to_literal' = 
-
-                   (* Naming for unsat core only if flag is set *)
-                   if Flags.pdr_tighten_to_unsat_core () then 
-
-                     (* Name each literal *)
-                     name_terms literals'
-
-                   else
-
-                     (* Don't name anything *)
-                     literals', []
-               
-                 in
-
                  S.push solver_frames;
 
                  (* Assert negated literals *)
                  List.iter
-                   (S.assert_term solver_frames)
-                   literals'_named;
+                   ((if Flags.pdr_tighten_to_unsat_core () then
+                       S.assert_named_term
+                     else
+                       S.assert_term)
+                      solver_frames)
+                   literals';
 
                  (* Check for entailment *)
                  if S.check_sat solver_frames then
@@ -1840,7 +1801,6 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                        
                        partition_core
                          solver_frames
-                         name_to_literal'
                          (Clause.of_literals literals')
                          
                      else
@@ -1892,17 +1852,12 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                            (Clause.elements clause) 
                        in
 
-                       (* Add a name to each literal *)
-                       let literals_named, name_to_literal = 
-                         name_terms literals
-                       in
-
                        S.push solver_init;
                        
                        (* Assert literals in initial state *)
                        List.iter
-                         (S.assert_term solver_init)
-                         literals_named;
+                         (S.assert_named_term solver_init)
+                         literals;
 
                        (* Check for entailment *)
                        if S.check_sat solver_init then
@@ -1923,7 +1878,6 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                             
                             partition_core
                               solver_init
-                              name_to_literal
                               (Clause.of_literals literals)
                               
                           in
