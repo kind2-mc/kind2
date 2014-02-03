@@ -66,6 +66,16 @@ let pp_print_stat ppf =
 *)
 
 
+let print_stats () = 
+
+  (* Output statistics *)
+  Event.stat
+    `PDR 
+    [Stat.misc_stats_title, Stat.misc_stats;
+     Stat.pdr_stats_title, Stat.pdr_stats;
+     Stat.smt_stats_title, Stat.smt_stats]
+
+
 (* Cleanup before exit *)
 let on_exit () = 
 
@@ -74,11 +84,7 @@ let on_exit () =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  Event.stat
-    `PDR 
-    [Stat.misc_stats_title, Stat.misc_stats;
-     Stat.pdr_stats_title, Stat.pdr_stats;
-     Stat.smt_stats_title, Stat.smt_stats];
+  print_stats ();
 
   (* Delete solver instance if created *)
   (try 
@@ -2252,6 +2258,9 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
   Stat.record_time Stat.pdr_strengthen_time;
 
   Stat.set_int_list (frame_sizes frames'') Stat.pdr_frame_sizes;
+
+  (* Output statistics *)
+  if Event.output_on_level Event.L_info then print_stats ();
 
   (* No reachable state violates the property, continue with the
        next k *)
