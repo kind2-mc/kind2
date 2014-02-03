@@ -300,6 +300,22 @@ let pdr_block_in_future_default = true
 
 (* ********** *) 
 
+type pdr_print_inductive_invariant = bool
+    
+let string_of_pdr_print_inductive_invariant = string_of_bool
+
+let pdr_print_inductive_invariant_default = false
+
+(* ********** *) 
+
+type pdr_check_inductive_invariant = bool
+    
+let string_of_pdr_check_inductive_invariant = string_of_bool
+
+let pdr_check_inductive_invariant_default = false
+
+(* ********** *) 
+
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
     
 let pdr_qe_of_string = function
@@ -420,6 +436,8 @@ type flags =
       mutable pdr_inductive_assertions_file : pdr_inductive_assertions_file;
       mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
       mutable pdr_block_in_future : pdr_block_in_future;
+      mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
+      mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable interpreter_input_file : interpreter_input_file;
@@ -448,6 +466,8 @@ let flags =
     pdr_inductive_assertions_file = pdr_inductive_assertions_file_default;
     pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
     pdr_block_in_future = pdr_block_in_future_default;
+    pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
+    pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     interpreter_input_file = interpreter_input_file_default;
@@ -598,6 +618,24 @@ let pdr_block_in_future_spec =
 
 (* ********** *) 
  
+let pdr_print_inductive_invariant_action o = flags.pdr_print_inductive_invariant <- o
+  
+let pdr_print_inductive_invariant_spec = 
+  ("--pdr_print_inductive_invariant", 
+   Arg.Bool pdr_print_inductive_invariant_action, 
+   Format.sprintf "(PDR) Print inductive invariant if property proved (default: %s)" (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
+
+(* ********** *) 
+
+let pdr_check_inductive_invariant_action o = flags.pdr_check_inductive_invariant <- o
+  
+let pdr_check_inductive_invariant_spec = 
+  ("--pdr_check_inductive_invariant", 
+   Arg.Bool pdr_check_inductive_invariant_action, 
+   Format.sprintf "(PDR) Check inductive invariant if property proved (default: %s)" (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
+
+(* ********** *) 
+
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
 let cooper_order_var_by_elim_spec = 
@@ -742,6 +780,10 @@ let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core
 
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
+let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
+
+let pdr_check_inductive_invariant () = flags.pdr_check_inductive_invariant 
+
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
@@ -823,6 +865,12 @@ and speclist =
 
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;
+
+    (* Print inductive invariant if property proved *)
+    pdr_print_inductive_invariant_spec;
+
+    (* Print inductive invariant if property proved *)
+    pdr_check_inductive_invariant_spec;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;

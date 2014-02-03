@@ -1134,7 +1134,10 @@ let push_and_assert solver cnf =
      subsumption in its new frame
 
 *)
-let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
+let fwd_propagate
+    ((solver_init, solver_frames, solver_misc) as solvers) 
+    transSys 
+    frames =
 
   (* Recursively forward propagate from lower frame to higher frames *)
   let rec fwd_propagate_aux 
@@ -1288,7 +1291,7 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                S.fail_on_smt_error r;
                a)
            in
-                                 
+
            assert false);
 
         (* Add clauses propagated from the previous frame 
@@ -1328,7 +1331,7 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
             CNF.of_list (List.map Clause.of_term fwd_terms)
 
           else
-            
+
           if false then
 
             (* Partition clauses into propagatable and not propagatable *)
@@ -1371,10 +1374,10 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
 
                  (* Check for entailment *)
                  if S.check_sat solver_frames then
-                   
+
                    (S.pop solver_frames;
 
-                   (* Clause does not propagate *)
+                    (* Clause does not propagate *)
                     (CNF.add_subsume clause keep, fwd))
 
                  else
@@ -1384,13 +1387,13 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
 
                      (* Get unsat core only if flag is set *)
                      if Flags.pdr_tighten_to_unsat_core () then 
-                       
+
                        partition_core
                          solver_frames
                          (Clause.of_literals literals')
-                         
+
                      else
-                       
+
                        (* Return entire clause as core, empty clause
                           as rest *)
                        (Clause.of_literals literals'), Clause.empty
@@ -1408,22 +1411,22 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                    if Clause.is_empty clause_core then 
 
                      (debug pdr 
-                       "Context is unsatisfiable without clause:@,%a@,%a"
-                       Clause.pp_print_clause clause
-                       HStringSExpr.pp_print_sexpr_list
-                       (let r, a = 
-                         S.T.execute_custom_command 
-                           solver_frames
-                           "get-assertions"
-                           [] 
-                           1 
-                        in
-                        S.fail_on_smt_error r;
-                        a)
+                         "Context is unsatisfiable without clause:@,%a@,%a"
+                         Clause.pp_print_clause clause
+                         HStringSExpr.pp_print_sexpr_list
+                         (let r, a = 
+                           S.T.execute_custom_command 
+                             solver_frames
+                             "get-assertions"
+                             [] 
+                             1 
+                          in
+                          S.fail_on_smt_error r;
+                          a)
                       in
-                       
+
                       assert false);
-                   
+
                    S.pop solver_frames;
 
                    (* Clause was tightened? *)
@@ -1439,7 +1442,7 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
                        in
 
                        S.push solver_init;
-                       
+
                        (* Assert literals in initial state *)
                        List.iter
                          (S.assert_named_term solver_init)
@@ -1447,74 +1450,74 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
 
                        (* Check for entailment *)
                        if S.check_sat solver_init then
-                   
-                         (debug pdr
-                           "Blocking clause intersects with initial state@ %a"
-                           Clause.pp_print_clause clause
-                           in
 
-                           assert false)
+                         (debug pdr
+                             "Blocking clause intersects with initial state@ %a"
+                             Clause.pp_print_clause clause
+                          in
+
+                          assert false)
 
                        else
 
                          (
 
                            (* Get clause literals in unsat core *)
-                          let clause_core_init, clause_rest_init = 
-                            
-                            partition_core
-                              solver_init
-                              (Clause.of_literals literals)
-                              
-                          in
+                           let clause_core_init, clause_rest_init = 
 
-                          S.pop solver_init;
-                          
-                          let clause_core = 
-                            Clause.union 
-                              clause_core
-                              (Clause.map Term.negate clause_core_init)
-                          in
+                             partition_core
+                               solver_init
+                               (Clause.of_literals literals)
 
-                          (debug pdr
-                              "Tightened clause@ %a to@ %a@ dropping@ %a"
-                              Clause.pp_print_clause clause
-                              Clause.pp_print_clause clause_core
-                              Clause.pp_print_clause clause'_rest
                            in
 
-                           (* Extra checks
-                           S.push solver_frames;
-                           
-                           S.assert_term 
-                             solver_frames
-                             (Clause.to_term clause_core);
-                           
-                           (* Shortening the clause must not make the frame
-                              unsatisfiable *)
-                           assert (S.check_sat solver_frames);
-                           
-                           S.assert_term 
-                             solver_frames 
-                             (Term.negate 
-                                (TransSys.bump_state
-                                   1
-                                   (Clause.to_term clause_core)));
-                           
-                           (* The shortened clause must propagate *)
-                           assert (not (S.check_sat solver_frames));
-                           
-                           S.pop solver_frames;
-                           *)
-                           
-                           Stat.incr Stat.pdr_tightened_propagated_clauses;
-                           
-                           (keep, CNF.add_subsume clause_core fwd))))
+                           S.pop solver_init;
+
+                           let clause_core = 
+                             Clause.union 
+                               clause_core
+                               (Clause.map Term.negate clause_core_init)
+                           in
+
+                           (debug pdr
+                               "Tightened clause@ %a to@ %a@ dropping@ %a"
+                               Clause.pp_print_clause clause
+                               Clause.pp_print_clause clause_core
+                               Clause.pp_print_clause clause'_rest
+                            in
+
+                            (* Extra checks
+                               S.push solver_frames;
+
+                               S.assert_term 
+                               solver_frames
+                               (Clause.to_term clause_core);
+
+                               (* Shortening the clause must not make the frame
+                               unsatisfiable *)
+                               assert (S.check_sat solver_frames);
+
+                               S.assert_term 
+                               solver_frames 
+                               (Term.negate 
+                                 (TransSys.bump_state
+                                    1
+                                    (Clause.to_term clause_core)));
+
+                               (* The shortened clause must propagate *)
+                               assert (not (S.check_sat solver_frames));
+
+                               S.pop solver_frames;
+                            *)
+
+                            Stat.incr Stat.pdr_tightened_propagated_clauses;
+
+                            (keep, CNF.add_subsume clause_core fwd))))
 
                    else
-                     
+
                      (
-                       
+
                        (* Propagate unchanged clause *)
                        (keep, CNF.add_subsume clause fwd)))
               f'
@@ -1547,7 +1550,127 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
               (succ (List.length accum))
               Stat.pdr_fwd_fixpoint;
 
-            
+            if Flags.pdr_print_inductive_invariant () then
+
+              (
+
+                Event.log `PDR Event.L_fatal
+                  "@[<v>Inductive invariant:@,%a@]"
+                  Term.pp_print_term (term_of_frames accum)
+
+              );
+
+
+            if Flags.pdr_check_inductive_invariant () then 
+
+
+              (
+
+                (* Initial state constraint *)
+                let init = TransSys.init_of_bound 0 transSys in
+
+                (* Transition relation *)
+                let trans = TransSys.constr_of_bound 1 transSys in
+
+                (* Primed property*)
+                let props_1 = TransSys.props_of_bound 1 transSys in
+
+                (* Unprimed nvariants *)
+                let invars_0 = TransSys.invars_of_bound 0 transSys in
+
+                (* Primed invariants *)
+                let invars_1 = TransSys.invars_of_bound 1 transSys in
+
+                (* Unprimed inductive invariant *)
+                let ind_inv_0 = term_of_frames accum in
+
+                (* Primed inductive invariant *)
+                let ind_inv_1 = TransSys.bump_state 1 ind_inv_0 in
+
+                (* Push new scope level in generic solver *)
+                S.push solver_misc;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc init;
+
+                (* Assert unprimed invariants if not empty *)
+                if not (invars_0 == Term.t_true) then 
+                  S.assert_term solver_misc invars_0;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc (Term.mk_not ind_inv_0);
+
+                (* Check I |= R_i *)
+                if not (S.check_sat solver_misc) then 
+
+                  (Event.log `PDR Event.L_fatal 
+                     "OK: The initial state implies the inductive\
+                      invariant.")
+
+                else
+
+                  (Event.log `PDR Event.L_fatal 
+                     "FAILURE: The initial state does not imply the \
+                      inductive invariant.");
+
+                (* Pop scope level in generic solver *)
+                S.pop solver_misc;
+
+                (* Push new scope level in generic solver *)
+                S.push solver_misc;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc trans;
+
+                (* Assert unprimed and primed invariants if not empty *)
+                if not (invars_0 == Term.t_true) then 
+                  (S.assert_term solver_misc invars_0;
+                   S.assert_term solver_misc invars_1);
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc ind_inv_0;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc (Term.mk_not ind_inv_1);
+
+                (* Check R_i & T |= R_i' *)
+                if S.check_sat solver_misc then 
+
+                  (Event.log `PDR Event.L_fatal 
+                     "OK: The inductive invariant is preserved by the \
+                      transition relation.")
+
+                else
+
+                  (Event.log `PDR Event.L_fatal 
+                     "FAILURE: The inductive invariant is not preserved by \
+                      the transition relation.");
+
+                (* Pop scope level in generic solver *)
+                S.pop solver_misc;
+
+                (* Push new scope level in generic solver *)
+                S.push solver_misc;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc (Term.mk_not ind_inv_0);
+
+                (* Check R_i |= P *)
+                if S.check_sat solver_misc then 
+
+                  (Event.log `PDR Event.L_fatal 
+                     "OK: The inductive invariant implies the property.")
+
+                else
+
+                  (Event.log `PDR Event.L_fatal 
+                     "FAILURE: The inductive invariant does not imply the \
+                      property.");
+
+                (* Pop scope level in generic solver *)
+                S.pop solver_misc;
+
+              );
 
             raise (Success (List.length frames))
 

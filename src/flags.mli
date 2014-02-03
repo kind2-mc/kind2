@@ -83,6 +83,14 @@ val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future
 
+(** Print inductive invariant if property proved *)
+type pdr_print_inductive_invariant = bool
+val pdr_print_inductive_invariant : unit -> pdr_print_inductive_invariant
+
+(** Check inductive invariant if property proved *)
+type pdr_check_inductive_invariant = bool
+val pdr_check_inductive_invariant : unit -> pdr_check_inductive_invariant
+
 (** Debug sections to enable *)
 val debug : unit -> string list
 
