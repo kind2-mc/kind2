@@ -52,23 +52,10 @@ let ref_solver_misc = ref None
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
-(*
+
 (* Output statistics *)
-let pp_print_stat ppf = 
-
-  Format.fprintf
-    ppf
-    "Statistics of %a module:@.@.%t@.%t@.%t"
-    pp_print_kind_module `PDR
-    Stat.pp_print_misc_stats
-    Stat.pp_print_pdr_stats
-    Stat.pp_print_smt_stats
-*)
-
-
 let print_stats () = 
 
-  (* Output statistics *)
   Event.stat
     `PDR 
     [Stat.misc_stats_title, Stat.misc_stats;
@@ -208,78 +195,6 @@ let term_of_frames frames =
   aux [] frames 
 
 
-(* Add clause to frame with syntactic and semantic forward and
-   backward subsumption *)
-let add_to_frame (_, _, solver) clause = function 
-
-  (* List of frames must not be empty *)
-  | [] -> invalid_arg "add_to_frame"
-
-  (* Add clause to frame at head of list *)
-  | frame :: frames_tl as frames -> 
-
-    if 
-
-      (* Clause is syntactically subsumed by a clause in some frame? *)
-      List.exists (CNF.fwd_subsume clause) frames 
-
-    then 
-
-      (* Drop clause and return frames unchanged *)
-      frames 
-
-    else if 
-
-      (* Push new scope level to context *)
-      S.push solver;
-
-      (* Assert all clauses in frame *)
-      List.iter
-        (CNF.iter 
-           (function c -> S.assert_term solver (Clause.to_term c)))
-        frames;
-
-      (* [true] if clause is subsumed in frame *)
-      let res = 
-
-        (* Clause is semantically subsumed in some frame? *) 
-        try 
-
-          (* Check if clause is entailed by frame *)
-          S.check_entailment 
-            ~timeout:(Flags.pdr_subs_timeout ()) 
-            solver 
-            [] 
-            (Clause.to_term clause)
-
-        (* Treat unknown result (after timeout) as not subsumed *)
-        with S.Unknown -> false
-
-      in
-
-      (* Pop scope level from context *)
-      S.pop solver;
-
-      (* Return computed subsumption of clause *)
-      res
-
-    then
-
-      (* Drop clause and return frames unchanged *)
-      frames 
-
-    else
-
-      (* Syntactic backward subsumption in all frames *)
-      let frames' = List.map (CNF.bwd_subsume clause) frames in 
-
-      (* Semantic backward subsumption in all frames *)
-      let frame'' :: frames_tl'' = frames' in
-
-      (* Add clause to last frame *)
-      CNF.add clause frame'' :: frames_tl''
-
-
 (* Given a model and a two formulas f and g return a conjunction of
    literals such that 
    (1) x = s |= B[x] 
@@ -360,231 +275,6 @@ let generalize transSys state f g =
   (* Return generalized term *)
     gen_term
 
-
-(*
-let rec tighten_to_subset 
-    ((solver_init, solver_frames, _) as solvers) 
-    accum = 
-
-  function
-
-    | [] -> accum
-
-    | h :: tl -> 
-
-      let c = Term.mk_and (h :: accum) in
-      let c' = TransSys.bump_state 1 c in
-
-      if 
-
-        (* Check if R_i[x] & T[x,x'] & C[x] |= C[x'] *)
-        S.check_entailment solver_frames [c] c'
-
-      then
-
-        (
-
-          if 
-
-            (* Check if I[x] |= C[x] *)
-            S.check_entailment solver_init [] c
-
-          then 
-
-            (
-
-              (* Both entailments hold, found a strong enough subset *)
-              h :: accum
-
-            )
-
-          else
-
-            (
-
-              (* Add literal to clause and recurse to check rest of
-                 original clause *)
-              tighten_to_subset solvers (h :: accum) tl
-
-            )
-
-        )
-
-      else
-
-        (
-
-          (* Add literal to clause and recurse to check rest of
-             original clause *)
-          tighten_to_subset solvers (h :: accum) tl
-
-        )
-
-
-let tighten_to_unsat_core 
-    (solver_init, solver_frames, _) 
-    clause =
-
-  (* Literals of clause *)
-  let literals = Clause.elements clause in
-
-  (* Association list of names to named terms *)
-  let literals_named = 
-    List.fold_left
-      (fun a l -> 
-         Term.mk_named l :: a)
-      []
-      literals
-  in
-
-  (* Clause of named literals *)
-  let clause_named = Term.mk_or (List.map snd literals_named) in
-
-  (* Clause with primed variables *)
-  let clause' = TransSys.bump_state 1 (Clause.to_term clause) in
-
-  (* Push new scope on context *)
-  S.push solver_frames;
-
-  (* Assert clause with named literals *)
-  S.assert_term solver_frames clause_named;
-
-  (* Assert negation of clause with unnamed primed literals *)
-  S.assert_term solver_frames (Term.mk_not clause');
-
-  (* Check if R_i[x] & T[x,x'] & C[x] |= C[x'] *)
-  if S.check_sat solver_frames then 
-
-    (* Entailment holds, query must be unsatisfiable *)
-    assert false
-
-  else
-
-    (* Get unsatisfiable core of query *)
-    let unsat_core = S.get_unsat_core solver_frames in
-
-    (* Get literals in unsatisfiable core *)
-    let res = 
-      List.map (function l -> List.assoc l literals_named) unsat_core 
-    in
-
-    S.pop solver_frames;
-
-    res
-
-        
-(* Tighten a counterexample cube to a blocking clause 
-
-   At the moment, just negate each minterm in the cube and form the
-   disjunction *)
-let tighten ((solver_init, solver_frames, _) as solvers) cube = 
-
-  (* Form blocking clause of negated cube *)
-  let clause = Clause.of_literals (List.map Term.negate cube) in
-
-  (* Tighten clause to a subset *)
-  let clause' = 
-
-    if Flags.pdr_tighten_to_subset () then 
-
-      (
-
-        Stat.start_timer Stat.pdr_tighten_to_subset_time;
-
-        (* Push contexts of solvers *)
-        S.push solver_frames;
-        S.push solver_init;
-
-        (* Tighten clause D to a subset C that satisfies 
-           R_i[x] & T[x,x'] & C[x] |= C[x'] and
-           I[x] |= C[x] *)
-        let res = 
-          Clause.of_literals 
-            (tighten_to_subset solvers [] (Clause.elements clause))
-            (*            (tighten_to_unsat_core solvers clause) *)
-        in
-
-        if Clause.cardinal clause > Clause.cardinal res then 
-          Stat.incr Stat.pdr_tightened_blocking_clauses;
-
-        (* Restore contexts of solvers *)
-        S.pop solver_frames;
-        S.pop solver_init;
-
-        Stat.record_time Stat.pdr_tighten_to_subset_time;
-
-        (* Continue with tightened clause *)
-        res
-
-      )
-
-    else
-
-      (* Do not tighten clause *)
-      clause
-
-  in
-
-  (* Return clause *)
-  clause'
-*)
-
-let rec minimize_cex 
-    ((solver_init, solver_frames, _) as solvers) 
-    accum = 
-
-  function
-
-    | [] -> accum
-
-    | (v, t) :: tl -> 
-
-      (* Term x != t of assignment to variable v in model *)
-      let n_vt = Term.mk_not (Term.mk_eq [Term.mk_var v; t]) in
-
-      if 
-
-        (* Check if value of variable is relevant for counterexample *)
-        S.check_sat_term solver_frames [n_vt] && 
-        S.check_sat_term solver_init [n_vt] 
-
-      then
-
-        (debug pdr
-            "Assignment to %a is not relevant for counterexample"
-            Var.pp_print_var v 
-         in
-
-         (* Fresh constant to replace assignment to variable *)
-         let c = 
-           Term.mk_uf (UfSymbol.mk_fresh_uf_symbol [] (Var.type_of_var v)) []
-         in
-
-         (* Counterexample both with x = t and x != t, assignment to x is
-            irrelevant *)
-         minimize_cex solvers ((v, c) :: accum) tl)
-
-      else
-
-        (debug pdr
-            "Assignment %a = %a is relevant for counterexample"
-            Var.pp_print_var v 
-            Term.pp_print_term t
-         in
-
-         (* Assignment to x is relevant to obtain counterexample *)
-         minimize_cex solvers ((v, t) :: accum) tl)
-
-
-(* Return a list of named terms and a map from names to the original
-   terms *)
-let name_terms terms =
-  List.fold_left 
-    (fun (l, m) t -> 
-       let (n, t') = Term.mk_named t in
-       t' :: l, (n, t) :: m)
-    ([], [])
-    terms
 
 
 (* Partition list of terms into two lists, the first list containing
@@ -740,19 +430,6 @@ let find_cex
         S.get_model solver_frames (TransSys.vars transSys) 
       in
       
-      (* Find a small satisfying assignment *)
-      let cex_min = 
-        
-        if Flags.pdr_minimize_cex () then 
-          
-          minimize_cex solvers [] cex 
-            
-        else
-          
-          cex 
-            
-      in
-      
       (* Remove scope from the context *)
       S.pop solver_frames;
       
@@ -763,7 +440,7 @@ let find_cex
       let cex_gen = 
         generalize 
           transSys 
-          cex_min 
+          cex 
           (Term.mk_and 
              [TransSys.props_of_bound 0 transSys;
               CNF.to_term frame;
@@ -1277,108 +954,11 @@ let rec strengthen
            strengthen solvers transSys frames')
         
 
-(*
-let block_propagated_cex 
-    ((_, solver_frames, solver_misc) as solvers) 
-    transSys 
-    cex = 
-
-  function 
-
-    (* k > 0, must have at least one frame *)
-    | [] -> invalid_arg "block_propagated_cex"
-
-    (* Head of frames is the last frame *)
-    | r_k :: frames_tl as frames -> 
-
-      (* No counterexamples to block *)
-      if cex = [] then 
-
-        (* Return unchanged *)
-        (frames, cex)
-
-      else
-
-        (debug smt
-            "block_propagated_cex: asserting clauses of R_k"
-         in
-
-         S.push solver_misc;
-
-         (* Assert all clauses of R_k in this context *)
-         CNF.iter 
-           (function c -> S.assert_term solver_misc (Clause.to_term c)) 
-           r_k;
-
-         (* Filter for counterexamples that are in the frame *)
-         let actual_cex =
-           List.filter 
-             (function t -> S.check_sat_term solver_misc [Term.mk_and t])
-             cex
-         in
-
-         (* Remove assertions of frame from context *)
-         S.pop solver_misc;
-
-         (* No counterexamples to block *)
-         if actual_cex = [] then 
-
-           (
-
-             (* Remove assertions of frame from context *)
-             S.pop solver_frames;
-
-             (* Return unchanged *)
-             (frames, cex)
-
-           )
-
-         else
-
-           (
-
-             S.push solver_frames;
-
-             (* Assert all clauses of R_k in this context *)
-             CNF.iter 
-               (function c -> S.assert_term solver_frames (Clause.to_term c)) 
-               r_k;
-
-
-             (* Block counterexamples, we get changed frame and new
-                counterexamples *)
-             let frames', cex' = 
-               block solvers transSys cex [(actual_cex, r_k)] frames_tl 
-             in
-(*
-           (* Remove assertions of frame from context *)
-           S.pop solver_frames;
-*)
-             (* Return changed frames and new counterexamples *)
-             (frames', cex'))
-
-        )
-
-*)
 
 (* ********************************************************************** *)
 (* Forward propagation                                                    *)
 (* ********************************************************************** *)
 
-(*
-(* Check if clause is inductive *)
-let is_inductive solver clause = 
-
-  (* Term of clause *)
-  let term = Clause.to_term clause in
-
-  (* Primed term of clause *)
-  let term' = TransSys.bump_state 1 term in
-
-  (* Check entailment *)
-  S.check_entailment solver [term] term' 
-*)
-  
 (* Check for inductive clauses simultaneously
 
    The context of the solver must contain the transition relation and
@@ -1967,6 +1547,8 @@ let fwd_propagate ((solver_init, solver_frames, _) as solvers) transSys frames =
               (succ (List.length accum))
               Stat.pdr_fwd_fixpoint;
 
+            
+
             raise (Success (List.length frames))
 
           );
@@ -2468,85 +2050,6 @@ let main transSys =
   )
 
 
-(*
-;;
-
-
-open Term.Abbrev;;
-
-Debug.enable "smt" Format.std_formatter;;
-Debug.enable "pdr" Format.std_formatter;;
-Debug.enable "qe" Format.std_formatter;;
-Debug.enable "extract" Format.std_formatter;;
-Debug.enable "eval" Format.std_formatter;;
-Debug.enable "termConv" Format.std_formatter;;
-Debug.enable "lexer" Format.std_formatter;;
-
-
-(* TODO: support uninterpreted constants in Eval
-let u_n0 = UfSymbol.mk_uf_symbol "n0" [] (Type.mk_int ());;
-let n0 = Term.mk_uf u_n0 [];;
-*)
-
-let n0 = ?%@4;;
-
-let sv_c = StateVar.mk_state_var "c" (Type.mk_int ());;
-let sv_n = StateVar.mk_state_var "n" (Type.mk_int ());;
-
-let v_c'0 = Var.mk_state_var_instance sv_c (Lib.numeral_of_int 0);;
-let v_c'1 = Var.mk_state_var_instance sv_c (Lib.numeral_of_int 1);;
-let v_n'0 = Var.mk_state_var_instance sv_n (Lib.numeral_of_int 0);;
-let v_n'1 = Var.mk_state_var_instance sv_n (Lib.numeral_of_int 1);;
-let v = [sv_c; sv_n];;
-
-let c'0 = Term.mk_var v_c'0;;
-let c'1 = Term.mk_var v_c'1;;
-let n'0 = Term.mk_var v_n'0;;
-let n'1 = Term.mk_var v_n'1;;
-
-let i = (c'0 =@ ?%@ 1) &@ (n'0 =@ n0);;
-
-let t = 
-  (n'1 =@ n'0) &@ 
-    ((c'0 =@ n'0) =>@ (c'1 =@ ?%@ 1)) &@ 
-    (!@(c'0 =@ n'0) =>@ (c'1 =@ (c'0 +@ ?%@ 1)));; 
-
-let p = c'0 <=@ (n'0 +@ ?%@ 1);;
-
-Debug.printf "pdr" "I: %a" Term.pp_print_term i;;
-Debug.printf "pdr" "T: %a" Term.pp_print_term t;;
-Debug.printf "pdr" "P: %a" Term.pp_print_term p;;
-
-let z = { 
-  TransSys.init = [i]; 
-  TransSys.constr = [t]; 
-  TransSys.trans = []; 
-  TransSys.props = [("p", p)]; 
-(*  TransSys.props = [("p1", n0 =@ n'0); ("p2", p)]; *)
-  TransSys.props_valid = []; 
-  TransSys.props_invalid = [] }
-;;
-
-main z
-  
-;; 
-
-*)
-
-(*
-open Term.Abbrev;;
-let l1 = ?%@ 0 <=@ ?%@ 1;;
-let l2 = ?%@ 1 <=@ ?%@ 2;;
-let l3 = ?%@ 0 <=@ ?%@ 2;;
-let c1 = Clause.singleton l1;;
-let c2 = Clause.singleton l2;;
-let c3 = Clause.singleton l3;;
-let c12 = Clause.union c1 c2;;
-let c13 = Clause.union c1 c3;;
-let c123 = Clause.union c12 c3;;
-let s12 = CNF.singleton c12;;
-let s123 = CNF.singleton c123;;
-*)
 
 (* 
    Local Variables:
