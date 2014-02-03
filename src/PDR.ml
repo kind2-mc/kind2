@@ -1604,7 +1604,7 @@ let fwd_propagate
                 if not (S.check_sat solver_misc) then 
 
                   (Event.log `PDR Event.L_fatal 
-                     "OK: The initial state implies the inductive\
+                     "OK: The initial state implies the inductive \
                       invariant.")
 
                 else
@@ -1634,7 +1634,7 @@ let fwd_propagate
                 S.assert_term solver_misc (Term.mk_not ind_inv_1);
 
                 (* Check R_i & T |= R_i' *)
-                if S.check_sat solver_misc then 
+                if not (S.check_sat solver_misc) then 
 
                   (Event.log `PDR Event.L_fatal 
                      "OK: The inductive invariant is preserved by the \
@@ -1656,7 +1656,7 @@ let fwd_propagate
                 S.assert_term solver_misc (Term.mk_not ind_inv_0);
 
                 (* Check R_i |= P *)
-                if S.check_sat solver_misc then 
+                if not (S.check_sat solver_misc) then 
 
                   (Event.log `PDR Event.L_fatal 
                      "OK: The inductive invariant implies the property.")
