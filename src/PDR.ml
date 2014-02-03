@@ -1556,7 +1556,7 @@ let fwd_propagate
 
                 Event.log `PDR Event.L_fatal
                   "@[<v>Inductive invariant:@,%a@]"
-                  Term.pp_print_term (term_of_frames accum)
+                  Term.pp_print_term (term_of_frames (fwd :: tl))
 
               );
 
@@ -1572,8 +1572,11 @@ let fwd_propagate
                 (* Transition relation *)
                 let trans = TransSys.constr_of_bound 1 transSys in
 
+                (* Transition relation *)
+                let trans_0 = TransSys.constr_of_bound 0 transSys in
+
                 (* Primed property*)
-                let props_1 = TransSys.props_of_bound 1 transSys in
+                let props_0 = TransSys.props_of_bound 0 transSys in
 
                 (* Unprimed nvariants *)
                 let invars_0 = TransSys.invars_of_bound 0 transSys in
@@ -1582,7 +1585,7 @@ let fwd_propagate
                 let invars_1 = TransSys.invars_of_bound 1 transSys in
 
                 (* Unprimed inductive invariant *)
-                let ind_inv_0 = term_of_frames accum in
+                let ind_inv_0 = term_of_frames (fwd :: tl) in
 
                 (* Primed inductive invariant *)
                 let ind_inv_1 = TransSys.bump_state 1 ind_inv_0 in
@@ -1630,6 +1633,9 @@ let fwd_propagate
                 (* Assert initial state constraint in solver instance *)
                 S.assert_term solver_misc ind_inv_0;
 
+                if not (invars_0 == Term.t_true) then 
+                  S.assert_term solver_misc invars_0;
+
                 (* Assert initial state constraint in solver instance *)
                 S.assert_term solver_misc (Term.mk_not ind_inv_1);
 
@@ -1653,7 +1659,16 @@ let fwd_propagate
                 S.push solver_misc;
 
                 (* Assert initial state constraint in solver instance *)
-                S.assert_term solver_misc (Term.mk_not ind_inv_0);
+                S.assert_term solver_misc trans_0;
+
+                if not (invars_0 == Term.t_true) then 
+                  S.assert_term solver_misc invars_0;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc ind_inv_0;
+
+                (* Assert initial state constraint in solver instance *)
+                S.assert_term solver_misc (Term.mk_not props_0);
 
                 (* Check R_i |= P *)
                 if not (S.check_sat solver_misc) then 
@@ -1665,7 +1680,31 @@ let fwd_propagate
 
                   (Event.log `PDR Event.L_fatal 
                      "FAILURE: The inductive invariant does not imply the \
-                      property.");
+                      property.";
+
+                   let m = 
+                     S.get_model 
+                       solver_misc 
+                       (TransSys.vars_of_term
+                          (Term.mk_and [ind_inv_0; props_0]))
+                   in
+
+                   debug pdr
+                     "@[<v>Counterexample:@,%a@]"
+                     (pp_print_list
+                       (function ppf -> function (v, t) -> 
+                         Format.fprintf ppf
+                           "%a = %a" 
+                           Var.pp_print_var v
+                           Term.pp_print_term t)
+                       "@,")
+                     m
+                   in
+                   ()
+ 
+                  );
+
+                
 
                 (* Pop scope level in generic solver *)
                 S.pop solver_misc;
