@@ -254,14 +254,6 @@ let enable_default_after = [`PDR]
 
 (* ********** *) 
 
-type pdr_subs_timeout = int
-    
-let string_of_pdr_subs_timeout = string_of_int
-
-let pdr_subs_timeout_default = 500
-
-(* ********** *) 
-
 type pdr_check_inductive = bool
     
 let string_of_pdr_check_inductive = string_of_bool
@@ -292,14 +284,6 @@ let pdr_inductive_assertions_file_default = None
 
 (* ********** *) 
 
-type pdr_minimize_cex = bool
-    
-let string_of_pdr_minimize_cex = string_of_bool
-
-let pdr_minimize_cex_default = false
-
-(* ********** *) 
-
 type pdr_tighten_to_unsat_core = bool
     
 let string_of_pdr_tighten_to_unsat_core = string_of_bool
@@ -316,11 +300,19 @@ let pdr_block_in_future_default = true
 
 (* ********** *) 
 
-type pdr_prop_in_last_frame = bool
+type pdr_print_inductive_invariant = bool
     
-let string_of_pdr_prop_in_last_frame = string_of_bool
+let string_of_pdr_print_inductive_invariant = string_of_bool
 
-let pdr_prop_in_last_frame_default = false
+let pdr_print_inductive_invariant_default = false
+
+(* ********** *) 
+
+type pdr_check_inductive_invariant = bool
+    
+let string_of_pdr_check_inductive_invariant = string_of_bool
+
+let pdr_check_inductive_invariant_default = false
 
 (* ********** *) 
 
@@ -438,15 +430,14 @@ type flags =
       mutable enable : enable;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
-      mutable pdr_subs_timeout : pdr_subs_timeout;
       mutable pdr_check_inductive : pdr_check_inductive;
       mutable pdr_fwd_prop_check_multi : pdr_fwd_prop_check_multi;
       mutable pdr_dump_inductive_assertions : pdr_dump_inductive_assertions;
       mutable pdr_inductive_assertions_file : pdr_inductive_assertions_file;
-      mutable pdr_minimize_cex : pdr_minimize_cex;
       mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
       mutable pdr_block_in_future : pdr_block_in_future;
-      mutable pdr_prop_in_last_frame : pdr_prop_in_last_frame;
+      mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
+      mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable interpreter_input_file : interpreter_input_file;
@@ -469,15 +460,14 @@ let flags =
     enable = enable_default_init;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
-    pdr_subs_timeout = pdr_subs_timeout_default;
     pdr_check_inductive = pdr_check_inductive_default;
     pdr_fwd_prop_check_multi = pdr_fwd_prop_check_multi_default;
     pdr_dump_inductive_assertions = pdr_dump_inductive_assertions_default;
     pdr_inductive_assertions_file = pdr_inductive_assertions_file_default;
-    pdr_minimize_cex = pdr_minimize_cex_default;
     pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
     pdr_block_in_future = pdr_block_in_future_default;
-    pdr_prop_in_last_frame = pdr_prop_in_last_frame_default;
+    pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
+    pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
     interpreter_input_file = interpreter_input_file_default;
@@ -572,15 +562,6 @@ let pdr_extract_spec =
 
 (* ********** *) 
 
-let pdr_subs_timeout_action o = flags.pdr_subs_timeout <- o
-  
-let pdr_subs_timeout_spec = 
-  ("--pdr_subs_timeout", 
-   Arg.Int pdr_subs_timeout_action, 
-   Format.sprintf "(PDR) timeout in ms for subsumption check in frames (default: %s)" (string_of_pdr_subs_timeout pdr_subs_timeout_default))
-
-(* ********** *) 
-
 let pdr_check_inductive_action o = flags.pdr_check_inductive <- o
   
 let pdr_check_inductive_spec = 
@@ -619,15 +600,6 @@ let pdr_inductive_assertions_file_spec =
 
 (* ********** *) 
 
-let pdr_minimize_cex_action o = flags.pdr_minimize_cex <- o
-  
-let pdr_minimize_cex_spec = 
-  ("--pdr_minimize_cex", 
-   Arg.Bool pdr_minimize_cex_action, 
-   Format.sprintf "(PDR) Minimize counterexamples (default: %s)" (string_of_pdr_minimize_cex pdr_minimize_cex_default))
-
-(* ********** *) 
-
 let pdr_tighten_to_unsat_core_action o = flags.pdr_tighten_to_unsat_core <- o
   
 let pdr_tighten_to_unsat_core_spec = 
@@ -646,15 +618,24 @@ let pdr_block_in_future_spec =
 
 (* ********** *) 
  
-let pdr_prop_in_last_frame_action o = flags.pdr_prop_in_last_frame <- o
+let pdr_print_inductive_invariant_action o = flags.pdr_print_inductive_invariant <- o
   
-let pdr_prop_in_last_frame_spec = 
-  ("--pdr_prop_in_last_frame", 
-   Arg.Bool pdr_prop_in_last_frame_action, 
-   Format.sprintf "(PDR) Last frame contains property (Bradley vs. Een et al) (default: %s)" (string_of_pdr_prop_in_last_frame pdr_prop_in_last_frame_default))
+let pdr_print_inductive_invariant_spec = 
+  ("--pdr_print_inductive_invariant", 
+   Arg.Bool pdr_print_inductive_invariant_action, 
+   Format.sprintf "(PDR) Print inductive invariant if property proved (default: %s)" (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
 
 (* ********** *) 
- 
+
+let pdr_check_inductive_invariant_action o = flags.pdr_check_inductive_invariant <- o
+  
+let pdr_check_inductive_invariant_spec = 
+  ("--pdr_check_inductive_invariant", 
+   Arg.Bool pdr_check_inductive_invariant_action, 
+   Format.sprintf "(PDR) Check inductive invariant if property proved (default: %s)" (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
+
+(* ********** *) 
+
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
 let cooper_order_var_by_elim_spec = 
@@ -787,8 +768,6 @@ let pdr_qe () = flags.pdr_qe
 
 let pdr_extract () = flags.pdr_extract 
 
-let pdr_subs_timeout () = flags.pdr_subs_timeout 
-
 let pdr_check_inductive () = flags.pdr_check_inductive 
 
 let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
@@ -797,13 +776,13 @@ let pdr_dump_inductive_assertions () = flags.pdr_dump_inductive_assertions
 
 let pdr_inductive_assertions_file () = flags.pdr_inductive_assertions_file
 
-let pdr_minimize_cex () = flags.pdr_minimize_cex 
-
 let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
 
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
-let pdr_prop_in_last_frame () = flags.pdr_prop_in_last_frame 
+let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
+
+let pdr_check_inductive_invariant () = flags.pdr_check_inductive_invariant 
 
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
@@ -869,9 +848,6 @@ and speclist =
     (* Heuristic for extraction of implicant *)
     pdr_extract_spec;
 
-    (* Set timeout for subsumption check in frames in PDR *)
-    pdr_subs_timeout_spec;
-
     (* Check inductiveness of blocking clauses *)
     pdr_check_inductive_spec;
 
@@ -884,17 +860,17 @@ and speclist =
     (* File for inductive of blocking clauses *)
     pdr_inductive_assertions_file_spec;
 
-    (* Minimize counterexamples *)
-    pdr_minimize_cex_spec;
-
     (* Tighten blocking clauses to an unsatisfiable core *)
     pdr_tighten_to_unsat_core_spec;
 
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;
 
-    (* Last frame contains property (Bradley vs. Een et al) *)
-    pdr_prop_in_last_frame_spec;
+    (* Print inductive invariant if property proved *)
+    pdr_print_inductive_invariant_spec;
+
+    (* Print inductive invariant if property proved *)
+    pdr_check_inductive_invariant_spec;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;

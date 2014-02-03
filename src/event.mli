@@ -122,6 +122,11 @@ val log_to_stdout : unit -> unit
     Only output messages of levels with equal or higher priority *)
 val set_log_level : log_level -> unit 
 
+
+(** Return true if given log level is of higher or equal priority than
+    current log level? *)
+val output_on_level : log_level -> bool
+
 (** Set log format to plain text *)
 val set_log_format_pt : unit -> unit
 

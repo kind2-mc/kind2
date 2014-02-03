@@ -59,10 +59,6 @@ val pdr_qe : unit -> pdr_qe
 type pdr_extract = [ `First | `Vars ]
 val pdr_extract : unit -> pdr_extract
 
-(** Timeout in ms for subsumption check in frames *)
-type pdr_subs_timeout = int
-val pdr_subs_timeout : unit -> pdr_subs_timeout
-
 (** Check inductiveness of blocking clauses *)
 type pdr_check_inductive = bool
 val pdr_check_inductive : unit -> pdr_check_inductive
@@ -79,10 +75,6 @@ val pdr_dump_inductive_assertions : unit -> pdr_dump_inductive_assertions
 type pdr_inductive_assertions_file = string option 
 val pdr_inductive_assertions_file : unit -> pdr_inductive_assertions_file
 
-(** Minimize counterexamples *)
-type pdr_minimize_cex = bool
-val pdr_minimize_cex : unit -> pdr_minimize_cex
-
 (** Tighten blocking clauses to an unsatisfiable core *)
 type pdr_tighten_to_unsat_core = bool
 val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
@@ -91,9 +83,13 @@ val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future
 
-(** Last frame contains property (Bradley vs. Een et al.) *)
-type pdr_prop_in_last_frame = bool
-val pdr_prop_in_last_frame : unit -> pdr_prop_in_last_frame
+(** Print inductive invariant if property proved *)
+type pdr_print_inductive_invariant = bool
+val pdr_print_inductive_invariant : unit -> pdr_print_inductive_invariant
+
+(** Check inductive invariant if property proved *)
+type pdr_check_inductive_invariant = bool
+val pdr_check_inductive_invariant : unit -> pdr_check_inductive_invariant
 
 (** Debug sections to enable *)
 val debug : unit -> string list
