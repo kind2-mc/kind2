@@ -1394,6 +1394,11 @@ let of_channel in_ch =
 
     in
 
+    debug parse
+      "@[<v>Invariants:@,%a@]"
+      Lustre.pp_print_term assert_term
+    in
+
     (* Invariants of transition system *)
     let invars = 
 
