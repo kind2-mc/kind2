@@ -1275,6 +1275,7 @@ let fwd_propagate
           (fun c -> S.assert_term solver_frames (Clause.to_term c))
           prop;
 
+(*
         if not (S.check_sat solver_frames) then 
 
           (debug pdr 
@@ -1293,6 +1294,7 @@ let fwd_propagate
            in
 
            assert false);
+*)
 
         (* Add clauses propagated from the previous frame 
 
@@ -1566,7 +1568,7 @@ let fwd_propagate
                 
                 Event.log `PDR Event.L_off
                   "@[<v>Inductive invariant:@,%a@]"
-                  Term.pp_print_term (term_of_frames (fwd :: tl))
+                  Lustre.pp_print_term (term_of_frames (fwd :: tl))
                   
               );
             
