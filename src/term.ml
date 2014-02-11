@@ -233,7 +233,6 @@ let print_term t = pp_print_term Format.std_formatter t
 (* Return a string representation of a term *)
 let string_of_term t = string_of_t pp_print_term t
 
-  
 
 (* ********************************************************************* *)
 (* Type checking for terms                                               *)
