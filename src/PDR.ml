@@ -1879,8 +1879,6 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
 
   Stat.set pdr_k Stat.pdr_k;
 
-  Stat.update_time Stat.pdr_total_time; 
-
   (debug pdr 
      "Main loop, k=%d" 
      (succ (List.length frames))
@@ -1971,6 +1969,8 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
   Stat.record_time Stat.pdr_strengthen_time;
 
   Stat.set_int_list (frame_sizes frames'') Stat.pdr_frame_sizes;
+
+  Stat.update_time Stat.pdr_total_time; 
 
   (* Output statistics *)
   if Event.output_on_level Event.L_info then print_stats ();
