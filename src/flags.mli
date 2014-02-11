@@ -68,12 +68,16 @@ type pdr_fwd_prop_check_multi = bool
 val pdr_fwd_prop_check_multi : unit -> pdr_fwd_prop_check_multi
 
 (** Output inductive blocking clauses *)
-type pdr_dump_inductive_assertions = bool
-val pdr_dump_inductive_assertions : unit -> pdr_dump_inductive_assertions
+type pdr_print_inductive_assertions = bool
+val pdr_print_inductive_assertions : unit -> pdr_print_inductive_assertions
+
+(** Output all blocking clauses *)
+type pdr_print_blocking_clauses = bool
+val pdr_print_blocking_clauses : unit -> pdr_print_blocking_clauses
 
 (** File for inductive blocking clauses *)
-type pdr_inductive_assertions_file = string option 
-val pdr_inductive_assertions_file : unit -> pdr_inductive_assertions_file
+type pdr_print_to_file = string option 
+val pdr_print_to_file : unit -> pdr_print_to_file
 
 (** Tighten blocking clauses to an unsatisfiable core *)
 type pdr_tighten_to_unsat_core = bool

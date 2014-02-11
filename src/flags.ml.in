@@ -270,17 +270,25 @@ let pdr_fwd_prop_check_multi_default = false
 
 (* ********** *) 
 
-type pdr_dump_inductive_assertions = bool
+type pdr_print_inductive_assertions = bool
     
-let string_of_pdr_dump_inductive_assertions = string_of_bool
+let string_of_pdr_print_inductive_assertions = string_of_bool
 
-let pdr_dump_inductive_assertions_default = false
+let pdr_print_inductive_assertions_default = false
 
 (* ********** *) 
 
-type pdr_inductive_assertions_file = string option
+type pdr_print_blocking_clauses = bool
     
-let pdr_inductive_assertions_file_default = None
+let string_of_pdr_print_blocking_clauses = string_of_bool
+
+let pdr_print_blocking_clauses_default = false
+
+(* ********** *) 
+
+type pdr_print_to_file = string option
+    
+let pdr_print_to_file_default = None
 
 (* ********** *) 
 
@@ -432,8 +440,9 @@ type flags =
       mutable pdr_extract : pdr_extract;
       mutable pdr_check_inductive : pdr_check_inductive;
       mutable pdr_fwd_prop_check_multi : pdr_fwd_prop_check_multi;
-      mutable pdr_dump_inductive_assertions : pdr_dump_inductive_assertions;
-      mutable pdr_inductive_assertions_file : pdr_inductive_assertions_file;
+      mutable pdr_print_inductive_assertions : pdr_print_inductive_assertions;
+      mutable pdr_print_blocking_clauses : pdr_print_blocking_clauses;
+      mutable pdr_print_to_file : pdr_print_to_file;
       mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
       mutable pdr_block_in_future : pdr_block_in_future;
       mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
@@ -462,8 +471,9 @@ let flags =
     pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
     pdr_fwd_prop_check_multi = pdr_fwd_prop_check_multi_default;
-    pdr_dump_inductive_assertions = pdr_dump_inductive_assertions_default;
-    pdr_inductive_assertions_file = pdr_inductive_assertions_file_default;
+    pdr_print_inductive_assertions = pdr_print_inductive_assertions_default;
+    pdr_print_blocking_clauses = pdr_print_blocking_clauses_default;
+    pdr_print_to_file = pdr_print_to_file_default;
     pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
     pdr_block_in_future = pdr_block_in_future_default;
     pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
@@ -580,23 +590,33 @@ let pdr_fwd_prop_check_multi_spec =
 
 (* ********** *) 
 
-let pdr_dump_inductive_assertions_action o = 
-  flags.pdr_dump_inductive_assertions <- o
+let pdr_print_inductive_assertions_action o = 
+  flags.pdr_print_inductive_assertions <- o
   
-let pdr_dump_inductive_assertions_spec = 
-  ("--pdr_dump_inductive_assertions", 
-   Arg.Bool pdr_dump_inductive_assertions_action, 
-   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)" (string_of_pdr_dump_inductive_assertions pdr_dump_inductive_assertions_default))
+let pdr_print_inductive_assertions_spec = 
+  ("--pdr_print_inductive_assertions", 
+   Arg.Bool pdr_print_inductive_assertions_action, 
+   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)" (string_of_pdr_print_inductive_assertions pdr_print_inductive_assertions_default))
 
 (* ********** *) 
 
-let pdr_inductive_assertions_file_action o = 
-  flags.pdr_inductive_assertions_file <- Some o
+let pdr_print_blocking_clauses_action o = 
+  flags.pdr_print_blocking_clauses <- o
   
-let pdr_inductive_assertions_file_spec = 
-  ("--pdr_inductive_assertions_file", 
-   Arg.String pdr_inductive_assertions_file_action, 
-   Format.sprintf "(PDR) Output file for inductive blocking clauses (default: stdout)")
+let pdr_print_blocking_clauses_spec = 
+  ("--pdr_print_blocking_clauses", 
+   Arg.Bool pdr_print_blocking_clauses_action, 
+   Format.sprintf "(PDR) Output all blocking clauses (default: %s)" (string_of_pdr_print_blocking_clauses pdr_print_blocking_clauses_default))
+
+(* ********** *) 
+
+let pdr_print_to_file_action o = 
+  flags.pdr_print_to_file <- Some o
+  
+let pdr_print_to_file_spec = 
+  ("--pdr_print_to_file", 
+   Arg.String pdr_print_to_file_action, 
+   Format.sprintf "(PDR) Output file for blocking clauses (default: stdout)")
 
 (* ********** *) 
 
@@ -772,9 +792,11 @@ let pdr_check_inductive () = flags.pdr_check_inductive
 
 let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
 
-let pdr_dump_inductive_assertions () = flags.pdr_dump_inductive_assertions
+let pdr_print_inductive_assertions () = flags.pdr_print_inductive_assertions
 
-let pdr_inductive_assertions_file () = flags.pdr_inductive_assertions_file
+let pdr_print_blocking_clauses () = flags.pdr_print_blocking_clauses
+
+let pdr_print_to_file () = flags.pdr_print_to_file
 
 let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
 
@@ -855,10 +877,13 @@ and speclist =
     pdr_fwd_prop_check_multi_spec;
 
     (* Output inductive of blocking clauses *)
-    pdr_dump_inductive_assertions_spec;
+    pdr_print_inductive_assertions_spec;
+
+    (* Output all blocking clauses *)
+    pdr_print_blocking_clauses_spec;
 
     (* File for inductive of blocking clauses *)
-    pdr_inductive_assertions_file_spec;
+    pdr_print_to_file_spec;
 
     (* Tighten blocking clauses to an unsatisfiable core *)
     pdr_tighten_to_unsat_core_spec;
