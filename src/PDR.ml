@@ -266,13 +266,13 @@ let generalize transSys state f g =
 
     Stat.start_timer Stat.pdr_generalize_time;
     
-  (* Generalize term by quantifying over and eliminating primed
-     variables *)
+    (* Generalize term by quantifying over and eliminating primed
+       variables *)
     let gen_term = QE.generalize state primed_vars term in
     
     Stat.record_time Stat.pdr_generalize_time;
     
-  (* Return generalized term *)
+    (* Return generalized term *)
     gen_term
 
 
@@ -712,6 +712,13 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
            
            Event.log `PDR Event.L_trace "Blocking reached R_1";
 
+           if Flags.pdr_print_blocking_clauses () then
+             
+             (Format.fprintf 
+                !ppf_inductive_assertions
+                "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
+                Lustre.pp_print_term (Clause.to_term core_block_clause));
+       
            (debug pdr
                "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
                Clause.pp_print_clause core_block_clause
@@ -802,6 +809,13 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
                 "Counterexample is unreachable in R_%d"
                  (succ (List.length frames_tl));
 
+              if Flags.pdr_print_blocking_clauses () then
+                
+                (Format.fprintf 
+                   !ppf_inductive_assertions
+                   "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
+                   Lustre.pp_print_term (Clause.to_term core_block_clause));
+       
               (debug pdr
                   "@[<v>Adding blocking clause to R_k%t@,@[<hv>%a@]@]"
                   (function ppf -> if block_tl = [] then () else 
@@ -1180,14 +1194,14 @@ let fwd_propagate
                 List.map Clause.of_term non_inductive_terms
               in
 
-              if Flags.pdr_dump_inductive_assertions () then
+              if Flags.pdr_print_inductive_assertions () then
 
                 (
 
                   List.iter
                     (Format.fprintf 
                        !ppf_inductive_assertions
-                       "@[<hv 2>assert@ %a;@]@." 
+                       "@[<v>-- Inductive clause@,@[<hv 2>assert@ %a;@]@]@." 
                        Lustre.pp_print_term) 
                     inductive_terms
 
@@ -1564,13 +1578,10 @@ let fwd_propagate
             
             if Flags.pdr_print_inductive_invariant () then
               
-              (
-                
-                Event.log `PDR Event.L_off
-                  "@[<v>Inductive invariant:@,%a@]"
-                  Lustre.pp_print_term (term_of_frames (fwd :: tl))
-                  
-              );
+              (Format.fprintf 
+                 !ppf_inductive_assertions
+                 "@[<v>-- Inductive invariant:@,assert@ %a@]"
+                 Lustre.pp_print_term (term_of_frames (fwd :: tl)));
             
             
             if Flags.pdr_check_inductive_invariant () then 
@@ -2079,7 +2090,7 @@ let main transSys =
   (* Save solver instance for clean exit *)
   ref_solver_misc := Some solver_misc;
 
-  (match Flags.pdr_inductive_assertions_file () with 
+  (match Flags.pdr_print_to_file () with 
 
     (* Keep default formatter *)
     | None -> ()
