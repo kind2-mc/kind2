@@ -1,31 +1,20 @@
-(* This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
- * Copyright (c) 2007-2009 by the Board of Trustees of the University of Iowa, 
- * here after designated as the Copyright Holder.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the University of Iowa, nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *)
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
+*)
 
 open Lib
 
@@ -121,13 +110,54 @@ type expr =
   | VarPre of I.t
   | True
   | False
-  | Int of int
-  | Real of float
+  | Int of Numeral.t
+  | Real of Decimal.t
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * (expr * expr)
   | VarOp of var_op * expr list 
   | Ite of expr * expr * expr
 
+
+(* Equaliy of expressions
+
+   Need to compare with equality functions, since numerals and
+   decimals are abstract values for OCaml's (=) function and so are
+   indexed variables. *)
+let rec equal_expr e1 e2 = match e1, e2 with 
+
+  | Var v1, Var v2 
+    when I.equal v1 v2 -> true
+
+  | VarPre v1, VarPre v2 
+    when I.equal v1 v2 -> true
+
+  | True, True -> true
+
+  | False, False -> true
+
+  | Int i1, Int i2
+    when Numeral.equal i1 i2 -> true
+
+  | Real r1, Real r2
+    when Decimal.equal r1 r2 -> true
+
+  | UnaryOp (o1, a1), UnaryOp (o2, a2)
+    when o1 = o2 && equal_expr a1 a2 -> true
+
+  | BinaryOp (o1, (a1, b1)), BinaryOp (o2, (a2, b2)) 
+    when o1 = o2 && equal_expr a1 a2 && equal_expr b1 b2 -> true
+
+  | VarOp (o1, l1), VarOp (o2, l2) 
+    when o1 = o2 && 
+         List.length l1 = List.length l1 && 
+         List.for_all2 equal_expr l1 l2 -> true
+
+  | Ite (p1, l1, r1), Ite (p2, l2, r2) 
+    when equal_expr p1 p2 && 
+         equal_expr l1 l2 && 
+         equal_expr r1 r2 -> true
+
+  | _ -> false
 
 (* A Lustre clock *)
 type clock = unit
@@ -165,8 +195,8 @@ let rec pp_print_expr safe ppf = function
     Format.fprintf ppf "@[<hv 1>(pre@ %a)@]" (I.pp_print_ident safe) x
   | True -> Format.fprintf ppf "true"
   | False -> Format.fprintf ppf "false"
-  | Int i -> Format.fprintf ppf "%d" i
-  | Real f -> Format.fprintf ppf "%f" f
+  | Int i -> Format.fprintf ppf "%a" Numeral.pp_print_numeral i
+  | Real f -> Format.fprintf ppf "%a" Decimal.pp_print_decimal f
 
   | UnaryOp (o, e) -> 
 
@@ -203,7 +233,7 @@ let rec pp_print_expr safe ppf = function
 let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
-  | { expr_init; expr_step } when expr_init = expr_step -> 
+  | { expr_init; expr_step } when equal_expr expr_init expr_step -> 
 
     pp_print_expr safe ppf expr_step
 
@@ -238,10 +268,7 @@ let clock_check _ _ = true
 (* Construct a unary expression *)
 let mk_unary eval type_of expr = 
 
-  let res_type = 
-    let t = type_of expr.expr_type in
-    if t = type_of expr.expr_type then t else raise Type_mismatch
-  in
+  let res_type = type_of expr.expr_type in
 
   { expr_init = eval expr.expr_init;
     expr_step = eval expr.expr_step;
@@ -532,8 +559,8 @@ let mk_not expr = mk_unary eval_not type_of_not expr
    -(-x) -> x
 *)
 let eval_uminus = function
-  | Int d -> Int (- d)
-  | Real f -> Real (-. f)
+  | Int d -> Int Numeral.(- d)
+  | Real f -> Real Decimal.(- f)
   | UnaryOp(Uminus, expr) -> expr
   | expr -> UnaryOp(Uminus, expr) 
 
@@ -547,7 +574,8 @@ let eval_uminus = function
 let type_of_uminus = function
   | T.Int -> T.t_int
   | T.Real -> T.t_real
-  | T.IntRange (lbound, ubound) -> T.mk_int_range (- ubound) (- lbound)
+  | T.IntRange (lbound, ubound) -> 
+    T.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
   | _ -> raise Type_mismatch
 
 
@@ -560,7 +588,7 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 
 (* Evaluate conversion to integer *)
 let eval_to_int = function 
-  | Real f -> Int (int_of_float f)
+  | Real f -> Int (Numeral.of_big_int (Decimal.to_big_int f))
   | expr -> UnaryOp(ToInt, expr)
 
 
@@ -582,7 +610,7 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 (* Evaluate conversion to real *)
 let eval_to_real = function 
-  | Int d -> Real (float_of_int d)
+  | Int d -> Real (Decimal.of_big_int (Numeral.to_big_int d))
   | expr -> UnaryOp(ToReal, expr)
 
 
@@ -721,7 +749,7 @@ let mk_impl expr1 expr2 = mk_binary eval_impl type_of_impl expr1 expr2
 
 (* Evaluate integer modulus *)
 let eval_mod expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int (d1 mod d2) 
+  | Int d1, Int d2 -> Int Numeral.(d1 mod d2) 
   | _ -> BinaryOp(Mod, (expr1, expr2))
 
 
@@ -739,8 +767,8 @@ let mk_mod expr1 expr2 = mk_binary eval_mod type_of_mod expr1 expr2
 
 (* Evaluate subtraction *)
 let eval_minus expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int (d1 - d2) 
-  | Real f1, Real f2 -> Real (f1 -. f2) 
+  | Int d1, Int d2 -> Int Numeral.(d1 - d2) 
+  | Real f1, Real f2 -> Real Decimal.(f1 - f2) 
   | _ -> BinaryOp(Minus, (expr1, expr2))
 
 
@@ -760,8 +788,8 @@ let mk_minus expr1 expr2 = mk_binary eval_minus type_of_minus expr1 expr2
 
 (* Evaluate addition *)
 let eval_plus expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int (d1 + d2) 
-  | Real f1, Real f2 -> Real (f1 +. f2) 
+  | Int d1, Int d2 -> Int Numeral.(d1 + d2) 
+  | Real f1, Real f2 -> Real Decimal.(f1 + f2) 
   | _ -> BinaryOp(Plus, (expr1, expr2))
 
 
@@ -781,7 +809,7 @@ let mk_plus expr1 expr2 = mk_binary eval_plus type_of_plus expr1 expr2
 
 (* Evaluate real division *)
 let eval_div expr1 expr2 = match expr1, expr2 with
-  | Real f1, Real f2 -> Real (f1 /. f2) 
+  | Real f1, Real f2 -> Real Decimal.(f1 / f2) 
   | _ -> BinaryOp(Div, (expr1, expr2))
 
 
@@ -800,8 +828,8 @@ let mk_div expr1 expr2 = mk_binary eval_div type_of_div expr1 expr2
 
 (* Evaluate multiplication *)
 let eval_times expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int (d1 * d2) 
-  | Real f1, Real f2 -> Real (f1 *. f2) 
+  | Int d1, Int d2 -> Int Numeral.(d1 * d2) 
+  | Real f1, Real f2 -> Real Decimal.(f1 * f2) 
   | _ -> BinaryOp(Times, (expr1, expr2))
 
 
@@ -821,7 +849,7 @@ let mk_times expr1 expr2 = mk_binary eval_times type_of_times expr1 expr2
 
 (* Evaluate integer division *)
 let eval_intdiv expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int (d1 / d2) 
+  | Int d1, Int d2 -> Int Numeral.(d1 / d2) 
   | _ -> BinaryOp(IntDiv, (expr1, expr2))
 
 
@@ -853,16 +881,16 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
   (* e1 = false -> not e1 *)
   | _, False -> (UnaryOp(Not, expr1))
 
-  | Int d1, Int d2 when d1 = d2 -> True
+  | Int d1, Int d2 when Numeral.(d1 = d2) -> True
 
   | Int d1, Int d2 -> False
 
-  | Real f1, Real f2 when f1 = f2 -> True
+  | Real f1, Real f2 when Decimal.(f1 = f2) -> True
 
   | Real f1, Real f2 -> False
 
   (* e = e -> true *)
-  | _ when expr1 = expr2 -> True
+  | _ when equal_expr expr1 expr2 -> True
 
   | _ -> BinaryOp(Eq, (expr1, expr2))
 
@@ -900,7 +928,7 @@ let eval_neq = function
       | False -> expr1
 
       (* e = e -> false *)
-      | expr2 when expr1 = expr2 -> True
+      | expr2 when not (equal_expr expr1 expr2) -> True
 
       | expr2 -> BinaryOp(Neq, (expr1, expr2)))
 
@@ -920,9 +948,9 @@ let mk_neq expr1 expr2 = mk_binary eval_neq type_of_neq expr1 expr2
 
 (* Evaluate inequality *)
 let eval_lte expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when d1 <= d2 -> True
+  | Int d1, Int d2 when Numeral.(d1 <= d2) -> True
   | Int d1, Int d2 -> False
-  | Real f1, Real f2 when f1 <= f2 -> True
+  | Real f1, Real f2 when Decimal.(f1 <= f2) -> True
   | Real f1, Real f2 -> False
   | _ -> BinaryOp(Lte, (expr1, expr2))
 
@@ -943,9 +971,9 @@ let mk_lte expr1 expr2 = mk_binary eval_lte type_of_lte expr1 expr2
 
 (* Evaluate inequality *)
 let eval_lt expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when d1 < d2 -> True
+  | Int d1, Int d2 when Numeral.(d1 < d2) -> True
   | Int d1, Int d2 -> False
-  | Real f1, Real f2 when f1 < f2 -> True
+  | Real f1, Real f2 when Decimal.(f1 < f2) -> True
   | Real f1, Real f2 -> False
   | _ -> BinaryOp(Lt, (expr1, expr2))
 
@@ -966,9 +994,9 @@ let mk_lt expr1 expr2 = mk_binary eval_lt type_of_lt expr1 expr2
 
 (* Evaluate inequality *)
 let eval_gte expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when d1 >= d2 -> True
+  | Int d1, Int d2 when Numeral.(d1 >= d2) -> True
   | Int d1, Int d2 -> False
-  | Real f1, Real f2 when f1 >= f2 -> True
+  | Real f1, Real f2 when Decimal.(f1 >= f2) -> True
   | Real f1, Real f2 -> False
   | _ -> BinaryOp(Gte, (expr1, expr2))
 
@@ -989,9 +1017,9 @@ let mk_gte expr1 expr2 = mk_binary eval_gte type_of_gte expr1 expr2
 
 (* Evaluate inequality *)
 let eval_gt expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when d1 > d2 -> True
+  | Int d1, Int d2 when Numeral.(d1 > d2) -> True
   | Int d1, Int d2 -> False
-  | Real f1, Real f2 when f1 > f2 -> True
+  | Real f1, Real f2 when Decimal.(f1 > f2) -> True
   | Real f1, Real f2 -> False
   | _ -> BinaryOp(Gt, (expr1, expr2))
 
@@ -1019,7 +1047,10 @@ let eval_ite = function
   | expr1 -> 
     (function expr2 -> 
       (function expr3 -> 
-        if expr2 = expr3 then expr2 else  (Ite (expr1, expr2, expr3)))) 
+        if equal_expr expr2 expr3 then 
+          expr2 
+        else
+          (Ite (expr1, expr2, expr3)))) 
 
 
 (* Type of if-then-else
@@ -1055,6 +1086,7 @@ let mk_ite expr1 expr2 expr3 =
 (* ********************************************************************** *)
 
 
+(* Followed by expression *)
 let mk_arrow expr1 expr2 = 
 
   let res_clock = 
@@ -1076,7 +1108,7 @@ let mk_arrow expr1 expr2 =
     expr_pre_vars = expr2.expr_pre_vars } 
   
 
-
+(* Pre expression *)
 let mk_pre_expr mk_new_var_ident = function 
 
   | Var ident as expr -> (expr, None) 
@@ -1093,6 +1125,7 @@ let mk_pre
     ((vars, calls) as defs)
     ({ expr_init; expr_step } as expr) = 
 
+  (* Apply pre to initial state expression *)
   let expr_init', ((vars', calls') as defs') = match expr_init with 
 
     (* Expression is a variable *)
@@ -1116,10 +1149,11 @@ let mk_pre
 
   in
 
+  (* Apply pre to step state expression *)
   let expr_step', defs'' = match expr_step with 
 
     (* Expression is identical to initial state *)
-    | _ when expr_step = expr_init -> 
+    | _ when equal_expr expr_step expr_init -> 
 
       (* Re-use abstraction for initial state *)
       (expr_init', defs')
@@ -1144,34 +1178,41 @@ let mk_pre
    defs'') 
 
 
-let rec pre_is_unguarded_in_expr = function 
-
+(* Return true if there is an pre operator in the expression *)
+let rec pre_in_expr = function 
+  
+  (* pre x is unguarded *)
   | VarPre _ :: _ -> true
 
   | [] -> false
 
-  | Var _ :: tl -> pre_is_unguarded_in_expr tl
+  | Var _ :: tl -> pre_in_expr tl
 
-  | True :: tl -> pre_is_unguarded_in_expr tl
-  | False :: tl -> pre_is_unguarded_in_expr tl
-  | Int _ :: tl -> pre_is_unguarded_in_expr tl
-  | Real _ :: tl -> pre_is_unguarded_in_expr tl
-  | UnaryOp (_, e) :: tl -> pre_is_unguarded_in_expr (e :: tl)
-  | BinaryOp (_, (e1, e2)) :: tl -> pre_is_unguarded_in_expr (e1 :: e2 :: tl)
-  | VarOp (_, l) :: tl -> pre_is_unguarded_in_expr (l @ tl)
-  | Ite (e1, e2, e3) :: tl -> pre_is_unguarded_in_expr (e1 :: e2 :: e3 :: tl)
+  | True :: tl -> pre_in_expr tl
+  | False :: tl -> pre_in_expr tl
+  | Int _ :: tl -> pre_in_expr tl
+  | Real _ :: tl -> pre_in_expr tl
+  | UnaryOp (_, e) :: tl -> pre_in_expr (e :: tl)
+  | BinaryOp (_, (e1, e2)) :: tl -> pre_in_expr (e1 :: e2 :: tl)
+  | VarOp (_, l) :: tl -> pre_in_expr (l @ tl)
+  | Ite (e1, e2, e3) :: tl -> pre_in_expr (e1 :: e2 :: e3 :: tl)
 
   
 
-let pre_is_unguarded { expr_init } =  pre_is_unguarded_in_expr [ expr_init ]
+(* Return true if there is an unguarded pre operator in the expression *)
+let pre_is_unguarded { expr_init } = 
+  
+  (* Check if there is a pre operator in the init expression *)
+  pre_in_expr [ expr_init ]
 
 
+(* Return the variables in the expression *)
 let rec vars_of_expr' accum = function 
 
-  (* All expression processed: return *)
+  (* All expressions processed: return *)
   | [] -> accum 
 
-  (* Expression is a variable: add variable and continue  *)
+  (* Expression is a variable: add variable and continue *)
   | Var ident :: tl -> vars_of_expr' (ISet.add ident accum) tl
 
   (* Expresssion is a non-variable leaf: continue *)
@@ -1203,6 +1244,7 @@ let rec vars_of_expr' accum = function
 
 
 
+(* Return the variables in the expression *)
 let vars_of_expr expr = ISet.elements (vars_of_expr' ISet.empty [expr])
 
 

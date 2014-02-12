@@ -245,14 +245,46 @@ let num_of_int_string s =
     (* Copy integer part in string *)
     String.blit s 0 int_string 0 pindex;
 
+    (* Convert string before decimal point *)
+    let int_num = Num.num_of_string int_string in
+      
     (* Create new string for fractional part *)
     let frac_string = String.create ((String.length s) - pindex - 1) in
 
     (* Copy fractional part in string *)
     String.blit s (pindex + 1) frac_string 0 ((String.length s) - pindex - 1);
 
-    (* Ensure that all characters in fractional part are zeros, raise
-       exception otherwise *)
+    (* String after decimal point is empty? *)
+    if String.length frac_string = 0 then 
+
+      (* Return number before decimal point *)
+      int_num
+        
+    else
+
+      (* Numerator of fractional part of string *)
+      let frac_numerator = 
+        
+        try 
+          
+          Num.num_of_string frac_string 
+            
+        with _ -> raise (Invalid_argument "num_of_int_string")
+                    
+      in
+      
+      (* Denominator of fractional part of string *)
+      let frac_denominator = 
+        Num.power_num
+        (Num.num_of_int 10)
+        (Num.num_of_int (String.length frac_string))
+      in
+      
+      Num.add_num int_num (Num.div_num frac_numerator frac_denominator)
+      
+      (*
+      (* Ensure that all characters in fractional part are zeros, raise
+         exception otherwise *)
     String.iter 
       (fun c -> 
          if c = '0' then
@@ -269,7 +301,7 @@ let num_of_int_string s =
      with Failure _ -> 
        
        raise (Invalid_argument "num_of_int_string"))
-
+*)
 
   (* No decimal point in string *)
   with Not_found -> 

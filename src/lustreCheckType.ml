@@ -1,31 +1,20 @@
-(* This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
- * Copyright (c) 2007-2009 by the Board of Trustees of the University of Iowa, 
- * here after designated as the Copyright Holder.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the University of Iowa, nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *)
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
+*)
 
 open Lib
 
@@ -73,8 +62,8 @@ let sort_indexed_pairs list =
    [node_requires], and [node_ensures].
 
    The flag [node_is_main] is set if the node has been annotated as
-   main, more than one node or no node at all may have that
-   annotation.
+   main, it is not checked if more than one node or no node at all may
+   have that annotation.
 
 *)
 type node_context = 
@@ -460,7 +449,7 @@ let pp_print_lustre_context
    context, also return a list of created variables and node calls.  
 
    The functions [mk_new_var_ident] and [mk_new_call_ident] return a
-   fresh identifiers for a variable and for a variable capturing the
+   fresh identifier for a variable and for a variable capturing the
    output of a node call, respectively. The former is called with a
    unit argument and returns an identifier __abs[n], the latter is is
    given the name of the node as an argument and returns an identifier
@@ -709,7 +698,7 @@ let rec eval_ast_expr'
         tl
 
 
-    (* Boolean constant true *)
+    (* Boolean constant false *)
     | (index, A.False pos) :: tl -> 
 
       (* Add expression to result *)
@@ -730,7 +719,7 @@ let rec eval_ast_expr'
         mk_new_var_ident 
         mk_new_call_ident 
         context 
-        ((index, E.mk_int (int_of_string d)) :: result) 
+        ((index, E.mk_int (Numeral.of_string d)) :: result) 
         new_defs 
         tl
 
@@ -743,7 +732,7 @@ let rec eval_ast_expr'
         mk_new_var_ident 
         mk_new_call_ident 
         context 
-        ((index, E.mk_real (float_of_string f)) :: result) 
+        ((index, E.mk_real (Decimal.of_string f)) :: result) 
         new_defs 
         tl
 
@@ -758,6 +747,7 @@ let rec eval_ast_expr'
     | (index, A.ToReal (pos, expr)) :: tl -> 
 
       eval_unary_ast_expr E.mk_to_real expr pos tl
+
 
     (* An expression list, flatten nested lists and add an index to
        each elements *)
@@ -808,7 +798,7 @@ let rec eval_ast_expr'
              in
 
              (* Increment counter *)
-             (succ i,
+             (Numeral.(succ i),
 
               (* Continue with added definitions *)
               new_defs',
@@ -820,7 +810,7 @@ let rec eval_ast_expr'
                 accum
                 expr'))
 
-          (0, new_defs, result)
+          (Numeral.zero, new_defs, result)
           expr_list
       in
 
@@ -841,7 +831,7 @@ let rec eval_ast_expr'
       let array_size = int_const_of_ast_expr context size_expr in
 
       (* Size of array must be non-zero and positive *)
-      if array_size <= 0 then 
+      if Numeral.(array_size <= zero) then 
 
         (* Fail *)
         raise 
@@ -870,7 +860,7 @@ let rec eval_ast_expr'
           (* All elements of array enuerated
 
              Started with size of array, lowest index is zero *)
-          | 0 -> accum
+          | i when Numeral.(i = zero) -> accum
 
           (* Array element *)
           | i -> 
@@ -881,10 +871,10 @@ let rec eval_ast_expr'
             aux 
               (List.fold_left
                  (fun a (j, e) -> 
-                    (I.push_int_index_to_index (pred i) j, e) :: a)
+                    (I.push_int_index_to_index Numeral.(pred i) j, e) :: a)
                  accum
                  expr_val)
-              (pred i)
+              (Numeral.(pred i))
 
         in
 
@@ -911,6 +901,115 @@ let rec eval_ast_expr'
            (Format.asprintf 
               "Array slices not implemented in %a" 
               A.pp_print_position A.dummy_pos))
+
+
+    (*
+      | (index, A.ArraySlice (p, ident, slices)) :: tl ->  
+
+    (* Maintain a list of pairs of indexes: an index in the array
+      that is sliced and the corresponding index in the new array.
+
+      [aux m a l u i] appends to each index pair in [m] all
+      integers from [i] to [u] to the first index, the difference
+      between [i] and [l] to the second index in the pair and add
+      the resulting pair to [a] *)
+      let rec aux indexes lbound ubound accum = 
+
+      function 
+
+    (* Reached maximum, return result *)
+      | i when i > ubound -> accum
+
+    (* Need to add integer i as index *)
+      | i -> 
+
+    (* Add to all elements in accum and recurse for next *)
+      aux 
+      indexes
+      lbound 
+      ubound
+      (List.fold_left
+      (fun a (j, j') -> 
+
+      (I.add_int_to_index j i, 
+      I.add_int_to_index j' (i - lbound)) :: a)
+      accum
+      indexes)
+      (succ i)
+
+      in
+
+    (* Indexes to slice from array *)
+      let index_map = 
+
+      List.fold_left
+      (fun a (el, eu) -> 
+
+    (* Evaluate expression for lower bound to an integer *)
+      let il = int_const_of_ast_expr context el in
+
+      if il < 0 then 
+
+    (* Fail *)
+      raise 
+      (Failure 
+      (Format.asprintf 
+      "Expression %a in %a cannot be used as \
+      the lower bound of an array slice" 
+      A.pp_print_expr el
+      A.pp_print_position p));
+
+    (* Evaluate expression for lower bound to an integer *)
+      let iu = int_const_of_ast_expr context eu in
+
+      if iu < il then
+
+    (* Fail *)
+      raise 
+      (Failure 
+      (Format.asprintf 
+      "Expression %a in %a cannot be used as \
+      the upper bound of an array slice" 
+      A.pp_print_expr eu
+      A.pp_print_position p));
+
+    (* Append all indexes between il und iu to indexes in
+      accumulator *)
+      aux a il iu [] il)
+      [([],[])]
+      l
+
+      in
+
+      IndexedExpr 
+      (List.fold_left 
+      (fun a (i, i') -> 
+
+      (match expr_find_index i [] expr_list with 
+
+    (* Index not found *)
+      | [] -> 
+
+    (* Fail *)
+      raise 
+      (Failure 
+      (Format.asprintf 
+      "Array %a in %a does not have index %a" 
+      I.pp_print_ident id
+      A.pp_print_position p
+      I.pp_print_index i))
+
+      | l -> 
+
+      List.fold_left
+      (fun a (j, e) -> (i' @ j, e) :: a)
+      a
+      l))
+
+      []
+      index_map)
+
+    *)
 
 
     (* Concatenation of arrays *)
@@ -1037,117 +1136,6 @@ let rec eval_ast_expr'
         new_defs' 
         tl
 
-
-
-
-
-    (*
-      | (index, A.ArraySlice (p, ident, slices)) :: tl ->  
-
-    (* Maintain a list of pairs of indexes: an index in the array
-      that is sliced and the corresponding index in the new array.
-
-      [aux m a l u i] appends to each index pair in [m] all
-      integers from [i] to [u] to the first index, the difference
-      between [i] and [l] to the second index in the pair and add
-      the resulting pair to [a] *)
-      let rec aux indexes lbound ubound accum = 
-
-      function 
-
-    (* Reached maximum, return result *)
-      | i when i > ubound -> accum
-
-    (* Need to add integer i as index *)
-      | i -> 
-
-    (* Add to all elements in accum and recurse for next *)
-      aux 
-      indexes
-      lbound 
-      ubound
-      (List.fold_left
-      (fun a (j, j') -> 
-
-      (I.add_int_to_index j i, 
-      I.add_int_to_index j' (i - lbound)) :: a)
-      accum
-      indexes)
-      (succ i)
-
-      in
-
-    (* Indexes to slice from array *)
-      let index_map = 
-
-      List.fold_left
-      (fun a (el, eu) -> 
-
-    (* Evaluate expression for lower bound to an integer *)
-      let il = int_const_of_ast_expr context el in
-
-      if il < 0 then 
-
-    (* Fail *)
-      raise 
-      (Failure 
-      (Format.asprintf 
-      "Expression %a in %a cannot be used as \
-      the lower bound of an array slice" 
-      A.pp_print_expr el
-      A.pp_print_position p));
-
-    (* Evaluate expression for lower bound to an integer *)
-      let iu = int_const_of_ast_expr context eu in
-
-      if iu < il then
-
-    (* Fail *)
-      raise 
-      (Failure 
-      (Format.asprintf 
-      "Expression %a in %a cannot be used as \
-      the upper bound of an array slice" 
-      A.pp_print_expr eu
-      A.pp_print_position p));
-
-    (* Append all indexes between il und iu to indexes in
-      accumulator *)
-      aux a il iu [] il)
-      [([],[])]
-      l
-
-      in
-
-      IndexedExpr 
-      (List.fold_left 
-      (fun a (i, i') -> 
-
-      (match expr_find_index i [] expr_list with 
-
-    (* Index not found *)
-      | [] -> 
-
-    (* Fail *)
-      raise 
-      (Failure 
-      (Format.asprintf 
-      "Array %a in %a does not have index %a" 
-      I.pp_print_ident id
-      A.pp_print_position p
-      I.pp_print_index i))
-
-      | l -> 
-
-      List.fold_left
-      (fun a (j, e) -> (i' @ j, e) :: a)
-      a
-      l))
-
-      []
-      index_map)
-
-    *)
 
     (* Boolean negation *)
     | (index, A.Not (pos, expr)) :: tl ->
@@ -1354,6 +1342,7 @@ let rec eval_ast_expr'
               A.pp_print_position pos))
 
 
+    (* Condact, a node with an activation condition *)
     | (index, A.Condact (pos, cond, ident, args, init)) :: tl -> 
 
       (* Inputs and outputs of called node *)
@@ -1863,7 +1852,9 @@ and int_const_of_ast_expr context expr =
                   E.expr_init = E.Int di; 
                   E.expr_step = E.Int ds } ],
        ([], [])) when 
-        index = I.empty_index && ISet.is_empty expr_pre_vars && di = ds -> di
+        index = I.empty_index && 
+        ISet.is_empty expr_pre_vars && 
+        Numeral.(di = ds) -> di
 
     (* Expression is not a constant integer *)
     | _ ->       
@@ -1888,14 +1879,14 @@ and node_inputs_of_exprs node_inputs expr_list =
       (snd
          (List.fold_left
             (fun (j, accum) (_, (indexes, is_const)) -> 
-               (succ j,
+               (Numeral.(succ j),
                 (List.fold_right
                    (fun (index, expr_type) accum -> 
                       (I.push_int_index_to_index j index, 
                        (expr_type, is_const)) :: accum)
                    indexes
                    accum)))
-            (0, [])
+            (Numeral.zero, [])
             node_inputs))
   in
 
@@ -1953,14 +1944,14 @@ and node_init_of_exprs node_outputs expr_list =
        (snd
           (List.fold_left
              (fun  (j, accum) (_, indexes) -> 
-                (succ j,
+                (Numeral.(succ j),
                  (List.fold_right
                     (fun (index, expr_type) accum -> 
                        (I.push_int_index_to_index j index, 
                         expr_type) :: accum)
                     indexes
                     accum)))
-             (0, [])
+             (Numeral.zero, [])
              node_outputs)))
   in
 
@@ -2060,10 +2051,10 @@ and add_node_output_to_result index result = function
          Must add indexes in order *)
       (List.fold_left
          (fun (i, accum) (var_ident, var_type) -> 
-            (succ i,
+            (Numeral.(succ i),
              (I.push_int_index_to_index i index, 
               E.mk_var var_ident var_type E.base_clock) :: accum))
-         (0, result)
+         (Numeral.zero, result)
          node_output_idents)
       
       
@@ -2374,8 +2365,9 @@ let rec fold_ast_type'
       (fst
          (List.fold_left
             (fun (a, j) s -> 
-               (I.push_index_to_index index (I.mk_int_index j), s) :: a, succ j)
-            (tl, 0)
+               (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
+               Numeral.(succ j))
+            (tl, Numeral.zero)
             tuple_fields))
 
 
@@ -2386,7 +2378,7 @@ let rec fold_ast_type'
     let array_size = int_const_of_ast_expr context size_expr in
 
     (* Array size must must be at least one *)
-    if array_size <= 0 then 
+    if Numeral.(array_size <= zero) then 
 
       (* Fail *)
       raise 
@@ -2398,14 +2390,14 @@ let rec fold_ast_type'
 
     (* Append indexed types *)
     let rec aux accum = function
-      | 0 -> accum
+      | j when Numeral.(j = zero) -> accum
       | j -> 
 
         aux 
-          ((I.push_index_to_index index (I.mk_int_index (pred j)), 
+          ((I.push_index_to_index index (I.mk_int_index Numeral.(pred j)), 
             type_expr) :: 
              accum)
-          (pred j)
+          Numeral.(pred j)
 
     in
 
@@ -3246,8 +3238,8 @@ let parse_node_signature
     contract =
 
   let mk_new_var_ident = 
-    let r = ref (-1) in
-    fun () -> incr r; I.push_int_index !r new_var_ident
+    let r = ref Numeral.(- one) in
+    fun () -> Numeral.incr r; I.push_int_index !r new_var_ident
   in
 
   let rec mk_new_call_ident =
@@ -3255,10 +3247,10 @@ let parse_node_signature
     fun ident -> 
       try 
         let r = List.assoc ident !l in
-        incr r;
+        Numeral.(incr r);
         I.push_back_int_index !r (I.push_back_ident_index ident new_call_ident) 
       with Not_found -> 
-        l := (ident, ref (-1)) :: !l;
+        l := (ident, ref Numeral.(- one)) :: !l;
         mk_new_call_ident ident
   in
   

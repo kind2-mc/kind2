@@ -1,31 +1,20 @@
-(* This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
- * Copyright (c) 2007-2009 by the Board of Trustees of the University of Iowa, 
- * here after designated as the Copyright Holder.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the University of Iowa, nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *)
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
+*)
 
 open Lib
 
@@ -42,7 +31,7 @@ type t =
   | Bool
   | Int
   | Real
-  | IntRange of (int * int)
+  | IntRange of (Numeral.t * Numeral.t)
   | FreeType of I.t
   | Enum of I.t list
 
@@ -50,10 +39,10 @@ type t =
 (* Lexicographic comparison of pairs *)
 let compare_int_range (al, au) (bl, bu) = 
 
-  match compare al bl with
+  match Numeral.compare al bl with
 
     (* First elements are equal: compare second elements *)
-    | 0 -> compare au bu
+    | 0 -> Numeral.compare au bu
       
     (* Return order of first elements *)
     | c -> c
@@ -131,7 +120,13 @@ let pp_print_lustre_type safe ppf = function
   | Bool -> Format.fprintf ppf "bool"
   | Int -> Format.fprintf ppf "int"
   | Real -> Format.fprintf ppf "real"
-  | IntRange (i, j) -> Format.fprintf ppf "subrange [%d,%d] of int" i j
+
+  | IntRange (i, j) -> 
+    Format.fprintf ppf 
+      "subrange [%a,%a] of int" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
   | FreeType t -> Format.fprintf ppf "%a" (I.pp_print_ident safe) t
   | Enum l ->     
     Format.fprintf ppf 
@@ -145,7 +140,7 @@ let t_int = Int
 
 let t_real = Real
 
-let mk_int_range i j = IntRange (min i j, max i j)
+let mk_int_range i j = IntRange Numeral.(min i j, max i j)
 
 let mk_free_type t = FreeType t
 
@@ -163,7 +158,8 @@ let rec check_type t1 t2 = match t1, t2 with
   | IntRange _, Int -> true
 
   (* IntRange is subtype of IntRange if the interval is a subset *)
-  | IntRange (l1, u1), IntRange (l2, u2) when l1 >= l2 && u1 <= u2 -> true
+  | IntRange (l1, u1), IntRange (l2, u2) 
+    when Numeral.(l1 >= l2) && Numeral.(u1 <= u2) -> true
 
   (* Enum types are subtypes if the sets of elements are subsets *)
   | Enum l1, Enum l2 -> 
@@ -173,7 +169,7 @@ let rec check_type t1 t2 = match t1, t2 with
       l1
 
   (* Free types are subtypes if identifiers match *)
-  | FreeType i1, FreeType i2 when i1 = i2 -> true
+  | FreeType i1, FreeType i2 when I.equal i1 i2 -> true
 
   (* No other subtype relationships *)
   | _ -> false
