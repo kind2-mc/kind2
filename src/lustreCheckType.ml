@@ -2414,6 +2414,135 @@ let fold_ast_type context f accum t =
   fold_ast_type' context f accum [(I.empty_index, t)] 
 
 
+
+(* Add a typed or untyped constant declaration to the context *)
+let add_typed_decl
+    ident 
+    ({ basic_types; 
+       indexed_types; 
+       free_types; 
+       type_ctx; 
+       index_ctx; 
+       consts } as context) 
+    expr 
+    type_expr =
+
+  try 
+
+    (* Evaluate expression *)
+    let expr_val, new_defs = 
+      eval_ast_expr 
+
+        (* Immediately fail when abstraction expressions to a
+            definition *)
+        (fun _ ->       
+           (* Fail *)
+           raise 
+             (Failure 
+                (Format.asprintf 
+                   "Expression %a in %a must be a constant" 
+                   A.pp_print_expr expr
+                   A.pp_print_position A.dummy_pos))) 
+
+        (* Immediately fail when abstraction expressions to a node
+           call *)
+        (fun _ ->       
+           (* Fail *)
+           raise 
+             (Failure 
+                (Format.asprintf 
+                   "Expression %a in %a must be a constant" 
+                   A.pp_print_expr expr
+                   A.pp_print_position A.dummy_pos))) 
+
+        context 
+        ([], [])
+        expr 
+    in
+
+    (match type_expr with 
+
+      (* No type given *)
+      | None -> ()
+
+      (* Check if type of expression matches given type *)
+      | Some t -> 
+
+        fold_ast_type 
+          context
+          (fun () type_index def_type ->
+             let { E.expr_type } = 
+               try List.assoc type_index expr_val with Not_found -> raise E.Type_mismatch 
+             in
+             if T.check_type def_type expr_type then () else raise E.Type_mismatch)
+          ()
+          t
+
+    );
+
+    (* Add association of identifiers to values *)
+    let consts' = 
+      List.fold_left
+        (fun a (j, e) -> (I.push_index j ident, e) :: a)
+        consts
+        expr_val
+    in
+
+    (* Add association of identifiers to types *)
+    let type_ctx' = 
+      List.fold_left
+        (fun a (j, { E.expr_type = t }) ->
+           (I.push_index j ident, t) :: a)
+        type_ctx
+        expr_val
+    in
+
+    (* Add associations of identifiers to indexes *)
+    let index_ctx' = 
+      List.fold_left
+        (fun a (j, _) -> 
+           add_to_prefix_map a (I.push_index j ident) ())
+        index_ctx
+        expr_val
+    in
+
+    { context with 
+        consts = consts';
+        type_ctx = type_ctx';
+        index_ctx = index_ctx' }
+
+  with E.Type_mismatch -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Type mismatch for expressions at %a" 
+            A.pp_print_position A.dummy_pos))
+
+let add_const_decl context = function 
+
+  (* Free constant *)
+  | A.FreeConst (ident, _) -> 
+
+    (* Fail *)
+    raise 
+      (Failure 
+         (Format.asprintf 
+            "Free constant not supported in %a" 
+            A.pp_print_position A.dummy_pos))
+
+  (* Constant without type *)
+  | A.UntypedConst (ident, expr) -> 
+    add_typed_decl ident context expr None
+
+  (* Constant with given type *)
+  | A.TypedConst (ident, expr, type_expr) -> 
+    add_typed_decl ident context expr (Some type_expr)
+  
+
+
+
 (* ******************************************************************** *)
 (* Node declarations                                                    *)
 (* ******************************************************************** *)
@@ -2697,6 +2826,15 @@ let rec parse_node_locals context node = function
             "Clocked node local variables not supported for %a in %a" 
             (I.pp_print_ident false) ident
             A.pp_print_position A.dummy_pos))
+
+
+  | A.NodeConstDecl const_decl :: tl -> 
+
+    let context' = add_const_decl context const_decl in
+
+    (* Continue with following outputs *)
+    parse_node_locals context' node tl
+
 
 
 let new_defs_to_context context node (vars, calls) =
@@ -3913,102 +4051,8 @@ let rec check_declarations
                 A.pp_print_position A.dummy_pos));
 
       (* Change context with constant declaration *)
-      let global_context' = match const_decl with 
-
-        (* Identifier is a free constant with given type *)
-        | A.FreeConst (ident, type_expr) -> 
-
-          let global_context' = global_context 
-          (*            fold_ast_type 
-                        (add_const_decl ident)
-                        global_context 
-                        type_expr *)
-          in
-
-
-          global_context'
-
-        (* Identifier is a constant without given type *)
-        | A.UntypedConst (ident, expr) -> 
-
-          let expr_val, new_defs = 
-            eval_ast_expr 
-
-              (* Immediately fail when abstraction expressions to a
-                 definition *)
-              (fun _ ->       
-                 (* Fail *)
-                 raise 
-                   (Failure 
-                      (Format.asprintf 
-                         "Expression %a in %a must be a constant" 
-                         A.pp_print_expr expr
-                         A.pp_print_position A.dummy_pos))) 
-
-              (* Immediately fail when abstraction expressions to a
-                 node call *)
-              (fun _ ->       
-                 (* Fail *)
-                 raise 
-                   (Failure 
-                      (Format.asprintf 
-                         "Expression %a in %a must be a constant" 
-                         A.pp_print_expr expr
-                         A.pp_print_position A.dummy_pos))) 
-
-              global_context 
-              ([], [])
-              expr 
-          in
-
-          let consts' = 
-            List.fold_left
-              (fun a (j, e) -> (I.push_index j ident, e) :: a)
-              consts
-              expr_val
-          in
-
-          let type_ctx' = 
-            List.fold_left
-              (fun a (j, { E.expr_type = t }) -> 
-                 (I.push_index j ident, t) :: a)
-              type_ctx
-              expr_val
-          in
-
-          let index_ctx' = 
-            List.fold_left
-              (fun a (j, _) -> 
-                 add_to_prefix_map a (I.push_index j ident) ())
-              index_ctx
-              expr_val
-          in
-
-          { global_context with 
-              consts = consts';
-              type_ctx = type_ctx';
-              index_ctx = index_ctx' }
-
-
-        (* Identifier is a constant with given type *)
-        | A.TypedConst (ident, expr, type_expr) -> 
-
-          let global_context' = global_context 
-          (*            fold_ast_type 
-                        (add_const_decl ident)
-                        global_context 
-                        type_expr *)
-          in
-
-          let global_context'' = global_context 
-          (*            fold_ast_expr 
-                        (add_const_val ident)
-                        global_context
-                        expr *)
-          in
-
-          global_context''
-
+      let global_context' = 
+        add_const_decl global_context const_decl 
       in
 
       (* Recurse for next declarations *)
