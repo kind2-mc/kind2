@@ -70,11 +70,12 @@ The relation~$\mathcal{T}$ is to be extended with path compression etc.
 
 The transition system~${(I[\vec x], T[\vec x, \vec x'])}$ is static and always in scope.
 
-A global state consisting of the following variables that are shared by all procedures is maintained, it is realized by message passing. 
+A global state consisting of the following variables that are shared by all procedures is maintained, it is realized by message passing. Every function maintains its own consistent snapshot of the global state that only changes after an explicit call to a function~\textproc{update} --- this corresponds to receiving incoming queued messages in a message passing model. Changes to the global state are denoted by the~$:=$ operator, which corresponds to sending a message. Implicitly, the~$:=$ operator ensures to modify only an up to date view and correctly serializes concurrent writes to the global state.
+
 \begin{description}
 \item[$\mathcal{P}_\mathrm{invalid}$] A subset of~$\mathcal{P}$ such that for each~$P\in\mathcal{P}_\mathrm{invalid}$ there is a counterexample trace~$\vec{x_0},\dotsc,\vec{x_k}$ where 
   \[ I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \land \lnot P[\vec{x_{k}}]. \]
-\item[$\mathcal{P}_\mathrm{valid}$] A subset of~$\mathcal{P}$ such that each~$P\in\mathcal{P}_\mathrm{invalid}$ is invariant:
+\item[$\mathcal{P}_\mathrm{valid}$] A subset of~$\mathcal{P}$ such that each~$P\in\mathcal{P}_\mathrm{valid}$ is invariant:
   \[ I[\vec{x}] \lent P[\vec{x}], \]
   \[ P[\vec{x}] \land T[\vec{x},\vec{x'}] \lent P[\vec{x'}]. \]
 \item[$k_\textproc{bmc}$] For all~${k \leq k_\textproc{bmc}}$ there is no counterexample of length~$k$ to any property${P \in \mathcal{P} \setminus \mathcal{P}_\mathrm{invalid}}$: \[ I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \lent P[\vec{x_{k}}]. \]
@@ -88,6 +89,10 @@ A global state consisting of the following variables that are shared by all proc
   \centering
   \begin{algorithmic}[1]
     \Function{bmc}{$k$, $\mathcal{P}$} 
+
+    % Update global state
+    \State \Call{update}{$\mathcal{P}_\mathrm{valid}$, $\mathcal{P}_\mathrm{invalid}$, $k_\textproc{bmc}$}
+
     \State \Let $\mathcal{P} = \mathcal{P} \setminus \mathcal{P}_\mathrm{valid}$ \In 
     \If {$I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \land \mathcal{P}_\mathrm{valid}[\vec{x_0},\dotsc,\vec{x_k}] \lent \mathcal{P}[\vec{x_{k}}]$} 
     \label{alg:bmc-check}
@@ -122,17 +127,23 @@ Since a property in~$\mathcal{P}_\mathrm{valid}$ is invariant, the entailment ch
   \begin{algorithmic}[1]
     \Function{ind}{$k$, $\mathcal{P}$, $\mathcal{Q}$, $\mathcal{D}$} 
 
+    % Update global state
+    \State \Call{update}{$\mathcal{P}_\mathrm{valid}$, $\mathcal{P}_\mathrm{invalid}$, $k_\textproc{bmc}$}
+
     % Interdependent properties where one premise has been disproved 
     \State \Let $\mathcal{D}_\mathrm{invalid} = \{ (l, D) \in \mathcal{D} \mid {\exists P \in D \colon P \in \mathcal{P}_\mathrm{invalid}} \}$ \In
     
     % Interdependent properties that are certainly valid 
     \State \Let $\mathcal{D}_\mathrm{valid} = \{ (l, D) \in \mathcal{D} \mid {l \leq k_\textproc{bmc}} \land {\forall P \in D \colon P \not \in \mathcal{P}_\mathrm{invalid}} \}$ \In
 
+    % Reduce sets of interdependent properties by valid properties
+    \State \Let $\mathcal{D}' = \{ (l, D') \mid (l, D) \in \mathcal{D} \land D' = D \setminus \mathcal{P}_\mathrm{valid} \}$ \In
+
     % Reduce set of interdependent properties
-    \State \Let $\mathcal{D} = \mathcal{D} \setminus \mathcal{D}_\mathrm{valid} \setminus \mathcal{D}_\mathrm{invalid}$ \In
+    \State \Let $\mathcal{D} = \mathcal{D}' \setminus \mathcal{D}_\mathrm{valid} \setminus \mathcal{D}_\mathrm{invalid}$ \In
     
     % Need to prove interdependent properties where one premise has been disproved, remove invalid properties
-    \State \Let $\mathcal{P} = \mathcal{P} \cup \bigcup \{ D \mid (l, D) \in \mathcal{D}_\mathrm{invalid} \} \setminus \mathcal{P}_\mathrm{invalid}$ \In
+    \State \Let $\mathcal{P} = \mathcal{P} \cup \bigcup \{ D \mid (l, D) \in \mathcal{D}_\mathrm{invalid} \} \setminus \mathcal{P}_\mathrm{valid} \setminus \mathcal{P}_\mathrm{invalid}$ \In
 
     % Assume all properties that have not been proved or disproved 
     \State \Let $\mathcal{P}_\mathrm{assume} = \bigcup \{ D \mid (l, D) \in \mathcal{D} \}$ \In
@@ -144,13 +155,13 @@ Since a property in~$\mathcal{P}_\mathrm{valid}$ is invariant, the entailment ch
     \State \Let {$\Phi_1 = \mathcal{P}[\vec{x_0},\dotsc,\vec{x_k}] \land \mathcal{P}_\mathrm{assume}[\vec{x_0},\dotsc,\vec{x_{k+1}}]$} \In
 
     % Premises that cannot be disproved 
-    \State \Let {$\Phi_2 = \mathcal{P}_\mathrm{valid}[\vec{x_0},\dotsc,\vec{x_{k+1}}] \land \land \mathcal{T}[\vec{x_0},\dotsc,\vec{x_{k+1}}] $} \In
+    \State \Let {$\Phi_2 = \mathcal{P}_\mathrm{valid}[\vec{x_0},\dotsc,\vec{x_{k+1}}] \land \mathcal{T}[\vec{x_0},\dotsc,\vec{x_{k+1}}] $} \In
 
     % k-induction check 
     \If {$\Phi_1 \land \Phi_2 \lent \mathcal{P}[\vec{x_{k+1}}]$} 
 
       % Can there be counterexamples of length up to k? 
-      \If {$k_\textproc{bmc} \geq k$}
+      \If {$\left(k_\textproc{bmc} \geq k\right)$}
 
         % Premises can safely be assumed, properties are certainly valid
         \State $\mathcal{P}_\mathrm{valid}$ := $\mathcal{P}_\mathrm{valid} \cup \mathcal{P} \cup \mathcal{P}_\mathrm{assume}$
@@ -179,13 +190,17 @@ Since a property in~$\mathcal{P}_\mathrm{valid}$ is invariant, the entailment ch
         \Else
 
           % Wait for BMC to catch up 
-          \While {$k < k_\textproc{bmc}$ } 
+          \While {$k_\textproc{bmc} < k$}
 
             % Assumed property disproved?
-            \If {$\exists (l, D) \in \mathcal{D}\colon D \cap \mathcal{P}_\mathrm{invalid} \not = 0$} 
+            \If {$\exists (l, D) \in \mathcal{D}\colon D \cap \mathcal{P}_\mathrm{invalid} \not = \emptyset$} 
             
               % Try to prove again
               \State \Call{ind}{$k$, $\emptyset$, $\emptyset$, $\mathcal{D}$}
+
+            \Else
+
+              \State \Call{update}{$\mathcal{P}_\mathrm{valid}$, $\mathcal{P}_\mathrm{invalid}$, $k_\textproc{bmc}$}
 
             \EndIf
 
@@ -206,7 +221,7 @@ Since a property in~$\mathcal{P}_\mathrm{valid}$ is invariant, the entailment ch
       \State \Let $\mathcal{M} \in \ext{\Phi_1 \land \Phi_2 \land \lnot \mathcal{P}[\vec{x_{k+1}}]}$ \In
 
       % Properties that may be k-inductive for this k
-      \State \Let $\mathcal{P}' = \{P \in \mathcal{P} \mid \mathcal{M} \lent P[\vec{x_{k}}] \}$ \In      
+      \State \Let $\mathcal{P}' = \{P \in \mathcal{P} \mid \mathcal{M} \lent P[\vec{x_{k+1}}] \}$ \In      
 
       % Properties that are not k-inductive for this k
       \State \Let $\mathcal{Q}' = \mathcal{Q} \cup \mathcal{P} \setminus \mathcal{P}'$
