@@ -1,4 +1,6 @@
-const c_cond = if true then 1 else 2;
+const c_cond : subrange [1, 2] of int = if true then 1 else 2;
+
+const c_ = c_cond;
 
 type r = { three: [int, bool]; one: int; two: real };
 
@@ -19,7 +21,7 @@ var
   a : [int, real, bool];
   a1: int; a2: real; a3: bool; a4: int;
 let
-  (a1, a2, a3, a4) = ((1 + 5, 2.0), (false, 3));
+  (a1, a2, a3, a4) = ((1 + 5 + c_, 2.0), (false, 3));
 tel
 
 
@@ -70,7 +72,7 @@ node id (x: int) returns (y: int); let y = x; tel
 node A () returns ();
 var x: int;
 let
-  x = id(x);
+  x = id(x+ac);
 tel
 
 /*
