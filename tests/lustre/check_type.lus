@@ -68,12 +68,18 @@ tel
 
 node id (x: int) returns (y: int); let y = x; tel
 
+node id2 (x: int) returns (y: int); let y = id(y); tel
+
 
 node A () returns ();
 var x: int;
 let
-  x = id(x+ac);
+  x = id2(x);
 tel
+
+
+
+
 
 /*
 

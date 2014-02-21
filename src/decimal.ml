@@ -74,246 +74,171 @@ let string_of_decimal = string_of_t pp_print_decimal
 (* Convert an integer to a rational number *)
 let of_int = Num.num_of_int
 
-(*
+(* Convert a string to a rational number *)
+let of_string s = 
 
-(* Integer exponentiation *)
-let pow x n = 
-  let rec pow' accum x = 
-    function 
-      | 0 -> accum 
-      | n when n < 0 -> invalid_arg "pow" 
-      | n -> pow' (accum * x) x (pred n)
-  in
-  pow' 1 x n
+  (* Buffer for integer part, initialize to length of whole string *)
+  let int_buf = Buffer.create (String.length s) in
 
+  (* Buffer for fractional part, initialize to length of whole string *)
+  let frac_buf = Buffer.create (String.length s) in
+ 
+  (* Buffer for exponent part, initialize to length of whole string *)
+  let exp_buf = Buffer.create (String.length s) in
 
-let bin_digits_of_float f precision =
-  
-  let rec bin_digits_of_float' f accum = function
-    | p when p <= 0 -> List.rev accum 
-    | p -> 
-      let rest, digit = modf f in
-      bin_digits_of_float' (rest *. 2.) (int_of_float digit :: accum) (pred p)
-  in
+  (* Scan exponent part and add to buffer *)
+  let rec scan_exp start_pos pos = 
 
-  bin_digits_of_float' f [] precision
+    (* Terminate at end of string *)
+    if (start_pos + pos) >= String.length s then () else
 
+      (* Get character at current position *)
+      match String.get s (start_pos + pos) with 
 
+        (* Allow digits, append to buffer *)
+        | '0'..'9' as c -> 
+          Buffer.add_char exp_buf c; 
+          scan_exp start_pos (succ pos) 
 
-let big_int_of_bin_digits digits exp = 
+        (* Allow sign as the first character, append to buffer *)
+        | '-' | '+' as c when pos = 0 -> 
+          Buffer.add_char exp_buf c; 
+          scan_exp start_pos (succ pos) 
 
-  let rec big_int_of_bin_digits' accum = function 
-    | [] -> 
-      (function 
-        | e when e <= 0 -> accum
-            
-        | e -> 
-          big_int_of_bin_digits' 
-            (Big_int.mult_big_int 
-               accum
-               (Big_int.big_int_of_int 2))
-            digits 
-            (pred e))
+        (* Fail on other characters *)
+        | c -> 
+          raise 
+            (Failure 
+               (Format.sprintf
+                  "of_string: invalid character %c at position %d" 
+                  c
+                  (start_pos + pos)))
 
-    | (h :: digits) -> 
-      (function 
-        | e when e <= 0 -> 
-          Big_int.add_big_int accum (Big_int.big_int_of_int h)
-            
-        | e -> 
-          big_int_of_bin_digits' 
-            (Big_int.mult_big_int 
-               (Big_int.add_big_int accum (Big_int.big_int_of_int h)) 
-               (Big_int.big_int_of_int 2))
-            digits 
-            (pred e))
   in
 
-  big_int_of_bin_digits' Big_int.zero_big_int digits exp
+  (* Scan fractional part and add to buffer *)
+  let rec scan_frac start_pos pos = 
 
-*)
+    (* Terminate at end of string *)
+    if (start_pos + pos) >= String.length s then () else
 
-(*
-(* Convert a floating-point number to a rational number *)
-let of_float f = 
+      (* Get character at current position *)
+      match String.get s (start_pos + pos) with
 
-  debug decimal
-    "of_float %f"
-    f
+        (* Continue parsing exponent part *)
+        | 'E' -> scan_exp (start_pos + (succ pos)) 0
+
+        (* Allow digits, append to buffer *)
+        | '0'..'9' as c -> 
+          Buffer.add_char frac_buf c; 
+          scan_frac start_pos (succ pos) 
+
+        (* Fail on other characters *)
+        | c -> 
+          raise 
+            (Failure 
+               (Format.sprintf
+                  "of_string: invalid character %c at position %d" 
+                  c
+                  (start_pos + pos)))
+
   in
 
-  (* Catch infinity and NaN values *)
-  match classify_float f with 
+  (* Scan integer part and add to buffer *)
+  let rec scan_int pos = 
 
-    (* Do not convert infinity, NaN and subnormal numbers (too close
-       to 1.0 for full precision) *)
-    | FP_infinite
-    | FP_nan
-    | FP_subnormal -> raise (Invalid_argument "of_float")
+    (* Terminate at end of string *)
+    if pos >= String.length s then () else
 
-    (* Zero *)
-    | FP_zero -> zero
+      (* Get character at current position *)
+      match String.get s pos with
 
-    (* A normal floating-point number *)
-    | FP_normal -> 
+        (* Continue parsing fractional part *)
+        | '.' -> scan_frac (succ pos) 0
 
-      (* Get fractional and integer part of number *)
-      let r, i = modf f in
+        (* Continue parsing exponent part *)
+        | 'E' -> scan_exp (succ pos) 0
+
+        (* Allow digits, append to buffer *)
+        | '0'..'9' as c -> 
+          Buffer.add_char int_buf c; 
+          scan_int (succ pos) 
+
+        (* Allow sign as the first character, append to buffer *)
+        | '-' | '+' as c when pos = 0 -> 
+          Buffer.add_char int_buf c; 
+          scan_int (succ pos) 
+
+        (* Fail on other characters *)
+        | c -> 
+          raise 
+            (Failure 
+               (Format.sprintf
+                  "of_string: invalid character %c at position %d" 
+                  c
+                  pos))
+
+  in
+
+  (* Scan string into buffers starting at the first character *)
+  scan_int 0;
+
+  (* Convert integer buffer to numeral, default to zero if empty *)
+  let int_num = 
+    if Buffer.length int_buf = 0 then Num.num_of_int 0 else 
+      Num.num_of_string (Buffer.contents int_buf) 
+  in
+
+  (* Convert fractional buffer to numeral, default to zero if empty *)
+  let frac_num = 
+    if Buffer.length frac_buf = 0 then Num.num_of_int 0 else 
+      Num.num_of_string (Buffer.contents frac_buf) 
+  in
+
+  (* Convert exponent buffer to numeral, default to one if empty *)
+  let exp_num = 
+    if Buffer.length exp_buf = 0 then Num.num_of_int 0 else 
+      Num.num_of_string (Buffer.contents exp_buf) 
+  in
+
+  (* Exponent *)
+  let exp = 
+    Num.power_num (Num.num_of_int 10) exp_num
+  in
+
+  (* Fractional part *)
+  let frac = 
+    Num.div_num 
       
-      if classify_float r = FP_zero then 
-
-        Num.num_of_int (int_of_float i)
-
-      else
-
-        (* TODO: convert float to rational *)
-        raise 
-          (Invalid_argument
-             (Format.asprintf "of_float %f" f))
-
-(*
-      (* Number of bits in the mantiassa of a double float *)
-      let precision = 54 in
-
-      (* Get mantissa and exponent *)
-      let m, e = frexp f in
-
-      let bin_digits = bin_digits_of_float m precision in
-
-      Num.big_int_of_bin_digits digits e
-*)
-(*
-      (* Get digits of mantissa up to precision *)
-      let m' = int_of_float (m *. (10. ** float_of_int precision)) in
-
-      (* Get exponent *)
-      let e' = Big_int.power_int_positive_int 2 e in
+      (* Numerator of fractional part *)
+      frac_num
       
-      debug decimal
-          "of_float (m * 10 ^ precision) = %d" m'
-      in
-       
-      debug decimal
-          "of_float e = %s" (Big_int.string_of_big_int e')
-      in
-       
-      (* Numerator is m * (10 ^ precision) * (2 ^ exponent)  *)
-      let n = 
-        Big_int.mult_int_big_int m' e'
-      in
+      (* Denominator of fractional part *)
+      (Num.power_num 
+         (Num.num_of_int 10)
+         (Num.num_of_int (Buffer.length frac_buf)))
+  in
 
-      (* Denominator is (10 ^ precision) *)
-      let d = Big_int.power_int_positive_int 10 precision in
+  (* Combine integer part, fractional part and mantissa *)
+  let res = 
 
-      (* Divide numerator by denominator *)
-      let q, r = Big_int.quomod_big_int n d in
-      
-      (* Remainder of division is zero? *)
-      if Big_int.eq_big_int r Big_int.zero_big_int then
-
-        (debug decimal
-            "of_float is an integer" 
-         in
+    Num.mult_num
+    
+      (* Mantissa 
          
-         (* Return as integer number instead of fraction *)
-         Num.num_of_big_int q)
-
-      else
-
-        (debug decimal
-            "of_float is a fraction: q=%s, r=%s" 
-            (Big_int.string_of_big_int q)
-            (Big_int.string_of_big_int r)
-         in
+         Fractional part has sign of integer part *)
+      ((if Num.sign_num int_num < 0 then Num.sub_num else Num.add_num)
+      
+         (* Integer part *)
+         int_num
          
-        (* Construct a fraction *)
-        Num.num_of_ratio (Ratio.create_ratio n d))
+         frac)
 
-*)
-*)
+      exp
 
-let num_of_int_string s = 
+  in
 
-  try 
-
-    (* Get index of decimal point in string *)
-    let pindex = String.index s '.' in 
-
-    (* Create new string for integer part *)
-    let int_string =  String.create pindex in
-
-    (* Copy integer part in string *)
-    String.blit s 0 int_string 0 pindex;
-
-    (* Convert string before decimal point *)
-    let int_num = Num.num_of_string int_string in
-      
-    (* Create new string for fractional part *)
-    let frac_string = String.create ((String.length s) - pindex - 1) in
-
-    (* Copy fractional part in string *)
-    String.blit s (pindex + 1) frac_string 0 ((String.length s) - pindex - 1);
-
-    (* String after decimal point is empty? *)
-    if String.length frac_string = 0 then 
-
-      (* Return number before decimal point *)
-      int_num
-        
-    else
-
-      (* Numerator of fractional part of string *)
-      let frac_numerator = 
-        
-        try 
-          
-          Num.num_of_string frac_string 
-            
-        with _ -> raise (Invalid_argument "num_of_int_string")
-                    
-      in
-      
-      (* Denominator of fractional part of string *)
-      let frac_denominator = 
-        Num.power_num
-        (Num.num_of_int 10)
-        (Num.num_of_int (String.length frac_string))
-      in
-      
-      Num.add_num int_num (Num.div_num frac_numerator frac_denominator)
-      
-      (*
-      (* Ensure that all characters in fractional part are zeros, raise
-         exception otherwise *)
-    String.iter 
-      (fun c -> 
-         if c = '0' then
-           () 
-         else
-           raise (Invalid_argument "num_of_int_string")) 
-      frac_string;
-
-    (try 
-
-       (* Convert string before decimal point *)
-       Num.num_of_string int_string
-         
-     with Failure _ -> 
-       
-       raise (Invalid_argument "num_of_int_string"))
-*)
-
-  (* No decimal point in string *)
-  with Not_found -> 
-
-    try 
-
-      (* Convert string as integer *)
-      Num.num_of_string s 
-
-    with Failure _ -> 
-
-      raise (Invalid_argument "num_of_int_string")
+  res
 
 
 
@@ -322,98 +247,6 @@ let s_div = HString.mk_hstring "/"
 
 let s_unimus = HString.mk_hstring "-"
 
-(* Convert a string to a rational number *)
-let rec of_string s = 
-
-(*
-  (* Parse S-expression *)
-  match SExprParser.sexp SExprLexer.main (Lexing.from_string s) with 
-
-    (* (/ n d) is a rational number *)
-    | HStringSExpr.List
-        [HStringSExpr.Atom o; HStringSExpr.Atom n; HStringSExpr.Atom d] 
-      when o = s_div -> 
-
-      debug decimal
-        "of_string: (/ %a %a)"
-        HString.pp_print_hstring n
-        HString.pp_print_hstring d
-       in
-
-      (* Convert first argument to an integer as numerator *)
-      let n' = 
-
-        try 
-          
-          Num.num_of_string (HString.string_of_hstring n) 
-
-        with Failure _ -> 
-
-          (debug decimal
-              "of_string: %a is not a numerator" 
-              HString.pp_print_hstring n
-           in
-
-           raise (Invalid_argument "of_string"))
-
-      in
-
-      (* Convert first argument to an integer as denominator *)
-      let d' = 
-
-        try 
-
-          Num.num_of_string (HString.string_of_hstring d) 
-
-        with Failure _ -> 
-
-          (debug decimal
-              "of_string: %a is not a denominator" 
-              HString.pp_print_hstring n
-           in
-
-           raise (Invalid_argument "of_string"))
-
-      in
-
-      (* Divide numerator by denominator *)
-      let res = Num.div_num n' d' in
-
-      debug decimal
-        "of_string: %s"
-        (Num.string_of_num res)
-      in
-
-      res
-
-    (* Single string is a rational number *)
-    | HStringSExpr.Atom n as s -> 
-*)
-
-  (try 
-     
-     (* Convert integer string or floating-point as an integer *)
-     num_of_int_string s
-       
-   with Invalid_argument _ -> 
-     
-     raise 
-       (Invalid_argument 
-          (Format.asprintf "of_string %s" s)))
-  
-(*
-    (* Fail on other S-expressions *)
-    | s -> 
-      
-      (debug decimal
-          "of_string %a" 
-          HStringSExpr.pp_print_sexpr s
-       in
-       
-       raise 
-         (Invalid_argument 
-            (Format.asprintf "of_string %a" HStringSExpr.pp_print_sexpr s)))
-*)       
 
 (* Convert an arbitrary large integer to a rational number *)
 let of_big_int n = Num.num_of_big_int n

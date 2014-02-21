@@ -45,7 +45,7 @@ val of_float : float -> t
 (** Convert an arbitrary large integer to a rational *)
 val of_big_int : Big_int.big_int -> t
 
-(** Convert a string to rational number *)
+(** Convert a string in floating-point notation [1.2E3] to rational number *)
 val of_string : string -> t
 
 (** Convert a rational number to a rational

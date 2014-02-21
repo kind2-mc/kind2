@@ -25,6 +25,13 @@ module T = LustreType
 module E = LustreExpr
 module ISet = I.LustreIdentSet
 
+(* Call to a node that is only defined later
+
+   This is just failing at the moment, we'd need some dependency
+   analysis to recognize cycles to fully support forward
+   referencing. *)
+exception Forward_reference of I.t * A.position
+
 
 (* Identifier for new variables from abstrations *)
 let new_var_ident = I.mk_string_ident "__abs" 
@@ -1355,13 +1362,8 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Node %a not defined or forward-referenced in %a" 
-                  (I.pp_print_ident false) ident
-                  A.pp_print_position pos))
+          (* Forward referenced node *)
+          raise (Forward_reference (ident, pos))
 
       in
 
@@ -1617,13 +1619,8 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Node %a not defined or forward-referenced in %a" 
-                  (I.pp_print_ident false) ident
-                  A.pp_print_position pos))
+          (* Forward referenced node *)
+          raise (Forward_reference (ident, pos))
 
       in
 
@@ -3575,23 +3572,60 @@ let rec check_declarations
       (* Output node declaration *)
       Format.printf "-- %a@." A.pp_print_declaration decl;
   *)    
-      (* Add declarations to global context *)
-      let node_context = 
-        parse_node_signature
-          node_ident
-          global_context 
-          inputs 
-          outputs
-          locals
-          equations 
-          contract
-      in
+      
+      (try 
 
-      (* Recurse for next declarations *)
-      check_declarations 
-        { global_context with 
-            nodes = (node_ident, node_context) :: nodes }
-        decls
+        (* Add declarations to global context *)
+        let node_context = 
+          parse_node_signature
+            node_ident
+            global_context 
+            inputs 
+            outputs
+            locals
+            equations 
+            contract
+        in
+        
+        (* Recurse for next declarations *)
+        check_declarations 
+          { global_context with 
+              nodes = (node_ident, node_context) :: nodes }
+          decls
+
+       (* Forward reference in node *)
+       with Forward_reference (ident, pos) -> 
+
+        if 
+
+          (* Is the referenced node declared later? *)
+          List.exists 
+            (function 
+              | A.NodeDecl (i, _, _, _, _, _, _) when i = ident -> true 
+              | _ -> false)
+            decls
+
+        then
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Node %a is forward referenced in %a" 
+                  (I.pp_print_ident false) ident
+                  A.pp_print_position pos))
+      
+        else
+          
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Node %a is not defined in %a" 
+                  (I.pp_print_ident false) ident
+                  A.pp_print_position pos)))
+
+
 
     (* Node declaration without parameters *)
     | (A.FuncDecl _) :: _ ->
