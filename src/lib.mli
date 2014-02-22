@@ -56,6 +56,11 @@ val safe_hash_interleave : int -> int -> int -> int
 
 (** {1 List functions} *)
 
+(** Return the index of the first element that satisfies the predicate
+    [p], raise excpetion [Not_found] if no element satisfies the
+    predicate. *)
+val list_index : ('a -> bool) -> 'a list -> int
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 
