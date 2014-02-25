@@ -209,7 +209,7 @@ let pp_print_node_call safe ppf = function
   | (out_vars, act_expr, node, exprs, init_exprs) ->
      
     Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
       (pp_print_list 
          (fun ppf (i, _) -> I.pp_print_ident safe ppf i)
          ",@ ") 
@@ -1359,7 +1359,7 @@ let rec eval_ast_expr'
           raise 
             (Failure 
                (Format.asprintf 
-                  "Node %a not defined or forward-referenced in %a" 
+                  "Node %a not defined or forward referenced in %a" 
                   (I.pp_print_ident false) ident
                   A.pp_print_position pos))
 
@@ -2881,7 +2881,7 @@ let rec parse_node_equations
     | [] -> node 
 
     (* Assertion *)
-    | A.Assert ast_expr as node_equation :: tl -> 
+    | A.Assert ast_expr :: tl -> 
 
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
@@ -2936,7 +2936,7 @@ let rec parse_node_equations
 
 
     (* Property annotation *)
-    | A.AnnotProperty ast_expr as node_equation :: tl -> 
+    | A.AnnotProperty ast_expr :: tl -> 
 
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
@@ -2990,7 +2990,7 @@ let rec parse_node_equations
 
 
     (* Equations with more than one variable on the left-hand side *)
-    | A.Equation (struct_items, ast_expr) as node_equation :: tl -> 
+    | A.Equation (struct_items, ast_expr) :: tl -> 
 
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
@@ -3453,503 +3453,6 @@ let rec check_declarations
        consts; 
        nodes } as global_context) = 
 
-
-
-(*
-    (* Projection to a record field *)
-    | A.RecordProject (p, id, idx) -> 
-
-      (* Evaluate identifier *)
-      (match check_expr (A.Ident (p, id)) with 
-
-        (* Must be an indexed expression *)
-        | IndexedExpr l -> 
-
-          (* Find all expression with index as prefix of their
-             index *)
-          (match expr_find_index idx [] l with 
-
-            (* Index not found *)
-            | [] -> 
-
-              (* Fail *)
-              raise 
-                (Failure 
-                   (Format.asprintf 
-                      "Identifier %a in %a does not have field %a" 
-                      I.pp_print_ident id
-                      A.pp_print_position p
-                      I.pp_print_index idx))
-
-            (* Reduced to a single expression with empty index  *)
-            | [([], e)] -> Expr e
-
-            (* Reduced to a nested expression *)
-            | l' -> IndexedExpr l'
-
-          )
-
-        (* Identifier is no record *)
-        | Expr _ -> 
-
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Identifier %a in %a does not have fields" 
-                  I.pp_print_ident id
-                  A.pp_print_position p))
-
-      )
-
-    (* Projection of a tuple or array *)
-    | A.TupleProject (p, id, e) -> 
-
-      (match check_expr (A.Ident (p, id)) with 
-
-        | IndexedExpr l -> 
-
-          (* Turn expresssion into index *)
-          let idx = 
-
-            match check_expr e with 
-
-              (* Expresssion must be simplified to zero or a
-                 positive integer *)
-              | Expr { expr_sim = E.Int i } when i >= 0 -> 
-
-                I.index_of_int i 
-
-              (* Expression cannot be nested or negative *)
-              | Expr _
-              | IndexedExpr _ -> 
-
-                (* Fail *)
-                raise 
-                  (Failure 
-                     (Format.asprintf 
-                        "Expression %a in %a cannot be used as index" 
-                        A.pp_print_expr e
-                        A.pp_print_position p))
-
-          in
-
-          (* Evaluate as projection of record *)
-          check_expr (A.RecordProject (p, id, idx))
-
-        (* Identifier is no record *)
-        | Expr _ -> 
-
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Identifier %a in %a does not have fields" 
-                  (I.pp_print_ident false) id
-                  A.pp_print_position p))
-
-      )
-
-
-    | A.TupleExpr (p, l) -> 
-
-      IndexedExpr 
-        (snd
-           (List.fold_left
-              (fun (i, a) e -> 
-                 match check_expr e with 
-                   | Expr e -> (succ i, (I.index_of_int i, e) :: a)
-                   | IndexedExpr l -> 
-                     (succ i, 
-                      List.fold_left
-                        (fun a (j, e) -> (I.IntIndex i :: j, e) :: a)
-                        a
-                        l))
-              (0, [])
-              l))
-
-
-    | A.ArrayConstr (p, e1, e2) -> 
-
-      let n = 
-
-        match check_expr e2 with 
-
-          (* Expresssion must be simplified to a non-zero positive
-             integer *)
-          | Expr { expr_sim = E.Int i } when i >= 1 -> i 
-
-          (* Expression cannot be nested *)
-          | Expr _
-          | IndexedExpr _ -> 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Expression %a in %a cannot be used to \
-                     construct an array" 
-                    A.pp_print_expr e2
-                    A.pp_print_position p))
-
-      in
-
-      let e = check_expr e1 in
-
-      IndexedExpr 
-        (let rec aux accum = function
-           | 0 -> accum
-           | i -> 
-             match e with 
-               | Expr e -> 
-                 aux ((I.index_of_int (pred i), e) :: accum) (pred i)
-
-               | IndexedExpr l -> 
-
-                 aux 
-                   (List.fold_left
-                      (fun a (j, e) -> 
-                         (I.add_int_to_index j i, e) :: a)
-                      accum
-                      l)
-                   (pred i)
-         in
-         aux [] n)
-
-    | A.ArraySlice (p, id, l) ->  
-
-      let expr_list = match check_expr (A.Ident (p, id)) with 
-        | IndexedExpr l -> l 
-        | Expr _ -> 
-
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Identifier %a in %a does not have fields" 
-                  I.pp_print_ident id
-                  A.pp_print_position p))
-
-      in
-
-      (* Maintain a list of pairs of indexes: an index in the array
-         that is sliced and the corresponding index in the new array.
-
-         [aux m a l u i] appends to each index pair in [m] all
-         integers from [i] to [u] to the first index, the difference
-         between [i] and [l] to the second index in the pair and add
-         the resulting pair to [a] *)
-      let rec aux indexes lbound ubound accum = 
-
-        function 
-
-          (* Reached maximum, return result *)
-          | i when i > ubound -> accum
-
-          (* Need to add integer i as index *)
-          | i -> 
-
-            (* Add to all elements in accum and recurse for next *)
-            aux 
-              indexes
-              lbound 
-              ubound
-              (List.fold_left
-                 (fun a (j, j') -> 
-
-                    (I.add_int_to_index j i, 
-                     I.add_int_to_index j' (i - lbound)) :: a)
-                 accum
-                 indexes)
-              (succ i)
-
-      in
-
-      (* Indexes to slice from array *)
-      let index_map = 
-
-        List.fold_left
-          (fun a (el, eu) -> 
-
-             (* Evaluate expression for lower bound to an integer *)
-             let il = 
-
-               match check_expr el with 
-
-                 (* Expresssion must be simplified to zero or a positive
-                    integer *)
-                 | Expr { expr_sim = E.Int i } when i >= 0 -> i 
-
-                 (* Expression cannot be nested *)
-                 | Expr _
-                 | IndexedExpr _ -> 
-
-                   (* Fail *)
-                   raise 
-                     (Failure 
-                        (Format.asprintf 
-                           "Expression %a in %a cannot be used as \
-                            the lower bound of an array" 
-                           A.pp_print_expr el
-                           A.pp_print_position p))
-
-             in
-
-             (* Evaluate expression for lower bound to an integer *)
-             let iu = 
-
-               match check_expr eu with 
-
-                 (* Expresssion must be simplified to a non-zero
-                    positive integer *)
-                 | Expr { expr_sim = E.Int i } when i >= il -> i 
-
-                 (* Expression cannot be nested *)
-                 | Expr _
-                 | IndexedExpr _ -> 
-
-                   (* Fail *)
-                   raise 
-                     (Failure 
-                        (Format.asprintf 
-                           "Expression %a in %a cannot be used as \
-                            the upper bound of an array slice" 
-                           A.pp_print_expr eu
-                           A.pp_print_position p))
-
-             in
-
-             (* Append all indexes between il und iu to indexes in
-                accumulator *)
-             aux a il iu [] il)
-          [([],[])]
-          l
-
-      in
-
-      IndexedExpr 
-        (List.fold_left 
-           (fun a (i, i') -> 
-
-              (match expr_find_index i [] expr_list with 
-
-                (* Index not found *)
-                | [] -> 
-
-                  (* Fail *)
-                  raise 
-                    (Failure 
-                       (Format.asprintf 
-                          "Array %a in %a does not have index %a" 
-                          I.pp_print_ident id
-                          A.pp_print_position p
-                          I.pp_print_index i))
-
-                | l -> 
-
-                  List.fold_left
-                    (fun a (j, e) -> (i' @ j, e) :: a)
-                    a
-                    l))
-
-           []
-           index_map)
-
-
-    | A.ArrayConcat (p, e1, e2) -> 
-
-      IndexedExpr
-        (match check_expr e1, check_expr e2 with 
-
-          | IndexedExpr l1, IndexedExpr l2 -> 
-
-            (let n = List.length l1 in 
-
-             List.fold_left
-               (fun a (i, e) -> 
-                  (match i with 
-
-                    | I.IntIndex i :: tl -> 
-                      (I.IntIndex (i + n) :: tl, e) :: a
-
-                    | _ -> 
-
-                      (* Fail *)
-                      raise 
-                        (Failure 
-                           (Format.asprintf 
-                              "Expression %a in %a is not an array" 
-                              A.pp_print_expr e2
-                              A.pp_print_position p))))
-               l1
-               l2)
-
-          | Expr _, _ -> 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Expression %a in %a is not an array" 
-                    A.pp_print_expr e1
-                    A.pp_print_position p))
-
-          | _, Expr _ -> 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Expression %a in %a is not an array" 
-                    A.pp_print_expr e2
-                    A.pp_print_position p)))
-
-    | A.RecordConstruct (p, t, l) -> 
-
-      (
-
-        let indexes = 
-
-          try 
-
-            List.map 
-              (function (i, _) -> 
-
-                (i, List.assoc (I.add_index t i) basic_types))
-              (List.assoc t indexed_types)
-
-          with Not_found -> 
-
-            (* Fail *)
-            raise 
-              (Failure 
-                 (Format.asprintf 
-                    "Record type %a in %a is not defined" 
-                    I.pp_print_ident t
-                    A.pp_print_position p))
-
-        in
-
-        let l' = 
-          List.fold_left
-            (fun a (i, e) -> 
-
-               if List.mem_assoc (I.index_of_ident i) a then 
-
-                 (* Fail *)
-                 raise 
-                   (Failure 
-                      (Format.asprintf 
-                         "Record field %a assigned twice in %a" 
-                         I.pp_print_ident i
-                         A.pp_print_position p));
-
-
-               match check_expr e with 
-
-                 | Expr ({ expr_type = t' } as e) -> 
-
-                   let t = 
-
-                     try 
-
-                       List.assoc (I.index_of_ident i) indexes 
-
-                     with Not_found ->  
-
-                       (* Fail *)
-                       raise 
-                         (Failure 
-                            (Format.asprintf 
-                               "Record type %a in %a does not have a field %a" 
-                               I.pp_print_ident t
-                               A.pp_print_position p
-                               I.pp_print_ident i))
-
-                   in
-
-                   if check_type t' t then
-
-                     (I.index_of_ident i, e) :: a
-
-                   else
-
-                     (* Fail *)
-                     raise 
-                       (Failure 
-                          (Format.asprintf 
-                             "Type mismatch at record field %a in %a" 
-                             I.pp_print_ident i
-                             A.pp_print_position p))
-
-
-                 | IndexedExpr l -> 
-
-                   List.fold_left 
-                     (fun a (j, ({ expr_type = t' } as e)) ->
-
-                        let i' = I.index_of_ident i @ j in
-
-                        let t = 
-
-                          try 
-
-                            List.assoc i' indexes 
-
-                          with Not_found ->  
-
-                            (* Fail *)
-                            raise 
-                              (Failure 
-                                 (Format.asprintf 
-                                    "Record type %a in %a does not have a field %a" 
-                                    I.pp_print_ident t
-                                    A.pp_print_position p
-                                    I.pp_print_index i'))
-
-                        in
-
-                        if check_type t' t then 
-
-                          (i', e) :: a
-
-                        else
-
-                          (* Fail *)
-                          raise 
-                            (Failure 
-                               (Format.asprintf 
-                                  "Type mismatch at record field %a in %a" 
-                                  I.pp_print_ident i
-                                  A.pp_print_position p)))
-                     a
-                     l)
-            []
-            l
-        in
-
-        if 
-
-          List.for_all 
-            (fun (i, _) -> List.mem_assoc i l')
-            indexes 
-
-        then 
-
-          IndexedExpr l'
-
-        else 
-
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Not all fields of record type %a assigned in %a" 
-                  I.pp_print_ident t
-                  A.pp_print_position p)))
-
-*)
-
   function
 
     (* All declarations processed, return result *)
@@ -3957,13 +3460,8 @@ let rec check_declarations
 
 
     (* Declaration of a type as alias or free *)
-    | (A.TypeDecl (A.AliasType (ident, _) as type_decl) as decl) :: decls
-    | (A.TypeDecl (A.FreeType ident as type_decl) as decl) :: decls -> 
-
-(*
-      (* Output type declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration decl;
-*)
+    | (A.TypeDecl (A.AliasType (ident, _) as type_decl)) :: decls
+    | (A.TypeDecl (A.FreeType ident as type_decl)) :: decls -> 
 
       if       
 
@@ -4015,13 +3513,10 @@ let rec check_declarations
 
 
     (* Declaration of a typed, untyped or free constant *)
-    | (A.ConstDecl (A.FreeConst (ident, _) as const_decl) as decl) :: decls 
-    | (A.ConstDecl (A.UntypedConst (ident, _) as const_decl) as decl) :: decls 
-    | (A.ConstDecl (A.TypedConst (ident, _, _) as const_decl) as decl) :: decls ->
-(*
-      (* Output constant declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration decl;
-*)
+    | (A.ConstDecl (A.FreeConst (ident, _) as const_decl)) :: decls 
+    | (A.ConstDecl (A.UntypedConst (ident, _) as const_decl)) :: decls 
+    | (A.ConstDecl (A.TypedConst (ident, _, _) as const_decl)) :: decls ->
+
       if
 
 
@@ -4067,11 +3562,8 @@ let rec check_declarations
           outputs, 
           locals, 
           equations, 
-          contract)) as decl :: decls ->
-(*
-      (* Output node declaration *)
-      Format.printf "-- %a@." A.pp_print_declaration decl;
-  *)    
+          contract)) :: decls ->
+
       (* Add declarations to global context *)
       let node_context = 
         parse_node_signature
@@ -4114,7 +3606,9 @@ let rec check_declarations
 
 
 let check_program p = 
+
   let global_context = check_declarations init_lustre_context p in
+
   ()
 
   (* Format.printf "%a@." pp_print_lustre_context global_context
