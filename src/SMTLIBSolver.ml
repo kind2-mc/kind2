@@ -549,7 +549,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-models")));
-  
+(*
   (* Produce proofs, default is false per SMTLIB specification *)
   if produce_proofs then
     (match 
@@ -559,7 +559,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-proofs")));
-
+*)
   (* Produce unsatisfiable cores, default is false per SMTLIB
      specification *)
   if produce_cores then
