@@ -379,6 +379,9 @@ val mod_to_divisible : t -> t
 (** Convert [(divisble n t)] to [(= 0 (mod t n))] *)
 val divisible_to_mod : t -> t
 
+(** Convert negative numerals and decimals to negations of their
+    absolute value *)
+val nums_to_pos_nums : t -> t 
 
 (* 
    Local Variables:

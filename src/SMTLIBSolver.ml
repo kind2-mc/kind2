@@ -476,13 +476,13 @@ let create_instance
   Unix.close solver_stdin_in;
   Unix.close solver_stdout_out; 
   Unix.close solver_stderr_out; 
-  
+
   (* Get an output channel to read from solver's stdout *)
   let solver_stdout_ch = Unix.in_channel_of_descr solver_stdout_in in
 
   (* Create a lexing buffer on solver's stdout *)
   let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
-  
+
   (* Create the solver instance *)
   let solver =
     { solver_config = config;
@@ -502,16 +502,23 @@ let create_instance
    with 
      | Success -> () 
      | _ -> raise (Failure ("Cannot set option print-success")));
-  
 
-  (* Run in interactive mode *)
-  (match 
-     let cmd = "(set-option :interactive-mode true)" in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> raise (Failure ("Cannot set option interactive-mode")));
+  (* Interactive mode not needed for MathSAT5 *)
+  (match Flags.smtsolver () with 
+    | `Z3_SMTLIB -> 
+
+      (* Run in interactive mode *)
+      (match 
+         let cmd = "(set-option :interactive-mode true)" in
+         (debug smt "%s" cmd in
+          execute_command solver cmd 0)
+       with 
+         | Success -> () 
+         | _ -> raise (Failure ("Cannot set option interactive-mode")))
+
+    | _ -> ()
+
+  );
 
   (* Set logic *)
   (match logic with 
@@ -538,7 +545,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-assignments")));
-  
+
   (* Produce models to be queried with get-model, default is false per
      SMTLIB specification *)
   if produce_models then
