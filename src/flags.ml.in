@@ -153,7 +153,7 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
@@ -162,6 +162,7 @@ let smtsolver_of_string = function
   | "CVC4" -> `CVC4_SMTLIB
   | "CVC4_SMTLIB" -> `CVC4_SMTLIB
   | "CVC4_API" -> `CVC4_API
+  | "mathsat5" -> `MathSAT5
   | "Yices" -> `Yices
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
@@ -171,8 +172,9 @@ let string_of_smtsolver = function
   | `CVC4_SMTLIB -> "CVC4_SMTLIB"
   | `CVC4_API -> "CVC4_API"
   | `Yices -> "Yices"
+  | `MathSAT5 -> "MathSAT5"
 
-let smtsolver_values = "Z3, CVC4"
+let smtsolver_values = "Z3, CVC4, mathsat5"
 
 let smtsolver_default = `Z3_SMTLIB
 
@@ -214,6 +216,16 @@ let cvc4_bin_of_string s = s
 let string_of_cvc4_bin s = s 
 
 let cvc4_bin_default = "@CVC4_BIN@"
+
+(* ********** *) 
+
+type mathsat5_bin = string 
+
+let mathsat5_bin_of_string s = s
+
+let string_of_mathsat5_bin s = s 
+
+let mathsat5_bin_default = "@MATHSAT5_BIN@"
 
 (* ********** *) 
 
@@ -435,6 +447,7 @@ type flags =
       mutable smtlogic : smtlogic;
       mutable z3_bin : z3_bin;
       mutable cvc4_bin : cvc4_bin;
+      mutable mathsat5_bin : mathsat5_bin;
       mutable enable : enable;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
@@ -466,6 +479,7 @@ let flags =
     smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
     cvc4_bin = cvc4_bin_default;
+    mathsat5_bin = mathsat5_bin_default;
     enable = enable_default_init;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
@@ -542,6 +556,15 @@ let cvc4_bin_spec =
   ("--cvc4_bin", 
    Arg.String cvc4_bin_action, 
    Format.sprintf "executable of CVC4 solver (default: %s)" (string_of_cvc4_bin cvc4_bin_default))
+
+(* ********** *) 
+
+let mathsat5_bin_action o = flags.mathsat5_bin <- (mathsat5_bin_of_string o)
+  
+let mathsat5_bin_spec = 
+  ("--mathsat5_bin", 
+   Arg.String mathsat5_bin_action, 
+   Format.sprintf "executable of MathSAT5 solver (default: %s)" (string_of_mathsat5_bin mathsat5_bin_default))
 
 (* ********** *) 
 
@@ -782,6 +805,8 @@ let z3_bin () = flags.z3_bin
 
 let cvc4_bin () = flags.cvc4_bin
 
+let mathsat5_bin () = flags.mathsat5_bin
+
 let enable () = flags.enable 
 
 let pdr_qe () = flags.pdr_qe 
@@ -860,6 +885,9 @@ and speclist =
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;
+
+    (* Set executable for MathSAT5 solver *)
+    mathsat5_bin_spec;
 
     (* Set enabled modules *)
     enable_spec;
