@@ -25,6 +25,13 @@ module T = LustreType
 module E = LustreExpr
 module ISet = I.LustreIdentSet
 
+(* Call to a node that is only defined later
+
+   This is just failing at the moment, we'd need some dependency
+   analysis to recognize cycles to fully support forward
+   referencing. *)
+exception Forward_reference of I.t * A.position
+
 
 (* Identifier for new variables from abstrations *)
 let new_var_ident = I.mk_string_ident "__abs" 
@@ -1355,13 +1362,8 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Node %a not defined or forward referenced in %a" 
-                  (I.pp_print_ident false) ident
-                  A.pp_print_position pos))
+          (* Forward referenced node *)
+          raise (Forward_reference (ident, pos))
 
       in
 
@@ -1617,13 +1619,8 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          (* Fail *)
-          raise 
-            (Failure 
-               (Format.asprintf 
-                  "Node %a not defined or forward-referenced in %a" 
-                  (I.pp_print_ident false) ident
-                  A.pp_print_position pos))
+          (* Forward referenced node *)
+          raise (Forward_reference (ident, pos))
 
       in
 
@@ -3284,7 +3281,7 @@ let rec parse_node_contract
 
 
 
-let rec node_var_dependencies init_or_step node accum = 
+let rec node_var_dependencies init_or_step node_context node accum = 
 
   (* Return expression either for the initial state or a step state *)
   let init_or_step_of_expr { E.expr_init; E.expr_step } = 
@@ -3312,21 +3309,56 @@ let rec node_var_dependencies init_or_step node accum =
         (* No dependencies for inputs *)
         node_var_dependencies 
           init_or_step 
+          node_context
           node
           ((ident, ISet.empty) :: accum) 
           tl
           
       else
         
-        try 
-          
-          (* Get expression defining variable *)
-          let expr = 
-            List.assoc ident node.node_eqs 
+          let vars = 
+
+            try 
+              
+              (* Get expression defining variable *)
+              let expr = 
+                List.assoc ident node.node_eqs 
+              in
+              
+              (* Get variables in expression *)
+              E.vars_of_expr (init_or_step_of_expr expr) 
+
+            (* Variable is not input or defined in an equation *)
+            with Not_found -> 
+              
+              try
+                
+                let rec aux ident = function
+                  | [] -> raise Not_found
+                  | (o, _, n, _, _ ) :: tl -> 
+                    let rec aux2 i = function
+                      | [] -> raise Not_found 
+                      | (v, _) :: _ when v = ident -> (n, i)
+                      | _ :: tl -> aux2 (succ i) tl
+                    in
+                    try aux2 0 o with Not_found -> aux ident tl
+                in
+                
+                let n, i = aux ident node.node_calls in
+                
+                Format.printf 
+                  "%a is at position %d in call to node %a@."
+                  (I.pp_print_ident false) ident 
+                  i
+                  (I.pp_print_ident false) n;
+                
+                []
+                
+              (* Variable is not input or defined in an equation or node
+                 call *)
+              with Not_found -> []
+                
           in
-          
-          (* Get variables in expression *)
-          let vars = E.vars_of_expr (init_or_step_of_expr expr) in
           
           let vars_visited, vars_not_visited = 
             List.partition
@@ -3348,6 +3380,7 @@ let rec node_var_dependencies init_or_step node accum =
             (* First get dependencies of all dependent variables *)
             node_var_dependencies 
               init_or_step 
+              node_context
               node 
               ((ident, dependent_vars) :: accum)
               tl
@@ -3357,14 +3390,11 @@ let rec node_var_dependencies init_or_step node accum =
             (* First get dependencies of all dependent variables *)
             node_var_dependencies 
               init_or_step 
+              node_context
               node 
               accum 
               (vars_not_visited @ tl)
               
-        (* Variable is not input or defined in an equation *)
-        with Not_found -> assert false
-
-
 
 let parse_node_signature  
     node_ident
@@ -3391,7 +3421,7 @@ let parse_node_signature
         l := (ident, ref Numeral.(- one)) :: !l;
         mk_new_call_ident ident
   in
-  
+
   (* Parse inputs, add to global context and node context *)
   let local_context_inputs, node_context_inputs = 
     parse_node_inputs global_context init_node_context inputs
@@ -3435,8 +3465,30 @@ let parse_node_signature
 *)
   Format.printf "%a@." (pp_print_node_context true node_ident) node_context_equations;
 
-
-  node_context_locals
+  let var_dep = 
+    node_var_dependencies 
+      false 
+      global_context.nodes
+      node_context_equations
+      []
+      (List.map fst node_context_equations.node_eqs)
+  in
+  
+  Format.printf "@[<v>%a@]@."
+    (pp_print_list 
+      (fun ppf (v, d) ->
+        Format.fprintf ppf 
+          "%a@ %a"
+          (I.pp_print_ident false) v 
+          (pp_print_list 
+             (I.pp_print_ident false)
+             " ")
+          (ISet.elements d))
+      "@,")
+    var_dep;
+          
+  
+  node_context_equations
 
 
 
@@ -3564,23 +3616,59 @@ let rec check_declarations
           equations, 
           contract)) :: decls ->
 
-      (* Add declarations to global context *)
-      let node_context = 
-        parse_node_signature
-          node_ident
-          global_context 
-          inputs 
-          outputs
-          locals
-          equations 
-          contract
-      in
+      (try 
 
-      (* Recurse for next declarations *)
-      check_declarations 
-        { global_context with 
-            nodes = (node_ident, node_context) :: nodes }
-        decls
+        (* Add declarations to global context *)
+        let node_context = 
+          parse_node_signature
+            node_ident
+            global_context 
+            inputs 
+            outputs
+            locals
+            equations 
+            contract
+        in
+        
+        (* Recurse for next declarations *)
+        check_declarations 
+          { global_context with 
+              nodes = (node_ident, node_context) :: nodes }
+          decls
+
+       (* Forward reference in node *)
+       with Forward_reference (ident, pos) -> 
+
+        if 
+
+          (* Is the referenced node declared later? *)
+          List.exists 
+            (function 
+              | A.NodeDecl (i, _, _, _, _, _, _) when i = ident -> true 
+              | _ -> false)
+            decls
+
+        then
+
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Node %a is forward referenced in %a" 
+                  (I.pp_print_ident false) ident
+                  A.pp_print_position pos))
+      
+        else
+          
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Node %a is not defined in %a" 
+                  (I.pp_print_ident false) ident
+                  A.pp_print_position pos)))
+
+
 
     (* Node declaration without parameters *)
     | (A.FuncDecl _) :: _ ->

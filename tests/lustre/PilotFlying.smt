@@ -58,6 +58,38 @@
   (= O (and pre_I I)))
 
 
+;; Condact for node Rise
+(define-fun
+
+  C_Rise 
+
+  (
+
+   ;; Clock for node
+   (clk Bool)
+
+   ;; Variables of transition relation 
+   (I Bool)
+   (pre_I Bool)
+   (O Bool)
+
+   )
+
+  ;; Predicate is Boolean
+  Bool
+
+  (and
+
+    ;; Clock is true
+    (=> clk (T_Rise I pre_I O))
+
+    ;; Clock is false
+    (=> (not clk) (= I pre_I))
+
+    )
+
+)
+
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; node PFS_Logic
@@ -414,6 +446,56 @@
               pre_inhibit_count))))))))
 
 
+;; Condact for node PFS_Logic
+(define-fun C_PFS_Logic
+
+  (
+
+   (clk Bool)
+
+   (riseTS Bool)
+   (riseOSPF Bool)
+   (Primary_Side Bool)
+   (PFS_Initial_Value Bool)
+   (state PFS_Logic_state)
+   (pre_state PFS_Logic_state)
+   (inhibit_count Int)
+   (pre_inhibit_count Int)
+   (PFS Bool)
+   (pre_PFS Bool)
+
+   )
+
+  Bool
+
+  (and
+
+   (=> 
+    clk
+    (T_PFS_Logic 
+     riseTS
+     riseOSPF
+     Primary_Side
+     PFS_Initial_Value
+     state
+     pre_state
+     inhibit_count
+     pre_inhibit_count
+     PFS
+     pre_PFS))
+
+   (=> 
+    (not clk)
+    (and
+     (= state pre_state)
+     (= inhibit_count pre_inhibit_count)
+     (= PFS pre_PFS)))
+
+   )
+
+  )
+
+
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; node PFS_Side
@@ -558,6 +640,73 @@
 )
 
 
+;; Condact for node PFS_Side
+(define-fun C_PFS_Side 
+  
+  (
+   
+   (clk Bool)
+
+   (Primary_Side Bool)
+   (PFS_Initial_Value Bool)
+   (TS Bool)
+   (pre_TS Bool)
+   (OSPF Bool)
+   (pre_OSPF Bool)
+   (riseTS_O Bool)
+   (riseOSPF_O Bool)
+   (PFSL_PFS Bool)
+   (pre_PFSL_PFS Bool)
+   (PFS_Logic_0_state PFS_Logic_state)
+   (PFS_Logic_0_pre_state PFS_Logic_state)
+   (PFS_Logic_0_inhibit_count Int)
+   (PFS_Logic_0_pre_inhibit_count Int)
+   (PFS Bool)
+   (pre_PFS Bool)
+   
+   )
+  
+  ;; Predicate is Boolean
+  Bool
+
+  (and
+
+   (=> 
+    clk
+    (T_PFS_Side 
+     Primary_Side
+     PFS_Initial_Value
+     TS
+     pre_TS
+     OSPF
+     pre_OSPF
+     riseTS_O
+     riseOSPF_O
+     PFSL_PFS
+     pre_PFSL_PFS
+     PFS_Logic_0_state
+     PFS_Logic_0_pre_state
+     PFS_Logic_0_inhibit_count
+     PFS_Logic_0_pre_inhibit_count
+     PFS
+     pre_PFS))
+
+   (=>
+    (not clk)
+    (and
+     (= TS pre_TS)
+     (= OSPF pre_OSPF)
+     (= PFSL_PFS pre_PFSL_PFS)
+     (= PFS_Logic_0_state PFS_Logic_0_pre_state)
+     (= PFS_Logic_0_inhibit_count PFS_Logic_0_pre_inhibit_count)
+     (= PFS pre_PFS))
+
+    )
+
+   )
+
+  )
+
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; node Cross_Channel_Bus
@@ -687,7 +836,6 @@
    ;; Stateless inputs 
    (I Bool)
    (O_Initial_Value Bool)
-   (prev_I_Initial_Value Bool)
 
    ;; Stateful inputs 
    
@@ -746,6 +894,55 @@
          Step_to_Step 
          pre_prev_I
          pre_O)))))
+
+
+;; Condact of node Cross_Channel_Bus
+(define-fun C_Cross_Channel_Bus
+
+  (
+
+   (clk Bool)
+   
+   (I Bool)
+   (O_Initial_Value Bool)
+   (prev_I Bool)
+   (pre_prev_I Bool)
+   (state Cross_Channel_Bus_state)
+   (pre_state Cross_Channel_Bus_state)
+   (O Bool)
+   (pre_O Bool)
+
+   )
+
+  Bool
+ 
+  (and
+
+   (=> 
+    clk
+    (T_Cross_Channel_Bus
+     I
+     O_Initial_Value
+     prev_I
+     pre_prev_I
+     state
+     pre_state
+     O
+     pre_O))
+
+   (=>
+    clk
+    (and
+     (= prev_I pre_prev_I)
+     (= state pre_state)
+     (= O pre_O)))
+
+   )
+
+  )
+
+
+  
 
 
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -953,82 +1150,68 @@
   (and
    
    ;; Condact with activation condition 
-   (=> 
-    CLK1 
-    (T_PFS_Side 
-     true 
-     true 
-     TS 
-     pre_TS
-     RL_O 
-     pre_RL_O
-     PFS_Side_0_riseTS_O 
-     PFS_Side_0_riseOSPF_O 
-     PFS_Side_0_PFSL_PFS 
-     PFS_Side_0_pre_PFSL_PFS 
-     PFS_Side_0_PFS_Logic_0_state
-     PFS_Side_0_PFS_Logic_0_pre_state
-     PFS_Side_0_PFS_Logic_0_inhibit_count
-     PFS_Side_0_PFS_Logic_0_pre_inhibit_count
-     LS_PFS
-     pre_LS_PFS))
-
-   (=> (not CLK1) (= LS_PFS true))
+   (C_PFS_Side 
+    CLK1
+    true 
+    true 
+    TS 
+    pre_TS
+    RL_O 
+    pre_RL_O
+    PFS_Side_0_riseTS_O 
+    PFS_Side_0_riseOSPF_O 
+    PFS_Side_0_PFSL_PFS 
+    PFS_Side_0_pre_PFSL_PFS 
+    PFS_Side_0_PFS_Logic_0_state
+    PFS_Side_0_PFS_Logic_0_pre_state
+    PFS_Side_0_PFS_Logic_0_inhibit_count
+    PFS_Side_0_PFS_Logic_0_pre_inhibit_count
+    LS_PFS
+    pre_LS_PFS)
+  
+   ;; Condact with activation condition 
+   (C_PFS_Side 
+    CLK3
+    false 
+    false 
+    TS 
+    pre_TS 
+    LR_O 
+    pre_LR_O 
+    PFS_Side_1_riseTS_O 
+    PFS_Side_1_riseOSPF_O 
+    PFS_Side_1_PFSL_PFS 
+    PFS_Side_1_pre_PFSL_PFS 
+    PFS_Side_1_PFS_Logic_0_state
+    PFS_Side_1_PFS_Logic_0_pre_state
+    PFS_Side_1_PFS_Logic_0_inhibit_count
+    PFS_Side_1_PFS_Logic_0_pre_inhibit_count
+    RS_PFS
+    pre_RS_PFS)
 
    ;; Condact with activation condition 
-   (=> 
-    CLK3 
-    (T_PFS_Side 
-     false 
-     false 
-     TS 
-     pre_TS 
-     LR_O 
-     pre_LR_O 
-     PFS_Side_1_riseTS_O 
-     PFS_Side_1_riseOSPF_O 
-     PFS_Side_1_PFSL_PFS 
-     PFS_Side_1_pre_PFSL_PFS 
-     PFS_Side_1_PFS_Logic_0_state
-     PFS_Side_1_PFS_Logic_0_pre_state
-     PFS_Side_1_PFS_Logic_0_inhibit_count
-     PFS_Side_1_PFS_Logic_0_pre_inhibit_count
-     RS_PFS
-     pre_RS_PFS))
-
-   (=> (not CLK3) (= RS_PFS false))
+   (C_Cross_Channel_Bus 
+    CLK2
+    LS_PFS 
+    true 
+    Cross_Channel_Bus_0_prev_I
+    Cross_Channel_Bus_0_pre_prev_I
+    Cross_Channel_Bus_0_state
+    Cross_Channel_Bus_0_pre_state
+    LR_O
+    pre_LR_O)
 
    ;; Condact with activation condition 
-   (=> 
-    CLK2 
-    (T_Cross_Channel_Bus 
-     LS_PFS 
-     true 
-     true 
-     Cross_Channel_Bus_0_prev_I
-     Cross_Channel_Bus_0_pre_prev_I
-     Cross_Channel_Bus_0_state
-     Cross_Channel_Bus_0_pre_state
-     LR_O
-     pre_LR_O))
-   
-   (=> (not CLK2) (= LR_O true))
-
-   ;; Condact with activation condition 
-   (=> 
-    CLK4 
-    (T_Cross_Channel_Bus 
-     RS_PFS 
-     false 
-     false 
-     Cross_Channel_Bus_1_prev_I
-     Cross_Channel_Bus_1_pre_prev_I
-     Cross_Channel_Bus_1_state
-     Cross_Channel_Bus_1_pre_state
-     RL_O
-     pre_RL_O))
-
-   (=> (not CLK4) (= RL_O false))
+   (C_Cross_Channel_Bus 
+    CLK4
+    RS_PFS 
+    false 
+    Cross_Channel_Bus_1_prev_I
+    Cross_Channel_Bus_1_pre_prev_I
+    Cross_Channel_Bus_1_state
+    Cross_Channel_Bus_1_pre_state
+    RL_O
+    pre_RL_O)
 
    (= LPFS LS_PFS)
    (= RPFS RS_PFS)

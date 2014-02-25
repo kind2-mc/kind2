@@ -28,6 +28,15 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* List functions                                                         *)
 (* ********************************************************************** *)
 
+(* Return the index of the first element that satisfies the predicate [p] *)
+let list_index p = 
+  let rec list_index p i = function
+    | [] -> raise Not_found
+    | x :: l -> if p x then i else list_index p (succ i) l
+  in
+  list_index p 0 
+
+  
 (* Return the first n elements of a list *)
 let rec list_first_n' a l n =
   if n = 0 then a else 
