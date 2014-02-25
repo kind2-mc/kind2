@@ -148,6 +148,48 @@ else
 fi
 
 
+# Check for MathSAT5
+
+# yes if --with-mathsat5, no if --without-mathsat5, or <arg> if --with-mathsat5=<arg>
+AC_ARG_WITH(
+    [mathsat5],
+    [AS_HELP_STRING([--with-mathsat5@<:@=ARG@:>@], [Enable MathSAT5 and use executable ARG @<:@default: search for MathSAT5 in path@:>@])],
+    [],
+    [with_mathsat5=yes])
+
+# MATHSAT5 disabled 
+if test "x$with_mathsat5" = "xno"; then
+    have_mathsat5=no
+
+# MATHSAT5 enabled, search in path
+elif test "x$with_mathsat5" = "xyes"; then
+
+    # Check for MATHSAT5 in path     
+    AC_PATH_PROG([with_mathsat5],[mathsat],[no])
+
+    # MATHSAT5 found in path? 
+    if test "x$with_mathsat5" != "xno"; then
+
+        # Enable MATHSAT5 and use found executable
+        have_mathsat5=yes
+        MATHSAT5_BIN=$with_mathsat5
+
+    else
+
+        # Disable MATHSAT5
+        have_mathsat5=no
+
+    fi
+
+else
+
+    # Enable MATHSAT5 and use given executable
+    have_mathsat5=yes
+    MATHSAT5_BIN=$with_mathsat5
+
+fi
+
+
 # Default SMT solver
 AC_ARG_WITH(
     [default_smtsolver],

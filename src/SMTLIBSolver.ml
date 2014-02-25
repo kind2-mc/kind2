@@ -69,10 +69,20 @@ let smtlibsolver_config_cvc4 =
   { solver_cmd = [| cvc4_bin; "--lang"; "smt2"; "--incremental" |] }
 
 
+(* Path and name of MathSAT5 executable *)
+let mathsat5_bin = Flags.mathsat5_bin () 
+
+
+(* Configuration for MathSAT5 *)
+let smtlibsolver_config_mathsat5 = 
+  { solver_cmd = [| mathsat5_bin; "-input=smt2" |] }
+
+
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> smtlibsolver_config_z3
   | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
+  | `MathSAT5 -> smtlibsolver_config_mathsat5
   | _ -> 
     (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver");
     failwith "SMTLIBSolver.config_of_flags"
@@ -90,10 +100,17 @@ let cvc4_check_sat_limited_cmd _ =
   failwith "check-sat with timeout not implemented for CVC4"
 
 
+(* Command to limit check-sat in MathSAT5 to run for the given numer of ms
+   at most *)
+let mathsat5_check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for MathSAT5"
+
+
 (* Command to limit check-sat to run for the given numer of ms at most *)
 let check_sat_limited_cmd ms = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> z3_check_sat_limited_cmd ms
   | `CVC4_SMTLIB -> cvc4_check_sat_limited_cmd ms
+  | `MathSAT5 -> mathsat5_check_sat_limited_cmd ms
   | _ -> 
     (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver");
     failwith "SMTLIBSolver.check_sat_limited_cmd"
