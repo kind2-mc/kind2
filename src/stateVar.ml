@@ -226,7 +226,7 @@ let mk_state_var n d t =
     if 
 
       (* Return type matches previous declaration? *)
-      type_of_state_var v = t
+      Type.equal_types (type_of_state_var v) t
 
     then
 

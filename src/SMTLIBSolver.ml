@@ -69,10 +69,20 @@ let smtlibsolver_config_cvc4 =
   { solver_cmd = [| cvc4_bin; "--lang"; "smt2"; "--incremental" |] }
 
 
+(* Path and name of MathSAT5 executable *)
+let mathsat5_bin = Flags.mathsat5_bin () 
+
+
+(* Configuration for MathSAT5 *)
+let smtlibsolver_config_mathsat5 = 
+  { solver_cmd = [| mathsat5_bin; "-input=smt2" |] }
+
+
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> smtlibsolver_config_z3
   | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
+  | `MathSAT5 -> smtlibsolver_config_mathsat5
   | _ -> 
     (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver");
     failwith "SMTLIBSolver.config_of_flags"
@@ -90,10 +100,17 @@ let cvc4_check_sat_limited_cmd _ =
   failwith "check-sat with timeout not implemented for CVC4"
 
 
+(* Command to limit check-sat in MathSAT5 to run for the given numer of ms
+   at most *)
+let mathsat5_check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for MathSAT5"
+
+
 (* Command to limit check-sat to run for the given numer of ms at most *)
 let check_sat_limited_cmd ms = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> z3_check_sat_limited_cmd ms
   | `CVC4_SMTLIB -> cvc4_check_sat_limited_cmd ms
+  | `MathSAT5 -> mathsat5_check_sat_limited_cmd ms
   | _ -> 
     (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver");
     failwith "SMTLIBSolver.check_sat_limited_cmd"
@@ -459,13 +476,13 @@ let create_instance
   Unix.close solver_stdin_in;
   Unix.close solver_stdout_out; 
   Unix.close solver_stderr_out; 
-  
+
   (* Get an output channel to read from solver's stdout *)
   let solver_stdout_ch = Unix.in_channel_of_descr solver_stdout_in in
 
   (* Create a lexing buffer on solver's stdout *)
   let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
-  
+
   (* Create the solver instance *)
   let solver =
     { solver_config = config;
@@ -485,16 +502,23 @@ let create_instance
    with 
      | Success -> () 
      | _ -> raise (Failure ("Cannot set option print-success")));
-  
 
-  (* Run in interactive mode *)
-  (match 
-     let cmd = "(set-option :interactive-mode true)" in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> raise (Failure ("Cannot set option interactive-mode")));
+  (* Interactive mode not needed for MathSAT5 *)
+  (match Flags.smtsolver () with 
+    | `Z3_SMTLIB -> 
+
+      (* Run in interactive mode *)
+      (match 
+         let cmd = "(set-option :interactive-mode true)" in
+         (debug smt "%s" cmd in
+          execute_command solver cmd 0)
+       with 
+         | Success -> () 
+         | _ -> raise (Failure ("Cannot set option interactive-mode")))
+
+    | _ -> ()
+
+  );
 
   (* Set logic *)
   (match logic with 
@@ -521,7 +545,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-assignments")));
-  
+
   (* Produce models to be queried with get-model, default is false per
      SMTLIB specification *)
   if produce_models then
@@ -532,7 +556,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-models")));
-  
+(*
   (* Produce proofs, default is false per SMTLIB specification *)
   if produce_proofs then
     (match 
@@ -542,7 +566,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-proofs")));
-
+*)
   (* Produce unsatisfiable cores, default is false per SMTLIB
      specification *)
   if produce_cores then

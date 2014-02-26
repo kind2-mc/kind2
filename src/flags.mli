@@ -32,7 +32,7 @@ val timeout_wall : unit -> float
 val timeout_virtual : unit -> float
 
 (** SMT Solver to use *)
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
 val smtsolver : unit -> smtsolver 
 
 (** SMT Logic to use *)
@@ -46,6 +46,10 @@ val z3_bin : unit -> z3_bin
 (** Executable of CVC4 solver *)
 type cvc4_bin = string
 val cvc4_bin : unit -> cvc4_bin
+
+(** Executable of MathSAT5 solver *)
+type mathsat5_bin = string
+val mathsat5_bin : unit -> mathsat5_bin
 
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list

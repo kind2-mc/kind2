@@ -765,7 +765,10 @@ let quantified_smtexpr_of_term quantifier vars term =
             with Not_found -> smtexpr_of_var v)
 
          (* Change divisibility symbol to modulus operator *)
-         | t -> Term.divisible_to_mod t)
+         | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
+
+      )
+
 
       term
   in
