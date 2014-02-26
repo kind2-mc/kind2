@@ -72,7 +72,14 @@ module Kindtype_node = struct
   let hash = Hashtbl.hash 
 
   (* Equality of types *)
-  let equal = (=)
+  let rec equal t1 t2 = match t1, t2 with 
+    | Bool, Bool -> true
+    | Int, Int -> true
+    | IntRange (l1, u1), IntRange (l2, u2) -> Numeral.equal l1 l2 && Numeral.equal u1 u2 
+    | Real, Real -> true
+    | BV i, BV j -> i = j
+    | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
+    | _ -> false
 
 end
 
