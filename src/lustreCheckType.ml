@@ -23,6 +23,8 @@ module A = LustreAst
 module I = LustreIdent
 module T = LustreType
 module E = LustreExpr
+module N = LustreNode
+
 module ISet = I.LustreIdentSet
 
 (* Call to a node that is only defined later
@@ -48,275 +50,6 @@ let sort_indexed_pairs list =
 (* ******************************************************************** *)
 (* Data structures                                                      *)
 (* ******************************************************************** *)
-
-(* A node
-
-   Nodes are normalized for easy translation into a transition system,
-   mainly by introducing new variables. A LustreExpr.t does not
-   contain node calls, temporal operators or expressions under a pre
-   operator. Node equations become a map of identifiers to expressions
-   in node_eqs, all node calls are in node_calls as a list of tuples
-   containing fresh variables the node output is assigned to and the
-   expressions for the node input.
-
-   The node signature as input and output variables as well as its
-   local variables is in [node_inputs], [node_outputs] and
-   [node_vars], respectively. Local constants are propagated and do
-   not need to be stored.
-
-   Assertions, properties to prove and contracts as assumptions and
-   guarantees are lists of expressions in [node_asserts], [node_props],
-   [node_requires], and [node_ensures].
-
-   The flag [node_is_main] is set if the node has been annotated as
-   main, it is not checked if more than one node or no node at all may
-   have that annotation.
-
-*)
-type node_context = 
-
-  { 
-
-    (* Input variables of node, some flagged as constant
-
-       The order of the list is important, it is the order the
-       parameters in the declaration. *)
-    node_inputs : 
-      (LustreIdent.t * (((LustreIdent.index * LustreType.t) list) * bool)) list;
-
-    (* Output variables of node 
-
-       The order of the list is important, it is the order the
-       parameters in the declaration. *)
-    node_outputs : 
-      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
-
-    (* Local variables of node 
-
-       The order of the list is irrelevant, we are doing dependency
-       analysis and cone of influence reduction later. *)
-    node_vars :
-      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
-
-    (* Equations for local and output variables *)
-    node_eqs : (LustreIdent.t * LustreExpr.t) list;
-
-    (* Node calls with activation condition: variables capturing the
-       outputs, the Boolean activation condition, the name of the
-       called node, expressions for input parameters and expression
-       for initialization *)
-    node_calls : 
-      ((LustreIdent.t * LustreType.t) list * 
-         LustreExpr.t * 
-         LustreIdent.t * 
-         LustreExpr.t list * 
-         LustreExpr.t list) list;
-
-    (* Assertions of node *)
-    node_asserts : LustreExpr.t list;
-
-    (* Proof obligations for node *)
-    node_props : LustreExpr.t list;
-
-    (* Contract for node, assumptions *)
-    node_requires : LustreExpr.t list;
-
-    (* Contract for node, guarantees *)
-    node_ensures : LustreExpr.t list;
-
-    (* Node is annotated as main node *)
-    node_is_main : bool }
-
-
-(* An empty node *)
-let init_node_context = 
-  { node_inputs = [];
-    node_outputs = [];
-    node_vars = [];
-    node_eqs = [];
-    node_calls = [];
-    node_asserts = [];
-    node_props = [];
-    node_requires = [];
-    node_ensures = [];
-    node_is_main = false }
-
-
-(* Pretty-print a node input *)
-let pp_print_node_input safe ppf (ident, (index_list, is_const)) =
-
-  Format.fprintf ppf
-    "%t%a"
-    (function ppf -> if is_const then Format.fprintf ppf "const ")
-    (pp_print_list 
-       (fun ppf (j, t) -> 
-         Format.fprintf ppf 
-           "%a: %a" 
-           (I.pp_print_ident safe) (I.push_index j ident)
-           (T.pp_print_lustre_type safe) t)
-       ";@ ")
-    index_list
-
-
-(* Pretty-print a node output *)
-let pp_print_node_output safe ppf (ident, index_list) =
-
-  Format.fprintf ppf
-    "%a"
-    (pp_print_list 
-       (fun ppf (j, t) -> 
-         Format.fprintf ppf 
-           "%a: %a" 
-           (I.pp_print_ident safe) (I.push_index j ident)
-           (T.pp_print_lustre_type safe) t)
-       ";@ ")
-    index_list
-
-
-(* Pretty-print a node local variable *)
-let pp_print_node_var safe ppf (ident, index_list) =
-
-  Format.fprintf ppf
-    "%a"
-    (pp_print_list 
-       (fun ppf (j, t) -> 
-         Format.fprintf ppf 
-           "%a: %a;" 
-           (I.pp_print_ident safe) (I.push_index j ident)
-           (T.pp_print_lustre_type safe) t)
-       "@ ")
-    index_list
-
-
-(* Pretty-print a node equation *)
-let pp_print_node_eq safe ppf (ident, expr) = 
-
-  Format.fprintf ppf
-    "@[<hv 2>%a =@ %a;@]"
-    (I.pp_print_ident safe) ident
-    (E.pp_print_lustre_expr safe) expr
-
-
-(* Pretty-print a node call *)
-let pp_print_node_call safe ppf = function 
-
-  (* Node call on the base clock *)
-  | (out_vars, act_expr, node, exprs, _) when act_expr = E.t_true -> 
-
-    Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>%a(%a);@]@]"
-      (pp_print_list 
-         (fun ppf (i, _) -> I.pp_print_ident safe ppf i)
-         ",@ ") 
-      out_vars
-      (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
-
-  (* Node call not on the base clock, a condact *)
-  | (out_vars, act_expr, node, exprs, init_exprs) ->
-     
-    Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
-      (pp_print_list 
-         (fun ppf (i, _) -> I.pp_print_ident safe ppf i)
-         ",@ ") 
-      out_vars
-      (E.pp_print_lustre_expr safe) act_expr
-      (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") init_exprs
-
-
-(* Pretty-print an assertion *)
-let pp_print_node_assert safe ppf expr = 
-
-  Format.fprintf ppf
-    "@[<hv 2>assert@ %a;@]"
-    (E.pp_print_lustre_expr safe) expr
-
-
-(* Pretty-print a property *)
-let pp_print_node_prop safe ppf expr = 
-
-  Format.fprintf ppf
-    "@[<hv 2>--%%PROPERTY@ %a;@]"
-    (E.pp_print_lustre_expr safe) expr
-    
-
-(* Pretty-print an assumption *)
-let pp_print_node_requires safe ppf expr = 
-
-  Format.fprintf ppf
-    "@[<hv 2>--@@requires@ %a;@]"
-    (E.pp_print_lustre_expr safe) expr
-
-
-(* Pretty-print a guarantee *)
-let pp_print_node_ensures safe ppf expr = 
-
-  Format.fprintf ppf
-    "@[<hv 2>--@@ensures %a;@]"
-    (E.pp_print_lustre_expr safe) expr
-
-
-(* Pretty-print a node *)
-let pp_print_node_context 
-    safe
-    node_ident 
-    ppf 
-    { node_inputs; 
-      node_outputs; 
-      node_vars; 
-      node_eqs; 
-      node_calls; 
-      node_asserts; 
-      node_props; 
-      node_requires; 
-      node_ensures;
-      node_is_main } = 
-
-  (* Output a space if list is not empty *)
-  let space_if_nonempty = function
-    | [] -> (function _ -> ())
-    | _ -> (function ppf -> Format.fprintf ppf "@ ")
-  in
-
-  Format.fprintf ppf 
-    "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
-     returns@ @[<hv 1>(%a)@];@]@ \
-     %t%t\
-     @[<hv 2>let@ \
-     %a%t\
-     %t\
-     %a%t\
-     %a%t\
-     %a%t\
-     %a%t\
-     %a@;<1 -2>\
-     tel;@]@]"  
-    (I.pp_print_ident safe) node_ident
-    (pp_print_list (pp_print_node_input safe) ";@ ") node_inputs
-    (pp_print_list (pp_print_node_output safe) ";@ ") node_outputs
-    (function ppf -> 
-      if node_vars = [] then () else 
-        Format.fprintf ppf 
-          "@[<hv 2>var@ %a@]" 
-          (pp_print_list (pp_print_node_var safe) "@ ") node_vars)
-    (space_if_nonempty node_vars)
-    (pp_print_list (pp_print_node_eq safe) "@ ") node_eqs
-    (space_if_nonempty node_eqs)
-    (function ppf -> if node_is_main then Format.fprintf ppf "--%%MAIN@,")
-    (pp_print_list (pp_print_node_requires safe) "@ ") node_requires
-    (space_if_nonempty node_requires)
-    (pp_print_list (pp_print_node_ensures safe) "@ ") node_ensures
-    (space_if_nonempty node_ensures)
-    (pp_print_list (pp_print_node_prop safe) "@ ") node_props
-    (space_if_nonempty node_props)
-    (pp_print_list (pp_print_node_assert safe) "@ ") node_asserts
-    (space_if_nonempty node_asserts)
-    (pp_print_list (pp_print_node_call safe) "@ ") node_calls
-    
-
 
 (* Context for typing *)
 type lustre_context = 
@@ -350,7 +83,7 @@ type lustre_context =
       consts : (LustreIdent.t * LustreExpr.t) list; 
 
       (* Nodes *)
-      nodes : (LustreIdent.t * node_context) list;
+      nodes : (LustreIdent.t * LustreNode.t) list;
 
     }
 
@@ -1353,7 +1086,7 @@ let rec eval_ast_expr'
     | (index, A.Condact (pos, cond, ident, args, init)) :: tl -> 
 
       (* Inputs and outputs of called node *)
-      let { node_inputs; node_outputs } = 
+      let { N.inputs = node_inputs; N.outputs = node_outputs } = 
 
         try 
 
@@ -1610,7 +1343,7 @@ let rec eval_ast_expr'
     | (index, A.Call (pos, ident, expr_list)) :: tl -> 
 
       (* Inputs and outputs of called node *)
-      let { node_inputs; node_outputs } = 
+      let { N.inputs = node_inputs; N.outputs = node_outputs } = 
 
         try 
 
@@ -2411,6 +2144,10 @@ let fold_ast_type context f accum t =
   fold_ast_type' context f accum [(I.empty_index, t)] 
 
 
+(* ******************************************************************** *)
+(* Constant declarations                                                *)
+(* ******************************************************************** *)
+
 
 (* Add a typed or untyped constant declaration to the context *)
 let add_typed_decl
@@ -2469,9 +2206,17 @@ let add_typed_decl
           context
           (fun () type_index def_type ->
              let { E.expr_type } = 
-               try List.assoc type_index expr_val with Not_found -> raise E.Type_mismatch 
+               try 
+                 List.assoc type_index expr_val 
+               with Not_found -> 
+                 raise E.Type_mismatch 
              in
-             if T.check_type def_type expr_type then () else raise E.Type_mismatch)
+             if 
+               T.check_type def_type expr_type 
+             then
+               () 
+             else 
+               raise E.Type_mismatch)
           ()
           t
 
@@ -2538,8 +2283,6 @@ let add_const_decl context = function
     add_typed_decl ident context expr (Some type_expr)
   
 
-
-
 (* ******************************************************************** *)
 (* Node declarations                                                    *)
 (* ******************************************************************** *)
@@ -2550,7 +2293,7 @@ let add_node_input_decl
     ident
     is_const
     (({ type_ctx; index_ctx } as context), 
-     ({ node_inputs } as node))
+     ({ N.inputs = node_inputs } as node))
     index 
     basic_type =
   
@@ -2578,14 +2321,14 @@ let add_node_input_decl
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with node_inputs = node_inputs' })
+   { node with N.inputs = node_inputs' })
 
 
 (* Add declaration of a node output to contexts *)
 let add_node_output_decl
     ident
     (({ type_ctx; index_ctx } as context), 
-     ({ node_outputs } as node))
+     ({ N.outputs = node_outputs } as node))
     index 
     basic_type =
   
@@ -2613,14 +2356,14 @@ let add_node_output_decl
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with node_outputs = node_outputs' })
+   { node with N.outputs = node_outputs' })
 
 
 (* Add declaration of a node local variable or constant to contexts *)
 let add_node_var_decl
     ident
     (({ type_ctx; index_ctx } as context), 
-     ({ node_vars } as node))
+     ({ N.locals = node_vars } as node))
     index 
     basic_type =
   
@@ -2648,14 +2391,14 @@ let add_node_var_decl
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with node_vars = node_vars' })
+   { node with N.locals = node_vars' })
 
 
 (* Add all node inputs to contexts *)
 let rec parse_node_inputs context node = function
 
   (* All inputs parsed, return in original order *)
-  | [] -> (context, { node with node_inputs = List.rev node.node_inputs })
+  | [] -> (context, { node with N.inputs = List.rev node.N.inputs })
 
 
   (* Identifier must not be declared *)
@@ -2711,7 +2454,7 @@ let rec parse_node_inputs context node = function
 let rec parse_node_outputs context node = function
 
   (* All outputs parsed, return in original order *)
-  | [] -> (context, { node with node_outputs = List.rev node.node_outputs })
+  | [] -> (context, { node with N.outputs = List.rev node.N.outputs })
 
 
   (* Identifier must not be declared *)
@@ -2833,7 +2576,7 @@ let rec parse_node_locals context node = function
     parse_node_locals context' node tl
 
 
-
+(* Add abstracted variables and node calls to context *)
 let new_defs_to_context context node (vars, calls) =
 
   let context', node' = 
@@ -2867,6 +2610,7 @@ let new_defs_to_context context node (vars, calls) =
     calls
 
 
+(* Parse a statement (equation, assert or annotation) in a node *)
 let rec parse_node_equations 
     mk_new_var_ident
     mk_new_call_ident 
@@ -2916,9 +2660,9 @@ let rec parse_node_equations
             mk_new_call_ident 
             context'
             { node' with 
-                node_asserts = (expr :: node.node_asserts); 
-                node_eqs = new_vars @ node.node_eqs; 
-                node_calls = new_calls @ node.node_calls }
+                N.asserts = (expr :: node.N.asserts); 
+                N.equations = new_vars @ node.N.equations; 
+                N.calls = new_calls @ node.N.calls }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -2970,9 +2714,9 @@ let rec parse_node_equations
             mk_new_call_ident 
             context' 
             { node' with 
-                node_props = (expr :: node.node_props); 
-                node_eqs = new_vars @ node.node_eqs; 
-                node_calls = new_calls @ node.node_calls }
+                N.props = (expr :: node.N.props); 
+                N.equations = new_vars @ node.N.equations; 
+                N.calls = new_calls @ node.N.calls }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -3030,12 +2774,12 @@ let rec parse_node_equations
                          (try 
 
                             (* Return type if assigning to an output *)
-                            List.assoc ident node.node_outputs 
+                            List.assoc ident node.N.outputs 
 
                           with Not_found -> 
 
                             (* Return type if assigning to a local variable *)
-                            try List.assoc ident node.node_vars 
+                            try List.assoc ident node.N.locals
 
                             with Not_found -> 
 
@@ -3086,7 +2830,7 @@ let rec parse_node_equations
             if T.check_type expr_type ident_type then
 
               (* Add equation *)
-              { node with node_eqs = eq :: node.node_eqs }
+              { node with N.equations = eq :: node.N.equations }
 
             else
 
@@ -3120,9 +2864,9 @@ let rec parse_node_equations
                          l)
                   in
 
-                  let node_outputs' = List.map aux node.node_outputs in
+                  let node_outputs' = List.map aux node.N.outputs in
                   
-                  let node_vars' = List.map aux node.node_vars in
+                  let node_vars' = List.map aux node.N.locals in
 
 (*
               Format.printf 
@@ -3132,10 +2876,10 @@ let rec parse_node_equations
                 E.pp_print_lustre_expr range_expr;
 *)
                   { node with 
-                      node_outputs = node_outputs';
-                      node_vars = node_vars';
-                      node_eqs = eq :: node.node_eqs;
-                      node_props = range_expr :: node.node_props } 
+                      N.outputs = node_outputs';
+                      N.locals = node_vars';
+                      N.equations = eq :: node.N.equations;
+                      N.props = range_expr :: node.N.props } 
 
                 | _ -> 
 
@@ -3160,9 +2904,9 @@ let rec parse_node_equations
         mk_new_call_ident 
         context''
         { node'' with
-            node_eqs = new_vars @ node''.node_eqs; 
-            node_props = node''.node_props; 
-            node_calls = new_calls @ node''.node_calls }
+            N.equations = new_vars @ node''.N.equations; 
+            N.props = node''.N.props; 
+            N.calls = new_calls @ node''.N.calls }
         tl
 
 
@@ -3173,10 +2917,11 @@ let rec parse_node_equations
         mk_new_var_ident 
         mk_new_call_ident 
         context 
-        { node with node_is_main = true }
+        { node with N.is_main = true }
         tl
 
 
+(* Parse a contract annotation of a node *)
 let rec parse_node_contract 
     mk_new_var_ident 
     mk_new_call_ident
@@ -3218,9 +2963,9 @@ let rec parse_node_contract
             mk_new_call_ident 
             context' 
             { node' with 
-                node_requires = (expr :: node.node_requires); 
-                node_eqs = new_vars @ node.node_eqs; 
-                node_calls = new_calls @ node.node_calls }
+                N.requires = (expr :: node.N.requires); 
+                N.equations = new_vars @ node.N.equations; 
+                N.calls = new_calls @ node.N.calls }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -3264,9 +3009,9 @@ let rec parse_node_contract
             mk_new_call_ident 
             context' 
             { node' with 
-                node_ensures = (expr :: node.node_ensures); 
-                node_eqs = new_vars @ node.node_eqs;
-                node_calls = new_calls @ node.node_calls }
+                N.ensures = (expr :: node.N.ensures); 
+                N.equations = new_vars @ node.N.equations;
+                N.calls = new_calls @ node.N.calls }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -3279,122 +3024,6 @@ let rec parse_node_contract
                   "Ensures clause is not of Boolean type in %a" 
                   A.pp_print_position A.dummy_pos)))
 
-
-
-let rec node_var_dependencies init_or_step node_context node accum = 
-
-  (* Return expression either for the initial state or a step state *)
-  let init_or_step_of_expr { E.expr_init; E.expr_step } = 
-    if init_or_step then expr_init else expr_step 
-  in
-
-  function 
-    
-    | [] -> accum
-      
-    | ident :: tl -> 
-      
-      if 
-        
-        (* Variable is an input variable *)
-        List.exists 
-          (fun (ident', (indexes, _)) -> 
-             List.exists 
-               (fun (index', _) -> ident = I.push_index index' ident')
-               indexes)
-          node.node_inputs 
-          
-      then 
-        
-        (* No dependencies for inputs *)
-        node_var_dependencies 
-          init_or_step 
-          node_context
-          node
-          ((ident, ISet.empty) :: accum) 
-          tl
-          
-      else
-        
-          let vars = 
-
-            try 
-              
-              (* Get expression defining variable *)
-              let expr = 
-                List.assoc ident node.node_eqs 
-              in
-              
-              (* Get variables in expression *)
-              E.vars_of_expr (init_or_step_of_expr expr) 
-
-            (* Variable is not input or defined in an equation *)
-            with Not_found -> 
-              
-              try
-                
-                let rec aux ident = function
-                  | [] -> raise Not_found
-                  | (o, _, n, _, _ ) :: tl -> 
-                    let rec aux2 i = function
-                      | [] -> raise Not_found 
-                      | (v, _) :: _ when v = ident -> (n, i)
-                      | _ :: tl -> aux2 (succ i) tl
-                    in
-                    try aux2 0 o with Not_found -> aux ident tl
-                in
-                
-                let n, i = aux ident node.node_calls in
-                
-                Format.printf 
-                  "%a is at position %d in call to node %a@."
-                  (I.pp_print_ident false) ident 
-                  i
-                  (I.pp_print_ident false) n;
-                
-                []
-                
-              (* Variable is not input or defined in an equation or node
-                 call *)
-              with Not_found -> []
-                
-          in
-          
-          let vars_visited, vars_not_visited = 
-            List.partition
-              (fun ident -> List.mem_assoc ident accum)
-              vars
-          in
-
-          (* All dependent variables visited? *)
-          if vars_not_visited = [] then 
-            
-            let dependent_vars = 
-              List.fold_left
-                (fun a i -> 
-                   ISet.union a (List.assoc i accum))
-                ISet.empty
-                vars_visited
-            in
-            
-            (* First get dependencies of all dependent variables *)
-            node_var_dependencies 
-              init_or_step 
-              node_context
-              node 
-              ((ident, dependent_vars) :: accum)
-              tl
-              
-          else
-            
-            (* First get dependencies of all dependent variables *)
-            node_var_dependencies 
-              init_or_step 
-              node_context
-              node 
-              accum 
-              (vars_not_visited @ tl)
-              
 
 let parse_node_signature  
     node_ident
@@ -3424,7 +3053,7 @@ let parse_node_signature
 
   (* Parse inputs, add to global context and node context *)
   let local_context_inputs, node_context_inputs = 
-    parse_node_inputs global_context init_node_context inputs
+    parse_node_inputs global_context N.empty_node inputs
   in
 
   (* Parse outputs, add to local context and node context *)
@@ -3463,15 +3092,14 @@ let parse_node_signature
   (*
   Format.printf "%a@." pp_print_lustre_context local_context_locals;
 *)
-  Format.printf "%a@." (pp_print_node_context true node_ident) node_context_equations;
+  Format.printf "%a@." (N.pp_print_node true node_ident) node_context_equations;
 
   let var_dep = 
-    node_var_dependencies 
+    N.node_var_dependencies 
       false 
-      global_context.nodes
       node_context_equations
       []
-      (List.map fst node_context_equations.node_eqs)
+      (List.map fst node_context_equations.N.equations)
   in
   
   Format.printf "@[<v>%a@]@."

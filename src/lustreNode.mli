@@ -16,6 +16,92 @@
 
 *)
 
+(** A node
+
+    Nodes are normalized for easy translation into a transition system,
+    mainly by introducing new variables. A LustreExpr.t does not
+    contain node calls, temporal operators or expressions under a pre
+    operator. Node equations become a map of identifiers to expressions
+    in node_eqs, all node calls are in node_calls as a list of tuples
+    containing fresh variables the node output is assigned to and the
+    expressions for the node input.
+
+    The node signature as input and output variables as well as its
+    local variables is in [node_inputs], [node_outputs] and
+    [node_vars], respectively. Local constants are propagated and do
+    not need to be stored.
+
+    Assertions, properties to prove and contracts as assumptions and
+    guarantees are lists of expressions in [node_asserts], [node_props],
+    [node_requires], and [node_ensures].
+
+    The flag [node_is_main] is set if the node has been annotated as
+    main, it is not checked if more than one node or no node at all may
+    have that annotation.
+
+*)
+type t = 
+
+  { 
+
+    (** Input variables of node, some flagged as constant
+
+        The order of the list is important, it is the order the
+        parameters in the declaration. *)
+    inputs : 
+      (LustreIdent.t * (((LustreIdent.index * LustreType.t) list) * bool)) list;
+
+    (** Output variables of node
+
+        The order of the list is important, it is the order the
+        parameters in the declaration. *)
+    outputs : 
+      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
+
+    (** Local variables of node
+
+        The order of the list is irrelevant, we are doing dependency
+        analysis and cone of influence reduction later. *)
+    locals :
+      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
+
+    (** Equations for local and output variables *)
+    equations : (LustreIdent.t * LustreExpr.t) list;
+
+    (** Node calls with activation condition: variables capturing the
+        outputs, the Boolean activation condition, the name of the
+        called node, expressions for input parameters and expression
+        for initialization *)
+    calls : 
+      ((LustreIdent.t * LustreType.t) list * 
+       LustreExpr.t * 
+       LustreIdent.t * 
+       LustreExpr.t list * 
+       LustreExpr.t list) list;
+
+    (** Assertions of node *)
+    asserts : LustreExpr.t list;
+
+    (** Proof obligations for node *)
+    props : LustreExpr.t list;
+
+    (** Contract for node, assumptions *)
+    requires : LustreExpr.t list;
+
+    (** Contract for node, guarantees *)
+    ensures : LustreExpr.t list;
+
+    (** Node is annotated as main node *)
+    is_main : bool }
+
+(** The empty node *)
+val empty_node : t
+
+(** Pretty-print a node *)
+val pp_print_node : bool -> LustreIdent.t -> Format.formatter -> t -> unit 
+
+val node_var_dependencies : bool -> t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> LustreIdent.t list -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list
+
 (* 
    Local Variables:
    compile-command: "make -k"
