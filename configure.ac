@@ -148,66 +148,134 @@ else
 fi
 
 
-# Default SMT solver
+# Check for MathSAT5
+
+# yes if --with-mathsat5, no if --without-mathsat5, or <arg> if --with-mathsat5=<arg>
 AC_ARG_WITH(
-    [default_smtsolver],
-    [AS_HELP_STRING([--with-default-smtsolver@<:@=ARG@:>@], [Default SMT solver @<:@default: Z3 if possible, otherwise CVC4@:>@])],
+    [mathsat5],
+    [AS_HELP_STRING([--with-mathsat5@<:@=ARG@:>@], [Enable MathSAT5 and use executable ARG @<:@default: search for MathSAT5 in path@:>@])],
     [],
-    [with_default_smtsolver=z3])
+    [with_mathsat5=yes])
 
+# MATHSAT5 disabled 
+if test "x$with_mathsat5" = "xno"; then
+    have_mathsat5=no
 
-# Check if Z3 available
-if test "x$have_z3" = "xno"; then
+# MATHSAT5 enabled, search in path
+elif test "x$with_mathsat5" = "xyes"; then
 
-   # Check if CVC4 available
-   if test "x$have_cvc4" = "xno"; then
+    # Check for MATHSAT5 in path     
+    AC_PATH_PROG([with_mathsat5],[mathsat],[no])
 
-      AC_MSG_ERROR([Must have at least one SMT solver, use --with-z3 or --with-cvc4])
-   
-   else
+    # MATHSAT5 found in path? 
+    if test "x$with_mathsat5" != "xno"; then
 
-       # Only CVC4 available
-       AC_MSG_NOTICE([CVC4 is the default solver])
-       SMTSOLVER=SMTLIBSolver
-       SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
-           
-   fi     
+        # Enable MATHSAT5 and use found executable
+        have_mathsat5=yes
+        MATHSAT5_BIN=$with_mathsat5
+
+    else
+
+        # Disable MATHSAT5
+        have_mathsat5=no
+
+    fi
 
 else
 
-   # Check if CVC4 available
-   if test "x$have_cvc4" = "xno"; then
-   
-      # Only Z3 available
-      AC_MSG_NOTICE([Z3 is the default solver])
-      SMTSOLVER=SMTLIBSolver
-      SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
-
-   else
-
-      # Both CVC4 and Z3 available, check for default
-      if test "x$with_default_smtsolver" = "xz3"; then
-
-         AC_MSG_NOTICE([Z3 is the default solver])
-         SMTSOLVER=SMTLIBSolver
-         SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
-   
-      elif test "x$with_default_smtsolver" = "xcvc4"; then
-
-         AC_MSG_NOTICE([CVC4 is the default solver])
-         SMTSOLVER=SMTLIBSolver
-         SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
-
-      else
-
-        AC_MSG_ERROR([Unknown default SMT solver])
-
-      fi
-
-   fi 
+    # Enable MATHSAT5 and use given executable
+    have_mathsat5=yes
+    MATHSAT5_BIN=$with_mathsat5
 
 fi
 
+
+# Default SMT solver
+AC_ARG_WITH(
+    [default_smtsolver],
+    [AS_HELP_STRING([--with-default-smtsolver@<:@=ARG@:>@], [Default SMT solver @<:@default: Z3 if available, otherwise CVC4 if available, else MathSAT5@:>@])],
+    [],
+    [with_default_smtsolver=yes])
+
+
+# Z3 is set as default but not available
+if test "x$with_default_smtsolver" = "xz3" -a "x$have_z3" = "xno"; then
+
+    AC_MSG_ERROR([You selected Z3 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
+
+# Z3 is available and set as default
+elif test "x$with_default_smtsolver" = "xz3"; then
+     
+    AC_MSG_NOTICE([Z3 is the default solver])
+    SMTSOLVER=SMTLIBSolver
+    SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
+
+# CVC4 is set as default but not available
+elif test "x$with_default_smtsolver" = "xcvc4" -a "x$have_cvc4" = "xno"; then
+
+    AC_MSG_ERROR([You selected CVC4 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
+
+# CVC4 is available and set as default
+elif test "x$with_default_smtsolver" = "xcvc4"; then
+     
+    AC_MSG_NOTICE([CVC4 is the default solver])
+    SMTSOLVER=SMTLIBSolver
+    SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
+
+# MathSAT5 is set as default but not available
+elif test "x$with_default_smtsolver" = "xmathsat5" -a "x$have_mathsat5" = "xno"; then
+
+    AC_MSG_ERROR([You selected MathSAT5 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
+
+# MathSAT5 is available and set as default
+elif test "x$with_default_smtsolver" = "xmathsat5"; then  
+     
+    AC_MSG_NOTICE([MathSAT5 is the default solver])
+    SMTSOLVER=SMTLIBSolver
+    SMTLIBSOLVER_CONFIG=smtlibsolver_config_mathsat5
+
+# No default chosen 
+elif test "x$with_default_smtsolver" = "xyes"; then  
+
+    # Z3 is not available
+    if test "x$have_z3" = "xno"; then
+     
+        # CVC4 is not available
+        if test "x$have_cvc4" = "xno"; then
+     
+            # MathSAT5 is not available
+            if test "x$have_mathsat5" = "xno"; then
+     
+                AC_MSG_ERROR([Must have at least one SMT solver, use --with-z3, --with-cvc4 or --with-mathsat5])
+   
+            # MathSAT5 is available 
+            else
+
+                AC_MSG_NOTICE([MathSAT5 is the default solver])
+                SMTSOLVER=SMTLIBSolver
+                SMTLIBSOLVER_CONFIG=smtlibsolver_config_mathsat5
+
+            fi
+
+        # CVC4 is available 
+        else
+
+            AC_MSG_NOTICE([CVC4 is the default solver])
+            SMTSOLVER=SMTLIBSolver
+            SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
+
+        fi
+
+    # Z3 is available 
+    else
+
+        AC_MSG_NOTICE([Z3 is the default solver])
+        SMTSOLVER=SMTLIBSolver
+        SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
+
+    fi
+
+fi
 
 
 # Substitute for SMT solver
@@ -218,6 +286,9 @@ AC_SUBST(Z3_BIN)
 
 # Substitute for CVC4 binary
 AC_SUBST(CVC4_BIN)
+
+# Substitute for CVC4 binary
+AC_SUBST(MATHSAT5_BIN)
 
 
 

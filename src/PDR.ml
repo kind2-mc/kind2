@@ -1892,7 +1892,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
        pp_print_frames frames
    in
 
-  (debug smt
+  (debug pdr
      "@[<v>Context only contains properties, invariants and the \
         transition relation@,@[<hv>%a@]@]"
      HStringSExpr.pp_print_sexpr_list
@@ -2003,7 +2003,11 @@ let main transSys =
 
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
-    S.new_solver ~produce_assignments:true ~produce_cores:true logic
+    S.new_solver
+      ~produce_models:true
+      ~produce_assignments:true
+      ~produce_cores:true 
+      logic
   in
 
   (* Save solver instance for clean exit *)
@@ -2037,7 +2041,11 @@ let main transSys =
   (* Create new solver instance to reason about counterexamples in
      frames *)
   let solver_frames = 
-    S.new_solver ~produce_assignments:true ~produce_cores:true logic
+    S.new_solver
+      ~produce_models:true
+      ~produce_assignments:true
+      ~produce_cores:true 
+      logic
   in
 
   (* Save solver instance for clean exit *)
@@ -2084,7 +2092,10 @@ let main transSys =
   (* Create new solver instance for all other queries (subsumption,
      invariance of blocking clauses) *)
   let solver_misc = 
-    S.new_solver ~produce_assignments:true logic
+    S.new_solver
+      ~produce_models:true
+      ~produce_assignments:true 
+      logic
   in
 
   (* Save solver instance for clean exit *)

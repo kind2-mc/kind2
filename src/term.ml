@@ -952,6 +952,27 @@ let divisible_to_mod term =
     | _ -> term 
 
 
+(* Convert negative numerals and decimals to negative terms *)
+let nums_to_pos_nums term = match T.node_of_t term with 
+
+  | T.Leaf s -> 
+
+    (match Symbol.node_of_symbol s with 
+
+      (* Negative numeral *)
+      | `NUMERAL n when Numeral.(n < zero) ->
+        mk_minus [mk_num Numeral.(abs n)]
+        
+      (* Negative decimal *)
+      | `DECIMAL n when Decimal.(n < zero) -> 
+        mk_minus [mk_dec Decimal.(abs n)]
+
+     (* Return other terms unchanged *)
+      | _ -> term)
+
+  (* Return other terms unchanged *)
+  | _ -> term 
+
 
 (* Infix notation for constructors *)
 module Abbrev = 
