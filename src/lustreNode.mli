@@ -92,7 +92,10 @@ type t =
     ensures : LustreExpr.t list;
 
     (** Node is annotated as main node *)
-    is_main : bool }
+    is_main : bool;
+
+    (** Dependencies of the output variables on input variables *)
+    output_input_dep : int list list }
 
 (** The empty node *)
 val empty_node : t
@@ -100,7 +103,9 @@ val empty_node : t
 (** Pretty-print a node *)
 val pp_print_node : bool -> LustreIdent.t -> Format.formatter -> t -> unit 
 
-val node_var_dependencies : bool -> t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> LustreIdent.t list -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list
+val node_var_dependencies : bool -> (LustreIdent.t * t) list -> t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> (LustreIdent.t * LustreIdent.t list) list -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list
+
+val output_input_dep_of_var_dep : t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> int list list
 
 (* 
    Local Variables:

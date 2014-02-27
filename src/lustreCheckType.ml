@@ -3097,16 +3097,25 @@ let parse_node_signature
   let var_dep = 
     N.node_var_dependencies 
       false 
+      global_context.nodes
       node_context_equations
       []
-      (List.map fst node_context_equations.N.equations)
+      (List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations)
   in
   
+  let node_context_deps = 
+    { node_context_equations with 
+        N.output_input_dep = 
+          N.output_input_dep_of_var_dep 
+            node_context_equations 
+            var_dep } 
+  in
+
   Format.printf "@[<v>%a@]@."
     (pp_print_list 
       (fun ppf (v, d) ->
         Format.fprintf ppf 
-          "%a@ %a"
+          "@[<h>%a@ %a@]"
           (I.pp_print_ident false) v 
           (pp_print_list 
              (I.pp_print_ident false)
@@ -3115,8 +3124,7 @@ let parse_node_signature
       "@,")
     var_dep;
           
-  
-  node_context_equations
+  node_context_deps
 
 
 

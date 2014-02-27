@@ -100,7 +100,10 @@ type t =
     ensures : LustreExpr.t list;
 
     (* Node is annotated as main node *)
-    is_main : bool }
+    is_main : bool;
+
+    (* Dependencies of the output variables on input variables *)
+    output_input_dep : int list list }
 
 
 (* An empty node *)
@@ -114,7 +117,8 @@ let empty_node =
     props = [];
     requires = [];
     ensures = [];
-    is_main = false }
+    is_main = false;
+    output_input_dep = []}
 
 
 (* Pretty-print a node input *)
@@ -293,8 +297,8 @@ let pp_print_node
     
 
 
-(* *)
-let rec node_var_dependencies init_or_step node accum = 
+(* Calculate dependencies of variables *)
+let rec node_var_dependencies init_or_step nodes node accum = 
 
   (* Return expression either for the initial state or a step state *)
   let init_or_step_of_expr { E.expr_init; E.expr_step } = 
@@ -302,13 +306,21 @@ let rec node_var_dependencies init_or_step node accum =
   in
 
   function 
-    
+
+    (* Return all calculated dependencies *)
     | [] -> accum
-      
-    | ident :: tl -> 
-      
+
+    (* Calculate dependency of variable [ident], which all variables
+       in [dep] depend on *)
+    | (ident, dep) :: tl -> 
+
+      Format.printf 
+        "@[<h>node_var_dependencies %a (%a)@]@."
+        (I.pp_print_ident false) ident
+        (pp_print_list (I.pp_print_ident false) "@ ") dep;
+
       if 
-        
+
         (* Variable is an input variable *)
         List.exists 
           (fun (ident', (indexes, _)) -> 
@@ -316,95 +328,186 @@ let rec node_var_dependencies init_or_step node accum =
                (fun (index', _) -> ident = I.push_index index' ident')
                indexes)
           node.inputs 
-          
+
       then 
-        
+
         (* No dependencies for inputs *)
         node_var_dependencies 
           init_or_step 
+          nodes
           node
           ((ident, ISet.empty) :: accum) 
           tl
-          
+
       else
-        
-          let vars = 
 
-            try 
-              
-              (* Get expression defining variable *)
-              let expr = 
-                List.assoc ident node.equations 
-              in
-              
-              (* Get variables in expression *)
-              E.vars_of_expr (init_or_step_of_expr expr) 
+        (* Variables this variable depends on *)
+        let vars = 
 
-            (* Variable is not input or defined in an equation *)
-            with Not_found -> 
-              
-              try
-                
-                let rec aux ident = function
-                  | [] -> raise Not_found
-                  | (o, _, n, _, _ ) :: tl -> 
-                    let rec aux2 i = function
-                      | [] -> raise Not_found 
-                      | (v, _) :: _ when v = ident -> (n, i)
-                      | _ :: tl -> aux2 (succ i) tl
-                    in
-                    try aux2 0 o with Not_found -> aux ident tl
-                in
-                
-                let n, i = aux ident node.calls in
-                
-                Format.printf 
-                  "%a is at position %d in call to node %a@."
-                  (I.pp_print_ident false) ident 
-                  i
-                  (I.pp_print_ident false) n;
-                
-                []
-                
-              (* Variable is not input or defined in an equation or node
-                 call *)
-              with Not_found -> []
-                
-          in
-          
-          let vars_visited, vars_not_visited = 
-            List.partition
-              (fun ident -> List.mem_assoc ident accum)
-              vars
-          in
+          try 
 
-          (* All dependent variables visited? *)
-          if vars_not_visited = [] then 
-            
-            let dependent_vars = 
-              List.fold_left
-                (fun a i -> 
-                   ISet.union a (List.assoc i accum))
-                ISet.empty
-                vars_visited
+            (* Get expression defining variable *)
+            let expr = 
+              List.assoc ident node.equations 
             in
-            
-            (* First get dependencies of all dependent variables *)
-            node_var_dependencies 
-              init_or_step 
-              node 
-              ((ident, dependent_vars) :: accum)
-              tl
-              
-          else
-            
-            (* First get dependencies of all dependent variables *)
-            node_var_dependencies 
-              init_or_step 
-              node 
-              accum 
-              (vars_not_visited @ tl)
-              
+
+            (* Get variables in expression *)
+            E.vars_of_expr (init_or_step_of_expr expr) 
+
+          (* Variable is not input or not defined in an equation *)
+          with Not_found -> 
+
+            try
+
+              (* Iterate over node calls to find identifier in
+                 variables capturing the output *)
+              let rec aux ident = function
+                | [] -> raise Not_found
+                | (o, _, _, _, _) as n :: tl -> 
+
+                  (* Iterate over variables capturing the output to
+                     find variable and return the node call and the
+                     position of the variable in the output
+                     parameters *)
+                  let rec aux2 i = function
+                    | [] -> raise Not_found 
+                    | (v, _) :: _ when v = ident -> (n, i)
+                    | _ :: tl -> aux2 (succ i) tl
+                  in
+
+                  try aux2 0 o with Not_found -> aux ident tl
+
+              in
+
+              (* Return node call and position of variable in output
+                 parameters *)
+              let (_, _, node_ident, call_params, _), input_pos = 
+                aux ident node.calls 
+              in
+
+              Format.printf 
+                "%a is at position %d in call to node %a@."
+                (I.pp_print_ident false) ident 
+                input_pos
+                (I.pp_print_ident false) node_ident;
+
+              (* Get dependencies of output parameters on input
+                 parameters from called node *)
+              let { output_input_dep } = List.assoc node_ident nodes in
+
+              (* Get expressions that output of node depends on *)
+              let dep_expr = 
+                List.fold_left
+                  (fun a d -> 
+                     (init_or_step_of_expr (List.nth call_params d)) :: a)
+                  []
+                  (List.nth output_input_dep input_pos)
+              in
+
+              (* Get variables in expression *)
+              List.fold_left
+                (fun a e -> E.vars_of_expr e @ a)
+                []
+                dep_expr
+
+            (* Variable is not input or defined in an equation or node
+               call *)
+            with Not_found -> []
+
+        in
+
+        (* Some variables have had their dependencies calculated
+           already *)
+        let vars_visited, vars_not_visited = 
+          List.partition
+            (fun ident -> List.mem_assoc ident accum)
+            vars
+        in
+
+        (* All dependent variables visited? *)
+        if vars_not_visited = [] then 
+
+          (* Dependencies of this variable is set of dependencies of
+             its variables *)
+          let dependent_vars = 
+            List.fold_left
+              (fun a i -> 
+                 ISet.union a (List.assoc i accum))
+              (List.fold_left (fun a v -> ISet.add v a) ISet.empty vars)
+              vars_visited
+          in
+
+          (* Add variable and its dependencies to accumulator *)
+          node_var_dependencies 
+            init_or_step 
+            nodes
+            node 
+            ((ident, dependent_vars) :: accum)
+            tl
+
+        else
+          
+        if 
+
+          (* Circular dependency: a variable that this variable
+             depends on occurs as a dependency *)
+          List.exists
+            (fun v -> List.mem v dep)
+            (ident :: vars_not_visited)
+
+        then
+
+          failwith "circular dependency"
+
+        else
+
+          (* First get dependencies of all dependent variables *)
+          node_var_dependencies 
+            init_or_step 
+            nodes 
+            node
+            accum 
+            ((List.map 
+                (fun v -> (v, ident :: dep)) 
+                vars_not_visited) @ 
+             ((ident, dep) :: tl))
+
+             
+(* Calculate dependencies of outputs on inputs *) 
+let output_input_dep_of_var_dep node var_deps =
+
+  (* Return a list of positions in inputs for each output *)
+  List.map
+    (fun (o, _) -> 
+
+       (* Get dependencies of output variable *)
+       let deps = List.assoc o var_deps in 
+
+       (* Iterate over all dependent variables to find input variables
+          and their positions *)
+       List.fold_left 
+         (fun a v -> 
+            try
+
+              (* Iterate over input variables and return position of
+                 given variable *)
+              let rec aux i = function 
+                | [] -> raise Not_found
+                | (ident, _) :: tl when ident = v -> i
+                | _ :: tl -> aux (succ i) tl 
+              in
+
+              (* Append position of input variable if found *)
+              (aux 0 node.inputs) :: a 
+
+            (* Variable is not input *)
+            with Not_found -> a)
+         []
+         (ISet.elements deps)
+    )
+    node.outputs
+
+
 
 
 (* 
