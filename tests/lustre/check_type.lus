@@ -1,3 +1,14 @@
+node id (x: int) returns (y: int); let y = pre x; tel
+
+node X (i1, i2: int) returns (o1, o2: int);
+var o3: int;
+let
+  o1 = o2;
+  o2 = o3;
+  o3 = id(o1);
+tel;
+
+(*
 const c_cond : subrange [1, 2] of int = if true then 1 else 2;
 
 const c_ = c_cond;
@@ -81,6 +92,7 @@ tel
 
 
 
+*)
 
 
 /*
