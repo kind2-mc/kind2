@@ -107,6 +107,8 @@ val node_var_dependencies : bool -> (LustreIdent.t * t) list -> t -> (LustreIden
 
 val output_input_dep_of_var_dep : t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> int list list
 
+val solve_eqs_node_calls : t -> t
+
 (* 
    Local Variables:
    compile-command: "make -k"

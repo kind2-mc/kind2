@@ -3092,7 +3092,8 @@ let parse_node_signature
   (*
   Format.printf "%a@." pp_print_lustre_context local_context_locals;
 *)
-  Format.printf "%a@." (N.pp_print_node true node_ident) node_context_equations;
+
+  let node_context_equations = N.solve_eqs_node_calls node_context_equations in
 
   let var_dep = 
     N.node_var_dependencies 
@@ -3103,14 +3104,6 @@ let parse_node_signature
       (List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations)
   in
   
-  let node_context_deps = 
-    { node_context_equations with 
-        N.output_input_dep = 
-          N.output_input_dep_of_var_dep 
-            node_context_equations 
-            var_dep } 
-  in
-
   Format.printf "@[<v>%a@]@."
     (pp_print_list 
       (fun ppf (v, d) ->
@@ -3123,10 +3116,31 @@ let parse_node_signature
           (ISet.elements d))
       "@,")
     var_dep;
-          
-  node_context_deps
 
+  let node_context_deps = 
+    { node_context_equations with 
+        N.output_input_dep = 
+          N.output_input_dep_of_var_dep 
+            node_context_equations 
+            var_dep } 
+  in
 
+  let equations_sorted =
+    List.sort
+      (fun (v1, _) (v2, _) -> 
+         if ISet.mem v1 (List.assoc v2 var_dep) then (- 1) 
+         else if ISet.mem v2 (List.assoc v1 var_dep) then 1 
+         else I.compare v1 v2)
+      node_context_deps.N.equations
+  in
+
+  let node_context_dep_order =
+    { node_context_deps with N.equations = equations_sorted }
+  in
+
+  Format.printf "%a@." (N.pp_print_node true node_ident) node_context_dep_order;
+
+  node_context_dep_order
 
 (* ******************************************************************** *)
 (* Main                                                                 *)

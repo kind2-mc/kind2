@@ -266,9 +266,9 @@ let pp_print_node
      %t%t\
      @[<hv 2>let@ \
      %a%t\
+     %a%t\
+     %a%t\
      %t\
-     %a%t\
-     %a%t\
      %a%t\
      %a%t\
      %a@;<1 -2>\
@@ -282,18 +282,18 @@ let pp_print_node
           "@[<hv 2>var@ %a@]" 
           (pp_print_list (pp_print_local safe) "@ ") locals)
     (space_if_nonempty locals)
+    (pp_print_list (pp_print_call safe) "@ ") calls
+    (space_if_nonempty calls)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations
     (space_if_nonempty equations)
+    (pp_print_list (pp_print_assert safe) "@ ") asserts
+    (space_if_nonempty asserts)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
     (pp_print_list (pp_print_requires safe) "@ ") requires
     (space_if_nonempty requires)
     (pp_print_list (pp_print_ensures safe) "@ ") ensures
     (space_if_nonempty ensures)
     (pp_print_list (pp_print_prop safe) "@ ") props
-    (space_if_nonempty props)
-    (pp_print_list (pp_print_assert safe) "@ ") asserts
-    (space_if_nonempty asserts)
-    (pp_print_list (pp_print_call safe) "@ ") calls
     
 
 
@@ -314,10 +314,12 @@ let rec node_var_dependencies init_or_step nodes node accum =
        in [dep] depend on *)
     | (ident, dep) :: tl -> 
 
+(*
       Format.printf 
         "@[<h>node_var_dependencies %a (%a)@]@."
         (I.pp_print_ident false) ident
         (pp_print_list (I.pp_print_ident false) "@ ") dep;
+*)
 
       if 
 
@@ -385,11 +387,13 @@ let rec node_var_dependencies init_or_step nodes node accum =
                 aux ident node.calls 
               in
 
+(*
               Format.printf 
                 "%a is at position %d in call to node %a@."
                 (I.pp_print_ident false) ident 
                 input_pos
                 (I.pp_print_ident false) node_ident;
+*)
 
               (* Get dependencies of output parameters on input
                  parameters from called node *)
@@ -411,7 +415,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
                 dep_expr
 
             (* Variable is not input or defined in an equation or node
-               call *)
+               call, it could be in an assertion *)
             with Not_found -> []
 
         in
@@ -471,6 +475,50 @@ let rec node_var_dependencies init_or_step nodes node accum =
                 (fun v -> (v, ident :: dep)) 
                 vars_not_visited) @ 
              ((ident, dep) :: tl))
+
+
+(* If x = y and x captures the output of a node, substitute y *)
+let solve_eqs_node_calls node = 
+
+  let calls', vars_eliminated =
+    List.fold_left 
+      (fun (ac, av) (o, c, n, i, s) -> 
+         let o', av' = 
+           List.fold_right 
+             (fun (v, t) (ac, av) ->
+                try 
+                  let v' =
+                    fst
+                      (List.find
+                         (function 
+                           | (_, { E.expr_init = E.Var vi; E.expr_step = E.Var vs }) when vi = vs -> vi = v
+                           | _ -> false) 
+                         node.equations)
+                  in
+                  ((v', t) :: ac, v :: av)
+                with Not_found -> ((v, t) :: ac, av))
+             o
+             ([], av)
+         in
+         (o', c, n, i, s) :: ac, av')
+      ([], [])
+      node.calls
+  in
+  
+  let locals' = 
+    List.filter
+      (fun (v, _) -> List.mem v vars_eliminated)
+      node.locals
+  in
+
+  let equations' = 
+    List.filter
+      (fun (v, _) -> List.mem v vars_eliminated)
+      node.equations
+  in
+
+
+  { node with calls = calls'; locals = locals'; equations = equations' }
 
              
 (* Calculate dependencies of outputs on inputs *) 
