@@ -57,21 +57,21 @@ type t =
        The order of the list is important, it is the order the
        parameters in the declaration. *)
     inputs : 
-      (LustreIdent.t * (((LustreIdent.index * LustreType.t) list) * bool)) list;
+      (LustreIdent.t * (LustreType.t * bool)) list;
 
     (* Output variables of node 
 
        The order of the list is important, it is the order the
        parameters in the declaration. *)
     outputs : 
-      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
+      (LustreIdent.t * LustreType.t) list;
 
     (* Local variables of node 
 
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
     locals :
-      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
+      (LustreIdent.t * LustreType.t) list;
 
     (* Equations for local and output variables *)
     equations : (LustreIdent.t * LustreExpr.t) list;
@@ -122,49 +122,31 @@ let empty_node =
 
 
 (* Pretty-print a node input *)
-let pp_print_input safe ppf (ident, (index_list, is_const)) =
+let pp_print_input safe ppf (ident, (ident_type, is_const)) =
 
   Format.fprintf ppf
-    "%t%a"
+    "%t%a: %a"
     (function ppf -> if is_const then Format.fprintf ppf "const ")
-    (pp_print_list 
-       (fun ppf (j, t) -> 
-         Format.fprintf ppf 
-           "%a: %a" 
-           (I.pp_print_ident safe) (I.push_index j ident)
-           (T.pp_print_lustre_type safe) t)
-       ";@ ")
-    index_list
+    (I.pp_print_ident safe) ident
+    (T.pp_print_lustre_type safe) ident_type
 
 
 (* Pretty-print a node output *)
-let pp_print_output safe ppf (ident, index_list) =
+let pp_print_output safe ppf (ident, ident_type) =
 
   Format.fprintf ppf
-    "%a"
-    (pp_print_list 
-       (fun ppf (j, t) -> 
-         Format.fprintf ppf 
-           "%a: %a" 
-           (I.pp_print_ident safe) (I.push_index j ident)
-           (T.pp_print_lustre_type safe) t)
-       ";@ ")
-    index_list
+    "%a: %a"
+    (I.pp_print_ident safe) ident
+    (T.pp_print_lustre_type safe) ident_type
 
 
 (* Pretty-print a node local variable *)
-let pp_print_local safe ppf (ident, index_list) =
+let pp_print_local safe ppf (ident, ident_type) =
 
   Format.fprintf ppf
-    "%a"
-    (pp_print_list 
-       (fun ppf (j, t) -> 
-         Format.fprintf ppf 
-           "%a: %a;" 
-           (I.pp_print_ident safe) (I.push_index j ident)
-           (T.pp_print_lustre_type safe) t)
-       "@ ")
-    index_list
+    "%a: %a"
+    (I.pp_print_ident safe) ident
+    (T.pp_print_lustre_type safe) ident_type
 
 
 (* Pretty-print a node equation *)
@@ -325,10 +307,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         (* Variable is an input variable *)
         List.exists 
-          (fun (ident', (indexes, _)) -> 
-             List.exists 
-               (fun (index', _) -> ident = I.push_index index' ident')
-               indexes)
+          (fun (i, _) -> I.equal ident i)
           node.inputs 
 
       then 

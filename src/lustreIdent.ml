@@ -177,7 +177,7 @@ let push_back_int_index_to_index int index =
   index @ [IntIndex (Numeral.to_int int)]
 
 
-(* Push the integer as an element index to the given index *)
+(* Push the identifier as an element index to the given index *)
 let push_ident_index_to_index (base_ident, index1) index2 = 
 
   StringIndex base_ident :: index1 @ index2

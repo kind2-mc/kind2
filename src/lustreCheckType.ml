@@ -1602,6 +1602,7 @@ and int_const_of_ast_expr context expr =
    expressions for node inputs *)
 and node_inputs_of_exprs node_inputs expr_list =
 
+(*
   let node_inputs' = 
 
     (* Add an index to each inputs and sort *)
@@ -1619,35 +1620,23 @@ and node_inputs_of_exprs node_inputs expr_list =
             (Numeral.zero, [])
             node_inputs))
   in
+*)
 
   try
 
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        (in_index, (in_type, is_const)) 
-        (expr_index, ({ E.expr_type } as expr)) 
+        (_, (in_type, _)) 
+        (_, ({ E.expr_type } as expr)) 
         accum ->
 
-        (* TODO: check if expression is actually constant. How
-           to optimize in that case? *)
-
-        (* Indexes must match *)
-        if (* in_index = expr_index *) true then 
-
-          (* Expression must be of a subtype of input type *)
-          if T.check_type expr_type in_type then 
-
-            expr :: accum
-
-          else
-
-            raise E.Type_mismatch
-
+        (* Expression must be of a subtype of input type *)
+        if T.check_type expr_type in_type then 
+          expr :: accum
         else
-
           raise E.Type_mismatch)
-      (sort_indexed_pairs node_inputs')
+      node_inputs
       expr_list
       []
 
@@ -1667,6 +1656,7 @@ and node_inputs_of_exprs node_inputs expr_list =
    expressions for node inputs *)
 and node_init_of_exprs node_outputs expr_list =
 
+(*
   let node_outputs' = 
 
     (* Add an index to each output and sort *)
@@ -1684,32 +1674,23 @@ and node_init_of_exprs node_outputs expr_list =
              (Numeral.zero, [])
              node_outputs)))
   in
+*)
 
   try
 
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        (in_index, in_type) 
-        (expr_index, ({ E.expr_type } as expr)) 
+        (_, in_type) 
+        (_, ({ E.expr_type } as expr)) 
         accum ->
 
-        (* Indexes must match *)
-        if in_index = expr_index then 
-
-          (* Expression must be of a subtype of input type *)
-          if T.check_type expr_type in_type then 
-
+        (* Expression must be of a subtype of input type *)
+        if T.check_type expr_type in_type then 
             expr :: accum
-
           else
-
-            raise E.Type_mismatch
-
-        else
-
-          raise E.Type_mismatch)
-      (sort_indexed_pairs node_outputs')
+            raise E.Type_mismatch) 
+      node_outputs
       expr_list
       []
 
@@ -1742,9 +1723,15 @@ and output_idents_of_node ident pos call_ident = function
 
   | node_outputs -> 
 
+    List.map
+      (fun (out_ident, out_type) -> 
+         (I.push_back_ident_index out_ident call_ident, out_type))
+      node_outputs
+
+(*
     (* Keep order of parameters *)
     List.fold_right
-      (fun (out_ident, out_type) accum -> 
+      (fun (out_ident, _) accum -> 
 
          (* Add identifier of output to identifier for node call *)
          let out_ident = 
@@ -1759,7 +1746,7 @@ and output_idents_of_node ident pos call_ident = function
            accum)
       node_outputs
       []
-
+*)
 
 (* Add list of variables capturing the output with indexes to the result *)
 and add_node_output_to_result index result = function
@@ -2309,6 +2296,8 @@ let add_node_input_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
+(*
+
   (* Add to constant node inputs *)
   let node_inputs' = match node_inputs with 
 
@@ -2319,6 +2308,10 @@ let add_node_input_decl
     | _ -> (ident, ([(index, basic_type)], is_const)) :: node_inputs 
 
   in
+
+*)
+
+  let node_inputs' = (I.push_back_index index ident, (basic_type, is_const)) :: node_inputs in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.inputs = node_inputs' })
@@ -2344,6 +2337,7 @@ let add_node_output_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
+(*
   (* Add to constant node inputs *)
   let node_outputs' = match node_outputs with 
 
@@ -2354,6 +2348,9 @@ let add_node_output_decl
     | _ -> (ident, [(index, basic_type)]) :: node_outputs 
 
   in
+*)
+
+  let node_outputs' = (I.push_back_index index ident, basic_type) :: node_outputs in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.outputs = node_outputs' })
@@ -2363,7 +2360,7 @@ let add_node_output_decl
 let add_node_var_decl
     ident
     (({ type_ctx; index_ctx } as context), 
-     ({ N.locals = node_vars } as node))
+     ({ N.locals = node_locals } as node))
     index 
     basic_type =
   
@@ -2379,6 +2376,7 @@ let add_node_var_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
+(*
   (* Add to constant node inputs *)
   let node_vars' = match node_vars with 
 
@@ -2389,9 +2387,12 @@ let add_node_var_decl
     | _ -> (ident, [(index, basic_type)]) :: node_vars 
 
   in
+*)
+
+  let node_locals' = (I.push_back_index index ident, basic_type) :: node_locals in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with N.locals = node_vars' })
+   { node with N.locals = node_locals' })
 
 
 (* Add all node inputs to contexts *)
@@ -2769,7 +2770,7 @@ let rec parse_node_equations
 
                      let ident_types =
 
-                       sort_indexed_pairs
+                       (* sort_indexed_pairs *)
 
                          (try 
 
@@ -2793,12 +2794,15 @@ let rec parse_node_equations
 
                      in
 
+(*
                      (succ i,
                       List.fold_left 
                         (fun accum (index, ident_type) -> 
                            (I.push_index index ident, ident_type) :: accum)
                         accum
                         ident_types)
+*)
+                     ident_types
 
                    | _ -> 
 

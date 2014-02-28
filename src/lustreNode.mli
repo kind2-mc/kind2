@@ -49,21 +49,21 @@ type t =
         The order of the list is important, it is the order the
         parameters in the declaration. *)
     inputs : 
-      (LustreIdent.t * (((LustreIdent.index * LustreType.t) list) * bool)) list;
+      (LustreIdent.t * (LustreType.t * bool)) list;
 
     (** Output variables of node
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
     outputs : 
-      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
+      (LustreIdent.t * LustreType.t) list;
 
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
     locals :
-      (LustreIdent.t * ((LustreIdent.index * LustreType.t) list)) list;
+      (LustreIdent.t * LustreType.t) list;
 
     (** Equations for local and output variables *)
     equations : (LustreIdent.t * LustreExpr.t) list;
