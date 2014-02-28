@@ -13,6 +13,8 @@
 \usepackage[noend]{algpseudocode}
 \usepackage{calc}
 
+\usepackage{varwidth}
+
 % Modify this to change the format of function names in algoritms
 \renewcommand{\textproc}{\textsl}
 
@@ -53,12 +55,13 @@
 \newcommand{\lent}{\,\models_\lo\,}            % entailment in a logic 
 \newcommand{\ext}[1]{\llbracket #1 \rrbracket} % model of a formula
 
-\newcommand{\sspace}{\ensuremath{\mathcal{Q}}}
+\newcommand{\sspace}{\ensuremath{\mathcal{S}}}
 
 \newcommand{\init}{\ensuremath{I}}
 \newcommand{\trans}{\ensuremath{T}}
 \newcommand{\transt}{\ensuremath{\mathcal{T}}}
 
+\newcommand{\reachablek}[1]{\ensuremath{\mathcal{R}_{#1}}}
 \newcommand{\reachable}{\ensuremath{\mathcal{R}_\infty}}
 
 
@@ -77,7 +80,7 @@
 \label{sec:prelim}
 
 
-Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system with the initial state constraint~$I$ and the transition relation~$T$. Let~${\mathcal{P} = \{ P_1[\vec x], \dotsc, P_n[\vec x] \}}$ be a set of~$n$ properties to be checked for invariance.
+Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system with the initial state constraint~$I$ and the transition relation~$T$. Let~${\mathcal{P} = \{ P_1[\vec x], \dotsc, P_n[\vec x] \}}$ be a set of~$n$ properties to be checked for invariance. The variables~$I[\vec x]$,~$T[\vec x, \vec x']$ and~$\mathcal{P}[\vec x]$ are static and always in scope.
 
 \[ \mathcal{P}[\vec x] = \bigwedge_{P\in\mathcal{P}} P[\vec x] \]
 
@@ -85,7 +88,11 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
 
 \[ \mathcal{T}[\vec x_s,\dotsc,\vec x_t] = \bigwedge_{i=s}^{t-1}  T[\vec x_i,\vec x_{i+1}]  \]
 
-\[ \reachable = \bigcup_{k \geq 0} \{ \exists \vec x_0,\dotsc,\vec x_k \in \sspace \mid \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \} \]
+\[ \reachablek{0} = \{ \vec x_k \in \sspace \mid \init[\vec x_k] \} \]
+
+\[ \reachablek{k} = \{ \vec x_k \in \sspace \mid \exists \vec x_0,\dotsc,\vec x_{k-1} \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \} \]
+
+\[ \reachable = \bigcup_{k \geq 0} \reachablek{k} \]
 
 
 % \[ \mathcal{T}(\mathcal{P})[\vec x_s,\dotsc,\vec x_t] = \left( \bigwedge_{i=s}^{t-1} \mathcal{P}[\vec x_i] \land T[\vec x_i,\vec x_{i+1}] \right) \land \mathcal{P}[\vec x_t] \]
@@ -112,22 +119,34 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
 \begin{figure}[tp]
   \centering
   \begin{algorithmic}
-    \Function{send$_\mathcal{P}$}{$\pvalid$, $\pinvalid$}
-    \Require $\forall P \in \pvalid \ \forall \vec x \in \reachable \colon \vec x \models P$
+    \Require $\forall P \in \pvalid \ \forall \vec x \in \reachable \colon P[\vec x]$
     \Require $\forall P \in \pinvalid \ \exists \vec x_0,\dotsc,\vec x_k \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \land \lnot P[\vec x_k]$
+    \Function{send$_\mathcal{P}$}{$\pvalid$, $\pinvalid$}
+    \State \Return 
     \EndFunction
 
-    \Function{receive$_\mathcal{P}$}{\null}
-    \Ensure $\forall P \in \pvalid \ \forall \vec x \in \reachable \colon \vec x \models P$
+    \bigskip
+
+    \Ensure $\forall P \in \pvalid \ \forall \vec x \in \reachable \colon P[\vec x]$
     \Ensure $\forall P \in \pinvalid \ \exists \vec x_0,\dotsc,\vec x_k \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \land \lnot P[\vec x_k]$
+    \Function{receive$_\mathcal{P}$}{\null}
+    \State \Return $\langle \pvalid, \; \pinvalid \rangle$
     \EndFunction
 
-    \Function{send$_{k_\textproc{bmc}}$}{$k$}
-    \Require $\forall \vec x_0,\dotsc,\vec x_k \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \models P[\vec x_k]$
+    \bigskip
+    \Require $\forall P \in \mathcal{P} \setminus \pinvalid \; \forall \vec x_0,\dotsc,\vec x_k \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \models P[\vec x_k]$
+    \Require $\forall P \in \pinvalid \; \exists i \leq k \; \exists \vec x_0,\dotsc,\vec x_i \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_i] \models P[\vec x_i]$
+
+    \Function{send$_{k_\textproc{bmc}}$}{$k$, $\pinvalid$}
+    \State \Return
     \EndFunction
     
+    \bigskip
+
+    \Ensure $\forall P \in \mathcal{P} \setminus \pinvalid \; \forall \vec x_0,\dotsc,\vec x_k \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \models P[\vec x_k]$
+    \Ensure $\forall P \in \pinvalid \; \exists i \leq k \; \exists \vec x_0,\dotsc,\vec x_i \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_i] \models P[\vec x_i]$
     \Function{receive$_{k_\textproc{bmc}}$}{\null}
-    \Ensure $\forall \vec x_0,\dotsc,\vec x_k \in \sspace \colon \init[\vec x_0] \land \transt[\vec x_0,\dotsc,\vec x_k] \models P[\vec x_k]$
+    \State \Return $\langle k, \; \pinvalid \rangle$
     \EndFunction
 
   \end{algorithmic}
@@ -142,7 +161,7 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
   \label{fig:bmc}
   \centering
   \begin{algorithmic}[1]
-    \Function{bmc}{$k$, $\mathcal{P}_\mathrm{in}$} 
+    \Function{bmc}{$k$, $\mathcal{P}_\mathrm{in}$, $\pinvalid$} 
 
     % Update global state
     \State \Let $\langle \mathcal{P}_\mathrm{valid},\; \mathcal{P}_\mathrm{invalid}\rangle$ = \Call{receive$_\mathcal{P}$}{\null} \In
@@ -160,11 +179,11 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
     \If {$\Phi \lent \Psi$} 
 
       % Found no invalid properties
-      \State \Call{send$_{k_\textproc{bmc}}$}{$k$}
+      \State \Call{send$_{k_\textproc{bmc}}$}{$k$, $\pinvalid$}
       \label{alg:bmc-send-k}
 
       % Recurse to find longer counterexamples
-      \State \Call{bmc}{$k+1$, $\mathcal{P}$}
+      \State \Call{bmc}{$k+1$, $\mathcal{P}$, $\pinvalid$}
 
     \Else 
 
@@ -174,8 +193,11 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
       % Properties that can still be valid
       \State \Let $\mathcal{P}' = \{P \in \mathcal{P} \mid \mathcal{M} \lent P[\vec x_{k}] \}$ \In
 
+      % Properties that are invalid
+      \State \Let $\pinvalid' = \mathcal{P} \setminus \mathcal{P}'$ \In
+
       % Send invalid properties 
-      \State \Call{send$_\mathcal{P}$}{$\emptyset$, $\mathcal{P} \setminus \mathcal{P}'$}
+      \State \Call{send$_\mathcal{P}$}{$\emptyset$, $\pinvalid'$}
       \label{alg:bmc-send-pinvalid}
 
       % Unknown properties left?
@@ -183,7 +205,7 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
 
         % Recurse to find counterexamples for potentially valid
         % properties
-        \State \Call{bmc}{$k$, $\mathcal{P}'$} 
+        \State \Call{bmc}{$k$, $\mathcal{P}'$, $\pinvalid \cup \pinvalid'$} 
 
       \Else
       
@@ -225,22 +247,25 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
   \centering
     
   \begin{algorithmic}[1]
-    \Function{update$_{\mathcal{P},\mathcal{D}}$}{$\mathcal{P}_\mathrm{in}$, $\mathcal{D}$}
+    \Function{update$_{\mathcal{P},\mathcal{D}}$}{$\mathcal{P}_\mathrm{in}$, $\mathcal{D}$, $\pvalid$}
     
     % New valid and invalid properties 
-    \State \Let $\langle \mathcal{P}_\mathrm{valid},\; \mathcal{P}_\mathrm{invalid}\rangle$ = \Call{receive$_\mathcal{P}$}{\null} \In
+    \State \Let $\langle \pvalid',\; \pinvalid' \rangle$ = \Call{receive$_\mathcal{P}$}{\null} \In
     
     % New k in BMC
-    \State \Let $k_\textproc{bmc}$ = \Call{receive$_{k_\textproc{bmc}}$}{\null} \In
+    \State \Let $\langle k^\textproc{bmc}, \pinvalid^\textproc{bmc} \rangle$ = \Call{receive$_\textproc{bmc}$}{\null} \In
     
+    \State \Let $\pvalid'' = \pvalid \cup \pvalid'$ \In
+    \State \Let $\pinvalid'' = \pinvalid' \cup \pinvalid^\textproc{bmc}$ \In
+
     % New valid and invalid properties do not need to be proved
-    \State \Let $\mathcal{P}$ = $\mathcal{P}_\mathrm{in} \setminus \pvalid \setminus \pinvalid$ \In
+    \State \Let $\mathcal{P}_\mathrm{out}$ = $\mathcal{P}_\mathrm{in} \setminus \pvalid'' \setminus \pinvalid''$ \In
 
     % Any tentatively valid property disproved?
-    \If {$\exists (l, D) \in \mathcal{D} \colon D \in \pinvalid$}
+    \If {$\exists (l, D) \in \mathcal{D} \colon D \in \pinvalid''$}
     
       % Prove all dependent properties again
-      \State \Return $\langle \mathcal{P} \cup \{ D \mid (l,D) \in \mathcal{D} \} \setminus \pinvalid,\; \emptyset,\; k_\textproc{bmc} \rangle$
+      \State \Return $\langle \mathcal{P}_\mathrm{out} \cup \{ D \mid (l,D) \in \mathcal{D} \}  \setminus \pinvalid'',\; \emptyset,\; k_\textproc{bmc}, \pvalid'' \rangle$
       
     % All tentatively valid properties proved?
     \ElsIf {$\forall (l, D) \in \mathcal{D} \colon D \in \pvalid \lor k_\textproc{bmc} \geq l$}
@@ -250,12 +275,12 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
 
       % Continue with properties to prove and no tentatively valid
       % properties
-      \State \Return $\langle \mathcal{P},\; \emptyset,\; k_\textproc{bmc} \rangle$
+      \State \Return $\langle \mathcal{P}_\mathrm{out},\; \emptyset,\; k_\textproc{bmc},\; \pvalid'' \rangle$
       
     \Else
       
       % Continue with properties to prove and tentatively valid properties
-      \State \Return $\langle \mathcal{P},\; \mathcal{D},\; k_\textproc{bmc} \rangle$
+      \State \Return $\langle \mathcal{P}_\mathrm{out},\; \mathcal{D},\; k_\textproc{bmc},\; \pvalid'' \rangle$
 
     \EndIf
 
@@ -270,25 +295,25 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
   \centering
     
   \begin{algorithmic}[1]
-    \Function{ind}{$k$, $\mathcal{P}_\mathrm{in}$, $\mathcal{Q}$, $\mathcal{D}_\mathrm{in}$} 
+    \Function{ind}{$k$, $\mathcal{P}_\mathrm{in}$, $\mathcal{Q}$, $\mathcal{D}_\mathrm{in}$, $\pvalid$} 
 
     % Update properties to prove and tentative properties
-    \State \Let $\langle \mathcal{P},\; \mathcal{D},\; k_\textproc{bmc} \rangle$ = \Call{update$_{\mathcal{P},\mathcal{D}}$}{$\mathcal{P}_\mathrm{in}$,$\mathcal{D}_\mathrm{in}$} \In
+    \State \Let $\langle \mathcal{P}_\mathrm{prove},\; \mathcal{D},\; k_\textproc{bmc},\; \pvalid' \rangle$ = \Call{update$_{\mathcal{P},\mathcal{D}}$}{$\mathcal{P}_\mathrm{in}$, $\mathcal{D}_\mathrm{in}$, $\pvalid$} \In
 
     % Terminate when no more properties to prove
-    \If {$\mathcal{P} = \emptyset$} \Return \EndIf
+    \If {$\mathcal{P}_\mathrm{prove} = \emptyset$} \State \Return \EndIf
 
     % Assume tentative properties
     \State \Let $\mathcal{P}_\mathrm{assume}$ = $\{ D \mid (l, D) \in \mathcal{D} \}$ \In
 
     % Premises that can be disproved later
-    \State \Let {$\Phi_1 = \mathcal{P}[\vec x_0,\dotsc,\vec x_k] \land \mathcal{P}_\mathrm{assume}[\vec x_0,\dotsc,\vec x_{k+1}]$} \In
+    \State \Let {$\Phi_1 = \mathcal{P}_\mathrm{prove}[\vec x_0,\dotsc,\vec x_k] \land \mathcal{P}_\mathrm{assume}[\vec x_0,\dotsc,\vec x_{k+1}]$} \In
 
     % Premises that cannot be disproved 
-    \State \Let {$\Phi_2 = \mathcal{P}_\mathrm{valid}[\vec x_0,\dotsc,\vec x_{k+1}] \land \mathcal{T}[\vec x_0,\dotsc,\vec x_{k+1}] $} \In
+    \State \Let {$\Phi_2 = \pvalid'[\vec x_0,\dotsc,\vec x_{k+1}] \land \mathcal{T}[\vec x_0,\dotsc,\vec x_{k+1}] $} \In
 
     % Conclusion
-    \State \Let {$\Psi = \mathcal{P}[\vec x_{k+1}]$} \In
+    \State \Let {$\Psi = \mathcal{P}_\mathrm{prove}[\vec x_{k+1}]$} \In
 
     % k-induction check 
     \If {$\Phi_1 \land \Phi_2 \lent \Psi$} 
@@ -297,13 +322,13 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
       \If {$\left(k_\textproc{bmc} \geq k\right)$}
 
         % Premises can safely be assumed, properties are certainly valid
-        \State \Call{send$_\mathcal{P}$}{$\mathcal{P} \cup \mathcal{P}_\mathrm{assume}$, $\emptyset$}
+        \State \Call{send$_\mathcal{P}$}{$\mathcal{P}_\mathrm{prove} \cup \mathcal{P}_\mathrm{assume}$, $\emptyset$}
 
         % Properties to prove for next k? 
         \If {$\mathcal{Q} \not = \emptyset$} 
 
           % Increment k and prove remaining properties 
-          \State \Call{ind}{$k+1$, $\mathcal{Q}$, $\emptyset$, $\emptyset$}
+          \State \Call{ind}{$k+1$, $\mathcal{Q}$, $\emptyset$, $\emptyset$, $\pvalid'$}
 
         \Else
         
@@ -316,14 +341,14 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
       \Else
         
           % Each property must be in D only for one l
-          \State \Let $\mathcal{D}'$ = $\{ (k, P) \mid P \in \mathcal{P} \}$ \In
+          \State \Let $\mathcal{D}'$ = $\{ (k, P) \mid P \in \mathcal{P}_\mathrm{prove} \}$ \In
         
         % Still more properties to prove? 
         \If {$\mathcal{Q} \not = \emptyset$} 
         
           % Continue trying to prove failed properties k+1-inductive, 
           % properties P are proved dependent on P and P_assume
-          \State \Call{ind}{$k+1$, $\mathcal{Q}$, $\emptyset$, $\mathcal{D} \cup \mathcal{D}' \}$}
+          \State \Call{ind}{$k+1$, $\mathcal{Q}$, $\emptyset$, $\mathcal{D} \cup \mathcal{D}'$, $\pvalid'$}
 
         \Else
 
@@ -331,13 +356,15 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
           \Repeat
           
             % New valid and invalid properties 
-            \State \Let $\langle \mathcal{P},\; \mathcal{D},\; k_\textproc{bmc} \rangle$ = \Call{update$_{\mathcal{P},\mathcal{D}}$}{$\emptyset$, $\mathcal{D} \cup \mathcal{D}'$} \In
+            \LetBlock {$\langle \mathcal{P}_\mathrm{prove},\; \mathcal{D},\; k_\textproc{bmc}, \pvalid' \rangle$} 
+            \State \Call{update$_{\mathcal{P},\mathcal{D}}$}{$\emptyset$, $\mathcal{D} \cup \mathcal{D}'$, $\pvalid'$}
+            \EndLet
             
-            \If {$\mathcal{P} \not = \emptyset$} 
-            \Call{ind}{$k$, $\mathcal{P}$, $\emptyset$, $\emptyset$}
+            \If {$\mathcal{P}_\mathrm{prove} \not = \emptyset$} 
+            \State \Call{ind}{$k$, $\mathcal{P}_\mathrm{prove}$, $\emptyset$, $\emptyset$, $\pvalid'$}
             \EndIf
 
-          \Until {$k_\textproc{bmc} \geq k \lor \mathcal{D} \cup \mathcal{D}' = \emptyset$}
+          \Until {$k_\textproc{bmc} \geq k \lor \mathcal{D} = \emptyset$}
 
           \State \Return
 
@@ -351,13 +378,13 @@ Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system w
       \State \Let $\mathcal{M} \in \ext{\Phi_1 \land \Phi_2 \land \lnot \Psi}$ \In
 
       % Properties that may be k-inductive for this k
-      \State \Let $\mathcal{P}' = \{P \in \mathcal{P} \mid \mathcal{M} \lent P[\vec x_{k+1}] \}$ \In      
+      \State \Let $\mathcal{P}' = \{P \in \mathcal{P}_\mathrm{prove} \mid \mathcal{M} \lent P[\vec x_{k+1}] \}$ \In      
 
       % Properties that are not k-inductive for this k
-      \State \Let $\mathcal{Q}' = \mathcal{Q} \cup \mathcal{P} \setminus \mathcal{P}'$
+      \State \Let $\mathcal{Q}' = \mathcal{Q} \cup \mathcal{P}_\mathrm{prove} \setminus \mathcal{P}'$
 
       % Try proving properties at the same k
-      \State \Call{ind}{$k$, $\mathcal{P}'$, $\mathcal{Q}'$, $\mathcal{D}$}
+      \State \Call{ind}{$k$, $\mathcal{P}'$, $\mathcal{Q}'$, $\mathcal{D}$, $\pvalid'$}
 
     \EndIf
     \EndFunction
