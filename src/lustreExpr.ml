@@ -1220,7 +1220,7 @@ let rec vars_of_expr' accum = function
     | True
     | False
     | Int _ 
-    | Real _) :: tl -> accum
+    | Real _) :: tl -> vars_of_expr' accum tl
 
   (* Expression is unary: add variables in argument *)
   | UnaryOp (_, expr) :: tl -> 

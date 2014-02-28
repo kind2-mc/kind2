@@ -1,11 +1,11 @@
-node id (x: int) returns (y: int); let y = pre x; tel
+node id (x: [int, bool]) returns (y: int); let y = pre x[0]; tel
 
 node X (i1, i2: int) returns (o1, o2: int);
 var o3: int;
 let
   o1 = o2;
   o2 = o3;
-  o3 = id(o1);
+  o3 = id([o1, false]);
 tel;
 
 (*

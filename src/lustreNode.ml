@@ -481,6 +481,8 @@ let rec node_var_dependencies init_or_step nodes node accum =
 let solve_eqs_node_calls node = 
 
   let calls', vars_eliminated =
+
+    (* *)
     List.fold_left 
       (fun (ac, av) (o, c, n, i, s) -> 
          let o', av' = 
@@ -491,7 +493,9 @@ let solve_eqs_node_calls node =
                     fst
                       (List.find
                          (function 
-                           | (_, { E.expr_init = E.Var vi; E.expr_step = E.Var vs }) when vi = vs -> vi = v
+                           | (_, { E.expr_init = E.Var vi; 
+                                   E.expr_step = E.Var vs }) 
+                             when vi = vs -> vi = v
                            | _ -> false) 
                          node.equations)
                   in
@@ -505,18 +509,27 @@ let solve_eqs_node_calls node =
       node.calls
   in
   
+  Format.printf
+    "@[<v>Elminated variables:@,%a@]@."
+    (pp_print_list (I.pp_print_ident false) "@,") 
+    vars_eliminated;
+
+
   let locals' = 
     List.filter
-      (fun (v, _) -> List.mem v vars_eliminated)
+      (fun (v, _) -> not (List.mem v vars_eliminated))
       node.locals
   in
 
   let equations' = 
     List.filter
-      (fun (v, _) -> List.mem v vars_eliminated)
+      (function
+        | (_, { E.expr_init = E.Var vi; 
+                E.expr_step = E.Var vs }) when vi = vs -> 
+          not (List.mem vi vars_eliminated)
+        | _ -> true)
       node.equations
   in
-
 
   { node with calls = calls'; locals = locals'; equations = equations' }
 

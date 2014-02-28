@@ -39,7 +39,7 @@ exception Forward_reference of I.t * A.position
 let new_var_ident = I.mk_string_ident "__abs" 
 
 (* Identifier for new variables from node calls *)
-let new_call_ident = I.mk_string_ident "__call" 
+let new_call_ident = I.mk_string_ident "__returns" 
 
 
 (* Sort a list of indexed expressions *)
@@ -3101,14 +3101,15 @@ let parse_node_signature
       global_context.nodes
       node_context_equations
       []
-      (List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations)
+      ((List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations) @
+       (List.map (fun (v, _) -> (v, [])) node_context_equations.N.outputs))
   in
-  
+
   Format.printf "@[<v>%a@]@."
     (pp_print_list 
       (fun ppf (v, d) ->
         Format.fprintf ppf 
-          "@[<h>%a@ %a@]"
+          "@[<h>%a:@ %a@]"
           (I.pp_print_ident false) v 
           (pp_print_list 
              (I.pp_print_ident false)
