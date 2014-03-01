@@ -60,7 +60,7 @@ type lustre_context =
       basic_types : (LustreIdent.t * LustreType.t) list; 
 
       (* Map of prefix of a type identifiers to its suffixes and their
-         types *)
+         types. Indexes must be sorted. *)
       indexed_types : 
         (LustreIdent.t * 
            (LustreIdent.index * LustreType.t) list) list; 
@@ -193,7 +193,7 @@ let pp_print_lustre_context
    output of a node call, respectively. The former is called with a
    unit argument and returns an identifier __abs[n], the latter is is
    given the name of the node as an argument and returns an identifier
-   __call.X[n] where X is the node name.
+   __returns.X[n] where X is the node name.
 
    A typing context is given to type check expressions, it is not
    modified.
@@ -319,7 +319,7 @@ let rec eval_ast_expr'
         List.fold_left 
           (fun a (j, _) -> (I.push_index_to_index j index, e) :: a)
           tl
-          (List.assoc ident index_ctx)
+          (List.rev (List.assoc ident index_ctx))
       in
 
       (* Continue with unfolded indexes *)
@@ -537,7 +537,7 @@ let rec eval_ast_expr'
                  expr
              in
 
-             (* Increment counter *)
+             (* Decrement counter *)
              (Numeral.(succ i),
 
               (* Continue with added definitions *)
@@ -600,7 +600,7 @@ let rec eval_ast_expr'
           (* All elements of array enuerated
 
              Started with size of array, lowest index is zero *)
-          | i when Numeral.(i = zero) -> accum
+          | i when Numeral.(i >= array_size) -> accum
 
           (* Array element *)
           | i -> 
@@ -611,15 +611,15 @@ let rec eval_ast_expr'
             aux 
               (List.fold_left
                  (fun a (j, e) -> 
-                    (I.push_int_index_to_index Numeral.(pred i) j, e) :: a)
+                    (I.push_int_index_to_index i j, e) :: a)
                  accum
                  expr_val)
-              (Numeral.(pred i))
+              Numeral.(succ i)
 
         in
 
         (* Add all array elements *)
-        aux result array_size
+        aux result Numeral.zero
 
       in
 
@@ -793,6 +793,18 @@ let rec eval_ast_expr'
 
       in
 
+      Format.printf
+        "RecordConstruct indexes: %a@."
+        (pp_print_list 
+           (fun ppf (i, e) -> 
+              Format.fprintf 
+                ppf 
+                "%a: %a"
+                (I.pp_print_index false) i 
+                (T.pp_print_lustre_type false) e)
+           ", ")
+        indexes;
+           
       (* Convert identifiers to indexes for expressions in constructor *)
       let expr_list', new_defs' = 
         List.fold_left 
@@ -815,12 +827,24 @@ let rec eval_ast_expr'
                       index', 
                     expr') :: accum)
                 accum
-                expr',
+                (List.rev expr'),
               new_defs')) 
           ([], new_defs)
-          expr_list 
+          (List.sort (fun (i, _) (j, _) -> I.compare j i) expr_list)
       in
 
+      Format.printf
+        "RecordConstruct expr_list': %a@."
+        (pp_print_list 
+           (fun ppf (i, e) -> 
+              Format.fprintf 
+                ppf 
+                "%a: %a"
+                (I.pp_print_index false) i 
+                (E.pp_print_lustre_expr false) e)
+           ", ")
+        expr_list';
+           
       (* Add indexed expressions and new definitions to result *)
       let result' = 
 
@@ -850,8 +874,8 @@ let rec eval_ast_expr'
 
                 raise E.Type_mismatch)
             result
-            (sort_indexed_pairs indexes)
-            (sort_indexed_pairs expr_list')
+            indexes
+            expr_list'
 
 
         (* Type checking error or one expression has more indexes *)
@@ -1291,7 +1315,6 @@ let rec eval_ast_expr'
          (* Abstract expression under pre to a fresh variable *)
          let expr'', new_defs'' = 
 
-           (* Not necessary to keep order of indexes here *)
            List.fold_left
              (fun (accum, new_defs) (index, expr) -> 
                 let expr', new_defs' = 
@@ -1437,6 +1460,8 @@ and unary_apply_to
         expr 
     in
 
+    (* Expression evaluates to indexed expression (is sorted by
+       indexes), add in reverse order to the stack *)
     (List.fold_left
        (fun a (j, e) -> (j, mk e) :: a)
        accum
@@ -1487,7 +1512,10 @@ and binary_apply_to
 
   try 
 
-    (* Check type of corresponding expressions *)
+    (* Check type of corresponding expressions 
+
+       Expressions evaluate to indexed expressions (sorted by
+       indexes), add in reverse order to the stack *)
     (List.fold_left2
        (fun accum (index1, expr1) (index2, expr2) -> 
 
@@ -1501,8 +1529,8 @@ and binary_apply_to
             raise E.Type_mismatch)
 
        accum
-       (sort_indexed_pairs expr1')
-       (sort_indexed_pairs expr2'),
+       expr1'
+       expr2',
      new_defs')
 
   (* Type checking error or one expression has more indexes *)
@@ -1536,8 +1564,34 @@ and eval_ast_expr
       [(I.empty_index, expr)]
   in
 
-  (* Sort expressions by their indexes *)
-  (sort_indexed_pairs expr', new_defs')
+  Format.printf
+    "expr_ast_expr %a@."
+    (pp_print_list 
+       (fun ppf (i, e) -> 
+          Format.fprintf 
+            ppf 
+            "%a: %a"
+            (I.pp_print_index false) i 
+            (E.pp_print_lustre_expr false) e)
+       ", ")
+    (List.rev expr');
+
+
+(*
+  Format.printf "%a@." (pp_print_lustre_context false) context;
+*)
+
+  (match List.rev expr' with 
+    | (h, _) :: tl -> 
+      ignore 
+        (List.fold_left 
+           (fun a (i, _) -> assert ((I.compare_index i a) > 0); i)
+           h
+           tl)
+    | _ -> ());
+      
+  (* Expression must be sorted by their indexes *)
+  (List.rev expr', new_defs')
 
 
 (* Evaluate expression to an integer constant *)
@@ -1888,7 +1942,10 @@ let add_to_prefix_map map ident value =
           (* Add association of prefix with suffix and type, and
              finish *)
           List.rev_append
-            ((p, (I.index_of_one_index_list suffix, value) :: l) :: tl) 
+            ((p, 
+              sort_indexed_pairs
+                ((I.index_of_one_index_list suffix, value) :: l)) 
+             :: tl) 
             accum
 
         (* Recurse to keep searching for prefix of identifier *)
@@ -1925,6 +1982,11 @@ let add_alias_type_decl
     index 
     basic_type =
 
+  Format.printf 
+    "add_alias_type_decl %a %a@." 
+    (I.pp_print_ident false) ident
+    (I.pp_print_index false) index;
+
   (* Add index to identifier *)
   let indexed_ident = I.push_index index ident in
 
@@ -1949,10 +2011,12 @@ let add_alias_type_decl
 
 (* Expand a possibly nested type expression to indexed basic types and
    apply [f] to each
-   
+
    The context of the unfolding cannot be modified by f, this is a
-   good thing and disallows defining types recursively. *)
+   good thing and disallows defining types recursively. Indexes are
+   presented to f in ascending order. *)
 let rec fold_ast_type' 
+    fold_left
     ({ basic_types; 
        indexed_types; 
        free_types; 
@@ -1968,17 +2032,17 @@ let rec fold_ast_type'
   (* Basic type Boolean *)
   | (index, A.Bool) :: tl -> 
 
-    fold_ast_type' context f (f accum index T.t_bool) tl
+    fold_ast_type' fold_left context f (f accum index T.t_bool) tl
 
   (* Basic type i *)
   | (index, A.Int) :: tl -> 
 
-    fold_ast_type' context f (f accum index T.t_int) tl
+    fold_ast_type' fold_left context f (f accum index T.t_int) tl
 
   (* Basic type real *)
   | (index, A.Real) :: tl -> 
 
-    fold_ast_type' context f (f accum index T.t_real) tl
+    fold_ast_type' fold_left context f (f accum index T.t_real) tl
 
   (* Integer range type needs to be constructed from evaluated
      expressions for bounds *)
@@ -1992,6 +2056,7 @@ let rec fold_ast_type'
 
     (* Construct an integer range type *)
     fold_ast_type' 
+      fold_left 
       context 
       f 
       (f accum index (T.mk_int_range const_lbound const_ubound)) 
@@ -2001,7 +2066,12 @@ let rec fold_ast_type'
   | (index, A.EnumType enum_elements) :: tl -> 
 
     (* Construct an enum type *)
-    fold_ast_type' context f (f accum index (T.mk_enum enum_elements)) tl
+    fold_ast_type' 
+      fold_left 
+      context 
+      f
+      (f accum index (T.mk_enum enum_elements)) 
+      tl
 
 
   (* User type that is an alias *)
@@ -2010,6 +2080,7 @@ let rec fold_ast_type'
 
     (* Substitute basic type *)
     fold_ast_type' 
+      fold_left 
       context 
       f 
       (f accum index (List.assoc ident basic_types)) 
@@ -2022,14 +2093,20 @@ let rec fold_ast_type'
 
     (* Apply f to basic types with index *)
     let accum' = 
-      List.fold_left
-        (fun a (j, s) -> f a (I.push_index_to_index index j) s)
-        accum
-        (List.assoc ident indexed_types)
+      if fold_left then
+        List.fold_left
+          (fun a (j, s) -> f a (I.push_index_to_index index j) s)
+          accum
+          (List.assoc ident indexed_types)
+      else
+        List.fold_right
+          (fun (j, s) a -> f a (I.push_index_to_index index j) s)
+          (List.assoc ident indexed_types)
+          accum
     in
 
     (* Recurse for tail of list *)
-    fold_ast_type' context f accum' tl
+    fold_ast_type' fold_left context f accum' tl
 
 
   (* User type that is a free type *)
@@ -2038,6 +2115,7 @@ let rec fold_ast_type'
 
     (* Substitute free type *)
     fold_ast_type' 
+      fold_left 
       context 
       f 
       (f accum index (T.mk_free_type ident)) 
@@ -2061,6 +2139,7 @@ let rec fold_ast_type'
 
     (* Substitute with indexed types of fields *)
     fold_ast_type' 
+      fold_left 
       context 
       f 
       accum 
@@ -2068,7 +2147,10 @@ let rec fold_ast_type'
          (fun a (j, s) -> 
             (I.push_index_to_index index (I.index_of_ident j), s) :: a)
          tl
-         record_fields)
+         (if fold_left then
+            List.sort (fun (i, _) (j, _) -> I.compare i j) record_fields
+          else
+            List.sort (fun (i, _) (j, _) -> I.compare j i) record_fields))
 
 
   (* Tuple type *)
@@ -2076,16 +2158,25 @@ let rec fold_ast_type'
 
     (* Substitute with indexed types of elements *)
     fold_ast_type' 
+      fold_left 
       context 
       f 
       accum 
       (fst
-         (List.fold_left
-            (fun (a, j) s -> 
-               (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
-               Numeral.(succ j))
-            (tl, Numeral.zero)
-            tuple_fields))
+         (if fold_left then
+            List.fold_left
+              (fun (a, j) s -> 
+                 (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
+                 Numeral.(succ j))
+              (tl, Numeral.zero)
+              tuple_fields
+          else
+            List.fold_right
+              (fun s (a, j) -> 
+                 (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
+                 Numeral.(pred j))
+              tuple_fields
+              (tl, Numeral.((of_int (List.length tuple_fields) - one)))))
 
 
   (* Array type *)
@@ -2106,29 +2197,34 @@ let rec fold_ast_type'
               A.pp_print_position A.dummy_pos));
 
     (* Append indexed types *)
-    let rec aux accum = function
-      | j when Numeral.(j = zero) -> accum
+    let rec aux accum array_size = function
+      | j when Numeral.(j >= array_size) -> accum
       | j -> 
 
         aux 
-          ((I.push_index_to_index index (I.mk_int_index Numeral.(pred j)), 
+          ((I.push_index_to_index index (I.mk_int_index j), 
             type_expr) :: 
              accum)
-          Numeral.(pred j)
+          array_size
+          Numeral.(succ j)
 
     in
 
     (* Substitute with indexed types of elements *)
     fold_ast_type' 
+      fold_left
       context 
       f 
       accum 
-      (aux tl array_size)
+      (aux tl array_size Numeral.zero)
 
 
 (* Wrapper for folding function over type expression  *)
-let fold_ast_type context f accum t = 
-  fold_ast_type' context f accum [(I.empty_index, t)] 
+let fold_left_ast_type context f accum t = 
+  fold_ast_type' true context f accum [(I.empty_index, t)] 
+
+let fold_right_ast_type context f accum t = 
+  fold_ast_type' false context f accum [(I.empty_index, t)] 
 
 
 (* ******************************************************************** *)
@@ -2189,7 +2285,7 @@ let add_typed_decl
       (* Check if type of expression matches given type *)
       | Some t -> 
 
-        fold_ast_type 
+        fold_left_ast_type 
           context
           (fun () type_index def_type ->
              let { E.expr_type } = 
@@ -2199,7 +2295,7 @@ let add_typed_decl
                  raise E.Type_mismatch 
              in
              if 
-               T.check_type def_type expr_type 
+               T.check_type expr_type def_type
              then
                () 
              else 
@@ -2337,20 +2433,9 @@ let add_node_output_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-(*
-  (* Add to constant node inputs *)
-  let node_outputs' = match node_outputs with 
-
-    | (i, l) :: tl when i = ident -> 
-      
-      (ident, (index, basic_type) :: l) :: tl 
-        
-    | _ -> (ident, [(index, basic_type)]) :: node_outputs 
-
+  let node_outputs' = 
+    (I.push_back_index index ident, basic_type) :: node_outputs 
   in
-*)
-
-  let node_outputs' = (I.push_back_index index ident, basic_type) :: node_outputs in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.outputs = node_outputs' })
@@ -2376,20 +2461,9 @@ let add_node_var_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-(*
-  (* Add to constant node inputs *)
-  let node_vars' = match node_vars with 
-
-    | (i, l) :: tl when i = ident -> 
-      
-      (ident, (index, basic_type) :: l) :: tl 
-        
-    | _ -> (ident, [(index, basic_type)]) :: node_vars 
-
+  let node_locals' = 
+    (I.push_back_index index ident, basic_type) :: node_locals
   in
-*)
-
-  let node_locals' = (I.push_back_index index ident, basic_type) :: node_locals in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.locals = node_locals' })
@@ -2431,7 +2505,7 @@ let rec parse_node_inputs context node = function
 
     (* Add declaration of possibly indexed type to contexts *)
     let context', node' = 
-      fold_ast_type 
+      fold_left_ast_type 
         context
         (add_node_input_decl ident is_const)
         (context, node)
@@ -2487,7 +2561,7 @@ let rec parse_node_outputs context node = function
 
     (* Add declaration of possibly indexed type to contexts *)
     let context', node' = 
-      fold_ast_type 
+      fold_left_ast_type 
         context
         (add_node_output_decl ident)
         (context, node)
@@ -2548,7 +2622,7 @@ let rec parse_node_locals context node = function
 
     (* Add declaration of possibly indexed type to contexts *)
     let context', node' = 
-      fold_ast_type 
+      fold_left_ast_type 
         context
         (add_node_var_decl ident)
         (context, node)
@@ -2731,7 +2805,10 @@ let rec parse_node_equations
                   A.pp_print_position A.dummy_pos)))
 
 
-    (* Equations with more than one variable on the left-hand side *)
+    (* Equations with possibly more than one variable on the left-hand side
+
+       The expression is without node calls, those have been
+       abstracted *)
     | A.Equation (struct_items, ast_expr) :: tl -> 
 
       (* Evaluate expression *)
@@ -2741,81 +2818,96 @@ let rec parse_node_equations
           mk_new_call_ident 
           context 
           ([], []) 
-
+          
           (* Wrap right-hand side in a singleton list, nested lists
-             are flattened, s.t. ((a,b)) become (a,b) *)
+                are flattened, s.t. ((a,b)) become (a,b) *)
           (A.ExprList (A.dummy_pos, [ast_expr]))
       in
 
+      Format.printf
+        "expr' %a@."
+        (pp_print_list 
+           (fun ppf (i, e) -> 
+              Format.fprintf 
+                ppf 
+                "%a: %a"
+                (I.pp_print_index false) i 
+                (E.pp_print_lustre_expr false) e)
+           ", ")
+        expr';
+           
+
       if 
 
+        (* Chack for unguarded pre in expression *)
         List.exists 
           (function (_, e) -> E.pre_is_unguarded e) 
           expr' 
 
       then 
 
+        (* TODO: make this a proper warning *)
         Format.printf 
           "@[<h>-- Warning: unguarded pre in %a in %a@]@." 
           A.pp_print_expr ast_expr
           A.pp_print_position A.dummy_pos;
 
       let eq_types = 
-        List.rev
-          (snd
-             (List.fold_left 
-                (fun (i, accum) -> function
-
-                   | A.SingleIdent ident -> 
-
-                     let ident_types =
-
-                       (* sort_indexed_pairs *)
-
-                         (try 
-
-                            (* Return type if assigning to an output *)
-                            List.assoc ident node.N.outputs 
-
-                          with Not_found -> 
-
-                            (* Return type if assigning to a local variable *)
-                            try List.assoc ident node.N.locals
-
-                            with Not_found -> 
-
-                              (* Fail *)
-                              raise 
-                                (Failure 
-                                   (Format.asprintf 
-                                      "Equation does not assign to output \
-                                       or local variable in %a" 
-                                      A.pp_print_position A.dummy_pos)))
-
-                     in
-
-(*
-                     (succ i,
-                      List.fold_left 
-                        (fun accum (index, ident_type) -> 
-                           (I.push_index index ident, ident_type) :: accum)
-                        accum
-                        ident_types)
-*)
-                     ident_types
-
-                   | _ -> 
-
-                     (* Fail *)
-                     raise 
-                       (Failure 
-                          (Format.asprintf 
-                             "Assignments not supported in %a" 
-                             A.pp_print_position A.dummy_pos)))
-                (0, [])
-                struct_items))
+        List.fold_right 
+          (fun eq accum -> match eq with
+             
+             | A.SingleIdent ident -> 
+               
+               let accum' =
+                 List.fold_right
+                   (fun (v, t) a -> 
+                      try 
+                        (ignore (I.get_suffix ident v); v, t) :: a
+                      with Not_found ->
+                        a)
+                   node.N.outputs
+                    accum
+               in
+               
+               if accum' = accum then
+                 
+                 List.fold_right 
+                   (fun (v, t) a -> 
+                      try 
+                        (ignore (I.get_suffix ident v); v, t) :: a
+                      with Not_found ->
+                        a)
+                   node.N.locals
+                   accum
+                   
+               else
+                 
+                 accum'
+                   
+             | _ -> 
+               
+               (* Fail *)
+               raise 
+                 (Failure 
+                    (Format.asprintf 
+                       "Assignments not supported in %a" 
+                       A.pp_print_position A.dummy_pos)))
+          struct_items
+          []
       in
 
+      Format.printf
+        "eq_types %a@."
+        (pp_print_list 
+           (fun ppf (i, e) -> 
+              Format.fprintf 
+                ppf 
+                "%a: %a"
+                (I.pp_print_ident false) i 
+                (T.pp_print_lustre_type false) e)
+           ", ")
+        eq_types;
+           
       let node' = 
 
         List.fold_right2
@@ -2855,6 +2947,7 @@ let rec parse_node_equations
                        (E.mk_lte expr (E.mk_int ubound)))
                   in
 
+(*
                   
                   let aux = 
                     fun (i, l) -> 
@@ -2871,17 +2964,17 @@ let rec parse_node_equations
                   let node_outputs' = List.map aux node.N.outputs in
                   
                   let node_vars' = List.map aux node.N.locals in
+*)
 
-(*
               Format.printf 
                 "@[<v>Expression may not be in \
                  subrange of variable. \
                  Need to add property@;%a@]@."
-                E.pp_print_lustre_expr range_expr;
-*)
+                (E.pp_print_lustre_expr false) range_expr;
+
                   { node with 
-                      N.outputs = node_outputs';
-                      N.locals = node_vars';
+                      (* N.outputs = node_outputs';
+                      N.locals = node_vars'; *)
                       N.equations = eq :: node.N.equations;
                       N.props = range_expr :: node.N.props } 
 
@@ -2891,7 +2984,9 @@ let rec parse_node_equations
                   raise 
                     (Failure 
                        (Format.asprintf 
-                          "Type mismatch for expressions at %a" 
+                          "Type mismatch for expressions %a and %a at %a" 
+                          (I.pp_print_ident false) ident
+                          (E.pp_print_lustre_expr false) expr
                           A.pp_print_position A.dummy_pos))))
 
           eq_types
@@ -3093,9 +3188,9 @@ let parse_node_signature
       equations
   in
 
-  (*
-  Format.printf "%a@." pp_print_lustre_context local_context_locals;
-*)
+
+  Format.printf "%a@." (pp_print_lustre_context false) local_context_locals;
+
 
   let node_context_equations = N.solve_eqs_node_calls node_context_equations in
 
@@ -3194,7 +3289,7 @@ let rec check_declarations
           (* Add alias type declarations for the possibly indexed
              type expression *)
           let global_context' = 
-            fold_ast_type 
+            fold_left_ast_type 
               global_context
               (add_alias_type_decl ident) 
               global_context 

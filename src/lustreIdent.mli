@@ -153,15 +153,16 @@ val add_int_to_index : index -> int -> index
 
 
 val get_index_suffix : index -> index -> index
+*)
+
 
 (** [get_suffix i j] assumes that [i] and [j] index the same
     identifier and the indexes of [i] are a prefix of the indexes of
     [j]. Return the suffix of [j] with the common prefix with [i]
-    removed, raise [Invalid_argument "get_suffix"] otherwise. *)
+    removed, raise [Not_found] otherwise. *)
 val get_suffix : t -> t -> index
 
 
-*)
 
 
 

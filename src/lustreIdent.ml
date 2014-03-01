@@ -278,12 +278,11 @@ let add_int_to_index i j = i @ [IntIndex j]
 (* Remove i as prefix from j and return remainder of j *)
 let rec get_index_suffix i j = match i, j with 
 
-  (* All of j consumed, return j *)
+  (* All of i consumed, return j *)
   | [], j -> j
 
   (* i is not a prefix of j *)
-  | _, [] ->
-    raise (Invalid_argument ("get_suffix"))
+  | _, [] -> raise Not_found
 
   (* First element is identical *)
   | StringIndex i :: itl, StringIndex j :: jtl when i = j -> 
@@ -299,26 +298,15 @@ let rec get_index_suffix i j = match i, j with
   | StringIndex _ :: _, StringIndex _ :: _
   | IntIndex _ :: _, IntIndex _ :: _
   | IntIndex _ :: _, StringIndex _ :: _
-  | StringIndex _ :: _, IntIndex _ :: _ ->
-    raise (Invalid_argument ("get_index_suffix"))
+  | StringIndex _ :: _, IntIndex _ :: _ -> raise Not_found
 
 
-
-(* [i] is a prefix of [j], return the indexes of [j] with the commonp
+(* [i] is a prefix of [j], return the indexes of [j] with the common
    prefix removed *)
 let get_suffix (i, li) (j, lj) = 
 
-  try 
+  if i = j then get_index_suffix li lj else raise Not_found
 
-    if i = j then get_index_suffix li lj else 
-      
-      raise (Invalid_argument ("get_suffix"))
-
-  with 
-
-    | Invalid_argument "get_index_suffix" -> 
-
-      raise (Invalid_argument ("get_suffix"))
 
 (* 
    Local Variables:

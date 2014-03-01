@@ -1,15 +1,22 @@
-node id (x: [int, bool]) returns (y: int); let y = pre x[0]; tel
+type tup = [bool, subrange [-2, 2] of int, real];
 
-node X (i1, i2: int) returns (o1, o2: int);
-var o3: int;
+type rec = {b: bool; c: [int, real, bool]; d: tup; a: int^3};
+
+const a : tup = [true, 1, 0.1];
+const b : rec = rec { c = [1, 1E1, false]; a = [1, 2, 3]; d = [true, -1, 0.5]; b = true };
+
+node id (x: tup ; z: rec) returns (y: tup); let y = pre x; tel
+
+node X_id (i1, i2: int) returns (o1, o2: int);
+var o3:  [bool, subrange [-3, 3] of int, real];
 let
   o1 = o2;
-  o2 = o3;
-  o3 = id([o1, false]);
+  o2 = int(o3[2]);
+  o3 = id([false, 1, 1E2],  b);
 tel;
 
-(*
-const c_cond : subrange [1, 2] of int = if true then 1 else 2;
+
+const c_cond : /* subrange [1, 2] of */ int = if true then 1 else 2;
 
 const c_ = c_cond;
 
@@ -25,18 +32,18 @@ type t = s^2;
 
 
 
-type pair = {one, two: int};
 
 node A() returns ();
 var
-  a : [int, real, bool];
+  a0 : [int, real, bool];
   a1: int; a2: real; a3: bool; a4: int;
 let
   (a1, a2, a3, a4) = ((1 + 5 + c_, 2.0), (false, 3));
 tel
 
+type pair = { one, two: int };
 
-node X (a1: real; a2: int) returns (b: [real, int]; c: [int,  bool]);
+node X (a1: real; a2: int) returns (b0: [real, int]; c0: [int,  bool]);
   --@ensures a1 > 0.0;
   --@requires a2 > 0;
 var
@@ -47,7 +54,7 @@ let
   a3 = pre a2; 
   -- b2[1] = 3;
   b2 = (1, 2, 3) + [3, 2, 1] - (4^3);
-  (b2, b) = ([a2, a2, 0], [1.0, 0]);
+  (b2, b0) = ([a2, a2, 0], [1.0, 0]);
 
   --%PROPERTY a1 > 0.0;
 tel
@@ -91,8 +98,6 @@ let
 tel
 
 
-
-*)
 
 
 /*
