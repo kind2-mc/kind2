@@ -67,6 +67,9 @@ val pp_print_index : bool -> Format.formatter -> index -> unit
 (** Pretty-print an index element *)
 val pp_print_one_index : bool -> Format.formatter -> one_index -> unit 
 
+(** Return a string representation of an identifier *)
+val string_of_ident : bool -> t -> string 
+
 (** Total order on indexes *)
 val compare_index : index -> index -> int
 

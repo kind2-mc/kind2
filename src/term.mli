@@ -383,6 +383,17 @@ val divisible_to_mod : t -> t
     absolute value *)
 val nums_to_pos_nums : t -> t 
 
+(** Add to offset of state variable instances
+
+    Negative values are allowed *)
+val bump_state : int -> t -> t
+
+(** Return the minimal and maximal offset of state variable instances
+
+    Return [(None, None)] if there are no state variable instances in
+    the term. *)
+val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

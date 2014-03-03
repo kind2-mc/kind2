@@ -181,20 +181,7 @@ let pp_print_trans_sys
 let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
   
 
-(* Add to offset of state variable instances *)
-let bump_state i term = 
-
-  let i' = Numeral.of_int i in
-
-  (* Bump offset of state variables *)
-  Term.T.map
-    (function _ -> function 
-       | t when Term.is_free_var t -> 
-         Term.mk_var 
-           (Var.bump_offset_of_state_var_instance i' 
-              (Term.free_var_of_term t))
-       | _ as t -> t)
-    term
+let bump_state = Term.bump_state
 
 
 (* Instantiate the initial state constraint to the bound *)

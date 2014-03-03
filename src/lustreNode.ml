@@ -487,12 +487,12 @@ let solve_eqs_node_calls node =
       ([], [])
       node.calls
   in
-  
+(*  
   Format.printf
     "@[<v>Elminated variables:@,%a@]@."
     (pp_print_list (I.pp_print_ident false) "@,") 
     vars_eliminated;
-
+*)
 
   let locals' = 
     List.filter

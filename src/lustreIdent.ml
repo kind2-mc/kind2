@@ -16,6 +16,7 @@
 
 *)
 
+open Lib
 
 (* ********************************************************************** *)
 (* Types                                                                  *)
@@ -142,6 +143,9 @@ let pp_print_index safe ppf index =
 let rec pp_print_ident safe ppf (s, i) = 
 
   Format.fprintf ppf "%s%a" s (pp_print_index safe) i
+
+
+let string_of_ident safe = string_of_t (pp_print_ident safe)
 
 
 (* Construct an identifier of a string *)

@@ -35,7 +35,7 @@ type kindtype =
   | Real
   | BV of int
   | Array of t * t
-
+  | Scalar of string * string list 
 
 (* A private type that cannot be constructed outside this module
 
@@ -74,13 +74,24 @@ module Kindtype_node = struct
   (* Equality of types *)
   let rec equal t1 t2 = match t1, t2 with 
     | Bool, Bool -> true
+    | Bool, _ -> false
     | Int, Int -> true
-    | IntRange (l1, u1), IntRange (l2, u2) -> Numeral.equal l1 l2 && Numeral.equal u1 u2 
+    | Int, _ -> false
+    | IntRange (l1, u1), IntRange (l2, u2) -> 
+      Numeral.equal l1 l2 && Numeral.equal u1 u2 
+    | IntRange _, _ -> false
     | Real, Real -> true
+    | Real, _ -> false
     | BV i, BV j -> i = j
+    | BV i, _ -> false
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
-    | _ -> false
-
+    | Array (i1, t1), _ -> false
+    | Scalar (s1, l1), Scalar (s2, l2) -> 
+      (try 
+         (s1 = s2) && (List.for_all2 (=) l1 l2) 
+       with Invalid_argument _ -> false)
+    | Scalar _, _ -> false
+        
 end
 
 
@@ -189,6 +200,13 @@ let rec pp_print_type_node ppf = function
       pp_print_type s 
       pp_print_type t
 
+  | Scalar (s, l) -> 
+
+    Format.fprintf
+      ppf 
+      "%s %a" 
+      s 
+      (pp_print_list Format.pp_print_string " ") l
 
 (* Pretty-print a hashconsed variable *)
 and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
@@ -218,6 +236,8 @@ let mk_bv w = Hkindtype.hashcons ht (BV w) ()
 
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
+let mk_scalar s l = Hkindtype.hashcons ht (Scalar (s, l)) ()
+
 
 (* Import a type from a different instance into this hashcons table *)
 let rec import { Hashcons.node = n } = match n with 
@@ -232,6 +252,7 @@ let rec import { Hashcons.node = n } = match n with
   (* Import index and value types of array type *)
   | Array (i, t) -> mk_array (import i) (import t)
 
+  | Scalar (s, l) -> mk_scalar s l
 
 (* Static values *)
 let t_bool = mk_bool ()
@@ -245,12 +266,22 @@ let t_real = mk_real ()
 
 
 let is_int { Hashcons.node = t } = match t with
-  | Int
-  | IntRange _ -> true 
+  | Int -> true 
+  | IntRange _
   | Bool 
   | Real
   | BV _
-  | Array _ -> false
+  | Array _ 
+  | Scalar _ -> false
+
+let is_int_range { Hashcons.node = t } = match t with
+  | IntRange _ -> true 
+  | Int
+  | Bool 
+  | Real
+  | BV _
+  | Array _ 
+  | Scalar _ -> false
 
 let is_bool { Hashcons.node = t } = match t with
   | Bool -> true
@@ -258,7 +289,8 @@ let is_bool { Hashcons.node = t } = match t with
   | IntRange _
   | Real
   | BV _
-  | Array _ -> false
+  | Array _ 
+  | Scalar _ -> false
 
 let is_real { Hashcons.node = t } = match t with
   | Real -> true
@@ -266,7 +298,8 @@ let is_real { Hashcons.node = t } = match t with
   | Array _
   | Bool
   | Int
-  | IntRange _ -> false
+  | IntRange _ 
+  | Scalar _ -> false
 
 let is_bv { Hashcons.node = t } = match t with
   | BV _ -> true
@@ -274,7 +307,8 @@ let is_bv { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
-  | Array _ -> false
+  | Array _ 
+  | Scalar _ -> false
 
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
@@ -282,7 +316,56 @@ let is_array { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
-  | BV _ -> true
+  | BV _ 
+  | Scalar _ -> false
+
+let is_scalar { Hashcons.node = t } = match t with
+  | Scalar _ -> true
+  | Bool
+  | Int
+  | IntRange _
+  | Real
+  | BV _ 
+  | Array _ -> false
+
+
+(* Return bounds of an integer range type *)
+let bounds_of_int_range = function
+  | { Hashcons.node = IntRange (l, u) } -> (l, u)
+  | _ -> raise (Invalid_argument "bounds_of_int_range")
+
+
+(* ********************************************************************* *)
+(* Type checking                                                         *)
+(* ********************************************************************* *)
+
+
+(* Check if [t1] is a subtype of [t2] *)
+let rec check_type  { Hashcons.node = t1 }  { Hashcons.node = t2 } = 
+
+  match t1, t2 with 
+
+    (* Types are identical *)
+    | Int, Int
+    | Real, Real
+    | Bool, Bool -> true
+
+    (* IntRange is a subtype of Int *)
+    | IntRange _, Int -> true
+
+    (* IntRange is subtype of IntRange if the interval is a subset *)
+    | IntRange (l1, u1), IntRange (l2, u2) 
+      when Numeral.(l1 >= l2) && Numeral.(u1 <= u2) -> true
+
+    (* Enum types are subtypes if the sets of elements are subsets *)
+    | Scalar (_, l1), Scalar (_, l2) -> 
+
+      List.for_all
+        (function e -> List.mem e l2)
+        l1
+
+    (* No other subtype relationships *)
+    | _ -> false
 
 
 

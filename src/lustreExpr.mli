@@ -42,6 +42,7 @@ exception Type_mismatch
 (** Clocks of expressions are not compatible *)
 exception Clock_mismatch
 
+(*
 (** Unary operators
 
     The argument to a [pre] is a variable, see [Var] and [VarPre] in
@@ -92,6 +93,9 @@ type expr = private
   | BinaryOp of binary_op * (expr * expr)
   | VarOp of var_op * expr list
   | Ite of expr * expr * expr
+*)
+
+type expr = Term.t
 
 (** A clock *)
 type clock = unit
@@ -242,9 +246,10 @@ val mk_pre : (unit -> LustreIdent.t) -> ((LustreIdent.t * t) list * 'a) -> t -> 
     expression. *)
 val pre_is_unguarded : t -> bool
 
+(*
 (** Return a list of names of variables in the expression *)
 val vars_of_expr : expr -> LustreIdent.t list
-
+*)
 (* 
    Local Variables:
    compile-command: "make -k"

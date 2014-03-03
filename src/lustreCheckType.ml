@@ -51,42 +51,43 @@ let sort_indexed_pairs list =
 (* Data structures                                                      *)
 (* ******************************************************************** *)
 
-(* Context for typing *)
+(* Context for typing, flattening of indexed types and constant
+   propagation *)
 type lustre_context = 
 
-    { 
+  { 
 
-      (* Type identifiers and their types *)
-      basic_types : (LustreIdent.t * LustreType.t) list; 
+    (* Type identifiers and their types *)
+    basic_types : (LustreIdent.t * LustreType.t) list; 
 
-      (* Map of prefix of a type identifiers to its suffixes and their
-         types. Indexes must be sorted. *)
-      indexed_types : 
-        (LustreIdent.t * 
-           (LustreIdent.index * LustreType.t) list) list; 
+    (* Map of prefix of a type identifiers to its suffixes and their
+       types. Indexes must be sorted. *)
+    indexed_types : 
+      (LustreIdent.t * 
+       (LustreIdent.index * LustreType.t) list) list; 
 
-      (* Type identifiers for free types *)
-      free_types : LustreIdent.t list; 
+    (* Type identifiers for free types *)
+    free_types : LustreIdent.t list; 
 
-      (* Types of identifiers *)
-      type_ctx : (LustreIdent.t * LustreType.t) list; 
+    (* Types of identifiers *)
+    type_ctx : (LustreIdent.t * LustreType.t) list; 
 
-      (* Map of prefix of an identifier to its suffixes
+    (* Map of prefix of an identifier to its suffixes
 
-         Pair the suffix with a unit value to reuse function for
-         [indexed_types]. *)
-      index_ctx : 
-        (LustreIdent.t * 
-           (LustreIdent.index * unit) list) list; 
-
-      (* Values of constants *)
-      consts : (LustreIdent.t * LustreExpr.t) list; 
-
-      (* Nodes *)
-      nodes : (LustreIdent.t * LustreNode.t) list;
-
-    }
-
+       Pair the suffix with a unit value to reuse function for
+       [indexed_types]. *)
+    index_ctx : 
+      (LustreIdent.t * 
+       (LustreIdent.index * unit) list) list; 
+    
+    (* Values of constants *)
+    consts : (LustreIdent.t * LustreExpr.t) list; 
+    
+    (* Nodes *)
+    nodes : (LustreIdent.t * LustreNode.t) list;
+    
+  }
+  
 
 (* Initial context *)
 let init_lustre_context = 
@@ -185,8 +186,9 @@ let pp_print_lustre_context
 (* ******************************************************************** *)
 
 (* Given an expression parsed into the AST, evaluate to a list of
-   LustreExpr.t paired with an index. Unfold and abstract from the
-   context, also return a list of created variables and node calls.  
+   LustreExpr.t paired with an index, sorted by indexes. Unfold and
+   abstract from the context, also return a list of created variables
+   and node calls.
 
    The functions [mk_new_var_ident] and [mk_new_call_ident] return a
    fresh identifier for a variable and for a variable capturing the
@@ -792,7 +794,7 @@ let rec eval_ast_expr'
                   A.pp_print_position pos))
 
       in
-
+(*
       Format.printf
         "RecordConstruct indexes: %a@."
         (pp_print_list 
@@ -804,7 +806,7 @@ let rec eval_ast_expr'
                 (T.pp_print_lustre_type false) e)
            ", ")
         indexes;
-           
+  *)         
       (* Convert identifiers to indexes for expressions in constructor *)
       let expr_list', new_defs' = 
         List.fold_left 
@@ -832,7 +834,7 @@ let rec eval_ast_expr'
           ([], new_defs)
           (List.sort (fun (i, _) (j, _) -> I.compare j i) expr_list)
       in
-
+(*
       Format.printf
         "RecordConstruct expr_list': %a@."
         (pp_print_list 
@@ -844,7 +846,7 @@ let rec eval_ast_expr'
                 (E.pp_print_lustre_expr false) e)
            ", ")
         expr_list';
-           
+  *)         
       (* Add indexed expressions and new definitions to result *)
       let result' = 
 
@@ -1563,7 +1565,7 @@ and eval_ast_expr
       new_defs 
       [(I.empty_index, expr)]
   in
-
+(*
   Format.printf
     "expr_ast_expr %a@."
     (pp_print_list 
@@ -1575,7 +1577,7 @@ and eval_ast_expr
             (E.pp_print_lustre_expr false) e)
        ", ")
     (List.rev expr');
-
+*)
 
 (*
   Format.printf "%a@." (pp_print_lustre_context false) context;
@@ -1981,13 +1983,13 @@ let add_alias_type_decl
     ({ basic_types; indexed_types; type_ctx } as context) 
     index 
     basic_type =
-
+(*
   Format.printf 
     "add_alias_type_decl %a %a %a@." 
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (T.pp_print_lustre_type false) basic_type;
-
+*)
   (* Add index to identifier *)
   let indexed_ident = I.push_index index ident in
 
@@ -2396,12 +2398,12 @@ let add_node_input_decl
      ({ N.inputs = node_inputs } as node))
     index 
     basic_type =
-  
+(*  
   Format.printf "add_node_input_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (T.pp_print_lustre_type false) basic_type;
-
+*)
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2442,12 +2444,12 @@ let add_node_output_decl
      ({ N.outputs = node_outputs } as node))
     index 
     basic_type =
-  
+(*  
   Format.printf "add_node_output_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (T.pp_print_lustre_type false) basic_type;
-
+*)
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2475,12 +2477,12 @@ let add_node_var_decl
      node_locals)
     index 
     basic_type =
-  
+(*  
   Format.printf "add_node_var_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (T.pp_print_lustre_type false) basic_type;
-
+*)
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2866,7 +2868,7 @@ let rec parse_node_equations
                 are flattened, s.t. ((a,b)) become (a,b) *)
           (A.ExprList (A.dummy_pos, [ast_expr]))
       in
-
+(*
       Format.printf
         "expr' %a@."
         (pp_print_list 
@@ -2878,7 +2880,7 @@ let rec parse_node_equations
                 (E.pp_print_lustre_expr false) e)
            ", ")
         expr';
-
+*)
 
       if 
 
@@ -2954,7 +2956,7 @@ let rec parse_node_equations
              []
              struct_items)
       in
-
+(*
       Format.printf
         "eq_types %a@."
         (pp_print_list 
@@ -2966,7 +2968,7 @@ let rec parse_node_equations
                 (T.pp_print_lustre_type false) e)
            ", ")
         eq_types;
-
+*)
       let node' = 
 
         List.fold_right2
@@ -3236,8 +3238,6 @@ let parse_node_signature
     parse_node_locals local_context_outputs node_context_contract locals
   in
 
-  Format.printf "%a@." (N.pp_print_node true node_ident) node_context_locals;
-
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
   let node_context_equations = 
@@ -3261,7 +3261,7 @@ let parse_node_signature
       ((List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations) @
        (List.map (fun (v, _) -> (v, [])) node_context_equations.N.outputs))
   in
-
+(*
   Format.printf "@[<v>%a@]@."
     (pp_print_list 
       (fun ppf (v, d) ->
@@ -3274,7 +3274,7 @@ let parse_node_signature
           (ISet.elements d))
       "@,")
     var_dep;
-
+*)
   let node_context_deps = 
     { node_context_equations with 
         N.output_input_dep = 

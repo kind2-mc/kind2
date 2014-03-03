@@ -235,6 +235,25 @@ let string_of_term t = string_of_t pp_print_term t
 
 
 (* ********************************************************************* *)
+(* Folding and utility functions on terms                                *)
+(* ********************************************************************* *)
+
+
+(* Evaluate a term bottom-up right-to-left *)
+let eval = T.eval 
+
+(* Evaluate a term bottom-up right-to-left, given the flattened term
+   as argument *)
+let eval_t = T.eval_t 
+
+(* Bottom-up right-to-left map of the term 
+
+   Must hashcons bottom-up since term was destructed and not all terms
+   are necessarily in the hashcons table. *)
+let map = T.map
+
+
+(* ********************************************************************* *)
 (* Type checking for terms                                               *)
 (* ********************************************************************* *)
 
@@ -983,6 +1002,63 @@ let nums_to_pos_nums term = match T.node_of_t term with
   | _ -> term 
 
 
+(* Add to offset of state variable instances *)
+let bump_state i term = 
+
+  let i' = Numeral.of_int i in
+
+  (* Bump offset of state variables *)
+  T.map
+    (function _ -> function 
+       | t when is_free_var t -> 
+         mk_var 
+           (Var.bump_offset_of_state_var_instance i' 
+              (free_var_of_term t))
+       | _ as t -> t)
+    term
+
+
+(* Return true if there is an pre operator in the expression *)
+let rec var_offsets_of_term expr = 
+  
+  let max_none e1 e2 = match e1, e2 with 
+    | None, None -> None 
+    | None, Some e 
+    | Some e, None -> Some e
+    | Some e1, Some e2 -> Some Numeral.(max e1 e2)
+  in
+      
+  let min_none e1 e2 = match e1, e2 with 
+    | None, None -> None 
+    | None, Some e 
+    | Some e, None -> Some e
+    | Some e1, Some e2 -> Some Numeral.(min e1 e2)
+  in
+      
+  let min_max_none (l1, u1) (l2, u2) = 
+    Numeral.(min_none l1 l2, max_none u1 u2) 
+  in
+
+
+  eval_t 
+    (function 
+      | T.Const c -> 
+        (function [] -> (None, None) | _ -> assert false)
+
+      | T.App _ -> 
+        (function l -> List.fold_left min_max_none (None, None) l)
+
+      | T.Var v -> 
+        (function 
+          | [] -> 
+            let o = Var.offset_of_state_var_instance v in
+            (Some o, Some o)
+          | _ -> assert false)
+      | T.Attr _ -> (function [v] -> v | _ -> assert false))
+    expr
+
+
+
 (* Infix notation for constructors *)
 module Abbrev = 
 struct
@@ -1025,24 +1101,6 @@ struct
 
 end
 
-
-(* ********************************************************************* *)
-(* Folding and utility functions on terms                                *)
-(* ********************************************************************* *)
-
-
-(* Evaluate a term bottom-up right-to-left *)
-let eval = T.eval 
-
-(* Evaluate a term bottom-up right-to-left, given the flattened term
-   as argument *)
-let eval_t = T.eval_t 
-
-(* Bottom-up right-to-left map of the term 
-
-   Must hashcons bottom-up since term was destructed and not all terms
-   are necessarily in the hashcons table. *)
-let map = T.map
 
 
 

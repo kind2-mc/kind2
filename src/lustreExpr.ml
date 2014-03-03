@@ -19,7 +19,7 @@
 open Lib
 
 (* Abbreviations *)
-module T = LustreType
+(* module T = LustreType *)
 module I = LustreIdent
 module ISet = I.LustreIdentSet
 
@@ -29,135 +29,17 @@ exception Type_mismatch
 exception Clock_mismatch
 
 
-(* A unary operator symbol *)
-type unary_op =
-  | Not
-  | Uminus
-  | ToInt
-  | ToReal
+(* A Lustre expression is a term *)
+type expr = Term.t
 
 
-(* Pretty-print a unary operator symbol *)
-let pp_print_unary_op ppf = 
-  let p = Format.fprintf ppf "%s" in
-  
-  function
-    | Not -> p "not"
-    | Uminus -> p "-"
-    | ToInt -> p "int"
-    | ToReal -> p "real"
-      
-
-(* A binary operator symbol *)
-type binary_op =
-  | And 
-  | Or
-  | Xor
-  | Impl
-  | Mod
-  | Minus
-  | Plus 
-  | Div
-  | Times 
-  | IntDiv
-  | Eq
-  | Neq
-  | Lte
-  | Lt
-  | Gte
-  | Gt
+(* Map from state variables to indexed identifiers *)
+let ident_of_state_var = StateVar.StateVarHashtbl.create 7
 
 
-(* Pretty-print a binary operator symbol *)
-let pp_print_binary_op ppf = 
-  let p = Format.fprintf ppf "%s" in
-  
-  function
-    | And -> p "and"
-    | Or -> p "or"
-    | Xor -> p "xor"
-    | Impl -> p "=>"
-    | Mod -> p "mod"
-    | Minus -> p "-"
-    | Plus  -> p "+"
-    | Div -> p "/"
-    | Times  -> p "*"
-    | IntDiv -> p "div"
-    | Eq -> p "="
-    | Neq -> p "<>"
-    | Lte -> p "<="
-    | Lt -> p "<"
-    | Gte -> p ">="
-    | Gt -> p ">"
+(* Equality on expressions *)
+let equal_expr = Term.equal
 
-
-(* A variadic operator symbol *)
-type var_op =
-  | OneHot
-
-
-(* Pretty-print a variadic operator symbol *)
-let pp_print_var_op ppf = 
-  let p = Format.fprintf ppf "%s" in
-  
-  function
-    | OneHot -> p "#"
-
-
-(* A Lustre expression *)
-type expr = 
-  | Var of I.t
-  | VarPre of I.t
-  | True
-  | False
-  | Int of Numeral.t
-  | Real of Decimal.t
-  | UnaryOp of unary_op * expr
-  | BinaryOp of binary_op * (expr * expr)
-  | VarOp of var_op * expr list 
-  | Ite of expr * expr * expr
-
-
-(* Equaliy of expressions
-
-   Need to compare with equality functions, since numerals and
-   decimals are abstract values for OCaml's (=) function and so are
-   indexed variables. *)
-let rec equal_expr e1 e2 = match e1, e2 with 
-
-  | Var v1, Var v2 
-    when I.equal v1 v2 -> true
-
-  | VarPre v1, VarPre v2 
-    when I.equal v1 v2 -> true
-
-  | True, True -> true
-
-  | False, False -> true
-
-  | Int i1, Int i2
-    when Numeral.equal i1 i2 -> true
-
-  | Real r1, Real r2
-    when Decimal.equal r1 r2 -> true
-
-  | UnaryOp (o1, a1), UnaryOp (o2, a2)
-    when o1 = o2 && equal_expr a1 a2 -> true
-
-  | BinaryOp (o1, (a1, b1)), BinaryOp (o2, (a2, b2)) 
-    when o1 = o2 && equal_expr a1 a2 && equal_expr b1 b2 -> true
-
-  | VarOp (o1, l1), VarOp (o2, l2) 
-    when o1 = o2 && 
-         List.length l1 = List.length l1 && 
-         List.for_all2 equal_expr l1 l2 -> true
-
-  | Ite (p1, l1, r1), Ite (p2, l2, r2) 
-    when equal_expr p1 p2 && 
-         equal_expr l1 l2 && 
-         equal_expr r1 r2 -> true
-
-  | _ -> false
 
 (* A Lustre clock *)
 type clock = unit
@@ -176,7 +58,7 @@ type t = {
   expr_clock: unit;
   
   (* Type of expression *)
-  expr_type: T.t;
+  expr_type: Type.t;
 
   (* Current-state variables the expression depends on *)
   expr_vars : ISet.t;
@@ -187,46 +69,342 @@ type t = {
 }
 
 
-(* Pretty-print a Lustre expression *)
-let rec pp_print_expr safe ppf = function 
-  
-  | Var x -> Format.fprintf ppf "%a" (I.pp_print_ident safe) x
-  | VarPre x -> 
-    Format.fprintf ppf "@[<hv 1>(pre@ %a)@]" (I.pp_print_ident safe) x
-  | True -> Format.fprintf ppf "true"
-  | False -> Format.fprintf ppf "false"
-  | Int i -> Format.fprintf ppf "%a" Numeral.pp_print_numeral i
-  | Real f -> Format.fprintf ppf "%a" Decimal.pp_print_decimal f
+(* ********************************************************************** *)
+(* Pretty-printing                                                        *)
+(* ********************************************************************** *)
 
-  | UnaryOp (o, e) -> 
+
+(* String representation of a symbol in Lustre *)
+let string_of_symbol = function
+  | `TRUE -> "true"
+  | `FALSE -> "false"
+  | `NOT -> "not"
+  | `IMPLIES -> "=>"
+  | `AND -> "and"
+  | `OR -> "or"
+  | `XOR -> "xor"
+  | `EQ -> "="
+  | `NUMERAL n -> Numeral.string_of_numeral n
+  | `DECIMAL d -> Decimal.string_of_decimal d
+  | `MINUS -> "-"
+  | `PLUS -> "+"
+  | `TIMES -> "*"
+  | `DIV -> "/"
+  | `INTDIV ->"div"
+  | `MOD -> "mod"
+  | `ABS -> "abs"
+  | `LEQ -> "<="
+  | `LT -> "<"
+  | `GEQ -> ">="
+  | `GT -> ">"
+  | _ -> failwith "string_of_symbol"
+
+(* Pretty-print a symbol *)
+let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s) 
+
+
+(* Pretty-print a variable under [depth] pre operators *)
+let rec pp_print_var safe depth ppf var = match depth with
+
+  (* Variable without pre *)
+  | 0 -> 
+
+    (* Get state variable of variable *)
+    let state_var = Var.state_var_of_state_var_instance var in
+
+    (* Indexed identifier for state variable *)
+    let ident = 
+      
+      try 
+
+        (* Find original indexed identifier *)
+        StateVar.StateVarHashtbl.find ident_of_state_var state_var
+
+      (* No identifier found *)
+      with Not_found -> 
+        
+        (* Create new identifier of state variable *)
+        I.mk_string_ident 
+          (StateVar.string_of_state_var
+             (Var.state_var_of_state_var_instance var))
+      
+    in
+    
+    I.pp_print_ident safe ppf ident
+
+  (* Variable with at least one pre *)
+  | _ -> 
+
+    (* Print one pre and recurse *)
+    Format.fprintf ppf
+      "@[<hv 2>pre(%a)@]"
+      (pp_print_var safe (pred depth)) 
+      var
+
+(* Pretty-print a term *)
+and pp_print_term_node safe depth ppf t = match Term.T.destruct t with
+    
+  | Term.T.Var var -> 
+
+    pp_print_var 
+      safe
+      (depth - (Numeral.to_int (Var.offset_of_state_var_instance var))) 
+      ppf 
+      var
+      
+  | Term.T.Const s -> 
+    
+    pp_print_symbol ppf (Symbol.node_of_symbol s)
+      
+  | Term.T.App (s, l) -> 
+    
+    pp_print_app safe depth ppf (Symbol.node_of_symbol s) l
+
+  | Term.T.Attr (t, _) -> 
+    
+    pp_print_term_node safe depth ppf t
+      
+
+(* Pretty-print second and following arguments of a left-associative
+   function application *)
+and pp_print_app_left' safe depth s ppf = function 
+
+  | h :: tl -> 
+
+    Format.fprintf ppf 
+      " %a@ %a%t" 
+      pp_print_symbol s 
+      (pp_print_term_node safe depth) h 
+      (function ppf -> pp_print_app_left' safe depth s ppf tl)
+
+  | [] -> ()
+
+
+(* Pretty-print a left-associative function application
+
+   Print (+ a b c) as (a + b + c) *)
+and pp_print_app_left safe depth s ppf = function 
+
+  (* Function application must have arguments, is a constant
+     otherwise *)
+  | [] -> assert false
+
+  (* Print first argument *)
+  | h :: tl -> 
 
     Format.fprintf ppf
-      "@[<hv 1>(%a@ %a)@]" 
-      pp_print_unary_op o 
-      (pp_print_expr safe) e
+      "@[<hv 2>(%a%t)@]" 
+      (pp_print_term_node safe depth) h 
+      (function ppf -> pp_print_app_left' safe depth s ppf tl)
 
-  | BinaryOp (o, (e1, e2)) -> 
+
+(* Pretty-print arguments of a right-associative function application *)
+and pp_print_app_right' safe depth s arity ppf = function 
+
+  (* Function application must have arguments, is a constant
+     otherwise *)
+  | [] -> assert false 
+
+  (* Last or only argument *)
+  | [h] -> 
+
+    (* Print closing parentheses for all arguments *)
+    let rec aux ppf = function 
+      | 0 -> ()
+      | i -> 
+        Format.fprintf ppf
+          "%t)@]"
+          (function ppf -> aux ppf (pred i))
+    in
+
+    (* Print last argument and close all parentheses *)
+    Format.fprintf ppf
+      "%a%t" 
+      (pp_print_term_node safe depth) h 
+      (function ppf -> aux ppf arity)
+
+  (* Second last or earlier argument *)
+  | h :: tl -> 
+
+    (* Open parenthesis and print argument *)
+    Format.fprintf ppf 
+      "@[<hv 2>(%a %a@ %t" 
+      (pp_print_term_node safe depth) h 
+      pp_print_symbol s 
+      (function ppf -> pp_print_app_right' safe depth s arity ppf tl)
+
+
+(* Pretty-print a right-associative function application 
+
+   Print (=> a b c) as (a => (b => c)) *)
+and pp_print_app_right safe depth s ppf l =
+  pp_print_app_right' safe depth s (List.length l - 1) ppf l
+
+
+(* Pretty-print a chaining function application 
+
+   Print (= a b c) as (a = b) and (b = c) *)
+and pp_print_app_chain safe depth s ppf = function 
+
+  (* Chaining function application must have more than one argument *)
+  | []
+  | [_] -> assert false 
+
+  (* Last or only pair of arguments *)
+  | [l; r] -> 
 
     Format.fprintf ppf 
-      "@[<hv 1>(%a@ %a@ %a)@]" 
-      (pp_print_expr safe) e1 
-      pp_print_binary_op o 
-      (pp_print_expr safe) e2
+      "@[<hv 2>(%a %a@ %a)@]" 
+      (pp_print_term_node safe depth) l 
+      pp_print_symbol s
+      (pp_print_term_node safe depth) r
 
-  | VarOp (o, l) -> 
-
-    Format.fprintf ppf 
-      "@[<hv 1>%a(%a)@]" 
-      pp_print_var_op o 
-      (pp_print_list (pp_print_expr safe) ",@ ") l
-
-  | Ite (p, l, r) -> 
+  (* Print function application of first pair, conjunction and continue *)
+  | l :: r :: tl -> 
 
     Format.fprintf ppf 
-      "@[<hv 3>(if@ %a@;<1 -2>then@ %a@;<1 -2>else@ %a)@]" 
-      (pp_print_expr safe) p
-      (pp_print_expr safe) l 
-      (pp_print_expr safe) r
+      "@[<hv 2>(%a %a@ %a) and %a@]" 
+      (pp_print_term_node safe depth) l
+      pp_print_symbol s
+      (pp_print_term_node safe depth) r
+      (pp_print_app_chain safe depth s) (r :: tl)
+
+
+(* Pretty-print a function application *)
+and pp_print_app safe depth ppf = function 
+
+  (* Function application must have arguments, cannot have nullary
+     symbols here *)
+  | `TRUE
+  | `FALSE
+  | `NUMERAL _
+  | `DECIMAL _
+  | `BV _ -> (function _ -> assert false)
+
+  (* Unary symbols *) 
+  | `NOT
+  | `ABS as s -> 
+
+    (function [a] -> 
+      Format.fprintf ppf
+        "@[<hv 2>(%a@ %a)@]" 
+        pp_print_symbol s 
+        (pp_print_term_node safe depth) a
+
+      | _ -> assert false)
+      
+  (* Unary and left-associative binary symbols *)
+  | `MINUS as s ->
+      
+      (function 
+        | [] -> assert false 
+        | [a] ->
+
+          Format.fprintf ppf
+            "%a%a" 
+            pp_print_symbol s 
+            (pp_print_term_node safe depth) a
+
+        | _ as l -> pp_print_app_left safe depth s ppf l)
+        
+    (* Binary left-associative symbols with two or more arguments *)
+    | `AND
+    | `OR
+    | `XOR
+    | `PLUS
+    | `TIMES
+    | `DIV
+    | `INTDIV as s ->
+      
+      (function 
+        | [] 
+        | [_] -> assert false
+        | _ as l -> pp_print_app_left safe depth s ppf l)
+            
+    (* Binary right-associative symbols *)
+    | `IMPLIES as s -> pp_print_app_right safe depth s ppf
+        
+    (* Chainable binary symbols *)
+    | `EQ
+    | `LEQ
+    | `LT
+    | `GEQ
+    | `GT as s -> pp_print_app_chain safe depth s ppf
+              
+    (* if-then-else *)
+    | `ITE ->
+      
+      (function [p; l; r] ->
+
+        Format.fprintf ppf
+          "if %a then %a else %a" 
+          (pp_print_term_node safe depth) p
+          (pp_print_term_node safe depth) l
+          (pp_print_term_node safe depth) r
+          
+        | _ -> assert false)
+        
+    (* Binary symbols *)
+    | `MOD as s ->
+      
+      (function [l; r] ->
+
+        Format.fprintf ppf 
+          "@[<hv 2>(%a %a@ %a)@]" 
+          (pp_print_term_node safe depth) l 
+          pp_print_symbol s
+          (pp_print_term_node safe depth) r
+        
+        | _ -> assert false)
+        
+    (* Divisibility *) 
+    | `DIVISIBLE n -> 
+      
+      (function [a] -> 
+        
+        (* a divisble n becomes a mod n = 0 *)
+        pp_print_app 
+          safe 
+          depth
+          ppf
+          `EQ
+          [Term.T.mk_app 
+             (Symbol.mk_symbol `MOD) 
+             [a; Term.T.mk_const (Symbol.mk_symbol (`NUMERAL n))];
+           Term.T.mk_const (Symbol.mk_symbol (`NUMERAL Numeral.zero))]
+          
+        | _ -> assert false)
+        
+    (* Unsupported functions symbols *)
+    | `DISTINCT
+    | `CONCAT
+    | `EXTRACT _
+    | `BVNOT
+    | `BVNEG
+    | `BVAND
+    | `BVOR
+    | `BVADD
+    | `BVMUL
+    | `BVDIV
+    | `BVUREM
+    | `BVSHL
+    | `BVLSHR
+    | `BVULT
+    | `SELECT
+    | `STORE
+    | `TO_REAL
+    | `TO_INT
+    | `IS_INT
+    | `UF _ -> (function _ -> assert false)
+      
+
+(* Pretty-print a hashconsed term *)
+let pp_print_expr safe ppf expr =
+  pp_print_term_node safe 0 ppf expr
+
+
+(* Pretty-print a hashconsed term to the standard formatter *)
+let print_expr safe = pp_print_expr safe Format.std_formatter 
 
 
 (* Pretty-print a clocked and typed Lustre expression *)
@@ -339,11 +517,11 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
 (* Boolean constant true on base clock *)
 let t_true = 
 
-  let expr = True in
+  let expr = Term.t_true in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = T.t_bool; 
+    expr_type = Type.t_bool; 
     expr_clock = base_clock;
     expr_vars = ISet.empty;
     expr_pre_vars = ISet.empty } 
@@ -352,11 +530,11 @@ let t_true =
 (* Boolean constant false on base clock *)
 let t_false =  
 
-  let expr = False in
+  let expr = Term.t_false in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = T.t_bool; 
+    expr_type = Type.t_bool; 
     expr_clock = base_clock;
     expr_vars = ISet.empty;
     expr_pre_vars = ISet.empty } 
@@ -365,11 +543,11 @@ let t_false =
 (* Integer constant on base clock *)
 let mk_int d =  
 
-  let expr = Int d in
+  let expr = Term.mk_num d in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = T.mk_int_range d d; 
+    expr_type = Type.mk_int_range d d; 
     expr_clock = base_clock;
     expr_vars = ISet.empty;
     expr_pre_vars = ISet.empty } 
@@ -378,20 +556,43 @@ let mk_int d =
 (* Real constant on base clock *)
 let mk_real f =  
 
-  let expr = Real f in
+  let expr = Term.mk_dec f in
 
   { expr_init = expr; 
     expr_step = expr; 
-    expr_type = T.t_real; 
+    expr_type = Type.t_real; 
     expr_clock = base_clock;
     expr_vars = ISet.empty;
     expr_pre_vars = ISet.empty } 
+
+(* Create ot return state variable of identifier *)
+let state_var_of_ident ident ident_type = 
+
+  (* Convert identifier to a string *)
+  let ident_string = I.string_of_ident true ident in 
+
+  (* Create or return state variable of string *)
+  let state_var = StateVar.mk_state_var ident_string true ident_type in 
+
+  (* Add to hashtable unless already present *)
+  (if not (StateVar.StateVarHashtbl.mem ident_of_state_var state_var) then 
+     StateVar.StateVarHashtbl.add ident_of_state_var state_var ident);
+
+  (* Return state variable *)
+  state_var 
 
 
 (* Current-state variable *)
 let mk_var ident expr_type expr_clock = 
 
-  let expr = Var ident in
+  (* State variable of identifier *)
+  let state_var = state_var_of_ident ident expr_type in
+
+  (* Variable at offset zero of identifier *)
+  let var = Var.mk_state_var_instance state_var Numeral.zero in 
+
+  (* Term of variable *)
+  let expr = Term.mk_var var in
 
   { expr_init = expr;
     expr_step = expr;
@@ -404,7 +605,14 @@ let mk_var ident expr_type expr_clock =
 (* Previous-state variable *)
 let mk_var_pre  ident expr_type expr_clock = 
 
-  let expr = VarPre ident in
+  (* State variable of identifier *)
+  let state_var = state_var_of_ident ident expr_type in
+
+  (* Variable at offset zero of identifier *)
+  let var = Var.mk_state_var_instance state_var Numeral.one in 
+
+  (* Term of variable *)
+  let expr = Term.mk_var var in
 
   { expr_init = expr;
     expr_step = expr;
@@ -415,14 +623,15 @@ let mk_var_pre  ident expr_type expr_clock =
 
 
 let type_of_bool_bool = function 
-
-  | T.Bool -> T.t_bool
-
+  | t when Type.is_bool t -> Type.t_bool
   | _ -> raise Type_mismatch
 
 
 let type_of_bool_bool_bool = function 
-  | T.Bool -> (function T.Bool -> T.t_bool | _ -> raise Type_mismatch)
+  | t when Type.is_bool t -> 
+    (function 
+      | t when Type.is_bool t -> Type.t_bool 
+      | _ -> raise Type_mismatch)
   | _ -> raise Type_mismatch
 
 
@@ -434,9 +643,9 @@ let type_of_bool_bool_bool = function
 (* Type check for int -> int -> int *)
 let type_of_int_int_int = function 
 
-  | T.Int | T.IntRange _ -> 
+  | t when Type.is_int t || Type.is_int_range t -> 
     (function 
-      | T.Int | T.IntRange _ -> T.t_int 
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
       | _ -> raise Type_mismatch)
   | _ -> raise Type_mismatch
 
@@ -444,9 +653,9 @@ let type_of_int_int_int = function
 (* Type check for real -> real -> real *)
 let type_of_real_real_real = function 
 
-  | T.Real -> 
+  | t when Type.is_real t -> 
     (function 
-      | T.Real -> T.t_real
+      | t when Type.is_real t -> Type.t_real
       | _ -> raise Type_mismatch)
     
   | _ -> raise Type_mismatch
@@ -455,14 +664,14 @@ let type_of_real_real_real = function
 (* Type check for int -> int -> int, real -> real -> real *)
 let type_of_num_num_num = function 
 
-  | T.Int | T.IntRange _ -> 
+  | t when Type.is_int t || Type.is_int_range t -> 
     (function 
-      | T.Int | T.IntRange _ -> T.t_int 
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_int 
       | _ -> raise Type_mismatch)
 
-  | T.Real -> 
+  | t when Type.is_real t -> 
     (function 
-      | T.Real -> T.t_real
+      | t when Type.is_real t -> Type.t_real
       | _ -> raise Type_mismatch)
     
   | _ -> raise Type_mismatch
@@ -472,16 +681,17 @@ let type_of_num_num_num = function
 let type_of_a_a_a type1 type2 = 
 
   (* If first type is subtype of second, choose second type *)
-  if T.check_type type1 type2 then type2 else 
+  if Type.check_type type1 type2 then type2 else 
 
     (* If second type is subtype of first, choose first type *)
-  if T.check_type type2 type1 then type1 else 
+  if Type.check_type type2 type1 then type1 else 
 
-    (* Extend integer ranges *)
+    (* Extend integer ranges if one is not a subtype of the other *)
     (match type1, type2 with 
-      | T.IntRange _, T.IntRange _ 
-      | T.IntRange _, T.Int
-      | T.Int, T.IntRange _ -> T.t_int
+      | s, t 
+        when (Type.is_int_range s && Type.is_int_range t) ||
+             (Type.is_int_range s && Type.is_int t) ||
+             (Type.is_int s && Type.is_int_range t) -> Type.t_int
 
       (* Fail if types are incompatible *)
       | _ -> raise Type_mismatch)
@@ -491,35 +701,34 @@ let type_of_a_a_a type1 type2 =
 let type_of_a_a_bool type1 type2 = 
 
   (* One type must be subtype of the other *)
-  if T.check_type type1 type2 || T.check_type type2 type1 then 
+  if Type.check_type type1 type2 || Type.check_type type2 type1 then 
 
-    T.t_bool 
+    Type.t_bool 
 
   else 
 
-    (* Extend integer ranges *)
+    (* Extend integer ranges if one is not a subtype of the other *)
     (match type1, type2 with 
-      | T.IntRange _, T.IntRange _ 
-      | T.IntRange _, T.Int
-      | T.Int, T.IntRange _ -> T.t_bool
+      | s, t 
+        when (Type.is_int_range s && Type.is_int_range t) ||
+             (Type.is_int_range s && Type.is_int t) ||
+             (Type.is_int s && Type.is_int_range t) -> Type.t_bool
 
       (* Fail if types are incompatible *)
       | _ -> raise Type_mismatch)
 
 
-
-
 (* Type check for int -> int -> bool, real -> real -> bool *)
 let type_of_num_num_bool = function
 
-  | T.Int | T.IntRange _ -> 
+  | t when Type.is_int t || Type.is_int_range t -> 
     (function 
-      | T.Int | T.IntRange _ -> T.t_bool 
+      | t when Type.is_int t || Type.is_int_range t -> Type.t_bool 
       | _ -> raise Type_mismatch)
 
-  | T.Real -> 
+  | t when Type.is_real t -> 
     (function 
-      | T.Real -> T.t_bool
+      | t when Type.is_real t -> Type.t_bool
       | _ -> raise Type_mismatch)
     
   | _ -> raise Type_mismatch
@@ -534,9 +743,9 @@ let type_of_num_num_bool = function
    not false -> true
 *)
 let eval_not = function 
-  | True -> False
-  | False -> True
-  | expr -> UnaryOp (Not, expr)
+  | t when t == Term.t_true -> Term.t_false
+  | t when t == Term.t_false -> Term.t_true
+  | expr -> Term.mk_not expr
 
 
 (* Type of unary negation 
@@ -558,11 +767,17 @@ let mk_not expr = mk_unary eval_not type_of_not expr
    -(c) -> (-c)
    -(-x) -> x
 *)
-let eval_uminus = function
-  | Int d -> Int Numeral.(- d)
-  | Real f -> Real Decimal.(- f)
-  | UnaryOp(Uminus, expr) -> expr
-  | expr -> UnaryOp(Uminus, expr) 
+let eval_uminus expr = match Term.destruct expr with 
+
+  | Term.T.Const s when Symbol.is_numeral s -> 
+    Term.mk_num Numeral.(- Symbol.numeral_of_symbol s)
+
+  | Term.T.Const s when Symbol.is_decimal s -> 
+    Term.mk_dec Decimal.(- Symbol.decimal_of_symbol s)
+
+  | Term.T.App (s, [e]) when s == Symbol.s_minus -> e
+
+  | _ -> Term.mk_minus [expr]
 
 
 (* Type of unary minus 
@@ -572,10 +787,11 @@ let eval_uminus = function
    -: real -> real 
 *)
 let type_of_uminus = function
-  | T.Int -> T.t_int
-  | T.Real -> T.t_real
-  | T.IntRange (lbound, ubound) -> 
-    T.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
+  | t when Type.is_int t -> Type.t_int
+  | t when Type.is_real t -> Type.t_real
+  | t when Type.is_int_range t -> 
+    let (ubound, lbound) = Type.bounds_of_int_range t in
+    Type.mk_int_range Numeral.(- ubound) Numeral.(- lbound)
   | _ -> raise Type_mismatch
 
 
@@ -587,9 +803,14 @@ let mk_uminus expr = mk_unary eval_uminus type_of_uminus expr
 
 
 (* Evaluate conversion to integer *)
-let eval_to_int = function 
-  | Real f -> Int (Numeral.of_big_int (Decimal.to_big_int f))
-  | expr -> UnaryOp(ToInt, expr)
+let eval_to_int expr = match Term.destruct expr with 
+  | Term.T.Const s when Symbol.is_decimal s -> 
+    Term.mk_num
+      (Numeral.of_big_int
+         (Decimal.to_big_int
+            (Symbol.decimal_of_symbol s)))
+
+  | _ -> Term.mk_to_int expr
 
 
 (* Type of conversion to integer  
@@ -597,7 +818,7 @@ let eval_to_int = function
    int: real -> int 
 *)
 let type_of_to_int = function
-  | T.Real -> T.t_int
+  | t when Type.is_real t -> Type.t_int
   | _ -> raise Type_mismatch
 
 
@@ -609,18 +830,21 @@ let mk_to_int expr = mk_unary eval_to_int type_of_to_int expr
 
 
 (* Evaluate conversion to real *)
-let eval_to_real = function 
-  | Int d -> Real (Decimal.of_big_int (Numeral.to_big_int d))
-  | expr -> UnaryOp(ToReal, expr)
+let eval_to_real expr = match Term.destruct expr with 
+  | Term.T.Const s when Symbol.is_numeral s -> 
+    Term.mk_dec
+      (Decimal.of_big_int
+         (Numeral.to_big_int
+            (Symbol.numeral_of_symbol s)))
 
+  | _ -> Term.mk_to_real expr
 
 (* Type of conversion to real  
 
    real: int -> real 
 *)
 let type_of_to_real = function
-  | T.Int -> T.t_real
-  | T.IntRange _ -> T.t_real
+  | t when Type.is_int t || Type.is_int_range t -> Type.t_real
   | _ -> raise Type_mismatch
 
 
@@ -638,13 +862,13 @@ let mk_to_real expr = mk_unary eval_to_real type_of_to_real expr
    e1 and true -> e1
    e1 and false -> false *)
 let eval_and = function 
-  | True -> (function expr2 -> expr2)
-  | False -> (function expr2 -> False)
+  | t when t == Term.t_true -> (function expr2 -> expr2)
+  | t when t == Term.t_false -> (function expr2 -> Term.t_false)
   | expr1 -> 
     (function 
-      | True -> expr1
-      | False -> False
-      | expr2 -> BinaryOp(And, (expr1, expr2)))
+      | t when t == Term.t_true -> expr1
+      | t when t == Term.t_false -> Term.t_false
+      | expr2 -> Term.mk_and [expr1; expr2])
 
 
 (* Type of Boolean conjunction 
@@ -667,13 +891,13 @@ let mk_and expr1 expr2 = mk_binary eval_and type_of_and expr1 expr2
    e1 or true -> true
    e1 or false -> e1 *)
 let eval_or = function 
-  | True -> (function expr2 -> True)
-  | False -> (function expr2 -> expr2)
+  | t when t == Term.t_true -> (function expr2 -> Term.t_true)
+  | t when t == Term.t_false -> (function expr2 -> expr2)
   | expr1 -> 
     (function 
-      | True -> True
-      | False -> expr1
-      | expr2 -> BinaryOp(Or, (expr1, expr2)))
+      | t when t == Term.t_true -> Term.t_true
+      | t when t == Term.t_false -> expr1
+      | expr2 -> Term.mk_or [expr1; expr2])
 
 
 (* Type of Boolean disjunction 
@@ -696,13 +920,13 @@ let mk_or expr1 expr2 = mk_binary eval_or type_of_or expr1 expr2
    e1 xor true -> not e1
    e1 xor false -> e1 *)
 let eval_xor = function 
-  | True -> (function expr2 -> UnaryOp(Not, expr2))
-  | False -> (function expr2 -> expr2)
+  | t when t == Term.t_true -> (function expr2 -> Term.mk_not expr2)
+  | t when t == Term.t_false -> (function expr2 -> expr2)
   | expr1 -> 
     (function 
-      | True -> UnaryOp(Not, expr1)
-      | False -> expr1
-      | expr2 -> BinaryOp(Xor, (expr1, expr2)))
+      | t when t == Term.t_true -> Term.mk_not expr1
+      | t when t == Term.t_false -> expr1
+      | expr2 -> Term.mk_xor [expr1; expr2])
 
 
 (* Type of Boolean exclusive disjunction 
@@ -725,13 +949,13 @@ let mk_xor expr1 expr2 = mk_binary eval_xor type_of_xor expr1 expr2
    e1 => true -> true
    e1 => false -> not e1 *)
 let eval_impl = function 
-  | True -> (function expr2 -> expr2)
-  | False -> (function expr2 -> True)
+  | t when t == Term.t_true -> (function expr2 -> expr2)
+  | t when t == Term.t_false -> (function expr2 -> Term.t_true)
   | expr1 -> 
     (function 
-      | True -> True
-      | False -> UnaryOp(Not, expr1)
-      | expr2 -> BinaryOp(Impl, (expr1, expr2)))
+      | t when t == Term.t_true -> Term.t_true
+      | t when t == Term.t_false -> Term.mk_not expr1
+      | expr2 -> Term.mk_implies [expr1; expr2])
 
 
 (* Type of Boolean implication 
@@ -748,9 +972,18 @@ let mk_impl expr1 expr2 = mk_binary eval_impl type_of_impl expr1 expr2
 
 
 (* Evaluate integer modulus *)
-let eval_mod expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int Numeral.(d1 mod d2) 
-  | _ -> BinaryOp(Mod, (expr1, expr2))
+let eval_mod expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
+
+      Term.mk_num 
+        Numeral.(Symbol.numeral_of_symbol c1 mod 
+                 Symbol.numeral_of_symbol c2) 
+
+    | _ -> Term.mk_mod expr1 expr2
 
 
 (* Type of integer modulus 
@@ -758,7 +991,7 @@ let eval_mod expr1 expr2 = match expr1, expr2 with
    mod: int -> int -> int *)
 let type_of_mod = type_of_int_int_int
 
-(* Boolean implication *)
+(* Integer modulus *)
 let mk_mod expr1 expr2 = mk_binary eval_mod type_of_mod expr1 expr2 
 
 
@@ -766,14 +999,29 @@ let mk_mod expr1 expr2 = mk_binary eval_mod type_of_mod expr1 expr2
 
 
 (* Evaluate subtraction *)
-let eval_minus expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int Numeral.(d1 - d2) 
-  | Real f1, Real f2 -> Real Decimal.(f1 - f2) 
-  | _ -> BinaryOp(Minus, (expr1, expr2))
-
+let eval_minus expr1 expr2 = 
+  
+  match Term.destruct expr1, Term.destruct expr2 with
+    
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
+      
+      Term.mk_num 
+        Numeral.(Symbol.numeral_of_symbol c1 -
+                 Symbol.numeral_of_symbol c2) 
+        
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+      
+      Term.mk_dec
+        Decimal.(Symbol.decimal_of_symbol c1 -
+                 Symbol.decimal_of_symbol c2) 
+        
+    | _ -> Term.mk_minus [expr1; expr2]
+             
 
 (* Type of subtraction 
-
+   
    -: int -> int -> int
       real -> real -> real *)
 let type_of_minus = type_of_num_num_num 
@@ -787,10 +1035,25 @@ let mk_minus expr1 expr2 = mk_binary eval_minus type_of_minus expr1 expr2
 
 
 (* Evaluate addition *)
-let eval_plus expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int Numeral.(d1 + d2) 
-  | Real f1, Real f2 -> Real Decimal.(f1 + f2) 
-  | _ -> BinaryOp(Plus, (expr1, expr2))
+let eval_plus expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
+
+      Term.mk_num 
+        Numeral.(Symbol.numeral_of_symbol c1 +
+                 Symbol.numeral_of_symbol c2) 
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+
+      Term.mk_dec
+        Decimal.(Symbol.decimal_of_symbol c1 +
+                 Symbol.decimal_of_symbol c2) 
+
+  | _ -> Term.mk_plus [expr1; expr2]
 
 
 (* Type of addition 
@@ -808,9 +1071,18 @@ let mk_plus expr1 expr2 = mk_binary eval_plus type_of_plus expr1 expr2
 
 
 (* Evaluate real division *)
-let eval_div expr1 expr2 = match expr1, expr2 with
-  | Real f1, Real f2 -> Real Decimal.(f1 / f2) 
-  | _ -> BinaryOp(Div, (expr1, expr2))
+let eval_div expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+
+      Term.mk_dec
+        Decimal.(Symbol.decimal_of_symbol c1 /
+                 Symbol.decimal_of_symbol c2) 
+
+  | _ -> Term.mk_div [expr1; expr2]
 
 
 (* Type of real division
@@ -827,10 +1099,25 @@ let mk_div expr1 expr2 = mk_binary eval_div type_of_div expr1 expr2
 
 
 (* Evaluate multiplication *)
-let eval_times expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int Numeral.(d1 * d2) 
-  | Real f1, Real f2 -> Real Decimal.(f1 * f2) 
-  | _ -> BinaryOp(Times, (expr1, expr2))
+let eval_times expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
+
+      Term.mk_num 
+        Numeral.(Symbol.numeral_of_symbol c1 *
+                 Symbol.numeral_of_symbol c2) 
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && Symbol.is_decimal c2 -> 
+
+      Term.mk_dec
+        Decimal.(Symbol.decimal_of_symbol c1 *
+                 Symbol.decimal_of_symbol c2) 
+
+  | _ -> Term.mk_times [expr1; expr2]
 
 
 (* Type of multiplication
@@ -848,9 +1135,18 @@ let mk_times expr1 expr2 = mk_binary eval_times type_of_times expr1 expr2
 
 
 (* Evaluate integer division *)
-let eval_intdiv expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 -> Int Numeral.(d1 / d2) 
-  | _ -> BinaryOp(IntDiv, (expr1, expr2))
+let eval_intdiv expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && Symbol.is_numeral c2 -> 
+
+      Term.mk_num
+        Numeral.(Symbol.numeral_of_symbol c1 /
+                 Symbol.numeral_of_symbol c2) 
+
+  | _ -> Term.mk_intdiv [expr1; expr2]
 
 
 (* Type of integer division
@@ -870,29 +1166,52 @@ let mk_intdiv expr1 expr2 = mk_binary eval_intdiv type_of_intdiv expr1 expr2
 let eval_eq expr1 expr2 = match expr1, expr2 with
 
   (* true = e2 -> e2 *)
-  | True, _ ->  expr2
+  | t, _ when t == Term.t_true -> expr2
 
   (* false = e2 -> not e2 *)
-  | False, _ -> UnaryOp(Not, expr2)
+  | t, _ when t == Term.t_false -> Term.mk_not expr2
 
   (* e1 = true -> e1 *)
-  | _, True -> expr1
+  | _, t when t == Term.t_true -> expr1
 
   (* e1 = false -> not e1 *)
-  | _, False -> (UnaryOp(Not, expr1))
-
-  | Int d1, Int d2 when Numeral.(d1 = d2) -> True
-
-  | Int d1, Int d2 -> False
-
-  | Real f1, Real f2 when Decimal.(f1 = f2) -> True
-
-  | Real f1, Real f2 -> False
+  | _, t when t == Term.t_false -> Term.mk_not expr1
 
   (* e = e -> true *)
-  | _ when equal_expr expr1 expr2 -> True
+  | _ when equal_expr expr1 expr2 -> Term.t_true
 
-  | _ -> BinaryOp(Eq, (expr1, expr2))
+  | _ -> 
+
+    match Term.destruct expr1, Term.destruct expr2 with
+      
+      | Term.T.Const c1, Term.T.Const c2 when
+          Symbol.is_numeral c1 && 
+          Symbol.is_numeral c2 -> 
+    
+        if Numeral.(Symbol.numeral_of_symbol c1 =
+                    Symbol.numeral_of_symbol c2) then 
+
+          Term.t_true
+
+        else
+
+          Term.t_false
+
+      | Term.T.Const c1, Term.T.Const c2 when
+          Symbol.is_decimal c1 && 
+          Symbol.is_decimal c2 -> 
+    
+        if Decimal.(Symbol.decimal_of_symbol c1 =
+                    Symbol.decimal_of_symbol c2) then 
+
+          Term.t_true
+
+        else
+
+          Term.t_false
+
+
+      | _ -> Term.mk_eq [expr1; expr2]
 
 
 (* Type of equality
@@ -907,7 +1226,7 @@ let mk_eq expr1 expr2 = mk_binary eval_eq type_of_eq expr1 expr2
 
 (* ********************************************************************** *)
 
-
+(*
 (* Evaluate disequality *)
 let eval_neq = function
 
@@ -931,7 +1250,9 @@ let eval_neq = function
       | expr2 when not (equal_expr expr1 expr2) -> True
 
       | expr2 -> BinaryOp(Neq, (expr1, expr2)))
+*)
 
+let eval_neq expr1 expr2 = eval_not (eval_eq expr1 expr2)
 
 (* Type of disequality
 
@@ -947,12 +1268,38 @@ let mk_neq expr1 expr2 = mk_binary eval_neq type_of_neq expr1 expr2
 
 
 (* Evaluate inequality *)
-let eval_lte expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when Numeral.(d1 <= d2) -> True
-  | Int d1, Int d2 -> False
-  | Real f1, Real f2 when Decimal.(f1 <= f2) -> True
-  | Real f1, Real f2 -> False
-  | _ -> BinaryOp(Lte, (expr1, expr2))
+let eval_lte expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && 
+        Symbol.is_numeral c2 -> 
+
+      if Numeral.(Symbol.numeral_of_symbol c1 <=
+                  Symbol.numeral_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && 
+        Symbol.is_decimal c2 -> 
+
+      if Decimal.(Symbol.decimal_of_symbol c1 <=
+                  Symbol.decimal_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+
+    | _ -> Term.mk_leq [expr1; expr2]
 
 
 (* Type of inequality
@@ -970,12 +1317,38 @@ let mk_lte expr1 expr2 = mk_binary eval_lte type_of_lte expr1 expr2
 
 
 (* Evaluate inequality *)
-let eval_lt expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when Numeral.(d1 < d2) -> True
-  | Int d1, Int d2 -> False
-  | Real f1, Real f2 when Decimal.(f1 < f2) -> True
-  | Real f1, Real f2 -> False
-  | _ -> BinaryOp(Lt, (expr1, expr2))
+let eval_lt expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && 
+        Symbol.is_numeral c2 -> 
+
+      if Numeral.(Symbol.numeral_of_symbol c1 <
+                  Symbol.numeral_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && 
+        Symbol.is_decimal c2 -> 
+
+      if Decimal.(Symbol.decimal_of_symbol c1 <
+                  Symbol.decimal_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+
+    | _ -> Term.mk_lt [expr1; expr2]
 
 
 (* Type of inequality
@@ -993,12 +1366,38 @@ let mk_lt expr1 expr2 = mk_binary eval_lt type_of_lt expr1 expr2
 
 
 (* Evaluate inequality *)
-let eval_gte expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when Numeral.(d1 >= d2) -> True
-  | Int d1, Int d2 -> False
-  | Real f1, Real f2 when Decimal.(f1 >= f2) -> True
-  | Real f1, Real f2 -> False
-  | _ -> BinaryOp(Gte, (expr1, expr2))
+let eval_gte expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && 
+        Symbol.is_numeral c2 -> 
+
+      if Numeral.(Symbol.numeral_of_symbol c1 >=
+                  Symbol.numeral_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && 
+        Symbol.is_decimal c2 -> 
+
+      if Decimal.(Symbol.decimal_of_symbol c1 >=
+                  Symbol.decimal_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+
+    | _ -> Term.mk_geq [expr1; expr2]
 
 
 (* Type of inequality
@@ -1016,12 +1415,38 @@ let mk_gte expr1 expr2 = mk_binary eval_gte type_of_gte expr1 expr2
 
 
 (* Evaluate inequality *)
-let eval_gt expr1 expr2 = match expr1, expr2 with
-  | Int d1, Int d2 when Numeral.(d1 > d2) -> True
-  | Int d1, Int d2 -> False
-  | Real f1, Real f2 when Decimal.(f1 > f2) -> True
-  | Real f1, Real f2 -> False
-  | _ -> BinaryOp(Gt, (expr1, expr2))
+let eval_gt expr1 expr2 = 
+
+  match Term.destruct expr1, Term.destruct expr2 with
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_numeral c1 && 
+        Symbol.is_numeral c2 -> 
+
+      if Numeral.(Symbol.numeral_of_symbol c1 >
+                  Symbol.numeral_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+    | Term.T.Const c1, Term.T.Const c2 when
+        Symbol.is_decimal c1 && 
+        Symbol.is_decimal c2 -> 
+
+      if Decimal.(Symbol.decimal_of_symbol c1 >
+                  Symbol.decimal_of_symbol c2) then 
+
+        Term.t_true
+
+      else
+
+        Term.t_false
+
+
+    | _ -> Term.mk_gt [expr1; expr2]
 
 
 (* Type of inequality
@@ -1042,36 +1467,37 @@ let mk_gt expr1 expr2 = mk_binary eval_gt type_of_gt expr1 expr2
 
 (* Evaluate if-then-else *)
 let eval_ite = function 
-  | True -> (function expr2 -> (function _ -> expr2))
-  | False -> (function _ -> (function expr3 -> expr3))
+  | t when t == Term.t_true -> (function expr2 -> (function _ -> expr2))
+  | t when t == Term.t_false -> (function _ -> (function expr3 -> expr3))
   | expr1 -> 
     (function expr2 -> 
       (function expr3 -> 
         if equal_expr expr2 expr3 then 
           expr2 
         else
-          (Ite (expr1, expr2, expr3)))) 
+          (Term.mk_ite expr1 expr2 expr3))) 
 
 
 (* Type of if-then-else
 
    ite: bool -> 'a -> 'a -> 'a *)
 let type_of_ite = function 
-  | T.Bool -> 
+  | t when t = Type.t_bool -> 
 
     (function type2 -> function type3 ->
 
        (* If first type is subtype of second, choose second type *)
-       if T.check_type type2 type3 then type3 else 
+       if Type.check_type type2 type3 then type3 else 
 
          (* If second type is subtype of first, choose first type *)
-       if T.check_type type3 type2 then type2 else 
+       if Type.check_type type3 type2 then type2 else 
 
-         (* Extend integer ranges *)
+         (* Extend integer ranges if one is not a subtype of the other *)
          (match type2, type3 with 
-           | T.IntRange _, T.IntRange _ 
-           | T.IntRange _, T.Int
-           | T.Int, T.IntRange _ -> T.t_int
+           | s, t 
+             when (Type.is_int_range s && Type.is_int_range t) ||
+                  (Type.is_int_range s && Type.is_int t) ||
+                  (Type.is_int s && Type.is_int_range t) -> Type.t_int
 
            | _ -> raise Type_mismatch))
 
@@ -1109,44 +1535,41 @@ let mk_arrow expr1 expr2 =
   
 
 (* Pre expression *)
-let mk_pre_expr mk_new_var_ident = function 
-
-  | Var ident as expr -> (expr, None) 
-
-  | expr -> 
-
-    let new_var_ident = mk_new_var_ident () in
-
-    (VarPre new_var_ident, Some (new_var_ident, expr))
-
-
-let mk_pre 
+let rec mk_pre 
     mk_new_var_ident 
     ((vars, calls) as defs)
-    ({ expr_init; expr_step } as expr) = 
+    ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
 
   (* Apply pre to initial state expression *)
   let expr_init', ((vars', calls') as defs') = match expr_init with 
 
     (* Expression is a variable *)
-    | Var ident -> (VarPre ident, defs)
+    | t when Term.is_free_var t -> (Term.bump_state (- 1) t, defs)
 
     (* Expression is a constant *)
-    | True
-    | False
-    | Int _
-    | Real _ -> (expr_init, defs)
+    | t when 
+        t == Term.t_true || 
+        t == Term.t_false || 
+        (match Term.destruct t with 
+          | Term.T.Const c1 when 
+              Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
+          | _ -> false) -> (expr_init, defs)
 
     (* Expression is not constant and no variable *)
     | _ -> 
       
       (* Identifier for a fresh variable *)
       let new_var_ident = mk_new_var_ident () in
-      
-      (* Abstract expression to fresh variable *)
-      (VarPre new_var_ident, 
-       ((new_var_ident, expr) :: vars, calls))
 
+      (* State variable of identifier *)
+      let state_var = state_var_of_ident new_var_ident expr_type in 
+
+      (* Variable at previous instant *)
+      let var = Var.mk_state_var_instance state_var Numeral.(- one) in
+
+      (* Return term and new definitions *)
+      (Term.mk_var var, ((new_var_ident, expr) :: vars, calls))
+      
   in
 
   (* Apply pre to step state expression *)
@@ -1159,18 +1582,23 @@ let mk_pre
       (expr_init', defs')
 
     (* Expression is a variable *)
-    | Var ident -> (VarPre ident, defs')
+    | t when Term.is_free_var t -> (Term.bump_state (- 1) t, defs')
 
     (* Expression is not constant and no variable *)
     | _ -> 
       
       (* Identifier for a fresh variable *)
       let new_var_ident = mk_new_var_ident () in
-      
-      (* Abstract expression to fresh variable *)
-      (VarPre new_var_ident, 
-       ((new_var_ident, expr) :: vars', calls'))
 
+      (* State variable of identifier *)
+      let state_var = state_var_of_ident new_var_ident expr_type in 
+
+      (* Variable at previous instant *)
+      let var = Var.mk_state_var_instance state_var Numeral.(- one) in
+
+      (* Return term and new definitions *)
+      (Term.mk_var var, ((new_var_ident, expr) :: vars', calls'))
+      
   in
 
   (* Return expression and new definitions *)
@@ -1178,9 +1606,8 @@ let mk_pre
    defs'') 
 
 
-(* Return true if there is an pre operator in the expression *)
-let rec pre_in_expr = function 
-  
+(*
+
   (* pre x is unguarded *)
   | VarPre _ :: _ -> true
 
@@ -1196,15 +1623,19 @@ let rec pre_in_expr = function
   | BinaryOp (_, (e1, e2)) :: tl -> pre_in_expr (e1 :: e2 :: tl)
   | VarOp (_, l) :: tl -> pre_in_expr (l @ tl)
   | Ite (e1, e2, e3) :: tl -> pre_in_expr (e1 :: e2 :: e3 :: tl)
+*)
 
   
 
 (* Return true if there is an unguarded pre operator in the expression *)
 let pre_is_unguarded { expr_init } = 
-  
-  (* Check if there is a pre operator in the init expression *)
-  pre_in_expr [ expr_init ]
 
+  (* Check if there is a pre operator in the init expression *)
+  match Term.var_offsets_of_term expr_init with 
+    | None, _ -> false
+    | Some c, _ -> Numeral.(c < zero)
+
+(*
 
 (* Return the variables in the expression *)
 let rec vars_of_expr' accum = function 
@@ -1247,6 +1678,7 @@ let rec vars_of_expr' accum = function
 (* Return the variables in the expression *)
 let vars_of_expr expr = ISet.elements (vars_of_expr' ISet.empty [expr])
 
+*)
 
 (* 
    Local Variables:

@@ -76,6 +76,8 @@ val get_logic : t -> SMTExpr.logic
 
 (** Add to offset of state variable instances
 
+    {b deprecated} Use {!Term.bump_state} instead}
+
     Negative values are allowed *)
 val bump_state : int -> Term.t -> Term.t
 
