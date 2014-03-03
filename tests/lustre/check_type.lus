@@ -60,10 +60,10 @@ let
 tel
 
 
-node Z (a1, a2: int) returns (b: int);
-let b = a1; tel
+node Z (a1, a2: int) returns (b1: int);
+let b1 = a1; tel
 
-node Y (a: int) returns (b: [real, int]);
+node Y (a1: int) returns (b1: [real, int]);
 var c: [int, real];
     d: [[real, int], [int, bool]];
     d1: [real, int];
@@ -86,7 +86,7 @@ tel
 
 node id (x: int) returns (y: int); let y = x; tel
 
-node id2 (x: int) returns (y: int); let y = id(y); tel
+node id2 (x: int) returns (y: int); let y = id(x); tel
 
 
 

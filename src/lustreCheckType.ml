@@ -1983,9 +1983,10 @@ let add_alias_type_decl
     basic_type =
 
   Format.printf 
-    "add_alias_type_decl %a %a@." 
+    "add_alias_type_decl %a %a %a@." 
     (I.pp_print_ident false) ident
-    (I.pp_print_index false) index;
+    (I.pp_print_index false) index
+    (T.pp_print_lustre_type false) basic_type;
 
   (* Add index to identifier *)
   let indexed_ident = I.push_index index ident in
@@ -2148,9 +2149,9 @@ let rec fold_ast_type'
             (I.push_index_to_index index (I.index_of_ident j), s) :: a)
          tl
          (if fold_left then
-            List.sort (fun (i, _) (j, _) -> I.compare i j) record_fields
+            List.sort (fun (i, _) (j, _) -> I.compare j i) record_fields
           else
-            List.sort (fun (i, _) (j, _) -> I.compare j i) record_fields))
+            List.sort (fun (i, _) (j, _) -> I.compare i j) record_fields))
 
 
   (* Tuple type *)
@@ -2164,19 +2165,19 @@ let rec fold_ast_type'
       accum 
       (fst
          (if fold_left then
-            List.fold_left
-              (fun (a, j) s -> 
-                 (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
-                 Numeral.(succ j))
-              (tl, Numeral.zero)
-              tuple_fields
-          else
             List.fold_right
               (fun s (a, j) -> 
                  (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
                  Numeral.(pred j))
               tuple_fields
-              (tl, Numeral.((of_int (List.length tuple_fields) - one)))))
+              (tl, Numeral.((of_int (List.length tuple_fields) - one)))
+          else
+            List.fold_left
+              (fun (a, j) s -> 
+                 (I.push_index_to_index index (I.mk_int_index j), s) :: a, 
+                 Numeral.(succ j))
+              (tl, Numeral.zero)
+              tuple_fields))
 
 
   (* Array type *)
@@ -2197,11 +2198,24 @@ let rec fold_ast_type'
               A.pp_print_position A.dummy_pos));
 
     (* Append indexed types *)
-    let rec aux accum array_size = function
+    let rec aux_left accum = function
+      | j when Numeral.(j < zero) -> accum
+      | j -> 
+
+        aux_left 
+          ((I.push_index_to_index index (I.mk_int_index j), 
+            type_expr) :: 
+             accum)
+          Numeral.(pred j)
+
+    in
+
+    (* Append indexed types *)
+    let rec aux_right accum array_size = function
       | j when Numeral.(j >= array_size) -> accum
       | j -> 
 
-        aux 
+        aux_right 
           ((I.push_index_to_index index (I.mk_int_index j), 
             type_expr) :: 
              accum)
@@ -2216,7 +2230,10 @@ let rec fold_ast_type'
       context 
       f 
       accum 
-      (aux tl array_size Numeral.zero)
+      (if fold_left then 
+         aux_left tl (Numeral.pred array_size)
+       else
+         aux_right tl array_size Numeral.zero)
 
 
 (* Wrapper for folding function over type expression  *)
@@ -2380,6 +2397,11 @@ let add_node_input_decl
     index 
     basic_type =
   
+  Format.printf "add_node_input_decl: %a %a %a@."
+    (I.pp_print_ident false) ident
+    (I.pp_print_index false) index
+    (T.pp_print_lustre_type false) basic_type;
+
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2421,6 +2443,11 @@ let add_node_output_decl
     index 
     basic_type =
   
+  Format.printf "add_node_output_decl: %a %a %a@."
+    (I.pp_print_ident false) ident
+    (I.pp_print_index false) index
+    (T.pp_print_lustre_type false) basic_type;
+
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2445,10 +2472,15 @@ let add_node_output_decl
 let add_node_var_decl
     ident
     (({ type_ctx; index_ctx } as context), 
-     ({ N.locals = node_locals } as node))
+     node_locals)
     index 
     basic_type =
   
+  Format.printf "add_node_var_decl: %a %a %a@."
+    (I.pp_print_ident false) ident
+    (I.pp_print_index false) index
+    (T.pp_print_lustre_type false) basic_type;
+
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2466,7 +2498,7 @@ let add_node_var_decl
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with N.locals = node_locals' })
+   node_locals')
 
 
 (* Add all node inputs to contexts *)
@@ -2621,16 +2653,19 @@ let rec parse_node_locals context node = function
   | A.NodeVarDecl (ident, var_type, A.ClockTrue) :: tl -> 
 
     (* Add declaration of possibly indexed type to contexts *)
-    let context', node' = 
+    let context', node_locals' = 
       fold_left_ast_type 
         context
         (add_node_var_decl ident)
-        (context, node)
+        (context, [])
         var_type
     in
-
+    
     (* Continue with following outputs *)
-    parse_node_locals context' node' tl
+    parse_node_locals 
+      context'
+      { node with N.locals = node.N.locals @ (List.rev node_locals') } 
+      tl
 
   |  A.NodeVarDecl (ident, _, _) :: _ -> 
 
@@ -2659,11 +2694,15 @@ let new_defs_to_context context node (vars, calls) =
     List.fold_left 
       (fun (context, node) (ident, { E.expr_type }) -> 
          let (base_ident, index) = I.split_ident ident in
-         add_node_var_decl 
-           base_ident
-           (context, node)
-           (I.index_of_one_index_list index)
-           expr_type)
+         let context', node_locals' = 
+           add_node_var_decl 
+             base_ident
+             (context, [])
+             (I.index_of_one_index_list index)
+             expr_type
+         in
+         (context',
+          { node with N.locals = node.N.locals @ (List.rev node_locals') }))
       (context, node)
       vars
 
@@ -2674,11 +2713,15 @@ let new_defs_to_context context node (vars, calls) =
        List.fold_left 
          (fun (context, node) (ident, expr_type) -> 
             let (base_ident, index) = I.split_ident ident in
-            add_node_var_decl 
-              base_ident
-              (context, node)
-              (I.index_of_one_index_list index)
-              expr_type)
+            let context', node_locals' = 
+              add_node_var_decl 
+                base_ident
+                (context, [])
+                (I.index_of_one_index_list index)
+                expr_type
+            in
+            (context',
+             { node with N.locals = node.N.locals @ (List.rev node_locals') }))
          accum
          outputs)
     (context', node')
@@ -2818,7 +2861,7 @@ let rec parse_node_equations
           mk_new_call_ident 
           context 
           ([], []) 
-          
+
           (* Wrap right-hand side in a singleton list, nested lists
                 are flattened, s.t. ((a,b)) become (a,b) *)
           (A.ExprList (A.dummy_pos, [ast_expr]))
@@ -2835,7 +2878,7 @@ let rec parse_node_equations
                 (E.pp_print_lustre_expr false) e)
            ", ")
         expr';
-           
+
 
       if 
 
@@ -2853,47 +2896,63 @@ let rec parse_node_equations
           A.pp_print_position A.dummy_pos;
 
       let eq_types = 
-        List.fold_right 
-          (fun eq accum -> match eq with
-             
-             | A.SingleIdent ident -> 
-               
-               let accum' =
-                 List.fold_right
-                   (fun (v, t) a -> 
-                      try 
-                        (ignore (I.get_suffix ident v); v, t) :: a
-                      with Not_found ->
-                        a)
-                   node.N.outputs
-                    accum
-               in
-               
-               if accum' = accum then
-                 
-                 List.fold_right 
-                   (fun (v, t) a -> 
-                      try 
-                        (ignore (I.get_suffix ident v); v, t) :: a
-                      with Not_found ->
-                        a)
-                   node.N.locals
-                   accum
-                   
-               else
-                 
-                 accum'
-                   
-             | _ -> 
-               
-               (* Fail *)
-               raise 
-                 (Failure 
-                    (Format.asprintf 
-                       "Assignments not supported in %a" 
-                       A.pp_print_position A.dummy_pos)))
-          struct_items
-          []
+        List.rev
+          (List.fold_left
+             (function accum -> function
+
+                | A.SingleIdent ident -> 
+
+                  let accum' =
+                    List.fold_left
+                      (fun a (v, t) -> 
+                         try 
+                           (ignore (I.get_suffix ident v); v, t) :: a
+                         with Not_found ->
+                           a)
+                      accum
+                      node.N.outputs
+                  in
+
+                  if accum' = accum then
+
+                    let accum'' = 
+                      List.fold_left
+                        (fun a (v, t) -> 
+                           try 
+                             (ignore (I.get_suffix ident v); v, t) :: a
+                           with Not_found ->
+                             a)
+                        accum
+                        node.N.locals
+                    in
+
+                    if accum'' = accum' then 
+
+                       (* Fail *)
+                       raise 
+                         (Failure 
+                            (Format.asprintf 
+                               "Assignment to neither output nor local variable in %a" 
+                               A.pp_print_position A.dummy_pos))
+
+                    else
+                      
+                      accum''
+              
+                  else
+                    
+                    accum'
+
+                | _ -> 
+
+                  (* Fail *)
+                  raise 
+                    (Failure 
+                       (Format.asprintf 
+                          "Assignments not supported in %a" 
+                          A.pp_print_position A.dummy_pos)))
+             []
+             struct_items)
       in
 
       Format.printf
@@ -2907,7 +2966,7 @@ let rec parse_node_equations
                 (T.pp_print_lustre_type false) e)
            ", ")
         eq_types;
-           
+
       let node' = 
 
         List.fold_right2
@@ -2948,7 +3007,7 @@ let rec parse_node_equations
                   in
 
 (*
-                  
+
                   let aux = 
                     fun (i, l) -> 
                       (i, 
@@ -2962,19 +3021,19 @@ let rec parse_node_equations
                   in
 
                   let node_outputs' = List.map aux node.N.outputs in
-                  
+
                   let node_vars' = List.map aux node.N.locals in
 *)
 
-              Format.printf 
-                "@[<v>Expression may not be in \
-                 subrange of variable. \
-                 Need to add property@;%a@]@."
-                (E.pp_print_lustre_expr false) range_expr;
+                  Format.printf 
+                    "@[<v>Expression may not be in \
+                     subrange of variable. \
+                     Need to add property@;%a@]@."
+                    (E.pp_print_lustre_expr false) range_expr;
 
                   { node with 
                       (* N.outputs = node_outputs';
-                      N.locals = node_vars'; *)
+                         N.locals = node_vars'; *)
                       N.equations = eq :: node.N.equations;
                       N.props = range_expr :: node.N.props } 
 
@@ -3177,6 +3236,8 @@ let parse_node_signature
     parse_node_locals local_context_outputs node_context_contract locals
   in
 
+  Format.printf "%a@." (N.pp_print_node true node_ident) node_context_locals;
+
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
   let node_context_equations = 
@@ -3187,9 +3248,6 @@ let parse_node_signature
       node_context_locals 
       equations
   in
-
-
-  Format.printf "%a@." (pp_print_lustre_context false) local_context_locals;
 
 
   let node_context_equations = N.solve_eqs_node_calls node_context_equations in

@@ -18,8 +18,8 @@ type a = bool;
 type b, c = int;
 
 -- Predefined type integer range (our extension)
--- type r1 = subrange [1, 2] of int;
--- type r2 = subrange [-2, 2] of int;
+type r1 = subrange [1, 2] of int;
+type r2 = subrange [-2, 2] of int;
 -- type r3 = subrange [b, c] of int;
 
 -- Predefined type real
@@ -42,7 +42,7 @@ type i2 = struct { a : int; b: bool };
 type i = { one: i2;  two : bool; };
 
 -- Enum type (V6) 
-type j = enum { init, step, stop };
+type j = enum { st_init, st_step, st_stop };
 
 -- Array types
 type k = int^5;
@@ -52,26 +52,26 @@ const h = 2;
 type m = int^5*h;
 
 -- Free constants, must have a type
-const a1, a2, a3: a;
+-- const a1, a2, a3: a;
 
 -- Defined constants without type
-const b1 = 1;
+const b01 = 1;
       pi = 3.14;
 
 -- Defined constant with optional type 
 const c1 : bool = true;
       c2 = 5;
-      c3, c4 : real;
+--      c3, c4 : real;
 
 -- A node declaration
 node x 
   (a, b: [int, [bool, bool]]; 
-   const c: z; d, e: int when a; 
-   (f, g: int; h: real;) when b) 
+   const c: k; d, e: int; 
+   f, g: int) 
 returns 
-  (x: y when z; 
-   (a, b: [int, [bool, real]]; c: i2) when x;
-   d: int);
+  (x: k; 
+   y, z: [int, [bool, real]]; u: i2;
+   v: int);
 -- Variable declarations are optional
 let 
 -- Node equations are optional
@@ -79,10 +79,13 @@ tel;
 
 type y_t = { a: int; b: real };
 
+/*
 node y (const a: bool) returns (b: int);
 -- Local constant declarations
-const c : int; d = 1;
+const c : int = 1; d = 2;
 var t : y_t;
+    e, f: int;
+
 let
 
   e = 1;
@@ -133,17 +136,17 @@ let
 
 -- A node can end with tel; tel. or tel
 tel.
-
+*/
 
 -- Node contracts right after its signature 
 node g () returns ();
---@requires x;
---@ensures y;
+--@requires true;
+--@ensures false;
 const n = 5;
 var t : int;
 let t = n; tel;
 
-
+/*
 -- A node with a type parameter 
 node changed<<type t>> (b: t) returns (ok: bool); 
 let ok = false ->  not (pre b = b); tel; 
@@ -162,7 +165,7 @@ node changed_bool = changed<<bool>>;
 -- constant parameters
 function y (a: bool; c: int) returns (b: int);
 function y (a: bool; c: int; ) returns (b: int);
-
+*/
 
 ------------------------------------------------------------------------
 -- Examples from the reference manual
@@ -196,15 +199,15 @@ let
   level = initial -> if set and not pre(level) then true else if reset then false else pre(level);
 tel
 
-node x1 () returns ();
+node x1 (X: bool; N: int) returns ();
 var
   N1, PN, N2, N3, N4: int;
 let
   N1 = 0 -> if X then pre N + 1 else pre N;
   PN = 0 -> pre N;
-  N = if X then PN + 1 else PN;
-  N = if X then (0 -> pre N) + 1 else (0 -> pre N);
-  N = (0 -> pre N) + if X then 0 else 1;
+  N2 = if X then PN + 1 else PN;
+  N3 = if X then (0 -> pre N) + 1 else (0 -> pre N);
+  N4 = (0 -> pre N) + if X then 0 else 1;
 tel
 
 node COUNTER (init, incr: int; X, reset: bool) returns (N: int);
@@ -214,8 +217,8 @@ let
   N = if reset then init else if X then PN + incr else PN;
 tel
 
-node x2 () returns ();
-var odds: int;
+node x2 () returns (odds, mod10: int);
+var reset: bool;
 let
   odds = COUNTER(0, 2, true, false);
   mod10 = COUNTER(0, 1, true, reset);
@@ -227,13 +230,14 @@ let
   Y = init -> pre(Y) + ((F + pre(F))*STEP)/2.0;
 tel
 
+/*
 -- This has a dependency loop
 node sincos(omega: real) returns (sin, cos: real);
 let
   sin = omega * integrator(cos, 0.1, 0.0);
   cos = omega * integrator(-sin, 0.1, 1.0);
 tel
-
+*/
 
 node sincos (omega: real) returns(sin, cos: real);
 let
@@ -241,10 +245,11 @@ let
   cos = omega * integrator(0.0 -> -pre(sin), 0.1, 1.0);
 tel
 
-node x3 () returns ();
+node x3 (omega: real) returns (min, max: real);
+var s, c: real;
 let 
   (s, c) = sincos(omega);
-  (min, max) = if a > b then (a, b) else (b, a);
+  (min, max) = if s > c then (s, c) else (c, s);
 tel
 
 node STABLE (set: bool; delay: int) returns (level: bool);
@@ -267,15 +272,18 @@ let
                else (0 -> pre(count));
 tel
 
+/*
 node TIME_STABLE (set, second: bool; delay: int) returns (level: bool);
 var ck: bool;
 let
   level = current(STABLE((set, delay) when ck));
   ck = true -> set or second;
 tel
+*/
 
 -- Section 2
 
+/*
 type TIME, DAY;
 type DISPLAY = [TIME, DAY];
 const initial_time: TIME;
@@ -291,15 +299,18 @@ let
                              else pre(time, change_day);
   day = Mo -> if change_day then ToMorrow(pre day) else pre day;
 tel
+*/
 
+/*
 const 
   size = 32;
-  unknown: int;
+  -- unknown: int;
 type T;
 node N (const n: int) returns (x: int);
 var V: T^(2*n);
 let
 tel;
+
 
 node x21 () returns ();
 var X1, X2: int;
@@ -307,9 +318,10 @@ let
   X = N(size+1); -- is correct
   X = N(unknown); -- is rejected
 tel
+*/
 
 type T2 = int^3^5;
-type complex1 = [real, real];
+type complex = [real, real];
 
 node x22 () returns ();
 var x, y: complex;
@@ -322,15 +334,17 @@ const
 const size = 64;
 type vector = int^size;
 
+/*
 node x23 () returns ();
 var 
   state: bool;
   coordinates: [real, real] when state;
 let tel;
-
+*/
 
 -- Section 5
 
+/*
 function increment (time: time) returns (newtime: time);
 function decompose (time: time) returns (hours, minute, second: int);
 
@@ -340,10 +354,12 @@ let
               then decompose(updated_time) 
               else decompose(increment(actual_time));
 tel
+*/
 
 node N (x, y: bool; const low, high: int) returns ();
 let tel;
 
+/*
 node M (x, y: bool; a: int when x; (b: int; r: real) when y) returns ();
 let tel;
 
@@ -354,6 +370,7 @@ node x52 (E1: bool; E2: int when E1) returns (F1: bool; F2: int);
 let 
   (F1, F2) = N(E1, E2);
 tel;
+*/
 
 -- Section 6
 
@@ -363,8 +380,8 @@ node x61 (C: bool; E, E1: int; F, F1: real) returns (X: int; Y: real);
 let 
   (X, Y) = if C then (E, F) else (E1, F1);
   (X, Y) = (E, F) -> pre (X, Y);
-  (X, Y) = (E, F) when C;
-  (X, Y) = N(U, V, W);
+  -- (X, Y) = (E, F) when C;
+  (X, Y) = N(1, 2, 3);
 tel
 
 
@@ -378,11 +395,11 @@ tel;
 
 node x63 (e: [bool, [int, int]]) returns (c: bool; a, b: int; A: [int, int]);
 let
-  [c, [a, b]] = e;
-  [c, A] = e;
+  -- [c, [a, b]] = e;
+  -- [c, A] = e;
   c = e[0]; -- a = e[1][0]; b = e[1][1];
-  c = e[0]; A = e[1];
-  [c, [A[0], A[1]]] = e;
+  c = e[0]; -- A = e[1];
+  -- [c, [A[0], A[1]]] = e;
 tel;
 
 
@@ -390,14 +407,14 @@ tel;
 
 node N (x1, x2, x3: int) returns (y1, y2, y3: int);
 let 
-  (x1, x2, x3) = (y1, y2, y3);
+  (y1, y2, y3) = (x1, x2, x3);
 tel
 
-node x71 (C: bool) returns ();
+node x71 (C: bool; x1, x2, x3: int; v1, v2, v3: int) returns (y1, y2, y3: int);
 let 
   (y1, y2, y3) = condact(C, N(x1, x2, x3), v1, v2, v3);
-  (y1, y2, y3) = if C then current(N((x1, x2, x3) when C)) 
-                 else (v1, v2, v3) -> pre(y1, y2, z3);
+  -- (y1, y2, y3) = if C then current(N((x1, x2, x3) when C)) 
+  --                else (v1, v2, v3) -> pre(y1, y2, z3);
 tel
 
 node x72 (e1 : int; e2: real; e3: bool) returns (e: [int, real, bool]; f: real);
@@ -406,12 +423,12 @@ let
   f = e[1];
 tel
 
-node x73 (a, b: int) returns (e1, e2, e3, e4: int);
+node x73 (a, b, c, e, f: int; d: bool) returns (e1, e2, e4: int; e3: bool);
 let
   e1 = a + 2 * b;
   e2 = a + b - c;
-  e3 = not a = b;
-  e4 = if c then a else e -> f;
+  e3 = not (a = b);
+  e4 = if d then a else e -> f;
 tel
 
 node x74 (e1, e2, e3: int; f2: bool) returns (e: int^3; f: [int, bool, int]);
@@ -428,21 +445,24 @@ var
   b5: int; 
 let
   a1 = a[0];
-  a23 = a[2..3];
+  -- a23 = a[2..3];
   b1 = A[1];
-  b2 = A[2..4];
-  b3 = A[4..2];
-  b4 = A[2..2];
+  -- b2 = A[2..4];
+  -- b3 = A[4..2];
+  -- b4 = A[2..2];
   -- b5 = A[2..4][0];
 tel
+
+type T = int;
 
 node x76 (A: T^10^5) returns (B1: T^10^2; B2: T^2^4; B3: int^5 );
 let
   -- B1 = A[1..4][1..2];
-  B2 = A[1..4, 1..2];
-  B3 = [1, 2, 3] | [4, 3];
+  -- B2 = A[1..4, 1..2];
+  -- B3 = [1, 2, 3] | [4, 3];
 tel
 
+/*
 node EQ (const n: int; A, B: int^n) returns (equal: bool);
 var C, E: bool^n;
 let
@@ -457,6 +477,7 @@ let
   delayed = window[n-1];
   window = [X]|(default^(n-1) -> pre(window[0..n-2]));
 tel
+*/
 
 -- Examples from the V6 draft manual
 type color1 = enum { blue, white, black };
@@ -467,10 +488,10 @@ let
   y = if x = blue then green else if x = white then orange else yellow;
 tel
 
-type complex = { re: real; im: real };
-const j = complex { re = -sqrt(3)/2; im = sqrt(3)/2 };
+type complex1 = { re: real; im: real };
+const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
 
-node get_im(c: complex) returns (x: real);
+node get_im(c: complex1) returns (x: real);
 let
   x = c.im;
 tel
@@ -478,5 +499,6 @@ tel
 type matrix_3_3 = int^3^3;
 const m1 = 0^3^3;
 const m2 = [1, 2, 3]^3;
-const sm2 = m2[2];
+-- const sm2 = m2[2];
+
 
