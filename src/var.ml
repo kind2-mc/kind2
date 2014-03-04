@@ -226,8 +226,13 @@ let hstring_of_temp_var = function
   | { Hashcons.node = TempVar (s, _) } -> s
 
 
+let is_state_var_instance = function 
+  | { Hashcons.node = StateVarInstance _ } -> true
+  | _ -> false
+
+
 let is_temp_var = function 
-  | { Hashcons.node = TempVar (s, _) } -> true
+  | { Hashcons.node = TempVar _ } -> true
   | _ -> false
 
 

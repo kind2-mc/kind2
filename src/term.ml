@@ -1005,19 +1005,18 @@ let nums_to_pos_nums term = match T.node_of_t term with
 (* Add to offset of state variable instances *)
 let bump_state i term = 
 
-  let i' = Numeral.of_int i in
-
   (* Bump offset of state variables *)
   T.map
     (function _ -> function 
        | t when is_free_var t -> 
          mk_var 
-           (Var.bump_offset_of_state_var_instance i' 
+           (Var.bump_offset_of_state_var_instance i
               (free_var_of_term t))
        | _ as t -> t)
     term
 
-(* Collect all state variables in a set *)
+
+(* Return all state variables in term *)
 let state_vars_of_term term  = 
 
   eval_t
@@ -1039,7 +1038,7 @@ let state_vars_of_term term  =
     term
 
 
-(* Get all variables of a term *)
+(* Return all variables in term *)
 let vars_of_term term = 
 
   (* Collect all variables in a set *)
@@ -1060,7 +1059,32 @@ let vars_of_term term =
   var_set
  
 
-(* Return true if there is an pre operator in the expression *)
+(* Return set of state variables at given offsets in term *)
+let state_vars_at_offset_of_term i term = 
+
+  (* Collect all variables in a set *)
+  eval_t
+    (function 
+      | T.Var v 
+        when 
+          Var.is_state_var_instance v &&
+          Numeral.(Var.offset_of_state_var_instance v = i) -> 
+        (function 
+          | [] -> 
+            StateVar.StateVarSet.singleton
+              (Var.state_var_of_state_var_instance v)
+          | _ -> assert false)
+      | T.Var _ 
+      | T.Const _ -> 
+        (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
+      | T.App _ -> 
+        List.fold_left StateVar.StateVarSet.union StateVar.StateVarSet.empty
+      | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
+    term
+
+
+(* Return minimal and maximal offsets of state variable instances in term *)
 let rec var_offsets_of_term expr = 
   
   let max_none e1 e2 = match e1, e2 with 
@@ -1081,7 +1105,6 @@ let rec var_offsets_of_term expr =
     Numeral.(min_none l1 l2, max_none u1 u2) 
   in
 
-
   eval_t 
     (function 
       | T.Const c -> 
@@ -1098,7 +1121,6 @@ let rec var_offsets_of_term expr =
           | _ -> assert false)
       | T.Attr _ -> (function [v] -> v | _ -> assert false))
     expr
-
 
 
 (* Infix notation for constructors *)

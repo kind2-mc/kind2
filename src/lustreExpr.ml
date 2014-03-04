@@ -1516,7 +1516,7 @@ let rec mk_pre
   let expr_init', ((vars', calls') as defs') = match expr_init with 
 
     (* Expression is a variable *)
-    | t when Term.is_free_var t -> (Term.bump_state (- 1) t, defs)
+    | t when Term.is_free_var t -> (Term.bump_state Numeral.(- one) t, defs)
 
     (* Expression is a constant *)
     | t when 
@@ -1554,7 +1554,7 @@ let rec mk_pre
       (expr_init', defs')
 
     (* Expression is a variable *)
-    | t when Term.is_free_var t -> (Term.bump_state (- 1) t, defs')
+    | t when Term.is_free_var t -> (Term.bump_state Numeral.(- one) t, defs')
 
     (* Expression is not constant and no variable *)
     | _ -> 

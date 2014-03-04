@@ -21,6 +21,8 @@ open Lib
 module I = LustreIdent
 module E = LustreExpr
 
+module SVS = StateVar.StateVarSet
+
 module ISet = I.LustreIdentSet
 
 (* A node
@@ -313,7 +315,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
           init_or_step 
           nodes
           node
-          ((var, ISet.empty) :: accum) 
+          ((var, SVS.empty) :: accum) 
           tl
 
       else
@@ -329,7 +331,10 @@ let rec node_var_dependencies init_or_step nodes node accum =
             in
 
             (* Get variables in expression *)
-            Var.VarSet.elements (Term.vars_of_term (init_or_step_of_expr expr))
+            SVS.elements
+              (Term.state_vars_at_offset_of_term
+                 (Numeral.zero)
+                 (init_or_step_of_expr expr))
 
           (* Variable is not input or not defined in an equation *)
           with Not_found -> 
@@ -384,10 +389,14 @@ let rec node_var_dependencies init_or_step nodes node accum =
               in
 
               (* Get variables in expression *)
-              Var.VarSet.elements
+              SVS.elements
                 (List.fold_left
-                   (fun a e -> Var.VarSet.union (Term.vars_of_term e) a)
-                   Var.VarSet.empty
+                   (fun a e -> 
+                      SVS.union
+                        (Term.state_vars_at_offset_of_term
+                           (Numeral.zero) e) 
+                        a)
+                   SVS.empty
                    dep_expr)
 
             (* Variable is not input or defined in an equation or node
@@ -400,7 +409,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
            already *)
         let vars_visited, vars_not_visited = 
           List.partition
-            (fun ident -> List.mem_assoc ident accum)
+            (fun ident -> List.mem_assq ident accum)
             vars
         in
 
@@ -412,8 +421,8 @@ let rec node_var_dependencies init_or_step nodes node accum =
           let dependent_vars = 
             List.fold_left
               (fun a i -> 
-                 ISet.union a (List.assoc i accum))
-              (List.fold_left (fun a v -> ISet.add v a) ISet.empty vars)
+                 SVS.union a (List.assq i accum))
+              (List.fold_left (fun a v -> SVS.add v a) SVS.empty vars)
               vars_visited
           in
 
@@ -422,7 +431,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
             init_or_step 
             nodes
             node 
-            ((ident, dependent_vars) :: accum)
+            ((var, dependent_vars) :: accum)
             tl
 
         else
@@ -432,8 +441,8 @@ let rec node_var_dependencies init_or_step nodes node accum =
           (* Circular dependency: a variable that this variable
              depends on occurs as a dependency *)
           List.exists
-            (fun v -> List.mem v dep)
-            (ident :: vars_not_visited)
+            (fun v -> List.memq v dep)
+            (var :: vars_not_visited)
 
         then
 
@@ -448,9 +457,9 @@ let rec node_var_dependencies init_or_step nodes node accum =
             node
             accum 
             ((List.map 
-                (fun v -> (v, ident :: dep)) 
+                (fun v -> (v, var :: dep)) 
                 vars_not_visited) @ 
-             ((ident, dep) :: tl))
+             ((var, dep) :: tl))
 
 
 (* If x = y and x captures the output of a node, substitute y *)
@@ -469,9 +478,9 @@ let solve_eqs_node_calls node =
                     fst
                       (List.find
                          (function 
-                           | (_, { E.expr_init = E.Var vi; 
-                                   E.expr_step = E.Var vs }) 
-                             when vi = vs -> vi = v
+                           | (_, { E.expr_init = vi; 
+                                   E.expr_step = vs }) 
+                             when vi == vs -> vi == Var.mk_state_var_instance v Numeral.zero 
                            | _ -> false) 
                          node.equations)
                   in

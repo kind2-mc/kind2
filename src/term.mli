@@ -386,13 +386,16 @@ val nums_to_pos_nums : t -> t
 (** Add to offset of state variable instances
 
     Negative values are allowed *)
-val bump_state : int -> t -> t
+val bump_state : Numeral.t -> t -> t
 
 (** Return the state variables occurring in the term *)
 val state_vars_of_term : t -> StateVar.StateVarSet.t
 
 (** Return the variables occurring in the term *)
 val vars_of_term : t -> Var.VarSet.t
+
+(** Return the state variables at given offset in term *)
+val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
 
 (** Return the minimal and maximal offset of state variable instances
 
