@@ -55,22 +55,19 @@ type t =
 
        The order of the list is important, it is the order the
        parameters in the declaration. *)
-    inputs : 
-      (StateVar.t * (Type.t * bool)) list;
+    inputs : (StateVar.t * bool) list;
 
     (* Output variables of node 
 
        The order of the list is important, it is the order the
        parameters in the declaration. *)
-    outputs : 
-      (StateVar.t * Type.t) list;
+    outputs : StateVar.t list;
 
     (* Local variables of node 
 
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
-    locals :
-      (StateVar.t * Type.t) list;
+    locals : StateVar.t list; 
 
     (* Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;
@@ -82,7 +79,7 @@ type t =
     calls : 
       (StateVar.t list * 
        LustreExpr.t * 
-       StateVar.t * 
+       LustreIdent.t * 
        LustreExpr.t list * 
        LustreExpr.t list) list;
 
@@ -121,39 +118,39 @@ let empty_node =
 
 
 (* Pretty-print a node input *)
-let pp_print_input safe ppf (ident, (ident_type, is_const)) =
+let pp_print_input safe ppf (var, is_const) =
 
   Format.fprintf ppf
     "%t%a: %a"
     (function ppf -> if is_const then Format.fprintf ppf "const ")
-    (I.pp_print_ident safe) ident
-    Type.pp_print_type ident_type
+    (E.pp_print_lustre_var safe) var
+    Type.pp_print_type (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node output *)
-let pp_print_output safe ppf (ident, ident_type) =
+let pp_print_output safe ppf var =
 
   Format.fprintf ppf
     "%a: %a"
-    (I.pp_print_ident safe) ident
-    Type.pp_print_type ident_type
+    (E.pp_print_lustre_var safe) var
+    Type.pp_print_type (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node local variable *)
-let pp_print_local safe ppf (ident, ident_type) =
+let pp_print_local safe ppf var =
 
   Format.fprintf ppf
     "%a: %a"
-    (I.pp_print_ident safe) ident
-    Type.pp_print_type ident_type
+    (E.pp_print_lustre_var safe) var
+    Type.pp_print_type (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node equation *)
-let pp_print_node_equation safe ppf (ident, expr) = 
+let pp_print_node_equation safe ppf (var, expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>%a =@ %a;@]"
-    (I.pp_print_ident safe) ident
+    (E.pp_print_lustre_var safe) var
     (E.pp_print_lustre_expr safe) expr
 
 
@@ -166,7 +163,7 @@ let pp_print_call safe ppf = function
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>%a(%a);@]@]"
       (pp_print_list 
-         (fun ppf (i, _) -> I.pp_print_ident safe ppf i)
+         (E.pp_print_lustre_var safe)
          ",@ ") 
       out_vars
       (I.pp_print_ident safe) node
@@ -178,7 +175,7 @@ let pp_print_call safe ppf = function
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
       (pp_print_list 
-         (fun ppf (i, _) -> I.pp_print_ident safe ppf i)
+         (E.pp_print_lustre_var safe)
          ",@ ") 
       out_vars
       (E.pp_print_lustre_expr safe) act_expr
@@ -293,7 +290,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
     (* Calculate dependency of variable [ident], which all variables
        in [dep] depend on *)
-    | (ident, dep) :: tl -> 
+    | (var, dep) :: tl -> 
 
 (*
       Format.printf 
@@ -306,7 +303,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         (* Variable is an input variable *)
         List.exists 
-          (fun (i, _) -> I.equal ident i)
+          (fun (v, _) -> (==) var v)
           node.inputs 
 
       then 
@@ -316,7 +313,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
           init_or_step 
           nodes
           node
-          ((ident, ISet.empty) :: accum) 
+          ((var, ISet.empty) :: accum) 
           tl
 
       else
@@ -328,7 +325,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
             (* Get expression defining variable *)
             let expr = 
-              List.assoc ident node.equations 
+              List.assq var node.equations 
             in
 
             (* Get variables in expression *)
@@ -351,7 +348,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
                      parameters *)
                   let rec aux2 i = function
                     | [] -> raise Not_found 
-                    | (v, _) :: _ when v = ident -> (n, i)
+                    | v :: _ when v == var -> (n, i)
                     | _ :: tl -> aux2 (succ i) tl
                   in
 
@@ -362,7 +359,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
               (* Return node call and position of variable in output
                  parameters *)
               let (_, _, node_ident, call_params, _), input_pos = 
-                aux ident node.calls 
+                aux var node.calls 
               in
 
 (*

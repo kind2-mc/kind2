@@ -119,6 +119,11 @@ type t = private {
 
 }
 
+
+(** Pretty-print a Lustre variable. *)
+val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 
+
+
 (** Pretty-print a Lustre expression. *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 

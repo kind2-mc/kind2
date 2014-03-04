@@ -97,14 +97,7 @@ let string_of_symbol = function
 let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s) 
 
 
-(* Pretty-print a variable under [depth] pre operators *)
-let rec pp_print_var safe depth ppf var = match depth with
-
-  (* Variable without pre *)
-  | 0 -> 
-
-    (* Get state variable of variable *)
-    let state_var = Var.state_var_of_state_var_instance var in
+let pp_print_lustre_var safe ppf state_var = 
 
     (* Indexed identifier for state variable *)
     let ident = 
@@ -118,13 +111,23 @@ let rec pp_print_var safe depth ppf var = match depth with
       with Not_found -> 
         
         (* Create new identifier of state variable *)
-        I.mk_string_ident 
-          (StateVar.string_of_state_var
-             (Var.state_var_of_state_var_instance var))
+        I.mk_string_ident (StateVar.string_of_state_var state_var)
       
     in
     
     I.pp_print_ident safe ppf ident
+
+
+(* Pretty-print a variable under [depth] pre operators *)
+let rec pp_print_var safe depth ppf var = match depth with
+
+  (* Variable without pre *)
+  | 0 -> 
+
+    (* Get state variable of variable *)
+    let state_var = Var.state_var_of_state_var_instance var in
+    
+    pp_print_lustre_var safe ppf state_var
 
   (* Variable with at least one pre *)
   | _ -> 
@@ -134,6 +137,7 @@ let rec pp_print_var safe depth ppf var = match depth with
       "@[<hv 2>pre(%a)@]"
       (pp_print_var safe (pred depth)) 
       var
+
 
 (* Pretty-print a term *)
 and pp_print_term_node safe depth ppf t = match Term.T.destruct t with
