@@ -21,7 +21,6 @@ open Lib
 (* Abbreviations *)
 module A = LustreAst
 module I = LustreIdent
-module T = LustreType
 module E = LustreExpr
 module N = LustreNode
 
@@ -58,19 +57,19 @@ type lustre_context =
   { 
 
     (* Type identifiers and their types *)
-    basic_types : (LustreIdent.t * LustreType.t) list; 
+    basic_types : (LustreIdent.t * Type.t) list; 
 
     (* Map of prefix of a type identifiers to its suffixes and their
        types. Indexes must be sorted. *)
     indexed_types : 
       (LustreIdent.t * 
-       (LustreIdent.index * LustreType.t) list) list; 
+       (LustreIdent.index * Type.t) list) list; 
 
     (* Type identifiers for free types *)
     free_types : LustreIdent.t list; 
 
     (* Types of identifiers *)
-    type_ctx : (LustreIdent.t * LustreType.t) list; 
+    type_ctx : (LustreIdent.t * Type.t) list; 
 
     (* Map of prefix of an identifier to its suffixes
 
@@ -105,7 +104,7 @@ let pp_print_basic_type safe ppf (i, t) =
   Format.fprintf ppf 
     "%a: %a" 
     (I.pp_print_ident safe) i 
-    (T.pp_print_lustre_type safe) t
+    Type.pp_print_type t
 
 
 (* Pretty-print an identifier suffix and its type *)
@@ -113,7 +112,7 @@ let pp_print_index_type safe ppf (i, t) =
   Format.fprintf ppf 
     "%a: %a" 
     (I.pp_print_index safe) i 
-    (T.pp_print_lustre_type safe) t
+    Type.pp_print_type t
 
 
 (* Pretty-print a prefix and its suffixes with their types *)
@@ -129,7 +128,7 @@ let pp_print_indexed_type safe ppf (i, t) =
 let pp_print_type_ctx safe ppf (i, t) = 
   Format.fprintf ppf "%a: %a" 
     (I.pp_print_ident safe) i 
-    (T.pp_print_lustre_type safe) t
+    Type.pp_print_type t
 
 
 (* Pretty-print suffixes of identifiers *)
@@ -864,7 +863,7 @@ let rec eval_ast_expr'
                 record_index = expr_index &&
 
                 (* Element type must be a subtype of field type *)
-                T.check_type expr_type record_type 
+                Type.check_type expr_type record_type 
 
               then
 
@@ -1002,8 +1001,8 @@ let rec eval_ast_expr'
       (match expr1' with 
 
         (* Boolean expression without indexes *)
-        | [ index, ({ E.expr_type = T.Bool } as expr1) ] when 
-            index = I.empty_index -> 
+        | [ index, ({ E.expr_type = t } as expr1) ] when 
+            index = I.empty_index && t == Type.t_bool -> 
 
           let expr', new_defs' = 
             binary_apply_to 
@@ -1159,8 +1158,8 @@ let rec eval_ast_expr'
         with 
 
           (* Expression without indexes *)
-          | ([ index, ({ E.expr_type = T.Bool } as expr) ], new_defs) 
-            when index = I.empty_index -> 
+          | ([ index, ({ E.expr_type = t } as expr) ], new_defs) 
+            when index = I.empty_index && t == Type.t_bool -> 
 
             expr, new_defs
 
@@ -1634,25 +1633,38 @@ and int_const_of_ast_expr context expr =
 
     (* Expression must evaluate to a singleton list of an integer
        expression without index and without new definitions *)
-    | ([ index, { E.expr_pre_vars; 
-                  E.expr_init = E.Int di; 
-                  E.expr_step = E.Int ds } ],
+    | ([ index, { E.expr_init = ei; 
+                  E.expr_step = es } ],
        ([], [])) when 
         index = I.empty_index && 
-        ISet.is_empty expr_pre_vars && 
-        Numeral.(di = ds) -> di
+        ei == es -> 
 
+      (match Term.destruct ei with 
+        | Term.T.Const c when Symbol.is_numeral c ->
+          Symbol.numeral_of_symbol c
+
+        (* Expression is not a constant integer *)
+        | _ ->       
+          
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must be an integer" 
+                  A.pp_print_expr expr
+                  A.pp_print_position A.dummy_pos)))
+            
     (* Expression is not a constant integer *)
-    | _ ->       
-
-      (* Fail *)
-      raise 
-        (Failure 
-           (Format.asprintf 
-              "Expression %a in %a must be a constant integer" 
-              A.pp_print_expr expr
-              A.pp_print_position A.dummy_pos))
-
+        | _ ->       
+          
+          (* Fail *)
+          raise 
+            (Failure 
+               (Format.asprintf 
+                  "Expression %a in %a must be constant" 
+                  A.pp_print_expr expr
+                  A.pp_print_position A.dummy_pos))
+            
 
 (* Type check expressions for node inputs and return sorted list of
    expressions for node inputs *)
@@ -1688,7 +1700,7 @@ and node_inputs_of_exprs node_inputs expr_list =
         accum ->
 
         (* Expression must be of a subtype of input type *)
-        if T.check_type expr_type in_type then 
+        if Type.check_type expr_type in_type then 
           expr :: accum
         else
           raise E.Type_mismatch)
@@ -1742,7 +1754,7 @@ and node_init_of_exprs node_outputs expr_list =
         accum ->
 
         (* Expression must be of a subtype of input type *)
-        if T.check_type expr_type in_type then 
+        if Type.check_type expr_type in_type then 
             expr :: accum
           else
             raise E.Type_mismatch) 
@@ -1878,35 +1890,37 @@ let ident_in_context { type_ctx; index_ctx } i =
 let add_enum_to_context type_ctx = function
 
   (* Type is an enumeration *)
-  | T.Enum l as basic_type -> 
-    
+  | t as basic_type when Type.is_scalar t -> 
+
     List.fold_left
-      (fun type_ctx enum_element -> 
-         
+      (fun type_ctx scalar_element -> 
+
+         let enum_element = I.mk_string_ident scalar_element in
+
          try 
-           
-             (* Get type of constant *)
-             let enum_element_type = List.assoc enum_element type_ctx in 
 
-             (* Skip if constant declared with the same (enum) type *)
-             if basic_type = enum_element_type then type_ctx else
+           (* Get type of constant *)
+           let enum_element_type = List.assoc enum_element type_ctx in 
 
-               (* Fail *)
-               raise 
-                 (Failure 
-                    (Format.asprintf 
-                       "Enum constant %a declared with \
-                        different type in %a" 
-                       (I.pp_print_ident false) enum_element
-                       A.pp_print_position A.dummy_pos));
-             
+           (* Skip if constant declared with the same (enum) type *)
+           if basic_type = enum_element_type then type_ctx else
+
+             (* Fail *)
+             raise 
+               (Failure 
+                  (Format.asprintf 
+                     "Enum constant %a declared with \
+                      different type in %a" 
+                     (I.pp_print_ident false) enum_element
+                     A.pp_print_position A.dummy_pos));
+
            (* Constant not declared *)
-           with Not_found -> 
-
-             (* Push constant to typing context *)
-             (enum_element, basic_type) :: type_ctx)
-        type_ctx
-        l
+         with Not_found -> 
+           
+           (* Push constant to typing context *)
+           (enum_element, basic_type) :: type_ctx)
+      type_ctx
+      (Type.elements_of_scalar t)
 
   (* Other basic types do not change typing context *)
   | _ -> type_ctx
@@ -2035,17 +2049,17 @@ let rec fold_ast_type'
   (* Basic type Boolean *)
   | (index, A.Bool) :: tl -> 
 
-    fold_ast_type' fold_left context f (f accum index T.t_bool) tl
+    fold_ast_type' fold_left context f (f accum index Type.t_bool) tl
 
   (* Basic type i *)
   | (index, A.Int) :: tl -> 
 
-    fold_ast_type' fold_left context f (f accum index T.t_int) tl
+    fold_ast_type' fold_left context f (f accum index Type.t_int) tl
 
   (* Basic type real *)
   | (index, A.Real) :: tl -> 
 
-    fold_ast_type' fold_left context f (f accum index T.t_real) tl
+    fold_ast_type' fold_left context f (f accum index Type.t_real) tl
 
   (* Integer range type needs to be constructed from evaluated
      expressions for bounds *)
@@ -2062,7 +2076,7 @@ let rec fold_ast_type'
       fold_left 
       context 
       f 
-      (f accum index (T.mk_int_range const_lbound const_ubound)) 
+      (f accum index (Type.mk_int_range const_lbound const_ubound)) 
       tl
 
   (* Enum type needs to be constructed *)
@@ -2073,7 +2087,12 @@ let rec fold_ast_type'
       fold_left 
       context 
       f
-      (f accum index (T.mk_enum enum_elements)) 
+      (f 
+         accum
+         index
+         (Type.mk_scalar 
+            "TODO" 
+            (List.map (I.string_of_ident false) enum_elements))) 
       tl
 
 
@@ -2111,7 +2130,7 @@ let rec fold_ast_type'
     (* Recurse for tail of list *)
     fold_ast_type' fold_left context f accum' tl
 
-
+(*
   (* User type that is a free type *)
   | (index, A.UserType ident) :: tl when 
       List.mem ident free_types -> 
@@ -2123,7 +2142,7 @@ let rec fold_ast_type'
       f 
       (f accum index (T.mk_free_type ident)) 
       tl
-
+*)
 
   (* User type that is neither an alias nor free *)
   | (index, A.UserType ident) :: _ -> 
@@ -2314,7 +2333,7 @@ let add_typed_decl
                  raise E.Type_mismatch 
              in
              if 
-               T.check_type expr_type def_type
+               Type.check_type expr_type def_type
              then
                () 
              else 
@@ -2764,8 +2783,8 @@ let rec parse_node_equations
         | [ index, 
             ({ E.expr_init; 
                E.expr_step; 
-               E.expr_type = T.Bool } as expr) ] when 
-            index = I.empty_index -> 
+               E.expr_type = t } as expr) ] when 
+            index = I.empty_index && t == Type.t_bool -> 
 
 
           if E.pre_is_unguarded expr then 
@@ -2819,8 +2838,8 @@ let rec parse_node_equations
         | [ index, 
             ({ E.expr_init; 
                E.expr_step; 
-               E.expr_type = T.Bool } as expr) ] when 
-            index = I.empty_index -> 
+               E.expr_type = t } as expr) ] when 
+            index = I.empty_index && t == Type.t_bool -> 
 
           if E.pre_is_unguarded expr then 
 
@@ -2984,7 +3003,7 @@ let rec parse_node_equations
             let eq = (ident, expr) in
 
             (* Type must be a subtype of declared type *)
-            if T.check_type expr_type ident_type then
+            if Type.check_type expr_type ident_type then
 
               (* Add equation *)
               { node with N.equations = eq :: node.N.equations }
@@ -2997,7 +3016,9 @@ let rec parse_node_equations
 
                 (* Declared type is integer range,
                    expression is of type integer *)
-                | T.IntRange (lbound, ubound), T.Int -> 
+                | t, s when Type.is_int_range t && Type.is_int s -> 
+
+                  let (lbound, ubound) = Type.bounds_of_int_range t in
 
                   (* Value of expression is in range of
                      declared type: lbound <= expr and
@@ -3115,8 +3136,8 @@ let rec parse_node_contract
         | [ index, 
             ({ E.expr_init; 
                E.expr_step; 
-               E.expr_type = T.Bool } as expr) ] when 
-            index = I.empty_index -> 
+               E.expr_type = t } as expr) ] when 
+            index = I.empty_index && t == Type.t_bool -> 
 
           parse_node_contract 
             mk_new_var_ident 
@@ -3161,8 +3182,8 @@ let rec parse_node_contract
         | [ index, 
             ({ E.expr_init; 
                E.expr_step; 
-               E.expr_type = T.Bool } as expr) ] when 
-            index = I.empty_index -> 
+               E.expr_type = t } as expr) ] when 
+            index = I.empty_index && t == Type.t_bool -> 
 
           parse_node_contract 
             mk_new_var_ident 

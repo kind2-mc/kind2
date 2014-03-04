@@ -1017,6 +1017,48 @@ let bump_state i term =
        | _ as t -> t)
     term
 
+(* Collect all state variables in a set *)
+let state_vars_of_term term  = 
+
+  eval_t
+    (function 
+      | T.Var v -> 
+        (function 
+          | [] -> 
+            StateVar.StateVarSet.singleton 
+              (Var.state_var_of_state_var_instance v)
+          | _ -> assert false)
+      | T.Const _ -> 
+        (function [] -> StateVar.StateVarSet.empty | _ -> assert false)
+      | T.App _ -> 
+        List.fold_left 
+          StateVar.StateVarSet.union 
+          StateVar.StateVarSet.empty
+      | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
+    term
+
+
+(* Get all variables of a term *)
+let vars_of_term term = 
+
+  (* Collect all variables in a set *)
+  let var_set = 
+    eval_t
+      (function 
+        | T.Var v -> 
+          (function [] -> Var.VarSet.singleton v | _ -> assert false)
+        | T.Const _ -> 
+          (function [] -> Var.VarSet.empty | _ -> assert false)
+        | T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
+      term
+  in
+
+  (* Return elements of a set as list *)
+  var_set
+ 
 
 (* Return true if there is an pre operator in the expression *)
 let rec var_offsets_of_term expr = 

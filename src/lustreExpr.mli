@@ -115,15 +115,7 @@ type t = private {
 
   expr_clock: clock;                   (** Clock of expression *)
 
-  expr_type: LustreType.t;             (** Type of expression *) 
-
-  expr_vars : LustreIdent.LustreIdentSet.t;   (** Current-state variables the
-                                                  expression depends on *)
-
-  expr_pre_vars : LustreIdent.LustreIdentSet.t;  (** Pre-state
-                                                     variables the
-                                                     expression
-                                                     depends on *)
+  expr_type: Type.t;             (** Type of expression *) 
 
 }
 
@@ -154,13 +146,13 @@ val mk_real : Decimal.t -> t
 
     [mk_var n t c] returns a variable with name [n], type [t] and
     clock [c]. *)
-val mk_var : LustreIdent.t -> LustreType.t -> clock -> t
+val mk_var : LustreIdent.t -> Type.t -> clock -> t
 
 (** Return a variable with a [pre] operator applied to it.
 
     [mk_var_pre n t c] returns a variable with name [n], type [t] and
     clock [c]. *)
-val mk_var_pre : LustreIdent.t -> LustreType.t -> clock -> t
+val mk_var_pre : LustreIdent.t -> Type.t -> clock -> t
 
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t

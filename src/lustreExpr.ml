@@ -58,13 +58,7 @@ type t = {
   expr_clock: unit;
   
   (* Type of expression *)
-  expr_type: Type.t;
-
-  (* Current-state variables the expression depends on *)
-  expr_vars : ISet.t;
-
-  (* Pre-state variables the expression depends on *)
-  expr_pre_vars : ISet.t;
+  expr_type: Type.t 
 
 }
 
@@ -451,9 +445,7 @@ let mk_unary eval type_of expr =
   { expr_init = eval expr.expr_init;
     expr_step = eval expr.expr_step;
     expr_type = res_type;
-    expr_clock = expr.expr_clock;
-    expr_vars = expr.expr_vars;
-    expr_pre_vars = expr.expr_pre_vars } 
+    expr_clock = expr.expr_clock } 
 
 
 (* Construct a binary expression *)
@@ -473,9 +465,7 @@ let mk_binary eval type_of expr1 expr2 =
   { expr_init = eval expr1.expr_init expr2.expr_init;
     expr_step = eval expr1.expr_step expr2.expr_step;
     expr_type = res_type;
-    expr_clock = res_clock;
-    expr_vars = ISet.union expr1.expr_vars expr2.expr_vars;
-    expr_pre_vars = ISet.union expr1.expr_pre_vars expr2.expr_pre_vars } 
+    expr_clock = res_clock } 
 
 
 (* Construct a binary expression *)
@@ -498,15 +488,7 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   { expr_init = eval expr1.expr_init expr2.expr_init expr3.expr_init;
     expr_step = eval expr1.expr_step expr2.expr_step expr3.expr_step;
     expr_type = res_type;
-    expr_clock = res_clock;
-    expr_vars = 
-      ISet.union 
-        expr1.expr_vars 
-        (ISet.union expr2.expr_vars expr3.expr_vars);
-    expr_pre_vars = 
-      ISet.union 
-        expr1.expr_pre_vars 
-        (ISet.union expr2.expr_pre_vars expr3.expr_pre_vars) } 
+    expr_clock = res_clock } 
 
 
 (* ********************************************************************** *)
@@ -522,9 +504,7 @@ let t_true =
   { expr_init = expr; 
     expr_step = expr; 
     expr_type = Type.t_bool; 
-    expr_clock = base_clock;
-    expr_vars = ISet.empty;
-    expr_pre_vars = ISet.empty } 
+    expr_clock = base_clock } 
 
 
 (* Boolean constant false on base clock *)
@@ -535,9 +515,7 @@ let t_false =
   { expr_init = expr; 
     expr_step = expr; 
     expr_type = Type.t_bool; 
-    expr_clock = base_clock;
-    expr_vars = ISet.empty;
-    expr_pre_vars = ISet.empty } 
+    expr_clock = base_clock } 
 
 
 (* Integer constant on base clock *)
@@ -548,9 +526,7 @@ let mk_int d =
   { expr_init = expr; 
     expr_step = expr; 
     expr_type = Type.mk_int_range d d; 
-    expr_clock = base_clock;
-    expr_vars = ISet.empty;
-    expr_pre_vars = ISet.empty } 
+    expr_clock = base_clock } 
 
 
 (* Real constant on base clock *)
@@ -561,9 +537,7 @@ let mk_real f =
   { expr_init = expr; 
     expr_step = expr; 
     expr_type = Type.t_real; 
-    expr_clock = base_clock;
-    expr_vars = ISet.empty;
-    expr_pre_vars = ISet.empty } 
+    expr_clock = base_clock } 
 
 (* Create ot return state variable of identifier *)
 let state_var_of_ident ident ident_type = 
@@ -597,9 +571,7 @@ let mk_var ident expr_type expr_clock =
   { expr_init = expr;
     expr_step = expr;
     expr_type = expr_type;
-    expr_clock = expr_clock;
-    expr_vars = ISet.singleton ident;
-    expr_pre_vars = ISet.empty } 
+    expr_clock = expr_clock } 
 
 
 (* Previous-state variable *)
@@ -617,9 +589,7 @@ let mk_var_pre  ident expr_type expr_clock =
   { expr_init = expr;
     expr_step = expr;
     expr_type = expr_type;
-    expr_clock = expr_clock;
-    expr_vars = ISet.empty;
-    expr_pre_vars = ISet.singleton ident } 
+    expr_clock = expr_clock } 
 
 
 let type_of_bool_bool = function 
@@ -1529,9 +1499,7 @@ let mk_arrow expr1 expr2 =
   { expr_init = expr1.expr_init;
     expr_step = expr2.expr_step;
     expr_type = res_type;
-    expr_clock = res_clock;
-    expr_vars = expr2.expr_vars;
-    expr_pre_vars = expr2.expr_pre_vars } 
+    expr_clock = res_clock } 
   
 
 (* Pre expression *)

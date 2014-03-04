@@ -294,47 +294,11 @@ let vars_at_offset_of_term i term =
 
 
 (* Get all variables of a term *)
-let vars_of_term term = 
-
-  (* Collect all variables in a set *)
-  let var_set = 
-    Term.eval_t
-      (function 
-        | Term.T.Var v -> 
-          (function [] -> Var.VarSet.singleton v | _ -> assert false)
-        | Term.T.Const _ -> 
-          (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
-        | Term.T.Attr (t, _) -> 
-          (function [s] -> s | _ -> assert false))
-      term
-  in
-
-  (* Return elements of a set as list *)
-  Var.VarSet.elements var_set
-
+let vars_of_term term = Var.VarSet.elements (Term.vars_of_term term)
+ 
 
 (* Collect all state variables in a set *)
-let state_vars_of_term term  = 
-
-  Term.eval_t
-    (function 
-      | Term.T.Var v -> 
-        (function 
-          | [] -> 
-            SVS.singleton 
-              (Var.state_var_of_state_var_instance v)
-          | _ -> assert false)
-      | Term.T.Const _ -> 
-        (function [] -> SVS.empty | _ -> assert false)
-      | Term.T.App _ -> 
-        List.fold_left 
-          SVS.union 
-          SVS.empty
-      | Term.T.Attr (t, _) -> 
-        (function [s] -> s | _ -> assert false))
-    term
-  
+let state_vars_of_term = Term.state_vars_of_term
 
 (*
 

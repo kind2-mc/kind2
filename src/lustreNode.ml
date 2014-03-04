@@ -19,7 +19,6 @@
 open Lib
 
 module I = LustreIdent
-module T = LustreType
 module E = LustreExpr
 
 module ISet = I.LustreIdentSet
@@ -57,35 +56,35 @@ type t =
        The order of the list is important, it is the order the
        parameters in the declaration. *)
     inputs : 
-      (LustreIdent.t * (LustreType.t * bool)) list;
+      (StateVar.t * (Type.t * bool)) list;
 
     (* Output variables of node 
 
        The order of the list is important, it is the order the
        parameters in the declaration. *)
     outputs : 
-      (LustreIdent.t * LustreType.t) list;
+      (StateVar.t * Type.t) list;
 
     (* Local variables of node 
 
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
     locals :
-      (LustreIdent.t * LustreType.t) list;
+      (StateVar.t * Type.t) list;
 
     (* Equations for local and output variables *)
-    equations : (LustreIdent.t * LustreExpr.t) list;
+    equations : (StateVar.t * LustreExpr.t) list;
 
     (* Node calls with activation condition: variables capturing the
        outputs, the Boolean activation condition, the name of the
        called node, expressions for input parameters and expression
        for initialization *)
     calls : 
-      ((LustreIdent.t * LustreType.t) list * 
-         LustreExpr.t * 
-         LustreIdent.t * 
-         LustreExpr.t list * 
-         LustreExpr.t list) list;
+      (StateVar.t list * 
+       LustreExpr.t * 
+       StateVar.t * 
+       LustreExpr.t list * 
+       LustreExpr.t list) list;
 
     (* Assertions of node *)
     asserts : LustreExpr.t list;
@@ -128,7 +127,7 @@ let pp_print_input safe ppf (ident, (ident_type, is_const)) =
     "%t%a: %a"
     (function ppf -> if is_const then Format.fprintf ppf "const ")
     (I.pp_print_ident safe) ident
-    (T.pp_print_lustre_type safe) ident_type
+    Type.pp_print_type ident_type
 
 
 (* Pretty-print a node output *)
@@ -137,7 +136,7 @@ let pp_print_output safe ppf (ident, ident_type) =
   Format.fprintf ppf
     "%a: %a"
     (I.pp_print_ident safe) ident
-    (T.pp_print_lustre_type safe) ident_type
+    Type.pp_print_type ident_type
 
 
 (* Pretty-print a node local variable *)
@@ -146,7 +145,7 @@ let pp_print_local safe ppf (ident, ident_type) =
   Format.fprintf ppf
     "%a: %a"
     (I.pp_print_ident safe) ident
-    (T.pp_print_lustre_type safe) ident_type
+    Type.pp_print_type ident_type
 
 
 (* Pretty-print a node equation *)
@@ -333,7 +332,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
             in
 
             (* Get variables in expression *)
-            E.vars_of_expr (init_or_step_of_expr expr) 
+            Var.VarSet.elements (Term.vars_of_term (init_or_step_of_expr expr))
 
           (* Variable is not input or not defined in an equation *)
           with Not_found -> 
@@ -388,10 +387,11 @@ let rec node_var_dependencies init_or_step nodes node accum =
               in
 
               (* Get variables in expression *)
-              List.fold_left
-                (fun a e -> E.vars_of_expr e @ a)
-                []
-                dep_expr
+              Var.VarSet.elements
+                (List.fold_left
+                   (fun a e -> Var.VarSet.union (Term.vars_of_term e) a)
+                   Var.VarSet.empty
+                   dep_expr)
 
             (* Variable is not input or defined in an equation or node
                call, it could be in an assertion *)

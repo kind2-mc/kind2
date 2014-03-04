@@ -334,6 +334,10 @@ let bounds_of_int_range = function
   | { Hashcons.node = IntRange (l, u) } -> (l, u)
   | _ -> raise (Invalid_argument "bounds_of_int_range")
 
+(* Return string elements of scalar *)
+let elements_of_scalar = function
+  | { Hashcons.node = Scalar (_, e) } -> e
+  | _ -> raise (Invalid_argument "elements_of_scalar")
 
 (* ********************************************************************* *)
 (* Type checking                                                         *)

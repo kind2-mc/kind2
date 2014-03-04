@@ -87,7 +87,10 @@ val vars_at_offset_of_term : int -> Term.t -> Var.t list
 (** Return the stateful variables at the given offset occurring in the term *)
 val state_vars_at_offset_of_term : int -> Term.t -> Var.t list
 
-(** Return the variables occurring in the term *)
+(** Return the variables occurring in the term 
+    
+    {b Deprecated: Use {!Term.vars_of_term}
+*)
 val vars_of_term : Term.t -> Var.t list
 
 (** Return variables of the transitions system at bounds zero and one *)

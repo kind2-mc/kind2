@@ -81,10 +81,10 @@ val mk_real : unit -> t
 (** Return the bitvector type *)
 val mk_bv : int -> t
 
-(** Return the array type *)
+(** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
 
-(** Return the array type *)
+(** Return a scalar type of identifier and elements *)
 val mk_scalar : string -> string list -> t
 
 (** Import a type from a different instance into this hashcons table *)
@@ -131,6 +131,10 @@ val is_scalar : t -> bool
     [Invalid_argument "bounds_of_int_range"] if the type is not an
     integer range type. *)
 val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
+
+(** Return string elements of scalar, fail with [Invalid_argument
+    "elements_of_scalar"] if the type is not a scalar type. *)
+val elements_of_scalar : t -> string list 
 
 (** {1 Pretty-printing} *)
 
