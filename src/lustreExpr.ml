@@ -34,7 +34,23 @@ type expr = Term.t
 
 
 (* Map from state variables to indexed identifiers *)
-let ident_of_state_var = StateVar.StateVarHashtbl.create 7
+let state_var_ident_map  = StateVar.StateVarHashtbl.create 7
+
+
+(* Return the identifier of a state variable *)
+let ident_of_state_var state_var = 
+
+  try 
+    
+    (* Find original indexed identifier *)
+    StateVar.StateVarHashtbl.find state_var_ident_map state_var
+
+  (* No identifier found *)
+  with Not_found -> 
+    
+    (* Create new identifier of state variable *)
+    I.mk_string_ident (StateVar.string_of_state_var state_var)
+      
 
 
 (* Equality on expressions *)
@@ -57,7 +73,10 @@ type t = {
   (* Clock of expression *)
   expr_clock: unit;
   
-  (* Type of expression *)
+  (* Type of expression
+
+     Keep the type here instead of reading from expr_init or
+     expr_step, otherwise we need to get both types and merge *)
   expr_type: Type.t 
 
 }
@@ -100,20 +119,7 @@ let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s)
 let pp_print_lustre_var safe ppf state_var = 
 
     (* Indexed identifier for state variable *)
-    let ident = 
-      
-      try 
-
-        (* Find original indexed identifier *)
-        StateVar.StateVarHashtbl.find ident_of_state_var state_var
-
-      (* No identifier found *)
-      with Not_found -> 
-        
-        (* Create new identifier of state variable *)
-        I.mk_string_ident (StateVar.string_of_state_var state_var)
-      
-    in
+    let ident = ident_of_state_var state_var in
     
     I.pp_print_ident safe ppf ident
 
@@ -500,6 +506,23 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
 (* ********************************************************************** *)
   
 
+(* Create or return state variable of identifier *)
+let state_var_of_ident scope ident ident_type = 
+
+  (* Convert identifier to a string *)
+  let ident_string = I.string_of_ident true ident in 
+
+  (* Create or return state variable of string *)
+  let state_var = StateVar.mk_state_var ident_string scope ident_type in 
+
+  (* Add to hashtable unless already present *)
+  (if not (StateVar.StateVarHashtbl.mem state_var_ident_map state_var) then 
+     StateVar.StateVarHashtbl.add state_var_ident_map state_var ident);
+
+  (* Return state variable *)
+  state_var 
+
+
 (* Boolean constant true on base clock *)
 let t_true = 
 
@@ -543,28 +566,9 @@ let mk_real f =
     expr_type = Type.t_real; 
     expr_clock = base_clock } 
 
-(* Create ot return state variable of identifier *)
-let state_var_of_ident ident ident_type = 
 
-  (* Convert identifier to a string *)
-  let ident_string = I.string_of_ident true ident in 
-
-  (* Create or return state variable of string *)
-  let state_var = StateVar.mk_state_var ident_string true ident_type in 
-
-  (* Add to hashtable unless already present *)
-  (if not (StateVar.StateVarHashtbl.mem ident_of_state_var state_var) then 
-     StateVar.StateVarHashtbl.add ident_of_state_var state_var ident);
-
-  (* Return state variable *)
-  state_var 
-
-
-(* Current-state variable *)
-let mk_var ident expr_type expr_clock = 
-
-  (* State variable of identifier *)
-  let state_var = state_var_of_ident ident expr_type in
+(* Current state variable of state variable *)
+let mk_var_of_state_var state_var expr_clock = 
 
   (* Variable at offset zero of identifier *)
   let var = Var.mk_state_var_instance state_var Numeral.zero in 
@@ -574,15 +578,25 @@ let mk_var ident expr_type expr_clock =
 
   { expr_init = expr;
     expr_step = expr;
-    expr_type = expr_type;
+    expr_type = StateVar.type_of_state_var state_var;
     expr_clock = expr_clock } 
 
 
-(* Previous-state variable *)
-let mk_var_pre  ident expr_type expr_clock = 
+(* Current-state variable *)
+let mk_var scope ident expr_type expr_clock = 
 
   (* State variable of identifier *)
-  let state_var = state_var_of_ident ident expr_type in
+  let state_var = state_var_of_ident scope ident expr_type in
+
+  mk_var_of_state_var state_var expr_clock
+
+
+
+(* Previous-state variable *)
+let mk_var_pre scope ident expr_type expr_clock = 
+
+  (* State variable of identifier *)
+  let state_var = state_var_of_ident scope ident expr_type in
 
   (* Variable at offset zero of identifier *)
   let var = Var.mk_state_var_instance state_var Numeral.one in 
@@ -1534,13 +1548,13 @@ let rec mk_pre
       let new_var_ident = mk_new_var_ident () in
 
       (* State variable of identifier *)
-      let state_var = state_var_of_ident new_var_ident expr_type in 
+      let state_var = state_var_of_ident scope new_var_ident expr_type in 
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, ((new_var_ident, expr) :: vars, calls))
+      (Term.mk_var var, ((state_var, expr) :: vars, calls))
       
   in
 
@@ -1569,7 +1583,7 @@ let rec mk_pre
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, ((new_var_ident, expr) :: vars', calls'))
+      (Term.mk_var var, ((state_var, expr) :: vars', calls'))
       
   in
 
@@ -1598,6 +1612,10 @@ let rec mk_pre
 *)
 
   
+(* ********************************************************************** *)
+(* Predicates                                                             *)
+(* ********************************************************************** *)
+
 
 (* Return true if there is an unguarded pre operator in the expression *)
 let pre_is_unguarded { expr_init } = 
@@ -1606,6 +1624,56 @@ let pre_is_unguarded { expr_init } =
   match Term.var_offsets_of_term expr_init with 
     | None, _ -> false
     | Some c, _ -> Numeral.(c < zero)
+
+
+(* Return true if expression is a variable at given instant *)
+let is_var_at_offset { expr_init; expr_step } offset = 
+
+  (* Initial value and step value must be identical *)
+  (expr_init == expr_step) && 
+
+  (* Term must be a free variable *)
+  (Term.is_free_var expr_init) && 
+
+  (* Get free variable of term *)
+  (let var = Term.free_var_of_term expr_init in 
+
+   (* Variable must be an instance of a state variable *)
+   Var.is_state_var_instance var && 
+
+   (* Variable must be at instant zero *)
+   Numeral.(Var.offset_of_state_var_instance var = offset))
+
+
+(* Return true if expression is a current state variable *)
+let is_var expr = is_var_at_offset expr Numeral.zero
+
+
+(* Return true if expression is a previous state variable *)
+let is_pre_var expr = is_var_at_offset expr Numeral.(- one)
+
+
+(* Return the state variable of a variable *)
+let state_var_of_expr { expr_init; expr_step } = 
+
+  (* Initial value and step value must be identical *)
+  if expr_init == expr_step then
+
+    try 
+      
+      (* Get free variable of term *)
+      let var = Term.free_var_of_term expr_init in 
+      
+      (* Get instance of state variable *)
+      Var.state_var_of_state_var_instance var
+        
+    (* Fail if any of the above fails *)
+    with Invalid_argument _ -> raise (Invalid_argument "state_var_of_expr")
+
+  else
+
+    (* Fail if initial value is different from step value *)
+    raise (Invalid_argument "state_var_of_expr")
 
 (*
 

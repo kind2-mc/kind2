@@ -461,70 +461,13 @@ let rec node_var_dependencies init_or_step nodes node accum =
                 vars_not_visited) @ 
              ((var, dep) :: tl))
 
-
-(* If x = y and x captures the output of a node, substitute y *)
-let solve_eqs_node_calls node = 
-
-  let calls', vars_eliminated =
-
-    (* *)
-    List.fold_left 
-      (fun (ac, av) (o, c, n, i, s) -> 
-         let o', av' = 
-           List.fold_right 
-             (fun (v, t) (ac, av) ->
-                try 
-                  let v' =
-                    fst
-                      (List.find
-                         (function 
-                           | (_, { E.expr_init = vi; 
-                                   E.expr_step = vs }) 
-                             when vi == vs -> vi == Var.mk_state_var_instance v Numeral.zero 
-                           | _ -> false) 
-                         node.equations)
-                  in
-                  ((v', t) :: ac, v :: av)
-                with Not_found -> ((v, t) :: ac, av))
-             o
-             ([], av)
-         in
-         (o', c, n, i, s) :: ac, av')
-      ([], [])
-      node.calls
-  in
-(*  
-  Format.printf
-    "@[<v>Elminated variables:@,%a@]@."
-    (pp_print_list (I.pp_print_ident false) "@,") 
-    vars_eliminated;
-*)
-
-  let locals' = 
-    List.filter
-      (fun (v, _) -> not (List.mem v vars_eliminated))
-      node.locals
-  in
-
-  let equations' = 
-    List.filter
-      (function
-        | (_, { E.expr_init = E.Var vi; 
-                E.expr_step = E.Var vs }) when vi = vs -> 
-          not (List.mem vi vars_eliminated)
-        | _ -> true)
-      node.equations
-  in
-
-  { node with calls = calls'; locals = locals'; equations = equations' }
-
              
 (* Calculate dependencies of outputs on inputs *) 
 let output_input_dep_of_var_dep node var_deps =
 
   (* Return a list of positions in inputs for each output *)
   List.map
-    (fun (o, _) -> 
+    (fun o -> 
 
        (* Get dependencies of output variable *)
        let deps = List.assoc o var_deps in 
@@ -549,9 +492,89 @@ let output_input_dep_of_var_dep node var_deps =
             (* Variable is not input *)
             with Not_found -> a)
          []
-         (ISet.elements deps)
+         (SVS.elements deps)
     )
     node.outputs
+
+
+
+(* If x = y and x captures the output of a node, substitute y *)
+let solve_eqs_node_calls node = 
+
+  let calls', vars_eliminated =
+
+    (* Iterate over all calls, collect modified calls and eliminated
+       variables *)
+    List.fold_left 
+      (fun (accum_calls, accum_vars_eliminated) (o, c, n, i, s) -> 
+
+         
+         (* Modify list of variables capturing the output, add to list
+              of eliminated variables *)
+         let o', accum_vars_eliminated' = 
+           
+           (* Iterate over output variables from right to left, need
+              to preserve the order *)
+           List.fold_right 
+             (fun v (accum_outputs, accum_vars_eliminated) ->
+
+                try 
+
+                  let v' =
+
+                    fst
+
+                      (* Find an equation [u = v] where v is the
+                         variable capturing an output at the current
+                         state *)
+                      (List.find
+                         (function 
+                           | (_, e) when E.is_var e -> 
+
+                             (==) 
+                               (E.state_var_of_expr e)
+                               v
+
+                           | _ -> false) 
+
+                         node.equations)
+                  in
+
+                  (v' :: accum_outputs, v :: accum_vars_eliminated)
+
+                with Not_found -> 
+                  (v :: accum_outputs, accum_vars_eliminated))
+             
+             o
+             ([], accum_vars_eliminated)
+         in
+         (o', c, n, i, s) :: accum_calls, accum_vars_eliminated')
+      ([], [])
+      node.calls
+  in
+  (*  
+  Format.printf
+    "@[<v>Elminated variables:@,%a@]@."
+    (pp_print_list (I.pp_print_ident false) "@,") 
+    vars_eliminated;
+*)
+
+  let locals' = 
+    List.filter
+      (fun v -> not (List.memq v vars_eliminated))
+      node.locals
+  in
+
+  let equations' = 
+    List.filter
+      (function
+        | (_, e) when E.is_var e -> 
+          not (List.mem (E.state_var_of_expr e) vars_eliminated)
+        | _ -> true)
+      node.equations
+  in
+
+  { node with calls = calls'; locals = locals'; equations = equations' }
 
 
 

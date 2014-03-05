@@ -24,8 +24,11 @@ open Lib
 (* ********************************************************************* *)
 
 
-(* State variable to be has-consed *)
-type state_var = string
+(* State variable to be has-consed
+
+   Name of a state variable is a string with a list of strings as
+   its scope *)
+type state_var = string * string list 
 
 (* A private type that cannot be constructed outside this module
 
@@ -50,12 +53,6 @@ type state_var_prop =
     (* The uninterpreted symbol associated with the variable *)
     uf_symbol : UfSymbol.t;
   
-    (* True if variable does not occur under a pre operator *)
-    mutable is_definition : bool;
-
-    (* True if variable does not occur under a pre operator *)
-    mutable is_input : bool;
-
   }
 
 (* A hashconsed state variable *)
@@ -153,22 +150,37 @@ let uf_symbols_map = UfSymbol.UfSymbolHashtbl.create 41
 (* ********************************************************************* *)
 
 
+(* Pretty-print a scoped name of a state variable *)
+let pp_print_state_var_name ppf (n, s) = 
+  Format.fprintf ppf 
+    "%a.%s" 
+    (pp_print_list Format.pp_print_string ".") s
+    n
+
+(* Return a string representation of the name of a state variable *)
+let string_of_state_var_name (n, s) = 
+  string_of_t pp_print_state_var_name (n, s) 
+
 (* Pretty-print a state variable *)
-let pp_print_state_var_node ppf s = 
-  Format.pp_print_string ppf s
+let pp_print_state_var_node ppf (n, s) = 
+  pp_print_state_var_name ppf (n, s)
 
 (* Pretty-print a state variable as it occurred in the original input *)
 let pp_print_state_var_node_original ppf s = 
   Format.pp_print_string ppf (Kind1.Tables.internal_name_to_original_name s)
 
 (* Pretty-print a hashconsed state variable *)
-let pp_print_state_var ppf { Hashcons.node = n } =
-  pp_print_state_var_node ppf n
+let pp_print_state_var ppf { Hashcons.node = (n, s) } =
+  pp_print_state_var_node ppf (n, s)
 
 (* Pretty-print a hashconsed state variable as it occurred in the
    original input *)
-let pp_print_state_var_original ppf { Hashcons.node = n } =
-  pp_print_state_var_node_original ppf n
+let pp_print_state_var_original ppf = function 
+
+  | { Hashcons.node = (n, s) } -> pp_print_state_var_node_original ppf n
+
+  (* Cannot have scopes in old parser *)
+  | _ -> invalid_arg "pp_print_state_var_original"
 
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s
@@ -180,20 +192,20 @@ let string_of_state_var s = string_of_t pp_print_state_var s
 
 
 (* Identifier of a state variable *)
-let name_of_state_var { Hashcons.node = s } = s
+let name_of_state_var { Hashcons.node = (n, _) } = n
 
-
-(* Return true if state variable is a local definition *)
-let is_definition { Hashcons.prop = { is_definition = d } } = d
-
-
-(* Return true if state variable is an input variable *)
-let is_input { Hashcons.prop = { is_input = i } } = i
+(* Identifier of a state variable *)
+let scope_of_state_var { Hashcons.node = (_, s) } = s
 
 
 (* Original identifier of a state variable *)
-let original_name_of_state_var { Hashcons.node = s } = 
-  Kind1.Tables.internal_name_to_original_name s
+let original_name_of_state_var = function
+
+  | { Hashcons.node = (s, []) } -> 
+    Kind1.Tables.internal_name_to_original_name s
+
+  (* Cannot have scopes in old parser *)
+  | _ -> invalid_arg "original_name_of_state_var"
 
 
 (* Type of a state variable *)
@@ -216,25 +228,24 @@ let state_var_of_uf_symbol u =
 
 
 (* Hashcons a state variable *)
-let mk_state_var n d t = 
+let mk_state_var state_var_name state_var_scope state_var_type = 
 
   try 
 
     (* Get previous declaration of identifier *)
-    let { Hashcons.prop = p } as v = Hstate_var.find ht n in
+    let { Hashcons.prop = p } as v = 
+      Hstate_var.find ht (state_var_name, state_var_scope)  
+    in
 
     if 
 
-      (* Return type matches previous declaration? *)
-      Type.equal_types (type_of_state_var v) t
+      (* Given type is a subtype of declared type? *)
+      Type.check_type state_var_type (type_of_state_var v)  
 
     then
 
       (
 
-        (* Change from local definition to stateful, but not vice versa *)
-        p.is_definition <- p.is_definition || d;
-        
         (* Return previously declared symbol *)
         v
 
@@ -244,44 +255,58 @@ let mk_state_var n d t =
 
       raise 
         (Invalid_argument 
-           ("State variable " ^ n ^ " redeclared with different type"))
+           (Format.asprintf
+              "State variable %a redeclared with different type" 
+              pp_print_state_var_name 
+              (state_var_name, state_var_scope)))
 
   (* State variable is not in the hashcons table *)
   with Not_found | Hstate_var.Key_not_found _ -> 
-
+    
     try 
-
-      let _ = UfSymbol.uf_symbol_of_string n in
+      
+      let _ = 
+        UfSymbol.uf_symbol_of_string 
+          (string_of_state_var_name (state_var_name, state_var_scope))
+      in
 
       raise 
         (Invalid_argument 
-           ("State variable " ^ n ^ " conflicts with uninterpreted function symbol"))
+           (Format.asprintf 
+              "State variable %a conflicts with uninterpreted \
+               function symbol"
+              pp_print_state_var_name 
+              (state_var_name, state_var_scope)))
 
     with Not_found -> 
 
-      (debug stateVar
-          "Variable %s, is_definition: %B"
-          n
-          d
+       (* Create an uninterpreted function symbol for the state variable *)
+       let state_var_uf_symbol = 
+         UfSymbol.mk_uf_symbol 
+           (string_of_state_var_name 
+              (state_var_name, state_var_scope))
+           [Type.mk_int ()] 
+           state_var_type 
        in
 
-       (* Create an uninterpreted function symbol for the state variable *)
-       let u = UfSymbol.mk_uf_symbol n [Type.mk_int ()] t in
-
        (* Hashcons state variable *)
-       let sv = 
+       let state_var = 
          Hstate_var.hashcons 
            ht 
-           n 
-           { var_type = t; uf_symbol = u; is_definition = d; is_input = false } 
+           (state_var_name, state_var_scope) 
+           { var_type = state_var_type; 
+             uf_symbol = state_var_uf_symbol } 
        in
 
        (* Remember association of uninterpreted function symbol with
           state variable *)
-       UfSymbol.UfSymbolHashtbl.add uf_symbols_map u sv;
+       UfSymbol.UfSymbolHashtbl.add 
+         uf_symbols_map 
+         state_var_uf_symbol 
+         state_var;
 
        (* Return state variable *)
-       sv)
+       state_var
 
 
 (* Import a state variable from a different instance into this
@@ -289,16 +314,16 @@ let mk_state_var n d t =
 let import v = 
   mk_state_var 
     (name_of_state_var v) 
-    (is_definition v) 
+    (scope_of_state_var v) 
     (Type.import (type_of_state_var v))
 
 
 (* Return a previously declared state variable *)
-let state_var_of_string s = 
+let state_var_of_string (state_var_name, state_var_scope) = 
 
   (* Get previous declaration of symbol, raise {!Not_found} if
      symbol was not declared *)
-  Hstate_var.find ht s 
+  Hstate_var.find ht (state_var_name, state_var_scope)
 
 
 (* Return a previously declared state variable *)
@@ -308,7 +333,7 @@ let state_var_of_original_name s =
   let s' = (Kind1.Tables.original_name_to_internal_name s) in
 
   (* Return state variable *) 
-  state_var_of_string s'
+  state_var_of_string (s', [])
 
 (* ********************************************************************* *)
 (* Folding and utility functions on uninterpreted function symbols       *)

@@ -49,31 +49,29 @@ type t =
         The order of the list is important, it is the order the
         parameters in the declaration. *)
     inputs : 
-      (LustreIdent.t * (Type.t * bool)) list;
+      (StateVar.t * bool) list;
 
     (** Output variables of node
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
-    outputs : 
-      (LustreIdent.t * Type.t) list;
+    outputs : StateVar.t list;
 
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
-    locals :
-      (LustreIdent.t * Type.t) list;
+    locals : StateVar.t list;
 
     (** Equations for local and output variables *)
-    equations : (LustreIdent.t * LustreExpr.t) list;
+    equations : (StateVar.t * LustreExpr.t) list;
 
     (** Node calls with activation condition: variables capturing the
         outputs, the Boolean activation condition, the name of the
         called node, expressions for input parameters and expression
         for initialization *)
     calls : 
-      ((LustreIdent.t * Type.t) list * 
+      (StateVar.t list * 
        LustreExpr.t * 
        LustreIdent.t * 
        LustreExpr.t list * 
@@ -103,9 +101,9 @@ val empty_node : t
 (** Pretty-print a node *)
 val pp_print_node : bool -> LustreIdent.t -> Format.formatter -> t -> unit 
 
-val node_var_dependencies : bool -> (LustreIdent.t * t) list -> t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> (LustreIdent.t * LustreIdent.t list) list -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list
+val node_var_dependencies : bool -> (LustreIdent.t * t) list -> t -> (StateVar.t * StateVar.StateVarSet.t) list -> (StateVar.t * StateVar.t list) list -> (StateVar.t * StateVar.StateVarSet.t) list
 
-val output_input_dep_of_var_dep : t -> (LustreIdent.t * LustreIdent.LustreIdentSet.t) list -> int list list
+val output_input_dep_of_var_dep : t -> (StateVar.t * StateVar.StateVarSet.t) list -> int list list
 
 val solve_eqs_node_calls : t -> t
 

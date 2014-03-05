@@ -29,8 +29,11 @@
 
 (** {1 Types and hash-consing} *)
 
-(** State variable *)
-type state_var = string
+(** State variable 
+
+    A state state variable is a pair of its identifier and its scope,
+    which is a list of identifiers. *)
+type state_var = private string * string list
 
 (** Hashconsed state variable *)
 type t
@@ -68,7 +71,7 @@ module StateVarMap : Map.S with type key = t
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : string -> bool -> Type.t -> t
+val mk_state_var : string -> string list -> Type.t -> t
 
 (** Import a state variable from a different instance into this
    hashcons table *)
@@ -77,7 +80,7 @@ val import : t -> t
 (** {1 Accessor functions} *)
 
 (** Return a previously declared state variable *)
-val state_var_of_string : string -> t 
+val state_var_of_string : string * string list -> t 
 
 (** Return a previously declared state variable by its name in the input file *)
 val state_var_of_original_name : string -> t 
@@ -97,8 +100,6 @@ val uf_symbol_of_state_var : t -> UfSymbol.t
 
 (** Return the uninterpreted function symbol of the variable *)
 val state_var_of_uf_symbol : UfSymbol.t -> t
-
-val is_definition : t -> bool
 
 (** {1 Iterators over defined state variables} *)
 

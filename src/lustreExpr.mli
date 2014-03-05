@@ -115,7 +115,11 @@ type t = private {
 
   expr_clock: clock;                   (** Clock of expression *)
 
-  expr_type: Type.t;             (** Type of expression *) 
+  expr_type: Type.t;             (** Type of expression 
+
+                                     Record type here, this is the
+                                     common type of expr_init and
+                                     expr_step *)
 
 }
 
@@ -141,11 +145,23 @@ val t_false : t
 
 (** {1 Constructors} *)
 
+(** Create or return state variable of identifier *)
+val state_var_of_ident : LustreIdent.t -> Type.t -> StateVar.t
+
+(** Return the identifier of a state variable
+
+    The state variable must have been created through
+    {!state_var_of_ident} to obtain the same identifier. *)
+val ident_of_state_var : StateVar.t -> LustreIdent.t 
+
 (** Return an integer numeral. *)
 val mk_int : Numeral.t -> t
 
 (** Return a floating point decimal. *)
 val mk_real : Decimal.t -> t
+
+(** Return a variable *)
+val mk_var_of_state_var : StateVar.t -> clock -> t
 
 (** Return a variable.
 
@@ -237,11 +253,20 @@ val mk_arrow : t -> t -> t
     association between the fresh variable and [e] is added to the
     list [v], the second element of the pair [c] is left
     unchanged. *)
-val mk_pre : (unit -> LustreIdent.t) -> ((LustreIdent.t * t) list * 'a) -> t -> (t * (((LustreIdent.t * t) list) * 'a))
+val mk_pre : (unit -> LustreIdent.t) -> ((StateVar.t * t) list * 'a) -> t -> (t * (((StateVar.t * t) list) * 'a))
 
 (** Return [true] if there is an unguarded [pre] operator in the
     expression. *)
 val pre_is_unguarded : t -> bool
+
+(** Return true if expression is a current state variable *)
+val is_var : t -> bool
+
+(** Return true if expression is a previous state variable *)
+val is_pre_var : t -> bool
+
+(** Return the state variable of a variable *)
+val state_var_of_expr : t -> StateVar.t
 
 (*
 (** Return a list of names of variables in the expression *)

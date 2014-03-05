@@ -538,7 +538,7 @@ let rec eval_ast_expr'
                  expr
              in
 
-             (* Decrement counter *)
+             (* Increment counter *)
              (Numeral.(succ i),
 
               (* Continue with added definitions *)
@@ -806,6 +806,7 @@ let rec eval_ast_expr'
            ", ")
         indexes;
   *)         
+
       (* Convert identifiers to indexes for expressions in constructor *)
       let expr_list', new_defs' = 
         List.fold_left 
@@ -833,6 +834,7 @@ let rec eval_ast_expr'
           ([], new_defs)
           (List.sort (fun (i, _) (j, _) -> I.compare j i) expr_list)
       in
+
 (*
       Format.printf
         "RecordConstruct expr_list': %a@."
@@ -846,6 +848,7 @@ let rec eval_ast_expr'
            ", ")
         expr_list';
   *)         
+
       (* Add indexed expressions and new definitions to result *)
       let result' = 
 
@@ -855,7 +858,7 @@ let rec eval_ast_expr'
             (fun 
               accum
               (record_index, record_type) 
-              ((expr_index, { E.expr_type }) as expr) -> 
+              (expr_index, ({ E.expr_type } as expr)) -> 
 
               if 
 
@@ -869,7 +872,7 @@ let rec eval_ast_expr'
 
 
                 (* Continue with added definitions *)
-                (expr :: accum)
+                ((expr_index, expr) :: accum)
 
               else 
 
@@ -1552,7 +1555,7 @@ and eval_ast_expr
     mk_new_var_ident 
     mk_new_call_ident 
     context 
-    new_defs 
+    new_defs
     expr = 
 
   let expr', new_defs' = 
@@ -1695,12 +1698,16 @@ and node_inputs_of_exprs node_inputs expr_list =
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        (_, (in_type, _)) 
+        (in_var, _) 
         (_, ({ E.expr_type } as expr)) 
         accum ->
 
         (* Expression must be of a subtype of input type *)
-        if Type.check_type expr_type in_type then 
+        if
+          Type.check_type 
+            expr_type
+            (StateVar.type_of_state_var in_var) 
+        then 
           expr :: accum
         else
           raise E.Type_mismatch)
@@ -1749,12 +1756,16 @@ and node_init_of_exprs node_outputs expr_list =
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        (_, in_type) 
+        out_var 
         (_, ({ E.expr_type } as expr)) 
         accum ->
 
         (* Expression must be of a subtype of input type *)
-        if Type.check_type expr_type in_type then 
+        if 
+          Type.check_type 
+            expr_type
+            (StateVar.type_of_state_var out_var)
+        then 
             expr :: accum
           else
             raise E.Type_mismatch) 
@@ -1792,29 +1803,13 @@ and output_idents_of_node ident pos call_ident = function
   | node_outputs -> 
 
     List.map
-      (fun (out_ident, out_type) -> 
-         (I.push_back_ident_index out_ident call_ident, out_type))
+      (fun out_var -> 
+         E.state_var_of_ident 
+           (I.push_back_ident_index 
+              (E.ident_of_state_var out_var)
+              call_ident)
+           (StateVar.type_of_state_var out_var))
       node_outputs
-
-(*
-    (* Keep order of parameters *)
-    List.fold_right
-      (fun (out_ident, _) accum -> 
-
-         (* Add identifier of output to identifier for node call *)
-         let out_ident = 
-           I.push_back_ident_index out_ident call_ident 
-         in
-
-         (* Add each suffix of indexed type and type of index *)
-         List.fold_right 
-           (fun (index, out_type) accum ->
-              (I.push_back_index index out_ident, out_type) :: accum)
-           (sort_indexed_pairs out_type)
-           accum)
-      node_outputs
-      []
-*)
 
 (* Add list of variables capturing the output with indexes to the result *)
 and add_node_output_to_result index result = function
@@ -1823,9 +1818,9 @@ and add_node_output_to_result index result = function
   | [] -> assert false
 
   (* Don't add index if node has a single output *)
-  | [(var_ident, var_type)] -> 
+  | [state_var] -> 
 
-    (index, E.mk_var var_ident var_type E.base_clock) :: result
+    (index, E.mk_var_of_state_var state_var E.base_clock) :: result
 
   (* Add indexes to be able to sort if node has more than one output *)
   | node_output_idents -> 
@@ -1835,10 +1830,10 @@ and add_node_output_to_result index result = function
 
          Must add indexes in order *)
       (List.fold_left
-         (fun (i, accum) (var_ident, var_type) -> 
+         (fun (i, accum) state_var -> 
             (Numeral.(succ i),
              (I.push_int_index_to_index i index, 
-              E.mk_var var_ident var_type E.base_clock) :: accum))
+              E.mk_var_of_state_var state_var E.base_clock) :: accum))
          (Numeral.zero, result)
          node_output_idents)
       
@@ -2417,12 +2412,12 @@ let add_node_input_decl
      ({ N.inputs = node_inputs } as node))
     index 
     basic_type =
-(*  
+
   Format.printf "add_node_input_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
-    (T.pp_print_lustre_type false) basic_type;
-*)
+    Type.pp_print_type basic_type;
+
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2435,22 +2430,11 @@ let add_node_input_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-(*
-
-  (* Add to constant node inputs *)
-  let node_inputs' = match node_inputs with 
-
-    | (i, (l, c)) :: tl when i = ident -> 
-      
-      (ident, ((index, basic_type) :: l, c)) :: tl 
-        
-    | _ -> (ident, ([(index, basic_type)], is_const)) :: node_inputs 
-
+  let node_inputs' = 
+    (E.state_var_of_ident (I.push_back_index index ident) basic_type, 
+     is_const) :: 
+    node_inputs
   in
-
-*)
-
-  let node_inputs' = (I.push_back_index index ident, (basic_type, is_const)) :: node_inputs in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.inputs = node_inputs' })
@@ -2482,7 +2466,8 @@ let add_node_output_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_outputs' = 
-    (I.push_back_index index ident, basic_type) :: node_outputs 
+    E.state_var_of_ident (I.push_back_index index ident) basic_type ::
+    node_outputs 
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
@@ -2515,7 +2500,8 @@ let add_node_var_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_locals' = 
-    (I.push_back_index index ident, basic_type) :: node_locals
+    E.state_var_of_ident (I.push_back_index index ident) basic_type :: 
+    node_locals
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
@@ -2713,8 +2699,10 @@ let new_defs_to_context context node (vars, calls) =
   let context', node' = 
 
     List.fold_left 
-      (fun (context, node) (ident, { E.expr_type }) -> 
-         let (base_ident, index) = I.split_ident ident in
+      (fun (context, node) (state_var, { E.expr_type }) -> 
+         let (base_ident, index) = 
+           I.split_ident (E.ident_of_state_var state_var) 
+         in
          let context', node_locals' = 
            add_node_var_decl 
              base_ident
@@ -2732,14 +2720,16 @@ let new_defs_to_context context node (vars, calls) =
   List.fold_left
     (fun accum (outputs, _, _, _, _) ->
        List.fold_left 
-         (fun (context, node) (ident, expr_type) -> 
-            let (base_ident, index) = I.split_ident ident in
+         (fun (context, node) state_var -> 
+            let (base_ident, index) = 
+              I.split_ident (E.ident_of_state_var state_var) 
+            in
             let context', node_locals' = 
               add_node_var_decl 
                 base_ident
                 (context, [])
                 (I.index_of_one_index_list index)
-                expr_type
+                (StateVar.type_of_state_var state_var)
             in
             (context',
              { node with N.locals = node.N.locals @ (List.rev node_locals') }))
@@ -2925,9 +2915,11 @@ let rec parse_node_equations
 
                   let accum' =
                     List.fold_left
-                      (fun a (v, t) -> 
+                      (fun a v -> 
                          try 
-                           (ignore (I.get_suffix ident v); v, t) :: a
+                           (ignore 
+                              (I.get_suffix ident (E.ident_of_state_var v)); 
+                            v, StateVar.type_of_state_var v) :: a
                          with Not_found ->
                            a)
                       accum
@@ -2938,9 +2930,11 @@ let rec parse_node_equations
 
                     let accum'' = 
                       List.fold_left
-                        (fun a (v, t) -> 
+                        (fun a v -> 
                            try 
-                             (ignore (I.get_suffix ident v); v, t) :: a
+                             (ignore 
+                                (I.get_suffix ident (E.ident_of_state_var v));
+                              v, StateVar.type_of_state_var v) :: a
                            with Not_found ->
                              a)
                         accum
@@ -3067,7 +3061,8 @@ let rec parse_node_equations
                     (Failure 
                        (Format.asprintf 
                           "Type mismatch for expressions %a and %a at %a" 
-                          (I.pp_print_ident false) ident
+                          (I.pp_print_ident false) 
+                          (E.ident_of_state_var ident)
                           (E.pp_print_lustre_expr false) expr
                           A.pp_print_position A.dummy_pos))))
 
@@ -3280,7 +3275,7 @@ let parse_node_signature
       node_context_equations
       []
       ((List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations) @
-       (List.map (fun (v, _) -> (v, [])) node_context_equations.N.outputs))
+       (List.map (fun v -> (v, [])) node_context_equations.N.outputs))
   in
 (*
   Format.printf "@[<v>%a@]@."
@@ -3307,9 +3302,9 @@ let parse_node_signature
   let equations_sorted =
     List.sort
       (fun (v1, _) (v2, _) -> 
-         if ISet.mem v1 (List.assoc v2 var_dep) then (- 1) 
-         else if ISet.mem v2 (List.assoc v1 var_dep) then 1 
-         else I.compare v1 v2)
+         if StateVar.StateVarSet.mem v1 (List.assoc v2 var_dep) then (- 1) 
+         else if StateVar.StateVarSet.mem v2 (List.assoc v1 var_dep) then 1 
+         else StateVar.compare_state_vars v1 v2)
       node_context_deps.N.equations
   in
 
