@@ -165,7 +165,8 @@ val get_index_suffix : index -> index -> index
     removed, raise [Not_found] otherwise. *)
 val get_suffix : t -> t -> index
 
-
+(** Return a list of strings for index *)
+val scope_of_index : index -> string list
 
 
 

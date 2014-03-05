@@ -19,10 +19,7 @@
 open Lib
 
 (* Abbreviations *)
-(* module T = LustreType *)
 module I = LustreIdent
-module ISet = I.LustreIdentSet
-
 
 (* Exceptions *)
 exception Type_mismatch
@@ -116,11 +113,13 @@ let string_of_symbol = function
 let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s) 
 
 
+(* Pretty-print a variable *)
 let pp_print_lustre_var safe ppf state_var = 
 
     (* Indexed identifier for state variable *)
     let ident = ident_of_state_var state_var in
     
+    (* Pretty-print the Lustre identifier of the variable *)
     I.pp_print_ident safe ppf ident
 
 
@@ -146,13 +145,13 @@ let rec pp_print_var safe depth ppf var = match depth with
 
 
 (* Pretty-print a term *)
-and pp_print_term_node safe depth ppf t = match Term.T.destruct t with
+and pp_print_term_node safe ppf t = match Term.T.destruct t with
     
   | Term.T.Var var -> 
 
     pp_print_var 
       safe
-      (depth - (Numeral.to_int (Var.offset_of_state_var_instance var))) 
+      (- (Numeral.to_int (Var.offset_of_state_var_instance var))) 
       ppf 
       var
       
@@ -162,24 +161,24 @@ and pp_print_term_node safe depth ppf t = match Term.T.destruct t with
       
   | Term.T.App (s, l) -> 
     
-    pp_print_app safe depth ppf (Symbol.node_of_symbol s) l
+    pp_print_app safe ppf (Symbol.node_of_symbol s) l
 
   | Term.T.Attr (t, _) -> 
     
-    pp_print_term_node safe depth ppf t
+    pp_print_term_node safe ppf t
       
 
 (* Pretty-print second and following arguments of a left-associative
    function application *)
-and pp_print_app_left' safe depth s ppf = function 
+and pp_print_app_left' safe s ppf = function 
 
   | h :: tl -> 
 
     Format.fprintf ppf 
       " %a@ %a%t" 
       pp_print_symbol s 
-      (pp_print_term_node safe depth) h 
-      (function ppf -> pp_print_app_left' safe depth s ppf tl)
+      (pp_print_term_node safe) h 
+      (function ppf -> pp_print_app_left' safe s ppf tl)
 
   | [] -> ()
 
@@ -187,7 +186,7 @@ and pp_print_app_left' safe depth s ppf = function
 (* Pretty-print a left-associative function application
 
    Print (+ a b c) as (a + b + c) *)
-and pp_print_app_left safe depth s ppf = function 
+and pp_print_app_left safe s ppf = function 
 
   (* Function application must have arguments, is a constant
      otherwise *)
@@ -198,12 +197,12 @@ and pp_print_app_left safe depth s ppf = function
 
     Format.fprintf ppf
       "@[<hv 2>(%a%t)@]" 
-      (pp_print_term_node safe depth) h 
-      (function ppf -> pp_print_app_left' safe depth s ppf tl)
+      (pp_print_term_node safe) h 
+      (function ppf -> pp_print_app_left' safe s ppf tl)
 
 
 (* Pretty-print arguments of a right-associative function application *)
-and pp_print_app_right' safe depth s arity ppf = function 
+and pp_print_app_right' safe s arity ppf = function 
 
   (* Function application must have arguments, is a constant
      otherwise *)
@@ -224,7 +223,7 @@ and pp_print_app_right' safe depth s arity ppf = function
     (* Print last argument and close all parentheses *)
     Format.fprintf ppf
       "%a%t" 
-      (pp_print_term_node safe depth) h 
+      (pp_print_term_node safe) h 
       (function ppf -> aux ppf arity)
 
   (* Second last or earlier argument *)
@@ -233,22 +232,22 @@ and pp_print_app_right' safe depth s arity ppf = function
     (* Open parenthesis and print argument *)
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %t" 
-      (pp_print_term_node safe depth) h 
+      (pp_print_term_node safe) h 
       pp_print_symbol s 
-      (function ppf -> pp_print_app_right' safe depth s arity ppf tl)
+      (function ppf -> pp_print_app_right' safe s arity ppf tl)
 
 
 (* Pretty-print a right-associative function application 
 
    Print (=> a b c) as (a => (b => c)) *)
-and pp_print_app_right safe depth s ppf l =
-  pp_print_app_right' safe depth s (List.length l - 1) ppf l
+and pp_print_app_right safe s ppf l =
+  pp_print_app_right' safe s (List.length l - 1) ppf l
 
 
 (* Pretty-print a chaining function application 
 
    Print (= a b c) as (a = b) and (b = c) *)
-and pp_print_app_chain safe depth s ppf = function 
+and pp_print_app_chain safe s ppf = function 
 
   (* Chaining function application must have more than one argument *)
   | []
@@ -259,23 +258,23 @@ and pp_print_app_chain safe depth s ppf = function
 
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %a)@]" 
-      (pp_print_term_node safe depth) l 
+      (pp_print_term_node safe) l 
       pp_print_symbol s
-      (pp_print_term_node safe depth) r
+      (pp_print_term_node safe) r
 
   (* Print function application of first pair, conjunction and continue *)
   | l :: r :: tl -> 
 
     Format.fprintf ppf 
       "@[<hv 2>(%a %a@ %a) and %a@]" 
-      (pp_print_term_node safe depth) l
+      (pp_print_term_node safe) l
       pp_print_symbol s
-      (pp_print_term_node safe depth) r
-      (pp_print_app_chain safe depth s) (r :: tl)
+      (pp_print_term_node safe) r
+      (pp_print_app_chain safe s) (r :: tl)
 
 
 (* Pretty-print a function application *)
-and pp_print_app safe depth ppf = function 
+and pp_print_app safe ppf = function 
 
   (* Function application must have arguments, cannot have nullary
      symbols here *)
@@ -293,7 +292,7 @@ and pp_print_app safe depth ppf = function
       Format.fprintf ppf
         "@[<hv 2>(%a@ %a)@]" 
         pp_print_symbol s 
-        (pp_print_term_node safe depth) a
+        (pp_print_term_node safe) a
 
       | _ -> assert false)
       
@@ -307,9 +306,9 @@ and pp_print_app safe depth ppf = function
           Format.fprintf ppf
             "%a%a" 
             pp_print_symbol s 
-            (pp_print_term_node safe depth) a
+            (pp_print_term_node safe) a
 
-        | _ as l -> pp_print_app_left safe depth s ppf l)
+        | _ as l -> pp_print_app_left safe s ppf l)
         
     (* Binary left-associative symbols with two or more arguments *)
     | `AND
@@ -323,17 +322,17 @@ and pp_print_app safe depth ppf = function
       (function 
         | [] 
         | [_] -> assert false
-        | _ as l -> pp_print_app_left safe depth s ppf l)
+        | _ as l -> pp_print_app_left safe s ppf l)
             
     (* Binary right-associative symbols *)
-    | `IMPLIES as s -> pp_print_app_right safe depth s ppf
+    | `IMPLIES as s -> pp_print_app_right safe s ppf
         
     (* Chainable binary symbols *)
     | `EQ
     | `LEQ
     | `LT
     | `GEQ
-    | `GT as s -> pp_print_app_chain safe depth s ppf
+    | `GT as s -> pp_print_app_chain safe s ppf
               
     (* if-then-else *)
     | `ITE ->
@@ -342,9 +341,9 @@ and pp_print_app safe depth ppf = function
 
         Format.fprintf ppf
           "if %a then %a else %a" 
-          (pp_print_term_node safe depth) p
-          (pp_print_term_node safe depth) l
-          (pp_print_term_node safe depth) r
+          (pp_print_term_node safe) p
+          (pp_print_term_node safe) l
+          (pp_print_term_node safe) r
           
         | _ -> assert false)
         
@@ -355,9 +354,9 @@ and pp_print_app safe depth ppf = function
 
         Format.fprintf ppf 
           "@[<hv 2>(%a %a@ %a)@]" 
-          (pp_print_term_node safe depth) l 
+          (pp_print_term_node safe) l 
           pp_print_symbol s
-          (pp_print_term_node safe depth) r
+          (pp_print_term_node safe) r
         
         | _ -> assert false)
         
@@ -369,7 +368,6 @@ and pp_print_app safe depth ppf = function
         (* a divisble n becomes a mod n = 0 *)
         pp_print_app 
           safe 
-          depth
           ppf
           `EQ
           [Term.T.mk_app 
@@ -404,7 +402,7 @@ and pp_print_app safe depth ppf = function
 
 (* Pretty-print a hashconsed term *)
 let pp_print_expr safe ppf expr =
-  pp_print_term_node safe 0 ppf expr
+  pp_print_term_node safe ppf expr
 
 
 (* Pretty-print a hashconsed term to the standard formatter *)
@@ -507,7 +505,10 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   
 
 (* Create or return state variable of identifier *)
-let state_var_of_ident scope ident ident_type = 
+let state_var_of_ident scope_index ident ident_type = 
+
+  (* Convert index to a scope *)
+  let scope = I.scope_of_index scope_index in
 
   (* Convert identifier to a string *)
   let ident_string = I.string_of_ident true ident in 
@@ -610,22 +611,24 @@ let mk_var_pre scope ident expr_type expr_clock =
     expr_clock = expr_clock } 
 
 
+(* ********************************************************************** *)
+(* Type checking constructors                                             *)
+(* ********************************************************************** *)
+
+
+(* Type check for bool -> bool *)
 let type_of_bool_bool = function 
   | t when Type.is_bool t -> Type.t_bool
   | _ -> raise Type_mismatch
 
 
+(* Type check for bool -> bool -> bool *)
 let type_of_bool_bool_bool = function 
   | t when Type.is_bool t -> 
     (function 
       | t when Type.is_bool t -> Type.t_bool 
       | _ -> raise Type_mismatch)
   | _ -> raise Type_mismatch
-
-
-(* ********************************************************************** *)
-(* Type checking constructors                                             *)
-(* ********************************************************************** *)
 
 
 (* Type check for int -> int -> int *)
@@ -1214,32 +1217,7 @@ let mk_eq expr1 expr2 = mk_binary eval_eq type_of_eq expr1 expr2
 
 (* ********************************************************************** *)
 
-(*
 (* Evaluate disequality *)
-let eval_neq = function
-
-  (* true <> e2 -> not e2 *)
-  | True -> (function expr2 -> UnaryOp(Not, expr2))
-
-  (* false <> e2 -> e2 *)
-  | False -> (function expr2 -> expr2)
-
-  | expr1 -> 
-
-    (function
-
-      (* e1 <> true -> not e1 *)
-      | True -> (UnaryOp(Not, expr1))
-
-      (* e1 <> false -> e1 *)
-      | False -> expr1
-
-      (* e = e -> false *)
-      | expr2 when not (equal_expr expr1 expr2) -> True
-
-      | expr2 -> BinaryOp(Neq, (expr1, expr2)))
-*)
-
 let eval_neq expr1 expr2 = eval_not (eval_eq expr1 expr2)
 
 (* Type of disequality
@@ -1503,6 +1481,7 @@ let mk_ite expr1 expr2 expr3 =
 (* Followed by expression *)
 let mk_arrow expr1 expr2 = 
 
+  (* Streams must be on the same clock, pick the first *)
   let res_clock = 
     if clock_check expr1.expr_clock expr2.expr_clock then 
       expr1.expr_clock
@@ -1510,6 +1489,7 @@ let mk_arrow expr1 expr2 =
       raise Clock_mismatch
   in  
 
+  (* Types of expressions must be compatible *)
   let res_type = 
     type_of_a_a_a expr1.expr_type expr2.expr_type 
   in
@@ -1519,6 +1499,9 @@ let mk_arrow expr1 expr2 =
     expr_type = res_type;
     expr_clock = res_clock } 
   
+
+(* ********************************************************************** *)
+
 
 (* Pre expression *)
 let rec mk_pre 
@@ -1545,7 +1528,7 @@ let rec mk_pre
     | _ -> 
       
       (* Identifier for a fresh variable *)
-      let new_var_ident = mk_new_var_ident () in
+      let scope, new_var_ident = mk_new_var_ident () in
 
       (* State variable of identifier *)
       let state_var = state_var_of_ident scope new_var_ident expr_type in 
@@ -1574,10 +1557,10 @@ let rec mk_pre
     | _ -> 
       
       (* Identifier for a fresh variable *)
-      let new_var_ident = mk_new_var_ident () in
+      let scope, new_var_ident = mk_new_var_ident () in
 
       (* State variable of identifier *)
-      let state_var = state_var_of_ident new_var_ident expr_type in 
+      let state_var = state_var_of_ident scope new_var_ident expr_type in 
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in

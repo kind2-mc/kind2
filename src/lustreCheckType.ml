@@ -204,6 +204,7 @@ let pp_print_lustre_context
 
 *)
 let rec eval_ast_expr'     
+    scope
     mk_new_var_ident 
     mk_new_call_ident
     ({ basic_types; 
@@ -223,6 +224,7 @@ let rec eval_ast_expr'
 
     let expr', new_defs' = 
       unary_apply_to 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -234,6 +236,7 @@ let rec eval_ast_expr'
     in  
 
     eval_ast_expr' 
+      scope
       mk_new_var_ident 
       mk_new_call_ident 
       context 
@@ -250,6 +253,7 @@ let rec eval_ast_expr'
 
     let expr', new_defs' = 
       binary_apply_to 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -262,6 +266,7 @@ let rec eval_ast_expr'
     in  
 
     eval_ast_expr' 
+      scope
       mk_new_var_ident 
       mk_new_call_ident 
       context 
@@ -295,6 +300,7 @@ let rec eval_ast_expr'
 
             (* Return variable on the base clock *)
             E.mk_var 
+              scope
               ident' 
               (List.assoc ident' type_ctx) 
               E.base_clock
@@ -303,6 +309,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -325,6 +332,7 @@ let rec eval_ast_expr'
 
       (* Continue with unfolded indexes *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -360,6 +368,7 @@ let rec eval_ast_expr'
 
            (* Continue with record field *)
            eval_ast_expr' 
+             scope
              mk_new_var_ident 
              mk_new_call_ident 
              context 
@@ -403,6 +412,7 @@ let rec eval_ast_expr'
 
            (* Continue with array or tuple field *)
            eval_ast_expr' 
+             scope
              mk_new_var_ident 
              mk_new_call_ident 
              context 
@@ -431,6 +441,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -444,6 +455,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr'
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context
@@ -457,6 +469,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -470,6 +483,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -511,6 +525,7 @@ let rec eval_ast_expr'
 
       (* Treat as tuple *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident
         mk_new_call_ident 
         context 
@@ -531,6 +546,7 @@ let rec eval_ast_expr'
              (* Evaluate one expression *)
              let expr', new_defs' = 
                eval_ast_expr 
+                 scope
                  mk_new_var_ident
                  mk_new_call_ident 
                  context 
@@ -557,6 +573,7 @@ let rec eval_ast_expr'
 
       (* Continue with result added *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident
         mk_new_call_ident 
         context 
@@ -586,6 +603,7 @@ let rec eval_ast_expr'
       (* Evaluate expression for array elements *)
       let expr_val, new_defs' = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -626,6 +644,7 @@ let rec eval_ast_expr'
 
       (* Continue with result added *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident
         mk_new_call_ident 
         context
@@ -815,6 +834,7 @@ let rec eval_ast_expr'
              (* Evaluate one expression *)
              let expr', new_defs' = 
                eval_ast_expr 
+                 scope
                  mk_new_var_ident
                  mk_new_call_ident 
                  context 
@@ -897,6 +917,7 @@ let rec eval_ast_expr'
 
       (* Continue with result added *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident
         mk_new_call_ident 
         context
@@ -993,6 +1014,7 @@ let rec eval_ast_expr'
 
       let expr1', new_defs' = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context
@@ -1009,6 +1031,7 @@ let rec eval_ast_expr'
 
           let expr', new_defs' = 
             binary_apply_to 
+              scope
               mk_new_var_ident 
               mk_new_call_ident 
               context 
@@ -1022,6 +1045,7 @@ let rec eval_ast_expr'
 
           (* Add expression to result *)
           eval_ast_expr' 
+            scope
             mk_new_var_ident 
             mk_new_call_ident 
             context 
@@ -1131,6 +1155,7 @@ let rec eval_ast_expr'
       (* Evaluate inputs as list of expressions *)
       let args', ((vars', calls') as new_defs') = 
         eval_ast_expr
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -1141,6 +1166,7 @@ let rec eval_ast_expr'
       (* Evaluate initial values as list of expressions *)
       let init', ((vars', calls') as new_defs') = 
         eval_ast_expr
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -1153,6 +1179,7 @@ let rec eval_ast_expr'
 
         match 
           eval_ast_expr
+            scope
             mk_new_var_ident 
             mk_new_call_ident 
             context 
@@ -1196,7 +1223,7 @@ let rec eval_ast_expr'
       (* Flatten indexed types of node outputs to a list of
          identifiers and their types *)
       let node_output_idents = 
-        output_idents_of_node ident pos call_ident node_outputs
+        output_idents_of_node scope ident pos call_ident node_outputs
       in
 
       (* Node call evaluates to variables capturing the output of the
@@ -1207,6 +1234,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -1230,6 +1258,7 @@ let rec eval_ast_expr'
 
          let cond', new_defs' = 
            eval_ast_expr
+             scope
              mk_new_var_ident 
              mk_new_call_ident 
              context 
@@ -1239,6 +1268,7 @@ let rec eval_ast_expr'
 
          let args', new_defs'' = 
            eval_ast_expr_list
+             scope
              mk_new_var_ident 
              mk_new_call_ident 
              context 
@@ -1248,6 +1278,7 @@ let rec eval_ast_expr'
 
          let init', (vars', calls') =
            eval_ast_expr_list
+             scope
              mk_new_var_ident 
              mk_new_call_ident 
              context 
@@ -1277,6 +1308,7 @@ let rec eval_ast_expr'
 
          (* Add expression to result *)
          eval_ast_expr' 
+           scope
            mk_new_var_ident 
            mk_new_call_ident 
            context 
@@ -1309,6 +1341,7 @@ let rec eval_ast_expr'
          (* Evaluate expression *)
          let expr', new_defs' = 
            eval_ast_expr 
+             scope
              mk_new_var_ident 
              mk_new_call_ident 
              context 
@@ -1332,6 +1365,7 @@ let rec eval_ast_expr'
 
          (* Add expression to result *)
          eval_ast_expr' 
+           scope
            mk_new_var_ident 
            mk_new_call_ident 
            context 
@@ -1387,6 +1421,7 @@ let rec eval_ast_expr'
       (* Evaluate inputs as list of expressions *)
       let expr_list', ((vars', calls') as new_defs') = 
         eval_ast_expr
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -1406,7 +1441,7 @@ let rec eval_ast_expr'
       (* Flatten indexed types of node outputs to a list of
          identifiers and their types *)
       let node_output_idents = 
-        output_idents_of_node ident pos call_ident node_outputs
+        output_idents_of_node scope ident pos call_ident node_outputs
       in
 
       (* Node call evaluates to variables capturing the output of the
@@ -1417,6 +1452,7 @@ let rec eval_ast_expr'
 
       (* Add expression to result *)
       eval_ast_expr' 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -1443,6 +1479,7 @@ let rec eval_ast_expr'
 
 (* Apply operation to expression component-wise *)
 and unary_apply_to 
+    scope
     mk_new_var_ident
     mk_new_call_ident 
     context 
@@ -1457,6 +1494,7 @@ and unary_apply_to
     (* Evaluate expression *)
     let expr', new_defs' = 
       eval_ast_expr 
+        scope
         mk_new_var_ident 
         mk_new_call_ident 
         context 
@@ -1484,6 +1522,7 @@ and unary_apply_to
 
 (* Apply operation to expressions component-wise *)
 and binary_apply_to 
+    scope
     mk_new_var_ident
     mk_new_call_ident 
     context 
@@ -1497,6 +1536,7 @@ and binary_apply_to
   (* Evaluate first expression *)
   let expr1', new_defs' = 
     eval_ast_expr 
+      scope
       mk_new_var_ident 
       mk_new_call_ident 
       context 
@@ -1507,6 +1547,7 @@ and binary_apply_to
   (* Evaluate second expression *)
   let expr2', new_defs' = 
     eval_ast_expr 
+      scope
       mk_new_var_ident 
       mk_new_call_ident 
       context 
@@ -1552,6 +1593,7 @@ and binary_apply_to
 
 (* Evaluate expression *)
 and eval_ast_expr 
+    scope
     mk_new_var_ident 
     mk_new_call_ident 
     context 
@@ -1560,6 +1602,7 @@ and eval_ast_expr
 
   let expr', new_defs' = 
     eval_ast_expr' 
+      scope
       mk_new_var_ident
       mk_new_call_ident 
       context
@@ -1605,6 +1648,9 @@ and int_const_of_ast_expr context expr =
   match 
 
     eval_ast_expr 
+
+      (* Dummy scope *)
+        I.empty_index
 
       (* Immediately fail when abstraction expressions to a
          definition *)
@@ -1786,7 +1832,7 @@ and node_init_of_exprs node_outputs expr_list =
 
 
 (* Return list of identifier and types to capture node outputs *)
-and output_idents_of_node ident pos call_ident = function 
+and output_idents_of_node scope ident pos call_ident = function 
 
   (* Node must have outputs *)
   | [] ->  
@@ -1805,6 +1851,7 @@ and output_idents_of_node ident pos call_ident = function
     List.map
       (fun out_var -> 
          E.state_var_of_ident 
+           scope
            (I.push_back_ident_index 
               (E.ident_of_state_var out_var)
               call_ident)
@@ -2283,6 +2330,9 @@ let add_typed_decl
     let expr_val, new_defs = 
       eval_ast_expr 
 
+        (* Dummy scope *)
+        I.empty_index
+
         (* Immediately fail when abstraction expressions to a
             definition *)
         (fun _ ->       
@@ -2409,14 +2459,19 @@ let add_node_input_decl
     ident
     is_const
     (({ type_ctx; index_ctx } as context), 
-     ({ N.inputs = node_inputs } as node))
+     ({ N.inputs = node_inputs; N.name = node_ident } as node))
     index 
     basic_type =
 
+(*
   Format.printf "add_node_input_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     Type.pp_print_type basic_type;
+*)
+
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
 
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
@@ -2431,7 +2486,7 @@ let add_node_input_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_inputs' = 
-    (E.state_var_of_ident (I.push_back_index index ident) basic_type, 
+    (E.state_var_of_ident scope (I.push_back_index index ident) basic_type, 
      is_const) :: 
     node_inputs
   in
@@ -2444,15 +2499,20 @@ let add_node_input_decl
 let add_node_output_decl
     ident
     (({ type_ctx; index_ctx } as context), 
-     ({ N.outputs = node_outputs } as node))
+     ({ N.outputs = node_outputs; N.name = node_ident } as node))
     index 
     basic_type =
+
 (*  
   Format.printf "add_node_output_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (T.pp_print_lustre_type false) basic_type;
 *)
+
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
+
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2466,7 +2526,7 @@ let add_node_output_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_outputs' = 
-    E.state_var_of_ident (I.push_back_index index ident) basic_type ::
+    E.state_var_of_ident scope (I.push_back_index index ident) basic_type ::
     node_outputs 
   in
 
@@ -2478,15 +2538,21 @@ let add_node_output_decl
 let add_node_var_decl
     ident
     (({ type_ctx; index_ctx } as context), 
-     node_locals)
+     ({ N.name = node_ident} as node), 
+      node_locals)
     index 
     basic_type =
+
 (*  
   Format.printf "add_node_var_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (T.pp_print_lustre_type false) basic_type;
 *)
+
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
+
   (* Add index to identifier *)
   let ident' = I.push_index index ident in
 
@@ -2500,11 +2566,12 @@ let add_node_var_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_locals' = 
-    E.state_var_of_ident (I.push_back_index index ident) basic_type :: 
+    E.state_var_of_ident scope (I.push_back_index index ident) basic_type :: 
     node_locals
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
+   node,
    node_locals')
 
 
@@ -2656,15 +2723,15 @@ let rec parse_node_locals context node = function
             A.pp_print_position A.dummy_pos))
 
 
-  (* Output on the base clock *)
+  (* Local variable on the base clock *)
   | A.NodeVarDecl (ident, var_type, A.ClockTrue) :: tl -> 
 
     (* Add declaration of possibly indexed type to contexts *)
-    let context', node_locals' = 
+    let context', _, node_locals' = 
       fold_left_ast_type 
         context
         (add_node_var_decl ident)
-        (context, [])
+        (context, node, [])
         var_type
     in
     
@@ -2685,6 +2752,7 @@ let rec parse_node_locals context node = function
             A.pp_print_position A.dummy_pos))
 
 
+  (* Local constant *)
   | A.NodeConstDecl const_decl :: tl -> 
 
     let context' = add_const_decl context const_decl in
@@ -2703,10 +2771,10 @@ let new_defs_to_context context node (vars, calls) =
          let (base_ident, index) = 
            I.split_ident (E.ident_of_state_var state_var) 
          in
-         let context', node_locals' = 
+         let context', _, node_locals' = 
            add_node_var_decl 
              base_ident
-             (context, [])
+             (context, node, [])
              (I.index_of_one_index_list index)
              expr_type
          in
@@ -2724,10 +2792,10 @@ let new_defs_to_context context node (vars, calls) =
             let (base_ident, index) = 
               I.split_ident (E.ident_of_state_var state_var) 
             in
-            let context', node_locals' = 
+            let context', _, node_locals' = 
               add_node_var_decl 
                 base_ident
-                (context, [])
+                (context, node, [])
                 (I.index_of_one_index_list index)
                 (StateVar.type_of_state_var state_var)
             in
@@ -2744,8 +2812,11 @@ let rec parse_node_equations
     mk_new_var_ident
     mk_new_call_ident 
     context 
-    node = 
+    ({ N.name = node_ident } as node ) = 
 
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
+  
   function
 
     | [] -> node 
@@ -2753,9 +2824,13 @@ let rec parse_node_equations
     (* Assertion *)
     | A.Assert ast_expr :: tl -> 
 
+      (* Node name is scope for naming of variables *)
+      let scope = I.index_of_ident node_ident in 
+
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -2811,6 +2886,7 @@ let rec parse_node_equations
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -2868,6 +2944,7 @@ let rec parse_node_equations
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -2943,19 +3020,19 @@ let rec parse_node_equations
 
                     if accum'' = accum' then 
 
-                       (* Fail *)
-                       raise 
-                         (Failure 
-                            (Format.asprintf 
-                               "Assignment to neither output nor local variable in %a" 
-                               A.pp_print_position A.dummy_pos))
+                      (* Fail *)
+                      raise 
+                        (Failure 
+                           (Format.asprintf 
+                              "Assignment to neither output nor local variable in %a" 
+                              A.pp_print_position A.dummy_pos))
 
                     else
-                      
+
                       accum''
-              
+
                   else
-                    
+
                     accum'
 
                 | _ -> 
@@ -3102,7 +3179,10 @@ let rec parse_node_contract
     mk_new_var_ident 
     mk_new_call_ident
     context 
-    node = 
+    ({ N.name = node_ident } as node) = 
+
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
 
   function
 
@@ -3114,6 +3194,7 @@ let rec parse_node_contract
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -3160,6 +3241,7 @@ let rec parse_node_contract
       (* Evaluate expression *)
       let expr', ((new_vars, new_calls) as new_defs) = 
         eval_ast_expr 
+          scope
           mk_new_var_ident 
           mk_new_call_ident 
           context 
@@ -3210,9 +3292,12 @@ let parse_node_signature
     equations 
     contract =
 
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
+
   let mk_new_var_ident = 
     let r = ref Numeral.(- one) in
-    fun () -> Numeral.incr r; I.push_int_index !r new_var_ident
+    fun () -> Numeral.incr r; (scope, I.push_int_index !r new_var_ident)
   in
 
   let rec mk_new_call_ident =
@@ -3229,7 +3314,7 @@ let parse_node_signature
 
   (* Parse inputs, add to global context and node context *)
   let local_context_inputs, node_context_inputs = 
-    parse_node_inputs global_context N.empty_node inputs
+    parse_node_inputs global_context (N.empty_node node_ident) inputs
   in
 
   (* Parse outputs, add to local context and node context *)
@@ -3312,7 +3397,7 @@ let parse_node_signature
     { node_context_deps with N.equations = equations_sorted }
   in
 
-  Format.printf "%a@." (N.pp_print_node true node_ident) node_context_dep_order;
+  Format.printf "%a@." (N.pp_print_node true) node_context_dep_order;
 
   node_context_dep_order
 
@@ -3521,10 +3606,17 @@ let check_program p =
 
   let global_context = check_declarations init_lustre_context p in
 
+  Format.printf "%a@." (pp_print_lustre_context false) global_context;
+
+  Format.printf
+    "@[<hv>%t@]"
+    (fun ppf -> 
+       StateVar.iter 
+         (fun state_var -> 
+            Format.fprintf ppf "%a@," StateVar.pp_print_state_var state_var));
+    
   ()
 
-  (* Format.printf "%a@." pp_print_lustre_context global_context
-  *)
 
 
 (* 

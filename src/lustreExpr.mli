@@ -146,7 +146,7 @@ val t_false : t
 (** {1 Constructors} *)
 
 (** Create or return state variable of identifier *)
-val state_var_of_ident : LustreIdent.t -> Type.t -> StateVar.t
+val state_var_of_ident : LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
 
 (** Return the identifier of a state variable
 
@@ -167,13 +167,13 @@ val mk_var_of_state_var : StateVar.t -> clock -> t
 
     [mk_var n t c] returns a variable with name [n], type [t] and
     clock [c]. *)
-val mk_var : LustreIdent.t -> Type.t -> clock -> t
+val mk_var : LustreIdent.index -> LustreIdent.t -> Type.t -> clock -> t
 
 (** Return a variable with a [pre] operator applied to it.
 
     [mk_var_pre n t c] returns a variable with name [n], type [t] and
     clock [c]. *)
-val mk_var_pre : LustreIdent.t -> Type.t -> clock -> t
+val mk_var_pre : LustreIdent.index -> LustreIdent.t -> Type.t -> clock -> t
 
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
@@ -253,7 +253,7 @@ val mk_arrow : t -> t -> t
     association between the fresh variable and [e] is added to the
     list [v], the second element of the pair [c] is left
     unchanged. *)
-val mk_pre : (unit -> LustreIdent.t) -> ((StateVar.t * t) list * 'a) -> t -> (t * (((StateVar.t * t) list) * 'a))
+val mk_pre : (unit -> LustreIdent.index * LustreIdent.t) -> ((StateVar.t * t) list * 'a) -> t -> (t * (((StateVar.t * t) list) * 'a))
 
 (** Return [true] if there is an unguarded [pre] operator in the
     expression. *)

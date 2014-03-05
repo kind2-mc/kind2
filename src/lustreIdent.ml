@@ -312,6 +312,13 @@ let get_suffix (i, li) (j, lj) =
   if i = j then get_index_suffix li lj else raise Not_found
 
 
+(* Return a list of strings for index *)
+let scope_of_index index =
+
+  List.map 
+    (function StringIndex i -> i | IntIndex i -> string_of_int i)
+    index
+
 (* 
    Local Variables:
    compile-command: "make -k"

@@ -44,6 +44,9 @@ type t =
 
   { 
 
+    (** Name of the node *)
+    name : LustreIdent.t;
+
     (** Input variables of node, some flagged as constant
 
         The order of the list is important, it is the order the
@@ -96,10 +99,10 @@ type t =
     output_input_dep : int list list }
 
 (** The empty node *)
-val empty_node : t
+val empty_node : LustreIdent.t -> t
 
 (** Pretty-print a node *)
-val pp_print_node : bool -> LustreIdent.t -> Format.formatter -> t -> unit 
+val pp_print_node : bool -> Format.formatter -> t -> unit 
 
 val node_var_dependencies : bool -> (LustreIdent.t * t) list -> t -> (StateVar.t * StateVar.StateVarSet.t) list -> (StateVar.t * StateVar.t list) list -> (StateVar.t * StateVar.StateVarSet.t) list
 

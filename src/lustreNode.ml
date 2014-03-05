@@ -53,6 +53,9 @@ type t =
 
   { 
 
+    (* Name of node *)
+    name : LustreIdent.t;
+
     (* Input variables of node, some flagged as constant
 
        The order of the list is important, it is the order the
@@ -105,8 +108,9 @@ type t =
 
 
 (* An empty node *)
-let empty_node = 
-  { inputs = [];
+let empty_node name = 
+  { name = name;
+    inputs = [];
     outputs = [];
     locals = [];
     equations = [];
@@ -221,9 +225,9 @@ let pp_print_ensures safe ppf expr =
 (* Pretty-print a node *)
 let pp_print_node 
     safe
-    node_ident 
     ppf 
-    { inputs; 
+    { name;
+      inputs; 
       outputs; 
       locals; 
       equations; 
@@ -253,7 +257,7 @@ let pp_print_node
      %a%t\
      %a@;<1 -2>\
      tel;@]@]"  
-    (I.pp_print_ident safe) node_ident
+    (I.pp_print_ident safe) name
     (pp_print_list (pp_print_input safe) ";@ ") inputs
     (pp_print_list (pp_print_output safe) ";@ ") outputs
     (function ppf -> 
