@@ -381,7 +381,11 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
               (* Get dependencies of output parameters on input
                  parameters from called node *)
-              let { output_input_dep } = List.assoc node_ident nodes in
+              let { output_input_dep } = 
+                List.find
+                  (function { name = ident } -> node_ident = ident)
+                  nodes
+              in
 
               (* Get expressions that output of node depends on *)
               let dep_expr = 

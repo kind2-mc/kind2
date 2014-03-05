@@ -83,7 +83,7 @@ type lustre_context =
     consts : (LustreIdent.t * LustreExpr.t) list; 
     
     (* Nodes *)
-    nodes : (LustreIdent.t * LustreNode.t) list;
+    nodes : LustreNode.t list;
     
   }
   
@@ -1143,7 +1143,9 @@ let rec eval_ast_expr'
         try 
 
           (* Get node context by identifier *)
-          List.assoc ident nodes 
+          List.find
+            (function { N.name = node_ident } -> node_ident = ident)
+            nodes
 
         with Not_found -> 
 
@@ -1409,7 +1411,9 @@ let rec eval_ast_expr'
         try 
 
           (* Get node context by identifier *)
-          List.assoc ident nodes 
+          List.find
+            (function { N.name = node_ident } -> node_ident = ident)
+            nodes
 
         with Not_found -> 
 
@@ -3542,7 +3546,7 @@ let rec check_declarations
         (* Recurse for next declarations *)
         check_declarations 
           { global_context with 
-              nodes = (node_ident, node_context) :: nodes }
+              nodes = node_context :: nodes }
           decls
 
        (* Forward reference in node *)
