@@ -539,7 +539,7 @@ let solve_eqs_node_calls node =
                          (function 
                            | (_, e) when E.is_var e -> 
 
-                             (==) 
+                             StateVar.equal_state_vars 
                                (E.state_var_of_expr e)
                                v
 
@@ -550,8 +550,10 @@ let solve_eqs_node_calls node =
 
                   (v' :: accum_outputs, v :: accum_vars_eliminated)
 
+                (* Variable not found in a variable alias equation *)
                 with Not_found -> 
-                  (v :: accum_outputs, accum_vars_eliminated))
+
+                    (v :: accum_outputs, accum_vars_eliminated))
              
              o
              ([], accum_vars_eliminated)

@@ -3409,7 +3409,7 @@ let parse_node_signature
 (* Main                                                                 *)
 (* ******************************************************************** *)
 
-let rec check_declarations
+let rec declarations_to_nodes'
     ({ basic_types; 
        indexed_types; 
        free_types; 
@@ -3474,7 +3474,7 @@ let rec check_declarations
       in
 
       (* Recurse for next declarations *)
-      check_declarations global_context' decls
+      declarations_to_nodes' global_context' decls
 
 
     (* Declaration of a typed, untyped or free constant *)
@@ -3516,7 +3516,7 @@ let rec check_declarations
       in
 
       (* Recurse for next declarations *)
-      check_declarations global_context' decls
+      declarations_to_nodes' global_context' decls
 
 
     (* Node declaration without parameters *)
@@ -3544,7 +3544,7 @@ let rec check_declarations
         in
         
         (* Recurse for next declarations *)
-        check_declarations 
+        declarations_to_nodes' 
           { global_context with 
               nodes = node_context :: nodes }
           decls
@@ -3606,21 +3606,11 @@ let rec check_declarations
               A.pp_print_position A.dummy_pos))
 
 
-let check_program p = 
+let declarations_to_nodes decls = 
 
-  let global_context = check_declarations init_lustre_context p in
+  let { nodes } = declarations_to_nodes' init_lustre_context decls in
 
-  Format.printf "%a@." (pp_print_lustre_context false) global_context;
-
-  Format.printf
-    "@[<hv>%t@]"
-    (fun ppf -> 
-       StateVar.iter 
-         (fun state_var -> 
-            Format.fprintf ppf "%a@," StateVar.pp_print_state_var state_var));
-    
-  ()
-
+  nodes
 
 
 (* 

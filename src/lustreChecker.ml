@@ -63,10 +63,12 @@ let main () =
   (* Initialize lexing buffer with channel *)
   LustreLexer.lexbuf_init in_ch curdir;
   
+  (* Lustre file is a list of declarations *)
   let declarations = 
 
     try 
-      
+
+      (* Parse file to list of declarations *)
       LustreParser.main LustreLexer.token lexbuf 
 
     with 
@@ -91,31 +93,8 @@ let main () =
           
   in
 
-(*
-
-  Format.printf 
-    "@[<v>%a@]@." 
-    (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
-    declarations;
-
-  let declarations = LustreTransform.all_transforms declarations in
-
-  Format.printf 
-    "@[<v>----------------------------------------------------------------------\
-          %a@]@." 
-    (LustreAst.pp_print_list LustreAst.pp_print_declaration "@ ") 
-    declarations;
-*)
-(*
-  let declarations = LustreCheckType.check_program declarations in
-
-  Format.printf 
-    "@[<v>----------------------------------------------------------------------@,\
-          %a@]@." 
-    (LustreAst.pp_print_list LustreAst.pp_print_declaration "@,") 
-    declarations;
-*)
-  LustreCheckType.check_program declarations
+  (* Simplify declarations to a list of nodes *)
+  LustreSimplify.declarations_to_nodes declarations
 
 ;;
 
