@@ -108,7 +108,13 @@ val node_var_dependencies : bool -> t list -> t -> (StateVar.t * StateVar.StateV
 
 val output_input_dep_of_var_dep : t -> (StateVar.t * StateVar.StateVarSet.t) list -> int list list
 
+(** If node contains an equation [x = y] and [y] captures the output
+    of a node, substitute [x] in the node call and the equation and the
+    definition of [x] if it is local. *)
 val solve_eqs_node_calls : t -> t
+
+(** Return all expressions in a node *)
+val exprs_of_node : t -> LustreExpr.t list
 
 (* 
    Local Variables:

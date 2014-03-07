@@ -1781,26 +1781,6 @@ and node_inputs_of_exprs node_inputs expr_list =
    expressions for node inputs *)
 and node_init_of_exprs node_outputs expr_list =
 
-(*
-  let node_outputs' = 
-
-    (* Add an index to each output and sort *)
-    (sort_indexed_pairs 
-       (snd
-          (List.fold_left
-             (fun  (j, accum) (_, indexes) -> 
-                (Numeral.(succ j),
-                 (List.fold_right
-                    (fun (index, expr_type) accum -> 
-                       (I.push_int_index_to_index j index, 
-                        expr_type) :: accum)
-                    indexes
-                    accum)))
-             (Numeral.zero, [])
-             node_outputs)))
-  in
-*)
-
   try
 
     (* Check types and index, keep lists sorted *)

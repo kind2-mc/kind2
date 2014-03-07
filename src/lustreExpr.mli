@@ -255,6 +255,9 @@ val mk_arrow : t -> t -> t
     unchanged. *)
 val mk_pre : (unit -> LustreIdent.index * LustreIdent.t) -> ((StateVar.t * t) list * 'a) -> t -> (t * (((StateVar.t * t) list) * 'a))
 
+(** Return true if expression contains a previous state variable *)
+val has_pre_var : t -> bool
+
 (** Return [true] if there is an unguarded [pre] operator in the
     expression. *)
 val pre_is_unguarded : t -> bool
@@ -267,6 +270,10 @@ val is_pre_var : t -> bool
 
 (** Return the state variable of a variable *)
 val state_var_of_expr : t -> StateVar.t
+
+(** Return state variables that occur as previous state variables *)
+val stateful_vars_of_expr : t -> StateVar.StateVarSet.t
+
 
 (*
 (** Return a list of names of variables in the expression *)

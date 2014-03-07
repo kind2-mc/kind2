@@ -94,8 +94,13 @@ let main () =
   in
 
   (* Simplify declarations to a list of nodes *)
-  LustreSimplify.declarations_to_nodes declarations
-
+  let nodes = LustreSimplify.declarations_to_nodes declarations in
+  
+  List.fold_left
+    LustreTransSys.definition_of_node
+    []
+    nodes;
+    
 ;;
 
 main ()

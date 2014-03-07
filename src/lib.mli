@@ -61,6 +61,14 @@ val safe_hash_interleave : int -> int -> int -> int
     predicate. *)
 val list_index : ('a -> bool) -> 'a list -> int
 
+(** [list_indexes l1 l2] returns the indexes in list [l2] of elements
+    in list [l1] *)
+val list_indexes : 'a list -> 'a list -> int list
+
+(** [list_filter_nth l [p1; p2; ...]] returns the elements [l] at
+    positions [p1], [p2] etc. *)
+val list_filter_nth : 'a list -> int list -> 'a list
+
 (** [chain_list \[e1; e2; ...\]] is [\[\[e1; e2\]; \[e2; e3\]; ... \]] *)
 val chain_list : 'a list -> 'a list list 
 

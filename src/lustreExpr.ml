@@ -1600,6 +1600,15 @@ let rec mk_pre
 (* ********************************************************************** *)
 
 
+(* Return true if expression is a previous state variable *)
+let has_pre_var { expr_step } = 
+
+  (* Previous state variables have negative offset *)
+  match Term.var_offsets_of_term expr_step with 
+    | Some n, _ when Numeral.(n < zero) -> true
+    | _ -> false
+
+
 (* Return true if there is an unguarded pre operator in the expression *)
 let pre_is_unguarded { expr_init } = 
 
@@ -1657,6 +1666,45 @@ let state_var_of_expr { expr_init; expr_step } =
 
     (* Fail if initial value is different from step value *)
     raise (Invalid_argument "state_var_of_expr")
+
+
+(* Return state variables that occur as previous state variables *)
+let stateful_vars_of_expr { expr_step } = 
+
+  Term.eval_t 
+    (function 
+
+      (* Previous state variables have negative offset *)
+      | Term.T.Var v when 
+          Var.is_state_var_instance v && 
+          Numeral.(Var.offset_of_state_var_instance v < zero) -> 
+        
+        (function 
+          | [] -> 
+            StateVar.StateVarSet.singleton 
+              (Var.state_var_of_state_var_instance v)
+          | _ -> assert false)
+
+      | Term.T.Var _
+      | Term.T.Const _ -> 
+
+        (function 
+          | [] -> StateVar.StateVarSet.empty
+          | _ -> assert false)
+
+      | Term.T.App _ -> 
+
+        (function l -> 
+          List.fold_left 
+            StateVar.StateVarSet.union 
+            StateVar.StateVarSet.empty 
+            l)
+
+      | Term.T.Attr _ ->
+        (function | [s] -> s | _ -> assert false))
+    
+    expr_step
+
 
 (*
 

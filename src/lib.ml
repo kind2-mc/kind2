@@ -36,7 +36,23 @@ let list_index p =
   in
   list_index p 0 
 
-  
+
+(* [list_indexes l1 l2] returns the indexes in list [l2] of elements in
+   list [l1] *)
+let rec list_indexes' accum pos l = function 
+
+  | [] -> List.rev accum
+
+  | h :: tl -> 
+
+    if List.mem h l then 
+      list_indexes' (pos :: accum) (succ pos) l tl
+    else
+      list_indexes' accum (succ pos) l tl
+
+
+let list_indexes l1 l2 = list_indexes' [] 0 l1 l2
+
 (* Return the first n elements of a list *)
 let rec list_first_n' a l n =
   if n = 0 then a else 
@@ -55,6 +71,43 @@ let rec list_from_n l n =
     list_from_n 
       (try List.tl l with Failure _ -> invalid_arg "Lib.list_first_n")
       (pred n)
+
+
+(* [list_filter_nth l [p1; p2; ...]] returns the elements [l] at positions [p1], [p2] etc. *)
+let rec list_filter_nth' current_pos accum = 
+
+  function 
+
+    | [] -> (function _ -> List.rev accum)
+
+    | h :: list_tl -> 
+
+      (function 
+        | next_pos :: positions_tl when current_pos = next_pos -> 
+
+
+          (match positions_tl with
+
+            | next_pos' :: _ when next_pos >= next_pos' -> 
+              
+              raise 
+                (Invalid_argument
+                   "list_filter_nth: list of position is not sorted")
+                
+            | _ -> 
+              
+              list_filter_nth' 
+                (succ current_pos) 
+                (h :: accum) 
+                list_tl 
+                positions_tl)
+      
+        | positions -> 
+          
+          list_filter_nth' (succ current_pos) accum list_tl positions)
+
+
+let list_filter_nth l p = list_filter_nth' 0 [] l p
 
 
 (* [chain_list \[e1; e2; ...\]] is \[\[e1; e2\]; \[e2; e3\]; ... \]]*)

@@ -587,6 +587,41 @@ let solve_eqs_node_calls node =
   { node with calls = calls'; locals = locals'; equations = equations' }
 
 
+(* Return all expressions of a node *)
+let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
+
+  (* Start with expressions in equations *)
+  let exprs_equations = 
+    List.fold_left 
+      (fun accum (_, expr) -> expr :: accum)
+      []
+      equations
+  in
+
+  (* Add expressions in calls *)
+  let exprs_calls = 
+    List.fold_left
+      (fun accum (_, act_cond, _, args, inits) -> 
+         act_cond :: (args @ inits @ accum))
+      exprs_equations
+      calls
+  in
+
+  (* Add expressions in assertions *)
+  let exprs_asserts = asserts @ exprs_calls in
+
+  (* Add expressions in assertions *)
+  let exprs_props = props @ exprs_asserts in
+
+  (* Add expressions in assumptions *)
+  let exprs_requires = requires @ exprs_props in
+
+  (* Add expressions in guarantees *)
+  let exprs_ensures = ensures @ exprs_requires in
+
+  (* Return collected expressions *)
+  exprs_ensures
+
 
 
 (* 
