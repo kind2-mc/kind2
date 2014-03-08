@@ -61,6 +61,8 @@ type sort = Type.t
 (** An SMT expression is of type {!Term.t} *)
 type t = Term.t
 
+(** An SMT variable is of type {!Var.t} *)
+type var = Var.t
 
 (** {1 Solver commands and responses} *)
 

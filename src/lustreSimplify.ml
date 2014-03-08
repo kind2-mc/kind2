@@ -3381,7 +3381,7 @@ let parse_node_signature
     { node_context_deps with N.equations = equations_sorted }
   in
 
-  Format.printf "%a@." (N.pp_print_node true) node_context_dep_order;
+  (* Format.printf "%a@." (N.pp_print_node true) node_context_dep_order; *)
 
   node_context_dep_order
 

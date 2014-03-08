@@ -325,13 +325,19 @@ let declare_fun solver fun_symbol arg_sorts res_sort =
 
 
 (* Define a new function symbol as an abbreviation for an expression *)
-let define_fun solver fun_symbol arg_sorts res_sort defn = 
+let define_fun solver fun_symbol arg_vars res_sort defn = 
 
   let cmd = 
     Format.sprintf 
       "@[<hv 1>(define-fun %s %s %s %s)@]" 
       fun_symbol
-      (paren_string_of_string_list (List.map string_of_sort arg_sorts))
+      (paren_string_of_string_list
+         (List.map 
+            (fun var -> 
+               Format.sprintf "(%s %s)" 
+                 (Var.string_of_var var)
+                 (string_of_sort (Var.type_of_var var)))
+            arg_vars))
       (string_of_sort res_sort)
       (string_of_expr defn)
   in

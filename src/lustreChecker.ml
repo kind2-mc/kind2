@@ -99,7 +99,7 @@ let main () =
   List.fold_left
     LustreTransSys.definition_of_node
     []
-    nodes;
+    (List.rev nodes);
     
 ;;
 

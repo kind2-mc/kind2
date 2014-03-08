@@ -22,6 +22,8 @@ open Lib
 (* An SMT expression is a term *)
 type t = Term.t
 
+(* An SMT variable is a variable *)
+type var = Var.t
 
 (* Pretty-print an expression *)
 let pp_print_expr = Term.pp_print_term
