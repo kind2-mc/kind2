@@ -355,7 +355,7 @@ struct
       if res then 
       
         (* Get variables of term *)
-        let vars = TransSys.vars_of_term (Term.mk_and terms) in
+        let vars = Var.VarSet.elements (Term.vars_of_term (Term.mk_and terms)) in
         
         (* Get model of context *)
         get_model solver vars 
@@ -419,8 +419,9 @@ struct
 
         (* Get variables of term *)
         let vars = 
-          TransSys.vars_of_term 
-            (Term.mk_and ((Term.mk_not conc) :: prems)) 
+          Var.VarSet.elements 
+            (Term.vars_of_term 
+               (Term.mk_and ((Term.mk_not conc) :: prems)))
         in
         
         (* Get model of context *)

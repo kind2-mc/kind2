@@ -2178,7 +2178,7 @@ let main transSys =
       logic
   in
 
-  (* Save solver instance for clean exit *)
+  (* Save Solver instance for clean exit *)
   ref_solver_misc := Some solver_misc;
 
   (match Flags.pdr_print_to_file () with 

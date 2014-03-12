@@ -18,7 +18,7 @@
 
 type node_def 
 
-val definition_of_node : (LustreIdent.t * node_def) list -> LustreNode.t -> (LustreIdent.t * node_def) list 
+val definition_of_node : SMTSolver.Make(Config.SMTSolver).t -> (LustreIdent.t * node_def) list -> LustreNode.t -> (LustreIdent.t * node_def) list 
 
 
 (* 

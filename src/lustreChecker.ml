@@ -17,6 +17,14 @@
 *)
 
 
+(* Use configured SMT solver *)
+module PDRSolver = SMTSolver.Make (Config.SMTSolver)
+
+
+(* High-level methods for PDR solver *)
+module S = SolverMethods.Make (PDRSolver)
+
+
 let pp_print_position ppf 
     { Lexing.pos_fname;
       Lexing.pos_lnum;
@@ -96,8 +104,16 @@ let main () =
   (* Simplify declarations to a list of nodes *)
   let nodes = LustreSimplify.declarations_to_nodes declarations in
   
+  (* Create solver instance *)
+  let solver = 
+    S.new_solver
+      ~produce_models:true
+      ~produce_assignments:true 
+      `QF_UFLIA
+  in
+
   List.fold_left
-    LustreTransSys.definition_of_node
+    (LustreTransSys.definition_of_node solver)
     []
     (List.rev nodes);
     

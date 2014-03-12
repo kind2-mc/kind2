@@ -23,6 +23,14 @@ module E = LustreExpr
 module N = LustreNode
 
 
+(* Use configured SMT solver *)
+module PDRSolver = SMTSolver.Make (Config.SMTSolver)
+
+(* High-level methods for PDR solver *)
+module S = SolverMethods.Make (PDRSolver)
+
+
+
 let name_of_local_var i n = 
   Format.sprintf "__local_%d_%s" i n
 
@@ -389,16 +397,17 @@ let rec definitions_of_node_calls
 
 
 let definition_of_node 
-    node_defs 
-    ({ N.name = node_name;
-       N.inputs = node_inputs;
-       N.outputs = node_outputs; 
-       N.locals = node_locals; 
-       N.equations = node_equations; 
-       N.calls = node_calls; 
-       N.asserts = node_asserts;
-       N.props = node_props } as node) =
-
+  solver
+  node_defs 
+  ({ N.name = node_name;
+     N.inputs = node_inputs;
+     N.outputs = node_outputs; 
+     N.locals = node_locals; 
+     N.equations = node_equations; 
+     N.calls = node_calls; 
+     N.asserts = node_asserts;
+     N.props = node_props } as node) =
+  
   (* Scope from node name *)
   let scope = 
     LustreIdent.scope_of_index (LustreIdent.index_of_ident node_name)
@@ -534,6 +543,31 @@ let definition_of_node
 
   in
 
+  (* Symbol for initial state constraint for node *)
+  let _ = 
+    PDRSolver.define_fun
+
+      solver
+
+      (* Name of symbol *)
+      (init_uf_symbol_name_of_node node_name)
+      
+      (* Input variables *)
+      ((List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) inputs) @
+       
+       (* Output variables *)
+       (List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) node_outputs) @
+
+       (* Local variables *)
+       (List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) locals))
+       
+      (* Symbol is a predicate *)
+      Type.t_bool
+
+      (Term.mk_and init_defs_calls)
+
+  in
+
   (* Symbol for transition relation for node *)
   let trans_uf_symbol = 
     UfSymbol.mk_uf_symbol
@@ -580,6 +614,7 @@ let definition_of_node
       init_term = Term.mk_and init_defs_calls;
       trans_term = Term.mk_and trans_defs_calls }
   in
+
 
   (node_name, node_def) :: node_defs
 
