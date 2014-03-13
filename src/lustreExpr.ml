@@ -1706,6 +1706,27 @@ let stateful_vars_of_expr { expr_step } =
     expr_step
 
 
+(* Split a list of Lustre expressions into a list of pairs of
+    expressions for the initial step and the transition steps,
+    respectively *)
+let split_expr_list list = 
+  
+  List.fold_left
+    (fun (accum_init, accum_step) { expr_init; expr_step } -> 
+       ((if expr_init == Term.t_true then 
+           accum_init 
+         else
+           expr_init :: accum_init), 
+        (if expr_step == Term.t_true then 
+           accum_step
+         else
+           expr_step :: accum_step)))
+    ([], [])
+    list      
+
+
+
+
 (*
 
 (* Return the variables in the expression *)

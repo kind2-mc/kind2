@@ -43,6 +43,9 @@ let pp_print_position ppf
 
 let main () = 
 
+  Debug.initialize ();
+  Debug.enable "smt" Format.std_formatter;
+
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
   

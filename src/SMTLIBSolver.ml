@@ -342,6 +342,8 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
       (string_of_expr defn)
   in
 
+  Format.printf "%s" cmd;
+
   (* Send command to the solver without timeout *)
   execute_command solver cmd 0
 

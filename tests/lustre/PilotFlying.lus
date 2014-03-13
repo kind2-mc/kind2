@@ -25,19 +25,19 @@ var
   Listening_to_Pilot_Flying, 
   Pilot_Flying_to_Inhibited : bool;
 
-  state : -- subrange [1,5] of int;
-    enum { St_Start, St_Inhibited,  St_Listening, St_Pilot_Flying};
+  state : subrange [1,5] of int;
+  -- enum { St_Start, St_Inhibited,  St_Listening, St_Pilot_Flying};
 
   inhibit_count : subrange [0, inhibit_count_max] of int;
 
   inhibit_count_bounded : bool;
   pfs_state_consistency : bool;
---  state : subrange [1,5] of int;
--- const St_Inhibited = 2;
--- const St_Listening = 3;
--- const St_Pilot_Flying = 4;
--- const St_Start = 1;
--- const St_Stop = 5;
+
+const St_Inhibited = 2;
+const St_Listening = 3;
+const St_Pilot_Flying = 4;
+const St_Start = 1;
+const St_Stop = 5;
 
   -- state_bounded : bool;
 
@@ -127,12 +127,12 @@ let
   pfs_state_consistency = 
     not (state = St_Start) => (PFS = (state = St_Pilot_Flying));
   
-  --%PROPERTY pfs_state_consistency;
+  -- --%PROPERTY pfs_state_consistency;
        
   inhibit_count_bounded = 
     inhibit_count >= 0 and inhibit_count <= inhibit_count_max;
   
-  --%PROPERTY inhibit_count_bounded;
+  -- --%PROPERTY inhibit_count_bounded;
 
   -- state_bounded = state >= St_Start and state < St_Stop;
   
@@ -180,13 +180,12 @@ var
   Step_to_Step : bool;
   state_bounded : bool;
 
-  --state : subrange [1,3] of int;
-  state : -- int;
-    enum { St_Step, St_Start };
+  state : subrange [1,3] of int;
+  -- state : enum { St_Step, St_Start };
 
--- const St_Step = 2;
--- const St_Start = 1;
--- const St_Stop = 3;
+const St_Step = 2;
+const St_Start = 1;
+const St_Stop = 3;
 
 let
 
