@@ -419,8 +419,18 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
              [
 
                (* Transition relation with true activation condition *)
-               Term.mk_implies [act_cond_trans; trans_call];
-
+               Term.mk_implies
+                 [act_cond_trans; 
+                  Term.mk_and 
+                    (List.fold_left2
+                       (fun accum sv1 sv2 ->
+                          Term.mk_eq 
+                            [cur_term_of_state_var sv1; 
+                             cur_term_of_state_var sv2] :: accum)
+                       [trans_call]
+                       output_vars
+                       output_default_vars)];
+                  
                (* Transition relation with false activation condition *)
                Term.mk_implies 
                  [Term.mk_not act_cond_trans;
@@ -431,7 +441,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
                             [cur_term_of_state_var state_var; 
                              pre_term_of_state_var state_var] :: accum)
                        []
-                       (output_vars @ output_default_vars @ call_local_vars))]
+                       (output_vars @ output_default_vars @ call_local_vars))];
 
              ]
 

@@ -21,6 +21,8 @@ open Lib
 (* Abbreviations *)
 module I = LustreIdent
 
+module SVS = StateVar.StateVarSet
+
 (* Exceptions *)
 exception Type_mismatch
 exception Clock_mismatch
@@ -1681,7 +1683,7 @@ let stateful_vars_of_expr { expr_step } =
         
         (function 
           | [] -> 
-            StateVar.StateVarSet.singleton 
+            SVS.singleton 
               (Var.state_var_of_state_var_instance v)
           | _ -> assert false)
 
@@ -1689,15 +1691,15 @@ let stateful_vars_of_expr { expr_step } =
       | Term.T.Const _ -> 
 
         (function 
-          | [] -> StateVar.StateVarSet.empty
+          | [] -> SVS.empty
           | _ -> assert false)
 
       | Term.T.App _ -> 
 
         (function l -> 
           List.fold_left 
-            StateVar.StateVarSet.union 
-            StateVar.StateVarSet.empty 
+            SVS.union 
+            SVS.empty 
             l)
 
       | Term.T.Attr _ ->
@@ -1706,23 +1708,64 @@ let stateful_vars_of_expr { expr_step } =
     expr_step
 
 
-(* Split a list of Lustre expressions into a list of pairs of
-    expressions for the initial step and the transition steps,
-    respectively *)
-let split_expr_list list = 
-  
-  List.fold_left
-    (fun (accum_init, accum_step) { expr_init; expr_step } -> 
-       ((if expr_init == Term.t_true then 
-           accum_init 
-         else
-           expr_init :: accum_init), 
-        (if expr_step == Term.t_true then 
-           accum_step
-         else
-           expr_step :: accum_step)))
-    ([], [])
-    list      
+(* Return all state variables *)
+let state_vars_of_expr { expr_init; expr_step } = 
+
+  let state_vars_of_term = function 
+
+    | Term.T.Var v when 
+        Var.is_state_var_instance v -> 
+
+      (function 
+        | [] -> 
+          SVS.singleton 
+            (Var.state_var_of_state_var_instance v)
+        | _ -> assert false)
+
+    | Term.T.Var _
+    | Term.T.Const _ -> 
+
+      (function 
+        | [] -> SVS.empty
+        | _ -> assert false)
+
+    | Term.T.App _ -> 
+
+      (function l -> 
+        List.fold_left 
+          SVS.union 
+          SVS.empty 
+          l)
+
+    | Term.T.Attr _ ->
+      (function | [s] -> s | _ -> assert false)
+
+  in
+
+  let state_vars_init = Term.eval_t state_vars_of_term expr_init in
+
+  let state_vars_step = Term.eval_t state_vars_of_term expr_step in
+
+  SVS.union state_vars_init state_vars_step
+
+
+  (* Split a list of Lustre expressions into a list of pairs of
+      expressions for the initial step and the transition steps,
+      respectively *)
+  let split_expr_list list = 
+
+    List.fold_left
+      (fun (accum_init, accum_step) { expr_init; expr_step } -> 
+         ((if expr_init == Term.t_true then 
+             accum_init 
+           else
+             expr_init :: accum_init), 
+          (if expr_step == Term.t_true then 
+             accum_step
+           else
+             expr_step :: accum_step)))
+      ([], [])
+      list      
 
 
 

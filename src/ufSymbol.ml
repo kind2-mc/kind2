@@ -190,8 +190,9 @@ let mk_uf_symbol s a r =
     if 
       
       (* Argument and return type matches previous declaration? *)
-      (res_type_of_uf_symbol u = r) && 
-        (arg_type_of_uf_symbol u = a) 
+      (Type.equal_types (res_type_of_uf_symbol u) r) && 
+      ((List.length (arg_type_of_uf_symbol u)) = (List.length a)) &&
+      (List.for_all2 Type.equal_types (arg_type_of_uf_symbol u) a) 
         
     then
       

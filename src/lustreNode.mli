@@ -116,6 +116,19 @@ val solve_eqs_node_calls : t -> t
 (** Return all expressions in a node *)
 val exprs_of_node : t -> LustreExpr.t list
 
+(** Return name of the first node annotated with --%MAIN.  Raise
+    [Not_found] if no node has a --%MAIN annotation or [Failure
+    "find_main" if more than one node has a --%MAIN annotation.
+*)
+val find_main : t list -> LustreIdent.t
+
+
+(** Reduce list of nodes to list of nodes called by the node and its
+    subnodes, include the given node. The list of nodes is partially
+    ordered by dependencies, such that called nodes appear before
+    their callers. *)
+val node_coi : t list -> LustreIdent.t -> t list
+
 (* 
    Local Variables:
    compile-command: "make -k"

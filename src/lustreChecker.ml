@@ -106,7 +106,13 @@ let main () =
 
   (* Simplify declarations to a list of nodes *)
   let nodes = LustreSimplify.declarations_to_nodes declarations in
-  
+
+  (* Find main node by annotation *)
+  let main_node = LustreNode.find_main nodes in
+
+  (* Consider only nodes called by main node *)
+  let nodes_coi = LustreNode.node_coi nodes main_node in
+
   (* Create solver instance *)
   let solver = 
     S.new_solver
@@ -118,7 +124,7 @@ let main () =
   List.fold_left
     (LustreTransSys.definition_of_node solver)
     []
-    (List.rev nodes);
+    nodes_coi;
     
 ;;
 

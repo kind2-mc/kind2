@@ -281,6 +281,13 @@ let pp_print_node
     
 
 
+(* Return the node of the given name from a list of nodes *)
+let node_of_name nodes name =
+  List.find
+    (function { name = node_name } -> name = node_name)
+    nodes
+
+
 (* Calculate dependencies of variables *)
 let rec node_var_dependencies init_or_step nodes node accum = 
 
@@ -382,9 +389,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
               (* Get dependencies of output parameters on input
                  parameters from called node *)
               let { output_input_dep } = 
-                List.find
-                  (function { name = ident } -> node_ident = ident)
-                  nodes
+                node_of_name nodes node_ident
               in
 
               (* Get expressions that output of node depends on *)
@@ -621,6 +626,153 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
 
   (* Return collected expressions *)
   exprs_ensures
+
+
+(* Return name of the first node annotated with --%MAIN.  Raise
+   [Not_found] if no node has a --%MAIN annotation or [Failure
+   "find_main" if more than one node has a --%MAIN annotation.
+*)
+let find_main nodes =
+
+  match 
+  
+    List.fold_left
+      (fun a { name; is_main } -> 
+         if is_main then
+           if a = None then Some name else 
+             raise
+               (Failure 
+                  "find_main: More than one --%MAIN annotation")
+         else
+           a)
+      None
+      nodes 
+
+  with 
+    | None -> raise Not_found
+
+    | Some n -> n
+
+
+(* Add called nodes to accumulator and recurse into called nodes to
+   add their called nodes *)
+let rec node_coi' nodes visited accum = function 
+
+  (* No more nodes *)
+  | [] -> accum
+
+  (* Called nodes are already in accumulator *)
+  | h :: tl when List.mem h visited -> node_coi' nodes visited accum tl
+
+  (* Need to recurse into called nodes *)
+  | h :: tl -> 
+
+    Format.printf "node_coi: %a@." (LustreIdent.pp_print_ident false) h;
+
+    (* Find node by name *)
+    let n = node_of_name nodes h in
+
+    (* Add called nodes to stack *)
+    let tl' =
+      List.fold_left 
+        (fun accum (_, _, node_name, _, _) -> node_name :: accum)
+        tl
+        n.calls
+    in
+
+    (* Recurse to called nodes *)
+    node_coi' nodes (h :: visited) (n :: accum) tl'
+
+
+(* Return all nodes called by given node *)
+let node_coi nodes name = 
+  node_coi' nodes [] [] [name]
+
+
+let rec node_def_coi
+    ({ equations; asserts; requires; ensures } as node) 
+    visited 
+    node_coi = 
+  
+  function 
+    
+    | [] -> node_coi
+
+    (* Skip if state variable already seen *)
+    | state_var :: tl when SVS.mem state_var visited -> 
+
+      node_def_coi node visited node_coi tl 
+
+    | state_var :: tl ->
+
+      (* Node and stack with definitions and dependencies of equation
+         defining variable *)
+      let node_equations, node_coi_equations, tl_equations = 
+
+        (* State variable is defined in an equation? *)
+        if List.mem_assoc state_var equations then 
+
+          (* Expression defining variable *)
+          let expr = List.assoc state_var equations in
+
+          (* Add definition of state variable in equation *)
+          let node_coi_equations = 
+            { node_coi with 
+                equations = (state_var, expr) :: equations }
+          in
+
+          (* Add state variables in equation *)
+          let tl_equations = 
+            (SVS.elements (LustreExpr.state_vars_of_expr expr)) @ tl
+          in
+
+          (* Continue with unmodified original node, modified reduced
+             node and stack *)
+          (node, node_coi_equations, tl_equations)
+
+        else
+
+          (* No equation for state variable, node and stack unchanged *)
+          (node, node_coi, tl)
+
+      in
+
+      (* Node and stack with definitions and dependencies of
+         assertions mentioning variable *)
+      let node_asserts, node_coi_asserts, tl_asserts = 
+
+        (* Split assertions containing the state variable from
+           assertions *)
+        let asserts, asserts_coi =
+          List.partition
+            (fun expr -> 
+               SVS.mem state_var (LustreExpr.state_vars_of_expr expr))
+            asserts
+        in
+
+        (* Add variables occuring in assertion to stack *)
+        let tl_asserts = 
+          List.fold_left
+            (fun a expr -> 
+               (SVS.elements (LustreExpr.state_vars_of_expr expr)) @ a)
+            tl
+            asserts_coi
+        in
+        
+        ({ node with asserts = asserts }, 
+         { node_coi_equations with asserts = asserts_coi }, 
+         tl_asserts)
+
+      in
+
+      (* TODO: Contract in COI *)
+
+      node_def_coi 
+        node_asserts
+        (SVS.add state_var visited) 
+        node_coi_asserts
+        tl_asserts
+
 
 
 
