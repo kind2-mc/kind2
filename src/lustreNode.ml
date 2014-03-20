@@ -765,6 +765,24 @@ let rec node_def_coi
 
       in
 
+
+      let node_calls, node_coi_calls, tl_calls = 
+
+        try
+
+          let 
+            List.find
+              (fun (o, _, _, _, _) -> List.mem state_var o) 
+              node.calls
+          in
+
+
+        with Not_found -> 
+
+          node_asserts, node_coi_asserts, tl_asserts 
+
+      in
+
       (* TODO: Contract in COI *)
 
       node_def_coi 
@@ -776,9 +794,41 @@ let rec node_def_coi
 
 
 
+let rec reduce_to_coi accum = function 
+
+  | [] -> accum
+
+  (* All dependencies for this node processed, add to accumulator *)
+  | ([], sv_visited, node_coi, _) :: _ -> 
+
+    let node_coi' = 
+
+      
+
+      node_coi
+
+    in
+
+    node_coi' :: accum 
+
+  (* Top of state variable stack has been visited *)
+  | (state_var :: svtl, sv_visited, node_coi, node_orig) :: ntl 
+    when List.mem state_var sv_visited -> 
+
+    (* Continue with next state variable of node *)
+    reduce_to_coi accum ((svtl, sv_visited, node_coi, node_orig) :: ntl)
+    
+  (* *)
+  | (state_var :: svtl, sv_visited, node_coi, node_orig) :: ntl -> 
+
+    reduce_to_coi accum ((svtl, sv_visited, node_coi, node_orig) :: ntl)
+
+    
+
+
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -k -C .. lustre-checker"
    indent-tabs-mode: nil
    End: 
 *)
