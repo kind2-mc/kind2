@@ -111,7 +111,7 @@ let main () =
   let main_node = LustreNode.find_main nodes in
 
   (* Consider only nodes called by main node *)
-  let nodes_coi = LustreNode.node_coi nodes main_node in
+  let nodes_coi = LustreNode.reduce_to_property_coi nodes main_node in
 
   (* Create solver instance *)
   let solver = 

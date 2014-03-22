@@ -127,7 +127,7 @@ val find_main : t list -> LustreIdent.t
     subnodes, include the given node. The list of nodes is partially
     ordered by dependencies, such that called nodes appear before
     their callers. *)
-val node_coi : t list -> LustreIdent.t -> t list
+val reduce_to_property_coi : t list -> LustreIdent.t -> t list 
 
 (* 
    Local Variables:
