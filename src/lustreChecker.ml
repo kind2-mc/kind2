@@ -16,6 +16,7 @@
 
 *)
 
+open Lib
 
 (* Use configured SMT solver *)
 module PDRSolver = SMTSolver.Make (Config.SMTSolver)
@@ -110,8 +111,16 @@ let main () =
   (* Find main node by annotation *)
   let main_node = LustreNode.find_main nodes in
 
+  Format.printf
+    "@[<v>Before slicing:@,%a@]@."
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes;
+
   (* Consider only nodes called by main node *)
   let nodes_coi = LustreNode.reduce_to_property_coi nodes main_node in
+
+  Format.printf
+    "@[<v>After slicing:@,%a@]@."
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi;
 
   (* Create solver instance *)
   let solver = 

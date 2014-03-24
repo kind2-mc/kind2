@@ -654,6 +654,9 @@ let find_main nodes =
     | Some n -> n
 
 
+exception Push_node of I.t
+
+
 let rec reduce_to_coi' nodes accum = function 
 
   | [] -> 
@@ -661,19 +664,34 @@ let rec reduce_to_coi' nodes accum = function
     (* Eliminate all unused nodes from accumulator and return *)
     accum
 
-  (* All dependencies for this node processed, add to accumulator *)
-  | ([], sv_visited, node_coi, _) :: _ -> 
 
+  (* All dependencies for this node processed, add to accumulator *)
+  | ([], sv_visited, ({ name = node_name } as node_coi), _) :: ntl -> 
+
+
+    Format.printf 
+      "reduce_to_coi: done with %a@."
+      (I.pp_print_ident false) node_name;
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
        eliminated inputs and outputs and reduce signature *)
     let node_coi' = node_coi in
 
-    node_coi' :: accum 
+    reduce_to_coi'
+      nodes
+      (node_coi' :: accum)
+      ntl
+
 
   (* Top of state variable stack has been visited *)
-  | (state_var :: svtl, sv_visited, node_orig, node_coi) :: ntl 
+  | (state_var :: svtl, sv_visited, ({ name = node_name } as node_orig), node_coi) :: ntl 
     when List.mem state_var sv_visited -> 
+
+    Format.printf 
+      "reduce_to_coi: visited %a in %a@."
+      StateVar.pp_print_state_var state_var
+      (I.pp_print_ident false) node_name;
+
 
     (* Continue with next state variable of node *)
     reduce_to_coi' 
@@ -681,104 +699,89 @@ let rec reduce_to_coi' nodes accum = function
       accum
       ((svtl, sv_visited, node_orig, node_coi) :: ntl)
 
+
   (* *)
   | ((state_var :: svtl as svl), 
      sv_visited, 
-     node_orig, 
+     ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 
 
-    (* Copy node call from original node to reduced node *)
-    let calls_orig', calls_coi', svtl =
+    Format.printf 
+      "reduce_to_coi: %a in %a@."
+      StateVar.pp_print_state_var state_var
+      (I.pp_print_ident false) node_name;
 
-      try 
+    try 
 
-        (
-
-          (* Find variable as result of a node call *)
-          let 
-            (call_outputs, 
-             call_act, 
-             call_name, 
-             call_inputs, 
-             call_defaults) =
-
-            List.find 
-              (fun (o, _, _, _, _) -> List.mem state_var o)
-              node_orig.calls
-
-          in
-
-          (* Find called node *)
-          let call_node = 
-            try node_of_name call_name nodes with Not_found -> assert false 
-          in 
-
-          (* Outputs of called node in current cone of influence *)
-          let call_node_state_vars = 
-            List.fold_left2 
-              (fun a sv1 sv2 -> 
-
-                 if 
-
-                   (* Variable of caller node is in cone of influence? *)
-                   List.mem sv1 svl || List.mem sv1 sv_visited 
-
-                 then 
-
-                   (* Output variable of called node is in cone of
-                      influence *)
-                   sv2 :: a 
-                 else 
-
-
-                   (* Output variable of called node is not in cone of
-                      influence *)
-                   a)
-              []
-              call_outputs
-              call_node.outputs
-          in
-
-          try 
-
-            (* Get indexes of inputs in COI of reduced node *)
-            let (call_inputs_coi, _, _) =
-
-              (* Find node with same name and same outputs *)
-              List.find
-                (fun (_, _, { outputs; name }) -> 
-                   name = call_name && outputs = call_node_state_vars)
-                accum
-
+      (* Copy node call from original node to reduced node, do not
+         modify original node, because additional variables may be found
+         to be in the cone of influence *)
+      let calls_orig', calls_coi', svtl =
+        
+        try 
+          
+          (
+            
+            let 
+              ((call_outputs, 
+                call_act, 
+                call_name, 
+                call_inputs, 
+                call_defaults) as call_coi), 
+              calls_orig' =
+              
+              match 
+                
+                (* Find variable in result of a node call *)
+                List.partition
+                  (fun (o, _, _, _, _) -> List.mem state_var o)
+                  node_orig.calls
+                  
+              with 
+                
+                (* Variable is not the result of a node call *)
+                | [], _ -> raise Not_found 
+                             
+                (* Variable can only be the result of one node call *)
+                | [call_coi], calls_orig' -> call_coi, calls_orig' 
+                                             
+                (* Fail if variable is result of more than one node cal *)
+                | _ -> assert false
+                  
             in
+            
+            if 
+              
+              (* Called node is sliced already? *)
+              List.exists 
+                (function { name } -> name = call_name)
+                accum
+                
+            then 
+              
+              (* All variables in inputs and defaults are in cone of
+                 influence *)
+              let svtl' = 
+                List.fold_left
+                  (fun a e -> 
+                     (SVS.elements
+                        (LustreExpr.state_vars_of_expr e)) @ a)
+                  svtl
+                  (call_inputs @ call_defaults)
+              in
 
-            (* Get variables in inputs and defaults in COI *)
-
-            (* Increment reference count for node *)
-
-            (* Replace previous sliced node call *)
-
-            (* Decrement reference count for previous node *)
-            ()
-
-          (* Node with outputs not found in accumulator *)
-          with Not_found -> 
-
-            (* Reduce called node first, then revisit calling node *)
-            reduce_to_coi' 
-              nodes
-              accum
-              ((call_node_state_vars, 
-                [], 
-                call_node,
-                (empty_node call_name)) :: nl)
-
-        )
-
-      (* Variable is not an output of a node call *)
-      with Not_found -> node_orig.calls, node_coi.calls, svtl 
-
-    in
+              calls_orig', (call_coi :: node_coi.calls), svtl'
+              
+            else
+              
+              raise (Push_node call_name)
+                
+          )            
+          
+        (* Variable is not an output of a node call *)
+        with Not_found -> node_orig.calls, node_coi.calls, svtl 
+                          
+      in
 
     (* Copy equation from original node to reduced node and add
          variables to stack *)
@@ -787,7 +790,11 @@ let rec reduce_to_coi' nodes accum = function
       try 
 
         (* Get definition of state variable *)
-        let state_var_def = List.assoc state_var node_coi.equations in
+        let state_var_def = List.assoc state_var node_orig.equations in
+
+        Format.printf 
+          "Equation %a@." 
+          (E.pp_print_lustre_expr false) state_var_def;
 
         (* Add definition of variable *)
         let equations_coi' = 
@@ -863,6 +870,142 @@ let rec reduce_to_coi' nodes accum = function
       accum
       ((svtl, state_var :: sv_visited, node_orig', node_coi') :: ntl)
         
+    with Push_node push_name ->
+
+      (* Find called node *)
+      let { outputs = push_node_outputs } as push_node = 
+        try 
+          node_of_name push_name nodes 
+        with Not_found -> assert false 
+      in 
+      
+      (* Reduce called node first, then revisit calling node *)
+      reduce_to_coi' 
+        nodes
+        accum
+        ((push_node_outputs, 
+          [], 
+          push_node,
+          (empty_node push_name)) :: nl)
+        
+
+
+
+(*
+          
+
+
+
+
+
+
+          (* Outputs of called node in current cone of influence *)
+          let call_node_state_vars = 
+            List.fold_left2 
+              (fun a sv1 sv2 -> 
+
+                 if 
+
+                   (* Variable of caller node is in cone of influence? *)
+                   List.mem sv1 svl || List.mem sv1 sv_visited 
+
+                 then 
+
+                   (* Output variable of called node is in cone of
+                      influence *)
+                   sv2 :: a 
+
+                 else 
+
+                   (* Output variable of called node is not in cone of
+                      influence *)
+                   a)
+              []
+              call_outputs
+              call_node.outputs
+          in
+
+          try 
+
+            (* Get indexes of inputs in COI of reduced node *)
+            let (call_input_indexes_coi, _, call_node_coi) =
+
+              (* Find node with same name and same outputs *)
+              List.find
+                (fun (_, _, { outputs; name }) -> 
+                   name = call_name && outputs = call_node_state_vars)
+                accum
+
+            in
+
+            (* Get variables in inputs in COI *)
+            let call_inputs_coi = 
+              List.map
+                (fun i -> List.nth call_inputs i)
+                call_input_indexes_coi
+            in
+
+            (* Get variables in defaults in COI *)
+            let call_defaults_coi =
+              List.map
+                (fun i -> List.nth call_defaults i)
+                call_input_indexes_coi
+            in
+
+            (* Replace previous sliced node call, keep position in list *)
+            let a' = 
+              List.find
+                (fun { outputs } ->
+                   List.exists 
+                     (fun sv -> List.mem sv call_node_state_vars)
+                     outputs)
+                node_coi.calls
+            in
+
+            (* Replace previous sliced node call, keep position in list *)
+            let call_coi' = 
+              List.map 
+                (function 
+                  | { outputs } when 
+                      List.exists 
+                        (fun sv -> List.mem sv call_node_state_vars)
+                        outputs -> call_node_coi
+                  | n -> n)
+                node_coi.calls
+            in
+
+            (* Increment reference count for new slicing and decrement
+               referece count for previous slicing *)
+            let accum' = 
+              List.map
+                (function
+                  | (i, refcount, ({ outputs; name } as n)) when
+                      name = call_name && outputs = call_node_state_vars ->
+                    (i, succ refcount, n)
+                  | e -> e)
+                accum
+            in
+
+            
+            ()
+
+          (* Node with outputs not found in accumulator *)
+          with Not_found -> 
+
+            (* Reduce called node first, then revisit calling node *)
+            reduce_to_coi' 
+              nodes
+              accum
+              ((call_node_state_vars, 
+                [], 
+                call_node,
+                (empty_node call_name)) :: nl)
+
+        )
+
+
+*)
+
 
 (* Reduce set of nodes to cone of influence of property of given main
    node *)
