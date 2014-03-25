@@ -170,7 +170,9 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
       let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
 
         (* Find definition of called node by name *)
-        try List.assoc node_name node_defs with Not_found -> assert false
+        try List.assoc node_name node_defs 
+        with Not_found -> Format.printf "Node %a not found@." (LustreIdent.pp_print_ident false) node_name;
+          assert false
 
       in
 

@@ -657,6 +657,25 @@ let find_main nodes =
 exception Push_node of I.t
 
 
+let vars_in_asserts accum { asserts } =
+  
+  List.fold_left
+    (fun a e -> 
+       (SVS.elements
+          (LustreExpr.state_vars_of_expr e)) @ a)
+    accum
+    asserts
+
+let vars_in_props accum { props } =
+  
+  List.fold_left
+    (fun a e -> 
+       (SVS.elements
+          (LustreExpr.state_vars_of_expr e)) @ a)
+    accum
+    props
+
+
 let rec reduce_to_coi' nodes accum = function 
 
   | [] -> 
@@ -666,8 +685,17 @@ let rec reduce_to_coi' nodes accum = function
 
 
   (* All dependencies for this node processed, add to accumulator *)
-  | ([], sv_visited, ({ name = node_name } as node_coi), _) :: ntl -> 
-
+  | ([], 
+     sv_visited, 
+     ({ outputs; 
+        inputs; 
+        locals; 
+        asserts; 
+        props; 
+        requires; 
+        ensures; 
+        is_main } as node_orig), 
+     ({ name = node_name } as node_coi)) :: ntl -> 
 
     Format.printf 
       "reduce_to_coi: done with %a@."
@@ -675,7 +703,26 @@ let rec reduce_to_coi' nodes accum = function
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
        eliminated inputs and outputs and reduce signature *)
-    let node_coi' = node_coi in
+    let node_coi' = 
+      
+      { node_coi with 
+
+          (* Keep signature of node even if variables are not
+             constrained any more *)
+          outputs = outputs;
+          inputs = inputs;
+
+          (* Keep only local variables with definitions *)
+          locals = List.filter (fun sv -> List.mem sv sv_visited) locals;
+
+          (* Keep assertions, properties and main annotations *)
+          asserts = asserts;
+          props = props;
+          requires = requires;
+          ensures = ensures;
+          is_main = is_main }
+
+    in
 
     reduce_to_coi'
       nodes
@@ -716,7 +763,7 @@ let rec reduce_to_coi' nodes accum = function
       (* Copy node call from original node to reduced node, do not
          modify original node, because additional variables may be found
          to be in the cone of influence *)
-      let calls_orig', calls_coi', svtl =
+      let calls_coi', svtl =
         
         try 
           
@@ -727,8 +774,7 @@ let rec reduce_to_coi' nodes accum = function
                 call_act, 
                 call_name, 
                 call_inputs, 
-                call_defaults) as call_coi), 
-              calls_orig' =
+                call_defaults) as call_coi) =
               
               match 
                 
@@ -743,7 +789,7 @@ let rec reduce_to_coi' nodes accum = function
                 | [], _ -> raise Not_found 
                              
                 (* Variable can only be the result of one node call *)
-                | [call_coi], calls_orig' -> call_coi, calls_orig' 
+                | [call_coi], calls_orig' -> call_coi
                                              
                 (* Fail if variable is result of more than one node cal *)
                 | _ -> assert false
@@ -770,7 +816,7 @@ let rec reduce_to_coi' nodes accum = function
                   (call_inputs @ call_defaults)
               in
 
-              calls_orig', (call_coi :: node_coi.calls), svtl'
+              (call_coi :: node_coi.calls), svtl'
               
             else
               
@@ -779,7 +825,7 @@ let rec reduce_to_coi' nodes accum = function
           )            
           
         (* Variable is not an output of a node call *)
-        with Not_found -> node_orig.calls, node_coi.calls, svtl 
+        with Not_found -> node_coi.calls, svtl 
                           
       in
 
@@ -819,56 +865,19 @@ let rec reduce_to_coi' nodes accum = function
 
     in
 
-    (* Move assertions containing variable from node_orig to node_coi
-       to avoid duplication by having only one copy of each assertion *)
-    let asserts_orig', asserts_coi', svtl = 
-
-      (* Find assertions not already in the cone of influence
-         containing the state variable *)
-      let asserts_coi', asserts_orig' =
-        List.partition
-          (fun expr -> 
-             SVS.mem state_var (LustreExpr.state_vars_of_expr expr))
-          node_orig.asserts
-      in
-
-      (* Add variables occuring in assertion to stack *)
-      let svtl' = 
-        List.fold_left
-          (fun a expr -> 
-             (SVS.elements (LustreExpr.state_vars_of_expr expr)) @ a)
-          svtl
-          asserts_coi'
-      in
-
-      (* Remove assertion containg variable from original node, add
-         assertions to reduced node *)
-      asserts_orig', (asserts_coi' @ node_coi.asserts), svtl'
-
-    in
-
     (* Add to equations, assertions and contract containing the
        variable to cone of influence *)
     let node_coi' = 
       { node_coi with 
           equations = equations_coi'; 
-          calls = calls_coi'; 
-          asserts = asserts_coi' }
+          calls = calls_coi' }
     in
-
-    (* Remove assertions and contract containing the variable from the
-       original node *)
-    let node_orig' = 
-      { node_orig with 
-          calls = calls_orig'; 
-          asserts = asserts_orig' }
-    in      
 
     (* Continue with next variable, mark this variable as visited *)
     reduce_to_coi' 
       nodes
       accum
-      ((svtl, state_var :: sv_visited, node_orig', node_coi') :: ntl)
+      ((svtl, state_var :: sv_visited, node_orig, node_coi') :: ntl)
         
     with Push_node push_name ->
 
@@ -883,7 +892,7 @@ let rec reduce_to_coi' nodes accum = function
       reduce_to_coi' 
         nodes
         accum
-        ((push_node_outputs, 
+        ((vars_in_asserts push_node_outputs push_node, 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
@@ -1018,19 +1027,18 @@ let reduce_to_property_coi nodes main_name =
 
     (* State variables in properties *)
     let state_vars = 
-      List.fold_left
-        (fun a expr -> 
-           (SVS.elements (LustreExpr.state_vars_of_expr expr)) @ a)
-        []
-        props
+      vars_in_asserts
+        (vars_in_props [] main_node)
+        main_node
     in
 
     (* Call recursive function with initial arguments *)
-    reduce_to_coi' 
-      nodes
-      []
-      [(state_vars, [], main_node, (empty_node main_name))]
-
+    List.rev
+      (reduce_to_coi' 
+         nodes
+         []
+         [(state_vars, [], main_node, (empty_node main_name))])
+      
   with Not_found -> 
 
     raise 
