@@ -636,6 +636,8 @@ let find_main nodes =
 
   match 
   
+    (* Iterate over nodes to find first node with --%MAIN
+       annotation, fail if second node with --%MAIN found *)
     List.fold_left
       (fun a { name; is_main } -> 
          if is_main then
@@ -649,7 +651,14 @@ let find_main nodes =
       nodes 
 
   with 
-    | None -> raise Not_found
+
+    (* No node with --%MAIN annotiaon *)
+    | None -> 
+
+      (* Return name of last node, fail if list of nodes empty *)
+      (match List.rev nodes with 
+        | [] -> raise Not_found 
+        | { name } :: _ -> name)
 
     | Some n -> n
 

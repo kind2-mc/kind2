@@ -9,7 +9,7 @@
 # Must list all subdirectories explicitly
 # (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
 true: -traverse
-<{kind1}/**>: traverse
+# <{kind1}/**>: traverse
 
 # Pack all modules into Kind1 to avoid cluttering the namespace
 <kind1/*.cmx>: for-pack(Kind1)

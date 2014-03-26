@@ -108,7 +108,7 @@ let of_string s =
         (* Fail on other characters *)
         | c -> 
           raise 
-            (Failure 
+            (Invalid_argument 
                (Format.sprintf
                   "of_string: invalid character %c at position %d" 
                   c
@@ -136,7 +136,7 @@ let of_string s =
         (* Fail on other characters *)
         | c -> 
           raise 
-            (Failure 
+            (Invalid_argument 
                (Format.sprintf
                   "of_string: invalid character %c at position %d" 
                   c
@@ -172,7 +172,7 @@ let of_string s =
         (* Fail on other characters *)
         | c -> 
           raise 
-            (Failure 
+            (Invalid_argument 
                (Format.sprintf
                   "of_string: invalid character %c at position %d" 
                   c

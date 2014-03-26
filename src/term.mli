@@ -403,6 +403,8 @@ val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
     the term. *)
 val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
 
+val stats : unit -> int * int * int * int * int * int
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -18,6 +18,7 @@
 
 open Lib
 
+
 (* Use configured SMT solver *)
 module PDRSolver = SMTSolver.Make (Config.SMTSolver)
 
@@ -47,80 +48,87 @@ let main () =
   Debug.initialize ();
   Debug.enable "smt" Format.std_formatter;
 
-  (* Create lexing buffer *)
-  let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
-  
-  (* Read from file or standard input *)
-  let in_ch, curdir = 
-    if Array.length Sys.argv > 1 then 
-      (let fname = Sys.argv.(1) in 
-       
-       let zero_pos = 
-         { Lexing.pos_fname = fname;
-           Lexing.pos_lnum = 1;
-           Lexing.pos_bol = 0;
-           Lexing.pos_cnum = 0 } 
-       in
-       lexbuf.Lexing.lex_curr_p <- zero_pos; 
-       
-       let curdir = 
-         Filename.dirname fname
-       in
+  try 
 
-       open_in fname, curdir) 
-    else
-      (stdin, Sys.getcwd ())
-  in
-  
-  (* Initialize lexing buffer with channel *)
-  LustreLexer.lexbuf_init in_ch curdir;
-  
-  (* Lustre file is a list of declarations *)
-  let declarations = 
+    Sys.catch_break true;
 
-    try 
+    (* Create lexing buffer *)
+    let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
 
-      (* Parse file to list of declarations *)
-      LustreParser.main LustreLexer.token lexbuf 
+    (* Read from file or standard input *)
+    let in_ch, curdir = 
+      if Array.length Sys.argv > 1 then 
+        (let fname = Sys.argv.(1) in 
 
-    with 
-      | LustreParser.Error ->
+         let zero_pos = 
+           { Lexing.pos_fname = fname;
+             Lexing.pos_lnum = 1;
+             Lexing.pos_bol = 0;
+             Lexing.pos_cnum = 0 } 
+         in
+         lexbuf.Lexing.lex_curr_p <- zero_pos; 
 
-        let 
+         let curdir = 
+           Filename.dirname fname
+         in
+
+         open_in fname, curdir) 
+      else
+        (stdin, Sys.getcwd ())
+    in
+
+    (* Initialize lexing buffer with channel *)
+    LustreLexer.lexbuf_init in_ch curdir;
+
+    (* Lustre file is a list of declarations *)
+    let declarations = 
+
+      try 
+
+        (* Parse file to list of declarations *)
+        LustreParser.main LustreLexer.token lexbuf 
+
+      with 
+        | LustreParser.Error ->
+
+          let 
             { Lexing.pos_fname; 
               Lexing.pos_lnum; 
               Lexing.pos_bol; 
               Lexing.pos_cnum } = 
-          Lexing.lexeme_start_p lexbuf 
-        in
-        
-        Format.printf 
-          "Syntax error in line %d at column %d in %s: %s@." 
-          pos_lnum
-          (pos_cnum - pos_bol)
-          pos_fname
-          (Lexing.lexeme lexbuf);
-        
-        exit 1
-          
-  in
+            Lexing.lexeme_start_p lexbuf 
+          in
 
-  (* Simplify declarations to a list of nodes *)
-  let nodes = LustreSimplify.declarations_to_nodes declarations in
+          Format.printf 
+            "Syntax error in line %d at column %d in %s: %s@." 
+            pos_lnum
+            (pos_cnum - pos_bol)
+            pos_fname
+            (Lexing.lexeme lexbuf);
 
-  (* Find main node by annotation *)
-  let main_node = LustreNode.find_main nodes in
+          exit 1
 
-  Format.printf
-    "@[<v>Before slicing:@,%a@]@."
-    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes;
+    in
 
-  (* Consider only nodes called by main node *)
-  let nodes_coi = LustreNode.reduce_to_property_coi nodes main_node in
+    (* Simplify declarations to a list of nodes *)
+    let nodes = LustreSimplify.declarations_to_nodes declarations in
 
-  Format.printf
-    "@[<v>After slicing:@,%a@]@."
-    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi;
+    (* Find main node by annotation *)
+    let main_node = LustreNode.find_main nodes in
+
+    Format.printf
+      "@[<v>Before slicing:@,%a@]@."
+      (pp_print_list (LustreNode.pp_print_node false) "@,") nodes;
+
+    (* Consider only nodes called by main node *)
+    let nodes_coi = LustreNode.reduce_to_property_coi nodes main_node in
+
+    Format.printf
+      "@[<v>After slicing:@,%a@]@."
+      (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi;
+
+    Format.printf "equations: %d@." (List.length (List.hd nodes_coi).LustreNode.equations);
+
 
   (* Create solver instance *)
   let solver = 
@@ -130,11 +138,69 @@ let main () =
       `QF_UFLIA
   in
 
-  List.fold_left
-    (LustreTransSys.definition_of_node solver)
-    []
-    nodes_coi;
-    
+    Format.printf "Solver instance created@.";
+
+    let fun_defs, state_vars, init, trans = 
+      LustreTransSys.trans_sys_of_nodes nodes_coi
+    in
+
+    List.iter 
+      (fun sv -> 
+         let uf = StateVar.uf_symbol_of_state_var sv in
+         S.fail_on_smt_error
+           (S.T.declare_fun 
+              solver 
+              (UfSymbol.string_of_uf_symbol uf)
+              (List.map 
+                 SMTExpr.smtsort_of_type
+                 (UfSymbol.arg_type_of_uf_symbol uf))
+              (SMTExpr.smtsort_of_type (UfSymbol.res_type_of_uf_symbol uf))))
+      state_vars;
+
+
+    List.iter 
+      (fun (u, v, t) -> S.define_fun solver u v t)
+      fun_defs;
+
+    S.assert_term solver init;
+
+    S.assert_term solver (Term.bump_state Numeral.one trans);
+
+    (if S.check_sat solver then 
+       
+       let val_0 = 
+         S.get_model
+           solver
+           (List.map
+              (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
+              state_vars)
+       in
+
+       let val_1 = 
+         S.get_model
+           solver
+           (List.map
+              (fun sv -> Var.mk_state_var_instance sv Numeral.one)
+              state_vars)
+       in
+
+       Format.printf
+         "@[<v>%a@]@."
+         (pp_print_list 
+           (fun ppf (v, a) -> 
+             Format.fprintf ppf
+               "%a: %a"
+               Var.pp_print_var v
+               Term.pp_print_term a)
+           "@,")
+         (val_0 @ val_1)
+
+     else
+
+       Format.printf "Transition system is unsatisfiable@.")
+
+  with Sys.Break -> exit 0
+
 ;;
 
 main ()

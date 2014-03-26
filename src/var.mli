@@ -101,6 +101,8 @@ val print_var : t -> unit
 (** Return a string representation of a hashconsed variable *)
 val string_of_var : t -> string 
 
+val stats : unit -> int * int * int * int * int * int
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

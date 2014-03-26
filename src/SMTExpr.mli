@@ -92,6 +92,9 @@ type check_sat_response =
 (** {1 Conversions between SMT expressions and terms} *)
 
 (** Convert a variable to an SMT expression *)
+val smtsort_of_type : Type.t -> sort
+
+(** Convert a variable to an SMT expression *)
 val smtexpr_of_var : Var.t -> t
 
 (** Convert a term to an SMT expression *)

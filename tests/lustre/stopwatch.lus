@@ -21,5 +21,6 @@ let
                    freeze or on_off);
   cpt = Count(reset and not running, running);
   time = if freezed then (0 -> pre time) else cpt;
-  
+  --%PROPERTY time > 0;
+  --%MAIN
 tel

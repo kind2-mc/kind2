@@ -82,15 +82,19 @@ val import : t -> t
 (** Return a previously declared state variable *)
 val state_var_of_string : string * string list -> t 
 
+(*
 (** Return a previously declared state variable by its name in the input file *)
 val state_var_of_original_name : string -> t 
+*)
 
 (** Return the name of the state variable *)
 val name_of_state_var : t -> string
 
+(*
 (** Return the name of the state variable as it occurred in the
     original input *)
 val original_name_of_state_var : t -> string
+*)
 
 (** Return the type of the variable *)
 val type_of_state_var : t -> Type.t
@@ -122,11 +126,15 @@ val iter : (t -> unit) -> unit
 (** Pretty-print a state variable *)
 val pp_print_state_var : Format.formatter -> t -> unit
 
+(*
 (** Pretty-print a state variable as it occurred in the original input *)
 val pp_print_state_var_original : Format.formatter -> t -> unit
+*)
 
 (** Return a string representation of a symbol *)
 val string_of_state_var : t -> string
+
+val stats : unit -> int * int * int * int * int * int
 
 
 (* 

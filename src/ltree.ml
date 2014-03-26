@@ -144,6 +144,8 @@ sig
 
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
 
+  val stats : unit -> int * int * int * int * int * int
+
 end    
 
 
@@ -369,6 +371,8 @@ struct
 
   (* Hashcons table for terms *)
   let ht = Ht.create 251
+
+  let stats () = Ht.stats ht
 
   (* Ordering of terms based on tags *)
   let compare { H.tag = t1 } { H.tag = t2 } = Pervasives.compare t1 t2

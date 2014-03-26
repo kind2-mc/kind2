@@ -24,11 +24,13 @@ module N = LustreNode
 
 module SVS = StateVar.StateVarSet
 
+(*
 (* Use configured SMT solver *)
 module MySolver = SMTSolver.Make (Config.SMTSolver)
 
 (* High-level methods for PDR solver *)
 module S = SolverMethods.Make (MySolver)
+*)
 
 
 let name_of_local_var i n = 
@@ -104,7 +106,10 @@ let rec definitions_of_equations vars init trans = function
   (* Take first equation *)
   | (state_var, ({ E.expr_init; E.expr_step } as expr)) :: tl -> 
 
-    (* Modified defintions *)
+
+    Format.printf "definitions_of_equations %a, %d left@." (E.pp_print_lustre_expr false) expr (List.length tl);
+
+    (* Modified definitions *)
     let init', trans' = 
 
       if 
@@ -115,6 +120,8 @@ let rec definitions_of_equations vars init trans = function
       then 
 
         (
+
+          Format.printf "Equation@.";
 
           (* Current state variable of state variable *)
           let var_term = cur_term_of_state_var state_var in
@@ -131,6 +138,8 @@ let rec definitions_of_equations vars init trans = function
       else
         
         (
+
+          Format.printf "Let binding@.";
 
           (* Current state variable of state variable *)
           let var = cur_var_of_state_var state_var in
@@ -150,6 +159,24 @@ let rec definitions_of_equations vars init trans = function
         
     in
 
+    let t_tl, t_ne, t_bl, t_sb, t_mb, t_bb = Term.stats () in
+
+    Format.printf 
+      "@[<v>%s:@,\
+       table length: %d@,\
+       number of entries: %d@,\
+       sum of bucket lengths: %d@,\
+       smallest bucket length: %d@,\
+       median bucket length: %d@,\
+       biggest bucket length %d@]@." 
+      "Term"
+      t_tl 
+      t_ne 
+      t_bl
+      t_sb
+      t_mb
+      t_bb;
+    
     (* Continue with next equations *)
     definitions_of_equations vars init' trans' tl
 
@@ -171,9 +198,8 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
 
         (* Find definition of called node by name *)
         try List.assoc node_name node_defs 
-        with Not_found -> Format.printf "Node %a not found@." (LustreIdent.pp_print_ident false) node_name;
-          assert false
-
+        with Not_found -> assert false
+          
       in
 
       (* Initial state value and step state value of activation
@@ -512,10 +538,42 @@ let definitions_of_contract init trans requires ensures =
          [Term.mk_and requires_trans; Term.mk_and ensures_trans] :: trans) 
 
 
-let definition_of_node 
-    solver
+let rec trans_sys_of_nodes'
     node_defs 
-    ({ N.name = node_name;
+    fun_defs = function 
+
+  | [] -> 
+
+    (match node_defs, fun_defs with 
+
+      | (_, { inputs; outputs; locals }) :: _, 
+        (init_uf_symbol, init_vars, _) :: 
+        (trans_uf_symbol, trans_vars, _) :: _ -> 
+
+    Format.printf 
+      "@[<v>inputs: %a@,outputs: %a@,locals: %a@]@."
+      (pp_print_list StateVar.pp_print_state_var "@ ") inputs
+      (pp_print_list StateVar.pp_print_state_var "@ ") outputs
+      (pp_print_list StateVar.pp_print_state_var "@ ") locals;
+
+        let state_vars = inputs @ outputs @ locals in
+
+        (List.rev fun_defs, 
+         state_vars, 
+         Term.mk_uf 
+           init_uf_symbol
+           (List.map cur_term_of_state_var state_vars),
+         Term.mk_uf 
+           trans_uf_symbol
+           ((List.map pre_term_of_state_var state_vars) @
+            (List.map cur_term_of_state_var state_vars)))
+
+      | _ -> raise (Invalid_argument "trans_sys_of_nodes")
+
+    )
+
+
+  | ({ N.name = node_name;
        N.inputs = node_inputs;
        N.outputs = node_outputs; 
        N.locals = node_locals; 
@@ -523,214 +581,216 @@ let definition_of_node
        N.calls = node_calls; 
        N.asserts = node_asserts; 
        N.requires = node_requires; 
-       N.ensures = node_ensures } as node) =
+       N.ensures = node_ensures } as node) :: tl ->
 
-  (* Scope from node name *)
-  let scope = 
-    LustreIdent.scope_of_index (LustreIdent.index_of_ident node_name)
-  in
+    Format.printf 
+      "@[<v>inputs: %a@,outputs: %a@,locals: %a@]@."
+      (pp_print_list StateVar.pp_print_state_var "@ ") (List.map fst node_inputs)
+      (pp_print_list StateVar.pp_print_state_var "@ ") node_outputs
+      (pp_print_list StateVar.pp_print_state_var "@ ") node_locals;
 
-  (* Input variables *)
-  let inputs = List.map fst node_inputs in
+    (* Scope from node name *)
+    let scope = 
+      LustreIdent.scope_of_index (LustreIdent.index_of_ident node_name)
+    in
 
-  (* Output variables *)
-  let outputs = node_outputs in
+    (* Input variables *)
+    let inputs = List.map fst node_inputs in
 
-  (* Add constraints from node calls *)
-  let call_locals, init_defs_calls, trans_defs_calls = 
-    definitions_of_node_calls scope node_defs [] [] [] node_calls
-  in
+    (* Output variables *)
+    let outputs = node_outputs in
 
-  (* Variables occurring under a pre *)
-  let node_locals_set = 
-    List.fold_left 
-      (fun accum expr -> 
-         SVS.union
-           (E.stateful_vars_of_expr expr)
-           accum)
-      SVS.empty
-      (N.exprs_of_node node)
-  in
+    (* Add constraints from node calls *)
+    let call_locals, init_defs_calls, trans_defs_calls = 
+      definitions_of_node_calls scope node_defs [] [] [] node_calls
+    in
 
-  (* Variables occurring under a pre and variables capturing the
-     output of a node call *)
-  let locals_set = add_to_svs node_locals_set call_locals in
+    (* Variables occurring under a pre that are not also outputs or inputs *)
+    let node_locals_set = 
+      List.fold_left 
+        (fun accum expr -> 
+           SVS.fold 
+             (fun sv a -> 
+                if List.mem sv outputs || List.mem sv inputs then 
+                  a 
+                else 
+                  SVS.add sv a)
+             (E.stateful_vars_of_expr expr)
+             accum)
+        SVS.empty
+        (N.exprs_of_node node)
+    in
 
-  (* Variables occurring under a pre and variables capturing the
-     output of a node call *)
-  let locals = SVS.elements node_locals_set @ call_locals in
+    (* Variables occurring under a pre and variables capturing the
+       output of a node call *)
+    let locals_set = add_to_svs node_locals_set call_locals in
 
-  (* Variables visible in the signature of the definition *)
-  let signature_vars_set = 
-    List.fold_left add_to_svs locals_set [inputs; outputs]
-  in
+    (* Variables occurring under a pre and variables capturing the
+       output of a node call *)
+    let locals = SVS.elements node_locals_set @ call_locals in
 
-  (* Constraints from assertions
+    (* Variables visible in the signature of the definition *)
+    let signature_vars_set = 
+      List.fold_left add_to_svs locals_set [inputs; outputs]
+    in
 
-     Must add assertions and contract first so that local variables
-     can be let bound in definitions_of_equations *)
-  let (init_defs_asserts, trans_defs_asserts) = 
-    definitions_of_asserts  
-      init_defs_calls
-      trans_defs_calls
-      node_asserts
-  in
+    (* Constraints from assertions
 
-  let (init_defs_contract, trans_defs_contract) = 
-    definitions_of_contract  
-      init_defs_asserts
-      trans_defs_asserts
-      node_requires
-      node_ensures
-  in
+       Must add assertions and contract first so that local variables
+       can be let bound in definitions_of_equations *)
+    let (init_defs_asserts, trans_defs_asserts) = 
+      definitions_of_asserts  
+        init_defs_calls
+        trans_defs_calls
+        node_asserts
+    in
 
-  (* Constraints from equations *)
-  let (init_defs_eqs, trans_defs_eqs) = 
-    definitions_of_equations 
-      signature_vars_set
-      init_defs_contract
-      trans_defs_contract
-      (List.rev node_equations)
-  in
+    let (init_defs_contract, trans_defs_contract) = 
+      definitions_of_contract  
+        init_defs_asserts
+        trans_defs_asserts
+        node_requires
+        node_ensures
+    in
 
-  (* Types of input variables *)
-  let input_types = 
-    List.map
-      (fun (v, _) -> StateVar.type_of_state_var v) 
-      node_inputs
-  in
+    (* Constraints from equations *)
+    let (init_defs_eqs, trans_defs_eqs) = 
+      definitions_of_equations 
+        signature_vars_set
+        init_defs_contract
+        trans_defs_contract
+        (List.rev node_equations)
+    in
 
-  (* Types of output variables *)
-  let output_types =
-    List.map
-      StateVar.type_of_state_var
-      node_outputs
-  in
+    (* Types of input variables *)
+    let input_types = 
+      List.map
+        (fun (v, _) -> StateVar.type_of_state_var v) 
+        node_inputs
+    in
 
-  (* Types of local variables *)
-  let local_types =
-    List.map
-      StateVar.type_of_state_var
-      locals
-  in
+    (* Types of output variables *)
+    let output_types =
+      List.map
+        StateVar.type_of_state_var
+        node_outputs
+    in
 
-  (* Types of variables in the signature *)
-  let signature_types = 
-    (List.map StateVar.type_of_state_var inputs) @ 
-    (List.map StateVar.type_of_state_var outputs) @ 
-    (List.map StateVar.type_of_state_var locals) 
-  in
+    (* Types of local variables *)
+    let local_types =
+      List.map
+        StateVar.type_of_state_var
+        locals
+    in
 
-  (* Symbol for initial state constraint for node *)
-  let init_uf_symbol = 
-    UfSymbol.mk_uf_symbol
+    (* Types of variables in the signature *)
+    let signature_types = 
+      (List.map StateVar.type_of_state_var inputs) @ 
+      (List.map StateVar.type_of_state_var outputs) @ 
+      (List.map StateVar.type_of_state_var locals) 
+    in
 
-      (* Name of symbol *)
-      (init_uf_symbol_name_of_node node_name)
+    (* Symbol for initial state constraint for node *)
+    let init_uf_symbol = 
+      UfSymbol.mk_uf_symbol
 
-      (* Types of variables in the signature *)
-      signature_types 
+        (* Name of symbol *)
+        (init_uf_symbol_name_of_node node_name)
 
-      (* Symbol is a predicate *)
-      Type.t_bool
+        (* Types of variables in the signature *)
+        signature_types 
 
-  in
+        (* Symbol is a predicate *)
+        Type.t_bool
 
-  (* Symbol for initial state constraint for node *)
-  let _ = 
-    MySolver.define_fun
+    in
 
-      solver
-
-      (* Name of symbol *)
-      (init_uf_symbol_name_of_node node_name)
-
-      (* Input variables *)
-      ((List.map cur_var_of_state_var inputs) @
-
-       (* Output variables *)
-       (List.map cur_var_of_state_var outputs) @
-
-       (* Local variables *)
-       (List.map cur_var_of_state_var locals))
-
-      (* Symbol is a predicate *)
-      Type.t_bool
-
-      (Term.mk_and init_defs_calls)
-
-  in
-
-  (* Symbol for transition relation for node *)
-  let trans_uf_symbol = 
-    UfSymbol.mk_uf_symbol
+    (* Symbol for initial state constraint for node *)
+    let fun_def_init = 
 
       (* Name of symbol *)
-      (trans_uf_symbol_name_of_node node_name)
-
-      (* Types of variables in the signature *)
-      (signature_types @ signature_types)
-
-      (* Symbol is a predicate *)
-      Type.t_bool
-
-  in
-
-  (* Symbol for initial state constraint for node *)
-  let _ = 
-    MySolver.define_fun
-
-      solver
-
-      (* Name of symbol *)
-      (trans_uf_symbol_name_of_node node_name)
-
-      (* Input variables *)
-      ((List.map cur_var_of_state_var inputs) @
-
-       (* Output variables *)
-       (List.map cur_var_of_state_var outputs) @
-
-       (* Local variables *)
-       (List.map cur_var_of_state_var locals) @ 
+      (init_uf_symbol,
 
        (* Input variables *)
-       (List.map pre_var_of_state_var inputs) @
+       ((List.map cur_var_of_state_var inputs) @
 
-       (* Output variables *)
-       (List.map pre_var_of_state_var outputs) @
+        (* Output variables *)
+        (List.map cur_var_of_state_var outputs) @
 
-       (* Local variables *)
-       (List.map pre_var_of_state_var locals))
+        (* Local variables *)
+        (List.map cur_var_of_state_var locals)),
 
-      (* Symbol is a predicate *)
-      Type.t_bool
+       (Term.mk_and init_defs_calls))
 
-      (Term.mk_and trans_defs_calls)
+    in
 
-  in
+    (* Symbol for transition relation for node *)
+    let trans_uf_symbol = 
+      UfSymbol.mk_uf_symbol
 
-  Format.printf
-    "@[<v>@[<hv>%a@]@,\
-     Intial state constraint:@,@[<hv>%a@]@,\
-     Transition relation:@,@[<hv>%a@]@,@]@."
-    (LustreNode.pp_print_node false) node
-    Term.pp_print_term (Term.mk_and init_defs_calls)
-    Term.pp_print_term (Term.mk_and trans_defs_calls);
+        (* Name of symbol *)
+        (trans_uf_symbol_name_of_node node_name)
 
-  let node_def = 
-    { inputs = inputs;
-      outputs = node_outputs;
-      locals = locals;
-      init_uf_symbol = init_uf_symbol;
-      init_term = Term.mk_and init_defs_calls;
-      trans_uf_symbol = trans_uf_symbol;
-      trans_term = Term.mk_and trans_defs_calls }
-  in
+        (* Types of variables in the signature *)
+        (signature_types @ signature_types)
+
+        (* Symbol is a predicate *)
+        Type.t_bool
+
+    in
+
+    (* Symbol for initial state constraint for node *)
+    let fun_def_trans = 
+
+      (trans_uf_symbol,
+
+       (* Input variables *)
+       ((List.map cur_var_of_state_var inputs) @
+
+        (* Output variables *)
+        (List.map cur_var_of_state_var outputs) @
+
+        (* Local variables *)
+        (List.map cur_var_of_state_var locals) @ 
+
+        (* Input variables *)
+        (List.map pre_var_of_state_var inputs) @
+
+        (* Output variables *)
+        (List.map pre_var_of_state_var outputs) @
+
+        (* Local variables *)
+        (List.map pre_var_of_state_var locals)),
+
+       (Term.mk_and trans_defs_calls))
+
+    in
+
+    Format.printf
+      "@[<v>@[<hv>%a@]@,\
+       Intial state constraint:@,@[<hv>%a@]@,\
+       Transition relation:@,@[<hv>%a@]@,@]@."
+      (LustreNode.pp_print_node false) node
+      Term.pp_print_term (Term.mk_and init_defs_calls)
+      Term.pp_print_term (Term.mk_and trans_defs_calls);
+
+    let node_def = 
+      { inputs = inputs;
+        outputs = node_outputs;
+        locals = locals;
+        init_uf_symbol = init_uf_symbol;
+        init_term = Term.mk_and init_defs_calls;
+        trans_uf_symbol = trans_uf_symbol;
+        trans_term = Term.mk_and trans_defs_calls }
+    in
+
+    trans_sys_of_nodes'
+      ((node_name, node_def) :: node_defs)
+      (fun_def_init :: fun_def_trans :: fun_defs)
+      tl
 
 
-  (node_name, node_def) :: node_defs
-
+let trans_sys_of_nodes nodes = trans_sys_of_nodes' [] [] nodes
 
 
 

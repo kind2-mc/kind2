@@ -104,6 +104,8 @@ module T = Ltree.Make (BaseTypes)
 type t = T.t
 
 
+let stats = T.stats
+
 (* Return the type of a term *)
 let node_of_term = T.node_of_t
 

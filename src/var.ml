@@ -102,6 +102,7 @@ module Hvar = Hashcons.Make (Var_node)
 (* Storage for hashconsed variables *)
 let ht = Hvar.create 251
 
+let stats () = Hvar.stats ht
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)

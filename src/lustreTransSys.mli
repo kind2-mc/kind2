@@ -16,10 +16,7 @@
 
 *)
 
-type node_def 
-
-val definition_of_node : SMTSolver.Make(Config.SMTSolver).t -> (LustreIdent.t * node_def) list -> LustreNode.t -> (LustreIdent.t * node_def) list 
-
+val trans_sys_of_nodes : LustreNode.t list -> (UfSymbol.t * Var.t list * Term.t) list * StateVar.t list * Term.t * Term.t
 
 (* 
    Local Variables:

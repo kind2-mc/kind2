@@ -43,6 +43,12 @@ sig
   (** Delete an instance of an SMT solver *)
   val delete_solver : t -> unit
     
+  (** {1 Declarations} *)
+
+  (** Define uninterpreted symbol *)
+  val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
+
+
   (** {1 Primitives} *)
 
   (** Raise an exception if the response is not success *)

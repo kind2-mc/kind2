@@ -69,7 +69,7 @@ module State_var_node = struct
   type prop = state_var_prop
 
   (* Hashing for state variables is hashing of strings *)
-  let hash = Hashtbl.hash 
+  let hash = Hashtbl.hash_param 100 100
 
   (* Equality of state variables is comparison of strings *)
   let equal = (=)
@@ -83,6 +83,8 @@ module Hstate_var = Hashcons.Make (State_var_node)
 
 (* Storage for state variables *)
 let ht = Hstate_var.create 251
+
+let stats () = Hstate_var.stats ht
 
 
 (* ********************************************************************* *)
@@ -165,14 +167,17 @@ let string_of_state_var_name (n, s) =
 let pp_print_state_var_node ppf (n, s) = 
   pp_print_state_var_name ppf (n, s)
 
+(*
 (* Pretty-print a state variable as it occurred in the original input *)
 let pp_print_state_var_node_original ppf s = 
   Format.pp_print_string ppf (Kind1.Tables.internal_name_to_original_name s)
+*)
 
 (* Pretty-print a hashconsed state variable *)
 let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
 
+(*
 (* Pretty-print a hashconsed state variable as it occurred in the
    original input *)
 let pp_print_state_var_original ppf = function 
@@ -181,6 +186,7 @@ let pp_print_state_var_original ppf = function
 
   (* Cannot have scopes in old parser *)
   | _ -> invalid_arg "pp_print_state_var_original"
+*)
 
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s
@@ -197,7 +203,7 @@ let name_of_state_var { Hashcons.node = (n, _) } = n
 (* Identifier of a state variable *)
 let scope_of_state_var { Hashcons.node = (_, s) } = s
 
-
+(*
 (* Original identifier of a state variable *)
 let original_name_of_state_var = function
 
@@ -206,7 +212,7 @@ let original_name_of_state_var = function
 
   (* Cannot have scopes in old parser *)
   | _ -> invalid_arg "original_name_of_state_var"
-
+*)
 
 (* Type of a state variable *)
 let type_of_state_var { Hashcons.prop = { var_type = t } } = t
@@ -325,7 +331,7 @@ let state_var_of_string (state_var_name, state_var_scope) =
      symbol was not declared *)
   Hstate_var.find ht (state_var_name, state_var_scope)
 
-
+(*
 (* Return a previously declared state variable *)
 let state_var_of_original_name s = 
 
@@ -334,6 +340,7 @@ let state_var_of_original_name s =
 
   (* Return state variable *) 
   state_var_of_string (s', [])
+*)
 
 (* ********************************************************************* *)
 (* Folding and utility functions on uninterpreted function symbols       *)
