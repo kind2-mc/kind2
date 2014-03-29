@@ -592,6 +592,9 @@ struct
      index or default to zero *)
   let pp_print_term ?(db = 0) ppf term = 
 
+    (* This breaks indentation and is going to fail when the meaning
+       of indexes is reversed. *)
+    (*
     (* String representation of term *)
     let term_string = 
 
@@ -624,9 +627,14 @@ struct
         | { to_string = Some s } -> s
 
     in
-
+    
     (* Print string representation of term to formatter *)
     Format.fprintf ppf "%s" term_string
+*)
+
+    (* Pretty-print term into buffer *)
+    pp_print_term' db ppf term
+          
 
 (*
 

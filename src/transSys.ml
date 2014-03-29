@@ -18,6 +18,195 @@
 
 open Lib
 
+
+type t = 
+
+  {
+
+    (* Definitions of uninterpreted function symbols *)
+    uf_defs : (UfSymbol.t * (Var.t list * Term.t)) list;
+
+    (* State variables of top node *)
+    state_vars : StateVar.t list;
+
+    (* Initial state constraint *)
+    init : Term.t;
+
+    (* Transition relation *)
+    trans : Term.t;
+
+    (* Propertes to prove invariant *)
+    props : (string * Term.t) list; 
+
+    (* Invariants *)
+    mutable invars : Term.t list;
+
+    (* Properties proved to be valid *)
+    mutable props_valid : (string * Term.t) list;
+
+    (* Properties proved to be invalid *)
+    mutable props_invalid : (string * Term.t) list;
+    
+  }
+
+
+let pp_print_state_var ppf state_var = 
+
+  Format.fprintf ppf
+    "@[<hv 1>(%a %a)@]" 
+    StateVar.pp_print_state_var state_var
+    Type.pp_print_type (StateVar.type_of_state_var state_var)
+
+  
+let pp_print_var ppf var = 
+
+  Format.fprintf ppf
+    "@[<hv 1>(%a %a)@]" 
+    Var.pp_print_var var
+    Type.pp_print_type (Var.type_of_var var)
+  
+
+let pp_print_uf_def ppf (uf_symbol, (vars, term)) =
+
+  Format.fprintf 
+    ppf   
+    "@[<hv 1>(%a@ @[<hv 1>(%a)@]@ %a)@]"
+    UfSymbol.pp_print_uf_symbol uf_symbol
+    (pp_print_list pp_print_var "@ ") vars
+    Term.pp_print_term term
+
+
+let pp_print_prop ppf (prop_name, prop_term) = 
+
+  Format.fprintf 
+    ppf
+    "@[<hv 1>(%s@ %a)@]"
+    prop_name
+    Term.pp_print_term prop_term
+
+
+let pp_print_trans_sys 
+    ppf
+    { uf_defs; 
+      state_vars; 
+      init; 
+      trans; 
+      props; 
+      invars; 
+      props_valid; 
+      props_invalid }= 
+
+  Format.fprintf 
+    ppf
+    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(fun-defs@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props-valid@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props-invalid@ (@[<v>%a@]))@]@."
+    (pp_print_list pp_print_state_var "@ ") state_vars
+    (pp_print_list pp_print_uf_def "@ ") uf_defs
+    Term.pp_print_term init 
+    Term.pp_print_term trans
+    (pp_print_list pp_print_prop "@ ") props
+    (pp_print_list Term.pp_print_term "@ ") invars
+    (pp_print_list pp_print_prop "@ ") props_valid
+    (pp_print_list pp_print_prop "@ ") props_invalid
+
+
+(* Create a transition system *)
+let mk_trans_sys uf_defs state_vars init trans props = 
+
+  (* Create constraints for integer ranges *)
+  let invars_of_types = 
+    
+    List.fold_left 
+      (fun accum state_var -> 
+
+         (* Type of state variable *)
+         match StateVar.type_of_state_var state_var with
+           
+           (* Type is a bounded integer *)
+           | sv_type when Type.is_int_range sv_type -> 
+             
+             (* Get lower and upper bounds *)
+             let l, u = Type.bounds_of_int_range sv_type in
+
+             (* Add equation l <= v[0] <= u to invariants *)
+             Term.mk_leq 
+               [Term.mk_num l; 
+                Term.mk_var
+                  (Var.mk_state_var_instance state_var Numeral.zero); 
+                Term.mk_num u] :: 
+             accum
+           | _ -> accum)
+      []
+      state_vars
+  in
+
+  { uf_defs = uf_defs;
+    state_vars = state_vars;
+    init = init;
+    trans = trans;
+    props = props;
+    invars = invars_of_types;
+    props_valid = [];
+    props_invalid = [] }
+
+
+(* Determine the required logic for the SMT solver 
+
+   TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
+let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+
+  
+(* Instantiate the initial state constraint to the bound *)
+let init_of_bound i t = 
+
+  (* Bump bound if greater than zero *)
+  if Numeral.(i = zero) then t.init else Term.bump_state i t.init
+
+
+(* Instantiate the transition relation to the bound *)
+let trans_of_bound i t = 
+
+  (* Bump bound if greater than zero *)
+  if Numeral.(i = zero) then t.trans else Term.bump_state i t.trans
+
+
+(* Instantiate the initial state constraint to the bound *)
+let invars_of_bound i t = 
+
+  (* Create conjunction of property terms *)
+  let invars_0 = Term.mk_and (t.invars @ (List.map snd t.props_valid)) in 
+
+  (* Bump bound if greater than zero *)
+  if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
+
+
+(* Instantiate the properties to the bound *)
+let props_of_bound i t = 
+
+  (* Create conjunction of property terms *)
+  let props_0 = Term.mk_and (List.map snd t.props) in 
+
+  (* Bump bound if greater than zero *)
+  if Numeral.(i = zero) then props_0 else Term.bump_state i props_0
+
+
+(* Return declarations for *)
+let uf_symbols_of_trans_sys { state_vars } = 
+  List.map StateVar.uf_symbol_of_state_var state_vars
+
+       
+  
+  
+
+
+(*
+
 (* Abbreviations *)
 module SVS = StateVar.StateVarSet
 module SVT = StateVar.StateVarHashtbl
@@ -716,6 +905,7 @@ let constr_defs_of_state_vars t state_vars =
 
   (* Turn state variables into primed variables *)
   List.rev (List.map (function (sv, t) -> (Var.mk_state_var_instance sv num_one, t)) defs_dep_order)
+*)
 *)
 
 

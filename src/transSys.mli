@@ -22,6 +22,72 @@
 *)
 
 
+(** The transition system 
+
+    The transition system must be constructed with the function
+    {!mk_trans_sys}. *)
+type t = private
+
+  {
+
+    (* Definitions of uninterpreted function symbols *)
+    uf_defs : (UfSymbol.t * (Var.t list * Term.t)) list;
+
+    (* State variables of top node *)
+    state_vars : StateVar.t list;
+
+    (* Initial state constraint *)
+    init : Term.t;
+
+    (* Transition relation *)
+    trans : Term.t;
+
+    (* Propertes to prove invariant *)
+    props : (string * Term.t) list; 
+
+    (* Invariants *)
+    mutable invars : Term.t list;
+
+    (* Properties proved to be valid *)
+    mutable props_valid : (string * Term.t) list;
+
+    (* Properties proved to be invalid *)
+    mutable props_invalid : (string * Term.t) list;
+    
+  }
+
+
+(** Create a transition system
+
+    For each state variable of a bounded integer type, add a
+    constraint to the invariants. *)
+val mk_trans_sys : (UfSymbol.t * (Var.t list * Term.t)) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> t
+
+(** Pretty-print a transition system *)
+val pp_print_trans_sys : Format.formatter -> t -> unit
+
+(** Get the required logic for the SMT solver *)
+val get_logic : t -> SMTExpr.logic
+
+(** Instantiate the initial state constraint to the bound *)
+val init_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate the transition relation constraint to the bound 
+
+    The bound given is the bound of the state after the transition *)
+val trans_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate the properties to the bound *)
+val props_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate invariants and valid properties to the bound *)
+val invars_of_bound : Numeral.t -> t -> Term.t
+
+(** Return uninterpreted function symbols to be declared in the SMT solver *)
+val uf_symbols_of_trans_sys : t -> UfSymbol.t list
+
+
+(*
 (* The transition system *)
 type t = 
     { 
@@ -162,6 +228,7 @@ val log_property_invalid : string -> string list -> unit
     the arguments to it, the function outputs [Counterexample for p1,
     p2, p3] followed by the counterexample in the next lines. *)
 val log_counterexample : string list -> (Format.formatter -> 'a -> unit) -> 'a -> unit
+*)
 *)
 
 (* 

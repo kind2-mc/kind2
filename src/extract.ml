@@ -181,7 +181,7 @@ let choose_term (bool_terms, int_terms) =
            term))
 
 
-let extract env term = 
+let extract uf_defs env term = 
 
   let eval_term t = 
     let res = Eval.eval_term t env in
@@ -640,12 +640,38 @@ let extract env term =
 
           )
 
+        | `UF uf_symbol ->
+
+          (try 
+
+             let (vars, uf_def) = 
+               List.assq uf_symbol uf_defs 
+             in
+
+             let term' = 
+              Term.mk_let 
+                (List.fold_right2
+                   (fun var def accum -> (var, def) :: accum)
+                   vars
+                   l
+                   [])
+                uf_def
+             in
+
+             (accum, [term', env, polarity])
+
+           with Not_found -> 
+
+              (* Extract from subterms with undefined polarity *)
+              extract_term_atom accum polarity env term 
+
+          )
+
         (* Boolean atoms *)
         | `IS_INT 
         | `TO_REAL
         | `TO_INT 
-        | `DIVISIBLE _
-        | `UF _ ->
+        | `DIVISIBLE _ ->
 
           (match l with 
 

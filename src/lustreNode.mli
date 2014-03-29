@@ -108,6 +108,8 @@ val node_var_dependencies : bool -> t list -> t -> (StateVar.t * StateVar.StateV
 
 val output_input_dep_of_var_dep : t -> (StateVar.t * StateVar.StateVarSet.t) list -> int list list
 
+val equations_order_by_dep : t list -> t -> t
+
 (** If node contains an equation [x = y] and [y] captures the output
     of a node, substitute [x] in the node call and the equation and the
     definition of [x] if it is local. *)

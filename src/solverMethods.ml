@@ -31,6 +31,8 @@ sig
     
   val delete_solver : t -> unit
     
+  val declare_fun : t -> UfSymbol.t -> unit
+
   val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
   val fail_on_smt_error : SMTExpr.response -> unit
@@ -174,6 +176,16 @@ struct
   (* ******************************************************************** *)
   (* Declarations                                                         *)
   (* ******************************************************************** *)
+
+  let declare_fun solver uf_symbol = 
+
+    fail_on_smt_error 
+      (S.declare_fun
+         solver
+         (UfSymbol.string_of_uf_symbol uf_symbol)
+         (UfSymbol.arg_type_of_uf_symbol uf_symbol)
+         (UfSymbol.res_type_of_uf_symbol uf_symbol))
+
 
   let define_fun solver uf_symbol vars term =
 

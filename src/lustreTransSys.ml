@@ -259,6 +259,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
                  (name_of_local_var (List.length local_vars) var_name)
                  scope
                  var_type
+                 false
              in
              (local_state_var :: local_vars, 
               local_state_var :: call_local_vars))
@@ -353,6 +354,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
                      (name_of_local_var (List.length local_vars) var_name)
                      scope
                      var_type
+                     false
                  in
                  (local_state_var :: local_vars, 
                   local_state_var :: output_default_vars))
@@ -502,7 +504,7 @@ let definitions_of_asserts init trans =
       ((if expr_init == Term.t_true then init else expr_init :: init), 
        (if expr_step == Term.t_true then trans else expr_step :: trans))
       
-
+(*
 let definitions_of_contract init trans requires ensures = 
 
   (* Split expresssion into terms for intial state constraint and
@@ -536,7 +538,7 @@ let definitions_of_contract init trans requires ensures =
          [Term.mk_and requires_init; Term.mk_and ensures_init] :: init,
        Term.mk_implies 
          [Term.mk_and requires_trans; Term.mk_and ensures_trans] :: trans) 
-
+*)
 
 let rec trans_sys_of_nodes'
     node_defs 
@@ -547,26 +549,34 @@ let rec trans_sys_of_nodes'
     (match node_defs, fun_defs with 
 
       | (_, { inputs; outputs; locals }) :: _, 
-        (init_uf_symbol, init_vars, _) :: 
-        (trans_uf_symbol, trans_vars, _) :: _ -> 
+        (init_uf_symbol, (init_vars, _)) :: 
+        (trans_uf_symbol, (trans_vars, _)) :: _ -> 
 
-    Format.printf 
-      "@[<v>inputs: %a@,outputs: %a@,locals: %a@]@."
-      (pp_print_list StateVar.pp_print_state_var "@ ") inputs
-      (pp_print_list StateVar.pp_print_state_var "@ ") outputs
-      (pp_print_list StateVar.pp_print_state_var "@ ") locals;
+        (* Create a copy of the state variable at the top level *)
+        let state_var_of_top_scope is_input state_var =
+          StateVar.mk_state_var
+            (StateVar.name_of_state_var state_var) 
+            ("__top" :: (StateVar.scope_of_state_var state_var))
+            (StateVar.type_of_state_var state_var)
+            is_input
+        in
 
-        let state_vars = inputs @ outputs @ locals in
+        (* Create copies of the state variables of the top node,
+           flagging input variables *)
+        let state_vars_top = 
+          List.map (state_var_of_top_scope true) inputs @
+          List.map (state_var_of_top_scope false) (outputs @ locals)
+        in
 
         (List.rev fun_defs, 
-         state_vars, 
+         state_vars_top, 
          Term.mk_uf 
            init_uf_symbol
-           (List.map cur_term_of_state_var state_vars),
+           (List.map cur_term_of_state_var state_vars_top),
          Term.mk_uf 
            trans_uf_symbol
-           ((List.map pre_term_of_state_var state_vars) @
-            (List.map cur_term_of_state_var state_vars)))
+           ((List.map pre_term_of_state_var state_vars_top) @
+            (List.map cur_term_of_state_var state_vars_top)))
 
       | _ -> raise (Invalid_argument "trans_sys_of_nodes")
 
@@ -583,11 +593,10 @@ let rec trans_sys_of_nodes'
        N.requires = node_requires; 
        N.ensures = node_ensures } as node) :: tl ->
 
+
     Format.printf 
-      "@[<v>inputs: %a@,outputs: %a@,locals: %a@]@."
-      (pp_print_list StateVar.pp_print_state_var "@ ") (List.map fst node_inputs)
-      (pp_print_list StateVar.pp_print_state_var "@ ") node_outputs
-      (pp_print_list StateVar.pp_print_state_var "@ ") node_locals;
+      "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]@."
+      (N.pp_print_node false) node;
 
     (* Scope from node name *)
     let scope = 
@@ -603,6 +612,18 @@ let rec trans_sys_of_nodes'
     (* Add constraints from node calls *)
     let call_locals, init_defs_calls, trans_defs_calls = 
       definitions_of_node_calls scope node_defs [] [] [] node_calls
+    in
+
+    (* Variables occurring under a pre that are not also outputs or inputs *)
+    let call_locals_set = 
+      List.fold_left 
+        (fun accum sv  -> 
+           if List.mem sv outputs || List.mem sv inputs then 
+             accum 
+           else 
+             SVS.add sv accum)
+        SVS.empty
+        call_locals
     in
 
     (* Variables occurring under a pre that are not also outputs or inputs *)
@@ -623,11 +644,11 @@ let rec trans_sys_of_nodes'
 
     (* Variables occurring under a pre and variables capturing the
        output of a node call *)
-    let locals_set = add_to_svs node_locals_set call_locals in
+    let locals_set = SVS.union node_locals_set call_locals_set in
 
     (* Variables occurring under a pre and variables capturing the
        output of a node call *)
-    let locals = SVS.elements node_locals_set @ call_locals in
+    let locals = SVS.elements locals_set in
 
     (* Variables visible in the signature of the definition *)
     let signature_vars_set = 
@@ -645,6 +666,7 @@ let rec trans_sys_of_nodes'
         node_asserts
     in
 
+(*
     let (init_defs_contract, trans_defs_contract) = 
       definitions_of_contract  
         init_defs_asserts
@@ -652,13 +674,14 @@ let rec trans_sys_of_nodes'
         node_requires
         node_ensures
     in
+*)
 
     (* Constraints from equations *)
     let (init_defs_eqs, trans_defs_eqs) = 
       definitions_of_equations 
         signature_vars_set
-        init_defs_contract
-        trans_defs_contract
+        init_defs_asserts
+        trans_defs_asserts
         (List.rev node_equations)
     in
 
@@ -710,17 +733,17 @@ let rec trans_sys_of_nodes'
 
       (* Name of symbol *)
       (init_uf_symbol,
-
+       
        (* Input variables *)
-       ((List.map cur_var_of_state_var inputs) @
+       (((List.map cur_var_of_state_var inputs) @
+         
+         (* Output variables *)
+         (List.map cur_var_of_state_var outputs) @
+         
+         (* Local variables *)
+         (List.map cur_var_of_state_var locals)),
 
-        (* Output variables *)
-        (List.map cur_var_of_state_var outputs) @
-
-        (* Local variables *)
-        (List.map cur_var_of_state_var locals)),
-
-       (Term.mk_and init_defs_calls))
+        (Term.mk_and init_defs_eqs)))
 
     in
 
@@ -745,34 +768,26 @@ let rec trans_sys_of_nodes'
       (trans_uf_symbol,
 
        (* Input variables *)
-       ((List.map cur_var_of_state_var inputs) @
+       (((List.map cur_var_of_state_var inputs) @
+         
+         (* Output variables *)
+         (List.map cur_var_of_state_var outputs) @
 
-        (* Output variables *)
-        (List.map cur_var_of_state_var outputs) @
+         (* Local variables *)
+         (List.map cur_var_of_state_var locals) @ 
 
-        (* Local variables *)
-        (List.map cur_var_of_state_var locals) @ 
+         (* Input variables *)
+         (List.map pre_var_of_state_var inputs) @
 
-        (* Input variables *)
-        (List.map pre_var_of_state_var inputs) @
+         (* Output variables *)
+         (List.map pre_var_of_state_var outputs) @
 
-        (* Output variables *)
-        (List.map pre_var_of_state_var outputs) @
+         (* Local variables *)
+         (List.map pre_var_of_state_var locals)),
 
-        (* Local variables *)
-        (List.map pre_var_of_state_var locals)),
-
-       (Term.mk_and trans_defs_calls))
+        (Term.mk_and trans_defs_eqs)))
 
     in
-
-    Format.printf
-      "@[<v>@[<hv>%a@]@,\
-       Intial state constraint:@,@[<hv>%a@]@,\
-       Transition relation:@,@[<hv>%a@]@,@]@."
-      (LustreNode.pp_print_node false) node
-      Term.pp_print_term (Term.mk_and init_defs_calls)
-      Term.pp_print_term (Term.mk_and trans_defs_calls);
 
     let node_def = 
       { inputs = inputs;

@@ -47,6 +47,7 @@ let main () =
 
   Debug.initialize ();
   Debug.enable "smt" Format.std_formatter;
+  Debug.enable "extract" Format.std_formatter;
 
   try 
 
@@ -116,50 +117,52 @@ let main () =
     (* Find main node by annotation *)
     let main_node = LustreNode.find_main nodes in
 
-    Format.printf
-      "@[<v>Before slicing:@,%a@]@."
+    Format.printf 
+      "@[<v>Before slicing@,%a@]@."
       (pp_print_list (LustreNode.pp_print_node false) "@,") nodes;
 
     (* Consider only nodes called by main node *)
-    let nodes_coi = LustreNode.reduce_to_property_coi nodes main_node in
+    let nodes_coi = 
+      List.map
+        (LustreNode.equations_order_by_dep nodes)
+        (LustreNode.reduce_to_property_coi nodes main_node) 
+    in
 
-    Format.printf
-      "@[<v>After slicing:@,%a@]@."
+    Format.printf 
+      "@[<v>After slicing@,%a@]@."
       (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi;
 
-    Format.printf "equations: %d@." (List.length (List.hd nodes_coi).LustreNode.equations);
-
-
-  (* Create solver instance *)
-  let solver = 
-    S.new_solver
-      ~produce_models:true
-      ~produce_assignments:true 
-      `QF_UFLIA
-  in
-
-    Format.printf "Solver instance created@.";
-
+    (* Create transition system of Lustre nodes *)
     let fun_defs, state_vars, init, trans = 
       LustreTransSys.trans_sys_of_nodes nodes_coi
     in
 
-    List.iter 
-      (fun sv -> 
-         let uf = StateVar.uf_symbol_of_state_var sv in
-         S.fail_on_smt_error
-           (S.T.declare_fun 
-              solver 
-              (UfSymbol.string_of_uf_symbol uf)
-              (List.map 
-                 SMTExpr.smtsort_of_type
-                 (UfSymbol.arg_type_of_uf_symbol uf))
-              (SMTExpr.smtsort_of_type (UfSymbol.res_type_of_uf_symbol uf))))
-      state_vars;
+    (* Create Kind transition system *)
+    let trans_sys = 
+      TransSys.mk_trans_sys 
+        fun_defs
+        state_vars
+        init
+        trans
+        []
+    in
 
+    Format.printf "%a@." TransSys.pp_print_trans_sys trans_sys;
+
+    (* Create solver instance *)
+    let solver = 
+      S.new_solver
+        ~produce_models:true
+        ~produce_assignments:true 
+        `QF_UFLIA
+    in
+
+    List.iter
+      (S.declare_fun solver)
+      (TransSys.uf_symbols_of_trans_sys trans_sys);
 
     List.iter 
-      (fun (u, v, t) -> S.define_fun solver u v t)
+      (fun (u, (v, t)) -> S.define_fun solver u v t)
       fun_defs;
 
     S.assert_term solver init;
@@ -185,7 +188,7 @@ let main () =
        in
 
        Format.printf
-         "@[<v>%a@]@."
+         "@[<v>Model:@,%a@]@."
          (pp_print_list 
            (fun ppf (v, a) -> 
              Format.fprintf ppf
@@ -193,11 +196,24 @@ let main () =
                Var.pp_print_var v
                Term.pp_print_term a)
            "@,")
-         (val_0 @ val_1)
+         (val_0 @ val_1);
+
+       let trans_extract = 
+         Extract.extract 
+           fun_defs
+           (val_0 @ val_1)
+           (Term.bump_state (Numeral.one) trans)
+       in
+
+       Format.printf 
+         "@[<v>Extract@,%a@,%a@]@."
+         Term.pp_print_term (fst trans_extract)
+         Term.pp_print_term (snd trans_extract) 
 
      else
 
        Format.printf "Transition system is unsatisfiable@.")
+
 
   with Sys.Break -> exit 0
 

@@ -516,7 +516,7 @@ let state_var_of_ident scope_index ident ident_type =
   let ident_string = I.string_of_ident true ident in 
 
   (* Create or return state variable of string *)
-  let state_var = StateVar.mk_state_var ident_string scope ident_type in 
+  let state_var = StateVar.mk_state_var ident_string scope ident_type false in 
 
   (* Add to hashtable unless already present *)
   (if not (StateVar.StateVarHashtbl.mem state_var_ident_map state_var) then 

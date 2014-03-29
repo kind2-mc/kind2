@@ -52,7 +52,10 @@ type state_var_prop =
 
     (* The uninterpreted symbol associated with the variable *)
     uf_symbol : UfSymbol.t;
-  
+
+    (* State variable is a non-deterministic input *)
+    is_input : bool
+
   }
 
 (* A hashconsed state variable *)
@@ -203,29 +206,18 @@ let name_of_state_var { Hashcons.node = (n, _) } = n
 (* Identifier of a state variable *)
 let scope_of_state_var { Hashcons.node = (_, s) } = s
 
-(*
-(* Original identifier of a state variable *)
-let original_name_of_state_var = function
-
-  | { Hashcons.node = (s, []) } -> 
-    Kind1.Tables.internal_name_to_original_name s
-
-  (* Cannot have scopes in old parser *)
-  | _ -> invalid_arg "original_name_of_state_var"
-*)
-
 (* Type of a state variable *)
 let type_of_state_var { Hashcons.prop = { var_type = t } } = t
 
-
 (* Uninterpreted function symbol of a state variable *)
 let uf_symbol_of_state_var { Hashcons.prop = { uf_symbol = u } } = u
-
 
 (* Uninterpreted function symbol of a state variable *)
 let state_var_of_uf_symbol u = 
   UfSymbol.UfSymbolHashtbl.find uf_symbols_map u
   
+(* Return true if state variable is an input *)
+let is_input { Hashcons.prop = { is_input } } = is_input
 
 
 (* ********************************************************************* *)
@@ -234,7 +226,7 @@ let state_var_of_uf_symbol u =
 
 
 (* Hashcons a state variable *)
-let mk_state_var state_var_name state_var_scope state_var_type = 
+let mk_state_var state_var_name state_var_scope state_var_type is_input = 
 
   try 
 
@@ -301,7 +293,8 @@ let mk_state_var state_var_name state_var_scope state_var_type =
            ht 
            (state_var_name, state_var_scope) 
            { var_type = state_var_type; 
-             uf_symbol = state_var_uf_symbol } 
+             uf_symbol = state_var_uf_symbol;
+             is_input = is_input } 
        in
 
        (* Remember association of uninterpreted function symbol with
@@ -322,7 +315,7 @@ let import v =
     (name_of_state_var v) 
     (scope_of_state_var v) 
     (Type.import (type_of_state_var v))
-
+    (is_input v)
 
 (* Return a previously declared state variable *)
 let state_var_of_string (state_var_name, state_var_scope) = 
@@ -331,19 +324,9 @@ let state_var_of_string (state_var_name, state_var_scope) =
      symbol was not declared *)
   Hstate_var.find ht (state_var_name, state_var_scope)
 
-(*
-(* Return a previously declared state variable *)
-let state_var_of_original_name s = 
-
-  (* Get internal name of original name *)
-  let s' = (Kind1.Tables.original_name_to_internal_name s) in
-
-  (* Return state variable *) 
-  state_var_of_string (s', [])
-*)
 
 (* ********************************************************************* *)
-(* Folding and utility functions on uninterpreted function symbols       *)
+(* Folding and utility functions on state variables                      *)
 (* ********************************************************************* *)
 
 

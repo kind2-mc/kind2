@@ -16,7 +16,7 @@
 
 *)
 
-val trans_sys_of_nodes : LustreNode.t list -> (UfSymbol.t * Var.t list * Term.t) list * StateVar.t list * Term.t * Term.t
+val trans_sys_of_nodes : LustreNode.t list -> (UfSymbol.t * (Var.t list * Term.t)) list * StateVar.t list * Term.t * Term.t
 
 (* 
    Local Variables:

@@ -46,6 +46,9 @@ sig
   (** {1 Declarations} *)
 
   (** Define uninterpreted symbol *)
+  val declare_fun : t -> UfSymbol.t -> unit
+
+  (** Define uninterpreted symbol *)
   val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
 

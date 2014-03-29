@@ -511,6 +511,75 @@ let output_input_dep_of_var_dep node var_deps =
 
 
 
+
+(* Order variables such that each variable occurs before the variables
+   it depends on *)
+let rec order_by_dep accum = function 
+
+  (* All dependencies processed *)
+  | [] -> accum
+    
+  (* Variable already visited *)
+  | (h, _) :: tl when List.mem h accum -> order_by_dep accum tl
+
+  (* Variables [h] and the set [d] of variables it depends on *)
+  | (h, d) :: tl -> 
+
+    if 
+
+      (* All dependencies are in accumulator? *)
+      SVS.for_all (fun v -> List.mem v accum) d 
+
+    then 
+
+      (* Add variable to accumulator and continue *)
+      order_by_dep (h :: accum) tl
+
+    else
+
+      (* Need to add all dependent variables first *)
+      order_by_dep 
+        accum
+        (SVS.fold
+           (fun e a -> (List.find (fun (f, _) -> e = f) tl) :: a)
+           d
+            ((h,d) :: tl))
+    
+
+(* Return node with equations in dependency order *)
+let equations_order_by_dep nodes node = 
+
+  (* For each variable get the set of current state variables in its
+     equation *)
+  let var_dep = 
+    node_var_dependencies 
+      false 
+      nodes
+      node
+      []
+      ((List.map (fun (v, _) -> (v, [])) node.equations) @
+       (List.map (fun v -> (v, [])) node.outputs))
+  in
+
+  (* Order variables such that variables defined in terms of other
+     variables occur first *)
+  let vars_ordered = order_by_dep [] var_dep in
+
+  (* Order equations such that an equations defining a variable occurs
+     before all equations using it *)
+  let equations_ordered = 
+    List.fold_left 
+      (fun a v -> 
+         try (v, List.assoc v node.equations) :: a with Not_found -> a)
+      []
+      vars_ordered
+  in
+    
+  (* Return node with equations in dependency order *)
+  { node with equations = equations_ordered }
+
+
+
 (* If x = y and x captures the output of a node, substitute y *)
 let solve_eqs_node_calls node = 
 
@@ -707,8 +776,9 @@ let rec reduce_to_coi' nodes accum = function
      ({ name = node_name } as node_coi)) :: ntl -> 
 
     Format.printf 
-      "reduce_to_coi: done with %a@."
-      (I.pp_print_ident false) node_name;
+      "@[<v>reduce_to_coi: done with %a.@,Visited @[<hv>%a@]@]@."
+      (I.pp_print_ident false) node_name
+      (pp_print_list StateVar.pp_print_state_var ",@ ") sv_visited;
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
        eliminated inputs and outputs and reduce signature *)
@@ -1200,9 +1270,6 @@ let rec node_def_coi
         tl_asserts
 
 *)
-
-
-
 
 
 (* 
