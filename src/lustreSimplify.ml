@@ -1692,7 +1692,7 @@ and int_const_of_ast_expr context expr =
         index = I.empty_index && 
         ei == es -> 
 
-      (match Term.destruct ei with 
+      (match Term.destruct (E.base_term_of_expr ei) with 
         | Term.T.Const c when Symbol.is_numeral c ->
           Symbol.numeral_of_symbol c
 

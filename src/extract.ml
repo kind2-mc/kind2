@@ -187,7 +187,8 @@ let extract uf_defs env term =
     let res = Eval.eval_term t env in
 
     debug extract 
-        "%a@ evaluates to@ @[<hv>%a@]" 
+        "@[<v>%a@ with environment added@ %a@ evaluates to@ @[<hv>%a@]@]" 
+        Term.pp_print_term term
         Term.pp_print_term t
         Term.pp_print_term (Eval.term_of_value res)
     in
@@ -489,7 +490,13 @@ let extract uf_defs env term =
         (* Equality *)
         | `EQ as s -> 
 
-          (match l with
+          (debug extract 
+              "@[<hv 1>%a@]@ to be@ %B" 
+              Term.pp_print_term (Term.T.construct term)
+              polarity
+           in
+                 
+           match l with
 
             (* Equality cannot be nullary *)
             | []  -> assert false
@@ -648,6 +655,13 @@ let extract uf_defs env term =
                List.assq uf_symbol uf_defs 
              in
 
+             debug extract
+               "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
+               UfSymbol.pp_print_uf_symbol uf_symbol
+               (pp_print_list Var.pp_print_var "@ ") vars
+               Term.pp_print_term uf_def
+             in
+
              let term' = 
               Term.mk_let 
                 (List.fold_right2
@@ -658,6 +672,13 @@ let extract uf_defs env term =
                 uf_def
              in
 
+             debug extract
+               "@[<v>Substituted definition for %a in@,%a@,yields@,%a@]" 
+               UfSymbol.pp_print_uf_symbol uf_symbol
+               Term.pp_print_term (Term.construct term)
+               Term.pp_print_term term'
+             in
+           
              (accum, [term', env, polarity])
 
            with Not_found -> 
@@ -707,6 +728,11 @@ let extract uf_defs env term =
 
     let extract_term_atom_node fterm args =
 
+      debug extract
+          "@[<hv>extract_term_atom_node:@ %a@]" 
+          Term.pp_print_term (Term.construct fterm)
+      in
+      
       match fterm with 
 
         (* Lift if-then-else *)

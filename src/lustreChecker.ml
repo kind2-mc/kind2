@@ -48,6 +48,7 @@ let main () =
   Debug.initialize ();
   Debug.enable "smt" Format.std_formatter;
   Debug.enable "extract" Format.std_formatter;
+  Debug.enable "simplify" Format.std_formatter;
 
   try 
 
@@ -167,7 +168,7 @@ let main () =
 
     S.assert_term solver init;
 
-    S.assert_term solver (Term.bump_state Numeral.one trans);
+    S.assert_term solver trans;
 
     (if S.check_sat solver then 
        
@@ -201,8 +202,8 @@ let main () =
        let trans_extract = 
          Extract.extract 
            fun_defs
-           (val_0 @ val_1)
-           (Term.bump_state (Numeral.one) trans)
+           (val_1 @ val_0)
+           trans
        in
 
        Format.printf 

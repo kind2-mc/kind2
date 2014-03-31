@@ -1597,6 +1597,59 @@ let rec mk_pre
 *)
 
   
+
+
+
+(* ********************************************************************** *)
+(* Conversion to terms                                                    *)
+(* ********************************************************************** *)
+
+(* Offset of state variable at first instant *)
+let base_offset = Numeral.zero
+
+(* Offset of state variable at current instant *)
+let cur_offset = Numeral.one
+
+(* Offset of state variable at previous instant *)
+let pre_offset = Numeral.zero
+
+
+(* Instance of state variable at instant zero *)
+let base_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var Numeral.zero
+
+(* Instance of state variable at current instant *)
+let cur_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var Numeral.one
+
+(* Instance of state variable at previous instant *)
+let pre_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var Numeral.zero
+
+    
+(* Term of instance of state variable at previous instant *)
+let base_term_of_state_var state_var = 
+  Term.mk_var (base_var_of_state_var state_var)
+
+(* Term of instance of state variable at current instant *)
+let cur_term_of_state_var state_var = 
+  Term.mk_var (cur_var_of_state_var state_var)
+
+(* Term of instance of state variable at previous instant *)
+let pre_term_of_state_var state_var = 
+  Term.mk_var (pre_var_of_state_var state_var)
+
+
+(* Term at instant zero *)
+let base_term_of_expr expr = expr
+
+(* Term at current instant *)
+let cur_term_of_expr expr = Term.bump_state Numeral.one expr
+
+(* Term at previous instant *)
+let pre_term_of_expr expr = expr
+
+
 (* ********************************************************************** *)
 (* Predicates                                                             *)
 (* ********************************************************************** *)

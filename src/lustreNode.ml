@@ -293,7 +293,14 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
   (* Return expression either for the initial state or a step state *)
   let init_or_step_of_expr { E.expr_init; E.expr_step } = 
-    if init_or_step then expr_init else expr_step 
+    if init_or_step then 
+      E.base_term_of_expr expr_init 
+    else 
+      E.cur_term_of_expr expr_step 
+  in
+
+  let init_or_step_offset = 
+    if init_or_step then E.base_offset else E.cur_offset
   in
 
   function 
@@ -344,7 +351,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
             (* Get variables in expression *)
             SVS.elements
               (Term.state_vars_at_offset_of_term
-                 (Numeral.zero)
+                 init_or_step_offset
                  (init_or_step_of_expr expr))
 
           (* Variable is not input or not defined in an equation *)
@@ -407,7 +414,8 @@ let rec node_var_dependencies init_or_step nodes node accum =
                    (fun a e -> 
                       SVS.union
                         (Term.state_vars_at_offset_of_term
-                           (Numeral.zero) e) 
+                           init_or_step_offset 
+                           e) 
                         a)
                    SVS.empty
                    dep_expr)

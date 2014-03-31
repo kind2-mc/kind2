@@ -1672,7 +1672,7 @@ let simplify_term term =
 let simplify_term_model model term = 
 
   debug simplify 
-    "Simplifying@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+    "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
     (pp_print_list 
        (fun ppf (v, t) -> 

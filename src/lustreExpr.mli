@@ -95,7 +95,7 @@ type expr = private
   | Ite of expr * expr * expr
 *)
 
-type expr = Term.t
+type expr
 
 (** A clock *)
 type clock = unit
@@ -255,6 +255,48 @@ val mk_arrow : t -> t -> t
     unchanged. *)
 val mk_pre : (unit -> LustreIdent.index * LustreIdent.t) -> ((StateVar.t * t) list * 'a) -> t -> (t * (((StateVar.t * t) list) * 'a))
 
+
+(** {1 Conversions to terms} *)
+
+(** Offset of state variable at first instant *)
+val base_offset : Numeral.t
+
+(** Offset of state variable at current instant *)
+val cur_offset : Numeral.t
+
+(** Offset of state variable at previous instant *)
+val pre_offset : Numeral.t
+
+(** Instance of state variable at first instant *)
+val base_var_of_state_var : StateVar.t -> Var.t
+
+(** Instance of state variable at current instant *)
+val cur_var_of_state_var : StateVar.t -> Var.t
+
+(** Instance of state variable at previous instant *)
+val pre_var_of_state_var : StateVar.t -> Var.t
+    
+(** Term of instance of state variable at first instant *)
+val base_term_of_state_var : StateVar.t -> Term.t
+
+(** Term of instance of state variable at current instant *)
+val cur_term_of_state_var : StateVar.t -> Term.t
+
+(** Term of instance of state variable at previous instant *)
+val pre_term_of_state_var : StateVar.t -> Term.t
+
+(** Term at first instant *)
+val base_term_of_expr : expr -> Term.t
+
+(** Term at current instant *)
+val cur_term_of_expr : expr -> Term.t
+
+(** Term at previous instant *)
+val pre_term_of_expr : expr -> Term.t
+
+
+(** {1 Predicates} *)
+
 (** Return true if expression contains a previous state variable *)
 val has_pre_var : t -> bool
 
@@ -281,6 +323,8 @@ val state_vars_of_expr : t -> StateVar.StateVarSet.t
     expressions for the initial step and the transition steps,
     respectively *)
 val split_expr_list : t list -> expr list * expr list 
+
+
 
 (*
 (** Return a list of names of variables in the expression *)
