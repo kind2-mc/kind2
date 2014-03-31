@@ -242,116 +242,120 @@ let rec ind solver ts preK k propertiesToCheck propertiesToCheckNextK assumedPro
 	if reset' then
 		(
 			restart ts k invariants
-		);
-		
-	if List.length propertiesToCheck' <> 0 then
-		(
-			(* If the induction process checks for a new k, push the transition system to the new k and assert all invariants*)
-			if preK <> k then
-				(
-    		  (* Assert invariants and valid properties at step k. Then push the transition function from (k-1)th step 
-           to kth step T(k-1, k), then begin the check. *)
-    			S.assert_term solver (TransSys.bump_state k (Term.mk_and (List.map snd (List.map snd assumedProperties'))));
-      		S.assert_term solver (TransSys.bump_state k (Term.mk_and invariants'));
-    			S.assert_term solver (TransSys.bump_state k (Term.mk_and (List.map snd ts.TransSys.props_valid)));
-    			S.assert_term solver (TransSys.constr_of_bound k ts);
-					
-				);
-			S.push solver;		
-			(* Instantiate the properties upto step k-1 and at step k *)
-      let propsUptoK_1 = 
-    		List.map 
-    		(
-    			fun (name, prop) ->
-    				(mk_terms_upto_k_1 prop k [])
-    		) propertiesToCheck' 
-				in
-				
-			let propsAtK = 
-    		List.map 
-    		(
-    			fun (name, prop) ->
-    				TransSys.bump_state k prop
-    		) propertiesToCheck' 
-			in
-				
-    	S.assert_term solver (Term.mk_and (List.concat propsUptoK_1));
-    	S.assert_term solver (Term.mk_not (Term.mk_and propsAtK));
-			
-			(* If the transitions system does not entail the propertiesToCheck*)
-			if (S.check_sat solver) then
-				(
-					let (propertiesToCheck', propertiesToCheckNextK') = 
-						filter_properties solver ts k propertiesToCheck' 
-					in
-					
-					List.iter
-					(
-						fun (name, prop) ->
-							(debug ind "Property %s falsified at induction step k = %d" name k end);
-					) propertiesToCheckNextK';
-					S.pop solver;
-					ind solver ts k k propertiesToCheck' (propertiesToCheckNextK@propertiesToCheckNextK') assumedProperties' invariants'
-				)
-				
-			(* If the transitions system entails the propertiesToCheck*)
-			else
-				(
-					(* If BMC already pass induction k*)
-					if !bmcK >= k then
-						(
-							List.iter(fun (name, prop) -> (debug ind "Property %s proved at inductive step k = %d" name k end);) (propertiesToCheck'@(List.map snd assumedProperties'));
-							List.iter (Event.proved `IND (Some k)) ((propertiesToCheck'@(List.map snd assumedProperties')));
-							if List.length propertiesToCheckNextK <> 0 then
-								(
-									S.pop solver;
-									ind solver ts k (k+1) propertiesToCheckNextK [] [] invariants'
-								)
-								
-						)
-					else 
-						(
-							let assumedProps = List.map (fun p -> (k, p)) propertiesToCheck' in 
-							if List.length propertiesToCheckNextK <> 0 then
-								(
-									S.pop solver;
-									ind solver ts k (k+1) propertiesToCheckNextK [] (assumedProps@assumedProperties') invariants'
-								)
-							else
-								(
-									(*write a reccursive function!!!!!!!!*)
-									while ((!bmcK < k) || List.length assumedProperties <> 0) do
-										(
-											(*minisleep 0.5 sec to wait for BMC to catch up*)
-											Lib.minisleep 0.5;
-											
-											let (propsToCheck, assumedProps, inv, reset') = 
-												update solver ts [] (assumedProps@assumedProperties') invariants' k false
-											in
-
-											if List.length propsToCheck <> 0 then
-												(
-													S.pop solver;
-													ind solver ts k k propsToCheck [] [] invariants'
-												) 
-											
-										)done;
-										List.iter(fun (name, prop) -> (debug ind "Property %s holds at induction step k = %d" name k end);) (propertiesToCheck'@(List.map snd assumedProperties'));
-								)
-						)
-				)
-		)
-	(* If there remains any properties to check*)
-	else if List.length propertiesToCheckNextK <> 0 then
-		(
-			ind solver ts k (k+1) propertiesToCheckNextK [] assumedProperties invariants'
 		)
 	else
 		(
-			(debug ind
-        "All good properties proved or disproved!"
-        end);
+    	if List.length propertiesToCheck' <> 0 then
+    		(
+    			(* If the induction process checks for a new k, push the transition system to the new k and assert all invariants*)
+    			if preK <> k then
+    				(
+        		  (* Assert invariants and valid properties at step k. Then push the transition function from (k-1)th step 
+               to kth step T(k-1, k), then begin the check. *)
+        			S.assert_term solver (TransSys.bump_state k (Term.mk_and (List.map snd (List.map snd assumedProperties'))));
+          		S.assert_term solver (TransSys.bump_state k (Term.mk_and invariants'));
+        			S.assert_term solver (TransSys.bump_state k (Term.mk_and (List.map snd ts.TransSys.props_valid)));
+        			S.assert_term solver (TransSys.constr_of_bound k ts);
+    					
+    				);
+    			S.push solver;		
+    			(* Instantiate the properties upto step k-1 and at step k *)
+          let propsUptoK_1 = 
+        		List.map 
+        		(
+        			fun (name, prop) ->
+        				(mk_terms_upto_k_1 prop k [])
+        		) propertiesToCheck' 
+    				in
+    				
+    			let propsAtK = 
+        		List.map 
+        		(
+        			fun (name, prop) ->
+        				TransSys.bump_state k prop
+        		) propertiesToCheck' 
+    			in
+    				
+        	S.assert_term solver (Term.mk_and (List.concat propsUptoK_1));
+        	S.assert_term solver (Term.mk_not (Term.mk_and propsAtK));
+    			
+    			(* If the transitions system does not entail the propertiesToCheck*)
+    			if (S.check_sat solver) then
+    				(
+    					let (propertiesToCheck', propertiesToCheckNextK') = 
+    						filter_properties solver ts k propertiesToCheck' 
+    					in
+    					
+    					List.iter
+    					(
+    						fun (name, prop) ->
+    							(debug ind "Property %s falsified at induction step k = %d" name k end);
+    					) propertiesToCheckNextK';
+    					S.pop solver;
+    					ind solver ts k k propertiesToCheck' (propertiesToCheckNextK@propertiesToCheckNextK') assumedProperties' invariants'
+    				)
+    				
+    			(* If the transitions system entails the propertiesToCheck*)
+    			else
+    				(
+    					(* If BMC already pass induction k*)
+    					if !bmcK >= k then
+    						(
+    							List.iter(fun (name, prop) -> (debug ind "Property %s proved at inductive step k = %d" name k end);) (propertiesToCheck'@(List.map snd assumedProperties'));
+    							List.iter (Event.proved `IND (Some k)) ((propertiesToCheck'@(List.map snd assumedProperties')));
+    							if List.length propertiesToCheckNextK <> 0 then
+    								(
+    									S.pop solver;
+    									ind solver ts k (k+1) propertiesToCheckNextK [] [] invariants'
+    								)
+    								
+    						)
+    					else 
+    						(
+    							let assumedProps = List.map (fun p -> (k, p)) propertiesToCheck' in 
+    							if List.length propertiesToCheckNextK <> 0 then
+    								(
+    									S.pop solver;
+    									ind solver ts k (k+1) propertiesToCheckNextK [] (assumedProps@assumedProperties') invariants'
+    								)
+    							else
+    								(
+    									(*write a reccursive function!!!!!!!!*)
+    									while ((!bmcK < k) || List.length assumedProperties <> 0) do
+    										(
+    											(*minisleep 0.5 sec to wait for BMC to catch up*)
+    											Lib.minisleep 0.5;
+    											
+    											let (propsToCheck, assumedProps, inv, reset') = 
+    												update solver ts [] (assumedProps@assumedProperties') invariants' k false
+    											in
+    
+    											if List.length propsToCheck <> 0 then
+    												(
+    													S.pop solver;
+    													ind solver ts k k propsToCheck [] [] invariants'
+    												) 
+    											
+    										)done;
+    										List.iter(fun (name, prop) -> (debug ind "Property %s holds at induction step k = %d" name k end);) (propertiesToCheck'@(List.map snd assumedProperties'));
+    								)
+    						)
+    				)
+    		)
+    	(* If there remains any properties to check*)
+    	else if List.length propertiesToCheckNextK <> 0 then
+    		(
+    			ind solver ts k (k+1) propertiesToCheckNextK [] assumedProperties invariants'
+    		)
+    	else
+    		(
+    			(debug ind
+            "All good properties proved or disproved!"
+            end);
+    		)
 		)
+		
+	
 		
 (**Restart induction process whenever an assumed property is disproved*)
 and restart ts k invariants= 
