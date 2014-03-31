@@ -15,11 +15,11 @@
    permissions and limitations under the License. 
 
 *)
-   
-(* In the step case checking for k-induction, the properties are categorized
-   into 3 lists. Goals are the ones not been proved so far. Candidates
-   are the ones proven for the step case and needs to be confirmed by the 
-   base case. Proved properties are proved in both step case and base case. *)
+
+(** Induction checking
+
+    @author Paul Meng
+*)
 
 open Lib
 
@@ -33,11 +33,8 @@ module S = SolverMethods.Make (INDSolver)
 (* Solver instances and cleanup                                           *)
 (* ********************************************************************** *)
 
-(* Current step in bmc. *)
-let bmc_state = ref 0
-
-(* Invariants received so far. *)
-let invs = ref []
+(* Current step in BMC. *)
+let bmcK = ref 0
 
 (* Solver instance if created *)
 let ref_solver = ref None
@@ -82,576 +79,295 @@ let on_exit () =
          (Printexc.to_string e))
 
 
-
-(* Filter the properties in the goal list. All the properties which are 
-   k-inductive (k is a specific number given as an argument) is proved and added 
-   into the second element of the returned pair. All the properties which are 
-   not k-inductive is returned in the first element of the returned pair. 
-   
-   Assumption: The conjuction of the properties in goal_pairs should be invalid 
-   in the kth step, and there is a check-sat query returning SAT right before 
-   calling this function. 
-   
-   Invariant: The union of the two elements in the returned pair should be the 
-   same as the union of goal_pairs and candidate_infos. candidate_infos contains
-   the candidate property and the in which step it is proven. Generally, we are
-   re-categorizing the properties within goals and candidates  *)
-let rec filter_goal_list solver ts k goal_pairs candidate_infos =
-
-  (* if there is no goal to check, return immediately. *)
-  if (List.length goal_pairs = 0) then 
-    ([], candidate_infos)
-    
-  else
-  (
-    (* Instantiate the goals with step k. *)
-    let k_goal_pairs = 
-      List.map 
-        (fun (goal_name, goal_prop) -> 
-          (goal_name, TransSys.bump_state k goal_prop)) 
-        goal_pairs
-    in
+(** Get a list of all state variables up to k steps from transition system. *)
+let rec get_state_vars_upto_k ts k acc = 
   
-    (* Get all the variable of the goal. *)
-    let concrete_var_list =
-      TransSys.vars_of_term (Term.mk_and (List.map snd k_goal_pairs))
-    in
-  
-   (* Get the smt model faultifying the conjuncted goal. *)
-   let model = S.get_model solver concrete_var_list in
-  
-    (* Abstract the model so that it corresponds with the properties which 
-       contain only initial state *)
-    let abstract_model = List.map (
-      fun (var, value) -> 
-      ((Var.bump_offset_of_state_var_instance 
-          (Numeral.of_int (-1 * k)) var),
-        value)
-    ) model 
-    in
-        
-    (*
-    (debug ind
-      "@[<hv>The model is:@ @[<hv>%a@]@]@."
-      CooperQE.pp_print_model
-      abstract_model 
-      end);
-    *)
-              
-    (* Put the properties satisfying the model into potential_candidate_pairs.
-       Put the properties faultifying the model into goal_pairs. *)
-    let (potential_candidate_pairs, goal_pairs') = 
-      List.partition (
-        fun (goal_name, goal_prop) -> 
-          Eval.bool_of_value (Eval.eval_term goal_prop abstract_model)
-      ) goal_pairs 
-    in
-      
-    (* If all the properties are faultified by the counterexample, nothing is
-       added into the candidate list, the goals remains in the goal list to
-       be checked for a bigger k. *)
-    if (List.length potential_candidate_pairs = 0) then
-      (goal_pairs, candidate_infos)
-      
-    else
-
-    (* Instantiate the potential_candidate_pairs with current step. *)
-    let k_potential_candidate_pairs = 
+	if (k < 0) then
+		acc
+	else
+		(
+		(* Get the variables in state k*)
+    let acc' = 
       List.map (
-        fun (pc_name, pc_prop) -> 
-          (pc_name, TransSys.bump_state k pc_prop)
-      ) potential_candidate_pairs 
-    in
-      
-    (* Conjunct the potential candidate properties. *)
-    let k_conjuncted_potential_candidate = 
-      (Term.mk_and (List.map snd k_potential_candidate_pairs)) 
-    in
-
-    (* Check conjuncted potential candidate properties. *)
-    S.assert_term solver (Term.mk_not k_conjuncted_potential_candidate);
-    
-    if (S.check_sat solver) then
-    (
-      (* If the only potential candidate properties doesn't hold, All the 
-         properties have been disproved for this iteration. *) 
-      if (List.length potential_candidate_pairs = 1) then 
-        (goal_pairs, candidate_infos)
-              
-      else
-      (
-        (* Filter out all the properties which has been disproved in this
-           iteration, and filter again. Then put all the proved properties
-           into the candidate list. *)
-        let (refined_goals, refined_candidates) = 
-          filter_goal_list 
-            solver 
-            ts 
-            k
-            potential_candidate_pairs
-            candidate_infos 
-        in
-          
-        (* Add all the properties which has been disproved in this
-           iteration with those disproved thoughout all the iterations of
-           filtering as the goal to prove. Put others as candidates. *)
-        (List.rev_append goal_pairs' refined_goals, refined_candidates)
-      )
-    
-    )
-    
-    (* If the potential candidate properties holds, add all the 
-       potential_candidate_infos into the candidates. *)
-    else
-    (
-      (debug ind
-        "All good properties proved, proceed with remaining properties"
-        end);
-        
-      let potential_candidate_infos =
-        List.map (
-          fun potential_candidate_pair ->
-            (potential_candidate_pair, k)
-        ) potential_candidate_pairs 
-      in
-
-      (goal_pairs', 
-        List.rev_append potential_candidate_infos candidate_infos)
-    )       
-  )
-
-
-let rec ind solver ts k goal_pairs candidate_infos premises = 
-
-  Event.log `IND Event.L_info "Inductive step loop at k=%d" k;
-
-  Event.progress `BMC k;
-
-  Stat.set k Stat.ind_k;
-
-  Stat.update_time Stat.ind_total_time; 
-
-
-
-  (* Event.log 1 "%t@." pp_print_stat; *)
-
-  (*
-  if (k > 10) then
-
-    failwith "For test purpose, induction case check goes up to 10 steps."
-
-  else
-  *)
-  
-  (* Prepare to receive new invariants. *)
-  let new_invariants = ref [] in
-  
-  (* Receiving messages. *)
-  let messages = Event.recv () in
-  
-  (* Terminate when ControlMessage TERM is received.
-     
-     Add all the new invariants. 
-     
-     Restart when some goal property is disproved. *)
-  List.iter (
-    fun message ->
+        fun state_var ->
+          Var.mk_state_var_instance state_var (Numeral.of_int k)
+      ) (TransSys.state_vars ts)
+		in
+		get_state_vars_upto_k ts (k-1) acc'@acc
+		)
+		
+		
+(** Push transition system upto k-1 step*)
+let rec aux ts k solver =
+	if k <> 1 then
+		(
+			S.assert_term solver (TransSys.constr_of_bound (k-1) ts);
+			aux ts (k-1) solver
+		)
+		
+(** Make a list of terms upto k-1*)		
+let rec mk_terms_upto_k_1 t k acc =
+	if k = 0 then
+		acc
+	else
+		(
+		  mk_terms_upto_k_1 t (k-1) ((TransSys.bump_state (k-1) t)::acc)
+		)
+		
+			
+(** Check for messages and update associated lists*)
+let update solver ts propertiesToCheck assumedProps invariants k reset=
+	
+	(* Side effect: Terminate when ControlMessage TERM is received.*)
+	let messages = Event.recv () in
+	
+	List.fold_left (
+   fun (propertiesToCheck, assumedProps, invariants, restart) message ->
       match message with
-      
-        (* Add invariant to a temparary list when it's received. *)
-        | (Event.Invariant (_, invar)) ->
-          (debug ind
-            "Invariant received: @. %a @."
-            Term.pp_print_term invar
-            end);
 
-          Event.log `IND Event.L_debug
-            "Invariant received: @. %a"
-            Term.pp_print_term invar;
+      | (Event.Invariant (_, inv)) ->
+				S.assert_term solver (Term.mk_and (mk_terms_upto_k_1 inv k []));
+        (propertiesToCheck, assumedProps, inv::invariants, reset)
+				
+				(*Check bmc state and eliminated disproved properties*)
+			| Event.BMCState (bmcK', disprovedPropsList) ->
+				
+				bmcK := bmcK';
+				
+				let invalidPropsList =
+					List.filter (
+						fun (name, prop) ->
+							List.mem name disprovedPropsList
+							) ts.TransSys.props 
+				in
+							
+				ts.TransSys.props_invalid <- invalidPropsList@ts.TransSys.props_invalid;
+				
+				(* If there is a assumed property disproved by BMC, add all the assumed properties back to check again.*)				
+				if (List.exists (fun (_, p) -> List.mem (fst p) disprovedPropsList) assumedProps) then
+					(	
 
-          new_invariants := invar :: !new_invariants;
-          invs := invar :: !invs;
-        
-        (* FIXME *)
-        (* We only need to look at the lastest BMCSTATE message. *)
-        (* Restart when some goal property is disproved. *)
-        | Event.BMCState (bmc_k, disproved_pn_list) ->
-      
-          (debug ind
-            "BMC message of step %d received"
-            bmc_k
-            end);
+						((list_subtract (propertiesToCheck@(List.map snd assumedProps)) ts.TransSys.props_invalid), [], invariants, true)
+					)
+					
+				(*Otherwise, assert assumed properties upto k-1 and send out the valid properties*)
+				else
+					(
+						let (validProps, assumedProps') = 
+							List.partition (
+								fun (l, p) -> 
+									bmcK' >= l
+							) assumedProps 
+						in
+						 
+						let assumedPropsUptok_1 = 
+							List.map (
+								fun (_, prop) ->
+									(mk_terms_upto_k_1 (snd prop) k [])
+							) assumedProps'
+						in
+								
+						S.assert_term solver (Term.mk_and (List.flatten assumedPropsUptok_1));	
+						
+						List.iter (fun (l, p) -> 
+							(debug ind "Property %s proved at inductive step k = %d" (fst p) l end);
+						  Event.proved `IND (Some l) p) validProps;
+						
+						(propertiesToCheck, assumedProps', invariants, reset)
+					)
+					
+				
+				(* Add proved properties to transys props_valid*)
+			| (Event.Proved (_, _, p)) ->
+				let (name, prop) = (List.find (fun x -> fst x = p) propertiesToCheck) in 					
+				ts.TransSys.props_valid <- (name, prop) :: ts.TransSys.props_valid;
+				S.assert_term solver (Term.mk_and (mk_terms_upto_k_1 prop k []));
+				
+				((List.filter (fun x -> fst x <> p) propertiesToCheck), assumedProps, invariants, reset)
+				
+				(* Add disproved properties to transys props_invalid*)
+			| (Event.Disproved (_, _, p)) ->			
+				ts.TransSys.props_invalid <- (List.find (fun x -> fst x = p) ts.TransSys.props) :: ts.TransSys.props_invalid;
+				
+				(* If there exist a disproved property in the assumed property list, *)
+				(* we add the entire assumed properties back to the properties list to check again*)
+				(* otherwise, we continue by eliminating the invalid properties*)
+				if (List.exists (
+						fun (k, prop) -> 
+							fst prop = p) assumedProps) then
+					(
+						(list_subtract (propertiesToCheck@(List.map snd assumedProps)) ts.TransSys.props_invalid, [], invariants, true)
+					)
+				else
+					(list_subtract propertiesToCheck ts.TransSys.props_invalid, assumedProps, invariants, reset)
+					
+      (* Irrelevant message received. *)
+      | _ ->
+        (propertiesToCheck, assumedProps, invariants, reset)
+				    
+  ) 
+	(propertiesToCheck, assumedProps, invariants, reset)
+	messages
 
-          Event.log `IND Event.L_debug
-            "BMC message of step %d received"
-            bmc_k;
+(** Eliminate properties that are not implied by the transition system at step k*)
+let filter_properties solver ts k props =
+		
+		(*just current k is enough*)
+		let state_vars = get_state_vars_upto_k ts k [] in
+		
+    (* Get the model falsify the conjuction of all properties in the props *)
+    let model = S.get_model solver state_vars in    
+			
+		(*bump the properties to k*)    
+    List.partition(     
+      fun (name, prop) -> 
+        Eval.bool_of_value (Eval.eval_term (TransSys.bump_state k prop) model)
+    ) props
 
-          (* If there are any property in goal_pairs is disproved, step case
-             has to restart. *)
-          let reset =
-            List.exists 
-              (fun x -> List.mem x (List.map fst goal_pairs)) 
-              disproved_pn_list
-          in
-        
-          if (reset) then
-          (
-            (* Remove all the disproved property pairs, and restart step case. *)
-            let goal_pairs' = 
-              List.filter (
-                fun (prop_name, prop) -> 
-                  not (List.mem prop_name disproved_pn_list)
-              ) goal_pairs
-            in
+(** Induction starts*)
+let rec ind solver ts preK k propertiesToCheck propertiesToCheckNextK assumedProperties invariants =
+	
+	Event.log `IND Event.L_info "Inductive step loop at k=%d" k;
+	
+	Stat.set k Stat.ind_k;
+  Stat.update_time Stat.ind_total_time; 
+	
+	(debug ind "Inductive step at k = %d" k end);
+	
+	let (propertiesToCheck', assumedProperties', invariants', reset') =
+		update solver ts propertiesToCheck assumedProperties invariants k false
+	in
+	
+	(* Restart induction process if one of assumed properties is disproved*)	
+	if reset' then
+		(
+			restart ts k invariants
+		);
+		
+	if List.length propertiesToCheck' <> 0 then
+		(
+			(* If the induction process checks for a new k, push the transition system to the new k and assert all invariants*)
+			if preK <> k then
+				(
+    		  (* Assert invariants and valid properties at step k. Then push the transition function from (k-1)th step 
+           to kth step T(k-1, k), then begin the check. *)
+    			S.assert_term solver (TransSys.bump_state k (Term.mk_and (List.map snd (List.map snd assumedProperties'))));
+      		S.assert_term solver (TransSys.bump_state k (Term.mk_and invariants'));
+    			S.assert_term solver (TransSys.bump_state k (Term.mk_and (List.map snd ts.TransSys.props_valid)));
+    			S.assert_term solver (TransSys.constr_of_bound k ts);
+					
+				);
+			S.push solver;		
+			(* Instantiate the properties upto step k-1 and at step k *)
+      let propsUptoK_1 = 
+    		List.map 
+    		(
+    			fun (name, prop) ->
+    				(mk_terms_upto_k_1 prop k [])
+    		) propertiesToCheck' 
+				in
+				
+			let propsAtK = 
+    		List.map 
+    		(
+    			fun (name, prop) ->
+    				TransSys.bump_state k prop
+    		) propertiesToCheck' 
+			in
+				
+    	S.assert_term solver (Term.mk_and (List.concat propsUptoK_1));
+    	S.assert_term solver (Term.mk_not (Term.mk_and propsAtK));
+			
+			(* If the transitions system does not entail the propertiesToCheck*)
+			if (S.check_sat solver) then
+				(
+					let (propertiesToCheck', propertiesToCheckNextK') = 
+						filter_properties solver ts k propertiesToCheck' 
+					in
+					
+					List.iter
+					(
+						fun (name, prop) ->
+							(debug ind "Property %s falsified at induction step k = %d" name k end);
+					) propertiesToCheckNextK';
+					S.pop solver;
+					ind solver ts k k propertiesToCheck' (propertiesToCheckNextK@propertiesToCheckNextK') assumedProperties' invariants'
+				)
+				
+			(* If the transitions system entails the propertiesToCheck*)
+			else
+				(
+					(* If BMC already pass induction k*)
+					if !bmcK >= k then
+						(
+							List.iter(fun (name, prop) -> (debug ind "Property %s proved at inductive step k = %d" name k end);) (propertiesToCheck'@(List.map snd assumedProperties'));
+							List.iter (Event.proved `IND (Some k)) ((propertiesToCheck'@(List.map snd assumedProperties')));
+							if List.length propertiesToCheckNextK <> 0 then
+								(
+									S.pop solver;
+									ind solver ts k (k+1) propertiesToCheckNextK [] [] invariants'
+								)
+								
+						)
+					else 
+						(
+							let assumedProps = List.map (fun p -> (k, p)) propertiesToCheck' in 
+							if List.length propertiesToCheckNextK <> 0 then
+								(
+									S.pop solver;
+									ind solver ts k (k+1) propertiesToCheckNextK [] (assumedProps@assumedProperties') invariants'
+								)
+							else
+								(
+									(*write a reccursive function!!!!!!!!*)
+									while ((!bmcK < k) || List.length assumedProperties <> 0) do
+										(
+											(*minisleep 0.5 sec to wait for BMC to catch up*)
+											Lib.minisleep 0.5;
+											
+											let (propsToCheck, assumedProps, inv, reset') = 
+												update solver ts [] (assumedProps@assumedProperties') invariants' k false
+											in
 
-            let reset_premises = List.append (List.map snd goal_pairs) !invs in
-            restart ts goal_pairs' reset_premises
-          )
-          
-          (* Nothing in goal_pair is disproved for now record which state is bmc 
-             in. *)
-          else
-            bmc_state := bmc_k
-        
-        (* Irrelevant message received. *)
-        | _ ->
-          ()
-        
-  ) messages;
-  
-  (* Add invariants to the premises. *)
-  let premises' = List.rev_append !new_invariants premises in
-  
-  
-  (* When all the goals have been proven in step case. *)
-  if (List.length goal_pairs = 0) then
-  (
-    (* When bmc has already proven the base case for k induction, the work is 
-       done. *)
-    if (!bmc_state >= k) then
-    (
-      (*
-      (* All the goals become candidates, store the new candidate and the step 
-         in which they are proved. *)
-      let all_candidate_infos = 
-        List.rev_append 
-          (List.map (fun x -> (x, k)) goal_pairs) 
-          candidate_infos
-      in
-      *)
-
-      let all_candidate_pairs = List.map fst candidate_infos in
-
-      (* Send the invariant. *)
-      (* Event.invariant 
-        (Term.mk_and (List.map snd all_candidate_pairs)); *)
-
-      List.iter (Event.proved `IND (Some k)) all_candidate_pairs;
-      
-(*
-      (* Print out all the properties being proved. *)
-      List.iter 
-        (
-          fun (cdd_prop_name, cdd_prop) -> 
-            Event.log 
-              0
-              "Property %s proved for k = %d "
-              cdd_prop_name
-              k
-        ) all_candidate_pairs;
-
-      ()
-*)
-
-    )
-
-    (* When bmc is slower than the step case, run the same procedure with the 
-       same k to wait for the bmc to reach k. *)
-    else 
-    (
-      try 
-
-      while (true) do
-      (
-        (* Wait for 0.5 seconds. *)
-        Lib.minisleep 0.5;
-
-        (* Prepare to receive new invariants. *)
-        let new_invariants = ref [] in
-  
-        (* Receiving messages. *)
-        let messages = Event.recv () in
-
-        (* Terminate when ControlMessage TERM is received.
-     
-           Add all the new invariants. 
-     
-           Break the while loop and end the step case check when the bounded 
-           model checking has catched up. *)
-
-        List.iter (
-          fun message ->
-            match message with
-      
-              (* Add invariant to a temparary list when it's received. *)
-              | (Event.Invariant (_, invar)) ->
-                (debug ind
-                  "Invariant received: @. %a @."
-                  Term.pp_print_term invar
-                  end);
-
-                Event.log `IND Event.L_debug
-                  "Invariant received: @. %a"
-                  Term.pp_print_term invar;
-
-                new_invariants := invar :: !new_invariants;
-                invs := invar :: !invs;
-        
-              (* FIXME *)
-              (* We only need to look at the lastest BMCSTATE message. *)
-              (* Restart when some goal property is disproved. *)
-              | Event.BMCState (bmc_k, disproved_pn_list) ->
-
-                (debug ind
-                  "BMC message of step %d received"
-                  bmc_k
-                  end);
-
-                Event.log `IND Event.L_debug
-                  "BMC message of step %d received"
-                  bmc_k;
-
-                (* If there are any property in goal_pairs is disproved, step case
-                   has to restart. *)
-                let reset =
-                  List.exists 
-                    (fun x -> List.mem x (List.map fst goal_pairs)) 
-                      disproved_pn_list
-                in
-        
-                if (reset) then
-                (
-                  (* Remove all the disproved property pairs, and restart step 
-                     case. *)
-                  let goal_pairs' = 
-                    List.filter (
-                      fun (prop_name, prop) -> 
-                        not (List.mem prop_name disproved_pn_list)
-                    ) goal_pairs
-                  in
-
-                  let reset_premises = 
-                    List.append (List.map snd goal_pairs) !invs 
-                  in
-
-                  restart ts goal_pairs' reset_premises
-                )
-          
-                (* Nothing in goal_pair is disproved for now record which state 
-                   is bmc in. *)
-                else (
-
-                  bmc_state := bmc_k;
-
-                  if (!bmc_state >= k) then
-                  (
-                    let all_candidate_pairs = List.map fst candidate_infos in
-
-                    (* Send the invariant. *)
-                    List.iter (Event.proved `IND (Some k)) all_candidate_pairs;
-
-(*
-                    (* Print out all the properties being proved. *)
-                    List.iter 
-                    (
-                      fun (cdd_prop_name, cdd_prop) -> 
-                        Event.log 
-                        0
-                        "Property %s proved for k = %d "
-                        cdd_prop_name
-                        k
-                    ) all_candidate_pairs;
-              
-*)
-                    raise Exit;
-                  )
-                )
-
-              (* Irrelevant message received. *)
-              | _ ->
-                ()
-
-        ) messages;
-      ) done
-
-      with
-      
-      (* When the while loop breaks. *)
-      | Exit -> ()
-
-    )
-  )
-  else
-  
-  (* Instantiate the premises. *)
-  let k_premise' = TransSys.bump_state k (Term.mk_and premises') in
-  
-
-  (* Instantiate the goals with step k. *)
-  let k_goal_pairs = 
-    List.map 
-      (fun (goal_name, goal_prop) -> 
-        (goal_name, TransSys.bump_state k goal_prop)) 
-      goal_pairs 
-  in
-  
-  (* Conjunct the goals of step k. *)
-  let k_conjuncted_goal = (Term.mk_and (List.map snd k_goal_pairs)) in
-  
-  (* Check if the counjuction of the goal properties holds in kth step. *)
-  S.push solver;
-  
-  S.assert_term solver (Term.mk_not k_conjuncted_goal);
-  
-  (* If the formula is satisfiable, the implication does not hold. *)
-  if (S.check_sat solver) then
-  (
-
-    (* When there is only one goal left. *)
-    if (List.length goal_pairs = 1) then
-    (
-      
-      (* Push the premises for the kth step and transition function from the
-         kth step to (k + 1)th step T(k, k + 1), and then check for (k + 1) 
-         steps. *)
-         
-      S.pop solver;
-      
-      S.assert_term solver k_premise';
-      
-      S.assert_term solver (TransSys.constr_of_bound (k + 1) ts);
-              
-      ind solver ts (k + 1) goal_pairs candidate_infos premises'
-        
-    )
-      
-    else
-    (
-    
-      (* Filter out all the goals which doesn't hold for the kth step. *)
-      let (goal_pairs', candidate_infos') = 
-        filter_goal_list solver ts k goal_pairs candidate_infos in
-      
-      (* If all the goals are faultified in this step. *)
-      if (List.length goal_pairs' = 0) then
-      (
-
-        (* Unreachable code. *)
-        failwith "Unreachable code in ind"
-      )
-      
-      (* If not all the goals are faultified in this step. *)
-      else
-      (
-           
-        (* Push the premises for the kth step and transition function from the
-           kth step to (k + 1)th step T(k, k + 1), and then check for (k + 1) 
-           steps. *)
-           
-        S.pop solver;
-        
-        S.assert_term solver k_premise';
-        
-        S.assert_term solver (TransSys.constr_of_bound (k + 1) ts);       
-            
-        ind solver ts (k + 1) goal_pairs' candidate_infos' premises'
-        
-      )
-    )
-  )
-  
-  (* The conjunction of the goal properties holds. *)
-  else
-  (
-
-    (* Print out all the properties that becomes a candidate. *)
-    List.iter 
-    (
-      fun (goal_prop_name, goal_prop) -> 
-        (debug ind
-          "Property %s proved in induction case for k = %d,\ 
-           and becomes a candidate"
-          goal_prop_name
-          k
-          end)
-    ) k_goal_pairs;
-
-    List.iter 
-    (
-      fun (goal_prop_name, goal_prop) -> 
-        Event.log `IND Event.L_info
-          "Property %s proved in induction case for k = %d, \ 
-           and becomes a candidate"
-          goal_prop_name
-          k
-    ) k_goal_pairs;
-
-    (* All the goals become candidates, store the new candidate and 
-         the step in which they are proved. *)
-    let all_candidate_infos = 
-      List.rev_append 
-        (List.map (fun x -> (x, k)) goal_pairs) 
-        candidate_infos
-    in
-
-    (* Check if bmc has already proven the base case for k induction. *)
-    if (!bmc_state >= k) then
-
-      (
-      
-        let all_candidate_pairs = List.map fst all_candidate_infos in
-      
-        (* Send the invariant. *)
-        Event.invariant 
-          `BMC
-          (Term.mk_and (List.map snd all_candidate_pairs));
-
-	TransSys.log_property_valid "inductive step" (List.map fst all_candidate_pairs);
- 
-(*
-        (* Print out all the properties being proved. *)
-        List.iter 
-        (
-          fun (cdd_prop_name, cdd_prop) -> 
-            Event.log 
-              0
-              "Property %s proved for k = %d "
-              cdd_prop_name
-              k
-        ) all_candidate_pairs;
-      
-        ()
-*)
-      )
-
-    else 
-
-      ind solver ts k [] all_candidate_infos premises'
-)
-
-and restart ts prop_pairs premises = 
-    
-    Event.log `IND Event.L_info "Restarting inductive step";
-  
+											if List.length propsToCheck <> 0 then
+												(
+													S.pop solver;
+													ind solver ts k k propsToCheck [] [] invariants'
+												) 
+											
+										)done;
+										List.iter(fun (name, prop) -> (debug ind "Property %s holds at induction step k = %d" name k end);) (propertiesToCheck'@(List.map snd assumedProperties'));
+								)
+						)
+				)
+		)
+	(* If there remains any properties to check*)
+	else if List.length propertiesToCheckNextK <> 0 then
+		(
+			ind solver ts k (k+1) propertiesToCheckNextK [] assumedProperties invariants'
+		)
+	else
+		(
+			(debug ind
+        "All good properties proved or disproved!"
+        end);
+		)
+		
+(**Restart induction process whenever an assumed property is disproved*)
+and restart ts k invariants= 
+  Event.log `IND Event.L_info "Restart inductive step";
+  Stat.incr Stat.ind_restarts;
   (* Delete solver instance *)
   (match !ref_solver with 
     | Some s -> S.delete_solver s
     | None -> ());
+			
+	let propertiesToCheck = (list_subtract (list_subtract ts.TransSys.props ts.TransSys.props_valid) ts.TransSys.props_invalid) in
+	
+  init ts propertiesToCheck invariants k true
 
-  init ts prop_pairs premises
-
-
-and init transSys prop_pairs premises =
+(** Initilize the induction step*)
+and init transSys propertiesToCheck invariants k reset =
 
     (* Determine logic for the SMT solver *)
     let logic = TransSys.get_logic transSys in
@@ -663,31 +379,26 @@ and init transSys prop_pairs premises =
   
     (* Create a reference for the solver. Only used in on_exit. *)
     ref_solver := Some solver;
-
-    (* Push the properties in step 0, and the transition function from 0th step 
-       to 1st step T(0, 1), and then begin the check. *)
-    S.assert_term solver (Term.mk_and premises);
-  
-    S.assert_term solver (TransSys.constr_of_bound 1 transSys);
-      
-    ind solver transSys 1 prop_pairs [] premises
-
+		
+		if reset then
+			(
+				aux transSys k solver;
+				ind solver transSys (k-1) k propertiesToCheck [] [] invariants
+			)
+		else
+			(
+				ind solver transSys 0 1 propertiesToCheck [] [] []	
+			)
 
 (* Entry point *)
 let main transSys =
 
   Stat.start_timer Stat.ind_total_time;
 
-  let prop_pairs = transSys.TransSys.props in
+  let propertiesToCheck = transSys.TransSys.props in
+	
+	init transSys propertiesToCheck [] 1 false;
 
-  let premises = List.append (List.map snd prop_pairs) !invs in
-
-  (match prop_pairs with
-
-    (* Terminate when there is nothing to check *)
-    | [] -> Event.log `IND Event.L_error "No property to check"
-
-    | _ -> init transSys prop_pairs premises);
 
  
 
