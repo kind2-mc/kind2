@@ -104,6 +104,9 @@ val empty_node : LustreIdent.t -> t
 (** Pretty-print a node *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
 
+(** Return the node of the given name from a list of nodes *)
+val node_of_name : LustreIdent.t -> t list -> t 
+
 val node_var_dependencies : bool -> t list -> t -> (StateVar.t * StateVar.StateVarSet.t) list -> (StateVar.t * StateVar.t list) list -> (StateVar.t * StateVar.StateVarSet.t) list
 
 val output_input_dep_of_var_dep : t -> (StateVar.t * StateVar.StateVarSet.t) list -> int list list
@@ -133,7 +136,7 @@ val reduce_to_property_coi : t list -> LustreIdent.t -> t list
 
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

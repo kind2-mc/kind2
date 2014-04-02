@@ -184,7 +184,10 @@ let init_of_bound i t =
 let trans_of_bound i t = 
 
   (* Bump bound if greater than zero *)
-  if Numeral.(i = zero) then t.trans else Term.bump_state i t.trans
+  if Numeral.(i = one) then 
+    t.trans 
+  else 
+    Term.bump_state (Numeral.(i - one)) t.trans
 
 
 (* Instantiate the initial state constraint to the bound *)

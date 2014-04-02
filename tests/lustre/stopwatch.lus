@@ -1,26 +1,30 @@
 node Switch(on, off: bool) returns (s: bool);
 let
-  s = if(false -> pre s) then not off else on; 
+  s = if (false -> pre s) then not off else on; 
 
 tel
 
-node Count(reset,x: bool) returns (c: int);
+node Count(reset, x: bool) returns (c: int);
 let
   c = if reset then 0
-      else if x then (0->pre c) + 1
-      else (0->pre c);
+      else if x then (0 -> pre c) + 1
+      else (0 -> pre c);
 tel
 
-node Stopwatch(on_off,reset,freeze: bool) returns (time: int);
+node Stopwatch(on_off, reset, freeze: bool) returns (time: int);
 var
-  running, freezed:bool;
-  cpt:int;
+  running, freezed: bool;
+  cpt: int;
+  time_is_positive: bool;
 let
   running = Switch(on_off, on_off);
   freezed = Switch(freeze and running,
                    freeze or on_off);
   cpt = Count(reset and not running, running);
   time = if freezed then (0 -> pre time) else cpt;
-  --%PROPERTY time > 0;
+
+  time_is_positive = time >= 0;
+  --%PROPERTY time_is_positive;
+
   --%MAIN
 tel

@@ -50,6 +50,14 @@ let svs_of_list list =
 let add_to_svs set list = 
   List.fold_left (fun a e -> SVS.add e a) set list 
   
+(* Create a copy of the state variable at the top level *)
+let state_var_of_top_scope is_input state_var =
+  StateVar.mk_state_var
+    (StateVar.name_of_state_var state_var) 
+    ("__top" :: (StateVar.scope_of_state_var state_var))
+    (StateVar.type_of_state_var state_var)
+    is_input
+
   
 type node_def =
 
@@ -551,15 +559,6 @@ let rec trans_sys_of_nodes'
         (init_uf_symbol, (init_vars, _)) :: 
         (trans_uf_symbol, (trans_vars, _)) :: _ -> 
 
-        (* Create a copy of the state variable at the top level *)
-        let state_var_of_top_scope is_input state_var =
-          StateVar.mk_state_var
-            (StateVar.name_of_state_var state_var) 
-            ("__top" :: (StateVar.scope_of_state_var state_var))
-            (StateVar.type_of_state_var state_var)
-            is_input
-        in
-
         (* Create copies of the state variables of the top node,
            flagging input variables *)
         let state_vars_top = 
@@ -567,15 +566,26 @@ let rec trans_sys_of_nodes'
           List.map (state_var_of_top_scope false) (outputs @ locals)
         in
 
-        (List.rev fun_defs, 
-         state_vars_top, 
-         Term.mk_uf 
-           init_uf_symbol
-           (List.map E.base_term_of_state_var state_vars_top),
-         Term.mk_uf 
-           trans_uf_symbol
-           ((List.map E.cur_term_of_state_var state_vars_top) @
-            (List.map E.pre_term_of_state_var state_vars_top)))
+        (
+
+          (* Definitions of predicates *)
+          List.rev fun_defs, 
+
+          (* State variables *)
+          state_vars_top, 
+
+          (* Initial state constraint *)
+          Term.mk_uf 
+            init_uf_symbol
+            (List.map E.base_term_of_state_var state_vars_top),
+
+          (* Transition relation *)
+          Term.mk_uf 
+            trans_uf_symbol
+            ((List.map E.cur_term_of_state_var state_vars_top) @
+             (List.map E.pre_term_of_state_var state_vars_top))
+
+        )
 
       | _ -> raise (Invalid_argument "trans_sys_of_nodes")
 
@@ -589,6 +599,7 @@ let rec trans_sys_of_nodes'
        N.equations = node_equations; 
        N.calls = node_calls; 
        N.asserts = node_asserts; 
+       N.props = node_props; 
        N.requires = node_requires; 
        N.ensures = node_ensures } as node) :: tl ->
 
@@ -608,6 +619,14 @@ let rec trans_sys_of_nodes'
 
     (* Output variables *)
     let outputs = node_outputs in
+
+    (* Variables in properties *)
+    let props_locals_set = 
+      List.fold_left 
+        SVS.union 
+        SVS.empty 
+        (List.map E.state_vars_of_expr node_props) 
+    in
 
     (* Add constraints from node calls *)
     let call_locals, init_defs_calls, trans_defs_calls = 
@@ -644,7 +663,12 @@ let rec trans_sys_of_nodes'
 
     (* Variables occurring under a pre and variables capturing the
        output of a node call *)
-    let locals_set = SVS.union node_locals_set call_locals_set in
+    let locals_set = 
+      List.fold_left 
+        SVS.union
+        SVS.empty
+        [node_locals_set; call_locals_set; props_locals_set]
+    in
 
     (* Variables occurring under a pre and variables capturing the
        output of a node call *)
@@ -652,7 +676,10 @@ let rec trans_sys_of_nodes'
 
     (* Variables visible in the signature of the definition *)
     let signature_vars_set = 
-      List.fold_left add_to_svs locals_set [inputs; outputs]
+      List.fold_left 
+        add_to_svs 
+        locals_set
+        [inputs; outputs]
     in
 
     (* Constraints from assertions
@@ -807,6 +834,45 @@ let rec trans_sys_of_nodes'
 
 let trans_sys_of_nodes nodes = trans_sys_of_nodes' [] [] nodes
 
+
+let name_of_prop = function 
+
+  (* Property is a state variable or true followed by a state variable *)
+  | expr when E.is_var expr -> 
+
+       (* Get state variable of expression *)
+       let state_var = E.state_var_of_expr expr in 
+
+       (* Name of state variable is name of property *)
+       let prop_name = StateVar.string_of_state_var state_var in
+
+       (* Term of property *)
+       let prop_term = 
+         E.base_term_of_state_var (state_var_of_top_scope false state_var) 
+       in
+
+       (prop_name, prop_term)
+
+  | _ -> raise (Failure "Non-variable property")
+    
+
+let props_of_nodes main_node nodes = 
+
+  try 
+
+    let { LustreNode.props } = LustreNode.node_of_name main_node nodes in
+
+    List.map 
+      name_of_prop
+      props
+
+
+  with Not_found -> 
+    raise 
+      (Failure 
+         (Format.asprintf
+            "props_of_nodes: Node %a not found" 
+            (LustreIdent.pp_print_ident false) main_node))
 
 
 (* 

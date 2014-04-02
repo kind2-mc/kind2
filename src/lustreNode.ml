@@ -1262,7 +1262,7 @@ let rec node_def_coi
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .. lustre-checker"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)
