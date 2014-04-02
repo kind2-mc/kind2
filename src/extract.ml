@@ -187,8 +187,7 @@ let extract uf_defs env term =
     let res = Eval.eval_term t env in
 
     debug extract 
-        "@[<v>%a@ with environment added@ %a@ evaluates to@ @[<hv>%a@]@]" 
-        Term.pp_print_term term
+        "@[<v>%a@ evaluates to@ @[<hv>%a@]@]" 
         Term.pp_print_term t
         Term.pp_print_term (Eval.term_of_value res)
     in
@@ -491,8 +490,9 @@ let extract uf_defs env term =
         | `EQ as s -> 
 
           (debug extract 
-              "@[<hv 1>%a@]@ to be@ %B" 
+              "@[<hv 1>%a@]@ %a to be@ %B" 
               Term.pp_print_term (Term.T.construct term)
+              Type.pp_print_type (Term.type_of_term (Term.T.construct term))
               polarity
            in
                  
@@ -599,17 +599,23 @@ let extract uf_defs env term =
             (* ite must be ternary *)
             | [p; t; f]  -> 
 
-              (* Condition is true? *)
-              if Eval.bool_of_value (eval_term p) then
+              if Term.type_of_term t == Type.t_bool then 
 
-                (* Extract from term for true and positive condition *)
-                (accum, [(p, env, true); (t, env, polarity)])
-
+                (* Condition is true? *)
+                if Eval.bool_of_value (eval_term p) then
+                  
+                  (* Extract from term for true and positive condition *)
+                  (accum, [(p, env, true); (t, env, polarity)])
+                  
                 (* Condition is false? *)
+                else
+                  
+                  (* Extract from term for false and negative condition *)
+                  (accum, [(p, env, false); (f, env, polarity)])
+                  
               else
 
-                (* Extract from term for false and negative condition *)
-                (accum, [(p, env, false); (f, env, polarity)])
+                extract_term_atom accum polarity env term 
 
             (* Non-ternary ite *)
             | _ -> assert false 
@@ -724,15 +730,15 @@ let extract uf_defs env term =
        [])
 
 
+    | Term.T.Attr (t, _) -> (accum, [t, env, polarity])
+
+
+      
+
   and extract_term_atom (bool, int) polarity env term = 
 
     let extract_term_atom_node fterm args =
 
-      debug extract
-          "@[<hv>extract_term_atom_node:@ %a@]" 
-          Term.pp_print_term (Term.construct fterm)
-      in
-      
       match fterm with 
 
         (* Lift if-then-else *)
@@ -770,6 +776,9 @@ let extract uf_defs env term =
         | Term.T.Var _ 
         | Term.T.Const _ -> ([], Term.T.construct fterm)
 
+        | Term.T.Attr (t, _) -> 
+          match args with [(a, _)] -> (a, t) | _ -> assert false
+
     in
 
     (* Lift ites from term *)
@@ -779,6 +788,11 @@ let extract uf_defs env term =
         (Term.T.construct term)
     in
 
+    debug extract
+        "@[<hv>extract_term_atom_node: term' = @ %a@]" 
+        Term.pp_print_term term'
+    in
+      
     let term'' = term' in
 
     ((bool, 

@@ -141,7 +141,7 @@ let rec definitions_of_equations vars init trans = function
           ([init'], [trans']))
         
     in
-
+(*
     let t_tl, t_ne, t_bl, t_sb, t_mb, t_bb = Term.stats () in
 
     Format.printf 
@@ -159,7 +159,8 @@ let rec definitions_of_equations vars init trans = function
       t_sb
       t_mb
       t_bb;
-    
+*)
+  
     (* Continue with next equations *)
     definitions_of_equations vars init' trans' tl
 
@@ -592,9 +593,10 @@ let rec trans_sys_of_nodes'
        N.ensures = node_ensures } as node) :: tl ->
 
 
-    Format.printf 
+    debug lustreTransSys
       "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]@."
-      (N.pp_print_node false) node;
+      (N.pp_print_node false) node
+    in
 
     (* Scope from node name *)
     let scope = 

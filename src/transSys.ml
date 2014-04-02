@@ -161,7 +161,18 @@ let mk_trans_sys uf_defs state_vars init trans props =
    TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
 let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 
+
+(* Return the state variables of the transition system *)
+let state_vars t = t.state_vars
+
   
+(* Return the variables at current and previous instants of the
+   transition system *)
+let vars t = 
+  List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) t.state_vars @
+  List.map (fun sv -> Var.mk_state_var_instance sv Numeral.one) t.state_vars
+  
+
 (* Instantiate the initial state constraint to the bound *)
 let init_of_bound i t = 
 
@@ -196,11 +207,29 @@ let props_of_bound i t =
   if Numeral.(i = zero) then props_0 else Term.bump_state i props_0
 
 
-(* Return declarations for *)
+(* Add an invariant to the transition system *)
+let add_invariant t invar = t.invars <- invar :: t.invars
+
+(* Add a valid property to the transition system *)
+let add_valid_prop t prop = t.props_valid <- prop :: t.props_valid
+
+(* Add an invalid property to the transition system *)
+let add_invalid_prop t prop = t.props_invalid <- prop :: t.props_invalid
+
+
+(* Return declarations for uninterpreted symbols *)
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
 
-       
+
+(* Apply [f] to all uninterpreted function symbols of the transition
+   system *)
+let iter_state_var_declarations { state_vars } f = 
+  List.iter (fun sv -> f (StateVar.uf_symbol_of_state_var sv)) state_vars
+  
+(* Apply [f] to all function definitions of the transition system *)
+let iter_uf_definitions { uf_defs } f = 
+  List.iter (fun (u, (v, t)) -> f u v t) uf_defs
   
   
 

@@ -1086,6 +1086,29 @@ let state_vars_at_offset_of_term i term =
     term
 
 
+(* Return set of state variables at given offsets in term *)
+let vars_at_offset_of_term i term = 
+
+  (* Collect all variables in a set *)
+  eval_t
+    (function 
+      | T.Var v 
+        when 
+          Var.is_state_var_instance v &&
+          Numeral.(Var.offset_of_state_var_instance v = i) -> 
+        (function 
+          | [] -> Var.VarSet.singleton v
+          | _ -> assert false)
+      | T.Var _ 
+      | T.Const _ -> 
+        (function [] -> Var.VarSet.empty | _ -> assert false)
+      | T.App _ -> 
+        List.fold_left Var.VarSet.union Var.VarSet.empty
+      | T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
+    term
+
+
 (* Return minimal and maximal offsets of state variable instances in term *)
 let rec var_offsets_of_term expr = 
   

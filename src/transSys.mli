@@ -69,6 +69,13 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> SMTExpr.logic
 
+(** Return the state variables of the transition system *)
+val state_vars : t -> StateVar.t list
+
+(** Return the variables at current and previous instants of the
+   transition system *)
+val vars : t -> Var.t list
+
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : Numeral.t -> t -> Term.t
 
@@ -85,6 +92,23 @@ val invars_of_bound : Numeral.t -> t -> Term.t
 
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
+
+(** Add an invariant to the transition system *)
+val add_invariant : t -> Term.t -> unit
+
+(** Add a valid property to the transition system *)
+val add_valid_prop : t -> (string * Term.t) -> unit
+
+(** Add an invalid property to the transition system *)
+val add_invalid_prop : t -> (string * Term.t) -> unit
+
+
+(** Apply [f] to all uninterpreted function symbols of the transition
+    system *)
+val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
+  
+(** Apply [f] to all function definitions of the transition system *)
+val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit
 
 
 (*

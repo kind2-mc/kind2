@@ -783,11 +783,6 @@ let rec reduce_to_coi' nodes accum = function
         is_main } as node_orig), 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
-    Format.printf 
-      "@[<v>reduce_to_coi: done with %a.@,Visited @[<hv>%a@]@]@."
-      (I.pp_print_ident false) node_name
-      (pp_print_list StateVar.pp_print_state_var ",@ ") sv_visited;
-
     (* Eliminate unused inputs, outputs and locals, record indexes of
        eliminated inputs and outputs and reduce signature *)
     let node_coi' = 
@@ -821,12 +816,6 @@ let rec reduce_to_coi' nodes accum = function
   | (state_var :: svtl, sv_visited, ({ name = node_name } as node_orig), node_coi) :: ntl 
     when List.mem state_var sv_visited -> 
 
-    Format.printf 
-      "reduce_to_coi: visited %a in %a@."
-      StateVar.pp_print_state_var state_var
-      (I.pp_print_ident false) node_name;
-
-
     (* Continue with next state variable of node *)
     reduce_to_coi' 
       nodes 
@@ -839,11 +828,6 @@ let rec reduce_to_coi' nodes accum = function
      sv_visited, 
      ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 
-
-    Format.printf 
-      "reduce_to_coi: %a in %a@."
-      StateVar.pp_print_state_var state_var
-      (I.pp_print_ident false) node_name;
 
     try 
 
@@ -924,10 +908,6 @@ let rec reduce_to_coi' nodes accum = function
 
         (* Get definition of state variable *)
         let state_var_def = List.assoc state_var node_orig.equations in
-
-        Format.printf 
-          "Equation %a@." 
-          (E.pp_print_lustre_expr false) state_var_def;
 
         (* Add definition of variable *)
         let equations_coi' = 

@@ -18,6 +18,7 @@
 
 open Lib
 
+(*
 
 (* Use configured SMT solver *)
 module BMCSolver = SMTSolver.Make (Config.SMTSolver)
@@ -498,6 +499,12 @@ let main transSys =
 
       (* Enter the bounded model checking loop begin with the initial state. *)
       bmc solver transSys abstract_var_list 0 prop_pairs []
+
+*)
+
+let on_exit _ = ()
+
+let main _ = ()
 
 
   

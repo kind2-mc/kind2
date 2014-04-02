@@ -397,6 +397,9 @@ val vars_of_term : t -> Var.VarSet.t
 (** Return the state variables at given offset in term *)
 val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
 
+(** Return the state variables at given offset in term *)
+val vars_at_offset_of_term : Numeral.t -> t -> Var.VarSet.t
+
 (** Return the minimal and maximal offset of state variable instances
 
     Return [(None, None)] if there are no state variable instances in
