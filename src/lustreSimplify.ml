@@ -2877,7 +2877,7 @@ let rec parse_node_equations
           ([], []) 
           ast_expr 
       in
-
+      
       (* Add new definitions to context *)
       let context', node' = new_defs_to_context context node new_defs in
 
@@ -2898,15 +2898,24 @@ let rec parse_node_equations
               A.pp_print_expr ast_expr
               A.pp_print_position A.dummy_pos;
 
-          parse_node_equations 
-            mk_new_var_ident 
-            mk_new_call_ident 
-            context' 
-            { node' with 
-                N.props = (expr :: node.N.props); 
-                N.equations = new_vars @ node.N.equations; 
-                N.calls = new_calls @ node.N.calls }
-            tl
+          (* Property is a state variable? *)
+          if E.is_var expr then 
+            
+            let state_var = E.state_var_of_expr expr in
+
+            parse_node_equations 
+              mk_new_var_ident 
+              mk_new_call_ident 
+              context' 
+              { node' with 
+                  N.props = (state_var :: node.N.props); 
+                  N.equations = new_vars @ node.N.equations; 
+                  N.calls = new_calls @ node.N.calls }
+              tl
+
+          else
+
+            failwith "x"
 
         (* Expression is not Boolean or is indexed *)
         | _ -> 
@@ -3109,11 +3118,13 @@ let rec parse_node_equations
                      Need to add property@;%a@]@."
                     (E.pp_print_lustre_expr false) range_expr;
 
+                  node
+
+(*
                   { node with 
-                      (* N.outputs = node_outputs';
-                         N.locals = node_vars'; *)
                       N.equations = eq :: node.N.equations;
                       N.props = range_expr :: node.N.props } 
+*)
 
                 | _ -> 
 

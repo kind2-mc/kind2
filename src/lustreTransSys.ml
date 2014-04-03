@@ -622,10 +622,7 @@ let rec trans_sys_of_nodes'
 
     (* Variables in properties *)
     let props_locals_set = 
-      List.fold_left 
-        SVS.union 
-        SVS.empty 
-        (List.map E.state_vars_of_expr node_props) 
+        svs_of_list node_props
     in
 
     (* Add constraints from node calls *)
@@ -835,26 +832,17 @@ let rec trans_sys_of_nodes'
 let trans_sys_of_nodes nodes = trans_sys_of_nodes' [] [] nodes
 
 
-let name_of_prop = function 
+let prop_of_node_prop state_var =
 
-  (* Property is a state variable or true followed by a state variable *)
-  | expr when E.is_var expr -> 
-
-       (* Get state variable of expression *)
-       let state_var = E.state_var_of_expr expr in 
-
-       (* Name of state variable is name of property *)
-       let prop_name = StateVar.string_of_state_var state_var in
-
-       (* Term of property *)
-       let prop_term = 
-         E.base_term_of_state_var (state_var_of_top_scope false state_var) 
-       in
-
-       (prop_name, prop_term)
-
-  | _ -> raise (Failure "Non-variable property")
-    
+  (* Name of state variable is name of property *)
+  let prop_name = StateVar.string_of_state_var state_var in
+  
+  (* Term of property *)
+  let prop_term = 
+    E.base_term_of_state_var (state_var_of_top_scope false state_var) 
+  in
+  
+  (prop_name, prop_term)
 
 let props_of_nodes main_node nodes = 
 
@@ -863,7 +851,7 @@ let props_of_nodes main_node nodes =
     let { LustreNode.props } = LustreNode.node_of_name main_node nodes in
 
     List.map 
-      name_of_prop
+      prop_of_node_prop
       props
 
 

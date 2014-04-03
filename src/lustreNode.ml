@@ -92,7 +92,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (* Proof obligations for node *)
-    props : LustreExpr.t list;
+    props : StateVar.t list;
 
     (* Contract for node, assumptions *)
     requires : LustreExpr.t list;
@@ -199,11 +199,11 @@ let pp_print_assert safe ppf expr =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf expr = 
+let pp_print_prop safe ppf var = 
 
   Format.fprintf ppf
     "@[<hv 2>--%%PROPERTY@ %a;@]"
-    (E.pp_print_lustre_expr safe) expr
+    (E.pp_print_lustre_var safe) var
     
 
 (* Pretty-print an assumption *)
@@ -692,11 +692,8 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   (* Add expressions in assertions *)
   let exprs_asserts = asserts @ exprs_calls in
 
-  (* Add expressions in assertions *)
-  let exprs_props = props @ exprs_asserts in
-
   (* Add expressions in assumptions *)
-  let exprs_requires = requires @ exprs_props in
+  let exprs_requires = requires @ exprs_asserts in
 
   (* Add expressions in guarantees *)
   let exprs_ensures = ensures @ exprs_requires in
@@ -743,7 +740,7 @@ let find_main nodes =
 exception Push_node of I.t
 
 
-let vars_in_asserts accum { asserts } =
+let state_vars_in_asserts accum { asserts } =
   
   List.fold_left
     (fun a e -> 
@@ -752,14 +749,7 @@ let vars_in_asserts accum { asserts } =
     accum
     asserts
 
-let vars_in_props accum { props } =
-  
-  List.fold_left
-    (fun a e -> 
-       (SVS.elements
-          (LustreExpr.state_vars_of_expr e)) @ a)
-    accum
-    props
+let state_vars_in_props accum { props } = props @ accum
 
 
 let rec reduce_to_coi' nodes accum = function 
@@ -959,7 +949,7 @@ let rec reduce_to_coi' nodes accum = function
       reduce_to_coi' 
         nodes
         accum
-        ((vars_in_asserts push_node_outputs push_node, 
+        ((state_vars_in_asserts push_node_outputs push_node, 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
@@ -1094,8 +1084,8 @@ let reduce_to_property_coi nodes main_name =
 
     (* State variables in properties *)
     let state_vars = 
-      vars_in_asserts
-        (vars_in_props [] main_node)
+      state_vars_in_asserts
+        (state_vars_in_props [] main_node)
         main_node
     in
 

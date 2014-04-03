@@ -84,7 +84,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (** Proof obligations for node *)
-    props : LustreExpr.t list;
+    props : StateVar.t list;
 
     (** Contract for node, assumptions *)
     requires : LustreExpr.t list;
