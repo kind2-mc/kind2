@@ -179,6 +179,7 @@ let rec pp_print_type_node ppf = function
   | Int -> Format.pp_print_string ppf "Int"
 
   | IntRange (i, j) -> 
+
     Format.fprintf
       ppf 
       "IntRange %a %a" 
@@ -188,6 +189,7 @@ let rec pp_print_type_node ppf = function
   | Real -> Format.pp_print_string ppf "Real"
 
   | BV i -> 
+
     Format.fprintf
       ppf 
       "BitVec %d" 

@@ -60,7 +60,7 @@ type t =
 
        The order of the list is important, it is the order the
        parameters in the declaration. *)
-    inputs : (StateVar.t * bool) list;
+    inputs : StateVar.t list;
 
     (* Output variables of node 
 
@@ -73,6 +73,9 @@ type t =
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
     locals : StateVar.t list; 
+
+    (* Oracle inputs *)
+    oracles : StateVar.t list;
 
     (* Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;
@@ -113,6 +116,7 @@ let empty_node name =
     inputs = [];
     outputs = [];
     locals = [];
+    oracles = [];
     equations = [];
     calls = [];
     asserts = [];
@@ -124,13 +128,13 @@ let empty_node name =
 
 
 (* Pretty-print a node input *)
-let pp_print_input safe ppf (var, is_const) =
+let pp_print_input safe ppf var =
 
   Format.fprintf ppf
     "%t%a: %a"
-    (function ppf -> if is_const then Format.fprintf ppf "const ")
+    (function ppf -> if StateVar.is_const var then Format.fprintf ppf "const ")
     (E.pp_print_lustre_var safe) var
-    Type.pp_print_type (StateVar.type_of_state_var var)
+    (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node output *)
@@ -139,7 +143,7 @@ let pp_print_output safe ppf var =
   Format.fprintf ppf
     "%a: %a"
     (E.pp_print_lustre_var safe) var
-    Type.pp_print_type (StateVar.type_of_state_var var)
+    (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node local variable *)
@@ -148,7 +152,7 @@ let pp_print_local safe ppf var =
   Format.fprintf ppf
     "%a: %a"
     (E.pp_print_lustre_var safe) var
-    Type.pp_print_type (StateVar.type_of_state_var var)
+    (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node equation *)
@@ -230,6 +234,7 @@ let pp_print_node
       inputs; 
       outputs; 
       locals; 
+      oracles; 
       equations; 
       calls; 
       asserts; 
@@ -258,13 +263,13 @@ let pp_print_node
      %a@;<1 -2>\
      tel;@]@]"  
     (I.pp_print_ident safe) name
-    (pp_print_list (pp_print_input safe) ";@ ") inputs
+    (pp_print_list (pp_print_input safe) ";@ ") (inputs @ oracles)
     (pp_print_list (pp_print_output safe) ";@ ") outputs
     (function ppf -> 
       if locals = [] then () else 
         Format.fprintf ppf 
-          "@[<hv 2>var@ %a@]" 
-          (pp_print_list (pp_print_local safe) "@ ") locals)
+          "@[<hv 2>var@ %a;@]" 
+          (pp_print_list (pp_print_local safe) ";@ ") locals)
     (space_if_nonempty locals)
     (pp_print_list (pp_print_call safe) "@ ") calls
     (space_if_nonempty calls)
@@ -323,7 +328,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         (* Variable is an input variable *)
         List.exists 
-          (fun (v, _) -> (==) var v)
+          (fun v -> (==) var v)
           node.inputs 
 
       then 
@@ -503,7 +508,7 @@ let output_input_dep_of_var_dep node var_deps =
                  given variable *)
               let rec aux i = function 
                 | [] -> raise Not_found
-                | (ident, _) :: tl when ident = v -> i
+                | ident :: tl when ident = v -> i
                 | _ :: tl -> aux (succ i) tl 
               in
 

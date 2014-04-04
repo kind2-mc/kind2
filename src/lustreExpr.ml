@@ -22,6 +22,7 @@ open Lib
 module I = LustreIdent
 
 module SVS = StateVar.StateVarSet
+module VS = Var.VarSet
 
 (* Exceptions *)
 exception Type_mismatch
@@ -86,6 +87,41 @@ type t = {
 (* ********************************************************************** *)
 
 
+let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
+
+  | Type.Bool -> Format.pp_print_string ppf "bool"
+
+  | Type.Int -> Format.pp_print_string ppf "int"
+
+  | Type.IntRange (i, j) -> 
+
+    Format.fprintf
+      ppf 
+      "subrange of in [%a, %a]" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
+
+  | Type.Real -> Format.pp_print_string ppf "Real"
+
+  | Type.BV i -> 
+
+    raise 
+      (Invalid_argument "pp_print_lustre_type: BV is not a Lustre type")
+
+  | Type.Array (s, t) -> 
+
+    raise 
+      (Invalid_argument "pp_print_lustre_type: Array is not a Lustre type")
+
+
+  | Type.Scalar (s, l) -> 
+
+    Format.fprintf
+      ppf 
+      "enum { %a }" 
+      (pp_print_list Format.pp_print_string " ") l
+
+
 (* String representation of a symbol in Lustre *)
 let string_of_symbol = function
   | `TRUE -> "true"
@@ -110,6 +146,7 @@ let string_of_symbol = function
   | `GEQ -> ">="
   | `GT -> ">"
   | _ -> failwith "string_of_symbol"
+
 
 (* Pretty-print a symbol *)
 let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s) 
@@ -516,7 +553,9 @@ let state_var_of_ident scope_index ident ident_type =
   let ident_string = I.string_of_ident true ident in 
 
   (* Create or return state variable of string *)
-  let state_var = StateVar.mk_state_var ident_string scope ident_type false in 
+  let state_var = 
+    StateVar.mk_state_var ident_string scope ident_type 
+  in 
 
   (* Add to hashtable unless already present *)
   (if not (StateVar.StateVarHashtbl.mem state_var_ident_map state_var) then 
@@ -1508,14 +1547,16 @@ let mk_arrow expr1 expr2 =
 (* Pre expression *)
 let rec mk_pre 
     mk_new_var_ident 
-    ((vars, calls) as defs)
+    new_vars
     ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
 
   (* Apply pre to initial state expression *)
-  let expr_init', ((vars', calls') as defs') = match expr_init with 
+  let expr_init', new_vars' = match expr_init with 
 
     (* Expression is a variable *)
-    | t when Term.is_free_var t -> (Term.bump_state Numeral.(- one) t, defs)
+    | t when Term.is_free_var t -> 
+      
+      (Term.bump_state Numeral.(- one) t, new_vars)
 
     (* Expression is a constant *)
     | t when 
@@ -1524,7 +1565,7 @@ let rec mk_pre
         (match Term.destruct t with 
           | Term.T.Const c1 when 
               Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
-          | _ -> false) -> (expr_init, defs)
+          | _ -> false) -> (expr_init, new_vars)
 
     (* Expression is not constant and no variable *)
     | _ -> 
@@ -1539,21 +1580,23 @@ let rec mk_pre
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, ((state_var, expr) :: vars, calls))
+      (Term.mk_var var, (state_var, expr) :: new_vars)
       
   in
 
   (* Apply pre to step state expression *)
-  let expr_step', defs'' = match expr_step with 
+  let expr_step', new_vars' = match expr_step with 
 
     (* Expression is identical to initial state *)
     | _ when equal_expr expr_step expr_init -> 
 
       (* Re-use abstraction for initial state *)
-      (expr_init', defs')
+      (expr_init', new_vars')
 
     (* Expression is a variable *)
-    | t when Term.is_free_var t -> (Term.bump_state Numeral.(- one) t, defs')
+    | t when Term.is_free_var t -> 
+
+      (Term.bump_state Numeral.(- one) t, new_vars')
 
     (* Expression is not constant and no variable *)
     | _ -> 
@@ -1568,35 +1611,15 @@ let rec mk_pre
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, ((state_var, expr) :: vars', calls'))
+      (Term.mk_var var, (state_var, expr) :: new_vars')
       
   in
 
   (* Return expression and new definitions *)
   ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
-   defs'') 
+   new_vars') 
 
 
-(*
-
-  (* pre x is unguarded *)
-  | VarPre _ :: _ -> true
-
-  | [] -> false
-
-  | Var _ :: tl -> pre_in_expr tl
-
-  | True :: tl -> pre_in_expr tl
-  | False :: tl -> pre_in_expr tl
-  | Int _ :: tl -> pre_in_expr tl
-  | Real _ :: tl -> pre_in_expr tl
-  | UnaryOp (_, e) :: tl -> pre_in_expr (e :: tl)
-  | BinaryOp (_, (e1, e2)) :: tl -> pre_in_expr (e1 :: e2 :: tl)
-  | VarOp (_, l) :: tl -> pre_in_expr (l @ tl)
-  | Ite (e1, e2, e3) :: tl -> pre_in_expr (e1 :: e2 :: e3 :: tl)
-*)
-
-  
 
 
 
@@ -1822,51 +1845,62 @@ let state_vars_of_expr { expr_init; expr_step } =
 
 
 
+let oracles_for_unguarded_pres 
+    mk_new_oracle_ident
+    oracles
+    ({ expr_init } as expr) = 
 
-(*
+  (* Get variables in initial state term *)
+  let init_vars = Term.vars_of_term expr_init in
 
-(* Return the variables in the expression *)
-let rec vars_of_expr' accum = function 
+  (* Filter for variables before the base instant *)
+  let init_pre_vars = 
+    VS.filter 
+      (fun var -> 
+         Var.is_state_var_instance var &&
+         Numeral.(Var.offset_of_state_var_instance var < zero))
+      init_vars
+  in
+  
+  (* No unguarded pres in initial state term? *)
+  if VS.is_empty init_pre_vars then
+    
+    (expr, oracles)
 
-  (* All expressions processed: return *)
-  | [] -> accum 
+  else
 
-  (* Expression is a variable: add variable and continue *)
-  | Var ident :: tl -> vars_of_expr' (ISet.add ident accum) tl
+    let oracle_substs, oracles' =
+      VS.fold
+        (fun var (accum, oracles) -> 
+           
+           (* Identifier for a fresh variable *)
+           let scope, new_oracle_ident = mk_new_oracle_ident () in
+           
+           (* State variable of identifier *)
+           let state_var = 
+             state_var_of_ident scope new_oracle_ident (Var.type_of_var var) 
+           in 
+           
+           (* Variable at base instant *)
+           let oracle_var = 
+             Var.mk_state_var_instance state_var Numeral.zero 
+           in
+           
+           (* Substitute oracle variable for variable *)
+           ((var, Term.mk_var oracle_var) :: accum, 
+            state_var :: oracles))
+        init_pre_vars
+        ([], oracles)
+    in
 
-  (* Expresssion is a non-variable leaf: continue *)
-  | (VarPre _
-    | True
-    | False
-    | Int _ 
-    | Real _) :: tl -> vars_of_expr' accum tl
+    ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
+     oracles')
 
-  (* Expression is unary: add variables in argument *)
-  | UnaryOp (_, expr) :: tl -> 
+    
 
-    vars_of_expr' accum (expr :: tl)
-
-  (* Expression is binary: add variables in arguments *)
-  | BinaryOp (_, (expr1, expr2)) :: tl -> 
-
-    vars_of_expr' accum (expr1 :: expr2 :: tl)
-
-  (* Expression is variadic: add variables in arguments *)
-  | VarOp (_, expr_list) :: tl -> 
-
-    vars_of_expr' accum (expr_list @ tl)
-
-  (* Expression is ternary: add variables in arguments *)
-  | Ite (expr1, expr2, expr3) :: tl -> 
-
-    vars_of_expr' accum (expr1 :: expr2 :: expr3 :: tl)
+     
 
 
-
-(* Return the variables in the expression *)
-let vars_of_expr expr = ISet.elements (vars_of_expr' ISet.empty [expr])
-
-*)
 
 (* 
    Local Variables:

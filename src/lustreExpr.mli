@@ -125,6 +125,10 @@ type t = private {
 
 
 (** Pretty-print a Lustre variable. *)
+val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
+
+
+(** Pretty-print a Lustre variable. *)
 val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 
 
 
@@ -244,16 +248,16 @@ val mk_arrow : t -> t -> t
 (** Apply the [pre] operator to the expression, abstract the
     expression to a fresh variable if it is not a variable.
 
-    [mk_pre f (v, c) e] returns the expression [e] unchanged if it is
+    [mk_pre f (v, c, o) e] returns the expression [e] unchanged if it is
     a constant, a [VarPre] expression if [e] is a [Var] expression and
     otherwise abstracts the expression [e] to a new variable and
     returns a [VarPre] expression of this variable. 
 
-    The function [f] is called to a fresh variable name, the
+    The function [f] is called to obtain a fresh variable name, the
     association between the fresh variable and [e] is added to the
-    list [v], the second element of the pair [c] is left
-    unchanged. *)
-val mk_pre : (unit -> LustreIdent.index * LustreIdent.t) -> ((StateVar.t * t) list * 'a) -> t -> (t * (((StateVar.t * t) list) * 'a))
+    list [v], the second and third elements of the pair, [c], and [o],
+    are left unchanged. *)
+val mk_pre : (unit -> LustreIdent.index * LustreIdent.t) -> (StateVar.t * t) list -> t -> (t * (StateVar.t * t) list)
 
 
 (** {1 Conversions to terms} *)
@@ -325,6 +329,7 @@ val state_vars_of_expr : t -> StateVar.StateVarSet.t
 val split_expr_list : t list -> expr list * expr list 
 
 
+val oracles_for_unguarded_pres : (unit -> LustreIdent.index * LustreIdent.t) -> StateVar.t list -> t -> t * StateVar.t list
 
 (*
 (** Return a list of names of variables in the expression *)

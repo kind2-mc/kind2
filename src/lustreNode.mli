@@ -47,12 +47,11 @@ type t =
     (** Name of the node *)
     name : LustreIdent.t;
 
-    (** Input variables of node, some flagged as constant
+    (** Input variables of node
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
-    inputs : 
-      (StateVar.t * bool) list;
+    inputs : StateVar.t list;
 
     (** Output variables of node
 
@@ -65,6 +64,12 @@ type t =
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
     locals : StateVar.t list;
+
+    (** Oracle inputs of node
+
+        The order of the list is important, it is the order the
+        parameters in the declaration. *)
+    oracles : StateVar.t list;
 
     (** Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;

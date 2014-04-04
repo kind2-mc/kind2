@@ -71,7 +71,7 @@ module StateVarMap : Map.S with type key = t
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : string -> string list -> Type.t -> bool -> t
+val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?is_clock:bool -> string -> string list -> Type.t -> t
 
 (** Import a state variable from a different instance into this
    hashcons table *)
@@ -99,6 +99,12 @@ val state_var_of_uf_symbol : UfSymbol.t -> t
 
 (** Return true if the state variable is an input *)
 val is_input : t -> bool
+
+(** Return true if the state variable is constant *)
+val is_const : t -> bool
+
+(** Return true if the state variable is a clock *)
+val is_clock : t -> bool
 
 (** {1 Iterators over defined state variables} *)
 

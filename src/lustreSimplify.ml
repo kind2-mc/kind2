@@ -37,6 +37,9 @@ exception Forward_reference of I.t * A.position
 (* Identifier for new variables from abstrations *)
 let new_var_ident = I.mk_string_ident "__abs" 
 
+(* Identifier for new oracle input *)
+let new_oracle_ident = I.mk_string_ident "__nondet" 
+
 (* Identifier for new variables from node calls *)
 let new_call_ident = I.mk_string_ident "__returns" 
 
@@ -179,6 +182,39 @@ let pp_print_lustre_context
     (pp_print_list (pp_print_consts safe) "@,") consts
 
 
+type abstraction_context = 
+
+  { 
+
+    (* Create a new identifier for a variable *)
+    mk_new_var_ident : unit -> LustreIdent.index * LustreIdent.t;
+
+    (* Create a new identifier for a node call *)
+    mk_new_call_ident : LustreIdent.t -> LustreIdent.t;
+
+    (* Create a new identifier for an oracle input *)
+    mk_new_oracle_ident : unit -> LustreIdent.index * LustreIdent.t;
+
+    (* Added definitions of variables *)
+    new_vars : (StateVar.t * E.t) list;
+
+    (* Added definitions of node calls *)
+    new_calls : (StateVar.t list * E.t * ISet.elt * E.t list * E.t list) list;
+
+    (* Added oracle inputs *)
+    new_oracles : StateVar.t list;
+
+  }
+
+
+let void_abstraction_context msg = 
+  { mk_new_var_ident = (fun _ -> failwith msg); 
+    mk_new_call_ident = (fun _ -> failwith msg); 
+    mk_new_oracle_ident = (fun _ -> failwith msg);
+    new_vars = []; 
+    new_calls = [];
+    new_oracles = [] } 
+
 
 (* ******************************************************************** *)
 (* Evaluation of expressions                                            *)
@@ -205,8 +241,6 @@ let pp_print_lustre_context
 *)
 let rec eval_ast_expr'     
     scope
-    mk_new_var_ident 
-    mk_new_call_ident
     ({ basic_types; 
        indexed_types; 
        free_types; 
@@ -214,21 +248,24 @@ let rec eval_ast_expr'
        index_ctx; 
        consts;
        nodes } as context)
-    result
-    ((new_vars, new_calls) as new_defs) = 
+    ({ mk_new_var_ident; 
+       mk_new_oracle_ident; 
+       mk_new_call_ident;
+       new_vars;
+       new_calls;
+       new_oracles } as abstractions)
+    result = 
 
 
   (* Evaluate the argument of a unary expression and construct a unary
      expression of the result with the given constructor *)
   let eval_unary_ast_expr mk expr pos tl = 
 
-    let expr', new_defs' = 
+    let expr', abstractions' = 
       unary_apply_to 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
-        new_defs 
+        abstractions
         mk
         expr 
         pos
@@ -237,11 +274,9 @@ let rec eval_ast_expr'
 
     eval_ast_expr' 
       scope
-      mk_new_var_ident 
-      mk_new_call_ident 
       context 
+      abstractions'
       expr'
-      new_defs'
       tl
 
   in
@@ -251,13 +286,11 @@ let rec eval_ast_expr'
      binary expression of the result with the given constructor *)
   let eval_binary_ast_expr mk expr1 expr2 pos tl = 
 
-    let expr', new_defs' = 
+    let expr', abstractions' = 
       binary_apply_to 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
-        new_defs 
+        abstractions
         mk
         expr1 
         expr2 
@@ -267,11 +300,9 @@ let rec eval_ast_expr'
 
     eval_ast_expr' 
       scope
-      mk_new_var_ident 
-      mk_new_call_ident 
       context 
+      abstractions'
       expr'
-      new_defs'
       tl
 
   in
@@ -279,7 +310,7 @@ let rec eval_ast_expr'
   function
 
     (* All expressions evaluated, return result *)
-    | [] -> (result, new_defs)
+    | [] -> (result, abstractions)
 
 
     (* An identifier without suffixes: a constant or a variable *)
@@ -310,11 +341,9 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        abstractions
         ((index, expr) :: result) 
-        new_defs 
         tl
 
 
@@ -333,11 +362,9 @@ let rec eval_ast_expr'
       (* Continue with unfolded indexes *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        abstractions
         result 
-        new_defs 
         tl'
 
 
@@ -369,11 +396,9 @@ let rec eval_ast_expr'
            (* Continue with record field *)
            eval_ast_expr' 
              scope
-             mk_new_var_ident 
-             mk_new_call_ident 
              context 
+             abstractions
              result 
-             new_defs 
              ((index, expr') :: tl)
 
          else
@@ -413,11 +438,9 @@ let rec eval_ast_expr'
            (* Continue with array or tuple field *)
            eval_ast_expr' 
              scope
-             mk_new_var_ident 
-             mk_new_call_ident 
              context 
+             abstractions
              result 
-             new_defs 
              ((index, expr') :: tl)
 
          else
@@ -442,11 +465,9 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        abstractions
         ((index, E.t_true) :: result) 
-        new_defs 
         tl
 
 
@@ -456,11 +477,9 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr'
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context
+        abstractions 
         ((index, E.t_false) :: result) 
-        new_defs 
         tl
 
 
@@ -470,11 +489,9 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        abstractions
         ((index, E.mk_int (Numeral.of_string d)) :: result) 
-        new_defs 
         tl
 
 
@@ -484,11 +501,9 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        abstractions
         ((index, E.mk_real (Decimal.of_string f)) :: result) 
-        new_defs 
         tl
 
 
@@ -526,31 +541,27 @@ let rec eval_ast_expr'
       (* Treat as tuple *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident
-        mk_new_call_ident 
         context 
+        abstractions
         result
-        new_defs 
         ((index, A.TupleExpr (pos, expr_list')) :: tl)
 
 
     (* Tuple constructor *)
     | (index, A.TupleExpr (pos, expr_list)) :: tl -> 
 
-      let _, new_defs', result' = 
+      let _, abstractions', result' = 
 
         (* Iterate over list of expressions *)
         List.fold_left
-          (fun (i, new_defs, accum) expr -> 
+          (fun (i, abstractions, accum) expr -> 
 
              (* Evaluate one expression *)
-             let expr', new_defs' = 
+             let expr', abstractions' = 
                eval_ast_expr 
                  scope
-                 mk_new_var_ident
-                 mk_new_call_ident 
                  context 
-                 new_defs 
+                 abstractions
                  expr
              in
 
@@ -558,7 +569,7 @@ let rec eval_ast_expr'
              (Numeral.(succ i),
 
               (* Continue with added definitions *)
-              new_defs',
+              abstractions',
 
               (* Append current index to each index of evaluated
                  expression *)
@@ -567,18 +578,16 @@ let rec eval_ast_expr'
                 accum
                 expr'))
 
-          (Numeral.zero, new_defs, result)
+          (Numeral.zero, abstractions, result)
           expr_list
       in
 
       (* Continue with result added *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident
-        mk_new_call_ident 
         context 
+        abstractions'
         result' 
-        new_defs' 
         tl
 
 
@@ -601,13 +610,11 @@ let rec eval_ast_expr'
                 A.pp_print_position pos));
 
       (* Evaluate expression for array elements *)
-      let expr_val, new_defs' = 
+      let expr_val, abstractions' = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          new_defs 
+          abstractions
           expr 
       in 
 
@@ -645,11 +652,9 @@ let rec eval_ast_expr'
       (* Continue with result added *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident
-        mk_new_call_ident 
         context
+        abstractions' 
         result' 
-        new_defs' 
         tl
 
     (* Array slice *)
@@ -827,18 +832,16 @@ let rec eval_ast_expr'
   *)         
 
       (* Convert identifiers to indexes for expressions in constructor *)
-      let expr_list', new_defs' = 
+      let expr_list', abstractions' = 
         List.fold_left 
-          (fun (accum, new_defs) (ident, ast_expr) -> 
+          (fun (accum, abstractions) (ident, ast_expr) -> 
 
              (* Evaluate one expression *)
-             let expr', new_defs' = 
+             let expr', abstractions' = 
                eval_ast_expr 
                  scope
-                 mk_new_var_ident
-                 mk_new_call_ident 
                  context 
-                 new_defs 
+                 abstractions
                  ast_expr
              in
 
@@ -850,8 +853,8 @@ let rec eval_ast_expr'
                     expr') :: accum)
                 accum
                 (List.rev expr'),
-              new_defs')) 
-          ([], new_defs)
+              abstractions')) 
+          ([], abstractions)
           (List.sort (fun (i, _) (j, _) -> I.compare j i) expr_list)
       in
 
@@ -918,11 +921,9 @@ let rec eval_ast_expr'
       (* Continue with result added *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident
-        mk_new_call_ident 
         context
+        abstractions' 
         result' 
-        new_defs' 
         tl
 
 
@@ -1012,13 +1013,11 @@ let rec eval_ast_expr'
     (* If-then-else *)
     | (index, A.Ite (pos, expr1, expr2, expr3)) :: tl -> 
 
-      let expr1', new_defs' = 
+      let expr1', abstractions' = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context
-          new_defs 
+          abstractions
           expr1 
       in
 
@@ -1029,13 +1028,11 @@ let rec eval_ast_expr'
         | [ index, ({ E.expr_type = t } as expr1) ] when 
             index = I.empty_index && t == Type.t_bool -> 
 
-          let expr', new_defs' = 
+          let expr', abstractions' = 
             binary_apply_to 
               scope
-              mk_new_var_ident 
-              mk_new_call_ident 
               context 
-              new_defs' 
+              abstractions' 
               (E.mk_ite expr1) 
               expr2 
               expr3 
@@ -1046,11 +1043,9 @@ let rec eval_ast_expr'
           (* Add expression to result *)
           eval_ast_expr' 
             scope
-            mk_new_var_ident 
-            mk_new_call_ident 
             context 
+            abstractions' 
             expr'
-            new_defs' 
             tl
 
 
@@ -1155,45 +1150,39 @@ let rec eval_ast_expr'
       in
 
       (* Evaluate inputs as list of expressions *)
-      let args', ((vars', calls') as new_defs') = 
+      let args', abstractions' = 
         eval_ast_expr
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          new_defs 
+          abstractions
           (A.ExprList (A.dummy_pos, args))
       in
 
       (* Evaluate initial values as list of expressions *)
-      let init', ((vars', calls') as new_defs') = 
+      let init', abstractions' = 
         eval_ast_expr
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          new_defs' 
+          abstractions' 
           (A.ExprList (A.dummy_pos, init))
       in
 
       (* Evaluate initial values as list of expressions *)
-      let cond', ((vars', calls') as new_defs') = 
+      let cond', abstractions' = 
 
         match 
           eval_ast_expr
             scope
-            mk_new_var_ident 
-            mk_new_call_ident 
             context 
-            new_defs' 
+            abstractions' 
             cond
         with 
 
           (* Expression without indexes *)
-          | ([ index, ({ E.expr_type = t } as expr) ], new_defs) 
+          | ([ index, ({ E.expr_type = t } as expr) ], abstractions) 
             when index = I.empty_index && t == Type.t_bool -> 
 
-            expr, new_defs
+            expr, abstractions
 
           (* Expression is not Boolean or is indexed *)
           | _ -> 
@@ -1237,16 +1226,15 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        { abstractions' 
+          with new_calls =
+                 (node_output_idents, 
+                  cond', 
+                  ident, 
+                  node_input_exprs, 
+                  node_init_exprs) :: abstractions'.new_calls }
         result' 
-        (vars', 
-         (node_output_idents, 
-          cond', 
-          ident, 
-          node_input_exprs, 
-          node_init_exprs) :: calls') 
         tl
 
 
@@ -1262,6 +1250,7 @@ let rec eval_ast_expr'
            eval_ast_expr
              scope
              mk_new_var_ident 
+             mk_new_oracle_ident 
              mk_new_call_ident 
              context 
              new_defs 
@@ -1272,6 +1261,7 @@ let rec eval_ast_expr'
            eval_ast_expr_list
              scope
              mk_new_var_ident 
+             mk_new_oracle_ident 
              mk_new_call_ident 
              context 
              new_defs' 
@@ -1282,6 +1272,7 @@ let rec eval_ast_expr'
            eval_ast_expr_list
              scope
              mk_new_var_ident 
+             mk_new_oracle_ident 
              mk_new_call_ident 
              context 
              new_defs'' 
@@ -1312,6 +1303,7 @@ let rec eval_ast_expr'
          eval_ast_expr' 
            scope
            mk_new_var_ident 
+           mk_new_oracle_ident 
            mk_new_call_ident 
            context 
            result' 
@@ -1341,26 +1333,27 @@ let rec eval_ast_expr'
       (try 
 
          (* Evaluate expression *)
-         let expr', new_defs' = 
+         let expr', abstractions' = 
            eval_ast_expr 
              scope
-             mk_new_var_ident 
-             mk_new_call_ident 
              context 
-             new_defs 
+             abstractions
              expr 
          in
 
          (* Abstract expression under pre to a fresh variable *)
-         let expr'', new_defs'' = 
+         let expr'', abstractions'' = 
 
            List.fold_left
-             (fun (accum, new_defs) (index, expr) -> 
-                let expr', new_defs' = 
-                  E.mk_pre mk_new_var_ident new_defs expr 
+             (fun 
+               (accum, ({ mk_new_var_ident; new_vars } as abstractions)) 
+               (index, expr) -> 
+                let expr', new_vars' = 
+                  E.mk_pre mk_new_var_ident new_vars expr 
                 in
-                (((index, expr') :: accum), new_defs'))
-             (result, new_defs')
+                (((index, expr') :: accum), 
+                 { abstractions with new_vars = new_vars' }))
+             (result, abstractions')
              expr'
 
          in
@@ -1368,11 +1361,9 @@ let rec eval_ast_expr'
          (* Add expression to result *)
          eval_ast_expr' 
            scope
-           mk_new_var_ident 
-           mk_new_call_ident 
            context 
+           abstractions''
            expr'' 
-           new_defs'' 
            tl
 
        with E.Type_mismatch ->
@@ -1405,8 +1396,14 @@ let rec eval_ast_expr'
     (* Node call *)
     | (index, A.Call (pos, ident, expr_list)) :: tl -> 
 
-      (* Inputs and outputs of called node *)
-      let { N.inputs = node_inputs; N.outputs = node_outputs } = 
+      let 
+
+        (* Inputs, outputs and oracles of called node *)
+        { N.inputs = node_inputs; 
+          N.outputs = node_outputs; 
+          N.oracles = node_oracles } 
+
+        = 
 
         try 
 
@@ -1423,13 +1420,11 @@ let rec eval_ast_expr'
       in
 
       (* Evaluate inputs as list of expressions *)
-      let expr_list', ((vars', calls') as new_defs') = 
+      let expr_list', abstractions' = 
         eval_ast_expr
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          new_defs 
+          abstractions
           (A.ExprList (A.dummy_pos, expr_list))
       in
 
@@ -1457,15 +1452,13 @@ let rec eval_ast_expr'
       (* Add expression to result *)
       eval_ast_expr' 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        { abstractions' 
+          with new_calls = (node_output_idents, 
+                            E.t_true, 
+                            ident, 
+                            node_input_exprs, []) :: abstractions'.new_calls }
         result' 
-        (vars', 
-         (node_output_idents, 
-          E.t_true, 
-          ident, 
-          node_input_exprs, []) :: calls') 
         tl
 
 
@@ -1484,10 +1477,8 @@ let rec eval_ast_expr'
 (* Apply operation to expression component-wise *)
 and unary_apply_to 
     scope
-    mk_new_var_ident
-    mk_new_call_ident 
     context 
-    new_defs 
+    abstractions
     mk 
     expr 
     pos
@@ -1496,13 +1487,11 @@ and unary_apply_to
   try 
 
     (* Evaluate expression *)
-    let expr', new_defs' = 
+    let expr', abstractions' = 
       eval_ast_expr 
         scope
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
-        new_defs 
+        abstractions
         expr 
     in
 
@@ -1512,7 +1501,7 @@ and unary_apply_to
        (fun a (j, e) -> (j, mk e) :: a)
        accum
        expr',
-     new_defs')
+     abstractions')
 
   with E.Type_mismatch ->
 
@@ -1527,10 +1516,8 @@ and unary_apply_to
 (* Apply operation to expressions component-wise *)
 and binary_apply_to 
     scope
-    mk_new_var_ident
-    mk_new_call_ident 
     context 
-    new_defs 
+    abstractions
     mk 
     expr1 
     expr2 
@@ -1538,24 +1525,20 @@ and binary_apply_to
     accum = 
 
   (* Evaluate first expression *)
-  let expr1', new_defs' = 
+  let expr1', abstractions' = 
     eval_ast_expr 
       scope
-      mk_new_var_ident 
-      mk_new_call_ident 
       context 
-      new_defs 
+      abstractions
       expr1 
   in
 
   (* Evaluate second expression *)
-  let expr2', new_defs' = 
+  let expr2', abstractions' = 
     eval_ast_expr 
       scope
-      mk_new_var_ident 
-      mk_new_call_ident 
       context 
-      new_defs' 
+      abstractions'
       expr2 
   in
 
@@ -1580,7 +1563,7 @@ and binary_apply_to
        accum
        expr1'
        expr2',
-     new_defs')
+     abstractions')
 
   (* Type checking error or one expression has more indexes *)
   with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
@@ -1598,20 +1581,16 @@ and binary_apply_to
 (* Evaluate expression *)
 and eval_ast_expr 
     scope
-    mk_new_var_ident 
-    mk_new_call_ident 
     context 
-    new_defs
+    abstractions
     expr = 
 
-  let expr', new_defs' = 
+  let expr', abstractions' = 
     eval_ast_expr' 
       scope
-      mk_new_var_ident
-      mk_new_call_ident 
       context
+      abstractions
       [] 
-      new_defs 
       [(I.empty_index, expr)]
   in
 (*
@@ -1642,7 +1621,7 @@ and eval_ast_expr
     | _ -> ());
       
   (* Expression must be sorted by their indexes *)
-  (List.rev expr', new_defs')
+  (List.rev expr', abstractions')
 
 
 (* Evaluate expression to an integer constant *)
@@ -1654,32 +1633,16 @@ and int_const_of_ast_expr context expr =
     eval_ast_expr 
 
       (* Dummy scope *)
-        I.empty_index
-
-      (* Immediately fail when abstraction expressions to a
-         definition *)
-      (fun _ ->       
-         (* Fail *)
-         raise 
-           (Failure 
-              (Format.asprintf 
-                 "Expression %a in %a must be a constant integer" 
-                 A.pp_print_expr expr
-                 A.pp_print_position A.dummy_pos))) 
-
-      (* Immediately fail when abstraction expressions to a
-         node call *)
-      (fun _ ->       
-         (* Fail *)
-         raise 
-           (Failure 
-              (Format.asprintf 
-                 "Expression %a in %a must be a constant integer" 
-                 A.pp_print_expr expr
-                 A.pp_print_position A.dummy_pos))) 
+      I.empty_index
 
       context
-      ([], [])
+
+      (void_abstraction_context 
+         (Format.asprintf 
+            "Expression %a in %a must be a constant integer" 
+            A.pp_print_expr expr
+            A.pp_print_position A.dummy_pos))
+
       expr 
 
   with
@@ -1688,7 +1651,7 @@ and int_const_of_ast_expr context expr =
        expression without index and without new definitions *)
     | ([ index, { E.expr_init = ei; 
                   E.expr_step = es } ],
-       ([], [])) when 
+       { new_vars = []; new_calls = []; new_oracles = []}) when 
         index = I.empty_index && 
         ei == es -> 
 
@@ -1748,7 +1711,7 @@ and node_inputs_of_exprs node_inputs expr_list =
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        (in_var, _) 
+        in_var
         (_, ({ E.expr_type } as expr)) 
         accum ->
 
@@ -2311,36 +2274,20 @@ let add_typed_decl
   try 
 
     (* Evaluate expression *)
-    let expr_val, new_defs = 
+    let expr_val, abstractions = 
       eval_ast_expr 
 
         (* Dummy scope *)
         I.empty_index
 
-        (* Immediately fail when abstraction expressions to a
-            definition *)
-        (fun _ ->       
-           (* Fail *)
-           raise 
-             (Failure 
-                (Format.asprintf 
-                   "Expression %a in %a must be a constant" 
-                   A.pp_print_expr expr
-                   A.pp_print_position A.dummy_pos))) 
-
-        (* Immediately fail when abstraction expressions to a node
-           call *)
-        (fun _ ->       
-           (* Fail *)
-           raise 
-             (Failure 
-                (Format.asprintf 
-                   "Expression %a in %a must be a constant" 
-                   A.pp_print_expr expr
-                   A.pp_print_position A.dummy_pos))) 
-
         context 
-        ([], [])
+
+        (void_abstraction_context 
+           (Format.asprintf 
+              "Expression %a in %a must be a constant" 
+              A.pp_print_expr expr
+              A.pp_print_position A.dummy_pos))
+
         expr 
     in
 
@@ -2470,8 +2417,7 @@ let add_node_input_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_inputs' = 
-    (E.state_var_of_ident scope (I.push_back_index index ident) basic_type, 
-     is_const) :: 
+    E.state_var_of_ident scope (I.push_back_index index ident) basic_type :: 
     node_inputs
   in
 
@@ -2557,6 +2503,48 @@ let add_node_var_decl
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    node,
    node_locals')
+
+
+(* Add declaration of a node input to contexts *)
+let add_node_oracle_decl
+    ident
+    (({ type_ctx; index_ctx } as context), 
+     ({ N.oracles = node_oracles; N.name = node_ident } as node))
+    index 
+    state_var =
+
+(*
+  Format.printf "add_node_input_decl: %a %a %a@."
+    (I.pp_print_ident false) ident
+    (I.pp_print_index false) index
+    Type.pp_print_type basic_type;
+*)
+
+  (* Node name is scope for naming of variables *)
+  let scope = I.index_of_ident node_ident in 
+
+  (* Add index to identifier *)
+  let ident' = I.push_index index ident in
+
+  let basic_type = StateVar.type_of_state_var state_var in
+
+  (* Add to typing context *)
+  let type_ctx' = 
+    (ident', basic_type) :: 
+      (add_enum_to_context type_ctx basic_type) 
+  in
+
+  (* Add indexed identifier to context *)
+  let index_ctx' = add_to_prefix_map index_ctx ident' () in
+
+  let node_oracles' = 
+    E.state_var_of_ident scope (I.push_back_index index ident) basic_type :: 
+    node_oracles
+  in
+
+  ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
+   { node with N.oracles = node_oracles' })
+
 
 
 (* Add all node inputs to contexts *)
@@ -2746,7 +2734,10 @@ let rec parse_node_locals context node = function
 
 
 (* Add abstracted variables and node calls to context *)
-let new_defs_to_context context node (vars, calls) =
+let abstractions_to_context 
+    context 
+    node
+    { new_vars; new_calls; new_oracles } =
 
   let context', node' = 
 
@@ -2765,7 +2756,27 @@ let new_defs_to_context context node (vars, calls) =
          (context',
           { node with N.locals = node.N.locals @ (List.rev node_locals') }))
       (context, node)
-      vars
+      new_vars
+
+  in
+
+  let context'', node'' = 
+
+    List.fold_left 
+      (fun (context, node) (state_var) -> 
+         let (base_ident, index) = 
+           I.split_ident (E.ident_of_state_var state_var) 
+         in
+         let context', node' = 
+           add_node_oracle_decl 
+             base_ident
+             (context, node)
+             (I.index_of_one_index_list index)
+             state_var
+         in
+         (context', node'))
+      (context, node)
+      new_oracles
 
   in
 
@@ -2787,15 +2798,14 @@ let new_defs_to_context context node (vars, calls) =
              { node with N.locals = node.N.locals @ (List.rev node_locals') }))
          accum
          outputs)
-    (context', node')
-    calls
+    (context'', node'')
+    new_calls
 
 
 (* Parse a statement (equation, assert or annotation) in a node *)
 let rec parse_node_equations 
-    mk_new_var_ident
-    mk_new_call_ident 
     context 
+    empty_abstractions 
     ({ N.name = node_ident } as node ) = 
 
   (* Node name is scope for naming of variables *)
@@ -2812,18 +2822,13 @@ let rec parse_node_equations
       let scope = I.index_of_ident node_ident in 
 
       (* Evaluate expression *)
-      let expr', ((new_vars, new_calls) as new_defs) = 
+      let expr', abstractions = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          ([], []) 
+          empty_abstractions
           ast_expr 
       in
-
-      (* Add new definitions to context *)
-      let context', node' = new_defs_to_context context node new_defs in
 
       (* Check evaluated expression *)
       (match expr' with 
@@ -2835,22 +2840,32 @@ let rec parse_node_equations
                E.expr_type = t } as expr) ] when 
             index = I.empty_index && t == Type.t_bool -> 
 
+          (* Replace unguarded pre with oracle constants *)
+          let expr', oracles' = 
+            E.oracles_for_unguarded_pres
+              abstractions.mk_new_oracle_ident
+              abstractions.new_oracles
+              expr
+          in
+          
+          (* Add oracle constants to abstraction *)
+          let abstractions' = 
+            { abstractions with new_oracles = oracles' } 
+          in
 
-          if E.pre_is_unguarded expr then 
-
-            Format.printf 
-              "@[<h>Warning: unguarded pre in %a in %a@]@." 
-              A.pp_print_expr ast_expr
-              A.pp_print_position A.dummy_pos;
+          (* Add new definitions to context *)
+          let context', node' = 
+            abstractions_to_context context node abstractions' 
+          in
 
           parse_node_equations 
-            mk_new_var_ident 
-            mk_new_call_ident 
             context'
+            empty_abstractions
             { node' with 
                 N.asserts = (expr :: node.N.asserts); 
-                N.equations = new_vars @ node.N.equations; 
-                N.calls = new_calls @ node.N.calls }
+                N.equations = abstractions.new_vars @ node.N.equations; 
+                N.calls = abstractions.new_calls @ node.N.calls;
+                N.oracles = oracles' @ node.N.oracles }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -2868,19 +2883,14 @@ let rec parse_node_equations
     | A.AnnotProperty ast_expr :: tl -> 
 
       (* Evaluate expression *)
-      let expr', ((new_vars, new_calls) as new_defs) = 
+      let expr', abstractions = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          ([], []) 
+          empty_abstractions
           ast_expr 
       in
       
-      (* Add new definitions to context *)
-      let context', node' = new_defs_to_context context node new_defs in
-
       (* Check evaluated expression *)
       (match expr' with 
 
@@ -2891,12 +2901,24 @@ let rec parse_node_equations
                E.expr_type = t } as expr) ] when 
             index = I.empty_index && t == Type.t_bool -> 
 
-          if E.pre_is_unguarded expr then 
+          (* Replace unguarded pre with oracle constants *)
+          let expr', oracles' = 
+            E.oracles_for_unguarded_pres
+              abstractions.mk_new_oracle_ident
+              abstractions.new_oracles
+              expr
+          in
+          
+          (* Add oracle constants to abstraction *)
+          let abstractions' = 
+            { abstractions with new_oracles = oracles' } 
+          in
 
-            Format.printf 
-              "@[<h>Warning: unguarded pre in %a in %a@]@." 
-              A.pp_print_expr ast_expr
-              A.pp_print_position A.dummy_pos;
+          (* Add new definitions to context *)
+          let context', node' = 
+            abstractions_to_context context node abstractions'
+          in
+
 
           (* Property is a state variable? *)
           if E.is_var expr then 
@@ -2904,13 +2926,12 @@ let rec parse_node_equations
             let state_var = E.state_var_of_expr expr in
 
             parse_node_equations 
-              mk_new_var_ident 
-              mk_new_call_ident 
               context' 
+              empty_abstractions
               { node' with 
                   N.props = (state_var :: node.N.props); 
-                  N.equations = new_vars @ node.N.equations; 
-                  N.calls = new_calls @ node.N.calls }
+                  N.equations = abstractions.new_vars @ node.N.equations; 
+                  N.calls = abstractions.new_calls @ node.N.calls }
               tl
 
           else
@@ -2935,13 +2956,11 @@ let rec parse_node_equations
     | A.Equation (struct_items, ast_expr) :: tl -> 
 
       (* Evaluate expression *)
-      let expr', ((new_vars, new_calls) as new_defs) = 
+      let expr', abstractions = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          ([], []) 
+          empty_abstractions
 
           (* Wrap right-hand side in a singleton list, nested lists
                 are flattened, s.t. ((a,b)) become (a,b) *)
@@ -2963,7 +2982,7 @@ let rec parse_node_equations
 
       if 
 
-        (* Chack for unguarded pre in expression *)
+        (* Check for unguarded pre in expression *)
         List.exists 
           (function (_, e) -> E.pre_is_unguarded e) 
           expr' 
@@ -3145,16 +3164,17 @@ let rec parse_node_equations
       in
 
       (* Add new definitions to context *)
-      let context'', node'' = new_defs_to_context context node' new_defs in
+      let context'', node'' = 
+        abstractions_to_context context node' abstractions 
+      in
 
       parse_node_equations 
-        mk_new_var_ident 
-        mk_new_call_ident 
         context''
+        empty_abstractions
         { node'' with
-            N.equations = new_vars @ node''.N.equations; 
+            N.equations = abstractions.new_vars @ node''.N.equations; 
             N.props = node''.N.props; 
-            N.calls = new_calls @ node''.N.calls }
+            N.calls = abstractions.new_calls @ node''.N.calls }
         tl
 
 
@@ -3162,18 +3182,16 @@ let rec parse_node_equations
     | A.AnnotMain :: tl -> 
 
       parse_node_equations 
-        mk_new_var_ident 
-        mk_new_call_ident 
         context 
+        empty_abstractions
         { node with N.is_main = true }
         tl
 
 
 (* Parse a contract annotation of a node *)
 let rec parse_node_contract 
-    mk_new_var_ident 
-    mk_new_call_ident
     context 
+    empty_abstractions
     ({ N.name = node_ident } as node) = 
 
   (* Node name is scope for naming of variables *)
@@ -3187,18 +3205,18 @@ let rec parse_node_contract
     | A.Requires expr :: tl -> 
 
       (* Evaluate expression *)
-      let expr', ((new_vars, new_calls) as new_defs) = 
+      let expr', abstractions = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          ([], []) 
+          empty_abstractions
           expr 
       in
 
       (* Add new definitions to context *)
-      let context', node' = new_defs_to_context context node new_defs in
+      let context', node' = 
+        abstractions_to_context context node abstractions
+      in
 
       (* Check evaluated expression *)
       (match expr' with 
@@ -3211,13 +3229,12 @@ let rec parse_node_contract
             index = I.empty_index && t == Type.t_bool -> 
 
           parse_node_contract 
-            mk_new_var_ident 
-            mk_new_call_ident 
             context' 
+            empty_abstractions
             { node' with 
                 N.requires = (expr :: node.N.requires); 
-                N.equations = new_vars @ node.N.equations; 
-                N.calls = new_calls @ node.N.calls }
+                N.equations = abstractions.new_vars @ node.N.equations; 
+                N.calls = abstractions.new_calls @ node.N.calls }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -3234,18 +3251,18 @@ let rec parse_node_contract
     | A.Ensures expr :: tl -> 
 
       (* Evaluate expression *)
-      let expr', ((new_vars, new_calls) as new_defs) = 
+      let expr', abstractions = 
         eval_ast_expr 
           scope
-          mk_new_var_ident 
-          mk_new_call_ident 
           context 
-          ([], []) 
+          empty_abstractions
           expr 
       in
 
       (* Add new definitions to context *)
-      let context', node' = new_defs_to_context context node new_defs in
+      let context', node' = 
+        abstractions_to_context context node abstractions 
+      in
 
       (* Check evaluated expression *)
       (match expr' with 
@@ -3258,13 +3275,12 @@ let rec parse_node_contract
             index = I.empty_index && t == Type.t_bool -> 
 
           parse_node_contract 
-            mk_new_var_ident 
-            mk_new_call_ident 
             context' 
+            empty_abstractions
             { node' with 
                 N.ensures = (expr :: node.N.ensures); 
-                N.equations = new_vars @ node.N.equations;
-                N.calls = new_calls @ node.N.calls }
+                N.equations = abstractions.new_vars @ node.N.equations;
+                N.calls = abstractions.new_calls @ node.N.calls }
             tl
 
         (* Expression is not Boolean or is indexed *)
@@ -3307,6 +3323,20 @@ let parse_node_signature
         mk_new_call_ident ident
   in
 
+  let mk_new_oracle_ident = 
+    let r = ref Numeral.(- one) in
+    fun () -> Numeral.incr r; (scope, I.push_int_index !r new_oracle_ident)
+  in
+
+  let empty_abstractions = 
+    { mk_new_var_ident = mk_new_var_ident;
+      mk_new_oracle_ident = mk_new_oracle_ident;
+      mk_new_call_ident = mk_new_call_ident;
+      new_vars = [];
+      new_calls = [];
+      new_oracles = [] }
+  in
+
   (* Parse inputs, add to global context and node context *)
   let local_context_inputs, node_context_inputs = 
     parse_node_inputs global_context (N.empty_node node_ident) inputs
@@ -3322,9 +3352,8 @@ let parse_node_signature
      Must check here, may not use local variables *)
   let node_context_contract = 
     parse_node_contract 
-      mk_new_var_ident 
-      mk_new_call_ident 
       local_context_outputs 
+      empty_abstractions
       node_context_outputs 
       contract
   in
@@ -3338,9 +3367,8 @@ let parse_node_signature
      context is not modified *)
   let node_context_equations = 
     parse_node_equations 
-      mk_new_var_ident 
-      mk_new_call_ident 
       local_context_locals 
+      empty_abstractions
       node_context_locals 
       equations
   in
