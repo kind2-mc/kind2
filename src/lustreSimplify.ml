@@ -1132,8 +1132,10 @@ let rec eval_ast_expr'
     (* Condact, a node with an activation condition *)
     | (index, A.Condact (pos, cond, ident, args, init)) :: tl -> 
 
-      (* Inputs and outputs of called node *)
-      let { N.inputs = node_inputs; N.outputs = node_outputs } = 
+      (* Inputs, outputs and oracles of called node *)
+      let { N.inputs = node_inputs; 
+            N.outputs = node_outputs; 
+            N.oracles = node_oracles } = 
 
         try 
 

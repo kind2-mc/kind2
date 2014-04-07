@@ -374,7 +374,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
             input_terms_init @ 
 
             (* Current state output variables *)
-            (List.map E.cur_term_of_state_var output_default_vars) @ 
+            (List.map E.base_term_of_state_var output_default_vars) @ 
 
             (* Current state local variables *)
             call_local_vars_init
