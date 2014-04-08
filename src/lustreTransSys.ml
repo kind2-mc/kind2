@@ -595,6 +595,7 @@ let rec trans_sys_of_nodes'
 
   | ({ N.name = node_name;
        N.inputs = node_inputs;
+       N.oracles = node_oracles;
        N.outputs = node_outputs; 
        N.locals = node_locals; 
        N.equations = node_equations; 
@@ -617,6 +618,9 @@ let rec trans_sys_of_nodes'
 
     (* Input variables *)
     let inputs = node_inputs in
+
+    (* Oracle input variables *)
+    let oracles = node_oracles in
 
     (* Output variables *)
     let outputs = node_outputs in
@@ -771,6 +775,9 @@ let rec trans_sys_of_nodes'
        (* Input variables *)
        (((List.map E.base_var_of_state_var inputs) @
          
+         (* Oracle inputs *)
+         (List.map E.base_var_of_state_var oracles) @
+         
          (* Output variables *)
          (List.map E.base_var_of_state_var outputs) @
          
@@ -804,6 +811,9 @@ let rec trans_sys_of_nodes'
        (* Input variables *)
        (((List.map E.cur_var_of_state_var inputs) @
          
+         (* Oracle inputs *)
+         (List.map E.cur_var_of_state_var oracles) @
+         
          (* Output variables *)
          (List.map E.cur_var_of_state_var outputs) @
 
@@ -813,6 +823,9 @@ let rec trans_sys_of_nodes'
          (* Input variables *)
          (List.map E.pre_var_of_state_var inputs) @
 
+         (* Oracle inputs *)
+         (List.map E.pre_var_of_state_var oracles) @
+         
          (* Output variables *)
          (List.map E.pre_var_of_state_var outputs) @
 
@@ -824,8 +837,8 @@ let rec trans_sys_of_nodes'
     in
 
     let node_def = 
-      { inputs = inputs;
-        outputs = node_outputs;
+      { inputs = inputs @ oracles;
+        outputs = outputs;
         locals = locals;
         init_uf_symbol = init_uf_symbol;
         init_term = Term.mk_and init_defs_calls;

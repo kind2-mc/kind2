@@ -150,7 +150,7 @@ let mk_pos = A.position_of_lexing
     
 (* Priorities and associativity of operators, lowest first *)
 %left CARET PIPE
-%nonassoc IF WITH THEN ELSE
+%nonassoc ELSE
 %right ARROW
 %right IMPL
 %left OR XOR
@@ -163,8 +163,6 @@ let mk_pos = A.position_of_lexing
 %nonassoc CURRENT 
 %nonassoc PRE 
 %nonassoc INT REAL 
-%nonassoc LSQBRACKET
-%left DOT
 
 (* Start token *)
 %start <LustreAst.t> main
@@ -178,11 +176,15 @@ main: p = list(decl) EOF { List.flatten p }
 
 (* A declaration is a type, a constant, a node or a function declaration *)
 decl:
-  | d = const_decl { List.map (function e -> A.ConstDecl e) d }
-  | d = type_decl { List.map (function e -> A.TypeDecl e) d }
-  | d = node_decl { [A.NodeDecl d] }
-  | d = func_decl { [A.FuncDecl d] }
-  | d = node_param_inst { [A.NodeParamInst d] }
+  | d = const_decl { List.map 
+                       (function e -> A.ConstDecl (mk_pos $startpos, e)) 
+                       d }
+  | d = type_decl { List.map 
+                      (function e -> A.TypeDecl (mk_pos $startpos, e)) 
+                      d }
+  | d = node_decl { [A.NodeDecl (mk_pos $startpos, d)] }
+  | d = func_decl { [A.FuncDecl (mk_pos $startpos, d)] }
+  | d = node_param_inst { [A.NodeParamInst (mk_pos $startpos, d)] }
 
 
 (* ********************************************************************** *)
@@ -198,19 +200,19 @@ const_decl_body:
 
      Separate rule for singleton list to avoid shift/reduce conflict *)
   | h = ident; COLON; t = lustre_type; SEMICOLON 
-    { [A.FreeConst (h, t)] } 
+    { [A.FreeConst (mk_pos $startpos, h, t)] } 
 
   (* Imported (free) constant *)
   | h = ident; COMMA; l = ident_list; COLON; t = lustre_type; SEMICOLON 
-    { List.map (function e -> A.FreeConst (e, t)) (h :: l) } 
+    { List.map (function e -> A.FreeConst (mk_pos $startpos, e, t)) (h :: l) } 
 
   (* Defined constant without a type *)
   | s = ident; EQUALS; e = expr; SEMICOLON 
-    { [A.UntypedConst (s, e)] }
+    { [A.UntypedConst (mk_pos $startpos, s, e)] }
 
   (* Defined constant with a type *)
   | c = typed_ident; EQUALS; e = expr; SEMICOLON 
-    { let (s, t) = c in [A.TypedConst (s, e, t)] }
+    { let (s, t) = c in [A.TypedConst (mk_pos $startpos, s, e, t)] }
 
 
 (* ********************************************************************** *)
@@ -221,24 +223,29 @@ type_decl:
 
   (* A free type *)
   | TYPE; l = ident_list; SEMICOLON 
-     { List.map (function e -> A.FreeType e) l }
+     { List.map (function e -> A.FreeType (mk_pos $startpos, e)) l }
 
   (* A type alias *)
   | TYPE; l = ident_list; EQUALS; t = lustre_type; SEMICOLON
-     { List.map (function e -> A.AliasType (e, t)) l }
+     { List.map (function e -> A.AliasType (mk_pos $startpos, e, t)) l }
 
   (* A record type, can only be defined as alias *)
   | TYPE; l = ident_list; EQUALS; t = record_type; SEMICOLON
-     { List.map (function e -> A.AliasType (e, A.RecordType t)) l }
+     { List.map 
+         (function e -> 
+           A.AliasType (mk_pos $startpos, 
+                        e, 
+                        A.RecordType (mk_pos $startpos, t))) 
+         l }
 
 
 (* A type *)
 lustre_type:
 
   (* Predefined types *)
-  | BOOL { A.Bool }
-  | INT { A.Int }
-  | REAL { A.Real }
+  | BOOL { A.Bool (mk_pos $startpos) }
+  | INT { A.Int (mk_pos $startpos)}
+  | REAL { A.Real (mk_pos $startpos)}
 
   | SUBRANGE;
     LSQBRACKET;
@@ -248,13 +255,13 @@ lustre_type:
     RSQBRACKET 
     OF
     INT 
-    { A.IntRange (l, u)}
+    { A.IntRange (mk_pos $startpos, l, u)}
 
   (* User-defined type *)
-  | s = ident { A.UserType s }
+  | s = ident { A.UserType (mk_pos $startpos, s) }
 
   (* Tuple type *)
-  | t = tuple_type { A.TupleType t } 
+  | t = tuple_type { A.TupleType (mk_pos $startpos, t) } 
 
 (* Record types can only be defined as aliases 
   (* Record type (V6) *)
@@ -262,10 +269,10 @@ lustre_type:
 *)
 
   (* Array type (V6) *)
-  | t = array_type { A.ArrayType t }
+  | t = array_type { A.ArrayType (mk_pos $startpos, t) }
 
   (* Enum type (V6) *)
-  | t = enum_type { A.EnumType t }
+  | t = enum_type { A.EnumType (mk_pos $startpos, t) }
 
 
 (* A tuple type *)
@@ -361,8 +368,8 @@ contract:
 
 (* A requires or ensures annotation *)
 contract_clause:
-  | REQUIRES; e = expr; SEMICOLON { A.Requires e }
-  | ENSURES; e = expr; SEMICOLON { A.Ensures e }
+  | REQUIRES; e = expr; SEMICOLON { A.Requires (mk_pos $startpos, e) }
+  | ENSURES; e = expr; SEMICOLON { A.Ensures (mk_pos $startpos, e) }
 
 
 (* A static parameter is a type *)
@@ -379,8 +386,12 @@ static_params:
 
 (* A node-local declaration of constants or variables *)
 node_local_decl:
-  | c = const_decl { List.map (function e -> A.NodeConstDecl e) c }
-  | v = var_decls { List.map (function e -> A.NodeVarDecl e) v }
+  | c = const_decl { List.map 
+                       (function e -> A.NodeConstDecl (mk_pos $startpos, e))
+                       c }
+  | v = var_decls { List.map 
+                      (function e -> A.NodeVarDecl (mk_pos $startpos, e)) 
+                      v }
 
 
 (* A variable declaration section of a node *)
@@ -398,18 +409,18 @@ node_equation:
 
   (* An assertion *)
   | ASSERT; e = expr; SEMICOLON
-    { A.Assert e }
+    { A.Assert (mk_pos $startpos, e) }
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
      the left-hand side, an expression on the right *)
   | l = left_side; EQUALS; e = expr; SEMICOLON
-    { A.Equation (l, e) }
+    { A.Equation (mk_pos $startpos, l, e) }
 
   (* Node annotation *)
   | MAIN { A.AnnotMain }
 
   (* Property annotation *)
-  | PROPERTY; e = expr; SEMICOLON { A.AnnotProperty e }
+  | PROPERTY; e = expr; SEMICOLON { A.AnnotProperty (mk_pos $startpos, e) }
 
 
 left_side:
@@ -425,22 +436,22 @@ left_side:
 struct_item:
 
   (* Single identifier *)
-  | s = ident { A.SingleIdent s }
+  | s = ident { A.SingleIdent (mk_pos $startpos, s) }
 
   (* Filter array values *)
   | LSQBRACKET; l = struct_item_list; RSQBRACKET 
-    { A.TupleStructItem l }
+    { A.TupleStructItem (mk_pos $startpos, l) }
 
   (* Select from tuple *)
   | e = ident; LSQBRACKET; i = expr; RSQBRACKET 
-    { A.TupleSelection (e, i) }
+    { A.TupleSelection (mk_pos $startpos, e, i) }
 
   (* Select from record *)
   | e = ident; DOT; i = ident 
-    { A.FieldSelection (e, i) }
+    { A.FieldSelection (mk_pos $startpos, e, i) }
  
   | e = ident; LSQBRACKET; s = array_slice_list; RSQBRACKET 
-    { A.ArraySliceStructItem (e, s) }
+    { A.ArraySliceStructItem (mk_pos $startpos, e, s) }
 
 (* List of structured items *)
 struct_item_list:
@@ -667,14 +678,14 @@ clocked_typed_idents:
   | l = typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (e, t) -> (e, t, A.ClockTrue)) l }
+    { List.map (function (e, t) -> (mk_pos $startpos, e, t, A.ClockTrue)) l }
 
   (* Clocked typed identifiers *)
   | l = typed_idents; WHEN; c = clock_expr
   | LPAREN; l = typed_idents; RPAREN; WHEN; c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t) -> (e, t, c)) l }
+    { List.map (function (e, t) -> (mk_pos $startpos, e, t, c)) l }
 
   (* Separate rule for non-singleton list to avoid shift/reduce conflict *)
   | LPAREN; 
@@ -685,7 +696,9 @@ clocked_typed_idents:
     c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t) -> (e, t, c)) (h @ (List.flatten l)) }
+    { List.map
+        (function (e, t) -> (mk_pos $startpos, e, t, c)) 
+        (h @ (List.flatten l)) }
 
 
 (*
@@ -704,14 +717,18 @@ const_clocked_typed_idents:
   | l = const_typed_idents
 
     (* Pair each typed identifier with the base clock *)
-    { List.map (function (e, t, o) -> (e, t, A.ClockTrue, o)) l }
+    { List.map
+        (function (e, t, o) -> (mk_pos $startpos, e, t, A.ClockTrue, o)) 
+        l }
 
   (* Clocked typed identifiers *)
   | l = const_typed_idents; WHEN; c = clock_expr
   | LPAREN; l = const_typed_idents; RPAREN; WHEN; c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t, o) -> (e, t, c, o)) l }
+    { List.map
+        (function (e, t, o) -> (mk_pos $startpos, e, t, c, o)) 
+        l }
 
   (* Separate rule for non-singleton list to avaoid shift/reduce conflict *)
   | LPAREN; 
@@ -722,7 +739,7 @@ const_clocked_typed_idents:
     c = clock_expr
 
     (* Pair each types identifier the given clock *)
-    { List.map (function (e, t, o) -> (e, t, c, o)) (h @ (List.flatten l)) }
+    { List.map (function (e, t, o) -> (mk_pos $startpos, e, t, c, o)) (h @ (List.flatten l)) }
 
 (*
 (* A list of lists of typed and clocked identifiers that may be constant *)

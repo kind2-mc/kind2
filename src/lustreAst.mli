@@ -85,61 +85,65 @@ type expr =
   | CallParam of position * ident * lustre_type list * expr list
 
 and lustre_type =
-    Bool
-  | Int
-  | IntRange of expr * expr
-  | Real
-  | UserType of ident
-  | TupleType of lustre_type list
-  | RecordType of typed_ident list
-  | ArrayType of (lustre_type * expr)
-  | EnumType of ident list
+    Bool of position
+  | Int of position
+  | IntRange of position * expr * expr
+  | Real of position
+  | UserType of position * ident
+  | TupleType of position * lustre_type list
+  | RecordType of position * typed_ident list
+  | ArrayType of position * (lustre_type * expr)
+  | EnumType of position * ident list
 
 and typed_ident = ident * lustre_type
 
-type type_decl = AliasType of ident * lustre_type | FreeType of ident
+type type_decl = 
+  | AliasType of position * ident * lustre_type 
+  | FreeType of position * ident
 
 type clock_expr = ClockPos of ident | ClockNeg of ident | ClockTrue
 
-type clocked_typed_decl = ident * lustre_type * clock_expr
+type clocked_typed_decl = position * ident * lustre_type * clock_expr
 
-type const_clocked_typed_decl = ident * lustre_type * clock_expr * bool
+type const_clocked_typed_decl = position * ident * lustre_type * clock_expr * bool
 
 type const_decl =
-    FreeConst of ident * lustre_type
-  | UntypedConst of ident * expr
-  | TypedConst of ident * expr * lustre_type
+    FreeConst of position * ident * lustre_type
+  | UntypedConst of position * ident * expr
+  | TypedConst of position * ident * expr * lustre_type
 
-type var_decl = ident * lustre_type * clock_expr
+type var_decl = position * ident * lustre_type * clock_expr
 
 type node_param =
   | TypeParam of ident
 
-type node_local_decl = NodeConstDecl of const_decl | NodeVarDecl of var_decl
+type node_local_decl = 
+  | NodeConstDecl of position * const_decl 
+  | NodeVarDecl of position * var_decl
 
 type struct_item =
-    SingleIdent of ident
-  | TupleStructItem of struct_item list
-  | TupleSelection of ident * expr
-  | FieldSelection of ident * ident
-  | ArraySliceStructItem of ident * (expr * expr) list
+  | SingleIdent of position * ident
+  | TupleStructItem of position * struct_item list
+  | TupleSelection of position * ident * expr
+  | FieldSelection of position * ident * ident
+  | ArraySliceStructItem of position * ident * (expr * expr) list
 
 type node_equation =
-    Assert of expr
-  | Equation of struct_item list * expr
-  | AnnotMain
-  | AnnotProperty of expr
+  | Assert of position * expr
+  | Equation of position * struct_item list * expr
+  | AnnotMain 
+  | AnnotProperty of position * expr
 
 type contract_clause = 
-  | Requires of expr 
-  | Ensures of expr
+  | Requires of position * expr 
+  | Ensures of position * expr
 
 type contract = contract_clause list
 
 type node_decl =
-    ident * node_param list * const_clocked_typed_decl list * 
-      clocked_typed_decl list * node_local_decl list * node_equation list * 
-      contract
+  ident * node_param list * const_clocked_typed_decl list * 
+  clocked_typed_decl list * node_local_decl list * node_equation list * 
+  contract
 
 type func_decl =
     ident * (ident * lustre_type) list * (ident * lustre_type) list
@@ -147,11 +151,11 @@ type func_decl =
 type node_param_inst = ident * ident * lustre_type list
 
 type declaration =
-  | TypeDecl of type_decl
-  | ConstDecl of const_decl
-  | NodeDecl of node_decl
-  | FuncDecl of func_decl
-  | NodeParamInst of node_param_inst
+  | TypeDecl of position * type_decl
+  | ConstDecl of position * const_decl
+  | NodeDecl of position * node_decl
+  | FuncDecl of position * func_decl
+  | NodeParamInst of position * node_param_inst
 
 type t = declaration list
 
@@ -162,12 +166,12 @@ val pp_print_clock_expr : Format.formatter -> clock_expr -> unit
 val pp_print_lustre_type : Format.formatter -> lustre_type -> unit
 val pp_print_typed_ident : Format.formatter -> typed_ident -> unit
 val pp_print_clocked_typed_ident :
-  Format.formatter -> ident * lustre_type * clock_expr -> unit
+  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_clocked_typed_ident :
-  Format.formatter -> ident * lustre_type * clock_expr * bool -> unit
+  Format.formatter -> position * ident * lustre_type * clock_expr * bool -> unit
 val pp_print_type_decl : Format.formatter -> type_decl -> unit
 val pp_print_var_decl :
-  Format.formatter -> ident * lustre_type * clock_expr -> unit
+  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_decl : Format.formatter -> const_decl -> unit
 val pp_print_node_local_decl_var :
   Format.formatter -> node_local_decl -> unit

@@ -202,15 +202,15 @@ type expr =
 
 (* A built-in type *)
 and lustre_type = 
-  | Bool
-  | Int
-  | IntRange of expr * expr
-  | Real
-  | UserType of ident 
-  | TupleType of lustre_type list
-  | RecordType of typed_ident list
-  | ArrayType of (lustre_type * expr)
-  | EnumType of ident list
+  | Bool of position
+  | Int of position
+  | IntRange of position * expr * expr
+  | Real of position
+  | UserType of position * ident 
+  | TupleType of position * lustre_type list
+  | RecordType of position * typed_ident list
+  | ArrayType of position * (lustre_type * expr)
+  | EnumType of position * ident list
 
 
 (* A record field *)
@@ -218,8 +218,8 @@ and typed_ident = ident * lustre_type
 
 (* A declaration of a type *)
 type type_decl = 
-  | AliasType of ident * lustre_type  
-  | FreeType of ident
+  | AliasType of position * ident * lustre_type  
+  | FreeType of position * ident
 
 (* A clock expression *)
 type clock_expr =
@@ -229,22 +229,24 @@ type clock_expr =
 
 
 (* A declaration of a clocked type *)
-type clocked_typed_decl = ident * lustre_type * clock_expr
+type clocked_typed_decl = 
+  position * ident * lustre_type * clock_expr
 
 
 (* A declaration of a clocked type *)
-type const_clocked_typed_decl = ident * lustre_type * clock_expr * bool
+type const_clocked_typed_decl = 
+  position * ident * lustre_type * clock_expr * bool
 
 
 (* A declaration of a constant *)
 type const_decl = 
-  | FreeConst of ident * lustre_type
-  | UntypedConst of ident * expr 
-  | TypedConst of ident * expr * lustre_type
+  | FreeConst of position * ident * lustre_type
+  | UntypedConst of position * ident * expr 
+  | TypedConst of position * ident * expr * lustre_type
 
 
 (* A variable declaration *)
-type var_decl = ident * lustre_type * clock_expr
+type var_decl = position * ident * lustre_type * clock_expr
 
 
 (* A static parameter of a node *)
@@ -254,30 +256,30 @@ type node_param =
 
 (* A local declaration in a node *)
 type node_local_decl =
-  | NodeConstDecl of const_decl 
-  | NodeVarDecl of var_decl
+  | NodeConstDecl of position * const_decl 
+  | NodeVarDecl of position * var_decl
 
 
 type struct_item =
-  | SingleIdent of ident
-  | TupleStructItem of struct_item list
-  | TupleSelection of ident * expr
-  | FieldSelection of ident * ident
-  | ArraySliceStructItem of ident * (expr * expr) list
+  | SingleIdent of position * ident
+  | TupleStructItem of position * struct_item list
+  | TupleSelection of position * ident * expr
+  | FieldSelection of position * ident * ident
+  | ArraySliceStructItem of position * ident * (expr * expr) list
 
 
 
 (* An equation or assertion in the node body *)
 type node_equation =
-  | Assert of expr
-  | Equation of struct_item list * expr 
+  | Assert of position * expr
+  | Equation of position * struct_item list * expr 
   | AnnotMain
-  | AnnotProperty of expr
+  | AnnotProperty of position * expr
 
 (* A contract clause *)
 type contract_clause =
-  | Requires of expr
-  | Ensures of expr
+  | Requires of position * expr
+  | Ensures of position * expr
 
 (* A contract as a list of clauses *)
 type contract = contract_clause list 
@@ -296,11 +298,11 @@ type node_param_inst = ident * ident * lustre_type list
 
 (* A declaration as parsed *)
 type declaration = 
-  | TypeDecl of type_decl
-  | ConstDecl of const_decl
-  | NodeDecl of node_decl
-  | FuncDecl of func_decl
-  | NodeParamInst of node_param_inst
+  | TypeDecl of position * type_decl
+  | ConstDecl of position * const_decl
+  | NodeDecl of position * node_decl
+  | FuncDecl of position * func_decl
+  | NodeParamInst of position * node_param_inst
 
 
 (* A Lustre program *)
@@ -525,43 +527,43 @@ and pp_print_field_assign ppf (i, e) =
 (* Pretty-print a Lustre type *)
 and pp_print_lustre_type ppf = function
 
-  | Bool -> Format.fprintf ppf "bool"
+  | Bool pos -> Format.fprintf ppf "bool"
 
-  | Int -> Format.fprintf ppf "int"
+  | Int pos -> Format.fprintf ppf "int"
 
-  | IntRange (l, u) -> 
+  | IntRange (pos, l, u) -> 
 
     Format.fprintf ppf 
       "subrange [%a,%a] of int" 
       pp_print_expr l
       pp_print_expr u
 
-  | Real -> Format.fprintf ppf "real"
+  | Real pos -> Format.fprintf ppf "real"
 
-  | UserType s -> 
+  | UserType (pos, s) -> 
 
     Format.fprintf ppf "%a" (I.pp_print_ident false) s
 
-  | TupleType l -> 
+  | TupleType (pos, l) -> 
 
     Format.fprintf ppf 
       "@[<hv 1>[%a]@]" 
       (pp_print_list pp_print_lustre_type ",@ ") l
 
-  | RecordType l -> 
+  | RecordType (pos, l) -> 
 
     Format.fprintf ppf 
       "struct @[<hv 2>{ %a }@]" 
       (pp_print_list pp_print_typed_ident ";@ ") l
 
-  | ArrayType (t, e) -> 
+  | ArrayType (pos, (t, e)) -> 
 
     Format.fprintf ppf 
       "(%a^%a)" 
       pp_print_lustre_type t 
       pp_print_expr e
 
-  | EnumType l -> 
+  | EnumType (pos, l) -> 
 
     Format.fprintf ppf 
       "enum @[<hv 2>{ %a }@]" 
@@ -577,7 +579,7 @@ and pp_print_typed_ident ppf (s, t) =
 
 
 (* Pretty-print a typed identifier with a clock *)
-and pp_print_clocked_typed_ident ppf (s, t, c) = 
+and pp_print_clocked_typed_ident ppf (pos, s, t, c) = 
   Format.fprintf ppf 
     "@[<hov 2>%a:@ %a%a@]" 
     (I.pp_print_ident false) s 
@@ -586,7 +588,7 @@ and pp_print_clocked_typed_ident ppf (s, t, c) =
 
 
 (* Pretty-print a typed identifier with a clock, possibly constant *)
-and pp_print_const_clocked_typed_ident ppf (s, t, c, o) = 
+and pp_print_const_clocked_typed_ident ppf (pos, s, t, c, o) = 
   Format.fprintf ppf "@[<hov 2>%t%a:@ %a%a@]" 
     (function ppf -> if o then Format.fprintf ppf "const ")
     (I.pp_print_ident false) s 
@@ -597,14 +599,14 @@ and pp_print_const_clocked_typed_ident ppf (s, t, c, o) =
 (* Pretty-print a type declaration *)
 let pp_print_type_decl ppf = function
 
-  | AliasType (s, t) -> 
+  | AliasType (pos, s, t) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a@]" 
       (I.pp_print_ident false) s 
       pp_print_lustre_type t
 
-  | FreeType t -> 
+  | FreeType (pos, t) -> 
 
     Format.fprintf ppf "%a" (I.pp_print_ident false) t 
 
@@ -612,7 +614,7 @@ let pp_print_type_decl ppf = function
 (* Pretty-print a variable declaration *)
 let pp_print_var_decl ppf = function 
 
-  | s, t, c -> 
+  | (pos, s, t, c) -> 
 
     Format.fprintf ppf 
       "@[<hov 2>%a:@ %a%a;@]" 
@@ -624,21 +626,21 @@ let pp_print_var_decl ppf = function
 (* Pretty-print a constant declaration *)
 let pp_print_const_decl ppf = function
 
-  | FreeConst (s, t) -> 
+  | FreeConst (pos, s, t) -> 
 
     Format.fprintf ppf 
       "@[<hov 2>const %a:@ %a;@]" 
       (I.pp_print_ident false) s 
       pp_print_lustre_type t
 
-  | UntypedConst (s, e) -> 
+  | UntypedConst (pos, s, e) -> 
 
     Format.fprintf ppf 
       "@[<hov 2>const %a =@ %a;@]" 
       (I.pp_print_ident false) s 
       pp_print_expr e
 
-  | TypedConst (s, e, t) -> 
+  | TypedConst (pos, s, e, t) -> 
 
     Format.fprintf ppf 
       "@[<hov 2>const %a:@ %a =@ %a;@]" 
@@ -669,7 +671,7 @@ let pp_print_node_param_list ppf = function
 (* Pretty-print a node-local variable declaration, skip others *)
 let pp_print_node_local_decl_var ppf = function
 
-  | NodeVarDecl v -> pp_print_var_decl ppf v
+  | NodeVarDecl (pos, v) -> pp_print_var_decl ppf v
 
   | _ -> ()
 
@@ -677,7 +679,7 @@ let pp_print_node_local_decl_var ppf = function
 (* Pretty-print a node-local constant declaration, skip others *)
 let pp_print_node_local_decl_const ppf = function
 
-  | NodeConstDecl c -> pp_print_const_decl ppf c
+  | NodeConstDecl (pos, c) -> pp_print_const_decl ppf c
 
   | _ -> ()
 
@@ -704,29 +706,29 @@ let pp_print_node_local_decl ppf l =
 
 let rec pp_print_struct_item ppf = function
 
-  | SingleIdent s -> Format.fprintf ppf "%a" (I.pp_print_ident false) s
+  | SingleIdent (pos, s) -> Format.fprintf ppf "%a" (I.pp_print_ident false) s
 
-  | TupleStructItem l -> 
+  | TupleStructItem (pos, l) -> 
 
     Format.fprintf ppf 
       "@[<hv 1>[%a]@]" 
       (pp_print_list pp_print_struct_item ",@ ") l
 
-  | TupleSelection (e, i) -> 
+  | TupleSelection (pos, e, i) -> 
 
     Format.fprintf ppf
       "%a[%a]"
       (I.pp_print_ident false) e
       pp_print_expr i
 
-  | FieldSelection (e, i) -> 
+  | FieldSelection (pos, e, i) -> 
 
     Format.fprintf ppf
       "%a.%a"
       (I.pp_print_ident false) e
       (I.pp_print_ident false) i
 
-  | ArraySliceStructItem (e, i) -> 
+  | ArraySliceStructItem (pos, e, i) -> 
 
     Format.fprintf ppf
       "%a@[<hv 1>[%a]@]" 
@@ -737,18 +739,18 @@ let rec pp_print_struct_item ppf = function
 (* Pretty-print a node equation *)
 let pp_print_node_equation ppf = function
 
-  | Assert e -> 
+  | Assert (pos, e) -> 
 
     Format.fprintf ppf "assert %a;" pp_print_expr e
 
-  | Equation ([l], e) -> 
+  | Equation (pos, [l], e) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a;@]" 
       pp_print_struct_item l
       pp_print_expr e
 
-  | Equation (l, e) -> 
+  | Equation (pos, l, e) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>@[<hv 1>(%a)@] =@ %a;@]" 
@@ -757,17 +759,17 @@ let pp_print_node_equation ppf = function
 
   | AnnotMain -> Format.fprintf ppf "--%%MAIN;"
 
-  | AnnotProperty e -> Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
+  | AnnotProperty (pos, e) -> Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
 
 (* Pretty-print a contract clause *)
 let pp_print_contract_clause ppf = function 
 
-  | Requires e -> 
+  | Requires (pos, e) -> 
 
     Format.fprintf ppf "--%@requires %a;" pp_print_expr e
 
-  | Ensures e -> 
+  | Ensures (pos, e) -> 
 
     Format.fprintf ppf "--%@ensures %a;" pp_print_expr e
 
@@ -785,13 +787,13 @@ let pp_print_contract ppf c =
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
 
-  | TypeDecl t -> 
+  | TypeDecl (pos, t) -> 
 
     Format.fprintf ppf "type %a;" pp_print_type_decl t
 
-  | ConstDecl c -> pp_print_const_decl ppf c
+  | ConstDecl (pos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (n, p, i, o, l, e, r) -> 
+  | NodeDecl (pos, (n, p, i, o, l, e, r)) -> 
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a%t@ \
@@ -810,7 +812,7 @@ let pp_print_declaration ppf = function
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e 
 
-  | FuncDecl (n, i, o) -> 
+  | FuncDecl (pos, (n, i, o)) -> 
 
     Format.fprintf ppf
       "@[<hv 2>function %a@ \
@@ -820,7 +822,7 @@ let pp_print_declaration ppf = function
       (pp_print_list pp_print_typed_ident ";@ ") i
       (pp_print_list pp_print_typed_ident ";@ ") o
 
-  | NodeParamInst (n, s, p) -> 
+  | NodeParamInst (pos, (n, s, p)) -> 
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a =@ %a@[<hv 2><<%a>>@];@]" 

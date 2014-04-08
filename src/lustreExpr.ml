@@ -1553,8 +1553,11 @@ let rec mk_pre
   (* Apply pre to initial state expression *)
   let expr_init', new_vars' = match expr_init with 
 
-    (* Expression is a variable *)
-    | t when Term.is_free_var t -> 
+    (* Expression is a variable at the current instant *)
+    | t when 
+        Term.is_free_var t && 
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
+                 Numeral.zero)  -> 
       
       (Term.bump_state Numeral.(- one) t, new_vars)
 
@@ -1567,7 +1570,8 @@ let rec mk_pre
               Symbol.is_numeral c1 || Symbol.is_decimal c1 -> true
           | _ -> false) -> (expr_init, new_vars)
 
-    (* Expression is not constant and no variable *)
+    (* Expression is not constant and not a variable at the current
+       instant *)
     | _ -> 
       
       (* Identifier for a fresh variable *)
@@ -1593,8 +1597,11 @@ let rec mk_pre
       (* Re-use abstraction for initial state *)
       (expr_init', new_vars')
 
-    (* Expression is a variable *)
-    | t when Term.is_free_var t -> 
+    (* Expression is a variable at the current instant *)
+    | t when 
+        Term.is_free_var t && 
+        Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
+                 Numeral.zero)-> 
 
       (Term.bump_state Numeral.(- one) t, new_vars')
 

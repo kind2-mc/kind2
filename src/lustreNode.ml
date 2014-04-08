@@ -770,6 +770,7 @@ let rec reduce_to_coi' nodes accum = function
      sv_visited, 
      ({ outputs; 
         inputs; 
+        oracles;
         locals; 
         asserts; 
         props; 
@@ -788,6 +789,7 @@ let rec reduce_to_coi' nodes accum = function
              constrained any more *)
           outputs = outputs;
           inputs = inputs;
+          oracles = oracles;
 
           (* Keep only local variables with definitions *)
           locals = List.filter (fun sv -> List.mem sv sv_visited) locals;
