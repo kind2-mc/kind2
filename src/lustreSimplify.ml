@@ -221,11 +221,14 @@ type abstraction_context =
   }
 
 
-let void_abstraction_context msg = 
+let void_abstraction_context pos = 
+  
+  let msg = "Expression must be a constant integer" in
+
   { scope = I.empty_index;
-    mk_new_var_ident = (fun _ -> failwith msg); 
-    mk_new_call_ident = (fun _ -> failwith msg); 
-    mk_new_oracle_ident = (fun _ -> failwith msg);
+    mk_new_var_ident = (fun _ -> fail_at_position pos msg); 
+    mk_new_call_ident = (fun _ -> fail_at_position pos msg);
+    mk_new_oracle_ident = (fun _ -> fail_at_position pos msg);
     new_vars = []; 
     new_calls = [];
     new_oracles = [] } 
@@ -1522,33 +1525,6 @@ and eval_ast_expr
       [(I.empty_index, expr)]
   in
 
-  (* Replace unguarded pres with oracle constants *)
-  let expr', abstractions' = 
-    List.fold_right 
-
-      (fun (index, expr) (accum, abstractions) -> 
-
-         (* Replace unguarded pres in expression with oracle
-            constants *)
-         let expr', oracles' =
-           E.oracles_for_unguarded_pres
-             abstractions.mk_new_oracle_ident
-             abstractions.new_oracles
-             expr
-         in
-
-          (* Add oracle constants to abstraction *)
-         let abstractions' = 
-           { abstractions with new_oracles = oracles' } 
-         in
-         
-         (* Return expression and modified abstraction *)
-         ((index, expr') :: accum, abstractions'))
-
-      expr'
-      ([], abstractions')
-  in
-
   (* Assertion to ensure list is sorted by indexes *)
   (match List.rev expr' with 
     | (h, _) :: tl -> 
@@ -1570,15 +1546,8 @@ and int_const_of_ast_expr context pos expr =
   match 
 
     eval_ast_expr 
-
       context
-
-      (void_abstraction_context 
-         (Format.asprintf 
-            "Expression %a in %a must be a constant integer" 
-            A.pp_print_expr expr
-            A.pp_print_position pos))
-
+      (void_abstraction_context pos)
       expr 
 
   with
@@ -1788,7 +1757,47 @@ let is_bool_expr = function
   | _ -> false
     
 
+
+let close_ast_expr (expr, abstractions) = 
+  
+  (* Replace unguarded pres in expression with oracle constants *)
+  let expr', oracles' =
+    E.oracles_for_unguarded_pres
+      abstractions.mk_new_oracle_ident
+      abstractions.new_oracles
+      expr
+  in
+  
+  (* Add oracle constants to abstraction *)
+  let abstractions' = 
+    { abstractions with new_oracles = oracles' } 
+  in
+  
+  (* Return expression and modified abstraction *)
+  (expr', abstractions') 
+   
+
+let close_indexed_ast_expr (expr, abstractions) = 
       
+  (* Replace unguarded pres with oracle constants *)
+  let expr', abstractions' = 
+    List.fold_right 
+
+      (fun (index, expr) (accum, abstractions) -> 
+
+         let expr', abstractions' = close_ast_expr (expr, abstractions) in
+
+         (* Return expression and modified abstraction *)
+         ((index, expr') :: accum, abstractions'))
+
+      expr
+      ([], abstractions)
+  in
+
+  (expr', abstractions')
+
+
+
 (* ******************************************************************** *)
 (* Type declarations                                                    *)
 (* ******************************************************************** *)
@@ -2227,15 +2236,8 @@ let add_typed_decl
     (* Evaluate expression *)
     let expr_val, abstractions = 
       eval_ast_expr 
-
         context 
-
-        (void_abstraction_context 
-           (Format.asprintf 
-              "Expression %a in %a must be a constant" 
-              A.pp_print_expr expr
-              A.pp_print_position pos))
-
+        (void_abstraction_context pos)
         expr 
     in
 
@@ -2904,11 +2906,12 @@ let rec parse_node_equations
 
       (* Evaluate expression *)
       let expr', abstractions = 
-        bool_expr_of_ast_expr 
-          context 
-          empty_abstractions
-          pos
-          ast_expr 
+        close_ast_expr
+          (bool_expr_of_ast_expr 
+             context 
+             empty_abstractions
+             pos
+             ast_expr)
       in
       
       (* Add assertion to node *)
@@ -2933,11 +2936,12 @@ let rec parse_node_equations
 
       (* Evaluate expression *)
       let expr', abstractions = 
-        bool_expr_of_ast_expr 
-          context 
-          empty_abstractions
-          pos
-          ast_expr 
+        close_ast_expr
+          (bool_expr_of_ast_expr 
+             context 
+             empty_abstractions
+             pos
+             ast_expr)
       in
       
       (* Add assertion to node *)
@@ -2966,13 +2970,14 @@ let rec parse_node_equations
 
       (* Evaluate expression *)
       let expr', abstractions = 
-        eval_ast_expr 
-          context 
-          empty_abstractions
+        close_indexed_ast_expr
+          (eval_ast_expr 
+             context 
+             empty_abstractions
 
-          (* Wrap right-hand side in a singleton list, nested lists
+             (* Wrap right-hand side in a singleton list, nested lists
                 are flattened, s.t. ((a,b)) become (a,b) *)
-          (A.ExprList (pos, [ast_expr]))
+             (A.ExprList (pos, [ast_expr])))
       in
 
       (* State variables and types of their assigned expressions *)
@@ -3107,11 +3112,12 @@ let rec parse_node_contract
 
       (* Evaluate expression *)
       let expr', abstractions = 
-        bool_expr_of_ast_expr 
-          context 
-          empty_abstractions
-          pos
-          expr 
+        close_ast_expr
+          (bool_expr_of_ast_expr 
+             context 
+             empty_abstractions
+             pos
+             expr)
       in
 
       (* Add assertion to node *)
@@ -3136,11 +3142,12 @@ let rec parse_node_contract
 
       (* Evaluate expression *)
       let expr', abstractions = 
-        bool_expr_of_ast_expr 
-          context 
-          empty_abstractions
-          pos
-          expr 
+        close_ast_expr
+          (bool_expr_of_ast_expr 
+             context 
+             empty_abstractions
+             pos
+             expr)
       in
 
       (* Add assertion to node *)

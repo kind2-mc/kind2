@@ -859,7 +859,7 @@ let rec reduce_to_coi' nodes accum = function
                 (* Variable can only be the result of one node call *)
                 | [call_coi], calls_orig' -> call_coi
                                              
-                (* Fail if variable is result of more than one node cal *)
+                (* Fail if variable is result of more than one node call *)
                 | _ -> assert false
                   
             in

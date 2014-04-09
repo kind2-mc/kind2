@@ -480,6 +480,56 @@ let clock_check _ _ = true
 
 
 (* ********************************************************************** *)
+(* Conversion to terms                                                    *)
+(* ********************************************************************** *)
+
+(* Offset of state variable at first instant *)
+let base_offset = Numeral.zero
+
+(* Offset of state variable at current instant *)
+let cur_offset = Numeral.one
+
+(* Offset of state variable at previous instant *)
+let pre_offset = Numeral.zero
+
+
+(* Instance of state variable at instant zero *)
+let base_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var Numeral.zero
+
+(* Instance of state variable at current instant *)
+let cur_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var Numeral.one
+
+(* Instance of state variable at previous instant *)
+let pre_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var Numeral.zero
+
+    
+(* Term of instance of state variable at previous instant *)
+let base_term_of_state_var state_var = 
+  Term.mk_var (base_var_of_state_var state_var)
+
+(* Term of instance of state variable at current instant *)
+let cur_term_of_state_var state_var = 
+  Term.mk_var (cur_var_of_state_var state_var)
+
+(* Term of instance of state variable at previous instant *)
+let pre_term_of_state_var state_var = 
+  Term.mk_var (pre_var_of_state_var state_var)
+
+
+(* Term at instant zero *)
+let base_term_of_expr expr = expr
+
+(* Term at current instant *)
+let cur_term_of_expr expr = Term.bump_state Numeral.one expr
+
+(* Term at previous instant *)
+let pre_term_of_expr expr = expr
+
+
+(* ********************************************************************** *)
 (* Generic constructors                                                   *)
 (* ********************************************************************** *)
 
@@ -1557,7 +1607,7 @@ let rec mk_pre
     | t when 
         Term.is_free_var t && 
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
-                 Numeral.zero)  -> 
+                 base_offset)  -> 
       
       (Term.bump_state Numeral.(- one) t, new_vars)
 
@@ -1601,7 +1651,7 @@ let rec mk_pre
     | t when 
         Term.is_free_var t && 
         Numeral.(Var.offset_of_state_var_instance (Term.free_var_of_term t) = 
-                 Numeral.zero)-> 
+                 cur_offset)-> 
 
       (Term.bump_state Numeral.(- one) t, new_vars')
 
@@ -1625,59 +1675,6 @@ let rec mk_pre
   (* Return expression and new definitions *)
   ({ expr with expr_init = expr_init'; expr_step = expr_step' }, 
    new_vars') 
-
-
-
-
-
-(* ********************************************************************** *)
-(* Conversion to terms                                                    *)
-(* ********************************************************************** *)
-
-(* Offset of state variable at first instant *)
-let base_offset = Numeral.zero
-
-(* Offset of state variable at current instant *)
-let cur_offset = Numeral.one
-
-(* Offset of state variable at previous instant *)
-let pre_offset = Numeral.zero
-
-
-(* Instance of state variable at instant zero *)
-let base_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var Numeral.zero
-
-(* Instance of state variable at current instant *)
-let cur_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var Numeral.one
-
-(* Instance of state variable at previous instant *)
-let pre_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var Numeral.zero
-
-    
-(* Term of instance of state variable at previous instant *)
-let base_term_of_state_var state_var = 
-  Term.mk_var (base_var_of_state_var state_var)
-
-(* Term of instance of state variable at current instant *)
-let cur_term_of_state_var state_var = 
-  Term.mk_var (cur_var_of_state_var state_var)
-
-(* Term of instance of state variable at previous instant *)
-let pre_term_of_state_var state_var = 
-  Term.mk_var (pre_var_of_state_var state_var)
-
-
-(* Term at instant zero *)
-let base_term_of_expr expr = expr
-
-(* Term at current instant *)
-let cur_term_of_expr expr = Term.bump_state Numeral.one expr
-
-(* Term at previous instant *)
-let pre_term_of_expr expr = expr
 
 
 (* ********************************************************************** *)
@@ -1857,6 +1854,10 @@ let oracles_for_unguarded_pres
     oracles
     ({ expr_init } as expr) = 
 
+  Format.printf
+    "oracles_for_unguarded_pres: %a@."
+    Term.pp_print_term expr_init;
+
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term expr_init in
 
@@ -1864,8 +1865,12 @@ let oracles_for_unguarded_pres
   let init_pre_vars = 
     VS.filter 
       (fun var -> 
-         Var.is_state_var_instance var &&
-         Numeral.(Var.offset_of_state_var_instance var < zero))
+         let res = 
+           Var.is_state_var_instance var &&
+           Numeral.(Var.offset_of_state_var_instance var < base_offset)
+         in
+         Format.printf "var %a: %B@." Var.pp_print_var var res; 
+         res)
       init_vars
   in
   
