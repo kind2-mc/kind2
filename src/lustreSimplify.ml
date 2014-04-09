@@ -1336,6 +1336,11 @@ let rec eval_ast_expr'
     (* Node call *)
     | (index, A.Call (pos, ident, expr_list)) :: tl -> 
 
+      Format.printf
+        "@[<hv>%a:@ @[<hv>%a@]@]@."
+        (LustreIdent.pp_print_index false) index
+        LustreAst.pp_print_expr (A.Call (pos, ident, expr_list));
+
       (* Inputs, outputs and oracles of called node *)
       let { N.inputs = node_inputs; 
             N.outputs = node_outputs; 
@@ -2788,6 +2793,8 @@ let abstractions_to_context_and_node
     ({ new_vars } as abstractions)
     pos =
 
+  Format.printf "abstractions_to_context_and_node@.";
+
   (* Add declaration of variables to context
 
      Must add variables first, this may generate new abstractions from
@@ -3054,26 +3061,28 @@ let rec parse_node_equations
 
           (fun state_var (_, expr) (context, node, abstractions) -> 
 
+             Format.printf "Equation %a = %a@." StateVar.pp_print_state_var state_var (E.pp_print_lustre_expr false) expr;
+
             (* Do not check for matching indexes here, the best thing
                possible is to compare suffixes, but it is not obvious, where
                to start suffix at *)
             let eq = (state_var, expr) in
         
             (* Add assertion to node *)
-            let context', node', abstractions' = 
-              equation_to_node context node abstractions pos eq
-            in
-      
-            (* Add abstractions to context and node *)
-            abstractions_to_context_and_node 
-              context' 
-              node' 
-              abstractions' 
-              pos)
+            equation_to_node context node abstractions pos eq)
 
           eq_types
           expr'
           (context, node, abstractions)
+      in
+
+      (* Add abstractions to context and node *)
+      let context', node', abstractions' =
+        abstractions_to_context_and_node 
+          context' 
+          node' 
+          abstractions' 
+          pos
       in
 
       (* Continue *)
@@ -3249,7 +3258,6 @@ let parse_node_signature
       equations
   in
 
-
   let node_context_equations = N.solve_eqs_node_calls node_context_equations in
 
   let var_dep = 
@@ -3296,7 +3304,7 @@ let parse_node_signature
     { node_context_deps with N.equations = equations_sorted }
   in
 
-  (* Format.printf "%a@." (N.pp_print_node true) node_context_dep_order; *)
+  Format.printf "@[<hv>After parsing:@ @[<hv>%a@]@]@." (N.pp_print_node true) node_context_dep_order;
 
   node_context_dep_order
 

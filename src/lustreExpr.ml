@@ -1854,10 +1854,6 @@ let oracles_for_unguarded_pres
     oracles
     ({ expr_init } as expr) = 
 
-  Format.printf
-    "oracles_for_unguarded_pres: %a@."
-    Term.pp_print_term expr_init;
-
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term expr_init in
 
@@ -1865,12 +1861,8 @@ let oracles_for_unguarded_pres
   let init_pre_vars = 
     VS.filter 
       (fun var -> 
-         let res = 
            Var.is_state_var_instance var &&
-           Numeral.(Var.offset_of_state_var_instance var < base_offset)
-         in
-         Format.printf "var %a: %B@." Var.pp_print_var var res; 
-         res)
+           Numeral.(Var.offset_of_state_var_instance var < base_offset))
       init_vars
   in
   
