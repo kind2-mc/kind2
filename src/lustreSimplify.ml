@@ -1336,11 +1336,6 @@ let rec eval_ast_expr'
     (* Node call *)
     | (index, A.Call (pos, ident, expr_list)) :: tl -> 
 
-      Format.printf
-        "@[<hv>%a:@ @[<hv>%a@]@]@."
-        (LustreIdent.pp_print_index false) index
-        LustreAst.pp_print_expr (A.Call (pos, ident, expr_list));
-
       (* Inputs, outputs and oracles of called node *)
       let { N.inputs = node_inputs; 
             N.outputs = node_outputs; 
@@ -2793,8 +2788,6 @@ let abstractions_to_context_and_node
     ({ new_vars } as abstractions)
     pos =
 
-  Format.printf "abstractions_to_context_and_node@.";
-
   (* Add declaration of variables to context
 
      Must add variables first, this may generate new abstractions from
@@ -2862,31 +2855,36 @@ let abstractions_to_context_and_node
   let context', node', abstractions' = 
 
     List.fold_left
-      (fun accum ((outputs, _, _, _, _) as call) ->
-         List.fold_left 
-           (fun (context, node, abstractions) state_var -> 
+      (fun accum ((outputs, _, node_call_ident, _, _) as call) ->
 
-              (* Split scope from name of variable *)
-              let (base_ident, index) = 
-                I.split_ident (E.ident_of_state_var state_var) 
-              in
-              
-              (* Add variable declaration to context *)
-              let context', node', node_locals' = 
-                add_node_var_decl 
-                  base_ident
-                  A.dummy_pos
-                  (context, node, [])
-                  (I.index_of_one_index_list index)
-                  (StateVar.type_of_state_var state_var)
-              in
+         let context', node', abstractions' = 
+           List.fold_left 
+             (fun (context, node, abstractions) state_var -> 
+                
+                (* Split scope from name of variable *)
+                let (base_ident, index) = 
+                  I.split_ident (E.ident_of_state_var state_var) 
+                in
+                
+                (* Add variable declaration to context *)
+                let context', node', node_locals' = 
+                  add_node_var_decl 
+                    base_ident
+                    A.dummy_pos
+                    (context, node, [])
+                    (I.index_of_one_index_list index)
+                    (StateVar.type_of_state_var state_var)
+                in
 
-              (context', 
-               { node' with N.calls = call :: node'.N.calls }, 
-               abstractions))
+                context', node', abstractions)
+             accum
+             outputs
+         in
+ 
+         (context', 
+          { node' with N.calls = call :: node'.N.calls }, 
+          abstractions'))
 
-           accum
-           outputs)
       (context', node', abstractions')
       new_calls
 
@@ -3060,8 +3058,6 @@ let rec parse_node_equations
         List.fold_right2
 
           (fun state_var (_, expr) (context, node, abstractions) -> 
-
-             Format.printf "Equation %a = %a@." StateVar.pp_print_state_var state_var (E.pp_print_lustre_expr false) expr;
 
             (* Do not check for matching indexes here, the best thing
                possible is to compare suffixes, but it is not obvious, where
@@ -3303,8 +3299,6 @@ let parse_node_signature
   let node_context_dep_order =
     { node_context_deps with N.equations = equations_sorted }
   in
-
-  Format.printf "@[<hv>After parsing:@ @[<hv>%a@]@]@." (N.pp_print_node true) node_context_dep_order;
 
   node_context_dep_order
 

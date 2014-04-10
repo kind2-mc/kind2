@@ -554,7 +554,8 @@ let rec order_by_dep accum = function
       order_by_dep 
         accum
         (SVS.fold
-           (fun e a -> (List.find (fun (f, _) -> e = f) tl) :: a)
+           (fun e a -> 
+              (List.find (fun (f, _) -> StateVar.equal_state_vars e f) tl) :: a)
            d
             ((h,d) :: tl))
     
