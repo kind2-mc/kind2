@@ -352,13 +352,13 @@ val print_term : t -> unit
 val string_of_term : t -> string 
 
 (** {1 Conversions} *)
-
+(*
 (** Evaluate the term bottom-up and right-to-left. The evaluation
     function is called at each node of the term with the symbol and
     the list of values computed for the subterms. Let bindings are
     lazily unfolded. *)
 val eval : (Symbol.t -> 'a list -> 'a) -> t -> 'a
-
+*)
 (** Variant of {!eval}, where the function is given the term being
     evaluated as the first argument *)
 val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a

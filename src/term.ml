@@ -240,9 +240,10 @@ let string_of_term t = string_of_t pp_print_term t
 (* Folding and utility functions on terms                                *)
 (* ********************************************************************* *)
 
-
+(*
 (* Evaluate a term bottom-up right-to-left *)
 let eval = T.eval 
+*)
 
 (* Evaluate a term bottom-up right-to-left, given the flattened term
    as argument *)

@@ -1153,8 +1153,8 @@ let rec eval_ast_expr'
 
       (* Type check and flatten indexed expressions for input into
          list without indexes *)
-      let node_input_exprs =
-        node_inputs_of_exprs node_inputs pos args'
+      let node_input_exprs, abstractions' =
+        node_inputs_of_exprs node_inputs abstractions' pos args'
       in
 
       (* Type check and flatten indexed expressions for input into
@@ -1387,8 +1387,8 @@ let rec eval_ast_expr'
 
       (* Type check and flatten indexed expressions for input into
          list without indexes *)
-      let node_input_exprs =
-        node_inputs_of_exprs node_inputs pos expr_list'
+      let node_input_exprs, abstractions' =
+        node_inputs_of_exprs node_inputs abstractions' pos expr_list'
       in
 
       (* Flatten indexed types of node outputs to a list of
@@ -1611,27 +1611,7 @@ and bool_expr_of_ast_expr
 
 (* Type check expressions for node inputs and return sorted list of
    expressions for node inputs *)
-and node_inputs_of_exprs node_inputs pos expr_list =
-
-(*
-  let node_inputs' = 
-
-    (* Add an index to each inputs and sort *)
-    sort_indexed_pairs 
-      (snd
-         (List.fold_left
-            (fun (j, accum) (_, (indexes, is_const)) -> 
-               (Numeral.(succ j),
-                (List.fold_right
-                   (fun (index, expr_type) accum -> 
-                      (I.push_int_index_to_index j index, 
-                       (expr_type, is_const)) :: accum)
-                   indexes
-                   accum)))
-            (Numeral.zero, [])
-            node_inputs))
-  in
-*)
+and node_inputs_of_exprs node_inputs abstractions pos expr_list =
 
   try
 
@@ -1640,20 +1620,52 @@ and node_inputs_of_exprs node_inputs pos expr_list =
       (fun 
         in_var
         (_, ({ E.expr_type } as expr)) 
-        accum ->
+        (accum, ({ new_vars; mk_new_var_ident } as abstractions)) ->
 
-        (* Expression must be of a subtype of input type *)
         if
+
+          (* Expression must be of a subtype of input type *)
           Type.check_type 
             expr_type
             (StateVar.type_of_state_var in_var) 
+
         then 
-          expr :: accum
+    
+          if 
+
+            (* Input must not contain variable at previous state *)
+            E.has_pre_var expr 
+
+          then
+
+            (* New variable for abstraction *)
+            let scope, ident = mk_new_var_ident () in
+      
+            (* State variable of abstraction variable *)
+            let state_var = 
+              E.state_var_of_ident scope ident expr_type
+            in
+
+            (* Add definition of variable *)
+            let abstractions' =
+              { abstractions with
+                  new_vars = (state_var, expr) :: abstractions.new_vars }
+            in
+
+            (* Use abstracted variable as input parameter *)
+            (E.mk_var_of_state_var state_var E.base_clock :: accum, 
+             abstractions')
+
+          else
+      
+            (* Add expression as input *)
+            (expr :: accum, abstractions)
+
         else
           raise E.Type_mismatch)
       node_inputs
       expr_list
-      []
+      ([], abstractions)
 
   (* Type checking error or one expression has more indexes *)
   with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
@@ -2777,7 +2789,12 @@ and equation_to_node
 
   (* Add equation and abstractions *)
   (context,
-   { node with N.equations = (state_var, expr') :: node.N.equations }, 
+   { node with N.equations = (state_var, expr') :: node.N.equations;
+               N.locals = 
+                 if List.mem state_var node.N.locals then 
+                   node.N.locals 
+                 else 
+                   state_var :: node.N.locals }, 
    abstractions')
 
 

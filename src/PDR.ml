@@ -1022,7 +1022,7 @@ let rec partition_inductive solver accum terms =
          are certainly not inductive, true terms can be inductive *)
       let maybe_inductive', not_inductive' =
         List.partition 
-          (function t -> Eval.bool_of_value (Eval.eval_term t model))
+          (function t -> Eval.bool_of_value (Eval.eval_term [] model t))
           terms'
       in
 
@@ -1102,7 +1102,7 @@ let rec partition_propagate solver accum = function
            propagated. *)
         let maybe_propagate', cannot_propagate' =
           List.partition 
-            (function t -> Eval.bool_of_value (Eval.eval_term t model))
+            (function t -> Eval.bool_of_value (Eval.eval_term [] model t))
             terms'
         in
 

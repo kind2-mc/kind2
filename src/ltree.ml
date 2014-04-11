@@ -127,9 +127,9 @@ sig
   val sorts_of_lambda : lambda -> sort list
 
   val tag_of_t : t -> int
-
+(*
   val eval : (symbol -> 'a list -> 'a) -> t -> 'a
-
+*)
   val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
 
   val map : (int -> t -> t) -> t -> t

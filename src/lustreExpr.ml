@@ -484,6 +484,9 @@ let clock_check _ _ = true
 (* ********************************************************************** *)
 
 (* Offset of state variable at first instant *)
+let pre_base_offset = Numeral.(- one)
+
+(* Offset of state variable at first instant *)
 let base_offset = Numeral.zero
 
 (* Offset of state variable at current instant *)
@@ -494,18 +497,26 @@ let pre_offset = Numeral.zero
 
 
 (* Instance of state variable at instant zero *)
+let pre_base_var_of_state_var state_var = 
+  Var.mk_state_var_instance state_var pre_base_offset
+
+(* Instance of state variable at instant zero *)
 let base_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var Numeral.zero
+  Var.mk_state_var_instance state_var base_offset
 
 (* Instance of state variable at current instant *)
 let cur_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var Numeral.one
+  Var.mk_state_var_instance state_var cur_offset
 
 (* Instance of state variable at previous instant *)
 let pre_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var Numeral.zero
+  Var.mk_state_var_instance state_var pre_offset
 
     
+(* Term of instance of state variable at previous instant *)
+let pre_base_term_of_state_var state_var = 
+  Term.mk_var (pre_base_var_of_state_var state_var)
+
 (* Term of instance of state variable at previous instant *)
 let base_term_of_state_var state_var = 
   Term.mk_var (base_var_of_state_var state_var)
@@ -662,14 +673,8 @@ let mk_real f =
 (* Current state variable of state variable *)
 let mk_var_of_state_var state_var expr_clock = 
 
-  (* Variable at offset zero of identifier *)
-  let var = Var.mk_state_var_instance state_var Numeral.zero in 
-
-  (* Term of variable *)
-  let expr = Term.mk_var var in
-
-  { expr_init = expr;
-    expr_step = expr;
+  { expr_init = base_term_of_state_var state_var;
+    expr_step = cur_term_of_state_var state_var;
     expr_type = StateVar.type_of_state_var state_var;
     expr_clock = expr_clock } 
 
@@ -690,14 +695,8 @@ let mk_var_pre scope ident expr_type expr_clock =
   (* State variable of identifier *)
   let state_var = state_var_of_ident scope ident expr_type in
 
-  (* Variable at offset zero of identifier *)
-  let var = Var.mk_state_var_instance state_var Numeral.one in 
-
-  (* Term of variable *)
-  let expr = Term.mk_var var in
-
-  { expr_init = expr;
-    expr_step = expr;
+  { expr_init = pre_base_term_of_state_var state_var;
+    expr_step = pre_term_of_state_var state_var;
     expr_type = expr_type;
     expr_clock = expr_clock } 
 
@@ -1595,7 +1594,7 @@ let mk_arrow expr1 expr2 =
 
 
 (* Pre expression *)
-let rec mk_pre 
+let mk_pre 
     mk_new_var_ident 
     new_vars
     ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
@@ -1631,7 +1630,7 @@ let rec mk_pre
       let state_var = state_var_of_ident scope new_var_ident expr_type in 
 
       (* Variable at previous instant *)
-      let var = Var.mk_state_var_instance state_var Numeral.(- one) in
+      let var = Var.mk_state_var_instance state_var pre_base_offset in
 
       (* Return term and new definitions *)
       (Term.mk_var var, (state_var, expr) :: new_vars)
@@ -1687,7 +1686,7 @@ let has_pre_var { expr_step } =
 
   (* Previous state variables have negative offset *)
   match Term.var_offsets_of_term expr_step with 
-    | Some n, _ when Numeral.(n < zero) -> true
+    | Some n, _ when Numeral.(n < cur_offset) -> true
     | _ -> false
 
 
@@ -1697,41 +1696,51 @@ let pre_is_unguarded { expr_init } =
   (* Check if there is a pre operator in the init expression *)
   match Term.var_offsets_of_term expr_init with 
     | None, _ -> false
-    | Some c, _ -> Numeral.(c < zero)
+    | Some c, _ -> Numeral.(c < base_offset)
 
 
-(* Return true if expression is a variable at given instant *)
-let is_var_at_offset { expr_init; expr_step } offset = 
-
-  (* Initial value and step value must be identical *)
-  (expr_init == expr_step) && 
+(* Return true if expression is a current state variable *)
+let is_var_at_offset { expr_init; expr_step } (init_offset, step_offset) = 
 
   (* Term must be a free variable *)
   (Term.is_free_var expr_init) && 
 
   (* Get free variable of term *)
-  (let var = Term.free_var_of_term expr_init in 
+  (let var_init = Term.free_var_of_term expr_init in 
 
    (* Variable must be an instance of a state variable *)
-   Var.is_state_var_instance var && 
+   Var.is_state_var_instance var_init && 
 
    (* Variable must be at instant zero *)
-   Numeral.(Var.offset_of_state_var_instance var = offset))
+   Numeral.(Var.offset_of_state_var_instance var_init = init_offset)) &&
 
+  (* Term must be a free variable *)
+  (Term.is_free_var expr_step) && 
 
-(* Return true if expression is a current state variable *)
-let is_var expr = is_var_at_offset expr Numeral.zero
+  (* Get free variable of term *)
+  (let var_step = Term.free_var_of_term expr_step in 
+
+   (* Variable must be an instance of a state variable *)
+   Var.is_state_var_instance var_step && 
+
+   (* Variable must be at instant zero *)
+   Numeral.(Var.offset_of_state_var_instance var_step = step_offset))
+
 
 
 (* Return true if expression is a previous state variable *)
-let is_pre_var expr = is_var_at_offset expr Numeral.(- one)
+let is_var expr = is_var_at_offset expr (base_offset, cur_offset)
+
+
+(* Return true if expression is a previous state variable *)
+let is_pre_var expr = is_var_at_offset expr (pre_base_offset, pre_offset)
 
 
 (* Return the state variable of a variable *)
-let state_var_of_expr { expr_init; expr_step } = 
+let state_var_of_expr ({ expr_init; expr_step } as expr) = 
 
   (* Initial value and step value must be identical *)
-  if expr_init == expr_step then
+  if is_var expr || is_pre_var expr then
 
     try 
       
@@ -1759,7 +1768,7 @@ let stateful_vars_of_expr { expr_step } =
       (* Previous state variables have negative offset *)
       | Term.T.Var v when 
           Var.is_state_var_instance v && 
-          Numeral.(Var.offset_of_state_var_instance v < zero) -> 
+          Numeral.(Var.offset_of_state_var_instance v < cur_offset) -> 
         
         (function 
           | [] -> 
@@ -1887,7 +1896,7 @@ let oracles_for_unguarded_pres
            
            (* Variable at base instant *)
            let oracle_var = 
-             Var.mk_state_var_instance state_var Numeral.zero 
+             Var.mk_state_var_instance state_var base_offset
            in
            
            (* Substitute oracle variable for variable *)
