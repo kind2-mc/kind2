@@ -534,10 +534,10 @@ let pre_term_of_state_var state_var =
 let base_term_of_expr expr = expr
 
 (* Term at current instant *)
-let cur_term_of_expr expr = Term.bump_state Numeral.one expr
+let cur_term_of_expr expr = expr
 
 (* Term at previous instant *)
-let pre_term_of_expr expr = expr
+let pre_term_of_expr expr = Term.bump_state Numeral.(- one) expr
 
 
 (* ********************************************************************** *)
