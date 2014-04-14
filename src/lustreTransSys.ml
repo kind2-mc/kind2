@@ -22,6 +22,7 @@ open Lib
 module E = LustreExpr
 module N = LustreNode
 
+module VS = Var.VarSet
 module SVS = StateVar.StateVarSet
 
 (*
@@ -32,6 +33,10 @@ module MySolver = SMTSolver.Make (Config.SMTSolver)
 module S = SolverMethods.Make (MySolver)
 *)
 
+
+let base_offset = Numeral.zero
+
+let cur_offset = Numeral.one
 
 let name_of_local_var i n = 
   Format.sprintf "__local_%d_%s" i n
@@ -115,14 +120,15 @@ let rec definitions_of_equations vars init trans = function
           (* Equation for initial constraint on variable *)
           let init_def = 
             Term.mk_eq 
-              [E.base_term_of_state_var state_var; 
-               E.base_term_of_expr expr_init] 
+              [E.base_term_of_state_var base_offset state_var; 
+               E.base_term_of_expr base_offset expr_init] 
           in
          
           (* Equation for transition relation on variable *)
           let trans_def = 
             Term.mk_eq 
-              [E.cur_term_of_state_var state_var; E.cur_term_of_expr expr_step] 
+              [E.cur_term_of_state_var cur_offset state_var; 
+               E.cur_term_of_expr cur_offset expr_step] 
           in
          
           (* Add term of equation and continue *)
@@ -135,16 +141,16 @@ let rec definitions_of_equations vars init trans = function
           (* Define variable with a let *)
           let init' =
             Term.mk_let 
-              [(E.base_var_of_state_var state_var, 
-                E.base_term_of_expr expr_init)] 
+              [(E.base_var_of_state_var base_offset state_var, 
+                E.base_term_of_expr base_offset expr_init)] 
               (Term.mk_and init) 
           in
 
           (* Define variable with a let *)
           let trans' = 
             Term.mk_let
-              [(E.cur_var_of_state_var state_var, 
-                E.cur_term_of_expr expr_step)] 
+              [(E.cur_var_of_state_var cur_offset state_var, 
+                E.cur_term_of_expr cur_offset expr_step)] 
               (Term.mk_and trans)
           in
           
@@ -208,44 +214,48 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
       (* Initial state values of default values *)
       let init_terms_init = 
         List.map 
-          (function { E.expr_init } -> E.base_term_of_expr expr_init) 
+          (function { E.expr_init } -> 
+            E.base_term_of_expr base_offset expr_init) 
           init_exprs
       in
 
       (* Terms for node call in initial state *)
       let input_terms_init = 
         List.map
-          (function { E.expr_init } -> E.base_term_of_expr expr_init) 
+          (function { E.expr_init } -> 
+            E.base_term_of_expr base_offset expr_init) 
           input_exprs
       in
 
       (* Terms for node call in step state *)
       let input_terms_trans = 
         List.map
-          (function { E.expr_step } -> E.cur_term_of_expr expr_step) 
+          (function { E.expr_step } -> 
+            E.cur_term_of_expr cur_offset expr_step) 
           input_exprs
       in
 
       (* Terms for node call in step state *)
       let input_terms_trans_pre = 
         List.map
-          (function { E.expr_step } -> E.pre_term_of_expr expr_step) 
+          (function { E.expr_step } -> 
+            E.pre_term_of_expr cur_offset expr_step) 
           input_exprs
       in
 
       (* Variables capturing the output of the node *)
       let output_terms_init = 
-        List.map E.base_term_of_state_var output_vars
+        List.map (E.base_term_of_state_var base_offset) output_vars
       in
 
       (* Variables capturing the output of the node *)
       let output_terms_trans = 
-        List.map E.cur_term_of_state_var output_vars
+        List.map (E.cur_term_of_state_var cur_offset) output_vars
       in
 
       (* Variables capturing the output of the node *)
       let output_terms_trans_pre = 
-        List.map E.pre_term_of_state_var output_vars
+        List.map (E.pre_term_of_state_var cur_offset) output_vars
       in
 
       (* Variables local to the node for this instance *)
@@ -277,12 +287,17 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
 
       (* Variables local to node call for current state *)
       let call_local_vars_init = 
-        List.map E.base_term_of_state_var call_local_vars
+        List.map (E.base_term_of_state_var base_offset) call_local_vars
       in
 
       (* Variables local to node call for previous state *)
-      let call_local_vars_pre = 
-        List.map E.pre_term_of_state_var call_local_vars
+      let call_local_vars_trans = 
+        List.map (E.cur_term_of_state_var cur_offset) call_local_vars
+      in
+
+      (* Variables local to node call for previous state *)
+      let call_local_vars_trans_pre = 
+        List.map (E.pre_term_of_state_var cur_offset) call_local_vars
       in
 
       (* Arguments for node call in initial state *)
@@ -309,7 +324,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
         output_terms_trans @ 
 
         (* Current state local variables *)
-        call_local_vars_init @
+        call_local_vars_trans @
 
         (* Previous state input variables *)
         input_terms_trans_pre @
@@ -318,7 +333,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
         output_terms_trans_pre @
 
         (* Previous state local variables *)
-        call_local_vars_pre  
+        call_local_vars_trans_pre  
 
       in
 
@@ -374,7 +389,9 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
             input_terms_init @ 
 
             (* Current state output variables *)
-            (List.map E.base_term_of_state_var output_default_vars) @ 
+            (List.map 
+               (E.base_term_of_state_var base_offset) 
+               output_default_vars) @ 
 
             (* Current state local variables *)
             call_local_vars_init
@@ -391,7 +408,9 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
             input_terms_trans @ 
 
             (* Current state output variables *)
-            (List.map E.cur_term_of_state_var output_default_vars) @ 
+            (List.map 
+               (E.cur_term_of_state_var cur_offset)
+               output_default_vars) @ 
 
             (* Current state local variables *)
             call_local_vars_init @
@@ -400,10 +419,12 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
             input_terms_trans_pre @
 
             (* Previous state output variables *)
-            (List.map E.pre_term_of_state_var output_default_vars) @ 
+            (List.map 
+               (E.pre_term_of_state_var base_offset)
+               output_default_vars) @ 
 
             (* Previous state local variables *)
-            call_local_vars_pre  
+            call_local_vars_trans_pre  
 
           in
 
@@ -421,13 +442,14 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
               (* Initial state constraint with true activations
                   condition *)
               Term.mk_implies 
-                [E.base_term_of_expr act_cond_init; 
+                [E.base_term_of_expr base_offset act_cond_init; 
                  Term.mk_and
                    (List.fold_left2 
                       (fun accum v1 v2 ->
                          Term.mk_eq 
-                           [E.base_term_of_state_var v1; 
-                            E.base_term_of_state_var v2] :: accum)
+                           [E.base_term_of_state_var base_offset v1; 
+                            E.base_term_of_state_var base_offset v2] :: 
+                         accum)
                       []
                       output_vars
                       output_default_vars)];
@@ -435,13 +457,14 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
               (* Initial state constraint with false activation
                   condition *)
               Term.mk_implies 
-                [Term.mk_not (E.base_term_of_expr act_cond_init);
+                [Term.mk_not (E.base_term_of_expr base_offset act_cond_init);
                  Term.mk_and
                    (List.fold_left2 
                       (fun accum state_var { E.expr_init } ->
                          Term.mk_eq 
-                           [E.base_term_of_state_var state_var; 
-                            E.base_term_of_expr expr_init] :: accum)
+                           [E.base_term_of_state_var base_offset state_var; 
+                            E.base_term_of_expr base_offset expr_init] :: 
+                         accum)
                       []
                       output_vars
                       init_exprs)]
@@ -455,26 +478,28 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
 
                (* Transition relation with true activation condition *)
                Term.mk_implies
-                 [E.cur_term_of_expr act_cond_trans; 
+                 [E.cur_term_of_expr cur_offset act_cond_trans; 
                   Term.mk_and 
                     (List.fold_left2
                        (fun accum sv1 sv2 ->
                           Term.mk_eq 
-                            [E.cur_term_of_state_var sv1; 
-                             E.cur_term_of_state_var sv2] :: accum)
+                            [E.cur_term_of_state_var cur_offset sv1; 
+                             E.cur_term_of_state_var cur_offset sv2] :: 
+                          accum)
                        [trans_call]
                        output_vars
                        output_default_vars)];
                   
                (* Transition relation with false activation condition *)
                Term.mk_implies 
-                 [Term.mk_not (E.cur_term_of_expr act_cond_trans);
+                 [Term.mk_not (E.cur_term_of_expr cur_offset act_cond_trans);
                   Term.mk_and 
                     (List.fold_left
                        (fun accum state_var ->
                           Term.mk_eq 
-                            [E.cur_term_of_state_var state_var; 
-                             E.pre_term_of_state_var state_var] :: accum)
+                            [E.cur_term_of_state_var cur_offset state_var; 
+                             E.pre_term_of_state_var cur_offset state_var] :: 
+                          accum)
                        []
                        (output_vars @ output_default_vars @ call_local_vars))];
 
@@ -505,8 +530,8 @@ let definitions_of_asserts init trans =
     (* Assertion with term for initial state and term for transitions *)
     | { E.expr_init; E.expr_step } :: tl ->
 
-      let term_init = E.base_term_of_expr expr_init in 
-      let term_trans = E.cur_term_of_expr expr_step in 
+      let term_init = E.base_term_of_expr base_offset expr_init in 
+      let term_trans = E.cur_term_of_expr cur_offset expr_step in 
 
       (* Add constraint unless it is true *)
       ((if term_init == Term.t_true then init else term_init :: init), 
@@ -578,13 +603,13 @@ let rec trans_sys_of_nodes'
           (* Initial state constraint *)
           Term.mk_uf 
             init_uf_symbol
-            (List.map E.base_term_of_state_var state_vars_top),
+            (List.map (E.base_term_of_state_var base_offset) state_vars_top),
 
           (* Transition relation *)
           Term.mk_uf 
             trans_uf_symbol
-            ((List.map E.cur_term_of_state_var state_vars_top) @
-             (List.map E.pre_term_of_state_var state_vars_top))
+            ((List.map (E.cur_term_of_state_var cur_offset) state_vars_top) @
+             (List.map (E.pre_term_of_state_var cur_offset) state_vars_top))
 
         )
 
@@ -662,7 +687,11 @@ let rec trans_sys_of_nodes'
         (fun accum expr -> 
            SVS.fold 
              (fun sv a -> 
-                if List.mem sv outputs || List.mem sv inputs then 
+                if 
+                  List.mem sv outputs || 
+                  List.mem sv inputs  || 
+                  List.mem sv oracles
+                then 
                   a 
                 else 
                   SVS.add sv a)
@@ -723,6 +752,45 @@ let rec trans_sys_of_nodes'
         (List.rev node_equations)
     in
 
+(*
+    (* Local variables are free variables in definitions that are not
+       input or outputs *)
+    let locals_set = 
+      List.fold_left 
+        (fun accum def -> 
+           
+           VS.fold
+             (fun var accum ->
+                if 
+                  Var.is_state_var_instance var
+                then 
+                  let sv = Var.state_var_of_state_var_instance var in
+                  if 
+                    List.mem sv outputs || 
+                    List.mem sv inputs || 
+                    List.mem sv oracles 
+                  then 
+                    accum
+                  else
+                    SVS.add sv accum 
+                else
+                  accum)
+             (Term.vars_of_term def)
+             accum)
+        SVS.empty
+        init_defs_eqs
+    in
+
+    let locals = SVS.elements locals_set in
+
+    (* Variables visible in the signature of the definition *)
+    let signature_vars_set = 
+      List.fold_left 
+        add_to_svs 
+        locals_set
+        [inputs; outputs]
+    in
+*)
     (* Types of input variables *)
     let input_types = 
       List.map
@@ -773,16 +841,16 @@ let rec trans_sys_of_nodes'
       (init_uf_symbol,
        
        (* Input variables *)
-       (((List.map E.base_var_of_state_var inputs) @
+       (((List.map (E.base_var_of_state_var base_offset) inputs) @
          
          (* Oracle inputs *)
-         (List.map E.base_var_of_state_var oracles) @
+         (List.map (E.base_var_of_state_var base_offset) oracles) @
          
          (* Output variables *)
-         (List.map E.base_var_of_state_var outputs) @
+         (List.map (E.base_var_of_state_var base_offset) outputs) @
          
          (* Local variables *)
-         (List.map E.base_var_of_state_var locals)),
+         (List.map (E.base_var_of_state_var base_offset) locals)),
 
         (Term.mk_and init_defs_eqs)))
 
@@ -809,28 +877,28 @@ let rec trans_sys_of_nodes'
       (trans_uf_symbol,
 
        (* Input variables *)
-       (((List.map E.cur_var_of_state_var inputs) @
+       (((List.map (E.cur_var_of_state_var cur_offset) inputs) @
          
          (* Oracle inputs *)
-         (List.map E.cur_var_of_state_var oracles) @
+         (List.map (E.cur_var_of_state_var cur_offset) oracles) @
          
          (* Output variables *)
-         (List.map E.cur_var_of_state_var outputs) @
+         (List.map (E.cur_var_of_state_var cur_offset) outputs) @
 
          (* Local variables *)
-         (List.map E.cur_var_of_state_var locals) @ 
+         (List.map (E.cur_var_of_state_var cur_offset) locals) @ 
 
          (* Input variables *)
-         (List.map E.pre_var_of_state_var inputs) @
+         (List.map (E.pre_var_of_state_var cur_offset) inputs) @
 
          (* Oracle inputs *)
-         (List.map E.pre_var_of_state_var oracles) @
+         (List.map (E.pre_var_of_state_var cur_offset) oracles) @
          
          (* Output variables *)
-         (List.map E.pre_var_of_state_var outputs) @
+         (List.map (E.pre_var_of_state_var cur_offset) outputs) @
 
          (* Local variables *)
-         (List.map E.pre_var_of_state_var locals)),
+         (List.map (E.pre_var_of_state_var cur_offset) locals)),
 
         (Term.mk_and trans_defs_eqs)))
 
@@ -862,7 +930,7 @@ let prop_of_node_prop state_var =
   
   (* Term of property *)
   let prop_term = 
-    E.base_term_of_state_var (state_var_of_top_scope state_var) 
+    E.base_term_of_state_var cur_offset (state_var_of_top_scope state_var) 
   in
   
   (prop_name, prop_term)

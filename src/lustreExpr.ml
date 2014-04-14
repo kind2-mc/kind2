@@ -53,10 +53,6 @@ let ident_of_state_var state_var =
       
 
 
-(* Equality on expressions *)
-let equal_expr = Term.equal
-
-
 (* A Lustre clock *)
 type clock = unit
 
@@ -81,6 +77,13 @@ type t = {
 
 }
 
+(* Equality on expressions *)
+let equal_expr
+    { expr_init = init1; expr_step = step1; expr_clock = clock1 } 
+    { expr_init = init2; expr_step = step2; expr_clock = clock2 } = 
+
+  Term.equal init1 init2 && Term.equal step1 step2 && clock1 = clock2
+
 
 (* ********************************************************************** *)
 (* Pretty-printing                                                        *)
@@ -97,7 +100,7 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
     Format.fprintf
       ppf 
-      "subrange of in [%a, %a]" 
+      "subrange of int [%a, %a]" 
       Numeral.pp_print_numeral i 
       Numeral.pp_print_numeral j
 
@@ -452,7 +455,7 @@ let print_expr safe = pp_print_expr safe Format.std_formatter
 let pp_print_lustre_expr safe ppf = function
 
   (* Same expression for initial state and following states *)
-  | { expr_init; expr_step } when equal_expr expr_init expr_step -> 
+  | { expr_init; expr_step } when Term.equal expr_init expr_step -> 
 
     pp_print_expr safe ppf expr_step
 
@@ -483,6 +486,10 @@ let clock_check _ _ = true
 (* Conversion to terms                                                    *)
 (* ********************************************************************** *)
 
+(* These offsets are different from the offsets in the transition system,
+   because here we want to know if the initial and the step
+   expressions are equal without bumping offsets *)
+
 (* Offset of state variable at first instant *)
 let pre_base_offset = Numeral.(- one)
 
@@ -490,54 +497,65 @@ let pre_base_offset = Numeral.(- one)
 let base_offset = Numeral.zero
 
 (* Offset of state variable at current instant *)
-let cur_offset = Numeral.one
+let cur_offset = Numeral.zero
 
 (* Offset of state variable at previous instant *)
-let pre_offset = Numeral.zero
+let pre_offset = Numeral.(- one)
 
 
 (* Instance of state variable at instant zero *)
-let pre_base_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var pre_base_offset
+let pre_base_var_of_state_var zero_offset state_var = 
+  Var.mk_state_var_instance 
+    state_var
+    Numeral.(zero_offset + pre_base_offset)
 
 (* Instance of state variable at instant zero *)
-let base_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var base_offset
+let base_var_of_state_var zero_offset state_var = 
+  Var.mk_state_var_instance
+    state_var
+    Numeral.(zero_offset + base_offset)
 
 (* Instance of state variable at current instant *)
-let cur_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var cur_offset
+let cur_var_of_state_var zero_offset state_var = 
+  Var.mk_state_var_instance
+    state_var
+    Numeral.(zero_offset + cur_offset)
 
 (* Instance of state variable at previous instant *)
-let pre_var_of_state_var state_var = 
-  Var.mk_state_var_instance state_var pre_offset
+let pre_var_of_state_var zero_offset state_var = 
+  Var.mk_state_var_instance 
+    state_var
+    Numeral.(zero_offset + pre_offset)
 
     
 (* Term of instance of state variable at previous instant *)
-let pre_base_term_of_state_var state_var = 
-  Term.mk_var (pre_base_var_of_state_var state_var)
+let pre_base_term_of_state_var zero_offset state_var = 
+  Term.mk_var (pre_base_var_of_state_var zero_offset state_var)
 
 (* Term of instance of state variable at previous instant *)
-let base_term_of_state_var state_var = 
-  Term.mk_var (base_var_of_state_var state_var)
+let base_term_of_state_var zero_offset state_var = 
+  Term.mk_var (base_var_of_state_var zero_offset state_var)
 
 (* Term of instance of state variable at current instant *)
-let cur_term_of_state_var state_var = 
-  Term.mk_var (cur_var_of_state_var state_var)
+let cur_term_of_state_var zero_offset state_var = 
+  Term.mk_var (cur_var_of_state_var zero_offset state_var)
 
 (* Term of instance of state variable at previous instant *)
-let pre_term_of_state_var state_var = 
-  Term.mk_var (pre_var_of_state_var state_var)
+let pre_term_of_state_var zero_offset state_var = 
+  Term.mk_var (pre_var_of_state_var zero_offset state_var)
 
 
 (* Term at instant zero *)
-let base_term_of_expr expr = expr
+let base_term_of_expr zero_offset expr = 
+  Term.bump_state Numeral.(zero_offset + base_offset) expr
 
 (* Term at current instant *)
-let cur_term_of_expr expr = expr
+let cur_term_of_expr zero_offset expr =
+  Term.bump_state Numeral.(zero_offset + cur_offset) expr
 
 (* Term at previous instant *)
-let pre_term_of_expr expr = Term.bump_state Numeral.(- one) expr
+let pre_term_of_expr zero_offset expr = 
+  Term.bump_state Numeral.(zero_offset + pre_offset) expr
 
 
 (* ********************************************************************** *)
@@ -673,8 +691,8 @@ let mk_real f =
 (* Current state variable of state variable *)
 let mk_var_of_state_var state_var expr_clock = 
 
-  { expr_init = base_term_of_state_var state_var;
-    expr_step = cur_term_of_state_var state_var;
+  { expr_init = base_term_of_state_var base_offset state_var;
+    expr_step = cur_term_of_state_var cur_offset state_var;
     expr_type = StateVar.type_of_state_var state_var;
     expr_clock = expr_clock } 
 
@@ -695,8 +713,8 @@ let mk_var_pre scope ident expr_type expr_clock =
   (* State variable of identifier *)
   let state_var = state_var_of_ident scope ident expr_type in
 
-  { expr_init = pre_base_term_of_state_var state_var;
-    expr_step = pre_term_of_state_var state_var;
+  { expr_init = pre_base_term_of_state_var base_offset state_var;
+    expr_step = pre_term_of_state_var cur_offset state_var;
     expr_type = expr_type;
     expr_clock = expr_clock } 
 
@@ -1259,7 +1277,7 @@ let eval_eq expr1 expr2 = match expr1, expr2 with
   | _, t when t == Term.t_false -> Term.mk_not expr1
 
   (* e = e -> true *)
-  | _ when equal_expr expr1 expr2 -> Term.t_true
+  | _ when Term.equal expr1 expr2 -> Term.t_true
 
   | _ -> 
 
@@ -1528,7 +1546,7 @@ let eval_ite = function
   | expr1 -> 
     (function expr2 -> 
       (function expr3 -> 
-        if equal_expr expr2 expr3 then 
+        if Term.equal expr2 expr3 then 
           expr2 
         else
           (Term.mk_ite expr1 expr2 expr3))) 
@@ -1641,7 +1659,7 @@ let mk_pre
   let expr_step', new_vars' = match expr_step with 
 
     (* Expression is identical to initial state *)
-    | _ when equal_expr expr_step expr_init -> 
+    | _ when Term.equal expr_step expr_init -> 
 
       (* Re-use abstraction for initial state *)
       (expr_init', new_vars')

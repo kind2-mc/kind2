@@ -29,6 +29,12 @@
       either at the current state or at the previous state and
       represented as [Var] or [VarPre] constants.
 
+    - The offsets of state variable instances are zero for the initial
+      state and zero for the current state. These are different from
+      the offsets in the transition system, because here we want to
+      know if the initial and the step expressions are equal without
+      bumping offsets
+
     Expressions can only be constructed with the constructors which do
     type and clock checking.
 
@@ -122,6 +128,8 @@ type t = private {
                                      expr_step *)
 
 }
+
+val equal_expr : t -> t -> bool
 
 
 (** Pretty-print a Lustre variable. *)
@@ -272,31 +280,31 @@ val cur_offset : Numeral.t
 val pre_offset : Numeral.t
 
 (** Instance of state variable at first instant *)
-val base_var_of_state_var : StateVar.t -> Var.t
+val base_var_of_state_var : Numeral.t -> StateVar.t -> Var.t
 
 (** Instance of state variable at current instant *)
-val cur_var_of_state_var : StateVar.t -> Var.t
+val cur_var_of_state_var : Numeral.t -> StateVar.t -> Var.t
 
 (** Instance of state variable at previous instant *)
-val pre_var_of_state_var : StateVar.t -> Var.t
+val pre_var_of_state_var : Numeral.t -> StateVar.t -> Var.t
     
 (** Term of instance of state variable at first instant *)
-val base_term_of_state_var : StateVar.t -> Term.t
+val base_term_of_state_var : Numeral.t -> StateVar.t -> Term.t
 
 (** Term of instance of state variable at current instant *)
-val cur_term_of_state_var : StateVar.t -> Term.t
+val cur_term_of_state_var : Numeral.t -> StateVar.t -> Term.t
 
 (** Term of instance of state variable at previous instant *)
-val pre_term_of_state_var : StateVar.t -> Term.t
+val pre_term_of_state_var : Numeral.t -> StateVar.t -> Term.t
 
 (** Term at first instant *)
-val base_term_of_expr : expr -> Term.t
+val base_term_of_expr : Numeral.t -> expr -> Term.t
 
 (** Term at current instant *)
-val cur_term_of_expr : expr -> Term.t
+val cur_term_of_expr : Numeral.t -> expr -> Term.t
 
 (** Term at previous instant *)
-val pre_term_of_expr : expr -> Term.t
+val pre_term_of_expr : Numeral.t -> expr -> Term.t
 
 
 (** {1 Predicates} *)

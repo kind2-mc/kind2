@@ -299,9 +299,9 @@ let rec node_var_dependencies init_or_step nodes node accum =
   (* Return expression either for the initial state or a step state *)
   let init_or_step_of_expr { E.expr_init; E.expr_step } = 
     if init_or_step then 
-      E.base_term_of_expr expr_init 
+      E.base_term_of_expr E.base_offset expr_init 
     else 
-      E.cur_term_of_expr expr_step 
+      E.cur_term_of_expr E.cur_offset expr_step 
   in
 
   let init_or_step_offset = 
@@ -690,7 +690,18 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   let exprs_calls = 
     List.fold_left
       (fun accum (_, act_cond, _, args, inits) -> 
-         act_cond :: (args @ inits @ accum))
+         act_cond :: 
+         args @
+         
+         (* Add previous state expression of arguments *)
+         List.map 
+           (fun e -> 
+              (fst 
+                 ((E.mk_pre
+                     (fun _ -> Format.printf "exprs_of_node: %a@." (E.pp_print_lustre_expr false) e; assert false) [] e)))) 
+           args @
+         inits @ 
+         accum)
       exprs_equations
       calls
   in
@@ -707,6 +718,36 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   (* Return collected expressions *)
   exprs_ensures
 
+
+let stateful_vars_of_node
+    { equations; calls; asserts; props } =
+
+  let stateful_vars = 
+    List.fold_left 
+      (fun accum (_, expr) -> SVS.union accum (E.stateful_vars_of_expr expr))
+      SVS.empty
+      equations
+  in
+
+  let stateful_vars = 
+    List.fold_left
+      (fun accum (_, act_cond, _, args, inits) -> 
+         SVS.union
+           (SVS.union
+              (E.stateful_vars_of_expr act_cond)
+              (List.fold_left 
+                 SVS.union 
+                 accum
+                 (List.map E.state_vars_of_expr args)))
+           (List.fold_left 
+              SVS.union 
+              SVS.empty
+              (List.map E.stateful_vars_of_expr inits)))
+      stateful_vars
+      calls
+  in  
+
+  stateful_vars
 
 (* Return name of the first node annotated with --%MAIN.  Raise
    [Not_found] if no node has a --%MAIN annotation or [Failure

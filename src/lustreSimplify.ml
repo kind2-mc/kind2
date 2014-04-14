@@ -234,6 +234,44 @@ let void_abstraction_context pos =
     new_oracles = [] } 
 
 
+let pp_print_abstraction_context 
+    ppf
+    { scope; new_vars; new_calls; new_oracles} =
+
+  Format.fprintf 
+    ppf 
+    "@[<v>Abstraction context for scope %a@,@[<hv>new_vars:@ @[<hv>%a@]@]@,@[<hv>new_calls:@ @[<hv>%a@]@]@,@[<hv>new_oracles:@ @[<hv>%a@]@]@]"
+    (I.pp_print_index false) scope
+    (pp_print_list
+       (fun ppf (sv, def) -> 
+          Format.fprintf ppf "@[<hv>%a =@ %a@]"
+            StateVar.pp_print_state_var sv
+            (E.pp_print_lustre_expr false) def)
+       ",@,")
+    new_vars
+    (pp_print_list
+       (fun ppf -> function 
+          | (ret, clk, node, inp, init) when E.equal_expr clk E.t_true -> 
+            Format.fprintf ppf "@[<hv>%a =@ %a(%a)@]"
+              (pp_print_list StateVar.pp_print_state_var ",@,") ret
+              (I.pp_print_ident false) node
+              (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
+          | (ret, clk, node, inp, init) -> 
+            Format.fprintf ppf "@[<hv>%a =@ condact(%a,%a(%a),%a)@]"
+              (pp_print_list StateVar.pp_print_state_var ",@,") ret
+              (E.pp_print_lustre_expr false) clk
+              (I.pp_print_ident false) node
+              (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
+              (pp_print_list (E.pp_print_lustre_expr false) ",@,") init)
+       ",@,")
+    new_calls
+    (pp_print_list StateVar.pp_print_state_var ",@,") 
+    new_oracles
+    
+    
+
+
+
 (* ******************************************************************** *)
 (* Evaluation of expressions                                            *)
 (* ******************************************************************** *)
@@ -1560,7 +1598,7 @@ and int_const_of_ast_expr context pos expr =
         index = I.empty_index && 
         ei == es -> 
       
-      (match Term.destruct (E.base_term_of_expr ei) with 
+      (match Term.destruct (E.base_term_of_expr E.base_offset ei) with 
         | Term.T.Const c when Symbol.is_numeral c ->
           Symbol.numeral_of_symbol c
             
