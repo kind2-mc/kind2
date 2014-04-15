@@ -123,8 +123,8 @@ val equations_order_by_dep : t list -> t -> t
     definition of [x] if it is local. *)
 val solve_eqs_node_calls : t -> t
 
-(** Return all expressions in a node *)
-val exprs_of_node : t -> LustreExpr.t list
+(** Return all stateful variables from expressions in a node *)
+val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
 (** Return name of the first node annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation or [Failure

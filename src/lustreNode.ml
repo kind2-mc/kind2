@@ -23,6 +23,15 @@ module E = LustreExpr
 
 module SVS = StateVar.StateVarSet
 
+(* Set of state variables of list *)
+let svs_of_list list = 
+  List.fold_left (fun a e -> SVS.add e a) SVS.empty list
+
+(* Add a list of state variables to a set *)
+let add_to_svs set list = 
+  List.fold_left (fun a e -> SVS.add e a) set list 
+  
+
 module ISet = I.LustreIdentSet
 
 (* A node
@@ -720,32 +729,58 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
 
 
 let stateful_vars_of_node
-    { equations; calls; asserts; props } =
+    { inputs; outputs; oracles; equations; calls; asserts; props } =
 
+  (* Input, output and oracle variables are always stateful *)
+  let stateful_vars =
+    add_to_svs
+      SVS.empty
+      (inputs @ outputs @ oracles)
+  in
+
+  (* Add stateful variables from equations *)
   let stateful_vars = 
     List.fold_left 
-      (fun accum (_, expr) -> SVS.union accum (E.stateful_vars_of_expr expr))
-      SVS.empty
+      (fun accum (_, expr) -> 
+         SVS.union accum (E.stateful_vars_of_expr expr))
+      stateful_vars
       equations
   in
 
+  (* Add property variables *)
+  let stateful_vars = add_to_svs stateful_vars props in
+
+  (* Add stateful variables from assertions *)
+  let stateful_vars = 
+    List.fold_left 
+      (fun accum expr -> 
+         SVS.union accum (E.stateful_vars_of_expr expr))
+      stateful_vars
+      asserts
+  in
+
+  (* Add variables from node calls *)
   let stateful_vars = 
     List.fold_left
-      (fun accum (_, act_cond, _, args, inits) -> 
-         SVS.union
-           (SVS.union
-              (E.stateful_vars_of_expr act_cond)
-              (List.fold_left 
-                 SVS.union 
-                 accum
-                 (List.map E.state_vars_of_expr args)))
-           (List.fold_left 
-              SVS.union 
-              SVS.empty
-              (List.map E.stateful_vars_of_expr inits)))
+      (fun accum (rets, act_cond, _, args, inits) -> 
+         (add_to_svs
+            
+            (SVS.union
+
+               (* Stateful variables in activation condition *)
+               (E.stateful_vars_of_expr act_cond)
+               
+               (* Variables in input parameters are always stateful *)
+               (List.fold_left 
+                  SVS.union 
+                  accum
+                  (List.map E.state_vars_of_expr (args))))
+
+            (* Output variables are always stateful *)
+            rets))
       stateful_vars
       calls
-  in  
+  in
 
   stateful_vars
 

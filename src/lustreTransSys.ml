@@ -420,7 +420,7 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
 
             (* Previous state output variables *)
             (List.map 
-               (E.pre_term_of_state_var base_offset)
+               (E.pre_term_of_state_var cur_offset)
                output_default_vars) @ 
 
             (* Previous state local variables *)
@@ -683,22 +683,13 @@ let rec trans_sys_of_nodes'
 
     (* Variables occurring under a pre that are not also outputs or inputs *)
     let node_locals_set = 
-      List.fold_left 
-        (fun accum expr -> 
-           SVS.fold 
-             (fun sv a -> 
-                if 
-                  List.mem sv outputs || 
-                  List.mem sv inputs  || 
-                  List.mem sv oracles
-                then 
-                  a 
-                else 
-                  SVS.add sv a)
-             (E.stateful_vars_of_expr expr)
-             accum)
-        SVS.empty
-        (N.exprs_of_node node)
+      SVS.filter 
+        (fun sv -> 
+           not
+             (List.mem sv inputs || 
+              List.mem sv outputs || 
+              List.mem sv oracles))
+        (N.stateful_vars_of_node node)
     in
 
     (* Variables occurring under a pre and variables capturing the

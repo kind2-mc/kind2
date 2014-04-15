@@ -204,10 +204,15 @@ let invars_of_bound i t =
 let props_of_bound i t = 
 
   (* Create conjunction of property terms *)
-  let props_0 = Term.mk_and (List.map snd t.props) in 
+  let props_1 = Term.mk_and (List.map snd t.props) in 
 
   (* Bump bound if greater than zero *)
-  if Numeral.(i = zero) then props_0 else Term.bump_state i props_0
+  if
+    Numeral.(i = one)
+  then
+    props_1
+  else
+    Term.bump_state Numeral.(i - one) props_1
 
 
 (* Add an invariant to the transition system *)
