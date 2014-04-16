@@ -565,11 +565,12 @@ let main () =
 
       | `Lustre -> 
 
-        OldParser.of_file (Flags.input_file ()) 
+        LustreInput.of_file (Flags.input_file ()) 
 
       | `Horn -> 
 
-        Horn.of_file (Flags.input_file ()) 
+        (* Horn.of_file (Flags.input_file ()) *)
+        assert false
 
     in
 

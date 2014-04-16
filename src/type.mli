@@ -32,6 +32,7 @@ type kindtype =
   | Real
   | BV of int
   | Array of t * t
+  | Scalar of string * string list
 
 (** Hashconsed type *)
 and t
@@ -80,8 +81,11 @@ val mk_real : unit -> t
 (** Return the bitvector type *)
 val mk_bv : int -> t
 
-(** Return the array type *)
+(** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
+
+(** Return a scalar type of identifier and elements *)
+val mk_scalar : string -> string list -> t
 
 (** Import a type from a different instance into this hashcons table *)
 val import : t -> t 
@@ -95,13 +99,21 @@ val t_int : t
 (** The real decimal type *)
 val t_real : t
 
+(** {1 Type checking} *)
+
+(** [check_type s t] returns [true] if [s] is a subtype of [t] *)
+val check_type : t -> t -> bool
+
 (** {1 Predicates} *)
 
 (** Return [true] if the type is the Boolean type *)
 val is_bool : t -> bool
 
-(** Return [true] if the type is an integer type *)
+(** Return [true] if the type is the integer type *)
 val is_int : t -> bool
+
+(** Return [true] if the type is an integer range type *)
+val is_int_range : t -> bool
 
 (** Return [true] if the type is the real type *)
 val is_real : t -> bool
@@ -111,6 +123,18 @@ val is_bv : t -> bool
 
 (** Return [true] if the type is an array type *)
 val is_array : t -> bool
+
+(** Return [true] if the type is a scalar type *)
+val is_scalar : t -> bool
+
+(** Return bounds of an integer range type, fail with
+    [Invalid_argument "bounds_of_int_range"] if the type is not an
+    integer range type. *)
+val bounds_of_int_range : t -> (Numeral.t * Numeral.t)
+
+(** Return string elements of scalar, fail with [Invalid_argument
+    "elements_of_scalar"] if the type is not a scalar type. *)
+val elements_of_scalar : t -> string list 
 
 (** {1 Pretty-printing} *)
 
@@ -122,6 +146,7 @@ val pp_print_type : Format.formatter -> t -> unit
 
 (** Return a string representation of a type *)
 val string_of_type : t -> string
+
 
 
 (* 

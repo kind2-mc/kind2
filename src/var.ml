@@ -102,6 +102,7 @@ module Hvar = Hashcons.Make (Var_node)
 (* Storage for hashconsed variables *)
 let ht = Hvar.create 251
 
+let stats () = Hvar.stats ht
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -173,7 +174,7 @@ let pp_print_var_node ppf = function
   (* Pretty-print an instance of a state variable *)
   | StateVarInstance (v, o) ->
     Format.fprintf ppf 
-      "%a'%a" 
+      "%a.%a" 
       StateVar.pp_print_state_var v
       Numeral.pp_print_numeral o
       
@@ -226,8 +227,13 @@ let hstring_of_temp_var = function
   | { Hashcons.node = TempVar (s, _) } -> s
 
 
+let is_state_var_instance = function 
+  | { Hashcons.node = StateVarInstance _ } -> true
+  | _ -> false
+
+
 let is_temp_var = function 
-  | { Hashcons.node = TempVar (s, _) } -> true
+  | { Hashcons.node = TempVar _ } -> true
   | _ -> false
 
 

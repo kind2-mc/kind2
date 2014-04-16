@@ -23,6 +23,8 @@
 
 open Lib
 
+(*
+
 (* Use configured SMT solver *)
 module INDSolver = SMTSolver.Make (Config.SMTSolver)
 
@@ -688,6 +690,12 @@ let main transSys =
     | [] -> Event.log `IND Event.L_error "No property to check"
 
     | _ -> init transSys prop_pairs premises);
+
+*)
+
+let on_exit _ = ()
+
+let main _ = ()
 
  
 

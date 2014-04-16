@@ -40,10 +40,10 @@
 *)
 
 (** Simplify a term *)
-val simplify_term : Term.t -> Term.t
+val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.t
 
 (** Simplify a term given an assignment to variables *)
-val simplify_term_model : (Var.t * Term.t) list -> Term.t -> Term.t
+val simplify_term_model : (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Term.t -> Term.t
 
 (* 
    Local Variables:

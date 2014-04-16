@@ -79,6 +79,9 @@ val offset_of_state_var_instance : t -> Numeral.t
 (** Return the offset of a state variable instance *)
 val hstring_of_temp_var : t -> HString.t
 
+(** Return true if the variable is an instance of a state variable *)
+val is_state_var_instance : t -> bool
+
 (** Return true if the variable is a temporary variable *)
 val is_temp_var : t -> bool
 
@@ -97,6 +100,8 @@ val print_var : t -> unit
 
 (** Return a string representation of a hashconsed variable *)
 val string_of_var : t -> string 
+
+val stats : unit -> int * int * int * int * int * int
 
 (* 
    Local Variables:

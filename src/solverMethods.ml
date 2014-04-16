@@ -31,6 +31,10 @@ sig
     
   val delete_solver : t -> unit
     
+  val declare_fun : t -> UfSymbol.t -> unit
+
+  val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
+
   val fail_on_smt_error : SMTExpr.response -> unit
 
   val assert_term : t -> Term.t -> unit
@@ -152,9 +156,11 @@ struct
     );
 *)
 
+(*
     (* Declare uninterpreted function symbols *)
     fail_on_smt_error 
       (SMTExpr.declare_smt_symbols (S.declare_fun solver));
+*)
 
     (* Return solver instance *)
     solver
@@ -165,6 +171,31 @@ struct
 
     (* Delete solver instance *)
     S.delete_instance solver 
+
+
+  (* ******************************************************************** *)
+  (* Declarations                                                         *)
+  (* ******************************************************************** *)
+
+  let declare_fun solver uf_symbol = 
+
+    fail_on_smt_error 
+      (S.declare_fun
+         solver
+         (UfSymbol.string_of_uf_symbol uf_symbol)
+         (UfSymbol.arg_type_of_uf_symbol uf_symbol)
+         (UfSymbol.res_type_of_uf_symbol uf_symbol))
+
+
+  let define_fun solver uf_symbol vars term =
+
+    fail_on_smt_error 
+      (S.define_fun
+         solver
+         (UfSymbol.string_of_uf_symbol uf_symbol)
+         vars
+         (UfSymbol.res_type_of_uf_symbol uf_symbol)
+         term)
 
 
   (* ******************************************************************** *)
@@ -355,7 +386,7 @@ struct
       if res then 
       
         (* Get variables of term *)
-        let vars = TransSys.vars_of_term (Term.mk_and terms) in
+        let vars = Var.VarSet.elements (Term.vars_of_term (Term.mk_and terms)) in
         
         (* Get model of context *)
         get_model solver vars 
@@ -419,8 +450,9 @@ struct
 
         (* Get variables of term *)
         let vars = 
-          TransSys.vars_of_term 
-            (Term.mk_and ((Term.mk_not conc) :: prems)) 
+          Var.VarSet.elements 
+            (Term.vars_of_term 
+               (Term.mk_and ((Term.mk_not conc) :: prems)))
         in
         
         (* Get model of context *)

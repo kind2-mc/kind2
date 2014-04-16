@@ -181,13 +181,13 @@ let choose_term (bool_terms, int_terms) =
            term))
 
 
-let extract env term = 
+let extract uf_defs env term = 
 
   let eval_term t = 
-    let res = Eval.eval_term t env in
+    let res = Eval.eval_term uf_defs env t in
 
     debug extract 
-        "%a@ evaluates to@ @[<hv>%a@]" 
+        "@[<v>%a@ evaluates to@ @[<hv>%a@]@]" 
         Term.pp_print_term t
         Term.pp_print_term (Eval.term_of_value res)
     in
@@ -307,51 +307,51 @@ let extract env term =
                       not (Eval.bool_of_value v))
                     p
                 in
-                
+
                 (* Candidiate terms from premise and conclusion *)
                 let cand_terms = 
-                  
+
                   (* Check if the conclusion is true *)
                   if Eval.bool_of_value (eval_term c) then 
-                    
+
                     (* Conclusion is a candidate term *)
                     c :: cand_terms_prem 
-                    
+
                   else
-                    
+
                     (* Conclusion is not a candidate term *)
                     cand_terms_prem 
-                      
+
                 in
-                
+
                 (* Choose term to extract from *)
                 let term' = 
-                  
+
                   try 
-                    
+
                     (* Use heuristic to choose term from candidates *)
                     choose_term accum cand_terms 
-                      
+
                   with Not_found -> 
-                    
+
                     (debug extract 
                         "@[<hv 1>%a@]@ to be@ %B" 
                         Term.pp_print_term (Term.T.construct term)
                         polarity
                      in
-                     
+
                      (* Fail on an unsatisfiable formula *)
                      raise 
                        (Invalid_argument
                           "Extract on unsatisfiable formula"))
-                    
+
                 in
-                
+
                 (* Extract with positive polarity if chosen term is
                      conclusion, otherwise with negative polarity *)
                 (accum,
                  [(term', env, Term.equal term' c)])
-                
+
           )
 
 
@@ -379,10 +379,10 @@ let extract env term =
                 (accum,
                  (List.rev
                     ((c, env, false) ::
-                       (List.map 
-                          (function e -> 
-                            (e, env, true))
-                          p))))
+                     (List.map 
+                        (function e -> 
+                          (e, env, true))
+                        p))))
 
           )
 
@@ -410,23 +410,23 @@ let extract env term =
             let term' = 
 
               try 
-                
+
                 (* Use heuristic to choose term from candidates *)
                 choose_term accum cand_terms 
-                      
+
               with Not_found -> 
-                
+
                 (debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
                     polarity
                  in
-                 
+
                  (* Fail on an unsatisfiable formula *)
                  raise 
                    (Invalid_argument
                       "Extract on unsatisfiable formula"))
-                
+
             in
 
             (* Extract with negative polarity from chosen term *)
@@ -445,28 +445,28 @@ let extract env term =
                 (function t -> Eval.bool_of_value (eval_term t)) 
                 l
             in
-            
+
             (* Choose term to extract from *)
             let term' = 
 
               try 
-                
+
                 (* Use heuristic to choose term from candidates *)
                 choose_term accum cand_terms 
-                      
+
               with Not_found -> 
-                
+
                 (debug extract 
                     "@[<hv 1>%a@]@ to be@ %B" 
                     Term.pp_print_term (Term.T.construct term)
                     polarity
                  in
-                 
+
                  (* Fail on an unsatisfiable formula *)
                  raise 
                    (Invalid_argument
                       "Extract on unsatisfiable formula"))
-                
+
             in
 
             (* Extract with positive polarity from chosen term *)
@@ -489,70 +489,77 @@ let extract env term =
         (* Equality *)
         | `EQ as s -> 
 
-          (match l with
+          (debug extract 
+              "@[<hv 1>%a@]@ %a to be@ %B" 
+              Term.pp_print_term (Term.T.construct term)
+              Type.pp_print_type (Term.type_of_term (Term.T.construct term))
+              polarity
+           in
 
-            (* Equality cannot be nullary *)
-            | []  -> assert false
-            | h :: tl -> 
+           match l with
 
-              (* Equality is between Boolean terms? *)
-              if Term.type_of_term h == Type.mk_bool () then 
+             (* Equality cannot be nullary *)
+             | []  -> assert false
+             | h :: tl -> 
 
-                (
+               (* Equality is between Boolean terms? *)
+               if Term.type_of_term h == Type.t_bool then 
 
-                  match polarity with 
+                 (
 
-                    (* Equality to be true *)
-                    | true ->
+                   match polarity with 
 
-                      (* First argument is true? *)
-                      if Eval.bool_of_value (eval_term h) then
+                     (* Equality to be true *)
+                     | true ->
 
-                        (* All arguments must be true *)
-                        (accum, 
-                         (List.map 
-                            (function c -> (c, env, true))
-                            l))
+                       (* First argument is true? *)
+                       if Eval.bool_of_value (eval_term h) then
 
-                      else
+                         (* All arguments must be true *)
+                         (accum, 
+                          (List.map 
+                             (function c -> (c, env, true))
+                             l))
 
-                        (* All arguments must be false *)
-                        (accum, 
-                         (List.map 
-                            (function c -> (c, env, false))
-                            l))
+                       else
 
-                    (* Equality to be false *)
-                    | false ->
+                         (* All arguments must be false *)
+                         (accum, 
+                          (List.map 
+                             (function c -> (c, env, false))
+                             l))
 
-                      (* Choose one true and one false term *)
-                      (accum,
-                       [((List.find 
-                            (function t -> Eval.bool_of_value (eval_term t)) 
-                            l),
-                         env,
-                         true);
-                        ((List.find 
-                            (function t -> 
-                              not (Eval.bool_of_value (eval_term t)))
-                            l),
-                         env,
-                         false)])
+                     (* Equality to be false *)
+                     | false ->
 
-                )
+                       (* Choose one true and one false term *)
+                       (accum,
+                        [((List.find 
+                             (function t -> Eval.bool_of_value (eval_term t)) 
+                             l),
+                          env,
+                          true);
+                         ((List.find 
+                             (function t -> 
+                               not (Eval.bool_of_value (eval_term t)))
+                             l),
+                          env,
+                          false)])
 
-              else 
+                 )
 
-                (match l with 
+               else 
 
-                  (* Comparison functions must have arity greater than one *)
-                  | [] 
-                  | _ :: [] -> assert false 
+                 (match l with 
 
-                  (* Comparison of arity two *)
-                  | [l; r] -> 
+                   (* Comparison functions must have arity greater than one *)
+                   | [] 
+                   | _ :: [] -> assert false 
 
-                    extract_term_atom accum polarity env term 
+                   (* Comparison of arity two *)
+                   | [l; r] -> 
+
+                     extract_term_atom accum polarity env term 
 
 (*
                     (* Split equation into l <= r && l >= r and extract
@@ -567,17 +574,17 @@ let extract env term =
                        polarity)])
 *)                    
 
-                  | l -> 
+                   | l -> 
 
-                    let l' = chain_list l in 
+                     let l' = chain_list l in 
 
-                    (accum, 
-                     [(Term.T.mk_app (Symbol.mk_symbol `AND) 
-                         (List.map (Term.T.mk_app (Symbol.mk_symbol s)) l'), 
-                       env, 
-                       polarity)])
+                     (accum, 
+                      [(Term.T.mk_app (Symbol.mk_symbol `AND) 
+                          (List.map (Term.T.mk_app (Symbol.mk_symbol s)) l'), 
+                        env, 
+                        polarity)])
 
-                )
+                 )
 
           )
 
@@ -592,17 +599,23 @@ let extract env term =
             (* ite must be ternary *)
             | [p; t; f]  -> 
 
-              (* Condition is true? *)
-              if Eval.bool_of_value (eval_term p) then
+              if Term.type_of_term t == Type.t_bool then 
 
-                (* Extract from term for true and positive condition *)
-                (accum, [(p, env, true); (t, env, polarity)])
+                (* Condition is true? *)
+                if Eval.bool_of_value (eval_term p) then
+
+                  (* Extract from term for true and positive condition *)
+                  (accum, [(p, env, true); (t, env, polarity)])
 
                 (* Condition is false? *)
+                else
+
+                  (* Extract from term for false and negative condition *)
+                  (accum, [(p, env, false); (f, env, polarity)])
+
               else
 
-                (* Extract from term for false and negative condition *)
-                (accum, [(p, env, false); (f, env, polarity)])
+                extract_term_atom accum polarity env term 
 
             (* Non-ternary ite *)
             | _ -> assert false 
@@ -640,12 +653,52 @@ let extract env term =
 
           )
 
+        | `UF uf_symbol ->
+
+          (try 
+
+             let (vars, uf_def) = 
+               List.assq uf_symbol uf_defs 
+             in
+
+             debug extract1
+                 "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
+                 UfSymbol.pp_print_uf_symbol uf_symbol
+                 (pp_print_list Var.pp_print_var "@ ") vars
+                 Term.pp_print_term uf_def
+             in
+
+             let term' = 
+               Term.mk_let 
+                 (List.fold_right2
+                    (fun var def accum -> (var, def) :: accum)
+                    vars
+                    l
+                    [])
+                 uf_def
+             in
+
+             debug extract
+                 "@[<v>Substituted definition for %a in@,%a@,yields@,%a@]" 
+                 UfSymbol.pp_print_uf_symbol uf_symbol
+                 Term.pp_print_term (Term.construct term)
+                 Term.pp_print_term term'
+             in
+
+             (accum, [term', env, polarity])
+
+           with Not_found -> 
+
+             (* Extract from subterms with undefined polarity *)
+             extract_term_atom accum polarity env term 
+
+          )
+
         (* Boolean atoms *)
         | `IS_INT 
         | `TO_REAL
         | `TO_INT 
-        | `DIVISIBLE _
-        | `UF _ ->
+        | `DIVISIBLE _ ->
 
           (match l with 
 
@@ -675,6 +728,11 @@ let extract env term =
           bool, 
         int), 
        [])
+
+
+    | Term.T.Attr (t, _) -> (accum, [t, env, polarity])
+
+
 
 
   and extract_term_atom (bool, int) polarity env term = 
@@ -718,13 +776,34 @@ let extract env term =
         | Term.T.Var _ 
         | Term.T.Const _ -> ([], Term.T.construct fterm)
 
+        | Term.T.Attr (t, _) -> 
+          match args with [(a, _)] -> (a, t) | _ -> assert false
+
     in
 
     (* Lift ites from term *)
     let stack', term' = 
-      Term.T.eval_t
-        extract_term_atom_node 
-        (Term.T.construct term)
+      (try 
+
+         Term.T.eval_t
+           extract_term_atom_node 
+           (Term.T.construct term)
+
+       with Invalid_argument _ -> 
+
+         debug extract1
+             "bool_of_value invalid for %a"
+             Term.pp_print_term (Term.T.construct term)
+         in
+
+         assert false)
+
+
+    in
+
+    debug extract
+        "@[<hv>extract_term_atom_node: term' = @ %a@]" 
+        Term.pp_print_term term'
     in
 
     let term'' = term' in
