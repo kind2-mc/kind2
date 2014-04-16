@@ -21,6 +21,15 @@
     @author Paul Meng
 *)
 
+let on_exit () = ()
+
+let main _ = ()
+
+(* Commented out new code, needs adaption to compile
+
+
+
+
 open Lib
 
 (* Use configured SMT solver *)
@@ -401,6 +410,7 @@ let main transSys =
 
 
  
+*)
 
 
 (*

@@ -91,7 +91,7 @@ let rec pp_print_trace ppf = function
 
   | (abstract_var, k, i, counter_example) ->
 
-    if (k >= i) then    
+    if Numeral.(k >= i) then    
 
       (
         
@@ -100,10 +100,10 @@ let rec pp_print_trace ppf = function
           "%a    " 
           Term.pp_print_term 
           (List.assoc 
-             (Var.mk_state_var_instance abstract_var (Numeral.of_int i)) 
+             (Var.mk_state_var_instance abstract_var i) 
              counter_example);
         
-        pp_print_trace ppf (abstract_var, k, i + 1, counter_example)
+        pp_print_trace ppf (abstract_var, k, (Numeral.succ i), counter_example)
       
       )
       
@@ -125,196 +125,237 @@ let rec pp_print_counter_example ppf = function
   | (abstract_var :: tl, k, counter_example) ->
     
     Format.fprintf ppf "%a    " StateVar.pp_print_state_var abstract_var;
-    pp_print_trace ppf (abstract_var, k, 0, counter_example);
+    pp_print_trace ppf (abstract_var, k, Numeral.zero, counter_example);
     pp_print_counter_example ppf (tl, k, counter_example)
                 
+    
+                
+(* Make a list of invariant upto k-1*)         
+let rec mk_invariants_upto_k_1 inv k acc =
+  
+  if Numeral.(k = zero) then
+
+    acc
+
+  else
+      
+    mk_invariants_upto_k_1 
+      inv
+      Numeral.(k - one)
+      ((Term.bump_state Numeral.(k - one) inv) :: acc)
                 
 
-(** Get a list of all state variables up to k steps from transition system. *)
-let rec get_state_vars_upto_k ts k acc = 
-  
-        if (k < 0) then
-                acc
-        else
-                (
-                (* Get the variables in state k*)
-    let acc' = 
-      List.map (
-        fun state_var ->
-          Var.mk_state_var_instance state_var (Numeral.of_int k)
-      ) (TransSys.state_vars ts)
-                in
-                get_state_vars_upto_k ts (k-1) acc'@acc
-                )
-                
-                
-(** Make a list of invariant upto k-1*)         
-let rec mk_invariants_upto_k_1 inv k acc =
-        if k = 0 then
-                acc
-        else
-                (
-                  mk_invariants_upto_k_1 inv (k-1) ((Term.bump_state (k-1) inv)::acc)
-                )
-                
-(** Eliminate properties that are not implied by the transition system at step k*)
+(* Eliminate properties that are not implied by the transition system
+   at step k *)
 let rec filter_invalid_properties solver ts k props =
 
-                let state_vars = get_state_vars_upto_k ts k [] in
-                
-    (* Get the model falsify the conjuction of all properties in the props *)
-    let model = S.get_model solver state_vars in    
-                        
-                (*bump the properties to k*)
-    (* props' are the properties still hold, disprovedProps are 
-       the properties that have been falsified by the model *)
-    let (props', disprovedProps) = 
-      List.partition(     
-        fun (name, prop) -> 
-          Eval.bool_of_value (Eval.eval_term (TransSys.bump_state k prop) model)
-      ) props 
-    in
+  let uf_defs = ts.TransSys.uf_defs in
 
-                (* Print out the counter example *)             
-                List.iter (fun x -> debug bmc "disproved property: %s" (fst x) end;) disprovedProps;
-    (debug bmc
+  let state_vars = TransSys.vars_of_bounds ts Numeral.zero k in
+                
+  (* Get the model falsify the conjuction of all properties in the props *)
+  let model = S.get_model solver state_vars in    
+  
+  (* bump the properties to k *)
+
+  (* props' are the properties still hold, disprovedProps are the
+     properties that have been falsified by the model *)
+  let (props', disprovedProps) = 
+    List.partition
+      (fun (name, prop) -> 
+         Eval.bool_of_value
+           (Eval.eval_term uf_defs model (Term.bump_state k prop))) 
+      props 
+  in
+  
+  (* Print out the counter example *)             
+  debug bmc
+      "@[<v>%a@]"
+      (pp_print_list 
+         (fun ppf x -> Format.fprintf ppf "disproved property: %s" (fst x))
+         "@,")
+      disprovedProps
+  in
+
+  debug bmc
       "@[<hv>The counter_example is:\n@[<hv>%a@]@]@."
       pp_print_counter_example
-      ((TransSys.state_vars ts), k, model) end);        
-                                
-    List.iter (Event.disproved `BMC (Some k)) (List.map fst disprovedProps);
-                Event.bmcstate k (List.map fst disprovedProps);
-       
-    (* return the properties might hold at step k and continue to check for step k*)
-    props'
+      ((TransSys.state_vars ts), k, model)
+  in
+  
+  List.iter 
+    (Event.disproved
+       `BMC
+       (Some (Numeral.to_int k)))
+    (List.map fst disprovedProps);
+
+  Event.bmcstate (Numeral.to_int k) (List.map fst disprovedProps);
+     
+  (* return the properties might hold at step k and continue to check
+        for step k *)
+  props'
 
 
 (** Bounded model checking *)
 let rec bmc solver ts k properties invariants =
 
-  Event.log `BMC Event.L_info "BMC loop at k=%d" k;
+  Event.log `BMC Event.L_info "BMC loop at k=%d" (Numeral.to_int k);
 
-  Event.progress `BMC k;
+  Event.progress `BMC (Numeral.to_int k);
 
-  Stat.set k Stat.bmc_k;
+  Stat.set (Numeral.to_int k) Stat.bmc_k;
 
   Stat.update_time Stat.bmc_total_time;
         
-        (* Side effect: Terminate when ControlMessage TERM is received.*)
-        let messages = Event.recv () in
+  (* Side effect: Terminate when ControlMessage TERM is received.*)
+  let messages = Event.recv () in
   
   let (properties',invariants') =
-                List.fold_left (
-    fun (properties, invariants) message ->
-      match message with
-        (* Add invariant to a temparary list when it's received. *)
-      | (Event.Invariant (_, inv)) ->
-                                S.assert_term solver (Term.mk_and (mk_invariants_upto_k_1 inv k []));
-        (properties, inv::invariants);
+    
+    List.fold_left
+      (fun (properties, invariants) message ->
+         match message with
 
-                                (* Add proved properties to transys props_valid*)
-                        | (Event.Proved (_, _, p)) ->
-                                
-                                (debug bmc
-          "Proved property: %s" p
-          end); 
-                                        
-                                let (name, prop) = (List.find (fun x -> fst x = p) properties) in                                       
-                                ts.TransSys.props_valid <- (name, prop) :: ts.TransSys.props_valid;
-                                S.assert_term solver (Term.mk_and (mk_invariants_upto_k_1 prop k []));
-                                ((List.filter (fun x -> fst x <> p) properties), invariants);
-                                
-                                (* Add disproved properties to transys props_invalid*)
-                        | (Event.Disproved (_, _, p)) ->                
-                                
-                                (debug bmc
-          "Disproved: property: %s" p
-          end); 
-                                                        
-                                ts.TransSys.props_invalid <- (List.find (fun x -> fst x = p) properties) :: ts.TransSys.props_invalid;
-                                ((List.filter (fun x -> fst x <> p) properties), invariants);
-      (* Irrelevant message received. *)
-      | _ ->
-        (properties, invariants);      
-  ) (properties, invariants) messages;
-        in
-        
+           (* Add invariant to a temparary list when it's received. *)
+           | (Event.Invariant (_, inv)) ->
+             
+             S.assert_term 
+               solver 
+               (Term.mk_and (mk_invariants_upto_k_1 inv k []));
 
-        let validProps = List.map snd ts.TransSys.props_valid in
+             (properties, inv::invariants)
+
+           (* Add proved properties to transys props_valid *)
+           | (Event.Proved (_, _, p)) ->
+             
+             (debug bmc
+                 "Proved property: %s" p
+              in
+              
+              let (name, prop) =
+                List.find (fun x -> fst x = p) properties 
+              in                                       
+              
+              TransSys.add_valid_prop ts (name, prop);
+
+              S.assert_term
+                solver
+                (Term.mk_and (mk_invariants_upto_k_1 prop k [])));
+             
+             ((List.filter (fun x -> fst x <> p) properties), invariants)
+             
+           (* Add disproved properties to transys props_invalid*)
+           | (Event.Disproved (_, _, p)) ->                
+             
+             (debug bmc
+                 "Disproved: property: %s" p
+              in
+              
+              TransSys.add_invalid_prop 
+                ts
+                (List.find (fun x -> fst x = p) properties);
+              
+              ((List.filter (fun x -> fst x <> p) properties), invariants))
+             
+           (* Irrelevant message received. *)
+           | _ -> (properties, invariants)) 
+
+      (properties, invariants) 
+      messages
+  in
+
+  let validProps = List.map snd ts.TransSys.props_valid in
         
-  S.assert_term solver (TransSys.bump_state k (Term.mk_and invariants'));
-        S.assert_term solver (TransSys.bump_state k (Term.mk_and validProps));
+  S.assert_term solver (Term.bump_state k (Term.mk_and invariants'));
+
+  S.assert_term solver (Term.bump_state k (Term.mk_and validProps));
+  
   S.push solver;
-        (* Instantiate the properties at step k *)
+
+  (* Instantiate the properties at step k *)
   let propsAtK = 
-                List.map 
-                (
-                        fun (prop_name, prop) -> 
-                                TransSys.bump_state k prop
-                ) properties' 
-                        
-        in 
+    List.map 
+      (fun (prop_name, prop) -> Term.bump_state k prop)
+      properties' 
+  in 
 
   S.assert_term solver (Term.mk_not (Term.mk_and propsAtK));
-        
-  if (S.check_sat solver) then
-  (
-    (* Filter out the properties which doesn't hold for the kth step. *)
-                (* And continue to check the rest of properties for current k*)
-    let properties'' = filter_invalid_properties solver ts k properties in
-                if List.length properties'' <> 0 then
-                        (
-                                S.pop solver;
-                bmc solver ts k properties'' invariants'
-                        )
-                else
-                        (
-                                (debug bmc
-          "No more properties need to check!"
-          end);
-                        )
-                               
-  )
-      
-  (* If the conjuncted property holds, push the transition function T(k, k + 1) 
-     then continue to check for (k + 1) step *)
-  else 
-  (
-                Event.bmcstate k [];
-    S.pop solver;
-          S.assert_term solver (TransSys.constr_of_bound (k+1) ts);
-    bmc solver ts (k + 1) properties' invariants'
-  )
   
+  if (S.check_sat solver) then
+
+    (
+
+      (* Filter out the properties which doesn't hold for the kth step. *)
+      (* And continue to check the rest of properties for current k*)
+      match filter_invalid_properties solver ts k properties with 
+      
+        | [] -> 
+
+          (debug bmc
+              "No more properties need to check!"
+           in
+           
+           ())
+          
+        | properties'' ->
+          
+          (S.pop solver;
+           
+           bmc solver ts k properties'' invariants')
+
+    )
+      
+  (* If the conjuncted property holds, push the transition function
+     T(k, k + 1) then continue to check for (k + 1) step *)
+  else 
+
+    (Event.bmcstate (Numeral.to_int k) [];
+
+     S.pop solver;
+
+     S.assert_term solver (TransSys.trans_of_bound (Numeral.succ k) ts);
+
+     bmc solver ts (Numeral.succ k) properties' invariants')
+    
 
 (* Entry point *)
-let main transSys =
-
+let main trans_sys =
+  
   Stat.start_timer Stat.bmc_total_time;
-
-  match transSys.TransSys.props with
+  
+  match trans_sys.TransSys.props with
     
     (* Terminate when there is nothing to check *)
     | [] -> Event.log `BMC Event.L_error "No property to check"
-
+              
     | properties ->
-    
+      
       (* Determine logic for the SMT solver *)
-      let logic = TransSys.get_logic transSys in
-
+      let logic = TransSys.get_logic trans_sys in
+      
       (* Create solver instance *)
       let solver = 
         S.new_solver ~produce_assignments:true logic
       in
-      
+
       (* Create a reference for the solver. Only used in on_exit. *)
       ref_solver := Some solver;
       
-      (* Provide the initial case *)
-      S.assert_term solver (TransSys.init_of_bound 0 transSys);
+      (* Declare uninterpreted function symbols *)
+      TransSys.iter_state_var_declarations
+        trans_sys
+        (S.declare_fun solver);
+      
+      (* Define functions *)
+      TransSys.iter_uf_definitions
+        trans_sys
+        (S.define_fun solver);
 
+      (* Provide the initial case *)
+      S.assert_term solver (TransSys.init_of_bound Numeral.zero trans_sys);
+      
       (* Enter the bounded model checking loop begin with the initial state. *)
-      bmc solver transSys 0 properties []
+      bmc solver trans_sys Numeral.zero properties []
   
 (*
 (* Test function *)

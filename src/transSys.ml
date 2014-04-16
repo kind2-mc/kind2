@@ -165,13 +165,29 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
 
-  
-(* Return the variables at current and previous instants of the
-   transition system *)
-let vars t = 
-  List.map (fun sv -> Var.mk_state_var_instance sv Numeral.zero) t.state_vars @
-  List.map (fun sv -> Var.mk_state_var_instance sv Numeral.one) t.state_vars
-  
+
+(* Return the variables of the transition system between given instants *)
+let rec vars_of_bounds' trans_sys lbound ubound accum = 
+
+  (* Return when upper bound below lower bound *)
+  if Numeral.(ubound < lbound) then accum else
+
+    (* Add state variables at upper bound instant  *)
+    let accum' = 
+      List.fold_left
+        (fun accum sv -> 
+           Var.mk_state_var_instance sv ubound :: accum)
+        accum
+        trans_sys.state_vars
+    in
+
+    (* Recurse to next lower bound *)
+    vars_of_bounds' trans_sys lbound (Numeral.pred ubound) accum'
+
+let vars_of_bounds trans_sys lbound ubound = 
+  vars_of_bounds' trans_sys lbound ubound []
+
+
 
 (* Instantiate the initial state constraint to the bound *)
 let init_of_bound i t = 
@@ -204,15 +220,15 @@ let invars_of_bound i t =
 let props_of_bound i t = 
 
   (* Create conjunction of property terms *)
-  let props_1 = Term.mk_and (List.map snd t.props) in 
+  let props_0 = Term.mk_and (List.map snd t.props) in 
 
   (* Bump bound if greater than zero *)
   if
-    Numeral.(i = one)
+    Numeral.(i = zero)
   then
-    props_1
+    props_0
   else
-    Term.bump_state Numeral.(i - one) props_1
+    Term.bump_state i props_0
 
 
 (* Add an invariant to the transition system *)

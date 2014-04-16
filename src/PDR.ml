@@ -434,7 +434,9 @@ let find_cex
       
       (* Get counterexample to entailment from satisfiable formula *)
       let cex = 
-        S.get_model solver_frames (TransSys.vars trans_sys) 
+        S.get_model 
+          solver_frames
+          (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
       in
       
       (* Remove scope from the context *)

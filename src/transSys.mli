@@ -74,7 +74,7 @@ val state_vars : t -> StateVar.t list
 
 (** Return the variables at current and previous instants of the
    transition system *)
-val vars : t -> Var.t list
+val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : Numeral.t -> t -> Term.t

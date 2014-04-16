@@ -921,7 +921,7 @@ let prop_of_node_prop state_var =
   
   (* Term of property *)
   let prop_term = 
-    E.base_term_of_state_var cur_offset (state_var_of_top_scope state_var) 
+    E.base_term_of_state_var base_offset (state_var_of_top_scope state_var) 
   in
   
   (prop_name, prop_term)
