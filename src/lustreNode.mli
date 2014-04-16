@@ -16,7 +16,7 @@
 
 *)
 
-(** A node
+(** A Lustre node
 
     Nodes are normalized for easy translation into a transition system,
     mainly by introducing new variables. A LustreExpr.t does not
@@ -39,6 +39,7 @@
     main, it is not checked if more than one node or no node at all may
     have that annotation.
 
+    @author Christoph Sticksel
 *)
 type t = 
 

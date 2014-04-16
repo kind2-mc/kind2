@@ -3544,7 +3544,7 @@ let declarations_to_nodes decls =
 
 (* 
    Local Variables:
-   compile-command: "make -C .. lustre-checker"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

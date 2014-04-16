@@ -16,12 +16,17 @@
 
 *)
 
+(** Simplify a Lustre AST to normalized Lustre nodes 
+
+    @author Christoph Sticksel
+*)
+
 val declarations_to_nodes : LustreAst.declaration list -> LustreNode.t list
 
 
 (* 
    Local Variables:
-   compile-command: "make -C .. lustre-checker"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

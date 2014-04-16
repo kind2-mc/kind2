@@ -840,7 +840,7 @@ let pp_print_program ppf p =
         
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

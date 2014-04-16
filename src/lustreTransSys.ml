@@ -947,7 +947,7 @@ let props_of_nodes main_node nodes =
 
 (* 
    Local Variables:
-   compile-command: "make -k"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)

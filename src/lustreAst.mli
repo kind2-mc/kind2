@@ -17,6 +17,12 @@
 *)
 
 
+(** Minimally simplified Lustre AST
+
+    @author Christoph Sticksel
+
+*)
+
 val pp_print_list : (Format.formatter -> 'a -> unit) ->
   ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
 
@@ -185,3 +191,10 @@ val pp_print_contract_clause : Format.formatter -> contract_clause -> unit
 val pp_print_contract : Format.formatter -> contract_clause list -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
+
+(* 
+   Local Variables:
+   compile-command: "make -k -C .."
+   indent-tabs-mode: nil
+   End: 
+*)
