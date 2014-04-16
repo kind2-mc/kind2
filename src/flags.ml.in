@@ -262,7 +262,7 @@ let enable_values = "PDR, BMC, IND, INVGEN"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR]
+let enable_default_after = [`PDR; `BMC]
 
 (* ********** *) 
 
