@@ -64,7 +64,7 @@ sig
   val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
 
   (** Define a new function symbol as an abbreviation for an expression *)
-  val define_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+  val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
 
   (** {1 Commands} *)
     
@@ -136,7 +136,7 @@ sig
   val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
 
   (** Define a new function symbol as an abbreviation for an expression *)
-  val define_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+  val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
 
   (** {1 Commands} *)
     

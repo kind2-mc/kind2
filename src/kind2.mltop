@@ -3,8 +3,6 @@ Lib
 Config
 Flags
 Stat
-Event 
-Messaging
 
 Hashcons
 Ltree
@@ -17,9 +15,6 @@ Type
 TermAttr
 Term
 
-Kind1
-OldParser
-Lustre
 TransSys
 
 HString
@@ -39,10 +34,4 @@ CNF
 
 Simplify
 Eval
-Extract
-
-Poly
-Presburger
-CooperQE
-QE
 

@@ -1,0 +1,298 @@
+type tup = [bool, subrange [-2, 2] of int, real];
+
+type rec = {b: bool; c: [int, real, bool]; d: tup; a: int^3};
+
+const a : tup = [true, 1, 0.1];
+const b : rec = rec { c = [1, 1E1, false]; a = [1, 2, 3]; d = [true, -1, 0.5]; b = true };
+
+node id (x: tup ; z: rec) returns (y: tup); let y = pre x; tel
+
+node X_id (i1, i2: int) returns (o1, o2: int);
+var o3:  [bool, subrange [-3, 3] of int, real];
+let
+  o1 = o2;
+  o2 = int(o3[2]);
+  o3 = id([false, 1, 1E2],  b);
+tel;
+
+
+const c_cond : /* subrange [1, 2] of */ int = if true then 1 else 2;
+
+const c_ = c_cond;
+
+type r = { three: [int, bool]; one: int; two: real };
+
+type s = [r, int];
+
+type t = s^2;
+
+-- const a = r { two = 2.0; one = 1; three = [1, false] };
+
+-- const b = [ r { two = 2.0; one = 1; three = [1, false] }, 1 ];
+
+
+
+
+node A() returns ();
+var
+  a0 : [int, real, bool];
+  a1: int; a2: real; a3: bool; a4: int;
+let
+  (a1, a2, a3, a4) = ((1 + 5 + c_, 2.0), (false, 3));
+tel
+
+type pair = { one, two: int };
+
+node X (a1: real; a2: int) returns (b0: [real, int]; c0: [int,  bool]);
+  --@ensures a1 > 0.0;
+  --@requires a2 > 0;
+var
+  a3: int;
+  b1: pair;
+  b2: int^3;
+let 
+  a3 = pre a2; 
+  -- b2[1] = 3;
+  b2 = (1, 2, 3) + [3, 2, 1] - (4^3);
+  (b2, b0) = ([a2, a2, 0], [1.0, 0]);
+
+  --%PROPERTY a1 > 0.0;
+tel
+
+
+node Z (a1, a2: int) returns (b1: int);
+let b1 = a1; tel
+
+node Y (a1: int) returns (b1: [real, int]);
+var c: [int, real];
+    d: [[real, int], [int, bool]];
+    d1: [real, int];
+    d2: [int, bool];
+    d11: real;
+    d12: int;
+    d21: int;
+    d22: bool;
+var e: int;
+let
+  -- b = X([a + 1, a+2],  [a-1, a-2]) + X([b+1, b+2], [b-1, b-2]) + Z(a, b);
+  -- b = X(pair {one = a+1; two = a-1});
+  d = X(0.1, Z(1, 0));
+  d = condact(false, X(c[1]+1.1, c[0]-1), [5.5, 0], [-1, false]);
+  (d1, d2) = X(c[1]+1.1, c[0]-1);-- ([5.5, 1], [0, false]);
+  (d11, d12, d21, d22) = X(c[1]+1.1, c[0]-1);-- ([5.5, 1], [0, false]);
+tel
+
+
+
+node id (x: int) returns (y: int); let y = x; tel
+
+node id2 (x: int) returns (y: int); let y = id(x); tel
+
+
+
+
+node A () returns ();
+var x: int;
+let
+  x = id2(x);
+tel
+
+
+
+
+/*
+
+
+
+
+
+const ac = 2;
+
+-- const __abs = [1, 2];
+
+type colors = enum { red, green, blue };
+
+node X 
+  (a: int; const b: int) 
+returns 
+  (d: [bool, int, real]; f: subrange [-1, 1] of int);
+  --@requires pre (pre a > 2);
+  --@ensures pre (d[0] => false);
+var
+  e: enum { one, two };
+  a1, a2, a3, a4: int;
+-- const a : int;
+-- const b = 2;
+-- const d : int = 1;
+let
+  -- assert if a[1] = one then false -> true else true -> false;
+  -- assert if a[1] = one then false -> true else true -> false;
+  a1 = pre 1;
+  a2 = pre (a + 1);
+  a3 = pre (pre (a + 1 -> b));
+  a4 = pre (a -> b);
+
+  d = [true, if a > 0 then 1 else 2, 2.0];
+
+--  d = [pre false, pre (a + 1), pre (pre (a -> b))];
+  f = 3+b;
+--  c = real a;
+--  b = false;
+  --%PROPERTY true -> pre (d[1] > b);
+
+  assert pre (not d[0]);
+
+tel
+*/
+
+/*
+
+
+-- Records 
+
+-- Record type 
+type r_1 = { one: int; two: real; three : enum { red, green, blue } };
+
+-- Two records can have the same field 
+type r_2 = { one: r_1; two: r_1 };
+
+-- Records can be nested
+type r_3 = { one: int };
+type r_4 = { one: r_3 };
+
+-- Records cannot be recursive
+-- type re_1 = { one: re_1 };
+
+
+-- Tuples 
+
+-- Tuple type 
+type t_1 = [ int, real ];
+
+type t_2 = [ t_1, r_1 ];
+
+--Tuples cannot be recursive 
+-- type te_1 = [ te_1, [ int, int ] ];
+
+-- Arrays (treated as tuples where all elements have the same type)
+
+type a_1 = int^2;
+
+type a_2 = int^2^3;
+
+
+-- Alias types 
+
+type f_1;
+
+type b_1 = int;
+
+type l_2 = r_1;
+
+type l_3 = l_2;
+
+type l_4 = b_1;
+
+type l_5 = f_1;
+
+type r_5 = { one: f_1 };
+
+type r_6 = r_5;
+
+(*
+
+-- Free constants
+
+const f_1: b_1;
+
+const f_2: int;
+
+const f_3: r_6;
+
+const f_4: a_2;
+
+const f_5: r_1;
+
+*)
+
+type e_1 = enum { red, green, blue };
+
+-- Enum types can be redeclared
+type e_1d = enum { red, green, blue };
+
+-- Constant can only belong to one enum
+-- type ee_2 = enum { red, green, blue, yellow };
+
+type e_2 = enum { yellow, black };
+
+(*
+
+const f_6: e_1;
+
+const f_7 : enum { red, green, blue };
+
+const f_8 : subrange [-2, 2] of int;
+
+const c_1 = [0, 1, 2, 3, 4, 5];
+
+const c_2 = [[0, 1], [2, 3]];
+
+const c_3 = c_2[0];
+
+
+type g_1 = subrange [c_1[0], c_1[1]] of int;
+
+
+const f_9: g_1;
+
+const f_10 : r_1;
+
+const f_11 : r_2;
+
+const f_12 : int^2;
+
+const f_13 : a_1;
+
+const f_14 : t_2;
+
+-- ----------------------------------------------------------------------
+*)
+
+
+type j = enum { red, green, blue };
+type j2 = enum { red, green, blue };
+type k = { one: int; two: real; three : enum { red, green, blue } };
+type k2 = { one: int; two: real; three : enum { red, green, blue }; four: int };
+
+type l = { one: k; two: k };
+
+
+type m0 = { one: int };
+type m1 = { one: m0 };
+type m2 = { one: m1 };
+
+type g = int^(1+1);
+type i = int^4^3;
+type cj = int^2^1;
+
+(*
+const a = 1;
+const b : real = 2E1;
+const c = 2.0;
+const d : bool = true;
+const e : enum { red, green, blue, yellow } = red;
+const f : [j, int, [bool, j]] = [red, a, [d, e]];
+const g : g = a^(int c);
+const h1 = false xor d;
+const h2 = false xor true;
+const h3 = true xor false;
+const i : i = [[1, 2]|[3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+const j : cj = i[1..2, 1..1];
+-- const k : l = k { one = 1; two = 2.0; three = red };
+
+-- const m = m1 { one = m0 { one = 1} };
+
+*)
+
+*/
+

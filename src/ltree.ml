@@ -127,9 +127,9 @@ sig
   val sorts_of_lambda : lambda -> sort list
 
   val tag_of_t : t -> int
-
+(*
   val eval : (symbol -> 'a list -> 'a) -> t -> 'a
-
+*)
   val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
 
   val map : (int -> t -> t) -> t -> t
@@ -143,6 +143,8 @@ sig
   val import : t -> t
 
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
+
+  val stats : unit -> int * int * int * int * int * int
 
 end    
 
@@ -370,6 +372,8 @@ struct
   (* Hashcons table for terms *)
   let ht = Ht.create 251
 
+  let stats () = Ht.stats ht
+
   (* Ordering of terms based on tags *)
   let compare { H.tag = t1 } { H.tag = t2 } = Pervasives.compare t1 t2
 
@@ -488,7 +492,7 @@ struct
 
 
   (* Pretty-print a list of variable term bindings *)
-  and pp_print_let_bindings db ppf = function 
+  and pp_print_let_bindings i db ppf = function 
 
     (* Print nothing for the empty list *)
     | [] -> ()
@@ -504,12 +508,12 @@ struct
         ppf 
         "@[<hv 1>(X%i@ %a)@]" 
         db' 
-        (pp_print_term' db) t;
+        (pp_print_term' (db - i)) t;
 
       (* Add space and recurse if more bindings follow *)
       if not (tl = []) then 
         (Format.pp_print_space ppf (); 
-         pp_print_let_bindings db' ppf tl)
+         pp_print_let_bindings (succ i) db' ppf tl)
 
 
   (* Pretty-print a higer-order abstract syntax term given the de
@@ -538,7 +542,7 @@ struct
 
       Format.fprintf ppf 
         "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
-        (pp_print_let_bindings db) b
+        (pp_print_let_bindings 0 db) b
         (pp_print_term' (db + List.length b)) t
 
     (* Print an existential quantification *)
@@ -588,6 +592,9 @@ struct
      index or default to zero *)
   let pp_print_term ?(db = 0) ppf term = 
 
+    (* This breaks indentation and is going to fail when the meaning
+       of indexes is reversed. *)
+    (*
     (* String representation of term *)
     let term_string = 
 
@@ -620,9 +627,69 @@ struct
         | { to_string = Some s } -> s
 
     in
-
+    
     (* Print string representation of term to formatter *)
     Format.fprintf ppf "%s" term_string
+*)
+
+    (* Pretty-print term into buffer *)
+    pp_print_term' db ppf term
+          
+
+(*
+
+  let pp_print_term_infix' db ppf = function 
+
+    (* Delegate printing of free variables to function in input module *)
+    | { H.node = FreeVar v } -> T.pp_print_var ppf v
+
+    (* Print bound variable with its de Bruijn index *)
+    | { H.node = BoundVar db } -> Format.fprintf ppf "X%i" db
+
+    (* Delegate printing of leaf to function in input module *)
+    | { H.node = Leaf s } -> T.pp_print_symbol ppf s
+
+    (* Print a function application as S-expression *)
+    | { H.node = Node (s, a) } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(%a)@]" 
+        T.pp_print_node s a 
+        (pp_print_term_list db) a
+
+    (* Print a let binding *)
+    | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
+        (pp_print_let_bindings db) b
+        (pp_print_term' (db + List.length b)) t
+
+    (* Print an existential quantification *)
+    | { H.node = Exists { H.node = L (x, t) } } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(exists@ @[<hv 1>(%a)@ %a@])@]" 
+        (pp_print_typed_var_list db) x
+        (pp_print_term' (db + List.length x)) t
+
+    (* Print a universal quantification *)
+    | { H.node = Forall { H.node = L (x, t) } } -> 
+
+      Format.fprintf ppf 
+        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
+        (pp_print_typed_var_list db) x
+        (pp_print_term' (db + List.length x)) t
+
+    (* Print an annotated term *)
+    | { H.node = Annot (t, a) } ->
+
+      Format.fprintf ppf 
+        "@[<hv 1>(!@ @[<hv 1>%a@] @[<hv 1>%a@])@]" 
+        (pp_print_term' db) t
+        T.pp_print_attr a
+
+*)
 
 
   (* Pretty-print a flattened term *)
@@ -1083,7 +1150,7 @@ struct
   type foldstack = 
 
     (* Recurse into tree *)
-    | FTree of t 
+    | FTree of int * t 
 
     (* Combine evaluated arguments from the result stack *)
     | FNode of symbol 
@@ -1100,7 +1167,7 @@ struct
   type 'a s_or_e = 
 
     (* Not yet evaluated *)
-    | S of t 
+    | S of int * t 
 
     (* Cached evaluation *)
     | E of 'a
@@ -1150,20 +1217,20 @@ struct
       )
 
     (* The top element of the stack is a constant, a nullary function *)
-    | FTree { H.node = Leaf op } :: tl -> 
+    | FTree (_, { H.node = Leaf op }) :: tl -> 
 
       (* Add an empty list to the result stack and the symbol to the
          instruction stack *)
       fold f subst ([] :: accum) (FNode op :: tl)
 
     (* The top element of the stack is a non-nullary function *)
-    | FTree { H.node = Node (op, args) } :: tl -> 
+    | FTree (db, { H.node = Node (op, args) }) :: tl -> 
 
       (* Push the list of terms as T variants on the instruction stack
          in reverse order *)
       let rec push trees st = match trees with
         | [] -> st
-        | h :: t -> push t ((FTree h) :: st)
+        | h :: t -> push t ((FTree (db, h)) :: st)
       in
 
       (* Add an empty list to the result stack, and the subterms to
@@ -1171,13 +1238,13 @@ struct
       fold f subst ([] :: accum) (push args (FNode op :: tl))
 
     (* The top element of the stack is an annotated term *)
-    | FTree { H.node = Annot (t, _) } :: tl -> 
+    | FTree (db, { H.node = Annot (t, _) }) :: tl -> 
 
       (* Remove annotation and continue with unannotated term *)
-      fold f subst accum ((FTree t) :: tl)
+      fold f subst accum ((FTree (db, t)) :: tl)
 
     (* The top element of the stack is a bound variable *)
-    | FTree { H.node = BoundVar db } :: tl -> 
+    | FTree (dbm, { H.node = BoundVar db }) :: tl -> 
 
       ( 
 
@@ -1194,7 +1261,7 @@ struct
         with 
 
           (* Assignment to variable has not been evaluated *)
-          | S t -> 
+          | S (dbl, t) -> 
 
             (* Evaluate term assigned to variable as top term, add
                value to the context stack and evaluate variable
@@ -1203,7 +1270,10 @@ struct
               f 
               subst 
               ([] :: accum) 
-              (FTree t :: FCtx db :: FTree (ht_bound_var db) :: tl)
+              (FTree (dbl, t) :: 
+               FCtx db :: 
+               FTree (dbm, (ht_bound_var db)) :: 
+               tl)
 
           (* Assignment to variable has been evaluated before *)
           | E l -> 
@@ -1227,10 +1297,12 @@ struct
       )
 
     (* The top element of the stack is a free variable *)
-    | FTree { H.node = FreeVar _ } :: tl -> invalid_arg "Free variable in term"
+    | FTree (_, { H.node = FreeVar _ }) :: tl -> 
+
+      invalid_arg "Free variable in term"
 
     (* The top element of the stack is a let binding *)
-    | FTree { H.node = Let ({ H.node = L (n, l) }, t) } :: tl -> 
+    | FTree (db, { H.node = Let ({ H.node = L (n, l) }, t) }) :: tl -> 
 
       (* Substitutions to append to the context *)
       let s = 
@@ -1239,8 +1311,8 @@ struct
 
           (* Evaluate term substituted for variable lazily *)
           List.map2 
-            (fun db a -> (db, S a)) 
-            (int_seq (succ (List.length subst)) (List.length n))
+            (fun dbi a -> (dbi, S (db, a))) 
+            (int_seq (db + 1) (List.length n))
             t
 
         (* List are of equal length in a well-formed term *)
@@ -1249,11 +1321,15 @@ struct
       in
 
       (* Add substitutions to the context stack *)
-      let subst' = List.rev_append s subst in 
+      let subst' = s @ subst in 
 
       (* Add term under lambda to instruction stack, followed by a pop
          instruction for the number of scopes added by the binding *)
-      fold f subst' accum (FTree l :: FPop (List.length n) :: tl)
+      fold 
+        f
+        subst'
+        accum
+        (FTree ((List.length n), l) :: FPop (List.length n) :: tl)
 
     (* The top element of the instruction stack is a symbol *)
     | FNode op :: tl -> 
@@ -1274,8 +1350,8 @@ struct
       )
 
     (* The top element of the stack is a quantified term *)
-    | FTree { H.node = Exists _ } :: tl
-    | FTree { H.node = Forall _ } :: tl -> invalid_arg "Quantified term"
+    | FTree (_, { H.node = Exists _ }) :: tl
+    | FTree (_, { H.node = Forall _ }) :: tl -> invalid_arg "Quantified term"
 
     (* The top element of the stack is an empty end-of-scope marker *)
     | FPop 0 :: tl -> 
@@ -1334,7 +1410,7 @@ struct
      unfolded.
   *)
   let eval f t = 
-    fold f [] [[]] [FTree t]
+    fold f [] [[]] [FTree (0, t)]
 
 
   (* ********************************************************************* *)
@@ -1346,7 +1422,7 @@ struct
   type 'a fold_tstack = 
 
     (* Recurse into tree *)
-    | FITree of t 
+    | FITree of int * t 
 
     (* Combine evaluated arguments from the result stack *)
     | FINode of 'a * t list
@@ -1377,7 +1453,7 @@ struct
       )
 
     (* The top element of the stack is a constant *)
-    | FITree { H.node = Leaf op } :: tl -> 
+    | FITree (_, { H.node = Leaf op }) :: tl -> 
 
       let t = Const op in
 
@@ -1386,7 +1462,7 @@ struct
         | _ -> assert false)
 
     (* The top element of the stack is a variable *)
-    | FITree { H.node = FreeVar v } :: tl -> 
+    | FITree (_, { H.node = FreeVar v }) :: tl -> 
 
       let t = Var v in 
 
@@ -1395,13 +1471,13 @@ struct
         | _ -> assert false)
 
     (* The top element of the stack is a non-nullary function *)
-    | FITree { H.node = Node (op, args) } :: tl -> 
+    | FITree (db, { H.node = Node (op, args) }) :: tl -> 
 
       (* Push the list of terms as T variants on the instruction stack
          in reverse order *)
       let rec push trees st = match trees with
         | [] -> st
-        | h :: t -> push t ((FITree h) :: st)
+        | h :: t -> push t ((FITree (db, h)) :: st)
       in
 
       (* Add an empty list to the result stack, and the subterms to
@@ -1409,13 +1485,13 @@ struct
       fold_t f subst ([] :: accum) (push args (FINode (op, args) :: tl))
 
     (* The top element of the stack is an annotated term *)
-    | FITree { H.node = Annot (t, _) } :: tl -> 
+    | FITree (db, { H.node = Annot (t, _) }) :: tl -> 
 
       (* Remove annotation and continue with unannotated term *)
-      fold_t f subst accum ((FITree t) :: tl)
+      fold_t f subst accum ((FITree (db, t)) :: tl)
 
     (* The top element of the stack is a bound variable *)
-    | FITree { H.node = BoundVar db } :: tl -> 
+    | FITree (dbm, { H.node = BoundVar db }) :: tl -> 
 
       ( 
 
@@ -1432,7 +1508,7 @@ struct
         with 
 
           (* Assignment to variable has not been evaluated *)
-          | S t -> 
+          | S (dbl, t) -> 
 
             (* Evaluate term assigned to variable as top term, add
                value to the context stack and evaluate variable
@@ -1441,7 +1517,10 @@ struct
               f 
               subst 
               ([] :: accum) 
-              (FITree t :: FICtx db :: FITree (ht_bound_var db) :: tl)
+              (FITree (dbl, t) :: 
+               FICtx db :: 
+               FITree (dbm, (ht_bound_var db)) :: 
+               tl)
 
           (* Assignment to variable has been evaluated before *)
           | E l -> 
@@ -1465,7 +1544,7 @@ struct
       )
 
     (* The top element of the stack is a let binding *)
-    | FITree { H.node = Let ({ H.node = L (n, l) }, t) } :: tl -> 
+    | FITree (db, { H.node = Let ({ H.node = L (n, l) }, t) }) :: tl -> 
 
       (* Substitutions to append to the context *)
       let s = 
@@ -1474,8 +1553,8 @@ struct
 
           (* Evaluate term substituted for variable lazily *)
           List.map2 
-            (fun db a -> (db, S a)) 
-            (int_seq (succ (List.length subst)) (List.length n))
+            (fun dbi a -> (dbi, (S (db, a)))) 
+            (int_seq (db + 1) (List.length n))
             t
 
         (* List are of equal length in a well-formed term *)
@@ -1484,15 +1563,20 @@ struct
       in
 
       (* Add substitutions to the context stack *)
-      let subst' = List.rev_append s subst in 
+      (* let subst' = List.rev_append s subst in *)
+      let subst' = s @ subst in
 
       (* Add term under lambda to instruction stack, followed by a pop
          instruction for the number of scopes added by the binding *)
-      fold_t f subst' accum (FITree l :: FIPop (List.length n) :: tl)
+      fold_t 
+        f
+        subst'
+        accum
+        (FITree (db + (List.length n), l) :: FIPop (List.length n) :: tl)
 
     (* The top element of the stack is a quantified term *)
-    | FITree { H.node = Exists _ } :: tl
-    | FITree { H.node = Forall _ } :: tl -> invalid_arg "Quantified term"
+    | FITree (_, { H.node = Exists _ }) :: tl
+    | FITree (_, { H.node = Forall _ }) :: tl -> invalid_arg "Quantified term"
 
     (* The top element of the instruction stack is a symbol *)
     | FINode (op, args) :: tl -> 
@@ -1572,7 +1656,7 @@ struct
      unfolded.
   *)
   let eval_t f t = 
-    fold_t f [] [[]] [FITree t]
+    fold_t f [] [[]] [FITree (0, t)]
 
 
   let rec import_lambda = function { H.node = L (i, t) } -> 

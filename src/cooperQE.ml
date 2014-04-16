@@ -349,7 +349,7 @@ let eval_poly (model: (Var.t * Term.t) list) (pt: poly) : Numeral.t =
            "eval_poly: Model is @[<v>%a@]"
            pp_print_model model
          end); *)
-        Numeral.(accum + coe * (Eval.num_of_value (Eval.eval_term (Term.mk_var v) model)))
+        Numeral.(accum + coe * (Eval.num_of_value (Eval.eval_term [] model (Term.mk_var v))))
   ) 
     Numeral.zero
     pt
@@ -656,7 +656,7 @@ let find_divisible_lower_bound (c: Var.t -> Var.t -> int)
   let j = 
     
     (* Evaluate variable in the model *)
-    Numeral.((Eval.num_of_value (Eval.eval_term (Term.mk_var v) model)) * 
+    Numeral.((Eval.num_of_value (Eval.eval_term [] model (Term.mk_var v))) * 
 
              (* Multiply with the lcm coefficient *)
              coe_lcm - 
@@ -727,7 +727,7 @@ let handle_infinitely_small_case (c: Var.t -> Var.t -> int)
   substitute_variable_in_cformula 
     c 
     v 
-    [(Eval.num_of_value (Eval.eval_term (Term.mk_var v) model)), None] 
+    [(Eval.num_of_value (Eval.eval_term [] model (Term.mk_var v))), None] 
     cf'
 
 

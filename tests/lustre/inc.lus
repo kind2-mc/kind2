@@ -1,0 +1,3 @@
+-- Some included stuff
+node abs(x: real) returns (y: real);
+let y = if x > 0.0 then x else -x; tel

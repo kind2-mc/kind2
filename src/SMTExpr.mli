@@ -61,6 +61,8 @@ type sort = Type.t
 (** An SMT expression is of type {!Term.t} *)
 type t = Term.t
 
+(** An SMT variable is of type {!Var.t} *)
+type var = Var.t
 
 (** {1 Solver commands and responses} *)
 
@@ -88,6 +90,9 @@ type check_sat_response =
 
 
 (** {1 Conversions between SMT expressions and terms} *)
+
+(** Convert a variable to an SMT expression *)
+val smtsort_of_type : Type.t -> sort
 
 (** Convert a variable to an SMT expression *)
 val smtexpr_of_var : Var.t -> t

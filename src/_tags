@@ -9,13 +9,13 @@
 # Must list all subdirectories explicitly
 # (from http://mancoosi.org/~abate/two-simple-tips-speed-ocaml-compilation)
 true: -traverse
-<{kind1}/**>: traverse
+# <{kind1}/**>: traverse
 
 # Pack all modules into Kind1 to avoid cluttering the namespace
 <kind1/*.cmx>: for-pack(Kind1)
 
 # Compile everything with debug symbols and .annot file for type information
-<*.ml>: debug,annot
+<*.ml>: debug,annot,bin-annot
 <kind1/*.ml>: debug,annot
 
 # Use Unix, Str, ZMQ and Thread modules  
@@ -27,6 +27,9 @@ true: -traverse
 <messaging.ml>: thread,use_ZMQ
 <messaging.mli>: thread
 <lib.ml>: thread
+
+# Use menhir instead of ocamlyacc
+true: use_menhir
 
 # Obsolete 
 

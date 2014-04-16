@@ -244,6 +244,9 @@ module Hsymbol = Hashcons.Make (Symbol_node)
 let ht = Hsymbol.create 251
 
 
+let stats () = Hsymbol.stats ht
+
+
 (* Return the node of a symbol *)
 let node_of_symbol = function { Hashcons.node = t } -> t 
 

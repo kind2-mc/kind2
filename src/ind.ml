@@ -23,6 +23,8 @@
 
 open Lib
 
+(*
+
 (* Use configured SMT solver *)
 module INDSolver = SMTSolver.Make (Config.SMTSolver)
 
@@ -403,6 +405,12 @@ let main transSys =
 	
 	init transSys propertiesToCheck [] 1 false;
 
+
+*)
+
+let on_exit _ = ()
+
+let main _ = ()
 
  
 
