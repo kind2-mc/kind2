@@ -70,6 +70,9 @@ val pp_print_one_index : bool -> Format.formatter -> one_index -> unit
 (** Return a string representation of an identifier *)
 val string_of_ident : bool -> t -> string 
 
+(** Return a list of strings for index *)
+val scope_of_index : index -> string list
+
 (** Total order on indexes *)
 val compare_index : index -> index -> int
 
@@ -164,10 +167,6 @@ val get_index_suffix : index -> index -> index
     [j]. Return the suffix of [j] with the common prefix with [i]
     removed, raise [Not_found] otherwise. *)
 val get_suffix : t -> t -> index
-
-(** Return a list of strings for index *)
-val scope_of_index : index -> string list
-
 
 
 (* 

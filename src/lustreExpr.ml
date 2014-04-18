@@ -32,6 +32,8 @@ exception Clock_mismatch
 (* A Lustre expression is a term *)
 type expr = Term.t
 
+(* A Lustre expression is a type *)
+type lustre_type = Type.t
 
 (* Map from state variables to indexed identifiers *)
 let state_var_ident_map  = StateVar.StateVarHashtbl.create 7
@@ -623,7 +625,7 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   
 
 (* Create or return state variable of identifier *)
-let state_var_of_ident scope_index ident ident_type = 
+let state_var_of_ident scope_index ident = 
 
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -631,17 +633,17 @@ let state_var_of_ident scope_index ident ident_type =
   (* Convert identifier to a string *)
   let ident_string = I.string_of_ident true ident in 
 
-  (* Create or return state variable of string *)
-  let state_var = 
-    StateVar.mk_state_var ident_string scope ident_type 
-  in 
-
+  (* Return state variable of string *)
+  StateVar.state_var_of_string (ident_string, scope)
+  
+(*
   (* Add to hashtable unless already present *)
   (if not (StateVar.StateVarHashtbl.mem state_var_ident_map state_var) then 
      StateVar.StateVarHashtbl.add state_var_ident_map state_var ident);
 
   (* Return state variable *)
   state_var 
+*)
 
 
 (* Boolean constant true on base clock *)
@@ -689,13 +691,14 @@ let mk_real f =
 
 
 (* Current state variable of state variable *)
-let mk_var_of_state_var state_var expr_clock = 
+let mk_var state_var expr_clock = 
 
   { expr_init = base_term_of_state_var base_offset state_var;
     expr_step = cur_term_of_state_var cur_offset state_var;
     expr_type = StateVar.type_of_state_var state_var;
     expr_clock = expr_clock } 
 
+(*
 
 (* Current-state variable *)
 let mk_var scope ident expr_type expr_clock = 
@@ -704,7 +707,6 @@ let mk_var scope ident expr_type expr_clock =
   let state_var = state_var_of_ident scope ident expr_type in
 
   mk_var_of_state_var state_var expr_clock
-
 
 
 (* Previous-state variable *)
@@ -717,6 +719,8 @@ let mk_var_pre scope ident expr_type expr_clock =
     expr_step = pre_term_of_state_var cur_offset state_var;
     expr_type = expr_type;
     expr_clock = expr_clock } 
+
+*)
 
 
 (* ********************************************************************** *)
@@ -1613,7 +1617,7 @@ let mk_arrow expr1 expr2 =
 
 (* Pre expression *)
 let mk_pre 
-    mk_new_var_ident 
+    mk_new_state_var
     new_vars
     ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
 
@@ -1641,11 +1645,8 @@ let mk_pre
        instant *)
     | _ -> 
       
-      (* Identifier for a fresh variable *)
-      let scope, new_var_ident = mk_new_var_ident () in
-
-      (* State variable of identifier *)
-      let state_var = state_var_of_ident scope new_var_ident expr_type in 
+      (* Fresh state variable for identifier *)
+      let state_var = mk_new_state_var expr_type in 
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var pre_base_offset in
@@ -1675,11 +1676,8 @@ let mk_pre
     (* Expression is not constant and no variable *)
     | _ -> 
       
-      (* Identifier for a fresh variable *)
-      let scope, new_var_ident = mk_new_var_ident () in
-
-      (* State variable of identifier *)
-      let state_var = state_var_of_ident scope new_var_ident expr_type in 
+      (* Fresh state variable for expression *)
+      let state_var = mk_new_state_var expr_type in
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
@@ -1908,9 +1906,7 @@ let oracles_for_unguarded_pres
            let scope, new_oracle_ident = mk_new_oracle_ident () in
            
            (* State variable of identifier *)
-           let state_var = 
-             state_var_of_ident scope new_oracle_ident (Var.type_of_var var) 
-           in 
+           let state_var = state_var_of_ident scope new_oracle_ident in 
            
            (* Variable at base instant *)
            let oracle_var = 

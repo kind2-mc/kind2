@@ -201,13 +201,13 @@ type abstraction_context =
     scope : I.index;
 
     (* Create a new identifier for a variable *)
-    mk_new_var_ident : unit -> LustreIdent.index * LustreIdent.t;
+    mk_new_state_var : Type.t -> StateVar.t;
 
     (* Create a new identifier for a node call *)
     mk_new_call_ident : LustreIdent.t -> LustreIdent.t;
 
     (* Create a new identifier for an oracle input *)
-    mk_new_oracle_ident : unit -> LustreIdent.index * LustreIdent.t;
+    mk_new_oracle_state_var : Type.t -> StateVar.t;
 
     (* Added definitions of variables *)
     new_vars : (StateVar.t * E.t) list;
@@ -226,9 +226,9 @@ let void_abstraction_context pos =
   let msg = "Expression must be a constant integer" in
 
   { scope = I.empty_index;
-    mk_new_var_ident = (fun _ -> fail_at_position pos msg); 
+    mk_new_state_var = (fun _ -> fail_at_position pos msg); 
     mk_new_call_ident = (fun _ -> fail_at_position pos msg);
-    mk_new_oracle_ident = (fun _ -> fail_at_position pos msg);
+    mk_new_oracle_state_var = (fun _ -> fail_at_position pos msg);
     new_vars = []; 
     new_calls = [];
     new_oracles = [] } 
@@ -281,7 +281,7 @@ let pp_print_abstraction_context
    abstract from the context, also return a list of created variables
    and node calls.
 
-   The functions [mk_new_var_ident] and [mk_new_call_ident] return a
+   The functions [mk_new_state_var] and [mk_new_call_ident] return a
    fresh identifier for a variable and for a variable capturing the
    output of a node call, respectively. The former is called with a
    unit argument and returns an identifier __abs[n], the latter is is
@@ -304,8 +304,8 @@ let rec eval_ast_expr'
        consts;
        nodes } as context)
     ({ scope;
-       mk_new_var_ident; 
-       mk_new_oracle_ident; 
+       mk_new_state_var; 
+       mk_new_oracle_state_var; 
        mk_new_call_ident;
        new_vars;
        new_calls;
@@ -366,7 +366,7 @@ let rec eval_ast_expr'
 
 
     (* An identifier without suffixes: a constant or a variable *)
-    | (index, A.Ident (_, ident)) :: tl when 
+    | (index, A.Ident (pos, ident)) :: tl when 
         List.mem_assoc (I.push_index index ident) type_ctx -> 
 
       (* Add index to identifier *)
@@ -381,12 +381,21 @@ let rec eval_ast_expr'
           (* Identifier is not constant *)
           | Not_found -> 
 
-            (* Return variable on the base clock *)
-            E.mk_var 
-              scope
-              ident' 
-              (List.assoc ident' type_ctx) 
-              E.base_clock
+            try 
+
+              let state_var = E.state_var_of_ident scope ident' in
+
+              (* Return variable on the base clock *)
+              E.mk_var state_var E.base_clock
+
+            with Not_found -> 
+
+              fail_at_position
+                pos
+                (Format.asprintf 
+                   "Undeclared variable %a"
+                   (I.pp_print_ident false) ident')
+
 
       in
 
@@ -1174,18 +1183,14 @@ let rec eval_ast_expr'
       let oracle_state_vars = 
         List.map 
           (fun sv -> 
-            let scope, oracle_ident = mk_new_oracle_ident () in
-            E.state_var_of_ident 
-              scope
-              oracle_ident
-              (StateVar.type_of_state_var sv))
+             mk_new_oracle_state_var (StateVar.type_of_state_var sv)) 
           node_oracles 
       in
 
       (* Expressions from state variables for oracle inputs *)
       let oracle_exprs = 
         List.map
-          (fun sv -> E.mk_var_of_state_var sv E.base_clock) 
+          (fun sv -> E.mk_var sv E.base_clock) 
           oracle_state_vars 
       in
 
@@ -1239,7 +1244,7 @@ let rec eval_ast_expr'
          let cond', new_defs' = 
            eval_ast_expr
              scope
-             mk_new_var_ident 
+             mk_new_state_var 
              mk_new_oracle_ident 
              mk_new_call_ident 
              context 
@@ -1250,7 +1255,7 @@ let rec eval_ast_expr'
          let args', new_defs'' = 
            eval_ast_expr_list
              scope
-             mk_new_var_ident 
+             mk_new_state_var 
              mk_new_oracle_ident 
              mk_new_call_ident 
              context 
@@ -1261,7 +1266,7 @@ let rec eval_ast_expr'
          let init', (vars', calls') =
            eval_ast_expr_list
              scope
-             mk_new_var_ident 
+             mk_new_state_var 
              mk_new_oracle_ident 
              mk_new_call_ident 
              context 
@@ -1292,7 +1297,7 @@ let rec eval_ast_expr'
          (* Add expression to result *)
          eval_ast_expr' 
            scope
-           mk_new_var_ident 
+           mk_new_state_var 
            mk_new_oracle_ident 
            mk_new_call_ident 
            context 
@@ -1335,10 +1340,10 @@ let rec eval_ast_expr'
 
            List.fold_left
              (fun 
-               (accum, ({ mk_new_var_ident; new_vars } as abstractions)) 
+               (accum, ({ mk_new_state_var; new_vars } as abstractions)) 
                (index, expr) -> 
                 let expr', new_vars' = 
-                  E.mk_pre mk_new_var_ident new_vars expr 
+                  E.mk_pre mk_new_state_var new_vars expr 
                 in
                 (((index, expr') :: accum), 
                  { abstractions with new_vars = new_vars' }))
@@ -1407,19 +1412,15 @@ let rec eval_ast_expr'
       (* Fresh state variables for oracle inputs of called node *)
       let oracle_state_vars = 
         List.map 
-          (fun sv -> 
-            let scope, oracle_ident = mk_new_oracle_ident () in
-            E.state_var_of_ident 
-              scope
-              oracle_ident
-              (StateVar.type_of_state_var sv))
+          (fun sv ->
+             mk_new_oracle_state_var (StateVar.type_of_state_var sv))
           node_oracles 
       in
 
       (* Expressions from state variables for oracle inputs *)
       let oracle_exprs = 
         List.map
-          (fun sv -> E.mk_var_of_state_var sv E.base_clock) 
+          (fun sv -> E.mk_var sv E.base_clock) 
           oracle_state_vars 
       in
 
@@ -1658,7 +1659,7 @@ and node_inputs_of_exprs node_inputs abstractions pos expr_list =
       (fun 
         in_var
         (_, ({ E.expr_type } as expr)) 
-        (accum, ({ new_vars; mk_new_var_ident } as abstractions)) ->
+        (accum, ({ new_vars; mk_new_state_var } as abstractions)) ->
 
         if
 
@@ -1677,12 +1678,7 @@ and node_inputs_of_exprs node_inputs abstractions pos expr_list =
           then
 
             (* New variable for abstraction *)
-            let scope, ident = mk_new_var_ident () in
-      
-            (* State variable of abstraction variable *)
-            let state_var = 
-              E.state_var_of_ident scope ident expr_type
-            in
+            let state_var = mk_new_state_var expr_type in
 
             (* Add definition of variable *)
             let abstractions' =
@@ -1691,7 +1687,7 @@ and node_inputs_of_exprs node_inputs abstractions pos expr_list =
             in
 
             (* Use abstracted variable as input parameter *)
-            (E.mk_var_of_state_var state_var E.base_clock :: accum, 
+            (E.mk_var state_var E.base_clock :: accum, 
              abstractions')
 
           else
@@ -1813,7 +1809,7 @@ let close_ast_expr (expr, abstractions) =
   (* Replace unguarded pres in expression with oracle constants *)
   let expr', oracles' =
     E.oracles_for_unguarded_pres
-      abstractions.mk_new_oracle_ident
+      abstractions.mk_new_oracle_state_var
       abstractions.new_oracles
       expr
   in
@@ -2680,7 +2676,7 @@ let rec parse_node_locals context node = function
 let rec property_to_node 
     context
     node
-    ({ mk_new_var_ident } as abstractions)
+    ({ mk_new_state_var } as abstractions)
     pos
     expr =
 
@@ -2703,7 +2699,7 @@ let rec property_to_node
     else
 
       (* New variable for abstraction *)
-      let scope, ident = mk_new_var_ident () in
+      let scope, ident = mk_new_state_var () in
       
       (* State variable of abstraction variable *)
       let state_var = 
@@ -2766,7 +2762,7 @@ and equation_to_node
   (* Replace unguarded pre with oracle constants *)
   let expr', oracles' = 
     E.oracles_for_unguarded_pres
-      abstractions.mk_new_oracle_ident
+      abstractions.mk_new_oracle_state_var
       abstractions.new_oracles
       expr
   in
@@ -3239,34 +3235,52 @@ let parse_node_signature
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
-  let mk_new_var_ident = 
+  let mk_new_state_var state_var_type = 
     let r = ref Numeral.(- one) in
-    fun () -> Numeral.incr r; (scope, I.push_int_index !r new_var_ident)
+    Numeral.incr r; 
+    StateVar.mk_state_var
+      ~is_const:false
+      ~is_input:false
+      (I.string_of_ident true (I.push_int_index !r new_var_ident))
+      (I.scope_of_index scope)
+      state_var_type
   in
 
-  let rec mk_new_call_ident =
+  let rec mk_new_return_state_var ident return_type =
     let l = ref [] in
-    fun ident -> 
-      try 
-        let r = List.assoc ident !l in
-        Numeral.(incr r);
-        I.push_back_int_index 
-          !r 
-          (I.push_back_ident_index ident new_call_ident) 
-      with Not_found -> 
-        l := (ident, ref Numeral.(- one)) :: !l;
-        mk_new_call_ident ident
+    try 
+      let r = List.assoc ident !l in
+      Numeral.(incr r);
+      StateVar.mk_state_var
+        ~is_const:false
+        ~is_input:false
+        (I.string_of_ident 
+           true
+           (I.push_back_int_index 
+              !r 
+              (I.push_back_ident_index ident new_call_ident)))
+        (I.scope_of_index scope)
+        return_type
+    with Not_found -> 
+      l := (ident, ref Numeral.(- one)) :: !l;
+      mk_new_return_state_var ident state_var_type
   in
 
-  let mk_new_oracle_ident = 
+  let mk_new_oracle_state_var oracle_type = 
     let r = ref Numeral.(- one) in
-    fun () -> Numeral.incr r; (scope, I.push_int_index !r new_oracle_ident)
+    Numeral.incr r;
+    StateVar.mk_state_var
+      ~is_const:true
+      ~is_input:true
+      (I.string_of_ident true (I.push_int_index !r new_oracle_ident))
+      (I.scope_of_index scope)
+      oracle_type
   in
 
   let empty_abstractions = 
     { scope;
-      mk_new_var_ident = mk_new_var_ident;
-      mk_new_oracle_ident = mk_new_oracle_ident;
+      mk_new_state_var = mk_new_state_var;
+      mk_new_oracle_state_var = mk_new_oracle_state_var;
       mk_new_call_ident = mk_new_call_ident;
       new_vars = [];
       new_calls = [];

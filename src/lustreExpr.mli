@@ -21,7 +21,7 @@
 
     These Lustre expressions are normalized in the following ways:
 
-    - There is only one [->] operator at the top of the expression,
+    - There is exactly one [->] operator at the top of the expression,
       therefore an expression is a pair of expressions [(i, t)]
       without [->] operators, to be interpreted as [i -> t].
 
@@ -38,8 +38,7 @@
     Expressions can only be constructed with the constructors which do
     type and clock checking.
 
-    @author Christoph Sticksel
-*)
+    @author Christoph Sticksel *)
 
 
 (** Types of expressions do not match signature of operator *)
@@ -48,97 +47,46 @@ exception Type_mismatch
 (** Clocks of expressions are not compatible *)
 exception Clock_mismatch
 
-(*
-(** Unary operators
+(** A term inside a Lustre expression
 
-    The argument to a [pre] is a variable, see [Var] and [VarPre] in
-    {!expr}. *)
-type unary_op =
-  | Not
-  | Uminus
-  | ToInt
-  | ToReal
+    Cannot be constructed outside this module to enforce invariants *)
+type expr = private Term.t
 
-(** Binary operators 
-    
-    The [->] operator is moved to the top of the expression, such that
-    an expression is effectively a pair of expressions without [->]
-    operators. *)
-type binary_op =
-  | And 
-  | Or
-  | Xor
-  | Impl
-  | Mod
-  | Minus
-  | Plus 
-  | Div
-  | Times 
-  | IntDiv
-  | Eq
-  | Neq
-  | Lte
-  | Lt
-  | Gte
-  | Gt
+(** A clock
 
-(** Variadic operators *)
-type var_op =
-  | OneHot
-
-
-(** An expression *)
-type expr = private
-  | Var of LustreIdent.t
-  | VarPre of LustreIdent.t
-  | True
-  | False
-  | Int of Numeral.t
-  | Real of Decimal.t
-  | UnaryOp of unary_op * expr
-  | BinaryOp of binary_op * (expr * expr)
-  | VarOp of var_op * expr list
-  | Ite of expr * expr * expr
-*)
-
-type expr
-
-(** A clock *)
-type clock = unit
-
+    Cannot be constructed outside this module to enforce invariants *)
+type clock = private unit
 
 (** A Lustre expression
 
     The [->} operator is moved to the top of the expression, the
     expression is to be interpreted as [expr_init -> expr_step]. *)
-type t = private { 
+type t = private 
 
-  expr_init: expr;                     (** Lustre expression for
-                                           initial state *)
+  { 
 
-  expr_step: expr;                     (** Lustre expression after
-                                           initial state *)
+    expr_init: expr;     (** Lustre expression for initial state *)
+    
+    expr_step: expr;     (** Lustre expression after initial state *)
+    
+    expr_clock: clock;   (** Clock of expression *)
+  
+    expr_type: Type.t;   (** Type of expression
 
-  expr_clock: clock;                   (** Clock of expression *)
+                             Record type here, this is the common type
+                             of expr_init and expr_step *)
+    
+  }
 
-  expr_type: Type.t;             (** Type of expression 
 
-                                     Record type here, this is the
-                                     common type of expr_init and
-                                     expr_step *)
-
-}
-
+(** Equality of expressions *)
 val equal_expr : t -> t -> bool
 
-
-(** Pretty-print a Lustre variable. *)
+(** Pretty-print a Lustre type. *)
 val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit 
-
 
 (** Pretty-print a Lustre variable. *)
 val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 
-
 
 (** Pretty-print a Lustre expression. *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
@@ -158,7 +106,7 @@ val t_false : t
 (** {1 Constructors} *)
 
 (** Create or return state variable of identifier *)
-val state_var_of_ident : LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
+val state_var_of_ident : LustreIdent.index -> LustreIdent.t -> StateVar.t
 
 (** Return the identifier of a state variable
 
@@ -166,26 +114,29 @@ val state_var_of_ident : LustreIdent.index -> LustreIdent.t -> Type.t -> StateVa
     {!state_var_of_ident} to obtain the same identifier. *)
 val ident_of_state_var : StateVar.t -> LustreIdent.t 
 
-(** Return an integer numeral. *)
+(** Return an expression of an integer numeral. *)
 val mk_int : Numeral.t -> t
 
-(** Return a floating point decimal. *)
+(** Return an expression of a floating point decimal. *)
 val mk_real : Decimal.t -> t
 
-(** Return a variable *)
-val mk_var_of_state_var : StateVar.t -> clock -> t
+(** Return an expression of a variable *)
+val mk_var : StateVar.t -> clock -> t
 
+(*
 (** Return a variable.
 
     [mk_var n t c] returns a variable with name [n], type [t] and
     clock [c]. *)
 val mk_var : LustreIdent.index -> LustreIdent.t -> Type.t -> clock -> t
 
+
 (** Return a variable with a [pre] operator applied to it.
 
     [mk_var_pre n t c] returns a variable with name [n], type [t] and
     clock [c]. *)
 val mk_var_pre : LustreIdent.index -> LustreIdent.t -> Type.t -> clock -> t
+*)
 
 (** Return a conversion to an integer numeral. *)
 val mk_to_int : t -> t
@@ -265,7 +216,7 @@ val mk_arrow : t -> t -> t
     association between the fresh variable and [e] is added to the
     list [v], the second and third elements of the pair, [c], and [o],
     are left unchanged. *)
-val mk_pre : (unit -> LustreIdent.index * LustreIdent.t) -> (StateVar.t * t) list -> t -> (t * (StateVar.t * t) list)
+val mk_pre : (Type.t -> StateVar.t) -> (StateVar.t * t) list -> t -> (t * (StateVar.t * t) list)
 
 
 (** {1 Conversions to terms} *)
@@ -287,7 +238,7 @@ val cur_var_of_state_var : Numeral.t -> StateVar.t -> Var.t
 
 (** Instance of state variable at previous instant *)
 val pre_var_of_state_var : Numeral.t -> StateVar.t -> Var.t
-    
+
 (** Term of instance of state variable at first instant *)
 val base_term_of_state_var : Numeral.t -> StateVar.t -> Term.t
 
