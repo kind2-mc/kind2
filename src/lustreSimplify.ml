@@ -203,9 +203,6 @@ type abstraction_context =
     (* Create a new identifier for a variable *)
     mk_new_state_var : Type.t -> StateVar.t;
 
-    (* Create a new identifier for a node call *)
-    mk_new_call_ident : LustreIdent.t -> LustreIdent.t;
-
     (* Create a new identifier for an oracle input *)
     mk_new_oracle_state_var : Type.t -> StateVar.t;
 
@@ -227,7 +224,6 @@ let void_abstraction_context pos =
 
   { scope = I.empty_index;
     mk_new_state_var = (fun _ -> fail_at_position pos msg); 
-    mk_new_call_ident = (fun _ -> fail_at_position pos msg);
     mk_new_oracle_state_var = (fun _ -> fail_at_position pos msg);
     new_vars = []; 
     new_calls = [];
@@ -306,7 +302,6 @@ let rec eval_ast_expr'
     ({ scope;
        mk_new_state_var; 
        mk_new_oracle_state_var; 
-       mk_new_call_ident;
        new_vars;
        new_calls;
        new_oracles } as abstractions)
@@ -1176,9 +1171,6 @@ let rec eval_ast_expr'
 
       in
 
-      (* Fresh identifier for node call *)
-      let call_ident = mk_new_call_ident ident in
-
       (* Fresh state variables for oracle inputs of called node *)
       let oracle_state_vars = 
         List.map 
@@ -1206,6 +1198,7 @@ let rec eval_ast_expr'
         node_init_of_exprs node_outputs pos init'
       in
 
+(*
       (* Flatten indexed types of node outputs to a list of
          identifiers and their types *)
       let node_output_idents = 
@@ -1217,13 +1210,25 @@ let rec eval_ast_expr'
       let result' = 
         add_node_output_to_result index result node_output_idents
       in
+*)
+      
+      let output_vars = 
+        output_vars_of_node_output mk_new_state_var node_outputs 
+      in
+
+      let result' = 
+        (List.map 
+           (fun sv -> (index, E.mk_var sv E.base_clock)) 
+           output_vars) 
+        @ result
+      in
 
       (* Add expression to result *)
       eval_ast_expr' 
         context 
         { abstractions' 
           with new_calls =
-                 (node_output_idents, 
+                 (output_vars, 
                   cond', 
                   ident, 
                   node_input_exprs @ oracle_exprs, 
@@ -1405,10 +1410,10 @@ let rec eval_ast_expr'
           abstractions
           (A.ExprList (pos, expr_list))
       in
-
+(*
       (* Fresh identifier for node call *)
       let call_ident = mk_new_call_ident ident in
-
+*)
       (* Fresh state variables for oracle inputs of called node *)
       let oracle_state_vars = 
         List.map 
@@ -1429,7 +1434,7 @@ let rec eval_ast_expr'
       let node_input_exprs, abstractions' =
         node_inputs_of_exprs node_inputs abstractions' pos expr_list'
       in
-
+(*
       (* Flatten indexed types of node outputs to a list of
          identifiers and their types *)
       let node_output_idents = 
@@ -1441,12 +1446,24 @@ let rec eval_ast_expr'
       let result' = 
         add_node_output_to_result index result node_output_idents
       in
+*)
+
+      let output_vars = 
+        output_vars_of_node_output mk_new_state_var node_outputs 
+      in
+
+      let result' = 
+        (List.map 
+           (fun sv -> (index, E.mk_var sv E.base_clock)) 
+           output_vars) 
+        @ result
+      in
 
       (* Add expression to result *)
       eval_ast_expr' 
         context 
         { abstractions' 
-          with new_calls = (node_output_idents, 
+          with new_calls = (output_vars, 
                             E.t_true, 
                             ident, 
                             node_input_exprs @ oracle_exprs,
@@ -1739,7 +1756,7 @@ and node_init_of_exprs node_outputs pos expr_list =
 
     fail_at_position pos "Type mismatch for expressions"
 
-
+(*
 
 (* Return list of identifier and types to capture node outputs *)
 and output_idents_of_node scope ident pos call_ident = function 
@@ -1765,16 +1782,21 @@ and output_idents_of_node scope ident pos call_ident = function
            (StateVar.type_of_state_var out_var))
       node_outputs
 
+*)
+
 (* Add list of variables capturing the output with indexes to the result *)
-and add_node_output_to_result index result = function
+and output_vars_of_node_output mk_new_state_var node_outputs = 
 
-  (* Node must have outputs, this has been checked before *)
-  | [] -> assert false
+  List.map
+    (fun out_var -> 
+       mk_new_state_var (StateVar.type_of_state_var out_var))
+    node_outputs
 
+(*
   (* Don't add index if node has a single output *)
   | [state_var] -> 
 
-    (index, E.mk_var_of_state_var state_var E.base_clock) :: result
+    (index, E.mk_var state_var E.base_clock) :: result
 
   (* Add indexes to be able to sort if node has more than one output *)
   | node_output_idents -> 
@@ -1791,7 +1813,8 @@ and add_node_output_to_result index result = function
          (Numeral.zero, result)
          node_output_idents)
       
-      
+*)
+    
 
 (* Return true if expression is Boolean without indexes *)
 let is_bool_expr = function
@@ -2407,7 +2430,12 @@ let add_node_input_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_inputs' = 
-    E.state_var_of_ident scope (I.push_back_index index ident) basic_type :: 
+    E.mk_state_var_of_ident
+      true
+      is_const
+      scope
+      (I.push_back_index index ident) 
+      basic_type :: 
     node_inputs
   in
 
@@ -2447,7 +2475,12 @@ let add_node_output_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_outputs' = 
-    E.state_var_of_ident scope (I.push_back_index index ident) basic_type ::
+    E.mk_state_var_of_ident
+      false
+      false
+      scope
+      (I.push_back_index index ident) 
+      basic_type ::
     node_outputs 
   in
 
@@ -2481,7 +2514,12 @@ let add_node_var_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_locals' = 
-    E.state_var_of_ident scope (I.push_back_index index ident) basic_type :: 
+    E.mk_state_var_of_ident
+      false
+      false
+      scope
+      (I.push_back_index index ident) 
+      basic_type :: 
     node_locals
   in
 
@@ -2517,7 +2555,12 @@ let add_node_oracle_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_oracles' = 
-    E.state_var_of_ident scope (I.push_back_index index ident) basic_type :: 
+    E.mk_state_var_of_ident
+      false
+      true
+      scope
+      (I.push_back_index index ident)
+      basic_type :: 
     node_oracles
   in
 
@@ -2698,13 +2741,8 @@ let rec property_to_node
 
     else
 
-      (* New variable for abstraction *)
-      let scope, ident = mk_new_state_var () in
-      
       (* State variable of abstraction variable *)
-      let state_var = 
-        E.state_var_of_ident scope ident Type.t_bool 
-      in
+      let state_var = mk_new_state_var Type.t_bool in
       
       (* Add definition of abstraction variable to node *)
       let context', node', abstractions' = 
@@ -3235,53 +3273,34 @@ let parse_node_signature
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
-  let mk_new_state_var state_var_type = 
+  let mk_new_state_var  = 
     let r = ref Numeral.(- one) in
-    Numeral.incr r; 
-    StateVar.mk_state_var
-      ~is_const:false
-      ~is_input:false
-      (I.string_of_ident true (I.push_int_index !r new_var_ident))
-      (I.scope_of_index scope)
-      state_var_type
+    fun state_var_type ->
+      Numeral.incr r; 
+      E.mk_state_var_of_ident
+        false
+        false
+        scope
+        (I.push_int_index !r new_var_ident)
+        state_var_type
   in
 
-  let rec mk_new_return_state_var ident return_type =
-    let l = ref [] in
-    try 
-      let r = List.assoc ident !l in
-      Numeral.(incr r);
-      StateVar.mk_state_var
-        ~is_const:false
-        ~is_input:false
-        (I.string_of_ident 
-           true
-           (I.push_back_int_index 
-              !r 
-              (I.push_back_ident_index ident new_call_ident)))
-        (I.scope_of_index scope)
-        return_type
-    with Not_found -> 
-      l := (ident, ref Numeral.(- one)) :: !l;
-      mk_new_return_state_var ident state_var_type
-  in
-
-  let mk_new_oracle_state_var oracle_type = 
+  let mk_new_oracle_state_var = 
     let r = ref Numeral.(- one) in
-    Numeral.incr r;
-    StateVar.mk_state_var
-      ~is_const:true
-      ~is_input:true
-      (I.string_of_ident true (I.push_int_index !r new_oracle_ident))
-      (I.scope_of_index scope)
-      oracle_type
+    fun oracle_type ->
+      Numeral.incr r;
+      E.mk_state_var_of_ident
+        true
+        true
+        scope
+        (I.push_int_index !r new_oracle_ident)
+        oracle_type
   in
 
   let empty_abstractions = 
     { scope;
       mk_new_state_var = mk_new_state_var;
       mk_new_oracle_state_var = mk_new_oracle_state_var;
-      mk_new_call_ident = mk_new_call_ident;
       new_vars = [];
       new_calls = [];
       new_oracles = [] }

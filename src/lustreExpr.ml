@@ -150,6 +150,8 @@ let string_of_symbol = function
   | `LT -> "<"
   | `GEQ -> ">="
   | `GT -> ">"
+  | `TO_REAL -> "real"
+  | `TO_INT -> "int"
   | _ -> failwith "string_of_symbol"
 
 
@@ -330,6 +332,8 @@ and pp_print_app safe ppf = function
 
   (* Unary symbols *) 
   | `NOT
+  | `TO_REAL
+  | `TO_INT
   | `ABS as s -> 
 
     (function [a] -> 
@@ -339,7 +343,7 @@ and pp_print_app safe ppf = function
         (pp_print_term_node safe) a
 
       | _ -> assert false)
-      
+  
   (* Unary and left-associative binary symbols *)
   | `MINUS as s ->
       
@@ -624,7 +628,34 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
 (* ********************************************************************** *)
   
 
-(* Create or return state variable of identifier *)
+(* Create state variable of identifier *)
+let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
+  
+  (* Convert index to a scope *)
+  let scope = I.scope_of_index scope_index in
+
+  (* Convert identifier to a string *)
+  let ident_string = I.string_of_ident true ident in 
+
+  (* Create state variable *)
+  let state_var = 
+    StateVar.mk_state_var 
+      ~is_input:is_input
+      ~is_const:is_const
+      ~is_clock:false
+      ident_string
+      scope
+      state_var_type
+  in
+  
+  (* Add to hashtable *)
+  StateVar.StateVarHashtbl.add state_var_ident_map state_var ident;
+
+  (* Return state variable *)
+  state_var 
+
+
+(* Return existing state variable of identifier *)
 let state_var_of_ident scope_index ident = 
 
   (* Convert index to a scope *)
@@ -637,7 +668,7 @@ let state_var_of_ident scope_index ident =
   StateVar.state_var_of_string (ident_string, scope)
   
 (*
-  (* Add to hashtable unless already present *)
+   (* Add to hashtable unless already present *)
   (if not (StateVar.StateVarHashtbl.mem state_var_ident_map state_var) then 
      StateVar.StateVarHashtbl.add state_var_ident_map state_var ident);
 
@@ -1875,9 +1906,9 @@ let state_vars_of_expr { expr_init; expr_step } =
 
 
 let oracles_for_unguarded_pres 
-    mk_new_oracle_ident
+    mk_new_oracle_state_var
     oracles
-    ({ expr_init } as expr) = 
+    ({ expr_init; expr_type } as expr) = 
 
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term expr_init in
@@ -1903,10 +1934,7 @@ let oracles_for_unguarded_pres
         (fun var (accum, oracles) -> 
            
            (* Identifier for a fresh variable *)
-           let scope, new_oracle_ident = mk_new_oracle_ident () in
-           
-           (* State variable of identifier *)
-           let state_var = state_var_of_ident scope new_oracle_ident in 
+           let state_var = mk_new_oracle_state_var expr_type in
            
            (* Variable at base instant *)
            let oracle_var = 

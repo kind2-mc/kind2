@@ -60,7 +60,7 @@ let state_var_of_top_scope ?is_input ?is_const ?is_clock state_var =
 
   StateVar.mk_state_var
     ?is_input
-    ?is_const
+    ?is_const:(Some (StateVar.is_const state_var))
     ?is_clock
     (StateVar.name_of_state_var state_var) 
     ("__top" :: (StateVar.scope_of_state_var state_var))

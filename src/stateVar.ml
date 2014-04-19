@@ -301,7 +301,7 @@ let mk_state_var
          UfSymbol.mk_uf_symbol 
            (string_of_state_var_name 
               (state_var_name, state_var_scope))
-           [Type.mk_int ()] 
+           (if is_const then [] else [Type.mk_int ()])
            state_var_type 
        in
 

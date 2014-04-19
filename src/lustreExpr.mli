@@ -105,7 +105,11 @@ val t_false : t
 
 (** {1 Constructors} *)
 
-(** Create or return state variable of identifier *)
+(** Create a state variable of identifier and add it to a map to be
+    retrieved with {!state_var_of_ident} *)
+val mk_state_var_of_ident : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
+
+(** Return previously created state variable of identifier *)
 val state_var_of_ident : LustreIdent.index -> LustreIdent.t -> StateVar.t
 
 (** Return the identifier of a state variable
@@ -288,7 +292,7 @@ val state_vars_of_expr : t -> StateVar.StateVarSet.t
 val split_expr_list : t list -> expr list * expr list 
 
 
-val oracles_for_unguarded_pres : (unit -> LustreIdent.index * LustreIdent.t) -> StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : (Type.t -> StateVar.t) -> StateVar.t list -> t -> t * StateVar.t list
 
 (*
 (** Return a list of names of variables in the expression *)
