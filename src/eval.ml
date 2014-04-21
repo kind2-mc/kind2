@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2012 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -565,8 +553,8 @@ let eval_subterms cache term env =
 (* Value of an expression *)
 type value =
   | ValBool of bool
-  | ValInt of int
-  | ValReal of float
+  | ValNum of Numeral.t
+  | ValDec of Decimal.t
   | ValTerm of Term.t
 
 
@@ -579,17 +567,17 @@ let bool_of_value = function
     
 
 (* Extract the integer value from the value of an expression *)
-let int_of_value = function 
-  | ValInt b -> b
+let num_of_value = function 
+  | ValNum b -> b
   | ValTerm t -> 
-    invalid_arg ("int_of_value for term " ^ (string_of_t Term.pp_print_term t))
-  | _ -> invalid_arg "int_of_value"
+    invalid_arg ("num_of_value for term " ^ (string_of_t Term.pp_print_term t))
+  | _ -> invalid_arg "num_of_value"
 
 
 (* Extract the float value from the value of an expression *)
-let float_of_value = function 
-  | ValReal b -> b
-  | _ -> invalid_arg "float_of_value"
+let dec_of_value = function 
+  | ValDec b -> b
+  | _ -> invalid_arg "dec_of_value"
 
 
 (* Check if the value is unknown *)
@@ -602,8 +590,8 @@ let value_is_unknown = function
 let term_of_value = function 
   | ValBool true -> Term.mk_true ()
   | ValBool false -> Term.mk_false ()
-  | ValInt i -> Term.mk_num_of_int i
-  | ValReal f -> Term.mk_dec_of_float f
+  | ValNum n -> Term.mk_num n
+  | ValDec d -> Term.mk_dec d
   | ValTerm t -> t
 
 
@@ -619,10 +607,10 @@ let value_of_term term = match Term.destruct term with
       match Symbol.node_of_symbol s with 
 
         (* Term is an integer numeral *)
-        | `NUMERAL n -> ValInt (int_of_numeral n)
+        | `NUMERAL n -> ValNum n
 
         (* Term is a real decimal *)
-        | `DECIMAL d -> ValReal (float_of_decimal d)
+        | `DECIMAL d -> ValDec d
 
         (* Term is a propositional constant *)
         | `TRUE -> ValBool true
@@ -648,10 +636,10 @@ let value_of_term term = match Term.destruct term with
       match Symbol.node_of_symbol (Term.leaf_of_term c) with 
         
         (* Term is an integer numeral *)
-        | `NUMERAL n -> ValInt (- (int_of_numeral n))
+        | `NUMERAL n -> ValNum (Numeral.neg n)
                           
         (* Term is a real decimal *)
-        | `DECIMAL d -> ValReal (-. (float_of_decimal d))
+        | `DECIMAL d -> ValDec (Decimal.neg d)
 
         (* Term is not a constant *)
         | _ -> ValTerm term)

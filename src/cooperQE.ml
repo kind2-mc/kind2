@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (** 
@@ -48,35 +36,35 @@ let pp_print_model ppf model =
 
 
 (* Compute the greatest common divisor of integer i1 and i2. *)
-let rec greatest_common_divisor (i1: int) (i2: int) : int =
+let rec greatest_common_divisor (i1: Numeral.t) (i2: Numeral.t) : Numeral.t =
   
-  if i2 <> 0 then 
-    (greatest_common_divisor i2 (i1 mod i2)) 
+  if Numeral.(i2 <> zero) then 
+    (greatest_common_divisor i2 Numeral.(i1 mod i2)) 
   else 
-    (abs i1)
+    (Numeral.abs i1)
 
 
 (* Compute the least common multiple of integer i1 and i2. *)
-let least_common_multiple (i1: int) (i2: int) : int =
+let least_common_multiple (i1: Numeral.t) (i2: Numeral.t) : Numeral.t =
   match i1, i2 with
-    | 0, x 
-    | x, 0 -> x
-    | i1, i2 -> abs (i1 * i2) / (greatest_common_divisor i1 i2)
+    | c, x when Numeral.(c = zero) -> x
+    | x, c when Numeral.(c = zero) -> x
+    | i1, i2 -> Numeral.(abs (i1 * i2) / (greatest_common_divisor i1 i2))
 
 
 (* Compute the modulo of i1 divided by i2.
    It always returns positive number and smaller than i2. *)
-let modulo (i1: int) (i2: int) : int =
-  if (i1 > 0) then 
-    (i1 mod i2)
+let modulo (i1: Numeral.t) (i2: Numeral.t) : Numeral.t =
+  if Numeral.(i1 > zero) then 
+    Numeral.(i1 mod i2)
   else 
-    ((i1 mod i2) + i2)
+    Numeral.((i1 mod i2) + i2)
 
 
 (* Find the least common multiply of all the coefficients of the
    variable in the formula. Return zero if the formula does not occur
    in the formula *)
-let find_lcm_in_cformula (v: Var.t) (cf: cformula) : int =
+let find_lcm_in_cformula (v: Var.t) (cf: cformula) : Numeral.t =
 
   (* Compute lcm from in all conjuncts of the formula *)
   List.fold_left
@@ -95,7 +83,7 @@ let find_lcm_in_cformula (v: Var.t) (cf: cformula) : int =
           let coe = get_coe_in_poly v pl in
           
           (* Variable does not occur in atom? *)
-          if coe = 0 then 
+          if Numeral.(coe = zero) then 
 
             (* Return previous least common multiple *)
             i
@@ -103,10 +91,10 @@ let find_lcm_in_cformula (v: Var.t) (cf: cformula) : int =
           else 
 
             (* First occurrence of the variable *)
-            if i = 0 then
+            if Numeral.(i = zero) then
 
               (* Return the absolute value of the coefficient *)
-              (abs coe)
+              (Numeral.abs coe)
 
             else
 
@@ -114,7 +102,7 @@ let find_lcm_in_cformula (v: Var.t) (cf: cformula) : int =
               least_common_multiple i coe
       )
     ) 
-    0 
+    Numeral.zero 
     cf
 
 
@@ -150,24 +138,24 @@ let find_div_lcm_in_cformula (v: Term.term) (cf: cformula) : int =
 (* Multiply the Presburger polynomial so that the absolute value of
    the coefficient of v is equal to lcm, preserving the sign of the
    coefficient. *)
-let scale_coefficient_in_poly (v: Var.t) (lcm: int) (pt: poly) : poly = 
+let scale_coefficient_in_poly (v: Var.t) (lcm: Numeral.t) (pt: poly) : poly = 
 
   let coe = get_coe_in_poly v pt in
   
   match coe with
       
-    | 0 -> pt
+    | i when Numeral.(i = zero) -> pt
       
-    | i when i > 0 ->
+    | i when Numeral.(i > zero) ->
 
       (* Scale polynomial with lcm/coe, this is a positive number *)
-      multiply_two_polys pt [((lcm / coe), None)]
+      multiply_two_polys pt [(Numeral.(lcm / coe), None)]
         
-    | i when i < 0 ->
+    | i when Numeral.(i < zero) ->
 
       (* Scale polynomial with -lcm/coe, this is a positive number,
          since coe is negative *)
-      multiply_two_polys pt [((-1 * lcm / coe), None)]
+      multiply_two_polys pt [(Numeral.((neg one) * lcm / coe), None)]
         
     | _ -> 
       failwith "Impossible case for scale_coefficient_in_poly."
@@ -176,7 +164,7 @@ let scale_coefficient_in_poly (v: Var.t) (lcm: int) (pt: poly) : poly =
 (* Multiply the Presburger term so that the coefficient of the
    variable to be eliminated is equal to least common multiple of the
    coefficents of all occurrences of the variable. *)
-let scale_coefficient_in_preAtom (v: Var.t) (lcm: int) (pret: preAtom) : preAtom = 
+let scale_coefficient_in_preAtom (v: Var.t) (lcm: Numeral.t) (pret: preAtom) : preAtom = 
 
   match pret with
       
@@ -199,12 +187,12 @@ let scale_coefficient_in_preAtom (v: Var.t) (lcm: int) (pret: preAtom) : preAtom
       (match coe with
 
         (* Prevent division by zero, return unchanged *)
-        | 0 -> pret
+        | i when Numeral.(i = zero) -> pret
           
         | _ -> 
           
           (* Also scale the constant in divisibility predicate *)
-          DIVISIBLE (i * abs (lcm / coe), scale_coefficient_in_poly v lcm pl)
+          DIVISIBLE (Numeral.(i * abs (lcm / coe)), scale_coefficient_in_poly v lcm pl)
       )
         
     (* Scale indivisibility atom *)
@@ -217,24 +205,24 @@ let scale_coefficient_in_preAtom (v: Var.t) (lcm: int) (pret: preAtom) : preAtom
       (match coe with
           
         (* Prevent division by zero, return unchanged *)
-        | 0 -> pret
+        | i when Numeral.(i = zero) -> pret
           
         | _ -> INDIVISIBLE 
           
           (* Also scale the constant in divisibility predicate *)
-          (i * abs (lcm / coe), scale_coefficient_in_poly v lcm pl)
+          (Numeral.(i * abs (lcm / coe)), scale_coefficient_in_poly v lcm pl)
           
       )
 
 
 (* Multiply the Presburger formula so that the coefficient of v is
    equal to the lcm in each Presburger atom. *)
-let scale_coefficient_in_cformula (v: Var.t) (lcm: int) (cf: cformula) : cformula =
+let scale_coefficient_in_cformula (v: Var.t) (lcm: Numeral.t) (cf: cformula) : cformula =
 
   (* Least common multiple must be positive *)
-  if lcm <= 0 then assert false else 
+  if Numeral.(lcm <= zero) then assert false else 
 
-    if lcm = 1 then 
+    if Numeral.(lcm = one) then 
       
       (* Do not add trivial divisibility predicates (1 | x), do not
          scale the formula *)
@@ -251,7 +239,7 @@ let scale_coefficient_in_cformula (v: Var.t) (lcm: int) (cf: cformula) : cformul
    term pt2. *)
 let substitute_variable_in_poly (c: Var.t -> Var.t -> int) (v: Var.t) (pt1: poly) (pt2: poly) : poly =
 
-  if (get_coe_in_poly v pt2 = 0) then 
+  if Numeral.(get_coe_in_poly v pt2 = zero) then 
 
     (* Skip if monomial has coefficient zero *)
     (pt2)
@@ -304,15 +292,15 @@ let substitute_summand_in_poly (c: Var.t -> Var.t -> int) (v: Var.t) (pt1: poly)
   match get_coe_in_poly v pt2 with
 
     (* Skip if variable has coefficient zero *)
-    | 0 -> pt2
+    | i when Numeral.(i = zero) -> pt2
       
-    | i when i > 0 ->
+    | i when Numeral.(i > zero) ->
       
       add_two_polys c []
         pt1
         (List.filter (fun x -> not (psummand_contains_variable v x)) pt2)
         
-    | i when i < 0 ->
+    | i when Numeral.(i < zero) ->
       
       add_two_polys c []
         (negate_poly pt1)
@@ -349,20 +337,22 @@ let substitute_summand_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t) (pl: po
 
 
 (* Evaluate a poly pt with the model. *)
-let eval_poly (model: (Var.t * Term.t) list) (pt: poly) : int = 
+let eval_poly (model: (Var.t * Term.t) list) (pt: poly) : Numeral.t = 
   List.fold_left (
     fun accum (coe, v) ->
       match v with
       | None ->
-        accum + coe
+        Numeral.(accum + coe)
 
       | Some v -> 
         (* (debug qe_detailed
            "eval_poly: Model is @[<v>%a@]"
            pp_print_model model
          end); *)
-        accum + coe * (Eval.int_of_value (Eval.eval_term (Term.mk_var v) model))
-  ) 0 pt
+        Numeral.(accum + coe * (Eval.num_of_value (Eval.eval_term (Term.mk_var v) model)))
+  ) 
+    Numeral.zero
+    pt
 
 
 (* Find the maximum poly in the poly list. *)
@@ -374,7 +364,7 @@ let find_max_in_poly_list (model: (Var.t * Term.t) list) (ptl: poly list) : poly
   | pt::ptl' ->
     List.fold_left(
       fun accum pt1 ->
-        if (eval_poly model accum > eval_poly model pt1)
+        if Numeral.(eval_poly model accum > eval_poly model pt1)
         then (
           accum)
         else (
@@ -532,7 +522,7 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
   | (GT pl) :: cf' ->
     
-    if get_coe_in_poly v pl > 0 then
+    if Numeral.(get_coe_in_poly v pl > zero) then
 
       (
         (* For the inequation lcm_coe*v + t > 0 the lower bound
@@ -542,7 +532,7 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
           (add_two_polys 
             c 
             [] 
-            ([1, None]) 
+            ([Numeral.one, None]) 
             (negate_poly 
               (List.filter (fun x -> not (psummand_contains_variable v x)) pl))
           ) in
@@ -557,7 +547,7 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
   | (EQ pl) :: cf' ->
 
-    if get_coe_in_poly v pl > 0 then
+    if Numeral.(get_coe_in_poly v pl > zero) then
 
       (* For the inequation lcm_coe*v + t = 0 the lower bound
          is lcm_coe*v >= -t, immediately return this lower bound *)
@@ -568,7 +558,7 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
       [lb]
 
-    else if get_coe_in_poly v pl < 0 then
+    else if Numeral.(get_coe_in_poly v pl < zero) then
 
       (* For the inequation -lcm_coe*v + t = 0 the lower bound
          is lcm_coe*v >= t, immediately return this lower bound *)
@@ -583,7 +573,7 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
       find_rough_lower_bounds_in_cformula c v cf' l
 
-
+(*
   | (INEQ pl) :: cf' ->
 
       if get_coe_in_poly v pl > 0 then
@@ -625,7 +615,8 @@ let rec find_rough_lower_bounds_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t
 
       find_rough_lower_bounds_in_cformula c v cf' l
 
-
+*)
+  | INEQ _ :: cf' 
   | (DIVISIBLE _) :: cf'
   | (INDIVISIBLE _) :: cf' ->
 
@@ -649,7 +640,7 @@ let rec find_dividable_lower_bound (c: Term.term -> Term.term -> int) (model: (T
 (* Use the model to compute a polynomal that satisfies the formula
    including all divisibility constraints *)
 let find_divisible_lower_bound (c: Var.t -> Var.t -> int) 
-  (model: (Var.t * Term.t) list) (v: Var.t) (coe_lcm: int) (pl: poly) : poly = 
+  (model: (Var.t * Term.t) list) (v: Var.t) (coe_lcm: Numeral.t) (pl: poly) : poly = 
 
   (* (debug qe_detailed
      "find_divisible_lower_bound for %a...@."
@@ -665,13 +656,13 @@ let find_divisible_lower_bound (c: Var.t -> Var.t -> int)
   let j = 
     
     (* Evaluate variable in the model *)
-    (Eval.int_of_value (Eval.eval_term (Term.mk_var v) model)) * 
+    Numeral.((Eval.num_of_value (Eval.eval_term (Term.mk_var v) model)) * 
 
-      (* Multiply with the lcm coefficient *)
-      coe_lcm - 
-
-      (* Subtract value of the lower bound in the model *)
-      (eval_poly model pl) 
+             (* Multiply with the lcm coefficient *)
+             coe_lcm - 
+             
+             (* Subtract value of the lower bound in the model *)
+             (eval_poly model pl))
 
   in
   
@@ -696,7 +687,7 @@ let rec find_general_poly (l: poly list) : poly =
    Presburger formula [cf]. All occurrences of the variable [v] must
    have the coefficient [coe_lcm]. *)
 let find_lower_bound_in_cformula (c: Var.t -> Var.t -> int) 
-  (model: (Var.t * Term.t) list) (v: Var.t) (coe_lcm: int) (cf: cformula) : poly =
+  (model: (Var.t * Term.t) list) (v: Var.t) (coe_lcm: Numeral.t) (cf: cformula) : poly =
 
   (* Find all lower bounds for the variable to be eliminated *)
   let lower_bounds = find_rough_lower_bounds_in_cformula c v cf [] in
@@ -724,9 +715,9 @@ let handle_infinitely_small_case (c: Var.t -> Var.t -> int)
   let cf' = 
     List.filter 
       (function 
-        | GT pl -> get_coe_in_poly v pl = 0
-        | EQ pl -> get_coe_in_poly v pl = 0
-        | INEQ pl -> get_coe_in_poly v pl = 0
+        | GT pl -> Numeral.(get_coe_in_poly v pl = zero)
+        | EQ pl -> Numeral.(get_coe_in_poly v pl = zero)
+        | INEQ pl -> Numeral.(get_coe_in_poly v pl = zero)
         | _ -> true
       )
       cf 
@@ -736,7 +727,7 @@ let handle_infinitely_small_case (c: Var.t -> Var.t -> int)
   substitute_variable_in_cformula 
     c 
     v 
-    [(Eval.int_of_value (Eval.eval_term (Term.mk_var v) model)), None] 
+    [(Eval.num_of_value (Eval.eval_term (Term.mk_var v) model)), None] 
     cf'
 
 
@@ -748,22 +739,22 @@ let preAtom_is_trivial (pret: preAtom) : bool =
   match pret with
       
     (* Eliminate t > 0 when t is a constant > 0 *)
-    | GT [(c, None)] when c > 0 -> true
+    | GT [(c, None)] when Numeral.(c > zero) -> true
     
     (* Eliminate t = 0 when t is the constant 0 *)
-    | EQ [(0, None)] -> true
+    | EQ [(c, None)] when Numeral.(c = zero) -> true
       
     (* Eliminate t != 0 when t a constant != 0 *)
-    | INEQ [(c, None)] when c != 0 -> true
+    | INEQ [(c, None)] when Numeral.(c <> zero) -> true
 
     (* Eliminate 1 | t *)
-    | DIVISIBLE (1, _) -> true
+    | DIVISIBLE (c, _) when Numeral.(c = one)-> true
 
     (* Eliminate i | t when t is a constant s.t. t mod i = 0 *)
-    | DIVISIBLE (i, [(c, None)]) -> c mod i = 0
+    | DIVISIBLE (i, [(c, None)]) -> Numeral.(c mod i = zero)
                          
     (* Eliminate i !| t when t is a constant s.t. t mod i != 0 *)
-    | INDIVISIBLE (i, [(c, None)]) -> c mod i != 0
+    | INDIVISIBLE (i, [(c, None)]) -> Numeral.(c mod i <> zero)
 
     | _ -> false
 
@@ -782,13 +773,13 @@ let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int)
   let coe_lcm = find_lcm_in_cformula v cf in
   
   (debug qe_detailed
-     "The coe_lcm on %a is %i" 
+     "The coe_lcm on %a is %a" 
      Term.pp_print_term (Term.mk_var v)
-     coe_lcm
+     Numeral.pp_print_numeral coe_lcm
    end);
 
   (* Variable does not occur in formula, then return unchanged *)
-  if coe_lcm = 0 then cf else
+  if Numeral.(coe_lcm = zero) then cf else
     
     (* Scale atom to have all occurrences of the variable to be
        eliminated with the same coefficient *)

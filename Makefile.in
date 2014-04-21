@@ -43,6 +43,11 @@ kind2-doc:
 	mkdir -p $(LOCAL_DOCDIR)
 	cp -Rf src/_build/kind2.docdir/* $(LOCAL_DOCDIR)
 
+kind2-server: 
+	make -C server kind2-server
+	mkdir -p $(LOCAL_BINDIR)
+	cp -f server/_build/server.native $(LOCAL_BINDIR)/kind2-server
+
 .PHONY: install clean-kind2 clean-ocamlczmq clean 
 
 install: 

@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (** Statistics 
@@ -146,6 +134,9 @@ val pp_print_bmc_stats : Format.formatter -> unit
 (** Highest k reached *)
 val ind_k : int_item 
 
+(** Number of restarts*)
+val ind_restarts : int_item 
+
 (** Total time in BMC *)
 val ind_total_time : float_item
 
@@ -211,6 +202,9 @@ val pdr_tighten_to_subset_time : float_item
 (** Number of tightened blocking clauses *)
 val pdr_tightened_blocking_clauses : int_item
 
+(** Number of tightened clauses in forward propagation *)
+val pdr_tightened_propagated_clauses : int_item
+
 (** Stop and record all timers *)
 val pdr_stop_timers : unit -> unit 
 
@@ -244,6 +238,9 @@ val smt_stats : stat_item list
 val pp_print_smt_stats : Format.formatter -> unit 
 
 (** {2 Misc.} *)
+
+(** Total time *)
+val total_time : float_item
 
 val clause_of_term_time : float_item
 

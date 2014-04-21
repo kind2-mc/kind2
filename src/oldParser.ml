@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -673,14 +661,14 @@ let rec il_expression_to_term init = function
   (* An integer *)
   | Some L_INT, NUM i -> Term.mk_num_of_int i
 
-  | Some L_REAL, NUM i -> Term.mk_dec_of_float (float_of_int i)
+  | Some L_REAL, NUM i -> Term.mk_dec (Decimal.of_int i)
 
   | Some t, (NUM _ as e) -> failwith (type_mismatch_to_string e t L_INT)
 
   | None, NUM _ -> failwith "No type information for NUM"
   
   (* A float *)
-  | Some L_REAL, FLOAT f -> Term.mk_dec_of_float f
+  | Some L_REAL, FLOAT f -> Term.mk_dec (Decimal.of_string (string_of_float f))
 
   | Some t, (FLOAT _ as e) -> failwith (type_mismatch_to_string e t L_REAL)
 
@@ -917,13 +905,13 @@ let rec il_expression_to_term init = function
             | None, L_BOOL -> Type.t_bool
             | None, L_INT -> Type.t_int
             | None, L_INT_RANGE (l, u) -> 
-              Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+              Type.mk_int_range (Numeral.of_int l) (Numeral.of_int u)
             | None, L_REAL -> Type.t_real
             | Some L_BOOL, L_BOOL -> Type.t_bool
             | Some L_INT, L_INT -> Type.t_int
             | Some (L_INT_RANGE (l, u)), L_INT_RANGE (l', u') 
               when l = l' && u = u' -> 
-              Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+              Type.mk_int_range (Numeral.of_int l) (Numeral.of_int u)
             | Some L_REAL, L_REAL -> Type.t_real
             | None, t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
@@ -955,8 +943,8 @@ let rec il_expression_to_term init = function
             state_var
             (match p with 
               | POSITION_VAR "M" -> 
-                if init then Lib.numeral_of_int 0 else Lib.numeral_of_int 1
-              | MINUS (POSITION_VAR "M", NUM 1) -> Lib.numeral_of_int 0
+                if init then Numeral.zero else Numeral.one
+              | MINUS (POSITION_VAR "M", NUM 1) -> Numeral.zero
               | _ -> 
                 failwith 
                   (Format.fprintf 
@@ -1146,7 +1134,9 @@ let assignment_of_il_equation init l r t =
           let var_type = match t with 
             | L_BOOL -> Type.t_bool
             | L_INT -> Type.t_int
-            | L_INT_RANGE (l, u) -> Type.mk_int_range (numeral_of_int l) (numeral_of_int u)
+            | L_INT_RANGE (l, u) -> 
+              Type.mk_int_range (Numeral.of_int l) (Numeral.of_int u)
+            | L_REAL -> Type.t_real
             | t -> 
               failwith ("Unsupported type " ^ (lustre_type_to_string t))
           in
@@ -1342,10 +1332,10 @@ let of_channel in_ch =
 
             let p = 
               Term.mk_var 
-                (Var.mk_state_var_instance sv (Lib.numeral_of_int 0))
+                (Var.mk_state_var_instance sv Numeral.zero)
             in
 
-            ((string_of_int i, p) :: accum, succ i)
+            ((StateVar.original_name_of_state_var sv, p) :: accum, succ i)
         )
         
         ([], 0)
@@ -1373,10 +1363,12 @@ let of_channel in_ch =
      
 
      (* Convert internal representation to assignments in initial state *)
-     let _, init_assignments = assignments_of_il_formulas true [] [] [fd'] in
+     let invariants, init_assignments = 
+       assignments_of_il_formulas true [] [] [fd'] 
+     in
      
      (* Convert internal representation to assignments in transition *)
-     let invariants, trans_assignments = 
+     let _, trans_assignments = 
        assignments_of_il_formulas false [] [] [fd'] 
      in
 
@@ -1401,7 +1393,12 @@ let of_channel in_ch =
           il_expression_to_term true (Some L_BOOL, a)
 
     in
-(*
+
+    debug parse
+      "@[<v>Invariants:@,%a@]"
+      Lustre.pp_print_term assert_term
+    in
+
     (* Invariants of transition system *)
     let invars = 
 
@@ -1417,7 +1414,7 @@ let of_channel in_ch =
         assert_term :: TransSys.invars_of_types ()
 
     in
-*)
+
     (* Get declared variables 
 
        TODO: filter for proper state variables here, i.e. variables
@@ -1426,18 +1423,20 @@ let of_channel in_ch =
 
     (* Resulting transition system *)
     let res =
-      { TransSys.init = init_assignments;
-        TransSys.constr = StateVar.StateVarHashtbl.create (List.length trans_assignments);
+      { TransSys.init_assign = init_assignments;
+        TransSys.init_constr = [];
+        TransSys.constr_assign = StateVar.StateVarHashtbl.create (List.length trans_assignments);
+        TransSys.constr_constr = [];
         TransSys.trans = [];
         TransSys.props = props;
-        TransSys.invars = invariants;
+        TransSys.invars = invars;
         TransSys.props_valid = [];
         TransSys.props_invalid = [];
         TransSys.constr_dep = StateVar.StateVarHashtbl.create (List.length trans_assignments) } 
     in
 
     (* Add definition to transition relation *)
-    TransSys.constr_of_def_list res.constr trans_assignments;
+    TransSys.constr_of_def_list res.TransSys.constr_assign trans_assignments;
 
     (* Return transition system *)
     res

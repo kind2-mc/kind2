@@ -1,0 +1,270 @@
+\documentclass[12pt]{article}
+
+\usepackage{mathpazo}
+
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{stmaryrd} % for semantic brackets [[ ]]
+
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{calc}
+
+% Modify this to change the format of function names in algoritms
+\renewcommand{\textproc}{\textsl}
+
+% Define let command in algorithm
+\newcommand{\Let}{\textbf{let} }
+\newcommand{\In}{\textbf{in}}
+\newcommand{\Raise}{\textbf{raise} }
+
+% Widest label is "Invariant:"
+\newcommand{\algorithmicwidestlabel}{\widthof{\textbf{Invariant:}}}
+
+% Make ensures and requires of equal width
+\algrenewcommand\algorithmicensure{%
+  \makebox[\algorithmicwidestlabel][l]{\textbf{Ensure:}}}
+\algrenewcommand\algorithmicrequire{%
+  \makebox[\algorithmicwidestlabel][l]{\textbf{Require:}}}
+
+% Invariants in pseudocode
+\algnewcommand\algorithmicinvar{%
+  \makebox[\algorithmicwidestlabel][l]{\textbf{Invariant:}}}
+\algnewcommand\Invar{\item[\algorithmicinvar]}%
+
+% Assertions in pseudocode
+\algnewcommand\algorithmicassert{%
+  \makebox[\algorithmicwidestlabel][l]{\textbf{Assert:}}}
+\algnewcommand\Assert{\item[\algorithmicassert]}%
+
+\renewcommand{\vec}[1]{\mathbf{#1}}            % bold vector
+
+\newcommand{\lo}{\mathcal{L}}                  % a logic
+\newcommand{\lent}{\,\models_\lo\,}            % entailment in a logic 
+\newcommand{\ext}[1]{\llbracket #1 \rrbracket} % model of a formula
+
+\begin{document}
+
+\title{Multi-Property $k$-induction in Kind 2}
+
+\author{Christoph Sticksel}
+\maketitle
+
+\section{Preliminaries}
+\label{sec:prelim}
+
+
+Let~${(I[\vec x], T[\vec x, \vec x'])}$ be the encoding of a transition system with the initial state constraint~$I$ and the transition relation~$T$. Let~${\mathcal{P} = \{ P_1[\vec x], \dotsc, P_n[\vec x] \}}$ be a set of~$n$ properties to be checked for invariance.
+
+\[ \mathcal{P}[\vec{x}] = \bigwedge_{P\in\mathcal{P}} P[\vec{x}] \]
+
+\[ \mathcal{P}[\vec{x_s},\dotsc,\vec{x_t}] = \bigwedge_{i=s}^t P[\vec{x_i}] \]
+
+\[ \mathcal{T}[\vec{x_s},\dotsc,\vec{x_t}] = \bigwedge_{i=s}^{t-1}  T[\vec{x_i},\vec{x_{i+1}}]  \]
+
+% \[ \mathcal{T}(\mathcal{P})[\vec{x_s},\dotsc,\vec{x_t}] = \left( \bigwedge_{i=s}^{t-1} \mathcal{P}[\vec{x_i}] \land T[\vec{x_i},\vec{x_{i+1}}] \right) \land \mathcal{P}[\vec{x_t}] \]
+
+The relation~$\mathcal{T}$ is to be extended with path compression etc.
+
+\section{Implementation}
+\label{sec:impl}
+
+The transition system~${(I[\vec x], T[\vec x, \vec x'])}$ is static and always in scope.
+
+A global state consisting of the following variables that are shared by all procedures is maintained, it is realized by message passing. Every function maintains its own consistent snapshot of the global state that only changes after an explicit call to a function~\textproc{update} --- this corresponds to receiving incoming queued messages in a message passing model. Changes to the global state are denoted by the~$:=$ operator, which corresponds to sending a message. Implicitly, the~$:=$ operator ensures to modify only an up to date view and correctly serializes concurrent writes to the global state.
+
+\begin{description}
+\item[$\mathcal{P}_\mathrm{invalid}$] A subset of~$\mathcal{P}$ such that for each~$P\in\mathcal{P}_\mathrm{invalid}$ there is a counterexample trace~$\vec{x_0},\dotsc,\vec{x_k}$ where 
+  \[ I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \land \lnot P[\vec{x_{k}}]. \]
+\item[$\mathcal{P}_\mathrm{valid}$] A subset of~$\mathcal{P}$ such that each~$P\in\mathcal{P}_\mathrm{valid}$ is invariant:
+  \[ I[\vec{x}] \lent P[\vec{x}], \]
+  \[ P[\vec{x}] \land T[\vec{x},\vec{x'}] \lent P[\vec{x'}]. \]
+\item[$k_\textproc{bmc}$] For all~${k \leq k_\textproc{bmc}}$ there is no counterexample of length~$k$ to any property${P \in \mathcal{P} \setminus \mathcal{P}_\mathrm{invalid}}$: \[ I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \lent P[\vec{x_{k}}]. \]
+\end{description}
+
+\section{Bounded Model Checking (BMC)}
+\label{sec:bmc}
+
+\begin{figure}[tp]
+  \label{fig:bmc}
+  \centering
+  \begin{algorithmic}[1]
+    \Function{bmc}{$k$, $\mathcal{P}$} 
+
+    % Update global state
+    \State \Call{update}{$\mathcal{P}_\mathrm{valid}$, $\mathcal{P}_\mathrm{invalid}$, $k_\textproc{bmc}$}
+
+    \State \Let $\mathcal{P} = \mathcal{P} \setminus \mathcal{P}_\mathrm{valid}$ \In 
+    \If {$I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \land \mathcal{P}_\mathrm{valid}[\vec{x_0},\dotsc,\vec{x_k}] \lent \mathcal{P}[\vec{x_{k}}]$} 
+    \label{alg:bmc-check}
+    \State $k_\textproc{bmc}$ := $k$;
+    \State \Call{bmc}{$k+1$, $\mathcal{P}$}
+    \Else 
+    \State \Let $\mathcal{M} \in \ext{I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \land \lnot \mathcal{P}[\vec{x_{k}}]}$ \In
+    \label{alg:bmc-model}
+    \State \Let $\mathcal{P}' = \{P \in \mathcal{P} \mid \mathcal{M} \lent P[\vec{x_{k}}] \}$ \In
+    \State $\mathcal{P_\mathrm{invalid}}$ := $\mathcal{P}_\mathrm{invalid} \cup \left( \mathcal{P} \setminus \mathcal{P}'\right)$;
+    \If {$\mathcal{P}' \not = \emptyset$} 
+    \State \Call{bmc}{$k$, $\mathcal{P}'$} 
+    \Else
+    \State \Return
+    \EndIf
+    \EndIf
+    \EndFunction
+  \end{algorithmic}
+  \caption{BMC algorithm}
+\end{figure}
+
+Called as~\textproc{bmc}($0$, $\mathcal{P}$), it guarantees to add all properties~$P\in\mathcal{P}$ that are not invariant to~$\mathcal{P}_\mathrm{invalid}$ and preserves the invariants about the global state. It is not guaranteed to terminate unless all invariant properties are eventually added to~$\mathcal{P}_\mathrm{valid}$.
+
+Since a property in~$\mathcal{P}_\mathrm{valid}$ is invariant, the entailment check in Line~\ref{alg:bmc-check} is equivalent to checking the stronger~${I[\vec{x_0}] \land \mathcal{T}[\vec{x_0,\dotsc,x_{k}}] \lent \mathcal{P}[\vec{x_{k}}]}$ thus will find all counterexamples of length~$k$.
+
+\section{$k$-induction}
+\label{sec:k-induction}
+
+\begin{figure}[tp]
+  \label{fig:k-induction}
+  \centering
+  \begin{algorithmic}[1]
+    \Function{ind}{$k$, $\mathcal{P}$, $\mathcal{Q}$, $\mathcal{D}$} 
+
+    % Update global state
+    \State \Call{update}{$\mathcal{P}_\mathrm{valid}$, $\mathcal{P}_\mathrm{invalid}$, $k_\textproc{bmc}$}
+
+    % Interdependent properties where one premise has been disproved 
+    \State \Let $\mathcal{D}_\mathrm{invalid} = \{ (l, D) \in \mathcal{D} \mid {\exists P \in D \colon P \in \mathcal{P}_\mathrm{invalid}} \}$ \In
+    
+    % Interdependent properties that are certainly valid 
+    \State \Let $\mathcal{D}_\mathrm{valid} = \{ (l, D) \in \mathcal{D} \mid {l \leq k_\textproc{bmc}} \land {\forall P \in D \colon P \not \in \mathcal{P}_\mathrm{invalid}} \}$ \In
+
+    % Reduce sets of interdependent properties by valid properties
+    \State \Let $\mathcal{D}' = \{ (l, D') \mid (l, D) \in \mathcal{D} \land D' = D \setminus \mathcal{P}_\mathrm{valid} \}$ \In
+
+    % Reduce set of interdependent properties
+    \State \Let $\mathcal{D} = \mathcal{D}' \setminus \mathcal{D}_\mathrm{valid} \setminus \mathcal{D}_\mathrm{invalid}$ \In
+    
+    % Need to prove interdependent properties where one premise has been disproved, remove invalid properties
+    \State \Let $\mathcal{P} = \mathcal{P} \cup \bigcup \{ D \mid (l, D) \in \mathcal{D}_\mathrm{invalid} \} \setminus \mathcal{P}_\mathrm{valid} \setminus \mathcal{P}_\mathrm{invalid}$ \In
+
+    % Assume all properties that have not been proved or disproved 
+    \State \Let $\mathcal{P}_\mathrm{assume} = \bigcup \{ D \mid (l, D) \in \mathcal{D} \}$ \In
+
+    % Add all certainly valid properties to global state
+    \State $\mathcal{P}_\mathrm{valid} := \mathcal{P}_\mathrm{valid} \cup \bigcup \{ D \mid (l, D) \in \mathcal{D}_\mathrm{valid} \}$
+
+    % Premises that can be disproved later
+    \State \Let {$\Phi_1 = \mathcal{P}[\vec{x_0},\dotsc,\vec{x_k}] \land \mathcal{P}_\mathrm{assume}[\vec{x_0},\dotsc,\vec{x_{k+1}}]$} \In
+
+    % Premises that cannot be disproved 
+    \State \Let {$\Phi_2 = \mathcal{P}_\mathrm{valid}[\vec{x_0},\dotsc,\vec{x_{k+1}}] \land \mathcal{T}[\vec{x_0},\dotsc,\vec{x_{k+1}}] $} \In
+
+    % k-induction check 
+    \If {$\Phi_1 \land \Phi_2 \lent \mathcal{P}[\vec{x_{k+1}}]$} 
+
+      % Can there be counterexamples of length up to k? 
+      \If {$\left(k_\textproc{bmc} \geq k\right)$}
+
+        % Premises can safely be assumed, properties are certainly valid
+        \State $\mathcal{P}_\mathrm{valid}$ := $\mathcal{P}_\mathrm{valid} \cup \mathcal{P} \cup \mathcal{P}_\mathrm{assume}$
+
+        % Still more properties to prove? 
+        \If {$\mathcal{Q} \not = \emptyset$} 
+
+          \State \Call{ind}{$k+1$, $\mathcal{Q}$, $\emptyset$, $\emptyset$}
+
+        \Else
+        
+          % All properties proved
+          \State \Return 
+
+        \EndIf
+
+      \Else
+        
+        % Still more properties to prove? 
+        \If {$\mathcal{Q} \not = \emptyset$} 
+        
+          % Continue trying to prove failed properties k+1-inductive, 
+          % properties P are proved dependent on P and P_assume
+          \State \Call{ind}{$k+1$, $\mathcal{Q}$, $\emptyset$, $\mathcal{D} \cup (k, \{ \mathcal{P} \cup \mathcal{P}_\mathrm{assume} \}$}
+
+        \Else
+
+          % Wait for BMC to catch up 
+          \While {$k_\textproc{bmc} < k$}
+
+            % Assumed property disproved?
+            \If {$\exists (l, D) \in \mathcal{D}\colon D \cap \mathcal{P}_\mathrm{invalid} \not = \emptyset$} 
+            
+              % Try to prove again
+              \State \Call{ind}{$k$, $\emptyset$, $\emptyset$, $\mathcal{D}$}
+
+            \Else
+
+              \State \Call{update}{$\mathcal{P}_\mathrm{valid}$, $\mathcal{P}_\mathrm{invalid}$, $k_\textproc{bmc}$}
+
+            \EndIf
+
+          \EndWhile
+
+          % Premises can safely be assumed, properties are certainly valid
+          \State $\mathcal{P}_\mathrm{valid}$ := $\mathcal{P}_\mathrm{valid} \cup \mathcal{P} \cup \mathcal{P}_\mathrm{assume}$
+
+          \State \Return
+
+        \EndIf
+
+      \EndIf
+
+      \Else
+
+      % Get an inductive counterexample
+      \State \Let $\mathcal{M} \in \ext{\Phi_1 \land \Phi_2 \land \lnot \mathcal{P}[\vec{x_{k+1}}]}$ \In
+
+      % Properties that may be k-inductive for this k
+      \State \Let $\mathcal{P}' = \{P \in \mathcal{P} \mid \mathcal{M} \lent P[\vec{x_{k+1}}] \}$ \In      
+
+      % Properties that are not k-inductive for this k
+      \State \Let $\mathcal{Q}' = \mathcal{Q} \cup \mathcal{P} \setminus \mathcal{P}'$
+
+      % Try proving properties at the same k
+      \State \Call{ind}{$k$, $\mathcal{P}'$, $\mathcal{Q}'$, $\mathcal{D}$}
+
+    \EndIf
+    \EndFunction
+  \end{algorithmic}
+  \caption{$k$-induction algorithm}
+\end{figure}
+
+The (tail-)recursive $k$\nobreakdash-induction procedure~\textproc{ind}($k$, $\mathcal{P}$, $\mathcal{Q}$, $\mathcal{D}$) is initially called with the parameters~${k = 0}$,~${\mathcal{Q} = \emptyset}$, and~${\mathcal{D} = \emptyset}$. The set~$\mathcal{P}$ contains all properties that are not~$l$\nobreakdash-inductive for any $l < k$ and are true for at least~$k_\textproc{bmc}$ steps from the initial state. Properties that are in addition not $k$\nobreakdash-inductive are in~$\mathcal{Q}$. The set~$\mathcal{D}$ contains pairs~$(l,D)$ with~${l \geq 0}$ and~$D$ being a set of properties that are~$l$\nobreakdash-inductive if all properties in~$D$ hold for at least~$l$ steps from the initial state.
+
+The function~\textproc{ind} starts by partitioning~$\mathcal{D}$ into three disjoint sets based on the global state:~the set~$\mathcal{D}_\mathrm{invalid}$ of pairs~$(l,D)$ where at least one property in~$D$ has a counterexample;~the set~$\mathcal{D}_\mathrm{valid}$ of pairs~$(l,D)$ where no property in~$D$ has an~$l$ step counterexample; and the remaining pairs~$(l,D)$ where none of the properties in~$D$ has a counterexample of length~$k_\textproc{bmc} < l$. 
+
+All properties of~$D$ in any pair~$(l,D)$ of~$\mathcal{D}_\mathrm{valid}$ have no counterexample of length~$l$, and are~$l$\nobreakdash-inductive, therefore  certainly valid and are added to the global state. 
+
+All properties of~$D$ of some pair~$(l,D)$ of~$\mathcal{D}_\mathrm{invalid}$ are either in~$\mathcal{P}_\mathrm{invalid}$ or~$l$\nobreakdash-inductive, but under the now violated assumption that some property in~$\mathcal{P}_\mathrm{invalid}$ is valid. Those properties not in~$\mathcal{P}_\mathrm{invalid}$ are still candidates for invariance and are added back to the set of properties~$\mathcal{P}$ to be proved.
+
+All properties of~$D$ in some pair~$(l,D)$ of~$\mathcal{D}$ are optimistically assumed to be invariant, and make up the set~$\mathcal{P}_\mathrm{assume}$. These properties are used to strengthen the~$k$\nobreakdash-inductive check, but every property proved~$k$\nobreakdash-inductive is only so relative to~$\mathcal{P}_\mathrm{assume}$ and its proof is invalid as soon as a counterexample to one property~$\mathcal{P}_\mathrm{assume}$ is found.
+
+The~$k$\nobreakdash-inductive check uses the premise~$\Phi_1$, which is a conjunction of properties in~$\mathcal{P}$ and~$\mathcal{P}_\mathrm{assume}$ that have not been proven invariant. Thus the check is conditional on the non-existence of a counterexample of length~$k$ for each of the properties in~$\mathcal{P}$ and~$\mathcal{P}_\mathrm{assume}$.
+
+The second half of the premises in the~$k$\nobreakdash-inductive check contains properties that have been proven valid and the transition relation. Both are unconditionally true.
+
+If the~$k$\nobreakdash-inductive check succeeds, the properties~$\mathcal{P}$ are invariant if there is no~$k$ step counterexample to any property in~$\mathcal{P}$ or~$\mathcal{P}_\mathrm{assume}$. For this we check if in the global state~${k_\textproc{bmc}\geq k}$. Then, the global state is modified to include~$\mathcal{P}$ and~$\mathcal{P}_\mathrm{assume}$ in~$\mathcal{P}_\mathrm{valid}$. The properties in~$\mathcal{P}_\mathrm{assume}$ were proved under the condition of the non-existence of a counterexample of some length~${l < k \leq k_\textproc{bmc}}$ and hence are now invariant, too. If the set of properties~$\mathcal{Q}$ is not empty, the procedure continues to check those for~${k+1}$\nobreakdash-in\-duct\-ive\-ness, otherwise it exits.
+
+If the~$k$\nobreakdash-inductive check succeeds, but it is unknown if there are counterexamples of length~$k$, the properties in~$\mathcal{P}$ are invariant if no counterexamples of length~$k$ exist for any of the properties in~$\mathcal{P}$ and~$\mathcal{P}_\mathrm{assume}$. This condition is added to the set~$\mathcal{D}$ and the procedure continues to check if the properties in~$\mathcal{Q}$ are~${k+1}$\nobreakdash-inductive, if~$\mathcal{Q}$ is not empty. If~$\mathcal{Q}$ is empty, the procedure monitors the global state for additions to~$\mathcal{P}_\mathrm{invalid}$ that are in~$D$ of some pair~${(l,D)\in\mathcal{D}}$. This triggers a reentry to the procedure with~${\mathcal{P}=\mathcal{Q}=\emptyset}$, where the properties that were proved conditional on properties in~$\mathcal{P}_\mathrm{invalid}$ are checked for~$k$\nobreakdash-inductiveness again. If the global state changes to~$k_\textproc{bmc} \geq k$, then the condition on~$k$\nobreakdash-inductiveness of all properties of~$\mathcal{P}$ and~$\mathcal{P}_\mathrm{assume}$ is satisfied. These properties are added to~$\mathcal{P}_\mathrm{valid}$ in the global state and the procedure terminates.
+
+If the~$k$\nobreakdash-inductive check fails, some properties of~$\mathcal{P}$ are not~$k$\nobreakdash-inductive. By examining the inductive counterexample, those properties that are false in the final state~$\vec{x_{k+1}}$ are added to~$\mathcal{Q}$ to be checked for~${k+1}$\nobreakdash-inductiveness. The~$k$\nobreakdash-inductive check is then tried again for those properties that are true in the final state~$\vec{x_{k+1}}$.
+
+  
+\end{document}
+
+
+%%% Local Variables: 
+%%% TeX-command-default: "LaTeX"
+%%% TeX-parse-self: t
+%%% TeX-auto-save: t
+%%% TeX-PDF-mode: t
+%%% TeX-master: t
+%%% ispell-dictionary: "american"
+%%% flyspell-default-dictionary: "american"
+%%% End: 

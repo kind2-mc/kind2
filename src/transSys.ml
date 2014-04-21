@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -42,13 +30,15 @@ type t =
 
 	 A list of formulas over system variables, no previous state
 	 variables occur here *)
-      mutable init : (StateVar.t * Term.t) list;
+      mutable init_assign : (StateVar.t * Term.t) list;
+      mutable init_constr : Term.t list;
 
       (* CONSTR: global state constraints 
 
 	 An equations defining the next-state value for each state
 	 variabe from current-state and next-state variables *)
-      mutable constr : Term.t SVT.t;
+      mutable constr_assign : Term.t SVT.t;
+      mutable constr_constr : Term.t list;
 
       (* TRANS: guarded transitions
 
@@ -74,8 +64,23 @@ type t =
     }
 
 
+(* The empty transition system *)
+let empty = 
+
+  { init_assign = [];
+    init_constr = [];
+    constr_assign = SVT.create 7;
+    constr_constr = [];
+    trans = [];
+    props = [];
+    invars = [];
+    props_valid = [];
+    props_invalid = [];
+    constr_dep = SVT.create 7 }
+
+
 (* Return list of pairs of entries in hash table *)
-let def_list_of_constr t = SVT.fold (fun v t a -> (v, t) :: a) t.constr []
+let def_list_of_constr t = SVT.fold (fun v t a -> (v, t) :: a) t.constr_assign []
 
 (* Add definitions in list to hash table *)
 let constr_of_def_list c l = 
@@ -135,7 +140,13 @@ let pp_print_prop ppf (name, term) =
 (* Pretty-print a transition system *)
 let pp_print_trans_sys 
     ppf 
-    ( { init = i; constr = c; trans = g; invars = n; props = p  } as t) =
+    ( { init_assign = ia; 
+        init_constr = ic; 
+        constr_assign = ca; 
+        constr_constr = cc; 
+        trans = g; 
+        invars = n; 
+        props = p  } as t) =
 
   (* Collect declared state variables in a list 
 
@@ -147,14 +158,18 @@ let pp_print_trans_sys
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(vars@ (@[<v>%a@]))@]@ \
+          @[<hv 2>(init_assign@ (@[<v>%a@]))@]@ \
           @[<hv 2>(init@ (@[<v>%a@]))@]@ \
+          @[<hv 2>(trans_assign@ (@[<v>%a@]))@]@ \
           @[<hv 2>(trans@ (@[<v>%a@]))@]@ \
           @[<hv 2>(rules@ (@[<v>%a@]))@]@ \
           @[<hv 2>(invar@ (@[<v>%a@]))@]@ \
           @[<hv 2>(props@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_var "@ ") v
-    (pp_print_list pp_print_assign "@ ") i
+    (pp_print_list pp_print_assign "@ ") ia
+    (pp_print_list Term.pp_print_term "@ ") ic 
     (pp_print_list pp_print_assign "@ ") (def_list_of_constr t)
+    (pp_print_list Term.pp_print_term "@ ") cc
     (pp_print_list pp_print_trans_rule "@ ") g 
     (pp_print_list Term.pp_print_term "@ ") n 
     (pp_print_list pp_print_prop "@ ") p
@@ -163,12 +178,13 @@ let pp_print_trans_sys
 (* Determine the required logic for the SMT solver 
 
    TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = `QF_UFLIA
+let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+  
 
 (* Add to offset of state variable instances *)
 let bump_state i term = 
 
-  let i' = numeral_of_int i in
+  let i' = Numeral.of_int i in
 
   (* Bump offset of state variables *)
   Term.T.map
@@ -185,15 +201,16 @@ let bump_state i term =
 let init_of_bound i z = 
 
   (* Create conjunction of initial state formulas *)
-  let init_0 = 
+  let init_assign_0 = 
     Term.mk_and 
       (List.map 
          (function (v, t) -> 
            Term.mk_eq 
-             [Term.mk_var (Var.mk_state_var_instance v num_zero); t])
-         z.init)
+             [Term.mk_var (Var.mk_state_var_instance v Numeral.zero); t])
+         z.init_assign)
   in 
 
+  let init_0 = Term.mk_and (init_assign_0 :: z.init_constr) in
 
   (* Bump bound if greater than zero *)
   if i = 0 then init_0 else bump_state i init_0 
@@ -203,14 +220,16 @@ let init_of_bound i z =
 let constr_of_bound i z = 
 
   (* Create conjunction of initial state formulas *)
-  let constr_1 = 
+  let constr_assign_1 = 
     Term.mk_and 
       (List.map 
          (function (v, t) -> 
            Term.mk_eq 
-             [Term.mk_var (Var.mk_state_var_instance v num_one); t])
+             [Term.mk_var (Var.mk_state_var_instance v Numeral.one); t])
          (def_list_of_constr z))
   in 
+
+  let constr_1 = Term.mk_and (constr_assign_1 :: z.constr_constr) in
 
   (* Bump bound if greater than zero *)
   if i = 1 then constr_1 else bump_state (i - 1) constr_1 
@@ -233,13 +252,13 @@ let invars_of_bound i z =
   let invars_1 = Term.mk_and z.invars in 
 
   (* Bump bound if greater than zero *)
-  if i = 1 then invars_1 else bump_state i invars_1 
+  if i = 0 then invars_1 else bump_state i invars_1 
 
 
 (* Get all state variables at a given offset in the term *)
 let state_vars_at_offset_of_term i term = 
 
-  let i' = numeral_of_int i in
+  let i' = Numeral.of_int i in
 
   (* Collect all variables in a set *)
   let var_set = 
@@ -253,7 +272,9 @@ let state_vars_at_offset_of_term i term =
         | Term.T.Var _ 
         | Term.T.Const _ -> 
           (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
+        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
       term
   in
 
@@ -263,18 +284,21 @@ let state_vars_at_offset_of_term i term =
 (* Get all state variables at a given offset in the term *)
 let vars_at_offset_of_term i term = 
 
-  let i' = numeral_of_int i in
+  let i' = Numeral.of_int i in
 
   (* Collect all variables in a set *)
   let var_set = 
     Term.eval_t
       (function 
-        | Term.T.Var v when Var.offset_of_state_var_instance v = i' -> 
+        | Term.T.Var v 
+          when Numeral.(Var.offset_of_state_var_instance v = i') -> 
           (function [] -> Var.VarSet.singleton v | _ -> assert false)
         | Term.T.Var _ 
         | Term.T.Const _ -> 
           (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
+        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
       term
   in
 
@@ -293,7 +317,9 @@ let vars_of_term term =
           (function [] -> Var.VarSet.singleton v | _ -> assert false)
         | Term.T.Const _ -> 
           (function [] -> Var.VarSet.empty | _ -> assert false)
-        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty)
+        | Term.T.App _ -> List.fold_left Var.VarSet.union Var.VarSet.empty
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
       term
   in
 
@@ -317,7 +343,9 @@ let state_vars_of_term term  =
       | Term.T.App _ -> 
         List.fold_left 
           SVS.union 
-          SVS.empty)
+          SVS.empty
+      | Term.T.Attr (t, _) -> 
+        (function [s] -> s | _ -> assert false))
     term
   
 
@@ -350,8 +378,8 @@ let vars z =
 
   StateVar.fold
     (fun sv a -> 
-       Var.mk_state_var_instance sv (Lib.numeral_of_int 0) ::
-         Var.mk_state_var_instance sv (Lib.numeral_of_int 1) ::
+       Var.mk_state_var_instance sv Numeral.zero ::
+         Var.mk_state_var_instance sv Numeral.one ::
          a)
     []
 
@@ -363,7 +391,7 @@ let vars z =
 let state_vars z = 
 
   StateVar.fold
-    (fun sv a -> if not (StateVar.is_definition sv) then sv :: a else a)
+    (fun sv a -> if true then sv :: a else a)
     []
 
 
@@ -375,7 +403,7 @@ let invars_of_types () =
        | Type.IntRange (l, u) -> 
          Term.mk_leq 
            [Term.mk_num l; 
-            Term.mk_var (Var.mk_state_var_instance v (numeral_of_int 0)); 
+            Term.mk_var (Var.mk_state_var_instance v Numeral.zero); 
             Term.mk_num u] :: 
            a
        | _ -> a)
@@ -544,7 +572,8 @@ let dependencies_of_constr t =
         let defining_vars = 
           Term.eval_t
             (function 
-              | Term.T.Var v when Var.offset_of_state_var_instance v = num_one -> 
+              | Term.T.Var v when 
+                  Numeral.(Var.offset_of_state_var_instance v = one) -> 
                 (function 
                   | [] -> SVS.singleton (Var.state_var_of_state_var_instance v) 
                   | _ -> SVS.empty)
@@ -552,11 +581,13 @@ let dependencies_of_constr t =
                 (function [] -> SVS.empty | _ -> assert false)
               | Term.T.Const _ -> 
                 (function [] -> SVS.empty | _ -> assert false)
-              | Term.T.App _ -> List.fold_left SVS.union SVS.empty)
+              | Term.T.App _ -> List.fold_left SVS.union SVS.empty
+              | Term.T.Attr (t, _) -> 
+                (function [s] -> s | _ -> assert false))
             term
         in
         SVT.add t.constr_dep state_var defining_vars)
-      t.constr;
+      t.constr_assign;
   
   (* Return dependency hash table *)
   t.constr_dep
@@ -684,7 +715,9 @@ let rec defs_of_state_vars t dep accum = function
       
       (* Add definition if found, skip input or otherwise unspecified variables *)
       let accum' = 
-        try (Var.mk_state_var_instance h num_one, (SVT.find t.constr h)) :: accum with Not_found -> accum
+        try 
+          (Var.mk_state_var_instance h Numeral.one, (SVT.find t.constr_assign h)) :: accum 
+        with Not_found -> accum
       in
       
       (* Recurse for tail of list *)

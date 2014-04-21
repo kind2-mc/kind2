@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (* WARNING: DO NOT EDIT THE .ML FILE --- CHANGES WILL BE OVERWRITTEN 
@@ -37,6 +25,86 @@ This file is part of the Kind verifier
 *)
 
 open Lib
+
+(*
+
+type ('a, 'b) flag =
+  { longname : string;
+    shortname : string option;
+    mutable value : 'a;
+    of_arg : 'a -> 'b -> 'a;
+    pp : Format.formatter -> 'a -> unit }
+    
+
+type int_flag = (int, int) flag 
+
+type float_flag = (float, float) flag 
+
+type bool_flag = (bool, bool) flag
+
+type unit_flag = (unit, bool) flag 
+
+type 'a string_flag = ('a, string) flag
+
+
+
+type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+
+let smtsolver_of_string = function
+  | "Z3" -> `Z3_SMTLIB
+  | "Z3_SMTLIB" -> `Z3_SMTLIB
+  | "Z3_API" -> `Z3_API
+  | "CVC4" -> `CVC4_SMTLIB
+  | "CVC4_SMTLIB" -> `CVC4_SMTLIB
+  | "CVC4_API" -> `CVC4_API
+  | "Yices" -> `Yices
+  | _ -> raise (Invalid_argument "smtsolver_of_string")
+
+let pp_print_smtsolver ppf = 
+  let p = Format.fprintf ppf in 
+  function 
+    | `Z3_SMTLIB -> p "Z3_SMTLIB"
+    | `Z3_API -> p "Z3_API"
+    | `CVC4_SMTLIB -> p "CVC4_SMTLIB"
+    | `CVC4_API -> p "CVC4_API"
+    | `Yices -> p "Yices"
+
+let smtsolver_flag = 
+  { longname = "smtsolver";
+    shortname = None;
+    value = `Z3_SMTLIB;
+    of_arg = (function _ -> smtsolver_of_string);
+    pp = pp_print_smtsolver }
+
+
+let kind_module_of_string = function
+  | "PDR" -> `PDR
+  | "BMC" -> `BMC
+  | "IND" -> `IND
+  | "INVGEN" -> `INVGEN
+  | "interpreter" -> `Interpreter
+  | _ -> raise (Invalid_argument "smtsolver_of_string")
+
+
+let pp_print_kind_module ppf = 
+  let p = Format.fprintf ppf in 
+  function
+    | `PDR -> p "PDR"
+    | `BMC -> p "BMC"
+    | `IND -> p "IND"
+    | `INVGEN -> p "INVGEN"
+    | `Interpreter -> p "interpreter"
+
+
+let enable_flag = 
+  { longname = "enable";
+    shortname = Some "e";
+    value = [];
+    of_arg = (function curval -> (function arg -> kind_module_of_string arg :: curval));
+    pp = (pp_print_list pp_print_kind_module ",@ ") }
+
+*)
+
 
 (* ********************************************************************** *)
 (* Types and defaults for flags                                            *)
@@ -85,7 +153,7 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `Yices ]
+type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
@@ -94,6 +162,7 @@ let smtsolver_of_string = function
   | "CVC4" -> `CVC4_SMTLIB
   | "CVC4_SMTLIB" -> `CVC4_SMTLIB
   | "CVC4_API" -> `CVC4_API
+  | "mathsat5" -> `MathSAT5
   | "Yices" -> `Yices
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
@@ -103,10 +172,30 @@ let string_of_smtsolver = function
   | `CVC4_SMTLIB -> "CVC4_SMTLIB"
   | `CVC4_API -> "CVC4_API"
   | `Yices -> "Yices"
+  | `MathSAT5 -> "MathSAT5"
 
-let smtsolver_values = "Z3, CVC4"
+let smtsolver_values = "Z3, CVC4, mathsat5"
 
 let smtsolver_default = `Z3_SMTLIB
+
+(* ********** *) 
+
+type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+    
+let smtlogic_of_string = function
+  | "LIA" -> `QF_UFLIA
+  | "LRA" -> `QF_UFLRA
+  | "detect" -> `detect
+  | _ -> raise (Arg.Bad "Bad value for --smtlogic")
+
+let string_of_smtlogic = function 
+  | `QF_UFLIA -> "LIA"
+  | `QF_UFLRA -> "LRA"
+  | `detect -> "detect"
+
+let smtlogic_values = "LIA, LRA, detect"
+
+let smtlogic_default = `detect
 
 (* ********** *) 
 
@@ -127,6 +216,16 @@ let cvc4_bin_of_string s = s
 let string_of_cvc4_bin s = s 
 
 let cvc4_bin_default = "@CVC4_BIN@"
+
+(* ********** *) 
+
+type mathsat5_bin = string 
+
+let mathsat5_bin_of_string s = s
+
+let string_of_mathsat5_bin s = s 
+
+let mathsat5_bin_default = "@MATHSAT5_BIN@"
 
 (* ********** *) 
 
@@ -163,15 +262,7 @@ let enable_values = "PDR, BMC, IND, INVGEN"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR; `BMC; `IND]
-
-(* ********** *) 
-
-type pdr_subs_timeout = int
-    
-let string_of_pdr_subs_timeout = string_of_int
-
-let pdr_subs_timeout_default = 500
+let enable_default_after = [`PDR]
 
 (* ********** *) 
 
@@ -179,7 +270,7 @@ type pdr_check_inductive = bool
     
 let string_of_pdr_check_inductive = string_of_bool
 
-let pdr_check_inductive_default = false
+let pdr_check_inductive_default = true
 
 (* ********** *) 
 
@@ -187,29 +278,29 @@ type pdr_fwd_prop_check_multi = bool
     
 let string_of_pdr_fwd_prop_check_multi = string_of_bool
 
-let pdr_fwd_prop_check_multi_default = true
+let pdr_fwd_prop_check_multi_default = false
 
 (* ********** *) 
 
-type pdr_dump_inductive_assertions = bool
+type pdr_print_inductive_assertions = bool
     
-let string_of_pdr_dump_inductive_assertions = string_of_bool
+let string_of_pdr_print_inductive_assertions = string_of_bool
 
-let pdr_dump_inductive_assertions_default = false
+let pdr_print_inductive_assertions_default = false
 
 (* ********** *) 
 
-type pdr_inductive_assertions_file = string option
+type pdr_print_blocking_clauses = bool
     
-let pdr_inductive_assertions_file_default = None
+let string_of_pdr_print_blocking_clauses = string_of_bool
+
+let pdr_print_blocking_clauses_default = false
 
 (* ********** *) 
 
-type pdr_minimize_cex = bool
+type pdr_print_to_file = string option
     
-let string_of_pdr_minimize_cex = string_of_bool
-
-let pdr_minimize_cex_default = false
+let pdr_print_to_file_default = None
 
 (* ********** *) 
 
@@ -217,7 +308,7 @@ type pdr_tighten_to_unsat_core = bool
     
 let string_of_pdr_tighten_to_unsat_core = string_of_bool
 
-let pdr_tighten_to_unsat_core_default = false
+let pdr_tighten_to_unsat_core_default = true
 
 (* ********** *) 
 
@@ -225,32 +316,61 @@ type pdr_block_in_future = bool
     
 let string_of_pdr_block_in_future = string_of_bool
 
-let pdr_block_in_future_default = false
+let pdr_block_in_future_default = true
 
 (* ********** *) 
 
-type pdr_prop_in_last_frame = bool
+type pdr_print_inductive_invariant = bool
     
-let string_of_pdr_prop_in_last_frame = string_of_bool
+let string_of_pdr_print_inductive_invariant = string_of_bool
 
-let pdr_prop_in_last_frame_default = false
+let pdr_print_inductive_invariant_default = false
 
 (* ********** *) 
 
-type pdr_qe = [ `Z3 | `Cooper ]
+type pdr_check_inductive_invariant = bool
+    
+let string_of_pdr_check_inductive_invariant = string_of_bool
+
+let pdr_check_inductive_invariant_default = false
+
+(* ********** *) 
+
+type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
     
 let pdr_qe_of_string = function
   | "Z3" -> `Z3
+  | "Z3-impl" -> `Z3_impl
+  | "Z3-impl2" -> `Z3_impl2
   | "cooper" -> `Cooper
-  | _ -> raise (Arg.Bad "Bad value for -pdr_qe")
+  | _ -> raise (Arg.Bad "Bad value for --pdr_qe")
 
 let string_of_pdr_qe = function 
   | `Z3 -> "Z3"
+  |  `Z3_impl -> "Z3-impl"
+  |  `Z3_impl2 -> "Z3-impl2"
   | `Cooper -> "cooper"
 
-let pdr_qe_values = "Z3, cooper"
+let pdr_qe_values = "Z3, Z3-impl, Z3-impl-2, cooper"
 
-let pdr_qe_default = `Z3
+let pdr_qe_default = `Cooper
+
+(* ********** *) 
+
+type pdr_extract = [ `First | `Vars ]
+    
+let pdr_extract_of_string = function
+  | "first" -> `First
+  | "vars" -> `Vars
+  | _ -> raise (Arg.Bad "Bad value for --pdr_extract")
+
+let string_of_pdr_extract = function 
+  | `First -> "first"
+  | `Vars -> "vars"
+
+let pdr_extract_values = "first, vars"
+
+let pdr_extract_default = `First
 
 (* ********** *) 
  
@@ -267,6 +387,39 @@ type cooper_general_lbound = bool
 let cooper_general_lbound_values = "true, false"
  
 let cooper_general_lbound_default = false
+
+(* ********** *) 
+
+type interpreter_input_file = string 
+
+let interpreter_input_file_of_string s = s
+
+let string_of_interpreter_input_file s = s 
+
+let interpreter_input_file_default = ""
+
+(* ********** *) 
+
+type interpreter_steps = int 
+
+let interpreter_steps_default = 0
+
+(* ********** *) 
+
+type input_format = [ `Lustre | `Horn ]
+    
+let input_format_of_string = function
+  | "lustre" -> `Lustre
+  | "horn" -> `Horn
+  | _ -> raise (Arg.Bad "Bad value for --input-format")
+
+let string_of_input_format = function 
+  | `Lustre -> "lustre"
+  | `Horn -> "horn"
+
+let input_format_values = "lustre, horn"
+
+let input_format_default = `Lustre
 
 (* ********** *) 
 
@@ -291,25 +444,31 @@ type flags =
     { mutable timeout_wall : float;
       mutable timeout_virtual : float;
       mutable smtsolver : smtsolver;
+      mutable smtlogic : smtlogic;
       mutable z3_bin : z3_bin;
       mutable cvc4_bin : cvc4_bin;
+      mutable mathsat5_bin : mathsat5_bin;
       mutable enable : enable;
       mutable pdr_qe : pdr_qe;
-      mutable pdr_subs_timeout : pdr_subs_timeout;
+      mutable pdr_extract : pdr_extract;
       mutable pdr_check_inductive : pdr_check_inductive;
       mutable pdr_fwd_prop_check_multi : pdr_fwd_prop_check_multi;
-      mutable pdr_dump_inductive_assertions : pdr_dump_inductive_assertions;
-      mutable pdr_inductive_assertions_file : pdr_inductive_assertions_file;
-      mutable pdr_minimize_cex : pdr_minimize_cex;
+      mutable pdr_print_inductive_assertions : pdr_print_inductive_assertions;
+      mutable pdr_print_blocking_clauses : pdr_print_blocking_clauses;
+      mutable pdr_print_to_file : pdr_print_to_file;
       mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
       mutable pdr_block_in_future : pdr_block_in_future;
-      mutable pdr_prop_in_last_frame : pdr_prop_in_last_frame;
+      mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
+      mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
+      mutable interpreter_input_file : interpreter_input_file;
+      mutable interpreter_steps : interpreter_steps;
       mutable debug : string list;
       mutable debug_log : string option;
       mutable log_level : Event.log_level;
       mutable log_format_xml : bool;
+      mutable input_format : input_format;
       mutable input_file : string option }
     
 (* Defaults for all flags *)
@@ -317,25 +476,31 @@ let flags =
   { timeout_wall = timeout_wall_default;
     timeout_virtual = timeout_virtual_default;
     smtsolver = smtsolver_default;
+    smtlogic = smtlogic_default;
     z3_bin = z3_bin_default;
     cvc4_bin = cvc4_bin_default;
+    mathsat5_bin = mathsat5_bin_default;
     enable = enable_default_init;
     pdr_qe = pdr_qe_default;
-    pdr_subs_timeout = pdr_subs_timeout_default;
+    pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
     pdr_fwd_prop_check_multi = pdr_fwd_prop_check_multi_default;
-    pdr_dump_inductive_assertions = pdr_dump_inductive_assertions_default;
-    pdr_inductive_assertions_file = pdr_inductive_assertions_file_default;
-    pdr_minimize_cex = pdr_minimize_cex_default;
+    pdr_print_inductive_assertions = pdr_print_inductive_assertions_default;
+    pdr_print_blocking_clauses = pdr_print_blocking_clauses_default;
+    pdr_print_to_file = pdr_print_to_file_default;
     pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
     pdr_block_in_future = pdr_block_in_future_default;
-    pdr_prop_in_last_frame = pdr_prop_in_last_frame_default;
+    pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
+    pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
+    interpreter_input_file = interpreter_input_file_default;
+    interpreter_steps = interpreter_steps_default;
     debug = debug_default;
     debug_log = debug_log_default;
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
+    input_format = input_format_default;
     input_file = None } 
 
 (* ********** *) 
@@ -367,6 +532,15 @@ let smtsolver_spec =
 
 (* ********** *) 
 
+let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
+  
+let smtlogic_spec = 
+  ("--smtlogic", 
+   Arg.String smtlogic_action, 
+   Format.sprintf "choose SMT logic (available: %s, default: %s)" smtlogic_values (string_of_smtlogic smtlogic_default))
+
+(* ********** *) 
+
 let z3_bin_action o = flags.z3_bin <- (z3_bin_of_string o)
   
 let z3_bin_spec = 
@@ -382,6 +556,15 @@ let cvc4_bin_spec =
   ("--cvc4_bin", 
    Arg.String cvc4_bin_action, 
    Format.sprintf "executable of CVC4 solver (default: %s)" (string_of_cvc4_bin cvc4_bin_default))
+
+(* ********** *) 
+
+let mathsat5_bin_action o = flags.mathsat5_bin <- (mathsat5_bin_of_string o)
+  
+let mathsat5_bin_spec = 
+  ("--mathsat5_bin", 
+   Arg.String mathsat5_bin_action, 
+   Format.sprintf "executable of MathSAT5 solver (default: %s)" (string_of_mathsat5_bin mathsat5_bin_default))
 
 (* ********** *) 
 
@@ -403,12 +586,12 @@ let pdr_qe_spec =
 
 (* ********** *) 
 
-let pdr_subs_timeout_action o = flags.pdr_subs_timeout <- o
+let pdr_extract_action o = flags.pdr_extract <- (pdr_extract_of_string o)
   
-let pdr_subs_timeout_spec = 
-  ("--pdr_subs_timeout", 
-   Arg.Int pdr_subs_timeout_action, 
-   Format.sprintf "(PDR) timeout in ms for subsumption check in frames (default: %s)" (string_of_pdr_subs_timeout pdr_subs_timeout_default))
+let pdr_extract_spec = 
+  ("--pdr_extract", 
+   Arg.String pdr_extract_action, 
+   Format.sprintf "(PDR) Heuristics for extraction of implicant (available: %s, default: %s)" pdr_extract_values (string_of_pdr_extract pdr_extract_default))
 
 (* ********** *) 
 
@@ -430,32 +613,33 @@ let pdr_fwd_prop_check_multi_spec =
 
 (* ********** *) 
 
-let pdr_dump_inductive_assertions_action o = 
-  flags.pdr_dump_inductive_assertions <- o
+let pdr_print_inductive_assertions_action o = 
+  flags.pdr_print_inductive_assertions <- o
   
-let pdr_dump_inductive_assertions_spec = 
-  ("--pdr_dump_inductive_assertions", 
-   Arg.Bool pdr_dump_inductive_assertions_action, 
-   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)" (string_of_pdr_dump_inductive_assertions pdr_dump_inductive_assertions_default))
+let pdr_print_inductive_assertions_spec = 
+  ("--pdr_print_inductive_assertions", 
+   Arg.Bool pdr_print_inductive_assertions_action, 
+   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)" (string_of_pdr_print_inductive_assertions pdr_print_inductive_assertions_default))
 
 (* ********** *) 
 
-let pdr_inductive_assertions_file_action o = 
-  flags.pdr_inductive_assertions_file <- Some o
+let pdr_print_blocking_clauses_action o = 
+  flags.pdr_print_blocking_clauses <- o
   
-let pdr_inductive_assertions_file_spec = 
-  ("--pdr_inductive_assertions_file", 
-   Arg.String pdr_inductive_assertions_file_action, 
-   Format.sprintf "(PDR) Output file for inductive blocking clauses (default: stdout)")
+let pdr_print_blocking_clauses_spec = 
+  ("--pdr_print_blocking_clauses", 
+   Arg.Bool pdr_print_blocking_clauses_action, 
+   Format.sprintf "(PDR) Output all blocking clauses (default: %s)" (string_of_pdr_print_blocking_clauses pdr_print_blocking_clauses_default))
 
 (* ********** *) 
 
-let pdr_minimize_cex_action o = flags.pdr_minimize_cex <- o
+let pdr_print_to_file_action o = 
+  flags.pdr_print_to_file <- Some o
   
-let pdr_minimize_cex_spec = 
-  ("--pdr_minimize_cex", 
-   Arg.Bool pdr_minimize_cex_action, 
-   Format.sprintf "(PDR) Minimize counterexamples (default: %s)" (string_of_pdr_minimize_cex pdr_minimize_cex_default))
+let pdr_print_to_file_spec = 
+  ("--pdr_print_to_file", 
+   Arg.String pdr_print_to_file_action, 
+   Format.sprintf "(PDR) Output file for blocking clauses (default: stdout)")
 
 (* ********** *) 
 
@@ -477,15 +661,24 @@ let pdr_block_in_future_spec =
 
 (* ********** *) 
  
-let pdr_prop_in_last_frame_action o = flags.pdr_prop_in_last_frame <- o
+let pdr_print_inductive_invariant_action o = flags.pdr_print_inductive_invariant <- o
   
-let pdr_prop_in_last_frame_spec = 
-  ("--pdr_prop_in_last_frame", 
-   Arg.Bool pdr_prop_in_last_frame_action, 
-   Format.sprintf "(PDR) Last frame contains property (Bradley vs. Een et al) (default: %s)" (string_of_pdr_prop_in_last_frame pdr_prop_in_last_frame_default))
+let pdr_print_inductive_invariant_spec = 
+  ("--pdr_print_inductive_invariant", 
+   Arg.Bool pdr_print_inductive_invariant_action, 
+   Format.sprintf "(PDR) Print inductive invariant if property proved (default: %s)" (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
 
 (* ********** *) 
- 
+
+let pdr_check_inductive_invariant_action o = flags.pdr_check_inductive_invariant <- o
+  
+let pdr_check_inductive_invariant_spec = 
+  ("--pdr_check_inductive_invariant", 
+   Arg.Bool pdr_check_inductive_invariant_action, 
+   Format.sprintf "(PDR) Check inductive invariant if property proved (default: %s)" (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
+
+(* ********** *) 
+
 let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
                                           
 let cooper_order_var_by_elim_spec = 
@@ -501,6 +694,24 @@ let cooper_general_lbound_spec =
   ("--cooper_general_lbound", 
    Arg.Bool cooper_general_lbound_action, 
    Format.sprintf "(Cooper QE) Choose lower bounds containing variables (available: %s, default: %B)" cooper_general_lbound_values cooper_general_lbound_default)
+
+(* ********** *) 
+
+let interpreter_input_file_action o = flags.interpreter_input_file <- o
+                                       
+let interpreter_input_file_spec = 
+  ("--interpreter_input_file", 
+   Arg.String interpreter_input_file_action, 
+   Format.sprintf "(Interpreter) Read input from file")
+
+(* ********** *) 
+
+let interpreter_steps_action o = flags.interpreter_steps <- o
+                                       
+let interpreter_steps_spec = 
+  ("--interpreter_steps", 
+   Arg.Int interpreter_steps_action, 
+   Format.sprintf "(Interpreter) Run number of steps, override the number of steps given in the input file")
 
 (* ********** *) 
 
@@ -563,6 +774,15 @@ let log_format_xml_spec =
    Arg.Unit (log_format_xml_action true), 
    Format.sprintf "Output in XML format")
 
+(* ********** *) 
+
+let input_format_action o = flags.input_format <- (input_format_of_string o)
+  
+let input_format_spec = 
+  ("--input-format", 
+   Arg.String input_format_action, 
+   Format.sprintf "Format of input file (available: %s, default: %s)" input_format_values (string_of_input_format input_format_default))
+
 
 (* ********************************************************************** *)
 (* Pretty-printing of flags                                               *)
@@ -579,35 +799,45 @@ let timeout_virtual () = flags.timeout_virtual
 
 let smtsolver () = flags.smtsolver 
 
+let smtlogic () = flags.smtlogic 
+
 let z3_bin () = flags.z3_bin
 
 let cvc4_bin () = flags.cvc4_bin
+
+let mathsat5_bin () = flags.mathsat5_bin
 
 let enable () = flags.enable 
 
 let pdr_qe () = flags.pdr_qe 
 
-let pdr_subs_timeout () = flags.pdr_subs_timeout 
+let pdr_extract () = flags.pdr_extract 
 
 let pdr_check_inductive () = flags.pdr_check_inductive 
 
 let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
 
-let pdr_dump_inductive_assertions () = flags.pdr_dump_inductive_assertions
+let pdr_print_inductive_assertions () = flags.pdr_print_inductive_assertions
 
-let pdr_inductive_assertions_file () = flags.pdr_inductive_assertions_file
+let pdr_print_blocking_clauses () = flags.pdr_print_blocking_clauses
 
-let pdr_minimize_cex () = flags.pdr_minimize_cex 
+let pdr_print_to_file () = flags.pdr_print_to_file
 
 let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
 
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
-let pdr_prop_in_last_frame () = flags.pdr_prop_in_last_frame 
+let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
+
+let pdr_check_inductive_invariant () = flags.pdr_check_inductive_invariant 
 
 let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
+
+let interpreter_input_file () = flags.interpreter_input_file
+
+let interpreter_steps () = flags.interpreter_steps
 
 let debug () = flags.debug
 
@@ -616,6 +846,8 @@ let debug_log () = flags.debug_log
 let log_level () = flags.log_level
 
 let log_format_xml () = flags.log_format_xml
+
+let input_format () = flags.input_format 
 
 let input_file () = match flags.input_file with 
   | Some f -> f 
@@ -645,11 +877,17 @@ and speclist =
     (* Set SMT solver *)
     smtsolver_spec;
 
+    (* Set SMT logic *)
+    smtlogic_spec;
+
     (* Set executable for Z3 solver *)
     z3_bin_spec;
 
     (* Set executable for CVC4 solver *)
     cvc4_bin_spec;
+
+    (* Set executable for MathSAT5 solver *)
+    mathsat5_bin_spec;
 
     (* Set enabled modules *)
     enable_spec;
@@ -657,8 +895,8 @@ and speclist =
     (* Set QE in PDR *)
     pdr_qe_spec;
 
-    (* Set timeout for subsumption check in frames in PDR *)
-    pdr_subs_timeout_spec;
+    (* Heuristic for extraction of implicant *)
+    pdr_extract_spec;
 
     (* Check inductiveness of blocking clauses *)
     pdr_check_inductive_spec;
@@ -667,13 +905,13 @@ and speclist =
     pdr_fwd_prop_check_multi_spec;
 
     (* Output inductive of blocking clauses *)
-    pdr_dump_inductive_assertions_spec;
+    pdr_print_inductive_assertions_spec;
+
+    (* Output all blocking clauses *)
+    pdr_print_blocking_clauses_spec;
 
     (* File for inductive of blocking clauses *)
-    pdr_inductive_assertions_file_spec;
-
-    (* Minimize counterexamples *)
-    pdr_minimize_cex_spec;
+    pdr_print_to_file_spec;
 
     (* Tighten blocking clauses to an unsatisfiable core *)
     pdr_tighten_to_unsat_core_spec;
@@ -681,12 +919,22 @@ and speclist =
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;
 
-    (* Last frame contains property (Bradley vs. Een et al) *)
-    pdr_prop_in_last_frame_spec;
+    (* Print inductive invariant if property proved *)
+    pdr_print_inductive_invariant_spec;
+
+    (* Print inductive invariant if property proved *)
+    pdr_check_inductive_invariant_spec;
 
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
     cooper_general_lbound_spec;
+
+    (* Read input from file *)
+    interpreter_input_file_spec;
+
+    (* Run number of steps, override the number of steps given in the
+       input file *)
+    interpreter_steps_spec;
 
     (* Enable debug output *)
     debug_spec;
@@ -704,6 +952,9 @@ and speclist =
 
     (* Set output format to XML *)
     log_format_xml_spec;
+
+    (* Set input format *)
+    input_format_spec;
 
     (* Display help *)
     ("-help", 

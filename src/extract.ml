@@ -1,38 +1,200 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2012 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
 
+
+(* Construct a set of variables of a list *)
+let var_set_of_list = 
+  List.fold_left (fun a e -> Var.VarSet.add e a) Var.VarSet.empty 
+    
+
+(* Cache for variables of terms *)
+let vars_of_term_cache = Term.TermHashtbl.create 101
+
+
+(* Return variables of term *)
+let vars_of_term term =
+
+  try 
+
+    (* Return variables of term from cache *)
+    Term.TermHashtbl.find vars_of_term_cache term 
+
+  with Not_found -> 
+
+    (* Return variables of term as a list *)
+    Var.VarSet.elements 
+
+      (* Return variables of term and add variables of all subterms to
+         cache *)
+      (Term.eval_t 
+         (function 
+           | Term.T.Var v -> 
+             (function
+               |  [] -> 
+
+                 (* Start with singleton set *)
+                 let var_set = Var.VarSet.singleton v in
+                 
+                 (* Add to hash table as a list of variables, this
+                    probably takes up less memory than storing the set *)
+                 Term.TermHashtbl.replace 
+                   vars_of_term_cache 
+                   term 
+                   (Var.VarSet.elements var_set);
+                 
+                 (* Return set as accumulator *)
+                 var_set
+
+            | _ -> assert false)
+
+        | Term.T.Const _ -> 
+          
+          (function 
+            | [] -> 
+
+              (* Add to hash table as a list of variables, this
+                 probably takes up less memory than storing the set *)
+              Term.TermHashtbl.replace 
+                vars_of_term_cache 
+                term 
+                [];
+
+              (* Start with empty set in accumulator *)
+              Var.VarSet.empty 
+
+            | _ -> assert false)
+
+        | Term.T.App _ -> 
+
+          (function l -> 
+
+            (* Take union of set of variables of subterms *)
+            let var_set = 
+              List.fold_left 
+                Var.VarSet.union 
+                Var.VarSet.empty 
+                l 
+            in
+            
+            (* Add to hash table as a list of variables, this probably
+               takes up less memory than storing the set *)
+            Term.TermHashtbl.replace 
+              vars_of_term_cache 
+              term 
+              (Var.VarSet.elements var_set);
+            
+            (* Return set as accumulator *)
+            var_set
+
+          )
+          
+        | Term.T.Attr (t, _) -> 
+          (function [s] -> s | _ -> assert false))
+         
+         term)
+
+
+
+let choose_term (bool_terms, int_terms) = 
+
+  function 
+
+    (* No candidate terms *)
+    | [] -> raise Not_found 
+
+    | h :: tl as terms -> 
+
+      (* Heuristic to choose terms *)
+      match Flags.pdr_extract () with 
+
+        (* Always pick the first term *)
+        | `First -> List.hd terms 
+
+        (* Pick the term with the fewest new integer variables *)
+        | `Vars -> 
+
+          (debug extract
+              "choose_term candidates:@ @[<hv 1>[%a]@]"
+              (pp_print_list Term.pp_print_term ";@ ") terms
+           in
+
+          (* Collect variables in accumulator in a set *)
+          let vars_accum = 
+            Term.TermSet.fold 
+              (fun t a -> 
+                Var.VarSet.union a (var_set_of_list (vars_of_term t)))
+              (Term.TermSet.union int_terms bool_terms) 
+              Var.VarSet.empty 
+          in
+
+          (* Calculate number of variables if term was added to 
+             accumulator *)
+          let num_of_vars_of_union term = 
+            let res = 
+              Var.VarSet.cardinal 
+                (Var.VarSet.union
+                   vars_accum 
+                   (var_set_of_list (vars_of_term term)))
+            in
+
+            debug extract
+                "Number of variables with@ %a@ is %d"
+                Term.pp_print_term term
+                res
+            in
+
+            res
+
+          in
+          
+          let term, _ = 
+            List.fold_left
+              (fun (t, s) t' -> 
+                 let s' = num_of_vars_of_union t' in
+                 if s' < s then (t', s') else (t, s))
+              (h, num_of_vars_of_union h)
+              tl
+          in
+
+          (debug extract
+              "choose_term picked@ %a"
+              Term.pp_print_term term
+           in
+           
+           term))
+
+
 let extract env term = 
 
-  let eval_term t = Eval.eval_term t env in
+  let eval_term t = 
+    let res = Eval.eval_term t env in
+
+    debug extract 
+        "%a@ evaluates to@ @[<hv>%a@]" 
+        Term.pp_print_term t
+        Term.pp_print_term (Eval.term_of_value res)
+    in
+
+    res
+
+  in
 
   (* Extract active path from a term *)
   let rec extract_term ((bool, int) as accum) = function 
@@ -69,7 +231,7 @@ let extract env term =
         | `TRUE -> 
 
           (debug extract 
-              "%a@ to be@ %B" 
+              "@[<hv 1>%a@]@ to be@ %B" 
               Term.pp_print_term (Term.T.construct term)
               polarity
            in
@@ -82,7 +244,7 @@ let extract env term =
         | `FALSE when polarity -> 
 
           (debug extract 
-              "%a@ to be@ %B" 
+              "@[<hv 1>%a@]@ to be@ %B" 
               Term.pp_print_term (Term.T.construct term)
               polarity
            in
@@ -137,40 +299,59 @@ let extract env term =
 
               | c :: p -> 
 
-                try 
-
-                  (* Try to find one of the premises to be false and
-                     return the extracted term from the first false
-                     premise negated *)
-                  (accum,
-                   [((List.find 
-                        (function t -> 
-                          let v = eval_term t in 
-                          Eval.value_is_unknown v || not (Eval.bool_of_value v))
-                        p),
-                     env,
-                     false)])
-
-                with Not_found -> 
-
-                  (* Otherwise check if the conclusion is true *)
+                (* Candidate terms are premises that are false *)
+                let cand_terms_prem = 
+                  List.filter
+                    (function t -> 
+                      let v = eval_term t in 
+                      not (Eval.bool_of_value v))
+                    p
+                in
+                
+                (* Candidiate terms from premise and conclusion *)
+                let cand_terms = 
+                  
+                  (* Check if the conclusion is true *)
                   if Eval.bool_of_value (eval_term c) then 
-
-                    (* Return conclusion *)
-                    (accum, [(c, env, true)])
-
-                  else 
-
+                    
+                    (* Conclusion is a candidate term *)
+                    c :: cand_terms_prem 
+                    
+                  else
+                    
+                    (* Conclusion is not a candidate term *)
+                    cand_terms_prem 
+                      
+                in
+                
+                (* Choose term to extract from *)
+                let term' = 
+                  
+                  try 
+                    
+                    (* Use heuristic to choose term from candidates *)
+                    choose_term accum cand_terms 
+                      
+                  with Not_found -> 
+                    
                     (debug extract 
-                        "%a@ to be@ %B" 
+                        "@[<hv 1>%a@]@ to be@ %B" 
                         Term.pp_print_term (Term.T.construct term)
                         polarity
                      in
-
+                     
                      (* Fail on an unsatisfiable formula *)
                      raise 
-                       (Invalid_argument "Extract on unsatisfiable formula"))
-
+                       (Invalid_argument
+                          "Extract on unsatisfiable formula"))
+                    
+                in
+                
+                (* Extract with positive polarity if chosen term is
+                     conclusion, otherwise with negative polarity *)
+                (accum,
+                 [(term', env, Term.equal term' c)])
+                
           )
 
 
@@ -216,64 +397,82 @@ let extract env term =
         (* Boolean conjunction to be false *)
         | `AND -> 
 
-          (try 
+          (
 
-             (* Extract from first false conjunct
+            (* Candidate terms are conjuncts that are false *)
+            let cand_terms = 
+              List.filter
+                (function t -> not (Eval.bool_of_value (eval_term t))) 
+                l
+            in
 
-                LATER: Optimize this by using some better heuristic for
-                choosing one of the false conjuncts. We have terms that
-                are already in the final conjunction in [accum], but it
-                is probably not worth to extract from all false conjuncts
-                and then hope that one of them is already in [accum]. *)
-             (accum, 
-              [((List.find 
-                   (function t -> not (Eval.bool_of_value (eval_term t))) 
-                   l),
-                env,
-                false)])
+            (* Choose term to extract from *)
+            let term' = 
 
+              try 
+                
+                (* Use heuristic to choose term from candidates *)
+                choose_term accum cand_terms 
+                      
+              with Not_found -> 
+                
+                (debug extract 
+                    "@[<hv 1>%a@]@ to be@ %B" 
+                    Term.pp_print_term (Term.T.construct term)
+                    polarity
+                 in
+                 
+                 (* Fail on an unsatisfiable formula *)
+                 raise 
+                   (Invalid_argument
+                      "Extract on unsatisfiable formula"))
+                
+            in
 
-           (* All conjuncts are true *)
-           with Not_found -> 
+            (* Extract with negative polarity from chosen term *)
+            (accum, [(term', env, false)])
 
-             (debug extract 
-                 "%a@ to be@ %B" 
-                 Term.pp_print_term (Term.T.construct term)
-                 polarity
-              in
-
-              (* Fail on an unsatisfiable formula *)
-              raise (Invalid_argument "Extract on unsatisfiable formula")))
-
+          )
 
         (* Boolean disjunction to be true *)
         | `OR when polarity -> 
 
-          (try 
+          (
 
-             (* Extract from first true disjunct 
+            (* Candidate terms are disjuncts that are true *)
+            let cand_terms = 
+              List.filter
+                (function t -> Eval.bool_of_value (eval_term t)) 
+                l
+            in
+            
+            (* Choose term to extract from *)
+            let term' = 
 
-                LATER: Optimize this by using some better heuristic for
-                choosing one of the true disjuncts. We have terms that
-                are already in the final conjunction in [accum], but it
-                is probably not worth to extract from all true disjuncts
-                and then hope that one of them is already in [accum]. *)
-             (accum,
-              [((List.find (function t -> Eval.bool_of_value (eval_term t)) l),
-                env,
-                true)])
+              try 
+                
+                (* Use heuristic to choose term from candidates *)
+                choose_term accum cand_terms 
+                      
+              with Not_found -> 
+                
+                (debug extract 
+                    "@[<hv 1>%a@]@ to be@ %B" 
+                    Term.pp_print_term (Term.T.construct term)
+                    polarity
+                 in
+                 
+                 (* Fail on an unsatisfiable formula *)
+                 raise 
+                   (Invalid_argument
+                      "Extract on unsatisfiable formula"))
+                
+            in
 
-           (* All disjuncts are false *)
-           with Not_found -> 
+            (* Extract with positive polarity from chosen term *)
+            (accum, [(term', env, true)])
 
-             (debug extract 
-                 "%a@ to be@ %B" 
-                 Term.pp_print_term (Term.T.construct term)
-                 polarity
-              in
-
-              (* Fail on an unsatisfiable formula *)
-              raise (Invalid_argument "Extract on unsatisfiable formula")))
+          )
 
         (* Boolean disjunction to be false *)
         | `OR -> 

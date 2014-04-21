@@ -1,34 +1,22 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
-type psummand = int * (Var.t option)
+type psummand = Numeral.t * (Var.t option)
 
 type poly = psummand list
 
@@ -36,28 +24,29 @@ type preAtom =
   | GT of poly
   | EQ of poly
   | INEQ of poly
-  | DIVISIBLE of (int * poly)
-  | INDIVISIBLE of (int * poly)
+  | DIVISIBLE of (Numeral.t * poly)
+  | INDIVISIBLE of (Numeral.t * poly)
 
 type cformula = preAtom list
 
 (* Print summand with absolute value of coefficient, the sign is added
    by pp_print_term' and pp_print_term *)
 let pp_print_psummand ppf = function 
-  | (c, None) -> Format.pp_print_int ppf (abs c)
 
-  | (c, Some x) when c = 1 -> 
+  | (c, None) -> Numeral.pp_print_numeral ppf (Numeral.abs c)
+
+  | (c, Some x) when Numeral.(c = one) -> 
     Var.pp_print_var ppf x
 
-  | (c, Some x) when c = -1 -> 
+  | (c, Some x) when Numeral.(c = (neg one)) -> 
     Var.pp_print_var ppf x
 
-  | (c, Some x) when c >= 0 -> 
-    Format.pp_print_int ppf c; 
+  | (c, Some x) when Numeral.(c >= zero) -> 
+    Numeral.pp_print_numeral ppf c; 
     Var.pp_print_var ppf x
 
   | (c, Some x) -> 
-    Format.pp_print_int ppf (abs c); 
+    Numeral.pp_print_numeral ppf (Numeral.abs c); 
     Var.pp_print_var ppf x
 
 let rec pp_print_poly' ppf = function 
@@ -68,7 +57,7 @@ let rec pp_print_poly' ppf = function
   | ((c, _) as s) :: tl -> 
 
     (* Print as addition or subtraction *)
-    Format.pp_print_string ppf (if c > 0 then "+" else "-");
+    Format.pp_print_string ppf (if Numeral.(c > zero) then "+" else "-");
     Format.pp_print_string ppf " ";
     pp_print_psummand ppf s; 
     Format.pp_print_string ppf " ";
@@ -78,13 +67,13 @@ let rec pp_print_poly' ppf = function
 let pp_print_poly ppf = function 
 
   | ((c, _) as s) :: tl -> 
-    if c < 0 then 
+    if Numeral.(c < zero) then 
       Format.pp_print_string ppf "-";
     pp_print_psummand ppf s;
     Format.pp_print_string ppf " ";
     pp_print_poly' ppf tl
 
-  | _ -> Format.pp_print_int ppf 0
+  | _ -> Numeral.pp_print_numeral ppf Numeral.zero
 
 
 let pp_print_preAtom ppf = function 
@@ -103,14 +92,14 @@ let pp_print_preAtom ppf = function
 
   | DIVISIBLE (i, pl) ->
     Format.pp_open_hbox ppf ();
-    Format.pp_print_int ppf i;
+    Numeral.pp_print_numeral ppf i;
     Format.pp_print_string ppf " | ";
     pp_print_poly ppf pl;
     Format.pp_close_box ppf ()
 
   | INDIVISIBLE (i, pl) ->
     Format.pp_open_hbox ppf ();
-    Format.pp_print_int ppf i;
+    Numeral.pp_print_numeral ppf i;
     Format.pp_print_string ppf " !| ";
     pp_print_poly ppf pl;
     Format.pp_close_box ppf ()
@@ -147,7 +136,7 @@ let compare_psummands (c: Var.t -> Var.t -> int) (ps1: psummand) (ps2: psummand)
 
 
 (* Negate a persburger summand. *)
-let negate_psummand ((c, v): psummand) : psummand = (-c, v)
+let negate_psummand ((c, v): psummand) : psummand = (Numeral.(- c), v)
 
 
 (* Negate a presburger term. *)
@@ -156,7 +145,7 @@ let negate_poly (pt: poly) : poly =
 
 
 (* Multiply a presburger summand with a integer. *)
-let psummand_times_int ((c, v): psummand) (i: int) : psummand = (c * i, v)
+let psummand_times_num ((c, v): psummand) (i: Numeral.t) : psummand = (Numeral.(c * i), v)
 
 (*
   match ps with
@@ -168,8 +157,8 @@ let psummand_times_int ((c, v): psummand) (i: int) : psummand = (c * i, v)
 *)
 
 (* Multiply a presburger term with a integer. *)
-let poly_times_int (pt: poly) (i: int) : poly =
-  List.map (fun x -> psummand_times_int x i) pt
+let poly_times_num (pt: poly) (i: Numeral.t) : poly =
+  List.map (fun x -> psummand_times_num x i) pt
 
 
 (* Check if a presburger summand ps contains the variable v. 
@@ -210,26 +199,26 @@ let poly_is_constant (pl: poly) : bool =
 
 
 (* Get the coefficient of the variable v in a presburger term. *)
-let get_coe_in_poly_anyorder (v: Var.t) (pt: poly) : int = 
+let get_coe_in_poly_anyorder (v: Var.t) (pt: poly) : Numeral.t = 
 
   try 
 
     fst(List.find (psummand_contains_variable v) pt) 
       
-  with Not_found -> 0
+  with Not_found -> Numeral.zero
     
 
 (* Get the coefficient of the variable v in a presburger term. Can
    only be used when the polynomial is ordered by *)
-let get_coe_in_poly_obv (v: Var.t) (pl: poly) : int = 
+let get_coe_in_poly_obv (v: Var.t) (pl: poly) : Numeral.t = 
 
   match pl with
 
     | (i, Some v1) :: pl' ->
       
-      if (Var.equal_vars v1 v) then i else 0
+      if (Var.equal_vars v1 v) then i else Numeral.zero
 
-    | _ -> 0
+    | _ -> Numeral.zero
 
 
 let get_coe_in_poly v pl = 
@@ -249,19 +238,19 @@ let preAtom_contains_variable (v: Var.t) (pret: preAtom) : bool =
   match pret with
 
     | GT pl -> 
-      get_coe_in_poly v pl <> 0
+      Numeral.(get_coe_in_poly v pl <> zero)
 
     | EQ pl -> 
-      get_coe_in_poly v pl <> 0
+      Numeral.(get_coe_in_poly v pl <> zero)
         
     | INEQ pl -> 
-      get_coe_in_poly v pl <> 0
+      Numeral.(get_coe_in_poly v pl <> zero)
 
     | DIVISIBLE (i, pl) ->
-      get_coe_in_poly v pl <> 0
+      Numeral.(get_coe_in_poly v pl <> zero)
 
     | INDIVISIBLE (i, pl) ->
-      get_coe_in_poly v pl <> 0
+      Numeral.(get_coe_in_poly v pl <> zero)
 
 
 (* Check if a presburger formula cf contains the variable v. 
@@ -282,9 +271,9 @@ let add_psummands (ps1: psummand) (ps2: psummand) : psummand =
   
   match ps1, ps2 with
 
-    | (i1, Some v1), (i2, Some v2) -> (i1 + i2, Some v1)
+    | (i1, Some v1), (i2, Some v2) -> (Numeral.(i1 + i2), Some v1)
         
-    | (i1, None), (i2, None) -> (i1 + i2, None)
+    | (i1, None), (i2, None) -> (Numeral.(i1 + i2), None)
       
     | _ -> 
       failwith "Trying to add two summands without the same variable."
@@ -323,9 +312,9 @@ let rec add_two_polys (c: Var.t -> Var.t -> int) (accum: poly) (pt1: poly) (pt2:
         | 0 ->
 
           (* Add coefficients *)
-          let new_summand = (c1 + c2, v1) in
+          let new_summand = (Numeral.(c1 + c2), v1) in
           
-          if (fst new_summand = 0) then
+          if Numeral.(fst new_summand = zero) then
             
             (* Discard monomial if coefficient is zero *)
             (add_two_polys c accum tl1 tl2)
@@ -358,7 +347,7 @@ let add_poly_list (c: Var.t -> Var.t -> int) (ptl: poly list) : poly =
   match ptl with
 
     (* Empty list *)
-    | [] -> [(0, None)]
+    | [] -> [(Numeral.zero, None)]
       
     (* Take the head of the list as initial value and add the tail of
        the list *)
@@ -371,14 +360,14 @@ let multiply_two_polys (pt1: poly) (pt2: poly) : poly =
   match pt1, pt2 with
 
     (* Multiply by zero *)
-    | [(0, None)], _ -> [(0, None)]
-    | _, [(0, None)] -> [(0, None)]
+    | [(c, None)], _ when Numeral.(c = zero) -> [(Numeral.zero, None)]
+    | _, [(c, None)] when Numeral.(c = zero) -> [(Numeral.zero, None)]
 
     (* First polynomial is constant *)
-    | [(i, None)], _ -> poly_times_int pt2 i
+    | [(i, None)], _ -> poly_times_num pt2 i
 
     (* Second polynomial is constant *)
-    | _, [(i, None)] -> poly_times_int pt1 i
+    | _, [(i, None)] -> poly_times_num pt1 i
 
     | _ ->
       failwith "Can only multiply two polys when at least one of them is constant."
@@ -390,7 +379,7 @@ let multiply_poly_list (ptl: poly list) : poly =
   match ptl with 
 
     (* Empty list *)
-    | [] -> [(1, None)]
+    | [] -> [(Numeral.one, None)]
 
     (* Take the head of the list as initial value and multiply with
        the tail of the list *)

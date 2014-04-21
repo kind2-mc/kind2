@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -61,7 +49,7 @@ let main_of_process = function
   | `BMC -> BMC.main 
   | `IND -> IndStep.main 
   | `INVGEN -> InvGen.main 
-  | `Interpreter -> Interpreter.main "test.csv"
+  | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
                        
 
@@ -234,7 +222,9 @@ let on_exit process exn =
     
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
-      
+
+      Event.terminate_log ();
+
       (* Exit with status *)
       exit status
         
@@ -252,6 +242,8 @@ let on_exit process exn =
            ",@ ")
         !child_pids;
 
+      Event.terminate_log ();
+
       exit status' 
 
     (* Exception in Unix.wait loop *)
@@ -267,6 +259,8 @@ let on_exit process exn =
               Format.fprintf ppf "%d" p)
            ",@ ")
         !child_pids;
+
+      Event.terminate_log ();
 
       exit status' 
 
@@ -286,6 +280,8 @@ let on_exit_child messaging_thread process exn =
   Event.log process Event.L_info 
     "Process terminating";
 
+  Event.terminate_log ();
+  
   (match messaging_thread with 
     | Some t -> Event.exit t
     | None -> ());
@@ -557,13 +553,25 @@ let main () =
     Sys.sigquit 
     (Sys.Signal_handle exception_on_signal);
 
+  Stat.start_timer Stat.total_time;
+
   try 
 
     Event.log `INVMAN Event.L_info 
       "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
-    let transSys = OldParser.of_file (Flags.input_file ()) in
+    let transSys = match (Flags.input_format ()) with 
+
+      | `Lustre -> 
+
+        OldParser.of_file (Flags.input_file ()) 
+
+      | `Horn -> 
+
+        Horn.of_file (Flags.input_file ()) 
+
+    in
 
     (* Output the transition system *)
     debug parse

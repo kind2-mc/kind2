@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -328,9 +316,10 @@ let rec type_of_term t = match T.destruct t with
                    Type.node_of_type (type_of_term b))
                with
                  | Type.BV i, Type.BV j -> 
-                  Type.mk_bv 
-                    (numeral_of_int ((int_of_numeral i) + (int_of_numeral j)))
-                | _ -> assert false)
+
+                   Type.mk_bv (i + j)
+
+                 | _ -> assert false)
                 
             | _ -> assert false)
      
@@ -339,8 +328,9 @@ let rec type_of_term t = match T.destruct t with
         | `EXTRACT (i, j) -> 
           
           (* Compute width of resulting bitvector *)
-          Type.mk_bv 
-            ((numeral_of_int ((int_of_numeral j) - (int_of_numeral i) + 1)))
+          Type.mk_bv
+            ((Numeral.to_int j) - (Numeral.to_int i) + 1)
+
             
         (* Array-valued function *)
         | `SELECT -> 
@@ -722,16 +712,17 @@ let mk_num_of_int = function
 
   (* Positive numeral or zero *)
   | i when i >= 0 -> 
-    mk_const_of_symbol_node (`NUMERAL (numeral_of_int i))
+    mk_const_of_symbol_node (`NUMERAL (Numeral.of_int i))
 
   (* Wrap a negative numeral in a unary minus *)
   | i -> 
-    mk_minus [(mk_const_of_symbol_node (`NUMERAL (numeral_of_int (- i))))]
+    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.of_int (- i))))]
       
 
 (* Hashcons a real decimal *)
 let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
 
+(*
 
 (* Hashcons a floating-point decimal given a float *)
 let mk_dec_of_float = function
@@ -743,7 +734,7 @@ let mk_dec_of_float = function
   (* Negative decimal *)
   | f -> 
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
-
+*)
 
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
@@ -961,6 +952,27 @@ let divisible_to_mod term =
     | _ -> term 
 
 
+(* Convert negative numerals and decimals to negative terms *)
+let nums_to_pos_nums term = match T.node_of_t term with 
+
+  | T.Leaf s -> 
+
+    (match Symbol.node_of_symbol s with 
+
+      (* Negative numeral *)
+      | `NUMERAL n when Numeral.(n < zero) ->
+        mk_minus [mk_num Numeral.(abs n)]
+        
+      (* Negative decimal *)
+      | `DECIMAL n when Decimal.(n < zero) -> 
+        mk_minus [mk_dec Decimal.(abs n)]
+
+     (* Return other terms unchanged *)
+      | _ -> term)
+
+  (* Return other terms unchanged *)
+  | _ -> term 
+
 
 (* Infix notation for constructors *)
 module Abbrev = 
@@ -968,7 +980,9 @@ struct
 
   let ( ?%@ ) i = mk_num_of_int i
 
+(*
   let ( ?/@ ) f = mk_dec_of_float f
+*)
 
   let ( !@ ) t = mk_not t
 

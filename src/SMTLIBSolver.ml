@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -81,10 +69,20 @@ let smtlibsolver_config_cvc4 =
   { solver_cmd = [| cvc4_bin; "--lang"; "smt2"; "--incremental" |] }
 
 
+(* Path and name of MathSAT5 executable *)
+let mathsat5_bin = Flags.mathsat5_bin () 
+
+
+(* Configuration for MathSAT5 *)
+let smtlibsolver_config_mathsat5 = 
+  { solver_cmd = [| mathsat5_bin; "-input=smt2" |] }
+
+
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> smtlibsolver_config_z3
   | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
+  | `MathSAT5 -> smtlibsolver_config_mathsat5
   | _ -> 
     (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver");
     failwith "SMTLIBSolver.config_of_flags"
@@ -102,10 +100,17 @@ let cvc4_check_sat_limited_cmd _ =
   failwith "check-sat with timeout not implemented for CVC4"
 
 
+(* Command to limit check-sat in MathSAT5 to run for the given numer of ms
+   at most *)
+let mathsat5_check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for MathSAT5"
+
+
 (* Command to limit check-sat to run for the given numer of ms at most *)
 let check_sat_limited_cmd ms = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> z3_check_sat_limited_cmd ms
   | `CVC4_SMTLIB -> cvc4_check_sat_limited_cmd ms
+  | `MathSAT5 -> mathsat5_check_sat_limited_cmd ms
   | _ -> 
     (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver");
     failwith "SMTLIBSolver.check_sat_limited_cmd"
@@ -471,13 +476,13 @@ let create_instance
   Unix.close solver_stdin_in;
   Unix.close solver_stdout_out; 
   Unix.close solver_stderr_out; 
-  
+
   (* Get an output channel to read from solver's stdout *)
   let solver_stdout_ch = Unix.in_channel_of_descr solver_stdout_in in
 
   (* Create a lexing buffer on solver's stdout *)
   let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
-  
+
   (* Create the solver instance *)
   let solver =
     { solver_config = config;
@@ -497,28 +502,38 @@ let create_instance
    with 
      | Success -> () 
      | _ -> raise (Failure ("Cannot set option print-success")));
-  
 
-  (* Run in interactive mode *)
-  (match 
-     let cmd = "(set-option :interactive-mode true)" in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> raise (Failure ("Cannot set option interactive-mode")));
+  (* Interactive mode not needed for MathSAT5 *)
+  (match Flags.smtsolver () with 
+    | `Z3_SMTLIB -> 
+
+      (* Run in interactive mode *)
+      (match 
+         let cmd = "(set-option :interactive-mode true)" in
+         (debug smt "%s" cmd in
+          execute_command solver cmd 0)
+       with 
+         | Success -> () 
+         | _ -> raise (Failure ("Cannot set option interactive-mode")))
+
+    | _ -> ()
+
+  );
 
   (* Set logic *)
-  (match
-     let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> 
-       raise 
-         (Failure 
-            ("Cannot set logic " ^ (string_of_logic logic))));
+  (match logic with 
+    | `detect -> () 
+    | _ -> 
+      (match
+         let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
+         (debug smt "%s" cmd in
+          execute_command solver cmd 0)
+       with 
+         | Success -> () 
+         | _ -> 
+           raise 
+             (Failure 
+                ("Cannot set logic " ^ (string_of_logic logic)))));
 
   (* Produce assignments to be queried with get-values, default is
      false per SMTLIB specification *)
@@ -530,7 +545,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-assignments")));
-  
+
   (* Produce models to be queried with get-model, default is false per
      SMTLIB specification *)
   if produce_models then
@@ -541,7 +556,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-models")));
-  
+(*
   (* Produce proofs, default is false per SMTLIB specification *)
   if produce_proofs then
     (match 
@@ -551,7 +566,7 @@ let create_instance
      with 
        | Success -> () 
        | _ -> raise (Failure ("Cannot set option produce-proofs")));
-
+*)
   (* Produce unsatisfiable cores, default is false per SMTLIB
      specification *)
   if produce_cores then

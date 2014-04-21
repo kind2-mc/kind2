@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -42,7 +30,7 @@ open Lib
 type var = 
 
   (* Variable is an instance of a state variable *)
-  | StateVarInstance of StateVar.t * numeral 
+  | StateVarInstance of StateVar.t * Numeral.t
 
   (* Temporary variable to be bound to in a let expression or by a
      quantifier *)
@@ -90,7 +78,7 @@ module Var_node = struct
 
       (* Equal if the state variables are physically equal and the
          indexes are equal *)
-      sv1 == sv2 && i1 = i2
+      sv1 == sv2 && Numeral.equal i1 i2
 
     (* Two temporary variables *)
     | TempVar (s1, t1), TempVar (s2, t2) -> 
@@ -184,7 +172,10 @@ let pp_print_var_node ppf = function
 
   (* Pretty-print an instance of a state variable *)
   | StateVarInstance (v, o) ->
-    Format.fprintf ppf "%a'%a" StateVar.pp_print_state_var v pp_print_numeral o
+    Format.fprintf ppf 
+      "%a'%a" 
+      StateVar.pp_print_state_var v
+      Numeral.pp_print_numeral o
       
   (* Pretty-print a temporary variable *)
   | TempVar (s, _) -> 
@@ -235,6 +226,11 @@ let hstring_of_temp_var = function
   | { Hashcons.node = TempVar (s, _) } -> s
 
 
+let is_temp_var = function 
+  | { Hashcons.node = TempVar (s, _) } -> true
+  | _ -> false
+
+
 (* ********************************************************************* *)
 (* Constructors                                                          *)
 (* ********************************************************************* *)
@@ -266,13 +262,72 @@ let import = function
     mk_temp_var (HString.import s) (Type.import t)
 
 
+(* Counter for index of fresh uninterpreted symbols *)
+let fresh_var_ids = Type.TypeHashtbl.create 7
+
+
+(* Return name of a fresh uninterpreted symbol  *)
+let rec next_fresh_var_node var_type = 
+
+  let fresh_var_id = 
+
+    try 
+      
+      Type.TypeHashtbl.find fresh_var_ids var_type 
+        
+    with Not_found -> 1
+
+  in
+
+  Type.TypeHashtbl.replace fresh_var_ids var_type (succ fresh_var_id);
+
+  let fresh_var_name = 
+
+    HString.mk_hstring 
+      (Format.asprintf 
+         "__X_%a_%d" 
+         Type.pp_print_type var_type
+         fresh_var_id)
+      
+  in
+
+  (* Candidate name for next fresh symbol *)
+  let v = 
+    TempVar (fresh_var_name, var_type)
+  in
+
+  try 
+
+    (* Check if candidate symbol is already declared *)
+    let _ = Hvar.find ht v in
+  
+    (* Recurse to get another fresh symbol *)
+    next_fresh_var_node var_type
+
+  (* Candidiate symbol is not declared and can be used *)
+  with Not_found | Hvar.Key_not_found _ -> fresh_var_name
+    
+    
+(* Return a fresh uninterpreted symbol 
+
+   TODO: How to make a completely separate namespace so that a symbol
+   declared later does not clash? *)
+let mk_fresh_var var_type = 
+
+  (* Get name of a fresh uninterpreted symbol *)
+  let v = next_fresh_var_node var_type in
+
+  (* Create symbol with given signature *)
+  mk_temp_var v var_type 
+
+
 (* Add to the offset of a state variable instance
 
    Negative values are allowed *)
 let bump_offset_of_state_var_instance i = function 
 
   | { Hashcons.node = StateVarInstance (v, o) } -> 
-    mk_state_var_instance v (o +% i)
+    mk_state_var_instance v Numeral.(o + i)
 
   | { Hashcons.node = TempVar _ } -> 
     raise (Invalid_argument "bump_offset_of_state_var_instance")

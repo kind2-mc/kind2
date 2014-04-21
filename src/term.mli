@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (** Term representation
@@ -121,16 +109,18 @@ val mk_distinct : t list -> t
 val mk_ite : t -> t -> t -> t
 
 (** Create an integer numeral *)
-val mk_num : Lib.numeral -> t
+val mk_num : Numeral.t -> t
 
 (** Create an integer numeral *)
 val mk_num_of_int : int -> t
 
 (** Create a floating point decimal *)
-val mk_dec : Lib.decimal -> t
+val mk_dec : Decimal.t -> t
 
+(*
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
+*)
 
 (** Create a constant bitvector *)
 val mk_bv : Lib.bitvector -> t
@@ -178,7 +168,7 @@ val mk_to_int : t -> t
 val mk_is_int : t -> t
 
 (** Create a predicate for divisibility by a constant integer *)
-val mk_divisible : Lib.numeral -> t -> t
+val mk_divisible : Numeral.t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)
@@ -215,10 +205,10 @@ sig
 
   (** Prefix operator to create an numeral *)
   val ( ?%@ ) : int -> t
-
+(*
   (** Prefix operator to create an decimal *)
   val ( ?/@ ) : float -> t
-
+*)
   (** Prefix operator to create an Boolean negation *)
   val ( !@ ) : t -> t
 
@@ -389,6 +379,9 @@ val mod_to_divisible : t -> t
 (** Convert [(divisble n t)] to [(= 0 (mod t n))] *)
 val divisible_to_mod : t -> t
 
+(** Convert negative numerals and decimals to negations of their
+    absolute value *)
+val nums_to_pos_nums : t -> t 
 
 (* 
    Local Variables:

@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -43,8 +31,8 @@ exception Terminate
 (* Events exposed to the processes *)
 type event = 
   | Invariant of kind_module * Term.t 
-  | Proved of kind_module * string 
-  | Disproved of kind_module * string 
+  | Proved of kind_module * int option * string 
+  | Disproved of kind_module * int option * string 
   | BMCState of int * (string list)
 
 
@@ -59,18 +47,24 @@ let pp_print_event ppf = function
       Term.pp_print_term t
       pp_print_kind_module m
 
-  | Proved (m, p) -> 
+  | Proved (m, k, p) -> 
     Format.fprintf 
       ppf 
-      "@[<hv>Proved@ %s@ by %a@]" 
+      "@[<hv>Proved@ %s@ %tby %a@]" 
       p 
+      (function ppf -> match k with 
+         | None -> ()
+         | Some k -> Format.fprintf ppf "at %d@ " k)
       pp_print_kind_module m
 
-  | Disproved (m, p) -> 
+  | Disproved (m, k, p) -> 
     Format.fprintf 
       ppf 
-      "@[<hv>Disproved@ %s@ by %a@]" 
+      "@[<hv>Disproved@ %s@ %tby %a@]" 
       p 
+      (function ppf -> match k with 
+         | None -> ()
+         | Some k -> Format.fprintf ppf "at %d@ " k)
       pp_print_kind_module m
 
   | BMCState (k, p) -> 
@@ -212,22 +206,28 @@ let printf_pt mdl level fmt =
     
 
 (* Output proved property as plain text *)
-let proved_pt mdl prop = 
+let proved_pt mdl k prop = 
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hov>Success: Property %s is valid in %a@.@.") 
+    ("@[<hov>Success: Property %s is valid %tin %a@.@.") 
     prop
+    (function ppf -> match k with
+       | None -> ()
+       | Some k -> Format.fprintf ppf "for k=%d " k)
     pp_print_kind_module_pt mdl
 
 
 (* Output disproved property as plain text *)
-let disproved_pt mdl prop = 
+let disproved_pt mdl k prop = 
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hov>Failure: Property %s is invalid in %a@.@.") 
+    ("@[<hov>Failure: Property %s is invalid %tin %a@.@.") 
     prop
+    (function ppf -> match k with
+       | None -> ()
+       | Some k -> Format.fprintf ppf "for k=%d " k)
     pp_print_kind_module_pt mdl
 
 
@@ -261,7 +261,6 @@ let progress_pt mdl k =
 (* XML output                                                             *)
 (* ********************************************************************** *)
 
-
 (* Level to class attribute of log tag *)
 let xml_cls_of_level = function
   | L_off -> assert false
@@ -293,6 +292,21 @@ let pp_print_kind_module_xml_src ppf m =
   Format.fprintf ppf "%s" (xml_src_of_kind_module m)
 
 
+(* XML at the beginning the output *)
+let print_xml_header () = 
+
+  Format.fprintf 
+    !log_ppf 
+    "@[<v><?xml version=\"1.0\"?>@,\
+     <Results xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">@]@."
+
+
+(* XML at the end of the output *)
+let print_xml_trailer () = 
+
+  Format.fprintf !log_ppf "</Results>@."
+
+
 (* Output message as XML *)
 let printf_xml mdl level fmt = 
 
@@ -306,26 +320,44 @@ let printf_xml mdl level fmt =
 
 
 (* Output proved property as XML *)
-let proved_xml mdl prop = 
+let proved_xml mdl k prop = 
+
+  (* Update time *)
+  Stat.update_time Stat.total_time;
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hv 2><property name=\"%s\">@,\
-      <answer source=\"%a\">valid</answer>@;<0 -2>\
-      </property>@]@.") 
+    ("@[<hv 2><Property name=\"%s\">@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      %t\
+      <Answer source=\"%a\">valid</Answer>@;<0 -2>\
+      </Property>@]@.") 
     prop
+    (Stat.get_float Stat.total_time)
+    (function ppf -> match k with 
+       | None -> () 
+       | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
     pp_print_kind_module_xml_src mdl
 
 
 (* Output disproved property as XML *)
-let disproved_xml mdl prop = 
+let disproved_xml mdl k prop = 
+
+  (* Update time *)
+  Stat.update_time Stat.total_time;
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hv 2><property name=\"%s\">@,\
-      <answer source=\"%a\">invalid</answer>@;<0 -2>\
-      </property>@]@.") 
+    ("@[<hv 2><Property name=\"%s\">@,\
+      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+      %t\
+      <Answer source=\"%a\">invalid</Answer>@;<0 -2>\
+      </Property>@]@.") 
     prop
+    (Stat.get_float Stat.total_time)
+    (function ppf -> match k with 
+       | None -> () 
+       | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
     pp_print_kind_module_xml_src mdl
   
 
@@ -339,10 +371,10 @@ let pp_print_state_var_values_xml ppf (state_var, values) =
 
   Format.fprintf 
     ppf
-    "@[<hv 2><Signal name=\"%a\" node=\"%s\" type=\"%a\">@,\
-     @[<hv 2>%a@]@;<0 -2>\
+    "@[<hv 2>@[<hv 3><Signal@ name=\"%a\"@ node=\"%s\"@ type=\"%a\">@]@,\
+     @[<v 2>%a@]@;<0 -2>\
      </Signal>@]"
-    StateVar.pp_print_state_var state_var
+    StateVar.pp_print_state_var_original state_var
     "top"
     Type.pp_print_type (StateVar.type_of_state_var state_var)
     (pp_print_values_xml 0) values
@@ -463,7 +495,13 @@ let log_format = ref F_pt
 let set_log_format_pt () = log_format := F_pt
 
 (* Set log format to XML *)
-let set_log_format_xml () = log_format := F_xml
+let set_log_format_xml () = 
+
+  log_format := F_xml;
+
+  (* Print XML header *)
+  print_xml_header ()
+               
 
 (* Relay log messages to invariant manager *)
 let set_relay_log () = log_format := F_relay
@@ -482,18 +520,18 @@ let log mdl level fmt =
 
 
 (* Log a message with source and log level *)
-let log_proved mdl prop =
+let log_proved mdl k prop =
   match !log_format with 
-    | F_pt -> proved_pt mdl prop
-    | F_xml -> proved_xml mdl prop
+    | F_pt -> proved_pt mdl k prop
+    | F_xml -> proved_xml mdl k prop
     | F_relay -> ()
 
 
 (* Log a message with source and log level *)
-let log_disproved mdl prop =
+let log_disproved mdl k prop =
   match !log_format with 
-    | F_pt -> disproved_pt mdl prop
-    | F_xml -> disproved_xml mdl prop
+    | F_pt -> disproved_pt mdl k prop
+    | F_xml -> disproved_xml mdl k prop
     | F_relay -> ()
 
 
@@ -520,6 +558,14 @@ let progress mdl k =
     | F_xml -> progress_xml mdl k
     | F_relay -> progress_relay k
   
+
+(* Terminate log output *)
+let terminate_log () = 
+  match !log_format with 
+    | F_pt -> ()
+    | F_xml -> print_xml_trailer ()
+    | F_relay -> ()
+
 
 (* ********************************************************************** *)
 (* Initialization for the messaging system                                *)
@@ -581,34 +627,40 @@ let invariant mdl (term : Term.t) =
 
 
 (* Broadcast a disproved property *)
-let disproved mdl prop = 
+let disproved mdl k prop = 
 
   (* Output property as disproved *)
-  log_disproved mdl prop;
+  log_disproved mdl k prop;
 
   try
 
     (* Send invariant message *)
     Messaging.send 
       (Messaging.InvariantMessage 
-         (Messaging.DISPROVED (prop, 0)))
+         (Messaging.DISPROVED 
+            (prop, 
+             (match k with None -> -1 | Some k -> k), 
+             0)))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
 
 (* Broadcast a proved property as an invariant *)
-let proved mdl (prop, term) = 
+let proved mdl k (prop, term) = 
 
   (* Output property as proved *)
-  log_proved mdl prop;
+  log_proved mdl k prop;
 
   try
 
     (* Send invariant message *)
     Messaging.send 
       (Messaging.InvariantMessage 
-         (Messaging.PROVED (prop, 0)))
+         (Messaging.PROVED 
+            (prop, 
+             (match k with None -> -1 | Some k -> k), 
+             0)))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -704,14 +756,14 @@ let recv () =
             Invariant (mdl, t) :: accum
 
           (* Pass disproved messages as string without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.PROVED (p, _)) ->
+          | mdl, Messaging.InvariantMessage (Messaging.PROVED (p, k, _)) ->
 
-            Proved (mdl, p) :: accum
+            Proved (mdl, (if k < 0 then None else Some k), p) :: accum
 
           (* Pass disproved messages as string without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.DISPROVED (p, _)) ->
+          | mdl, Messaging.InvariantMessage (Messaging.DISPROVED (p, k, _)) ->
 
-            Disproved (mdl, p) :: accum
+            Disproved (mdl, (if k < 0 then None else Some k), p) :: accum
 
         )
       )

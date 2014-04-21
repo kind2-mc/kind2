@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (** Variables in terms
@@ -66,10 +54,13 @@ module VarMap : Map.S with type key = t
 (** {1 Constructor} *)
 
 (** Return an instance of a state variables *)
-val mk_state_var_instance : StateVar.t -> Lib.numeral -> t
+val mk_state_var_instance : StateVar.t -> Numeral.t -> t
 
 (** Return a temporary variable *)
 val mk_temp_var : HString.t -> Type.t -> t
+
+(** Return a fresh temporary variable *)
+val mk_fresh_var : Type.t -> t
 
 (** Import a variable from a different instance into this hashcons table *)
 val import : t -> t
@@ -83,15 +74,18 @@ val type_of_var : t -> Type.t
 val state_var_of_state_var_instance : t -> StateVar.t
 
 (** Return the offset of a state variable instance *)
-val offset_of_state_var_instance : t -> Lib.numeral
+val offset_of_state_var_instance : t -> Numeral.t
 
 (** Return the offset of a state variable instance *)
 val hstring_of_temp_var : t -> HString.t
 
+(** Return true if the variable is a temporary variable *)
+val is_temp_var : t -> bool
+
 (** Add to the offset of a state variable instance
 
     Negative values are allowed *)
-val bump_offset_of_state_var_instance : Lib.numeral -> t -> t   
+val bump_offset_of_state_var_instance : Numeral.t -> t -> t   
 
 (** {1 Pretty-printing} *)
 

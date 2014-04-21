@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -56,7 +44,8 @@ let string_of_expr t =
 
 (* The defined logics in SMTLIB *)
 type logic = 
-  [ `AUFLIA
+  [ `detect
+  | `AUFLIA
   | `AUFLIRA
   | `AUFNIRA
   | `LRA 
@@ -164,6 +153,29 @@ let pp_print_sort = Type.pp_print_type
 
 let string_of_sort = string_of_t Type.pp_print_type
 
+(* Static hashconsed strings *)
+let s_int = HString.mk_hstring "Int"
+let s_real = HString.mk_hstring "Real"
+let s_bool = HString.mk_hstring "Bool"
+
+
+(* Convert an S-expression to a sort *)
+let type_of_string_sexpr = function 
+  
+  | HStringSExpr.Atom s when s == s_int -> Type.t_int
+
+  | HStringSExpr.Atom s when s == s_real -> Type.t_real
+
+  | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
+
+  | HStringSExpr.Atom _
+  | HStringSExpr.List _ as s -> 
+    
+    raise
+      (Invalid_argument 
+         (Format.asprintf 
+           "Sort %a not supported" 
+           HStringSExpr.pp_print_sexpr s))
 
 
 (* Convert a type to an SMT sort *)
@@ -288,6 +300,8 @@ let _ =
 
 (* Static hashconsed strings *)
 let s_let = HString.mk_hstring "let"
+let s_forall = HString.mk_hstring "forall"
+let s_exists = HString.mk_hstring "exists"
 let s_success = HString.mk_hstring "success"
 let s_unsupported = HString.mk_hstring "unsupported"
 let s_error = HString.mk_hstring "error"
@@ -330,68 +344,83 @@ let symbol_of_hstring s =
    function symbols and variables. *)
 let const_of_smtlib_token b t = 
 
-  (* Empty strings are invalid *)
-  if HString.length t = 0 then
+  let res = 
 
-    (* String is empty *)
-    raise (Invalid_argument "num_expr_of_smtlib_token")
+    (* Empty strings are invalid *)
+    if HString.length t = 0 then
 
-  else
+      (* String is empty *)
+      raise (Invalid_argument "num_expr_of_smtlib_token")
 
-    try
-      
-      (* Return decimal of string *)
-      Term.mk_dec (decimal_of_hstring t)
-        
-    (* String is not a decimal *)
-    with Invalid_argument _ -> 
-      
-      try 
-        
+    else
+
+      try
+
         (* Return numeral of string *)
-        Term.mk_num (numeral_of_hstring t)
+        Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
 
+      (* String is not a decimal *)
       with Invalid_argument _ -> 
-        
-        try 
-          
-          (* Return bitvector of string *)
-          Term.mk_bv (bitvector_of_hstring t)
-            
-        with Invalid_argument _ -> 
-          
-          try 
-            
-            (* Return symbol of string *)
-            Term.mk_bool (bool_of_hstring t)
 
-          (* String is not an interpreted symbol *)
+        try 
+
+          (* Return decimal of string *)
+          Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
+
+        with Invalid_argument _ -> 
+
+          try 
+
+            (* Return bitvector of string *)
+            Term.mk_bv (bitvector_of_hstring t)
+
           with Invalid_argument _ -> 
 
             try 
 
-              (* Return bound symbol *)
-              Term.mk_var (List.assq t b)
-                
-            (* String is not a bound variable *)
-            with Not_found -> 
-              
-              try 
-                
-                (* Return uninterpreted constant *)
-                Term.mk_uf 
-                  (UfSymbol.uf_symbol_of_string (HString.string_of_hstring t))
-                  []
+              (* Return symbol of string *)
+              Term.mk_bool (bool_of_hstring t)
 
+            (* String is not an interpreted symbol *)
+            with Invalid_argument _ -> 
+
+              try 
+
+                (* Return bound symbol *)
+                Term.mk_var (List.assq t b)
+
+              (* String is not a bound variable *)
               with Not_found -> 
 
-                (* Cannot convert to an expression *)
-                failwith "Invalid constant symbol in S-expression"
+                try 
 
-                
+                  (* Return uninterpreted constant *)
+                  Term.mk_uf 
+                    (UfSymbol.uf_symbol_of_string (HString.string_of_hstring t))
+                    []
+
+                with Not_found -> 
+
+                  debug smtexpr 
+                      "const_of_smtlib_token %s failed" 
+                      (HString.string_of_hstring t)
+                  in
+
+                  (* Cannot convert to an expression *)
+                  failwith "Invalid constant symbol in S-expression"
+
+  in
+
+  debug smtexpr 
+      "const_of_smtlib_token %s is %a" 
+      (HString.string_of_hstring t)
+      Term.pp_print_term res
+  in
+
+  res
 
 (* Convert a string S-expression to an expression *)
-let rec expr_of_string_sexpr' b = function 
+let rec expr_of_string_sexpr' bound_vars = function 
 
   (* An empty list *)
   | HStringSExpr.List [] -> 
@@ -405,11 +434,11 @@ let rec expr_of_string_sexpr' b = function
     when s == s_let -> 
 
     (* Convert bindings and obtain a list of bound variables *)
-    let bindings = bindings_of_string_sexpr b [] v in
+    let bindings = bindings_of_string_sexpr bound_vars [] v in
 
     (* Convert bindings to an association list from strings to
        variables *)
-    let b' = 
+    let bound_vars' = 
       List.map 
         (function (v, _) -> (Var.hstring_of_temp_var v, v))
         bindings 
@@ -417,7 +446,33 @@ let rec expr_of_string_sexpr' b = function
 
     (* Parse the subterm, giving an association list of bound
        variables and return a let bound term *)
-    Term.mk_let bindings (expr_of_string_sexpr' (b @ b') t)
+    Term.mk_let 
+      bindings
+      (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
+
+  (*  A universal or existential quantifier *)
+  | HStringSExpr.List 
+      ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
+    when s == s_forall || s == s_exists -> 
+
+    (* Get list of variables bound by the quantifier *)
+    let quantified_vars = bound_vars_of_string_sexpr bound_vars [] v in
+
+    (* Convert bindings to an association list from strings to
+       variables *)
+    let bound_vars' = 
+      List.map 
+        (function v -> (Var.hstring_of_temp_var v, v))
+        quantified_vars
+    in
+
+    (* Parse the subterm, giving an association list of bound
+       variables and return a universally or existenially quantified term *)
+    (if s == s_forall then Term.mk_forall 
+     else if s == s_exists then Term.mk_exists
+     else assert false)
+      quantified_vars
+      (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
 
   (* A singleton list *)
   | HStringSExpr.List [_] as e -> 
@@ -437,7 +492,7 @@ let rec expr_of_string_sexpr' b = function
   | HStringSExpr.Atom s ->
 
     (* Leaf in the symbol tree *)
-    (const_of_smtlib_token b s)
+    (const_of_smtlib_token bound_vars s)
 
   (*  A list with more than one element *)
   | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
@@ -482,7 +537,7 @@ let rec expr_of_string_sexpr' b = function
 
       (* Create an application of the function symbol to the subterms *)
       let t = 
-        Term.mk_app s (List.map (expr_of_string_sexpr' b) tl)
+        Term.mk_app s (List.map (expr_of_string_sexpr' bound_vars) tl)
       in
 
       (* Convert (= 0 (mod t n)) to (t divisible n) *)
@@ -510,6 +565,32 @@ and bindings_of_string_sexpr b accum = function
 
     (* Add bound expresssion to accumulator *)
     bindings_of_string_sexpr b ((tvar, expr) :: accum) tl
+
+  (* Expression must be a pair *)
+  | e :: _ -> 
+
+    failwith 
+      ("Invalid expression in let binding: " ^
+         (string_of_t HStringSExpr.pp_print_sexpr e))
+      
+
+(* Convert a list of typed variables *)
+and bound_vars_of_string_sexpr b accum = function 
+
+  (* All bindings consumed: return accumulator in original order *)
+  | [] -> List.rev accum
+
+  (* Take first binding *)
+  | HStringSExpr.List [HStringSExpr.Atom v; t] :: tl -> 
+
+    (* Get the type of the expression *)
+    let var_type = type_of_string_sexpr t in
+
+    (* Create a variable of the identifier and the type of the expression *)
+    let tvar = Var.mk_temp_var v var_type in
+
+    (* Add bound expresssion to accumulator *)
+    bound_vars_of_string_sexpr b (tvar :: accum) tl
 
   (* Expression must be a pair *)
   | e :: _ -> 
@@ -580,9 +661,10 @@ let rec var_of_smtexpr e =
                 with Not_found -> 
 
                   invalid_arg 
-                    "var_of_smtexpr: \
-                     No state variable found for uninterpreted function symbol"
-
+                    (Format.asprintf 
+                       "var_of_smtexpr: %a\
+                        No state variable found for uninterpreted function symbol"
+                       Term.pp_print_term e)
               in
 
               (* Create state variable instance *)
@@ -592,8 +674,10 @@ let rec var_of_smtexpr e =
             | _ -> 
 
               invalid_arg 
-                "var_of_smtexpr: \
-                 Invalid argument to uninterpreted function"
+                (Format.asprintf 
+                   "var_of_smtexpr: %a\
+                    Invalid argument to uninterpreted function"
+                   Term.pp_print_term e)
 
         )
 
@@ -651,7 +735,7 @@ let quantified_smtexpr_of_term quantifier vars term =
             type converted to an SMT sort *)
          let v' = 
            Var.mk_temp_var 
-             (HString.mk_hstring (sv ^ string_of_numeral o))
+             (HString.mk_hstring (sv ^ Numeral.string_of_numeral o))
              t'
          in
 
@@ -681,7 +765,10 @@ let quantified_smtexpr_of_term quantifier vars term =
             with Not_found -> smtexpr_of_var v)
 
          (* Change divisibility symbol to modulus operator *)
-         | t -> Term.divisible_to_mod t)
+         | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
+
+      )
+
 
       term
   in
@@ -847,11 +934,19 @@ let check_sat_response_of_sexpr = function
 let rec get_value_response_of_sexpr' accum = function 
   | [] -> (Success, List.rev accum)
   | HStringSExpr.List [ e; v ] :: tl -> 
-    get_value_response_of_sexpr' 
-      ((((expr_of_string_sexpr e) :> t), 
-        ((expr_of_string_sexpr v :> t))) :: 
-          accum) 
-      tl
+
+    (debug smtexpr
+        "get_value_response_of_sexpr: %a is %a"
+        HStringSExpr.pp_print_sexpr e
+        HStringSExpr.pp_print_sexpr v
+     in
+     
+     get_value_response_of_sexpr' 
+       ((((expr_of_string_sexpr e) :> t), 
+         ((expr_of_string_sexpr v :> t))) :: 
+        accum) 
+       tl)
+
   | _ -> invalid_arg "get_value_response_of_sexpr"
 
 (* Return a solver response to a get-value command as expression pairs *)

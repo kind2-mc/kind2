@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2012 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -59,8 +47,8 @@ type interpreted_symbol =
   | `DISTINCT             (* Pairwise distinct predicate (chainable) *)
   | `ITE                  (* If-then-else (ternary) *) 
 
-  | `NUMERAL of numeral   (* Infinite precision integer numeral (nullary) *)
-  | `DECIMAL of decimal 
+  | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
+  | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
   | `BV of bitvector      (* Constant bitvector *)
 
@@ -79,11 +67,11 @@ type interpreted_symbol =
   | `TO_INT               (* Conversion to an integer numeral (unary) *)
   | `IS_INT               (* Real is an integer (unary) *)
 
-  | `DIVISIBLE of numeral 
+  | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
 
   | `CONCAT               (* Concatenation of bitvectors (binary) *)
-  | `EXTRACT of numeral * numeral 
+  | `EXTRACT of Numeral.t * Numeral.t 
                           (* Extract subsequence from bitvector (unary) *)
   | `BVNOT                (* Bit-wise negation (unary) *)
   | `BVNEG                (* Arithmetic negation (unary) *)
@@ -144,7 +132,29 @@ module Symbol_node = struct
   type prop = symbol_prop
 
   (* Equality of two symbols *)
-  let equal = (=)
+  let equal s1 s2 = match s1, s2 with 
+
+    | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
+
+    | _, `NUMERAL _ 
+    | `NUMERAL _, _ -> false
+
+    | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
+
+    | _, `DECIMAL _ 
+    | `DECIMAL _, _ -> false
+
+    | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
+
+    | _, `DIVISIBLE _
+    | `DIVISIBLE _, _ -> false
+
+    | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
+
+    | _, `EXTRACT _
+    | `EXTRACT _, _ -> false
+
+    | _ -> s1 = s2
 
   (* Return hash of a symbol *)
   let hash = Hashtbl.hash
@@ -243,8 +253,8 @@ let rec pp_print_symbol_node ppf = function
   | `DISTINCT -> Format.pp_print_string ppf "distinct"
   | `ITE -> Format.pp_print_string ppf "ite" 
 
-  | `NUMERAL i -> pp_print_numeral ppf i
-  | `DECIMAL f -> pp_print_decimal ppf f
+  | `NUMERAL i -> Numeral.pp_print_numeral ppf i
+  | `DECIMAL f -> Decimal.pp_print_decimal ppf f
   | `BV b -> pp_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -267,15 +277,15 @@ let rec pp_print_symbol_node ppf = function
   | `DIVISIBLE n -> 
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
-    pp_print_numeral ppf n
+    Numeral.pp_print_numeral ppf n
 
   | `CONCAT -> Format.pp_print_string ppf "to_real"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
       ppf 
       "(_ extract %a %a)" 
-      pp_print_numeral i
-      pp_print_numeral j
+      Numeral.pp_print_numeral i
+      Numeral.pp_print_numeral j
 
   | `BVNOT -> Format.pp_print_string ppf "bvnot"
   | `BVNEG -> Format.pp_print_string ppf "bvneg"
@@ -390,6 +400,9 @@ let s_and = mk_symbol `AND
 
 (* Constant conjunction symbol *)
 let s_or = mk_symbol `OR
+
+(* Constant conjunction symbol *)
+let s_implies = mk_symbol `IMPLIES
 
 (* Constant conjunction symbol *)
 let s_eq = mk_symbol `EQ

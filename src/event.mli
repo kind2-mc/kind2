@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (** Event logging and communication *)
@@ -47,8 +35,8 @@ exception Terminate
 type event = 
   | Invariant of Lib.kind_module * Term.t (** Module has discovered
                                                an invariant *)
-  | Proved of Lib.kind_module * string (** Module has proved a property *)
-  | Disproved of Lib.kind_module * string (** Module has disproved a
+  | Proved of Lib.kind_module * int option * string (** Module has proved a property *)
+  | Disproved of Lib.kind_module * int option * string (** Module has disproved a
                                               property *)
   | BMCState of int * (string list) (** BMC entered a new step where
                                         the given properties are
@@ -61,10 +49,10 @@ val pp_print_event : Format.formatter -> event -> unit
 val invariant : Lib.kind_module -> Term.t -> unit 
 
 (** Broadcast a proved property *)
-val proved : Lib.kind_module -> (string * Term.t) -> unit 
+val proved : Lib.kind_module -> int option -> (string * Term.t) -> unit 
 
 (** Broadcast a disproved property *)
-val disproved : Lib.kind_module -> string -> unit 
+val disproved : Lib.kind_module -> int option -> string -> unit 
 
 (** Broadcast status of BMC *)
 val bmcstate : int -> string list -> unit
@@ -134,6 +122,11 @@ val log_to_stdout : unit -> unit
     Only output messages of levels with equal or higher priority *)
 val set_log_level : log_level -> unit 
 
+
+(** Return true if given log level is of higher or equal priority than
+    current log level? *)
+val output_on_level : log_level -> bool
+
 (** Set log format to plain text *)
 val set_log_format_pt : unit -> unit
 
@@ -155,14 +148,18 @@ val stat : Lib.kind_module -> (string * Stat.stat_item list) list -> unit
 val progress : Lib.kind_module -> int -> unit
 
 (** Log a disproved property *)
-val log_disproved : Lib.kind_module -> string -> unit 
+val log_disproved : Lib.kind_module -> int option -> string -> unit 
 
 (** Log a proved property *)
-val log_proved : Lib.kind_module -> string -> unit
+val log_proved : Lib.kind_module -> int option -> string -> unit
  
 (** Log a counterexample *)
 val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 
 
+(** Terminate log
+
+    Output closing tags for XML output. *)
+val terminate_log : unit -> unit 
 
 
 (* 

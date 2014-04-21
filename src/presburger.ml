@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Poly
@@ -182,7 +170,7 @@ let unchain_LEQ_to_iformula (c: Var.t -> Var.t -> int) (ifl: iformula list) : if
                               c 
                               [] 
                               (add_two_polys c [] (negate_poly pl1) pl2) 
-                              [(1, None)])]) 
+                              [(Numeral.one, None)])]) 
                     accum)
                    
                | _ -> 
@@ -269,7 +257,7 @@ let unchain_GEQ_to_iformula (c: Var.t -> Var.t -> int) (ifl: iformula list) : if
                               c 
                               [] 
                               (add_two_polys c [] pl1 (negate_poly pl2)) 
-                              [(1, None)])]) 
+                              [(Numeral.one, None)])]) 
                     accum)
                    
                | _ -> 
@@ -334,20 +322,20 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
         match fterm with
 
      	    | Term.T.Var var ->
-            Poly [(1, Some var)]
+            Poly [(Numeral.one, Some var)]
 
           | Term.T.Const sym
           | Term.T.App (sym, _) ->
             (match Symbol.node_of_symbol sym, args with
               (* true becomes 1 > 0 *)
-              | `TRUE, _ -> Formula [GT [(1, None)]]
+              | `TRUE, _ -> Formula [GT [(Numeral.one, None)]]
 
               (* false becomes -1 > 0 *)
-              | `FALSE, _ -> Formula [GT [(-1, None)]]
+              | `FALSE, _ -> Formula [GT [(Numeral.(neg one), None)]]
 
               (* not (p > 0) becomes (-p + 1 > 0) *)
               | `NOT, [Formula [GT pl]] ->
-                Formula [GT (add_two_polys c [] [(1, None)] (negate_poly pl))]
+                Formula [GT (add_two_polys c [] [(Numeral.one, None)] (negate_poly pl))]
 
               (* not (p = 0) becomes (p != 0) *)
               | `NOT, [Formula [EQ pl]] -> Formula [INEQ pl]
@@ -429,8 +417,8 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
 
               (* Turn numeral into polynomial of constant *)
-              | `NUMERAL(i), _ ->
-                Poly [((Lib.int_of_numeral i), None)]
+              | `NUMERAL i, _ ->
+                Poly [(i, None)]
 
               (* Fail on not integer numerals *)
               | `DECIMAL _, _ ->
@@ -529,8 +517,8 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 
               
               (* Turn divisibility predicate into an iformula *)
-              | `DIVISIBLE(i), [Poly pl] ->
-                Formula [DIVISIBLE ((Lib.int_of_numeral i), pl)]
+              | `DIVISIBLE i, [Poly pl] ->
+                Formula [DIVISIBLE (i, pl)]
 
               | _ ->
                 failwith "Illegal symbol and arguments in to_presburger."
@@ -550,17 +538,17 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
 let term_of_psummand = function 
 
   (* Monomial contains a variable *)
-  | (c, Some v) -> Term.mk_times [Term.mk_num_of_int c; Term.mk_var v]
+  | (c, Some v) -> Term.mk_times [Term.mk_num c; Term.mk_var v]
   
   (* Monomial is a constant *)
-  | (c, None) -> Term.mk_num_of_int c
+  | (c, None) -> Term.mk_num c
 
 
 (* Convert a polynomial to a term *)
 let term_of_poly = function
 
   (* Empty polynomial *)
-  | [] -> Term.mk_num_of_int 0
+  | [] -> Term.mk_num Numeral.zero
 
   (* Singleton polynomial *)
   | [smd] -> term_of_psummand smd
@@ -580,7 +568,7 @@ let term_of_preAtom = function
       (* 0 > 0 becomes false *)
       | [] -> Term.mk_false ()
 
-      | _ -> Term.mk_gt [(term_of_poly poly); Term.mk_num_of_int 0]
+      | _ -> Term.mk_gt [(term_of_poly poly); Term.mk_num Numeral.zero]
         
     )
 
@@ -619,7 +607,7 @@ let term_of_preAtom = function
 
       | _ -> 
 
-        Term.mk_divisible (Lib.numeral_of_int i) (term_of_poly poly)
+        Term.mk_divisible i (term_of_poly poly)
 
     )
 
@@ -634,9 +622,7 @@ let term_of_preAtom = function
       | _ -> 
 
         Term.mk_not
-          (Term.mk_divisible
-             (Lib.numeral_of_int i)
-             (term_of_poly poly))
+          (Term.mk_divisible i (term_of_poly poly))
 
     )
           

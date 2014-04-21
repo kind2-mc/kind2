@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 (** General-purpose library functions 
@@ -35,69 +23,11 @@ This file is part of the Kind verifier
 
 (** {1 Infinite-precision numbers and bit-vectors} *)
 
-(** Infinite-precision integer numeral *)
-type numeral
-
-(** Infinite-precision real decimal *)
-type decimal
-
 (** Constant bitvector *)
 type bitvector
 
-(** Add to infinite-precision numerals *)
-val ( +% ) : numeral -> numeral -> numeral
-
-(** Add to infinite-precision decimals *)
-val ( +/ ) : decimal -> decimal -> decimal
-
-(** Increment the given numeral by one *)
-val incr_numeral : numeral -> numeral
-
-(** Convert an OCaml integer to an infinite-precision integer numeral *)
-val numeral_of_int : int -> numeral
-
-(** Convert an infinite-precision real decimal to an OCaml float *)
-val decimal_of_float : float -> decimal
-
-(** Convert an infinite-precision integer numeral to an OCaml integer *)
-val int_of_numeral : numeral -> int 
-
-(* Constant zero *)
-val num_zero : numeral
-
-(* Constant one *)
-val num_one : numeral
-
-(** Convert an OCaml float to an infinite-precision real decimal *)
-val float_of_decimal : decimal -> float 
-
 (** Return the length of a bitvector as a numeral *)
-val length_of_bitvector : bitvector -> numeral
-
-(** Convert a string to an infinite-precision integer numeral 
-
-    Integer numerals are not negative and strings must be as defined
-    in the SMTLIB standard: a sequence of digits without leading zero.
-    As a regular expression: [0|(\[1-9\]\[0-9\]\* )].
-    
-*)
-val numeral_of_string : string -> numeral
-
-(** Convert a hashconsed string to a numeral, store all converted
-    values in a cache *)
-val numeral_of_hstring : HString.t -> numeral
-
-(** Convert a string to an infinite-precision real decimal 
-
-    Real decimal are not negative and strings must be as defined in
-    the SMTLIB standard: an integer numeral followed by a period
-    followed by a non-empty sequence of digits. As a regular expression:
-    [0|(\[1-9\]\[0-9\]\* )[.](0-9)+]. *)
-val decimal_of_string : string -> decimal
-
-(** Convert a hashconsed string to a decimal, store all converted
-    values in a cache *)
-val decimal_of_hstring : HString.t -> decimal
+val length_of_bitvector : bitvector -> int
 
 (** Convert a string to a bitvector
 
@@ -111,18 +41,6 @@ val bitvector_of_hstring : HString.t -> bitvector
 
 (** Convert a hashconsed string to a Boolean value *)
 val bool_of_hstring : HString.t -> bool
-
-(** Convert an infinite-precision integer numeral to a string *)
-val string_of_numeral : numeral -> string 
-
-(** Convert an infinite-precision real decimal to a string *)
-val string_of_decimal : decimal -> string
-
-(** Pretty-print an infinite-precision integer numeral *)
-val pp_print_numeral : Format.formatter -> numeral -> unit
-
-(** Pretty-print an infinite-precision real decimal *)
-val pp_print_decimal : Format.formatter -> decimal -> unit
 
 (** Pretty-print a constant bitvector in binary format *)
 val pp_print_bitvector_b : Format.formatter -> bitvector -> unit

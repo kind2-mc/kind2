@@ -1,31 +1,19 @@
-(*
-This file is part of the Kind verifier
+(* This file is part of the Kind 2 model checker.
 
-* Copyright (c) 2007-2013 by the Board of Trustees of the University of Iowa, 
-* here after designated as the Copyright Holder.
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of the University of Iowa, nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ''AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
+
+   Licensed under the Apache License, Version 2.0 (the "License"); you
+   may not use this file except in compliance with the License.  You
+   may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0 
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+   implied. See the License for the specific language governing
+   permissions and limitations under the License. 
+
 *)
 
 open Lib
@@ -47,6 +35,8 @@ sig
 
   val assert_term : t -> Term.t -> unit
 
+  val assert_named_term : t -> SMTExpr.t -> unit
+
   val push : ?n:int -> t -> unit
 
   val pop : ?n:int -> t -> unit
@@ -55,7 +45,7 @@ sig
 
   val get_model : t -> Var.t list -> (Var.t * Term.t) list
 
-  val get_unsat_core : t -> int list
+  val get_unsat_core : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
@@ -77,6 +67,8 @@ struct
   (* The encapsulated module for lower level access to the solver *)
   module T = struct include S end
 
+  (* Hashtable associating generated names to terms *)
+  let term_names = Hashtbl.create 7 
 
   (* Type of a solver instance *)
   type t = S.t
@@ -189,6 +181,14 @@ struct
     fail_on_smt_error (S.assert_expr solver expr)
       
 
+  let assert_named_term solver term = 
+
+    let term_name, term' = Term.mk_named term in
+
+    Hashtbl.add term_names term_name term;
+
+    assert_term solver term'
+
   (* Push a new scope to the context and fail on error *)
   let push ?(n = 1) solver = fail_on_smt_error (S.push solver n)
 
@@ -292,7 +292,16 @@ struct
         try 
 
           (* Convert strings t<int> to integer *)
-          List.map (function s -> Scanf.sscanf s "t%d" (function x -> x)) c
+          let core_names = 
+            List.map 
+              (function s -> Scanf.sscanf s "t%d" (function x -> x)) 
+              c
+          in
+
+          List.fold_left 
+            (fun a n -> Hashtbl.find term_names n :: a)
+            []
+            core_names
 
         with
 
