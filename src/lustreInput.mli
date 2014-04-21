@@ -16,9 +16,7 @@
 
 *)
 
-(** Lustre parser 
-
-    Parse a Lustre file into a transition system.
+(** Parse a Lustre file into a transition system
 
     An OCaml lexer in {!LustreLexer} and a Menhir parser in
     {!LustreParser} take the input and produce a {!LustreAst.t} value,

@@ -129,7 +129,7 @@ val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 
 (** Return name of the first node annotated with --%MAIN.  Raise
     [Not_found] if no node has a --%MAIN annotation or [Failure
-    "find_main" if more than one node has a --%MAIN annotation.
+    "find_main"] if more than one node has a --%MAIN annotation.
 *)
 val find_main : t list -> LustreIdent.t
 

@@ -16,35 +16,9 @@
 
 *)
 
+open Lib
 
 module I = LustreIdent
-
-(* ********************************************************************** *)
-(* Helper functions                                                       *)
-(* ********************************************************************** *)
-
-(* Pretty-print a list *)
-let rec pp_print_list pp sep ppf = function 
-
-  (* Output nothing for the empty list *) 
-  | [] -> ()
-
-  (* Output a single element in the list  *) 
-  | e :: [] -> 
-    pp ppf e
-
-  (* Output a single element and a space *) 
-  | e :: tl -> 
-
-    (* Output one element *)
-    pp_print_list pp sep ppf [e]; 
-
-    (* Output separator *)
-    Format.fprintf ppf sep; 
-
-    (* Output the rest of the list *)
-    pp_print_list pp sep ppf tl
-
 
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
@@ -244,10 +218,10 @@ type const_decl =
   | UntypedConst of position * ident * expr 
   | TypedConst of position * ident * expr * lustre_type
 
-
+(*
 (* A variable declaration *)
 type var_decl = position * ident * lustre_type * clock_expr
-
+*)
 
 (* A static parameter of a node *)
 type node_param =
@@ -257,7 +231,7 @@ type node_param =
 (* A local declaration in a node *)
 type node_local_decl =
   | NodeConstDecl of position * const_decl 
-  | NodeVarDecl of position * var_decl
+  | NodeVarDecl of position * clocked_typed_decl
 
 
 type struct_item =

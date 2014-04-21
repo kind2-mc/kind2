@@ -2526,7 +2526,7 @@ let add_node_var_decl
   (* Must return node in accumulator *)
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.locals = node.N.locals @ (List.rev node_locals') },
-   node_locals')
+   node_locals' )
 
 
 (* Add declaration of a node input to contexts *)
@@ -2856,12 +2856,12 @@ and equation_to_node
 
   (* Add oracle constants to abstraction *)
   let abstractions' = 
-    { abstractions with new_oracles = oracles' } 
+    { abstractions' with new_oracles = oracles' } 
   in
 
   (* Add equation and abstractions *)
-  (context,
-   { node with N.equations = (state_var, expr') :: node.N.equations;
+  (context',
+   { node' with N.equations = (state_var, expr') :: node.N.equations;
                N.locals = 
                  if List.mem state_var node.N.locals then 
                    node.N.locals 
@@ -2888,7 +2888,7 @@ let abstractions_to_context_and_node
 
          (* Split scope from name of variable *)
          let (base_ident, index) = 
-           I.split_ident (E.ident_of_state_var state_var) 
+           I.split_ident (fst (E.ident_of_state_var state_var))
          in
 
          (* Add variable declaration to context *)
@@ -2903,7 +2903,7 @@ let abstractions_to_context_and_node
 
          (* Add equation to node *)
          let context', node', abstractions' = 
-           equation_to_node context node abstractions pos (state_var, expr) 
+           equation_to_node context' node' abstractions pos (state_var, expr) 
          in
 
          (context', node', abstractions'))
@@ -2921,7 +2921,7 @@ let abstractions_to_context_and_node
 
          (* Split scope from name of variable *)
          let (base_ident, index) = 
-           I.split_ident (E.ident_of_state_var state_var) 
+           I.split_ident (fst (E.ident_of_state_var state_var))
          in
 
          (* Add variable declaration to context and oracle input to node *)
@@ -2952,7 +2952,7 @@ let abstractions_to_context_and_node
                 
                 (* Split scope from name of variable *)
                 let (base_ident, index) = 
-                  I.split_ident (E.ident_of_state_var state_var) 
+                  I.split_ident (fst (E.ident_of_state_var state_var))
                 in
                 
                 (* Add variable declaration to context *)
@@ -3089,7 +3089,7 @@ let rec parse_node_equations
                       (fun a v -> 
                          try 
                            (ignore 
-                              (I.get_suffix ident (E.ident_of_state_var v)); 
+                              (I.get_suffix ident (fst (E.ident_of_state_var v))); 
                             v) :: a
                          with Not_found ->
                            a)
@@ -3106,7 +3106,7 @@ let rec parse_node_equations
                         (fun a v -> 
                            try 
                              (ignore 
-                                (I.get_suffix ident (E.ident_of_state_var v));
+                                (I.get_suffix ident (fst (E.ident_of_state_var v)));
                               v) :: a
                            with Not_found ->
                              a)

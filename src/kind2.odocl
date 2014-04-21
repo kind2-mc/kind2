@@ -8,8 +8,13 @@ Event
 Hashcons
 Ltree
 
-OldParser
-Lustre 
+LustreAst
+LustreExpr
+LustreNode
+LustreSimplify
+LustreTransSys
+LustreInput
+
 
 HString
 SExprBase
