@@ -22,6 +22,96 @@
 *)
 
 
+(** The transition system 
+
+    The transition system must be constructed with the function
+    {!mk_trans_sys}. *)
+type t = private
+
+  {
+
+    (* Definitions of uninterpreted function symbols *)
+    uf_defs : (UfSymbol.t * (Var.t list * Term.t)) list;
+
+    (* State variables of top node *)
+    state_vars : StateVar.t list;
+
+    (* Initial state constraint *)
+    init : Term.t;
+
+    (* Transition relation *)
+    trans : Term.t;
+
+    (* Propertes to prove invariant *)
+    props : (string * Term.t) list; 
+
+    (* Invariants *)
+    mutable invars : Term.t list;
+
+    (* Properties proved to be valid *)
+    mutable props_valid : (string * Term.t) list;
+
+    (* Properties proved to be invalid *)
+    mutable props_invalid : (string * Term.t) list;
+    
+  }
+
+
+(** Create a transition system
+
+    For each state variable of a bounded integer type, add a
+    constraint to the invariants. *)
+val mk_trans_sys : (UfSymbol.t * (Var.t list * Term.t)) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> t
+
+(** Pretty-print a transition system *)
+val pp_print_trans_sys : Format.formatter -> t -> unit
+
+(** Get the required logic for the SMT solver *)
+val get_logic : t -> SMTExpr.logic
+
+(** Return the state variables of the transition system *)
+val state_vars : t -> StateVar.t list
+
+(** Return the variables at current and previous instants of the
+   transition system *)
+val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
+
+(** Instantiate the initial state constraint to the bound *)
+val init_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate the transition relation constraint to the bound 
+
+    The bound given is the bound of the state after the transition *)
+val trans_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate the properties to the bound *)
+val props_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate invariants and valid properties to the bound *)
+val invars_of_bound : Numeral.t -> t -> Term.t
+
+(** Return uninterpreted function symbols to be declared in the SMT solver *)
+val uf_symbols_of_trans_sys : t -> UfSymbol.t list
+
+(** Add an invariant to the transition system *)
+val add_invariant : t -> Term.t -> unit
+
+(** Add a valid property to the transition system *)
+val add_valid_prop : t -> (string * Term.t) -> unit
+
+(** Add an invalid property to the transition system *)
+val add_invalid_prop : t -> (string * Term.t) -> unit
+
+
+(** Apply [f] to all uninterpreted function symbols of the transition
+    system *)
+val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
+  
+(** Apply [f] to all function definitions of the transition system *)
+val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit
+
+
+(*
 (* The transition system *)
 type t = 
     { 
@@ -76,6 +166,8 @@ val get_logic : t -> SMTExpr.logic
 
 (** Add to offset of state variable instances
 
+    {b deprecated} Use {!Term.bump_state} instead}
+
     Negative values are allowed *)
 val bump_state : int -> Term.t -> Term.t
 
@@ -85,7 +177,10 @@ val vars_at_offset_of_term : int -> Term.t -> Var.t list
 (** Return the stateful variables at the given offset occurring in the term *)
 val state_vars_at_offset_of_term : int -> Term.t -> Var.t list
 
-(** Return the variables occurring in the term *)
+(** Return the variables occurring in the term 
+    
+    {b Deprecated: Use {!Term.vars_of_term}
+*)
 val vars_of_term : Term.t -> Var.t list
 
 (** Return variables of the transitions system at bounds zero and one *)
@@ -157,6 +252,7 @@ val log_property_invalid : string -> string list -> unit
     the arguments to it, the function outputs [Counterexample for p1,
     p2, p3] followed by the counterexample in the next lines. *)
 val log_counterexample : string list -> (Format.formatter -> 'a -> unit) -> 'a -> unit
+*)
 *)
 
 (* 

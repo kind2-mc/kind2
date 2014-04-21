@@ -159,21 +159,6 @@ let parse_argv argv =
          Arg.Int port_action,
          "    Run server on port");
 
-        ("-l1",
-         Arg.Set_float load1_max,
-         "   Maximal one-minute load average to accept jobs, \
-             (0. = unlimited)");
-
-        ("-l5",
-         Arg.Set_float load5_max,
-         "   Maximal five-minute load average to accept jobs, \
-             (0. = unlimited)");
-
-        ("-l15",
-         Arg.Set_float load15_max,
-         "  Maximal 15-minute load average to accept jobs, \
-             (0. = unlimited)");
-
         (* Display help *)
         ("-help", 
          Arg.Unit help_action, 
@@ -447,10 +432,10 @@ let read_bytes start filename =
   if n > 0 then
 
     (
-
+      
       (* Go to starting position in file *)
       seek_in ic start;
-
+      
       (* Create string of fixed size *)
       let s = String.create n in
 
@@ -466,16 +451,10 @@ let read_bytes start filename =
     )
 
   else
-
-    (
-
-      (* Close input channel *)
-      close_in ic;
-
-      (* Position is unchanged, string is empty *)
-      (start, "")
-
-    )
+    
+    (* Position is unchanged, string is empty *)
+    (start, "")
+      
       
 (* create new kind job using flags 'server_flags',
     and the content of 'payload'. send results over 'sock' *)
@@ -486,44 +465,29 @@ let create_job
     checksum 
     job_command
     job_args =
-
-  (* Open file *)
-  let loadavg_ch = open_in "/proc/loadavg" in
-
-  (* Read load averages from file *)
-  let load1, load5, load15 =
-    Scanf.fscanf loadavg_ch "%f %f %f" (fun l1 l5 l15 -> (l1,l5,l15))
+  
+  (* Generate a unique job ID *)
+  let job_id = generate_uid () in 
+  
+  (* Create temporary files for input, output and error output *)
+  let stdin_fn = ("kind_job_" ^ job_id ^ "_input") in
+  let stdout_fn = ("kind_job_" ^ job_id ^ "_output") in
+  
+  (* Write data from client to stdin of new kind process *)
+  write_bytes_to_file (zframe_getbytes payload) stdin_fn;
+  
+  (* Open file for input *)
+  let kind_stdin_in = 
+    Unix.openfile stdin_fn [Unix.O_CREAT; Unix.O_RDONLY; Unix.O_NONBLOCK] 0o600 
   in
-
-  (* Close file *)
-  close_in loadavg_ch;
-
-  log
-    "Current system load: %.2f %.2f %.2f"
-    load1
-    load5
-    load15;
-
-  if 
-
-    (* System load above of limit? *)
-    (!load1_max = 0. || load1 > !load1_max) &&  
-    (!load5_max = 0. || load5 > !load5_max) &&  
-    (!load15_max = 0. || load15 > !load15_max) 
-
-  then 
-
-    (
-
-      (* Send job ID to client *)
-      let msg = zmsg_new () in
-
-      let msg_str = 
-        asprintf
-          "<Jobstatus msg=\"aborted\">\
-           Job rejected due to high system load. Try again later.\
-           </Jobstatus>"
-      in
+  
+  (* Open file for output *)
+  let kind_stdout_out = 
+    Unix.openfile stdout_fn [Unix.O_CREAT; Unix.O_RDWR; Unix.O_NONBLOCK] 0o600 
+  in
+  
+  (* Temporary file for stderr *)
+  let stderr_fn, kind_stderr_out = 
 
       ignore 
         (zmsg_pushstr msg msg_str);
@@ -739,6 +703,116 @@ let output_of_job_status
         stdout_string
 
   in
+  
+  (* Close our end of the pipe which has been duplicated by the
+     process *)
+  if (not (kind_stderr_out == kind_stdout_out)) then 
+    (Unix.close kind_stderr_out); 
+  
+  Unix.close kind_stdin_in;
+  Unix.close kind_stdout_out; 
+  
+  (* Add job to Hashtbl of running jobs and associated files *)
+  Hashtbl.add 
+    running_jobs 
+    job_id 
+    { job_pid = kind_pid;
+      job_start_timestamp = int_of_float (Unix.time ());
+      job_stdin_fn = stdin_fn;
+      job_stdout_fn = stdout_fn;
+      job_stderr_fn = stderr_fn;
+      job_stdout_pos = 0 };
+
+  (* Send job ID to client *)
+  let msg = zmsg_new () in
+  ignore(zmsg_pushstr msg job_id);
+  ignore(zmsg_send msg sock);
+  
+  log "Job created with ID %s" job_id;
+
+  (* Remove job from table of working jobs *)
+  Hashtbl.remove running_jobs job_id;
+
+  (* Add to table of completed jobs *)
+  Hashtbl.add completed_jobs job_id (Unix.gmtime (Unix.time ()));
+
+  (* Delete temp files for process *)
+  (try (Sys.remove job_stdin_fn) with _ -> ());
+  (try (Sys.remove job_stdout_fn) with _ -> ());
+  (try (Sys.remove job_stderr_fn) with _ -> ());
+
+  output_string
+
+
+(* Return message after job has terminated, factored out from
+   {!retrieve_job} and {!cancel_job} *)
+let output_of_job_status 
+    log 
+    job_id
+    ({ job_pid; job_stdin_fn; job_stdout_fn; job_stderr_fn; job_stdout_pos } as job_info)
+    job_status = 
+
+  (try ignore (Unix.waitpid [] job_pid) with _ -> ()); 
+
+  (* Read from standard output file *)
+  let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
+
+  (* Update position in file *)
+  job_info.job_stdout_pos <- new_stdout_pos;
+
+  let output_string = 
+
+    match job_status with 
+
+      (* Terminated with signal *)
+      | Unix.WSIGNALED signal -> 
+        
+        log ("killed by signal %d" ^^ "") signal;
+        
+        (* Read from stderr *)
+        let _, errors = read_bytes 0 job_stderr_fn in
+        
+        (* Create message to client *)
+        asprintf 
+          "%s\
+           <Jobstatus msg=\"aborted\">\
+           Job with ID %s aborted before completion.\
+           Contents of stderr:@\n\
+           %s
+           </Jobstatus>"
+          stdout_string
+          job_id
+          errors
+
+      (* Stopped by signal *)
+      | Unix.WSTOPPED signal -> 
+
+        log "stopped by signal %d" signal;
+
+        (* Read from stderr *)
+        let _, errors = read_bytes 0 job_stderr_fn in
+
+        (* Create message to client *)
+        asprintf 
+          "%s\
+           <Jobstatus msg=\"aborted\">\
+           Job with ID %s aborted before completion.\
+           Contents of stderr:@\n\
+           %s
+           </Jobstatus>"
+          stdout_string
+          job_id
+          errors
+
+      (* Exited with code *)
+      | Unix.WEXITED code ->
+
+        log "exited with code %d" code;
+
+        (* Message to client is from stdout *)
+        stdout_string
+
+  in
 
   (* Remove job from table of working jobs *)
   Hashtbl.remove running_jobs job_id;
@@ -818,7 +892,7 @@ let retrieve_job sock server_flags job_id =
 
           log "completed at %a UTC" pp_print_time job_tm;
 
-          asprintf 
+          Format.sprintf 
             "<Jobstatus msg=\"completed\">\
              Job with ID %s has completed and was retrieved at %s UTC\
              </Jobstatus>"
@@ -831,7 +905,7 @@ let retrieve_job sock server_flags job_id =
 
         log "not found";
 
-        asprintf
+        Format.sprintf
           "<Jobstatus msg=\"notfound\">\
            Job with ID %s not found.\
            </Jobstatus>"

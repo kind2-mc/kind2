@@ -89,7 +89,7 @@ let rec wait_for_children child_pids =
     !child_pids = []
 
 
-let handle_event transSys = function 
+let handle_event trans_sys = function 
 
   | Event.Invariant (m, i) -> 
 
@@ -99,16 +99,15 @@ let handle_event transSys = function
       let props_valid, props' =
         List.partition
           (function (p, t) -> Term.equal i t)
-          transSys.TransSys.props
+          trans_sys.TransSys.props
       in
       
       (* Log property as proved *)
       List.iter (Event.log_proved m None) (List.map fst props_valid);
 
-      transSys.TransSys.props <- props';
+      List.iter (TransSys.add_invariant trans_sys) (List.map snd props');
 
-      transSys.TransSys.props_valid <- 
-        transSys.TransSys.props_valid @ props_valid;
+      List.iter (TransSys.add_valid_prop trans_sys) props';
       
       if props' = [] then 
 
@@ -131,17 +130,14 @@ let handle_event transSys = function
       let props_invalid, props' =
         List.partition
           (function (n, _) -> p = n)
-          transSys.TransSys.props
+          trans_sys.TransSys.props
       in
       
       (* Log property as disproved *)
       List.iter (Event.log_disproved m k) (List.map fst props_invalid);
 
-      transSys.TransSys.props <- props';
+      List.iter (TransSys.add_invalid_prop trans_sys) props_invalid;
 
-      transSys.TransSys.props_invalid <- 
-        transSys.TransSys.props_invalid @ props_invalid;
-      
       if props' = [] then 
 
         ( 
@@ -163,17 +159,14 @@ let handle_event transSys = function
       let props_valid, props' =
         List.partition
           (function (n, _) -> p = n)
-          transSys.TransSys.props
+          trans_sys.TransSys.props
       in
       
       (* Log property as proved *)
       List.iter (Event.log_proved m k) (List.map fst props_valid);
 
-      transSys.TransSys.props <- props';
+      List.iter (TransSys.add_valid_prop trans_sys) props_valid;
 
-      transSys.TransSys.props_valid <- 
-        transSys.TransSys.props_valid @ props_valid;
-      
       if props' = [] then 
 
         ( 

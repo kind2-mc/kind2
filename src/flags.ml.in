@@ -180,17 +180,17 @@ let smtsolver_default = `Z3_SMTLIB
 
 (* ********** *) 
 
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
     
 let smtlogic_of_string = function
-  | "LIA" -> `QF_UFLIA
-  | "LRA" -> `QF_UFLRA
+  | "LIA" -> `QF_LIA
+  | "LRA" -> `QF_LRA
   | "detect" -> `detect
   | _ -> raise (Arg.Bad "Bad value for --smtlogic")
 
 let string_of_smtlogic = function 
-  | `QF_UFLIA -> "LIA"
-  | `QF_UFLRA -> "LRA"
+  | `QF_LIA -> "LIA"
+  | `QF_LRA -> "LRA"
   | `detect -> "detect"
 
 let smtlogic_values = "LIA, LRA, detect"
@@ -262,7 +262,7 @@ let enable_values = "PDR, BMC, IND, INVGEN"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR]
+let enable_default_after = [`PDR; `BMC]
 
 (* ********** *) 
 

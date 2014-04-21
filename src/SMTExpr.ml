@@ -22,6 +22,8 @@ open Lib
 (* An SMT expression is a term *)
 type t = Term.t
 
+(* An SMT variable is a variable *)
+type var = Var.t
 
 (* Pretty-print an expression *)
 let pp_print_expr = Term.pp_print_term
@@ -149,9 +151,17 @@ let string_of_sort s = string_of_t pp_print_sort s
 
 *)
 
-let pp_print_sort = Type.pp_print_type 
+let pp_print_sort ppf t = 
+  let p = Format.fprintf ppf in 
+  match Type.node_of_type t with
+    | Type.IntRange _ -> p "Int"
+    | Type.Bool -> p "Bool"
+    | Type.Int -> p "Int"
+    | Type.Real -> p "Real"
 
-let string_of_sort = string_of_t Type.pp_print_type
+
+
+let string_of_sort = string_of_t pp_print_sort
 
 (* Static hashconsed strings *)
 let s_int = HString.mk_hstring "Int"

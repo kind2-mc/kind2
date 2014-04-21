@@ -68,6 +68,12 @@ val succ : t -> t
 (** Predecessor *)
 val pred : t -> t 
 
+(** Increment a numeral in a reference by one *)
+val incr : t ref -> unit
+
+(** Decrement a numeral in a reference by one *)
+val decr : t ref -> unit
+
 (** Absolute value *)
 val abs : t -> t
 
@@ -90,6 +96,13 @@ val div : t -> t -> t
 
     Identical to [mod], but the latter is an infix operator. *)
 val rem : t -> t -> t
+
+(** Return smaller of two numerals *)
+val min : t -> t -> t 
+
+(** Return greater of two numerals *)
+val max : t -> t -> t 
+
 
 (** {2 Infix arithmetic operators} *)
 

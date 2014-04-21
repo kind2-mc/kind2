@@ -368,7 +368,7 @@ let qe_bool elim term =
     
 *)
 
-let generalize model (elim : Var.t list) term =
+let generalize uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>Generalizing@ @[<hv>%a@]@]@."
@@ -381,7 +381,7 @@ let generalize model (elim : Var.t list) term =
      end);
   
   (* Extract active path from term and model *)
-  let extract_bool, extract_int = Extract.extract model term in
+  let extract_bool, extract_int = Extract.extract uf_defs model term in
 
   (debug qe
      "@[<hv>Extracted term:@ @[<hv>%a@]@]@."
@@ -519,7 +519,7 @@ let generalize model (elim : Var.t list) term =
 
             (* Extract again from result *)
             let term''_int, term''_bool = 
-                Extract.extract model (Term.mk_and term'_int) 
+                Extract.extract uf_defs model (Term.mk_and term'_int) 
             in
             
             term'_bool @ [term''_int; term''_bool])

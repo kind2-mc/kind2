@@ -28,7 +28,6 @@ type t = Big_int.big_int
 (* The numeral zero *)
 let zero = Big_int.zero_big_int 
 
-
 (* The numeral one *)
 let one = Big_int.unit_big_int 
 
@@ -96,6 +95,12 @@ let succ n = Big_int.succ_big_int n
 
 (* Decrement a numeral by one *)
 let pred n = Big_int.pred_big_int n
+
+(* Increment a numeral in a reference by one *)
+let incr n = n := Big_int.succ_big_int !n
+
+(* Decrement a numeral in a reference by one *)
+let decr n = n := Big_int.pred_big_int !n
 
 (* Absolute value *)
 let abs = Big_int.abs_big_int
@@ -171,6 +176,18 @@ let ( > ) = gt
 let ( = ) = equal
 
 let ( <> ) a b = not (equal a b)
+
+
+(* ********************************************************************** *)
+(* Utilities                                                              *)
+(* ********************************************************************** *)
+
+
+(* Return smaller of two numerals *)
+let min x y = if x <= y then x else y
+
+(* Return greater of two numerals *)
+let max x y = if x >= y then x else y
 
 
 (* 

@@ -563,7 +563,7 @@ let bool_of_value = function
   | ValBool b -> b
   | ValTerm t -> 
     invalid_arg ("bool_of_value for term " ^ (string_of_t Term.pp_print_term t))
-  | _ -> invalid_arg "bool_of_value"
+  | _ -> invalid_arg "bool_of_value: value is numeric"
     
 
 (* Extract the integer value from the value of an expression *)
@@ -649,10 +649,10 @@ let value_of_term term = match Term.destruct term with
 
 
 (* Evaluate a term to a value *)
-let eval_term term model = 
+let eval_term uf_defs model term = 
   
   (* Simplify term with the model and return a value *)
-  value_of_term (Simplify.simplify_term_model model term)
+  value_of_term (Simplify.simplify_term_model uf_defs model term)
 
 
 (*

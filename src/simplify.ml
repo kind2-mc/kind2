@@ -1026,11 +1026,16 @@ let atom_of_term t =
    This function is recursive, it calls itself with modified
    arguments. It is not tail-recursive, but that is OK, because the
    the recursion depth is shallow. *)
-let rec simplify_term_node fterm args = 
+let rec simplify_term_node uf_defs model fterm args = 
 
   match fterm with 
 
-    (* Free variable *)
+    (* Free variable with assignment in model *)
+    | Term.T.Var v when List.mem_assq v model -> 
+
+      Term.eval_t (simplify_term_node uf_defs model) (List.assq v model)
+      
+    (* Free variable without assignment in model *)
     | Term.T.Var v -> atom_of_term (Term.mk_var v)
                    
     (* Polynomial of a constant depends on symbol *)
@@ -1054,6 +1059,34 @@ let rec simplify_term_node fterm args =
           (* Bitvectors not implemented *)
           | `BV _ -> assert false
 
+          (* Constant with a definition *)
+          | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
+            
+            (* Get definition of function *)
+            let (vars, uf_def) = 
+              List.assq uf_symbol uf_defs 
+            in
+            
+             debug simplify
+               "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
+               UfSymbol.pp_print_uf_symbol uf_symbol
+               (pp_print_list Var.pp_print_var "@ ") vars
+               Term.pp_print_term uf_def
+             in
+
+            (* Replace function by its definition *)
+            let term' = 
+              Term.mk_let 
+                (List.fold_right2
+                   (fun var def accum -> (var, def) :: accum)
+                   vars
+                   []
+                   [])
+                uf_def
+            in
+
+            (Term.eval_t (simplify_term_node uf_defs model) term')
+
           (* Uninterpreted constant *)
           | `UF u -> atom_of_term (Term.mk_uf u [])
 
@@ -1070,6 +1103,39 @@ let rec simplify_term_node fterm args =
         (* Unhashcons function symbol *)
         match Symbol.node_of_symbol s with 
           
+          (* Function with a definition *)
+          | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
+            
+            (* Get definition of function *)
+            let (vars, uf_def) = 
+              List.assq uf_symbol uf_defs 
+            in
+            
+            debug simplify
+                "@[<v>Definition of %a:@,variables@ %a@,term@ %a@]"
+                UfSymbol.pp_print_uf_symbol uf_symbol
+                (pp_print_list Var.pp_print_var "@ ") vars
+                Term.pp_print_term uf_def
+            in
+
+            (* Replace function by its definition *)
+            let term' = 
+              Term.mk_let 
+                (List.fold_right2
+                   (fun var def accum -> (var, def) :: accum)
+                   vars
+                   (List.map term_of_nf args)
+                   [])
+                uf_def
+            in
+
+            debug simplify
+                "@[<v>Simplify@ %a@]"
+                Term.pp_print_term term'
+            in
+
+            (Term.eval_t (simplify_term_node uf_defs model) term')
+
           (* Normal form for an uninterpreted function *)
           | `UF u -> 
 
@@ -1106,6 +1172,12 @@ let rec simplify_term_node fterm args =
 
               (* Binary conjunction or higher arity *)
               | _ -> 
+
+                debug simplify
+                    "@[<hv>`AND with arguments@ %a@]"
+                    (pp_print_list Term.pp_print_term "@ ")
+                    (List.map term_of_nf args)
+                in
 
                 (* Lift arguments of subterms *)
                 let args' = flatten_bool_subterms Symbol.s_and args in
@@ -1267,7 +1339,7 @@ let rec simplify_term_node fterm args =
             let term' = Term.mk_or (List.map term_of_nf args') in
 
             (* Simplify disjunction *)
-            simplify_term_node (Term.destruct term') args' 
+            simplify_term_node uf_defs model (Term.destruct term') args' 
 
           (* Reduce exclusive disjunction (a xor b) to disjunction of
              conjunctions ((a & ~b) | (~a & b)) *)
@@ -1289,20 +1361,26 @@ let rec simplify_term_node fterm args =
                 let term_a' = 
                   bool_of_nf 
                     (simplify_term_node 
-                       (Term.destruct (Term.mk_and [a; nb])) 
-                       [Bool a; Bool nb])
+                      uf_defs
+                      model
+                      (Term.destruct (Term.mk_and [a; nb])) 
+                      [Bool a; Bool nb])
                 in
 
                 (* Simplify (~a & b) *)
                 let term_b' = 
                   bool_of_nf
                     (simplify_term_node 
+                       uf_defs
+                       model
                        (Term.destruct (Term.mk_and [na; b])) 
                        [Bool na; Bool b])
                 in
 
                 (* Simplify ((a & ~b) | (~a & b)) and return *)
                 simplify_term_node 
+                  uf_defs
+                  model
                   (Term.destruct (Term.mk_or [term_a'; term_b']))
                   [Bool term_a'; Bool term_b']
 
@@ -1313,6 +1391,8 @@ let rec simplify_term_node fterm args =
                 let term' = 
                   bool_of_nf
                     (simplify_term_node
+                       uf_defs
+                       model
                        (Term.destruct (Term.mk_xor [a; b]))
                        [Bool a; Bool b])
                 in
@@ -1321,6 +1401,8 @@ let rec simplify_term_node fterm args =
                    first two arguments and recursively simplify
                    exclusive disjunction with remaining arguments *)
                 simplify_term_node 
+                  uf_defs
+                  model
                   (Term.destruct 
                      (Term.mk_xor (term' :: (List.map bool_of_nf tl))))
                   (Bool term' :: tl)
@@ -1352,6 +1434,8 @@ let rec simplify_term_node fterm args =
                 let term_a' = 
                   bool_of_nf 
                     (simplify_term_node 
+                       uf_defs
+                       model
                        (Term.destruct (Term.mk_and [a; b])) 
                        [Bool a; Bool b])
                 in
@@ -1360,25 +1444,29 @@ let rec simplify_term_node fterm args =
                 let term_b' = 
                   bool_of_nf
                     (simplify_term_node 
+                       uf_defs
+                       model
                        (Term.destruct (Term.mk_and [na; nb])) 
                        [Bool na; Bool nb])
                 in
 
                 (* Simplify ((a & b) | (~a & ~b)) and return *)
                 simplify_term_node 
+                  uf_defs
+                  model
                   (Term.destruct (Term.mk_or [term_a'; term_b']))
                   [Bool term_a'; Bool term_b']
 
               (* Equation between integers or reals *)
-              | _ -> relation_eq simplify_term_node args
+              | _ -> relation_eq (simplify_term_node uf_defs model) args
 
             )
 
           (* Relations *)
-          | `LEQ -> relation_leq simplify_term_node args
-          | `LT -> relation_lt simplify_term_node args
-          | `GEQ -> relation_geq simplify_term_node args
-          | `GT -> relation_gt simplify_term_node args
+          | `LEQ -> relation_leq (simplify_term_node uf_defs model) args
+          | `LT -> relation_lt (simplify_term_node uf_defs model) args
+          | `GEQ -> relation_geq (simplify_term_node uf_defs model) args
+          | `GT -> relation_gt (simplify_term_node uf_defs model) args
 
           (* If-then-else *)
           | `ITE -> 
@@ -1660,19 +1748,11 @@ let rec simplify_term_node fterm args =
 (* ********************************************************************** *)
 
 
-(* Simplify a term *)
-let simplify_term term = 
-
-  (* Simplify term to a normal form and convert back to a term *)
-  term_of_nf
-    (Term.eval_t simplify_term_node term)
-
-
 (* Simplify a term with a model *)
-let simplify_term_model model term = 
+let simplify_term_model uf_defs model term = 
 
   debug simplify 
-    "Simplifying@ @[<hv>%a@]@ to@ @[<hv>%a@]"
+    "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
     (pp_print_list 
        (fun ppf (v, t) -> 
@@ -1684,17 +1764,23 @@ let simplify_term_model model term =
     model 
   in
 
-  (* Bind variables in the model to their values and simplify term *)
-  let term' = Term.mk_let model term in 
-  let res = simplify_term term' in
-  
+  (* Simplify term to a normal form and convert back to a term *)
+  let res = 
+    term_of_nf
+      (Term.eval_t (simplify_term_node uf_defs model) term)
+  in
+
   debug simplify 
     "Simplified@ @[<hv>%a@]@ to@ @[<hv>%a@]"
-    Term.pp_print_term term'
+    Term.pp_print_term term
     Term.pp_print_term res 
   in
 
   res
+
+(* Simplify a term *)
+let simplify_term uf_defs term = simplify_term_model uf_defs [] term
+
 
 
 (*

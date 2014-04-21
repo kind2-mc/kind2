@@ -134,27 +134,101 @@ module Symbol_node = struct
   (* Equality of two symbols *)
   let equal s1 s2 = match s1, s2 with 
 
+    (* Parametric symbols *)
     | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
-
-    | _, `NUMERAL _ 
-    | `NUMERAL _, _ -> false
-
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
-
-    | _, `DECIMAL _ 
-    | `DECIMAL _, _ -> false
-
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
-
-    | _, `DIVISIBLE _
-    | `DIVISIBLE _, _ -> false
-
     | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
+    | `BV i, `BV j -> i = j
+    | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
-    | _, `EXTRACT _
-    | `EXTRACT _, _ -> false
+    | `NUMERAL _, _
+    | `DECIMAL _, _
+    | `DIVISIBLE _, _
+    | `EXTRACT _, _
+    | `BV _, _
+    | `UF _, _ -> false
 
-    | _ -> s1 = s2
+    (* Non-parametric symbols *)
+    | `TRUE, `TRUE
+    | `FALSE, `FALSE
+    | `NOT, `NOT
+    | `IMPLIES, `IMPLIES
+    | `AND, `AND
+    | `OR, `OR
+    | `XOR, `XOR
+    | `EQ, `EQ
+    | `DISTINCT, `DISTINCT
+    | `ITE, `ITE
+    | `MINUS, `MINUS
+    | `PLUS, `PLUS
+    | `TIMES, `TIMES
+    | `DIV, `DIV
+    | `INTDIV, `INTDIV
+    | `MOD, `MOD
+    | `ABS, `ABS
+    | `LEQ, `LEQ
+    | `LT, `LT
+    | `GEQ, `GEQ
+    | `GT, `GT
+    | `TO_REAL, `TO_REAL
+    | `TO_INT, `TO_INT
+    | `IS_INT, `IS_INT
+    | `CONCAT, `CONCAT
+    | `BVNOT, `BVNOT 
+    | `BVNEG, `BVNEG
+    | `BVAND, `BVAND
+    | `BVOR, `BVOR
+    | `BVADD, `BVADD
+    | `BVMUL, `BVMUL
+    | `BVDIV, `BVDIV
+    | `BVUREM, `BVUREM
+    | `BVSHL, `BVSHL
+    | `BVLSHR, `BVLSHR
+    | `BVULT, `BVULT
+    | `SELECT, `SELECT
+    | `STORE, `STORE -> true
+
+    | `TRUE, _
+    | `FALSE, _
+    | `NOT, _
+    | `IMPLIES, _
+    | `AND, _
+    | `OR, _
+    | `XOR, _
+    | `EQ, _
+    | `DISTINCT, _
+    | `ITE, _
+    | `MINUS, _
+    | `PLUS, _
+    | `TIMES, _
+    | `DIV, _
+    | `INTDIV, _
+    | `MOD, _
+    | `ABS, _
+    | `LEQ, _
+    | `LT, _
+    | `GEQ, _
+    | `GT, _
+    | `TO_REAL, _
+    | `TO_INT, _
+    | `IS_INT, _
+    | `CONCAT, _
+    | `BVNOT, _ 
+    | `BVNEG, _
+    | `BVAND, _
+    | `BVOR, _
+    | `BVADD, _
+    | `BVMUL, _
+    | `BVDIV, _
+    | `BVUREM, _
+    | `BVSHL, _
+    | `BVLSHR, _
+    | `BVULT, _
+    | `SELECT, _
+    | `STORE, _ -> false
+
+
 
   (* Return hash of a symbol *)
   let hash = Hashtbl.hash
@@ -168,6 +242,9 @@ module Hsymbol = Hashcons.Make (Symbol_node)
 
 (* Storage for hashconsed symbols *)
 let ht = Hsymbol.create 251
+
+
+let stats () = Hsymbol.stats ht
 
 
 (* Return the node of a symbol *)

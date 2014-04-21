@@ -266,6 +266,7 @@ val string_of_symbol : t -> string
 (** Return a string representation of a symbol *)
 val string_of_symbol_node : symbol -> string 
 
+val stats : unit -> int * int * int * int * int * int
 
 (* 
    Local Variables:

@@ -42,7 +42,7 @@ sig
 
   val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
 
-  val define_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+  val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
 
   val assert_expr : t -> SMTExpr.t -> SMTExpr.response
 
@@ -82,7 +82,7 @@ sig
 
   val declare_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.response
 
-  val define_fun : t -> string -> SMTExpr.sort list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
+  val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
 
   val assert_expr : t -> SMTExpr.t -> SMTExpr.response
 
@@ -190,7 +190,13 @@ struct
       "@[<v>[%d]@,@[<hv 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %a@ %a)@]@]" 
       id
       f
-      (pp_print_list SMTExpr.pp_print_sort "@ ") a
+      (pp_print_list
+         (fun ppf var -> 
+            Format.fprintf ppf "(%a %a)" 
+              Var.pp_print_var var
+              SMTExpr.pp_print_sort (Var.type_of_var var))
+         "@ ")
+      a
       SMTExpr.pp_print_sort r
       SMTExpr.pp_print_expr d
     in
