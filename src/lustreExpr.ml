@@ -648,7 +648,10 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
   in
   
   (* Add to hashtable *)
-  StateVar.StateVarHashtbl.add state_var_ident_map state_var (ident, scope_index);
+  StateVar.StateVarHashtbl.add 
+    state_var_ident_map 
+    state_var
+    (ident, scope_index);
 
   (* Return state variable *)
   state_var 
@@ -663,9 +666,30 @@ let state_var_of_ident scope_index ident =
   (* Convert identifier to a string *)
   let ident_string = I.string_of_ident true ident in 
 
-  (* Return state variable of string *)
-  StateVar.state_var_of_string (ident_string, scope)
-  
+  try
+
+    (* Return state variable of string *)
+    StateVar.state_var_of_string (ident_string, scope)
+      
+  with Not_found -> 
+
+    Format.printf
+      "@[<v>State variable %a %a not found:"
+      (I.pp_print_index false) scope_index 
+      (I.pp_print_ident false) ident;
+
+    StateVar.StateVarHashtbl.iter
+      (fun sv (id, s) -> 
+         Format.printf
+           "%a = %a.%a@,"
+           StateVar.pp_print_state_var sv
+           (I.pp_print_index false) s
+           (I.pp_print_ident false) id)
+      state_var_ident_map;
+
+    Format.printf "@]@.";
+
+    raise Not_found
 
 (* Boolean constant true on base clock *)
 let t_true = 

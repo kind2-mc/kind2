@@ -65,23 +65,25 @@ type t =
     (* Name of node *)
     name : LustreIdent.t;
 
-    (* Input variables of node, some flagged as constant
+    (* Input variables of node together with their index in the
+       original model
 
-       The order of the list is important, it is the order the
-       parameters in the declaration. *)
-    inputs : StateVar.t list;
+       The order of the list is important, it is the order of the
+       indexes and of the parameters in the declaration. *)
+    inputs : (StateVar.t * I.index) list;
 
-    (* Output variables of node 
+    (* Output variables of node together with their index in the
+       original model
 
-       The order of the list is important, it is the order the
-       parameters in the declaration. *)
-    outputs : StateVar.t list;
+       The order of the list is important, it is the order of the
+       indexes and of the parameters in the declaration. *)
+    outputs : (StateVar.t * I.index) list;
 
-    (* Local variables of node 
+    (* Local variables of node
 
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
-    locals : StateVar.t list; 
+    locals : (StateVar.t * I.index) list; 
 
     (* Oracle inputs *)
     oracles : StateVar.t list;
@@ -137,17 +139,18 @@ let empty_node name =
 
 
 (* Pretty-print a node input *)
-let pp_print_input safe ppf var =
+let pp_print_input safe ppf (var, _) =
 
   Format.fprintf ppf
     "%t%a: %a"
-    (function ppf -> if StateVar.is_const var then Format.fprintf ppf "const ")
+    (function ppf -> 
+      if StateVar.is_const var then Format.fprintf ppf "const ")
     (E.pp_print_lustre_var safe) var
     (E.pp_print_lustre_type safe) (StateVar.type_of_state_var var)
 
 
 (* Pretty-print a node output *)
-let pp_print_output safe ppf var =
+let pp_print_output safe ppf (var, _) =
 
   Format.fprintf ppf
     "%a: %a"
@@ -156,7 +159,7 @@ let pp_print_output safe ppf var =
 
 
 (* Pretty-print a node local variable *)
-let pp_print_local safe ppf var =
+let pp_print_local safe ppf (var, _) =
 
   Format.fprintf ppf
     "%a: %a"
@@ -188,7 +191,7 @@ let pp_print_call safe ppf = function
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
 
-  (* Node call not on the base clock, a condact *)
+  (* Node call not on the base clock is a condact *)
   | (out_vars, act_expr, node, exprs, init_exprs) ->
      
     Format.fprintf ppf
@@ -272,7 +275,8 @@ let pp_print_node
      %a@;<1 -2>\
      tel;@]@]"  
     (I.pp_print_ident safe) name
-    (pp_print_list (pp_print_input safe) ";@ ") (inputs @ oracles)
+    (pp_print_list (pp_print_input safe) ";@ ") 
+    (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
     (pp_print_list (pp_print_output safe) ";@ ") outputs
     (function ppf -> 
       if locals = [] then () else 
@@ -324,7 +328,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
     (* Calculate dependency of variable [ident], which all variables
        in [dep] depend on *)
-    | (var, dep) :: tl -> 
+    | (state_var, dep) :: tl -> 
 
 (*
       Format.printf 
@@ -337,7 +341,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         (* Variable is an input variable *)
         List.exists 
-          (fun v -> (==) var v)
+          (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
           node.inputs 
 
       then 
@@ -347,7 +351,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
           init_or_step 
           nodes
           node
-          ((var, SVS.empty) :: accum) 
+          ((state_var, SVS.empty) :: accum) 
           tl
 
       else
@@ -358,8 +362,10 @@ let rec node_var_dependencies init_or_step nodes node accum =
           try 
 
             (* Get expression defining variable *)
-            let expr = 
-              List.assq var node.equations 
+            let (_, expr) = 
+              List.find 
+                (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+                node.equations 
             in
 
             (* Get variables in expression *)
@@ -385,7 +391,8 @@ let rec node_var_dependencies init_or_step nodes node accum =
                      parameters *)
                   let rec aux2 i = function
                     | [] -> raise Not_found 
-                    | v :: _ when v == var -> (n, i)
+                    | sv :: _ 
+                      when StateVar.equal_state_vars sv state_var -> (n, i)
                     | _ :: tl -> aux2 (succ i) tl
                   in
 
@@ -396,7 +403,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
               (* Return node call and position of variable in output
                  parameters *)
               let (_, _, node_ident, call_params, _), input_pos = 
-                aux var node.calls 
+                aux state_var node.calls 
               in
 
 (*
@@ -444,7 +451,10 @@ let rec node_var_dependencies init_or_step nodes node accum =
            already *)
         let vars_visited, vars_not_visited = 
           List.partition
-            (fun ident -> List.mem_assq ident accum)
+            (fun sv -> 
+               List.exists
+                 (fun (sv', _) -> StateVar.equal_state_vars sv sv') 
+                 accum)
             vars
         in
 
@@ -466,7 +476,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
             init_or_step 
             nodes
             node 
-            ((var, dependent_vars) :: accum)
+            ((state_var, dependent_vars) :: accum)
             tl
 
         else
@@ -477,7 +487,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
              depends on occurs as a dependency *)
           List.exists
             (fun v -> List.memq v dep)
-            (var :: vars_not_visited)
+            (state_var :: vars_not_visited)
 
         then
 
@@ -492,9 +502,9 @@ let rec node_var_dependencies init_or_step nodes node accum =
             node
             accum 
             ((List.map 
-                (fun v -> (v, var :: dep)) 
+                (fun v -> (v, state_var :: dep)) 
                 vars_not_visited) @ 
-             ((var, dep) :: tl))
+             ((state_var, dep) :: tl))
 
              
 (* Calculate dependencies of outputs on inputs *) 
@@ -502,7 +512,7 @@ let output_input_dep_of_var_dep node var_deps =
 
   (* Return a list of positions in inputs for each output *)
   List.map
-    (fun o -> 
+    (fun (o, _) -> 
 
        (* Get dependencies of output variable *)
        let deps = List.assoc o var_deps in 
@@ -517,7 +527,7 @@ let output_input_dep_of_var_dep node var_deps =
                  given variable *)
               let rec aux i = function 
                 | [] -> raise Not_found
-                | ident :: tl when ident = v -> i
+                | (ident, _) :: tl when ident = v -> i
                 | _ :: tl -> aux (succ i) tl 
               in
 
@@ -564,7 +574,10 @@ let rec order_by_dep accum = function
         accum
         (SVS.fold
            (fun e a -> 
-              (List.find (fun (f, _) -> StateVar.equal_state_vars e f) tl) :: a)
+              (List.find
+                 (fun (f, _) -> StateVar.equal_state_vars e f) 
+                 tl) 
+              :: a)
            d
             ((h,d) :: tl))
     
@@ -581,7 +594,7 @@ let equations_order_by_dep nodes node =
       node
       []
       ((List.map (fun (v, _) -> (v, [])) node.equations) @
-       (List.map (fun v -> (v, [])) node.outputs))
+       (List.map (fun (v, _) -> (v, [])) node.outputs))
   in
 
   (* Order variables such that variables defined in terms of other
@@ -668,7 +681,7 @@ let solve_eqs_node_calls node =
 
   let locals' = 
     List.filter
-      (fun v -> not (List.memq v vars_eliminated))
+      (fun (sv, _) -> not (List.memq sv vars_eliminated))
       node.locals
   in
 
@@ -728,6 +741,7 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   exprs_ensures
 
 
+(* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
     { inputs; outputs; oracles; equations; calls; asserts; props } =
 
@@ -735,7 +749,9 @@ let stateful_vars_of_node
   let stateful_vars =
     add_to_svs
       SVS.empty
-      (inputs @ outputs @ oracles)
+      ((List.map fst inputs)
+       @ (List.map fst outputs)
+       @ oracles)
   in
 
   (* Add stateful variables from equations *)
@@ -1033,7 +1049,7 @@ let rec reduce_to_coi' nodes accum = function
       reduce_to_coi' 
         nodes
         accum
-        ((state_vars_in_asserts push_node_outputs push_node, 
+        ((state_vars_in_asserts (List.map fst push_node_outputs) push_node, 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
