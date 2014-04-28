@@ -469,6 +469,10 @@ let main () =
   (* Set log level *)
   Event.set_log_level (Flags.log_level ());
 
+  (* Record backtraces on log levels debug and higher *)
+  if Event.output_on_level Event.L_debug then
+    Printexc.record_backtrace true;
+
   (* Wallclock timeout? *)
   if Flags.timeout_wall () > 0. then
 

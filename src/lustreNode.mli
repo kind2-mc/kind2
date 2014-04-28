@@ -54,19 +54,19 @@ type t =
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
-    inputs : StateVar.t list;
+    inputs : (StateVar.t * LustreIdent.index) list;
 
     (** Output variables of node
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
-    outputs : StateVar.t list;
+    outputs : (StateVar.t * LustreIdent.index) list;
 
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
-    locals : StateVar.t list;
+    locals : (StateVar.t * LustreIdent.index) list;
 
     (** Oracle inputs of node
 

@@ -632,8 +632,16 @@ let smtexpr_of_var v =
      variable *)
   let u = StateVar.uf_symbol_of_state_var sv in 
 
-  (* Convert a state variable instance to a uninterpreted function *) 
-  Term.mk_uf u [Term.mk_num o] 
+  (* State variable is constant? *)
+  if StateVar.is_const sv then 
+
+    (* Convert a state variable instance to a uninterpreted constant *) 
+    Term.mk_uf u [] 
+
+  else
+      
+    (* Convert a state variable instance to a uninterpreted function *) 
+    Term.mk_uf u [Term.mk_num o] 
 
 
 (* Convert an SMT expression to a variable *)

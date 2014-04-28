@@ -149,7 +149,7 @@ let mk_pos = A.position_of_lexing
 %token EOF
     
 (* Priorities and associativity of operators, lowest first *)
-%left CARET PIPE
+%left PIPE
 %nonassoc ELSE
 %right ARROW
 %right IMPL
@@ -162,6 +162,7 @@ let mk_pos = A.position_of_lexing
 %nonassoc NOT 
 %nonassoc CURRENT 
 %nonassoc PRE 
+%left CARET 
 %nonassoc INT REAL 
 
 (* Start token *)

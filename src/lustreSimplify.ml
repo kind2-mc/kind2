@@ -1453,10 +1453,26 @@ let rec eval_ast_expr'
       in
 
       let result' = 
-        (List.map 
-           (fun sv -> (index, E.mk_var sv E.base_clock)) 
-           output_vars) 
-        @ result
+        List.fold_left2
+          (fun accum sv (node_sv, index) -> 
+             
+             let out_ident = fst (E.ident_of_state_var node_sv) in
+             
+             Format.printf "output %a: ident is %a@."
+               StateVar.pp_print_state_var sv
+               (I.pp_print_ident false) out_ident;
+
+             let sv_index = 
+               I.index_of_one_index_list (snd (I.split_ident out_ident))
+             in
+
+             (I.push_index_to_index index sv_index,
+              E.mk_var sv E.base_clock)
+             :: accum) 
+
+          result
+          output_vars
+          node_outputs
       in
 
       (* Add expression to result *)
@@ -1580,6 +1596,18 @@ and eval_ast_expr
       [] 
       [(I.empty_index, expr)]
   in
+
+  Format.printf 
+    "@[<hv>%a@]@."
+    (pp_print_list 
+       (fun ppf (i, e) ->
+          Format.fprintf
+            ppf
+            "%a: %a"
+            (I.pp_print_index false) i
+            (E.pp_print_lustre_expr false) e)
+       ",@ ")
+    (List.rev expr');
 
   (* Assertion to ensure list is sorted by indexes *)
   (match List.rev expr' with 
@@ -1734,7 +1762,7 @@ and node_init_of_exprs node_outputs pos expr_list =
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        out_var 
+        (out_var, _) 
         (_, ({ E.expr_type } as expr)) 
         accum ->
 
@@ -1788,7 +1816,7 @@ and output_idents_of_node scope ident pos call_ident = function
 and output_vars_of_node_output mk_new_state_var node_outputs = 
 
   List.map
-    (fun out_var -> 
+    (fun (out_var, _) -> 
        mk_new_state_var (StateVar.type_of_state_var out_var))
     node_outputs
 
@@ -2475,12 +2503,13 @@ let add_node_output_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_outputs' = 
-    E.mk_state_var_of_ident
-      false
-      false
-      scope
-      (I.push_back_index index ident) 
-      basic_type ::
+    ((E.mk_state_var_of_ident
+       false
+       false
+       scope
+       (I.push_back_index index ident)
+       basic_type), 
+     index) ::
     node_outputs 
   in
 
@@ -2493,10 +2522,14 @@ let add_node_var_decl
     ident
     pos
     (({ type_ctx; index_ctx } as context), 
-     ({ N.name = node_ident} as node), 
-      node_locals)
+     ({ N.name = node_ident} as node))
     index 
     basic_type =
+
+  Format.printf "add_node_var_decl: %a %a %a@."
+    (I.pp_print_ident false) ident
+    (I.pp_print_index false) index
+    (E.pp_print_lustre_type false) basic_type;
 
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
@@ -2520,13 +2553,16 @@ let add_node_var_decl
       scope
       (I.push_back_index index ident) 
       basic_type :: 
-    node_locals
+    node.N.locals
   in
+
+  Format.printf
+    "@[<hv>node_locals':@ @[<hv>%a@]@]@."
+    (pp_print_list StateVar.pp_print_state_var ",@ ") node_locals';
 
   (* Must return node in accumulator *)
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
-   { node with N.locals = node.N.locals @ (List.rev node_locals') },
-   node_locals' )
+   { node with N.locals = node_locals'})
 
 
 (* Add declaration of a node input to contexts *)
@@ -2683,11 +2719,11 @@ let rec parse_node_locals context node = function
   | A.NodeVarDecl (pos, (_, ident, var_type, A.ClockTrue)) :: tl -> 
 
     (* Add declaration of possibly indexed type to contexts *)
-    let context', node', node_locals' = 
-      fold_left_ast_type 
+    let context', node' = 
+      fold_right_ast_type 
         context
         (add_node_var_decl ident pos)
-        (context, node, [])
+        (context, node)
         var_type
     in
     
@@ -2892,11 +2928,11 @@ let abstractions_to_context_and_node
          in
 
          (* Add variable declaration to context *)
-         let context', node', node_locals' = 
+         let context', node' = 
            add_node_var_decl 
              base_ident
              A.dummy_pos
-             (context, node, [])
+             (context, node)
              (I.index_of_one_index_list index)
              (StateVar.type_of_state_var state_var)
          in
@@ -2956,11 +2992,11 @@ let abstractions_to_context_and_node
                 in
                 
                 (* Add variable declaration to context *)
-                let context', node', node_locals' = 
+                let context', node' = 
                   add_node_var_decl 
                     base_ident
                     A.dummy_pos
-                    (context, node, [])
+                    (context, node)
                     (I.index_of_one_index_list index)
                     (StateVar.type_of_state_var state_var)
                 in
@@ -3072,7 +3108,13 @@ let rec parse_node_equations
              (* Wrap right-hand side in a singleton list, nested lists
                 are flattened, s.t. ((a,b)) become (a,b) *)
              (A.ExprList (pos, [ast_expr])))
+
       in
+
+      Format.printf
+        "@[<hv>locals:@ @[<hv>%a@]@]@."
+        (pp_print_list StateVar.pp_print_state_var ",@ ") 
+        node.N.locals;
 
       (* State variables and types of their assigned expressions *)
       let eq_types = 
@@ -3086,10 +3128,12 @@ let rec parse_node_equations
                   (* Find identifier of left-hand side in outputs *)
                   let accum' =
                     List.fold_left
-                      (fun a v -> 
+                      (fun a (v, _) -> 
                          try 
                            (ignore 
-                              (I.get_suffix ident (fst (E.ident_of_state_var v))); 
+                              (I.get_suffix
+                                 ident
+                                 (fst (E.ident_of_state_var v))); 
                             v) :: a
                          with Not_found ->
                            a)
@@ -3106,7 +3150,12 @@ let rec parse_node_equations
                         (fun a v -> 
                            try 
                              (ignore 
-                                (I.get_suffix ident (fst (E.ident_of_state_var v)));
+                                (I.get_suffix
+                                   ident
+                                   (fst (E.ident_of_state_var v)));
+                              Format.printf
+                                "found in locals %a@." 
+                                StateVar.pp_print_state_var v;
                               v) :: a
                            with Not_found ->
                              a)
@@ -3141,24 +3190,46 @@ let rec parse_node_equations
              struct_items)
       in
 
+      Format.printf
+        "@[<v>@[<hv>eq_types:@ %a@]@,@[<hv>expr':@ %a@]@." 
+        (pp_print_list StateVar.pp_print_state_var "@ ") eq_types
+        (pp_print_list 
+           (fun ppf (i, e) ->
+              Format.fprintf ppf
+                "%a = %a" 
+                (I.pp_print_index false) i
+                (E.pp_print_lustre_expr false) e)
+           "@ ")
+        expr';
+                
+
       (* Add all equations to node *)
       let context', node', abstractions' = 
 
-        List.fold_right2
+        try 
 
-          (fun state_var (_, expr) (context, node, abstractions) -> 
+          List.fold_right2
+            
+            (fun state_var (_, expr) (context, node, abstractions) -> 
+               
+               (* Do not check for matching indexes here, the best thing
+                  possible is to compare suffixes, but it is not obvious, where
+                  to start suffix at *)
+               let eq = (state_var, expr) in
+               
+               (* Add assertion to node *)
+               equation_to_node context node abstractions pos eq)
+            
+            eq_types
+            expr'
+            (context, node, abstractions)
 
-            (* Do not check for matching indexes here, the best thing
-               possible is to compare suffixes, but it is not obvious, where
-               to start suffix at *)
-            let eq = (state_var, expr) in
-        
-            (* Add assertion to node *)
-            equation_to_node context node abstractions pos eq)
+        with Invalid_argument "List.fold_right2" -> 
 
-          eq_types
-          expr'
-          (context, node, abstractions)
+          fail_at_position 
+            pos
+            "Type mismatch in equation"
+
       in
 
       (* Add abstractions to context and node *)
@@ -3351,7 +3422,7 @@ let parse_node_signature
       node_context_equations
       []
       ((List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations) @
-       (List.map (fun v -> (v, [])) node_context_equations.N.outputs))
+       (List.map (fun (v, _) -> (v, [])) node_context_equations.N.outputs))
   in
 (*
   Format.printf "@[<v>%a@]@."

@@ -655,7 +655,9 @@ let rec trans_sys_of_nodes'
         List.fold_left 
           (fun accum state_var -> 
              if 
-               List.mem state_var outputs 
+               List.exists 
+                 (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+                 outputs 
              then 
                accum 
              else 
@@ -673,7 +675,12 @@ let rec trans_sys_of_nodes'
     let call_locals_set = 
       List.fold_left 
         (fun accum sv  -> 
-           if List.mem sv outputs || List.mem sv inputs then 
+           if 
+             (List.exists
+                (fun (sv', _) -> StateVar.equal_state_vars sv' sv) 
+                outputs)
+             || List.mem sv inputs
+           then 
              accum 
            else 
              SVS.add sv accum)
@@ -686,9 +693,11 @@ let rec trans_sys_of_nodes'
       SVS.filter 
         (fun sv -> 
            not
-             (List.mem sv inputs || 
-              List.mem sv outputs || 
-              List.mem sv oracles))
+             (List.mem sv inputs
+              || (List.exists 
+                    (fun (sv', _) -> StateVar.equal_state_vars sv' sv)
+                    outputs)
+              || List.mem sv oracles))
         (N.stateful_vars_of_node node)
     in
 
@@ -710,7 +719,7 @@ let rec trans_sys_of_nodes'
       List.fold_left 
         add_to_svs 
         locals_set
-        [inputs; outputs]
+        [inputs; List.map fst outputs]
     in
 
     (* Constraints from assertions
@@ -792,7 +801,7 @@ let rec trans_sys_of_nodes'
     (* Types of output variables *)
     let output_types =
       List.map
-        StateVar.type_of_state_var
+        (fun (sv, _) -> StateVar.type_of_state_var sv)
         node_outputs
     in
 
@@ -806,7 +815,7 @@ let rec trans_sys_of_nodes'
     (* Types of variables in the signature *)
     let signature_types = 
       (List.map StateVar.type_of_state_var inputs) @ 
-      (List.map StateVar.type_of_state_var outputs) @ 
+      (List.map (fun (sv, _) -> StateVar.type_of_state_var sv) outputs) @ 
       (List.map StateVar.type_of_state_var locals) 
     in
 
@@ -838,7 +847,9 @@ let rec trans_sys_of_nodes'
          (List.map (E.base_var_of_state_var base_offset) oracles) @
          
          (* Output variables *)
-         (List.map (E.base_var_of_state_var base_offset) outputs) @
+         (List.map 
+            (fun (sv, _) -> (E.base_var_of_state_var base_offset sv)) 
+            outputs) @
          
          (* Local variables *)
          (List.map (E.base_var_of_state_var base_offset) locals)),
@@ -874,7 +885,10 @@ let rec trans_sys_of_nodes'
          (List.map (E.cur_var_of_state_var cur_offset) oracles) @
          
          (* Output variables *)
-         (List.map (E.cur_var_of_state_var cur_offset) outputs) @
+         (List.map 
+            (fun (sv, _) -> 
+               (E.cur_var_of_state_var cur_offset sv))
+            outputs) @
 
          (* Local variables *)
          (List.map (E.cur_var_of_state_var cur_offset) locals) @ 
@@ -886,7 +900,10 @@ let rec trans_sys_of_nodes'
          (List.map (E.pre_var_of_state_var cur_offset) oracles) @
          
          (* Output variables *)
-         (List.map (E.pre_var_of_state_var cur_offset) outputs) @
+         (List.map
+            (fun (sv, _) -> 
+               (E.pre_var_of_state_var cur_offset sv))
+            outputs) @
 
          (* Local variables *)
          (List.map (E.pre_var_of_state_var cur_offset) locals)),
@@ -897,7 +914,7 @@ let rec trans_sys_of_nodes'
 
     let node_def = 
       { inputs = inputs @ oracles;
-        outputs = outputs;
+        outputs = List.map fst outputs;
         locals = locals;
         init_uf_symbol = init_uf_symbol;
         init_term = Term.mk_and init_defs_calls;
