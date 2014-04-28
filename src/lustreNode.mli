@@ -22,14 +22,16 @@
     mainly by introducing new variables. A LustreExpr.t does not
     contain node calls, temporal operators or expressions under a pre
     operator. Node equations become a map of identifiers to expressions
-    in node_eqs, all node calls are in node_calls as a list of tuples
+    in [node_eqs], all node calls are in [node_calls] as a list of tuples
     containing fresh variables the node output is assigned to and the
     expressions for the node input.
 
     The node signature as input and output variables as well as its
     local variables is in [node_inputs], [node_outputs] and
     [node_vars], respectively. Local constants are propagated and do
-    not need to be stored.
+    not need to be stored. The inputs of a node can be extended by
+    constant state variables in [node_oracles] for the initial value
+    of unguarded pre operations.
 
     Assertions, properties to prove and contracts as assumptions and
     guarantees are lists of expressions in [node_asserts], [node_props],
@@ -113,13 +115,17 @@ val pp_print_node : bool -> Format.formatter -> t -> unit
 (** Return the node of the given name from a list of nodes *)
 val node_of_name : LustreIdent.t -> t list -> t 
 
+(*
 val node_var_dependencies : bool -> t list -> t -> (StateVar.t * StateVar.StateVarSet.t) list -> (StateVar.t * StateVar.t list) list -> (StateVar.t * StateVar.StateVarSet.t) list
 
 val output_input_dep_of_var_dep : t -> (StateVar.t * StateVar.StateVarSet.t) list -> int list list
+*)
 
+(* Order the equations of the node such that an equation defining a
+   variable always occurs before all equations using the variable *)
 val equations_order_by_dep : t list -> t -> t
 
-(** If node contains an equation [x = y] and [y] captures the output
+(** If node contains an equation [x = y], and [y] captures the output
     of a node, substitute [x] in the node call and the equation and the
     definition of [x] if it is local. *)
 val solve_eqs_node_calls : t -> t
