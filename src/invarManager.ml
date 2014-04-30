@@ -127,7 +127,7 @@ let handle_event trans_sys = function
     (
 
       (* Remove disproved property from list *)
-      let props_invalid, props' =
+      let props_invalid, _ =
         List.partition
           (function (n, _) -> p = n)
           trans_sys.TransSys.props
@@ -138,7 +138,7 @@ let handle_event trans_sys = function
 
       List.iter (TransSys.add_invalid_prop trans_sys) props_invalid;
 
-      if props' = [] then 
+      if TransSys.all_props_proved trans_sys then 
 
         ( 
 
