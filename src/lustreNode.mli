@@ -115,13 +115,7 @@ val pp_print_node : bool -> Format.formatter -> t -> unit
 (** Return the node of the given name from a list of nodes *)
 val node_of_name : LustreIdent.t -> t list -> t 
 
-(*
-val node_var_dependencies : bool -> t list -> t -> (StateVar.t * StateVar.StateVarSet.t) list -> (StateVar.t * StateVar.t list) list -> (StateVar.t * StateVar.StateVarSet.t) list
-
-val output_input_dep_of_var_dep : t -> (StateVar.t * StateVar.StateVarSet.t) list -> int list list
-*)
-
-(* Order the equations of the node such that an equation defining a
+(** Order the equations of the node such that an equation defining a
    variable always occurs before all equations using the variable *)
 val equations_order_by_dep : t list -> t -> t
 

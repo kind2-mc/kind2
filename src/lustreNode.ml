@@ -615,8 +615,15 @@ let equations_order_by_dep nodes node =
       vars_ordered
   in
     
+  (* Compute dependencies of output variables on inputs *)
+  let output_input_dep = 
+    output_input_dep_of_var_dep node var_dep 
+  in
+
   (* Return node with equations in dependency order *)
-  { node with equations = equations_ordered }
+  { node with 
+      equations = equations_ordered;
+      output_input_dep = output_input_dep }
 
 
 
@@ -873,7 +880,7 @@ exception Push_node of I.t
    containing the set of state variables in the cone of influence, the
    set of state variables alread seen
 *)
-let rec reduce_to_coi' nodes accum = function 
+let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t) list -> t list = function 
 
   | [] -> 
 
@@ -908,7 +915,11 @@ let rec reduce_to_coi' nodes accum = function
           oracles = oracles;
 
           (* Keep only local variables with definitions *)
-          locals = List.filter (fun sv -> List.mem sv sv_visited) locals;
+          locals = 
+            List.filter
+              (fun (sv, _) -> 
+                 List.exists (StateVar.equal_state_vars sv) sv_visited) 
+              locals;
 
           (* Keep assertions, properties and main annotations *)
           asserts = asserts;
@@ -1068,6 +1079,8 @@ let rec reduce_to_coi' nodes accum = function
           [], 
           push_node,
           (empty_node push_name)) :: nl)
+
+
         
 
 (* Reduce set of nodes to cone of influence of property of given main

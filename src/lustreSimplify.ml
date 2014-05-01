@@ -1702,7 +1702,7 @@ and node_inputs_of_exprs node_inputs abstractions pos expr_list =
     (* Check types and index, keep lists sorted *)
     List.fold_right2
       (fun 
-        in_var
+        (in_var, index)
         (_, ({ E.expr_type } as expr)) 
         (accum, ({ new_vars; mk_new_state_var } as abstractions)) ->
 
@@ -2458,13 +2458,14 @@ let add_node_input_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_inputs' = 
-    E.mk_state_var_of_ident
-      true
-      is_const
-      scope
-      (I.push_back_index index ident) 
-      basic_type :: 
-    node_inputs
+    (E.mk_state_var_of_ident
+       true
+       is_const
+       scope
+       (I.push_back_index index ident) 
+       basic_type,
+     index) 
+    :: node_inputs
   in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
@@ -2547,18 +2548,23 @@ let add_node_var_decl
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   let node_locals' = 
-    E.mk_state_var_of_ident
-      false
-      false
-      scope
-      (I.push_back_index index ident) 
-      basic_type :: 
-    node.N.locals
+    (E.mk_state_var_of_ident
+       false
+       false
+       scope
+       (I.push_back_index index ident) 
+       basic_type,
+     index)
+    :: node.N.locals
   in
 
   Format.printf
     "@[<hv>node_locals':@ @[<hv>%a@]@]@."
-    (pp_print_list StateVar.pp_print_state_var ",@ ") node_locals';
+    (pp_print_list 
+       (fun ppf (sv, _) -> 
+          StateVar.pp_print_state_var ppf sv)
+       ",@ ")
+    node_locals';
 
   (* Must return node in accumulator *)
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
@@ -2899,10 +2905,14 @@ and equation_to_node
   (context',
    { node' with N.equations = (state_var, expr') :: node.N.equations;
                N.locals = 
-                 if List.mem state_var node.N.locals then 
+                 if 
+                   List.exists
+                     (fun (sv, _) -> StateVar.equal_state_vars sv state_var) 
+                     node.N.locals 
+                 then 
                    node.N.locals 
                  else 
-                   state_var :: node.N.locals }, 
+                   (state_var, I.empty_index) :: node.N.locals }, 
    abstractions')
 
 
@@ -3113,7 +3123,9 @@ let rec parse_node_equations
 
       Format.printf
         "@[<hv>locals:@ @[<hv>%a@]@]@."
-        (pp_print_list StateVar.pp_print_state_var ",@ ") 
+        (pp_print_list 
+           (fun ppf (sv, _) -> StateVar.pp_print_state_var ppf sv)
+           ",@ ") 
         node.N.locals;
 
       (* State variables and types of their assigned expressions *)
@@ -3147,7 +3159,7 @@ let rec parse_node_equations
                     (* Find identifier of left-hand side in local variables *)
                     let accum'' = 
                       List.fold_left
-                        (fun a v -> 
+                        (fun a (v, _) -> 
                            try 
                              (ignore 
                                 (I.get_suffix
@@ -3413,8 +3425,12 @@ let parse_node_signature
       equations
   in
 
-  let node_context_equations = N.solve_eqs_node_calls node_context_equations in
+  (* Simplify by substituting variables that are aliases *)
+  let node_context_equations = 
+    N.solve_eqs_node_calls node_context_equations 
+  in
 
+(*
   let var_dep = 
     N.node_var_dependencies 
       false 
@@ -3460,6 +3476,11 @@ let parse_node_signature
   in
 
   node_context_dep_order
+
+  *)
+
+  (* Order equations by dependency *)
+  N.equations_order_by_dep global_context.nodes node_context_equations
 
 (* ******************************************************************** *)
 (* Main                                                                 *)
