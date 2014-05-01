@@ -55,23 +55,21 @@ let pp_print_stat ppf =
 
 (* Clean up before exit *)
 let on_exit () =
-    
   (* Stop all timers *)
   Stat.bmc_stop_timers ();
   Stat.smt_stop_timers ();
-
   (* Output statistics *)
   Event.stat 
     `BMC 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.bmc_stats_title, Stat.bmc_stats;
      Stat.smt_stats_title, Stat.smt_stats];
-
+ 
   (* Delete solver instance if created *)
   (try 
      match !ref_solver with 
        | Some solver -> 
-         S.delete_solver solver; 
+         S.delete_solver solver;  
          ref_solver := None
        | None -> ()
    with 
@@ -206,10 +204,11 @@ let rec bmc solver ts k properties invariants =
   Stat.set (Numeral.to_int k) Stat.bmc_k;
 
   Stat.update_time Stat.bmc_total_time;
+
         
   (* Side effect: Terminate when ControlMessage TERM is received.*)
   let messages = Event.recv () in
-  
+
   let (properties',invariants') =
     
     List.fold_left
@@ -218,7 +217,7 @@ let rec bmc solver ts k properties invariants =
 
            (* Add invariant to a temparary list when it's received. *)
            | (Event.Invariant (_, inv)) ->
-             
+
              S.assert_term 
                solver 
                (Term.mk_and (mk_invariants_upto_k_1 inv k []));
@@ -227,34 +226,37 @@ let rec bmc solver ts k properties invariants =
 
            (* Add proved properties to transys props_valid *)
            | (Event.Proved (_, _, p)) ->
-             
              (debug bmc
                  "Proved property: %s" p
               in
               
               let (name, prop) =
-                List.find (fun x -> fst x = p) properties 
+                try List.find (fun x -> fst x = p) ts.TransSys.props with
+                | Not_found -> debug bmc "bmc Not found exception in line 238" in
+                raise Not_found
               in                                       
-              
+
               TransSys.add_valid_prop ts (name, prop);
 
               S.assert_term
                 solver
                 (Term.mk_and (mk_invariants_upto_k_1 prop k [])));
-             
+
              ((List.filter (fun x -> fst x <> p) properties), invariants)
              
            (* Add disproved properties to transys props_invalid*)
            | (Event.Disproved (_, _, p)) ->                
-             
+
              (debug bmc
                  "Disproved: property: %s" p
               in
-              
+
               TransSys.add_invalid_prop 
                 ts
-                (List.find (fun x -> fst x = p) properties);
-              
+                (try List.find (fun x -> fst x = p) ts.TransSys.props with
+                | Not_found -> debug bmc "Not found exception in line 258 bmc." in
+                raise Not_found);
+
               ((List.filter (fun x -> fst x <> p) properties), invariants))
              
            (* Irrelevant message received. *)
@@ -285,12 +287,11 @@ let rec bmc solver ts k properties invariants =
 
     (
 
-      (* Filter out the properties which doesn't hold for the kth step. *)
+      (* Filter out the properties which doesn't hold at the kth step. *)
       (* And continue to check the rest of properties for current k*)
       match filter_invalid_properties solver ts k properties with 
       
         | [] -> 
-
           (debug bmc
               "No more properties need to check!"
            in
@@ -298,7 +299,6 @@ let rec bmc solver ts k properties invariants =
            ())
           
         | properties'' ->
-          
           (S.pop solver;
            
            bmc solver ts k properties'' invariants')
