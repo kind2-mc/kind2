@@ -53,10 +53,10 @@ type t = private
 
     (* Properties proved to be invalid *)
     mutable props_invalid : (string * Term.t) list;
-    
   }
 
 
+    
 (** Create a transition system
 
     For each state variable of a bounded integer type, add a
@@ -102,6 +102,8 @@ val add_valid_prop : t -> (string * Term.t) -> unit
 (** Add an invalid property to the transition system *)
 val add_invalid_prop : t -> (string * Term.t) -> unit
 
+(** Return true if all properties are either valid or invalid *)
+val all_props_proved : t -> bool
 
 (** Apply [f] to all uninterpreted function symbols of the transition
     system *)

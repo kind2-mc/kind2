@@ -240,6 +240,15 @@ let add_valid_prop t prop = t.props_valid <- prop :: t.props_valid
 (* Add an invalid property to the transition system *)
 let add_invalid_prop t prop = t.props_invalid <- prop :: t.props_invalid
 
+(* Return true if all properties are either valid or invalid *)
+let all_props_proved trans_sys =
+
+  List.for_all
+    (fun p -> 
+      List.mem p trans_sys.props_valid 
+      || List.mem p trans_sys.props_invalid) 
+    trans_sys.props 
+      
 
 (* Return declarations for uninterpreted symbols *)
 let uf_symbols_of_trans_sys { state_vars } = 
