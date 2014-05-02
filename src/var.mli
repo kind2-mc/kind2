@@ -53,7 +53,15 @@ module VarMap : Map.S with type key = t
 
 (** {1 Constructor} *)
 
-(** Return an instance of a state variables *)
+(** Return a constant state variable 
+
+    The state variable must be constant. *)
+val mk_const_state_var : StateVar.t -> t
+
+(** Return an instance of a state variable 
+
+    The state variable may also be constant, in which case a variable
+    created by [mk_const_state_var] is returned. *)
 val mk_state_var_instance : StateVar.t -> Numeral.t -> t
 
 (** Return a temporary variable *)
@@ -81,6 +89,9 @@ val hstring_of_temp_var : t -> HString.t
 
 (** Return true if the variable is an instance of a state variable *)
 val is_state_var_instance : t -> bool
+
+(** Return true if the variable is an instance of a state variable *)
+val is_const_state_var : t -> bool
 
 (** Return true if the variable is a temporary variable *)
 val is_temp_var : t -> bool

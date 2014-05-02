@@ -624,22 +624,22 @@ let smtexpr_of_var v =
 
   (* Get the state variable contained in the variable *) 
   let sv = Var.state_var_of_state_var_instance v in
-  
-  (* Get the offset of the state variable instance *)
-  let o = Var.offset_of_state_var_instance v in
 
   (* Get the uninterpreted function symbol associated with the state
-     variable *)
+       variable *)
   let u = StateVar.uf_symbol_of_state_var sv in 
-
-  (* State variable is constant? *)
-  if StateVar.is_const sv then 
-
+    
+  (* Variable is constant? *)
+  if Var.is_const_state_var v then 
+    
     (* Convert a state variable instance to a uninterpreted constant *) 
     Term.mk_uf u [] 
 
   else
-      
+
+    (* Get the offset of the state variable instance *)
+    let o = Var.offset_of_state_var_instance v in
+    
     (* Convert a state variable instance to a uninterpreted function *) 
     Term.mk_uf u [Term.mk_num o] 
 
@@ -700,7 +700,36 @@ let rec var_of_smtexpr e =
         )
 
       (* Uninterpreted function symbol with invalid arity *)
-      | Term.T.Const s
+      | Term.T.Const s -> 
+
+        let sv = 
+          
+          try 
+            
+            (* Get state variable associated with function symbol *)
+            StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol s)
+              
+          with Not_found -> 
+            
+            invalid_arg 
+              (Format.asprintf 
+                 "var_of_smtexpr: %a\
+                  No state variable found for uninterpreted function symbol"
+                 Term.pp_print_term e)
+        in
+        
+        if StateVar.is_const sv then 
+
+          (* Create state variable instance *)
+          Var.mk_const_state_var sv
+
+        else
+          
+        invalid_arg 
+          "var_of_smtexpr: \
+           Invalid arity of uninterpreted function"
+
+
       | Term.T.App (s, _) when Symbol.is_uf s -> 
 
         invalid_arg 

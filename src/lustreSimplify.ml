@@ -1457,11 +1457,11 @@ let rec eval_ast_expr'
           (fun accum sv (node_sv, index) -> 
              
              let out_ident = fst (E.ident_of_state_var node_sv) in
-             
+(*             
              Format.printf "output %a: ident is %a@."
                StateVar.pp_print_state_var sv
                (I.pp_print_ident false) out_ident;
-
+*)
              let sv_index = 
                I.index_of_one_index_list (snd (I.split_ident out_ident))
              in
@@ -1596,7 +1596,7 @@ and eval_ast_expr
       [] 
       [(I.empty_index, expr)]
   in
-
+(*
   Format.printf 
     "@[<hv>%a@]@."
     (pp_print_list 
@@ -1608,7 +1608,7 @@ and eval_ast_expr
             (E.pp_print_lustre_expr false) e)
        ",@ ")
     (List.rev expr');
-
+*)
   (* Assertion to ensure list is sorted by indexes *)
   (match List.rev expr' with 
     | (h, _) :: tl -> 
@@ -2526,12 +2526,12 @@ let add_node_var_decl
      ({ N.name = node_ident} as node))
     index 
     basic_type =
-
+(*
   Format.printf "add_node_var_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (E.pp_print_lustre_type false) basic_type;
-
+*)
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
@@ -2557,7 +2557,7 @@ let add_node_var_decl
      index)
     :: node.N.locals
   in
-
+(*
   Format.printf
     "@[<hv>node_locals':@ @[<hv>%a@]@]@."
     (pp_print_list 
@@ -2565,7 +2565,7 @@ let add_node_var_decl
           StateVar.pp_print_state_var ppf sv)
        ",@ ")
     node_locals';
-
+*)
   (* Must return node in accumulator *)
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.locals = node_locals'})
@@ -3120,14 +3120,14 @@ let rec parse_node_equations
              (A.ExprList (pos, [ast_expr])))
 
       in
-
+(*
       Format.printf
         "@[<hv>locals:@ @[<hv>%a@]@]@."
         (pp_print_list 
            (fun ppf (sv, _) -> StateVar.pp_print_state_var ppf sv)
            ",@ ") 
         node.N.locals;
-
+*)
       (* State variables and types of their assigned expressions *)
       let eq_types = 
         List.rev
@@ -3165,9 +3165,9 @@ let rec parse_node_equations
                                 (I.get_suffix
                                    ident
                                    (fst (E.ident_of_state_var v)));
-                              Format.printf
+                              (* Format.printf
                                 "found in locals %a@." 
-                                StateVar.pp_print_state_var v;
+                                StateVar.pp_print_state_var v; *)
                               v) :: a
                            with Not_found ->
                              a)
@@ -3201,7 +3201,7 @@ let rec parse_node_equations
              []
              struct_items)
       in
-
+(*
       Format.printf
         "@[<v>@[<hv>eq_types:@ %a@]@,@[<hv>expr':@ %a@]@." 
         (pp_print_list StateVar.pp_print_state_var "@ ") eq_types
@@ -3213,7 +3213,7 @@ let rec parse_node_equations
                 (E.pp_print_lustre_expr false) e)
            "@ ")
         expr';
-                
+  *)              
 
       (* Add all equations to node *)
       let context', node', abstractions' = 

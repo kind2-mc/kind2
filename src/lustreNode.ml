@@ -583,7 +583,7 @@ let rec order_by_dep accum = function
                  tl) 
               :: a)
            d
-            ((h,d) :: tl))
+           ((h,d) :: tl))
     
 
 (* Return node with equations in dependency order *)

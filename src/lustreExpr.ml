@@ -189,7 +189,7 @@ let rec pp_print_var safe depth ppf var =
 (* Pretty-print a term *)
 and pp_print_term_node safe ppf t = match Term.T.destruct t with
     
-  | Term.T.Var var -> 
+  | Term.T.Var var when Var.is_state_var_instance var  -> 
 
     pp_print_var 
       safe
@@ -197,6 +197,16 @@ and pp_print_term_node safe ppf t = match Term.T.destruct t with
       ppf 
       var
       
+  | Term.T.Var var when Var.is_const_state_var var -> 
+
+    pp_print_var 
+      safe
+      0
+      ppf 
+      var
+      
+  | Term.T.Var var -> invalid_arg "pp_print_term"
+
   | Term.T.Const s -> 
     
     pp_print_symbol ppf (Symbol.node_of_symbol s)
