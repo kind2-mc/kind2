@@ -822,7 +822,7 @@ let extract uf_defs env term =
       [(term, env, true)] 
   in
 
-  (Term.mk_and literals_bool, Term.mk_and literals_int)
+  (literals_bool, literals_int)
 
 (*
 
