@@ -1883,7 +1883,7 @@ let split_expr_list list =
 let oracles_for_unguarded_pres 
     mk_new_oracle_state_var
     oracles
-    ({ expr_init; expr_type } as expr) = 
+    ({ expr_init } as expr) = 
 
   (* Get variables in initial state term *)
   let init_vars = Term.vars_of_term expr_init in
@@ -1906,7 +1906,7 @@ let oracles_for_unguarded_pres
         (fun var (accum, oracles) -> 
            
            (* Identifier for a fresh variable *)
-           let state_var = mk_new_oracle_state_var expr_type in
+           let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
            
            (* Variable at base instant *)
            let oracle_var = 
