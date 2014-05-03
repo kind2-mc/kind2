@@ -23,27 +23,29 @@
 
 *)
 
-val pp_print_list : (Format.formatter -> 'a -> unit) ->
-  ('b, Format.formatter, unit) format -> Format.formatter -> 'a list -> unit
+(** A position in the input *)
+type position
 
-type position = { pos_fname : string; pos_lnum : int; pos_cnum : int; }
-
-val position_of_lexing : Lexing.position -> position
-
-val pp_print_position : Format.formatter -> position -> unit
-
+(** Dummy position different from any valid position *)
 val dummy_pos : position
 
-val dummy_pos_in_file : string -> position
-
-val position_of_lexing : Lexing.position -> position
-
+(** Return [true] if the position is not a valid position in the
+    input *)
 val is_dummy_pos : position -> bool
 
+(** Pretty-print a position *)
+val pp_print_position : Format.formatter -> position -> unit
+
+(** Convert a position of the lexer to a position *)
+val position_of_lexing : Lexing.position -> position
+ 
+(** An identifier *)
 type ident = LustreIdent.t
 
+(** An index *)
 type index = LustreIdent.index
 
+(** An expression *)
 type expr =
     Ident of position * ident
   | RecordProject of position * ident * index
@@ -90,6 +92,7 @@ type expr =
   | Call of position * ident * expr list
   | CallParam of position * ident * lustre_type list * expr list
 
+(** A type *)
 and lustre_type =
     Bool of position
   | Int of position
@@ -101,32 +104,40 @@ and lustre_type =
   | ArrayType of position * (lustre_type * expr)
   | EnumType of position * ident list
 
+(** An identifier with a type *)
 and typed_ident = ident * lustre_type
 
+(** A declaration of an alias or free type *)
 type type_decl = 
   | AliasType of position * ident * lustre_type 
   | FreeType of position * ident
 
+(** A clock expression *)
 type clock_expr = ClockPos of ident | ClockNeg of ident | ClockTrue
 
+(** An identifier with a type and a clock as used for the type of variables *)
 type clocked_typed_decl = position * ident * lustre_type * clock_expr
 
+(** An identifier, possibly flagged as constant, with a type and a
+    clock as used for the type of variables *)
 type const_clocked_typed_decl = position * ident * lustre_type * clock_expr * bool
 
+(** A constant declaration *)
 type const_decl =
     FreeConst of position * ident * lustre_type
   | UntypedConst of position * ident * expr
   | TypedConst of position * ident * expr * lustre_type
 
-type var_decl = position * ident * lustre_type * clock_expr
-
+(** A type parameter of a node *)
 type node_param =
   | TypeParam of ident
 
+(** A local constant or variable declaration of a node *)
 type node_local_decl = 
   | NodeConstDecl of position * const_decl 
-  | NodeVarDecl of position * var_decl
+  | NodeVarDecl of position * clocked_typed_decl
 
+(** The left-hand side of an equation *)
 type struct_item =
   | SingleIdent of position * ident
   | TupleStructItem of position * struct_item list
@@ -134,28 +145,52 @@ type struct_item =
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
 
+(** An Equation, assertion or annotation in the body of a node *)
 type node_equation =
   | Assert of position * expr
   | Equation of position * struct_item list * expr
   | AnnotMain 
   | AnnotProperty of position * expr
 
+(** A clause of an assume guarantee contract *)
 type contract_clause = 
   | Requires of position * expr 
   | Ensures of position * expr
 
+(** The contract of a node as a list of clauses *)
 type contract = contract_clause list
 
+(** Declaration of a node as a tuple of 
+
+    - its identifier, 
+    - its type parameters, 
+    - the list of its inputs,
+    - the list of its outputs,
+    - the list of its local constant and variable declarations,
+    - its equations, assertions and annotiations, and
+    - its contract. 
+*)
 type node_decl =
   ident * node_param list * const_clocked_typed_decl list * 
   clocked_typed_decl list * node_local_decl list * node_equation list * 
   contract
 
+(** Declaration of a function as a tuple of 
+
+    - its identifier,
+    - the list of its inputs, and 
+    - the list of its outputs 
+*)
 type func_decl =
     ident * (ident * lustre_type) list * (ident * lustre_type) list
 
+(** An instance of a parametric node as a tuple of the identifier for
+    the instance, the identifier of the parametric node and the list of
+    type parameters *)
 type node_param_inst = ident * ident * lustre_type list
 
+(** A declaration of a type, a constant, a node, a function or an
+    instance of a parametric node *)
 type declaration =
   | TypeDecl of position * type_decl
   | ConstDecl of position * const_decl
@@ -163,8 +198,10 @@ type declaration =
   | FuncDecl of position * func_decl
   | NodeParamInst of position * node_param_inst
 
+(** A Lustre program as a list of declarations *) 
 type t = declaration list
 
+(** Pretty-printers *)
 val pp_print_expr : Format.formatter -> expr -> unit
 val pp_print_array_slice : Format.formatter -> expr * expr -> unit
 val pp_print_field_assign : Format.formatter -> ident * expr -> unit

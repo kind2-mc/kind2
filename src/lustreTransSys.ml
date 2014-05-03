@@ -60,7 +60,7 @@ let state_var_of_top_scope ?is_input ?is_const ?is_clock state_var =
 
   StateVar.mk_state_var
     ?is_input
-    ?is_const
+    ?is_const:(Some (StateVar.is_const state_var))
     ?is_clock
     (StateVar.name_of_state_var state_var) 
     ("__top" :: (StateVar.scope_of_state_var state_var))
@@ -642,20 +642,22 @@ let rec trans_sys_of_nodes'
     in
 
     (* Input variables *)
-    let inputs = node_inputs in
+    let inputs = List.map fst node_inputs in
 
     (* Oracle input variables *)
     let oracles = node_oracles in
 
     (* Output variables *)
-    let outputs = node_outputs in
+    let outputs = List.map fst node_outputs in
 
     (* Variables in properties *)
     let props_locals_set = 
         List.fold_left 
           (fun accum state_var -> 
              if 
-               List.mem state_var outputs 
+               List.exists 
+                 (StateVar.equal_state_vars state_var)
+                 outputs 
              then 
                accum 
              else 
@@ -673,7 +675,14 @@ let rec trans_sys_of_nodes'
     let call_locals_set = 
       List.fold_left 
         (fun accum sv  -> 
-           if List.mem sv outputs || List.mem sv inputs then 
+           if 
+             (List.exists
+                (StateVar.equal_state_vars sv) 
+                outputs)
+             || (List.exists 
+                   (StateVar.equal_state_vars sv) 
+                   inputs)
+           then 
              accum 
            else 
              SVS.add sv accum)
@@ -686,9 +695,13 @@ let rec trans_sys_of_nodes'
       SVS.filter 
         (fun sv -> 
            not
-             (List.mem sv inputs || 
-              List.mem sv outputs || 
-              List.mem sv oracles))
+             ((List.exists 
+                 (StateVar.equal_state_vars sv)
+                 inputs)
+              || (List.exists 
+                    (StateVar.equal_state_vars sv)
+                    outputs)
+              || List.mem sv oracles))
         (N.stateful_vars_of_node node)
     in
 
@@ -785,14 +798,14 @@ let rec trans_sys_of_nodes'
     (* Types of input variables *)
     let input_types = 
       List.map
-        StateVar.type_of_state_var
+        (fun (sv, _) -> StateVar.type_of_state_var sv)
         node_inputs
     in
 
     (* Types of output variables *)
     let output_types =
       List.map
-        StateVar.type_of_state_var
+        (fun (sv, _) -> StateVar.type_of_state_var sv)
         node_outputs
     in
 
@@ -838,7 +851,9 @@ let rec trans_sys_of_nodes'
          (List.map (E.base_var_of_state_var base_offset) oracles) @
          
          (* Output variables *)
-         (List.map (E.base_var_of_state_var base_offset) outputs) @
+         (List.map 
+            (E.base_var_of_state_var base_offset) 
+            outputs) @
          
          (* Local variables *)
          (List.map (E.base_var_of_state_var base_offset) locals)),
@@ -874,7 +889,9 @@ let rec trans_sys_of_nodes'
          (List.map (E.cur_var_of_state_var cur_offset) oracles) @
          
          (* Output variables *)
-         (List.map (E.cur_var_of_state_var cur_offset) outputs) @
+         (List.map 
+            (E.cur_var_of_state_var cur_offset)
+            outputs) @
 
          (* Local variables *)
          (List.map (E.cur_var_of_state_var cur_offset) locals) @ 

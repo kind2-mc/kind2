@@ -20,7 +20,6 @@ open Lib
 
 (* Abbreviations *)
 module I = LustreIdent
-
 module SVS = StateVar.StateVarSet
 module VS = Var.VarSet
 
@@ -28,32 +27,27 @@ module VS = Var.VarSet
 exception Type_mismatch
 exception Clock_mismatch
 
-
 (* A Lustre expression is a term *)
 type expr = Term.t
 
+(* A Lustre expression is a type *)
+type lustre_type = Type.t
 
 (* Map from state variables to indexed identifiers *)
-let state_var_ident_map  = StateVar.StateVarHashtbl.create 7
+let state_var_ident_map : (I.t * I.index) StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 7
 
 
 (* Return the identifier of a state variable *)
 let ident_of_state_var state_var = 
 
-  try 
-    
-    (* Find original indexed identifier *)
-    StateVar.StateVarHashtbl.find state_var_ident_map state_var
-
-  (* No identifier found *)
-  with Not_found -> 
-    
-    (* Create new identifier of state variable *)
-    I.mk_string_ident (StateVar.string_of_state_var state_var)
+  (* Find original indexed identifier *)
+  StateVar.StateVarHashtbl.find state_var_ident_map state_var
       
 
+(* A Lustre clock 
 
-(* A Lustre clock *)
+   We don't do clocks, so this is just a unit value *)
 type clock = unit
 
 
@@ -89,7 +83,7 @@ let equal_expr
 (* Pretty-printing                                                        *)
 (* ********************************************************************** *)
 
-
+(* Pretty-print a type as a Lustre type *)
 let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
   | Type.Bool -> Format.pp_print_string ppf "bool"
@@ -106,6 +100,13 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
   | Type.Real -> Format.pp_print_string ppf "Real"
 
+  | Type.Scalar (s, l) -> 
+
+    Format.fprintf
+      ppf 
+      "enum { %a }" 
+      (pp_print_list Format.pp_print_string " ") l
+
   | Type.BV i -> 
 
     raise 
@@ -115,14 +116,6 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
     raise 
       (Invalid_argument "pp_print_lustre_type: Array is not a Lustre type")
-
-
-  | Type.Scalar (s, l) -> 
-
-    Format.fprintf
-      ppf 
-      "enum { %a }" 
-      (pp_print_list Format.pp_print_string " ") l
 
 
 (* String representation of a symbol in Lustre *)
@@ -148,6 +141,8 @@ let string_of_symbol = function
   | `LT -> "<"
   | `GEQ -> ">="
   | `GT -> ">"
+  | `TO_REAL -> "real"
+  | `TO_INT -> "int"
   | _ -> failwith "string_of_symbol"
 
 
@@ -158,18 +153,18 @@ let pp_print_symbol ppf s = Format.fprintf ppf "%s" (string_of_symbol s)
 (* Pretty-print a variable *)
 let pp_print_lustre_var safe ppf state_var = 
 
-    (* Indexed identifier for state variable *)
-    let ident = ident_of_state_var state_var in
+    (* Indexed identifier for state variable, ignore scope *)
+    let ident, _ = ident_of_state_var state_var in
     
     (* Pretty-print the Lustre identifier of the variable *)
     I.pp_print_ident safe ppf ident
 
 
 (* Pretty-print a variable under [depth] pre operators *)
-let rec pp_print_var safe depth ppf var = match depth with
+let rec pp_print_var safe depth ppf var =
 
   (* Variable without pre *)
-  | 0 -> 
+  if depth = 0 then
 
     (* Get state variable of variable *)
     let state_var = Var.state_var_of_state_var_instance var in
@@ -177,7 +172,7 @@ let rec pp_print_var safe depth ppf var = match depth with
     pp_print_lustre_var safe ppf state_var
 
   (* Variable with at least one pre *)
-  | _ -> 
+  else if depth > 0 then 
 
     (* Print one pre and recurse *)
     Format.fprintf ppf
@@ -185,11 +180,16 @@ let rec pp_print_var safe depth ppf var = match depth with
       (pp_print_var safe (pred depth)) 
       var
 
+  (* depth mst be positive *)
+  else
+
+    invalid_arg "pp_print_var"
+
 
 (* Pretty-print a term *)
 and pp_print_term_node safe ppf t = match Term.T.destruct t with
     
-  | Term.T.Var var -> 
+  | Term.T.Var var when Var.is_state_var_instance var  -> 
 
     pp_print_var 
       safe
@@ -197,6 +197,16 @@ and pp_print_term_node safe ppf t = match Term.T.destruct t with
       ppf 
       var
       
+  | Term.T.Var var when Var.is_const_state_var var -> 
+
+    pp_print_var 
+      safe
+      0
+      ppf 
+      var
+      
+  | Term.T.Var var -> invalid_arg "pp_print_term"
+
   | Term.T.Const s -> 
     
     pp_print_symbol ppf (Symbol.node_of_symbol s)
@@ -210,8 +220,8 @@ and pp_print_term_node safe ppf t = match Term.T.destruct t with
     pp_print_term_node safe ppf t
       
 
-(* Pretty-print second and following arguments of a left-associative
-   function application *)
+(* Pretty-print the second and following arguments of a
+   left-associative function application *)
 and pp_print_app_left' safe s ppf = function 
 
   | h :: tl -> 
@@ -328,6 +338,8 @@ and pp_print_app safe ppf = function
 
   (* Unary symbols *) 
   | `NOT
+  | `TO_REAL
+  | `TO_INT
   | `ABS as s -> 
 
     (function [a] -> 
@@ -337,7 +349,7 @@ and pp_print_app safe ppf = function
         (pp_print_term_node safe) a
 
       | _ -> assert false)
-      
+  
   (* Unary and left-associative binary symbols *)
   | `MINUS as s ->
       
@@ -436,8 +448,6 @@ and pp_print_app safe ppf = function
     | `BVULT
     | `SELECT
     | `STORE
-    | `TO_REAL
-    | `TO_INT
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       
@@ -488,7 +498,7 @@ let clock_check _ _ = true
 
 (* These offsets are different from the offsets in the transition system,
    because here we want to know if the initial and the step
-   expressions are equal without bumping offsets *)
+   expressions are equal without bumping offsets. *)
 
 (* Offset of state variable at first instant *)
 let pre_base_offset = Numeral.(- one)
@@ -562,6 +572,11 @@ let pre_term_of_expr zero_offset expr =
 (* Generic constructors                                                   *)
 (* ********************************************************************** *)
 
+(* These constructors take as arguments functions [eval] and [type_of]
+   whose arity matches the arity of the constructors, where [eval]
+   applies the operator and simplifies the expression, and [type_of]
+   returns the type of the resulting expression or fails with
+   {!Type_mismatch}. *)
 
 (* Construct a unary expression *)
 let mk_unary eval type_of expr = 
@@ -622,8 +637,38 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
 (* ********************************************************************** *)
   
 
-(* Create or return state variable of identifier *)
-let state_var_of_ident scope_index ident ident_type = 
+(* Create state variable of identifier *)
+let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
+  
+  (* Convert index to a scope *)
+  let scope = I.scope_of_index scope_index in
+
+  (* Convert identifier to a string *)
+  let ident_string = I.string_of_ident true ident in 
+
+  (* Create state variable *)
+  let state_var = 
+    StateVar.mk_state_var 
+      ~is_input:is_input
+      ~is_const:is_const
+      ~is_clock:false
+      ident_string
+      scope
+      state_var_type
+  in
+  
+  (* Add to hashtable *)
+  StateVar.StateVarHashtbl.add 
+    state_var_ident_map 
+    state_var
+    (ident, scope_index);
+
+  (* Return state variable *)
+  state_var 
+
+
+(* Return existing state variable of identifier *)
+let state_var_of_ident scope_index ident = 
 
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -631,18 +676,30 @@ let state_var_of_ident scope_index ident ident_type =
   (* Convert identifier to a string *)
   let ident_string = I.string_of_ident true ident in 
 
-  (* Create or return state variable of string *)
-  let state_var = 
-    StateVar.mk_state_var ident_string scope ident_type 
-  in 
+  try
 
-  (* Add to hashtable unless already present *)
-  (if not (StateVar.StateVarHashtbl.mem state_var_ident_map state_var) then 
-     StateVar.StateVarHashtbl.add state_var_ident_map state_var ident);
+    (* Return state variable of string *)
+    StateVar.state_var_of_string (ident_string, scope)
+      
+  with Not_found -> 
 
-  (* Return state variable *)
-  state_var 
+    Format.printf
+      "@[<v>State variable %a %a not found:"
+      (I.pp_print_index false) scope_index 
+      (I.pp_print_ident false) ident;
 
+    StateVar.StateVarHashtbl.iter
+      (fun sv (id, s) -> 
+         Format.printf
+           "%a = %a.%a@,"
+           StateVar.pp_print_state_var sv
+           (I.pp_print_index false) s
+           (I.pp_print_ident false) id)
+      state_var_ident_map;
+
+    Format.printf "@]@.";
+
+    raise Not_found
 
 (* Boolean constant true on base clock *)
 let t_true = 
@@ -689,7 +746,7 @@ let mk_real f =
 
 
 (* Current state variable of state variable *)
-let mk_var_of_state_var state_var expr_clock = 
+let mk_var state_var expr_clock = 
 
   { expr_init = base_term_of_state_var base_offset state_var;
     expr_step = cur_term_of_state_var cur_offset state_var;
@@ -697,32 +754,12 @@ let mk_var_of_state_var state_var expr_clock =
     expr_clock = expr_clock } 
 
 
-(* Current-state variable *)
-let mk_var scope ident expr_type expr_clock = 
-
-  (* State variable of identifier *)
-  let state_var = state_var_of_ident scope ident expr_type in
-
-  mk_var_of_state_var state_var expr_clock
-
-
-
-(* Previous-state variable *)
-let mk_var_pre scope ident expr_type expr_clock = 
-
-  (* State variable of identifier *)
-  let state_var = state_var_of_ident scope ident expr_type in
-
-  { expr_init = pre_base_term_of_state_var base_offset state_var;
-    expr_step = pre_term_of_state_var cur_offset state_var;
-    expr_type = expr_type;
-    expr_clock = expr_clock } 
-
-
 (* ********************************************************************** *)
 (* Type checking constructors                                             *)
 (* ********************************************************************** *)
 
+(* Generic type checking functions that fail with [Type_mismatch] or
+   return a resulting type if the expressions match the required types. *)
 
 (* Type check for bool -> bool *)
 let type_of_bool_bool = function 
@@ -780,41 +817,39 @@ let type_of_num_num_num = function
 let type_of_a_a_a type1 type2 = 
 
   (* If first type is subtype of second, choose second type *)
-  if Type.check_type type1 type2 then type2 else 
+  if Type.check_type type1 type2 then type2 
 
-    (* If second type is subtype of first, choose first type *)
-  if Type.check_type type2 type1 then type1 else 
+  (* If second type is subtype of first, choose first type *)
+  else if Type.check_type type2 type1 then type1 
 
-    (* Extend integer ranges if one is not a subtype of the other *)
-    (match type1, type2 with 
-      | s, t 
-        when (Type.is_int_range s && Type.is_int_range t) ||
-             (Type.is_int_range s && Type.is_int t) ||
-             (Type.is_int s && Type.is_int_range t) -> Type.t_int
+  (* Extend integer ranges if one is not a subtype of the other *)
+  else if Type.is_int_range type1 && Type.is_int_range type2 then Type.t_int 
 
-      (* Fail if types are incompatible *)
-      | _ -> raise Type_mismatch)
+  (* Fail if types are incompatible *)
+  else raise Type_mismatch
 
 
 (* Type check for 'a -> 'a -> bool *)
 let type_of_a_a_bool type1 type2 = 
 
-  (* One type must be subtype of the other *)
-  if Type.check_type type1 type2 || Type.check_type type2 type1 then 
+  if 
 
-    Type.t_bool 
-
-  else 
+    (* One type must be subtype of the other *)
+    Type.check_type type1 type2
+    || Type.check_type type2 type1
 
     (* Extend integer ranges if one is not a subtype of the other *)
-    (match type1, type2 with 
-      | s, t 
-        when (Type.is_int_range s && Type.is_int_range t) ||
-             (Type.is_int_range s && Type.is_int t) ||
-             (Type.is_int s && Type.is_int_range t) -> Type.t_bool
+    || (Type.is_int_range type1 && Type.is_int_range type2) 
 
-      (* Fail if types are incompatible *)
-      | _ -> raise Type_mismatch)
+  then 
+
+    (* Resulting type is Boolean *)
+    Type.t_bool 
+
+  (* Fail if types are incompatible *)
+  else 
+
+    raise Type_mismatch
 
 
 (* Type check for int -> int -> bool, real -> real -> bool *)
@@ -1613,7 +1648,7 @@ let mk_arrow expr1 expr2 =
 
 (* Pre expression *)
 let mk_pre 
-    mk_new_var_ident 
+    mk_new_state_var
     new_vars
     ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
 
@@ -1641,11 +1676,8 @@ let mk_pre
        instant *)
     | _ -> 
       
-      (* Identifier for a fresh variable *)
-      let scope, new_var_ident = mk_new_var_ident () in
-
-      (* State variable of identifier *)
-      let state_var = state_var_of_ident scope new_var_ident expr_type in 
+      (* Fresh state variable for identifier *)
+      let state_var = mk_new_state_var expr_type in 
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var pre_base_offset in
@@ -1675,11 +1707,8 @@ let mk_pre
     (* Expression is not constant and no variable *)
     | _ -> 
       
-      (* Identifier for a fresh variable *)
-      let scope, new_var_ident = mk_new_var_ident () in
-
-      (* State variable of identifier *)
-      let state_var = state_var_of_ident scope new_var_ident expr_type in 
+      (* Fresh state variable for expression *)
+      let state_var = mk_new_state_var expr_type in
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
@@ -1818,66 +1847,41 @@ let stateful_vars_of_expr { expr_step } =
 (* Return all state variables *)
 let state_vars_of_expr { expr_init; expr_step } = 
 
-  let state_vars_of_term = function 
+  (* State variables in initial state expression *)
+  let state_vars_init = Term.state_vars_of_term expr_init in
 
-    | Term.T.Var v when 
-        Var.is_state_var_instance v -> 
+  (* State variables in step state expression *)
+  let state_vars_step = Term.state_vars_of_term expr_step in
 
-      (function 
-        | [] -> 
-          SVS.singleton 
-            (Var.state_var_of_state_var_instance v)
-        | _ -> assert false)
-
-    | Term.T.Var _
-    | Term.T.Const _ -> 
-
-      (function 
-        | [] -> SVS.empty
-        | _ -> assert false)
-
-    | Term.T.App _ -> 
-
-      (function l -> 
-        List.fold_left 
-          SVS.union 
-          SVS.empty 
-          l)
-
-    | Term.T.Attr _ ->
-      (function | [s] -> s | _ -> assert false)
-
-  in
-
-  let state_vars_init = Term.eval_t state_vars_of_term expr_init in
-
-  let state_vars_step = Term.eval_t state_vars_of_term expr_step in
-
+  (* Join sets of state variables *)
   SVS.union state_vars_init state_vars_step
 
+(* Split a list of Lustre expressions into a list of pairs of
+   expressions for the initial step and the transition steps,
+   respectively *)
+let split_expr_list list = 
 
-  (* Split a list of Lustre expressions into a list of pairs of
-      expressions for the initial step and the transition steps,
-      respectively *)
-  let split_expr_list list = 
-
-    List.fold_left
-      (fun (accum_init, accum_step) { expr_init; expr_step } -> 
-         ((if expr_init == Term.t_true then 
-             accum_init 
-           else
-             expr_init :: accum_init), 
-          (if expr_step == Term.t_true then 
-             accum_step
-           else
-             expr_step :: accum_step)))
-      ([], [])
-      list      
-
+  List.fold_left
+    (fun (accum_init, accum_step) { expr_init; expr_step } -> 
+       ((if expr_init == Term.t_true then 
+           accum_init 
+         else
+           expr_init :: accum_init), 
+        (if expr_step == Term.t_true then 
+           accum_step
+         else
+           expr_step :: accum_step)))
+    ([], [])
+    list      
 
 
+(* Guard unguarded pre expression with a fresh oracle constant
+
+   An unguarded pre is a previous state variable occuring in the
+   initial state expression, since the arrow operator has been lifted
+   to the top of the expression. *)
 let oracles_for_unguarded_pres 
-    mk_new_oracle_ident
+    mk_new_oracle_state_var
     oracles
     ({ expr_init } as expr) = 
 
@@ -1894,23 +1898,15 @@ let oracles_for_unguarded_pres
   in
   
   (* No unguarded pres in initial state term? *)
-  if VS.is_empty init_pre_vars then
+  if VS.is_empty init_pre_vars then (expr, oracles) else
     
-    (expr, oracles)
-
-  else
-
+    (* New oracle for each state variable *)
     let oracle_substs, oracles' =
       VS.fold
         (fun var (accum, oracles) -> 
            
            (* Identifier for a fresh variable *)
-           let scope, new_oracle_ident = mk_new_oracle_ident () in
-           
-           (* State variable of identifier *)
-           let state_var = 
-             state_var_of_ident scope new_oracle_ident (Var.type_of_var var) 
-           in 
+           let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
            
            (* Variable at base instant *)
            let oracle_var = 
@@ -1924,6 +1920,8 @@ let oracles_for_unguarded_pres
         ([], oracles)
     in
 
+    (* Return expression with all previous state variables in the init
+       expression substituted by fresh constants *)
     ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
      oracles')
 

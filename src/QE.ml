@@ -18,6 +18,8 @@
 
 open Lib
 
+module VS = Var.VarSet
+
 (* Use configured SMT solver *)
 module ConfiguredSolver = SMTSolver.Make (Config.SMTSolver)
 
@@ -293,7 +295,15 @@ let check_generalize model elim term term' =
 
 (* From a conjunction of Boolean state variables return a conjunction
    only containing the state variables not to be eliminated *)
-let qe_bool elim term = 
+let qe_bool elim terms = 
+
+  let elim_as_term = List.map Term.mk_var elim in
+
+  List.filter 
+    (function t -> not (List.memq (Term.unnegate t) elim_as_term))
+    terms
+
+(*
 
   (* Get node of hashconsed term and flatten *)
   let term_flat = Term.destruct term in
@@ -317,7 +327,6 @@ let qe_bool elim term =
       conjs
   in
 
-(*
   (* Only keep terms T or ~T where T = S evaluates to false for all
      terms S to be eliminated *)
   let conjs' = 
@@ -332,12 +341,9 @@ let qe_bool elim term =
           elim)
       conjs
   in
-*)
 
   (* Return conjunction *)
   conjs'
-
-(*
 
     (* Rebuild a conjunction *)
     Term.mk_and 
@@ -368,6 +374,136 @@ let qe_bool elim term =
     
 *)
 
+
+(* Split a list of terms into a list of equational definitions of
+   given variables and a list of the remaining terms *)
+let rec collect_eqs vars (eqs, terms) = function 
+
+  (* All elements processed *)
+  | [] -> (eqs, terms)
+
+  (* Head element of list *)
+  | term :: tl -> 
+
+    match Term.destruct term with
+
+      (* Term is an equation with a variable in [vars] on either side *)
+      | Term.T.App (s, [v; e]) 
+      | Term.T.App (s, [e; v]) when
+          (Symbol.equal_symbols s Symbol.s_eq)
+          && (Term.is_free_var v)
+          && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
+       
+        (try 
+
+          let _, e' = 
+            List.find
+              (fun (u, e') -> 
+                 Var.equal_vars (Term.free_var_of_term v) u)
+              eqs
+          in
+
+          (* Add term to first list *)
+          collect_eqs vars (eqs, ((Term.mk_eq [e; e']) :: terms)) tl
+
+        with Not_found ->
+
+          (* Add term to first list *)
+          collect_eqs vars ((Term.free_var_of_term v, e) :: eqs, terms) tl)
+
+      | _ -> 
+
+        (* Add term to second list *)
+        collect_eqs vars (eqs, term :: terms) tl
+
+
+(* 
+
+   Only the first definition of a variable is considered, any
+   following definition is silently assumed to be equivalent and
+   dropped. *)
+let rec order_defs accum = function 
+
+  | [] -> accum
+
+  | (v, e) :: tl -> 
+
+    if 
+
+      (* Definition is already in the accumulator? *)
+      List.exists (fun (u, _) -> Var.equal_vars u v) accum
+
+    then
+
+      (* Drop duplicate definition and continue *)
+      order_defs accum tl
+
+    else
+      
+      (* Get all variables of term whose definitions are on the stack
+         below *)
+      let dep =
+        VS.filter
+          (fun v -> 
+             List.exists (fun (u, _) -> Var.equal_vars v u) tl)
+          (Term.vars_of_term e)
+      in
+
+      (* No definitions is on the stack below *)
+      if VS.is_empty dep then 
+
+        (* Add definition to accumulator and continue *)
+        order_defs ((v, e) :: accum) tl
+            
+      else
+          
+          (* Filter out all definitions *)
+          let defs_hd, defs_tl = 
+            List.partition
+              (fun (u, _) -> VS.exists (Var.equal_vars u) dep) 
+              tl
+          in
+
+          (* Continue with definitions the variable depends on top of
+             the stack *)
+          order_defs 
+            accum
+            (defs_hd @ (v, e) :: defs_tl)
+
+
+let solve_eqs vars terms = 
+
+  (* Split list of definitions from list of terms *)
+  let eqs, terms' = collect_eqs vars ([], []) terms in 
+
+  (* Order list of definitions by dependency *)
+  let eqs' = order_defs [] eqs in
+
+  List.map
+    (fun term -> 
+
+       (* Variables of term *)
+       let vars = Term.vars_of_term term in
+
+       (* Filter definitions for variables of term *)
+       let defs = 
+         List.filter
+           (fun (v, _) -> VS.exists (Var.equal_vars v) vars) 
+           eqs' 
+       in
+
+       (* Let-bind variables to definitions *)
+       List.fold_left 
+         (fun term (v, e) -> Term.mk_let [(v, e)] term)
+         term
+         defs)
+    terms'
+         
+
+
+
+
+
 let generalize uf_defs model (elim : Var.t list) term =
 
   (debug qe
@@ -385,12 +521,12 @@ let generalize uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>Extracted term:@ @[<hv>%a@]@]@."
-     Term.pp_print_term 
+     (pp_print_list Term.pp_print_term "@ ")
      extract_int end);
 
   (debug qe
      "@[<hv>Extracted term Booleans:@ @[<hv>%a@]@]@."
-     Term.pp_print_term 
+     (pp_print_list Term.pp_print_term "@ ")
      extract_bool end);
 (*
   check_implication 
@@ -417,6 +553,13 @@ let generalize uf_defs model (elim : Var.t list) term =
   
   (* Eliminate from extracted Boolean conjunction *)
   let term'_bool = qe_bool elim_bool extract_bool in
+
+  let extract_int = Term.mk_and (solve_eqs elim_int extract_int) in
+
+  (debug qe
+     "@[<hv>Extracted term simplified:@ @[<hv>%a@]@]@."
+     Term.pp_print_term
+     extract_int end);
 
   (debug qe
      "@[<hv>QE for Booleans:@ @[<hv>%a@]@]@."
@@ -522,7 +665,7 @@ let generalize uf_defs model (elim : Var.t list) term =
                 Extract.extract uf_defs model (Term.mk_and term'_int) 
             in
             
-            term'_bool @ [term''_int; term''_bool])
+            term'_bool @ [Term.mk_and term''_int; Term.mk_and term''_bool])
         
       )
 

@@ -16,23 +16,31 @@
 
 *)
 
-(** Extract an active path from a formula given a model
+(** Simulation relation for compression *)
+module type CompressionPred =
+sig val p : (Term.t * Term.t) list -> bool end
 
-    @author Christoph Sticksel *)
+(** Output signature of functor *)
+module type S =
+sig
 
-(** Extract an active path from a formula and return a conjunction
-    that is true in the model given.
+  (** [compress_path t m] checks if the path in [m] is compressible for
+      the transition system [t], and returns a constraint to block the
+      compressible path *)
+  val compress_path : TransSys.t -> (Var.t * Term.t) list -> Term.t
 
-    Assumption: the formula is satisfiable under the given partial
-    assignment. Then, return an active path [g] in the formula [f],
-    that is, a formula [g] that must be satisfied if the formula [f] is
-    satisfied. *)
-val extract : (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Term.t -> Term.t list * Term.t list
+end
+
+module Equal : CompressionPred
+
+module Make (P: CompressionPred) : S
+
+
 
 (* 
    Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   compile-command: "make -k -C .."
    indent-tabs-mode: nil
    End: 
 *)
+  
