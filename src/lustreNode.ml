@@ -61,6 +61,35 @@ let add_to_svs set list =
   List.fold_left (fun a e -> SVS.add e a) set list 
   
 
+(* A call of a node *)
+type node_call = 
+
+  { 
+
+    (* Variables capturing the outputs *)
+    call_returns : StateVar.t list;
+
+    (* Boolean activation condition *)
+    call_clock : LustreExpr.t;
+
+    (* Name of called node *)
+    call_node_name : LustreIdent.t;
+    
+    (* Position of node call in input file *)
+    call_pos : LustreAst.position;
+
+    (* Expressions for input parameters *)
+    call_inputs : LustreExpr.t list;
+
+    (* Expression for initial return values *)
+    call_defaults : LustreExpr.t list;
+
+  }
+
+(*
+  { call_returns; call_clock; call_node_name; call_pos; call_inputs; call_defaults }
+*)
+
 (* A Lustre node *)
 type t = 
 
@@ -99,12 +128,7 @@ type t =
        outputs, the Boolean activation condition, the name of the
        called node, expressions for input parameters and expression
        for initialization *)
-    calls : 
-      (StateVar.t list * 
-       LustreExpr.t * 
-       LustreIdent.t * 
-       LustreExpr.t list * 
-       LustreExpr.t list) list;
+    calls : node_call list;
 
     (* Assertions of node *)
     asserts : LustreExpr.t list;
@@ -184,7 +208,10 @@ let pp_print_node_equation safe ppf (var, expr) =
 let pp_print_call safe ppf = function 
 
   (* Node call on the base clock *)
-  | (out_vars, act_expr, node, exprs, _) when act_expr = E.t_true -> 
+  | { call_returns = out_vars; 
+      call_clock = act_expr; 
+      call_node_name = node; 
+      call_inputs = exprs } when E.equal_expr act_expr E.t_true -> 
 
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>%a(%a);@]@]"
@@ -196,7 +223,11 @@ let pp_print_call safe ppf = function
       (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
 
   (* Node call not on the base clock is a condact *)
-  | (out_vars, act_expr, node, exprs, init_exprs) ->
+  |  { call_returns = out_vars; 
+       call_clock = act_expr;
+       call_node_name = node; 
+       call_inputs = exprs; 
+       call_defaults = init_exprs } ->
      
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
@@ -387,7 +418,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
                  variables capturing the output *)
               let rec aux ident = function
                 | [] -> raise Not_found
-                | (o, _, _, _, _) as n :: tl -> 
+                | { call_returns = o } as n :: tl -> 
 
                   (* Iterate over variables capturing the output to
                      find variable and return the node call and the
@@ -406,7 +437,9 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
               (* Return node call and position of variable in output
                  parameters *)
-              let (_, _, node_ident, call_params, _), input_pos = 
+              let 
+                { call_node_name = node_ident; call_inputs = call_params }, 
+                input_pos = 
                 aux state_var node.calls 
               in
 
@@ -635,7 +668,9 @@ let solve_eqs_node_calls node =
     (* Iterate over all calls, collect modified calls and eliminated
        variables *)
     List.fold_left 
-      (fun (accum_calls, accum_vars_eliminated) (o, c, n, i, s) -> 
+      (fun 
+        (accum_calls, accum_vars_eliminated) 
+        ({ call_returns = o } as n) -> 
 
          
          (* Modify list of variables capturing the output, add to list
@@ -679,7 +714,7 @@ let solve_eqs_node_calls node =
              o
              ([], accum_vars_eliminated)
          in
-         (o', c, n, i, s) :: accum_calls, accum_vars_eliminated')
+         { n with call_returns = o' }:: accum_calls, accum_vars_eliminated')
       ([], [])
       node.calls
   in
@@ -724,9 +759,12 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   (* Add expressions in calls *)
   let exprs_calls = 
     List.fold_left
-      (fun accum (_, act_cond, _, args, inits) -> 
-         act_cond :: 
-         args @
+      (fun
+        accum
+        { call_clock = act_cond; call_inputs = args; call_defaults = inits } -> 
+
+        act_cond :: 
+        args @
          
          (* Add previous state expression of arguments *)
          List.map 
@@ -794,7 +832,12 @@ let stateful_vars_of_node
   (* Add variables from node calls *)
   let stateful_vars = 
     List.fold_left
-      (fun accum (rets, act_cond, _, args, inits) -> 
+      (fun
+        accum
+        { call_returns = rets; 
+          call_clock = act_cond; 
+          call_inputs = args; 
+          call_defaults = inits } -> 
          (add_to_svs
             
             (SVS.union
@@ -966,15 +1009,15 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           (
 
             let 
-              ((call_outputs, 
-                call_act, 
-                call_name, 
-                call_inputs, 
-                call_defaults) as call_coi) =
+              ({ call_returns = call_outputs;
+                 call_clock = call_act;
+                 call_node_name = call_name;
+                 call_inputs = call_inputs;
+                 call_defaults = call_defaults } as call_coi) =
 
               (* Find variable in result of a node call *)
               List.find 
-                (fun (o, _, _, _, _) -> 
+                (fun { call_returns = o } -> 
                    List.exists 
                      (fun sv -> StateVar.equal_state_vars state_var sv) 
                      o)

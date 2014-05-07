@@ -35,7 +35,7 @@
     with [y] being the vector of post-state variables in f.
     
 *)
-val generalize : (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Var.t list -> Term.t -> Term.t list
+val generalize : TransSys.t -> (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Var.t list -> Term.t -> Term.t list
  
 (** Cleanup before exit *)
 val on_exit : unit -> unit

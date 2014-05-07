@@ -192,7 +192,11 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
     | [] -> (local_vars, init, trans)
 
     (* Node call with or without activation condition *)
-    | (output_vars, act_cond, node_name, input_exprs, init_exprs) :: tl -> 
+    | { N.call_returns = output_vars;
+        N.call_clock = act_cond;
+        N.call_node_name = node_name;
+        N.call_inputs = input_exprs;
+        N.call_defaults = init_exprs } :: tl -> 
 
       (* Signature of called node *)
       let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
@@ -573,27 +577,34 @@ let definitions_of_contract init trans requires ensures =
          [Term.mk_and requires_trans; Term.mk_and ensures_trans] :: trans) 
 *)
 
+
+
 let rec trans_sys_of_nodes'
     node_defs 
     fun_defs = function 
 
+  (* All nodes converted, now create the top-level formulas *)
   | [] -> 
-
+    
     (match node_defs, fun_defs with 
-
+      
+      (* Take the head of the list as top node *)
       | (_, { inputs; outputs; locals }) :: _, 
         (init_uf_symbol, (init_vars, _)) :: 
         (trans_uf_symbol, (trans_vars, _)) :: _ -> 
-
+        
         (* Create copies of the state variables of the top node,
-           flagging input variables *)
+           flagging input variables
+
+           TODO: associate each state variable with the Lustre stream
+           it corresponds to *)
         let state_vars_top = 
           List.map (state_var_of_top_scope ~is_input:true) inputs @
           List.map (state_var_of_top_scope) (outputs @ locals)
         in
-
+        
         (
-
+          
           (* Definitions of predicates *)
           List.rev fun_defs, 
 
@@ -613,6 +624,7 @@ let rec trans_sys_of_nodes'
 
         )
 
+      (* List of nodes must not be empty *)
       | _ -> raise (Invalid_argument "trans_sys_of_nodes")
 
     )
@@ -636,7 +648,7 @@ let rec trans_sys_of_nodes'
       (N.pp_print_node false) node
     in
 
-    (* Scope from node name *)
+    (* Create scope from node name *)
     let scope = 
       LustreIdent.scope_of_index (LustreIdent.index_of_ident node_name)
     in
@@ -670,8 +682,9 @@ let rec trans_sys_of_nodes'
     let call_locals, init_defs_calls, trans_defs_calls = 
       definitions_of_node_calls scope node_defs [] [] [] node_calls
     in
-
-    (* Variables occurring under a pre that are not also outputs or inputs *)
+    
+    (* Variables capturing outputs of node calls are new local
+       variables unless they are inputs or outputs *)
     let call_locals_set = 
       List.fold_left 
         (fun accum sv  -> 
@@ -690,7 +703,8 @@ let rec trans_sys_of_nodes'
         call_locals
     in
 
-    (* Variables occurring under a pre that are not also outputs or inputs *)
+    (* Variables occurring under a pre are new local variables unless
+       they are inputs or outputs *)
     let node_locals_set = 
       SVS.filter 
         (fun sv -> 
@@ -705,8 +719,8 @@ let rec trans_sys_of_nodes'
         (N.stateful_vars_of_node node)
     in
 
-    (* Variables occurring under a pre and variables capturing the
-       output of a node call *)
+    (* Local variables are those occurring under a pre, properties or
+       variables capturing outputs of node calls *)
     let locals_set = 
       List.fold_left 
         SVS.union
@@ -714,11 +728,11 @@ let rec trans_sys_of_nodes'
         [node_locals_set; call_locals_set; props_locals_set]
     in
 
-    (* Variables occurring under a pre and variables capturing the
-       output of a node call *)
+    (* Convert set to a list *)
     let locals = SVS.elements locals_set in
 
-    (* Variables visible in the signature of the definition *)
+    (* Variables visible in the signature of the definition are local
+       variables, inputs and outputs *)
     let signature_vars_set = 
       List.fold_left 
         add_to_svs 
@@ -737,16 +751,6 @@ let rec trans_sys_of_nodes'
         node_asserts
     in
 
-(*
-    let (init_defs_contract, trans_defs_contract) = 
-      definitions_of_contract  
-        init_defs_asserts
-        trans_defs_asserts
-        node_requires
-        node_ensures
-    in
-*)
-
     (* Constraints from equations *)
     let (init_defs_eqs, trans_defs_eqs) = 
       definitions_of_equations 
@@ -756,64 +760,19 @@ let rec trans_sys_of_nodes'
         (List.rev node_equations)
     in
 
-(*
-    (* Local variables are free variables in definitions that are not
-       input or outputs *)
-    let locals_set = 
-      List.fold_left 
-        (fun accum def -> 
-           
-           VS.fold
-             (fun var accum ->
-                if 
-                  Var.is_state_var_instance var
-                then 
-                  let sv = Var.state_var_of_state_var_instance var in
-                  if 
-                    List.mem sv outputs || 
-                    List.mem sv inputs || 
-                    List.mem sv oracles 
-                  then 
-                    accum
-                  else
-                    SVS.add sv accum 
-                else
-                  accum)
-             (Term.vars_of_term def)
-             accum)
-        SVS.empty
-        init_defs_eqs
-    in
-
-    let locals = SVS.elements locals_set in
-
-    (* Variables visible in the signature of the definition *)
-    let signature_vars_set = 
-      List.fold_left 
-        add_to_svs 
-        locals_set
-        [inputs; outputs]
-    in
-*)
     (* Types of input variables *)
     let input_types = 
-      List.map
-        (fun (sv, _) -> StateVar.type_of_state_var sv)
-        node_inputs
+      List.map StateVar.type_of_state_var inputs
     in
 
     (* Types of output variables *)
     let output_types =
-      List.map
-        (fun (sv, _) -> StateVar.type_of_state_var sv)
-        node_outputs
+      List.map StateVar.type_of_state_var outputs
     in
 
     (* Types of local variables *)
     let local_types =
-      List.map
-        StateVar.type_of_state_var
-        locals
+      List.map StateVar.type_of_state_var locals
     in
 
     (* Types of variables in the signature *)
