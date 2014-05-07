@@ -572,6 +572,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
      Term.pp_print_term
      extract_int end);
 
+(*
   check_implication 
     trans_sys
     "extract"
@@ -579,6 +580,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
     (SMTExpr.smtexpr_of_term 
        (Term.mk_and [Term.mk_and extract_bool; extract_int]))
     (SMTExpr.smtexpr_of_term term);
+*)
 
   (debug qe
      "@[<hv>QE for Booleans:@ @[<hv>%a@]@]@."
@@ -664,7 +666,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
         
         (* Decrement scope level to remove assertion *)
         Solver.pop solver_qe;
-
+(*
         (* Check generalizations *)
         check_generalize 
           trans_sys
@@ -672,7 +674,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           elim 
           term 
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
-
+*)
 
         (* Return quantifier eliminated term *)
         (match pdr_qe with 
@@ -730,7 +732,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
         (* Convert quantifier eliminated Presburger formula to term *)
         let term'_int = Presburger.term_of_cformula elim_pformula in
 
-
+(*
         (* Check generalizations *)
         check_generalize 
           trans_sys
@@ -738,7 +740,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           elim 
           term 
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
-
+*)
 
         (* Return quantifier eliminated term *)
         term'_bool @ term'_int
