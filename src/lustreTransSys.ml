@@ -893,7 +893,7 @@ let trans_sys_of_nodes nodes = trans_sys_of_nodes' [] [] nodes
 let prop_of_node_prop state_var =
 
   (* Name of state variable is name of property *)
-  let prop_name = StateVar.string_of_state_var state_var in
+  let prop_name = StateVar.name_of_state_var state_var in
   
   (* Term of property *)
   let prop_term = 
