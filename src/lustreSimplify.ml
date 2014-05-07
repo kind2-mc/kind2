@@ -210,7 +210,7 @@ type abstraction_context =
     new_vars : (StateVar.t * E.t) list;
 
     (* Added definitions of node calls *)
-    new_calls : (StateVar.t list * E.t * ISet.elt * E.t list * E.t list) list;
+    new_calls : N.node_call list;
 
     (* Added oracle inputs *)
     new_oracles : StateVar.t list;
@@ -247,12 +247,20 @@ let pp_print_abstraction_context
     new_vars
     (pp_print_list
        (fun ppf -> function 
-          | (ret, clk, node, inp, init) when E.equal_expr clk E.t_true -> 
+          | { N.call_returns = ret;
+              N.call_clock = clk;
+              N.call_node_name = node;
+              N.call_inputs = inp;
+              N.call_defaults = init } when E.equal_expr clk E.t_true -> 
             Format.fprintf ppf "@[<hv>%a =@ %a(%a)@]"
               (pp_print_list StateVar.pp_print_state_var ",@,") ret
               (I.pp_print_ident false) node
               (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
-          | (ret, clk, node, inp, init) -> 
+          | { N.call_returns = ret;
+              N.call_clock = clk;
+              N.call_node_name = node;
+              N.call_inputs = inp;
+              N.call_defaults = init } -> 
             Format.fprintf ppf "@[<hv>%a =@ condact(%a,%a(%a),%a)@]"
               (pp_print_list StateVar.pp_print_state_var ",@,") ret
               (E.pp_print_lustre_expr false) clk
@@ -1228,11 +1236,12 @@ let rec eval_ast_expr'
         context 
         { abstractions' 
           with new_calls =
-                 (output_vars, 
-                  cond', 
-                  ident, 
-                  node_input_exprs @ oracle_exprs, 
-                  node_init_exprs) :: abstractions'.new_calls;
+                 { N.call_returns = output_vars;
+                   N.call_clock = cond';
+                   N.call_node_name = ident;
+                   N.call_pos = pos;
+                   N.call_inputs = node_input_exprs @ oracle_exprs; 
+                   N.call_defaults = node_init_exprs } :: abstractions'.new_calls;
                new_oracles = abstractions'.new_oracles @ oracle_state_vars }
         result' 
         tl
@@ -1452,12 +1461,12 @@ let rec eval_ast_expr'
         output_vars_of_node_output mk_new_state_var node_outputs 
       in
 
-      let result' = 
+      let result', _ = 
         List.fold_left2
-          (fun accum sv (node_sv, index) -> 
+          (fun (accum, result_i) sv (node_sv, index) -> 
              
              let out_ident = fst (E.ident_of_state_var node_sv) in
-(*             
+(*
              Format.printf "output %a: ident is %a@."
                StateVar.pp_print_state_var sv
                (I.pp_print_ident false) out_ident;
@@ -1466,11 +1475,14 @@ let rec eval_ast_expr'
                I.index_of_one_index_list (snd (I.split_ident out_ident))
              in
 
-             (I.push_index_to_index index sv_index,
+             (I.push_int_index_to_index 
+                result_i
+                (I.push_index_to_index index sv_index),
               E.mk_var sv E.base_clock)
-             :: accum) 
+             :: accum, 
+             Numeral.(succ result_i)) 
 
-          result
+          (result, Numeral.zero)
           output_vars
           node_outputs
       in
@@ -1479,11 +1491,12 @@ let rec eval_ast_expr'
       eval_ast_expr' 
         context 
         { abstractions' 
-          with new_calls = (output_vars, 
-                            E.t_true, 
-                            ident, 
-                            node_input_exprs @ oracle_exprs,
-                            []) :: abstractions'.new_calls;
+          with new_calls = { N.call_returns = output_vars;
+                             N.call_clock = E.t_true;
+                             N.call_node_name = ident;
+                             N.call_pos = pos;
+                             N.call_inputs = node_input_exprs @ oracle_exprs;
+                             N.call_defaults = [] } :: abstractions'.new_calls;
                new_oracles = abstractions'.new_oracles @ oracle_state_vars }
         result' 
         tl
@@ -1564,7 +1577,7 @@ and binary_apply_to
        (fun accum (index1, expr1) (index2, expr2) -> 
 
           (* Indexes must match *)
-          if index1 = index2 then 
+          if (* index1 = index2 *) true then 
 
             (index1, mk expr1 expr2) :: accum
 
@@ -1580,7 +1593,12 @@ and binary_apply_to
   (* Type checking error or one expression has more indexes *)
   with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
 
-    fail_at_position pos "Type mismatch for expressions" 
+    fail_at_position
+      pos
+      (Format.asprintf
+         "Type mismatch for expressions %a and %a" 
+         A.pp_print_expr expr1
+         A.pp_print_expr expr2)
 
 
 (* Evaluate expression *)
@@ -2990,7 +3008,10 @@ let abstractions_to_context_and_node
   let context', node', abstractions' = 
 
     List.fold_left
-      (fun accum ((outputs, _, node_call_ident, _, _) as call) ->
+      (fun 
+        accum
+        ({ N.call_returns = outputs;
+           N.call_node_name = node_call_ident } as call) ->
 
          let context', node', abstractions' = 
            List.fold_left 

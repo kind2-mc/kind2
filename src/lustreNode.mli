@@ -39,10 +39,38 @@
 
     The flag [node_is_main] is set if the node has been annotated as
     main, it is not checked if more than one node or no node at all may
-    have that annotation.
+    have that annotation. 
 
     @author Christoph Sticksel
 *)
+
+
+(** A call of a node *)
+type node_call = 
+
+  { 
+
+    (** Variables capturing the outputs *)
+    call_returns : StateVar.t list;
+
+    (** Boolean activation condition *)
+    call_clock : LustreExpr.t;
+
+    (** Name of called node *)
+    call_node_name : LustreIdent.t;
+    
+    (** Position of node call in input file *)
+    call_pos : LustreAst.position;
+
+    (** Expressions for input parameters *)
+    call_inputs : LustreExpr.t list;
+
+    (** Expression for initial return values *)
+    call_defaults : LustreExpr.t list;
+
+  }
+
+(** A Lustre node *)
 type t = 
 
   { 
@@ -81,12 +109,7 @@ type t =
         outputs, the Boolean activation condition, the name of the
         called node, expressions for input parameters and expression
         for initialization *)
-    calls : 
-      (StateVar.t list * 
-       LustreExpr.t * 
-       LustreIdent.t * 
-       LustreExpr.t list * 
-       LustreExpr.t list) list;
+    calls : node_call list;
 
     (** Assertions of node *)
     asserts : LustreExpr.t list;

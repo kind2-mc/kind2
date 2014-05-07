@@ -63,7 +63,10 @@ let of_channel in_ch =
   (* Simplify declarations to a list of nodes *)
   let nodes = LustreSimplify.declarations_to_nodes declarations in
   
-  (* Find main node by annotation *)
+  (* Find main node by annotation
+
+     TODO: command-line argument may override the annotation in the
+     file *)
   let main_node = LustreNode.find_main nodes in
 
   debug lustreInput
@@ -71,7 +74,10 @@ let of_channel in_ch =
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes
   in
 
-  (* Consider only nodes called by main node *)
+  (* Consider only nodes called by main node
+
+     TODO: ordering the equations by dependency may be redundant here,
+     if the COI reduction preserves the order *)
   let nodes_coi = 
     List.map
       (LustreNode.equations_order_by_dep nodes)
@@ -83,7 +89,9 @@ let of_channel in_ch =
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi
   in
 
-  (* Create transition system of Lustre nodes *)
+  (* Create transition system of Lustre nodes
+
+     TODO: Split definitions into init and trans part *)
   let fun_defs, state_vars, init, trans = 
     LustreTransSys.trans_sys_of_nodes nodes_coi
   in

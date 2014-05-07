@@ -19,21 +19,14 @@
 
 (** Lustre expressions 
 
-    These Lustre expressions are normalized in the following ways:
+    A {!LustreExpr.t} does not contain node calls, temporal operators
+    or expressions under a pre operator.
 
-    - There is exactly one [->] operator at the top of the expression,
-      therefore an expression is a pair of expressions [(i, t)]
-      without [->] operators, to be interpreted as [i -> t].
-
-    - The argument of a [pre] is a variable, therefore variables are
-      either at the current state or at the previous state and
-      represented as [Var] or [VarPre] constants.
-
-    - The offsets of state variable instances are zero for the initial
-      state and zero for the current state. These are different from
-      the offsets in the transition system, because here we want to
-      know if the initial and the step expressions are equal without
-      bumping offsets.
+    The offsets of state variable instances are zero for the initial
+    state and zero for the current state. These are different from the
+    offsets in the transition system, because here we want to know if
+    the initial and the step expressions are equal without bumping
+    offsets.
 
     Expressions can only be constructed with the constructors which do
     type and clock checking.
