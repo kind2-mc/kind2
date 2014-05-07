@@ -1807,12 +1807,33 @@ let bmc_checks solver_init trans_sys =
 
 (* Handle events from the queue and return the current k in the BMC process *)
 let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k = 
+  
+  (* Add invariant to the transition system and assert in solver
+     instances *)
+  let add_invariant inv = 
 
-   (* Receive all queued messages *)
-   let messages = Event.recv () in
+    (* Add invariant to the transition system *)
+    TransSys.add_invariant trans_sys inv;
 
-     List.fold_left 
-       (function bmc_k -> function
+    (* Add prime to invariant *)
+    let inv_1 = Term.bump_state Numeral.one inv in
+
+    (* Assert invariant in solver instance for initial state *)
+    S.assert_term solver_init inv;
+    S.assert_term solver_init inv_1;
+    
+    (* Assert invariant and primed invariant in solver instance for
+              transition relation *)
+    S.assert_term solver_frames inv;
+    S.assert_term solver_frames inv_1
+
+  in
+
+  (* Receive all queued messages *)
+  let messages = Event.recv () in
+
+  List.fold_left 
+    (function bmc_k -> function
         
          (* Invariant discovered by other module *)
          | Event.Invariant (_, inv) -> 
@@ -1821,24 +1842,13 @@ let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k =
               "@[<hv>Received invariant@ @[<hv>%a@]@]"
               Term.pp_print_term inv 
             in
-           
-           (* Add invariant to the transition system *)
-           TransSys.add_invariant trans_sys inv);
-           
-           (* Add prime to invariant *)
-           let inv_1 = Term.bump_state Numeral.one inv in
-
-           (* Assert invariant in solver instance for initial state *)
-           S.assert_term solver_init inv;
-           S.assert_term solver_init inv_1;
-
-           (* Assert invariant and primed invariant in solver instance for
-              transition relation *)
-           S.assert_term solver_frames inv;
-           S.assert_term solver_frames inv_1;
-
-           (* No new k in BMC *)
-           bmc_k
+    
+            (* Add invariant to the transition system and assert in
+               solver instances *)
+            add_invariant inv);
+       
+            (* No new k in BMC *)
+            bmc_k
            
          (* Pass new k in BMC *)
          | Event.BMCState (bmc_k', _) -> bmc_k'
@@ -1846,10 +1856,27 @@ let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k =
          (* Property has been proved by other module 
             
             TODO: add as invariant and remove from properties to prove *)
-         | Event.Proved (_, _, prop) -> bmc_k
+         | Event.Proved (_, _, prop) -> 
+
+           (debug pdr
+               "@[<hv>Received proved property %s@]"
+               prop
+            in
+            
+            (try 
+               
+               (* Add invariant to the transition system and assert in
+                  solver instances *)
+               add_invariant 
+                 (List.assoc prop trans_sys.TransSys.props)
+                 
+             with Not_found -> ()));
+           
+           (* No new k in BMC *)
+           bmc_k
            
          (* Property has been disproved by other module
-          
+            
             TODO: remove from properties to prove *)
          | Event.Disproved (_, _, prop) -> bmc_k
            
@@ -2222,7 +2249,7 @@ let main trans_sys =
       
     with 
       
-      (* All properties are valid *)
+      (* All propertes are valid *)
       | Success k -> 
 
         (
