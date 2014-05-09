@@ -42,9 +42,9 @@ let one = Num.num_of_int 1
 (* Pretty-print a numeral *)
 let pp_print_decimal ppf = function
 
-  | Num.Int i -> Format.fprintf ppf "%d" i
+  | Num.Int i -> Format.fprintf ppf "%d.0" i
 
-  | Num.Big_int n -> Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
+  | Num.Big_int n -> Format.fprintf ppf "%s.0" (Big_int.string_of_big_int n)
 
   | Num.Ratio r -> 
 
