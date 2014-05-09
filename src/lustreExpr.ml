@@ -94,11 +94,11 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
     Format.fprintf
       ppf 
-      "subrange of int [%a, %a]" 
+      "subrange [%a, %a] of int" 
       Numeral.pp_print_numeral i 
       Numeral.pp_print_numeral j
 
-  | Type.Real -> Format.pp_print_string ppf "Real"
+  | Type.Real -> Format.pp_print_string ppf "real"
 
   | Type.Scalar (s, l) -> 
 
@@ -1916,6 +1916,7 @@ let oracles_for_unguarded_pres
            (* Substitute oracle variable for variable *)
            ((var, Term.mk_var oracle_var) :: accum, 
             state_var :: oracles))
+
         init_pre_vars
         ([], oracles)
     in
