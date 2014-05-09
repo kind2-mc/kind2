@@ -135,6 +135,9 @@ val input_format : unit -> input_format
 (** Input file *)
 val input_file : unit -> string 
 
+(** Main node in Lustre file *)
+val lustre_main : unit -> string option
+
 (** {1 Parsing of the command line} *)
 
 (** Parse the command line *)

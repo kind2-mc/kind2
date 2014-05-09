@@ -423,6 +423,16 @@ let input_format_default = `Lustre
 
 (* ********** *) 
 
+type lustre_main = string option
+
+let lustre_main_of_string s = Some s
+
+let string_of_lustre_main = function None -> "(none)" | Some s -> s
+
+let lustre_main_default = None
+
+(* ********** *) 
+
 let debug_default = []
 
 (* ********** *) 
@@ -464,6 +474,7 @@ type flags =
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
+      mutable lustre_main : lustre_main;
       mutable debug : string list;
       mutable debug_log : string option;
       mutable log_level : Event.log_level;
@@ -496,6 +507,7 @@ let flags =
     cooper_general_lbound = cooper_general_lbound_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
+    lustre_main = lustre_main_default;
     debug = debug_default;
     debug_log = debug_log_default;
     log_level = log_level_default;
@@ -715,6 +727,15 @@ let interpreter_steps_spec =
 
 (* ********** *) 
 
+let lustre_main_action o = flags.lustre_main <- Some o
+                                       
+let lustre_main_spec = 
+  ("--lustre-main", 
+   Arg.String lustre_main_action, 
+   Format.sprintf "Use the given node as top node in Lustre input (default: --%%MAIN annotation)")
+
+(* ********** *) 
+
 let debug_action o = flags.debug <- o :: flags.debug 
   
 let debug_spec = 
@@ -839,6 +860,8 @@ let interpreter_input_file () = flags.interpreter_input_file
 
 let interpreter_steps () = flags.interpreter_steps
 
+let lustre_main () = flags.lustre_main
+
 let debug () = flags.debug
 
 let debug_log () = flags.debug_log
@@ -935,6 +958,9 @@ and speclist =
     (* Run number of steps, override the number of steps given in the
        input file *)
     interpreter_steps_spec;
+
+    (* Main node in Lustre input *)
+    lustre_main_spec;
 
     (* Enable debug output *)
     debug_spec;

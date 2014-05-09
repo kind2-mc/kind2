@@ -27,7 +27,7 @@ let of_channel in_ch =
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
 
   (* Initialize lexing buffer with channel *)
-  LustreLexer.lexbuf_init in_ch (Sys.getcwd ());
+  LustreLexer.lexbuf_init in_ch (Filename.dirname (Flags.input_file ()));
 
   (* Lustre file is a list of declarations *)
   let declarations = 
@@ -63,11 +63,24 @@ let of_channel in_ch =
   (* Simplify declarations to a list of nodes *)
   let nodes = LustreSimplify.declarations_to_nodes declarations in
   
-  (* Find main node by annotation
+  (* Find main node by annotation *)
+  let main_node = 
 
-     TODO: command-line argument may override the annotation in the
-     file *)
-  let main_node = LustreNode.find_main nodes in
+    match Flags.lustre_main () with 
+
+      | None -> 
+
+        (try 
+          
+          LustreNode.find_main nodes 
+            
+        with Not_found -> 
+          
+          raise (Invalid_argument "No main node defined in input"))
+
+      | Some s -> LustreIdent.mk_string_ident s
+
+  in
 
   debug lustreInput
     "@[<v>Before slicing@,%a@]"
