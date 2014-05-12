@@ -498,16 +498,25 @@ let rec eval_ast_expr'
 
          else
 
-           raise Not_found 
+           fail_at_position 
+             pos
+             (Format.asprintf 
+                "Identifier %a does not have fields" 
+                (I.pp_print_ident false) ident)
 
        with Not_found -> 
 
-         fail_at_position 
-           pos
-           (Format.asprintf 
-              "Identifier %a does not have field %a" 
-              (I.pp_print_ident false) ident
-              A.pp_print_expr field_expr))
+         (Format.printf
+            "%a@."
+            (pp_print_lustre_context false) 
+            context;
+          
+          fail_at_position 
+            pos
+            (Format.asprintf 
+               "Identifier %a does not have field %a" 
+               (I.pp_print_ident false) ident
+               A.pp_print_expr field_expr)))
 
 
     (* Boolean constant true *)
@@ -2670,14 +2679,16 @@ let add_node_output_decl
       | Some i -> I.push_int_index_to_index i index
   in
 
+  let ident' = I.push_index index ident in
+
   (* Add to typing context *)
   let type_ctx' = 
-    (ident, basic_type) :: 
+    (ident', basic_type) :: 
       (add_enum_to_context type_ctx pos basic_type) 
   in
   
   (* Add indexed identifier to context *)
-  let index_ctx' = add_to_prefix_map index_ctx ident () in
+  let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
   (* Create state variable as neither constant nor input and add to
      outputs *)
@@ -2705,12 +2716,13 @@ let add_node_var_decl
     index 
     basic_type =
 
-(*
   Format.printf "add_node_var_decl: %a %a %a@."
     (I.pp_print_ident false) ident
     (I.pp_print_index false) index
     (E.pp_print_lustre_type false) basic_type;
-*)
+
+  Printexc.print_raw_backtrace stdout (Printexc.get_callstack 9);
+
 
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 

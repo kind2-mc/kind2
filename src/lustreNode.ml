@@ -261,7 +261,7 @@ let pp_print_prop safe ppf var =
 let pp_print_requires safe ppf expr = 
 
   Format.fprintf ppf
-    "@[<hv 2>--@requires@ @[<h>%a@];@]"
+    "@[<hv 2>--@@requires@ @[<h>%a@];@]"
     (E.pp_print_lustre_expr safe) expr
 
 

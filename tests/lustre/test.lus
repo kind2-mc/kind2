@@ -479,6 +479,7 @@ let
 tel
 */
 
+/*
 -- Examples from the V6 draft manual
 type color1 = enum { blue, white, black };
 type color2 = enum { green, orange, yellow };
@@ -487,6 +488,7 @@ node enum0 (x: color1) returns (y: color2);
 let
   y = if x = blue then green else if x = white then orange else yellow;
 tel
+*/
 
 type complex1 = { re: real; im: real };
 const j = complex1 { re = -(3.0)/2.0; im = 3.0/2.0 };
