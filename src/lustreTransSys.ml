@@ -56,16 +56,24 @@ let add_to_svs set list =
   List.fold_left (fun a e -> SVS.add e a) set list 
   
 (* Create a copy of the state variable at the top level *)
-let state_var_of_top_scope ?is_input ?is_const ?is_clock state_var =
+let state_var_of_top_scope ?is_input ?is_const ?is_clock top_node state_var =
 
-  StateVar.mk_state_var
-    ?is_input
-    ?is_const:(Some (StateVar.is_const state_var))
-    ?is_clock
-    (StateVar.name_of_state_var state_var) 
-    ("__top" :: (StateVar.scope_of_state_var state_var))
-    (StateVar.type_of_state_var state_var)
+  let state_var' = 
+    StateVar.mk_state_var
+      ?is_input
+      ?is_const:(Some (StateVar.is_const state_var))
+      (StateVar.name_of_state_var state_var) 
+      ("__top" :: (StateVar.scope_of_state_var state_var))
+      (StateVar.type_of_state_var state_var)
+  in
 
+  (* State variable is instance of local variable *)
+  E.set_state_var_source
+    state_var'
+    (E.Instance (LustreAst.dummy_pos, top_node, state_var));
+
+  state_var'
+  
   
 type node_def =
 
@@ -196,13 +204,15 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
         N.call_clock = act_cond;
         N.call_node_name = node_name;
         N.call_inputs = input_exprs;
-        N.call_defaults = init_exprs } :: tl -> 
+        N.call_defaults = init_exprs;
+        N.call_pos = pos } :: tl -> 
 
       (* Signature of called node *)
       let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
 
         (* Find definition of called node by name *)
-        try List.assoc node_name node_defs 
+        try 
+          List.assoc node_name node_defs 
         with Not_found -> assert false
           
       in
@@ -282,6 +292,12 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
                  scope
                  var_type
              in
+             
+             (* State variable is instance of local variable *)
+             E.set_state_var_source
+               local_state_var
+               (E.Instance (pos, node_name, state_var));
+
              (local_state_var :: local_vars, 
               local_state_var :: call_local_vars))
           locals
@@ -379,7 +395,14 @@ let rec definitions_of_node_calls scope node_defs local_vars init trans =
                      (name_of_local_var (List.length local_vars) var_name)
                      scope
                      var_type
+
                  in
+
+                 (* State variable is instance of local variable *)
+                 E.set_state_var_source
+                   local_state_var
+                   (E.Instance (pos, node_name, state_var));
+
                  (local_state_var :: local_vars, 
                   local_state_var :: output_default_vars))
               output_vars 
@@ -580,6 +603,7 @@ let definitions_of_contract init trans requires ensures =
 
 
 let rec trans_sys_of_nodes'
+    main_node 
     node_defs 
     fun_defs = function 
 
@@ -594,13 +618,10 @@ let rec trans_sys_of_nodes'
         (trans_uf_symbol, (trans_vars, _)) :: _ -> 
         
         (* Create copies of the state variables of the top node,
-           flagging input variables
-
-           TODO: associate each state variable with the Lustre stream
-           it corresponds to *)
+           flagging input variables *)
         let state_vars_top = 
-          List.map (state_var_of_top_scope ~is_input:true) inputs @
-          List.map (state_var_of_top_scope) (outputs @ locals)
+          List.map (state_var_of_top_scope ~is_input:true main_node) inputs @
+          List.map (state_var_of_top_scope main_node) (outputs @ locals)
         in
         
         (
@@ -882,22 +903,26 @@ let rec trans_sys_of_nodes'
     in
 
     trans_sys_of_nodes'
+      main_node
       ((node_name, node_def) :: node_defs)
       (fun_def_init :: fun_def_trans :: fun_defs)
       tl
 
 
-let trans_sys_of_nodes nodes = trans_sys_of_nodes' [] [] nodes
+let trans_sys_of_nodes main_node nodes = 
+  trans_sys_of_nodes' main_node [] [] nodes
 
 
-let prop_of_node_prop state_var =
+let prop_of_node_prop main_node state_var =
 
   (* Name of state variable is name of property *)
   let prop_name = StateVar.name_of_state_var state_var in
   
   (* Term of property *)
   let prop_term = 
-    E.base_term_of_state_var base_offset (state_var_of_top_scope state_var) 
+    E.base_term_of_state_var 
+      base_offset
+      (state_var_of_top_scope main_node state_var) 
   in
   
   (prop_name, prop_term)
@@ -909,7 +934,7 @@ let props_of_nodes main_node nodes =
     let { LustreNode.props } = LustreNode.node_of_name main_node nodes in
 
     List.map 
-      prop_of_node_prop
+      (prop_of_node_prop main_node)
       props
 
 

@@ -20,6 +20,8 @@ open Lib
 
 (* Abbreviations *)
 module I = LustreIdent
+module A = LustreAst
+
 module SVS = StateVar.StateVarSet
 module VS = Var.VarSet
 
@@ -33,9 +35,75 @@ type expr = Term.t
 (* A Lustre expression is a type *)
 type lustre_type = Type.t
 
+(* Source of state variable *)
+type state_var_source =
+
+  (* Input stream *)
+  | Input
+
+  (* Oracle input stream *)
+  | Oracle
+
+  (* Output stream *)
+  | Output
+
+  (* Local defined stream *)
+  | Local
+
+  (* Local abstracted stream *)
+  | Abstract
+
+  (* Stream from node call at position *)
+  | Instance of A.position * I.t * StateVar.t
+
+
 (* Map from state variables to indexed identifiers *)
 let state_var_ident_map : (I.t * I.index) StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
+
+
+
+(* Map from state variables to indexed identifiers *)
+let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 7
+
+
+(* Set source of state variable *)
+let set_state_var_source state_var source = 
+
+  StateVar.StateVarHashtbl.add 
+    state_var_source_map 
+    state_var
+    source
+
+
+(* Get source of state variable *)
+let get_state_var_source state_var = 
+
+  StateVar.StateVarHashtbl.find
+    state_var_source_map 
+    state_var
+
+
+let rec pp_print_state_var_source ppf = function
+  
+  | Input -> Format.fprintf ppf "input"
+
+  | Oracle -> Format.fprintf ppf "oracle"
+
+  | Output -> Format.fprintf ppf "output"
+
+  | Local -> Format.fprintf ppf "local"
+
+  | Abstract -> Format.fprintf ppf "abstract"
+
+  | Instance (pos, node, state_var) -> 
+    
+    Format.fprintf ppf "instance(%a,%a,%a,%a)"
+      A.pp_print_position pos
+      (I.pp_print_ident false) node
+      StateVar.pp_print_state_var state_var
+      pp_print_state_var_source (get_state_var_source state_var)
 
 
 (* Return the identifier of a state variable *)
@@ -651,7 +719,6 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
     StateVar.mk_state_var 
       ~is_input:is_input
       ~is_const:is_const
-      ~is_clock:false
       ident_string
       scope
       state_var_type

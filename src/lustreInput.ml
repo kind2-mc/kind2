@@ -87,14 +87,9 @@ let of_channel in_ch =
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes
   in
 
-  (* Consider only nodes called by main node
-
-     TODO: ordering the equations by dependency may be redundant here,
-     if the COI reduction preserves the order *)
+  (* Consider only nodes called by main node *)
   let nodes_coi = 
-    List.map
-      (LustreNode.equations_order_by_dep nodes)
-      (LustreNode.reduce_to_property_coi nodes main_node) 
+    LustreNode.reduce_to_property_coi nodes main_node
   in
 
   debug lustreInput
@@ -106,7 +101,7 @@ let of_channel in_ch =
 
      TODO: Split definitions into init and trans part *)
   let fun_defs, state_vars, init, trans = 
-    LustreTransSys.trans_sys_of_nodes nodes_coi
+    LustreTransSys.trans_sys_of_nodes main_node nodes_coi
   in
 
   (* Extract properties from nodes *)
@@ -125,10 +120,21 @@ let of_channel in_ch =
       props
   in
 
-  debug lustreInput 
+  (debug lustreInput 
       "%a"
       TransSys.pp_print_trans_sys trans_sys
   in
+
+  Format.printf 
+    "%a@."
+    (pp_print_list 
+       (fun ppf state_var -> 
+          Format.fprintf ppf "%a=%a"
+            StateVar.pp_print_state_var state_var
+            LustreExpr.pp_print_state_var_source 
+            (LustreExpr.get_state_var_source state_var))
+       ",@ ")
+    state_vars);
 
   trans_sys
 

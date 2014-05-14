@@ -18,6 +18,8 @@
 
 (** Simplify a Lustre AST to normalized Lustre nodes 
 
+    
+
     @author Christoph Sticksel
 *)
 

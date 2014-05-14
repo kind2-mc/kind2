@@ -23,7 +23,7 @@ let
   cpt = Count(reset and not running, running);
   time = if freezed then (0 -> pre time) else cpt;
 
-  time_is_positive = time >= 0;
+  time_is_positive = time > 0;
   --%PROPERTY time_is_positive;
 
   --%MAIN
