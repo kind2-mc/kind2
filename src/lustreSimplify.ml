@@ -34,14 +34,6 @@ module ISet = I.LustreIdentSet
 exception Node_not_found of I.t * A.position
 
 
-(* Identifier for new variables from abstrations *)
-let new_var_ident_string =  "__abs" 
-let new_var_ident = I.mk_string_ident new_var_ident_string
-
-(* Identifier for new oracle input *)
-let new_oracle_ident_string =  "__nondet" 
-let new_oracle_ident = I.mk_string_ident new_oracle_ident_string
-
 (* Sort a list of indexed expressions *)
 let sort_indexed_pairs list =
   List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) list
@@ -1180,11 +1172,40 @@ let rec eval_ast_expr'
 
       in
 
+      let cond'', abstractions'' = 
+
+        if 
+          
+          (* Input must not contain variable at previous state *)
+          E.has_pre_var cond'
+            
+        then
+          
+          (* New variable for abstraction *)
+          let state_var = mk_new_state_var cond'.E.expr_type in
+          
+          (* Add definition of variable *)
+          let abstractions'' =
+            { abstractions' with
+                new_vars = (state_var, cond') :: abstractions'.new_vars }
+          in
+          
+          (* Use abstracted variable as input parameter *)
+          (E.mk_var state_var E.base_clock, 
+           abstractions'')
+          
+        else
+          
+          (* Add expression as input *)
+          (cond', abstractions')
+              
+      in
+      
       eval_node_call 
         context 
-        abstractions'
+        abstractions''
         pos
-        cond'
+        cond''
         ident
         args
         defaults'
@@ -1929,19 +1950,6 @@ let type_in_context { basic_types; indexed_types; free_types } t =
   (List.mem t free_types) 
 
 
-(* Return true if the identifier clashes with internal identifier names *)
-let ident_is_reserved ident = 
-
-  (* Get string part of identifier *)
-  let ident_string, _ : I.t :> string * _ = ident in
-
-  (* Return false if identical to any reserved identifier *)
-  string_starts_with ident_string new_var_ident_string
-  || string_starts_with ident_string new_oracle_ident_string
-  
-  
-
-
 (* Return true if identifier [i] has been declared, raise an
    exceptions if the identifier is reserved. *)
 let ident_in_context { type_ctx; index_ctx } i = 
@@ -1949,7 +1957,7 @@ let ident_in_context { type_ctx; index_ctx } i =
   if 
 
     (* Identifier must not be reserved *)
-    ident_is_reserved i
+    I.ident_is_reserved i
 
   then
     
@@ -1957,7 +1965,7 @@ let ident_in_context { type_ctx; index_ctx } i =
       (Invalid_argument 
          (Format.asprintf 
             "Identifier %a is reserved internal use" 
-            (I.pp_print_ident false) new_var_ident))
+            (I.pp_print_ident false) i))
 
   else
 
@@ -3433,7 +3441,7 @@ let parse_node
         false
         false
         scope
-        (I.push_int_index !r new_var_ident)
+        (I.push_int_index !r I.abs_ident)
         state_var_type
   in
 
@@ -3446,10 +3454,10 @@ let parse_node
         true
         true
         scope
-        (I.push_int_index !r new_oracle_ident)
+        (I.push_int_index !r I.oracle_ident)
         oracle_type
   in
-
+        
   (* Initial, empty abstraction context *)
   let empty_abstractions = 
     { scope;
@@ -3502,10 +3510,8 @@ let parse_node
   in
 
   (* Simplify by substituting variables that are aliases *)
-  let node = N.solve_eqs_node_calls node in
+  N.solve_eqs_node_calls node
 
-  (* Order equations by dependency *)
-  N.equations_order_by_dep global_context.nodes node
 
 (* ******************************************************************** *)
 (* Main                                                                 *)
@@ -3693,14 +3699,14 @@ let declarations_to_nodes decls =
   let { nodes } as global_context = 
     declarations_to_nodes' init_lustre_context decls 
   in
-
+(*
   Format.printf "%a@." (pp_print_lustre_context false) global_context;
 
   Format.printf 
     "%a@."
     (pp_print_list (LustreNode.pp_print_node true) "@,") 
     (List.rev nodes);
-    
+*)  
   (* Return nodes *)
   nodes
 
