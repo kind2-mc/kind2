@@ -27,7 +27,7 @@
     assignment. Then, return an active path [g] in the formula [f],
     that is, a formula [g] that must be satisfied if the formula [f] is
     satisfied. *)
-val extract : (Var.t * Term.t) list -> Term.t -> Term.t * Term.t
+val extract : (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Term.t -> Term.t list * Term.t list
 
 (* 
    Local Variables:

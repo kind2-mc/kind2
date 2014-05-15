@@ -112,7 +112,7 @@ sig
   (** Pretty-print a sort *)
   val pp_print_sort : Format.formatter -> sort -> unit
 
-  (** Pretty-print a sort *)
+  (** Pretty-print an attribute *)
   val pp_print_attr : Format.formatter -> attr -> unit
 
 end
@@ -213,13 +213,13 @@ sig
 
   (** Return the unique tag of a hashconsed term *)
   val tag_of_t : t -> int
-
+(*
   (** Evaluate the term bottom-up and right-to-left. The evaluation
       function is called at each node of the term with the symbol and
       the list of values computed for the subterms. Let bindings are
       lazily unfolded. *)
   val eval : (symbol -> 'a list -> 'a) -> t -> 'a
-
+*)
   (** Variant of {!eval}, where the function is given the term being
       evaluated as the first argument *)
   val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
@@ -251,6 +251,8 @@ sig
   (** Pretty-print a higher-order abstract syntax term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
 
+  val stats : unit -> int * int * int * int * int * int
+  
 end
 
 (** Functor to create a higher-order abstract syntax tree module *)

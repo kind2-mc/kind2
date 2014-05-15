@@ -18,6 +18,8 @@
 
 open Lib
 
+module VS = Var.VarSet
+
 (* Use configured SMT solver *)
 module ConfiguredSolver = SMTSolver.Make (Config.SMTSolver)
 
@@ -32,7 +34,7 @@ let solver_qe = ref None
 let solver_check = ref None 
 
 (* Get the current solver instance or create a new instance *)
-let get_solver_instance () = 
+let get_solver_instance trans_sys = 
 
   (* Solver instance created before? *)
   match !solver_qe with 
@@ -47,6 +49,12 @@ let get_solver_instance () =
           `UFLIA
       in
       
+      (* Declare uninterpreted function symbols *)
+      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
+  
+      (* Define functions *)
+      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+
       (* Save instance *)
       solver_qe := Some solver;
 
@@ -71,7 +79,7 @@ let get_solver_instance () =
 
 
 (* Get the current solver instance or create a new instance *)
-let get_checking_solver_instance () = 
+let get_checking_solver_instance trans_sys = 
 
   (* Solver instance created before? *)
   match !solver_check with 
@@ -86,6 +94,12 @@ let get_checking_solver_instance () =
           `UFLIA
       in
       
+      (* Declare uninterpreted function symbols *)
+      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
+  
+      (* Define functions *)
+      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+
       (* Save instance *)
       solver_check := Some solver;
 
@@ -225,10 +239,10 @@ let term_of_pformula = function
   | l -> Term.mk_and (List.map term_of_pterm l)
 
 
-let check_implication prem_str conc_str prem conc = 
+let check_implication trans_sys prem_str conc_str prem conc = 
 
   (* Get or create a Z3 instance to check the results *)
-  let solver_check = get_checking_solver_instance () in
+  let solver_check = get_checking_solver_instance trans_sys in
 
   (* Push context *)
   Solver.push solver_check;
@@ -269,7 +283,7 @@ let check_implication prem_str conc_str prem conc =
 (* Check generalization: model must imply quantifier eliminated term
    and quantifier eliminated term must imply the original quantifier
    term *)
-let check_generalize model elim term term' = 
+let check_generalize trans_sys model elim term term' = 
 
   (* Substitute fresh variables for terms to be eliminated and
      existentially quantify formula *)
@@ -278,12 +292,14 @@ let check_generalize model elim term term' =
   in
 
   check_implication 
+    trans_sys
     "model"
     "exact generalization" 
     (SMTExpr.smtexpr_of_term (formula_of_model model))
     (SMTExpr.smtexpr_of_term term');
 
   check_implication
+    trans_sys
     "exact generalization" 
     "formula"
     (SMTExpr.smtexpr_of_term term') 
@@ -293,7 +309,15 @@ let check_generalize model elim term term' =
 
 (* From a conjunction of Boolean state variables return a conjunction
    only containing the state variables not to be eliminated *)
-let qe_bool elim term = 
+let qe_bool elim terms = 
+
+  let elim_as_term = List.map Term.mk_var elim in
+
+  List.filter 
+    (function t -> not (List.memq (Term.unnegate t) elim_as_term))
+    terms
+
+(*
 
   (* Get node of hashconsed term and flatten *)
   let term_flat = Term.destruct term in
@@ -317,7 +341,6 @@ let qe_bool elim term =
       conjs
   in
 
-(*
   (* Only keep terms T or ~T where T = S evaluates to false for all
      terms S to be eliminated *)
   let conjs' = 
@@ -332,12 +355,9 @@ let qe_bool elim term =
           elim)
       conjs
   in
-*)
 
   (* Return conjunction *)
   conjs'
-
-(*
 
     (* Rebuild a conjunction *)
     Term.mk_and 
@@ -368,7 +388,140 @@ let qe_bool elim term =
     
 *)
 
-let generalize model (elim : Var.t list) term =
+
+(* Split a list of terms into a list of equational definitions of
+   given variables and a list of the remaining terms *)
+let rec collect_eqs vars (eqs, terms) = function 
+
+  (* All elements processed *)
+  | [] -> (eqs, terms)
+
+  (* Head element of list *)
+  | term :: tl -> 
+
+    match Term.destruct term with
+
+      (* Term is an equation with a variable in [vars] on either side *)
+      | Term.T.App (s, [v; e]) 
+      | Term.T.App (s, [e; v]) when
+          (Symbol.equal_symbols s Symbol.s_eq)
+          && (Term.is_free_var v)
+          && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
+       
+        let v = Term.free_var_of_term v in
+
+        (try 
+
+          let _, e' = 
+            List.find
+              (fun (u, e') -> Var.equal_vars v u)
+              eqs
+          in
+          
+          let term' = Term.mk_eq [e; e'] in
+           (* Add term to first list *)
+           collect_eqs vars (eqs, (term' :: terms)) tl
+
+        with Not_found ->
+
+          (* Add term to first list *)
+          collect_eqs vars ((v, e) :: eqs, terms) tl)
+
+      | _ -> 
+
+        (* Add term to second list *)
+        collect_eqs vars (eqs, term :: terms) tl
+
+
+(* 
+
+   Only the first definition of a variable is considered, any
+   following definition is silently assumed to be equivalent and
+   dropped. *)
+let rec order_defs accum = function 
+
+  | [] -> accum
+
+  | (v, e) :: tl -> 
+
+    if 
+
+      (* Definition is already in the accumulator? *)
+      List.exists (fun (u, _) -> Var.equal_vars u v) accum
+
+    then
+
+      (* Drop duplicate definition and continue *)
+      (* order_defs accum tl *)
+      assert false 
+
+    else
+      
+      (* Get all variables of term whose definitions are on the stack
+         below *)
+      let dep =
+        VS.filter
+          (fun v -> 
+             List.exists (fun (u, _) -> Var.equal_vars v u) tl)
+          (Term.vars_of_term e)
+      in
+
+      (* No definitions is on the stack below *)
+      if VS.is_empty dep then 
+
+        (* Add definition to accumulator and continue *)
+        order_defs ((v, e) :: accum) tl
+            
+      else
+          
+          (* Filter out all definitions *)
+          let defs_hd, defs_tl = 
+            List.partition
+              (fun (u, _) -> VS.exists (Var.equal_vars u) dep) 
+              tl
+          in
+
+          (* Continue with definitions the variable depends on top of
+             the stack *)
+          order_defs 
+            accum
+            (defs_hd @ (v, e) :: defs_tl)
+
+
+let solve_eqs vars terms = 
+
+  (* Split list of definitions from list of terms *)
+  let eqs, terms' = collect_eqs vars ([], []) terms in 
+
+  (* Order list of definitions by dependency *)
+  let eqs' = order_defs [] eqs in
+
+  List.map
+    (fun term -> 
+
+       (* Variables of term *)
+       let vars = Term.vars_of_term term in
+
+       (* Filter definitions for variables of term *)
+       let defs = 
+         List.filter
+           (fun (v, _) -> VS.exists (Var.equal_vars v) vars) 
+           eqs' 
+       in
+
+       (* Let-bind variables to definitions *)
+       List.fold_left 
+         (fun term (v, e) -> Term.mk_let [(v, e)] term)
+         term
+         defs)
+    terms'
+         
+
+
+
+
+
+let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>Generalizing@ @[<hv>%a@]@]@."
@@ -381,24 +534,18 @@ let generalize model (elim : Var.t list) term =
      end);
   
   (* Extract active path from term and model *)
-  let extract_bool, extract_int = Extract.extract model term in
+  let extract_bool, extract_int = Extract.extract uf_defs model term in
 
   (debug qe
      "@[<hv>Extracted term:@ @[<hv>%a@]@]@."
-     Term.pp_print_term 
+     (pp_print_list Term.pp_print_term "@ ")
      extract_int end);
 
   (debug qe
      "@[<hv>Extracted term Booleans:@ @[<hv>%a@]@]@."
-     Term.pp_print_term 
+     (pp_print_list Term.pp_print_term "@ ")
      extract_bool end);
-(*
-  check_implication 
-    "extract"
-    "term"
-    (SMTExpr.smtexpr_of_term (Term.mk_and [extract_bool; extract_int]))
-    (SMTExpr.smtexpr_of_term term);
-*)
+
   (* Partition list of state variables into Boolean and integer variables *)
   let elim_bool, elim_int =
     List.partition
@@ -417,6 +564,23 @@ let generalize model (elim : Var.t list) term =
   
   (* Eliminate from extracted Boolean conjunction *)
   let term'_bool = qe_bool elim_bool extract_bool in
+
+  let extract_int = Term.mk_and (solve_eqs elim_int extract_int) in
+
+  (debug qe
+     "@[<hv>Extracted term simplified:@ @[<hv>%a@]@]@."
+     Term.pp_print_term
+     extract_int end);
+
+(*
+  check_implication 
+    trans_sys
+    "extract"
+    "term"
+    (SMTExpr.smtexpr_of_term 
+       (Term.mk_and [Term.mk_and extract_bool; extract_int]))
+    (SMTExpr.smtexpr_of_term term);
+*)
 
   (debug qe
      "@[<hv>QE for Booleans:@ @[<hv>%a@]@]@."
@@ -442,7 +606,7 @@ let generalize model (elim : Var.t list) term =
               SMTExpr.quantified_smtexpr_of_term true elim extract_int
         in
         
-        let solver_qe = get_solver_instance () in
+        let solver_qe = get_solver_instance trans_sys in
 
   (* SMTLIB commands for Z3
      
@@ -505,10 +669,11 @@ let generalize model (elim : Var.t list) term =
 (*
         (* Check generalizations *)
         check_generalize 
+          trans_sys
           model 
           elim 
           term 
-          (Term.mk_and [term'_bool; term'_int]);
+          (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
 *)
 
         (* Return quantifier eliminated term *)
@@ -519,10 +684,10 @@ let generalize model (elim : Var.t list) term =
 
             (* Extract again from result *)
             let term''_int, term''_bool = 
-                Extract.extract model (Term.mk_and term'_int) 
+                Extract.extract uf_defs model (Term.mk_and term'_int) 
             in
             
-            term'_bool @ [term''_int; term''_bool])
+            term'_bool @ [Term.mk_and term''_int; Term.mk_and term''_bool])
         
       )
 
@@ -538,8 +703,7 @@ let generalize model (elim : Var.t list) term =
            Poly.pp_print_cformula
            cf 
          end);
-
-        (*
+(*
         check_implication 
           "presburger normalization"
           "integer extract"
@@ -552,8 +716,7 @@ let generalize model (elim : Var.t list) term =
           "presburger normalization"
           (SMTExpr.smtexpr_of_term extract_int)
           (SMTExpr.smtexpr_of_term (Presburger.term_of_cformula cf));
-        *)
-
+*)
 
         (* Eliminate quantifiers *)
         let elim_pformula = 
@@ -569,14 +732,15 @@ let generalize model (elim : Var.t list) term =
         (* Convert quantifier eliminated Presburger formula to term *)
         let term'_int = Presburger.term_of_cformula elim_pformula in
 
-        (*
+(*
         (* Check generalizations *)
         check_generalize 
+          trans_sys
           model 
           elim 
           term 
-          (Term.mk_and [term'_bool; term'_int]);
-        *)
+          (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
+*)
 
         (* Return quantifier eliminated term *)
         term'_bool @ term'_int

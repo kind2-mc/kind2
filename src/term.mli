@@ -352,13 +352,13 @@ val print_term : t -> unit
 val string_of_term : t -> string 
 
 (** {1 Conversions} *)
-
+(*
 (** Evaluate the term bottom-up and right-to-left. The evaluation
     function is called at each node of the term with the symbol and
     the list of values computed for the subterms. Let bindings are
     lazily unfolded. *)
 val eval : (Symbol.t -> 'a list -> 'a) -> t -> 'a
-
+*)
 (** Variant of {!eval}, where the function is given the term being
     evaluated as the first argument *)
 val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
@@ -382,6 +382,31 @@ val divisible_to_mod : t -> t
 (** Convert negative numerals and decimals to negations of their
     absolute value *)
 val nums_to_pos_nums : t -> t 
+
+(** Add to offset of state variable instances
+
+    Negative values are allowed *)
+val bump_state : Numeral.t -> t -> t
+
+(** Return the state variables occurring in the term *)
+val state_vars_of_term : t -> StateVar.StateVarSet.t
+
+(** Return the variables occurring in the term *)
+val vars_of_term : t -> Var.VarSet.t
+
+(** Return the state variables at given offset in term *)
+val state_vars_at_offset_of_term : Numeral.t -> t -> StateVar.StateVarSet.t
+
+(** Return the state variables at given offset in term *)
+val vars_at_offset_of_term : Numeral.t -> t -> Var.VarSet.t
+
+(** Return the minimal and maximal offset of state variable instances
+
+    Return [(None, None)] if there are no state variable instances in
+    the term. *)
+val var_offsets_of_term : t -> Numeral.t option * Numeral.t option
+
+val stats : unit -> int * int * int * int * int * int
 
 (* 
    Local Variables:

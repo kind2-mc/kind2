@@ -199,21 +199,23 @@ let term_of_frames frames =
    literals such that 
    (1) x = s |= B[x] 
    (2) B[x] |= exists y.f[x] & T[x,x'] & g[x'] *)
-let generalize transSys state f g = 
+let generalize trans_sys state f g = 
 
   let term, primed_vars = 
 
+(*
+
     (* Eliminate only input variables, unfold all definitions *)
-    if transSys.TransSys.init_constr = [] && transSys.TransSys.constr_constr = [] then 
+    if trans_sys.TransSys.init_constr = [] && trans_sys.TransSys.constr_constr = [] then 
 
       (* Get invariants of transition system *)
-      let invars = TransSys.invars_of_bound 0 transSys in
-      let invars' = TransSys.invars_of_bound 1 transSys in
+      let invars = TransSys.invars_of_bound 0 trans_sys in
+      let invars' = TransSys.invars_of_bound 1 trans_sys in
  
       (* Get state variables occurring primed in g[x'] and in invariants *)
       let var_defs = 
         TransSys.constr_defs_of_state_vars 
-          transSys 
+          trans_sys 
           ((List.map 
               Var.state_var_of_state_var_instance 
               (TransSys.vars_at_offset_of_term 0 g)) @
@@ -226,7 +228,7 @@ let generalize transSys state f g =
       let constr_def_g = 
         List.fold_left
           (fun a d -> Term.mk_let [d] a)
-          (Term.mk_and [TransSys.bump_state 1 g; invars; invars'])
+          (Term.mk_and [Term.bump_state Numeral.one g; invars; invars'])
           var_defs
       in
       
@@ -246,19 +248,24 @@ let generalize transSys state f g =
 
     (* Eliminate all primed variables (old) *)
     else
+
+*)
       
       (* Construct term to be generalized with the transition relation and
          the invariants *)
       let term = 
         Term.mk_and 
           [f; 
-           TransSys.constr_of_bound 1 transSys; 
-           TransSys.invars_of_bound 1 transSys; 
-           TransSys.bump_state 1 g]
+           TransSys.trans_of_bound Numeral.one trans_sys; 
+           TransSys.invars_of_bound Numeral.one trans_sys; 
+           Term.bump_state Numeral.one g]
       in
       
       (* Get primed variables in the transition system *)
-      let primed_vars = TransSys.vars_at_offset_of_term 1 term in 
+      let primed_vars = 
+        Var.VarSet.elements
+          (Term.vars_at_offset_of_term (Numeral.one) term) 
+      in 
       
       term, primed_vars 
 
@@ -268,7 +275,7 @@ let generalize transSys state f g =
     
     (* Generalize term by quantifying over and eliminating primed
        variables *)
-    let gen_term = QE.generalize state primed_vars term in
+    let gen_term = QE.generalize trans_sys trans_sys.TransSys.uf_defs state primed_vars term in
     
     Stat.record_time Stat.pdr_generalize_time;
     
@@ -322,15 +329,15 @@ let partition_core solver clause =
 *)
 let find_cex 
     ((solver_init, solver_frames, _) as solvers) 
-    transSys 
+    trans_sys 
     frame 
     (state_core, state_rest)
     (prop_core, prop_rest) = 
   
   (* Prime variables in property *)
   let prop_core', prop_rest' =
-    (Clause.map (TransSys.bump_state 1) prop_core, 
-     Clause.map (TransSys.bump_state 1) prop_rest)
+    (Clause.map (Term.bump_state Numeral.one) prop_core, 
+     Clause.map (Term.bump_state Numeral.one) prop_rest)
   in
   
   (* Join the two subclauses *)
@@ -427,7 +434,9 @@ let find_cex
       
       (* Get counterexample to entailment from satisfiable formula *)
       let cex = 
-        S.get_model solver_frames (TransSys.vars transSys) 
+        S.get_model 
+          solver_frames
+          (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
       in
       
       (* Remove scope from the context *)
@@ -439,10 +448,10 @@ let find_cex
       (* Generalize the counterexample to a formula *)
       let cex_gen = 
         generalize 
-          transSys 
+          trans_sys 
           cex 
           (Term.mk_and 
-             [TransSys.props_of_bound 0 transSys;
+             [TransSys.props_of_bound Numeral.zero trans_sys;
               CNF.to_term frame;
               state])
           (Term.negate prop)
@@ -538,21 +547,24 @@ let find_cex
                                  
            in
 
-           debug pdr
-               "@[<v>Unsat core of cube is@,@[<v>%a@]"
-               (pp_print_list Term.pp_print_term "@,") (Clause.elements core)
-           in
            
-           S.pop solver_init;
-           
-           (* Negate all literals in clause now *)
-           let ncore, nrest = 
-             Clause.map Term.negate core,
-             Clause.map Term.negate rest
-           in
-           
-           (* Return generalized counterexample *)
-           false, (ncore, nrest))
+                
+                debug pdr
+                    "@[<v>Unsat core of cube is@,@[<v>%a@]"
+                    (pp_print_list Term.pp_print_term "@,") 
+                    (Clause.elements core)
+                in
+                
+                S.pop solver_init;
+
+                (* Negate all literals in clause now *)
+                let ncore, nrest = 
+                  Clause.map Term.negate core,
+                  Clause.map Term.negate rest
+                in
+                
+                (* Return generalized counterexample *)
+                false, ( ncore,  nrest ))
           
         )
 
@@ -584,8 +596,12 @@ let find_cex
        
        (* Unprime and unnegate variables in literals of core and rest *)
        let core, rest = 
-         (Clause.map Term.negate (Clause.map (TransSys.bump_state (- 1)) core'),
-          Clause.map Term.negate (Clause.map (TransSys.bump_state (- 1)) rest'))
+         (Clause.map 
+            Term.negate
+            (Clause.map (Term.bump_state Numeral.(- one)) core'),
+          Clause.map 
+            Term.negate
+            (Clause.map (Term.bump_state Numeral.(- one)) rest'))
        in
 
        (* Remove scope from the context *)
@@ -661,7 +677,7 @@ let add_to_block_tl block_clause = function
    remaining counterexamples on the stack.
 
 *)
-let rec block ((_, solver_frames, _) as solvers) transSys = 
+let rec block ((_, solver_frames, _) as solvers) trans_sys = 
 
   function 
 
@@ -694,7 +710,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
          S.pop solver_frames;
          
          (* Return to counterexamples to block in R_i+1 *)
-         block solvers transSys block_tl (r_i :: frames)))
+         block solvers trans_sys block_tl (r_i :: frames)))
 
 
     (* Take the first cube to be blocked in current frame *)
@@ -712,13 +728,15 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
            
            Event.log `PDR Event.L_trace "Blocking reached R_1";
 
+(*
            if Flags.pdr_print_blocking_clauses () then
              
              (Format.fprintf 
                 !ppf_inductive_assertions
                 "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
                 Lustre.pp_print_term (Clause.to_term core_block_clause));
-       
+  *)
+     
            (debug pdr
                "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
                Clause.pp_print_clause core_block_clause
@@ -744,7 +762,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
             (* Return frame with blocked counterexample *)
             block 
               solvers 
-              transSys 
+              trans_sys 
               ((block_clauses_tl, r_i') :: block_tl') 
               []))
 
@@ -795,7 +813,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
             Stat.time_fun Stat.pdr_find_cex_time (fun () ->
                 find_cex 
                   solvers 
-                  transSys 
+                  trans_sys 
                   r_pred_i_full
                   block_clause
                   block_clause)
@@ -809,13 +827,15 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
                 "Counterexample is unreachable in R_%d"
                  (succ (List.length frames_tl));
 
+(*
               if Flags.pdr_print_blocking_clauses () then
                 
                 (Format.fprintf 
                    !ppf_inductive_assertions
                    "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
                    Lustre.pp_print_term (Clause.to_term core_block_clause));
-       
+  *)
+     
               (debug pdr
                   "@[<v>Adding blocking clause to R_k%t@,@[<hv>%a@]@]"
                   (function ppf -> if block_tl = [] then () else 
@@ -846,7 +866,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
                (* Return frame with blocked counterexample *)
                block 
                  solvers 
-                 transSys 
+                 trans_sys 
                  ((block_clauses_tl, r_i') :: block_tl') 
                  frames)
 
@@ -863,7 +883,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
 
                block 
                  solvers 
-                 transSys 
+                 trans_sys 
                  (([block_clause'], r_pred_i) :: trace) 
                  frames_tl))
 
@@ -876,7 +896,7 @@ let rec block ((_, solver_frames, _) as solvers) transSys =
 
    The list of frames must not be empty, we start with k=1. *)
 let rec strengthen
-    ((_, solver_frames, _) as solvers) transSys = 
+    ((_, solver_frames, _) as solvers) trans_sys = 
 
   function 
 
@@ -905,10 +925,12 @@ let rec strengthen
         Stat.time_fun Stat.pdr_find_cex_time (fun () ->
             find_cex 
               solvers 
-              transSys 
+              trans_sys 
               r_k
               (Clause.top, Clause.empty)
-              (Clause.singleton (TransSys.props_of_bound 0 transSys), Clause.empty))
+              (Clause.singleton 
+                 (TransSys.props_of_bound Numeral.zero trans_sys), 
+               Clause.empty))
 
       with
 
@@ -959,13 +981,13 @@ let rec strengthen
            let frames' = 
              block 
                solvers 
-               transSys 
+               trans_sys 
                [([block_clause], r_k)] 
                frames_tl
            in
 
            (* Find next counterexample to block *)
-           strengthen solvers transSys frames')
+           strengthen solvers trans_sys frames')
         
 
 
@@ -980,7 +1002,7 @@ let rec strengthen
 let rec partition_inductive solver accum terms =
 
   (* Add prime to all terms *)
-  let terms' = List.map (TransSys.bump_state 1) terms in 
+  let terms' = List.map (Term.bump_state Numeral.one) terms in 
 
   match 
 
@@ -1002,18 +1024,18 @@ let rec partition_inductive solver accum terms =
          are certainly not inductive, true terms can be inductive *)
       let maybe_inductive', not_inductive' =
         List.partition 
-          (function t -> Eval.bool_of_value (Eval.eval_term t model))
+          (function t -> Eval.bool_of_value (Eval.eval_term [] model t))
           terms'
       in
 
       (* Remove primes from not inductive terms *)
       let not_inductive = 
-        List.map (TransSys.bump_state (- 1)) not_inductive' 
+        List.map (Term.bump_state Numeral.(- one)) not_inductive' 
       in
 
       (* Remove primes from potentially inductive terms *)
       let maybe_inductive =
-        List.map (TransSys.bump_state (- 1)) maybe_inductive' 
+        List.map (Term.bump_state Numeral.(- one)) maybe_inductive' 
       in
 
       Event.log `PDR Event.L_trace
@@ -1049,7 +1071,7 @@ let rec partition_propagate solver accum = function
   | terms -> 
 
     (* Add prime to all terms *)
-    let terms' = List.map (TransSys.bump_state 1) terms in 
+    let terms' = List.map (Term.bump_state Numeral.one) terms in 
 
     (* Assert ~ (C_1' & ... & C_n') where the C_i are the possibly
        propagatable clauses *)
@@ -1066,7 +1088,9 @@ let rec partition_propagate solver accum = function
       | true -> 
 
         (* Get variables in clauses *)
-        let vars = TransSys.vars_of_term (Term.mk_and terms') in
+        let vars = 
+          Var.VarSet.elements (Term.vars_of_term (Term.mk_and terms')) 
+        in
 
         (* Get a model of the satisfiable context *)
         let model = S.get_model solver vars in
@@ -1080,18 +1104,18 @@ let rec partition_propagate solver accum = function
            propagated. *)
         let maybe_propagate', cannot_propagate' =
           List.partition 
-            (function t -> Eval.bool_of_value (Eval.eval_term t model))
+            (function t -> Eval.bool_of_value (Eval.eval_term [] model t))
             terms'
         in
 
         (* Remove primes from not propagatable terms *)
         let cannot_propagate = 
-          List.map (TransSys.bump_state (- 1)) cannot_propagate' 
+          List.map (Term.bump_state Numeral.(- one)) cannot_propagate' 
         in
 
         (* Remove primes from potentially propagatable terms *)
         let maybe_propagate =
-          List.map (TransSys.bump_state (- 1)) maybe_propagate' 
+          List.map (Term.bump_state Numeral.(- one)) maybe_propagate' 
         in
 
         Event.log `PDR Event.L_trace
@@ -1150,13 +1174,13 @@ let push_and_assert solver cnf =
 *)
 let fwd_propagate
     ((solver_init, solver_frames, solver_misc) as solvers) 
-    transSys 
+    trans_sys 
     frames =
 
   (* Recursively forward propagate from lower frame to higher frames *)
   let rec fwd_propagate_aux 
       ((solver_init, solver_frames, solver_misc) as solvers) 
-      transSys 
+      trans_sys 
       prop 
       accum = 
 
@@ -1178,7 +1202,9 @@ let fwd_propagate
               Stat.start_timer Stat.pdr_inductive_check_time;
 
               (* Assert transition relation from current frame *)
-              S.assert_term solver_misc (TransSys.constr_of_bound 1 transSys);
+              S.assert_term 
+                solver_misc
+                (TransSys.trans_of_bound Numeral.one trans_sys);
 
               (* Partition clause into inductive and non-inductive *)
               let inductive_terms, non_inductive_terms = 
@@ -1194,6 +1220,7 @@ let fwd_propagate
                 List.map Clause.of_term non_inductive_terms
               in
 
+(*
               if Flags.pdr_print_inductive_assertions () then
 
                 (
@@ -1206,6 +1233,7 @@ let fwd_propagate
                     inductive_terms
 
                 );
+*)
 
               (* Send invariant *)
               List.iter 
@@ -1230,8 +1258,7 @@ let fwd_propagate
                in
 
                (* Add inductive blocking clauses as invariants *)
-               transSys.TransSys.invars <- 
-                 inductive_terms @ transSys.TransSys.invars);
+               List.iter (TransSys.add_invariant trans_sys) inductive_terms);
 
               (* Add invariants to solver instance *)
               List.iter 
@@ -1241,7 +1268,7 @@ let fwd_propagate
               (* Add invariants to solver instance *)
               List.iter 
                 (S.assert_term solver_init)
-                (List.map (TransSys.bump_state 1) inductive_terms);
+                (List.map (Term.bump_state Numeral.one) inductive_terms);
 
               (* Add invariants to solver instance *)
               List.iter 
@@ -1251,7 +1278,7 @@ let fwd_propagate
               (* Add invariants to solver instance *)
               List.iter 
                 (S.assert_term solver_frames)
-                (List.map (TransSys.bump_state 1) inductive_terms);
+                (List.map (Term.bump_state Numeral.one) inductive_terms);
 
               (* Add a new frame with the non-inductive clauses *)
               (CNF.of_list non_inductive) :: accum
@@ -1355,7 +1382,8 @@ let fwd_propagate
               (function c -> 
                 S.check_sat_term        
                   solver_frames
-                  [Term.negate (TransSys.bump_state 1 (Clause.to_term c))])
+                  [Term.negate 
+                     (Term.bump_state Numeral.one (Clause.to_term c))])
               f'
 
           else
@@ -1371,7 +1399,7 @@ let fwd_propagate
                  (* Negate and prime literals *)
                  let clause' = 
                    Clause.map 
-                     (fun c -> (Term.negate (TransSys.bump_state 1 c)))
+                     (fun c -> (Term.negate (Term.bump_state Numeral.one c)))
                      clause
                  in
 
@@ -1420,7 +1448,7 @@ let fwd_propagate
                    let clause_core =
                      Clause.map
                        (fun l -> 
-                          (Term.negate (TransSys.bump_state (- 1) l)))
+                          (Term.negate (Term.bump_state Numeral.(- one) l)))
                        clause'_core
                    in
 
@@ -1516,7 +1544,7 @@ let fwd_propagate
                                S.assert_term 
                                solver_frames 
                                (Term.negate 
-                                 (TransSys.bump_state
+                                 (Term.bump_state
                                     1
                                     (Clause.to_term clause_core)));
 
@@ -1575,14 +1603,14 @@ let fwd_propagate
             Stat.set 
               (succ (List.length accum))
               Stat.pdr_fwd_fixpoint;
-            
+(*            
             if Flags.pdr_print_inductive_invariant () then
               
               (Format.fprintf 
                  !ppf_inductive_assertions
                  "@[<v>-- Inductive invariant:@,assert@ %a@]"
                  Lustre.pp_print_term (term_of_frames (fwd :: tl)));
-            
+  *)          
             
             if Flags.pdr_check_inductive_invariant () then 
               
@@ -1590,28 +1618,28 @@ let fwd_propagate
               (
                 
                 (* Initial state constraint *)
-                let init = TransSys.init_of_bound 0 transSys in
+                let init = TransSys.init_of_bound Numeral.zero trans_sys in
 
                 (* Transition relation *)
-                let trans_01 = TransSys.constr_of_bound 1 transSys in
+                let trans_01 = TransSys.trans_of_bound Numeral.one trans_sys in
 
                 (* Transition relation to constrain unprimed variables *)
-                let trans_0 = TransSys.constr_of_bound 0 transSys in
+                let trans_0 = TransSys.trans_of_bound Numeral.zero  trans_sys in
 
                 (* Unprimed property *)
-                let props_0 = TransSys.props_of_bound 0 transSys in
+                let props_0 = TransSys.props_of_bound Numeral.zero trans_sys in
 
                 (* Unprimed nvariants *)
-                let invars_0 = TransSys.invars_of_bound 0 transSys in
+                let invars_0 = TransSys.invars_of_bound Numeral.zero trans_sys in
 
                 (* Primed invariants *)
-                let invars_1 = TransSys.invars_of_bound 1 transSys in
+                let invars_1 = TransSys.invars_of_bound Numeral.one trans_sys in
 
                 (* Unprimed inductive invariant *)
                 let ind_inv_0 = Term.mk_and [term_of_frames (fwd :: tl); props_0] in
 
                 (* Primed inductive invariant *)
-                let ind_inv_1 = TransSys.bump_state 1 ind_inv_0 in
+                let ind_inv_1 = Term.bump_state Numeral.one ind_inv_0 in
 
                 (* Push new scope level in generic solver *)
                 S.push solver_misc;
@@ -1688,7 +1716,7 @@ let fwd_propagate
         S.pop solver_frames;
 
         (* Propagate in next frame *)
-        fwd_propagate_aux solvers transSys fwd (keep :: accum) tl
+        fwd_propagate_aux solvers trans_sys fwd (keep :: accum) tl
 
   in
 
@@ -1704,7 +1732,7 @@ let fwd_propagate
   (* Forward propagate all clauses and add a new frame *)
   fwd_propagate_aux
     solvers
-    transSys
+    trans_sys
     CNF.empty
     []
     (List.rev frames)
@@ -1713,19 +1741,19 @@ let fwd_propagate
 (* Check if the property is valid in the initial state and in the
    successor of the initial state, raise exception [Counterexample] if
    not *)
-let bmc_checks solver_init transSys =
+let bmc_checks solver_init trans_sys =
 
   (* Push new scope onto context of solver *)
   S.push solver_init;
 
   (debug smt 
-      "Asserting negated property"
+      "Asserting negated property (l. 1751)"
    in
 
    (* Assert negated property in the first state *)
    S.assert_term 
      solver_init 
-     (Term.negate (TransSys.props_of_bound 0 transSys)));
+     (Term.negate (TransSys.props_of_bound Numeral.zero trans_sys)));
 
   (* Check if the property is violated in the initial state *)
   if S.check_sat solver_init then raise Counterexample;
@@ -1745,14 +1773,14 @@ let bmc_checks solver_init transSys =
    (* Assert negated property in the second state *)
    S.assert_term 
      solver_init 
-     (Term.negate (TransSys.props_of_bound 1 transSys)));
+     (Term.negate (TransSys.props_of_bound Numeral.one trans_sys)));
 
   (debug smt 
       "Asserting transition relation"
    in
 
    (* Assert transition relation *)
-   S.assert_term solver_init (TransSys.constr_of_bound 1 transSys));
+   S.assert_term solver_init (TransSys.trans_of_bound Numeral.one trans_sys));
 
   (debug smt 
       "Asserting invariants for second state"
@@ -1761,7 +1789,7 @@ let bmc_checks solver_init transSys =
    (* Assert invariants for second state *)
    S.assert_term 
      solver_init
-     (TransSys.invars_of_bound 1 transSys));
+     (TransSys.invars_of_bound Numeral.one trans_sys));
 
   (* Check if the property is violated in the second state *)
   if S.check_sat solver_init then raise Counterexample;
@@ -1778,13 +1806,34 @@ let bmc_checks solver_init transSys =
 (* ********************************************************************** *)
 
 (* Handle events from the queue and return the current k in the BMC process *)
-let handle_events ((solver_init, solver_frames, _) as solvers) transSys bmc_k = 
+let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k = 
+  
+  (* Add invariant to the transition system and assert in solver
+     instances *)
+  let add_invariant inv = 
 
-   (* Receive all queued messages *)
-   let messages = Event.recv () in
+    (* Add invariant to the transition system *)
+    TransSys.add_invariant trans_sys inv;
 
-     List.fold_left 
-       (function bmc_k -> function
+    (* Add prime to invariant *)
+    let inv_1 = Term.bump_state Numeral.one inv in
+
+    (* Assert invariant in solver instance for initial state *)
+    S.assert_term solver_init inv;
+    S.assert_term solver_init inv_1;
+    
+    (* Assert invariant and primed invariant in solver instance for
+              transition relation *)
+    S.assert_term solver_frames inv;
+    S.assert_term solver_frames inv_1
+
+  in
+
+  (* Receive all queued messages *)
+  let messages = Event.recv () in
+
+  List.fold_left 
+    (function bmc_k -> function
         
          (* Invariant discovered by other module *)
          | Event.Invariant (_, inv) -> 
@@ -1793,24 +1842,13 @@ let handle_events ((solver_init, solver_frames, _) as solvers) transSys bmc_k =
               "@[<hv>Received invariant@ @[<hv>%a@]@]"
               Term.pp_print_term inv 
             in
-           
-           (* Add invariant to the transition system *)
-           TransSys.add_invariant transSys inv);
-           
-           (* Add prime to invariant *)
-           let inv_1 = TransSys.bump_state 1 inv in
-
-           (* Assert invariant in solver instance for initial state *)
-           S.assert_term solver_init inv;
-           S.assert_term solver_init inv_1;
-
-           (* Assert invariant and primed invariant in solver instance for
-              transition relation *)
-           S.assert_term solver_frames inv;
-           S.assert_term solver_frames inv_1;
-
-           (* No new k in BMC *)
-           bmc_k
+    
+            (* Add invariant to the transition system and assert in
+               solver instances *)
+            add_invariant inv);
+       
+            (* No new k in BMC *)
+            bmc_k
            
          (* Pass new k in BMC *)
          | Event.BMCState (bmc_k', _) -> bmc_k'
@@ -1818,10 +1856,27 @@ let handle_events ((solver_init, solver_frames, _) as solvers) transSys bmc_k =
          (* Property has been proved by other module 
             
             TODO: add as invariant and remove from properties to prove *)
-         | Event.Proved (_, _, prop) -> bmc_k
+         | Event.Proved (_, _, prop) -> 
+
+           (debug pdr
+               "@[<hv>Received proved property %s@]"
+               prop
+            in
+            
+            (try 
+               
+               (* Add invariant to the transition system and assert in
+                  solver instances *)
+               add_invariant 
+                 (List.assoc prop trans_sys.TransSys.props)
+                 
+             with Not_found -> ()));
+           
+           (* No new k in BMC *)
+           bmc_k
            
          (* Property has been disproved by other module
-          
+            
             TODO: remove from properties to prove *)
          | Event.Disproved (_, _, prop) -> bmc_k
            
@@ -1869,7 +1924,7 @@ let handle_events ((solver_init, solver_frames, _) as solvers) transSys bmc_k =
    [Counterexample] is raised, see {!strengthen}.
 
 *)
-let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames = 
+let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames = 
 
   let pdr_k = succ (List.length frames) in
 
@@ -1885,7 +1940,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
    in
 
   (* Handle messages in the queue and return current k in BMC process *)
-  let bmc_k' = handle_events solvers transSys bmc_k in
+  let bmc_k' = handle_events solvers trans_sys bmc_k in
 
    debug pdr 
        "@[<v>Frames before forward propagation@,@[<hv>%a@]@]"
@@ -1911,7 +1966,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
     try 
 
       (* Forward propagate and add a new frame *)
-      fwd_propagate solvers transSys frames 
+      fwd_propagate solvers trans_sys frames 
 
     (* Fixed point reached *)
     with Success pdr_k -> 
@@ -1923,7 +1978,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
         let rec wait_for_bmc bmc_k = 
 
           (* Handle events *)
-          let bmc_k' = handle_events solvers transSys bmc_k in
+          let bmc_k' = handle_events solvers trans_sys bmc_k in
 
           (* BMC has passed k=1? *)
           if bmc_k' > 1 then 
@@ -1964,7 +2019,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
   Stat.start_timer Stat.pdr_strengthen_time;
 
   (* Recursively block counterexamples in frontier state *)
-  let frames'' = strengthen solvers transSys frames' in
+  let frames'' = strengthen solvers trans_sys frames' in
 
   Stat.record_time Stat.pdr_strengthen_time;
 
@@ -1975,9 +2030,8 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
   (* Output statistics *)
   if Event.output_on_level Event.L_info then print_stats ();
 
-  (* No reachable state violates the property, continue with the
-       next k *)
-  pdr solvers transSys bmc_k' frames''))
+  (* No reachable state violates the property, continue with next k *)
+  pdr solvers trans_sys bmc_k' frames''))
 
 
 (* Entry point
@@ -1994,13 +2048,14 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) transSys bmc_k frames =
      exceptions.
 
 *)
-let main transSys =
+let main trans_sys =
 
+  (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
 
   (* Determine logic for the SMT solver *)
-  let logic = TransSys.get_logic transSys in
-
+  let logic = TransSys.get_logic trans_sys in
+  
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
     S.new_solver
@@ -2009,32 +2064,39 @@ let main transSys =
       ~produce_cores:true 
       logic
   in
+  
+  (* Declare uninterpreted function symbols *)
+  TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init);
+  
+  (* Define functions *)
+  TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
 
   (* Save solver instance for clean exit *)
   ref_solver_init := Some solver_init;
 
   (debug smt
-      "Permanently asserting initial state constraint in solver instance"
+      "Permanently asserting initial state constraint"
    in
 
    (* Assert initial state constraint in solver instance *)
-   S.assert_term solver_init (TransSys.init_of_bound 0 transSys));
+   S.assert_term 
+     solver_init
+     (TransSys.init_of_bound Numeral.zero trans_sys));
 
   (* Get invariants of transition system *)
-  let invars_1 = TransSys.invars_of_bound 1 transSys in
+  let invars_1 = TransSys.invars_of_bound Numeral.one trans_sys in
 
   (* Get invariants for current state *)
-  let invars_0 = TransSys.invars_of_bound 0 transSys in
+  let invars_0 = TransSys.invars_of_bound Numeral.zero trans_sys in
 
   (* Assert invariants for current state if not empty *)
   if not (invars_0 == Term.t_true) then 
 
     (debug smt 
-        "Permanently asserting invariants in solver instance"
+        "Permanently asserting invariants"
      in
 
      S.assert_term solver_init invars_0;
-
      S.assert_term solver_init invars_1);
 
 
@@ -2048,47 +2110,51 @@ let main transSys =
       logic
   in
 
+  (* Declare uninterpreted function symbols *)
+  TransSys.iter_state_var_declarations 
+    trans_sys 
+    (S.declare_fun solver_frames);
+
+  (* Define functions *)
+  TransSys.iter_uf_definitions 
+    trans_sys 
+    (S.define_fun solver_frames);
+
   (* Save solver instance for clean exit *)
   ref_solver_frames := Some solver_frames;
 
   (debug smt 
-      "Permanently asserting property constraint in solver instance"
+      "Permanently asserting property constraint"
    in
 
    (* The property is implicit in every R_i *)      
-   S.assert_term solver_frames (TransSys.props_of_bound 0 transSys));
+   S.assert_term 
+     solver_frames
+     (TransSys.props_of_bound Numeral.zero trans_sys));
 
   (debug smt 
       "Permanently asserting transition relation"
    in
 
    (* Assert transition relation from current frame *)
-   S.assert_term solver_frames (TransSys.constr_of_bound 1 transSys));
+   S.assert_term 
+     solver_frames
+     (TransSys.trans_of_bound Numeral.one trans_sys));
 
+  (* Assert invariants for current state if not empty *)
   if not (invars_0 == Term.t_true) then 
 
     (
 
       (debug smt 
-          "Permanently asserting unprimed invariants"
-       in
-
-       (* Assert invariants for current state *)
-       S.assert_term 
-         solver_frames
-         invars_0);
-
-      (debug smt
           "Permanently asserting invariants"
        in
-
-       (* Assert invariants for next state *)
-       S.assert_term 
-         solver_frames
-         invars_1)
-
+       
+       S.assert_term solver_frames invars_0;
+       S.assert_term solver_frames invars_1)
+      
     );
-
+  
   (* Create new solver instance for all other queries (subsumption,
      invariance of blocking clauses) *)
   let solver_misc = 
@@ -2098,7 +2164,17 @@ let main transSys =
       logic
   in
 
-  (* Save solver instance for clean exit *)
+  (* Declare uninterpreted function symbols *)
+  TransSys.iter_state_var_declarations 
+    trans_sys
+    (S.declare_fun solver_misc);
+
+  (* Define functions *)
+  TransSys.iter_uf_definitions
+    trans_sys
+    (S.define_fun solver_misc);
+
+  (* Save Solver instance for clean exit *)
   ref_solver_misc := Some solver_misc;
 
   (match Flags.pdr_print_to_file () with 
@@ -2148,7 +2224,7 @@ let main transSys =
 
             (* Do check for zero and one step counterexample in solver
                instance [solver_init] *)
-            bmc_checks solver_init transSys;
+            bmc_checks solver_init trans_sys;
 
             (* We have done checks for k=0 and k=1 *)
             2
@@ -2158,23 +2234,27 @@ let main transSys =
       in
 
       (debug smt 
-          "Permanently asserting transition relation in solver_init"
+          "Permanently asserting transition relation"
        in
        
        (* Assert transition relation from current frame *)
-       S.assert_term solver_init (TransSys.constr_of_bound 1 transSys));
+       S.assert_term 
+         solver_init
+         (TransSys.trans_of_bound Numeral.one trans_sys));
       
+      if not (S.check_sat solver_init) then assert false;
+
       (* Run PDR procedure *)
-      pdr (solver_init, solver_frames, solver_misc) transSys bmc_init_k [];
-
+      pdr (solver_init, solver_frames, solver_misc) trans_sys bmc_init_k [];
+      
     with 
-
-      (* All properties are valid *)
+      
+      (* All propertes are valid *)
       | Success k -> 
 
         (
 
-          List.iter (Event.proved `PDR (Some k)) transSys.TransSys.props
+          List.iter (Event.proved `PDR (Some k)) trans_sys.TransSys.props
          
         )
 
@@ -2185,7 +2265,7 @@ let main transSys =
           
           List.iter 
             (function (p, _) -> Event.disproved `PDR None p) 
-            transSys.TransSys.props
+            trans_sys.TransSys.props
 
         )
 

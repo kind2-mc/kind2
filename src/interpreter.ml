@@ -96,11 +96,11 @@ let main input_file transSys =
   let state_vars = TransSys.state_vars transSys in
   
   (* Provide the initial case *)
-  S.assert_term solver (TransSys.init_of_bound 0 transSys);
+  S.assert_term solver (TransSys.init_of_bound Numeral.zero transSys);
   
   let rec assert_t t i =
     
-    if i <= 0 then 
+    if Numeral.(i <= zero) then 
 
       () 
 
@@ -108,9 +108,9 @@ let main input_file transSys =
 
       (
   (**)      
-        S.assert_term solver (TransSys.constr_of_bound i t);
+        S.assert_term solver (TransSys.trans_of_bound i t);
         
-        assert_t transSys (i - 1)
+        assert_t transSys Numeral.(i - one)
           
       )
       

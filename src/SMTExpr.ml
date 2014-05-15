@@ -22,6 +22,8 @@ open Lib
 (* An SMT expression is a term *)
 type t = Term.t
 
+(* An SMT variable is a variable *)
+type var = Var.t
 
 (* Pretty-print an expression *)
 let pp_print_expr = Term.pp_print_term
@@ -149,9 +151,17 @@ let string_of_sort s = string_of_t pp_print_sort s
 
 *)
 
-let pp_print_sort = Type.pp_print_type 
+let pp_print_sort ppf t = 
+  let p = Format.fprintf ppf in 
+  match Type.node_of_type t with
+    | Type.IntRange _ -> p "Int"
+    | Type.Bool -> p "Bool"
+    | Type.Int -> p "Int"
+    | Type.Real -> p "Real"
 
-let string_of_sort = string_of_t Type.pp_print_type
+
+
+let string_of_sort = string_of_t pp_print_sort
 
 (* Static hashconsed strings *)
 let s_int = HString.mk_hstring "Int"
@@ -614,16 +624,24 @@ let smtexpr_of_var v =
 
   (* Get the state variable contained in the variable *) 
   let sv = Var.state_var_of_state_var_instance v in
-  
-  (* Get the offset of the state variable instance *)
-  let o = Var.offset_of_state_var_instance v in
 
   (* Get the uninterpreted function symbol associated with the state
-     variable *)
+       variable *)
   let u = StateVar.uf_symbol_of_state_var sv in 
+    
+  (* Variable is constant? *)
+  if Var.is_const_state_var v then 
+    
+    (* Convert a state variable instance to a uninterpreted constant *) 
+    Term.mk_uf u [] 
 
-  (* Convert a state variable instance to a uninterpreted function *) 
-  Term.mk_uf u [Term.mk_num o] 
+  else
+
+    (* Get the offset of the state variable instance *)
+    let o = Var.offset_of_state_var_instance v in
+    
+    (* Convert a state variable instance to a uninterpreted function *) 
+    Term.mk_uf u [Term.mk_num o] 
 
 
 (* Convert an SMT expression to a variable *)
@@ -682,7 +700,36 @@ let rec var_of_smtexpr e =
         )
 
       (* Uninterpreted function symbol with invalid arity *)
-      | Term.T.Const s
+      | Term.T.Const s -> 
+
+        let sv = 
+          
+          try 
+            
+            (* Get state variable associated with function symbol *)
+            StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol s)
+              
+          with Not_found -> 
+            
+            invalid_arg 
+              (Format.asprintf 
+                 "var_of_smtexpr: %a\
+                  No state variable found for uninterpreted function symbol"
+                 Term.pp_print_term e)
+        in
+        
+        if StateVar.is_const sv then 
+
+          (* Create state variable instance *)
+          Var.mk_const_state_var sv
+
+        else
+          
+        invalid_arg 
+          "var_of_smtexpr: \
+           Invalid arity of uninterpreted function"
+
+
       | Term.T.App (s, _) when Symbol.is_uf s -> 
 
         invalid_arg 

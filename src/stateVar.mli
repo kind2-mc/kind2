@@ -29,8 +29,11 @@
 
 (** {1 Types and hash-consing} *)
 
-(** State variable *)
-type state_var = string
+(** State variable 
+
+    A state state variable is a pair of its identifier and its scope,
+    which is a list of identifiers. *)
+type state_var = private string * string list
 
 (** Hashconsed state variable *)
 type t
@@ -68,7 +71,7 @@ module StateVarMap : Map.S with type key = t
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : string -> bool -> Type.t -> t
+val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?is_clock:bool -> string -> string list -> Type.t -> t
 
 (** Import a state variable from a different instance into this
    hashcons table *)
@@ -77,17 +80,13 @@ val import : t -> t
 (** {1 Accessor functions} *)
 
 (** Return a previously declared state variable *)
-val state_var_of_string : string -> t 
-
-(** Return a previously declared state variable by its name in the input file *)
-val state_var_of_original_name : string -> t 
+val state_var_of_string : string * string list -> t 
 
 (** Return the name of the state variable *)
 val name_of_state_var : t -> string
 
-(** Return the name of the state variable as it occurred in the
-    original input *)
-val original_name_of_state_var : t -> string
+(** Return the name of the state variable *)
+val scope_of_state_var : t -> string list
 
 (** Return the type of the variable *)
 val type_of_state_var : t -> Type.t
@@ -98,7 +97,14 @@ val uf_symbol_of_state_var : t -> UfSymbol.t
 (** Return the uninterpreted function symbol of the variable *)
 val state_var_of_uf_symbol : UfSymbol.t -> t
 
-val is_definition : t -> bool
+(** Return true if the state variable is an input *)
+val is_input : t -> bool
+
+(** Return true if the state variable is constant *)
+val is_const : t -> bool
+
+(** Return true if the state variable is a clock *)
+val is_clock : t -> bool
 
 (** {1 Iterators over defined state variables} *)
 
@@ -106,14 +112,12 @@ val is_definition : t -> bool
     a))...)], where [sI], [tI] and [uI], respectively are the name of
     the state variable, its types and its associated uninterpreted
     function symbol. *)
-(* val fold : (string -> Type.t -> UfSymbol.t -> 'a -> 'a) -> 'a -> 'a *)
 val fold : (t -> 'a -> 'a) -> 'a -> 'a 
 
 (** [iter f] calls [f s t u] for every state variable with [s] being
     the name of the variable, [t] its type and [u] its associated
     uninterpreted function symbol. *)
 val iter : (t -> unit) -> unit
-(* val iter : (string -> Type.t -> UfSymbol.t -> unit) -> unit *)
 
 
 (** {1 Pretty-printing} *)
@@ -121,11 +125,10 @@ val iter : (t -> unit) -> unit
 (** Pretty-print a state variable *)
 val pp_print_state_var : Format.formatter -> t -> unit
 
-(** Pretty-print a state variable as it occurred in the original input *)
-val pp_print_state_var_original : Format.formatter -> t -> unit
-
 (** Return a string representation of a symbol *)
 val string_of_state_var : t -> string
+
+val stats : unit -> int * int * int * int * int * int
 
 
 (* 
