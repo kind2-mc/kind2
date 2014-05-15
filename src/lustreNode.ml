@@ -253,7 +253,7 @@ let pp_print_assert safe ppf expr =
 let pp_print_prop safe ppf var = 
 
   Format.fprintf ppf
-    "@[<hv 2>--%%PROPERTY@ %a;@]"
+    "@[<hv 2>--%%PROPERTY@ @[<h>%a@];@]"
     (E.pp_print_lustre_var safe) var
     
 
@@ -261,7 +261,7 @@ let pp_print_prop safe ppf var =
 let pp_print_requires safe ppf expr = 
 
   Format.fprintf ppf
-    "@[<hv 2>--@@requires@ %a;@]"
+    "@[<hv 2>--@@requires@ @[<h>%a@];@]"
     (E.pp_print_lustre_expr safe) expr
 
 
@@ -269,7 +269,7 @@ let pp_print_requires safe ppf expr =
 let pp_print_ensures safe ppf expr = 
 
   Format.fprintf ppf
-    "@[<hv 2>--@@ensures %a;@]"
+    "@[<hv 2>--@@ensures @[<h>%a@];@]"
     (E.pp_print_lustre_expr safe) expr
 
 
@@ -528,6 +528,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         then
 
+          (* TODO: Output variables in circular dependency *)
           failwith "circular dependency"
 
         else
@@ -564,7 +565,8 @@ let output_input_dep_of_var_dep node var_deps =
                  given variable *)
               let rec aux i = function 
                 | [] -> raise Not_found
-                | (ident, _) :: tl when ident = v -> i
+                | (ident, _) :: tl 
+                  when StateVar.equal_state_vars ident v -> i
                 | _ :: tl -> aux (succ i) tl 
               in
 
@@ -1154,7 +1156,7 @@ let reduce_to_property_coi nodes main_name =
     raise 
       (Invalid_argument
          (Format.asprintf
-            "reduce_to_property_coi: node %a not found."
+            "Main node %a not found."
             (I.pp_print_ident false) main_name))
 
 

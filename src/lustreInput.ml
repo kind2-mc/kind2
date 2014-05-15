@@ -27,7 +27,7 @@ let of_channel in_ch =
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
 
   (* Initialize lexing buffer with channel *)
-  LustreLexer.lexbuf_init in_ch (Sys.getcwd ());
+  LustreLexer.lexbuf_init in_ch (Filename.dirname (Flags.input_file ()));
 
   (* Lustre file is a list of declarations *)
   let declarations = 
@@ -63,25 +63,33 @@ let of_channel in_ch =
   (* Simplify declarations to a list of nodes *)
   let nodes = LustreSimplify.declarations_to_nodes declarations in
   
-  (* Find main node by annotation
+  (* Find main node by annotation *)
+  let main_node = 
 
-     TODO: command-line argument may override the annotation in the
-     file *)
-  let main_node = LustreNode.find_main nodes in
+    match Flags.lustre_main () with 
+
+      | None -> 
+
+        (try 
+          
+          LustreNode.find_main nodes 
+            
+        with Not_found -> 
+          
+          raise (Invalid_argument "No main node defined in input"))
+
+      | Some s -> LustreIdent.mk_string_ident s
+
+  in
 
   debug lustreInput
     "@[<v>Before slicing@,%a@]"
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes
   in
 
-  (* Consider only nodes called by main node
-
-     TODO: ordering the equations by dependency may be redundant here,
-     if the COI reduction preserves the order *)
+  (* Consider only nodes called by main node *)
   let nodes_coi = 
-    List.map
-      (LustreNode.equations_order_by_dep nodes)
-      (LustreNode.reduce_to_property_coi nodes main_node) 
+    LustreNode.reduce_to_property_coi nodes main_node
   in
 
   debug lustreInput
@@ -93,7 +101,7 @@ let of_channel in_ch =
 
      TODO: Split definitions into init and trans part *)
   let fun_defs, state_vars, init, trans = 
-    LustreTransSys.trans_sys_of_nodes nodes_coi
+    LustreTransSys.trans_sys_of_nodes main_node nodes_coi
   in
 
   (* Extract properties from nodes *)
@@ -112,10 +120,21 @@ let of_channel in_ch =
       props
   in
 
-  debug lustreInput 
+  (debug lustreInput 
       "%a"
       TransSys.pp_print_trans_sys trans_sys
   in
+
+  Format.printf 
+    "%a@."
+    (pp_print_list 
+       (fun ppf state_var -> 
+          Format.fprintf ppf "%a=%a"
+            StateVar.pp_print_state_var state_var
+            LustreExpr.pp_print_state_var_source 
+            (LustreExpr.get_state_var_source state_var))
+       ",@ ")
+    state_vars);
 
   trans_sys
 

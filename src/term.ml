@@ -1133,18 +1133,20 @@ let rec var_offsets_of_term expr =
 
   eval_t 
     (function 
-      | T.Const c -> 
-        (function [] -> (None, None) | _ -> assert false)
-
-      | T.App _ -> 
-        (function l -> List.fold_left min_max_none (None, None) l)
-
-      | T.Var v -> 
+      | T.Var v when Var.is_state_var_instance v -> 
         (function 
           | [] -> 
             let o = Var.offset_of_state_var_instance v in
             (Some o, Some o)
           | _ -> assert false)
+
+      | T.Const _
+      | T.Var _ -> 
+        (function [] -> (None, None) | _ -> assert false)
+
+      | T.App _ -> 
+        (function l -> List.fold_left min_max_none (None, None) l)
+
       | T.Attr _ -> (function [v] -> v | _ -> assert false))
     expr
 
