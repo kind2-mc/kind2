@@ -844,8 +844,8 @@ let stateful_vars_of_node
             
             (SVS.union
 
-               (* Stateful variables in activation condition *)
-               (E.stateful_vars_of_expr act_cond)
+               (* Variables in activation condition area lways stateful *)
+               (E.state_vars_of_expr act_cond)
                
                (* Variables in input parameters are always stateful *)
                (List.fold_left 
@@ -1043,7 +1043,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
                      (SVS.elements
                         (LustreExpr.state_vars_of_expr e)) @ a)
                   svtl
-                  (call_inputs @ call_defaults)
+                  (call_act :: call_inputs @ call_defaults)
               in
 
               (* Add called node to sliced node *)

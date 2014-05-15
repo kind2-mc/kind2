@@ -168,6 +168,25 @@ val get_index_suffix : index -> index -> index
     removed, raise [Not_found] otherwise. *)
 val get_suffix : t -> t -> index
 
+(** Return [true] if identifier is reserved for itnernal use *)
+val ident_is_reserved : t -> bool
+
+(** Identifier for abstracted variable *)
+val abs_ident : t
+
+(** Identifier for oracle input *)
+val oracle_ident : t
+
+(** Identifier for clock initialization flag *)
+val ticked_ident : t 
+
+(** Identifier of uninterpreted symbol for initial state constraint *)
+val init_uf_string : string 
+
+(** Identifier of uninterpreted symbol for transition relation *)
+val trans_uf_string : string 
+
+
 
 (* 
    Local Variables:

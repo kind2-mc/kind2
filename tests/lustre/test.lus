@@ -253,6 +253,17 @@ let
   x, y = U1(U1(1, 2.0));
 tel;
 
+
+node Rise (x: bool) returns (y: bool);
+let y = false -> x and not pre x; tel;
+
+node Count() returns (y: int);
+let y = 0 -> pre y + 1; tel;
+
+node CountRise(x: bool) returns (y: int);
+let y = condact(Rise(x), Count(), 0); tel;
+
+
 ------------------------------------------------------------------------
 -- Examples from the reference manual
 

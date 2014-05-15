@@ -124,7 +124,7 @@ let of_channel in_ch =
       "%a"
       TransSys.pp_print_trans_sys trans_sys
   in
-
+(*
   Format.printf 
     "%a@."
     (pp_print_list 
@@ -135,8 +135,8 @@ let of_channel in_ch =
             (LustreExpr.get_state_var_source state_var))
        ",@ ")
     state_vars);
-
-  trans_sys
+*)
+  trans_sys)
 
 
 (* Open and parse from file *)

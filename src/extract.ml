@@ -791,7 +791,7 @@ let extract uf_defs env term =
 
        with Invalid_argument _ -> 
 
-         debug extract1
+         debug extract2
              "bool_of_value invalid for %a"
              Term.pp_print_term (Term.T.construct term)
          in
