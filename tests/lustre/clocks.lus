@@ -1,0 +1,42 @@
+node X() returns (x: int);
+var c : bool;
+let
+  c = 0 -> (if pre c = 3 then 0 else pre c + 1);
+  x = c = 3;
+tel
+
+node Count(reset: bool) returns (c: int);
+let
+  c = 0 -> if reset then 0 else (pre c + 1);
+tel
+
+node A (clk: bool) returns (b: bool);
+let
+
+  clk2 = X() when clk;
+  b = Count() when clk2;
+
+  -- clk  0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
+  -- X.c  - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3
+  -- clk2 - 0 - 0 - 0 - 1 - 0 - 0 - 0 - 1 - 0 - 0 - 0 - 1 - 0 - 0 - 0 - 1 
+  -- b    - - - - - - - 0 - - - - - - - 1 - - - - - - - 2 - - - - - - - 3
+
+  clk2 = current(X() when clk);
+  b = current(Count() when clk2 and clk);
+
+  -- clk  0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
+  -- X.c  - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3
+  -- clk2 X 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 
+  -- b    X X X X X X X 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 3
+
+
+  clk2 = condact(clk, X(), false);
+  b = condact(clk2 and clk, Count(), false);
+
+  -- clk  0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
+  -- X.c  - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3 - 0 - 1 - 2 - 3
+  -- clk2 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 
+  -- b    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 3
+   
+tel;
+
