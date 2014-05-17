@@ -149,10 +149,10 @@ let of_file filename =
     of_channel in_ch
 
 
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)

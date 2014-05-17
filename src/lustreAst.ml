@@ -85,6 +85,17 @@ let is_dummy_pos = function
   | _ -> false
 
 
+(* Return the file, line and column of a position; fail if the
+   position is a dummy position *)
+let file_row_col_of_pos = function 
+
+  (* Fail if position is a dummy position *)
+  | p when is_dummy_pos p -> raise (Invalid_argument "file_row_col_of_pos")
+
+  (* Return tuple of filename, line and column *)
+  | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
+
+
 (* An identifier *)
 type ident = LustreIdent.t
 

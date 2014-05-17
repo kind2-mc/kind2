@@ -109,9 +109,20 @@ let rec pp_print_state_var_source ppf = function
 (* Return the identifier of a state variable *)
 let ident_of_state_var state_var = 
 
-  (* Find original indexed identifier *)
-  StateVar.StateVarHashtbl.find state_var_ident_map state_var
+  try
+    
+    (* Find original indexed identifier *)
+    StateVar.StateVarHashtbl.find state_var_ident_map state_var
       
+  with Not_found -> 
+
+    Format.printf
+      "ident_of_state_var: %a not found@."
+      StateVar.pp_print_state_var state_var;
+
+    raise Not_found
+      
+
 
 (* A Lustre clock 
 
