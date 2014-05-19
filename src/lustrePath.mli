@@ -16,6 +16,8 @@
 
 *)
 
+val pp_print_path : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -151,6 +151,7 @@ and parse_bool_sequence l  = parser
   (* End of the sequence *)
   | [< >] -> List.rev l
                                 
+(* Parse a Boolean literal at the head of a list of Boolean values *)
 and parse_bool_sequence_aux l = parser
 
   (* True literal *)
@@ -165,22 +166,40 @@ and parse_bool_sequence_aux l = parser
 
     bool_sequence
 
-let parse s = 
-  
-  parse_stream (lexer (Stream.of_string s))
+
+(* Parse from a lexer stream *)
+let parse s = parse_stream (lexer (Stream.of_string s))
+
 
 (* Read in a csv file *)
 let read_file filename = 
+
+  (* Open the file *)
   let chan = open_in filename in
+
+  (* Parse lines from the file until the end *)
   let rec parse_chan acc  = 
+
     try
+      
+      (* Read a line from the file *)
       let line = input_line chan in
-      parse_chan ((parse line)::acc)
+      
+      (* Parse line and add to accumulator *)
+      parse_chan ((parse line) :: acc)
+
+    (* End of file reached *)
     with End_of_file ->
+      
+      (* Close input file *)
       close_in chan; 
+
+      (* Return *)
       acc
+
   in
   
+  (* Parse file contents into an empty accumulator *)
   parse_chan []
 
 

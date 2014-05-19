@@ -761,22 +761,6 @@ let state_var_of_ident scope_index ident =
       
   with Not_found -> 
 
-    Format.printf
-      "@[<v>State variable %a %a not found:"
-      (I.pp_print_index false) scope_index 
-      (I.pp_print_ident false) ident;
-
-    StateVar.StateVarHashtbl.iter
-      (fun sv (id, s) -> 
-         Format.printf
-           "%a = %a.%a@,"
-           StateVar.pp_print_state_var sv
-           (I.pp_print_index false) s
-           (I.pp_print_ident false) id)
-      state_var_ident_map;
-
-    Format.printf "@]@.";
-
     raise Not_found
 
 (* Boolean constant true on base clock *)

@@ -32,8 +32,7 @@ module S = SolverMethods.Make (Solver)
 let ref_solver = ref None
 
 
-(* Dummy exit method, need to terminate all processes here in case we
-   are interrupted *)
+(* Exit and terminate all processes here in case we are interrupted *)
 let on_exit () = 
 
   (* Delete solver instance if created *)
@@ -62,19 +61,45 @@ let rec assert_trans solver t i =
       S.assert_term solver (TransSys.trans_of_bound i t);
                             
       (* Continue with for [i-2] and [i-1] *)
-      assert_trans solver t Numeral.(i - one))
+      assert_trans solver t Numeral.(i - one)
+
+    )
     
 
 (* Main entry point *)
 let main input_file trans_sys =
   
+  Event.log
+    `Interpreter
+    Event.L_info 
+    "Parsing interpreter input file %s"
+    (Flags.input_file ()); 
+
   (* Read inputs from file *)
-  let inputs = InputParser.read_file input_file in
+  let inputs = 
+    
+    try
+
+      InputParser.read_file input_file 
+
+    with Sys_error e -> 
+
+      (* Output warning *)
+      Event.log
+        `Interpreter
+        Event.L_warn 
+        "@[<v>Error reading interpreter input file.@,%s@]"
+        e;
+
+      raise (Failure "main")
+
+  in
   
   (* Minimum number of steps in input *)
   let input_length = 
     List.fold_left 
-      (fun accum (_, inputs) -> min accum (List.length inputs))
+      (fun accum (_, inputs) -> 
+         min (if accum = 0 then max_int else accum) (List.length inputs))
       0
       inputs
   in
@@ -112,7 +137,8 @@ let main input_file trans_sys =
           Event.log 
             `Interpreter 
             Event.L_warn 
-            "Input is not long enough to simulate %d steps. Simulation is nondeterministic." 
+            "Input is not long enough to simulate %d steps.\
+             Simulation is nondeterministic." 
             input_length;
         
         (* Simulate for given length *)
@@ -158,10 +184,11 @@ let main input_file trans_sys =
   List.iter
 
     (fun (state_var, values) -> 
-
+       
        List.iteri 
          (fun instant instant_value ->
 
+            (* Only assert up to the maximum number of steps *)
             if instant < steps then
 
               (
@@ -185,38 +212,56 @@ let main input_file trans_sys =
     
     inputs;
     
-  (* Get value for each variable *)
+  (* Execute model *)
   if (S.check_sat solver) then
                 
-    let rec aux acc state_var k =
-      
-      if (Numeral.to_int k) < 0 then
+    (
+
+      (* Create state variable instances for each state from k to 0 and
+         return the assignments in the solver *)
+      let rec aux acc state_var k =
         
-        let model = S.get_model solver acc in
-        
-        List.map snd model
+        (* Reached the initial step? *)
+        if (Numeral.to_int k) < 0 then
           
-      else
+          (* Get model at instants of state variable *)
+          let model = S.get_model solver acc in
         
-        aux ((Var.mk_state_var_instance state_var k)::acc) state_var (Numeral.pred k)
-    in
+          (* Return values only *)
+          List.map snd model
+            
+        else
+          
+          (* Push state variable instance to accumulator *)
+          aux
+            ((Var.mk_state_var_instance state_var k) :: acc) 
+            state_var
+            (Numeral.pred k)
 
-    let v = 
+      in
       
-      List.map 
-                        
-        (fun sv -> 
-                                        
-           (sv,(aux [] sv (Numeral.of_int (steps-1)))))
-                                        
-        state_vars 
-                                
-    in
-                
-    Event.log_counterexample `Interpreter v
+      (* Counterexample *)
+      let v = 
+        
+        (* Map every state variable to its values *)
+        List.map 
+          (fun sv -> (sv, (aux [] sv (Numeral.of_int (steps - 1)))))
+          (TransSys.state_vars trans_sys)
+          
+      in
+      
+      (* Output counterexample *)
+      Event.log_counterexample `Interpreter v;
 
+      Format.printf 
+        "@.%a@."
+        LustrePath.pp_print_path v;
+
+    )
+      
   else
 
+    (* Transition relation must be satisfiable *)
     Event.log `Interpreter Event.L_error "Transition relation not satisfiable"
   
 

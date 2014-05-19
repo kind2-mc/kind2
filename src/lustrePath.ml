@@ -79,7 +79,7 @@ let rec pp_print_stream_values_xml i ppf = function
 
     Format.fprintf 
       ppf
-      "%a@;<0 -2>%a"
+      "%a@,%a"
       (pp_print_stream_values_xml i) [t]
       (pp_print_stream_values_xml (succ i)) tl
 
@@ -91,7 +91,7 @@ let rec pp_print_tree_path_xml ppf = function
 
     Format.fprintf 
       ppf
-      "@[<hv 2>@[<hv 1><node@ name=\"%a\"%a>@]@,%a@;<0 -2></node>@]"
+      "@[<hv 2>@[<hv 1><node@ name=\"%a\"@ %a>@]@,%a@;<0 -2></node>@]"
       (I.pp_print_ident false) node_ident
       pp_print_pos_xml node_pos
       (pp_print_list pp_print_tree_path_xml "@,") elements
@@ -181,7 +181,7 @@ let partition_model_by_sources
       (inputs, 
        outputs, 
        locals, 
-       assoc_add (call_node, call_pos) (state_var, terms) calls)
+       assoc_add (call_node, call_pos) (call_state_var, terms) calls)
 
     (* Skip oracle inputs and abstracted variables *)
     | E.Oracle | E.Abstract -> accum
@@ -190,6 +190,8 @@ let partition_model_by_sources
 (* Create a Stream value of a state variable assignments *)
 let stream_of_model stream_prop (state_var, terms) = 
   
+  Format.printf "stream: %a@." StateVar.pp_print_state_var state_var;
+
   Stream
     (fst (E.ident_of_state_var state_var),
      StateVar.type_of_state_var state_var,
@@ -214,6 +216,13 @@ let rec tree_path_of_model model =
 
 (* Create a Node value of assignments to variables in a node instance *)
 and node_of_model ((call_node, call_pos), model) = 
+
+  Format.printf
+    "node: @[<hv>%a@]@."
+    (pp_print_list
+       (fun ppf (sv, _) -> StateVar.pp_print_state_var ppf sv)
+       "@ ") 
+    model;
 
   Node (call_node, call_pos, tree_path_of_model model)
   
@@ -258,7 +267,9 @@ let pp_print_path ppf (model : (StateVar.t * Term.t list) list)  =
   in
 *)
   
-  pp_print_path_xml ppf (tree_path_of_model model)
+  let model' = tree_path_of_model model in
+
+  pp_print_path_xml ppf model'
 
 
 
