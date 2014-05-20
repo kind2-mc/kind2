@@ -255,7 +255,7 @@ let main input_file trans_sys =
 
       Format.printf 
         "@.%a@."
-        LustrePath.pp_print_path v;
+        LustrePath.pp_print_path_xml v;
 
     )
       

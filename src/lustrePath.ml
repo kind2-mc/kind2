@@ -32,91 +32,9 @@ type tree_path =
   | Stream of I.t * Type.t * stream_prop * Term.t list
 
 
-(* Pretty-print a position as XML attributes *)
-let pp_print_pos_xml ppf pos = 
-
-  (* Do not print anything for a dummy position *)
-  if A.is_dummy_pos pos then () else 
-
-    (* Get file, line and column of position *)
-    let pos_file, pos_lnum, pos_cnum = 
-      A.file_row_col_of_pos pos
-    in
-    
-    (* Print attributes *)
-    Format.fprintf 
-      ppf
-      "file=\"%s\"@ line=\"%d\"@ column=\"%d\""
-      pos_file
-      pos_lnum
-      pos_cnum
-
-
-(* Pretty-print a property of a stream as XML attributes *)
-let pp_print_stream_prop_xml ppf = function 
-
-  | Input -> Format.fprintf ppf "@ input"
-
-  | Output -> Format.fprintf ppf "@ output"
-
-  | Local -> ()
-
-
-(* Pretty-print a list of stream values as <value> tags *)
-let rec pp_print_stream_values_xml i ppf = function
-
-  | [] -> ()
-
-  | t :: [] -> 
-
-    Format.fprintf 
-      ppf
-      "@[<hv 2><value state=\"%d\">@,@[<hv 2>%a@]@;<0 -2></value>@]" 
-      i
-      Term.pp_print_term t
-      
-  | t :: tl -> 
-
-    Format.fprintf 
-      ppf
-      "%a@,%a"
-      (pp_print_stream_values_xml i) [t]
-      (pp_print_stream_values_xml (succ i)) tl
-
-
-(* Pretty-print a tree path as <stream> and <node> tags *)
-let rec pp_print_tree_path_xml ppf = function 
-  
-  | Node (node_ident, node_pos, elements) ->
-
-    Format.fprintf 
-      ppf
-      "@[<hv 2>@[<hv 1><node@ name=\"%a\"@ %a>@]@,%a@;<0 -2></node>@]"
-      (I.pp_print_ident false) node_ident
-      pp_print_pos_xml node_pos
-      (pp_print_list pp_print_tree_path_xml "@,") elements
-
-  | Stream (stream_ident, stream_type, stream_prop, stream_values) ->
-
-    Format.fprintf 
-      ppf
-      "@[<hv 2>@[<hv 1><stream@ name=\"%a\" type=\"%a\"%a>@]@,\
-       %a@;<0 -2>\
-       </stream>@]"
-      (I.pp_print_ident false) stream_ident
-      (E.pp_print_lustre_type false) stream_type
-      pp_print_stream_prop_xml stream_prop
-      (pp_print_stream_values_xml 0) stream_values
-
-
-(* Pretty-print a path in <path> tags *)
-let pp_print_path_xml ppf l =
-
-  Format.fprintf 
-    ppf
-    "@[<hv 2><path>@,%a@;<0 -2></path>@]"
-    (pp_print_list pp_print_tree_path_xml "@,") l
-
+(* ********************************************************************** *)
+(* Conversion of model to execution path                                  *)
+(* ********************************************************************** *)
 
 
 (* [accoc_add k v l] add the element [v] to the list mapped to the key
@@ -227,53 +145,103 @@ and node_of_model ((call_node, call_pos), model) =
   Node (call_node, call_pos, tree_path_of_model model)
   
 
-(* Pretty-print a model as a path *)
-let pp_print_path ppf (model : (StateVar.t * Term.t list) list)  = 
 
-(*
+(* ********************************************************************** *)
+(* XML output                                                             *)
+(* ********************************************************************** *)
 
-  (* Collect *)
-  let model' = 
-    List.fold_left
-      (fun accum (var, term) -> 
-         
-         (* Variable is a state variable *)
-         if Var.is_state_var_instance var then
-           
-           assoc_add 
-             (Var.state_var_of_state_var_instance var) 
-             ((Var.offset_of_state_var_instance var), term)
-             accum
-             
-         (* Skip variables that are not state variables *)
-         else
-           
-           accum)
-      []
-      model
-  in
 
-  let model'' =
-    List.map
-      (fun (state_var, terms) -> 
+(* Pretty-print a position as XML attributes *)
+let pp_print_pos_xml ppf pos = 
 
-         (state_var,
-          List.map
-            snd
-            (List.sort
-               (fun (i1, _) (i2, _) -> Numeral.compare i1 i2)
-               terms)))
-      model'
-  in
-*)
+  (* Do not print anything for a dummy position *)
+  if A.is_dummy_pos pos then () else 
+
+    (* Get file, line and column of position *)
+    let pos_file, pos_lnum, pos_cnum = 
+      A.file_row_col_of_pos pos
+    in
+    
+    (* Print attributes *)
+    Format.fprintf 
+      ppf
+      "file=\"%s\"@ line=\"%d\"@ column=\"%d\""
+      pos_file
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a property of a stream as XML attributes *)
+let pp_print_stream_prop_xml ppf = function 
+
+  | Input -> Format.fprintf ppf "@ input"
+
+  | Output -> Format.fprintf ppf "@ output"
+
+  | Local -> ()
+
+
+(* Pretty-print a list of stream values as <value> tags *)
+let rec pp_print_stream_values_xml i ppf = function
+
+  | [] -> ()
+
+  | t :: [] -> 
+
+    Format.fprintf 
+      ppf
+      "@[<hv 2><value state=\"%d\">@,@[<hv 2>%a@]@;<0 -2></value>@]" 
+      i
+      Term.pp_print_term t
+      
+  | t :: tl -> 
+
+    Format.fprintf 
+      ppf
+      "%a@,%a"
+      (pp_print_stream_values_xml i) [t]
+      (pp_print_stream_values_xml (succ i)) tl
+
+
+(* Pretty-print a tree path as <stream> and <node> tags *)
+let rec pp_print_tree_path_xml ppf = function 
   
+  | Node (node_ident, node_pos, elements) ->
+
+    Format.fprintf 
+      ppf
+      "@[<hv 2>@[<hv 1><node@ name=\"%a\"@ %a>@]@,%a@;<0 -2></node>@]"
+      (I.pp_print_ident false) node_ident
+      pp_print_pos_xml node_pos
+      (pp_print_list pp_print_tree_path_xml "@,") elements
+
+  | Stream (stream_ident, stream_type, stream_prop, stream_values) ->
+
+    Format.fprintf 
+      ppf
+      "@[<hv 2>@[<hv 1><stream@ name=\"%a\" type=\"%a\"%a>@]@,\
+       %a@;<0 -2>\
+       </stream>@]"
+      (I.pp_print_ident false) stream_ident
+      (E.pp_print_lustre_type false) stream_type
+      pp_print_stream_prop_xml stream_prop
+      (pp_print_stream_values_xml 0) stream_values
+
+
+(* Pretty-print a path in <path> tags *)
+let pp_print_path_xml ppf model =
+
   let model' = tree_path_of_model model in
 
-  pp_print_path_xml ppf model'
+  Format.fprintf 
+    ppf
+    "@[<hv 2><path>@,%a@;<0 -2></path>@]"
+    (pp_print_list pp_print_tree_path_xml "@,") model'
 
 
-
-
+(* ********************************************************************** *)
+(* Plain-text output                                                      *)
+(* ********************************************************************** *)
 
 (* 
    Local Variables:

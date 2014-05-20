@@ -16,7 +16,9 @@
 
 *)
 
-val pp_print_path : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
+
 
 (* 
    Local Variables:
