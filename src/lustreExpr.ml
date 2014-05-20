@@ -109,9 +109,20 @@ let rec pp_print_state_var_source ppf = function
 (* Return the identifier of a state variable *)
 let ident_of_state_var state_var = 
 
-  (* Find original indexed identifier *)
-  StateVar.StateVarHashtbl.find state_var_ident_map state_var
+  try
+    
+    (* Find original indexed identifier *)
+    StateVar.StateVarHashtbl.find state_var_ident_map state_var
       
+  with Not_found -> 
+
+    Format.printf
+      "ident_of_state_var: %a not found@."
+      StateVar.pp_print_state_var state_var;
+
+    raise Not_found
+      
+
 
 (* A Lustre clock 
 
@@ -749,22 +760,6 @@ let state_var_of_ident scope_index ident =
     StateVar.state_var_of_string (ident_string, scope)
       
   with Not_found -> 
-
-    Format.printf
-      "@[<v>State variable %a %a not found:"
-      (I.pp_print_index false) scope_index 
-      (I.pp_print_ident false) ident;
-
-    StateVar.StateVarHashtbl.iter
-      (fun sv (id, s) -> 
-         Format.printf
-           "%a = %a.%a@,"
-           StateVar.pp_print_state_var sv
-           (I.pp_print_index false) s
-           (I.pp_print_ident false) id)
-      state_var_ident_map;
-
-    Format.printf "@]@.";
 
     raise Not_found
 
@@ -1948,6 +1943,7 @@ let split_expr_list list =
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
 let oracles_for_unguarded_pres 
+    pos
     mk_new_oracle_state_var
     oracles
     ({ expr_init } as expr) = 
@@ -1967,31 +1963,35 @@ let oracles_for_unguarded_pres
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, oracles) else
     
-    (* New oracle for each state variable *)
-    let oracle_substs, oracles' =
-      VS.fold
-        (fun var (accum, oracles) -> 
-           
-           (* Identifier for a fresh variable *)
-           let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
-           
-           (* Variable at base instant *)
-           let oracle_var = 
-             Var.mk_state_var_instance state_var base_offset
-           in
-           
-           (* Substitute oracle variable for variable *)
-           ((var, Term.mk_var oracle_var) :: accum, 
-            state_var :: oracles))
-
-        init_pre_vars
-        ([], oracles)
-    in
-
-    (* Return expression with all previous state variables in the init
-       expression substituted by fresh constants *)
-    ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
-     oracles')
+    (A.warn_at_position
+       pos
+       "Unguarded pre in expression, adding new oracle input.";
+       
+     (* New oracle for each state variable *)
+     let oracle_substs, oracles' =
+       VS.fold
+         (fun var (accum, oracles) -> 
+            
+            (* Identifier for a fresh variable *)
+            let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
+            
+            (* Variable at base instant *)
+            let oracle_var = 
+              Var.mk_state_var_instance state_var base_offset
+            in
+            
+            (* Substitute oracle variable for variable *)
+            ((var, Term.mk_var oracle_var) :: accum, 
+             state_var :: oracles))
+         
+         init_pre_vars
+         ([], oracles)
+     in
+     
+     (* Return expression with all previous state variables in the init
+        expression substituted by fresh constants *)
+     ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
+      oracles'))
 
     
 

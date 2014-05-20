@@ -63,7 +63,9 @@ let add_to_svs set list =
   List.fold_left (fun a e -> SVS.add e a) set list 
   
 (* Create a copy of the state variable at the top level *)
-let state_var_of_top_scope ?is_input ?is_const ?is_clock top_node state_var =
+let state_var_of_top_scope is_input ?is_const ?is_clock top_node state_var =
+
+(* 
 
   let state_var' = 
     StateVar.mk_state_var
@@ -71,6 +73,16 @@ let state_var_of_top_scope ?is_input ?is_const ?is_clock top_node state_var =
       ?is_const:(Some (StateVar.is_const state_var))
       (StateVar.name_of_state_var state_var) 
       ("__top" :: (StateVar.scope_of_state_var state_var))
+      (StateVar.type_of_state_var state_var)
+  in
+*)
+
+  let state_var' = 
+    E.mk_state_var_of_ident 
+      is_input
+      (StateVar.is_const state_var)
+      I.top_scope_index
+      (fst (E.ident_of_state_var state_var))
       (StateVar.type_of_state_var state_var)
   in
 
@@ -219,6 +231,19 @@ let rec definitions_of_node_calls
         N.call_defaults = init_exprs;
         N.call_pos = pos } :: tl -> 
 
+      (* Create a new state variable for abstractions *)
+      let mk_new_state_var  = 
+        let r = ref Numeral.(- one) in
+        fun state_var_type ->
+          Numeral.incr r; 
+          E.mk_state_var_of_ident
+            false
+            false
+            scope
+            (I.push_int_index !r I.abs_ident)
+            state_var_type
+      in
+
       (* Signature of called node *)
       let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
 
@@ -309,10 +334,14 @@ let rec definitions_of_node_calls
 
              (* New state variable for node call *)
              let local_state_var = 
+(*
                StateVar.mk_state_var
                  (name_of_local_var (List.length local_vars) var_name)
                  scope
                  var_type
+*)
+
+               mk_new_state_var var_type
              in
              
              (* State variable is instance of local variable *)
@@ -752,8 +781,8 @@ let rec trans_sys_of_nodes'
         (* Create copies of the state variables of the top node,
            flagging input variables *)
         let state_vars_top = 
-          List.map (state_var_of_top_scope ~is_input:true main_node) inputs @
-          List.map (state_var_of_top_scope main_node) (outputs @ locals)
+          List.map (state_var_of_top_scope true main_node) inputs @
+          List.map (state_var_of_top_scope false main_node) (outputs @ locals)
         in
 
         (
@@ -803,7 +832,7 @@ let rec trans_sys_of_nodes'
 
     (* Create scope from node name *)
     let scope = 
-      LustreIdent.scope_of_index (LustreIdent.index_of_ident node_name)
+      LustreIdent.index_of_ident node_name
     in
 
     (* Create a new state variable for abstractions *)
@@ -1097,7 +1126,7 @@ let prop_of_node_prop main_node state_var =
   let prop_term = 
     E.base_term_of_state_var 
       base_offset
-      (state_var_of_top_scope main_node state_var) 
+      (state_var_of_top_scope false main_node state_var) 
   in
   
   (prop_name, prop_term)

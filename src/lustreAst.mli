@@ -24,7 +24,7 @@
 *)
 
 (** A position in the input *)
-type position
+type position 
 
 (** Dummy position different from any valid position *)
 val dummy_pos : position
@@ -35,6 +35,18 @@ val is_dummy_pos : position -> bool
 
 (** Pretty-print a position *)
 val pp_print_position : Format.formatter -> position -> unit
+
+(** Return the file, line and column of a position; fail with
+    [Invalid_agument "file_row_col_of_pos" if the position is a dummy
+    position *)
+val file_row_col_of_pos : position -> string * int * int
+
+
+(** Output a fatal error at position and raise an error *)
+val fail_at_position : position -> string -> 'a
+
+(** Output a warning at position *)
+val warn_at_position : position -> string -> unit 
 
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position

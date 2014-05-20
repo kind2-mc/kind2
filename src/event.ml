@@ -187,6 +187,7 @@ let pt_string_of_kind_module = function
   | `INVGEN -> "invariant generator"
   | `INVMAN -> "invariant manager"
   | `Interpreter -> "interpreter"
+  | `Parser -> "parser"
 
 
 (* Pretty-print kind module  for plain text output *)
@@ -285,6 +286,7 @@ let xml_src_of_kind_module = function
   | `INVGEN -> "invgen"
   | `INVMAN -> "invman"
   | `Interpreter -> "interpreter"
+  | `Parser -> "parser"
 
 
 (* Pretty-print kind module as source attribute of log tag *)
@@ -512,7 +514,7 @@ let set_relay_log () = log_format := F_relay
 (* ********************************************************************** *)
 
 (* Log a message with source and log level *)
-let log mdl level fmt = 
+let log (mdl : kind_module) level fmt = 
   match !log_format with 
     | F_pt -> printf_pt mdl level fmt
     | F_xml -> printf_xml mdl level fmt

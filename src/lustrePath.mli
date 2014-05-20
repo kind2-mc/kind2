@@ -16,18 +16,13 @@
 
 *)
 
-(** Parser for a CSV input file 
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
-    @author Baoluo Meng, Christoph Sticksel *)
-
-(** Parse a CSV input file *)
-val read_file: string -> (StateVar.t * (Term.t list)) list
 
 
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)

@@ -280,7 +280,7 @@ let mk_state_var
       in
 
       raise 
-        (Invalid_argument 
+        (Invalid_argument
            (Format.asprintf 
               "State variable %a conflicts with uninterpreted \
                function symbol"

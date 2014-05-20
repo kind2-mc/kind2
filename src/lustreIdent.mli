@@ -186,6 +186,8 @@ val init_uf_string : string
 (** Identifier of uninterpreted symbol for transition relation *)
 val trans_uf_string : string 
 
+(** Scope for top-level variables *)
+val top_scope_index : index
 
 
 (* 
