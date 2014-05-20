@@ -312,7 +312,7 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : (Type.t -> StateVar.t) -> StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : LustreAst.position -> (Type.t -> StateVar.t) -> StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 

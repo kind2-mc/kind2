@@ -705,7 +705,14 @@ let bool_of_hstring s = bool_of_string (HString.string_of_hstring s)
 (* ********************************************************************** *)
 
 (* Kind modules *)
-type kind_module = [ `PDR | `BMC | `IND | `INVGEN | `INVMAN | `Interpreter ]
+type kind_module = 
+  [ `PDR 
+  | `BMC 
+  | `IND
+  | `INVGEN
+  | `INVMAN
+  | `Interpreter
+  | `Parser ]
 
 
 (* Pretty-print the type of the process *)
@@ -716,6 +723,7 @@ let pp_print_kind_module ppf = function
   | `INVGEN -> Format.fprintf ppf "invariant generator"
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
+  | `Parser -> Format.fprintf ppf "parser"
 
 
 (* String representation of a process type *)

@@ -42,6 +42,12 @@ val pp_print_position : Format.formatter -> position -> unit
 val file_row_col_of_pos : position -> string * int * int
 
 
+(** Output a fatal error at position and raise an error *)
+val fail_at_position : position -> string -> 'a
+
+(** Output a warning at position *)
+val warn_at_position : position -> string -> unit 
+
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
  

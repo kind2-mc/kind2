@@ -51,6 +51,7 @@ let main_of_process = function
   | `INVGEN -> InvGen.main 
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
+  | `Parser -> ignore
                        
 
 (* Cleanup function of the process *)
@@ -61,6 +62,7 @@ let on_exit_of_process = function
   | `INVGEN -> InvGen.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
+  | `Parser -> ignore
 
 (*
 (* Messaging type of the process *)
@@ -80,6 +82,7 @@ let debug_ext_of_process = function
   | `INVGEN -> "invgen"
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
+  | `Parser -> "parser"
 
 (* Exit status if child terminated normally *)
 let status_ok = 0

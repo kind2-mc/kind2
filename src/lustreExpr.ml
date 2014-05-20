@@ -1943,6 +1943,7 @@ let split_expr_list list =
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
 let oracles_for_unguarded_pres 
+    pos
     mk_new_oracle_state_var
     oracles
     ({ expr_init } as expr) = 
@@ -1962,31 +1963,35 @@ let oracles_for_unguarded_pres
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, oracles) else
     
-    (* New oracle for each state variable *)
-    let oracle_substs, oracles' =
-      VS.fold
-        (fun var (accum, oracles) -> 
-           
-           (* Identifier for a fresh variable *)
-           let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
-           
-           (* Variable at base instant *)
-           let oracle_var = 
-             Var.mk_state_var_instance state_var base_offset
-           in
-           
-           (* Substitute oracle variable for variable *)
-           ((var, Term.mk_var oracle_var) :: accum, 
-            state_var :: oracles))
-
-        init_pre_vars
-        ([], oracles)
-    in
-
-    (* Return expression with all previous state variables in the init
-       expression substituted by fresh constants *)
-    ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
-     oracles')
+    (A.warn_at_position
+       pos
+       "Unguarded pre in expression, adding new oracle input.";
+       
+     (* New oracle for each state variable *)
+     let oracle_substs, oracles' =
+       VS.fold
+         (fun var (accum, oracles) -> 
+            
+            (* Identifier for a fresh variable *)
+            let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
+            
+            (* Variable at base instant *)
+            let oracle_var = 
+              Var.mk_state_var_instance state_var base_offset
+            in
+            
+            (* Substitute oracle variable for variable *)
+            ((var, Term.mk_var oracle_var) :: accum, 
+             state_var :: oracles))
+         
+         init_pre_vars
+         ([], oracles)
+     in
+     
+     (* Return expression with all previous state variables in the init
+        expression substituted by fresh constants *)
+     ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
+      oracles'))
 
     
 

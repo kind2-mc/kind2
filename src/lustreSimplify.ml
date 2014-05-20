@@ -39,17 +39,6 @@ let sort_indexed_pairs list =
   List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) list
 
 
-(* Raise parsing exception *)
-let fail_at_position pos msg = 
-
-  raise 
-    (Failure 
-       (Format.asprintf 
-          "Parsing error in %a: %s" 
-          A.pp_print_position pos 
-          msg))
-  
-
 (* ******************************************************************** *)
 (* Data structures                                                      *)
 (* ******************************************************************** *)
@@ -215,8 +204,8 @@ let void_abstraction_context pos =
   let msg = "Expression must be constant" in
 
   { scope = I.empty_index;
-    mk_new_state_var = (fun _ -> fail_at_position pos msg); 
-    mk_new_oracle_state_var = (fun _ -> fail_at_position pos msg);
+    mk_new_state_var = (fun _ -> A.fail_at_position pos msg); 
+    mk_new_oracle_state_var = (fun _ -> A.fail_at_position pos msg);
     new_vars = []; 
     new_calls = [];
     new_oracles = [] } 
@@ -396,7 +385,7 @@ let rec eval_ast_expr'
 
             with Not_found -> 
 
-              fail_at_position
+              A.fail_at_position
                 pos
                 (Format.asprintf 
                    "Undeclared identifier %a"
@@ -436,7 +425,7 @@ let rec eval_ast_expr'
     (* Identifier must have a type or indexes *)
     | A.Ident (pos, ident) :: _ -> 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         (Format.asprintf 
            "Undeclared identifier %a" 
@@ -469,7 +458,7 @@ let rec eval_ast_expr'
 
        with Not_found ->
 
-         fail_at_position 
+         A.fail_at_position 
            pos
            (Format.asprintf 
               "Identifier %a does not have field %a" 
@@ -504,7 +493,7 @@ let rec eval_ast_expr'
 
          else
 
-           fail_at_position 
+           A.fail_at_position 
              pos
              (Format.asprintf 
                 "Identifier %a does not have fields" 
@@ -512,7 +501,7 @@ let rec eval_ast_expr'
 
        with Not_found -> 
 
-         (fail_at_position 
+         (A.fail_at_position 
             pos
             (Format.asprintf 
                "Identifier %a does not have field %a" 
@@ -656,7 +645,7 @@ let rec eval_ast_expr'
       (* Size of array must be non-zero and positive *)
       if Numeral.(array_size <= zero) then 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         (Format.asprintf 
            "Expression %a cannot be used as the size of an array" 
@@ -713,7 +702,7 @@ let rec eval_ast_expr'
     (* Array slice *)
     | A.ArraySlice (pos, _, _) :: tl -> 
 
-      fail_at_position
+      A.fail_at_position
         pos
         "Array slices not implemented"
 
@@ -830,7 +819,7 @@ let rec eval_ast_expr'
     (* Concatenation of arrays *)
     | A.ArrayConcat (pos, _, _) :: tl -> 
 
-      fail_at_position pos "Array concatenation not implemented"
+      A.fail_at_position pos "Array concatenation not implemented"
 
 
     (* Record constructor *)
@@ -853,7 +842,7 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          fail_at_position
+          A.fail_at_position
             pos
             (Format.asprintf 
                "Record type %a not defined" 
@@ -950,7 +939,7 @@ let rec eval_ast_expr'
         (* Type checking error or one expression has more indexes *)
         with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
 
-          fail_at_position
+          A.fail_at_position
             pos
             (Format.asprintf 
                "Type mismatch in record of type %a" 
@@ -999,7 +988,7 @@ let rec eval_ast_expr'
     (* Boolean at-most-one constaint  *)
     | A.OneHot (pos, _) :: tl -> 
 
-      fail_at_position pos "One-hot expression not supported"
+      A.fail_at_position pos "One-hot expression not supported"
 
 
     (* Unary minus *)
@@ -1083,13 +1072,13 @@ let rec eval_ast_expr'
         (* Expression is not Boolean or is indexed *)
         | _ -> 
 
-          fail_at_position pos "Condition is not of Boolean type")
+          A.fail_at_position pos "Condition is not of Boolean type")
             
 
     (* With operator for recursive node calls *)
     | A.With (pos, _, _, _) :: tl -> 
 
-      fail_at_position pos "Recursive nodes not supported"
+      A.fail_at_position pos "Recursive nodes not supported"
 
 
     (* Equality *)
@@ -1131,13 +1120,13 @@ let rec eval_ast_expr'
     (* Interpolation to base clock *)
     | A.Current (pos, A.When (_, _, _)) :: tl -> 
 
-      fail_at_position pos "Current expression not supported"
+      A.fail_at_position pos "Current expression not supported"
 
 
     (* Projection on clock *)
     | A.When (pos, _, _) :: tl -> 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         "When expression must be the argument of a current operator"
 
@@ -1145,7 +1134,7 @@ let rec eval_ast_expr'
     (* Interpolation to base clock *)
     | A.Current (pos, _) :: tl -> 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         "Current operator must have a when expression as argument"
 
@@ -1456,13 +1445,13 @@ let rec eval_ast_expr'
 
        with E.Type_mismatch ->
 
-         fail_at_position pos "Type mismatch for expressions")
+         A.fail_at_position pos "Type mismatch for expressions")
 
 
     (* Followed by operator *)
     | A.Fby (pos, _, _, _) :: tl -> 
 
-      fail_at_position pos "Fby operator not implemented" 
+      A.fail_at_position pos "Fby operator not implemented" 
 
 
     (* Arrow temporal operator *)
@@ -1488,7 +1477,7 @@ let rec eval_ast_expr'
     (* Node call to a parametric node *)
     | A.CallParam (pos, _, _, _) :: tl -> 
 
-      fail_at_position pos "Parametric nodes not supported" 
+      A.fail_at_position pos "Parametric nodes not supported" 
 
 
 
@@ -1521,7 +1510,7 @@ and unary_apply_to
 
   with E.Type_mismatch ->
 
-    fail_at_position pos "Type mismatch for expressions"
+    A.fail_at_position pos "Type mismatch for expressions"
 
 
 (* Apply operation to expressions component-wise *)
@@ -1567,7 +1556,7 @@ and binary_apply_to
   (* Type checking error or one expression has more indexes *)
   with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
 
-    fail_at_position
+    A.fail_at_position
       pos
       (Format.asprintf
          "Type mismatch for expressions %a and %a" 
@@ -1682,7 +1671,7 @@ and eval_node_call
     (* Type checking error or one expression has more indexes *)
     with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
       
-      fail_at_position pos "Type mismatch for expressions"
+      A.fail_at_position pos "Type mismatch for expressions"
         
   in
 
@@ -1715,7 +1704,7 @@ and eval_node_call
     (* Type checking error or one expression has more indexes *)
     with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
       
-      fail_at_position pos "Type mismatch for expressions"
+      A.fail_at_position pos "Type mismatch for expressions"
         
   in
 
@@ -1838,12 +1827,12 @@ and int_const_of_ast_expr context pos expr =
         (* Expression is not a constant integer *)
         | _ ->       
           
-          fail_at_position pos "Expression must be an integer")
+          A.fail_at_position pos "Expression must be an integer")
       
     (* Expression is not a constant integer *)
     | _ ->       
       
-      fail_at_position pos "Expression must be constant"
+      A.fail_at_position pos "Expression must be constant"
         
 
 (* Evaluate expression to an integer constant *)
@@ -1876,7 +1865,7 @@ and bool_expr_of_ast_expr
     (* Expression is not Boolean or is indexed *)
     | _ -> 
       
-      fail_at_position pos "Expression is not of Boolean type") 
+      A.fail_at_position pos "Expression is not of Boolean type") 
   
 
 (* Return true if expression is Boolean without indexes *)
@@ -1892,11 +1881,12 @@ let is_bool_expr = function
 
 (* Replace unguarded pres in expression with oracle constants and
    return extened abstraction *)
-let close_ast_expr (expr, abstractions) = 
+let close_ast_expr pos (expr, abstractions) = 
   
   (* Replace unguarded pres in expression with oracle constants *)
   let expr', oracles' =
     E.oracles_for_unguarded_pres
+      pos
       abstractions.mk_new_oracle_state_var
       abstractions.new_oracles
       expr
@@ -1911,7 +1901,7 @@ let close_ast_expr (expr, abstractions) =
   (expr', abstractions') 
    
 
-let close_indexed_ast_expr (expr, abstractions) = 
+let close_indexed_ast_expr pos (expr, abstractions) = 
       
   (* Replace unguarded pres with oracle constants *)
   let expr', abstractions' = 
@@ -1919,7 +1909,9 @@ let close_indexed_ast_expr (expr, abstractions) =
 
       (fun (index, expr) (accum, abstractions) -> 
 
-         let expr', abstractions' = close_ast_expr (expr, abstractions) in
+         let expr', abstractions' = 
+           close_ast_expr pos (expr, abstractions) 
+         in
 
          (* Return expression and modified abstraction *)
          ((index, expr') :: accum, abstractions'))
@@ -1993,7 +1985,7 @@ let add_enum_to_context type_ctx pos = function
            (* Skip if constant declared with the same (enum) type *)
            if basic_type = enum_element_type then type_ctx else
 
-             fail_at_position 
+             A.fail_at_position 
                pos 
                (Format.asprintf 
                   "Enum constant %a declared with different type" 
@@ -2168,7 +2160,7 @@ let rec fold_ast_type'
   (* Enum type needs to be constructed *)
   | (index, A.EnumType (pos, enum_elements)) :: tl -> 
 
-    fail_at_position pos "Enum types not supported" 
+    A.fail_at_position pos "Enum types not supported" 
 
 (* TODO: support enum types
 
@@ -2237,7 +2229,7 @@ let rec fold_ast_type'
   (* User type that is neither an alias nor free *)
   | (index, A.UserType (pos, ident)) :: _ -> 
 
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Type %a is not declared" 
@@ -2298,7 +2290,7 @@ let rec fold_ast_type'
     (* Array size must must be at least one *)
     if Numeral.(array_size <= zero) then 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         (Format.asprintf 
            "Expression %a must be positive as array size" 
@@ -2440,7 +2432,7 @@ let add_typed_decl
 
   with E.Type_mismatch -> 
 
-    fail_at_position pos "Type mismatch for expressions"
+    A.fail_at_position pos "Type mismatch for expressions"
 
 
 (* Add declaration of constant to context *)
@@ -2449,7 +2441,7 @@ let add_const_decl context = function
   (* Free constant *)
   | A.FreeConst (pos, ident, _) -> 
 
-    fail_at_position pos "Free constants not supported"
+    A.fail_at_position pos "Free constants not supported"
 
 
   (* Constant without type *)
@@ -2690,9 +2682,9 @@ let rec parse_node_inputs context node = function
       (try 
          ident_in_context context ident 
        with Invalid_argument e -> 
-         fail_at_position pos e) -> 
+         A.fail_at_position pos e) -> 
 
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Node input %a already declared" 
@@ -2716,7 +2708,7 @@ let rec parse_node_inputs context node = function
 
   | (pos, _, _, _, _) :: _ -> 
 
-    fail_at_position pos "Clocked node inputs not supported"
+    A.fail_at_position pos "Clocked node inputs not supported"
 
 
 (* Add all node outputs to contexts *)
@@ -2732,9 +2724,9 @@ let rec parse_node_outputs context node index = function
       (try 
          ident_in_context context ident 
        with Invalid_argument e -> 
-         fail_at_position pos e) -> 
+         A.fail_at_position pos e) -> 
     
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Node output %a already declared" 
@@ -2765,7 +2757,7 @@ let rec parse_node_outputs context node index = function
 
   | (pos, _, _, _) :: _ -> 
 
-    fail_at_position pos "Clocked node outputs not supported" 
+    A.fail_at_position pos "Clocked node outputs not supported" 
 
 
 
@@ -2785,9 +2777,9 @@ let rec parse_node_locals context node = function
       (try 
          ident_in_context context ident 
        with Invalid_argument e -> 
-         fail_at_position pos e) -> 
+         A.fail_at_position pos e) -> 
     
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Node local variable or constant %a already declared" 
@@ -2815,7 +2807,7 @@ let rec parse_node_locals context node = function
   (* Local variable not on the base clock *)
   |  A.NodeVarDecl (pos, (_, ident, _, _)) :: _ -> 
 
-    fail_at_position 
+    A.fail_at_position 
       pos 
       (Format.asprintf 
          "Clocked node local variables not supported for %a" 
@@ -2923,6 +2915,7 @@ and equation_to_node
   (* Replace unguarded pre with oracle constants *)
   let expr', oracles' = 
     E.oracles_for_unguarded_pres
+      pos
       abstractions.mk_new_oracle_state_var
       abstractions.new_oracles
       expr
@@ -2963,6 +2956,11 @@ and equation_to_node
                (E.mk_lte expr (E.mk_int ubound)))
           in
 
+          A.warn_at_position
+            pos
+            "Cannot determine correctness of subrange type, \
+             adding constraint as property.";
+
           (* Add property to node *)
           property_to_node 
             context 
@@ -2973,7 +2971,7 @@ and equation_to_node
 
         | _ -> 
 
-          fail_at_position pos "Type mismatch for expressions")
+          A.fail_at_position pos "Type mismatch for expressions")
 
   in
 
@@ -3144,6 +3142,7 @@ let rec parse_node_equations
       (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3174,6 +3173,7 @@ let rec parse_node_equations
       (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3208,6 +3208,7 @@ let rec parse_node_equations
       (* Evaluate expression and guard all pre operators *)
       let expr', abstractions = 
         close_indexed_ast_expr
+          pos
           (eval_ast_expr 
              context 
              empty_abstractions
@@ -3265,7 +3266,7 @@ let rec parse_node_equations
                     (* Identifier not found in outputs and local variables *)
                     if accum'' = accum' then 
                       
-                      fail_at_position 
+                      A.fail_at_position 
                         pos 
                         "Assignment to neither output nor local variable" 
 
@@ -3281,7 +3282,7 @@ let rec parse_node_equations
 
                 (* TODO: Structural assignments *)
                 | _ -> 
-                  fail_at_position
+                  A.fail_at_position
                     pos
                     "Structural assignments not supported")
 
@@ -3312,7 +3313,7 @@ let rec parse_node_equations
 
         with Invalid_argument "List.fold_right2" -> 
 
-          fail_at_position 
+          A.fail_at_position 
             pos
             "Type mismatch in equation"
 
@@ -3363,6 +3364,7 @@ let rec parse_node_contract
       (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3394,6 +3396,7 @@ let rec parse_node_contract
       (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3544,7 +3547,7 @@ let rec declarations_to_nodes'
 
       then
 
-        fail_at_position 
+        A.fail_at_position 
           pos
           (Format.asprintf 
              "Type %a is redeclared" 
@@ -3598,12 +3601,12 @@ let rec declarations_to_nodes'
            ident_in_context global_context ident 
 
          (* Fail if reserved identifier used *)
-         with Invalid_argument e -> fail_at_position pos e)
+         with Invalid_argument e -> A.fail_at_position pos e)
 
       then
 
         (* Fail if identifier already declared *)
-        fail_at_position 
+        A.fail_at_position 
           pos 
           (Format.asprintf 
              "Identifier %a is redeclared as constant" 
@@ -3663,7 +3666,7 @@ let rec declarations_to_nodes'
 
         then
 
-          fail_at_position 
+          A.fail_at_position 
             pos 
             (Format.asprintf 
                "Node %a is forward referenced" 
@@ -3671,7 +3674,7 @@ let rec declarations_to_nodes'
       
         else
           
-          fail_at_position
+          A.fail_at_position
             pos
             (Format.asprintf 
                "Node %a is not defined" 
@@ -3682,14 +3685,14 @@ let rec declarations_to_nodes'
     (* Node declaration without parameters *)
     | (A.FuncDecl (pos, _)) :: _ ->
 
-      fail_at_position pos "Functions not supported"
+      A.fail_at_position pos "Functions not supported"
 
 
     (* Node declaration without parameters *)
     | (A.NodeParamInst (pos, _)) :: _
     | (A.NodeDecl (pos, _)) :: _ ->
 
-      fail_at_position pos "Parametric nodes not supported" 
+      A.fail_at_position pos "Parametric nodes not supported" 
 
 
 (* Iterate over the declarations and return the nodes *)

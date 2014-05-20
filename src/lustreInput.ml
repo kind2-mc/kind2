@@ -18,7 +18,7 @@
 
 open Lib
 
-
+module A = LustreAst
 
 (* Parse from input channel *)
 let of_channel in_ch = 
@@ -41,22 +41,13 @@ let of_channel in_ch =
 
       | LustreParser.Error ->
 
-        let 
-          { Lexing.pos_fname; 
-            Lexing.pos_lnum; 
-            Lexing.pos_bol; 
-            Lexing.pos_cnum } = 
+        let lexer_pos = 
           Lexing.lexeme_start_p lexbuf 
         in
 
-        Format.printf 
-          "Syntax error in line %d at column %d in %s: %s@." 
-          pos_lnum
-          (pos_cnum - pos_bol)
-          pos_fname
-          (Lexing.lexeme lexbuf);
-
-        exit 1
+        A.fail_at_position
+          (A.position_of_lexing lexer_pos)
+          "Syntax error"
 
   in
 
