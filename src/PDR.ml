@@ -1053,7 +1053,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
 
    The list of frames must not be empty, we start with k=1. *)
 let rec strengthen
-    ((_, solver_frames, _) as solvers) trans_sys = 
+    ((_, solver_frames, _) as solvers) trans_sys props = 
 
   function 
 
@@ -1075,9 +1075,7 @@ let rec strengthen
          r_k);
 
       let prop_clause = 
-        Clause.singleton 
-          (TransSys.props_of_bound Numeral.zero trans_sys), 
-        Clause.empty
+        Clause.singleton props, Clause.empty
       in
       
       match 
@@ -1155,7 +1153,7 @@ let rec strengthen
            in
 
            (* Find next counterexample to block *)
-           strengthen solvers trans_sys frames')
+           strengthen solvers trans_sys props frames')
         
 
 
@@ -1909,19 +1907,15 @@ let fwd_propagate
 (* Check if the property is valid in the initial state and in the
    successor of the initial state, raise exception [Counterexample] if
    not *)
-let bmc_checks solver_init trans_sys =
+let bmc_checks solver_init trans_sys props =
 
   (* Push new scope onto context of solver *)
   S.push solver_init;
 
-  (debug smt 
-      "Asserting negated property (l. 1751)"
-   in
-
-   (* Assert negated property in the first state *)
-   S.assert_term 
-     solver_init 
-     (Term.negate (TransSys.props_of_bound Numeral.zero trans_sys)));
+  (* Assert negated property in the first state *)
+  S.assert_term 
+    solver_init 
+    (Term.negate props);
 
   (* Check if the property is violated in the initial state *)
   if S.check_sat solver_init then raise (Counterexample []);
@@ -1941,7 +1935,7 @@ let bmc_checks solver_init trans_sys =
    (* Assert negated property in the second state *)
    S.assert_term 
      solver_init 
-     (Term.negate (TransSys.props_of_bound Numeral.one trans_sys)));
+     (Term.negate (Term.bump_state Numeral.one props)));
 
   (debug smt 
       "Asserting transition relation"
@@ -2098,7 +2092,12 @@ let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k =
    [Counterexample] is raised, see {!strengthen}.
 
 *)
-let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames = 
+let rec pdr
+    ((solver_init, solver_frames, _) as solvers) 
+    trans_sys
+    props
+    bmc_k
+    frames = 
 
   let pdr_k = succ (List.length frames) in
 
@@ -2193,7 +2192,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames 
   Stat.start_timer Stat.pdr_strengthen_time;
 
   (* Recursively block counterexamples in frontier state *)
-  let frames'' = strengthen solvers trans_sys frames' in
+  let frames'' = strengthen solvers trans_sys props frames' in
 
   Stat.record_time Stat.pdr_strengthen_time;
 
@@ -2205,7 +2204,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames 
   if Event.output_on_level Event.L_info then print_stats ();
 
   (* No reachable state violates the property, continue with next k *)
-  pdr solvers trans_sys bmc_k' frames''))
+  pdr solvers trans_sys props bmc_k' frames''))
 
 
 (* Entry point
@@ -2229,7 +2228,7 @@ let main trans_sys =
 
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
-  
+
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
     S.new_solver
@@ -2238,10 +2237,10 @@ let main trans_sys =
       ~produce_cores:true 
       logic
   in
-  
+
   (* Declare uninterpreted function symbols *)
   TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init);
-  
+
   (* Define functions *)
   TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
 
@@ -2323,12 +2322,12 @@ let main trans_sys =
       (debug smt 
           "Permanently asserting invariants"
        in
-       
+
        S.assert_term solver_frames invars_0;
        S.assert_term solver_frames invars_1)
-      
+
     );
-  
+
   (* Create new solver instance for all other queries (subsumption,
      invariance of blocking clauses) *)
   let solver_misc = 
@@ -2365,99 +2364,152 @@ let main trans_sys =
           | Sys_error _ -> 
             failwith "Could not open file for inductive assertions"
       in 
-      
+
       (* Create formatter and store in reference *)
       ppf_inductive_assertions := Format.formatter_of_out_channel oc);
 
-  (
+  (debug smt 
+      "Permanently asserting transition relation"
+   in
 
-    try 
+   (* Assert transition relation from current frame *)
+   S.assert_term 
+     solver_init
+     (TransSys.trans_of_bound Numeral.one trans_sys));
 
-      (* BMC module running in parallel? 
+  (* Helper function for restarts *)
+  let rec restart_loop props = 
 
-         If BMC is running in parallel, delegate check for zero and one
-         step counterexamples to it. All results are tentative until BMC
-         has shown that there are no such counterexamples. *)
-      let bmc_init_k = 
+    if props = [] then () else
 
-        if List.mem `BMC (Flags.enable ()) then 
+      let props_term =
+        Term.mk_and (List.map snd props)
+      in
 
-          (Event.log `PDR Event.L_info
-             "Delegating check for zero and one step counterexamples \
-              to BMC process.";
+      (* Properties to prove after restart *)
+      let props' = 
 
-           (* BMC process starts at k=0 *)
-           0
+        try 
 
-          )
+          (* BMC module running in parallel? 
+
+             If BMC is running in parallel, delegate check for zero and one
+             step counterexamples to it. All results are tentative until BMC
+             has shown that there are no such counterexamples. *)
+          let bmc_init_k = 
+
+            if List.mem `BMC (Flags.enable ()) then 
+
+              (Event.log `PDR Event.L_info
+                 "Delegating check for zero and one step counterexamples \
+                  to BMC process.";
+
+               (* BMC process starts at k=0 *)
+               0
+
+              )
 
 
-      else
+            else
 
-          (
+              (
 
-            (* Do check for zero and one step counterexample in solver
-               instance [solver_init] *)
-            bmc_checks solver_init trans_sys;
+                (* Do check for zero and one step counterexample in solver
+                   instance [solver_init] *)
+                bmc_checks solver_init trans_sys props_term;
 
-            (* We have done checks for k=0 and k=1 *)
-            2
+                (* We have done checks for k=0 and k=1 *)
+                2
 
-          )
+              )
+
+          in
+          (* Run PDR procedure *)
+          pdr
+            (solver_init, solver_frames, solver_misc) 
+            trans_sys 
+            props_term
+            bmc_init_k
+            []
+
+        with 
+
+          (* All propertes are valid *)
+          | Success k -> 
+
+            (
+
+              (* Send out valid properties *)
+              List.iter
+                (Event.proved `PDR (Some k)) 
+                props;
+
+              (* No more properties remaining *)
+              []
+
+            )
+
+          (* Some property is invalid *)
+          | Counterexample trace -> 
+
+            (
+
+              (* Extract counterexample from sequence of blocking
+                 clauses *)
+              let cex_path =
+                extract_cex_path
+                  solver_misc
+                  trans_sys
+                  trace
+              in
+
+              (* Check which properties are disproved *)
+              let props' =
+
+                List.fold_left
+                  (fun accum (p, t) -> 
+
+                     if 
+
+                       (* Property is false along path? *)
+                       List.exists
+                         (Term.equal Term.t_false) 
+                         (List.assoc
+                            (Var.state_var_of_state_var_instance
+                               (Term.free_var_of_term t))
+                            cex_path)
+
+                     then
+
+                       (Event.disproved `PDR None p;
+
+                        (p, t) :: accum)
+
+                     else
+
+                       accum)
+                  []
+                  props
+              in
+
+              (* Output counterexample *)
+              Event.log_counterexample
+                `PDR
+                cex_path;
+
+              props'
+
+            )
 
       in
 
-      (debug smt 
-          "Permanently asserting transition relation"
-       in
-       
-       (* Assert transition relation from current frame *)
-       S.assert_term 
-         solver_init
-         (TransSys.trans_of_bound Numeral.one trans_sys));
-      
-      if not (S.check_sat solver_init) then assert false;
+      (* Restart with remaining properties *)
+      restart_loop props'
 
-      (* Run PDR procedure *)
-      pdr (solver_init, solver_frames, solver_misc) trans_sys bmc_init_k [];
-      
-    with 
-      
-      (* All propertes are valid *)
-      | Success k -> 
+  in
 
-        (
-
-          List.iter (Event.proved `PDR (Some k)) trans_sys.TransSys.props
-         
-        )
-
-      (* Some property is invalid *)
-      | Counterexample trace -> 
-
-        (
-
-
-          let cex_path =
-            extract_cex_path
-              solver_misc
-              trans_sys
-              trace
-          in
-          
-          Event.log
-            `PDR
-            Event.L_off
-            "Counterexample %a"
-            LustrePath.pp_print_path_xml cex_path;
-          
-          List.iter 
-            (function (p, _) -> Event.disproved `PDR None p) 
-            trans_sys.TransSys.props
-
-        )
-
-  )
+  (* Prove all properties with restarting after invalid counterexamples *)
+  restart_loop trans_sys.TransSys.props
 
 
 
