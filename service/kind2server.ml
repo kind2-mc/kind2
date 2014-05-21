@@ -82,105 +82,6 @@ let load5_max = ref 4.
 (* Maximum 15 minutes load average *)
 let load15_max = ref 0.
 
-(*
-
-let parse_argv argv =
-
-  try
-
-    (* Comma-separated string of values for argument *)
-    let prgs =
-      asprintf
-        "@[<h>%a@]"
-        (pp_print_list Format.pp_print_string ",@ ")
-        (List.map fst configured_programs)
-    in
-
-    (* Program to run, set to default *)
-    let config =
-      ref (List.assoc "kind2" configured_programs)
-    in
-
-    (* Port set by user *)
-    let port = ref None in
-
-    (* Action for -p option *)
-    let port_action p = port := Some p in
-
-    (* Action for argument *)
-    let anon_action s =
-      try config := List.assoc s configured_programs with
-        | Not_found ->
-          raise
-            (Arg.Bad
-               (asprintf
-                  "No program %s configured. Possible values are %s"
-                  s
-                  prgs))
-    in
-
-    (* Usage message for --help etc. *)
-    let usage_msg =
-      asprintf
-        "Usage: %s [-p port] PRG@\n\
-Start a server for PRG, possible values are %s"
-        (Filename.basename Sys.executable_name)
-        prgs
-    in
-
-    (* Action for --help etc. *)
-    let rec help_action () =
-      raise (Arg.Help (Arg.usage_string speclist usage_msg))
-
-    (* Arguments *)
-    and speclist =
-      [
-
-        ("-p",
-         Arg.Int port_action,
-         " Run server on port");
-
-        ("-l1",
-         Arg.Set_float load1_max,
-         " Maximal one-minute load average to accept jobs, \
-(0. = unlimited)");
-
-        ("-l5",
-         Arg.Set_float load5_max,
-         " Maximal five-minute load average to accept jobs, \
-(0. = unlimited)");
-
-        ("-l15",
-         Arg.Set_float load15_max,
-         " Maximal 15-minute load average to accept jobs, \
-(0. = unlimited)");
-
-        (* Display help *)
-        ("-help",
-         Arg.Unit help_action,
-         " Display this list of options");
-        ("--help",
-         Arg.Unit help_action,
-         "Display this list of options");
-        ("-h",
-         Arg.Unit help_action,
-         " Display this list of options")
-      ]
-
-    in
-
-    (* Parse arguments *)
-    Arg.parse_argv argv speclist anon_action usage_msg;
-
-    (* Override port in chosen configuration *)
-    match !port with None -> !config | Some p -> {!config with port = p}
-
-  with Arg.Help s | Arg.Bad s ->
-
-    Format.printf "%s" s; exit 1
-
-*)
-
 
 
 (* ********************************************************************** *)
@@ -224,9 +125,6 @@ make it look random *)
   base10tol (Hashtbl.hash (int_of_float (Unix.gettimeofday () *. 100.)))
 
 
-(* Sleep for sec seconds *)
-let minisleep sec =
-  ignore (Unix.select [] [] [] sec)
 
 
 (* Pretty-print into a string *)
@@ -364,11 +262,6 @@ let cancel_sigterm_time = 2.
 let job_lifespan = 2629740 (* about one month *)
 
 
-(* Location of temporary directory *)
-let tmpdir = asprintf "/tmp/kind2-%s" (generate_uid ())
-
-(* Name of log file *)
-let logfile = asprintf "%s.log" tmpdir
 
 (* helper function for read a file and returns a string list*)
 let read_file filename = 
@@ -381,6 +274,7 @@ let read_file filename =
   with End_of_file ->
     close_in chan;
     List.rev !lines
+
 
 let write_file file1 file2 =
 
@@ -398,10 +292,13 @@ let write_file file1 file2 =
 let read_bytes start filename =
 
   (* Open file *)
-  let ic = open_in_bin (Filename.concat tmpdir filename) in
+  log ("Reading file : %s") filename;
+  let ic = open_in_bin filename in
+  log ("start is %d") start;
 
   (* Get length of bytes available to read *)
   let n = (in_channel_length ic) - start in
+  log ("length of bytes available : %d") n; 
 
   (* Characters available to read after start? *)
   if n > 0 then
@@ -446,8 +343,8 @@ and the content of 'payload'. send results over 'sock' *)
 let create_job
     job_command
     job_args 
-    payload  =
-
+    payload 
+    path =
   (* Open file *)
   let loadavg_ch = open_in "/proc/loadavg" in
 
@@ -473,10 +370,10 @@ let create_job
     (!load15_max > 0. && load15 > !load15_max)
 
   then
-
+    
     (
 
-
+      
       let msg =
         asprintf
           "<Jobstatus msg=\"aborted\">\
@@ -490,18 +387,18 @@ Job rejected due to high system load. Try again later.\
   else
 
     (
-
+      
       (* Generate a unique job ID *)
       let job_id = generate_uid () in
 
       (* Create temporary files for input, output and error output *)
-      let stdin_fn = ("kind_job_" ^ job_id ^ "_input") in
-      let stdout_fn = ("kind_job_" ^ job_id ^ "_output") in
+      let stdin_fn = (path ^ "kind_job_" ^ job_id ^ "_input") in
+      let stdout_fn = (path ^ "kind_job_" ^ job_id ^ "_output") in
 
 (* TODO: copy/rename input file to stdin_fn *)
 
       (* Write data from client to stdin of new kind process *)
-      write_file payload stdin_fn;
+      Unix.link payload stdin_fn;
 
       log
         "Input file is %s"
@@ -665,12 +562,6 @@ Contents of stderr:@\n\
 	  
   in
 
-  (* Remove job from table of working jobs *)
-  Service.remove_running_job job_id;
-  
-  (* Add to table of completed jobs *)
-  Service.add_completed_job job_id (Unix.gmtime (Unix.time ()));
-  
   (* Delete temp files for process *)
   (try (Sys.remove job_stdin_fn) with _ -> ());
   (try (Sys.remove job_stdout_fn) with _ -> ());
@@ -683,69 +574,53 @@ Contents of stderr:@\n\
 
 (* Retrieve job *)
 let retrieve_job job_id job_param =
-
   (* Local log function *)
   let log fmt =
     log
       ("Request retrieval of job %s: " ^^ fmt)
       job_id
   in
-    
-    try
-      
-      (
-		
+      		
         (* Check status of job by its PID *)
-        let status_pid, job_status = 
-	  Unix.waitpid [Unix.WNOHANG] job_param.job_pid 
-	in
-	
-        (* Job has not exited yet? *)
-        if status_pid = 0 then
+  let status_pid, job_status = 
+    Unix.waitpid [Unix.WNOHANG] job_param.job_pid 
+  in	
+  (* Job has not exited yet? *)
+  if status_pid = 0 then
 	  
-          (
+    (
 	    
-            log ("running as PID %d") status_pid;
-	    
-            (* Read from standard output file *)
-            let new_stdout_pos, stdout_string = 
-	      read_bytes job_stdout_pos job_stdout_fn 
-	    in
-	    
-            (* Update position in file *)
-            job_param.job_stdout_pos <- new_stdout_pos;
-	    
-            (* Message to client is from stdout *)
-            stdout_string
-	      
-          )
-	    
-        else
-	  
-          output_of_job_status log job_id job_param job_status
-            
-      )
-	
-    (* Job not found in table of running jobs *)
-    with Not_found ->
+      log ("running as PID %d") status_pid;
+      (* Read from standard output file *)
+      let new_stdout_pos, stdout_string = 
+	read_bytes job_param.job_stdout_pos job_param.job_stdout_fn 
+      in
       
-      try
-	
-        (
-	  
-          (* Get time of retrieval *)	  
-          log "completed at %a UTC" pp_print_time job_tm;
-	  
-          asprintf
-            "<Jobstatus msg=\"completed\">\
-            Job with ID %s has completed and was retrieved at %s UTC\
-            </Jobstatus>"
-            job_id (string_of_time job_tm)
+            (* Update position in file *)
+      job_param.job_stdout_pos <- new_stdout_pos;
 	    
-        )
+          (* Message to client is from stdout *)
+      ( stdout_string , job_param)
+	      
+    )
+      
+  else
 	  
-      with Not_found ->
+    ((output_of_job_status log job_id job_param job_status) ,  job_param)
+            
 	
+let retrieve_complete job_id job_tm = 
+    (* job is found in the table of completed jobs*)
+  	  	  
+       log "completed at %a UTC" pp_print_time job_tm;
+	  
+       asprintf
+          "<Jobstatus msg=\"completed\">\
+          Job with ID %s has completed and was retrieved at %s UTC\
+          </Jobstatus>"
+          job_id (string_of_time job_tm)
+	    
+let job_not_found_msg job_id = 	
         log "not found";
 	
         let msg = asprintf
@@ -756,10 +631,10 @@ let retrieve_job job_id job_param =
 	msg
 
 	  
-(*
+
 
 (* Register a request to cancel a job *)
-let cancel_job job_id =
+let cancel_job job_id job_param =
   
   (* Local log function *)
   let log fmt =
@@ -769,17 +644,9 @@ let cancel_job job_id =
   in
   
   (* String message to client *)
-    try
-
-      (
-
-        (* Find job in table of running jobs *)
-        let { job_pid; job_stdout_fn; job_stdout_pos } as job_param =
-          Hashtbl.find running_jobs job_id
-        in
 
         (* Check status of job by its PID *)
-        let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_pid in
+        let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_param.job_pid in
 
         (* Job has not exited yet? *)
         if status_pid = 0 then
@@ -789,68 +656,39 @@ let cancel_job job_id =
             log "running as PID %d" status_pid;
 
             (* Read from standard output file *)
-           let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
+           let new_stdout_pos, stdout_string = read_bytes job_param.job_stdout_pos job_param.job_stdout_fn in
 
             (* Update position in file *)
             job_param.job_stdout_pos <- new_stdout_pos;
 
             (* Send SIGINT (Ctrl+C) to job *)
-            Unix.kill job_pid Sys.sigint;
+            Unix.kill job_param.job_pid Sys.sigint;
 
             (* Add cancel request to list *)
             cancel_requested_jobs :=
-              (job_id, job_pid, Unix.gettimeofday ()) ::
+              (job_id, job_param.job_pid, Unix.gettimeofday ()) ::
                          !cancel_requested_jobs;
 
             (* Message to client *)
-            asprintf
+            let msg = asprintf
               "%s\
 <Jobstatus msg=\"inprogress\">\
 Requested canceling of job with ID %s.\
 </Jobstatus>"
               stdout_string
-              job_id
+              job_id in 
+	    ( msg , job_param)
 
           )
 
         else
-
-          output_of_job_status log job_id job_param job_status
+	  (
+          ((output_of_job_status log job_id job_param job_status) , job_param)
             
-      )
+	  )
 
-    (* Job not found in table of running jobs *)
-    with Not_found ->
+   
 
-      try
-
-        (
-
-          (* Get time of retrieval *)
-          let job_tm = Hashtbl.find completed_jobs job_id in
-
-          log "completed at %a UTC" pp_print_time job_tm;
-
-          asprintf
-            "<Jobstatus msg=\"completed\">\
-Job with ID %s has completed and was retrieved at %s UTC\
-</Jobstatus>"
-            job_id
-            (string_of_time job_tm)
-
-        )
-
-      with Not_found ->
-        log "Not Found";
-
-        let msg = asprintf
-          "<Jobstatus msg=\"notfound\">\
-Job with ID %s not found.\
-</Jobstatus>" job_id
-	in msg;
-         msg
-
-*)
 
 
 (*  

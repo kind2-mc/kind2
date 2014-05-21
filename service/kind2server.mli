@@ -30,8 +30,9 @@ type running_job_info =
     ID, and a record with information about the created job, if it was
     successfully started, [None] otherwise. *)
 
-val create_job : string -> string list -> string -> string * string * running_job_info option
-
-  (* val cancel_job : string  -> string *)
-val retrieve_job : string -> running_job_info -> job_info
-
+val create_job : string -> string list -> string -> string ->  string * string * running_job_info option
+val cancel_job : string  -> running_job_info -> string * running_job_info
+val retrieve_job : string -> running_job_info -> string * running_job_info
+val retrieve_complete : string -> Unix.tm -> string
+val job_not_found_msg : string -> string
+val log : ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a

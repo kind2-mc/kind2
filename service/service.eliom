@@ -3,7 +3,6 @@ open Eliom_parameter
 open Ocsigen_extensions
 open Kind2server
 
-
 (* Configuration of a program *)
 
 
@@ -11,6 +10,9 @@ let configured_programs =
 
   [
 
+    (* Test *)
+    ("retrievetest", "/space/mma1/kind2/service/retrieveTest.py");
+    
     (* PKind *)
     ("pkind", "/usr/local/bin/pkind");
     
@@ -48,7 +50,7 @@ let find_running_job (jobid : string) : running_job_info =
   let tbl = Eliom_reference.Volatile.get running_jobs in
      Hashtbl.find tbl jobid
 
-(* Get the job info of a running job *)
+(* Modify the job info of a running job *)
 let update_running_job (jobid : string) (f : running_job_info -> running_job_info) =
   Eliom_reference.Volatile.modify 
     running_jobs 
@@ -65,7 +67,7 @@ let remove_running_job (jobid : string) =
     (fun tbl -> Hashtbl.remove tbl jobid; tbl)
 
 (* Get the job info of a running job *)
-let find_completed_job (jobid : string) (time : Unix.tm) =
+let find_completed_job (jobid : string) =
   let tbl = Eliom_reference.Volatile.get completed_jobs in
      Hashtbl.find tbl jobid
 
@@ -83,15 +85,24 @@ let extract = function
 (* Helper function to look up job_command *)
 let command_look cmd = List.assoc cmd configured_programs
 
+(* Wrap xml over the returned string *)
 let xmlWrapper msg = 
-  Printf.sprintf "<xml><title>%s</title></xml> " msg
+  Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?> %s" msg
+
+(* define path for placing the generated input and output files *)
+let head = Ocsigen_config.get_datadir ()
+let path = head ^ "/jobs/"
 
 
+(* ********************************************************************** *)
+(* ********************************************************************** *)
 
 (* Services *)
+(* main service *)
 let submitjob_main_service = 
   Eliom_service.service ~path:["submitjob"] ~get_params:unit ()
 
+(* get services *)
 let retrievejob_service =
   Eliom_service.service
     ~path:["retrievejob"] ~get_params:(suffix (string "ID")) ()
@@ -100,6 +111,7 @@ let canceljob_service =
   Eliom_service.service
     ~path:["canceljob"] ~get_params:(suffix (string "ID")) ()
 
+(* post service that takes three parameters kind, arguments, file*)
 let submitjob_service =
   Eliom_service.post_service
     ~fallback:submitjob_main_service
@@ -107,72 +119,107 @@ let submitjob_service =
     ()
 
 
-(*
-let create_job cmd args file =
-  "Job is created", generate_uid (),
-  Some { job_pid = 1;
-	 job_start_timestamp = 2;
-	 job_stdin_fn = "hello";
-	 job_stdout_fn = "world";
-	 job_stderr_fn = "error";
-	 job_stdout_pos = 3;},
-  (sleep 10)
-*)
-
 (* For testing: call /usr/bin/true and /usr/bin/false *)
 
 
 (* Registration of services *)
-let _ = 
+let _ =
+  log "my path is %s" path;
   Eliom_registration.String.register
     ~service:submitjob_main_service
     (fun () () ->
       Lwt.return ("<xml><title> The site is under construction </title></xml>","text/xml"));
 
-
    Eliom_registration.String.register
     ~service:submitjob_service
     (fun () (kind, (args, file)) ->
-
       let command : string = command_look kind in
       let cmd_args : string list = args in
-      let filename : string = file.tmp_filename in       
-      let user_msg, job_id, job_info = create_job command cmd_args filename in
+      let filename : string = file.tmp_filename in    
+      let user_msg, job_id, job_info = create_job command cmd_args filename path in
       add_running_job job_id (extract job_info);
      Lwt.return 
-       (xmlWrapper job_id, "text/xml")); 
+       (xmlWrapper user_msg, "text/xml")); 
 
 
    Eliom_registration.String.register
      ~service:retrievejob_service
-     (fun id () ->
-       let { job_pid = job_pid; 
-	     job_stdout_fn = job_stdout_fn; 
-	     job_stdout_pos = job_stdout_pos } as job_param =
-         find_running_job id
-       in
-	let job_tm = find_completed_job id in
-	 Lwt.return (
-	   xmlWrapper (retrieve_job id job_pid job_stdout_fn job_stdout_pos job_tm), "text/xml"));
+     (fun id () -> 
+       let msg = 
+       try
+	 (
+	   let job_info =
+             find_running_job id
+	   in
+	   let status_pid, _ = 
+	     Unix.waitpid [Unix.WNOHANG] job_info.job_pid
+	   in
+	   (* check if the job is still running *)
+	   if ( status_pid != 0 ) then
+	     (
+	       remove_running_job id;
+	       add_completed_job id (Unix.gmtime(Unix.time()))
+	     );
+	   let msg, new_job_info = 
+	     retrieve_job id job_info in 
+	   update_running_job id ( fun job_info -> new_job_info );
+	   msg
+	     
+	 )
+       with Not_found ->
+	 try
+	   (
+	     let job_tm = 
+	       find_completed_job id
+	     in
+	     let log fmt =
+	       log
+		 ("Request retrieval of job %s: " ^^ fmt)
+		 id in
+	     retrieve_complete id job_tm
+	   )
+	 with Not_found ->
+	   job_not_found_msg id in 
+       Lwt.return 
+	     (xmlWrapper msg, "text/xml"));
 
    Eliom_registration.String.register
      ~service:canceljob_service
      (fun id () -> 
-       Lwt.return (xmlWrapper cancel_job id, "text/xml"));
+       let msg = 
+	 try
+	   (
+	     let job_info = 
+	       find_running_job id
+	     in
+	     let status_pid, _ = 
+	       Unix.waitpid [Unix.WNOHANG] job_info.job_pid
+	     in
+	     if ( status_pid != 0 ) then
+	     (
+	       remove_running_job id;
+	       add_completed_job id (Unix.gmtime(Unix.time()))
+	     );
+	     let msg , new_job_info = 
+	       cancel_job id job_info 
+	     in 
+	     update_running_job id ( fun job_info -> new_job_info );
+	     msg
+	   )
+	 with Not_found ->
+	   try
+	     (
+	       let job_tm = 
+		 find_completed_job id
+	       in
+	       let log fmt =
+	       log
+		 ("Request cancelling of job %s: " ^^ fmt)
+		 id 
+	       in
+	       retrieve_complete id job_tm
+	     )
+	   with Not_found ->
+	     job_not_found_msg id in 
+       Lwt.return (xmlWrapper msg, "text/xml"));
 
-
-(*
-
-   Eliom_registration.Html5.register
-    ~service:canceljob_service
-    (fun id () ->
-      Lwt.return
-        (html (head (title (pcdata id)) [])
-              (body [h1 [pcdata id];
-                     p [pcdata (response (List.nth msg 6)); br();
-			pcdata (Printf.sprintf "Requested cancelling of job with ID %s" id); br();
-			pcdata "</jobstatus>"; br();]])))
-
-
-
-*)
