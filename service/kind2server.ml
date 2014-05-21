@@ -292,13 +292,10 @@ let write_file file1 file2 =
 let read_bytes start filename =
 
   (* Open file *)
-  log ("Reading file : %s") filename;
   let ic = open_in_bin filename in
-  log ("start is %d") start;
 
   (* Get length of bytes available to read *)
   let n = (in_channel_length ic) - start in
-  log ("length of bytes available : %d") n; 
 
   (* Characters available to read after start? *)
   if n > 0 then

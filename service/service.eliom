@@ -85,10 +85,6 @@ let extract = function
 (* Helper function to look up job_command *)
 let command_look cmd = List.assoc cmd configured_programs
 
-(* Wrap xml over the returned string *)
-let xmlWrapper msg = 
-  Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?> %s" msg
-
 (* define path for placing the generated input and output files *)
 let head = Ocsigen_config.get_datadir ()
 let path = head ^ "/jobs/"
@@ -128,7 +124,7 @@ let _ =
   Eliom_registration.String.register
     ~service:submitjob_main_service
     (fun () () ->
-      Lwt.return ("<xml><title> The site is under construction </title></xml>","text/xml"));
+      Lwt.return ("<?xml> <Error>The site is under construction</Error>","text/xml"));
 
    Eliom_registration.String.register
     ~service:submitjob_service
@@ -139,7 +135,7 @@ let _ =
       let user_msg, job_id, job_info = create_job command cmd_args filename path in
       add_running_job job_id (extract job_info);
      Lwt.return 
-       (xmlWrapper user_msg, "text/xml")); 
+       (user_msg, "text/xml")); 
 
 
    Eliom_registration.String.register
@@ -179,9 +175,9 @@ let _ =
 	     retrieve_complete id job_tm
 	   )
 	 with Not_found ->
-	   job_not_found_msg id in 
+	   job_not_found_msg id in
        Lwt.return 
-	     (xmlWrapper msg, "text/xml"));
+	     ( msg, "text/xml"));
 
    Eliom_registration.String.register
      ~service:canceljob_service
@@ -221,5 +217,5 @@ let _ =
 	     )
 	   with Not_found ->
 	     job_not_found_msg id in 
-       Lwt.return (xmlWrapper msg, "text/xml"));
+       Lwt.return ( msg, "text/xml"));
 
