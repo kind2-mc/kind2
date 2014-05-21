@@ -236,6 +236,20 @@ val pre_term_of_expr : Numeral.t -> expr -> Term.t
 
 (** {1 State variables} *)
 
+(** Source of state variable *)
+type state_var_source =
+  | Input (** Input stream *)
+  | Oracle (** Oracle input stream *)
+  | Output (** Output stream *)
+  | Local (** Local defined stream *)
+  | Abstract (** Local abstracted stream *)
+  | Instance of LustreAst.position * LustreIdent.t * StateVar.t (** Stream from node call at position *)
+
+
+(** Pretty-print a source of a state variable *)
+val pp_print_state_var_source : Format.formatter -> state_var_source -> unit 
+
+
 (** Create a state variable of identifier and add it to a map to be
     retrieved with {!state_var_of_ident} 
 
@@ -248,6 +262,12 @@ val pre_term_of_expr : Numeral.t -> expr -> Term.t
     of is memoized in a hash table, so that the identifier can be
     retrieved via {!ident_of_state_var}. *)
 val mk_state_var_of_ident : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
+
+(** Set source of state variable *)
+val set_state_var_source : StateVar.t -> state_var_source -> unit
+
+(** Get source of state variable *)
+val get_state_var_source : StateVar.t -> state_var_source
 
 (** Return previously created state variable of the same identifier
 
@@ -292,7 +312,7 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : (Type.t -> StateVar.t) -> StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : LustreAst.position -> (Type.t -> StateVar.t) -> StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 

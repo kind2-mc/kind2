@@ -20,6 +20,8 @@ open Lib
 
 module I = LustreIdent
 
+exception Parser_error
+
 (* ********************************************************************** *)
 (* Type declarations                                                      *)
 (* ********************************************************************** *)
@@ -83,6 +85,41 @@ let position_of_lexing
 let is_dummy_pos = function 
   | { pos_cnum = -1 } -> true 
   | _ -> false
+
+
+(* Return the file, line and column of a position; fail if the
+   position is a dummy position *)
+let file_row_col_of_pos = function 
+
+  (* Fail if position is a dummy position *)
+  | p when is_dummy_pos p -> raise (Invalid_argument "file_row_col_of_pos")
+
+  (* Return tuple of filename, line and column *)
+  | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
+
+(* Raise parsing exception *)
+let fail_at_position pos msg = 
+
+  Event.log
+    `Parser
+    Event.L_warn
+    "Parser error in %a: %s"
+    pp_print_position pos
+    msg;
+
+  raise Parser_error
+  
+
+(* Raise parsing exception *)
+let warn_at_position pos msg = 
+
+  Event.log
+    `Parser
+    Event.L_warn
+    "Parser warning in %a: %s"
+    pp_print_position pos
+    msg
+
 
 
 (* An identifier *)

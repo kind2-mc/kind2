@@ -364,9 +364,36 @@ let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
 
 
+
+(* ********************************************************************** *)
+(* String                                                                 *)
+(* ********************************************************************** *)
+
+
+
+(* Return true if the first characters of [s1] up to the length of
+   [s2] are ientical to [s2]. Return false if [s2] is longer than
+   [s1]. *)
+let string_starts_with s1 s2 = 
+
+  (* First string is shorter than second? *)
+  if String.length s1 < String.length s2 then false else
+
+    (* Create string of length of [s2] *)
+    let s1' = String.create (String.length s2) in
+
+    (* Copy characters from [s1] *)
+    String.blit s1 0 s1' 0 (String.length s2);
+
+    (* Return true if strings are identical *)
+    s1' = s2
+
+
+
 (* ********************************************************************** *)
 (* Numerals, decimals and bitvectors                                      *)
 (* ********************************************************************** *)
+
 
 
 (* Constant bitvector *)
@@ -678,7 +705,14 @@ let bool_of_hstring s = bool_of_string (HString.string_of_hstring s)
 (* ********************************************************************** *)
 
 (* Kind modules *)
-type kind_module = [ `PDR | `BMC | `IND | `INVGEN | `INVMAN | `Interpreter ]
+type kind_module = 
+  [ `PDR 
+  | `BMC 
+  | `IND
+  | `INVGEN
+  | `INVMAN
+  | `Interpreter
+  | `Parser ]
 
 
 (* Pretty-print the type of the process *)
@@ -689,6 +723,7 @@ let pp_print_kind_module ppf = function
   | `INVGEN -> Format.fprintf ppf "invariant generator"
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
+  | `Parser -> Format.fprintf ppf "parser"
 
 
 (* String representation of a process type *)

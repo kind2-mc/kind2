@@ -16,20 +16,13 @@
 
 *)
 
-(** Simplify a Lustre AST to normalized Lustre nodes 
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
-    
-
-    @author Christoph Sticksel
-*)
-
-val declarations_to_nodes : LustreAst.declaration list -> LustreNode.t list
 
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
    indent-tabs-mode: nil
    End: 
 *)
-  

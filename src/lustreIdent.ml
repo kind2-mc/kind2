@@ -319,6 +319,46 @@ let scope_of_index index =
     (function StringIndex i -> i | IntIndex i -> string_of_int i)
     index
 
+
+(* Reserved identifiers for abstrations *)
+let abs_ident_string =  "__abs" 
+let oracle_ident_string =  "__nondet" 
+let ticked_ident_string =  "__ticked" 
+let init_uf_string = "__node_init"
+let trans_uf_string = "__node_trans"
+
+let top_scope_string = "__top"
+
+
+(* Return true if the identifier clashes with internal identifier names *)
+let ident_is_reserved ident = 
+
+  (* Get string part of identifier *)
+  let ident_string, _ : t :> string * _ = ident in
+
+  (* Return false if identical to any reserved identifier *)
+  string_starts_with ident_string abs_ident_string
+  || string_starts_with ident_string oracle_ident_string
+  || string_starts_with ident_string ticked_ident_string
+  || string_starts_with ident_string init_uf_string
+  || string_starts_with ident_string trans_uf_string
+  || string_starts_with ident_string top_scope_string
+  
+
+(* Identifier for new variables from abstrations *)
+let abs_ident = mk_string_ident abs_ident_string
+
+(* Identifier for new oracle input *)
+let oracle_ident = mk_string_ident oracle_ident_string
+
+(* Identifier for new clock initialization flag *)
+let ticked_ident = mk_string_ident ticked_ident_string
+
+(* Scope for top-level variables *)
+let top_scope_index = mk_string_index top_scope_string
+
+
+
 (* 
    Local Variables:
    compile-command: "make -k"

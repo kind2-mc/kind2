@@ -18,9 +18,9 @@
 
 (** Parser for a CSV input file 
 
-    @author Baoluo Meng *)
+    @author Baoluo Meng, Christoph Sticksel *)
 
-(** Parse a csv input file *)
+(** Parse a CSV input file *)
 val read_file: string -> (StateVar.t * (Term.t list)) list
 
 

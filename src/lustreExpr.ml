@@ -20,6 +20,8 @@ open Lib
 
 (* Abbreviations *)
 module I = LustreIdent
+module A = LustreAst
+
 module SVS = StateVar.StateVarSet
 module VS = Var.VarSet
 
@@ -33,17 +35,94 @@ type expr = Term.t
 (* A Lustre expression is a type *)
 type lustre_type = Type.t
 
+(* Source of state variable *)
+type state_var_source =
+
+  (* Input stream *)
+  | Input
+
+  (* Oracle input stream *)
+  | Oracle
+
+  (* Output stream *)
+  | Output
+
+  (* Local defined stream *)
+  | Local
+
+  (* Local abstracted stream *)
+  | Abstract
+
+  (* Stream from node call at position *)
+  | Instance of A.position * I.t * StateVar.t
+
+
 (* Map from state variables to indexed identifiers *)
 let state_var_ident_map : (I.t * I.index) StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
+
+(* Map from state variables to indexed identifiers *)
+let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 7
+
+
+(* Set source of state variable *)
+let set_state_var_source state_var source = 
+
+  StateVar.StateVarHashtbl.add 
+    state_var_source_map 
+    state_var
+    source
+
+
+(* Get source of state variable *)
+let get_state_var_source state_var = 
+
+  StateVar.StateVarHashtbl.find
+    state_var_source_map 
+    state_var
+
+
+let rec pp_print_state_var_source ppf = function
+  
+  | Input -> Format.fprintf ppf "input"
+
+  | Oracle -> Format.fprintf ppf "oracle"
+
+  | Output -> Format.fprintf ppf "output"
+
+  | Local -> Format.fprintf ppf "local"
+
+  | Abstract -> Format.fprintf ppf "abstract"
+
+  | Instance (pos, node, state_var) -> 
+    
+    Format.fprintf ppf "instance(%a,%a,%a,%a)"
+      A.pp_print_position pos
+      (I.pp_print_ident false) node
+      StateVar.pp_print_state_var state_var
+      pp_print_state_var_source (get_state_var_source state_var)
+
+
 (* Return the identifier of a state variable *)
 let ident_of_state_var state_var = 
 
-  (* Find original indexed identifier *)
-  StateVar.StateVarHashtbl.find state_var_ident_map state_var
+  try
+    
+    (* Find original indexed identifier *)
+    StateVar.StateVarHashtbl.find state_var_ident_map state_var
       
+  with Not_found -> 
+
+    Format.printf
+      "ident_of_state_var: %a not found@."
+      StateVar.pp_print_state_var state_var;
+
+    raise Not_found
+      
+
 
 (* A Lustre clock 
 
@@ -94,11 +173,11 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
 
     Format.fprintf
       ppf 
-      "subrange of int [%a, %a]" 
+      "subrange [%a, %a] of int" 
       Numeral.pp_print_numeral i 
       Numeral.pp_print_numeral j
 
-  | Type.Real -> Format.pp_print_string ppf "Real"
+  | Type.Real -> Format.pp_print_string ppf "real"
 
   | Type.Scalar (s, l) -> 
 
@@ -651,7 +730,6 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
     StateVar.mk_state_var 
       ~is_input:is_input
       ~is_const:is_const
-      ~is_clock:false
       ident_string
       scope
       state_var_type
@@ -682,22 +760,6 @@ let state_var_of_ident scope_index ident =
     StateVar.state_var_of_string (ident_string, scope)
       
   with Not_found -> 
-
-    Format.printf
-      "@[<v>State variable %a %a not found:"
-      (I.pp_print_index false) scope_index 
-      (I.pp_print_ident false) ident;
-
-    StateVar.StateVarHashtbl.iter
-      (fun sv (id, s) -> 
-         Format.printf
-           "%a = %a.%a@,"
-           StateVar.pp_print_state_var sv
-           (I.pp_print_index false) s
-           (I.pp_print_ident false) id)
-      state_var_ident_map;
-
-    Format.printf "@]@.";
 
     raise Not_found
 
@@ -1881,6 +1943,7 @@ let split_expr_list list =
    initial state expression, since the arrow operator has been lifted
    to the top of the expression. *)
 let oracles_for_unguarded_pres 
+    pos
     mk_new_oracle_state_var
     oracles
     ({ expr_init } as expr) = 
@@ -1900,30 +1963,35 @@ let oracles_for_unguarded_pres
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, oracles) else
     
-    (* New oracle for each state variable *)
-    let oracle_substs, oracles' =
-      VS.fold
-        (fun var (accum, oracles) -> 
-           
-           (* Identifier for a fresh variable *)
-           let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
-           
-           (* Variable at base instant *)
-           let oracle_var = 
-             Var.mk_state_var_instance state_var base_offset
-           in
-           
-           (* Substitute oracle variable for variable *)
-           ((var, Term.mk_var oracle_var) :: accum, 
-            state_var :: oracles))
-        init_pre_vars
-        ([], oracles)
-    in
-
-    (* Return expression with all previous state variables in the init
-       expression substituted by fresh constants *)
-    ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
-     oracles')
+    (A.warn_at_position
+       pos
+       "Unguarded pre in expression, adding new oracle input.";
+       
+     (* New oracle for each state variable *)
+     let oracle_substs, oracles' =
+       VS.fold
+         (fun var (accum, oracles) -> 
+            
+            (* Identifier for a fresh variable *)
+            let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
+            
+            (* Variable at base instant *)
+            let oracle_var = 
+              Var.mk_state_var_instance state_var base_offset
+            in
+            
+            (* Substitute oracle variable for variable *)
+            ((var, Term.mk_var oracle_var) :: accum, 
+             state_var :: oracles))
+         
+         init_pre_vars
+         ([], oracles)
+     in
+     
+     (* Return expression with all previous state variables in the init
+        expression substituted by fresh constants *)
+     ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
+      oracles'))
 
     
 

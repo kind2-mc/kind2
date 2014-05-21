@@ -26,39 +26,18 @@ module N = LustreNode
 
 module ISet = I.LustreIdentSet
 
-(* Call to a node that is only defined later
+(* Node not found, possible forward reference 
 
    This is just failing at the moment, we'd need some dependency
    analysis to recognize cycles to fully support forward
    referencing. *)
-exception Forward_reference of I.t * A.position
-
-
-(* Identifier for new variables from abstrations *)
-let new_var_ident = I.mk_string_ident "__abs" 
-
-(* Identifier for new oracle input *)
-let new_oracle_ident = I.mk_string_ident "__nondet" 
-
-(* Identifier for new variables from node calls *)
-let new_call_ident = I.mk_string_ident "__returns" 
+exception Node_not_found of I.t * A.position
 
 
 (* Sort a list of indexed expressions *)
 let sort_indexed_pairs list =
   List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) list
 
-
-(* Raise exception *)
-let fail_at_position pos msg = 
-
-  raise 
-    (Failure 
-       (Format.asprintf 
-          "Parsing error in %a: %s" 
-          A.pp_print_position pos 
-          msg))
-  
 
 (* ******************************************************************** *)
 (* Data structures                                                      *)
@@ -102,7 +81,7 @@ type lustre_context =
   }
   
 
-(* Initial context *)
+(* Initial, empty context *)
 let init_lustre_context = 
   { basic_types = [];
     indexed_types = [];
@@ -193,6 +172,7 @@ let pp_print_lustre_context
     (pp_print_list (pp_print_consts safe) "@,") consts
 
 
+(* Environment when simplifying an expression *)
 type abstraction_context = 
 
   { 
@@ -218,18 +198,20 @@ type abstraction_context =
   }
 
 
+(* Environment without abstrations allowed *)
 let void_abstraction_context pos = 
   
-  let msg = "Expression must be a constant integer" in
+  let msg = "Expression must be constant" in
 
   { scope = I.empty_index;
-    mk_new_state_var = (fun _ -> fail_at_position pos msg); 
-    mk_new_oracle_state_var = (fun _ -> fail_at_position pos msg);
+    mk_new_state_var = (fun _ -> A.fail_at_position pos msg); 
+    mk_new_oracle_state_var = (fun _ -> A.fail_at_position pos msg);
     new_vars = []; 
     new_calls = [];
     new_oracles = [] } 
 
 
+(* Pretty-print an environment *)
 let pp_print_abstraction_context 
     ppf
     { scope; new_vars; new_calls; new_oracles} =
@@ -285,18 +267,30 @@ let pp_print_abstraction_context
    abstract from the context, also return a list of created variables
    and node calls.
 
-   The functions [mk_new_state_var] and [mk_new_call_ident] return a
-   fresh identifier for a variable and for a variable capturing the
-   output of a node call, respectively. The former is called with a
-   unit argument and returns an identifier __abs[n], the latter is is
-   given the name of the node as an argument and returns an identifier
-   __returns.X[n] where X is the node name.
-
-   A typing context is given to type check expressions, it is not
-   modified.
+   The functions [mk_new_state_var] and [mk_new_oracle_var] return a
+   fresh state variable and fresh input constant, respectively. A
+   typing context is given to type check expressions, it is not
+   modified, the created variables for abstracted expressions,
+   variables capturing the output of node calls and oracle inputs are
+   added to the abstraction context.
 
    There are several mutually recursive functions, [eval_ast_expr] is
    the main entry point.
+
+   [eval_ast_expr'] processes a list of AST expressions and produced a
+   list of indexed Lustre expression reverse ordered by indexes.
+
+   TODO: 
+
+   - fail if tuples, record or array values are greater than the 
+     defined type
+   - multi-dimensional arrays
+   - array slicing and concatenation, 
+   - arrays and records with modification, 
+   - current(e when c) expressions,
+   - dynamically indexed arrays, 
+   - parametric nodes
+   - recursive nodes
 
 *)
 let rec eval_ast_expr'     
@@ -369,35 +363,33 @@ let rec eval_ast_expr'
 
 
     (* An identifier without suffixes: a constant or a variable *)
-    | (index, A.Ident (pos, ident)) :: tl when 
-        List.mem_assoc (I.push_index index ident) type_ctx -> 
-
-      (* Add index to identifier *)
-      let ident' = I.push_index index ident in
+    | A.Ident (pos, ident) :: tl when 
+        List.mem_assoc ident type_ctx -> 
 
       (* Construct expression *)
       let expr = 
 
         (* Return value of constant *)
-        try List.assoc ident' consts with 
+        try List.assoc ident consts with 
 
           (* Identifier is not constant *)
           | Not_found -> 
 
             try 
 
-              let state_var = E.state_var_of_ident scope ident' in
+              (* Get state variable of identifier *)
+              let state_var = E.state_var_of_ident scope ident in
 
               (* Return variable on the base clock *)
               E.mk_var state_var E.base_clock
 
             with Not_found -> 
 
-              fail_at_position
+              A.fail_at_position
                 pos
                 (Format.asprintf 
-                   "Undeclared variable %a"
-                   (I.pp_print_ident false) ident')
+                   "Undeclared identifier %a"
+                   (I.pp_print_ident false) ident)
 
 
       in
@@ -406,18 +398,18 @@ let rec eval_ast_expr'
       eval_ast_expr' 
         context 
         abstractions
-        ((index, expr) :: result) 
+        ((snd (ident :> string * I.index), expr) :: result) 
         tl
 
 
     (* A nested identifier with suffixes *)
-    | (index, (A.Ident (_, ident) as e)) :: tl when 
+    | A.Ident (pos, ident) :: tl when 
         List.mem_assoc ident index_ctx -> 
 
       (* Expand indexed identifier *)
       let tl' = 
         List.fold_left 
-          (fun a (j, _) -> (I.push_index_to_index j index, e) :: a)
+          (fun a (j, _) -> A.Ident (pos, I.push_index j ident) :: a)
           tl
           (List.rev (List.assoc ident index_ctx))
       in
@@ -431,17 +423,17 @@ let rec eval_ast_expr'
 
 
     (* Identifier must have a type or indexes *)
-    | (_, A.Ident (pos, ident)) :: _ -> 
+    | A.Ident (pos, ident) :: _ -> 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         (Format.asprintf 
-           "Identifier %a not declared" 
+           "Undeclared identifier %a" 
            (I.pp_print_ident false) ident)
         
 
     (* Projection to a record field *)
-    | (index, A.RecordProject (pos, ident, field)) :: tl -> 
+    | A.RecordProject (pos, ident, field) :: tl -> 
 
       (try
 
@@ -458,7 +450,7 @@ let rec eval_ast_expr'
              context 
              abstractions
              result 
-             ((index, expr') :: tl)
+             (expr' :: tl)
 
          else
 
@@ -466,7 +458,7 @@ let rec eval_ast_expr'
 
        with Not_found ->
 
-         fail_at_position 
+         A.fail_at_position 
            pos
            (Format.asprintf 
               "Identifier %a does not have field %a" 
@@ -475,7 +467,7 @@ let rec eval_ast_expr'
 
 
     (* Projection to a tuple or array field *)
-    | (index, A.TupleProject (pos, ident, field_expr)) :: tl -> 
+    | A.TupleProject (pos, ident, field_expr) :: tl -> 
 
       (try
 
@@ -497,81 +489,85 @@ let rec eval_ast_expr'
              context 
              abstractions
              result 
-             ((index, expr') :: tl)
+             (expr' :: tl)
 
          else
 
-           raise Not_found 
+           A.fail_at_position 
+             pos
+             (Format.asprintf 
+                "Identifier %a does not have fields" 
+                (I.pp_print_ident false) ident)
 
        with Not_found -> 
 
-         fail_at_position 
-           pos
-           (Format.asprintf 
-              "Identifier %a does not have field %a" 
-              (I.pp_print_ident false) ident
-              A.pp_print_expr field_expr))
+         (A.fail_at_position 
+            pos
+            (Format.asprintf 
+               "Identifier %a does not have field %a" 
+               (I.pp_print_ident false) ident
+               A.pp_print_expr field_expr)))
 
 
     (* Boolean constant true *)
-    | (index, A.True pos) :: tl -> 
+    | A.True pos :: tl -> 
 
       (* Add expression to result *)
       eval_ast_expr' 
         context 
         abstractions
-        ((index, E.t_true) :: result) 
+        ((I.empty_index, E.t_true) :: result) 
         tl
 
 
     (* Boolean constant false *)
-    | (index, A.False pos) :: tl -> 
+    | A.False pos :: tl -> 
 
       (* Add expression to result *)
       eval_ast_expr'
         context
         abstractions 
-        ((index, E.t_false) :: result) 
+        ((I.empty_index, E.t_false) :: result) 
         tl
 
 
     (* Integer constant *)
-    | (index, A.Num (pos, d)) :: tl -> 
+    | A.Num (pos, d) :: tl -> 
 
       (* Add expression to result *)
       eval_ast_expr' 
         context 
         abstractions
-        ((index, E.mk_int (Numeral.of_string d)) :: result) 
+        ((I.empty_index, E.mk_int (Numeral.of_string d)) :: result) 
         tl
 
 
     (* Real constant *)
-    | (index, A.Dec (pos, f)) :: tl -> 
+    | A.Dec (pos, f) :: tl -> 
 
       (* Add expression to result *)
       eval_ast_expr' 
         context 
         abstractions
-        ((index, E.mk_real (Decimal.of_string f)) :: result) 
+        ((I.empty_index, E.mk_real (Decimal.of_string f)) :: result) 
         tl
 
 
     (* Conversion to an integer number *)
-    | (index, A.ToInt (pos, expr)) :: tl -> 
+    | A.ToInt (pos, expr) :: tl -> 
 
       eval_unary_ast_expr E.mk_to_int expr pos tl
 
 
     (* Conversion to a real number *)
-    | (index, A.ToReal (pos, expr)) :: tl -> 
+    | A.ToReal (pos, expr) :: tl -> 
 
       eval_unary_ast_expr E.mk_to_real expr pos tl
 
 
     (* An expression list, flatten nested lists and add an index to
        each elements *)
-    | (index, A.ExprList (pos, expr_list)) :: tl -> 
+    | A.ExprList (pos, expr_list) :: tl -> 
 
       (* Flatten nested lists *)
       let rec flatten_expr_list accum = function 
@@ -593,11 +589,11 @@ let rec eval_ast_expr'
         context 
         abstractions
         result
-        ((index, A.TupleExpr (pos, expr_list')) :: tl)
+        (A.TupleExpr (pos, expr_list') :: tl)
 
 
     (* Tuple constructor *)
-    | (index, A.TupleExpr (pos, expr_list)) :: tl -> 
+    | A.TupleExpr (pos, expr_list) :: tl -> 
 
       let _, abstractions', result' = 
 
@@ -630,6 +626,8 @@ let rec eval_ast_expr'
           expr_list
       in
 
+      (* TODO: Fail if more elements than defined in the tuple type *)
+
       (* Continue with result added *)
       eval_ast_expr' 
         context 
@@ -639,7 +637,7 @@ let rec eval_ast_expr'
 
 
     (* Array constructor *)
-    | (index, A.ArrayConstr (pos, expr, size_expr)) :: tl -> 
+    | A.ArrayConstr (pos, expr, size_expr) :: tl -> 
 
       (* Evaluate expression to an integer constant *)
       let array_size = int_const_of_ast_expr context pos size_expr in
@@ -647,11 +645,10 @@ let rec eval_ast_expr'
       (* Size of array must be non-zero and positive *)
       if Numeral.(array_size <= zero) then 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         (Format.asprintf 
-           "Expression %a cannot be used to \
-            construct an array" 
+           "Expression %a cannot be used as the size of an array" 
            A.pp_print_expr size_expr);
 
       (* Evaluate expression for array elements *)
@@ -693,6 +690,8 @@ let rec eval_ast_expr'
 
       in
 
+      (* TODO: Fail if more elements than defined in the array type *)
+
       (* Continue with result added *)
       eval_ast_expr' 
         context
@@ -701,9 +700,9 @@ let rec eval_ast_expr'
         tl
 
     (* Array slice *)
-    | (index, A.ArraySlice (pos, _, _)) :: tl -> 
+    | A.ArraySlice (pos, _, _) :: tl -> 
 
-      fail_at_position
+      A.fail_at_position
         pos
         "Array slices not implemented"
 
@@ -818,13 +817,13 @@ let rec eval_ast_expr'
 
 
     (* Concatenation of arrays *)
-    | (index, A.ArrayConcat (pos, _, _)) :: tl -> 
+    | A.ArrayConcat (pos, _, _) :: tl -> 
 
-      fail_at_position pos "Array concatenation not implemented"
+      A.fail_at_position pos "Array concatenation not implemented"
 
 
     (* Record constructor *)
-    | (index, A.RecordConstruct (pos, record_type, expr_list)) :: tl -> 
+    | A.RecordConstruct (pos, record_type, expr_list) :: tl -> 
 
       (* Get fields of record and their types *)
       let indexes = 
@@ -843,7 +842,7 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          fail_at_position
+          A.fail_at_position
             pos
             (Format.asprintf 
                "Record type %a not defined" 
@@ -940,7 +939,7 @@ let rec eval_ast_expr'
         (* Type checking error or one expression has more indexes *)
         with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
 
-          fail_at_position
+          A.fail_at_position
             pos
             (Format.asprintf 
                "Type mismatch in record of type %a" 
@@ -957,85 +956,85 @@ let rec eval_ast_expr'
 
 
     (* Boolean negation *)
-    | (index, A.Not (pos, expr)) :: tl ->
+    | A.Not (pos, expr) :: tl ->
 
       eval_unary_ast_expr E.mk_not expr pos tl
 
 
     (* Boolean conjunction *)
-    | (index, A.And (pos, expr1, expr2)) :: tl -> 
+    | A.And (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_and expr1 expr2 pos tl
 
 
     (* Boolean disjunction *)
-    | (index, A.Or (pos, expr1, expr2)) :: tl -> 
+    | A.Or (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_or expr1 expr2 pos tl
 
 
     (* Boolean exclusive disjunction *)
-    | (index, A.Xor (pos, expr1, expr2)) :: tl -> 
+    | A.Xor (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_xor expr1 expr2 pos tl
 
 
     (* Boolean implication *)
-    | (index, A.Impl (pos, expr1, expr2)) :: tl -> 
+    | A.Impl (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_impl expr1 expr2 pos tl
 
 
     (* Boolean at-most-one constaint  *)
-    | (index, A.OneHot (pos, _)) :: tl -> 
+    | A.OneHot (pos, _) :: tl -> 
 
-      fail_at_position pos "One-hot expression not supported"
+      A.fail_at_position pos "One-hot expression not supported"
 
 
     (* Unary minus *)
-    | (index, A.Uminus (pos, expr)) :: tl -> 
+    | A.Uminus (pos, expr) :: tl -> 
 
       eval_unary_ast_expr E.mk_uminus expr pos tl
 
 
     (* Integer modulus *)
-    | (index, A.Mod (pos, expr1, expr2)) :: tl -> 
+    | A.Mod (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_mod expr1 expr2 pos tl
 
 
     (* Subtraction *)
-    | (index, A.Minus (pos, expr1, expr2)) :: tl -> 
+    | A.Minus (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_minus expr1 expr2 pos tl
 
 
     (* Addition *)
-    | (index, A.Plus (pos, expr1, expr2)) :: tl -> 
+    | A.Plus (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_plus expr1 expr2 pos tl
 
 
     (* Real division *)
-    | (index, A.Div (pos, expr1, expr2)) :: tl -> 
+    | A.Div (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_div expr1 expr2 pos tl
 
 
     (* Multiplication *)
-    | (index, A.Times (pos, expr1, expr2)) :: tl -> 
+    | A.Times (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_times expr1 expr2 pos tl
 
 
     (* Integer division *)
-    | (index, A.IntDiv (pos, expr1, expr2)) :: tl -> 
+    | A.IntDiv (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_intdiv expr1 expr2 pos tl
 
 
     (* If-then-else *)
-    | (index, A.Ite (pos, expr1, expr2, expr3)) :: tl -> 
+    | A.Ite (pos, expr1, expr2, expr3) :: tl -> 
 
       let expr1', abstractions' = 
         eval_ast_expr 
@@ -1049,7 +1048,7 @@ let rec eval_ast_expr'
 
         (* Boolean expression without indexes *)
         | [ index, ({ E.expr_type = t } as expr1) ] when 
-            index = I.empty_index && t == Type.t_bool -> 
+            index = I.empty_index && Type.equal_types t Type.t_bool -> 
 
           let expr', abstractions' = 
             binary_apply_to 
@@ -1073,65 +1072,136 @@ let rec eval_ast_expr'
         (* Expression is not Boolean or is indexed *)
         | _ -> 
 
-          fail_at_position pos "Condition is not of Boolean type")
+          A.fail_at_position pos "Condition is not of Boolean type")
             
 
     (* With operator for recursive node calls *)
-    | (index, A.With (pos, _, _, _)) :: tl -> 
+    | A.With (pos, _, _, _) :: tl -> 
 
-      fail_at_position pos "Recursive nodes not supported in"
+      A.fail_at_position pos "Recursive nodes not supported"
 
 
     (* Equality *)
-    | (index, A.Eq (pos, expr1, expr2)) :: tl -> 
+    | A.Eq (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_eq expr1 expr2 pos tl
 
 
     (* Disequality *)
-    | (index, A.Neq (pos, expr1, expr2)) :: tl -> 
+    | A.Neq (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_neq expr1 expr2 pos tl
 
 
     (* Less than or equal *)
-    | (index, A.Lte (pos, expr1, expr2)) :: tl -> 
+    | A.Lte (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_lte expr1 expr2 pos tl
 
 
     (* Less than *)
-    | (index, A.Lt (pos, expr1, expr2)) :: tl -> 
+    | A.Lt (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_lt expr1 expr2 pos tl
 
 
     (* Greater than or equal *)
-    | (index, A.Gte (pos, expr1, expr2)) :: tl -> 
+    | A.Gte (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_gte expr1 expr2 pos tl
 
 
     (* Greater than *)
-    | (index, A.Gt (pos, expr1, expr2)) :: tl -> 
+    | A.Gt (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_gt expr1 expr2 pos tl
 
 
-    (* Projection on clock *)
-    | (index, A.When (pos, _, _)) :: tl -> 
+    (* Interpolation to base clock *)
+    | A.Current (pos, A.When (_, _, _)) :: tl -> 
 
-      fail_at_position pos "When expression not supported"
+      A.fail_at_position pos "Current expression not supported"
+
+
+    (* Projection on clock *)
+    | A.When (pos, _, _) :: tl -> 
+
+      A.fail_at_position 
+        pos
+        "When expression must be the argument of a current operator"
 
 
     (* Interpolation to base clock *)
-    | (index, A.Current (pos, _)) :: tl -> 
+    | A.Current (pos, _) :: tl -> 
 
-      fail_at_position pos "Current expression not supported"
+      A.fail_at_position 
+        pos
+        "Current operator must have a when expression as argument"
 
 
     (* Condact, a node with an activation condition *)
-    | (index, A.Condact (pos, cond, ident, args, init)) :: tl -> 
+    | A.Condact (pos, cond, ident, args, defaults) :: tl -> 
+
+      (* Evaluate initial values as list of expressions *)
+      let defaults', abstractions' = 
+        eval_ast_expr
+          context 
+          abstractions
+          (A.ExprList (pos, defaults))
+      in
+
+      (* Evaluate activation condition *)
+      let cond', abstractions' = 
+
+        bool_expr_of_ast_expr
+          context 
+          abstractions' 
+          pos
+          cond
+
+      in
+
+      let cond'', abstractions'' = 
+
+        if 
+          
+          (* Input must not contain variable at previous state *)
+          E.has_pre_var cond'
+            
+        then
+          
+          (* New variable for abstraction *)
+          let state_var = mk_new_state_var cond'.E.expr_type in
+          
+          (* Add definition of variable *)
+          let abstractions'' =
+            { abstractions' with
+                new_vars = (state_var, cond') :: abstractions'.new_vars }
+          in
+          
+          (* Use abstracted variable as input parameter *)
+          (E.mk_var state_var E.base_clock, 
+           abstractions'')
+          
+        else
+          
+          (* Add expression as input *)
+          (cond', abstractions')
+              
+      in
+      
+      eval_node_call 
+        context 
+        abstractions''
+        pos
+        cond''
+        ident
+        args
+        defaults'
+        result
+        tl
+
+(*
 
       (* Inputs, outputs and oracles of called node *)
       let { N.inputs = node_inputs; 
@@ -1147,8 +1217,8 @@ let rec eval_ast_expr'
 
         with Not_found -> 
 
-          (* Forward referenced node *)
-          raise (Forward_reference (ident, pos))
+          (* Node may be forward referenced *)
+          raise (Node_not_found (ident, pos))
 
       in
 
@@ -1226,7 +1296,7 @@ let rec eval_ast_expr'
 
       let result' = 
         (List.map 
-           (fun sv -> (index, E.mk_var sv E.base_clock)) 
+           (fun sv -> (I.empty_index, E.mk_var sv E.base_clock)) 
            output_vars) 
         @ result
       in
@@ -1246,7 +1316,7 @@ let rec eval_ast_expr'
         result' 
         tl
 
-
+*)
 
 (*
 
@@ -1337,7 +1407,7 @@ let rec eval_ast_expr'
 *)
 
     (* Temporal operator pre *)
-    | (index, A.Pre (pos, expr)) :: tl -> 
+    | A.Pre (pos, expr) :: tl -> 
 
       (try 
 
@@ -1375,137 +1445,39 @@ let rec eval_ast_expr'
 
        with E.Type_mismatch ->
 
-         fail_at_position pos "Type mismatch for expressions")
+         A.fail_at_position pos "Type mismatch for expressions")
 
 
     (* Followed by operator *)
-    | (index, A.Fby (pos, _, _, _)) :: tl -> 
+    | A.Fby (pos, _, _, _) :: tl -> 
 
-      fail_at_position pos "Fby operator not implemented" 
+      A.fail_at_position pos "Fby operator not implemented" 
 
 
     (* Arrow temporal operator *)
-    | (index, A.Arrow (pos, expr1, expr2)) :: tl -> 
+    | A.Arrow (pos, expr1, expr2) :: tl -> 
 
       eval_binary_ast_expr E.mk_arrow expr1 expr2 pos tl
 
 
     (* Node call *)
-    | (index, A.Call (pos, ident, expr_list)) :: tl -> 
+    | A.Call (pos, ident, args) :: tl -> 
 
-      (* Inputs, outputs and oracles of called node *)
-      let { N.inputs = node_inputs; 
-            N.outputs = node_outputs; 
-            N.oracles = node_oracles } = 
-
-        try 
-
-          (* Get node context by identifier *)
-          List.find
-            (function { N.name = node_ident } -> node_ident = ident)
-            nodes
-
-        with Not_found -> 
-
-          (* Forward referenced node *)
-          raise (Forward_reference (ident, pos))
-
-      in
-
-      (* Evaluate inputs as list of expressions *)
-      let expr_list', abstractions' = 
-        eval_ast_expr
-          context 
-          abstractions
-          (A.ExprList (pos, expr_list))
-      in
-(*
-      (* Fresh identifier for node call *)
-      let call_ident = mk_new_call_ident ident in
-*)
-      (* Fresh state variables for oracle inputs of called node *)
-      let oracle_state_vars = 
-        List.map 
-          (fun sv ->
-             mk_new_oracle_state_var (StateVar.type_of_state_var sv))
-          node_oracles 
-      in
-
-      (* Expressions from state variables for oracle inputs *)
-      let oracle_exprs = 
-        List.map
-          (fun sv -> E.mk_var sv E.base_clock) 
-          oracle_state_vars 
-      in
-
-      (* Type check and flatten indexed expressions for input into
-         list without indexes *)
-      let node_input_exprs, abstractions' =
-        node_inputs_of_exprs node_inputs abstractions' pos expr_list'
-      in
-(*
-      (* Flatten indexed types of node outputs to a list of
-         identifiers and their types *)
-      let node_output_idents = 
-        output_idents_of_node scope ident pos call_ident node_outputs
-      in
-
-      (* Node call evaluates to variables capturing the output of the
-         node with indexes by their position *)
-      let result' = 
-        add_node_output_to_result index result node_output_idents
-      in
-*)
-
-      let output_vars = 
-        output_vars_of_node_output mk_new_state_var node_outputs 
-      in
-
-      let result', _ = 
-        List.fold_left2
-          (fun (accum, result_i) sv (node_sv, index) -> 
-             
-             let out_ident = fst (E.ident_of_state_var node_sv) in
-(*
-             Format.printf "output %a: ident is %a@."
-               StateVar.pp_print_state_var sv
-               (I.pp_print_ident false) out_ident;
-*)
-             let sv_index = 
-               I.index_of_one_index_list (snd (I.split_ident out_ident))
-             in
-
-             (I.push_int_index_to_index 
-                result_i
-                (I.push_index_to_index index sv_index),
-              E.mk_var sv E.base_clock)
-             :: accum, 
-             Numeral.(succ result_i)) 
-
-          (result, Numeral.zero)
-          output_vars
-          node_outputs
-      in
-
-      (* Add expression to result *)
-      eval_ast_expr' 
+      eval_node_call 
         context 
-        { abstractions' 
-          with new_calls = { N.call_returns = output_vars;
-                             N.call_clock = E.t_true;
-                             N.call_node_name = ident;
-                             N.call_pos = pos;
-                             N.call_inputs = node_input_exprs @ oracle_exprs;
-                             N.call_defaults = [] } :: abstractions'.new_calls;
-               new_oracles = abstractions'.new_oracles @ oracle_state_vars }
-        result' 
+        abstractions
+        pos
+        E.t_true
+        ident
+        args
+        []
+        result
         tl
 
-
     (* Node call to a parametric node *)
-    | (index, A.CallParam (pos, _, _, _)) :: tl -> 
+    | A.CallParam (pos, _, _, _) :: tl -> 
 
-      fail_at_position pos "Parametric nodes not supported" 
+      A.fail_at_position pos "Parametric nodes not supported" 
 
 
 
@@ -1538,7 +1510,7 @@ and unary_apply_to
 
   with E.Type_mismatch ->
 
-    fail_at_position pos "Type mismatch for expressions"
+    A.fail_at_position pos "Type mismatch for expressions"
 
 
 (* Apply operation to expressions component-wise *)
@@ -1575,16 +1547,7 @@ and binary_apply_to
        indexes), add in reverse order to the stack *)
     (List.fold_left2
        (fun accum (index1, expr1) (index2, expr2) -> 
-
-          (* Indexes must match *)
-          if (* index1 = index2 *) true then 
-
-            (index1, mk expr1 expr2) :: accum
-
-          else          
-
-            raise E.Type_mismatch)
-
+          (index1, mk expr1 expr2) :: accum)
        accum
        expr1'
        expr2',
@@ -1593,7 +1556,7 @@ and binary_apply_to
   (* Type checking error or one expression has more indexes *)
   with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
 
-    fail_at_position
+    A.fail_at_position
       pos
       (Format.asprintf
          "Type mismatch for expressions %a and %a" 
@@ -1605,14 +1568,14 @@ and binary_apply_to
 and eval_ast_expr 
     context 
     abstractions
-    expr = 
+    ast_expr = 
 
   let expr', abstractions' = 
     eval_ast_expr' 
       context
       abstractions
       [] 
-      [(I.empty_index, expr)]
+      [ast_expr]
   in
 (*
   Format.printf 
@@ -1641,12 +1604,206 @@ and eval_ast_expr
   (List.rev expr', abstractions')
 
 
+and eval_node_call
+  ({ nodes } as context)
+  ({ mk_new_state_var; mk_new_oracle_state_var } as abstractions)
+  pos
+  cond
+  ident
+  args
+  defaults
+  result
+  tl = 
+
+  (* Type check expressions for node inputs and return sorted list of
+     expressions for node inputs *)
+  let node_inputs_of_exprs node_inputs abstractions pos expr_list =
+    
+    try
+      
+      (* Check types and index, keep lists sorted *)
+      List.fold_right2
+        (fun 
+          (in_var, index)
+          (_, ({ E.expr_type } as expr)) 
+          (accum, ({ new_vars; mk_new_state_var } as abstractions)) ->
+          
+          if
+
+            (* Expression must be of a subtype of input type *)
+            Type.check_type 
+              expr_type
+              (StateVar.type_of_state_var in_var) 
+              
+          then 
+            
+            if 
+              
+              (* Input must not contain variable at previous state *)
+              E.has_pre_var expr 
+                
+            then
+              
+              (* New variable for abstraction *)
+              let state_var = mk_new_state_var expr_type in
+              
+              (* Add definition of variable *)
+              let abstractions' =
+                { abstractions with
+                    new_vars = (state_var, expr) :: abstractions.new_vars }
+              in
+              
+              (* Use abstracted variable as input parameter *)
+              (E.mk_var state_var E.base_clock :: accum, 
+               abstractions')
+              
+            else
+              
+              (* Add expression as input *)
+              (expr :: accum, abstractions)
+              
+          else
+            raise E.Type_mismatch)
+        node_inputs
+        expr_list
+        ([], abstractions)
+        
+    (* Type checking error or one expression has more indexes *)
+    with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
+      
+      A.fail_at_position pos "Type mismatch for expressions"
+        
+  in
+
+  (* Type check expressions for node inputs and return sorted list of
+     expressions for node inputs *)
+  let node_init_of_exprs node_outputs pos expr_list =
+
+    try
+
+      (* Check types and index, keep lists sorted *)
+      List.fold_right2
+        (fun 
+          (out_var, _) 
+          (_, ({ E.expr_type } as expr)) 
+          accum ->
+          
+          (* Expression must be of a subtype of input type *)
+          if 
+            Type.check_type 
+              expr_type
+              (StateVar.type_of_state_var out_var)
+          then 
+            expr :: accum
+          else
+            raise E.Type_mismatch) 
+        node_outputs
+        expr_list
+        []
+        
+    (* Type checking error or one expression has more indexes *)
+    with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
+      
+      A.fail_at_position pos "Type mismatch for expressions"
+        
+  in
+
+  (* Add list of variables capturing the output with indexes to the result *)
+  let output_vars_of_node_output mk_new_state_var node_outputs = 
+
+    List.map
+      (fun (out_var, _) -> 
+         mk_new_state_var (StateVar.type_of_state_var out_var))
+      node_outputs
+
+  in
+
+
+
+  let { N.inputs = node_inputs; 
+        N.outputs = node_outputs; 
+        N.oracles = node_oracles } = 
+    
+    try 
+      
+      (* Get node context by identifier *)
+      List.find
+        (function { N.name = node_ident } -> node_ident = ident)
+        nodes
+        
+    with Not_found -> 
+      
+      (* Node may be forward referenced *)
+      raise (Node_not_found (ident, pos))
+        
+  in
+  
+  (* Evaluate inputs as list of expressions *)
+  let expr_list', abstractions' = 
+    eval_ast_expr
+      context 
+      abstractions
+      (A.ExprList (pos, args))
+  in
+
+  (* Fresh state variables for oracle inputs of called node *)
+  let oracle_state_vars = 
+    List.map 
+      (fun sv ->
+         mk_new_oracle_state_var (StateVar.type_of_state_var sv))
+      node_oracles 
+  in
+  
+  (* Expressions from state variables for oracle inputs *)
+  let oracle_exprs = 
+    List.map
+      (fun sv -> E.mk_var sv E.base_clock) 
+      oracle_state_vars 
+  in
+
+  (* Type check and flatten indexed expressions for input into list
+         without indexes *)
+  let node_input_exprs, abstractions' =
+    node_inputs_of_exprs node_inputs abstractions' pos expr_list'
+  in
+
+  let result', output_vars = 
+    List.fold_left
+      (fun (result, output_vars) (node_sv, index) -> 
+         
+         let sv = 
+           mk_new_state_var (StateVar.type_of_state_var node_sv)
+         in
+
+         (index, E.mk_var sv E.base_clock) :: result, 
+         sv :: output_vars)
+      
+      (result, [])
+      node_outputs
+  in
+
+  (* Add expression to result *)
+  eval_ast_expr' 
+    context 
+    { abstractions' 
+      with new_calls = { N.call_returns = List.rev output_vars;
+                         N.call_clock = cond;
+                         N.call_node_name = ident;
+                         N.call_pos = pos;
+                         N.call_inputs = node_input_exprs @ oracle_exprs;
+                         N.call_defaults = List.map snd defaults } 
+                       :: abstractions'.new_calls;
+           new_oracles = abstractions'.new_oracles @ oracle_state_vars }
+    result' 
+    tl
+
+
 (* Evaluate expression to an integer constant *)
 and int_const_of_ast_expr context pos expr = 
 
-  (* Evaluate expression *)
   match 
 
+    (* Evaluate expression *)
     eval_ast_expr 
       context
       (void_abstraction_context pos)
@@ -1660,7 +1817,8 @@ and int_const_of_ast_expr context pos expr =
                   E.expr_step = es } ],
        { new_vars = []; new_calls = []; new_oracles = []}) when 
         index = I.empty_index && 
-        ei == es -> 
+        let ei' = (ei :> Term.t) in let es' = (es :> Term.t) in 
+        Term.equal ei' es' -> 
       
       (match Term.destruct (E.base_term_of_expr E.base_offset ei) with 
         | Term.T.Const c when Symbol.is_numeral c ->
@@ -1669,12 +1827,12 @@ and int_const_of_ast_expr context pos expr =
         (* Expression is not a constant integer *)
         | _ ->       
           
-          fail_at_position pos "Expression must be an integer")
+          A.fail_at_position pos "Expression must be an integer")
       
     (* Expression is not a constant integer *)
     | _ ->       
       
-      fail_at_position pos "Expression must be constant"
+      A.fail_at_position pos "Expression must be constant"
         
 
 (* Evaluate expression to an integer constant *)
@@ -1700,184 +1858,35 @@ and bool_expr_of_ast_expr
         ({ E.expr_init; 
            E.expr_step; 
            E.expr_type = t } as expr) ] when 
-        index = I.empty_index && t == Type.t_bool -> 
+        index = I.empty_index && Type.equal_types t Type.t_bool -> 
       
       expr, abstractions'
 
     (* Expression is not Boolean or is indexed *)
     | _ -> 
       
-      fail_at_position pos "Expression is not of Boolean type") 
+      A.fail_at_position pos "Expression is not of Boolean type") 
   
-
-
-(* Type check expressions for node inputs and return sorted list of
-   expressions for node inputs *)
-and node_inputs_of_exprs node_inputs abstractions pos expr_list =
-
-  try
-
-    (* Check types and index, keep lists sorted *)
-    List.fold_right2
-      (fun 
-        (in_var, index)
-        (_, ({ E.expr_type } as expr)) 
-        (accum, ({ new_vars; mk_new_state_var } as abstractions)) ->
-
-        if
-
-          (* Expression must be of a subtype of input type *)
-          Type.check_type 
-            expr_type
-            (StateVar.type_of_state_var in_var) 
-
-        then 
-    
-          if 
-
-            (* Input must not contain variable at previous state *)
-            E.has_pre_var expr 
-
-          then
-
-            (* New variable for abstraction *)
-            let state_var = mk_new_state_var expr_type in
-
-            (* Add definition of variable *)
-            let abstractions' =
-              { abstractions with
-                  new_vars = (state_var, expr) :: abstractions.new_vars }
-            in
-
-            (* Use abstracted variable as input parameter *)
-            (E.mk_var state_var E.base_clock :: accum, 
-             abstractions')
-
-          else
-      
-            (* Add expression as input *)
-            (expr :: accum, abstractions)
-
-        else
-          raise E.Type_mismatch)
-      node_inputs
-      expr_list
-      ([], abstractions)
-
-  (* Type checking error or one expression has more indexes *)
-  with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
-
-    fail_at_position pos "Type mismatch for expressions"
-
-
-
-(* Type check expressions for node inputs and return sorted list of
-   expressions for node inputs *)
-and node_init_of_exprs node_outputs pos expr_list =
-
-  try
-
-    (* Check types and index, keep lists sorted *)
-    List.fold_right2
-      (fun 
-        (out_var, _) 
-        (_, ({ E.expr_type } as expr)) 
-        accum ->
-
-        (* Expression must be of a subtype of input type *)
-        if 
-          Type.check_type 
-            expr_type
-            (StateVar.type_of_state_var out_var)
-        then 
-            expr :: accum
-          else
-            raise E.Type_mismatch) 
-      node_outputs
-      expr_list
-      []
-
-  (* Type checking error or one expression has more indexes *)
-  with Invalid_argument "List.fold_right2" | E.Type_mismatch -> 
-
-    fail_at_position pos "Type mismatch for expressions"
-
-(*
-
-(* Return list of identifier and types to capture node outputs *)
-and output_idents_of_node scope ident pos call_ident = function 
-
-  (* Node must have outputs *)
-  | [] ->  
-
-    fail_at_position 
-      pos
-      (Format.asprintf 
-         "Node %a cannot be called, it does not have outputs" 
-         (I.pp_print_ident false) ident)
-
-  | node_outputs -> 
-
-    List.map
-      (fun out_var -> 
-         E.state_var_of_ident 
-           scope
-           (I.push_back_ident_index 
-              (E.ident_of_state_var out_var)
-              call_ident)
-           (StateVar.type_of_state_var out_var))
-      node_outputs
-
-*)
-
-(* Add list of variables capturing the output with indexes to the result *)
-and output_vars_of_node_output mk_new_state_var node_outputs = 
-
-  List.map
-    (fun (out_var, _) -> 
-       mk_new_state_var (StateVar.type_of_state_var out_var))
-    node_outputs
-
-(*
-  (* Don't add index if node has a single output *)
-  | [state_var] -> 
-
-    (index, E.mk_var state_var E.base_clock) :: result
-
-  (* Add indexes to be able to sort if node has more than one output *)
-  | node_output_idents -> 
-
-    snd
-      (* Add indexes to variables capturing node outputs
-
-         Must add indexes in order *)
-      (List.fold_left
-         (fun (i, accum) state_var -> 
-            (Numeral.(succ i),
-             (I.push_int_index_to_index i index, 
-              E.mk_var_of_state_var state_var E.base_clock) :: accum))
-         (Numeral.zero, result)
-         node_output_idents)
-      
-*)
-    
 
 (* Return true if expression is Boolean without indexes *)
 let is_bool_expr = function
 
   | [ index, 
-      ({ E.expr_type = t } as expr) ] when 
-      index = I.empty_index && t == Type.t_bool -> true
+      ({ E.expr_type = t }) ] when 
+      index = I.empty_index && Type.equal_types t Type.t_bool -> true
 
   | _ -> false
     
 
 
-let close_ast_expr (expr, abstractions) = 
+(* Replace unguarded pres in expression with oracle constants and
+   return extened abstraction *)
+let close_ast_expr pos (expr, abstractions) = 
   
   (* Replace unguarded pres in expression with oracle constants *)
   let expr', oracles' =
     E.oracles_for_unguarded_pres
+      pos
       abstractions.mk_new_oracle_state_var
       abstractions.new_oracles
       expr
@@ -1892,7 +1901,7 @@ let close_ast_expr (expr, abstractions) =
   (expr', abstractions') 
    
 
-let close_indexed_ast_expr (expr, abstractions) = 
+let close_indexed_ast_expr pos (expr, abstractions) = 
       
   (* Replace unguarded pres with oracle constants *)
   let expr', abstractions' = 
@@ -1900,7 +1909,9 @@ let close_indexed_ast_expr (expr, abstractions) =
 
       (fun (index, expr) (accum, abstractions) -> 
 
-         let expr', abstractions' = close_ast_expr (expr, abstractions) in
+         let expr', abstractions' = 
+           close_ast_expr pos (expr, abstractions) 
+         in
 
          (* Return expression and modified abstraction *)
          ((index, expr') :: accum, abstractions'))
@@ -1938,7 +1949,7 @@ let ident_in_context { type_ctx; index_ctx } i =
   if 
 
     (* Identifier must not be reserved *)
-    i = new_var_ident || i = new_call_ident 
+    I.ident_is_reserved i
 
   then
     
@@ -1946,7 +1957,7 @@ let ident_in_context { type_ctx; index_ctx } i =
       (Invalid_argument 
          (Format.asprintf 
             "Identifier %a is reserved internal use" 
-            (I.pp_print_ident false) new_var_ident))
+            (I.pp_print_ident false) i))
 
   else
 
@@ -1974,7 +1985,7 @@ let add_enum_to_context type_ctx pos = function
            (* Skip if constant declared with the same (enum) type *)
            if basic_type = enum_element_type then type_ctx else
 
-             fail_at_position 
+             A.fail_at_position 
                pos 
                (Format.asprintf 
                   "Enum constant %a declared with different type" 
@@ -2149,6 +2160,10 @@ let rec fold_ast_type'
   (* Enum type needs to be constructed *)
   | (index, A.EnumType (pos, enum_elements)) :: tl -> 
 
+    A.fail_at_position pos "Enum types not supported" 
+
+(* TODO: support enum types
+
     (* Construct an enum type *)
     fold_ast_type' 
       fold_left 
@@ -2161,7 +2176,7 @@ let rec fold_ast_type'
             "TODO" 
             (List.map (I.string_of_ident false) enum_elements))) 
       tl
-
+*)
 
   (* User type that is an alias *)
   | (index, A.UserType (pos, ident)) :: tl when 
@@ -2214,7 +2229,7 @@ let rec fold_ast_type'
   (* User type that is neither an alias nor free *)
   | (index, A.UserType (pos, ident)) :: _ -> 
 
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Type %a is not declared" 
@@ -2275,7 +2290,7 @@ let rec fold_ast_type'
     (* Array size must must be at least one *)
     if Numeral.(array_size <= zero) then 
 
-      fail_at_position 
+      A.fail_at_position 
         pos
         (Format.asprintf 
            "Expression %a must be positive as array size" 
@@ -2417,16 +2432,16 @@ let add_typed_decl
 
   with E.Type_mismatch -> 
 
-    fail_at_position pos "Type mismatch for expressions"
+    A.fail_at_position pos "Type mismatch for expressions"
 
 
-
+(* Add declaration of constant to context *)
 let add_const_decl context = function 
 
   (* Free constant *)
   | A.FreeConst (pos, ident, _) -> 
 
-    fail_at_position pos "Free constants not supported"
+    A.fail_at_position pos "Free constants not supported"
 
 
   (* Constant without type *)
@@ -2475,17 +2490,22 @@ let add_node_input_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-  let node_inputs' = 
-    (E.mk_state_var_of_ident
-       true
-       is_const
-       scope
-       (I.push_back_index index ident) 
-       basic_type,
-     index) 
-    :: node_inputs
+  (* Create state variable as input and contant *)
+  let state_var = 
+    E.mk_state_var_of_ident
+      true
+      is_const
+      scope
+      (I.push_back_index index ident) 
+      basic_type
   in
 
+  (* State variable is an input *)
+  E.set_state_var_source state_var E.Input;
+
+  (* Add state variable to inputs *)
+  let node_inputs' = (state_var, index) :: node_inputs in
+  
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.inputs = node_inputs' })
 
@@ -2493,23 +2513,32 @@ let add_node_input_decl
 (* Add declaration of a node output to contexts *)
 let add_node_output_decl
     ident
+    param_index
     pos
     (({ type_ctx; index_ctx } as context), 
      ({ N.outputs = node_outputs; N.name = node_ident } as node))
     index 
     basic_type =
-
-(*  
-  Format.printf "add_node_output_decl: %a %a %a@."
+(*
+  Format.printf "add_node_output_decl: %a %a %a %a@."
     (I.pp_print_ident false) ident
+    (function ppf -> function 
+       | None -> Format.fprintf ppf "[]"
+       | Some i -> Format.fprintf ppf "%a" Numeral.pp_print_numeral i)
+    param_index
     (I.pp_print_index false) index
-    (T.pp_print_lustre_type false) basic_type;
+    Type.pp_print_type basic_type;
 *)
-
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
   (* Add index to identifier *)
+  let index' = 
+    match param_index with 
+      | None -> index
+      | Some i -> I.push_int_index_to_index i index
+  in
+
   let ident' = I.push_index index ident in
 
   (* Add to typing context *)
@@ -2521,16 +2550,21 @@ let add_node_output_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-  let node_outputs' = 
-    ((E.mk_state_var_of_ident
-       false
-       false
-       scope
-       (I.push_back_index index ident)
-       basic_type), 
-     index) ::
-    node_outputs 
+  (* Create state variable as neither constant nor input *)
+  let state_var = 
+    E.mk_state_var_of_ident
+      false
+      false
+      scope
+      (I.push_back_index index ident)
+      basic_type
   in
+
+  (* State variable is an output *)
+  E.set_state_var_source state_var E.Output;
+
+  (* Add state variable to outputs *)
+  let node_outputs' = (state_var, index') :: node_outputs in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.outputs = node_outputs' })
@@ -2550,6 +2584,7 @@ let add_node_var_decl
     (I.pp_print_index false) index
     (E.pp_print_lustre_type false) basic_type;
 *)
+
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
@@ -2565,31 +2600,30 @@ let add_node_var_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-  let node_locals' = 
-    (E.mk_state_var_of_ident
-       false
-       false
-       scope
-       (I.push_back_index index ident) 
-       basic_type,
-     index)
-    :: node.N.locals
+  (* Create state variable as neither constant nor input *)
+  let state_var = 
+    E.mk_state_var_of_ident
+      false
+      false
+      scope
+      (I.push_back_index index ident) 
+      basic_type
   in
-(*
-  Format.printf
-    "@[<hv>node_locals':@ @[<hv>%a@]@]@."
-    (pp_print_list 
-       (fun ppf (sv, _) -> 
-          StateVar.pp_print_state_var ppf sv)
-       ",@ ")
-    node_locals';
-*)
+
+  (* State variable is locally defined or abstract variable *)
+  E.set_state_var_source 
+    state_var 
+    (if A.is_dummy_pos pos then E.Abstract else E.Local);
+
+  (* Add state variable to local variables *)
+  let node_locals' = (state_var, index) :: node.N.locals in
+
   (* Must return node in accumulator *)
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.locals = node_locals'})
 
 
-(* Add declaration of a node input to contexts *)
+(* Add declaration of an oracle input to contexts *)
 let add_node_oracle_decl
     ident
     (({ type_ctx; index_ctx } as context), 
@@ -2614,15 +2648,21 @@ let add_node_oracle_decl
   (* Add indexed identifier to context *)
   let index_ctx' = add_to_prefix_map index_ctx ident' () in
 
-  let node_oracles' = 
+  (* Create state variable as constant and input *)
+  let state_var =
     E.mk_state_var_of_ident
-      false
+      true
       true
       scope
       (I.push_back_index index ident)
-      basic_type :: 
-    node_oracles
+      basic_type
   in
+  
+  (* State variable is an oracle input variable *)
+  E.set_state_var_source state_var E.Oracle;
+
+  (* Add state variable to oracles *)
+  let node_oracles' = state_var :: node_oracles in
 
   ({ context with type_ctx = type_ctx'; index_ctx = index_ctx' }, 
    { node with N.oracles = node_oracles' })
@@ -2642,9 +2682,9 @@ let rec parse_node_inputs context node = function
       (try 
          ident_in_context context ident 
        with Invalid_argument e -> 
-         fail_at_position pos e) -> 
+         A.fail_at_position pos e) -> 
 
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Node input %a already declared" 
@@ -2668,11 +2708,11 @@ let rec parse_node_inputs context node = function
 
   | (pos, _, _, _, _) :: _ -> 
 
-    fail_at_position pos "Clocked node inputs not supported"
+    A.fail_at_position pos "Clocked node inputs not supported"
 
 
 (* Add all node outputs to contexts *)
-let rec parse_node_outputs context node = function
+let rec parse_node_outputs context node index = function
 
   (* All outputs parsed, return in original order *)
   | [] -> (context, { node with N.outputs = List.rev node.N.outputs })
@@ -2684,9 +2724,9 @@ let rec parse_node_outputs context node = function
       (try 
          ident_in_context context ident 
        with Invalid_argument e -> 
-         fail_at_position pos e) -> 
+         A.fail_at_position pos e) -> 
     
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Node output %a already declared" 
@@ -2700,17 +2740,24 @@ let rec parse_node_outputs context node = function
     let context', node' = 
       fold_left_ast_type 
         context
-        (add_node_output_decl ident pos)
+        (add_node_output_decl ident index pos)
         (context, node)
         var_type
     in
 
+    (* Increment counter of parameter position *)
+    let index' = 
+      match index with
+        | None -> None 
+        | Some i -> Some (Numeral.succ i)
+    in
+
     (* Continue with following outputs *)
-    parse_node_outputs context' node' tl
+    parse_node_outputs context' node' index' tl
 
   | (pos, _, _, _) :: _ -> 
 
-    fail_at_position pos "Clocked node outputs not supported" 
+    A.fail_at_position pos "Clocked node outputs not supported" 
 
 
 
@@ -2730,9 +2777,9 @@ let rec parse_node_locals context node = function
       (try 
          ident_in_context context ident 
        with Invalid_argument e -> 
-         fail_at_position pos e) -> 
+         A.fail_at_position pos e) -> 
     
-    fail_at_position 
+    A.fail_at_position 
       pos
       (Format.asprintf 
          "Node local variable or constant %a already declared" 
@@ -2757,9 +2804,10 @@ let rec parse_node_locals context node = function
       node'
       tl
 
+  (* Local variable not on the base clock *)
   |  A.NodeVarDecl (pos, (_, ident, _, _)) :: _ -> 
 
-    fail_at_position 
+    A.fail_at_position 
       pos 
       (Format.asprintf 
          "Clocked node local variables not supported for %a" 
@@ -2769,6 +2817,7 @@ let rec parse_node_locals context node = function
   (* Local constant *)
   | A.NodeConstDecl (pos, const_decl) :: tl -> 
 
+    (* Add declaration of constant to context *)
     let context' = add_const_decl context const_decl in
 
     (* Continue with following outputs *)
@@ -2804,6 +2853,9 @@ let rec property_to_node
       (* State variable of abstraction variable *)
       let state_var = mk_new_state_var Type.t_bool in
       
+      (* State variable is a locally abstracted variable *)
+      E.set_state_var_source state_var E.Abstract;
+
       (* Add definition of abstraction variable to node *)
       let context', node', abstractions' = 
         equation_to_node
@@ -2814,7 +2866,11 @@ let rec property_to_node
           (state_var, expr)
       in
 
-      (state_var, context', node', abstractions')
+      (state_var, 
+       context', 
+       { node' with 
+           N.locals = (state_var, I.empty_index) :: node'.N.locals },
+       abstractions')
 
   in
 
@@ -2848,7 +2904,6 @@ and ensures_to_node context node abstractions pos expr =
   (context, node', abstractions)
 
 
-
 (* Add equational definition of a variable *)
 and equation_to_node 
     context 
@@ -2860,6 +2915,7 @@ and equation_to_node
   (* Replace unguarded pre with oracle constants *)
   let expr', oracles' = 
     E.oracles_for_unguarded_pres
+      pos
       abstractions.mk_new_oracle_state_var
       abstractions.new_oracles
       expr
@@ -2900,6 +2956,11 @@ and equation_to_node
                (E.mk_lte expr (E.mk_int ubound)))
           in
 
+          A.warn_at_position
+            pos
+            "Cannot determine correctness of subrange type, \
+             adding constraint as property.";
+
           (* Add property to node *)
           property_to_node 
             context 
@@ -2910,7 +2971,7 @@ and equation_to_node
 
         | _ -> 
 
-          fail_at_position pos "Type mismatch for expressions")
+          A.fail_at_position pos "Type mismatch for expressions")
 
   in
 
@@ -2921,16 +2982,7 @@ and equation_to_node
 
   (* Add equation and abstractions *)
   (context',
-   { node' with N.equations = (state_var, expr') :: node.N.equations;
-               N.locals = 
-                 if 
-                   List.exists
-                     (fun (sv, _) -> StateVar.equal_state_vars sv state_var) 
-                     node.N.locals 
-                 then 
-                   node.N.locals 
-                 else 
-                   (state_var, I.empty_index) :: node.N.locals }, 
+   { node' with N.equations = (state_var, expr') :: node.N.equations }, 
    abstractions')
 
 
@@ -3024,12 +3076,36 @@ let abstractions_to_context_and_node
                 
                 (* Add variable declaration to context *)
                 let context', node' = 
-                  add_node_var_decl 
-                    base_ident
-                    A.dummy_pos
+
+                  if 
+
+                    (* Variable is already declared as output or
+                       local? *)
+                    (List.exists 
+                       (fun (sv, _) -> 
+                          StateVar.equal_state_vars sv state_var)
+                       node.N.outputs)
+
+                    || (List.exists 
+                          (fun (sv, _) -> 
+                             StateVar.equal_state_vars sv state_var)
+                          node.N.locals)
+
+                  then
+
+                    (* Return context and node unchanged *)
                     (context, node)
-                    (I.index_of_one_index_list index)
-                    (StateVar.type_of_state_var state_var)
+
+                  else
+
+                    (* Add new local variable to node *)
+                    add_node_var_decl 
+                      base_ident
+                      A.dummy_pos
+                      (context, node)
+                      (I.index_of_one_index_list index)
+                      (StateVar.type_of_state_var state_var)
+
                 in
 
                 context', node', abstractions)
@@ -3054,20 +3130,19 @@ let rec parse_node_equations
     context 
     empty_abstractions 
     ({ N.name = node_ident } as node ) = 
-  
-  (* Node name is scope for naming of variables *)
-  let scope = I.index_of_ident node_ident in 
-  
+
   function
 
+    (* No more statements *)
     | [] -> node 
 
     (* Assertion *)
     | A.Assert (pos, ast_expr) :: tl -> 
 
-      (* Evaluate expression *)
+      (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3095,9 +3170,10 @@ let rec parse_node_equations
     (* Property annotation *)
     | A.AnnotProperty (pos, ast_expr) :: tl -> 
 
-      (* Evaluate expression *)
+      (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3129,26 +3205,17 @@ let rec parse_node_equations
        abstracted *)
     | A.Equation (pos, struct_items, ast_expr) :: tl -> 
 
-      (* Evaluate expression *)
+      (* Evaluate expression and guard all pre operators *)
       let expr', abstractions = 
         close_indexed_ast_expr
+          pos
           (eval_ast_expr 
              context 
              empty_abstractions
-
-             (* Wrap right-hand side in a singleton list, nested lists
-                are flattened, s.t. ((a,b)) become (a,b) *)
-             (A.ExprList (pos, [ast_expr])))
+             ast_expr)
 
       in
-(*
-      Format.printf
-        "@[<hv>locals:@ @[<hv>%a@]@]@."
-        (pp_print_list 
-           (fun ppf (sv, _) -> StateVar.pp_print_state_var ppf sv)
-           ",@ ") 
-        node.N.locals;
-*)
+
       (* State variables and types of their assigned expressions *)
       let eq_types = 
         List.rev
@@ -3199,7 +3266,7 @@ let rec parse_node_equations
                     (* Identifier not found in outputs and local variables *)
                     if accum'' = accum' then 
                       
-                      fail_at_position 
+                      A.fail_at_position 
                         pos 
                         "Assignment to neither output nor local variable" 
 
@@ -3215,26 +3282,13 @@ let rec parse_node_equations
 
                 (* TODO: Structural assignments *)
                 | _ -> 
-                  fail_at_position
+                  A.fail_at_position
                     pos
                     "Structural assignments not supported")
 
              []
              struct_items)
       in
-(*
-      Format.printf
-        "@[<v>@[<hv>eq_types:@ %a@]@,@[<hv>expr':@ %a@]@." 
-        (pp_print_list StateVar.pp_print_state_var "@ ") eq_types
-        (pp_print_list 
-           (fun ppf (i, e) ->
-              Format.fprintf ppf
-                "%a = %a" 
-                (I.pp_print_index false) i
-                (E.pp_print_lustre_expr false) e)
-           "@ ")
-        expr';
-  *)              
 
       (* Add all equations to node *)
       let context', node', abstractions' = 
@@ -3259,7 +3313,7 @@ let rec parse_node_equations
 
         with Invalid_argument "List.fold_right2" -> 
 
-          fail_at_position 
+          A.fail_at_position 
             pos
             "Type mismatch in equation"
 
@@ -3298,19 +3352,19 @@ let rec parse_node_contract
     empty_abstractions
     ({ N.name = node_ident } as node) = 
 
-  (* Node name is scope for naming of variables *)
-  let scope = I.index_of_ident node_ident in 
-
   function
 
+    (* No more contract clauses *)
     | [] -> node 
+
 
     (* Assumption *)
     | A.Requires (pos, expr) :: tl -> 
 
-      (* Evaluate expression *)
+      (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3328,6 +3382,7 @@ let rec parse_node_contract
         abstractions_to_context_and_node context' node' abstractions' pos
       in
 
+      (* Continue with next contract clauses *)
       parse_node_contract 
         context' 
         empty_abstractions
@@ -3338,9 +3393,10 @@ let rec parse_node_contract
     (* Guarantee *)
     | A.Ensures (pos, expr) :: tl -> 
 
-      (* Evaluate expression *)
+      (* Evaluate Boolean expression and guard all pre operators *)
       let expr', abstractions = 
         close_ast_expr
+          pos
           (bool_expr_of_ast_expr 
              context 
              empty_abstractions
@@ -3358,6 +3414,7 @@ let rec parse_node_contract
         abstractions_to_context_and_node context' node' abstractions' pos
       in
 
+      (* Continue with next contract clauses *)
       parse_node_contract 
         context' 
         empty_abstractions
@@ -3365,7 +3422,8 @@ let rec parse_node_contract
         tl
 
 
-let parse_node_signature  
+(* Parse node declaration and return *)
+let parse_node  
     node_ident
     global_context
     inputs 
@@ -3377,6 +3435,7 @@ let parse_node_signature
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
+  (* Create a new state variable for abstractions *)
   let mk_new_state_var  = 
     let r = ref Numeral.(- one) in
     fun state_var_type ->
@@ -3385,10 +3444,11 @@ let parse_node_signature
         false
         false
         scope
-        (I.push_int_index !r new_var_ident)
+        (I.push_int_index !r I.abs_ident)
         state_var_type
   in
 
+  (* Create a new constant for abstractions *)
   let mk_new_oracle_state_var = 
     let r = ref Numeral.(- one) in
     fun oracle_type ->
@@ -3397,10 +3457,11 @@ let parse_node_signature
         true
         true
         scope
-        (I.push_int_index !r new_oracle_ident)
+        (I.push_int_index !r I.oracle_ident)
         oracle_type
   in
-
+        
+  (* Initial, empty abstraction context *)
   let empty_abstractions = 
     { scope;
       mk_new_state_var = mk_new_state_var;
@@ -3411,102 +3472,55 @@ let parse_node_signature
   in
 
   (* Parse inputs, add to global context and node context *)
-  let local_context_inputs, node_context_inputs = 
+  let local_context, node = 
     parse_node_inputs global_context (N.empty_node node_ident) inputs
   in
 
   (* Parse outputs, add to local context and node context *)
-  let local_context_outputs, node_context_outputs = 
-    parse_node_outputs local_context_inputs node_context_inputs outputs
+  let local_context, node = 
+    parse_node_outputs
+      local_context 
+      node 
+      (match outputs with | [] | [_] -> None | _ -> Some Numeral.zero)
+      outputs
   in
 
   (* Parse contract
 
-     Must check here, may not use local variables *)
-  let node_context_contract = 
+     Must check before adding local variable to context, may not use
+     local variables *)
+  let node = 
     parse_node_contract 
-      local_context_outputs 
+      local_context 
       empty_abstractions
-      node_context_outputs 
+      node 
       contract
   in
 
   (* Parse local declarations, add to local context and node context *)
-  let local_context_locals, node_context_locals = 
-    parse_node_locals local_context_outputs node_context_contract locals
+  let local_context, node = 
+    parse_node_locals local_context node locals
   in
 
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
-  let node_context_equations = 
+  let node = 
     parse_node_equations 
-      local_context_locals 
+      local_context 
       empty_abstractions
-      node_context_locals 
+      node 
       equations
   in
 
   (* Simplify by substituting variables that are aliases *)
-  let node_context_equations = 
-    N.solve_eqs_node_calls node_context_equations 
-  in
+  N.solve_eqs_node_calls node
 
-(*
-  let var_dep = 
-    N.node_var_dependencies 
-      false 
-      global_context.nodes
-      node_context_equations
-      []
-      ((List.map (fun (v, _) -> (v, [])) node_context_equations.N.equations) @
-       (List.map (fun (v, _) -> (v, [])) node_context_equations.N.outputs))
-  in
-(*
-  Format.printf "@[<v>%a@]@."
-    (pp_print_list 
-      (fun ppf (v, d) ->
-        Format.fprintf ppf 
-          "@[<h>%a:@ %a@]"
-          (I.pp_print_ident false) v 
-          (pp_print_list 
-             (I.pp_print_ident false)
-             " ")
-          (ISet.elements d))
-      "@,")
-    var_dep;
-*)
-  let node_context_deps = 
-    { node_context_equations with 
-        N.output_input_dep = 
-          N.output_input_dep_of_var_dep 
-            node_context_equations 
-            var_dep } 
-  in
-
-  let equations_sorted =
-    List.sort
-      (fun (v1, _) (v2, _) -> 
-         if StateVar.StateVarSet.mem v1 (List.assoc v2 var_dep) then (- 1) 
-         else if StateVar.StateVarSet.mem v2 (List.assoc v1 var_dep) then 1 
-         else StateVar.compare_state_vars v1 v2)
-      node_context_deps.N.equations
-  in
-
-  let node_context_dep_order =
-    { node_context_deps with N.equations = equations_sorted }
-  in
-
-  node_context_dep_order
-
-  *)
-
-  (* Order equations by dependency *)
-  N.equations_order_by_dep global_context.nodes node_context_equations
 
 (* ******************************************************************** *)
 (* Main                                                                 *)
 (* ******************************************************************** *)
 
+(* Iterate over a list of declarations and return a context *)
 let rec declarations_to_nodes'
     ({ basic_types; 
        indexed_types; 
@@ -3533,7 +3547,7 @@ let rec declarations_to_nodes'
 
       then
 
-        fail_at_position 
+        A.fail_at_position 
           pos
           (Format.asprintf 
              "Type %a is redeclared" 
@@ -3586,13 +3600,13 @@ let rec declarations_to_nodes'
            (* Identifier must not be declared *)
            ident_in_context global_context ident 
 
-         with Invalid_argument e -> 
-
-           fail_at_position pos e)
+         (* Fail if reserved identifier used *)
+         with Invalid_argument e -> A.fail_at_position pos e)
 
       then
 
-        fail_at_position 
+        (* Fail if identifier already declared *)
+        A.fail_at_position 
           pos 
           (Format.asprintf 
              "Identifier %a is redeclared as constant" 
@@ -3620,9 +3634,9 @@ let rec declarations_to_nodes'
 
       (try 
 
-        (* Add declarations to global context *)
+        (* Add node declaration to global context *)
         let node_context = 
-          parse_node_signature
+          parse_node
             node_ident
             global_context 
             inputs 
@@ -3638,8 +3652,8 @@ let rec declarations_to_nodes'
               nodes = node_context :: nodes }
           decls
 
-       (* Forward reference in node *)
-       with Forward_reference (ident, pos) -> 
+       (* Node may be forward referenced *)
+       with Node_not_found (ident, pos) -> 
 
         if 
 
@@ -3652,7 +3666,7 @@ let rec declarations_to_nodes'
 
         then
 
-          fail_at_position 
+          A.fail_at_position 
             pos 
             (Format.asprintf 
                "Node %a is forward referenced" 
@@ -3660,7 +3674,7 @@ let rec declarations_to_nodes'
       
         else
           
-          fail_at_position
+          A.fail_at_position
             pos
             (Format.asprintf 
                "Node %a is not defined" 
@@ -3671,20 +3685,32 @@ let rec declarations_to_nodes'
     (* Node declaration without parameters *)
     | (A.FuncDecl (pos, _)) :: _ ->
 
-      fail_at_position pos "Functions not supported"
+      A.fail_at_position pos "Functions not supported"
 
 
     (* Node declaration without parameters *)
     | (A.NodeParamInst (pos, _)) :: _
     | (A.NodeDecl (pos, _)) :: _ ->
 
-      fail_at_position pos "Parametric nodes not supported" 
+      A.fail_at_position pos "Parametric nodes not supported" 
 
 
+(* Iterate over the declarations and return the nodes *)
 let declarations_to_nodes decls = 
 
-  let { nodes } = declarations_to_nodes' init_lustre_context decls in
+  (* Extract nodes from produced global context *)
+  let { nodes } as global_context = 
+    declarations_to_nodes' init_lustre_context decls 
+  in
+(*
+  Format.printf "%a@." (pp_print_lustre_context false) global_context;
 
+  Format.printf 
+    "%a@."
+    (pp_print_list (LustreNode.pp_print_node true) "@,") 
+    (List.rev nodes);
+*)  
+  (* Return nodes *)
   nodes
 
 

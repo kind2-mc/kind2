@@ -50,6 +50,13 @@ val pp_print_bitvector_x : Format.formatter -> bitvector -> unit
 
 (** {1 Integer functions} *)
 
+(** [string_starts_with s1 s2] returns true if the first characters of
+    [s1] up to the length of [s2] are ientical to [s2]. Return false if
+    [s2] is longer than [s1]. *)
+val string_starts_with : string -> string -> bool
+
+(** {1 Integer functions} *)
+
 (** [safe_hash_interleave h m i] compute [m * h + i] and makes sure
     that the result does not overflow to a negtive number *)
 val safe_hash_interleave : int -> int -> int -> int
@@ -132,7 +139,14 @@ val paren_string_of_string_list : string list -> string
 (** {1 System functions} *)
 
 (** Kind modules *)
-type kind_module = [ `PDR | `BMC | `IND | `INVGEN | `INVMAN | `Interpreter ]
+type kind_module =
+  [ `PDR
+  | `BMC
+  | `IND
+  | `INVGEN
+  | `INVMAN
+  | `Interpreter
+  | `Parser ]
 
 (** Wallclock timeout *)
 exception TimeoutWall

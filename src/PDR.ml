@@ -22,9 +22,11 @@ open Lib
 (* Raised when the properties have been proved *)
 exception Success of int
 
+(* Raised when a bad state is reachable *)
+exception Bad_state_reachable
 
 (* Raised when one property has been disproved *)
-exception Counterexample 
+exception Counterexample of (Clause.t * Clause.t) list
 
 
 (* Use configured SMT solver *)
@@ -519,7 +521,7 @@ let find_cex
           S.pop solver_init;
           
           (* Counterexample holds in the initial state *)
-          raise Counterexample
+          raise Bad_state_reachable
             
         )
         
@@ -623,20 +625,166 @@ let find_cex
     )
 
       
+      
+(* ********************************************************************** *)
+(* Counterexample extraction                                              *)
+(* ********************************************************************** *)
+
+(* Assert current blocking clauses from frames, and transition relation *)
+let rec assert_block_clauses solver trans_sys i = function 
+
+  (* Finish when blocking clauses for all frames asserted *)
+  | [] -> ()
+
+  (* First clause in list is current blocking clause *)
+  | (b_i, _) :: tl -> 
+
+    (* Blocking clause to term at instant i *)
+    let t_i = 
+      Term.bump_state
+        i
+        (Clause.to_term b_i)
+    in
+
+    (* Assert blocking clause *)
+    S.assert_term solver (Term.negate t_i);
+
+    (* Assert transition relation from previous frame *)
+    S.assert_term 
+      solver
+      (TransSys.trans_of_bound i trans_sys);
+
+    (* Recurse for remaining blocking clauses *)
+    assert_block_clauses solver trans_sys (Numeral.succ i) tl
+
+
+(* Given two ordered association lists with identical keys, push the
+   values of each element of the first association list to the list of
+   elements of the second association list. 
+
+   The returned association list is in the order of the input lists,
+   the function [equal] is used to compare keys. *)
+let list_join equal l1 l2 = 
+
+  let rec list_join' equal accum l1 l2 = match l1, l2 with
+    
+    (* Both lists consumed, return in original order *)
+    | [], [] -> List.rev accum 
+                  
+    (* Keys of head elements in both lists equal *)
+    | (((k1, v1) :: tl1), ((k2, v2) :: tl2)) when equal k1 k2 -> 
+      
+      (* Add to accumulator and continue *)
+      list_join' equal ((k1, (v1 :: v2)) :: accum) tl1 tl2
+        
+    (* Keys of head elements different, or one of the lists is empty *)
+    | _ -> invalid_arg "list_join"
+             
+  in
+
+  (* Call recursive function with initial accumulator *)
+  list_join' equal [] l1 l2
+
+
+(* Extract a path from the solver instance, return an association list
+   of state variables to a list of their values *)
+let rec path_from_solver solver accum state_vars = function 
+
+  (* Terminate after the base instant *)
+  | i when Numeral.(i < zero) -> accum
+
+  | i -> 
+
+    (* Get a model for the variables at instant [i] *)
+    let model =
+      S.get_model
+        solver
+        (List.map (fun sv -> Var.mk_state_var_instance sv i) state_vars)
+    in
+  
+    (* Turn variable instances to state variables and sort list *)
+    let model' =
+      List.sort
+        (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
+        (List.map
+           (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
+           model)
+    in
+
+    (* Join values of model at current instant to result *)
+    let accum' = 
+      list_join
+        StateVar.equal_state_vars
+        model'
+        accum
+    in
+      
+    (* Recurse for remaining instants  *)
+    path_from_solver
+      solver
+      accum'
+      state_vars
+      (Numeral.pred i)
+
+(* Extract a concrete counterexample from a trace of blocking clauses *)
+let extract_cex_path solver trans_sys trace = 
+
+  S.push solver;
+
+  let k_plus_one = Numeral.(of_int (List.length trace)) in
+
+  (* Assert initial state constraint *)
+  S.assert_term 
+    solver
+    (TransSys.init_of_bound Numeral.zero trans_sys);
+
+  (* Assert blocking clause and transition relation for tail of
+     trace *)
+  assert_block_clauses solver trans_sys Numeral.one trace;
+
+  (* Get a model of the execution path *)
+  if S.check_sat solver then 
+
+    (* Extract concrete values from model *)
+    let res = 
+      path_from_solver 
+        solver
+        (List.sort
+           (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
+           (List.map (fun sv -> (sv, [])) (TransSys.state_vars trans_sys)))
+        (TransSys.state_vars trans_sys)
+        k_plus_one
+    in
+
+    S.pop solver;
+
+    res
+
+  else
+
+    (* Must be satisfiable *)
+    assert false
+  
+
+
 (* ********************************************************************** *)
 (* Blocking of counterexamples to induction                               *)
 (* ********************************************************************** *)
 
 
 (* Add cube to block in future frames *)
-let add_to_block_tl block_clause = function
+let add_to_block_tl block_clause block_trace = function
   
   (* Last frame has no successors *)
   | [] -> [] 
           
-  (* Add cube as proof obligation in next frame *)
+  (* Add cube as proof obligation in next frame
+
+     Add clauses at the end of the list, counterexample extraction
+     relies on the current proof obligation being at the head of the
+     list *)
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
-    (block_clauses @ [block_clause], r_succ_i) :: block_clauses_tl
+    (block_clauses @ [block_clause, block_trace], r_succ_i) :: block_clauses_tl
 
 
 
@@ -677,7 +825,7 @@ let add_to_block_tl block_clause = function
    remaining counterexamples on the stack.
 
 *)
-let rec block ((_, solver_frames, _) as solvers) trans_sys = 
+let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys = 
 
   function 
 
@@ -714,8 +862,10 @@ let rec block ((_, solver_frames, _) as solvers) trans_sys =
 
 
     (* Take the first cube to be blocked in current frame *)
-    | ((core_block_clause, rest_block_clause) as block_clause :: block_clauses_tl, r_i) :: 
-        block_tl as trace -> 
+    | (((((core_block_clause, rest_block_clause) as block_clause), 
+        block_trace)
+       :: block_clauses_tl), r_i)
+      :: block_tl as trace -> 
 
       (function 
         
@@ -751,7 +901,7 @@ let rec block ((_, solver_frames, _) as solvers) trans_sys =
 
               if Flags.pdr_block_in_future () then 
 
-                add_to_block_tl block_clause block_tl
+                add_to_block_tl block_clause block_trace block_tl
 
               else
 
@@ -807,16 +957,22 @@ let rec block ((_, solver_frames, _) as solvers) trans_sys =
 
           match 
 
-            (* Find counterexamples where we can get outside the
-               property in one step and generalize to a cube. The
-               counterexample does not hold in the initial state. *)
-            Stat.time_fun Stat.pdr_find_cex_time (fun () ->
-                find_cex 
-                  solvers 
-                  trans_sys 
-                  r_pred_i_full
-                  block_clause
-                  block_clause)
+            (try
+
+               (* Find counterexamples where we can get outside the
+                  property in one step and generalize to a cube. The
+                  counterexample does not hold in the initial state. *)
+               Stat.time_fun Stat.pdr_find_cex_time (fun () ->
+                   find_cex 
+                     solvers 
+                     trans_sys 
+                     r_pred_i_full
+                     block_clause
+                     block_clause)
+
+             with Bad_state_reachable -> 
+
+               raise (Counterexample (block_clause :: block_trace)))
 
           with
 
@@ -855,7 +1011,7 @@ let rec block ((_, solver_frames, _) as solvers) trans_sys =
 
                  if Flags.pdr_block_in_future () then 
 
-                   add_to_block_tl block_clause block_tl
+                   add_to_block_tl block_clause block_trace block_tl
 
                  else
 
@@ -884,7 +1040,8 @@ let rec block ((_, solver_frames, _) as solvers) trans_sys =
                block 
                  solvers 
                  trans_sys 
-                 (([block_clause'], r_pred_i) :: trace) 
+                 (([block_clause', (block_clause :: block_trace)], 
+                   r_pred_i) :: trace) 
                  frames_tl))
 
 
@@ -917,20 +1074,31 @@ let rec strengthen
          (function c -> S.assert_term solver_frames (Clause.to_term c)) 
          r_k);
 
+      let prop_clause = 
+        Clause.singleton 
+          (TransSys.props_of_bound Numeral.zero trans_sys), 
+        Clause.empty
+      in
+      
       match 
+        
+        (try
 
-        (* Find counterexamples where we can get outside the property
-           in one step and generalize to a cube. The counterexample
-           does not hold in the initial state. *)
-        Stat.time_fun Stat.pdr_find_cex_time (fun () ->
-            find_cex 
-              solvers 
-              trans_sys 
-              r_k
-              (Clause.top, Clause.empty)
-              (Clause.singleton 
-                 (TransSys.props_of_bound Numeral.zero trans_sys), 
-               Clause.empty))
+            (* Find counterexamples where we can get outside the property
+               in one step and generalize to a cube. The counterexample
+               does not hold in the initial state. *)
+            Stat.time_fun Stat.pdr_find_cex_time (fun () ->
+                find_cex 
+                  solvers 
+                  trans_sys 
+                  r_k
+                  (Clause.top, Clause.empty)
+                  prop_clause)
+
+          with Bad_state_reachable -> 
+
+            raise (Counterexample [prop_clause]))
+
 
       with
 
@@ -982,7 +1150,7 @@ let rec strengthen
              block 
                solvers 
                trans_sys 
-               [([block_clause], r_k)] 
+               [([block_clause, [prop_clause]], r_k)] 
                frames_tl
            in
 
@@ -1756,7 +1924,7 @@ let bmc_checks solver_init trans_sys =
      (Term.negate (TransSys.props_of_bound Numeral.zero trans_sys)));
 
   (* Check if the property is violated in the initial state *)
-  if S.check_sat solver_init then raise Counterexample;
+  if S.check_sat solver_init then raise (Counterexample []);
 
   (* Remove assertions for 0-step counterexample check *)
   S.pop solver_init;
@@ -1792,7 +1960,13 @@ let bmc_checks solver_init trans_sys =
      (TransSys.invars_of_bound Numeral.one trans_sys));
 
   (* Check if the property is violated in the second state *)
-  if S.check_sat solver_init then raise Counterexample;
+  if S.check_sat solver_init then 
+
+    raise
+      (Counterexample
+         [Clause.singleton 
+            (TransSys.props_of_bound Numeral.zero trans_sys), 
+          Clause.empty]);
 
   (* Remove assertions for 1-step counterexample check *)
   S.pop solver_init;
@@ -2259,9 +2433,23 @@ let main trans_sys =
         )
 
       (* Some property is invalid *)
-      | Counterexample -> 
+      | Counterexample trace -> 
 
         (
+
+
+          let cex_path =
+            extract_cex_path
+              solver_misc
+              trans_sys
+              trace
+          in
+          
+          Event.log
+            `PDR
+            Event.L_off
+            "Counterexample %a"
+            LustrePath.pp_print_path_xml cex_path;
           
           List.iter 
             (function (p, _) -> Event.disproved `PDR None p) 
@@ -2278,5 +2466,4 @@ let main trans_sys =
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
-   End: 
 *)
