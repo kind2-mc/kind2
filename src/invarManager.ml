@@ -96,7 +96,7 @@ let handle_event trans_sys = function
     (
 
       (* Check if received invariant is a property *)
-      let props_valid, props' =
+      let props_valid, _ =
         List.partition
           (function (p, t) -> Term.equal i t)
           trans_sys.TransSys.props
@@ -105,11 +105,11 @@ let handle_event trans_sys = function
       (* Log property as proved *)
       List.iter (Event.log_proved m None) (List.map fst props_valid);
 
-      List.iter (TransSys.add_invariant trans_sys) (List.map snd props');
+      List.iter (TransSys.add_invariant trans_sys) (List.map snd props_valid);
 
-      List.iter (TransSys.add_valid_prop trans_sys) props';
+      List.iter (TransSys.add_valid_prop trans_sys) props_valid;
       
-      if props' = [] then 
+      if TransSys.all_props_proved trans_sys then 
 
         ( 
 
@@ -187,7 +187,11 @@ let rec loop child_pids transSys =
 
   List.iter 
     (function e -> 
-      Event.log `INVMAN Event.L_debug "%a" Event.pp_print_event e;
+      Event.log
+        `INVMAN 
+        Event.L_debug
+        "Message received: %a"
+        Event.pp_print_event e;
       handle_event transSys e)
     (Event.recv ());
 

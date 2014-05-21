@@ -298,6 +298,9 @@ let pp_print_ind_stats ppf =
 let pdr_k = 
   empty_item "k" 0
 
+let pdr_restarts = 
+  empty_item "Restarts" 0
+
 let pdr_frame_sizes = 
   empty_item "Frame sizes" []
 
@@ -352,6 +355,7 @@ let pdr_stats_title = "PDR"
 (* All PDR statistics *)
 let pdr_stats = 
   [ I pdr_k; 
+    I pdr_restarts;
     L pdr_frame_sizes; 
     I pdr_fwd_propagated; 
     I pdr_fwd_fixpoint; 

@@ -157,6 +157,9 @@ val pp_print_ind_stats : Format.formatter -> unit
 (** Highest k reached *)
 val pdr_k : int_item 
 
+(** Number of restarts *)
+val pdr_restarts : int_item 
+
 (** Frame sizes in *)
 val pdr_frame_sizes : int_list_item
 

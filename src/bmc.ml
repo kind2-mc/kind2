@@ -320,7 +320,7 @@ let rec bmc solver ts k properties invariants =
 
 (* Entry point *)
 let main trans_sys =
-  
+
   Stat.start_timer Stat.bmc_total_time;
   
   match trans_sys.TransSys.props with
