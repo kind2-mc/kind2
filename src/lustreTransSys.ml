@@ -213,9 +213,11 @@ let rec definitions_of_equations vars init trans = function
 let rec definitions_of_node_calls 
     scope
     mk_ticked_state_var
+    mk_new_state_var
     node_defs
     local_vars
-    init trans = 
+    init
+    trans = 
 
   function
 
@@ -230,19 +232,6 @@ let rec definitions_of_node_calls
         N.call_inputs = input_exprs;
         N.call_defaults = init_exprs;
         N.call_pos = pos } :: tl -> 
-
-      (* Create a new state variable for abstractions *)
-      let mk_new_state_var  = 
-        let r = ref Numeral.(- one) in
-        fun state_var_type ->
-          Numeral.incr r; 
-          E.mk_state_var_of_ident
-            false
-            false
-            scope
-            (I.push_int_index !r I.abs_ident)
-            state_var_type
-      in
 
       (* Signature of called node *)
       let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
@@ -700,6 +689,7 @@ let rec definitions_of_node_calls
       definitions_of_node_calls 
         scope
         mk_ticked_state_var
+        mk_new_state_var
         node_defs
         local_vars''
         (init_call_act_cond :: init)
@@ -826,8 +816,13 @@ let rec trans_sys_of_nodes'
 
 
     debug lustreTransSys
-        "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]@."
+        "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]"
         (N.pp_print_node false) node
+    in
+
+    debug lustreTransSys
+        "fresh_state_var_index: %a"
+        Numeral.pp_print_numeral !(node.N.fresh_state_var_index)
     in
 
     (* Create scope from node name *)
@@ -835,8 +830,32 @@ let rec trans_sys_of_nodes'
       LustreIdent.index_of_ident node_name
     in
 
+    let r = ref Numeral.(- one) in
+
+    let mk_ticked_state_var () = 
+      E.mk_fresh_state_var
+        false
+        false
+        (LustreIdent.index_of_ident node_name)
+        I.ticked_ident
+        Type.t_bool
+        r
+    in
+
+      (* Create a new state variable for abstractions *)
+      let mk_new_state_var state_var_type = 
+        E.mk_fresh_state_var
+          false
+          false
+          scope
+          I.abs_ident
+          state_var_type
+          node.N.fresh_state_var_index
+      in
+
+(*
     (* Create a new state variable for abstractions *)
-    let mk_ticked_state_var = 
+    let mk_ticked_state_var r = 
       let r = ref Numeral.(- one) in
       fun () ->
         Numeral.incr r; 
@@ -847,6 +866,7 @@ let rec trans_sys_of_nodes'
           (I.push_int_index !r I.ticked_ident)
           Type.t_bool
     in
+*)
 
     (* Input variables *)
     let inputs = List.map fst node_inputs in
@@ -878,6 +898,7 @@ let rec trans_sys_of_nodes'
       definitions_of_node_calls 
         scope
         mk_ticked_state_var
+        mk_new_state_var
         node_defs
         []
         []

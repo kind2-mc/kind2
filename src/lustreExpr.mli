@@ -263,6 +263,8 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
     retrieved via {!ident_of_state_var}. *)
 val mk_state_var_of_ident : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
 
+val mk_fresh_state_var : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Numeral.t ref -> StateVar.t
+
 (** Set source of state variable *)
 val set_state_var_source : StateVar.t -> state_var_source -> unit
 

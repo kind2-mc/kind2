@@ -127,7 +127,10 @@ type t =
     is_main : bool;
 
     (** Dependencies of the output variables on input variables *)
-    output_input_dep : int list list }
+    output_input_dep : int list list;
+
+    (** Index of last abstraction state variable *)
+    fresh_state_var_index : Numeral.t ref }
 
 (** The empty node *)
 val empty_node : LustreIdent.t -> t

@@ -3435,18 +3435,33 @@ let parse_node
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
 
+  (* Empty node *)
+  let node = N.empty_node node_ident in
+
   (* Create a new state variable for abstractions *)
-  let mk_new_state_var  = 
-    let r = ref Numeral.(- one) in
+  let mk_new_state_var state_var_type = 
+    E.mk_fresh_state_var
+      false
+      false
+      scope
+      I.abs_ident
+      state_var_type
+      node.N.fresh_state_var_index
+  in
+
+(*
+  (* Create a new state variable for abstractions *)
+  let mk_new_state_var = 
     fun state_var_type ->
-      Numeral.incr r; 
+      Numeral.incr new_state_var_index; 
       E.mk_state_var_of_ident
         false
         false
         scope
-        (I.push_int_index !r I.abs_ident)
+        (I.push_int_index !new_state_var_index I.abs_ident)
         state_var_type
   in
+*)
 
   (* Create a new constant for abstractions *)
   let mk_new_oracle_state_var = 
@@ -3473,7 +3488,7 @@ let parse_node
 
   (* Parse inputs, add to global context and node context *)
   let local_context, node = 
-    parse_node_inputs global_context (N.empty_node node_ident) inputs
+    parse_node_inputs global_context node inputs
   in
 
   (* Parse outputs, add to local context and node context *)

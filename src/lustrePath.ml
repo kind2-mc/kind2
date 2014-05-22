@@ -108,8 +108,6 @@ let partition_model_by_sources
 (* Create a Stream value of a state variable assignments *)
 let stream_of_model stream_prop (state_var, terms) = 
   
-  Format.printf "stream: %a@." StateVar.pp_print_state_var state_var;
-
   Stream
     (fst (E.ident_of_state_var state_var),
      StateVar.type_of_state_var state_var,
@@ -134,13 +132,6 @@ let rec tree_path_of_model model =
 
 (* Create a Node value of assignments to variables in a node instance *)
 and node_of_model ((call_node, call_pos), model) = 
-
-  Format.printf
-    "node: @[<hv>%a@]@."
-    (pp_print_list
-       (fun ppf (sv, _) -> StateVar.pp_print_state_var ppf sv)
-       "@ ") 
-    model;
 
   Node (call_node, call_pos, tree_path_of_model model)
   

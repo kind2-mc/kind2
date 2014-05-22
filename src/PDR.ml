@@ -730,28 +730,31 @@ let rec path_from_solver solver accum state_vars = function
       (Numeral.pred i)
 
 (* Extract a concrete counterexample from a trace of blocking clauses *)
-let extract_cex_path solver trans_sys trace = 
+let extract_cex_path
+    (solver_init, solver_frames, solver_misc) 
+    trans_sys 
+    trace = 
 
-  S.push solver;
+  S.push solver_misc;
 
   let k_plus_one = Numeral.(of_int (List.length trace)) in
 
   (* Assert initial state constraint *)
   S.assert_term 
-    solver
+    solver_misc
     (TransSys.init_of_bound Numeral.zero trans_sys);
 
   (* Assert blocking clause and transition relation for tail of
      trace *)
-  assert_block_clauses solver trans_sys Numeral.one trace;
+  assert_block_clauses solver_misc trans_sys Numeral.one trace;
 
   (* Get a model of the execution path *)
-  if S.check_sat solver then 
+  if S.check_sat solver_misc then 
 
     (* Extract concrete values from model *)
     let res = 
       path_from_solver 
-        solver
+        solver_misc
         (List.sort
            (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
            (List.map (fun sv -> (sv, [])) (TransSys.state_vars trans_sys)))
@@ -759,7 +762,7 @@ let extract_cex_path solver trans_sys trace =
         k_plus_one
     in
 
-    S.pop solver;
+    S.pop solver_misc;
 
     res
 
@@ -2036,13 +2039,15 @@ let handle_events
     S.assert_term solver_init inv_1;
     
     (* Assert invariant and primed invariant in solver instance for
-              transition relation *)
+       transition relation *)
     S.assert_term solver_frames inv;
     S.assert_term solver_frames inv_1
 
   in
 
-  (* Receive all queued messages *)
+  (* Receive all queued messages 
+
+     Side effect: Terminate when ControlMessage TERM is received.*)
   let messages = Event.recv () in
 
   List.fold_left 
@@ -2526,7 +2531,7 @@ let main trans_sys =
                  clauses *)
               let cex_path =
                 extract_cex_path
-                  solver_misc
+                  (solver_init, solver_frames, solver_misc)
                   trans_sys
                   trace
               in
@@ -2586,17 +2591,28 @@ let main trans_sys =
                 List.fold_left
                   (fun accum (p, t) -> 
 
-                     (* Remove property disproved property *)
-                     if p = prop then (accum) else (p, t) :: accum)
+                     (* Property is disproved? *)
+                     if p = prop then
+
+                       (
+
+                         (* Add to invalid properties *)
+                         TransSys.add_invalid_prop trans_sys (p, t);
+                       
+                         (* Remove property disproved property from
+                            properties to prove *)
+                        accum
+
+                       ) 
+
+                     else 
+
+                       (* Keep property *)
+                       (p, t) :: accum)
+
                   []
                   props
               in
-
-              Event.log
-                `PDR
-                Event.L_info 
-                "Property %s disproved by other module"
-                prop;
 
               props'
 

@@ -745,6 +745,26 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
   state_var 
 
 
+(* Create state variable of identifier *)
+let mk_fresh_state_var 
+    is_input
+    is_const
+    scope_index
+    ident
+    state_var_type
+    index_ref =
+  
+  Numeral.incr index_ref; 
+
+  mk_state_var_of_ident
+    is_input
+    is_const
+    scope_index
+    (I.push_int_index !index_ref ident)
+    state_var_type
+
+
+
 (* Return existing state variable of identifier *)
 let state_var_of_ident scope_index ident = 
 

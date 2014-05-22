@@ -16,14 +16,11 @@
 
 *)
 
-(** Inductive step 
-   
-   @author Ruoyu Zhang
+(** k-inductive step procedure 
+
+    @author Paul Meng
 *)
 
-(** Step case checking of the k-induction for properties on the transistion 
-    system *)
-    
 (** Entry point *)
 val main : TransSys.t -> unit
 
