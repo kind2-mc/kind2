@@ -386,7 +386,7 @@ let counterexample_xml mdl cex =
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
+    "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]@."
     (pp_print_list pp_print_state_var_values_xml "@,") cex
     
 

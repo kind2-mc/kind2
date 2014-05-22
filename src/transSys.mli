@@ -87,6 +87,9 @@ val trans_of_bound : Numeral.t -> t -> Term.t
 (** Instantiate the properties to the bound *)
 val props_of_bound : Numeral.t -> t -> Term.t
 
+(** Instantiate the properties to the bound *)
+val props_list_of_bound : Numeral.t -> t -> Term.t list 
+
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : Numeral.t -> t -> Term.t
 

@@ -19,14 +19,17 @@
 open Lib
 
 
-(* Raised when the properties have been proved *)
+(* All remaining properties are valid *)
 exception Success of int
 
-(* Raised when a bad state is reachable *)
+(* A bad state is reachable *)
 exception Bad_state_reachable
 
-(* Raised when one property has been disproved *)
-exception Counterexample of (Clause.t * Clause.t) list
+(* Counterexample trace for some property *)
+exception Counterexample of (Clause.t * Clause.t) list 
+
+(* Property disproved by other module *)
+exception Disproved of string
 
 
 (* Use configured SMT solver *)
@@ -332,6 +335,7 @@ let partition_core solver clause =
 let find_cex 
     ((solver_init, solver_frames, _) as solvers) 
     trans_sys 
+    all_props
     frame 
     (state_core, state_rest)
     (prop_core, prop_rest) = 
@@ -453,9 +457,7 @@ let find_cex
           trans_sys 
           cex 
           (Term.mk_and 
-             [TransSys.props_of_bound Numeral.zero trans_sys;
-              CNF.to_term frame;
-              state])
+             [all_props; CNF.to_term frame; state])
           (Term.negate prop)
       in
       
@@ -519,6 +521,7 @@ let find_cex
           
           (* Pop scope level from the context *)
           S.pop solver_init;
+          S.pop solver_frames;
           
           (* Counterexample holds in the initial state *)
           raise Bad_state_reachable
@@ -636,7 +639,7 @@ let rec assert_block_clauses solver trans_sys i = function
   (* Finish when blocking clauses for all frames asserted *)
   | [] -> ()
 
-  (* First clause in list is current blocking clause *)
+  (* Only assert core literals *)
   | (b_i, _) :: tl -> 
 
     (* Blocking clause to term at instant i *)
@@ -778,11 +781,7 @@ let add_to_block_tl block_clause block_trace = function
   (* Last frame has no successors *)
   | [] -> [] 
           
-  (* Add cube as proof obligation in next frame
-
-     Add clauses at the end of the list, counterexample extraction
-     relies on the current proof obligation being at the head of the
-     list *)
+  (* Add cube as proof obligation in next frame *)
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
     (block_clauses @ [block_clause, block_trace], r_succ_i) :: block_clauses_tl
 
@@ -825,7 +824,7 @@ let add_to_block_tl block_clause block_trace = function
    remaining counterexamples on the stack.
 
 *)
-let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys = 
+let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props = 
 
   function 
 
@@ -858,7 +857,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
          S.pop solver_frames;
          
          (* Return to counterexamples to block in R_i+1 *)
-         block solvers trans_sys block_tl (r_i :: frames)))
+         block solvers trans_sys props block_tl (r_i :: frames)))
 
 
     (* Take the first cube to be blocked in current frame *)
@@ -913,6 +912,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
             block 
               solvers 
               trans_sys 
+              props
               ((block_clauses_tl, r_i') :: block_tl') 
               []))
 
@@ -966,13 +966,36 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
                    find_cex 
                      solvers 
                      trans_sys 
+                     props
                      r_pred_i_full
                      block_clause
                      block_clause)
 
              with Bad_state_reachable -> 
 
-               raise (Counterexample (block_clause :: block_trace)))
+               (
+
+                 List.iter
+                   (fun _ -> S.pop solver_frames)
+                   block_tl;
+
+                 S.pop solver_frames;
+                 
+                 (debug pdr
+                     "@[<v>Current context@,@[<hv>%a@]@]"
+                     HStringSExpr.pp_print_sexpr_list
+                     (let r, a = 
+                       S.T.execute_custom_command solver_frames "get-assertions" [] 1 
+                      in
+                      S.fail_on_smt_error r;
+                      a)
+                 in
+                 
+                 raise (Counterexample (block_clause :: block_trace)))
+
+               )
+
+            )
 
           with
 
@@ -1023,6 +1046,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
                block 
                  solvers 
                  trans_sys 
+                 props
                  ((block_clauses_tl, r_i') :: block_tl') 
                  frames)
 
@@ -1040,6 +1064,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
                block 
                  solvers 
                  trans_sys 
+                 props
                  (([block_clause', (block_clause :: block_trace)], 
                    r_pred_i) :: trace) 
                  frames_tl))
@@ -1053,7 +1078,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys =
 
    The list of frames must not be empty, we start with k=1. *)
 let rec strengthen
-    ((_, solver_frames, _) as solvers) trans_sys = 
+    ((_, solver_frames, _) as solvers) trans_sys props = 
 
   function 
 
@@ -1075,9 +1100,7 @@ let rec strengthen
          r_k);
 
       let prop_clause = 
-        Clause.singleton 
-          (TransSys.props_of_bound Numeral.zero trans_sys), 
-        Clause.empty
+        Clause.singleton props, Clause.empty
       in
       
       match 
@@ -1091,13 +1114,21 @@ let rec strengthen
                 find_cex 
                   solvers 
                   trans_sys 
+                  props
                   r_k
                   (Clause.top, Clause.empty)
                   prop_clause)
 
           with Bad_state_reachable -> 
+            
+            (
 
-            raise (Counterexample [prop_clause]))
+              (* Remove assertions of frame from context *)
+              S.pop solver_frames;
+              
+              raise (Counterexample [prop_clause]))
+
+        )
 
 
       with
@@ -1150,12 +1181,13 @@ let rec strengthen
              block 
                solvers 
                trans_sys 
+               props
                [([block_clause, [prop_clause]], r_k)] 
                frames_tl
            in
 
            (* Find next counterexample to block *)
-           strengthen solvers trans_sys frames')
+           strengthen solvers trans_sys props frames')
         
 
 
@@ -1876,6 +1908,8 @@ let fwd_propagate
 
               );
 
+            S.pop solver_frames;
+              
             raise (Success (List.length frames))
 
           );
@@ -1909,22 +1943,22 @@ let fwd_propagate
 (* Check if the property is valid in the initial state and in the
    successor of the initial state, raise exception [Counterexample] if
    not *)
-let bmc_checks solver_init trans_sys =
+let bmc_checks solver_init trans_sys props =
 
   (* Push new scope onto context of solver *)
   S.push solver_init;
 
-  (debug smt 
-      "Asserting negated property (l. 1751)"
-   in
-
-   (* Assert negated property in the first state *)
-   S.assert_term 
-     solver_init 
-     (Term.negate (TransSys.props_of_bound Numeral.zero trans_sys)));
+  (* Assert negated property in the first state *)
+  S.assert_term 
+    solver_init 
+    (Term.negate props);
 
   (* Check if the property is violated in the initial state *)
-  if S.check_sat solver_init then raise (Counterexample []);
+  if S.check_sat solver_init then 
+
+    (S.pop solver_init;
+
+     raise (Counterexample []));
 
   (* Remove assertions for 0-step counterexample check *)
   S.pop solver_init;
@@ -1941,7 +1975,7 @@ let bmc_checks solver_init trans_sys =
    (* Assert negated property in the second state *)
    S.assert_term 
      solver_init 
-     (Term.negate (TransSys.props_of_bound Numeral.one trans_sys)));
+     (Term.negate (Term.bump_state Numeral.one props)));
 
   (debug smt 
       "Asserting transition relation"
@@ -1962,11 +1996,13 @@ let bmc_checks solver_init trans_sys =
   (* Check if the property is violated in the second state *)
   if S.check_sat solver_init then 
 
-    raise
-      (Counterexample
-         [Clause.singleton 
-            (TransSys.props_of_bound Numeral.zero trans_sys), 
-          Clause.empty]);
+    (S.pop solver_init;
+
+     raise
+       (Counterexample
+          [Clause.singleton 
+             (TransSys.props_of_bound Numeral.zero trans_sys), 
+           Clause.empty]));
 
   (* Remove assertions for 1-step counterexample check *)
   S.pop solver_init;
@@ -1980,7 +2016,10 @@ let bmc_checks solver_init trans_sys =
 (* ********************************************************************** *)
 
 (* Handle events from the queue and return the current k in the BMC process *)
-let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k = 
+let handle_events
+    ((solver_init, solver_frames, _) as solvers) 
+    trans_sys 
+    bmc_k = 
   
   (* Add invariant to the transition system and assert in solver
      instances *)
@@ -2027,9 +2066,7 @@ let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k =
          (* Pass new k in BMC *)
          | Event.BMCState (bmc_k', _) -> bmc_k'
 
-         (* Property has been proved by other module 
-            
-            TODO: add as invariant and remove from properties to prove *)
+         (* Property has been proved by other module *)
          | Event.Proved (_, _, prop) -> 
 
            (debug pdr
@@ -2049,10 +2086,25 @@ let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k =
            (* No new k in BMC *)
            bmc_k
            
-         (* Property has been disproved by other module
-            
-            TODO: remove from properties to prove *)
-         | Event.Disproved (_, _, prop) -> bmc_k
+         (* Property has been disproved by other module *)
+         | Event.Disproved (_, _, prop) -> 
+
+           if 
+
+             (* Property already disproved here? *)
+             List.exists
+               (fun (p, _) -> p = prop)
+               trans_sys.TransSys.props_invalid
+
+           then
+
+             (* Skip *)
+             bmc_k
+
+           else
+           
+             (* Restart upon disproved property *)
+             raise (Disproved prop)
            
        )
        bmc_k
@@ -2098,7 +2150,12 @@ let handle_events ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k =
    [Counterexample] is raised, see {!strengthen}.
 
 *)
-let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames = 
+let rec pdr
+    ((solver_init, solver_frames, _) as solvers) 
+    trans_sys
+    props
+    bmc_k
+    frames = 
 
   let pdr_k = succ (List.length frames) in
 
@@ -2193,7 +2250,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames 
   Stat.start_timer Stat.pdr_strengthen_time;
 
   (* Recursively block counterexamples in frontier state *)
-  let frames'' = strengthen solvers trans_sys frames' in
+  let frames'' = strengthen solvers trans_sys props frames' in
 
   Stat.record_time Stat.pdr_strengthen_time;
 
@@ -2205,7 +2262,7 @@ let rec pdr ((solver_init, solver_frames, _) as solvers) trans_sys bmc_k frames 
   if Event.output_on_level Event.L_info then print_stats ();
 
   (* No reachable state violates the property, continue with next k *)
-  pdr solvers trans_sys bmc_k' frames''))
+  pdr solvers trans_sys props bmc_k' frames''))
 
 
 (* Entry point
@@ -2229,7 +2286,7 @@ let main trans_sys =
 
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
-  
+
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
     S.new_solver
@@ -2238,10 +2295,10 @@ let main trans_sys =
       ~produce_cores:true 
       logic
   in
-  
+
   (* Declare uninterpreted function symbols *)
   TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init);
-  
+
   (* Define functions *)
   TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
 
@@ -2257,22 +2314,16 @@ let main trans_sys =
      solver_init
      (TransSys.init_of_bound Numeral.zero trans_sys));
 
-  (* Get invariants of transition system *)
-  let invars_1 = TransSys.invars_of_bound Numeral.one trans_sys in
+(*
+  (debug smt 
+      "Permanently asserting transition relation"
+   in
 
-  (* Get invariants for current state *)
-  let invars_0 = TransSys.invars_of_bound Numeral.zero trans_sys in
-
-  (* Assert invariants for current state if not empty *)
-  if not (invars_0 == Term.t_true) then 
-
-    (debug smt 
-        "Permanently asserting invariants"
-     in
-
-     S.assert_term solver_init invars_0;
-     S.assert_term solver_init invars_1);
-
+   (* Assert transition relation from current frame *)
+   S.assert_term 
+     solver_init
+     (TransSys.trans_of_bound Numeral.one trans_sys));
+*)
 
   (* Create new solver instance to reason about counterexamples in
      frames *)
@@ -2298,15 +2349,6 @@ let main trans_sys =
   ref_solver_frames := Some solver_frames;
 
   (debug smt 
-      "Permanently asserting property constraint"
-   in
-
-   (* The property is implicit in every R_i *)      
-   S.assert_term 
-     solver_frames
-     (TransSys.props_of_bound Numeral.zero trans_sys));
-
-  (debug smt 
       "Permanently asserting transition relation"
    in
 
@@ -2315,20 +2357,6 @@ let main trans_sys =
      solver_frames
      (TransSys.trans_of_bound Numeral.one trans_sys));
 
-  (* Assert invariants for current state if not empty *)
-  if not (invars_0 == Term.t_true) then 
-
-    (
-
-      (debug smt 
-          "Permanently asserting invariants"
-       in
-       
-       S.assert_term solver_frames invars_0;
-       S.assert_term solver_frames invars_1)
-      
-    );
-  
   (* Create new solver instance for all other queries (subsumption,
      invariance of blocking clauses) *)
   let solver_misc = 
@@ -2365,99 +2393,235 @@ let main trans_sys =
           | Sys_error _ -> 
             failwith "Could not open file for inductive assertions"
       in 
-      
+
       (* Create formatter and store in reference *)
       ppf_inductive_assertions := Format.formatter_of_out_channel oc);
 
-  (
+  (* Helper function for restarts *)
+  let rec restart_loop props = 
 
-    try 
+    if props = [] then () else
 
-      (* BMC module running in parallel? 
+      let props_term =
+        Term.mk_and (List.map snd props)
+      in
 
-         If BMC is running in parallel, delegate check for zero and one
-         step counterexamples to it. All results are tentative until BMC
-         has shown that there are no such counterexamples. *)
-      let bmc_init_k = 
+      (* Properties to prove after restart *)
+      let props' = 
 
-        if List.mem `BMC (Flags.enable ()) then 
+        try 
 
-          (Event.log `PDR Event.L_info
-             "Delegating check for zero and one step counterexamples \
-              to BMC process.";
+          S.push solver_frames;
 
-           (* BMC process starts at k=0 *)
-           0
+          (* Get invariants of transition system *)
+          let invars_1 = TransSys.invars_of_bound Numeral.one trans_sys in
+          
+          (* Get invariants for current state *)
+          let invars_0 = TransSys.invars_of_bound Numeral.zero trans_sys in
+          
+          (* Assert invariants for current state if not empty *)
+          if not (invars_0 == Term.t_true) then 
+            
+            (debug smt 
+                "Permanently asserting invariants"
+             in
+             
+             S.assert_term solver_init invars_0;
+             S.assert_term solver_init invars_1);
 
-          )
+          (* Assert invariants for current state if not empty *)
+          if not (invars_0 == Term.t_true) then 
+            
+            (
+              
+              (debug smt 
+                  "Permanently asserting invariants"
+               in
+               
+               S.assert_term solver_frames invars_0;
+               S.assert_term solver_frames invars_1)
+              
+            );
+
+          (* BMC module running in parallel? 
+
+             If BMC is running in parallel, delegate check for zero and one
+             step counterexamples to it. All results are tentative until BMC
+             has shown that there are no such counterexamples. *)
+          let bmc_init_k = 
+
+            if List.mem `BMC (Flags.enable ()) then 
+
+              (Event.log `PDR Event.L_info
+                 "Delegating check for zero and one step counterexamples \
+                  to BMC process.";
+
+               (* BMC process starts at k=0 *)
+               0
+
+              )
 
 
-      else
+            else
 
-          (
+              (
 
-            (* Do check for zero and one step counterexample in solver
-               instance [solver_init] *)
-            bmc_checks solver_init trans_sys;
+                (* Do check for zero and one step counterexample in solver
+                   instance [solver_init] *)
+                bmc_checks solver_init trans_sys props_term;
 
-            (* We have done checks for k=0 and k=1 *)
-            2
+                (* We have done checks for k=0 and k=1 *)
+                2
 
-          )
+              )
+
+          in
+
+          (debug smt 
+              "Permanently asserting property constraint"
+           in
+           
+           (* The property is implicit in every R_i *)      
+           S.assert_term 
+             solver_frames
+             props_term;
+
+           (* Reset statistics about frames on restart *)
+           Stat.set_int_list [] Stat.pdr_frame_sizes;
+           Stat.set_int_list [] Stat.pdr_counterexamples;
+          
+          (* Run PDR procedure *)
+          pdr
+            (solver_init, solver_frames, solver_misc) 
+            trans_sys 
+            props_term
+            bmc_init_k
+            [])
+
+        with 
+
+          (* All propertes are valid *)
+          | Success k -> 
+
+            (
+
+              (* Send out valid properties *)
+              List.iter
+                (fun p -> 
+                   Event.proved `PDR (Some k) p;
+                   TransSys.add_valid_prop trans_sys p) 
+                props;
+
+              (* No more properties remaining *)
+              []
+
+            )
+
+          (* Some property is invalid *)
+          | Counterexample trace -> 
+
+            (
+
+              (* Extract counterexample from sequence of blocking
+                 clauses *)
+              let cex_path =
+                extract_cex_path
+                  solver_misc
+                  trans_sys
+                  trace
+              in
+
+              (* Check which properties are disproved *)
+              let props' =
+
+                List.fold_left
+                  (fun accum (p, t) -> 
+
+                     if 
+
+                       (* Property is false along path? *)
+                       List.exists
+                         (Term.equal Term.t_false) 
+                         (List.assoc
+                            (Var.state_var_of_state_var_instance
+                               (Term.free_var_of_term t))
+                            cex_path)
+
+                     then
+
+                       (Event.disproved `PDR None p;
+
+                        TransSys.add_invalid_prop trans_sys (p, t);
+
+                        Event.log
+                          `PDR
+                          Event.L_info 
+                          "Property %s disproved by PDR"
+                          p;
+
+                        accum)
+
+                     else
+
+                       (p, t) :: accum)
+                  []
+                  props
+              in
+
+              (* Output counterexample *)
+              Event.log_counterexample
+                `PDR
+                cex_path;
+
+              props'
+
+            )
+
+          | Disproved prop -> 
+
+            
+              (* Check which properties are disproved *)
+              let props' =
+
+                List.fold_left
+                  (fun accum (p, t) -> 
+
+                     (* Remove property disproved property *)
+                     if p = prop then (accum) else (p, t) :: accum)
+                  []
+                  props
+              in
+
+              Event.log
+                `PDR
+                Event.L_info 
+                "Property %s disproved by other module"
+                prop;
+
+              props'
 
       in
 
-      (debug smt 
-          "Permanently asserting transition relation"
-       in
-       
-       (* Assert transition relation from current frame *)
-       S.assert_term 
-         solver_init
-         (TransSys.trans_of_bound Numeral.one trans_sys));
-      
-      if not (S.check_sat solver_init) then assert false;
+       S.pop solver_frames;
 
-      (* Run PDR procedure *)
-      pdr (solver_init, solver_frames, solver_misc) trans_sys bmc_init_k [];
-      
-    with 
-      
-      (* All propertes are valid *)
-      | Success k -> 
+       if not (props' = []) then 
 
-        (
+         (              
 
-          List.iter (Event.proved `PDR (Some k)) trans_sys.TransSys.props
-         
-        )
+           Event.log
+             `PDR
+             Event.L_info 
+             "Restarting PDR after disproved property";
+           
+           Stat.incr Stat.pdr_restarts);
 
-      (* Some property is invalid *)
-      | Counterexample trace -> 
+       (* Restart with remaining properties *)
+       restart_loop props'
 
-        (
+  in
 
-
-          let cex_path =
-            extract_cex_path
-              solver_misc
-              trans_sys
-              trace
-          in
-          
-          Event.log
-            `PDR
-            Event.L_off
-            "Counterexample %a"
-            LustrePath.pp_print_path_xml cex_path;
-          
-          List.iter 
-            (function (p, _) -> Event.disproved `PDR None p) 
-            trans_sys.TransSys.props
-
-        )
-
-  )
+  (* Prove all properties with restarting after invalid counterexamples *)
+  restart_loop trans_sys.TransSys.props
 
 
 

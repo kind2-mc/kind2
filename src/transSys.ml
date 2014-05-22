@@ -217,10 +217,10 @@ let invars_of_bound i t =
 
 
 (* Instantiate the properties to the bound *)
-let props_of_bound i t = 
+let props_list_of_bound i t = 
 
-  (* Create conjunction of property terms *)
-  let props_0 = Term.mk_and (List.map snd t.props) in 
+  (* Create list of property terms *)
+  let props_0 = List.map snd t.props in 
 
   (* Bump bound if greater than zero *)
   if
@@ -228,7 +228,13 @@ let props_of_bound i t =
   then
     props_0
   else
-    Term.bump_state i props_0
+    List.map (Term.bump_state i) props_0
+
+
+(* Instantiate the properties to the bound *)
+let props_of_bound i t = 
+
+  Term.mk_and (props_list_of_bound i t)
 
 
 (* Add an invariant to the transition system *)
