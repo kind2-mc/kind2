@@ -216,35 +216,7 @@ let pp_print_timestamp ppf =
 let log fmt =
   Format.printf ("[%t] " ^^ fmt ^^ "@.") pp_print_timestamp
 
-
-(* ********************************************************************** *)
-(* State of the server *)
-(* ********************************************************************** *)
-
-(*
-(* on which port does the server run? *)
-let port =
-match (Array.length Sys.argv) with
-| 1 -> default_port
-| 3 ->
-if ((Array.get Sys.argv 1) = "-P" || (Array.get Sys.argv 1 = "-p")) then (
-(try (
-(int_of_string (Array.get Sys.argv 2));
-) with _ ->
-print_endline "bad port number";
-exit 1
-);
-) else (
-Format.printf helpmessage Sys.argv.(0);
-exit 1
-)
-| _ ->
-
-Format.printf helpmessage Sys.argv.(0);
-exit 1
-*)
-    
-
+ 
 (* Association list of job ID to PID and timestamp of cancel request *)
 let cancel_requested_jobs = ref []
 
@@ -570,18 +542,14 @@ Contents of stderr:@\n\
 
 
 (* Retrieve job *)
-let retrieve_job job_id job_param =
+let retrieve_job job_id job_param status_pid job_status=
   (* Local log function *)
   let log fmt =
     log
       ("Request retrieval of job %s: " ^^ fmt)
       job_id
   in
-      		
-        (* Check status of job by its PID *)
-  let status_pid, job_status = 
-    Unix.waitpid [Unix.WNOHANG] job_param.job_pid 
-  in	
+	
   (* Job has not exited yet? *)
   if status_pid = 0 then
 	  
@@ -631,7 +599,7 @@ let job_not_found_msg job_id =
 
 
 (* Register a request to cancel a job *)
-let cancel_job job_id job_param =
+let cancel_job job_id job_param status_pid job_status =
   
   (* Local log function *)
   let log fmt =
@@ -642,8 +610,6 @@ let cancel_job job_id job_param =
   
   (* String message to client *)
 
-        (* Check status of job by its PID *)
-        let status_pid, job_status = Unix.waitpid [Unix.WNOHANG] job_param.job_pid in
 
         (* Job has not exited yet? *)
         if status_pid = 0 then

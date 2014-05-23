@@ -89,6 +89,7 @@ let command_look cmd = List.assoc cmd configured_programs
 let head = Ocsigen_config.get_datadir ()
 let path = head ^ "/jobs/"
 
+let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><title>%s</title>" msg
 
 (* ********************************************************************** *)
 (* ********************************************************************** *)
@@ -124,7 +125,7 @@ let _ =
   Eliom_registration.String.register
     ~service:submitjob_main_service
     (fun () () ->
-      Lwt.return ("<?xml> <Error>The site is under construction</Error>","text/xml"));
+      Lwt.return (xmlwrapper "The site is under construction", "text/xml"));
 
    Eliom_registration.String.register
     ~service:submitjob_service
@@ -135,7 +136,7 @@ let _ =
       let user_msg, job_id, job_info = create_job command cmd_args filename path in
       add_running_job job_id (extract job_info);
      Lwt.return 
-       (user_msg, "text/xml")); 
+       (xmlwrapper user_msg, "text/xml")); 
 
 
    Eliom_registration.String.register
@@ -147,7 +148,7 @@ let _ =
 	   let job_info =
              find_running_job id
 	   in
-	   let status_pid, _ = 
+	   let status_pid, job_status = 
 	     Unix.waitpid [Unix.WNOHANG] job_info.job_pid
 	   in
 	   (* check if the job is still running *)
@@ -157,7 +158,7 @@ let _ =
 	       add_completed_job id (Unix.gmtime(Unix.time()))
 	     );
 	   let msg, new_job_info = 
-	     retrieve_job id job_info in 
+	     retrieve_job id job_info status_pid job_status in
 	   update_running_job id ( fun job_info -> new_job_info );
 	   msg
 	     
@@ -177,7 +178,7 @@ let _ =
 	 with Not_found ->
 	   job_not_found_msg id in
        Lwt.return 
-	     ( msg, "text/xml"));
+	     (xmlwrapper msg, "text/xml"));
 
    Eliom_registration.String.register
      ~service:canceljob_service
@@ -188,16 +189,17 @@ let _ =
 	     let job_info = 
 	       find_running_job id
 	     in
-	     let status_pid, _ = 
+	     let status_pid, job_status = 
 	       Unix.waitpid [Unix.WNOHANG] job_info.job_pid
 	     in
+	     log ("This status_pid is %d") status_pid;
 	     if ( status_pid != 0 ) then
 	     (
 	       remove_running_job id;
 	       add_completed_job id (Unix.gmtime(Unix.time()))
 	     );
 	     let msg , new_job_info = 
-	       cancel_job id job_info 
+	       cancel_job id job_info status_pid job_status
 	     in 
 	     update_running_job id ( fun job_info -> new_job_info );
 	     msg
@@ -217,5 +219,5 @@ let _ =
 	     )
 	   with Not_found ->
 	     job_not_found_msg id in 
-       Lwt.return ( msg, "text/xml"));
+       Lwt.return (xmlwrapper msg, "text/xml"));
 
