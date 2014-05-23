@@ -33,7 +33,7 @@ WWWGROUP := www-data
 PORT := 80
 
 # Port for testing (make test.*)
-TEST_PORT := 8080
+TEST_PORT := 8484
 
 # Root of installation (must end with /)
 PREFIX := /
