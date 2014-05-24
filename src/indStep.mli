@@ -16,10 +16,16 @@
 
 *)
 
-val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+(** k-inductive step procedure 
 
-val pp_print_path_orig_xml : LustreNode.t list -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+    @author Christoph Sticksel
+*)
 
+(** Entry point *)
+val main : TransSys.t -> unit
+
+(** Cleanup before exit *)
+val on_exit : unit -> unit
 
 
 (* 

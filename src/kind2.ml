@@ -31,7 +31,6 @@ end
 *)
 
 module BMC = Bmc
-module IndStep = Ind
 module InvGen = InvGenDummy
 
 (* module PDR = Dummy *)

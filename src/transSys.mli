@@ -22,6 +22,25 @@
 *)
 
 
+(* Status of a property *)
+type prop_status =
+
+  (* Status of property is unknown *)
+  | Unknown
+
+  (* Property is true up to k-th step *)
+  | KTrue of int
+
+  (* Property is invariant *)
+  | Invariant 
+
+  (* Property is false at some step *)
+  | False
+
+  (* Property is false at k-th step *)
+  | KFalse of int 
+
+
 (** The transition system 
 
     The transition system must be constructed with the function
@@ -47,6 +66,9 @@ type t = private
 
     (* Invariants *)
     mutable invars : Term.t list;
+
+    (* Status of property *)
+    mutable prop_status : (string * prop_status) list;
 
     (* Properties proved to be valid *)
     mutable props_valid : (string * Term.t) list;
@@ -84,11 +106,17 @@ val init_of_bound : Numeral.t -> t -> Term.t
     The bound given is the bound of the state after the transition *)
 val trans_of_bound : Numeral.t -> t -> Term.t
 
-(** Instantiate the properties to the bound *)
+(** Instantiate all properties to the bound *)
 val props_of_bound : Numeral.t -> t -> Term.t
 
-(** Instantiate the properties to the bound *)
+(** Instantiate valid properties to the bound *)
+val props_valid_of_bound : Numeral.t -> t -> Term.t
+
+(** Instantiate all properties to the bound *)
 val props_list_of_bound : Numeral.t -> t -> Term.t list 
+
+(** Instantiate valid properties to the bound *)
+val props_valid_list_of_bound : Numeral.t -> t -> Term.t list 
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : Numeral.t -> t -> Term.t

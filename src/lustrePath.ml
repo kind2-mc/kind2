@@ -230,6 +230,9 @@ let pp_print_path_xml ppf model =
     (pp_print_list pp_print_tree_path_xml "@,") model'
 
 
+let pp_print_path_orig_xml _ _ _ = ()
+
+
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)
 (* ********************************************************************** *)
