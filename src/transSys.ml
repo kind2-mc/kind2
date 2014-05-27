@@ -24,16 +24,16 @@ type prop_status =
   (* Status of property is unknown *)
   | Unknown
 
-  (* Property is true up to k-th step *)
+  (* Property is true for at least k steps *)
   | KTrue of int
 
-  (* Property is invariant *)
+  (* Property is true in all reachable states *)
   | Invariant 
 
   (* Property is false at some step *)
   | False
 
-  (* Property is false at k-th step *)
+  (* Property is false in the k-th step *)
   | KFalse of int 
 
 

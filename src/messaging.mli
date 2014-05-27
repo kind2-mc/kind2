@@ -38,6 +38,10 @@ type control = READY | PING | TERM
 
 type invariant =
   | INVAR of string * int
+  | PROP_KTRUE of string * int * int
+  | PROP_INVAR of string * int 
+  | PROP_FALSE of string * int
+  | PROP_KFALSE of string * int * int
   | PROVED of string * int * int
   | DISPROVED of string * int * int
   | RESEND of int

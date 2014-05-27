@@ -60,8 +60,15 @@ type control =
 
 type invariant = 
   | INVAR of string * int
+
+  | PROP_KTRUE of string * int * int
+  | PROP_INVAR of string * int 
+  | PROP_FALSE of string * int
+  | PROP_KFALSE of string * int * int
+
   | PROVED of string * int * int
   | DISPROVED of string * int * int
+
   | RESEND of int
 
 type induction = 
@@ -97,6 +104,18 @@ let pp_print_message ppf = function
 
   | InvariantMessage (INVAR (_, n)) -> 
     Format.fprintf ppf "INVAR (_,%d))" n
+
+  | InvariantMessage (PROP_KTRUE (p, k, n)) -> 
+    Format.fprintf ppf "PROP_KTRUE (%s,%d,%d))" p k n
+
+  | InvariantMessage (PROP_INVAR (p, n)) -> 
+    Format.fprintf ppf "PROP_INVAR (%s,%d))" p n
+
+  | InvariantMessage (PROP_FALSE (p, n)) -> 
+    Format.fprintf ppf "PROP_FALSE (%s,%d))" p n
+
+  | InvariantMessage (PROP_KFALSE (p, k, n)) -> 
+    Format.fprintf ppf "PROP_KFALSE (%s,%d,%d))" p k n
 
   | InvariantMessage (DISPROVED (_, k, n)) -> 
     Format.fprintf ppf "DISPROVED (_,%d,%d))" k n
@@ -316,6 +335,28 @@ let zmsg_of_msg msg =
           ignore(zmsg_pushbstr zmsg f (String.length f));
           ignore(zmsg_pushstr zmsg "INVAR")
 
+        | PROP_KTRUE (p, k, n) -> 
+          ignore(zmsg_pushstr zmsg (string_of_int n));
+          ignore(zmsg_pushstr zmsg (string_of_int k));
+          ignore(zmsg_pushstr zmsg p);
+          ignore(zmsg_pushstr zmsg "PROP_KTRUE")
+
+        | PROP_INVAR (p, n) -> 
+          ignore(zmsg_pushstr zmsg (string_of_int n));
+          ignore(zmsg_pushstr zmsg p);
+          ignore(zmsg_pushstr zmsg "PROP_INVAR")
+
+        | PROP_FALSE (p, n) -> 
+          ignore(zmsg_pushstr zmsg (string_of_int n));
+          ignore(zmsg_pushstr zmsg p);
+          ignore(zmsg_pushstr zmsg "PROP_KFALSE")
+
+        | PROP_KFALSE (p, k, n) -> 
+          ignore(zmsg_pushstr zmsg (string_of_int n));
+          ignore(zmsg_pushstr zmsg (string_of_int k));
+          ignore(zmsg_pushstr zmsg p);
+          ignore(zmsg_pushstr zmsg "PROP_KFALSE")
+
         | PROVED (p, k, n) -> 
           ignore(zmsg_pushstr zmsg (string_of_int n));
           ignore(zmsg_pushstr zmsg (string_of_int k));
@@ -398,32 +439,30 @@ let string_of_msg msg =
           | PING -> "ControlMessage(PING)"
           | TERM -> "ControlMessage(TERM)")
 
-      | InvariantMessage payload ->
-
-        (match payload with 
-          | INVAR (f, n) -> 
-            "InvariantMessage(INVAR(" ^ f ^ ", " ^ (string_of_int n) ^ "))"
-
-          | PROVED (p, k, n) -> 
-
-            Format.sprintf 
-              "InvariantMessage(PROVED(%s,%d,%d))"
-              p
-              k
-              n
-
-          | DISPROVED (p, k, n) -> 
-
-            Format.sprintf 
-              "InvariantMessage(DISPROVED(%s,%d,%d))"
-              p
-              k
-              n
-
-          | RESEND n -> "InvariantMessage(RESEND(" ^ (string_of_int n) ^ "))"
-
-        )
-
+      | InvariantMessage (INVAR (_, n)) -> 
+        Format.asprintf "InvariantMessage(INVAR (_,%d))" n
+          
+      | InvariantMessage (PROP_KTRUE (p, k, n)) -> 
+        Format.asprintf "InvariantMessage(PROP_KTRUE (%s,%d,%d))" p k n
+          
+      | InvariantMessage (PROP_INVAR (p, n)) -> 
+        Format.asprintf "InvariantMessage(PROP_INVAR (%s,%d))" p n
+          
+      | InvariantMessage (PROP_FALSE (p, n)) -> 
+        Format.asprintf "InvariantMessage(PROP_FALSE (%s,%d))" p n
+          
+      | InvariantMessage (PROP_KFALSE (p, k, n)) -> 
+        Format.asprintf "InvariantMessage(PROP_KFALSE (%s,%d,%d))" p k n
+          
+      | InvariantMessage (DISPROVED (_, k, n)) -> 
+        Format.asprintf "InvariantMessage(DISPROVED (_,%d,%d))" k n
+          
+      | InvariantMessage (PROVED (_, k, n)) -> 
+        Format.asprintf "InvariantMessage(PROVED (_,%d,%d))" k n
+          
+      | InvariantMessage (RESEND n) -> 
+        Format.asprintf "InvariantMessage(RESEND(%d)" n
+        
       | InductionMessage payload ->
 
         (match payload with 
@@ -605,11 +644,10 @@ let im_handle_messages workers worker_status invariant_id invariants =
 
                 enqueue 
                   ((List.assoc sender workers), payload) 
-                  incoming_handled
+                  incoming_handled)
 
-            )
+          | ControlMessage m  -> 
 
-          | ControlMessage(m) -> 
             (match m with
               | READY -> ()
               | PING -> enqueue (ControlMessage(READY)) outgoing
@@ -617,39 +655,30 @@ let im_handle_messages workers worker_status invariant_id invariants =
             
           | InvariantMessage(m) -> 
 
+            let mk_identified_msg = function 
+              | INVAR(f, _) -> INVAR(f, !invariant_id)
+              | PROP_KTRUE (p, k, _) -> PROP_KTRUE (p, k, !invariant_id)
+              | PROP_INVAR (p, _) -> PROP_INVAR (p, !invariant_id)
+              | PROP_FALSE (p, _) -> PROP_FALSE (p, !invariant_id)
+              | PROP_KFALSE (p, k, _) -> PROP_KFALSE (p, k, !invariant_id)
+              | PROVED (p, k, _) -> PROVED (p, k, !invariant_id)
+              | DISPROVED (p, k, _) -> DISPROVED (p, k, !invariant_id)
+              | RESEND _ -> invalid_arg "mk_identified_msg"
+            in
+
             (* assign a unique identifier, add to invariants, send,
                increment identifier *)
             (match m with
-              | INVAR (f, n) -> 
-                
+              | INVAR _
+              | PROP_KTRUE _
+              | PROP_INVAR _
+              | PROP_FALSE _
+              | PROP_KFALSE _
+              | PROVED _
+              | DISPROVED _ as msg ->
+
                 let identified_msg = 
-                  InvariantMessage (INVAR (f, !invariant_id))
-                in
-
-                Hashtbl.add invariants !invariant_id identified_msg;
-                enqueue identified_msg outgoing;
-                invariant_id := !invariant_id + 1;
-                enqueue
-                  ((List.assoc sender workers), payload) 
-                  incoming_handled
-
-              | PROVED (p, k, n) -> 
-              
-                let identified_msg = 
-                  InvariantMessage (PROVED (p, k, !invariant_id))
-                in
-
-                Hashtbl.add invariants !invariant_id identified_msg;
-                enqueue identified_msg outgoing;
-                invariant_id := !invariant_id + 1;
-                enqueue
-                  ((List.assoc sender workers), payload) 
-                  incoming_handled
-
-              | DISPROVED (p, k, n) -> 
-              
-                let identified_msg = 
-                  InvariantMessage (DISPROVED (p, k, !invariant_id))
+                  InvariantMessage (mk_identified_msg msg)
                 in
 
                 Hashtbl.add invariants !invariant_id identified_msg;
@@ -669,9 +698,7 @@ let im_handle_messages workers worker_status invariant_id invariants =
                 in
 
                 if requested_msg != None then 
-                  enqueue (get(requested_msg)) outgoing;
-
-            )
+                  enqueue (get(requested_msg)) outgoing)
 
           | InductionMessage(m) -> 
 
@@ -753,7 +780,7 @@ let worker_handle_messages
     
     match incoming with
 
-      | msg :: t   ->  
+      | msg :: t ->  
         
         let sender, payload = msg in
         
@@ -788,201 +815,103 @@ let worker_handle_messages
                   
           | InvariantMessage m ->
 
+            let mk_unidentified_msg = function
+              | INVAR(f, n) -> INVAR(f, 0), n
+              | PROP_KTRUE (p, k, n) -> PROP_KTRUE (p, k, 0), n
+              | PROP_INVAR (p, n) -> PROP_INVAR (p, 0), n
+              | PROP_FALSE (p, n) -> PROP_FALSE (p, 0), n
+              | PROP_KFALSE (p, k, n) -> PROP_KFALSE (p, k, 0), n
+              | PROVED (p, k, n) -> PROVED (p, k, 0), n
+              | DISPROVED (p, k, n) -> DISPROVED (p, k, 0), n
+              | RESEND _ -> invalid_arg "mk_identified_msg"
+            in
+            
             (match m with 
-              | INVAR (f, n) ->  
+              | INVAR _
+              | PROP_KTRUE _
+              | PROP_INVAR _
+              | PROP_FALSE _
+              | PROP_KFALSE _
+              | PROVED _
+              | DISPROVED _ as msg ->
 
-                if 
-
-                  Hashtbl.mem unconfirmed_invariants 
-                    (InvariantMessage (INVAR (f, 0)))
-
-                then 
-
-                  (
-                    
-                    Hashtbl.remove 
-                      unconfirmed_invariants 
-                      (InvariantMessage (INVAR (f, 0)));
-
-                    Hashtbl.add confirmed_invariants n f
-
-                  ) 
-
-                else 
-
-                  (
-                  
-                    if 
-
-                      Hashtbl.mem confirmed_invariants n 
-                    
-                    then 
-
-                      ()
-
-                  else 
-
-                    (
-                    
-                      enqueue 
-                        (`INVMAN, payload) 
-                        incoming_handled;
-
-                      Hashtbl.add confirmed_invariants n f;
-
-                      if 
-
-                        n > ((!last_received_invariant_id) + 1) 
-
-                      then 
-
-                        (
-
-                          (* we've missed at least one invariant,
-                             request any not received *)
-                          worker_request_missing_invariants 
-                            last_received_invariant_id 
-                            n
-
-                        );
-
-                      last_received_invariant_id := n
-
-                    )
-
-                  )
-
-              | DISPROVED (p, k, n) ->
+                let unidentified_msg, n = 
+                  mk_unidentified_msg msg
+                in
 
                 if 
 
                   Hashtbl.mem 
                     unconfirmed_invariants 
-                    (InvariantMessage (DISPROVED (p, k, 0)))
+                    (InvariantMessage unidentified_msg)
 
                 then 
 
                   (
-                  
+                    
                     Hashtbl.remove 
                       unconfirmed_invariants 
-                      (InvariantMessage (DISPROVED (p, k, 0)));
+                      (InvariantMessage unidentified_msg);
 
-                    Hashtbl.add confirmed_invariants n p;
+                    Hashtbl.add confirmed_invariants n msg
 
                   ) 
 
                 else 
-
+                  
                   (
                   
                     if Hashtbl.mem confirmed_invariants n then () else 
 
                       (
-
+                        
                         enqueue 
                           (`INVMAN, payload) 
                           incoming_handled;
-
-                        Hashtbl.add confirmed_invariants n p;
+                        
+                        Hashtbl.add confirmed_invariants n msg;
 
                         if 
-
-                          n > (!last_received_invariant_id + 1) 
-
+                          
+                          n > ((!last_received_invariant_id) + 1) 
+                              
                         then 
-
+                          
                           (
-
+                            
                             (* we've missed at least one invariant,
                                request any not received *)
                             worker_request_missing_invariants 
                               last_received_invariant_id 
                               n
-
+                              
                           );
                         
                         last_received_invariant_id := n
-
+                          
                       )
-
+                      
                   )
 
-              | PROVED (p, k, n)  ->
-
-                if 
-
-                  Hashtbl.mem 
-                    unconfirmed_invariants 
-                    (InvariantMessage (PROVED (p, k, 0)))
-
-                then 
-
-                  (
-                  
-                    Hashtbl.remove 
-                      unconfirmed_invariants 
-                      (InvariantMessage (PROVED (p, k, 0)));
-
-                    Hashtbl.add confirmed_invariants n p;
-
-                  ) 
-
-                else 
-
-                  (
-                  
-                    if Hashtbl.mem confirmed_invariants n then () else 
-
-                      (
-
-                        enqueue 
-                          (`INVMAN, payload) 
-                          incoming_handled;
-
-                        Hashtbl.add confirmed_invariants n p;
-
-                        if 
-
-                          n > (!last_received_invariant_id + 1) 
-
-                        then 
-
-                          (
-
-                            (* we've missed at least one invariant,
-                               request any not received *)
-                            worker_request_missing_invariants 
-                              last_received_invariant_id 
-                              n
-
-                          );
-                        
-                        last_received_invariant_id := n
-
-                      )
-
-                  )
-
+              (* Workers do not resend messages *)
               | RESEND (n) -> ()
-
+                              
             )
             
           (* in all other cases, enqueue to incoming_handled *)
           | InductionMessage _ ->
-          (* | CounterexampleMessage _ -> *)
-
+            (* | CounterexampleMessage _ -> *)
+            
             enqueue
               (`INVMAN, payload) 
               incoming_handled
-
-
+              
         );
-
+        
         handle_all t;
 
       | [] -> ()
-
+              
   in 
   
   handle_all (remove_list incoming)
