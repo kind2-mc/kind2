@@ -118,7 +118,7 @@ let handle_events trans_sys invars bmc_k k_valid_props =
     (function (invars, bmc_k, k_valid_props) -> function
        
        (* Invariant discovered by other module *)
-       | Event.Invariant (_, inv) -> 
+       | Event.Invariant inv -> 
          
          (debug indStep
              "@[<hv>Received invariant@ @[<hv>%a@]@]"

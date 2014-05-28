@@ -22,24 +22,6 @@
 *)
 
 
-(* Status of a property *)
-type prop_status =
-
-  (* Status of property is unknown *)
-  | Unknown
-
-  (* Property is true up to k-th step *)
-  | KTrue of int
-
-  (* Property is invariant *)
-  | Invariant 
-
-  (* Property is false at some step *)
-  | False
-
-  (* Property is false at k-th step *)
-  | KFalse of int 
-
 
 (** The transition system 
 
@@ -68,13 +50,8 @@ type t = private
     mutable invars : Term.t list;
 
     (* Status of property *)
-    mutable prop_status : (string * prop_status) list;
+    mutable prop_status : (string * Lib.prop_status) list;
 
-    (* Properties proved to be valid *)
-    mutable props_valid : (string * Term.t) list;
-
-    (* Properties proved to be invalid *)
-    mutable props_invalid : (string * Term.t) list;
   }
 
 
@@ -109,14 +86,8 @@ val trans_of_bound : Numeral.t -> t -> Term.t
 (** Instantiate all properties to the bound *)
 val props_of_bound : Numeral.t -> t -> Term.t
 
-(** Instantiate valid properties to the bound *)
-val props_valid_of_bound : Numeral.t -> t -> Term.t
-
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : Numeral.t -> t -> Term.t list 
-
-(** Instantiate valid properties to the bound *)
-val props_valid_list_of_bound : Numeral.t -> t -> Term.t list 
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : Numeral.t -> t -> Term.t
@@ -127,11 +98,12 @@ val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
 
-(** Add a valid property to the transition system *)
-val add_valid_prop : t -> (string * Term.t) -> unit
 
-(** Add an invalid property to the transition system *)
-val add_invalid_prop : t -> (string * Term.t) -> unit
+val prop_invariant : t -> string -> unit
+
+
+(** Update transition system from events and return new invariants and properties with changed status *)
+val update_from_events : t -> Event.event list -> Term.t list * (string * Lib.prop_status) list
 
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool

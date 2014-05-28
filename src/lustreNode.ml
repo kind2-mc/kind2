@@ -50,7 +50,6 @@ module E = LustreExpr
 module SVS = StateVar.StateVarSet
 module ISet = I.LustreIdentSet
 
-
 (* Set of state variables of list *)
 let svs_of_list list = 
   List.fold_left (fun a e -> SVS.add e a) SVS.empty list

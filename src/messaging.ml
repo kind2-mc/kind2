@@ -35,29 +35,9 @@ exception BadMessage
 exception InvalidProcessName  
 exception NotInitialized
 
+
+
 (*
-type process = 
-  | InvariantManager of int list
-  | BMC
-  | InductiveStep
-  | PDR
-  | InvariantGenerator
-*)
-
-let is_invariant_manager = function 
-  | `INVMAN -> true
-  | _ -> false
-
-type user_message = 
-  | Log of int * string
-  | Stat of string
-  | Progress of int
-
-type control = 
-  | READY
-  | PING
-  | TERM
-
 type invariant = 
   | INVAR of string * int
 
@@ -71,1443 +51,1221 @@ type invariant =
 
   | RESEND of int
 
+
 type induction = 
   | BMCSTATE  of int * (string list)
+
 
 type counterexample = 
   | COUNTEREXAMPLE of int
 
-type message = 
-  | UserMessage of user_message
-  | ControlMessage of control
-  | InvariantMessage of invariant 
-  | InductionMessage of induction
-(*  | CounterexampleMessage of counterexample *)
-
-type ctx = ZMQ.zctx
-type socket = ZMQ.zsocket
-type thread = Thread.t
-
-let pp_print_message ppf = function 
-
-  | UserMessage (Log _) -> Format.fprintf ppf "LOG"
-
-  | UserMessage (Stat _) -> Format.fprintf ppf "STAT"
-
-  | UserMessage (Progress _) -> Format.fprintf ppf "PROGRESS"
-
-  | ControlMessage READY -> Format.fprintf ppf "READY"
-
-  | ControlMessage PING -> Format.fprintf ppf "PING"
-
-  | ControlMessage TERM -> Format.fprintf ppf "TERM"
-
-  | InvariantMessage (INVAR (_, n)) -> 
-    Format.fprintf ppf "INVAR (_,%d))" n
-
-  | InvariantMessage (PROP_KTRUE (p, k, n)) -> 
-    Format.fprintf ppf "PROP_KTRUE (%s,%d,%d))" p k n
-
-  | InvariantMessage (PROP_INVAR (p, n)) -> 
-    Format.fprintf ppf "PROP_INVAR (%s,%d))" p n
-
-  | InvariantMessage (PROP_FALSE (p, n)) -> 
-    Format.fprintf ppf "PROP_FALSE (%s,%d))" p n
-
-  | InvariantMessage (PROP_KFALSE (p, k, n)) -> 
-    Format.fprintf ppf "PROP_KFALSE (%s,%d,%d))" p k n
-
-  | InvariantMessage (DISPROVED (_, k, n)) -> 
-    Format.fprintf ppf "DISPROVED (_,%d,%d))" k n
-
-  | InvariantMessage (PROVED (_, k, n)) -> 
-    Format.fprintf ppf "PROVED (_,%d,%d))" k n
-
-  | InvariantMessage (RESEND n) -> Format.fprintf ppf "RESEND(%d)" n
-
-  | InductionMessage (BMCSTATE (k, _)) -> 
-    Format.fprintf ppf "BMCSTATE(%d, _)" k
-(*                                         
-  | CounterexampleMessage (COUNTEREXAMPLE n) -> 
-    Format.fprintf ppf "COUNTEREXAMPLE(%d)" n
-*)
-
-(******************************)
-(*  Threadsafe locking queue  *)
-(******************************)
-
-type 'a locking_queue = { lock : Mutex.t ; mutable q : 'a list }
-
-let new_locking_queue () =
-  { lock = Mutex.create (); q = [] }
-
-
-let enqueue entry queue =
-
-  (* insert at back of queue *)
-  Mutex.lock queue.lock;
-
-  queue.q <- queue.q @ [entry]; 
-
-  (* a tail-recursive append would be more efficient, 
-    depending on how big queue gets *)
-  Mutex.unlock queue.lock
-
-
-let push_front entry queue = 
-
-  (* push to front of queue *)
-  Mutex.lock queue.lock;
-
-  queue.q <- entry :: queue.q;
-
-  Mutex.unlock queue.lock
-
-
-let dequeue queue =
-
-  Mutex.lock queue.lock;
-
-  let entry =
-    match queue.q with 
-      | [] -> None
-      | h::t -> 
-        queue.q <- t; 
-        Some(h)
-  in
-
-  Mutex.unlock queue.lock;
-
-  entry
-
-
-let remove_list queue = 
-
-  (* returns the contents of the queue 
-    as a list, empties the queue *)
-  Mutex.lock queue.lock;
-
-  let res = queue.q in
-
-  queue.q <- [];
-
-  Mutex.unlock queue.lock;
-
-  res
-
-
-
-(******************************)
-(*  Utilites                  *)
-(******************************)
-
-(*
-let string_of_process = function
-  | InvariantManager _ -> "InvariantManager"
-  | BMC -> "BMC"
-  | InductiveStep -> "InductiveStep"
-  | PDR -> "PDR"
-  | InvariantGenerator -> "InvariantGenerator"
-
-
-let process_of_string = function
-  | "InvariantManager" -> InvariantManager []
-  | "BMC" -> BMC
-  | "InductiveStep" -> InductiveStep
-  | "PDR" -> PDR
-  | "InvariantGenerator" -> InvariantGenerator
-  | _ -> raise InvalidProcessName       
-*)
-
-let get = function
-  | Some x -> x
-  | None -> raise No_value
-              
-(* use Pervasives.incr instead
-let inc_ref int_ref = 
-  int_ref := ((!int_ref) + 1)
 *)
 
 
-(******************************)
-(*  Global                    *)
-(******************************)
+(* Return true if the process is the invariant manages *)
+let is_invariant_manager = function 
+  | `INVMAN -> true
+  | _ -> false
 
-(* Fresh incoming messages *)
-let incoming = new_locking_queue ()
 
-(* Messages to be sent *)
-let outgoing = new_locking_queue ()
+(* Message and conversions *)
+module type RelayMessage = 
+sig
 
-(* Messages to be delivered to worker process *)
-let incoming_handled = new_locking_queue ()
+  (* A message to be relayed to other processes *)
+  type t 
 
-(* messages to receive iteration of the background thread loop *)
-let message_burst_size = 100
+  (* Convert a message to a strings for message frames *)
+  val message_of_strings : (unit -> string) -> t
 
-(* worker processes
+  (* Convert string from message frames to a message *)
+  val strings_of_message : t -> string list
 
-   This must not be static, use a list of PIDs instead *)
-(* let workers = ["BMC"; "InductiveStep"; "PDR"; "InvariantGenerator"] *)
-(* let workers = ["BMC"] *)
-
-(* how often (in seconds) must workers check in with Invariant
-   Manager? *)
-let worker_time_threshold = (1.0 *. 60.)
-
-(* how soon (in seconds) must invariants be confirmed before workers
-   resend them? *)
-let worker_invariant_confirmation_threshold = (0.3 *. 60.)
-
-(* currently initialized process *)
-let initialized_process = ref None
-
-(* debugging/testing? *)
-let debug_mode = ref false
-
-let exit_flag = ref false
-
-(******************************)
-(*  message - zmg conversion  *)
-(******************************)
-
-(*        zmsg representation of a message:              *)
-(* top of stack                                          *)
-(* ----------------------------------------------------- *)
-(*  MSG TYPE | SENDER | PAYLOAD | (PAYLOAD) | (PAYLOAD)  *)
-(* ----------------------------------------------------- *)
-
-let zmsg_of_msg msg = 
-
-  (* Use the PID of the process as sender *)
-  let sender = string_of_int (Unix.getpid ()) in
-
-  let zmsg = zmsg_new () in 
-
-  match msg with
-
-    | UserMessage payload -> 
-
-      (match payload with 
-
-        | Log (l, s) ->
-
-          ignore(zmsg_pushstr zmsg s);
-          ignore(zmsg_pushstr zmsg (string_of_int l));
-          ignore(zmsg_pushstr zmsg "LOG")
-
-        | Stat s ->
-
-          ignore(zmsg_pushstr zmsg s);
-          ignore(zmsg_pushstr zmsg "STAT")
-
-        | Progress k ->
-
-          ignore(zmsg_pushstr zmsg (string_of_int k));
-          ignore(zmsg_pushstr zmsg "PROGRESS")
-
-      );
-
-      ignore(zmsg_pushstr zmsg sender);
-      ignore(zmsg_pushstr zmsg "USER");
-      zmsg
-
-
-    | ControlMessage payload  ->
-
-      let rc = match payload with 
-        | READY -> zmsg_pushstr zmsg "READY"
-        | PING  -> zmsg_pushstr zmsg "PING"
-        | TERM  -> zmsg_pushstr zmsg "TERM"
-      in 
-
-      ignore(rc);
-      ignore(zmsg_pushstr zmsg sender);
-      ignore(zmsg_pushstr zmsg "CONTROL");
-      zmsg
-
-    | InvariantMessage payload ->
-
-      (match payload with 
-
-        | INVAR (f, n)  -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushbstr zmsg f (String.length f));
-          ignore(zmsg_pushstr zmsg "INVAR")
-
-        | PROP_KTRUE (p, k, n) -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg (string_of_int k));
-          ignore(zmsg_pushstr zmsg p);
-          ignore(zmsg_pushstr zmsg "PROP_KTRUE")
-
-        | PROP_INVAR (p, n) -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg p);
-          ignore(zmsg_pushstr zmsg "PROP_INVAR")
-
-        | PROP_FALSE (p, n) -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg p);
-          ignore(zmsg_pushstr zmsg "PROP_KFALSE")
-
-        | PROP_KFALSE (p, k, n) -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg (string_of_int k));
-          ignore(zmsg_pushstr zmsg p);
-          ignore(zmsg_pushstr zmsg "PROP_KFALSE")
-
-        | PROVED (p, k, n) -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg (string_of_int k));
-          ignore(zmsg_pushstr zmsg p);
-          ignore(zmsg_pushstr zmsg "PROVED")
-
-        | DISPROVED (p, k, n) -> 
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg (string_of_int k));
-          ignore(zmsg_pushstr zmsg p);
-          ignore(zmsg_pushstr zmsg "DISPROVED")
-
-        | RESEND n    ->
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-          ignore(zmsg_pushstr zmsg "RESEND")
-
-      );
-
-      ignore(zmsg_pushstr zmsg sender);
-      ignore(zmsg_pushstr zmsg "INVARIANT");
-      zmsg
-
-    | InductionMessage payload ->
-
-      (match payload with 
-
-        | BMCSTATE (k, l) ->
-
-          let zmsg_pushstr zmsg str =
-            ignore(zmsg_pushstr zmsg str)
-          in
-
-          (* push contents of string list *)
-          List.iter (zmsg_pushstr zmsg) l;
-
-          (* push length of string list *)
-          ignore(zmsg_pushstr zmsg (string_of_int (List.length l)));
-
-          ignore(zmsg_pushstr zmsg (string_of_int k));
-          ignore(zmsg_pushstr zmsg "BMCSTATE");
-
-      );
-
-      ignore(zmsg_pushstr zmsg sender);
-      ignore(zmsg_pushstr zmsg "INDUCTION");
-      zmsg
-
-(*
-    | CounterexampleMessage payload ->
-
-      (match payload with
-
-        | COUNTEREXAMPLE (n) ->
-          ignore(zmsg_pushstr zmsg (string_of_int n));
-
-      );
-
-      ignore(zmsg_pushstr zmsg sender);
-      ignore(zmsg_pushstr zmsg "COUNTEREXAMPLE");
-      zmsg
-*)
-
-
-let string_of_msg msg = 
-
-  let str =
-
-    match msg with
-
-      | UserMessage payload ->
-
-        (match payload with 
-          | Log _ -> "UserMessage(Log _)"
-          | Stat _ -> "UserMessage(Stat _)"
-          | Progress _ -> "UserMessage(Progress _)")
-      | ControlMessage payload  ->
-
-        (match payload with 
-          | READY -> "ControlMessage(READY)"
-          | PING -> "ControlMessage(PING)"
-          | TERM -> "ControlMessage(TERM)")
-
-      | InvariantMessage (INVAR (_, n)) -> 
-        Format.asprintf "InvariantMessage(INVAR (_,%d))" n
-          
-      | InvariantMessage (PROP_KTRUE (p, k, n)) -> 
-        Format.asprintf "InvariantMessage(PROP_KTRUE (%s,%d,%d))" p k n
-          
-      | InvariantMessage (PROP_INVAR (p, n)) -> 
-        Format.asprintf "InvariantMessage(PROP_INVAR (%s,%d))" p n
-          
-      | InvariantMessage (PROP_FALSE (p, n)) -> 
-        Format.asprintf "InvariantMessage(PROP_FALSE (%s,%d))" p n
-          
-      | InvariantMessage (PROP_KFALSE (p, k, n)) -> 
-        Format.asprintf "InvariantMessage(PROP_KFALSE (%s,%d,%d))" p k n
-          
-      | InvariantMessage (DISPROVED (_, k, n)) -> 
-        Format.asprintf "InvariantMessage(DISPROVED (_,%d,%d))" k n
-          
-      | InvariantMessage (PROVED (_, k, n)) -> 
-        Format.asprintf "InvariantMessage(PROVED (_,%d,%d))" k n
-          
-      | InvariantMessage (RESEND n) -> 
-        Format.asprintf "InvariantMessage(RESEND(%d)" n
-        
-      | InductionMessage payload ->
-
-        (match payload with 
-          | BMCSTATE (k, l)    ->
-
-            let rec string_of_bmc_list l s =
-              match l with 
-                | f::[] -> (s ^ f)
-                | f::tl -> string_of_bmc_list tl (s ^ f ^ ", ")    
-                | _ -> s
-            in 
-
-            "InductionMessage(BMCSTATE(" ^ 
-              (string_of_int k) ^
-              ", [" ^
-              (string_of_bmc_list l "") ^ 
-              "]))"
-        )
-
-(*
-      | CounterexampleMessage payload ->
-
-        (match payload with
-          | COUNTEREXAMPLE (n) -> 
-            "CounterexampleMessage(" ^ (string_of_int n) ^ ")";
-        )
-*)
-
-  in 
-
-  str
-
-
-let msg_of_zmsg zmsg =
-
-  (* returns tuple of sender, message *)
-  let msg_type = zmsg_popstr zmsg in
+  (* Pretty-print a message *)
+  val pp_print_message : Format.formatter -> t -> unit
   
-  (* Sender is the PID of the sending process *)
-  let sender = 
-    try int_of_string (zmsg_popstr zmsg) with Failure _ -> raise BadMessage 
-  in
-
-  match msg_type with
-
-    | "USER" ->
-
-      let payload = zmsg_popstr zmsg in
-
-      (match payload with 
-
-        | "LOG" -> 
-
-          let l = int_of_string (zmsg_popstr zmsg) in
-          let s = zmsg_popstr zmsg in
-          (sender, UserMessage (Log (l, s)))
-
-        | "STAT" -> 
-
-          let s = zmsg_popstr zmsg in
-          (sender, UserMessage (Stat s))
+end
 
 
-        | "PROGRESS" -> 
+module type S =
+sig
 
-          let k = int_of_string (zmsg_popstr zmsg) in
-          (sender, UserMessage (Progress k))
+  type relay_message 
 
-        | _ -> raise BadMessage)
+  type output_message = 
+    | Log of int * string
+    | Stat of string 
+    | Progress of int 
 
-    | "CONTROL"   ->  
-      
-      let payload = zmsg_popstr zmsg in
+  type control_message = 
+    | Ready
+    | Ping
+    | Terminate
+    | Resend of int
 
-      (match payload with 
-        | "READY" -> (sender, ControlMessage(READY))
-        | "PING" -> (sender, ControlMessage(PING))
-        | "TERM" -> (sender, ControlMessage(TERM))
-        | _ -> raise BadMessage)
+  type message = 
+    | OutputMessage of output_message
+    | ControlMessage of control_message
+    | RelayMessage of int * relay_message
 
-    | "INVARIANT" ->
+  type ctx
 
-      let payload = zmsg_popstr zmsg in
+  type socket
 
-      (match payload with 
-
-        | "INVAR" -> 
-
-            (* get F and n *)
-            let f = zmsg_popstr zmsg in
-            let n = int_of_string (zmsg_popstr zmsg) in
-            (sender, InvariantMessage (INVAR (f, n)))
-
-        | "DISPROVED"-> 
-
-            (* get P and n *)
-            let p = zmsg_popstr zmsg in
-            let k = int_of_string (zmsg_popstr zmsg) in
-            let n = int_of_string (zmsg_popstr zmsg) in
-            (sender, InvariantMessage (DISPROVED (p, k, n)))
-
-        | "PROVED"-> 
-
-            (* get P and n *)
-            let p = zmsg_popstr zmsg in
-            let k = int_of_string (zmsg_popstr zmsg) in
-            let n = int_of_string (zmsg_popstr zmsg) in
-            (sender, InvariantMessage (PROVED (p, k, n)))
-
-        | "RESEND" ->
-
-          let n = int_of_string (zmsg_popstr zmsg) in
-          (sender, InvariantMessage(RESEND(n)))
-
-        | _ -> raise BadMessage
-
-      )
-
-    | "INDUCTION" ->   
-
-        let payload = zmsg_popstr zmsg in
-        
-        (match payload with 
-
-          | "BMCSTATE"  ->  
-
-            let k = (int_of_string (zmsg_popstr zmsg)) in
-            let list_size = (int_of_string (zmsg_popstr zmsg)) in
-            (* get the list of strings *)
-            let rec collect_bmc_strings l i = 
-              match i with 
-                | 0 -> l
-                | _ -> collect_bmc_strings ((zmsg_popstr zmsg)::l) (i-1)
-            in
-            let l = collect_bmc_strings [] list_size in
-            (sender, InductionMessage(BMCSTATE(k, l)))
-
-        | _ -> raise BadMessage)
-
-(*
-    | "COUNTEREXAMPLE" ->
-      let n = int_of_string (zmsg_popstr zmsg) in
-      (sender, CounterexampleMessage(COUNTEREXAMPLE(n)))
-*)
-    
-    | _ -> raise BadMessage
-             
-
-
-(******************************)
-(*  Thread Helpers            *)
-(******************************)
-
-let im_handle_messages workers worker_status invariant_id invariants = 
+  type thread
   
-  let rec handle_all incoming =
-
-    match incoming with
-
-      | msg :: t ->  
-        
-        let sender, payload = msg in
-        
-        debug messaging
-            "Invariant manager received message %a from %d"
-            pp_print_message payload 
-            sender
-        in
-
-        (match payload with 
-
-          | UserMessage m -> 
-
-            (match m with
-
-              | Log _
-              | Stat _ 
-              | Progress _ -> 
-
-                enqueue 
-                  ((List.assoc sender workers), payload) 
-                  incoming_handled)
-
-          | ControlMessage m  -> 
-
-            (match m with
-              | READY -> ()
-              | PING -> enqueue (ControlMessage(READY)) outgoing
-              | TERM -> enqueue (ControlMessage(TERM)) outgoing)
-            
-          | InvariantMessage(m) -> 
-
-            let mk_identified_msg = function 
-              | INVAR(f, _) -> INVAR(f, !invariant_id)
-              | PROP_KTRUE (p, k, _) -> PROP_KTRUE (p, k, !invariant_id)
-              | PROP_INVAR (p, _) -> PROP_INVAR (p, !invariant_id)
-              | PROP_FALSE (p, _) -> PROP_FALSE (p, !invariant_id)
-              | PROP_KFALSE (p, k, _) -> PROP_KFALSE (p, k, !invariant_id)
-              | PROVED (p, k, _) -> PROVED (p, k, !invariant_id)
-              | DISPROVED (p, k, _) -> DISPROVED (p, k, !invariant_id)
-              | RESEND _ -> invalid_arg "mk_identified_msg"
-            in
-
-            (* assign a unique identifier, add to invariants, send,
-               increment identifier *)
-            (match m with
-              | INVAR _
-              | PROP_KTRUE _
-              | PROP_INVAR _
-              | PROP_FALSE _
-              | PROP_KFALSE _
-              | PROVED _
-              | DISPROVED _ as msg ->
-
-                let identified_msg = 
-                  InvariantMessage (mk_identified_msg msg)
-                in
-
-                Hashtbl.add invariants !invariant_id identified_msg;
-                enqueue identified_msg outgoing;
-                invariant_id := !invariant_id + 1;
-                enqueue
-                  ((List.assoc sender workers), payload) 
-                  incoming_handled
-
-              | RESEND (n) -> 
-              
-                let requested_msg = 
-                  try 
-                    Some(Hashtbl.find invariants n)
-                  with 
-                    | Not_found -> None 
-                in
-
-                if requested_msg != None then 
-                  enqueue (get(requested_msg)) outgoing)
-
-          | InductionMessage(m) -> 
-
-            (* send as is *)
-            (match m with
-
-              | BMCSTATE (k, l) -> 
-
-                enqueue payload outgoing;
-                enqueue
-                  ((List.assoc sender workers), payload) 
-                  incoming_handled;
-
-            )
-
-(*
-          | CounterexampleMessage(n) ->
-
-            (* send as is *)
-            enqueue payload outgoing;
-            enqueue 
-              ((List.assoc sender workers), payload) 
-              incoming_handled
-
-*)
-
-          );
-
-        (* update the status of the sender *)
-        Hashtbl.replace worker_status sender (Unix.time ());
-
-        handle_all t;
-
-      | []  -> ()
-  in
-
-  let msgs = (remove_list incoming) in
-
-  handle_all msgs
-
-
-let rec worker_request_missing_invariants 
-    last_received_invariant_id 
-    current_invariant_id =
-
-  (* request all invariants between [last_received_invariant_id] and
-     [current_invariant_id] *)
-  if 
-
-    ((!last_received_invariant_id) + 1) >= current_invariant_id 
-
-  then
-
-    ()
-
-  else 
-
-    (
-
-      last_received_invariant_id := !last_received_invariant_id + 1;
-      enqueue (InvariantMessage(RESEND(!last_received_invariant_id))) outgoing;
-      worker_request_missing_invariants 
-        last_received_invariant_id 
-        current_invariant_id
-
-    )
-
-
-let worker_handle_messages 
-    unconfirmed_invariants 
-    confirmed_invariants 
-    last_received_invariant_id = 
-  
-  (* handle messages in incoming queue of worker process *)
-
-  (* it might be worth looking into efficiency of dealing with
-     unconfirmed invariant list *)
-  let rec handle_all incoming =
-    
-    match incoming with
-
-      | msg :: t ->  
-        
-        let sender, payload = msg in
-        
-        debug messaging
-            "Worker received message %a from %d"
-            pp_print_message payload 
-            sender
-        in
-        
-        (match payload with 
-          
-          | UserMessage m -> 
-            
-            (match m with
-              | Log _ 
-              | Stat _
-              | Progress _ -> ())
-
-          | ControlMessage m  -> 
-            
-            (match m with
-
-              | READY -> ()
-
-              | PING -> enqueue (ControlMessage(READY)) outgoing
-
-              | TERM -> 
-
-                enqueue
-                  (`INVMAN, payload) 
-                  incoming_handled)
-                  
-          | InvariantMessage m ->
-
-            let mk_unidentified_msg = function
-              | INVAR(f, n) -> INVAR(f, 0), n
-              | PROP_KTRUE (p, k, n) -> PROP_KTRUE (p, k, 0), n
-              | PROP_INVAR (p, n) -> PROP_INVAR (p, 0), n
-              | PROP_FALSE (p, n) -> PROP_FALSE (p, 0), n
-              | PROP_KFALSE (p, k, n) -> PROP_KFALSE (p, k, 0), n
-              | PROVED (p, k, n) -> PROVED (p, k, 0), n
-              | DISPROVED (p, k, n) -> DISPROVED (p, k, 0), n
-              | RESEND _ -> invalid_arg "mk_identified_msg"
-            in
-            
-            (match m with 
-              | INVAR _
-              | PROP_KTRUE _
-              | PROP_INVAR _
-              | PROP_FALSE _
-              | PROP_KFALSE _
-              | PROVED _
-              | DISPROVED _ as msg ->
-
-                let unidentified_msg, n = 
-                  mk_unidentified_msg msg
-                in
-
-                if 
-
-                  Hashtbl.mem 
-                    unconfirmed_invariants 
-                    (InvariantMessage unidentified_msg)
-
-                then 
-
-                  (
-                    
-                    Hashtbl.remove 
-                      unconfirmed_invariants 
-                      (InvariantMessage unidentified_msg);
-
-                    Hashtbl.add confirmed_invariants n msg
-
-                  ) 
-
-                else 
-                  
-                  (
-                  
-                    if Hashtbl.mem confirmed_invariants n then () else 
-
-                      (
-                        
-                        enqueue 
-                          (`INVMAN, payload) 
-                          incoming_handled;
-                        
-                        Hashtbl.add confirmed_invariants n msg;
-
-                        if 
-                          
-                          n > ((!last_received_invariant_id) + 1) 
-                              
-                        then 
-                          
-                          (
-                            
-                            (* we've missed at least one invariant,
-                               request any not received *)
-                            worker_request_missing_invariants 
-                              last_received_invariant_id 
-                              n
-                              
-                          );
-                        
-                        last_received_invariant_id := n
-                          
-                      )
+  val init_im : unit -> (ctx * socket * socket) * (string * string)
                       
-                  )
-
-              (* Workers do not resend messages *)
-              | RESEND (n) -> ()
-                              
-            )
-            
-          (* in all other cases, enqueue to incoming_handled *)
-          | InductionMessage _ ->
-            (* | CounterexampleMessage _ -> *)
-            
-            enqueue
-              (`INVMAN, payload) 
-              incoming_handled
-              
-        );
-        
-        handle_all t;
-
-      | [] -> ()
-              
-  in 
-  
-  handle_all (remove_list incoming)
-
-
-let recv_messages sock as_invariant_manager = 
-
-  (* receive up to 'message_burst_size' messages from sock *)
-  let rec recv_iter i zmsg =
-
-    if (i < message_burst_size) && (zmsg_size zmsg != 0) then 
-
-      (
-      
-        if as_invariant_manager || (not !debug_mode) then 
-
-          (
-
-            enqueue (msg_of_zmsg zmsg) incoming
-
-          ) 
-
-        else 
-
-          (
-
-            let sender, message = (msg_of_zmsg (zmsg)) in
-            ignore(sender);
-            enqueue
-              (`INVMAN, message) 
-              incoming_handled
-
-          );
-
-        recv_iter (i+1) (zmsg_recv_nowait sock)
-          
-      )
-      
-  in
-  
-  recv_iter 0 (zmsg_recv_nowait sock)
-
-
-let im_send_messages sock = 
-  
-  (* send up to 'message_burst_size' messages in Invariant Manager's
-      outgoing message queue *)
-  let rec send_iter i outgoing_msg =
-
-    if (i < message_burst_size) && (outgoing_msg != None) then 
-
-      (
-
-        let message = get (outgoing_msg) in
-        let zm = zmsg_of_msg message in
-        let rc = zmsg_send (zm) sock in
-        
-        if (rc < 0) then push_front message outgoing; 
-        send_iter (i+1) (dequeue outgoing)
-
-      ) 
-
-    else 
-
-      ()
-
-  in 
-  
-  send_iter 0 (dequeue outgoing)
-
-
-let worker_send_messages proc sock unconfirmed_invariants = 
-
-  (* send up to 'message_burst_size' messages in worker's outgoing
-     message queue *)
-  let rec send_iter i outgoing_msg =
-
-    if (i < message_burst_size) && (outgoing_msg != None) then 
-
-      (
-      
-        let message = get (outgoing_msg) in
-
-        debug messaging
-            "Worker %d sending message %a"
-            (Unix.getpid ())
-            pp_print_message message
-        in
-
-        let rc = 
-          zmsg_send (zmsg_of_msg message) sock 
-        in
-
-        if (rc < 0) then push_front message outgoing else 
-
-          (
-
-            (* if this message is a new invariant, place it in
-               unconfirmed list with current timestamp *)
-            (match message with 
-              | InvariantMessage(m) ->
-                (match m with 
-                  | INVAR (f, n) ->
-
-                    Hashtbl.add 
-                      unconfirmed_invariants 
-                      (InvariantMessage (INVAR (f, 0)))
-                      (Unix.time ())
-
-                  | _ -> ()
-
-                );
-
-              | _ -> ()
-
-            )
-          );
-
-        send_iter (i+1) (dequeue outgoing)
-
-      )
-  
-  in 
-  
-  send_iter 0 (dequeue outgoing)
-
-
-let worker_resend_invariants unconfirmed_invariants = 
-  
-  (* resend unconfirmed invariants *)
-  let resend_if_needed invariant timestamp =
+  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket 
+  val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
     
-    if 
+  val run_worker : ctx * socket * socket -> Lib.kind_module -> (exn -> unit) -> thread
 
-      ((Unix.time ()) -. timestamp) > worker_invariant_confirmation_threshold 
+  val send_relay_message : relay_message -> unit
+    
+  val send_output_message : output_message -> unit
 
-    then 
+  val send_term_message : unit -> unit
+    
+  val recv : unit -> (Lib.kind_module * message) list
 
-      (
-      
-        enqueue invariant outgoing;
+  val exit : thread -> unit 
 
-        (* a missed invariant is only resent once *)
-        (match invariant with
+end
 
-          | InvariantMessage(m) ->
-            (match m with 
-              | INVAR (f, n) ->
-                
-                Hashtbl.remove 
-                  unconfirmed_invariants 
-                  (InvariantMessage (INVAR (f, 0)))
+(* Functor to instantiate the messaging system with a type of messages *)
+module Make (T: RelayMessage) : S with type relay_message = T.t =
+struct
+
+  (* ZeroMQ context *)
+  type ctx = ZMQ.zctx
+
+               
+  (* ZeroMQ socket *)
+  type socket = ZMQ.zsocket
+
                   
-              | _ -> ()
-
-            )
-          
-          | _ -> ()
-
-        )
-
-    )
-
-  in
-
-  Hashtbl.iter resend_if_needed unconfirmed_invariants
+  (* Background thread *)
+  type thread = Thread.t
 
 
-let wait_for_workers workers worker_status pub_sock pull_sock =
+  (* Message to be broadcast *)
+  type relay_message = T.t
+
+
+  (* Message to be output to the user *)
+  type output_message = 
+
+    (* Log message with level *)
+    | Log of int * string
+
+    (* Statistics *)
+    | Stat of string
+
+    (* Progress *)
+    | Progress of int
+        
   
-  (* wait for ready from all workers *)
-  let rec wait_iter = function 
-    
-    (* No more workers to wait for *)
-    | [] -> () 
-            
-    (* List of workers to wait for is not empty *)
-    | workers_remaining -> 
+  (* Message internal to the messaging system *)
+  type control_message = 
+
+    (* Process is ready *)
+    | Ready
+
+    (* Request reply from process *)
+    | Ping
+
+    (* Request termination of process *)
+    | Terminate
+
+    (* Request resending of relay message *)
+    | Resend of int
+
+
+  (* Message *)
+  type message = 
+
+    (* Output to user *)
+    | OutputMessage of output_message
+
+    (* Message internal to the messaging system *)
+    | ControlMessage of control_message
+
+    (* Message to be broadcast to worker processes *)
+    | RelayMessage of int * relay_message
+
+
+  (* Pretty-print a message *)
+  let pp_print_message ppf = function 
+    | OutputMessage (Log (l, s)) -> 
+      Format.fprintf ppf "@[<hv>LOG %d@ %s@]" l s
+                               
+    | OutputMessage (Stat s) -> 
+      Format.fprintf ppf "@[<v>STAT@,%s@]" s
+        
+    | OutputMessage (Progress k) -> 
+      Format.fprintf ppf "@[<h>PROGRESS %d@]" k
+                                    
+    | ControlMessage Ready -> 
+      Format.fprintf ppf "Ready"
+                                
+    | ControlMessage Ping -> 
+      Format.fprintf ppf "Ping"
+                               
+    | ControlMessage Terminate -> 
+      Format.fprintf ppf "Terminate"
+
+    | ControlMessage (Resend i) -> 
+      Format.fprintf ppf "Resend %d" i
+
+    | RelayMessage (i, m) -> 
+      Format.fprintf ppf "@[<hv>Relay %d@ %a@]" i T.pp_print_message m
+        
+
+  (* ******************************************************************** *)
+  (* Conversions                                                          *)
+  (* ******************************************************************** *)
+
+  (* Return a list of strings of a message *)
+  let strings_of_output_message = function 
+    | Log (i, s) -> [s; string_of_int i; "LOG"]
+    | Stat s -> [s; "STAT"]
+    | Progress i -> [string_of_int i; "PROGRESS"]
+
+
+  (* Return a message of a list of strings *)
+  let output_message_of_strings pop = match pop () with
+    | "LOG" -> let i = pop () in let s = pop () in
+      (try Log (int_of_string i, s) with 
+        | Invalid_argument _ -> 
+          raise (Invalid_argument "output_message_of_strings"))
+    | "STAT" -> let s = pop () in
+      Stat s
+    | "PROGRESS" -> let i = pop () in
+      (try Progress (int_of_string i) with 
+        | Invalid_argument _ -> 
+          raise (Invalid_argument "output_message_of_strings"))
+    | _ -> 
+      raise (Invalid_argument "output_message_of_strings")
+
+
+  (* Return a list of strings of a message *)
+  let strings_of_control_message = function 
+    | Ready -> ["READY"]
+    | Ping -> ["PING"]
+    | Terminate -> ["TERM"]
+    | Resend i -> [string_of_int i; "RESEND"]
+
+
+  (* Return a message of a list of strings *)
+  let control_message_of_strings pop = match pop () with
+    | "READY" -> Ready 
+    | "PING" -> Ping
+    | "TERM" -> Terminate
+    | "RESEND" -> let i = pop () in
+      (try Resend (int_of_string i) with 
+        | Invalid_argument _ -> 
+          raise (Invalid_argument "control_message_of_strings"))
+    | _ -> 
+      raise (Invalid_argument "control_message_of_strings")
+
+
+  (* Return unique tag for message type *)
+  let tag_of_message = function
+    | OutputMessage _ -> "OUTPUT"
+    | ControlMessage _ -> "CONTROL"
+    | RelayMessage _ -> "RELAY"
+
+
+  (* Return a message from strings *)
+  let message_of_strings pop = function
+    | "OUTPUT" -> OutputMessage (output_message_of_strings pop)
+    | "CONTROL" -> ControlMessage (control_message_of_strings pop)
+    | "RELAY" -> let i = pop () in 
+      (try RelayMessage (int_of_string i, T.message_of_strings pop) with 
+        | Invalid_argument _ -> raise BadMessage)
+    | _ -> raise BadMessage
+
+
+  (*        zmsg representation of a message:              *)
+  (* top of stack                                          *)
+  (* ----------------------------------------------------- *)
+  (*  MSG TYPE | SENDER | PAYLOAD | (PAYLOAD) | (PAYLOAD)  *)
+  (* ----------------------------------------------------- *)
       
-      (
-        
-        debug messaging "Sending PING to workers" in
-        
-        (* let workers know invariant manager is ready *)
-        let rc = 
-          zmsg_send 
-            (zmsg_of_msg 
-               (ControlMessage PING)) 
-            pub_sock
-        in
-        
-        assert (rc = 0);
-        
-        (* Receive message on PULL socket *)
-        let msg = zmsg_recv_nowait pull_sock in
-        
-        (* Message is empty ? *)
-        if (zmsg_size msg) != 0 then 
-          
-          (
-            
-            let sender, payload = (msg_of_zmsg msg) in
-            
-            if payload = ControlMessage READY then 
-              
-              (
-                
-                debug messaging 
-                    "Received a READY message from %d while waiting for \
-                     workers" 
-                    sender 
-                in
-                
-                wait_iter (List.filter ((<>) sender) workers_remaining);
-                
-              )
-              
-            else
-              
-              (
-                
-                
-                debug messaging 
-                    "Received message from %d while waiting for \
-                     workers: %a" 
-                    sender 
-                    pp_print_message payload
-                in
-                
-                wait_iter (List.filter ((<>) sender) workers_remaining);
-                
-              )
-              
-          ) 
-          
-        else 
-          
-          (
-            
-            debug messaging 
-                "No message received, still waiting for workers" 
-            in
-            
-            minisleep 0.1;
-            wait_iter workers_remaining
-              
-          )
+  (* We want the type of the message first, so that workers can
+     subscribe to the relevant messages only *)
 
-      ) 
-
-  in
-  
-  wait_iter workers;
-
-  (* update timestamp of worker status *)
-  for i = 0 to ((List.length workers) - 1) do
-    Hashtbl.add (worker_status) (List.nth workers i) (Unix.time ());
-  done
-
-
-let im_check_workers_status workers worker_status pub_sock pull_sock = 
-
-  (* ensure that all workers have checked in within
-     worker_time_threshold seconds *)
-  let rec check_status workers need_ping = 
+  (* Create a ZeroMQ message *)
+  let zmsg_of_msg msg = 
     
-    match workers with
-      | h :: t ->
+    (* Use the PID of the process as sender *)
+    let sender = string_of_int (Unix.getpid ()) in
     
-        if 
+    let zmsg = zmsg_new () in 
 
-          (Unix.time () -. (Hashtbl.find worker_status h)) > 
-          worker_time_threshold 
+    (* Push payload of message *)
+    List.iter
+      (fun f -> 
+         ignore (zmsg_pushstr zmsg f))
+      (match msg with 
+        | OutputMessage m -> strings_of_output_message m
+        | ControlMessage m -> strings_of_control_message m
+        | RelayMessage (i, m) -> T.strings_of_message m);
 
-        then 
+    (* Push sender of message *)
+    ignore (zmsg_pushstr zmsg sender);
 
-          (
-            
-            (* at least one worker has not communicated recently *)
-            Hashtbl.replace (worker_status) h (Unix.time ());
-            check_status t true
+    (* Push identifying tag of message *)
+    ignore (zmsg_pushstr zmsg (tag_of_message msg));
 
-          ) 
-
-        else 
-
-          (
-          
-            check_status t need_ping
-
-          )
-
-      | []  -> need_ping
-
-  in
-  
-  (* if a worker hasn't communicated in a while, broadcast a ping *)
-  if check_status workers false then enqueue (ControlMessage(PING)) outgoing
+    (* Return message *)
+    zmsg
 
 
+  (* Return a message of a ZeroMQ message*)
+  let msg_of_zmsg zmsg =
 
-(******************************)
-(*  Threads                   *)
-(******************************)
-
-let im_thread (bg_ctx, pub_sock, pull_sock) workers on_exit =
-
-  try
-
-    (* List of PIDs only *)
-    let worker_pids = List.map fst workers in
-
-    (* Hashtable to store time each worker was last seen *)
-    let worker_status = (Hashtbl.create (List.length worker_pids)) in
-
-    (* wait for ready from all workers *)
-    debug messaging
-        "Waiting for workers (%a) to become ready"
-        (pp_print_list Format.pp_print_int ",@ ") worker_pids
+    (* Pop the topmost message frame and return as string *)
+    let pop () = 
+      try zmsg_popstr zmsg with Failure _ -> raise BadMessage 
     in
 
-    wait_for_workers worker_pids worker_status pub_sock pull_sock;
+    (* Message tag is topmost frame *)
+    let message_tag = pop () in
 
-    (debug messaging
-        "All workers are ready"
-     in
+    (* Send is second frame *)
+    let sender = 
+      try int_of_string (pop ()) with Failure _ -> raise BadMessage 
+    in
+    
+    (* Return message of frame *)
+    (sender, message_of_strings pop message_tag)
 
-     (* unique invariant identifier and invariants hash table *)
-     let invariant_id = ref 1 in
-     let invariants = (Hashtbl.create 1000) in 
 
-     while (true) do
+  (* ******************************************************************** *)
+  (* Threadsafe locking queue                                             *)
+  (* ******************************************************************** *)
+        
+  type 'a locking_queue = { lock : Mutex.t ; mutable q : 'a list }
 
-       (* check on the workers *)
-       im_check_workers_status 
-         worker_pids 
-         worker_status 
-         pub_sock 
-         pull_sock;
+  let new_locking_queue () =
+    { lock = Mutex.create (); q = [] }
+    
+  
+  let enqueue entry queue =
+    
+    (* insert at back of queue *)
+    Mutex.lock queue.lock;
+    
+    queue.q <- queue.q @ [entry]; 
+    
+    (* a tail-recursive append would be more efficient, depending on
+       how big queue gets *)
+    Mutex.unlock queue.lock
 
-       (* get any messages from workers *)
-       recv_messages pull_sock true;
+  
+  let push_front entry queue = 
+    
+    (* push to front of queue *)
+    Mutex.lock queue.lock;
+    
+    queue.q <- entry :: queue.q;
+    
+    Mutex.unlock queue.lock
+      
+  
+  let dequeue queue =
+    
+    Mutex.lock queue.lock;
+    
+    let entry =
+      match queue.q with 
+        | [] -> None
+        | h::t -> 
+          queue.q <- t; 
+          Some(h)
+    in
+    
+    Mutex.unlock queue.lock;
+    
+    entry
+    
+  
+  let remove_list queue = 
+    
+    (* returns the contents of the queue as a list, empties the
+       queue *)
+    Mutex.lock queue.lock;
+    
+    let res = queue.q in
+    
+    queue.q <- [];
+    
+    Mutex.unlock queue.lock;
+    
+    res
+    
+  (* ******************************************************************** *)
+  (*  Utilites                                                            *)
+  (* ******************************************************************** *)
 
-       (* relay messages *)
-       im_handle_messages workers worker_status invariant_id invariants;
+  let get = function
+    | Some x -> x
+    | None -> raise No_value
 
-       (* send any messages in outgoing queue *)
-       im_send_messages pub_sock;
+  
+  (* ******************************************************************** *)
+  (*  Globals                                                             *)
+  (* ******************************************************************** *)
 
-       minisleep 0.01
+  (* Fresh incoming messages *)
+  let incoming = new_locking_queue ()
 
-     done)
+  (* Messages to be sent *)
+  let outgoing = new_locking_queue ()
 
-  with e -> on_exit e
+  (* Messages to be delivered to worker process *)
+  let incoming_handled = new_locking_queue ()
+
+  (* messages to receive iteration of the background thread loop *)
+  let message_burst_size = 100
+
+  (* how often (in seconds) must workers check in with Invariant
+     Manager? *)
+  let worker_time_threshold = (1.0 *. 60.)
+
+  (* how soon (in seconds) must invariants be confirmed before workers
+     resend them? *)
+  let worker_invariant_confirmation_threshold = (0.3 *. 60.)
+
+  (* currently initialized process *)
+  let initialized_process = ref None
+      
+  (* debugging/testing? *)
+  let debug_mode = ref false
+      
+  (* Exit requested? *)
+  let exit_flag = ref false
+      
+  (* ******************************************************************** *)
+  (*  Thread Helpers                                                      *)
+  (* ******************************************************************** *)
+
+  let im_handle_messages workers worker_status invariant_id invariants = 
+
+    let rec handle_all incoming =
+
+      match incoming with
+
+        | msg :: t ->  
+
+          (* *)
+          let sender, payload = msg in
+
+          debug messaging
+              "Invariant manager received message %a from %d"
+              pp_print_message payload 
+              sender
+          in
+
+          (match payload with 
+
+            | OutputMessage m -> 
+
+              enqueue 
+                ((List.assoc sender workers), payload) 
+                incoming_handled
+
+            | ControlMessage m -> 
+
+              (match m with
+                | Ready -> ()
+                | Ping -> enqueue (ControlMessage(Ready)) outgoing
+                | Terminate -> enqueue (ControlMessage(Terminate)) outgoing
+
+                | Resend n -> 
+
+                  try 
+                    enqueue (Hashtbl.find invariants n) outgoing
+                  with 
+                    | Not_found -> ()
+
+              )
+
+            | RelayMessage (_, m) -> 
+
+              let identified_msg = 
+                RelayMessage (!invariant_id, m)
+              in
+              
+              Hashtbl.add invariants !invariant_id identified_msg;
+
+              enqueue identified_msg outgoing;
+
+              invariant_id := !invariant_id + 1;
+
+              enqueue
+                ((List.assoc sender workers), payload) 
+                incoming_handled);
+          
+          (* update the status of the sender *)
+          Hashtbl.replace worker_status sender (Unix.time ());
+          
+          handle_all t;
+          
+        | []  -> ()
+                 
+    in
+    
+    let msgs = (remove_list incoming) in
+    
+    handle_all msgs
+      
+  
+  let rec worker_request_missing_invariants 
+      last_received_invariant_id 
+      current_invariant_id =
+    
+    (* request all invariants between [last_received_invariant_id] and
+       [current_invariant_id] *)
+    if 
+      
+      ((!last_received_invariant_id) + 1) >= current_invariant_id 
+      
+    then
+      
+      ()
+      
+    else 
+      
+      (
+        
+        last_received_invariant_id := !last_received_invariant_id + 1;
+
+        enqueue
+          (ControlMessage (Resend (!last_received_invariant_id))) 
+          outgoing;
+
+        worker_request_missing_invariants 
+          last_received_invariant_id 
+          current_invariant_id
+
+    )
+
+
+  let worker_handle_messages 
+      unconfirmed_invariants 
+      confirmed_invariants 
+      last_received_invariant_id = 
+
+    (* handle messages in incoming queue of worker process *)
+
+    (* it might be worth looking into efficiency of dealing with
+       unconfirmed invariant list *)
+    let rec handle_all incoming =
+
+      match incoming with
+
+        | msg :: t ->  
+
+          let sender, payload = msg in
+
+          debug messaging
+              "Worker received message %a from %d"
+              pp_print_message payload 
+              sender
+          in
+
+          (match payload with 
+
+            | OutputMessage _ -> ()
+
+            | ControlMessage m  -> 
+
+              (match m with
+
+                | Ready -> ()
+
+                | Ping -> enqueue (ControlMessage Ready) outgoing
+
+                | Terminate -> 
+
+                  enqueue
+                    (`INVMAN, payload) 
+                    incoming_handled
+
+                (* Workers do not resend messages *)
+                | Resend n -> ()
+
+              )
+
+
+            | RelayMessage (i, m) ->
+
+              (* Remove sequence number from message *)
+              let payload' = RelayMessage (0, m) in 
+
+              if 
+
+                (* Message is ours and had not been confirmed? *)
+                Hashtbl.mem 
+                  unconfirmed_invariants 
+                  payload'
+
+              then 
+
+                (
+
+                  (* Message is no longer unconfirmed *)
+                  Hashtbl.remove 
+                    unconfirmed_invariants 
+                    payload';
+
+                  (* Message is confirmed *)
+                  Hashtbl.add confirmed_invariants i msg
+
+                ) 
+
+              else 
+
+                (
+
+                  (* Skip if message has received before *)
+                  if Hashtbl.mem confirmed_invariants i then () else 
+
+                    (
+
+                      (* Accept message *)
+                      enqueue 
+                        (`INVMAN, payload) 
+                        incoming_handled;
+
+                      (* Store message *)
+                      Hashtbl.add confirmed_invariants i msg;
+
+                      if 
+
+                        (* Gap in sequence detected? *)
+                        i > ((!last_received_invariant_id) + 1) 
+
+                      then 
+
+                        (
+
+                          (* we've missed at least one invariant,
+                             request any not received *)
+                          worker_request_missing_invariants 
+                            last_received_invariant_id 
+                            i
+
+                        );
+
+                      (* Keep sequence for next iteration *)
+                      last_received_invariant_id := i
+
+                    )
+
+                )
+
+          );
+
+          handle_all t;
+
+        | [] -> ()
+
+    in 
+
+    handle_all (remove_list incoming)
+
+
+  let recv_messages sock as_invariant_manager = 
+
+    (* receive up to 'message_burst_size' messages from sock *)
+    let rec recv_iter i zmsg =
+
+      if (i < message_burst_size) && (zmsg_size zmsg != 0) then 
+
+        (
+
+          if as_invariant_manager || (not !debug_mode) then 
+
+            (
+
+              enqueue (msg_of_zmsg zmsg) incoming
+
+            ) 
+
+          else 
+
+            (
+
+              let sender, message = (msg_of_zmsg (zmsg)) in
+
+              enqueue
+                (`INVMAN, message) 
+                incoming_handled
+
+            );
+
+          recv_iter (i+1) (zmsg_recv_nowait sock)
+
+        )
+
+    in
+
+    recv_iter 0 (zmsg_recv_nowait sock)
+
+
+  let im_send_messages sock = 
+
+    (* send up to 'message_burst_size' messages in invariant manager's
+       outgoing message queue *)
+    let rec send_iter i outgoing_msg =
+
+      if (i < message_burst_size) && (outgoing_msg != None) then 
+
+        (
+
+          let message = get (outgoing_msg) in
+          let zm = zmsg_of_msg message in
+          let rc = zmsg_send (zm) sock in
+
+          if (rc < 0) then push_front message outgoing; 
+
+          send_iter (i+1) (dequeue outgoing)
+
+        ) 
+
+      else 
+
+        ()
+
+    in 
+
+    send_iter 0 (dequeue outgoing)
+
+
+  let worker_send_messages proc sock unconfirmed_invariants = 
+
+    (* send up to 'message_burst_size' messages in worker's outgoing
+       message queue *)
+    let rec send_iter i outgoing_msg =
+
+      if (i < message_burst_size) && (outgoing_msg != None) then 
+
+        (
+
+          let message = get (outgoing_msg) in
+
+          debug messaging
+              "Worker %d sending message %a"
+              (Unix.getpid ())
+              pp_print_message message
+          in
+
+          let rc = 
+            zmsg_send (zmsg_of_msg message) sock 
+          in
+
+          if (rc < 0) then push_front message outgoing else 
+
+            (
+
+              (* if this message is a relay message, place it in
+                 unconfirmed list with current timestamp *)
+              (match message with 
+                | RelayMessage (_, m) ->
+                  
+                  Hashtbl.add 
+                    unconfirmed_invariants 
+                    (RelayMessage (0, m))
+                    (Unix.time ())
+
+                | _ -> ()
+
+              )
+
+            );
+
+          send_iter (i+1) (dequeue outgoing)
+
+        )
+
+    in 
+
+    send_iter 0 (dequeue outgoing)
+
+
+  let worker_resend_invariants unconfirmed_invariants = 
+
+    (* resend unconfirmed invariants *)
+    let resend_if_needed invariant timestamp =
+
+      if 
+
+        (>)
+          ((Unix.time ()) -. timestamp) 
+          worker_invariant_confirmation_threshold 
+
+      then 
+
+        (
+
+          enqueue invariant outgoing;
+
+          (* a missed invariant is only resent once *)
+          (match invariant with
+
+            | RelayMessage (_, m) ->
+
+              Hashtbl.remove 
+                unconfirmed_invariants 
+                (RelayMessage (0, m))
+
+            | _ -> ()
+
+          )
+
+        )
+
+    in
+
+    Hashtbl.iter resend_if_needed unconfirmed_invariants
+
+
+  let wait_for_workers workers worker_status pub_sock pull_sock =
+
+    (* wait for ready from all workers *)
+    let rec wait_iter = function 
+      
+      (* No more workers to wait for *)
+      | [] -> () 
+              
+      (* List of workers to wait for is not empty *)
+      | workers_remaining -> 
+
+        (
+
+          debug messaging "Sending PING to workers" in
+
+          (* let workers know invariant manager is ready *)
+          let rc = 
+            zmsg_send 
+              (zmsg_of_msg 
+                 (ControlMessage Ping)) 
+              pub_sock
+          in
+
+          assert (rc = 0);
+
+          (* Receive message on PULL socket *)
+          let msg = zmsg_recv_nowait pull_sock in
+          
+          (* Message is empty ? *)
+          if (zmsg_size msg) != 0 then 
+            
+            (
+              
+              let sender, payload = (msg_of_zmsg msg) in
+              
+              if payload = ControlMessage Ready then 
                 
+                (
+                  
+                  debug messaging 
+                      "Received a READY message from %d while waiting for \
+                       workers" 
+                      sender 
+                  in
 
-let worker_thread (bg_ctx, sub_sock, push_sock) (proc, on_exit) =
+                  wait_iter (List.filter ((<>) sender) workers_remaining);
 
-  try 
+                )
+                
+              else
 
-    (
+                (
 
-      let rc = 
-        zmsg_send 
-          (zmsg_of_msg 
-             (ControlMessage(READY))) 
-          push_sock
+
+                  debug messaging 
+                      "Received message from %d while waiting for \
+                       workers: %a" 
+                      sender 
+                      pp_print_message payload
+                  in
+
+                  wait_iter (List.filter ((<>) sender) workers_remaining);
+
+                )
+
+            ) 
+
+          else 
+
+            (
+
+              debug messaging 
+                  "No message received, still waiting for workers" 
+              in
+
+              minisleep 0.1;
+              wait_iter workers_remaining
+
+            )
+            
+        ) 
+        
+    in
+    
+    wait_iter workers;
+    
+    (* update timestamp of worker status *)
+    for i = 0 to ((List.length workers) - 1) do
+      Hashtbl.add (worker_status) (List.nth workers i) (Unix.time ());
+    done
+
+
+  let im_check_workers_status workers worker_status pub_sock pull_sock = 
+
+    (* ensure that all workers have checked in within
+       worker_time_threshold seconds *)
+    let rec check_status workers need_ping = 
+
+      match workers with
+        | h :: t ->
+
+          if 
+
+            (Unix.time () -. (Hashtbl.find worker_status h)) > 
+            worker_time_threshold 
+
+          then 
+
+            (
+
+              (* at least one worker has not communicated recently *)
+              Hashtbl.replace (worker_status) h (Unix.time ());
+
+              check_status t true
+
+            ) 
+
+          else 
+
+            (
+
+              check_status t need_ping
+
+            )
+
+        | []  -> need_ping
+
+    in
+
+    (* if a worker hasn't communicated in a while, broadcast a ping *)
+    if check_status workers false then 
+      enqueue (ControlMessage Ping) outgoing
+
+
+
+  (* ******************************************************************** *)
+  (*  Threads                                                             *)
+  (* ******************************************************************** *)
+
+  let im_thread (bg_ctx, pub_sock, pull_sock) workers on_exit =
+
+    try
+
+      (* List of PIDs only *)
+      let worker_pids = List.map fst workers in
+
+      (* Hashtable to store time each worker was last seen *)
+      let worker_status = (Hashtbl.create (List.length worker_pids)) in
+
+      (* wait for ready from all workers *)
+      debug messaging
+          "Waiting for workers (%a) to become ready"
+          (pp_print_list Format.pp_print_int ",@ ") worker_pids
       in
 
-      assert (rc = 0);
-
-      (* wait for a message from the IM before sending anything *)
-      (debug messaging
-          "Waiting for message from invariant manager in %d" (Unix.getpid ())
-       in  
-
-       ignore(zmsg_recv sub_sock));
+      wait_for_workers worker_pids worker_status pub_sock pull_sock;
 
       (debug messaging
-          "Worker is ready to send messages"
+          "All workers are ready"
        in
 
-       let confirmed_invariants = (Hashtbl.create 1000) in
-       let unconfirmed_invariants = (Hashtbl.create 100) in
-       let last_received_invariant_id = ref 0 in
+       (* unique invariant identifier and invariants hash table *)
+       let invariant_id = ref 1 in
+       let invariants = (Hashtbl.create 1000) in 
 
-       while (true) do
+       while true do
 
-         if !exit_flag then 
+         (* check on the workers *)
+         im_check_workers_status 
+           worker_pids 
+           worker_status 
+           pub_sock 
+           pull_sock;
 
-           (
+         (* get any messages from workers *)
+         recv_messages pull_sock true;
 
-             (* send any messages in outgoing queue *)
-             worker_send_messages proc push_sock unconfirmed_invariants;
+         (* relay messages *)
+         im_handle_messages workers worker_status invariant_id invariants;
 
-             Thread.exit ()
+         (* send any messages in outgoing queue *)
+         im_send_messages pub_sock;
 
-           )
-
-         else
-
-           (
-
-             (* get any messages from invariant manager *)
-             recv_messages sub_sock (is_invariant_manager proc);
-
-             (* handle incoming messages *)
-             if (not !debug_mode) then 
-
-               (
-
-                 worker_handle_messages 
-                   unconfirmed_invariants 
-                   confirmed_invariants 
-                   last_received_invariant_id
-
-               );
-
-             (* send any messages in outgoing queue *)
-             worker_send_messages proc push_sock unconfirmed_invariants;
-
-             (* resend any old unconfirmed invariants *)
-             worker_resend_invariants unconfirmed_invariants;
-
-               minisleep 0.01
-
-           )
+         minisleep 0.01
 
        done)
 
-    )
+    with e -> on_exit e
+                
 
-  with e -> on_exit e
+  let worker_thread (bg_ctx, sub_sock, push_sock) (proc, on_exit) =
+
+    try 
+
+      (
+
+        let rc = 
+          zmsg_send 
+            (zmsg_of_msg 
+               (ControlMessage Ready)) 
+            push_sock
+        in
+
+        assert (rc = 0);
+
+        (* wait for a message from the IM before sending anything *)
+        (debug messaging
+            "Waiting for message from invariant manager in %d" (Unix.getpid ())
+         in  
+
+         ignore(zmsg_recv sub_sock));
+
+        (debug messaging
+            "Worker is ready to send messages"
+         in
+
+         let confirmed_invariants = (Hashtbl.create 1000) in
+         let unconfirmed_invariants = (Hashtbl.create 100) in
+         let last_received_invariant_id = ref 0 in
+
+         while true do
+
+           if !exit_flag then 
+
+             (
+
+               (* send any messages in outgoing queue *)
+               worker_send_messages proc push_sock unconfirmed_invariants;
+
+               Thread.exit ()
+
+             )
+
+           else
+
+             (
+
+               (* get any messages from invariant manager *)
+               recv_messages sub_sock (is_invariant_manager proc);
+
+               (* handle incoming messages *)
+               if (not !debug_mode) then 
+
+                 (
+
+                   worker_handle_messages 
+                     unconfirmed_invariants 
+                     confirmed_invariants 
+                     last_received_invariant_id
+
+                 );
+
+               (* send any messages in outgoing queue *)
+               worker_send_messages proc push_sock unconfirmed_invariants;
+
+               (* resend any old unconfirmed invariants *)
+               worker_resend_invariants unconfirmed_invariants;
+
+               minisleep 0.01
+
+             )
+
+         done)
+
+      )
+
+    with e -> on_exit e
+
+
+  (* ******************************************************************** *)
+  (*  Public Interface                                                    *)
+  (* ******************************************************************** *)
+
+  let init_im () =
+
+    (* sockets for communication with worker processes *)
+    let bg_ctx = zctx_new () in
+
+    (* pub socket to send updates to workers *)
+    let pub_sock = zsocket_new bg_ctx ZMQ_PUB in
+    let bcast_port = zsocket_bind pub_sock "tcp://127.0.0.1:*" in
+
+    if bcast_port < 0 then raise SocketBindFailure else
+
+      (
+
+        (* pull socket to get updates from workers *)
+        let pull_sock = (zsocket_new bg_ctx ZMQ_PULL) in 
+        let push_port = zsocket_bind pull_sock "tcp://127.0.0.1:*" in
+
+        if push_port < 0 then raise SocketBindFailure else
+
+          (
+
+            debug messaging
+                "PUB socket is at tcp://127.0.0.1:%d, \
+                 PULL socket is at tcp://127.0.0.1:%d" 
+                bcast_port 
+                push_port
+            in
+
+            (* Return sockets *)
+            (bg_ctx, pub_sock, pull_sock), 
+
+            (* Return broadcast and push ports *)
+            (Format.sprintf "tcp://127.0.0.1:%d" bcast_port,
+             Format.sprintf "tcp://127.0.0.1:%d" push_port)
+
+          )
+
+      )
 
 
 
-(******************************)
-(*  Public Interface          *)
-(******************************)
+  let init_worker proc bcast_port push_port = 
 
+    (* sockets for communication with invariant manager *)
+    let bg_ctx = zctx_new () in
 
-let init_im () =
+    (* subscribe to updates from invariant manager *)
+    let sub_sock = zsocket_new bg_ctx ZMQ_SUB in
 
-  (* sockets for communication with worker processes *)
-  let bg_ctx = zctx_new () in
-  
-  (* pub socket to send updates to workers *)
-  let pub_sock = zsocket_new bg_ctx ZMQ_PUB in
-  let bcast_port = zsocket_bind pub_sock "tcp://127.0.0.1:*" in
-  
-  if bcast_port < 0 then raise SocketBindFailure else
-      
-    (
-      
-      (* pull socket to get updates from workers *)
-      let pull_sock = (zsocket_new bg_ctx ZMQ_PULL) in 
-      let push_port = zsocket_bind pull_sock "tcp://127.0.0.1:*" in
-      
-      if push_port < 0 then raise SocketBindFailure else
-        
-        (
+    let rc = 
+      zsocket_connect 
+        sub_sock 
+        bcast_port
+    in
 
-          debug messaging
-            "PUB socket is at tcp://127.0.0.1:%d, \
-             PULL socket is at tcp://127.0.0.1:%d" 
-            bcast_port 
+    if rc < 0 then raise SocketConnectFailure else
+
+      (
+
+        zsocket_set_subscribe sub_sock "CONTROL";
+        zsocket_set_subscribe sub_sock "RELAY";
+
+        (* create push socket for sending updates to the invariant manager *)
+        let push_sock = zsocket_new bg_ctx ZMQ_PUSH in 
+        let rc = 
+          zsocket_connect 
+            push_sock 
             push_port
-          in
+        in
 
-          (* Return sockets *)
-          (bg_ctx, pub_sock, pull_sock), 
-          
-          (* Return broadcast and push ports *)
-          (Format.sprintf "tcp://127.0.0.1:%d" bcast_port,
-           Format.sprintf "tcp://127.0.0.1:%d" push_port)
+        if rc < 0 then raise SocketConnectFailure else 
 
-        )
-        
-    )
+          (
+
+            debug messaging
+                "SUB port for %a is %s, PUSH port is %s" 
+                pp_print_kind_module proc
+                bcast_port 
+                push_port
+            in
+
+            (* Return sockets *)
+            (bg_ctx, sub_sock, push_sock)
+
+          )
+
+      )
 
 
+  let run_im (bg_ctx, pub_sock, pull_sock) workers on_exit =
 
-let init_worker proc bcast_port push_port = 
+    try           
 
-  (* sockets for communication with invariant manager *)
-  let bg_ctx = zctx_new () in
+      (
 
-  (* subscribe to updates from invariant manager *)
-  let sub_sock = zsocket_new bg_ctx ZMQ_SUB in
+        let p = 
+          Thread.create
+            (im_thread (bg_ctx, pub_sock, pull_sock) workers) 
+            on_exit 
+        in
 
-  let rc = 
-    zsocket_connect 
-      sub_sock 
-      bcast_port
-  in
+        initialized_process := Some(`INVMAN);
+
+        ignore(p) (* thread identifier, might come in handy *)
+
+      )
+      
+    with 
+      
+      | SocketBindFailure -> raise SocketBindFailure
+                               
   
-  if rc < 0 then raise SocketConnectFailure else
-    
-    (
-      
-      zsocket_set_subscribe sub_sock "CONTROL";
-      zsocket_set_subscribe sub_sock "INVARIANT";
-      zsocket_set_subscribe sub_sock "COUNTEREXAMPLE";
-      
-      (* subscribe to any process-specific updates *)
-      (match proc with
-        | `BMC 
-        | `IND 
-        | `PDR ->
-          zsocket_set_subscribe sub_sock "INDUCTION"
-        | _ -> ());
-      
-      (* create push socket for sending updates to the invariant manager *)
-      let push_sock = zsocket_new bg_ctx ZMQ_PUSH in 
-      let rc = 
-        zsocket_connect 
-          push_sock 
-          push_port
-      in
-      
-      if rc < 0 then raise SocketConnectFailure else 
+  let run_worker (bg_ctx, sub_sock, push_sock) proc on_exit =
 
-        (
+    try 
 
-          debug messaging
-            "SUB port for %a is %s, PUSH port is %s" 
-            pp_print_kind_module proc
-            bcast_port 
-            push_port
-          in
+      (
 
-          (* Return sockets *)
-          (bg_ctx, sub_sock, push_sock)
+        let p = 
+          Thread.create 
+            (worker_thread (bg_ctx, sub_sock, push_sock)) 
+            (proc, on_exit) 
+        in
 
-        )
-                                                     
-    )
+        initialized_process := Some(proc);
 
+        p
 
-let run_im (bg_ctx, pub_sock, pull_sock) workers on_exit =
+      )
 
-  try           
-    
-    (
-      
-      let p = 
-        Thread.create (im_thread (bg_ctx, pub_sock, pull_sock) workers) on_exit 
-      in
-      
-      initialized_process := Some(`INVMAN);
-      ignore(p) (* thread identifier, might come in handy *)
-        
-    )
-    
-  with 
-    
-    | SocketBindFailure -> raise SocketBindFailure
-
-
-let run_worker (bg_ctx, sub_sock, push_sock) proc on_exit =
-
-  try 
-    
-    (
-      
-      let p = 
-        Thread.create 
-          (worker_thread (bg_ctx, sub_sock, push_sock)) 
-          (proc, on_exit) 
-      in
-      
-      initialized_process := Some(proc);
-      p (* thread identifier, might come in handy *)
-        
-    )
-    
-  with 
-    (* | Terminate -> raise Terminate *)
-    | SocketConnectFailure -> raise SocketConnectFailure
+    with 
+      (* | Terminate -> raise Terminate *)
+      | SocketConnectFailure -> raise SocketConnectFailure
       
 
-let send msg = 
+  let send msg = 
 
-  if !initialized_process = None then raise NotInitialized else
-    enqueue msg outgoing
-
-
-let recv () = 
-
-  if !initialized_process = None then raise NotInitialized else
-    List.rev (remove_list incoming_handled)
+    if !initialized_process = None then raise NotInitialized else
+      enqueue msg outgoing
 
 
-let exit t = 
-  exit_flag := true; 
-  Thread.join t
+  let send_term_message () = send (ControlMessage Terminate)
+
+  let send_output_message msg = send (OutputMessage msg)
+
+  let send_relay_message msg = send (RelayMessage (0, msg))
+
+  let recv () = 
+
+    if !initialized_process = None then raise NotInitialized else
+      List.rev (remove_list incoming_handled)
+
+
+  let exit t = 
+    exit_flag := true; 
+    Thread.join t
+
+end
+
 
 (*
 

@@ -27,14 +27,13 @@ exception Terminate
 (* Events passed on to callers                                            *)
 (* ********************************************************************** *)
 
-
+(*
 (* Events exposed to the processes *)
 type event = 
   | Invariant of kind_module * Term.t 
   | Proved of kind_module * int option * string 
   | Disproved of kind_module * int option * string 
   | BMCState of int * (string list)
-
 
 (* Pretty-print a message *)
 let pp_print_event ppf = function 
@@ -72,6 +71,127 @@ let pp_print_event ppf = function
       "@[<hv>BMC status@ k=%d@ %a@]" 
       k 
       (pp_print_list Format.pp_print_string ",@ ") p
+
+*)
+
+(* *)
+type event = 
+  | Invariant of Term.t 
+  | PropStatus of string * prop_status
+
+
+(* Pretty-print an event *)
+let pp_print_event ppf = function 
+
+  | Invariant t -> 
+    Format.fprintf ppf "@[<hv>Invariant@ %a@]" Term.pp_print_term t
+
+  | PropStatus (p, PropUnknown) -> 
+    Format.fprintf ppf "@[<hv>Property %s is unknown@]" p 
+
+  | PropStatus (p, PropKTrue k) -> 
+    Format.fprintf ppf "@[<hv>Property %s true for %d steps@]" p k
+
+  | PropStatus (p, PropInvariant) -> 
+    Format.fprintf ppf "@[<hv>Property %s invariant@]" p
+
+  | PropStatus (p, PropFalse) -> 
+    Format.fprintf ppf "@[<hv>Property %s false@]" p
+
+  | PropStatus (p, PropKFalse k) ->
+    Format.fprintf ppf "@[<hv>Property %s false at step %d@]" p k
+
+
+module EventMessage = 
+struct
+
+  type t = event 
+
+  let message_of_strings pop = match pop () with 
+
+    | "INVAR" ->  
+
+      let f = pop () in
+
+      let t = Term.import (Marshal.from_string f 0 : Term.t) in 
+
+      Invariant t
+
+    | "PROP_UNKNOWN" -> 
+
+      let p = pop () in
+
+      PropStatus (p, PropUnknown)
+
+    | "PROP_KTRUE" -> 
+
+      let p = pop () in
+
+      let k = try int_of_string (pop ()) with 
+        | Failure _ -> raise Messaging.BadMessage 
+      in 
+
+      PropStatus (p, PropKTrue k)
+
+    | "PROP_INVAR" -> 
+
+      let p = pop () in
+
+      PropStatus (p, PropInvariant)
+
+    | "PROP_FALSE" -> 
+
+      let p = pop () in
+
+      PropStatus (p, PropFalse)
+
+    | "PROP_KFALSE" -> 
+
+      let p = pop () in
+
+      let k = try int_of_string (pop ()) with 
+        | Failure _ -> raise Messaging.BadMessage 
+      in 
+
+      PropStatus (p, PropKFalse k)
+
+    | _ -> raise Messaging.BadMessage
+
+  let strings_of_message = function 
+
+    | Invariant t -> 
+
+      (* Serialize term to string *)
+      let term_string = Marshal.to_string t [Marshal.No_sharing] in
+      
+      [term_string; "INVAR"]
+
+    | PropStatus (p, PropUnknown) -> 
+
+      [p; "PROP_UNKNOWN"]
+
+    | PropStatus (p, PropKTrue k) -> 
+
+      [string_of_int k; p; "PROP_KTRUE"]
+
+    | PropStatus (p, PropInvariant) -> 
+
+      [p; "PROP_INVAR"]
+
+    | PropStatus (p, PropFalse) -> 
+
+      [p; "PROP_FALSE"]
+
+    | PropStatus (p, PropKFalse k) ->
+
+      [string_of_int k; p; "PROP_KFALSE"]
+
+  let pp_print_message = pp_print_event
+
+end
+
+
+module EventMessaging = Messaging.Make (EventMessage)
 
 
 (* ********************************************************************** *)
@@ -428,8 +548,8 @@ let log (mdl : kind_module) (lvl : log_level) (msg : string) =
   try 
 
     (* Send log event message *)
-    Messaging.send 
-      (Messaging.UserMessage (Messaging.Log (int_of_log_level lvl, msg)))
+    EventMessaging.send_output_message 
+      (EventMessaging.Log (int_of_log_level lvl, msg))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -456,9 +576,8 @@ let stat_relay stats =
   try 
 
     (* Send statistics message *)
-    Messaging.send 
-      (Messaging.UserMessage 
-         (Messaging.Stat (Marshal.to_string stats [])))
+    EventMessaging.send_output_message
+      (EventMessaging.Stat (Marshal.to_string stats []))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -470,9 +589,8 @@ let progress_relay k =
   try 
 
     (* Send progress message *)
-    Messaging.send 
-      (Messaging.UserMessage 
-         (Messaging.Progress k))
+    EventMessaging.send_output_message
+         (EventMessaging.Progress k)
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -577,15 +695,15 @@ let terminate_log () =
 (* Setup of the messaging: context and sockets of the invariant
    manager, ports to connect to for the workers *)
 type messaging_setup = 
-  (Messaging.ctx * Messaging.socket * Messaging.socket) * (string * string)
+  (EventMessaging.ctx * EventMessaging.socket * EventMessaging.socket) * (string * string)
 
-type mthread = Messaging.thread
+type mthread = EventMessaging.thread
 
 (* Create contexts and bind ports for all processes *)
 let setup () = 
 
   (* Create context for invariant manager *)
-  let im_context, (b, m) = Messaging.init_im () in
+  let im_context, (b, m) = EventMessaging.init_im () in
 
   (* Return contexts *)
   (im_context, (b, m))
@@ -595,15 +713,15 @@ let setup () =
 let run_process proc (_, (bcast_port, push_port)) on_exit = 
 
   (* Initialize messaging for process *)
-  let ctx = Messaging.init_worker proc bcast_port push_port in
+  let ctx = EventMessaging.init_worker proc bcast_port push_port in
 
   (* Run messaging for process *)
-  Messaging.run_worker ctx proc on_exit
+  EventMessaging.run_worker ctx proc on_exit
 
 
 (* Start messaging for invariant manager *)
 let run_im (ctx, _) pids on_exit = 
-  Messaging.run_im ctx pids on_exit
+  EventMessaging.run_im ctx pids on_exit
 
 
 (* ********************************************************************** *)
@@ -612,20 +730,30 @@ let run_im (ctx, _) pids on_exit =
 
 
 (* Broadcast an invariant *)
-let invariant mdl (term : Term.t) = 
+let invariant mdl term = 
   
-  (* Serialize term to string *)
-  let term_string = Marshal.to_string term [Marshal.No_sharing] in
-
   try
     
     (* Send invariant message *)
-    Messaging.send 
-      (Messaging.InvariantMessage 
-         (Messaging.INVAR (term_string, 0)))
+    EventMessaging.send_relay_message (Invariant term)
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
+
+
+(* Broadcast a property status *)
+let prop_status mdl status prop = 
+  
+  try
+    
+    (* Send invariant message *)
+    EventMessaging.send_relay_message (PropStatus (prop, status))
+
+  (* Don't fail if not initialized *) 
+  with Messaging.NotInitialized -> ()
+
+
+(*
 
 
 (* Broadcast a disproved property *)
@@ -637,12 +765,11 @@ let disproved mdl k prop =
   try
 
     (* Send invariant message *)
-    Messaging.send 
-      (Messaging.InvariantMessage 
-         (Messaging.DISPROVED 
-            (prop, 
-             (match k with None -> -1 | Some k -> k), 
-             0)))
+    EventMessaging.send_relay_message
+      (match k with 
+        | None -> PropStatus (prop, PropFalse) 
+        | Some k -> PropStatus (prop, PropKFalse k))
+
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -657,20 +784,16 @@ let proved mdl k (prop, term) =
   try
 
     (* Send invariant message *)
-    Messaging.send 
-      (Messaging.InvariantMessage 
-         (Messaging.PROVED 
-            (prop, 
-             (match k with None -> -1 | Some k -> k), 
-             0)))
+    EventMessaging.send_relay_message (PropStatus (prop, PropInvariant))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
 
 (* Broadcast status of BMC *)
-let bmcstate k props =
+let bmcstate k props = ()
 
+(*
   try
 
     (* Send BMC status message *)
@@ -680,6 +803,9 @@ let bmcstate k props =
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
+*)
+
+*)
 
 
 (* Broadcast termination message *)
@@ -688,7 +814,7 @@ let terminate () =
   try
 
     (* Send termination message *)
-    Messaging.send (Messaging.ControlMessage Messaging.TERM);
+    EventMessaging.send_term_message ();
 
     minisleep 0.1
 
@@ -712,9 +838,12 @@ let recv () =
         (function 
 
           (* Terminate on TERM message *)
-          | _, Messaging.ControlMessage Messaging.TERM -> raise Terminate
+          | (_, EventMessaging.ControlMessage EventMessaging.Terminate) -> 
 
-          | mdl, Messaging.UserMessage (Messaging.Log (lvl, msg)) ->
+            raise Terminate
+
+          | mdl, 
+            EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
             (debug event 
                 "Received LOG message %s"
@@ -725,7 +854,7 @@ let recv () =
              
              accum)
 
-          | mdl, Messaging.UserMessage (Messaging.Stat stats) -> 
+          | mdl, EventMessaging.OutputMessage (EventMessaging.Stat stats) -> 
 
             stat 
               mdl 
@@ -734,51 +863,31 @@ let recv () =
 
             accum
 
-          | mdl, Messaging.UserMessage (Messaging.Progress k) -> 
+          | mdl, EventMessaging.OutputMessage (EventMessaging.Progress k) -> 
 
             progress mdl k;
 
             accum
 
           (* Drop control messages *)
-          | _, Messaging.ControlMessage _ 
-          | _, Messaging.InvariantMessage (Messaging.RESEND _) -> accum 
+          | _, EventMessaging.ControlMessage _ -> accum 
 
+         
           (* Pass BMC status messages *)
-          | _, Messaging.InductionMessage (Messaging.BMCSTATE (k, props)) -> 
+          | _, EventMessaging.RelayMessage (_, m) ->
 
-            BMCState (k, props) :: accum
-
-          (* Pass invariant messages as term without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.INVAR (f, _)) ->
-
-            (* Hashcons term *)
-            let t = Term.import (Marshal.from_string f 0 : Term.t) in 
-
-            Invariant (mdl, t) :: accum
-
-          (* Pass disproved messages as string without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.PROVED (p, k, _)) ->
-
-            Proved (mdl, (if k < 0 then None else Some k), p) :: accum
-
-          (* Pass disproved messages as string without serial number *)
-          | mdl, Messaging.InvariantMessage (Messaging.DISPROVED (p, k, _)) ->
-
-            Disproved (mdl, (if k < 0 then None else Some k), p) :: accum
+            m :: accum
 
         )
       )
       []
-      (List.rev (Messaging.recv ()))
+      (List.rev (EventMessaging.recv ()))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
 
 
-let handle_
-
-let exit t = Messaging.exit t
+let exit t = EventMessaging.exit t
 
 
 (* 

@@ -42,29 +42,25 @@ let ref_solver = ref None
 
 
 (* Output statistics *)
-let pp_print_stat ppf = 
+let print_stats () = 
 
-  Format.fprintf
-    ppf
-    "Statistics of %a module:@.@.%t@.%t@.%t"
-    pp_print_kind_module `BMC
-    Stat.pp_print_misc_stats
-    Stat.pp_print_bmc_stats
-    Stat.pp_print_smt_stats
-
-
-(* Clean up before exit *)
-let on_exit () =
-  (* Stop all timers *)
-  Stat.bmc_stop_timers ();
-  Stat.smt_stop_timers ();
-  (* Output statistics *)
   Event.stat 
     `BMC 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.bmc_stats_title, Stat.bmc_stats;
-     Stat.smt_stats_title, Stat.smt_stats];
- 
+     Stat.smt_stats_title, Stat.smt_stats]
+
+
+(* Clean up before exit *)
+let on_exit () =
+
+  (* Stop all timers *)
+  Stat.bmc_stop_timers ();
+  Stat.smt_stop_timers ();
+
+  (* Output statistics *)
+  print_stats ();
+
   (* Delete solver instance if created *)
   (try 
      match !ref_solver with 
@@ -182,13 +178,11 @@ let rec filter_invalid_properties solver ts k props =
   in
   
   List.iter 
-    (Event.disproved
-       `BMC
-       (Some (Numeral.to_int k)))
+    (Event.prop_status `BMC (PropKFalse (Numeral.to_int k)))
     (List.map fst disprovedProps);
-
+(*
   Event.bmcstate (Numeral.to_int k) (List.map fst disprovedProps);
-     
+*)   
   (* return the properties might hold at step k and continue to check
         for step k *)
   props'
@@ -216,7 +210,7 @@ let rec bmc solver ts k properties invariants =
          match message with
 
            (* Add invariant to a temparary list when it's received. *)
-           | (Event.Invariant (_, inv)) ->
+           | Event.Invariant inv ->
 
              S.assert_term 
                solver 
@@ -225,7 +219,7 @@ let rec bmc solver ts k properties invariants =
              (properties, inv::invariants)
 
            (* Add proved properties to transys props_valid *)
-           | (Event.Proved (_, _, p)) ->
+           | Event.PropStatus (p, PropInvariant) ->
              (debug bmc
                  "Proved property: %s" p
               in
@@ -244,8 +238,9 @@ let rec bmc solver ts k properties invariants =
 
              ((List.filter (fun x -> fst x <> p) properties), invariants)
              
-           (* Add disproved properties to transys props_invalid*)
-           | (Event.Disproved (_, _, p)) ->                
+           (* Add disproved properties to transys props_invalid *)
+           | Event.PropStatus (p, PropFalse)
+           | Event.PropStatus (p, PropKFalse _) ->
 
              (debug bmc
                  "Disproved: property: %s" p
@@ -309,7 +304,10 @@ let rec bmc solver ts k properties invariants =
      T(k, k + 1) then continue to check for (k + 1) step *)
   else 
 
-    (Event.bmcstate (Numeral.to_int k) [];
+    (
+(*
+      Event.bmcstate (Numeral.to_int k) [];
+*)
 
      S.pop solver;
 
@@ -356,139 +354,8 @@ let main trans_sys =
       
       (* Enter the bounded model checking loop begin with the initial state. *)
       bmc solver trans_sys Numeral.zero properties []
-  
-(*
-(* Test function *)
-let main () =
- 
-  (* Parse command-line flags *)
-  Flags.parse_argv ();
-  
-  (* At least one debug section enabled? *)
-  if not (Flags.debug () = []) then
-    
-    (
-      
-      (* Formatter to write debug output to *)
-      let debug_formatter = 
-        match Flags.debug_log () with 
-          (* Write to stdout by default *)
-          | None -> Format.std_formatter
-
-          (* Open channel to given file and create formatter on channel *)
-          | Some f ->
-            
-            let oc = 
-              try open_out f with
-                | Sys_error _ -> failwith "Could not open debug logfile"
-            in 
-            Format.formatter_of_out_channel oc
-      in
-      
-      (* Enable each requested debug section and write to formatter *)
-      List.iter 
-        (function s -> Debug.enable s debug_formatter)
-        (Flags.debug ());
-
-    );
-
-  (* Wallclock timeout? *)
-  if Flags.timeout_wall () > 0. then
-    
-    (
-
-      (* Install signal handler for SIGALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutWall));
-      
-      (* Set interval timer for wallclock timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_REAL 
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_wall () } 
-      in
-
-      ()
-
-    );
-
-  (* CPU timeout? *)
-  if Flags.timeout_virtual () > 0. then
-
-    (
-
-      (* Install signal handler for SIGVTALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigvtalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutVirtual));
-      
-      (* Set interval timer for CPU timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_VIRTUAL
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_virtual () } 
-      in
-
-      ()
-
-    );
-
-(*
-  let i = Term.mk_sym "__i" Type.Int in
-
-  let v1 = UfSymbol.mk_uf_symbol "v1" [Type.Int] Type.Int true in
-  (* 
-  let v2 = UfSymbol.mk_uf_symbol "v2" [Type.Int] Type.Int true in
-  let v3 = UfSymbol.mk_uf_symbol "v3" [Type.Int] Type.Int true in
-  *)
-
-  let v1_0 = Term.mk_uf v1 [Term.mk_pred i] in
-  let v1_1 = Term.mk_uf v1 [i] in
 
   
-  let z =
-  { 
-    TransSys.state_index = i;
-
-    TransSys.vars = [];
-
-    TransSys.init = 
-      [Term.mk_eq [v1_1; Term.mk_num_of_int 0]];
-
-    TransSys.constr =
-      [Term.mk_eq [v1_1; Term.mk_plus [v1_0; Term.mk_num_of_int 1]]];
-
-    TransSys.trans =
-      [];
-
-    TransSys.props =
-      [
-        ("p1", Term.mk_lt [v1_1; (Term.mk_num_of_int (10))])
-        ; ("p2", Term.mk_lt [v1_1; (Term.mk_num_of_int (15))])
-      ];
-  } in
-*)
-
-  
-  let z = OldParser.of_file (Flags.input_file ()) in
-  
-
-  (* Output the transition system *)
-  (debug bmc
-    "%a"
-    TransSys.pp_print_trans_sys
-    z
-   end);
-
-  kind_bmc z z.TransSys.props
-;;
-
-
-main ()
-*)
-
-
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -33,14 +33,9 @@ exception Terminate
 
 (** Events exposed to callers *)
 type event = 
-  | Invariant of Lib.kind_module * Term.t (** Module has discovered
-                                               an invariant *)
-  | Proved of Lib.kind_module * int option * string (** Module has proved a property *)
-  | Disproved of Lib.kind_module * int option * string (** Module has disproved a
-                                              property *)
-  | BMCState of int * (string list) (** BMC entered a new step where
-                                        the given properties are
-                                        valid *)
+  | Invariant of Term.t 
+  | PropStatus of string * Lib.prop_status
+
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
@@ -48,6 +43,10 @@ val pp_print_event : Format.formatter -> event -> unit
 (** Broadcast a discovered invariant *)
 val invariant : Lib.kind_module -> Term.t -> unit 
 
+(** Broadcast a property status *)
+val prop_status : Lib.kind_module -> Lib.prop_status -> string -> unit
+
+(*
 (** Broadcast a proved property *)
 val proved : Lib.kind_module -> int option -> (string * Term.t) -> unit 
 
@@ -56,6 +55,8 @@ val disproved : Lib.kind_module -> int option -> string -> unit
 
 (** Broadcast status of BMC *)
 val bmcstate : int -> string list -> unit
+*)
+
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -155,6 +156,8 @@ val log_proved : Lib.kind_module -> int option -> string -> unit
  
 (** Log a counterexample *)
 val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 
+
+
 
 (** Terminate log
 

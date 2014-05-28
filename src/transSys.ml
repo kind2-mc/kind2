@@ -19,24 +19,6 @@
 open Lib
 
 
-type prop_status =
-
-  (* Status of property is unknown *)
-  | Unknown
-
-  (* Property is true for at least k steps *)
-  | KTrue of int
-
-  (* Property is true in all reachable states *)
-  | Invariant 
-
-  (* Property is false at some step *)
-  | False
-
-  (* Property is false in the k-th step *)
-  | KFalse of int 
-
-
 type t = 
 
   {
@@ -62,12 +44,6 @@ type t =
     (* Status of property *)
     mutable prop_status : (string * prop_status) list;
 
-    (* Properties proved to be valid *)
-    mutable props_valid : (string * Term.t) list;
-
-    (* Properties proved to be invalid *)
-    mutable props_invalid : (string * Term.t) list;
-    
   }
 
 
@@ -105,6 +81,8 @@ let pp_print_prop ppf (prop_name, prop_term) =
     prop_name
     Term.pp_print_term prop_term
 
+let pp_print_prop_status ppf (p, s) =
+  Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status s
 
 let pp_print_trans_sys 
     ppf
@@ -112,10 +90,9 @@ let pp_print_trans_sys
       state_vars; 
       init; 
       trans; 
-      props; 
-      invars; 
-      props_valid; 
-      props_invalid }= 
+      props;
+      invars;
+      prop_status }= 
 
   Format.fprintf 
     ppf
@@ -125,16 +102,14 @@ let pp_print_trans_sys
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(props-valid@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(props-invalid@ (@[<v>%a@]))@]@."
+          @[<hv 2>(status@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_def "@ ") uf_defs
     Term.pp_print_term init 
     Term.pp_print_term trans
     (pp_print_list pp_print_prop "@ ") props
     (pp_print_list Term.pp_print_term "@ ") invars
-    (pp_print_list pp_print_prop "@ ") props_valid
-    (pp_print_list pp_print_prop "@ ") props_invalid
+    (pp_print_list pp_print_prop_status "@ ") prop_status
 
 
 (* Create a transition system *)
@@ -172,10 +147,8 @@ let mk_trans_sys uf_defs state_vars init trans props =
     init = init;
     trans = trans;
     props = props;
-    prop_status = List.map (fun (n, _) -> (n, Unknown)) props;
-    invars = invars_of_types;
-    props_valid = [];
-    props_invalid = [] }
+    prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props;
+    invars = invars_of_types }
 
 
 (* Determine the required logic for the SMT solver 
@@ -232,7 +205,7 @@ let trans_of_bound i t =
 let invars_of_bound i t = 
 
   (* Create conjunction of property terms *)
-  let invars_0 = Term.mk_and (t.invars @ (List.map snd t.props_valid)) in 
+  let invars_0 = Term.mk_and t.invars in 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
@@ -258,29 +231,13 @@ let props_list_of_bound i t =
   named_terms_list_of_bound i t.props
 
 
-(* Instantiate valid properties to the bound *)
-let props_valid_list_of_bound i t = 
-  named_terms_list_of_bound i t.props_valid
-
-
 (* Instantiate all properties to the bound *)
 let props_of_bound i t = 
   Term.mk_and (props_list_of_bound i t)
 
 
-(* Instantiate valid properties to the bound *)
-let props_valid_of_bound i t = 
-  Term.mk_and (props_valid_list_of_bound i t)
-
-
 (* Add an invariant to the transition system *)
 let add_invariant t invar = t.invars <- invar :: t.invars
-
-(* Add a valid property to the transition system *)
-let add_valid_prop t prop = t.props_valid <- prop :: t.props_valid
-
-(* Add an invalid property to the transition system *)
-let add_invalid_prop t prop = t.props_invalid <- prop :: t.props_invalid
 
 
 (* Mark property as invariant *)
@@ -294,13 +251,13 @@ let prop_invariant t prop =
 
          (* Mark property as invariant if it was unknown, k-true or
             invariant *)
-         | Unknown
-         | KTrue _
-         | Invariant -> (n, Invariant) 
+         | PropUnknown
+         | PropKTrue _
+         | PropInvariant -> (n, PropInvariant) 
 
          (* Fail if property was false or k-false *)
-         | False 
-         | KFalse _ -> raise (Invalid_argument "prop_invariant")) 
+         | PropFalse 
+         | PropKFalse _ -> raise (Invalid_argument "prop_invariant")) 
 
       t.prop_status
 
@@ -315,16 +272,16 @@ let prop_false t prop =
       (fun (n, s) -> match s with
 
          (* Mark property as false if it was unknown or l-true *)
-         | Unknown
-         | KTrue _ -> (n, False)
+         | PropUnknown
+         | PropKTrue _ -> (n, PropFalse)
 
          (* Fail if property was invariant *)
-         | Invariant ->
+         | PropInvariant ->
            raise (Invalid_argument "prop_false")
 
          (* Mark property as false if it was false or l-false *)
-         | False
-         | KFalse _ ->  (n, False))
+         | PropFalse
+         | PropKFalse _ ->  (n, PropFalse))
 
       t.prop_status
 
@@ -340,27 +297,27 @@ let prop_kfalse t k prop =
 
          (* Mark property as k-false if it was unknown, l-true for l <
             k or invariant *)
-         | Unknown -> (n, KFalse k)
+         | PropUnknown -> (n, PropKFalse k)
 
          (* Fail if property was invariant *)
-         | Invariant -> 
+         | PropInvariant -> 
            raise (Invalid_argument "prop_kfalse")
 
          (* Fail if property was l-true for l >= k *)
-         | KTrue l when l >= k -> 
+         | PropKTrue l when l >= k -> 
            raise (Invalid_argument "prop_kfalse")
 
          (* Mark property as k-false if it was l-true for l < k *)
-         | KTrue _ -> (n, KFalse k)
+         | PropKTrue _ -> (n, PropKFalse k)
 
          (* Keep if property was false *)
-         | False -> (n, s)
+         | PropFalse -> (n, s)
 
          (* Keep if property was l-false for l <= k *)
-         | KFalse l when l <= k -> (n, s)
+         | PropKFalse l when l <= k -> (n, s)
 
          (* Mark property as k-false *)
-         | KFalse _ -> (n, KFalse k))
+         | PropKFalse _ -> (n, PropKFalse k))
 
       t.prop_status
 
@@ -375,40 +332,108 @@ let prop_ktrue t k prop =
       (fun (n, s) -> match s with
 
          (* Mark as k-true if it was unknown *)
-         | Unknown -> (n, KTrue k)
+         | PropUnknown -> (n, PropKTrue k)
 
          (* Keep if it was l-true for l > k *)
-         | KTrue l when l > k -> (n, s)
+         | PropKTrue l when l > k -> (n, s)
 
          (* Mark as k-true if it was l-true for l <= k *)
-         | KTrue _ -> (n, KTrue k)
+         | PropKTrue _ -> (n, PropKTrue k)
 
          (* Keep if it was invariant *)
-         | Invariant -> (n, s)
+         | PropInvariant -> (n, s)
 
          (* Keep if it was false for unknown l *)
-         | False -> (n, False)
+         | PropFalse -> (n, PropFalse)
 
          (* Keep if property was l-false for l > k *)
-         | KFalse l when l > k -> (n, s)
+         | PropKFalse l when l > k -> (n, s)
 
          (* Fail if property was l-false for l <= k *)
-         | KFalse _ -> 
+         | PropKFalse _ -> 
            raise (Invalid_argument "prop_kfalse"))
 
       t.prop_status
 
 
+(* Update transition system from event list *)
+let update_from_events trans_sys events = 
 
+  (* Tail-recursive iteration *)
+  let rec update_from_events' trans_sys invars prop_status = function 
 
+    (* No more events, return new invariants and changed property status *)
+    | [] -> (invars, prop_status)
 
+    (* Invariant discovered *)
+    | Event.Invariant t :: tl -> 
+
+      (* Add invariant to transtion system *)
+      add_invariant trans_sys t;
+
+      (* Continue with invariant added to accumulator *)
+      update_from_events' trans_sys (t :: invars) prop_status tl
+
+    (* Property found unknown *)
+    | Event.PropStatus (p, PropUnknown) :: tl -> 
+
+      (* Continue without changes *)
+      update_from_events' trans_sys invars prop_status tl
+
+    (* Property found true for k steps *)
+    | Event.PropStatus (p, (PropKTrue k as s)) :: tl -> 
+
+      (* Change property status in transition system *)
+      prop_ktrue trans_sys k p;
+
+      (* Continue with propert status added to accumulator *)
+      update_from_events' trans_sys invars ((p, s) :: prop_status) tl
+
+    (* Property found invariant *)
+    | Event.PropStatus (p, (PropInvariant as s)) :: tl -> 
+
+      (* Change property status in transition system *)
+      prop_invariant trans_sys p;
+
+      (* Continue with propert status added to accumulator *)
+      update_from_events' trans_sys invars ((p, s) :: prop_status) tl
+
+    (* Property found false *)
+    | Event.PropStatus (p, (PropFalse as s)) :: tl -> 
+
+      (* Change property status in transition system *)
+      prop_false trans_sys p;
+
+      (* Continue with propert status added to accumulator *)
+      update_from_events' trans_sys invars ((p, s) :: prop_status) tl
+
+    (* Property found false after k steps *)
+    | Event.PropStatus (p, (PropKFalse k as s)) :: tl ->
+
+      (* Change property status in transition system *)
+      prop_kfalse trans_sys k p;
+
+      (* Continue with propert status added to accumulator *)
+      update_from_events' trans_sys invars ((p, s) :: prop_status) tl
+
+  in
+
+  update_from_events' trans_sys [] [] events
+
+    
 (* Return true if all properties are either valid or invalid *)
 let all_props_proved trans_sys =
 
   List.for_all
-    (fun p -> 
-      List.mem p trans_sys.props_valid 
-      || List.mem p trans_sys.props_invalid) 
+    (fun (p, _) -> 
+       try 
+         (match List.assoc p trans_sys.prop_status with
+           | PropUnknown
+           | PropKTrue _ -> false
+           | PropInvariant
+           | PropFalse 
+           | PropKFalse _ -> true)
+       with Not_found -> false)
     trans_sys.props 
       
 

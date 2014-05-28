@@ -739,6 +739,33 @@ let kind_module_of_string = function
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
+
+type prop_status =
+
+  (* Status of property is unknown *)
+  | PropUnknown
+
+  (* Property is true for at least k steps *)
+  | PropKTrue of int
+
+  (* Property is true in all reachable states *)
+  | PropInvariant 
+
+  (* Property is false at some step *)
+  | PropFalse
+
+  (* Property is false in the k-th step *)
+  | PropKFalse of int 
+
+
+let pp_print_prop_status ppf = function 
+  | PropUnknown -> Format.fprintf ppf "unknown"
+  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
+  | PropInvariant -> Format.fprintf ppf "invariant"
+  | PropFalse -> Format.fprintf ppf "false"
+  | PropKFalse k -> Format.fprintf ppf "false-at %d" k
+
+
 (* Timeouts *)
 exception TimeoutWall
 exception TimeoutVirtual
