@@ -89,7 +89,7 @@ let command_look cmd = List.assoc cmd configured_programs
 let head = Ocsigen_config.get_datadir ()
 let path = head ^ "/jobs/"
 
-let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><title>%s</title>" msg
+let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><title><para>%s</para></title>" msg
 
 (* ********************************************************************** *)
 (* ********************************************************************** *)
@@ -121,7 +121,6 @@ let submitjob_service =
 
 (* Registration of services *)
 let _ =
-  log "my path is %s" path;
   Eliom_registration.String.register
     ~service:submitjob_main_service
     (fun () () ->
@@ -152,14 +151,14 @@ let _ =
 	     Unix.waitpid [Unix.WNOHANG] job_info.job_pid
 	   in
 	   (* check if the job is still running *)
+	   let msg, new_job_info = 
+	     retrieve_job id job_info status_pid job_status in
+	   update_running_job id ( fun job_info -> new_job_info );
 	   if ( status_pid != 0 ) then
 	     (
 	       remove_running_job id;
 	       add_completed_job id (Unix.gmtime(Unix.time()))
 	     );
-	   let msg, new_job_info = 
-	     retrieve_job id job_info status_pid job_status in
-	   update_running_job id ( fun job_info -> new_job_info );
 	   msg
 	     
 	 )
@@ -169,10 +168,6 @@ let _ =
 	     let job_tm = 
 	       find_completed_job id
 	     in
-	     let log fmt =
-	       log
-		 ("Request retrieval of job %s: " ^^ fmt)
-		 id in
 	     retrieve_complete id job_tm
 	   )
 	 with Not_found ->
@@ -193,15 +188,15 @@ let _ =
 	       Unix.waitpid [Unix.WNOHANG] job_info.job_pid
 	     in
 	     log ("This status_pid is %d") status_pid;
+	     let msg , new_job_info = 
+	       cancel_job id job_info status_pid job_status
+	     in 
+	     update_running_job id ( fun job_info -> new_job_info );
 	     if ( status_pid != 0 ) then
 	     (
 	       remove_running_job id;
 	       add_completed_job id (Unix.gmtime(Unix.time()))
 	     );
-	     let msg , new_job_info = 
-	       cancel_job id job_info status_pid job_status
-	     in 
-	     update_running_job id ( fun job_info -> new_job_info );
 	     msg
 	   )
 	 with Not_found ->
@@ -210,14 +205,10 @@ let _ =
 	       let job_tm = 
 		 find_completed_job id
 	       in
-	       let log fmt =
-	       log
-		 ("Request cancelling of job %s: " ^^ fmt)
-		 id 
-	       in
 	       retrieve_complete id job_tm
 	     )
 	   with Not_found ->
 	     job_not_found_msg id in 
+       log ("The message is %s") (xmlwrapper msg);
        Lwt.return (xmlwrapper msg, "text/xml"));
 

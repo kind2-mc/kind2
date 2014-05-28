@@ -36,7 +36,7 @@ PORT := 80
 TEST_PORT := 8484
 
 # Root of installation (must end with /)
-PREFIX := /
+PREFIX := ${HOME}/
 
 # Local folder for make test.* (must end with /)
 TEST_PREFIX := local/

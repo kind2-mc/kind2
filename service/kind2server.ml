@@ -364,8 +364,6 @@ Job rejected due to high system load. Try again later.\
       let stdin_fn = (path ^ "kind_job_" ^ job_id ^ "_input") in
       let stdout_fn = (path ^ "kind_job_" ^ job_id ^ "_output") in
 
-(* TODO: copy/rename input file to stdin_fn *)
-
       (* Write data from client to stdin of new kind process *)
       Unix.link payload stdin_fn;
 
@@ -460,7 +458,6 @@ Job started with ID %s.\
 (* Return message after job has terminated, factored out from
    {!retrieve_job} and {!cancel_job} *)
 let output_of_job_status
-    log
     job_id
     ({ job_pid;
        job_stdin_fn;
@@ -468,15 +465,15 @@ let output_of_job_status
        job_stderr_fn;
        job_stdout_pos } as job_info)
     job_status =
-  
+
   (try ignore (Unix.waitpid [] job_pid) with _ -> ());
   
+  log ("old pos is %d") job_stdout_pos;
   (* Read from standard output file *)
   let new_stdout_pos, stdout_string = read_bytes job_stdout_pos job_stdout_fn in
-  
+  log ("new pos is %d") new_stdout_pos;
   (* Update position in file *)
   job_info.job_stdout_pos <- new_stdout_pos;
-
   let output_string =
 
     match job_status with
@@ -527,6 +524,7 @@ Contents of stderr:@\n\
         log "exited with code %d" code;
 	
         (* Message to client is from stdout *)
+	log ("stdout_string is %s") stdout_string;
         stdout_string
 	  
   in
@@ -535,7 +533,8 @@ Contents of stderr:@\n\
   (try (Sys.remove job_stdin_fn) with _ -> ());
   (try (Sys.remove job_stdout_fn) with _ -> ());
   (try (Sys.remove job_stderr_fn) with _ -> ());
-  
+  log ("output string is %s") output_string;
+
   output_string
 
    
@@ -571,7 +570,7 @@ let retrieve_job job_id job_param status_pid job_status=
       
   else
 	  
-    ((output_of_job_status log job_id job_param job_status) ,  job_param)
+    ((output_of_job_status job_id job_param job_status) ,  job_param)
             
 	
 let retrieve_complete job_id job_tm = 
@@ -646,7 +645,7 @@ Requested canceling of job with ID %s.\
 
         else
 	  (
-          ((output_of_job_status log job_id job_param job_status) , job_param)
+          ((output_of_job_status job_id job_param job_status) , job_param)
             
 	  )
 
