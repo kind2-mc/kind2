@@ -185,14 +185,14 @@ let vars_of_bounds trans_sys lbound ubound =
 
 
 (* Instantiate the initial state constraint to the bound *)
-let init_of_bound i t = 
+let init_of_bound t i = 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then t.init else Term.bump_state i t.init
 
 
 (* Instantiate the transition relation to the bound *)
-let trans_of_bound i t = 
+let trans_of_bound t i = 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = one) then 
@@ -202,7 +202,7 @@ let trans_of_bound i t =
 
 
 (* Instantiate the initial state constraint to the bound *)
-let invars_of_bound i t = 
+let invars_of_bound t i = 
 
   (* Create conjunction of property terms *)
   let invars_0 = Term.mk_and t.invars in 
@@ -212,28 +212,25 @@ let invars_of_bound i t =
 
 
 (* Instantiate terms in association list to the bound *)
-let named_terms_list_of_bound i l = 
-
-  (* Create list of property terms *)
-  let props_0 = List.map snd l in 
+let named_terms_list_of_bound l i = 
 
   (* Bump bound if greater than zero *)
   if
     Numeral.(i = zero)
   then
-    props_0
+    l
   else
-    List.map (Term.bump_state i) props_0
+    List.map (fun (n, t) -> (n, Term.bump_state i t)) l
 
 
 (* Instantiate all properties to the bound *)
-let props_list_of_bound i t = 
-  named_terms_list_of_bound i t.props
+let props_list_of_bound t i = 
+  named_terms_list_of_bound t.props i
 
 
 (* Instantiate all properties to the bound *)
-let props_of_bound i t = 
-  Term.mk_and (props_list_of_bound i t)
+let props_of_bound t i = 
+  Term.mk_and (List.map snd (props_list_of_bound t i))
 
 
 (* Add an invariant to the transition system *)

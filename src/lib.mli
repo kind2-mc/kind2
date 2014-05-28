@@ -170,6 +170,10 @@ type prop_status =
 (** Pretty-print a property status *)
 val pp_print_prop_status : Format.formatter -> prop_status -> unit
 
+(** Return true if the property is proved or disproved, i.e., for
+    {!PropInvariant}, {!PropFalse} and {!PropKFalse}.  *)
+val prop_status_known : prop_status -> bool
+
 (** Wallclock timeout *)
 exception TimeoutWall
 

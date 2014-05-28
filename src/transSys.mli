@@ -76,21 +76,21 @@ val state_vars : t -> StateVar.t list
 val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
 
 (** Instantiate the initial state constraint to the bound *)
-val init_of_bound : Numeral.t -> t -> Term.t
+val init_of_bound : t -> Numeral.t -> Term.t
 
 (** Instantiate the transition relation constraint to the bound 
 
     The bound given is the bound of the state after the transition *)
-val trans_of_bound : Numeral.t -> t -> Term.t
+val trans_of_bound : t -> Numeral.t -> Term.t
 
 (** Instantiate all properties to the bound *)
-val props_of_bound : Numeral.t -> t -> Term.t
+val props_of_bound : t -> Numeral.t -> Term.t
 
 (** Instantiate all properties to the bound *)
-val props_list_of_bound : Numeral.t -> t -> Term.t list 
+val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
 (** Instantiate invariants and valid properties to the bound *)
-val invars_of_bound : Numeral.t -> t -> Term.t
+val invars_of_bound : t -> Numeral.t -> Term.t
 
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
@@ -98,11 +98,8 @@ val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
 
-
-val prop_invariant : t -> string -> unit
-
-
-(** Update transition system from events and return new invariants and properties with changed status *)
+(** Update transition system from events and return new invariants and
+    properties with changed status *)
 val update_from_events : t -> Event.event list -> Term.t list * (string * Lib.prop_status) list
 
 (** Return true if all properties are either valid or invalid *)

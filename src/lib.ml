@@ -766,6 +766,20 @@ let pp_print_prop_status ppf = function
   | PropKFalse k -> Format.fprintf ppf "false-at %d" k
 
 
+(* Property status is known? *)
+let prop_status_known = function 
+
+  (* Property may become invariant or false *)
+  | PropUnknown
+  | PropKTrue _ -> false
+
+  (* Property is invariant or false *)
+  | PropInvariant
+  | PropFalse
+  | PropKFalse _ -> true
+
+
+
 (* Timeouts *)
 exception TimeoutWall
 exception TimeoutVirtual

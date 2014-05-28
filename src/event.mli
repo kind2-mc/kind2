@@ -29,61 +29,6 @@
 
 exception Terminate
 
-(** {1 Events} *)
-
-(** Events exposed to callers *)
-type event = 
-  | Invariant of Term.t 
-  | PropStatus of string * Lib.prop_status
-
-
-(** Pretty-print an event *)
-val pp_print_event : Format.formatter -> event -> unit
-
-(** Broadcast a discovered invariant *)
-val invariant : Lib.kind_module -> Term.t -> unit 
-
-(** Broadcast a property status *)
-val prop_status : Lib.kind_module -> Lib.prop_status -> string -> unit
-
-(*
-(** Broadcast a proved property *)
-val proved : Lib.kind_module -> int option -> (string * Term.t) -> unit 
-
-(** Broadcast a disproved property *)
-val disproved : Lib.kind_module -> int option -> string -> unit 
-
-(** Broadcast status of BMC *)
-val bmcstate : int -> string list -> unit
-*)
-
-
-(** Broadcast a termination message *)
-val terminate : unit -> unit 
-
-(** Receive all queued events *)
-val recv : unit -> event list 
-
-(** {1 Messaging} *)
-
-(** Setup of the messaging system *)
-type messaging_setup
-
-(** Background thread of the messaging system *)
-type mthread
-
-(** Create contexts and bind ports for all processes *)
-val setup : unit -> messaging_setup
-
-(** Start messaging for the invariant manager *)
-val run_im : messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
-
-(** Start messaging for another process *)
-val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
-
-(** Send all queued messages and exit the background thread *)
-val exit : mthread -> unit
-
 (** {1 Logging} *)
 
 (** Levels of log messages
@@ -123,7 +68,6 @@ val log_to_stdout : unit -> unit
     Only output messages of levels with equal or higher priority *)
 val set_log_level : log_level -> unit 
 
-
 (** Return true if given log level is of higher or equal priority than
     current log level? *)
 val output_on_level : log_level -> bool
@@ -137,33 +81,82 @@ val set_log_format_xml : unit -> unit
 (** Relay log messages to invariant manager *)
 val set_relay_log : unit -> unit
 
-(** [log m l f v ...] logs a message from module [m] on level [l],
-    formatted with the parameterized string [f] and the values [v
-    ...] *)
-val log : Lib.kind_module -> log_level -> ('a, Format.formatter, unit) format -> 'a
+(** Log a disproved property
 
-(** Log the statistics of the module *)
-val stat : Lib.kind_module -> (string * Stat.stat_item list) list -> unit
-
-(** Log the progress of the module *)
-val progress : Lib.kind_module -> int -> unit
-
-(** Log a disproved property *)
+    Should only be used by the invariant manager, other modules must use
+    {!prop_status} *)
 val log_disproved : Lib.kind_module -> int option -> string -> unit 
 
-(** Log a proved property *)
+(** Log a proved property
+
+    Should only be used by the invariant manager, other modules must use
+    {!prop_status} *)
 val log_proved : Lib.kind_module -> int option -> string -> unit
  
 (** Log a counterexample *)
 val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 
-
-
 
 (** Terminate log
 
     Output closing tags for XML output. *)
 val terminate_log : unit -> unit 
 
+
+(** {1 Events} *)
+
+(** Events exposed to callers *)
+type event = 
+  | Invariant of Term.t 
+  | PropStatus of string * Lib.prop_status
+
+(** Pretty-print an event *)
+val pp_print_event : Format.formatter -> event -> unit
+
+(** [log m l f v ...] outputs a message from module [m] on level [l],
+    formatted with the parameterized string [f] and the values [v
+    ...] *)
+val log : Lib.kind_module -> log_level -> ('a, Format.formatter, unit) format -> 'a
+
+(** Output the statistics of the module *)
+val stat : Lib.kind_module -> (string * Stat.stat_item list) list -> unit
+
+(** Output the progress of the module *)
+val progress : Lib.kind_module -> int -> unit
+
+(** Broadcast a discovered invariant *)
+val invariant : Lib.kind_module -> Term.t -> unit 
+
+(** Broadcast a property status *)
+val prop_status : Lib.kind_module -> Lib.prop_status -> string -> unit
+
+(** Broadcast a counterexample to some properties *)
+val counterexample : Lib.kind_module -> string list -> (StateVar.t * Term.t list) list -> unit
+
+(** Broadcast a termination message *)
+val terminate : unit -> unit 
+
+(** Receive all queued events *)
+val recv : unit -> event list 
+
+(** {1 Messaging} *)
+
+(** Setup of the messaging system *)
+type messaging_setup
+
+(** Background thread of the messaging system *)
+type mthread
+
+(** Create contexts and bind ports for all processes *)
+val setup : unit -> messaging_setup
+
+(** Start messaging for the invariant manager *)
+val run_im : messaging_setup -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+
+(** Start messaging for another process *)
+val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
+
+(** Send all queued messages and exit the background thread *)
+val exit : mthread -> unit
 
 (* 
    Local Variables:

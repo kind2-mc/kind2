@@ -102,11 +102,13 @@ let pp_print_event ppf = function
     Format.fprintf ppf "@[<hv>Property %s false at step %d@]" p k
 
 
+(* Module as input to Messaging.Make functor *)
 module EventMessage = 
 struct
 
   type t = event 
 
+  (* Convert strings to a message *)
   let message_of_strings pop = match pop () with 
 
     | "INVAR" ->  
@@ -157,6 +159,8 @@ struct
 
     | _ -> raise Messaging.BadMessage
 
+
+  (* Convert a message to strings *)
   let strings_of_message = function 
 
     | Invariant t -> 
@@ -186,11 +190,12 @@ struct
 
       [string_of_int k; p; "PROP_KFALSE"]
 
+  (* Pretty-print a message *)
   let pp_print_message = pp_print_event
 
 end
 
-
+(* Instantiate messaging system with event messages *)
 module EventMessaging = Messaging.Make (EventMessage)
 
 
@@ -753,6 +758,8 @@ let prop_status mdl status prop =
   with Messaging.NotInitialized -> ()
 
 
+let counterexample _ _ _ = ()
+
 (*
 
 
@@ -842,6 +849,10 @@ let recv () =
 
             raise Terminate
 
+          (* Drop other control messages *)
+          | _, EventMessaging.ControlMessage _ -> accum 
+
+          (* Output log message *)
           | mdl, 
             EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
@@ -854,6 +865,7 @@ let recv () =
              
              accum)
 
+          (* Output statistics *)
           | mdl, EventMessaging.OutputMessage (EventMessaging.Stat stats) -> 
 
             stat 
@@ -863,19 +875,16 @@ let recv () =
 
             accum
 
+          (* Output progress *)
           | mdl, EventMessaging.OutputMessage (EventMessaging.Progress k) -> 
 
             progress mdl k;
 
             accum
 
-          (* Drop control messages *)
-          | _, EventMessaging.ControlMessage _ -> accum 
-
-         
-          (* Pass BMC status messages *)
+          (* Return event message *)
           | _, EventMessaging.RelayMessage (_, m) ->
-
+            
             m :: accum
 
         )
