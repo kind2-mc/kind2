@@ -209,6 +209,5 @@ let _ =
 	     )
 	   with Not_found ->
 	     job_not_found_msg id in 
-       log ("The message is %s") (xmlwrapper msg);
        Lwt.return (xmlwrapper msg, "text/xml"));
 

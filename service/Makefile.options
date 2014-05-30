@@ -26,17 +26,17 @@ PERSISTENT_DATA_BACKEND = dbm
 DEBUG := yes
 
 # User to run server with (make run.*)
-WWWUSER := www-data
-WWWGROUP := www-data
+WWWUSER := mma1
+WWWGROUP := students
 
 # Port for running the server (make run.*)
-PORT := 80
+PORT := 8484
 
 # Port for testing (make test.*)
 TEST_PORT := 8484
 
 # Root of installation (must end with /)
-PREFIX := ${HOME}/
+PREFIX := ${HOME}/${PROJECT_NAME}/
 
 # Local folder for make test.* (must end with /)
 TEST_PREFIX := local/
