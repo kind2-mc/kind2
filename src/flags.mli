@@ -55,6 +55,10 @@ val mathsat5_bin : unit -> mathsat5_bin
 type enable = Lib.kind_module list
 val enable : unit -> enable 
 
+(** Maximal number of iterations in BMC *)
+type bmc_max = int
+val bmc_max : unit -> bmc_max
+
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val pdr_qe : unit -> pdr_qe

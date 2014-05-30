@@ -266,6 +266,12 @@ let enable_default_after = [`PDR; `BMC]
 
 (* ********** *) 
 
+type bmc_max = int
+    
+let bmc_max_default = 0
+
+(* ********** *) 
+
 type pdr_check_inductive = bool
     
 let string_of_pdr_check_inductive = string_of_bool
@@ -459,6 +465,7 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
       mutable enable : enable;
+      mutable bmc_max : bmc_max;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
       mutable pdr_check_inductive : pdr_check_inductive;
@@ -492,6 +499,7 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     enable = enable_default_init;
+    bmc_max = bmc_max_default;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
@@ -586,6 +594,15 @@ let enable_spec =
   ("--enable", 
    Arg.String enable_action, 
    Format.sprintf "enable Kind module (available: %s, default: %s)" enable_values (string_of_enable enable_default_after))
+
+(* ********** *) 
+
+let bmc_max_action o = flags.bmc_max <- o
+  
+let bmc_max_spec = 
+  ("--bmc_max", 
+   Arg.Int bmc_max_action, 
+   Format.sprintf "(BMC) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
 
 (* ********** *) 
 
@@ -830,6 +847,8 @@ let mathsat5_bin () = flags.mathsat5_bin
 
 let enable () = flags.enable 
 
+let bmc_max () = flags.bmc_max 
+
 let pdr_qe () = flags.pdr_qe 
 
 let pdr_extract () = flags.pdr_extract 
@@ -914,6 +933,9 @@ and speclist =
 
     (* Set enabled modules *)
     enable_spec;
+
+    (* Maximal number of iterations in BMC *)
+    bmc_max_spec;
 
     (* Set QE in PDR *)
     pdr_qe_spec;

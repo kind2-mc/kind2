@@ -392,6 +392,8 @@ let update_from_events trans_sys events =
       (* Change property status in transition system *)
       prop_invariant trans_sys p;
 
+      (* TODO: add property to invariants *)
+      
       (* Continue with propert status added to accumulator *)
       update_from_events' trans_sys invars ((p, s) :: prop_status) tl
 

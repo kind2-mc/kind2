@@ -70,7 +70,6 @@ let on_exit () =
          (Printexc.to_string e))
 
 
-
 (* Assert term for instants 0..k *)
 let assert_upto_k solver k term = 
   Term.bump_and_apply_k 
@@ -79,14 +78,25 @@ let assert_upto_k solver k term =
     term
 
 
-let rec bmc_step_loop solver trans_sys k props_kfalse properties = 
+(* Add falsified properties to props_kfalse until the remaining
+   properties are true, or there are no more properties left. 
 
-  (* Assert negated properties ~P[x_k] *)
-  List.iter
-    (fun (_, p) -> 
-       let p_k = Term.bump_state k p in
-       S.assert_term solver (Term.mk_not p_k))
-    properties;
+   Assuptions: 
+   - The path constraint, and the invariants have been asserted.
+   - There is a fresh scope level on the context
+
+   Assert negated conjunction of the properties on the current scope
+   level. It is not necessary to remove the conjunction from previous
+   queries, since it will be subsumed by the current query.
+
+   If [return_cex] is true, return the path that invalidates
+   properties, otherwise return an empty path.
+*)
+let rec bmc_step_loop return_cex solver trans_sys k props_kfalse properties = 
+
+  (* Assert negated properties ~(P_1[x_k] & ... & P_n[x_k]) *)
+  S.assert_term solver
+    (Term.bump_state k (Term.negate (Term.mk_and (List.map snd properties))));
 
   (* Are all properties entailed? *)
   if S.check_sat solver then 
@@ -119,8 +129,18 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
 
       in
       
-      (* Get counterexample from model *)
-      let cex = TransSys.path_from_model trans_sys (S.get_model solver) k in
+      (* Return a counterexample for invalid properties? *)
+      let cex = if return_cex then
+          
+          (* Get counterexample from model *)
+          TransSys.path_from_model trans_sys (S.get_model solver) k 
+      
+        else
+          
+          (* Return dummy counterexample *)
+          []
+
+      in
 
       (* Properties falsified with counterexample *)
       let props_kfalse'' = (cex, props_kfalse') :: props_kfalse in
@@ -141,7 +161,7 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
       else
         
         (* Continue with properties that may be true *)
-        bmc_step_loop solver trans_sys k props_kfalse'' props_unknown
+        bmc_step_loop return_cex solver trans_sys k props_kfalse'' props_unknown
 
     )
 
@@ -156,8 +176,17 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
       (properties, props_kfalse))
     
 
+(* Check which properties are true in k steps 
 
-let bmc_step solver trans_sys k properties = 
+   If [check_ts_props] is true, check in received messages whether
+   another process has proved or disproved a named property, and remove
+   it. Otherwise, discard messages from other processes about
+   properties.
+
+   This function does not have side effects such as sending messages,
+   thus can safely be called to check properties not in the transition
+   system. *)
+let bmc_step check_ts_props solver trans_sys k properties = 
 
   let k_minus_one = Numeral.pred k in
 
@@ -174,25 +203,31 @@ let bmc_step solver trans_sys k properties =
   (* Assert received invariants up to k-1 *)
   List.iter (assert_upto_k solver k_minus_one) invariants_recvd;
 
-  (* Filter out proved or disproved properties by other modules 
+  (* Checking properties of the transition system? *)
+  let properties' = if check_ts_props then
 
-     TODO: skip this step when running for invariant generation *)
-  let properties' = 
-    List.filter
-      (fun (p, _) -> 
-         if 
-           (List.exists 
-              (fun (q, s) -> q = p && prop_status_known s)
-              prop_status)
-         then
-           (debug bmc 
-               "Property %s proved or disproved by other module"
-               p
-            in
-            false)
-         else
-           true)
+      (* Filter out proved or disproved properties by other modules *)
+      List.filter
+        (fun (p, _) -> 
+           if 
+             (List.exists 
+                (fun (q, s) -> q = p && prop_status_known s)
+                prop_status)
+           then
+             (debug bmc 
+                 "Property %s proved or disproved by other module"
+                 p
+              in
+              false)
+           else
+             true)
+        properties
+
+    else
+
+      (* Do not remove properties *)
       properties
+
   in
 
   (* Do not assert T[-1,0] *)
@@ -212,18 +247,31 @@ let bmc_step solver trans_sys k properties =
   S.push solver;
 
   (* Check which properties are true in step k *)
-  bmc_step_loop solver trans_sys k [] properties'
+  bmc_step_loop check_ts_props solver trans_sys k [] properties'
 
 
-(* *)
+(* Bounded model checking on the properties of the transition
+   system 
+
+   Check which properties are falsified at bound k, send messages
+   about disproved properties and k-valid properties. Then continue
+   for bound k+1 until all properties have been proved (per messages
+   from other processes) or disproved (per messages from other
+   processes or BMC)), or until a maximum bound has been reached. *)
 let rec bmc solver trans_sys k = function 
 
+  (* Exit when maximal number of iterations reached *) 
+  | _ when (Numeral.to_int k) > Flags.bmc_max () -> ()
+
+  (* Exit when all properties proved or disproved *) 
   | [] -> ()
 
   | properties -> 
 
+    (* Output current step*)
     Event.log `BMC Event.L_info "BMC loop at k=%d" (Numeral.to_int k);
 
+    (* *)
     Event.progress `BMC (Numeral.to_int k);
 
     Stat.set (Numeral.to_int k) Stat.bmc_k;
@@ -232,7 +280,7 @@ let rec bmc solver trans_sys k = function
 
     (* Check which properties are true after k steps *)
     let props_ktrue, props_kfalse = 
-      bmc_step solver trans_sys k properties
+      bmc_step true solver trans_sys k properties
     in
     
     (* Broadcast status of properties true in k steps *)
@@ -259,10 +307,6 @@ let rec bmc solver trans_sys k = function
     
     (* Continue with properties not falsified in k steps *)
     bmc solver trans_sys (Numeral.succ k) props_ktrue
-
-
-
-  
 
 
 (* Entry point *)

@@ -758,6 +758,7 @@ let prop_status mdl status prop =
   with Messaging.NotInitialized -> ()
 
 
+(* TODO: message for counterexample, inductive counterexample *)
 let counterexample _ _ _ = ()
 
 (*
