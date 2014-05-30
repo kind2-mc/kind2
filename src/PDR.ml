@@ -661,73 +661,6 @@ let rec assert_block_clauses solver trans_sys i = function
     assert_block_clauses solver trans_sys (Numeral.succ i) tl
 
 
-(* Given two ordered association lists with identical keys, push the
-   values of each element of the first association list to the list of
-   elements of the second association list. 
-
-   The returned association list is in the order of the input lists,
-   the function [equal] is used to compare keys. *)
-let list_join equal l1 l2 = 
-
-  let rec list_join' equal accum l1 l2 = match l1, l2 with
-    
-    (* Both lists consumed, return in original order *)
-    | [], [] -> List.rev accum 
-                  
-    (* Keys of head elements in both lists equal *)
-    | (((k1, v1) :: tl1), ((k2, v2) :: tl2)) when equal k1 k2 -> 
-      
-      (* Add to accumulator and continue *)
-      list_join' equal ((k1, (v1 :: v2)) :: accum) tl1 tl2
-        
-    (* Keys of head elements different, or one of the lists is empty *)
-    | _ -> invalid_arg "list_join"
-             
-  in
-
-  (* Call recursive function with initial accumulator *)
-  list_join' equal [] l1 l2
-
-
-(* Extract a path from the solver instance, return an association list
-   of state variables to a list of their values *)
-let rec path_from_solver solver accum state_vars = function 
-
-  (* Terminate after the base instant *)
-  | i when Numeral.(i < zero) -> accum
-
-  | i -> 
-
-    (* Get a model for the variables at instant [i] *)
-    let model =
-      S.get_model
-        solver
-        (List.map (fun sv -> Var.mk_state_var_instance sv i) state_vars)
-    in
-  
-    (* Turn variable instances to state variables and sort list *)
-    let model' =
-      List.sort
-        (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
-        (List.map
-           (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
-           model)
-    in
-
-    (* Join values of model at current instant to result *)
-    let accum' = 
-      list_join
-        StateVar.equal_state_vars
-        model'
-        accum
-    in
-      
-    (* Recurse for remaining instants  *)
-    path_from_solver
-      solver
-      accum'
-      state_vars
-      (Numeral.pred i)
 
 (* Extract a concrete counterexample from a trace of blocking clauses *)
 let extract_cex_path
@@ -753,12 +686,9 @@ let extract_cex_path
 
     (* Extract concrete values from model *)
     let res = 
-      path_from_solver 
-        solver_misc
-        (List.sort
-           (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
-           (List.map (fun sv -> (sv, [])) (TransSys.state_vars trans_sys)))
-        (TransSys.state_vars trans_sys)
+      TransSys.path_from_model 
+        (S.get_model solver_misc)
+        trans_sys
         k_plus_one
     in
 

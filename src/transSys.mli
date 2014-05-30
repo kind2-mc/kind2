@@ -31,25 +31,28 @@ type t = private
 
   {
 
-    (* Definitions of uninterpreted function symbols *)
+    (** Definitions of uninterpreted function symbols *)
     uf_defs : (UfSymbol.t * (Var.t list * Term.t)) list;
 
-    (* State variables of top node *)
+    (** State variables of top node 
+
+       The list of state variables is sorted with regard to
+       {!StateVar.compare_state_var} *)
     state_vars : StateVar.t list;
 
-    (* Initial state constraint *)
+    (** Initial state constraint *)
     init : Term.t;
 
-    (* Transition relation *)
+    (** Transition relation *)
     trans : Term.t;
 
-    (* Propertes to prove invariant *)
+    (** Propertes to prove invariant *)
     props : (string * Term.t) list; 
 
-    (* Invariants *)
+    (** Invariants *)
     mutable invars : Term.t list;
 
-    (* Status of property *)
+    (** Status of property *)
     mutable prop_status : (string * Lib.prop_status) list;
 
   }
@@ -112,6 +115,14 @@ val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit
 (** Apply [f] to all function definitions of the transition system *)
 val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit
 
+
+(** Extract a path in the transition system, return an association
+    list of state variables to a list of their values.
+
+    The second argument is a function returning assignments to the
+    variables, see {!SolverMethods.S.get_model}. The path is extracted
+    from instant zero up to instant [k], which is the third argument. *)
+val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
 
 (*
 (* The transition system *)

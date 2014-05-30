@@ -105,6 +105,16 @@ val list_diff_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> 'a list
     in the second list *)
 val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
 
+(** Given two ordered association lists with identical keys, push the
+    values of each element of the first association list to the list of
+    elements of the second association list.
+
+    The returned association list is in the order of the input lists,
+    the function [equal] is used to compare keys. Raise [Failure
+    "list_join"] if the lists are not of identical length and the keys
+    at each element are equal. *)
+val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
+
 (** Lexicographic comparison of lists *)
 val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
 

@@ -18,8 +18,7 @@
 
 (** Bounded model checking
 
-   @author Ruoyu Zhang
-
+    @author Christoph Sticksel, Paul Meng
 *)
 
 (** Bounded model checking for properties on the transistion system *)

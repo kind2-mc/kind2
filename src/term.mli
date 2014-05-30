@@ -388,6 +388,9 @@ val nums_to_pos_nums : t -> t
     Negative values are allowed *)
 val bump_state : Numeral.t -> t -> t
 
+(** Apply function to term for instants 0..k *)
+val bump_and_apply_k : (t -> unit) -> Numeral.t -> t -> unit
+
 (** Return the state variables occurring in the term *)
 val state_vars_of_term : t -> StateVar.StateVarSet.t
 

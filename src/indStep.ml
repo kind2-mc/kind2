@@ -70,23 +70,13 @@ let on_exit () =
          (Printexc.to_string e))
 
 
+
 (* Assert term for instants 0..k *)
-let rec assert_upto_k solver k term =
-
-  (* Terminate when when at the base instant *)
-  if Numeral.(k < zero) then () else 
-
-    (
-
-      (* Assert T[x_k-1,x_k] *)
-      S.assert_term 
-        solver
-        (Term.bump_state k term);
-      
-      (* Recurse for instants 0..k-1 *)
-      assert_upto_k solver (Numeral.pred k) term
-
-    )
+let assert_upto_k solver k term = 
+  Term.bump_and_apply_k 
+    (S.assert_term solver)
+    k
+    term
 
 
 (* Give a solver with a satisfiable context, return a pair of lists *)
@@ -306,20 +296,10 @@ let ind_step
     solver
     (TransSys.trans_of_bound k_plus_one trans_sys);
 
-  (* Assert invariants C[x_k] *)
-  S.assert_term
-    solver
-    (TransSys.invars_of_bound k trans_sys);
-
   (* Assert invariants C[x_k+1] *)
   S.assert_term
     solver
     (TransSys.invars_of_bound k_plus_one trans_sys);
-
-  (* Assert valid properties P_v[x_k] *)
-  S.assert_term
-    solver
-    (TransSys.props_valid_of_bound k trans_sys);
 
   (* Assert valid properties P_v[x_k+1] *)
   S.assert_term

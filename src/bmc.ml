@@ -16,11 +16,6 @@
 
 *)
 
-(** The bounded model checking
-
-    @author Paul Meng
-*)
-
 open Lib
 
 
@@ -75,33 +70,149 @@ let on_exit () =
          (Printexc.to_string e))
 
 
-let bmc_step_loop solver_trans_sys k properties = ()
+
+(* Assert term for instants 0..k *)
+let assert_upto_k solver k term = 
+  Term.bump_and_apply_k 
+    (S.assert_term solver)
+    k
+    term
+
+
+let rec bmc_step_loop solver trans_sys k props_kfalse properties = 
+
+  (* Assert negated properties ~P[x_k] *)
+  List.iter
+    (fun (_, p) -> 
+       let p_k = Term.bump_state k p in
+       S.assert_term solver (Term.mk_not p_k))
+    properties;
+
+  (* Are all properties entailed? *)
+  if S.check_sat solver then 
+
+    (
+
+      (* Definitions of predicates *)
+      let uf_defs = trans_sys.TransSys.uf_defs in
+
+      (* Which properties are false in k steps? *)
+      let props_unknown, props_kfalse' = 
+
+        List.partition
+
+          (fun (_, p) -> 
+
+             (* Property at step k *)
+             let p_k = Term.bump_state k p in
+
+             (* Variables in property at step k *)
+             let p_k_vars = Var.VarSet.elements (Term.vars_of_term p_k) in
+
+             (* Model for variables of property at step k *)
+             let p_k_model = S.get_model solver p_k_vars in
+             
+             (* Distinguish properties by truth value at step k *)
+             Eval.bool_of_value (Eval.eval_term uf_defs p_k_model p_k))
+
+          properties
+
+      in
+      
+      (* Get counterexample from model *)
+      let cex = TransSys.path_from_model trans_sys (S.get_model solver) k in
+
+      (* Properties falsified with counterexample *)
+      let props_kfalse'' = (cex, props_kfalse') :: props_kfalse in
+
+      (* All properties falsified? *)
+      if props_unknown = [] then 
+
+        (
+
+          (* Remove negated properties after check *)
+          S.pop solver;
+
+          (* All remaining properties are false in k steps *)
+          (properties, props_kfalse'')
+
+        )
+
+      else
+        
+        (* Continue with properties that may be true *)
+        bmc_step_loop solver trans_sys k props_kfalse'' props_unknown
+
+    )
+
+  else
+
+    (
+
+      (* Remove negated properties after check *)
+      S.pop solver;
+
+      (* All remaining properties are true in k steps *)
+      (properties, props_kfalse))
+    
 
 
 let bmc_step solver trans_sys k properties = 
 
+  let k_minus_one = Numeral.pred k in
+
+  (* Receive queued messages 
+
+     Side effect: Terminate when ControlMessage TERM is received.*)
+  let messages = Event.recv () in
+
+  (* Update transition system from messages *)
+  let invariants_recvd, prop_status = 
+    TransSys.update_from_events trans_sys messages 
+  in
+
+  (* Assert received invariants up to k-1 *)
+  List.iter (assert_upto_k solver k_minus_one) invariants_recvd;
+
+  (* Filter out proved or disproved properties by other modules 
+
+     TODO: skip this step when running for invariant generation *)
+  let properties' = 
+    List.filter
+      (fun (p, _) -> 
+         if 
+           (List.exists 
+              (fun (q, s) -> q = p && prop_status_known s)
+              prop_status)
+         then
+           (debug bmc 
+               "Property %s proved or disproved by other module"
+               p
+            in
+            false)
+         else
+           true)
+      properties
+  in
+
   (* Do not assert T[-1,0] *)
   if Numeral.(k > zero) then
-
-    (
 
       (* Assert transition system T[x_k-1,x_k] *)
       S.assert_term
         solver
-        (TransSys.trans_of_bound k trans_sys);
+        (TransSys.trans_of_bound trans_sys k);
 
   (* Assert invariants C[x_k] *)
   S.assert_term
     solver
-    (TransSys.invars_of_bound k trans_sys);
+    (TransSys.invars_of_bound trans_sys k);
 
-  (* Assert invariants C[x_k+1] *)
-  S.assert_term
-    solver
-    (TransSys.invars_of_bound k_plus_one trans_sys);
+  (* Push context before check *)
+  S.push solver;
 
-
-  
+  (* Check which properties are true in step k *)
+  bmc_step_loop solver trans_sys k [] properties'
 
 
 (* *)
@@ -121,7 +232,7 @@ let rec bmc solver trans_sys k = function
 
     (* Check which properties are true after k steps *)
     let props_ktrue, props_kfalse = 
-      bmc_step solver trans_sys properties k
+      bmc_step solver trans_sys k properties
     in
     
     (* Broadcast status of properties true in k steps *)
@@ -132,8 +243,18 @@ let rec bmc solver trans_sys k = function
 
     (* Broadcast status of properties falsified in k steps *)
     List.iter
-      (fun (n, _) -> 
-         Event.prop_status `BMC (PropKFalse (Numeral.to_int k)) n)
+
+      (fun (c, p) -> 
+
+         (* Each property is false by itself *)
+         List.iter 
+           (fun (n, _) -> 
+              Event.prop_status `BMC (PropKFalse (Numeral.to_int k)) n)
+           p;
+
+         (* Properties are falsified with the same counterexample *)
+         Event.counterexample `BMC (List.map fst p) c)
+
       props_kfalse;
     
     (* Continue with properties not falsified in k steps *)
@@ -142,7 +263,6 @@ let rec bmc solver trans_sys k = function
 
 
   
-
 
 
 (* Entry point *)
@@ -172,7 +292,7 @@ let main trans_sys =
     (S.define_fun solver);
 
   (* Provide the initial case *)
-  S.assert_term solver (TransSys.init_of_bound Numeral.zero trans_sys);
+  S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
   
   (* Enter the bounded model checking loop begin with the initial state. *)
   bmc 
@@ -183,6 +303,7 @@ let main trans_sys =
 
 
 
+(*
 
 
 
@@ -446,12 +567,18 @@ let main trans_sys =
         trans_sys
         (S.define_fun solver);
 
-      (* Provide the initial case *)
+      (* Asset initial state I[x_0] *)
       S.assert_term solver (TransSys.init_of_bound Numeral.zero trans_sys);
       
+      (* Assert invariants C[x_0] *)
+      S.assert_term
+        solver
+        (TransSys.invars_of_bound Numeral.zero trans_sys);
+
       (* Enter the bounded model checking loop begin with the initial state. *)
       bmc solver trans_sys Numeral.zero properties []
 
+*)
   
 (* 
    Local Variables:

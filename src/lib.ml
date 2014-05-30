@@ -293,6 +293,35 @@ let rec compare_lists f l1 l2 =
         if c = 0 then compare_lists f tl1 tl2 else c
 
 
+(* Given two ordered association lists with identical keys, push the
+   values of each element of the first association list to the list of
+   elements of the second association list. 
+
+   The returned association list is in the order of the input lists,
+   the function [equal] is used to compare keys. *)
+let list_join equal l1 l2 = 
+
+  let rec list_join' equal accum l1 l2 = match l1, l2 with
+    
+    (* Both lists consumed, return in original order *)
+    | [], [] -> List.rev accum 
+                  
+    (* Keys of head elements in both lists equal *)
+    | (((k1, v1) :: tl1), ((k2, v2) :: tl2)) when equal k1 k2 -> 
+      
+      (* Add to accumulator and continue *)
+      list_join' equal ((k1, (v1 :: v2)) :: accum) tl1 tl2
+        
+    (* Keys of head elements different, or one of the lists is empty *)
+    | _ -> failwith "list_join"
+             
+  in
+
+  (* Call recursive function with initial accumulator *)
+  list_join' equal [] l1 l2
+
+
+
 (* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
