@@ -78,6 +78,7 @@ let pp_print_event ppf = function
 type event = 
   | Invariant of Term.t 
   | PropStatus of string * prop_status
+  | Counterexample of string list * (StateVar.t * Term.t list) list
 
 
 (* Pretty-print an event *)
@@ -100,6 +101,13 @@ let pp_print_event ppf = function
 
   | PropStatus (p, PropKFalse k) ->
     Format.fprintf ppf "@[<hv>Property %s false at step %d@]" p k
+
+  | Counterexample (p, l) -> 
+    Format.fprintf 
+      ppf
+      "@[<hv>Counterexample for@ @[<hv>%a@]@ of length %d@]" 
+      (pp_print_list Format.pp_print_string ",@ ") p
+      (List.length l)
 
 
 (* Module as input to Messaging.Make functor *)
@@ -157,6 +165,28 @@ struct
 
       PropStatus (p, PropKFalse k)
 
+    | "CEX" -> 
+
+      let plist_string = pop () in
+      
+      let cex_string = pop () in
+      
+      let plist : string list = 
+        Marshal.from_string plist_string 0
+      in
+      
+      let cex : (StateVar.t * Term.t list) list = 
+        Marshal.from_string cex_string 0
+      in
+      
+      let cex' =
+        List.map
+          (fun (sv, t) -> (StateVar.import sv, List.map Term.import t))
+          cex
+      in
+
+      Counterexample (plist, cex')
+
     | _ -> raise Messaging.BadMessage
 
 
@@ -189,6 +219,16 @@ struct
     | PropStatus (p, PropKFalse k) ->
 
       [string_of_int k; p; "PROP_KFALSE"]
+
+    | Counterexample (plist, cex) -> 
+
+      (* Serialize property list to string *)
+      let plist_string = Marshal.to_string plist [Marshal.No_sharing] in
+      
+      (* Serialize counterexample to string *)
+      let cex_string = Marshal.to_string cex [Marshal.No_sharing] in
+      
+      [cex_string; plist_string; "CEX"]
 
   (* Pretty-print a message *)
   let pp_print_message = pp_print_event
@@ -758,8 +798,19 @@ let prop_status mdl status prop =
   with Messaging.NotInitialized -> ()
 
 
-(* TODO: message for counterexample, inductive counterexample *)
-let counterexample _ _ _ = ()
+(* Broadcast a counterexample for some properties
+
+   TODO: message for inductive counterexample *)
+let counterexample mdl props cex = 
+
+  try
+    
+    (* Send invariant message *)
+    EventMessaging.send_relay_message (Counterexample (props, cex))
+
+  (* Don't fail if not initialized *) 
+  with Messaging.NotInitialized -> ()
+
 
 (*
 
@@ -884,9 +935,9 @@ let recv () =
             accum
 
           (* Return event message *)
-          | _, EventMessaging.RelayMessage (_, m) ->
+          | mdl, EventMessaging.RelayMessage (_, msg) ->
             
-            m :: accum
+            (mdl, msg) :: accum
 
         )
       )

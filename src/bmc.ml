@@ -196,12 +196,14 @@ let bmc_step check_ts_props solver trans_sys k properties =
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, prop_status = 
+  let invariants_recvd, prop_status, _ = 
     TransSys.update_from_events trans_sys messages 
   in
 
   (* Assert received invariants up to k-1 *)
-  List.iter (assert_upto_k solver k_minus_one) invariants_recvd;
+  List.iter 
+    (fun (_, t) -> assert_upto_k solver k_minus_one t) 
+    invariants_recvd;
 
   (* Checking properties of the transition system? *)
   let properties' = if check_ts_props then
@@ -211,7 +213,7 @@ let bmc_step check_ts_props solver trans_sys k properties =
         (fun (p, _) -> 
            if 
              (List.exists 
-                (fun (q, s) -> q = p && prop_status_known s)
+                (fun (_, (q, s)) -> q = p && prop_status_known s)
                 prop_status)
            then
              (debug bmc 

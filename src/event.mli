@@ -108,6 +108,7 @@ val terminate_log : unit -> unit
 type event = 
   | Invariant of Term.t 
   | PropStatus of string * Lib.prop_status
+  | Counterexample of string list * (StateVar.t * Term.t list) list
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
@@ -136,7 +137,7 @@ val counterexample : Lib.kind_module -> string list -> (StateVar.t * Term.t list
 val terminate : unit -> unit 
 
 (** Receive all queued events *)
-val recv : unit -> event list 
+val recv : unit -> (Lib.kind_module * event) list 
 
 (** {1 Messaging} *)
 

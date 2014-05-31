@@ -16,7 +16,7 @@
 
 *)
 
-(** The representation of a transition system 
+(** Representation of a transition system 
 
     @author Christoph Sticksel
 *)
@@ -26,7 +26,8 @@
 (** The transition system 
 
     The transition system must be constructed with the function
-    {!mk_trans_sys}. *)
+    {!mk_trans_sys}. Fields of the record are exposed, but accessing
+    them is deprecated, use the provided functions below. *)
 type t = private
 
   {
@@ -102,8 +103,17 @@ val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 val add_invariant : t -> Term.t -> unit
 
 (** Update transition system from events and return new invariants and
-    properties with changed status *)
-val update_from_events : t -> Event.event list -> Term.t list * (string * Lib.prop_status) list
+    properties with changed status
+
+    For a property status message the status saved in the transition
+    system is updated if the status is more general (k-true for a
+    greater k, k-false for a smaller k, etc.) 
+
+    Received invariants are stored in the transition system, also
+    proved properties are added as invariants.
+
+    Counterexamples are ignored. *)
+val update_from_events : t -> (Lib.kind_module * Event.event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
 
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool
@@ -124,149 +134,6 @@ val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> u
     from instant zero up to instant [k], which is the third argument. *)
 val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
 
-(*
-(* The transition system *)
-type t = 
-    { 
-
-      (* INIT: constraints on system variables 
-
-	 A list of formulas over system variables, no previous state
-	 variables occur here *)
-      mutable init_assign : (StateVar.t * Term.t) list;
-      mutable init_constr : Term.t list;
-
-      (* CONSTR: global state constraints 
-
-	 A list of formulas describing invariants of the system *)
-      mutable constr_assign : Term.t StateVar.StateVarHashtbl.t;
-      mutable constr_constr : Term.t list;
-
-      (* TRANS: guarded transitions
-
-	 A list of guarded rules: pairs of terms and assignments to
-	 system variables, where assignments are pairs of terms *)
-      mutable trans : (Term.t * (StateVar.t * Term.t) list) list;   
-
-      (** Named properties to be verified *)
-      mutable props : (string * Term.t) list;
-
-      (** Invariants and properties proved to be valid *)
-      mutable invars : Term.t list;
-
-      (** Properties proved to be valid *)
-      mutable props_valid : (string * Term.t) list;
-
-      (** Properties proved to be invalid *)
-      mutable props_invalid : (string * Term.t) list;
-
-      (** Variable dependencies in CONSTR *)
-      constr_dep : StateVar.StateVarSet.t StateVar.StateVarHashtbl.t;
-
-    }
-
-(** The empty transition system *)
-val empty : t
-
-(** Add pairs of state variable and definition to hash table *)
-val constr_of_def_list : Term.t StateVar.StateVarHashtbl.t -> (StateVar.t * Term.t) list -> unit
-
-(** Pretty-print a transition system *)
-val pp_print_trans_sys : Format.formatter -> t -> unit
-
-(** Get the required logic for the SMT solver *)
-val get_logic : t -> SMTExpr.logic
-
-(** Add to offset of state variable instances
-
-    {b deprecated} Use {!Term.bump_state} instead}
-
-    Negative values are allowed *)
-val bump_state : int -> Term.t -> Term.t
-
-(** Return the variables at the given offset occurring in the term *)
-val vars_at_offset_of_term : int -> Term.t -> Var.t list
-
-(** Return the stateful variables at the given offset occurring in the term *)
-val state_vars_at_offset_of_term : int -> Term.t -> Var.t list
-
-(** Return the variables occurring in the term 
-    
-    {b Deprecated: Use {!Term.vars_of_term}
-*)
-val vars_of_term : Term.t -> Var.t list
-
-(** Return variables of the transitions system at bounds zero and one *)
-val vars : t -> Var.t list
-
-(** Return state variables of the transitions system *)
-val state_vars : t -> StateVar.t list 
-
-(** Create invariants of variable declarations *)
-val invars_of_types : unit -> Term.t list
-
-(** Instantiate the initial state constraint to the bound *)
-val init_of_bound : int -> t -> Term.t
-
-(** Instantiate the transition relation constraint to the bound 
-
-    The bound given is the bound of the state after the transition *)
-val constr_of_bound : int -> t -> Term.t
-
-(** Instantiate the properties to the bound *)
-val props_of_bound : int -> t -> Term.t
-
-(** Instantiate invariants and valid properties to the bound *)
-val invars_of_bound : int -> t -> Term.t
-
-(** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> unit 
-
-(** {1 Dependency order} *)
-
-(*
-(** Order state variables by dependency in CONSTR: a variables is smaller than all the variables is depends on *)
-val compare_state_vars_constr_dep : t -> StateVar.t -> StateVar.t -> int 
-*)
-
-(** Get all definitions of state variables from CONSTR
-
-    The definitions are returned in reverse dependency order, leaf
-    definitions at the end, ready to be applied as let bindings to a term *)
-val constr_defs_of_state_vars : t -> StateVar.t list -> (Var.t * Term.t) list
-
-(** {1 Log messages}
-
-    Examples: 
-    - [TransSys.log_property_valid ["a"] "BMC"]
-    - [TransSys.log_property_invalid ["a", "b"] "BMC"]
-    - [TransSys.log_counterexample ["a"; "b"] Format.pp_print_int 1] 
-*)
-
-(** Output validity of some properties 
-
-    Given the name of a module and a list of names of properties as in
-    the field [props] of the type {!t}, the function outputs
-    [Success: properties p1, p2, p3 proved in module]. *)
-val log_property_valid : string -> string list -> unit 
-
-(** Output invalidity of some properties 
-
-    Given the name of a module and a list of names of properties as in
-    the field [props] of the type {!t}, the function outputs [Failure:
-    properties p1, p2, p3 disproved in module]. *)
-val log_property_invalid : string -> string list -> unit
-
-(*
-(** Output a counterexample to some properties 
-
-    Given the names of the properties as in the field [props] of the
-    type {!t} and a pretty-printer for the counterexample as well as
-    the arguments to it, the function outputs [Counterexample for p1,
-    p2, p3] followed by the counterexample in the next lines. *)
-val log_counterexample : string list -> (Format.formatter -> 'a -> unit) -> 'a -> unit
-*)
-*)
 
 (* 
    Local Variables:

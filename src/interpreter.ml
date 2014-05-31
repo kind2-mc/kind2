@@ -58,7 +58,7 @@ let rec assert_trans solver t i =
     (
 
       (* Assert transition relation from [i-1] to [i] *)
-      S.assert_term solver (TransSys.trans_of_bound i t);
+      S.assert_term solver (TransSys.trans_of_bound t i);
                             
       (* Continue with for [i-2] and [i-1] *)
       assert_trans solver t Numeral.(i - one)
@@ -174,7 +174,7 @@ let main input_file trans_sys =
     (S.define_fun solver);
   
   (* Assert initial state constraint *)
-  S.assert_term solver (TransSys.init_of_bound Numeral.zero trans_sys);
+  S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
 
   (* Assert transition relation up to number of steps *)
   assert_trans solver trans_sys (Numeral.of_int steps);

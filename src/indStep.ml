@@ -70,6 +70,9 @@ let on_exit () =
          (Printexc.to_string e))
 
 
+let main _ = ()
+
+(*
 
 (* Assert term for instants 0..k *)
 let assert_upto_k solver k term = 
@@ -404,6 +407,7 @@ let main trans_sys =
     trans_sys
     trans_sys.TransSys.props
     Numeral.zero
+*)
 
   
 (* 

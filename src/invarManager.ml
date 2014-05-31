@@ -91,7 +91,7 @@ let rec wait_for_children child_pids =
 
 let handle_event trans_sys = function 
 
-  | Event.Invariant (m, i) -> 
+  | (mdl, Event.Invariant (m, i)) -> 
 
     (
 
