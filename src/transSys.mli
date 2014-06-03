@@ -22,6 +22,12 @@
 *)
 
 
+(** An input which may be used to create a transition system *)
+type input =
+  (* A node list representation of a Lustre program, where nodes not connected
+     to the main node have been culled out. *) 
+  | LustreInput of LustreNode.t list
+
 (** The transition system 
 
     The transition system must be constructed with the function
@@ -45,6 +51,9 @@ type t = private
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
 
+    (* The input which produced this system. *)
+    input : input;
+
     (* Invariants *)
     mutable invars : Term.t list;
 
@@ -61,7 +70,8 @@ type t = private
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (UfSymbol.t * (Var.t list * Term.t)) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> t
+val mk_trans_sys : (UfSymbol.t * (Var.t list * Term.t)) list -> StateVar.t list -> 
+                   Term.t -> Term.t -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit

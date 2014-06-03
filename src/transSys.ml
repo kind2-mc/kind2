@@ -18,6 +18,10 @@
 
 open Lib
 
+type input  =
+  (* A node list representation of a Lustre program, where nodes not connected
+     to the main node have been culled out. *)
+  | LustreInput of LustreNode.t list
 
 type t = 
 
@@ -37,6 +41,9 @@ type t =
 
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
+
+    (* The input which produced this system. *)
+    input : input;
 
     (* Invariants *)
     mutable invars : Term.t list;
@@ -117,7 +124,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys uf_defs state_vars init trans props = 
+let mk_trans_sys uf_defs state_vars init trans props input = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -151,6 +158,7 @@ let mk_trans_sys uf_defs state_vars init trans props =
     init = init;
     trans = trans;
     props = props;
+    input = input;
     invars = invars_of_types;
     props_valid = [];
     props_invalid = [] }
