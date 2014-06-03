@@ -219,6 +219,13 @@ let rec ind_step_loop
         (fun (_, t) -> assert_upto_k solver k_plus_one t) 
         invariants_recvd;
 
+      (* Assert tentatively k-inductive properties P[x_k+1] *)
+      S.assert_term
+        solver
+        (Term.bump_state
+           k_plus_one
+           (Term.mk_and (List.map snd props_unknown)));
+
       (* Found some properties k-inductive *)
       (props_k_ind @ props_unknown, props_not_k_ind)
 
@@ -250,7 +257,7 @@ let ind_step
   (* Conjunction of unknown properties *)
   let props_term = 
     Term.mk_and
-      (List.map snd (props_k_ind @ props_unknown))
+      (List.map snd props_unknown)
   in
 
   (* Assert transition system T[x_k,x_k+1] *)
@@ -270,7 +277,7 @@ let ind_step
        k_plus_one
        (Term.mk_and (List.map snd props_k_ind)));
 
-  (* Assert unknown properties P[x_k] *)
+  (* Assert unknown and tentatively inductive properties P[x_k] *)
   S.assert_term
     solver
     (Term.bump_state k props_term);
