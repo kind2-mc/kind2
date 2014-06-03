@@ -27,7 +27,7 @@ DEBUG := yes
 
 # User to run server with (make run.*)
 WWWUSER := mma1
-WWWGROUP := students
+WWWGROUP := clc
 
 # Port for running the server (make run.*)
 PORT := 8484
