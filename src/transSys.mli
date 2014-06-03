@@ -115,6 +115,27 @@ val add_invariant : t -> Term.t -> unit
     Counterexamples are ignored. *)
 val update_from_events : t -> (Lib.kind_module * Event.event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
 
+(** Return current status of property *)
+val prop_status : t -> string -> Lib.prop_status 
+
+(** Mark property as invariant *)
+val prop_invariant : t -> string -> unit 
+
+(** Mark property as false *)
+val prop_false : t -> string -> unit 
+
+(** Mark property as k-false *)
+val prop_kfalse : t -> int -> string -> unit 
+
+(** Mark property as k-true *)
+val prop_ktrue : t -> int -> string -> unit 
+
+(** Return true if the property is proved invariant *)
+val is_proved : t -> string -> bool 
+
+(** Return true if the property is proved not invariant *)
+val is_disproved : t -> string -> bool 
+
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool
 

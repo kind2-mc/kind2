@@ -237,6 +237,16 @@ let props_of_bound t i =
 let add_invariant t invar = t.invars <- invar :: t.invars
 
 
+(* Return current status of property *)
+let prop_status trans_sys p = 
+
+  try 
+
+    List.assoc p trans_sys.prop_status
+
+  with Not_found -> PropUnknown
+
+
 (* Mark property as invariant *)
 let prop_invariant t prop =
 
@@ -244,17 +254,21 @@ let prop_invariant t prop =
     
     List.map 
 
-      (fun (n, s) -> match s with
+      (fun (n, s) -> if n = prop then 
 
-         (* Mark property as invariant if it was unknown, k-true or
-            invariant *)
-         | PropUnknown
-         | PropKTrue _
-         | PropInvariant -> (n, PropInvariant) 
+          match s with
+            
+            (* Mark property as invariant if it was unknown, k-true or
+               invariant *)
+            | PropUnknown
+            | PropKTrue _
+            | PropInvariant -> (n, PropInvariant) 
+                               
+            (* Fail if property was false or k-false *)
+            | PropFalse 
+            | PropKFalse _ -> raise (Failure "prop_invariant") 
 
-         (* Fail if property was false or k-false *)
-         | PropFalse 
-         | PropKFalse _ -> raise (Invalid_argument "prop_invariant")) 
+        else (n, s))
 
       t.prop_status
 
@@ -263,22 +277,26 @@ let prop_invariant t prop =
 let prop_false t prop =
 
   t.prop_status <- 
-    
+
     List.map 
 
-      (fun (n, s) -> match s with
+      (fun (n, s) -> if n = prop then 
 
-         (* Mark property as false if it was unknown or l-true *)
-         | PropUnknown
-         | PropKTrue _ -> (n, PropFalse)
+          match s with
 
-         (* Fail if property was invariant *)
-         | PropInvariant ->
-           raise (Invalid_argument "prop_false")
+            (* Mark property as false if it was unknown or l-true *)
+            | PropUnknown
+            | PropKTrue _ -> (n, PropFalse)
 
-         (* Mark property as false if it was false or l-false *)
-         | PropFalse
-         | PropKFalse _ ->  (n, PropFalse))
+            (* Fail if property was invariant *)
+            | PropInvariant ->
+              raise (Failure "prop_false")
+
+            (* Mark property as false if it was false or l-false *)
+            | PropFalse
+            | PropKFalse _ ->  (n, PropFalse) 
+
+        else (n, s))
 
       t.prop_status
 
@@ -287,34 +305,38 @@ let prop_false t prop =
 let prop_kfalse t k prop =
 
   t.prop_status <- 
-    
+
     List.map 
 
-      (fun (n, s) -> match s with
+      (fun (n, s) -> if n = prop then 
 
-         (* Mark property as k-false if it was unknown, l-true for l <
-            k or invariant *)
-         | PropUnknown -> (n, PropKFalse k)
+          match s with
 
-         (* Fail if property was invariant *)
-         | PropInvariant -> 
-           raise (Invalid_argument "prop_kfalse")
+            (* Mark property as k-false if it was unknown, l-true for l <
+               k or invariant *)
+            | PropUnknown -> (n, PropKFalse k)
 
-         (* Fail if property was l-true for l >= k *)
-         | PropKTrue l when l >= k -> 
-           raise (Invalid_argument "prop_kfalse")
+            (* Fail if property was invariant *)
+            | PropInvariant -> 
+              raise (Failure "prop_kfalse")
 
-         (* Mark property as k-false if it was l-true for l < k *)
-         | PropKTrue _ -> (n, PropKFalse k)
+            (* Fail if property was l-true for l >= k *)
+            | PropKTrue l when l >= k -> 
+              raise (Failure "prop_kfalse")
 
-         (* Keep if property was false *)
-         | PropFalse -> (n, s)
+            (* Mark property as k-false if it was l-true for l < k *)
+            | PropKTrue _ -> (n, PropKFalse k)
 
-         (* Keep if property was l-false for l <= k *)
-         | PropKFalse l when l <= k -> (n, s)
+            (* Keep if property was false *)
+            | PropFalse -> (n, s)
 
-         (* Mark property as k-false *)
-         | PropKFalse _ -> (n, PropKFalse k))
+            (* Keep if property was l-false for l <= k *)
+            | PropKFalse l when l <= k -> (n, s)
+
+            (* Mark property as k-false *)
+            | PropKFalse _ -> (n, PropKFalse k) 
+
+        else (n, s))
 
       t.prop_status
 
@@ -323,32 +345,36 @@ let prop_kfalse t k prop =
 let prop_ktrue t k prop =
 
   t.prop_status <- 
-    
+
     List.map 
 
-      (fun (n, s) -> match s with
+      (fun (n, s) -> if n = prop then 
 
-         (* Mark as k-true if it was unknown *)
-         | PropUnknown -> (n, PropKTrue k)
+          match s with
 
-         (* Keep if it was l-true for l > k *)
-         | PropKTrue l when l > k -> (n, s)
+            (* Mark as k-true if it was unknown *)
+            | PropUnknown -> (n, PropKTrue k)
 
-         (* Mark as k-true if it was l-true for l <= k *)
-         | PropKTrue _ -> (n, PropKTrue k)
+            (* Keep if it was l-true for l > k *)
+            | PropKTrue l when l > k -> (n, s)
 
-         (* Keep if it was invariant *)
-         | PropInvariant -> (n, s)
+            (* Mark as k-true if it was l-true for l <= k *)
+            | PropKTrue _ -> (n, PropKTrue k)
 
-         (* Keep if it was false for unknown l *)
-         | PropFalse -> (n, PropFalse)
+            (* Keep if it was invariant *)
+            | PropInvariant -> (n, s)
 
-         (* Keep if property was l-false for l > k *)
-         | PropKFalse l when l > k -> (n, s)
+            (* Keep if it was false for unknown l *)
+            | PropFalse -> (n, PropFalse)
 
-         (* Fail if property was l-false for l <= k *)
-         | PropKFalse _ -> 
-           raise (Invalid_argument "prop_kfalse"))
+            (* Keep if property was l-false for l > k *)
+            | PropKFalse l when l > k -> (n, s)
+
+            (* Fail if property was l-false for l <= k *)
+            | PropKFalse _ -> 
+              raise (Failure "prop_kfalse") 
+
+        else (n, s))
 
       t.prop_status
 
@@ -365,6 +391,27 @@ let update_from_events trans_sys events =
     (* Invariant discovered *)
     | (m, Event.Invariant t) :: tl -> 
 
+      (* Property status if received invariant is a property *)
+      let tl' =
+        List.fold_left
+
+          (fun accum (p, t') -> 
+
+             (* Invariant is equal to property term? *)
+             if Term.equal t t' then
+
+               (* Inject property status event *)
+               ((m, Event.PropStatus (p, PropInvariant)) :: accum)
+
+             else
+
+               accum)
+
+          tl
+          trans_sys.props
+
+      in
+      
       (* Add invariant to transtion system *)
       add_invariant trans_sys t;
 
@@ -372,9 +419,9 @@ let update_from_events trans_sys events =
       update_from_events'
         trans_sys
         ((m, t) :: invars)
-        prop_status 
+        prop_status
         cex 
-        tl
+        tl'
 
     (* Property found unknown *)
     | (_, Event.PropStatus (p, PropUnknown)) :: tl -> 
@@ -463,7 +510,33 @@ let update_from_events trans_sys events =
 
   update_from_events' trans_sys [] [] [] events
 
-    
+
+(* Return true if the property is proved invariant *)
+let is_proved trans_sys prop = 
+
+  try 
+
+    (match List.assoc prop trans_sys.prop_status with
+      | PropInvariant -> true
+      | _ -> false)
+        
+  with Not_found -> false
+
+
+(* Return true if the property is proved not invariant *)
+let is_disproved trans_sys prop = 
+
+  try 
+
+    (match List.assoc prop trans_sys.prop_status with
+      | PropKFalse _
+      | PropFalse -> true
+      | _ -> false)
+        
+  with Not_found -> false
+
+
+
 (* Return true if all properties are either valid or invalid *)
 let all_props_proved trans_sys =
 

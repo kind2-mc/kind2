@@ -68,6 +68,25 @@ let is_invariant_manager = function
   | _ -> false
 
 
+let rec pp_print_zmsg_frames n ppf zmsg =
+
+  if n <= 0 then () else
+
+    (Format.fprintf ppf "%s" (String.escaped (ZMQ.zmsg_popstr zmsg));
+     if n > 1 then Format.fprintf ppf ";@ ";
+     pp_print_zmsg_frames (pred n) ppf zmsg)
+
+
+let pp_print_zmsg ppf zmsg = 
+  
+  Format.fprintf 
+    ppf
+    "@[<hv 1>{%a}@]"
+    (pp_print_zmsg_frames (ZMQ.zmsg_size zmsg)) 
+    (ZMQ.zmsg_dup zmsg)
+
+  
+
 (* Message and conversions *)
 module type RelayMessage = 
 sig
@@ -311,7 +330,8 @@ struct
       (match msg with 
         | OutputMessage m -> strings_of_output_message m
         | ControlMessage m -> strings_of_control_message m
-        | RelayMessage (i, m) -> T.strings_of_message m);
+        | RelayMessage (i, m) -> 
+          T.strings_of_message m @ [string_of_int i]);
 
     (* Push sender of message *)
     ignore (zmsg_pushstr zmsg sender);
@@ -319,12 +339,22 @@ struct
     (* Push identifying tag of message *)
     ignore (zmsg_pushstr zmsg (tag_of_message msg));
 
-    (* Return message *)
-    zmsg
+    (debug messaging
+      "@[<hv>zmsg_of_msg:@ %a@]"
+      pp_print_zmsg zmsg 
+     in
+
+     (* Return message *)
+     zmsg)
 
 
-  (* Return a message of a ZeroMQ message*)
+  (* Return a message of a ZeroMQ message *)
   let msg_of_zmsg zmsg =
+
+    debug messaging
+      "@[<hv>msg_of_zmsg:@ %a@]"
+      pp_print_zmsg zmsg 
+    in
 
     (* Pop the topmost message frame and return as string *)
     let pop () = 

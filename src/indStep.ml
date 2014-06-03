@@ -70,10 +70,6 @@ let on_exit () =
          (Printexc.to_string e))
 
 
-let main _ = ()
-
-(*
-
 (* Assert term for instants 0..k *)
 let assert_upto_k solver k term = 
   Term.bump_and_apply_k 
@@ -100,97 +96,28 @@ let partition_props solver props k =
     props
 
 
-let handle_events trans_sys invars bmc_k k_valid_props =
-
-  (* Receive all queued messages 
-
-     Side effect: Terminate when ControlMessage TERM is received.*)
-  let messages = Event.recv () in
-  
-  List.fold_left 
-    (function (invars, bmc_k, k_valid_props) -> function
-       
-       (* Invariant discovered by other module *)
-       | Event.Invariant inv -> 
-         
-         (debug indStep
-             "@[<hv>Received invariant@ @[<hv>%a@]@]"
-             Term.pp_print_term inv 
-          in
-          
-          (* Add invariant to the transition system *)
-          TransSys.add_invariant trans_sys inv);
-          
-         (* Return invariant and previous k in BMC *)
-         (inv :: invars, bmc_k, k_valid_props)
-         
-       (* BMC at k *)
-       | Event.BMCState (bmc_k', k_valid_props) -> 
-
-         (* Return new k in BMC and the not yet disproved properties *)
-         (invars, bmc_k', k_valid_props)
-
-       (* Property has been proved by other module *)
-       | Event.Proved (_, _, prop_name) -> 
-         
-         (debug indStep
-             "@[<hv>Received proved property %s@]"
-             prop_name
-          in
-
-          (try 
-             
-             (* Get property term from name *)
-             let prop_term = 
-               List.assoc prop_name trans_sys.TransSys.props
-             in
-
-             (* Add invariant to the transition system *)
-             TransSys.add_valid_prop trans_sys (prop_name, prop_term);
-          
-             (* Return property as invariant and previous k in BMC *)
-             (prop_term :: invars, bmc_k, k_valid_props)
-
-           (* Skip if property not found *)
-           with Not_found -> (invars, bmc_k, k_valid_props)))
-         
-       (* Property has been disproved by other module *)
-       | Event.Disproved (_, _, prop) -> 
-
-         (* Restart upon disproved property *)
-         raise (Disproved prop)
-           
-    )
-    (invars, bmc_k, k_valid_props)
-    messages
-
-
 let rec ind_step_loop 
     solver
     trans_sys  
-    (invars, bmc_k, k_valid_props)
-    props_not_ind_k
+    props_k_ind
+    props_not_k_ind
     props_unknown 
     k_plus_one =
 
-  (* Get new invariants and state of BMC *)
-  let invars', bmc_k, k_valid_props = 
-    handle_events trans_sys invars bmc_k k_valid_props 
+  (* Receive queued messages 
+
+     Side effect: Terminate when ControlMessage TERM is received.*)
+  let messages = Event.recv () in
+
+  (* Update transition system from messages *)
+  let invariants_recvd, _, _ = 
+    TransSys.update_from_events trans_sys messages 
   in
 
-  if 
-
-    (* One of the assumed properties is not k-valid *)
-    List.exists
-      (fun (n, _) -> not (List.mem n k_valid_props))
-      (props_not_ind_k @ props_unknown)
-
-  then 
-
-    raise Restart;
-
   (* Assert invariants received for all instants 0..k+1 *)
-  List.iter (assert_upto_k solver k_plus_one) invars';
+  List.iter
+    (fun (_, t) -> assert_upto_k solver k_plus_one t) 
+    invariants_recvd;
 
   (* Conjunction of unknown properties *)
   let props_unknown_term = Term.mk_and (List.map snd props_unknown) in
@@ -198,10 +125,25 @@ let rec ind_step_loop
   (* Assert negation of unknown properties P[x_k+1] *)
   S.assert_term
     solver
-    (Term.bump_state k_plus_one props_unknown_term);
+    (Term.negate 
+       (Term.bump_state k_plus_one props_unknown_term));
 
   (* Are the unknown properties entailed? *)
-  if (S.check_sat solver) then
+  if 
+
+    (debug indStep
+        "@[<v>Current context@,@[<hv>%a@]@]"
+        HStringSExpr.pp_print_sexpr_list
+        (let r, a = 
+          S.T.execute_custom_command solver "get-assertions" [] 1 
+         in
+         S.fail_on_smt_error r;
+         a)
+     in
+     
+     S.check_sat solver) 
+
+  then
 
     (
 
@@ -211,7 +153,7 @@ let rec ind_step_loop
          again and recurse to ind_step_loop *)
 
       (* Properties still unknown and properties not k-inductive *)
-      let props_unknown', props_not_ind_k' =
+      let props_unknown', props_not_k_ind' =
         partition_props solver props_unknown k_plus_one
       in
 
@@ -223,12 +165,14 @@ let rec ind_step_loop
           (* Pop assertions from entailment checks *)
           S.pop solver;
 
-          (* Assert invariants on popped scope for all instants
+          (* Assert received invariants on previous scope for all instants
              0..k+1 *)
-          List.iter (assert_upto_k solver k_plus_one) (invars @ invars');
+          List.iter
+            (fun (_, t) -> assert_upto_k solver k_plus_one t) 
+            invariants_recvd;
 
           (* No properties k-inductive *)
-          ([], props_not_ind_k @ props_not_ind_k')
+          (props_k_ind, props_not_k_ind @ props_not_k_ind')
 
         )
 
@@ -239,18 +183,18 @@ let rec ind_step_loop
             (pp_print_list 
                (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
                ",@ ")
-            props_unknown'
+            props_not_k_ind'
             Numeral.pp_print_numeral (Numeral.pred k_plus_one)
          in
          
-         (* Recurse to test unknown proeprties for k-inductiveness *)
+         (* Recurse to test unknown properties for k-inductiveness *)
          ind_step_loop 
            solver
            trans_sys
-           (invars @ invars', bmc_k, k_valid_props)
-           (props_not_ind_k @ props_not_ind_k')
+           props_k_ind
+           (props_not_k_ind @ props_not_k_ind')
            props_unknown' 
-           k_plus_one )
+           k_plus_one)
            
     )
 
@@ -258,14 +202,25 @@ let rec ind_step_loop
 
     (
       
-      (* Pop assertions from entailment checks *)
-      S.pop solver;
+      (debug indStep
+          "Properties %a maybe %a-inductive"
+          (pp_print_list 
+             (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+             ",@ ")
+          props_unknown
+          Numeral.pp_print_numeral (Numeral.pred k_plus_one)
+       in
+       
+       (* Pop assertions from entailment checks *)
+      S.pop solver);
 
       (* Assert invariants on popped scope for all instants 0..k+1 *)
-      List.iter (assert_upto_k solver k_plus_one) (invars @ invars');
+      List.iter
+        (fun (_, t) -> assert_upto_k solver k_plus_one t) 
+        invariants_recvd;
 
       (* Found some properties k-inductive *)
-      (props_unknown, props_not_ind_k)
+      (props_k_ind @ props_unknown, props_not_k_ind)
 
     )
 
@@ -285,6 +240,7 @@ let rec ind_step_loop
 let ind_step 
     solver
     trans_sys
+    props_k_ind
     props_unknown 
     k =
 
@@ -292,89 +248,216 @@ let ind_step
   let k_plus_one = Numeral.succ k in
 
   (* Conjunction of unknown properties *)
-  let props_unknown_term = Term.mk_and (List.map snd props_unknown) in
+  let props_term = 
+    Term.mk_and
+      (List.map snd (props_k_ind @ props_unknown))
+  in
 
   (* Assert transition system T[x_k,x_k+1] *)
   S.assert_term
     solver
-    (TransSys.trans_of_bound k_plus_one trans_sys);
+    (TransSys.trans_of_bound trans_sys k_plus_one);
 
   (* Assert invariants C[x_k+1] *)
   S.assert_term
     solver
-    (TransSys.invars_of_bound k_plus_one trans_sys);
+    (TransSys.invars_of_bound trans_sys k_plus_one);
 
-  (* Assert valid properties P_v[x_k+1] *)
+  (* Assert tentatively k-inductive properties P[x_k+1] *)
   S.assert_term
     solver
-    (TransSys.props_valid_of_bound k_plus_one trans_sys);
+    (Term.bump_state
+       k_plus_one
+       (Term.mk_and (List.map snd props_k_ind)));
 
   (* Assert unknown properties P[x_k] *)
   S.assert_term
     solver
-    (Term.bump_state k props_unknown_term);
+    (Term.bump_state k props_term);
 
   (* Push context before entailment checks *)
   S.push solver;
 
   ind_step_loop 
     solver
-    0
     trans_sys
-    []
+    props_k_ind
     []
     props_unknown 
     k_plus_one 
 
 
 
-let rec induction solver trans_sys props props_unknown k =
+let rec induction solver trans_sys props_k_ind props_unknown k =
 
-  try 
+  if 
 
-    (* Find properties that are k-inductive *)
-    let bmc_k, props_valid, props_unknown' =
-      ind_step 
-        solver 
-        trans_sys
-        props_unknown
-        k
-    in
-    
-    (* TODO: Check if there is no counterexample of length <= k to a
-       property proved k-inductive *)
+    (* Maximal number of iterations reached? *) 
+    (Numeral.to_int k) > Flags.bmc_max () && Flags.bmc_max () > 0 
 
-    (* *)
-    induction 
-      solver
-      trans_sys
-      props_unknown' 
-      (Numeral.succ k)
-    
+  then
 
-  with Disproved prop -> 
+    (
 
-    S.pop solver;
-    S.pop solver;
+      (* Exit *)
+      Event.log
+        `IND
+        Event.L_info
+        "Inductive step procedure reached maximal number of iterations"
 
-    let _, prop_term = 
-      List.find 
-        
-        trans_sys.TransSys.props 
-    in        
+    ) 
 
-    let props' = 
-      List.filter
-        (fun (n, _) -> n = prop)
-        props
-    in
+  else
 
-    induction 
-      solver
-      trans_sys
-      props_unknown 
-      (Numeral.succ k)
+    (
 
+      (* Output current step *)
+      Event.log
+        `IND
+        Event.L_info
+        "Inductive step loop at k=%d"
+        (Numeral.to_int k);
+
+      Event.progress `IND (Numeral.to_int k);
+
+      Stat.set (Numeral.to_int k) Stat.ind_k;
+
+      Stat.update_time Stat.ind_total_time;
+
+      (* Find properties that are k-inductive *)
+      let props_k_ind', props_unknown' =
+        ind_step 
+          solver 
+          trans_sys
+          props_k_ind
+          props_unknown
+          k
+      in
+
+      (* Properties as premises that are disproved *)
+      let props_disproved, props' = 
+        List.partition
+          (fun (n, _) -> TransSys.is_disproved trans_sys n)
+          (props_k_ind' @ props_unknown')
+      in
+
+      try 
+
+        (* No property must be disproved *) 
+        if not (props_disproved = []) then raise Restart else 
+          Event.log
+            `IND
+            Event.L_info
+            "No premises false in Inductive step";
+
+        if 
+
+          (* All properties proved? *)
+          props_unknown' = []
+
+        then
+
+          (
+
+            (* Loop to wait for all properties to be proved k-valid *)
+            let rec aux () =
+
+              if 
+
+                (* All premises must be invariant or k-valid *)
+                List.for_all
+                  (fun (n, _) -> 
+                     match TransSys.prop_status trans_sys n with
+                       | PropInvariant -> true
+                       | PropKTrue l when l >= (Numeral.to_int k) -> true
+                       | PropFalse
+                       | PropKFalse _ -> raise Restart
+                       | _ -> false)
+                  (props_k_ind @ props_k_ind')
+
+              then
+
+                (* Send proved properties and terminate *)
+                List.iter
+                  (fun (n, _) -> Event.prop_status `IND PropInvariant n)
+                  props_k_ind'
+
+              else
+
+                (
+
+                  Event.log 
+                    `IND
+                    Event.L_info
+                    "All properties k-invariant, waiting for premises \
+                     to be proved k-valid";
+
+                  (* Delay *)
+                  minisleep 0.01;
+
+                  (* Update transition system from messages *)
+                  let _ = 
+                    TransSys.update_from_events
+                      trans_sys 
+                      (Event.recv ())
+                  in 
+
+                  (* Check again *)
+                  aux ()
+
+                )
+
+            in
+
+            (* Check if all properties are k-valid and wait if not *)
+            aux ()
+
+          )
+
+        else
+
+          (
+
+            (* Output statistics *)
+            if Event.output_on_level Event.L_info then print_stats ();
+
+            (* Continue to prove remaining properties k+1-inductive *)
+            induction 
+              solver
+              trans_sys
+              props_k_ind'
+              props_unknown' 
+              (Numeral.succ k))
+
+      with Restart -> 
+
+        (
+
+          (* Exit *)
+          Event.log
+            `IND
+            Event.L_info
+            "Premise of inductive step procedure is false. Restarting.";
+
+          Stat.incr Stat.ind_restarts;
+
+          (* Remove all assertions *)
+          S.pop solver;
+
+          (* New context for assertions to be removed on restart *)
+          S.push solver;
+
+          (* Restart with not disproved properties *)
+          induction 
+            solver
+            trans_sys
+            []
+            props'
+            Numeral.zero
+
+        )
+
+    )
 
 (* Entry point *)
 let main trans_sys =
@@ -402,12 +485,22 @@ let main trans_sys =
     trans_sys
     (S.define_fun solver);
 
+  (* Assert invariants C[x_0] 
+
+     Asserted before push, will be preserved after restart *)
+  S.assert_term
+    solver
+    (TransSys.invars_of_bound trans_sys Numeral.zero);
+
+  (* New context for assertions to be removed on restart *)
+  S.push solver;
+  
   induction
     solver
     trans_sys
-    trans_sys.TransSys.props
+    []
+    (TransSys.props_list_of_bound trans_sys Numeral.zero)
     Numeral.zero
-*)
 
   
 (* 

@@ -107,7 +107,7 @@ let pp_print_event ppf = function
       ppf
       "@[<hv>Counterexample for@ @[<hv>%a@]@ of length %d@]" 
       (pp_print_list Format.pp_print_string ",@ ") p
-      (List.length l)
+      (try List.length (snd (List.hd l)) with Failure _ -> 0)
 
 
 (* Module as input to Messaging.Make functor *)
@@ -187,7 +187,13 @@ struct
 
       Counterexample (plist, cex')
 
-    | _ -> raise Messaging.BadMessage
+    | s -> 
+
+      (debug event 
+        "Bad message %s"
+        s
+       in
+       raise Messaging.BadMessage)
 
 
   (* Convert a message to strings *)
@@ -789,6 +795,12 @@ let invariant mdl term =
 (* Broadcast a property status *)
 let prop_status mdl status prop = 
   
+  (match status with
+    | PropInvariant -> log_proved mdl None prop
+    | PropFalse -> log_disproved mdl None prop
+    | PropKFalse k -> log_disproved mdl (Some k) prop
+    | _ -> ());
+
   try
     
     (* Send invariant message *)
@@ -802,6 +814,8 @@ let prop_status mdl status prop =
 
    TODO: message for inductive counterexample *)
 let counterexample mdl props cex = 
+
+  log_counterexample mdl cex;
 
   try
     
