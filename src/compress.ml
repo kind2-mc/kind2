@@ -125,9 +125,40 @@ let exists_pair p l =
   exists_pair' p l l
 
 
+(* ********************************************************************** *)
+(* Simulation relation: Equality modulo input variables                   *)
+(* ********************************************************************** *)
+
+(* Name of the uninterpreted function symbol *)
+let equal_mod_input_string = "__compress_equal_mod_input"
+
+
+(* Declare uninterpreted function symbol *)
+let init_equal_mod_input declare_fun trans_sys = 
+  
+  let uf_distinct = 
+    UfSymbol.mk_uf_symbol
+      equal_mod_input_string
+      (List.fold_left 
+         (fun a sv -> 
+            if not (StateVar.is_input sv) then 
+              StateVar.type_of_state_var sv :: a 
+            else a)
+         []
+         (TransSys.state_vars trans_sys))
+      Type.t_int
+  in
+  
+  declare_fun uf_distinct
+
+
 (* States are equivalent if for each variable the variable is either
    an input or the values are equal *)
 let equal_mod_input accum s1 s2 = 
+
+  let uf_distinct = 
+    UfSymbol.uf_symbol_of_string equal_mod_input_string
+  in
 
   if
 
@@ -158,33 +189,82 @@ let equal_mod_input accum s1 s2 =
       (* Count number of clauses *)
       Stat.incr Stat.ind_compress_clauses;
 
-      (* Generate disjunction of disequalities and add to accumulator *)
-      Term.mk_or
+      (* Blocking term to force states not equivalent *)
+      let term =
 
-        (List.fold_left2
-           (fun a (v1, _) (v2, _) -> 
+        (* Use uninterpreted function symbol or disjunction of equations? *)
+        if true then
 
-              let sv1 = Var.state_var_of_state_var_instance v1 in
+          (
+            
+            (* Equation f(v1, ..., vn) = i *)
+            let term_of_state s = 
+              Term.mk_eq
+                [Term.mk_uf
+                   uf_distinct 
+                   (List.fold_right
+                      (fun (v, _) a -> 
+                         if 
+                           not 
+                             (StateVar.is_input
+                                (Var.state_var_of_state_var_instance v))
+                         then Term.mk_var v :: a else a) s []);
+                 Term.mk_num
+                   (Var.offset_of_state_var_instance (fst (List.hd s)))]
+            in              
 
-              (* Skip input variables *)
-              if not (StateVar.is_input sv1) then 
+            (* Equation to force first state distinct from others *)
+            let t1 = term_of_state s1 in
 
-                (* Disequality between state variables at instants *)
-                Term.negate 
-                  (Term.mk_eq 
-                     [Term.mk_var v1; Term.mk_var v2]) :: a 
+            (* Equation to force second state distinct from others *)
+            let t2 = term_of_state s2 in
 
-              else a)
-           []
-           s1
-           s2) 
+            (* Add conjunction of equations as blocking clause *)
+            Term.mk_and [t1; t2]
 
-      :: accum
+          )
+
+        else
+
+          (* Generate disjunction of disequalities and add to accumulator *)
+          (Term.mk_or
+
+             (List.fold_left2
+                (fun a (v1, _) (v2, _) -> 
+
+                   let sv1 = Var.state_var_of_state_var_instance v1 in
+
+                   (* Skip input variables *)
+                   if not (StateVar.is_input sv1) then 
+
+                     (* Disequality between state variables at instants *)
+                     Term.negate 
+                       (Term.mk_eq 
+                          [Term.mk_var v1; Term.mk_var v2]) :: a 
+
+                   else a)
+                []
+                s1
+                s2))
+
+      in
+
+      (debug compress
+          "Compression clause@ %a"
+          Term.pp_print_term term
+       in
+
+       term :: accum)
 
     )
 
   (* States are not equivalent *)
   else accum
+
+
+let init declare_fun trans_sys = 
+
+  init_equal_mod_input declare_fun trans_sys 
 
 
 (* Generate blocking terms from all equivalent states *)

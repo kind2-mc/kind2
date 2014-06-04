@@ -20,6 +20,13 @@
 
     @author Christoph Sticksel *)
 
+(** Initialize compression 
+
+    The first argument is the function to declare an uninterpreted
+    function symbol in a solver instance, the second the transition
+    system. *)
+val init : (UfSymbol.t -> unit) -> TransSys.t -> unit
+
 (** Given an inductive counterexample return a list of terms to force
     those states on the path to be different that are equivalent under
     some simulation relations. *)

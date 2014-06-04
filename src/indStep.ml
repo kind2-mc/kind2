@@ -530,6 +530,8 @@ let main trans_sys =
     trans_sys
     (S.define_fun solver);
 
+  Compress.init (S.declare_fun solver) trans_sys;
+
   (* Assert invariants C[x_0] 
 
      Asserted before push, will be preserved after restart *)
