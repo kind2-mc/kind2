@@ -358,7 +358,7 @@ let
   clocks_are_synchronous = 
     CLK1 = CLK2 and CLK2 = CLK3 and CLK3 = CLK4;
   
-  quiescent = false_longer_than(PRESSED(TS), 39);
+  quiescent = false_longer_than(PRESSED(TS), 40);
      
   at_least_one_pilot_flying_side = LPFS or RPFS;   
   

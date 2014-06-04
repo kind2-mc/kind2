@@ -140,68 +140,106 @@ let rec ind_step_loop
          S.fail_on_smt_error r;
          a)
      in
-     
+
      S.check_sat solver) 
 
   then
 
     (
 
-      (* TODO: Check for compressible path here
-
-         Pop context before asserting compression formula, then push
-         again and recurse to ind_step_loop *)
-
-      (* Properties still unknown and properties not k-inductive *)
-      let props_unknown', props_not_k_ind' =
-        partition_props solver props_unknown k_plus_one
+      (* Get inductive counterexample from model *)
+      let cex = 
+        TransSys.path_from_model 
+          trans_sys 
+          (S.get_model solver) 
+          k_plus_one 
       in
 
-      (* No more potentially k-inductive properties *)
-      if props_unknown' = [] then 
+      (* Is inductive counterexample compressible? *)
+      match 
 
-        (
+        if not (Flags.ind_compress ()) then [] else 
+          Compress.check_and_block cex 
 
-          (* Pop assertions from entailment checks *)
-          S.pop solver;
+      with
+        
+        | [] -> 
 
-          (* Assert received invariants on previous scope for all instants
-             0..k+1 *)
-          List.iter
-            (fun (_, t) -> assert_upto_k solver k_plus_one t) 
-            invariants_recvd;
+          (
 
-          (* No properties k-inductive *)
-          (props_k_ind, props_not_k_ind @ props_not_k_ind')
+            (* Properties still unknown and properties not k-inductive *)
+            let props_unknown', props_not_k_ind' =
+              partition_props solver props_unknown k_plus_one
+            in
 
-        )
+            (* No more potentially k-inductive properties *)
+            if props_unknown' = [] then 
 
-      else
+              (
 
-        (debug indStep
-            "Properties %a not %a-inductive"
-            (pp_print_list 
-               (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
-               ",@ ")
-            props_not_k_ind'
-            Numeral.pp_print_numeral (Numeral.pred k_plus_one)
-         in
-         
-         (* Recurse to test unknown properties for k-inductiveness *)
-         ind_step_loop 
-           solver
-           trans_sys
-           props_k_ind
-           (props_not_k_ind @ props_not_k_ind')
-           props_unknown' 
-           k_plus_one)
-           
+                (* Pop assertions from entailment checks *)
+                S.pop solver;
+
+                (* Assert received invariants on previous scope for
+                   all instants 0..k+1 *)
+                List.iter
+                  (fun (_, t) -> assert_upto_k solver k_plus_one t) 
+                  invariants_recvd;
+
+                (* No properties k-inductive *)
+                (props_k_ind, props_not_k_ind @ props_not_k_ind')
+
+              )
+
+            else
+
+              (debug indStep
+                  "Properties %a not %a-inductive"
+                  (pp_print_list 
+                     (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+                     ",@ ")
+                  props_not_k_ind'
+                  Numeral.pp_print_numeral (Numeral.pred k_plus_one)
+               in
+
+               (* Recurse to test unknown properties for k-inductiveness *)
+               ind_step_loop 
+                 solver
+                 trans_sys
+                 props_k_ind
+                 (props_not_k_ind @ props_not_k_ind')
+                 props_unknown' 
+                 k_plus_one)
+
+          )
+
+
+        | block_terms -> 
+
+          (
+
+            (* Block compressible path *)
+            List.iter 
+              (S.assert_term solver)
+              block_terms;
+
+            (* Check again *)
+            ind_step_loop 
+              solver
+              trans_sys
+              props_k_ind
+              props_not_k_ind
+              props_unknown
+              k_plus_one
+
+          )
+
     )
 
   else
 
     (
-      
+
       (debug indStep
           "Properties %a maybe %a-inductive"
           (pp_print_list 
@@ -210,9 +248,9 @@ let rec ind_step_loop
           props_unknown
           Numeral.pp_print_numeral (Numeral.pred k_plus_one)
        in
-       
+
        (* Pop assertions from entailment checks *)
-      S.pop solver);
+       S.pop solver);
 
       (* Assert invariants on popped scope for all instants 0..k+1 *)
       List.iter

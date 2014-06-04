@@ -59,6 +59,10 @@ val enable : unit -> enable
 type bmc_max = int
 val bmc_max : unit -> bmc_max
 
+(** Compresss inductive counterexample *)
+type ind_compress = bool
+val ind_compress : unit -> ind_compress
+
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val pdr_qe : unit -> pdr_qe
