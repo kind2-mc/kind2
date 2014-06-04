@@ -19,6 +19,9 @@
 open Lib
 
 
+type input = 
+  | Lustre of LustreNode.t list 
+
 type t = 
 
   {
@@ -43,7 +46,7 @@ type t =
 
     (* Status of property *)
     mutable prop_status : (string * prop_status) list;
-
+    
   }
 
 
