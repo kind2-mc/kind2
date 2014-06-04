@@ -18,6 +18,8 @@
 
 val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
+val pp_print_path_orig_xml : LustreNode.t list -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
 
 
 (* 

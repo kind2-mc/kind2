@@ -50,7 +50,6 @@ module E = LustreExpr
 module SVS = StateVar.StateVarSet
 module ISet = I.LustreIdentSet
 
-
 (* Set of state variables of list *)
 let svs_of_list list = 
   List.fold_left (fun a e -> SVS.add e a) SVS.empty list
@@ -146,7 +145,12 @@ type t =
     is_main : bool;
 
     (* Dependencies of the output variables on input variables *)
-    output_input_dep : int list list }
+    output_input_dep : int list list;
+
+    (* Index of last abstraction state variable *)
+    fresh_state_var_index : Numeral.t ref;
+
+  }
 
 
 (* An empty node *)
@@ -163,7 +167,8 @@ let empty_node name =
     requires = [];
     ensures = [];
     is_main = false;
-    output_input_dep = []}
+    output_input_dep = [];
+    fresh_state_var_index = ref Numeral.(- one) }
 
 
 (* Pretty-print a node input *)
@@ -944,7 +949,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         props; 
         requires; 
         ensures; 
-        is_main } as node_orig), 
+        is_main; 
+        fresh_state_var_index } as node_orig), 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
@@ -971,7 +977,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           props = props;
           requires = requires;
           ensures = ensures;
-          is_main = is_main }
+          is_main = is_main;
+          fresh_state_var_index = fresh_state_var_index }
 
     in
 

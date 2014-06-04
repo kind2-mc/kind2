@@ -88,10 +88,11 @@ let rec wait_for_children child_pids =
     (* Terminate if the last child process has died *)
     !child_pids = []
 
+(*
 
 let handle_event trans_sys = function 
 
-  | Event.Invariant (m, i) -> 
+  | (mdl, Event.Invariant (m, i)) -> 
 
     (
 
@@ -182,18 +183,56 @@ let handle_event trans_sys = function
   | Event.BMCState _ -> ()
 
 
-(* Polling loop *)
-let rec loop child_pids transSys = 
+*)
 
+
+(* Polling loop *)
+let rec loop child_pids trans_sys = 
+
+  (* Receive queued events *)
+  let events = Event.recv () in
+
+  (* Output events *)
   List.iter 
-    (function e -> 
+    (function (m, e) -> 
       Event.log
         `INVMAN 
         Event.L_debug
-        "Message received: %a"
-        Event.pp_print_event e;
-      handle_event transSys e)
-    (Event.recv ());
+        "Message received from %a: %a"
+        pp_print_kind_module m
+        Event.pp_print_event e)
+    events;
+
+  (* Update transition system from events *)
+  let _, prop_status, _ =
+    TransSys.update_from_events trans_sys events
+  in
+
+  (* Output proved properties *)
+  List.iter
+    (function 
+
+      (* No output for unknown or k-true properties *)
+      | (_, (_, PropUnknown))
+      | (_, (_, PropKTrue _)) -> ()
+
+      | (m, (p, PropInvariant)) -> Event.log_proved m None p
+
+      | (m, (p, PropFalse)) -> Event.log_disproved m None p
+
+      | (m, (p, PropKFalse k)) -> Event.log_disproved m (Some k) p)
+    prop_status;
+
+  if TransSys.all_props_proved trans_sys then 
+    
+    ( 
+      
+      Event.log `INVMAN Event.L_info "All properties proved or disproved";
+      
+      Event.terminate ()
+        
+    );
+
 
   (* Check if child processes have died and exit if necessary *)
   if wait_for_children child_pids then () else 
@@ -204,7 +243,7 @@ let rec loop child_pids transSys =
       minisleep 0.01;
 
       (* Continue polling loop *)
-      loop child_pids transSys
+      loop child_pids trans_sys
 
     )
   

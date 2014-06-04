@@ -18,7 +18,7 @@
 
 (** k-inductive step procedure 
 
-    @author Paul Meng
+    @author Christoph Sticksel
 *)
 
 (** Entry point *)
@@ -31,7 +31,6 @@ val on_exit : unit -> unit
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)
