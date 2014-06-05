@@ -406,13 +406,13 @@ Job rejected due to high system load. Try again later.\
       log
         "Executing %s %a"
         job_command
-        (pp_print_list Format.pp_print_string " ") job_args;
+        (pp_print_list Format.pp_print_string " ") (job_args);
 
       (* Create kind process *)
       let kind_pid =
         Unix.create_process
           job_command
-          (Array.of_list (job_command :: job_args @ [stdin_fn]))
+          (Array.of_list(job_command :: job_args @ [stdin_fn]))
           kind_stdin_in
           kind_stdout_out
           kind_stderr_out
@@ -524,7 +524,6 @@ Contents of stderr:@\n\
         log "exited with code %d" code;
 	
         (* Message to client is from stdout *)
-	log ("stdout_string is %s") stdout_string;
         stdout_string
 	  
   in
@@ -533,7 +532,6 @@ Contents of stderr:@\n\
   (try (Sys.remove job_stdin_fn) with _ -> ());
   (try (Sys.remove job_stdout_fn) with _ -> ());
   (try (Sys.remove job_stderr_fn) with _ -> ());
-  log ("output string is %s") output_string;
 
   output_string
 

@@ -11,7 +11,7 @@ let configured_programs =
   [
 
     (* Test *)
-    ("retrievetest", "/space/mma1/kind2/service/retrieveTest.py");
+    ("retrievetest", "/home/mma1/kind2/service/retrieveTest.py");
     
     (* PKind *)
     ("pkind", "/usr/local/bin/pkind");
@@ -91,6 +91,8 @@ let path = head ^ "/jobs/"
 
 let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><title><para>%s</para></title>" msg
 
+let process_arg args = List.filter (fun s -> s <> "") (List.rev args)
+
 (* ********************************************************************** *)
 (* ********************************************************************** *)
 
@@ -130,9 +132,9 @@ let _ =
     ~service:submitjob_service
     (fun () (kind, (args, file)) ->
       let command : string = command_look kind in
-      let cmd_args : string list = args in
-      let filename : string = file.tmp_filename in    
-      let user_msg, job_id, job_info = create_job command cmd_args filename path in
+      let cmd_args : string list = process_arg args in
+      let filename : string = file.tmp_filename in
+      let user_msg, job_id, job_info = create_job command cmd_args filename path in  
       add_running_job job_id (extract job_info);
      Lwt.return 
        (xmlwrapper user_msg, "text/xml")); 
