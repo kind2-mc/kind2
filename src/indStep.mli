@@ -21,6 +21,25 @@
     @author Christoph Sticksel
 *)
 
+(** SMT Solver used for the inductive step *)
+module S : SolverMethods.S
+
+(** Inductive step for given [k]
+
+    Assume: Solver context contains 
+    - transition relation T[x_0,x_1] ... T[x_k-1,x_k], 
+    - Invariants C[x_0] ... C[x_k]
+    - properties in [props_unknown] P[x_0] ... P[x_k]
+    
+    Extend this solver context to k+1, and check which properties in
+    [props_unknown] are k-inductive. 
+    
+    Return a pair of lists, where the first list contains properties
+    that are k-inductive, and the second list properties that are not
+    k-inductive. *)
+val ind_step : S.t -> TransSys.t -> (string * Term.t) list -> (string * Term.t) list -> Numeral.t -> (string * Term.t) list * (string * Term.t) list
+
+
 (** Entry point *)
 val main : TransSys.t -> unit
 

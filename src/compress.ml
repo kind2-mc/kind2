@@ -19,88 +19,56 @@
 open Lib
 
 
-module type CompressionPred =
-sig
+(* Given a list of lists of equal length return a list of lists, where
+   the n-th list contains the n-th elements of each list.
 
-  (* Simulation relation *)
-  val check : (Var.t * Term.t) list -> (Var.t * Term.t) list -> bool
+   This function is tail-recursive and returns the elements in reverse order:
+   [[11;12];[21;22];[31;32]] becomes [[32; 22; 12]; [31; 21; 11]].
 
-  val block : Numeral.t -> Numeral.t -> Term.t
+   Raise Invalid_argument "list_transpose" if lists are of different
+   length. *)
+let list_transpose = 
 
-end
+  let rec list_transpose' accum = 
 
-(* Empty relation, is a direct and reverse simulation *)
-module Empty : CompressionPred = 
-struct 
-  
-  let check _ _ = false 
+    let rec list_transpose'' accum = function 
 
-  let block _ _ = Term.t_true
+      | [] -> 
 
-end
+        (function 
+          | [] -> List.rev accum
+          | _ -> invalid_arg "list_transpose")
 
+      | h :: tla ->
 
-(* s_1 simulates s_2 iff both are initial, is a reverse simulation *)
-module Init : CompressionPred =
-struct
+        (function 
+          | [] -> invalid_arg "list_transpose"
 
-  let check _ _ = false
+          | e :: tll -> list_transpose'' ((e :: h) :: accum) tla tll)
 
-  let block _ _ = Term.t_true
+    in
 
-end
+    function
+      | [] -> List.rev accum
 
+      | l :: tl -> 
 
-(* s_1 simulates s_2 iff s_1 = s_2, is a direct and reverse simulation *)
-module Equal : CompressionPred =
-struct 
+        let accum' = list_transpose'' [] accum l in
 
-  let check state1 state2 = 
+        list_transpose' accum' tl
 
-    List.for_all2 
-      (fun (v1, t1) (v2, t2) -> 
-         if
-           StateVar.equal_state_vars
-             (Var.state_var_of_state_var_instance v1) 
-             (Var.state_var_of_state_var_instance v2)
-         then
-           Term.equal t1 t2
-         else
-           assert false)
-      state1
-      state2
+  in
 
-  let block offset1 offset2 = 
+  function 
 
-    Term.t_true
+    (* Handle empty list *)
+    | [] -> []
 
-    
-end
+    (* First element in list determines length of result list *)
+    | h :: _ as l -> 
 
+      list_transpose' (List.map (fun _ -> []) h) l
 
-(* s_1 simulates s_2 iff s_1 = s_2 on those variables that are not
-   input, is a reverse simulation *)
-module EqualModInput : CompressionPred = 
-struct
-  
-  let check state1 state2 = 
-
-    List.for_all2 
-      (fun (v1, t1) (v2, t2) -> 
-         let sv1 = Var.state_var_of_state_var_instance v1 in
-         let sv2 = Var.state_var_of_state_var_instance v2 in
-         if StateVar.equal_state_vars sv1 sv2 then
-           StateVar.is_input sv1 || Term.equal t1 t2
-         else
-           assert false)
-      state1
-      state2
-
-  let block offset1 offset2 = 
-
-    Term.t_true
-
-end
 
 (* Apply function to all unordered pairs in the list and return
    results in a list
@@ -110,23 +78,23 @@ end
    e_n] in this order and returns the list [r_n-1n, ..., r_12]. 
 
    The empty list is returned if [l] has less than two elements. *)
-let fold_pairs f l = 
+let fold_pairs f accum l = 
 
-  let rec fold_pairs' f l accum = function
+  let rec fold_pairs' f accum l = function
     
     | [] | [_] -> 
       
       (match l with 
         | [] | [_] -> accum 
-        | h :: tl -> fold_pairs' f tl accum tl)
+        | h :: tl -> fold_pairs' f accum tl tl)
       
     | h :: s :: tl -> 
       
-      fold_pairs' f l ((f h s) :: accum) (h :: tl)
+      fold_pairs' f (f accum h s) l (h :: tl)
 
   in
 
-  fold_pairs' f l [] l
+  fold_pairs' f accum l l
 
 
 (* Apply predicate on all unordered pairs in the list and return
@@ -156,17 +124,175 @@ let exists_pair p l =
 
   exists_pair' p l l
 
+
+(* ********************************************************************** *)
+(* Simulation relation: Equality modulo input variables                   *)
+(* ********************************************************************** *)
+
+(* Name of the uninterpreted function symbol *)
+let equal_mod_input_string = "__compress_equal_mod_input"
+
+
+(* Declare uninterpreted function symbol *)
+let init_equal_mod_input declare_fun trans_sys = 
   
+  let uf_distinct = 
+    UfSymbol.mk_uf_symbol
+      equal_mod_input_string
+      (List.fold_left 
+         (fun a sv -> 
+            if not (StateVar.is_input sv) then 
+              StateVar.type_of_state_var sv :: a 
+            else a)
+         []
+         (TransSys.state_vars trans_sys))
+      Type.t_int
+  in
+  
+  declare_fun uf_distinct
 
-let compress_path trans_sys path = 
 
-  if exists_pair EqualModInput.check path then
+(* States are equivalent if for each variable the variable is either
+   an input or the values are equal *)
+let equal_mod_input accum s1 s2 = 
 
-    None
+  let uf_distinct = 
+    UfSymbol.uf_symbol_of_string equal_mod_input_string
+  in
 
-  else
+  if
 
-    None
+    (* Check if states are equivalent *)
+    List.for_all2
+
+      (fun (v1, t1) (v2, t2) -> 
+
+         let sv1 = Var.state_var_of_state_var_instance v1 in
+
+         (* Make sure we're talking about the same state variable *)
+         assert  
+           (StateVar.equal_state_vars
+              sv1
+              (Var.state_var_of_state_var_instance v2));
+
+         (* States are equivalent if state variable is an input or
+            values are equal *)
+         StateVar.is_input sv1 || Term.equal t1 t2) 
+
+      s1 
+      s2 
+
+  then 
+
+    (
+
+      (* Count number of clauses *)
+      Stat.incr Stat.ind_compress_clauses;
+
+      (* Blocking term to force states not equivalent *)
+      let term =
+
+        (* Use uninterpreted function symbol or disjunction of equations? *)
+        if true then
+
+          (
+            
+            (* Equation f(v1, ..., vn) = i *)
+            let term_of_state s = 
+              Term.mk_eq
+                [Term.mk_uf
+                   uf_distinct 
+                   (List.fold_right
+                      (fun (v, _) a -> 
+                         if 
+                           not 
+                             (StateVar.is_input
+                                (Var.state_var_of_state_var_instance v))
+                         then Term.mk_var v :: a else a) s []);
+                 Term.mk_num
+                   (Var.offset_of_state_var_instance (fst (List.hd s)))]
+            in              
+
+            (* Equation to force first state distinct from others *)
+            let t1 = term_of_state s1 in
+
+            (* Equation to force second state distinct from others *)
+            let t2 = term_of_state s2 in
+
+            (* Add conjunction of equations as blocking clause *)
+            Term.mk_and [t1; t2]
+
+          )
+
+        else
+
+          (* Generate disjunction of disequalities and add to accumulator *)
+          (Term.mk_or
+
+             (List.fold_left2
+                (fun a (v1, _) (v2, _) -> 
+
+                   let sv1 = Var.state_var_of_state_var_instance v1 in
+
+                   (* Skip input variables *)
+                   if not (StateVar.is_input sv1) then 
+
+                     (* Disequality between state variables at instants *)
+                     Term.negate 
+                       (Term.mk_eq 
+                          [Term.mk_var v1; Term.mk_var v2]) :: a 
+
+                   else a)
+                []
+                s1
+                s2))
+
+      in
+
+      (debug compress
+          "Compression clause@ %a"
+          Term.pp_print_term term
+       in
+
+       term :: accum)
+
+    )
+
+  (* States are not equivalent *)
+  else accum
+
+
+let init declare_fun trans_sys = 
+
+  init_equal_mod_input declare_fun trans_sys 
+
+
+(* Generate blocking terms from all equivalent states *)
+let check_and_block cex = 
+
+  (* Convert counterexample to list of lists of pairs of variable at
+     instant and its value *)
+  let states = 
+    list_transpose
+      (List.map
+         (fun (sv, t) ->  
+            List.mapi 
+              (fun i t -> 
+                 (Var.mk_state_var_instance
+                    sv
+                    (Numeral.of_int i),
+                  t))
+              t)
+         cex)
+  in
+  
+  (* Generate blocking terms from equality relation *)
+  let block_terms = fold_pairs equal_mod_input [] states in
+
+  (* Return blocking terms *)
+  block_terms
+
+    
   
 
 

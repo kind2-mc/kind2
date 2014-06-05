@@ -134,7 +134,10 @@ val pp_print_bmc_stats : Format.formatter -> unit
 (** Highest k reached *)
 val ind_k : int_item 
 
-(** Number of restarts*)
+(** Number clauses to compress inductive counterexamples *)
+val ind_compress_clauses : int_item 
+
+(** Number of restarts *)
 val ind_restarts : int_item 
 
 (** Total time in BMC *)

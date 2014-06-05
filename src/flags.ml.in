@@ -262,13 +262,19 @@ let enable_values = "PDR, BMC, IND, INVGEN"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR; `BMC]
+let enable_default_after = [`PDR; `BMC; `IND]
 
 (* ********** *) 
 
 type bmc_max = int
     
 let bmc_max_default = 0
+
+(* ********** *) 
+
+type ind_compress = bool
+    
+let ind_compress_default = true
 
 (* ********** *) 
 
@@ -466,6 +472,7 @@ type flags =
       mutable mathsat5_bin : mathsat5_bin;
       mutable enable : enable;
       mutable bmc_max : bmc_max;
+      mutable ind_compress : ind_compress;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
       mutable pdr_check_inductive : pdr_check_inductive;
@@ -500,6 +507,7 @@ let flags =
     mathsat5_bin = mathsat5_bin_default;
     enable = enable_default_init;
     bmc_max = bmc_max_default;
+    ind_compress = ind_compress_default;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
@@ -603,6 +611,15 @@ let bmc_max_spec =
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
    Format.sprintf "(BMC) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+
+(* ********** *) 
+
+let ind_compress_action o = flags.ind_compress <- o
+  
+let ind_compress_spec = 
+  ("--ind_compress", 
+   Arg.Bool ind_compress_action, 
+   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)" ind_compress_default)
 
 (* ********** *) 
 
@@ -849,6 +866,8 @@ let enable () = flags.enable
 
 let bmc_max () = flags.bmc_max 
 
+let ind_compress () = flags.ind_compress 
+
 let pdr_qe () = flags.pdr_qe 
 
 let pdr_extract () = flags.pdr_extract 
@@ -936,6 +955,9 @@ and speclist =
 
     (* Maximal number of iterations in BMC *)
     bmc_max_spec;
+
+    (* Compress inductive counterexamples *)
+    ind_compress_spec;
 
     (* Set QE in PDR *)
     pdr_qe_spec;
