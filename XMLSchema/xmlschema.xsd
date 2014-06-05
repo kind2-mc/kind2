@@ -1,6 +1,11 @@
+<!-- This is the xml schema for the kind counterexample output !-->
+<!-- Author : Mingyu Ma !-->
+<!-- Note that the expected xsd processor is xsd 1.1 , otherwise xs:alternative won't be recognized!-->
+
 <?xml version="1.1" encoding="utf-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
     xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" vc:minVersion="1.1">
+	
 	<xs:element name="path">
 		<xs:complexType>
 			<xs:sequence>
