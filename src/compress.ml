@@ -197,6 +197,19 @@ let equal_mod_input accum s1 s2 =
 
           (
             
+            (* Return the offset of the first variable, skipping
+               over constant state variables 
+
+               The list of variables is never empty *)
+            let rec aux = function
+              | [] -> assert false
+              | (v, _) :: tl -> 
+                if Var.is_state_var_instance v then 
+                  Var.offset_of_state_var_instance v
+                else
+                  aux tl
+            in
+
             (* Equation f(v1, ..., vn) = i *)
             let term_of_state s = 
               Term.mk_eq
@@ -209,8 +222,7 @@ let equal_mod_input accum s1 s2 =
                              (StateVar.is_input
                                 (Var.state_var_of_state_var_instance v))
                          then Term.mk_var v :: a else a) s []);
-                 Term.mk_num
-                   (Var.offset_of_state_var_instance (fst (List.hd s)))]
+                 Term.mk_num (aux s)]
             in              
 
             (* Equation to force first state distinct from others *)
@@ -231,12 +243,12 @@ let equal_mod_input accum s1 s2 =
 
              (List.fold_left2
                 (fun a (v1, _) (v2, _) -> 
-
+                   
                    let sv1 = Var.state_var_of_state_var_instance v1 in
-
+                   
                    (* Skip input variables *)
                    if not (StateVar.is_input sv1) then 
-
+                     
                      (* Disequality between state variables at instants *)
                      Term.negate 
                        (Term.mk_eq 
