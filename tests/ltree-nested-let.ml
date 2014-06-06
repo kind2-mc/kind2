@@ -64,36 +64,36 @@ let v___abs_4_0 = Var.mk_fresh_var t_bool;;
 let v___abs_6_0 = Var.mk_fresh_var t_int;;
 
 let l =
-  [(v_e_s1_1, Term.mk_uf s_e_s1_1 []);
-   (v_e_s2_1, Term.mk_uf s_e_s2_1 []);
-   (v_e_s3_1, Term.mk_uf s_e_s3_1 []);
-   (v_init_invalid_s_1, Term.mk_uf s_init_invalid_s_1 []);
-   (v___nondet_2, Term.mk_uf s___nondet_2 []);
-   (v___nondet_1, Term.mk_uf s___nondet_1 []);
-   (v___nondet_0, Term.mk_uf s___nondet_0 []);
-   (v_OK_1, Term.mk_uf s_OK_1 []);
-   (v_invalid_s_1, Term.mk_uf s_invalid_s_1 []);
-   (v_valid_s_1, Term.mk_uf s_valid_s_1 []);
-   (v_dirty_s_1, Term.mk_uf s_dirty_s_1 []);
-   (v_mem_init_s_1, Term.mk_uf s_mem_init_s_1 []);
-   (v_env_1, Term.mk_uf s_env_1 []);
-   (v___abs_4_1, Term.mk_uf s___abs_4_1 []);
-   (v___abs_6_1, Term.mk_uf s___abs_6_1 []);
-   (v_e_s1_0, Term.mk_uf s_e_s1_0 []);
-   (v_e_s2_0, Term.mk_uf s_e_s2_0 []);
-   (v_e_s3_0, Term.mk_uf s_e_s3_0 []);
-   (v_init_invalid_s_0, Term.mk_uf s_init_invalid_s_0 []);
-   (v___nondet_2, Term.mk_uf s___nondet_2 []);
-   (v___nondet_1, Term.mk_uf s___nondet_1 []);
-   (v___nondet_0, Term.mk_uf s___nondet_0 []);
-   (v_OK_0, Term.mk_uf s_OK_0 []);
-   (v_invalid_s_0, Term.mk_uf s_invalid_s_0 []);
-   (v_valid_s_0, Term.mk_uf s_valid_s_0 []);
-   (v_dirty_s_0, Term.mk_uf s_dirty_s_0 []);
-   (v_mem_init_s_0, Term.mk_uf s_mem_init_s_0 []);
-   (v_env_0, Term.mk_uf s_env_0 []);
-   (v___abs_4_0, Term.mk_uf s___abs_4_0 []);
-   (v___abs_6_0, Term.mk_uf s___abs_6_0 [])];;
+  [(v_e_s1_1, Term.mk_uf s_e_s1_1 []);                          (*  1 *)
+   (v_e_s2_1, Term.mk_uf s_e_s2_1 []);                          (*  2 *)
+   (v_e_s3_1, Term.mk_uf s_e_s3_1 []);                          (*  3 *)
+   (v_init_invalid_s_1, Term.mk_uf s_init_invalid_s_1 []);      (*  4 *)
+   (v___nondet_2, Term.mk_uf s___nondet_2 []);                  (*  5 *)
+   (v___nondet_1, Term.mk_uf s___nondet_1 []);                  (*  6 *)
+   (v___nondet_0, Term.mk_uf s___nondet_0 []);                  (*  7 *)
+   (v_OK_1, Term.mk_uf s_OK_1 []);                              (*  8 *)
+   (v_invalid_s_1, Term.mk_uf s_invalid_s_1 []);                (*  9 *)
+   (v_valid_s_1, Term.mk_uf s_valid_s_1 []);                    (* 10 *)
+   (v_dirty_s_1, Term.mk_uf s_dirty_s_1 []);                    (* 11 *)
+   (v_mem_init_s_1, Term.mk_uf s_mem_init_s_1 []);              (* 12 *)
+   (v_env_1, Term.mk_uf s_env_1 []);                            (* 13 *)
+   (v___abs_4_1, Term.mk_uf s___abs_4_1 []);                    (* 14 *)
+   (v___abs_6_1, Term.mk_uf s___abs_6_1 []);                    (* 15 *)
+   (v_e_s1_0, Term.mk_uf s_e_s1_0 []);                          (* 16 *)
+   (v_e_s2_0, Term.mk_uf s_e_s2_0 []);                          (* 17 *)
+   (v_e_s3_0, Term.mk_uf s_e_s3_0 []);                          (* 18 *)
+   (v_init_invalid_s_0, Term.mk_uf s_init_invalid_s_0 []);      (* 19 *)
+   (v___nondet_2, Term.mk_uf s___nondet_2 []);                  (* 20 *)
+   (v___nondet_1, Term.mk_uf s___nondet_1 []);                  (* 21 *)
+   (v___nondet_0, Term.mk_uf s___nondet_0 []);                  (* 22 *)
+   (v_OK_0, Term.mk_uf s_OK_0 []);                              (* 23 *)
+   (v_invalid_s_0, Term.mk_uf s_invalid_s_0 []);                (* 24 *)
+   (v_valid_s_0, Term.mk_uf s_valid_s_0 []);                    (* 25 *)
+   (v_dirty_s_0, Term.mk_uf s_dirty_s_0 []);                    (* 26 *)
+   (v_mem_init_s_0, Term.mk_uf s_mem_init_s_0 []);              (* 27 *)
+   (v_env_0, Term.mk_uf s_env_0 []);                            (* 28 *)
+   (v___abs_4_0, Term.mk_uf s___abs_4_0 []);                    (* 29 *)
+   (v___abs_6_0, Term.mk_uf s___abs_6_0 [])];;                  (* 30 *)
 
  
 let v_1 = Var.mk_fresh_var t_bool;;
@@ -215,6 +215,7 @@ let e_l = l1 (l2 (l3 (l4 (v v_8))));;
 
 let ite = Term.mk_ite;;
 
+(*
 let t_r = 
   (ite
      (v v_1)
@@ -226,10 +227,23 @@ let t_r =
          (v v_3)
          (ite (v v_23) ((((v v_19) +@ (v v_21)) +@ (v v_20)) -@ ?%@ 1) (v v_19))
          (v v_19))));;
-       
+*)
+
+let t_r = (ite (v v_24) ((((v v_19) +@ (v v_21)) +@ (v v_20)) -@ ?%@ 1) (v v_19))
 
 let e_r = l1 (l2 (l3 (l4 t_r)));;
 
-let t = e_l =@ r_r;;
+(* let t = e_l =@ e_r;; *)
 
-let t' = Term.eval_t (fun t _ -> t) t;;
+let t_correct = l1 (l2 (l3 (l4 (v v_24 +@ v v_20))));;
+
+let t'_correct = Term.eval_t (fun t _ -> t) t_correct;;
+
+let t_wrong = l1 (l2 (l3 (l4 (v v_24 +@ v v_19))));;
+
+let t'_wrong = Term.eval_t (fun t _ -> t) t_wrong;;
+
+Term.print_term (Term.construct t'_correct);;
+
+Term.print_term (Term.construct t'_wrong);;
+
