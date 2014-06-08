@@ -1011,7 +1011,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       (* Copy node call from original node to reduced node, do not
          modify original node, because additional variables may be found
          to be in the cone of influence *)
-      let calls_coi', svtl =
+      let calls_coi', svtl, sv_visited' =
 
         try 
 
@@ -1054,7 +1054,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
               in
 
               (* Add called node to sliced node *)
-              (call_coi :: node_coi.calls), svtl'
+              (call_coi :: node_coi.calls), svtl', (call_outputs @ sv_visited)
 
             else
 
@@ -1064,13 +1064,13 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           )            
 
         (* Variable is not an output of a node call *)
-        with Not_found -> node_coi.calls, svtl 
+        with Not_found -> node_coi.calls, svtl, sv_visited
 
       in
 
       (* Copy equation from original node to reduced node and add
            variables to stack *)
-      let equations_coi', svtl = 
+      let equations_coi', svtl, sv_visited' = 
 
         try 
 
@@ -1090,13 +1090,13 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
           (* Return with equation added and new variables in cone of
              influence *)
-          equations_coi', svtl' 
+          equations_coi', svtl', (state_var :: sv_visited')
 
         (* Variable is not defined in an equation *)
         with Not_found -> 
 
           (* Keep previous equations *)
-          node_coi.equations, svtl
+          node_coi.equations, svtl, sv_visited'
 
       in
 
@@ -1112,7 +1112,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        ((svtl, state_var :: sv_visited, node_orig, node_coi') :: ntl)
+        ((svtl, sv_visited', node_orig, node_coi') :: ntl)
 
     with Push_node push_name ->
       
