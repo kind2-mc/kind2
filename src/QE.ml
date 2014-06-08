@@ -397,47 +397,51 @@ let rec collect_eqs vars (eqs, terms) = function
   | [] -> (eqs, terms)
 
   (* Head element of list *)
-  | term :: tl -> 
+  | term :: tl -> match Term.destruct term with
 
-    match Term.destruct term with
+    (* Term is an equation with a variable in [vars] on either side *)
+    | Term.T.App (s, [v; e]) 
+    | Term.T.App (s, [e; v]) when
+        (Symbol.equal_symbols s Symbol.s_eq)
+        && (Term.is_free_var v)
+        && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
 
-      (* Term is an equation with a variable in [vars] on either side *)
-      | Term.T.App (s, [v; e]) 
-      | Term.T.App (s, [e; v]) when
-          (Symbol.equal_symbols s Symbol.s_eq)
-          && (Term.is_free_var v)
-          && (List.exists (Var.equal_vars (Term.free_var_of_term v)) vars) -> 
-       
-        let v = Term.free_var_of_term v in
+      (* Variable on left- or right-hand side *)
+      let v = Term.free_var_of_term v in
 
-        (try 
+      (try 
+         
+         (* Find previous equation for variable 
 
-          let _, e' = 
-            List.find
-              (fun (u, e') -> Var.equal_vars v u)
-              eqs
-          in
-          
-          let term' = Term.mk_eq [e; e'] in
-           (* Add term to first list *)
-           collect_eqs vars (eqs, (term' :: terms)) tl
+            If there are two equations for one variable, v = e1 and 
+            v = e2, rewrite v to e1 in v = e2 to e1 = e2 *)
+         let _, e' = 
+           List.find
+             (fun (u, e') -> Var.equal_vars v u)
+             eqs
+         in
 
-        with Not_found ->
+         (* Rewrite second equation to e = e' *)
+         let term' = Term.mk_eq [e; e'] in
 
-          (* Add term to first list *)
-          collect_eqs vars ((v, e) :: eqs, terms) tl)
+         (* Add rewritten equation to list of equations *)
+         collect_eqs vars (eqs, (term' :: terms)) tl
 
-      | _ -> 
+       (* No previous equation for variable *)
+       with Not_found ->
 
-        (* Add term to second list *)
-        collect_eqs vars (eqs, term :: terms) tl
+         (* Add equation as rewrite rule *)
+         collect_eqs vars ((v, e) :: eqs, terms) tl)
+
+    | _ -> 
+
+      (* Add term to constraints *)
+      collect_eqs vars (eqs, term :: terms) tl
 
 
 (* 
 
-   Only the first definition of a variable is considered, any
-   following definition is silently assumed to be equivalent and
-   dropped. *)
+   TODO: Check for cyclic definitions. Lustre input should be safe. *)
 let rec order_defs accum = function 
 
   | [] -> accum
@@ -496,26 +500,44 @@ let solve_eqs vars terms =
   (* Order list of definitions by dependency *)
   let eqs' = order_defs [] eqs in
 
-  List.map
-    (fun term -> 
+  debug qe
+    "@[<hv>Equations:@ @[<hv>%a@]@]"
+    (pp_print_list 
+      (fun ppf (v, t) -> Format.fprintf ppf "%a = %a" Var.pp_print_var v Term.pp_print_term t)
+      ",@ ")
+    eqs'
+  in
 
-       (* Variables of term *)
-       let vars = Term.vars_of_term term in
+  let rec subst_defs term = 
 
-       (* Filter definitions for variables of term *)
-       let defs = 
-         List.filter
-           (fun (v, _) -> VS.exists (Var.equal_vars v) vars) 
-           eqs' 
-       in
+    (* Variables of term *)
+    let vars = Term.vars_of_term term in
+    
+    match 
+      
+      (* Get definitions for variables of term *)
+      List.filter
+        (fun (v, _) -> VS.exists (Var.equal_vars v) vars) 
+        eqs' 
 
-       (* Let-bind variables to definitions *)
-       List.fold_left 
-         (fun term (v, e) -> Term.mk_let [(v, e)] term)
-         term
-         defs)
-    terms'
+    with
+
+      (* Return term if no variable can be substituted *)
+      | [] -> term
+
+      | defs -> 
+
+        (* Let-bind variables to definitions *)
+        let term' = Term.mk_let defs term in
+
+        (* Recurse to substitute introduced variables *)
+        subst_defs term'
+
+  in
+    
+  List.map subst_defs terms'
          
+
 
 
 
@@ -524,9 +546,10 @@ let solve_eqs vars terms =
 let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
   (debug qe
-     "@[<hv>Generalizing@ @[<hv>%a@]@]@."
-     Term.pp_print_term 
-     term end);
+     "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
+     Term.pp_print_term term
+     (pp_print_list Var.pp_print_var ",@ ") elim
+     end);
 
   (debug qe
      "@[<hv>with the model@ @[<hv>%a@]@]@."
@@ -571,7 +594,6 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
      "@[<hv>Extracted term simplified:@ @[<hv>%a@]@]@."
      Term.pp_print_term
      extract_int end);
-
 (*
   check_implication 
     trans_sys
@@ -581,7 +603,6 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
        (Term.mk_and [Term.mk_and extract_bool; extract_int]))
     (SMTExpr.smtexpr_of_term term);
 *)
-
   (debug qe
      "@[<hv>QE for Booleans:@ @[<hv>%a@]@]@."
      Term.pp_print_term 
@@ -675,7 +696,6 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           term 
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
 *)
-
         (* Return quantifier eliminated term *)
         (match pdr_qe with 
           | `Z3 
@@ -705,6 +725,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
          end);
 (*
         check_implication 
+          trans_sys
           "presburger normalization"
           "integer extract"
           (SMTExpr.smtexpr_of_term (Presburger.term_of_cformula cf))
@@ -712,12 +733,12 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
 
         check_implication 
+          trans_sys
           "integer extract"
           "presburger normalization"
           (SMTExpr.smtexpr_of_term extract_int)
           (SMTExpr.smtexpr_of_term (Presburger.term_of_cformula cf));
 *)
-
         (* Eliminate quantifiers *)
         let elim_pformula = 
           CooperQE.eliminate model elim_int cf  
@@ -731,7 +752,6 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
         (* Convert quantifier eliminated Presburger formula to term *)
         let term'_int = Presburger.term_of_cformula elim_pformula in
-
 (*
         (* Check generalizations *)
         check_generalize 
@@ -741,7 +761,6 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           term 
           (Term.mk_and [Term.mk_and term'_bool; Term.mk_and term'_int]);
 *)
-
         (* Return quantifier eliminated term *)
         term'_bool @ term'_int
 

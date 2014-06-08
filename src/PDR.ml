@@ -668,6 +668,16 @@ let extract_cex_path
     trans_sys 
     trace = 
 
+  debug pdr
+      "@[<v>Current context@,@[<hv>%a@]@]"
+      HStringSExpr.pp_print_sexpr_list
+      (let r, a = 
+        S.T.execute_custom_command solver_misc "get-assertions" [] 1 
+       in
+       S.fail_on_smt_error r;
+       a)
+  in
+
   S.push solver_misc;
 
   let k_plus_one = Numeral.(of_int (List.length trace)) in
