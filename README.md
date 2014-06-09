@@ -1,8 +1,44 @@
 Kind 2
 ======
 
-Multi-engine SMT-based automatic model checker for safety properties of Lustre programs
+A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. 
 
+Kind2 takes as input a Lustre file annotated with properties to prove invariant (see [Lustre syntax](Lustre.md)), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in [XML format](XML.md).
+
+Kind2 runs a process for bounded model checking (BMC), a process for k-induction, and a proces for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.
+
+The following command-line options control its operation (run ```kind2 --help``` for a full list).
+
+- ```--enable {BMC|IND|PDR}``` Select model checking engines
+ 
+  By default, all three model checking engines are run in parallel. Give any combination of ```--enable BMC```, ```--enable IND``` and ```--enable PDR``` to select which engines to run. The option ``--enable BMC`` alone will not be able to prove properties valid, choosing ``--enable IND`` only will not produce any results. Any other combination is sound and complete.
+
+- ```--timeout_wall SECS``` Run for SECS seconds of wallclock time
+
+- ```--timeout_virtual SECS``` Run for SECS of CPU time
+ 
+- ```--smtsolver {Z3|CVC4|mathsat5} ``` Select SMT solver
+
+  The default is ```Z3```, but see options of the ```./build.sh``` script to override at compile-time
+  
+- ```--z3_bin PROGRAM``` Executable for Z3
+- ```--cvc4_bin PROGRAM``` Executable for CVC4
+- ```--mathsat5_bin PROGRAM``` Executable for MathSat5
+
+- ```--bmc_max K``` Run bounded model checking for up to ```K``` steps
+
+- ```-v``` Output informational messages
+- ```-xml``` Output in XML format
+
+
+Requirements
+============
+
+- OCaml 4.01 or later
+- A supported SMT solver
+ - [Z3](http://z3.codeplex.com) (recommended), 
+ - [CVC4](http://cvc4.cs.nyu.edu), or
+ - [MathSat5](http://mathsat.fbk.eu/)
 
 Building and installing
 =======================
