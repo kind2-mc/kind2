@@ -756,16 +756,17 @@ let definitions_of_contract init trans requires ensures =
 let rec trans_sys_of_nodes'
     main_node 
     node_defs 
-    fun_defs = function 
+    fun_defs_init
+    fun_defs_trans = function 
 
   (* All nodes converted, now create the top-level formulas *)
   | [] -> 
 
-    (match node_defs, fun_defs with 
+    (match node_defs, fun_defs_init, fun_defs_trans with 
 
       (* Take the head of the list as top node *)
       | (_, { inputs; outputs; locals }) :: _, 
-        (init_uf_symbol, (init_vars, _)) :: 
+        (init_uf_symbol, (init_vars, _)) :: _,
         (trans_uf_symbol, (trans_vars, _)) :: _ -> 
 
         (* Create copies of the state variables of the top node,
@@ -777,8 +778,11 @@ let rec trans_sys_of_nodes'
 
         (
 
-          (* Definitions of predicates *)
-          List.rev fun_defs, 
+          (* Definitions of predicates for initial state constraint *)
+          List.rev fun_defs_init, 
+
+          (* Definitions of predicates for transition relation *)
+          List.rev fun_defs_trans, 
 
           (* State variables *)
           state_vars_top, 
@@ -1124,7 +1128,8 @@ let rec trans_sys_of_nodes'
     trans_sys_of_nodes'
       main_node
       ((node_name, node_def) :: node_defs)
-      (fun_def_init :: fun_def_trans :: fun_defs)
+      (fun_def_init :: fun_defs_init)
+      (fun_def_trans :: fun_defs_trans)
       tl
 
 
@@ -1135,7 +1140,7 @@ let trans_sys_of_nodes main_node nodes =
       nodes
       []
   in
-  trans_sys_of_nodes' main_node [] [] nodes'
+  trans_sys_of_nodes' main_node [] [] [] nodes'
 
 
 let prop_of_node_prop main_node state_var =

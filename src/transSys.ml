@@ -26,8 +26,13 @@ type t =
 
   {
 
-    (* Definitions of uninterpreted function symbols *)
-    uf_defs : (UfSymbol.t * (Var.t list * Term.t)) list;
+    (* Definitions of uninterpreted function symbols for initial state
+       constraint *)
+    uf_defs_init : (UfSymbol.t * (Var.t list * Term.t)) list;
+
+    (* Definitions of uninterpreted function symbols for transition
+       relation *)
+    uf_defs_trans : (UfSymbol.t * (Var.t list * Term.t)) list;
 
     (* State variables of top node *)
     state_vars : StateVar.t list;
@@ -89,7 +94,8 @@ let pp_print_prop_status ppf (p, s) =
 
 let pp_print_trans_sys 
     ppf
-    { uf_defs; 
+    { uf_defs_init; 
+      uf_defs_trans; 
       state_vars; 
       init; 
       trans; 
@@ -100,14 +106,16 @@ let pp_print_trans_sys
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(fun-defs@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(init-defs@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(trans-defs@ (@[<v>%a@]))@]@,\
           @[<hv 2>(init@ (@[<v>%a@]))@]@,\
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(status@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_uf_def "@ ") uf_defs
+    (pp_print_list pp_print_uf_def "@ ") uf_defs_init
+    (pp_print_list pp_print_uf_def "@ ") uf_defs_trans
     Term.pp_print_term init 
     Term.pp_print_term trans
     (pp_print_list pp_print_prop "@ ") props
@@ -116,7 +124,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys uf_defs state_vars init trans props = 
+let mk_trans_sys uf_defs_init uf_defs_trans state_vars init trans props = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -145,7 +153,8 @@ let mk_trans_sys uf_defs state_vars init trans props =
       state_vars
   in
 
-  { uf_defs = uf_defs;
+  { uf_defs_init = uf_defs_init;
+    uf_defs_trans = uf_defs_trans;
     state_vars = List.sort StateVar.compare_state_vars state_vars;
     init = init;
     trans = trans;
@@ -560,6 +569,11 @@ let all_props_proved trans_sys =
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
 
+let uf_defs_init { uf_defs_init } = uf_defs_init
+
+let uf_defs_trans { uf_defs_trans } = uf_defs_trans
+
+let uf_defs { uf_defs_init; uf_defs_trans } = uf_defs_init @ uf_defs_trans
 
 (* Apply [f] to all uninterpreted function symbols of the transition
    system *)
@@ -567,8 +581,9 @@ let iter_state_var_declarations { state_vars } f =
   List.iter (fun sv -> f (StateVar.uf_symbol_of_state_var sv)) state_vars
   
 (* Apply [f] to all function definitions of the transition system *)
-let iter_uf_definitions { uf_defs } f = 
-  List.iter (fun (u, (v, t)) -> f u v t) uf_defs
+let iter_uf_definitions { uf_defs_init; uf_defs_trans } f = 
+  List.iter (fun (u, (v, t)) -> f u v t) uf_defs_init;
+  List.iter (fun (u, (v, t)) -> f u v t) uf_defs_trans
   
 
 (* Extract a path in the transition system, return an association list

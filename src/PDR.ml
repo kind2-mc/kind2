@@ -280,7 +280,14 @@ let generalize trans_sys state f g =
     
     (* Generalize term by quantifying over and eliminating primed
        variables *)
-    let gen_term = QE.generalize trans_sys trans_sys.TransSys.uf_defs state primed_vars term in
+    let gen_term = 
+      QE.generalize 
+        trans_sys
+        (TransSys.uf_defs trans_sys) 
+        state
+        primed_vars
+        term 
+    in
     
     Stat.record_time Stat.pdr_generalize_time;
     

@@ -115,7 +115,7 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
     (
 
       (* Definitions of predicates *)
-      let uf_defs = trans_sys.TransSys.uf_defs in
+      let uf_defs = TransSys.uf_defs trans_sys in
 
       (* Which properties are false in k steps? *)
       let props_unknown, props_kfalse' = 

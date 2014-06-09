@@ -92,7 +92,7 @@ let of_channel in_ch =
   (* Create transition system of Lustre nodes
 
      TODO: Split definitions into init and trans part *)
-  let fun_defs, state_vars, init, trans = 
+  let fun_defs_init, fun_defs_trans, state_vars, init, trans = 
     LustreTransSys.trans_sys_of_nodes main_node nodes_coi
   in
 
@@ -105,7 +105,8 @@ let of_channel in_ch =
   (* Create Kind transition system *)
   let trans_sys = 
     TransSys.mk_trans_sys 
-      fun_defs
+      fun_defs_init
+      fun_defs_trans
       state_vars
       init
       trans
