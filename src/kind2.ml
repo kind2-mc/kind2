@@ -299,7 +299,7 @@ let on_exit_child messaging_thread process exn =
 
 
 (* Fork and run a child process *)
-let run_process transSys messaging_setup process = 
+let run_process trans_sys messaging_setup process = 
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -377,7 +377,7 @@ let run_process transSys messaging_setup process =
           );
 
           (* Run main function of process *)
-          (main_of_process process) transSys;
+          (main_of_process process) trans_sys;
 
           (* Cleanup and exit *)
           on_exit_child (Some messaging_thread) process Exit
@@ -567,7 +567,7 @@ let main () =
       "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
-    let transSys = match (Flags.input_format ()) with 
+    let trans_sys = match (Flags.input_format ()) with 
 
       | `Lustre -> 
 
@@ -584,8 +584,20 @@ let main () =
     debug parse
         "%a"
         TransSys.pp_print_trans_sys
-        transSys
+        trans_sys
     in
+
+    if 
+
+      (* Warn if list of properties is empty *)
+      TransSys.props_list_of_bound trans_sys Numeral.zero = []
+
+    then
+
+      Event.log
+        `Parser
+        Event.L_warn
+        "No properties to prove";
 
     (* Which modules are enabled? *)
     (match Flags.enable () with
@@ -603,7 +615,7 @@ let main () =
             "Running as a single process";
 
           (* Run main function of process *)
-          (main_of_process p) transSys;
+          (main_of_process p) trans_sys;
           
           (* Ignore SIGALRM from now on *)
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
@@ -631,7 +643,7 @@ let main () =
           (* Start all child processes *)
           List.iter 
             (function p -> 
-              run_process transSys messaging_setup p)
+              run_process trans_sys messaging_setup p)
             ps;
 
           Event.log `INVMAN Event.L_trace "Starting invariant manager";
@@ -646,7 +658,7 @@ let main () =
           in
 
           (* Run invariant manager *)
-          InvarManager.main child_pids transSys;
+          InvarManager.main child_pids trans_sys;
           
           (* Exit without error *)
           on_exit `INVMAN Exit

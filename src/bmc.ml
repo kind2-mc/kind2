@@ -96,12 +96,26 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
     (Term.bump_state k (Term.negate (Term.mk_and (List.map snd properties))));
 
   (* Are all properties entailed? *)
-  if S.check_sat solver then 
+  if 
+
+    (debug bmc
+        "@[<v>Current context@,@[<hv>%a@]@]"
+        HStringSExpr.pp_print_sexpr_list
+        (let r, a = 
+          S.T.execute_custom_command solver "get-assertions" [] 1 
+         in
+         S.fail_on_smt_error r;
+         a)
+     in
+     
+     S.check_sat solver)
+
+  then 
 
     (
 
       (* Definitions of predicates *)
-      let uf_defs = trans_sys.TransSys.uf_defs in
+      let uf_defs = TransSys.uf_defs trans_sys in
 
       (* Which properties are false in k steps? *)
       let props_unknown, props_kfalse' = 
@@ -163,6 +177,12 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
 
       (* Remove negated properties after check *)
       S.pop solver;
+
+      (* Assert k-true properties as invariants *)
+      List.iter 
+        (fun (_, t) -> 
+           S.assert_term solver (Term.bump_state k t))
+        properties;
 
       (* All remaining properties are true in k steps *)
       (properties, props_kfalse))

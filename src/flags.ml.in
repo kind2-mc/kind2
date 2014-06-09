@@ -536,7 +536,7 @@ let flags =
 let timeout_wall_action o = flags.timeout_wall <- o  
 
 let timeout_wall_spec = 
-  ("-timeout_wall", 
+  ("--timeout_wall", 
    Arg.Float timeout_wall_action, 
    Format.sprintf "wallclock timeout (default: %1.f)" timeout_wall_default)
 
@@ -545,7 +545,7 @@ let timeout_wall_spec =
 let timeout_virtual_action o = flags.timeout_virtual <- o  
 
 let timeout_virtual_spec = 
-  ("-timeout_virtual", 
+  ("--timeout_virtual", 
    Arg.Float timeout_virtual_action, 
    Format.sprintf "CPU timeout (default: %1.f)" timeout_virtual_default)
 

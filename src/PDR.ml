@@ -280,7 +280,14 @@ let generalize trans_sys state f g =
     
     (* Generalize term by quantifying over and eliminating primed
        variables *)
-    let gen_term = QE.generalize trans_sys trans_sys.TransSys.uf_defs state primed_vars term in
+    let gen_term = 
+      QE.generalize 
+        trans_sys
+        (TransSys.uf_defs trans_sys) 
+        state
+        primed_vars
+        term 
+    in
     
     Stat.record_time Stat.pdr_generalize_time;
     
@@ -667,6 +674,16 @@ let extract_cex_path
     (solver_init, solver_frames, solver_misc) 
     trans_sys 
     trace = 
+
+  debug pdr
+      "@[<v>Current context@,@[<hv>%a@]@]"
+      HStringSExpr.pp_print_sexpr_list
+      (let r, a = 
+        S.T.execute_custom_command solver_misc "get-assertions" [] 1 
+       in
+       S.fail_on_smt_error r;
+       a)
+  in
 
   S.push solver_misc;
 

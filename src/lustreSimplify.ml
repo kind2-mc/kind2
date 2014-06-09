@@ -2871,7 +2871,7 @@ let rec property_to_node
        { node' with 
            N.locals = (state_var, I.empty_index) :: node'.N.locals },
        abstractions')
-
+      
   in
 
   (* Add property to node *)
@@ -2982,7 +2982,7 @@ and equation_to_node
 
   (* Add equation and abstractions *)
   (context',
-   { node' with N.equations = (state_var, expr') :: node.N.equations }, 
+   { node' with N.equations = (state_var, expr') :: node'.N.equations }, 
    abstractions')
 
 
