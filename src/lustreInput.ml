@@ -19,6 +19,7 @@
 open Lib
 
 module A = LustreAst
+module I = LustreIdent
 
 (* Parse from input channel *)
 let of_channel in_ch = 
@@ -99,7 +100,7 @@ let of_channel in_ch =
   let props = 
     LustreTransSys.props_of_nodes main_node nodes_coi
   in
-    
+  
 
   (* Create Kind transition system *)
   let trans_sys = 
@@ -114,7 +115,14 @@ let of_channel in_ch =
   (debug lustreInput 
       "%a"
       TransSys.pp_print_trans_sys trans_sys
-  in
+   in
+
+   Event.log
+     `Parser
+     Event.L_info
+     "Lustre main node is %a"
+     (I.pp_print_ident false) main_node;
+
 (*
   Format.printf 
     "%a@."

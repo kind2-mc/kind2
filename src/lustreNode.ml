@@ -894,7 +894,7 @@ let find_main nodes =
     | None -> 
 
       (* Return name of last node, fail if list of nodes empty *)
-      (match List.rev nodes with 
+      (match nodes with 
         | [] -> raise Not_found 
         | { name } :: _ -> name)
 
