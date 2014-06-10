@@ -69,7 +69,7 @@ let print_stats () =
 
 
 (* Cleanup before exit *)
-let on_exit () = 
+let on_exit _ = 
 
   (* Stop all timers *)
   Stat.pdr_stop_timers ();
@@ -2327,12 +2327,14 @@ let main trans_sys =
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
 
+  let produce_cores = Flags.pdr_tighten_to_unsat_core () in
+
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
     S.new_solver
       ~produce_models:true
       ~produce_assignments:true
-      ~produce_cores:true 
+      ~produce_cores:produce_cores
       logic
   in
 
@@ -2371,7 +2373,7 @@ let main trans_sys =
     S.new_solver
       ~produce_models:true
       ~produce_assignments:true
-      ~produce_cores:true 
+      ~produce_cores:produce_cores
       logic
   in
 
@@ -2550,10 +2552,10 @@ let main trans_sys =
               in
 
               (* Check which properties are disproved *)
-              let props' =
+              let props', props_false =
 
                 List.fold_left
-                  (fun accum (p, t) -> 
+                  (fun (props', props_false) (p, t) -> 
 
                      if 
 
@@ -2577,18 +2579,19 @@ let main trans_sys =
                           "Property %s disproved by PDR"
                           p;
 
-                        accum)
+                        (props', p :: props_false))
 
                      else
 
-                       (p, t) :: accum)
-                  []
+                       ((p, t) :: props', props_false))
+                  ([], [])
                   props
               in
 
               (* Output counterexample *)
               Event.log_counterexample
                 `PDR
+                props_false
                 cex_path;
 
               props'

@@ -24,7 +24,7 @@ let period = 0.5
 
 
 (* We don't need to clean up anything *)
-let on_exit () = ()
+let on_exit _ = ()
 
 
 (* Generate the k-th tautological invariant: a conjunction of k+1

@@ -43,7 +43,7 @@ val bmc_step : bool -> S.t -> TransSys.t -> Numeral.t -> (string * Term.t) list 
 val main : TransSys.t -> unit
 
 (** Cleanup before exit *)
-val on_exit : unit -> unit
+val on_exit : TransSys.t option -> unit
 
 
 (* 

@@ -23,6 +23,14 @@
     @author Christoph Sticksel
 *)
 
+
+(** Output a fatal error at position and raise an error *)
+val fail_at_position : LustreAst.position -> string -> 'a
+
+(** Output a warning at position *)
+val warn_at_position : LustreAst.position -> string -> unit 
+
+(** Return a list of nodes from a parsed input file *)
 val declarations_to_nodes : LustreAst.declaration list -> LustreNode.t list
 
 

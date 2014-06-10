@@ -59,6 +59,10 @@ val enable : unit -> enable
 type bmc_max = int
 val bmc_max : unit -> bmc_max
 
+(** Output version information and exit *)
+type check_version = bool
+val check_version : unit -> check_version
+
 (** Compresss inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress

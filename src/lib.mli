@@ -21,6 +21,12 @@
     @author Christoph Sticksel
 *)
 
+(** {1 Option types} *)
+
+(** Return the value of an option type, raise [Invalid_argument "get"]
+    if the option value is [None] *)
+val get : 'a option -> 'a
+
 (** {1 Infinite-precision numbers and bit-vectors} *)
 
 (** Constant bitvector *)
@@ -181,7 +187,7 @@ type prop_status =
 val pp_print_prop_status : Format.formatter -> prop_status -> unit
 
 (** Return true if the property is proved or disproved, i.e., for
-    {!PropInvariant}, {!PropFalse} and {!PropKFalse}.  *)
+    [PropInvariant], [PropFalse] and [PropKFalse].  *)
 val prop_status_known : prop_status -> bool
 
 (** Wallclock timeout *)

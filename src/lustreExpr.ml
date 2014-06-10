@@ -1965,6 +1965,7 @@ let split_expr_list list =
 let oracles_for_unguarded_pres 
     pos
     mk_new_oracle_state_var
+    warn_at_position
     oracles
     ({ expr_init } as expr) = 
 
@@ -1983,7 +1984,7 @@ let oracles_for_unguarded_pres
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, oracles) else
     
-    (A.warn_at_position
+    (warn_at_position
        pos
        "Unguarded pre in expression, adding new oracle input.";
        
