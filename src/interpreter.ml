@@ -33,7 +33,7 @@ let ref_solver = ref None
 
 
 (* Exit and terminate all processes here in case we are interrupted *)
-let on_exit () = 
+let on_exit _ = 
 
   (* Delete solver instance if created *)
   (try 
@@ -251,7 +251,7 @@ let main input_file trans_sys =
       in
       
       (* Output counterexample *)
-      Event.log_counterexample `Interpreter v;
+      Event.log_counterexample `Interpreter [] v;
 
       Format.printf 
         "@.%a@."

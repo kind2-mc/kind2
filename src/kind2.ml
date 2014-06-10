@@ -21,6 +21,9 @@ open Lib
 let pp_print_banner ppf () =
     Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
 
+let pp_print_version ppf = pp_print_banner ppf ()
+  
+
 (*
 
 module Dummy =
@@ -37,9 +40,13 @@ module InvGen = InvGenDummy
   
 (* Child processes forked 
 
-   This is an association list of PID to process type *)
+   This is an association list of PID to process type. We need a
+   reference here, because we may need to terminate asynchronously
+   after an exception. *)
 let child_pids = ref []
 
+(* Transition system *)
+let trans_sys = ref None
 
 
 (* Main function of the process *)
@@ -187,7 +194,7 @@ let on_exit process exn =
   let status = status_of_exn process exn in
 
   (* Clean exit from invariant manager *)
-  InvarManager.on_exit ();
+  InvarManager.on_exit !trans_sys;
 
   Event.log process Event.L_info "Killing all remaining child processes";
 
@@ -277,7 +284,7 @@ let on_exit_child messaging_thread process exn =
   let status = status_of_exn process exn in
 
   (* Call cleanup of process *)
-  (on_exit_of_process process) ();
+  (on_exit_of_process process) !trans_sys;
   
   Event.log process Event.L_info 
     "Process terminating";
@@ -299,7 +306,7 @@ let on_exit_child messaging_thread process exn =
 
 
 (* Fork and run a child process *)
-let run_process trans_sys messaging_setup process = 
+let run_process messaging_setup process = 
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -321,9 +328,9 @@ let run_process trans_sys messaging_setup process =
           (* Initialize messaging system for process *)
           let messaging_thread =
             Event.run_process 
-            process
-            messaging_setup
-            (on_exit_child None process)
+              process
+              messaging_setup
+              (on_exit_child None process)
           in
 
           (* All log messages are sent to the invariant manager now *)
@@ -377,7 +384,7 @@ let run_process trans_sys messaging_setup process =
           );
 
           (* Run main function of process *)
-          (main_of_process process) trans_sys;
+          (main_of_process process) (get !trans_sys);
 
           (* Cleanup and exit *)
           on_exit_child (Some messaging_thread) process Exit
@@ -418,6 +425,10 @@ let main () =
   (* Parse command-line flags *)
   Flags.parse_argv ();
 
+  (* Output version information only? *)
+  if Flags.check_version () then 
+    (Format.printf "%t@." pp_print_version; exit 0);
+    
   (* At least one debug section enabled? *)
   if Flags.debug () = [] then
 
@@ -567,30 +578,28 @@ let main () =
       "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
-    let trans_sys = match (Flags.input_format ()) with 
+    trans_sys := (match (Flags.input_format ()) with 
 
-      | `Lustre -> 
-
-        LustreInput.of_file (Flags.input_file ()) 
-
-      | `Horn -> 
-
-        (* Horn.of_file (Flags.input_file ()) *)
-        assert false
-
-    in
+        | `Lustre -> 
+          
+          Some (LustreInput.of_file (Flags.input_file ()))
+            
+        | `Horn -> 
+          
+          (* Horn.of_file (Flags.input_file ()) *)
+          assert false);
 
     (* Output the transition system *)
-    debug parse
+    (debug parse
         "%a"
         TransSys.pp_print_trans_sys
-        trans_sys
-    in
+        (get !trans_sys)
+     end);
 
     if 
 
       (* Warn if list of properties is empty *)
-      TransSys.props_list_of_bound trans_sys Numeral.zero = []
+      TransSys.props_list_of_bound (get !trans_sys) Numeral.zero = []
 
     then
 
@@ -615,7 +624,7 @@ let main () =
             "Running as a single process";
 
           (* Run main function of process *)
-          (main_of_process p) trans_sys;
+          (main_of_process p) (get !trans_sys);
           
           (* Ignore SIGALRM from now on *)
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
@@ -643,7 +652,7 @@ let main () =
           (* Start all child processes *)
           List.iter 
             (function p -> 
-              run_process trans_sys messaging_setup p)
+              run_process messaging_setup p)
             ps;
 
           Event.log `INVMAN Event.L_trace "Starting invariant manager";
@@ -658,7 +667,7 @@ let main () =
           in
 
           (* Run invariant manager *)
-          InvarManager.main child_pids trans_sys;
+          InvarManager.main child_pids (get !trans_sys);
           
           (* Exit without error *)
           on_exit `INVMAN Exit

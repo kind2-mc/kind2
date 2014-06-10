@@ -28,38 +28,12 @@ open Printf
 (******************************)
 
 exception No_value
-(* exception Terminate *)
+
 exception SocketConnectFailure
 exception SocketBindFailure
 exception BadMessage
 exception InvalidProcessName  
 exception NotInitialized
-
-
-
-(*
-type invariant = 
-  | INVAR of string * int
-
-  | PROP_KTRUE of string * int * int
-  | PROP_INVAR of string * int 
-  | PROP_FALSE of string * int
-  | PROP_KFALSE of string * int * int
-
-  | PROVED of string * int * int
-  | DISPROVED of string * int * int
-
-  | RESEND of int
-
-
-type induction = 
-  | BMCSTATE  of int * (string list)
-
-
-type counterexample = 
-  | COUNTEREXAMPLE of int
-
-*)
 
 
 (* Return true if the process is the invariant manages *)
@@ -68,6 +42,7 @@ let is_invariant_manager = function
   | _ -> false
 
 
+(* Pretty-print ZMQ message frames *)
 let rec pp_print_zmsg_frames n ppf zmsg =
 
   if n <= 0 then () else
@@ -76,9 +51,10 @@ let rec pp_print_zmsg_frames n ppf zmsg =
      if n > 1 then Format.fprintf ppf ";@ ";
      pp_print_zmsg_frames (pred n) ppf zmsg)
 
-
+(* Pretty-print a ZMQ message *)
 let pp_print_zmsg ppf zmsg = 
   
+  (* Copy message and print all frames *)
   Format.fprintf 
     ppf
     "@[<hv 1>{%a}@]"
@@ -106,6 +82,7 @@ sig
 end
 
 
+(* Output signature of functor *)
 module type S =
 sig
 
@@ -151,6 +128,7 @@ sig
   val exit : thread -> unit 
 
 end
+
 
 (* Functor to instantiate the messaging system with a type of messages *)
 module Make (T: RelayMessage) : S with type relay_message = T.t =
@@ -378,6 +356,7 @@ struct
   (* ******************************************************************** *)
         
   type 'a locking_queue = { lock : Mutex.t ; mutable q : 'a list }
+
 
   let new_locking_queue () =
     { lock = Mutex.create (); q = [] }

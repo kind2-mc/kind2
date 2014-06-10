@@ -249,6 +249,10 @@ let props_of_bound t i =
 let add_invariant t invar = t.invars <- invar :: t.invars
 
 
+(* Return current status of all properties *)
+let prop_status_all trans_sys = trans_sys.prop_status
+
+
 (* Return current status of property *)
 let prop_status trans_sys p = 
 

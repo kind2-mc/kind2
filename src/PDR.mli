@@ -26,7 +26,7 @@
 val main : TransSys.t -> unit
 
 (** Cleanup before exit *)
-val on_exit : unit -> unit
+val on_exit : TransSys.t option -> unit
 
 
 (* 

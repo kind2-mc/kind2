@@ -126,6 +126,9 @@ val add_invariant : t -> Term.t -> unit
     Counterexamples are ignored. *)
 val update_from_events : t -> (Lib.kind_module * Event.event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
 
+(** Return current status of all properties *)
+val prop_status_all : t -> (string * Lib.prop_status) list
+
 (** Return current status of property *)
 val prop_status : t -> string -> Lib.prop_status 
 

@@ -44,7 +44,7 @@ val ind_step : S.t -> TransSys.t -> (string * Term.t) list -> (string * Term.t) 
 val main : TransSys.t -> unit
 
 (** Cleanup before exit *)
-val on_exit : unit -> unit
+val on_exit : TransSys.t option -> unit
 
 
 (* 

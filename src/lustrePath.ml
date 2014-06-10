@@ -230,6 +230,144 @@ let pp_print_path_xml ppf model =
     (pp_print_list pp_print_tree_path_xml "@,") model'
 
 
+(* ********************************************************************** *)
+(* Plain text output                                                      *)
+(* ********************************************************************** *)
+
+
+let rec pp_print_stream_values_pt val_width ppf = function 
+
+  | [] -> ()
+
+  | t :: [] -> 
+
+    Format.fprintf 
+      ppf
+      "%-*s"
+      val_width
+      (string_of_t Term.pp_print_term t)
+      
+  | t :: tl -> 
+
+    Format.fprintf 
+      ppf
+      "%a %a"
+      (pp_print_stream_values_pt val_width) [t]
+      (pp_print_stream_values_pt val_width) tl
+
+
+
+let rec pp_print_tree_path_pt 
+    ident_width
+    val_width
+    node_call_path
+    nodes
+    ppf = 
+
+  function
+
+    | [] -> 
+
+      (match nodes with
+        | [] -> ()
+
+        | (node_ident, node_call_path, node_pos, elements) :: tl -> 
+
+          Format.fprintf ppf 
+            "Node %a (%a)@."
+            (I.pp_print_ident false) node_ident
+            (pp_print_list (I.pp_print_ident false) " / ")
+            (List.rev node_call_path);
+
+          pp_print_tree_path_pt 
+            ident_width
+            val_width
+            (node_ident :: node_call_path)
+            tl
+            ppf
+            elements)
+          
+
+    | Node (node_ident, node_pos, elements) :: tl ->
+
+      if tl = [] then Format.fprintf ppf "@.";
+
+      pp_print_tree_path_pt 
+        ident_width
+        val_width
+        node_call_path
+        ((node_ident, node_call_path, node_pos, elements) :: nodes)
+        ppf
+        tl
+
+    | Stream (stream_ident, stream_type, stream_prop, stream_values) :: tl ->
+
+      Format.fprintf
+        ppf
+        "%-*s %a@."
+        ident_width
+        (string_of_t (LustreIdent.pp_print_ident false) stream_ident)
+        (pp_print_stream_values_pt val_width) stream_values;
+
+      if tl = [] then Format.fprintf ppf "@.";
+
+      pp_print_tree_path_pt
+        ident_width
+        val_width
+        node_call_path
+        nodes
+        ppf
+        tl
+
+
+let rec widths_of_model ident_width val_width = function 
+
+  | [] -> (ident_width, val_width)
+
+  | Stream (stream_ident, _, _, stream_values) :: tl ->
+
+    let ident_width' =
+      max
+        ident_width
+        (String.length 
+           (string_of_t (LustreIdent.pp_print_ident false) stream_ident))
+    in
+
+    let val_width' = 
+      List.fold_left 
+        (fun w t ->
+           max
+             w
+             (String.length (string_of_t Term.pp_print_term t)))
+        val_width
+        stream_values
+    in
+
+    widths_of_model ident_width' val_width' tl
+
+  | Node (_, _, elements) :: tl -> 
+    widths_of_model ident_width val_width (elements @ tl)
+
+    
+
+(* Pretty-print a path in <path> tags *)
+let pp_print_path_pt ppf model =
+
+  match tree_path_of_model model with
+    | [Node (node_ident, node_pos, elements)] as model' -> 
+      
+      let ident_width, val_width = widths_of_model 0 0 model' in
+
+      pp_print_tree_path_pt
+        ident_width
+        val_width
+        []
+        [(node_ident, [], node_pos, elements)] 
+        ppf
+        []
+
+    | _ -> assert false
+
 let pp_print_path_orig_xml _ _ _ = ()
 
 

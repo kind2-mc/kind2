@@ -46,7 +46,7 @@ let of_channel in_ch =
           Lexing.lexeme_start_p lexbuf 
         in
 
-        A.fail_at_position
+        LustreSimplify.fail_at_position
           (A.position_of_lexing lexer_pos)
           "Syntax error"
 

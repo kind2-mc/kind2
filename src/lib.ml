@@ -395,6 +395,15 @@ let paren_string_of_string_list list =
 
 
 (* ********************************************************************** *)
+(* Option types                                                           *)
+(* ********************************************************************** *)
+
+(* Return the value of an option type, raise [Invalid_argument "get"]
+   if the option value is [None] *)
+let get = function None -> raise (Invalid_argument "get") | Some x -> x
+
+
+(* ********************************************************************** *)
 (* String                                                                 *)
 (* ********************************************************************** *)
 

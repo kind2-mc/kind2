@@ -22,7 +22,7 @@
     {!LustreParser} take the input and produce a {!LustreAst.t} value,
     which is a minimally processed representation of a Lustre AST. 
 
-    The function {!LustreSimplify.declarations_to_node} is called with
+    The function {!LustreSimplify.declarations_to_nodes} is called with
     this representation as input and produces a list of
     {!LustreNode.t} that contains each nodes in a normalized form, see
     {!LustreNode} and {!LustreExpr} for details.

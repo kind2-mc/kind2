@@ -97,31 +97,6 @@ let file_row_col_of_pos = function
   (* Return tuple of filename, line and column *)
   | { pos_fname; pos_lnum; pos_cnum } -> (pos_fname, pos_lnum, pos_cnum)
 
-(* Raise parsing exception *)
-let fail_at_position pos msg = 
-
-  Event.log
-    `Parser
-    Event.L_warn
-    "Parser error in %a: %s"
-    pp_print_position pos
-    msg;
-
-  raise Parser_error
-  
-
-(* Raise parsing exception *)
-let warn_at_position pos msg = 
-
-  Event.log
-    `Parser
-    Event.L_warn
-    "Parser warning in %a: %s"
-    pp_print_position pos
-    msg
-
-
-
 (* An identifier *)
 type ident = LustreIdent.t
 

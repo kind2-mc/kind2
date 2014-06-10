@@ -47,7 +47,7 @@ let print_stats () =
 
 
 (* Clean up before exit *)
-let on_exit () =
+let on_exit _ =
 
   (* Stop all timers *)
   Stat.ind_stop_timers ();

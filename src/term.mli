@@ -21,11 +21,10 @@
     Terms are hashconsed for maximal sharing, comparison with physical
     equality and to store type information.
 
-    Terms are higher-order abstract syntax terms, see {!HoasTree},
-    with symbols of type {!Symbol.t}, free variables of type {!Var.t}
-    and types {!Type.t}.
+    Terms are lambda trees, see {!Ltree}, with symbols of type
+    {!Symbol.t}, free variables of type {!Var.t} and types {!Type.t}.
 
-    The type {!term} is private and cannot be constructed outside
+    The type {!t} is private and cannot be constructed outside
     this module in order to ensure that all equal subterms are
     physically equal for hashconsing.
 
@@ -352,15 +351,11 @@ val print_term : t -> unit
 val string_of_term : t -> string 
 
 (** {1 Conversions} *)
-(*
+
 (** Evaluate the term bottom-up and right-to-left. The evaluation
-    function is called at each node of the term with the symbol and
-    the list of values computed for the subterms. Let bindings are
-    lazily unfolded. *)
-val eval : (Symbol.t -> 'a list -> 'a) -> t -> 'a
-*)
-(** Variant of {!eval}, where the function is given the term being
-    evaluated as the first argument *)
+    function is called at each node of the term with the the term
+    being evaluated, and the list of values computed for the
+    subterms. Let bindings are lazily unfolded. *)
 val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
 
 (** Tail-recursive bottom-up right-to-left map on the term

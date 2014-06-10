@@ -27,52 +27,6 @@ exception Terminate
 (* Events passed on to callers                                            *)
 (* ********************************************************************** *)
 
-(*
-(* Events exposed to the processes *)
-type event = 
-  | Invariant of kind_module * Term.t 
-  | Proved of kind_module * int option * string 
-  | Disproved of kind_module * int option * string 
-  | BMCState of int * (string list)
-
-(* Pretty-print a message *)
-let pp_print_event ppf = function 
-
-  | Invariant (m, t) -> 
-
-    Format.fprintf 
-      ppf 
-      "@[<hv>Invariant@ %a@ by %a@]" 
-      Term.pp_print_term t
-      pp_print_kind_module m
-
-  | Proved (m, k, p) -> 
-    Format.fprintf 
-      ppf 
-      "@[<hv>Proved@ %s@ %tby %a@]" 
-      p 
-      (function ppf -> match k with 
-         | None -> ()
-         | Some k -> Format.fprintf ppf "at %d@ " k)
-      pp_print_kind_module m
-
-  | Disproved (m, k, p) -> 
-    Format.fprintf 
-      ppf 
-      "@[<hv>Disproved@ %s@ %tby %a@]" 
-      p 
-      (function ppf -> match k with 
-         | None -> ()
-         | Some k -> Format.fprintf ppf "at %d@ " k)
-      pp_print_kind_module m
-
-  | BMCState (k, p) -> 
-    Format.fprintf ppf 
-      "@[<hv>BMC status@ k=%d@ %a@]" 
-      k 
-      (pp_print_list Format.pp_print_string ",@ ") p
-
-*)
 
 (* *)
 type event = 
@@ -331,6 +285,42 @@ let log_to_stdout () = log_ppf := Format.std_formatter
 
 
 (* ********************************************************************** *)
+(* Received statistics                                                    *)
+(* ********************************************************************** *)
+
+
+(* Map of kind_module *)
+module MdlMap = 
+  Map.Make
+    (struct 
+      type t = kind_module 
+      let int_of_kind_module = function
+        | `Parser -> -3
+        | `Interpreter -> -2
+        | `INVMAN -> -1
+        | `BMC -> 1
+        | `IND -> 2
+        | `PDR -> 3
+        | `INVGEN -> 4
+          
+      let compare m1 m2 = 
+        compare (int_of_kind_module m1) (int_of_kind_module m2)
+    end)
+
+
+(* Association list of module to last statistics message *)
+let last_stats = ref MdlMap.empty
+
+(* Return last statistics in order *)
+let all_stats () = 
+  List.rev
+    (MdlMap.fold
+       (fun mdl stats accum -> (mdl, stats) :: accum)
+       !last_stats
+       [])
+       
+
+(* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
 
@@ -419,6 +409,17 @@ let stat_pt mdl stats =
     stats
 
 
+(* Output counterexample as plain text *)
+let counterexample_pt mdl props cex = 
+
+  (ignore_or_fprintf L_fatal)
+    !log_ppf 
+    "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
+    (pp_print_list Format.pp_print_string ",@ ")
+    props
+    LustrePath.pp_print_path_pt cex
+    
+
 
 (* Output statistics section as plain text *)
 let progress_pt mdl k =
@@ -428,6 +429,29 @@ let progress_pt mdl k =
     "@[<v>Progress in %a: %d@]@."
     pp_print_kind_module mdl
     k
+
+(* Pretty-print a list of properties and their status *)
+let prop_status_pt prop_status =
+
+  Format.fprintf
+    !log_ppf
+    "@[<v>%a@]@."
+    (pp_print_list 
+       (fun ppf (p, s) -> 
+          Format.fprintf 
+            ppf
+            "@[<h>%s: %a@]"
+            p
+            (function ppf -> function 
+               | PropUnknown -> Format.fprintf ppf "unknown"
+               | PropKTrue k -> Format.fprintf ppf "true for %d steps" k
+               | PropInvariant -> Format.fprintf ppf "valid"
+               | PropFalse -> Format.fprintf ppf "invalid"
+               | PropKFalse k -> Format.fprintf ppf "invalid after %d steps" k)
+            s)
+       "@,")
+    prop_status
+          
 
 (* ********************************************************************** *)
 (* XML output                                                             *)
@@ -553,12 +577,19 @@ let pp_print_state_var_values_xml ppf (state_var, values) =
     (pp_print_values_xml 0) values
 
 (* Output counterexample as XML *)
-let counterexample_xml mdl cex = 
+let counterexample_xml mdl props cex = 
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]@."
-    (pp_print_list pp_print_state_var_values_xml "@,") cex
+    "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]@."
+    (pp_print_list
+      (fun ppf p ->
+        Format.fprintf ppf
+          "@[<hv 2><property>@,%s@;<0 -2></property>@]"
+          p)
+      "@,")
+    props
+    LustrePath.pp_print_path_xml cex
     
 
 (* Output statistics section as XML *)
@@ -586,6 +617,30 @@ let progress_xml mdl k =
     "@[<hv 2><progress source=\"%a\">%d@;<0 -2></progress>@]@."
     pp_print_kind_module_xml_src mdl
     k
+
+(* Pretty-print a list of properties and their status *)
+let prop_status_xml prop_status =
+
+  Format.fprintf
+    !log_ppf
+    "@[<v>%a@]"
+    (pp_print_list 
+       (fun ppf (p, s) -> 
+          Format.fprintf 
+            ppf
+            "@[<hv 2><property name=\"%s\">@,\
+             @[<hv 2><status>@,%a@;<0 -2></status>@]\
+             @;<0 -2></property>@]"
+            p
+            (function ppf -> function 
+               | PropUnknown -> Format.fprintf ppf "unknown"
+               | PropKTrue k -> Format.fprintf ppf "true(%d)" k
+               | PropInvariant -> Format.fprintf ppf "valid"
+               | PropFalse -> Format.fprintf ppf "invalid"
+               | PropKFalse k -> Format.fprintf ppf "invalid(%d)" k)
+            s)
+       "@,")
+    prop_status
 
 
 (* ********************************************************************** *)
@@ -707,10 +762,18 @@ let log_disproved mdl k prop =
 
 
 (* Log a counterexample *)
-let log_counterexample mdl cex = 
+let log_counterexample mdl props cex = 
   match !log_format with 
-    | F_pt -> counterexample_xml mdl cex
-    | F_xml -> counterexample_xml mdl cex
+    | F_pt -> counterexample_pt mdl props cex
+    | F_xml -> counterexample_xml mdl props cex
+    | F_relay -> ()
+
+
+(* Output summary of status of properties *)
+let log_prop_status prop_status =
+  match !log_format with 
+    | F_pt -> prop_status_pt prop_status
+    | F_xml -> prop_status_xml prop_status
     | F_relay -> ()
 
 
@@ -810,12 +873,10 @@ let prop_status mdl status prop =
   with Messaging.NotInitialized -> ()
 
 
-(* Broadcast a counterexample for some properties
-
-   TODO: message for inductive counterexample *)
+(* Broadcast a counterexample for some properties *)
 let counterexample mdl props cex = 
 
-  log_counterexample mdl cex;
+  log_counterexample mdl props cex;
 
   try
     
@@ -922,23 +983,26 @@ let recv () =
           | mdl, 
             EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-            (debug event 
-                "Received LOG message %s"
-                msg
-             in
-             
              log mdl (log_level_of_int lvl) "%s" msg; 
              
-             accum)
+             (* No relay message *)
+             accum
 
           (* Output statistics *)
           | mdl, EventMessaging.OutputMessage (EventMessaging.Stat stats) -> 
 
-            stat 
-              mdl 
-              (Marshal.from_string stats 0 : 
-                 (string * Stat.stat_item list) list);
+            (* Unmarshal statistics *)
+            let stats : (string * Stat.stat_item list) list = 
+              Marshal.from_string stats 0
+            in
 
+            (* Output on log levels info and below *)
+            if output_on_level L_info then stat mdl stats;
+
+            (* Store last received statistics *)
+            last_stats := MdlMap.add mdl stats !last_stats;
+
+            (* No relay message *)
             accum
 
           (* Output progress *)
@@ -946,11 +1010,13 @@ let recv () =
 
             progress mdl k;
 
+            (* No relay message *)
             accum
 
           (* Return event message *)
           | mdl, EventMessaging.RelayMessage (_, msg) ->
             
+            (* Return relay message *)
             (mdl, msg) :: accum
 
         )
