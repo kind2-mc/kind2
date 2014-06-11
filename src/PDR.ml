@@ -528,7 +528,6 @@ let find_cex
           
           (* Pop scope level from the context *)
           S.pop solver_init;
-          S.pop solver_frames;
           
           (* Counterexample holds in the initial state *)
           raise Bad_state_reachable
