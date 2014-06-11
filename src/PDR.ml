@@ -528,7 +528,6 @@ let find_cex
           
           (* Pop scope level from the context *)
           S.pop solver_init;
-          S.pop solver_frames;
           
           (* Counterexample holds in the initial state *)
           raise Bad_state_reachable
@@ -2528,7 +2527,7 @@ let main trans_sys =
               (* Send out valid properties *)
               List.iter
                 (fun (p, _) -> 
-                   TransSys.prop_false trans_sys p;
+                   TransSys.prop_invariant trans_sys p;
                    Event.prop_status `PDR PropInvariant p) 
                 props;
 

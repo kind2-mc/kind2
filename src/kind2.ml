@@ -336,6 +336,10 @@ let run_process messaging_setup process =
           (* All log messages are sent to the invariant manager now *)
           Event.set_relay_log ();
 
+          (* Record backtraces on log levels debug and higher *)
+          if Event.output_on_level Event.L_debug then
+            Printexc.record_backtrace true;
+
           Event.log process Event.L_info 
             "Starting new process with PID %d" 
             pid;

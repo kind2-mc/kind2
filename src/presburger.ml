@@ -313,217 +313,237 @@ let to_presburger (v: Var.t list) (gf: Term.t) : cformula =
   let c = compare_variables v in 
 
   let res =
-  
+
     (* Bottom-up fold of given term *)
     Term.eval_t
-      
+
       (fun fterm args ->
 
-        match fterm with
+         match fterm with
 
-     	    | Term.T.Var var ->
-            Poly [(Numeral.one, Some var)]
+           | Term.T.Attr _ -> assert false
 
-          | Term.T.Const sym
-          | Term.T.App (sym, _) ->
-            (match Symbol.node_of_symbol sym, args with
-              (* true becomes 1 > 0 *)
-              | `TRUE, _ -> Formula [GT [(Numeral.one, None)]]
+     	   | Term.T.Var var ->
+             Poly [(Numeral.one, Some var)]
 
-              (* false becomes -1 > 0 *)
-              | `FALSE, _ -> Formula [GT [(Numeral.(neg one), None)]]
+           | Term.T.Const sym
+           | Term.T.App (sym, _) ->
+             (match Symbol.node_of_symbol sym, args with
+               (* true becomes 1 > 0 *)
+               | `TRUE, _ -> Formula [GT [(Numeral.one, None)]]
 
-              (* not (p > 0) becomes (-p + 1 > 0) *)
-              | `NOT, [Formula [GT pl]] ->
-                Formula [GT (add_two_polys c [] [(Numeral.one, None)] (negate_poly pl))]
+               (* false becomes -1 > 0 *)
+               | `FALSE, _ -> Formula [GT [(Numeral.(neg one), None)]]
 
-              (* not (p = 0) becomes (p != 0) *)
-              | `NOT, [Formula [EQ pl]] -> Formula [INEQ pl]
+               (* not (p > 0) becomes (-p + 1 > 0) *)
+               | `NOT, [Formula [GT pl]] ->
+                 Formula [GT (add_two_polys c [] [(Numeral.one, None)] (negate_poly pl))]
 
-              (* not (p != 0) becomes (p = 0) *)
-              | `NOT, [Formula [INEQ pl]] -> Formula [EQ pl]
-              
-              (* not (i | p) becomes (i !| p) *)
-              | `NOT, [Formula [DIVISIBLE (i, pl)]] ->
-                Formula [INDIVISIBLE (i, pl)]
-              
-              (* not (i !| p) becomes (i | p) *)
-              | `NOT, [Formula [INDIVISIBLE (i, pl)]] ->
-                Formula [DIVISIBLE (i, pl)]
+               (* not (p = 0) becomes (p != 0) *)
+               | `NOT, [Formula [EQ pl]] -> Formula [INEQ pl]
 
-              (* Fail on negations of other iformulas *)
+               (* not (p != 0) becomes (p = 0) *)
+               | `NOT, [Formula [INEQ pl]] -> Formula [EQ pl]
 
-              | `NOT, [Formula cf] ->
-                failwith "NOT only take one argument, and can only appear in the atom level."
-              
-              (* Fail on implication *)
+               (* not (i | p) becomes (i !| p) *)
+               | `NOT, [Formula [DIVISIBLE (i, pl)]] ->
+                 Formula [INDIVISIBLE (i, pl)]
 
-              | `IMPLIES, _ ->
-                failwith "IMPLIES should not be in a presburger atom."
-              
-              (* Fail on empty conjunction *)
-              | `AND, [] ->
-                failwith "AND must take at least one argument."
+               (* not (i !| p) becomes (i | p) *)
+               | `NOT, [Formula [INDIVISIBLE (i, pl)]] ->
+                 Formula [DIVISIBLE (i, pl)]
 
-              (* Skip over singleton conjunction *)
-              | `AND, [Formula cf] -> Formula cf
+               (* Fail on negations of other iformulas *)
 
-              (* Conjunction of arity greater than one *)
-              | `AND, ifm :: l' ->
+               | `NOT, [Formula cf] ->
+                 failwith "NOT only take one argument, and can only appear in the atom level."
 
-                (* Turn a list of iformulas into one iformula *)
-                List.fold_left 
-                  (fun ifm1 ifm2 ->
+               (* Fail on implication *)
 
-                    (match ifm1, ifm2 with
+               | `IMPLIES, _ ->
+                 failwith "Presburger atoms may not conatin Boolean operators."
 
-                      (* iformulas must not be polynomials *)
-                      | (Formula cf1), (Formula cf2) ->
+               (* Fail on empty conjunction *)
+               | `AND, [] ->
+                 failwith "AND must take at least one argument."
 
-                        Formula (List.concat [cf1; cf2])
+               (* Skip over singleton conjunction *)
+               | `AND, [Formula cf] -> Formula cf
 
-                      | _ ->
-                        failwith "AND only takes formula as arguments, not polynomial."
+               (* Conjunction of arity greater than one *)
+               | `AND, ifm :: l' ->
 
-                    )
-                  ) 
-                  ifm 
-                  l'
+                 (* Turn a list of iformulas into one iformula *)
+                 List.fold_left 
+                   (fun ifm1 ifm2 ->
 
+                      (match ifm1, ifm2 with
 
-              (* Fail on disjunction *)
-              | `OR, _ -> 
-                failwith "OR should not be in a presburger atom."
+                        (* iformulas must not be polynomials *)
+                        | (Formula cf1), (Formula cf2) ->
+
+                          Formula (List.concat [cf1; cf2])
+
+                        | _ ->
+                          failwith "AND only takes formula as arguments, not polynomial."
+
+                      )
+                   ) 
+                   ifm 
+                   l'
 
 
-              (* Fail on exclusive disjunction *)
-              | `XOR, _ ->
-                failwith "XOR should not be in a presburger atom."
+               (* Fail on disjunction *)
+               | `OR, _ -> 
+                 failwith "Presburger atoms may not conatin Boolean operators."
 
 
-              (* Turn equation into iformula *)
-              | `EQ, ifl ->
-                unchain_EQ_to_iformula c ifl
-
-              
-              (* Fail on distinct *)
-              | `DISTINCT, _ ->
-                failwith "DISTINCT should not be in a presburger atom."
-
-              
-              (* Fail on if-then-else *)
-              | `ITE, _ ->
-                failwith "ITE should not be in a presburger atom."
+               (* Fail on exclusive disjunction *)
+               | `XOR, _ ->
+                 failwith "Presburger atoms may not conatin Boolean operators."
 
 
-              (* Turn numeral into polynomial of constant *)
-              | `NUMERAL i, _ ->
-                Poly [(i, None)]
+               (* Turn equation into iformula *)
+               | `EQ, ifl ->
+                 unchain_EQ_to_iformula c ifl
 
-              (* Fail on not integer numerals *)
-              | `DECIMAL _, _ ->
-                failwith "DECIMAL should not be in a presburger atom."
-              
-              (* Unary minus *)
-              | `MINUS, [if1] ->
 
-                (match if1 with
-                
-                  (* Turn polynomial into its negation *)
-                  | Poly pl1 -> Poly (negate_poly pl1)
+               (* Fail on distinct *)
+               | `DISTINCT, _ ->
+                 failwith "Presburger atoms may not conatin Boolean operators."
 
-                  | _ -> failwith "MINUS only takes polynomials."
 
-                )
+               (* Fail on if-then-else *)
+               | `ITE, _ ->
+                 failwith "Presburger atoms may not conatin Boolean operators."
 
-              (* Difference of two or more arguments *)
-              | `MINUS, if1 :: ifl ->
-            
-                (match if1 with
 
-                  | Poly pl1 ->
+               (* Turn numeral into polynomial of constant *)
+               | `NUMERAL i, _ ->
+                 Poly [(i, None)]
 
-                    (* Negate second and following arguments and add to
+               (* Fail on not integer numerals *)
+               | `DECIMAL _, _ ->
+                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
 
-                       first polynomial *)
-                    Poly 
-                      (add_two_polys 
-                         c 
-                         [] 
-                         pl1 
-                         (negate_poly (add_iformula_list c ifl)))
-                  
+               (* Unary minus *)
+               | `MINUS, [if1] ->
 
-                  | _ -> failwith "MINUS only takes polynomials."
-                
-                )
-              
+                 (match if1 with
 
-              (* Sum of one or more arguments *)
-              | `PLUS, ifl -> Poly (add_iformula_list c ifl)
-            
-              (* Multiplication of one or more arguments *)
+                   (* Turn polynomial into its negation *)
+                   | Poly pl1 -> Poly (negate_poly pl1)
 
-              | `TIMES, ifl -> Poly (multiply_iformula_list ifl)
+                   | _ -> failwith "MINUS only takes polynomials."
 
-              (* Variadic less-than-or-equal *)
-              | `LEQ, ifl ->
+                 )
 
-                unchain_LEQ_to_iformula c ifl
+               (* Difference of two or more arguments *)
+               | `MINUS, if1 :: ifl ->
 
-              (* Variadic less-than *)
-              | `LT, ifl ->
+                 (match if1 with
 
-                unchain_LT_to_iformula c ifl
+                   | Poly pl1 ->
 
-              (* Variadic greater-than-or-equal *)
-              | `GEQ, ifl ->
+                     (* Negate second and following arguments and add to
 
-                unchain_GEQ_to_iformula c ifl
-              
-              (* Variadic greater-than *)
-              | `GT, ifl ->
+                        first polynomial *)
+                     Poly 
+                       (add_two_polys 
+                          c 
+                          [] 
+                          pl1 
+                          (negate_poly (add_iformula_list c ifl)))
 
-                unchain_GT_to_iformula c ifl
 
-              (* Fail on real division *)
-              | `DIV, _ -> failwith "DIV should not be in a presburger atom."
-            
-              (* Fail on integer division *)
-              | `INTDIV, _ -> failwith "INTDIV should not be in a presburger atom." 
-            
-              (* Fail on modulus *)
-              | `MOD, _ -> failwith "MOD should not be in a presburger atom."
+                   | _ -> failwith "MINUS only takes polynomials."
 
-              (* Fail on absolute value *)
-              | `ABS, _ -> failwith "ABS should not be in a presburger atom." 
+                 )
 
-              (* Fail on conversion to real *)
-              | `TO_REAL, _ -> 
-                failwith "TO_REAL should not be in a presburger atom."
-              
-              (* Fail on conversion to integer *)
-              | `TO_INT, _ -> 
-                failwith "TO_INT should not be in a presburger atom."  
-              
-              (* Fail on coincidence with integer predicate *)
-              | `IS_INT, _ -> 
-                failwith "IS_INT should not be in a presburger atom."
 
-              (* Add uninterpreted function to polynomial as variable with
-                 coefficient one *)
-              | `UF s, ags ->
-                failwith "`UF is not handled for the moment."
+               (* Sum of one or more arguments *)
+               | `PLUS, ifl -> Poly (add_iformula_list c ifl)
 
-              
-              (* Turn divisibility predicate into an iformula *)
-              | `DIVISIBLE i, [Poly pl] ->
-                Formula [DIVISIBLE (i, pl)]
+               (* Multiplication of one or more arguments *)
 
-              | _ ->
-                failwith "Illegal symbol and arguments in to_presburger."
+               | `TIMES, ifl -> Poly (multiply_iformula_list ifl)
 
-            )
+               (* Variadic less-than-or-equal *)
+               | `LEQ, ifl ->
+
+                 unchain_LEQ_to_iformula c ifl
+
+               (* Variadic less-than *)
+               | `LT, ifl ->
+
+                 unchain_LT_to_iformula c ifl
+
+               (* Variadic greater-than-or-equal *)
+               | `GEQ, ifl ->
+
+                 unchain_GEQ_to_iformula c ifl
+
+               (* Variadic greater-than *)
+               | `GT, ifl ->
+
+                 unchain_GT_to_iformula c ifl
+
+               (* Fail on real division *)
+               | `DIV, _ -> failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+
+               (* Fail on integer division *)
+               | `INTDIV, _ -> failwith "Non-integer terms not supported. Use a different --pdr_qe option." 
+
+               (* Fail on modulus *)
+               | `MOD, _ -> failwith "mod operator not supported."
+
+               (* Fail on absolute value *)
+               | `ABS, _ -> failwith "abs operator not supported." 
+
+               (* Fail on conversion to real *)
+               | `TO_REAL, _ -> 
+                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+
+               (* Fail on conversion to integer *)
+               | `TO_INT, _ -> 
+                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."  
+
+               (* Fail on coincidence with integer predicate *)
+               | `IS_INT, _ -> 
+                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+
+               (* Add uninterpreted function to polynomial as variable with
+                  coefficient one *)
+               | `UF s, ags ->
+                 failwith "`Uninterpreted functions not supported."
+
+
+               (* Turn divisibility predicate into an iformula *)
+               | `DIVISIBLE i, [Poly pl] ->
+                 Formula [DIVISIBLE (i, pl)]
+
+               | `NOT, _
+               | `MINUS, _
+               | `DIVISIBLE _, _
+               | `BVNEG, _
+               | `BVADD, _
+               | `BV _, _ 
+               | `BVMUL, _
+               | `BVSHL, _
+               | `BVDIV, _
+               | `CONCAT, _
+               | `BVNOT, _
+               | `BVUREM, _
+               | `BVOR, _
+               | `BVLSHR, _
+               | `BVAND, _
+               | `SELECT, _
+               | `BVULT, _
+               | `STORE, _
+               | `EXTRACT _, _ -> 
+                 failwith "Non-integer terms not supported. Use a different --pdr_qe option."
+
+             )
       )
       gf
   in
