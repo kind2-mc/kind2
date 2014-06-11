@@ -20,8 +20,6 @@
 
     @author Jason Oxley, Christoph Sticksel *)
 
-exception No_value
-(* exception Terminate *)
 exception SocketConnectFailure
 exception SocketBindFailure
 exception BadMessage
