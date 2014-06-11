@@ -34,6 +34,7 @@ The following command-line options control its operation (run ```kind2 --help```
 Requirements
 ============
 
+- Linux or Mac OS X
 - OCaml 4.01 or later
 - A supported SMT solver
  - [Z3](http://z3.codeplex.com) (recommended), 
