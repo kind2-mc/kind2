@@ -1,6 +1,6 @@
 # These lines are required
 AC_PREREQ(2.59)
-AC_INIT([kind2], [0.1], [christoph-sticksel@uiowa.edu])
+AC_INIT([kind2], [0.7.0], [christoph-sticksel@uiowa.edu])
 
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/kind2.ml])
@@ -343,7 +343,7 @@ AC_SUBST(IZ3_BIN)
 AC_CONFIG_SUBDIRS([ocamlczmq])
 
 # Configuration files
-AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/config.ml src/flags.ml src/kind1/solvers_path.ml server/Makefile server/myocamlbuild.ml])
+AC_CONFIG_FILES([Makefile src/Makefile src/myocamlbuild.ml src/config.ml src/flags.ml server/Makefile server/myocamlbuild.ml])
 
 # Write configuration files
 AC_OUTPUT

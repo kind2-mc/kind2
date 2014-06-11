@@ -967,62 +967,63 @@ let recv () =
 
   try
 
-    List.fold_left 
-      (function accum -> 
-        (function 
+    List.rev
+      (List.fold_left 
+         (function accum -> 
+           (function 
 
-          (* Terminate on TERM message *)
-          | (_, EventMessaging.ControlMessage EventMessaging.Terminate) -> 
+             (* Terminate on TERM message *)
+             | (_, EventMessaging.ControlMessage EventMessaging.Terminate) -> 
 
-            raise Terminate
+               raise Terminate
 
-          (* Drop other control messages *)
-          | _, EventMessaging.ControlMessage _ -> accum 
+             (* Drop other control messages *)
+             | _, EventMessaging.ControlMessage _ -> accum 
 
-          (* Output log message *)
-          | mdl, 
-            EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
+             (* Output log message *)
+             | mdl, 
+               EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-             log mdl (log_level_of_int lvl) "%s" msg; 
-             
-             (* No relay message *)
-             accum
+               log mdl (log_level_of_int lvl) "%s" msg; 
 
-          (* Output statistics *)
-          | mdl, EventMessaging.OutputMessage (EventMessaging.Stat stats) -> 
+               (* No relay message *)
+               accum
 
-            (* Unmarshal statistics *)
-            let stats : (string * Stat.stat_item list) list = 
-              Marshal.from_string stats 0
-            in
+             (* Output statistics *)
+             | mdl, EventMessaging.OutputMessage (EventMessaging.Stat stats) -> 
 
-            (* Output on log levels info and below *)
-            if output_on_level L_info then stat mdl stats;
+               (* Unmarshal statistics *)
+               let stats : (string * Stat.stat_item list) list = 
+                 Marshal.from_string stats 0
+               in
 
-            (* Store last received statistics *)
-            last_stats := MdlMap.add mdl stats !last_stats;
+               (* Output on log levels info and below *)
+               if output_on_level L_info then stat mdl stats;
 
-            (* No relay message *)
-            accum
+               (* Store last received statistics *)
+               last_stats := MdlMap.add mdl stats !last_stats;
 
-          (* Output progress *)
-          | mdl, EventMessaging.OutputMessage (EventMessaging.Progress k) -> 
+               (* No relay message *)
+               accum
 
-            progress mdl k;
+             (* Output progress *)
+             | mdl, EventMessaging.OutputMessage (EventMessaging.Progress k) -> 
 
-            (* No relay message *)
-            accum
+               progress mdl k;
 
-          (* Return event message *)
-          | mdl, EventMessaging.RelayMessage (_, msg) ->
-            
-            (* Return relay message *)
-            (mdl, msg) :: accum
+               (* No relay message *)
+               accum
 
-        )
-      )
-      []
-      (List.rev (EventMessaging.recv ()))
+             (* Return event message *)
+             | mdl, EventMessaging.RelayMessage (_, msg) ->
+
+               (* Return relay message *)
+               (mdl, msg) :: accum
+
+           )
+         )
+         []
+         (EventMessaging.recv ()))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
