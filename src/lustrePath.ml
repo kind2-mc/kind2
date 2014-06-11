@@ -38,8 +38,8 @@ type stream_prop =
 type stream = I.t * Type.t * stream_prop * Term.t list
 
 type tree_path =
-    (* input/output/local streams, call nodes *)
-  | Node of stream IdMap.t * tree_path CallMap.t 
+    (* identifier, call position, input/output/local streams, call nodes *)
+  | Node of I.t * A.position * stream IdMap.t * tree_path CallMap.t 
 
 let stream_prop_of_source var_source =
   match var_source with
@@ -136,14 +136,8 @@ let stream_of_model stream_prop (state_var, terms) : stream =
    terms)
 
 (* Create a tree path of a model *)
-let rec tree_path_of_model model =
-  
-  Format.printf
-    "node: @[<hv>%a@]@."
-    (pp_print_list
-       (fun ppf (sv, _) -> StateVar.pp_print_state_var ppf sv)
-       "@ ") 
-    model;
+let rec tree_path_components model =
+
 
   let fold_state_var (stream_map, call_map) (state_var,terms) =
     let src = E.get_state_var_source state_var in
@@ -161,26 +155,29 @@ let rec tree_path_of_model model =
     | E.Instance (call_pos, call_node, call_state_var) -> 
        let call_id = (call_node,call_pos) in
        let node_model = 
-         try 
+         if CallMap.mem call_id call_map then
            CallMap.find call_id call_map 
-         with
-         | Not_found ->
-            []
+         else
+           []
        in
-       let node_model' = (call_state_var, terms) :: model in
+       let node_model' = (call_state_var, terms) :: node_model in
        let call_map' = CallMap.add call_id node_model' call_map in
        (stream_map,call_map')
     | E.Oracle | E.Abstract -> (stream_map,call_map)
   in
 
   let stream_map,node_map = List.fold_left fold_state_var (IdMap.empty,CallMap.empty) model in
-  let node_map' = CallMap.map tree_path_of_model node_map in
+  let node_map' = CallMap.mapi node_of_model node_map in
+  stream_map,node_map'
 
-  Node(stream_map,node_map')
+(* Create a Node value of assignments to variables in a node instance *)
+and node_of_model (call_node, call_pos) model =
+  let stream_map, call_map = tree_path_components model in
+  Node (call_node,call_pos,stream_map,call_map)
 
-let rec reconstruct_stateless_variables nodes curr_node model  =
+let rec reconstruct_stateless_variables nodes model  =
 
-  let fold_eqn stream_map (sv,expr) =
+  let fold_eqn node stream_map (sv,expr) =
     match E.get_state_var_source sv with
     | E.Abstract
     | E.Instance(_,_,_)
@@ -189,20 +186,21 @@ let rec reconstruct_stateless_variables nodes curr_node model  =
     | E.Input
     | E.Output
     | E.Local ->
-       stream_map
+       let id = I.mk_string_ident (StateVar.name_of_state_var sv) in
+       if IdMap.mem id stream_map then
+         stream_map
+       else
+         IdMap.add id (reconstruct_single_var id expr stream_map) stream_map
   in
-
-  let map_call (call_ident,call_pos) path =
-    let node = 
 
   match model with
   | Node(ident,pos,stream_map,call_map) ->
      let node = LustreNode.node_of_name ident nodes in
      let eqs = node.N.equations in
-     let stream_map' = List.fold_left fold_eqn stream_map eqs in
+     let stream_map' = List.fold_left (fold_eqn node) stream_map eqs in
      let call_map' = 
        CallMap.map 
-         (fun _ path -> reconstruct_stateless_variables nodes path) 
+         (fun path -> reconstruct_stateless_variables nodes path) 
          call_map 
      in
      Node(ident,pos,stream_map',call_map')
@@ -317,7 +315,7 @@ let rec pp_print_tree_path_xml ppf = function
 (* Pretty-print a path in <path> tags *)
 let pp_print_path_xml ppf model =
 
-  let stream_map, call_map = tree_path_of_model model in
+  let stream_map, call_map = tree_path_components model in
  
   let streams = List.map snd (IdMap.bindings stream_map) in
   let inputs = List.filter (fun (_,_,prop,_) -> prop = Input) streams in
@@ -334,9 +332,10 @@ let pp_print_path_xml ppf model =
     (pp_print_list pp_print_tree_path_xml "@,") calls
 
 let pp_print_path_xml_orig nodes ppf model =
-  let model' = tree_path_of_model model in
-  let main_node = LustreNode.node_of_name "main" nodes in
-  let model'' = reconstruct_stateless_variables nodes main_node model' in
+  let stream_map,call_map = tree_path_components model in
+  let main_ident = (I.mk_string_ident "main") in
+  let tree_path = Node(main_ident,A.dummy_pos,stream_map,call_map) in
+  let model'' = reconstruct_stateless_variables nodes tree_path in
   ()
   
 
