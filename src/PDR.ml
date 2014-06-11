@@ -2527,7 +2527,7 @@ let main trans_sys =
               (* Send out valid properties *)
               List.iter
                 (fun (p, _) -> 
-                   TransSys.prop_false trans_sys p;
+                   TransSys.prop_invariant trans_sys p;
                    Event.prop_status `PDR PropInvariant p) 
                 props;
 
