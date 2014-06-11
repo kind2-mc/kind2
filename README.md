@@ -38,7 +38,7 @@ Requirements
 - OCaml 4.01 or later
 - A supported SMT solver
  - [Z3](http://z3.codeplex.com) (recommended), 
- - [CVC4](http://cvc4.cs.nyu.edu), or
+ - [CVC4](http://cvc4.cs.nyu.edu), (must use ```--pdr_tighten_unsat_core false```) or
  - [MathSat5](http://mathsat.fbk.eu/)
 
 Building and installing
