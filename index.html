@@ -18,13 +18,13 @@
         <h1>Kinder</h1>
         <p>Multi-engine SMT-based automatic model checker for safety properties of Lustre programs</p>
 
-        <p class="view"><a href="https://github.com/kinder-mc/kind2">View the Project on GitHub <small>kinder-mc/kind2</small></a></p>
+        <p class="view"><a href="https://github.com/kinder-mc/kinder">View the Project on GitHub <small>kinder-mc/kinder</small></a></p>
 
 
         <ul>
-          <li><a href="https://github.com/kinder-mc/kind2/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/kinder-mc/kind2/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/kinder-mc/kind2">View On <strong>GitHub</strong></a></li>
+          <li><a href="https://github.com/kinder-mc/kinder/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/kinder-mc/kinder/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/kinder-mc/kinder">View On <strong>GitHub</strong></a></li>
         </ul>
       </header>
       <section>
@@ -33,11 +33,11 @@
 
 <p>A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. </p>
 
-<p>Kind2 takes as input a Lustre file annotated with properties to prove invariant (see <a href="doc/Lustre.md">Lustre syntax</a>), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in <a href="doc/XML.md">XML format</a>.</p>
+<p>Kinder takes as input a Lustre file annotated with properties to prove invariant (see <a href="doc/Lustre.md">Lustre syntax</a>), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in <a href="doc/XML.md">XML format</a>.</p>
 
-<p>Kind2 runs a process for bounded model checking (BMC), a process for k-induction, and a proces for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.</p>
+<p>Kinder runs a process for bounded model checking (BMC), a process for k-induction, and a proces for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.</p>
 
-<p>The following command-line options control its operation (run <code>kind2 --help</code> for a full list).</p>
+<p>The following command-line options control its operation (run <code>kinder --help</code> for a full list).</p>
 
 <ul>
 <li>
