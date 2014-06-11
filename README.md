@@ -3,7 +3,7 @@ Kind 2
 
 A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. 
 
-Kind2 takes as input a Lustre file annotated with properties to prove invariant (see [Lustre syntax](Lustre.md)), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in [XML format](XML.md).
+Kind2 takes as input a Lustre file annotated with properties to prove invariant (see [Lustre syntax](doc/Lustre.md)), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in [XML format](doc/XML.md).
 
 Kind2 runs a process for bounded model checking (BMC), a process for k-induction, and a proces for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.
 
