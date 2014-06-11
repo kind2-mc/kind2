@@ -173,6 +173,8 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
 
+(* Return the input used to create the transition system *)
+let get_input t = t.input
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 

@@ -82,6 +82,9 @@ val get_logic : t -> SMTExpr.logic
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
 
+(** Return the input used to produce the transition system *)
+val get_input : t -> input
+
 (** Return the variables at current and previous instants of the
    transition system *)
 val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list

@@ -21,16 +21,36 @@ open Lib
 module I = LustreIdent
 module A = LustreAst
 module E = LustreExpr
+module N = LustreNode
+module IdMap = Map.Make (LustreIdent)
+
+module CallId = struct
+  type t = I.t * A.position       
+  let compare = Pervasives.compare
+end
+module CallMap = Map.Make(CallId)
 
 type stream_prop = 
   | Input
   | Output
   | Local
 
-type tree_path =
-  | Node of I.t * A.position * tree_path list
-  | Stream of I.t * Type.t * stream_prop * Term.t list
+type stream = I.t * Type.t * stream_prop * Term.t list
 
+type tree_path =
+    (* input/output/local streams, call nodes *)
+  | Node of stream IdMap.t * tree_path CallMap.t 
+
+let stream_prop_of_source var_source =
+  match var_source with
+  | E.Input ->
+     Input
+  | E.Output ->
+     Output
+  | E.Local ->
+     Local
+  | _ ->
+     assert false
 
 (* ********************************************************************** *)
 (* Conversion of model to execution path                                  *)
@@ -106,35 +126,18 @@ let partition_model_by_sources
 
 
 (* Create a Stream value of a state variable assignments *)
-let stream_of_model stream_prop (state_var, terms) = 
+let stream_of_model stream_prop (state_var, terms) : stream = 
   
   Format.printf "stream: %a@." StateVar.pp_print_state_var state_var;
 
-  Stream
-    (fst (E.ident_of_state_var state_var),
-     StateVar.type_of_state_var state_var,
-     stream_prop,
-     terms)
-
+  (fst (E.ident_of_state_var state_var),
+   StateVar.type_of_state_var state_var,
+   stream_prop,
+   terms)
 
 (* Create a tree path of a model *)
 let rec tree_path_of_model model =
-
-  let model_input, model_output, model_local, model_calls =
-    List.fold_left
-      partition_model_by_sources
-      ([], [], [], [])
-      model
-  in
-
-  (List.map (stream_of_model Input) model_input) 
-  @ (List.map (stream_of_model Output) model_output) 
-  @ (List.map (stream_of_model Local) model_local) 
-  @ (List.map node_of_model model_calls)
-
-(* Create a Node value of assignments to variables in a node instance *)
-and node_of_model ((call_node, call_pos), model) = 
-
+  
   Format.printf
     "node: @[<hv>%a@]@."
     (pp_print_list
@@ -142,9 +145,83 @@ and node_of_model ((call_node, call_pos), model) =
        "@ ") 
     model;
 
-  Node (call_node, call_pos, tree_path_of_model model)
-  
+  let fold_state_var (stream_map, call_map) (state_var,terms) =
+    let src = E.get_state_var_source state_var in
+    match src with
+    | E.Input
+    | E.Output  
+    | E.Local ->
+       let stream_map' = 
+         IdMap.add 
+           (fst (E.ident_of_state_var state_var)) 
+           (stream_of_model (stream_prop_of_source src) (state_var, terms))
+           stream_map
+       in
+       (stream_map',call_map)
+    | E.Instance (call_pos, call_node, call_state_var) -> 
+       let call_id = (call_node,call_pos) in
+       let node_model = 
+         try 
+           CallMap.find call_id call_map 
+         with
+         | Not_found ->
+            []
+       in
+       let node_model' = (call_state_var, terms) :: model in
+       let call_map' = CallMap.add call_id node_model' call_map in
+       (stream_map,call_map')
+    | E.Oracle | E.Abstract -> (stream_map,call_map)
+  in
 
+  let stream_map,node_map = List.fold_left fold_state_var (IdMap.empty,CallMap.empty) model in
+  let node_map' = CallMap.map tree_path_of_model node_map in
+
+  Node(stream_map,node_map')
+
+let rec reconstruct_stateless_variables nodes curr_node model  =
+
+  let fold_eqn stream_map (sv,expr) =
+    match E.get_state_var_source sv with
+    | E.Abstract
+    | E.Instance(_,_,_)
+    | E.Oracle ->
+       stream_map
+    | E.Input
+    | E.Output
+    | E.Local ->
+       stream_map
+  in
+
+  let map_call (call_ident,call_pos) path =
+    let node = 
+
+  match model with
+  | Node(ident,pos,stream_map,call_map) ->
+     let node = LustreNode.node_of_name ident nodes in
+     let eqs = node.N.equations in
+     let stream_map' = List.fold_left fold_eqn stream_map eqs in
+     let call_map' = 
+       CallMap.map 
+         (fun _ path -> reconstruct_stateless_variables nodes path) 
+         call_map 
+     in
+     Node(ident,pos,stream_map',call_map')
+(*
+  let map_node node =
+    
+    let relevant (s,_) =
+      match E.get_state_var_source s with
+      | Abstract
+      | Instance
+      | Oracle ->
+         false
+      | _ ->
+         true
+    in
+    
+    let eqs = List.filter relevant node.equations in
+    
+ *)
 
 (* ********************************************************************** *)
 (* XML output                                                             *)
@@ -203,41 +280,65 @@ let rec pp_print_stream_values_xml i ppf = function
       (pp_print_stream_values_xml (succ i)) tl
 
 
+let pp_print_stream ppf (stream_ident, stream_type, stream_prop, stream_values) =
+  Format.fprintf 
+    ppf
+    "@[<hv 2>@[<hv 1><stream@ name=\"%a\" type=\"%a\"%a>@]@,\
+     %a@;<0 -2>\
+     </stream>@]"
+    (I.pp_print_ident false) stream_ident
+    (E.pp_print_lustre_type false) stream_type
+    pp_print_stream_prop_xml stream_prop
+    (pp_print_stream_values_xml 0) stream_values
+
 (* Pretty-print a tree path as <stream> and <node> tags *)
 let rec pp_print_tree_path_xml ppf = function 
   
-  | Node (node_ident, node_pos, elements) ->
+  | Node (node_ident, node_pos, stream_map, call_map) ->
 
-    Format.fprintf 
-      ppf
-      "@[<hv 2>@[<hv 1><node@ name=\"%a\"@ %a>@]@,%a@;<0 -2></node>@]"
-      (I.pp_print_ident false) node_ident
-      pp_print_pos_xml node_pos
-      (pp_print_list pp_print_tree_path_xml "@,") elements
+     let streams = List.map snd (IdMap.bindings stream_map) in
+     let inputs = List.filter (fun (_,_,prop,_) -> prop = Input) streams in
+     let outputs = List.filter (fun (_,_,prop,_) -> prop = Output) streams in
+     let locals = List.filter (fun (_,_,prop,_) -> prop = Local) streams in    
+     let calls = List.map snd (CallMap.bindings call_map) in
+     
+     List.iter (pp_print_stream ppf) inputs;
+     List.iter (pp_print_stream ppf) outputs;
+     List.iter (pp_print_stream ppf) locals;
 
-  | Stream (stream_ident, stream_type, stream_prop, stream_values) ->
-
-    Format.fprintf 
-      ppf
-      "@[<hv 2>@[<hv 1><stream@ name=\"%a\" type=\"%a\"%a>@]@,\
-       %a@;<0 -2>\
-       </stream>@]"
-      (I.pp_print_ident false) stream_ident
-      (E.pp_print_lustre_type false) stream_type
-      pp_print_stream_prop_xml stream_prop
-      (pp_print_stream_values_xml 0) stream_values
+     Format.fprintf
+       ppf
+       "@[<hv 2>@[<hv 1><node@ name=\"%a\"@ %a>@]@,%a@;<0 -2></node>@]"
+       (I.pp_print_ident false) node_ident
+       pp_print_pos_xml node_pos
+       (pp_print_list pp_print_tree_path_xml "@,") calls
 
 
 (* Pretty-print a path in <path> tags *)
 let pp_print_path_xml ppf model =
 
-  let model' = tree_path_of_model model in
+  let stream_map, call_map = tree_path_of_model model in
+ 
+  let streams = List.map snd (IdMap.bindings stream_map) in
+  let inputs = List.filter (fun (_,_,prop,_) -> prop = Input) streams in
+  let outputs = List.filter (fun (_,_,prop,_) -> prop = Output) streams in
+  let locals = List.filter (fun (_,_,prop,_) -> prop = Local) streams in    
+  let calls = List.map snd (CallMap.bindings call_map) in  
 
   Format.fprintf 
     ppf
-    "@[<hv 2><path>@,%a@;<0 -2></path>@]"
-    (pp_print_list pp_print_tree_path_xml "@,") model'
+    "@[<hv 2><path>@,%a@,%a@,%a@,%a@;<0 -2></path>@]"
+    (pp_print_list pp_print_stream "@,") inputs
+    (pp_print_list pp_print_stream "@,") outputs
+    (pp_print_list pp_print_stream "@,") locals
+    (pp_print_list pp_print_tree_path_xml "@,") calls
 
+let pp_print_path_xml_orig nodes ppf model =
+  let model' = tree_path_of_model model in
+  let main_node = LustreNode.node_of_name "main" nodes in
+  let model'' = reconstruct_stateless_variables nodes main_node model' in
+  ()
+  
 
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)
