@@ -61,234 +61,234 @@ fi
 
 AC_SUBST(static_camlp4_debug)
 
-# ######################################################################
-# Check for SMT solvers 
-# ######################################################################
+dnl # ######################################################################
+dnl # Check for SMT solvers 
+dnl # ######################################################################
 
-# Check for Z3 
+dnl # Check for Z3 
 
-# yes if --with-z3, no if --without-z3, or <arg> if --with-z3=<arg>
-AC_ARG_WITH(
-    [z3],
-    [AS_HELP_STRING([--with-z3@<:@=ARG@:>@], [Enable Z3 and use executable ARG @<:@default: search for Z3 in path@:>@])],
-    [],
-    [with_z3=yes])
+dnl # yes if --with-z3, no if --without-z3, or <arg> if --with-z3=<arg>
+dnl AC_ARG_WITH(
+dnl     [z3],
+dnl     [AS_HELP_STRING([--with-z3@<:@=ARG@:>@], [Enable Z3 and use executable ARG @<:@default: search for Z3 in path@:>@])],
+dnl     [],
+dnl     [with_z3=yes])
 
-# Z3 disabled 
-if test "x$with_z3" = "xno"; then
-    have_z3=no
+dnl # Z3 disabled 
+dnl if test "x$with_z3" = "xno"; then
+dnl     have_z3=no
 
-# Z3 enabled, search in path
-elif test "x$with_z3" = "xyes"; then
+dnl # Z3 enabled, search in path
+dnl elif test "x$with_z3" = "xyes"; then
 
-    # Check for z3 in path     
-    AC_PATH_PROG([with_z3],[z3],[no])
+dnl     # Check for z3 in path     
+dnl     AC_PATH_PROG([with_z3],[z3],[no])
 
-    # Z3 found in path? 
-    if test "x$with_z3" != "xno"; then
+dnl     # Z3 found in path? 
+dnl     if test "x$with_z3" != "xno"; then
 
-        # Enable Z3 and use found executable
-        have_z3=yes
-        Z3_BIN=$with_z3
+dnl         # Enable Z3 and use found executable
+dnl         have_z3=yes
+dnl         Z3_BIN=$with_z3
 
-    else
+dnl     else
 
-        # Disable Z3
-        have_z3=no
+dnl         # Disable Z3
+dnl         have_z3=no
 
-    fi
+dnl     fi
 
-else
+dnl else
 
-    # Enable Z3 and use given executable
-    have_z3=yes
-    Z3_BIN=$with_z3
+dnl     # Enable Z3 and use given executable
+dnl     have_z3=yes
+dnl     Z3_BIN=$with_z3
 
-fi
+dnl fi
 
-# Check for CVC4
+dnl # Check for CVC4
 
-# yes if --with-cvc4, no if --without-cvc4, or <arg> if --with-cvc4=<arg>
-AC_ARG_WITH(
-    [cvc4],
-    [AS_HELP_STRING([--with-cvc4@<:@=ARG@:>@], [Enable CVC4 and use executable ARG @<:@default: search for CVC4 in path@:>@])],
-    [],
-    [with_cvc4=yes])
+dnl # yes if --with-cvc4, no if --without-cvc4, or <arg> if --with-cvc4=<arg>
+dnl AC_ARG_WITH(
+dnl     [cvc4],
+dnl     [AS_HELP_STRING([--with-cvc4@<:@=ARG@:>@], [Enable CVC4 and use executable ARG @<:@default: search for CVC4 in path@:>@])],
+dnl     [],
+dnl     [with_cvc4=yes])
 
-# CVC4 disabled 
-if test "x$with_cvc4" = "xno"; then
-    have_cvc4=no
+dnl # CVC4 disabled 
+dnl if test "x$with_cvc4" = "xno"; then
+dnl     have_cvc4=no
 
-# CVC4 enabled, search in path
-elif test "x$with_cvc4" = "xyes"; then
+dnl # CVC4 enabled, search in path
+dnl elif test "x$with_cvc4" = "xyes"; then
 
-    # Check for CVC4 in path     
-    AC_PATH_PROG([with_cvc4],[cvc4],[no])
+dnl     # Check for CVC4 in path     
+dnl     AC_PATH_PROG([with_cvc4],[cvc4],[no])
 
-    # CVC4 found in path? 
-    if test "x$with_cvc4" != "xno"; then
+dnl     # CVC4 found in path? 
+dnl     if test "x$with_cvc4" != "xno"; then
 
-        # Enable CVC4 and use found executable
-        have_cvc4=yes
-        CVC4_BIN=$with_cvc4
+dnl         # Enable CVC4 and use found executable
+dnl         have_cvc4=yes
+dnl         CVC4_BIN=$with_cvc4
 
-    else
+dnl     else
 
-        # Disable CVC4
-        have_cvc4=no
+dnl         # Disable CVC4
+dnl         have_cvc4=no
 
-    fi
+dnl     fi
 
-else
+dnl else
 
-    # Enable CVC4 and use given executable
-    have_cvc4=yes
-    CVC4_BIN=$with_cvc4
+dnl     # Enable CVC4 and use given executable
+dnl     have_cvc4=yes
+dnl     CVC4_BIN=$with_cvc4
 
-fi
-
-
-# Check for MathSAT5
-
-# yes if --with-mathsat5, no if --without-mathsat5, or <arg> if --with-mathsat5=<arg>
-AC_ARG_WITH(
-    [mathsat5],
-    [AS_HELP_STRING([--with-mathsat5@<:@=ARG@:>@], [Enable MathSAT5 and use executable ARG @<:@default: search for MathSAT5 in path@:>@])],
-    [],
-    [with_mathsat5=yes])
-
-# MATHSAT5 disabled 
-if test "x$with_mathsat5" = "xno"; then
-    have_mathsat5=no
-
-# MATHSAT5 enabled, search in path
-elif test "x$with_mathsat5" = "xyes"; then
-
-    # Check for MATHSAT5 in path     
-    AC_PATH_PROG([with_mathsat5],[mathsat],[no])
-
-    # MATHSAT5 found in path? 
-    if test "x$with_mathsat5" != "xno"; then
-
-        # Enable MATHSAT5 and use found executable
-        have_mathsat5=yes
-        MATHSAT5_BIN=$with_mathsat5
-
-    else
-
-        # Disable MATHSAT5
-        have_mathsat5=no
-
-    fi
-
-else
-
-    # Enable MATHSAT5 and use given executable
-    have_mathsat5=yes
-    MATHSAT5_BIN=$with_mathsat5
-
-fi
+dnl fi
 
 
-# Default SMT solver
-AC_ARG_WITH(
-    [default_smtsolver],
-    [AS_HELP_STRING([--with-default-smtsolver@<:@=ARG@:>@], [Default SMT solver @<:@default: Z3 if available, otherwise CVC4 if available, else MathSAT5@:>@])],
-    [],
-    [with_default_smtsolver=yes])
+dnl # Check for MathSAT5
+
+dnl # yes if --with-mathsat5, no if --without-mathsat5, or <arg> if --with-mathsat5=<arg>
+dnl AC_ARG_WITH(
+dnl     [mathsat5],
+dnl     [AS_HELP_STRING([--with-mathsat5@<:@=ARG@:>@], [Enable MathSAT5 and use executable ARG @<:@default: search for MathSAT5 in path@:>@])],
+dnl     [],
+dnl     [with_mathsat5=yes])
+
+dnl # MATHSAT5 disabled 
+dnl if test "x$with_mathsat5" = "xno"; then
+dnl     have_mathsat5=no
+
+dnl # MATHSAT5 enabled, search in path
+dnl elif test "x$with_mathsat5" = "xyes"; then
+
+dnl     # Check for MATHSAT5 in path     
+dnl     AC_PATH_PROG([with_mathsat5],[mathsat],[no])
+
+dnl     # MATHSAT5 found in path? 
+dnl     if test "x$with_mathsat5" != "xno"; then
+
+dnl         # Enable MATHSAT5 and use found executable
+dnl         have_mathsat5=yes
+dnl         MATHSAT5_BIN=$with_mathsat5
+
+dnl     else
+
+dnl         # Disable MATHSAT5
+dnl         have_mathsat5=no
+
+dnl     fi
+
+dnl else
+
+dnl     # Enable MATHSAT5 and use given executable
+dnl     have_mathsat5=yes
+dnl     MATHSAT5_BIN=$with_mathsat5
+
+dnl fi
 
 
-# Z3 is set as default but not available
-if test "x$with_default_smtsolver" = "xz3" -a "x$have_z3" = "xno"; then
+dnl # Default SMT solver
+dnl AC_ARG_WITH(
+dnl     [default_smtsolver],
+dnl     [AS_HELP_STRING([--with-default-smtsolver@<:@=ARG@:>@], [Default SMT solver @<:@default: Z3 if available, otherwise CVC4 if available, else MathSAT5@:>@])],
+dnl     [],
+dnl     [with_default_smtsolver=yes])
 
-    AC_MSG_ERROR([You selected Z3 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
 
-# Z3 is available and set as default
-elif test "x$with_default_smtsolver" = "xz3"; then
+dnl # Z3 is set as default but not available
+dnl if test "x$with_default_smtsolver" = "xz3" -a "x$have_z3" = "xno"; then
+
+dnl     AC_MSG_ERROR([You selected Z3 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
+
+dnl # Z3 is available and set as default
+dnl elif test "x$with_default_smtsolver" = "xz3"; then
      
-    AC_MSG_NOTICE([Z3 is the default solver])
-    SMTSOLVER=SMTLIBSolver
-    SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
+dnl     AC_MSG_NOTICE([Z3 is the default solver])
+dnl     SMTSOLVER=SMTLIBSolver
+dnl     SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
 
-# CVC4 is set as default but not available
-elif test "x$with_default_smtsolver" = "xcvc4" -a "x$have_cvc4" = "xno"; then
+dnl # CVC4 is set as default but not available
+dnl elif test "x$with_default_smtsolver" = "xcvc4" -a "x$have_cvc4" = "xno"; then
 
-    AC_MSG_ERROR([You selected CVC4 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
+dnl     AC_MSG_ERROR([You selected CVC4 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
 
-# CVC4 is available and set as default
-elif test "x$with_default_smtsolver" = "xcvc4"; then
+dnl # CVC4 is available and set as default
+dnl elif test "x$with_default_smtsolver" = "xcvc4"; then
      
-    AC_MSG_NOTICE([CVC4 is the default solver])
-    SMTSOLVER=SMTLIBSolver
-    SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
+dnl     AC_MSG_NOTICE([CVC4 is the default solver])
+dnl     SMTSOLVER=SMTLIBSolver
+dnl     SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
 
-# MathSAT5 is set as default but not available
-elif test "x$with_default_smtsolver" = "xmathsat5" -a "x$have_mathsat5" = "xno"; then
+dnl # MathSAT5 is set as default but not available
+dnl elif test "x$with_default_smtsolver" = "xmathsat5" -a "x$have_mathsat5" = "xno"; then
 
-    AC_MSG_ERROR([You selected MathSAT5 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
+dnl     AC_MSG_ERROR([You selected MathSAT5 as the default solver, but is not available. Remove the option --with-default-smtsolver or choose a different solver.])
 
-# MathSAT5 is available and set as default
-elif test "x$with_default_smtsolver" = "xmathsat5"; then  
+dnl # MathSAT5 is available and set as default
+dnl elif test "x$with_default_smtsolver" = "xmathsat5"; then  
      
-    AC_MSG_NOTICE([MathSAT5 is the default solver])
-    SMTSOLVER=SMTLIBSolver
-    SMTLIBSOLVER_CONFIG=smtlibsolver_config_mathsat5
+dnl     AC_MSG_NOTICE([MathSAT5 is the default solver])
+dnl     SMTSOLVER=SMTLIBSolver
+dnl     SMTLIBSOLVER_CONFIG=smtlibsolver_config_mathsat5
 
-# No default chosen 
-elif test "x$with_default_smtsolver" = "xyes"; then  
+dnl # No default chosen 
+dnl elif test "x$with_default_smtsolver" = "xyes"; then  
 
-    # Z3 is not available
-    if test "x$have_z3" = "xno"; then
+dnl     # Z3 is not available
+dnl     if test "x$have_z3" = "xno"; then
      
-        # CVC4 is not available
-        if test "x$have_cvc4" = "xno"; then
+dnl         # CVC4 is not available
+dnl         if test "x$have_cvc4" = "xno"; then
      
-            # MathSAT5 is not available
-            if test "x$have_mathsat5" = "xno"; then
+dnl             # MathSAT5 is not available
+dnl             if test "x$have_mathsat5" = "xno"; then
      
-                AC_MSG_ERROR([Must have at least one SMT solver, use --with-z3, --with-cvc4 or --with-mathsat5])
+dnl                 AC_MSG_ERROR([Must have at least one SMT solver, use --with-z3, --with-cvc4 or --with-mathsat5])
    
-            # MathSAT5 is available 
-            else
+dnl             # MathSAT5 is available 
+dnl             else
 
-                AC_MSG_NOTICE([MathSAT5 is the default solver])
-                SMTSOLVER=SMTLIBSolver
-                SMTLIBSOLVER_CONFIG=smtlibsolver_config_mathsat5
+dnl                 AC_MSG_NOTICE([MathSAT5 is the default solver])
+dnl                 SMTSOLVER=SMTLIBSolver
+dnl                 SMTLIBSOLVER_CONFIG=smtlibsolver_config_mathsat5
 
-            fi
+dnl             fi
 
-        # CVC4 is available 
-        else
+dnl         # CVC4 is available 
+dnl         else
 
-            AC_MSG_NOTICE([CVC4 is the default solver])
-            SMTSOLVER=SMTLIBSolver
-            SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
+dnl             AC_MSG_NOTICE([CVC4 is the default solver])
+dnl             SMTSOLVER=SMTLIBSolver
+dnl             SMTLIBSOLVER_CONFIG=smtlibsolver_config_cvc4
 
-        fi
+dnl         fi
 
-    # Z3 is available 
-    else
+dnl     # Z3 is available 
+dnl     else
 
-        AC_MSG_NOTICE([Z3 is the default solver])
-        SMTSOLVER=SMTLIBSolver
-        SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
+dnl         AC_MSG_NOTICE([Z3 is the default solver])
+dnl         SMTSOLVER=SMTLIBSolver
+dnl         SMTLIBSOLVER_CONFIG=smtlibsolver_config_z3
 
-    fi
+dnl     fi
 
-fi
+dnl fi
 
 
-# Substitute for SMT solver
-AC_SUBST(SMTSOLVER)
+dnl # Substitute for SMT solver
+dnl AC_SUBST(SMTSOLVER)
 
-# Substitute for Z3 binary
-AC_SUBST(Z3_BIN)
+dnl # Substitute for Z3 binary
+dnl AC_SUBST(Z3_BIN)
 
-# Substitute for CVC4 binary
-AC_SUBST(CVC4_BIN)
+dnl # Substitute for CVC4 binary
+dnl AC_SUBST(CVC4_BIN)
 
-# Substitute for CVC4 binary
-AC_SUBST(MATHSAT5_BIN)
+dnl # Substitute for CVC4 binary
+dnl AC_SUBST(MATHSAT5_BIN)
 
 
 

@@ -20,7 +20,7 @@ open Lib
 
 
 (* Use configured SMT solver *)
-module BMCSolver = SMTSolver.Make (Config.SMTSolver)
+module BMCSolver = SMTSolver.Make (SMTLIBSolver)
 
 
 (* High-level methods for BMC solver *)

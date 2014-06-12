@@ -82,7 +82,7 @@ let smtlibsolver_config_mathsat5 =
 let config_of_flags () = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> smtlibsolver_config_z3
   | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
-  | `MathSAT5 -> smtlibsolver_config_mathsat5
+  | `MathSat5 -> smtlibsolver_config_mathsat5
   | _ -> 
     (* (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.config_of_flags"
@@ -110,7 +110,7 @@ let mathsat5_check_sat_limited_cmd _ =
 let check_sat_limited_cmd ms = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> z3_check_sat_limited_cmd ms
   | `CVC4_SMTLIB -> cvc4_check_sat_limited_cmd ms
-  | `MathSAT5 -> mathsat5_check_sat_limited_cmd ms
+  | `MathSat5 -> mathsat5_check_sat_limited_cmd ms
   | _ -> 
     (* (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.check_sat_limited_cmd"

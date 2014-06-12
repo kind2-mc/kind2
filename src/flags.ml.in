@@ -153,7 +153,7 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
+type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSat5 | `Yices | `detect ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
@@ -162,7 +162,7 @@ let smtsolver_of_string = function
   | "CVC4" -> `CVC4_SMTLIB
   | "CVC4_SMTLIB" -> `CVC4_SMTLIB
   | "CVC4_API" -> `CVC4_API
-  | "mathsat5" -> `MathSAT5
+  | "MathSat5" -> `MathSat5
   | "Yices" -> `Yices
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
@@ -172,11 +172,12 @@ let string_of_smtsolver = function
   | `CVC4_SMTLIB -> "CVC4_SMTLIB"
   | `CVC4_API -> "CVC4_API"
   | `Yices -> "Yices"
-  | `MathSAT5 -> "MathSAT5"
+  | `MathSat5 -> "MathSat5"
+  | `detect -> "detect"
 
 let smtsolver_values = "Z3, CVC4, mathsat5"
 
-let smtsolver_default = `Z3_SMTLIB
+let smtsolver_default = `detect
 
 (* ********** *) 
 
@@ -205,7 +206,7 @@ let z3_bin_of_string s = s
 
 let string_of_z3_bin s = s 
 
-let z3_bin_default = "@Z3_BIN@"
+let z3_bin_default = "z3"
 
 (* ********** *) 
 
@@ -215,7 +216,7 @@ let cvc4_bin_of_string s = s
 
 let string_of_cvc4_bin s = s 
 
-let cvc4_bin_default = "@CVC4_BIN@"
+let cvc4_bin_default = "cvc4"
 
 (* ********** *) 
 
@@ -225,7 +226,7 @@ let mathsat5_bin_of_string s = s
 
 let string_of_mathsat5_bin s = s 
 
-let mathsat5_bin_default = "@MATHSAT5_BIN@"
+let mathsat5_bin_default = "mathsat"
 
 (* ********** *) 
 
@@ -1066,7 +1067,33 @@ let anon_action s =
     | None -> flags.input_file <- Some s
     | Some _ -> raise (Arg.Bad "More than one input file given")
 
-  
+let set_smtsolver = function 
+
+  | `Z3_SMTLIB as smtsolver -> 
+
+    (function z3_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.z3_bin <- z3_bin)
+
+  | `CVC4_SMTLIB as smtsolver -> 
+
+    (function cvc4_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.cvc4_bin <- cvc4_bin)
+
+  | `MathSat5 as smtsolver -> 
+
+    (function mathsat5_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.mathsat5_bin <- mathsat5_bin)
+
+  | `Z3_API
+  | `CVC4_API
+  | `Yices  -> raise (Invalid_argument "set_smtsolver")
+
+  | `detect -> (function _ -> ())
+
+       
 let parse_argv () = 
   
   (* Parse command-line arguments *)

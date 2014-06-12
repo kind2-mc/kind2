@@ -422,7 +422,158 @@ let run_process messaging_setup process =
       (* Keep PID of child process and return *)
       child_pids := (pid, process) :: !child_pids
 
-        
+
+(* Check which SMT solver is available *)  
+let check_smtsolver () = 
+
+  (* SMT solver from command-line *)
+  match Flags.smtsolver () with 
+
+    (* User chose Z3 *)
+    | `Z3_SMTLIB -> 
+
+      let z3_exec = 
+
+        (* Check if Z3 is on the path *)
+        try find_on_path (Flags.z3_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              `Parser 
+              Event.L_fatal 
+              "Z3 executable %s not found."
+              (Flags.z3_bin ());
+
+            exit 2
+
+      in
+
+      Event.log `Parser Event.L_info "Using Z3 executable %s." z3_exec
+
+    (* User chose CVC4 *)
+    | `CVC4_SMTLIB -> 
+
+      let cvc4_exec = 
+
+        (* Check if CVC4 is on the path *)
+        try find_on_path (Flags.cvc4_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              `Parser
+              Event.L_fatal
+              "CVC4 executable %s not found."
+              (Flags.cvc4_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        `Parser
+        Event.L_info
+        "Using CVC4 executable %s."
+        cvc4_exec
+
+    (* User chose MathSat5 *)
+    | `MathSat5 -> 
+
+      let mathsat5_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.mathsat5_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              `Parser
+              Event.L_fatal
+              "MathSat5 executable %s not found."
+              (Flags.mathsat5_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        `Parser
+        Event.L_info
+        "Using MathSat5 executable %s." 
+        mathsat5_exec
+
+
+    (* Unused options for now *)
+    | `Z3_API
+    | `CVC4_API
+    | `Yices -> 
+
+      Event.log 
+        `Parser
+        Event.L_fatal
+        "Unsupported SMT solver.";
+
+      exit 2
+
+    (* User did not choose SMT solver *)
+    | `detect -> 
+
+      try 
+
+        let z3_exec = find_on_path (Flags.z3_bin ()) in
+
+        Event.log `Parser Event.L_info "Using Z3 executable %s." z3_exec;
+
+        (* Z3 is on path? *)
+        Flags.set_smtsolver 
+          `Z3_SMTLIB
+          z3_exec
+
+      with Not_found -> 
+
+        try 
+
+          let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
+
+          Event.log
+            `Parser
+            Event.L_info
+            "Using CVC4 executable %s." 
+            cvc4_exec;
+
+          (* CVC4 is on path? *)
+          Flags.set_smtsolver 
+            `CVC4_SMTLIB
+            cvc4_exec
+
+        with Not_found -> 
+
+          try 
+
+            let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
+
+            Event.log
+              `Parser
+              Event.L_info
+              "Using MatSat5 executable %s." 
+              mathsat5_exec;
+
+            (* MathSat5 is on path? *)
+            Flags.set_smtsolver 
+              `MathSat5
+              mathsat5_exec
+
+          with Not_found -> 
+
+            Event.log `Parser Event.L_fatal "No SMT Solver found"; 
+
+            exit 2
+
+
 (* Entry point *)    
 let main () =   
 
@@ -490,6 +641,9 @@ let main () =
   if Event.output_on_level Event.L_debug then
     Printexc.record_backtrace true;
 
+  (* Check and set SMT solver *)
+  check_smtsolver ();
+
   (* Wallclock timeout? *)
   if Flags.timeout_wall () > 0. then
 
@@ -522,41 +676,10 @@ let main () =
 
     );
 
-(* Must not use vtalrm signal, this is used internally by the OCaml
-   Threads module 
+  (* Must not use vtalrm signal, this is used internally by the OCaml
+     Threads module *)
 
-  (* CPU timeout? *)
-  if Flags.timeout_virtual () > 0. then
-
-    (
-
-      (* Install signal handler for SIGVTALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigvtalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutVirtual));
-
-      (* Set interval timer for CPU timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_VIRTUAL
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_virtual () } 
-      in
-
-      ()
-
-    )  
-
-  else
-
-    (
-
-      (* Install generic signal handler for SIGVTALRM *)
-      Sys.set_signal 
-        Sys.sigvtalrm 
-        (Sys.Signal_handle exception_on_signal);
-
-    );
-*)
+  (* Raise exception on CTRL+C *)
   Sys.catch_break true;
 
   (* Install generic signal handler for SIGINT *)

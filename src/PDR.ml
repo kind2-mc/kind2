@@ -33,7 +33,7 @@ exception Disproved of string
 
 
 (* Use configured SMT solver *)
-module PDRSolver = SMTSolver.Make (Config.SMTSolver)
+module PDRSolver = SMTSolver.Make (SMTLIBSolver)
 
 
 (* High-level methods for PDR solver *)

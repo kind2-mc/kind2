@@ -32,8 +32,20 @@ val timeout_wall : unit -> float
 val timeout_virtual : unit -> float
 
 (** SMT Solver to use *)
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
+type smtsolver = 
+  [ `Z3_SMTLIB
+  | `Z3_API
+  | `CVC4_SMTLIB
+  | `CVC4_API
+  | `MathSat5
+  | `Yices
+  | `detect ]
+
+(** Return SMT solver *)
 val smtsolver : unit -> smtsolver 
+
+(** Set SMT solver and executable *)
+val set_smtsolver : smtsolver -> string -> unit
 
 (** SMT Logic to use *)
 type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]

@@ -21,7 +21,7 @@ open Lib
 
 
 (* Use configured SMT solver *)
-module Solver = SMTSolver.Make (Config.SMTSolver)
+module Solver = SMTSolver.Make (SMTLIBSolver)
 
 
 (* High-level methods for solver *)

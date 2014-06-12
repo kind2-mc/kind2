@@ -220,6 +220,10 @@ val kind_module_of_string : string -> kind_module
 (** Sleep for seconds, resolution is in ms *)
 val minisleep : float -> unit
 
+(** Return full path to executable, search PATH environment variable
+    and current working directory *)
+val find_on_path : string -> string 
+
 
 (* 
    Local Variables:

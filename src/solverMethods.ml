@@ -123,47 +123,6 @@ struct
         logic
     in
 
-(*
-
-    (
-
-      match 
-
-        (* Declare uninterpreted function symbols *)
-        SMTExpr.declare_smt_symbols (S.declare_fun solver)
-
-      with
-
-        | SMTExpr.NoResponse -> 
-          (Event.log 
-             0 
-             ("Error: Could not initialize SMT Solver." ^^ 
-                 "No response when declaring uninterpreted symbols"))
-
-        | SMTExpr.Unsupported -> 
-          (Event.log 
-             0 
-             ("Error: Could not initialize SMT Solver." ^^ 
-                 "Solve replied unsupported when declaring uninterpreted symbols"))
-
-        | SMTExpr.Error e -> 
-          (Event.log 
-             0 
-             ("Error: Could not initialize SMT Solver." ^^ 
-                 "%s when declaring uninterpreted symbols")
-             e)
-
-        | SMTExpr.Success -> ()
-
-    );
-*)
-
-(*
-    (* Declare uninterpreted function symbols *)
-    fail_on_smt_error 
-      (SMTExpr.declare_smt_symbols (S.declare_fun solver));
-*)
-
     (* Return solver instance *)
     solver
 

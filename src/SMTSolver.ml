@@ -18,6 +18,7 @@
 
 open Lib
 
+
 let gentag =
   let r = ref 0 in
   fun () -> incr r; !r
@@ -61,6 +62,18 @@ sig
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 
 end
+
+let smtsolver_module () = match Flags.smtsolver () with 
+
+  | `Z3_SMTLIB
+  | `CVC4_SMTLIB
+  | `MathSat5 -> (module SMTLIBSolver : Solver)
+
+  | `Z3_API
+  | `CVC4_API
+  | `Yices
+  | `detect -> raise (Invalid_argument "smtsolver_module")
+
 
 (* Output signature of the Make functor *)
 module type S =

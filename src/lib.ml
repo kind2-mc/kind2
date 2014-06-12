@@ -886,6 +886,73 @@ let minisleep sec =
       raise (Signal 0)
 
 
+(* Return full path to executable, search PATH environment variable
+   and current working directory *)
+let find_on_path exec = 
+
+  let rec find_on_path' exec path = 
+
+    (* Terminate on empty path *)
+    if path = "" then raise Not_found;
+
+    (* Split path at first colon *)
+    let path_hd, path_tl = 
+
+      try 
+
+        (* Position of colon in string *)
+        let colon_index = String.index path ':' in
+
+        (* Length of string *)
+        let path_len = String.length path in
+
+        (* Return string up to colon *)
+        (String.sub path 0 colon_index, 
+         
+         (* Return string after colon *)
+         String.sub path (colon_index + 1) (path_len - colon_index - 1))
+
+      (* Colon not found, return whole string and empty string *)
+      with Not_found -> path, ""
+
+    in
+    
+    (* Combine path and filename *)
+    let exec_path = Filename.concat path_hd exec in
+    
+    if 
+
+      (* Check if file exists on path *)
+      Sys.file_exists exec_path 
+
+    then 
+
+      (* Return full path to file 
+
+         TODO: Check if file is executable here? *)
+      exec_path 
+
+    else 
+
+      (* Continue on remaining path entries *)
+      find_on_path' exec path_tl
+
+  in
+
+  try 
+
+    (* Return filename on path, fail with Not_found if path is empty
+       or [exec] not found on path *)
+    find_on_path' exec (Unix.getenv "PATH")
+
+  with Not_found -> 
+
+    (* Check current directory as last resort *)
+    let exec_path = Filename.concat (Sys.getcwd ()) exec in 
+
+    (* Return full path if file exists, fail otherwise *)
+    if Sys.file_exists exec_path then exec_path else raise Not_found
+ 
 
 (* 
    Local Variables:

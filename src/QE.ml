@@ -21,7 +21,7 @@ open Lib
 module VS = Var.VarSet
 
 (* Use configured SMT solver *)
-module ConfiguredSolver = SMTSolver.Make (Config.SMTSolver)
+module ConfiguredSolver = SMTSolver.Make (SMTLIBSolver)
 
 (* Extended functions *)
 module Solver = SolverMethods.Make (ConfiguredSolver)
