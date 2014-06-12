@@ -266,19 +266,25 @@ let rec pp_print_tree_path_pt
 
   function
 
+    (* No more streams in current node *)
     | [] -> 
 
       (match nodes with
+
+        (* No more called nodes *)
         | [] -> ()
 
+        (* Take first called node *)
         | (node_ident, node_call_path, node_pos, elements) :: tl -> 
 
+          (* Output node name and call path *)
           Format.fprintf ppf 
             "Node %a (%a)@."
             (I.pp_print_ident false) node_ident
             (pp_print_list (I.pp_print_ident false) " / ")
             (List.rev node_call_path);
 
+          (* Output streams of node *)
           pp_print_tree_path_pt 
             ident_width
             val_width
@@ -287,7 +293,7 @@ let rec pp_print_tree_path_pt
             ppf
             elements)
           
-
+    (* Current *)
     | Node (node_ident, node_pos, elements) :: tl ->
 
       if tl = [] then Format.fprintf ppf "@.";
@@ -320,6 +326,7 @@ let rec pp_print_tree_path_pt
         tl
 
 
+(* Return width of widest identifier and widest value *)
 let rec widths_of_model ident_width val_width = function 
 
   | [] -> (ident_width, val_width)
@@ -350,7 +357,7 @@ let rec widths_of_model ident_width val_width = function
 
     
 
-(* Pretty-print a path in <path> tags *)
+(* Pretty-print a path in plain text *)
 let pp_print_path_pt ppf model =
 
   match tree_path_of_model model with

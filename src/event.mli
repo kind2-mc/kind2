@@ -85,19 +85,22 @@ val set_relay_log : unit -> unit
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} *)
-val log_disproved : Lib.kind_module -> int option -> string -> unit 
+val log_disproved : Lib.kind_module -> log_level -> int option -> string -> unit 
 
 (** Log a proved property
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} *)
-val log_proved : Lib.kind_module -> int option -> string -> unit
+val log_proved : Lib.kind_module -> log_level -> int option -> string -> unit
  
 (** Log a counterexample for some properties *)
-val log_counterexample : Lib.kind_module -> string list -> (StateVar.t * Term.t list) list -> unit 
+val log_counterexample : Lib.kind_module -> log_level -> string list -> (StateVar.t * Term.t list) list -> unit 
 
 (** Log summary of status of properties *)
-val log_prop_status : (string * Lib.prop_status) list -> unit 
+val log_prop_status : log_level -> (string * Lib.prop_status) list -> unit 
+
+(** Log summary of status of properties *)
+val log_stat : Lib.kind_module -> log_level -> (string * Stat.stat_item list) list -> unit 
 
 (** Terminate log
 
@@ -116,6 +119,7 @@ type event =
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
 
+(** Return the last statistics received *)
 val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
 
 (** [log m l f v ...] outputs a message from module [m] on level [l],

@@ -225,12 +225,15 @@ let on_exit process exn =
       Event.log process Event.L_info 
         "Process %d %a" pid pp_print_process_status status
         
-    done;
+    done
     
   with 
     
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
+
+      Event.log process Event.L_info 
+        "All processes terminated. Exiting.";
 
       Event.terminate_log ();
 
@@ -287,7 +290,8 @@ let on_exit_child messaging_thread process exn =
   (on_exit_of_process process) !trans_sys;
   
   Event.log process Event.L_info 
-    "Process terminating";
+    "Process %d terminating"
+    (Unix.getpid ());
 
   Event.terminate_log ();
   
