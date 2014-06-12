@@ -28,7 +28,7 @@ exception Terminate
 (* ********************************************************************** *)
 
 
-(* *)
+(* Messages to be relayed between processes *)
 type event = 
   | Invariant of Term.t 
   | PropStatus of string * prop_status
@@ -368,9 +368,9 @@ let printf_pt mdl level fmt =
     
 
 (* Output proved property as plain text *)
-let proved_pt mdl k prop = 
+let proved_pt mdl level k prop = 
 
-  (ignore_or_fprintf L_fatal)
+  (ignore_or_fprintf level)
     !log_ppf 
     ("@[<hov>Success: Property %s is valid %tin %a@.@.") 
     prop
@@ -381,9 +381,9 @@ let proved_pt mdl k prop =
 
 
 (* Output disproved property as plain text *)
-let disproved_pt mdl k prop = 
+let disproved_pt mdl level k prop = 
 
-  (ignore_or_fprintf L_fatal)
+  (ignore_or_fprintf level)
     !log_ppf 
     ("@[<hov>Failure: Property %s is invalid %tin %a@.@.") 
     prop
@@ -394,9 +394,9 @@ let disproved_pt mdl k prop =
 
 
 (* Output statistics section as plain text *)
-let stat_pt mdl stats =
+let stat_pt mdl level stats =
 
-  Format.fprintf 
+  (ignore_or_fprintf level)
     !log_ppf 
     "@[<v>Statistics for %a@,@,%a@]@."
     pp_print_kind_module mdl
@@ -410,9 +410,9 @@ let stat_pt mdl stats =
 
 
 (* Output counterexample as plain text *)
-let counterexample_pt mdl props cex = 
+let counterexample_pt mdl level props cex = 
 
-  (ignore_or_fprintf L_fatal)
+  (ignore_or_fprintf level)
     !log_ppf 
     "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
     (pp_print_list Format.pp_print_string ",@ ")
@@ -422,18 +422,18 @@ let counterexample_pt mdl props cex =
 
 
 (* Output statistics section as plain text *)
-let progress_pt mdl k =
+let progress_pt mdl level k =
 
-  Format.fprintf 
+  (ignore_or_fprintf level)
     !log_ppf 
     "@[<v>Progress in %a: %d@]@."
     pp_print_kind_module mdl
     k
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_pt prop_status =
+let prop_status_pt level prop_status =
 
-  Format.fprintf
+  (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@]@."
     (pp_print_list 
@@ -517,12 +517,12 @@ let printf_xml mdl level fmt =
 
 
 (* Output proved property as XML *)
-let proved_xml mdl k prop = 
+let proved_xml mdl level k prop = 
 
   (* Update time *)
   Stat.update_time Stat.total_time;
 
-  (ignore_or_fprintf L_fatal)
+  (ignore_or_fprintf level)
     !log_ppf 
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
@@ -538,12 +538,12 @@ let proved_xml mdl k prop =
 
 
 (* Output disproved property as XML *)
-let disproved_xml mdl k prop = 
+let disproved_xml mdl level k prop = 
 
   (* Update time *)
   Stat.update_time Stat.total_time;
 
-  (ignore_or_fprintf L_fatal)
+  (ignore_or_fprintf level)
     !log_ppf 
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
@@ -558,28 +558,10 @@ let disproved_xml mdl k prop =
     pp_print_kind_module_xml_src mdl
   
 
-let rec pp_print_values_xml i ppf = function
-  | [] -> ()
-  | t :: [] -> Format.fprintf ppf "@[<hv 2><Value time=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" i Term.pp_print_term t
-  | t :: tl -> Format.fprintf ppf "%a@;<0 -2>%a" (pp_print_values_xml i) [t] (pp_print_values_xml (succ i)) tl
-
-
-let pp_print_state_var_values_xml ppf (state_var, values) = 
-
-  Format.fprintf 
-    ppf
-    "@[<hv 2>@[<hv 3><Signal@ name=\"%a\"@ node=\"%s\"@ type=\"%a\">@]@,\
-     @[<v 2>%a@]@;<0 -2>\
-     </Signal>@]"
-    StateVar.pp_print_state_var state_var
-    "top"
-    Type.pp_print_type (StateVar.type_of_state_var state_var)
-    (pp_print_values_xml 0) values
-
 (* Output counterexample as XML *)
-let counterexample_xml mdl props cex = 
+let counterexample_xml mdl level props cex = 
 
-  (ignore_or_fprintf L_fatal)
+  (ignore_or_fprintf level)
     !log_ppf 
     "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]@."
     (pp_print_list
@@ -593,9 +575,9 @@ let counterexample_xml mdl props cex =
     
 
 (* Output statistics section as XML *)
-let stat_xml mdl stats =
+let stat_xml mdl level stats =
 
-  Format.fprintf
+  (ignore_or_fprintf level)
     !log_ppf
     "@[<hv 2><stat source=\"%a\">@,%a@;<0 -2></stat>@]@."
     pp_print_kind_module_xml_src mdl
@@ -610,18 +592,18 @@ let stat_xml mdl stats =
 
 
 (* Output progress as XML *)
-let progress_xml mdl k =
+let progress_xml mdl level k =
 
-  Format.fprintf
+  (ignore_or_fprintf level)
     !log_ppf
     "@[<hv 2><progress source=\"%a\">%d@;<0 -2></progress>@]@."
     pp_print_kind_module_xml_src mdl
     k
 
 (* Pretty-print a list of properties and their status *)
-let prop_status_xml prop_status =
+let prop_status_xml level prop_status =
 
-  Format.fprintf
+  (ignore_or_fprintf level)
     !log_ppf
     "@[<v>%a@]"
     (pp_print_list 
@@ -676,6 +658,7 @@ let printf_relay mdl level fmt =
     fmt
 
 
+(*
 (* Send statistics *)
 let stat_relay stats =
 
@@ -688,19 +671,7 @@ let stat_relay stats =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
-
-(* Send progress indicator *)
-let progress_relay k =
-
-  try 
-
-    (* Send progress message *)
-    EventMessaging.send_output_message
-         (EventMessaging.Progress k)
-
-  (* Don't fail if not initialized *) 
-  with Messaging.NotInitialized -> ()
-
+*)
 
 (* ********************************************************************** *)
 (* State of the logger                                                    *)
@@ -746,51 +717,51 @@ let log (mdl : kind_module) level fmt =
 
 
 (* Log a message with source and log level *)
-let log_proved mdl k prop =
+let log_proved mdl level k prop =
   match !log_format with 
-    | F_pt -> proved_pt mdl k prop
-    | F_xml -> proved_xml mdl k prop
+    | F_pt -> proved_pt mdl level k prop
+    | F_xml -> proved_xml mdl level k prop
     | F_relay -> ()
 
 
 (* Log a message with source and log level *)
-let log_disproved mdl k prop =
+let log_disproved mdl level k prop =
   match !log_format with 
-    | F_pt -> disproved_pt mdl k prop
-    | F_xml -> disproved_xml mdl k prop
+    | F_pt -> disproved_pt mdl level k prop
+    | F_xml -> disproved_xml mdl level k prop
     | F_relay -> ()
 
 
 (* Log a counterexample *)
-let log_counterexample mdl props cex = 
+let log_counterexample mdl level props cex = 
   match !log_format with 
-    | F_pt -> counterexample_pt mdl props cex
-    | F_xml -> counterexample_xml mdl props cex
+    | F_pt -> counterexample_pt mdl level props cex
+    | F_xml -> counterexample_xml mdl level props cex
     | F_relay -> ()
 
 
 (* Output summary of status of properties *)
-let log_prop_status prop_status =
+let log_prop_status level prop_status =
   match !log_format with 
-    | F_pt -> prop_status_pt prop_status
-    | F_xml -> prop_status_xml prop_status
+    | F_pt -> prop_status_pt level prop_status
+    | F_xml -> prop_status_xml level prop_status
     | F_relay -> ()
 
 
 (* Output statistics of a section of a source *)
-let stat mdl stats =
+let log_stat mdl level stats =
   match !log_format with 
-    | F_pt -> stat_pt mdl stats
-    | F_xml -> stat_xml mdl stats
-    | F_relay -> stat_relay stats
+    | F_pt -> stat_pt mdl level stats
+    | F_xml -> stat_xml mdl level stats
+    | F_relay -> ()
   
 
 (* Output progress indicator of a source *)
-let progress mdl k = 
+let log_progress mdl level k = 
   match !log_format with 
     | F_pt -> ()
-    | F_xml -> progress_xml mdl k
-    | F_relay -> progress_relay k
+    | F_xml -> progress_xml mdl level k
+    | F_relay -> ()
   
 
 (* Terminate log output *)
@@ -859,9 +830,9 @@ let invariant mdl term =
 let prop_status mdl status prop = 
   
   (match status with
-    | PropInvariant -> log_proved mdl None prop
-    | PropFalse -> log_disproved mdl None prop
-    | PropKFalse k -> log_disproved mdl (Some k) prop
+    | PropInvariant -> log_proved mdl L_warn None prop
+    | PropFalse -> log_disproved mdl L_warn None prop
+    | PropKFalse k -> log_disproved mdl L_warn (Some k) prop
     | _ -> ());
 
   try
@@ -876,16 +847,46 @@ let prop_status mdl status prop =
 (* Broadcast a counterexample for some properties *)
 let counterexample mdl props cex = 
 
-  log_counterexample mdl props cex;
+  log_counterexample mdl L_warn props cex;
 
   try
     
-    (* Send invariant message *)
+    (* Send message *)
     EventMessaging.send_relay_message (Counterexample (props, cex))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
 
+
+(* Send progress indicator *)
+let progress mdl k =
+
+  log_progress mdl L_info k;
+
+  try 
+
+    (* Send progress message *)
+    EventMessaging.send_output_message
+         (EventMessaging.Progress k)
+
+  (* Don't fail if not initialized *) 
+  with Messaging.NotInitialized -> ()
+
+
+(* Send statistics *)
+let stat mdl stats = 
+
+  log_stat mdl L_info stats;
+
+  try
+
+    (* Send message *)
+    EventMessaging.send_output_message
+      (EventMessaging.Stat (Marshal.to_string stats []))
+
+  (* Don't fail if not initialized *) 
+  with Messaging.NotInitialized -> ()
+  
 
 (*
 
@@ -998,7 +999,7 @@ let recv () =
                in
 
                (* Output on log levels info and below *)
-               if output_on_level L_info then stat mdl stats;
+               log_stat mdl L_debug stats;
 
                (* Store last received statistics *)
                last_stats := MdlMap.add mdl stats !last_stats;
@@ -1009,7 +1010,7 @@ let recv () =
              (* Output progress *)
              | mdl, EventMessaging.OutputMessage (EventMessaging.Progress k) -> 
 
-               progress mdl k;
+               log_progress mdl L_info k;
 
                (* No relay message *)
                accum

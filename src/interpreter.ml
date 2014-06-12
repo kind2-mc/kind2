@@ -251,7 +251,7 @@ let main input_file trans_sys =
       in
       
       (* Output counterexample *)
-      Event.log_counterexample `Interpreter [] v;
+      Event.log_counterexample `Interpreter Event.L_off [] v;
 
       Format.printf 
         "@.%a@."

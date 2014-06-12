@@ -2588,7 +2588,7 @@ let main trans_sys =
               in
 
               (* Output counterexample *)
-              Event.log_counterexample
+              Event.counterexample
                 `PDR
                 props_false
                 cex_path;
