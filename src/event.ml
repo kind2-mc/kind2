@@ -372,7 +372,7 @@ let proved_pt mdl k prop =
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hov>Success: Property %s is valid %tin %a@.@.") 
+    ("@[<hov>Success: Property %s is valid %tby %a@.@.") 
     prop
     (function ppf -> match k with
        | None -> ()
@@ -385,7 +385,7 @@ let disproved_pt mdl k prop =
 
   (ignore_or_fprintf L_fatal)
     !log_ppf 
-    ("@[<hov>Failure: Property %s is invalid %tin %a@.@.") 
+    ("@[<hov>Failure: Property %s is invalid %tby %a@.@.") 
     prop
     (function ppf -> match k with
        | None -> ()
@@ -426,7 +426,7 @@ let progress_pt mdl k =
 
   Format.fprintf 
     !log_ppf 
-    "@[<v>Progress in %a: %d@]@."
+    "@[<v>Progress by %a: %d@]@."
     pp_print_kind_module mdl
     k
 
@@ -444,7 +444,7 @@ let prop_status_pt prop_status =
             p
             (function ppf -> function 
                | PropUnknown -> Format.fprintf ppf "unknown"
-               | PropKTrue k -> Format.fprintf ppf "true for %d steps" k
+               | PropKTrue k -> Format.fprintf ppf "true up to %d steps" k
                | PropInvariant -> Format.fprintf ppf "valid"
                | PropFalse -> Format.fprintf ppf "invalid"
                | PropKFalse k -> Format.fprintf ppf "invalid after %d steps" k)
