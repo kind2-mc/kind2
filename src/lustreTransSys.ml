@@ -697,23 +697,27 @@ let rec definitions_of_node_calls
         tl
 
 
-let definitions_of_asserts init trans = 
+let rec definitions_of_asserts init trans = 
 
   function
 
     (* All node calls consumed, return term for initial state
        constraint and transition relation *)
-    | [] -> (init, trans)
+    | [] -> 
+
+      (init, trans)
 
     (* Assertion with term for initial state and term for transitions *)
-    | { E.expr_init; E.expr_step } :: tl ->
+    | { E.expr_init; E.expr_step } as expr :: tl ->
 
       let term_init = E.base_term_of_expr base_offset expr_init in 
       let term_trans = E.cur_term_of_expr cur_offset expr_step in 
 
       (* Add constraint unless it is true *)
-      ((if term_init == Term.t_true then init else term_init :: init), 
-       (if term_trans == Term.t_true then trans else term_trans :: trans))
+      let init' = if term_init == Term.t_true then init else term_init :: init in
+      let trans' = if term_trans == Term.t_true then trans else term_trans :: trans in
+
+      definitions_of_asserts init' trans' tl
       
 (*
 let definitions_of_contract init trans requires ensures = 
