@@ -742,6 +742,12 @@ let bool_of_hstring s = bool_of_string (HString.string_of_hstring s)
 (* System functions                                                       *)
 (* ********************************************************************** *)
 
+let pp_print_banner ppf () =
+    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
+
+let pp_print_version ppf = pp_print_banner ppf ()
+  
+
 (* Kind modules *)
 type kind_module = 
   [ `PDR 

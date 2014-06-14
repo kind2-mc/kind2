@@ -29,24 +29,24 @@ let on_exit trans_sys =
   
   Event.log
     `INVMAN
-    Event.L_warn
+    Event.L_info
     "@[<v>%t@,\
      Final statistics:@]"
     pp_print_hline;
   
   List.iter 
-    (fun (mdl, stat) -> Event.stat mdl stat)
+    (fun (mdl, stat) -> Event.log_stat mdl Event.L_info stat)
     (Event.all_stats ());
   
   Event.log
     `INVMAN
-    Event.L_warn
+    Event.L_fatal
     "@[<v>%t@,\
      Summary of properties:@]"
     pp_print_hline;
   
   (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status (TransSys.prop_status_all trans_sys));
+    Event.log_prop_status Event.L_fatal (TransSys.prop_status_all trans_sys));
     
   Event.log
     `INVMAN
@@ -153,18 +153,18 @@ let handle_events trans_sys =
       | (_, (_, PropUnknown))
       | (_, (_, PropKTrue _)) -> ()
 
-      | (m, (p, PropInvariant)) -> Event.log_proved m None p
+      | (m, (p, PropInvariant)) -> Event.log_proved m Event.L_warn None p
 
-      | (m, (p, PropFalse)) -> Event.log_disproved m None p
+      | (m, (p, PropFalse)) -> Event.log_disproved m Event.L_warn None p
 
-      | (m, (p, PropKFalse k)) -> Event.log_disproved m (Some k) p)
+      | (m, (p, PropKFalse k)) -> Event.log_disproved m Event.L_warn (Some k) p)
 
     prop_status;
 
   (* Output counterexamples *)
   List.iter
     (fun (m, (props, cex)) -> 
-       Event.log_counterexample m props cex)
+       Event.log_counterexample m Event.L_warn props cex)
     cex
 
 

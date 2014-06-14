@@ -554,7 +554,10 @@ let rec node_var_dependencies nodes node accum =
         then
 
           (* TODO: Output variables in circular dependency *)
-          failwith "circular dependency"
+          failwith 
+            (Format.asprintf 
+               "Circular dependency involving %a"
+               StateVar.pp_print_state_var state_var)
 
         else
 

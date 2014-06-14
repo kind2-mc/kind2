@@ -18,12 +18,6 @@
 
 open Lib
 
-let pp_print_banner ppf () =
-    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
-
-let pp_print_version ppf = pp_print_banner ppf ()
-  
-
 (*
 
 module Dummy =
@@ -225,12 +219,15 @@ let on_exit process exn =
       Event.log process Event.L_info 
         "Process %d %a" pid pp_print_process_status status
         
-    done;
+    done
     
   with 
     
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
+
+      Event.log process Event.L_info 
+        "All processes terminated. Exiting.";
 
       Event.terminate_log ();
 
@@ -287,7 +284,8 @@ let on_exit_child messaging_thread process exn =
   (on_exit_of_process process) !trans_sys;
   
   Event.log process Event.L_info 
-    "Process terminating";
+    "Process %d terminating"
+    (Unix.getpid ());
 
   Event.terminate_log ();
   
@@ -580,10 +578,6 @@ let main () =
   (* Parse command-line flags *)
   Flags.parse_argv ();
 
-  (* Output version information only? *)
-  if Flags.check_version () then 
-    (Format.printf "%t@." pp_print_version; exit 0);
-    
   (* At least one debug section enabled? *)
   if Flags.debug () = [] then
 
