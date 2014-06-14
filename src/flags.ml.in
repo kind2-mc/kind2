@@ -1099,6 +1099,10 @@ let parse_argv () =
   (* Parse command-line arguments *)
   Arg.parse speclist anon_action usage_msg;
   
+  (* Output version information only? *)
+  if check_version () then 
+    (Format.printf "%t@." pp_print_version; exit 0);
+    
   (* Set default value if unchanged *)
   if flags.enable = enable_default_init then 
     flags.enable <- enable_default_after;

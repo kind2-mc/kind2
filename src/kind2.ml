@@ -18,12 +18,6 @@
 
 open Lib
 
-let pp_print_banner ppf () =
-    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
-
-let pp_print_version ppf = pp_print_banner ppf ()
-  
-
 (*
 
 module Dummy =
@@ -584,10 +578,6 @@ let main () =
   (* Parse command-line flags *)
   Flags.parse_argv ();
 
-  (* Output version information only? *)
-  if Flags.check_version () then 
-    (Format.printf "%t@." pp_print_version; exit 0);
-    
   (* At least one debug section enabled? *)
   if Flags.debug () = [] then
 
