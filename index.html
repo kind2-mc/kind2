@@ -1,118 +1,136 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
+
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Kinder by kinder-mc</title>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Kind 2 : Multi-engine SMT-based automatic model checker for safety properties of Lustre programs" />
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-51890219-1', 'kind2-mc.github.io');
+  ga('send', 'pageview');
+
+</script>
+
+    <title>Kind 2</title>
   </head>
-  <body>
-    <div class="wrapper">
-      <header>
-        <h1>Kinder</h1>
-        <p>Multi-engine SMT-based automatic model checker for safety properties of Lustre programs</p>
 
-        <p class="view"><a href="https://github.com/kinder-mc/kinder">View the Project on GitHub <small>kinder-mc/kinder</small></a></p>
+<body>
 
+<!-- HEADER -->
+<div id="header_wrap" class="outer">
+  <header class="inner">
+  <a id="forkme_banner" href="https://github.com/kind2-mc/kind2">View on GitHub</a>
+  
+  <h1 id="project_title">Kind 2</h1>
+  <h2 id="project_tagline">Multi-engine SMT-based automatic model checker for safety properties of Lustre programs</h2>
+  
+  <section id="download">
+  <ul>
+    <li><a href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-linux"><strong>Linux</strong>
+    <br />Binary</a></li>
+    <li><a href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-mac"><strong>Mac
+    OS X</strong><br />Binary</a></li>
+    <li><a href="https://github.com/kind2-mc/kind2/archive/v0.7.0.tar.gz"><strong>Sources</strong></a></li>
+  </ul>
+  </section>
+  </header>
+</div>
 
-        <ul>
-          <li><a href="https://github.com/kinder-mc/kinder/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/kinder-mc/kinder/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/kinder-mc/kinder">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h1>
-<a name="kinder" class="anchor" href="#kinder"><span class="octicon octicon-link"></span></a>Kinder</h1>
+<!-- MAIN CONTENT -->
+<div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
 
-<p>A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. </p>
+      <h2>
+      <a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
 
-<p>Kinder takes as input a Lustre file annotated with properties to prove invariant (see <a href="doc/Lustre.md">Lustre syntax</a>), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in <a href="doc/XML.md">XML format</a>.</p>
+      <p>Kind 2 takes as input a Lustre file annotated with properties
+      to prove invariant, and outputs which of the
+      properties are true for all inputs, as well as an input sequence
+      for those properties that are falsified.</p>
 
-<p>Kinder runs a process for bounded model checking (BMC), a process for k-induction, and a proces for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.</p>
+      <p>Main features:
+      <ul>
+	<li>Bounded Model Checking (BMC)</li>
+	<li><em>k</em>-induction with lazy path compression</li>
+	<li>IC3 aka PDR</li>
+	<li>Message-passing based parallel composition of model
+	checking engines</li>
+	<li>Sharing of discovered invariants between all engines</li>
+	<li>Input in Lustre V4 and parts of V6 translated to a modular
+	transition system</li>
+	<li>Use of either of the SMT solvers Z3, CVC4 and MathSat5</li>
+      </ul>
+      </p>
 
-<p>The following command-line options control its operation (run <code>kinder --help</code> for a full list).</p>
+      <h2> <a name="news" class="anchor" href="#news"><span class="octicon octicon-link"></span></a>News</h2>
 
-<ul>
-<li>
-<p><code>--enable {BMC|IND|PDR}</code> Select model checking engines</p>
+      <ul>
+	<li><em>2014/06/16</em>
+	First public release, Kind 2 v0.7.0</li>
+      </ul>
+      
+      <h2> <a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
 
-<p>By default, all three model checking engines are run in parallel. Give any combination of <code>--enable BMC</code>, <code>--enable IND</code> and <code>--enable PDR</code> to select which engines to run. The option <code>--enable BMC</code> alone will not be able to prove properties valid, choosing <code>--enable IND</code> only will not produce any results. Any other combination is sound and complete.</p>
-</li>
-<li><p><code>--timeout_wall SECS</code> Run for SECS seconds of wallclock time</p></li>
-<li><p><code>--timeout_virtual SECS</code> Run for SECS of CPU time</p></li>
-<li>
-<p><code>--smtsolver {Z3|CVC4|mathsat5}</code> Select SMT solver</p>
+      <ul>
+	<li>
+	<a href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-linux">Download
+	Kind 2 v0.7.0 for Linux</a>
+	</li>
+	<li>
+	<a
+	href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-mac">Download
+	Kind 2 v0.7.0 for Mac OS X </a>
+	</li>
+	<li>
+	<a href="https://github.com/kind2-mc/kind2/tarball/master">Download Kind 2 v0.7.0 sources</a>
+	</li>
+      </ul>
+      
+      <h2> <a name="contact" class="anchor" href="#contact"><span class="octicon octicon-link"></span></a>Contact</h2>
 
-<p>The default is <code>Z3</code>, but see options of the <code>./build.sh</code> script to override at compile-time</p>
-</li>
-<li><p><code>--z3_bin PROGRAM</code> Executable for Z3</p></li>
-<li>
-<code>--cvc4_bin PROGRAM</code> Executable for CVC4</li>
-<li><p><code>--mathsat5_bin PROGRAM</code> Executable for MathSat5</p></li>
-<li><p><code>--bmc_max K</code> Run bounded model checking for up to <code>K</code> steps</p></li>
-<li><p><code>-v</code> Output informational messages</p></li>
-<li>
-<code>-xml</code> Output in XML format</li>
-</ul><h1>
-<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h1>
+      <p><a href="mailto:christoph-sticksel@uiowa.edu">christoph-sticksel@uiowa.edu</a></p>
+      
+      <h2> <a name="people" class="anchor" href="#people"><span class="octicon octicon-link"></span></a>People</h2>
+      <ul>
+	<li><a href="http://homepage.divms.uiowa.edu/~tinelli">Cesare Tinelli</a></li>
+	<li><a href="http://homepage.divms.uiowa.edu/~csticksel">Christoph Sticksel</a></li>
+	<li>Kevin Clancy</li>
+	<li>Mingyu Ma</li>
+	<li>Baoluo Meng</li>
+      </ul>
 
-<ul>
-<li>Linux or Mac OS X</li>
-<li>OCaml 4.01 or later</li>
-<li>A supported SMT solver
+      <p>Formerly:
+      <ul>
+	<li>Eric Burns</li>
+	<li>Jason Oxley</li>
+	<li>Ruoyu Zhang</li>
+      </ul>
+      </p>
+      
+      <!-- <h2> <a name="papers" class="anchor" href="#papers"><span
+      class="octicon octicon-link"></span></a>Publications and
+      Experimental Results</h2> -->
+      
 
-<ul>
-<li>
-<a href="http://z3.codeplex.com">Z3</a> (recommended), </li>
-<li>
-<a href="http://cvc4.cs.nyu.edu">CVC4</a>, (must use <code>--pdr_tighten_unsat_core false</code>) or</li>
-<li><a href="http://mathsat.fbk.eu/">MathSat5</a></li>
-</ul>
-</li>
-</ul><h1>
-<a name="building-and-installing" class="anchor" href="#building-and-installing"><span class="octicon octicon-link"></span></a>Building and installing</h1>
-
-<p>The commands</p>
-
-<pre><code>./autogen.sh
-./build.sh
-make install
-</code></pre>
-
-<p>will configure and build ZeroMQ, CZMQ, the OCaml bindings and Kind 2 and install the binary <code>kind2</code> into <code>/usr/local/bin</code>. Call <code>./build.sh --prefix=&lt;path&gt;</code> to install the Kind 2 binary into <code>&lt;path&gt;/bin</code> instead. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the <code>build.sh</code> call. Use <code>./configure --help</code> after <code>autogen.sh</code> to see all available options.</p>
-
-<p>You need a supported SMT solver, at the momemt either CVC4 or Z3 on your path. Either one or both will be picked up by the <code>build.sh</code> command. Alternatively, you can give one or both of the options <code>--with-cvc4=&lt;cvc4-executable&gt;</code> and <code>--with-z3=&lt;z3-executable&gt;</code>. Z3 will be chosen as default if it is available, you can override this with the option <code>--with-default-smtsolver=cvc4</code>.</p>
-
-<h1>
-<a name="zeromq-czmq-and-ocamlczmq-are-included" class="anchor" href="#zeromq-czmq-and-ocamlczmq-are-included"><span class="octicon octicon-link"></span></a>ZeroMQ, CZMQ and ocamlczmq are included</h1>
-
-<p>The ocamlczmq binding is included as a subtree. Nothing is needed to work with the sources, but in order to update ocamlczmq the git-subtree plugin is required. It is part of git, but not installed by default: get the git-subtree script and put it anywhere in the your path.</p>
-
-<p>To update ZeroMQ and CZMQ go to the ocamlczmq repository.</p>
-
-<p>To pull changes from the ocamlczmq repository do </p>
-
-<pre><code>git subtree pull --prefix=ocamlczmq --squash https://github.com/kind-mc/ocamlczmq.git master
-</code></pre>
-
-<p>For the record, initially I did </p>
-
-<pre><code>git subtree add --prefix=ocamlczmq --squash https://github.com/kind-mc/ocamlczmq.git master
-</code></pre>
       </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/kinder-mc">kinder-mc</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
       </footer>
     </div>
-    <script src="javascripts/scale.fix.js"></script>
+
     
+
   </body>
 </html>
