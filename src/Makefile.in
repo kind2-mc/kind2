@@ -21,7 +21,7 @@ lustre-checker: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 clean:
 	$(OCAMLBUILD) -clean
 
-kind2-doc:
+kind2-doc: myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.docdir/index.html
 
 # Compile a native-code version of Camlp4DebugParser, the

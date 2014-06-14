@@ -347,8 +347,9 @@ let node_of_name name nodes =
 
 
 (* Calculate dependencies of variables *)
-let rec node_var_dependencies init_or_step nodes node accum = 
+let rec node_var_dependencies nodes node accum = 
 
+(*
   (* Return expression either for the initial state or a step state *)
   let init_or_step_of_expr { E.expr_init; E.expr_step } = 
     if init_or_step then 
@@ -360,7 +361,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
   let init_or_step_offset = 
     if init_or_step then E.base_offset else E.cur_offset
   in
-
+*)
   function 
 
     (* Return all calculated dependencies *)
@@ -388,7 +389,6 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         (* No dependencies for inputs *)
         node_var_dependencies 
-          init_or_step 
           nodes
           node
           ((state_var, SVS.empty) :: accum) 
@@ -410,9 +410,13 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
             (* Get variables in expression *)
             SVS.elements
-              (Term.state_vars_at_offset_of_term
-                 init_or_step_offset
-                 (init_or_step_of_expr expr))
+              (SVS.union 
+                 (Term.state_vars_at_offset_of_term
+                    E.base_offset
+                    (E.base_term_of_expr E.base_offset expr.E.expr_init))
+                 (Term.state_vars_at_offset_of_term
+                    E.cur_offset
+                    (E.cur_term_of_expr E.cur_offset expr.E.expr_step)))
 
           (* Variable is not input or not defined in an equation *)
           with Not_found -> 
@@ -466,7 +470,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
               let dep_expr = 
                 List.fold_left
                   (fun a d -> 
-                     (init_or_step_of_expr (List.nth call_params d)) :: a)
+                     (List.nth call_params d :: a))
                   []
                   (List.nth output_input_dep input_pos)
               in
@@ -476,9 +480,17 @@ let rec node_var_dependencies init_or_step nodes node accum =
                 (List.fold_left
                    (fun a e -> 
                       SVS.union
-                        (Term.state_vars_at_offset_of_term
-                           init_or_step_offset 
-                           e) 
+                        (SVS.union 
+                           (Term.state_vars_at_offset_of_term
+                              E.base_offset
+                              (E.base_term_of_expr 
+                                 E.base_offset 
+                                 e.E.expr_init))
+                           (Term.state_vars_at_offset_of_term
+                              E.cur_offset
+                              (E.cur_term_of_expr 
+                                 E.cur_offset 
+                                 e.E.expr_step)))
                         a)
                    SVS.empty
                    dep_expr)
@@ -513,9 +525,17 @@ let rec node_var_dependencies init_or_step nodes node accum =
               vars_visited
           in
 
+          debug lustreNode
+            "@[<hv>Dependencies of %a:@ @[<hv>%a@]@]"
+            StateVar.pp_print_state_var state_var
+            (pp_print_list
+              StateVar.pp_print_state_var
+              ",@ ")
+            (SVS.elements dependent_vars)
+          in
+
           (* Add variable and its dependencies to accumulator *)
           node_var_dependencies 
-            init_or_step 
             nodes
             node 
             ((state_var, dependent_vars) :: accum)
@@ -534,13 +554,15 @@ let rec node_var_dependencies init_or_step nodes node accum =
         then
 
           (* TODO: Output variables in circular dependency *)
-          failwith "circular dependency"
+          failwith 
+            (Format.asprintf 
+               "Circular dependency involving %a"
+               StateVar.pp_print_state_var state_var)
 
         else
 
           (* First get dependencies of all dependent variables *)
           node_var_dependencies 
-            init_or_step 
             nodes 
             node
             accum 
@@ -633,7 +655,6 @@ let equations_order_by_dep nodes node =
      equation *)
   let var_dep = 
     node_var_dependencies 
-      false 
       nodes
       node
       []

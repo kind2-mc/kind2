@@ -154,6 +154,13 @@ val paren_string_of_string_list : string list -> string
 
 (** {1 System functions} *)
 
+(** Output the banner on the formatter *)
+val pp_print_banner : Format.formatter -> unit -> unit
+
+(** Output the version number on the formatter *)
+val pp_print_version : Format.formatter -> unit
+
+
 (** Kind modules *)
 type kind_module =
   [ `PDR
