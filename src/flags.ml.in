@@ -436,7 +436,7 @@ let string_of_input_format = function
   | `Lustre -> "lustre"
   | `Horn -> "horn"
 
-let input_format_values = "lustre, horn"
+let input_format_values = "lustre"
 
 let input_format_default = `Lustre
 

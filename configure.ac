@@ -9,16 +9,17 @@ AC_CONFIG_SRCDIR([src/kind2.ml])
 AC_PREFIX_DEFAULT(/usr/local)
 
 # Check for OCaml  
-AC_PROG_OCAML
+AC_PROG_OCAML      
 
 if test "x$OCAMLOPT" = "xno"; then
   AC_MSG_ERROR([You must install the OCaml native-code compiler])
 fi
 
-# TODO: Check for OCaml 4
-# if [[["x$OCAMLVERSION" =~ "x4"]]]; then
-#   AC_MSG_ERROR([OCaml 4 is required])
-# fi
+# Check for OCaml 4.01 
+if expr "$OCAMLVERSION" '<' '4.01' > /dev/null ; then
+  AC_MSG_ERROR([OCaml version 4.01 or later required])
+fi
+
 
 # Check for Camlp4
 AC_PROG_CAMLP4
