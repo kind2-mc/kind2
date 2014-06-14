@@ -19,7 +19,7 @@
 
 </script>
 
-<title>Kind 2</title>
+    <title>Kind 2</title>
   </head>
 
   <body>
@@ -33,8 +33,10 @@
           <h2 id="project_tagline">Multi-engine SMT-based automatic model checker for safety properties of Lustre programs</h2>
 
             <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/kind2-mc/kind2/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/kind2-mc/kind2/tarball/master">Download this project as a tar.gz file</a>
+              <a class="zip_download_link" href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-linux">Download Kind 2 v0.7.0 for Linux</a>
+              <a class="zip_download_link" href="https://github.com/kind2-mc/kind2/releases/download/v0.7.0/kind2-mac">Download Kind 2 v0.7.0 for Mac OS X </a>
+              <a class="zip_download_link" href="https://github.com/kind2-mc/kind2/archive/v0.7.0.zip">Download Kind 2 v0.7.0 sources as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/kind2-mc/kind2/tarball/master">Download Kind 2 v0.7.0 sources as a tar.gz file</a>
             </section>
         </header>
     </div>
@@ -45,71 +47,22 @@
         <h1>
 <a name="kind-2" class="anchor" href="#kind-2"><span class="octicon octicon-link"></span></a>Kind 2</h1>
 
-<p>A multi-engine, parallel, SMT-based automatic model checker for safety properties of Lustre programs. </p>
+        <h2>
+<a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
 
-<p>Kind2 takes as input a Lustre file annotated with properties to prove invariant (see <a href="doc/Lustre.md">Lustre syntax</a>), and outputs which of the properties are true for all inputs, as well as an input sequence for those properties that are falsified. To ease processing by front-end tools, Kind2 can output its results in <a href="doc/XML.md">XML format</a>.</p>
+<h2>
+<a name="news" class="anchor" href="#news"><span class="octicon octicon-link"></span></a>News</h2>
 
-<p>Kind2 runs a process for bounded model checking (BMC), a process for k-induction, and a proces for IC3 in parallel on all properties simultaneously. It incrementally outputs counterexamples to properties as well as properties proved invariant.</p>
+<h2>
+<a name="download" class="anchor" href="#download"><span class="octicon octicon-link"></span></a>Download</h2>
 
-<p>The following command-line options control its operation (run <code>kind2 --help</code> for a full list).</p>
+<h2>
+<a name="people" class="anchor" href="#people"><span class="octicon octicon-link"></span></a>People</h2>
 
-<p><code>--enable {BMC|IND|PDR}</code> Select model checking engines</p>
+<h2>
+<a name="papers" class="anchor" href="#papers"><span class="octicon octicon-link"></span></a>Publications and Experimental Results</h2>
 
-<p>By default, all three model checking engines are run in parallel. Give any combination of <code>--enable BMC</code>, <code>--enable IND</code> and <code>--enable PDR</code> to select which engines to run. The option <code>--enable BMC</code> alone will not be able to prove properties valid, choosing <code>--enable IND</code> only will not produce any results. Any other combination is sound and complete.</p>
 
-<p><code>--timeout_wall SECS</code> Run for SECS seconds of wallclock time</p>
-
-<p><code>--timeout_virtual SECS</code> Run for SECS of CPU time</p>
-
-<p><code>--smtsolver {Z3|CVC4|mathsat5}</code> Select SMT solver</p>
-
-<p>The default is <code>Z3</code>, but see options of the <code>./build.sh</code> script to override at compile-time</p>
-
-<p><code>--z3_bin PROGRAM</code> Executable for Z3</p>
-
-<p><code>--cvc4_bin PROGRAM</code> Executable for CVC4</p>
-
-<p><code>--mathsat5_bin PROGRAM</code> Executable for MathSat5</p>
-
-<p><code>--bmc_max K</code> Run bounded model checking for up to <code>K</code> steps</p>
-
-<p><code>-v</code> Output informational messages</p>
-
-<p><code>-xml</code> Output in XML format</p>
-
-<h1>
-<a name="requirements" class="anchor" href="#requirements"><span class="octicon octicon-link"></span></a>Requirements</h1>
-
-<ul>
-<li>Linux or Mac OS X</li>
-<li>OCaml 4.01 or later</li>
-<li>A supported SMT solver
-
-<ul>
-<li>
-<a href="http://z3.codeplex.com">Z3</a> (recommended), </li>
-<li>
-<a href="http://cvc4.cs.nyu.edu">CVC4</a>, (must use <code>--pdr_tighten_unsat_core false</code>) or</li>
-<li><a href="http://mathsat.fbk.eu/">MathSat5</a></li>
-</ul>
-</li>
-</ul><h1>
-<a name="building-and-installing" class="anchor" href="#building-and-installing"><span class="octicon octicon-link"></span></a>Building and installing</h1>
-
-<p>If you got the sources from the Github repository, you need to run first</p>
-
-<pre><code>./autogen.sh
-</code></pre>
-
-<p>In any case, the commands</p>
-
-<pre><code>./build.sh
-make install
-</code></pre>
-
-<p>will configure and build ZeroMQ, CZMQ, the OCaml bindings and Kind 2 and install the binary <code>kind2</code> into <code>/usr/local/bin</code>. Call <code>./build.sh --prefix=PATH</code> to install the Kind 2 binary into <code>PATH/bin</code> instead. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the <code>build.sh</code> call. Use <code>./configure --help</code> after <code>autogen.sh</code> to see all available options.</p>
-
-<p>You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running <code>kind2</code>.</p>
       </section>
     </div>
 
