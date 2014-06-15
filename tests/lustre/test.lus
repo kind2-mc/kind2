@@ -1,7 +1,7 @@
 /* This is a comment 
   over several lines */ 
 
-(* OCaml-style comments are 
+(* Pascal-style comments are 
   also valid - and that officially *)
 
 -- Include file, the name must be in quotes, the path is relative to this file, 
