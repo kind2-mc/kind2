@@ -37,10 +37,10 @@ The default is ```Z3```, but see options of the ```./build.sh``` script to overr
 Requirements
 ============
 
-- Linux or Mac OS X
-- OCaml 4.01 or later
-- [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator
-- A supported SMT solvers
+- Linux or Mac OS X,
+- OCaml 4.01 or later,
+- [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
+- a supported SMT solver
  - [Z3](http://z3.codeplex.com) (presently recommended), 
  - [CVC4](http://cvc4.cs.nyu.edu), (must use ```--pdr_tighten_unsat_core false```) or
  - [MathSat5](http://mathsat.fbk.eu/)
@@ -52,11 +52,14 @@ If you got the sources from the Github repository, you need to run first
 
     ./autogen.sh
 
-In any case, the commands
+By default, `kind2` will be installed into `/usr/local/bin`, an operation for which you usually need to be root. Call 
 
-    ./build.sh
+    ./build.sh --prefix=PATH
+    
+to install the Kind 2 binary into `PATH/bin`. You can omit the option to accept the default path of `/usr/local/bin`. This command will configure and build ZeroMQ, CZMQ, the OCaml bindings and Kind 2. If it has been successful, call 
+
     make install
 
-will configure and build ZeroMQ, CZMQ, the OCaml bindings and Kind 2 and install the binary `kind2` into `/usr/local/bin` provided that you have write access to that directory. Call `./build.sh --prefix=PATH` to install the Kind 2 binary into `PATH/bin` instead. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call. Use `./configure --help` after `autogen.sh` to see all available options.
+to install the Kind 2 binary into the chosen location. If you need to pass options to the configure scripts of any of ZeroMQ, CZMQ, the OCaml bindings or Kind 2, add these to the `build.sh` call. Use `./configure --help` after `autogen.sh` to see all available options.
 
-You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`.
+You need a supported SMT solver, at the momemt either Z3, CVC4 or MathSat5 on your path when running `kind2`. 
