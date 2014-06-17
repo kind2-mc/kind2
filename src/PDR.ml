@@ -2331,7 +2331,6 @@ let main trans_sys =
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
     S.new_solver
-      ~produce_models:true
       ~produce_assignments:true
       ~produce_cores:produce_cores
       logic
