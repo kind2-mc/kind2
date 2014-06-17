@@ -478,7 +478,7 @@ let check_smtsolver () =
         cvc4_exec
 
     (* User chose MathSat5 *)
-    | `MathSat5 -> 
+    | `MathSat5_SMTLIB -> 
 
       let mathsat5_exec = 
 
@@ -505,17 +505,33 @@ let check_smtsolver () =
         mathsat5_exec
 
 
-    (* Unused options for now *)
-    | `Z3_API
-    | `CVC4_API
-    | `Yices -> 
+    (* User chose MathSat5 *)
+    | `Yices_SMTLIB -> 
 
-      Event.log 
+      let yices_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.yices_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              `Parser
+              Event.L_fatal
+              "Yices executable %s not found."
+              (Flags.yices_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
         `Parser
-        Event.L_fatal
-        "Unsupported SMT solver.";
+        Event.L_info
+        "Using Yices executable %s." 
+        yices_exec
 
-      exit 2
 
     (* User did not choose SMT solver *)
     | `detect -> 
@@ -562,15 +578,32 @@ let check_smtsolver () =
 
             (* MathSat5 is on path? *)
             Flags.set_smtsolver 
-              `MathSat5
+              `MathSat5_SMTLIB
               mathsat5_exec
 
           with Not_found -> 
 
-            Event.log `Parser Event.L_fatal "No SMT Solver found"; 
+            try 
 
-            exit 2
+              let yices_exec = find_on_path (Flags.yices_bin ()) in
 
+              Event.log
+                `Parser
+                Event.L_info
+                "Using Yices executable %s." 
+                yices_exec;
+
+              (* Yices is on path? *)
+              Flags.set_smtsolver 
+                `Yices_SMTLIB
+                yices_exec
+                
+            with Not_found -> 
+              
+              Event.log `Parser Event.L_fatal "No SMT Solver found"; 
+              
+              exit 2
+                
 
 (* Entry point *)    
 let main () =   
