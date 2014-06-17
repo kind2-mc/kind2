@@ -249,6 +249,16 @@ let rec ind_step_loop
           Numeral.pp_print_numeral (Numeral.pred k_plus_one)
        in
 
+       Event.log
+         `IND
+         Event.L_info
+         "Properties %a maybe %a-inductive"
+         (pp_print_list 
+            (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+            ",@ ")
+         props_unknown
+         Numeral.pp_print_numeral (Numeral.pred k_plus_one);
+
        (* Pop assertions from entailment checks *)
        S.pop solver);
 
