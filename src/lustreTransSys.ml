@@ -652,7 +652,7 @@ let rec definitions_of_node_calls
 
                Term.mk_eq 
                  [ticked_trans;
-                  Term.mk_or [act_cond_trans; act_cond_trans_pre]];
+                  Term.mk_or [act_cond_trans; ticked_trans_pre]];
 
                (* Transition relation with true activation condition *)
                Term.mk_implies

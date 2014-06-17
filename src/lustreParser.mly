@@ -432,6 +432,9 @@ left_side:
   (* Parenthesized list *)
   | LPAREN; l = struct_item_list; RPAREN { l }
 
+  (* Empty list *)
+  | LPAREN; RPAREN { [] }
+
 
 (* Item in a structured equation *)
 struct_item:
