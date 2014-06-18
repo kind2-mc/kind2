@@ -221,6 +221,9 @@ val pp_print_kind_module : Format.formatter -> kind_module -> unit
 (** String representation of a process type *)
 val string_of_kind_module : kind_module -> string 
 
+(** Return a short representation of kind module *)
+val suffix_of_kind_module : kind_module -> string
+
 (** Kind module of a string *)
 val kind_module_of_string : string -> kind_module
 

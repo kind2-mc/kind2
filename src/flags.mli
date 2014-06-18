@@ -65,6 +65,14 @@ val mathsat5_bin : unit -> mathsat5_bin
 type yices_bin = string
 val yices_bin : unit -> yices_bin
 
+(** Write all SMT commands to files *)
+type smt_trace = bool
+val smt_trace : unit -> smt_trace
+
+(** Directory for trace logs of SMT commands *)
+type smt_trace_dir = string 
+val smt_trace_dir : unit -> smt_trace_dir
+
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
 val enable : unit -> enable 

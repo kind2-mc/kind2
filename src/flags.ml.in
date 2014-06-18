@@ -234,6 +234,18 @@ let yices_bin_default = "yices-smt2"
 
 (* ********** *) 
 
+type smt_trace = bool
+
+let smt_trace_default = false
+
+(* ********** *) 
+
+type smt_trace_dir = string
+
+let smt_trace_dir_default = Sys.getcwd ()
+
+(* ********** *) 
+
 (* type kind_module = [ `PDR | `BMC | `IND | `INVGEN ] *)
 
 type enable = kind_module list 
@@ -482,6 +494,8 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
       mutable yices_bin : yices_bin;
+      mutable smt_trace : smt_trace;
+      mutable smt_trace_dir : smt_trace_dir;
       mutable enable : enable;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
@@ -519,6 +533,8 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
+    smt_trace = smt_trace_default;
+    smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
@@ -617,6 +633,24 @@ let yices_bin_spec =
   ("--yices_bin", 
    Arg.String yices_bin_action, 
    Format.sprintf "executable of Yices solver (default: %s)" (string_of_yices_bin yices_bin_default))
+
+(* ********** *) 
+
+let smt_trace_action o = flags.smt_trace <- true
+  
+let smt_trace_spec = 
+  ("--smt_trace", 
+   Arg.Unit smt_trace_action, 
+   Format.sprintf "Write all SMT commands to files")
+
+(* ********** *) 
+
+let smt_trace_dir_action o = flags.smt_trace_dir <- o
+  
+let smt_trace_dir_spec = 
+  ("--smt_trace_dir", 
+   Arg.String smt_trace_dir_action, 
+   Format.sprintf "Directory for trace logs of SMT commands (default: %s)" smt_trace_dir_default)
 
 (* ********** *) 
 
@@ -901,6 +935,10 @@ let mathsat5_bin () = flags.mathsat5_bin
 
 let yices_bin () = flags.yices_bin
 
+let smt_trace () = flags.smt_trace
+
+let smt_trace_dir () = flags.smt_trace_dir
+
 let enable () = flags.enable 
 
 let check_version () = flags.check_version 
@@ -993,6 +1031,12 @@ and speclist =
 
     (* Set executable for Yices solver *)
     yices_bin_spec;
+
+    (* Write all SMT commands to files *)
+    smt_trace_spec;
+
+    (* Directory for  trace logs of SMT commands *)
+    smt_trace_dir_spec;
 
     (* Set enabled modules *)
     enable_spec;
