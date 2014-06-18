@@ -42,7 +42,6 @@ let sort_indexed_pairs list =
 let fail_at_position pos msg = 
 
   Event.log
-    `Parser
     Event.L_warn
     "Parser error in %a: %s"
     A.pp_print_position pos
@@ -55,7 +54,6 @@ let fail_at_position pos msg =
 let warn_at_position pos msg = 
 
   Event.log
-    `Parser
     Event.L_warn
     "Parser warning in %a: %s"
     A.pp_print_position pos
