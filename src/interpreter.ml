@@ -257,7 +257,7 @@ let main input_file trans_sys =
       | TransSys.LustreInput(nodes) ->
          Format.printf 
            "@.%a@."
-           (LustrePath.pp_print_path_xml_orig nodes) 
+           (LustrePath.pp_print_path_xml_orig nodes steps) 
            v;
     )
       

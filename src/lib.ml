@@ -28,6 +28,16 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* List functions                                                         *)
 (* ********************************************************************** *)
 
+(* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
+let list_init f n =
+  let rec init_aux i =
+    if i = n-1 then
+      [f i]
+    else
+      (f i) :: (init_aux (i+1))
+  in
+  init_aux 0  
+
 (* Return the index of the first element that satisfies the predicate [p] *)
 let list_index p = 
   let rec list_index p i = function
@@ -297,7 +307,19 @@ let rec compare_lists f l1 l2 =
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
 
-
+(* Pretty-print an array *)
+let pp_print_arrayi pp sep ppf array  =
+  let n = Array.length array in
+  let print_element i =
+    if i = n-1 then
+      pp ppf i array.(i)
+    else
+      pp ppf i array.(i);
+      Format.fprintf ppf sep
+  in
+  let indices = list_init (fun i -> i) n in
+  List.iter print_element indices
+  
 (* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 
 

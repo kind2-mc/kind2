@@ -63,6 +63,9 @@ val safe_hash_interleave : int -> int -> int -> int
 
 (** {1 List functions} *)
 
+(** Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
+val list_init : (int -> 'a) -> int -> 'a list
+
 (** Return the index of the first element that satisfies the predicate
     [p], raise excpetion [Not_found] if no element satisfies the
     predicate. *)
@@ -110,13 +113,26 @@ val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int
 
 (** {1 Pretty-printing helpers} *)
 
+(** Pretty-print an array with given separator
+ 
+ [pp_print_array elem_printer separator formatter array] calls,
+ for each index [i] of the array whose corresponding element is [element], 
+ [elem_printer formatter i element]. Between each of these calls
+ it prints the string [separator].
+
+ In order to get line breaks between the elements, do not use a
+ line feed character [\n] as separator, this might mess up
+ indentation. Instead wrap the list into a vertical box with the
+ format string [@\[<v>%a@\]] and the empty string as separator.
+
+*) 
+val pp_print_arrayi : (Format.formatter -> int -> 'a -> unit) -> (unit, Format.formatter, unit) format -> Format.formatter -> 'a array -> unit
+
 (** Pretty-print a list with given separator 
 
     [pp_print_list p s f l] pretty-prints the elements in the list [l]
     by calling the pretty-printer [p] on each, separating the elements
-    by printing the string [s] and marking the position after each [s]
-    as a good break. Use this after opening a pretty-printing box to
-    make use of the break hints.
+    by printing the string [s].
 
     In order to get line breaks between the elements, do not use a
     line feed character [\n] as separator, this might mess up
