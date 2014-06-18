@@ -620,7 +620,11 @@ let yices_bin_spec =
 
 (* ********** *) 
 
-let enable_action o = flags.enable <- (kind_module_of_string o) :: flags.enable
+let enable_action o = 
+
+  (* Ensure the each module is at most once in flags.enable *)
+  let mdl = kind_module_of_string o in
+  if not (List.mem mdl flags.enable) then flags.enable <- mdl :: flags.enable
   
 let enable_spec = 
   ("--enable", 
