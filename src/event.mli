@@ -84,22 +84,31 @@ val set_relay_log : unit -> unit
 (** Log a disproved property
 
     Should only be used by the invariant manager, other modules must use
-    {!prop_status} *)
+    {!prop_status} to send it as a message. *)
 val log_disproved : Lib.kind_module -> log_level -> int option -> string -> unit 
 
 (** Log a proved property
 
     Should only be used by the invariant manager, other modules must use
-    {!prop_status} *)
+    {!prop_status} to send it as a message. *)
 val log_proved : Lib.kind_module -> log_level -> int option -> string -> unit
  
-(** Log a counterexample for some properties *)
+(** Log a counterexample for some properties
+
+    Should only be used by the invariant manager, other modules must
+    use {!counterexample} to send it as a message. *)
 val log_counterexample : Lib.kind_module -> log_level -> string list -> (StateVar.t * Term.t list) list -> unit 
 
-(** Log summary of status of properties *)
+(** Log summary of status of properties
+
+    Should only be used by the invariant manager, other modules must use
+    {!prop_status} to send it as a message. *)
 val log_prop_status : log_level -> (string * Lib.prop_status) list -> unit 
 
-(** Log summary of status of properties *)
+(** Log statistics
+
+    Should only be used by the invariant manager, other modules must use
+    {!stat} to send it as a message. *)
 val log_stat : Lib.kind_module -> log_level -> (string * Stat.stat_item list) list -> unit 
 
 (** Terminate log
@@ -125,22 +134,22 @@ val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) 
 (** [log m l f v ...] outputs a message from module [m] on level [l],
     formatted with the parameterized string [f] and the values [v
     ...] *)
-val log : Lib.kind_module -> log_level -> ('a, Format.formatter, unit) format -> 'a
+val log : log_level -> ('a, Format.formatter, unit) format -> 'a
 
 (** Output the statistics of the module *)
-val stat : Lib.kind_module -> (string * Stat.stat_item list) list -> unit
+val stat : (string * Stat.stat_item list) list -> unit
 
 (** Output the progress of the module *)
-val progress : Lib.kind_module -> int -> unit
+val progress : int -> unit
 
 (** Broadcast a discovered invariant *)
-val invariant : Lib.kind_module -> Term.t -> unit 
+val invariant : Term.t -> unit 
 
 (** Broadcast a property status *)
-val prop_status : Lib.kind_module -> Lib.prop_status -> string -> unit
+val prop_status : Lib.prop_status -> string -> unit
 
 (** Broadcast a counterexample to some properties *)
-val counterexample : Lib.kind_module -> string list -> (StateVar.t * Term.t list) list -> unit
+val counterexample : string list -> (StateVar.t * Term.t list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -155,6 +164,12 @@ type messaging_setup
 
 (** Background thread of the messaging system *)
 type mthread
+
+(** Set module currently running *)
+val set_module : Lib.kind_module -> unit 
+
+(** Get module currently running *)
+val get_module : unit -> Lib.kind_module
 
 (** Create contexts and bind ports for all processes *)
 val setup : unit -> messaging_setup

@@ -28,7 +28,6 @@ let pp_print_hline ppf =
 let on_exit trans_sys =
   
   Event.log
-    `INVMAN
     Event.L_info
     "@[<v>%t@,\
      Final statistics:@]"
@@ -39,7 +38,6 @@ let on_exit trans_sys =
     (Event.all_stats ());
   
   Event.log
-    `INVMAN
     Event.L_fatal
     "@[<v>%t@,\
      Summary of properties:@]"
@@ -49,7 +47,6 @@ let on_exit trans_sys =
     Event.log_prop_status Event.L_fatal (TransSys.prop_status_all trans_sys));
     
   Event.log
-    `INVMAN
     Event.L_warn 
     "";
   
@@ -91,7 +88,7 @@ let rec wait_for_children child_pids =
 
       (
 
-        Event.log `INVMAN Event.L_info
+        Event.log Event.L_info
           "Child process %d (%a) %a" 
           child_pid 
           pp_print_kind_module (List.assoc child_pid !child_pids) 
@@ -108,7 +105,7 @@ let rec wait_for_children child_pids =
     (* Child process dies with non-zero exit status or was killed *)
     | child_pid, status -> 
 
-      (Event.log `INVMAN Event.L_error
+      (Event.log Event.L_error
          "Child process %d (%a) %a" 
          child_pid 
          pp_print_kind_module (List.assoc child_pid !child_pids) 
@@ -132,7 +129,6 @@ let handle_events trans_sys =
   List.iter 
     (function (m, e) -> 
       Event.log
-        `INVMAN 
         Event.L_debug
         "Message received from %a: %a"
         pp_print_kind_module m
@@ -178,7 +174,7 @@ let rec loop child_pids trans_sys =
     
     ( 
       
-      Event.log `INVMAN Event.L_info "All properties proved or disproved";
+      Event.log Event.L_info "All properties proved or disproved";
       
       Event.terminate ()
         
