@@ -769,6 +769,9 @@ let main () =
           Event.log Event.L_info 
             "Running as a single process";
 
+          (* Set module currently running *)
+          Event.set_module p;
+
           (* Run main function of process *)
           (main_of_process p) (get !trans_sys);
           
