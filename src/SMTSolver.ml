@@ -156,10 +156,10 @@ struct
     | None -> Format.ifprintf Format.std_formatter 
 
   let create_instance 
-      ?(produce_assignments = false)
-      ?(produce_models = false) 
-      ?(produce_proofs = false) 
-      ?(produce_cores = false)     
+      ?produce_assignments
+      ?produce_models
+      ?produce_proofs
+      ?produce_cores
       l = 
     
     let id = gentag () in
@@ -208,25 +208,39 @@ struct
             
     in
 
+    let pp_if_some fmt ppf = function
+      | None -> ()
+      | Some v -> Format.fprintf ppf fmt v
+    in
+    
     trace_cmd trace_ppf
-      "@[<hv 1>(set-option@ :print-success@ true)@]@,%t@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]"
-      (function ppf -> match l with
-         | `detect -> ()
-         | _ -> 
-           Format.fprintf ppf
-             "@[<hv 1>(set-logic@ %a)@]@," 
-             SMTExpr.pp_print_logic l)
+      "@[<v>@[<hv 1>(set-option@ :print-success@ true)@]@,%t%a%a%a%a@]"
+      (function ppf -> 
+        match l with
+          | `detect -> ()
+          | _ -> 
+            Format.fprintf ppf
+              "@[<hv 1>(set-logic@ %a)@]@," 
+              SMTExpr.pp_print_logic l)
+      (pp_if_some
+         "@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,") 
       produce_assignments
+      (pp_if_some
+         "@[<hv 1>(set-option@ :produce-models@ %B)@]@,")
       produce_models 
+      (pp_if_some
+        "@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,")
       produce_proofs
+      (pp_if_some
+         "@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]")
       produce_cores;
 
   let s = 
     S.create_instance 
-      ~produce_assignments 
-      ~produce_models
-      ~produce_proofs
-      ~produce_cores
+      ?produce_assignments 
+      ?produce_models
+      ?produce_proofs
+      ?produce_cores
       l 
   in
 

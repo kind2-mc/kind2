@@ -465,10 +465,10 @@ let execute_custom_check_sat_command cmd solver =
 
 (* Create an instance of the solver *)
 let create_instance 
-    ?(produce_assignments = false)
-    ?(produce_models = false) 
-    ?(produce_proofs = false) 
-    ?(produce_cores = false)     
+    ?produce_assignments
+    ?produce_models
+    ?produce_proofs
+    ?produce_cores
     logic =
 
   (* Get autoconfigured configuration *)
@@ -549,14 +549,18 @@ let create_instance
     | `Yices_SMTLIB -> ()
     | _ -> 
 
-      if produce_models then
-        (match 
-           let cmd = "(set-option :produce-models true)" in
-           (debug smt "%s" cmd in
-            execute_command solver cmd 0)
-         with 
-           | Success -> () 
-           | _ -> raise (Failure ("Cannot set option produce-models"))));
+      (match produce_models with
+        | None -> ()
+        | Some o ->
+          (match 
+             let cmd =
+               Format.sprintf "(set-option :produce-models %B)" o 
+             in
+             (debug smt "%s" cmd in
+              execute_command solver cmd 0)
+           with 
+             | Success -> () 
+             | _ -> raise (Failure ("Cannot set option produce-models")))));
 
   (* Produce assignments to be queried with get-values, default is
      false per SMTLIB specification *)
@@ -564,14 +568,19 @@ let create_instance
     | `Yices_SMTLIB -> ()
     | _ -> 
 
-      if produce_assignments then
-        (match 
-           let cmd = "(set-option :produce-assignments true)" in
-           (debug smt "%s" cmd in
-            execute_command solver cmd 0)
-         with 
-           | Success -> () 
-           | _ -> raise (Failure ("Cannot set option produce-assignments"))));
+      (match produce_assignments with
+        | None -> ()
+        | Some o ->
+          (match 
+             let cmd =
+               Format.sprintf "(set-option :produce-assignments %B)" o 
+             in
+             (debug smt "%s" cmd in
+              execute_command solver cmd 0)
+           with 
+             | Success -> () 
+             | _ -> raise
+                      (Failure ("Cannot set option produce-assignments")))));
 
 (*
   (* Produce proofs, default is false per SMTLIB specification *)
@@ -586,14 +595,17 @@ let create_instance
 *)
   (* Produce unsatisfiable cores, default is false per SMTLIB
      specification *)
-  if produce_cores then
-    (match 
-       let cmd = "(set-option :produce-unsat-cores true)" in
-       (debug smt "%s" cmd in
-        execute_command solver cmd 0)
-     with 
-       | Success -> () 
-       | _ -> raise (Failure ("Cannot set option produce-unsat-cores")));
+  (match produce_cores with
+    | None -> ()
+    | Some o ->
+      (match 
+         let cmd =
+           Format.sprintf "(set-option :produce-unsat-cores %B)" o in
+         (debug smt "%s" cmd in
+          execute_command solver cmd 0)
+       with 
+         | Success -> () 
+         | _ -> raise (Failure ("Cannot set option produce-unsat-cores"))));
 
   (* Set logic *)
   (match logic with 
