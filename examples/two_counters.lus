@@ -1,0 +1,23 @@
+node greycounter (reset: bool) returns (out: bool);
+var a, b: bool;
+let
+  a = false -> (not reset and not pre b);
+  b = false -> (not reset and pre a);
+  out = a and b;
+tel
+
+node intcounter (reset: bool) returns (out: bool);
+var time: int;
+let
+  time = 0 -> if reset or pre time = 3 then 0 else pre time + 1;
+  out = time = 2;
+tel
+
+node top (reset: bool) returns (OK: bool);
+var b, d: bool;
+let
+  b = greycounter(reset);
+  d = intcounter(reset);
+  OK = b = d;
+  --%PROPERTY OK;
+tel
