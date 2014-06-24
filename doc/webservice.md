@@ -29,7 +29,7 @@ arg	 | Command line argument (the argv array), may be repeated, must be in the c
     Job rejected due to high system load.
     </jobstatus>
     
-## retrievejob/<ID> (GET)
+## `retrievejob/<ID> (GET)`
 
 The user queries the job with the given ID, which is part of the request URL. Return an XML string containing the output of the given job since the last retrieve.
 
@@ -65,7 +65,7 @@ None, job ID is part of the request URI
     Job with ID XYZ not found.
     </jobstatus>
 
-## /canceljob/ID (GET)
+## `/canceljob/<ID> (GET)`
 
 The user requests to cancel the job with the given ID, which is part of the request URL. Return an XML string indicating success.
 
