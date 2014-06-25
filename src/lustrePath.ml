@@ -102,7 +102,13 @@ let partition_model_by_sources
        assoc_add (call_node, call_pos) (call_state_var, terms) calls)
 
     (* Skip oracle inputs and abstracted variables *)
-    | E.Oracle | E.Abstract -> accum
+    | E.Oracle | E.Abstract -> 
+      
+      (* TODO: Add a flag for this *)
+      if true then 
+        (inputs, outputs, (state_var, terms) :: locals, calls)    
+      else
+        accum
 
 
 (* Create a Stream value of a state variable assignments *)
@@ -165,9 +171,9 @@ let pp_print_pos_xml ppf pos =
 (* Pretty-print a property of a stream as XML attributes *)
 let pp_print_stream_prop_xml ppf = function 
 
-  | Input -> Format.fprintf ppf "@ input"
+  | Input -> Format.fprintf ppf "@ class=\"input\""
 
-  | Output -> Format.fprintf ppf "@ output"
+  | Output -> Format.fprintf ppf "@ class=\"output\""
 
   | Local -> ()
 
