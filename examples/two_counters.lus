@@ -1,16 +1,34 @@
 node greycounter (reset: bool) returns (out: bool);
-var a, b: bool;
+var a, b: bool; OK1, OK2, OK3: bool;
 let
   a = false -> (not reset and not pre b);
   b = false -> (not reset and pre a);
   out = a and b;
+
+  OK1 = true -> (b = pre a);
+  OK2 = true -> (not a = pre b);
+  OK3 = true -> (not out = ((not pre a) or a));
+
+  --%PROPERTY OK1;
+  --%PROPERTY OK2;
+  --%PROPERTY OK3;
 tel
 
 node intcounter (reset: bool) returns (out: bool);
-var time: int;
+var t: int; OK1, OK2, OK3, OK4: bool;
 let
-  time = 0 -> if reset or pre time = 3 then 0 else pre time + 1;
-  out = time = 2;
+  t = 0 -> if reset or pre t = 3 then 0 else pre t + 1;
+  out = t = 2;
+
+  OK1 = true -> (pre t < 3 => t >= 0);
+  OK2 = true -> (pre out => pre t <= 1);
+  OK3 = true -> (t <= 0 or not(pre t <= 3) or not (pre t >= 3));
+  OK4 = true -> (not(pre t >= 3) or t >= 0);
+
+  --%PROPERTY OK1;
+  --%PROPERTY OK2;
+  --%PROPERTY OK3;
+  --%PROPERTY OK4;
 tel
 
 node top (reset: bool) returns (OK: bool);
