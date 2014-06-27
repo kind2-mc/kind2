@@ -1,8 +1,14 @@
+# Draft of the Concrete Syntax for Kind 2's Native Format #
+
+The concrete syntax is closely related to the [SMTLIB Format](http://smt-lib.org). The input consists of S-expressions, comments are delimited with `;;`.
+
     {transition_system} := {pred_def}+ (check-prop ({property}+))
 
 A transition system consists of one or more definitions of initial state and transition relation predicates, and one or more properties to check.
 
-	{pred_def} := ( define-pred ( {identifier} {state_var_def}* ) (init ( {state_var}* ) {term} ) (trans ( {state_var}* ) {term} )
+	{pred_def} := ( define-pred ( {identifier} {state_var_def}* ) 
+	                (init ( {state_var}* ) {term} ) 
+	                (trans ( {state_var}* ) {term} )
 
 The definition of a predicate starts with a unique identifier for the predicate, followed by the declaration of the state variables and the initial state constraint, usually over some unprimed state variables and the transition relation, usually over primed and unprimed state variables.
 
@@ -25,7 +31,14 @@ A state variable, which is not declared as constant, is either unprimed by appen
 A property is a pair of a string name and a term over the unprimed state variables of the last predicate definition.
 
     {var_binding} := ({identifier} {type})
-    {term} := {value_literal} | {identifier} | {identifier}.0 | {identifier}.1 | ( {identifier} {term*} ) | ( {identifier}.init {term*} ) |  ( {identifier}.trans {term*} ) |  (let ({var*binding}+) {term})
+    {term} := {value_literal} | 
+              {identifier} | 
+              {identifier}.0 | 
+              {identifier}.1 | 
+              ( {identifier} {term*} ) | 
+              ( {identifier}.init {term*} ) | 
+              ( {identifier}.trans {term*} ) | 
+              (let ({var*binding}+) {term})
 
 A term is either a value literal (such as a numeric, decimal or Boolean value), an identifier (standing for a defined constant), an identifier standing for a constant state variable, a primed or unprimed identifier standing for a non-constant state variable, a function application or a let binding.
 
@@ -37,7 +50,7 @@ The supported types are integer numbers, real numbers (both with arbitrary preci
 
 For an example see [two_counters.kind2](../examples/two_counters.kind2), which is a translation of [two_counters.lus](../examples/two_counters.lus)
 
-# More features for the future #
+## More features for the future ##
 
 Global constants with define-const, global function definitions, global assertions
 
