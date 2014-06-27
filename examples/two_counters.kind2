@@ -1,151 +1,77 @@
-;; State of the top node 
-(state-vars
- ((__top.OK Bool)
-  (__top.b Bool)
-  (__top.d Bool)
-  (__top.__abs_2 Int)
-  (__top.__abs_3 Bool)
-  (__top.__abs_4 Bool)
-  (__top.reset Bool)))
+(define-pred greycounter
 
-;; Definitions of initial state predicates
-(init-defs
- ((__node_init_greycounter
-   ((greycounter.reset.0 Bool)
-    (greycounter.out.0 Bool)
-    (greycounter.a.0 Bool)
-    (greycounter.b.0 Bool))
+  ((reset Bool)
+   (out Bool)
+   (a Bool)
+   (b Bool))
+  
+  (init 
+   (reset.0 out.0 a.0 b.0)
    (and
-    (= greycounter.b.0 false)
-    (= greycounter.a.0 false)
-    (=
-     greycounter.out.0
-     (and greycounter.a.0 greycounter.b.0))))
-  (__node_init_intcounter
-   ((intcounter.reset.0 Bool)
-    (intcounter.out.0 Bool)
-    (intcounter.time.0 Int))
-   (and
-    (= intcounter.time.0 0)
-    (= intcounter.out.0 (= intcounter.time.0 2))))
-  (__node_init_top
-   ((top.reset.0 Bool)
-    (top.OK.0 Bool)
-    (top.b.0 Bool)
-    (top.d.0 Bool)
-    (top.__abs_2.0 Int)
-    (top.__abs_3.0 Bool)
-    (top.__abs_4.0 Bool))
-   (and
-    (= top.OK.0 (= top.b.0 top.d.0))
-    (__node_init_greycounter
-     top.reset.0
-     top.b.0
-     top.__abs_4.0
-     top.__abs_3.0)
-    (__node_init_intcounter top.reset.0 top.d.0 top.__abs_2.0)))))
+    (= b.0 false)
+    (= a.0 false)
+    (= out.0 (and a.0 b.0))))
+  
+  (trans
+   (reset.1 out.1 a.1 b.1 reset.0 out.0 a.0 b.0)
+   (= b.1 (and (not reset.1) a.0))
+    (= a.1 (and (not reset.1) (not b.0)))
+    (= out.1 (and a.1 b.1))))
 
-;; Definitions of transition relation predicates
-(trans-defs
- ((__node_trans_greycounter
-   ((greycounter.reset.1 Bool)
-    (greycounter.out.1 Bool)
-    (greycounter.a.1 Bool)
-    (greycounter.b.1 Bool)
-    (greycounter.reset.0 Bool)
-    (greycounter.out.0 Bool)
-    (greycounter.a.0 Bool)
-    (greycounter.b.0 Bool))
+(define-pred initcounter
+  
+  ((reset Bool)
+   (max Int :const)
+   (out Bool)
+   (t Int))
+
+  (init
+   (reset.0 max out.0 t.0)
    (and
-    (=
-     greycounter.b.1
-     (and (not greycounter.reset.1) greycounter.a.0))
-    (=
-     greycounter.a.1
-     (and (not greycounter.reset.1) (not greycounter.b.0)))
-    (=
-     greycounter.out.1
-     (and greycounter.a.1 greycounter.b.1))))
-  (__node_trans_intcounter
-   ((intcounter.reset.1 Bool)
-    (intcounter.out.1 Bool)
-    (intcounter.time.1 Int)
-    (intcounter.reset.0 Bool)
-    (intcounter.out.0 Bool)
-    (intcounter.time.0 Int))
+    (= t.0 0)
+    (= out.0 (= t.0 2))))
+  
+  (trans
+   (reset.1 max out.1 t.1 reset.0 out.0 t.0)
    (and
-    (=
-     intcounter.time.1
-     (ite
-      (or intcounter.reset.1 (= intcounter.time.0 3))
-      0
-      (+ intcounter.time.0 1)))
-    (= intcounter.out.1 (= intcounter.time.1 2))))
-  (__node_trans_top
-   ((top.reset.1 Bool)
-    (top.OK.1 Bool)
-    (top.b.1 Bool)
-    (top.d.1 Bool)
-    (top.__abs_2.1 Int)
-    (top.__abs_3.1 Bool)
-    (top.__abs_4.1 Bool)
-    (top.reset.0 Bool)
-    (top.OK.0 Bool)
-    (top.b.0 Bool)
-    (top.d.0 Bool)
-    (top.__abs_2.0 Int)
-    (top.__abs_3.0 Bool)
-    (top.__abs_4.0 Bool))
+    (= t.1 (ite (or reset.1 (= t.0 max)) 0 (+ t.0 1)))
+    (= out.1 (= t.1 2)))))
+
+(define-pred top
+  ((reset Bool)
+   (OK Bool)
+   (b Bool)
+   (d Bool)
+   (g.a Bool)
+   (g.b Bool)
+   (i.t Int))
+
+  (init
+   (reset.0 OK.0 b.0 d.0 g.a.0 g.b.0 i.t.0)
    (and
-    (= top.OK.1 (= top.b.1 top.d.1))
-    (__node_trans_greycounter
-     top.reset.1
-     top.b.1
-     top.__abs_4.1
-     top.__abs_3.1
-     top.reset.0
-     top.b.0
-     top.__abs_4.0
-     top.__abs_3.0)
-    (__node_trans_intcounter
-     top.reset.1
-     top.d.1
-     top.__abs_2.1
-     top.reset.0
-     top.d.0
-     top.__abs_2.0)))))
+    (= OK.0 (= b.0 d.0))
+    (greycounter.init reset.0 b.0 g.a.0 g.b..0)
+    (intcounter.init reset.0 3 d.0 i.t.0)))
 
-;; Initial state constraint for the system
-(init
- ((__node_init_top
-   __top.reset.0
-   __top.OK.0
-   __top.b.0
-   __top.d.0
-   __top.__abs_2.0
-   __top.__abs_3.0
-   __top.__abs_4.0)))
+  (trans
+   (reset.1 
+    OK.1 
+    b.1
+    d.1
+    g.a.1
+    g.b.1
+    i.t.1
+    reset.0
+    OK.0
+    b.0
+    d.0
+    g.a.0
+    g.b.0
+    i.t.0)
+   (and
+    (= OK.1 (= b.1 d.1))
+    (greycounter.trans reset.1 b.1 g.a.1 g.a.1 reset.0 b.0 g.a.0 g.b.0)
+    (intcounter.trans reset.1 3 d.1 i.t.1 reset.0 d.0 i.t.0))))
 
-;; Transition relation for the system
-(trans
- ((__node_trans_top
-   __top.reset.1
-   __top.OK.1
-   __top.b.1
-   __top.d.1
-   __top.__abs_2.1
-   __top.__abs_3.1
-   __top.__abs_4.1
-   __top.reset.0
-   __top.OK.0
-   __top.b.0
-   __top.d.0
-   __top.__abs_2.0
-   __top.__abs_3.0
-   __top.__abs_4.0)))
+(check-prop (("OK" (top.OK))))
 
-;; Properties to prove 
-(props ((OK __top.OK.0)))
-
-;; Invariants 
-(invar ())
