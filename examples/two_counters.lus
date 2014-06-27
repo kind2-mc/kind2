@@ -5,37 +5,21 @@ let
   b = false -> (not reset and pre a);
   out = a and b;
 
-  OK1 = true -> (b = pre a);
-  OK2 = true -> (not a = pre b);
-  OK3 = true -> (not out = ((not pre a) or a));
-
-  --%PROPERTY OK1;
-  --%PROPERTY OK2;
-  --%PROPERTY OK3;
 tel
 
-node intcounter (reset: bool) returns (out: bool);
+node intcounter (reset: bool; const max: int) returns (out: bool);
 var t: int; OK1, OK2, OK3, OK4: bool;
 let
-  t = 0 -> if reset or pre t = 3 then 0 else pre t + 1;
+  t = 0 -> if reset or pre t = max then 0 else pre t + 1;
   out = t = 2;
 
-  OK1 = true -> (pre t < 3 => t >= 0);
-  OK2 = true -> (pre out => pre t <= 1);
-  OK3 = true -> (t <= 0 or not(pre t <= 3) or not (pre t >= 3));
-  OK4 = true -> (not(pre t >= 3) or t >= 0);
-
-  --%PROPERTY OK1;
-  --%PROPERTY OK2;
-  --%PROPERTY OK3;
-  --%PROPERTY OK4;
 tel
 
 node top (reset: bool) returns (OK: bool);
 var b, d: bool;
 let
   b = greycounter(reset);
-  d = intcounter(reset);
+  d = intcounter(reset, 3);
   OK = b = d;
   --%PROPERTY OK;
 tel
