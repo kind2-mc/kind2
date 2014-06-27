@@ -1,6 +1,8 @@
 # Draft of the Concrete Syntax for Kind 2's Native Format #
 
-The concrete syntax is closely related to the [SMTLIB Format](http://smt-lib.org). The input consists of S-expressions, comments are delimited with `;;`.
+The concrete syntax is closely related to the [SMTLIB Format](http://smt-lib.org). The input consists of S-expressions, comments are delimited with `;;`. 
+
+The following are EBNF-style grammar rules.
 
     {transition_system} := {pred_def}+ (check-prop ({property}+))
 
