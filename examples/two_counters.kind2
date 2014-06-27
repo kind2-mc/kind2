@@ -6,17 +6,15 @@
    (b Bool))
   
   (init 
-   (reset.0 out.0 a.0 b.0)
    (and
-    (= b.0 false)
-    (= a.0 false)
-    (= out.0 (and a.0 b.0))))
+    (= b false)
+    (= a false)
+    (= out (and a b))))
   
   (trans
-   (reset.1 out.1 a.1 b.1 reset.0 out.0 a.0 b.0)
-   (= b.1 (and (not reset.1) a.0))
-    (= a.1 (and (not reset.1) (not b.0)))
-    (= out.1 (and a.1 b.1))))
+   (= (prime b) (and (not (prime reset)) a))
+   (= (prime a) (and (not (prime reset)) (not b)))
+   (= (prime out) (and (prime a) (prime b)))))
 
 (define-pred initcounter
   
@@ -26,16 +24,14 @@
    (t Int))
 
   (init
-   (reset.0 max out.0 t.0)
    (and
-    (= t.0 0)
-    (= out.0 (= t.0 2))))
+    (= t 0)
+    (= out (= t 2))))
   
   (trans
-   (reset.1 max out.1 t.1 reset.0 out.0 t.0)
    (and
-    (= t.1 (ite (or reset.1 (= t.0 max)) 0 (+ t.0 1)))
-    (= out.1 (= t.1 2)))))
+    (= (prime t) (ite (or (prime reset) (= t max)) 0 (+ t 1)))
+    (= (prime out) (= (prime t) 2)))))
 
 (define-pred top
   ((reset Bool)
@@ -47,31 +43,16 @@
    (i.t Int))
 
   (init
-   (reset.0 OK.0 b.0 d.0 g.a.0 g.b.0 i.t.0)
    (and
-    (= OK.0 (= b.0 d.0))
-    (greycounter.init reset.0 b.0 g.a.0 g.b..0)
-    (intcounter.init reset.0 3 d.0 i.t.0)))
+    (= OK (= b d))
+    (greycounter.init reset b g.a g.b)
+    (intcounter.init reset 3 d i.t)))
 
   (trans
-   (reset.1 
-    OK.1 
-    b.1
-    d.1
-    g.a.1
-    g.b.1
-    i.t.1
-    reset.0
-    OK.0
-    b.0
-    d.0
-    g.a.0
-    g.b.0
-    i.t.0)
    (and
-    (= OK.1 (= b.1 d.1))
+    (= (prime OK) (= (prime b) (prime d)))
     (greycounter.trans reset.1 b.1 g.a.1 g.a.1 reset.0 b.0 g.a.0 g.b.0)
     (intcounter.trans reset.1 3 d.1 i.t.1 reset.0 d.0 i.t.0))))
 
-(check-prop (("OK" (top.OK))))
+(check-prop top (("OK" OK)))
 
