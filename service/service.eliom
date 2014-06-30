@@ -14,10 +14,10 @@ let configured_programs =
     ("retrievetest", "/home/mma1/kind2/service/retrieveTest.py");
     
     (* PKind *)
-    ("pkind", "/usr/local/bin/pkind");
+    ("pkind", "/usr/local/bin/pkind" );
     
     (* Kind 2 *)
-    ("kind2","/usr/local/bin/kind2")  ]
+    ("kind2","/usr/local/bin/kind2" )  ]
 
 
 (* Hash table for running jobs *)
@@ -93,6 +93,12 @@ let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><
 
 let process_arg args = List.filter (fun s -> s <> "") (List.rev args)
 
+let extra_args kind = match kind with 
+    "kind2" -> ["-xml"]
+  | "pkind"-> [ "-xml";"-xml-to-stdout"]
+  | _ -> []
+
+
 (* ********************************************************************** *)
 (* ********************************************************************** *)
 
@@ -126,18 +132,19 @@ let _ =
   Eliom_registration.String.register
     ~service:submitjob_main_service
     (fun () () ->
-      Lwt.return (xmlwrapper "The site is under construction", "text/xml"));
+      Lwt.return ("The site is under construction", "text/xml"));
 
    Eliom_registration.String.register
     ~service:submitjob_service
     (fun () (kind, (args, file)) ->
-      let command : string = command_look kind in
+      let command : string  = command_look kind in
       let cmd_args : string list = process_arg args in
       let filename : string = file.tmp_filename in
-      let user_msg, job_id, job_info = create_job command cmd_args filename path in  
+      let default_args :string list = extra_args kind in 
+      let user_msg, job_id, job_info = create_job command (default_args @ cmd_args) filename path in  
       add_running_job job_id (extract job_info);
      Lwt.return 
-       (xmlwrapper user_msg, "text/xml")); 
+       ( user_msg, "text/xml")); 
 
 
    Eliom_registration.String.register
@@ -175,7 +182,7 @@ let _ =
 	 with Not_found ->
 	   job_not_found_msg id in
        Lwt.return 
-	     (xmlwrapper msg, "text/xml"));
+	     (msg, "text/xml"));
 
    Eliom_registration.String.register
      ~service:canceljob_service
@@ -211,5 +218,5 @@ let _ =
 	     )
 	   with Not_found ->
 	     job_not_found_msg id in 
-       Lwt.return (xmlwrapper msg, "text/xml"));
+       Lwt.return (msg, "text/xml"));
 
