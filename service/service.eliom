@@ -93,6 +93,7 @@ let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><
 
 let process_arg args = List.filter (fun s -> s <> "") (List.rev args)
 
+(*get the default argument*)
 let extra_args kind = match kind with 
     "kind2" -> ["-xml"]
   | "pkind"-> [ "-xml";"-xml-to-stdout"]
