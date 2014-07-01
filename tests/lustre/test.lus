@@ -1,77 +1,87 @@
+-- This file shows the supported Lustre syntax and can be used to test
+-- the parser. It does not contain any sensible properties to prove.
+
 /* This is a comment 
   over several lines */ 
 
 (* Pascal-style comments are 
   also valid - and that officially *)
 
--- Include file, the name must be in quotes, the path is relative to this file, 
--- can be anywhere in the file
+-- Include file, the name must be in quotes, the path is relative to
+-- this file. This directive can be anywhere in the file.
 include "inc.lus"
 
--- Fail: type must be declared
--- type a = a;
+-- ------------------------------------------------------------
+-- Type declarations
+-- ------------------------------------------------------------
 
--- Predefined type bool
+-- Declare an alias for the built-in type bool
 type a = bool;
 
--- Declaration of multiple aliases for predefined type int
+-- Declare multiple aliases for the built-in type int
 type b, c = int;
 
-
--- Predefined type integer range (our extension)
+-- Declare aliases for built-in type integer range (our extension)
 type r1 = subrange [1, 2] of int;
 type r2 = subrange [-2, 2] of int;
 
+-- Declare a parametric type with constants as arguments
 const r3_l = 1;
 const r3_u = 2;
 type r3 = subrange [r3_l, r3_u] of int;
 
--- Predefined type real
+-- Declare an alias for the built-in type real
 type d = real;
 
--- User-defined type
+-- Declare an alias for a user-defined type
 type e = a;
 
--- Tuple type
+-- Declare a tuple type
 type f = [int, real, bool];
 
--- Nested tuple type
+-- Declare a nested tuple type
 type g = [d, [int, bool]];
 
--- Record type (V6)
+-- Declare a record type
 type h = struct { one : int; two : bool };
 
--- Record types can be nested, struct is optional
+-- Declare a nester record types, keyword struct is optional
 type i2 = struct { a : int; b: bool };
 type i = { one: i2;  two : bool; };
 
-/*
+/* TODO: 
 -- Enum type (V6) 
 type j = enum { st_init, st_step, st_stop };
 */
 
--- Array types
+-- Declare an array type
 type k = int^5;
--- type l = int^5^3; -- ^ is left-associative
+type l = int^5^3; -- ^ is left-associative
 
--- const l : l = 1^5^3;
--- const l_1 = l[2];
+const l : l = 1^5^3;
+const l_1 = l[2];
 
+-- Declare an array type with a constant as a parameter 
 const h = 2;
 type m = int^5*h;
 -- type m = int^5*h;
 
+
+-- ------------------------------------------------------------
+-- Global constant declarations
+-- ------------------------------------------------------------
+
 -- Free constants, must have a type
 -- const a1, a2, a3: a;
 
--- Defined constants without type
+-- Define constants without a type,  will be inferred
 const b01 = 1;
       pi = 3.14;
 
--- Defined constant with optional type 
+-- Define constant with a type 
 const c1 : bool = true;
       c2 = 5;
---      c3, c4 : real;
+
 
 -- A node declaration
 node x 

@@ -403,7 +403,7 @@ let rec pp_print_expr ppf =
     | RecordProject (p, id, f) -> 
 
       Format.fprintf ppf 
-        "%a%a.%a" 
+        "%a%a%a" 
         ppos p 
         (I.pp_print_ident false) id 
         (I.pp_print_index false) f
