@@ -731,6 +731,10 @@ let main () =
           
           Some (LustreInput.of_file (Flags.input_file ()))
             
+        | `Native -> 
+          
+          Some (NativeInput.of_file (Flags.input_file ()))
+
         | `Horn -> 
           
           (* Horn.of_file (Flags.input_file ()) *)
