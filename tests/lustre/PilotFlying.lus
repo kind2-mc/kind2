@@ -3,7 +3,7 @@ node Rise
 returns 
   (O : bool);
 let 
-  O = false -> pre(I) and I;
+  O = false -> (not pre I) and I;
 tel;
 
 
@@ -33,13 +33,14 @@ var
   inhibit_count_bounded : bool;
   pfs_state_consistency : bool;
 
+  state_bounded : bool;
+
 const St_Inhibited = 2;
 const St_Listening = 3;
 const St_Pilot_Flying = 4;
 const St_Start = 1;
 const St_Stop = 5;
 
-  -- state_bounded : bool;
 
 -- const St_Inhibited = 2;
 -- const St_Listening = 3;
@@ -127,16 +128,25 @@ let
   pfs_state_consistency = 
     not (state = St_Start) => (PFS = (state = St_Pilot_Flying));
   
-  -- --%PROPERTY pfs_state_consistency;
+  --%PROPERTY pfs_state_consistency;
+
+  -- Proved as property before 
+  assert pfs_state_consistency;
        
   inhibit_count_bounded = 
     inhibit_count >= 0 and inhibit_count <= inhibit_count_max;
   
-  -- --%PROPERTY inhibit_count_bounded;
+  --%PROPERTY inhibit_count_bounded;
 
-  -- state_bounded = state >= St_Start and state < St_Stop;
-  
+  -- Proved as property before 
+  assert inhibit_count_bounded;
+
+  state_bounded = state >= St_Start and state < St_Stop;
+
   -- --%PROPERTY state_bounded;
+
+  -- Proved as property before 
+  assert state_bounded;
   	
 tel;
 
@@ -358,7 +368,7 @@ let
   clocks_are_synchronous = 
     CLK1 = CLK2 and CLK2 = CLK3 and CLK3 = CLK4;
   
-  quiescent = false_longer_than(PRESSED(TS), 39);
+  quiescent = false_longer_than(PRESSED(TS), 40);
      
   at_least_one_pilot_flying_side = LPFS or RPFS;   
   

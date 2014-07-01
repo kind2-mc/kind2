@@ -32,11 +32,21 @@ val timeout_wall : unit -> float
 val timeout_virtual : unit -> float
 
 (** SMT Solver to use *)
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
+type smtsolver = 
+  [ `Z3_SMTLIB
+  | `CVC4_SMTLIB
+  | `MathSat5_SMTLIB
+  | `Yices_SMTLIB
+  | `detect ]
+
+(** Return SMT solver *)
 val smtsolver : unit -> smtsolver 
 
+(** Set SMT solver and executable *)
+val set_smtsolver : smtsolver -> string -> unit
+
 (** SMT Logic to use *)
-type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
+type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
@@ -51,9 +61,33 @@ val cvc4_bin : unit -> cvc4_bin
 type mathsat5_bin = string
 val mathsat5_bin : unit -> mathsat5_bin
 
+(** Executable of Yices solver *)
+type yices_bin = string
+val yices_bin : unit -> yices_bin
+
+(** Write all SMT commands to files *)
+type smt_trace = bool
+val smt_trace : unit -> smt_trace
+
+(** Directory for trace logs of SMT commands *)
+type smt_trace_dir = string 
+val smt_trace_dir : unit -> smt_trace_dir
+
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
 val enable : unit -> enable 
+
+(** Maximal number of iterations in BMC *)
+type bmc_max = int
+val bmc_max : unit -> bmc_max
+
+(** Output version information and exit *)
+type check_version = bool
+val check_version : unit -> check_version
+
+(** Compresss inductive counterexample *)
+type ind_compress = bool
+val ind_compress : unit -> ind_compress
 
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]

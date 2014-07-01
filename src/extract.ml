@@ -205,6 +205,12 @@ let extract uf_defs env term =
     (* Extract from top element on stack *)
     | (term, env, polarity) :: tl ->
 
+      debug extract 
+          "@[<v>extract_term:@ %a@ with polarity %B@]" 
+          Term.pp_print_term term
+          polarity
+      in
+
       (* Obtain new accumulator and new terms to extract *)
       let accum', stack' = 
         extract_term_flat accum polarity env (Term.T.destruct term) 
@@ -751,7 +757,24 @@ let extract uf_defs env term =
               | [(_, p); (t', t); (f', f)] -> 
 
                 (* Evaluate predicate to true or false *)
-                if Eval.bool_of_value (eval_term p) then 
+                if 
+
+                  try 
+                    
+                    Eval.bool_of_value (eval_term p) 
+
+                  with Invalid_argument s -> 
+
+                    debug extract2
+                        "%s for@ %a@ evaluating@ %a"
+                        s
+                        Term.pp_print_term p
+                        Term.pp_print_term (Term.construct fterm)
+                    in
+                    
+                    assert false
+
+                then 
 
                   (* Extract from p and t, return left branch *)
                   ((p, env, true) :: t', t)
@@ -789,10 +812,11 @@ let extract uf_defs env term =
            extract_term_atom_node 
            (Term.T.construct term)
 
-       with Invalid_argument _ -> 
+       with Invalid_argument s -> 
 
          debug extract2
-             "bool_of_value invalid for %a"
+             "%s for@ %a"
+             s
              Term.pp_print_term (Term.T.construct term)
          in
 

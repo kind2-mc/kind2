@@ -50,7 +50,6 @@ module E = LustreExpr
 module SVS = StateVar.StateVarSet
 module ISet = I.LustreIdentSet
 
-
 (* Set of state variables of list *)
 let svs_of_list list = 
   List.fold_left (fun a e -> SVS.add e a) SVS.empty list
@@ -146,7 +145,12 @@ type t =
     is_main : bool;
 
     (* Dependencies of the output variables on input variables *)
-    output_input_dep : int list list }
+    output_input_dep : int list list;
+
+    (* Index of last abstraction state variable *)
+    fresh_state_var_index : Numeral.t ref;
+
+  }
 
 
 (* An empty node *)
@@ -163,7 +167,8 @@ let empty_node name =
     requires = [];
     ensures = [];
     is_main = false;
-    output_input_dep = []}
+    output_input_dep = [];
+    fresh_state_var_index = ref Numeral.(- one) }
 
 
 (* Pretty-print a node input *)
@@ -342,8 +347,9 @@ let node_of_name name nodes =
 
 
 (* Calculate dependencies of variables *)
-let rec node_var_dependencies init_or_step nodes node accum = 
+let rec node_var_dependencies nodes node accum = 
 
+(*
   (* Return expression either for the initial state or a step state *)
   let init_or_step_of_expr { E.expr_init; E.expr_step } = 
     if init_or_step then 
@@ -355,7 +361,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
   let init_or_step_offset = 
     if init_or_step then E.base_offset else E.cur_offset
   in
-
+*)
   function 
 
     (* Return all calculated dependencies *)
@@ -383,7 +389,6 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
         (* No dependencies for inputs *)
         node_var_dependencies 
-          init_or_step 
           nodes
           node
           ((state_var, SVS.empty) :: accum) 
@@ -405,9 +410,13 @@ let rec node_var_dependencies init_or_step nodes node accum =
 
             (* Get variables in expression *)
             SVS.elements
-              (Term.state_vars_at_offset_of_term
-                 init_or_step_offset
-                 (init_or_step_of_expr expr))
+              (SVS.union 
+                 (Term.state_vars_at_offset_of_term
+                    E.base_offset
+                    (E.base_term_of_expr E.base_offset expr.E.expr_init))
+                 (Term.state_vars_at_offset_of_term
+                    E.cur_offset
+                    (E.cur_term_of_expr E.cur_offset expr.E.expr_step)))
 
           (* Variable is not input or not defined in an equation *)
           with Not_found -> 
@@ -461,7 +470,7 @@ let rec node_var_dependencies init_or_step nodes node accum =
               let dep_expr = 
                 List.fold_left
                   (fun a d -> 
-                     (init_or_step_of_expr (List.nth call_params d)) :: a)
+                     (List.nth call_params d :: a))
                   []
                   (List.nth output_input_dep input_pos)
               in
@@ -471,9 +480,17 @@ let rec node_var_dependencies init_or_step nodes node accum =
                 (List.fold_left
                    (fun a e -> 
                       SVS.union
-                        (Term.state_vars_at_offset_of_term
-                           init_or_step_offset 
-                           e) 
+                        (SVS.union 
+                           (Term.state_vars_at_offset_of_term
+                              E.base_offset
+                              (E.base_term_of_expr 
+                                 E.base_offset 
+                                 e.E.expr_init))
+                           (Term.state_vars_at_offset_of_term
+                              E.cur_offset
+                              (E.cur_term_of_expr 
+                                 E.cur_offset 
+                                 e.E.expr_step)))
                         a)
                    SVS.empty
                    dep_expr)
@@ -508,9 +525,17 @@ let rec node_var_dependencies init_or_step nodes node accum =
               vars_visited
           in
 
+          debug lustreNode
+            "@[<hv>Dependencies of %a:@ @[<hv>%a@]@]"
+            StateVar.pp_print_state_var state_var
+            (pp_print_list
+              StateVar.pp_print_state_var
+              ",@ ")
+            (SVS.elements dependent_vars)
+          in
+
           (* Add variable and its dependencies to accumulator *)
           node_var_dependencies 
-            init_or_step 
             nodes
             node 
             ((state_var, dependent_vars) :: accum)
@@ -529,13 +554,15 @@ let rec node_var_dependencies init_or_step nodes node accum =
         then
 
           (* TODO: Output variables in circular dependency *)
-          failwith "circular dependency"
+          failwith 
+            (Format.asprintf 
+               "Circular dependency involving %a"
+               StateVar.pp_print_state_var state_var)
 
         else
 
           (* First get dependencies of all dependent variables *)
           node_var_dependencies 
-            init_or_step 
             nodes 
             node
             accum 
@@ -628,7 +655,6 @@ let equations_order_by_dep nodes node =
      equation *)
   let var_dep = 
     node_var_dependencies 
-      false 
       nodes
       node
       []
@@ -889,7 +915,7 @@ let find_main nodes =
     | None -> 
 
       (* Return name of last node, fail if list of nodes empty *)
-      (match List.rev nodes with 
+      (match nodes with 
         | [] -> raise Not_found 
         | { name } :: _ -> name)
 
@@ -944,7 +970,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         props; 
         requires; 
         ensures; 
-        is_main } as node_orig), 
+        is_main; 
+        fresh_state_var_index } as node_orig), 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
@@ -971,7 +998,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           props = props;
           requires = requires;
           ensures = ensures;
-          is_main = is_main }
+          is_main = is_main;
+          fresh_state_var_index = fresh_state_var_index }
 
     in
 
@@ -1004,7 +1032,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       (* Copy node call from original node to reduced node, do not
          modify original node, because additional variables may be found
          to be in the cone of influence *)
-      let calls_coi', svtl =
+      let calls_coi', svtl, sv_visited' =
 
         try 
 
@@ -1047,7 +1075,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
               in
 
               (* Add called node to sliced node *)
-              (call_coi :: node_coi.calls), svtl'
+              (call_coi :: node_coi.calls), svtl', (call_outputs @ sv_visited)
 
             else
 
@@ -1057,13 +1085,13 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           )            
 
         (* Variable is not an output of a node call *)
-        with Not_found -> node_coi.calls, svtl 
+        with Not_found -> node_coi.calls, svtl, sv_visited
 
       in
 
       (* Copy equation from original node to reduced node and add
            variables to stack *)
-      let equations_coi', svtl = 
+      let equations_coi', svtl, sv_visited' = 
 
         try 
 
@@ -1083,13 +1111,13 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
           (* Return with equation added and new variables in cone of
              influence *)
-          equations_coi', svtl' 
+          equations_coi', svtl', (state_var :: sv_visited')
 
         (* Variable is not defined in an equation *)
         with Not_found -> 
 
           (* Keep previous equations *)
-          node_coi.equations, svtl
+          node_coi.equations, svtl, sv_visited'
 
       in
 
@@ -1105,7 +1133,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        ((svtl, state_var :: sv_visited, node_orig, node_coi') :: ntl)
+        ((svtl, sv_visited', node_orig, node_coi') :: ntl)
 
     with Push_node push_name ->
       

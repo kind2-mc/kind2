@@ -16,25 +16,21 @@
 
 *)
 
-(** Simulation relation for compression *)
-module type CompressionPred =
-sig val p : (Term.t * Term.t) list -> bool end
+(** Path compression for k-induction 
 
-(** Output signature of functor *)
-module type S =
-sig
+    @author Christoph Sticksel *)
 
-  (** [compress_path t m] checks if the path in [m] is compressible for
-      the transition system [t], and returns a constraint to block the
-      compressible path *)
-  val compress_path : TransSys.t -> (Var.t * Term.t) list -> Term.t
+(** Initialize compression 
 
-end
+    The first argument is the function to declare an uninterpreted
+    function symbol in a solver instance, the second the transition
+    system. *)
+val init : (UfSymbol.t -> unit) -> TransSys.t -> unit
 
-module Equal : CompressionPred
-
-module Make (P: CompressionPred) : S
-
+(** Given an inductive counterexample return a list of terms to force
+    those states on the path to be different that are equivalent under
+    some simulation relations. *)
+val check_and_block : (StateVar.t * Term.t list) list -> Term.t list
 
 
 (* 

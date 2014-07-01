@@ -52,16 +52,15 @@
     nodes are abstract syntax terms with binders and {!S.destruct} can
     be repeatedly applied to these subterms.
 
-    Tail-recursive fold and map functions are provided. The {!S.eval}
-    function presents the subterms bottom-up and right-to-left to the
-    folding function and lazily evaluates all let bindings. It fails
-    when the term contains quantifiers. A convenience variant
-    {!S.eval_t} passes the flat term of the current subterm to the
-    folding function. The {!S.map} function presents all subterms to
-    the function, again bottom-up and right-to-left, let bindings are
-    not unfolded. Hence, not every subterm is a proper abstract syntax
-    term and the mapping function is given the number of let binding
-    the subterm is under as an argument.
+    Tail-recursive fold and map functions are provided. The
+    {!S.eval_t} function presents the subterms bottom-up and
+    right-to-left to the folding function and lazily evaluates all let
+    bindings. It fails when the term contains quantifiers. The
+    {!S.map} function presents all subterms to the function, again
+    bottom-up and right-to-left, let bindings are not unfolded. Hence,
+    not every subterm is a proper abstract syntax term and the mapping
+    function is given the number of let binding the subterm is under
+    as an argument.
 
     @author Christoph Sticksel *)
 
@@ -213,15 +212,11 @@ sig
 
   (** Return the unique tag of a hashconsed term *)
   val tag_of_t : t -> int
-(*
+
   (** Evaluate the term bottom-up and right-to-left. The evaluation
-      function is called at each node of the term with the symbol and
-      the list of values computed for the subterms. Let bindings are
-      lazily unfolded. *)
-  val eval : (symbol -> 'a list -> 'a) -> t -> 'a
-*)
-  (** Variant of {!eval}, where the function is given the term being
-      evaluated as the first argument *)
+      function is called at each node of the term with the term being
+      evaluated and the list of values computed for the subterms. Let
+      bindings are lazily unfolded.  *)
   val eval_t : (flat -> 'a list -> 'a) -> t -> 'a
 
   (** Tail-recursive bottom-up right-to-left map on the term

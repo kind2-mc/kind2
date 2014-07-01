@@ -79,6 +79,10 @@ sig
   (** Return a model of the current context if satisfiable *)
   val get_model : t -> Var.t list -> (Var.t * Term.t) list
 
+  (** Return a values of the terms in the current context if
+      satisfiable *)
+  val get_values : t -> Term.t list -> (Term.t * Term.t) list
+
   (** Return an unsatisfiable core of named expressions if the current
       context is unsatisfiable *)
   val get_unsat_core : t -> Term.t list

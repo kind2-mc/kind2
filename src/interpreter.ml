@@ -21,7 +21,7 @@ open Lib
 
 
 (* Use configured SMT solver *)
-module Solver = SMTSolver.Make (Config.SMTSolver)
+module Solver = SMTSolver.Make (SMTLIBSolver)
 
 
 (* High-level methods for solver *)
@@ -33,7 +33,7 @@ let ref_solver = ref None
 
 
 (* Exit and terminate all processes here in case we are interrupted *)
-let on_exit () = 
+let on_exit _ = 
 
   (* Delete solver instance if created *)
   (try 
@@ -44,7 +44,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log `Interpreter Event.L_error
+       Event.log Event.L_error
          "Error deleting solver_init: %s" 
          (Printexc.to_string e))
 
@@ -58,7 +58,7 @@ let rec assert_trans solver t i =
     (
 
       (* Assert transition relation from [i-1] to [i] *)
-      S.assert_term solver (TransSys.trans_of_bound i t);
+      S.assert_term solver (TransSys.trans_of_bound t i);
                             
       (* Continue with for [i-2] and [i-1] *)
       assert_trans solver t Numeral.(i - one)
@@ -68,9 +68,10 @@ let rec assert_trans solver t i =
 
 (* Main entry point *)
 let main input_file trans_sys =
+
+  Event.set_module `Interpreter;
   
   Event.log
-    `Interpreter
     Event.L_info 
     "Parsing interpreter input file %s"
     (Flags.input_file ()); 
@@ -86,7 +87,6 @@ let main input_file trans_sys =
 
       (* Output warning *)
       Event.log
-        `Interpreter
         Event.L_warn 
         "@[<v>Error reading interpreter input file.@,%s@]"
         e;
@@ -113,7 +113,6 @@ let main input_file trans_sys =
          
          (* Output warning *)
          Event.log
-           `Interpreter
            Event.L_warn 
            "Input for %a is longer than other inputs"
            StateVar.pp_print_state_var state_var)
@@ -135,7 +134,6 @@ let main input_file trans_sys =
         if s > input_length then
           
           Event.log 
-            `Interpreter 
             Event.L_warn 
             "Input is not long enough to simulate %d steps.\
              Simulation is nondeterministic." 
@@ -147,7 +145,6 @@ let main input_file trans_sys =
   in
 
   Event.log
-    `Interpreter 
     Event.L_info
     "Interpreter running up to k=%d" 
     steps;
@@ -174,7 +171,7 @@ let main input_file trans_sys =
     (S.define_fun solver);
   
   (* Assert initial state constraint *)
-  S.assert_term solver (TransSys.init_of_bound Numeral.zero trans_sys);
+  S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
 
   (* Assert transition relation up to number of steps *)
   assert_trans solver trans_sys (Numeral.of_int steps);
@@ -251,20 +248,20 @@ let main input_file trans_sys =
       in
       
       (* Output counterexample *)
-      Event.log_counterexample `Interpreter v;
+      Event.log_counterexample `Interpreter Event.L_off [] v;
 
       match TransSys.get_input trans_sys with
       | TransSys.LustreInput(nodes) ->
          Format.printf 
            "@.%a@."
-           (LustrePath.pp_print_path_xml_orig nodes steps) 
+           (LustrePath.pp_print_path_pt_orig nodes) 
            v;
     )
       
   else
 
     (* Transition relation must be satisfiable *)
-    Event.log `Interpreter Event.L_error "Transition relation not satisfiable"
+    Event.log Event.L_error "Transition relation not satisfiable"
   
 
 (* 

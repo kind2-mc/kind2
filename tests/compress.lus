@@ -1,0 +1,7 @@
+node X (i: bool) returns (x: int);
+var OK: bool;
+let
+  x = 0 -> if (pre x) < 2 then 1 - pre x else if i then 3 else 2;
+  OK = x < 3;
+  --%PROPERTY OK;
+tel

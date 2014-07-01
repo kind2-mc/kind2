@@ -18,6 +18,7 @@
 
 open Lib
 
+
 let gentag =
   let r = ref 0 in
   fun () -> incr r; !r
@@ -61,6 +62,16 @@ sig
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 
 end
+
+let smtsolver_module () = match Flags.smtsolver () with 
+
+  | `Z3_SMTLIB
+  | `CVC4_SMTLIB
+  | `MathSat5_SMTLIB
+  | `Yices_SMTLIB -> (module SMTLIBSolver : Solver)
+
+  | `detect -> raise (Invalid_argument "smtsolver_module")
+
 
 (* Output signature of the Make functor *)
 module type S =
@@ -110,13 +121,39 @@ struct
 
   type t = 
       { solver : solver_t; 
-        id : int }
+        id : int;
+        trace_ppf : Format.formatter option }
 
   type attr = [ `NAME of string ]
 
   type expr = SMTExpr.t
 
   type sort
+
+  let trace_cmd = function 
+    | Some ppf -> (function fmt -> Format.fprintf ppf (fmt ^^ "@."))
+    | None -> Format.ifprintf Format.std_formatter 
+
+  let trace_res = function 
+    | Some ppf -> 
+      (function fmt -> 
+
+        let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
+
+        let reset_ppf ppf = 
+          Format.pp_set_formatter_out_functions ppf fmt_out_fun;
+          Format.fprintf ppf "@."
+        in
+
+        Format.pp_set_formatter_out_functions 
+          ppf 
+          { fmt_out_fun with 
+              Format.out_newline = fun () -> fmt_out_fun.Format.out_string "\n;; " 0 4  };
+
+        Format.kfprintf reset_ppf ppf (";; " ^^ fmt)
+
+      )
+    | None -> Format.ifprintf Format.std_formatter 
 
   let create_instance 
       ?(produce_assignments = false)
@@ -127,9 +164,52 @@ struct
     
     let id = gentag () in
 
-    debug smt
-      "@[<v>[%d]@,@[<hv 1>(set-option@ :print-success@ true)@]@,%t@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]@]"
-      id
+    (* Formatter writing to SMT trace file *)
+    let trace_ppf = 
+
+      (* Tracing of SMT commands enabled? *)
+      if Flags.smt_trace () then 
+        
+        (* Name of SMT trace file *)
+        let trace_filename = 
+          Filename.concat
+            (Flags.smt_trace_dir ())
+            (Format.sprintf "%s.%s.%d.smt2" 
+               (Filename.basename (Flags.input_file ()))
+               (suffix_of_kind_module (Event.get_module ()))
+           id)
+        in
+        
+        try
+          
+          (* Open file for output, may fail *)
+          let trace_oc = open_out trace_filename in
+          
+          Event.log Event.L_debug
+            "Tracing output of SMT solver instace to %s"
+            trace_filename;
+
+          (* Return formatter *)
+          Some (Format.formatter_of_out_channel trace_oc)
+            
+        (* Silently fail *)
+        with Sys_error e -> 
+
+          Event.log Event.L_debug
+            "Failed to open trace file for SMT solver %s"
+            e;
+          
+          None 
+          
+      else
+
+        (* Do not trace SMT commands *)
+        None 
+            
+    in
+
+    trace_cmd trace_ppf
+      "@[<hv 1>(set-option@ :print-success@ true)@]@,%t@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,@[<hv 1>(set-option@ :produce-models@ %B)@]@,@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]"
       (function ppf -> match l with
          | `detect -> ()
          | _ -> 
@@ -139,8 +219,7 @@ struct
       produce_assignments
       produce_models 
       produce_proofs
-      produce_cores
-    in
+      produce_cores;
 
   let s = 
     S.create_instance 
@@ -152,43 +231,38 @@ struct
   in
 
   { solver = s;
-    id = id } 
+    id = id;
+    trace_ppf = trace_ppf } 
 
-  let delete_instance { solver = s; id = id } = 
+  let delete_instance { solver = s; trace_ppf } = 
 
-    debug smt
-      "@[<v>[%d]@,@[<hv 1>(exit)@]@]" id
-    in
+    trace_cmd trace_ppf
+      "@[<hv 1>(exit)@]";
     
     S.delete_instance s
 
 
-  let declare_fun { solver = s; id = id } f a r = 
+  let declare_fun { solver = s; trace_ppf } f a r = 
 
-    debug smt
-      "@[<v>[%d]@,@[<hv 1>(declare-fun@ %s@ @[<hv 1>(%a)@]@ %a)@]@]" 
-      id
+    trace_cmd trace_ppf
+      "@[<hv 1>(declare-fun@ %s@ @[<hv 1>(%a)@]@ %a)@]" 
       f
       (pp_print_list SMTExpr.pp_print_sort "@ ") a
-      SMTExpr.pp_print_sort r
-    in
+      SMTExpr.pp_print_sort r;
 
     let res = S.declare_fun s f a r in
 
-    debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_response res
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_response res;
 
     res
 
 
-  let define_fun { solver = s; id = id } f a r d = 
+  let define_fun { solver = s; trace_ppf } f a r d = 
 
-    debug smt
-      "@[<v>[%d]@,@[<hv 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %a@ %a)@]@]" 
-      id
+    trace_cmd trace_ppf
+      "@[<hv 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %a@ %a)@]" 
       f
       (pp_print_list
          (fun ppf var -> 
@@ -198,70 +272,59 @@ struct
          "@ ")
       a
       SMTExpr.pp_print_sort r
-      SMTExpr.pp_print_expr d
-    in
+      SMTExpr.pp_print_expr d;
 
     let res = S.define_fun s f a r d in
 
-    debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_response res
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_response res;
 
     res
 
 
-  let assert_expr { solver = s; id = id } e = 
+  let assert_expr { solver = s; trace_ppf } e = 
     
-    debug smt "@[<v>[%d]@,@[<hv 1>(assert@ @[<hv>%a@])@]@]" 
-      id 
-      SMTExpr.pp_print_expr e 
-    in 
+    trace_cmd trace_ppf "@[<hv 1>(assert@ @[<hv>%a@])@]" 
+      SMTExpr.pp_print_expr e;
     
     let res = S.assert_expr s e in
 
-    debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_response res
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_response res;
 
     res
 
-  let push { solver = s; id = id } i = 
+  let push { solver = s; trace_ppf } i = 
 
-    debug smt "@[<v>[%d]@,@[<hv 1>(push@ %i)@]@]" id i in
+    trace_cmd trace_ppf "@[<hv 1>(push@ %i)@]" i;
     
     let res = S.push s i in
 
-    debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_response res
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_response res;
 
     res
 
 
-  let pop { solver = s; id = id } i = 
+  let pop { solver = s; trace_ppf } i = 
     
-    debug smt "@[<v>[%d]@,@[<hv 1>(pop@ %i)@]@]" id i in
+    trace_cmd trace_ppf "@[<hv 1>(pop@ %i)@]" i;
     
     let res = S.pop s i in
  
-    debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_response res
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_response res;
 
     res
 
 
-  let check_sat ?(timeout = 0) { solver = s; id = id } = 
+  let check_sat ?(timeout = 0) { solver = s; trace_ppf } = 
 
-    debug smt "@[<v>[%d]@,@[<hv 1>(check-sat)@]@]" id in
+    trace_cmd trace_ppf "@[<hv 1>(check-sat)@]";
 
     Stat.start_timer Stat.smt_check_sat_time;
 
@@ -269,22 +332,18 @@ struct
 
     Stat.record_time Stat.smt_check_sat_time;
 
-    (debug smt
-        "@[<v>[%d]@,;; %a@]" 
-        id
-        SMTExpr.pp_print_check_sat_response res
-     in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_check_sat_response res;
 
-     res)
+    res
 
 
-  let get_value { solver = s; id = id } e = 
+  let get_value { solver = s; trace_ppf } e = 
     
-    debug smt 
-      "@[<v>[%d]@,@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]@]" 
-      id
-      (pp_print_list SMTExpr.pp_print_expr "@ ") e
-    in
+    trace_cmd trace_ppf 
+      "@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]" 
+      (pp_print_list SMTExpr.pp_print_expr "@ ") e;
 
     Stat.start_timer Stat.smt_get_value_time;
 
@@ -292,74 +351,58 @@ struct
 
     Stat.record_time Stat.smt_get_value_time;
 
-    (debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_get_value_response res
-    in 
-
-    res)
-
-
-  let get_unsat_core { solver = s; id = id } = 
-    
-    debug smt 
-      "@[<v>[%d]@,@[<hv 1>(get-unsat-core)@]@]" 
-      id
-    in
-
-    let (r, c) as res = S.get_unsat_core s in
-
-    debug smt
-      "@[<v>[%d]@,;; %a@,(@[<hv 1>%a@])@]" 
-      id
-      SMTExpr.pp_print_response r
-      (pp_print_list Format.pp_print_string "@ ") c
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_get_value_response res;
 
     res
 
 
-  let execute_custom_command { solver = s; id = id } c a r = 
+  let get_unsat_core { solver = s; trace_ppf } = 
     
-    debug smt
-      "@[<v>[%d]@,@[<hv 1>(%s%t)@]@]" 
-      id
+    trace_cmd trace_ppf 
+      "@[<hv 1>(get-unsat-core)@]";
+
+    let (r, c) as res = S.get_unsat_core s in
+
+    trace_res trace_ppf
+      "%a@,(@[<hv 1>%a@])" 
+      SMTExpr.pp_print_response r
+      (pp_print_list Format.pp_print_string "@ ") c;
+
+    res
+
+
+  let execute_custom_command { solver = s; trace_ppf } c a r = 
+    
+    trace_cmd trace_ppf
+      "@[<hv 1>(%s%t)@]" 
       c 
       (function ppf -> 
         if a = [] then () else 
           Format.fprintf 
             ppf 
             "@ %a" 
-            (pp_print_list SMTExpr.pp_print_custom_arg "@ ") a)
-    in
+            (pp_print_list SMTExpr.pp_print_custom_arg "@ ") a);
     
     let (r, e) as res = S.execute_custom_command s c a r in
 
-    debug smt
-      "@[<v>[%d]@,;; %a@,(@[<hv 1>%a@])@]" 
-      id
+    trace_res trace_ppf
+      "%a@,(@[<hv 1>%a@])" 
       SMTExpr.pp_print_response r
-      (pp_print_list HStringSExpr.pp_print_sexpr "@ ") e
-    in 
+      (pp_print_list HStringSExpr.pp_print_sexpr "@ ") e;
 
     res
 
-  let execute_custom_check_sat_command c { solver = s; id = id } = 
+  let execute_custom_check_sat_command c { solver = s; trace_ppf } = 
     
-    debug smt
-      "@[<v>[%d]@,@[<hv 1>(%s)@]@]" 
-      id
-      c 
-    in
+    trace_cmd trace_ppf "@[<hv 1>(%s)@]" c; 
     
     let res = S.execute_custom_check_sat_command c s in
 
-    debug smt
-      "@[<v>[%d]@,;; %a@]" 
-      id
-      SMTExpr.pp_print_check_sat_response res
-    in 
+    trace_res trace_ppf
+      "%a" 
+      SMTExpr.pp_print_check_sat_response res;
 
     res
 

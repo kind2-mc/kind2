@@ -30,7 +30,6 @@
     @author Christoph Sticksel
 *)
 
-
 (** Input signature to the {!Make} functor *)
 module type Solver = 
 sig 
@@ -101,6 +100,8 @@ sig
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 
 end
+
+val smtsolver_module : unit -> (module Solver)
 
 
 (** Output signature of the {!Make} functor *)

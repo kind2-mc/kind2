@@ -30,14 +30,54 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 
 (* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 let list_init f n =
+  assert (n > 0);
   let rec init_aux i =
     if i = n-1 then
       [f i]
     else
       (f i) :: (init_aux (i+1))
   in
-  init_aux 0  
+  init_aux 0
 
+(* Transforms a pair of equal-length lists [a1,...,an] and 
+   [b1,...,bn] into a list of pairs [(a1,b1),...,(an,bn)] *)
+let list_zip l1 l2 =
+  assert (List.length l1 = List.length l2);
+  let rec list_zip_aux l1 l2 acc =
+    match (l1,l2) with
+    | (hd1 :: tl1, hd2 :: tl2) ->
+       list_zip_aux tl1 tl2 ((hd1,hd2)::acc)
+    | ([],[]) ->
+       List.rev acc
+    | _ ->
+       assert false
+  in
+  list_zip_aux l1 l2 []
+
+(* Transforms a list of pairs [(a1,b1);...;(an,bn)] into the pair of
+   lists ([a1;...;an],[b1;...;bn] *)
+let list_unzip l =
+  let rec list_unzip_aux l acc1 acc2 =
+    match l with
+    | (a,b) :: tl ->
+       list_unzip_aux tl (a :: acc1) (b :: acc2)
+    | [] ->
+       (List.rev acc1, List.rev acc2)
+  in
+  list_unzip_aux l [] [] 
+
+(* Returns the maximum element of a non-empty list *)
+let list_max l =
+  assert (List.length l > 0);
+  let rec list_max_aux l acc =
+    match l with
+    | [] ->
+       acc
+    | hd :: tl ->
+       list_max_aux tl (max hd acc)
+  in
+  list_max_aux l (List.hd l)
+             
 (* Return the index of the first element that satisfies the predicate [p] *)
 let list_index p = 
   let rec list_index p i = function
@@ -303,6 +343,44 @@ let rec compare_lists f l1 l2 =
         if c = 0 then compare_lists f tl1 tl2 else c
 
 
+(* Given two ordered association lists with identical keys, push the
+   values of each element of the first association list to the list of
+   elements of the second association list. 
+
+   The returned association list is in the order of the input lists,
+   the function [equal] is used to compare keys. *)
+let list_join equal l1 l2 = 
+
+  let rec list_join' equal accum l1 l2 = match l1, l2 with
+    
+    (* Both lists consumed, return in original order *)
+    | [], [] -> List.rev accum 
+                  
+    (* Keys of head elements in both lists equal *)
+    | (((k1, v1) :: tl1), ((k2, v2) :: tl2)) when equal k1 k2 -> 
+      
+      (* Add to accumulator and continue *)
+      list_join' equal ((k1, (v1 :: v2)) :: accum) tl1 tl2
+        
+    (* Keys of head elements different, or one of the lists is empty *)
+    | _ -> failwith "list_join"
+             
+  in
+
+  (* Call recursive function with initial accumulator *)
+  list_join' equal [] l1 l2
+
+(* ********************************************************************** *)
+(* Array functions                                                        *)
+(* ********************************************************************** *)
+
+(* Returns the maximum element of a non-empty array *)
+let array_max a =
+  assert (Array.length a > 0);
+  let max_val = ref a.(0) in
+  Array.iter (fun x -> if x > !max_val then max_val := x else ()) a;
+  !max_val
+
 (* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
@@ -314,10 +392,10 @@ let pp_print_arrayi pp sep ppf array  =
     if i = n-1 then
       pp ppf i array.(i)
     else
-      pp ppf i array.(i);
-      Format.fprintf ppf sep
+      (pp ppf i array.(i);
+       Format.fprintf ppf sep)
   in
-  let indices = list_init (fun i -> i) n in
+  let indices = list_init (fun i -> i) n in  
   List.iter print_element indices
   
 (* Pretty-print a list *)
@@ -385,6 +463,15 @@ let string_of_t pp t =
 let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
 
+
+
+(* ********************************************************************** *)
+(* Option types                                                           *)
+(* ********************************************************************** *)
+
+(* Return the value of an option type, raise [Invalid_argument "get"]
+   if the option value is [None] *)
+let get = function None -> raise (Invalid_argument "get") | Some x -> x
 
 
 (* ********************************************************************** *)
@@ -726,6 +813,12 @@ let bool_of_hstring s = bool_of_string (HString.string_of_hstring s)
 (* System functions                                                       *)
 (* ********************************************************************** *)
 
+let pp_print_banner ppf () =
+    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
+
+let pp_print_version ppf = pp_print_banner ppf ()
+  
+
 (* Kind modules *)
 type kind_module = 
   [ `PDR 
@@ -752,6 +845,17 @@ let pp_print_kind_module ppf = function
 let string_of_kind_module = string_of_t pp_print_kind_module 
 
 
+(* Return a short representation of kind module *)
+let suffix_of_kind_module = function
+ | `PDR -> "pdr"
+ | `BMC -> "bmc"
+ | `IND -> "ind"
+ | `INVGEN -> "inv"
+ | `INVMAN -> "man"
+ | `Interpreter -> "interp"
+ | `Parser -> "parse"
+                
+
 (* Process type of a string *)
 let kind_module_of_string = function 
   | "PDR" -> `PDR
@@ -760,6 +864,47 @@ let kind_module_of_string = function
   | "INVGEN" -> `INVGEN
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
+
+
+type prop_status =
+
+  (* Status of property is unknown *)
+  | PropUnknown
+
+  (* Property is true for at least k steps *)
+  | PropKTrue of int
+
+  (* Property is true in all reachable states *)
+  | PropInvariant 
+
+  (* Property is false at some step *)
+  | PropFalse
+
+  (* Property is false in the k-th step *)
+  | PropKFalse of int 
+
+
+let pp_print_prop_status ppf = function 
+  | PropUnknown -> Format.fprintf ppf "unknown"
+  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
+  | PropInvariant -> Format.fprintf ppf "invariant"
+  | PropFalse -> Format.fprintf ppf "false"
+  | PropKFalse k -> Format.fprintf ppf "false-at %d" k
+
+
+(* Property status is known? *)
+let prop_status_known = function 
+
+  (* Property may become invariant or false *)
+  | PropUnknown
+  | PropKTrue _ -> false
+
+  (* Property is invariant or false *)
+  | PropInvariant
+  | PropFalse
+  | PropKFalse _ -> true
+
+
 
 (* Timeouts *)
 exception TimeoutWall
@@ -829,6 +974,73 @@ let minisleep sec =
       raise (Signal 0)
 
 
+(* Return full path to executable, search PATH environment variable
+   and current working directory *)
+let find_on_path exec = 
+
+  let rec find_on_path' exec path = 
+
+    (* Terminate on empty path *)
+    if path = "" then raise Not_found;
+
+    (* Split path at first colon *)
+    let path_hd, path_tl = 
+
+      try 
+
+        (* Position of colon in string *)
+        let colon_index = String.index path ':' in
+
+        (* Length of string *)
+        let path_len = String.length path in
+
+        (* Return string up to colon *)
+        (String.sub path 0 colon_index, 
+         
+         (* Return string after colon *)
+         String.sub path (colon_index + 1) (path_len - colon_index - 1))
+
+      (* Colon not found, return whole string and empty string *)
+      with Not_found -> path, ""
+
+    in
+    
+    (* Combine path and filename *)
+    let exec_path = Filename.concat path_hd exec in
+    
+    if 
+
+      (* Check if file exists on path *)
+      Sys.file_exists exec_path 
+
+    then 
+
+      (* Return full path to file 
+
+         TODO: Check if file is executable here? *)
+      exec_path 
+
+    else 
+
+      (* Continue on remaining path entries *)
+      find_on_path' exec path_tl
+
+  in
+
+  try 
+
+    (* Return filename on path, fail with Not_found if path is empty
+       or [exec] not found on path *)
+    find_on_path' exec (Unix.getenv "PATH")
+
+  with Not_found -> 
+
+    (* Check current directory as last resort *)
+    let exec_path = Filename.concat (Sys.getcwd ()) exec in 
+
+    (* Return full path if file exists, fail otherwise *)
+    if Sys.file_exists exec_path then exec_path else raise Not_found
+ 
 
 (* 
    Local Variables:

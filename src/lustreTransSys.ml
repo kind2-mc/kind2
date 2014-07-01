@@ -213,9 +213,11 @@ let rec definitions_of_equations vars init trans = function
 let rec definitions_of_node_calls 
     scope
     mk_ticked_state_var
+    mk_new_state_var
     node_defs
     local_vars
-    init trans = 
+    init
+    trans = 
 
   function
 
@@ -230,19 +232,6 @@ let rec definitions_of_node_calls
         N.call_inputs = input_exprs;
         N.call_defaults = init_exprs;
         N.call_pos = pos } :: tl -> 
-
-      (* Create a new state variable for abstractions *)
-      let mk_new_state_var  = 
-        let r = ref Numeral.(- one) in
-        fun state_var_type ->
-          Numeral.incr r; 
-          E.mk_state_var_of_ident
-            false
-            false
-            scope
-            (I.push_int_index !r I.abs_ident)
-            state_var_type
-      in
 
       (* Signature of called node *)
       let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
@@ -663,7 +652,7 @@ let rec definitions_of_node_calls
 
                Term.mk_eq 
                  [ticked_trans;
-                  Term.mk_or [act_cond_trans; act_cond_trans_pre]];
+                  Term.mk_or [act_cond_trans; ticked_trans_pre]];
 
                (* Transition relation with true activation condition *)
                Term.mk_implies
@@ -700,6 +689,7 @@ let rec definitions_of_node_calls
       definitions_of_node_calls 
         scope
         mk_ticked_state_var
+        mk_new_state_var
         node_defs
         local_vars''
         (init_call_act_cond :: init)
@@ -707,23 +697,27 @@ let rec definitions_of_node_calls
         tl
 
 
-let definitions_of_asserts init trans = 
+let rec definitions_of_asserts init trans = 
 
   function
 
     (* All node calls consumed, return term for initial state
        constraint and transition relation *)
-    | [] -> (init, trans)
+    | [] -> 
+
+      (init, trans)
 
     (* Assertion with term for initial state and term for transitions *)
-    | { E.expr_init; E.expr_step } :: tl ->
+    | { E.expr_init; E.expr_step } as expr :: tl ->
 
       let term_init = E.base_term_of_expr base_offset expr_init in 
       let term_trans = E.cur_term_of_expr cur_offset expr_step in 
 
       (* Add constraint unless it is true *)
-      ((if term_init == Term.t_true then init else term_init :: init), 
-       (if term_trans == Term.t_true then trans else term_trans :: trans))
+      let init' = if term_init == Term.t_true then init else term_init :: init in
+      let trans' = if term_trans == Term.t_true then trans else term_trans :: trans in
+
+      definitions_of_asserts init' trans' tl
       
 (*
 let definitions_of_contract init trans requires ensures = 
@@ -766,16 +760,17 @@ let definitions_of_contract init trans requires ensures =
 let rec trans_sys_of_nodes'
     main_node 
     node_defs 
-    fun_defs = function 
+    fun_defs_init
+    fun_defs_trans = function 
 
   (* All nodes converted, now create the top-level formulas *)
   | [] -> 
 
-    (match node_defs, fun_defs with 
+    (match node_defs, fun_defs_init, fun_defs_trans with 
 
       (* Take the head of the list as top node *)
       | (_, { inputs; outputs; locals }) :: _, 
-        (init_uf_symbol, (init_vars, _)) :: 
+        (init_uf_symbol, (init_vars, _)) :: _,
         (trans_uf_symbol, (trans_vars, _)) :: _ -> 
 
         (* Create copies of the state variables of the top node,
@@ -787,8 +782,11 @@ let rec trans_sys_of_nodes'
 
         (
 
-          (* Definitions of predicates *)
-          List.rev fun_defs, 
+          (* Definitions of predicates for initial state constraint *)
+          List.rev fun_defs_init, 
+
+          (* Definitions of predicates for transition relation *)
+          List.rev fun_defs_trans, 
 
           (* State variables *)
           state_vars_top, 
@@ -826,8 +824,13 @@ let rec trans_sys_of_nodes'
 
 
     debug lustreTransSys
-        "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]@."
+        "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]"
         (N.pp_print_node false) node
+    in
+
+    debug lustreTransSys
+        "fresh_state_var_index: %a"
+        Numeral.pp_print_numeral !(node.N.fresh_state_var_index)
     in
 
     (* Create scope from node name *)
@@ -835,8 +838,32 @@ let rec trans_sys_of_nodes'
       LustreIdent.index_of_ident node_name
     in
 
+    let r = ref Numeral.(- one) in
+
+    let mk_ticked_state_var () = 
+      E.mk_fresh_state_var
+        false
+        false
+        (LustreIdent.index_of_ident node_name)
+        I.ticked_ident
+        Type.t_bool
+        r
+    in
+
+      (* Create a new state variable for abstractions *)
+      let mk_new_state_var state_var_type = 
+        E.mk_fresh_state_var
+          false
+          false
+          scope
+          I.abs_ident
+          state_var_type
+          node.N.fresh_state_var_index
+      in
+
+(*
     (* Create a new state variable for abstractions *)
-    let mk_ticked_state_var = 
+    let mk_ticked_state_var r = 
       let r = ref Numeral.(- one) in
       fun () ->
         Numeral.incr r; 
@@ -847,6 +874,7 @@ let rec trans_sys_of_nodes'
           (I.push_int_index !r I.ticked_ident)
           Type.t_bool
     in
+*)
 
     (* Input variables *)
     let inputs = List.map fst node_inputs in
@@ -878,6 +906,7 @@ let rec trans_sys_of_nodes'
       definitions_of_node_calls 
         scope
         mk_ticked_state_var
+        mk_new_state_var
         node_defs
         []
         []
@@ -1103,7 +1132,8 @@ let rec trans_sys_of_nodes'
     trans_sys_of_nodes'
       main_node
       ((node_name, node_def) :: node_defs)
-      (fun_def_init :: fun_def_trans :: fun_defs)
+      (fun_def_init :: fun_defs_init)
+      (fun_def_trans :: fun_defs_trans)
       tl
 
 
@@ -1114,7 +1144,7 @@ let trans_sys_of_nodes main_node nodes =
       nodes
       []
   in
-  trans_sys_of_nodes' main_node [] [] nodes'
+  trans_sys_of_nodes' main_node [] [] [] nodes'
 
 
 let prop_of_node_prop main_node state_var =

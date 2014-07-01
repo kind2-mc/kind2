@@ -49,6 +49,8 @@ sig
 
   val get_model : t -> Var.t list -> (Var.t * Term.t) list
 
+  val get_values : t -> Term.t list -> (Term.t * Term.t) list
+
   val get_unsat_core : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
@@ -120,47 +122,6 @@ struct
         ~produce_cores
         logic
     in
-
-(*
-
-    (
-
-      match 
-
-        (* Declare uninterpreted function symbols *)
-        SMTExpr.declare_smt_symbols (S.declare_fun solver)
-
-      with
-
-        | SMTExpr.NoResponse -> 
-          (Event.log 
-             0 
-             ("Error: Could not initialize SMT Solver." ^^ 
-                 "No response when declaring uninterpreted symbols"))
-
-        | SMTExpr.Unsupported -> 
-          (Event.log 
-             0 
-             ("Error: Could not initialize SMT Solver." ^^ 
-                 "Solve replied unsupported when declaring uninterpreted symbols"))
-
-        | SMTExpr.Error e -> 
-          (Event.log 
-             0 
-             ("Error: Could not initialize SMT Solver." ^^ 
-                 "%s when declaring uninterpreted symbols")
-             e)
-
-        | SMTExpr.Success -> ()
-
-    );
-*)
-
-(*
-    (* Declare uninterpreted function symbols *)
-    fail_on_smt_error 
-      (SMTExpr.declare_smt_symbols (S.declare_fun solver));
-*)
 
     (* Return solver instance *)
     solver
@@ -291,6 +252,50 @@ struct
 
     (* Return model *)
     model
+
+
+  (* Get model of the current context *)
+  let get_values solver terms =  
+
+    (* Model as pairs of SMT expressions *)
+    let smt_values = 
+
+      match 
+    
+        (* Get values of SMT expressions in current context *)
+        S.get_value solver (List.map SMTExpr.smtexpr_of_term terms) 
+          
+      with 
+
+        | SMTExpr.Error e, _ -> 
+          
+          raise 
+            (Failure ("SMT solver failed: " ^ e))
+            
+        | SMTExpr.Unsupported, _ -> 
+          raise 
+            (Failure 
+               ("SMT solver reported not implemented"))
+            
+        | SMTExpr.NoResponse, _ ->
+          raise 
+            (Failure 
+               ("SMT solver did not produce a reply"))
+            
+        | SMTExpr.Success, m -> m
+          
+    in
+    
+    (* Map pairs of SMT expressions to pairs of variables and terms *)
+    let values =
+      List.map
+        (function (v, e) -> 
+          (SMTExpr.term_of_smtexpr v, SMTExpr.term_of_smtexpr e))
+        smt_values
+    in
+
+    (* Return model *)
+    values
 
 
   (* Get model of the current context *)

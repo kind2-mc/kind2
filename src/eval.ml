@@ -563,8 +563,16 @@ let bool_of_value = function
   | ValBool b -> b
   | ValTerm t -> 
     invalid_arg ("bool_of_value for term " ^ (string_of_t Term.pp_print_term t))
-  | _ -> invalid_arg "bool_of_value: value is numeric"
-    
+  | ValDec d -> 
+    invalid_arg
+      (Format.asprintf
+         "bool_of_value: value %a is decimal"
+         Decimal.pp_print_decimal d)
+  | ValNum n -> 
+    invalid_arg 
+      (Format.asprintf
+         "bool_of_value: value %a is numeric" 
+         Numeral.pp_print_numeral n)
 
 (* Extract the integer value from the value of an expression *)
 let num_of_value = function 
