@@ -31,28 +31,12 @@ end
 module CallMap = Map.Make(CallId)
 module SVMap = StateVar.StateVarMap
 
-type stream_prop =
-  | Local
-  | Input
-  | Output
-  | Oracle 
-  | Abstract
-
-type stream = stream_prop * Term.t array
-
-let stream_prop_of_source src =
-  match src with
-  | E.Local -> Local
-  | E.Input -> Input
-  | E.Output -> Output
-  | E.Oracle -> Oracle
-  | E.Abstract -> Abstract
-  | E.Instance(_,_,_) -> assert false
+type stream = E.state_var_source * Term.t array
 
 (* A nested representation of a model *)
 type tree_path =
     (* Node(node identifier, call position, streams, subnodes)
-       represents a call (i.e. instantiation) of a lustre node w.r.t. a model *)
+       model of an instantiation of a lustre node *)
   | Node of I.t * A.position * stream SVMap.t * tree_path CallMap.t 
 
 (* ********************************************************************** *)
@@ -72,7 +56,7 @@ let rec tree_path_components model =
        let stream_map' = 
          SVMap.add 
            state_var
-           (stream_prop_of_source src, Array.of_list terms)
+           (src, Array.of_list terms)
            stream_map
        in
        (stream_map',call_map)
@@ -176,7 +160,7 @@ let rec reconstruct_stateless_variables nodes calls path =
          stream_map
        else
          let stream_terms = (reconstruct_single_var inputs stream_map expr) in 
-         SVMap.add sv (stream_prop_of_source prop,stream_terms) stream_map
+         SVMap.add sv (prop,stream_terms) stream_map
   in
   match path with
   | Node(ident,pos,stream_map,call_map) ->
@@ -215,13 +199,15 @@ let rec cull_intermediate_streams path =
   | Node(ident,pos,stream_map,call_map) ->
      let not_intermediate sv (prop,terms) =
        match prop with
-       | Local
-       | Input
-       | Output ->
+       | E.Local
+       | E.Input
+       | E.Output ->
           true
-       | Oracle
-       | Abstract ->
+       | E.Oracle
+       | E.Abstract ->
           false
+       | E.Instance(_,_,_) ->
+          assert false
      in
      let stream_map' = SVMap.filter not_intermediate stream_map in
      let call_map' = CallMap.map cull_intermediate_streams call_map in 
@@ -254,14 +240,14 @@ let pp_print_pos_xml ppf pos =
 (* Pretty-print a property of a stream as XML attributes *)
 let pp_print_stream_prop_xml ppf = function 
 
-  | Input -> Format.fprintf ppf "@ class=\"input\""
+  | E.Input -> Format.fprintf ppf "@ class=\"input\""
 
-  | Output -> Format.fprintf ppf "@ class=\"output\""
+  | E.Output -> Format.fprintf ppf "@ class=\"output\""
 
-  | Local -> Format.fprintf ppf "@ local"
+  | E.Local -> Format.fprintf ppf "@ local"
 
   (* these types of streams should have been culled out *)
-  | Abstract | Oracle -> assert false 
+  | E.Abstract | E.Oracle | E.Instance(_,_,_) -> assert false 
 
 let pp_print_stream_xml ppf (sv, (stream_prop, stream_values)) =
   let stream_ident = fst (E.ident_of_state_var sv) in
@@ -289,9 +275,9 @@ let rec pp_print_tree_path_xml ppf = function
   | Node (node_ident, node_pos, stream_map, call_map) ->
 
      let streams = (SVMap.bindings stream_map) in
-     let inputs = List.filter (fun (sv,(prop,_)) -> prop = Input) streams in
-     let outputs = List.filter (fun (sv,(prop,_)) -> prop = Output) streams in
-     let locals = List.filter (fun (sv,(prop,_)) -> prop = Local) streams in    
+     let inputs = List.filter (fun (sv,(prop,_)) -> prop = E.Input) streams in
+     let outputs = List.filter (fun (sv,(prop,_)) -> prop = E.Output) streams in
+     let locals = List.filter (fun (sv,(prop,_)) -> prop = E.Local) streams in    
      let calls = List.map snd (CallMap.bindings call_map) in
      
      Format.fprintf
