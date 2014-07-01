@@ -387,6 +387,11 @@ let rec eval_ast_expr'
     | A.Ident (pos, ident) :: tl when 
         List.mem_assoc ident type_ctx -> 
 
+      debug lustreSimplify
+        "Identifier %a is in type_ctx"
+        (I.pp_print_ident false) ident
+      in
+      
       (* Construct expression *)
       let expr = 
 
@@ -419,7 +424,9 @@ let rec eval_ast_expr'
       eval_ast_expr' 
         context 
         abstractions
-        ((snd (ident :> string * I.index), expr) :: result) 
+        (* Identifier does not have an index 
+        ((snd (ident :> string * I.index), expr) :: result)  *)
+        ((I.empty_index, expr) :: result) 
         tl
 
 
@@ -427,6 +434,11 @@ let rec eval_ast_expr'
     | A.Ident (pos, ident) :: tl when 
         List.mem_assoc ident index_ctx -> 
 
+      debug lustreSimplify
+        "Identifier %a is in index_ctx"
+        (I.pp_print_ident false) ident
+      in
+      
       (* Expand indexed identifier *)
       let tl' = 
         List.fold_left 
@@ -870,7 +882,7 @@ let rec eval_ast_expr'
                (I.pp_print_ident false) record_type)
 
       in
-(*
+
       Format.printf
         "RecordConstruct indexes: %a@."
         (pp_print_list 
@@ -879,10 +891,9 @@ let rec eval_ast_expr'
                 ppf 
                 "%a: %a"
                 (I.pp_print_index false) i 
-                (T.pp_print_lustre_type false) e)
+                Type.pp_print_type e)
            ", ")
         indexes;
-  *)         
 
       (* Convert identifiers to indexes for expressions in constructor *)
       let expr_list', abstractions' = 
@@ -910,7 +921,6 @@ let rec eval_ast_expr'
           (List.sort (fun (i, _) (j, _) -> I.compare j i) expr_list)
       in
 
-(*
       Format.printf
         "RecordConstruct expr_list': %a@."
         (pp_print_list 
@@ -922,7 +932,6 @@ let rec eval_ast_expr'
                 (E.pp_print_lustre_expr false) e)
            ", ")
         expr_list';
-  *)         
 
       (* Add indexed expressions and new definitions to result *)
       let result' = 
@@ -951,7 +960,18 @@ let rec eval_ast_expr'
 
               else 
 
-                raise E.Type_mismatch)
+                (debug lustreSimplify
+                  "@[<hv>Type mismatch in record constructor:@ \
+                   @[<hv>record_index: %a,@ \
+                         record_type: %a,@ \
+                         expr_index: %a,@ \
+                         expr: %a@]@]"
+                  (I.pp_print_index false) record_index
+                  Type.pp_print_type record_type
+                  (I.pp_print_index false) expr_index
+                  (E.pp_print_lustre_expr false) expr
+                 in
+                 raise E.Type_mismatch))
             result
             indexes
             expr_list'
@@ -1598,19 +1618,20 @@ and eval_ast_expr
       [] 
       [ast_expr]
   in
-(*
+
   Format.printf 
-    "@[<hv>%a@]@."
+    "@[<hv>%a@ %a@]@."
+    A.pp_print_expr ast_expr
     (pp_print_list 
        (fun ppf (i, e) ->
           Format.fprintf
             ppf
-            "%a: %a"
+            "@[<hv>%a: %a@]"
             (I.pp_print_index false) i
             (E.pp_print_lustre_expr false) e)
        ",@ ")
     (List.rev expr');
-*)
+
   (* Assertion to ensure list is sorted by indexes *)
   (match List.rev expr' with 
     | (h, _) :: tl -> 
