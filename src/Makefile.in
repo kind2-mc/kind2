@@ -3,7 +3,11 @@ OCAMLBUILD=@OCAMLBUILD@ -classic-display
 # Enable debug output for sections
 export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
 
-kind2: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+# Check if git is installed and use output of git describe as version
+# number, else use version number from configure
+GIT_DESCRIBE=$(shell command -v git > /dev/null && git describe --tags || echo "@version@")
+
+kind2: version.ml config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.native
 
 kind2-top: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
@@ -30,6 +34,13 @@ kind2-doc: myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 _build/Camlp4DebugParser.cmxs:
 	$(OCAMLBUILD) Camlp4DebugParser.cmxs
 # $(OCAMLOPT) -shared -I `$(OCAMLOPT) -where`/camlp4 -pp camlp4rf dynlink.cmxa camlp4lib.cmxa Camlp4DebugParser.cmx -o Camlp4DebugParser.cmxs
+
+.PHONY: version.ml
+
+# Substitute configured version number 
+version.ml: version.ml.in
+	sed s/%%%GIT_DESCRIBE%%%/$(GIT_DESCRIBE)/ < version.ml.in > version.ml
+
 
 # Remake this Makefile if configuration has changed 
 Makefile: Makefile.in ../config.status

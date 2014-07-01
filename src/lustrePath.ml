@@ -254,9 +254,9 @@ let pp_print_pos_xml ppf pos =
 (* Pretty-print a property of a stream as XML attributes *)
 let pp_print_stream_prop_xml ppf = function 
 
-  | Input -> Format.fprintf ppf "@ input"
+  | Input -> Format.fprintf ppf "@ class=\"input\""
 
-  | Output -> Format.fprintf ppf "@ output"
+  | Output -> Format.fprintf ppf "@ class=\"output\""
 
   | Local -> Format.fprintf ppf "@ local"
 

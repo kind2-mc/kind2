@@ -5,126 +5,126 @@
 <?xml version="1.1" encoding="utf-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified"
     xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning" vc:minVersion="1.1">
-	
-	<xs:element name="path">
-		<xs:complexType>
-			<xs:sequence>
-				<xs:element name="node" type="node" minOccurs="1" maxOccurs="1"/>
-			</xs:sequence>
-		</xs:complexType>
-	</xs:element>
-	
-	
-		
-	<xs:complexType name="node">
-		<xs:sequence>
-			<xs:element name="stream" type ="streamBase" minOccurs="1" maxOccurs="unbounded">
-				<xs:alternative test="@type1='bool'" type="streamBool"/>
-				<xs:alternative test="@type1='int'" type="streamInt"/>
-				<xs:alternative test="@type1='real'" type="streamReal"/>
-			</xs:element>
-			<xs:element name="node" type="node" minOccurs="0" maxOccurs="unbounded"/>
-      		</xs:sequence>
-		<xs:attribute name="name" type="xs:string" use="required"/>
-		<xs:attribute name="file" type="xs:string" use="optional"/>
-		<xs:attribute name="line" type="xs:integer" use="optional"/>
-		<xs:attribute name="column" type="xs:integer" use="optional"/>
-		
-	</xs:complexType>
-	
-	<xs:complexType name="streamBase">
-		<xs:attribute name="name" type="xs:string" use ="required"/>
-		<xs:attribute name="type1" use ="required">
-			<xs:simpleType>
-				<xs:restriction base="xs:string">
-					<xs:enumeration value="bool"/>
-					<xs:enumeration value="int"/>
-					<xs:enumeration value="real"/>
-				</xs:restriction>
-			</xs:simpleType>
-		</xs:attribute>
-		<xs:attribute name="class" use ="optional">
-			<xs:simpleType>
-				<xs:restriction base="xs:string">
-					<xs:enumeration value="input"/>
-					<xs:enumeration value="output"/>
-				</xs:restriction>
-			</xs:simpleType>
-		</xs:attribute>	
-	</xs:complexType>
-	
-	
-	<xs:complexType name="streamBool">
-		<xs:complexContent>
-			<xs:extension base="streamBase">
-				<xs:sequence>
-					<xs:element name="value" type="valueBool" minOccurs="1" maxOccurs="unbounded"/>
-				</xs:sequence>		
-			</xs:extension>
-		</xs:complexContent>
-	</xs:complexType>
-	
-	
-	<xs:complexType name="streamInt">
-		<xs:complexContent>
-			<xs:extension base="streamBase">
-				<xs:sequence>
-					<xs:element name="value" type="valueInt" minOccurs="1" maxOccurs="unbounded"/>
-				</xs:sequence>		
-			</xs:extension>
-		</xs:complexContent>
-	</xs:complexType>
-	
-	
-	<xs:complexType name="streamReal">
-		<xs:complexContent>
-			<xs:extension base="streamBase">
-				<xs:sequence>
-					<xs:element name="value" type="valueReal" minOccurs="1" maxOccurs="unbounded"/>
-				</xs:sequence>		
-			</xs:extension>
-		</xs:complexContent>
-	</xs:complexType>
-	
-	
-	<xs:simpleType name="real">
-		<xs:restriction base="xs:float">
-			<xs:pattern value="[0-9]+[.][0-9]+"/>
-			<xs:pattern value="[\-+]?[0-9]+[eE][0-9]+"/>
-		</xs:restriction>	
-	</xs:simpleType>
-	
-	
-	<xs:simpleType name="nondigitbool">
-		<xs:restriction base="xs:boolean">
-			<xs:pattern value="false"/>
-			<xs:pattern value="true"/>
-		</xs:restriction>	
-	</xs:simpleType>
-	
-	
-	<xs:complexType name ="valueBool">
-		<xs:simpleContent>
-			<xs:extension base="nondigitbool">
-				<xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
-			</xs:extension>
-		</xs:simpleContent>
-	</xs:complexType>
-	
-	<xs:complexType name ="valueInt">
-		<xs:simpleContent>
-			<xs:extension base="xs:nonNegativeInteger">
-				<xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
-			</xs:extension>
-		</xs:simpleContent>
-	</xs:complexType>
-	
-	<xs:complexType name ="valueReal">
-		<xs:simpleContent>
-			<xs:extension base="real">
-				<xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
-			</xs:extension>
-		</xs:simpleContent>
-	</xs:complexType>
-	
+  
+  <xs:element name="path">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="node" type="node" minOccurs="1" maxOccurs="1"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  
+  
+    
+  <xs:complexType name="node">
+    <xs:sequence>
+      <xs:element name="stream" type ="streamBase" minOccurs="1" maxOccurs="unbounded">
+        <xs:alternative test="@type='bool'" type="streamBool"/>
+        <xs:alternative test="@type='int'" type="streamInt"/>
+        <xs:alternative test="@type='real'" type="streamReal"/>
+      </xs:element>
+      <xs:element name="node" type="node" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="file" type="xs:string" use="optional"/>
+    <xs:attribute name="line" type="xs:integer" use="optional"/>
+    <xs:attribute name="column" type="xs:integer" use="optional"/>
+    
+  </xs:complexType>
+  
+  <xs:complexType name="streamBase">
+    <xs:attribute name="name" type="xs:string" use ="required"/>
+    <xs:attribute name="type" use ="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="bool"/>
+          <xs:enumeration value="int"/>
+          <xs:enumeration value="real"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="class" use ="optional">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="input"/>
+          <xs:enumeration value="output"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute> 
+  </xs:complexType>
+  
+  
+  <xs:complexType name="streamBool">
+    <xs:complexContent>
+      <xs:extension base="streamBase">
+        <xs:sequence>
+          <xs:element name="value" type="valueBool" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>    
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  
+  <xs:complexType name="streamInt">
+    <xs:complexContent>
+      <xs:extension base="streamBase">
+        <xs:sequence>
+          <xs:element name="value" type="valueInt" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>    
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  
+  <xs:complexType name="streamReal">
+    <xs:complexContent>
+      <xs:extension base="streamBase">
+        <xs:sequence>
+          <xs:element name="value" type="valueReal" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>    
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  
+  
+  <xs:simpleType name="real">
+    <xs:restriction base="xs:float">
+      <xs:pattern value="[0-9]+[.][0-9]+"/>
+      <xs:pattern value="[\-+]?[0-9]+[eE][0-9]+"/>
+    </xs:restriction>       
+  </xs:simpleType>
+  
+  
+  <xs:simpleType name="nondigitbool">
+    <xs:restriction base="xs:boolean">
+      <xs:pattern value="false"/>
+      <xs:pattern value="true"/>
+    </xs:restriction>       
+  </xs:simpleType>
+  
+  
+  <xs:complexType name ="valueBool">
+    <xs:simpleContent>
+      <xs:extension base="nondigitbool">
+        <xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  
+  <xs:complexType name ="valueInt">
+    <xs:simpleContent>
+      <xs:extension base="xs:nonNegativeInteger">
+        <xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  
+  <xs:complexType name ="valueReal">
+    <xs:simpleContent>
+      <xs:extension base="real">
+        <xs:attribute name="state" type="xs:nonNegativeInteger" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  
 </xs:schema>

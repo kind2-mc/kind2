@@ -58,6 +58,7 @@ let get_solver_instance trans_sys =
       (* Save instance *)
       solver_qe := Some solver;
 
+(*
       (* Z3 needs this option, default is 5 and we get let definitions
          for deeper terms *)
       ignore
@@ -67,7 +68,7 @@ let get_solver_instance trans_sys =
            [SMTExpr.ArgString ":pp.max_depth"; 
             SMTExpr.ArgString "65536"]
            0);
-
+*)
 
       (* Return instance *)
       solver

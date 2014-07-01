@@ -1759,7 +1759,21 @@ let fwd_propagate
                  "@[<v>-- Inductive invariant:@,assert@ %a@]"
                  Lustre.pp_print_term (term_of_frames (fwd :: tl)));
   *)          
+
+            (* Unprimed property *)
+            let props = TransSys.props_of_bound trans_sys Numeral.zero in
+
+            (* Unprimed inductive invariant *)
+            let ind_inv = 
+              Term.mk_and
+                [term_of_frames (fwd :: tl); props] 
+            in
             
+            debug pdr
+              "Inductive invariant:@ %a "
+              Term.pp_print_term ind_inv
+            in
+
             if Flags.pdr_check_inductive_invariant () then 
               
               
@@ -1774,20 +1788,14 @@ let fwd_propagate
                 (* Transition relation to constrain unprimed variables *)
                 let trans_0 = TransSys.trans_of_bound trans_sys Numeral.zero in
 
-                (* Unprimed property *)
-                let props_0 = TransSys.props_of_bound trans_sys Numeral.zero in
-
                 (* Unprimed nvariants *)
                 let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
 
                 (* Primed invariants *)
                 let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
 
-                (* Unprimed inductive invariant *)
-                let ind_inv_0 = Term.mk_and [term_of_frames (fwd :: tl); props_0] in
-
                 (* Primed inductive invariant *)
-                let ind_inv_1 = Term.bump_state Numeral.one ind_inv_0 in
+                let ind_inv_1 = Term.bump_state Numeral.one ind_inv in
 
                 (* Push new scope level in generic solver *)
                 S.push solver_misc;
@@ -1800,7 +1808,7 @@ let fwd_propagate
                   S.assert_term solver_misc invars_0;
 
                 (* Assert negation of inductive invariant *)
-                S.assert_term solver_misc (Term.mk_not ind_inv_0);
+                S.assert_term solver_misc (Term.mk_not ind_inv);
 
                 (* Check I |= R_i *)
                 if not (S.check_sat solver_misc) then 
@@ -1833,7 +1841,7 @@ let fwd_propagate
                    S.assert_term solver_misc invars_1);
 
                 (* Assert unprimed inductive invariant *)
-                S.assert_term solver_misc ind_inv_0;
+                S.assert_term solver_misc ind_inv;
 
                 (* Assert negated primed inductive invariant *)
                 S.assert_term solver_misc (Term.mk_not ind_inv_1);
