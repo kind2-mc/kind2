@@ -434,7 +434,7 @@ let rec eval_ast_expr'
       (* Expand indexed identifier *)
       let result' = 
         List.fold_left 
-          (fun a (j, _) -> (j, eval_ident pos (I.push_index j ident)) :: a)
+          (fun a (j, _) -> (j, eval_ident pos (I.push_back_index j ident)) :: a)
           result
           (List.assoc ident index_ctx)
       in
@@ -460,78 +460,62 @@ let rec eval_ast_expr'
     (* Projection to a record field *)
     | A.RecordProject (pos, ident, field) :: tl -> 
 
-      (try
+      (* Append index to identifier *)
+      let ident' = I.push_index field ident in
 
-         (* Check if identifier has index *)
-         if List.mem_assoc field (List.assoc ident index_ctx) then
+      (* Check if identifier has index *)
+      if List.mem_assoc ident' index_ctx || List.mem_assoc ident' type_ctx then
 
-           (* Append index to identifier *)
-           let expr' = 
-             A.Ident (pos, I.push_index field ident) 
-           in
+        let expr' = A.Ident (pos, ident') in
+        
+        (* Continue with record field *)
+        eval_ast_expr' 
+          context 
+          abstractions
+          result 
+          (expr' :: tl)
+          
+      else
 
-           (* Continue with record field *)
-           eval_ast_expr' 
-             context 
-             abstractions
-             result 
-             (expr' :: tl)
-
-         else
-
-           raise Not_found
-
-       with Not_found ->
-
-         fail_at_position 
-           pos
-           (Format.asprintf 
-              "Identifier %a does not have field %a" 
-              (I.pp_print_ident false) ident
-              (I.pp_print_index false) field))
+        fail_at_position 
+          pos
+          (Format.asprintf 
+             "Identifier %a does not have field %a" 
+             (I.pp_print_ident false) ident
+             (I.pp_print_index false) field)
 
 
     (* Projection to a tuple or array field *)
     | A.TupleProject (pos, ident, field_expr) :: tl -> 
 
-      (try
+      (* Evaluate expression to an integer constant *)
+      let field = 
+        I.mk_int_index (int_const_of_ast_expr context pos field_expr) 
+      in
+      
+      (* Append index to identifier *)
+      let ident' = I.push_index field ident in
 
-         (* Evaluate expression to an integer constant *)
-         let field_index = 
-           I.mk_int_index (int_const_of_ast_expr context pos field_expr) 
-         in
+      (* Check if identifier has index *)
+      if List.mem_assoc ident' index_ctx || List.mem_assoc ident' type_ctx then
 
-         (* Check if identifier has index *)
-         if List.mem_assoc field_index (List.assoc ident index_ctx) then
+        let expr' = A.Ident (pos, ident') in
+        
+        (* Continue with record field *)
+        eval_ast_expr' 
+          context 
+          abstractions
+          result 
+          (expr' :: tl)
+          
+      else
 
-           (* Append index to identifier *)
-           let expr' = 
-             A.Ident (pos, I.push_index field_index ident) 
-           in
-
-           (* Continue with array or tuple field *)
-           eval_ast_expr' 
-             context 
-             abstractions
-             result 
-             (expr' :: tl)
-
-         else
-
-           fail_at_position 
-             pos
-             (Format.asprintf 
-                "Identifier %a does not have fields" 
-                (I.pp_print_ident false) ident)
-
-       with Not_found -> 
-
-         (fail_at_position 
-            pos
-            (Format.asprintf 
-               "Identifier %a does not have field %a" 
-               (I.pp_print_ident false) ident
-               A.pp_print_expr field_expr)))
+        fail_at_position 
+          pos
+          (Format.asprintf 
+             "Identifier %a does not have field %a" 
+             (I.pp_print_ident false) ident
+             (I.pp_print_index false) field)
 
 
     (* Boolean constant true *)
