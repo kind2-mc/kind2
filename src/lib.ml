@@ -743,7 +743,7 @@ let bool_of_hstring s = bool_of_string (HString.string_of_hstring s)
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
+    Format.fprintf ppf "%s %s" Config.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   
@@ -773,6 +773,17 @@ let pp_print_kind_module ppf = function
 (* String representation of a process type *)
 let string_of_kind_module = string_of_t pp_print_kind_module 
 
+
+(* Return a short representation of kind module *)
+let suffix_of_kind_module = function
+ | `PDR -> "pdr"
+ | `BMC -> "bmc"
+ | `IND -> "ind"
+ | `INVGEN -> "inv"
+ | `INVMAN -> "man"
+ | `Interpreter -> "interp"
+ | `Parser -> "parse"
+                
 
 (* Process type of a string *)
 let kind_module_of_string = function 

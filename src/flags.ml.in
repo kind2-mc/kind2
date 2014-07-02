@@ -153,45 +153,39 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSat5 | `Yices | `detect ]
+type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `detect ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
-  | "Z3_SMTLIB" -> `Z3_SMTLIB
-  | "Z3_API" -> `Z3_API
   | "CVC4" -> `CVC4_SMTLIB
-  | "CVC4_SMTLIB" -> `CVC4_SMTLIB
-  | "CVC4_API" -> `CVC4_API
-  | "MathSat5" -> `MathSat5
-  | "Yices" -> `Yices
+  | "MathSat5" -> `MathSat5_SMTLIB
+  | "Yices" -> `Yices_SMTLIB
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
 let string_of_smtsolver = function 
-  | `Z3_SMTLIB -> "Z3_SMTLIB"
-  | `Z3_API -> "Z3_API"
-  | `CVC4_SMTLIB -> "CVC4_SMTLIB"
-  | `CVC4_API -> "CVC4_API"
-  | `Yices -> "Yices"
-  | `MathSat5 -> "MathSat5"
+  | `Z3_SMTLIB -> "Z3"
+  | `CVC4_SMTLIB -> "CVC4"
+  | `Yices_SMTLIB -> "Yices"
+  | `MathSat5_SMTLIB -> "MathSat5"
   | `detect -> "detect"
 
-let smtsolver_values = "Z3, CVC4, mathsat5"
+let smtsolver_values = "Z3, CVC4, MathSat5, yices"
 
 let smtsolver_default = `detect
 
 (* ********** *) 
 
-type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
+type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
     
 let smtlogic_of_string = function
-  | "LIA" -> `QF_LIA
-  | "LRA" -> `QF_LRA
+  | "LIA" -> `QF_UFLIA
+  | "LRA" -> `QF_UFLRA
   | "detect" -> `detect
   | _ -> raise (Arg.Bad "Bad value for --smtlogic")
 
 let string_of_smtlogic = function 
-  | `QF_LIA -> "LIA"
-  | `QF_LRA -> "LRA"
+  | `QF_UFLIA -> "LIA"
+  | `QF_UFLRA -> "LRA"
   | `detect -> "detect"
 
 let smtlogic_values = "LIA, LRA, detect"
@@ -227,6 +221,28 @@ let mathsat5_bin_of_string s = s
 let string_of_mathsat5_bin s = s 
 
 let mathsat5_bin_default = "mathsat"
+
+(* ********** *) 
+
+type yices_bin = string 
+
+let yices_bin_of_string s = s
+
+let string_of_yices_bin s = s 
+
+let yices_bin_default = "yices-smt2"
+
+(* ********** *) 
+
+type smt_trace = bool
+
+let smt_trace_default = false
+
+(* ********** *) 
+
+type smt_trace_dir = string
+
+let smt_trace_dir_default = Sys.getcwd ()
 
 (* ********** *) 
 
@@ -477,6 +493,9 @@ type flags =
       mutable z3_bin : z3_bin;
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
+      mutable yices_bin : yices_bin;
+      mutable smt_trace : smt_trace;
+      mutable smt_trace_dir : smt_trace_dir;
       mutable enable : enable;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
@@ -513,6 +532,9 @@ let flags =
     z3_bin = z3_bin_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
+    yices_bin = yices_bin_default;
+    smt_trace = smt_trace_default;
+    smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
@@ -605,7 +627,38 @@ let mathsat5_bin_spec =
 
 (* ********** *) 
 
-let enable_action o = flags.enable <- (kind_module_of_string o) :: flags.enable
+let yices_bin_action o = flags.yices_bin <- (yices_bin_of_string o)
+  
+let yices_bin_spec = 
+  ("--yices_bin", 
+   Arg.String yices_bin_action, 
+   Format.sprintf "executable of Yices solver (default: %s)" (string_of_yices_bin yices_bin_default))
+
+(* ********** *) 
+
+let smt_trace_action o = flags.smt_trace <- true
+  
+let smt_trace_spec = 
+  ("--smt_trace", 
+   Arg.Unit smt_trace_action, 
+   Format.sprintf "Write all SMT commands to files")
+
+(* ********** *) 
+
+let smt_trace_dir_action o = flags.smt_trace_dir <- o
+  
+let smt_trace_dir_spec = 
+  ("--smt_trace_dir", 
+   Arg.String smt_trace_dir_action, 
+   Format.sprintf "Directory for trace logs of SMT commands (default: %s)" smt_trace_dir_default)
+
+(* ********** *) 
+
+let enable_action o = 
+
+  (* Ensure the each module is at most once in flags.enable *)
+  let mdl = kind_module_of_string o in
+  if not (List.mem mdl flags.enable) then flags.enable <- mdl :: flags.enable
   
 let enable_spec = 
   ("--enable", 
@@ -880,6 +933,12 @@ let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
 
+let yices_bin () = flags.yices_bin
+
+let smt_trace () = flags.smt_trace
+
+let smt_trace_dir () = flags.smt_trace_dir
+
 let enable () = flags.enable 
 
 let check_version () = flags.check_version 
@@ -969,6 +1028,15 @@ and speclist =
 
     (* Set executable for MathSAT5 solver *)
     mathsat5_bin_spec;
+
+    (* Set executable for Yices solver *)
+    yices_bin_spec;
+
+    (* Write all SMT commands to files *)
+    smt_trace_spec;
+
+    (* Directory for  trace logs of SMT commands *)
+    smt_trace_dir_spec;
 
     (* Set enabled modules *)
     enable_spec;
@@ -1081,15 +1149,17 @@ let set_smtsolver = function
       flags.smtsolver <- smtsolver; 
       flags.cvc4_bin <- cvc4_bin)
 
-  | `MathSat5 as smtsolver -> 
+  | `MathSat5_SMTLIB as smtsolver -> 
 
     (function mathsat5_bin -> 
       flags.smtsolver <- smtsolver; 
       flags.mathsat5_bin <- mathsat5_bin)
 
-  | `Z3_API
-  | `CVC4_API
-  | `Yices  -> raise (Invalid_argument "set_smtsolver")
+  | `Yices_SMTLIB as smtsolver -> 
+
+    (function yices_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.yices_bin <- yices_bin)
 
   | `detect -> (function _ -> ())
 

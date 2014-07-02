@@ -40,9 +40,11 @@ exception Type_mismatch
 (** Clocks of expressions are not compatible *)
 exception Clock_mismatch
 
-(** A term inside a Lustre expression
+(** A {!Term.t} representing a Lustre expression, state variable
+    offsets refer to the current and the previous instant. 
 
-    Cannot be constructed outside this module to enforce invariants *)
+    Cannot be constructed outside this module to enforce invariants
+    about allowed offsets of state variable instants. *)
 type expr = private Term.t
 
 (** A clock

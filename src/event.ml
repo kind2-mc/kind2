@@ -200,6 +200,52 @@ module EventMessaging = Messaging.Make (EventMessage)
 
 
 (* ********************************************************************** *)
+(* Initialization for the messaging system                                *)
+(* ********************************************************************** *)
+
+
+(* Module currently running *)
+let this_module = ref `Parser
+
+(* Set module currently running *)
+let set_module mdl = this_module := mdl 
+
+(* Get module currently running *)
+let get_module () = !this_module
+
+(* Setup of the messaging: context and sockets of the invariant
+   manager, ports to connect to for the workers *)
+type messaging_setup = 
+  (EventMessaging.ctx * EventMessaging.socket * EventMessaging.socket) * (string * string)
+
+type mthread = EventMessaging.thread
+
+(* Create contexts and bind ports for all processes *)
+let setup () = 
+
+  (* Create context for invariant manager *)
+  let im_context, (b, m) = EventMessaging.init_im () in
+
+  (* Return contexts *)
+  (im_context, (b, m))
+
+
+(* Start messaging for a process *)
+let run_process proc (_, (bcast_port, push_port)) on_exit = 
+
+  (* Initialize messaging for process *)
+  let ctx = EventMessaging.init_worker proc bcast_port push_port in
+
+  (* Run messaging for process *)
+  EventMessaging.run_worker ctx proc on_exit
+
+
+(* Start messaging for invariant manager *)
+let run_im (ctx, _) pids on_exit = 
+  EventMessaging.run_im ctx pids on_exit
+
+
+(* ********************************************************************** *)
 (* Log levels                                                             *)
 (* ********************************************************************** *)
 
@@ -709,7 +755,10 @@ let set_relay_log () = log_format := F_relay
 (* ********************************************************************** *)
 
 (* Log a message with source and log level *)
-let log (mdl : kind_module) level fmt = 
+let log level fmt = 
+
+  let mdl = get_module () in
+
   match !log_format with 
     | F_pt -> printf_pt mdl level fmt
     | F_xml -> printf_xml mdl level fmt
@@ -773,49 +822,12 @@ let terminate_log () =
 
 
 (* ********************************************************************** *)
-(* Initialization for the messaging system                                *)
-(* ********************************************************************** *)
-
-
-(* Setup of the messaging: context and sockets of the invariant
-   manager, ports to connect to for the workers *)
-type messaging_setup = 
-  (EventMessaging.ctx * EventMessaging.socket * EventMessaging.socket) * (string * string)
-
-type mthread = EventMessaging.thread
-
-(* Create contexts and bind ports for all processes *)
-let setup () = 
-
-  (* Create context for invariant manager *)
-  let im_context, (b, m) = EventMessaging.init_im () in
-
-  (* Return contexts *)
-  (im_context, (b, m))
-
-
-(* Start messaging for a process *)
-let run_process proc (_, (bcast_port, push_port)) on_exit = 
-
-  (* Initialize messaging for process *)
-  let ctx = EventMessaging.init_worker proc bcast_port push_port in
-
-  (* Run messaging for process *)
-  EventMessaging.run_worker ctx proc on_exit
-
-
-(* Start messaging for invariant manager *)
-let run_im (ctx, _) pids on_exit = 
-  EventMessaging.run_im ctx pids on_exit
-
-
-(* ********************************************************************** *)
 (* Events                                                                 *)
 (* ********************************************************************** *)
 
 
 (* Broadcast an invariant *)
-let invariant mdl term = 
+let invariant term = 
   
   try
     
@@ -827,8 +839,10 @@ let invariant mdl term =
 
 
 (* Broadcast a property status *)
-let prop_status mdl status prop = 
+let prop_status status prop = 
   
+  let mdl = get_module () in
+
   (match status with
     | PropInvariant -> log_proved mdl L_warn None prop
     | PropFalse -> log_disproved mdl L_warn None prop
@@ -845,7 +859,9 @@ let prop_status mdl status prop =
 
 
 (* Broadcast a counterexample for some properties *)
-let counterexample mdl props cex = 
+let counterexample props cex = 
+
+  let mdl = get_module () in
 
   log_counterexample mdl L_warn props cex;
 
@@ -859,7 +875,9 @@ let counterexample mdl props cex =
 
 
 (* Send progress indicator *)
-let progress mdl k =
+let progress k =
+
+  let mdl = get_module () in
 
   log_progress mdl L_info k;
 
@@ -874,7 +892,9 @@ let progress mdl k =
 
 
 (* Send statistics *)
-let stat mdl stats = 
+let stat stats = 
+
+  let mdl = get_module () in
 
   log_stat mdl L_info stats;
 
@@ -985,7 +1005,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log mdl (log_level_of_int lvl) "%s" msg; 
+               log (log_level_of_int lvl) "%s" msg; 
 
                (* No relay message *)
                accum

@@ -40,7 +40,6 @@ let ref_solver = ref None
 let print_stats () = 
 
   Event.stat 
-    `BMC 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.bmc_stats_title, Stat.bmc_stats;
      Stat.smt_stats_title, Stat.smt_stats]
@@ -65,7 +64,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log `BMC Event.L_error
+       Event.log Event.L_error
          "Error deleting solver_init: %s" 
          (Printexc.to_string e))
 
@@ -278,7 +277,6 @@ let rec bmc solver trans_sys k = function
   | _ when (Numeral.to_int k) > Flags.bmc_max () && Flags.bmc_max () > 0 -> 
 
     Event.log
-      `BMC
       Event.L_info
       "BMC reached maximal number of iterations"
 
@@ -288,9 +286,9 @@ let rec bmc solver trans_sys k = function
   | properties -> 
 
     (* Output current step *)
-    Event.log `BMC Event.L_info "BMC loop at k=%d" (Numeral.to_int k);
+    Event.log Event.L_info "BMC loop at k=%d" (Numeral.to_int k);
 
-    Event.progress `BMC (Numeral.to_int k);
+    Event.progress (Numeral.to_int k);
 
     Stat.set (Numeral.to_int k) Stat.bmc_k;
     
@@ -305,7 +303,7 @@ let rec bmc solver trans_sys k = function
     List.iter
       (fun (n, _) -> 
          TransSys.prop_ktrue trans_sys (Numeral.to_int k) n;
-         Event.prop_status `BMC (PropKTrue (Numeral.to_int k)) n)
+         Event.prop_status (PropKTrue (Numeral.to_int k)) n)
       props_ktrue;
 
     (* Broadcast status of properties falsified in k steps *)
@@ -317,11 +315,11 @@ let rec bmc solver trans_sys k = function
          List.iter 
            (fun (n, _) -> 
               TransSys.prop_kfalse trans_sys (Numeral.to_int k) n;
-              Event.prop_status `BMC (PropKFalse (Numeral.to_int k)) n)
+              Event.prop_status (PropKFalse (Numeral.to_int k)) n)
            p;
 
          (* Properties are falsified with the same counterexample *)
-         Event.counterexample `BMC (List.map fst p) c)
+         Event.counterexample (List.map fst p) c)
 
       props_kfalse;
     

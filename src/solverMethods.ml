@@ -107,19 +107,19 @@ struct
   (* Create a new instance of an SMT solver, declare all currently
      created uninterpreted function symbols *)
   let new_solver 
-      ?(produce_assignments = false)
-      ?(produce_models = false) 
-      ?(produce_proofs = false) 
-      ?(produce_cores = false)
+      ?produce_assignments
+      ?produce_models
+      ?produce_proofs
+      ?produce_cores
       logic =
 
     (* Create solver instance *)
     let solver =     
       S.create_instance 
-        ~produce_assignments
-        ~produce_models
-        ~produce_proofs
-        ~produce_cores
+        ?produce_assignments
+        ?produce_models
+        ?produce_proofs
+        ?produce_cores
         logic
     in
 
