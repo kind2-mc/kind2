@@ -21,18 +21,17 @@ open Lib
 
 type input = 
   | Lustre of LustreNode.t list 
+  | Native 
+
+type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
 type t = 
 
   {
 
     (* Definitions of uninterpreted function symbols for initial state
-       constraint *)
-    uf_defs_init : (UfSymbol.t * (Var.t list * Term.t)) list;
-
-    (* Definitions of uninterpreted function symbols for transition
-       relation *)
-    uf_defs_trans : (UfSymbol.t * (Var.t list * Term.t)) list;
+       constraint and transition relation *)
+    pred_defs : (pred_def * pred_def) list;
 
     (* State variables of top node *)
     state_vars : StateVar.t list;
@@ -92,10 +91,26 @@ let pp_print_prop ppf (prop_name, prop_term) =
 let pp_print_prop_status ppf (p, s) =
   Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status s
 
+
+let pp_print_pred_defs 
+    ppf
+    ((init_uf_symbol, (init_vars, init_term)), 
+     (trans_uf_symbol, (trans_vars, trans_term))) = 
+
+  Format.fprintf ppf
+    "@[<hv 2>(define-pred-init@ %a@ @[<hv 2>(%a)@]@ %a)@]@,\
+     @[<hv 2>(define-pred-trans@ %a@ @[<hv 2>(%a)@]@ %a)@]"
+    UfSymbol.pp_print_uf_symbol init_uf_symbol
+    (pp_print_list pp_print_var "@ ") init_vars
+    Term.pp_print_term init_term
+    UfSymbol.pp_print_uf_symbol trans_uf_symbol
+    (pp_print_list pp_print_var "@ ") trans_vars
+    Term.pp_print_term trans_term
+
+
 let pp_print_trans_sys 
     ppf
-    { uf_defs_init; 
-      uf_defs_trans; 
+    { pred_defs; 
       state_vars; 
       init; 
       trans; 
@@ -106,16 +121,14 @@ let pp_print_trans_sys
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(init-defs@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(trans-defs@ (@[<v>%a@]))@]@,\
+          %a@,\
           @[<hv 2>(init@ (@[<v>%a@]))@]@,\
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(status@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_uf_def "@ ") uf_defs_init
-    (pp_print_list pp_print_uf_def "@ ") uf_defs_trans
+    (pp_print_list pp_print_pred_defs "@ ") pred_defs
     Term.pp_print_term init 
     Term.pp_print_term trans
     (pp_print_list pp_print_prop "@ ") props
@@ -124,7 +137,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys uf_defs_init uf_defs_trans state_vars init trans props = 
+let mk_trans_sys pred_defs state_vars init trans props = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -153,8 +166,7 @@ let mk_trans_sys uf_defs_init uf_defs_trans state_vars init trans props =
       state_vars
   in
 
-  { uf_defs_init = uf_defs_init;
-    uf_defs_trans = uf_defs_trans;
+  { pred_defs = pred_defs;
     state_vars = List.sort StateVar.compare_state_vars state_vars;
     init = init;
     trans = trans;
@@ -573,11 +585,12 @@ let all_props_proved trans_sys =
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
 
-let uf_defs_init { uf_defs_init } = uf_defs_init
+let uf_defs { pred_defs } = 
 
-let uf_defs_trans { uf_defs_trans } = uf_defs_trans
-
-let uf_defs { uf_defs_init; uf_defs_trans } = uf_defs_init @ uf_defs_trans
+  List.fold_left 
+    (fun a (i, t) -> i :: t :: a)
+    []
+    pred_defs
 
 (* Apply [f] to all uninterpreted function symbols of the transition
    system *)
@@ -585,9 +598,10 @@ let iter_state_var_declarations { state_vars } f =
   List.iter (fun sv -> f (StateVar.uf_symbol_of_state_var sv)) state_vars
   
 (* Apply [f] to all function definitions of the transition system *)
-let iter_uf_definitions { uf_defs_init; uf_defs_trans } f = 
-  List.iter (fun (u, (v, t)) -> f u v t) uf_defs_init;
-  List.iter (fun (u, (v, t)) -> f u v t) uf_defs_trans
+let iter_uf_definitions { pred_defs } f = 
+  List.iter 
+    (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt) 
+      pred_defs
   
 
 (* Extract a path in the transition system, return an association list

@@ -47,7 +47,7 @@
 %}
 
 %token <HString.t> STRING
-%token LPAREN RPAREN SEXP_COMMENT EOF
+%token LPAREN RPAREN HASH_SEMI EOF
 
 %start sexp
 %type <HStringSExpr.t> sexp
@@ -63,41 +63,43 @@
 
 %%
 
-sexp
+sexp:
+| sexp_comments sexp_but_no_comment { $2 }
+| sexp_but_no_comment { $1 }
+
+sexp_but_no_comment
   : STRING { HStringSExpr.Atom $1 }
   | LPAREN RPAREN { HStringSExpr.List [] }
   | LPAREN rev_sexps_aux RPAREN { HStringSExpr.List (List.rev $2) }
-  | EOF { parse_failure $startpos "Read EOF, empty sexpr token" }
   | error { parse_failure $startpos "sexp" }
 
 sexp_comment
-  : SEXP_COMMENT sexp { () }
-  | SEXP_COMMENT sexp_comments sexp { () }
+  : HASH_SEMI sexp_but_no_comment { () }
+  | HASH_SEMI sexp_comments sexp_but_no_comment { () }
 
 sexp_comments
   : sexp_comment { () }
   | sexp_comments sexp_comment { () }
 
 sexp_opt
-  : EOF { None }
-  | sexp { Some $1 }
-  | sexp_comments sexp { Some $2 }
+  : sexp_but_no_comment { Some $1 }
+  | sexp_comments sexp_but_no_comment { Some $2 }
+  | EOF { None }
+  | sexp_comments EOF { None }
 
 rev_sexps_aux
-  : sexp { [$1] }
+  : sexp_but_no_comment { [$1] }
   | sexp_comment { [] }
-  | rev_sexps_aux sexp { $2 :: $1 }
+  | rev_sexps_aux sexp_but_no_comment { $2 :: $1 }
   | rev_sexps_aux sexp_comment { $1 }
 
 rev_sexps
-  : rev_sexps_aux { $1 }
+  : rev_sexps_aux EOF { $1 }
   | EOF { [] }
 
 sexps
-  : rev_sexps_aux { List.rev $1 }
+  : rev_sexps_aux EOF { List.rev $1 }
   | EOF { [] }
-
-%%
 
 (* 
    Local Variables:
