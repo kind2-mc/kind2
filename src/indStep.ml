@@ -159,7 +159,7 @@ let rec ind_step_loop
       match 
 
         if not (Flags.ind_compress ()) then [] else 
-          Compress.check_and_block cex 
+          Compress.check_and_block trans_sys cex 
 
       with
         
