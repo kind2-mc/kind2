@@ -5,7 +5,7 @@ export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
 
 # Check if git is installed and use output of git describe as version
 # number, else use version number from configure
-GIT_DESCRIBE=$(shell command -v git > /dev/null && git describe --tags || echo "@version@")
+GIT_DESCRIBE=$(shell command -v git > /dev/null && git describe --tags || echo "@PACKAGE_VERSION@")
 
 kind2: version.ml config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.native

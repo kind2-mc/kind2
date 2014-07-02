@@ -743,7 +743,7 @@ let bool_of_hstring s = bool_of_string (HString.string_of_hstring s)
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    Format.fprintf ppf "%s %s" Config.package_name Version.version
+    Format.fprintf ppf "%s %s" Version.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   
