@@ -384,6 +384,7 @@ let rec pp_print_tree_path_pt
      let print_child child =
        pp_print_tree_path_pt ident_width val_width ident_path ppf child
      in
+     SVMap.iter (pp_print_stream_pt ident_width val_width ppf) stream_map; 
      List.iter print_child children
 
 (* Return width of widest identifier and widest value *)
