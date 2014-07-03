@@ -28,9 +28,11 @@ val pp_print_path_pt : Format.formatter -> (StateVar.t * Term.t list) list -> un
 
 (** Output a counterexample as a Lustre execution with pre-processing
     reverted *)
-val pp_print_path_orig_xml : LustreNode.t list -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_xml_orig : LustreNode.t list -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
-
+(** Output a counterexample as a Lustre execution as plain text with
+    pre-processing reverted *)
+val pp_print_path_pt_orig : LustreNode.t list -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 (* 
    Local Variables:

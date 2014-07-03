@@ -250,10 +250,12 @@ let main input_file trans_sys =
       (* Output counterexample *)
       Event.log_counterexample `Interpreter Event.L_off [] v;
 
-      Format.printf 
-        "@.%a@."
-        LustrePath.pp_print_path_xml v;
-
+      match TransSys.get_input trans_sys with
+      | TransSys.LustreInput(nodes) ->
+         Format.printf 
+           "@.%a@."
+           (LustrePath.pp_print_path_pt_orig nodes) 
+           v;
     )
       
   else
