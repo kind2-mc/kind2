@@ -244,7 +244,7 @@ let pp_print_stream_prop_xml ppf = function
 
   | E.Output -> Format.fprintf ppf "@ class=\"output\""
 
-  | E.Local -> Format.fprintf ppf "@ local"
+  | E.Local -> Format.fprintf ppf "@ class=\"local\""
 
   (* these types of streams should have been culled out *)
   | E.Abstract | E.Oracle | E.Instance(_,_,_) -> assert false 
@@ -365,36 +365,26 @@ let pp_print_stream_pt
      (pp_print_arrayi print_stream_value " ") stream_values
 
 let rec pp_print_tree_path_pt 
-          ident_width
-          val_width
-          nodes
-          ppf 
+  ident_width 
+  val_width
+  parent_ident_path
+  ppf 
   = 
-
-  match nodes with
-  | (curr_call_path, Node(node_ident,node_pos,stream_map,call_map)) :: tl ->
-
+  function
+  | Node(node_ident,node_pos,stream_map,call_map) ->
      Format.fprintf
        ppf 
        "@,Node %a (%a)@."
        (I.pp_print_ident false) node_ident
        (pp_print_list (I.pp_print_ident false) " / ")
-       (List.rev curr_call_path);
+       (List.rev parent_ident_path);
 
-     let child_nodes = 
-       List.map 
-         (fun ((call_iden,_),node) -> (call_iden :: curr_call_path),node) 
-         (CallMap.bindings call_map) 
+     let children = snd (list_unzip (CallMap.bindings call_map)) in 
+     let ident_path = node_ident :: parent_ident_path in
+     let print_child child =
+       pp_print_tree_path_pt ident_width val_width ident_path ppf child
      in
-     SVMap.iter (pp_print_stream_pt ident_width val_width ppf) stream_map;
-
-     pp_print_tree_path_pt
-       ident_width
-       val_width
-       (child_nodes @ tl)
-       ppf
-  | [] ->
-     ()
+     List.iter print_child children
 
 (* Return width of widest identifier and widest value *)
 let rec widths_of_model = function 
@@ -465,8 +455,9 @@ let pp_print_path_pt ppf model =
       pp_print_tree_path_pt
         ident_width
         val_width
-        [([],main_node')] 
+        []
         ppf
+        main_node
 
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
 let pp_print_path_pt_orig nodes ppf model =
@@ -489,8 +480,9 @@ let pp_print_path_pt_orig nodes ppf model =
   pp_print_tree_path_pt
     ident_width
     val_width
-    [([],reconstructed')] 
+    []
     ppf
+    reconstructed
 
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)
