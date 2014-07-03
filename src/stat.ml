@@ -267,8 +267,11 @@ let pp_print_bmc_stats ppf =
 let ind_k = 
   empty_item "k" 0
 
-let ind_compress_clauses =
-  empty_item "Compressing clauses" 0
+let ind_compress_equal_mod_input =
+  empty_item "Compressed states pairs (equality)" 0
+
+let ind_compress_same_successors =
+  empty_item "Compressed states pairs (same successors)" 0
 
 let ind_restarts = 
   empty_item "Restarts" 0
@@ -282,7 +285,8 @@ let ind_stats_title = "Inductive step"
 (* All inductive step statistics *)
 let ind_stats = 
   [ I ind_k;
-    I ind_compress_clauses;
+    I ind_compress_equal_mod_input;
+    I ind_compress_same_successors;
     I ind_restarts;
     F ind_total_time ] 
 

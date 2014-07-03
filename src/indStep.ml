@@ -304,6 +304,9 @@ let ind_step
   (* Increment k *)
   let k_plus_one = Numeral.succ k in
 
+  (* Notify compression *)
+  Compress.incr_k ();
+
   (* Conjunction of unknown properties *)
   let props_term = 
     Term.mk_and

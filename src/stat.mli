@@ -135,7 +135,10 @@ val pp_print_bmc_stats : Format.formatter -> unit
 val ind_k : int_item 
 
 (** Number clauses to compress inductive counterexamples *)
-val ind_compress_clauses : int_item 
+val ind_compress_equal_mod_input : int_item 
+
+(** Number clauses to compress inductive counterexamples *)
+val ind_compress_same_successors : int_item 
 
 (** Number of restarts *)
 val ind_restarts : int_item 

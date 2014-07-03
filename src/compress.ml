@@ -192,7 +192,7 @@ let equal_mod_input accum s1 s2 =
     (
 
       (* Count number of clauses *)
-      Stat.incr Stat.ind_compress_clauses;
+      Stat.incr Stat.ind_compress_equal_mod_input;
 
       (* Blocking term to force states not equivalent *)
       let term =
@@ -282,6 +282,10 @@ let equal_mod_input accum s1 s2 =
 (* ********************************************************************** *)
 (* Simulation relation: later state has same successors as earlier state  *)
 (* ********************************************************************** *)
+
+let same_successors_blocked = ref []  
+
+let same_successors_incr_k () = same_successors_blocked := []
 
 let rec instantiate_trans var_uf_map i term = 
 
@@ -393,8 +397,6 @@ let rec instantiate_trans var_uf_map i term =
 
     term
 
-
-
 let same_successors declare_fun uf_defs trans accum sj si = 
 
   (* Set offset of variable in first element of pair *)
@@ -423,8 +425,25 @@ let same_successors declare_fun uf_defs trans accum sj si =
 
   let j = Numeral.pred j_plus_one in
 
-  (* Don't compare a state to its successor *)
-  if Numeral.(equal i j) then accum else
+  if 
+
+    (* Don't compare a state to itself or if states have already been
+       blocked *)
+    Numeral.(equal i j) 
+    || List.exists 
+      (fun (s, t) -> Numeral.equal i s && Numeral.equal t j) 
+      !same_successors_blocked 
+
+  then
+    
+    (Event.log Event.L_debug
+       "Not considering state pair (%a,%a)"
+       Numeral.pp_print_numeral i
+       Numeral.pp_print_numeral j;
+  
+     accum)
+
+  else
 
     (* Map offset of variables for first state to zero *)
     let si' = List.map (set_var_offset Numeral.zero) si in
@@ -432,8 +451,10 @@ let same_successors declare_fun uf_defs trans accum sj si =
     (* Map offset of variables for second state to one *)
     let sj' = List.map (set_var_offset Numeral.one) sj in
 
-    (* Evaluate transition relation *)
+    (* Evaluate T[i,j+1] *)
     match Eval.eval_term uf_defs (si' @ sj') trans with 
+
+      (* j+1 is a successor of i *)
       | Eval.ValBool true -> 
 
         (Event.log Event.L_debug
@@ -455,18 +476,28 @@ let same_successors declare_fun uf_defs trans accum sj si =
 
                 (* Declare symbol in sovler instance *)
                 declare_fun u;
-                
+
                 (* Return pair of state variable and symbol *)
                 (sv, u))
              si
          in
-             
+
+         (* Turn T[0,1] to T[i,x] *)
          let trans_si = instantiate_trans var_uf_map i trans in
 
+         (* Turn T[0,1] to T[j,x] *)
          let trans_sj = instantiate_trans var_uf_map j trans in
 
+         (* Compress with T[i,x] & ~T[j,x] *)
          let block_term = Term.mk_and [trans_si; Term.negate trans_sj] in
 
+         (* Remember state pairs to not block again *)
+         same_successors_blocked := (i, j) :: !same_successors_blocked;
+
+         (* Count number of clauses *)
+         Stat.incr Stat.ind_compress_same_successors;
+
+         (* Add compression formula *)
          block_term :: accum)
 
       | Eval.ValBool false ->       
@@ -498,6 +529,10 @@ let init declare_fun trans_sys =
   init_equal_mod_input declare_fun trans_sys 
 
 
+let incr_k () = 
+
+  same_successors_incr_k ()
+
 (* Generate blocking terms from all equivalent states *)
 let check_and_block declare_fun trans_sys cex = 
 
@@ -518,7 +553,7 @@ let check_and_block declare_fun trans_sys cex =
   in
   
   (* Generate blocking terms from equality relation *)
-  let block_terms = [] (* fold_pairs equal_mod_input [] states *) in
+  let block_terms = fold_pairs equal_mod_input [] states in
 
   (* Generate blocking terms from equality relation *)
   let block_terms' = 
