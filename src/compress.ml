@@ -407,21 +407,29 @@ let same_successors declare_fun uf_defs trans accum sj si =
      t)
   in
 
-  (* Get offset of first state *)
-  let i = match si with 
-    | (v, _) :: _ -> Var.offset_of_state_var_instance v 
+  (* Return the offset of the first state variable instance *)
+  let rec offset_of_vars = function
+
+    (* First variable is a non-constant state variable *)
+    | (v, _) :: _ when Var.is_state_var_instance v -> 
+
+      (* Return offset of state variable instance *)
+      Var.offset_of_state_var_instance v 
+        
+    (* Skip constant state variables *)
+    | _ :: tl -> offset_of_vars tl
 
     (* Assume list of state variables is not empty *)
-    | _ -> assert false 
+    | [] -> assert false
+
   in
+
+
+  (* Get offset of first state *)
+  let i = offset_of_vars si in
 
   (* Get offset of second state *)
-  let j_plus_one = match sj with 
-    | (v, _) :: _ -> Var.offset_of_state_var_instance v 
-
-    (* Assume list of state variables is not empty *)
-    | _ -> assert false 
-  in
+  let j_plus_one = offset_of_vars sj in
 
   let j = Numeral.pred j_plus_one in
 
@@ -435,12 +443,12 @@ let same_successors declare_fun uf_defs trans accum sj si =
       !same_successors_blocked 
 
   then
-    
+
     (Event.log Event.L_debug
        "Not considering state pair (%a,%a)"
        Numeral.pp_print_numeral i
        Numeral.pp_print_numeral j;
-  
+
      accum)
 
   else
