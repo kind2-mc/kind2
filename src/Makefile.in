@@ -46,10 +46,10 @@ version.ml: version.ml.in
 Makefile: Makefile.in ../config.status
 	cd .. && ./config.status
 
-config.ml: config.ml.in ../config.status
+flags.ml: flags.ml.in ../config.status
 	cd .. && ./config.status
 
-flags.ml: flags.ml.in ../config.status
+version.ml.in: version.ml.in ../config.status
 	cd .. && ./config.status
 
 myocamlbuild.ml.in: myocamlbuild.ml.in ../config.status
