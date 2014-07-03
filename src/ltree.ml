@@ -992,6 +992,12 @@ struct
     | MForall of sort list
     | MAnnot of attr
 
+  (* Add the given index to each bound variable *)
+  let bump_bound_var i = function 
+    | { H.node = BoundVar b } -> ht_bound_var (b + i)
+    | t -> t 
+
+
   (* Tail-recursive bottom-up right-to-left map on the term
 
      Not every subterm is a proper term, since the de Bruijn indexes are
@@ -1019,7 +1025,7 @@ struct
      We could prune assignments to variables that are not occurring as
      subterms, but that would maybe be unexpected. This would be an \eta
      conversion, which is not necessary. *)
-  let map f term = 
+  let rec map f term = 
 
     (* Add the subterms in reverse order to the instruction stack *)
     let rec push db trees st = match trees with
@@ -1028,117 +1034,159 @@ struct
     in
 
     (* Recursive map *)
-    let rec map f accum = function 
+    let rec map bump_res f accum = 
 
-      (* The stack is empty, we are done. The accumulator contains
-         exactly one element, which is a singleton list of the result *)
-      | [] -> (match accum with [[n]] -> n | _ -> assert false)
+      let apply_and_bump db n = 
+        let n' = f db n in
+        if bump_res then
+          map false (fun _ t -> bump_bound_var db t) [[]] [(0, MTree n')]
+        else 
+          n'
+      in
 
-      (* Free variable, bound variable or constant *)
-      | (db, MTree ({ H.node = FreeVar _ } as n)) :: s
-      | (db, MTree ({ H.node = BoundVar _ } as n)) :: s
-      | (db, MTree ({ H.node = Leaf _ } as n)) :: s -> 
+      function 
 
-        (* Apply the function immediately and push result to the
-           accumulator *)
-        (match accum with 
-          | h :: tl -> map f ((f db n :: h) :: tl) s
-          | _ -> assert false)
+        (* The stack is empty, we are done. The accumulator contains
+           exactly one element, which is a singleton list of the result *)
+        | [] -> (match accum with [[n]] -> n | _ -> assert false)
 
-      (* Function application *)
-      | (db, MTree { H.node = Node (o, a)}) :: s -> 
+        (* Free variable, bound variable or constant *)
+        | (db, MTree ({ H.node = FreeVar _ } as n)) :: s
+        | (db, MTree ({ H.node = BoundVar _ } as n)) :: s
+        | (db, MTree ({ H.node = Leaf _ } as n)) :: s -> 
 
-        (* Push symbol and subterms in reverse order to the stack *)
-        map f ([] :: accum) (push db a ((db, MNode o) :: s))
+          (* Apply the function immediately and push result to the
+             accumulator *)
+          (match accum with 
+            | h :: tl -> map bump_res f ((apply_and_bump db n :: h) :: tl) s
+            | _ -> assert false)
 
-      (* Annotated term *)
-      | (db, MTree { H.node = Annot (t, a)}) :: s -> 
+        (* Function application *)
+        | (db, MTree { H.node = Node (o, a)}) :: s -> 
 
-        (* Push annotation and terms to the stack *)
-        map f ([] :: accum) ((db, MTree t) :: (db, MAnnot a) :: s)
+          (* Push symbol and subterms in reverse order to the stack *)
+          map bump_res f ([] :: accum) (push db a ((db, MNode o) :: s))
 
-      (* Let binding *)
-      | (db, MTree { H.node = Let ({ H.node = L (x, t)}, b) }) :: s -> 
+        (* Annotated term *)
+        | (db, MTree { H.node = Annot (t, a)}) :: s -> 
 
-        (* Push bound subterm with incremented index to the stack,
-           followed by the assigned terms and a marker for the let
-           binding *)
-        map 
-          f 
-          ([] :: accum) 
-          (push db b ((db + (List.length x), MTree t) :: (db, MLet x) :: s)) 
+          (* Push annotation and terms to the stack *)
+          map bump_res f ([] :: accum) ((db, MTree t) :: (db, MAnnot a) :: s)
 
-      (* Existential quantifier *)
-      | (db, MTree ({ H.node = Exists { H.node = L (x, t) } })) :: s -> 
+        (* Let binding *)
+        | (db, MTree { H.node = Let ({ H.node = L (x, t)}, b) }) :: s -> 
 
-        (* Push quantified term to the stack followed by a marker for
-           the quantifier *)
-        map 
-          f 
-          ([] :: accum) 
-          ((db + (List.length x), MTree t) :: (db, MExists x) :: s)
+          (* Push bound subterm with incremented index to the stack,
+             followed by the assigned terms and a marker for the let
+             binding *)
+          map 
+            bump_res
+            f 
+            ([] :: accum) 
+            (push db b ((db + (List.length x), MTree t) :: (db, MLet x) :: s)) 
 
-      (* Universal quantifier *)
-      | (db, MTree ({ H.node = Forall { H.node = L (x, t) } })) :: s -> 
+        (* Existential quantifier *)
+        | (db, MTree ({ H.node = Exists { H.node = L (x, t) } })) :: s -> 
 
-        (* Push quantified term to the stack followed by a marker for
-           the quantifier *)
-        map 
-          f 
-          ([] :: accum) 
-          ((db + (List.length x), MTree t) :: (db, MForall x) :: s)
+          (* Push quantified term to the stack followed by a marker for
+             the quantifier *)
+          map 
+            bump_res
+            f 
+            ([] :: accum) 
+            ((db + (List.length x), MTree t) :: (db, MExists x) :: s)
 
-      (* Function application *)
-      | (db, MNode op) :: s -> 
+        (* Universal quantifier *)
+        | (db, MTree ({ H.node = Forall { H.node = L (x, t) } })) :: s -> 
 
-        (* Rebuild function application with mapped subterms *)
-        (match accum with 
-          | h :: h' :: d -> map f ((f db (ht_node op h) :: h') :: d) s
-          | _ -> assert false)
+          (* Push quantified term to the stack followed by a marker for
+             the quantifier *)
+          map 
+            bump_res
+            f 
+            ([] :: accum) 
+            ((db + (List.length x), MTree t) :: (db, MForall x) :: s)
 
-      (* Annotation *)
-      | (db, MAnnot a) :: s -> 
+        (* Function application *)
+        | (db, MNode op) :: s -> 
 
-        (* Rebuild annotated term with mapped terms *)
-        (match accum with 
-          | [h] :: h' :: d -> map f ((f db (ht_annot h a) :: h') :: d) s
-          | _ -> assert false)
+          (* Rebuild function application with mapped subterms *)
+          (match accum with 
+            | h :: h' :: d -> 
 
-      (* Let binding *)
-      | (db, MLet x) :: s -> 
+              map 
+                bump_res
+                f
+                ((apply_and_bump db (ht_node op h) :: h') :: d) 
+                s
 
-        (* Rebuild let binding with mapped subterms *)
-        (match accum with 
+            | _ -> assert false)
 
-          | (t :: b) :: h' :: d -> 
-            map f ((f db (ht_let (hl_lambda x t) b) :: h') :: d) s
+        (* Annotation *)
+        | (db, MAnnot a) :: s -> 
 
-          | _ -> assert false)
+          (* Rebuild annotated term with mapped terms *)
+          (match accum with 
+            | [h] :: h' :: d -> 
 
-      | (db, MExists x) :: s -> 
+              map
+                bump_res
+                f
+                ((apply_and_bump db (ht_annot h a) :: h') :: d) 
+                s
 
-        (* Rebuild existential quantification with mapped subterm *)
-        (match accum with 
+            | _ -> assert false)
 
-          | [t] :: h' :: d -> 
-            map f ((f db (ht_exists (hl_lambda x t)) :: h') :: d) s
+        (* Let binding *)
+        | (db, MLet x) :: s -> 
 
-          | _ -> assert false)
+          (* Rebuild let binding with mapped subterms *)
+          (match accum with 
 
-      | (db, MForall x) :: s -> 
+            | (t :: b) :: h' :: d -> 
 
-        (* Rebuild universal quantification with mapped subterm *)
-        (match accum with 
+              map
+                bump_res
+                f
+                ((apply_and_bump db (ht_let (hl_lambda x t) b) :: h') :: d) 
+                s
 
-          | [t] :: h' :: d -> 
-            map f ((f db (ht_forall (hl_lambda x t)) :: h') :: d) s
+            | _ -> assert false)
 
-          | _ -> assert false)
+        | (db, MExists x) :: s -> 
+
+          (* Rebuild existential quantification with mapped subterm *)
+          (match accum with 
+
+            | [t] :: h' :: d -> 
+
+              map
+                bump_res
+                f
+                ((apply_and_bump db (ht_exists (hl_lambda x t)) :: h') :: d) 
+                s
+
+            | _ -> assert false)
+
+        | (db, MForall x) :: s -> 
+
+          (* Rebuild universal quantification with mapped subterm *)
+          (match accum with 
+
+            | [t] :: h' :: d -> 
+
+              map
+                bump_res
+                f
+                ((apply_and_bump db (ht_forall (hl_lambda x t)) :: h') :: d) 
+                s
+
+            | _ -> assert false)
 
     in
 
     (* Call recursive function with initial parameters *)
-    map f [[]] [(0, MTree term)]
+    map true f [[]] [(0, MTree term)]
 
 
   (* ********************************************************************* *)

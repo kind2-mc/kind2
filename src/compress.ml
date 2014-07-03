@@ -283,7 +283,119 @@ let equal_mod_input accum s1 s2 =
 (* Simulation relation: later state has same successors as earlier state  *)
 (* ********************************************************************** *)
 
-let same_successors uf_defs trans accum s1 s2 = 
+let rec instantiate_trans var_uf_map i term = 
+
+  Term.map
+    (fun _ t -> 
+
+       (* Subterm is a variable? *)
+       if Term.is_free_var t then 
+
+         (* Get variable of term *)
+         (let v = Term.free_var_of_term t in
+
+          if 
+
+            (* Variable at previous instant? *)
+            Numeral.equal 
+              (Var.offset_of_state_var_instance v) 
+              Numeral.zero
+
+          then
+
+            (* Get state variable of variable *)
+            let sv = Var.state_var_of_state_var_instance v in
+
+            (* Replace previous state variable with variable instant
+               of first state *)
+            Term.mk_var (Var.mk_state_var_instance sv i)
+
+          else if 
+
+            (* Variable at current instant? *)
+            Numeral.equal 
+              (Var.offset_of_state_var_instance v) 
+              Numeral.one
+
+          then
+
+            (
+
+              (* State variable *)
+              let state_var = Var.state_var_of_state_var_instance v in
+
+              (* Constant symbol for variable *)
+              let uf_symbol = 
+
+                try 
+
+                  (* Get symbol from map *)
+                  List.assq state_var var_uf_map 
+
+                (* Every state variable is in the map *)
+                with Not_found -> assert false
+
+              in
+
+              (* Replace current state variable with fresh constant *)
+              Term.mk_uf uf_symbol [] 
+
+            )
+
+          else
+
+            (* Assume only previous and current instant
+               variables *)
+            assert false
+
+         )
+(*
+       (* Term is a function application *)
+       else if Term.is_node t then 
+           
+         (* Get function stymbol *)
+         let s = Term.node_symbol_of_term t in 
+
+         (* Function symbol is uninterpreted? *)
+         if Symbol.is_uf s then 
+
+           (* Get uninterpreted symbol *)
+           let u = Symbol.uf_of_symbol s in 
+
+           try 
+
+             (* Get definition of uninterpreted symbol *)
+             let vars, def = List.assq u uf_defs in
+
+             let def' = instantiate_trans declare_fun uf_defs i def in
+
+             Term.mk_let 
+               (List.fold_right2
+                  (fun var def accum -> (var, def) :: accum)
+                  vars
+                  (Term.node_args_of_term t)
+                  [])
+               def'
+
+           (* Symbol does not have a definition *)
+           with Not_found -> t
+
+         else
+
+           (* Symbol is not uninterpreted *)
+           t
+*)
+       else
+         
+         (* Subterm is not a variable or an uninterpreted predicate to
+            substitute *)
+         t)
+
+    term
+
+
+
+let same_successors declare_fun uf_defs trans accum sj si = 
 
   (* Set offset of variable in first element of pair *)
   let set_var_offset i (v, t) = 
@@ -294,7 +406,7 @@ let same_successors uf_defs trans accum s1 s2 =
   in
 
   (* Get offset of first state *)
-  let i1 = match s1 with 
+  let i = match si with 
     | (v, _) :: _ -> Var.offset_of_state_var_instance v 
 
     (* Assume list of state variables is not empty *)
@@ -302,100 +414,79 @@ let same_successors uf_defs trans accum s1 s2 =
   in
 
   (* Get offset of second state *)
-  let i2 = match s2 with 
+  let j_plus_one = match sj with 
     | (v, _) :: _ -> Var.offset_of_state_var_instance v 
 
     (* Assume list of state variables is not empty *)
     | _ -> assert false 
   in
 
-  (* Map offset of variables for first state to zero *)
-  let s1' = List.map (set_var_offset Numeral.zero) s1 in
+  let j = Numeral.pred j_plus_one in
 
-  (* Map offset of variables for second state to one *)
-  let s2' = List.map (set_var_offset Numeral.one) s2 in
+  (* Don't compare a state to its successor *)
+  if Numeral.(equal i j) then accum else
 
-  (* Evaluate transition relation *)
-  match Eval.eval_term uf_defs (s1' @ s2') trans with 
-    | Eval.ValBool true -> 
+    (* Map offset of variables for first state to zero *)
+    let si' = List.map (set_var_offset Numeral.zero) si in
 
-      (Event.log `IND Event.L_debug
-         "Possibly compressible path at (%a,%a)"
-         Numeral.pp_print_numeral i1
-         Numeral.pp_print_numeral i2;
+    (* Map offset of variables for second state to one *)
+    let sj' = List.map (set_var_offset Numeral.one) sj in
 
+    (* Evaluate transition relation *)
+    match Eval.eval_term uf_defs (si' @ sj') trans with 
+      | Eval.ValBool true -> 
 
-       let trans_s1 = 
-         Term.map
-           (fun _ t -> 
+        (Event.log Event.L_debug
+           "Possibly compressible path at (%a,%a)"
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j;
 
-              (* TODO: need to subsitute function definitions *)
+         (* Create a fresh uninterpreted constant for each state
+            variable *)
+         let var_uf_map = 
+           List.map
+             (fun (v, _) -> 
 
-              (* Subterm is a variable? *)
-              if Term.is_free_var t then 
+                (* State variable *)
+                let sv = Var.state_var_of_state_var_instance v in
 
-                (* Get variable of term *)
-                (let v = Term.free_var_of_term t in
+                (* Fresh uninterpreted symbol of the same type *)
+                let u = UfSymbol.mk_fresh_uf_symbol [] (Var.type_of_var v) in
 
-                 if 
+                (* Declare symbol in sovler instance *)
+                declare_fun u;
+                
+                (* Return pair of state variable and symbol *)
+                (sv, u))
+             si
+         in
+             
+         let trans_si = instantiate_trans var_uf_map i trans in
 
-                   (* Variable previous instant? *)
-                   Numeral.equal 
-                     (Var.offset_of_state_var_instance v) 
-                     Numeral.zero
+         let trans_sj = instantiate_trans var_uf_map j trans in
 
-                 then
+         let block_term = Term.mk_and [trans_si; Term.negate trans_sj] in
 
-                   (* Get state variable of variable *)
-                   let sv = Var.state_var_of_state_var_instance v in
+         block_term :: accum)
 
-                   (* Replace variable with variable at first instant *)
-                   Term.mk_var (Var.mk_state_var_instance sv i1)
-                     
-                 else if 
+      | Eval.ValBool false ->       
 
-                   (* Variable current instant? *)
-                   Numeral.equal 
-                     (Var.offset_of_state_var_instance v) 
-                     Numeral.one
-                     
-                 then
+        (Event.log Event.L_debug
+           "Cannot compress path at (%a,%a)"
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j;
 
-                   
-                   (* TODO: Create fresh uninterpreted constant *)
-                   assert false 
+         accum)
 
-                 else
+      | Eval.ValTerm t -> 
 
-                   (* Assume only previous and current instant
-                      variables *)
-                   assert false
+        (Event.log Event.L_debug
+           "@[<v>Transition system evaluates to@,@[<hv>%a@]@]"
+           Term.pp_print_term t;
 
-                )
-              else t)
-           trans
-       in
-       
-       accum)
+         assert false)
 
-    | Eval.ValBool false ->       
-
-      (Event.log `IND Event.L_debug
-         "Cannot compress path at (%a,%a)"
-         Numeral.pp_print_numeral i1
-         Numeral.pp_print_numeral i2;
-
-       accum)
-
-    | Eval.ValTerm t -> 
-
-      (Event.log `IND Event.L_debug
-         "@[<v>Transition system evaluates to@,@[<hv>%a@]@]"
-         Term.pp_print_term t;
-
-       assert false)
-
-    | _ -> assert false
+      | _ -> assert false
 
 
 (* ********************************************************************** *)
@@ -408,7 +499,7 @@ let init declare_fun trans_sys =
 
 
 (* Generate blocking terms from all equivalent states *)
-let check_and_block trans_sys cex = 
+let check_and_block declare_fun trans_sys cex = 
 
   (* Convert counterexample to list of lists of pairs of variable at
      instant and its value *)
@@ -427,12 +518,13 @@ let check_and_block trans_sys cex =
   in
   
   (* Generate blocking terms from equality relation *)
-  let block_terms = fold_pairs equal_mod_input [] states in
+  let block_terms = [] (* fold_pairs equal_mod_input [] states *) in
 
   (* Generate blocking terms from equality relation *)
   let block_terms' = 
     fold_pairs
       (same_successors
+         declare_fun
          (TransSys.uf_defs trans_sys)
          (TransSys.trans_of_bound trans_sys Numeral.one))
       block_terms 

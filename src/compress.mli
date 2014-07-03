@@ -30,7 +30,7 @@ val init : (UfSymbol.t -> unit) -> TransSys.t -> unit
 (** Given an inductive counterexample return a list of terms to force
     those states on the path to be different that are equivalent under
     some simulation relations. *)
-val check_and_block : TransSys.t -> (StateVar.t * Term.t list) list -> Term.t list
+val check_and_block : (UfSymbol.t -> unit) -> TransSys.t -> (StateVar.t * Term.t list) list -> Term.t list
 
 
 (* 

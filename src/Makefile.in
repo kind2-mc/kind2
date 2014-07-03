@@ -7,19 +7,19 @@ export STATIC_CAMLP4_DEBUG=@static_camlp4_debug@
 # number, else use version number from configure
 GIT_DESCRIBE=$(shell command -v git > /dev/null && git describe --tags || echo "@PACKAGE_VERSION@")
 
-kind2: version.ml config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2: version.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.native
 
-kind2-top: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-top: flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.top
 
-kind2-prof: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind2-prof: flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) -tag profile kind2.native
 
-kind-bmc: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+kind-bmc: flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) bmc.native
 
-lustre-checker: config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+lustre-checker: flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) lustreChecker.native
 
 clean:
