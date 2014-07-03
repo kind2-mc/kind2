@@ -301,6 +301,8 @@ let rec instantiate_trans var_uf_map i term =
           if 
 
             (* Variable at previous instant? *)
+            Var.is_state_var_instance v &&
+
             Numeral.equal 
               (Var.offset_of_state_var_instance v) 
               Numeral.zero
@@ -317,6 +319,8 @@ let rec instantiate_trans var_uf_map i term =
           else if 
 
             (* Variable at current instant? *)
+            Var.is_state_var_instance v &&
+
             Numeral.equal 
               (Var.offset_of_state_var_instance v) 
               Numeral.one
@@ -348,9 +352,7 @@ let rec instantiate_trans var_uf_map i term =
 
           else
 
-            (* Assume only previous and current instant
-               variables *)
-            assert false
+            t
 
          )
 (*
