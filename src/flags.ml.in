@@ -441,18 +441,20 @@ let interpreter_steps_default = 0
 
 (* ********** *) 
 
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
     
 let input_format_of_string = function
   | "lustre" -> `Lustre
   | "horn" -> `Horn
+  | "native" -> `Native
   | _ -> raise (Arg.Bad "Bad value for --input-format")
 
 let string_of_input_format = function 
   | `Lustre -> "lustre"
   | `Horn -> "horn"
+  | `Native -> "native"
 
-let input_format_values = "lustre"
+let input_format_values = "lustre, native"
 
 let input_format_default = `Lustre
 

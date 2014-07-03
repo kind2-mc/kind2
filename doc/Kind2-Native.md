@@ -6,9 +6,9 @@ For an example see [two_counters.kind2](../examples/two_counters.kind2), which i
 
 The following are EBNF-style grammar rules.
 
-    {transition_system} := {pred_def}+ (check-prop {identifier} ({property}+))
+    {transition_system} := {pred_def}+ (check-prop ({property}+))
 
-A transition system consists of one or more definitions of pairs of initial state and transition relation predicates, and one or more properties about a specified predicate to check.
+A transition system consists of one or more definitions of pairs of initial state and transition relation predicates, and one or more properties about the last defined predicate to check.
 
 	{pred_def} := (define-pred {identifier} {state_var_def}* 
                    (init {term} ) 

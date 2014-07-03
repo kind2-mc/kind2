@@ -163,7 +163,7 @@ type interpreter_steps = int
 val interpreter_steps : unit -> interpreter_steps
 
 (** Format of input file *)
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format 
 
 (** Input file *)
