@@ -506,7 +506,7 @@ let pred_def_of_sexpr = function
     let trans_args = 
       init_args @
       List.map 
-        (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
+        (fun sv -> Var.mk_state_var_instance sv Numeral.one)
         (List.filter (fun sv -> not (StateVar.is_const sv)) state_vars)
     in
 
