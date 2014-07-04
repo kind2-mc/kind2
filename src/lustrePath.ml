@@ -31,6 +31,7 @@ end
 module CallMap = Map.Make(CallId)
 module SVMap = StateVar.StateVarMap
 
+(* The source and model of a stream *)
 type stream = E.state_var_source * Term.t array
 
 (* A nested representation of a model *)
@@ -106,7 +107,7 @@ let reconstruct_single_var inputs stream_map expr =
         let prev_binding = (prev_var, stream_terms.(i-1)) in
         curr_binding :: prev_binding :: substitutions
     in
-    (* include binding of actual argument variable to corresponding formal 
+    (* include binding of actual argument to corresponding formal 
        argument *)
     let fold_input substitutions (call_input, node_input) =
       if i = 0 then
@@ -384,7 +385,7 @@ let rec pp_print_tree_path_pt
      let print_child child =
        pp_print_tree_path_pt ident_width val_width ident_path ppf child
      in
-     SVMap.iter (pp_print_stream_pt ident_width val_width ppf) stream_map; 
+     SVMap.iter (pp_print_stream_pt ident_width val_width ppf) stream_map;
      List.iter print_child children
 
 (* Return width of widest identifier and widest value *)
@@ -458,7 +459,7 @@ let pp_print_path_pt ppf model =
         val_width
         []
         ppf
-        main_node
+        main_node'
 
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
 let pp_print_path_pt_orig nodes ppf model =
@@ -473,17 +474,14 @@ let pp_print_path_pt_orig nodes ppf model =
       []
       (snd (CallMap.choose call_map))
   in
-
   let reconstructed' = cull_intermediate_streams reconstructed in
-
   let ident_width, val_width = widths_of_model reconstructed in
-
   pp_print_tree_path_pt
     ident_width
     val_width
     []
     ppf
-    reconstructed
+    reconstructed'
 
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)
