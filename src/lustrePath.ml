@@ -91,10 +91,13 @@ let rec tree_path_components model =
 
    [stream_map] contains models of all variables referenced in [expr] *)
 let reconstruct_single_var inputs stream_map expr =
-  let fold_ind (var_model : Term.t list) (i : int) =
-    (* include var*term binding(s) for [sv] at cur instance [i]
-       (and pre instance [i]-1 when [i]>0) *)
-    let fold_stream (sv : StateVar.t) (stream : stream) (substitutions : (Var.t * Term.t) list) =
+  (* Given that [var_model] contains the first [i] values of the stream 
+     we are reconstructing (in reverse order) prepends the next value onto
+     the front of [var_model] *)
+  let fold_ind var_model i =
+    (* prepend the var*term binding(s) for [sv] at cur instance [i]
+       (and pre instance [i]-1 when [i]>0) onto substitutions *)
+    let fold_stream sv stream substitutions =
       if i = 0 then
         let var = Var.mk_state_var_instance sv E.base_offset in
         let stream_terms = snd stream in
@@ -107,8 +110,8 @@ let reconstruct_single_var inputs stream_map expr =
         let prev_binding = (prev_var, stream_terms.(i-1)) in
         curr_binding :: prev_binding :: substitutions
     in
-    (* include binding of actual argument to corresponding formal 
-       argument *)
+    (* prepend the binding of actual argument to corresponding formal 
+       argument onto substitutions *)
     let fold_input substitutions (call_input, node_input) =
       if i = 0 then
         let var = Var.mk_state_var_instance (fst node_input) E.base_offset in
