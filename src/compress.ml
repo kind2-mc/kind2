@@ -433,7 +433,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
       | Eval.ValBool true -> 
 
         (Event.log Event.L_debug
-           "Possibly compressible path at (%a,%a)"
+           "Possibly compressible path: (%a,%a) have a common successor"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
 
@@ -478,7 +478,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
       | Eval.ValBool false ->       
 
         (Event.log Event.L_debug
-           "Cannot compress path at (%a,%a)"
+           "Cannot compress path: (%a,%a) have different successors"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
 
@@ -646,7 +646,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
       | Eval.ValBool true -> 
 
         (Event.log Event.L_debug
-           "Possibly compressible path at (%a,%a)"
+           "Possibly compressible path: (%a,%a) have a common predecessor"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
 
@@ -691,7 +691,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
       | Eval.ValBool false ->       
 
         (Event.log Event.L_debug
-           "Cannot compress path at (%a,%a)"
+           "Cannot compress path: (%a,%a) have different predecesors"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
 
@@ -719,7 +719,9 @@ let init declare_fun trans_sys =
 
 let incr_k () = 
 
-  same_successors_incr_k ()
+  same_successors_incr_k ();
+  same_predecessors_incr_k ()
+
 
 (* Generate blocking terms from all equivalent states *)
 let check_and_block declare_fun trans_sys cex = 
