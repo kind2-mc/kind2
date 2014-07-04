@@ -140,6 +140,9 @@ val ind_compress_equal_mod_input : int_item
 (** Number clauses to compress inductive counterexamples *)
 val ind_compress_same_successors : int_item 
 
+(** Number clauses to compress inductive counterexamples *)
+val ind_compress_same_predecessors : int_item 
+
 (** Number of restarts *)
 val ind_restarts : int_item 
 

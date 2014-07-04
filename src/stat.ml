@@ -273,6 +273,9 @@ let ind_compress_equal_mod_input =
 let ind_compress_same_successors =
   empty_item "Compressed states pairs (same successors)" 0
 
+let ind_compress_same_predecessors =
+  empty_item "Compressed states pairs (same predecessors)" 0
+
 let ind_restarts = 
   empty_item "Restarts" 0
 
@@ -287,6 +290,7 @@ let ind_stats =
   [ I ind_k;
     I ind_compress_equal_mod_input;
     I ind_compress_same_successors;
+    I ind_compress_same_predecessors;
     I ind_restarts;
     F ind_total_time ] 
 
