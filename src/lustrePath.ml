@@ -341,6 +341,9 @@ let pp_print_path_xml_orig nodes ppf model =
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
 
+(* pretty prints a stream as its identifier followed by its values at each 
+  instance. gives [ident_width] space to its identifier column and [val_width]
+  space to each of its value columns. *)
 let pp_print_stream_pt 
       ident_width 
       val_width 
@@ -365,10 +368,13 @@ let pp_print_stream_pt
      (string_of_t (LustreIdent.pp_print_ident false) stream_ident)
      (pp_print_arrayi print_stream_value " ") stream_values
 
+(* pretty prints a tree_path, giving width [ident_width] to the stream 
+   identifier column, width [val_width] to each value column, and
+   displaying its ordered list of tree [ancestors] in a header. *)
 let rec pp_print_tree_path_pt 
   ident_width 
   val_width
-  parent_ident_path
+  ancestors
   ppf 
   = 
   function
@@ -378,10 +384,10 @@ let rec pp_print_tree_path_pt
        "@,Node %a (%a)@."
        (I.pp_print_ident false) node_ident
        (pp_print_list (I.pp_print_ident false) " / ")
-       (List.rev parent_ident_path);
+       (List.rev ancestors);
 
      let children = snd (list_unzip (CallMap.bindings call_map)) in 
-     let ident_path = node_ident :: parent_ident_path in
+     let ident_path = node_ident :: ancestors in
      let print_child child =
        pp_print_tree_path_pt ident_width val_width ident_path ppf child
      in
