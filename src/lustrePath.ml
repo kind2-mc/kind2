@@ -370,11 +370,12 @@ let pp_print_stream_pt
 
 (* pretty prints a tree_path, giving width [ident_width] to the stream 
    identifier column, width [val_width] to each value column, and
-   displaying its ordered list of tree [ancestors] in a header. *)
+   displaying its ordered list of tree ancestor identifiers [ancestor_idents] 
+   in a header. *)
 let rec pp_print_tree_path_pt 
   ident_width 
   val_width
-  ancestors
+  ancestor_idents
   ppf 
   = 
   function
@@ -384,10 +385,10 @@ let rec pp_print_tree_path_pt
        "@,Node %a (%a)@."
        (I.pp_print_ident false) node_ident
        (pp_print_list (I.pp_print_ident false) " / ")
-       (List.rev ancestors);
+       (List.rev ancestor_idents);
 
      let children = snd (list_unzip (CallMap.bindings call_map)) in 
-     let ident_path = node_ident :: ancestors in
+     let ident_path = node_ident :: ancestor_idents in
      let print_child child =
        pp_print_tree_path_pt ident_width val_width ident_path ppf child
      in
