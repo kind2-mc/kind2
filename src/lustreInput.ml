@@ -110,7 +110,7 @@ let of_channel in_ch =
       init
       trans
       props
-      (TransSys.LustreInput nodes_coi)
+      (TransSys.Lustre nodes_coi)
   in
 
   (debug lustreInput 

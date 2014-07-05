@@ -23,19 +23,12 @@
 
 (** Input format *)
 type input = 
-
   | Lustre of LustreNode.t list  (** Lustre with given nodes *)
   | Native                       (** Native format *)
 
 
 (** A definition of an uninterpreted predicate *)
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
-
-(** An input which may be used to create a transition system *)
-type input =
-  (* A node list representation of a Lustre program, where nodes not connected
-     to the main node have been culled out. *) 
-  | LustreInput of LustreNode.t list
 
 (** The transition system 
 

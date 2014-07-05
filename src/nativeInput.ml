@@ -676,7 +676,15 @@ let of_channel in_ch =
   (* Definitions and properties in input *)
   let defs, state_vars, init_term, trans_term, props = aux [] sexps in
 
-  let res = TransSys.mk_trans_sys defs state_vars init_term trans_term props in
+  let res = 
+    TransSys.mk_trans_sys 
+      defs
+      state_vars
+      init_term
+      trans_term
+      props
+      TransSys.Native
+  in
 
   Format.printf 
     "%a@."

@@ -251,7 +251,7 @@ let main input_file trans_sys =
       Event.log_counterexample `Interpreter L_off [] trans_sys v;
 
       match TransSys.get_input trans_sys with
-      | TransSys.LustreInput(nodes) ->
+      | TransSys.Lustre nodes ->
          Format.printf 
            "@.%a@."
            (LustrePath.pp_print_path_pt_orig nodes) 
