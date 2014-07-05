@@ -293,6 +293,7 @@ let pp_print_node
       props; 
       requires; 
       ensures;
+      output_input_dep;
       is_main } = 
 
   (* Output a space if list is not empty *)
@@ -304,6 +305,7 @@ let pp_print_node
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
+     @[<v>%a@]%t\
      %t%t\
      @[<hv 2>let@ \
      %a%t\
@@ -318,6 +320,14 @@ let pp_print_node
     (pp_print_list (pp_print_input safe) ";@ ") 
     (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
     (pp_print_list (pp_print_output safe) ";@ ") outputs
+    (pp_print_list  
+       (fun ppf l -> 
+          Format.fprintf ppf "@[<h>-- %a@]"
+            (pp_print_list Format.pp_print_int "@ ")
+            l)
+       "@,")
+    output_input_dep
+    (space_if_nonempty output_input_dep)
     (function ppf -> 
       if locals = [] then () else 
         Format.fprintf ppf 
@@ -464,6 +474,18 @@ let rec node_var_dependencies nodes node accum =
                  parameters from called node *)
               let { output_input_dep } = 
                 node_of_name node_ident nodes
+              in
+
+              debug lustreNode
+                "@[<v>Input output dependencies of node %a:@[<v>%a@]@]"
+                (I.pp_print_ident false) node_ident
+                (pp_print_list
+                  (fun ppf l -> 
+                    Format.fprintf ppf "@[<h>%a@]"
+                      (pp_print_list Format.pp_print_int "@ ")
+                      l)
+                  "@,")
+                output_input_dep
               in
 
               (* Get expressions that output of node depends on *)
@@ -971,6 +993,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         requires; 
         ensures; 
         is_main; 
+        output_input_dep;
         fresh_state_var_index } as node_orig), 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
@@ -985,6 +1008,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           outputs = outputs;
           inputs = inputs;
           oracles = oracles;
+          output_input_dep = output_input_dep;
 
           (* Keep only local variables with definitions *)
           locals = 
@@ -1160,10 +1184,17 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
    node *)
 let reduce_to_property_coi nodes main_name = 
   
+  let nodes' = 
+    List.fold_right
+      (fun node accum -> equations_order_by_dep accum node :: accum)
+      nodes
+      []
+  in
+
   try 
 
     (* Main node and its properties *)
-    let { props } as main_node = node_of_name main_name nodes in
+    let { props } as main_node = node_of_name main_name nodes' in
 
     (* State variables in properties *)
     let state_vars = 
@@ -1175,7 +1206,7 @@ let reduce_to_property_coi nodes main_name =
     (* Call recursive function with initial arguments *)
     List.rev
       (reduce_to_coi' 
-         nodes
+         nodes'
          []
          [(state_vars, [], main_node, (empty_node main_name))])
       

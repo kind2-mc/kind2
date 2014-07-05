@@ -1002,13 +1002,7 @@ let rec trans_sys_of_nodes'
 
 
 let trans_sys_of_nodes main_node nodes = 
-  let nodes' = 
-    List.fold_right
-      (fun node accum -> N.equations_order_by_dep accum node :: accum)
-      nodes
-      []
-  in
-  trans_sys_of_nodes' main_node [] [] [] nodes'
+  trans_sys_of_nodes' main_node [] [] [] nodes
 
 
 let prop_of_node_prop main_node state_var =

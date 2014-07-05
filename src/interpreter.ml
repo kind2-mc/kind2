@@ -53,7 +53,7 @@ let on_exit _ =
 let rec assert_trans solver t i =
   
   (* Instant zero is base instant *)
-  if Numeral.(i <= one) then () else  
+  if Numeral.(i < one) then () else  
     
     (
 
@@ -254,8 +254,9 @@ let main input_file trans_sys =
       | TransSys.Lustre nodes ->
          Format.printf 
            "@.%a@."
-           (LustrePath.pp_print_path_pt_orig nodes) 
-           v;
+           (LustrePath.pp_print_path_pt_orig nodes)
+           v
+      | _ -> ()
     )
       
   else
