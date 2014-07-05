@@ -140,7 +140,7 @@ val debug : unit -> string list
 val debug_log : unit -> string option
 
 (** Verbosity level *)
-val log_level : unit -> Event.log_level
+val log_level : unit -> Lib.log_level
 
 (** Output in XML format *)
 val log_format_xml : unit -> bool

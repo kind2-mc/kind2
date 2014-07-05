@@ -51,7 +51,7 @@ let rec parse_stream = parser
         
         (* Fail *)
         (Event.log
-           Event.L_fatal
+           L_fatal
            "State variable %s is not an input" 
            name;
          
@@ -61,7 +61,7 @@ let rec parse_stream = parser
       
       (* Fail *)
       (Event.log
-         Event.L_fatal
+         L_fatal
          "State variable %s not found" 
          name;
        

@@ -131,7 +131,7 @@ let of_channel in_ch =
    in
 
    Event.log
-     Event.L_info
+     L_info
      "Lustre main node is %a"
      (I.pp_print_ident false) main_node;
 

@@ -114,19 +114,6 @@ val uf_defs : t -> pred_def list
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
 
-(** Update transition system from events and return new invariants and
-    properties with changed status
-
-    For a property status message the status saved in the transition
-    system is updated if the status is more general (k-true for a
-    greater k, k-false for a smaller k, etc.) 
-
-    Received invariants are stored in the transition system, also
-    proved properties are added as invariants.
-
-    Counterexamples are ignored. *)
-val update_from_events : t -> (Lib.kind_module * Event.event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
-
 (** Return current status of all properties *)
 val prop_status_all : t -> (string * Lib.prop_status) list
 

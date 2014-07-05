@@ -28,26 +28,26 @@ let pp_print_hline ppf =
 let on_exit trans_sys =
   
   Event.log
-    Event.L_info
+    L_info
     "@[<v>%t@,\
      Final statistics:@]"
     pp_print_hline;
   
   List.iter 
-    (fun (mdl, stat) -> Event.log_stat mdl Event.L_info stat)
+    (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
     (Event.all_stats ());
   
   Event.log
-    Event.L_fatal
+    L_fatal
     "@[<v>%t@,\
      Summary of properties:@]"
     pp_print_hline;
   
   (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status Event.L_fatal (TransSys.prop_status_all trans_sys));
+    Event.log_prop_status L_fatal (TransSys.prop_status_all trans_sys));
     
   Event.log
-    Event.L_warn 
+    L_warn 
     "";
   
   try 
@@ -88,7 +88,7 @@ let rec wait_for_children child_pids =
 
       (
 
-        Event.log Event.L_info
+        Event.log L_info
           "Child process %d (%a) %a" 
           child_pid 
           pp_print_kind_module (List.assoc child_pid !child_pids) 
@@ -105,7 +105,7 @@ let rec wait_for_children child_pids =
     (* Child process dies with non-zero exit status or was killed *)
     | child_pid, status -> 
 
-      (Event.log Event.L_error
+      (Event.log L_error
          "Child process %d (%a) %a" 
          child_pid 
          pp_print_kind_module (List.assoc child_pid !child_pids) 
@@ -129,7 +129,7 @@ let handle_events trans_sys =
   List.iter 
     (function (m, e) -> 
       Event.log
-        Event.L_debug
+        L_debug
         "Message received from %a: %a"
         pp_print_kind_module m
         Event.pp_print_event e)
@@ -137,7 +137,7 @@ let handle_events trans_sys =
 
   (* Update transition system from events *)
   let _, prop_status, cex =
-    TransSys.update_from_events trans_sys events
+    Event.update_trans_sys trans_sys events
   in
 
   (* Output proved properties *)
@@ -149,18 +149,18 @@ let handle_events trans_sys =
       | (_, (_, PropUnknown))
       | (_, (_, PropKTrue _)) -> ()
 
-      | (m, (p, PropInvariant)) -> Event.log_proved m Event.L_warn None p
+      | (m, (p, PropInvariant)) -> Event.log_proved m L_warn None p
 
-      | (m, (p, PropFalse)) -> Event.log_disproved m Event.L_warn None p
+      | (m, (p, PropFalse)) -> Event.log_disproved m L_warn None p
 
-      | (m, (p, PropKFalse k)) -> Event.log_disproved m Event.L_warn (Some k) p)
+      | (m, (p, PropKFalse k)) -> Event.log_disproved m L_warn (Some k) p)
 
     prop_status;
 
   (* Output counterexamples *)
   List.iter
     (fun (m, (props, cex)) -> 
-       Event.log_counterexample m Event.L_warn props cex)
+       Event.log_counterexample m L_warn props trans_sys cex)
     cex
 
 
@@ -174,7 +174,7 @@ let rec loop child_pids trans_sys =
     
     ( 
       
-      Event.log Event.L_info "All properties proved or disproved";
+      Event.log L_info "All properties proved or disproved";
       
       Event.terminate ()
         

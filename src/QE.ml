@@ -123,7 +123,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log Event.L_error 
+       Event.log L_error 
          "Error deleting solver_qe: %s" 
          (Printexc.to_string e));
 
@@ -137,7 +137,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log Event.L_error
+       Event.log L_error
          "Error deleting solver_check: %s" 
          (Printexc.to_string e))
 
