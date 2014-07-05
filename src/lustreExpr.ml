@@ -32,7 +32,7 @@ exception Clock_mismatch
 (* A Lustre expression is a term *)
 type expr = Term.t
 
-(* A Lustre expression is a type *)
+(* A Lustre type is a type *)
 type lustre_type = Type.t
 
 (* Source of state variable *)

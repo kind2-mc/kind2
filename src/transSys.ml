@@ -18,7 +18,6 @@
 
 open Lib
 
-
 type input = 
   | Lustre of LustreNode.t list 
   | Native 
@@ -44,6 +43,9 @@ type t =
 
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
+
+    (* The input which produced this system. *)
+    input : input;
 
     (* Invariants *)
     mutable invars : Term.t list;
@@ -137,7 +139,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys pred_defs state_vars init trans props = 
+let mk_trans_sys pred_defs state_vars init trans props input = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -171,6 +173,7 @@ let mk_trans_sys pred_defs state_vars init trans props =
     init = init;
     trans = trans;
     props = props;
+    input = input;
     prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props;
     invars = invars_of_types }
 
@@ -184,6 +187,8 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
 
+(* Return the input used to create the transition system *)
+let get_input t = t.input
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 

@@ -31,6 +31,11 @@ type input =
 (** A definition of an uninterpreted predicate *)
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
+(** An input which may be used to create a transition system *)
+type input =
+  (* A node list representation of a Lustre program, where nodes not connected
+     to the main node have been culled out. *) 
+  | LustreInput of LustreNode.t list
 
 (** The transition system 
 
@@ -60,7 +65,9 @@ type t = private
     (** Propertes to prove invariant *)
     props : (string * Term.t) list; 
 
-    (** Invariants *)
+    (* The input which produced this system. *)
+    input : input;
+
     mutable invars : Term.t list;
 
     (** Status of property *)
@@ -74,7 +81,7 @@ type t = private
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> t
+val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
@@ -84,6 +91,9 @@ val get_logic : t -> SMTExpr.logic
 
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
+
+(** Return the input used to produce the transition system *)
+val get_input : t -> input
 
 (** Return the variables at current and previous instants of the
    transition system *)
