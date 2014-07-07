@@ -27,6 +27,9 @@ val of_channel : in_channel -> TransSys.t
 (** Parse from the file *)
 val of_file : string -> TransSys.t
 
+val pp_print_path_pt : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 
 (* 

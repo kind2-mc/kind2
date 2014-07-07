@@ -378,8 +378,10 @@ let counterexample_pt mdl level props trans_sys cex =
     "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
     (pp_print_list Format.pp_print_string ",@ ")
     props
-    LustrePath.pp_print_path_pt cex
-    
+    (match TransSys.get_input trans_sys with
+      | TransSys.Lustre nodes -> LustrePath.pp_print_path_pt_orig nodes
+      | TransSys.Native -> NativeInput.pp_print_path_pt)
+    cex
 
 
 (* Output statistics section as plain text *)
@@ -532,7 +534,10 @@ let counterexample_xml mdl level props trans_sys cex =
           p)
       "@,")
     props
-    LustrePath.pp_print_path_xml cex
+    (match TransSys.get_input trans_sys with
+      | TransSys.Lustre nodes -> LustrePath.pp_print_path_xml_orig nodes
+      | TransSys.Native -> NativeInput.pp_print_path_xml)
+    cex
     
 
 (* Output statistics section as XML *)
