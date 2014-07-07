@@ -698,16 +698,34 @@ let equations_order_by_dep nodes node =
       vars_ordered
   in
     
+  (* Return node with equations in dependency order *)
+  { node with equations = equations_ordered }
+
+
+let compute_output_input_dep nodes node = 
+  
+  (* For each variable get the set of current state variables in its
+     equation *)
+  let var_dep = 
+    node_var_dependencies 
+      nodes
+      node
+      []
+      ((List.map (fun (v, _) -> (v, [])) node.equations) @
+       (List.map (fun (v, _) -> (v, [])) node.outputs))
+  in
+  
+  (* Order variables such that variables defined in terms of other
+     variables occur first *)
+  let vars_ordered = order_by_dep [] var_dep in
+  
   (* Compute dependencies of output variables on inputs *)
   let output_input_dep = 
     output_input_dep_of_var_dep node var_dep 
   in
 
   (* Return node with equations in dependency order *)
-  { node with 
-      equations = equations_ordered;
-      output_input_dep = output_input_dep }
-
+  { node with output_input_dep = output_input_dep }
 
 
 (* If x = y and x captures the output of a node, substitute y *)
@@ -1186,7 +1204,7 @@ let reduce_to_property_coi nodes main_name =
   
   let nodes' = 
     List.fold_right
-      (fun node accum -> equations_order_by_dep accum node :: accum)
+      (fun node accum -> compute_output_input_dep accum node :: accum)
       nodes
       []
   in
@@ -1204,12 +1222,19 @@ let reduce_to_property_coi nodes main_name =
     in
 
     (* Call recursive function with initial arguments *)
-    List.rev
-      (reduce_to_coi' 
-         nodes'
-         []
-         [(state_vars, [], main_node, (empty_node main_name))])
-      
+    let nodes'' =
+      List.rev
+        (reduce_to_coi' 
+           nodes'
+           []
+           [(state_vars, [], main_node, (empty_node main_name))])
+    in
+    
+    List.fold_right
+      (fun node accum -> equations_order_by_dep accum node :: accum)
+      nodes''
+      []
+    
   with Not_found -> 
 
     raise 
