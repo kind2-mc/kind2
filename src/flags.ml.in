@@ -275,7 +275,7 @@ let rec string_of_enable' accum = function
 
 let string_of_enable = string_of_enable' ""
 
-let enable_values = "PDR, BMC, IND, INVGEN"
+let enable_values = "PDR, BMC, IND, INVGEN, interpreter"
 
 let enable_default_init = []
 
