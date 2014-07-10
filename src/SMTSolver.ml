@@ -141,14 +141,16 @@ struct
         let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
 
         let reset_ppf ppf = 
+          Format.fprintf ppf "@?";
           Format.pp_set_formatter_out_functions ppf fmt_out_fun;
-          Format.fprintf ppf "@."
+          Format.fprintf ppf "@.";
         in
 
         Format.pp_set_formatter_out_functions 
           ppf 
           { fmt_out_fun with 
-              Format.out_newline = fun () -> fmt_out_fun.Format.out_string "\n;; " 0 4  };
+              Format.out_newline = 
+                fun () -> fmt_out_fun.Format.out_string "\n;; " 0 4  };
 
         Format.kfprintf reset_ppf ppf (";; " ^^ fmt)
 
@@ -185,7 +187,7 @@ struct
           (* Open file for output, may fail *)
           let trace_oc = open_out trace_filename in
           
-          Event.log Event.L_debug
+          Event.log L_debug
             "Tracing output of SMT solver instace to %s"
             trace_filename;
 
@@ -195,7 +197,7 @@ struct
         (* Silently fail *)
         with Sys_error e -> 
 
-          Event.log Event.L_debug
+          Event.log L_debug
             "Failed to open trace file for SMT solver %s"
             e;
           

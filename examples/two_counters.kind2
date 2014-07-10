@@ -12,11 +12,12 @@
     (= out (and a b))))
   
   (trans
-   (= (prime b) (and (not (prime reset)) a))
-   (= (prime a) (and (not (prime reset)) (not b)))
-   (= (prime out) (and (prime a) (prime b)))))
+   (and	
+    (= (prime b) (and (not (prime reset)) a))
+    (= (prime a) (and (not (prime reset)) (not b)))
+    (= (prime out) (and (prime a) (prime b))))))
 
-(define-pred initcounter
+(define-pred intcounter
   
   ((reset Bool)
    (max Int :const)
@@ -51,8 +52,22 @@
   (trans
    (and
     (= (prime OK) (= (prime b) (prime d)))
-    (greycounter.trans reset.1 b.1 g.a.1 g.a.1 reset.0 b.0 g.a.0 g.b.0)
-    (intcounter.trans reset.1 3 d.1 i.t.1 reset.0 d.0 i.t.0))))
+    (greycounter.trans 
+     reset
+     b
+     g.a
+     g.b
+     (prime reset)
+     (prime b)
+     (prime g.a)
+     (prime g.b))
+    (intcounter.trans
+     reset
+     3
+     d
+     i.t
+     (prime reset)
+     (prime d)
+     (prime i.t)))))
 
-(check-prop top (("OK" OK)))
-
+(check-prop ((OK OK)))

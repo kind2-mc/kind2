@@ -175,6 +175,63 @@ val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string
 (** Return the strings as a parenthesized and space separated list *)
 val paren_string_of_string_list : string list -> string
 
+(** {1 Logging} *)
+
+(** Levels of log messages
+
+    - [L_fatal] A severe error that will lead to an immediate abort
+
+    - [L_error] An error event that might still allow to continue
+
+    - [L_warn] A potentially harmful situation
+
+    - [L_info] An informational message that highlight progress at a
+      coarse-grained level
+
+    - [L_debug] A fine-grained informational event that is useful for
+      debugging but not for an end user 
+
+    - [L_trace] A finer-grained informational event than [L_debug]
+
+ *)
+type log_level =
+  | L_off
+  | L_fatal
+  | L_error
+  | L_warn
+  | L_info
+  | L_debug
+  | L_trace
+
+
+(** Associate an integer with each level to induce a total ordering *)
+val int_of_log_level : log_level -> int
+
+val log_level_of_int : int -> log_level
+
+
+(** Current formatter for output *)
+val log_ppf : Format.formatter ref 
+
+(** Ouputs all log messages to the given file *)
+val log_to_file : string -> unit
+
+(** Write all log messages to the standard output *)
+val log_to_stdout : unit -> unit
+
+(** Set log level
+
+    Only output messages of levels with equal or higher priority *)
+val set_log_level : log_level -> unit 
+
+(** Return true if given log level is of higher or equal priority than
+    current log level? *)
+val output_on_level : log_level -> bool
+
+(** Return Format.fprintf if level is is of higher or equal priority
+    than current log level, otherwise return Format.ifprintf *)
+val ignore_or_fprintf : log_level -> Format.formatter -> ('a, Format.formatter, unit) format -> 'a
+
 
 (** {1 System functions} *)
 

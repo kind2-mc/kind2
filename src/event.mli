@@ -31,47 +31,6 @@ exception Terminate
 
 (** {1 Logging} *)
 
-(** Levels of log messages
-
-    - [L_fatal] A severe error that will lead to an immediate abort
-
-    - [L_error] An error event that might still allow to continue
-
-    - [L_warn] A potentially harmful situation
-
-    - [L_info] An informational message that highlight progress at a
-      coarse-grained level
-
-    - [L_debug] A fine-grained informational event that is useful for
-      debugging but not for an end user 
-
-    - [L_trace] A finer-grained informational event than [L_debug]
-
- *)
-type log_level =
-  | L_off
-  | L_fatal
-  | L_error
-  | L_warn
-  | L_info
-  | L_debug
-  | L_trace
-
-(** Ouputs all log messages to the given file *)
-val log_to_file : string -> unit
-
-(** Write all log messages to the standard output *)
-val log_to_stdout : unit -> unit
-
-(** Set log level
-
-    Only output messages of levels with equal or higher priority *)
-val set_log_level : log_level -> unit 
-
-(** Return true if given log level is of higher or equal priority than
-    current log level? *)
-val output_on_level : log_level -> bool
-
 (** Set log format to plain text *)
 val set_log_format_pt : unit -> unit
 
@@ -85,31 +44,31 @@ val set_relay_log : unit -> unit
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> log_level -> int option -> string -> unit 
+val log_disproved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit 
 
 (** Log a proved property
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_proved : Lib.kind_module -> log_level -> int option -> string -> unit
+val log_proved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit
  
 (** Log a counterexample for some properties
 
     Should only be used by the invariant manager, other modules must
     use {!counterexample} to send it as a message. *)
-val log_counterexample : Lib.kind_module -> log_level -> string list -> (StateVar.t * Term.t list) list -> unit 
+val log_counterexample : Lib.kind_module -> Lib.log_level -> string list -> TransSys.t -> (StateVar.t * Term.t list) list -> unit 
 
 (** Log summary of status of properties
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_prop_status : log_level -> (string * Lib.prop_status) list -> unit 
+val log_prop_status : Lib.log_level -> (string * Lib.prop_status) list -> unit 
 
 (** Log statistics
 
     Should only be used by the invariant manager, other modules must use
     {!stat} to send it as a message. *)
-val log_stat : Lib.kind_module -> log_level -> (string * Stat.stat_item list) list -> unit 
+val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
 
 (** Terminate log
 
@@ -134,7 +93,7 @@ val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) 
 (** [log m l f v ...] outputs a message from module [m] on level [l],
     formatted with the parameterized string [f] and the values [v
     ...] *)
-val log : log_level -> ('a, Format.formatter, unit) format -> 'a
+val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
 
 (** Output the statistics of the module *)
 val stat : (string * Stat.stat_item list) list -> unit
@@ -149,13 +108,26 @@ val invariant : Term.t -> unit
 val prop_status : Lib.prop_status -> string -> unit
 
 (** Broadcast a counterexample to some properties *)
-val counterexample : string list -> (StateVar.t * Term.t list) list -> unit
+val counterexample : string list -> TransSys.t -> (StateVar.t * Term.t list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
 
 (** Receive all queued events *)
 val recv : unit -> (Lib.kind_module * event) list 
+
+(** Update transition system from events and return new invariants and
+    properties with changed status
+
+    For a property status message the status saved in the transition
+    system is updated if the status is more general (k-true for a
+    greater k, k-false for a smaller k, etc.) 
+
+    Received invariants are stored in the transition system, also
+    proved properties are added as invariants.
+
+    Counterexamples are ignored. *)
+val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
 
 (** {1 Messaging} *)
 
