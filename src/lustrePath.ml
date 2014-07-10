@@ -110,7 +110,7 @@ let reconstruct_single_var inputs stream_map expr =
         let prev_binding = (prev_var, stream_terms.(i-1)) in
         curr_binding :: prev_binding :: substitutions
     in
-    (* prepend the binding of actual argument to corresponding formal 
+    (* prepend the binding of formal argument to corresponding actual 
        argument onto substitutions *)
     let fold_input substitutions (call_input, node_input) =
       if i = 0 then
@@ -163,7 +163,7 @@ let rec reconstruct_stateless_variables nodes calls path =
        if SVMap.mem sv stream_map then
          stream_map
        else
-         let stream_terms = (reconstruct_single_var inputs stream_map expr) in 
+         let stream_terms = reconstruct_single_var inputs stream_map expr in 
          SVMap.add sv (prop,stream_terms) stream_map
   in
   match path with
@@ -174,7 +174,7 @@ let rec reconstruct_stateless_variables nodes calls path =
      let inputs =
        try
          let call = List.find (fun call -> call.N.call_pos = pos) calls in
-         list_zip call.N.call_inputs node.N.inputs      
+         List.combine call.N.call_inputs node.N.inputs      
        with
        | Not_found ->
           (* this must be the main node - we expect that all of its inputs
@@ -363,7 +363,7 @@ let pp_print_stream_pt
        val_width
        (string_of_t Term.pp_print_term t)    
    in
-
+   
    Format.fprintf
      ppf
      "%-*s %a@."
@@ -389,8 +389,8 @@ let rec pp_print_tree_path_pt
        (I.pp_print_ident false) node_ident
        (pp_print_list (I.pp_print_ident false) " / ")
        (List.rev ancestor_idents);
-
-     let children = snd (list_unzip (CallMap.bindings call_map)) in 
+     
+     let children = snd (List.split (CallMap.bindings call_map)) in 
      let ident_path = node_ident :: ancestor_idents in
      let print_child child =
        pp_print_tree_path_pt ident_width val_width ident_path ppf child
@@ -429,7 +429,7 @@ let rec widths_of_model = function
      let max_stream_ident_width, max_stream_val_width =
        if SVMap.cardinal stream_map > 0 then
          let widths = List.map widths_from_stream (SVMap.bindings stream_map) in
-         let ident_widths, stream_widths = list_unzip widths in
+         let ident_widths, stream_widths = List.split widths in
          list_max ident_widths, list_max stream_widths
        else
          0,0
@@ -443,7 +443,7 @@ let rec widths_of_model = function
      (* max identifier and value widths over all subnodes of this node *) 
      let max_call_ident_width, max_call_val_width = 
        if CallMap.cardinal call_map > 0 then
-         let ident_widths, call_widths = list_unzip call_ident_results in
+         let ident_widths, call_widths = List.split call_ident_results in
          list_max ident_widths, list_max call_widths
        else
          0,0
