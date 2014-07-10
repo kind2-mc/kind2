@@ -114,12 +114,12 @@ let reconstruct_single_var inputs stream_map expr =
        argument onto substitutions *)
     let fold_input substitutions (call_input, node_input) =
       if i = 0 then
-        let var = Var.mk_state_var_instance (fst node_input) E.base_offset in
+        let var = Var.mk_state_var_instance node_input E.base_offset in
         let term = (call_input.E.expr_init :> Term.t) in
         (var,term)::substitutions
       else
-        let curr_var = Var.mk_state_var_instance (fst node_input) E.cur_offset in
-        let prev_var = Var.mk_state_var_instance (fst node_input) E.pre_offset in
+        let curr_var = Var.mk_state_var_instance node_input E.cur_offset in
+        let prev_var = Var.mk_state_var_instance node_input E.pre_offset in
         let curr_term = (call_input.E.expr_step :> Term.t) in
         let prev_expr =
           if i = 1 then 
@@ -174,7 +174,9 @@ let rec reconstruct_stateless_variables nodes calls path =
      let inputs =
        try
          let call = List.find (fun call -> call.N.call_pos = pos) calls in
-         List.combine call.N.call_inputs node.N.inputs      
+         List.combine 
+           call.N.call_inputs 
+           ((List.map fst node.N.inputs) @ node.N.oracles);      
        with
        | Not_found ->
           (* this must be the main node - we expect that all of its inputs
