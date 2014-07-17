@@ -89,8 +89,13 @@ let rec tree_path_components model =
    [inputs] is a list of (actual,formal) pairs for all inputs to the 
    node containing the stateless variable, 
 
-   [stream_map] contains models of all variables referenced in [expr] *)
-let reconstruct_single_var inputs stream_map expr =
+   [stream_map] is the stream map for the call containing the variable 
+   whose definition is [expr] 
+
+   [ancestors_stream_map] is the combined stream maps of all ancestors of
+   the call containing the variable whose definition is [expr]
+*)
+let reconstruct_single_var inputs ancestors_stream_map stream_map expr =
   (* Given that [var_model] contains the first [i] values of the stream 
      we are reconstructing (in reverse order) prepends the next value onto
      the front of [var_model] *)
@@ -110,16 +115,16 @@ let reconstruct_single_var inputs stream_map expr =
         let prev_binding = (prev_var, stream_terms.(i-1)) in
         curr_binding :: prev_binding :: substitutions
     in
-    (* prepend the binding of actual argument to corresponding formal 
+    (* prepend the binding of formal argument to corresponding actual 
        argument onto substitutions *)
     let fold_input substitutions (call_input, node_input) =
       if i = 0 then
-        let var = Var.mk_state_var_instance (fst node_input) E.base_offset in
+        let var = Var.mk_state_var_instance node_input E.base_offset in
         let term = (call_input.E.expr_init :> Term.t) in
         (var,term)::substitutions
       else
-        let curr_var = Var.mk_state_var_instance (fst node_input) E.cur_offset in
-        let prev_var = Var.mk_state_var_instance (fst node_input) E.pre_offset in
+        let curr_var = Var.mk_state_var_instance node_input E.cur_offset in
+        let prev_var = Var.mk_state_var_instance node_input E.pre_offset in
         let curr_term = (call_input.E.expr_step :> Term.t) in
         let prev_expr =
           if i = 1 then 
@@ -130,10 +135,11 @@ let reconstruct_single_var inputs stream_map expr =
         let prev_term = (prev_expr :> Term.t) in
         (curr_var,curr_term) :: (prev_var,prev_term) :: substitutions
     in
-    let substitutions = SVMap.fold fold_stream stream_map [] in
-    let substitutions' = List.fold_left fold_input substitutions inputs in
+    let substitutions = List.fold_left fold_input [] inputs in
+    let substitutions' = SVMap.fold fold_stream stream_map substitutions in
+    let substitutions'' = SVMap.fold fold_stream ancestors_stream_map substitutions' in
     let src_expr = if i = 0 then expr.E.expr_init else expr.E.expr_step in
-    let value = Eval.eval_term [] substitutions' (src_expr :> Term.t) in
+    let value = Eval.eval_term [] substitutions'' (src_expr :> Term.t) in
     (Eval.term_of_value value) :: var_model
   in
   let stream_len = Array.length (snd (snd (SVMap.choose stream_map))) in
@@ -144,13 +150,16 @@ let reconstruct_single_var inputs stream_map expr =
    
    [nodes] is a list of all nodes in the program being processed and
    
-   [calls] is a list of all calls made from the parent of [path]
+   [calls] is a list of all calls made from the parent of [path],
    or empty if [path] has no parent.
+
+   [stream_map] is a map containing reconstructed streams of all 
+   ancestors of [path] 
    *)    
-let rec reconstruct_stateless_variables nodes calls path =
+let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
   (* add reconstructed state variable [sv] to [stream_map] 
      if it is not already there *)
-  let fold_eqn inputs stream_map (sv,expr) =
+  let fold_eqn inputs ancestors_stream_map stream_map (sv,expr) =
     let prop = E.get_state_var_source sv in
     match prop with
     | E.Instance(_,_,_) ->
@@ -163,38 +172,94 @@ let rec reconstruct_stateless_variables nodes calls path =
        if SVMap.mem sv stream_map then
          stream_map
        else
-         let stream_terms = (reconstruct_single_var inputs stream_map expr) in 
-         SVMap.add sv (prop,stream_terms) stream_map
+           let stream_terms = 
+             reconstruct_single_var 
+               inputs 
+               ancestors_stream_map 
+               stream_map 
+               expr 
+           in 
+           SVMap.add sv (prop,stream_terms) stream_map
   in
   match path with
   | Node(ident,pos,stream_map,call_map) ->
      let node = N.node_of_name ident nodes in
-     (* a list of (actual,formal) pairs for all inputs to this node,
-        or an empty list if this is the main node. *)
-     let inputs =
+     (* [inputs] is a list of (actual,formal) pairs for all inputs to this node,
+        or an empty list if this is the main node. 
+
+       [outputs] is a list of (parent state var, current state var) pairs
+       for all of the outputs of this node, or an empty list if this
+       is the main node.
+     *)
+     let inputs, outputs =
        try
          let call = List.find (fun call -> call.N.call_pos = pos) calls in
-         list_zip call.N.call_inputs node.N.inputs      
+         let inputs =
+         List.combine 
+           call.N.call_inputs 
+           ((List.map fst node.N.inputs) @ node.N.oracles);      
+         in
+         let outputs = 
+           List.combine
+             call.N.call_returns
+             (List.map fst node.N.outputs)
+         in
+         inputs,outputs
        with
        | Not_found ->
           (* this must be the main node - we expect that all of its inputs
              are already contained in the model *)
           let in_model (sv,ind) = SVMap.mem sv stream_map in
           assert (List.for_all in_model node.N.inputs);
-          []
+          [],[]
      in
-     let stream_map' = 
-       List.fold_left 
-         (fold_eqn inputs) 
+
+     (* Includes the model for the call output as the node output model *)
+     let fold_output stream_map (parent_sv,current_sv) =
+       SVMap.add 
+         current_sv 
+         (SVMap.find parent_sv ancestors_stream_map) 
          stream_map 
+     in
+
+     (* Add models for all outputs of this node. *)
+     let stream_map' = 
+       List.fold_left fold_output stream_map outputs
+     in
+     
+     (* Reconstruct the stateless variables of this node *) 
+     let stream_map'' = 
+       List.fold_left 
+         (fold_eqn inputs ancestors_stream_map) 
+         stream_map'
          (N.equations_order_by_dep nodes node).N.equations 
      in
-     let call_map' = 
-       CallMap.map 
-         (fun path -> reconstruct_stateless_variables nodes node.N.calls path) 
-         call_map 
+
+     let merge_stream_maps sv t0 t1 =
+       match (t0,t1) with
+       | Some(term),None ->
+          Some(term)
+       | None, Some(term) ->
+          Some(term)
+       | Some(_),Some(_)
+       | None, None ->
+          assert false;
      in
-     Node(ident,pos,stream_map',call_map')
+     (* Merge this node's models with all ancestor node models to 
+        compute the ancestors_stream_map for all children of this node *)
+     let merged_stream_map = 
+       SVMap.merge merge_stream_maps ancestors_stream_map stream_map''
+     in
+
+     let reconstruct_child path = 
+       reconstruct_stateless_variables 
+         nodes 
+         node.N.calls 
+         merged_stream_map 
+         path
+     in
+     let call_map' = CallMap.map reconstruct_child call_map in
+     Node(ident,pos,stream_map'',call_map')
 
 (* removes all oracle and abstract streams from [path] and all paths reachable
    from it *)
@@ -332,7 +397,13 @@ let pp_print_path_xml_orig nodes ppf model =
 
   match CallMap.choose call_map with
   | _, main_node ->     
-     let main_node' = reconstruct_stateless_variables nodes [] main_node in
+     let main_node' = 
+       reconstruct_stateless_variables 
+         nodes 
+         [] 
+         SVMap.empty 
+         main_node 
+     in
      let main_node'' = cull_intermediate_streams main_node' in
 
      Format.fprintf
@@ -363,7 +434,7 @@ let pp_print_stream_pt
        val_width
        (string_of_t Term.pp_print_term t)    
    in
-
+   
    Format.fprintf
      ppf
      "%-*s %a@."
@@ -389,8 +460,8 @@ let rec pp_print_tree_path_pt
        (I.pp_print_ident false) node_ident
        (pp_print_list (I.pp_print_ident false) " / ")
        (List.rev ancestor_idents);
-
-     let children = snd (list_unzip (CallMap.bindings call_map)) in 
+     
+     let children = snd (List.split (CallMap.bindings call_map)) in 
      let ident_path = node_ident :: ancestor_idents in
      let print_child child =
        pp_print_tree_path_pt ident_width val_width ident_path ppf child
@@ -429,7 +500,7 @@ let rec widths_of_model = function
      let max_stream_ident_width, max_stream_val_width =
        if SVMap.cardinal stream_map > 0 then
          let widths = List.map widths_from_stream (SVMap.bindings stream_map) in
-         let ident_widths, stream_widths = list_unzip widths in
+         let ident_widths, stream_widths = List.split widths in
          list_max ident_widths, list_max stream_widths
        else
          0,0
@@ -443,7 +514,7 @@ let rec widths_of_model = function
      (* max identifier and value widths over all subnodes of this node *) 
      let max_call_ident_width, max_call_val_width = 
        if CallMap.cardinal call_map > 0 then
-         let ident_widths, call_widths = list_unzip call_ident_results in
+         let ident_widths, call_widths = List.split call_ident_results in
          list_max ident_widths, list_max call_widths
        else
          0,0
@@ -482,6 +553,7 @@ let pp_print_path_pt_orig nodes ppf model =
     reconstruct_stateless_variables 
       nodes 
       []
+      SVMap.empty
       (snd (CallMap.choose call_map))
   in
   let reconstructed' = cull_intermediate_streams reconstructed in

@@ -39,33 +39,6 @@ let list_init f n =
   in
   init_aux 0
 
-(* Transforms a pair of equal-length lists [a1,...,an] and 
-   [b1,...,bn] into a list of pairs [(a1,b1),...,(an,bn)] *)
-let list_zip l1 l2 =
-  assert (List.length l1 = List.length l2);
-  let rec list_zip_aux l1 l2 acc =
-    match (l1,l2) with
-    | (hd1 :: tl1, hd2 :: tl2) ->
-       list_zip_aux tl1 tl2 ((hd1,hd2)::acc)
-    | ([],[]) ->
-       List.rev acc
-    | _ ->
-       assert false
-  in
-  list_zip_aux l1 l2 []
-
-(* Transforms a list of pairs [(a1,b1);...;(an,bn)] into the pair of
-   lists ([a1;...;an],[b1;...;bn] *)
-let list_unzip l =
-  let rec list_unzip_aux l acc1 acc2 =
-    match l with
-    | (a,b) :: tl ->
-       list_unzip_aux tl (a :: acc1) (b :: acc2)
-    | [] ->
-       (List.rev acc1, List.rev acc2)
-  in
-  list_unzip_aux l [] [] 
-
 (* Returns the maximum element of a non-empty list *)
 let list_max l =
   assert (List.length l > 0);

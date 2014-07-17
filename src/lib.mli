@@ -72,14 +72,6 @@ val safe_hash_interleave : int -> int -> int -> int
 (** Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 val list_init : (int -> 'a) -> int -> 'a list
 
-(** Transforms a pair of equal-length lists [a1,...,an] and 
-    [b1,...,bn] into a list of pairs [(a1,b1),...,(an,bn)] *) 
-val list_zip : 'a list -> 'b list -> ('a * 'b) list
-
-(** Converts a list of pairs [(a1,b1);...;(an,bn)] into the pair of
-    lists ([a1;...;an],[b1;...;bn] *)
-val list_unzip : ('a * 'b) list -> ('a list) * ('b list)
-
 (** Returns the maximum element of a non-empty list *)
 val list_max : 'a list -> 'a
 
