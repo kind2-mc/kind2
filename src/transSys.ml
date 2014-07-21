@@ -18,7 +18,6 @@
 
 open Lib
 
-
 type input = 
   | Lustre of LustreNode.t list 
   | Native 
@@ -44,6 +43,9 @@ type t =
 
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
+
+    (* The input which produced this system. *)
+    input : input;
 
     (* Invariants *)
     mutable invars : Term.t list;
@@ -137,7 +139,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys pred_defs state_vars init trans props = 
+let mk_trans_sys pred_defs state_vars init trans props input = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -171,6 +173,7 @@ let mk_trans_sys pred_defs state_vars init trans props =
     init = init;
     trans = trans;
     props = props;
+    input = input;
     prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props;
     invars = invars_of_types }
 
@@ -184,6 +187,8 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
 
+(* Return the input used to create the transition system *)
+let get_input t = t.input
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 
@@ -406,137 +411,6 @@ let prop_ktrue t k prop =
 
       t.prop_status
 
-
-(* Update transition system from event list *)
-let update_from_events trans_sys events = 
-
-  (* Tail-recursive iteration *)
-  let rec update_from_events' trans_sys invars prop_status cex = function 
-
-    (* No more events, return new invariants and changed property status *)
-    | [] -> (invars, prop_status, cex)
-
-    (* Invariant discovered *)
-    | (m, Event.Invariant t) :: tl -> 
-
-      (* Property status if received invariant is a property *)
-      let tl' =
-        List.fold_left
-
-          (fun accum (p, t') -> 
-
-             (* Invariant is equal to property term? *)
-             if Term.equal t t' then
-
-               (* Inject property status event *)
-               ((m, Event.PropStatus (p, PropInvariant)) :: accum)
-
-             else
-
-               accum)
-
-          tl
-          trans_sys.props
-
-      in
-      
-      (* Add invariant to transtion system *)
-      add_invariant trans_sys t;
-
-      (* Continue with invariant added to accumulator *)
-      update_from_events'
-        trans_sys
-        ((m, t) :: invars)
-        prop_status
-        cex 
-        tl'
-
-    (* Property found unknown *)
-    | (_, Event.PropStatus (p, PropUnknown)) :: tl -> 
-
-      (* Continue without changes *)
-      update_from_events' trans_sys invars prop_status cex tl
-
-    (* Property found true for k steps *)
-    | (m, Event.PropStatus (p, (PropKTrue k as s))) :: tl -> 
-
-      (* Change property status in transition system *)
-      prop_ktrue trans_sys k p;
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events'
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        cex
-        tl
-
-    (* Property found invariant *)
-    | (m, Event.PropStatus (p, (PropInvariant as s))) :: tl -> 
-
-      (* Change property status in transition system *)
-      prop_invariant trans_sys p;
-
-      (try 
-
-         (* Add proved property as invariant *)
-        add_invariant 
-          trans_sys 
-          (List.assoc p trans_sys.props)
-
-       (* Skip if named property not found *)
-       with Not_found -> ());
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events'
-        trans_sys 
-        invars
-        ((m, (p, s)) :: prop_status)
-        cex
-        tl
-
-    (* Property found false *)
-    | (m, Event.PropStatus (p, (PropFalse as s))) :: tl -> 
-
-      (* Change property status in transition system *)
-      prop_false trans_sys p;
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events' 
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        cex
-        tl
-
-    (* Property found false after k steps *)
-    | (m, Event.PropStatus (p, (PropKFalse k as s))) :: tl ->
-
-      (* Change property status in transition system *)
-      prop_kfalse trans_sys k p;
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events' 
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        cex
-        tl
-        
-    (* Counterexample for some properties *)
-    | (m, Event.Counterexample (p, c)) :: tl -> 
-
-      (* Skip and continue *)
-      update_from_events' 
-        trans_sys
-        invars
-        prop_status
-        ((m, (p, c)) :: cex) 
-        tl
-
-  in
-
-  update_from_events' trans_sys [] [] [] events
 
 
 (* Return true if the property is proved invariant *)

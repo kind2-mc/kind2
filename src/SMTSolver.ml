@@ -187,7 +187,7 @@ struct
           (* Open file for output, may fail *)
           let trace_oc = open_out trace_filename in
           
-          Event.log Event.L_debug
+          Event.log L_debug
             "Tracing output of SMT solver instace to %s"
             trace_filename;
 
@@ -197,7 +197,7 @@ struct
         (* Silently fail *)
         with Sys_error e -> 
 
-          Event.log Event.L_debug
+          Event.log L_debug
             "Failed to open trace file for SMT solver %s"
             e;
           

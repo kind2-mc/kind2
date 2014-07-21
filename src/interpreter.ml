@@ -44,7 +44,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log Event.L_error
+       Event.log L_error
          "Error deleting solver_init: %s" 
          (Printexc.to_string e))
 
@@ -53,7 +53,7 @@ let on_exit _ =
 let rec assert_trans solver t i =
   
   (* Instant zero is base instant *)
-  if Numeral.(i <= one) then () else  
+  if Numeral.(i < one) then () else  
     
     (
 
@@ -72,7 +72,7 @@ let main input_file trans_sys =
   Event.set_module `Interpreter;
   
   Event.log
-    Event.L_info 
+    L_info 
     "Parsing interpreter input file %s"
     (Flags.input_file ()); 
 
@@ -87,7 +87,7 @@ let main input_file trans_sys =
 
       (* Output warning *)
       Event.log
-        Event.L_warn 
+        L_warn 
         "@[<v>Error reading interpreter input file.@,%s@]"
         e;
 
@@ -113,7 +113,7 @@ let main input_file trans_sys =
          
          (* Output warning *)
          Event.log
-           Event.L_warn 
+           L_warn 
            "Input for %a is longer than other inputs"
            StateVar.pp_print_state_var state_var)
 
@@ -134,7 +134,7 @@ let main input_file trans_sys =
         if s > input_length then
           
           Event.log 
-            Event.L_warn 
+            L_warn 
             "Input is not long enough to simulate %d steps.\
              Simulation is nondeterministic." 
             input_length;
@@ -145,7 +145,7 @@ let main input_file trans_sys =
   in
 
   Event.log
-    Event.L_info
+    L_info
     "Interpreter running up to k=%d" 
     steps;
 
@@ -248,18 +248,21 @@ let main input_file trans_sys =
       in
       
       (* Output counterexample *)
-      Event.log_counterexample `Interpreter Event.L_off [] v;
+      Event.log_counterexample `Interpreter L_off [] trans_sys v;
 
-      Format.printf 
-        "@.%a@."
-        LustrePath.pp_print_path_xml v;
-
+      match TransSys.get_input trans_sys with
+      | TransSys.Lustre nodes ->
+         Format.printf 
+           "@.%a@."
+           (LustrePath.pp_print_path_pt_orig nodes)
+           v
+      | _ -> ()
     )
       
   else
 
     (* Transition relation must be satisfiable *)
-    Event.log Event.L_error "Transition relation not satisfiable"
+    Event.log L_error "Transition relation not satisfiable"
   
 
 (* 

@@ -60,7 +60,7 @@ let rec inv_gen_dummy k =
   let inv = mk_inv k in 
 
   Event.log 
-    Event.L_debug 
+    L_debug 
     "Sending invariant %d: %a" 
     k 
     Term.pp_print_term inv;

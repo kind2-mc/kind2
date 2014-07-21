@@ -64,7 +64,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log Event.L_error
+       Event.log L_error
          "Error deleting solver_init: %s" 
          (Printexc.to_string e))
 
@@ -208,7 +208,7 @@ let bmc_step check_ts_props solver trans_sys k properties =
 
   (* Update transition system from messages *)
   let invariants_recvd, prop_status, _ = 
-    TransSys.update_from_events trans_sys messages 
+    Event.update_trans_sys trans_sys messages 
   in
 
   (* Assert received invariants up to k-1 *)
@@ -277,7 +277,7 @@ let rec bmc solver trans_sys k = function
   | _ when (Numeral.to_int k) > Flags.bmc_max () && Flags.bmc_max () > 0 -> 
 
     Event.log
-      Event.L_info
+      L_info
       "BMC reached maximal number of iterations"
 
   (* Exit when all properties proved or disproved *) 
@@ -286,7 +286,7 @@ let rec bmc solver trans_sys k = function
   | properties -> 
 
     (* Output current step *)
-    Event.log Event.L_info "BMC loop at k=%d" (Numeral.to_int k);
+    Event.log L_info "BMC loop at k=%d" (Numeral.to_int k);
 
     Event.progress (Numeral.to_int k);
 
@@ -319,12 +319,12 @@ let rec bmc solver trans_sys k = function
            p;
 
          (* Properties are falsified with the same counterexample *)
-         Event.counterexample (List.map fst p) c)
+         Event.counterexample (List.map fst p) trans_sys c)
 
       props_kfalse;
     
     (* Output statistics *)
-    if Event.output_on_level Event.L_info then print_stats ();
+    if output_on_level L_info then print_stats ();
 
     (* Continue with properties not falsified in k steps *)
     bmc solver trans_sys (Numeral.succ k) props_ktrue
