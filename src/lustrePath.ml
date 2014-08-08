@@ -86,16 +86,13 @@ let rec tree_path_components model =
    [expr] is the expression on the right-hand-side of a stateless variable
    definition
    
-   [inputs] is a list of (actual,formal) pairs for all inputs to the 
-   node containing the stateless variable, 
-
    [stream_map] is the stream map for the call containing the variable 
    whose definition is [expr] 
 
    [ancestors_stream_map] is the combined stream maps of all ancestors of
    the call containing the variable whose definition is [expr]
 *)
-let reconstruct_single_var inputs ancestors_stream_map stream_map expr =
+let reconstruct_single_var ancestors_stream_map stream_map expr =
   (* Given that [var_model] contains the first [i] values of the stream 
      we are reconstructing (in reverse order) prepends the next value onto
      the front of [var_model] *)
@@ -115,31 +112,10 @@ let reconstruct_single_var inputs ancestors_stream_map stream_map expr =
         let prev_binding = (prev_var, stream_terms.(i-1)) in
         curr_binding :: prev_binding :: substitutions
     in
-    (* prepend the binding of formal argument to corresponding actual 
-       argument onto substitutions *)
-    let fold_input substitutions (call_input, node_input) =
-      if i = 0 then
-        let var = Var.mk_state_var_instance node_input E.base_offset in
-        let term = (call_input.E.expr_init :> Term.t) in
-        (var,term)::substitutions
-      else
-        let curr_var = Var.mk_state_var_instance node_input E.cur_offset in
-        let prev_var = Var.mk_state_var_instance node_input E.pre_offset in
-        let curr_term = (call_input.E.expr_step :> Term.t) in
-        let prev_expr =
-          if i = 1 then 
-            call_input.E.expr_init
-          else 
-            call_input.E.expr_step
-        in
-        let prev_term = (prev_expr :> Term.t) in
-        (curr_var,curr_term) :: (prev_var,prev_term) :: substitutions
-    in
-    let substitutions = List.fold_left fold_input [] inputs in
-    let substitutions' = SVMap.fold fold_stream stream_map substitutions in
-    let substitutions'' = SVMap.fold fold_stream ancestors_stream_map substitutions' in
+    let substitutions = SVMap.fold fold_stream stream_map [] in
+    let substitutions' = SVMap.fold fold_stream ancestors_stream_map substitutions in
     let src_expr = if i = 0 then expr.E.expr_init else expr.E.expr_step in
-    let value = Eval.eval_term [] substitutions'' (src_expr :> Term.t) in
+    let value = Eval.eval_term [] substitutions' (src_expr :> Term.t) in
     (Eval.term_of_value value) :: var_model
   in
   let stream_len = Array.length (snd (snd (SVMap.choose stream_map))) in
@@ -159,7 +135,7 @@ let reconstruct_single_var inputs ancestors_stream_map stream_map expr =
 let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
   (* add reconstructed state variable [sv] to [stream_map] 
      if it is not already there *)
-  let fold_eqn inputs ancestors_stream_map stream_map (sv,expr) =
+  let fold_eqn ancestors_stream_map stream_map (sv,expr) =
     let prop = E.get_state_var_source sv in
     match prop with
     | E.Instance(_,_,_) ->
@@ -174,7 +150,6 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
        else
            let stream_terms = 
              reconstruct_single_var 
-               inputs 
                ancestors_stream_map 
                stream_map 
                expr 
@@ -196,8 +171,8 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
          let call = List.find (fun call -> call.N.call_pos = pos) calls in
          let inputs =
          List.combine 
+           ((List.map fst node.N.inputs) @ node.N.oracles)      
            call.N.call_inputs 
-           ((List.map fst node.N.inputs) @ node.N.oracles);      
          in
          let outputs = 
            List.combine
@@ -230,23 +205,12 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
        List.fold_left fold_output stream_map outputs
      in
 
-     let fold_input stream_map (actual,current_sv) =
-       SVMap.add
-         current_sv
-         (E.Input,actual)
-         stream_map
-     in
-
-     let stream_map'' =
-       List.fold_left fold_input stream_map inputs
-     in
-
      (* Reconstruct the stateless variables of this node *) 
      let stream_map'' = 
        List.fold_left 
-         (fold_eqn inputs ancestors_stream_map) 
+         (fold_eqn ancestors_stream_map) 
          stream_map'
-         (N.equations_order_by_dep nodes node).N.equations 
+         (inputs @ (N.equations_order_by_dep nodes node).N.equations) 
      in
 
      let merge_stream_maps sv t0 t1 =
