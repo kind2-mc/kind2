@@ -371,17 +371,32 @@ let stat_pt mdl level stats =
 
 
 (* Output counterexample as plain text *)
-let counterexample_pt mdl level trans_sys cex = 
+let counterexample_pt mdl level props trans_sys cex = 
 
-  (ignore_or_fprintf level)
-    !log_ppf 
-    "%a@."
-    (match TransSys.get_input trans_sys with
-      | TransSys.Lustre nodes -> 
-         LustrePath.pp_print_path_pt nodes
-      | TransSys.Native -> 
-         NativeInput.pp_print_path_pt)
-    cex
+  let prop_counterexample_pt nodes sv coi =
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<v>@[<hov>Counterexample for@ %s:@]@,@,%a@]@." 
+      (StateVar.name_of_state_var sv)
+      (LustrePath.pp_print_path_pt nodes coi true)
+      cex
+  in
+
+  match TransSys.get_input trans_sys with
+  | TransSys.Lustre nodes ->
+     let main_name = LustreNode.find_main nodes in
+     let prop_coi_map = 
+       LustreNode.reduce_to_separate_property_cois nodes main_name
+     in
+     StateVar.StateVarMap.iter (prop_counterexample_pt nodes) prop_coi_map
+  | TransSys.Native ->
+    (ignore_or_fprintf level)
+      !log_ppf 
+      "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
+      (pp_print_list Format.pp_print_string ",@ ")
+      props
+      NativeInput.pp_print_path_pt
+      cex
 
 (* Output statistics section as plain text *)
 let progress_pt mdl level k =
@@ -521,18 +536,36 @@ let disproved_xml mdl level k prop =
   
 
 (* Output counterexample as XML *)
-let counterexample_xml mdl level trans_sys cex = 
-
-  (ignore_or_fprintf level)
-    !log_ppf 
-    "%a@."
-    (match TransSys.get_input trans_sys with
-      | TransSys.Lustre nodes -> 
-         LustrePath.pp_print_path_xml nodes
-      | TransSys.Native -> 
-         NativeInput.pp_print_path_xml)
-    cex
-    
+let counterexample_xml mdl level props trans_sys cex = 
+  let print_prop ppf sv_name =
+    Format.printf 
+      "@[<hv 2><property>@,%s@;<0 -2></property>@]"
+      sv_name
+  in
+  match TransSys.get_input trans_sys with
+  | TransSys.Lustre nodes ->
+     let prop_counterexample_xml nodes sv coi =
+       (ignore_or_fprintf level)
+         !log_ppf
+         "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]@."
+         print_prop
+         (StateVar.name_of_state_var sv)
+         (LustrePath.pp_print_path_xml nodes coi true)
+         cex
+     in
+     let main_name = LustreNode.find_main nodes in
+     let prop_coi_map = 
+       LustreNode.reduce_to_separate_property_cois nodes main_name
+     in
+     StateVar.StateVarMap.iter (prop_counterexample_xml nodes) prop_coi_map
+  | TransSys.Native ->
+    (ignore_or_fprintf level)
+      !log_ppf 
+      "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]"
+      (pp_print_list print_prop ",@ ")
+      props
+      NativeInput.pp_print_path_xml
+      cex
 
 (* Output statistics section as XML *)
 let stat_xml mdl level stats =
@@ -697,17 +730,16 @@ let log_disproved mdl level k prop =
 (* Log a counterexample *)
 let log_counterexample mdl level props trans_sys cex =
   
-
   match TransSys.get_input trans_sys with
   | TransSys.Lustre nodes ->
      (match !log_format with 
-      | F_pt -> counterexample_pt mdl level trans_sys cex
-      | F_xml -> counterexample_xml mdl level trans_sys cex 
+      | F_pt -> counterexample_pt mdl level props trans_sys cex
+      | F_xml -> counterexample_xml mdl level props trans_sys cex 
       | F_relay -> ())
   | TransSys.Native ->
      match !log_format with 
-     | F_pt -> counterexample_pt mdl level trans_sys cex
-     | F_xml -> counterexample_xml mdl level trans_sys cex
+     | F_pt -> counterexample_pt mdl level props trans_sys cex
+     | F_xml -> counterexample_xml mdl level props trans_sys cex
      | F_relay -> ()
 
 (* Output summary of status of properties *)

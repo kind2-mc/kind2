@@ -83,6 +83,9 @@ let rec tree_path_components model =
 
 (* reconstructs a stateless variable
 
+   [start_at_init] Is a boolean which is true iff we element 0 of 
+   each of the streams is the initial instance.
+
    [expr] is the expression on the right-hand-side of a stateless variable
    definition
    
@@ -92,7 +95,7 @@ let rec tree_path_components model =
    [ancestors_stream_map] is the combined stream maps of all ancestors of
    the call containing the variable whose definition is [expr]
 *)
-let reconstruct_single_var ancestors_stream_map stream_map expr =
+let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
   (* Given that [var_model] contains the first [i] values of the stream 
      we are reconstructing (in reverse order) prepends the next value onto
      the front of [var_model] *)
@@ -101,7 +104,12 @@ let reconstruct_single_var ancestors_stream_map stream_map expr =
        (and pre instance [i]-1 when [i]>0) onto substitutions *)
     let fold_stream sv stream substitutions =
       if i = 0 then
-        let var = Var.mk_state_var_instance sv E.base_offset in
+        let var = 
+          if start_at_init then 
+            Var.mk_state_var_instance sv E.base_offset
+          else
+            Var.mk_state_var_instance sv E.cur_offset
+        in
         let stream_terms = snd stream in
         (var, stream_terms.(0)) :: substitutions                                   
       else
@@ -114,7 +122,12 @@ let reconstruct_single_var ancestors_stream_map stream_map expr =
     in
     let substitutions = SVMap.fold fold_stream stream_map [] in
     let substitutions' = SVMap.fold fold_stream ancestors_stream_map substitutions in
-    let src_expr = if i = 0 then expr.E.expr_init else expr.E.expr_step in
+    let src_expr = 
+      if i = 0 && start_at_init then 
+        expr.E.expr_init 
+      else 
+        expr.E.expr_step 
+    in
     let value = Eval.eval_term [] substitutions' (src_expr :> Term.t) in
     (Eval.term_of_value value) :: var_model
   in
@@ -132,7 +145,7 @@ let reconstruct_single_var ancestors_stream_map stream_map expr =
    [stream_map] is a map containing reconstructed streams of all 
    ancestors of [path] 
    *)    
-let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
+let rec reconstruct_stateless_variables nodes start_at_init calls ancestors_stream_map path =
   (* add reconstructed state variable [sv] to [stream_map] 
      if it is not already there *)
   let fold_eqn ancestors_stream_map stream_map (sv,expr) =
@@ -149,7 +162,8 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
          stream_map
        else
            let stream_terms = 
-             reconstruct_single_var 
+             reconstruct_single_var
+               start_at_init
                ancestors_stream_map 
                stream_map 
                expr 
@@ -232,6 +246,7 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
      let reconstruct_child path = 
        reconstruct_stateless_variables 
          nodes 
+         start_at_init
          node.N.calls 
          merged_stream_map 
          path
@@ -370,7 +385,7 @@ and pp_print_components ppf (inputs,outputs,locals,calls) =
     Format.fprintf ppf "@,%a" (pp_print_list pp_print_tree_path_xml "@,") calls
 
 (* prett_print a path in <path> tags, with stateless variables reconstructed *)
-let pp_print_path_xml nodes ppf model =
+let pp_print_path_xml nodes coi start_at_init ppf model =
   assert (List.length model > 0);
   let stream_map,call_map = tree_path_components model in
 
@@ -382,37 +397,16 @@ let pp_print_path_xml nodes ppf model =
      let reconstructed  = 
        reconstruct_stateless_variables 
          nodes 
+         start_at_init
          [] 
          SVMap.empty 
          main_node 
      in
-
-     let pp_print_property_cex ppf (sv,coi) =
-       let coi_svs = LustreNode.extract_state_vars coi in
-       let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
-       let reconstructed'' = cull_intermediate_streams reconstructed' in
-       let print_prop ppf sv =
-         Format.printf 
-           "@[<hv 2><property>@,%s@;<0 -2></property>@]"
-           (StateVar.name_of_state_var sv)
-       in
-       Format.printf
-         "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]"
-         print_prop 
-         sv
-         pp_print_tree_path_xml
-         reconstructed''
-     in
-     let main_name = LustreNode.find_main nodes in
-     let prop_coi_map = 
-       LustreNode.reduce_to_separate_property_cois nodes main_name
-     in
-     Format.fprintf
-       ppf
-       "%a"
-       (pp_print_list pp_print_property_cex "@.")
-       (SVMap.bindings prop_coi_map)
-
+     let coi_svs = LustreNode.extract_state_vars coi in
+     let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
+     let reconstructed'' = cull_intermediate_streams reconstructed' in
+     pp_print_tree_path_xml ppf reconstructed''
+  
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
@@ -526,40 +520,24 @@ let rec widths_of_model = function
      max max_stream_val_width max_call_val_width)
      
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
-let pp_print_path_pt nodes ppf model =
+let pp_print_path_pt nodes coi start_at_init ppf model =
   let stream_map,call_map = tree_path_components model in
-
   assert (SVMap.cardinal stream_map = 0);
   assert (CallMap.cardinal call_map = 1);
-
   let reconstructed = 
     reconstruct_stateless_variables 
-      nodes 
+      nodes
+      start_at_init
       []
       SVMap.empty
       (snd (CallMap.choose call_map))
   in
-  let pp_print_property_cex ppf (sv,(coi : N.t list)) =
-    let coi_svs = LustreNode.extract_state_vars coi in
-    let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
-    let reconstructed'' = cull_intermediate_streams reconstructed' in
-    let ident_width, val_width = widths_of_model reconstructed'' in
+  let coi_svs = LustreNode.extract_state_vars coi in
+  let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
+  let reconstructed'' = cull_intermediate_streams reconstructed' in
+  let ident_width, val_width = widths_of_model reconstructed'' in
+  pp_print_tree_path_pt ident_width val_width [] ppf reconstructed''
 
-    Format.printf
-      "@[<v>@[<hov>Counterexample for@ %s:@]@,@,%a@]"
-      (StateVar.name_of_state_var sv)
-      (pp_print_tree_path_pt ident_width val_width [])
-      reconstructed''
-  in
-  let main_name = LustreNode.find_main nodes in
-  let prop_coi_map = 
-    LustreNode.reduce_to_separate_property_cois nodes main_name
-  in
-  Format.fprintf
-    ppf
-    "%a"
-    (pp_print_list pp_print_property_cex "@.")
-    (SVMap.bindings prop_coi_map)
 
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)
