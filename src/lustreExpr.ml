@@ -84,14 +84,6 @@ let get_state_var_source state_var =
     state_var_source_map 
     state_var
 
-(* THIS NEEDS A THOUGHTFUL COMMENT *)
-let rec get_non_instance_state_var state_var =
-  match get_state_var_source state_var with
-  | Instance(_,_,state_var') ->
-     get_non_instance_state_var state_var'
-  | _ ->
-     state_var
-
 let rec pp_print_state_var_source ppf = function
   
   | Input -> Format.fprintf ppf "input"

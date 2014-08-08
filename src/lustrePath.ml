@@ -374,32 +374,44 @@ let pp_print_path_xml nodes ppf model =
   assert (List.length model > 0);
   let stream_map,call_map = tree_path_components model in
 
-  let x = "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]" in
-  let y = "@[<hv 2><property>@,%s@;<0 -2></property>@]" in
-
   assert (SVMap.cardinal stream_map = 0);
   assert (CallMap.cardinal call_map = 1);
 
-  let main_name = LustreNode.find_main nodes in
-  let prop_coi_map = 
-    LustreNode.reduce_to_separate_property_cois nodes main_name
-  in
-
   match CallMap.choose call_map with
   | _, main_node ->     
-     let main_node' = 
+     let reconstructed  = 
        reconstruct_stateless_variables 
          nodes 
          [] 
          SVMap.empty 
          main_node 
      in
-     let main_node'' = cull_intermediate_streams main_node' in
 
+     let pp_print_property_cex ppf (sv,coi) =
+       let coi_svs = LustreNode.extract_state_vars coi in
+       let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
+       let reconstructed'' = cull_intermediate_streams reconstructed' in
+       let print_prop ppf sv =
+         Format.printf 
+           "@[<hv 2><property>@,%s@;<0 -2></property>@]"
+           (StateVar.name_of_state_var sv)
+       in
+       Format.printf
+         "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]"
+         print_prop 
+         sv
+         pp_print_tree_path_xml
+         reconstructed''
+     in
+     let main_name = LustreNode.find_main nodes in
+     let prop_coi_map = 
+       LustreNode.reduce_to_separate_property_cois nodes main_name
+     in
      Format.fprintf
        ppf
-       "@[<hv 2><path>@,%a@;<0 -2></path>@]"
-       pp_print_tree_path_xml main_node''
+       "%a"
+       (pp_print_list pp_print_property_cex "@.")
+       (SVMap.bindings prop_coi_map)
 
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
@@ -548,63 +560,6 @@ let pp_print_path_pt nodes ppf model =
     "%a"
     (pp_print_list pp_print_property_cex "@.")
     (SVMap.bindings prop_coi_map)
-
-(*
-let pp_print_property_paths_pt_orig nodes ppf model =
-  let stream_map,call_map = tree_path_components model in
-
-  assert (SVMap.cardinal stream_map = 0);
-  assert (CallMap.cardinal call_map = 1);
-
-  let main_path = snd (CallMap.choose call_map) in
-
-  match main_path with
-  | Node(id,_,_,_) ->
-     let coi_map = LustreNode.reduce_to_separate_property_cois nodes id in 
-
-     let print_property_path (sv,nodes) =
-       let sv_ident = fst (E.ident_of_state_var sv) in
-       Format.fprintf ppf "Property: %a@," (I.pp_print_ident true) sv_ident;
-       pp_print_path_pt_orig nodes ppf model
-     in
- *)
-
-
-(*
-     let show_prop_counterexample prop_sv coi =
-       Format.printf "%a %a\n"
-                     StateVar.pp_print_state_var prop_sv
-                     (pp_print_list (LustreNode.pp_print_node true) ", ") coi;
-
-       let prop_name = StateVar.name_of_state_var prop_sv in
-       let coi_svs = LustreNode.extract_state_vars coi in
-
-       Format.printf "state vars in coi: %a\n" 
-         (pp_print_list (StateVar.pp_print_state_var) ",") 
-         (StateVar.StateVarSet.elements coi_svs);
-
-       let is_sv_in_coi (sv,terms) =
-         let sv' = LustreExpr.get_non_instance_state_var sv in
-         StateVar.StateVarSet.mem sv' coi_svs
-       in
-
-       (* counterexample filtered w.r.t. cone of influence *)
-       let cex' = List.filter is_sv_in_coi cex in
-
-       Format.printf "** %n **\n" (List.length cex');
-       Format.printf "state vars in cex': \n";
-       List.iter
-         (fun (sv,_) -> Format.printf "%a " StateVar.pp_print_state_var sv)
-         cex';
-
-       match !log_format with 
-       | F_pt -> counterexample_pt mdl level  trans_sys cex'
-       | F_xml -> counterexample_xml mdl level [prop_name] Some(node_coi) trans_sys cex' 
-       | F_relay -> ()      
-     in 
-
-     StateVar.StateVarMap.iter show_prop_counterexample prop_coi_map
-  *)
 
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)
