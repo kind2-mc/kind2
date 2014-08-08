@@ -371,18 +371,17 @@ let stat_pt mdl level stats =
 
 
 (* Output counterexample as plain text *)
-let counterexample_pt mdl level props trans_sys cex = 
+let counterexample_pt mdl level trans_sys cex = 
 
   (ignore_or_fprintf level)
     !log_ppf 
-    "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
-    (pp_print_list Format.pp_print_string ",@ ")
-    props
+    "%a@."
     (match TransSys.get_input trans_sys with
-      | TransSys.Lustre nodes -> LustrePath.pp_print_path_pt_orig nodes
-      | TransSys.Native -> NativeInput.pp_print_path_pt)
+      | TransSys.Lustre nodes -> 
+         LustrePath.pp_print_path_pt nodes
+      | TransSys.Native -> 
+         NativeInput.pp_print_path_pt)
     cex
-
 
 (* Output statistics section as plain text *)
 let progress_pt mdl level k =
@@ -522,21 +521,16 @@ let disproved_xml mdl level k prop =
   
 
 (* Output counterexample as XML *)
-let counterexample_xml mdl level props trans_sys cex = 
+let counterexample_xml mdl level trans_sys cex = 
 
   (ignore_or_fprintf level)
     !log_ppf 
-    "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]@."
-    (pp_print_list
-      (fun ppf p ->
-        Format.fprintf ppf
-          "@[<hv 2><property>@,%s@;<0 -2></property>@]"
-          p)
-      "@,")
-    props
+    "%a@."
     (match TransSys.get_input trans_sys with
-      | TransSys.Lustre nodes -> LustrePath.pp_print_path_xml_orig nodes
-      | TransSys.Native -> NativeInput.pp_print_path_xml)
+      | TransSys.Lustre nodes -> 
+         LustrePath.pp_print_path_xml nodes
+      | TransSys.Native -> 
+         NativeInput.pp_print_path_xml)
     cex
     
 
@@ -701,12 +695,20 @@ let log_disproved mdl level k prop =
 
 
 (* Log a counterexample *)
-let log_counterexample mdl level props trans_sys cex = 
-  match !log_format with 
-    | F_pt -> counterexample_pt mdl level props trans_sys cex
-    | F_xml -> counterexample_xml mdl level props trans_sys cex
-    | F_relay -> ()
+let log_counterexample mdl level props trans_sys cex =
+  
 
+  match TransSys.get_input trans_sys with
+  | TransSys.Lustre nodes ->
+     (match !log_format with 
+      | F_pt -> counterexample_pt mdl level trans_sys cex
+      | F_xml -> counterexample_xml mdl level trans_sys cex 
+      | F_relay -> ())
+  | TransSys.Native ->
+     match !log_format with 
+     | F_pt -> counterexample_pt mdl level trans_sys cex
+     | F_xml -> counterexample_xml mdl level trans_sys cex
+     | F_relay -> ()
 
 (* Output summary of status of properties *)
 let log_prop_status level prop_status =

@@ -31,7 +31,7 @@ end
 module CallMap = Map.Make(CallId)
 module SVMap = StateVar.StateVarMap
 
-(* The source and model of a stream *)
+(* (state var source, model terms) *)
 type stream = E.state_var_source * Term.t array
 
 (* A nested representation of a model *)
@@ -146,7 +146,7 @@ let reconstruct_single_var inputs ancestors_stream_map stream_map expr =
   let indices = list_init (fun i -> i) stream_len in
   Array.of_list (List.rev (List.fold_left fold_ind [] indices))
 
-(* reconstructs stateless variables at [path] and all paths reachable from it,
+(* reconstructs stateless variables of subtree rooted at [path].
    
    [nodes] is a list of all nodes in the program being processed and
    
@@ -184,7 +184,7 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
   match path with
   | Node(ident,pos,stream_map,call_map) ->
      let node = N.node_of_name ident nodes in
-     (* [inputs] is a list of (actual,formal) pairs for all inputs to this node,
+     (* [inputs] is a list of (formal,actual) pairs for all inputs to this node,
         or an empty list if this is the main node. 
 
        [outputs] is a list of (parent state var, current state var) pairs
@@ -214,11 +214,14 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
           [],[]
      in
 
-     (* Includes the model for the call output as the node output model *)
+     (* Use the model for the caller's return variables
+        as the model for the callee's output variables *)
      let fold_output stream_map (parent_sv,current_sv) =
+       let current_prop = E.get_state_var_source current_sv in
+       let parent_terms = snd (SVMap.find parent_sv ancestors_stream_map) in
        SVMap.add 
-         current_sv 
-         (SVMap.find parent_sv ancestors_stream_map) 
+         current_sv
+         (current_prop,parent_terms)
          stream_map 
      in
 
@@ -226,7 +229,18 @@ let rec reconstruct_stateless_variables nodes calls ancestors_stream_map path =
      let stream_map' = 
        List.fold_left fold_output stream_map outputs
      in
-     
+
+     let fold_input stream_map (actual,current_sv) =
+       SVMap.add
+         current_sv
+         (E.Input,actual)
+         stream_map
+     in
+
+     let stream_map'' =
+       List.fold_left fold_input stream_map inputs
+     in
+
      (* Reconstruct the stateless variables of this node *) 
      let stream_map'' = 
        List.fold_left 
@@ -281,7 +295,27 @@ let rec cull_intermediate_streams path =
      let stream_map' = SVMap.filter not_intermediate stream_map in
      let call_map' = CallMap.map cull_intermediate_streams call_map in 
      Node(ident,pos,stream_map',call_map')
- 
+
+(* removes all streams from the tree rooted at [path] which are not
+   contained in the cone of influence [coi]. *)
+let rec cull_with_coi coi nodes path =
+  match path with
+  | Node(ident,pos,stream_map,call_map) ->
+     let node = N.node_of_name ident nodes in
+     let calls = node.N.calls in
+     let filter_call (id,pos) path =
+       let call = List.find (fun call -> call.N.call_pos = pos) calls in
+       List.exists 
+         (fun sv -> StateVar.StateVarSet.mem sv coi)
+         call.N.call_returns
+     in
+     let stream_map' = 
+       SVMap.filter (fun sv _ -> StateVar.StateVarSet.mem sv coi) stream_map
+     in
+     let call_map' = CallMap.filter filter_call call_map in
+     let call_map'' = CallMap.map (cull_with_coi coi nodes) call_map' in
+     Node(ident,pos,stream_map',call_map'')
+
 (* ********************************************************************** *)
 (* XML output                                                             *)
 (* ********************************************************************** *)
@@ -371,29 +405,21 @@ and pp_print_components ppf (inputs,outputs,locals,calls) =
   if List.length calls > 0 then
     Format.fprintf ppf "@,%a" (pp_print_list pp_print_tree_path_xml "@,") calls
 
-(* Pretty-print a path in <path> tags *)
-let pp_print_path_xml ppf model =
-  let stream_map, call_map = tree_path_components model in
-  
-  assert (SVMap.cardinal stream_map = 0);
-  assert (CallMap.cardinal call_map = 1);
-
-  match CallMap.choose call_map with
-  | _, main_node ->
-     let main_node' = cull_intermediate_streams main_node in
-     
-     Format.fprintf
-       ppf
-       "@[<hv 2><path>@,%a@;<0 -2></path>@]"
-       pp_print_tree_path_xml main_node'
-
 (* prett_print a path in <path> tags, with stateless variables reconstructed *)
-let pp_print_path_xml_orig nodes ppf model =
+let pp_print_path_xml nodes ppf model =
   assert (List.length model > 0);
   let stream_map,call_map = tree_path_components model in
-  
+
+  let x = "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]" in
+  let y = "@[<hv 2><property>@,%s@;<0 -2></property>@]" in
+
   assert (SVMap.cardinal stream_map = 0);
   assert (CallMap.cardinal call_map = 1);
+
+  let main_name = LustreNode.find_main nodes in
+  let prop_coi_map = 
+    LustreNode.reduce_to_separate_property_cois nodes main_name
+  in
 
   match CallMap.choose call_map with
   | _, main_node ->     
@@ -523,27 +549,8 @@ let rec widths_of_model = function
      (max max_stream_ident_width max_call_ident_width,
      max max_stream_val_width max_call_val_width)
      
-(* Pretty-print a path in plain text *)
-let pp_print_path_pt ppf model =
-  let stream_map,call_map = tree_path_components model in
-
-  assert (SVMap.cardinal stream_map = 0);
-  assert (CallMap.cardinal call_map = 1);
-
-  match CallMap.choose call_map with
-  | _, main_node ->
-     let main_node' = cull_intermediate_streams main_node in
-     let ident_width, val_width = widths_of_model main_node in
-
-      pp_print_tree_path_pt
-        ident_width
-        val_width
-        []
-        ppf
-        main_node'
-
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
-let pp_print_path_pt_orig nodes ppf model =
+let pp_print_path_pt nodes ppf model =
   let stream_map,call_map = tree_path_components model in
 
   assert (SVMap.cardinal stream_map = 0);
@@ -556,14 +563,84 @@ let pp_print_path_pt_orig nodes ppf model =
       SVMap.empty
       (snd (CallMap.choose call_map))
   in
-  let reconstructed' = cull_intermediate_streams reconstructed in
-  let ident_width, val_width = widths_of_model reconstructed in
-  pp_print_tree_path_pt
-    ident_width
-    val_width
-    []
+  let pp_print_property_cex ppf (sv,(coi : N.t list)) =
+    let coi_svs = LustreNode.extract_state_vars coi in
+    let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
+    let reconstructed'' = cull_intermediate_streams reconstructed' in
+    let ident_width, val_width = widths_of_model reconstructed'' in
+
+    Format.printf
+      "@[<v>@[<hov>Counterexample for@ %s:@]@,@,%a@]"
+      (StateVar.name_of_state_var sv)
+      (pp_print_tree_path_pt ident_width val_width [])
+      reconstructed''
+  in
+  let main_name = LustreNode.find_main nodes in
+  let prop_coi_map = 
+    LustreNode.reduce_to_separate_property_cois nodes main_name
+  in
+  Format.fprintf
     ppf
-    reconstructed'
+    "%a"
+    (pp_print_list pp_print_property_cex "@.")
+    (SVMap.bindings prop_coi_map)
+
+(*
+let pp_print_property_paths_pt_orig nodes ppf model =
+  let stream_map,call_map = tree_path_components model in
+
+  assert (SVMap.cardinal stream_map = 0);
+  assert (CallMap.cardinal call_map = 1);
+
+  let main_path = snd (CallMap.choose call_map) in
+
+  match main_path with
+  | Node(id,_,_,_) ->
+     let coi_map = LustreNode.reduce_to_separate_property_cois nodes id in 
+
+     let print_property_path (sv,nodes) =
+       let sv_ident = fst (E.ident_of_state_var sv) in
+       Format.fprintf ppf "Property: %a@," (I.pp_print_ident true) sv_ident;
+       pp_print_path_pt_orig nodes ppf model
+     in
+ *)
+
+
+(*
+     let show_prop_counterexample prop_sv coi =
+       Format.printf "%a %a\n"
+                     StateVar.pp_print_state_var prop_sv
+                     (pp_print_list (LustreNode.pp_print_node true) ", ") coi;
+
+       let prop_name = StateVar.name_of_state_var prop_sv in
+       let coi_svs = LustreNode.extract_state_vars coi in
+
+       Format.printf "state vars in coi: %a\n" 
+         (pp_print_list (StateVar.pp_print_state_var) ",") 
+         (StateVar.StateVarSet.elements coi_svs);
+
+       let is_sv_in_coi (sv,terms) =
+         let sv' = LustreExpr.get_non_instance_state_var sv in
+         StateVar.StateVarSet.mem sv' coi_svs
+       in
+
+       (* counterexample filtered w.r.t. cone of influence *)
+       let cex' = List.filter is_sv_in_coi cex in
+
+       Format.printf "** %n **\n" (List.length cex');
+       Format.printf "state vars in cex': \n";
+       List.iter
+         (fun (sv,_) -> Format.printf "%a " StateVar.pp_print_state_var sv)
+         cex';
+
+       match !log_format with 
+       | F_pt -> counterexample_pt mdl level  trans_sys cex'
+       | F_xml -> counterexample_xml mdl level [prop_name] Some(node_coi) trans_sys cex' 
+       | F_relay -> ()      
+     in 
+
+     StateVar.StateVarMap.iter show_prop_counterexample prop_coi_map
+  *)
 
 (* ********************************************************************** *)
 (* Plain-text output                                                      *)

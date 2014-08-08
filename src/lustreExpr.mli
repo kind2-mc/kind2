@@ -273,6 +273,9 @@ val set_state_var_source : StateVar.t -> state_var_source -> unit
 (** Get source of state variable *)
 val get_state_var_source : StateVar.t -> state_var_source
 
+(** NEEDS COMMENT *)
+val get_non_instance_state_var : StateVar.t -> StateVar.t
+
 (** Return previously created state variable of the same identifier
 
     Raise [Not_found] if there is no state variable of the given
