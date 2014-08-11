@@ -1631,6 +1631,12 @@ struct
 
           | [t] :: atl -> 
 
+            let rec aux accum = function 
+              | [] -> List.rev accum 
+              | (v, _) :: tl when v = i -> List.rev_append ((v, E t) :: accum) tl 
+              | h :: tl -> aux (h :: accum) tl
+            in
+(*
             (* Modify context to store evaluation for variable *)
             let subst' = 
               List.map 
@@ -1639,6 +1645,9 @@ struct
                   | e -> e)
                 subst
             in
+*)
+            (* Modify context to store evaluation for variable *)
+            let subst' = aux [] subst in 
 
             (* Continue with modified context *)
             fold_t f subst' atl itl

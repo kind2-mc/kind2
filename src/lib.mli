@@ -21,6 +21,12 @@
     @author Christoph Sticksel
 *)
 
+(** {1 Option types} *)
+
+(** Return the value of an option type, raise [Invalid_argument "get"]
+    if the option value is [None] *)
+val get : 'a option -> 'a
+
 (** {1 Infinite-precision numbers and bit-vectors} *)
 
 (** Constant bitvector *)
@@ -62,6 +68,12 @@ val string_starts_with : string -> string -> bool
 val safe_hash_interleave : int -> int -> int -> int
 
 (** {1 List functions} *)
+
+(** Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
+val list_init : (int -> 'a) -> int -> 'a list
+
+(** Returns the maximum element of a non-empty list *)
+val list_max : 'a list -> 'a
 
 (** Return the index of the first element that satisfies the predicate
     [p], raise excpetion [Not_found] if no element satisfies the
@@ -105,18 +117,46 @@ val list_diff_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> 'a list
     in the second list *)
 val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
 
+(** Given two ordered association lists with identical keys, push the
+    values of each element of the first association list to the list of
+    elements of the second association list.
+
+    The returned association list is in the order of the input lists,
+    the function [equal] is used to compare keys. Raise [Failure
+    "list_join"] if the lists are not of identical length and the keys
+    at each element are equal. *)
+val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
+
 (** Lexicographic comparison of lists *)
 val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
 
+(** {1 Array functions} *)
+
+(** Returns the maximum element of a non-empty array *)
+val array_max : 'a array -> 'a
+
 (** {1 Pretty-printing helpers} *)
+
+(** Pretty-print an array with given separator
+ 
+ [pp_print_array elem_printer separator formatter array] calls,
+ for each index [i] of the array whose corresponding element is [element], 
+ [elem_printer formatter i element]. Between each of these calls
+ it prints the string [separator].
+
+ In order to get line breaks between the elements, do not use a
+ line feed character [\n] as separator, this might mess up
+ indentation. Instead wrap the list into a vertical box with the
+ format string [@\[<v>%a@\]] and the empty string as separator.
+
+*) 
+val pp_print_arrayi : (Format.formatter -> int -> 'a -> unit) -> (unit, Format.formatter, unit) format -> Format.formatter -> 'a array -> unit
 
 (** Pretty-print a list with given separator 
 
     [pp_print_list p s f l] pretty-prints the elements in the list [l]
     by calling the pretty-printer [p] on each, separating the elements
-    by printing the string [s] and marking the position after each [s]
-    as a good break. Use this after opening a pretty-printing box to
-    make use of the break hints.
+    by printing the string [s].
 
     In order to get line breaks between the elements, do not use a
     line feed character [\n] as separator, this might mess up
@@ -135,8 +175,72 @@ val string_of_t : (Format.formatter -> 'a -> unit) -> 'a -> string
 (** Return the strings as a parenthesized and space separated list *)
 val paren_string_of_string_list : string list -> string
 
+(** {1 Logging} *)
+
+(** Levels of log messages
+
+    - [L_fatal] A severe error that will lead to an immediate abort
+
+    - [L_error] An error event that might still allow to continue
+
+    - [L_warn] A potentially harmful situation
+
+    - [L_info] An informational message that highlight progress at a
+      coarse-grained level
+
+    - [L_debug] A fine-grained informational event that is useful for
+      debugging but not for an end user 
+
+    - [L_trace] A finer-grained informational event than [L_debug]
+
+ *)
+type log_level =
+  | L_off
+  | L_fatal
+  | L_error
+  | L_warn
+  | L_info
+  | L_debug
+  | L_trace
+
+
+(** Associate an integer with each level to induce a total ordering *)
+val int_of_log_level : log_level -> int
+
+val log_level_of_int : int -> log_level
+
+
+(** Current formatter for output *)
+val log_ppf : Format.formatter ref 
+
+(** Ouputs all log messages to the given file *)
+val log_to_file : string -> unit
+
+(** Write all log messages to the standard output *)
+val log_to_stdout : unit -> unit
+
+(** Set log level
+
+    Only output messages of levels with equal or higher priority *)
+val set_log_level : log_level -> unit 
+
+(** Return true if given log level is of higher or equal priority than
+    current log level? *)
+val output_on_level : log_level -> bool
+
+(** Return Format.fprintf if level is is of higher or equal priority
+    than current log level, otherwise return Format.ifprintf *)
+val ignore_or_fprintf : log_level -> Format.formatter -> ('a, Format.formatter, unit) format -> 'a
+
 
 (** {1 System functions} *)
+
+(** Output the banner on the formatter *)
+val pp_print_banner : Format.formatter -> unit -> unit
+
+(** Output the version number on the formatter *)
+val pp_print_version : Format.formatter -> unit
+
 
 (** Kind modules *)
 type kind_module =
@@ -147,6 +251,32 @@ type kind_module =
   | `INVMAN
   | `Interpreter
   | `Parser ]
+
+
+(** Status of a property *)
+type prop_status =
+
+  (** Status of property is unknown *)
+  | PropUnknown
+
+  (** Property is true up to k-th step *)
+  | PropKTrue of int
+
+  (** Property is invariant *)
+  | PropInvariant 
+
+  (** Property is false at some step *)
+  | PropFalse
+
+  (** Property is false at k-th step *)
+  | PropKFalse of int 
+
+(** Pretty-print a property status *)
+val pp_print_prop_status : Format.formatter -> prop_status -> unit
+
+(** Return true if the property is proved or disproved, i.e., for
+    [PropInvariant], [PropFalse] and [PropKFalse].  *)
+val prop_status_known : prop_status -> bool
 
 (** Wallclock timeout *)
 exception TimeoutWall
@@ -172,11 +302,18 @@ val pp_print_kind_module : Format.formatter -> kind_module -> unit
 (** String representation of a process type *)
 val string_of_kind_module : kind_module -> string 
 
+(** Return a short representation of kind module *)
+val suffix_of_kind_module : kind_module -> string
+
 (** Kind module of a string *)
 val kind_module_of_string : string -> kind_module
 
 (** Sleep for seconds, resolution is in ms *)
 val minisleep : float -> unit
+
+(** Return full path to executable, search PATH environment variable
+    and current working directory *)
+val find_on_path : string -> string 
 
 
 (* 

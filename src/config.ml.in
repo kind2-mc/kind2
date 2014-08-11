@@ -27,27 +27,6 @@ let package_name = "@PACKAGE_NAME@"
 
 let package_version = "@PACKAGE_VERSION@"
 
-let z3_bin = "@Z3_BIN@"
-
-let z3_args = [| z3_bin; "-smt2"; "-in" |]
-
-
-let cvc4_bin = "@CVC4_BIN@"
-
-let cvc4_args = [| cvc4_bin; "--lang"; "smt2"; "--incremental" |]
-
-
-let mathsat5_bin = "@MATHSAT5_BIN@"
-
-let mathsat5_args = [| mathsat5_bin; "-input=smt2" |]
-
-
-let iz3_bin = "@IZ3_BIN@"
-
-let iz3_args = [| iz3_bin; "-f" |]
-
-module SMTSolver = @SMTSOLVER@
-
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

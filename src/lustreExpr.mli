@@ -40,9 +40,11 @@ exception Type_mismatch
 (** Clocks of expressions are not compatible *)
 exception Clock_mismatch
 
-(** A term inside a Lustre expression
+(** A {!Term.t} representing a Lustre expression, state variable
+    offsets refer to the current and the previous instant. 
 
-    Cannot be constructed outside this module to enforce invariants *)
+    Cannot be constructed outside this module to enforce invariants
+    about allowed offsets of state variable instants. *)
 type expr = private Term.t
 
 (** A clock
@@ -263,6 +265,8 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
     retrieved via {!ident_of_state_var}. *)
 val mk_state_var_of_ident : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> StateVar.t
 
+val mk_fresh_state_var : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Numeral.t ref -> StateVar.t
+
 (** Set source of state variable *)
 val set_state_var_source : StateVar.t -> state_var_source -> unit
 
@@ -312,7 +316,7 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : LustreAst.position -> (Type.t -> StateVar.t) -> StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : LustreAst.position -> (Type.t -> StateVar.t) -> (LustreAst.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 

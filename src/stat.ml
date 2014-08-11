@@ -267,6 +267,9 @@ let pp_print_bmc_stats ppf =
 let ind_k = 
   empty_item "k" 0
 
+let ind_compress_clauses =
+  empty_item "Compressing clauses" 0
+
 let ind_restarts = 
   empty_item "Restarts" 0
 
@@ -279,6 +282,7 @@ let ind_stats_title = "Inductive step"
 (* All inductive step statistics *)
 let ind_stats = 
   [ I ind_k;
+    I ind_compress_clauses;
     I ind_restarts;
     F ind_total_time ] 
 
@@ -297,6 +301,9 @@ let pp_print_ind_stats ppf =
 
 let pdr_k = 
   empty_item "k" 0
+
+let pdr_restarts = 
+  empty_item "Restarts" 0
 
 let pdr_frame_sizes = 
   empty_item "Frame sizes" []
@@ -352,6 +359,7 @@ let pdr_stats_title = "PDR"
 (* All PDR statistics *)
 let pdr_stats = 
   [ I pdr_k; 
+    I pdr_restarts;
     L pdr_frame_sizes; 
     I pdr_fwd_propagated; 
     I pdr_fwd_fixpoint; 

@@ -19,6 +19,7 @@
 open Lib
 
 module A = LustreAst
+module I = LustreIdent
 
 (* Parse from input channel *)
 let of_channel in_ch = 
@@ -45,7 +46,7 @@ let of_channel in_ch =
           Lexing.lexeme_start_p lexbuf 
         in
 
-        A.fail_at_position
+        LustreSimplify.fail_at_position
           (A.position_of_lexing lexer_pos)
           "Syntax error"
 
@@ -91,7 +92,7 @@ let of_channel in_ch =
   (* Create transition system of Lustre nodes
 
      TODO: Split definitions into init and trans part *)
-  let fun_defs, state_vars, init, trans = 
+  let fun_defs_init, fun_defs_trans, state_vars, init, trans = 
     LustreTransSys.trans_sys_of_nodes main_node nodes_coi
   in
 
@@ -99,22 +100,42 @@ let of_channel in_ch =
   let props = 
     LustreTransSys.props_of_nodes main_node nodes_coi
   in
-    
+  
 
   (* Create Kind transition system *)
   let trans_sys = 
     TransSys.mk_trans_sys 
-      fun_defs
+      (List.combine fun_defs_init fun_defs_trans)
       state_vars
       init
       trans
       props
+      (TransSys.Lustre nodes_coi)
   in
 
   (debug lustreInput 
       "%a"
       TransSys.pp_print_trans_sys trans_sys
-  in
+   in
+
+   debug lustreInput 
+      "@[<v>%a@]"
+      (pp_print_list
+         (fun ppf sv -> 
+            Format.fprintf ppf
+              "@[<h>%a: %a@]"
+              StateVar.pp_print_state_var sv
+              LustreExpr.pp_print_state_var_source 
+              (LustreExpr.get_state_var_source sv))
+         "@,")
+      state_vars
+   in
+
+   Event.log
+     L_info
+     "Lustre main node is %a"
+     (I.pp_print_ident false) main_node;
+
 (*
   Format.printf 
     "%a@."

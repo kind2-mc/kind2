@@ -153,44 +153,39 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `Z3_API | `CVC4_SMTLIB | `CVC4_API | `MathSAT5 | `Yices ]
+type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `detect ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
-  | "Z3_SMTLIB" -> `Z3_SMTLIB
-  | "Z3_API" -> `Z3_API
   | "CVC4" -> `CVC4_SMTLIB
-  | "CVC4_SMTLIB" -> `CVC4_SMTLIB
-  | "CVC4_API" -> `CVC4_API
-  | "mathsat5" -> `MathSAT5
-  | "Yices" -> `Yices
+  | "MathSat5" -> `MathSat5_SMTLIB
+  | "Yices" -> `Yices_SMTLIB
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
 let string_of_smtsolver = function 
-  | `Z3_SMTLIB -> "Z3_SMTLIB"
-  | `Z3_API -> "Z3_API"
-  | `CVC4_SMTLIB -> "CVC4_SMTLIB"
-  | `CVC4_API -> "CVC4_API"
-  | `Yices -> "Yices"
-  | `MathSAT5 -> "MathSAT5"
+  | `Z3_SMTLIB -> "Z3"
+  | `CVC4_SMTLIB -> "CVC4"
+  | `Yices_SMTLIB -> "Yices"
+  | `MathSat5_SMTLIB -> "MathSat5"
+  | `detect -> "detect"
 
-let smtsolver_values = "Z3, CVC4, mathsat5"
+let smtsolver_values = "Z3, CVC4, MathSat5, yices"
 
-let smtsolver_default = `Z3_SMTLIB
+let smtsolver_default = `detect
 
 (* ********** *) 
 
-type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
+type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
     
 let smtlogic_of_string = function
-  | "LIA" -> `QF_LIA
-  | "LRA" -> `QF_LRA
+  | "LIA" -> `QF_UFLIA
+  | "LRA" -> `QF_UFLRA
   | "detect" -> `detect
   | _ -> raise (Arg.Bad "Bad value for --smtlogic")
 
 let string_of_smtlogic = function 
-  | `QF_LIA -> "LIA"
-  | `QF_LRA -> "LRA"
+  | `QF_UFLIA -> "LIA"
+  | `QF_UFLRA -> "LRA"
   | `detect -> "detect"
 
 let smtlogic_values = "LIA, LRA, detect"
@@ -205,7 +200,7 @@ let z3_bin_of_string s = s
 
 let string_of_z3_bin s = s 
 
-let z3_bin_default = "@Z3_BIN@"
+let z3_bin_default = "z3"
 
 (* ********** *) 
 
@@ -215,7 +210,7 @@ let cvc4_bin_of_string s = s
 
 let string_of_cvc4_bin s = s 
 
-let cvc4_bin_default = "@CVC4_BIN@"
+let cvc4_bin_default = "cvc4"
 
 (* ********** *) 
 
@@ -225,7 +220,29 @@ let mathsat5_bin_of_string s = s
 
 let string_of_mathsat5_bin s = s 
 
-let mathsat5_bin_default = "@MATHSAT5_BIN@"
+let mathsat5_bin_default = "mathsat"
+
+(* ********** *) 
+
+type yices_bin = string 
+
+let yices_bin_of_string s = s
+
+let string_of_yices_bin s = s 
+
+let yices_bin_default = "yices-smt2"
+
+(* ********** *) 
+
+type smt_trace = bool
+
+let smt_trace_default = false
+
+(* ********** *) 
+
+type smt_trace_dir = string
+
+let smt_trace_dir_default = Sys.getcwd ()
 
 (* ********** *) 
 
@@ -258,11 +275,29 @@ let rec string_of_enable' accum = function
 
 let string_of_enable = string_of_enable' ""
 
-let enable_values = "PDR, BMC, IND, INVGEN"
+let enable_values = "PDR, BMC, IND, INVGEN, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR; `BMC]
+let enable_default_after = [`PDR; `BMC; `IND]
+
+(* ********** *) 
+
+type check_version = bool
+
+let check_version_default = false
+
+(* ********** *) 
+
+type bmc_max = int
+    
+let bmc_max_default = 0
+
+(* ********** *) 
+
+type ind_compress = bool
+    
+let ind_compress_default = true
 
 (* ********** *) 
 
@@ -406,18 +441,20 @@ let interpreter_steps_default = 0
 
 (* ********** *) 
 
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
     
 let input_format_of_string = function
   | "lustre" -> `Lustre
   | "horn" -> `Horn
+  | "native" -> `Native
   | _ -> raise (Arg.Bad "Bad value for --input-format")
 
 let string_of_input_format = function 
   | `Lustre -> "lustre"
   | `Horn -> "horn"
+  | `Native -> "native"
 
-let input_format_values = "lustre, horn"
+let input_format_values = "lustre, native"
 
 let input_format_default = `Lustre
 
@@ -441,7 +478,7 @@ let debug_log_default = None
 
 (* ********** *) 
 
-let log_level_default = Event.L_warn
+let log_level_default = L_warn
 
 (* ********** *) 
 
@@ -458,7 +495,13 @@ type flags =
       mutable z3_bin : z3_bin;
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
+      mutable yices_bin : yices_bin;
+      mutable smt_trace : smt_trace;
+      mutable smt_trace_dir : smt_trace_dir;
       mutable enable : enable;
+      mutable check_version : check_version;
+      mutable bmc_max : bmc_max;
+      mutable ind_compress : ind_compress;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
       mutable pdr_check_inductive : pdr_check_inductive;
@@ -477,7 +520,7 @@ type flags =
       mutable lustre_main : lustre_main;
       mutable debug : string list;
       mutable debug_log : string option;
-      mutable log_level : Event.log_level;
+      mutable log_level : log_level;
       mutable log_format_xml : bool;
       mutable input_format : input_format;
       mutable input_file : string option }
@@ -491,7 +534,13 @@ let flags =
     z3_bin = z3_bin_default;
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
+    yices_bin = yices_bin_default;
+    smt_trace = smt_trace_default;
+    smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
+    check_version = check_version_default;
+    bmc_max = bmc_max_default;
+    ind_compress = ind_compress_default;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
@@ -520,7 +569,7 @@ let flags =
 let timeout_wall_action o = flags.timeout_wall <- o  
 
 let timeout_wall_spec = 
-  ("-timeout_wall", 
+  ("--timeout_wall", 
    Arg.Float timeout_wall_action, 
    Format.sprintf "wallclock timeout (default: %1.f)" timeout_wall_default)
 
@@ -529,7 +578,7 @@ let timeout_wall_spec =
 let timeout_virtual_action o = flags.timeout_virtual <- o  
 
 let timeout_virtual_spec = 
-  ("-timeout_virtual", 
+  ("--timeout_virtual", 
    Arg.Float timeout_virtual_action, 
    Format.sprintf "CPU timeout (default: %1.f)" timeout_virtual_default)
 
@@ -580,12 +629,70 @@ let mathsat5_bin_spec =
 
 (* ********** *) 
 
-let enable_action o = flags.enable <- (kind_module_of_string o) :: flags.enable
+let yices_bin_action o = flags.yices_bin <- (yices_bin_of_string o)
+  
+let yices_bin_spec = 
+  ("--yices_bin", 
+   Arg.String yices_bin_action, 
+   Format.sprintf "executable of Yices solver (default: %s)" (string_of_yices_bin yices_bin_default))
+
+(* ********** *) 
+
+let smt_trace_action o = flags.smt_trace <- true
+  
+let smt_trace_spec = 
+  ("--smt_trace", 
+   Arg.Unit smt_trace_action, 
+   Format.sprintf "Write all SMT commands to files")
+
+(* ********** *) 
+
+let smt_trace_dir_action o = flags.smt_trace_dir <- o
+  
+let smt_trace_dir_spec = 
+  ("--smt_trace_dir", 
+   Arg.String smt_trace_dir_action, 
+   Format.sprintf "Directory for trace logs of SMT commands (default: %s)" smt_trace_dir_default)
+
+(* ********** *) 
+
+let enable_action o = 
+
+  (* Ensure the each module is at most once in flags.enable *)
+  let mdl = kind_module_of_string o in
+  if not (List.mem mdl flags.enable) then flags.enable <- mdl :: flags.enable
   
 let enable_spec = 
   ("--enable", 
    Arg.String enable_action, 
    Format.sprintf "enable Kind module (available: %s, default: %s)" enable_values (string_of_enable enable_default_after))
+
+(* ********** *) 
+
+let check_version_action () = flags.check_version <- true
+  
+let check_version_spec = 
+  ("--version", 
+   Arg.Unit check_version_action, 
+   Format.sprintf "Output version information and exit")
+
+(* ********** *) 
+
+let bmc_max_action o = flags.bmc_max <- o
+  
+let bmc_max_spec = 
+  ("--bmc_max", 
+   Arg.Int bmc_max_action, 
+   Format.sprintf "(BMC) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+
+(* ********** *) 
+
+let ind_compress_action o = flags.ind_compress <- o
+  
+let ind_compress_spec = 
+  ("--ind_compress", 
+   Arg.Bool ind_compress_action, 
+   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)" ind_compress_default)
 
 (* ********** *) 
 
@@ -758,32 +865,32 @@ let log_level_action o () = flags.log_level <- o
   
 let log_level_off_spec = 
   ("-qq", 
-   Arg.Unit (log_level_action Event.L_off), 
+   Arg.Unit (log_level_action L_off), 
    Format.sprintf "Disable output completely")
 
 let log_level_fatal_spec = 
   ("-q", 
-   Arg.Unit (log_level_action Event.L_fatal), 
+   Arg.Unit (log_level_action L_fatal), 
    Format.sprintf "Disable output, fatal errors only")
 
 let log_level_error_spec = 
   ("-s", 
-   Arg.Unit (log_level_action Event.L_error), 
+   Arg.Unit (log_level_action L_error), 
    Format.sprintf "Silence output, errors only")
 
 let log_level_info_spec = 
   ("-v", 
-   Arg.Unit (log_level_action Event.L_info), 
+   Arg.Unit (log_level_action L_info), 
    Format.sprintf "Output informational messages")
 
 let log_level_debug_spec = 
   ("-vv", 
-   Arg.Unit (log_level_action Event.L_debug), 
+   Arg.Unit (log_level_action L_debug), 
    Format.sprintf "Output informational and debug messages")
 
 let log_level_trace_spec = 
   ("-vvv", 
-   Arg.Unit (log_level_action Event.L_trace), 
+   Arg.Unit (log_level_action L_trace), 
    Format.sprintf "Output informational, debug and trace messages")
 
 (* ********** *) 
@@ -828,7 +935,19 @@ let cvc4_bin () = flags.cvc4_bin
 
 let mathsat5_bin () = flags.mathsat5_bin
 
+let yices_bin () = flags.yices_bin
+
+let smt_trace () = flags.smt_trace
+
+let smt_trace_dir () = flags.smt_trace_dir
+
 let enable () = flags.enable 
+
+let check_version () = flags.check_version 
+
+let bmc_max () = flags.bmc_max 
+
+let ind_compress () = flags.ind_compress 
 
 let pdr_qe () = flags.pdr_qe 
 
@@ -912,8 +1031,26 @@ and speclist =
     (* Set executable for MathSAT5 solver *)
     mathsat5_bin_spec;
 
+    (* Set executable for Yices solver *)
+    yices_bin_spec;
+
+    (* Write all SMT commands to files *)
+    smt_trace_spec;
+
+    (* Directory for  trace logs of SMT commands *)
+    smt_trace_dir_spec;
+
     (* Set enabled modules *)
     enable_spec;
+
+    (* Output version information and exit *)
+    check_version_spec;
+
+    (* Maximal number of iterations in BMC *)
+    bmc_max_spec;
+
+    (* Compress inductive counterexamples *)
+    ind_compress_spec;
 
     (* Set QE in PDR *)
     pdr_qe_spec;
@@ -1000,12 +1137,44 @@ let anon_action s =
     | None -> flags.input_file <- Some s
     | Some _ -> raise (Arg.Bad "More than one input file given")
 
-  
+let set_smtsolver = function 
+
+  | `Z3_SMTLIB as smtsolver -> 
+
+    (function z3_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.z3_bin <- z3_bin)
+
+  | `CVC4_SMTLIB as smtsolver -> 
+
+    (function cvc4_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.cvc4_bin <- cvc4_bin)
+
+  | `MathSat5_SMTLIB as smtsolver -> 
+
+    (function mathsat5_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.mathsat5_bin <- mathsat5_bin)
+
+  | `Yices_SMTLIB as smtsolver -> 
+
+    (function yices_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.yices_bin <- yices_bin)
+
+  | `detect -> (function _ -> ())
+
+       
 let parse_argv () = 
   
   (* Parse command-line arguments *)
   Arg.parse speclist anon_action usage_msg;
   
+  (* Output version information only? *)
+  if check_version () then 
+    (Format.printf "%t@." pp_print_version; exit 0);
+    
   (* Set default value if unchanged *)
   if flags.enable = enable_default_init then 
     flags.enable <- enable_default_after;

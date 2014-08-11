@@ -16,19 +16,20 @@
 
 *)
 
-(** Inductive step 
-   
-   @author Ruoyu Zhang
+(** Parse a file in native input format into a transition system 
+
+    @author Christoph Sticksel
 *)
 
-(** Step case checking of the k-induction for properties on the transistion 
-    system *)
-    
-(** Entry point *)
-val main : TransSys.t -> unit
+(** Parse from the channel *)
+val of_channel : in_channel -> TransSys.t
 
-(** Cleanup before exit *)
-val on_exit : unit -> unit
+(** Parse from the file *)
+val of_file : string -> TransSys.t
+
+val pp_print_path_pt : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 
 (* 

@@ -20,7 +20,7 @@
 
     This module defines S-expressions over arbitrary atoms. Use the
     functor {!Make} to instantiate the type to a concrete type, see
-    {!StringSExpr}.
+    {!HStringSExpr}.
 
     @author Christoph Sticksel 
     

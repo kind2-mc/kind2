@@ -15,13 +15,43 @@
    permissions and limitations under the License. 
 
 *)
- 	
+        
 open Lib
 
-let on_exit () =
+let pp_print_hline ppf = 
+  
+  Format.fprintf 
+    ppf 
+    "------------------------------------------------------------------------"
+    
 
+let on_exit trans_sys =
+  
+  Event.log
+    L_info
+    "@[<v>%t@,\
+     Final statistics:@]"
+    pp_print_hline;
+  
+  List.iter 
+    (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
+    (Event.all_stats ());
+  
+  Event.log
+    L_fatal
+    "@[<v>%t@,\
+     Summary of properties:@]"
+    pp_print_hline;
+  
+  (match trans_sys with | None -> () | Some trans_sys ->
+    Event.log_prop_status L_fatal (TransSys.prop_status_all trans_sys));
+    
+  Event.log
+    L_warn 
+    "";
+  
   try 
-
+    
     (* Send termination message to all worker processes *)
     Event.terminate ();
 
@@ -29,170 +59,139 @@ let on_exit () =
   with Messaging.NotInitialized -> ()
 
 
-(* Wait for child processes to die and remove from list of running processes,
+(* Remove terminated child processed from list of running processes
 
-   Return [true] if the last child processes has died or if one
-   process exited normally, signalling an answer *)
+   Return [true] if the last child processes has terminated or some
+   process exited with a runtime error or was killed. *)
 let rec wait_for_children child_pids = 
 
-  (* TODO: Can we use SIGCHLG? Don't periodically do waitpid, but handle
-     signal and raise an exception. *)
+  match 
+    
+    (try 
 
-  try 
+       (* Check if any child process has died, return immediately *)
+       Unix.waitpid [Unix.WNOHANG] (- 1) 
 
-    (* Check if any child process has died, return immediately *)
-    match Unix.waitpid [Unix.WNOHANG] (- 1) with 
+     (* Catch error if there is no child process *)
+     with Unix.Unix_error (Unix.ECHILD, _, _) -> 0, Unix.WEXITED 0)
 
-      (* No child process died *)
-      | 0, _ -> false
+  with 
 
-      (* Child process exited normally *)
-      | child_pid, (Unix.WEXITED 0 as status) -> 
-        
-        (
+    (* No child process died *)
+    | 0, _ -> 
 
-          Event.log `INVMAN Event.L_info
-           "Child process %d (%a) %a" 
-           child_pid 
-           pp_print_kind_module (List.assoc child_pid !child_pids) 
-           pp_print_process_status status;
+      (* Terminate if the last child process has died *)
+      !child_pids = []
 
-          (* Remove child process from list *)
-          child_pids := List.remove_assoc child_pid !child_pids;
+    (* Child process exited normally *)
+    | child_pid, (Unix.WEXITED 0 as status) -> 
 
-         (* Check if more child processes have died *)
-         wait_for_children child_pids
+      (
 
-        )
+        Event.log L_info
+          "Child process %d (%a) %a" 
+          child_pid 
+          pp_print_kind_module (List.assoc child_pid !child_pids) 
+          pp_print_process_status status;
 
-      (* Child process dies with non-zero exit status or was killed *)
-      | child_pid, status -> 
+        (* Remove child process from list *)
+        child_pids := List.remove_assoc child_pid !child_pids;
 
-        (Event.log `INVMAN Event.L_error
-           "Child process %d (%a) %a" 
-           child_pid 
-           pp_print_kind_module (List.assoc child_pid !child_pids) 
-           pp_print_process_status status;
+        (* Check if more child processes have died *)
+        wait_for_children child_pids
 
-         (* Remove child process from list *)
-         child_pids := List.remove_assoc child_pid !child_pids;
+      )
 
-         (* Check if more child processes have died *)
-         (* wait_for_children child_pids *)
-         true
+    (* Child process dies with non-zero exit status or was killed *)
+    | child_pid, status -> 
 
-        )
+      (Event.log L_error
+         "Child process %d (%a) %a" 
+         child_pid 
+         pp_print_kind_module (List.assoc child_pid !child_pids) 
+         pp_print_process_status status;
 
-  with Unix.Unix_error (Unix.ECHILD, _, _) -> 
+       (* Remove child process from list *)
+       child_pids := List.remove_assoc child_pid !child_pids;
 
-    (* Terminate if the last child process has died *)
-    !child_pids = []
+       (* Check if more child processes have died *)
+       true
+
+      )
 
 
-let handle_event trans_sys = function 
+let handle_events trans_sys = 
 
-  | Event.Invariant (m, i) -> 
+  (* Receive queued events *)
+  let events = Event.recv () in
 
-    (
+  (* Output events *)
+  List.iter 
+    (function (m, e) -> 
+      Event.log
+        L_debug
+        "Message received from %a: %a"
+        pp_print_kind_module m
+        Event.pp_print_event e)
+    events;
 
-      (* Check if received invariant is a property *)
-      let props_valid, props' =
-        List.partition
-          (function (p, t) -> Term.equal i t)
-          trans_sys.TransSys.props
-      in
-      
-      (* Log property as proved *)
-      List.iter (Event.log_proved m None) (List.map fst props_valid);
+  (* Update transition system from events *)
+  let _, prop_status, cex =
+    Event.update_trans_sys trans_sys events
+  in
 
-      List.iter (TransSys.add_invariant trans_sys) (List.map snd props');
+  (* Output proved properties *)
+  List.iter
 
-      List.iter (TransSys.add_valid_prop trans_sys) props';
-      
-      if props' = [] then 
+    (function 
 
-        ( 
+      (* No output for unknown or k-true properties *)
+      | (_, (_, PropUnknown))
+      | (_, (_, PropKTrue _)) -> ()
 
-          Event.log `INVMAN Event.L_info "All properties proved or disproved";
+      | (m, (p, PropInvariant)) -> Event.log_proved m L_warn None p
 
-          Event.terminate ()
+      | (m, (p, PropFalse)) -> Event.log_disproved m L_warn None p
 
-        )
+      | (m, (p, PropKFalse k)) -> Event.log_disproved m L_warn (Some k) p)
 
-    )
+    prop_status;
 
-  (* Output property as disproved *)
-  | Event.Disproved (m, k, p) -> 
-
-    (
-
-      (* Remove disproved property from list *)
-      let props_invalid, _ =
-        List.partition
-          (function (n, _) -> p = n)
-          trans_sys.TransSys.props
-      in
-      
-      (* Log property as disproved *)
-      List.iter (Event.log_disproved m k) (List.map fst props_invalid);
-
-      List.iter (TransSys.add_invalid_prop trans_sys) props_invalid;
-
-      if TransSys.all_props_proved trans_sys then 
-
-        ( 
-
-          Event.log `INVMAN Event.L_info "All properties proved or disproved";
-
-          Event.terminate ()
-
-        )
-
-    )
-
-  (* Output property as disproved *)
-  | Event.Proved (m, k, p) -> 
-
-    (
-
-      (* Remove proved property from list *)
-      let props_valid, props' =
-        List.partition
-          (function (n, _) -> p = n)
-          trans_sys.TransSys.props
-      in
-      
-      (* Log property as proved *)
-      List.iter (Event.log_proved m k) (List.map fst props_valid);
-
-      List.iter (TransSys.add_valid_prop trans_sys) props_valid;
-
-      if props' = [] then 
-
-        ( 
-
-          Event.log `INVMAN Event.L_info "All properties proved or disproved";
-
-          Event.terminate ()
-
-        )
-
-    )
-
-  | Event.BMCState _ -> ()
+  (* Output counterexamples *)
+  List.iter
+    (fun (m, (props, cex)) -> 
+       Event.log_counterexample m L_warn props trans_sys cex)
+    cex
 
 
 (* Polling loop *)
-let rec loop child_pids transSys = 
+let rec loop child_pids trans_sys = 
 
-  List.iter 
-    (function e -> 
-      Event.log `INVMAN Event.L_debug "%a" Event.pp_print_event e;
-      handle_event transSys e)
-    (Event.recv ());
+  handle_events trans_sys;
+
+  (* All properties proved? *)
+  if TransSys.all_props_proved trans_sys then 
+    
+    ( 
+      
+      Event.log L_info "All properties proved or disproved";
+      
+      Event.terminate ()
+        
+    );
+
 
   (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then () else 
+  if wait_for_children child_pids then 
+
+    (
+      
+      (* Get messages after termination of all processes *)
+      handle_events trans_sys
+
+    )
+    
+  else 
 
     (
 
@@ -200,7 +199,7 @@ let rec loop child_pids transSys =
       minisleep 0.01;
 
       (* Continue polling loop *)
-      loop child_pids transSys
+      loop child_pids trans_sys
 
     )
   

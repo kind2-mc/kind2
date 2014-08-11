@@ -32,7 +32,7 @@ exception Clock_mismatch
 (* A Lustre expression is a term *)
 type expr = Term.t
 
-(* A Lustre expression is a type *)
+(* A Lustre type is a type *)
 type lustre_type = Type.t
 
 (* Source of state variable *)
@@ -743,6 +743,26 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
 
   (* Return state variable *)
   state_var 
+
+
+(* Create state variable of identifier *)
+let mk_fresh_state_var 
+    is_input
+    is_const
+    scope_index
+    ident
+    state_var_type
+    index_ref =
+  
+  Numeral.incr index_ref; 
+
+  mk_state_var_of_ident
+    is_input
+    is_const
+    scope_index
+    (I.push_int_index !index_ref ident)
+    state_var_type
+
 
 
 (* Return existing state variable of identifier *)
@@ -1945,6 +1965,7 @@ let split_expr_list list =
 let oracles_for_unguarded_pres 
     pos
     mk_new_oracle_state_var
+    warn_at_position
     oracles
     ({ expr_init } as expr) = 
 
@@ -1963,7 +1984,7 @@ let oracles_for_unguarded_pres
   (* No unguarded pres in initial state term? *)
   if VS.is_empty init_pre_vars then (expr, oracles) else
     
-    (A.warn_at_position
+    (warn_at_position
        pos
        "Unguarded pre in expression, adding new oracle input.";
        

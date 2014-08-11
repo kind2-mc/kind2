@@ -18,9 +18,6 @@
 
 open Lib
 
-let pp_print_banner ppf () =
-    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
-
 (*
 
 module Dummy =
@@ -31,16 +28,19 @@ end
 *)
 
 module BMC = Bmc
-module IndStep = Ind
 module InvGen = InvGenDummy
 
 (* module PDR = Dummy *)
   
 (* Child processes forked 
 
-   This is an association list of PID to process type *)
+   This is an association list of PID to process type. We need a
+   reference here, because we may need to terminate asynchronously
+   after an exception. *)
 let child_pids = ref []
 
+(* Transition system *)
+let trans_sys = ref None
 
 
 (* Main function of the process *)
@@ -109,7 +109,7 @@ let status_of_exn process = function
     
     (
 
-      Event.log process Event.L_info
+      Event.log L_info
         "Received termination message";
 
       status_ok
@@ -121,7 +121,7 @@ let status_of_exn process = function
     
     (
 
-      Event.log process Event.L_error 
+      Event.log L_error 
         "Wallclock timeout";
 
       status_timeout
@@ -133,7 +133,7 @@ let status_of_exn process = function
 
     (
       
-      Event.log process Event.L_error
+      Event.log L_error
         "CPU timeout"; 
 
       status_timeout
@@ -145,7 +145,7 @@ let status_of_exn process = function
     
     (
       
-      Event.log process Event.L_fatal
+      Event.log L_fatal
         "Caught signal%t. Terminating." 
         (function ppf -> 
           match s with 
@@ -165,12 +165,12 @@ let status_of_exn process = function
       (* Get backtrace now, Printf changes it *)
       let backtrace = Printexc.get_backtrace () in
 
-      Event.log process Event.L_fatal
+      Event.log L_fatal
         "Runtime error: %s" 
         (Printexc.to_string e);
 
       if Printexc.backtrace_status () then
-        Event.log process Event.L_debug "Backtrace:@\n%s" backtrace;
+        Event.log L_debug "Backtrace:@\n%s" backtrace;
 
       (* Return exit status for error *)
       status_error 
@@ -188,21 +188,21 @@ let on_exit process exn =
   let status = status_of_exn process exn in
 
   (* Clean exit from invariant manager *)
-  InvarManager.on_exit ();
+  InvarManager.on_exit !trans_sys;
 
-  Event.log process Event.L_info "Killing all remaining child processes";
+  Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
   List.iter 
     (function pid, _ -> 
 
-      Event.log process Event.L_info "Sending SIGTERM to PID %d" pid;
+      Event.log L_info "Sending SIGTERM to PID %d" pid;
 
       Unix.kill pid Sys.sigterm)
 
     !child_pids;
   
-  Event.log process Event.L_info 
+  Event.log L_info 
     "Waiting for remaining child processes to terminate";
 
   try 
@@ -216,15 +216,18 @@ let on_exit process exn =
       child_pids := List.remove_assoc pid !child_pids;
       
       (* Log termination status *)
-      Event.log process Event.L_info 
+      Event.log L_info 
         "Process %d %a" pid pp_print_process_status status
         
-    done;
+    done
     
   with 
     
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
+
+      Event.log L_info 
+        "All processes terminated. Exiting.";
 
       Event.terminate_log ();
 
@@ -237,7 +240,7 @@ let on_exit process exn =
       (* Get new exit status *)
       let status' = status_of_exn process (Signal 0) in
 
-      Event.log process Event.L_error 
+      Event.log L_error 
         "@[<hv>Not all child processes could be terminated: @[<hov>%a@]@]"
         (pp_print_list 
            (fun ppf (p, _) -> 
@@ -255,7 +258,7 @@ let on_exit process exn =
       (* Get new exit status *)
       let status' = status_of_exn process e in
 
-      Event.log process Event.L_error 
+      Event.log L_error 
         "@[<hv>Not all child processes could be terminated: @[<hov>%a@]@]"
         (pp_print_list 
            (fun ppf (p, _) -> 
@@ -278,10 +281,11 @@ let on_exit_child messaging_thread process exn =
   let status = status_of_exn process exn in
 
   (* Call cleanup of process *)
-  (on_exit_of_process process) ();
+  (on_exit_of_process process) !trans_sys;
   
-  Event.log process Event.L_info 
-    "Process terminating";
+  Event.log L_info 
+    "Process %d terminating"
+    (Unix.getpid ());
 
   Event.terminate_log ();
   
@@ -300,7 +304,7 @@ let on_exit_child messaging_thread process exn =
 
 
 (* Fork and run a child process *)
-let run_process transSys messaging_setup process = 
+let run_process messaging_setup process = 
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -322,15 +326,22 @@ let run_process transSys messaging_setup process =
           (* Initialize messaging system for process *)
           let messaging_thread =
             Event.run_process 
-            process
-            messaging_setup
-            (on_exit_child None process)
+              process
+              messaging_setup
+              (on_exit_child None process)
           in
 
           (* All log messages are sent to the invariant manager now *)
           Event.set_relay_log ();
 
-          Event.log process Event.L_info 
+          (* Set module currently running *)
+          Event.set_module process;
+
+          (* Record backtraces on log levels debug and higher *)
+          if output_on_level L_debug then
+            Printexc.record_backtrace true;
+
+          Event.log L_info 
             "Starting new process with PID %d" 
             pid;
 
@@ -378,7 +389,7 @@ let run_process transSys messaging_setup process =
           );
 
           (* Run main function of process *)
-          (main_of_process process) transSys;
+          (main_of_process process) (get !trans_sys);
 
           (* Cleanup and exit *)
           on_exit_child (Some messaging_thread) process Exit
@@ -394,12 +405,12 @@ let run_process transSys messaging_setup process =
             (* Get backtrace now, Printf changes it *)
             let backtrace = Printexc.get_backtrace () in
 
-            Event.log process Event.L_fatal
+            Event.log L_fatal
               "Runtime error: %s" 
               (Printexc.to_string e);
 
             if Printexc.backtrace_status () then
-              Event.log process Event.L_debug "Backtrace:@\n%s" backtrace;
+              Event.log L_debug "Backtrace:@\n%s" backtrace;
 
             (* Cleanup and exit *)
             on_exit_child None process e
@@ -412,7 +423,181 @@ let run_process transSys messaging_setup process =
       (* Keep PID of child process and return *)
       child_pids := (pid, process) :: !child_pids
 
-        
+
+(* Check which SMT solver is available *)  
+let check_smtsolver () = 
+
+  (* SMT solver from command-line *)
+  match Flags.smtsolver () with 
+
+    (* User chose Z3 *)
+    | `Z3_SMTLIB -> 
+
+      let z3_exec = 
+
+        (* Check if Z3 is on the path *)
+        try find_on_path (Flags.z3_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal 
+              "Z3 executable %s not found."
+              (Flags.z3_bin ());
+
+            exit 2
+
+      in
+
+      Event.log L_info "Using Z3 executable %s." z3_exec
+
+    (* User chose CVC4 *)
+    | `CVC4_SMTLIB -> 
+
+      let cvc4_exec = 
+
+        (* Check if CVC4 is on the path *)
+        try find_on_path (Flags.cvc4_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal
+              "CVC4 executable %s not found."
+              (Flags.cvc4_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        L_info
+        "Using CVC4 executable %s."
+        cvc4_exec
+
+    (* User chose MathSat5 *)
+    | `MathSat5_SMTLIB -> 
+
+      let mathsat5_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.mathsat5_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal
+              "MathSat5 executable %s not found."
+              (Flags.mathsat5_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        L_info
+        "Using MathSat5 executable %s." 
+        mathsat5_exec
+
+
+    (* User chose MathSat5 *)
+    | `Yices_SMTLIB -> 
+
+      let yices_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.yices_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal
+              "Yices executable %s not found."
+              (Flags.yices_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        L_info
+        "Using Yices executable %s." 
+        yices_exec
+
+
+    (* User did not choose SMT solver *)
+    | `detect -> 
+
+      try 
+
+        let z3_exec = find_on_path (Flags.z3_bin ()) in
+
+        Event.log L_info "Using Z3 executable %s." z3_exec;
+
+        (* Z3 is on path? *)
+        Flags.set_smtsolver 
+          `Z3_SMTLIB
+          z3_exec
+
+      with Not_found -> 
+
+        try 
+
+          let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
+
+          Event.log
+            L_info
+            "Using CVC4 executable %s." 
+            cvc4_exec;
+
+          (* CVC4 is on path? *)
+          Flags.set_smtsolver 
+            `CVC4_SMTLIB
+            cvc4_exec
+
+        with Not_found -> 
+
+          try 
+
+            let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
+
+            Event.log
+              L_info
+              "Using MatSat5 executable %s." 
+              mathsat5_exec;
+
+            (* MathSat5 is on path? *)
+            Flags.set_smtsolver 
+              `MathSat5_SMTLIB
+              mathsat5_exec
+
+          with Not_found -> 
+
+            try 
+
+              let yices_exec = find_on_path (Flags.yices_bin ()) in
+
+              Event.log
+                L_info
+                "Using Yices executable %s." 
+                yices_exec;
+
+              (* Yices is on path? *)
+              Flags.set_smtsolver 
+                `Yices_SMTLIB
+                yices_exec
+                
+            with Not_found -> 
+              
+              Event.log L_fatal "No SMT Solver found"; 
+              
+              exit 2
+                
+
 (* Entry point *)    
 let main () =   
 
@@ -459,22 +644,25 @@ let main () =
   if Flags.log_format_xml () then Event.set_log_format_xml ();
 
   (* No output at all? *)
-  if not (Flags.log_level () = Event.L_off) then
+  if not (Flags.log_level () = L_off) then
 
     (
 
       (* Temporarily set log level to info and output logo *)
-      Event.set_log_level Event.L_info;
-      Event.log `INVMAN Event.L_info "%a" pp_print_banner ()
+      set_log_level L_info;
+      Event.log L_info "%a" pp_print_banner ()
 
     );
 
   (* Set log level *)
-  Event.set_log_level (Flags.log_level ());
+  set_log_level (Flags.log_level ());
 
   (* Record backtraces on log levels debug and higher *)
-  if Event.output_on_level Event.L_debug then
+  if output_on_level L_debug then
     Printexc.record_backtrace true;
+
+  (* Check and set SMT solver *)
+  check_smtsolver ();
 
   (* Wallclock timeout? *)
   if Flags.timeout_wall () > 0. then
@@ -508,41 +696,10 @@ let main () =
 
     );
 
-(* Must not use vtalrm signal, this is used internally by the OCaml
-   Threads module 
+  (* Must not use vtalrm signal, this is used internally by the OCaml
+     Threads module *)
 
-  (* CPU timeout? *)
-  if Flags.timeout_virtual () > 0. then
-
-    (
-
-      (* Install signal handler for SIGVTALRM after wallclock timeout *)
-      Sys.set_signal 
-        Sys.sigvtalrm 
-        (Sys.Signal_handle (function _ -> raise TimeoutVirtual));
-
-      (* Set interval timer for CPU timeout *)
-      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-        Unix.setitimer 
-          Unix.ITIMER_VIRTUAL
-          { Unix.it_interval = 0.; Unix.it_value = Flags.timeout_virtual () } 
-      in
-
-      ()
-
-    )  
-
-  else
-
-    (
-
-      (* Install generic signal handler for SIGVTALRM *)
-      Sys.set_signal 
-        Sys.sigvtalrm 
-        (Sys.Signal_handle exception_on_signal);
-
-    );
-*)
+  (* Raise exception on CTRL+C *)
   Sys.catch_break true;
 
   (* Install generic signal handler for SIGINT *)
@@ -564,47 +721,63 @@ let main () =
 
   try 
 
-    Event.log `INVMAN Event.L_info 
+    Event.log L_info 
       "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
-    let transSys = match (Flags.input_format ()) with 
+    trans_sys := (match (Flags.input_format ()) with 
 
-      | `Lustre -> 
+        | `Lustre -> 
+          
+          Some (LustreInput.of_file (Flags.input_file ()))
+            
+        | `Native -> 
+          
+          Some (NativeInput.of_file (Flags.input_file ()))
 
-        LustreInput.of_file (Flags.input_file ()) 
-
-      | `Horn -> 
-
-        (* Horn.of_file (Flags.input_file ()) *)
-        assert false
-
-    in
+        | `Horn -> 
+          
+          (* Horn.of_file (Flags.input_file ()) *)
+          assert false);
 
     (* Output the transition system *)
-    debug parse
+    (debug parse
         "%a"
         TransSys.pp_print_trans_sys
-        transSys
-    in
+        (get !trans_sys)
+     end);
+
+    if 
+
+      (* Warn if list of properties is empty *)
+      TransSys.props_list_of_bound (get !trans_sys) Numeral.zero = []
+
+    then
+
+      Event.log
+        L_warn
+        "No properties to prove";
 
     (* Which modules are enabled? *)
     (match Flags.enable () with
 
       (* No modules enabled *)
       | [] -> 
-        (Event.log `INVMAN Event.L_fatal "Need at least one process enabled") 
+        (Event.log L_fatal "Need at least one process enabled") 
 
       (* Single module enabled *)
       | [p] -> 
 
         (
 
-          Event.log p Event.L_info 
+          Event.log L_info 
             "Running as a single process";
 
+          (* Set module currently running *)
+          Event.set_module p;
+
           (* Run main function of process *)
-          (main_of_process p) transSys;
+          (main_of_process p) (get !trans_sys);
           
           (* Ignore SIGALRM from now on *)
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
@@ -619,23 +792,26 @@ let main () =
         
         (
 
-          Event.log `INVMAN Event.L_info
+          Event.log L_info
             "@[<hov>Running %a in parallel mode@]"
             (pp_print_list pp_print_kind_module ",@ ")
             ps;
          
           let messaging_setup = Event.setup () in
 
-          Event.log `INVMAN Event.L_trace
+          Event.log L_trace
             "Messaging initialized in invariant manager";
           
           (* Start all child processes *)
           List.iter 
             (function p -> 
-              run_process transSys messaging_setup p)
+              run_process messaging_setup p)
             ps;
 
-          Event.log `INVMAN Event.L_trace "Starting invariant manager";
+          (* Set module currently running *)
+          Event.set_module `INVMAN;
+
+          Event.log L_trace "Starting invariant manager";
 
           (* Initialize messaging for invariant manager, obtain a background
              thread *)
@@ -647,7 +823,7 @@ let main () =
           in
 
           (* Run invariant manager *)
-          InvarManager.main child_pids transSys;
+          InvarManager.main child_pids (get !trans_sys);
           
           (* Exit without error *)
           on_exit `INVMAN Exit

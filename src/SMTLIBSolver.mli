@@ -38,7 +38,7 @@ type config =
                                       element in the array, each
                                       subsequent string is an argument
                                       that is passed to
-                                      {!Unix.open_process} as is. *)
+                                      [Unix.open_process] as is. *)
 
     }
 

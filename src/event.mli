@@ -29,39 +29,105 @@
 
 exception Terminate
 
+(** {1 Logging} *)
+
+(** Set log format to plain text *)
+val set_log_format_pt : unit -> unit
+
+(** Set log format to XML *)
+val set_log_format_xml : unit -> unit
+
+(** Relay log messages to invariant manager *)
+val set_relay_log : unit -> unit
+
+(** Log a disproved property
+
+    Should only be used by the invariant manager, other modules must use
+    {!prop_status} to send it as a message. *)
+val log_disproved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit 
+
+(** Log a proved property
+
+    Should only be used by the invariant manager, other modules must use
+    {!prop_status} to send it as a message. *)
+val log_proved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit
+ 
+(** Log a counterexample for some properties
+
+    Should only be used by the invariant manager, other modules must
+    use {!counterexample} to send it as a message. *)
+val log_counterexample : Lib.kind_module -> Lib.log_level -> string list -> TransSys.t -> (StateVar.t * Term.t list) list -> unit 
+
+(** Log summary of status of properties
+
+    Should only be used by the invariant manager, other modules must use
+    {!prop_status} to send it as a message. *)
+val log_prop_status : Lib.log_level -> (string * Lib.prop_status) list -> unit 
+
+(** Log statistics
+
+    Should only be used by the invariant manager, other modules must use
+    {!stat} to send it as a message. *)
+val log_stat : Lib.kind_module -> Lib.log_level -> (string * Stat.stat_item list) list -> unit 
+
+(** Terminate log
+
+    Output closing tags for XML output. *)
+val terminate_log : unit -> unit 
+
+
 (** {1 Events} *)
 
 (** Events exposed to callers *)
 type event = 
-  | Invariant of Lib.kind_module * Term.t (** Module has discovered
-                                               an invariant *)
-  | Proved of Lib.kind_module * int option * string (** Module has proved a property *)
-  | Disproved of Lib.kind_module * int option * string (** Module has disproved a
-                                              property *)
-  | BMCState of int * (string list) (** BMC entered a new step where
-                                        the given properties are
-                                        valid *)
+  | Invariant of Term.t 
+  | PropStatus of string * Lib.prop_status
+  | Counterexample of string list * (StateVar.t * Term.t list) list
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
 
+(** Return the last statistics received *)
+val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
+
+(** [log m l f v ...] outputs a message from module [m] on level [l],
+    formatted with the parameterized string [f] and the values [v
+    ...] *)
+val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
+
+(** Output the statistics of the module *)
+val stat : (string * Stat.stat_item list) list -> unit
+
+(** Output the progress of the module *)
+val progress : int -> unit
+
 (** Broadcast a discovered invariant *)
-val invariant : Lib.kind_module -> Term.t -> unit 
+val invariant : Term.t -> unit 
 
-(** Broadcast a proved property *)
-val proved : Lib.kind_module -> int option -> (string * Term.t) -> unit 
+(** Broadcast a property status *)
+val prop_status : Lib.prop_status -> string -> unit
 
-(** Broadcast a disproved property *)
-val disproved : Lib.kind_module -> int option -> string -> unit 
-
-(** Broadcast status of BMC *)
-val bmcstate : int -> string list -> unit
+(** Broadcast a counterexample to some properties *)
+val counterexample : string list -> TransSys.t -> (StateVar.t * Term.t list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
 
 (** Receive all queued events *)
-val recv : unit -> event list 
+val recv : unit -> (Lib.kind_module * event) list 
+
+(** Update transition system from events and return new invariants and
+    properties with changed status
+
+    For a property status message the status saved in the transition
+    system is updated if the status is more general (k-true for a
+    greater k, k-false for a smaller k, etc.) 
+
+    Received invariants are stored in the transition system, also
+    proved properties are added as invariants.
+
+    Counterexamples are ignored. *)
+val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
 
 (** {1 Messaging} *)
 
@@ -70,6 +136,12 @@ type messaging_setup
 
 (** Background thread of the messaging system *)
 type mthread
+
+(** Set module currently running *)
+val set_module : Lib.kind_module -> unit 
+
+(** Get module currently running *)
+val get_module : unit -> Lib.kind_module
 
 (** Create contexts and bind ports for all processes *)
 val setup : unit -> messaging_setup
@@ -82,85 +154,6 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 
 (** Send all queued messages and exit the background thread *)
 val exit : mthread -> unit
-
-(** {1 Logging} *)
-
-(** Levels of log messages
-
-    - [L_fatal] A severe error that will lead to an immediate abort
-
-    - [L_error] An error event that might still allow to continue
-
-    - [L_warn] A potentially harmful situation
-
-    - [L_info] An informational message that highlight progress at a
-      coarse-grained level
-
-    - [L_debug] A fine-grained informational event that is useful for
-      debugging but not for an end user 
-
-    - [L_trace] A finer-grained informational event than [L_debug]
-
- *)
-type log_level =
-  | L_off
-  | L_fatal
-  | L_error
-  | L_warn
-  | L_info
-  | L_debug
-  | L_trace
-
-(** Ouputs all log messages to the given file *)
-val log_to_file : string -> unit
-
-(** Write all log messages to the standard output *)
-val log_to_stdout : unit -> unit
-
-(** Set log level
-
-    Only output messages of levels with equal or higher priority *)
-val set_log_level : log_level -> unit 
-
-
-(** Return true if given log level is of higher or equal priority than
-    current log level? *)
-val output_on_level : log_level -> bool
-
-(** Set log format to plain text *)
-val set_log_format_pt : unit -> unit
-
-(** Set log format to XML *)
-val set_log_format_xml : unit -> unit
-
-(** Relay log messages to invariant manager *)
-val set_relay_log : unit -> unit
-
-(** [log m l f v ...] logs a message from module [m] on level [l],
-    formatted with the parameterized string [f] and the values [v
-    ...] *)
-val log : Lib.kind_module -> log_level -> ('a, Format.formatter, unit) format -> 'a
-
-(** Log the statistics of the module *)
-val stat : Lib.kind_module -> (string * Stat.stat_item list) list -> unit
-
-(** Log the progress of the module *)
-val progress : Lib.kind_module -> int -> unit
-
-(** Log a disproved property *)
-val log_disproved : Lib.kind_module -> int option -> string -> unit 
-
-(** Log a proved property *)
-val log_proved : Lib.kind_module -> int option -> string -> unit
- 
-(** Log a counterexample *)
-val log_counterexample : Lib.kind_module -> (StateVar.t * Term.t list) list -> unit 
-
-(** Terminate log
-
-    Output closing tags for XML output. *)
-val terminate_log : unit -> unit 
-
 
 (* 
    Local Variables:

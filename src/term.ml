@@ -1019,6 +1019,23 @@ let bump_state i term =
     term
 
 
+(* Apply function to term for instants 0..k *)
+let rec bump_and_apply_k f k term =
+
+  (* Terminate when when at the base instant *)
+  if Numeral.(k < zero) then () else 
+
+    (
+
+      (* Apply to term at instant k *)
+      f (bump_state k term);
+      
+      (* Recurse for instants 0..k-1 *)
+      bump_and_apply_k f (Numeral.pred k) term
+
+    )
+
+
 (* Return all state variables in term *)
 let state_vars_of_term term  = 
 

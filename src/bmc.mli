@@ -18,17 +18,32 @@
 
 (** Bounded model checking
 
-   @author Ruoyu Zhang
-
+    @author Christoph Sticksel, Paul Meng
 *)
 
-(** Bounded model checking for properties on the transistion system *)
+(** Bounded model checking for properties on the transition system *)
+
+(** SMT Solver used for BMC *)
+module S : SolverMethods.S
+
+(** Check which properties are true in k steps 
+
+   If [check_ts_props] is true, check in received messages whether
+   another process has proved or disproved a named property, and remove
+   it. Otherwise, discard messages from other processes about
+   properties.
+
+   This function does not have side effects such as sending messages,
+   thus can safely be called to check properties not in the transition
+   system.
+*)
+val bmc_step : bool -> S.t -> TransSys.t -> Numeral.t -> (string * Term.t) list -> (string * Term.t) list * ((StateVar.t * Term.t list) list * (string * Term.t) list) list
 
 (** Entry point *)
 val main : TransSys.t -> unit
 
 (** Cleanup before exit *)
-val on_exit : unit -> unit
+val on_exit : TransSys.t option -> unit
 
 
 (* 

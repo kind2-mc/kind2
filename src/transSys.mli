@@ -16,43 +16,56 @@
 
 *)
 
-(** The representation of a transition system 
+(** Representation of a transition system 
 
     @author Christoph Sticksel
 *)
 
+(** Input format *)
+type input = 
+  | Lustre of LustreNode.t list  (** Lustre with given nodes *)
+  | Native                       (** Native format *)
+
+
+(** A definition of an uninterpreted predicate *)
+type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
 (** The transition system 
 
     The transition system must be constructed with the function
-    {!mk_trans_sys}. *)
+    {!mk_trans_sys}. Fields of the record are exposed, but accessing
+    them is deprecated, use the provided functions below. *)
 type t = private
 
   {
 
-    (* Definitions of uninterpreted function symbols *)
-    uf_defs : (UfSymbol.t * (Var.t list * Term.t)) list;
+    (** Definitions of uninterpreted function symbols for initial
+        state constraint and transition relation *)
+    pred_defs : (pred_def * pred_def) list;
 
-    (* State variables of top node *)
+    (** State variables of top node 
+
+       The list of state variables is sorted with regard to
+       {!StateVar.compare_state_var} *)
     state_vars : StateVar.t list;
 
-    (* Initial state constraint *)
+    (** Initial state constraint *)
     init : Term.t;
 
-    (* Transition relation *)
+    (** Transition relation *)
     trans : Term.t;
 
-    (* Propertes to prove invariant *)
+    (** Propertes to prove invariant *)
     props : (string * Term.t) list; 
 
-    (* Invariants *)
+    (* The input which produced this system. *)
+    input : input;
+
     mutable invars : Term.t list;
 
-    (* Properties proved to be valid *)
-    mutable props_valid : (string * Term.t) list;
+    (** Status of property *)
+    mutable prop_status : (string * Lib.prop_status) list;
 
-    (* Properties proved to be invalid *)
-    mutable props_invalid : (string * Term.t) list;
   }
 
 
@@ -61,7 +74,7 @@ type t = private
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (UfSymbol.t * (Var.t list * Term.t)) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> t
+val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
@@ -72,35 +85,61 @@ val get_logic : t -> SMTExpr.logic
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
 
+(** Return the input used to produce the transition system *)
+val get_input : t -> input
+
 (** Return the variables at current and previous instants of the
    transition system *)
 val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
 
 (** Instantiate the initial state constraint to the bound *)
-val init_of_bound : Numeral.t -> t -> Term.t
+val init_of_bound : t -> Numeral.t -> Term.t
 
 (** Instantiate the transition relation constraint to the bound 
 
     The bound given is the bound of the state after the transition *)
-val trans_of_bound : Numeral.t -> t -> Term.t
+val trans_of_bound : t -> Numeral.t -> Term.t
 
-(** Instantiate the properties to the bound *)
-val props_of_bound : Numeral.t -> t -> Term.t
+(** Instantiate all properties to the bound *)
+val props_of_bound : t -> Numeral.t -> Term.t
+
+(** Instantiate all properties to the bound *)
+val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
 (** Instantiate invariants and valid properties to the bound *)
-val invars_of_bound : Numeral.t -> t -> Term.t
+val invars_of_bound : t -> Numeral.t -> Term.t
 
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 
+val uf_defs : t -> pred_def list
+
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
 
-(** Add a valid property to the transition system *)
-val add_valid_prop : t -> (string * Term.t) -> unit
+(** Return current status of all properties *)
+val prop_status_all : t -> (string * Lib.prop_status) list
 
-(** Add an invalid property to the transition system *)
-val add_invalid_prop : t -> (string * Term.t) -> unit
+(** Return current status of property *)
+val prop_status : t -> string -> Lib.prop_status 
+
+(** Mark property as invariant *)
+val prop_invariant : t -> string -> unit 
+
+(** Mark property as false *)
+val prop_false : t -> string -> unit 
+
+(** Mark property as k-false *)
+val prop_kfalse : t -> int -> string -> unit 
+
+(** Mark property as k-true *)
+val prop_ktrue : t -> int -> string -> unit 
+
+(** Return true if the property is proved invariant *)
+val is_proved : t -> string -> bool 
+
+(** Return true if the property is proved not invariant *)
+val is_disproved : t -> string -> bool 
 
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool
@@ -113,149 +152,14 @@ val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit
 val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit
 
 
-(*
-(* The transition system *)
-type t = 
-    { 
+(** Extract a path in the transition system, return an association
+    list of state variables to a list of their values.
 
-      (* INIT: constraints on system variables 
+    The second argument is a function returning assignments to the
+    variables, see {!SolverMethods.S.get_model}. The path is extracted
+    from instant zero up to instant [k], which is the third argument. *)
+val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
 
-	 A list of formulas over system variables, no previous state
-	 variables occur here *)
-      mutable init_assign : (StateVar.t * Term.t) list;
-      mutable init_constr : Term.t list;
-
-      (* CONSTR: global state constraints 
-
-	 A list of formulas describing invariants of the system *)
-      mutable constr_assign : Term.t StateVar.StateVarHashtbl.t;
-      mutable constr_constr : Term.t list;
-
-      (* TRANS: guarded transitions
-
-	 A list of guarded rules: pairs of terms and assignments to
-	 system variables, where assignments are pairs of terms *)
-      mutable trans : (Term.t * (StateVar.t * Term.t) list) list;   
-
-      (** Named properties to be verified *)
-      mutable props : (string * Term.t) list;
-
-      (** Invariants and properties proved to be valid *)
-      mutable invars : Term.t list;
-
-      (** Properties proved to be valid *)
-      mutable props_valid : (string * Term.t) list;
-
-      (** Properties proved to be invalid *)
-      mutable props_invalid : (string * Term.t) list;
-
-      (** Variable dependencies in CONSTR *)
-      constr_dep : StateVar.StateVarSet.t StateVar.StateVarHashtbl.t;
-
-    }
-
-(** The empty transition system *)
-val empty : t
-
-(** Add pairs of state variable and definition to hash table *)
-val constr_of_def_list : Term.t StateVar.StateVarHashtbl.t -> (StateVar.t * Term.t) list -> unit
-
-(** Pretty-print a transition system *)
-val pp_print_trans_sys : Format.formatter -> t -> unit
-
-(** Get the required logic for the SMT solver *)
-val get_logic : t -> SMTExpr.logic
-
-(** Add to offset of state variable instances
-
-    {b deprecated} Use {!Term.bump_state} instead}
-
-    Negative values are allowed *)
-val bump_state : int -> Term.t -> Term.t
-
-(** Return the variables at the given offset occurring in the term *)
-val vars_at_offset_of_term : int -> Term.t -> Var.t list
-
-(** Return the stateful variables at the given offset occurring in the term *)
-val state_vars_at_offset_of_term : int -> Term.t -> Var.t list
-
-(** Return the variables occurring in the term 
-    
-    {b Deprecated: Use {!Term.vars_of_term}
-*)
-val vars_of_term : Term.t -> Var.t list
-
-(** Return variables of the transitions system at bounds zero and one *)
-val vars : t -> Var.t list
-
-(** Return state variables of the transitions system *)
-val state_vars : t -> StateVar.t list 
-
-(** Create invariants of variable declarations *)
-val invars_of_types : unit -> Term.t list
-
-(** Instantiate the initial state constraint to the bound *)
-val init_of_bound : int -> t -> Term.t
-
-(** Instantiate the transition relation constraint to the bound 
-
-    The bound given is the bound of the state after the transition *)
-val constr_of_bound : int -> t -> Term.t
-
-(** Instantiate the properties to the bound *)
-val props_of_bound : int -> t -> Term.t
-
-(** Instantiate invariants and valid properties to the bound *)
-val invars_of_bound : int -> t -> Term.t
-
-(** Add an invariant to the transition system *)
-val add_invariant : t -> Term.t -> unit 
-
-(** {1 Dependency order} *)
-
-(*
-(** Order state variables by dependency in CONSTR: a variables is smaller than all the variables is depends on *)
-val compare_state_vars_constr_dep : t -> StateVar.t -> StateVar.t -> int 
-*)
-
-(** Get all definitions of state variables from CONSTR
-
-    The definitions are returned in reverse dependency order, leaf
-    definitions at the end, ready to be applied as let bindings to a term *)
-val constr_defs_of_state_vars : t -> StateVar.t list -> (Var.t * Term.t) list
-
-(** {1 Log messages}
-
-    Examples: 
-    - [TransSys.log_property_valid ["a"] "BMC"]
-    - [TransSys.log_property_invalid ["a", "b"] "BMC"]
-    - [TransSys.log_counterexample ["a"; "b"] Format.pp_print_int 1] 
-*)
-
-(** Output validity of some properties 
-
-    Given the name of a module and a list of names of properties as in
-    the field [props] of the type {!t}, the function outputs
-    [Success: properties p1, p2, p3 proved in module]. *)
-val log_property_valid : string -> string list -> unit 
-
-(** Output invalidity of some properties 
-
-    Given the name of a module and a list of names of properties as in
-    the field [props] of the type {!t}, the function outputs [Failure:
-    properties p1, p2, p3 disproved in module]. *)
-val log_property_invalid : string -> string list -> unit
-
-(*
-(** Output a counterexample to some properties 
-
-    Given the names of the properties as in the field [props] of the
-    type {!t} and a pretty-printer for the counterexample as well as
-    the arguments to it, the function outputs [Counterexample for p1,
-    p2, p3] followed by the counterexample in the next lines. *)
-val log_counterexample : string list -> (Format.formatter -> 'a -> unit) -> 'a -> unit
-*)
-*)
 
 (* 
    Local Variables:

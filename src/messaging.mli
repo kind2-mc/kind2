@@ -16,12 +16,10 @@
 
 *)
 
-(** KIND 2 messaging module 
+(** Low-level handling of messages 
 
     @author Jason Oxley, Christoph Sticksel *)
 
-exception No_value
-(* exception Terminate *)
 exception SocketConnectFailure
 exception SocketBindFailure
 exception BadMessage
@@ -29,68 +27,106 @@ exception InvalidProcessName
 exception NotInitialized
 
 
-type user_message = 
-  | Log of int * string
-  | Stat of string
-  | Progress of int
+(** A message to be relayed to other processes and conversions *)
+module type RelayMessage = 
+sig
 
-type control = READY | PING | TERM
+  (** Message *)
+  type t 
 
-type invariant =
-  | INVAR of string * int
-  | PROVED of string * int * int
-  | DISPROVED of string * int * int
-  | RESEND of int
+  (** Convert a message to a strings for message frames *)
+  val message_of_strings : (unit -> string) -> t
 
-type induction = BMCSTATE of int * (string list)
+  (** Convert string from message frames to a message *)
+  val strings_of_message : t -> string list
 
-type counterexample = COUNTEREXAMPLE of int
+  (** Pretty-print a message *)
+  val pp_print_message : Format.formatter -> t -> unit
+  
+end
 
-type message =
-  | UserMessage of user_message
-  | ControlMessage of control
-  | InvariantMessage of invariant
-  | InductionMessage of induction
-  (* | CounterexampleMessage of counterexample *)
+module type S =
+sig
+  
+  type relay_message 
 
+  (** A message to be output to the user *)
+  type output_message = 
+    | Log of int * string  (** Log message with level *)
+    | Stat of string       (** Statistics *)
+    | Progress of int      (** Progress *)
 
-type ctx
-type socket
-type thread
+  (** A message internal to the messaging system *)
+  type control_message = 
+    | Ready           (** Process is ready *)
+    | Ping            (** Request reply from process *)
+    | Terminate       (** Request termination of process *)
+    | Resend of int   (** Request resending of relay message *)
 
-(** Get a string representation of a message *)
-val string_of_msg : message -> string
+  (** A message *)
+  type message = 
+    | OutputMessage of output_message     (** Output to user *)
+    | ControlMessage of control_message   (** Message internal to the
+                                              messaging system *)
+    | RelayMessage of int * relay_message (** Message to be broadcast
+                                              to worker processes *)
 
-(** Create context and bind ports for invariant manager, return pair
-    of pub socket and pull socket and pair of addresses of pub and
-    pull sockets for workers to connect to *)
-val init_im : unit -> (ctx * socket * socket) * (string * string)
+  (** Messaging context *)
+  type ctx
 
-val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket 
+  (** Socket *)
+  type socket
 
-val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+  (** Thread *)
+  type thread
+  
+  (** Create a messaging context and bind ports for the invariant
+      manager. Return a pair of pub socket and pull socket and pair of
+      addresses of pub and pull sockets for workers to connect to. 
 
-val run_worker : ctx * socket * socket -> Lib.kind_module -> (exn -> unit) -> thread
+      Call this function before forking the processes, the first
+      return argument must only be used by the parent process, the
+      child processes must use the socket addresses in the second
+      return argument. *)
+  val init_im : unit -> (ctx * socket * socket) * (string * string)
+                      
+  (** Create a messaging context and bind given ports for a worker
+      process. Return a messaging context and a pair of sub and push
+      sockets. *)
+  val init_worker : Lib.kind_module -> string -> string -> ctx * socket * socket 
+                 
+  (** Start the background thread for the invariant manager, using the
+      given context and sockets. The second parameter is a list of
+      PIDs and the kind of worker processes to watch, the third
+      argument is the function to call to handle exceptions. *)
+  val run_im : ctx * socket * socket -> (int * Lib.kind_module) list -> (exn -> unit) -> unit 
+    
+  (** Start the background thread for a worker process, using the
+      given context and sockets. The second parameter is type of
+      worker process, the third is the function to call to handle
+      exceptions. *)
+  val run_worker : ctx * socket * socket -> Lib.kind_module -> (exn -> unit) -> thread
 
-(*
-(** Assume the role of the given process and initialize communication with 
-    other processes *)
-val init : process -> (exn -> unit) -> unit
-*)
+  (** Broadcast a message to the worker processes *)
+  val send_relay_message : relay_message -> unit
+    
+  (** Send a message to the invariant manager for output to the user *)
+  val send_output_message : output_message -> unit
 
-(** Send a message. Message will be sent to the Invariant Manager if the caller
-  is a worker process, to subscribing processes otherwise *)
-val send : message -> unit
+  (** Send a termination message to the invariant manager *)
+  val send_term_message : unit -> unit
+    
+  (** Receive messages queued by the background thread *)
+  val recv : unit -> (Lib.kind_module * message) list
 
-(** Receive waiting messages. Messages are from the Invariant Manager if the 
-  caller is a worker, from workers otherwise *)
-val recv : unit -> (Lib.kind_module * message) list
+  (** Request the background thread of a worker process to terminate *)
+  val exit : thread -> unit 
 
-val exit : thread -> unit
+end
 
-(*
-val messaging_selftest : unit -> unit 
-*)
+(** Functor to instantiate the messaging system with a type of messages *)
+module Make (T: RelayMessage) : S with type relay_message = T.t
+
 
 (* 
    Local Variables:
