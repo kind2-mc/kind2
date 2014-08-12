@@ -1768,11 +1768,12 @@ let fwd_propagate
               Term.mk_and
                 [term_of_frames (fwd :: tl); props] 
             in
-            
-            debug pdr
-              "Inductive invariant:@ %a "
-              Term.pp_print_term ind_inv
-            in
+
+            if Flags.pdr_print_inductive_invariant () then 
+              
+              Event.log Event.L_off
+                "@[<hv>Inductive invariant:@ %a@]"
+                Term.pp_print_term ind_inv;
 
             if Flags.pdr_check_inductive_invariant () then 
               

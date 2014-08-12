@@ -505,7 +505,7 @@ let prop_status_pt level prop_status =
 
 (* Level to class attribute of log tag *)
 let xml_cls_of_level = function
-  | L_off -> assert false
+  | L_off -> "off"
   | L_fatal -> "fatal"
   | L_error -> "error"
   | L_warn -> "warn"
