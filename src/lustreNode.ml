@@ -48,6 +48,7 @@ module I = LustreIdent
 module E = LustreExpr
 
 module SVS = StateVar.StateVarSet
+module SVMap = StateVar.StateVarMap
 module ISet = I.LustreIdentSet
 
 (* Set of state variables of list *)
@@ -963,23 +964,15 @@ let find_main nodes =
 
 
 (* State variables in assertions *)
-let state_vars_in_asserts accum { asserts } =
+let state_vars_in_asserts { asserts } =
   
   (* Collect all state variables in each assertion *)
   List.fold_left
     (fun a e -> 
        (SVS.elements
           (LustreExpr.state_vars_of_expr e)) @ a)
-    accum
+    []
     asserts
-
-
-(* State variables in property *)
-let state_vars_in_props accum { props } = 
-
-  (* A property is a state variable *)
-  props @ accum
-
 
 (* Execption for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
@@ -1190,13 +1183,88 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        ((state_vars_in_asserts (List.map fst push_node_outputs) push_node, 
+        (((List.map fst push_node_outputs) @ (state_vars_in_asserts push_node), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
 
+(* 
+  produces the set of all state variables contained in any of the nodes in the
+  given list 
+*)
+let extract_state_vars nodes =
+  let extract_from_single_node (node : t) =
+    (* the set of all state variables in this nodes locals, outputs, & inputs *)
+    let ret = 
+      List.fold_left 
+        (fun acc (sv,_) -> SVS.add sv acc) 
+        SVS.empty 
+        (node.locals @ node.outputs @ node.inputs)
+    in
 
-        
+    (* ret with oracles added *)
+    List.fold_left
+      (fun acc sv -> SVS.add sv acc)
+      ret
+      node.oracles
+  in
+  
+  List.fold_left 
+    (fun acc node -> SVS.union (extract_from_single_node node) acc)
+    SVS.empty
+    nodes
+
+(* 
+Given that [nodes] is the set of nodes in the lustre program and
+[main_name] is the name of the main node, return a map which
+maps the identifier of each property and assert stream to the
+a list of all nodes in that assert or property's cone of influence.   
+*)
+let reduce_to_separate_property_cois nodes main_name =
+  
+  let nodes' = 
+    List.fold_right
+      (fun node accum -> compute_output_input_dep accum node :: accum)
+      nodes
+      []
+  in
+
+  try 
+
+    (* Main node and its properties *)
+    let main_node = node_of_name main_name nodes' in
+
+    (* State variables in properties *)
+    let state_vars = 
+      main_node.props @ (state_vars_in_asserts main_node)
+    in
+
+    (* return the cone of influence of state variable [sv] *)
+    let get_state_var_coi sv =
+      List.rev
+        (reduce_to_coi' 
+           nodes'
+           []
+           [([sv], [], main_node, (empty_node main_name))])      
+    in
+
+    (* add [sv]'s coi to [coi_map], topologically sorting the equations 
+       of each node in the coi *)
+    let fold_sv coi_map sv =
+      let coi = get_state_var_coi sv in
+      let coi' = List.map (equations_order_by_dep coi) coi in
+      SVMap.add sv coi' coi_map
+    in
+
+    List.fold_left fold_sv SVMap.empty state_vars 
+
+  with Not_found -> 
+
+    raise 
+      (Invalid_argument
+         (Format.asprintf
+            "Main node %a not found."
+            (I.pp_print_ident false) main_name))
 
 (* Reduce set of nodes to cone of influence of property of given main
    node *)
@@ -1212,13 +1280,11 @@ let reduce_to_property_coi nodes main_name =
   try 
 
     (* Main node and its properties *)
-    let { props } as main_node = node_of_name main_name nodes' in
+    let main_node = node_of_name main_name nodes' in
 
     (* State variables in properties *)
     let state_vars = 
-      state_vars_in_asserts
-        (state_vars_in_props [] main_node)
-        main_node
+      main_node.props @ (state_vars_in_asserts main_node)
     in
 
     (* Call recursive function with initial arguments *)
@@ -1242,7 +1308,6 @@ let reduce_to_property_coi nodes main_name =
          (Format.asprintf
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
-
 
 (* 
    Local Variables:
