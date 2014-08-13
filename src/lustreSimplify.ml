@@ -1223,6 +1223,12 @@ let rec eval_ast_expr'
     (* Condact, a node with an activation condition *)
     | A.Condact (pos, cond, ident, args, defaults) :: tl -> 
 
+      if List.length args <> List.length defaults then 
+
+      fail_at_position 
+        pos
+        "Number of default arguments does not match number of parameters";
+
       (* Evaluate initial values as list of expressions *)
       let defaults', abstractions' = 
         eval_ast_expr
