@@ -165,14 +165,14 @@ let rec ind_step_loop
         | [] -> 
 
           (
-
+(*
             (* TODO: output inductive counterexample here *)
             if Flags.ind_print_inductive_cex () then
               
-              Event.log Event.L_off
+              Event.log L_off
                 "@[<hv>Inductive counterexample:@ @[<hv>%a@]@]"
                 LustrePath.pp_print_path_pt cex;
-
+*)
             (* Properties still unknown and properties not k-inductive *)
             let props_unknown', props_not_k_ind' =
               partition_props solver props_unknown k_plus_one
@@ -200,7 +200,7 @@ let rec ind_step_loop
             else
 
               (Event.log
-                 Event.L_info
+                 L_info
                  "Properties %a not %a-inductive"
                  (pp_print_list 
                     (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
@@ -247,7 +247,7 @@ let rec ind_step_loop
     (
 
       Event.log
-        Event.L_info
+        L_info
         "Properties %a maybe %a-inductive"
         (pp_print_list 
            (fun ppf (n, _) -> Format.fprintf ppf "%s" n)

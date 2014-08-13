@@ -1367,7 +1367,6 @@ let fwd_propagate
                 List.map Clause.of_term inductive_terms,
                 List.map Clause.of_term non_inductive_terms
               in
-
 (*
               if Flags.pdr_print_inductive_assertions () then
 
@@ -1382,7 +1381,6 @@ let fwd_propagate
 
                 );
 *)
-
               (* Send invariant *)
               List.iter 
                 (fun c -> Event.invariant (Clause.to_term c))
@@ -1771,7 +1769,7 @@ let fwd_propagate
 
             if Flags.pdr_print_inductive_invariant () then 
               
-              Event.log Event.L_off
+              Event.log L_off
                 "@[<hv>Inductive invariant:@ %a@]"
                 Term.pp_print_term ind_inv;
 
