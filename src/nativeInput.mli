@@ -16,22 +16,26 @@
 
 *)
 
-(** Conversion of a counterexampe to a Lustre model 
+(** Parse a file in native input format into a transition system 
 
-    @author Christoph Sticksel *)
+    @author Christoph Sticksel
+*)
 
-(** Output a counterexample as a Lustre execution in XML format *)
-val pp_print_path_xml : LustreNode.t list -> LustreNode.t list -> 
-                        bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+(** Parse from the channel *)
+val of_channel : in_channel -> TransSys.t
 
-(** Output a counterexample as a Lustre execution as plain text with
-    pre-processing reverted *)
-val pp_print_path_pt : LustreNode.t list -> LustreNode.t list -> 
-                       bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+(** Parse from the file *)
+val of_file : string -> TransSys.t
+
+val pp_print_path_pt : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
 
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)

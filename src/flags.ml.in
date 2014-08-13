@@ -446,18 +446,20 @@ let interpreter_steps_default = 0
 
 (* ********** *) 
 
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
     
 let input_format_of_string = function
   | "lustre" -> `Lustre
   | "horn" -> `Horn
+  | "native" -> `Native
   | _ -> raise (Arg.Bad "Bad value for --input-format")
 
 let string_of_input_format = function 
   | `Lustre -> "lustre"
   | `Horn -> "horn"
+  | `Native -> "native"
 
-let input_format_values = "lustre"
+let input_format_values = "lustre, native"
 
 let input_format_default = `Lustre
 
@@ -481,7 +483,7 @@ let debug_log_default = None
 
 (* ********** *) 
 
-let log_level_default = Event.L_warn
+let log_level_default = L_warn
 
 (* ********** *) 
 
@@ -524,7 +526,7 @@ type flags =
       mutable lustre_main : lustre_main;
       mutable debug : string list;
       mutable debug_log : string option;
-      mutable log_level : Event.log_level;
+      mutable log_level : log_level;
       mutable log_format_xml : bool;
       mutable input_format : input_format;
       mutable input_file : string option }
@@ -879,32 +881,32 @@ let log_level_action o () = flags.log_level <- o
   
 let log_level_off_spec = 
   ("-qq", 
-   Arg.Unit (log_level_action Event.L_off), 
+   Arg.Unit (log_level_action L_off), 
    Format.sprintf "Disable output completely")
 
 let log_level_fatal_spec = 
   ("-q", 
-   Arg.Unit (log_level_action Event.L_fatal), 
+   Arg.Unit (log_level_action L_fatal), 
    Format.sprintf "Disable output, fatal errors only")
 
 let log_level_error_spec = 
   ("-s", 
-   Arg.Unit (log_level_action Event.L_error), 
+   Arg.Unit (log_level_action L_error), 
    Format.sprintf "Silence output, errors only")
 
 let log_level_info_spec = 
   ("-v", 
-   Arg.Unit (log_level_action Event.L_info), 
+   Arg.Unit (log_level_action L_info), 
    Format.sprintf "Output informational messages")
 
 let log_level_debug_spec = 
   ("-vv", 
-   Arg.Unit (log_level_action Event.L_debug), 
+   Arg.Unit (log_level_action L_debug), 
    Format.sprintf "Output informational and debug messages")
 
 let log_level_trace_spec = 
   ("-vvv", 
-   Arg.Unit (log_level_action Event.L_trace), 
+   Arg.Unit (log_level_action L_trace), 
    Format.sprintf "Output informational, debug and trace messages")
 
 (* ********** *) 

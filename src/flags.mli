@@ -144,7 +144,7 @@ val debug : unit -> string list
 val debug_log : unit -> string option
 
 (** Verbosity level *)
-val log_level : unit -> Event.log_level
+val log_level : unit -> Lib.log_level
 
 (** Output in XML format *)
 val log_format_xml : unit -> bool
@@ -167,7 +167,7 @@ type interpreter_steps = int
 val interpreter_steps : unit -> interpreter_steps
 
 (** Format of input file *)
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format 
 
 (** Input file *)

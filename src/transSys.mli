@@ -21,7 +21,14 @@
     @author Christoph Sticksel
 *)
 
+(** Input format *)
+type input = 
+  | Lustre of LustreNode.t list  (** Lustre with given nodes *)
+  | Native                       (** Native format *)
 
+
+(** A definition of an uninterpreted predicate *)
+type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
 (** The transition system 
 
@@ -33,12 +40,8 @@ type t = private
   {
 
     (** Definitions of uninterpreted function symbols for initial
-        state constraint *)
-    uf_defs_init : (UfSymbol.t * (Var.t list * Term.t)) list;
-
-    (** Definitions of uninterpreted function symbols for transition
-        relation *)
-    uf_defs_trans : (UfSymbol.t * (Var.t list * Term.t)) list;
+        state constraint and transition relation *)
+    pred_defs : (pred_def * pred_def) list;
 
     (** State variables of top node 
 
@@ -55,7 +58,9 @@ type t = private
     (** Propertes to prove invariant *)
     props : (string * Term.t) list; 
 
-    (** Invariants *)
+    (* The input which produced this system. *)
+    input : input;
+
     mutable invars : Term.t list;
 
     (** Status of property *)
@@ -69,7 +74,7 @@ type t = private
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (UfSymbol.t * (Var.t list * Term.t)) list -> (UfSymbol.t * (Var.t list * Term.t)) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> t
+val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
@@ -79,6 +84,9 @@ val get_logic : t -> SMTExpr.logic
 
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
+
+(** Return the input used to produce the transition system *)
+val get_input : t -> input
 
 (** Return the variables at current and previous instants of the
    transition system *)
@@ -104,27 +112,10 @@ val invars_of_bound : t -> Numeral.t -> Term.t
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 
-val uf_defs_init : t -> (UfSymbol.t * (Var.t list * Term.t)) list
-
-val uf_defs_trans : t -> (UfSymbol.t * (Var.t list * Term.t)) list
-
-val uf_defs : t -> (UfSymbol.t * (Var.t list * Term.t)) list
+val uf_defs : t -> pred_def list
 
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
-
-(** Update transition system from events and return new invariants and
-    properties with changed status
-
-    For a property status message the status saved in the transition
-    system is updated if the status is more general (k-true for a
-    greater k, k-false for a smaller k, etc.) 
-
-    Received invariants are stored in the transition system, also
-    proved properties are added as invariants.
-
-    Counterexamples are ignored. *)
-val update_from_events : t -> (Lib.kind_module * Event.event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
 
 (** Return current status of all properties *)
 val prop_status_all : t -> (string * Lib.prop_status) list

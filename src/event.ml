@@ -246,91 +246,6 @@ let run_im (ctx, _) pids on_exit =
 
 
 (* ********************************************************************** *)
-(* Log levels                                                             *)
-(* ********************************************************************** *)
-
-
-(* Levels of log messages *)
-type log_level =
-  | L_off
-  | L_fatal
-  | L_error
-  | L_warn
-  | L_info
-  | L_debug
-  | L_trace
-
-
-(* Associate an integer with each level to induce a total ordering *)
-let int_of_log_level = function 
-  | L_off -> -1 
-  | L_fatal -> 0
-  | L_error -> 1
-  | L_warn -> 2
-  | L_info -> 3
-  | L_debug -> 4
-  | L_trace -> 5
-
-let log_level_of_int = function 
-  | -1 -> L_off 
-  | 0 -> L_fatal
-  | 1 -> L_error
-  | 2 -> L_warn
-  | 3 -> L_info
-  | 4 -> L_debug
-  | 5 -> L_trace
-  | _ -> raise (Invalid_argument "log_level_of_int")
-
-(* Compare two levels *)
-let compare_levels l1 l2 = 
-  Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
-
-
-(* Current log level *)
-let log_level = ref L_warn
-
-
-(* Set log level *)
-let set_log_level l = log_level := l
-
-
-(* Level is of higher or equal priority than current log level? *)
-let output_on_level level = compare_levels level !log_level <= 0
-
-
-(* Return Format.fprintf if level is is of higher or equal priority
-   than current log level, otherwise return Format.ifprintf *)
-let ignore_or_fprintf level = 
-  if output_on_level level then Format.fprintf else Format.ifprintf
-
-
-(* ********************************************************************** *)
-(* Output target                                                          *)  
-(* ********************************************************************** *)
-
-
-(* Current formatter for output *)
-let log_ppf = ref Format.std_formatter
-
-
-(* Set file to write log messages to *)
-let log_to_file f = 
-
-  (* Open channel to logfile *)
-  let oc = 
-    try open_out f with
-      | Sys_error _ -> failwith "Could not open logfile"
-  in 
-  
-  (* Create and store formatter for logfile *)
-  log_ppf := Format.formatter_of_out_channel oc
-
-
-(* Write messages to standard output *)
-let log_to_stdout () = log_ppf := Format.std_formatter
-
-
-(* ********************************************************************** *)
 (* Received statistics                                                    *)
 (* ********************************************************************** *)
 
@@ -456,16 +371,32 @@ let stat_pt mdl level stats =
 
 
 (* Output counterexample as plain text *)
-let counterexample_pt mdl level props cex = 
+let counterexample_pt mdl level props trans_sys cex = 
 
-  (ignore_or_fprintf level)
-    !log_ppf 
-    "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
-    (pp_print_list Format.pp_print_string ",@ ")
-    props
-    LustrePath.pp_print_path_pt cex
-    
+  let prop_counterexample_pt nodes sv coi =
+    (ignore_or_fprintf level)
+      !log_ppf
+      "@[<v>@[<hov>Counterexample for@ %s:@]@,@,%a@]@." 
+      (StateVar.name_of_state_var sv)
+      (LustrePath.pp_print_path_pt nodes coi true)
+      cex
+  in
 
+  match TransSys.get_input trans_sys with
+  | TransSys.Lustre nodes ->
+     let main_name = LustreNode.find_main nodes in
+     let prop_coi_map = 
+       LustreNode.reduce_to_separate_property_cois nodes main_name
+     in
+     StateVar.StateVarMap.iter (prop_counterexample_pt nodes) prop_coi_map
+  | TransSys.Native ->
+    (ignore_or_fprintf level)
+      !log_ppf 
+      "@[<v>@[<hov>Counterexample for@ %a:@]@,@,%a@]@."
+      (pp_print_list Format.pp_print_string ",@ ")
+      props
+      NativeInput.pp_print_path_pt
+      cex
 
 (* Output statistics section as plain text *)
 let progress_pt mdl level k =
@@ -605,20 +536,36 @@ let disproved_xml mdl level k prop =
   
 
 (* Output counterexample as XML *)
-let counterexample_xml mdl level props cex = 
-
-  (ignore_or_fprintf level)
-    !log_ppf 
-    "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]@."
-    (pp_print_list
-      (fun ppf p ->
-        Format.fprintf ppf
-          "@[<hv 2><property>@,%s@;<0 -2></property>@]"
-          p)
-      "@,")
-    props
-    LustrePath.pp_print_path_xml cex
-    
+let counterexample_xml mdl level props trans_sys cex = 
+  let print_prop ppf sv_name =
+    Format.printf 
+      "@[<hv 2><property>@,%s@;<0 -2></property>@]"
+      sv_name
+  in
+  match TransSys.get_input trans_sys with
+  | TransSys.Lustre nodes ->
+     let prop_counterexample_xml nodes sv coi =
+       (ignore_or_fprintf level)
+         !log_ppf
+         "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]@."
+         print_prop
+         (StateVar.name_of_state_var sv)
+         (LustrePath.pp_print_path_xml nodes coi true)
+         cex
+     in
+     let main_name = LustreNode.find_main nodes in
+     let prop_coi_map = 
+       LustreNode.reduce_to_separate_property_cois nodes main_name
+     in
+     StateVar.StateVarMap.iter (prop_counterexample_xml nodes) prop_coi_map
+  | TransSys.Native ->
+    (ignore_or_fprintf level)
+      !log_ppf 
+      "@[<hv 2><Counterexample>@,%a@,%a@;<0 -2></Counterexample>@]"
+      (pp_print_list print_prop ",@ ")
+      props
+      NativeInput.pp_print_path_xml
+      cex
 
 (* Output statistics section as XML *)
 let stat_xml mdl level stats =
@@ -697,8 +644,7 @@ let printf_relay mdl level fmt =
 
       let s = Format.flush_str_formatter () in
 
-      if compare_levels level !log_level > 0 then () else
-        log mdl level s)
+      if output_on_level level then log mdl level s)
 
     Format.str_formatter
     fmt
@@ -782,12 +728,19 @@ let log_disproved mdl level k prop =
 
 
 (* Log a counterexample *)
-let log_counterexample mdl level props cex = 
-  match !log_format with 
-    | F_pt -> counterexample_pt mdl level props cex
-    | F_xml -> counterexample_xml mdl level props cex
-    | F_relay -> ()
-
+let log_counterexample mdl level props trans_sys cex =
+  
+  match TransSys.get_input trans_sys with
+  | TransSys.Lustre nodes ->
+     (match !log_format with 
+      | F_pt -> counterexample_pt mdl level props trans_sys cex
+      | F_xml -> counterexample_xml mdl level props trans_sys cex 
+      | F_relay -> ())
+  | TransSys.Native ->
+     match !log_format with 
+     | F_pt -> counterexample_pt mdl level props trans_sys cex
+     | F_xml -> counterexample_xml mdl level props trans_sys cex
+     | F_relay -> ()
 
 (* Output summary of status of properties *)
 let log_prop_status level prop_status =
@@ -859,11 +812,11 @@ let prop_status status prop =
 
 
 (* Broadcast a counterexample for some properties *)
-let counterexample props cex = 
+let counterexample props trans_sys cex = 
 
   let mdl = get_module () in
 
-  log_counterexample mdl L_warn props cex;
+  log_counterexample mdl L_warn props trans_sys cex;
 
   try
     
@@ -1048,6 +1001,139 @@ let recv () =
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
+
+
+
+(* Update transition system from event list *)
+let update_trans_sys trans_sys events = 
+
+  (* Tail-recursive iteration *)
+  let rec update_trans_sys' trans_sys invars prop_status cex = function 
+
+    (* No more events, return new invariants and changed property status *)
+    | [] -> (invars, prop_status, cex)
+
+    (* Invariant discovered *)
+    | (m, Invariant t) :: tl -> 
+
+      (* Property status if received invariant is a property *)
+      let tl' =
+        List.fold_left
+
+          (fun accum (p, t') -> 
+
+             (* Invariant is equal to property term? *)
+             if Term.equal t t' then
+
+               (* Inject property status event *)
+               ((m, PropStatus (p, PropInvariant)) :: accum)
+
+             else
+
+               accum)
+
+          tl
+          (TransSys.props_list_of_bound trans_sys Numeral.zero)
+
+      in
+      
+      (* Add invariant to transtion system *)
+      TransSys.add_invariant trans_sys t;
+
+      (* Continue with invariant added to accumulator *)
+      update_trans_sys'
+        trans_sys
+        ((m, t) :: invars)
+        prop_status
+        cex 
+        tl'
+
+    (* Property found unknown *)
+    | (_, PropStatus (p, PropUnknown)) :: tl -> 
+
+      (* Continue without changes *)
+      update_trans_sys' trans_sys invars prop_status cex tl
+
+    (* Property found true for k steps *)
+    | (m, PropStatus (p, (PropKTrue k as s))) :: tl -> 
+
+      (* Change property status in transition system *)
+      TransSys.prop_ktrue trans_sys k p;
+
+      (* Continue with propert status added to accumulator *)
+      update_trans_sys'
+        trans_sys
+        invars
+        ((m, (p, s)) :: prop_status) 
+        cex
+        tl
+
+    (* Property found invariant *)
+    | (m, PropStatus (p, (PropInvariant as s))) :: tl -> 
+
+      (* Change property status in transition system *)
+      TransSys.prop_invariant trans_sys p;
+
+      (try 
+
+         (* Add proved property as invariant *)
+        TransSys.add_invariant 
+          trans_sys 
+          (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
+
+       (* Skip if named property not found *)
+       with Not_found -> ());
+
+      (* Continue with propert status added to accumulator *)
+      update_trans_sys'
+        trans_sys 
+        invars
+        ((m, (p, s)) :: prop_status)
+        cex
+        tl
+
+    (* Property found false *)
+    | (m, PropStatus (p, (PropFalse as s))) :: tl -> 
+
+      (* Change property status in transition system *)
+      TransSys.prop_false trans_sys p;
+
+      (* Continue with propert status added to accumulator *)
+      update_trans_sys' 
+        trans_sys
+        invars
+        ((m, (p, s)) :: prop_status) 
+        cex
+        tl
+
+    (* Property found false after k steps *)
+    | (m, PropStatus (p, (PropKFalse k as s))) :: tl ->
+
+      (* Change property status in transition system *)
+      TransSys.prop_kfalse trans_sys k p;
+
+      (* Continue with propert status added to accumulator *)
+      update_trans_sys' 
+        trans_sys
+        invars
+        ((m, (p, s)) :: prop_status) 
+        cex
+        tl
+        
+    (* Counterexample for some properties *)
+    | (m, Counterexample (p, c)) :: tl -> 
+
+      (* Skip and continue *)
+      update_trans_sys' 
+        trans_sys
+        invars
+        prop_status
+        ((m, (p, c)) :: cex) 
+        tl
+
+  in
+
+  update_trans_sys' trans_sys [] [] [] events
 
 
 let exit t = EventMessaging.exit t
