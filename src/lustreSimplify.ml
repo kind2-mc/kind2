@@ -385,7 +385,7 @@ let rec eval_ast_expr'
 
       (* Identifier is not constant *)
       | Not_found -> 
-        
+
         try 
 
           (* Get state variable of identifier *)
@@ -467,14 +467,14 @@ let rec eval_ast_expr'
       if List.mem_assoc ident' index_ctx || List.mem_assoc ident' type_ctx then
 
         let expr' = A.Ident (pos, ident') in
-        
+
         (* Continue with record field *)
         eval_ast_expr' 
           context 
           abstractions
           result 
           (expr' :: tl)
-          
+
       else
 
         fail_at_position 
@@ -492,7 +492,7 @@ let rec eval_ast_expr'
       let field = 
         I.mk_int_index (int_const_of_ast_expr context pos field_expr) 
       in
-      
+
       (* Append index to identifier *)
       let ident' = I.push_index field ident in
 
@@ -500,14 +500,14 @@ let rec eval_ast_expr'
       if List.mem_assoc ident' index_ctx || List.mem_assoc ident' type_ctx then
 
         let expr' = A.Ident (pos, ident') in
-        
+
         (* Continue with record field *)
         eval_ast_expr' 
           context 
           abstractions
           result 
           (expr' :: tl)
-          
+
       else
 
         fail_at_position 
@@ -1122,23 +1122,23 @@ let rec eval_ast_expr'
 
         try
 
-            (List.fold_left2 
-               (fun accum (i1, e1) (i2, e2) -> 
-                
-                  (* Check for matching indexes, type checking is done
-                     in the mk_eq constructor *)
-                  if i1 = i2 then E.mk_eq e1 e2 :: accum else
+          (List.fold_left2 
+             (fun accum (i1, e1) (i2, e2) -> 
 
-                    (* Fail if indexes are different *)
-                    raise E.Type_mismatch)
+                (* Check for matching indexes, type checking is done
+                   in the mk_eq constructor *)
+                if i1 = i2 then E.mk_eq e1 e2 :: accum else
 
-               []
-               expr1'
-               expr2')
+                  (* Fail if indexes are different *)
+                  raise E.Type_mismatch)
+
+             []
+             expr1'
+             expr2')
 
         (* Type checking error or one expression has more indexes *)
         with Invalid_argument "List.fold_left2" | E.Type_mismatch -> 
-          
+
           fail_at_position
             pos
             (Format.asprintf
@@ -1147,7 +1147,7 @@ let rec eval_ast_expr'
                A.pp_print_expr expr2)
 
       in
-      
+
       (* Conjunction of equations *)
       let expr' = match expr_eqs with 
         | [] -> E.t_true
@@ -1222,12 +1222,6 @@ let rec eval_ast_expr'
 
     (* Condact, a node with an activation condition *)
     | A.Condact (pos, cond, ident, args, defaults) :: tl -> 
-
-      if List.length args <> List.length defaults then 
-
-      fail_at_position 
-        pos
-        "Number of default arguments does not match number of parameters";
 
       (* Evaluate initial values as list of expressions *)
       let defaults', abstractions' = 
@@ -1825,6 +1819,43 @@ and eval_node_call
       raise (Node_not_found (ident, pos))
 
   in
+
+  if
+
+    (* Node call has activation condition  *)
+    not (E.equal_expr cond E.t_true)
+
+  then 
+
+    (
+
+      (* Number of defaults must match number of outputs *)
+      if (List.length node_outputs <> List.length defaults) then 
+
+        fail_at_position 
+          pos
+          "Number of default arguments does not match number of outputs"
+
+      else
+
+        List.iter2 
+          (fun (sv, i) (j, { E.expr_type = t }) -> 
+
+             if 
+
+               (* Types must match *)
+               not (Type.check_type t (StateVar.type_of_state_var sv)) 
+
+             then
+
+               fail_at_position 
+                 pos
+                 "Type mismatch in default arguments with outputs")
+
+          node_outputs
+          defaults
+
+    );
 
   (* Evaluate inputs as list of expressions *)
   let expr_list', abstractions' = 
