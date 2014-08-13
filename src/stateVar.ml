@@ -47,7 +47,7 @@ type state_var_prop =
 
   { 
 
-    (* The name of the variable *)
+    (* The type of the variable *)
     var_type : Type.t;
 
     (* The uninterpreted symbol associated with the variable *)

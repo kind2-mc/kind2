@@ -84,7 +84,6 @@ let get_state_var_source state_var =
     state_var_source_map 
     state_var
 
-
 let rec pp_print_state_var_source ppf = function
   
   | Input -> Format.fprintf ppf "input"
