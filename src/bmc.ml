@@ -207,7 +207,7 @@ let bmc_step check_ts_props solver trans_sys k properties =
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, prop_status, _ = 
+  let invariants_recvd, prop_status = 
     Event.update_trans_sys trans_sys messages 
   in
 
@@ -224,7 +224,7 @@ let bmc_step check_ts_props solver trans_sys k properties =
         (fun (p, _) -> 
            if 
              (List.exists 
-                (fun (_, (q, s)) -> q = p && prop_status_known s)
+                (fun (_, (q, s)) -> q = p && TransSys.prop_status_known s)
                 prop_status)
            then
              (debug bmc 
@@ -303,7 +303,7 @@ let rec bmc solver trans_sys k = function
     List.iter
       (fun (n, _) -> 
          TransSys.prop_ktrue trans_sys (Numeral.to_int k) n;
-         Event.prop_status (PropKTrue (Numeral.to_int k)) n)
+         Event.prop_status (TransSys.PropKTrue (Numeral.to_int k)) trans_sys n)
       props_ktrue;
 
     (* Broadcast status of properties falsified in k steps *)
@@ -314,12 +314,9 @@ let rec bmc solver trans_sys k = function
          (* Each property is false by itself *)
          List.iter 
            (fun (n, _) -> 
-              TransSys.prop_kfalse trans_sys (Numeral.to_int k) n;
-              Event.prop_status (PropKFalse (Numeral.to_int k)) n)
-           p;
-
-         (* Properties are falsified with the same counterexample *)
-         Event.counterexample (List.map fst p) trans_sys c)
+              TransSys.prop_false trans_sys n c;
+              Event.prop_status (TransSys.PropFalse c) trans_sys n)
+           p)
 
       props_kfalse;
     

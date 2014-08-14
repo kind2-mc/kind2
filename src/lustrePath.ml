@@ -385,7 +385,7 @@ and pp_print_components ppf (inputs,outputs,locals,calls) =
     Format.fprintf ppf "@,%a" (pp_print_list pp_print_tree_path_xml "@,") calls
 
 (* prett_print a path in <path> tags, with stateless variables reconstructed *)
-let pp_print_path_xml nodes coi start_at_init ppf model =
+let pp_print_path_xml (* nodes *) coi start_at_init ppf model =
   assert (List.length model > 0);
   let stream_map,call_map = tree_path_components model in
 
@@ -396,14 +396,14 @@ let pp_print_path_xml nodes coi start_at_init ppf model =
   | _, main_node ->     
      let reconstructed  = 
        reconstruct_stateless_variables 
-         nodes 
+         (* nodes *) coi
          start_at_init
          [] 
          SVMap.empty 
          main_node 
      in
      let coi_svs = LustreNode.extract_state_vars coi in
-     let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
+     let reconstructed' = cull_with_coi coi_svs (* nodes *) coi reconstructed in
      let reconstructed'' = cull_intermediate_streams reconstructed' in
      pp_print_tree_path_xml ppf reconstructed''
   
@@ -520,20 +520,20 @@ let rec widths_of_model = function
      max max_stream_val_width max_call_val_width)
      
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
-let pp_print_path_pt nodes coi start_at_init ppf model =
+let pp_print_path_pt (* nodes *) coi start_at_init ppf model =
   let stream_map,call_map = tree_path_components model in
   assert (SVMap.cardinal stream_map = 0);
   assert (CallMap.cardinal call_map = 1);
   let reconstructed = 
     reconstruct_stateless_variables 
-      nodes
+      coi (* nodes *)
       start_at_init
       []
       SVMap.empty
       (snd (CallMap.choose call_map))
   in
   let coi_svs = LustreNode.extract_state_vars coi in
-  let reconstructed' = cull_with_coi coi_svs nodes reconstructed in
+  let reconstructed' = cull_with_coi coi_svs coi (* nodes *) reconstructed in
   let reconstructed'' = cull_intermediate_streams reconstructed' in
   let ident_width, val_width = widths_of_model reconstructed'' in
   pp_print_tree_path_pt ident_width val_width [] ppf reconstructed''

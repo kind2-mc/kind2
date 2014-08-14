@@ -89,6 +89,10 @@ val check_version : unit -> check_version
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
 
+(** Output inductive counterexample *)
+type ind_print_inductive_cex = bool
+val ind_print_inductive_cex : unit -> ind_print_inductive_cex
+
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val pdr_qe : unit -> pdr_qe

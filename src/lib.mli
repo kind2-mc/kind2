@@ -253,31 +253,6 @@ type kind_module =
   | `Parser ]
 
 
-(** Status of a property *)
-type prop_status =
-
-  (** Status of property is unknown *)
-  | PropUnknown
-
-  (** Property is true up to k-th step *)
-  | PropKTrue of int
-
-  (** Property is invariant *)
-  | PropInvariant 
-
-  (** Property is false at some step *)
-  | PropFalse
-
-  (** Property is false at k-th step *)
-  | PropKFalse of int 
-
-(** Pretty-print a property status *)
-val pp_print_prop_status : Format.formatter -> prop_status -> unit
-
-(** Return true if the property is proved or disproved, i.e., for
-    [PropInvariant], [PropFalse] and [PropKFalse].  *)
-val prop_status_known : prop_status -> bool
-
 (** Wallclock timeout *)
 exception TimeoutWall
 
