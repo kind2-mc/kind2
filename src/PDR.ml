@@ -2095,7 +2095,7 @@ let handle_events
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, prop_status, _ = 
+  let invariants_recvd, prop_status = 
     Event.update_trans_sys trans_sys messages 
   in
 
@@ -2123,8 +2123,7 @@ let handle_events
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
     (fun (p, _) -> match TransSys.prop_status trans_sys p with 
-       | PropFalse
-       | PropKFalse _ -> raise (Disproved p)
+       | TransSys.PropFalse _ -> raise (Disproved p)
        | _ -> ())
     props
 
@@ -2182,8 +2181,8 @@ let rec pdr
     
     List.for_all 
       (fun (p, _) -> match TransSys.prop_status trans_sys p with
-         | PropInvariant -> true
-         | PropKTrue k when k >= 1 -> true
+         | TransSys.PropInvariant -> true
+         | TransSys.PropKTrue k when k >= 1 -> true
          | _ -> false)
       props
 
@@ -2533,7 +2532,7 @@ let main trans_sys =
               List.iter
                 (fun (p, _) -> 
                    TransSys.prop_invariant trans_sys p;
-                   Event.prop_status PropInvariant p) 
+                   Event.prop_status TransSys.PropInvariant trans_sys p) 
                 props;
 
               (* No more properties remaining *)
@@ -2573,9 +2572,9 @@ let main trans_sys =
 
                      then
 
-                       (Event.prop_status PropFalse p;
+                       (Event.prop_status (TransSys.PropFalse cex_path) trans_sys p;
 
-                        TransSys.prop_false trans_sys p;
+                        TransSys.prop_false trans_sys p cex_path;
                         
                         Event.log
                           L_info 
@@ -2591,11 +2590,13 @@ let main trans_sys =
                   props
               in
 
+(*
               (* Output counterexample *)
               Event.counterexample
                 props_false
                 trans_sys
                 cex_path;
+*)
 
               props'
 

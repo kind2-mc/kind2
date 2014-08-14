@@ -109,7 +109,7 @@ let rec ind_step_loop
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, _, _ = 
+  let invariants_recvd, _ = 
     Event.update_trans_sys trans_sys messages 
   in
 
@@ -416,10 +416,14 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
                 List.for_all
                   (fun (n, _) -> 
                      match TransSys.prop_status trans_sys n with
-                       | PropInvariant -> true
-                       | PropKTrue l when l >= (Numeral.to_int k) -> true
-                       | PropFalse
-                       | PropKFalse _ -> raise Restart
+
+                       | TransSys.PropInvariant -> true
+
+                       | TransSys.PropKTrue l when l >= (Numeral.to_int k) -> 
+                         true
+
+                       | TransSys.PropFalse _ -> raise Restart
+
                        | _ -> false)
                   (props_k_ind @ props_k_ind')
 
@@ -427,7 +431,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 
                 (* Send proved properties and terminate *)
                 List.iter
-                  (fun (n, _) -> Event.prop_status PropInvariant n)
+                  (fun (n, _) -> Event.prop_status TransSys.PropInvariant trans_sys n)
                   props_k_ind'
 
               else

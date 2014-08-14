@@ -1266,10 +1266,11 @@ let reduce_to_separate_property_cois nodes main_name =
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
 
-(* Reduce set of nodes to cone of influence of property of given main
-   node *)
-let reduce_to_property_coi nodes main_name = 
+
+(* Reduce set of nodes to cone of influence of given state variables *)
+let reduce_to_coi nodes main_name state_vars = 
   
+  (* Compute input output dependencies for all nodes *)
   let nodes' = 
     List.fold_right
       (fun node accum -> compute_output_input_dep accum node :: accum)
@@ -1279,12 +1280,12 @@ let reduce_to_property_coi nodes main_name =
 
   try 
 
-    (* Main node and its properties *)
+    (* Get main node by its identifier *)
     let main_node = node_of_name main_name nodes' in
 
-    (* State variables in properties *)
-    let state_vars = 
-      main_node.props @ (state_vars_in_asserts main_node)
+    (* Variables in assertions are always in the cone of influence *)
+    let state_vars' = 
+      state_vars @ (state_vars_in_asserts main_node)
     in
 
     (* Call recursive function with initial arguments *)
@@ -1293,9 +1294,10 @@ let reduce_to_property_coi nodes main_name =
         (reduce_to_coi' 
            nodes'
            []
-           [(state_vars, [], main_node, (empty_node main_name))])
+           [(state_vars', [], main_node, (empty_node main_name))])
     in
     
+    (* Return node with equations in topological order *)
     List.fold_right
       (fun node accum -> equations_order_by_dep accum node :: accum)
       nodes''
@@ -1308,6 +1310,16 @@ let reduce_to_property_coi nodes main_name =
          (Format.asprintf
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
+
+
+(* Reduce set of nodes to cone of influence of properties of main node *)
+let reduce_to_props_coi nodes main_name = 
+
+    (* Get properties of main node *)
+    let { props } = node_of_name main_name nodes in
+
+    (* Reduce to cone of influence of all properties *)
+    reduce_to_coi nodes main_name props
 
 (* 
    Local Variables:

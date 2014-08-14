@@ -30,6 +30,28 @@ type input =
 (** A definition of an uninterpreted predicate *)
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
+(** Status of a property *)
+type prop_status =
+
+  (** Status of property is unknown *)
+  | PropUnknown
+
+  (** Property is true up to k-th step *)
+  | PropKTrue of int
+
+  (** Property is invariant *)
+  | PropInvariant 
+
+  (** Property is false at some step *)
+  | PropFalse of (StateVar.t * Term.t list) list
+
+(** Pretty-print a property status *)
+val pp_print_prop_status_pt : Format.formatter -> prop_status -> unit
+
+(** Return true if the property is proved or disproved, i.e., for
+    [PropInvariant], [PropFalse] and [PropKFalse].  *)
+val prop_status_known : prop_status -> bool
+
 (** The transition system 
 
     The transition system must be constructed with the function
@@ -64,7 +86,7 @@ type t = private
     mutable invars : Term.t list;
 
     (** Status of property *)
-    mutable prop_status : (string * Lib.prop_status) list;
+    mutable prop_status : (string * prop_status) list;
 
   }
 
@@ -118,19 +140,16 @@ val uf_defs : t -> pred_def list
 val add_invariant : t -> Term.t -> unit
 
 (** Return current status of all properties *)
-val prop_status_all : t -> (string * Lib.prop_status) list
+val prop_status_all : t -> (string * prop_status) list
 
 (** Return current status of property *)
-val prop_status : t -> string -> Lib.prop_status 
+val prop_status : t -> string -> prop_status 
 
 (** Mark property as invariant *)
 val prop_invariant : t -> string -> unit 
 
 (** Mark property as false *)
-val prop_false : t -> string -> unit 
-
-(** Mark property as k-false *)
-val prop_kfalse : t -> int -> string -> unit 
+val prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
 
 (** Mark property as k-true *)
 val prop_ktrue : t -> int -> string -> unit 

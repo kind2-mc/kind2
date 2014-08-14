@@ -319,6 +319,9 @@ let scope_of_index index =
     (function StringIndex i -> i | IntIndex i -> string_of_int i)
     index
 
+(* Return a list of strings for indexed identifier *)
+let scope_of_ident (ident, index) = ident :: (scope_of_index index)
+
 
 (* Reserved identifiers for abstrations *)
 let abs_ident_string =  "__abs" 

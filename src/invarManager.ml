@@ -136,7 +136,7 @@ let handle_events trans_sys =
     events;
 
   (* Update transition system from events *)
-  let _, prop_status, cex =
+  let _, prop_status =
     Event.update_trans_sys trans_sys events
   in
 
@@ -146,22 +146,16 @@ let handle_events trans_sys =
     (function 
 
       (* No output for unknown or k-true properties *)
-      | (_, (_, PropUnknown))
-      | (_, (_, PropKTrue _)) -> ()
+      | (_, (_, TransSys.PropUnknown))
+      | (_, (_, TransSys.PropKTrue _)) -> ()
 
-      | (m, (p, PropInvariant)) -> Event.log_proved m L_warn None p
+      | (m, (p, TransSys.PropInvariant)) -> 
+        Event.log_proved m L_warn None p
 
-      | (m, (p, PropFalse)) -> Event.log_disproved m L_warn None p
+      | (m, (p, TransSys.PropFalse cex)) -> 
+        Event.log_disproved m L_warn trans_sys p cex)
 
-      | (m, (p, PropKFalse k)) -> Event.log_disproved m L_warn (Some k) p)
-
-    prop_status;
-
-  (* Output counterexamples *)
-  List.iter
-    (fun (m, (props, cex)) -> 
-       Event.log_counterexample m L_warn props trans_sys cex)
-    cex
+    prop_status
 
 
 (* Polling loop *)
