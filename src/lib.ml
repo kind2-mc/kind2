@@ -30,14 +30,14 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 
 (* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 let list_init f n =
-  assert (n > 0);
-  let rec init_aux i =
-    if i = n-1 then
-      [f i]
-    else
-      (f i) :: (init_aux (i+1))
-  in
-  init_aux 0
+  if n = 0 then [] else
+    let rec init_aux i =
+      if i = n-1 then
+        [f i]
+      else
+        (f i) :: (init_aux (i+1))
+    in
+    init_aux 0
 
 (* Returns the maximum element of a non-empty list *)
 let list_max l =

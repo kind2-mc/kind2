@@ -33,12 +33,23 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
   (* Name of main node *)
   let main_name = LustreNode.find_main (List.rev nodes) in
 
+  (* Properties are always state variables *) 
   let prop = 
-    Var.state_var_of_state_var_instance
-      (Term.free_var_of_term
-         (List.assoc prop_name trans_sys.TransSys.props))
+
+    try 
+
+      Var.state_var_of_state_var_instance
+        (Term.free_var_of_term
+           (List.assoc prop_name trans_sys.TransSys.props))
+
+    (* Property name is a property, the property term is a variable
+       and the variable is an instance of a state variable *)
+    with Not_found | Invalid_argument _ -> assert false
+
   in 
 
+  (* Undo instantiation of state variable in calling nodes and return
+     state variable in scope of node defining it *)
   let rec base_of_state_var sv = 
     match LustreExpr.get_state_var_source sv with
       | LustreExpr.Input
@@ -49,6 +60,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
       | LustreExpr.Instance (_, _, sv) -> base_of_state_var sv
   in
 
+  (* Get state variable in scope of main node *)
   let prop' = base_of_state_var prop in
 
   (* Reduce nodes to cone of influence of property *)
@@ -66,6 +78,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
       nodes'
   in
 
+  (* Return nodes reduced to cone of influence of property *)
   nodes'
 
 

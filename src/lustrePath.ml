@@ -199,14 +199,7 @@ let rec reconstruct_stateless_variables nodes start_at_init calls ancestors_stre
           (* this must be the main node - we expect that all of its inputs
              are already contained in the model *)
           let in_model (sv,ind) = SVMap.mem sv stream_map in
-          if not (List.for_all in_model node.N.inputs) then
-            (let sv, _ = List.find (fun sv -> not (in_model sv)) node.N.inputs in
-             debug lustrePath
-               "State variable %a not in model"
-               StateVar.pp_print_state_var sv
-             in
-             assert false);
-          (* assert (List.for_all in_model node.N.inputs); *)
+          assert (List.for_all in_model node.N.inputs); 
           [],[]
      in
 
@@ -527,28 +520,24 @@ let rec widths_of_model = function
      max max_stream_val_width max_call_val_width)
      
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
-let pp_print_path_pt (* nodes *) coi start_at_init ppf model =
+let pp_print_path_pt coi start_at_init ppf model =
   let stream_map,call_map = tree_path_components model in
   assert (SVMap.cardinal stream_map = 0);
   assert (CallMap.cardinal call_map = 1);
   let reconstructed = 
     reconstruct_stateless_variables 
-      coi (* nodes *)
+      coi
       start_at_init
       []
       SVMap.empty
       (snd (CallMap.choose call_map))
   in
   let coi_svs = LustreNode.extract_state_vars coi in
-  let reconstructed' = cull_with_coi coi_svs coi (* nodes *) reconstructed in
+  let reconstructed' = cull_with_coi coi_svs coi reconstructed in
   let reconstructed'' = cull_intermediate_streams reconstructed' in
   let ident_width, val_width = widths_of_model reconstructed'' in
   pp_print_tree_path_pt ident_width val_width [] ppf reconstructed''
 
-
-(* ********************************************************************** *)
-(* Plain-text output                                                      *)
-(* ********************************************************************** *)
 
 (* 
    Local Variables:
