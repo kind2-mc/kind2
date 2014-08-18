@@ -199,7 +199,14 @@ let rec reconstruct_stateless_variables nodes start_at_init calls ancestors_stre
           (* this must be the main node - we expect that all of its inputs
              are already contained in the model *)
           let in_model (sv,ind) = SVMap.mem sv stream_map in
-          assert (List.for_all in_model node.N.inputs);
+          if not (List.for_all in_model node.N.inputs) then
+            (let sv, _ = List.find (fun sv -> not (in_model sv)) node.N.inputs in
+             debug lustrePath
+               "State variable %a not in model"
+               StateVar.pp_print_state_var sv
+             in
+             assert false);
+          (* assert (List.for_all in_model node.N.inputs); *)
           [],[]
      in
 

@@ -28,20 +28,42 @@ exception Terminate
 
 
 (* Reduce nodes to cone of influence of property *)
-let reduce_nodes_to_coi nodes prop_name =
+let reduce_nodes_to_coi trans_sys nodes prop_name =
 
   (* Name of main node *)
-  let main_name = LustreNode.find_main nodes in
+  let main_name = LustreNode.find_main (List.rev nodes) in
 
-  (* State variable for property *)
   let prop = 
-    StateVar.state_var_of_string
-      (prop_name, LustreIdent.scope_of_ident main_name)
+    Var.state_var_of_state_var_instance
+      (Term.free_var_of_term
+         (List.assoc prop_name trans_sys.TransSys.props))
+  in 
+
+  let rec base_of_state_var sv = 
+    match LustreExpr.get_state_var_source sv with
+      | LustreExpr.Input
+      | LustreExpr.Output
+      | LustreExpr.Local
+      | LustreExpr.Oracle
+      | LustreExpr.Abstract -> sv 
+      | LustreExpr.Instance (_, _, sv) -> base_of_state_var sv
   in
+
+  let prop' = base_of_state_var prop in
 
   (* Reduce nodes to cone of influence of property *)
   let nodes' = 
-    LustreNode.reduce_to_coi nodes main_name [prop]
+    LustreNode.reduce_to_coi nodes main_name [prop']
+  in
+
+  debug event
+      "@[<v>Full input:@,%a@,Reduced input for property %a (%a):@,%a@]"
+      (pp_print_list (LustreNode.pp_print_node false) "@,")
+      nodes
+      StateVar.pp_print_state_var prop'
+      (LustreIdent.pp_print_ident false) main_name
+      (pp_print_list (LustreNode.pp_print_node false) "@,")
+      nodes'
   in
 
   nodes'
@@ -345,8 +367,8 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
         (* Lustre input *)
         | TransSys.Lustre nodes ->
 
-          (* Reduce noes to cone of influence of property *)
-          let nodes' = reduce_nodes_to_coi nodes prop_name in
+          (* Reduce nodes to cone of influence of property *)
+          let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
 
           (* Output counterexample *)
           Format.fprintf ppf 
@@ -568,7 +590,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
         | TransSys.Lustre nodes ->
 
           (* Reduce noes to cone of influence of property *)
-          let nodes' = reduce_nodes_to_coi nodes prop_name in
+          let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
 
           (* Output counterexample *)
           Format.fprintf ppf 
