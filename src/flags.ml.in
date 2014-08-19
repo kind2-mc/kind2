@@ -301,6 +301,11 @@ let ind_compress_default = true
 
 (* ********** *) 
 
+type ind_print_inductive_cex = bool
+    
+let ind_print_inductive_cex_default = true
+
+(* ********** *) 
 type pdr_check_inductive = bool
     
 let string_of_pdr_check_inductive = string_of_bool
@@ -502,6 +507,7 @@ type flags =
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
       mutable ind_compress : ind_compress;
+      mutable ind_print_inductive_cex : ind_print_inductive_cex;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
       mutable pdr_check_inductive : pdr_check_inductive;
@@ -541,6 +547,7 @@ let flags =
     check_version = check_version_default;
     bmc_max = bmc_max_default;
     ind_compress = ind_compress_default;
+    ind_print_inductive_cex = ind_print_inductive_cex_default;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
     pdr_check_inductive = pdr_check_inductive_default;
@@ -693,6 +700,15 @@ let ind_compress_spec =
   ("--ind_compress", 
    Arg.Bool ind_compress_action, 
    Format.sprintf "(IND) Compress inductive counterexamples (default: %B)" ind_compress_default)
+
+(* ********** *) 
+
+let ind_print_inductive_cex_action o = flags.ind_print_inductive_cex <- o
+  
+let ind_print_inductive_cex_spec = 
+  ("--ind_print_inductive_cex", 
+   Arg.Bool ind_print_inductive_cex_action, 
+   Format.sprintf "(IND) Print inductive counterexamples (default: %B)" ind_print_inductive_cex_default)
 
 (* ********** *) 
 
@@ -949,6 +965,8 @@ let bmc_max () = flags.bmc_max
 
 let ind_compress () = flags.ind_compress 
 
+let ind_print_inductive_cex () = flags.ind_print_inductive_cex 
+
 let pdr_qe () = flags.pdr_qe 
 
 let pdr_extract () = flags.pdr_extract 
@@ -1051,6 +1069,9 @@ and speclist =
 
     (* Compress inductive counterexamples *)
     ind_compress_spec;
+
+    (* Compress inductive counterexamples *)
+    ind_print_inductive_cex_spec;
 
     (* Set QE in PDR *)
     pdr_qe_spec;

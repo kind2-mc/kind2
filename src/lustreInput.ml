@@ -81,7 +81,7 @@ let of_channel in_ch =
 
   (* Consider only nodes called by main node *)
   let nodes_coi = 
-    LustreNode.reduce_to_property_coi nodes main_node
+    LustreNode.reduce_to_props_coi nodes main_node
   in
 
   debug lustreInput

@@ -168,8 +168,11 @@ val extract_state_vars : t list -> StateVar.StateVarSet.t
     subnodes, include the given node. The list of nodes is partially
     ordered by dependencies, such that called nodes appear before
     their callers. *)
-val reduce_to_property_coi : t list -> LustreIdent.t -> t list 
+val reduce_to_coi : t list -> LustreIdent.t -> StateVar.t list -> t list 
 
+val reduce_to_props_coi : t list -> LustreIdent.t -> t list 
+
+(*
 
 (** 
 reduce_to_separate_property_cois [nodes] [main_name]
@@ -180,6 +183,9 @@ maps the identifier of each property and assert stream to the
 a list of all nodes in that assert or property's cone of influence. 
 *)
 val reduce_to_separate_property_cois : t list -> LustreIdent.t -> (t list) StateVar.StateVarMap.t 
+
+*)
+
 
 (* 
    Local Variables:

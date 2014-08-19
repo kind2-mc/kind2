@@ -30,14 +30,14 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 
 (* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
 let list_init f n =
-  assert (n > 0);
-  let rec init_aux i =
-    if i = n-1 then
-      [f i]
-    else
-      (f i) :: (init_aux (i+1))
-  in
-  init_aux 0
+  if n = 0 then [] else
+    let rec init_aux i =
+      if i = n-1 then
+        [f i]
+      else
+        (f i) :: (init_aux (i+1))
+    in
+    init_aux 0
 
 (* Returns the maximum element of a non-empty list *)
 let list_max l =
@@ -922,46 +922,6 @@ let kind_module_of_string = function
   | "INVGEN" -> `INVGEN
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
-
-
-type prop_status =
-
-  (* Status of property is unknown *)
-  | PropUnknown
-
-  (* Property is true for at least k steps *)
-  | PropKTrue of int
-
-  (* Property is true in all reachable states *)
-  | PropInvariant 
-
-  (* Property is false at some step *)
-  | PropFalse
-
-  (* Property is false in the k-th step *)
-  | PropKFalse of int 
-
-
-let pp_print_prop_status ppf = function 
-  | PropUnknown -> Format.fprintf ppf "unknown"
-  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
-  | PropInvariant -> Format.fprintf ppf "invariant"
-  | PropFalse -> Format.fprintf ppf "false"
-  | PropKFalse k -> Format.fprintf ppf "false-at %d" k
-
-
-(* Property status is known? *)
-let prop_status_known = function 
-
-  (* Property may become invariant or false *)
-  | PropUnknown
-  | PropKTrue _ -> false
-
-  (* Property is invariant or false *)
-  | PropInvariant
-  | PropFalse
-  | PropKFalse _ -> true
-
 
 
 (* Timeouts *)

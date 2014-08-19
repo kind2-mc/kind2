@@ -5,3 +5,12 @@ let
   OK = x < 3;
   --%PROPERTY OK;
 tel
+
+node Y(i, clk: bool) returns (x: int);
+var OK: bool;
+let
+  x = condact(clk, X(i), 0);
+
+  OK = x < 3;
+  --%PROPERTY OK;
+tel

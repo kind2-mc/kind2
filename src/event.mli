@@ -44,7 +44,7 @@ val set_relay_log : unit -> unit
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit 
+val log_disproved : Lib.kind_module -> Lib.log_level -> TransSys.t -> string -> (StateVar.t * Term.t list) list -> unit 
 
 (** Log a proved property
 
@@ -52,17 +52,19 @@ val log_disproved : Lib.kind_module -> Lib.log_level -> int option -> string -> 
     {!prop_status} to send it as a message. *)
 val log_proved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit
  
+(*
 (** Log a counterexample for some properties
 
     Should only be used by the invariant manager, other modules must
     use {!counterexample} to send it as a message. *)
 val log_counterexample : Lib.kind_module -> Lib.log_level -> string list -> TransSys.t -> (StateVar.t * Term.t list) list -> unit 
+*)
 
 (** Log summary of status of properties
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_prop_status : Lib.log_level -> (string * Lib.prop_status) list -> unit 
+val log_prop_status : Lib.log_level -> (string * TransSys.prop_status) list -> unit 
 
 (** Log statistics
 
@@ -81,8 +83,7 @@ val terminate_log : unit -> unit
 (** Events exposed to callers *)
 type event = 
   | Invariant of Term.t 
-  | PropStatus of string * Lib.prop_status
-  | Counterexample of string list * (StateVar.t * Term.t list) list
+  | PropStatus of string * TransSys.prop_status
 
 (** Pretty-print an event *)
 val pp_print_event : Format.formatter -> event -> unit
@@ -105,10 +106,10 @@ val progress : int -> unit
 val invariant : Term.t -> unit 
 
 (** Broadcast a property status *)
-val prop_status : Lib.prop_status -> string -> unit
+val prop_status : TransSys.prop_status -> TransSys.t -> string -> unit
 
-(** Broadcast a counterexample to some properties *)
-val counterexample : string list -> TransSys.t -> (StateVar.t * Term.t list) list -> unit
+(** Broadcast an execution path *)
+val execution_path : TransSys.t -> (StateVar.t * Term.t list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -127,7 +128,7 @@ val recv : unit -> (Lib.kind_module * event) list
     proved properties are added as invariants.
 
     Counterexamples are ignored. *)
-val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * Lib.prop_status)) list * (Lib.kind_module * (string list * (StateVar.t * Term.t list) list)) list
+val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * TransSys.prop_status)) list
 
 (** {1 Messaging} *)
 

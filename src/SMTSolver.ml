@@ -144,6 +144,7 @@ struct
           Format.fprintf ppf "@?";
           Format.pp_set_formatter_out_functions ppf fmt_out_fun;
           Format.fprintf ppf "@.";
+          Format.fprintf ppf "@\n"
         in
 
         Format.pp_set_formatter_out_functions 
@@ -216,14 +217,7 @@ struct
     in
     
     trace_cmd trace_ppf
-      "@[<v>@[<hv 1>(set-option@ :print-success@ true)@]@,%t%a%a%a%a@]"
-      (function ppf -> 
-        match l with
-          | `detect -> ()
-          | _ -> 
-            Format.fprintf ppf
-              "@[<hv 1>(set-logic@ %a)@]@," 
-              SMTExpr.pp_print_logic l)
+      "@[<v>@[<hv 1>(set-option@ :print-success@ true)@]@,%a%a%a%a%t@]"
       (pp_if_some
          "@[<hv 1>(set-option@ :produce-assignments@ %B)@]@,") 
       produce_assignments
@@ -234,8 +228,15 @@ struct
         "@[<hv 1>(set-option@ :produce-proofs@ %B)@]@,")
       produce_proofs
       (pp_if_some
-         "@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]")
-      produce_cores;
+         "@[<hv 1>(set-option@ :produce-unsat-cores@ %B)@]@,")
+      produce_cores
+      (function ppf -> 
+        match l with
+          | `detect -> ()
+          | _ -> 
+            Format.fprintf ppf
+              "@[<hv 1>(set-logic@ %a)@]" 
+              SMTExpr.pp_print_logic l);
 
   let s = 
     S.create_instance 
