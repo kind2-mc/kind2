@@ -145,6 +145,9 @@ val add_invariant : t -> Term.t -> unit
 (** Return current status of all properties *)
 val prop_status_all : t -> (string * prop_status) list
 
+(** Return current status of all properties *)
+val prop_status_all_unknown : t -> (string * prop_status) list
+
 (** Return current status of property *)
 val prop_status : t -> string -> prop_status 
 

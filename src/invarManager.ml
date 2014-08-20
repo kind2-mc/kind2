@@ -18,38 +18,23 @@
         
 open Lib
 
-let pp_print_hline ppf = 
-  
-  Format.fprintf 
-    ppf 
-    "------------------------------------------------------------------------"
-    
-
 let on_exit trans_sys =
   
   Event.log
     L_info
-    "@[<v>%t@,\
+    "@[<v>%a@,\
      Final statistics:@]"
-    pp_print_hline;
+    pp_print_hline ();
   
   List.iter 
     (fun (mdl, stat) -> Event.log_stat mdl L_info stat)
     (Event.all_stats ());
   
-  Event.log
-    L_fatal
-    "@[<v>%t@,\
-     Summary of properties:@]"
-    pp_print_hline;
-  
   (match trans_sys with | None -> () | Some trans_sys ->
-    Event.log_prop_status L_fatal (TransSys.prop_status_all trans_sys));
+    Event.log_prop_status 
+      L_fatal
+      (TransSys.prop_status_all_unknown trans_sys));
     
-  Event.log
-    L_warn 
-    "";
-  
   try 
     
     (* Send termination message to all worker processes *)
@@ -140,23 +125,7 @@ let handle_events trans_sys =
     Event.update_trans_sys trans_sys events
   in
 
-  (* Output proved properties *)
-  List.iter
-
-    (function 
-
-      (* No output for unknown or k-true properties *)
-      | (_, (_, TransSys.PropUnknown))
-      | (_, (_, TransSys.PropKTrue _)) -> ()
-
-      | (m, (p, TransSys.PropInvariant)) -> 
-        Event.log_proved m L_warn None p
-
-      | (m, (p, TransSys.PropFalse cex)) -> 
-        Event.log_disproved m L_warn trans_sys p cex)
-
-    prop_status
-
+  ()
 
 (* Polling loop *)
 let rec loop child_pids trans_sys = 

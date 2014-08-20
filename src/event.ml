@@ -353,16 +353,23 @@ let printf_pt mdl level fmt =
     
 
 (* Output proved property as plain text *)
-let proved_pt mdl level k prop = 
+let proved_pt mdl level trans_sys k prop = 
 
-  (ignore_or_fprintf level)
-    !log_ppf 
-    ("@[<hov>Success: Property %s is valid %tby %a@.@.") 
-    prop
-    (function ppf -> match k with
-       | None -> ()
-       | Some k -> Format.fprintf ppf "for k=%d " k)
-    pp_print_kind_module_pt mdl
+  (* Only ouptut if status was unknown *)
+  if 
+
+    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+
+  then 
+
+    (ignore_or_fprintf level)
+      !log_ppf 
+      ("@[<hov>Success: Property %s is valid %tby %a@.@.") 
+      prop
+      (function ppf -> match k with
+         | None -> ()
+         | Some k -> Format.fprintf ppf "for k=%d " k)
+      pp_print_kind_module_pt mdl
 
 
 (* Pretty-print a counterexample *)
@@ -474,9 +481,11 @@ let progress_pt mdl level k =
 (* Pretty-print a list of properties and their status *)
 let prop_status_pt level prop_status =
 
+
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@]@."
+    "@[<v>%a@,Summary_of_properties:@,@,%a@,@]@."
+    pp_print_hline ()
     (pp_print_list 
        (fun ppf (p, s) -> 
           Format.fprintf 
@@ -570,24 +579,31 @@ let printf_xml mdl level fmt =
 
 
 (* Output proved property as XML *)
-let proved_xml mdl level k prop = 
+let proved_xml mdl level trans_sys k prop = 
 
   (* Update time *)
   Stat.update_time Stat.total_time;
 
-  (ignore_or_fprintf level)
-    !log_ppf 
-    ("@[<hv 2><Property name=\"%s\">@,\
-      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-      %t\
-      <Answer source=\"%a\">valid</Answer>@;<0 -2>\
-      </Property>@]@.") 
-    prop
-    (Stat.get_float Stat.total_time)
-    (function ppf -> match k with 
-       | None -> () 
-       | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
-    pp_print_kind_module_xml_src mdl
+  (* Only ouptut if status was unknown *)
+  if 
+
+    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+
+  then 
+
+    (ignore_or_fprintf level)
+      !log_ppf 
+      ("@[<hv 2><Property name=\"%s\">@,\
+        <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+        %t\
+        <Answer source=\"%a\">valid</Answer>@;<0 -2>\
+        </Property>@]@.") 
+      prop
+      (Stat.get_float Stat.total_time)
+      (function ppf -> match k with 
+         | None -> () 
+         | Some k -> Format.fprintf ppf "<K>%d</K>@," k)
+      pp_print_kind_module_xml_src mdl
 
 
 (* Pretty-print a counterexample *)
@@ -712,32 +728,42 @@ let prop_status_xml level prop_status =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<v>%a@]"
+    "@[<v>%a@]@."
     (pp_print_list 
        (fun ppf (p, s) -> 
-          Format.fprintf 
-            ppf
-            "@[<hv 2><Property name=\"%s\">@,\
-             @[<hv 2><Status>@,%a@;<0 -2></Status>@]\
-             @;<0 -2></Property>@]"
-            p
-            (function ppf -> function 
-               | TransSys.PropUnknown -> Format.fprintf ppf "unknown"
 
-               | TransSys.PropKTrue k -> Format.fprintf ppf "true(%d)" k
-
-               | TransSys.PropInvariant -> Format.fprintf ppf "valid"
-
-               | TransSys.PropFalse [] -> Format.fprintf ppf "falsifiable"
-
-               | TransSys.PropFalse cex -> 
-
-                 Format.fprintf 
-                   ppf
-                   "falsifiable(%d)"
-                   (TransSys.length_of_cex cex))
-
-            s)
+          (* Only output properties with status unknonw *)
+          if not (TransSys.prop_status_known s) then
+            
+            Format.fprintf 
+              ppf
+              "@[<hv 2><Property name=\"%s\">@,\
+               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]\
+               %a\
+               @;<0 -2></Property>@]"
+              p
+              (function ppf -> function 
+                 | TransSys.PropUnknown
+                 | TransSys.PropKTrue _ -> Format.fprintf ppf "unknown"
+                 | TransSys.PropInvariant -> Format.fprintf ppf "valid"
+                 | TransSys.PropFalse [] 
+                 | TransSys.PropFalse _ -> Format.fprintf ppf "falsifiable")
+              s
+              (function ppf -> function
+                 | TransSys.PropUnknown
+                 | TransSys.PropInvariant 
+                 | TransSys.PropFalse [] -> ()
+                 | TransSys.PropKTrue k -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><TrueFor>@,%d@;<0 -2></TrueFor>@]"
+                     k
+                 | TransSys.PropFalse cex -> 
+                   Format.fprintf 
+                     ppf 
+                     "@,@[<hv 2><FalseAt>@,%d@;<0 -2></FalseAt>@]"
+                     (TransSys.length_of_cex cex))
+              s)
        "@,")
     prop_status
 
@@ -836,10 +862,10 @@ let log level fmt =
 
 
 (* Log a message with source and log level *)
-let log_proved mdl level k prop =
+let log_proved mdl level trans_sys k prop =
   match !log_format with 
-    | F_pt -> proved_pt mdl level k prop
-    | F_xml -> proved_xml mdl level k prop
+    | F_pt -> proved_pt mdl level trans_sys k prop
+    | F_xml -> proved_xml mdl level trans_sys k prop
     | F_relay -> ()
 
 
@@ -915,7 +941,7 @@ let prop_status status trans_sys prop =
   let mdl = get_module () in
 
   (match status with
-    | TransSys.PropInvariant -> log_proved mdl L_warn None prop
+    | TransSys.PropInvariant -> log_proved mdl L_warn trans_sys None prop
     | TransSys.PropFalse cex -> log_disproved mdl L_warn trans_sys prop cex
     | _ -> ());
 
@@ -1178,6 +1204,9 @@ let update_trans_sys trans_sys events =
     (* Property found invariant *)
     | (m, PropStatus (p, (TransSys.PropInvariant as s))) :: tl -> 
 
+      (* Output proved property *)
+      log_proved m L_warn trans_sys None p;
+          
       (* Change property status in transition system *)
       TransSys.prop_invariant trans_sys p;
 
@@ -1201,10 +1230,13 @@ let update_trans_sys trans_sys events =
     (* Property found false *)
     | (m, PropStatus (p, (TransSys.PropFalse cex as s))) :: tl -> 
 
+      (* Output disproved property *)
+      log_disproved m L_warn trans_sys p cex;
+
       (* Change property status in transition system *)
       TransSys.prop_false trans_sys p cex;
 
-      (* Continue with propert status added to accumulator *)
+      (* Continue with property status added to accumulator *)
       update_trans_sys' 
         trans_sys
         invars
