@@ -59,6 +59,16 @@ let prop_status_known = function
   | PropFalse _ -> true
 
 
+(* Return the length of the counterexample *)
+let length_of_cex = function 
+
+  (* Empty counterexample has length zero *)
+  | [] -> 0
+
+  (* Length of counterexample from first state variable *)
+  | (_, l) :: _ -> List.length l
+
+
 type t = 
 
   {

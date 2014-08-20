@@ -338,6 +338,24 @@ val is_exists : t -> bool
 (** Return true if the term is a universal quantifier *)
 val is_forall : t -> bool 
 
+(** Return true if the term is an integer constant *)
+val is_numeral : t -> bool
+
+(** Return integer constant of a term *)
+val numeral_of_term : t -> Numeral.t
+
+(** Return true if the term is a decimal constant *)
+val is_decimal : t -> bool
+
+(** Return decimal constant of a term *)
+val decimal_of_term : t -> Decimal.t
+
+(** Return true if the term is a Boolean constant *)
+val is_bool : t -> bool
+
+(** Return Boolean constant of a term *)
+val bool_of_term : t -> bool
+
 
 (** {1 Pretty-printing} *)
 

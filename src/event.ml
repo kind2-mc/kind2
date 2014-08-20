@@ -111,12 +111,12 @@ let pp_print_event ppf = function
   | PropStatus (p, TransSys.PropFalse []) -> 
     Format.fprintf ppf "@[<hv>Property %s false@]" p
 
-  | PropStatus (p, TransSys.PropFalse ((_, c) :: _)) ->
+  | PropStatus (p, TransSys.PropFalse cex) ->
     Format.fprintf 
       ppf
       "@[<hv>Property %s false at step %d@]" 
       p
-      (List.length c)
+      (TransSys.length_of_cex cex)
 
 
 (* Module as input to Messaging.Make functor *)
@@ -496,8 +496,11 @@ let prop_status_pt level prop_status =
                | TransSys.PropFalse [] -> 
                  Format.fprintf ppf "invalid"
 
-               | TransSys.PropFalse ((_, c) :: _) -> 
-                 Format.fprintf ppf "invalid after %d steps" (List.length c))
+               | TransSys.PropFalse cex -> 
+                 Format.fprintf 
+                   ppf
+                   "invalid after %d steps"
+                   (TransSys.length_of_cex cex))
             s)
        "@,")
     prop_status
@@ -559,9 +562,9 @@ let printf_xml mdl level fmt =
 
   (ignore_or_fprintf level)
     !log_ppf 
-    ("@[<hv 2><log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ 
+    ("@[<hv 2><Log class=\"%a\" source=\"%a\">@,@[<hov>" ^^ 
        fmt ^^ 
-       "@]@;<0 -2></log>@]@.") 
+       "@]@;<0 -2></Log>@]@.") 
     pp_print_level_xml_cls level
     pp_print_kind_module_xml_src mdl
 
@@ -666,14 +669,14 @@ let disproved_xml mdl level trans_sys prop cex =
     ("@[<hv 2><Property name=\"%s\">@,\
       <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
       %t\
-      <Answer source=\"%a\">invalid</Answer>@,\
+      <Answer source=\"%a\">falsifiable</Answer>@,\
       %a@;<0 -2>\
       </Property>@]@.") 
     prop
     (Stat.get_float Stat.total_time)
     (function ppf -> match cex with 
        | [] -> () 
-       | ((_, c) :: _) -> Format.fprintf ppf "<K>%d</K>@," (List.length c))
+       | cex -> Format.fprintf ppf "<K>%d</K>@," (TransSys.length_of_cex cex))
     pp_print_kind_module_xml_src mdl
     (pp_print_counterexample_xml trans_sys prop) cex
   
@@ -683,12 +686,12 @@ let stat_xml mdl level stats =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<hv 2><stat source=\"%a\">@,%a@;<0 -2></stat>@]@."
+    "@[<hv 2><Stat source=\"%a\">@,%a@;<0 -2></Stat>@]@."
     pp_print_kind_module_xml_src mdl
     (pp_print_list
        (function ppf -> function (section, items) ->
           Format.fprintf ppf 
-            "@[<hv 2><section>@,<name>%s</name>@,%a@;<0 -2></section>@]"
+            "@[<hv 2><Section>@,<name>%s</name>@,%a@;<0 -2></Section>@]"
             section
             Stat.pp_print_stats_xml items)
        "@,")
@@ -700,7 +703,7 @@ let progress_xml mdl level k =
 
   (ignore_or_fprintf level)
     !log_ppf
-    "@[<hv 2><progress source=\"%a\">%d@;<0 -2></progress>@]@."
+    "@[<hv 2><Progress source=\"%a\">%d@;<0 -2></Progress>@]@."
     pp_print_kind_module_xml_src mdl
     k
 
@@ -714,9 +717,9 @@ let prop_status_xml level prop_status =
        (fun ppf (p, s) -> 
           Format.fprintf 
             ppf
-            "@[<hv 2><property name=\"%s\">@,\
-             @[<hv 2><status>@,%a@;<0 -2></status>@]\
-             @;<0 -2></property>@]"
+            "@[<hv 2><Property name=\"%s\">@,\
+             @[<hv 2><Status>@,%a@;<0 -2></Status>@]\
+             @;<0 -2></Property>@]"
             p
             (function ppf -> function 
                | TransSys.PropUnknown -> Format.fprintf ppf "unknown"
@@ -725,10 +728,14 @@ let prop_status_xml level prop_status =
 
                | TransSys.PropInvariant -> Format.fprintf ppf "valid"
 
-               | TransSys.PropFalse [] -> Format.fprintf ppf "invalid"
+               | TransSys.PropFalse [] -> Format.fprintf ppf "falsifiable"
 
-               | TransSys.PropFalse ((_, c) ::_) -> 
-                 Format.fprintf ppf "invalid(%d)" (List.length c))
+               | TransSys.PropFalse cex -> 
+
+                 Format.fprintf 
+                   ppf
+                   "falsifiable(%d)"
+                   (TransSys.length_of_cex cex))
 
             s)
        "@,")

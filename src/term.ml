@@ -180,6 +180,122 @@ let is_forall t = match node_of_term t with
   | _ -> false 
 
 
+(* Return true if the term is an integer constant *)
+let rec is_numeral t = match node_of_term t with 
+
+  (* Term is a numeral constant *)
+  | T.Leaf s when Symbol.is_numeral s -> true
+
+  (* Term is a decimal constant coinciding with an integer *)
+  | T.Leaf s when 
+      Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
+
+    true
+
+  (* Term is a negated numeral constant *)
+  | T.Node (s, [a]) when s == Symbol.s_minus && is_numeral a -> true
+
+  | _ -> false
+
+
+(* Return integer constant of a term *)
+let rec numeral_of_term t = match node_of_term t with 
+
+  (* Term is a numeral constant *)
+  | T.Leaf s when Symbol.is_numeral s -> Symbol.numeral_of_symbol s
+
+  (* Term is a decimal constant coinciding with an integer *)
+  | T.Leaf s when 
+      Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
+
+    Numeral.of_big_int (Decimal.to_big_int (Symbol.decimal_of_symbol s))
+
+  (* Term is a negated numeral constant *)
+  | T.Node (s, [a]) when s == Symbol.s_minus && is_numeral a -> 
+
+    Numeral.(~- (numeral_of_term a))
+
+  | _ -> invalid_arg "numeral_of_term"
+
+
+(* Return decimal constant of a term *)
+let rec decimal_of_term t = 
+
+  match node_of_term t with 
+
+  (* Term is a decimal constant *)
+  | T.Leaf s when Symbol.is_decimal s -> Symbol.decimal_of_symbol s
+
+  (* Term is a negated decimal constant *)
+  | T.Node (s, [a]) when s == Symbol.s_minus && is_decimal a -> 
+    Decimal.(~- (decimal_of_term a))
+
+  (* Term is an integer division *)
+  | T.Node (s, [n; d]) when 
+      s == Symbol.s_div && is_numeral n && is_numeral d ->
+
+    let n' = 
+      Decimal.of_big_int 
+        (Numeral.to_big_int 
+           (numeral_of_term n))
+    in
+
+    let d' = 
+      Decimal.of_big_int 
+        (Numeral.to_big_int 
+           (numeral_of_term d))
+    in
+
+    Decimal.(n' / d')
+
+  | _ -> invalid_arg "decimal_of_term"
+
+
+(* Return true if the term is a decimal constant *)
+and is_decimal t = match node_of_term t with 
+
+  (* Term is a decimal constant *)
+  | T.Leaf s when Symbol.is_decimal s -> true
+
+  (* Term is a negated decimal constant *)
+  | T.Node (s, [a]) when s == Symbol.s_minus && is_decimal a -> true
+
+  (* Term is an integer division *)
+  | T.Node (s, [n; d]) when 
+      s == Symbol.s_div && 
+      (is_numeral n || is_decimal n && Decimal.is_int (decimal_of_term n)) && 
+      (is_numeral d || is_decimal d && Decimal.is_int (decimal_of_term d)) ->
+    
+    true
+
+  | _ -> false
+
+
+(* Return true if the term is a Boolean constant *)
+let rec is_bool t = match node_of_term t with 
+
+  (* Term is a Boolean constant *)
+  | T.Leaf s when Symbol.is_bool s -> true
+
+  (* Term is a negated Boolean constant *)
+  | T.Node (s, [a]) when s == Symbol.s_not && is_bool a -> true
+
+  | _ -> false
+
+
+(* Return Boolean constant of a term *)
+let rec bool_of_term t = match node_of_term t with 
+
+  (* Term is a Boolean constant *)
+  | T.Leaf s when Symbol.is_bool s -> Symbol.bool_of_symbol s
+
+  (* Term is a negated numeral constant *)
+  | T.Node (s, [a]) when s == Symbol.s_not && is_bool a -> 
+    not (bool_of_term a)
+
+  | _ -> invalid_arg "bool_of_term"
+
+
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
