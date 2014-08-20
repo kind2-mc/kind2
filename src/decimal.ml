@@ -39,8 +39,8 @@ let one = Num.num_of_int 1
 (* ********************************************************************** *)
 
 
-(* Pretty-print a numeral *)
-let pp_print_decimal ppf = function
+(* Pretty-print a numeral as an S-expression *)
+let pp_print_decimal_sexpr ppf = function
 
   | Num.Int i -> Format.fprintf ppf "%d.0" i
 
@@ -61,6 +61,32 @@ let pp_print_decimal ppf = function
       (Big_int.string_of_big_int rn)
       (Big_int.string_of_big_int rd)
 
+
+(* Pretty-print a numeral as an S-expression *)
+let pp_print_decimal ppf = function
+
+  | Num.Int i -> Format.fprintf ppf "%d" i
+
+  | Num.Big_int n -> Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
+
+  | Num.Ratio r -> 
+
+    (* Normalize rational number *)
+    let r' = Ratio.normalize_ratio r in
+
+    (* Get numerator and denominator *)
+    let rn = Ratio.numerator_ratio r' in
+    let rd = Ratio.denominator_ratio r' in
+    
+    (* Print with division as prefix operator *)
+    Format.fprintf ppf 
+      "%s/%s" 
+      (Big_int.string_of_big_int rn)
+      (Big_int.string_of_big_int rd)
+
+
+(* Return a string representation of a decimal *)
+let string_of_decimal_sexpr = string_of_t pp_print_decimal_sexpr 
 
 (* Return a string representation of a decimal *)
 let string_of_decimal = string_of_t pp_print_decimal 
@@ -267,6 +293,12 @@ let to_int d =
 (* Convert a rational number to an arbitrary large integer *)
 let to_big_int d = Num.big_int_of_num (Num.floor_num d)
 
+
+(* Return true if decimal coincides with an integer *)
+let is_int = function 
+  | Num.Int _ 
+  | Num.Big_int _ -> true
+  | Num.Ratio _ -> false
 
 (* ********************************************************************** *)
 (* Arithmetic operators                                                   *)

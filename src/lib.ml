@@ -437,6 +437,18 @@ let paren_string_of_string_list list =
   string_of_t pp_print_paren_list list
 
 
+(* Output a horizonal dasehd line *)
+let pp_print_hline ppf () = 
+  
+  let width = Format.pp_get_margin ppf () in 
+
+  let hline = String.make width '-' in
+
+  Format.fprintf 
+    ppf 
+    "%s"
+    hline
+
 
 (* ********************************************************************** *)
 (* Option types                                                           *)
@@ -872,7 +884,7 @@ let log_to_stdout () = log_ppf := Format.std_formatter
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    Format.fprintf ppf "%s %s" Config.package_name Version.version
+    Format.fprintf ppf "%s %s" Kind2Config.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   

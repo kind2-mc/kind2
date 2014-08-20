@@ -29,8 +29,14 @@ type t
 (** Pretty-print a rational *)
 val pp_print_decimal : Format.formatter -> t -> unit
 
+(** Pretty-print a rational as an S-expression *)
+val pp_print_decimal_sexpr : Format.formatter -> t -> unit
+
 (** Return a string representation of a rational *)
 val string_of_decimal : t -> string
+
+(** Return an S-expression string representation of a rational *)
+val string_of_decimal_sexpr : t -> string
 
 (** {1 Conversions} *)
 
@@ -57,6 +63,10 @@ val to_int : t -> int
 
 (** Convert a rational number to an arbitrary large integer *)
 val to_big_int : t -> Big_int.big_int
+
+(** Return true if decimal coincides with an integer *)
+val is_int : t -> bool
+
 
 (** {1 Constants} *)
 

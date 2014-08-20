@@ -39,12 +39,22 @@ type prop_status =
   | PropFalse of (StateVar.t * Term.t list) list
 
 
+(* Return the length of the counterexample *)
+let length_of_cex = function 
+
+  (* Empty counterexample has length zero *)
+  | [] -> 0
+
+  (* Length of counterexample from first state variable *)
+  | (_, l) :: _ -> List.length l
+
+
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
   | PropKTrue k -> Format.fprintf ppf "true-for %d" k
   | PropInvariant -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
-  | PropFalse ((_, c) :: _) -> Format.fprintf ppf "false-at %d" (List.length c)
+  | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
 
 
 (* Property status is known? *)
@@ -304,6 +314,13 @@ let add_invariant t invar = t.invars <- invar :: t.invars
 (* Return current status of all properties *)
 let prop_status_all trans_sys = trans_sys.prop_status
 
+(* Return current status of all properties *)
+let prop_status_all_unknown trans_sys = 
+
+  List.filter
+    (fun (_, s) -> not (prop_status_known s))
+    trans_sys.prop_status
+
 
 (* Return current status of property *)
 let prop_status trans_sys p = 
@@ -360,14 +377,14 @@ let prop_false t prop cex =
               raise (Failure "prop_false")
 
             (* Fail if property was l-true for l >= k *)
-            | PropKTrue l when l >= (List.length cex) -> 
+            | PropKTrue l when l > (length_of_cex cex) -> 
               raise (Failure "prop_false")
 
             (* Mark property as false if it was l-true for l < k *)
             | PropKTrue _ -> (n, PropFalse cex)
 
             (* Keep if property was l-false for l <= k *)
-            | PropFalse cex' when (List.length cex') <= (List.length cex) -> 
+            | PropFalse cex' when (length_of_cex cex') <= (length_of_cex cex) -> 
               (n, s)
 
             (* Mark property as k-false *)
@@ -402,7 +419,7 @@ let prop_ktrue t k prop =
             | PropInvariant -> (n, s)
 
             (* Keep if property was l-false for l > k *)
-            | PropFalse cex when (List.length cex) > k -> (n, s)
+            | PropFalse cex when (length_of_cex cex) > k -> (n, s)
 
             (* Fail if property was l-false for l <= k *)
             | PropFalse _ -> 

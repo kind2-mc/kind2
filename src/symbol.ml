@@ -331,7 +331,7 @@ let rec pp_print_symbol_node ppf = function
   | `ITE -> Format.pp_print_string ppf "ite" 
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
-  | `DECIMAL f -> Decimal.pp_print_decimal ppf f
+  | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
   | `BV b -> pp_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
@@ -489,6 +489,9 @@ let s_mod = mk_symbol `MOD
 
 (* Constant minus operator *)
 let s_minus = mk_symbol `MINUS
+
+(* Constant division operator *)
+let s_div = mk_symbol `DIV
 
 
 

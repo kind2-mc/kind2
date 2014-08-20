@@ -50,7 +50,7 @@ val log_disproved : Lib.kind_module -> Lib.log_level -> TransSys.t -> string -> 
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_proved : Lib.kind_module -> Lib.log_level -> int option -> string -> unit
+val log_proved : Lib.kind_module -> Lib.log_level -> TransSys.t -> int option -> string -> unit
  
 (*
 (** Log a counterexample for some properties

@@ -52,6 +52,9 @@ val pp_print_prop_status_pt : Format.formatter -> prop_status -> unit
     [PropInvariant], [PropFalse] and [PropKFalse].  *)
 val prop_status_known : prop_status -> bool
 
+(** Return the length of the counterexample *)
+val length_of_cex : (StateVar.t * Term.t list) list -> int
+
 (** The transition system 
 
     The transition system must be constructed with the function
@@ -141,6 +144,9 @@ val add_invariant : t -> Term.t -> unit
 
 (** Return current status of all properties *)
 val prop_status_all : t -> (string * prop_status) list
+
+(** Return current status of all properties *)
+val prop_status_all_unknown : t -> (string * prop_status) list
 
 (** Return current status of property *)
 val prop_status : t -> string -> prop_status 

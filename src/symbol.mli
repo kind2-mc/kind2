@@ -217,6 +217,9 @@ val s_mod : t
 (** Constant minus operator symbol *)
 val s_minus : t
 
+(** Constant division operator symbol *)
+val s_div : t
+
 
 
 (** {1 Accessors functions} *)

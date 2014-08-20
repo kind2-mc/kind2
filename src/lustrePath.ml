@@ -46,40 +46,62 @@ type tree_path =
 
 (* Create a tree path of a model *)
 let rec tree_path_components model =
-  let fold_state_var (stream_map, call_map) (state_var,terms) =
+
+  let fold_state_var (stream_map, call_map) (state_var, terms) =
+
     let src = E.get_state_var_source state_var in
+
     match src with
-    | E.Input
-    | E.Output  
-    | E.Local
-    | E.Oracle
-    | E.Abstract ->
-       let stream_map' = 
-         SVMap.add 
-           state_var
-           (src, Array.of_list terms)
-           stream_map
-       in
-       (stream_map',call_map)
-    | E.Instance (call_pos, call_node_id, call_state_var) ->
-       let call_key = (call_node_id,call_pos) in
-       let node_model = 
-         if CallMap.mem call_key call_map then
-           CallMap.find call_key call_map 
-         else
-           []
-       in
-       let node_model' = (call_state_var, terms) :: node_model in
-       let call_map' = CallMap.add call_key node_model' call_map in
-       (stream_map,call_map')
+
+      | E.Input
+      | E.Output  
+      | E.Local
+      | E.Oracle
+      | E.Abstract ->
+
+        let stream_map' = 
+          SVMap.add 
+            state_var
+            (src, Array.of_list terms)
+            stream_map
+        in
+
+        (stream_map', call_map)
+
+      | E.Instance (call_pos, call_node_id, call_state_var) ->
+
+        let call_key = (call_node_id, call_pos) in
+
+        let node_model = 
+          if CallMap.mem call_key call_map then
+            CallMap.find call_key call_map 
+          else
+            []
+        in
+
+        let node_model' = (call_state_var, terms) :: node_model in
+
+        let call_map' = CallMap.add call_key node_model' call_map in
+
+        (stream_map, call_map')
+
   in
-  let node_of_model (call_node_id,call_pos) model =
+
+  let node_of_model (call_node_id, call_pos) model =
+
     let stream_map, call_map = tree_path_components model in
-    Node(call_node_id,call_pos,stream_map,call_map)
+
+    Node(call_node_id, call_pos, stream_map, call_map)
+
   in
-  let stream_map,node_map = List.fold_left fold_state_var (SVMap.empty,CallMap.empty) model in
+
+  let stream_map, node_map = 
+    List.fold_left fold_state_var (SVMap.empty,CallMap.empty) model 
+  in
+
   let node_map' = CallMap.mapi node_of_model node_map in
-  stream_map,node_map'
+
+  stream_map, node_map'
 
 (* reconstructs a stateless variable
 
@@ -299,6 +321,44 @@ let rec cull_with_coi coi nodes path =
 (* XML output                                                             *)
 (* ********************************************************************** *)
 
+(* Pretty-print a value *)
+let rec pp_print_value ppf term =
+
+  (* We expect values to be constants *)
+  if Term.is_numeral term then 
+
+    (* Pretty-print as a numeral *)
+    Numeral.pp_print_numeral 
+      ppf
+      (Term.numeral_of_term term)
+
+  (* Constant is a decimal? *)
+  else if Term.is_decimal term then 
+    
+    (* Pretty-print as a decimal *)
+    Decimal.pp_print_decimal 
+      ppf
+      (Term.decimal_of_term term)
+      
+  (* Constant is a Boolean? *)
+  else if Term.is_bool term then 
+    
+    (* Get Boolean value of constant *)
+    if Term.bool_of_term term then 
+      
+      (* Pretty-print as Boolean value *)
+      Format.fprintf ppf "true"
+        
+    else
+      
+      (* Pretty-print as Boolean value *)
+      Format.fprintf ppf "false"
+        
+  else
+    
+    (* Fall back to pretty-print as a term *)
+    Term.pp_print_term ppf term 
+
 
 (* Pretty-print a position as XML attributes *)
 let pp_print_pos_xml ppf pos = 
@@ -319,6 +379,7 @@ let pp_print_pos_xml ppf pos =
       pos_lnum
       pos_cnum
 
+
 (* Pretty-print a property of a stream as XML attributes *)
 let pp_print_stream_prop_xml ppf = function 
 
@@ -331,6 +392,7 @@ let pp_print_stream_prop_xml ppf = function
   (* these types of streams should have been culled out *)
   | E.Abstract | E.Oracle | E.Instance(_,_,_) -> assert false 
 
+
 let pp_print_stream_xml ppf (sv, (stream_prop, stream_values)) =
   let stream_ident = fst (E.ident_of_state_var sv) in
   let stream_type = StateVar.type_of_state_var sv in
@@ -338,21 +400,21 @@ let pp_print_stream_xml ppf (sv, (stream_prop, stream_values)) =
   let print_stream_value ppf i t =
     Format.fprintf 
       ppf
-      "@[<hv 2><value state=\"%d\">@,@[<hv 2>%a@]@;<0 -2></value>@]" 
+      "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
       i
-      Term.pp_print_term t    
+      pp_print_value t    
   in
 
   Format.fprintf 
     ppf
-    "@[<hv 2>@[<hv 1><stream@ name=\"%a\" type=\"%a\"%a>@]@,\
-     %a@;<0 -2></stream>@]"
+    "@[<hv 2>@[<hv 1><Stream@ name=\"%a\" type=\"%a\"%a>@]@,\
+     %a@;<0 -2></Stream>@]"
     (I.pp_print_ident false) stream_ident
     (E.pp_print_lustre_type false) stream_type
     pp_print_stream_prop_xml stream_prop
     (pp_print_arrayi print_stream_value "@,") stream_values
 
-(* Pretty-print a tree path as <stream> and <node> tags *)
+(* Pretty-print a tree path as <Stream> and <node> tags *)
 let rec pp_print_tree_path_xml ppf = function 
   | Node (node_ident, node_pos, stream_map, call_map) ->
 
@@ -364,7 +426,7 @@ let rec pp_print_tree_path_xml ppf = function
      
      Format.fprintf
        ppf
-       "@[<hv 2>@[<hv 1><node@ name=\"%a\"@ %a>@]%a@;<0 -2></node>@]"
+       "@[<hv 2>@[<hv 1><Node@ name=\"%a\"@ %a>@]%a@;<0 -2></Node>@]"
        (I.pp_print_ident false) node_ident
        pp_print_pos_xml node_pos
        pp_print_components (inputs,outputs,locals,calls)
@@ -428,7 +490,7 @@ let pp_print_stream_pt
        ppf
        "%-*s"
        val_width
-       (string_of_t Term.pp_print_term t)    
+       (string_of_t pp_print_value t)    
    in
    
    Format.fprintf
@@ -521,9 +583,21 @@ let rec widths_of_model = function
      
 (* Pretty-print a path in plain text, with stateless variables reconstructed *)
 let pp_print_path_pt coi start_at_init ppf model =
-  let stream_map,call_map = tree_path_components model in
+
+  Format.fprintf ppf 
+    "@[<v>Input nodes:@,%a@,@]"
+    (pp_print_list (N.pp_print_node false) "@,") coi;
+
+  let stream_map, call_map = tree_path_components model in
+
+  let orig_tree_path = (snd (CallMap.choose call_map)) in
+
+  let ident_width, val_width = widths_of_model orig_tree_path in
+  pp_print_tree_path_pt ident_width val_width [] ppf orig_tree_path;
+
   assert (SVMap.cardinal stream_map = 0);
   assert (CallMap.cardinal call_map = 1);
+
   let reconstructed = 
     reconstruct_stateless_variables 
       coi
@@ -532,6 +606,7 @@ let pp_print_path_pt coi start_at_init ppf model =
       SVMap.empty
       (snd (CallMap.choose call_map))
   in
+
   let coi_svs = LustreNode.extract_state_vars coi in
   let reconstructed' = cull_with_coi coi_svs coi reconstructed in
   let reconstructed'' = cull_intermediate_streams reconstructed' in
