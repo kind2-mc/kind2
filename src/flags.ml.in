@@ -969,6 +969,8 @@ let ind_print_inductive_cex () = flags.ind_print_inductive_cex
 
 let pdr_qe () = flags.pdr_qe 
 
+let set_pdr_qe f = flags.pdr_qe <- f
+
 let pdr_extract () = flags.pdr_extract 
 
 let pdr_check_inductive () = flags.pdr_check_inductive 

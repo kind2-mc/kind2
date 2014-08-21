@@ -96,6 +96,7 @@ val ind_print_inductive_cex : unit -> ind_print_inductive_cex
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val pdr_qe : unit -> pdr_qe
+val set_pdr_qe : pdr_qe -> unit
 
 (** Heuristics for extraction of implicant *)
 type pdr_extract = [ `First | `Vars ]

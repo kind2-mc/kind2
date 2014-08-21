@@ -2328,6 +2328,26 @@ let main trans_sys =
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
 
+  if 
+
+    (* Check if real valued variables in transition system *)
+    List.exists 
+      (fun sv -> StateVar.type_of_state_var sv == Type.t_real)
+      (TransSys.state_vars trans_sys)
+
+  then
+
+    (
+
+      Event.log
+        L_info
+        "Problem contains real valued variables, switching off approximate QE";
+      
+      Flags.set_pdr_qe `Z3
+
+    );
+
+
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
 
