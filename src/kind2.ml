@@ -31,6 +31,8 @@ module BMC = Bmc
 module InvGen = InvGenDummy
 
 (* module PDR = Dummy *)
+
+let children_pgid = ref 0
   
 (* Child processes forked 
 
@@ -181,6 +183,22 @@ let status_of_exn process = function
 (* Clean up before exit *)
 let on_exit process exn = 
 
+  let clean_exit status =
+
+    (* Kill all remaining processes in the process groups of child
+       processes *)
+    List.iter
+      (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
+      !child_pids;
+      
+    (* Close tags in XML output *)
+    Event.terminate_log ();
+
+    (* Exit with status *)
+    exit status
+        
+  in
+
   (* Ignore SIGALRM from now on *)
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
@@ -206,11 +224,16 @@ let on_exit process exn =
     "Waiting for remaining child processes to terminate";
 
   try 
+
+    let wait_end = (Unix.gettimeofday ()) +. 1. in
     
-    while true do
+    while Unix.gettimeofday () < wait_end do
       
       (* Wait for child process to terminate *)
       let pid, status = Unix.wait () in
+
+      (* Kill processes left in process group of child process *)
+      (try Unix.kill (- pid) Sys.sigkill with _ -> ());
 
       (* Remove killed process from list *)
       child_pids := List.remove_assoc pid !child_pids;
@@ -219,8 +242,10 @@ let on_exit process exn =
       Event.log L_info 
         "Process %d %a" pid pp_print_process_status status
         
-    done
-    
+    done;
+
+    clean_exit 0
+
   with 
     
     (* No more child processes, this is the normal exit *)
@@ -229,10 +254,7 @@ let on_exit process exn =
       Event.log L_info 
         "All processes terminated. Exiting.";
 
-      Event.terminate_log ();
-
-      (* Exit with status *)
-      exit status
+      clean_exit 0
         
     (* Unix.wait was interrupted *)
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
@@ -240,17 +262,7 @@ let on_exit process exn =
       (* Get new exit status *)
       let status' = status_of_exn process (Signal 0) in
 
-      Event.log L_error 
-        "@[<hv>Not all child processes could be terminated: @[<hov>%a@]@]"
-        (pp_print_list 
-           (fun ppf (p, _) -> 
-              Format.fprintf ppf "%d" p)
-           ",@ ")
-        !child_pids;
-
-      Event.terminate_log ();
-
-      exit status' 
+      clean_exit status'
 
     (* Exception in Unix.wait loop *)
     | e -> 
@@ -258,17 +270,7 @@ let on_exit process exn =
       (* Get new exit status *)
       let status' = status_of_exn process e in
 
-      Event.log L_error 
-        "@[<hv>Not all child processes could be terminated: @[<hov>%a@]@]"
-        (pp_print_list 
-           (fun ppf (p, _) -> 
-              Format.fprintf ppf "%d" p)
-           ",@ ")
-        !child_pids;
-
-      Event.terminate_log ();
-
-      exit status' 
+      clean_exit status'
 
 
 (* Call cleanup function of process and exit. 
@@ -317,6 +319,9 @@ let run_process messaging_setup process =
       (
 
         try 
+
+          (* Make the process leader of a new session *)
+          ignore (Unix.setsid ());
 
           let pid = Unix.getpid () in
 
@@ -801,16 +806,16 @@ let main () =
 
           Event.log L_trace
             "Messaging initialized in invariant manager";
-          
+
           (* Start all child processes *)
           List.iter 
             (function p -> 
               run_process messaging_setup p)
             ps;
-
+              
           (* Set module currently running *)
           Event.set_module `INVMAN;
-
+          
           Event.log L_trace "Starting invariant manager";
 
           (* Initialize messaging for invariant manager, obtain a background
