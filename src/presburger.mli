@@ -21,6 +21,9 @@
     @author Ruoyu Zhang
 *)
 
+(** Formula is not in linear integer arithmetic *)
+exception Not_in_LIA
+
 (** Normalize the term into a Presburger formula *)
 val to_presburger : Var.t list -> Term.t -> Poly.cformula
 

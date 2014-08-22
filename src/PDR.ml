@@ -2328,26 +2328,6 @@ let main trans_sys =
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
 
-  if 
-
-    (* Check if real valued variables in transition system *)
-    List.exists 
-      (fun sv -> StateVar.type_of_state_var sv == Type.t_real)
-      (TransSys.state_vars trans_sys)
-
-  then
-
-    (
-
-      Event.log
-        L_info
-        "Problem contains real valued variables, switching off approximate QE";
-      
-      Flags.set_pdr_qe `Z3
-
-    );
-
-
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
 
@@ -2476,32 +2456,32 @@ let main trans_sys =
 
           (* Get invariants of transition system *)
           let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
-          
+
           (* Get invariants for current state *)
           let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
-          
+
           (* Assert invariants for current state if not empty *)
           if not (invars_0 == Term.t_true) then 
-            
+
             (debug smt 
                 "Permanently asserting invariants"
              in
-             
+
              S.assert_term solver_init invars_0;
              S.assert_term solver_init invars_1);
 
           (* Assert invariants for current state if not empty *)
           if not (invars_0 == Term.t_true) then 
-            
+
             (
-              
+
               (debug smt 
                   "Permanently asserting invariants"
                in
-               
+
                S.assert_term solver_frames invars_0;
                S.assert_term solver_frames invars_1)
-              
+
             );
 
           (* BMC module running in parallel? 
@@ -2510,21 +2490,21 @@ let main trans_sys =
              step counterexamples to it. All results are tentative until BMC
              has shown that there are no such counterexamples. *)
           if List.mem `BMC (Flags.enable ()) then 
-            
+
             (Event.log L_info
                "Delegating check for zero and one step counterexamples \
                 to BMC process.")
 
-            else
+          else
 
-              (* Do check for zero and one step counterexample in solver
-                 instance [solver_init] *)
-              (bmc_checks solver_init trans_sys props);
+            (* Do check for zero and one step counterexample in solver
+               instance [solver_init] *)
+            (bmc_checks solver_init trans_sys props);
 
           (debug smt 
               "Permanently asserting property constraint"
            in
-           
+
            (* The property is implicit in every R_i *)      
            S.assert_term 
              solver_frames
@@ -2533,13 +2513,13 @@ let main trans_sys =
            (* Reset statistics about frames on restart *)
            Stat.set_int_list [] Stat.pdr_frame_sizes;
            Stat.set_int_list [] Stat.pdr_counterexamples;
-          
-          (* Run PDR procedure *)
-          pdr
-            (solver_init, solver_frames, solver_misc) 
-            trans_sys 
-            props
-            [])
+
+           (* Run PDR procedure *)
+           pdr
+             (solver_init, solver_frames, solver_misc) 
+             trans_sys 
+             props
+             [])
 
         with 
 
@@ -2595,7 +2575,7 @@ let main trans_sys =
                        (Event.prop_status (TransSys.PropFalse cex_path) trans_sys p;
 
                         TransSys.prop_false trans_sys p cex_path;
-                        
+
                         Event.log
                           L_info 
                           "Property %s disproved by PDR"
@@ -2624,47 +2604,63 @@ let main trans_sys =
 
           | Disproved prop -> 
 
-            
-              (* Check which properties are disproved *)
-              let props' =
 
-                List.fold_left
-                  (fun accum (p, t) -> 
+            (* Check which properties are disproved *)
+            let props' =
 
-                     (* Property is disproved? *)
-                     if TransSys.is_disproved trans_sys p then
+              List.fold_left
+                (fun accum (p, t) -> 
 
-                       (* Remove property disproved property from
-                            properties to prove *)
-                        accum
+                   (* Property is disproved? *)
+                   if TransSys.is_disproved trans_sys p then
 
-                     else 
+                     (* Remove property disproved property from
+                          properties to prove *)
+                     accum
 
-                       (* Keep property *)
-                       (p, t) :: accum)
+                   else 
 
-                  []
-                  props
-              in
+                     (* Keep property *)
+                     (p, t) :: accum)
 
-              props'
+                []
+                props
+            in
+
+            props'
+
+          (* Formuala is not in linear intege arithmetic *)
+          | Presburger.Not_in_LIA -> 
+
+            (
+
+              Event.log
+                L_info
+                "Problem contains real valued variables, \
+                 switching off approximate QE";
+
+              Flags.set_pdr_qe `Z3;
+
+              props
+
+            )
 
       in
 
-       S.pop solver_frames;
+      S.pop solver_frames;
 
-       if not (props' = []) then 
+      if not (props' = []) then 
 
-         (              
+        (              
 
-           Event.log
-             L_info 
-             "Restarting PDR after disproved property";
-           
-           Stat.incr Stat.pdr_restarts);
+          Event.log
+            L_info 
+            "Restarting PDR after disproved property";
 
-       (* Restart with remaining properties *)
-       restart_loop props'
+          Stat.incr Stat.pdr_restarts);
+
+      (* Restart with remaining properties *)
+      restart_loop props'
 
   in
 
