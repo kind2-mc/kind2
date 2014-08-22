@@ -34,11 +34,9 @@ val timeout_virtual : unit -> float
 (** SMT Solver to use *)
 type smtsolver = 
   [ `Z3_SMTLIB
-  | `Z3_API
   | `CVC4_SMTLIB
-  | `CVC4_API
-  | `MathSat5
-  | `Yices
+  | `MathSat5_SMTLIB
+  | `Yices_SMTLIB
   | `detect ]
 
 (** Return SMT solver *)
@@ -48,7 +46,7 @@ val smtsolver : unit -> smtsolver
 val set_smtsolver : smtsolver -> string -> unit
 
 (** SMT Logic to use *)
-type smtlogic = [ `QF_LIA | `QF_LRA | `detect ]
+type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
@@ -62,6 +60,18 @@ val cvc4_bin : unit -> cvc4_bin
 (** Executable of MathSAT5 solver *)
 type mathsat5_bin = string
 val mathsat5_bin : unit -> mathsat5_bin
+
+(** Executable of Yices solver *)
+type yices_bin = string
+val yices_bin : unit -> yices_bin
+
+(** Write all SMT commands to files *)
+type smt_trace = bool
+val smt_trace : unit -> smt_trace
+
+(** Directory for trace logs of SMT commands *)
+type smt_trace_dir = string 
+val smt_trace_dir : unit -> smt_trace_dir
 
 (** Enabled Kind modules *)
 type enable = Lib.kind_module list
@@ -78,6 +88,10 @@ val check_version : unit -> check_version
 (** Compresss inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
+
+(** Output inductive counterexample *)
+type ind_print_inductive_cex = bool
+val ind_print_inductive_cex : unit -> ind_print_inductive_cex
 
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
@@ -130,7 +144,7 @@ val debug : unit -> string list
 val debug_log : unit -> string option
 
 (** Verbosity level *)
-val log_level : unit -> Event.log_level
+val log_level : unit -> Lib.log_level
 
 (** Output in XML format *)
 val log_format_xml : unit -> bool
@@ -153,7 +167,7 @@ type interpreter_steps = int
 val interpreter_steps : unit -> interpreter_steps
 
 (** Format of input file *)
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format 
 
 (** Input file *)

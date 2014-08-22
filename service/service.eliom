@@ -14,10 +14,12 @@ let configured_programs =
     ("retrievetest", "/home/mma1/kind2/service/retrieveTest.py");
     
     (* PKind *)
-    ("pkind", "/usr/local/bin/pkind");
+    ("pkind", "/usr/local/bin/pkind" );
     
     (* Kind 2 *)
-    ("kind2","/usr/local/bin/kind2")  ]
+    ("kind2","/usr/local/bin/kind2" )  ]
+
+
 
 
 (* Hash table for running jobs *)
@@ -93,6 +95,17 @@ let xmlwrapper msg = Printf.sprintf "<?xml version=\"1.0\" encoding=\"UTF-8\"?><
 
 let process_arg args = List.filter (fun s -> s <> "") (List.rev args)
 
+let interpreter_arg kind = match kind with
+    "kind2" -> ["-xml";"--enable";"interpreter";]
+  | _ -> []
+
+(*get the default argument*)
+let extra_args kind = match kind with 
+    "kind2" -> ["-xml"]
+  | "pkind"-> [ "-xml";"-xml-to-stdout"]
+  | _ -> []
+
+
 (* ********************************************************************** *)
 (* ********************************************************************** *)
 
@@ -100,6 +113,9 @@ let process_arg args = List.filter (fun s -> s <> "") (List.rev args)
 (* main service *)
 let submitjob_main_service = 
   Eliom_service.service ~path:["submitjob"] ~get_params:unit ()
+
+let interpreter_main_service =
+  Eliom_service.service ~path:["interpreter"] ~get_params:unit()
 
 (* get services *)
 let retrievejob_service =
@@ -117,8 +133,26 @@ let submitjob_service =
     ~post_params:((string "kind" **  set string "arg" ** file "file"))
     ()
 
+(* post service that takes three parameters kind, arguments, inputfile, and csvFile *)
+let interpreter_service =
+  Eliom_service.post_service
+    ~fallback:interpreter_main_service
+    ~post_params:((string "kind" ** set string "arg" ** file "inputFile" ** file "csvFile"))
+    ()
 
-(* For testing: call /usr/bin/true and /usr/bin/false *)
+(* post service that takes three parameters kind, arguments and the input file*)
+let interpreter_input_service =
+  Eliom_service.post_service
+    ~fallback:interpreter_main_service
+    ~post_params:((string "kind" ** set string "arg" ** file "inputFile"))
+    ()
+
+(* get service that displays the system status *)
+
+let status_service = 
+  Eliom_service.service ~path:["status"] ~get_params:unit()
+
+
 
 
 (* Registration of services *)
@@ -128,17 +162,53 @@ let _ =
     (fun () () ->
       Lwt.return (xmlwrapper "The site is under construction", "text/xml"));
 
+  Eliom_registration.String.register
+    ~service:interpreter_main_service
+    (fun () () ->
+      Lwt.return (xmlwrapper "The site is under construction", "text/xml"));
+
+  Eliom_registration.String.register
+    ~service:status_service
+    (fun () () ->
+      Lwt.return (xmlwrapper "The system is running","text/xml"));
+
    Eliom_registration.String.register
     ~service:submitjob_service
-    (fun () (kind, (args, file)) ->
-      let command : string = command_look kind in
-      let cmd_args : string list = process_arg args in
+    (fun () (kind, (arg, file)) ->
+      let command : string  = command_look kind in
+      let cmd_args : string list = process_arg arg in
       let filename : string = file.tmp_filename in
-      let user_msg, job_id, job_info = create_job command cmd_args filename path in  
-      add_running_job job_id (extract job_info);
-     Lwt.return 
-       (xmlwrapper user_msg, "text/xml")); 
+      let default_args :string list = extra_args kind in 
+      let user_msg, job_id, job_info = create_job command (default_args @ cmd_args) filename path in
+      ( match job_info with
+	Some info -> add_running_job job_id info
+      | None    ->  () );
+      Lwt.return 
+	( user_msg, "text/xml")); 
 
+   Eliom_registration.String.register
+     ~service:interpreter_input_service
+     (fun () (kind, (arg, file)) ->
+       let command : string = command_look kind in
+       let inputFile_name = file.tmp_filename in
+       let extra_arg = interpreter_arg kind in
+       let cmd_args = process_arg arg in
+       let msg = interpreter_job command (extra_arg @ cmd_args) inputFile_name path in
+       Lwt.return
+	 (msg, "text/xml"));
+       
+   Eliom_registration.String.register
+     ~service:interpreter_service
+     (fun () (kind,(args, (inputFile,csvFile))) ->
+       let command : string = command_look kind in
+       let inputFile_name = inputFile.tmp_filename in
+       let csvFile_name = [csvFile.tmp_filename] in
+       let extra_arg1 = ["--interpreter_input_file"] @ csvFile_name in
+       let extra_arg2 = interpreter_arg kind in
+       let cmd_args : string list = process_arg args in 
+       let msg = interpreter_job command (extra_arg2 @ extra_arg1 @ cmd_args) inputFile_name path in 
+       Lwt.return
+	 (msg, "text/xml"));
 
    Eliom_registration.String.register
      ~service:retrievejob_service
@@ -175,7 +245,7 @@ let _ =
 	 with Not_found ->
 	   job_not_found_msg id in
        Lwt.return 
-	     (xmlwrapper msg, "text/xml"));
+	     (msg, "text/xml"));
 
    Eliom_registration.String.register
      ~service:canceljob_service
@@ -211,5 +281,5 @@ let _ =
 	     )
 	   with Not_found ->
 	     job_not_found_msg id in 
-       Lwt.return (xmlwrapper msg, "text/xml"));
+       Lwt.return (msg, "text/xml"));
 

@@ -58,6 +58,7 @@ let get_solver_instance trans_sys =
       (* Save instance *)
       solver_qe := Some solver;
 
+(*
       (* Z3 needs this option, default is 5 and we get let definitions
          for deeper terms *)
       ignore
@@ -67,7 +68,7 @@ let get_solver_instance trans_sys =
            [SMTExpr.ArgString ":pp.max_depth"; 
             SMTExpr.ArgString "65536"]
            0);
-
+*)
 
       (* Return instance *)
       solver
@@ -122,7 +123,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log `PDR Event.L_error 
+       Event.log L_error 
          "Error deleting solver_qe: %s" 
          (Printexc.to_string e));
 
@@ -136,7 +137,7 @@ let on_exit () =
        | None -> ()
    with 
      | e -> 
-       Event.log `PDR Event.L_error
+       Event.log L_error
          "Error deleting solver_check: %s" 
          (Printexc.to_string e))
 
@@ -410,7 +411,7 @@ let rec collect_eqs vars (eqs, terms) = function
       let v = Term.free_var_of_term v in
 
       (try 
-         
+
          (* Find previous equation for variable 
 
             If there are two equations for one variable, v = e1 and 
@@ -430,8 +431,16 @@ let rec collect_eqs vars (eqs, terms) = function
        (* No previous equation for variable *)
        with Not_found ->
 
-         (* Add equation as rewrite rule *)
-         collect_eqs vars ((v, e) :: eqs, terms) tl)
+         (* Left-hand side must not be equal to right-hand side *)
+         if Term.equal (Term.mk_var v) e then
+
+           (* Remove reflexive equation *)
+           collect_eqs vars (eqs, terms) tl
+
+         else
+
+           (* Add equation as rewrite rule *)
+           collect_eqs vars ((v, e) :: eqs, terms) tl)
 
     | _ -> 
 
@@ -501,11 +510,13 @@ let solve_eqs vars terms =
   let eqs' = order_defs [] eqs in
 
   debug qe
-    "@[<hv>Equations:@ @[<hv>%a@]@]"
+    "@[<v>@[<hv>Equations:@ @[<hv>%a@]@]@,@[<hv>Terms:@ @[<hv>%a@]@]@]"
     (pp_print_list 
       (fun ppf (v, t) -> Format.fprintf ppf "%a = %a" Var.pp_print_var v Term.pp_print_term t)
       ",@ ")
     eqs'
+    (pp_print_list Term.pp_print_term ",@ ")
+    terms'
   in
 
   let rec subst_defs term = 

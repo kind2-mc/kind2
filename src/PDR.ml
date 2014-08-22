@@ -62,7 +62,6 @@ let ppf_inductive_assertions = ref Format.std_formatter
 let print_stats () = 
 
   Event.stat
-    `PDR 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.pdr_stats_title, Stat.pdr_stats;
      Stat.smt_stats_title, Stat.smt_stats]
@@ -87,7 +86,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log `PDR Event.L_error 
+       Event.log L_error 
          "Error deleting solver_init: %s" 
          (Printexc.to_string e));
 
@@ -100,7 +99,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log `PDR Event.L_error 
+       Event.log L_error 
          "Error deleting solver_frames: %s" 
          (Printexc.to_string e));
 
@@ -113,7 +112,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log `PDR Event.L_error 
+       Event.log L_error 
          "Error deleting solver_misc: %s" 
          (Printexc.to_string e));
 
@@ -824,7 +823,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
               "Blocking reached successor of initial state"
            in
            
-           Event.log `PDR Event.L_trace "Blocking reached R_1";
+           Event.log L_trace "Blocking reached R_1";
 
 (*
            if Flags.pdr_print_blocking_clauses () then
@@ -951,7 +950,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
             (* No counterexample, nothing to block in lower frames *)
             | true, ((core_block_clause, _) as block_clause) -> 
 
-              Event.log `PDR Event.L_trace
+              Event.log L_trace
                 "Counterexample is unreachable in R_%d"
                  (succ (List.length frames_tl));
 
@@ -1006,7 +1005,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
                   "Trying to block counterexample in preceding frame"
                in
 
-               Event.log `PDR Event.L_trace
+               Event.log L_trace
                  "Counterexample is reachable in R_%d, blocking recursively"
                  (succ (List.length frames_tl));
 
@@ -1120,7 +1119,7 @@ let rec strengthen
            Stat.incr Stat.pdr_counterexamples_total;
            Stat.incr_last Stat.pdr_counterexamples;
 
-           Event.log `PDR Event.L_trace
+           Event.log L_trace
              "Counterexample to induction in last frame R_%d, \
               blocking recursively"
              (List.length frames);
@@ -1187,7 +1186,7 @@ let rec partition_inductive solver accum terms =
         List.map (Term.bump_state Numeral.(- one)) maybe_inductive' 
       in
 
-      Event.log `PDR Event.L_trace
+      Event.log L_trace
         "%d clauses not inductive, %d maybe" 
         (List.length not_inductive)
         (List.length maybe_inductive);
@@ -1198,7 +1197,7 @@ let rec partition_inductive solver accum terms =
     (* All term are inductive, return not inductive and inductive terms *)
     | false, _ -> 
 
-      Event.log `PDR Event.L_trace
+      Event.log L_trace
         "All %d clauses inductive" 
         (List.length terms);
 
@@ -1267,7 +1266,7 @@ let rec partition_propagate solver accum = function
           List.map (Term.bump_state Numeral.(- one)) maybe_propagate' 
         in
 
-        Event.log `PDR Event.L_trace
+        Event.log L_trace
           "%d clauses cannot be propagated, %d maybe" 
           (List.length cannot_propagate)
           (List.length maybe_propagate);
@@ -1279,7 +1278,7 @@ let rec partition_propagate solver accum = function
          not propagated terms *)
       | false -> 
 
-        Event.log `PDR Event.L_trace
+        Event.log L_trace
           "All %d clauses can be propagated" 
           (List.length terms);
 
@@ -1368,7 +1367,6 @@ let fwd_propagate
                 List.map Clause.of_term inductive_terms,
                 List.map Clause.of_term non_inductive_terms
               in
-
 (*
               if Flags.pdr_print_inductive_assertions () then
 
@@ -1383,10 +1381,9 @@ let fwd_propagate
 
                 );
 *)
-
               (* Send invariant *)
               List.iter 
-                (fun c -> Event.invariant `PDR (Clause.to_term c))
+                (fun c -> Event.invariant (Clause.to_term c))
                 inductive;
 
               Stat.record_time Stat.pdr_inductive_check_time;
@@ -1722,7 +1719,7 @@ let fwd_propagate
           ~by:(CNF.cardinal fwd) 
           Stat.pdr_fwd_propagated;
 
-        Event.log `PDR Event.L_trace
+        Event.log L_trace
           "Propagating %d clauses from F_%d to F_%d"
           (CNF.cardinal fwd)
           (succ (List.length accum))
@@ -1744,7 +1741,7 @@ let fwd_propagate
           
           (
             
-            Event.log `PDR Event.L_trace
+            Event.log L_trace
               "Fixpoint reached: F_%d and F_%d are equal"
               (succ (List.length accum))
               (succ (succ (List.length accum)));
@@ -1760,7 +1757,22 @@ let fwd_propagate
                  "@[<v>-- Inductive invariant:@,assert@ %a@]"
                  Lustre.pp_print_term (term_of_frames (fwd :: tl)));
   *)          
-            
+
+            (* Unprimed property *)
+            let props = TransSys.props_of_bound trans_sys Numeral.zero in
+
+            (* Unprimed inductive invariant *)
+            let ind_inv = 
+              Term.mk_and
+                [term_of_frames (fwd :: tl); props] 
+            in
+
+            if Flags.pdr_print_inductive_invariant () then 
+              
+              Event.log L_off
+                "@[<hv>Inductive invariant:@ %a@]"
+                Term.pp_print_term ind_inv;
+
             if Flags.pdr_check_inductive_invariant () then 
               
               
@@ -1775,20 +1787,14 @@ let fwd_propagate
                 (* Transition relation to constrain unprimed variables *)
                 let trans_0 = TransSys.trans_of_bound trans_sys Numeral.zero in
 
-                (* Unprimed property *)
-                let props_0 = TransSys.props_of_bound trans_sys Numeral.zero in
-
                 (* Unprimed nvariants *)
                 let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
 
                 (* Primed invariants *)
                 let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
 
-                (* Unprimed inductive invariant *)
-                let ind_inv_0 = Term.mk_and [term_of_frames (fwd :: tl); props_0] in
-
                 (* Primed inductive invariant *)
-                let ind_inv_1 = Term.bump_state Numeral.one ind_inv_0 in
+                let ind_inv_1 = Term.bump_state Numeral.one ind_inv in
 
                 (* Push new scope level in generic solver *)
                 S.push solver_misc;
@@ -1801,18 +1807,18 @@ let fwd_propagate
                   S.assert_term solver_misc invars_0;
 
                 (* Assert negation of inductive invariant *)
-                S.assert_term solver_misc (Term.mk_not ind_inv_0);
+                S.assert_term solver_misc (Term.mk_not ind_inv);
 
                 (* Check I |= R_i *)
                 if not (S.check_sat solver_misc) then 
 
-                  (Event.log `PDR Event.L_off
+                  (Event.log L_off
                      "OK: The initial state implies the inductive \
                       invariant.")
 
                 else
 
-                  (Event.log `PDR Event.L_off
+                  (Event.log L_off
                      "FAILURE: The initial state does not imply the \
                       inductive invariant.");
 
@@ -1834,7 +1840,7 @@ let fwd_propagate
                    S.assert_term solver_misc invars_1);
 
                 (* Assert unprimed inductive invariant *)
-                S.assert_term solver_misc ind_inv_0;
+                S.assert_term solver_misc ind_inv;
 
                 (* Assert negated primed inductive invariant *)
                 S.assert_term solver_misc (Term.mk_not ind_inv_1);
@@ -1842,13 +1848,13 @@ let fwd_propagate
                 (* Check R_i & T |= R_i' *)
                 if not (S.check_sat solver_misc) then 
 
-                  (Event.log `PDR Event.L_off
+                  (Event.log L_off
                      "OK: The inductive invariant is preserved by the \
                       transition relation.")
 
                 else
 
-                  (Event.log `PDR Event.L_off 
+                  (Event.log L_off 
                      "FAILURE: The inductive invariant is not preserved by \
                       the transition relation.");
 
@@ -1920,7 +1926,7 @@ let bmc_checks solver_init trans_sys props =
     (fun (p, _) -> TransSys.prop_ktrue trans_sys 0 p)
     props;
 
-  Event.log `PDR Event.L_info "All properties hold in the initial state.";
+  Event.log L_info "All properties hold in the initial state.";
 
   (* Push new scope onto context of solver *)
   S.push solver_init;
@@ -1969,7 +1975,7 @@ let bmc_checks solver_init trans_sys props =
     (fun (p, _) -> TransSys.prop_ktrue trans_sys 1 p)
     props;
 
-  Event.log `PDR Event.L_info
+  Event.log L_info
     "All properties hold in the successor states of the initial state."
 
 
@@ -2089,8 +2095,8 @@ let handle_events
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, prop_status, _ = 
-    TransSys.update_from_events trans_sys messages 
+  let invariants_recvd, prop_status = 
+    Event.update_trans_sys trans_sys messages 
   in
 
   (* Add invariant to the transition system and assert in solver
@@ -2117,8 +2123,7 @@ let handle_events
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
     (fun (p, _) -> match TransSys.prop_status trans_sys p with 
-       | PropFalse
-       | PropKFalse _ -> raise (Disproved p)
+       | TransSys.PropFalse _ -> raise (Disproved p)
        | _ -> ())
     props
 
@@ -2176,8 +2181,8 @@ let rec pdr
     
     List.for_all 
       (fun (p, _) -> match TransSys.prop_status trans_sys p with
-         | PropInvariant -> true
-         | PropKTrue k when k >= 1 -> true
+         | TransSys.PropInvariant -> true
+         | TransSys.PropKTrue k when k >= 1 -> true
          | _ -> false)
       props
 
@@ -2190,9 +2195,9 @@ let rec pdr
 
    let pdr_k = succ (List.length frames) in
 
-   Event.log `PDR Event.L_info "PDR main loop at k=%d" pdr_k;
+   Event.log L_info "PDR main loop at k=%d" pdr_k;
 
-   Event.progress `PDR pdr_k;
+   Event.progress pdr_k;
 
    Stat.set pdr_k Stat.pdr_k);
 
@@ -2298,7 +2303,7 @@ let rec pdr
    Stat.update_time Stat.pdr_total_time; 
 
    (* Output statistics *)
-   if Event.output_on_level Event.L_info then print_stats ();
+   if output_on_level L_info then print_stats ();
 
    (* No reachable state violates the property, continue with next k *)
    pdr solvers trans_sys props frames'')
@@ -2331,7 +2336,6 @@ let main trans_sys =
   (* Create new solver instance to reason about the initial state *)
   let solver_init = 
     S.new_solver
-      ~produce_models:true
       ~produce_assignments:true
       ~produce_cores:produce_cores
       logic
@@ -2487,7 +2491,7 @@ let main trans_sys =
              has shown that there are no such counterexamples. *)
           if List.mem `BMC (Flags.enable ()) then 
             
-            (Event.log `PDR Event.L_info
+            (Event.log L_info
                "Delegating check for zero and one step counterexamples \
                 to BMC process.")
 
@@ -2528,7 +2532,7 @@ let main trans_sys =
               List.iter
                 (fun (p, _) -> 
                    TransSys.prop_invariant trans_sys p;
-                   Event.prop_status `PDR PropInvariant p) 
+                   Event.prop_status TransSys.PropInvariant trans_sys p) 
                 props;
 
               (* No more properties remaining *)
@@ -2568,13 +2572,12 @@ let main trans_sys =
 
                      then
 
-                       (Event.prop_status `PDR PropFalse p;
+                       (Event.prop_status (TransSys.PropFalse cex_path) trans_sys p;
 
-                        TransSys.prop_false trans_sys p;
+                        TransSys.prop_false trans_sys p cex_path;
                         
                         Event.log
-                          `PDR
-                          Event.L_info 
+                          L_info 
                           "Property %s disproved by PDR"
                           p;
 
@@ -2587,11 +2590,13 @@ let main trans_sys =
                   props
               in
 
+(*
               (* Output counterexample *)
               Event.counterexample
-                `PDR
                 props_false
+                trans_sys
                 cex_path;
+*)
 
               props'
 
@@ -2633,8 +2638,7 @@ let main trans_sys =
          (              
 
            Event.log
-             `PDR
-             Event.L_info 
+             L_info 
              "Restarting PDR after disproved property";
            
            Stat.incr Stat.pdr_restarts);

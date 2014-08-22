@@ -18,21 +18,54 @@
 
 open Lib
 
-
 type input = 
   | Lustre of LustreNode.t list 
+  | Native 
+
+type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
+
+type prop_status =
+
+  (* Status of property is unknown *)
+  | PropUnknown
+
+  (* Property is true for at least k steps *)
+  | PropKTrue of int
+
+  (* Property is true in all reachable states *)
+  | PropInvariant 
+
+  (* Property is false at some step *)
+  | PropFalse of (StateVar.t * Term.t list) list
+
+
+let pp_print_prop_status_pt ppf = function 
+  | PropUnknown -> Format.fprintf ppf "unknown"
+  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
+  | PropInvariant -> Format.fprintf ppf "invariant"
+  | PropFalse [] -> Format.fprintf ppf "false"
+  | PropFalse ((_, c) :: _) -> Format.fprintf ppf "false-at %d" (List.length c)
+
+
+(* Property status is known? *)
+let prop_status_known = function 
+
+  (* Property may become invariant or false *)
+  | PropUnknown
+  | PropKTrue _ -> false
+
+  (* Property is invariant or false *)
+  | PropInvariant
+  | PropFalse _ -> true
+
 
 type t = 
 
   {
 
     (* Definitions of uninterpreted function symbols for initial state
-       constraint *)
-    uf_defs_init : (UfSymbol.t * (Var.t list * Term.t)) list;
-
-    (* Definitions of uninterpreted function symbols for transition
-       relation *)
-    uf_defs_trans : (UfSymbol.t * (Var.t list * Term.t)) list;
+       constraint and transition relation *)
+    pred_defs : (pred_def * pred_def) list;
 
     (* State variables of top node *)
     state_vars : StateVar.t list;
@@ -45,6 +78,9 @@ type t =
 
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
+
+    (* The input which produced this system. *)
+    input : input;
 
     (* Invariants *)
     mutable invars : Term.t list;
@@ -90,12 +126,28 @@ let pp_print_prop ppf (prop_name, prop_term) =
     Term.pp_print_term prop_term
 
 let pp_print_prop_status ppf (p, s) =
-  Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status s
+  Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
+
+
+let pp_print_pred_defs 
+    ppf
+    ((init_uf_symbol, (init_vars, init_term)), 
+     (trans_uf_symbol, (trans_vars, trans_term))) = 
+
+  Format.fprintf ppf
+    "@[<hv 2>(define-pred-init@ %a@ @[<hv 2>(%a)@]@ %a)@]@,\
+     @[<hv 2>(define-pred-trans@ %a@ @[<hv 2>(%a)@]@ %a)@]"
+    UfSymbol.pp_print_uf_symbol init_uf_symbol
+    (pp_print_list pp_print_var "@ ") init_vars
+    Term.pp_print_term init_term
+    UfSymbol.pp_print_uf_symbol trans_uf_symbol
+    (pp_print_list pp_print_var "@ ") trans_vars
+    Term.pp_print_term trans_term
+
 
 let pp_print_trans_sys 
     ppf
-    { uf_defs_init; 
-      uf_defs_trans; 
+    { pred_defs; 
       state_vars; 
       init; 
       trans; 
@@ -106,16 +158,14 @@ let pp_print_trans_sys
   Format.fprintf 
     ppf
     "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(init-defs@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(trans-defs@ (@[<v>%a@]))@]@,\
+          %a@,\
           @[<hv 2>(init@ (@[<v>%a@]))@]@,\
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(status@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_uf_def "@ ") uf_defs_init
-    (pp_print_list pp_print_uf_def "@ ") uf_defs_trans
+    (pp_print_list pp_print_pred_defs "@ ") pred_defs
     Term.pp_print_term init 
     Term.pp_print_term trans
     (pp_print_list pp_print_prop "@ ") props
@@ -124,7 +174,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys uf_defs_init uf_defs_trans state_vars init trans props = 
+let mk_trans_sys pred_defs state_vars init trans props input = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -153,12 +203,12 @@ let mk_trans_sys uf_defs_init uf_defs_trans state_vars init trans props =
       state_vars
   in
 
-  { uf_defs_init = uf_defs_init;
-    uf_defs_trans = uf_defs_trans;
+  { pred_defs = pred_defs;
     state_vars = List.sort StateVar.compare_state_vars state_vars;
     init = init;
     trans = trans;
     props = props;
+    input = input;
     prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props;
     invars = invars_of_types }
 
@@ -172,6 +222,8 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 (* Return the state variables of the transition system *)
 let state_vars t = t.state_vars
 
+(* Return the input used to create the transition system *)
+let get_input t = t.input
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 
@@ -281,36 +333,7 @@ let prop_invariant t prop =
             | PropInvariant -> (n, PropInvariant) 
                                
             (* Fail if property was false or k-false *)
-            | PropFalse 
-            | PropKFalse _ -> raise (Failure "prop_invariant") 
-
-        else (n, s))
-
-      t.prop_status
-
-
-(* Mark property as false *)
-let prop_false t prop =
-
-  t.prop_status <- 
-
-    List.map 
-
-      (fun (n, s) -> if n = prop then 
-
-          match s with
-
-            (* Mark property as false if it was unknown or l-true *)
-            | PropUnknown
-            | PropKTrue _ -> (n, PropFalse)
-
-            (* Fail if property was invariant *)
-            | PropInvariant ->
-              raise (Failure "prop_false")
-
-            (* Mark property as false if it was false or l-false *)
-            | PropFalse
-            | PropKFalse _ ->  (n, PropFalse) 
+            | PropFalse _ -> raise (Failure "prop_invariant") 
 
         else (n, s))
 
@@ -318,7 +341,7 @@ let prop_false t prop =
 
 
 (* Mark property as k-false *)
-let prop_kfalse t k prop =
+let prop_false t prop cex =
 
   t.prop_status <- 
 
@@ -330,27 +353,25 @@ let prop_kfalse t k prop =
 
             (* Mark property as k-false if it was unknown, l-true for l <
                k or invariant *)
-            | PropUnknown -> (n, PropKFalse k)
+            | PropUnknown -> (n, PropFalse cex)
 
             (* Fail if property was invariant *)
             | PropInvariant -> 
-              raise (Failure "prop_kfalse")
+              raise (Failure "prop_false")
 
             (* Fail if property was l-true for l >= k *)
-            | PropKTrue l when l >= k -> 
-              raise (Failure "prop_kfalse")
+            | PropKTrue l when l >= (List.length cex) -> 
+              raise (Failure "prop_false")
 
-            (* Mark property as k-false if it was l-true for l < k *)
-            | PropKTrue _ -> (n, PropKFalse k)
-
-            (* Keep if property was false *)
-            | PropFalse -> (n, s)
+            (* Mark property as false if it was l-true for l < k *)
+            | PropKTrue _ -> (n, PropFalse cex)
 
             (* Keep if property was l-false for l <= k *)
-            | PropKFalse l when l <= k -> (n, s)
+            | PropFalse cex' when (List.length cex') <= (List.length cex) -> 
+              (n, s)
 
             (* Mark property as k-false *)
-            | PropKFalse _ -> (n, PropKFalse k) 
+            | PropFalse _ -> (n, PropFalse cex) 
 
         else (n, s))
 
@@ -380,151 +401,17 @@ let prop_ktrue t k prop =
             (* Keep if it was invariant *)
             | PropInvariant -> (n, s)
 
-            (* Keep if it was false for unknown l *)
-            | PropFalse -> (n, PropFalse)
-
             (* Keep if property was l-false for l > k *)
-            | PropKFalse l when l > k -> (n, s)
+            | PropFalse cex when (List.length cex) > k -> (n, s)
 
             (* Fail if property was l-false for l <= k *)
-            | PropKFalse _ -> 
+            | PropFalse _ -> 
               raise (Failure "prop_kfalse") 
 
         else (n, s))
 
       t.prop_status
 
-
-(* Update transition system from event list *)
-let update_from_events trans_sys events = 
-
-  (* Tail-recursive iteration *)
-  let rec update_from_events' trans_sys invars prop_status cex = function 
-
-    (* No more events, return new invariants and changed property status *)
-    | [] -> (invars, prop_status, cex)
-
-    (* Invariant discovered *)
-    | (m, Event.Invariant t) :: tl -> 
-
-      (* Property status if received invariant is a property *)
-      let tl' =
-        List.fold_left
-
-          (fun accum (p, t') -> 
-
-             (* Invariant is equal to property term? *)
-             if Term.equal t t' then
-
-               (* Inject property status event *)
-               ((m, Event.PropStatus (p, PropInvariant)) :: accum)
-
-             else
-
-               accum)
-
-          tl
-          trans_sys.props
-
-      in
-      
-      (* Add invariant to transtion system *)
-      add_invariant trans_sys t;
-
-      (* Continue with invariant added to accumulator *)
-      update_from_events'
-        trans_sys
-        ((m, t) :: invars)
-        prop_status
-        cex 
-        tl'
-
-    (* Property found unknown *)
-    | (_, Event.PropStatus (p, PropUnknown)) :: tl -> 
-
-      (* Continue without changes *)
-      update_from_events' trans_sys invars prop_status cex tl
-
-    (* Property found true for k steps *)
-    | (m, Event.PropStatus (p, (PropKTrue k as s))) :: tl -> 
-
-      (* Change property status in transition system *)
-      prop_ktrue trans_sys k p;
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events'
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        cex
-        tl
-
-    (* Property found invariant *)
-    | (m, Event.PropStatus (p, (PropInvariant as s))) :: tl -> 
-
-      (* Change property status in transition system *)
-      prop_invariant trans_sys p;
-
-      (try 
-
-         (* Add proved property as invariant *)
-        add_invariant 
-          trans_sys 
-          (List.assoc p trans_sys.props)
-
-       (* Skip if named property not found *)
-       with Not_found -> ());
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events'
-        trans_sys 
-        invars
-        ((m, (p, s)) :: prop_status)
-        cex
-        tl
-
-    (* Property found false *)
-    | (m, Event.PropStatus (p, (PropFalse as s))) :: tl -> 
-
-      (* Change property status in transition system *)
-      prop_false trans_sys p;
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events' 
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        cex
-        tl
-
-    (* Property found false after k steps *)
-    | (m, Event.PropStatus (p, (PropKFalse k as s))) :: tl ->
-
-      (* Change property status in transition system *)
-      prop_kfalse trans_sys k p;
-
-      (* Continue with propert status added to accumulator *)
-      update_from_events' 
-        trans_sys
-        invars
-        ((m, (p, s)) :: prop_status) 
-        cex
-        tl
-        
-    (* Counterexample for some properties *)
-    | (m, Event.Counterexample (p, c)) :: tl -> 
-
-      (* Skip and continue *)
-      update_from_events' 
-        trans_sys
-        invars
-        prop_status
-        ((m, (p, c)) :: cex) 
-        tl
-
-  in
-
-  update_from_events' trans_sys [] [] [] events
 
 
 (* Return true if the property is proved invariant *)
@@ -545,8 +432,7 @@ let is_disproved trans_sys prop =
   try 
 
     (match List.assoc prop trans_sys.prop_status with
-      | PropKFalse _
-      | PropFalse -> true
+      | PropFalse _ -> true
       | _ -> false)
         
   with Not_found -> false
@@ -563,8 +449,7 @@ let all_props_proved trans_sys =
            | PropUnknown
            | PropKTrue _ -> false
            | PropInvariant
-           | PropFalse 
-           | PropKFalse _ -> true)
+           | PropFalse _ -> true)
        with Not_found -> false)
     trans_sys.props 
       
@@ -573,11 +458,12 @@ let all_props_proved trans_sys =
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
 
-let uf_defs_init { uf_defs_init } = uf_defs_init
+let uf_defs { pred_defs } = 
 
-let uf_defs_trans { uf_defs_trans } = uf_defs_trans
-
-let uf_defs { uf_defs_init; uf_defs_trans } = uf_defs_init @ uf_defs_trans
+  List.fold_left 
+    (fun a (i, t) -> i :: t :: a)
+    []
+    pred_defs
 
 (* Apply [f] to all uninterpreted function symbols of the transition
    system *)
@@ -585,9 +471,10 @@ let iter_state_var_declarations { state_vars } f =
   List.iter (fun sv -> f (StateVar.uf_symbol_of_state_var sv)) state_vars
   
 (* Apply [f] to all function definitions of the transition system *)
-let iter_uf_definitions { uf_defs_init; uf_defs_trans } f = 
-  List.iter (fun (u, (v, t)) -> f u v t) uf_defs_init;
-  List.iter (fun (u, (v, t)) -> f u v t) uf_defs_trans
+let iter_uf_definitions { pred_defs } f = 
+  List.iter 
+    (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt) 
+      pred_defs
   
 
 (* Extract a path in the transition system, return an association list

@@ -48,6 +48,7 @@ module I = LustreIdent
 module E = LustreExpr
 
 module SVS = StateVar.StateVarSet
+module SVMap = StateVar.StateVarMap
 module ISet = I.LustreIdentSet
 
 (* Set of state variables of list *)
@@ -293,6 +294,7 @@ let pp_print_node
       props; 
       requires; 
       ensures;
+      output_input_dep;
       is_main } = 
 
   (* Output a space if list is not empty *)
@@ -304,6 +306,7 @@ let pp_print_node
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
+     @[<v>%a@]%t\
      %t%t\
      @[<hv 2>let@ \
      %a%t\
@@ -318,6 +321,14 @@ let pp_print_node
     (pp_print_list (pp_print_input safe) ";@ ") 
     (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
     (pp_print_list (pp_print_output safe) ";@ ") outputs
+    (pp_print_list  
+       (fun ppf l -> 
+          Format.fprintf ppf "@[<h>-- %a@]"
+            (pp_print_list Format.pp_print_int "@ ")
+            l)
+       "@,")
+    output_input_dep
+    (space_if_nonempty output_input_dep)
     (function ppf -> 
       if locals = [] then () else 
         Format.fprintf ppf 
@@ -464,6 +475,18 @@ let rec node_var_dependencies nodes node accum =
                  parameters from called node *)
               let { output_input_dep } = 
                 node_of_name node_ident nodes
+              in
+
+              debug lustreNode
+                "@[<v>Input output dependencies of node %a:@[<v>%a@]@]"
+                (I.pp_print_ident false) node_ident
+                (pp_print_list
+                  (fun ppf l -> 
+                    Format.fprintf ppf "@[<h>%a@]"
+                      (pp_print_list Format.pp_print_int "@ ")
+                      l)
+                  "@,")
+                output_input_dep
               in
 
               (* Get expressions that output of node depends on *)
@@ -676,16 +699,34 @@ let equations_order_by_dep nodes node =
       vars_ordered
   in
     
+  (* Return node with equations in dependency order *)
+  { node with equations = equations_ordered }
+
+
+let compute_output_input_dep nodes node = 
+  
+  (* For each variable get the set of current state variables in its
+     equation *)
+  let var_dep = 
+    node_var_dependencies 
+      nodes
+      node
+      []
+      ((List.map (fun (v, _) -> (v, [])) node.equations) @
+       (List.map (fun (v, _) -> (v, [])) node.outputs))
+  in
+  
+  (* Order variables such that variables defined in terms of other
+     variables occur first *)
+  let vars_ordered = order_by_dep [] var_dep in
+  
   (* Compute dependencies of output variables on inputs *)
   let output_input_dep = 
     output_input_dep_of_var_dep node var_dep 
   in
 
   (* Return node with equations in dependency order *)
-  { node with 
-      equations = equations_ordered;
-      output_input_dep = output_input_dep }
-
+  { node with output_input_dep = output_input_dep }
 
 
 (* If x = y and x captures the output of a node, substitute y *)
@@ -923,23 +964,15 @@ let find_main nodes =
 
 
 (* State variables in assertions *)
-let state_vars_in_asserts accum { asserts } =
+let state_vars_in_asserts { asserts } =
   
   (* Collect all state variables in each assertion *)
   List.fold_left
     (fun a e -> 
        (SVS.elements
           (LustreExpr.state_vars_of_expr e)) @ a)
-    accum
+    []
     asserts
-
-
-(* State variables in property *)
-let state_vars_in_props accum { props } = 
-
-  (* A property is a state variable *)
-  props @ accum
-
 
 (* Execption for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
@@ -971,6 +1004,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         requires; 
         ensures; 
         is_main; 
+        output_input_dep;
         fresh_state_var_index } as node_orig), 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
@@ -985,6 +1019,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           outputs = outputs;
           inputs = inputs;
           oracles = oracles;
+          output_input_dep = output_input_dep;
 
           (* Keep only local variables with definitions *)
           locals = 
@@ -1148,37 +1183,81 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        ((state_vars_in_asserts (List.map fst push_node_outputs) push_node, 
+        (((List.map fst push_node_outputs) @ (state_vars_in_asserts push_node), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
 
+(* 
+  produces the set of all state variables contained in any of the nodes in the
+  given list 
+*)
+let extract_state_vars nodes =
+  let extract_from_single_node (node : t) =
+    (* the set of all state variables in this nodes locals, outputs, & inputs *)
+    let ret = 
+      List.fold_left 
+        (fun acc (sv,_) -> SVS.add sv acc) 
+        SVS.empty 
+        (node.locals @ node.outputs @ node.inputs)
+    in
 
-        
-
-(* Reduce set of nodes to cone of influence of property of given main
-   node *)
-let reduce_to_property_coi nodes main_name = 
+    (* ret with oracles added *)
+    List.fold_left
+      (fun acc sv -> SVS.add sv acc)
+      ret
+      node.oracles
+  in
   
+  List.fold_left 
+    (fun acc node -> SVS.union (extract_from_single_node node) acc)
+    SVS.empty
+    nodes
+
+(* 
+Given that [nodes] is the set of nodes in the lustre program and
+[main_name] is the name of the main node, return a map which
+maps the identifier of each property and assert stream to the
+a list of all nodes in that assert or property's cone of influence.   
+*)
+let reduce_to_separate_property_cois nodes main_name =
+  
+  let nodes' = 
+    List.fold_right
+      (fun node accum -> compute_output_input_dep accum node :: accum)
+      nodes
+      []
+  in
+
   try 
 
     (* Main node and its properties *)
-    let { props } as main_node = node_of_name main_name nodes in
+    let main_node = node_of_name main_name nodes' in
 
     (* State variables in properties *)
     let state_vars = 
-      state_vars_in_asserts
-        (state_vars_in_props [] main_node)
-        main_node
+      main_node.props @ (state_vars_in_asserts main_node)
     in
 
-    (* Call recursive function with initial arguments *)
-    List.rev
-      (reduce_to_coi' 
-         nodes
-         []
-         [(state_vars, [], main_node, (empty_node main_name))])
-      
+    (* return the cone of influence of state variable [sv] *)
+    let get_state_var_coi sv =
+      List.rev
+        (reduce_to_coi' 
+           nodes'
+           []
+           [([sv], [], main_node, (empty_node main_name))])      
+    in
+
+    (* add [sv]'s coi to [coi_map], topologically sorting the equations 
+       of each node in the coi *)
+    let fold_sv coi_map sv =
+      let coi = get_state_var_coi sv in
+      let coi' = List.map (equations_order_by_dep coi) coi in
+      SVMap.add sv coi' coi_map
+    in
+
+    List.fold_left fold_sv SVMap.empty state_vars 
+
   with Not_found -> 
 
     raise 
@@ -1187,6 +1266,60 @@ let reduce_to_property_coi nodes main_name =
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
 
+
+(* Reduce set of nodes to cone of influence of given state variables *)
+let reduce_to_coi nodes main_name state_vars = 
+  
+  (* Compute input output dependencies for all nodes *)
+  let nodes' = 
+    List.fold_right
+      (fun node accum -> compute_output_input_dep accum node :: accum)
+      nodes
+      []
+  in
+
+  try 
+
+    (* Get main node by its identifier *)
+    let main_node = node_of_name main_name nodes' in
+
+    (* Variables in assertions are always in the cone of influence *)
+    let state_vars' = 
+      state_vars @ (state_vars_in_asserts main_node)
+    in
+
+    (* Call recursive function with initial arguments *)
+    let nodes'' =
+      List.rev
+        (reduce_to_coi' 
+           nodes'
+           []
+           [(state_vars', [], main_node, (empty_node main_name))])
+    in
+    
+    (* Return node with equations in topological order *)
+    List.fold_right
+      (fun node accum -> equations_order_by_dep accum node :: accum)
+      nodes''
+      []
+    
+  with Not_found -> 
+
+    raise 
+      (Invalid_argument
+         (Format.asprintf
+            "Main node %a not found."
+            (I.pp_print_ident false) main_name))
+
+
+(* Reduce set of nodes to cone of influence of properties of main node *)
+let reduce_to_props_coi nodes main_name = 
+
+    (* Get properties of main node *)
+    let { props } = node_of_name main_name nodes in
+
+    (* Reduce to cone of influence of all properties *)
+    reduce_to_coi nodes main_name props
 
 (* 
    Local Variables:

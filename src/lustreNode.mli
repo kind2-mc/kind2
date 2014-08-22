@@ -159,12 +159,33 @@ val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 *)
 val find_main : t list -> LustreIdent.t
 
+(** produces the set of all state variables contained in any of the nodes in the
+    given list 
+*)
+val extract_state_vars : t list -> StateVar.StateVarSet.t
 
 (** Reduce list of nodes to list of nodes called by the node and its
     subnodes, include the given node. The list of nodes is partially
     ordered by dependencies, such that called nodes appear before
     their callers. *)
-val reduce_to_property_coi : t list -> LustreIdent.t -> t list 
+val reduce_to_coi : t list -> LustreIdent.t -> StateVar.t list -> t list 
+
+val reduce_to_props_coi : t list -> LustreIdent.t -> t list 
+
+(*
+
+(** 
+reduce_to_separate_property_cois [nodes] [main_name]
+
+Given that [nodes] is the set of nodes in the lustre program and
+[main_name] is the name of the main node, return a map which
+maps the identifier of each property and assert stream to the
+a list of all nodes in that assert or property's cone of influence. 
+*)
+val reduce_to_separate_property_cois : t list -> LustreIdent.t -> (t list) StateVar.StateVarMap.t 
+
+*)
+
 
 (* 
    Local Variables:

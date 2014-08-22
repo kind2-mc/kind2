@@ -78,13 +78,23 @@ let smtlibsolver_config_mathsat5 =
   { solver_cmd = [| mathsat5_bin; "-input=smt2" |] }
 
 
+(* Path and name of Yices executable *)
+let yices_bin = Flags.yices_bin () 
+
+
+(* Configuration for Yices *)
+let smtlibsolver_config_yices = 
+  { solver_cmd = [| yices_bin; "--incremental" |] }
+
+
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> smtlibsolver_config_z3
   | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
-  | `MathSat5 -> smtlibsolver_config_mathsat5
+  | `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5
+  | `Yices_SMTLIB -> smtlibsolver_config_yices
   | _ -> 
-    (* (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver"); *)
+    (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.config_of_flags"
     
 
@@ -106,11 +116,48 @@ let mathsat5_check_sat_limited_cmd _ =
   failwith "check-sat with timeout not implemented for MathSAT5"
 
 
+(* Command to limit check-sat in Yices to run for the given numer of ms
+   at most *)
+let yices_check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for Yices"
+
+
 (* Command to limit check-sat to run for the given numer of ms at most *)
 let check_sat_limited_cmd ms = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> z3_check_sat_limited_cmd ms
   | `CVC4_SMTLIB -> cvc4_check_sat_limited_cmd ms
-  | `MathSat5 -> mathsat5_check_sat_limited_cmd ms
+  | `MathSat5_SMTLIB -> mathsat5_check_sat_limited_cmd ms
+  | `Yices_SMTLIB -> yices_check_sat_limited_cmd ms
+  | _ -> 
+    (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
+    failwith "SMTLIBSolver.check_sat_limited_cmd"
+
+
+let z3_check_sat_assumptions_cmd assumptions = 
+  Format.asprintf 
+    "(check-sat %a)"
+    (pp_print_list pp_print_expr "@ ")
+    assumptions
+
+let cvc4_check_sat_assumptions_cmd _ = 
+  failwith "check-sat with assumptions not implemented for CVC4"
+
+let mathsat5_check_sat_assumptions_cmd assumptions = 
+  Format.asprintf 
+    "(check-sat-assumptions (%a))"
+    (pp_print_list pp_print_expr "@ ")
+    assumptions
+
+let yices_check_sat_assumptions_cmd _ = 
+  failwith "check-sat with assumptions not implemented for Yices"
+
+
+(* Command to run check-sat with given assumptions *)
+let check_sat_assumptions_cmd assumptions = match Flags.smtsolver () with 
+  | `Z3_SMTLIB -> z3_check_sat_assumptions_cmd assumptions
+  | `CVC4_SMTLIB -> cvc4_check_sat_assumptions_cmd assumptions
+  | `MathSat5_SMTLIB -> mathsat5_check_sat_assumptions_cmd assumptions
+  | `Yices_SMTLIB -> yices_check_sat_assumptions_cmd assumptions
   | _ -> 
     (* (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.check_sat_limited_cmd"
@@ -388,6 +435,17 @@ let check_sat ?(timeout = 0) solver =
   execute_check_sat_command solver cmd 0
 
 
+(* Check satisfiability of the asserted expressions under the given
+   assumptions *)
+let check_sat_assumptions solver assumptions = 
+
+  (* Create command per solver *)
+  let cmd = check_sat_assumptions_cmd assumptions in
+
+  (* Send command to the solver without timeout *)
+  execute_check_sat_command solver cmd 0
+
+
 (* Get values of expressions in the model *)
 let get_value solver expr_list = 
 
@@ -448,10 +506,10 @@ let execute_custom_check_sat_command cmd solver =
 
 (* Create an instance of the solver *)
 let create_instance 
-    ?(produce_assignments = false)
-    ?(produce_models = false) 
-    ?(produce_proofs = false) 
-    ?(produce_cores = false)     
+    ?produce_assignments
+    ?produce_models
+    ?produce_proofs
+    ?produce_cores
     logic =
 
   (* Get autoconfigured configuration *)
@@ -511,7 +569,7 @@ let create_instance
 
   (* Interactive mode not needed for MathSAT5 *)
   (match Flags.smtsolver () with 
-    | `Z3_SMTLIB -> 
+    | `Z3_SMTLIB ->
 
       (* Run in interactive mode *)
       (match 
@@ -526,6 +584,64 @@ let create_instance
 
   );
 
+  (* Produce assignments to be queried with get-values, default is
+     false per SMTLIB specification *)
+  (match Flags.smtsolver () with 
+    | `Yices_SMTLIB -> ()
+    | _ -> 
+
+      (match produce_models with
+        | None -> ()
+        | Some o ->
+          (match 
+             let cmd =
+               Format.sprintf "(set-option :produce-models %B)" o 
+             in
+             (debug smt "%s" cmd in
+              execute_command solver cmd 0)
+           with 
+             | Success -> () 
+             | _ -> raise (Failure ("Cannot set option produce-models")))));
+
+  (* Produce assignments to be queried with get-values, default is
+     false per SMTLIB specification *)
+  (match Flags.smtsolver () with 
+    | `Yices_SMTLIB -> ()
+    | _ -> 
+
+      (match produce_assignments with
+        | None -> ()
+        | Some o ->
+          (match 
+             let cmd =
+               Format.sprintf "(set-option :produce-assignments %B)" o 
+             in
+             (debug smt "%s" cmd in
+              execute_command solver cmd 0)
+           with 
+             | Success -> () 
+             | _ -> raise
+                      (Failure ("Cannot set option produce-assignments")))));
+
+  (* Produce unsatisfiable cores, default is false per SMTLIB
+     specification *)
+  (match Flags.smtsolver () with 
+    | `Yices_SMTLIB -> ()
+    | _ -> 
+      (match produce_cores with
+        | None -> ()
+        | Some o ->
+          (match 
+             let cmd =
+               Format.sprintf "(set-option :produce-unsat-cores %B)" o in
+             (debug smt "%s" cmd in
+              execute_command solver cmd 0)
+           with 
+             | Success -> () 
+             | _ -> 
+               raise
+                 (Failure ("Cannot set option produce-unsat-cores")))));
+      
   (* Set logic *)
   (match logic with 
     | `detect -> () 
@@ -540,49 +656,6 @@ let create_instance
            raise 
              (Failure 
                 ("Cannot set logic " ^ (string_of_logic logic)))));
-
-  (* Produce assignments to be queried with get-values, default is
-     false per SMTLIB specification *)
-  if produce_assignments then
-    (match 
-       let cmd = "(set-option :produce-assignments true)" in
-       (debug smt "%s" cmd in
-        execute_command solver cmd 0)
-     with 
-       | Success -> () 
-       | _ -> raise (Failure ("Cannot set option produce-assignments")));
-
-  (* Produce models to be queried with get-model, default is false per
-     SMTLIB specification *)
-  if produce_models then
-    (match 
-       let cmd = "(set-option :produce-models true)" in
-       (debug smt "%s" cmd in
-        execute_command solver cmd 0)
-     with 
-       | Success -> () 
-       | _ -> raise (Failure ("Cannot set option produce-models")));
-(*
-  (* Produce proofs, default is false per SMTLIB specification *)
-  if produce_proofs then
-    (match 
-       let cmd = "(set-option :produce-proofs true)" in
-       (debug smt "%s" cmd in
-        execute_command solver cmd 0)
-     with 
-       | Success -> () 
-       | _ -> raise (Failure ("Cannot set option produce-proofs")));
-*)
-  (* Produce unsatisfiable cores, default is false per SMTLIB
-     specification *)
-  if produce_cores then
-    (match 
-       let cmd = "(set-option :produce-unsat-cores true)" in
-       (debug smt "%s" cmd in
-        execute_command solver cmd 0)
-     with 
-       | Success -> () 
-       | _ -> raise (Failure ("Cannot set option produce-unsat-cores")));
 
   (* Return solver instance *)
   solver

@@ -40,7 +40,6 @@ let ref_solver = ref None
 let print_stats () =
 
   Event.stat 
-    `IND 
     [Stat.misc_stats_title, Stat.misc_stats;
      Stat.ind_stats_title, Stat.ind_stats;
      Stat.smt_stats_title, Stat.smt_stats]
@@ -65,7 +64,7 @@ let on_exit _ =
        | None -> ()
    with 
      | e -> 
-       Event.log `IND Event.L_error 
+       Event.log L_error 
          "Error deleting solver_init: %s" 
          (Printexc.to_string e))
 
@@ -110,8 +109,8 @@ let rec ind_step_loop
   let messages = Event.recv () in
 
   (* Update transition system from messages *)
-  let invariants_recvd, _, _ = 
-    TransSys.update_from_events trans_sys messages 
+  let invariants_recvd, _ = 
+    Event.update_trans_sys trans_sys messages 
   in
 
   (* Assert invariants received for all instants 0..k+1 *)
@@ -162,11 +161,18 @@ let rec ind_step_loop
           Compress.check_and_block cex 
 
       with
-        
+
         | [] -> 
 
           (
-
+(*
+            (* TODO: output inductive counterexample here *)
+            if Flags.ind_print_inductive_cex () then
+              
+              Event.log L_off
+                "@[<hv>Inductive counterexample:@ @[<hv>%a@]@]"
+                LustrePath.pp_print_path_pt cex;
+*)
             (* Properties still unknown and properties not k-inductive *)
             let props_unknown', props_not_k_ind' =
               partition_props solver props_unknown k_plus_one
@@ -193,14 +199,14 @@ let rec ind_step_loop
 
             else
 
-              (debug indStep
-                  "Properties %a not %a-inductive"
-                  (pp_print_list 
-                     (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
-                     ",@ ")
-                  props_not_k_ind'
-                  Numeral.pp_print_numeral (Numeral.pred k_plus_one)
-               in
+              (Event.log
+                 L_info
+                 "Properties %a not %a-inductive"
+                 (pp_print_list 
+                    (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+                    ",@ ")
+                 props_not_k_ind'
+                 Numeral.pp_print_numeral (Numeral.pred k_plus_one);
 
                (* Recurse to test unknown properties for k-inductiveness *)
                ind_step_loop 
@@ -240,17 +246,17 @@ let rec ind_step_loop
 
     (
 
-      (debug indStep
-          "Properties %a maybe %a-inductive"
-          (pp_print_list 
-             (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
-             ",@ ")
-          props_unknown
-          Numeral.pp_print_numeral (Numeral.pred k_plus_one)
-       in
+      Event.log
+        L_info
+        "Properties %a maybe %a-inductive"
+        (pp_print_list 
+           (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+           ",@ ")
+        props_unknown
+        Numeral.pp_print_numeral (Numeral.pred k_plus_one);
 
-       (* Pop assertions from entailment checks *)
-       S.pop solver);
+      (* Pop assertions from entailment checks *)
+      S.pop solver;
 
       (* Assert invariants on popped scope for all instants 0..k+1 *)
       List.iter
@@ -346,8 +352,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 
       (* Exit *)
       Event.log
-        `IND
-        Event.L_info
+        L_info
         "Inductive step procedure reached maximal number of iterations"
 
     ) 
@@ -358,12 +363,11 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 
       (* Output current step *)
       Event.log
-        `IND
-        Event.L_info
+        L_info
         "Inductive step loop at k=%d"
         (Numeral.to_int k);
 
-      Event.progress `IND (Numeral.to_int k);
+      Event.progress (Numeral.to_int k);
 
       Stat.set (Numeral.to_int k) Stat.ind_k;
 
@@ -391,8 +395,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
         (* No property must be disproved *) 
         if not (props_disproved = []) then raise Restart else 
           Event.log
-            `IND
-            Event.L_info
+            L_info
             "No premises false in Inductive step";
 
         if 
@@ -413,10 +416,14 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
                 List.for_all
                   (fun (n, _) -> 
                      match TransSys.prop_status trans_sys n with
-                       | PropInvariant -> true
-                       | PropKTrue l when l >= (Numeral.to_int k) -> true
-                       | PropFalse
-                       | PropKFalse _ -> raise Restart
+
+                       | TransSys.PropInvariant -> true
+
+                       | TransSys.PropKTrue l when l >= (Numeral.to_int k) -> 
+                         true
+
+                       | TransSys.PropFalse _ -> raise Restart
+
                        | _ -> false)
                   (props_k_ind @ props_k_ind')
 
@@ -424,7 +431,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 
                 (* Send proved properties and terminate *)
                 List.iter
-                  (fun (n, _) -> Event.prop_status `IND PropInvariant n)
+                  (fun (n, _) -> Event.prop_status TransSys.PropInvariant trans_sys n)
                   props_k_ind'
 
               else
@@ -432,8 +439,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
                 (
 
                   Event.log 
-                    `IND
-                    Event.L_info
+                    L_info
                     "All properties k-invariant, waiting for premises \
                      to be proved k-valid";
 
@@ -442,7 +448,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 
                   (* Update transition system from messages *)
                   let _ = 
-                    TransSys.update_from_events
+                    Event.update_trans_sys
                       trans_sys 
                       (Event.recv ())
                   in 
@@ -464,7 +470,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
           (
 
             (* Output statistics *)
-            if Event.output_on_level Event.L_info then print_stats ();
+            if output_on_level L_info then print_stats ();
 
             (* Continue to prove remaining properties k+1-inductive *)
             induction 
@@ -480,8 +486,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 
           (* Exit *)
           Event.log
-            `IND
-            Event.L_info
+            L_info
             "Premise of inductive step procedure is false. Restarting.";
 
           Stat.incr Stat.ind_restarts;

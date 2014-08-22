@@ -60,14 +60,13 @@ let rec inv_gen_dummy k =
   let inv = mk_inv k in 
 
   Event.log 
-    `INVGEN 
-    Event.L_debug 
+    L_debug 
     "Sending invariant %d: %a" 
     k 
     Term.pp_print_term inv;
 
   (* Broadcast the invariant *)
-  Event.invariant `INVGEN inv;
+  Event.invariant inv;
 
   (* Recurse for the next invariant *)
   inv_gen_dummy (succ k)
@@ -75,6 +74,8 @@ let rec inv_gen_dummy k =
 
 (* Entry point *)
 let main _ = 
+
+  Event.set_module `INVGEN;
 
   (* Run loop *)
   inv_gen_dummy 0

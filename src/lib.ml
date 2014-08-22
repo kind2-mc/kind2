@@ -28,6 +28,29 @@ let safe_hash_interleave h m i = abs(i + (m * h) mod max_int)
 (* List functions                                                         *)
 (* ********************************************************************** *)
 
+(* Creates a size-n list equal to [f 0; f 1; ... ; f (n-1)] *)
+let list_init f n =
+  if n = 0 then [] else
+    let rec init_aux i =
+      if i = n-1 then
+        [f i]
+      else
+        (f i) :: (init_aux (i+1))
+    in
+    init_aux 0
+
+(* Returns the maximum element of a non-empty list *)
+let list_max l =
+  assert (List.length l > 0);
+  let rec list_max_aux l acc =
+    match l with
+    | [] ->
+       acc
+    | hd :: tl ->
+       list_max_aux tl (max hd acc)
+  in
+  list_max_aux l (List.hd l)
+             
 (* Return the index of the first element that satisfies the predicate [p] *)
 let list_index p = 
   let rec list_index p i = function
@@ -320,13 +343,34 @@ let list_join equal l1 l2 =
   (* Call recursive function with initial accumulator *)
   list_join' equal [] l1 l2
 
+(* ********************************************************************** *)
+(* Array functions                                                        *)
+(* ********************************************************************** *)
 
+(* Returns the maximum element of a non-empty array *)
+let array_max a =
+  assert (Array.length a > 0);
+  let max_val = ref a.(0) in
+  Array.iter (fun x -> if x > !max_val then max_val := x else ()) a;
+  !max_val
 
 (* ********************************************************************** *)
 (* Genric pretty-printing                                                 *)
 (* ********************************************************************** *)
 
-
+(* Pretty-print an array *)
+let pp_print_arrayi pp sep ppf array  =
+  let n = Array.length array in
+  let print_element i =
+    if i = n-1 then
+      pp ppf i array.(i)
+    else
+      (pp ppf i array.(i);
+       Format.fprintf ppf sep)
+  in
+  let indices = list_init (fun i -> i) n in  
+  List.iter print_element indices
+  
 (* Pretty-print a list *)
 let rec pp_print_list pp sep ppf = function 
 
@@ -739,11 +783,96 @@ let string_of_decimal s = HString.string_of_hstring s
 let bool_of_hstring s = bool_of_string (HString.string_of_hstring s) 
 
 (* ********************************************************************** *)
+(* Log levels                                                             *)
+(* ********************************************************************** *)
+
+
+(* Levels of log messages *)
+type log_level =
+  | L_off
+  | L_fatal
+  | L_error
+  | L_warn
+  | L_info
+  | L_debug
+  | L_trace
+
+
+(* Associate an integer with each level to induce a total ordering *)
+let int_of_log_level = function 
+  | L_off -> -1 
+  | L_fatal -> 0
+  | L_error -> 1
+  | L_warn -> 2
+  | L_info -> 3
+  | L_debug -> 4
+  | L_trace -> 5
+
+let log_level_of_int = function 
+  | -1 -> L_off 
+  | 0 -> L_fatal
+  | 1 -> L_error
+  | 2 -> L_warn
+  | 3 -> L_info
+  | 4 -> L_debug
+  | 5 -> L_trace
+  | _ -> raise (Invalid_argument "log_level_of_int")
+
+(* Compare two levels *)
+let compare_levels l1 l2 = 
+  Pervasives.compare (int_of_log_level l1) (int_of_log_level l2)
+
+
+(* Current log level *)
+let log_level = ref L_warn
+
+
+(* Set log level *)
+let set_log_level l = log_level := l
+
+
+(* Level is of higher or equal priority than current log level? *)
+let output_on_level level = compare_levels level !log_level <= 0
+
+
+(* Return Format.fprintf if level is is of higher or equal priority
+   than current log level, otherwise return Format.ifprintf *)
+let ignore_or_fprintf level = 
+  if output_on_level level then Format.fprintf else Format.ifprintf
+
+
+(* ********************************************************************** *)
+(* Output target                                                          *)  
+(* ********************************************************************** *)
+
+
+(* Current formatter for output *)
+let log_ppf = ref Format.std_formatter
+
+
+(* Set file to write log messages to *)
+let log_to_file f = 
+
+  (* Open channel to logfile *)
+  let oc = 
+    try open_out f with
+      | Sys_error _ -> failwith "Could not open logfile"
+  in 
+  
+  (* Create and store formatter for logfile *)
+  log_ppf := Format.formatter_of_out_channel oc
+
+
+(* Write messages to standard output *)
+let log_to_stdout () = log_ppf := Format.std_formatter
+
+
+(* ********************************************************************** *)
 (* System functions                                                       *)
 (* ********************************************************************** *)
 
 let pp_print_banner ppf () =
-    Format.fprintf ppf "%s v%s" Config.package_name Config.package_version
+    Format.fprintf ppf "%s %s" Config.package_name Version.version
 
 let pp_print_version ppf = pp_print_banner ppf ()
   
@@ -774,6 +903,17 @@ let pp_print_kind_module ppf = function
 let string_of_kind_module = string_of_t pp_print_kind_module 
 
 
+(* Return a short representation of kind module *)
+let suffix_of_kind_module = function
+ | `PDR -> "pdr"
+ | `BMC -> "bmc"
+ | `IND -> "ind"
+ | `INVGEN -> "inv"
+ | `INVMAN -> "man"
+ | `Interpreter -> "interp"
+ | `Parser -> "parse"
+                
+
 (* Process type of a string *)
 let kind_module_of_string = function 
   | "PDR" -> `PDR
@@ -782,46 +922,6 @@ let kind_module_of_string = function
   | "INVGEN" -> `INVGEN
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
-
-
-type prop_status =
-
-  (* Status of property is unknown *)
-  | PropUnknown
-
-  (* Property is true for at least k steps *)
-  | PropKTrue of int
-
-  (* Property is true in all reachable states *)
-  | PropInvariant 
-
-  (* Property is false at some step *)
-  | PropFalse
-
-  (* Property is false in the k-th step *)
-  | PropKFalse of int 
-
-
-let pp_print_prop_status ppf = function 
-  | PropUnknown -> Format.fprintf ppf "unknown"
-  | PropKTrue k -> Format.fprintf ppf "true-for %d" k
-  | PropInvariant -> Format.fprintf ppf "invariant"
-  | PropFalse -> Format.fprintf ppf "false"
-  | PropKFalse k -> Format.fprintf ppf "false-at %d" k
-
-
-(* Property status is known? *)
-let prop_status_known = function 
-
-  (* Property may become invariant or false *)
-  | PropUnknown
-  | PropKTrue _ -> false
-
-  (* Property is invariant or false *)
-  | PropInvariant
-  | PropFalse
-  | PropKFalse _ -> true
-
 
 
 (* Timeouts *)

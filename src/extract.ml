@@ -205,6 +205,12 @@ let extract uf_defs env term =
     (* Extract from top element on stack *)
     | (term, env, polarity) :: tl ->
 
+      debug extract 
+          "@[<v>extract_term:@ %a@ with polarity %B@]" 
+          Term.pp_print_term term
+          polarity
+      in
+
       (* Obtain new accumulator and new terms to extract *)
       let accum', stack' = 
         extract_term_flat accum polarity env (Term.T.destruct term) 

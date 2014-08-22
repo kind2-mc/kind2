@@ -306,6 +306,135 @@ let read_bytes start filename =
 
 
 
+
+let interpreter_job
+    kind
+    job_args
+    inputFile
+    path =
+  (* Open file *)
+  let loadavg_ch = open_in "/proc/loadavg" in
+
+  (* Read load averages from file *)
+  let load1, load5, load15 =
+    Scanf.fscanf loadavg_ch "%f %f %f" (fun l1 l5 l15 -> (l1,l5,l15))
+  in
+
+  (* Close file *)
+  close_in loadavg_ch;
+
+  log
+    "Current system load: %.2f %.2f %.2f"
+    load1
+    load5
+    load15;
+
+  if
+
+    (* System load above of limit? *)
+    (!load1_max > 0. && load1 > !load1_max) ||
+    (!load5_max > 0. && load5 > !load5_max) ||
+    (!load15_max > 0. && load15 > !load15_max)
+
+  then
+    
+    (
+
+      
+      let msg =
+        asprintf
+          "<Jobstatus msg=\"aborted\">\
+Job rejected due to high system load. Try again later.\
+</Jobstatus>" in
+      log "Job rejected due to high system load";
+      msg     
+
+    )
+  else
+    (
+      let job_id = generate_uid () in
+      (* Create temporary files for input, output and error output *)
+      let stdin_fn = (path ^ "kind_job_" ^ job_id ^ "_input") in
+      let stdout_fn = (path ^ "kind_job_" ^ job_id ^ "_output") in
+
+      (* Write data from client to stdin of new kind process *)
+      Unix.link inputFile stdin_fn;
+
+      log
+        "Input file is %s"
+	stdin_fn;
+
+      (* Open file for input *)
+      let kind_stdin_in =
+        Unix.openfile
+          stdin_fn
+          [Unix.O_CREAT; Unix.O_RDONLY; Unix.O_NONBLOCK] 0o600
+      in
+
+      log
+        "Input file is openend";
+
+      (* Open file for output *)
+      let kind_stdout_out =
+        Unix.openfile
+          stdout_fn
+          [Unix.O_CREAT; Unix.O_RDWR; Unix.O_NONBLOCK] 0o600
+      in
+
+      log
+        "Output file is openend";
+
+      (* Temporary file for stderr *)
+      let stderr_fn, kind_stderr_out =
+
+       (
+
+          (* By default merge stdout and stderr *)
+           stdout_fn, kind_stdout_out
+
+        )
+
+      in
+
+      log
+        "Executing %s %a"
+        kind
+        (pp_print_list Format.pp_print_string " ") (kind :: job_args @ [stdin_fn]);
+
+      log "The job is %s" job_id;
+
+      (* Create kind process *)
+      let kind_pid =
+        Unix.create_process
+          kind
+          (Array.of_list(kind :: job_args @ [stdin_fn]))
+          kind_stdin_in
+          kind_stdout_out
+          kind_stderr_out
+      in
+
+      (* Close our end of the pipe which has been duplicated by the
+process *)
+      if (not (kind_stderr_out == kind_stdout_out)) then
+        (Unix.close kind_stderr_out);
+
+      Unix.close kind_stdin_in;
+      Unix.close kind_stdout_out;
+      (try ignore (Unix.waitpid [] kind_pid) with _ -> ());
+      let _ , msg = read_bytes 0 stdout_fn in
+      msg;
+      msg 
+    )
+
+
+
+
+
+
+
+
+
+
       
 (* create new kind job using flags 'server_flags',
 and the content of 'payload'. send results over 'sock' *)
@@ -465,8 +594,6 @@ let output_of_job_status
        job_stderr_fn;
        job_stdout_pos } as job_info)
     job_status =
-
-  (try ignore (Unix.waitpid [] job_pid) with _ -> ());
   
   log ("old pos is %d") job_stdout_pos;
   (* Read from standard output file *)
