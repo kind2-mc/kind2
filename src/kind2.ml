@@ -225,26 +225,49 @@ let on_exit process exn =
 
   try 
 
-    let wait_end = (Unix.gettimeofday ()) +. 1. in
+    (* Install signal handler for SIGALRM after wallclock timeout *)
+    Sys.set_signal 
+      Sys.sigalrm 
+      (Sys.Signal_handle (function _ -> raise TimeoutWall));
+
+    (* Set interval timer for wallclock timeout *)
+    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+      Unix.setitimer 
+        Unix.ITIMER_REAL 
+        { Unix.it_interval = 0.; Unix.it_value = 1. } 
+    in
     
-    while Unix.gettimeofday () < wait_end do
-      
-      (* Wait for child process to terminate *)
-      let pid, status = Unix.wait () in
+    (try 
+       
+       while true do
+         
+         (* Wait for child process to terminate *)
+         let pid, status = Unix.wait () in
+         
+         (* Kill processes left in process group of child process *)
+         (try Unix.kill (- pid) Sys.sigkill with _ -> ());
+         
+         (* Remove killed process from list *)
+         child_pids := List.remove_assoc pid !child_pids;
+         
+         (* Log termination status *)
+         Event.log L_info 
+           "Process %d %a" pid pp_print_process_status status
+           
+       done
+       
+     with TimeoutWall -> 
 
-      (* Kill processes left in process group of child process *)
-      (try Unix.kill (- pid) Sys.sigkill with _ -> ());
-
-      (* Remove killed process from list *)
-      child_pids := List.remove_assoc pid !child_pids;
-      
-      (* Log termination status *)
-      Event.log L_info 
-        "Process %d %a" pid pp_print_process_status status
-        
-    done;
-
-    clean_exit 0
+       (* Log termination status *)
+       Event.log L_info 
+         "Some processes (%a) did not exit, killing them." 
+         (pp_print_list 
+            (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
+         !child_pids
+         
+    );
+    
+    clean_exit status
 
   with 
     
@@ -254,7 +277,7 @@ let on_exit process exn =
       Event.log L_info 
         "All processes terminated. Exiting.";
 
-      clean_exit 0
+      clean_exit status
         
     (* Unix.wait was interrupted *)
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
