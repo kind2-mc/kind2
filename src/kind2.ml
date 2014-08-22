@@ -185,18 +185,27 @@ let on_exit process exn =
 
   let clean_exit status =
 
+    (* Log termination status *)
+    if not (!child_pids = []) then
+
+      Event.log L_info 
+        "Some processes (%a) did not exit, killing them." 
+        (pp_print_list 
+           (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
+        !child_pids;
+
     (* Kill all remaining processes in the process groups of child
        processes *)
     List.iter
       (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
       !child_pids;
-      
+
     (* Close tags in XML output *)
     Event.terminate_log ();
 
     (* Exit with status *)
     exit status
-        
+
   in
 
   (* Ignore SIGALRM from now on *)
@@ -219,7 +228,7 @@ let on_exit process exn =
       Unix.kill pid Sys.sigterm)
 
     !child_pids;
-  
+
   Event.log L_info 
     "Waiting for remaining child processes to terminate";
 
@@ -236,49 +245,40 @@ let on_exit process exn =
         Unix.ITIMER_REAL 
         { Unix.it_interval = 0.; Unix.it_value = 1. } 
     in
-    
+
     (try 
-       
+
        while true do
-         
+
          (* Wait for child process to terminate *)
          let pid, status = Unix.wait () in
-         
+
          (* Kill processes left in process group of child process *)
          (try Unix.kill (- pid) Sys.sigkill with _ -> ());
-         
+
          (* Remove killed process from list *)
          child_pids := List.remove_assoc pid !child_pids;
-         
+
          (* Log termination status *)
          Event.log L_info 
            "Process %d %a" pid pp_print_process_status status
-           
-       done
-       
-     with TimeoutWall -> 
 
-       (* Log termination status *)
-       Event.log L_info 
-         "Some processes (%a) did not exit, killing them." 
-         (pp_print_list 
-            (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
-         !child_pids
-         
-    );
-    
+       done
+
+     with TimeoutWall -> ());
+
     clean_exit status
 
   with 
-    
+
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
 
       Event.log L_info 
-        "All processes terminated. Exiting.";
+        "All child processes terminated.";
 
       clean_exit status
-        
+
     (* Unix.wait was interrupted *)
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
