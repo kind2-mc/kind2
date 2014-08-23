@@ -1,5 +1,5 @@
 node greycounter (reset: bool) returns (out: bool);
-var a, b: bool; OK1, OK2, OK3: bool;
+var a, b: bool; 
 let
   a = false -> (not reset and not pre b);
   b = false -> (not reset and pre a);
@@ -8,18 +8,20 @@ let
 tel
 
 node intcounter (reset: bool; const max: int) returns (out: bool);
-var t: int; OK1, OK2, OK3, OK4: bool;
+var t: int; 
 let
   t = 0 -> if reset or pre t = max then 0 else pre t + 1;
   out = t = 2;
 
 tel
 
-node top (reset: bool) returns (OK: bool);
+node top (reset: bool) returns (OK, OK2: bool);
 var b, d: bool;
 let
   b = greycounter(reset);
   d = intcounter(reset, 3);
   OK = b = d;
+  OK2 = not d;
   --%PROPERTY OK;
+  --%PROPERTY OK2;
 tel
