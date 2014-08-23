@@ -291,6 +291,11 @@ let rec list_subset_uniq cmp l1 l2 = match l1, l2 with
   | h1 :: _, h2 :: tl -> list_subset_uniq cmp l1 tl
 
 
+(* Lexicographic comparison of pairs *)
+let compare_pairs cmp_a cmp_b (a1, b1) (a2, b2) =
+  let c_a = cmp_a a1 a2 in if c_a = 0 then cmp_b b1 b2 else c_a
+
+
 (* Lexicographic comparison of lists *)
 let rec compare_lists f l1 l2 = 
 
