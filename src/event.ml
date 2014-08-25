@@ -442,15 +442,22 @@ let execution_path_pt level trans_sys path =
 (* Output disproved property as plain text *)
 let disproved_pt mdl level trans_sys prop cex = 
 
-  (ignore_or_fprintf level)
-    !log_ppf 
-    ("@[<v>Failure: Property %s is invalid %tby %a@,@,%a@]@.") 
-    prop
-    (function ppf -> match cex with
-       | [] -> ()
-       | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-    pp_print_kind_module_pt mdl
-    (pp_print_counterexample_pt level trans_sys prop) cex
+  (* Only ouptut if status was unknown *)
+  if 
+
+    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+
+  then 
+
+    (ignore_or_fprintf level)
+      !log_ppf 
+      ("@[<v>Failure: Property %s is invalid %tby %a@,@,%a@]@.") 
+      prop
+      (function ppf -> match cex with
+         | [] -> ()
+         | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
+      pp_print_kind_module_pt mdl
+      (pp_print_counterexample_pt level trans_sys prop) cex
 
 
 (* Output statistics section as plain text *)
@@ -680,21 +687,28 @@ let disproved_xml mdl level trans_sys prop cex =
   (* Update time *)
   Stat.update_time Stat.total_time;
 
-  (ignore_or_fprintf level)
-    !log_ppf 
-    ("@[<hv 2><Property name=\"%s\">@,\
-      <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
-      %t\
-      <Answer source=\"%a\">falsifiable</Answer>@,\
-      %a@;<0 -2>\
-      </Property>@]@.") 
-    prop
-    (Stat.get_float Stat.total_time)
-    (function ppf -> match cex with 
-       | [] -> () 
-       | cex -> Format.fprintf ppf "<K>%d</K>@," (TransSys.length_of_cex cex))
-    pp_print_kind_module_xml_src mdl
-    (pp_print_counterexample_xml trans_sys prop) cex
+  (* Only ouptut if status was unknown *)
+  if 
+
+    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+
+  then 
+
+    (ignore_or_fprintf level)
+      !log_ppf 
+      ("@[<hv 2><Property name=\"%s\">@,\
+        <Runtime unit=\"sec\" timeout=\"false\">%.3f</Runtime>@,\
+        %t\
+        <Answer source=\"%a\">falsifiable</Answer>@,\
+        %a@;<0 -2>\
+        </Property>@]@.") 
+      prop
+      (Stat.get_float Stat.total_time)
+      (function ppf -> match cex with 
+         | [] -> () 
+         | cex -> Format.fprintf ppf "<K>%d</K>@," (TransSys.length_of_cex cex))
+      pp_print_kind_module_xml_src mdl
+      (pp_print_counterexample_xml trans_sys prop) cex
   
 
 (* Output statistics section as XML *)

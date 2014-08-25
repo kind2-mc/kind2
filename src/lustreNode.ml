@@ -352,9 +352,21 @@ let pp_print_node
 
 (* Return the node of the given name from a list of nodes *)
 let node_of_name name nodes =
-  List.find
-    (function { name = node_name } -> name = node_name)
-    nodes
+
+  try 
+
+    List.find
+      (function { name = node_name } -> name = node_name)
+      nodes
+      
+  with Not_found -> 
+
+    debug lustreNode 
+      "Node %a not found"
+      (I.pp_print_ident false) name
+    in
+    
+    raise Not_found
 
 
 (* Calculate dependencies of variables *)

@@ -127,6 +127,9 @@ val list_subset_uniq :  ('a -> 'a -> int) -> 'a list -> 'a list -> bool
     at each element are equal. *)
 val list_join : ('a -> 'a -> bool) -> ('a * 'b) list -> ('a * 'b list) list -> ('a * 'b list) list
 
+(** Lexicographic comparison of pairs *)
+val compare_pairs : ('a -> 'a -> int) -> ('b -> 'b -> int) -> 'a * 'b -> 'a * 'b -> int 
+
 (** Lexicographic comparison of lists *)
 val compare_lists : ('a -> 'a -> int) -> 'a list -> 'a list -> int 
 

@@ -31,6 +31,8 @@ module BMC = Bmc
 module InvGen = InvGenDummy
 
 (* module PDR = Dummy *)
+
+let children_pgid = ref 0
   
 (* Child processes forked 
 
@@ -181,6 +183,31 @@ let status_of_exn process = function
 (* Clean up before exit *)
 let on_exit process exn = 
 
+  let clean_exit status =
+
+    (* Log termination status *)
+    if not (!child_pids = []) then
+
+      Event.log L_info 
+        "Some processes (%a) did not exit, killing them." 
+        (pp_print_list 
+           (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
+        !child_pids;
+
+    (* Kill all remaining processes in the process groups of child
+       processes *)
+    List.iter
+      (fun (pid, _) -> try Unix.kill (- pid) Sys.sigkill with _ -> ())
+      !child_pids;
+
+    (* Close tags in XML output *)
+    Event.terminate_log ();
+
+    (* Exit with status *)
+    exit status
+
+  in
+
   (* Ignore SIGALRM from now on *)
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
@@ -201,56 +228,64 @@ let on_exit process exn =
       Unix.kill pid Sys.sigterm)
 
     !child_pids;
-  
+
   Event.log L_info 
     "Waiting for remaining child processes to terminate";
 
   try 
-    
-    while true do
-      
-      (* Wait for child process to terminate *)
-      let pid, status = Unix.wait () in
 
-      (* Remove killed process from list *)
-      child_pids := List.remove_assoc pid !child_pids;
-      
-      (* Log termination status *)
-      Event.log L_info 
-        "Process %d %a" pid pp_print_process_status status
-        
-    done
-    
+    (* Install signal handler for SIGALRM after wallclock timeout *)
+    Sys.set_signal 
+      Sys.sigalrm 
+      (Sys.Signal_handle (function _ -> raise TimeoutWall));
+
+    (* Set interval timer for wallclock timeout *)
+    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+      Unix.setitimer 
+        Unix.ITIMER_REAL 
+        { Unix.it_interval = 0.; Unix.it_value = 1. } 
+    in
+
+    (try 
+
+       while true do
+
+         (* Wait for child process to terminate *)
+         let pid, status = Unix.wait () in
+
+         (* Kill processes left in process group of child process *)
+         (try Unix.kill (- pid) Sys.sigkill with _ -> ());
+
+         (* Remove killed process from list *)
+         child_pids := List.remove_assoc pid !child_pids;
+
+         (* Log termination status *)
+         Event.log L_info 
+           "Process %d %a" pid pp_print_process_status status
+
+       done
+
+     with TimeoutWall -> ());
+
+    clean_exit status
+
   with 
-    
+
     (* No more child processes, this is the normal exit *)
     | Unix.Unix_error (Unix.ECHILD, _, _) -> 
 
       Event.log L_info 
-        "All processes terminated. Exiting.";
+        "All child processes terminated.";
 
-      Event.terminate_log ();
+      clean_exit status
 
-      (* Exit with status *)
-      exit status
-        
     (* Unix.wait was interrupted *)
     | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
       (* Get new exit status *)
       let status' = status_of_exn process (Signal 0) in
 
-      Event.log L_error 
-        "@[<hv>Not all child processes could be terminated: @[<hov>%a@]@]"
-        (pp_print_list 
-           (fun ppf (p, _) -> 
-              Format.fprintf ppf "%d" p)
-           ",@ ")
-        !child_pids;
-
-      Event.terminate_log ();
-
-      exit status' 
+      clean_exit status'
 
     (* Exception in Unix.wait loop *)
     | e -> 
@@ -258,17 +293,7 @@ let on_exit process exn =
       (* Get new exit status *)
       let status' = status_of_exn process e in
 
-      Event.log L_error 
-        "@[<hv>Not all child processes could be terminated: @[<hov>%a@]@]"
-        (pp_print_list 
-           (fun ppf (p, _) -> 
-              Format.fprintf ppf "%d" p)
-           ",@ ")
-        !child_pids;
-
-      Event.terminate_log ();
-
-      exit status' 
+      clean_exit status'
 
 
 (* Call cleanup function of process and exit. 
@@ -317,6 +342,9 @@ let run_process messaging_setup process =
       (
 
         try 
+
+          (* Make the process leader of a new session *)
+          ignore (Unix.setsid ());
 
           let pid = Unix.getpid () in
 
@@ -801,16 +829,16 @@ let main () =
 
           Event.log L_trace
             "Messaging initialized in invariant manager";
-          
+
           (* Start all child processes *)
           List.iter 
             (function p -> 
               run_process messaging_setup p)
             ps;
-
+              
           (* Set module currently running *)
           Event.set_module `INVMAN;
-
+          
           Event.log L_trace "Starting invariant manager";
 
           (* Initialize messaging for invariant manager, obtain a background

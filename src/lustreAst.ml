@@ -35,6 +35,18 @@ type position =
   { pos_fname : string; pos_lnum: int; pos_cnum: int }
 
 
+(* Comparision on positions *)
+let compare_pos 
+    { pos_fname = p1; pos_lnum = l1; pos_cnum = c1 }  
+    { pos_fname = p2; pos_lnum = l2; pos_cnum = c2 } =
+
+  compare_pairs 
+    String.compare
+    (compare_pairs Pervasives.compare Pervasives.compare)
+    (p1, (l1, c1)) 
+    (p2, (l2, c2)) 
+
+
 (* A dummy position, different from any valid position *)
 let dummy_pos = { pos_fname = ""; pos_lnum = 0; pos_cnum = -1 }
 

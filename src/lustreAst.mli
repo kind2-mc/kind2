@@ -31,6 +31,9 @@ type position
 (** Dummy position different from any valid position *)
 val dummy_pos : position
 
+(** Comparision on positions *)
+val compare_pos : position -> position -> int
+
 (** Return [true] if the position is not a valid position in the
     input *)
 val is_dummy_pos : position -> bool

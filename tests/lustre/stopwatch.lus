@@ -15,7 +15,7 @@ node Stopwatch(on_off, reset, freeze: bool) returns (time: int);
 var
   running, freezed: bool;
   cpt: int;
-  time_is_positive: bool;
+  time_is_positive, time_is_less_than_three: bool;
 let
   running = Switch(on_off, on_off);
   freezed = Switch(freeze and running,
@@ -23,8 +23,10 @@ let
   cpt = Count(reset and not running, running);
   time = if freezed then (0 -> pre time) else cpt;
 
-  time_is_positive = time > 0;
+  time_is_positive = time >= 0;
+  time_is_less_than_three = time < 3;
   --%PROPERTY time_is_positive;
+  --%PROPERTY time_is_less_than_three;
 
   --%MAIN
 tel
