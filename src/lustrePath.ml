@@ -76,6 +76,12 @@ let rec tree_path_of_model model =
       (* Variable is lifted from a node instance *)
       | E.Instance (call_pos, call_node_id, call_state_var) ->
 
+        debug lustrePath
+          "fold_state_var: %a is %a"
+          StateVar.pp_print_state_var state_var
+          LustreExpr.pp_print_state_var_source src
+        in
+
         (* Identify node instance by name and position *)
         let call_key = (call_node_id, call_pos) in
 
@@ -665,12 +671,36 @@ and tree_path_of_calls
     { N.call_node_name; N.call_pos } =
 
   debug lustrePath
-    "@[<v>tree_path_of_calls:@,%a@]"
+    "@[<v>tree_path_of_calls:@,%a,%a@]"
+    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes
     (pp_print_tree_path_pt 10 10 [])
     tree_path
   in
 
-  let tree_path_call = CallMap.find (call_node_name, call_pos) call_map in
+  let tree_path_call = 
+    try 
+
+      CallMap.find (call_node_name, call_pos) call_map 
+    
+    with Not_found -> 
+
+      debug lustrePath 
+        "@[<v>Node %a at position %a not found@,Keys:%a@]"
+        (LustreIdent.pp_print_ident false) call_node_name
+        LustreAst.pp_print_position call_pos
+        (pp_print_list 
+          (fun ppf (n, p) -> 
+            Format.fprintf ppf 
+              "%a %a"
+              (LustreIdent.pp_print_ident false) n
+              LustreAst.pp_print_position p)
+          "@,")
+        (CallMap.fold (fun k _ a -> k :: a) call_map [])
+      in
+
+      raise Not_found 
+
+  in
 
   let tree_path_call' = 
     tree_path_of_nodes 
