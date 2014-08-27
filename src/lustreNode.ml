@@ -79,7 +79,7 @@ type node_call =
     call_pos : LustreAst.position;
 
     (* Expressions for input parameters *)
-    call_inputs : LustreExpr.t list;
+    call_inputs : StateVar.t list;
 
     (* Expression for initial return values *)
     call_defaults : LustreExpr.t list;
@@ -217,7 +217,7 @@ let pp_print_call safe ppf = function
   | { call_returns = out_vars; 
       call_clock = act_expr; 
       call_node_name = node; 
-      call_inputs = exprs } when E.equal_expr act_expr E.t_true -> 
+      call_inputs = in_vars } when E.equal_expr act_expr E.t_true -> 
 
     Format.fprintf ppf
       "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>%a(%a);@]@]"
@@ -226,13 +226,13 @@ let pp_print_call safe ppf = function
          ",@ ") 
       out_vars
       (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
 
   (* Node call not on the base clock is a condact *)
   |  { call_returns = out_vars; 
        call_clock = act_expr;
        call_node_name = node; 
-       call_inputs = exprs; 
+       call_inputs = in_vars; 
        call_defaults = init_exprs } ->
      
     Format.fprintf ppf
@@ -243,7 +243,7 @@ let pp_print_call safe ppf = function
       out_vars
       (E.pp_print_lustre_expr safe) act_expr
       (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") exprs
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
       (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") init_exprs
 
 
@@ -509,7 +509,7 @@ let rec node_var_dependencies nodes node accum =
                   []
                   (List.nth output_input_dep input_pos)
               in
-
+(*
               (* Get variables in expression *)
               SVS.elements
                 (List.fold_left
@@ -529,6 +529,9 @@ let rec node_var_dependencies nodes node accum =
                         a)
                    SVS.empty
                    dep_expr)
+*)
+              
+              dep_expr
 
             (* Variable is not input or defined in an equation or node
                call, it could be in an assertion *)
@@ -785,6 +788,11 @@ let solve_eqs_node_calls node =
                          node.equations)
                   in
 
+                  (match E.get_state_var_instance v with
+                    | None -> ()
+                    | Some (p, n, v'') -> 
+                      E.set_state_var_instance v' p n v'');
+
                   (v' :: accum_outputs, v :: accum_vars_eliminated)
 
                 (* Variable not found in a variable alias equation *)
@@ -845,8 +853,9 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
         { call_clock = act_cond; call_inputs = args; call_defaults = inits } -> 
 
         act_cond :: 
-        args @
-         
+(*
+        (List.map (E.cur_expr_of_state_var E.cur_offset) args) @
+        (List.map (E.pre_term_of_state_var E.cur_offset) args) @
          (* Add previous state expression of arguments *)
          List.map 
            (fun e -> 
@@ -856,8 +865,8 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
                      (* Immediately fail if expression under pre needs
                         to be abstracted *)
                      (fun _ -> assert false) [] e)))) 
-           args @
-         inits @ 
+           args @ *)
+        inits @ 
          accum)
       exprs_equations
       calls
@@ -919,21 +928,14 @@ let stateful_vars_of_node
           call_clock = act_cond; 
           call_inputs = args; 
           call_defaults = inits } -> 
+
          (add_to_svs
             
-            (SVS.union
-
-               (* Variables in activation condition area lways stateful *)
+               (* Variables in activation condition are always stateful *)
                (E.state_vars_of_expr act_cond)
-               
-               (* Variables in input parameters are always stateful *)
-               (List.fold_left 
-                  SVS.union 
-                  accum
-                  (List.map E.state_vars_of_expr (args))))
 
-            (* Output variables are always stateful *)
-            rets))
+            (* Input and output variables are always stateful *)
+            (rets @ args)))
       stateful_vars
       calls
   in
@@ -1117,8 +1119,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
                   (fun a e -> 
                      (SVS.elements
                         (LustreExpr.state_vars_of_expr e)) @ a)
-                  svtl
-                  (call_act :: call_inputs @ call_defaults)
+                  (svtl @ call_inputs)
+                  (call_act :: call_defaults)
               in
 
               (* Add called node to sliced node *)

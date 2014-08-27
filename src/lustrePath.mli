@@ -18,16 +18,14 @@
 
 (** Conversion of a counterexampe to a Lustre model 
 
-    @author Christoph Sticksel *)
+    @author Kevin Clancy, Christoph Sticksel *)
 
 (** Output a counterexample as a Lustre execution in XML format *)
-val pp_print_path_xml : (* LustreNode.t list -> *) LustreNode.t list -> 
-                        bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_xml : LustreNode.t list -> bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 (** Output a counterexample as a Lustre execution as plain text with
     pre-processing reverted *)
-val pp_print_path_pt : (* LustreNode.t list -> *) LustreNode.t list -> 
-                       bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_pt : LustreNode.t list -> bool -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 (* 
    Local Variables:

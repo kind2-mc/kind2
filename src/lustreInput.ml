@@ -89,18 +89,16 @@ let of_channel in_ch =
     (pp_print_list (LustreNode.pp_print_node false) "@,") nodes_coi
   in
 
-  (* Create transition system of Lustre nodes
-
-     TODO: Split definitions into init and trans part *)
-  let fun_defs_init, fun_defs_trans, state_vars, init, trans = 
+  (* Create transition system of Lustre nodes *)
+  let fun_defs_init, fun_defs_trans, state_vars, init, trans, props = 
     LustreTransSys.trans_sys_of_nodes main_node nodes_coi
   in
-
+(*
   (* Extract properties from nodes *)
   let props = 
     LustreTransSys.props_of_nodes main_node nodes_coi
   in
-  
+  *)
 
   let trans_sys = 
   (* Create Kind transition system *)

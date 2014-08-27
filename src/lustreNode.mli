@@ -63,7 +63,7 @@ type node_call =
     call_pos : LustreAst.position;
 
     (** Expressions for input parameters *)
-    call_inputs : LustreExpr.t list;
+    call_inputs : StateVar.t list;
 
     (** Expression for initial return values *)
     call_defaults : LustreExpr.t list;

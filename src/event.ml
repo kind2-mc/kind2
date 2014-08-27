@@ -51,13 +51,9 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
   (* Undo instantiation of state variable in calling nodes and return
      state variable in scope of node defining it *)
   let rec base_of_state_var sv = 
-    match LustreExpr.get_state_var_source sv with
-      | LustreExpr.Input
-      | LustreExpr.Output
-      | LustreExpr.Local
-      | LustreExpr.Oracle
-      | LustreExpr.Abstract -> sv 
-      | LustreExpr.Instance (_, _, sv) -> base_of_state_var sv
+    match LustreExpr.get_state_var_instance sv with
+      | None -> sv 
+      | Some (_, _, sv) -> base_of_state_var sv
   in
 
   (* Get state variable in scope of main node *)

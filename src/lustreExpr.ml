@@ -53,8 +53,9 @@ type state_var_source =
   (* Local abstracted stream *)
   | Abstract
 
-  (* Stream from node call at position *)
-  | Instance of A.position * I.t * StateVar.t
+
+(* Stream is identical to a stream in a node instance at position *)
+type state_var_instance =  A.position * I.t * StateVar.t
 
 
 (* Map from state variables to indexed identifiers *)
@@ -62,16 +63,21 @@ let state_var_ident_map : (I.t * I.index) StateVar.StateVarHashtbl.t =
   StateVar.StateVarHashtbl.create 7
 
 
-
 (* Map from state variables to indexed identifiers *)
 let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t = 
+  StateVar.StateVarHashtbl.create 7
+
+
+(* Map from state variables to indexed identifiers *)
+let state_var_instance_map : state_var_instance StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
 (* Set source of state variable *)
 let set_state_var_source state_var source = 
 
-  StateVar.StateVarHashtbl.add 
+  (* Overwrite previous source *)
+  StateVar.StateVarHashtbl.replace
     state_var_source_map 
     state_var
     source
@@ -84,6 +90,135 @@ let get_state_var_source state_var =
     state_var_source_map 
     state_var
 
+
+(* State variable is identical to a state variable in a node instance *)
+let set_state_var_instance state_var pos node state_var' = 
+
+  (* Overwrite previous source *)
+  StateVar.StateVarHashtbl.replace
+    state_var_instance_map 
+    state_var
+    (pos, node, state_var')
+
+
+(* Return identical state variable in a node instance if any *)
+let get_state_var_instance state_var = 
+
+  try 
+
+    Some 
+      (StateVar.StateVarHashtbl.find
+         state_var_instance_map 
+         state_var)
+
+  with Not_found -> None
+
+
+
+let lift_state_var state_var = 
+
+  match 
+
+  StateVar.StateVarHashtbl.fold
+    (fun state_var_caller (_, node, state_var_callee) -> function 
+       | Some _ as accum -> accum
+       | None -> 
+         if StateVar.equal_state_vars state_var state_var_callee then 
+           Some state_var_caller 
+         else
+           None)
+    state_var_instance_map
+    None
+
+  with 
+    | None -> 
+
+      debug lustreExpr 
+        "Cannot lift state variable %a"
+        StateVar.pp_print_state_var state_var 
+      in
+
+      state_var 
+
+    | Some state_var' -> 
+
+      debug lustreExpr 
+        "lifted state variable %a to %a"
+        StateVar.pp_print_state_var state_var 
+        StateVar.pp_print_state_var state_var'
+      in
+
+      state_var'
+
+
+let lift_term term = 
+
+  Term.map
+    (function _ -> function 
+       | term when Term.is_free_var term -> 
+         
+         let var = Term.free_var_of_term term in
+
+         if Var.is_state_var_instance var then 
+           
+           let state_var = Var.state_var_of_state_var_instance var in
+           
+           let offset = Var.offset_of_state_var_instance var in
+           
+           let state_var' = lift_state_var state_var in
+           
+           Term.mk_var (Var.mk_state_var_instance state_var' offset)
+
+         else
+           
+           term
+           
+       | term -> term)
+    term
+
+
+let state_var_is_visible state_var = 
+
+  match get_state_var_source state_var with
+
+    (* Oracle inputs and abstraced streams are invisible *)
+    | Oracle
+    | Abstract -> false
+
+    (* Inputs, outputs and defined locals are visible *)
+    | Input
+    | Output
+    | Local -> true
+
+
+(* Return true if the state variable is an input *)
+let state_var_is_input state_var = 
+  try
+    match get_state_var_source state_var with
+      | Input -> true
+      | _ -> false
+  with Not_found -> false
+
+
+(* Return true if the state variable is an output *)
+let state_var_is_output state_var = 
+  try
+    match get_state_var_source state_var with
+      | Output -> true
+      | _ -> false
+  with Not_found -> false
+
+
+(* Return true if the state variable is a local variable *)
+let state_var_is_local state_var = 
+  try
+    match get_state_var_source state_var with
+      | Local -> true
+      | _ -> false
+  with Not_found -> false
+
+    
+(* Pretty-print the source of a state variable *)
 let rec pp_print_state_var_source ppf = function
   
   | Input -> Format.fprintf ppf "input"
@@ -95,14 +230,6 @@ let rec pp_print_state_var_source ppf = function
   | Local -> Format.fprintf ppf "local"
 
   | Abstract -> Format.fprintf ppf "abstract"
-
-  | Instance (pos, node, state_var) -> 
-    
-    Format.fprintf ppf "instance(%a,%a,%a,%a)"
-      A.pp_print_position pos
-      (I.pp_print_ident false) node
-      StateVar.pp_print_state_var state_var
-      pp_print_state_var_source (get_state_var_source state_var)
 
 
 (* Return the identifier of a state variable *)
@@ -734,8 +861,9 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
       state_var_type
   in
   
-  (* Add to hashtable *)
-  StateVar.StateVarHashtbl.add 
+  (* Add to hashtable, don't create duplicates if state variable was
+     already defined *)
+  StateVar.StateVarHashtbl.replace
     state_var_ident_map 
     state_var
     (ident, scope_index);

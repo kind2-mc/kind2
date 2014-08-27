@@ -245,7 +245,10 @@ type state_var_source =
   | Output (** Output stream *)
   | Local (** Local defined stream *)
   | Abstract (** Local abstracted stream *)
-  | Instance of LustreAst.position * LustreIdent.t * StateVar.t (** Stream from node call at position *)
+
+
+(** Stream from node call at position *)
+type state_var_instance =  LustreAst.position * LustreIdent.t * StateVar.t
 
 
 (** Pretty-print a source of a state variable *)
@@ -272,6 +275,28 @@ val set_state_var_source : StateVar.t -> state_var_source -> unit
 
 (** Get source of state variable *)
 val get_state_var_source : StateVar.t -> state_var_source
+
+(** State variable is identical to a state variable in a node instance *)
+val set_state_var_instance : StateVar.t -> LustreAst.position -> LustreIdent.t -> StateVar.t -> unit
+
+
+val lift_term : Term.t -> Term.t
+
+(** Return identical state variable in a node instance if any *)
+val get_state_var_instance : StateVar.t -> state_var_instance option
+
+(** Return true if the state variable should be visible to the user,
+    false if it was created internally *)
+val state_var_is_visible : StateVar.t -> bool
+
+(** Return true if the state variable is an input *)
+val state_var_is_input : StateVar.t -> bool
+
+(** Return true if the state variable is an output *)
+val state_var_is_output : StateVar.t -> bool
+
+(** Return true if the state variable is a local variable *)
+val state_var_is_local : StateVar.t -> bool
 
 (** Return previously created state variable of the same identifier
 

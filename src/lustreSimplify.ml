@@ -258,7 +258,7 @@ let pp_print_abstraction_context
             Format.fprintf ppf "@[<hv>%a =@ %a(%a)@]"
               (pp_print_list StateVar.pp_print_state_var ",@,") ret
               (I.pp_print_ident false) node
-              (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
+              (pp_print_list (E.pp_print_lustre_var false) ",@,") inp
           | { N.call_returns = ret;
               N.call_clock = clk;
               N.call_node_name = node;
@@ -268,7 +268,7 @@ let pp_print_abstraction_context
               (pp_print_list StateVar.pp_print_state_var ",@,") ret
               (E.pp_print_lustre_expr false) clk
               (I.pp_print_ident false) node
-              (pp_print_list (E.pp_print_lustre_expr false) ",@,") inp
+              (pp_print_list (E.pp_print_lustre_var false) ",@,") inp
               (pp_print_list (E.pp_print_lustre_expr false) ",@,") init)
        ",@,")
     new_calls
@@ -1254,6 +1254,8 @@ let rec eval_ast_expr'
           (* New variable for abstraction *)
           let state_var = mk_new_state_var cond'.E.expr_type in
 
+          E.set_state_var_source state_var E.Abstract;
+
           (* Add definition of variable *)
           let abstractions'' =
             { abstractions' with
@@ -1719,30 +1721,19 @@ and eval_node_call
 
           then 
 
-            if 
+            (* New variable for abstraction *)
+            let state_var = mk_new_state_var expr_type in
 
-              (* Input must not contain variable at previous state *)
-              E.has_pre_var expr 
+            E.set_state_var_instance state_var pos ident in_var;
 
-            then
+            (* Add definition of variable *)
+            let abstractions' =
+              { abstractions with
+                  new_vars = (state_var, expr) :: abstractions.new_vars }
+            in
 
-              (* New variable for abstraction *)
-              let state_var = mk_new_state_var expr_type in
-
-              (* Add definition of variable *)
-              let abstractions' =
-                { abstractions with
-                    new_vars = (state_var, expr) :: abstractions.new_vars }
-              in
-
-              (* Use abstracted variable as input parameter *)
-              (E.mk_var state_var E.base_clock :: accum, 
-               abstractions')
-
-            else
-
-              (* Add expression as input *)
-              (expr :: accum, abstractions)
+            (* Add expression as input *)
+            (state_var :: accum, abstractions')
 
           else
             raise E.Type_mismatch)
@@ -1789,18 +1780,6 @@ and eval_node_call
       fail_at_position pos "Type mismatch for expressions"
 
   in
-
-  (* Add list of variables capturing the output with indexes to the result *)
-  let output_vars_of_node_output mk_new_state_var node_outputs = 
-
-    List.map
-      (fun (out_var, _) -> 
-         mk_new_state_var (StateVar.type_of_state_var out_var))
-      node_outputs
-
-  in
-
-
 
   let { N.inputs = node_inputs; 
         N.outputs = node_outputs; 
@@ -1865,6 +1844,7 @@ and eval_node_call
       (A.ExprList (pos, args))
   in
 
+
   (* Fresh state variables for oracle inputs of called node *)
   let oracle_state_vars = 
     List.map 
@@ -1872,17 +1852,17 @@ and eval_node_call
          mk_new_oracle_state_var (StateVar.type_of_state_var sv))
       node_oracles 
   in
-
+(*
   (* Expressions from state variables for oracle inputs *)
   let oracle_exprs = 
     List.map
       (fun sv -> E.mk_var sv E.base_clock) 
       oracle_state_vars 
   in
-
+*)
   (* Type check and flatten indexed expressions for input into list
          without indexes *)
-  let node_input_exprs, abstractions' =
+  let node_input_state_vars, abstractions' =
     node_inputs_of_exprs node_inputs abstractions' pos expr_list'
   in
 
@@ -1894,6 +1874,7 @@ and eval_node_call
            mk_new_state_var (StateVar.type_of_state_var node_sv)
          in
 
+         E.set_state_var_instance sv pos ident node_sv;
          (index, E.mk_var sv E.base_clock) :: result, 
          sv :: output_vars)
 
@@ -1909,7 +1890,8 @@ and eval_node_call
                          N.call_clock = cond;
                          N.call_node_name = ident;
                          N.call_pos = pos;
-                         N.call_inputs = node_input_exprs @ oracle_exprs;
+                         N.call_inputs = 
+                           node_input_state_vars @ oracle_state_vars;
                          N.call_defaults = List.map snd defaults } 
                        :: abstractions'.new_calls;
            new_oracles = abstractions'.new_oracles @ oracle_state_vars }

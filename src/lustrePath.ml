@@ -18,10 +18,12 @@
 
 open Lib
 
+(* Abbreviations *)
 module I = LustreIdent
 module A = LustreAst
 module E = LustreExpr
 module N = LustreNode
+
 
 (* Identifier of a call with total ordering *)
 module CallId = 
@@ -30,24 +32,28 @@ struct
   let compare = compare_pairs I.compare A.compare_pos
 end
 
+
+(* Map of node instances *)
 module CallMap = Map.Make (CallId)
 
+
+(* Map of state variables *)
 module SVMap = StateVar.StateVarMap
 
-(* (state var source, model terms) *)
-type stream = E.state_var_source * Term.t array
 
-(* A nested representation of a model *)
-type tree_path =
-    (* Node(node identifier, call position, streams, subnodes)
-       model of an instantiation of a lustre node *)
-  | Node of I.t * A.position * stream SVMap.t * tree_path CallMap.t 
+(* A nested representation of a model
+
+   Need to have a single constructor, otherwise the type would be
+   cylic *)
+type tree_path = 
+  | N of I.t * A.position * Term.t array SVMap.t * tree_path CallMap.t 
+
 
 (* ********************************************************************** *)
-(* Conversion of model to execution path                                  *)
+(* Conversion of model to a hierarchical model                            *)
 (* ********************************************************************** *)
 
-(* Create a tree path of a model *)
+(* Create a hierarchical model of a flat model *)
 let rec tree_path_of_model model =
 
   (* Add state variables to node or to node calls *)
@@ -55,32 +61,29 @@ let rec tree_path_of_model model =
 
     (* Get source of state variable *)
     let src = E.get_state_var_source state_var in
-    
-    match src with
-      
+
+    (* Add variable to streams *)
+    let stream_map' = 
+      SVMap.add state_var 
+        (Array.of_list terms) 
+        stream_map
+    in
+
+    (* Get state variable from a node instance *)
+    match E.get_state_var_instance state_var with
+
       (* Variable is not an instance *)
-      | E.Input
-      | E.Output  
-      | E.Local
-      | E.Oracle
-      | E.Abstract ->
+      | None -> 
 
-        (* Add variable to streams *)
-        let stream_map' = 
-          SVMap.add state_var (src, Array.of_list terms) stream_map
+        debug lustrePath
+            "State variable %a is not an instance"
+            StateVar.pp_print_state_var state_var
         in
-
-        (* Continue with modified streams *)
+        
         (stream_map', call_map)
 
       (* Variable is lifted from a node instance *)
-      | E.Instance (call_pos, call_node_id, call_state_var) ->
-
-        debug lustrePath
-          "fold_state_var: %a is %a"
-          StateVar.pp_print_state_var state_var
-          LustreExpr.pp_print_state_var_source src
-        in
+      | Some (call_pos, call_node_id, call_state_var) ->
 
         (* Identify node instance by name and position *)
         let call_key = (call_node_id, call_pos) in
@@ -96,8 +99,14 @@ let rec tree_path_of_model model =
         (* Add modified node content to map, replaces previous entry *)
         let call_map' = CallMap.add call_key node_model' call_map in
 
+        debug lustrePath
+          "State variable %a is an instance of %a"
+          StateVar.pp_print_state_var state_var
+          StateVar.pp_print_state_var call_state_var
+        in
+
         (* Continue with modified node calls *)
-        (stream_map, call_map')
+        (stream_map', call_map')
 
   in
 
@@ -108,7 +117,7 @@ let rec tree_path_of_model model =
     let stream_map, call_map = tree_path_of_model model in
 
     (* Create node with its streams and its called nodes *)
-    Node (call_node_id, call_pos, stream_map, call_map)
+    N (call_node_id, call_pos, stream_map, call_map)
 
   in
 
@@ -139,221 +148,278 @@ let rec tree_path_of_model model =
    the call containing the variable whose definition is [expr]
 *)
 let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
+
   (* Given that [var_model] contains the first [i] values of the stream 
      we are reconstructing (in reverse order) prepends the next value onto
      the front of [var_model] *)
   let fold_ind var_model i =
+
     (* prepend the var*term binding(s) for [sv] at cur instance [i]
        (and pre instance [i]-1 when [i]>0) onto substitutions *)
     let fold_stream sv stream substitutions =
+
       if i = 0 then
+
         let var = 
+
           if start_at_init then 
             Var.mk_state_var_instance sv E.base_offset
           else
             Var.mk_state_var_instance sv E.cur_offset
+
         in
-        let stream_terms = snd stream in
+
+        let stream_terms = stream in
+
         (var, stream_terms.(0)) :: substitutions                                   
       else
+
         let curr_var = Var.mk_state_var_instance sv E.cur_offset in
+
         let prev_var = Var.mk_state_var_instance sv E.pre_offset in
-        let stream_terms = snd stream in
+
+        let stream_terms = stream in
+
         let curr_binding = (curr_var, stream_terms.(i)) in
+
         let prev_binding = (prev_var, stream_terms.(i-1)) in
+
         curr_binding :: prev_binding :: substitutions
+
     in
+
     let substitutions = SVMap.fold fold_stream stream_map [] in
-    let substitutions' = SVMap.fold fold_stream ancestors_stream_map substitutions in
-    let src_expr = 
-      if i = 0 && start_at_init then 
-        expr.E.expr_init 
-      else 
-        expr.E.expr_step 
+
+    let substitutions' = 
+      SVMap.fold fold_stream ancestors_stream_map substitutions 
     in
+
+    let src_expr = 
+
+      if i = 0 && start_at_init then 
+
+        expr.E.expr_init 
+
+      else 
+
+        expr.E.expr_step 
+
+    in
+
     let value = Eval.eval_term [] substitutions' (src_expr :> Term.t) in
+
     (Eval.term_of_value value) :: var_model
+
   in
-  let stream_len = Array.length (snd (snd (SVMap.choose stream_map))) in
+
+  let stream_len = 
+
+    if SVMap.is_empty stream_map then 
+
+      if SVMap.is_empty ancestors_stream_map then 
+
+        assert false
+          
+      else
+
+        Array.length (snd (SVMap.choose ancestors_stream_map)) 
+
+    else
+      
+      Array.length (snd (SVMap.choose stream_map)) 
+
+  in
+
   let indices = list_init (fun i -> i) stream_len in
+
   Array.of_list (List.rev (List.fold_left fold_ind [] indices))
 
-(* reconstructs stateless variables of subtree rooted at [path].
-   
-   [nodes] is a list of all nodes in the program being processed and
-   
-   [calls] is a list of all calls made from the parent of [path],
-   or empty if [path] has no parent.
 
-   [stream_map] is a map containing reconstructed streams of all 
-   ancestors of [path] 
-   *)    
-let rec reconstruct_stateless_variables nodes start_at_init calls ancestors_stream_map path =
-  (* add reconstructed state variable [sv] to [stream_map] 
-     if it is not already there *)
-  let fold_eqn ancestors_stream_map stream_map (sv,expr) =
-    let prop = E.get_state_var_source sv in
-    match prop with
-    | E.Instance(_,_,_) ->
-       assert false
-    | E.Abstract      
-    | E.Oracle
-    | E.Input
-    | E.Output
-    | E.Local ->
-       if SVMap.mem sv stream_map then
-         stream_map
-       else
-           let stream_terms = 
-             reconstruct_single_var
-               start_at_init
-               ancestors_stream_map 
-               stream_map 
-               expr 
-           in 
-           SVMap.add sv (prop,stream_terms) stream_map
+(* Given a node and a hierarchical model for the node, add those
+   streams of the node to the second tree hierarchical model that were
+   present in the input, eliminating introduced streams and
+   reconstructing defined streams. *)
+let rec tree_path_of_nodes 
+    start_at_init
+    nodes
+    { N.inputs; N.outputs; N.locals; N.calls; N.equations } 
+    tree_path_in
+    tree_path = 
+
+  (* Sort state variables by their occurence in the equations, put
+     state variables without equation at the head of the list *)
+  let rec sort_defined_vars accum equations state_vars = 
+
+    match equations, state_vars with 
+
+      (* No more equations, put unconstrained variables first *)
+      | [], _ -> state_vars @ List.rev accum
+
+      (* No more variables, return sorted *)
+      | _, [] -> List.rev accum
+
+      (* Take first equation *)
+      | (sv, _) :: tl, _ -> 
+
+        (* Find state variable equal to state variable of first equation *)
+        match List.partition (StateVar.equal_state_vars sv) state_vars with
+
+          (* List does not contain state variable *)
+          | [], state_vars' -> 
+
+            (* Continue with remaining equations *)
+            sort_defined_vars accum tl state_vars
+
+          (* List contains state variable *)
+          | _, state_vars' -> 
+
+            (* Add state variable to accumulator and continue with
+               remaining equations and state variables *)
+            sort_defined_vars (sv :: accum) tl state_vars'
+             
   in
-  match path with
-  | Node(ident,pos,stream_map,call_map) ->
-     let node = N.node_of_name ident nodes in
-     (* [inputs] is a list of (formal,actual) pairs for all inputs to this node,
-        or an empty list if this is the main node. 
+ 
+  (* Show only inputs, outputs and local variables *)
+  let visible_vars = 
+    (List.map fst inputs) @ 
+    (sort_defined_vars 
+       []
+       equations
+       ((List.map fst outputs) @ 
+        (List.filter 
+           (fun sv -> E.get_state_var_source sv = E.Local) 
+           (List.map fst locals))))
+  in
 
-       [outputs] is a list of (parent state var, current state var) pairs
-       for all of the outputs of this node, or an empty list if this
-       is the main node.
-     *)
-     let inputs, outputs =
-       try
-         let call = List.find (fun call -> call.N.call_pos = pos) calls in
-         let inputs =
-         List.combine 
-           ((List.map fst node.N.inputs) @ node.N.oracles)      
-           call.N.call_inputs 
-         in
-         let outputs = 
-           List.combine
-             call.N.call_returns
-             (List.map fst node.N.outputs)
-         in
-         inputs,outputs
-       with
-       | Not_found ->
-          (* this must be the main node - we expect that all of its inputs
-             are already contained in the model *)
-          let in_model (sv,ind) = SVMap.mem sv stream_map in
-          assert (List.for_all in_model node.N.inputs); 
-          [],[]
-     in
+  (* Add streams in node to hierarchic model *)
+  let tree_path' = 
+    List.fold_left
+      (tree_path_of_streams start_at_init equations tree_path_in)
+      tree_path
+      visible_vars 
+  in
 
-     (* Use the model for the caller's return variables
-        as the model for the callee's output variables *)
-     let fold_output stream_map (parent_sv,current_sv) =
-       let current_prop = E.get_state_var_source current_sv in
-       let parent_terms = snd (SVMap.find parent_sv ancestors_stream_map) in
-       SVMap.add 
-         current_sv
-         (current_prop,parent_terms)
-         stream_map 
-     in
+  (* Add called nodes to hierarchic model *)
+  let tree_path'' =
+    List.fold_left
+      (tree_path_of_calls start_at_init nodes tree_path_in)
+      tree_path'
+      calls
+  in
+    
+  (* Return modified tree path *)
+  tree_path''
 
-     (* Add models for all outputs of this node. *)
-     let stream_map' = 
-       List.fold_left fold_output stream_map outputs
-     in
+(* Add a stream to the hierarchical model, reconstructing it from its
+   definition if it is not present *)
+and tree_path_of_streams 
+    start_at_init
+    equations
+    (N (_, _, stream_map, _)) 
+    (N (node_name, node_pos, stream_map', call_map')) 
+    state_var =
 
-     (* Reconstruct the stateless variables of this node *) 
-     let stream_map'' = 
-       List.fold_left 
-         (fold_eqn ancestors_stream_map) 
-         stream_map'
-         (inputs @ (N.equations_order_by_dep nodes node).N.equations) 
-     in
+  let terms = 
 
-     let merge_stream_maps sv t0 t1 =
-       match (t0,t1) with
-       | Some(term),None ->
-          Some(term)
-       | None, Some(term) ->
-          Some(term)
-       | Some(_),Some(_)
-       | None, None ->
-          assert false;
-     in
-     (* Merge this node's models with all ancestor node models to 
-        compute the ancestors_stream_map for all children of this node *)
-     let merged_stream_map = 
-       SVMap.merge merge_stream_maps ancestors_stream_map stream_map''
-     in
+    try 
 
-     let reconstruct_child path = 
-       reconstruct_stateless_variables 
-         nodes 
-         start_at_init
-         node.N.calls 
-         merged_stream_map 
-         path
-     in
-     let call_map' = CallMap.map reconstruct_child call_map in
-     Node(ident,pos,stream_map'',call_map')
+      (* Return values of stream from the model *)
+      SVMap.find state_var stream_map 
 
-(* removes all oracle and abstract streams from [path] and all paths reachable
-   from it *)
-let rec cull_intermediate_streams path =
-  match path with
-  | Node(ident,pos,stream_map,call_map) ->
-     let not_intermediate sv (prop,terms) =
-       match prop with
-       | E.Local
-       | E.Input
-       | E.Output ->
-          true
-       | E.Oracle
-       | E.Abstract ->
-          false
-       | E.Instance(_,_,_) ->
-          assert false
-     in
-     let stream_map' = SVMap.filter not_intermediate stream_map in
-     let call_map' = CallMap.map cull_intermediate_streams call_map in 
-     Node(ident,pos,stream_map',call_map')
+    (* Stream is not in the model *)
+    with Not_found -> 
 
-(* removes all streams from the tree rooted at [path] which are not
-   contained in the cone of influence [coi]. *)
-let rec cull_path_with_nodes coi nodes path =
+      (* Get defining equation for stream *)
+      let expr = 
+        try List.assq state_var equations with Not_found -> 
 
-  match path with
+          debug lustrePath 
+            "State variable %a not found in %a"
+            StateVar.pp_print_state_var state_var 
+            (LustreIdent.pp_print_ident false) node_name
+          in
 
-    | Node (ident, pos, stream_map, call_map) ->
-      
-      let node = N.node_of_name ident nodes in
+          assert false 
+      in 
 
-      let calls = node.N.calls in
+      (* Need to get the source of the variable *)
+      let src = E.get_state_var_source state_var in 
 
-      let filter_call (id,pos) path =
-        let call = List.find (fun call -> call.N.call_pos = pos) calls in
-        List.exists 
-          (fun sv -> StateVar.StateVarSet.mem sv coi)
-          call.N.call_returns
+      (* Reconstruct values of stream from mode and definition *)
+      let terms = 
+        reconstruct_single_var start_at_init stream_map stream_map' expr
       in
 
-      let stream_map' = 
-        SVMap.filter (fun sv _ -> StateVar.StateVarSet.mem sv coi) stream_map
-      in
+      (* Return source and values of variable *)
+      terms
 
-      let call_map' = CallMap.filter filter_call call_map in
+  in
 
-      let call_map'' = CallMap.map (cull_path_with_nodes coi nodes) call_map' in
+  (* Add stream to resulting hierarchical model *)
+  let stream_map'' = SVMap.add state_var terms stream_map' in 
 
-      Node (ident, pos, stream_map', call_map'')
+  (* Continue with hierarchical model with stream addee *)
+  N (node_name, node_pos, stream_map'', call_map')
+  
 
+(* Add streams in called node to the hierarchical model *)
+and tree_path_of_calls
+    start_at_init
+    nodes
+    ((N (_, _, _, call_map)) as tree_path)
+    ((N (node_name, node_pos, stream_map', call_map')) as tree_path') 
+    { N.call_node_name; N.call_pos } =
 
+  (* Get hierarchical model rooted at the node call *)
+  let tree_path_call = 
+      CallMap.find (call_node_name, call_pos) call_map 
+  in
 
+  (* Add streams of the node to the hierarchical model *)
+  let tree_path_call' = 
+    tree_path_of_nodes 
+      start_at_init 
+      nodes 
+      (LustreNode.node_of_name call_node_name nodes)
+      tree_path_call
+      (N (call_node_name, call_pos, SVMap.empty, CallMap.empty))
+  in
+
+  (* Add modifed hierarchical model of the called node to the input model *)
+  let call_map'' =  
+    CallMap.add (call_node_name, call_pos) tree_path_call' call_map' 
+  in
+
+  (* Continue with hierarchical model with streams of node added *)
+  N (node_name, node_pos, stream_map', call_map'')
+  
+
+(* Return a hierarchical model with exactly the streams that ware
+   defined in the model *)
+let reduced_tree_path_of_model start_at_init nodes model =
+  
+  (* Convert flat model to a hierarchical model *)
+  let stream_map, call_map = tree_path_of_model model in
+
+  (* Get the single element of the map *)
+  let N (node_name, node_pos, _, _) as orig_tree_path = 
+    snd (CallMap.choose call_map)
+  in
+
+  (* Return hierarchical model corresponding to original definition of
+     node *)
+  tree_path_of_nodes 
+    start_at_init 
+    nodes
+    (List.hd (List.rev nodes)) 
+    orig_tree_path
+    (N (node_name, node_pos, SVMap.empty, CallMap.empty))
 
 
 (* ********************************************************************** *)
-(* XML output                                                             *)
+(* Printing helpers                                                       *)
 (* ********************************************************************** *)
+
 
 (* Pretty-print a value *)
 let rec pp_print_value ppf term =
@@ -394,6 +460,18 @@ let rec pp_print_value ppf term =
     Term.pp_print_term ppf term 
 
 
+(* ********************************************************************** *)
+(* XML output                                                             *)
+(* ********************************************************************** *)
+
+
+(* Pretty-print a file position *)
+let pp_print_file_xml ppf pos_file = 
+
+  if pos_file = "" then () else
+    Format.fprintf ppf "file=\"%s\"@ " pos_file
+
+
 (* Pretty-print a position as XML attributes *)
 let pp_print_pos_xml ppf pos = 
 
@@ -408,8 +486,8 @@ let pp_print_pos_xml ppf pos =
     (* Print attributes *)
     Format.fprintf 
       ppf
-      "file=\"%s\"@ line=\"%d\"@ column=\"%d\""
-      pos_file
+      "%aline=\"%d\"@ column=\"%d\""
+      pp_print_file_xml pos_file
       pos_lnum
       pos_cnum
 
@@ -424,20 +502,26 @@ let pp_print_stream_prop_xml ppf = function
   | E.Local -> Format.fprintf ppf "@ class=\"local\""
 
   (* these types of streams should have been culled out *)
-  | E.Abstract | E.Oracle | E.Instance(_,_,_) -> assert false 
+  | E.Abstract | E.Oracle -> assert false 
 
 
-let pp_print_stream_xml ppf (sv, (stream_prop, stream_values)) =
-  let stream_ident = fst (E.ident_of_state_var sv) in
+(* Pretty-print a single value of a stream at an instant *)
+let pp_print_stream_value ppf i t =
+  Format.fprintf 
+    ppf
+    "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
+    i
+    pp_print_value t    
+
+
+(* Pretty-print a single stream *)
+let pp_print_stream_xml ppf (sv, stream_values) =
+
+  (* Get identifier without scope *)
+  let stream_ident, _ = E.ident_of_state_var sv in
+
+  (* Get type of identifier *)
   let stream_type = StateVar.type_of_state_var sv in
-
-  let print_stream_value ppf i t =
-    Format.fprintf 
-      ppf
-      "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
-      i
-      pp_print_value t    
-  in
 
   Format.fprintf 
     ppf
@@ -445,27 +529,44 @@ let pp_print_stream_xml ppf (sv, (stream_prop, stream_values)) =
      %a@;<0 -2></Stream>@]"
     (I.pp_print_ident false) stream_ident
     (E.pp_print_lustre_type false) stream_type
-    pp_print_stream_prop_xml stream_prop
-    (pp_print_arrayi print_stream_value "@,") stream_values
+    pp_print_stream_prop_xml (E.get_state_var_source sv)
+    (pp_print_arrayi pp_print_stream_value "@,") stream_values
 
-(* Pretty-print a tree path as <Stream> and <node> tags *)
-let rec pp_print_tree_path_xml ppf = function 
-  | Node (node_ident, node_pos, stream_map, call_map) ->
 
-     let streams = (SVMap.bindings stream_map) in
-     let inputs = List.filter (fun (sv,(prop,_)) -> prop = E.Input) streams in
-     let outputs = List.filter (fun (sv,(prop,_)) -> prop = E.Output) streams in
-     let locals = List.filter (fun (sv,(prop,_)) -> prop = E.Local) streams in    
-     let calls = List.map snd (CallMap.bindings call_map) in
-     
-     Format.fprintf
-       ppf
-       "@[<hv 2>@[<hv 1><Node@ name=\"%a\"@ %a>@]%a@;<0 -2></Node>@]"
-       (I.pp_print_ident false) node_ident
-       pp_print_pos_xml node_pos
-       pp_print_components (inputs,outputs,locals,calls)
+(* Pretty-print a tree path as <Stream> and <Node> tags *)
+let rec pp_print_tree_path_xml ppf = 
+  function N (node_ident, node_pos, stream_map, call_map) ->
 
-(* print the inputs, ouputs, locals, and nodes, making sure not to place break 
+    (* Get all streams in the node *)
+    let streams = SVMap.bindings stream_map in
+
+    (* Filter for inputs *)
+    let inputs = 
+      List.filter (fun (sv, _) -> E.state_var_is_input sv) streams 
+    in
+
+    (* Filter for outputs *)
+    let outputs = 
+      List.filter (fun (sv, _) -> E.state_var_is_output sv) streams 
+    in
+
+    (* Filter for local variables *)
+    let locals = 
+      List.filter (fun (sv, _) -> E.state_var_is_local sv) streams 
+    in    
+
+    (* Filter for node calls *)
+    let calls = List.map snd (CallMap.bindings call_map) in
+
+    (* Output a node with its streams and calls *)
+    Format.fprintf
+      ppf
+      "@[<hv 2>@[<hv 1><Node@ name=\"%a\"@ %a>@]%a@;<0 -2></Node>@]"
+      (I.pp_print_ident false) node_ident
+      pp_print_pos_xml node_pos
+      pp_print_components (inputs, outputs, locals, calls)
+
+(* Print the inputs, ouputs, locals, and nodes, making sure not to place break 
    hints before empty components *)
 and pp_print_components ppf (inputs,outputs,locals,calls) =
   if List.length inputs > 0 then
@@ -480,94 +581,175 @@ and pp_print_components ppf (inputs,outputs,locals,calls) =
   if List.length calls > 0 then
     Format.fprintf ppf "@,%a" (pp_print_list pp_print_tree_path_xml "@,") calls
 
+
 (* prett_print a path in <path> tags, with stateless variables reconstructed *)
-let pp_print_path_xml (* nodes *) coi start_at_init ppf model =
-  assert (List.length model > 0);
-  let stream_map,call_map = tree_path_of_model model in
+let pp_print_path_xml nodes start_at_init ppf model =
 
-  assert (SVMap.cardinal stream_map = 0);
-  assert (CallMap.cardinal call_map = 1);
+  let reconstructed = reduced_tree_path_of_model start_at_init nodes model in
 
-  match CallMap.choose call_map with
-  | _, main_node ->     
-     let reconstructed  = 
-       reconstruct_stateless_variables 
-         (* nodes *) coi
-         start_at_init
-         [] 
-         SVMap.empty 
-         main_node 
-     in
-     let coi_svs = LustreNode.extract_state_vars coi in
-     let reconstructed' = cull_path_with_nodes coi_svs coi reconstructed in
-     let reconstructed'' = cull_intermediate_streams reconstructed' in
-     pp_print_tree_path_xml ppf reconstructed''
-  
+  pp_print_tree_path_xml ppf reconstructed
+
+
 (* ********************************************************************** *)
 (* Plain text output                                                      *)
 (* ********************************************************************** *)
+
+(* Pretty-print a file position *)
+let pp_print_file_pt ppf pos_file = 
+
+  if pos_file = "" then () else
+    Format.fprintf ppf "(%s) " pos_file
+
+
+(* Pretty-print a position as XML attributes *)
+let pp_print_pos_pt ppf pos = 
+
+  (* Do not print anything for a dummy position *)
+  if A.is_dummy_pos pos then () else 
+
+    (* Get file, line and column of position *)
+    let pos_file, pos_lnum, pos_cnum = 
+      A.file_row_col_of_pos pos
+    in
+    
+    (* Print attributes *)
+    Format.fprintf 
+      ppf
+      "@ %al%dc%d"
+      pp_print_file_pt pos_file
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a single value of a stream at an instant *)
+let pp_print_stream_value val_width ppf i t =
+  Format.fprintf 
+    ppf
+    "%-*s"
+    val_width
+    (string_of_t pp_print_value t)    
+
 
 (* pretty prints a stream as its identifier followed by its values at each 
   instance. gives [ident_width] space to its identifier column and [val_width]
   space to each of its value columns. *)
 let pp_print_stream_pt 
-      ident_width 
-      val_width 
-      ppf 
-      sv
-      (_,stream_values) =
+    ident_width 
+    val_width 
+    ppf 
+    (sv, stream_values) =
 
-   let stream_ident = fst (LustreExpr.ident_of_state_var sv) in
+  (* Get identifier without scope *)
+  let stream_ident, _ = LustreExpr.ident_of_state_var sv in
 
-   let print_stream_value ppf i t =
-     Format.fprintf 
-       ppf
-       "%-*s"
-       val_width
-       (string_of_t pp_print_value t)    
-   in
-   
-   Format.fprintf
-     ppf
-     "%-*s %a@."
-     ident_width
-     (string_of_t (LustreIdent.pp_print_ident false) stream_ident)
-     (pp_print_arrayi print_stream_value " ") stream_values
+  Format.fprintf
+    ppf
+    "%-*s %a"
+    ident_width
+    (string_of_t (LustreIdent.pp_print_ident false) stream_ident)
+    (pp_print_arrayi (pp_print_stream_value val_width) " ") stream_values
+
 
 (* pretty prints a tree_path, giving width [ident_width] to the stream 
    identifier column, width [val_width] to each value column, and
    displaying its ordered list of tree ancestor identifiers [ancestor_idents] 
    in a header. *)
 let rec pp_print_tree_path_pt 
-  ident_width 
-  val_width
-  ancestor_idents
-  ppf 
-  = 
-  function
-  | Node(node_ident,node_pos,stream_map,call_map) ->
-     Format.fprintf
-       ppf 
-       "@,Node %a (%a)@."
-       (I.pp_print_ident false) node_ident
-       (pp_print_list (I.pp_print_ident false) " / ")
-       (List.rev ancestor_idents);
-     
-     let children = snd (List.split (CallMap.bindings call_map)) in 
-     let ident_path = node_ident :: ancestor_idents in
-     let print_child child =
-       pp_print_tree_path_pt ident_width val_width ident_path ppf child
-     in
-     SVMap.iter (pp_print_stream_pt ident_width val_width ppf) stream_map;
-     List.iter print_child children
+    ident_width 
+    val_width
+    ancestor_idents
+    ppf 
+  = function N (node_ident, node_pos, stream_map, call_map) ->
+
+    (* Get all streams in the node *)
+    let streams = SVMap.bindings stream_map in
+
+    (* Filter for inputs *)
+    let inputs = 
+      List.filter (fun (sv, _) -> E.state_var_is_input sv) streams 
+    in
+
+    (* Filter for outputs *)
+    let outputs = 
+      List.filter (fun (sv, _) -> E.state_var_is_output sv) streams 
+    in
+
+    (* Filter for local variables *)
+    let locals = 
+      List.filter (fun (sv, _) -> E.state_var_is_local sv) streams 
+    in    
+
+    Format.fprintf
+      ppf 
+      "Node %a (%a)@,"
+      (I.pp_print_ident false) node_ident
+      (pp_print_list 
+         (function ppf -> function (n, p) -> 
+           Format.fprintf ppf 
+             "%a%a"
+               (I.pp_print_ident false) n
+               pp_print_pos_pt p)
+         " / ")
+      (List.rev ancestor_idents);
+
+    let children = snd (List.split (CallMap.bindings call_map)) in 
+
+    let ident_path = (node_ident, node_pos) :: ancestor_idents in
+
+    let print_child child =
+      pp_print_tree_path_pt ident_width val_width ident_path ppf child
+    in
+
+    (* Pretty-print input streams if any *)
+    (match inputs with 
+      | [] -> ()
+      | _ -> 
+        Format.fprintf
+          ppf
+          "== Inputs ==@,%a@,"
+          (pp_print_list 
+             (pp_print_stream_pt ident_width val_width)
+             "@,")
+          inputs);
+
+    (* Pretty-print output streams if any *)
+    (match outputs with 
+      | [] -> ()
+      | _ -> 
+        Format.fprintf
+          ppf
+          "== Outputs ==@,%a@,"
+          (pp_print_list 
+             (pp_print_stream_pt ident_width val_width)
+             "@,")
+          outputs);
+
+    (* Pretty-print local streams if any *)
+    (match locals with 
+      | [] -> ()
+      | _ -> 
+        Format.fprintf
+          ppf
+          "== Locals ==@,%a@,"
+          (pp_print_list 
+             (pp_print_stream_pt ident_width val_width)
+             "@,")
+          locals);
+
+    (* Empty line at end of node *)
+    Format.fprintf ppf "@,";
+    
+    (* Pretty-print called nodes *)
+    List.iter print_child children
+
 
 (* Return width of widest identifier and widest value *)
 let rec widths_of_model = function 
 
-  | Node (node_ident,node_pos,stream_map,call_map) ->
+  | N (node_ident, node_pos, stream_map, call_map) ->
      
      (* Get the identifier width an maximum value width of a stream *)
-     let widths_from_stream (sv, (_, stream_values)) =
+     let widths_from_stream (sv, stream_values) =
        let ident = fst (E.ident_of_state_var sv) in
        let ident_width =         
          (String.length 
@@ -614,195 +796,16 @@ let rec widths_of_model = function
 
      (max max_stream_ident_width max_call_ident_width,
      max max_stream_val_width max_call_val_width)
-
-let rec tree_path_of_streams 
-    start_at_init
-    equations
-    (Node (_, _, stream_map, _)) 
-    (Node (node_name, node_pos, stream_map', call_map')) 
-    (state_var, _) =
-
-  let (src, terms) = 
-
-    try 
-
-      (* Return values of stream from the model *)
-      SVMap.find state_var stream_map 
-
-    (* Stream is not in the model *)
-    with Not_found -> 
-
-      debug lustrePath 
-        "Reconstructing %a"
-        StateVar.pp_print_state_var state_var
-      in
-      
-      (* Get defining equation for stream *)
-      let expr = 
-        try List.assq state_var equations with Not_found -> assert false 
-      in 
-
-      (* Need to get the source of the variable *)
-      let src = E.get_state_var_source state_var in 
-
-      (* Reconstruct values of stream from mode and definition *)
-      let terms = 
-        reconstruct_single_var start_at_init stream_map stream_map expr
-      in
-
-      (* Return source and values of variable *)
-      (src, terms)
-
-  in
-
-  (* Add stream to resulting hierarchical model *)
-  let stream_map'' = SVMap.add state_var (src, terms) stream_map' in 
-
-  (* Continue with augmented model *)
-  Node (node_name, node_pos, stream_map'', call_map')
-  
-
-
-and tree_path_of_calls
-    start_at_init
-    nodes
-    ((Node (_, _, _, call_map)) as tree_path)
-    ((Node (node_name, node_pos, stream_map', call_map')) as tree_path') 
-    { N.call_node_name; N.call_pos } =
-
-  debug lustrePath
-    "@[<v>tree_path_of_calls:@,%a,%a@]"
-    (pp_print_list (LustreNode.pp_print_node false) "@,") nodes
-    (pp_print_tree_path_pt 10 10 [])
-    tree_path
-  in
-
-  let tree_path_call = 
-    try 
-
-      CallMap.find (call_node_name, call_pos) call_map 
-    
-    with Not_found -> 
-
-      debug lustrePath 
-        "@[<v>Node %a at position %a not found@,Keys:%a@]"
-        (LustreIdent.pp_print_ident false) call_node_name
-        LustreAst.pp_print_position call_pos
-        (pp_print_list 
-          (fun ppf (n, p) -> 
-            Format.fprintf ppf 
-              "%a %a"
-              (LustreIdent.pp_print_ident false) n
-              LustreAst.pp_print_position p)
-          "@,")
-        (CallMap.fold (fun k _ a -> k :: a) call_map [])
-      in
-
-      raise Not_found 
-
-  in
-
-  let tree_path_call' = 
-    tree_path_of_nodes 
-      start_at_init 
-      nodes 
-      (LustreNode.node_of_name call_node_name nodes)
-      tree_path_call
-      (Node (call_node_name, call_pos, SVMap.empty, CallMap.empty))
-  in
-
-  let call_map'' =  
-    CallMap.add (call_node_name, call_pos) tree_path_call' call_map' 
-  in
-
-  Node (node_name, node_pos, stream_map', call_map')
-  
-  
-and tree_path_of_nodes 
-    start_at_init
-    nodes
-    { N.inputs; N.outputs; N.locals; N.calls; N.equations } 
-    tree_path_in
-    tree_path = 
-
-  (* Add streams in node to hierarchic model *)
-  let tree_path' = 
-    List.fold_left
-      (tree_path_of_streams start_at_init equations tree_path_in)
-      tree_path
-      
-      (* Show inputs, outputs and local variables defined *)
-      (inputs @ 
-       outputs @ 
-       (List.filter 
-          (fun (sv, _) -> E.get_state_var_source sv = E.Local) 
-          locals))
-  in
-
-  (* Add called nodes to hierarchic model *)
-  let tree_path'' =
-    List.fold_left
-      (tree_path_of_calls start_at_init nodes tree_path_in)
-      tree_path'
-      calls
-  in
-    
-  (* Return tree path *)
-  tree_path''
      
 (* Pretty-print a path in plain text, with stateless variables
    reconstructed *)
 let pp_print_path_pt nodes start_at_init ppf model =
 
-  (* REMOVE: Output Lustre nodes *)
-  Format.fprintf ppf 
-    "@[<v>Input nodes:@,%a@,@]"
-    (pp_print_list (N.pp_print_node false) "@,") nodes;
-
-  (* Convert flat model to a hierarchical model *)
-  let stream_map, call_map = tree_path_of_model model in
-
-  (* We start with a call to the top node and no other streams *)
-  assert (SVMap.cardinal stream_map = 0);
-  assert (CallMap.cardinal call_map = 1);
-
-  (* Get the single element of the map *)
-  let Node (node_name, node_pos, _, _) as orig_tree_path = 
-    snd (CallMap.choose call_map)
-  in
+  let reconstructed = reduced_tree_path_of_model start_at_init nodes model in
 
   (* Get maximum widths of identifiers and values *)
-  let ident_width, val_width = widths_of_model orig_tree_path in
-
-  (* REMOVE: Output hierarchical model without reconstructing streams *)
-  pp_print_tree_path_pt ident_width val_width [] ppf orig_tree_path;
-
-  let reconstructed = 
-    tree_path_of_nodes 
-      start_at_init 
-      nodes
-      (List.hd (List.rev nodes)) 
-      orig_tree_path
-      (Node (node_name, node_pos, SVMap.empty, CallMap.empty))
-  in
-
-  pp_print_tree_path_pt ident_width val_width [] ppf reconstructed;
-
-  let reconstructed = 
-    reconstruct_stateless_variables 
-      nodes
-      start_at_init
-      []
-      SVMap.empty
-      orig_tree_path
-  in
-
-  let coi_svs = LustreNode.extract_state_vars nodes in
-  let reconstructed' = cull_path_with_nodes coi_svs nodes reconstructed in
-  let reconstructed'' = cull_intermediate_streams reconstructed' in
-  let ident_width, val_width = widths_of_model reconstructed'' in
-
-  pp_print_tree_path_pt ident_width val_width [] ppf reconstructed''
+  let ident_width, val_width = widths_of_model reconstructed in
+  pp_print_tree_path_pt ident_width val_width [] ppf reconstructed
 
 
 (* 
