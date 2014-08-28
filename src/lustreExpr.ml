@@ -32,7 +32,7 @@ exception Clock_mismatch
 (* A Lustre expression is a term *)
 type expr = Term.t
 
-(* A Lustre expression is a type *)
+(* A Lustre type is a type *)
 type lustre_type = Type.t
 
 (* Source of state variable *)
@@ -83,7 +83,6 @@ let get_state_var_source state_var =
   StateVar.StateVarHashtbl.find
     state_var_source_map 
     state_var
-
 
 let rec pp_print_state_var_source ppf = function
   

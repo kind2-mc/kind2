@@ -16,23 +16,16 @@
 
 *)
 
-(** Conversions from and to Presburger arithmetic formulas 
+(* Static and autoconfigured defaults 
 
-    @author Ruoyu Zhang
+   Do not edit the .ml file but rather the .ml.in file, the .ml file
+   is generated from the .ml.in file after each run of the configure
+   script.
 *)
 
-(** Formula is not in linear integer arithmetic *)
-exception Not_in_LIA
+let package_name = "@PACKAGE_NAME@"
 
-(** Normalize the term into a Presburger formula *)
-val to_presburger : Var.t list -> Term.t -> Poly.cformula
-
-(** Convert a polynomial to a term *)
-val term_of_poly : Poly.poly -> Term.t
-
-(** Convert a presburger formula to a term *)
-val term_of_cformula : Poly.cformula -> Term.t list 
-
+let package_version = "@PACKAGE_VERSION@"
 
 (* 
    Local Variables:

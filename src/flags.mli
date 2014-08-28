@@ -89,9 +89,14 @@ val check_version : unit -> check_version
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
 
+(** Output inductive counterexample *)
+type ind_print_inductive_cex = bool
+val ind_print_inductive_cex : unit -> ind_print_inductive_cex
+
 (** Algorithm for quantifier elimination in PDR *)
 type pdr_qe = [ `Z3 | `Z3_impl | `Z3_impl2 | `Cooper ]
 val pdr_qe : unit -> pdr_qe
+val set_pdr_qe : pdr_qe -> unit
 
 (** Heuristics for extraction of implicant *)
 type pdr_extract = [ `First | `Vars ]
@@ -140,7 +145,7 @@ val debug : unit -> string list
 val debug_log : unit -> string option
 
 (** Verbosity level *)
-val log_level : unit -> Event.log_level
+val log_level : unit -> Lib.log_level
 
 (** Output in XML format *)
 val log_format_xml : unit -> bool
@@ -163,7 +168,7 @@ type interpreter_steps = int
 val interpreter_steps : unit -> interpreter_steps
 
 (** Format of input file *)
-type input_format = [ `Lustre | `Horn ]
+type input_format = [ `Lustre | `Horn | `Native ]
 val input_format : unit -> input_format 
 
 (** Input file *)

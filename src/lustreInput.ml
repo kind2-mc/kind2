@@ -81,7 +81,7 @@ let of_channel in_ch =
 
   (* Consider only nodes called by main node *)
   let nodes_coi = 
-    LustreNode.reduce_to_property_coi nodes main_node
+    LustreNode.reduce_to_props_coi nodes main_node
   in
 
   debug lustreInput
@@ -102,15 +102,15 @@ let of_channel in_ch =
   in
   
 
-  (* Create Kind transition system *)
   let trans_sys = 
+  (* Create Kind transition system *)
     TransSys.mk_trans_sys 
-      fun_defs_init
-      fun_defs_trans
+      (List.combine fun_defs_init fun_defs_trans)
       state_vars
       init
       trans
       props
+      (TransSys.Lustre nodes_coi)
   in
 
   (debug lustreInput 
@@ -132,7 +132,7 @@ let of_channel in_ch =
    in
 
    Event.log
-     Event.L_info
+     L_info
      "Lustre main node is %a"
      (I.pp_print_ident false) main_node;
 

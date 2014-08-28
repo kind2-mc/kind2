@@ -73,6 +73,9 @@ val string_of_ident : bool -> t -> string
 (** Return a list of strings for index *)
 val scope_of_index : index -> string list
 
+(** Return a list of strings for identifier *)
+val scope_of_ident : t -> string list
+
 (** Total order on indexes *)
 val compare_index : index -> index -> int
 

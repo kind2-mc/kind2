@@ -16,22 +16,20 @@
 
 *)
 
-(** Conversions from and to Presburger arithmetic formulas 
+(** Parse a file in native input format into a transition system 
 
-    @author Ruoyu Zhang
+    @author Christoph Sticksel
 *)
 
-(** Formula is not in linear integer arithmetic *)
-exception Not_in_LIA
+(** Parse from the channel *)
+val of_channel : in_channel -> TransSys.t
 
-(** Normalize the term into a Presburger formula *)
-val to_presburger : Var.t list -> Term.t -> Poly.cformula
+(** Parse from the file *)
+val of_file : string -> TransSys.t
 
-(** Convert a polynomial to a term *)
-val term_of_poly : Poly.poly -> Term.t
+val pp_print_path_pt : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
-(** Convert a presburger formula to a term *)
-val term_of_cformula : Poly.cformula -> Term.t list 
+val pp_print_path_xml : Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 
 (* 
