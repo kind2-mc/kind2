@@ -594,7 +594,7 @@ let pp_print_path_xml nodes start_at_init ppf model =
 let pp_print_file_pt ppf pos_file = 
 
   if pos_file = "" then () else
-    Format.fprintf ppf "(%s) " pos_file
+    Format.fprintf ppf "(%s)" pos_file
 
 
 (* Pretty-print a position as XML attributes *)
@@ -611,7 +611,7 @@ let pp_print_pos_pt ppf pos =
     (* Print attributes *)
     Format.fprintf 
       ppf
-      "@ %al%dc%d"
+      "[%al%dc%d]"
       pp_print_file_pt pos_file
       pos_lnum
       pos_cnum

@@ -938,13 +938,14 @@ let stateful_vars_of_node
           call_inputs = args; 
           call_defaults = inits } -> 
 
-         (add_to_svs
-            
-               (* Variables in activation condition are always stateful *)
-               (E.state_vars_of_expr act_cond)
+        (SVS.union accum
+           (add_to_svs
 
-            (* Input and output variables are always stateful *)
-            (rets @ args)))
+              (* Variables in activation condition are always stateful *)
+              (E.state_vars_of_expr act_cond)
+
+              (* Input and output variables are always stateful *)
+              (rets @ args))))
       stateful_vars
       calls
   in
