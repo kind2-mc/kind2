@@ -154,9 +154,11 @@ let rec ind_step_loop
           k_plus_one 
       in
 
-      Event.log Event.L_debug
+(*
+      Event.log L_debug
         "@[<v>Inductive counterexample:@,%a@]"
         LustrePath.pp_print_path_pt cex;
+*)
 
       (* Is inductive counterexample compressible? *)
       match 
