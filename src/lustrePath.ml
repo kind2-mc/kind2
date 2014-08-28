@@ -69,44 +69,40 @@ let rec tree_path_of_model model =
         stream_map
     in
 
-    (* Get state variable from a node instance *)
-    match E.get_state_var_instance state_var with
+    (* Add all instances to nodes *)
+    let call_map' =
 
-      (* Variable is not an instance *)
-      | None -> 
+      List.fold_left
+        (fun call_map (call_pos, call_node_id, call_state_var) ->
 
-        debug lustrePath
-            "State variable %a is not an instance"
-            StateVar.pp_print_state_var state_var
-        in
-        
-        (stream_map', call_map)
+           (* Identify node instance by name and position *)
+           let call_key = (call_node_id, call_pos) in
 
-      (* Variable is lifted from a node instance *)
-      | Some (call_pos, call_node_id, call_state_var) ->
+           (* Find content of node instance or initialize as empty *)
+           let node_model = 
+             try CallMap.find call_key call_map with Not_found -> []
+           in
 
-        (* Identify node instance by name and position *)
-        let call_key = (call_node_id, call_pos) in
+           (* Add instantiated variable to node *)
+           let node_model' = (call_state_var, terms) :: node_model in
 
-        (* Find content of node instance or initialize as empty *)
-        let node_model = 
-          try CallMap.find call_key call_map with Not_found -> []
-        in
+           (* Add modified node content to map, replaces previous entry *)
+           let call_map' = CallMap.add call_key node_model' call_map in
+(*
+           debug lustrePath
+               "State variable %a is an instance of %a"
+               StateVar.pp_print_state_var state_var
+               StateVar.pp_print_state_var call_state_var
+           in
+*)
+           (* Continue with modified node calls *)
+           call_map')
+        call_map
+        (E.get_state_var_instances state_var)
 
-        (* Add instantiated variable to node *)
-        let node_model' = (call_state_var, terms) :: node_model in
+    in
 
-        (* Add modified node content to map, replaces previous entry *)
-        let call_map' = CallMap.add call_key node_model' call_map in
-
-        debug lustrePath
-          "State variable %a is an instance of %a"
-          StateVar.pp_print_state_var state_var
-          StateVar.pp_print_state_var call_state_var
-        in
-
-        (* Continue with modified node calls *)
-        (stream_map', call_map')
+    (stream_map', call_map')
 
   in
 

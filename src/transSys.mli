@@ -185,6 +185,7 @@ val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> u
     from instant zero up to instant [k], which is the third argument. *)
 val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
 
+val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> (StateVar.t * Term.t list) list -> bool
 
 (* 
    Local Variables:

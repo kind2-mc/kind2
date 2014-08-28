@@ -545,6 +545,57 @@ let path_from_model trans_sys get_model k =
     k
 
 
+(* Return true if the value of the term in some instant satisfies [pred] *)
+let rec exists_eval_on_path' uf_defs pred term k model path =
+
+  try 
+
+    (* Extend model, shrink path *)
+    let model', path' = 
+      List.fold_left 
+        (function (model, path) -> function 
+
+           (* No more values for one state variable *)
+           | (_, []) -> raise Exit
+
+           (* Take the first value for state variable *)
+           | (sv, h :: tl) -> 
+
+             let v = Var.mk_state_var_instance sv k in
+
+             (* Add pair of state variable and value to model, continue
+                with remaining value for variable on path *)
+             ((v, h) :: model, (sv, tl) :: path)
+
+        )
+        (model, path)
+        path
+    in
+    
+    (* Evaluate term in model *)
+    let term_eval = Eval.eval_term uf_defs model' term in
+    
+    (* Return ture if predicate holds *)
+    if pred term_eval then true else
+      
+      (* Increment offset of state variables in term *)
+      let term' = Term.bump_state Numeral.one term in
+
+      (* Increment instant *)
+      let k' = Numeral.succ k in
+
+      (* Continue checking predicate on path *)
+      exists_eval_on_path' uf_defs pred term' k' model' path'
+        
+  (* Predicate has never been true *)
+  with Exit -> false 
+
+
+(* Return true if the value of the term in some instant satisfies [pred] *)
+let exists_eval_on_path uf_defs pred term path = 
+  exists_eval_on_path' uf_defs pred term Numeral.zero [] path 
+  
+
 
 (* 
    Local Variables:

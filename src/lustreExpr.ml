@@ -69,7 +69,7 @@ let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t =
 
 
 (* Map from state variables to indexed identifiers *)
-let state_var_instance_map : state_var_instance StateVar.StateVarHashtbl.t = 
+let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
@@ -94,24 +94,53 @@ let get_state_var_source state_var =
 (* State variable is identical to a state variable in a node instance *)
 let set_state_var_instance state_var pos node state_var' = 
 
+  debug lustreExpr
+    "State variable %a is an instance of %a"
+    StateVar.pp_print_state_var state_var
+    StateVar.pp_print_state_var state_var'
+  in
+
+  let instances =
+    try 
+
+      StateVar.StateVarHashtbl.find
+        state_var_instance_map 
+        state_var
+
+    with Not_found -> []
+  in
+
+  let instances' =
+
+    (* Check if instance already known *)
+    if List.mem (pos, node, state_var') instances then 
+
+      (* Do not create duplicates *)
+      instances 
+
+    else 
+
+      (* Add new instance *)
+      (pos, node, state_var') :: instances 
+
+  in
+
   (* Overwrite previous source *)
   StateVar.StateVarHashtbl.replace
     state_var_instance_map 
     state_var
-    (pos, node, state_var')
-
+    instances'
 
 (* Return identical state variable in a node instance if any *)
-let get_state_var_instance state_var = 
+let get_state_var_instances state_var = 
 
   try 
 
-    Some 
-      (StateVar.StateVarHashtbl.find
-         state_var_instance_map 
-         state_var)
+    StateVar.StateVarHashtbl.find
+      state_var_instance_map 
+      state_var
 
-  with Not_found -> None
+  with Not_found -> []
 
 
 
@@ -120,13 +149,30 @@ let lift_state_var state_var =
   match 
 
   StateVar.StateVarHashtbl.fold
-    (fun state_var_caller (_, node, state_var_callee) -> function 
+    (fun state_var_caller instances -> function 
+
+       (* Return first match *)
        | Some _ as accum -> accum
+
+       (* Not found yet *)
        | None -> 
-         if StateVar.equal_state_vars state_var state_var_callee then 
+
+         try 
+
+           (* Find state variable in instances *)
+           let (_, node, state_var_callee) =
+             List.find
+               (function (_, _, state_var_callee) -> 
+                 StateVar.equal_state_vars state_var state_var_callee)
+               instances
+           in 
+
+           (* Return *)
            Some state_var_caller 
-         else
-           None)
+
+         (* State variable is not in instance *)
+         with Not_found -> None)
+
     state_var_instance_map
     None
 
@@ -138,7 +184,7 @@ let lift_state_var state_var =
         StateVar.pp_print_state_var state_var 
       in
 
-      state_var 
+      state_var
 
     | Some state_var' -> 
 

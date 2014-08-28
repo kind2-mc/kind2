@@ -30,45 +30,73 @@ exception Terminate
 (* Reduce nodes to cone of influence of property *)
 let reduce_nodes_to_coi trans_sys nodes prop_name =
 
+  debug event
+    "Reducing to coi for %s"
+    prop_name
+  in
+
   (* Name of main node *)
   let main_name = LustreNode.find_main (List.rev nodes) in
 
   (* Properties are always state variables *) 
   let prop = 
-
-    try 
-
-      Var.state_var_of_state_var_instance
-        (Term.free_var_of_term
-           (List.assoc prop_name trans_sys.TransSys.props))
-
-    (* Property name is a property, the property term is a variable
-       and the variable is an instance of a state variable *)
-    with Not_found | Invalid_argument _ -> assert false
-
+    try List.assoc prop_name trans_sys.TransSys.props 
+    with Not_found -> assert false
   in 
 
   (* Undo instantiation of state variable in calling nodes and return
      state variable in scope of node defining it *)
-  let rec base_of_state_var sv = 
-    match LustreExpr.get_state_var_instance sv with
-      | None -> sv 
-      | Some (_, _, sv) -> base_of_state_var sv
+  let rec instance_of_state_var sv = 
+    match LustreExpr.get_state_var_instances sv with
+      | [] -> sv 
+      | [(_, _, sv')] -> 
+        debug event
+            "State variable %a is an instance of %a" 
+            StateVar.pp_print_state_var sv 
+            StateVar.pp_print_state_var sv'
+        in
+        instance_of_state_var sv'
+      | _ -> 
+        debug event
+            "State variable %a has more than one instance" 
+        StateVar.pp_print_state_var sv
+        in
+        assert false
   in
 
   (* Get state variable in scope of main node *)
-  let prop' = base_of_state_var prop in
+  let prop' = 
+    Term.map
+      (function _ -> function 
+         | t when Term.is_free_var t -> 
+           let v = Term.free_var_of_term t in
+           if 
+             Var.is_state_var_instance v
+           then 
+             let o = Var.offset_of_state_var_instance v in
+             let sv = Var.state_var_of_state_var_instance v in
+             let sv' = instance_of_state_var sv in
+             Term.mk_var
+               (Var.mk_state_var_instance sv' o)
+           else 
+             t
+         | t -> t)
+      prop 
+  in
 
   (* Reduce nodes to cone of influence of property *)
   let nodes' = 
-    LustreNode.reduce_to_coi nodes main_name [prop']
+    LustreNode.reduce_to_coi 
+      (List.rev nodes)
+      main_name
+      (StateVar.StateVarSet.elements (Term.state_vars_of_term prop'))
   in
 
   debug event
       "@[<v>Full input:@,%a@,Reduced input for property %a (%a):@,%a@]"
       (pp_print_list (LustreNode.pp_print_node false) "@,")
       nodes
-      StateVar.pp_print_state_var prop'
+      Term.pp_print_term prop'
       (LustreIdent.pp_print_ident false) main_name
       (pp_print_list (LustreNode.pp_print_node false) "@,")
       nodes'
@@ -454,6 +482,10 @@ let disproved_pt mdl level trans_sys prop cex =
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
       pp_print_kind_module_pt mdl
       (pp_print_counterexample_pt level trans_sys prop) cex
+
+  else
+
+    (debug event "Status of property %s already known" prop in ())
 
 
 (* Output statistics section as plain text *)

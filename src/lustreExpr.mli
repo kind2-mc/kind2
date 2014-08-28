@@ -283,7 +283,7 @@ val set_state_var_instance : StateVar.t -> LustreAst.position -> LustreIdent.t -
 val lift_term : Term.t -> Term.t
 
 (** Return identical state variable in a node instance if any *)
-val get_state_var_instance : StateVar.t -> state_var_instance option
+val get_state_var_instances : StateVar.t -> state_var_instance list
 
 (** Return true if the state variable should be visible to the user,
     false if it was created internally *)

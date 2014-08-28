@@ -362,11 +362,14 @@ let node_of_name name nodes =
   with Not_found -> 
 
     debug lustreNode 
-      "Node %a not found"
+      "@[<v>Node %a not found@,%a@]"
       (I.pp_print_ident false) name
+      (pp_print_list (pp_print_node false) "@,") nodes
     in
     
-    raise Not_found
+    assert false
+
+      (* raise Not_found *)
 
 
 (* Calculate dependencies of variables *)
@@ -394,12 +397,13 @@ let rec node_var_dependencies nodes node accum =
        in [dep] depend on *)
     | (state_var, dep) :: tl -> 
 
-(*
-      Format.printf 
-        "@[<h>node_var_dependencies %a (%a)@]@."
-        (I.pp_print_ident false) ident
-        (pp_print_list (I.pp_print_ident false) "@ ") dep;
-*)
+      debug lustreNode
+        "@[<v>node_var_dependencies %a @[<h>(%a)@]@,%a@]@."
+        StateVar.pp_print_state_var state_var
+        (pp_print_list StateVar.pp_print_state_var "@ ") dep 
+        (pp_print_list (pp_print_node false) "@,") nodes
+      in
+
 
       if 
 
@@ -788,12 +792,17 @@ let solve_eqs_node_calls node =
                          node.equations)
                   in
 
-                  (match E.get_state_var_instance v with
-                    | None -> ()
-                    | Some (p, n, v'') -> 
-                      E.set_state_var_instance v' p n v'');
+                  (debug lustreNode
+                    "Eliminating %a with %a"
+                    StateVar.pp_print_state_var v
+                    StateVar.pp_print_state_var v'
+                  in
+                  
+                  List.iter
+                    (fun (p, n, v'') -> E.set_state_var_instance v' p n v'')
+                    (E.get_state_var_instances v);
 
-                  (v' :: accum_outputs, v :: accum_vars_eliminated)
+                  (v' :: accum_outputs, v :: accum_vars_eliminated))
 
                 (* Variable not found in a variable alias equation *)
                 with Not_found -> 
@@ -1310,10 +1319,15 @@ let reduce_to_coi nodes main_name state_vars =
            []
            [(state_vars', [], main_node, (empty_node main_name))])
     in
+
+    debug lustreNode
+      "@[<v>reduce_to_coi nodes''@,%a@]"
+      (pp_print_list (pp_print_node false) "@,") nodes''
+    in
     
     (* Return node with equations in topological order *)
     List.fold_right
-      (fun node accum -> equations_order_by_dep accum node :: accum)
+      (fun node accum -> equations_order_by_dep nodes'' node :: accum)
       nodes''
       []
     

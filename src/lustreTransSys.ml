@@ -407,8 +407,51 @@ let rec definitions_of_node_calls
 
       (* Lift properties from called node *)
       let lifted_props' = 
+
+        (* Pretty-print a file position *)
+        let pp_print_file ppf pos_file = 
+          
+          if pos_file = "" then () else
+            Format.fprintf ppf "%s" pos_file
+        in
+
+        (* Pretty-print a position as attributes *)
+        let pp_print_pos ppf pos = 
+          
+          (* Do not print anything for a dummy position *)
+          if LustreAst.is_dummy_pos pos then () else 
+            
+            (* Get file, line and column of position *)
+            let pos_file, pos_lnum, pos_cnum = 
+              LustreAst.file_row_col_of_pos pos
+            in
+            
+            (* Print attributes *)
+            Format.fprintf 
+              ppf
+              "[%al%dc%d]"
+              pp_print_file pos_file
+              pos_lnum
+              pos_cnum
+        in
+
+        let lift_prop_name node_name pos prop_name =
+
+          string_of_t 
+            (function ppf -> function prop_name -> 
+              Format.fprintf ppf 
+                "%a%a.%s"
+                (LustreIdent.pp_print_ident true) node_name
+                pp_print_pos pos
+                prop_name)
+            prop_name
+
+        in
+
         List.map 
-          (function (n, t) -> (n, LustreExpr.lift_term t))
+          (function (n, t) -> 
+            (lift_prop_name node_name pos n, 
+             LustreExpr.lift_term t))
           props 
       in
       
