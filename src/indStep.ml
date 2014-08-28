@@ -154,11 +154,15 @@ let rec ind_step_loop
           k_plus_one 
       in
 
+      Event.log Event.L_debug
+        "@[<v>Inductive counterexample:@,%a@]"
+        LustrePath.pp_print_path_pt cex;
+
       (* Is inductive counterexample compressible? *)
       match 
 
         if not (Flags.ind_compress ()) then [] else 
-          Compress.check_and_block cex 
+          Compress.check_and_block (S.declare_fun solver) trans_sys cex 
 
       with
 
@@ -297,6 +301,9 @@ let ind_step
 
   (* Increment k *)
   let k_plus_one = Numeral.succ k in
+
+  (* Notify compression *)
+  Compress.incr_k ();
 
   (* Conjunction of unknown properties *)
   let props_term = 

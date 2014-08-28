@@ -19,6 +19,11 @@
 open Lib
 
 
+(* ********************************************************************** *)
+(* Utility functions                                                      *)
+(* ********************************************************************** *)
+
+
 (* Given a list of lists of equal length return a list of lists, where
    the n-th list contains the n-th elements of each list.
 
@@ -187,7 +192,7 @@ let equal_mod_input accum s1 s2 =
     (
 
       (* Count number of clauses *)
-      Stat.incr Stat.ind_compress_clauses;
+      Stat.incr Stat.ind_compress_equal_mod_input;
 
       (* Blocking term to force states not equivalent *)
       let term =
@@ -274,13 +279,452 @@ let equal_mod_input accum s1 s2 =
   else accum
 
 
+(* ********************************************************************** *)
+(* Simulation relation: later state has same successors as earlier state  *)
+(* ********************************************************************** *)
+
+let same_successors_blocked = ref []  
+
+let same_successors_incr_k () = same_successors_blocked := []
+
+let rec instantiate_trans_succ var_uf_map i term = 
+
+  Term.map
+    (fun _ t -> 
+
+       (* Subterm is a variable? *)
+       if Term.is_free_var t then 
+
+         (* Get variable of term *)
+         (let v = Term.free_var_of_term t in
+
+          if 
+
+            (* Variable at previous instant? *)
+            Var.is_state_var_instance v &&
+
+            Numeral.equal 
+              (Var.offset_of_state_var_instance v) 
+              Numeral.zero
+
+          then
+
+            (* Get state variable of variable *)
+            let sv = Var.state_var_of_state_var_instance v in
+
+            (* Replace previous state variable with variable instant
+               of first state *)
+            Term.mk_var (Var.mk_state_var_instance sv i)
+
+          else if 
+
+            (* Variable at current instant? *)
+            Var.is_state_var_instance v &&
+
+            Numeral.equal 
+              (Var.offset_of_state_var_instance v) 
+              Numeral.one
+
+          then
+
+            (
+
+              (* State variable *)
+              let state_var = Var.state_var_of_state_var_instance v in
+
+              (* Constant symbol for variable *)
+              let uf_symbol = 
+
+                try 
+
+                  (* Get symbol from map *)
+                  List.assq state_var var_uf_map 
+
+                (* Every state variable is in the map *)
+                with Not_found -> assert false
+
+              in
+
+              (* Replace current state variable with fresh constant *)
+              Term.mk_uf uf_symbol [] 
+
+            )
+
+          else
+
+            t
+
+         )
+
+       else
+         
+         (* Subterm is not a variable or an uninterpreted predicate to
+            substitute *)
+         t)
+
+    term
+
+let same_successors declare_fun uf_defs trans accum sj si = 
+
+  (* Set offset of variable in first element of pair *)
+  let set_var_offset i (v, t) = 
+    (Var.mk_state_var_instance 
+       (Var.state_var_of_state_var_instance v)
+       i, 
+     t)
+  in
+
+  (* Return the offset of the first state variable instance *)
+  let rec offset_of_vars = function
+
+    (* First variable is a non-constant state variable *)
+    | (v, _) :: _ when Var.is_state_var_instance v -> 
+
+      (* Return offset of state variable instance *)
+      Var.offset_of_state_var_instance v 
+        
+    (* Skip constant state variables *)
+    | _ :: tl -> offset_of_vars tl
+
+    (* Assume list of state variables is not empty *)
+    | [] -> assert false
+
+  in
+
+
+  (* Get offset of first state *)
+  let i = offset_of_vars si in
+
+  (* Get offset of second state *)
+  let j_plus_one = offset_of_vars sj in
+
+  let j = Numeral.pred j_plus_one in
+
+  if 
+
+    (* Don't compare a state to itself or if states have already been
+       blocked *)
+    Numeral.(equal i j) 
+    || List.exists 
+      (fun (s, t) -> Numeral.equal i s && Numeral.equal t j) 
+      !same_successors_blocked 
+
+  then
+
+    (Event.log Event.L_debug
+       "Not considering state pair (%a,%a)"
+       Numeral.pp_print_numeral i
+       Numeral.pp_print_numeral j;
+
+     accum)
+
+  else
+
+    (* Map offset of variables for first state to zero *)
+    let si' = List.map (set_var_offset Numeral.zero) si in
+
+    (* Map offset of variables for second state to one *)
+    let sj' = List.map (set_var_offset Numeral.one) sj in
+
+    (* Evaluate T[i,j+1] *)
+    match Eval.eval_term uf_defs (si' @ sj') trans with 
+
+      (* j+1 is a successor of i *)
+      | Eval.ValBool true -> 
+
+        (Event.log Event.L_debug
+           "Possibly compressible path: (%a,%a) have a common successor"
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j;
+
+         (* Create a fresh uninterpreted constant for each state
+            variable *)
+         let var_uf_map = 
+           List.map
+             (fun (v, _) -> 
+
+                (* State variable *)
+                let sv = Var.state_var_of_state_var_instance v in
+
+                (* Fresh uninterpreted symbol of the same type *)
+                let u = UfSymbol.mk_fresh_uf_symbol [] (Var.type_of_var v) in
+
+                (* Declare symbol in sovler instance *)
+                declare_fun u;
+
+                (* Return pair of state variable and symbol *)
+                (sv, u))
+             si
+         in
+
+         (* Turn T[0,1] to T[i,x] *)
+         let trans_si = instantiate_trans_succ var_uf_map i trans in
+
+         (* Turn T[0,1] to T[j,x] *)
+         let trans_sj = instantiate_trans_succ var_uf_map j trans in
+
+         (* Compress with T[i,x] & ~T[j,x] *)
+         let block_term = Term.mk_and [trans_si; Term.negate trans_sj] in
+
+         (* Remember state pairs to not block again *)
+         same_successors_blocked := (i, j) :: !same_successors_blocked;
+
+         (* Count number of clauses *)
+         Stat.incr Stat.ind_compress_same_successors;
+
+         (* Add compression formula *)
+         block_term :: accum)
+
+      | Eval.ValBool false ->       
+
+        (Event.log Event.L_debug
+           "Cannot compress path: (%a,%a) have different successors"
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j;
+
+         accum)
+
+      | Eval.ValTerm t -> 
+
+        (Event.log Event.L_debug
+           "@[<v>Transition system evaluates to@,@[<hv>%a@]@]"
+           Term.pp_print_term t;
+
+         assert false)
+
+      | _ -> assert false
+
+
+let same_predecessors_blocked = ref []  
+
+let same_predecessors_incr_k () = same_predecessors_blocked := []
+
+let rec instantiate_trans_pred var_uf_map i term = 
+
+  Term.map
+    (fun _ t -> 
+
+       (* Subterm is a variable? *)
+       if Term.is_free_var t then 
+
+         (* Get variable of term *)
+         (let v = Term.free_var_of_term t in
+
+          if 
+
+            (* Variable at previous instant? *)
+            Var.is_state_var_instance v &&
+
+            Numeral.equal 
+              (Var.offset_of_state_var_instance v) 
+              Numeral.one
+
+          then
+
+            (* Get state variable of variable *)
+            let sv = Var.state_var_of_state_var_instance v in
+
+            (* Replace previous state variable with variable instant
+               of first state *)
+            Term.mk_var (Var.mk_state_var_instance sv i)
+
+          else if 
+
+            (* Variable at current instant? *)
+            Var.is_state_var_instance v &&
+
+            Numeral.equal 
+              (Var.offset_of_state_var_instance v) 
+              Numeral.zero
+
+          then
+
+            (
+
+              (* State variable *)
+              let state_var = Var.state_var_of_state_var_instance v in
+
+              (* Constant symbol for variable *)
+              let uf_symbol = 
+
+                try 
+
+                  (* Get symbol from map *)
+                  List.assq state_var var_uf_map 
+
+                (* Every state variable is in the map *)
+                with Not_found -> assert false
+
+              in
+
+              (* Replace current state variable with fresh constant *)
+              Term.mk_uf uf_symbol [] 
+
+            )
+
+          else
+
+            t
+
+         )
+
+       else
+         
+         (* Subterm is not a variable or an uninterpreted predicate to
+            substitute *)
+         t)
+
+    term
+
+
+let same_predecessors declare_fun uf_defs trans accum sj si = 
+
+  (* Set offset of variable in first element of pair *)
+  let set_var_offset i (v, t) = 
+    (Var.mk_state_var_instance 
+       (Var.state_var_of_state_var_instance v)
+       i, 
+     t)
+  in
+
+  (* Return the offset of the first state variable instance *)
+  let rec offset_of_vars = function
+
+    (* First variable is a non-constant state variable *)
+    | (v, _) :: _ when Var.is_state_var_instance v -> 
+
+      (* Return offset of state variable instance *)
+      Var.offset_of_state_var_instance v 
+        
+    (* Skip constant state variables *)
+    | _ :: tl -> offset_of_vars tl
+
+    (* Assume list of state variables is not empty *)
+    | [] -> assert false
+
+  in
+
+
+  (* Get offset of first state *)
+  let i_minus_one = offset_of_vars si in
+
+  (* Get offset of second state *)
+  let j = offset_of_vars sj in
+
+  let i = Numeral.succ i_minus_one in
+
+  if 
+
+    (* Don't compare a state to itself or if states have already been
+       blocked *)
+    Numeral.(equal i j) 
+    || List.exists 
+      (fun (s, t) -> Numeral.equal i s && Numeral.equal t j) 
+      !same_predecessors_blocked 
+
+  then
+
+    (Event.log Event.L_debug
+       "Not considering state pair (%a,%a)"
+       Numeral.pp_print_numeral i
+       Numeral.pp_print_numeral j;
+
+     accum)
+
+  else
+
+    (* Map offset of variables for first state to zero *)
+    let si' = List.map (set_var_offset Numeral.zero) si in
+
+    (* Map offset of variables for second state to one *)
+    let sj' = List.map (set_var_offset Numeral.one) sj in
+
+    (* Evaluate T[i-1,j] *)
+    match Eval.eval_term uf_defs (si' @ sj') trans with 
+
+      (* j+1 is a successor of i *)
+      | Eval.ValBool true -> 
+
+        (Event.log Event.L_debug
+           "Possibly compressible path: (%a,%a) have a common predecessor"
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j;
+
+         (* Create a fresh uninterpreted constant for each state
+            variable *)
+         let var_uf_map = 
+           List.map
+             (fun (v, _) -> 
+
+                (* State variable *)
+                let sv = Var.state_var_of_state_var_instance v in
+
+                (* Fresh uninterpreted symbol of the same type *)
+                let u = UfSymbol.mk_fresh_uf_symbol [] (Var.type_of_var v) in
+
+                (* Declare symbol in sovler instance *)
+                declare_fun u;
+
+                (* Return pair of state variable and symbol *)
+                (sv, u))
+             si
+         in
+
+         (* Turn T[0,1] to T[x,i] *)
+         let trans_si = instantiate_trans_pred var_uf_map i trans in
+
+         (* Turn T[0,1] to T[x,j] *)
+         let trans_sj = instantiate_trans_pred var_uf_map j trans in
+
+         (* Compress with T[x,i] & ~T[x,j] *)
+         let block_term = Term.mk_and [trans_si; Term.negate trans_sj] in
+
+         (* Remember state pairs to not block again *)
+         same_predecessors_blocked := (i, j) :: !same_predecessors_blocked;
+
+         (* Count number of clauses *)
+         Stat.incr Stat.ind_compress_same_predecessors;
+
+         (* Add compression formula *)
+         block_term :: accum)
+
+      | Eval.ValBool false ->       
+
+        (Event.log Event.L_debug
+           "Cannot compress path: (%a,%a) have different predecesors"
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j;
+
+         accum)
+
+      | Eval.ValTerm t -> 
+
+        (Event.log Event.L_debug
+           "@[<v>Transition system evaluates to@,@[<hv>%a@]@]"
+           Term.pp_print_term t;
+
+         assert false)
+
+      | _ -> assert false
+
+
+(* ********************************************************************** *)
+(* Top-level functions                                                    *)
+(* ********************************************************************** *)
+
 let init declare_fun trans_sys = 
 
   init_equal_mod_input declare_fun trans_sys 
 
 
+let incr_k () = 
+
+  same_successors_incr_k ();
+  same_predecessors_incr_k ()
+
+
 (* Generate blocking terms from all equivalent states *)
-let check_and_block cex = 
+let check_and_block declare_fun trans_sys cex = 
 
   (* Convert counterexample to list of lists of pairs of variable at
      instant and its value *)
@@ -300,6 +744,28 @@ let check_and_block cex =
   
   (* Generate blocking terms from equality relation *)
   let block_terms = fold_pairs equal_mod_input [] states in
+
+  (* Generate blocking terms from same successor relation *)
+  let block_terms = 
+    fold_pairs
+      (same_successors
+         declare_fun
+         (TransSys.uf_defs trans_sys)
+         (TransSys.trans_of_bound trans_sys Numeral.one))
+      block_terms 
+      states 
+  in
+
+  (* Generate blocking terms from same predecessor relation *)
+  let block_terms = 
+    fold_pairs
+      (same_predecessors
+         declare_fun
+         (TransSys.uf_defs trans_sys)
+         (TransSys.trans_of_bound trans_sys Numeral.one))
+      block_terms 
+      states 
+  in
 
   (* Return blocking terms *)
   block_terms
