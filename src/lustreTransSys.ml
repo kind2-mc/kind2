@@ -749,6 +749,7 @@ let rec trans_sys_of_nodes'
        N.inputs = node_inputs;
        N.oracles = node_oracles;
        N.outputs = node_outputs; 
+       N.observers = node_observers;
        N.locals = node_locals; 
        N.equations = node_equations; 
        N.calls = node_calls; 
@@ -800,6 +801,9 @@ let rec trans_sys_of_nodes'
 
     (* Output variables *)
     let outputs = List.map fst node_outputs in
+
+    (* Observer output variables *)
+    let observers = node_observers in
 
     (* Variables in properties that are not outputs *)
     let props_locals_set = 
@@ -979,6 +983,11 @@ let rec trans_sys_of_nodes'
             (E.base_var_of_state_var base_offset) 
             outputs) @
 
+         (* Observer variables *)
+         (List.map 
+            (E.base_var_of_state_var base_offset) 
+            observers) @
+
          (* Local variables *)
          (List.map (E.base_var_of_state_var base_offset) locals)),
 
@@ -1017,6 +1026,11 @@ let rec trans_sys_of_nodes'
             (E.cur_var_of_state_var cur_offset)
             outputs) @
 
+         (* Observer output variables *)
+         (List.map 
+            (E.cur_var_of_state_var cur_offset)
+            observers) @
+
          (* Local variables *)
          (List.map (E.cur_var_of_state_var cur_offset) locals) @ 
 
@@ -1032,6 +1046,9 @@ let rec trans_sys_of_nodes'
 
          (* Output variables *)
          (List.map (E.pre_var_of_state_var cur_offset) outputs) @
+
+         (* Observer output variables *)
+         (List.map (E.pre_var_of_state_var cur_offset) observers) @
 
          (* Local variables *)
          (List.map (E.pre_var_of_state_var cur_offset) locals)),

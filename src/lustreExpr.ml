@@ -47,6 +47,9 @@ type state_var_source =
   (* Output stream *)
   | Output
 
+  (* Observer output stream *)
+  | Observer
+
   (* Local defined stream *)
   | Local
 

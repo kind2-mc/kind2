@@ -69,6 +69,9 @@ type node_call =
     (* Variables capturing the outputs *)
     call_returns : StateVar.t list;
 
+    (* Variables capturing the outputs *)
+    call_observers : StateVar.t list;
+
     (* Boolean activation condition *)
     call_clock : LustreExpr.t;
 
@@ -105,6 +108,9 @@ type t =
        indexes and of the parameters in the declaration. *)
     inputs : (StateVar.t * I.index) list;
 
+    (* Oracle inputs *)
+    oracles : StateVar.t list;
+
     (* Output variables of node together with their index in the
        original model
 
@@ -112,14 +118,14 @@ type t =
        indexes and of the parameters in the declaration. *)
     outputs : (StateVar.t * I.index) list;
 
+    (* Observer outputs *)
+    observers : StateVar.t list;
+
     (* Local variables of node
 
        The order of the list is irrelevant, we are doing dependency
        analysis and cone of influence reduction later. *)
     locals : (StateVar.t * I.index) list; 
-
-    (* Oracle inputs *)
-    oracles : StateVar.t list;
 
     (* Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;
@@ -158,9 +164,10 @@ type t =
 let empty_node name = 
   { name = name;
     inputs = [];
-    outputs = [];
-    locals = [];
     oracles = [];
+    outputs = [];
+    observers = [];
+    locals = [];
     equations = [];
     calls = [];
     asserts = [];
@@ -215,6 +222,7 @@ let pp_print_call safe ppf = function
 
   (* Node call on the base clock *)
   | { call_returns = out_vars; 
+      call_observers = observer_vars; 
       call_clock = act_expr; 
       call_node_name = node; 
       call_inputs = in_vars } when E.equal_expr act_expr E.t_true -> 
@@ -224,12 +232,13 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      out_vars
+      (out_vars @ observer_vars)
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
 
   (* Node call not on the base clock is a condact *)
   |  { call_returns = out_vars; 
+       call_observers = observer_vars; 
        call_clock = act_expr;
        call_node_name = node; 
        call_inputs = in_vars; 
@@ -240,12 +249,13 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      out_vars
+      (out_vars @ observer_vars)
       (E.pp_print_lustre_expr safe) act_expr
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
-      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") init_exprs
-
+      (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
+      (init_exprs @ (List.map (fun _ -> E.t_true) observer_vars))
+          
 
 (* Pretty-print an assertion *)
 let pp_print_assert safe ppf expr = 
@@ -285,9 +295,10 @@ let pp_print_node
     ppf 
     { name;
       inputs; 
-      outputs; 
-      locals; 
       oracles; 
+      outputs; 
+      observers; 
+      locals; 
       equations; 
       calls; 
       asserts; 
@@ -320,7 +331,8 @@ let pp_print_node
     (I.pp_print_ident safe) name
     (pp_print_list (pp_print_input safe) ";@ ") 
     (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
-    (pp_print_list (pp_print_output safe) ";@ ") outputs
+    (pp_print_list (pp_print_output safe) ";@ ") 
+    (outputs @ (List.map (fun sv -> (sv, I.empty_index)) observers))
     (pp_print_list  
        (fun ppf l -> 
           Format.fprintf ppf "@[<h>-- %a@]"
@@ -397,13 +409,14 @@ let rec node_var_dependencies nodes node accum =
        in [dep] depend on *)
     | (state_var, dep) :: tl -> 
 
+(*
       debug lustreNode
         "@[<v>node_var_dependencies %a @[<h>(%a)@]@,%a@]@."
         StateVar.pp_print_state_var state_var
         (pp_print_list StateVar.pp_print_state_var "@ ") dep 
         (pp_print_list (pp_print_node false) "@,") nodes
       in
-
+*)
 
       if 
 
@@ -454,7 +467,7 @@ let rec node_var_dependencies nodes node accum =
                  variables capturing the output *)
               let rec aux ident = function
                 | [] -> raise Not_found
-                | { call_returns = o } as n :: tl -> 
+                | { call_returns = o; call_observers = b } as n :: tl -> 
 
                   (* Iterate over variables capturing the output to
                      find variable and return the node call and the
@@ -467,7 +480,7 @@ let rec node_var_dependencies nodes node accum =
                     | _ :: tl -> aux2 (succ i) tl
                   in
 
-                  try aux2 0 o with Not_found -> aux ident tl
+                  try aux2 0 (o @ b) with Not_found -> aux ident tl
 
               in
 
@@ -567,6 +580,7 @@ let rec node_var_dependencies nodes node accum =
               vars_visited
           in
 
+(*
           debug lustreNode
             "@[<hv>Dependencies of %a:@ @[<hv>%a@]@]"
             StateVar.pp_print_state_var state_var
@@ -575,6 +589,7 @@ let rec node_var_dependencies nodes node accum =
               ",@ ")
             (SVS.elements dependent_vars)
           in
+*)
 
           (* Add variable and its dependencies to accumulator *)
           node_var_dependencies 
@@ -934,6 +949,7 @@ let stateful_vars_of_node
       (fun
         accum
         { call_returns = rets; 
+          call_observers = obs; 
           call_clock = act_cond; 
           call_inputs = args; 
           call_defaults = inits } -> 
@@ -945,7 +961,7 @@ let stateful_vars_of_node
               (E.state_vars_of_expr act_cond)
 
               (* Input and output variables are always stateful *)
-              (rets @ args))))
+              (rets @ obs @ args))))
       stateful_vars
       calls
   in
@@ -1088,6 +1104,39 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
     try 
 
+      (* Need to have all nodes with variables this variable
+         instantiates *)
+      List.iter
+        (fun (_, n, sv') -> 
+           
+           (debug lustreNode
+               "State variable %a is an instance of %a"
+               StateVar.pp_print_state_var state_var
+               StateVar.pp_print_state_var sv'
+            in
+            
+            if 
+              
+              (* Called node is sliced already? *)
+              not 
+                (List.exists 
+                   (function { name } -> name = n)
+                   accum)
+                
+            then 
+              
+              (debug lustreNode
+                  "State variable %a is an instance of %a, slicing %a first"
+                  StateVar.pp_print_state_var state_var
+                  StateVar.pp_print_state_var sv'
+                  (I.pp_print_ident false) n
+               in
+               
+               (* Slice called node first *)
+               raise (Push_node n))))
+
+        (E.get_state_var_instances state_var);
+
       (* Copy node call from original node to reduced node, do not
          modify original node, because additional variables may be found
          to be in the cone of influence *)
@@ -1099,6 +1148,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
             let 
               ({ call_returns = call_outputs;
+                 call_observers = call_observers;
                  call_clock = call_act;
                  call_node_name = call_name;
                  call_inputs = call_inputs;
@@ -1106,10 +1156,10 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
               (* Find variable in result of a node call *)
               List.find 
-                (fun { call_returns = o } -> 
+                (fun { call_returns = o; call_observers = b } -> 
                    List.exists 
                      (fun sv -> StateVar.equal_state_vars state_var sv) 
-                     o)
+                     (o @ b))
                 node_orig.calls
             in
 
