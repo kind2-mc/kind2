@@ -180,6 +180,9 @@ val abs_ident : t
 (** Identifier for oracle input *)
 val oracle_ident : t
 
+(** Identifier for observer output *)
+val observer_ident : t
+
 (** Identifier for clock initialization flag *)
 val ticked_ident : t 
 

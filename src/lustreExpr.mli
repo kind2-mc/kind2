@@ -243,6 +243,7 @@ type state_var_source =
   | Input (** Input stream *)
   | Oracle (** Oracle input stream *)
   | Output (** Output stream *)
+  | Observer (** Observer output stream *)
   | Local (** Local defined stream *)
   | Abstract (** Local abstracted stream *)
 

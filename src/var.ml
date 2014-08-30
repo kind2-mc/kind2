@@ -234,9 +234,9 @@ let state_var_of_state_var_instance = function
 let offset_of_state_var_instance = function 
   | { Hashcons.node = StateVarInstance (_, o) } -> o
   | { Hashcons.node = ConstStateVar _ } -> 
-    raise (Invalid_argument "state_var_of_state_var_instance")
+    raise (Invalid_argument "offset_of_state_var_instance")
   | { Hashcons.node = TempVar _ } -> 
-    raise (Invalid_argument "state_var_of_state_var_instance")
+    raise (Invalid_argument "offset_of_state_var_instance")
 
 let hstring_of_temp_var = function 
 

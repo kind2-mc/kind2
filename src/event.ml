@@ -46,7 +46,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
   (* Undo instantiation of state variable in calling nodes and return
      state variable in scope of node defining it *)
-  let rec instance_of_state_var sv = 
+  let instance_of_state_var sv = 
     match LustreExpr.get_state_var_instances sv with
       | [] -> sv 
       | [(_, _, sv')] -> 
@@ -55,7 +55,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
             StateVar.pp_print_state_var sv 
             StateVar.pp_print_state_var sv'
         in
-        instance_of_state_var sv'
+        sv'
       | _ -> 
         debug event
             "State variable %a has more than one instance" 
@@ -82,6 +82,13 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
              t
          | t -> t)
       prop 
+  in
+
+  debug event
+    "Property %a contains state variables %a"
+    Term.pp_print_term prop'
+    (pp_print_list StateVar.pp_print_state_var ",@ ")
+    (StateVar.StateVarSet.elements (Term.state_vars_of_term prop'))
   in
 
   (* Reduce nodes to cone of influence of property *)

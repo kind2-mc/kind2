@@ -53,6 +53,9 @@ type node_call =
     (** Variables capturing the outputs *)
     call_returns : StateVar.t list;
 
+    (** Variables capturing the observer streams *)
+    call_observers : StateVar.t list;
+
     (** Boolean activation condition *)
     call_clock : LustreExpr.t;
 
@@ -84,23 +87,26 @@ type t =
         parameters in the declaration. *)
     inputs : (StateVar.t * LustreIdent.index) list;
 
+    (** Oracle inputs of node
+
+        The order of the list is important, it is the order the
+        parameters in the declaration. *)
+    oracles : StateVar.t list;
+
     (** Output variables of node
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
     outputs : (StateVar.t * LustreIdent.index) list;
 
+    (** Observer outputs *)
+    observers : StateVar.t list;
+
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
     locals : (StateVar.t * LustreIdent.index) list;
-
-    (** Oracle inputs of node
-
-        The order of the list is important, it is the order the
-        parameters in the declaration. *)
-    oracles : StateVar.t list;
 
     (** Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;

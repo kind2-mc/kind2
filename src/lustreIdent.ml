@@ -326,6 +326,7 @@ let scope_of_ident (ident, index) = ident :: (scope_of_index index)
 (* Reserved identifiers for abstrations *)
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
+let observer_ident_string =  "__observer" 
 let ticked_ident_string =  "__ticked" 
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
@@ -353,6 +354,9 @@ let abs_ident = mk_string_ident abs_ident_string
 
 (* Identifier for new oracle input *)
 let oracle_ident = mk_string_ident oracle_ident_string
+
+(* Identifier for new oracle input *)
+let observer_ident = mk_string_ident observer_ident_string
 
 (* Identifier for new clock initialization flag *)
 let ticked_ident = mk_string_ident ticked_ident_string
