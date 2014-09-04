@@ -411,7 +411,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
 
   then
 
-    (Event.log Event.L_debug
+    (Event.log L_debug
        "Not considering state pair (%a,%a)"
        Numeral.pp_print_numeral i
        Numeral.pp_print_numeral j;
@@ -432,7 +432,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
       (* j+1 is a successor of i *)
       | Eval.ValBool true -> 
 
-        (Event.log Event.L_debug
+        (Event.log L_debug
            "Possibly compressible path: (%a,%a) have a common successor"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
@@ -477,7 +477,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
 
       | Eval.ValBool false ->       
 
-        (Event.log Event.L_debug
+        (Event.log L_debug
            "Cannot compress path: (%a,%a) have different successors"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
@@ -486,7 +486,7 @@ let same_successors declare_fun uf_defs trans accum sj si =
 
       | Eval.ValTerm t -> 
 
-        (Event.log Event.L_debug
+        (Event.log L_debug
            "@[<v>Transition system evaluates to@,@[<hv>%a@]@]"
            Term.pp_print_term t;
 
@@ -624,7 +624,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
 
   then
 
-    (Event.log Event.L_debug
+    (Event.log L_debug
        "Not considering state pair (%a,%a)"
        Numeral.pp_print_numeral i
        Numeral.pp_print_numeral j;
@@ -645,7 +645,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
       (* j+1 is a successor of i *)
       | Eval.ValBool true -> 
 
-        (Event.log Event.L_debug
+        (Event.log L_debug
            "Possibly compressible path: (%a,%a) have a common predecessor"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
@@ -690,7 +690,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
 
       | Eval.ValBool false ->       
 
-        (Event.log Event.L_debug
+        (Event.log L_debug
            "Cannot compress path: (%a,%a) have different predecesors"
            Numeral.pp_print_numeral i
            Numeral.pp_print_numeral j;
@@ -699,7 +699,7 @@ let same_predecessors declare_fun uf_defs trans accum sj si =
 
       | Eval.ValTerm t -> 
 
-        (Event.log Event.L_debug
+        (Event.log L_debug
            "@[<v>Transition system evaluates to@,@[<hv>%a@]@]"
            Term.pp_print_term t;
 
@@ -741,30 +741,59 @@ let check_and_block declare_fun trans_sys cex =
               t)
          cex)
   in
-  
+
+  (* Initialize list of blocking terms *)
+  let block_terms = [] in
+
   (* Generate blocking terms from equality relation *)
-  let block_terms = fold_pairs equal_mod_input [] states in
+  let block_terms = 
+
+    if Flags.ind_compress_equal () then 
+
+      fold_pairs equal_mod_input block_terms states 
+
+    else 
+
+      block_terms
+
+  in
 
   (* Generate blocking terms from same successor relation *)
   let block_terms = 
-    fold_pairs
-      (same_successors
-         declare_fun
-         (TransSys.uf_defs trans_sys)
-         (TransSys.trans_of_bound trans_sys Numeral.one))
-      block_terms 
-      states 
+
+    if Flags.ind_compress_same_succ () then 
+
+      fold_pairs
+        (same_successors
+           declare_fun
+           (TransSys.uf_defs trans_sys)
+           (TransSys.trans_of_bound trans_sys Numeral.one))
+        block_terms 
+        states 
+
+    else
+
+      block_terms
+
   in
 
   (* Generate blocking terms from same predecessor relation *)
   let block_terms = 
-    fold_pairs
-      (same_predecessors
-         declare_fun
-         (TransSys.uf_defs trans_sys)
-         (TransSys.trans_of_bound trans_sys Numeral.one))
-      block_terms 
-      states 
+
+    if Flags.ind_compress_same_pred () then 
+
+      fold_pairs
+        (same_predecessors
+           declare_fun
+           (TransSys.uf_defs trans_sys)
+           (TransSys.trans_of_bound trans_sys Numeral.one))
+        block_terms 
+        states 
+
+    else 
+
+      block_terms
+
   in
 
   (* Return blocking terms *)
