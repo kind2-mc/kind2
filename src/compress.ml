@@ -741,30 +741,59 @@ let check_and_block declare_fun trans_sys cex =
               t)
          cex)
   in
-  
+
+  (* Initialize list of blocking terms *)
+  let block_terms = [] in
+
   (* Generate blocking terms from equality relation *)
-  let block_terms = fold_pairs equal_mod_input [] states in
+  let block_terms = 
+
+    if Flags.ind_compress_equal () then 
+
+      fold_pairs equal_mod_input block_terms states 
+
+    else 
+
+      block_terms
+
+  in
 
   (* Generate blocking terms from same successor relation *)
   let block_terms = 
-    fold_pairs
-      (same_successors
-         declare_fun
-         (TransSys.uf_defs trans_sys)
-         (TransSys.trans_of_bound trans_sys Numeral.one))
-      block_terms 
-      states 
+
+    if Flags.ind_compress_same_succ () then 
+
+      fold_pairs
+        (same_successors
+           declare_fun
+           (TransSys.uf_defs trans_sys)
+           (TransSys.trans_of_bound trans_sys Numeral.one))
+        block_terms 
+        states 
+
+    else
+
+      block_terms
+
   in
 
   (* Generate blocking terms from same predecessor relation *)
   let block_terms = 
-    fold_pairs
-      (same_predecessors
-         declare_fun
-         (TransSys.uf_defs trans_sys)
-         (TransSys.trans_of_bound trans_sys Numeral.one))
-      block_terms 
-      states 
+
+    if Flags.ind_compress_same_pred () then 
+
+      fold_pairs
+        (same_predecessors
+           declare_fun
+           (TransSys.uf_defs trans_sys)
+           (TransSys.trans_of_bound trans_sys Numeral.one))
+        block_terms 
+        states 
+
+    else 
+
+      block_terms
+
   in
 
   (* Return blocking terms *)
