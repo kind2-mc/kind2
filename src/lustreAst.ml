@@ -114,6 +114,13 @@ type ident = LustreIdent.t
 
 type index = LustreIdent.index
 
+(* An index expression *)
+type one_index = 
+  | FieldIndex of position * ident 
+  | NumIndex of position * int
+  | VarIndex of position * ident
+
+
 (* A Lustre expression *)
 type expr =
 
@@ -260,6 +267,8 @@ type node_local_decl =
 
 type struct_item =
   | SingleIdent of position * ident
+  | IndexedIdent of position * ident * one_index list
+
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident

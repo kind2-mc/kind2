@@ -101,6 +101,9 @@ type t = private
     constraint to the invariants. *)
 val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
 
+(** Pretty-print a predicate definition *)
+val pp_print_uf_def : Format.formatter -> pred_def -> unit
+
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 

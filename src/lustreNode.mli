@@ -136,13 +136,23 @@ type t =
     output_input_dep : int list list;
 
     (** Index of last abstraction state variable *)
-    fresh_state_var_index : Numeral.t ref }
+    fresh_state_var_index : Numeral.t ref;
+
+    (** Index of last oracle state variable *)
+    fresh_oracle_index : Numeral.t ref;
+
+    (** Map of state variables to their oracles *)
+    state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+  }
 
 (** The empty node *)
 val empty_node : LustreIdent.t -> t
 
 (** Pretty-print a node *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
+
+(** Pretty-print a node call *)
+val pp_print_call : bool -> Format.formatter -> node_call -> unit 
 
 (** Return the node of the given name from a list of nodes *)
 val node_of_name : LustreIdent.t -> t list -> t 

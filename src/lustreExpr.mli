@@ -79,6 +79,9 @@ val pp_print_lustre_type : bool -> Format.formatter -> Type.t -> unit
 (** Pretty-print a Lustre variable *)
 val pp_print_lustre_var : bool -> Format.formatter -> StateVar.t -> unit 
 
+(** Pretty-print a Lustre variable with its type *)
+val pp_print_lustre_var_typed : bool -> Format.formatter -> StateVar.t -> unit 
+
 (** Pretty-print a Lustre expression *)
 val pp_print_lustre_expr : bool -> Format.formatter -> t -> unit 
 
@@ -342,7 +345,7 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : LustreAst.position -> (Type.t -> StateVar.t) -> (LustreAst.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : LustreAst.position -> (StateVar.t -> StateVar.t) -> (LustreAst.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 

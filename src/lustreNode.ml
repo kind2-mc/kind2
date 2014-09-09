@@ -18,28 +18,32 @@
 
 (* A Lustre node
 
-    Nodes are normalized for easy translation into a transition system,
-    mainly by introducing new variables. A LustreExpr.t does not
-    contain node calls, temporal operators or expressions under a pre
-    operator. Node equations become a map of identifiers to expressions
-    in [node_eqs], all node calls are in [node_calls] as a list of tuples
-    containing fresh variables the node output is assigned to and the
-    expressions for the node input.
+   Nodes are normalized for easy translation into a transition system,
+   mainly by introducing new variables. A LustreExpr.t does not
+   contain node calls, temporal operators or expressions under a pre
+   operator. Node equations become a map of identifiers to expressions
+   in [node_eqs], all node calls are in [node_calls] as a list of
+   tuples containing fresh variables the node output is assigned to
+   and the expressions for the node input.
 
-    The node signature as input and output variables as well as its
-    local variables is in [node_inputs], [node_outputs] and
-    [node_vars], respectively. Local constants are propagated and do
-    not need to be stored. The inputs of a node can be extended by
-    constant state variables in [node_oracles] for the initial value
-    of unguarded pre operations.
+   The node inputs are extended with oracles that are appended to the
+   formal input parameters for each unguarded [pre] operator or oracle
+   input of a called node.
 
-    Assertions, properties to prove and contracts as assumptions and
-    guarantees are lists of expressions in [node_asserts], [node_props],
-    [node_requires], and [node_ensures].
+   The node outpus are extended with observers for each property that
+   is not an output, and each observer of a called node.
 
-    The flag [node_is_main] is set if the node has been annotated as
-    main, it is not checked if more than one node or no node at all may
-    have that annotation. *)
+   Local constants are propagated and do not need to be stored. The
+   inputs of a node can be extended by constant state variables in
+   [node_oracles] for the initial value of unguarded pre operations.
+
+   Assertions, properties to prove and contracts as assumptions and
+   guarantees are lists of expressions in [node_asserts],
+   [node_props], [node_requires], and [node_ensures].
+
+   The flag [node_is_main] is set if the node has been annotated as
+   main, it is not checked if more than one node or no node at all may
+   have that annotation. *)
 
 open Lib
 
@@ -92,6 +96,8 @@ type node_call =
 (*
   { call_returns; call_clock; call_node_name; call_pos; call_inputs; call_defaults }
 *)
+
+
 
 (* A Lustre node *)
 type t = 
@@ -157,6 +163,12 @@ type t =
     (* Index of last abstraction state variable *)
     fresh_state_var_index : Numeral.t ref;
 
+    (* Index of last oracle state variable *)
+    fresh_oracle_index : Numeral.t ref;
+
+    (* Map of state variables to their oracles *)
+    state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+
   }
 
 
@@ -176,7 +188,10 @@ let empty_node name =
     ensures = [];
     is_main = false;
     output_input_dep = [];
-    fresh_state_var_index = ref Numeral.(- one) }
+    fresh_state_var_index = ref Numeral.(- one);
+    fresh_oracle_index = ref Numeral.(- one); 
+    state_var_oracle_map = StateVar.StateVarHashtbl.create 7 }
+
 
 
 (* Pretty-print a node input *)
@@ -245,7 +260,7 @@ let pp_print_call safe ppf = function
        call_defaults = init_exprs } ->
      
     Format.fprintf ppf
-      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,%a(%a),@ %a);@]@]"
+      "@[<hv 2>@[<hv 1>(%a)@] =@ @[<hv>condact(%a,@,%a(%a),@,%a);@]@]"
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
@@ -505,7 +520,7 @@ let rec node_var_dependencies nodes node accum =
               let { output_input_dep } = 
                 node_of_name node_ident nodes
               in
-
+(*
               debug lustreNode
                 "@[<v>Input output dependencies of node %a:@[<v>%a@]@]"
                 (I.pp_print_ident false) node_ident
@@ -517,7 +532,7 @@ let rec node_var_dependencies nodes node accum =
                   "@,")
                 output_input_dep
               in
-
+*)
               (* Get expressions that output of node depends on *)
               let dep_expr = 
                 List.fold_left
@@ -911,7 +926,7 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
 
 (* Return all stateful variables from expressions in a node *)
 let stateful_vars_of_node
-    { inputs; outputs; oracles; equations; calls; asserts; props } =
+    { inputs; outputs; observers; oracles; equations; calls; asserts; props } =
 
   (* Input, output and oracle variables are always stateful *)
   let stateful_vars =
@@ -919,7 +934,8 @@ let stateful_vars_of_node
       SVS.empty
       ((List.map fst inputs)
        @ (List.map fst outputs)
-       @ oracles)
+       @ oracles 
+       @ observers)
   in
 
   (* Add stateful variables from equations *)
@@ -1038,6 +1054,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
      ({ outputs; 
         inputs; 
         oracles;
+        observers;
         locals; 
         asserts; 
         props; 
@@ -1059,6 +1076,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           outputs = outputs;
           inputs = inputs;
           oracles = oracles;
+          observers = observers;
           output_input_dep = output_input_dep;
 
           (* Keep only local variables with definitions *)
@@ -1184,7 +1202,9 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
               in
 
               (* Add called node to sliced node *)
-              (call_coi :: node_coi.calls), svtl', (call_outputs @ sv_visited)
+              (call_coi :: node_coi.calls), 
+              svtl', 
+              (call_outputs @ call_observers @ sv_visited)
 
             else
 
@@ -1247,7 +1267,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
     with Push_node push_name ->
       
       (* Find called node *)
-      let { outputs = push_node_outputs } as push_node = 
+      let { outputs = push_node_outputs; 
+            observers = push_node_observers } as push_node = 
         try 
           node_of_name push_name nodes 
         with Not_found -> assert false 
@@ -1257,7 +1278,9 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        (((List.map fst push_node_outputs) @ (state_vars_in_asserts push_node), 
+        (((List.map fst push_node_outputs) @ 
+          push_node_observers @ 
+          (state_vars_in_asserts push_node), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
@@ -1395,10 +1418,17 @@ let reduce_to_coi nodes main_name state_vars =
 let reduce_to_props_coi nodes main_name = 
 
     (* Get properties of main node *)
-    let { props } = node_of_name main_name nodes in
+    let { props; observers } = node_of_name main_name nodes in
+
+    let props' = 
+      SVS.elements 
+        (SVS.union
+           (svs_of_list props)
+           (svs_of_list observers))
+    in
 
     (* Reduce to cone of influence of all properties *)
-    reduce_to_coi nodes main_name props
+    reduce_to_coi nodes main_name props'
 
 (* 
    Local Variables:

@@ -66,12 +66,13 @@ let state_var_ident_map : (I.t * I.index) StateVar.StateVarHashtbl.t =
   StateVar.StateVarHashtbl.create 7
 
 
-(* Map from state variables to indexed identifiers *)
+(* Map from state variables to its source *)
 let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 
-(* Map from state variables to indexed identifiers *)
+(* Map from state variables to identical state variables in other
+   scopes *)
 let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
@@ -226,6 +227,8 @@ let lift_term term =
     term
 
 
+(* Return true if the state variable should be visible to the user,
+    false if it was created internally *)
 let state_var_is_visible state_var = 
 
   match get_state_var_source state_var with
@@ -412,6 +415,18 @@ let pp_print_lustre_var safe ppf state_var =
     
     (* Pretty-print the Lustre identifier of the variable *)
     I.pp_print_ident safe ppf ident
+
+
+(* Pretty-printa variable with its type *)
+let pp_print_lustre_var_typed safe ppf state_var = 
+
+  Format.fprintf ppf
+    "%t%a: %a"
+    (function ppf -> 
+      if StateVar.is_const state_var then Format.fprintf ppf "const ")
+    (pp_print_lustre_var safe) state_var
+    (pp_print_lustre_type safe) (StateVar.type_of_state_var state_var)
+  
 
 
 (* Pretty-print a variable under [depth] pre operators *)
@@ -1380,8 +1395,20 @@ let eval_mod expr1 expr2 =
 
 (* Type of integer modulus 
 
+   If j is bounded by [l, u], then the result of i mod j is bounded by
+   [0, (max(|l|, |u|) - 1)].
+
    mod: int -> int -> int *)
-let type_of_mod = type_of_int_int_int
+let type_of_mod = function 
+
+  | t when Type.is_int t || Type.is_int_range t -> 
+    (function 
+      | t when Type.is_int t -> Type.t_int 
+      | t when Type.is_int_range t -> 
+        let l, u = Type.bounds_of_int_range t in 
+        Type.mk_int_range Numeral.zero Numeral.(pred (max (abs l) (abs u)))
+      | _ -> raise Type_mismatch)
+  | _ -> raise Type_mismatch
 
 (* Integer modulus *)
 let mk_mod expr1 expr2 = mk_binary eval_mod type_of_mod expr1 expr2 
@@ -1413,10 +1440,24 @@ let eval_minus expr1 expr2 =
              
 
 (* Type of subtraction 
-   
+
+   If both arguments are bounded, the difference is bounded by the
+   difference of the lower bound of the first argument and the upper
+   bound of the second argument and the difference of the upper bound
+   of the first argument and the lower bound of the second argument.
+
    -: int -> int -> int
       real -> real -> real *)
-let type_of_minus = type_of_num_num_num 
+let type_of_minus = function 
+  | t when Type.is_int_range t -> 
+    (function 
+      | s when Type.is_int_range s -> 
+        let l1, u1 = Type.bounds_of_int_range t in
+        let l2, u2 = Type.bounds_of_int_range s in
+        Type.mk_int_range Numeral.(l1 - u2) Numeral.(u1 - l2)
+      | s -> type_of_num_num_num t s)
+  | t -> type_of_num_num_num t
+
 
 
 (* Subtraction *)
@@ -1449,10 +1490,21 @@ let eval_plus expr1 expr2 =
 
 
 (* Type of addition 
+   
+   If both summands are bounded, the sum is bounded by the sum of the
+   lower bound and the sum of the upper bounds.
 
    +: int -> int -> int
       real -> real -> real *)
-let type_of_plus = type_of_num_num_num 
+let type_of_plus = function 
+  | t when Type.is_int_range t -> 
+    (function 
+      | s when Type.is_int_range s -> 
+        let l1, u1 = Type.bounds_of_int_range t in
+        let l2, u2 = Type.bounds_of_int_range s in
+        Type.mk_int_range Numeral.(l1 + l2) Numeral.(u1 + u2)
+      | s -> type_of_num_num_num t s)
+  | t -> type_of_num_num_num t
 
 
 (* Addition *)
@@ -1847,6 +1899,10 @@ let eval_ite = function
 
 (* Type of if-then-else
 
+   If both the second and the third argument are bounded, the result
+   is bounded by the smaller of the two lower bound and the greater of
+   the upper bounds.
+
    ite: bool -> 'a -> 'a -> 'a *)
 let type_of_ite = function 
   | t when t = Type.t_bool -> 
@@ -1862,9 +1918,17 @@ let type_of_ite = function
          (* Extend integer ranges if one is not a subtype of the other *)
          (match type2, type3 with 
            | s, t 
-             when (Type.is_int_range s && Type.is_int_range t) ||
-                  (Type.is_int_range s && Type.is_int t) ||
+             when (Type.is_int_range s && Type.is_int t) ||
                   (Type.is_int s && Type.is_int_range t) -> Type.t_int
+
+           | s, t 
+             when (Type.is_int_range s && Type.is_int_range t) -> 
+
+             let l1, u1 = Type.bounds_of_int_range s in
+             let l2, u2 = Type.bounds_of_int_range t in
+             
+             Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+
 
            | _ -> raise Type_mismatch))
 
@@ -2140,7 +2204,7 @@ let split_expr_list list =
    to the top of the expression. *)
 let oracles_for_unguarded_pres 
     pos
-    mk_new_oracle_state_var
+    mk_new_oracle_for_state_var
     warn_at_position
     oracles
     ({ expr_init } as expr) = 
@@ -2152,8 +2216,8 @@ let oracles_for_unguarded_pres
   let init_pre_vars = 
     VS.filter 
       (fun var -> 
-           Var.is_state_var_instance var &&
-           Numeral.(Var.offset_of_state_var_instance var < base_offset))
+         Var.is_state_var_instance var &&
+         Numeral.(Var.offset_of_state_var_instance var < base_offset))
       init_vars
   in
   
@@ -2170,7 +2234,16 @@ let oracles_for_unguarded_pres
          (fun var (accum, oracles) -> 
             
             (* Identifier for a fresh variable *)
-            let state_var = mk_new_oracle_state_var (Var.type_of_var var) in
+            let state_var = 
+
+              (* We only expect state variable instances *)
+              assert (Var.is_state_var_instance var);
+
+              (* Create a new oracle variable or re-use previously
+                 created oracle *)
+              mk_new_oracle_for_state_var
+                (Var.state_var_of_state_var_instance var) 
+            in
             
             (* Variable at base instant *)
             let oracle_var = 
@@ -2189,10 +2262,6 @@ let oracles_for_unguarded_pres
         expression substituted by fresh constants *)
      ({ expr with expr_init = Term.mk_let oracle_substs expr_init },
       oracles'))
-
-    
-
-     
 
 
 

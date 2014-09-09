@@ -343,6 +343,7 @@ let ident_is_reserved ident =
   (* Return false if identical to any reserved identifier *)
   string_starts_with ident_string abs_ident_string
   || string_starts_with ident_string oracle_ident_string
+  || string_starts_with ident_string observer_ident_string
   || string_starts_with ident_string ticked_ident_string
   || string_starts_with ident_string init_uf_string
   || string_starts_with ident_string trans_uf_string

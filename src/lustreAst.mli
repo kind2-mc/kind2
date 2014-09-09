@@ -19,11 +19,30 @@
 
 (** Minimally simplified Lustre AST
 
-    @author Christoph Sticksel
+    A Lustre file is parsed into a list of declarations of
 
-*)
+    - an alias type [type t = t'],
+    - a global constant [const c = v], or
+    - a node
 
+    An alias type refers to a built-in type or to a previously
+    declared type. A constant declaration is typed or untyped. 
+
+    A node declaration consists of the signature of the node (inputs,
+    outputs, local variables and constants) and a list of equations. 
+
+    A node equation is an assignment to a variable, an assertion, a
+    property annotation, or a main annotation.
+
+    Additional types used are [expr] for an expression, [lustre_type]
+    for a type, and [ident = LustreIdent.t] for identifiers. 
+
+    @author Christoph Sticksel *)
+
+(** Error while parsing *)
 exception Parser_error
+
+(** {1 Positions in the input} *)
 
 (** A position in the input *)
 type position 
@@ -49,11 +68,19 @@ val file_row_col_of_pos : position -> string * int * int
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
  
+(** {1 Supporting Types} *)
+
 (** An identifier *)
 type ident = LustreIdent.t
 
 (** An index *)
 type index = LustreIdent.index
+
+(** An index expression *)
+type one_index = 
+  | FieldIndex of position * ident 
+  | NumIndex of position * int
+  | VarIndex of position * ident
 
 (** An expression *)
 type expr =
@@ -117,6 +144,8 @@ and lustre_type =
 (** An identifier with a type *)
 and typed_ident = ident * lustre_type
 
+(** {1 Declarations} *)
+
 (** A declaration of an alias or free type *)
 type type_decl = 
   | AliasType of position * ident * lustre_type 
@@ -150,6 +179,8 @@ type node_local_decl =
 (** The left-hand side of an equation *)
 type struct_item =
   | SingleIdent of position * ident
+  | IndexedIdent of position * ident * one_index list
+
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
@@ -210,6 +241,8 @@ type declaration =
 
 (** A Lustre program as a list of declarations *) 
 type t = declaration list
+
+(** {1 Helpers} *)
 
 (** Pretty-printers *)
 val pp_print_expr : Format.formatter -> expr -> unit

@@ -129,7 +129,7 @@ sig
   (** Sort *)
   type sort
 
-  (** Sort *)
+  (** Attribute *)
   type attr
 
   (** Lambda abstraction over symbols, variables and sort of the types
