@@ -778,7 +778,7 @@ let rec trans_sys_of_nodes'
             ((List.map (E.cur_term_of_state_var cur_offset) state_vars_top) @
              (List.map (E.pre_term_of_state_var cur_offset) state_vars_top_pre)),
 
-            List.map (function (n, t) -> (n, LustreExpr.lift_term t)) props
+          List.map (function (n, t) -> (n, LustreExpr.lift_term t)) props
 
         )
 
@@ -865,21 +865,30 @@ let rec trans_sys_of_nodes'
     (* Variables capturing outputs of node calls are new local
        variables unless they are inputs or outputs *)
     let call_locals_set = 
-      List.fold_left 
-        (fun accum sv  -> 
-           if 
-             (List.exists
-                (StateVar.equal_state_vars sv) 
-                outputs)
-             || (List.exists 
-                   (StateVar.equal_state_vars sv) 
-                   inputs)
-           then 
-             accum 
-           else 
-             SVS.add sv accum)
-        SVS.empty
-        call_locals
+      svs_of_list
+        (List.filter
+           (fun sv -> 
+              not
+                ((List.exists 
+                    (StateVar.equal_state_vars sv)
+                    inputs)
+                 || (List.exists 
+                       (StateVar.equal_state_vars sv)
+                       outputs)
+                 || (List.exists
+                       (StateVar.equal_state_vars sv) 
+                       oracles)
+                 || (List.exists
+                       (StateVar.equal_state_vars sv) 
+                       observers)))
+           call_locals)
+    in
+
+    debug lustreTransSys
+        "@[<hv>Call local vars in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        (SVS.elements call_locals_set)
     in
 
     (* Variables occurring under a pre are new local variables unless
@@ -1118,8 +1127,8 @@ let rec trans_sys_of_nodes'
     in
 
     debug lustreTransSys
-      "@[<v>Transition relation:@,%a@]"
-      TransSys.pp_print_uf_def fun_def_trans
+        "@[<v>Transition relation:@,%a@]"
+        TransSys.pp_print_uf_def fun_def_trans
     in
 
     let props = 
@@ -1128,7 +1137,7 @@ let rec trans_sys_of_nodes'
 
            (* Name of state variable is name of property *)
            let prop_name = StateVar.name_of_state_var state_var in
-           
+
            (* Term of property *)
            let prop_term = 
              E.base_term_of_state_var 
@@ -1141,18 +1150,18 @@ let rec trans_sys_of_nodes'
     in
 
     debug lustreTransSys
-      "@[<hv>Properties of node %a@ @[<hv>%a@]@]"
-      (LustreIdent.pp_print_ident false) node_name
-      (pp_print_list
-        (function ppf -> function (n, t) -> 
-          Format.fprintf ppf 
-            "%s: %a"
-            n
-            Term.pp_print_term t)
-        ",@ ")
-      props
+        "@[<hv>Properties of node %a@ @[<hv>%a@]@]"
+        (LustreIdent.pp_print_ident false) node_name
+        (pp_print_list
+           (function ppf -> function (n, t) -> 
+              Format.fprintf ppf 
+                "%s: %a"
+                n
+                Term.pp_print_term t)
+           ",@ ")
+        props
     in
-           
+
 
     let node_def = 
       { inputs = inputs @ oracles;
