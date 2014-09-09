@@ -3180,7 +3180,8 @@ and equation_to_node
 
         (* Declared type is integer range, expression is of type
            integer *)
-        | t, s when Type.is_int_range t && Type.is_int s -> 
+        | t, s 
+          when Type.is_int_range t && (Type.is_int s || Type.is_int_range s) -> 
 
           let (lbound, ubound) = Type.bounds_of_int_range t in
 
@@ -3205,9 +3206,14 @@ and equation_to_node
             A.dummy_pos 
             range_expr
 
-        | _ -> 
+        | t, s -> 
 
-          fail_at_position pos "Type mismatch for expressions")
+          fail_at_position
+            pos
+            (Format.asprintf 
+               "Type mismatch between variable of type %a and expression of type %a"
+               (E.pp_print_lustre_type false) state_var_type
+               (E.pp_print_lustre_type false) expr_type))
 
   in
 
