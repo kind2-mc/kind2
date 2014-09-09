@@ -148,60 +148,62 @@ let get_state_var_instances state_var =
 
 
 
-let lift_state_var state_var = 
+let lift_state_var pos node state_var = 
 
   match 
 
-  StateVar.StateVarHashtbl.fold
-    (fun state_var_caller instances -> function 
+    StateVar.StateVarHashtbl.fold
+      (fun state_var_caller instances -> function 
+         
+         (* Return first match *)
+         | Some _ as accum -> accum
+           
+         (* Not found yet *)
+         | None -> 
+           
+           try 
+             
+             (* Find state variable in instances *)
+             let (_, node, state_var_callee) =
+               List.find
+                 (function (pos', node', state_var') -> 
+                   StateVar.equal_state_vars state_var state_var' &&
+                   pos = pos' &&
+                   node = node')
+                 instances
+             in 
+             
+             (* Return *)
+             Some state_var_caller 
 
-       (* Return first match *)
-       | Some _ as accum -> accum
-
-       (* Not found yet *)
-       | None -> 
-
-         try 
-
-           (* Find state variable in instances *)
-           let (_, node, state_var_callee) =
-             List.find
-               (function (_, _, state_var_callee) -> 
-                 StateVar.equal_state_vars state_var state_var_callee)
-               instances
-           in 
-
-           (* Return *)
-           Some state_var_caller 
-
-         (* State variable is not in instance *)
-         with Not_found -> None)
-
-    state_var_instance_map
-    None
-
+           (* State variable is not in instance *)
+           with Not_found -> None)
+      
+      state_var_instance_map
+      None
+      
   with 
     | None -> 
-
+      
       debug lustreExpr 
         "Cannot lift state variable %a"
         StateVar.pp_print_state_var state_var 
       in
-
+      
       state_var
-
+        
     | Some state_var' -> 
-
+      
       debug lustreExpr 
-        "lifted state variable %a to %a"
-        StateVar.pp_print_state_var state_var 
-        StateVar.pp_print_state_var state_var'
+          "lifted state variable %a to %a"
+          StateVar.pp_print_state_var state_var 
+          StateVar.pp_print_state_var state_var'
       in
 
       state_var'
+        
 
-
-let lift_term term = 
+let lift_term pos node term = 
 
   Term.map
     (function _ -> function 
@@ -215,7 +217,7 @@ let lift_term term =
            
            let offset = Var.offset_of_state_var_instance var in
            
-           let state_var' = lift_state_var state_var in
+           let state_var' = lift_state_var pos node state_var in
            
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 

@@ -284,7 +284,7 @@ val get_state_var_source : StateVar.t -> state_var_source
 val set_state_var_instance : StateVar.t -> LustreAst.position -> LustreIdent.t -> StateVar.t -> unit
 
 
-val lift_term : Term.t -> Term.t
+val lift_term :  LustreAst.position -> LustreIdent.t -> Term.t -> Term.t
 
 (** Return identical state variable in a node instance if any *)
 val get_state_var_instances : StateVar.t -> state_var_instance list

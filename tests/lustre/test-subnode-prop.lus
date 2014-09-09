@@ -14,7 +14,7 @@ tel
 node Y(a: int; clk: bool) returns (b: int);
 var OK: bool;
 let
-  b = condact(clk, X(abs(a)), 1);
+  b = condact(clk, X(abs(a)), 1) + condact(not clk, X(abs(a)), 2);
   OK = b > 1;
   --%PROPERTY OK;
 tel

@@ -490,7 +490,7 @@ let rec definitions_of_node_calls
         List.map 
           (function (n, t) -> 
             (lift_prop_name node_name pos n, 
-             LustreExpr.lift_term t))
+             LustreExpr.lift_term pos node_name t))
           props 
 
       in
@@ -778,7 +778,10 @@ let rec trans_sys_of_nodes'
             ((List.map (E.cur_term_of_state_var cur_offset) state_vars_top) @
              (List.map (E.pre_term_of_state_var cur_offset) state_vars_top_pre)),
 
-          List.map (function (n, t) -> (n, LustreExpr.lift_term t)) props
+          List.map
+            (function (n, t) -> 
+              (n, LustreExpr.lift_term LustreAst.dummy_pos main_node t)) 
+            props
 
         )
 
