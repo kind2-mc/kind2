@@ -1,0 +1,312 @@
+type DATA_TYPES__NumActuators__impl = struct {AILL : int; AILR : int; BRAKE : int; ELLIB : int; ELLOB : int; ELRIB : int; ELROB : int; FLAPLI : int; FLAPLO : int; FLAPRI : int; FLAPRO : int; GEAR : int; RUDLO : int; RUDUP : int; SPLLIB : int; SPLLOB : int; SPLRIB : int; SPLROB : int; STEER : int; THROTL : int; THROTR : int};
+type DATA_TYPES__BoolActuators__impl = struct {AILL : bool; AILR : bool; BRAKE : bool; ELLIB : bool; ELLOB : bool; ELRIB : bool; ELROB : bool; FLAPLI : bool; FLAPLO : bool; FLAPRI : bool; FLAPRO : bool; GEAR : bool; RUDLO : bool; RUDUP : bool; SPLLIB : bool; SPLLOB : bool; SPLRIB : bool; SPLROB : bool; STEER : bool; THROTL : bool; THROTR : bool};
+type DATA_TYPES__Actuators__impl = struct {AILL : real; AILR : real; BRAKE : real; ELLIB : real; ELLOB : real; ELRIB : real; ELROB : real; FLAPLI : real; FLAPLO : real; FLAPRI : real; FLAPRO : real; GEAR : real; RUDLO : real; RUDUP : real; SPLLIB : real; SPLLOB : real; SPLRIB : real; SPLROB : real; STEER : real; THROTL : real; THROTR : real};
+
+node OSAS_S_100__req(
+  OSAS_Sys_i_Instance__act : real;
+  OSAS_Sys_i_Instance__act_ret : real
+) returns (
+  OSAS_Sys_i_Instance__return : bool
+);
+var
+  OSAS_Sys_i_Instance__pre_act : real;
+let
+  OSAS_Sys_i_Instance__pre_act = (0.0 -> (pre OSAS_Sys_i_Instance__act));
+
+  OSAS_Sys_i_Instance__return = ((OSAS_Sys_i_Instance__act_ret > (1.025 * OSAS_Sys_i_Instance__pre_act)) or (OSAS_Sys_i_Instance__act_ret < (0.975 * OSAS_Sys_i_Instance__pre_act)));
+
+tel;
+
+node RUN_LENGTH__f(
+  OSAS_Sys_i_Instance__sig : bool
+) returns (
+  OSAS_Sys_i_Instance__count : int
+);
+let
+  OSAS_Sys_i_Instance__count = (if OSAS_Sys_i_Instance__sig then ((0 -> (pre OSAS_Sys_i_Instance__count)) + 1) else 0);
+
+tel;
+
+node OSAS_S_110__req_helper(
+  OSAS_Sys_i_Instance__act : real;
+  OSAS_Sys_i_Instance__act_ret : real;
+  OSAS_Sys_i_Instance__fail_count : int
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+var
+  OSAS_Sys_i_Instance__fault : bool;
+  OSAS_Sys_i_Instance__previous_fail_count : int;
+let
+  OSAS_Sys_i_Instance__fault = OSAS_S_100__req(OSAS_Sys_i_Instance__act, OSAS_Sys_i_Instance__act_ret);
+
+  OSAS_Sys_i_Instance__previous_fail_count = (0 -> (pre OSAS_Sys_i_Instance__fail_count));
+
+  OSAS_Sys_i_Instance__res = (OSAS_Sys_i_Instance__fail_count = (if OSAS_Sys_i_Instance__fault then (OSAS_Sys_i_Instance__previous_fail_count + 1) else (if (RUN_LENGTH__f((not OSAS_Sys_i_Instance__fault)) >= 4) then 0 else OSAS_Sys_i_Instance__previous_fail_count)));
+
+tel;
+
+node OSAS_S_110__req(
+  OSAS_Sys_i_Instance__acts : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_ret : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__fail_counts : DATA_TYPES__NumActuators__impl
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.AILL, OSAS_Sys_i_Instance__acts_ret.AILL, OSAS_Sys_i_Instance__fail_counts.AILL) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.AILR, OSAS_Sys_i_Instance__acts_ret.AILR, OSAS_Sys_i_Instance__fail_counts.AILR)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.BRAKE, OSAS_Sys_i_Instance__acts_ret.BRAKE, OSAS_Sys_i_Instance__fail_counts.BRAKE)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.ELLIB, OSAS_Sys_i_Instance__acts_ret.ELLIB, OSAS_Sys_i_Instance__fail_counts.ELLIB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.ELLOB, OSAS_Sys_i_Instance__acts_ret.ELLOB, OSAS_Sys_i_Instance__fail_counts.ELLOB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.ELRIB, OSAS_Sys_i_Instance__acts_ret.ELRIB, OSAS_Sys_i_Instance__fail_counts.ELRIB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.ELROB, OSAS_Sys_i_Instance__acts_ret.ELROB, OSAS_Sys_i_Instance__fail_counts.ELROB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.FLAPLI, OSAS_Sys_i_Instance__acts_ret.FLAPLI, OSAS_Sys_i_Instance__fail_counts.FLAPLI)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.FLAPLO, OSAS_Sys_i_Instance__acts_ret.FLAPLO, OSAS_Sys_i_Instance__fail_counts.FLAPLO)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.FLAPRI, OSAS_Sys_i_Instance__acts_ret.FLAPRI, OSAS_Sys_i_Instance__fail_counts.FLAPRI)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.FLAPRO, OSAS_Sys_i_Instance__acts_ret.FLAPRO, OSAS_Sys_i_Instance__fail_counts.FLAPRO)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.GEAR, OSAS_Sys_i_Instance__acts_ret.GEAR, OSAS_Sys_i_Instance__fail_counts.GEAR)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.RUDLO, OSAS_Sys_i_Instance__acts_ret.RUDLO, OSAS_Sys_i_Instance__fail_counts.RUDLO)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.RUDUP, OSAS_Sys_i_Instance__acts_ret.RUDUP, OSAS_Sys_i_Instance__fail_counts.RUDUP)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.SPLLIB, OSAS_Sys_i_Instance__acts_ret.SPLLIB, OSAS_Sys_i_Instance__fail_counts.SPLLIB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.SPLLOB, OSAS_Sys_i_Instance__acts_ret.SPLLOB, OSAS_Sys_i_Instance__fail_counts.SPLLOB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.SPLRIB, OSAS_Sys_i_Instance__acts_ret.SPLRIB, OSAS_Sys_i_Instance__fail_counts.SPLRIB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.SPLROB, OSAS_Sys_i_Instance__acts_ret.SPLROB, OSAS_Sys_i_Instance__fail_counts.SPLROB)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.STEER, OSAS_Sys_i_Instance__acts_ret.STEER, OSAS_Sys_i_Instance__fail_counts.STEER)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.THROTR, OSAS_Sys_i_Instance__acts_ret.THROTR, OSAS_Sys_i_Instance__fail_counts.THROTR)) and OSAS_S_110__req_helper(OSAS_Sys_i_Instance__acts.THROTL, OSAS_Sys_i_Instance__acts_ret.THROTL, OSAS_Sys_i_Instance__fail_counts.THROTL));
+
+tel;
+
+node OCCURRED__f(
+  OSAS_Sys_i_Instance__condition : bool
+) returns (
+  OSAS_Sys_i_Instance__holds : bool
+);
+let
+  OSAS_Sys_i_Instance__holds = (OSAS_Sys_i_Instance__condition or (OSAS_Sys_i_Instance__condition -> (pre OSAS_Sys_i_Instance__holds)));
+
+tel;
+
+node OSAS_S_120__req_helper(
+  OSAS_Sys_i_Instance__act : real;
+  OSAS_Sys_i_Instance__act_ret : real;
+  OSAS_Sys_i_Instance__fail : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = (OSAS_Sys_i_Instance__fail = (if OCCURRED__f((RUN_LENGTH__f(OSAS_S_100__req(OSAS_Sys_i_Instance__act, OSAS_Sys_i_Instance__act_ret)) >= 5)) then true else (true -> (pre OSAS_Sys_i_Instance__fail))));
+
+tel;
+
+node OSAS_S_120__req(
+  OSAS_Sys_i_Instance__acts : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_ret : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__fails : DATA_TYPES__BoolActuators__impl
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.AILL, OSAS_Sys_i_Instance__acts_ret.AILL, OSAS_Sys_i_Instance__fails.AILL) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.AILR, OSAS_Sys_i_Instance__acts_ret.AILR, OSAS_Sys_i_Instance__fails.AILR)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.BRAKE, OSAS_Sys_i_Instance__acts_ret.BRAKE, OSAS_Sys_i_Instance__fails.BRAKE)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.ELLIB, OSAS_Sys_i_Instance__acts_ret.ELLIB, OSAS_Sys_i_Instance__fails.ELLIB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.ELLOB, OSAS_Sys_i_Instance__acts_ret.ELLOB, OSAS_Sys_i_Instance__fails.ELLOB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.ELRIB, OSAS_Sys_i_Instance__acts_ret.ELRIB, OSAS_Sys_i_Instance__fails.ELRIB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.ELROB, OSAS_Sys_i_Instance__acts_ret.ELROB, OSAS_Sys_i_Instance__fails.ELROB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.FLAPLI, OSAS_Sys_i_Instance__acts_ret.FLAPLI, OSAS_Sys_i_Instance__fails.FLAPLI)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.FLAPLO, OSAS_Sys_i_Instance__acts_ret.FLAPLO, OSAS_Sys_i_Instance__fails.FLAPLO)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.FLAPRI, OSAS_Sys_i_Instance__acts_ret.FLAPRI, OSAS_Sys_i_Instance__fails.FLAPRI)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.FLAPRO, OSAS_Sys_i_Instance__acts_ret.FLAPRO, OSAS_Sys_i_Instance__fails.FLAPRO)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.GEAR, OSAS_Sys_i_Instance__acts_ret.GEAR, OSAS_Sys_i_Instance__fails.GEAR)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.RUDLO, OSAS_Sys_i_Instance__acts_ret.RUDLO, OSAS_Sys_i_Instance__fails.RUDLO)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.RUDUP, OSAS_Sys_i_Instance__acts_ret.RUDUP, OSAS_Sys_i_Instance__fails.RUDUP)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.SPLLIB, OSAS_Sys_i_Instance__acts_ret.SPLLIB, OSAS_Sys_i_Instance__fails.SPLLIB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.SPLLOB, OSAS_Sys_i_Instance__acts_ret.SPLLOB, OSAS_Sys_i_Instance__fails.SPLLOB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.SPLRIB, OSAS_Sys_i_Instance__acts_ret.SPLRIB, OSAS_Sys_i_Instance__fails.SPLRIB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.SPLROB, OSAS_Sys_i_Instance__acts_ret.SPLROB, OSAS_Sys_i_Instance__fails.SPLROB)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.STEER, OSAS_Sys_i_Instance__acts_ret.STEER, OSAS_Sys_i_Instance__fails.STEER)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.THROTR, OSAS_Sys_i_Instance__acts_ret.THROTR, OSAS_Sys_i_Instance__fails.THROTR)) and OSAS_S_120__req_helper(OSAS_Sys_i_Instance__acts.THROTL, OSAS_Sys_i_Instance__acts_ret.THROTL, OSAS_Sys_i_Instance__fails.THROTL));
+
+tel;
+
+node OSAS_S_140__req_helper(
+  OSAS_Sys_i_Instance__act : real;
+  OSAS_Sys_i_Instance__fail : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = (OSAS_Sys_i_Instance__fail => (OSAS_Sys_i_Instance__act = 0.0));
+
+tel;
+
+node OSAS_S_140__req(
+  OSAS_Sys_i_Instance__acts : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__fails : DATA_TYPES__BoolActuators__impl
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.AILL, OSAS_Sys_i_Instance__fails.AILL) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.AILR, OSAS_Sys_i_Instance__fails.AILR)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.BRAKE, OSAS_Sys_i_Instance__fails.BRAKE)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.ELLIB, OSAS_Sys_i_Instance__fails.ELLIB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.ELLOB, OSAS_Sys_i_Instance__fails.ELLOB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.ELRIB, OSAS_Sys_i_Instance__fails.ELRIB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.ELROB, OSAS_Sys_i_Instance__fails.ELROB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.FLAPLI, OSAS_Sys_i_Instance__fails.FLAPLI)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.FLAPLO, OSAS_Sys_i_Instance__fails.FLAPLO)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.FLAPRI, OSAS_Sys_i_Instance__fails.FLAPRI)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.FLAPRO, OSAS_Sys_i_Instance__fails.FLAPRO)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.GEAR, OSAS_Sys_i_Instance__fails.GEAR)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.RUDLO, OSAS_Sys_i_Instance__fails.RUDLO)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.RUDUP, OSAS_Sys_i_Instance__fails.RUDUP)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.SPLLIB, OSAS_Sys_i_Instance__fails.SPLLIB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.SPLLOB, OSAS_Sys_i_Instance__fails.SPLLOB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.SPLRIB, OSAS_Sys_i_Instance__fails.SPLRIB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.SPLROB, OSAS_Sys_i_Instance__fails.SPLROB)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.STEER, OSAS_Sys_i_Instance__fails.STEER)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.THROTR, OSAS_Sys_i_Instance__fails.THROTR)) and OSAS_S_140__req_helper(OSAS_Sys_i_Instance__acts.THROTL, OSAS_Sys_i_Instance__fails.THROTL));
+
+tel;
+
+node OSAS_S_170__req_helper(
+  OSAS_Sys_i_Instance__act_gain : real;
+  OSAS_Sys_i_Instance__ccdl_failed : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = (OSAS_Sys_i_Instance__ccdl_failed => (OSAS_Sys_i_Instance__act_gain = 1.0));
+
+tel;
+
+node OSAS_S_170__req(
+  OSAS_Sys_i_Instance__acts_gain : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__ccdl_failed : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.AILL, OSAS_Sys_i_Instance__ccdl_failed) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.AILR, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.BRAKE, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.ELLIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.ELLOB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.ELRIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.ELROB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPLI, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPLO, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPRI, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPRO, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.GEAR, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.RUDLO, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.RUDUP, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLLIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLLOB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLRIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLROB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.STEER, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.THROTR, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_170__req_helper(OSAS_Sys_i_Instance__acts_gain.THROTL, OSAS_Sys_i_Instance__ccdl_failed));
+
+tel;
+
+node OSAS_S_180__actuator_gain(
+  OSAS_Sys_i_Instance__num_valid : int
+) returns (
+  OSAS_Sys_i_Instance__result : real
+);
+let
+  OSAS_Sys_i_Instance__result = (if (OSAS_Sys_i_Instance__num_valid = 3) then 1.0 else (if (OSAS_Sys_i_Instance__num_valid = 2) then (4.0 / 3.0) else (if (OSAS_Sys_i_Instance__num_valid = 1) then 2.0 else (if (OSAS_Sys_i_Instance__num_valid = 0) then 4.0 else 1.0))));
+
+tel;
+
+node OSAS_S_180__req_helper(
+  OSAS_Sys_i_Instance__act_gain : real;
+  OSAS_Sys_i_Instance__num_valid : int;
+  OSAS_Sys_i_Instance__ccdl_failed : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((not OSAS_Sys_i_Instance__ccdl_failed) => (OSAS_Sys_i_Instance__act_gain = OSAS_S_180__actuator_gain(OSAS_Sys_i_Instance__num_valid)));
+
+tel;
+
+node OSAS_S_180__req(
+  OSAS_Sys_i_Instance__acts_gain : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_num_valid : DATA_TYPES__NumActuators__impl;
+  OSAS_Sys_i_Instance__ccdl_failed : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.AILL, OSAS_Sys_i_Instance__acts_num_valid.AILL, OSAS_Sys_i_Instance__ccdl_failed) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.AILR, OSAS_Sys_i_Instance__acts_num_valid.AILR, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.BRAKE, OSAS_Sys_i_Instance__acts_num_valid.BRAKE, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.ELLIB, OSAS_Sys_i_Instance__acts_num_valid.ELLIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.ELLOB, OSAS_Sys_i_Instance__acts_num_valid.ELLOB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.ELRIB, OSAS_Sys_i_Instance__acts_num_valid.ELRIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.ELROB, OSAS_Sys_i_Instance__acts_num_valid.ELROB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPLI, OSAS_Sys_i_Instance__acts_num_valid.FLAPLI, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPLO, OSAS_Sys_i_Instance__acts_num_valid.FLAPLO, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPRI, OSAS_Sys_i_Instance__acts_num_valid.FLAPRI, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.FLAPRO, OSAS_Sys_i_Instance__acts_num_valid.FLAPRO, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.GEAR, OSAS_Sys_i_Instance__acts_num_valid.GEAR, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.RUDLO, OSAS_Sys_i_Instance__acts_num_valid.RUDLO, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.RUDUP, OSAS_Sys_i_Instance__acts_num_valid.RUDUP, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLLIB, OSAS_Sys_i_Instance__acts_num_valid.SPLLIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLLOB, OSAS_Sys_i_Instance__acts_num_valid.SPLLOB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLRIB, OSAS_Sys_i_Instance__acts_num_valid.SPLRIB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.SPLROB, OSAS_Sys_i_Instance__acts_num_valid.SPLROB, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.STEER, OSAS_Sys_i_Instance__acts_num_valid.STEER, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.THROTR, OSAS_Sys_i_Instance__acts_num_valid.THROTR, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req_helper(OSAS_Sys_i_Instance__acts_gain.THROTL, OSAS_Sys_i_Instance__acts_num_valid.THROTL, OSAS_Sys_i_Instance__ccdl_failed));
+
+tel;
+
+node OSAS_S_190_240_250__req_helper(
+  OSAS_Sys_i_Instance__act_in : real;
+  OSAS_Sys_i_Instance__act_out : real;
+  OSAS_Sys_i_Instance__act_gain : real;
+  OSAS_Sys_i_Instance__act_claw_fail : bool;
+  OSAS_Sys_i_Instance__osas_fail : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = (if (OSAS_Sys_i_Instance__act_gain = 1.0) then (OSAS_Sys_i_Instance__act_out = OSAS_Sys_i_Instance__act_in) else (if (OSAS_Sys_i_Instance__act_gain = 2.0) then (OSAS_Sys_i_Instance__act_out = (OSAS_Sys_i_Instance__act_in * 2.0)) else (if (OSAS_Sys_i_Instance__act_gain = (4.0 / 3.0)) then (OSAS_Sys_i_Instance__act_out = ((OSAS_Sys_i_Instance__act_in * 4.0) / 3.0)) else (if (OSAS_Sys_i_Instance__act_gain = 4.0) then (OSAS_Sys_i_Instance__act_out = (OSAS_Sys_i_Instance__act_in * 4.0)) else (OSAS_Sys_i_Instance__act_out = 0.0)))));
+
+tel;
+
+node OSAS_S_190_240_250__req(
+  OSAS_Sys_i_Instance__acts_in : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_out : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_gain : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_claw_fail : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__osas_failed : bool
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.AILL, OSAS_Sys_i_Instance__acts_out.AILL, OSAS_Sys_i_Instance__acts_gain.AILL, OSAS_Sys_i_Instance__acts_claw_fail.AILL, OSAS_Sys_i_Instance__osas_failed) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.AILR, OSAS_Sys_i_Instance__acts_out.AILR, OSAS_Sys_i_Instance__acts_gain.AILR, OSAS_Sys_i_Instance__acts_claw_fail.AILR, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.BRAKE, OSAS_Sys_i_Instance__acts_out.BRAKE, OSAS_Sys_i_Instance__acts_gain.BRAKE, OSAS_Sys_i_Instance__acts_claw_fail.BRAKE, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.ELLIB, OSAS_Sys_i_Instance__acts_out.ELLIB, OSAS_Sys_i_Instance__acts_gain.ELLIB, OSAS_Sys_i_Instance__acts_claw_fail.ELLIB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.ELLOB, OSAS_Sys_i_Instance__acts_out.ELLOB, OSAS_Sys_i_Instance__acts_gain.ELLOB, OSAS_Sys_i_Instance__acts_claw_fail.ELLOB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.ELRIB, OSAS_Sys_i_Instance__acts_out.ELRIB, OSAS_Sys_i_Instance__acts_gain.ELRIB, OSAS_Sys_i_Instance__acts_claw_fail.ELRIB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.ELROB, OSAS_Sys_i_Instance__acts_out.ELROB, OSAS_Sys_i_Instance__acts_gain.ELROB, OSAS_Sys_i_Instance__acts_claw_fail.ELROB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.FLAPLI, OSAS_Sys_i_Instance__acts_out.FLAPLI, OSAS_Sys_i_Instance__acts_gain.FLAPLI, OSAS_Sys_i_Instance__acts_claw_fail.FLAPLI, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.FLAPLO, OSAS_Sys_i_Instance__acts_out.FLAPLO, OSAS_Sys_i_Instance__acts_gain.FLAPLO, OSAS_Sys_i_Instance__acts_claw_fail.FLAPLO, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.FLAPRI, OSAS_Sys_i_Instance__acts_out.FLAPRI, OSAS_Sys_i_Instance__acts_gain.FLAPRI, OSAS_Sys_i_Instance__acts_claw_fail.FLAPRI, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.FLAPRO, OSAS_Sys_i_Instance__acts_out.FLAPRO, OSAS_Sys_i_Instance__acts_gain.FLAPRO, OSAS_Sys_i_Instance__acts_claw_fail.FLAPRO, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.GEAR, OSAS_Sys_i_Instance__acts_out.GEAR, OSAS_Sys_i_Instance__acts_gain.GEAR, OSAS_Sys_i_Instance__acts_claw_fail.GEAR, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.RUDLO, OSAS_Sys_i_Instance__acts_out.RUDLO, OSAS_Sys_i_Instance__acts_gain.RUDLO, OSAS_Sys_i_Instance__acts_claw_fail.RUDLO, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.RUDUP, OSAS_Sys_i_Instance__acts_out.RUDUP, OSAS_Sys_i_Instance__acts_gain.RUDUP, OSAS_Sys_i_Instance__acts_claw_fail.RUDUP, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.SPLLIB, OSAS_Sys_i_Instance__acts_out.SPLLIB, OSAS_Sys_i_Instance__acts_gain.SPLLIB, OSAS_Sys_i_Instance__acts_claw_fail.SPLLIB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.SPLLOB, OSAS_Sys_i_Instance__acts_out.SPLLOB, OSAS_Sys_i_Instance__acts_gain.SPLLOB, OSAS_Sys_i_Instance__acts_claw_fail.SPLLOB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.SPLRIB, OSAS_Sys_i_Instance__acts_out.SPLRIB, OSAS_Sys_i_Instance__acts_gain.SPLRIB, OSAS_Sys_i_Instance__acts_claw_fail.SPLRIB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.SPLROB, OSAS_Sys_i_Instance__acts_out.SPLROB, OSAS_Sys_i_Instance__acts_gain.SPLROB, OSAS_Sys_i_Instance__acts_claw_fail.SPLROB, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.STEER, OSAS_Sys_i_Instance__acts_out.STEER, OSAS_Sys_i_Instance__acts_gain.STEER, OSAS_Sys_i_Instance__acts_claw_fail.STEER, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.THROTR, OSAS_Sys_i_Instance__acts_out.THROTR, OSAS_Sys_i_Instance__acts_gain.THROTR, OSAS_Sys_i_Instance__acts_claw_fail.THROTR, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_190_240_250__req_helper(OSAS_Sys_i_Instance__acts_in.THROTL, OSAS_Sys_i_Instance__acts_out.THROTL, OSAS_Sys_i_Instance__acts_gain.THROTL, OSAS_Sys_i_Instance__acts_claw_fail.THROTL, OSAS_Sys_i_Instance__osas_failed));
+
+tel;
+
+node OSAS_S_210_220_230__req_helper(
+  OSAS_Sys_i_Instance__sov1 : bool;
+  OSAS_Sys_i_Instance__sov2 : bool;
+  OSAS_Sys_i_Instance__isas_fail : bool;
+  OSAS_Sys_i_Instance__latched_fail : bool;
+  OSAS_Sys_i_Instance__ccdl_num_fail : int
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = (((OSAS_Sys_i_Instance__sov1 = OSAS_Sys_i_Instance__sov2) and (OSAS_Sys_i_Instance__sov1 = true)) -> (if OSAS_Sys_i_Instance__isas_fail then false else (if (OSAS_Sys_i_Instance__latched_fail and (OSAS_Sys_i_Instance__ccdl_num_fail >= 2)) then false else (pre OSAS_Sys_i_Instance__sov1))));
+
+tel;
+
+node OSAS_S_210_220_230__req(
+  OSAS_Sys_i_Instance__sovs1 : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__sovs2 : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__isas_fails : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__latched_fails : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__ccdl_num_fails : DATA_TYPES__NumActuators__impl
+) returns (
+  OSAS_Sys_i_Instance__res : bool
+);
+let
+  OSAS_Sys_i_Instance__res = ((((((((((((((((((((OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.AILL, OSAS_Sys_i_Instance__sovs2.AILL, OSAS_Sys_i_Instance__isas_fails.AILL, OSAS_Sys_i_Instance__latched_fails.AILL, OSAS_Sys_i_Instance__ccdl_num_fails.AILL) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.AILR, OSAS_Sys_i_Instance__sovs2.AILR, OSAS_Sys_i_Instance__isas_fails.AILR, OSAS_Sys_i_Instance__latched_fails.AILR, OSAS_Sys_i_Instance__ccdl_num_fails.AILR)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.BRAKE, OSAS_Sys_i_Instance__sovs2.BRAKE, OSAS_Sys_i_Instance__isas_fails.BRAKE, OSAS_Sys_i_Instance__latched_fails.BRAKE, OSAS_Sys_i_Instance__ccdl_num_fails.BRAKE)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.ELLIB, OSAS_Sys_i_Instance__sovs2.ELLIB, OSAS_Sys_i_Instance__isas_fails.ELLIB, OSAS_Sys_i_Instance__latched_fails.ELLIB, OSAS_Sys_i_Instance__ccdl_num_fails.ELLIB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.ELLOB, OSAS_Sys_i_Instance__sovs2.ELLOB, OSAS_Sys_i_Instance__isas_fails.ELLOB, OSAS_Sys_i_Instance__latched_fails.ELLOB, OSAS_Sys_i_Instance__ccdl_num_fails.ELLOB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.ELRIB, OSAS_Sys_i_Instance__sovs2.ELRIB, OSAS_Sys_i_Instance__isas_fails.ELRIB, OSAS_Sys_i_Instance__latched_fails.ELRIB, OSAS_Sys_i_Instance__ccdl_num_fails.ELRIB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.ELROB, OSAS_Sys_i_Instance__sovs2.ELROB, OSAS_Sys_i_Instance__isas_fails.ELROB, OSAS_Sys_i_Instance__latched_fails.ELROB, OSAS_Sys_i_Instance__ccdl_num_fails.ELROB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.FLAPLI, OSAS_Sys_i_Instance__sovs2.FLAPLI, OSAS_Sys_i_Instance__isas_fails.FLAPLI, OSAS_Sys_i_Instance__latched_fails.FLAPLI, OSAS_Sys_i_Instance__ccdl_num_fails.FLAPLI)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.FLAPLO, OSAS_Sys_i_Instance__sovs2.FLAPLO, OSAS_Sys_i_Instance__isas_fails.FLAPLO, OSAS_Sys_i_Instance__latched_fails.FLAPLO, OSAS_Sys_i_Instance__ccdl_num_fails.FLAPLO)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.FLAPRI, OSAS_Sys_i_Instance__sovs2.FLAPRI, OSAS_Sys_i_Instance__isas_fails.FLAPRI, OSAS_Sys_i_Instance__latched_fails.FLAPRI, OSAS_Sys_i_Instance__ccdl_num_fails.FLAPRI)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.FLAPRO, OSAS_Sys_i_Instance__sovs2.FLAPRO, OSAS_Sys_i_Instance__isas_fails.FLAPRO, OSAS_Sys_i_Instance__latched_fails.FLAPRO, OSAS_Sys_i_Instance__ccdl_num_fails.FLAPRO)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.GEAR, OSAS_Sys_i_Instance__sovs2.GEAR, OSAS_Sys_i_Instance__isas_fails.GEAR, OSAS_Sys_i_Instance__latched_fails.GEAR, OSAS_Sys_i_Instance__ccdl_num_fails.GEAR)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.RUDLO, OSAS_Sys_i_Instance__sovs2.RUDLO, OSAS_Sys_i_Instance__isas_fails.RUDLO, OSAS_Sys_i_Instance__latched_fails.RUDLO, OSAS_Sys_i_Instance__ccdl_num_fails.RUDLO)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.RUDUP, OSAS_Sys_i_Instance__sovs2.RUDUP, OSAS_Sys_i_Instance__isas_fails.RUDUP, OSAS_Sys_i_Instance__latched_fails.RUDUP, OSAS_Sys_i_Instance__ccdl_num_fails.RUDUP)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.SPLLIB, OSAS_Sys_i_Instance__sovs2.SPLLIB, OSAS_Sys_i_Instance__isas_fails.SPLLIB, OSAS_Sys_i_Instance__latched_fails.SPLLIB, OSAS_Sys_i_Instance__ccdl_num_fails.SPLLIB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.SPLLOB, OSAS_Sys_i_Instance__sovs2.SPLLOB, OSAS_Sys_i_Instance__isas_fails.SPLLOB, OSAS_Sys_i_Instance__latched_fails.SPLLOB, OSAS_Sys_i_Instance__ccdl_num_fails.SPLLOB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.SPLRIB, OSAS_Sys_i_Instance__sovs2.SPLRIB, OSAS_Sys_i_Instance__isas_fails.SPLRIB, OSAS_Sys_i_Instance__latched_fails.SPLRIB, OSAS_Sys_i_Instance__ccdl_num_fails.SPLRIB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.SPLROB, OSAS_Sys_i_Instance__sovs2.SPLROB, OSAS_Sys_i_Instance__isas_fails.SPLROB, OSAS_Sys_i_Instance__latched_fails.SPLROB, OSAS_Sys_i_Instance__ccdl_num_fails.SPLROB)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.STEER, OSAS_Sys_i_Instance__sovs2.STEER, OSAS_Sys_i_Instance__isas_fails.STEER, OSAS_Sys_i_Instance__latched_fails.STEER, OSAS_Sys_i_Instance__ccdl_num_fails.STEER)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.THROTR, OSAS_Sys_i_Instance__sovs2.THROTR, OSAS_Sys_i_Instance__isas_fails.THROTR, OSAS_Sys_i_Instance__latched_fails.THROTR, OSAS_Sys_i_Instance__ccdl_num_fails.THROTR)) and OSAS_S_210_220_230__req_helper(OSAS_Sys_i_Instance__sovs1.THROTL, OSAS_Sys_i_Instance__sovs2.THROTL, OSAS_Sys_i_Instance__isas_fails.THROTL, OSAS_Sys_i_Instance__latched_fails.THROTL, OSAS_Sys_i_Instance__ccdl_num_fails.THROTL));
+
+tel;
+
+node _MAIN(
+  OSAS_Sys_i_Instance__acts_in : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__sovs1 : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__sovs2 : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__num_valid_acts : DATA_TYPES__NumActuators__impl;
+  OSAS_Sys_i_Instance__acts_claw_fail : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__acts_ret : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__osas_failed : bool;
+  OSAS_Sys_i_Instance__act_claw_fails : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__latched_failures : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__acts_out : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__acts_isas_fail : DATA_TYPES__BoolActuators__impl;
+  OSAS_Sys_i_Instance__act_gains : DATA_TYPES__Actuators__impl;
+  OSAS_Sys_i_Instance__fail_counts : DATA_TYPES__NumActuators__impl;
+  OSAS_Sys_i_Instance__acts_ccdl_num_fail : DATA_TYPES__NumActuators__impl;
+  OSAS_Sys_i_Instance__ccdl_frame_count : int;
+  OSAS_Sys_i_Instance__ccdl_failed : bool;
+  OSAS_Sys_i_Instance__acts_fail : DATA_TYPES__BoolActuators__impl
+) returns (
+
+);
+var
+  _TOTAL_COMP_HIST : bool;
+  _SYSTEM_ASSUMP_HIST : bool;
+  __CONSIST_COUNTER : int;
+  _SYS_GUARANTEE_0 : bool;
+  _SYS_GUARANTEE_1 : bool;
+  _SYS_GUARANTEE_2 : bool;
+  _SYS_GUARANTEE_3 : bool;
+  _SYS_GUARANTEE_4 : bool;
+  _SYS_GUARANTEE_5 : bool;
+  _SYS_GUARANTEE_6 : bool;
+  _SYS_GUARANTEE_7 : bool;
+  _SYS_GUARANTEE_8 : bool;
+  _TOTAL_COMP_FINITE_CONSIST : bool;
+  _THIS_CONTRACT_CONSIST : bool;
+  _THIS_CONTRACT_HIST : bool;
+let
+  --%MAIN
+  _TOTAL_COMP_HIST = ((true and (true and true)) -> ((true and (true and true)) and (pre _TOTAL_COMP_HIST)));
+
+  _SYSTEM_ASSUMP_HIST = ((true and true) -> ((true and true) and (pre _SYSTEM_ASSUMP_HIST)));
+
+  __CONSIST_COUNTER = (0 -> ((pre __CONSIST_COUNTER) + 1));
+
+  _SYS_GUARANTEE_0 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_110__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__acts_ret, OSAS_Sys_i_Instance__fail_counts));
+
+  _SYS_GUARANTEE_1 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_120__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__acts_ret, OSAS_Sys_i_Instance__latched_failures));
+
+  _SYS_GUARANTEE_2 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_140__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__latched_failures));
+
+  _SYS_GUARANTEE_3 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => (true -> (OSAS_Sys_i_Instance__ccdl_failed = (OSAS_Sys_i_Instance__ccdl_frame_count <> ((pre OSAS_Sys_i_Instance__ccdl_frame_count) + 1)))));
+
+  _SYS_GUARANTEE_4 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_170__req(OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__ccdl_failed));
+
+  _SYS_GUARANTEE_5 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_180__req(OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__num_valid_acts, OSAS_Sys_i_Instance__ccdl_failed));
+
+  _SYS_GUARANTEE_6 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_190_240_250__req(OSAS_Sys_i_Instance__acts_in, OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__act_claw_fails, OSAS_Sys_i_Instance__osas_failed));
+
+  _SYS_GUARANTEE_7 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => OSAS_S_210_220_230__req(OSAS_Sys_i_Instance__sovs1, OSAS_Sys_i_Instance__sovs2, OSAS_Sys_i_Instance__acts_isas_fail, OSAS_Sys_i_Instance__latched_failures, OSAS_Sys_i_Instance__acts_ccdl_num_fail));
+
+  _SYS_GUARANTEE_8 = ((_SYSTEM_ASSUMP_HIST and _TOTAL_COMP_HIST) => (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((OSAS_Sys_i_Instance__acts_ccdl_num_fail.AILL = 0) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.AILR = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.BRAKE = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELLIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELLOB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELRIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELROB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPLI = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPLO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPRI = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPRO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.GEAR = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.RUDLO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.RUDUP = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLLIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLLOB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLRIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLROB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.STEER = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.THROTL = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.THROTR = 0)) and (OSAS_Sys_i_Instance__acts_in.AILL = 1.0)) and (OSAS_Sys_i_Instance__acts_in.AILR = 1.0)) and (OSAS_Sys_i_Instance__acts_in.BRAKE = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELROB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPLI = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPLO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPRI = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPRO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.GEAR = 1.0)) and (OSAS_Sys_i_Instance__acts_in.RUDLO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.RUDUP = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLROB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.STEER = 1.0)) and (OSAS_Sys_i_Instance__acts_in.THROTL = 1.0)) and (OSAS_Sys_i_Instance__acts_in.THROTR = 1.0)) and (OSAS_Sys_i_Instance__acts_isas_fail.AILL = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.AILR = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.BRAKE = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELLIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELLOB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELRIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELROB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPLI = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPLO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPRI = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPRO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.GEAR = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.RUDLO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.RUDUP = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLLIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLLOB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLRIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLROB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.STEER = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.THROTL = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.THROTR = false)) and (OSAS_Sys_i_Instance__acts_ret.AILL = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.AILR = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.BRAKE = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELROB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPLI = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPLO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPRI = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPRO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.GEAR = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.RUDLO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.RUDUP = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLROB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.STEER = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.THROTL = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.THROTR = 1.0)) and (OSAS_Sys_i_Instance__num_valid_acts.AILL = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.AILR = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.BRAKE = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELLIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELLOB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELRIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELROB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPLI = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPLO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPRI = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPRO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.GEAR = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.RUDLO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.RUDUP = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLLIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLLOB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLRIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLROB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.STEER = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.THROTL = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.THROTR = 0)));
+
+  _TOTAL_COMP_FINITE_CONSIST = (not ((((_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)) -> (pre (_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)))) -> (pre ((_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)) -> (pre (_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)))))) -> (pre (((_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)) -> (pre (_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)))) -> (pre ((_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)) -> (pre (_TOTAL_COMP_HIST -> (pre _TOTAL_COMP_HIST)))))))));
+
+  _THIS_CONTRACT_HIST = ((true and (((((((((true and OSAS_S_110__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__acts_ret, OSAS_Sys_i_Instance__fail_counts)) and OSAS_S_120__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__acts_ret, OSAS_Sys_i_Instance__latched_failures)) and OSAS_S_140__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__latched_failures)) and (true -> (OSAS_Sys_i_Instance__ccdl_failed = (OSAS_Sys_i_Instance__ccdl_frame_count <> ((pre OSAS_Sys_i_Instance__ccdl_frame_count) + 1))))) and OSAS_S_170__req(OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req(OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__num_valid_acts, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_190_240_250__req(OSAS_Sys_i_Instance__acts_in, OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__act_claw_fails, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_210_220_230__req(OSAS_Sys_i_Instance__sovs1, OSAS_Sys_i_Instance__sovs2, OSAS_Sys_i_Instance__acts_isas_fail, OSAS_Sys_i_Instance__latched_failures, OSAS_Sys_i_Instance__acts_ccdl_num_fail)) and (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((OSAS_Sys_i_Instance__acts_ccdl_num_fail.AILL = 0) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.AILR = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.BRAKE = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELLIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELLOB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELRIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELROB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPLI = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPLO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPRI = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPRO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.GEAR = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.RUDLO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.RUDUP = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLLIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLLOB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLRIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLROB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.STEER = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.THROTL = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.THROTR = 0)) and (OSAS_Sys_i_Instance__acts_in.AILL = 1.0)) and (OSAS_Sys_i_Instance__acts_in.AILR = 1.0)) and (OSAS_Sys_i_Instance__acts_in.BRAKE = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELROB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPLI = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPLO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPRI = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPRO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.GEAR = 1.0)) and (OSAS_Sys_i_Instance__acts_in.RUDLO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.RUDUP = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLROB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.STEER = 1.0)) and (OSAS_Sys_i_Instance__acts_in.THROTL = 1.0)) and (OSAS_Sys_i_Instance__acts_in.THROTR = 1.0)) and (OSAS_Sys_i_Instance__acts_isas_fail.AILL = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.AILR = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.BRAKE = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELLIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELLOB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELRIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELROB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPLI = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPLO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPRI = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPRO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.GEAR = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.RUDLO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.RUDUP = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLLIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLLOB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLRIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLROB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.STEER = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.THROTL = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.THROTR = false)) and (OSAS_Sys_i_Instance__acts_ret.AILL = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.AILR = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.BRAKE = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELROB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPLI = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPLO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPRI = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPRO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.GEAR = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.RUDLO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.RUDUP = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLROB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.STEER = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.THROTL = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.THROTR = 1.0)) and (OSAS_Sys_i_Instance__num_valid_acts.AILL = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.AILR = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.BRAKE = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELLIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELLOB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELRIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELROB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPLI = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPLO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPRI = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPRO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.GEAR = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.RUDLO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.RUDUP = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLLIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLLOB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLRIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLROB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.STEER = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.THROTL = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.THROTR = 0)))) -> ((true and (((((((((true and OSAS_S_110__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__acts_ret, OSAS_Sys_i_Instance__fail_counts)) and OSAS_S_120__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__acts_ret, OSAS_Sys_i_Instance__latched_failures)) and OSAS_S_140__req(OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__latched_failures)) and (true -> (OSAS_Sys_i_Instance__ccdl_failed = (OSAS_Sys_i_Instance__ccdl_frame_count <> ((pre OSAS_Sys_i_Instance__ccdl_frame_count) + 1))))) and OSAS_S_170__req(OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_180__req(OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__num_valid_acts, OSAS_Sys_i_Instance__ccdl_failed)) and OSAS_S_190_240_250__req(OSAS_Sys_i_Instance__acts_in, OSAS_Sys_i_Instance__acts_out, OSAS_Sys_i_Instance__act_gains, OSAS_Sys_i_Instance__act_claw_fails, OSAS_Sys_i_Instance__osas_failed)) and OSAS_S_210_220_230__req(OSAS_Sys_i_Instance__sovs1, OSAS_Sys_i_Instance__sovs2, OSAS_Sys_i_Instance__acts_isas_fail, OSAS_Sys_i_Instance__latched_failures, OSAS_Sys_i_Instance__acts_ccdl_num_fail)) and (((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((OSAS_Sys_i_Instance__acts_ccdl_num_fail.AILL = 0) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.AILR = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.BRAKE = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELLIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELLOB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELRIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.ELROB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPLI = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPLO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPRI = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.FLAPRO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.GEAR = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.RUDLO = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.RUDUP = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLLIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLLOB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLRIB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.SPLROB = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.STEER = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.THROTL = 0)) and (OSAS_Sys_i_Instance__acts_ccdl_num_fail.THROTR = 0)) and (OSAS_Sys_i_Instance__acts_in.AILL = 1.0)) and (OSAS_Sys_i_Instance__acts_in.AILR = 1.0)) and (OSAS_Sys_i_Instance__acts_in.BRAKE = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.ELROB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPLI = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPLO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPRI = 1.0)) and (OSAS_Sys_i_Instance__acts_in.FLAPRO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.GEAR = 1.0)) and (OSAS_Sys_i_Instance__acts_in.RUDLO = 1.0)) and (OSAS_Sys_i_Instance__acts_in.RUDUP = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.SPLROB = 1.0)) and (OSAS_Sys_i_Instance__acts_in.STEER = 1.0)) and (OSAS_Sys_i_Instance__acts_in.THROTL = 1.0)) and (OSAS_Sys_i_Instance__acts_in.THROTR = 1.0)) and (OSAS_Sys_i_Instance__acts_isas_fail.AILL = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.AILR = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.BRAKE = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELLIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELLOB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELRIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.ELROB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPLI = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPLO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPRI = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.FLAPRO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.GEAR = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.RUDLO = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.RUDUP = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLLIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLLOB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLRIB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.SPLROB = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.STEER = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.THROTL = false)) and (OSAS_Sys_i_Instance__acts_isas_fail.THROTR = false)) and (OSAS_Sys_i_Instance__acts_ret.AILL = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.AILR = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.BRAKE = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.ELROB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPLI = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPLO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPRI = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.FLAPRO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.GEAR = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.RUDLO = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.RUDUP = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLLIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLLOB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLRIB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.SPLROB = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.STEER = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.THROTL = 1.0)) and (OSAS_Sys_i_Instance__acts_ret.THROTR = 1.0)) and (OSAS_Sys_i_Instance__num_valid_acts.AILL = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.AILR = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.BRAKE = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELLIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELLOB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELRIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.ELROB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPLI = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPLO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPRI = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.FLAPRO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.GEAR = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.RUDLO = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.RUDUP = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLLIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLLOB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLRIB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.SPLROB = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.STEER = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.THROTL = 0)) and (OSAS_Sys_i_Instance__num_valid_acts.THROTR = 0)))) and (pre _THIS_CONTRACT_HIST)));
+
+  _THIS_CONTRACT_CONSIST = (not ((((_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)) -> (pre (_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)))) -> (pre ((_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)) -> (pre (_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)))))) -> (pre (((_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)) -> (pre (_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)))) -> (pre ((_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)) -> (pre (_THIS_CONTRACT_HIST -> (pre _THIS_CONTRACT_HIST)))))))));
+
+  assert true;
+
+  assert true;
+
+  --%PROPERTY _SYS_GUARANTEE_0;
+  --%PROPERTY _SYS_GUARANTEE_1;
+  --%PROPERTY _SYS_GUARANTEE_2;
+  --%PROPERTY _SYS_GUARANTEE_3;
+  --%PROPERTY _SYS_GUARANTEE_4;
+  --%PROPERTY _SYS_GUARANTEE_5;
+  --%PROPERTY _SYS_GUARANTEE_6;
+  --%PROPERTY _SYS_GUARANTEE_7;
+  --%PROPERTY _SYS_GUARANTEE_8;
+
+tel;
