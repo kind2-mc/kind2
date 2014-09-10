@@ -1,0 +1,20 @@
+node sub(in : bool) returns (out : bool);
+let
+  out = true -> pre in;
+tel;
+
+node main(clk : bool; a : bool) returns ();
+var
+  counter : int;
+  ok : bool;
+let
+  ok = condact(clk, sub(a), true);
+
+  counter = 0 -> 1 + pre counter;
+
+  assert (counter = 0) => a and clk;
+  assert (counter = 1) => (not a) and (not clk);
+  assert (counter = 2) => a and clk;
+
+  --%PROPERTY ok;
+tel;
