@@ -230,8 +230,8 @@ let rec definitions_of_node_calls
         N.call_pos = pos } as call :: tl -> 
 
       debug lustreTransSys
-        "definitions_of_node_calls: %a"
-        (N.pp_print_call false) call
+          "definitions_of_node_calls: %a"
+          (N.pp_print_call false) call
       in
 
       (* Signature of called node *)
@@ -277,7 +277,7 @@ let rec definitions_of_node_calls
       (* Input for node call in initial state *)
       let input_terms_init = 
         List.map
-            (E.base_term_of_state_var base_offset)
+          (E.base_term_of_state_var base_offset)
           input_vars
       in
 
@@ -445,22 +445,22 @@ let rec definitions_of_node_calls
 
         (* Pretty-print a file position *)
         let pp_print_file ppf pos_file = 
-          
+
           if pos_file = "" then () else
             Format.fprintf ppf "%s" pos_file
         in
 
         (* Pretty-print a position as attributes *)
         let pp_print_pos ppf pos = 
-          
+
           (* Do not print anything for a dummy position *)
           if LustreAst.is_dummy_pos pos then () else 
-            
+
             (* Get file, line and column of position *)
             let pos_file, pos_lnum, pos_cnum = 
               LustreAst.file_row_col_of_pos pos
             in
-            
+
             (* Print attributes *)
             Format.fprintf 
               ppf
@@ -477,11 +477,11 @@ let rec definitions_of_node_calls
 
           string_of_t 
             (function ppf -> function prop_name -> 
-              Format.fprintf ppf 
-                "%a%a.%s"
-                (LustreIdent.pp_print_ident true) node_name
-                pp_print_pos pos
-                prop_name)
+               Format.fprintf ppf 
+                 "%a%a.%s"
+                 (LustreIdent.pp_print_ident true) node_name
+                 pp_print_pos pos
+                 prop_name)
             prop_name
 
         in
@@ -494,7 +494,7 @@ let rec definitions_of_node_calls
           props 
 
       in
-      
+
       (* Constraint for node call in initial state and transtion
          relation with activation condition *)
       let 
@@ -515,6 +515,94 @@ let rec definitions_of_node_calls
           local_vars', init_call, trans_call, lifted_props @ lifted_props'
 
         else
+
+          (* New state variable for node call *)
+          let ticked_state_var = mk_ticked_state_var () in
+
+          (* State variable is instance of local variable *)
+          E.set_state_var_source
+            ticked_state_var
+            E.Abstract;
+
+          (* State variable to mark if clock has ever ticked in the initial state *)
+          let ticked_init =
+            E.base_term_of_state_var base_offset ticked_state_var 
+          in
+
+          (* State variable to mark if clock has ever ticked in the current state *)
+          let ticked_trans =
+            E.cur_term_of_state_var cur_offset ticked_state_var 
+          in
+
+          (* State variable to mark if clock has ever ticked in the previous state *)
+          let ticked_trans_pre =
+            E.pre_term_of_state_var cur_offset ticked_state_var 
+          in
+
+          (* Create shadow variable for each non-constant input *)
+          let 
+
+            (* Add shadow state variable to local variables, return
+               term at previous instant, equation with corresponding
+               inputs, and equation with previous state value *)
+            (local_vars'', 
+             input_shadow_terms_trans_pre, 
+             propagate_inputs, 
+             propagate_inputs_init, 
+             interpolate_inputs) =
+
+            List.fold_right
+              (fun
+                sv
+                ((local_vars'',
+                  input_shadow_terms_trans_pre, 
+                  propagate_inputs, 
+                  propagate_inputs_init, 
+                  interpolate_inputs) as accum) -> 
+
+                (* Skip over constant inputs *)
+                if StateVar.is_const sv then accum else 
+
+                  (* Create fresh shadow variable for input *)
+                  let sv' = mk_new_state_var (StateVar.type_of_state_var sv) in
+
+                  (* State variable is locally created *)
+                  E.set_state_var_source sv' E.Abstract;
+
+                  (* Shadow variable at previous instant *)
+                  let t = E.pre_term_of_state_var cur_offset sv' in
+
+                  (* Shadow variable takes value of input *)
+                  let p = 
+                    Term.mk_eq
+                      [E.cur_term_of_state_var cur_offset sv'; 
+                       E.cur_term_of_state_var cur_offset sv]
+                  in
+
+                  (* Shadow variable takes value of input *)
+                  let p_i = 
+                    Term.mk_eq
+                      [E.base_term_of_state_var base_offset sv'; 
+                       E.base_term_of_state_var base_offset sv]
+                  in
+
+                  (* Shadow variable takes its previous value *)
+                  let i = 
+                    Term.mk_eq
+                      [E.cur_term_of_state_var cur_offset sv'; 
+                       E.pre_term_of_state_var cur_offset sv']
+                  in
+
+                  (* Add shadow variable and equations to accumulator *)
+                  (sv' :: local_vars'',
+                   t :: input_shadow_terms_trans_pre, 
+                   p :: propagate_inputs, 
+                   p_i :: propagate_inputs_init, 
+                   i :: interpolate_inputs))
+              input_vars
+              (local_vars', [], [], [], [])
+
+          in
 
           (* Arguments for node call in transition relation *)
           let init_call_trans_args = 
@@ -538,29 +626,44 @@ let rec definitions_of_node_calls
             Term.mk_uf init_uf_symbol init_call_trans_args 
           in
 
-          (* New state variable for node call *)
-          let ticked_state_var = mk_ticked_state_var () in
+          (* Arguments for node call in transition relation *)
+          let trans_call_args = 
 
-          (* State variable is instance of local variable *)
-          E.set_state_var_source
-            ticked_state_var
-            E.Abstract;
+            (* Current state input variables *)
+            input_terms_trans @ 
 
-          let ticked_init =
-            E.base_term_of_state_var base_offset ticked_state_var 
+            (* Current state output variables *)
+            output_terms_trans @ 
+
+            (* Current state output variables *)
+            observer_terms_trans @ 
+
+            (* Current state local variables *)
+            call_local_vars_trans @
+
+            (* Previous state input variables *)
+            input_shadow_terms_trans_pre @
+
+            (* Previous state output variables *)
+            output_terms_trans_pre @
+
+            (* Previous state output variables *)
+            observer_terms_trans_pre @
+
+            (* Previous state local variables *)
+            call_local_vars_trans_pre  
+
           in
 
-          let ticked_trans =
-            E.cur_term_of_state_var cur_offset ticked_state_var 
-          in
+          (* Constraint for node call in initial state *)
+          let init_call = Term.mk_uf init_uf_symbol init_call_args in
 
-          let ticked_trans_pre =
-            E.pre_term_of_state_var cur_offset ticked_state_var 
-          in
+          (* Constraint for node call in transition relation *)
+          let trans_call = Term.mk_uf trans_uf_symbol trans_call_args in
 
           (* Local variables extended by state variable indicating if
              node has ticked once *)
-          (ticked_state_var :: local_vars',
+          (ticked_state_var :: local_vars'',
 
            Term.mk_and
 
@@ -569,6 +672,10 @@ let rec definitions_of_node_calls
 
                (* Equation for ticked state variable *)
                Term.mk_eq [ticked_init; act_cond_init];
+
+               (* Propagate input values to shadow variable on clock tick *)
+               Term.mk_implies 
+                 [act_cond_init; Term.mk_and propagate_inputs_init];
 
                (* Initial state constraint with true activations
                   condition *)
@@ -597,17 +704,29 @@ let rec definitions_of_node_calls
 
              [
 
+               (* State variable is false if the clock has not ticked before *)
                Term.mk_eq 
                  [ticked_trans;
                   Term.mk_or [act_cond_trans; ticked_trans_pre]];
 
-               (* Transition relation with true activation condition *)
+               (* Propagate input values to shadow variable on clock tick *)
+               Term.mk_implies 
+                 [act_cond_trans; Term.mk_and propagate_inputs];
+
+               (* Interpolate input values in shadow variable between
+                  clock ticks *)
+               Term.mk_implies 
+                 [Term.mk_not act_cond_trans; Term.mk_and interpolate_inputs];
+
+               (* Transition relation with true activation condition
+                  on the first clock tick *)
                Term.mk_implies
                  [Term.mk_and 
                     [act_cond_trans; Term.mk_not ticked_trans_pre];
                   init_call_trans];
 
-               (* Transition relation with true activation condition *)
+               (* Transition relation with true activation condition
+                  on following clock ticks *)
                Term.mk_implies
                  [Term.mk_and 
                     [act_cond_trans; ticked_trans_pre];
