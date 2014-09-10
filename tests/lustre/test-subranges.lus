@@ -25,9 +25,15 @@ var
   a: subrange [1, 3] of int; 
   b: subrange [0, 4] of int; 
   c: subrange [-3, 0] of int;
+  d: subrange [0, 0] of int;
 let
   a = i + 1;
   b = i + i;
   c = i + j;
   d = i - i;
+tel
+
+node U(i: subrange [1, 2] of int) returns (o: subrange [1, 2] of int);
+let 
+  o = 0 -> i;
 tel

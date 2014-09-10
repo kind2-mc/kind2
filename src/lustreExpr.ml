@@ -1945,6 +1945,27 @@ let mk_ite expr1 expr2 expr3 =
 (* ********************************************************************** *)
 
 
+(* Type of ->
+
+   If both the arguments are bounded, the result is bounded by the
+   smaller of the two lower bound and the greater of the upper bounds.
+
+   ->: 'a -> 'a -> 'a *)
+let type_of_arrow type1 type2 =
+
+  (* Extend integer ranges if one is not a subtype of the other *)
+  (match type1, type2 with 
+    | s, t 
+      when (Type.is_int_range s && Type.is_int_range t) -> 
+      
+      let l1, u1 = Type.bounds_of_int_range s in
+      let l2, u2 = Type.bounds_of_int_range t in
+      
+      Type.mk_int_range Numeral.(min l1 l2) Numeral.(max u1 u2)
+
+    | _ -> type_of_a_a_a type1 type2)
+
+
 (* Followed by expression *)
 let mk_arrow expr1 expr2 = 
 
@@ -1958,7 +1979,7 @@ let mk_arrow expr1 expr2 =
 
   (* Types of expressions must be compatible *)
   let res_type = 
-    type_of_a_a_a expr1.expr_type expr2.expr_type 
+    type_of_arrow expr1.expr_type expr2.expr_type 
   in
 
   { expr_init = expr1.expr_init;

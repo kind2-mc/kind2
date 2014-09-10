@@ -1,14 +1,15 @@
-node sub(in : bool) returns (out : bool);
+node sub(in, in2 : bool) returns (out, out2 : bool);
 let
   out = true -> pre in;
+  out2 = pre in2;
 tel;
 
-node main(clk : bool; a : bool) returns ();
+node main(clk : bool; a, b : bool) returns ();
 var
   counter : int;
-  ok : bool;
+  ok, ok2 : bool;
 let
-  ok = condact(clk, sub(a), true);
+  ok, ok2 = condact(clk, sub(a, b), true, true);
 
   counter = 0 -> 1 + pre counter;
 
