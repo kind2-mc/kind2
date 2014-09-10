@@ -80,7 +80,7 @@ let assert_upto_k solver k term =
 (* Add falsified properties to props_kfalse until the remaining
    properties are true, or there are no more properties left. 
 
-   Assuptions: 
+   Assumptions: 
    - The path constraint, and the invariants have been asserted.
    - There is a fresh scope level on the context
 
@@ -121,7 +121,7 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
 
         List.partition
 
-          (fun (_, p) -> 
+          (fun (n, p) -> 
 
              (* Property at step k *)
              let p_k = Term.bump_state k p in
@@ -131,10 +131,21 @@ let rec bmc_step_loop solver trans_sys k props_kfalse properties =
 
              (* Model for variables of property at step k *)
              let p_k_model = S.get_model solver p_k_vars in
-             
-             (* Distinguish properties by truth value at step k *)
-             Eval.bool_of_value (Eval.eval_term uf_defs p_k_model p_k))
 
+             (* Distinguish properties by truth value at step k *)
+             let p_k_eval = 
+               Eval.bool_of_value (Eval.eval_term uf_defs p_k_model p_k)
+             in
+
+             debug bmc
+                 "Property %s (%a) is %B"
+                 n
+                 Term.pp_print_term p
+                 p_k_eval
+             in
+
+             p_k_eval)
+          
           properties
 
       in
@@ -314,7 +325,6 @@ let rec bmc solver trans_sys k = function
          (* Each property is false by itself *)
          List.iter 
            (fun (n, _) -> 
-              TransSys.prop_false trans_sys n c;
               Event.prop_status (TransSys.PropFalse c) trans_sys n)
            p)
 

@@ -2563,18 +2563,15 @@ let main trans_sys =
                      if 
 
                        (* Property is false along path? *)
-                       List.exists
-                         (Term.equal Term.t_false) 
-                         (List.assoc
-                            (Var.state_var_of_state_var_instance
-                               (Term.free_var_of_term t))
-                            cex_path)
+                       TransSys.exists_eval_on_path
+                         (TransSys.uf_defs trans_sys)
+                         ((=) (Eval.ValBool false))
+                         t
+                         cex_path
 
                      then
 
                        (Event.prop_status (TransSys.PropFalse cex_path) trans_sys p;
-
-                        TransSys.prop_false trans_sys p cex_path;
 
                         Event.log
                           L_info 

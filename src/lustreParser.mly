@@ -440,8 +440,13 @@ left_side:
 struct_item:
 
   (* Single identifier *)
-  | s = ident { A.SingleIdent (mk_pos $startpos, s) }
+  | s = ident
+     { A.SingleIdent (mk_pos $startpos, s) }
 
+  | s = ident; l = nonempty_list(one_index)
+     { A.IndexedIdent (mk_pos $startpos, s, l)}
+
+(*
   (* Filter array values *)
   | LSQBRACKET; l = struct_item_list; RSQBRACKET 
     { A.TupleStructItem (mk_pos $startpos, l) }
@@ -456,6 +461,7 @@ struct_item:
  
   | e = ident; LSQBRACKET; s = array_slice_list; RSQBRACKET 
     { A.ArraySliceStructItem (mk_pos $startpos, e, s) }
+*)
 
 (* List of structured items *)
 struct_item_list:
@@ -764,6 +770,25 @@ tlist_tail(separator, closing, X):
 tlist(opening, separator, closing, X):
   | opening; l = tlist_tail(separator, closing, X) { l }
   | opening; closing { [ ] }
+
+(* ********************************************************************** *)
+
+(* An index *)
+one_index: 
+
+  (* An index into a record *)
+  | DOT; i = ident
+     { A.FieldIndex (mk_pos $startpos, i) } 
+
+  (* An index into an array with a variable or constant *)
+  | LSQBRACKET; i = ident; RSQBRACKET
+     { A.VarIndex (mk_pos $startpos, i) }
+
+  (* An index into an array with a numeral *)
+  | LSQBRACKET; s = NUMERAL; RSQBRACKET 
+     { A.NumIndex (mk_pos $startpos, int_of_string s) }
+
+
 
 
 (* 

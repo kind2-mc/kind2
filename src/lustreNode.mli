@@ -53,6 +53,9 @@ type node_call =
     (** Variables capturing the outputs *)
     call_returns : StateVar.t list;
 
+    (** Variables capturing the observer streams *)
+    call_observers : StateVar.t list;
+
     (** Boolean activation condition *)
     call_clock : LustreExpr.t;
 
@@ -63,7 +66,7 @@ type node_call =
     call_pos : LustreAst.position;
 
     (** Expressions for input parameters *)
-    call_inputs : LustreExpr.t list;
+    call_inputs : StateVar.t list;
 
     (** Expression for initial return values *)
     call_defaults : LustreExpr.t list;
@@ -84,23 +87,26 @@ type t =
         parameters in the declaration. *)
     inputs : (StateVar.t * LustreIdent.index) list;
 
+    (** Oracle inputs of node
+
+        The order of the list is important, it is the order the
+        parameters in the declaration. *)
+    oracles : StateVar.t list;
+
     (** Output variables of node
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
     outputs : (StateVar.t * LustreIdent.index) list;
 
+    (** Observer outputs *)
+    observers : StateVar.t list;
+
     (** Local variables of node
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
     locals : (StateVar.t * LustreIdent.index) list;
-
-    (** Oracle inputs of node
-
-        The order of the list is important, it is the order the
-        parameters in the declaration. *)
-    oracles : StateVar.t list;
 
     (** Equations for local and output variables *)
     equations : (StateVar.t * LustreExpr.t) list;
@@ -130,13 +136,23 @@ type t =
     output_input_dep : int list list;
 
     (** Index of last abstraction state variable *)
-    fresh_state_var_index : Numeral.t ref }
+    fresh_state_var_index : Numeral.t ref;
+
+    (** Index of last oracle state variable *)
+    fresh_oracle_index : Numeral.t ref;
+
+    (** Map of state variables to their oracles *)
+    state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+  }
 
 (** The empty node *)
 val empty_node : LustreIdent.t -> t
 
 (** Pretty-print a node *)
 val pp_print_node : bool -> Format.formatter -> t -> unit 
+
+(** Pretty-print a node call *)
+val pp_print_call : bool -> Format.formatter -> node_call -> unit 
 
 (** Return the node of the given name from a list of nodes *)
 val node_of_name : LustreIdent.t -> t list -> t 

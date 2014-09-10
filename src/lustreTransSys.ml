@@ -65,18 +65,6 @@ let add_to_svs set list =
 (* Create a copy of the state variable at the top level *)
 let state_var_of_top_scope is_input ?is_const ?is_clock top_node state_var =
 
-(* 
-
-  let state_var' = 
-    StateVar.mk_state_var
-      ?is_input
-      ?is_const:(Some (StateVar.is_const state_var))
-      (StateVar.name_of_state_var state_var) 
-      ("__top" :: (StateVar.scope_of_state_var state_var))
-      (StateVar.type_of_state_var state_var)
-  in
-*)
-
   let state_var' = 
     E.mk_state_var_of_ident 
       is_input
@@ -89,7 +77,10 @@ let state_var_of_top_scope is_input ?is_const ?is_clock top_node state_var =
   (* State variable is instance of local variable *)
   E.set_state_var_source
     state_var'
-    (E.Instance (LustreAst.dummy_pos, top_node, state_var));
+    E.Abstract;
+
+  (* Variable is an instance of a variable *)
+  E.set_state_var_instance state_var' LustreAst.dummy_pos top_node state_var;
 
   state_var'
   
@@ -106,6 +97,9 @@ type node_def =
 
     (* Stateful local variables *)
     locals : StateVar.t list;
+
+    (* Properties in node *)
+    props : (string * Term.t) list;
 
     (* Name of predicate for initial state constraint *)
     init_uf_symbol : UfSymbol.t;
@@ -217,24 +211,38 @@ let rec definitions_of_node_calls
     node_defs
     local_vars
     init
-    trans = 
+    trans
+    lifted_props = 
 
   function
 
     (* All node calls consumed, return term for initial state
        constraint and transition relation *)
-    | [] -> (local_vars, init, trans)
+    | [] -> (local_vars, init, trans, lifted_props)
 
     (* Node call with or without activation condition *)
     | { N.call_returns = output_vars;
+        N.call_observers = observer_vars;
         N.call_clock = act_cond;
         N.call_node_name = node_name;
-        N.call_inputs = input_exprs;
+        N.call_inputs = input_vars;
         N.call_defaults = init_exprs;
-        N.call_pos = pos } :: tl -> 
+        N.call_pos = pos } as call :: tl -> 
+
+      debug lustreTransSys
+          "definitions_of_node_calls: %a"
+          (N.pp_print_call false) call
+      in
 
       (* Signature of called node *)
-      let { init_uf_symbol; trans_uf_symbol; inputs; outputs; locals } = 
+      let 
+
+        { init_uf_symbol; 
+          trans_uf_symbol; 
+          inputs; 
+          outputs; 
+          locals;
+          props } = 
 
         (* Find definition of called node by name *)
         try 
@@ -269,17 +277,15 @@ let rec definitions_of_node_calls
       (* Input for node call in initial state *)
       let input_terms_init = 
         List.map
-          (function { E.expr_init } -> 
-            E.base_term_of_expr base_offset expr_init) 
-          input_exprs
+          (E.base_term_of_state_var base_offset)
+          input_vars
       in
 
       (* Input for node call in step state *)
       let input_terms_trans = 
         List.map
-          (function { E.expr_step } -> 
-            E.cur_term_of_expr cur_offset expr_step) 
-          input_exprs
+          (E.cur_term_of_state_var cur_offset)
+          input_vars
       in
 
       (* Input for node call in step state
@@ -287,13 +293,13 @@ let rec definitions_of_node_calls
          Skip over constant state variables *)
       let input_terms_trans_pre = 
         List.fold_right2
-          (fun sv { E.expr_step } accum -> 
+          (fun sv sv' accum -> 
              if StateVar.is_const sv then 
                accum 
              else
-               E.pre_term_of_expr cur_offset expr_step :: accum)  
+               E.pre_term_of_state_var cur_offset sv' :: accum)  
           inputs
-          input_exprs
+          input_vars
           []
       in
 
@@ -315,7 +321,25 @@ let rec definitions_of_node_calls
         List.map (E.pre_term_of_state_var cur_offset) output_vars
       in
 
-      (* Variables local to the node for this instance *)
+      (* Variables observing properties in called nodes in the initial
+         state *)
+      let observer_terms_init = 
+        List.map (E.base_term_of_state_var base_offset) observer_vars
+      in
+
+      (* Variables observing properties in called nodes in the current
+         state *)
+      let observer_terms_trans = 
+        List.map (E.cur_term_of_state_var cur_offset) observer_vars
+      in
+
+      (* Variables observing properties in called nodes in the
+         previous state *)
+      let observer_terms_trans_pre = 
+        List.map (E.pre_term_of_state_var cur_offset) observer_vars
+      in
+
+      (* Stateful variables local to the node for this instance *)
       let local_vars', call_local_vars = 
 
         (* Need to preserve order of variables *)
@@ -329,26 +353,23 @@ let rec definitions_of_node_calls
              let var_name = StateVar.string_of_state_var state_var in
 
              (* New state variable for node call *)
-             let local_state_var = 
-(*
-               StateVar.mk_state_var
-                 (name_of_local_var (List.length local_vars) var_name)
-                 scope
-                 var_type
-*)
+             let local_state_var = mk_new_state_var var_type in
 
-               mk_new_state_var var_type
-             in
+             (* State variable is not defined in input *)
+             E.set_state_var_source local_state_var E.Abstract;
 
              (* State variable is instance of local variable *)
-             E.set_state_var_source
+             E.set_state_var_instance
                local_state_var
-               (E.Instance (pos, node_name, state_var));
+               pos
+               node_name state_var;
 
              (local_state_var :: local_vars, 
               local_state_var :: call_local_vars))
           locals
-          (output_vars @ local_vars, [])
+
+          (* Observers are not locals, but become outputs *)
+          (input_vars @ output_vars @ local_vars, [])
 
       in
 
@@ -376,6 +397,9 @@ let rec definitions_of_node_calls
         (* Current state output variables *)
         output_terms_init @ 
 
+        (* Current state output variables *)
+        observer_terms_init @ 
+
         (* Current state local variables *)
         call_local_vars_init
 
@@ -390,6 +414,9 @@ let rec definitions_of_node_calls
         (* Current state output variables *)
         output_terms_trans @ 
 
+        (* Current state output variables *)
+        observer_terms_trans @ 
+
         (* Current state local variables *)
         call_local_vars_trans @
 
@@ -398,6 +425,9 @@ let rec definitions_of_node_calls
 
         (* Previous state output variables *)
         output_terms_trans_pre @
+
+        (* Previous state output variables *)
+        observer_terms_trans_pre @
 
         (* Previous state local variables *)
         call_local_vars_trans_pre  
@@ -410,9 +440,69 @@ let rec definitions_of_node_calls
       (* Constraint for node call in transition relation *)
       let trans_call = Term.mk_uf trans_uf_symbol trans_call_args in
 
+      (* Lift properties from called node *)
+      let lifted_props' = 
+
+        (* Pretty-print a file position *)
+        let pp_print_file ppf pos_file = 
+
+          if pos_file = "" then () else
+            Format.fprintf ppf "%s" pos_file
+        in
+
+        (* Pretty-print a position as attributes *)
+        let pp_print_pos ppf pos = 
+
+          (* Do not print anything for a dummy position *)
+          if LustreAst.is_dummy_pos pos then () else 
+
+            (* Get file, line and column of position *)
+            let pos_file, pos_lnum, pos_cnum = 
+              LustreAst.file_row_col_of_pos pos
+            in
+
+            (* Print attributes *)
+            Format.fprintf 
+              ppf
+              "[%al%dc%d]"
+              pp_print_file pos_file
+              pos_lnum
+              pos_cnum
+
+        in
+
+        (* Lift the name of a property in a subnode by adding the
+           position of the node call *)
+        let lift_prop_name node_name pos prop_name =
+
+          string_of_t 
+            (function ppf -> function prop_name -> 
+               Format.fprintf ppf 
+                 "%a%a.%s"
+                 (LustreIdent.pp_print_ident true) node_name
+                 pp_print_pos pos
+                 prop_name)
+            prop_name
+
+        in
+
+        (* Lift properties in subnode to properties of calling node *)
+        List.map 
+          (function (n, t) -> 
+            (lift_prop_name node_name pos n, 
+             LustreExpr.lift_term pos node_name t))
+          props 
+
+      in
+
       (* Constraint for node call in initial state and transtion
          relation with activation condition *)
-      let local_vars'', init_call_act_cond, trans_call_act_cond = 
+      let 
+
+        local_vars'', 
+        init_call_act_cond, 
+        trans_call_act_cond, 
+        lifted_props'' = 
 
         if 
 
@@ -422,9 +512,97 @@ let rec definitions_of_node_calls
         then 
 
           (* Return predicates unguarded *)
-          local_vars', init_call, trans_call 
+          local_vars', init_call, trans_call, lifted_props @ lifted_props'
 
         else
+
+          (* New state variable for node call *)
+          let ticked_state_var = mk_ticked_state_var () in
+
+          (* State variable is instance of local variable *)
+          E.set_state_var_source
+            ticked_state_var
+            E.Abstract;
+
+          (* State variable to mark if clock has ever ticked in the initial state *)
+          let ticked_init =
+            E.base_term_of_state_var base_offset ticked_state_var 
+          in
+
+          (* State variable to mark if clock has ever ticked in the current state *)
+          let ticked_trans =
+            E.cur_term_of_state_var cur_offset ticked_state_var 
+          in
+
+          (* State variable to mark if clock has ever ticked in the previous state *)
+          let ticked_trans_pre =
+            E.pre_term_of_state_var cur_offset ticked_state_var 
+          in
+
+          (* Create shadow variable for each non-constant input *)
+          let 
+
+            (* Add shadow state variable to local variables, return
+               term at previous instant, equation with corresponding
+               inputs, and equation with previous state value *)
+            (local_vars'', 
+             input_shadow_terms_trans_pre, 
+             propagate_inputs, 
+             propagate_inputs_init, 
+             interpolate_inputs) =
+
+            List.fold_right
+              (fun
+                sv
+                ((local_vars'',
+                  input_shadow_terms_trans_pre, 
+                  propagate_inputs, 
+                  propagate_inputs_init, 
+                  interpolate_inputs) as accum) -> 
+
+                (* Skip over constant inputs *)
+                if StateVar.is_const sv then accum else 
+
+                  (* Create fresh shadow variable for input *)
+                  let sv' = mk_new_state_var (StateVar.type_of_state_var sv) in
+
+                  (* State variable is locally created *)
+                  E.set_state_var_source sv' E.Abstract;
+
+                  (* Shadow variable at previous instant *)
+                  let t = E.pre_term_of_state_var cur_offset sv' in
+
+                  (* Shadow variable takes value of input *)
+                  let p = 
+                    Term.mk_eq
+                      [E.cur_term_of_state_var cur_offset sv'; 
+                       E.cur_term_of_state_var cur_offset sv]
+                  in
+
+                  (* Shadow variable takes value of input *)
+                  let p_i = 
+                    Term.mk_eq
+                      [E.base_term_of_state_var base_offset sv'; 
+                       E.base_term_of_state_var base_offset sv]
+                  in
+
+                  (* Shadow variable takes its previous value *)
+                  let i = 
+                    Term.mk_eq
+                      [E.cur_term_of_state_var cur_offset sv'; 
+                       E.pre_term_of_state_var cur_offset sv']
+                  in
+
+                  (* Add shadow variable and equations to accumulator *)
+                  (sv' :: local_vars'',
+                   t :: input_shadow_terms_trans_pre, 
+                   p :: propagate_inputs, 
+                   p_i :: propagate_inputs_init, 
+                   i :: interpolate_inputs))
+              input_vars
+              (local_vars', [], [], [], [])
+
+          in
 
           (* Arguments for node call in transition relation *)
           let init_call_trans_args = 
@@ -434,6 +612,9 @@ let rec definitions_of_node_calls
 
             (* Current state output variables *)
             output_terms_trans @ 
+
+            (* Current state output variables *)
+            observer_terms_trans @ 
 
             (* Current state local variables *)
             call_local_vars_trans 
@@ -445,29 +626,44 @@ let rec definitions_of_node_calls
             Term.mk_uf init_uf_symbol init_call_trans_args 
           in
 
-          (* New state variable for node call *)
-          let ticked_state_var = mk_ticked_state_var () in
+          (* Arguments for node call in transition relation *)
+          let trans_call_args = 
 
-          (* State variable is instance of local variable *)
-          E.set_state_var_source
-            ticked_state_var
-            E.Abstract;
+            (* Current state input variables *)
+            input_terms_trans @ 
 
-          let ticked_init =
-            E.base_term_of_state_var base_offset ticked_state_var 
+            (* Current state output variables *)
+            output_terms_trans @ 
+
+            (* Current state output variables *)
+            observer_terms_trans @ 
+
+            (* Current state local variables *)
+            call_local_vars_trans @
+
+            (* Previous state input variables *)
+            input_shadow_terms_trans_pre @
+
+            (* Previous state output variables *)
+            output_terms_trans_pre @
+
+            (* Previous state output variables *)
+            observer_terms_trans_pre @
+
+            (* Previous state local variables *)
+            call_local_vars_trans_pre  
+
           in
 
-          let ticked_trans =
-            E.cur_term_of_state_var cur_offset ticked_state_var 
-          in
+          (* Constraint for node call in initial state *)
+          let init_call = Term.mk_uf init_uf_symbol init_call_args in
 
-          let ticked_trans_pre =
-            E.pre_term_of_state_var cur_offset ticked_state_var 
-          in
+          (* Constraint for node call in transition relation *)
+          let trans_call = Term.mk_uf trans_uf_symbol trans_call_args in
 
           (* Local variables extended by state variable indicating if
              node has ticked once *)
-          (ticked_state_var :: local_vars',
+          (ticked_state_var :: local_vars'',
 
            Term.mk_and
 
@@ -476,6 +672,10 @@ let rec definitions_of_node_calls
 
                (* Equation for ticked state variable *)
                Term.mk_eq [ticked_init; act_cond_init];
+
+               (* Propagate input values to shadow variable on clock tick *)
+               Term.mk_implies 
+                 [act_cond_init; Term.mk_and propagate_inputs_init];
 
                (* Initial state constraint with true activations
                   condition *)
@@ -493,8 +693,9 @@ let rec definitions_of_node_calls
                              E.base_term_of_expr base_offset expr_init] :: 
                           accum)
                        []
-                       output_vars
-                       init_exprs)]
+                       (output_vars @ observer_vars)
+                       (init_exprs @ 
+                        (List.map (fun _ -> E.t_true) observer_vars)))]
 
              ],
 
@@ -503,17 +704,29 @@ let rec definitions_of_node_calls
 
              [
 
+               (* State variable is false if the clock has not ticked before *)
                Term.mk_eq 
                  [ticked_trans;
                   Term.mk_or [act_cond_trans; ticked_trans_pre]];
 
-               (* Transition relation with true activation condition *)
+               (* Propagate input values to shadow variable on clock tick *)
+               Term.mk_implies 
+                 [act_cond_trans; Term.mk_and propagate_inputs];
+
+               (* Interpolate input values in shadow variable between
+                  clock ticks *)
+               Term.mk_implies 
+                 [Term.mk_not act_cond_trans; Term.mk_and interpolate_inputs];
+
+               (* Transition relation with true activation condition
+                  on the first clock tick *)
                Term.mk_implies
                  [Term.mk_and 
                     [act_cond_trans; Term.mk_not ticked_trans_pre];
                   init_call_trans];
 
-               (* Transition relation with true activation condition *)
+               (* Transition relation with true activation condition
+                  on following clock ticks *)
                Term.mk_implies
                  [Term.mk_and 
                     [act_cond_trans; ticked_trans_pre];
@@ -530,11 +743,11 @@ let rec definitions_of_node_calls
                              E.pre_term_of_state_var cur_offset state_var] :: 
                           accum)
                        []
-                       (output_vars @ call_local_vars))];
+                       (output_vars @ observer_vars @ call_local_vars))];
 
-             ]
+             ],
 
-          )
+           lifted_props @ lifted_props')
 
       in
 
@@ -547,6 +760,7 @@ let rec definitions_of_node_calls
         local_vars''
         (init_call_act_cond :: init)
         (trans_call_act_cond :: trans) 
+        lifted_props''
         tl
 
 
@@ -610,6 +824,21 @@ let definitions_of_contract init trans requires ensures =
 
 
 
+let prop_of_node_prop main_node state_var =
+
+  (* Name of state variable is name of property *)
+  let prop_name = StateVar.name_of_state_var state_var in
+  
+  (* Term of property *)
+  let prop_term = 
+    E.base_term_of_state_var 
+      base_offset
+      (state_var_of_top_scope false main_node state_var) 
+  in
+  
+  (prop_name, prop_term)
+
+
 let rec trans_sys_of_nodes'
     main_node 
     node_defs 
@@ -622,22 +851,28 @@ let rec trans_sys_of_nodes'
     (match node_defs, fun_defs_init, fun_defs_trans with 
 
       (* Take the head of the list as top node *)
-      | (_, { inputs; outputs; locals }) :: _, 
+      | (_, { inputs; outputs; locals; props}) :: _, 
         (init_uf_symbol, (init_vars, _)) :: _,
         (trans_uf_symbol, (trans_vars, _)) :: _ -> 
 
         (* Create copies of the state variables of the top node,
            flagging input variables *)
         let state_vars_top = 
-          List.map (state_var_of_top_scope true main_node) inputs @
-          List.map (state_var_of_top_scope false main_node) (outputs @ locals)
+          List.map
+            (state_var_of_top_scope true main_node) 
+            inputs @
+          List.map
+            (state_var_of_top_scope false main_node) 
+            (outputs @ locals)
         in
 
         let state_vars_top_pre = 
           List.map 
             (state_var_of_top_scope true main_node)
             (List.filter (fun sv -> not (StateVar.is_const sv)) inputs) @
-          List.map (state_var_of_top_scope false main_node) (outputs @ locals)
+          List.map
+            (state_var_of_top_scope false main_node)
+            (outputs @ locals)
         in
 
         (
@@ -660,7 +895,12 @@ let rec trans_sys_of_nodes'
           Term.mk_uf 
             trans_uf_symbol
             ((List.map (E.cur_term_of_state_var cur_offset) state_vars_top) @
-             (List.map (E.pre_term_of_state_var cur_offset) state_vars_top_pre))
+             (List.map (E.pre_term_of_state_var cur_offset) state_vars_top_pre)),
+
+          List.map
+            (function (n, t) -> 
+              (n, LustreExpr.lift_term LustreAst.dummy_pos main_node t)) 
+            props
 
         )
 
@@ -674,6 +914,7 @@ let rec trans_sys_of_nodes'
        N.inputs = node_inputs;
        N.oracles = node_oracles;
        N.outputs = node_outputs; 
+       N.observers = node_observers;
        N.locals = node_locals; 
        N.equations = node_equations; 
        N.calls = node_calls; 
@@ -688,11 +929,6 @@ let rec trans_sys_of_nodes'
         (N.pp_print_node false) node
     in
 
-    debug lustreTransSys
-        "fresh_state_var_index: %a"
-        Numeral.pp_print_numeral !(node.N.fresh_state_var_index)
-    in
-
     (* Create scope from node name *)
     let scope = 
       LustreIdent.index_of_ident node_name
@@ -700,6 +936,7 @@ let rec trans_sys_of_nodes'
 
     let r = ref Numeral.(- one) in
 
+    (* Create a new state variable to flag first tick of node *)
     let mk_ticked_state_var () = 
       E.mk_fresh_state_var
         false
@@ -710,31 +947,16 @@ let rec trans_sys_of_nodes'
         r
     in
 
-      (* Create a new state variable for abstractions *)
-      let mk_new_state_var state_var_type = 
-        E.mk_fresh_state_var
-          false
-          false
-          scope
-          I.abs_ident
-          state_var_type
-          node.N.fresh_state_var_index
-      in
-
-(*
     (* Create a new state variable for abstractions *)
-    let mk_ticked_state_var r = 
-      let r = ref Numeral.(- one) in
-      fun () ->
-        Numeral.incr r; 
-        E.mk_state_var_of_ident
-          false
-          false
-          (LustreIdent.index_of_ident node_name)
-          (I.push_int_index !r I.ticked_ident)
-          Type.t_bool
+    let mk_new_state_var state_var_type = 
+      E.mk_fresh_state_var
+        false
+        false
+        scope
+        I.abs_ident
+        state_var_type
+        node.N.fresh_state_var_index
     in
-*)
 
     (* Input variables *)
     let inputs = List.map fst node_inputs in
@@ -745,29 +967,17 @@ let rec trans_sys_of_nodes'
     (* Output variables *)
     let outputs = List.map fst node_outputs in
 
-    (* Variables in properties that are not outputs *)
-    let props_locals_set = 
-      List.fold_left 
-        (fun accum state_var -> 
-           if 
-             List.exists 
-               (StateVar.equal_state_vars state_var)
-               outputs 
-           then 
-             accum 
-           else 
-             SVS.add state_var accum)
-        SVS.empty
-        node_props
-    in
+    (* Observer output variables *)
+    let observers = node_observers in
 
     (* Add constraints from node calls *)
-    let call_locals, init_defs_calls, trans_defs_calls = 
+    let call_locals, init_defs_calls, trans_defs_calls, lifted_props = 
       definitions_of_node_calls 
         scope
         mk_ticked_state_var
         mk_new_state_var
         node_defs
+        []
         []
         []
         []
@@ -777,21 +987,30 @@ let rec trans_sys_of_nodes'
     (* Variables capturing outputs of node calls are new local
        variables unless they are inputs or outputs *)
     let call_locals_set = 
-      List.fold_left 
-        (fun accum sv  -> 
-           if 
-             (List.exists
-                (StateVar.equal_state_vars sv) 
-                outputs)
-             || (List.exists 
-                   (StateVar.equal_state_vars sv) 
-                   inputs)
-           then 
-             accum 
-           else 
-             SVS.add sv accum)
-        SVS.empty
-        call_locals
+      svs_of_list
+        (List.filter
+           (fun sv -> 
+              not
+                ((List.exists 
+                    (StateVar.equal_state_vars sv)
+                    inputs)
+                 || (List.exists 
+                       (StateVar.equal_state_vars sv)
+                       outputs)
+                 || (List.exists
+                       (StateVar.equal_state_vars sv) 
+                       oracles)
+                 || (List.exists
+                       (StateVar.equal_state_vars sv) 
+                       observers)))
+           call_locals)
+    in
+
+    debug lustreTransSys
+        "@[<hv>Call local vars in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        (SVS.elements call_locals_set)
     in
 
     (* Variables occurring under a pre are new local variables unless
@@ -808,7 +1027,10 @@ let rec trans_sys_of_nodes'
                     outputs)
               || (List.exists
                     (StateVar.equal_state_vars sv) 
-                    oracles)))
+                    oracles)
+              || (List.exists
+                    (StateVar.equal_state_vars sv) 
+                    observers)))
         (N.stateful_vars_of_node node)
     in
 
@@ -818,14 +1040,14 @@ let rec trans_sys_of_nodes'
         (pp_print_list StateVar.pp_print_state_var ",@ ")
         (SVS.elements node_locals_set)
     in
-        
+
     (* Local variables are those occurring under a pre, properties or
        variables capturing outputs of node calls *)
     let locals_set = 
       List.fold_left 
         SVS.union
         SVS.empty
-        [node_locals_set; call_locals_set; props_locals_set]
+        [node_locals_set; call_locals_set]
     in
 
     (* Convert set to a list *)
@@ -837,7 +1059,7 @@ let rec trans_sys_of_nodes'
         (pp_print_list StateVar.pp_print_state_var ",@ ")
         locals
     in
-        
+
 
     (* Variables visible in the signature of the definition are local
        variables, inputs and outputs *)
@@ -845,8 +1067,16 @@ let rec trans_sys_of_nodes'
       List.fold_left 
         add_to_svs 
         locals_set
-        [inputs; outputs]
+        [inputs; outputs; oracles; observers]
     in
+
+    debug lustreTransSys
+        "@[<hv>Stateful vars in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        (SVS.elements signature_vars_set)
+    in
+
 
     (* Constraints from assertions
 
@@ -868,26 +1098,48 @@ let rec trans_sys_of_nodes'
         (List.rev node_equations)
     in
 
-    (* Types of input variables *)
-    let input_types = 
-      List.map StateVar.type_of_state_var inputs
-    in
-
-    (* Types of output variables *)
-    let output_types =
-      List.map StateVar.type_of_state_var outputs
-    in
-
-    (* Types of local variables *)
-    let local_types =
-      List.map StateVar.type_of_state_var locals
-    in
-
     (* Types of variables in the signature *)
     let signature_types = 
       (List.map StateVar.type_of_state_var inputs) @ 
+      (List.map StateVar.type_of_state_var oracles) @ 
       (List.map StateVar.type_of_state_var outputs) @ 
+      (List.map StateVar.type_of_state_var observers) @ 
       (List.map StateVar.type_of_state_var locals) 
+    in
+
+    debug lustreTransSys
+        "@[<hv>Inputs in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        inputs
+    in
+
+    debug lustreTransSys
+        "@[<hv>Oracles in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        oracles
+    in
+
+    debug lustreTransSys
+        "@[<hv>Outputs in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        outputs
+    in
+
+    debug lustreTransSys
+        "@[<hv>Observers in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        observers
+    in
+
+    debug lustreTransSys
+        "@[<hv>Locals in %a:@ @[<hv>%a@]@]"
+        (I.pp_print_ident false) node_name
+        (pp_print_list StateVar.pp_print_state_var ",@ ")
+        locals
     in
 
     (* Symbol for initial state constraint for node *)
@@ -921,6 +1173,11 @@ let rec trans_sys_of_nodes'
          (List.map 
             (E.base_var_of_state_var base_offset) 
             outputs) @
+
+         (* Observer variables *)
+         (List.map 
+            (E.base_var_of_state_var base_offset) 
+            observers) @
 
          (* Local variables *)
          (List.map (E.base_var_of_state_var base_offset) locals)),
@@ -960,6 +1217,11 @@ let rec trans_sys_of_nodes'
             (E.cur_var_of_state_var cur_offset)
             outputs) @
 
+         (* Observer output variables *)
+         (List.map 
+            (E.cur_var_of_state_var cur_offset)
+            observers) @
+
          (* Local variables *)
          (List.map (E.cur_var_of_state_var cur_offset) locals) @ 
 
@@ -976,6 +1238,9 @@ let rec trans_sys_of_nodes'
          (* Output variables *)
          (List.map (E.pre_var_of_state_var cur_offset) outputs) @
 
+         (* Observer output variables *)
+         (List.map (E.pre_var_of_state_var cur_offset) observers) @
+
          (* Local variables *)
          (List.map (E.pre_var_of_state_var cur_offset) locals)),
 
@@ -983,10 +1248,48 @@ let rec trans_sys_of_nodes'
 
     in
 
+    debug lustreTransSys
+        "@[<v>Transition relation:@,%a@]"
+        TransSys.pp_print_uf_def fun_def_trans
+    in
+
+    let props = 
+      (List.map 
+         (function state_var -> 
+
+           (* Name of state variable is name of property *)
+           let prop_name = StateVar.name_of_state_var state_var in
+
+           (* Term of property *)
+           let prop_term = 
+             E.base_term_of_state_var 
+               base_offset
+               state_var
+           in
+           (prop_name, prop_term))
+         node_props)
+      @ lifted_props
+    in
+
+    debug lustreTransSys
+        "@[<hv>Properties of node %a@ @[<hv>%a@]@]"
+        (LustreIdent.pp_print_ident false) node_name
+        (pp_print_list
+           (function ppf -> function (n, t) -> 
+              Format.fprintf ppf 
+                "%s: %a"
+                n
+                Term.pp_print_term t)
+           ",@ ")
+        props
+    in
+
+
     let node_def = 
       { inputs = inputs @ oracles;
-        outputs = outputs;
+        outputs = outputs @ observers;
         locals = locals;
+        props = props;
         init_uf_symbol = init_uf_symbol;
         init_term = Term.mk_and init_defs_calls;
         trans_uf_symbol = trans_uf_symbol;
@@ -1004,20 +1307,6 @@ let rec trans_sys_of_nodes'
 let trans_sys_of_nodes main_node nodes = 
   trans_sys_of_nodes' main_node [] [] [] nodes
 
-
-let prop_of_node_prop main_node state_var =
-
-  (* Name of state variable is name of property *)
-  let prop_name = StateVar.name_of_state_var state_var in
-  
-  (* Term of property *)
-  let prop_term = 
-    E.base_term_of_state_var 
-      base_offset
-      (state_var_of_top_scope false main_node state_var) 
-  in
-  
-  (prop_name, prop_term)
 
 let props_of_nodes main_node nodes = 
 

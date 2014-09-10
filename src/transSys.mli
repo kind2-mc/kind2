@@ -101,6 +101,9 @@ type t = private
     constraint to the invariants. *)
 val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
 
+(** Pretty-print a predicate definition *)
+val pp_print_uf_def : Format.formatter -> pred_def -> unit
+
 (** Pretty-print a transition system *)
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
@@ -185,6 +188,7 @@ val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> u
     from instant zero up to instant [k], which is the third argument. *)
 val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
 
+val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> (StateVar.t * Term.t list) list -> bool
 
 (* 
    Local Variables:
