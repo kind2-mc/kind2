@@ -39,6 +39,7 @@ Requirements
 
 - Linux or Mac OS X,
 - OCaml 4.01 or later,
+- Camlp4 
 - [Menhir](http://gallium.inria.fr/~fpottier/menhir/) parser generator, and
 - a supported SMT solver
  - [Z3](http://z3.codeplex.com) (presently recommended), 
