@@ -140,7 +140,18 @@ val invars_of_bound : t -> Numeral.t -> Term.t
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 
+(** Return uninterpreted function symbol definitions *)
 val uf_defs : t -> pred_def list
+
+(** Return uninterpreted function symbol definitions as pairs of
+    initial state and transition relation definitions *)
+val uf_defs_pairs : t -> (pred_def * pred_def) list
+
+(** Return [true] if the uninterpreted symbol is a transition relation *)
+val is_trans_uf_def : t -> UfSymbol.t -> bool
+
+(** Return [true] if the uninterpreted symbol is an initial state constraint *)
+val is_init_uf_def : t -> UfSymbol.t -> bool
 
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
