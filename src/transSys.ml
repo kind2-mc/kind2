@@ -475,12 +475,35 @@ let all_props_proved trans_sys =
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
 
+
+(* Return uninterpreted function symbol definitions *)
 let uf_defs { pred_defs } = 
 
   List.fold_left 
     (fun a (i, t) -> i :: t :: a)
     []
     pred_defs
+
+(* Return uninterpreted function symbol definitions as pairs of
+    initial state and transition relation definitions *)
+let uf_defs_pairs { pred_defs } = pred_defs
+
+
+(* Return [true] if the uninterpreted symbol is a transition relation *)
+let is_trans_uf_def trans_sys uf_symbol = 
+
+  List.exists
+    (function (_, (t, _)) -> UfSymbol.equal_uf_symbols uf_symbol t)
+    trans_sys.pred_defs
+ 
+
+(* Return [true] if the uninterpreted symbol is an initial state constraint *)
+let is_init_uf_def trans_sys uf_symbol = 
+
+  List.exists
+    (function ((i, _), _) -> UfSymbol.equal_uf_symbols uf_symbol i)
+    trans_sys.pred_defs
+ 
 
 (* Apply [f] to all uninterpreted function symbols of the transition
    system *)
