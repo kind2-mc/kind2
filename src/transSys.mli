@@ -60,7 +60,7 @@ val length_of_cex : (StateVar.t * Term.t list) list -> int
     The transition system must be constructed with the function
     {!mk_trans_sys}. Fields of the record are exposed, but accessing
     them is deprecated, use the provided functions below. *)
-type t = private
+type t (* = private
 
   {
 
@@ -93,13 +93,13 @@ type t = private
 
   }
 
-
+       *)
     
 (** Create a transition system
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
+val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> UfSymbol.t * (Var.t * Term.t) list -> UfSymbol.t * (Var.t * Term.t) list -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -133,6 +133,9 @@ val props_of_bound : t -> Numeral.t -> Term.t
 
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
+
+(** Get property by name *)
+val prop_of_name : t -> string -> Term.t
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : t -> Numeral.t -> Term.t
