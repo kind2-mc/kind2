@@ -2662,7 +2662,7 @@ let main trans_sys =
   in
 
   (* Prove all properties with restarting after invalid counterexamples *)
-  restart_loop trans_sys.TransSys.props
+  restart_loop (TransSys.props_list_of_bound trans_sys Numeral.zero)
 
 
 

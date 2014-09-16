@@ -81,10 +81,10 @@ type t =
     state_vars : StateVar.t list;
 
     (* Initial state constraint *)
-    init : Term.t;
+    init : UfSymbol.t * (Var.t * Term.t) list;
 
     (* Transition relation *)
-    trans : Term.t;
+    trans : UfSymbol.t * (Var.t * Term.t) list;
 
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
@@ -99,6 +99,27 @@ type t =
     mutable prop_status : (string * prop_status) list;
     
   }
+
+
+(* Return the term for the initial state constraint *)
+let init_term t = 
+
+  (* Get symbol and map from formal to actual parameters *)
+  let init_uf_symbol, params_map = t.init in
+  
+  (* Call to top node *)
+  Term.mk_uf init_uf_symbol (List.map snd params_map)
+
+
+(* Return the term for the transition relation *)
+let trans_term t = 
+
+  (* Get symbol and map from formal to actual parameters *)
+  let trans_uf_symbol, params_map = t.trans in
+  
+  (* Call to top node *)
+  Term.mk_uf trans_uf_symbol (List.map snd params_map)
+
 
 
 let pp_print_state_var ppf state_var = 
@@ -157,13 +178,13 @@ let pp_print_pred_defs
 
 let pp_print_trans_sys 
     ppf
-    { pred_defs; 
-      state_vars; 
-      init; 
-      trans; 
-      props;
-      invars;
-      prop_status }= 
+    ({ pred_defs; 
+       state_vars; 
+       init; 
+       trans; 
+       props;
+       invars;
+       prop_status } as trans_sys) = 
 
   Format.fprintf 
     ppf
@@ -176,8 +197,8 @@ let pp_print_trans_sys
           @[<hv 2>(status@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_pred_defs "@ ") pred_defs
-    Term.pp_print_term init 
-    Term.pp_print_term trans
+    Term.pp_print_term (init_term trans_sys)
+    Term.pp_print_term (trans_term trans_sys)
     (pp_print_list pp_print_prop "@ ") props
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list pp_print_prop_status "@ ") prop_status
@@ -261,18 +282,24 @@ let vars_of_bounds trans_sys lbound ubound =
 (* Instantiate the initial state constraint to the bound *)
 let init_of_bound t i = 
 
+  (* Get term of initial state constraint *)
+  let init_term = init_term t in
+
   (* Bump bound if greater than zero *)
-  if Numeral.(i = zero) then t.init else Term.bump_state i t.init
+  if Numeral.(i = zero) then init_term else Term.bump_state i init_term
 
 
 (* Instantiate the transition relation to the bound *)
 let trans_of_bound t i = 
 
+  (* Get term of initial state constraint *)
+  let trans_term = trans_term t in
+
   (* Bump bound if greater than zero *)
   if Numeral.(i = one) then 
-    t.trans 
+    trans_term 
   else 
-    Term.bump_state (Numeral.(i - one)) t.trans
+    Term.bump_state (Numeral.(i - one)) trans_term
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -306,6 +333,9 @@ let props_list_of_bound t i =
 let props_of_bound t i = 
   Term.mk_and (List.map snd (props_list_of_bound t i))
 
+(* Get property by name *)
+let prop_of_name t name =
+  List.assoc name t.props 
 
 (* Add an invariant to the transition system *)
 let add_invariant t invar = t.invars <- invar :: t.invars
