@@ -558,6 +558,15 @@ type value =
   | ValTerm of Term.t
 
 
+let pp_print_value ppf =
+  function 
+    | ValBool true -> Format.fprintf ppf "true"
+    | ValBool false -> Format.fprintf ppf "false"
+    | ValNum n -> Format.fprintf ppf "%a" Numeral.pp_print_numeral n
+    | ValDec d -> Format.fprintf ppf "%a" Decimal.pp_print_decimal d
+    | ValTerm t -> Format.fprintf ppf "%a" Term.pp_print_term t
+
+
 (* Extract the Boolean value from the value of an expression *)
 let bool_of_value = function 
   | ValBool b -> b
