@@ -26,11 +26,11 @@ PERSISTENT_DATA_BACKEND = dbm
 DEBUG := yes
 
 # User to run server with (make run.*)
-WWWUSER := mma1
+WWWUSER := $(USER)
 WWWGROUP := clc
 
 # Port for running the server (make run.*)
-PORT := 8484
+PORT := 8181
 
 # Port for testing (make test.*)
 TEST_PORT := 8484

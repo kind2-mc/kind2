@@ -140,8 +140,19 @@ let interpreter_service =
     ~post_params:((string "kind" ** set string "arg" ** file "inputFile" ** file "csvFile"))
     ()
 
+(* post service that takes three parameters kind, arguments and the input file*)
+let interpreter_input_service =
+  Eliom_service.post_service
+    ~fallback:interpreter_main_service
+    ~post_params:((string "kind" ** set string "arg" ** file "inputFile"))
+    ()
 
-(* For testing: call /usr/bin/true and /usr/bin/false *)
+(* get service that displays the system status *)
+
+let status_service = 
+  Eliom_service.service ~path:["status"] ~get_params:unit()
+
+
 
 
 (* Registration of services *)
@@ -149,12 +160,17 @@ let _ =
   Eliom_registration.String.register
     ~service:submitjob_main_service
     (fun () () ->
-      Lwt.return ("The site is under construction", "text/xml"));
+      Lwt.return (xmlwrapper "The site is under construction", "text/xml"));
 
   Eliom_registration.String.register
     ~service:interpreter_main_service
     (fun () () ->
-      Lwt.return ("The site is under construction", "text/xml"));
+      Lwt.return (xmlwrapper "The site is under construction", "text/xml"));
+
+  Eliom_registration.String.register
+    ~service:status_service
+    (fun () () ->
+      Lwt.return (xmlwrapper "The system is running","text/xml"));
 
    Eliom_registration.String.register
     ~service:submitjob_service
@@ -163,11 +179,24 @@ let _ =
       let cmd_args : string list = process_arg arg in
       let filename : string = file.tmp_filename in
       let default_args :string list = extra_args kind in 
-      let user_msg, job_id, job_info = create_job command (default_args @ cmd_args) filename path in  
-      add_running_job job_id (extract job_info);
-     Lwt.return 
-       ( user_msg, "text/xml")); 
-   
+      let user_msg, job_id, job_info = create_job command (default_args @ cmd_args) filename path in
+      ( match job_info with
+	Some info -> add_running_job job_id info
+      | None    ->  () );
+      Lwt.return 
+	( user_msg, "text/xml")); 
+
+   Eliom_registration.String.register
+     ~service:interpreter_input_service
+     (fun () (kind, (arg, file)) ->
+       let command : string = command_look kind in
+       let inputFile_name = file.tmp_filename in
+       let extra_arg = interpreter_arg kind in
+       let cmd_args = process_arg arg in
+       let msg = interpreter_job command (extra_arg @ cmd_args) inputFile_name path in
+       Lwt.return
+	 (msg, "text/xml"));
+       
    Eliom_registration.String.register
      ~service:interpreter_service
      (fun () (kind,(args, (inputFile,csvFile))) ->
