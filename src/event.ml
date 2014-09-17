@@ -922,7 +922,7 @@ let log_proved mdl level trans_sys k prop =
 let log_disproved mdl level trans_sys prop cex =
   match !log_format with 
     | F_pt -> disproved_pt mdl level trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level trans_sys  prop cex
+    | F_xml -> disproved_xml mdl level trans_sys prop cex
     | F_relay -> ()
 
 
