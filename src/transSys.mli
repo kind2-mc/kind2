@@ -109,6 +109,14 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> SMTExpr.logic
+                       
+(** Return topmost predicate definition for initial state with map of
+    formal to actual parameters *)
+val init_top : t -> UfSymbol.t * (Var.t * Term.t) list
+
+(** Topmost predicate definition for transition relation with map of
+    formal to actual parameters *)
+val trans_top : t -> UfSymbol.t * (Var.t * Term.t) list
 
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
