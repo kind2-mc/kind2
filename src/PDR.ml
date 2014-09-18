@@ -31,6 +31,9 @@ exception Counterexample of (Clause.t * Clause.t) list
 (* Property disproved by other module *)
 exception Disproved of string
 
+(* Restart for other reason *)
+exception Restart
+
 
 (* Use configured SMT solver *)
 module PDRSolver = SMTSolver.Make (SMTLIBSolver)
@@ -345,36 +348,36 @@ let find_cex
     frame 
     (state_core, state_rest)
     (prop_core, prop_rest) = 
-  
+
   (* Prime variables in property *)
   let prop_core', prop_rest' =
     (Clause.map (Term.bump_state Numeral.one) prop_core, 
      Clause.map (Term.bump_state Numeral.one) prop_rest)
   in
-  
+
   (* Join the two subclauses *)
   let state_clause, prop_clause, neg_prop_clause' = 
     (Clause.union state_core state_rest, 
      Clause.union prop_core prop_rest,
      Clause.map Term.negate (Clause.union prop_core' prop_rest'))
   in
-  
+
   (* List of literals in clauses *)
   let state_terms, neg_prop_terms' = 
     (Clause.elements state_clause, 
      Clause.elements neg_prop_clause')
   in
-  
+
   (* Clause of two subclauses *)
   let state, prop = 
     (Clause.to_term state_clause, 
      Clause.to_term prop_clause) 
   in
-  
+
   debug pdr
       "Searching for counterexample"
   in
-  
+
   debug pdr
       "@[<v>Current context@,@[<hv>%a@]@]"
       HStringSExpr.pp_print_sexpr_list
@@ -384,26 +387,26 @@ let find_cex
        S.fail_on_smt_error r;
        a)
   in
-  
+
   debug pdr
       "@[<v>Current frames@,@[<hv>%a@]@]"
       SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
   in
-  
+
   (* Push a new scope to the context *)
   S.push solver_frames;
-  
+
   (debug smt
       "Asserting constraints on current frame"
    in
-   
+
    (* Assert blocking clause in current frame *)
    S.assert_term solver_frames state);
-  
+
   (debug smt
       "Asserting bad property"
    in
-   
+
    (* Assert bad property of next frame *)
    List.iter 
      ((if Flags.pdr_tighten_to_unsat_core () then
@@ -412,27 +415,27 @@ let find_cex
          S.assert_term)
         solver_frames) 
      neg_prop_terms');
-  
+
   if 
-    
+
     (debug smt
         "Checking entailment"
      in
-     
+
      (* Check if we can get outside the property in one step 
-        
+
          R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
      S.check_sat solver_frames)
-    
+
   then
-    
+
     (
-      
+
       debug pdr 
           "Counterexample found"
       in
 
-(*      
+      (*      
       debug pdr
           "@[<v>Current context@,@[<hv>%a@]@]"
           HStringSExpr.pp_print_sexpr_list
@@ -443,20 +446,20 @@ let find_cex
            a)
       in
 *)     
-      
+
       (* Get counterexample to entailment from satisfiable formula *)
       let cex = 
         S.get_model 
           solver_frames
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
       in
-      
+
       (* Remove scope from the context *)
       S.pop solver_frames;
-      
+
       (* R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
       (* exists y.f[x] & T[x,x'] & g[x'] *)
-      
+
       (* Generalize the counterexample to a formula *)
       let cex_gen = 
         generalize 
@@ -466,13 +469,13 @@ let find_cex
              [all_props; CNF.to_term frame; state])
           (Term.negate prop)
       in
-      
+
       debug pdr 
           "@[<v>Generalized counterexample:@,@[<hv>%a@]@]"
           (pp_print_list Term.pp_print_term ",@,")
           cex_gen
       in
-      
+
       (* Create clause of counterexample, must negate all literals
          later but not now *)
       let cex_gen_clause = 
@@ -484,7 +487,7 @@ let find_cex
 
       (* Push a new scope level to the context *)
       S.push solver_init;
-      
+
       (* Assert each literal of the counterexample in the initial
          state *)
       List.iter 
@@ -494,27 +497,27 @@ let find_cex
             S.assert_term) 
            solver_init) 
         cex_gen;
-      
+
       if
-        
+
         debug smt
             "Checking if counterexample holds in the initial state"
         in
-        
+
         (* Is the counterexample a model of the initial state? 
-           
+
            We must check with the generalized counterexample here, not
            with the specific model. *)
         S.check_sat solver_init 
-          
+
       then
-        
+
         (
-          
+
           debug pdr 
               "Counterexample holds in the initial state"
           in
-          
+
           debug pdr
               "@[<v>Current context@,@[<hv>%a@]@]"
               HStringSExpr.pp_print_sexpr_list
@@ -524,86 +527,92 @@ let find_cex
                S.fail_on_smt_error r;
                a)
           in
-          
+
           (* Pop scope level from the context *)
           S.pop solver_init;
-          
+
           (* Counterexample holds in the initial state *)
           raise Bad_state_reachable
-            
+
         )
-        
+
       else
-        
+
         (
-          
+
           (debug pdr 
               "Counterexample does not hold in the initial state"
            in
-           
+
            (* Partition counterexample into subclause in the unsat
               core and subclause of remaining literals *)
            let core, rest = 
-             
+
              if Flags.pdr_tighten_to_unsat_core () then 
-               
+
                partition_core 
                  solver_init 
                  cex_gen_clause
-                 
+
              else
-               
+
                cex_gen_clause, Clause.empty
-                                 
+
            in
 
-           
-                
-                debug pdr
-                    "@[<v>Unsat core of cube is@,@[<v>%a@]"
-                    (pp_print_list Term.pp_print_term "@,") 
-                    (Clause.elements core)
-                in
-                
-                S.pop solver_init;
+           debug pdr
+               "@[<v>Unsat core of cube is@,@[<v>%a@]"
+               (pp_print_list Term.pp_print_term "@,") 
+               (Clause.elements core)
+           in
 
-                (* Negate all literals in clause now *)
-                let ncore, nrest = 
-                  Clause.map Term.negate core,
-                  Clause.map Term.negate rest
-                in
-                
-                (* Return generalized counterexample *)
-                false, ( ncore,  nrest ))
-          
+           if Clause.is_empty core then 
+
+             (Event.log
+                L_info
+                "Reduced blocking clause to empty clause. Restarting.";
+              
+              raise Restart);
+
+           S.pop solver_init;
+
+           (* Negate all literals in clause now *)
+           let ncore, nrest = 
+             Clause.map Term.negate core,
+             Clause.map Term.negate rest
+           in
+
+           (* Return generalized counterexample *)
+           false, ( ncore,  nrest ))
+
         )
 
     )
-    
+
   else
-    
+
     (
-      
+
       (debug pdr 
           "No counterexample found"
        in
-       
+
        (* Partition counterexample into subclause in the unsat core
           and subclause of remaining literals *)
        let core', rest' = 
-         
+
          if Flags.pdr_tighten_to_unsat_core () then 
-           
+
            partition_core 
              solver_frames 
              neg_prop_clause'
-             
+
          else
 
            neg_prop_clause', Clause.empty 
-                           
+
        in
-       
+
        (* Unprime and unnegate variables in literals of core and rest *)
        let core, rest = 
          (Clause.map 
@@ -624,7 +633,7 @@ let find_cex
              Clause.pp_print_clause core
              Clause.pp_print_clause rest
           in
-          
+
           Stat.incr Stat.pdr_tightened_blocking_clauses);
 
        (* Entailment holds, no counterexample *)
@@ -1600,6 +1609,15 @@ let fwd_propagate
 
                    if Clause.is_empty clause_core then 
 
+                     (Event.log
+                        L_info
+                        "Reduced blocking clause to empty clause. Restarting.";
+                      
+                      raise Restart);
+
+(*
+                   if Clause.is_empty clause_core then 
+
                      (debug pdr 
                          "Context is unsatisfiable without clause:@,%a@,%a"
                          Clause.pp_print_clause clause
@@ -1616,6 +1634,7 @@ let fwd_propagate
                       in
 
                       assert false);
+*)
 
                    S.pop solver_frames;
 
@@ -1738,20 +1757,20 @@ let fwd_propagate
         (* All clauses in R_i-1 \ R_i can be propagated to R_i, hence
             we have R_i-1 = R_i and terminate *)
         if CNF.cardinal keep = 0 then 
-          
+
           (
-            
+
             Event.log L_trace
               "Fixpoint reached: F_%d and F_%d are equal"
               (succ (List.length accum))
               (succ (succ (List.length accum)));
-            
+
             Stat.set 
               (succ (List.length accum))
               Stat.pdr_fwd_fixpoint;
-(*            
+            (*            
             if Flags.pdr_print_inductive_invariant () then
-              
+
               (Format.fprintf 
                  !ppf_inductive_assertions
                  "@[<v>-- Inductive invariant:@,assert@ %a@]"
@@ -1768,16 +1787,16 @@ let fwd_propagate
             in
 
             if Flags.pdr_print_inductive_invariant () then 
-              
+
               Event.log L_off
                 "@[<hv>Inductive invariant:@ %a@]"
                 Term.pp_print_term ind_inv;
 
             if Flags.pdr_check_inductive_invariant () then 
-              
-              
+
+
               (
-                
+
                 (* Initial state constraint *)
                 let init = TransSys.init_of_bound trans_sys Numeral.zero in
 
@@ -1864,7 +1883,7 @@ let fwd_propagate
               );
 
             S.pop solver_frames;
-              
+
             raise (Success (List.length frames))
 
           );
@@ -2554,6 +2573,11 @@ let main trans_sys =
                   trace
               in
 
+              debug pdr
+                "@[<v>Counterexample:@,@[<hv>%a@]@]"
+                (Event.pp_print_path_pt trans_sys false) cex_path
+              in
+
               (* Check which properties are disproved *)
               let props', props_false =
 
@@ -2571,7 +2595,10 @@ let main trans_sys =
 
                      then
 
-                       (Event.prop_status (TransSys.PropFalse cex_path) trans_sys p;
+                       (Event.prop_status 
+                          (TransSys.PropFalse cex_path) 
+                          trans_sys 
+                          p;
 
                         Event.log
                           L_info 
@@ -2582,19 +2609,29 @@ let main trans_sys =
 
                      else
 
-                       ((p, t) :: props', props_false))
+                       (Event.log
+                          L_info 
+                          "Property %s not disproved by PDR"
+                          p;
+                        
+                        ((p, t) :: props', props_false)))
+
                   ([], [])
                   props
               in
-
-(*
-              (* Output counterexample *)
-              Event.counterexample
-                props_false
-                trans_sys
-                cex_path;
-*)
-
+              
+              debug pdr
+                  "Disproved %a, continuing with %a"
+                  (pp_print_list
+                     (fun ppf n -> Format.fprintf ppf "%s" n)
+                     "@ ")
+                  props_false
+                  (pp_print_list
+                     (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+                     "@ ")
+                  props'
+              in
+          
               props'
 
             )
@@ -2642,6 +2679,9 @@ let main trans_sys =
 
             )
 
+          (* Restart for other reason *)
+          | Restart -> props
+            
       in
 
       S.pop solver_frames;
@@ -2652,8 +2692,12 @@ let main trans_sys =
 
           Event.log
             L_info 
-            "Restarting PDR after disproved property";
-
+            "@[<h>Restarting PDR with properties @[<h>%a@]@]"
+            (pp_print_list
+               (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+               "@ ")
+            props';
+          
           Stat.incr Stat.pdr_restarts);
 
       (* Restart with remaining properties *)
