@@ -75,16 +75,18 @@ type t =
 
     (* Definitions of uninterpreted function symbols for initial state
        constraint and transition relation *)
-    pred_defs : (pred_def * pred_def) list;
+    uf_defs : (pred_def * pred_def) list;
 
     (* State variables of top node *)
     state_vars : StateVar.t list;
 
-    (* Initial state constraint *)
-    init : UfSymbol.t * (Var.t * Term.t) list;
+    (* Topmost predicate definition for initial state with map of
+       formal to actual parameters *)
+    init_top : UfSymbol.t * (Var.t * Term.t) list;
 
-    (* Transition relation *)
-    trans : UfSymbol.t * (Var.t * Term.t) list;
+    (* Topmost predicate definition for transition relation with
+       map of formal to actual parameters *)
+    trans_top : UfSymbol.t * (Var.t * Term.t) list;
 
     (* Propertes to prove invariant *)
     props : (string * Term.t) list; 
@@ -105,7 +107,7 @@ type t =
 let init_term t = 
 
   (* Get symbol and map from formal to actual parameters *)
-  let init_uf_symbol, params_map = t.init in
+  let init_uf_symbol, params_map = t.init_top in
   
   (* Call to top node *)
   Term.mk_uf init_uf_symbol (List.map snd params_map)
@@ -115,11 +117,20 @@ let init_term t =
 let trans_term t = 
 
   (* Get symbol and map from formal to actual parameters *)
-  let trans_uf_symbol, params_map = t.trans in
+  let trans_uf_symbol, params_map = t.trans_top in
   
   (* Call to top node *)
   Term.mk_uf trans_uf_symbol (List.map snd params_map)
 
+
+(* Return topmost predicate definition for initial state constraint
+   with map of formal to actual parameters *)
+let init_top { init_top } = init_top
+
+
+(* Return topmost predicate definition for transition relation with
+   map of formal to actual parameters *)
+let trans_top { trans_top } = trans_top
 
 
 let pp_print_state_var ppf state_var = 
@@ -160,7 +171,7 @@ let pp_print_prop_status ppf (p, s) =
   Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
 
 
-let pp_print_pred_defs 
+let pp_print_uf_defs 
     ppf
     ((init_uf_symbol, (init_vars, init_term)), 
      (trans_uf_symbol, (trans_vars, trans_term))) = 
@@ -178,10 +189,10 @@ let pp_print_pred_defs
 
 let pp_print_trans_sys 
     ppf
-    ({ pred_defs; 
+    ({ uf_defs; 
        state_vars; 
-       init; 
-       trans; 
+       init_top; 
+       trans_top; 
        props;
        invars;
        prop_status } as trans_sys) = 
@@ -196,7 +207,7 @@ let pp_print_trans_sys
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(status@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_pred_defs "@ ") pred_defs
+    (pp_print_list pp_print_uf_defs "@ ") uf_defs
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
     (pp_print_list pp_print_prop "@ ") props
@@ -205,7 +216,7 @@ let pp_print_trans_sys
 
 
 (* Create a transition system *)
-let mk_trans_sys pred_defs state_vars init trans props input = 
+let mk_trans_sys uf_defs state_vars init_top trans_top props input = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -234,10 +245,10 @@ let mk_trans_sys pred_defs state_vars init trans props input =
       state_vars
   in
 
-  { pred_defs = pred_defs;
+  { uf_defs = uf_defs;
     state_vars = List.sort StateVar.compare_state_vars state_vars;
-    init = init;
-    trans = trans;
+    init_top = init_top;
+    trans_top = trans_top;
     props = props;
     input = input;
     prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props;
@@ -507,16 +518,16 @@ let uf_symbols_of_trans_sys { state_vars } =
 
 
 (* Return uninterpreted function symbol definitions *)
-let uf_defs { pred_defs } = 
+let uf_defs { uf_defs } = 
 
   List.fold_left 
     (fun a (i, t) -> i :: t :: a)
     []
-    pred_defs
+    uf_defs
 
 (* Return uninterpreted function symbol definitions as pairs of
     initial state and transition relation definitions *)
-let uf_defs_pairs { pred_defs } = pred_defs
+let uf_defs_pairs { uf_defs } = uf_defs
 
 
 (* Return [true] if the uninterpreted symbol is a transition relation *)
@@ -524,7 +535,7 @@ let is_trans_uf_def trans_sys uf_symbol =
 
   List.exists
     (function (_, (t, _)) -> UfSymbol.equal_uf_symbols uf_symbol t)
-    trans_sys.pred_defs
+    trans_sys.uf_defs
  
 
 (* Return [true] if the uninterpreted symbol is an initial state constraint *)
@@ -532,7 +543,7 @@ let is_init_uf_def trans_sys uf_symbol =
 
   List.exists
     (function ((i, _), _) -> UfSymbol.equal_uf_symbols uf_symbol i)
-    trans_sys.pred_defs
+    trans_sys.uf_defs
  
 
 (* Apply [f] to all uninterpreted function symbols of the transition
@@ -541,10 +552,10 @@ let iter_state_var_declarations { state_vars } f =
   List.iter (fun sv -> f (StateVar.uf_symbol_of_state_var sv)) state_vars
   
 (* Apply [f] to all function definitions of the transition system *)
-let iter_uf_definitions { pred_defs } f = 
+let iter_uf_definitions { uf_defs } f = 
   List.iter 
     (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt) 
-      pred_defs
+      uf_defs
   
 
 (* Extract a path in the transition system, return an association list
@@ -599,7 +610,7 @@ let path_from_model trans_sys get_model k =
 
 
 (* Return true if the value of the term in some instant satisfies [pred] *)
-let rec exists_eval_on_path' uf_defs pred term k model path =
+let rec exists_eval_on_path' uf_defs p term k model path =
 
   try 
 
@@ -628,8 +639,15 @@ let rec exists_eval_on_path' uf_defs pred term k model path =
     (* Evaluate term in model *)
     let term_eval = Eval.eval_term uf_defs model' term in
     
-    (* Return ture if predicate holds *)
-    if pred term_eval then true else
+    debug transSys 
+      "exists_eval_on_path' at k=%a: %a is %a"
+      Numeral.pp_print_numeral k
+      Term.pp_print_term term
+      Eval.pp_print_value term_eval
+    in
+
+    (* Return true if predicate holds *)
+    if p term_eval then true else
       
       (* Increment offset of state variables in term *)
       let term' = Term.bump_state Numeral.one term in
@@ -638,7 +656,7 @@ let rec exists_eval_on_path' uf_defs pred term k model path =
       let k' = Numeral.succ k in
 
       (* Continue checking predicate on path *)
-      exists_eval_on_path' uf_defs pred term' k' model' path'
+      exists_eval_on_path' uf_defs p term' k' model' path'
         
   (* Predicate has never been true *)
   with Exit -> false 
