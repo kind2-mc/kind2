@@ -231,11 +231,29 @@ let submitjob_service_handler () (kind, (args_in, file)) =
     match job_info with
       
     (* Add to table of running jobs *)
-    | Some info -> add_running_job job_id info
+    | Some info -> 
+
+      (
+
+        Ocsigen_messages.accesslog 
+          (Format.sprintf
+            "Job %s started"
+            job_id);
+
+        add_running_job job_id info
       
+      )
+
     (* Do not add to table *)
-    | None    ->  () 
-      
+    | None ->
+
+      (
+
+        Ocsigen_messages.accesslog 
+          (Format.sprintf
+            "No job started")
+      )
+
   );
   
   (* Return message to user *)
@@ -279,7 +297,7 @@ let interpreter_service_handler () (kind, (args_in, (input_file, csv_file))) =
   in
 
   (* Get executable and combine arguments with defaults *)
-  let cmd, args = interpreter_cmd_and_args kind args_in in 
+  let cmd, args = interpreter_cmd_and_args kind args_in' in 
   
   (* Run interpreter *)
   let msg = 
@@ -347,8 +365,16 @@ let retrievejob_service_handler job_id () =
       (* Job is not completed *)
       with Not_found ->
         
+      (
+
+        Ocsigen_messages.accesslog 
+          (Format.sprintf
+            "Job %s not found" job_id);
+
         (* Return message *)
 	Kind2server.job_not_found_msg job_id 
+
+      )
 
   in
   
@@ -432,6 +458,7 @@ let submitjob_main_service =
     ()
 
     
+(*
 (* Fallback service to retrieve job when called with no parameters *)
 let retrievejob_main_service =
   Eliom_service.App.service
@@ -439,14 +466,13 @@ let retrievejob_main_service =
     ~get_params:Eliom_parameter.unit
     ()
 
-
 (* Fallback service to retrieve job when called with no parameters *)
 let canceljob_main_service =
   Eliom_service.App.service
     ~path:["canceljob"] 
     ~get_params:Eliom_parameter.unit
     ()
-
+*)
 
 (* Fallback service for interpreter when called with no parameters *)
 let interpreter_main_service =
@@ -528,6 +554,7 @@ let _ =
     ~service:submitjob_main_service
     main_service_handler;
 
+(*
   (* Register main service as fallback *)
   Eliom_registration.String.register
     ~service:retrievejob_main_service
@@ -537,6 +564,7 @@ let _ =
   Eliom_registration.String.register
     ~service:canceljob_main_service
     main_service_handler;
+*)
 
   (* Run main service as fallback *)
   Eliom_registration.String.register
