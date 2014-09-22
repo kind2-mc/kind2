@@ -1,5 +1,16 @@
+(** Job creation, retrieval, and canceling
 
-val generate_uid : unit -> string
+    @author Jason Oxley, Mingyu Ma, Christoph Sticksel **)
+
+
+
+
+val submit_job : string -> string list -> string -> string 
+
+val submit_job_immediate : string -> string list -> string -> string 
+
+
+
 
 type running_job_info =
 
@@ -29,6 +40,9 @@ type running_job_info =
     the given file [f] and returns a tuple of an XML response, the job
     ID, and a record with information about the created job, if it was
     successfully started, [None] otherwise. *)
+
+val add_running_job : string -> running_job_info -> unit
+
 
 val create_job : string -> string list -> string -> string ->  string * string * running_job_info option
 val cancel_job : string  -> running_job_info -> int -> Unix.process_status -> string * running_job_info
