@@ -1430,7 +1430,7 @@ let reduce_to_props_coi nodes main_name =
     match props' with
 
       (* No properties, don't reduce *)
-      | [] -> nodes 
+      | [] -> List.rev nodes 
 
       (* Reduce to cone of influence of all properties *)
       | _ -> reduce_to_coi nodes main_name props'
