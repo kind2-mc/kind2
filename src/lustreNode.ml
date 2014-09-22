@@ -1427,8 +1427,13 @@ let reduce_to_props_coi nodes main_name =
            (svs_of_list observers))
     in
 
-    (* Reduce to cone of influence of all properties *)
-    reduce_to_coi nodes main_name props'
+    match props' with
+
+      (* No properties, don't reduce *)
+      | [] -> nodes 
+
+      (* Reduce to cone of influence of all properties *)
+      | _ -> reduce_to_coi nodes main_name props'
 
 (* 
    Local Variables:
