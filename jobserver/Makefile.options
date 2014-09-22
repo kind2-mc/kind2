@@ -6,7 +6,7 @@
 PROJECT_NAME := jobserver
 
 # Source files for the server
-SERVER_FILES := $(wildcard *.eliomi *.eliom) kind2server.mli kind2server.ml
+SERVER_FILES :=   lib.mli lib.ml jobs.mli jobs.ml $(wildcard *.eliomi *.eliom)
 # Source files for the client
 CLIENT_FILES := $(wildcard *.eliomi *.eliom)
 
