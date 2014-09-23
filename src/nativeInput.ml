@@ -109,7 +109,7 @@ let state_var_of_sexpr scope = function
     in
 
     (* Create state variable and return *)
-    StateVar.mk_state_var ~is_input ~is_const var_name scope var_type
+    StateVar.mk_state_var ~is_input ~is_const var_name scope var_type []
 
   | _ -> failwith "Invalid state variable declaration"
 
@@ -556,6 +556,7 @@ let state_var_of_top_scope state_var =
     (StateVar.name_of_state_var state_var)
     top_scope
     (StateVar.type_of_state_var state_var)
+    []
 
 
 (* Create a copy of the state variable instance at the top level *)

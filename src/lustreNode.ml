@@ -133,8 +133,10 @@ type t =
        analysis and cone of influence reduction later. *)
     locals : (StateVar.t * I.index) list; 
 
-    (* Equations for local and output variables *)
-    equations : (StateVar.t * LustreExpr.t) list;
+    (* Equations for local and output variables, with a list of
+       indexes and their bounds *)
+    equations : 
+      (StateVar.t * ((StateVar.t * LustreExpr.t) list * LustreExpr.t)) list;
 
     (* Node calls with activation condition: variables capturing the
        outputs, the Boolean activation condition, the name of the
@@ -224,7 +226,7 @@ let pp_print_local safe ppf (var, _) =
 
 
 (* Pretty-print a node equation *)
-let pp_print_node_equation safe ppf (var, expr) = 
+let pp_print_node_equation safe ppf (var, (_, expr)) = 
 
   Format.fprintf ppf
     "@[<hv 2>%a =@ %a;@]"
@@ -457,7 +459,7 @@ let rec node_var_dependencies nodes node accum =
           try 
 
             (* Get expression defining variable *)
-            let (_, expr) = 
+            let (_, (_, expr)) = 
               List.find 
                 (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
                 node.equations 
@@ -811,7 +813,7 @@ let solve_eqs_node_calls node =
                          state *)
                       (List.find
                          (function 
-                           | (_, e) when E.is_var e -> 
+                           | (_, (_, e)) when E.is_var e -> 
 
                              StateVar.equal_state_vars 
                                (E.state_var_of_expr e)
@@ -864,7 +866,7 @@ let solve_eqs_node_calls node =
   let equations' = 
     List.filter
       (function
-        | (_, e) when E.is_var e -> 
+        | (_, (_, e)) when E.is_var e -> 
           not (List.mem (E.state_var_of_expr e) vars_eliminated)
         | _ -> true)
       node.equations
@@ -879,7 +881,7 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   (* Start with expressions in equations *)
   let exprs_equations = 
     List.fold_left 
-      (fun accum (_, expr) -> expr :: accum)
+      (fun accum (_, (_, expr)) -> expr :: accum)
       []
       equations
   in
@@ -941,7 +943,7 @@ let stateful_vars_of_node
   (* Add stateful variables from equations *)
   let stateful_vars = 
     List.fold_left 
-      (fun accum (_, expr) -> 
+      (fun accum (_, (_, expr)) -> 
          SVS.union accum (E.stateful_vars_of_expr expr))
       stateful_vars
       equations
@@ -1225,11 +1227,14 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         try 
 
           (* Get definition of state variable *)
-          let state_var_def = List.assoc state_var node_orig.equations in
+          let state_var_indexes, state_var_def = 
+            List.assoc state_var node_orig.equations 
+          in
 
           (* Add definition of variable *)
           let equations_coi' = 
-            (state_var, state_var_def) :: node_coi.equations 
+            (state_var, (state_var_indexes, state_var_def)) ::
+            node_coi.equations 
           in
 
           (* All variables in defintion are in cone of influence *)

@@ -109,7 +109,7 @@ type t =
     locals : (StateVar.t * LustreIdent.index) list;
 
     (** Equations for local and output variables *)
-    equations : (StateVar.t * LustreExpr.t) list;
+    equations : (StateVar.t * ((StateVar.t * LustreExpr.t) list * LustreExpr.t)) list;
 
     (** Node calls with activation condition: variables capturing the
         outputs, the Boolean activation condition, the name of the

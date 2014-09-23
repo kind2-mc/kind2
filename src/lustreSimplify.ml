@@ -62,6 +62,8 @@ module E = LustreExpr
 module N = LustreNode
 
 module ISet = I.LustreIdentSet
+module IMap = I.LustreIdentMap
+module IdxMap = I.LustreIndexMap
 
 (* Node not found, possible forward reference 
 
@@ -108,45 +110,41 @@ type lustre_context =
   { 
 
     (* Type identifiers and their types *)
-    basic_types : (LustreIdent.t * Type.t) list; 
+    basic_types : Type.t IMap.t; 
 
-    (* Map of prefix of a type identifiers to its suffixes and their
-       types. Indexes must be sorted. *)
-    indexed_types : 
-      (LustreIdent.t * 
-       (LustreIdent.index * Type.t) list) list; 
+    (* Map of prefix of a type identifiers to their suffixes and their
+       types.  *)
+    indexed_types : (Type.t IdxMap.t) IMap.t; 
 
     (* Type identifiers for free types *)
-    free_types : LustreIdent.t list; 
+    free_types : unit IMap.t; 
 
     (* Types of identifiers *)
-    type_ctx : (LustreIdent.t * Type.t) list; 
+    type_ctx : Type.t IMap.t; 
 
     (* Map of prefix of an identifier to its suffixes
 
        Pair the suffix with a unit value to reuse function for
        [indexed_types]. *)
-    index_ctx : 
-      (LustreIdent.t * 
-       (LustreIdent.index * unit) list) list; 
+    index_ctx :  (unit IdxMap.t) IMap.t; 
     
     (* Values of constants *)
-    consts : (LustreIdent.t * LustreExpr.t) list; 
+    consts : E.t IMap.t;
     
     (* Nodes *)
-    nodes : LustreNode.t list;
+    nodes : N.t list;
     
   }
   
 
 (* Initial, empty context *)
 let init_lustre_context = 
-  { basic_types = [];
-    indexed_types = [];
-    free_types = [];
-    type_ctx = [];
-    index_ctx = [];
-    consts = [];
+  { basic_types = I.LustreIdentMap.empty;
+    indexed_types = I.LustreIdentMap.empty;
+    free_types = I.LustreIdentMap.empty;
+    type_ctx = I.LustreIdentMap.empty;
+    index_ctx = I.LustreIdentMap.empty;
+    consts = I.LustreIdentMap.empty;
     nodes = [] }
 
 
@@ -172,7 +170,8 @@ let pp_print_indexed_type safe ppf (i, t) =
   Format.fprintf ppf 
     "%a: @[<hv 1>[%a]@]" 
     (I.pp_print_ident safe) i 
-    (pp_print_list (pp_print_index_type safe) ";@ ") t
+    (pp_print_list (pp_print_index_type safe) ";@ ") 
+    (IdxMap.bindings t)
 
 
 (* Pretty-print types of identifiers *)
@@ -191,7 +190,7 @@ let pp_print_index_ctx safe ppf (i, j) =
     (pp_print_list 
        (fun ppf (i, _) -> I.pp_print_index safe ppf i)
        ";@ ") 
-    j
+    (IdxMap.bindings j)
 
 
 (* Pretty-print values of constants *)
@@ -222,12 +221,18 @@ let pp_print_lustre_context
           @[<v>*** index_ctx:@,%a@]@,\
           @[<v>*** consts:@,%a@]@,\
      @]" 
-    (pp_print_list (pp_print_basic_type safe) "@,") basic_types
-    (pp_print_list (pp_print_indexed_type safe) "@,") indexed_types
-    (pp_print_list (I.pp_print_ident safe) ",@ ") free_types
-    (pp_print_list (pp_print_type_ctx safe) "@,") type_ctx
-    (pp_print_list (pp_print_index_ctx safe) "@,") index_ctx
-    (pp_print_list (pp_print_consts safe) "@,") consts
+    (pp_print_list (pp_print_basic_type safe) "@,") 
+    (IMap.bindings basic_types)
+    (pp_print_list (pp_print_indexed_type safe) "@,") 
+    (IMap.bindings indexed_types)
+    (pp_print_list (I.pp_print_ident safe) ",@ ") 
+    (List.map fst (IMap.bindings free_types))
+    (pp_print_list (pp_print_type_ctx safe) "@,") 
+    (IMap.bindings type_ctx)
+    (pp_print_list (pp_print_index_ctx safe) "@,") 
+    (IMap.bindings index_ctx)
+    (pp_print_list (pp_print_consts safe) "@,") 
+    (IMap.bindings consts)
 
 
 (* Environment when simplifying an expression *)
@@ -370,13 +375,6 @@ let pp_print_abstraction_context
 
 *)
 let rec eval_ast_expr'     
-    ({ basic_types; 
-       indexed_types; 
-       free_types; 
-       type_ctx; 
-       index_ctx; 
-       consts;
-       nodes } as context)
     ({ scope;
        mk_new_state_var; 
        mk_new_oracle_for_state_var; 
@@ -386,9 +384,55 @@ let rec eval_ast_expr'
        new_calls;
        new_oracles;
        new_observers } as abstractions)
-    result = 
+    context
+    index_contexts
+    index = 
 
 
+  (* Augmented context for index *)
+  let 
+    ({ basic_types; 
+       indexed_types; 
+       free_types; 
+       type_ctx; 
+       index_ctx; 
+       consts;
+       nodes }) as context' =
+
+    try 
+
+      (* Find context for this index *)
+      let index_context = I.LustreIndexMap.find index_contexts index in
+
+      (* Merge first map into second, overriding values in second map
+         by values in first map *)
+      let merge_ident_maps m1 m2 = 
+        I.LustreIdentMap.merge 
+          (fun _ v1 v2 -> if v1 = None then v2 else v1)
+          m1
+          m2
+      in
+
+      (* Augment context by merging in new bindings *)
+      { basic_types = 
+          merge_ident_maps index_context.basic_types context.basic_types;
+        indexed_types = 
+          merge_ident_maps index_context.indexed_types context.indexed_types;
+        free_types = 
+          merge_ident_maps index_context.free_types context.free_types;
+        type_ctx = 
+          merge_ident_maps index_context.type_ctx context.type_ctx;
+        index_ctx = 
+          merge_ident_maps index_ctx.indexed_types context.index_ctx;
+        consts = 
+          merge_ident_maps index_context.consts context.consts;
+        nodes = context.nodes }
+
+    (* Use context unchanged *)
+    with Not_found -> context
+
+  in
+      
   (* Evaluate the argument of a unary expression and construct a unary
      expression of the result with the given constructor *)
   let eval_unary_ast_expr mk expr pos tl = 
@@ -463,50 +507,49 @@ let rec eval_ast_expr'
   in    
 
   function
-
-    (* All expressions evaluated, return result *)
-    | [] -> (result, abstractions)
-
-
+    
     (* An identifier without suffixes: a constant or a variable *)
-    | A.Ident (pos, ident) :: tl when 
-        List.mem_assoc ident type_ctx -> 
-
+    | A.Ident (pos, ident) when List.mem_assoc ident type_ctx -> 
+      
       (* Construct expression *)
-      let expr = eval_ident pos ident in
-
+      let res_expr = eval_ident pos ident in
+      
       (* Add expression to result *)
-      eval_ast_expr' 
-        context 
-        abstractions
-        (* Identifier does not have an index 
-           ((snd (ident :> string * I.index), expr) :: result)  *)
-        ((I.empty_index, expr) :: result) 
-        tl
-
-
+      let result' = IdxMap.add result index res_expr in
+      
+      (* Return abstractions unchanged and expression in result map *)
+      (result', abstractions)
+        
+      
     (* A nested identifier with suffixes *)
-    | A.Ident (pos, ident) :: tl when 
-        List.mem_assoc ident index_ctx -> 
+    | A.Ident (pos, ident) when List.mem_assoc ident index_ctx -> 
 
-      (* Expand indexed identifier *)
+      (* Expand indexed identifier and add to result map *)
       let result' = 
+
         List.fold_left 
-          (fun a (j, _) -> (j, eval_ident pos (I.push_back_index j ident)) :: a)
+
+          (fun result (index', _) -> 
+
+             (* Evalute identifier with index added *)
+             let res_expr = 
+               eval_ident pos (I.push_back_index index' ident) 
+             in
+
+             (* Add expression to result *)
+             IdxMap.add result (I.push_back_index index' index) res_expr)
+
           result
           (List.assoc ident index_ctx)
+
       in
 
-      (* Continue with unfolded indexes *)
-      eval_ast_expr' 
-        context 
-        abstractions
-        result' 
-        tl
-
+      (* Return abstractions unchanged and expression in result map *)
+      (result', abstractions)
+        
 
     (* Identifier must have a type or indexes *)
-    | A.Ident (pos, ident) :: _ -> 
+    | A.Ident (pos, ident) -> 
 
       fail_at_position 
         pos
@@ -516,24 +559,25 @@ let rec eval_ast_expr'
 
 
     (* Projection to a record field *)
-    | A.RecordProject (pos, ident, field) :: tl -> 
+    | A.RecordProject (pos, expr, field) -> 
 
-      (* Append index to identifier *)
-      let ident' = I.push_index field ident in
-
-      (* Check if identifier has index *)
-      if List.mem_assoc ident' index_ctx || List.mem_assoc ident' type_ctx then
-
-        let expr' = A.Ident (pos, ident') in
-
-        (* Continue with record field *)
-        eval_ast_expr' 
-          context 
+      (* Evaluate record expression *)
+      let expr', abstractions' = 
+        eval_ast_expr 
+          context'
           abstractions
-          result 
-          (expr' :: tl)
+          IdxMap.empty
+      in
 
-      else
+      try 
+
+        (* Get value for index of projected field *)
+        let res_expr = IdxMap.find expr' field in
+
+        (* Add expression to result *)
+        IdxMap.add result index res_expr 
+
+      with Not_found ->
 
         fail_at_position 
           pos
@@ -544,7 +588,7 @@ let rec eval_ast_expr'
 
 
     (* Projection to a tuple or array field *)
-    | A.TupleProject (pos, ident, field_expr) :: tl -> 
+    | A.TupleProject (pos, expr, field_expr) :: tl -> 
 
       (* Evaluate expression to an integer constant *)
       let field = 
@@ -577,26 +621,24 @@ let rec eval_ast_expr'
 
 
     (* Boolean constant true *)
-    | A.True pos :: tl -> 
+    | A.True pos -> 
 
       (* Add expression to result *)
-      eval_ast_expr' 
-        context 
-        abstractions
-        ((I.empty_index, E.t_true) :: result) 
-        tl
-
+      let result' = I.LustreIndexMap.add result index E.t_true in
+      
+      (* Return abstractions unchanged and expression in result map *)
+      (result', abstractions)
+        
 
     (* Boolean constant false *)
     | A.False pos :: tl -> 
 
       (* Add expression to result *)
-      eval_ast_expr'
-        context
-        abstractions 
-        ((I.empty_index, E.t_false) :: result) 
-        tl
-
+      let result' = I.LustreIndexMap.add result index E.t_false in
+      
+      (* Return abstractions unchanged and expression in result map *)
+      (result', abstractions)
+        
 
     (* Integer constant *)
     | A.Num (pos, d) :: tl -> 
@@ -653,10 +695,12 @@ let rec eval_ast_expr'
 
       (* Treat as tuple *)
       eval_ast_expr' 
-        context 
         abstractions
-        result
-        (A.TupleExpr (pos, expr_list') :: tl)
+        index_types
+        index_contexts
+        result 
+        index
+        (A.TupleExpr (pos, expr_list'))
 
 
     (* Tuple constructor *)
@@ -1705,19 +1749,43 @@ and binary_apply_to
          A.pp_print_expr expr2)
 
 
+
 (* Evaluate expression *)
 and eval_ast_expr 
-    context 
     abstractions
-    ast_expr = 
+    index_types
+    index_contexts
+    index_ast_expr = 
 
-  let expr', abstractions' = 
-    eval_ast_expr' 
-      context
-      abstractions
-      [] 
-      [ast_expr]
+(* FIXME: call with
+   (I.LustreIndexMap.singleton I.empty_index ast_expr)
+   from parse_node_equation etc. *)
+
+  (* Evaluate expression *)
+  let index_expr_map, abstractions' = 
+    LustreIndexMap.fold
+      (eval_ast_expr' 
+         abstractions
+         index_types
+         index_contexts)
+      index_ast_expr
+      LustreIndexMap.empty
   in
+
+  (* Convert map to association list *)
+  let indexed_exprs =
+    List.rev
+      (I.LustreIndexMap.fold
+         (fun index expr accum -> (index, expr) :: accum)
+         index_expr_map
+         [])
+  in
+      
+  (* Return result and abstractions *)
+  (indexed_exprs, abstractions')
+
+(*
+
 (*
   Format.printf 
     "@[<hv>%a@ %a@]@."
@@ -1744,6 +1812,7 @@ and eval_ast_expr
 
   (* Expression must be sorted by their indexes *)
   (List.rev expr', abstractions')
+*)
 
 
 and eval_node_call
@@ -3422,12 +3491,12 @@ let rec parse_node_equations
              pos
              ast_expr)
       in
-      
+
       (* Add assertion to node *)
       let context', node', abstractions' = 
         assertion_to_node context node abstractions pos expr'
       in
-      
+
       (* Add new definitions to context *)
       let context', node', abstractions' = 
         abstractions_to_context_and_node context' node' abstractions' pos
@@ -3453,12 +3522,12 @@ let rec parse_node_equations
              pos
              ast_expr)
       in
-      
+
       (* Add assertion to node *)
       let context', node', abstractions' = 
         property_to_node context node abstractions pos expr'
       in
-      
+
       (* Add new definitions to context *)
       let context', node', abstractions' = 
         abstractions_to_context_and_node context' node' abstractions' pos
@@ -3479,122 +3548,174 @@ let rec parse_node_equations
     | A.Equation (pos, struct_items, ast_expr) :: tl -> 
 
       debug lustreSimplify
-        "parse_node_equation %a"
-        A.pp_print_node_equation (A.Equation (pos, struct_items, ast_expr))
+          "parse_node_equation %a"
+          A.pp_print_node_equation (A.Equation (pos, struct_items, ast_expr))
       in
-      
+
+      (* State variables and types of their assigned expressions *)
+      let eq_types, context' = 
+        List.fold_left
+          (function (accum, context) -> function
+
+             (* Left-hand side is a single identifier *)
+             | A.SingleIdent (pos, ident) -> 
+
+               (* Find identifier of left-hand side in outputs *)
+               let accum' =
+                 List.fold_left
+                   (fun a (v, _) -> 
+                      try 
+                        (ignore 
+                           (I.get_suffix
+                              ident
+                              (fst (E.ident_of_state_var v))); 
+                         v) :: a
+                      with Not_found ->
+                        a)
+                   accum
+                   node.N.outputs
+               in
+
+               (* Identifier not found in outputs *)
+               if accum' = accum then
+
+                 (* Find identifier of left-hand side in local variables *)
+                 let accum'' = 
+                   List.fold_left
+                     (fun a (v, _) -> 
+                        try 
+                          (ignore 
+                             (I.get_suffix
+                                ident
+                                (fst (E.ident_of_state_var v)));
+                           (* Format.printf
+                              "found in locals %a@." 
+                              StateVar.pp_print_state_var v; *)
+                           v) :: a
+                        with Not_found ->
+                          a)
+                     accum
+                     node.N.locals
+                 in
+
+                 (* Identifier not found in outputs and local variables *)
+                 if accum'' = accum' then 
+
+                   fail_at_position 
+                     pos 
+                     "Assignment to neither output nor local variable" 
+
+                 else
+
+                   (* Return *)
+                   accum'', context
+
+               else
+
+                 (* Return *)
+                 accum', context
+
+             (* TODO: Recursive assignments to indexed variables 
+
+                Need to add to scope of expression per definition
+                from variable on the left-hand side
+
+                For possibly recursive definitions use define-fun
+                to either unroll definitions or quantify. *)
+             | A.IndexedIdent (pos, ident, index) -> 
+
+               (* Find identifier of left-hand side in outputs *)
+               let accum' =
+                 List.fold_left
+                   (fun a (v, _) -> 
+                      try 
+                        (ignore 
+                           (I.get_suffix
+                              ident
+                              (fst (E.ident_of_state_var v))); 
+                         v) :: a
+                      with Not_found ->
+                        a)
+                   accum
+                   node.N.outputs
+               in
+
+               (* Identifier not found in outputs *)
+               if accum' = accum then
+
+                 (* Find identifier of left-hand side in local variables *)
+                 let accum'' = 
+                   List.fold_left
+                     (fun a (v, _) -> 
+                        try 
+                          (ignore 
+                             (I.get_suffix
+                                ident
+                                (fst (E.ident_of_state_var v)));
+                           (* Format.printf
+                              "found in locals %a@." 
+                              StateVar.pp_print_state_var v; *)
+                           v) :: a
+                        with Not_found ->
+                          a)
+                     accum
+                     node.N.locals
+                 in
+
+                 (* Identifier not found in outputs and local variables *)
+                 if accum'' = accum' then 
+
+                   fail_at_position 
+                     pos 
+                     "Assignment to neither output nor local variable" 
+
+                 else
+
+                   (* Return *)
+                   accum'', context
+
+               else
+
+                 (* Return *)
+                 accum', context
+
+             (* TODO: Structural assignments *)
+             | _ -> 
+               fail_at_position
+                 pos
+                 "Structural assignments not supported")
+
+          ([], context)
+          struct_items
+      in
+
+      let eq_types = List.rev eq_types in
+
       (* Evaluate expression and guard all pre operators *)
       let expr', abstractions = 
         close_indexed_ast_expr
           pos
           (eval_ast_expr 
-             context 
+             context' 
              empty_abstractions
              ast_expr)
 
       in
 
       debug lustreSimplify
-        "@{<hv>expr' is @[<v>%a@]@]"
-        (pp_print_list 
-           (fun ppf (i, e) -> 
-              Format.fprintf ppf "%a: %a" 
-                (I.pp_print_index false) i
-                (E.pp_print_lustre_expr false) e)
-           "@,")
-           expr'
+          "@{<hv>expr' is @[<v>%a@]@]"
+          (pp_print_list 
+             (fun ppf (i, e) -> 
+                Format.fprintf ppf "%a: %a" 
+                  (I.pp_print_index false) i
+                  (E.pp_print_lustre_expr false) e)
+             "@,")
+          expr'
       in
-      
+
       debug lustreSimplify
-        "@[<v>abstractions:@,%a@]"
-        pp_print_abstraction_context abstractions
-      in
-
-      (* State variables and types of their assigned expressions *)
-      let eq_types = 
-        List.rev
-          (List.fold_left
-             (function accum -> function
-                
-                (* Left-hand side is a single identifier *)
-                | A.SingleIdent (pos, ident) -> 
-
-                  (* Find identifier of left-hand side in outputs *)
-                  let accum' =
-                    List.fold_left
-                      (fun a (v, _) -> 
-                         try 
-                           (ignore 
-                              (I.get_suffix
-                                 ident
-                                 (fst (E.ident_of_state_var v))); 
-                            v) :: a
-                         with Not_found ->
-                           a)
-                      accum
-                      node.N.outputs
-                  in
-
-                  (* Identifier not found in outputs *)
-                  if accum' = accum then
-
-                    (* Find identifier of left-hand side in local variables *)
-                    let accum'' = 
-                      List.fold_left
-                        (fun a (v, _) -> 
-                           try 
-                             (ignore 
-                                (I.get_suffix
-                                   ident
-                                   (fst (E.ident_of_state_var v)));
-                              (* Format.printf
-                                "found in locals %a@." 
-                                StateVar.pp_print_state_var v; *)
-                              v) :: a
-                           with Not_found ->
-                             a)
-                        accum
-                        node.N.locals
-                    in
-
-                    (* Identifier not found in outputs and local variables *)
-                    if accum'' = accum' then 
-                      
-                      fail_at_position 
-                        pos 
-                        "Assignment to neither output nor local variable" 
-
-                    else
-
-                      (* Return *)
-                      accum''
-
-                  else
-
-                    (* Return *)
-                    accum'
-
-                (* TODO: Recursive assignments to indexed variables 
-
-                   Need to add to scope of expression per definition
-                   from variable on the left-hand side
-
-                   For possibly recursive definitions use define-fun
-                   to either unroll definitions or quantify. *)
-                | A.IndexedIdent (pos, ident, index) -> 
-              
-                  fail_at_position
-                    pos
-                    "Indexed definitions not supported"
-
-                (* TODO: Structural assignments *)
-                | _ -> 
-                  fail_at_position
-                    pos
-                    "Structural assignments not supported")
-
-             []
-             struct_items)
+          "@[<v>abstractions:@,%a@]"
+          pp_print_abstraction_context abstractions
       in
 
       (* Add all equations to node *)
@@ -3603,19 +3724,22 @@ let rec parse_node_equations
         try 
 
           List.fold_right2
-            
+
             (fun state_var (_, expr) (context, node, abstractions) -> 
-               
+
                (* Do not check for matching indexes here, the best thing
                   possible is to compare suffixes, but it is not obvious, where
                   to start suffix at *)
                let eq = (state_var, expr) in
-               
+
                (* Add assertion to node *)
                equation_to_node context node abstractions pos eq)
-            
+
             eq_types
             expr'
+
+            (* Do not use context' here, the scope is only extended
+               for this one equation *)
             (context, node, abstractions)
 
         with Invalid_argument "List.fold_right2" -> 

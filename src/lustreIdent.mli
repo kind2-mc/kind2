@@ -58,6 +58,15 @@ type t = private string * index
 (** A set of identifiers *)
 module LustreIdentSet : Set.S with type elt = t
 
+(** A map of identifiers *)
+module LustreIdentMap : Map.S with type key = t
+
+(** A set of indexes *)
+module LustreIndexSet : Set.S with type elt = index
+
+(** A map of indexes *)
+module LustreIndexMap : Map.S with type key = index
+
 (** Pretty-print an identifier *)
 val pp_print_ident : bool -> Format.formatter -> t -> unit 
 

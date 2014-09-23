@@ -126,8 +126,8 @@ type expr =
 
   (* Identifier *)
   | Ident of position * ident
-  | RecordProject of position * ident * index
-  | TupleProject of position * ident * expr
+  | RecordProject of position * expr * index
+  | TupleProject of position * expr * expr
 
   (* Values *)
   | True of position
@@ -267,7 +267,7 @@ type node_local_decl =
 
 type struct_item =
   | SingleIdent of position * ident
-  | IndexedIdent of position * ident * one_index list
+  | IndexedIdent of position * ident * ident list
 
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
@@ -421,12 +421,12 @@ let rec pp_print_expr ppf =
         pp_print_expr e1
         pp_print_expr e2 
 
-    | RecordProject (p, id, f) -> 
+    | RecordProject (p, e, f) -> 
 
       Format.fprintf ppf 
         "%a%a%a" 
         ppos p 
-        (I.pp_print_ident false) id 
+        pp_print_expr e 
         (I.pp_print_index false) f
 
     | RecordConstruct (p, t, l) -> 
@@ -439,7 +439,7 @@ let rec pp_print_expr ppf =
 
     | TupleProject (p, e, f) -> 
 
-      Format.fprintf ppf "%a%a[%a]" ppos p (I.pp_print_ident false)  e pp_print_expr f
+      Format.fprintf ppf "%a%a[%a]" ppos p pp_print_expr e pp_print_expr f
 
     | True p -> ps p "true"
     | False p -> ps p "false"
@@ -714,6 +714,12 @@ let pp_print_node_local_decl ppf l =
 let rec pp_print_struct_item ppf = function
 
   | SingleIdent (pos, s) -> Format.fprintf ppf "%a" (I.pp_print_ident false) s
+
+  | IndexedIdent (pos, s, i) -> 
+    Format.fprintf ppf
+      "%a%a" 
+      (I.pp_print_ident false) s 
+      (pp_print_list (I.pp_print_ident false) "") i
 
   | TupleStructItem (pos, l) -> 
 

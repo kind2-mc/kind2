@@ -236,6 +236,7 @@ let state_var_is_visible state_var =
   match get_state_var_source state_var with
 
     (* Oracle inputs and abstraced streams are invisible *)
+    | Observer 
     | Oracle
     | Abstract -> false
 
@@ -280,6 +281,8 @@ let rec pp_print_state_var_source ppf = function
   | Oracle -> Format.fprintf ppf "oracle"
 
   | Output -> Format.fprintf ppf "output"
+
+  | Observer -> Format.fprintf ppf "observer"
 
   | Local -> Format.fprintf ppf "local"
 
@@ -925,6 +928,7 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
       ident_string
       scope
       state_var_type
+      []
   in
   
   (* Add to hashtable, don't create duplicates if state variable was

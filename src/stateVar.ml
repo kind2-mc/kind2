@@ -59,6 +59,9 @@ type state_var_prop =
     (* State variable is constant *)
     is_const : bool;
 
+    (* Array variable if list is not empty, types are types of indexes *)
+    indexes : Type.t list;
+
   }
 
 (* A hashconsed state variable *)
@@ -215,6 +218,9 @@ let type_of_state_var { Hashcons.prop = { var_type = t } } = t
 (* Uninterpreted function symbol of a state variable *)
 let uf_symbol_of_state_var { Hashcons.prop = { uf_symbol = u } } = u
 
+(* Types of indexes of array variable *)
+let indexes_of_state_var { Hashcons.prop = { indexes = i } } = i 
+
 (* Uninterpreted function symbol of a state variable *)
 let state_var_of_uf_symbol u = 
   UfSymbol.UfSymbolHashtbl.find uf_symbols_map u
@@ -237,7 +243,8 @@ let mk_state_var
     ?(is_const:bool = false)
     state_var_name
     state_var_scope
-    state_var_type = 
+    state_var_type
+    state_var_indexes = 
 
   try 
 
@@ -249,7 +256,17 @@ let mk_state_var
     if 
 
       (* Given type is a subtype of declared type? *)
-      Type.check_type state_var_type (type_of_state_var v)  
+      (Type.check_type state_var_type (type_of_state_var v))  &&
+      
+      (* Array variable has same number of indexes? *)
+      (List.length state_var_indexes = 
+       List.length (indexes_of_state_var v)) &&
+
+      (* Index types are subtypes of defined index types *)
+      (List.for_all2 
+         Type.check_type
+         state_var_indexes
+         (indexes_of_state_var v))
 
     then
 
@@ -306,7 +323,8 @@ let mk_state_var
            { var_type = state_var_type; 
              uf_symbol = state_var_uf_symbol;
              is_input = is_input;
-             is_const = is_const } 
+             is_const = is_const;
+             indexes = state_var_indexes } 
        in
 
        (* Remember association of uninterpreted function symbol with
@@ -329,7 +347,9 @@ let import v =
     (name_of_state_var v) 
     (scope_of_state_var v) 
     (Type.import (type_of_state_var v))
+    (List.map Type.import (indexes_of_state_var v))
     
+
 (* Return a previously declared state variable *)
 let state_var_of_string (state_var_name, state_var_scope) = 
 

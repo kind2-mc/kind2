@@ -87,6 +87,21 @@ let rec compare_index a b = match a, b with
     | c -> c 
 
 
+(* Set of identifiers *)  
+module LustreIndexSet = Set.Make 
+    (struct 
+      type t = index
+      let compare = compare
+    end)
+
+(* Map of identifiers *)  
+module LustreIndexMap = Map.Make 
+    (struct 
+      type t = index
+      let compare = compare
+    end)
+
+
 (* Compare indexed identifiers *)
 let compare (a, ia)  (b, ib) = 
 
@@ -106,6 +121,14 @@ let equal i1 i2 = compare i1 i2 = 0
 
 (* Set of identifiers *)  
 module LustreIdentSet = Set.Make 
+    (struct 
+      type z = t
+      type t = z
+      let compare = compare
+    end)
+
+(* Map of identifiers *)  
+module LustreIdentMap = Map.Make 
     (struct 
       type z = t
       type t = z

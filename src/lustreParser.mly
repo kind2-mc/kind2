@@ -443,7 +443,7 @@ struct_item:
   | s = ident
      { A.SingleIdent (mk_pos $startpos, s) }
 
-  | s = ident; l = nonempty_list(one_index)
+  | s = ident; l = nonempty_list(index_var)
      { A.IndexedIdent (mk_pos $startpos, s, l)}
 
 (*
@@ -467,6 +467,9 @@ struct_item:
 struct_item_list:
  | l = separated_nonempty_list(COMMA, struct_item) { l }
 
+(* Running variable for index *)
+index_var:
+  | LSQBRACKET; s = ident; RSQBRACKET { s }
 
 (* ********************************************************************** *)
 
@@ -506,7 +509,7 @@ expr:
   (* A tuple projection 
 
      TODO: allow multiple projections, return a list: a[0][0][0] *)
-  | e = ident; LSQBRACKET; i = expr ; RSQBRACKET
+  | e = expr; LSQBRACKET; i = expr ; RSQBRACKET
     { A.TupleProject (mk_pos $startpos, e, i) }
 
   (* A multidimensional array slice *)
@@ -514,7 +517,7 @@ expr:
     { A.ArraySlice (mk_pos $startpos, e, l) }
 
   (* A record field projection *)
-  | s = ident; DOT; t = ident 
+  | s = expr; DOT; t = ident 
     { A.RecordProject (mk_pos $startpos, s, I.index_of_ident t) }
 
   (* A record *)
@@ -773,6 +776,8 @@ tlist(opening, separator, closing, X):
 
 (* ********************************************************************** *)
 
+(*
+
 (* An index *)
 one_index: 
 
@@ -788,7 +793,7 @@ one_index:
   | LSQBRACKET; s = NUMERAL; RSQBRACKET 
      { A.NumIndex (mk_pos $startpos, int_of_string s) }
 
-
+*)
 
 
 (* 

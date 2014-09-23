@@ -85,8 +85,8 @@ type one_index =
 (** An expression *)
 type expr =
     Ident of position * ident
-  | RecordProject of position * ident * index
-  | TupleProject of position * ident * expr
+  | RecordProject of position * expr * index
+  | TupleProject of position * expr * expr
   | True of position
   | False of position
   | Num of position * string
@@ -179,7 +179,7 @@ type node_local_decl =
 (** The left-hand side of an equation *)
 type struct_item =
   | SingleIdent of position * ident
-  | IndexedIdent of position * ident * one_index list
+  | IndexedIdent of position * ident * ident list
 
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
