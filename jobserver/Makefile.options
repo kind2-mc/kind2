@@ -26,8 +26,8 @@ PERSISTENT_DATA_BACKEND = sqlite
 DEBUG := no
 
 # User to run server with (make run.*)
-WWWUSER := www-data
-WWWGROUP := www-data
+WWWUSER := ocsigen
+WWWGROUP := ocsigen
 
 # Port for running the server (make run.*)
 PORT := 8181

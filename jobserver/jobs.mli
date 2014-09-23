@@ -9,8 +9,15 @@ val submit_job : string -> string list -> string -> string
 
 val submit_job_immediate : string -> string list -> string -> string 
 
+val job_output : string -> string
 
+val cancel_job : string -> string
 
+val purge_jobs : unit -> string
+
+val status : unit -> string
+
+(*
 
 type running_job_info =
 
@@ -51,3 +58,5 @@ val retrieve_complete : string -> Unix.tm -> string
 val job_not_found_msg : string -> string
 val interpreter_job : string -> string list -> string -> string -> string
 val log : ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+
+*)
