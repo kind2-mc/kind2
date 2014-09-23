@@ -25,15 +25,25 @@
 (* Static constants and defaults                                          *)
 (* ********************************************************************** *)
 
+(* TODO: Put this in a config file *)
 
 (* Data directory of Ocsigen instance *)
 let data_dir = Ocsigen_config.get_datadir ()
 
-
 (* Path to generated input and output files *)
 let jobs_dir = Filename.concat data_dir "jobs"
 
-  
+(* Maximum one minute load average *)
+let load1_max = 8.
+
+(* Maximum five minutes load average *)
+let load5_max = 4.
+
+(* Maximum 15 minutes load average *)
+let load15_max = 0.
+
+(* Purge jobs after one day *)
+let job_purge_time =  86400.
 
 (* ********************************************************************** *)
 (* Executables and parameters                                             *)
@@ -47,7 +57,7 @@ let checkers_and_arguments =
 
     (* Kind 2 *)
     ("kind2", 
-     ("/usr/local/bin/kind2", 
+     ("/Users/chris/kind2-mc/kind2/bin/kind2", 
       ["-xml"]));
 
     (* PKind *)
@@ -183,7 +193,7 @@ let pp_print_time ppf time =
       Unix.tm_wday = tm_wday;
       Unix.tm_yday = tm_yday } =
     
-    time
+    Unix.localtime time
 
   in
   
@@ -204,7 +214,7 @@ let string_of_time = string_of_t pp_print_time
 
 (* Output a timestamp *)
 let pp_print_timestamp ppf =
-  pp_print_time ppf (Unix.localtime (Unix.time ()))
+  pp_print_time ppf (Unix.gettimeofday ())
 
 
 (* Pretty-print status of a process *)
@@ -374,3 +384,51 @@ let read_bytes start filename =
       (start, "")
 
     )
+
+
+(* Create string identifier for job from request id *)
+let generate_uid () = 
+  let req_id = Eliom_request_info.get_request_id () in
+  base10tol Int64.(logand req_id (of_int32 Int32.max_int))
+
+
+(* Get load average in a pseudo-portable way
+
+   Try /proc/loadavg first (Linux), then execute sysctl -n vm.loadavg (Mac OS X) *)
+let get_loadavg () =
+
+  try 
+
+    (* Open load averages file *)
+    let loadavg_ch = open_in "/proc/loadavg" in
+    
+    (* Read load averages from file *)
+    let load1, load5, load15 =
+      Scanf.fscanf loadavg_ch "%f %f %f" (fun l1 l5 l15 -> (l1,l5,l15))
+    in
+    
+    (* Close load averages file *)
+    close_in loadavg_ch;
+    
+    (* Return load averages *)
+    load1, load5, load15
+
+  (* /proc/loadavg not available *)
+  with Sys_error _ -> 
+
+    (* Run sysctl command *)
+    let loadavg_ch = Unix.open_process_in "sysctl -n vm.loadavg" in
+
+    (* Read load averages from command output *)
+    let load1, load5, load15 =
+      Scanf.fscanf loadavg_ch "{ %f %f %f }" (fun l1 l5 l15 -> (l1,l5,l15))
+    in
+    
+    (* Close load averages file *)
+    let _ = Unix.close_process_in loadavg_ch in
+    
+    (* Return load averages *)
+    load1, load5, load15
+
+    
+

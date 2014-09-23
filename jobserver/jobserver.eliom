@@ -22,12 +22,6 @@
 
 open Lib
 
-(* Wrap XML body *)
-let xmlwrapper msg = 
-  Printf.sprintf
-    "<?xml version=\"1.0\" encoding=\"UTF-8\"?><title><para>%s</para></title>" 
-    msg
-
 (* ********************************************************************** *)
 (* Service handlers                                                       *)
 (* ********************************************************************** *)
@@ -36,14 +30,17 @@ let xmlwrapper msg =
 
    TODO: Allow interaction with the server through HTML forms *)
 let main_service_handler () () = 
-  Lwt.return (xmlwrapper "The site is under construction", "text/xml")
+  Lwt.return ("The site is under construction", "text/plain")
 
 
 (* Return server status
 
    TODO: Allow interaction with the server through HTML forms *)
 let status_service_handler () () =
-  Lwt.return (xmlwrapper "The system is running","text/xml")
+
+  let msg = Jobs.status () in
+  
+  Lwt.return (msg, "text/plain")
 
 
 (* Submit a job *)
@@ -106,7 +103,7 @@ let interpreter_service_handler () (kind, (args_in, (input_file, csv_file))) =
 let retrievejob_service_handler job_id () =
 
   (* Get output of job *)
-  let msg = Jobs.retrieve_job job_id in
+  let msg = Jobs.job_output job_id in
   
   (* Return result *)
   Lwt.return (msg, "text/xml")
@@ -120,6 +117,16 @@ let canceljob_service_handler job_id () =
   
   (* Return result *)
   Lwt.return (msg, "text/xml")
+
+
+(* Cancel running job *)
+let purge_jobs_service_handler () () =
+
+  (* Schedule canceling of job *)
+  let msg = Jobs.purge_jobs () in
+  
+  (* Return result *)
+  Lwt.return (msg, "text/plain")
 
 
 (* ********************************************************************** *)
@@ -179,6 +186,14 @@ let canceljob_service =
 let status_service = 
   Eliom_service.Http.service
     ~path:["status"]
+    ~get_params:Eliom_parameter.unit 
+    ()
+
+
+(* Service to return system status *)
+let purge_jobs_service = 
+  Eliom_service.Http.service
+    ~path:["purgejobs"]
     ~get_params:Eliom_parameter.unit 
     ()
 
@@ -276,5 +291,10 @@ let _ =
   (* Register interpreter service handler *)
    Eliom_registration.String.register
      ~service:interpreter_service
-     interpreter_service_handler
+     interpreter_service_handler;
+
+  (* Register interpreter service handler *)
+   Eliom_registration.String.register
+     ~service:purge_jobs_service
+     purge_jobs_service_handler
 

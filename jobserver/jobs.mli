@@ -9,9 +9,13 @@ val submit_job : string -> string list -> string -> string
 
 val submit_job_immediate : string -> string list -> string -> string 
 
-val retrieve_job : string -> string
+val job_output : string -> string
 
 val cancel_job : string -> string
+
+val purge_jobs : unit -> string
+
+val status : unit -> string
 
 (*
 

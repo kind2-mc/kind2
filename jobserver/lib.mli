@@ -40,7 +40,7 @@ val pp_print_list : (Format.formatter -> 'a -> unit) ->
 val base10tol : int64 -> string
 
 (** Pretty-print a time as Jan 01 00:00:00 *)
-val pp_print_time : Format.formatter -> Unix.tm -> unit
+val pp_print_time : Format.formatter -> float -> unit
 
 (** Pretty-print a timestamp as [Jan 01 00:00:00] *)
 val pp_print_timestamp : Format.formatter -> unit
@@ -68,3 +68,17 @@ val checker_cmd_and_args : string -> string list -> string * string list
 
 val interpreter_cmd_and_args : string -> string list -> string * string list
 
+val generate_uid : unit -> string
+
+(** Get load average in a pseudo-portable way
+
+   Try [/proc/loadavg] first (Linux), then execute [sysctl -n vm.loadavg] (Mac OS X) *)
+val get_loadavg : unit -> float * float * float 
+
+val load1_max : float
+
+val load5_max : float
+
+val load15_max : float
+
+val job_purge_time : float 
