@@ -17,7 +17,7 @@
 *)
 
 open Lib
-
+open Tsugi
 
 (* Use configured SMT solver *)
 module BMCSolver = SMTSolver.Make (SMTLIBSolver)
