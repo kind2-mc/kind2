@@ -1,9 +1,12 @@
-node X(s: int) returns ();
-const array_size = 3;
+type rational = { n: int; d: int };
+
+node X(s: int; const array_size: int) returns ();
 const array_default = 0;
 var 
-  A1, A2: int^array_size;
+  A1, A2, A7: int^array_size;
   A3, A4: int^array_size^array_size;
+  A5: [int, bool]^array_size;
+  A6: rational^array_size;
   i: real;
   j: bool;
 
@@ -27,5 +30,14 @@ let
   
   -- Structural assignment involving recursive array definition
   (i, A1[i]) = (0, s);
+
+  -- Array of tuples 
+  A5[i] = [i, i mod 2 = 0];
+
+  -- Array of records
+  A6[i] = rational { n=i; d=i+1 };
+
+  -- Temporal operator applied to running variable: legal?
+  A7[i] = 0 -> pre i;
 
 tel
