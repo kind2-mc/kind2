@@ -133,13 +133,13 @@ let add_running_job jobid jobinfo : unit =
     
     
 (* Add a job to the completed jobs *)
-let add_completed_job jobid time = 
+let add_completed_job jobid time status = 
 
   (* Add to hash table by reading from reference, modifying and
      returning the modified hash table *)
   Eliom_reference.Volatile.modify
     completed_jobs
-    (fun tbl -> Hashtbl.add tbl jobid time; tbl)
+    (fun tbl -> Hashtbl.add tbl jobid (time, status); tbl)
 
 
 (* Get the job info of a running job *)
@@ -153,7 +153,7 @@ let find_running_job jobid =
 
 
 (* Modify the job info of a running job *)
-let update_running_job jobid jobinfo : unit =
+let update_running_job jobid jobinfo =
 
   (* Add hash table by reading from reference, modifying and returning
      the modified hash table *)
@@ -164,14 +164,14 @@ let update_running_job jobid jobinfo : unit =
       tbl)
 
 (* Remove a a running job from hash table *)
-let remove_running_job jobid : unit = 
+let remove_running_job jobid = 
   Eliom_reference.Volatile.modify
     running_jobs
     (fun tbl -> Hashtbl.remove tbl jobid; tbl)
 
 
 (* Get the job info of a running job *)
-let find_completed_job jobid : unit =
+let find_completed_job jobid =
 
   (* Get hash table from reference *)
   let tbl = Eliom_reference.Volatile.get completed_jobs in
@@ -247,7 +247,7 @@ let start_job job_cmd job_args input_file after_start =
       in
 
       (* Create hard link to temporary input file *)
-      Unix.link inputFile job_stdin_fn;
+      Unix.link input_file job_stdin_fn;
 
       (* Open file for input *)
       let job_stdin_in =
@@ -318,7 +318,7 @@ let submit_job job_cmd job_args input_file =
       job_id
       job_pid
       (Lib.pp_print_list Format.pp_print_string " ")
-      (cmd :: args);
+      (job_cmd :: job_args);
 
     (* Return message *)
     Format.asprintf
@@ -338,24 +338,20 @@ let submit_job job_cmd job_args input_file =
 let submit_job_immediate job_cmd job_args input_file = 
 
   (* Continuation after job has started *)
-  let after_start job_id ({ job_pid; job_stdout_fn } as job_info) = 
+  let after_start job_id { job_pid; job_stdout_fn } = 
     
     log AccessLog
-      "Waiting for job with PID %d as %a."
+      "Waiting for job %s with PID %d."
       job_id
-      job_pid
-      (Lib.pp_print_list Format.pp_print_string " ")
-      (cmd :: args);
+      job_pid;
 
     (* Wait for started job to finish *)
     (try ignore (Unix.waitpid [] job_pid) with _ -> ());
 
     log AccessLog
-      "Job with PID %d has terminated."
+      "Job %s with PID %d has terminated."
       job_id
-      job_pid
-      (Lib.pp_print_list Format.pp_print_string " ")
-      (cmd :: args);
+      job_pid;
 
     (* Read all output *)
     let _ , msg = read_bytes 0 job_stdout_fn in
@@ -367,6 +363,199 @@ let submit_job_immediate job_cmd job_args input_file =
 
   (* Start job and add to table of running jobs *)
   start_job job_cmd job_args input_file after_start
+
+
+let retrieve_job job_id = 
+
+  try 
+
+    (* Find job in table of running jobs *)
+    let { job_pid; job_stdout_fn; job_stdout_pos } as job_info = 
+      find_running_job job_id 
+    in
+
+    (* Read from standard output file *)
+    let new_stdout_pos, stdout_string = 
+      read_bytes job_stdout_pos job_stdout_fn 
+    in
+
+    log AccessLog 
+      "Read %d bytes of output from job %s" 
+      (new_stdout_pos - job_stdout_pos)
+      job_id;
+
+    (* Update position in file *)
+    job_info.job_stdout_pos <- new_stdout_pos;
+
+    (* Update status of running job *)
+    update_running_job job_id job_info;
+
+    (* Get exit status of job *)
+    let status_pid, job_status =
+      Unix.waitpid [Unix.WNOHANG] job_pid 
+    in
+
+    (* Job has exited? *)
+    if status_pid != 0 then
+
+      (
+
+        log AccessLog 
+          "Job %s with PID %d has %a" 
+          job_id
+          job_pid
+          pp_print_process_status job_status;
+
+        (* Remove job from table of running jobs *)
+        remove_running_job job_id;
+
+        (* Add job to table of completed jobs *)
+        add_completed_job job_id (Unix.gmtime (Unix.time ())) job_status
+
+      );
+
+    (* Return output from job *)
+    stdout_string
+
+  (* Job is not running *)
+  with Not_found ->
+
+    try
+
+      (* Find job in table of completed jobs *)
+      let job_tm, job_status = find_completed_job job_id in
+
+      log AccessLog
+        "Job %s was completed at %a UTC" 
+        job_id
+        pp_print_time job_tm;
+      
+      Format.asprintf
+        "<Jobstatus msg=\"completed\">\
+         Job with ID %s has %a and was retrieved at %a UTC\
+         </Jobstatus>"
+        job_id 
+        pp_print_process_status job_status
+        pp_print_time job_tm
+            
+    (* Job is not completed *)
+    with Not_found ->
+      
+      (
+        
+        log AccessLog
+          "Job %s not found" 
+          job_id;
+        
+        Format.asprintf
+          "<Jobstatus msg=\"notfound\">\
+           Job with ID %s not found.\
+           </Jobstatus>" 
+          job_id 
+
+      )
+
+
+(* Register a request to cancel a job *)
+let cancel_job job_id =
+
+  try 
+
+    (* Find job in table of running jobs *)
+    let { job_pid; job_stdout_fn; job_stdout_pos } as job_info = 
+      find_running_job job_id 
+    in
+
+    (
+
+      try 
+
+        log AccessLog
+          "Sending SIGINT to %s running as PID %d" 
+          job_id
+          job_pid;
+
+        (* Send SIGINT (Ctrl+C) to job *)
+        Unix.kill job_pid Sys.sigint;
+
+        (* Add cancel request to list *)
+        cancel_requested_jobs :=
+          (job_id, job_pid, Unix.gettimeofday ()) ::
+          !cancel_requested_jobs;
+
+        (* Message to client *)
+        Format.asprintf
+          "<Jobstatus msg=\"inprogress\">\
+           Requested canceling of job with ID %s.\
+           </Jobstatus>"
+          job_id 
+
+      with Unix.Unix_error (_, _, e) ->
+
+        (
+
+          log AccessLog
+            "Error canceling job %s with PID %d: %s" 
+            job_id
+            job_pid
+            e;
+
+          (* Message to client *)
+          Format.asprintf
+            "<Jobstatus msg=\"notfound\">\
+             Couldn not cancel job with ID %s. %s.\
+             </Jobstatus>"
+            job_id 
+            e
+
+        )
+
+    )
+
+  (* Job is not running *)
+  with Not_found ->
+
+    try
+
+      (* Find job in table of completed jobs *)
+      let job_tm, job_status = find_completed_job job_id in
+
+      log AccessLog
+        "Attempting to cancel completed job %s" 
+        job_id;
+
+      Format.asprintf
+        "<Jobstatus msg=\"completed\">\
+         Job with ID %s has %a and was retrieved at %a UTC\
+         </Jobstatus>"
+        job_id 
+        pp_print_process_status job_status
+        pp_print_time job_tm
+
+    (* Job is not completed *)
+    with Not_found ->
+
+      (
+
+        log AccessLog
+          "Job %s not found" 
+          job_id;
+
+        Format.asprintf
+          "<Jobstatus msg=\"notfound\">\
+           Job with ID %s not found.\
+           </Jobstatus>" 
+          job_id 
+
+      )
+
+
+
+(* TODO: prune jobs called frequently to kill canceled jobs and to
+   clean up *)
+
+(*
+   
   
 
 
@@ -449,179 +638,6 @@ Contents of stderr:@\n\
 
   output_string
 
-   
-
-let retrieve_job job_id = 
-
-  try 
-
-    (* Find job in table of running jobs *)
-    let { job_pid; job_stdout_fn; job_stdout_pos } as job_info = 
-      find_running_job job_id 
-    in
-
-    (* Read from standard output file *)
-    let new_stdout_pos, stdout_string = 
-      read_bytes job_stdout_pos job_stdout_fn 
-    in
-
-    log AccessLog 
-      "Read %d bytes of output from job %s" 
-      (new_stdout_pos - job_stdout_pos)
-      job_id;
-
-    (* Update position in file *)
-    job_info.job_stdout_pos <- new_stdout_pos;
-
-    (* Update status of running job *)
-    update_running_job job_id job_info;
-
-    (* Get exit status of job *)
-    let status_pid, process_status =
-      Unix.waitpid [Unix.WNOHANG] job_pid 
-    in
-
-    (* Job has exited? *)
-    if status_pid != 0 then
-
-      (
-
-        log AccessLog 
-          "Job %s has %a" 
-          (new_stdout_pos - job_stdout_pos)
-          pp_print_process_status job_status;
-
-        (* Remove job from table of running jobs *)
-        remove_running_job job_id;
-
-        (* Add job to table of completed jobs *)
-        add_completed_job job_id (Unix.gmtime (Unix.time ()));
-
-
-
-      );
-
-    (* Return output from job *)
-    msg
-
-  (* Job is not running *)
-  with Not_found ->
-
-    try
-
-      (* Find job in table of completed jobs *)
-      let job_tm = find_completed_job job_id in
-
-      log AccessLog
-        "Job %s was completed at %a UTC" 
-        job_id
-        pp_print_time job_tm;
-      
-      Format.asprintf
-        "<Jobstatus msg=\"completed\">\
-         Job with ID %s has completed and was retrieved at %a UTC\
-         </Jobstatus>"
-        job_id 
-        pp_print_time job_tm
-            
-    (* Job is not completed *)
-    with Not_found ->
-      
-      (
-        
-        log AccessLog
-          "Job %s not found" 
-          job_id;
-        
-        Format.asprintf
-          "<Jobstatus msg=\"notfound\">\
-           Job with ID %s not found.\
-           </Jobstatus>" 
-          job_id 
-
-      )
-
-
-
-
-(* Register a request to cancel a job *)
-let cancel_job job_id =
-  
-  try 
-
-    (* Find job in table of running jobs *)
-    let { job_pid; job_stdout_fn; job_stdout_pos } as job_info = 
-      find_running_job job_id 
-    in
-
-  (* Job is not running *)
-  with Not_found ->
-
-    try
-
-      (* Find job in table of completed jobs *)
-      let job_tm = find_completed_job job_id in
-
-      log AccessLog
-        "Job %s was completed at %a UTC" 
-        job_id
-        pp_print_time job_tm;
-      
-      Format.asprintf
-        "<Jobstatus msg=\"completed\">\
-         Job with ID %s has completed and was retrieved at %a UTC\
-         </Jobstatus>"
-        job_id 
-        pp_print_time job_tm
-            
-    (* Job is not completed *)
-    with Not_found ->
-      
-      (
-        
-        log AccessLog
-          "Job %s not found" 
-          job_id;
-        
-        Format.asprintf
-          "<Jobstatus msg=\"notfound\">\
-           Job with ID %s not found.\
-           </Jobstatus>" 
-          job_id 
-
-      )
-
-    
-  
-
-  (* Send SIGINT (Ctrl+C) to job *)
-  Unix.kill job_param.job_pid Sys.sigint;
-
-            (* Add cancel request to list *)
-            cancel_requested_jobs :=
-              (job_id, job_param.job_pid, Unix.gettimeofday ()) ::
-                         !cancel_requested_jobs;
-
-            (* Message to client *)
-            let msg = asprintf
-              "%s\
-<Jobstatus msg=\"inprogress\">\
-Requested canceling of job with ID %s.\
-</Jobstatus>"
-              stdout_string
-              job_id in 
-            ( msg , job_param)
-
-          )
-
-        else
-          (
-          ((output_of_job_status job_id job_param job_status) , job_param)
-            
-          )
-
-
-(*
    
 
 
