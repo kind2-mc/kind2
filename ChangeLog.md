@@ -1,4 +1,6 @@
-# New features 
+# Kind 2 v0.7.1
+
+## New features 
 - Support XOR operator in PDR
 - Cover more cases in type inference to widen integer interval types 
 - Instantiate properties in sub-nodes in calling nodes 
@@ -8,7 +10,7 @@
 - Output trace file for interaction with SMT solvers
 - Native input format as alternative to Lustre
 
-# Bug fixes 
+## Bug fixes 
 - Interpolate input variables for nodes in condact between clock ticks 
 - Fix assertion failure in PDR on zero or one step counterexamples when BMC and PDR run in parallel
 - Automatically switch quantifer elimination in PDR when not in LIA logic
