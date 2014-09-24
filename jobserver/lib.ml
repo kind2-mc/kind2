@@ -57,7 +57,7 @@ let checkers_and_arguments =
 
     (* Kind 2 *)
     ("kind2", 
-     ("/Users/chris/kind2-mc/kind2/bin/kind2", 
+     ("/usr/local/bin/kind2", 
       ["-xml"]));
 
     (* PKind *)
