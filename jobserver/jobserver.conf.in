@@ -4,18 +4,6 @@
 <!-- %%WARNING%% -->
 <ocsigen>
   <server>
-    <port>%%PORT%%</port>
-    %%% Only set for running, not for testing
-    %%USERGROUP%%
-    <logdir>%%LOGDIR%%</logdir>
-    <datadir>%%DATADIR%%</datadir>
-    <uploaddir>%%DATADIR%%/uploads</uploaddir>
-    <charset>utf-8</charset>
-    %%% Only set when debugging
-    %%DEBUGMODE%%
-    <commandpipe>%%CMDPIPE%%</commandpipe>
-    <extension findlib-package="ocsigenserver.ext.staticmod"/>
-    <extension findlib-package="ocsigenserver.ext.ocsipersist-%%PERSISTENT_DATA_BACKEND%%"/>
     <extension findlib-package="eliom.server"/>
     %%% This will include the packages defined as SERVER_PACKAGES in your Makefile:
     %%PACKAGES%%

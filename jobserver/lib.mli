@@ -82,3 +82,5 @@ val load5_max : float
 val load15_max : float
 
 val job_purge_time : float 
+
+val jobs_dir : string

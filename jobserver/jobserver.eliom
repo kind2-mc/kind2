@@ -86,7 +86,7 @@ let interpreter_service_handler () (kind, (args_in, (input_file, csv_file))) =
 
   (* Add arguments to input arguments *)
   let args_in' = 
-    "--interpreter_input_file" :: csv_file_name :: args_in
+    csv_file_name :: "--interpreter_input_file" :: args_in
   in
 
   (* Get executable and combine arguments with defaults *)
@@ -240,6 +240,12 @@ let interpreter_input_service =
 
 (* Registration of services *)
 let _ =
+
+  let () =
+    log AccessLog
+      "Directory for jobs is %s"
+      jobs_dir
+  in
 
   (* Register main service as fallback *)
   Eliom_registration.String.register
