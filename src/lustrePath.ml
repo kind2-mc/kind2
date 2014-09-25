@@ -499,7 +499,7 @@ let pp_print_stream_prop_xml ppf = function
   | E.Local -> Format.fprintf ppf "@ class=\"local\""
 
   (* these types of streams should have been culled out *)
-  | E.Abstract | E.Oracle -> assert false 
+  | E.Observer | E.Abstract | E.Oracle -> assert false 
 
 
 (* Pretty-print a single value of a stream at an instant *)
@@ -691,10 +691,17 @@ let rec pp_print_tree_path_pt
 
     let children = snd (List.split (CallMap.bindings call_map)) in 
 
+    let children = CallMap.bindings call_map in 
+
     let ident_path = (node_ident, node_pos) :: ancestor_idents in
 
-    let print_child child =
-      pp_print_tree_path_pt ident_width val_width ident_path ppf child
+    let print_child ((_, pos), child) =
+      pp_print_tree_path_pt
+        ident_width
+        val_width
+        ((node_ident, pos) :: ancestor_idents)
+        ppf 
+        child
     in
 
     (* Pretty-print input streams if any *)
