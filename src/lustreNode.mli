@@ -175,10 +175,12 @@ val stateful_vars_of_node : t -> StateVar.StateVarSet.t
 *)
 val find_main : t list -> LustreIdent.t
 
+(*
 (** produces the set of all state variables contained in any of the nodes in the
     given list 
 *)
 val extract_state_vars : t list -> StateVar.StateVarSet.t
+*)
 
 (** Reduce list of nodes to list of nodes called by the node and its
     subnodes, include the given node. The list of nodes is partially
