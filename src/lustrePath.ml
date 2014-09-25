@@ -238,7 +238,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 let rec tree_path_of_nodes 
     start_at_init
     nodes
-    { N.inputs; N.outputs; N.locals; N.calls; N.equations } 
+    { N.inputs; N.outputs; N.locals; N.calls; N.props; N.equations } 
     tree_path_in
     tree_path = 
 
@@ -277,6 +277,7 @@ let rec tree_path_of_nodes
  
   (* Show only inputs, outputs and local variables *)
   let visible_vars = 
+    props @
     (List.map fst inputs) @ 
     (sort_defined_vars 
        []
