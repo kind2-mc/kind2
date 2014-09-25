@@ -321,6 +321,38 @@ let partition_core solver clause =
   core_clause, rest_clause
 
 
+let trim_clause solver_init solver_frames clause =
+  
+  (* Linearly traverse the list of clauses, trying to remove one at a time and maintain unsatisfiability *)
+  
+  let rec linear_search kept kept_next discarded = function
+    | (c, c_next) :: ps ->
+       let kept' = Clause.remove c kept in
+       let kept_next' = Clause.remove c_next kept_next in
+       
+       let init = S.check_sat_term solver_init [(Clause.to_term kept')] in
+       let cons = S.check_sat_term solver_frames [(Term.mk_and [Clause.to_term kept';Clause.to_term kept_next'])] in
+
+
+       (* If unsatisfiability is maintained without c, then discard *)
+       if not (init) && cons  then (
+	 debug pdr "Removing clause\n" in
+	 linear_search kept' kept_next' (c :: discarded) ps
+       )
+				     
+       else
+	 linear_search kept kept_next discarded ps
+		       
+    | [] -> kept, Clause.of_literals discarded
+				     
+  in
+
+  let clause_next = Clause.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) clause in
+  
+  let kept, discarded = linear_search clause clause_next [] (List.combine (Clause.elements clause) (Clause.elements clause_next)) in
+  
+  kept,discarded
+
 
 (* Check if [prop] is always satisfied in one step from [state] and
    return a generalized counterexample if not. If the counterexample
@@ -785,68 +817,92 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
 
   function 
 
-    (* No more proof obligations, return frames *)
-    | [] -> 
+  (* No more proof obligations, return frames *)
+  | [] -> 
 
-      (function frames ->           
+     (function frames ->           
 
-        debug pdr
-            "All counterexamples in R_k blocked"
-        in
+               debug pdr
+		     "All counterexamples in R_k blocked"
+      in
 
-        (* Return frames unchanged and no new counterexamples *)
-        frames
+      (* Return frames unchanged and no new counterexamples *)
+      frames
 
-      )
+     )
 
 
-    (* No more cubes to block in R_i *)
-    | ([], r_i) :: block_tl -> 
+  (* No more cubes to block in R_i *)
+  | ([], r_i) :: block_tl -> 
 
-      (function frames ->
+     (function frames ->
 
-        (debug pdr
-            "All cubes blocked in R_%d"
-            (succ (List.length frames))
-         in
+               (debug pdr
+		      "All cubes blocked in R_%d"
+		      (succ (List.length frames))
+		in
 
-         (* Pop clauses in R_i *)
-         S.pop solver_frames;
+		(* Pop clauses in R_i *)
+		S.pop solver_frames;
+		
+		(* Return to counterexamples to block in R_i+1 *)
+		block solvers trans_sys props block_tl (r_i :: frames)))
+
+
+  (* Take the first cube to be blocked in current frame *)
+  | (((((core_block_clause, rest_block_clause) as block_clause), 
+       block_trace)
+      :: block_clauses_tl), r_i)
+    :: block_tl as trace -> 
+
+     (function 
          
-         (* Return to counterexamples to block in R_i+1 *)
-         block solvers trans_sys props block_tl (r_i :: frames)))
-
-
-    (* Take the first cube to be blocked in current frame *)
-    | (((((core_block_clause, rest_block_clause) as block_clause), 
-        block_trace)
-       :: block_clauses_tl), r_i)
-      :: block_tl as trace -> 
-
-      (function 
-        
-        (* No preceding frames, we are in the lowest frame R_1 *)
-        | [] -> 
+       (* No preceding frames, we are in the lowest frame R_1 *)
+       | [] -> 
           
           (debug pdr
-              "Blocking reached successor of initial state"
+		 "Blocking reached successor of initial state"
            in
            
            Event.log L_trace "Blocking reached R_1";
 
-(*
+	   (*
            if Flags.pdr_print_blocking_clauses () then
              
              (Format.fprintf 
                 !ppf_inductive_assertions
                 "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
                 Lustre.pp_print_term (Clause.to_term core_block_clause));
-  *)
-     
+	    *)
+	   
            (debug pdr
-               "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
-               Clause.pp_print_clause core_block_clause
+		  "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
+		  Clause.pp_print_clause core_block_clause
             in
+
+	    let core_block_clause =
+
+	      (*if Flags.pdr_reduce_clause () then*)
+	      
+	      let reduced, discarded = trim_clause
+					 solver_init
+					 solver_frames
+					 core_block_clause
+	      in
+
+	      debug pdr
+                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                    (pp_print_list Term.pp_print_term "@,") 
+                    (Clause.elements reduced)
+	    in
+	    
+	    reduced
+	      
+	    (*else
+	   
+	   core, rest*)
+	      
+	    in
 
             (* Add blocking clause to all frames up to where it has
                to be blocked *)
@@ -873,158 +929,182 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
               ((block_clauses_tl, r_i') :: block_tl') 
               []))
 
-        (* Block counterexample in preceding frame *)
-        | r_pred_i :: frames_tl as frames -> 
+       (* Block counterexample in preceding frame *)
+       | r_pred_i :: frames_tl as frames -> 
 
           debug pdr
-              "@[<v>Context before visiting or re-visiting frame@,@[<hv>%a@]@]"
-              HStringSExpr.pp_print_sexpr_list
-              (let r, a = 
-                S.T.execute_custom_command solver_frames "get-assertions" [] 1 
-               in
-               S.fail_on_smt_error r;
-               a)
-          in
+		"@[<v>Context before visiting or re-visiting frame@,@[<hv>%a@]@]"
+		HStringSExpr.pp_print_sexpr_list
+		(let r, a = 
+                   S.T.execute_custom_command solver_frames "get-assertions" [] 1 
+		 in
+		 S.fail_on_smt_error r;
+		 a)
+      in
 
-          debug pdr
-              "Adding clauses in frame R_%d, %d clauses to block" 
-              (succ (List.length frames_tl))
-              ((List.length block_clauses_tl) + 1)
-          in
+      debug pdr
+            "Adding clauses in frame R_%d, %d clauses to block" 
+            (succ (List.length frames_tl))
+            ((List.length block_clauses_tl) + 1)
+      in
 
-          (* Push a new scope onto the context *)
-          S.push solver_frames;
+      (* Push a new scope onto the context *)
+      S.push solver_frames;
 
-          (* Assert all clauses only in R_i in this context
+      (* Assert all clauses only in R_i in this context
 
              The property is implicit in every frame and has been
              asserted in the context before *)
-          CNF.iter 
-            (function c -> S.assert_term solver_frames (Clause.to_term c)) 
-            r_pred_i;
+      CNF.iter 
+        (function c -> S.assert_term solver_frames (Clause.to_term c)) 
+        r_pred_i;
 
-          (* Combine clauses from higher frames to get the actual
+      (* Combine clauses from higher frames to get the actual
              clauses of the delta-encoded frame R_i *)
-          let r_pred_i_full =
-            List.fold_left
-              (fun a (_, r) -> CNF.union r a)
-              r_pred_i
-              trace
-          in
+      let r_pred_i_full =
+        List.fold_left
+          (fun a (_, r) -> CNF.union r a)
+          r_pred_i
+          trace
+      in
 
-          match 
+      match 
 
-            (try
+        (try
 
-               (* Find counterexamples where we can get outside the
+            (* Find counterexamples where we can get outside the
                   property in one step and generalize to a cube. The
                   counterexample does not hold in the initial state. *)
-               Stat.time_fun Stat.pdr_find_cex_time (fun () ->
-                   find_cex 
-                     solvers 
-                     trans_sys 
-                     props
-                     r_pred_i_full
-                     block_clause
-                     block_clause)
+            Stat.time_fun Stat.pdr_find_cex_time (fun () ->
+						  find_cex 
+						    solvers 
+						    trans_sys 
+						    props
+						    r_pred_i_full
+						    block_clause
+						    block_clause)
 
-             with Bad_state_reachable -> 
+          with Bad_state_reachable -> 
 
-               (
+            (
 
-                 List.iter
-                   (fun _ -> S.pop solver_frames)
-                   block_tl;
+              List.iter
+                (fun _ -> S.pop solver_frames)
+                block_tl;
 
-                 S.pop solver_frames;
-                 
-                 (debug pdr
+              S.pop solver_frames;
+              
+              (debug pdr
                      "@[<v>Current context@,@[<hv>%a@]@]"
                      HStringSExpr.pp_print_sexpr_list
                      (let r, a = 
-                       S.T.execute_custom_command solver_frames "get-assertions" [] 1 
+			S.T.execute_custom_command solver_frames "get-assertions" [] 1 
                       in
                       S.fail_on_smt_error r;
                       a)
-                 in
-                 
-                 raise (Counterexample (block_clause :: block_trace)))
-
-               )
+               in
+               
+               raise (Counterexample (block_clause :: block_trace)))
 
             )
 
-          with
+        )
 
-            (* No counterexample, nothing to block in lower frames *)
-            | true, ((core_block_clause, _) as block_clause) -> 
+      with
 
-              Event.log L_trace
-                "Counterexample is unreachable in R_%d"
-                 (succ (List.length frames_tl));
+      (* No counterexample, nothing to block in lower frames *)
+      | true, ((core_block_clause, _) as block_clause) -> 
 
-(*
+         Event.log L_trace
+                   "Counterexample is unreachable in R_%d"
+                   (succ (List.length frames_tl));
+
+	 (*
               if Flags.pdr_print_blocking_clauses () then
                 
                 (Format.fprintf 
                    !ppf_inductive_assertions
                    "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
                    Lustre.pp_print_term (Clause.to_term core_block_clause));
-  *)
-     
-              (debug pdr
-                  "@[<v>Adding blocking clause to R_k%t@,@[<hv>%a@]@]"
-                  (function ppf -> if block_tl = [] then () else 
-                      Format.fprintf ppf "-%d" (succ (List.length block_tl)))
-                  Clause.pp_print_clause core_block_clause
-               in
+	  *)
+	 
+         (debug pdr
+                "@[<v>Adding blocking clause to R_k%t@,@[<hv>%a@]@]"
+                (function ppf -> if block_tl = [] then () else 
+				   Format.fprintf ppf "-%d" (succ (List.length block_tl)))
+                Clause.pp_print_clause core_block_clause
+          in
 
-               (* Add blocking clause to all frames up to where it has
+	  let core_block_clause =
+
+	    (*if Flags.pdr_reduce_clause () then*)
+	    
+	    let reduced, discarded = trim_clause
+				       solver_init
+				       solver_frames
+				       core_block_clause
+	    in
+
+	    debug pdr
+                  "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                  (pp_print_list Term.pp_print_term "@,") 
+                  (Clause.elements reduced)
+	  in
+	  
+	  reduced
+	    
+	  (*else
+	   
+	   core, rest*)
+	    
+	  in
+
+          (* Add blocking clause to all frames up to where it has
                   to be blocked *)
-               let r_i' = CNF.add_subsume core_block_clause r_i in 
+          let r_i' = CNF.add_subsume core_block_clause r_i in 
 
-               (* Pop the previous frame from the context *)
-               S.pop solver_frames;
+          (* Pop the previous frame from the context *)
+          S.pop solver_frames;
 
-               (* Add cube to block to next higher frame if flag is set *)
-               let block_tl' = 
+          (* Add cube to block to next higher frame if flag is set *)
+          let block_tl' = 
 
-                 if Flags.pdr_block_in_future () then 
+            if Flags.pdr_block_in_future () then 
 
-                   add_to_block_tl block_clause block_trace block_tl
+              add_to_block_tl block_clause block_trace block_tl
 
-                 else
+            else
 
-                   block_tl
+              block_tl
 
-               in
+          in
 
-               (* Return frame with blocked counterexample *)
-               block 
-                 solvers 
-                 trans_sys 
-                 props
-                 ((block_clauses_tl, r_i') :: block_tl') 
-                 frames)
+          (* Return frame with blocked counterexample *)
+          block 
+            solvers 
+            trans_sys 
+            props
+            ((block_clauses_tl, r_i') :: block_tl') 
+            frames)
 
-            (* We have found a counterexample we need to block recursively *)
-            | false, block_clause' ->
+      (* We have found a counterexample we need to block recursively *)
+      | false, block_clause' ->
 
-              (debug pdr
-                  "Trying to block counterexample in preceding frame"
-               in
+         (debug pdr
+                "Trying to block counterexample in preceding frame"
+          in
 
-               Event.log L_trace
-                 "Counterexample is reachable in R_%d, blocking recursively"
-                 (succ (List.length frames_tl));
+          Event.log L_trace
+                    "Counterexample is reachable in R_%d, blocking recursively"
+                    (succ (List.length frames_tl));
 
-               block 
-                 solvers 
-                 trans_sys 
-                 props
-                 (([block_clause', (block_clause :: block_trace)], 
-                   r_pred_i) :: trace) 
-                 frames_tl))
+          block 
+            solvers 
+            trans_sys 
+            props
+            (([block_clause', (block_clause :: block_trace)], 
+              r_pred_i) :: trace) 
+            frames_tl))
 
 
 (* Find counterexamples to induction, that is, where we get outside
