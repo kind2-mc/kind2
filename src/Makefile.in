@@ -13,6 +13,9 @@ kind2: version.ml kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugPars
 kind2-top: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) kind2.top
 
+kind2-terms-top: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
+	$(OCAMLBUILD) kind2-terms.top
+
 kind2-prof: kind2Config.ml flags.ml myocamlbuild.ml _build/Camlp4DebugParser.cmxs
 	$(OCAMLBUILD) -tag profile kind2.native
 
