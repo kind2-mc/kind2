@@ -353,10 +353,10 @@ let add_invariant t invar = t.invars <- invar :: t.invars
 
 
 (* Return current status of all properties *)
-let prop_status_all trans_sys = trans_sys.prop_status
+let get_prop_status_all trans_sys = trans_sys.prop_status
 
 (* Return current status of all properties *)
-let prop_status_all_unknown trans_sys = 
+let get_prop_status_all_unknown trans_sys = 
 
   List.filter
     (fun (_, s) -> not (prop_status_known s))
@@ -364,7 +364,7 @@ let prop_status_all_unknown trans_sys =
 
 
 (* Return current status of property *)
-let prop_status trans_sys p = 
+let get_prop_status trans_sys p = 
 
   try 
 
@@ -374,7 +374,7 @@ let prop_status trans_sys p =
 
 
 (* Mark property as invariant *)
-let prop_invariant t prop =
+let set_prop_invariant t prop =
 
   t.prop_status <- 
     
@@ -399,7 +399,7 @@ let prop_invariant t prop =
 
 
 (* Mark property as k-false *)
-let prop_false t prop cex =
+let set_prop_false t prop cex =
 
   t.prop_status <- 
 
@@ -437,7 +437,7 @@ let prop_false t prop cex =
 
 
 (* Mark property as k-true *)
-let prop_ktrue t k prop =
+let set_prop_ktrue t k prop =
 
   t.prop_status <- 
 
@@ -470,6 +470,17 @@ let prop_ktrue t k prop =
 
       t.prop_status
 
+
+(* Mark property status *)
+let set_prop_status t p = function
+
+  | PropUnknown -> ()
+
+  | PropKTrue k -> set_prop_ktrue t k p
+
+  | PropInvariant -> set_prop_invariant t p
+
+  | PropFalse c -> set_prop_false t p c
 
 
 (* Return true if the property is proved invariant *)
