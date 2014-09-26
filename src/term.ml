@@ -180,6 +180,24 @@ let is_forall t = match node_of_term t with
   | _ -> false 
 
 
+(* Return true if the term is a named term *)
+let is_named t =  match node_of_term t with
+  | T.Annot (_, a) when TermAttr.is_named a -> true
+  | _ -> false
+
+
+(* Return the term of a named term *)
+let term_of_named t =  match node_of_term t with
+  | T.Annot (t, a) when TermAttr.is_named a -> t
+  | _ -> invalid_arg "term_of_named"
+
+
+(* Return the name of a named term *)
+let name_of_named t =  match node_of_term t with
+  | T.Annot (t, a) when TermAttr.is_named a -> TermAttr.named_of_attr a
+  | _ -> invalid_arg "term_of_named"
+
+
 (* Return true if the term is an integer constant *)
 let rec is_numeral t = match node_of_term t with 
 
