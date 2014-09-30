@@ -30,7 +30,7 @@ open TypeLib
 module ActLitProto = struct
 
   (* Translates the hash of a term into a string .*)
-  let string_of_term term = string_of_int (Term.hash term)
+  let string_of_term term = string_of_int (Term.tag term)
 
   (* Creates a positive actlit as a UF. *)
   let positive term =

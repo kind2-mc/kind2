@@ -427,7 +427,25 @@ let pop solver scopes  =
 let check_sat ?(timeout = 0) solver = 
 
   let cmd = match timeout with 
-    | i when i <= 0 -> Format.sprintf "(check-sat)" 
+    | i when i <= 0 -> Format.sprintf "(check-sat)"
+    | _ -> check_sat_limited_cmd timeout
+  in
+
+  (* Send command to the solver without timeout *)
+  execute_check_sat_command solver cmd 0
+
+
+(* Check satisfiability of the asserted expressions *)
+let check_sat_assuming ?(timeout = 0) solver exprs = 
+
+  let cmd = match timeout with 
+    | i when i <= 0 ->
+       exprs
+       |> List.fold_left
+            ( fun s e -> 
+              Format.sprintf "%s %s" s (string_of_expr e) )
+            "(check-sat"
+       |> Format.sprintf "%s)"
     | _ -> check_sat_limited_cmd timeout
   in
 

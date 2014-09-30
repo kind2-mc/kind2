@@ -384,14 +384,30 @@ struct
      if_unsat if unsat. *)
   let check_sat_assuming ?(timeout = 0) solver if_sat if_unsat literals =
 
-    push solver ;
-    List.iter (fun lit -> assert_term solver lit) literals ;
+    (* push solver ; *)
+    (* List.iter (fun lit -> assert_term solver lit) literals ; *)
 
-    let sat = check_sat ~timeout solver in
+    let sat =
+      match S.check_sat_assuming ~timeout solver literals with 
+        
+      (* Fail on error *)
+      | SMTExpr.Response r -> 
+         fail_on_smt_error r; 
+         failwith "SMT solver returned Success on check-sat" 
+                  
+      (* Return true if satisfiable *)
+      | SMTExpr.Sat -> true
+
+      (* Return false if unsatisfiable *)
+      | SMTExpr.Unsat -> false
+
+      (* Fail on unknown *)
+      | SMTExpr.Unknown -> raise Unknown
+    in
 
     let res = if sat then if_sat () else if_unsat () in
 
-    pop solver ;
+    (* pop solver ; *)
 
     res
       
