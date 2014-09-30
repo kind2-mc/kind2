@@ -51,7 +51,8 @@ type walk_bmc_result = {
 
 (** Signature for actlit modules for the make functor. Creates
     'positive' activation literals from terms, and 'negative'
-    activation literals from a depth (k) and a term. *)
+    activation literals from a depth (k) and a term. Both MUST
+    be injective. *)
 module type In = sig
 
   (** Creates a positive actlit as a UF. *)

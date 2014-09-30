@@ -73,22 +73,32 @@ module Make (Actlit: In) : Out = struct
 
 
   (* Adds an implication between a positive literal and a property at
-   k-1. K must be greater than one (always the case in step). *)
-  let positive_activation k list (_, property) =
+     k-1. *)
+  let positive_activation k assert_term list =
     (* K must be greater than one. *)
     assert Numeral.(geq k one) ;
 
-    (* Bumping to k-1. *)
-    let prop_k_m_one = Term.bump_state Numeral.(k-one) property in
+    let rec loop conj = function
+      | (_, prop) :: tail ->
+         (* Bumping to k-1. *)
+         let prop_k_m_one = Term.bump_state Numeral.(k-one) prop in
 
-    (* Bulding activation literal. *)
-    let actlit = Actlit.positive property |> term_of_actlit in
+         (* Building activation literal on the property NOT bumped for
+            positive actlit reuse. *)
+         let actlit = Actlit.positive prop |> term_of_actlit in
 
-    (* Building implication. *)
-    let impl = Term.mk_or [ Term.mk_not actlit ; prop_k_m_one ] in
+         (* Building implication. *)
+         let impl = Term.mk_or [ Term.mk_not actlit ; prop_k_m_one ] in
 
-    (* Prepending implication to list. *)
-    impl :: list
+         (* Adding it to the conjunction and looping. *)
+         loop (impl :: conj) tail
+      | [] -> conj
+    in
+
+    loop [] list
+    |> Term.mk_and
+    |> assert_term
+    |> ignore
 
 
   (* Returns the list of all activators for the input properties. *)
@@ -107,7 +117,7 @@ module Make (Actlit: In) : Out = struct
   (* Splits the input properties between those that are falsifiable
      and those which are not. The implications should be asserted
      --see 'next'. Also returns the continuation it was given. *)
-  let split_closure solver trans k actlit_fun props { continue } =
+  let split_closure solver trans k props { continue } =
     let rec loop unknown unfalsifiable falsifiable falsifiable_no_model =
 
       let if_sat () =
@@ -140,22 +150,33 @@ module Make (Actlit: In) : Out = struct
         new_falsifiable_no_model
       ) =
 
-        (* Building the list of negative activation literals and
-         asserting it. *)
-        let negative_actlits =
-          List.map
-            (fun prop -> term_of_actlit (Actlit.negative k (snd prop)))
-            unknown
+        (* Building not the conjunction of the properties at k. *)
+        let negative_properties =
+          unknown
+          |> List.map (fun (_,p) -> Term.bump_state k p)
+          |> Term.mk_and
+          |> Term.mk_not
         in
 
-        (* Building the list of positive activation literals in step,
-         doing nothing in base. *)
-        let positive_actlits = actlit_fun props in
+        (* Creating the negative actlit. *)
+        let negative_actlit = Actlit.negative k negative_properties in
+        (* Declaring it. *)
+        Solver.declare_fun solver negative_actlit ;
+
+        (* Building the term out of the negative actlit UF. *)
+        let neg_actlit_term = term_of_actlit negative_actlit in
+
+        (* Asserting the negative implication. *)
+        Term.mk_or
+          [ neg_actlit_term |> Term.mk_not ; negative_properties ]
+        |> Solver.assert_term solver ;
+
+        (* Building the list of positive actlits on props, not
+           unknown. *)
+        let positive_actlits = positive_activators props in
 
         (* Gathering all the activation literals. *)
-        let all_actlits =
-          List.rev_append positive_actlits negative_actlits
-        in
+        let all_actlits = neg_actlit_term :: positive_actlits in
 
         (* Check sat assuming with all literals. *)
         Solver.check_sat_assuming solver if_sat if_unsat all_actlits
@@ -177,13 +198,17 @@ module Make (Actlit: In) : Out = struct
     loop props [] [] []
          
 
-  let rec next solver trans k actlit actlit_split invs props new_invs =
+  let rec next solver trans k invs props new_invs =
 
     (* Asserting transition relation for k > 0. *)
     if Numeral.(k > zero) then
       (* T[x_k-1, x_k]. *)
-      TransSys.trans_of_bound trans k
-      |> Solver.assert_term solver ;
+      let _ = TransSys.trans_of_bound trans k
+              |> Solver.assert_term solver
+              |> ignore
+      in
+      (* Asserting positive literals. *)
+      positive_activation k (Solver.assert_term solver) props ; ;
 
     (* Asserting new invariants from 0 to k. *)
     new_invs
@@ -205,38 +230,37 @@ module Make (Actlit: In) : Out = struct
 
     (* Constructing a list of implications to assert, declaring
        negative activation literals as side-effect. *)
-    props
-    |> List.fold_left
-         ( fun list prop ->
+    (* props *)
+    (* |> List.fold_left *)
+    (*      ( fun (neg_list,pos_list) prop -> *)
 
-           (* Building negative activation literal. *)
-           let act_lit = Actlit.negative k (snd prop) in
+    (*        (\* Building negative activation literal. *\) *)
+    (*        let act_lit = Actlit.negative k (snd prop) in *)
 
-           (* Bumping proposition at k. *)
-           let prop_at_k = Term.bump_state k (snd prop) in
+    (*        (\* Bumping proposition at k. *\) *)
+    (*        let prop_at_k = Term.bump_state k (snd prop) in *)
 
-           (* Declaring the negative activation literal. *)
-           act_lit |> Solver.declare_fun solver |> ignore ;
+    (*        (\* Declaring the negative activation literal. *\) *)
+    (*        act_lit |> Solver.declare_fun solver |> ignore ; *)
 
-           (* Building implication. *)
-           let impl = Term.mk_or
-                        [ Term.mk_not (term_of_actlit act_lit) ;
-                          Term.mk_not prop_at_k ]
-           in
+    (*        (\* Building implication. *\) *)
+    (*        let impl = Term.mk_or *)
+    (*                     [ Term.mk_not (term_of_actlit act_lit) ; *)
+    (*                       Term.mk_not prop_at_k ] *)
+    (*        in *)
 
-           (* Adding implication at k for positive literal if in the
-            step instance. *)
-           actlit k (impl :: list) prop)
+    (*        (\* Adding implication at k for positive literal if in the *)
+    (*         step instance. *\) *)
+    (*        ((impl :: neg_list), (actlit k pos_list prop)) *)
 
-         []
-    (* Asserting the resulting list of implications as a
-       conjunction. *)
-    |> (fun list -> Term.mk_and list |> Solver.assert_term solver) ;
+    (*      ([], []) *)
+    (* (\* Asserting the resulting list of implications as a *)
+    (*    conjunction. *\) *)
+    (* |> (fun (neg_list, pos_list) -> Term.mk_and list |> Solver.assert_term solver) ; *)
+
 
     (* Building the continuation for the next iteration. *)
-    let continuation =
-      next solver trans Numeral.(k + one) actlit actlit_split nu_invs
-    in
+    let continuation = next solver trans Numeral.(k + one) nu_invs in
 
     (* Splitting falsifiable and unfalsifiable things, and passing the
        continuation. *)
@@ -244,7 +268,6 @@ module Make (Actlit: In) : Out = struct
       solver
       trans
       k
-      actlit_split
       props
       { k = k ;
         unfalsifiable = [] ;
@@ -263,32 +286,30 @@ module Make (Actlit: In) : Out = struct
       |> Solver.new_solver ~produce_assignments:true
     in
 
-    (* Initializing the solver. *)
-    (* Implementation.init () *)
-    (* |> List.iter (Solver.assert_term solver) ; *)
-
     (* Declare uninterpreted function symbols *)
     TransSys.iter_state_var_declarations
       trans
-      (Solver.declare_fun solver);
-    
+      (Solver.declare_fun solver) ;
+
+    (* Declaring positive actlits. *)
+    List.iter
+      ( fun (_, prop) -> Actlit.positive prop |> Solver.declare_fun solver )
+      props ;
+
     (* Define functions *)
     TransSys.iter_uf_definitions
       trans
-      (Solver.define_fun solver);
+      (Solver.define_fun solver) ;
 
-    assert_init solver trans ;
-
-    let actlit_fun, actlit_split_fun =
+    let _ = 
       match bmc_mode with
       | Base ->
-         (fun k list prop -> list), (fun props -> [])
-      | Step ->
-         positive_activation, positive_activators
+         (* If in base mode assert init. *)
+         assert_init solver trans ;
+      | Step -> ()
     in
 
-    next
-      solver trans Numeral.zero actlit_fun actlit_split_fun [] props []
+    next solver trans Numeral.zero [] props []
 
 
 
