@@ -332,6 +332,10 @@ let equal = T.equal
 let hash = T.hash 
 
 
+(* Unique identifier for term *)
+let tag = T.tag
+
+
 (* Hashtable *)
 module TermHashtbl = Hashtbl.Make (T)
 
