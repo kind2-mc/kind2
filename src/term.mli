@@ -57,6 +57,9 @@ val equal : t -> t -> bool
 (** Hashing function on terms *)
 val hash : t -> int
 
+(** Unique identifier for terms *)
+val tag : t -> int
+
 (** Hash table over terms *)
 module TermHashtbl : Hashtbl.S with type key = t
 
