@@ -178,6 +178,7 @@ sig
   (** Hash function on terms *)
   val hash : t -> int
 
+  (** Unique identifier for term *)
   val tag : t -> int
 
   (** Constructor for a term *)
