@@ -23,8 +23,62 @@
 open Lib
 open TypeLib
 
-(* A single BMC iteration, starts at k=0 and returns a continuation. *)
-val run_bmc : TransSys.t -> Term.t list -> unit
+(** Enumerated type to select the mode BMC is launched into. *)
+type bmc_mode = | Base | Step
+
+(** Type returned by a single iteration of bmc. Fields: 'k' is the
+    iteration this result correponds to; 'unfalsifiable' are the
+    properties which cannot be falsified for 'k'; 'falsifiable' are
+    the properties which can be falsified for 'k', along with the
+    witness model; 'falsifiable_no_model' is the same as 'falsifiable'
+    but without the models ; 'continue' is the function to call for
+    the next iteration with the properties to prove and the new
+    invariants. *)
+type walk_bmc_result = {
+  (* K corresponding to this result. *)
+  k : Numeral.t ;
+  (* Properties the negation of which is unsat at k. *)
+  unfalsifiable : properties ;
+  (* Properties the negation of which is sat at k, with models. *)
+  falsifiable : cexs ;
+  (* Properties the negation of which is sat at k, no models. *)
+  falsifiable_no_model : properties ;
+  (* Continuation for the next bmc iteration. *)
+  continue : properties -> invariants -> walk_bmc_result
+}
+
+
+
+(** Signature for actlit modules for the make functor. Creates
+    'positive' activation literals from terms, and 'negative'
+    activation literals from a depth (k) and a term. *)
+module type In = sig
+
+  (** Creates a positive actlit as a UF. *)
+  val positive : Term.t -> UfSymbol.t
+
+  (** Creates a negative actlit as a UF. *)
+  val negative : Numeral.t -> Term.t -> UfSymbol.t
+
+end
+
+
+
+(** Signature for the output of the functor. *)
+module type Out = sig
+
+  (** Runs a BMC loop either in Base or Step mode. *)
+  val run_bmc : bmc_mode -> TransSys.t -> unit
+
+  (** A single BMC iteration, either in Base or Step mode. Starts at k
+      = 0 and returns the result of the iteration and a
+      continuation. *)
+  val walk_bmc : bmc_mode -> TransSys.t -> properties -> walk_bmc_result
+
+end 
+
+(** Functor to create a BMC module. *)
+module Make (Actlit: In) : Out
 
 (* 
    Local Variables:
