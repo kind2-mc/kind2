@@ -874,6 +874,15 @@ let rec trans_sys_of_nodes'
             (state_var_of_top_scope false main_node)
             (outputs @ locals)
         in
+        
+        let init_terms =
+         List.map (E.base_term_of_state_var base_offset) state_vars_top
+        in
+
+        let trans_terms =
+          ((List.map (E.cur_term_of_state_var cur_offset) state_vars_top) @
+           (List.map (E.pre_term_of_state_var cur_offset) state_vars_top_pre))
+        in
 
         (
 
@@ -886,6 +895,11 @@ let rec trans_sys_of_nodes'
           (* State variables *)
           state_vars_top, 
 
+          (init_uf_symbol, (List.combine init_vars init_terms)),
+
+          (trans_uf_symbol, (List.combine trans_vars trans_terms)),
+
+(*
           (* Initial state constraint *)
           Term.mk_uf 
             init_uf_symbol
@@ -896,6 +910,7 @@ let rec trans_sys_of_nodes'
             trans_uf_symbol
             ((List.map (E.cur_term_of_state_var cur_offset) state_vars_top) @
              (List.map (E.pre_term_of_state_var cur_offset) state_vars_top_pre)),
+*)
 
           List.map
             (function (n, t) -> 

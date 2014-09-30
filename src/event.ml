@@ -40,7 +40,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
   (* Properties are always state variables *) 
   let prop = 
-    try List.assoc prop_name trans_sys.TransSys.props 
+    try TransSys.prop_of_name trans_sys prop_name
     with Not_found -> assert false
   in 
 
@@ -389,7 +389,7 @@ let proved_pt mdl level trans_sys k prop =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -476,7 +476,7 @@ let disproved_pt mdl level trans_sys prop cex =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -629,7 +629,7 @@ let proved_xml mdl level trans_sys k prop =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -725,7 +725,7 @@ let disproved_xml mdl level trans_sys prop cex =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -922,7 +922,7 @@ let log_proved mdl level trans_sys k prop =
 let log_disproved mdl level trans_sys prop cex =
   match !log_format with 
     | F_pt -> disproved_pt mdl level trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level trans_sys  prop cex
+    | F_xml -> disproved_xml mdl level trans_sys prop cex
     | F_relay -> ()
 
 
@@ -993,6 +993,9 @@ let prop_status status trans_sys prop =
     | TransSys.PropInvariant -> log_proved mdl L_warn trans_sys None prop
     | TransSys.PropFalse cex -> log_disproved mdl L_warn trans_sys prop cex
     | _ -> ());
+
+  (* Update status of property in transition system *)
+  TransSys.set_prop_status trans_sys prop status;
 
   try
     
@@ -1241,7 +1244,7 @@ let update_trans_sys trans_sys events =
     | (m, PropStatus (p, (TransSys.PropKTrue k as s))) :: tl -> 
 
       (* Change property status in transition system *)
-      TransSys.prop_ktrue trans_sys k p;
+      TransSys.set_prop_ktrue trans_sys k p;
 
       (* Continue with propert status added to accumulator *)
       update_trans_sys'
@@ -1257,7 +1260,7 @@ let update_trans_sys trans_sys events =
       log_proved m L_warn trans_sys None p;
           
       (* Change property status in transition system *)
-      TransSys.prop_invariant trans_sys p;
+      TransSys.set_prop_invariant trans_sys p;
 
       (try 
 
@@ -1283,7 +1286,7 @@ let update_trans_sys trans_sys events =
       log_disproved m L_warn trans_sys p cex;
 
       (* Change property status in transition system *)
-      TransSys.prop_false trans_sys p cex;
+      TransSys.set_prop_false trans_sys p cex;
 
       (* Continue with property status added to accumulator *)
       update_trans_sys' 

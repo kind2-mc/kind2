@@ -486,11 +486,65 @@ let extract uf_defs env term =
           (* Extract from each disjunct *)
           (accum, (List.map (function c -> (c, env, false)) l))
 
-        (* TODO: Boolean exclusive disjunction to be true *)
-        | `XOR when polarity = true -> assert false
+        (* Boolean exclusive disjunction to be true *)
+        | `XOR when polarity = true -> 
 
-        (* TODO: Boolean exclusive disjunction to be false  *)
-        | `XOR -> assert false
+          (
+
+            match l with 
+
+              (* Binary exclusive disjunction *)
+              | [a; b] -> 
+
+                (* Construct term (a | b) *)
+                let a_or_b = 
+                  Term.mk_or [a; b] 
+                in
+
+                (* Construct term (~a | ~b) *)
+                let not_a_or_not_b =
+                  Term.mk_or [Term.negate a; Term.negate b] 
+                in
+
+                (* Both (a | b) and (~a | ~b) have to be true *)
+                (accum, 
+                 [(a_or_b, env, true); (not_a_or_not_b, env, true)])
+
+              (* Do not suport other arities *)
+              | _ -> assert false
+
+          )
+
+
+        (* Boolean exclusive disjunction to be false  *)
+        | `XOR -> 
+
+          (
+
+            match l with 
+
+              (* Binary exclusive disjunction *)
+              | [a; b] -> 
+                
+                (* Construct term (a & ~b) *)
+                let a_and_not_b = 
+                  Term.mk_or [a; Term.negate b] 
+                in
+
+                (* Construct term (~a & b) *)
+                let not_a_and_b =
+                  Term.mk_or [Term.negate a; b] 
+                in
+
+                (* Both (a & ~b) and (~a & b) have to be true *)
+                (accum, 
+                 [(a_and_not_b, env, false); (not_a_and_b, env, false)])
+
+              (* Do not suport other arities *)
+              | _ -> assert false
+
+          )
+          
 
         (* Equality *)
         | `EQ as s -> 

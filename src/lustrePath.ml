@@ -238,7 +238,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 let rec tree_path_of_nodes 
     start_at_init
     nodes
-    { N.inputs; N.outputs; N.locals; N.calls; N.equations } 
+    { N.inputs; N.outputs; N.locals; N.calls; N.props; N.equations } 
     tree_path_in
     tree_path = 
 
@@ -277,6 +277,7 @@ let rec tree_path_of_nodes
  
   (* Show only inputs, outputs and local variables *)
   let visible_vars = 
+    props @
     (List.map fst inputs) @ 
     (sort_defined_vars 
        []
@@ -498,7 +499,7 @@ let pp_print_stream_prop_xml ppf = function
   | E.Local -> Format.fprintf ppf "@ class=\"local\""
 
   (* these types of streams should have been culled out *)
-  | E.Abstract | E.Oracle -> assert false 
+  | E.Observer | E.Abstract | E.Oracle -> assert false 
 
 
 (* Pretty-print a single value of a stream at an instant *)
@@ -690,10 +691,17 @@ let rec pp_print_tree_path_pt
 
     let children = snd (List.split (CallMap.bindings call_map)) in 
 
+    let children = CallMap.bindings call_map in 
+
     let ident_path = (node_ident, node_pos) :: ancestor_idents in
 
-    let print_child child =
-      pp_print_tree_path_pt ident_width val_width ident_path ppf child
+    let print_child ((_, pos), child) =
+      pp_print_tree_path_pt
+        ident_width
+        val_width
+        ((node_ident, pos) :: ancestor_idents)
+        ppf 
+        child
     in
 
     (* Pretty-print input streams if any *)

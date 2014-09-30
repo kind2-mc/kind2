@@ -239,7 +239,7 @@ type abstraction_context =
     scope : I.index;
 
     (* Create a new identifier for a variable *)
-    mk_new_state_var : Type.t -> StateVar.t;
+    mk_new_state_var : bool -> Type.t -> StateVar.t;
 
     (* Create a new oracle input to guard pre operation on state
        variable *)
@@ -1309,8 +1309,8 @@ let rec eval_ast_expr'
 
         then
 
-          (* New variable for abstraction *)
-          let state_var = mk_new_state_var cond'.E.expr_type in
+          (* New variable for abstraction, not a constant *)
+          let state_var = mk_new_state_var false cond'.E.expr_type in
 
           E.set_state_var_source state_var E.Abstract;
 
@@ -1568,7 +1568,7 @@ let rec eval_ast_expr'
                (accum, ({ mk_new_state_var; new_vars } as abstractions)) 
                (index, expr) -> 
                let expr', new_vars' = 
-                 E.mk_pre mk_new_state_var new_vars expr 
+                 E.mk_pre (mk_new_state_var false) new_vars expr 
                in
                (((index, expr') :: accum), 
                 { abstractions with new_vars = new_vars' }))
@@ -1781,8 +1781,10 @@ and eval_node_call
 
           then 
 
-            (* New variable for abstraction *)
-            let state_var = mk_new_state_var expr_type in
+            (* New variable for abstraction, is constant if input is *)
+            let state_var = 
+              mk_new_state_var (StateVar.is_const in_var) expr_type 
+            in
 
             E.set_state_var_instance state_var pos ident in_var;
 
@@ -1919,7 +1921,7 @@ and eval_node_call
       (fun (result, output_vars) (node_sv, index) -> 
 
          let sv = 
-           mk_new_state_var (StateVar.type_of_state_var node_sv)
+           mk_new_state_var false (StateVar.type_of_state_var node_sv)
          in
 
          E.set_state_var_instance sv pos ident node_sv;
@@ -3068,7 +3070,7 @@ let rec property_to_node
     else
 
       (* State variable of abstraction variable *)
-      let state_var = mk_new_state_var Type.t_bool in
+      let state_var = mk_new_state_var false Type.t_bool in
       
       (* State variable is a locally abstracted variable *)
       E.set_state_var_source state_var E.Abstract;
@@ -3746,10 +3748,10 @@ let parse_node
   let node = N.empty_node node_ident in
 
   (* Create a new state variable for abstractions *)
-  let mk_new_state_var state_var_type = 
+  let mk_new_state_var is_const state_var_type = 
     E.mk_fresh_state_var
       false
-      false
+      is_const
       scope
       I.abs_ident
       state_var_type

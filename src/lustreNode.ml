@@ -1289,27 +1289,21 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   produces the set of all state variables contained in any of the nodes in the
   given list 
 *)
-let extract_state_vars nodes =
-  let extract_from_single_node (node : t) =
-    (* the set of all state variables in this nodes locals, outputs, & inputs *)
-    let ret = 
-      List.fold_left 
-        (fun acc (sv,_) -> SVS.add sv acc) 
-        SVS.empty 
-        (node.locals @ node.outputs @ node.inputs)
-    in
-
-    (* ret with oracles added *)
-    List.fold_left
-      (fun acc sv -> SVS.add sv acc)
-      ret
-      node.oracles
-  in
+let state_vars_of_node (node : t) =
   
-  List.fold_left 
-    (fun acc node -> SVS.union (extract_from_single_node node) acc)
-    SVS.empty
-    nodes
+  (* the set of all state variables in this nodes locals, outputs, & inputs *)
+  let ret = 
+    List.fold_left 
+      (fun acc (sv,_) -> SVS.add sv acc) 
+      SVS.empty 
+      (node.locals @ node.outputs @ node.inputs)
+  in
+
+  (* ret with oracles added *)
+  List.fold_left
+    (fun acc sv -> SVS.add sv acc)
+    ret
+    (node.oracles @ node.observers)
 
 (* 
 Given that [nodes] is the set of nodes in the lustre program and
@@ -1418,18 +1412,28 @@ let reduce_to_coi nodes main_name state_vars =
 let reduce_to_props_coi nodes main_name = 
 
     (* Get properties of main node *)
-    let { props; observers } = node_of_name main_name nodes in
-
-    let props' = 
-      SVS.elements 
-        (SVS.union
-           (svs_of_list props)
-           (svs_of_list observers))
+    let { props; observers; inputs; outputs; locals } as main_node = 
+      node_of_name main_name nodes 
     in
 
-    (* Reduce to cone of influence of all properties *)
-    reduce_to_coi nodes main_name props'
+    let props' = 
 
+      match props @ observers with
+
+        (* No properties, don't reduce *)
+        | [] -> SVS.elements (state_vars_of_node main_node)
+
+      (* Reduce to cone of influence of all properties *)
+      | _ -> 
+
+        SVS.elements 
+          (SVS.union
+             (svs_of_list props)
+             (svs_of_list observers))
+    in
+    
+    reduce_to_coi nodes main_name props'
+      
 (* 
    Local Variables:
    compile-command: "make -k -C .."

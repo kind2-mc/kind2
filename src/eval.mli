@@ -27,6 +27,8 @@ type value =
   | ValDec of Decimal.t
   | ValTerm of Term.t
 
+val pp_print_value : Format.formatter -> value -> unit
+
 (** Cast a value to a Boolean, raise [Invalid_argument] if value is
     not a Boolean *)
 val bool_of_value : value -> bool

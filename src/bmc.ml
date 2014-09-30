@@ -312,7 +312,6 @@ let rec bmc solver trans_sys k = function
     (* Broadcast status of properties true in k steps *)
     List.iter
       (fun (n, _) -> 
-         TransSys.prop_ktrue trans_sys (Numeral.to_int k) n;
          Event.prop_status (TransSys.PropKTrue (Numeral.to_int k)) trans_sys n)
       props_ktrue;
 

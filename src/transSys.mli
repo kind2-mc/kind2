@@ -60,7 +60,7 @@ val length_of_cex : (StateVar.t * Term.t list) list -> int
     The transition system must be constructed with the function
     {!mk_trans_sys}. Fields of the record are exposed, but accessing
     them is deprecated, use the provided functions below. *)
-type t = private
+type t (* = private
 
   {
 
@@ -93,13 +93,13 @@ type t = private
 
   }
 
-
+       *)
     
 (** Create a transition system
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> Term.t -> Term.t -> (string * Term.t) list -> input -> t
+val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> UfSymbol.t * (Var.t * Term.t) list -> UfSymbol.t * (Var.t * Term.t) list -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -109,6 +109,14 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> SMTExpr.logic
+                       
+(** Return topmost predicate definition for initial state with map of
+    formal to actual parameters *)
+val init_top : t -> UfSymbol.t * (Var.t * Term.t) list
+
+(** Topmost predicate definition for transition relation with map of
+    formal to actual parameters *)
+val trans_top : t -> UfSymbol.t * (Var.t * Term.t) list
 
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
@@ -134,34 +142,51 @@ val props_of_bound : t -> Numeral.t -> Term.t
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
+(** Get property by name *)
+val prop_of_name : t -> string -> Term.t
+
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : t -> Numeral.t -> Term.t
 
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 
+(** Return uninterpreted function symbol definitions *)
 val uf_defs : t -> pred_def list
+
+(** Return uninterpreted function symbol definitions as pairs of
+    initial state and transition relation definitions *)
+val uf_defs_pairs : t -> (pred_def * pred_def) list
+
+(** Return [true] if the uninterpreted symbol is a transition relation *)
+val is_trans_uf_def : t -> UfSymbol.t -> bool
+
+(** Return [true] if the uninterpreted symbol is an initial state constraint *)
+val is_init_uf_def : t -> UfSymbol.t -> bool
 
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
 
 (** Return current status of all properties *)
-val prop_status_all : t -> (string * prop_status) list
+val get_prop_status_all : t -> (string * prop_status) list
 
 (** Return current status of all properties *)
-val prop_status_all_unknown : t -> (string * prop_status) list
+val get_prop_status_all_unknown : t -> (string * prop_status) list
 
 (** Return current status of property *)
-val prop_status : t -> string -> prop_status 
+val get_prop_status : t -> string -> prop_status 
+
+(** Mark current status of property *)
+val set_prop_status : t -> string -> prop_status -> unit
 
 (** Mark property as invariant *)
-val prop_invariant : t -> string -> unit 
+val set_prop_invariant : t -> string -> unit 
 
 (** Mark property as false *)
-val prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
+val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
 
 (** Mark property as k-true *)
-val prop_ktrue : t -> int -> string -> unit 
+val set_prop_ktrue : t -> int -> string -> unit 
 
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 

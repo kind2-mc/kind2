@@ -1,5 +1,23 @@
+(** Job creation, retrieval, and canceling
 
-val generate_uid : unit -> string
+    @author Jason Oxley, Mingyu Ma, Christoph Sticksel **)
+
+
+
+
+val submit_job : string -> string list -> string -> string 
+
+val submit_job_immediate : string -> string list -> string -> string 
+
+val job_output : string -> string
+
+val cancel_job : string -> string
+
+val purge_jobs : unit -> string
+
+val status : unit -> string
+
+(*
 
 type running_job_info =
 
@@ -30,6 +48,9 @@ type running_job_info =
     ID, and a record with information about the created job, if it was
     successfully started, [None] otherwise. *)
 
+val add_running_job : string -> running_job_info -> unit
+
+
 val create_job : string -> string list -> string -> string ->  string * string * running_job_info option
 val cancel_job : string  -> running_job_info -> int -> Unix.process_status -> string * running_job_info
 val retrieve_job : string -> running_job_info -> int -> Unix.process_status -> string * running_job_info
@@ -37,3 +58,5 @@ val retrieve_complete : string -> Unix.tm -> string
 val job_not_found_msg : string -> string
 val interpreter_job : string -> string list -> string -> string -> string
 val log : ('a, Format.formatter, unit, unit, unit, unit) format6 -> 'a
+
+*)

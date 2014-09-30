@@ -156,6 +156,9 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 (** Send all queued messages and exit the background thread *)
 val exit : mthread -> unit
 
+
+val pp_print_path_pt : TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
