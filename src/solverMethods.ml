@@ -25,7 +25,7 @@ sig
 
   module T : SMTSolver.S
 
-  type t 
+  type t
 
   val new_solver : ?produce_assignments:bool -> ?produce_models:bool -> ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
     
@@ -54,6 +54,16 @@ sig
   val get_unsat_core : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
+
+  val check_sat_assuming : ?timeout:int ->
+                           t ->
+                           (* If sat. *)
+                           (unit -> 'a) ->
+                           (* If unsat. *)
+                           (unit -> 'a) ->
+                           (* Literals to assert. *)
+                           Term.t list ->
+                           'a
 
   val check_sat_term_model : ?timeout:int -> t -> Term.t list -> bool * (Var.t * Term.t) list 
 
@@ -367,6 +377,21 @@ struct
 
     (* Pop context *)
     pop solver;
+
+    res
+
+  (* Checks satisfiability of some literals, runs if_sat if sat and
+     if_unsat if unsat. *)
+  let check_sat_assuming ?(timeout = 0) solver if_sat if_unsat literals =
+
+    push solver ;
+    List.iter (fun lit -> assert_term solver lit) literals ;
+
+    let sat = check_sat ~timeout solver in
+
+    let res = if sat then if_sat () else if_unsat () in
+
+    pop solver ;
 
     res
       

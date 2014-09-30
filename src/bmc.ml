@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open Tsugi
 
 (* Use configured SMT solver *)
 module BMCSolver = SMTSolver.Make (SMTLIBSolver)
@@ -339,6 +338,8 @@ let rec bmc solver trans_sys k = function
 
 (* Entry point *)
 let main trans_sys =
+
+  (* Tsugi.run_bmc trans_sys [] ; *)
 
   Stat.start_timer Stat.bmc_total_time;
   

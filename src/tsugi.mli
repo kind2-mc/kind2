@@ -20,59 +20,17 @@
    Induction. It is a functor designed to perform BMC checks in order
    to implement k-induction. *)
 
+open Lib
 open TypeLib
 
-(** Type returned by a single iteration of bmc: 'k' is the k this
-    result corresponds to; 'unsat_at_k' are the properties the
-    negation of which is unsat at k; 'sat_at_k' are the properties the
-    negation of which is sat at k with their respective models;
-    'sat_no_model' is the same as 'sat_at_k' without the models;
-    'continue' is a continuation launching the next bmc iteration. *)
-type walk_bmc_result = {
-  k : Numeral.t ;
-  unsat_at_k : properties ; sat_at_k : cexs ; sat_no_model : properties ;
-  continue : properties -> invariants -> walk_bmc_result
-}
+(* A single BMC iteration, starts at k=0 and returns a continuation. *)
+val run_bmc : TransSys.t -> Term.t list -> unit
 
-(** Input signature for the Make functor. *)
-module type BmcFunctions =
-sig
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)
 
-  (** Initializes the solver. Typically base would assert Init while
-      Step would do nothing. *)
-  val init : unit -> Term.t list
-
-  (** Handles the result of the BMC check for this k, and returns the
-      new invariants of the system. Arguments: the transition system;
-      the current k value; properties the negation of which is unsat
-      at k; properties the negation of which is sat at k. Returns new
-      invariants. *)
-  val stage_next :
-    TransSys.t -> Numeral.t ->
-    (string * Term.t) list ->
-    ((string * Term.t) list * model) list ->
-    invariants
-
-end
-
-(** Output signature of the Make functor. *)
-module type S =
-sig
-
-  (** A single BMC iteration, starts at k=0. Parameters: the
-      transition system; invariants on the system; the properties to
-      check. *)
-  val walk_bmc :
-    TransSys.t -> invariants -> properties -> walk_bmc_result
-
-  (** Runs the BMC loop. Parameters: the transition system, invariants
-      on the system; the properties to check. NEVER RETURNS. *)
-  val run_bmc :
-    TransSys.t -> invariants -> properties -> unit
-
-end
-
-(** Functor to create a BMC module. Parameters: 'Implementation'
-    implements the function defining base or step, for k-induction
-    proof checks; 'Slvr' the solver module to use. *)
-module Make (Implementation: BmcFunctions) (Slvr: SMTSolver.S) : S

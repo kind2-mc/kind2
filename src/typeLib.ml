@@ -19,8 +19,9 @@
 open Lib
 
 type invariants = Term.t list
-type model = (Var.t * Term.t)
+type model = (Var.t * Term.t) list
 type property = (string * Term.t)
 type properties = property list
-type cex = (property list * model)
+type cex = (properties * model)
 type cexs = cex list
+

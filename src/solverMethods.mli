@@ -99,6 +99,16 @@ sig
       the given number of milliseconds *)
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
+  val check_sat_assuming : ?timeout:int ->
+                           t ->
+                           (* If sat. *)
+                           (unit -> 'a) ->
+                           (* If unsat. *)
+                           (unit -> 'a) ->
+                           (* Literals to assert. *)
+                           Term.t list ->
+                           'a
+
   (** Check satisfiability of the formula in the current context and
       return a model
 

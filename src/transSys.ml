@@ -86,7 +86,7 @@ type t =
     (* Transition relation *)
     trans : Term.t;
 
-    (* Propertes to prove invariant *)
+    (* Properties to prove invariant *)
     props : (string * Term.t) list; 
 
     (* The input which produced this system. *)
