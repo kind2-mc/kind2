@@ -54,9 +54,9 @@ type context_update = {
     properties which cannot be falsified for 'k'; 'falsifiable' are
     the properties which can be falsified for 'k', along with the
     witness model; 'falsifiable_no_model' is the same as 'falsifiable'
-    but without the models ; 'continue' is the function to call for
-    the next iteration with the properties to prove and the new
-    invariants. *)
+    but without the models; 'continue' is the function to call for the
+    next iteration with the properties to prove and the new
+    invariants; 'kill' kills the solver. *)
 type walk_bmc_result = {
   (* K corresponding to this result. *)
   k : Numeral.t ;
@@ -67,7 +67,9 @@ type walk_bmc_result = {
   (* Properties the negation of which is sat at k, no models. *)
   falsifiable_no_model : properties ;
   (* Continuation for the next bmc iteration. *)
-  continue : properties -> context_update -> walk_bmc_result
+  continue : properties -> context_update -> walk_bmc_result ;
+  (* Kills the solver. *)
+  kill : unit -> unit
 }
 
 (** Signature for actlit modules for the make functor. Creates

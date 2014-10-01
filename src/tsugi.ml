@@ -56,6 +56,8 @@ type walk_bmc_result = {
   falsifiable_no_model : properties ;
   (* Continuation for the next bmc iteration. *)
   continue : properties -> context_update -> walk_bmc_result ;
+  (* Kills the solver. *)
+  kill : unit -> unit
 }
 
 (* Signature for actlit modules for the make functor. *)
@@ -305,7 +307,8 @@ module Make (Actlit: InActlit)
            unfalsifiable = new_unfalsifiable ;
            falsifiable = new_falsifiable ;
            falsifiable_no_model = new_falsifiable_no_model ;
-           continue = continue }
+           continue = continue ;
+           kill = (fun () -> Solver.delete_solver solver) }
       | _ -> loop new_unknown
                   new_unfalsifiable
                   new_falsifiable
@@ -433,7 +436,8 @@ module Make (Actlit: InActlit)
         unfalsifiable = [] ;
         falsifiable = [] ;
         falsifiable_no_model = [] ;
-        continue = continuation }
+        continue = continuation ;
+        kill = (fun () -> Solver.delete_solver solver) }
 
 
 
@@ -487,8 +491,9 @@ module Make (Actlit: InActlit)
   (* Runs the BMC loop. *)
   let run_bmc bmc_mode trans =
 
-    let rec step_finish_loop k { pending } =
-      if pending then step_finish_loop k (Comm.step trans k [] []) ;
+    let rec step_finish_loop kill k { pending } =
+      if pending then step_finish_loop kill k (Comm.step trans k [] [])
+      else kill ()
     in
 
     (* Launches the next iteration based on the results of the
@@ -498,11 +503,11 @@ module Make (Actlit: InActlit)
       | Base ->
          ( fun loop
                { k ; unfalsifiable ; falsifiable ;
-                 falsifiable_no_model ; continue } ->
+                 falsifiable_no_model ; continue ; kill } ->
            (* In the base case, just continue with the unfalsifiable
               properties. *)
            match unfalsifiable with
-           | [] -> ()
+           | [] -> kill ()
            | _  -> continue unfalsifiable
                             (Comm.base trans k unfalsifiable falsifiable)
                    |> loop )
@@ -510,12 +515,13 @@ module Make (Actlit: InActlit)
       | Step ->
          ( fun loop
                { k ; unfalsifiable ; falsifiable ;
-                 falsifiable_no_model ; continue } ->
+                 falsifiable_no_model ; continue ; kill } ->
            (* In the step case, continue with the falsifiable
               properties. *)
            match falsifiable_no_model with
            | [] ->
               step_finish_loop
+                kill
                 Numeral.(k - one)
                 (Comm.step trans Numeral.(k-one) unfalsifiable falsifiable)
            | _ -> continue
