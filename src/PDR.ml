@@ -323,33 +323,33 @@ let partition_core solver clause =
 
 let trim_clause solver_init solver_frames clause =
   
-  (* Linearly traverse the list of clauses, trying to remove one at a time and maintain unsatisfiability *)
+  (* Linearly traverse the list of literals in the clause, trying to remove one at a time and maintain unsatisfiability *)
   
-  let rec linear_search kept kept_next discarded = function
-    | (c, c_next) :: ps ->
-       let kept' = Clause.remove c kept in
-       let kept_next' = Clause.remove c_next kept_next in
-       
-       let init = S.check_sat_term solver_init [(Clause.to_term kept')] in
-       let cons = S.check_sat_term solver_frames [(Term.mk_and [Clause.to_term kept';Clause.to_term kept_next'])] in
+  let rec linear_search kept discarded = function
+    | _ :: [] | [] -> kept, Clause.of_literals discarded
+    | c :: cs ->
+       let kept_woc = Clause.remove c kept in
 
+       let block_term = Clause.to_term kept_woc in
+       let primed_term = Term.mk_and (List.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) (Clause.elements kept_woc)) in
 
-       (* If unsatisfiability is maintained without c, then discard *)
-       if not (init) && cons  then (
-	 debug pdr "Removing clause\n" in
-	 linear_search kept' kept_next' (c :: discarded) ps
+       let init = S.check_sat_term solver_init [block_term] in
+       let cons = S.check_sat_term solver_frames [(Term.mk_and [block_term;primed_term])] in
+
+       (* If, by removing the literal c, the blocking clause then
+       either a. becomes reachable in the inital state or b. satisfies
+       consecution then we need to keep it *)
+       if init || cons then
+	 linear_search kept discarded cs
+       else (
+	 debug pdr "Removing literal\n" in
+	 linear_search kept_woc (c :: discarded) cs
        )
-				     
-       else
-	 linear_search kept kept_next discarded ps
-		       
-    | [] -> kept, Clause.of_literals discarded
-				     
+	   
   in
 
-  let clause_next = Clause.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) clause in
   
-  let kept, discarded = linear_search clause clause_next [] (List.combine (Clause.elements clause) (Clause.elements clause_next)) in
+  let kept, discarded = linear_search clause [] (Clause.elements clause) in
   
   kept,discarded
 
@@ -825,7 +825,7 @@ let add_to_block_tl block_clause block_trace = function
    remaining counterexamples on the stack.
 
 *)
-let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props = 
+let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys props = 
 
   function 
 
