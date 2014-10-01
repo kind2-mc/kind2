@@ -42,13 +42,50 @@ type walk_bmc_result = {
 }
 
 (* Signature for actlit modules for the make functor. *)
-module type In = sig
+module type InActlit = sig
 
   (* Creates a positive actlit as a UF. *)
   val positive : Term.t -> UfSymbol.t
 
   (* Creates a negative actlit as a UF. *)
   val negative : Numeral.t -> Term.t -> UfSymbol.t
+
+end
+
+(* Signature for the counterexamples extraction functions. *)
+module type InPathExtractor = sig
+
+  val generic: TransSys.t ->
+               (Var.t list -> (Var.t * Term.t) list) ->
+               Numeral.t ->
+               path
+
+  (* Extracts a counterexample for the base instance. *)
+  val base : TransSys.t ->
+             (Var.t list -> (Var.t * Term.t) list) ->
+             Numeral.t ->
+             path
+
+  (* Extracts a counterexample for the step instance. *)
+  val step : TransSys.t ->
+             (Var.t list -> (Var.t * Term.t) list) ->
+             Numeral.t ->
+             path
+
+end
+
+
+(* Signature for communication modules. *)
+module type InComm = sig
+
+  (* Communicates results from the base instance. *)
+  val base : TransSys.t -> Numeral.t -> properties -> cexs -> unit
+
+  (* Communicates results from the step instance. *)
+  val step : TransSys.t -> Numeral.t -> properties -> cexs -> unit
+
+  (* Gets new invariants from the rest of the framework. *)
+  val new_invariants : unit -> Term.t list
 
 end
 
@@ -65,8 +102,9 @@ module type Out = sig
 
 end 
 
-module Make (Actlit: In) : Out = struct
-
+module Make (Actlit: InActlit)
+            (Comm: InComm)
+            (PathExtract: InPathExtractor) : Out = struct
 
   (* Turns an actlit (UF) to a term. *)
   let term_of_actlit actlit = Term.mk_uf actlit []
@@ -120,28 +158,76 @@ module Make (Actlit: In) : Out = struct
   let split_closure solver trans k props { continue } =
     let rec loop unknown unfalsifiable falsifiable falsifiable_no_model =
 
+      (* k as int. *)
+      let k_int = Numeral.to_int k in
+
+      (* Building not the conjunction of the properties at k. *)
+      let negative_properties =
+        unknown
+        |> List.map (fun (_,p) -> Term.bump_state k p)
+        |> Term.mk_and
+        |> Term.mk_not
+      in
+
+      (* Creating the negative actlit. *)
+      let negative_actlit = Actlit.negative k negative_properties in
+      (* Declaring it. *)
+      Solver.declare_fun solver negative_actlit ;
+
+      (* Building the term out of the negative actlit UF. *)
+      let neg_actlit_term = term_of_actlit negative_actlit in
+
+      (* Asserting the negative implication. *)
+      Term.mk_or
+        [ neg_actlit_term |> Term.mk_not ; negative_properties ]
+      |> Solver.assert_term solver ;
+
+      (* Building the list of positive actlits on props, not
+           unknown. *)
+      let positive_actlits = positive_activators props in
+
+      (* Gathering all the activation literals. *)
+      let all_actlits = neg_actlit_term :: positive_actlits in
+
+      (* Function to run if sat. *)
       let if_sat () =
+        debug tsugi "[%3i] Sat, getting model." k_int in
+
         (* Get the model. *)
-        let model =
+        let model = 
           TransSys.vars_of_bounds trans k k
           |> Solver.get_model solver
+        in
+        let path =
+          PathExtract.generic trans (Solver.get_model solver) k
         in
         let uf_defs = TransSys.uf_defs trans in
         (* Evaluation function. *)
         let eval t = Eval.bool_of_value(Eval.eval_term uf_defs model t) in
+
         (* Split properties. *)
-        let (new_falsifiable, new_unknown) =
-          List.partition (fun prop -> eval (snd prop)) unknown
+        debug tsugi "  Splitting properties." in
+        let (new_unknown, new_falsifiable) =
+          List.partition (fun prop -> eval (Term.bump_state k (snd prop))) unknown
         in
+
+        debug tsugi
+          "  > %2i falsifiable properties, and" (List.length new_falsifiable)
+        in
+        debug tsugi "  > %2i unknown properties." (List.length new_unknown) in
+
         ( new_unknown,
           unfalsifiable,
-          (new_falsifiable, model) :: falsifiable,
+          (new_falsifiable, path) :: falsifiable,
           List.concat [new_falsifiable ; falsifiable_no_model ] )
       in
 
+      (* Function to run if unsat. *)
       let if_unsat () =
+        debug tsugi "[%3i] Unsat." k_int in
         ( [], unknown, falsifiable, falsifiable_no_model )
       in
+
 
       let (
         new_unknown,
@@ -150,45 +236,18 @@ module Make (Actlit: In) : Out = struct
         new_falsifiable_no_model
       ) =
 
-        (* Building not the conjunction of the properties at k. *)
-        let negative_properties =
-          unknown
-          |> List.map (fun (_,p) -> Term.bump_state k p)
-          |> Term.mk_and
-          |> Term.mk_not
-        in
-
-        (* Creating the negative actlit. *)
-        let negative_actlit = Actlit.negative k negative_properties in
-        (* Declaring it. *)
-        Solver.declare_fun solver negative_actlit ;
-
-        (* Building the term out of the negative actlit UF. *)
-        let neg_actlit_term = term_of_actlit negative_actlit in
-
-        (* Asserting the negative implication. *)
-        Term.mk_or
-          [ neg_actlit_term |> Term.mk_not ; negative_properties ]
-        |> Solver.assert_term solver ;
-
-        (* Building the list of positive actlits on props, not
-           unknown. *)
-        let positive_actlits = positive_activators props in
-
-        (* Gathering all the activation literals. *)
-        let all_actlits = neg_actlit_term :: positive_actlits in
-
         (* Check sat assuming with all literals. *)
         Solver.check_sat_assuming solver if_sat if_unsat all_actlits
 
       in
 
       match new_unknown with
-      | [] -> { k = k ;
-                unfalsifiable = new_unfalsifiable ;
-                falsifiable = new_falsifiable ;
-                falsifiable_no_model = new_falsifiable_no_model ;
-                continue = continue }
+      | [] ->
+         { k = k ;
+           unfalsifiable = new_unfalsifiable ;
+           falsifiable = new_falsifiable ;
+           falsifiable_no_model = new_falsifiable_no_model ;
+           continue = continue }
       | _ -> loop new_unknown
                   new_unfalsifiable
                   new_falsifiable
@@ -212,52 +271,19 @@ module Make (Actlit: In) : Out = struct
 
     (* Asserting new invariants from 0 to k. *)
     new_invs
-    |> List.iter
-         ( fun inv ->
-           Term.bump_and_apply_k
-             (Solver.assert_term solver) k inv ) ;
+    |> Term.mk_and
+    |> Term.bump_and_apply_k
+         (Solver.assert_term solver) k ;
 
     (* Asserting (old) invariants at k. *)
     invs
-    |> List.iter
-         ( fun inv ->
-           Term.bump_state k inv
-           |> Solver.assert_term solver
-           |> ignore ) ;
+    |> Term.mk_and
+    |> Term.bump_state k
+    |> Solver.assert_term solver ;
 
-    (* Merging new invariants and old ones. *)
-    let nu_invs = [new_invs ; invs] |> List.concat in
 
-    (* Constructing a list of implications to assert, declaring
-       negative activation literals as side-effect. *)
-    (* props *)
-    (* |> List.fold_left *)
-    (*      ( fun (neg_list,pos_list) prop -> *)
-
-    (*        (\* Building negative activation literal. *\) *)
-    (*        let act_lit = Actlit.negative k (snd prop) in *)
-
-    (*        (\* Bumping proposition at k. *\) *)
-    (*        let prop_at_k = Term.bump_state k (snd prop) in *)
-
-    (*        (\* Declaring the negative activation literal. *\) *)
-    (*        act_lit |> Solver.declare_fun solver |> ignore ; *)
-
-    (*        (\* Building implication. *\) *)
-    (*        let impl = Term.mk_or *)
-    (*                     [ Term.mk_not (term_of_actlit act_lit) ; *)
-    (*                       Term.mk_not prop_at_k ] *)
-    (*        in *)
-
-    (*        (\* Adding implication at k for positive literal if in the *)
-    (*         step instance. *\) *)
-    (*        ((impl :: neg_list), (actlit k pos_list prop)) *)
-
-    (*      ([], []) *)
-    (* (\* Asserting the resulting list of implications as a *)
-    (*    conjunction. *\) *)
-    (* |> (fun (neg_list, pos_list) -> Term.mk_and list |> Solver.assert_term solver) ; *)
-
+    (* Merging all the invariants. *)
+    let nu_invs = List.rev_append new_invs invs in
 
     (* Building the continuation for the next iteration. *)
     let continuation = next solver trans Numeral.(k + one) nu_invs in
@@ -316,26 +342,53 @@ module Make (Actlit: In) : Out = struct
   (* Runs the BMC loop. *)
   let run_bmc bmc_mode trans =
 
-    let rec loop trans { k ;
-                         unfalsifiable ;
-                         falsifiable ;
-                         falsifiable_no_model ;
-                         continue } =
-      (* Preparing for the next iteration. *)
-      continue unfalsifiable []
-      |> loop trans
+    (* Communicate the result of this iteration to the rest of the
+       framework. *)
+    let communicate =
+      match bmc_mode with
+      | Base -> Comm.base trans
+      | Step -> Comm.step trans
     in
 
-    let evil_loop () =
-      (* Unrolling the properties at zero. *)
-      let props = (TransSys.props_list_of_bound trans Numeral.zero) in
+    (* Launches the next iteration based on the results of the
+       previous one. *)
+    let launch_next loop =
+      match bmc_mode with
+      | Base ->
+         ( fun { k ; unfalsifiable ; falsifiable_no_model ; continue } ->
+           (* In the base case, just continue with the unfalsifiable
+              properties. *)
+           match unfalsifiable with
+           | [] -> ()
+           | _  -> continue unfalsifiable (Comm.new_invariants ())
+                   |> loop )
 
-      (* Building the first continuation and entering the loop. *)
-      walk_bmc bmc_mode trans props
-      |> loop trans
+      | Step ->
+         ( fun { k ; unfalsifiable ; falsifiable_no_model ; continue } ->
+           (* In the step case, continue with the falsifiable
+              properties. *)
+           match falsifiable_no_model with
+           | [] -> ()
+           | falsified  -> continue falsified (Comm.new_invariants ())
+                           |> loop )
     in
 
-    evil_loop ()
+    (* BMC loop. *)
+    let rec evil_loop trans
+                      ({ k ; unfalsifiable ; falsifiable } as bmc_result) =
+
+      (* Communicating. *)
+      communicate k unfalsifiable falsifiable ;
+
+      (* Launching next iteration. *)
+      launch_next (evil_loop trans) bmc_result
+    in
+
+    (* Unrolling the properties at zero. *)
+    let props = (TransSys.props_list_of_bound trans Numeral.zero) in
+
+    (* Building the first continuation and entering the evil loop. *)
+    walk_bmc bmc_mode trans props |> evil_loop trans
 
 end
 

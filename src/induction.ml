@@ -51,9 +51,64 @@ module ActLitProto = struct
 
 end
 
+
+module CexExtractorDummy = struct
+
+  let generic trans get_model k = []
+  let base trans get_model k = []
+  let step trans get_model k = []
+
+end
+
+
+(* Prototypical communication protocol. *)
+module CommunicationProto = struct
+
+  let base trans k unfalsifiable falsifiable =
+    let status_k_true = TransSys.PropKTrue(Numeral.to_int k) in
+
+    (* Broadcast status of properties true in k steps. *)
+    List.iter
+      ( fun (s, _) -> Event.prop_status status_k_true trans s )
+      unfalsifiable ;
+
+    (* Broadcast status of properties falsified in k steps. *)
+    List.iter
+      ( fun (p, cex) ->
+        List.iter
+          ( fun (s, _) -> Event.prop_status (TransSys.PropFalse cex) trans s )
+          p )
+      falsifiable ;
+
+    ()
+
+
+  let step trans k unfalsifiable cexs = ()
+  let new_invariants () = []
+
+end
+
+
+(* Prototypical communication protocol. *)
+module CommunicationDummy = struct
+
+  let base trans k unfalsifiable falsifiable = ()
+  let step trans k unfalsifiable cexs = ()
+  let new_invariants () = []
+
+end
+
+
 (* Instantiating tsugi on the prototypical activation literal
    generator. *)
-module BmcActLitProto = Tsugi.Make(ActLitProto)
+module BmcProto = Tsugi.Make(ActLitProto)
+                            (CommunicationProto)
+                            (CexExtractorDummy)
+
+module BmcDummy = Tsugi.Make(ActLitProto)
+                            (CommunicationDummy)
+                            (CexExtractorDummy)
+
 
 (* 
    Local Variables:

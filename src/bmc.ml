@@ -17,7 +17,6 @@
 *)
 
 open Lib
-open Kind
 
 (* Use configured SMT solver *)
 module BMCSolver = SMTSolver.Make (SMTLIBSolver)
@@ -339,7 +338,7 @@ let rec bmc solver trans_sys k = function
 (* Entry point *)
 let main trans_sys =
 
-  Induction.BmcActLitProto.run_bmc Tsugi.Base trans_sys ;
+  Induction.BmcDummy.run_bmc Tsugi.Step trans_sys ;
 
   Stat.start_timer Stat.bmc_total_time;
   

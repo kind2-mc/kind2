@@ -53,13 +53,54 @@ type walk_bmc_result = {
     'positive' activation literals from terms, and 'negative'
     activation literals from a depth (k) and a term. Both MUST
     be injective. *)
-module type In = sig
+module type InActlit = sig
 
   (** Creates a positive actlit as a UF. *)
   val positive : Term.t -> UfSymbol.t
 
   (** Creates a negative actlit as a UF. *)
   val negative : Numeral.t -> Term.t -> UfSymbol.t
+
+end
+
+
+(** Signature for the counterexamples extraction functions. *)
+module type InPathExtractor = sig
+
+  val generic: TransSys.t ->
+               (Var.t list -> (Var.t * Term.t) list) ->
+               Numeral.t ->
+               path
+
+  (** Extracts a counterexample for the base instance. *)
+  val base : TransSys.t ->
+             (Var.t list -> (Var.t * Term.t) list) ->
+             Numeral.t ->
+             path
+
+  (** Extracts a counterexample for the step instance. *)
+  val step : TransSys.t ->
+             (Var.t list -> (Var.t * Term.t) list) ->
+             Numeral.t ->
+             path
+
+end
+
+(** Signature for communication modules. *)
+module type InComm = sig
+
+  (** Communicates results from the base instance. First argument are
+      the unfalsifiable properties. Second one are the falsifiable
+      ones with counterexamples. *)
+  val base : TransSys.t -> Numeral.t -> properties -> cexs -> unit
+
+  (** Communicates results from the step instance. First argument are
+      the unfalsifiable properties. Second one are the falsifiable
+      ones with counterexamples. *)
+  val step : TransSys.t -> Numeral.t -> properties -> cexs -> unit
+
+  (** Gets new invariants from the rest of the framework. *)
+  val new_invariants : unit -> Term.t list
 
 end
 
@@ -79,7 +120,9 @@ module type Out = sig
 end 
 
 (** Functor to create a BMC module. *)
-module Make (Actlit: In) : Out
+module Make (Actlit: InActlit)
+            (Comm: InComm)
+            (PathExtract: InPathExtractor) : Out
 
 (* 
    Local Variables:

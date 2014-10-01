@@ -21,11 +21,12 @@
    to implement k-induction. *)
 
 open Lib
+open TypeLib
 
-(** Instantiating tsugi on the prototypical activation literal
-    generator. *)
-module BmcActLitProto : Tsugi.Out
-
+(** Tsugi prototypical instantiation. *)
+module BmcProto : Tsugi.Out
+(** Tsugi dummy comm and cex extraction instantiation. *)
+module BmcDummy : Tsugi.Out
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
