@@ -69,6 +69,7 @@ let smtlibsolver_config_cvc4 =
   { solver_cmd = 
       [| cvc4_bin; 
          "--lang"; "smt2";
+         "--rewrite-divk";
          "--tear-down-incremental";
          "--produce-unsat-cores" |] }
 
