@@ -338,40 +338,42 @@ let rec bmc solver trans_sys k = function
 (* Entry point *)
 let main trans_sys =
 
-  Induction.BmcDummy.run_bmc Tsugi.Step trans_sys ;
+  Induction.BmcProto.run_bmc Tsugi.Base trans_sys ;
 
-  Stat.start_timer Stat.bmc_total_time;
+  ()
+
+  (* Stat.start_timer Stat.bmc_total_time; *)
   
-  (* Determine logic for the SMT solver *)
-  let logic = TransSys.get_logic trans_sys in
+  (* (\* Determine logic for the SMT solver *\) *)
+  (* let logic = TransSys.get_logic trans_sys in *)
       
-  (* Create solver instance *)
-  let solver = 
-    S.new_solver ~produce_assignments:true logic
-  in
+  (* (\* Create solver instance *\) *)
+  (* let solver =  *)
+  (*   S.new_solver ~produce_assignments:true logic *)
+  (* in *)
   
-  (* Create a reference for the solver. Only used in on_exit. *)
-  ref_solver := Some solver;
+  (* (\* Create a reference for the solver. Only used in on_exit. *\) *)
+  (* ref_solver := Some solver; *)
   
-  (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations
-    trans_sys
-    (S.declare_fun solver);
+  (* (\* Declare uninterpreted function symbols *\) *)
+  (* TransSys.iter_state_var_declarations *)
+  (*   trans_sys *)
+  (*   (S.declare_fun solver); *)
   
-  (* Define functions *)
-  TransSys.iter_uf_definitions
-    trans_sys
-    (S.define_fun solver);
+  (* (\* Define functions *\) *)
+  (* TransSys.iter_uf_definitions *)
+  (*   trans_sys *)
+  (*   (S.define_fun solver); *)
 
-  (* Assert initial state constraint *)
-  S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
+  (* (\* Assert initial state constraint *\) *)
+  (* S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero); *)
   
-  (* Enter the bounded model checking loop *)
-  bmc 
-    solver
-    trans_sys
-    Numeral.zero
-    (TransSys.props_list_of_bound trans_sys Numeral.zero)
+  (* (\* Enter the bounded model checking loop *\) *)
+  (* bmc  *)
+  (*   solver *)
+  (*   trans_sys *)
+  (*   Numeral.zero *)
+  (*   (TransSys.props_list_of_bound trans_sys Numeral.zero) *)
 
 
 (* 

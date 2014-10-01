@@ -522,47 +522,51 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 (* Entry point *)
 let main trans_sys =
 
-  Stat.start_timer Stat.ind_total_time;
+  Induction.BmcProto.run_bmc Tsugi.Step trans_sys ;
 
-  (* Determine logic for the SMT solver *)
-  let logic = TransSys.get_logic trans_sys in
+  ()
 
-  (* Create solver instance *)
-  let solver = 
-    S.new_solver ~produce_assignments:true logic
-  in
+  (* Stat.start_timer Stat.ind_total_time; *)
 
-  (* Create a reference for the solver to clean up on exit *)
-  ref_solver := Some solver;
+  (* (\* Determine logic for the SMT solver *\) *)
+  (* let logic = TransSys.get_logic trans_sys in *)
 
-  (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations
-    trans_sys
-    (S.declare_fun solver);
+  (* (\* Create solver instance *\) *)
+  (* let solver =  *)
+  (*   S.new_solver ~produce_assignments:true logic *)
+  (* in *)
 
-  (* Define functions *)
-  TransSys.iter_uf_definitions
-    trans_sys
-    (S.define_fun solver);
+  (* (\* Create a reference for the solver to clean up on exit *\) *)
+  (* ref_solver := Some solver; *)
 
-  Compress.init (S.declare_fun solver) trans_sys;
+  (* (\* Declare uninterpreted function symbols *\) *)
+  (* TransSys.iter_state_var_declarations *)
+  (*   trans_sys *)
+  (*   (S.declare_fun solver); *)
 
-  (* Assert invariants C[x_0] 
+  (* (\* Define functions *\) *)
+  (* TransSys.iter_uf_definitions *)
+  (*   trans_sys *)
+  (*   (S.define_fun solver); *)
 
-     Asserted before push, will be preserved after restart *)
-  S.assert_term
-    solver
-    (TransSys.invars_of_bound trans_sys Numeral.zero);
+  (* Compress.init (S.declare_fun solver) trans_sys; *)
 
-  (* New context for assertions to be removed on restart *)
-  S.push solver;
+  (* (\* Assert invariants C[x_0]  *)
+
+  (*    Asserted before push, will be preserved after restart *\) *)
+  (* S.assert_term *)
+  (*   solver *)
+  (*   (TransSys.invars_of_bound trans_sys Numeral.zero); *)
+
+  (* (\* New context for assertions to be removed on restart *\) *)
+  (* S.push solver; *)
   
-  induction
-    solver
-    trans_sys
-    []
-    (TransSys.props_list_of_bound trans_sys Numeral.zero)
-    Numeral.zero
+  (* induction *)
+  (*   solver *)
+  (*   trans_sys *)
+  (*   [] *)
+  (*   (TransSys.props_list_of_bound trans_sys Numeral.zero) *)
+  (*   Numeral.zero *)
 
   
 (* 

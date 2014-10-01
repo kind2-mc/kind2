@@ -65,12 +65,30 @@ end
 (* Prototypical communication protocol. *)
 module CommunicationProto = struct
 
+  let debug_state mode k unfals fals invs prop_invs opt_prop prop_false =
+    let l = List.length in
+    debug tsugi
+          "[%3i] %s:@\n> unfalsifiable: %i@\n> falsifiable  : %i@\n> new_invs     : %i@\n> new_inv_props: %i@\n> pending      : %i@\n> false_props  : %i" (Numeral.to_int k) mode (l unfals) (l fals) (l invs) (l prop_invs) (l opt_prop) (l prop_false)
+    in
+    ()
+
+  let update_trans trans =
+    Event.recv ()
+    |> Event.update_trans_sys_tsugi trans
+
   let base trans k unfalsifiable falsifiable =
+
+    (* Updating transition system and retrieving new things. *)
+    let (new_invariants, new_valid_props, new_falsified_props) =
+      update_trans trans
+    in
+
     let status_k_true = TransSys.PropKTrue(Numeral.to_int k) in
 
     (* Broadcast status of properties true in k steps. *)
     List.iter
-      ( fun (s, _) -> Event.prop_status status_k_true trans s )
+      ( fun (s, _) ->
+        Event.prop_status status_k_true trans s )
       unfalsifiable ;
 
     (* Broadcast status of properties falsified in k steps. *)
@@ -81,13 +99,134 @@ module CommunicationProto = struct
           p )
       falsifiable ;
 
-    { new_invs = [] ; new_inv_props = [] ;
-      new_opt_props = [] ; new_false_props = [] }
+    debug_state
+      "Base" k unfalsifiable falsifiable new_invariants new_valid_props [] new_falsified_props ;
+
+    { (* New invariants. *)
+      new_invariants = new_invariants ;
+      (* New valid properties. *)
+      new_valid = new_valid_props ;
+      (* New falsified properties. *)
+      new_falsified = new_falsified_props ;
+      (* No new pending properties. *)
+      new_pending = []  ;
+      (* No pending properties. *)
+      pending = false }
 
 
-  let step trans k unfalsifiable cexs =
-    { new_invs = [] ; new_inv_props = [] ;
-      new_opt_props = [] ; new_false_props = [] }
+  (* List of properties for which step holds for some k, but not
+     confirmed by base yet. *)
+  let pending_props = ref []
+
+  (* Checks if a property is true up to 'k_step'. *)
+  let holds_in_base trans k_step (prop,_) =
+    match TransSys.get_prop_status trans prop with
+    | PropKTrue k' ->
+       k' >= (Numeral.to_int k_step)
+    | _ -> false
+
+  (* Checks if some properties have been confirmed by base, broadcasts
+     valid properties and keeps pending ones. *)
+  let rec update_pending
+            (* Transition system. *)
+            trans
+            (* The function is generic in its input list.  'f' returns
+               the k for which this property is pending and the
+               information about the property. *)
+            f
+            (* The new list of pending properties. *)
+            new_pending
+            (* Same as 'new_pending' but without the k for which this
+               property is pending. *)
+            new_pending_clean
+            (* New valid properties as terms. *)
+            new_invariants
+            (* New valid properties as properties. *)
+            new_valid_props = function
+    | head :: tail ->
+       (* Retrieving information on the pending property. *)
+       let (k', string, term, prop) = f head in
+
+       if holds_in_base trans k' prop then (
+
+         (* Property is valid, broadcasting. *)
+         Event.prop_status TransSys.PropInvariant trans string ;
+
+         (* Looping with the redundant lists. *)
+         update_pending trans f
+                        new_pending
+                        new_pending_clean
+                        (term :: new_invariants)
+                        (prop :: new_valid_props)
+                        tail
+       ) else
+
+         (* Confirmation needed, adding to pending properties. *)
+         update_pending trans f
+                        ((k', prop) :: new_pending)
+                        (prop :: new_pending_clean)
+                        new_invariants
+                        new_valid_props
+                        tail
+    | [] ->
+
+       (* Updating the list of pending properties. *)
+       pending_props := new_pending ;
+
+       (* Returning the two redundant invariants lists. *)
+       (new_invariants, new_valid_props, new_pending_clean, !pending_props <> [])
+
+  (* Handles the pending unfalsifiable properties and the new ones.
+     Broadcasts for properties confirmed by base, add to the list of
+     pending properties if not. *)
+  let check_proved_broadcast trans k invs prop_invs unfalsifiable =
+
+    (* Checking if pending properties have been confirmed by base. *)
+    let invs_tmp, prop_invs_tmp, _, _ =
+      update_pending
+        trans
+        (fun (k',((s,t) as p)) -> (k',s,t,p))
+        [] []
+        invs
+        prop_invs
+        !pending_props
+    in
+
+    (* Checking if new unfalsifiable properties are invariants,
+       adding them to the list of pending properties if they're not. *)
+    update_pending
+      trans
+      (fun ((s,t) as p) -> (k,s,t,p))
+      !pending_props
+      []
+      invs_tmp
+      prop_invs_tmp
+      unfalsifiable
+
+  let step trans k unfalsifiable falsifiable =
+
+    (* Updating transition system. *)
+    let (invs_tmp, valid_tmp, new_falsified) =
+      update_trans trans
+    in
+
+    let (new_invariants, new_valid, new_pending, pending_not_empty) =
+      check_proved_broadcast trans k invs_tmp valid_tmp unfalsifiable
+    in
+
+    debug_state
+      "Step" k unfalsifiable falsifiable new_invariants new_valid new_pending new_falsified;
+
+    { (* New invariants. *)
+      new_invariants = new_invariants ;
+      (* New invariant properties. *)
+      new_valid = new_valid ;
+      (* New falsified properties. *)
+      new_falsified = new_falsified ;
+      (* New pending properties. *)
+      new_pending = new_pending ;
+      (* Pending properties. *)
+      pending = pending_not_empty }
 
 end
 
@@ -96,11 +235,11 @@ end
 module CommunicationDummy = struct
 
   let base trans k unfalsifiable falsifiable =
-    { new_invs = [] ; new_inv_props = [] ;
-      new_opt_props = [] ; new_false_props = [] }
-  let step trans k unfalsifiable cexs =
-    { new_invs = [] ; new_inv_props = [] ;
-      new_opt_props = [] ; new_false_props = [] }
+    { new_invariants = [] ; new_valid = [] ;
+      new_falsified = [] ; new_pending = [] ; pending = false }
+  let step trans k unfalsifiable falsifiable =
+    { new_invariants = [] ; new_valid = [] ;
+      new_falsified = [] ; new_pending = [] ; pending = false }
 
 end
 

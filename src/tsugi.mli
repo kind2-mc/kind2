@@ -27,20 +27,26 @@ open TypeLib
 type bmc_mode = | Base | Step
 
 (** Passed to 'next' at the beginning of an iteration.  Fields:
-    'new_invs' contains the new invariants INCLUDING new invariant
-    properties; 'new_inv_props' contains the new valid properties
-    which SHOULD ALSO BE in 'new_invs'; 'new_opt_props' contains the
-    new properties to optimistically assert valid; 'new_false_props'
-    are the new falsified properties. *)
+    'new_invariants' contains the new invariants INCLUDING new
+    invariant properties; 'new_valid' contains the new valid
+    properties which SHOULD ALSO BE in 'new_invariants';
+    'new_falsified' are the new falsified properties; 'new_pending'
+    contains the new properties to optimistically assert valid;
+    'pending' contains all the properties to optimistically assert
+    valid. *)
 type context_update = {
-  (* New invariants. *)
-  new_invs : Term.t list ;
-  (* New invariant properties. *)
-  new_inv_props : properties ;
-  (* New optimistic invariant properties. *)
-  new_opt_props : properties ;
+  (* New invariants INCLUDING new invariant properties. *)
+  new_invariants : Term.t list ;
+  (* New valid properties which SHOULD ALSO BE in 'new_invs'. *)
+  new_valid : properties ;
   (* New falsified properties. *)
-  new_false_props : properties
+  new_falsified : properties ;
+  (* New properties unfalsifiable in step waiting for base
+     confirmation. *)
+  new_pending : properties ;
+  (* Properties unfalsifiable in step waiting for base
+     confirmation. *)
+  pending : bool
 }
 
 (** Type returned by a single iteration of bmc. Fields: 'k' is the

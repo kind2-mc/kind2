@@ -25,18 +25,23 @@ open TypeLib
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
+(* Enumerated type to choose between base and step. *)
 type bmc_mode = | Base | Step
 
 (* Passed to 'next' at the beginning of an iteration. *)
 type context_update = {
   (* New invariants INCLUDING new invariant properties. *)
-  new_invs : Term.t list ;
-  (* New invariant properties which SHOULD ALSO BE in 'new_invs'. *)
-  new_inv_props : properties ;
-  (* New optimistic invariant properties. *)
-  new_opt_props : properties ;
+  new_invariants : Term.t list ;
+  (* New valid properties which SHOULD ALSO BE in 'new_invs'. *)
+  new_valid : properties ;
   (* New falsified properties. *)
-  new_false_props : properties
+  new_falsified : properties ;
+  (* New properties unfalsifiable in step waiting for base
+     confirmation. *)
+  new_pending : properties ;
+  (* Properties unfalsifiable in step waiting for base
+     confirmation. *)
+  pending : bool
 }
 
 (* Type returned by a single iteration of bmc. *)
@@ -50,7 +55,7 @@ type walk_bmc_result = {
   (* Properties the negation of which is sat at k, no models. *)
   falsifiable_no_model : properties ;
   (* Continuation for the next bmc iteration. *)
-  continue : properties -> context_update -> walk_bmc_result
+  continue : properties -> context_update -> walk_bmc_result ;
 }
 
 (* Signature for actlit modules for the make functor. *)
@@ -116,37 +121,84 @@ module Make (Actlit: InActlit)
             (Comm: InComm)
             (PathExtract: InPathExtractor) : Out = struct
 
+  let kill_solver = Solver.delete_solver
+
   (* Turns an actlit (UF) to a term. *)
   let term_of_actlit actlit = Term.mk_uf actlit []
 
 
-  (* Adds an implication between a positive literal and a property at
-     k-1. *)
-  let positive_activation k assert_term list =
-    (* K must be greater than one. *)
-    assert Numeral.(geq k one) ;
+  (* Adds an implication between a positive literal and a property from
+     'k_min' to 'k_max'. Assumes 'k_min' <= 'k_max'. *)
+  let positive_activation k_min k_max assert_term terms =
 
-    let rec loop conj = function
-      | (_, prop) :: tail ->
-         (* Bumping to k-1. *)
-         let prop_k_m_one = Term.bump_state Numeral.(k-one) prop in
+    assert Numeral.(k_min <= k_max) ;
 
-         (* Building activation literal on the property NOT bumped for
-            positive actlit reuse. *)
+    (* Bumps 'term' to 'k', prepends it to 'list', decrements 'k' and
+       recurses until 'k' is less than 'k_min'. *)
+    let rec inner_loop list term k =
+      if Numeral.(k < k_min) then list
+      else
+        inner_loop ((Term.bump_state k term) :: list) term Numeral.(k - one)
+    in
+
+    (* Builds the conjunction of all the positive implications of the
+       input list of terms 'ts' between 'k_min' and 'k_max'. *)
+    let rec loop conj ts =
+      match ts,conj with
+      | (_, prop) :: tail, _ ->
+
+         (* Building activation literal on the property. *)
          let actlit = Actlit.positive prop |> term_of_actlit in
 
          (* Building implication. *)
-         let impl = Term.mk_or [ Term.mk_not actlit ; prop_k_m_one ] in
+         let impl = Term.mk_or [ Term.mk_not actlit ; prop ] in
+
+         (* Adding bumped terms to the conjunction. *)
+         let new_conj = inner_loop conj impl k_max in
 
          (* Adding it to the conjunction and looping. *)
-         loop (impl :: conj) tail
-      | [] -> conj
+         loop new_conj tail
+
+      | _, [] -> 
+         (* Nothing to assert. *)
+         ()
+
+      | _, _ ->
+         (* Asserting the big conjunction. *)
+         conj |> Term.mk_and |> assert_term |> ignore
     in
 
-    loop [] list
-    |> Term.mk_and
-    |> assert_term
-    |> ignore
+    loop [] terms
+
+
+  (* Deactivates terms by asserting the negation of their positive
+     actlits. *)
+  let positive_deactivation assert_term terms =
+
+    (* Builds the conjunction of all the positive implications of the
+       input list of terms 'ts' between 'k_min' and 'k_max'. *)
+    let rec loop conj ts =
+      match ts,conj with
+      | (_, prop) :: tail, _ ->
+
+         (* Building deactivation term. *)
+         let deact =
+           Actlit.positive prop |> term_of_actlit |> Term.mk_not
+         in
+
+         (* Adding it to the conjunction and looping. *)
+         loop (deact :: conj) tail
+
+      | _, [] -> 
+         (* Nothing to assert. *)
+         ()
+
+      | _, _ ->
+         (* Asserting the big conjunction. *)
+         conj |> Term.mk_and |> assert_term |> ignore
+    in
+
+    loop [] terms
 
 
   (* Returns the list of all activators for the input properties. *)
@@ -166,10 +218,8 @@ module Make (Actlit: InActlit)
      and those which are not. The implications should be asserted
      --see 'next'. Also returns the continuation it was given. *)
   let split_closure solver trans k opt_props props { continue } =
-    let rec loop unknown unfalsifiable falsifiable falsifiable_no_model =
 
-      (* k as int. *)
-      let k_int = Numeral.to_int k in
+    let rec loop unknown unfalsifiable falsifiable falsifiable_no_model =
 
       (* Building the negation of the conjunction of the properties at
          k. *)
@@ -207,7 +257,6 @@ module Make (Actlit: InActlit)
 
       (* Function to run if sat. *)
       let if_sat () =
-        debug tsugi "[%3i] Sat, getting model." k_int in
 
         (* Get the model. *)
         let model = 
@@ -222,15 +271,9 @@ module Make (Actlit: InActlit)
         let eval t = Eval.bool_of_value(Eval.eval_term uf_defs model t) in
 
         (* Split properties. *)
-        debug tsugi "  Splitting properties." in
         let (new_unknown, new_falsifiable) =
           List.partition (fun prop -> eval (Term.bump_state k (snd prop))) unknown
         in
-
-        debug tsugi
-          "  > %2i falsifiable properties, and" (List.length new_falsifiable)
-        in
-        debug tsugi "  > %2i unknown properties." (List.length new_unknown) in
 
         ( new_unknown,
           unfalsifiable,
@@ -240,7 +283,6 @@ module Make (Actlit: InActlit)
 
       (* Function to run if unsat. *)
       let if_unsat () =
-        debug tsugi "[%3i] Unsat." k_int in
         ( [], unknown, falsifiable, falsifiable_no_model )
       in
 
@@ -277,86 +319,107 @@ module Make (Actlit: InActlit)
             solver
             trans
             k
+            (* Invariants. *)
             invs
-            opt_props
-            props
-            { new_invs ; new_inv_props ;
-              new_opt_props ; new_false_props } =
+            (* Properties unfalsifiable for some k waiting for base
+               confirmation. *)
+            pending
+            (* Unknown properties. *)
+            unknown
+            (* Context update. *)
+            { new_invariants ;
+              new_valid ;
+              new_falsified ;
+              new_pending } =
 
-    (* We will need to remove all valid and falsified properties
-       from 'props' and 'opt_props'. *)
-    let shall_keep prop =
-      not
-        (List.mem prop new_false_props || List.mem prop new_inv_props)
+    (* We need to remove new valid and falsified properties from
+       'unknown' and 'pending'. *)
+    let shall_keep =
+      (fun prop -> not (List.mem prop new_valid || List.mem prop new_pending))
     in
 
-    (* Removing from the properties to check. *)
-    let nu_props =
-      props
-      |> List.filter (fun prop -> shall_keep prop)
-    in
+    (* Cleaning 'pending'. *)
+    let clean_pending = List.filter shall_keep pending in
 
-    (* Merging all the optimistic properties after removing the
-       falsified and the valid ones. *)
-    let nu_opt_props =
-      opt_props
-      |> List.filter (fun prop -> shall_keep prop)
-      |> List.rev_append new_opt_props
-    in
+    (* Cleaning 'unknown'. *)
+    let clean_unknown = List.filter shall_keep unknown in
 
     (* Asserting transition relation for k > 0. *)
-    if Numeral.(k > zero) then
+    if Numeral.(k > zero) then (
+
+      (* k - 1. *)
+      let k_minus_one = Numeral.(k - one) in
 
       (* T[x_k-1, x_k]. *)
-      let _ = TransSys.trans_of_bound trans k
-              |> Solver.assert_term solver
-              |> ignore
+      TransSys.trans_of_bound trans k
+      |> Solver.assert_term solver
+      |> ignore ;
+
+      (* Positive implications for new pending properties at k - 1 and
+         k. *)
+      new_pending
+      |> positive_activation
+           k_minus_one k (Solver.assert_term solver) ;
+
+      (* Positive implications for pending properties at k. *)
+      clean_pending
+      |> positive_activation
+           k k (Solver.assert_term solver) ;
+
+      (* Positive implications for unknown properties at k - 1. *)
+      clean_unknown
+      |> positive_activation
+           k_minus_one k_minus_one (Solver.assert_term solver) ;
+    ) ;
+
+
+    (* Merging old and new invariants, and asserting them. *)
+    let nu_invs =
+      
+      (* Asserting new invariants from 0 to k. *)
+      let assert_new_invariants terms =
+        terms
+        |> Term.mk_and
+        |> Term.bump_and_apply_k
+             (Solver.assert_term solver) k
       in
 
-      (* Asserting implication for unknown properties and new
-         optimistic properties at k - 1. *)
-      nu_props
-      |> List.rev_append new_opt_props
-      |> positive_activation
-           Numeral.(k - one) (Solver.assert_term solver) ;
+      (* Asserting (old) invariants at k. *)
+      let assert_old_invariants terms =
+        terms
+        |> Term.mk_and
+        |> Term.bump_state k
+        |> Solver.assert_term solver
+      in
 
-      (* Asserting optimistic literals at k. *)
-      positive_activation k (Solver.assert_term solver) nu_opt_props ; ;
+      match new_invariants, invs with
+      | [], [] -> []
+      | _, [] ->
+         assert_new_invariants new_invariants ;
+         new_invariants
+      | [], _ ->
+         assert_old_invariants invs ;
+         invs
+      | _, _ ->
+         assert_new_invariants new_invariants ;
+         assert_old_invariants invs ;
+         List.rev_append new_invariants invs
 
+    in
 
-
-    (* Asserting new invariants from 0 to k. *)
-    new_invs
-    |> Term.mk_and
-    |> Term.bump_and_apply_k
-         (Solver.assert_term solver) k ;
-
-    (* Asserting (old) invariants at k. *)
-    invs
-    |> Term.mk_and
-    |> Term.bump_state k
-    |> Solver.assert_term solver ;
-
-    (* Merging all the invariants. *)
-    let nu_invs = List.rev_append new_invs invs in
-
-
+    (* Merging old and new pending properties. *)
+    let nu_pending = List.rev_append new_pending clean_pending in
 
     (* Deactivating falsified properties. *)
-    new_false_props
-    |> List.map ( fun (_, prop) ->
-                  term_of_actlit (Actlit.positive prop) |> Term.mk_not )
-    |> Term.mk_and
-    |> Solver.assert_term solver ;
+    new_falsified
+    |> positive_deactivation (Solver.assert_term solver) ;
 
 
 
     (* Building the continuation for the next iteration. *)
     let continuation =
-      next solver trans Numeral.(k + one) nu_invs nu_opt_props
+      next solver trans Numeral.(k + one) nu_invs nu_pending
     in
-
-
 
     (* Splitting falsifiable and unfalsifiable things, and passing the
        continuation. *)
@@ -364,8 +427,8 @@ module Make (Actlit: InActlit)
       solver
       trans
       k
-      nu_opt_props
-      nu_props
+      nu_pending
+      clean_unknown
       { k = k ;
         unfalsifiable = [] ;
         falsifiable = [] ;
@@ -398,27 +461,35 @@ module Make (Actlit: InActlit)
       trans
       (Solver.define_fun solver) ;
 
-    let _ = 
+    let k =
       match bmc_mode with
       | Base ->
          (* If in base mode assert init. *)
          assert_init solver trans ;
-      | Step -> ()
+         Numeral.zero
+      | Step -> Numeral.one
     in
 
     next solver
          trans
-         Numeral.zero
+         k
          []
          []
          props
-         { new_invs = [] ; new_inv_props = [] ;
-           new_opt_props = [] ; new_false_props = [] }
+         { new_invariants = [] ;
+           new_valid = [] ;
+           new_falsified = [] ;
+           new_pending = [] ;
+           pending = false }
 
 
 
   (* Runs the BMC loop. *)
   let run_bmc bmc_mode trans =
+
+    let rec step_finish_loop k { pending } =
+      if pending then step_finish_loop k (Comm.step trans k [] []) ;
+    in
 
     (* Launches the next iteration based on the results of the
        previous one. *)
@@ -443,9 +514,13 @@ module Make (Actlit: InActlit)
            (* In the step case, continue with the falsifiable
               properties. *)
            match falsifiable_no_model with
-           | [] -> ()
-           | _ -> continue falsifiable_no_model
-                           (Comm.step trans k unfalsifiable falsifiable)
+           | [] ->
+              step_finish_loop
+                Numeral.(k - one)
+                (Comm.step trans Numeral.(k-one) unfalsifiable falsifiable)
+           | _ -> continue
+                    falsifiable_no_model
+                    (Comm.step trans Numeral.(k-one) unfalsifiable falsifiable)
                   |> loop )
     in
 
