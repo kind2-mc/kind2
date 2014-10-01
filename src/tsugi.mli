@@ -26,6 +26,23 @@ open TypeLib
 (** Enumerated type to select the mode BMC is launched into. *)
 type bmc_mode = | Base | Step
 
+(** Passed to 'next' at the beginning of an iteration.  Fields:
+    'new_invs' contains the new invariants INCLUDING new invariant
+    properties; 'new_inv_props' contains the new valid properties
+    which SHOULD ALSO BE in 'new_invs'; 'new_opt_props' contains the
+    new properties to optimistically assert valid; 'new_false_props'
+    are the new falsified properties. *)
+type context_update = {
+  (* New invariants. *)
+  new_invs : Term.t list ;
+  (* New invariant properties. *)
+  new_inv_props : properties ;
+  (* New optimistic invariant properties. *)
+  new_opt_props : properties ;
+  (* New falsified properties. *)
+  new_false_props : properties
+}
+
 (** Type returned by a single iteration of bmc. Fields: 'k' is the
     iteration this result correponds to; 'unfalsifiable' are the
     properties which cannot be falsified for 'k'; 'falsifiable' are
@@ -44,10 +61,8 @@ type walk_bmc_result = {
   (* Properties the negation of which is sat at k, no models. *)
   falsifiable_no_model : properties ;
   (* Continuation for the next bmc iteration. *)
-  continue : properties -> invariants -> walk_bmc_result
+  continue : properties -> context_update -> walk_bmc_result
 }
-
-
 
 (** Signature for actlit modules for the make functor. Creates
     'positive' activation literals from terms, and 'negative'
@@ -92,15 +107,12 @@ module type InComm = sig
   (** Communicates results from the base instance. First argument are
       the unfalsifiable properties. Second one are the falsifiable
       ones with counterexamples. *)
-  val base : TransSys.t -> Numeral.t -> properties -> cexs -> unit
+  val base : TransSys.t -> Numeral.t -> properties -> cexs -> context_update
 
   (** Communicates results from the step instance. First argument are
       the unfalsifiable properties. Second one are the falsifiable
       ones with counterexamples. *)
-  val step : TransSys.t -> Numeral.t -> properties -> cexs -> unit
-
-  (** Gets new invariants from the rest of the framework. *)
-  val new_invariants : unit -> Term.t list
+  val step : TransSys.t -> Numeral.t -> properties -> cexs -> context_update
 
 end
 

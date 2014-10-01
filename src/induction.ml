@@ -22,6 +22,7 @@
 
 open Lib
 open TypeLib
+open Tsugi
 
 (* Private module for prototypical activation literal creation.
    Creates actlits by appending based on the hash of the input
@@ -80,11 +81,13 @@ module CommunicationProto = struct
           p )
       falsifiable ;
 
-    ()
+    { new_invs = [] ; new_inv_props = [] ;
+      new_opt_props = [] ; new_false_props = [] }
 
 
-  let step trans k unfalsifiable cexs = ()
-  let new_invariants () = []
+  let step trans k unfalsifiable cexs =
+    { new_invs = [] ; new_inv_props = [] ;
+      new_opt_props = [] ; new_false_props = [] }
 
 end
 
@@ -92,9 +95,12 @@ end
 (* Prototypical communication protocol. *)
 module CommunicationDummy = struct
 
-  let base trans k unfalsifiable falsifiable = ()
-  let step trans k unfalsifiable cexs = ()
-  let new_invariants () = []
+  let base trans k unfalsifiable falsifiable =
+    { new_invs = [] ; new_inv_props = [] ;
+      new_opt_props = [] ; new_false_props = [] }
+  let step trans k unfalsifiable cexs =
+    { new_invs = [] ; new_inv_props = [] ;
+      new_opt_props = [] ; new_false_props = [] }
 
 end
 
