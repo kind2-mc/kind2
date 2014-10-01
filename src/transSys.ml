@@ -353,10 +353,10 @@ let add_invariant t invar = t.invars <- invar :: t.invars
 
 
 (* Return current status of all properties *)
-let prop_status_all trans_sys = trans_sys.prop_status
+let get_prop_status_all trans_sys = trans_sys.prop_status
 
 (* Return current status of all properties *)
-let prop_status_all_unknown trans_sys = 
+let get_prop_status_all_unknown trans_sys = 
 
   List.filter
     (fun (_, s) -> not (prop_status_known s))
@@ -364,7 +364,7 @@ let prop_status_all_unknown trans_sys =
 
 
 (* Return current status of property *)
-let prop_status trans_sys p = 
+let get_prop_status trans_sys p = 
 
   try 
 
@@ -374,7 +374,7 @@ let prop_status trans_sys p =
 
 
 (* Mark property as invariant *)
-let prop_invariant t prop =
+let set_prop_invariant t prop =
 
   t.prop_status <- 
     
@@ -399,7 +399,7 @@ let prop_invariant t prop =
 
 
 (* Mark property as k-false *)
-let prop_false t prop cex =
+let set_prop_false t prop cex =
 
   t.prop_status <- 
 
@@ -437,7 +437,7 @@ let prop_false t prop cex =
 
 
 (* Mark property as k-true *)
-let prop_ktrue t k prop =
+let set_prop_ktrue t k prop =
 
   t.prop_status <- 
 
@@ -470,6 +470,17 @@ let prop_ktrue t k prop =
 
       t.prop_status
 
+
+(* Mark property status *)
+let set_prop_status t p = function
+
+  | PropUnknown -> ()
+
+  | PropKTrue k -> set_prop_ktrue t k p
+
+  | PropInvariant -> set_prop_invariant t p
+
+  | PropFalse c -> set_prop_false t p c
 
 
 (* Return true if the property is proved invariant *)
@@ -610,12 +621,12 @@ let path_from_model trans_sys get_model k =
 
 
 (* Return true if the value of the term in some instant satisfies [pred] *)
-let rec exists_eval_on_path' uf_defs p term k model path =
+let rec exists_eval_on_path' uf_defs p term k path =
 
   try 
 
-    (* Extend model, shrink path *)
-    let model', path' = 
+    (* Create model for current state, shrink path *)
+    let model, path' = 
       List.fold_left 
         (function (model, path) -> function 
 
@@ -625,46 +636,50 @@ let rec exists_eval_on_path' uf_defs p term k model path =
            (* Take the first value for state variable *)
            | (sv, h :: tl) -> 
 
-             let v = Var.mk_state_var_instance sv k in
+             let v = Var.mk_state_var_instance sv Numeral.zero in
+
+             debug transSys 
+                 "exists_eval_on_path' at k=%a: %a is %a"
+                 Numeral.pp_print_numeral k
+                 StateVar.pp_print_state_var sv
+                 Term.pp_print_term h
+             in
 
              (* Add pair of state variable and value to model, continue
                 with remaining value for variable on path *)
              ((v, h) :: model, (sv, tl) :: path)
 
         )
-        (model, path)
+        ([], [])
         path
     in
-    
+
     (* Evaluate term in model *)
-    let term_eval = Eval.eval_term uf_defs model' term in
-    
+    let term_eval = Eval.eval_term uf_defs model term in
+
     debug transSys 
-      "exists_eval_on_path' at k=%a: %a is %a"
-      Numeral.pp_print_numeral k
-      Term.pp_print_term term
-      Eval.pp_print_value term_eval
+        "exists_eval_on_path' at k=%a: %a is %a"
+        Numeral.pp_print_numeral k
+        Term.pp_print_term term
+        Eval.pp_print_value term_eval
     in
 
     (* Return true if predicate holds *)
     if p term_eval then true else
-      
-      (* Increment offset of state variables in term *)
-      let term' = Term.bump_state Numeral.one term in
 
       (* Increment instant *)
       let k' = Numeral.succ k in
 
       (* Continue checking predicate on path *)
-      exists_eval_on_path' uf_defs p term' k' model' path'
-        
+      exists_eval_on_path' uf_defs p term k' path'
+
   (* Predicate has never been true *)
   with Exit -> false 
 
 
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
-  exists_eval_on_path' uf_defs pred term Numeral.zero [] path 
+  exists_eval_on_path' uf_defs pred term Numeral.zero path 
   
 
 

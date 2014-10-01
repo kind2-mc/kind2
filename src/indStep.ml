@@ -425,7 +425,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
                 (* All premises must be invariant or k-valid *)
                 List.for_all
                   (fun (n, _) -> 
-                     match TransSys.prop_status trans_sys n with
+                     match TransSys.get_prop_status trans_sys n with
 
                        | TransSys.PropInvariant -> true
 

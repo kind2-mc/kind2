@@ -486,8 +486,20 @@ let find_cex
           (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
       in
 
+      (debug pdr
+        "@[<v>%a@]"
+        (pp_print_list 
+          (fun ppf (v, t) -> 
+            Format.fprintf ppf 
+              "(%a %a)"
+              Var.pp_print_var v
+              Term.pp_print_term t)
+          "@,")
+           cex
+      in
+
       (* Remove scope from the context *)
-      S.pop solver_frames;
+      S.pop solver_frames);
 
       (* R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
       (* exists y.f[x] & T[x,x'] & g[x'] *)
@@ -2022,7 +2034,7 @@ let bmc_checks solver_init trans_sys props =
 
   (* Mark all properties as 0-true *)
   List.iter
-    (fun (p, _) -> TransSys.prop_ktrue trans_sys 0 p)
+    (fun (p, _) -> TransSys.set_prop_ktrue trans_sys 0 p)
     props;
 
   Event.log L_info "All properties hold in the initial state.";
@@ -2071,7 +2083,7 @@ let bmc_checks solver_init trans_sys props =
 
   (* Mark all properties as 1-true *)
   List.iter
-    (fun (p, _) -> TransSys.prop_ktrue trans_sys 1 p)
+    (fun (p, _) -> TransSys.set_prop_ktrue trans_sys 1 p)
     props;
 
   Event.log L_info
@@ -2221,7 +2233,7 @@ let handle_events
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
-    (fun (p, _) -> match TransSys.prop_status trans_sys p with 
+    (fun (p, _) -> match TransSys.get_prop_status trans_sys p with 
        | TransSys.PropFalse _ -> raise (Disproved p)
        | _ -> ())
     props
@@ -2279,7 +2291,7 @@ let rec pdr
   let bmc_checks_passed props =
     
     List.for_all 
-      (fun (p, _) -> match TransSys.prop_status trans_sys p with
+      (fun (p, _) -> match TransSys.get_prop_status trans_sys p with
          | TransSys.PropInvariant -> true
          | TransSys.PropKTrue k when k >= 1 -> true
          | _ -> false)
@@ -2630,7 +2642,6 @@ let main trans_sys =
               (* Send out valid properties *)
               List.iter
                 (fun (p, _) -> 
-                   TransSys.prop_invariant trans_sys p;
                    Event.prop_status TransSys.PropInvariant trans_sys p) 
                 props;
 
@@ -2711,7 +2722,9 @@ let main trans_sys =
                      "@ ")
                   props'
               in
-          
+
+              assert (not (props_false = []));
+
               props'
 
             )
