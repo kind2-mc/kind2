@@ -322,11 +322,12 @@ let partition_core solver clause =
 
 
 let trim_clause solver_init solver_frames clause =
+
   
   (* Linearly traverse the list of literals in the clause, trying to remove one at a time and maintain unsatisfiability *)
   
   let rec linear_search kept discarded = function
-    | _ :: [] | [] -> kept, Clause.of_literals discarded
+      
     | c :: cs ->
        let kept_woc = Clause.remove c kept in
 
@@ -342,16 +343,21 @@ let trim_clause solver_init solver_frames clause =
        if init || cons then
 	 linear_search kept discarded cs
        else (
-	 debug pdr "Removing literal\n" in
+	 debug pdr "Removing literal" in
 	 linear_search kept_woc (c :: discarded) cs
        )
-	   
+    | [] -> 
+       if Clause.cardinal kept = 0 then 
+	 clause, Clause.empty 
+       else 
+	 kept, Clause.of_literals discarded
+				  
+
+				  
   in
 
   
-  let kept, discarded = linear_search clause [] (Clause.elements clause) in
-  
-  kept,discarded
+  linear_search clause [] (Clause.elements clause)
 
 
 (* Check if [prop] is always satisfied in one step from [state] and
