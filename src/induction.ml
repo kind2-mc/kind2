@@ -55,7 +55,8 @@ end
 
 module CexExtractorDummy = struct
 
-  let generic trans get_model k = []
+  let generic trans get_model k =
+    TransSys.path_from_model trans get_model k
   let base trans get_model k = []
   let step trans get_model k = []
 
@@ -67,7 +68,7 @@ module CommunicationProto = struct
 
   let debug_state mode k unfals fals invs prop_invs opt_prop prop_false =
     let l = List.length in
-    debug tsugi
+    debug tsugicomm
           "[%3i] %s:@\n> unfalsifiable: %i@\n> falsifiable  : %i@\n> new_invs     : %i@\n> new_inv_props: %i@\n> pending      : %i@\n> false_props  : %i" (Numeral.to_int k) mode (l unfals) (l fals) (l invs) (l prop_invs) (l opt_prop) (l prop_false)
     in
     ()
@@ -99,8 +100,15 @@ module CommunicationProto = struct
           p )
       falsifiable ;
 
-    debug_state
-      "Base" k unfalsifiable falsifiable new_invariants new_valid_props [] new_falsified_props ;
+    (* Notify we are starting k + 1. *)
+    let k_p_1 = (Numeral.to_int k) + 1 in
+    Event.progress k_p_1 ;
+    Stat.set k_p_1 Stat.bmc_k ;
+    Event.log L_info "Base at k=%d." k_p_1 ;
+    Stat.update_time Stat.bmc_total_time ;
+
+    (* debug_state *)
+    (*   "Base" k unfalsifiable falsifiable new_invariants new_valid_props [] new_falsified_props ; *)
 
     { (* New invariants. *)
       new_invariants = new_invariants ;
@@ -109,9 +117,7 @@ module CommunicationProto = struct
       (* New falsified properties. *)
       new_falsified = new_falsified_props ;
       (* No new pending properties. *)
-      new_pending = []  ;
-      (* No pending properties. *)
-      pending = false }
+      new_optimistic = [] }
 
 
   (* List of properties for which step holds for some k, but not
@@ -121,7 +127,7 @@ module CommunicationProto = struct
   (* Checks if a property is true up to 'k_step'. *)
   let holds_in_base trans k_step (prop,_) =
     match TransSys.get_prop_status trans prop with
-    | PropKTrue k' ->
+    | TransSys.PropKTrue k' ->
        k' >= (Numeral.to_int k_step)
     | _ -> false
 
@@ -203,30 +209,91 @@ module CommunicationProto = struct
       prop_invs_tmp
       unfalsifiable
 
-  let step trans k unfalsifiable falsifiable =
+  let step trans k unfalsifiable falsifiable optimistic =
+
+    debug tsugi "[Step] Starting communication." in
 
     (* Updating transition system. *)
-    let (invs_tmp, valid_tmp, new_falsified) =
+    let (new_invariants, new_valid, new_falsified) =
       update_trans trans
     in
 
-    let (new_invariants, new_valid, new_pending, pending_not_empty) =
-      check_proved_broadcast trans k invs_tmp valid_tmp unfalsifiable
+    match new_falsified with
+    | _ :: _ ->
+       (* Some properties were falsified, backtracking. *)
+       { (* New invariants. *)
+         new_invariants = new_invariants ;
+         (* New invariant properties. *)
+         new_valid = new_valid ;
+         (* New falsified properties. *)
+         new_falsified = new_falsified ;
+         (* New optimistic properties. *)
+         new_optimistic = [] }
+    | _ ->
+
+       (* Notify we are starting k + 1 (actually k by kind's
+       conventions). *)
+       let k_p_1 = (Numeral.to_int k) in
+       Event.progress k_p_1 ;
+       Stat.set k_p_1 Stat.ind_k ;
+       Event.log L_info "Step at k=%d." k_p_1 ;
+       Stat.update_time Stat.ind_total_time ;
+
+       { (* New invariants. *)
+         new_invariants = new_invariants ;
+         (* New invariant properties. *)
+         new_valid = new_valid ;
+         (* New falsified properties. *)
+         new_falsified = new_falsified ;
+         (* New optimistic properties. *)
+         new_optimistic = unfalsifiable }
+
+  let step_confirm trans k toConfirm =
+
+    let rec confirm invariants valid = function
+      | [] ->
+         (* Nothing to confirm. *)
+         None
+      | list ->
+
+         (* Updating transition system. *)
+         let (new_invariants, new_valid, new_falsified) =
+           update_trans trans
+         in
+
+         let nu_invariants, nu_valid =
+           List.rev_append new_invariants invariants,
+           List.rev_append new_valid valid
+         in
+
+         match new_falsified with
+         | _ :: _ ->
+            (* New falsified properties, step needs to backtrack. *)
+            Some
+              { (* New invariants. *)
+                new_invariants = nu_invariants ;
+                (* New invariant properties. *)
+                new_valid = nu_valid ;
+                (* New falsified properties. *)
+                new_falsified = new_falsified ;
+                (* New optimistic properties. *)
+                new_optimistic = [] }
+         | [] ->
+            Lib.minisleep 0.001 ;
+            (* Looping. *)
+            confirm
+              nu_invariants
+              nu_valid
+              (* Removing properties that hold in base or are actually
+                 invariants. *)
+              (list
+               |> List.filter
+                    ( fun prop ->
+                      not (holds_in_base trans k prop)
+                      || not (List.mem prop new_valid) ))
     in
 
-    debug_state
-      "Step" k unfalsifiable falsifiable new_invariants new_valid new_pending new_falsified;
-
-    { (* New invariants. *)
-      new_invariants = new_invariants ;
-      (* New invariant properties. *)
-      new_valid = new_valid ;
-      (* New falsified properties. *)
-      new_falsified = new_falsified ;
-      (* New pending properties. *)
-      new_pending = new_pending ;
-      (* Pending properties. *)
-      pending = pending_not_empty }
+    confirm [] [] toConfirm
 
 end
 
@@ -236,10 +303,12 @@ module CommunicationDummy = struct
 
   let base trans k unfalsifiable falsifiable =
     { new_invariants = [] ; new_valid = [] ;
-      new_falsified = [] ; new_pending = [] ; pending = false }
-  let step trans k unfalsifiable falsifiable =
+      new_falsified = [] ; new_optimistic = [] }
+  let step trans k unfalsifiable falsifiable optimistic =
     { new_invariants = [] ; new_valid = [] ;
-      new_falsified = [] ; new_pending = [] ; pending = false }
+      new_falsified = [] ; new_optimistic = [] }
+  let step_confirm trans k toConfirm =
+    None
 
 end
 

@@ -43,10 +43,7 @@ type context_update = {
   new_falsified : properties ;
   (* New properties unfalsifiable in step waiting for base
      confirmation. *)
-  new_pending : properties ;
-  (* Properties unfalsifiable in step waiting for base
-     confirmation. *)
-  pending : bool
+  new_optimistic : properties ;
 }
 
 (** Type returned by a single iteration of bmc. Fields: 'k' is the
@@ -65,7 +62,9 @@ type walk_bmc_result = {
   (* Properties the negation of which is sat at k, with models. *)
   falsifiable : cexs ;
   (* Properties the negation of which is sat at k, no models. *)
-  falsifiable_no_model : properties ;
+  falsifiable_no_cex : properties ;
+  (* Optimistic properties. *)
+  optimistic: properties ;
   (* Continuation for the next bmc iteration. *)
   continue : properties -> context_update -> walk_bmc_result ;
   (* Kills the solver. *)
@@ -115,12 +114,20 @@ module type InComm = sig
   (** Communicates results from the base instance. First argument are
       the unfalsifiable properties. Second one are the falsifiable
       ones with counterexamples. *)
-  val base : TransSys.t -> Numeral.t -> properties -> cexs -> context_update
+  val base :
+    TransSys.t -> Numeral.t -> properties -> cexs ->
+    context_update
 
   (** Communicates results from the step instance. First argument are
       the unfalsifiable properties. Second one are the falsifiable
       ones with counterexamples. *)
-  val step : TransSys.t -> Numeral.t -> properties -> cexs -> context_update
+  val step :
+    TransSys.t -> Numeral.t -> properties -> cexs -> properties ->
+    context_update
+
+  (** Waits for confirmation for base for 'optimistic' at k. *)
+  val step_confirm :
+    TransSys.t -> Numeral.t -> properties -> context_update option
 
 end
 
