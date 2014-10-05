@@ -340,20 +340,17 @@ let trim_clause solver_init solver_frames clause =
        (* If, by removing the literal c, the blocking clause then
        either a. becomes reachable in the inital state or b. satisfies
        consecution then we need to keep it *)
-       if init || cons then
-	 linear_search kept discarded cs
-       else (
+       if (not cons) && init then (
 	 debug pdr "Removing literal" in
 	 linear_search kept_woc (c :: discarded) cs
        )
-    | [] -> 
-       if Clause.cardinal kept = 0 then 
-	 clause, Clause.empty 
-       else 
-	 kept, Clause.of_literals discarded
-				  
+       else (
+	 linear_search kept discarded cs
+       )
+    | [] ->  kept, Clause.of_literals discarded
+				      
 
-				  
+				      
   in
 
   
@@ -380,12 +377,12 @@ let trim_clause solver_init solver_frames clause =
 
 *)
 let find_cex 
-    ((solver_init, solver_frames, _) as solvers) 
-    trans_sys 
-    all_props
-    frame 
-    (state_core, state_rest)
-    (prop_core, prop_rest) = 
+      ((solver_init, solver_frames, _) as solvers) 
+      trans_sys 
+      all_props
+      frame 
+      (state_core, state_rest)
+      (prop_core, prop_rest) = 
 
   (* Prime variables in property *)
   let prop_core', prop_rest' =
@@ -413,67 +410,67 @@ let find_cex
   in
 
   debug pdr
-      "Searching for counterexample"
-  in
+	"Searching for counterexample"
+    in
 
-  debug pdr
-      "@[<v>Current context@,@[<hv>%a@]@]"
-      HStringSExpr.pp_print_sexpr_list
-      (let r, a = 
-        S.T.execute_custom_command solver_frames "get-assertions" [] 1 
-       in
-       S.fail_on_smt_error r;
-       a)
-  in
+    debug pdr
+	  "@[<v>Current context@,@[<hv>%a@]@]"
+	  HStringSExpr.pp_print_sexpr_list
+	  (let r, a = 
+             S.T.execute_custom_command solver_frames "get-assertions" [] 1 
+	   in
+	   S.fail_on_smt_error r;
+	   a)
+    in
 
-  debug pdr
-      "@[<v>Current frames@,@[<hv>%a@]@]"
-      SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
-  in
+    debug pdr
+	  "@[<v>Current frames@,@[<hv>%a@]@]"
+	  SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
+    in
 
-  (* Push a new scope to the context *)
-  S.push solver_frames;
-
-  (debug smt
-      "Asserting constraints on current frame"
-   in
-
-   (* Assert blocking clause in current frame *)
-   S.assert_term solver_frames state);
-
-  (debug smt
-      "Asserting bad property"
-   in
-
-   (* Assert bad property of next frame *)
-   List.iter 
-     ((if Flags.pdr_tighten_to_unsat_core () then
-         S.assert_named_term
-       else
-         S.assert_term)
-        solver_frames) 
-     neg_prop_terms');
-
-  if 
+    (* Push a new scope to the context *)
+    S.push solver_frames;
 
     (debug smt
-        "Checking entailment"
+	   "Asserting constraints on current frame"
      in
 
-     (* Check if we can get outside the property in one step 
+     (* Assert blocking clause in current frame *)
+     S.assert_term solver_frames state);
+
+    (debug smt
+	   "Asserting bad property"
+     in
+
+     (* Assert bad property of next frame *)
+     List.iter 
+       ((if Flags.pdr_tighten_to_unsat_core () then
+           S.assert_named_term
+	 else
+           S.assert_term)
+          solver_frames) 
+       neg_prop_terms');
+
+    if 
+
+      (debug smt
+             "Checking entailment"
+       in
+
+       (* Check if we can get outside the property in one step 
 
          R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
-     S.check_sat solver_frames)
+       S.check_sat solver_frames)
 
-  then
+    then
 
-    (
+      (
 
-      debug pdr 
-          "Counterexample found"
-      in
+	debug pdr 
+              "Counterexample found"
+	in
 
-      (*      
+	(*      
       debug pdr
           "@[<v>Current context@,@[<hv>%a@]@]"
           HStringSExpr.pp_print_sexpr_list
@@ -483,213 +480,231 @@ let find_cex
            S.fail_on_smt_error r;
            a)
       in
-*)     
+	 *)     
 
-      (* Get counterexample to entailment from satisfiable formula *)
-      let cex = 
-        S.get_model 
-          solver_frames
-          (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
-      in
+	(* Get counterexample to entailment from satisfiable formula *)
+	let cex = 
+          S.get_model 
+            solver_frames
+            (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
+	in
 
-      (debug pdr
-        "@[<v>%a@]"
-        (pp_print_list 
-          (fun ppf (v, t) -> 
-            Format.fprintf ppf 
-              "(%a %a)"
-              Var.pp_print_var v
-              Term.pp_print_term t)
-          "@,")
-           cex
-      in
+	(debug pdr
+               "@[<v>%a@]"
+               (pp_print_list 
+		  (fun ppf (v, t) -> 
+		   Format.fprintf ppf 
+				  "(%a %a)"
+				  Var.pp_print_var v
+				  Term.pp_print_term t)
+		  "@,")
+               cex
+	 in
 
-      (* Remove scope from the context *)
-      S.pop solver_frames);
+	 (* Remove scope from the context *)
+	 S.pop solver_frames);
 
-      (* R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
-      (* exists y.f[x] & T[x,x'] & g[x'] *)
+	(* R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
+	(* exists y.f[x] & T[x,x'] & g[x'] *)
 
-      (* Generalize the counterexample to a formula *)
-      let cex_gen = 
-        generalize 
-          trans_sys 
-          cex 
-          (Term.mk_and 
-             [all_props; CNF.to_term frame; state])
-          (Term.negate prop)
-      in
+	(* Generalize the counterexample to a formula *)
+	let cex_gen = 
+          generalize 
+            trans_sys 
+            cex 
+            (Term.mk_and 
+               [all_props; CNF.to_term frame; state])
+            (Term.negate prop)
+	in
 
-      debug pdr 
-          "@[<v>Generalized counterexample:@,@[<hv>%a@]@]"
-          (pp_print_list Term.pp_print_term ",@,")
-          cex_gen
-      in
+	debug pdr 
+              "@[<v>Generalized counterexample:@,@[<hv>%a@]@]"
+              (pp_print_list Term.pp_print_term ",@,")
+              cex_gen
+	in
 
-      (* Create clause of counterexample, must negate all literals
+	(* Create clause of counterexample, must negate all literals
          later but not now *)
-      let cex_gen_clause = 
-        List.fold_left 
-          (fun a t -> Clause.add t a)
-          Clause.empty
-          cex_gen
-      in              
+	let cex_gen_clause = 
+          List.fold_left 
+            (fun a t -> Clause.add t a)
+            Clause.empty
+            cex_gen
+	in              
 
-      (* Push a new scope level to the context *)
-      S.push solver_init;
+	(* Push a new scope level to the context *)
+	S.push solver_init;
 
-      (* Assert each literal of the counterexample in the initial
+	(* Assert each literal of the counterexample in the initial
          state *)
-      List.iter 
-        ((if Flags.pdr_tighten_to_unsat_core () then
-            S.assert_named_term
-          else
-            S.assert_term) 
-           solver_init) 
-        cex_gen;
+	List.iter 
+          ((if Flags.pdr_tighten_to_unsat_core () then
+              S.assert_named_term
+            else
+              S.assert_term) 
+             solver_init) 
+          cex_gen;
 
-      if
+	if
 
-        debug smt
-            "Checking if counterexample holds in the initial state"
-        in
+          debug smt
+		"Checking if counterexample holds in the initial state"
+          in
 
-        (* Is the counterexample a model of the initial state? 
+          (* Is the counterexample a model of the initial state? 
 
            We must check with the generalized counterexample here, not
            with the specific model. *)
-        S.check_sat solver_init 
+          S.check_sat solver_init 
 
-      then
+	then
 
-        (
+          (
 
-          debug pdr 
-              "Counterexample holds in the initial state"
-          in
+            debug pdr 
+		  "Counterexample holds in the initial state"
+            in
 
-          debug pdr
-              "@[<v>Current context@,@[<hv>%a@]@]"
-              HStringSExpr.pp_print_sexpr_list
-              (let r, a = 
-                S.T.execute_custom_command solver_init "get-assertions" [] 1 
-               in
-               S.fail_on_smt_error r;
-               a)
-          in
+            debug pdr
+		  "@[<v>Current context@,@[<hv>%a@]@]"
+		  HStringSExpr.pp_print_sexpr_list
+		  (let r, a = 
+                     S.T.execute_custom_command solver_init "get-assertions" [] 1 
+		   in
+		   S.fail_on_smt_error r;
+		   a)
+            in
 
-          (* Pop scope level from the context *)
-          S.pop solver_init;
+            (* Pop scope level from the context *)
+            S.pop solver_init;
 
-          (* Counterexample holds in the initial state *)
-          raise Bad_state_reachable
+            (* Counterexample holds in the initial state *)
+            raise Bad_state_reachable
 
-        )
+          )
 
-      else
+	else
 
-        (
+          (
 
-          (debug pdr 
-              "Counterexample does not hold in the initial state"
-           in
+            (debug pdr 
+		   "Counterexample does not hold in the initial state"
+             in
 
-           (* Partition counterexample into subclause in the unsat
+             (* Partition counterexample into subclause in the unsat
               core and subclause of remaining literals *)
-           let core, rest = 
+             let core, rest = 
 
-             if Flags.pdr_tighten_to_unsat_core () then 
+               if Flags.pdr_tighten_to_unsat_core () then 
 
-               partition_core 
-                 solver_init 
-                 cex_gen_clause
+		 partition_core 
+                   solver_init 
+                   cex_gen_clause
 
-             else
+               else
 
-               cex_gen_clause, Clause.empty
+		 cex_gen_clause, Clause.empty
 
-           in
+             in
 
-           debug pdr
-               "@[<v>Unsat core of cube is@,@[<v>%a@]"
-               (pp_print_list Term.pp_print_term "@,") 
-               (Clause.elements core)
-           in
+             debug pdr
+		   "@[<v>Unsat core of cube is@,@[<v>%a@]"
+		   (pp_print_list Term.pp_print_term "@,") 
+		   (Clause.elements core)
+             in
 
-           if Clause.is_empty core then 
+             if Clause.is_empty core then 
 
-             (Event.log
-                L_info
-                "Reduced blocking clause to empty clause. Restarting.";
-              
-              raise Restart);
+               (Event.log
+                  L_info
+                  "Reduced blocking clause to empty clause. Restarting.";
+		
+		raise Restart);
 
-           S.pop solver_init;
+             S.pop solver_init;
 
-           (* Negate all literals in clause now *)
-           let ncore, nrest = 
-             Clause.map Term.negate core,
-             Clause.map Term.negate rest
-           in
+             (* Negate all literals in clause now *)
+             let ncore, nrest = 
+               Clause.map Term.negate core,
+               Clause.map Term.negate rest
+             in
 
-           (* Return generalized counterexample *)
-           false, ( ncore,  nrest ))
+             (* Return generalized counterexample *)
+             false, ( ncore,  nrest ))
 
-        )
+          )
 
-    )
+      )
 
-  else
+    else
 
-    (
+      (
 
-      (debug pdr 
-          "No counterexample found"
-       in
+	(debug pdr 
+               "No counterexample found"
+	 in
 
-       (* Partition counterexample into subclause in the unsat core
+	 (* Partition counterexample into subclause in the unsat core
           and subclause of remaining literals *)
-       let core', rest' = 
+	 let core', rest' = 
 
-         if Flags.pdr_tighten_to_unsat_core () then 
+           if Flags.pdr_tighten_to_unsat_core () then 
 
-           partition_core 
-             solver_frames 
-             neg_prop_clause'
+             partition_core 
+               solver_frames 
+               neg_prop_clause'
 
-         else
+           else
 
-           neg_prop_clause', Clause.empty 
+             neg_prop_clause', Clause.empty 
 
-       in
+	 in
 
-       (* Unprime and unnegate variables in literals of core and rest *)
-       let core, rest = 
-         (Clause.map 
-            Term.negate
-            (Clause.map (Term.bump_state Numeral.(- one)) core'),
-          Clause.map 
-            Term.negate
-            (Clause.map (Term.bump_state Numeral.(- one)) rest'))
-       in
+	 (* Unprime and unnegate variables in literals of core and rest *)
+	 let core, rest = 
+           (Clause.map 
+              Term.negate
+              (Clause.map (Term.bump_state Numeral.(- one)) core'),
+            Clause.map 
+              Term.negate
+              (Clause.map (Term.bump_state Numeral.(- one)) rest'))
+	 in
 
-       (* Remove scope from the context *)
-       S.pop solver_frames;
+	 (* Remove scope from the context *)
+	 S.pop solver_frames;
 
-       if not (Clause.is_empty rest) then 
+	 if not (Clause.is_empty rest) then 
 
-         (debug pdr
-             "@[<v>Reduced blocking clause to unsat core:@,%a@,%a@]"
-             Clause.pp_print_clause core
-             Clause.pp_print_clause rest
-          in
+           (debug pdr
+		  "@[<v>Reduced blocking clause to unsat core:@,%a@,%a@]"
+		  Clause.pp_print_clause core
+		  Clause.pp_print_clause rest
+            in
 
-          Stat.incr Stat.pdr_tightened_blocking_clauses);
+            Stat.incr Stat.pdr_tightened_blocking_clauses);
 
-       (* Entailment holds, no counterexample *)
-       (true, (Clause.union core prop_core, Clause.union rest prop_rest)))
+	 let core =
 
-    )
+	   let reduced, discarded = trim_clause
+				      solver_init
+				      solver_frames
+				      core
+	   in
+
+	   debug pdr
+                 "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                 (pp_print_list Term.pp_print_term "@,") 
+                 (Clause.elements reduced)
+	 in
+	 
+	 reduced
+	   
+	 in
+
+	 (* Entailment holds, no counterexample *)
+	 (true, (Clause.union core prop_core, Clause.union rest prop_rest)))
+
+      )
 
       
       
@@ -898,30 +913,6 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 		  Clause.pp_print_clause core_block_clause
             in
 
-	    let core_block_clause =
-
-	      (*if Flags.pdr_reduce_clause () then*)
-	      
-	      let reduced, discarded = trim_clause
-					 solver_init
-					 solver_frames
-					 core_block_clause
-	      in
-
-	      debug pdr
-                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                    (pp_print_list Term.pp_print_term "@,") 
-                    (Clause.elements reduced)
-	    in
-	    
-	    reduced
-	      
-	    (*else
-	   
-	   core, rest*)
-	      
-	    in
-
             (* Add blocking clause to all frames up to where it has
                to be blocked *)
             let r_i' = CNF.add_subsume core_block_clause r_i in 
@@ -1053,29 +1044,6 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
                 Clause.pp_print_clause core_block_clause
           in
 
-	  let core_block_clause =
-
-	    (*if Flags.pdr_reduce_clause () then*)
-	    
-	    let reduced, discarded = trim_clause
-				       solver_init
-				       solver_frames
-				       core_block_clause
-	    in
-
-	    debug pdr
-                  "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                  (pp_print_list Term.pp_print_term "@,") 
-                  (Clause.elements reduced)
-	  in
-	  
-	  reduced
-	    
-	  (*else
-	   
-	   core, rest*)
-	    
-	  in
 
           (* Add blocking clause to all frames up to where it has
                   to be blocked *)
