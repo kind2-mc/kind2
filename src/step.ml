@@ -33,6 +33,15 @@ module Actlit = struct
     in
     UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
 
+  let i = ref 0
+
+  let fresh () =
+    let string =
+      String.concat "_" [ "fresh" ; "actlit" ; string_of_int !i ]
+    in
+    i := !i + 1 ;
+    UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
+
 end
 
 let actlit_from_term = Actlit.generate
@@ -40,7 +49,6 @@ let actlit_from_term = Actlit.generate
 let term_of_actlit actlit = Term.mk_uf actlit []
 
 let exit solver =
-  debug tsugi "[Step] exiting." in
   Stat.ind_stop_timers ();
   Stat.smt_stop_timers ();
   Solver.delete_solver solver |> ignore
@@ -48,20 +56,15 @@ let exit solver =
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant | TransSys.PropFalse _ ->
-                              debug tsugi "Should not keep %s" s in false
+  | TransSys.PropInvariant | TransSys.PropFalse _ -> false
   | _ -> true
 
 let is_confirmed trans k (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropKTrue k' ->
-     debug tsugi "Prop %s holds in base at %i/%i." s k' k in
-     k' >= k - 1
+  | TransSys.PropKTrue k' -> k' >= k - 1
   | _ -> false
 
 let rec confirm trans solver continuation unfalsifiable k =
-
-  debug tsugi "Entering confirmation." in
 
   let k_int = Numeral.to_int k in
 
@@ -89,8 +92,6 @@ let rec confirm trans solver continuation unfalsifiable k =
             (List.rev_append new_invariants invariants)
             new_to_check)
     | _ ->
-       debug tsugi
-             "Backtracking (%i)." (List.length new_to_check) in
        Some (trans, solver, k,
             List.rev_append new_invariants invariants,
             [], new_to_check)
@@ -102,30 +103,41 @@ let rec confirm trans solver continuation unfalsifiable k =
   | Some context -> continuation context
 
 (* Check-sat and splits properties.. *)
-let split trans solver k falsifiable to_split actlits =
+let split trans solver k to_split actlits =
 
   (* Function to run if sat. *)
   let if_sat () =
     (* Get-model function. *)
     let get_model = Solver.get_model solver in
-    (* Getting the model. *)
-    let model = TransSys.vars_of_bounds trans k k
-                |> get_model in
     (* Extracting the counterexample. *)
-    (* let cex = *)
-    (*   TransSys.path_from_model trans get_model k in *)
-    (* Evaluation function. *)
-    let eval term =
-      Eval.eval_term (TransSys.uf_defs trans) model term
-      |> Eval.bool_of_value in
-    (* Splitting properties. *)
-    let new_to_split, new_falsifiable =
-      List.partition
-        ( fun (_, term) ->
-          Term.bump_state k term |> eval )
-        to_split in
-    (* Building result. *)
-    Some (new_to_split, new_falsifiable)
+    let cex =
+      TransSys.path_from_model trans get_model k in
+    (* Attempting to compress path. *)
+    match
+      Compress.check_and_block (Solver.declare_fun solver) trans cex
+    with
+
+    | [] ->
+       (* Getting the model. *)
+       let model = TransSys.vars_of_bounds trans k k
+                   |> get_model in
+       (* Evaluation function. *)
+       let eval term =
+         Eval.eval_term (TransSys.uf_defs trans) model term
+         |> Eval.bool_of_value in
+       (* Splitting properties. *)
+       let new_to_split, new_falsifiable =
+         List.partition
+           ( fun (_, term) ->
+             Term.bump_state k term |> eval )
+           to_split in
+       (* Building result. *)
+       Some (new_to_split, new_falsifiable)
+    | compressor ->
+       compressor
+       |> Term.mk_and
+       |> Solver.assert_term solver ;
+       Some (to_split, [])
   in
 
   (* Function to run if unsat. *)
@@ -133,8 +145,16 @@ let split trans solver k falsifiable to_split actlits =
     None
   in
 
-  (* Check sat assuming with actlits. *)
-  Solver.check_sat_assuming solver if_sat if_unsat actlits
+  let rec loop () = 
+    match
+      (* Check sat assuming with actlits. *)
+      Solver.check_sat_assuming solver if_sat if_unsat actlits
+    with
+    | Some (_,[]) -> loop ()
+    | res -> res
+  in
+
+  loop ()
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot. Actlits activate the properties to
@@ -158,8 +178,8 @@ let split_closure trans solver k actlits optimistics to_split =
                (fun (_, t) -> t |> Term.bump_state k) )
       |> Term.mk_and
     in
-    (* Getting actlit for it. *)
-    let actlit = actlit_from_term term in
+    (* Getting a fresh actlit for it. *)
+    let actlit = Actlit.fresh () in
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
     (* Asserting implication. *)
@@ -169,7 +189,7 @@ let split_closure trans solver k actlits optimistics to_split =
     (* All actlits. *)
     let all_actlits = (term_of_actlit actlit) :: actlits in
     (* Splitting. *)
-    match split trans solver k falsifiable list all_actlits with
+    match split trans solver k list all_actlits with
     | None -> list, falsifiable
     | Some ([], new_falsifiable) ->
        [], List.rev_append new_falsifiable falsifiable
@@ -250,16 +270,12 @@ let rec next_no_falsifieds
      |> Term.mk_and
      |> Solver.assert_term solver ;
 
-     let _ = debug tsugi "Before split %i/%i" (List.length nu_unknowns) (List.length nu_optimistics) in () in
-
      (* Splitting (asserts the actlit implications). *)
      let unfalsifiable, falsifiable =
        split_closure
          trans solver k
          all_actlits nu_optimistics nu_unknowns
      in
-
-     debug tsugi "Split %i/%i" (List.length unfalsifiable) (List.length falsifiable) in
 
      (* Looping. *)
      continuation
@@ -286,8 +302,6 @@ let rec next_no_falsifieds
    already asserted. *)
 let rec next (trans, solver, k,
               invariants, optimistics, unknowns) =
-
-  debug tsugi "[%i] Next %i/%i" (Numeral.to_int k) (List.length unknowns) (List.length optimistics) in
 
   (* Asserts terms from 0 to k. *)
   let assert_new_invariants k terms =
@@ -320,9 +334,6 @@ let rec next (trans, solver, k,
        optimistics |> List.filter (shall_keep trans)
   in
 
-  debug tsugi "nu unknowns %i" (List.length nu_unknowns) in
-  debug tsugi "nu optimistics %i" (List.length nu_optimistics) in
-
   match new_falsifieds, nu_optimistics with
   | [], _ | _, [] ->
 
@@ -354,8 +365,6 @@ let rec next (trans, solver, k,
         nu_invariants, nu_optimistics, nu_unknowns)
 
   | _ ->
-
-     debug tsugi "Backtracking (%i/%i)." (List.length nu_unknowns) (List.length nu_optimistics) in
 
      (* Merging old and new invariants and asserting only the new ones
         up to k-1 since we are backtracking. *)
@@ -409,6 +418,9 @@ let init trans =
      |> Solver.declare_fun solver)
     unknowns ;
 
+  (* Declaring path compression function. *)
+  Compress.init (Solver.declare_fun solver) trans ;
+
   (* Defining functions. *)
   TransSys.iter_uf_definitions
     trans
@@ -417,7 +429,7 @@ let init trans =
   (* Returning context. *)
   (trans, solver, Numeral.one, [], [], unknowns)
 
-(* Runs the base instance. *)
+(* Runs the step instance. *)
 let run trans =
   init trans |> next
 
