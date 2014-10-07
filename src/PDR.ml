@@ -334,18 +334,17 @@ let trim_clause solver_init solver_frames clause =
        let block_term = Clause.to_term kept_woc in
        let primed_term = Term.mk_and (List.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) (Clause.elements kept_woc)) in
 
-       let init = S.check_sat_term solver_init [block_term] in
+       let init = S.check_sat_term solver_init [Term.negate block_term] in
        let cons = S.check_sat_term solver_frames [(Term.mk_and [block_term;primed_term])] in
 
        (* If, by removing the literal c, the blocking clause then
        either a. becomes reachable in the inital state or b. satisfies
        consecution then we need to keep it *)
-       if (not cons) && init then (
+       if cons || init then 
+	 linear_search kept discarded cs
+       else (
 	 debug pdr "Removing literal" in
 	 linear_search kept_woc (c :: discarded) cs
-       )
-       else (
-	 linear_search kept discarded cs
        )
     | [] ->  kept, Clause.of_literals discarded
 				      
@@ -683,24 +682,6 @@ let find_cex
 
             Stat.incr Stat.pdr_tightened_blocking_clauses);
 
-	 let core =
-
-	   let reduced, discarded = trim_clause
-				      solver_init
-				      solver_frames
-				      core
-	   in
-
-	   debug pdr
-                 "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                 (pp_print_list Term.pp_print_term "@,") 
-                 (Clause.elements reduced)
-	 in
-	 
-	 reduced
-	   
-	 in
-
 	 (* Entailment holds, no counterexample *)
 	 (true, (Clause.union core prop_core, Clause.union rest prop_rest)))
 
@@ -913,6 +894,24 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 		  Clause.pp_print_clause core_block_clause
             in
 
+	    let core_block_clause =
+
+	      let reduced, discarded = trim_clause
+					 solver_init
+					 solver_frames
+					 core_block_clause
+	      in
+
+	      debug pdr
+                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                    (pp_print_list Term.pp_print_term "@,") 
+                    (Clause.elements reduced)
+	    in
+	    
+	    reduced
+	      
+	    in
+
             (* Add blocking clause to all frames up to where it has
                to be blocked *)
             let r_i' = CNF.add_subsume core_block_clause r_i in 
@@ -1043,6 +1042,24 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 				   Format.fprintf ppf "-%d" (succ (List.length block_tl)))
                 Clause.pp_print_clause core_block_clause
           in
+
+	  let core_block_clause =
+
+	    let reduced, discarded = trim_clause
+				       solver_init
+				       solver_frames
+				       core_block_clause
+	    in
+
+	    debug pdr
+                  "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                  (pp_print_list Term.pp_print_term "@,") 
+                  (Clause.elements reduced)
+	  in
+	  
+	  reduced
+	    
+	  in
 
 
           (* Add blocking clause to all frames up to where it has
