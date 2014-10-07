@@ -93,9 +93,6 @@ let split trans solver k to_split actlits =
   (* Term version. *)
   let path_comp_act_term = path_comp_actlit |> term_of_actlit in
 
-  (* Creating a fresh actlit for path compression. *)
-  let path_comp_actlit = fresh_actlit () in
-
   (* Function to run if sat. *)
   let if_sat () =
     (* Get-model function. *)
