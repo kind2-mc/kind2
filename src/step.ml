@@ -77,8 +77,24 @@ let rec confirm trans solver continuation unfalsifiable k =
      exit solver
   | Some context -> continuation context
 
+(* Deactivates an actlit by asserting its negation. *)
+let deactivate solver actlit =
+  actlit
+  |> Term.mk_not
+  |> Solver.assert_term solver
+
 (* Check-sat and splits properties.. *)
 let split trans solver k to_split actlits =
+
+  (* Creating a fresh actlit for path compression. *)
+  let path_comp_actlit = fresh_actlit () in
+  (* Declaring it. *)
+  path_comp_actlit |> Solver.declare_fun solver ;
+  (* Term version. *)
+  let path_comp_act_term = path_comp_actlit |> term_of_actlit in
+
+  (* Creating a fresh actlit for path compression. *)
+  let path_comp_actlit = fresh_actlit () in
 
   (* Function to run if sat. *)
   let if_sat () =
@@ -89,7 +105,8 @@ let split trans solver k to_split actlits =
       TransSys.path_from_model trans get_model k in
     (* Attempting to compress path. *)
     match
-      Compress.check_and_block (Solver.declare_fun solver) trans cex
+      Compress.check_and_block
+        (Solver.declare_fun solver) trans cex
     with
 
     | [] ->
@@ -108,25 +125,35 @@ let split trans solver k to_split actlits =
            to_split in
        (* Building result. *)
        Some (new_to_split, new_falsifiable)
+
     | compressor ->
-       compressor
-       |> Term.mk_and
+       Term.mk_or
+         [ path_comp_act_term |> Term.mk_not ;
+           compressor |> Term.mk_and ]
        |> Solver.assert_term solver ;
        Some (to_split, [])
   in
 
   (* Function to run if unsat. *)
-  let if_unsat () =
-    None
-  in
+  let if_unsat () = None in
 
+  (* Appending to the list of actlits. *)
+  let all_actlits = path_comp_act_term :: actlits in
+
+  (* Loops as long as counterexamples can be compressedp *)
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
-      Solver.check_sat_assuming solver if_sat if_unsat actlits
+      Solver.check_sat_assuming
+        solver if_sat if_unsat all_actlits
     with
-    | Some (_,[]) -> loop ()
-    | res -> res
+    | Some (_,[]) ->
+       (* Path compressed, retrying. *)
+       loop ()
+    | res ->
+       (* Deactivating path compression actlit. *)
+       deactivate solver path_comp_act_term ;
+       res
   in
 
   loop ()
@@ -157,18 +184,27 @@ let split_closure trans solver k actlits optimistics to_split =
     let actlit = fresh_actlit () in
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
+    (* Transforming it to a term. *)
+    let actlit_term = actlit |> term_of_actlit in
     (* Asserting implication. *)
     Term.mk_or
-        [ actlit |> term_of_actlit |> Term.mk_not ; term ]
+        [ actlit_term |> Term.mk_not ; term ]
     |> Solver.assert_term solver ;
     (* All actlits. *)
-    let all_actlits = (term_of_actlit actlit) :: actlits in
+    let all_actlits = actlit_term :: actlits in
     (* Splitting. *)
     match split trans solver k list all_actlits with
-    | None -> list, falsifiable
+    | None ->
+       (* Deactivating negative actlit. *)
+       deactivate solver actlit_term ;
+       list, falsifiable
     | Some ([], new_falsifiable) ->
+       (* Deactivating negative actlit. *)
+       deactivate solver actlit_term ;
        [], List.rev_append new_falsifiable falsifiable
     | Some (new_list, new_falsifiable) ->
+       (* Deactivating negative actlit. *)
+       deactivate solver actlit_term ;
        loop (List.rev_append new_falsifiable falsifiable) new_list
   in
 
