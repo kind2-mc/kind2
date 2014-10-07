@@ -522,7 +522,7 @@ let rec induction solver trans_sys props_k_ind props_unknown k =
 (* Entry point *)
 let main trans_sys =
 
-  Step.run trans_sys
+  StepKeepPathComp.run trans_sys
 
   (* Induction.BmcProto.run_bmc Tsugi.Step trans_sys *)
 
