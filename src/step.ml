@@ -18,35 +18,9 @@
 
 open Lib
 open TypeLib
+open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
-
-module Actlit = struct
-
-  (* Translates the hash of a term into a string .*)
-  let string_of_term term = string_of_int (Term.tag term)
-
-  (* Creates a positive actlit as a UF. *)
-  let generate term =
-    let string =
-      String.concat "" [ "actlit_" ; string_of_term term ]
-    in
-    UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
-
-  let i = ref 0
-
-  let fresh () =
-    let string =
-      String.concat "_" [ "fresh" ; "actlit" ; string_of_int !i ]
-    in
-    i := !i + 1 ;
-    UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
-
-end
-
-let actlit_from_term = Actlit.generate
-
-let term_of_actlit actlit = Term.mk_uf actlit []
 
 let exit solver =
   Stat.ind_stop_timers ();
@@ -99,6 +73,7 @@ let rec confirm trans solver continuation unfalsifiable k =
 
   match loop [] unfalsifiable with
   | None ->
+     debug step "[Step@%i] exiting." (Numeral.to_int k) in
      exit solver
   | Some context -> continuation context
 
@@ -179,7 +154,7 @@ let split_closure trans solver k actlits optimistics to_split =
       |> Term.mk_and
     in
     (* Getting a fresh actlit for it. *)
-    let actlit = Actlit.fresh () in
+    let actlit = fresh_actlit () in
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
     (* Asserting implication. *)
@@ -231,7 +206,7 @@ let rec next_no_falsifieds
             ( fun (actlits,implications) (_,term) ->
               (* Building the actlit. *)
               let actlit_term =
-                actlit_from_term term |> term_of_actlit
+                generate_actlit term |> term_of_actlit
               in
 
               (* Appending it to the list of actlits. *)
@@ -252,7 +227,7 @@ let rec next_no_falsifieds
             ( fun (actlits,implications) (_,term) ->
               (* Building the actlit. *)
               let actlit_term =
-                actlit_from_term term |> term_of_actlit
+                generate_actlit term |> term_of_actlit
               in
 
               (* Appending it to the list of actlits. *)
@@ -414,7 +389,7 @@ let init trans =
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
-     actlit_from_term prop
+     generate_actlit prop
      |> Solver.declare_fun solver)
     unknowns ;
 
@@ -430,8 +405,7 @@ let init trans =
   (trans, solver, Numeral.one, [], [], unknowns)
 
 (* Runs the step instance. *)
-let run trans =
-  init trans |> next
+let run trans = init trans |> next
 
 
 (* 

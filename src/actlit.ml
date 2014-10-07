@@ -16,17 +16,31 @@
 
 *)
 
-(* Tsugi stands for Transition System Unroller for Generalized
-   Induction. It is a functor designed to perform BMC checks in order
-   to implement k-induction. *)
-
 open Lib
-open TypeLib
 
-(** Tsugi prototypical instantiation. *)
-module BmcProto : Tsugi.Out
-(** Tsugi dummy comm and cex extraction instantiation. *)
-module BmcDummy : Tsugi.Out
+(* Translates the hash of a term into a string .*)
+let string_of_term term = string_of_int (Term.tag term)
+
+(* Creates a positive actlit as a UF. *)
+let generate_actlit term =
+  let string =
+    String.concat "" [ "actlit_" ; string_of_term term ]
+  in
+  UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
+
+let i = ref 0
+
+(* Creates a fresh actlit as a bool UF constant. *)
+let fresh_actlit () =
+  let string =
+    String.concat "_" [ "fresh" ; "actlit" ; string_of_int !i ]
+  in
+  i := !i + 1 ;
+  UfSymbol.mk_uf_symbol string [] (Type.mk_bool ())
+
+(* Returns the term corresponding to the input actlit. *)
+let term_of_actlit actlit = Term.mk_uf actlit []
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
