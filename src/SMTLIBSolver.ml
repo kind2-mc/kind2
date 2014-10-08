@@ -66,7 +66,12 @@ let cvc4_bin = Flags.cvc4_bin ()
 
 (* Configuration for CVC4 *)
 let smtlibsolver_config_cvc4 = 
-  { solver_cmd = [| cvc4_bin; "--lang"; "smt2"; "--incremental" |] }
+  { solver_cmd = 
+      [| cvc4_bin; 
+         "--lang"; "smt2";
+         "--rewrite-divk";
+         "--tear-down-incremental";
+         "--produce-unsat-cores" |] }
 
 
 (* Path and name of MathSAT5 executable *)
