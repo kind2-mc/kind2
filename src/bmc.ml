@@ -17,6 +17,7 @@
 *)
 
 open Lib
+open Printf
 
 (* Use configured SMT solver *)
 module BMCSolver = SMTSolver.Make (SMTLIBSolver)
