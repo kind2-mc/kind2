@@ -20,13 +20,6 @@ open Lib
 open TypeLib
 open Actlit
 
-(** Thrown if 'init' is called more than once. *)
-exception AlreadyInitializedLockStepKinduction
-
-(** Thrown if any function if any function is called before
-    initialization, except 'init' obviously. *)
-exception UninitializedLockStepKinduction
-
 (** Type of a lock step kind context. *)
 type t
 
@@ -55,9 +48,14 @@ val query_base: t -> Term.t list -> ((Var.t * Term.t) list) option
     composed of the falsifiable terms and the unfalsifiable ones. *)
 val query_step: t -> Term.t list -> Term.t list * Term.t list
 
+(** Checks if some of the input terms are k-inductive with lazy path
+    compression. Returns a pair composed of the falsifiable terms and
+    the unfalsifiable ones. *)
+val query_step_path_comp: t -> Term.t list -> Term.t list * Term.t list
+
 (** Checks the lock step driver on the system below its implementation
     in the ml file. *)
-val test: TransSys.t -> ()
+val test: TransSys.t -> unit
 
 (* 
    Local Variables:
