@@ -55,8 +55,7 @@ sig
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
-  val check_sat_assuming : ?timeout:int ->
-                           t ->
+  val check_sat_assuming : t ->
                            (* If sat. *)
                            (unit -> 'a) ->
                            (* If unsat. *)
@@ -382,34 +381,58 @@ struct
 
   (* Checks satisfiability of some literals, runs if_sat if sat and
      if_unsat if unsat. *)
-  let check_sat_assuming ?(timeout = 0) solver if_sat if_unsat literals =
+  let check_sat_assuming solver if_sat if_unsat literals =
+    if SMTLIBSolver.check_sat_assuming_supported ()
 
-    (* push solver ; *)
-    (* List.iter (fun lit -> assert_term solver lit) literals ; *)
+    then
+      (* Solver supports check-sat-assuming, let's do this. *)
+      let sat =
+        match
+          (* Performing the check-sat. *)
+          S.check_sat_assuming solver literals
+        with
+          
+        (* Fail on error *)
+        | SMTExpr.Response r -> 
+           fail_on_smt_error r; 
+           failwith
+             "SMT solver returned Success on check-sat"
+             
+        (* Return true if satisfiable *)
+        | SMTExpr.Sat -> true
 
-    let sat =
-      match S.check_sat_assuming ~timeout solver literals with 
-        
-      (* Fail on error *)
-      | SMTExpr.Response r -> 
-         fail_on_smt_error r; 
-         failwith "SMT solver returned Success on check-sat" 
-                  
-      (* Return true if satisfiable *)
-      | SMTExpr.Sat -> true
+        (* Return false if unsatisfiable *)
+        | SMTExpr.Unsat -> false
 
-      (* Return false if unsatisfiable *)
-      | SMTExpr.Unsat -> false
+        (* Fail on unknown *)
+        | SMTExpr.Unknown -> raise Unknown
+      in
 
-      (* Fail on unknown *)
-      | SMTExpr.Unknown -> raise Unknown
-    in
+      (* Executing user-provided functions. *)
+      let res = if sat then if_sat () else if_unsat () in
 
-    let res = if sat then if_sat () else if_unsat () in
+      res
 
-    (* pop solver ; *)
+    else
+      (* Solver does not support check-sat-assuming, doing
+         push/pop. *)
 
-    res
+      (* Pushing. *)
+      let _ = push solver in
+      
+      (* Asserting literals. *)
+      literals |> Term.mk_and |> assert_term solver ;
+
+      (* Performing check-sat. *)
+      let sat = check_sat solver in
+
+      (* Executing user-defined functions. *)
+      let res = if sat then if_sat () else if_unsat () in
+
+      (* Popping literals. *)
+      pop solver ;
+
+      res
       
 
   (* Check satisfiability of formula in current context and return a

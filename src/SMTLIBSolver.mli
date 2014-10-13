@@ -90,12 +90,10 @@ val pop : t -> int -> SMTExpr.response
     given number of milliseconds *)
 val check_sat : ?timeout:int -> t -> SMTExpr.check_sat_response
 
-(** Check satisfiability of the asserted expressions
-
-    The optional parameter [timeout] limits the maximum runtime to the
-    given number of milliseconds *)
+(** Check satisfiability of the asserted expressions assuming the
+    input list of literals. *)
 val check_sat_assuming :
-  ?timeout:int -> t -> SMTExpr.t list -> SMTExpr.check_sat_response
+  t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
 (** Get the assigned values of expressions in the current model *)
 val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
@@ -116,6 +114,13 @@ val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SM
 
 (** Execute a custom check-sat command and return its result *)
 val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
+
+(** {2 Solver features} *)
+
+
+(** Indicates whether the solver supports the check-sat-assuming
+    command. *)
+val check_sat_assuming_supported: unit -> bool
 
 (* 
    Local Variables:

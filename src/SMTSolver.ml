@@ -53,7 +53,7 @@ sig
 
   val check_sat : ?timeout:int -> t -> SMTExpr.check_sat_response
 
-  val check_sat_assuming : ?timeout:int -> t -> SMTExpr.t list -> SMTExpr.check_sat_response
+  val check_sat_assuming : t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
   val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
 
@@ -105,7 +105,7 @@ sig
 
   val check_sat : ?timeout:int -> t -> SMTExpr.check_sat_response
 
-  val check_sat_assuming : ?timeout:int -> t -> SMTExpr.t list -> SMTExpr.check_sat_response
+  val check_sat_assuming : t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
   val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
 
@@ -360,7 +360,7 @@ struct
     res
 
 
-  let check_sat_assuming ?(timeout = 0) { solver = s; trace_ppf } exprs = 
+  let check_sat_assuming { solver = s; trace_ppf } exprs = 
 
     trace_cmd trace_ppf
       "@[<hv 1>(check-sat %a)@]"
@@ -368,7 +368,7 @@ struct
 
     Stat.start_timer Stat.smt_check_sat_time;
 
-    let res = S.check_sat_assuming ~timeout s exprs in
+    let res = S.check_sat_assuming s exprs in
 
     Stat.record_time Stat.smt_check_sat_time;
 

@@ -99,6 +99,9 @@ let create trans =
           top_node_vars)
   in
 
+  (* Declaring path compression function. *)
+  Compress.init (Solver.declare_fun solver) trans ;
+
   (* Building the conjunction of all transition predicates. *)
   let all_transitions_conj =
     all_transitions |> Term.mk_and

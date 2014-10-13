@@ -154,6 +154,9 @@ let rec next (trans, solver, k, invariants, unknowns) =
      Event.progress k_int ;
      Stat.update_time Stat.bmc_total_time ;
 
+     (* Output current step *)
+     Event.log L_info "BMC loop at k=%d" (Numeral.to_int k);
+
      (* Merging old and new invariants and asserting them. *)
      let nu_invariants =
        match invariants, new_invariants with

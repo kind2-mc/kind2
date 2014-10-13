@@ -99,8 +99,7 @@ sig
       the given number of milliseconds *)
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
-  val check_sat_assuming : ?timeout:int ->
-                           t ->
+  val check_sat_assuming : t ->
                            (* If sat. *)
                            (unit -> 'a) ->
                            (* If unsat. *)
