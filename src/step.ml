@@ -22,10 +22,30 @@ open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
-let exit solver =
+let solver_ref = ref None
+
+(* Clean up before exit *)
+let on_exit _ =
   Stat.ind_stop_timers ();
   Stat.smt_stop_timers ();
-  Solver.delete_solver solver |> ignore
+  (try
+      match !solver_ref with
+      | None -> ()
+      | Some solver ->
+         Solver.delete_solver solver |> ignore ;
+         solver_ref := None
+    with
+    | e -> 
+       Event.log L_error
+                 "Error deleting solver_init: %s" 
+                 (Printexc.to_string e))
+
+let exit solver =
+  (* Stat.ind_stop_timers (); *)
+  (* Stat.smt_stop_timers (); *)
+  (* Solver.delete_solver solver |> ignore ; *)
+  (* solver_ref := None *)
+  ()
 
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
@@ -414,6 +434,9 @@ let init trans =
     |> Solver.new_solver ~produce_assignments:true
   in
 
+  (* Memorizing solver for clean on_exit. *)
+  solver_ref := Some solver ;
+
   (* Declaring uninterpreted function symbols. *)
   TransSys.iter_state_var_declarations
     trans
@@ -438,7 +461,7 @@ let init trans =
   (trans, solver, Numeral.one, [], [], unknowns)
 
 (* Runs the step instance. *)
-let run trans = init trans |> next
+let main trans = init trans |> next
 
 
 (* 

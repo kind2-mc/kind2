@@ -16,8 +16,11 @@
 
 *)
 
+(** Clean up before exit *)
+val on_exit: TransSys.t option -> unit
+
 (** Runs the step instance. *)
-val run: TransSys.t -> unit
+val main: TransSys.t -> unit
 
 
 (* 

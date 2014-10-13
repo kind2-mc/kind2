@@ -16,8 +16,11 @@
 
 *)
 
+(** Clean up before exit *)
+val on_exit: TransSys.t option -> unit
+
 (** Runs the base instance. *)
-val run: TransSys.t -> unit
+val main: TransSys.t -> unit
 
 (* 
    Local Variables:

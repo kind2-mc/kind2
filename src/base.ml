@@ -22,6 +22,24 @@ open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
+let solver_ref = ref None
+
+(* Clean up before exit *)
+let on_exit _ =
+  Stat.bmc_stop_timers ();
+  Stat.smt_stop_timers ();
+  (try
+      match !solver_ref with
+      | None -> ()
+      | Some solver ->
+         Solver.delete_solver solver |> ignore ;
+         solver_ref := None
+    with
+    | e -> 
+       Event.log L_error
+                 "Error deleting solver_init: %s" 
+                 (Printexc.to_string e))
+
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
@@ -141,10 +159,8 @@ let rec next (trans, solver, k, invariants, unknowns) =
 
   match nu_unknowns with
   | [] ->
-     debug base "[Base@%i] exiting." (Numeral.to_int k) in
-     Stat.bmc_stop_timers ();
-     Stat.smt_stop_timers ();
-     Solver.delete_solver solver |> ignore
+     debug base "[Base@%i] No more properties to falsify, exiting." (Numeral.to_int k) in
+     ()
 
   | _ ->
      let k_int = Numeral.to_int k in
@@ -248,6 +264,9 @@ let init trans =
     |> Solver.new_solver ~produce_assignments:true
   in
 
+  (* Memorizing solver for clean on_exit. *)
+  solver_ref := Some solver ;
+
   (* Declaring uninterpreted function symbols. *)
   TransSys.iter_state_var_declarations
     trans
@@ -273,8 +292,11 @@ let init trans =
   (trans, solver, Numeral.zero, [], unknowns)
 
 (* Runs the base instance. *)
-let run trans =
+let main trans =
   init trans |> next
+
+
+
 
 
 (* 
