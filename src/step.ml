@@ -118,15 +118,13 @@ let deactivate solver actlit =
   |> Term.mk_not
   |> Solver.assert_term solver
 
+(* Creating a fresh actlit for path compression. *)
+let path_comp_actlit = fresh_actlit ()
+(* Term version. *)
+let path_comp_act_term = path_comp_actlit |> term_of_actlit
+
 (* Check-sat and splits properties.. *)
 let split trans solver k to_split actlits =
-
-  (* Creating a fresh actlit for path compression. *)
-  let path_comp_actlit = fresh_actlit () in
-  (* Declaring it. *)
-  path_comp_actlit |> Solver.declare_fun solver ;
-  (* Term version. *)
-  let path_comp_act_term = path_comp_actlit |> term_of_actlit in
 
   (* Function to run if sat. *)
   let if_sat () =
@@ -186,8 +184,6 @@ let split trans solver k to_split actlits =
             loop () )
 
     | None ->
-       (* Unsat, deactivating path compression actlit. *)
-       deactivate solver path_comp_act_term ;
        (* Returning the unsat result. *)
        None
   in
@@ -195,52 +191,106 @@ let split trans solver k to_split actlits =
   loop ()
 
 (* Splits its input list of properties between those that can be
-   falsified and those that cannot. Actlits activate the properties to
-   split AND optimistic ones from 0 to k-1. Optimistics at k are added
-   with the negation of the properties to split and are activated by
-   the same actlit. This makes backtracking easy since positive
-   actlits are not overloaded. *)
-let split_closure trans solver k actlits optimistics to_split =
+   falsified and those that cannot. Optimistics at k are added with
+   the negation of the properties to split and are activated by the
+   same actlit. This makes backtracking easy since positive actlits
+   are not overloaded. *)
+let split_closure
+      trans solver k optimistic_actlits optimistic_terms to_split =
+
+  debug step "" in
+  debug step "Entering split closure at %i." (Numeral.to_int k) in
+  debug step "to split:" in
+  let _ = to_split
+          |> List.iter
+               ( fun (s,_) ->
+                 debug step "  - %s" s in () ) in
+  debug step "optimistic:" in
+  let _ = optimistic_terms
+          |> List.iter
+               ( fun (s,_) ->
+                 debug step "  - %s" s in () ) in
 
   let rec loop falsifiable list =
+
+    debug step "Entering split closure loop:" in
+    debug step "to split:" in
+    let _ = list
+            |> List.iter
+                 ( fun (s,_) ->
+                   debug step "  - %s" s in () ) in
+    debug step "falsifiable:" in
+    falsifiable
+    |> List.iter
+         ( fun (s,_) ->
+           debug step "  - %s" s in () ) ;
+    
+
     (* Building negative term. *)
     let neg_term =
       list
       |> List.map snd
       |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
+
     (* Adding optimistic properties at k. *)
     let term =
       neg_term ::
-        ( optimistics
+        ( optimistic_terms
           |> List.map
                (fun (_, t) -> t |> Term.bump_state k) )
       |> Term.mk_and
     in
+
     (* Getting a fresh actlit for it. *)
     let actlit = fresh_actlit () in
+
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
+
     (* Transforming it to a term. *)
     let actlit_term = actlit |> term_of_actlit in
+
     (* Asserting implication. *)
-    Term.mk_or
-        [ actlit_term |> Term.mk_not ; term ]
+    Term.mk_implies [ actlit_term ; term ]
     |> Solver.assert_term solver ;
-    (* All actlits. *)
-    let all_actlits = actlit_term :: actlits in
+
+    (* Getting positive actlits for the list of properties, appending
+       them to the optimistic actlits and adding the negative
+       actlit. *)
+    let all_actlits =
+      actlit_term :: (
+        list
+        |> List.fold_left
+             ( fun l (_,t) ->
+               (generate_actlit t |> term_of_actlit) :: l )
+             optimistic_actlits )
+    in
+
     (* Splitting. *)
     match split trans solver k list all_actlits with
+
     | None ->
+       (* Unsat. *)
+       debug step "Unsat." in
        (* Deactivating negative actlit. *)
        deactivate solver actlit_term ;
+       (* Returning result. *)
        list, falsifiable
+
     | Some ([], new_falsifiable) ->
+       (* Sat, no more properties to split. *)
+       debug step "Sat, but no more properties." in
        (* Deactivating negative actlit. *)
        deactivate solver actlit_term ;
+       (* Returning result. *)
        [], List.rev_append new_falsifiable falsifiable
+
     | Some (new_list, new_falsifiable) ->
+       (* Sat. *)
+       debug step "Sat, looping." in
        (* Deactivating negative actlit. *)
        deactivate solver actlit_term ;
+       (* Looping to split remaining properties. *)
        loop (List.rev_append new_falsifiable falsifiable) new_list
   in
 
@@ -273,33 +323,30 @@ let rec next_no_falsifieds
      (* Notify compression *)
      Compress.incr_k ();
 
-     (* Building the positive actlits and corresponding implications
-        at k-1 for unknowns. *)
-     let actlits, implications =
+     (* Building the positive implications for unknowns at k-1. *)
+     let unknown_implications =
        nu_unknowns
-       |> List.fold_left
-            ( fun (actlits,implications) (_,term) ->
+       |> List.map
+            ( fun (_,term) ->
               (* Building the actlit. *)
               let actlit_term =
                 generate_actlit term |> term_of_actlit
               in
 
-              (* Appending it to the list of actlits. *)
-              actlit_term :: actlits,
               (* Building the implication and appending. *)
-              (Term.mk_or [
-                   Term.mk_not actlit_term ;
+              (Term.mk_implies [
+                   actlit_term ;
                    Term.bump_state k_minus_one term
-              ]) :: implications )
-            ([], [])
+              ]) )
      in
 
-     (* Doing the same for optimistics and appending to those for
-        unknowns. *)
-     let all_actlits, all_implications =
+     (* Building the positive implications for optimistics at k-1
+        (appending them to the unknown implications) and the list of
+        corresponding actlits. *)
+     let optimistic_actlits, all_implications =
        nu_optimistics
        |> List.fold_left
-            ( fun (actlits,implications) (_,term) ->
+            ( fun (actlits, implications) (_,term) ->
               (* Building the actlit. *)
               let actlit_term =
                 generate_actlit term |> term_of_actlit
@@ -312,10 +359,10 @@ let rec next_no_falsifieds
                    Term.mk_not actlit_term ;
                    Term.bump_state k_minus_one term
               ]) :: implications )
-            (actlits, implications)
+            ([], unknown_implications)
      in
 
-     (* Asserting all the implications. *)
+     (* Asserting unknown and optimistic implications. *)
      all_implications
      |> Term.mk_and
      |> Solver.assert_term solver ;
@@ -324,7 +371,9 @@ let rec next_no_falsifieds
      let unfalsifiable, falsifiable =
        split_closure
          trans solver k
-         all_actlits nu_optimistics nu_unknowns
+         optimistic_actlits
+         nu_optimistics
+         nu_unknowns
      in
 
      (* Output statistics *)
@@ -473,6 +522,9 @@ let init trans =
      generate_actlit prop
      |> Solver.declare_fun solver)
     unknowns ;
+
+  (* Declaring path compression literal. *)
+  path_comp_actlit |> Solver.declare_fun solver ;
 
   (* Declaring path compression function. *)
   Compress.init (Solver.declare_fun solver) trans ;
