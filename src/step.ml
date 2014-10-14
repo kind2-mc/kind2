@@ -55,62 +55,114 @@ let on_exit _ =
                  "Error deleting solver_init: %s" 
                  (Printexc.to_string e))
 
-let exit solver =
-  (* Stat.ind_stop_timers (); *)
-  (* Stat.smt_stop_timers (); *)
-  (* Solver.delete_solver solver |> ignore ; *)
-  (* solver_ref := None *)
-  ()
+let stop () = ()
 
-(* Returns true if the property is not falsified or valid. *)
-let shall_keep trans (s,_) =
+(* Returns true if the input property is not an invariant and has not
+   been disproved. *)
+let is_unknown trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant | TransSys.PropFalse _ -> false
+  | TransSys.PropInvariant
+  | TransSys.PropFalse _ -> false
   | _ -> true
 
-let is_confirmed trans k (s,_) =
-  match TransSys.get_prop_status trans s with
-  | TransSys.PropKTrue k' -> k' >= k - 1
-  | _ -> false
+(* Removes proved and disproved properties from a list of
+   properties. *)
+let clean_unknowns trans = List.filter (is_unknown trans)
 
-let rec confirm trans solver continuation unfalsifiable k =
+(* Splits the input list of properties in three lists: disproved, true
+   up to k, and others. ALSO, REMOVES PROVED PROPERTIES. *)
+let split_unfalsifiable_rm_proved trans k =
+  List.fold_left
+    ( fun (dis,true_k,others) ((s,_) as p) ->
+      match TransSys.get_prop_status trans s with
+      | TransSys.PropInvariant ->
+         (dis, true_k, others)
+      | TransSys.PropFalse _ ->
+         (p :: dis, true_k, others)
+      | TransSys.PropKTrue n when n >= k ->
+         (dis, p :: true_k, others)
+      | _ ->
+         (dis, true_k, p :: others) )
+    ([], [], [])
 
-  let k_int = (Numeral.to_int k) -1 in
+(* Cleans unknown properties and the unfalsifiable properties found by
+   step. The input list is of type (Numeral.t * properties) list, REV
+   SORTED ON NUMERAL.  Returns the properties confirmed by base, the
+   new unknown properties, and the new unfalsifiable ones. *)
+let clean_properties trans unknowns unfalsifiables =
+  let unknowns' = clean_unknowns trans unknowns in
 
-  let rec loop invariants to_check =
-    (* Getting new invariants and valid / falsified properties. *)
-    let new_invariants, new_valids, new_falsifieds =
-      Event.recv () |> Event.update_trans_sys_tsugi trans
-    in
+  let rec loop confirmed = function
+    | (k, unfls_k) :: tail as list ->
 
-    let new_to_check =
-      List.filter (shall_keep trans) to_check
-    in
-    match new_falsifieds with
-    | [] ->
-       if List.for_all (is_confirmed trans k_int) new_to_check
-       then
-         (List.iter
-            (fun (s, _) ->
-             Event.prop_status TransSys.PropInvariant trans s)
-            new_to_check ;
-          None)
-       else
-         (minisleep 0.001 ;
-          loop
-            (List.rev_append new_invariants invariants)
-            new_to_check)
-    | _ ->
-       Some (trans, solver, k,
-            List.rev_append new_invariants invariants,
-            [], new_to_check)
+       (* Handling unfalsifiable properties at k. *)
+       ( match split_unfalsifiable_rm_proved trans k unfls_k with
+
+         | ([], confirmed', []) ->
+            (* Only confirmed properties, base is above k so we loop. *)
+            loop (List.rev_append confirmed' confirmed) tail
+
+         | ([], confirmed', unfls_k') ->
+            (* No disproved or confirmed properties. No need to loop
+             since base has not been above this k yet. *)
+            (
+              (* Unfalsifiable properties confirmed by base. *)
+              List.rev_append confirmed' confirmed,
+              (* Unknown properties are the same as before after
+                 clean. *)
+              unknowns',
+              (* Unfalsifiable properties. Reversed to restore the
+                 inverse order. *)
+              List.rev ((k,unfls_k') :: tail)
+            )
+
+         | (_, _, _) ->
+            (* Some properties are disproved. All unfalsifiable
+             properties in tail should be backtracked, as well as
+             the ones for this k. *)
+            let unknowns'' =
+              list
+              |> List.fold_left
+                   ( fun unknws (_, props) ->
+                     props
+                     (* Cleaning props and appending. *)
+                     |> List.fold_left
+                          ( fun unknws' prop ->
+                            if is_unknown trans prop then
+                              (* Prop is neither proved or
+                                 disproved. *)
+                              prop :: unknws'
+                            else
+                              (* Prop has been proved or disproved. *)
+                              unknws'
+                          )
+                          unknws
+                   )
+                   unknowns'
+            in
+
+            (
+              (* Properties confirmed by base for a smaller k still
+                 hold. *)
+              confirmed,
+              (* New unknown properties after the backtrack. *)
+              unknowns'',
+              (* No more unfalsifiable properties. *)
+              []
+            )
+       )
+
+    | [] -> (
+      (* Properties confirmed by base. *)
+      confirmed,
+      (* No backtracking, unknown is unchanged. *)
+      unknowns',
+      (* No more unfalsifiable properties. *)
+      []
+    )
   in
 
-  match loop [] unfalsifiable with
-  | None ->
-     debug step "[Step@%i] exiting." (Numeral.to_int k) in
-     exit solver
-  | Some context -> continuation context
+  loop [] (List.rev unfalsifiables)
 
 (* Deactivates an actlit by asserting its negation. *)
 let deactivate solver actlit =
@@ -198,33 +250,7 @@ let split trans solver k to_split actlits =
 let split_closure
       trans solver k optimistic_actlits optimistic_terms to_split =
 
-  debug step "" in
-  debug step "Entering split closure at %i." (Numeral.to_int k) in
-  debug step "to split:" in
-  let _ = to_split
-          |> List.iter
-               ( fun (s,_) ->
-                 debug step "  - %s" s in () ) in
-  debug step "optimistic:" in
-  let _ = optimistic_terms
-          |> List.iter
-               ( fun (s,_) ->
-                 debug step "  - %s" s in () ) in
-
   let rec loop falsifiable list =
-
-    debug step "Entering split closure loop:" in
-    debug step "to split:" in
-    let _ = list
-            |> List.iter
-                 ( fun (s,_) ->
-                   debug step "  - %s" s in () ) in
-    debug step "falsifiable:" in
-    falsifiable
-    |> List.iter
-         ( fun (s,_) ->
-           debug step "  - %s" s in () ) ;
-    
 
     (* Building negative term. *)
     let neg_term =
@@ -271,7 +297,6 @@ let split_closure
 
     | None ->
        (* Unsat. *)
-       debug step "Unsat." in
        (* Deactivating negative actlit. *)
        deactivate solver actlit_term ;
        (* Returning result. *)
@@ -279,7 +304,6 @@ let split_closure
 
     | Some ([], new_falsifiable) ->
        (* Sat, no more properties to split. *)
-       debug step "Sat, but no more properties." in
        (* Deactivating negative actlit. *)
        deactivate solver actlit_term ;
        (* Returning result. *)
@@ -287,7 +311,6 @@ let split_closure
 
     | Some (new_list, new_falsifiable) ->
        (* Sat. *)
-       debug step "Sat, looping." in
        (* Deactivating negative actlit. *)
        deactivate solver actlit_term ;
        (* Looping to split remaining properties. *)
@@ -296,204 +319,169 @@ let split_closure
 
   loop [] to_split
 
-(* Performs the next iteration, called by next after handling
-   falsifieds properties. *)
-let rec next_no_falsifieds
-          continuation
-          (trans, solver, k,
-           nu_invariants, nu_optimistics, nu_unknowns) =
 
-  let k_minus_one = Numeral.(k-one) in
+(* Performs the next iteration after updating the context. Assumes the
+   solver is in the follwing state:
 
-  match nu_unknowns, nu_optimistics with
-  | [], [] -> exit solver
+   actlit(prop) => prop@i
+     for all 0 <= i <= k-2 and prop      in 'unknowns'
+                                        and 'unfalsifiables';
 
+   invariant@i
+     for all 0 <= i <= k-1 and invariant in 'invariants';
+
+   T[i-1,i]
+     for all 1 <= i < k.
+
+   List 'unfalsifiables' has type (Numeral.t * properties) list and
+   links unfalsifiable properties with the k at which they were found
+   to be unfalsifiable.  It should be sorted by decreasing k. *)
+let rec next trans solver k invariants unfalsifiables unknowns =
+
+  (* Receiving things. *)
+  let new_invariants,_,_ =
+    Event.recv () |> Event.update_trans_sys_tsugi trans
+  in
+
+  (* Cleaning unknowns and unfalsifiables. *)
+  let confirmed, unknowns', unfalsifiables' =
+    clean_properties trans unknowns unfalsifiables
+  in
+
+
+  (* Communicating new invariants. *)
+  confirmed
+  |> List.iter
+       ( fun (s,_) ->
+         Event.prop_status TransSys.PropInvariant trans s ) ;
+
+  match unknowns', unfalsifiables' with
+  | [], [] ->
+     (* Nothing left to do. *)
+     stop ()
   | [], _ ->
-     confirm trans solver
-             (next_no_falsifieds continuation) nu_optimistics k
-
+     (* Need to wait for base confirmation. *)
+     failwith "Confirmation not implemented."
   | _ ->
-     let k_int = (Numeral.to_int k) - 1 in
+
+     (* Integer version of k. *)
+     let k_int = Numeral.to_int k in
 
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;
      Event.progress k_int ;
      Stat.update_time Stat.ind_total_time ;
 
-     (* Notify compression *)
+     (* Notifying compression *)
      Compress.incr_k ();
 
-     (* Building the positive implications for unknowns at k-1. *)
-     let unknown_implications =
-       nu_unknowns
-       |> List.map
-            ( fun (_,term) ->
-              (* Building the actlit. *)
-              let actlit_term =
-                generate_actlit term |> term_of_actlit
-              in
-
-              (* Building the implication and appending. *)
-              (Term.mk_implies [
-                   actlit_term ;
-                   Term.bump_state k_minus_one term
-              ]) )
-     in
-
-     (* Building the positive implications for optimistics at k-1
-        (appending them to the unknown implications) and the list of
-        corresponding actlits. *)
-     let optimistic_actlits, all_implications =
-       nu_optimistics
-       |> List.fold_left
-            ( fun (actlits, implications) (_,term) ->
-              (* Building the actlit. *)
-              let actlit_term =
-                generate_actlit term |> term_of_actlit
-              in
-
-              (* Appending it to the list of actlits. *)
-              actlit_term :: actlits,
-              (* Building the implication and appending. *)
-              (Term.mk_or [
-                   Term.mk_not actlit_term ;
-                   Term.bump_state k_minus_one term
-              ]) :: implications )
-            ([], unknown_implications)
-     in
-
-     (* Asserting unknown and optimistic implications. *)
-     all_implications
-     |> Term.mk_and
-     |> Solver.assert_term solver ;
-
-     (* Splitting (asserts the actlit implications). *)
-     let unfalsifiable, falsifiable =
-       split_closure
-         trans solver k
-         optimistic_actlits
-         nu_optimistics
-         nu_unknowns
-     in
-
-     (* Output statistics *)
-     if output_on_level L_info then print_stats ();
-
-     (* Looping. *)
-     continuation
-       (trans, solver, Numeral.(k+one),
-        nu_invariants,
-        List.rev_append unfalsifiable nu_optimistics,
-        falsifiable)
-
-(* Performs the next check after updating its context with new
-   invariants and falsified properties. Assumes the solver is
-   in the following state:
-
-   actlit(prop) => prop@i
-     for all 0 <= i <= k-2 and prop      in 'unknowns'
-                                        and 'optimistics';
-
-   invariant@i
-     for all 0 <= i <= k-1 and invariant in 'invariants';
-
-   T[i-1,i]
-     for all 1 <= i <= k.
-
-   Note that the transition relation for the current iteration is
-   already asserted. *)
-let rec next (trans, solver, k,
-              invariants, optimistics, unknowns) =
-
-  (* Asserts terms from 0 to k. *)
-  let assert_new_invariants k terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_and_apply_k
-         (Solver.assert_term solver) k
-  in
-
-  (* Asserts terms at k+1. *)
-  let assert_old_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_state k
-    |> Solver.assert_term solver
-  in
-
-  (* Getting new invariants and valid / falsified properties. *)
-  let new_invariants, new_valids, new_falsifieds =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
-  in
-
-  (* Cleaning unknowns and optimistics by removing invariants and
-     falsifieds. *)
-  let nu_unknowns, nu_optimistics =
-    match new_valids, new_falsifieds with
-    | [], [] -> unknowns, optimistics
-    | _ ->
-       unknowns    |> List.filter (shall_keep trans),
-       optimistics |> List.filter (shall_keep trans)
-  in
-
-  match new_falsifieds, nu_optimistics with
-  | [], _ | _, [] ->
+     (* k+1. *)
+     let k_p_1 = Numeral.succ k in
 
      (* Asserting transition relation. *)
-     TransSys.trans_of_bound trans k
+     TransSys.trans_of_bound trans k_p_1
      |> Solver.assert_term solver
      |> ignore ;
 
-     (* Merging old and new invariants and asserting them. *)
-     let nu_invariants =
-       match invariants, new_invariants with
-       | [],[] -> []
-       | _, [] ->
-          assert_old_invariants invariants ;
-          invariants
-       | [], _ ->
-          assert_new_invariants k new_invariants ;
-          new_invariants
-       | _ ->
-          assert_old_invariants invariants ;
-          assert_new_invariants k new_invariants ;
-          List.rev_append new_invariants invariants
+     (* Asserting new invariants from 0 to k+1. *)
+     ( match new_invariants with
+       | [] -> ()
+       | l -> l
+              |> Term.mk_and
+              |> Term.bump_and_apply_k
+                   (Solver.assert_term solver) k_p_1 ) ;
+
+     (* Asserts old invariants at k+1. *)
+     ( match invariants with
+       | [] -> ()
+       | l -> l
+              |> Term.mk_and
+              |> Term.bump_state k_p_1
+              |> Solver.assert_term solver ) ;
+
+     (* Building the list of new invariants. *)
+     let invariants' =
+       List.rev_append new_invariants invariants
      in
 
-     (* No need to backtrack, moving on. *)
-     next_no_falsifieds
-       next
-       (trans, solver, k,
-        nu_invariants, nu_optimistics, nu_unknowns)
+     (* Asserting positive implications at k for unknowns. *)
+     unknowns'
+     |> List.map
+          ( fun (_,term) ->
+            (* Building implication. *)
+            Term.mk_implies
+              [ generate_actlit term |> term_of_actlit ;
+                Term.bump_state k term ] )
+     |> Term.mk_and
+     |> Solver.assert_term solver ;
+     
 
-  | _ ->
+     (* Actlits, properties and implications at k for unfalsifiables. *)
+     let unfalsifiable_actlits,
+         unfalsifiable_props,
+         unfalsifiable_impls =
+       unfalsifiables
+       |> List.fold_left
+            ( fun (actlits, terms, impls) (_, p) ->
+              let actlits', terms', impls' =
+                p |> List.fold_left
+                       ( fun (actlits,terms,impls)
+                             ((_, term) as p) ->
+                         (* Building positive actlit. *)
+                         let actlit_term =
+                           generate_actlit term |> term_of_actlit
+                         in
 
-     (* Merging old and new invariants and asserting only the new ones
-        up to k-1 since we are backtracking. *)
-     let nu_invariants =
-       match invariants, new_invariants with
-       | [],[] -> []
-       | _, [] ->
-          invariants
-       | [], _ ->
-          assert_new_invariants Numeral.(k-one) new_invariants ;
-          new_invariants
-       | _ ->
-          assert_new_invariants Numeral.(k-one) new_invariants ;
-          List.rev_append new_invariants invariants
+                         (* Actlit. *)
+                         actlit_term :: actlits,
+                         (* Property. *)
+                         p :: terms,
+                         (* Implication. *)
+                         ( Term.mk_implies
+                             [ actlit_term ; Term.bump_state k term ]
+                         ) :: impls
+                       )
+                       ([],[],[])
+              in
+
+              (
+                List.rev_append
+                  actlits' actlits,
+                List.rev_append
+                  terms' terms,
+                List.rev_append
+                  impls' impls
+              )
+            )
+            ([],[],[])
      in
 
-     (* Backtracking, i.e. cancelling optimistics and relaunching at
-        k-1. *)
-     next_no_falsifieds
-       next
-       (trans, solver, Numeral.(k-one),
-        nu_invariants,
-        [],
-        List.rev_append nu_optimistics nu_unknowns)
+     (* Asserting unfalsifiable implications at k. *)
+     unfalsifiable_impls
+     |> Term.mk_and
+     |> Solver.assert_term solver ;
+
+     (* Splitting. *)
+     let unfalsifiables_at_k, falsifiables_at_k =
+       split_closure
+         trans solver k_p_1
+         unfalsifiable_actlits
+         unfalsifiable_props
+         unknowns'
+     in
+
+     next
+       trans solver k_p_1
+       invariants'
+       (* Adding the new unfalsifiables. *)
+       ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
+       (* Iterating on the properties left. *)
+       falsifiables_at_k
+         
+
 
 (* Initializes the solver for the first check. *)
-let init trans =
+let launch trans =
   (* Starting the timer. *)
   Stat.start_timer Stat.ind_total_time;
 
@@ -523,7 +511,7 @@ let init trans =
      |> Solver.declare_fun solver)
     unknowns ;
 
-  (* Declaring path compression literal. *)
+  (* Declaring path compression actlit. *)
   path_comp_actlit |> Solver.declare_fun solver ;
 
   (* Declaring path compression function. *)
@@ -534,11 +522,11 @@ let init trans =
     trans
     (Solver.define_fun solver) ;
 
-  (* Returning context. *)
-  (trans, solver, Numeral.one, [], [], unknowns)
+  (* Launching step. *)
+  next trans solver Numeral.zero [] [] unknowns
 
 (* Runs the step instance. *)
-let main trans = init trans |> next
+let main trans = launch trans
 
 
 (* 
