@@ -24,10 +24,25 @@ module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
 let solver_ref = ref None
 
+(* Output statistics *)
+let print_stats () = 
+
+  Event.stat 
+    [Stat.misc_stats_title, Stat.misc_stats;
+     Stat.bmc_stats_title, Stat.bmc_stats;
+     Stat.smt_stats_title, Stat.smt_stats]
+
 (* Clean up before exit *)
 let on_exit _ =
+
+  (* Stop all timers. *)
   Stat.bmc_stop_timers ();
   Stat.smt_stop_timers ();
+
+  (* Output statistics *)
+  print_stats ();
+
+  (* Delete solver instance if created. *)
   (try
       match !solver_ref with
       | None -> ()
@@ -158,9 +173,13 @@ let rec next (trans, solver, k, invariants, unknowns) =
   debug base "[Base@%i] nu_unknowns: %i." (Numeral.to_int k) (List.length nu_unknowns) in
 
   match nu_unknowns with
+  | _ when Flags.bmc_max () > 0 && (Numeral.to_int k) > Flags.bmc_max () ->
+     Event.log
+       L_info
+       "BMC reached maximal number of iterations"
   | [] ->
      debug base "[Base@%i] No more properties to falsify, exiting." (Numeral.to_int k) in
-     ()
+    ()
 
   | _ ->
      let k_int = Numeral.to_int k in
@@ -243,7 +262,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Asserting transition relation for next iteration. *)
      TransSys.trans_of_bound trans Numeral.(k + one)
      |> Solver.assert_term solver
-     |> ignore ;     
+     |> ignore ;
+     
+     (* Output statistics *)
+     if output_on_level L_info then print_stats ();
 
      (* Looping. *)
      next (trans, solver, Numeral.(k+one), nu_invariants, unfalsifiable)

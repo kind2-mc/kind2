@@ -24,10 +24,25 @@ module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
 let solver_ref = ref None
 
+(* Output statistics *)
+let print_stats () =
+
+  Event.stat 
+    [Stat.misc_stats_title, Stat.misc_stats;
+     Stat.ind_stats_title, Stat.ind_stats;
+     Stat.smt_stats_title, Stat.smt_stats]
+
 (* Clean up before exit *)
 let on_exit _ =
+
+  (* Stopping all timers. *)
   Stat.ind_stop_timers ();
   Stat.smt_stop_timers ();
+
+  (* Output statistics *)
+  print_stats ();
+
+  (* Deleting solver instance if created. *)
   (try
       match !solver_ref with
       | None -> ()
@@ -60,7 +75,7 @@ let is_confirmed trans k (s,_) =
 
 let rec confirm trans solver continuation unfalsifiable k =
 
-  let k_int = Numeral.to_int k in
+  let k_int = (Numeral.to_int k) -1 in
 
   let rec loop invariants to_check =
     (* Getting new invariants and valid / falsified properties. *)
@@ -117,38 +132,9 @@ let split trans solver k to_split actlits =
   let if_sat () =
     (* Get-model function. *)
     let get_model = Solver.get_model solver in
-    (* Extracting the counterexample. *)
-    let cex =
-      TransSys.path_from_model trans get_model k in
-    (* Attempting to compress path. *)
-    match
-      Compress.check_and_block
-        (Solver.declare_fun solver) trans cex
-    with
-
-    | [] ->
-       (* Getting the model. *)
-       let model = TransSys.vars_of_bounds trans k k
-                   |> get_model in
-       (* Evaluation function. *)
-       let eval term =
-         Eval.eval_term (TransSys.uf_defs trans) model term
-         |> Eval.bool_of_value in
-       (* Splitting properties. *)
-       let new_to_split, new_falsifiable =
-         List.partition
-           ( fun (_, term) ->
-             Term.bump_state k term |> eval )
-           to_split in
-       (* Building result. *)
-       Some (new_to_split, new_falsifiable)
-
-    | compressor ->
-       Term.mk_or
-         [ path_comp_act_term |> Term.mk_not ;
-           compressor |> Term.mk_and ]
-       |> Solver.assert_term solver ;
-       Some (to_split, [])
+    (* Extracting the counterexample and returning it. *)
+    Some(TransSys.path_from_model trans get_model k,
+         TransSys.vars_of_bounds trans k k |> get_model)
   in
 
   (* Function to run if unsat. *)
@@ -157,20 +143,53 @@ let split trans solver k to_split actlits =
   (* Appending to the list of actlits. *)
   let all_actlits = path_comp_act_term :: actlits in
 
-  (* Loops as long as counterexamples can be compressedp *)
+  (* Loops as long as counterexamples can be compressed. *)
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
       Solver.check_sat_assuming
         solver if_sat if_unsat all_actlits
     with
-    | Some (_,[]) ->
-       (* Path compressed, retrying. *)
-       loop ()
-    | res ->
-       (* Deactivating path compression actlit. *)
+
+    | Some (cex,model) ->
+       (* Attempting to compress path. *)
+       ( match
+           if not (Flags.ind_compress ()) then [] else
+             Compress.check_and_block
+               (Solver.declare_fun solver) trans cex
+         with
+
+         | [] ->
+            (* Cannot compress path, splitting properties. *)
+
+            (* Evaluation function. *)
+            let eval term =
+              Eval.eval_term (TransSys.uf_defs trans) model term
+              |> Eval.bool_of_value in
+
+            (* Splitting properties. *)
+            let new_to_split, new_falsifiable =
+              List.partition
+                ( fun (_, term) ->
+                  Term.bump_state k term |> eval )
+                to_split in
+            (* Building result. *)
+            Some (new_to_split, new_falsifiable)
+
+         | compressor ->
+            (* Path compressing, building term and asserting it. *)
+            Term.mk_or
+              [ path_comp_act_term |> Term.mk_not ;
+                compressor |> Term.mk_and ]
+            |> Solver.assert_term solver ;
+            (* Rechecking satisfiability. *)
+            loop () )
+
+    | None ->
+       (* Unsat, deactivating path compression actlit. *)
        deactivate solver path_comp_act_term ;
-       res
+       (* Returning the unsat result. *)
+       None
   in
 
   loop ()
@@ -244,12 +263,15 @@ let rec next_no_falsifieds
              (next_no_falsifieds continuation) nu_optimistics k
 
   | _ ->
-     let k_int = Numeral.to_int k in
+     let k_int = (Numeral.to_int k) - 1 in
 
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;
      Event.progress k_int ;
      Stat.update_time Stat.ind_total_time ;
+
+     (* Notify compression *)
+     Compress.incr_k ();
 
      (* Building the positive actlits and corresponding implications
         at k-1 for unknowns. *)
@@ -304,6 +326,9 @@ let rec next_no_falsifieds
          trans solver k
          all_actlits nu_optimistics nu_unknowns
      in
+
+     (* Output statistics *)
+     if output_on_level L_info then print_stats ();
 
      (* Looping. *)
      continuation

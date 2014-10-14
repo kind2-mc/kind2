@@ -22,10 +22,45 @@ open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
-let exit solver =
+let solver_ref = ref None
+
+(* Output statistics *)
+let print_stats () =
+
+  Event.stat 
+    [Stat.misc_stats_title, Stat.misc_stats;
+     Stat.ind_stats_title, Stat.ind_stats;
+     Stat.smt_stats_title, Stat.smt_stats]
+
+(* Clean up before exit *)
+let on_exit _ =
+
+  (* Stopping all timers. *)
   Stat.ind_stop_timers ();
   Stat.smt_stop_timers ();
-  Solver.delete_solver solver |> ignore
+
+  (* Output statistics *)
+  print_stats ();
+
+  (* Deleting solver instance if created. *)
+  (try
+      match !solver_ref with
+      | None -> ()
+      | Some solver ->
+         Solver.delete_solver solver |> ignore ;
+         solver_ref := None
+    with
+    | e -> 
+       Event.log L_error
+                 "Error deleting solver_init: %s" 
+                 (Printexc.to_string e))
+
+let exit solver =
+  (* Stat.ind_stop_timers (); *)
+  (* Stat.smt_stop_timers (); *)
+  (* Solver.delete_solver solver |> ignore ; *)
+  (* solver_ref := None *)
+  ()
 
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
@@ -95,38 +130,9 @@ let split trans solver k to_split actlits =
   let if_sat () =
     (* Get-model function. *)
     let get_model = Solver.get_model solver in
-    (* Extracting the counterexample. *)
-    let cex =
-      TransSys.path_from_model trans get_model k in
-    (* Attempting to compress path. *)
-    match
-      Compress.check_and_block
-        (Solver.declare_fun solver) trans cex
-    with
-
-    | [] ->
-       (* Getting the model. *)
-       let model = TransSys.vars_of_bounds trans k k
-                   |> get_model in
-       (* Evaluation function. *)
-       let eval term =
-         Eval.eval_term (TransSys.uf_defs trans) model term
-         |> Eval.bool_of_value in
-       (* Splitting properties. *)
-       let new_to_split, new_falsifiable =
-         List.partition
-           ( fun (_, term) ->
-             Term.bump_state k term |> eval )
-           to_split in
-       (* Building result. *)
-       Some (new_to_split, new_falsifiable)
-
-    | compressor ->
-       Term.mk_or
-         [ path_comp_act_term |> Term.mk_not ;
-           compressor |> Term.mk_and ]
-       |> Solver.assert_term solver ;
-       Some (to_split, [])
+    (* Extracting the counterexample and returning it. *)
+    Some(TransSys.path_from_model trans get_model k,
+         TransSys.vars_of_bounds trans k k |> get_model)
   in
 
   (* Function to run if unsat. *)
@@ -142,10 +148,43 @@ let split trans solver k to_split actlits =
       Solver.check_sat_assuming
         solver if_sat if_unsat all_actlits
     with
-    | Some (_,[]) ->
-       (* Path compressed, retrying. *)
-       loop ()
-    | res -> res
+
+    | Some (cex,model) ->
+       (* Attempting to compress path. *)
+       ( match
+           if not (Flags.ind_compress ()) then [] else
+             Compress.check_and_block
+               (Solver.declare_fun solver) trans cex
+         with
+
+         | [] ->
+            (* Cannot compress path, splitting properties. *)
+
+            (* Evaluation function. *)
+            let eval term =
+              Eval.eval_term (TransSys.uf_defs trans) model term
+              |> Eval.bool_of_value in
+
+            (* Splitting properties. *)
+            let new_to_split, new_falsifiable =
+              List.partition
+                ( fun (_, term) ->
+                  Term.bump_state k term |> eval )
+                to_split in
+
+            (* Building result. *)
+            Some (new_to_split, new_falsifiable)
+
+         | compressor ->
+            (* Path compressing, building term and asserting it. *)
+            Term.mk_or
+              [ path_comp_act_term |> Term.mk_not ;
+                compressor |> Term.mk_and ]
+            |> Solver.assert_term solver ;
+            (* Rechecking satisfiability. *)
+            loop () )
+
+    | None -> None
   in
 
   loop ()
@@ -280,6 +319,9 @@ let rec next_no_falsifieds
          all_actlits nu_optimistics nu_unknowns
      in
 
+     (* Output statistics *)
+     if output_on_level L_info then print_stats ();
+
      (* Looping. *)
      continuation
        (trans, solver, Numeral.(k+one),
@@ -409,6 +451,9 @@ let init trans =
     |> Solver.new_solver ~produce_assignments:true
   in
 
+  (* Memorizing solver for clean on_exit. *)
+  solver_ref := Some solver ;
+
   (* Declaring uninterpreted function symbols. *)
   TransSys.iter_state_var_declarations
     trans
@@ -436,7 +481,7 @@ let init trans =
   (trans, solver, Numeral.one, [], [], unknowns)
 
 (* Runs the step instance. *)
-let run trans = init trans |> next
+let main trans = init trans |> next
 
 
 (* 
