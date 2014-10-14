@@ -361,7 +361,9 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      stop ()
   | [], _ ->
      (* Need to wait for base confirmation. *)
-     failwith "Confirmation not implemented."
+     minisleep 0.001 ;
+     next
+       trans solver k invariants unfalsifiables' unknowns'
   | _ ->
 
      (* Integer version of k. *)
