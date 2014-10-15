@@ -367,6 +367,8 @@ let trim_clause solver_init solver_frames clause term_tbl =
 
 	 incr_binding c term_tbl;
 
+	 Stat.incr Stat.pdr_literals_removed;
+
 	 linear_search kept_woc (c :: discarded) cs
 
        )
