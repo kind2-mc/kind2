@@ -88,7 +88,7 @@ type t =
        map of formal to actual parameters *)
     trans_top : UfSymbol.t * (Var.t * Term.t) list;
 
-    (* Propertes to prove invariant *)
+    (* Properties to prove invariant *)
     props : (string * Term.t) list; 
 
     (* The input which produced this system. *)
