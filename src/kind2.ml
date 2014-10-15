@@ -27,7 +27,8 @@ struct
 end
 *)
 
-module BMC = Bmc
+module BMC = Base
+module IND = Step
 module InvGen = InvGenDummy
 
 (* module PDR = Dummy *)
@@ -49,7 +50,7 @@ let trans_sys = ref None
 let main_of_process = function 
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
-  | `IND -> IndStep.main 
+  | `IND -> IND.main 
   | `INVGEN -> InvGen.main 
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
@@ -60,7 +61,7 @@ let main_of_process = function
 let on_exit_of_process = function 
   | `PDR -> PDR.on_exit
   | `BMC -> BMC.on_exit 
-  | `IND -> IndStep.on_exit 
+  | `IND -> IND.on_exit 
   | `INVGEN -> InvGen.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       

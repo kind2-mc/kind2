@@ -69,6 +69,7 @@ let smtlibsolver_config_cvc4 =
   { solver_cmd = 
       [| cvc4_bin; 
          "--lang"; "smt2";
+         "--rewrite-divk";
          "--tear-down-incremental";
          "--produce-unsat-cores" |] }
 
@@ -135,6 +136,18 @@ let check_sat_limited_cmd ms = match Flags.smtsolver () with
   | _ -> 
     (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.check_sat_limited_cmd"
+
+
+(* Indicates whether the solver supports the check-sat-assuming
+   command. *)
+let check_sat_assuming_supported () = match Flags.smtsolver () with 
+  | `Z3_SMTLIB -> true
+  | `CVC4_SMTLIB -> false
+  | `MathSat5_SMTLIB -> false
+  | `Yices_SMTLIB -> false
+  | _ -> 
+    (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
+    failwith "SMTLIBSolver.check_sat_assuming_cmd"
 
 
 let z3_check_sat_assumptions_cmd assumptions = 
@@ -431,8 +444,35 @@ let pop solver scopes  =
 let check_sat ?(timeout = 0) solver = 
 
   let cmd = match timeout with 
-    | i when i <= 0 -> Format.sprintf "(check-sat)" 
+    | i when i <= 0 -> Format.sprintf "(check-sat)"
     | _ -> check_sat_limited_cmd timeout
+  in
+
+  (* Send command to the solver without timeout *)
+  execute_check_sat_command solver cmd 0
+
+
+(* Check satisfiability of the asserted expressions *)
+let check_sat_assuming solver exprs =
+  (* Retrieving command from solver info. *)
+  let command = match Flags.smtsolver () with 
+    | `Z3_SMTLIB -> "check-sat"
+    | `CVC4_SMTLIB -> failwith "CVC4 does not support check_sat_assuming."
+    | `MathSat5_SMTLIB -> failwith "MathSat5 does not support check_sat_assuming."
+    | `Yices_SMTLIB -> failwith "Yices does not support check_sat_assuming."
+    | _ -> 
+       (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
+       failwith "SMTLIBSolver.check_sat_assuming"
+  in
+
+  (* Building the complete command. *)
+  let cmd =
+    exprs
+    |> List.fold_left
+         ( fun s e -> 
+           Format.sprintf "%s %s" s (string_of_expr e) )
+         command
+    |> Format.sprintf "(%s)"
   in
 
   (* Send command to the solver without timeout *)

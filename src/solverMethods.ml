@@ -25,7 +25,7 @@ sig
 
   module T : SMTSolver.S
 
-  type t 
+  type t
 
   val new_solver : ?produce_assignments:bool -> ?produce_models:bool -> ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
     
@@ -54,6 +54,15 @@ sig
   val get_unsat_core : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
+
+  val check_sat_assuming : t ->
+                           (* If sat. *)
+                           (unit -> 'a) ->
+                           (* If unsat. *)
+                           (unit -> 'a) ->
+                           (* Literals to assert. *)
+                           Term.t list ->
+                           'a
 
   val check_sat_term_model : ?timeout:int -> t -> Term.t list -> bool * (Var.t * Term.t) list 
 
@@ -369,6 +378,61 @@ struct
     pop solver;
 
     res
+
+  (* Checks satisfiability of some literals, runs if_sat if sat and
+     if_unsat if unsat. *)
+  let check_sat_assuming solver if_sat if_unsat literals =
+    if SMTLIBSolver.check_sat_assuming_supported ()
+
+    then
+      (* Solver supports check-sat-assuming, let's do this. *)
+      let sat =
+        match
+          (* Performing the check-sat. *)
+          S.check_sat_assuming solver literals
+        with
+          
+        (* Fail on error *)
+        | SMTExpr.Response r -> 
+           fail_on_smt_error r; 
+           failwith
+             "SMT solver returned Success on check-sat"
+             
+        (* Return true if satisfiable *)
+        | SMTExpr.Sat -> true
+
+        (* Return false if unsatisfiable *)
+        | SMTExpr.Unsat -> false
+
+        (* Fail on unknown *)
+        | SMTExpr.Unknown -> raise Unknown
+      in
+
+      (* Executing user-provided functions. *)
+      let res = if sat then if_sat () else if_unsat () in
+
+      res
+
+    else
+      (* Solver does not support check-sat-assuming, doing
+         push/pop. *)
+
+      (* Pushing. *)
+      let _ = push solver in
+      
+      (* Asserting literals. *)
+      literals |> Term.mk_and |> assert_term solver ;
+
+      (* Performing check-sat. *)
+      let sat = check_sat solver in
+
+      (* Executing user-defined functions. *)
+      let res = if sat then if_sat () else if_unsat () in
+
+      (* Popping literals. *)
+      pop solver ;
+
+      res
       
 
   (* Check satisfiability of formula in current context and return a

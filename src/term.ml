@@ -873,20 +873,22 @@ let mk_minus a = mk_app_of_symbol_node `MINUS a
 
 
 (* Hashcons an integer numeral *)
-let mk_num n = mk_const_of_symbol_node (`NUMERAL n)
+let mk_num n = 
+
+  (* Positive numeral or zero *)
+  if Numeral.(n >= zero) then 
+    
+    mk_const_of_symbol_node (`NUMERAL n)
+
+  else
+
+    (* Wrap a negative numeral in a unary minus *)
+    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.(~- n))))]
 
 
 (* Hashcons an integer numeral given an integer *)
-let mk_num_of_int = function
+let mk_num_of_int i = mk_num (Numeral.of_int i)
 
-  (* Positive numeral or zero *)
-  | i when i >= 0 -> 
-    mk_const_of_symbol_node (`NUMERAL (Numeral.of_int i))
-
-  (* Wrap a negative numeral in a unary minus *)
-  | i -> 
-    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.of_int (- i))))]
-      
 
 (* Hashcons a real decimal *)
 let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
