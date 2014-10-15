@@ -321,7 +321,24 @@ let partition_core solver clause =
   core_clause, rest_clause
 
 
-let trim_clause solver_init solver_frames clause =
+let order_terms terms term_tbl =
+  List.sort (
+      fun t1 t2 -> (
+	let v1 = try Term.TermHashtbl.find term_tbl t1 
+		 with Not_found -> 0 in
+	let v2 = try Term.TermHashtbl.find term_tbl t2 
+		 with Not_found -> 0 in
+	v1 - v2
+	
+      )
+    ) terms
+
+let incr_binding term term_tbl =
+  let v = try Term.TermHashtbl.find term_tbl term
+	  with Not_found -> 0 in
+  Term.TermHashtbl.add term_tbl term (v+1)
+
+let trim_clause solver_init solver_frames clause term_tbl =
 
   
   (* Linearly traverse the list of literals in the clause, trying to remove one at a time and maintain unsatisfiability *)
@@ -341,10 +358,17 @@ let trim_clause solver_init solver_frames clause =
        either a. becomes reachable in the inital state or b. satisfies
        consecution then we need to keep it *)
        if cons || init then 
+
 	 linear_search kept discarded cs
+
        else (
+
 	 debug pdr "Removing literal" in
+
+	 incr_binding c term_tbl;
+
 	 linear_search kept_woc (c :: discarded) cs
+
        )
     | [] ->  kept, Clause.of_literals discarded
 				      
@@ -353,7 +377,7 @@ let trim_clause solver_init solver_frames clause =
   in
 
   
-  linear_search clause [] (Clause.elements clause)
+  linear_search clause [] (order_terms (Clause.elements clause) term_tbl)
 
 
 (* Check if [prop] is always satisfied in one step from [state] and
@@ -827,7 +851,7 @@ let add_to_block_tl block_clause block_trace = function
    remaining counterexamples on the stack.
 
 *)
-let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys props = 
+let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys props term_tbl = 
 
   function 
 
@@ -860,7 +884,7 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 		S.pop solver_frames;
 		
 		(* Return to counterexamples to block in R_i+1 *)
-		block solvers trans_sys props block_tl (r_i :: frames)))
+		block solvers trans_sys props term_tbl block_tl (r_i :: frames)))
 
 
   (* Take the first cube to be blocked in current frame *)
@@ -896,16 +920,19 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 
 	    let core_block_clause =
 
-	      let reduced, discarded = trim_clause
-					 solver_init
-					 solver_frames
-					 core_block_clause
-	      in
+	      if not (Flags.pdr_inductively_generalize () ) then core_block_clause else
+		
+		let reduced, discarded = trim_clause
+					   solver_init
+					   solver_frames
+					   core_block_clause
+					   term_tbl
+		in
 
-	      debug pdr
-                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                    (pp_print_list Term.pp_print_term "@,") 
-                    (Clause.elements reduced)
+		debug pdr
+                      "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                      (pp_print_list Term.pp_print_term "@,") 
+                      (Clause.elements reduced)
 	    in
 	    
 	    reduced
@@ -934,6 +961,7 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
               solvers 
               trans_sys 
               props
+	      term_tbl
               ((block_clauses_tl, r_i') :: block_tl') 
               []))
 
@@ -1044,17 +1072,20 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
           in
 
 	  let core_block_clause =
+	    
+	    if not (Flags.pdr_inductively_generalize () ) then core_block_clause else
 
-	    let reduced, discarded = trim_clause
-				       solver_init
-				       solver_frames
-				       core_block_clause
-	    in
+	      let reduced, discarded = trim_clause
+					 solver_init
+					 solver_frames
+					 core_block_clause
+					 term_tbl
+	      in
 
-	    debug pdr
-                  "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                  (pp_print_list Term.pp_print_term "@,") 
-                  (Clause.elements reduced)
+	      debug pdr
+                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                    (pp_print_list Term.pp_print_term "@,") 
+                    (Clause.elements reduced)
 	  in
 	  
 	  reduced
@@ -1087,6 +1118,7 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
             solvers 
             trans_sys 
             props
+	    term_tbl
             ((block_clauses_tl, r_i') :: block_tl') 
             frames)
 
@@ -1105,9 +1137,11 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
             solvers 
             trans_sys 
             props
+	    term_tbl
             (([block_clause', (block_clause :: block_trace)], 
               r_pred_i) :: trace) 
             frames_tl))
+	    
 
 
 (* Find counterexamples to induction, that is, where we get outside
@@ -1118,7 +1152,7 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 
    The list of frames must not be empty, we start with k=1. *)
 let rec strengthen
-    ((_, solver_frames, _) as solvers) trans_sys props = 
+    ((_, solver_frames, _) as solvers) trans_sys props term_tbl = 
 
   function 
 
@@ -1222,12 +1256,13 @@ let rec strengthen
                solvers 
                trans_sys 
                props
+	       term_tbl
                [([block_clause, [prop_clause]], r_k)] 
-               frames_tl
+	       frames_tl
            in
 
            (* Find next counterexample to block *)
-           strengthen solvers trans_sys props frames')
+           strengthen solvers trans_sys props term_tbl frames')
         
 
 
@@ -2273,6 +2308,7 @@ let rec pdr
     ((solver_init, solver_frames, _) as solvers) 
     trans_sys
     props
+    term_tbl
     frames = 
 
   (* Conjunction of property terms *)
@@ -2395,6 +2431,7 @@ let rec pdr
        solvers
        trans_sys
        props_term
+       term_tbl
        frames' 
    in
 
@@ -2408,7 +2445,7 @@ let rec pdr
    if output_on_level L_info then print_stats ();
 
    (* No reachable state violates the property, continue with next k *)
-   pdr solvers trans_sys props frames'')
+   pdr solvers trans_sys props term_tbl frames'')
 
 
 (* Entry point
@@ -2621,7 +2658,9 @@ let main trans_sys =
              (solver_init, solver_frames, solver_misc) 
              trans_sys 
              props
+	     Term.TermHashtbl.(create 100)
              [])
+	     
 
         with 
 
