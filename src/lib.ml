@@ -1064,9 +1064,27 @@ let find_on_path exec =
 
   try 
 
-    (* Return filename on path, fail with Not_found if path is empty
-       or [exec] not found on path *)
-    find_on_path' exec (Unix.getenv "PATH")
+    if Filename.is_relative exec then 
+
+      (* Return filename on path, fail with Not_found if path is empty
+         or [exec] not found on path *)
+      find_on_path' exec (Unix.getenv "PATH")
+        
+    else if 
+      
+      (* Check if file exists on path *)
+      Sys.file_exists exec
+        
+    then 
+      
+      (* Return full path to file 
+         
+         TODO: Check if file is executable here? *)
+      exec
+
+    else 
+
+      raise Not_found
 
   with Not_found -> 
 
