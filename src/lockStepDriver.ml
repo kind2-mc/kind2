@@ -232,11 +232,18 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
   |> Term.mk_implies
   |> Solver.assert_term solver ;
 
-  (* Bumping the variables to k. *)
-  let var_at_k =
+  (* K minus one. *)
+  let k_m_1 = Numeral.pred k in
+
+  (* Bumping the variables to k and k-1. *)
+  let var_at_k_and_k_m_1 =
     all_vars
-    |> List.map
-         (Var.bump_offset_of_state_var_instance k)
+    |> List.fold_left
+         ( fun l v ->
+           (Var.bump_offset_of_state_var_instance k v) ::
+           (Var.bump_offset_of_state_var_instance k_m_1 v) ::
+           l )
+         []
   in
 
   (* Memorizing the result so that we can deactivate the actlit
@@ -245,19 +252,18 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
 
     (* Check-sat-assuming time. *)
     Solver.check_sat_assuming
-
       solver
 
       (* Function ran if sat. Returns Some of the
-                model. *)
+         model. *)
       ( fun () ->
         Some
           (* Getting the model. *)
-          ( Solver.get_model solver var_at_k
+          ( Solver.get_model solver var_at_k_and_k_m_1
             |> List.map
                  ( fun (v,t) ->
                    Var.bump_offset_of_state_var_instance
-                     Numeral.(~-k) v,
+                     Numeral.(~-k_m_1) v,
                    t ) ) )
 
       (* Function ran if unsat. Returns None. *)
@@ -554,7 +560,14 @@ let test trans =
 
   let invariant = Term.mk_implies [ corrupted ; warning ] in
 
-  let terms_to_try = [ invariant ] in
+  let false_inv_1 = Term.mk_not warning in
+
+  let false_inv_2 =
+    Term.mk_implies
+      [ Term.bump_state (Numeral.of_int (-1)) corrupted ; false_inv_1 ]
+  in
+
+  let terms_to_try = [ invariant ; false_inv_1 ; false_inv_2 ] in
 
   let print_terms prefix terms =
     Printf.printf "%s\n" prefix ;
