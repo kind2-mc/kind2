@@ -170,7 +170,6 @@ let rec next (trans, solver, k, invariants, unknowns) =
   (* Cleaning unknowns by removing invariants and falsifieds. *)
   let nu_unknowns = unknowns |> List.filter (shall_keep trans)
   in
-  debug base "[Base@%i] nu_unknowns: %i." (Numeral.to_int k) (List.length nu_unknowns) in
 
   match nu_unknowns with
   | _ when Flags.bmc_max () > 0 && (Numeral.to_int k) > Flags.bmc_max () ->
@@ -178,7 +177,6 @@ let rec next (trans, solver, k, invariants, unknowns) =
        L_info
        "BMC reached maximal number of iterations"
   | [] ->
-     debug base "[Base@%i] No more properties to falsify, exiting." (Numeral.to_int k) in
     ()
 
   | _ ->
@@ -189,8 +187,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
      Event.progress k_int ;
      Stat.update_time Stat.bmc_total_time ;
 
-     (* Output current step *)
-     Event.log L_info "BMC loop at k=%d" (Numeral.to_int k);
+     (* Output current progress. *)
+     Event.log
+       L_info
+       "BMC loop at k = %d\nBMC unknowns:   %d"
+       (Numeral.to_int k) (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
      let nu_invariants =
@@ -263,7 +264,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      TransSys.trans_of_bound trans Numeral.(k + one)
      |> Solver.assert_term solver
      |> ignore ;
-     
+
      (* Output statistics *)
      if output_on_level L_info then print_stats ();
 

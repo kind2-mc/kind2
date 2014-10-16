@@ -463,6 +463,13 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      |> Term.mk_and
      |> Solver.assert_term solver ;
 
+     (* Output current progress. *)
+     Event.log
+       L_info
+       "IND loop at k =  %d\nIND unknowns:    %d\nIND optimistics: %d"
+       (Numeral.to_int k)
+       (List.length unknowns') (List.length unfalsifiable_props);
+
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
        split_closure
@@ -471,6 +478,9 @@ let rec next trans solver k invariants unfalsifiables unknowns =
          unfalsifiable_props
          unknowns'
      in
+
+     (* Output statistics *)
+     if output_on_level L_info then print_stats ();
 
      next
        trans solver k_p_1
