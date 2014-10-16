@@ -400,9 +400,13 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
    composed of the falsifiable terms and the unfalsifiable ones. *)
 let query_step { solver ; k ; all_vars } terms =
   (* TO REMOVE SOON. *)
-  terms
-  |> List.map (Term.bump_state Numeral.(~- one))
-  |> split_closure solver k Numeral.(k + one) all_vars []
+  match terms
+        |> List.map (Term.bump_state Numeral.(~- one))
+        |> split_closure solver k Numeral.(k + one) all_vars []
+  with
+  | Some ts -> ts
+               |> List.map (Term.bump_state Numeral.one)
+  | None
 
 (* (\* Checks if some of the input terms are k-inductive. Returns a pair *)
 (*    composed of the falsifiable terms and the unfalsifiable ones. *\) *)
