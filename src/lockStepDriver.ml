@@ -217,12 +217,15 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
   (* Term version of the actlit. *)
   let terms_actlit_term = term_of_actlit terms_actlit in
 
+  (* K minus one. *)
+  let k_m_1 = Numeral.pred k in
+
   (* Building the list of terms at k. *)
   let terms_at_k =
     terms
     |> List.map
          (* Bumping term to kp1. *)
-         ( Term.bump_state k )
+         ( Term.bump_state k_m_1 )
   in
 
   (* Asserting the implication between the actlit and the negation
@@ -313,7 +316,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
               |> Solver.assert_term solver ;
 
               (* Bumping term to kp1. *)
-              Term.bump_state kp1 term )
+              Term.bump_state k term )
      in
 
      (* Overloading the actlit one last time for the negation of the
@@ -387,161 +390,12 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
      (* No term left, we're done. *)
      (falsifiable, [])
 
-(* (\* Splits terms between those that are falsifiable at k+1 and those *)
-(*    that are not.  *)
-
-(*    Optimisation: while getting the values, prepare terms for the *)
-(*    next iteration. *\) *)
-(* let rec split_closure_path_comp *)
-(*           trans solver k kp1 all_vars falsifiable terms = *)
-(*   match terms with *)
-(*   | _ :: _ -> *)
-
-(*      (\* Getting a fresh actlit. *\) *)
-(*      let terms_actlit = fresh_actlit () in *)
-
-(*      (\* Declaring it. *\) *)
-(*      terms_actlit |> Solver.declare_fun solver ; *)
-
-(*      (\* Term version of the actlit. *\) *)
-(*      let terms_actlit_term = term_of_actlit terms_actlit in *)
-
-(*      (\* Building the list of terms at k+1. At the same time, we create *)
-(*         the implications between actlit and terms from 0 to k. *\) *)
-(*      let terms_at_kp1 = *)
-(*        terms *)
-(*        |> List.map *)
-(*             ( fun term -> *)
-
-(*               (\* Asserting that actlit implies term from 0 to k. The *)
-(*                  actlit gets overloaded for each term. *\) *)
-(*               [ terms_actlit_term ; *)
-(*                 unroll_term_up_to_k k term |> Term.mk_and ] *)
-(*               |> Term.mk_implies *)
-(*               |> Solver.assert_term solver ; *)
-
-(*               (\* Bumping term to kp1. *\) *)
-(*               Term.bump_state kp1 term ) *)
-(*      in *)
-
-(*      (\* Overloading the actlit one last time for the negation of the *)
-(*         terms. *\) *)
-(*      [ terms_actlit_term ; *)
-(*        (terms_at_kp1 |> Term.mk_and |> Term.mk_not) ] *)
-(*      |> Term.mk_implies *)
-(*      |> Solver.assert_term solver ; *)
-
-(*      (\* Building a small continuation to deactivate the actlit before *)
-(*         we go on. *\) *)
-(*      let continue = *)
-(*        let rec loop () = *)
-(*          ( match *)
-(*              (\* Check-sat-assuming time. *\) *)
-(*              Solver.check_sat_assuming *)
-(*                solver *)
-
-(*                (\* Function ran if sat. Returns Some of the falsifiable *)
-(*                   terms, INCLUDING THE ONES WE ALREADY KNOW ARE *)
-(*                   FALSIFIABLE, and the unknown ones. *\) *)
-(*                ( fun () -> *)
-(*                  (\* Get-model function. *\) *)
-(*                  let get_model = Solver.get_model solver in *)
-(*                  (\* Extracting the counterexample. *\) *)
-(*                  let cex = *)
-(*                    TransSys.path_from_model trans get_model k in *)
-(*                  (\* Attempting to compress path. *\) *)
-(*                  ( match *)
-(*                      Compress.check_and_block *)
-(*                        (Solver.declare_fun solver) trans cex *)
-(*                    with *)
-
-(*                    | [] -> *)
-(*                       Solver.get_values solver terms_at_kp1 *)
-(*                       |> List.fold_left *)
-(*                            ( fun (flsbl_list, uknwn_list) *)
-(*                                  (term_at_kp1, value) -> *)
-(*                              (\* Unbumping term. *\) *)
-(*                              let term_at_0 = *)
-(*                                Term.bump_state *)
-(*                                  Numeral.(~- kp1) term_at_kp1 *)
-(*                              in *)
-
-(*                              if not (Term.bool_of_term value) then *)
-(*                                (\* Term is falsifiable. *\) *)
-(*                                term_at_0 :: flsbl_list, uknwn_list *)
-(*                              else *)
-(*                                (\* Term is unknown. *\) *)
-(*                                flsbl_list, term_at_0 :: uknwn_list ) *)
-(*                            (\* Note that we add the new falsifiable *)
-(*                               terms to the old ones to avoid going *)
-(*                               through the list again. *\) *)
-(*                            (falsifiable, []) *)
-(*                       |> (fun p -> Some p ) *)
-
-(*                    | compressor -> *)
-(*                       (\* Path compressing. *\) *)
-(*                       compressor |> Term.mk_and *)
-(*                       |> Solver.assert_term solver ; *)
-
-(*                       (\* Returning nothing. *\) *)
-(*                       Printf.printf "Path compressing, looping.\n" ; *)
-(*                       Some ( [], [] ) *)
-                      
-(*                  ) *)
-
-(*                ) *)
-
-(*                (\* Function ran if unsat. Returns None. *\) *)
-(*                ( fun () -> None ) *)
-
-(*                (\* The actlit activates everything. *\) *)
-(*                [ terms_actlit_term ] *)
-(*            with *)
-
-(*            | Some ([], []) -> *)
-(*               (\* Path compressing, we need to recheck. *\) *)
-(*               Printf.printf "Path compressing, looping.\n" ; *)
-(*               loop () *)
-
-(*            | Some (new_falsifiable, new_unknown) -> *)
-(*               (\* Some terms are falsifiable, we shall loop. *\) *)
-(*               fun () -> *)
-(*               split_closure_path_comp *)
-(*                 trans solver k kp1 all_vars new_falsifiable new_unknown *)
-
-(*            | None -> *)
-(*               (\* The terms left are unfalsifiable, we shall return the *)
-(*                result. *\) *)
-(*               fun () -> (falsifiable, terms) *)
-(*          ) *)
-(*        in *)
-
-(*        loop () *)
-(*      in *)
-
-(*      (\* Deactivating actlit. *\) *)
-(*      terms_actlit_term *)
-(*      |> Term.mk_not *)
-(*      |> Solver.assert_term solver ; *)
-
-(*      (\* Calling the tiny continuation. *\) *)
-(*      continue () *)
-
-(*   | _ -> *)
-(*      (\* No term left, we're done. *\) *)
-(*      (falsifiable, []) *)
 
 
 (* Checks if some of the input terms are k-inductive. Returns a pair
    composed of the falsifiable terms and the unfalsifiable ones. *)
 let query_step { solver ; k ; all_vars } terms =
   split_closure solver k Numeral.(k + one) all_vars [] terms
-
-(* (\* Checks if some of the input terms are k-inductive. Returns a pair *)
-(*    composed of the falsifiable terms and the unfalsifiable ones. *\) *)
-(* let query_step_path_comp { trans ; solver ; k ; all_vars } terms = *)
-(*   split_closure_path_comp *)
-(*     trans solver k Numeral.(k + one) all_vars [] terms *)
 
 (* Tests the lock step driver on the system below. *)
 let test trans =
@@ -558,13 +412,19 @@ let test trans =
     build_var "relCount.corrupted", build_var "relCount.warning"
   in
 
-  let invariant = Term.mk_implies [ corrupted ; warning ] in
+  let minus_1 = Numeral.(~- one) in
+  let one = Numeral.one in
 
-  let false_inv_1 = Term.mk_not warning in
+  let invariant =
+    Term.mk_implies
+      [ Term.bump_state one corrupted ; Term.bump_state one warning ]
+  in
+
+  let false_inv_1 = Term.mk_not (Term.bump_state one warning) in
 
   let false_inv_2 =
     Term.mk_implies
-      [ Term.bump_state (Numeral.of_int (-1)) corrupted ; false_inv_1 ]
+      [ Term.bump_state one corrupted ]
   in
 
   let terms_to_try = [ invariant ; false_inv_1 ; false_inv_2 ] in

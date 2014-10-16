@@ -661,43 +661,62 @@ let rec var_of_smtexpr e =
       (* Unary uninterpreted function *)
       | Term.T.App (su, [a]) when Symbol.is_uf su -> 
 
-        (
+         let num =
+           (* Check argument of uninterpreted function *)
+           ( match Term.destruct a with
 
-          (* Check argument of uninterpreted function *)
-          match Term.destruct a with
+             (* Unary uninterpreted function with a positive numeral
+                argument *)
+             | Term.T.Const sn when Symbol.is_numeral sn ->
+                Symbol.numeral_of_symbol sn
 
-            (* Unary uninterpreted function with a numeral argument *)
-            | Term.T.Const sn when Symbol.is_numeral sn -> 
+             (* Unary uninterpreted function with a negative numeral
+                argument (maybe). *)
+             | Term.T.App (sym, [a]) when sym == Symbol.s_minus ->
+                ( match Term.destruct a with
 
-              let sv = 
+                  | Term.T.Const sn when Symbol.is_numeral sn ->
+                     (* Negative numeral indeed. *)
+                     Numeral.(~- (Symbol.numeral_of_symbol sn))
 
-                try 
+                  (* Actually not a negative numeral, failing. *)
+                  | _ -> 
 
-                  (* Get state variable associated with function symbol *)
-                  StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol su)
+                     invalid_arg 
+                       (Format.asprintf 
+                          "var_of_smtexpr: %a\
+                           Invalid argument to uninterpreted function"
+                          Term.pp_print_term e) )
 
-                with Not_found -> 
+             (* Unary uninterpreted function with a non-numeral
+                argument *)
+             | _ -> 
 
-                  invalid_arg 
-                    (Format.asprintf 
-                       "var_of_smtexpr: %a\
-                        No state variable found for uninterpreted function symbol"
-                       Term.pp_print_term e)
-              in
+                invalid_arg 
+                  (Format.asprintf 
+                     "var_of_smtexpr: %a\
+                      Invalid argument to uninterpreted function"
+                     Term.pp_print_term e) )
+         in
 
-              (* Create state variable instance *)
-              Var.mk_state_var_instance sv (Symbol.numeral_of_symbol sn)
+         let sv = 
 
-            (* Unary uninterpreted function with a non-numeral argument *)
-            | _ -> 
+           try 
 
-              invalid_arg 
-                (Format.asprintf 
-                   "var_of_smtexpr: %a\
-                    Invalid argument to uninterpreted function"
-                   Term.pp_print_term e)
+             (* Get state variable associated with function symbol *)
+             StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol su)
 
-        )
+           with Not_found -> 
+
+             invalid_arg 
+               (Format.asprintf 
+                  "var_of_smtexpr: %a\
+                   No state variable found for uninterpreted function symbol"
+                  Term.pp_print_term e)
+         in
+
+         (* Create state variable instance *)
+         Var.mk_state_var_instance sv num
 
       (* Uninterpreted function symbol with invalid arity *)
       | Term.T.Const s -> 
