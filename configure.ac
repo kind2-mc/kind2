@@ -1,6 +1,6 @@
 # These lines are required
 AC_PREREQ(2.59)
-AC_INIT([kind2], [v0.7.0], [christoph-sticksel@uiowa.edu])
+AC_INIT([kind2], [v0.7.2], [christoph-sticksel@uiowa.edu])
 
 # This just checks if some source file is present
 AC_CONFIG_SRCDIR([src/kind2.ml])
