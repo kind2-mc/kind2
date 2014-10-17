@@ -57,6 +57,9 @@ val equal : t -> t -> bool
 (** Hashing function on terms *)
 val hash : t -> int
 
+(** Unique identifier for terms *)
+val tag : t -> int
+
 (** Hash table over terms *)
 module TermHashtbl : Hashtbl.S with type key = t
 
@@ -337,6 +340,15 @@ val is_exists : t -> bool
 
 (** Return true if the term is a universal quantifier *)
 val is_forall : t -> bool 
+
+(** Return true if the term is a named term *)
+val is_named : t -> bool
+
+(** Return the term of a named term *)
+val term_of_named : t -> t
+
+(** Return the name of a named term *)
+val name_of_named : t -> int
 
 (** Return true if the term is an integer constant *)
 val is_numeral : t -> bool

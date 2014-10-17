@@ -957,16 +957,20 @@ struct
   let rec destruct t = match destruct' 0 t with
 
     (* Constant *)
-    | { H.node = Leaf s } -> Const s
+    | { H.node = Leaf s } ->
+       Const s
 
     (* Free variable *)
-    | { H.node = FreeVar v } -> Var v
+    | { H.node = FreeVar v } ->
+       Var v
 
     (* Function application *)
-    | { H.node = Node (s, l) } -> App (s, l)
+    | { H.node = Node (s, l) } -> 
+       App (s, l)
 
     (* Bound variable *)
-    | { H.node = BoundVar _ } -> invalid_arg "destruct: bound variable"
+    | { H.node = BoundVar _ } -> 
+       invalid_arg "destruct: bound variable"
 
     (* Skip over annotations *)
     | { H.node = Annot (t, _) } -> destruct t

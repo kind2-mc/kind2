@@ -389,7 +389,7 @@ let proved_pt mdl level trans_sys k prop =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -476,7 +476,7 @@ let disproved_pt mdl level trans_sys prop cex =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -629,7 +629,7 @@ let proved_xml mdl level trans_sys k prop =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -725,7 +725,7 @@ let disproved_xml mdl level trans_sys prop cex =
   (* Only ouptut if status was unknown *)
   if 
 
-    not (TransSys.prop_status_known (TransSys.prop_status trans_sys prop))
+    not (TransSys.prop_status_known (TransSys.get_prop_status trans_sys prop))
 
   then 
 
@@ -922,7 +922,7 @@ let log_proved mdl level trans_sys k prop =
 let log_disproved mdl level trans_sys prop cex =
   match !log_format with 
     | F_pt -> disproved_pt mdl level trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level trans_sys  prop cex
+    | F_xml -> disproved_xml mdl level trans_sys prop cex
     | F_relay -> ()
 
 
@@ -993,6 +993,9 @@ let prop_status status trans_sys prop =
     | TransSys.PropInvariant -> log_proved mdl L_warn trans_sys None prop
     | TransSys.PropFalse cex -> log_disproved mdl L_warn trans_sys prop cex
     | _ -> ());
+
+  (* Update status of property in transition system *)
+  TransSys.set_prop_status trans_sys prop status;
 
   try
     
@@ -1241,7 +1244,7 @@ let update_trans_sys trans_sys events =
     | (m, PropStatus (p, (TransSys.PropKTrue k as s))) :: tl -> 
 
       (* Change property status in transition system *)
-      TransSys.prop_ktrue trans_sys k p;
+      TransSys.set_prop_ktrue trans_sys k p;
 
       (* Continue with propert status added to accumulator *)
       update_trans_sys'
@@ -1257,7 +1260,7 @@ let update_trans_sys trans_sys events =
       log_proved m L_warn trans_sys None p;
           
       (* Change property status in transition system *)
-      TransSys.prop_invariant trans_sys p;
+      TransSys.set_prop_invariant trans_sys p;
 
       (try 
 
@@ -1283,7 +1286,7 @@ let update_trans_sys trans_sys events =
       log_disproved m L_warn trans_sys p cex;
 
       (* Change property status in transition system *)
-      TransSys.prop_false trans_sys p cex;
+      TransSys.set_prop_false trans_sys p cex;
 
       (* Continue with property status added to accumulator *)
       update_trans_sys' 
@@ -1295,6 +1298,102 @@ let update_trans_sys trans_sys events =
   in
 
   update_trans_sys' trans_sys [] [] events
+
+
+
+(* Same as 'update_trans_sys' with optimized output for tsugi. *)
+let update_trans_sys_tsugi trans_sys events = 
+
+  (* Tail-recursive iteration *)
+  let rec update_trans_sys'
+            trans_sys invars prop_inv new_prop_false = function 
+
+    (* No more events, return new invariants and changed property status *)
+    | [] -> (invars, prop_inv, new_prop_false)
+
+    (* Invariant discovered *)
+    | (m, Invariant t) :: tl -> 
+
+      (* Property status if received invariant is a property *)
+      let tl' =
+        List.fold_left
+
+          (fun accum (p, t') -> 
+
+             (* Invariant is equal to property term? *)
+             if Term.equal t t' then
+
+               (* Inject property status event *)
+               ((m, PropStatus (p, TransSys.PropInvariant)) :: accum)
+
+             else
+
+               accum)
+
+          tl
+          (TransSys.props_list_of_bound trans_sys Numeral.zero)
+
+      in
+      
+      (* Add invariant to transtion system *)
+      TransSys.add_invariant trans_sys t;
+
+      (* Continue with invariant added to accumulator *)
+      update_trans_sys'
+        trans_sys (t :: invars) prop_inv new_prop_false tl'
+
+    (* Property found unknown *)
+    | (_, PropStatus (p, TransSys.PropUnknown)) :: tl -> 
+
+      (* Continue without changes *)
+      update_trans_sys'
+        trans_sys invars prop_inv new_prop_false tl
+
+    (* Property found true for k steps *)
+    | (_, PropStatus (p, (TransSys.PropKTrue k))) :: tl -> 
+
+      (* Change property status in transition system *)
+      TransSys.set_prop_ktrue trans_sys k p;
+
+      (* Continue without propert status added to accumulator *)
+      update_trans_sys'
+        trans_sys invars prop_inv new_prop_false tl
+
+    (* Property found invariant *)
+    | (_, PropStatus (p, TransSys.PropInvariant)) :: tl -> 
+
+       (* Change property status in transition system *)
+       TransSys.set_prop_invariant trans_sys p;
+
+       (try 
+
+           (* Add proved property as invariant *)
+           TransSys.add_invariant 
+             trans_sys 
+             (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
+
+         (* Skip if named property not found *)
+         with Not_found -> ());
+
+       (* Continue with propert status added to accumulator *)
+       let prop = (p,TransSys.prop_of_name trans_sys p) in
+       update_trans_sys'
+         trans_sys invars (prop :: prop_inv) new_prop_false tl
+
+    (* Property found false *)
+    | (_, PropStatus (p, TransSys.PropFalse cex)) :: tl ->
+
+       (* Change property status in transition system *)
+       TransSys.set_prop_false trans_sys p cex;
+
+       (* Continue with property status added to accumulator *)
+       let prop = (p,TransSys.prop_of_name trans_sys p) in
+       update_trans_sys'
+         trans_sys invars prop_inv (prop :: new_prop_false) tl
+
+  in
+
+  update_trans_sys' trans_sys [] [] [] events
 
 
 let exit t = EventMessaging.exit t

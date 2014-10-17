@@ -109,6 +109,14 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> SMTExpr.logic
+                       
+(** Return topmost predicate definition for initial state with map of
+    formal to actual parameters *)
+val init_top : t -> UfSymbol.t * (Var.t * Term.t) list
+
+(** Topmost predicate definition for transition relation with map of
+    formal to actual parameters *)
+val trans_top : t -> UfSymbol.t * (Var.t * Term.t) list
 
 (** Return the state variables of the transition system *)
 val state_vars : t -> StateVar.t list
@@ -160,22 +168,25 @@ val is_init_uf_def : t -> UfSymbol.t -> bool
 val add_invariant : t -> Term.t -> unit
 
 (** Return current status of all properties *)
-val prop_status_all : t -> (string * prop_status) list
+val get_prop_status_all : t -> (string * prop_status) list
 
 (** Return current status of all properties *)
-val prop_status_all_unknown : t -> (string * prop_status) list
+val get_prop_status_all_unknown : t -> (string * prop_status) list
 
 (** Return current status of property *)
-val prop_status : t -> string -> prop_status 
+val get_prop_status : t -> string -> prop_status 
+
+(** Mark current status of property *)
+val set_prop_status : t -> string -> prop_status -> unit
 
 (** Mark property as invariant *)
-val prop_invariant : t -> string -> unit 
+val set_prop_invariant : t -> string -> unit 
 
 (** Mark property as false *)
-val prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
+val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
 
 (** Mark property as k-true *)
-val prop_ktrue : t -> int -> string -> unit 
+val set_prop_ktrue : t -> int -> string -> unit 
 
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 

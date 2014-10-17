@@ -130,6 +130,11 @@ val recv : unit -> (Lib.kind_module * event) list
     Counterexamples are ignored. *)
 val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * TransSys.prop_status)) list
 
+(** Same as 'update_trans_sys' with optimized output for tsugi. *)
+val update_trans_sys_tsugi :
+  TransSys.t -> (Lib.kind_module * event) list ->
+  Term.t list * (string * Term.t) list * (string * Term.t) list
+
 (** {1 Messaging} *)
 
 (** Setup of the messaging system *)
@@ -155,6 +160,9 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 
 (** Send all queued messages and exit the background thread *)
 val exit : mthread -> unit
+
+
+val pp_print_path_pt : TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
 
 (* 
    Local Variables:

@@ -24,7 +24,7 @@ open Lib
 (* ********************************************************************* *)
 
 
-(* State variable to be has-consed
+(* State variable to be hash-consed
 
    Name of a state variable is a string with a list of strings as
    its scope *)

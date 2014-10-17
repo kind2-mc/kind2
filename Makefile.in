@@ -39,6 +39,11 @@ ocamlczmq:
 	mkdir -p $(LOCAL_BINDIR)
 	cp -f src/_build/@PACKAGE_NAME@.top $(LOCAL_BINDIR)/$@
 
+@PACKAGE_NAME@-terms-top: 
+	make -C src $@
+	mkdir -p $(LOCAL_BINDIR)
+	cp -f src/_build/@PACKAGE_NAME@-terms.top $(LOCAL_BINDIR)/$@
+
 lustre-checker: 
 	make -C src $@
 	mkdir -p $(LOCAL_BINDIR)

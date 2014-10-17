@@ -180,6 +180,24 @@ let is_forall t = match node_of_term t with
   | _ -> false 
 
 
+(* Return true if the term is a named term *)
+let is_named t =  match node_of_term t with
+  | T.Annot (_, a) when TermAttr.is_named a -> true
+  | _ -> false
+
+
+(* Return the term of a named term *)
+let term_of_named t =  match node_of_term t with
+  | T.Annot (t, a) when TermAttr.is_named a -> t
+  | _ -> invalid_arg "term_of_named"
+
+
+(* Return the name of a named term *)
+let name_of_named t =  match node_of_term t with
+  | T.Annot (t, a) when TermAttr.is_named a -> TermAttr.named_of_attr a
+  | _ -> invalid_arg "term_of_named"
+
+
 (* Return true if the term is an integer constant *)
 let rec is_numeral t = match node_of_term t with 
 
@@ -312,6 +330,10 @@ let equal = T.equal
 
 (* Hashing function on terms *)
 let hash = T.hash 
+
+
+(* Unique identifier for term *)
+let tag = T.tag
 
 
 (* Hashtable *)
@@ -851,20 +873,22 @@ let mk_minus a = mk_app_of_symbol_node `MINUS a
 
 
 (* Hashcons an integer numeral *)
-let mk_num n = mk_const_of_symbol_node (`NUMERAL n)
+let mk_num n = 
+
+  (* Positive numeral or zero *)
+  if Numeral.(n >= zero) then 
+    
+    mk_const_of_symbol_node (`NUMERAL n)
+
+  else
+
+    (* Wrap a negative numeral in a unary minus *)
+    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.(~- n))))]
 
 
 (* Hashcons an integer numeral given an integer *)
-let mk_num_of_int = function
+let mk_num_of_int i = mk_num (Numeral.of_int i)
 
-  (* Positive numeral or zero *)
-  | i when i >= 0 -> 
-    mk_const_of_symbol_node (`NUMERAL (Numeral.of_int i))
-
-  (* Wrap a negative numeral in a unary minus *)
-  | i -> 
-    mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.of_int (- i))))]
-      
 
 (* Hashcons a real decimal *)
 let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)

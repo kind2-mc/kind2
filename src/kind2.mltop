@@ -1,8 +1,12 @@
 Debug
 Lib
-Config
+Version
+Kind2Config
 Flags
 Stat
+
+Numeral
+Decimal
 
 Hashcons
 Ltree
@@ -16,6 +20,9 @@ TermAttr
 Term
 
 TransSys
+
+Messaging
+Event
 
 HString
 SExprBase
