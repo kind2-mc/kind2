@@ -413,7 +413,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
     (
 
       (* Distinguish between input formats *)
-      match TransSys.get_input trans_sys with
+      match TransSys.get_source trans_sys with
 
         (* Lustre input *)
         | TransSys.Lustre nodes ->
@@ -441,7 +441,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
 let pp_print_path_pt trans_sys init ppf path = 
 
   (* Distinguish between input formats *)
-  match TransSys.get_input trans_sys with
+  match TransSys.get_source trans_sys with
         
     (* Lustre input *)
     | TransSys.Lustre nodes ->
@@ -658,7 +658,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
     (
 
       (* Distinguish between input formats *)
-      match TransSys.get_input trans_sys with
+      match TransSys.get_source trans_sys with
 
         (* Lustre input *)
         | TransSys.Lustre nodes ->
@@ -686,7 +686,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
 let pp_print_path_xml trans_sys init ppf path = 
 
   (* Distinguish between input formats *)
-  match TransSys.get_input trans_sys with
+  match TransSys.get_source trans_sys with
         
     (* Lustre input *)
     | TransSys.Lustre nodes ->
