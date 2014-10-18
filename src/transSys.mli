@@ -121,7 +121,7 @@ val init_term : t -> UfSymbol.t * (Var.t * Term.t) list
 val trans_term : t -> UfSymbol.t * (Var.t * Term.t) list
 
 (** The subsystems of a system. *)
-let subsystems { subsystems } = subsystems
+val get_subsystems : t -> t list
 
 (** The state variables of a transition system. *)
 val state_vars : t -> StateVar.t list

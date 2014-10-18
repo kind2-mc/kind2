@@ -117,7 +117,7 @@ let init_term { init } = snd (snd init)
 let trans_term { trans } = snd (snd trans)
 
 (* Returns the subsystems of a system. *)
-let subsystems { subsystems } = subsystems
+let get_subsystems { subsystems } = subsystems
 
 
 let pp_print_state_var ppf state_var = 
