@@ -133,7 +133,13 @@ let last_frame = ref (Unix.gettimeofday ())
 let rec loop child_pids trans_sys = 
 
   handle_events trans_sys;
-  Event.renderer_update trans_sys ;
+
+  let now = Unix.gettimeofday () in
+
+  if now -. !last_frame > 0.05 then (
+    Event.renderer_update trans_sys ;
+    last_frame := now
+  ) ;
 
   (* All properties proved? *)
   if TransSys.all_props_proved trans_sys then 

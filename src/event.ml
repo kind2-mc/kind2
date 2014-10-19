@@ -973,7 +973,12 @@ let log_stat mdl level stats =
                  
 
 (* Output progress indicator of a source *)
-let log_progress mdl level k = 
+let log_progress mdl level k =
+  ( match mdl with
+    | `BMC -> Stat.set k Stat.bmc_k
+    | `IND -> Stat.set k Stat.ind_k
+    | `PDR -> Stat.set k Stat.pdr_k
+    | _ -> () ) ;
   match !log_format with 
   | F_pt -> ()
   | F_xml -> progress_xml mdl level k

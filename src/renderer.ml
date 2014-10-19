@@ -187,12 +187,13 @@ module TableRenderer = struct
     row_height: int ;
     log_height: int ;
     mutable log: string list ;
-    slider: (int * Slider.t) option ;
+    slider: (bool * (int*int) * Slider.t) option ;
   }
 
-  let create_table (col_count, row_count)
-		   (col_width, row_height)
-		   log_height =
+  let create_tchoo_table
+        (col_count, row_count)
+	(col_width, row_height)
+	log_height =
     { col_count = col_count   ;
       row_count = row_count   ;
       col_width = col_width   ;
@@ -200,8 +201,43 @@ module TableRenderer = struct
       log_height = log_height ;
       log = []                ;
       slider =
-        Some (col_count * row_count,
-              Slider.create_slider col_width header_train) }
+        let n = col_count * row_count in
+        let row,col = ((n-1) / col_count + 1, ((n-1) mod col_count) + 1) in
+        Some (
+            false,
+            (log_height + 1 + (row_count - row + 1) * (row_height+1),
+             1 + (col - 1) * (col_width + 1) ),
+            Slider.create_slider col_width header_train) }
+
+  let create_header_table
+        (col_count, row_count)
+	(col_width, row_height)
+	log_height =
+    { col_count = col_count   ;
+      row_count = row_count   ;
+      col_width = col_width   ;
+      row_height = row_height ;
+      log_height = log_height ;
+      log = []                ;
+      slider =
+        Some (
+            true,
+            ((row_height * row_count) + row_count + log_height + 4 + (List.length header_lines_3D),
+             0),
+            Slider.create_slider
+              ((col_width * col_count) + col_count + 1) header_lines_3D) }
+
+  let create_table
+        (col_count, row_count)
+	(col_width, row_height)
+	log_height =
+    { col_count = col_count   ;
+      row_count = row_count   ;
+      col_width = col_width   ;
+      row_height = row_height ;
+      log_height = log_height ;
+      log = []                ;
+      slider = None           }
 
   let create_default_table () =
     { col_count = 2  ;
@@ -210,9 +246,7 @@ module TableRenderer = struct
       row_height = 7 ;
       log_height = 7 ;
       log = []       ;
-      slider =
-        Some (6,
-              Slider.create_slider 40 header_train)}
+      slider = None  }
 
   let get_col_count { col_count } = col_count
   let get_row_count { row_count } = row_count
@@ -297,8 +331,8 @@ module TableRenderer = struct
       se_sep_string
       ((real_width table) - 2)
       hori_sep
-      
 
+ 
   let empty_line { col_count ; col_width } =
     let col =
       sprintf "%c%s"
@@ -375,26 +409,35 @@ module TableRenderer = struct
 
   open Cursor
 
+  let init_slider ({ slider } as context) =
+    match slider with
+    | Some (true, _, slider) ->
+
+       let to_print = Slider.get_frame slider in
+
+       to_print
+       |> List.iter
+            ( printf "%s\n" )
+    | _ -> ()
+
   let print_slider ({ slider } as context) =
     match slider with
     | None -> ()
-    | Some (index, slider) ->
+    | Some (_, pos, slider) ->
        restore () ;
 
        let to_print = Slider.get_frame slider in
-       let cell = index |> index_to_cell context in
 
        to_print
        |> List.fold_left
             ( fun down line ->
               restore () ;
-              north_west_of_cell context cell
-              |> go_to_relative ;
+              go_to_relative pos ;
               go_down down ;
               printf "%s" line ;
               down + 1
             )
-            0
+            1
        |> ignore ;
        restore ()
 
@@ -404,14 +447,17 @@ module TableRenderer = struct
 		    row_height ;
 		    log_height }
 		  as table) =
-    println (top_top_line table) ;
-    println (top_line table) ;
 
     let empty_line = empty_line table in
     let sep_line = sep_line table in
     let full_sep_line = full_sep_line table in
     let empty_log_line = empty_log_line table in
     let bot_line = bot_line table in
+
+    init_slider table ;
+
+    println (top_top_line table) ;
+    println (top_line table) ;
 
     do_n_times
       row_height
@@ -580,7 +626,8 @@ let if_level_do level f =
 
 
 let update_slider { table } =
-  TableRenderer.print_slider table
+  TableRenderer.print_slider table ;
+  Pervasives.flush stdout
 
 
 (* Updates the statistics of the global progress. *)
@@ -764,7 +811,9 @@ let init modules =
 
   (* Creating the table. *)
   let table =
-    TableRenderer.create_table
+    (* TableRenderer.create_table *)
+    TableRenderer.create_tchoo_table
+    (* TableRenderer.create_header_table *)
       (columns, rows)
       (* Colums are 40 characters wide, rows are 7 lines high. *)
       (40,7)
