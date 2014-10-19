@@ -130,7 +130,7 @@ module Slider = struct
       slider.from <- if pref > 0 then 0 else min last (from + 1) ;
       slider.suff <- if too < last then 0 else suff + 1 ;
       slider.too <- if suff > 0 then last else min last (too + 1)
-    ) ;
+    )
 
 
   let get_frame
