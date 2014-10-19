@@ -80,7 +80,7 @@ module Slider = struct
 
   let create_slider screen_width = function
 
-    | line :: tail as lines ->
+    | (line :: tail) as lines ->
        let width = String.length line in
 
        assert (List.for_all (fun l -> String.length l == width) tail) ;
