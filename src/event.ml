@@ -22,6 +22,29 @@ open Lib
 (* Termination message received *)
 exception Terminate
 
+(* Context type for the renderer. *)
+type renderer_context = {
+  (* Table used by the renderer. *)
+  table: Renderer.t ;
+  (* Associates modules with their cell in the table and their
+     title. *)
+  map: (Lib.kind_module * (int * string)) list ;
+  (* Indicates whether the table has already been drawn or not. *)
+  mutable table_drawn: bool ;
+}
+
+
+(* Returns the index and the title of a module in the renderer table. *)
+let rec index_title_of_module map m =
+  match map with
+  | (m', index_title) :: _ when m == m' -> index_title
+  | _ :: tail -> index_title_of_module tail m
+  | [] ->
+     failwith
+       (Printf.sprintf
+          "Module %s is not in the renderer table."
+          (suffix_of_kind_module m))
+
 (* ********************************************************************** *)
 (* Helper functions                                                       *)
 (* ********************************************************************** *)
@@ -863,6 +886,71 @@ let stat_relay stats =
   with Messaging.NotInitialized -> ()
 
 *)
+       
+
+(* ********************************************************************** *)
+(* Renderer output                                                        *)
+(* ********************************************************************** *)
+
+let draw_table ({ table ; map } as context) =
+  if not context.table_drawn then (
+    (* Drawing the table. *)
+    Printf.printf "\n\n" ;
+    Renderer.draw_table context.table ;
+    (* Setting the titles. *)
+    List.iter
+      ( fun (_, (index, title)) ->
+        Renderer.set_title table index title )
+      map ;
+    context.table_drawn <- true
+  )
+
+let format_to_string fmt =
+  Format.fprintf (Format.str_formatter) fmt ;
+  Format.flush_str_formatter ()
+
+let if_level_do level f =
+  if output_on_level level then f ()
+
+let printf_rendr ({ table ; map } as context) _ level fmt =
+  draw_table context ;
+  let res = Format.fprintf (Format.str_formatter) fmt in
+  let string = Format.flush_str_formatter () in
+  if_level_do
+    level
+    (fun () -> Renderer.log_add_line table string) ;
+  res
+
+let proved_rendr context mdl level trans_sys k prop =
+  draw_table context ;
+  let line =
+    match k with
+    | Some k ->
+       Printf.sprintf
+         "Property proved valid for k=%i: %s." k prop
+    | None ->
+       Printf.sprintf
+         "Property proved valid: %s." prop
+  in
+  if_level_do
+    level
+    (fun () -> Renderer.log_add_line context.table line)
+
+let disproved_rendr context mdl level trans_sys prop cex =
+  draw_table context ;
+  let k = match cex with
+    | (_, values) :: _ -> List.length values
+    | [] -> 0
+  in
+  let line = Printf.sprintf
+               "Property falsified at %i: %s." k prop
+  in
+  if_level_do
+    level
+    (fun () -> Renderer.log_add_line context.table line)
+
+let prop_status_rendr context level prop_status = ()
+
 
 (* ********************************************************************** *)
 (* State of the logger                                                    *)
@@ -874,6 +962,7 @@ type log_format =
   | F_pt
   | F_xml
   | F_relay
+  | F_renderer of renderer_context
 
 
 (* Current log format *)
@@ -894,6 +983,56 @@ let set_log_format_xml () =
 (* Relay log messages to invariant manager *)
 let set_relay_log () = log_format := F_relay
 
+(* Set log format to renderer. *)
+let set_log_format_renderer modules =
+
+  (* Creates the map between modules and their index and title. *)
+  let rec loop res index = function
+    | head :: tail ->
+       let title =
+         match head with
+         | `PDR -> "PDR"
+         | `BMC -> "BMC"
+         | `IND -> "Step"
+         | `INVGEN -> "Invariant Generator"
+         | `INVMAN -> "Invariant Manager"
+         | _ -> failwith
+                  (Printf.sprintf
+                     "Renderer does not support module %s."
+                     (suffix_of_kind_module head))
+       in
+       loop
+         ((head, (index, title)) :: res)
+         (index + 1)
+         tail
+    | [] -> res
+  in
+
+  (* Building the map from modules to indices / titles. *)
+  let map = loop [] 1 modules in
+
+  let module_count = List.length modules in
+
+  (* Always use two columns. *)
+  let columns = 2 in
+  (* Row count for the table. *)
+  let rows =
+    (module_count mod columns) + (module_count / columns)
+  in
+
+  (* Creating the table. *)
+  let table =
+    Renderer.create_table
+      (columns, rows)
+      (* Colums are 40 characters wide, rows are 7 lines high. *)
+      (40,7)
+      (* Log is 7 lines high. *)
+      7
+  in
+
+  (* Setting the log format for the renderer.*)
+  log_format := F_renderer { table ; map ; table_drawn = false }
+
 
 (* ********************************************************************** *)
 (* Generic logging functions                                              *)
@@ -905,66 +1044,76 @@ let log level fmt =
   let mdl = get_module () in
 
   match !log_format with 
-    | F_pt -> printf_pt mdl level fmt
-    | F_xml -> printf_xml mdl level fmt
-    | F_relay -> printf_relay mdl level fmt
+  | F_pt -> printf_pt mdl level fmt
+  | F_xml -> printf_xml mdl level fmt
+  | F_relay -> printf_relay mdl level fmt
+  | F_renderer(context) -> printf_rendr context mdl level fmt
 
 
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
   match !log_format with 
-    | F_pt -> proved_pt mdl level trans_sys k prop
-    | F_xml -> proved_xml mdl level trans_sys k prop
-    | F_relay -> ()
+  | F_pt -> proved_pt mdl level trans_sys k prop
+  | F_xml -> proved_xml mdl level trans_sys k prop
+  | F_relay -> ()
+  | F_renderer(context) ->
+     proved_rendr context mdl level trans_sys k prop
 
 
 (* Log a message with source and log level *)
 let log_disproved mdl level trans_sys prop cex =
   match !log_format with 
-    | F_pt -> disproved_pt mdl level trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level trans_sys prop cex
-    | F_relay -> ()
+  | F_pt -> disproved_pt mdl level trans_sys prop cex 
+  | F_xml -> disproved_xml mdl level trans_sys prop cex
+  | F_relay -> ()
+  | F_renderer(context) ->
+     disproved_rendr context mdl level trans_sys prop cex
 
 
 (* Log an exection path *)
 let log_execution_path mdl level trans_sys path =
-
-  (match !log_format with 
-    | F_pt -> execution_path_pt level trans_sys path
-    | F_xml -> execution_path_xml level trans_sys path 
-    | F_relay -> ())
+  match !log_format with 
+  | F_pt -> execution_path_pt level trans_sys path
+  | F_xml -> execution_path_xml level trans_sys path 
+  | F_relay -> ()
+  | F_renderer(context) -> ()
 
 
 (* Output summary of status of properties *)
 let log_prop_status level prop_status =
   match !log_format with 
-    | F_pt -> prop_status_pt level prop_status
-    | F_xml -> prop_status_xml level prop_status
-    | F_relay -> ()
+  | F_pt -> prop_status_pt level prop_status
+  | F_xml -> prop_status_xml level prop_status
+  | F_relay -> ()
+  | F_renderer(context) -> ()
+     (* prop_status_rendr context level prop_status *)
 
 
 (* Output statistics of a section of a source *)
 let log_stat mdl level stats =
   match !log_format with 
-    | F_pt -> stat_pt mdl level stats
-    | F_xml -> stat_xml mdl level stats
-    | F_relay -> ()
-  
+  | F_pt -> stat_pt mdl level stats
+  | F_xml -> stat_xml mdl level stats
+  | F_relay -> ()
+  | F_renderer(context) -> ()
+                 
 
 (* Output progress indicator of a source *)
 let log_progress mdl level k = 
   match !log_format with 
-    | F_pt -> ()
-    | F_xml -> progress_xml mdl level k
-    | F_relay -> ()
-  
+  | F_pt -> ()
+  | F_xml -> progress_xml mdl level k
+  | F_relay -> ()
+  | F_renderer(context) -> ()
+                 
 
 (* Terminate log output *)
 let terminate_log () = 
   match !log_format with 
-    | F_pt -> ()
-    | F_xml -> print_xml_trailer ()
-    | F_relay -> ()
+  | F_pt -> ()
+  | F_xml -> print_xml_trailer ()
+  | F_relay -> ()
+  | F_renderer(context) -> ()
 
 
 (* ********************************************************************** *)
@@ -1145,7 +1294,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+               log (log_level_of_int lvl) "%s" msg;
 
                (* No relay message *)
                accum

@@ -335,6 +335,11 @@ let run_process messaging_setup process =
   (* Fork a new process *)
   let pid = Unix.fork () in
 
+  (* Set log format to rendering if requested *)
+  if Flags.log_format_renderer ()
+  then Event.set_log_format_renderer (Flags.enable ()) ;
+
+
   match pid with 
 
     (* We are the child process *)
@@ -670,7 +675,8 @@ let main () =
     );
 
   (* Set log format to XML if requested *)
-  if Flags.log_format_xml () then Event.set_log_format_xml ();
+  if Flags.log_format_xml ()
+  then Event.set_log_format_xml ();
 
   (* No output at all? *)
   if not (Flags.log_level () = L_off) then

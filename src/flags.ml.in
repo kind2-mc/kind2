@@ -509,6 +509,10 @@ let log_format_xml_default = false
 
 (* ********** *) 
 
+let log_format_renderer_default = false
+
+(* ********** *) 
+
 (* All flags *)
 type flags = 
     { mutable timeout_wall : float;
@@ -549,6 +553,7 @@ type flags =
       mutable debug_log : string option;
       mutable log_level : log_level;
       mutable log_format_xml : bool;
+      mutable log_format_renderer : bool;
       mutable input_format : input_format;
       mutable input_file : string option }
     
@@ -592,6 +597,7 @@ let flags =
     debug_log = debug_log_default;
     log_level = log_level_default;
     log_format_xml = log_format_xml_default;
+    log_format_renderer = log_format_renderer_default;
     input_format = input_format_default;
     input_file = None } 
 
@@ -971,6 +977,15 @@ let log_format_xml_spec =
 
 (* ********** *) 
 
+let log_format_renderer_action o () = flags.log_format_renderer <- o
+
+let log_format_renderer_spec = 
+  ("-render", 
+   Arg.Unit (log_format_renderer_action true), 
+   Format.sprintf "Output using terminal rendering")
+
+(* ********** *) 
+
 let input_format_action o = flags.input_format <- (input_format_of_string o)
   
 let input_format_spec = 
@@ -1065,6 +1080,8 @@ let debug_log () = flags.debug_log
 let log_level () = flags.log_level
 
 let log_format_xml () = flags.log_format_xml
+
+let log_format_renderer () = flags.log_format_renderer
 
 let input_format () = flags.input_format 
 
@@ -1205,6 +1222,9 @@ and speclist =
 
     (* Set output format to XML *)
     log_format_xml_spec;
+
+    (* Set output format to rendering *)
+    log_format_renderer_spec;
 
     (* Set input format *)
     input_format_spec;
