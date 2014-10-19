@@ -240,6 +240,12 @@ let pp_print_stats_xml ppf stats =
 let bmc_k = 
   empty_item "k" 0
 
+let bmc_unknowns = 
+  empty_item "unknowns" 0
+
+let bmc_disproved = 
+  empty_item "disproved" 0
+
 let bmc_total_time = 
   empty_item "Total time" 0.
 
@@ -249,6 +255,8 @@ let bmc_stats_title = "BMC"
 (* All BMC statistics *)
 let bmc_stats = 
   [ I bmc_k;
+    I bmc_unknowns;
+    I bmc_disproved;
     F bmc_total_time ] 
 
 (* Stop and record all times *)
@@ -266,6 +274,15 @@ let pp_print_bmc_stats ppf =
 
 let ind_k = 
   empty_item "k" 0
+
+let ind_unknowns =
+  empty_item "Unknown properties" 0
+
+let ind_unfalsifiables =
+  empty_item "Unfalsifiable properties" 0
+
+let ind_proved =
+  empty_item "Proved properties" 0
 
 let ind_compress_equal_mod_input =
   empty_item "Compressed states pairs (equality)" 0
@@ -288,6 +305,9 @@ let ind_stats_title = "Inductive step"
 (* All inductive step statistics *)
 let ind_stats = 
   [ I ind_k;
+    I ind_unknowns;
+    I ind_unfalsifiables;
+    I ind_proved;
     I ind_compress_equal_mod_input;
     I ind_compress_same_successors;
     I ind_compress_same_predecessors;
@@ -309,6 +329,15 @@ let pp_print_ind_stats ppf =
 
 let pdr_k = 
   empty_item "k" 0
+
+let pdr_proved =
+  empty_item "Proved properties" 0
+
+let pdr_disproved =
+  empty_item "Disproved properties" 0
+
+let pdr_invariants =
+  empty_item "Invariants discovered" 0
 
 let pdr_restarts = 
   empty_item "Restarts" 0
@@ -361,12 +390,24 @@ let pdr_tightened_blocking_clauses =
 let pdr_tightened_propagated_clauses =
   empty_item "Tightened forward propagated clauses" 0
 
+let pdr_compress_equal_mod_input =
+  empty_item "Compressed states pairs (equality)" 0
+
+let pdr_compress_same_successors =
+  empty_item "Compressed states pairs (same successors)" 0
+
+let pdr_compress_same_predecessors =
+  empty_item "Compressed states pairs (same predecessors)" 0
+
 (* Title for PDR statistics *)
 let pdr_stats_title = "PDR"
 
 (* All PDR statistics *)
 let pdr_stats = 
   [ I pdr_k; 
+    I pdr_proved; 
+    I pdr_disproved; 
+    I pdr_invariants; 
     I pdr_restarts;
     L pdr_frame_sizes; 
     I pdr_fwd_propagated; 
@@ -383,7 +424,10 @@ let pdr_stats =
     F pdr_generalize_time; 
     F pdr_find_cex_time; 
     F pdr_inductive_check_time; 
-    F pdr_tighten_to_subset_time; ] 
+    F pdr_tighten_to_subset_time;
+    I pdr_compress_equal_mod_input;
+    I pdr_compress_same_successors;
+    I pdr_compress_same_predecessors; ] 
 
 (* Stop and record all timers *)
 let pdr_stop_timers () = stop_all_timers pdr_stats

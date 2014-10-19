@@ -22,28 +22,6 @@ open Lib
 (* Termination message received *)
 exception Terminate
 
-(* Context type for the renderer. *)
-type renderer_context = {
-  (* Table used by the renderer. *)
-  table: Renderer.t ;
-  (* Associates modules with their cell in the table and their
-     title. *)
-  map: (Lib.kind_module * (int * string)) list ;
-  (* Indicates whether the table has already been drawn or not. *)
-  mutable table_drawn: bool ;
-}
-
-
-(* Returns the index and the title of a module in the renderer table. *)
-let rec index_title_of_module map m =
-  match map with
-  | (m', index_title) :: _ when m == m' -> index_title
-  | _ :: tail -> index_title_of_module tail m
-  | [] ->
-     failwith
-       (Printf.sprintf
-          "Module %s is not in the renderer table."
-          (suffix_of_kind_module m))
 
 (* ********************************************************************** *)
 (* Helper functions                                                       *)
@@ -886,70 +864,6 @@ let stat_relay stats =
   with Messaging.NotInitialized -> ()
 
 *)
-       
-
-(* ********************************************************************** *)
-(* Renderer output                                                        *)
-(* ********************************************************************** *)
-
-let draw_table ({ table ; map } as context) =
-  if not context.table_drawn then (
-    (* Drawing the table. *)
-    Printf.printf "\n\n" ;
-    Renderer.draw_table context.table ;
-    (* Setting the titles. *)
-    List.iter
-      ( fun (_, (index, title)) ->
-        Renderer.set_title table index title )
-      map ;
-    context.table_drawn <- true
-  )
-
-let format_to_string fmt =
-  Format.fprintf (Format.str_formatter) fmt ;
-  Format.flush_str_formatter ()
-
-let if_level_do level f =
-  if output_on_level level then f ()
-
-let printf_rendr ({ table ; map } as context) _ level fmt =
-  draw_table context ;
-  let res = Format.fprintf (Format.str_formatter) fmt in
-  let string = Format.flush_str_formatter () in
-  if_level_do
-    level
-    (fun () -> Renderer.log_add_line table string) ;
-  res
-
-let proved_rendr context mdl level trans_sys k prop =
-  draw_table context ;
-  let line =
-    match k with
-    | Some k ->
-       Printf.sprintf
-         "Property proved valid for k=%i: %s." k prop
-    | None ->
-       Printf.sprintf
-         "Property proved valid: %s." prop
-  in
-  if_level_do
-    level
-    (fun () -> Renderer.log_add_line context.table line)
-
-let disproved_rendr context mdl level trans_sys prop cex =
-  draw_table context ;
-  let k = match cex with
-    | (_, values) :: _ -> List.length values
-    | [] -> 0
-  in
-  let line = Printf.sprintf
-               "Property falsified at %i: %s." k prop
-  in
-  if_level_do
-    level
-    (fun () -> Renderer.log_add_line context.table line)
-
-let prop_status_rendr context level prop_status = ()
 
 
 (* ********************************************************************** *)
@@ -962,8 +876,7 @@ type log_format =
   | F_pt
   | F_xml
   | F_relay
-  | F_renderer of renderer_context
-
+  | F_renderer of Renderer.t
 
 (* Current log format *)
 let log_format = ref F_pt
@@ -985,53 +898,13 @@ let set_relay_log () = log_format := F_relay
 
 (* Set log format to renderer. *)
 let set_log_format_renderer modules =
-
-  (* Creates the map between modules and their index and title. *)
-  let rec loop res index = function
-    | head :: tail ->
-       let title =
-         match head with
-         | `PDR -> "PDR"
-         | `BMC -> "BMC"
-         | `IND -> "Step"
-         | `INVGEN -> "Invariant Generator"
-         | `INVMAN -> "Invariant Manager"
-         | _ -> failwith
-                  (Printf.sprintf
-                     "Renderer does not support module %s."
-                     (suffix_of_kind_module head))
-       in
-       loop
-         ((head, (index, title)) :: res)
-         (index + 1)
-         tail
-    | [] -> res
-  in
-
-  (* Building the map from modules to indices / titles. *)
-  let map = loop [] 1 modules in
-
-  let module_count = List.length modules in
-
-  (* Always use two columns. *)
-  let columns = 2 in
-  (* Row count for the table. *)
-  let rows =
-    (module_count mod columns) + (module_count / columns)
-  in
-
-  (* Creating the table. *)
-  let table =
-    Renderer.create_table
-      (columns, rows)
-      (* Colums are 40 characters wide, rows are 7 lines high. *)
-      (40,7)
-      (* Log is 7 lines high. *)
-      7
-  in
-
-  (* Setting the log format for the renderer.*)
-  log_format := F_renderer { table ; map ; table_drawn = false }
+  (* Not doing it if in relay mode. *)
+  if !log_format <> F_relay then (
+    (* Initializing the renderer. *)
+    let context = Renderer.init modules in
+    (* Memorizing the context. *)
+    log_format := F_renderer(context)
+  )
 
 
 (* ********************************************************************** *)
@@ -1047,7 +920,8 @@ let log level fmt =
   | F_pt -> printf_pt mdl level fmt
   | F_xml -> printf_xml mdl level fmt
   | F_relay -> printf_relay mdl level fmt
-  | F_renderer(context) -> printf_rendr context mdl level fmt
+  | F_renderer(context) ->
+     Renderer.printf_rendr context mdl level fmt
 
 
 (* Log a message with source and log level *)
@@ -1057,7 +931,7 @@ let log_proved mdl level trans_sys k prop =
   | F_xml -> proved_xml mdl level trans_sys k prop
   | F_relay -> ()
   | F_renderer(context) ->
-     proved_rendr context mdl level trans_sys k prop
+     Renderer.proved_rendr context mdl level trans_sys k prop
 
 
 (* Log a message with source and log level *)
@@ -1067,7 +941,7 @@ let log_disproved mdl level trans_sys prop cex =
   | F_xml -> disproved_xml mdl level trans_sys prop cex
   | F_relay -> ()
   | F_renderer(context) ->
-     disproved_rendr context mdl level trans_sys prop cex
+     Renderer.disproved_rendr context mdl level trans_sys prop cex
 
 
 (* Log an exection path *)
@@ -1086,7 +960,6 @@ let log_prop_status level prop_status =
   | F_xml -> prop_status_xml level prop_status
   | F_relay -> ()
   | F_renderer(context) -> ()
-     (* prop_status_rendr context level prop_status *)
 
 
 (* Output statistics of a section of a source *)
@@ -1095,7 +968,8 @@ let log_stat mdl level stats =
   | F_pt -> stat_pt mdl level stats
   | F_xml -> stat_xml mdl level stats
   | F_relay -> ()
-  | F_renderer(context) -> ()
+  | F_renderer(context) ->
+     Renderer.stats_rendr context mdl level
                  
 
 (* Output progress indicator of a source *)
@@ -1104,7 +978,8 @@ let log_progress mdl level k =
   | F_pt -> ()
   | F_xml -> progress_xml mdl level k
   | F_relay -> ()
-  | F_renderer(context) -> ()
+  | F_renderer(context) ->
+     Renderer.progress_rendr context mdl level k
                  
 
 (* Terminate log output *)
@@ -1120,6 +995,20 @@ let terminate_log () =
 (* Events                                                                 *)
 (* ********************************************************************** *)
 
+(* Function to call if the transition system has been updated. *)
+let trans_sys_update trans_sys =
+  match !log_format with
+  | F_renderer context ->
+     Renderer.update_master_stats context trans_sys
+  | _ -> ()
+
+(* Updates the renderer. *)
+let renderer_update trans_sys =
+  match !log_format with
+  | F_renderer context ->
+     trans_sys_update trans_sys ;
+     Renderer.update_slider context
+  | _ -> ()
 
 (* Broadcast an invariant *)
 let invariant term = 
@@ -1161,6 +1050,20 @@ let execution_path trans_sys path =
   let mdl = get_module () in
 
   log_execution_path mdl L_warn trans_sys path
+
+
+(* Send path compression stats. *)
+(* let path_compression eq succ pred = *)
+(*   match get_module () with *)
+(*   | `IND -> *)
+(*      Stat.set eq Stat.ind_compress_equal_mod_input ; *)
+(*      Stat.set succ Stat.ind_compress_same_successors ; *)
+(*      Stat.set pred Stat.ind_compress_same_predecessors *)
+(*   | `PDR -> *)
+(*      Stat.set eq Stat.pdr_compress_equal_mod_input ; *)
+(*      Stat.set succ Stat.pdr_compress_same_successors ; *)
+(*      Stat.set pred Stat.pdr_compress_same_predecessors *)
+(*   | _ -> () *)
 
 
 (* Send progress indicator *)
@@ -1352,6 +1255,12 @@ let update_trans_sys trans_sys events =
     (* Invariant discovered *)
     | (m, Invariant t) :: tl -> 
 
+       ( match m with
+         | `PDR -> Stat.set
+                     (1 + Stat.get Stat.pdr_invariants)
+                     Stat.pdr_invariants
+         | _ -> () ) ;
+
       (* Property status if received invariant is a property *)
       let tl' =
         List.fold_left
@@ -1384,7 +1293,7 @@ let update_trans_sys trans_sys events =
         tl'
 
     (* Property found unknown *)
-    | (_, PropStatus (p, TransSys.PropUnknown)) :: tl -> 
+    | (m, PropStatus (p, TransSys.PropUnknown)) :: tl ->
 
       (* Continue without changes *)
       update_trans_sys' trans_sys invars prop_status tl
@@ -1395,7 +1304,7 @@ let update_trans_sys trans_sys events =
       (* Change property status in transition system *)
       TransSys.set_prop_ktrue trans_sys k p;
 
-      (* Continue with propert status added to accumulator *)
+      (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys
         invars
@@ -1404,6 +1313,20 @@ let update_trans_sys trans_sys events =
 
     (* Property found invariant *)
     | (m, PropStatus (p, (TransSys.PropInvariant as s))) :: tl -> 
+
+       ( match m with
+         | `IND ->
+            Stat.set
+              (1 + Stat.get Stat.ind_proved)
+              Stat.ind_proved ;
+            Stat.set
+              ((Stat.get Stat.ind_unknowns) - 1)
+              Stat.ind_unknowns
+         | `PDR ->
+            Stat.set
+              (1 + Stat.get Stat.pdr_proved)
+              Stat.pdr_proved
+         | _ -> () ) ;
 
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
@@ -1431,6 +1354,20 @@ let update_trans_sys trans_sys events =
     (* Property found false *)
     | (m, PropStatus (p, (TransSys.PropFalse cex as s))) :: tl -> 
 
+       ( match m with
+         | `BMC ->
+            Stat.set
+              (1 + Stat.get Stat.bmc_disproved)
+              Stat.bmc_disproved ;
+            Stat.set
+              ((Stat.get Stat.bmc_unknowns) - 1)
+              Stat.bmc_unknowns
+         | `PDR ->
+            Stat.set
+              (1 + Stat.get Stat.pdr_disproved)
+              Stat.pdr_disproved
+         | _ -> () ) ;
+
       (* Output disproved property *)
       log_disproved m L_warn trans_sys p cex;
 
@@ -1446,7 +1383,12 @@ let update_trans_sys trans_sys events =
 
   in
 
-  update_trans_sys' trans_sys [] [] events
+  let result = update_trans_sys' trans_sys [] [] events in
+
+  (* Updating log. *)
+  trans_sys_update trans_sys ;
+
+  result
 
 
 

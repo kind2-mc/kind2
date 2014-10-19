@@ -127,10 +127,13 @@ let handle_events trans_sys =
 
   ()
 
+let last_frame = ref (Unix.gettimeofday ())
+
 (* Polling loop *)
 let rec loop child_pids trans_sys = 
 
   handle_events trans_sys;
+  Event.renderer_update trans_sys ;
 
   (* All properties proved? *)
   if TransSys.all_props_proved trans_sys then 

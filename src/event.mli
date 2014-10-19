@@ -138,6 +138,10 @@ val update_trans_sys_tsugi :
   TransSys.t -> (Lib.kind_module * event) list ->
   Term.t list * (string * Term.t) list * (string * Term.t) list
 
+(** Updates the renderer. *)
+val renderer_update : TransSys.t -> unit
+
+
 (** {1 Messaging} *)
 
 (** Setup of the messaging system *)
