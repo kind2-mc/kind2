@@ -20,7 +20,7 @@
 
     A variable is an instance of a state variable (see {!StateVar}) in
     a state relative to an initial state. A variable can also be a
-    temporary free variable that is to be bound in a let expression.
+    free variable that is to be bound in a let expression.
 
     @author Christoph Sticksel *)
 
@@ -64,10 +64,10 @@ val mk_const_state_var : StateVar.t -> t
     created by [mk_const_state_var] is returned. *)
 val mk_state_var_instance : StateVar.t -> Numeral.t -> t
 
-(** Return a temporary variable *)
-val mk_temp_var : HString.t -> Type.t -> t
+(** Return a free variable *)
+val mk_free_var : HString.t -> Type.t -> t
 
-(** Return a fresh temporary variable *)
+(** Return a fresh free variable *)
 val mk_fresh_var : Type.t -> t
 
 (** Import a variable from a different instance into this hashcons table *)
@@ -84,17 +84,14 @@ val state_var_of_state_var_instance : t -> StateVar.t
 (** Return the offset of a state variable instance *)
 val offset_of_state_var_instance : t -> Numeral.t
 
-(** Return the offset of a state variable instance *)
-val hstring_of_temp_var : t -> HString.t
-
 (** Return true if the variable is an instance of a state variable *)
 val is_state_var_instance : t -> bool
 
 (** Return true if the variable is an instance of a state variable *)
 val is_const_state_var : t -> bool
 
-(** Return true if the variable is a temporary variable *)
-val is_temp_var : t -> bool
+(** Return true if the variable is a free variable *)
+val is_free_var : t -> bool
 
 (** Add to the offset of a state variable instance
 

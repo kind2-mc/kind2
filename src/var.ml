@@ -35,9 +35,9 @@ type var =
   (* Variable is a constant state variable *)
   | ConstStateVar of StateVar.t
 
-  (* Temporary variable to be bound to in a let expression or by a
+  (* Free variable to be bound to in a let expression or by a
      quantifier *)
-  | TempVar of HString.t * Type.t
+  | FreeVar of HString.t * Type.t
 
 
 (* A private type that cannot be constructed outside this module
@@ -89,8 +89,8 @@ module Var_node = struct
       (* Equal if the state variables are equal *)
       StateVar.equal_state_vars sv1 sv2
 
-    (* Two temporary variables *)
-    | TempVar (s1, t1), TempVar (s2, t2) -> 
+    (* Two free variables *)
+    | FreeVar (s1, t1), FreeVar (s2, t2) -> 
 
       (* Equal if the hashconsed strings are physically equal and the
          type are physically equal *)
@@ -193,8 +193,8 @@ let pp_print_var_node ppf = function
       "%a" 
       StateVar.pp_print_state_var v
       
-  (* Pretty-print a temporary variable *)
-  | TempVar (s, _) -> 
+  (* Pretty-print a free variable *)
+  | FreeVar (s, _) -> 
     Format.fprintf ppf "%a" HString.pp_print_hstring s
 
 (* Pretty-print a variable to the standard formatter *)
@@ -219,14 +219,14 @@ let string_of_var { Hashcons.node = v } = string_of_t pp_print_var_node v
 let type_of_var = function 
   | { Hashcons.node = StateVarInstance (v, _) } -> StateVar.type_of_state_var v
   | { Hashcons.node = ConstStateVar v } -> StateVar.type_of_state_var v
-  | { Hashcons.node = TempVar (_, t) } -> t
+  | { Hashcons.node = FreeVar (_, t) } -> t
 
 
 (* Return the state variable of a state variable instance *)
 let state_var_of_state_var_instance = function 
   | { Hashcons.node = StateVarInstance (v, _) }-> v
   | { Hashcons.node = ConstStateVar v }-> v
-  | { Hashcons.node = TempVar _ } -> 
+  | { Hashcons.node = FreeVar _ } -> 
     raise (Invalid_argument "state_var_of_state_var_instance")
 
 
@@ -235,18 +235,18 @@ let offset_of_state_var_instance = function
   | { Hashcons.node = StateVarInstance (_, o) } -> o
   | { Hashcons.node = ConstStateVar _ } -> 
     raise (Invalid_argument "offset_of_state_var_instance")
-  | { Hashcons.node = TempVar _ } -> 
+  | { Hashcons.node = FreeVar _ } -> 
     raise (Invalid_argument "offset_of_state_var_instance")
 
-let hstring_of_temp_var = function 
+let hstring_of_free_var = function 
 
   | { Hashcons.node = StateVarInstance _ } -> 
-    raise (Invalid_argument "string_of_temp_var")
+    raise (Invalid_argument "hstring_of_free_var")
 
   | { Hashcons.node = ConstStateVar _ } -> 
-    raise (Invalid_argument "string_of_temp_var")
+    raise (Invalid_argument "hstring_of_free_var")
 
-  | { Hashcons.node = TempVar (s, _) } -> s
+  | { Hashcons.node = FreeVar (s, _) } -> s
 
 
 let is_state_var_instance = function 
@@ -259,8 +259,8 @@ let is_const_state_var = function
   | _ -> false
 
 
-let is_temp_var = function 
-  | { Hashcons.node = TempVar _ } -> true
+let is_free_var = function 
+  | { Hashcons.node = FreeVar _ } -> true
   | _ -> false
 
 
@@ -298,11 +298,11 @@ let mk_state_var_instance v o =
     Hvar.hashcons ht (StateVarInstance (v, o)) ()
 
 
-(* Return a hashconsed variable which is a temporary variable *)    
-let mk_temp_var s t = 
+(* Return a hashconsed variable which is a free variable *)    
+let mk_free_var s t = 
 
-  (* Create and hashcons temporary variable *)
-  Hvar.hashcons ht (TempVar (s, t)) ()
+  (* Create and hashcons free variable *)
+  Hvar.hashcons ht (FreeVar (s, t)) ()
 
 
 (* Import a variable from a different instance into this hashcons table *)
@@ -316,7 +316,7 @@ let import = function
     
     mk_const_state_var (StateVar.import v)
 
-  | { Hashcons.node = TempVar (s, t) } ->
+  | { Hashcons.node = FreeVar (s, t) } ->
 
     mk_temp_var (HString.import s) (Type.import t)
 
@@ -352,7 +352,7 @@ let rec next_fresh_var_node var_type =
 
   (* Candidate name for next fresh symbol *)
   let v = 
-    TempVar (fresh_var_name, var_type)
+    FreeVar (fresh_var_name, var_type)
   in
 
   try 
@@ -377,7 +377,7 @@ let mk_fresh_var var_type =
   let v = next_fresh_var_node var_type in
 
   (* Create symbol with given signature *)
-  mk_temp_var v var_type 
+  mk_free_var v var_type 
 
 
 (* Add to the offset of a state variable instance
@@ -388,10 +388,9 @@ let bump_offset_of_state_var_instance i = function
   | { Hashcons.node = StateVarInstance (v, o) } -> 
     mk_state_var_instance v Numeral.(o + i)
 
-  | { Hashcons.node = ConstStateVar _ } as v-> v
+  | { Hashcons.node = ConstStateVar _ } as v -> v
 
-  | { Hashcons.node = TempVar _ } -> 
-    raise (Invalid_argument "bump_offset_of_state_var_instance")
+  | { Hashcons.node = FreeVar _ } as v -> v
 
 
 (* 
