@@ -509,7 +509,7 @@ let log_format_xml_default = false
 
 (* ********** *) 
 
-let log_format_renderer_default = false
+let log_format_renderer_default = (false,false)
 
 (* ********** *) 
 
@@ -553,7 +553,7 @@ type flags =
       mutable debug_log : string option;
       mutable log_level : log_level;
       mutable log_format_xml : bool;
-      mutable log_format_renderer : bool;
+      mutable log_format_renderer : bool * bool;
       mutable input_format : input_format;
       mutable input_file : string option }
     
@@ -981,8 +981,18 @@ let log_format_renderer_action o () = flags.log_format_renderer <- o
 
 let log_format_renderer_spec = 
   ("-render", 
-   Arg.Unit (log_format_renderer_action true), 
+   Arg.Unit (log_format_renderer_action (false,true)), 
    Format.sprintf "Output using terminal rendering")
+
+let log_format_renderer_tchoo_spec = 
+  ("-render-tchoo", 
+   Arg.Unit (log_format_renderer_action (true,false)), 
+   Format.sprintf "Output using tchoo terminal rendering")
+
+let log_format_renderer_header_spec = 
+  ("-render-header", 
+   Arg.Unit (log_format_renderer_action (true,true)), 
+   Format.sprintf "Output using header terminal rendering")
 
 (* ********** *) 
 
@@ -1225,6 +1235,8 @@ and speclist =
 
     (* Set output format to rendering *)
     log_format_renderer_spec;
+    log_format_renderer_tchoo_spec;
+    log_format_renderer_header_spec;
 
     (* Set input format *)
     input_format_spec;

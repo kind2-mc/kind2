@@ -811,9 +811,12 @@ let init modules =
 
   (* Creating the table. *)
   let table =
-    (* TableRenderer.create_table *)
-    TableRenderer.create_tchoo_table
-    (* TableRenderer.create_header_table *)
+    ( match Flags.log_format_renderer () with
+      | (false, true) -> TableRenderer.create_table
+      | (true, false) -> TableRenderer.create_tchoo_table
+      | (true, true) -> TableRenderer.create_header_table
+      | (false, false) -> failwith "Rendering is deactivated." )
+
       (columns, rows)
       (* Colums are 40 characters wide, rows are 7 lines high. *)
       (40,7)

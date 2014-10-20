@@ -678,7 +678,8 @@ let main () =
   then Event.set_log_format_xml ();
 
   (* Set log format to rendering if requested *)
-  if Flags.log_format_renderer ()
+  let using_renderer = Flags.log_format_renderer () in
+  if (fst using_renderer) || (snd using_renderer)
   then Event.set_log_format_renderer (Flags.enable ()) ;
 
   (* No output at all? *)
