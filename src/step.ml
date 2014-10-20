@@ -486,13 +486,23 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      (* Output statistics *)
      if output_on_level L_info then print_stats ();
 
-     next
-       trans solver k_p_1
-       invariants'
-       (* Adding the new unfalsifiables. *)
-       ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
-       (* Iterating on the properties left. *)
-       falsifiables_at_k
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
+
+     (* Checking if we have reached max k. *)
+     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+       Event.log
+         L_info
+         "IND reached maximal number of iterations."
+     else
+       (* Looping. *)
+       next
+         trans solver k_p_1
+         invariants'
+         (* Adding the new unfalsifiables. *)
+         ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
+         (* Iterating on the properties left. *)
+         falsifiables_at_k
          
 
 
