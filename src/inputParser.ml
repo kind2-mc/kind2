@@ -34,38 +34,45 @@ let rec parse_stream = parser
        sequence of values *)
   | [< 'Ident name; 'Kwd ","; sequence = parse_sequence >] ->
     
-    try
-    
-      (* Find the state variable of top scope *) 
-      let state_var = 
-        E.state_var_of_ident I.top_scope_index (I.mk_string_ident name)
-      in
-      
-      (* State variable must be an input *)
-      if StateVar.is_input state_var then 
+    (
+
+      try
         
-        (* Return state variable and its input *)
-        (state_var, sequence)
+        (* Find the state variable of top scope *) 
+        let state_var = 
+          E.state_var_of_ident I.top_scope_index (I.mk_string_ident name)
+        in
         
-      else
+        (* State variable must be an input *)
+        if StateVar.is_input state_var then 
+
+          (* Return state variable and its input *)
+          (state_var, sequence)
+          
+        else
+          
+          (* Fail *)
+          (Event.log
+             L_fatal
+             "State variable %s is not an input" 
+             name;
+           
+           raise (Invalid_argument "parse_stream"))
+          
+      with Not_found ->
         
         (* Fail *)
         (Event.log
            L_fatal
-           "State variable %s is not an input" 
+           "State variable %s not found" 
            name;
          
          raise (Invalid_argument "parse_stream"))
         
-    with Not_found ->
-      
-      (* Fail *)
-      (Event.log
-         L_fatal
-         "State variable %s not found" 
-         name;
-       
-       raise (Invalid_argument "parse_stream"))
+    )
+
+  (* No more input *)
+  | [< >] -> raise End_of_file
       
 
 (* Parse a sequence of values *)
@@ -90,14 +97,16 @@ and parse_sequence = parser
   (* Sequence starting with the Boolean value true *)
   | [< 'Kwd "true"; 
        bool_sequence = 
-         parse_bool_sequence [Term.t_true] >] -> bool_sequence
+         parse_bool_sequence [Term.t_true] >] -> 
+
+    bool_sequence
 
   (* Sequence starting with the Boolean value false *)
   | [< 'Kwd "false"; 
        bool_sequence = 
          parse_bool_sequence [Term.t_false] >] -> 
   
-  bool_sequence
+    bool_sequence
 
 
 (* Parse a sequence of integers *)

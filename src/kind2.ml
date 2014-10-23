@@ -758,7 +758,10 @@ let main () =
 
         | `Lustre -> 
           
-          Some (LustreInput.of_file (Flags.input_file ()))
+          Some
+            (LustreInput.of_file
+               (Flags.enable () = [`Interpreter])
+               (Flags.input_file ()))
             
         | `Native -> 
           
