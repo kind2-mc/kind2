@@ -115,10 +115,10 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 val get_logic : t -> SMTExpr.logic
 
 (** Initial predicate of the system. *)
-val init_term : t -> UfSymbol.t * (Var.t * Term.t) list
+val init_term : t -> Term.t
 
 (** Transition predicate of the system. *)
-val trans_term : t -> UfSymbol.t * (Var.t * Term.t) list
+val trans_term : t -> Term.t
 
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list
