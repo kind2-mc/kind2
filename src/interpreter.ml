@@ -118,7 +118,7 @@ let main input_file trans_sys =
         inputs
     in
 
-    (* Check if all inputs are of minimal length *)
+    (* Check if all inputs are of the same length *)
     List.iter
       (fun (state_var, inputs) -> 
 
@@ -228,48 +228,23 @@ let main input_file trans_sys =
       "Parsing interpreter input file %s"
       (Flags.input_file ()); 
 
-    (* Execute model *)
+    (* Run the system *)
     if (S.check_sat solver) then
 
       (
 
-        (* Create state variable instances for each state from k to 0 and
-           return the assignments in the solver *)
-        let rec aux acc state_var k =
-
-          (* Reached the initial step? *)
-          if (Numeral.to_int k) < 0 then
-
-            (* Get model at instants of state variable *)
-            let model = S.get_model solver acc in
-
-            (* Return values only *)
-            List.map snd model
-
-          else
-
-            (* Push state variable instance to accumulator *)
-            aux
-              ((Var.mk_state_var_instance state_var k) :: acc) 
-              state_var
-              (Numeral.pred k)
-
-        in
-
-        (* Counterexample *)
-        let v = 
-
-          (* Map every state variable to its values *)
-          List.map 
-            (fun sv -> (sv, (aux [] sv (Numeral.of_int (steps - 1)))))
-            (TransSys.state_vars trans_sys)
-
+        (* Extract execution path from model *)
+        let path = 
+          TransSys.path_from_model 
+            trans_sys
+            (S.get_model solver)
+            Numeral.(pred (of_int steps))
         in
 
         (* Output execution path *)
         Event.execution_path
           trans_sys 
-          v
+          path
 
       )
 
