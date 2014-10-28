@@ -257,9 +257,17 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
       (* Function ran if sat. Returns Some of the
          model. *)
       ( fun () ->
+        Solver.get_values solver terms_at_k |> ignore ;
         Some
           (* Getting the model. *)
-          ( Solver.get_model solver var_at_k
+          ( let model = Solver.get_model solver var_at_k in
+            (* model *)
+            (* |> List.iter *)
+            (*      ( fun (var,t) -> *)
+            (*        Printf.printf "  %s -> %s\n" *)
+            (*               (Var.string_of_var var) *)
+            (*               (Term.string_of_term t) ) ; *)
+            model
             |> List.map
                  ( fun (v,t) ->
                    Var.bump_offset_of_state_var_instance
