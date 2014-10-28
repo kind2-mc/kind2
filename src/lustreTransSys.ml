@@ -1397,8 +1397,23 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
         (* Add transition system of node to accumulator *)
         (fun (t, s) n -> 
+
+           (* Get information about called node *)
            let d = List.assoc n node_defs in
-           (d.trans_sys :: t, N.node_of_name n nodes :: s))
+           
+           (* Get source of called node *)
+           let s' =
+             match TransSys.get_source d.trans_sys with 
+               | TransSys.Lustre nodes -> 
+                 List.fold_left
+                   (fun a n -> 
+                      if List.mem n a then a else n :: a)
+                   s
+                   nodes 
+               | _ -> assert false
+           in
+
+           (d.trans_sys :: t, s'))
 
         ([], [])
         
