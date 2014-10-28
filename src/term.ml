@@ -199,37 +199,37 @@ let name_of_named t =  match node_of_term t with
 
 
 (* Return true if the term is an integer constant *)
-let rec is_numeral t = match node_of_term t with 
+let rec is_numeral t = match destruct t with 
 
   (* Term is a numeral constant *)
-  | T.Leaf s when Symbol.is_numeral s -> true
+  | T.Const s when Symbol.is_numeral s -> true
 
   (* Term is a decimal constant coinciding with an integer *)
-  | T.Leaf s when 
+  | T.Const s when 
       Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
 
     true
 
   (* Term is a negated numeral constant *)
-  | T.Node (s, [a]) when s == Symbol.s_minus && is_numeral a -> true
+  | T.App (s, [a]) when s == Symbol.s_minus && is_numeral a -> true
 
   | _ -> false
 
 
 (* Return integer constant of a term *)
-let rec numeral_of_term t = match node_of_term t with 
+let rec numeral_of_term t = match destruct t with 
 
   (* Term is a numeral constant *)
-  | T.Leaf s when Symbol.is_numeral s -> Symbol.numeral_of_symbol s
+  | T.Const s when Symbol.is_numeral s -> Symbol.numeral_of_symbol s
 
   (* Term is a decimal constant coinciding with an integer *)
-  | T.Leaf s when 
+  | T.Const s when 
       Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
 
     Numeral.of_big_int (Decimal.to_big_int (Symbol.decimal_of_symbol s))
 
   (* Term is a negated numeral constant *)
-  | T.Node (s, [a]) when s == Symbol.s_minus && is_numeral a -> 
+  | T.App (s, [a]) when s == Symbol.s_minus && is_numeral a -> 
 
     Numeral.(~- (numeral_of_term a))
 
