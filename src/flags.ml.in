@@ -1032,6 +1032,8 @@ let pdr_extract () = flags.pdr_extract
 
 let pdr_check_inductive () = flags.pdr_check_inductive 
 
+let pdr_inductively_generalize () = true
+
 let pdr_fwd_prop_check_multi () = flags.pdr_fwd_prop_check_multi 
 
 let pdr_print_inductive_assertions () = flags.pdr_print_inductive_assertions

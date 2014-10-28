@@ -18,7 +18,7 @@
 
 (** Representation of a transition system 
 
-    @author Christoph Sticksel
+    @author Christoph Sticksel, Adrien Champion
 *)
 
 (** Source format *)
@@ -55,43 +55,20 @@ val prop_status_known : prop_status -> bool
 (** Return the length of the counterexample *)
 val length_of_cex : (StateVar.t * Term.t list) list -> int
 
+(** Offset of state variables in initial state constraint *)
+val init_base : Numeral.t
+
+(** Offset of primed state variables in transition relation *)
+val trans_base : Numeral.t
+
+(** Offset of primed state variables in properties and invariants *)
+val prop_base : Numeral.t
+
 (** The transition system 
 
-    The transition system must be constructed with the function
-    {!mk_trans_sys}. Fields of the record are exposed, but accessing
-    them is deprecated, use the provided functions below. *)
-type t (* = private {
+    Constructed with the function {!mk_trans_sys} *)
+type t
 
-  (* Init and trans pairs of this system and its subsystems in
-     topological order. *)
-  uf_defs: (pred_def * pred_def) list ;
-
-  (* State variables of top node *)
-  state_vars: StateVar.t list ;
-
-  (* Initial predicate of the system. *)
-  init: pred_def ;
-
-  (* Transition predicate of the system. *)
-  trans: pred_def ;
-
-  (* The subsystems of this system. *)
-  subsystems: t list ;
-
-  (* Properties to hopefully prove invariant. *)
-  props: (string * Term.t) list ;
-
-  (* The source which produced this system. *)
-  source: source ;
-
-  (* Invariants *)
-  mutable invars: Term.t list ;
-
-  (* Status of property *)
-  mutable prop_status: (string * prop_status) list
-}
-       *)
-    
 (** Create a transition system
 
     For each state variable of a bounded integer type, add a
@@ -114,11 +91,25 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> SMTExpr.logic
 
-(** Initial predicate of the system. *)
+
+(** Predicate for the initial state constraint *)
+val init_uf_symbol : t -> UfSymbol.t
+
+(** Predicate for the transition relation *)
+val trans_uf_symbol : t -> UfSymbol.t
+
+(** Variables in the initial state constraint *)
+val init_vars : t -> Var.t list 
+
+(** Variables in the transition relation *)
+val trans_vars : t -> Var.t list
+
+(** Definition of the initial state constraint *)
 val init_term : t -> Term.t
 
-(** Transition predicate of the system. *)
+(** Definition of the transition relation *)
 val trans_term : t -> Term.t
+
 
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list

@@ -147,12 +147,15 @@ let get_state_var_instances state_var =
   with Not_found -> []
 
 
-
+(* Return instance of state variable from call in given node at given
+   position *)
 let lift_state_var pos node state_var = 
 
   match 
 
+    (* Iterate over map of state variables to instances *)
     StateVar.StateVarHashtbl.fold
+
       (fun state_var_caller instances -> function 
          
          (* Return first match *)
@@ -163,17 +166,23 @@ let lift_state_var pos node state_var =
            
            try 
              
-             (* Find state variable in instances *)
+             (* Find state variable to lift to in instances *)
              let (_, node, state_var_callee) =
+
                List.find
+
                  (function (pos', node', state_var') -> 
+
+                   (* State variable, position and node must match *)
                    StateVar.equal_state_vars state_var state_var' &&
                    pos = pos' &&
                    node = node')
+                 
                  instances
+
              in 
              
-             (* Return *)
+             (* Return state variable if found *)
              Some state_var_caller 
 
            (* State variable is not in instance *)
@@ -183,6 +192,8 @@ let lift_state_var pos node state_var =
       None
       
   with 
+
+    (* No instance of state variable found *)
     | None -> 
       
       debug lustreExpr 
@@ -192,6 +203,7 @@ let lift_state_var pos node state_var =
       
       state_var
         
+    (* Return instance of state variable *)
     | Some state_var' -> 
       
       debug lustreExpr 
@@ -203,29 +215,45 @@ let lift_state_var pos node state_var =
       state_var'
         
 
+(* Instantiate the variables of the term to the scope of a different
+   node.*)
 let lift_term pos node term = 
 
   Term.map
+
     (function _ -> function 
+
+       (* Need to instantiate free variables *)
        | term when Term.is_free_var term -> 
          
+         (* Get variable of term, this will not fail *)
          let var = Term.free_var_of_term term in
-
+         
+         (* Only if variable is an instance of a state variable *)
          if Var.is_state_var_instance var then 
            
+           (* Get state variable of free variable *)
            let state_var = Var.state_var_of_state_var_instance var in
            
+           (* Get offset of variable instance *) 
            let offset = Var.offset_of_state_var_instance var in
            
+           (* Lift state variable to scope of calling node *)
            let state_var' = lift_state_var pos node state_var in
            
+           (* Return state variable instance of the lifted state
+              variable at the same offset *)
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 
          else
            
+           (* No change if free variable is not an instance of a state
+              variable *)
            term
-           
+             
+       (* No change term that are not free variables *)
        | term -> term)
+
     term
 
 

@@ -22,14 +22,19 @@ type source =
   | Lustre of LustreNode.t list 
   | Native 
 
-(* Global is_init uf. *)
-let is_init_uf =
-  UfSymbol.mk_uf_symbol "x_is_init_x" [ Type.mk_int () ] (Type.mk_bool ())
-(* Global is_init state var. *)
+(* Global is_init state var *)
 let is_init_svar =
-  StateVar.state_var_of_uf_symbol is_init_uf
-(* Instantiates is_init at k. *)
+  StateVar.mk_state_var "x_is_init_x" [] Type.t_bool
+
+(* Global is_init uf *)
+let is_init_uf =
+  StateVar.uf_symbol_of_state_var is_init_svar
+
+(* Instantiate is_init at k *)
 let is_init_var = Var.mk_state_var_instance is_init_svar
+
+let _ = LustreExpr.set_state_var_source is_init_svar LustreExpr.Abstract
+
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
@@ -78,6 +83,16 @@ let prop_status_known = function
   | PropFalse _ -> true
 
 
+(* Offset of state variables in initial state constraint *)
+let init_base = Numeral.zero
+
+(* Offset of primed state variables in transition relation *)
+let trans_base = Numeral.one
+
+(* Offset of primed state variables in properties and invariants *)
+let prop_base = Numeral.zero
+
+
 type t = {
   (* Init and trans pairs of this system and its subsystems in
      topological order. *)
@@ -106,15 +121,29 @@ type t = {
 
   (* Status of property *)
   mutable prop_status: (string * prop_status) list
+
 }
 
 
-(* Returns the term for the initial state constraint. *)
-let init_term { init } = snd (snd init)
+(* Return the predicate for the initial state constraint *)
+let init_uf_symbol { init = (s, _) } = s
+
+(* Return the predicate for the transition relation *)
+let trans_uf_symbol { trans = (s, _) } = s
+
+(* Return the variables in the initial state constraint *)
+let init_vars { init = (_, (v, _)) } = v
+
+(* Return the variables in the transition relation *)
+let trans_vars { trans = (_, (v, _)) } = v
+
+(* Return the definition of the initial state constraint *)
+let init_term { init = (_, (_, t)) } = t
+
+(* Return the definition of the transition relation *)
+let trans_term { trans = (_, (_, t)) } = t
 
 
-(* Returns the term for the transition relation. *)
-let trans_term { trans } = snd (snd trans)
 
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
@@ -541,11 +570,12 @@ let uf_defs_pairs { uf_defs } = uf_defs
 
 let pp_print_trans_sys 
     ppf
-    ({ uf_defs ;
-       state_vars ;
-       props ;
-       invars ;
-       prop_status } as trans_sys) = 
+    ({ uf_defs;
+       state_vars;
+       props;
+       invars;
+       prop_status; 
+       source } as trans_sys) = 
 
   Format.fprintf 
     ppf
@@ -555,7 +585,8 @@ let pp_print_trans_sys
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(status@ (@[<v>%a@]))@]@."
+          @[<hv 2>(status@ (@[<v>%a@]))@]@,\
+          @[<hv 2>;; (source@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
@@ -563,6 +594,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_prop "@ ") props
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list pp_print_prop_status "@ ") prop_status
+    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
 
  
 

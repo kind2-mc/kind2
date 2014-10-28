@@ -805,7 +805,12 @@ let rec widths_of_model = function
    reconstructed *)
 let pp_print_path_pt nodes start_at_init ppf model =
 
-  let reconstructed = reduced_tree_path_of_model start_at_init nodes model in
+  debug lustrePath
+      "@[<v>pp_print_path_pt@,%a@]"
+      (pp_print_list (N.pp_print_node false) "@,") nodes
+  in
+    
+  let reconstructed = reduced_tree_path_of_model start_at_init (List.rev nodes) model in
 
   (* Get maximum widths of identifiers and values *)
   let ident_width, val_width = widths_of_model reconstructed in
