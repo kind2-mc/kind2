@@ -292,13 +292,7 @@ let rec tree_path_of_model model =
 
            (* Add modified node content to map, replaces previous entry *)
            let call_map' = CallMap.add call_key node_model' call_map in
-(*
-           debug lustrePath
-               "State variable %a is an instance of %a"
-               StateVar.pp_print_state_var state_var
-               StateVar.pp_print_state_var call_state_var
-           in
-*)
+
            (* Continue with modified node calls *)
            call_map')
         call_map
@@ -310,7 +304,7 @@ let rec tree_path_of_model model =
 
   in
 
-  (* Create a hierarchival model for variables of node *)
+  (* Create a hierarchical model for variables of node *)
   let node_of_model (call_node_id, call_pos) model =
 
     (* Streams of this node and stream in called nodes  *)
@@ -822,13 +816,8 @@ let rec widths_of_model = function
    reconstructed *)
 let pp_print_path_pt nodes start_at_init ppf model =
 
-  debug lustrePath
-      "@[<v>pp_print_path_pt@,%a@]"
-      (pp_print_list (N.pp_print_node false) "@,") nodes
-  in
-    
   let reconstructed =
-    reduced_tree_path_of_model start_at_init (List.rev nodes) model
+    reduced_tree_path_of_model start_at_init nodes model
   in
 
   (* Get maximum widths of identifiers and values *)

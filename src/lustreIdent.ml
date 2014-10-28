@@ -331,7 +331,7 @@ let ticked_ident_string =  "__ticked"
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
 
-let top_scope_string = "__top"
+(* let top_scope_string = "__top" *)
 
 
 (* Return true if the identifier clashes with internal identifier names *)
@@ -347,7 +347,7 @@ let ident_is_reserved ident =
   || string_starts_with ident_string ticked_ident_string
   || string_starts_with ident_string init_uf_string
   || string_starts_with ident_string trans_uf_string
-  || string_starts_with ident_string top_scope_string
+(*  || string_starts_with ident_string top_scope_string *)
   
 
 (* Identifier for new variables from abstrations *)
@@ -362,9 +362,10 @@ let observer_ident = mk_string_ident observer_ident_string
 (* Identifier for new clock initialization flag *)
 let ticked_ident = mk_string_ident ticked_ident_string
 
+(*
 (* Scope for top-level variables *)
-let top_scope_index = mk_string_index top_scope_string
-
+let top_scope_index = smk_string_index top_scope_string
+*)
 
 
 (* 

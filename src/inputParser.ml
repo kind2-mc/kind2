@@ -28,11 +28,11 @@ module E = LustreExpr
 let lexer = make_lexer [","; "true"; "false"]
 
 (* Parse one line in CSV file *)
-let rec parse_stream = parser
+let rec parse_stream input_scope = parser
     
     (* A line starting with an identifier, followed by a comma and a
        sequence of values *)
-  | [< 'Ident name; 'Kwd ","; sequence = parse_sequence >] ->
+  | [< 'Ident input_name; 'Kwd ","; sequence = parse_sequence >] ->
     
     (
 
@@ -40,7 +40,7 @@ let rec parse_stream = parser
         
         (* Find the state variable of top scope *) 
         let state_var = 
-          E.state_var_of_ident I.top_scope_index (I.mk_string_ident name)
+          StateVar.state_var_of_string (input_name, input_scope) 
         in
         
         (* State variable must be an input *)
@@ -55,7 +55,7 @@ let rec parse_stream = parser
           (Event.log
              L_fatal
              "State variable %s is not an input" 
-             name;
+             input_name;
            
            raise (Invalid_argument "parse_stream"))
           
@@ -65,7 +65,7 @@ let rec parse_stream = parser
         (Event.log
            L_fatal
            "State variable %s not found" 
-           name;
+           input_name;
          
          raise (Invalid_argument "parse_stream"))
         
@@ -175,11 +175,11 @@ and parse_bool_sequence_aux l = parser
 
 
 (* Parse from a lexer stream *)
-let parse s = parse_stream (lexer (Stream.of_string s))
+let parse top_scope_index s = parse_stream top_scope_index (lexer (Stream.of_string s))
 
 
 (* Read in a csv file *)
-let read_file filename = 
+let read_file top_scope_index filename = 
 
   (* Open the file *)
   let chan = open_in filename in
@@ -193,7 +193,7 @@ let read_file filename =
       let line = input_line chan in
       
       (* Parse line and add to accumulator *)
-      parse_chan ((parse line) :: acc)
+      parse_chan ((parse top_scope_index line) :: acc)
 
     (* End of file reached *)
     with End_of_file ->

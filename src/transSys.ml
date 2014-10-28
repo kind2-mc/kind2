@@ -94,6 +94,10 @@ let prop_base = Numeral.zero
 
 
 type t = {
+  
+  (* Scope of state variables *)
+  scope : string list;
+
   (* Init and trans pairs of this system and its subsystems in
      topological order. *)
   uf_defs: (pred_def * pred_def) list ;
@@ -203,7 +207,7 @@ let pp_print_prop_status ppf (p, s) =
 
 
 (* Create a transition system *)
-let mk_trans_sys state_vars init trans subsystems props source = 
+let mk_trans_sys scope state_vars init trans subsystems props source = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -253,7 +257,8 @@ let mk_trans_sys state_vars init trans subsystems props source =
     | [] -> result
   in
 
-  { uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
+  { scope = scope;
+    uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
     state_vars =
       is_init_svar :: state_vars
       |> List.sort StateVar.compare_state_vars ;
@@ -277,6 +282,9 @@ let state_vars t = t.state_vars
 
 (* Return the input used to create the transition system *)
 let get_source t = t.source
+
+(* Return the input used to create the transition system *)
+let get_scope t = t.scope
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 

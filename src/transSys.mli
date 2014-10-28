@@ -74,6 +74,7 @@ type t
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
 val mk_trans_sys :
+  string list ->
   StateVar.t list ->
   UfSymbol.t * (Var.t list * Term.t) ->
   UfSymbol.t * (Var.t list * Term.t) ->
@@ -119,6 +120,9 @@ val state_vars : t -> StateVar.t list
 
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
+
+(** Return the scope of the transition system *)
+val get_scope : t -> string list
 
 (** Return the variables at current and previous instants of the
    transition system *)

@@ -399,6 +399,15 @@ let node_of_name name nodes =
       (* raise Not_found *)
 
 
+let rec ident_of_top = function 
+  
+  | [] -> raise (Invalid_argument "ident_of_top")
+
+  | [{ name }] -> name 
+
+  | h :: tl -> ident_of_top tl
+
+
 (* Calculate dependencies of variables *)
 let rec node_var_dependencies nodes node accum = 
 

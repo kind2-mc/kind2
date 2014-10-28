@@ -55,15 +55,17 @@ let svs_of_list list =
 let add_to_svs set list = 
   List.fold_left (fun a e -> SVS.add e a) set list 
 
-  
+
 (* Create a copy of the state variable at the top level *)
 let state_var_of_top_scope is_input ?is_const ?is_clock top_node state_var =
+
+  let top_scope_index = I.index_of_ident top_node in
 
   let state_var' = 
     E.mk_state_var_of_ident 
       is_input
       (StateVar.is_const state_var)
-      I.top_scope_index
+      top_scope_index
       (fst (E.ident_of_state_var state_var))
       (StateVar.type_of_state_var state_var)
   in
@@ -78,6 +80,7 @@ let state_var_of_top_scope is_input ?is_const ?is_clock top_node state_var =
 
   state_var'
   
+
 
 (* Collect information while constructing transition system *)
 type node_def =
@@ -1411,6 +1414,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     (* Create transition system for node *)
     let trans_sys = 
       TransSys.mk_trans_sys 
+        (I.scope_of_ident node_name)
         (inputs @ oracles @ outputs @ observers @ locals)
         pred_def_init
         pred_def_trans
