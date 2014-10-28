@@ -370,6 +370,14 @@ let pdr_tighten_to_unsat_core_default = true
 
 (* ********** *) 
 
+type pdr_inductively_generalize = int
+    
+let string_of_pdr_inductively_generalize = string_of_int
+
+let pdr_inductively_generalize_default = 1
+
+(* ********** *) 
+
 type pdr_block_in_future = bool
     
 let string_of_pdr_block_in_future = string_of_bool
@@ -537,6 +545,7 @@ type flags =
       mutable pdr_print_blocking_clauses : pdr_print_blocking_clauses;
       mutable pdr_print_to_file : pdr_print_to_file;
       mutable pdr_tighten_to_unsat_core : pdr_tighten_to_unsat_core;
+      mutable pdr_inductively_generalize : pdr_inductively_generalize;
       mutable pdr_block_in_future : pdr_block_in_future;
       mutable pdr_print_inductive_invariant : pdr_print_inductive_invariant;
       mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
@@ -580,6 +589,7 @@ let flags =
     pdr_print_blocking_clauses = pdr_print_blocking_clauses_default;
     pdr_print_to_file = pdr_print_to_file_default;
     pdr_tighten_to_unsat_core = pdr_tighten_to_unsat_core_default;
+    pdr_inductively_generalize = pdr_inductively_generalize_default;
     pdr_block_in_future = pdr_block_in_future_default;
     pdr_print_inductive_invariant = pdr_print_inductive_invariant_default;
     pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
@@ -838,6 +848,15 @@ let pdr_tighten_to_unsat_core_spec =
 
 (* ********** *) 
 
+let pdr_inductively_generalize_action o = flags.pdr_inductively_generalize <- o
+  
+let pdr_inductively_generalize_spec = 
+  ("--pdr_inductively_generalize", 
+   Arg.Int pdr_inductively_generalize_action, 
+   Format.sprintf "(PDR) Inductively generalize blocking clauses before forward propagation (0 = none, 1 = normal IG, 2 = IG with ordering) (default: %s)" (string_of_pdr_inductively_generalize pdr_inductively_generalize_default))
+
+(* ********** *) 
+
 let pdr_block_in_future_action o = flags.pdr_block_in_future <- o
   
 let pdr_block_in_future_spec = 
@@ -1042,6 +1061,8 @@ let pdr_print_to_file () = flags.pdr_print_to_file
 
 let pdr_tighten_to_unsat_core () = flags.pdr_tighten_to_unsat_core 
 
+let pdr_inductively_generalize () = flags.pdr_inductively_generalize
+
 let pdr_block_in_future () = flags.pdr_block_in_future 
 
 let pdr_print_inductive_invariant () = flags.pdr_print_inductive_invariant 
@@ -1165,6 +1186,9 @@ and speclist =
 
     (* Tighten blocking clauses to an unsatisfiable core *)
     pdr_tighten_to_unsat_core_spec;
+
+    (* Inductively generalize the blocking clause before forward propagating *)
+    pdr_inductively_generalize_spec;
 
     (* Block counterexample in future frames *)
     pdr_block_in_future_spec;

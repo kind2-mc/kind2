@@ -378,8 +378,10 @@ let trim_clause solver_init solver_frames clause term_tbl =
 				      
   in
 
-  
-  linear_search clause [] (order_terms (Clause.elements clause) term_tbl)
+  match Flags.pdr_inductively_generalize() with
+  | 1 -> linear_search clause [] (Clause.elements clause)
+  | 2 -> linear_search clause [] (order_terms (Clause.elements clause) term_tbl)
+  | _ -> clause , Clause.empty
 
 
 (* Check if [prop] is always satisfied in one step from [state] and
@@ -407,7 +409,8 @@ let find_cex
       all_props
       frame 
       (state_core, state_rest)
-      (prop_core, prop_rest) = 
+      (prop_core, prop_rest)
+      term_tbl = 
 
   (* Prime variables in property *)
   let prop_core', prop_rest' =
@@ -708,8 +711,23 @@ let find_cex
 
             Stat.incr Stat.pdr_tightened_blocking_clauses);
 
+
+	 let core, rest' = trim_clause
+				    solver_init
+				    solver_frames
+				    (Clause.union core prop_core)
+				    term_tbl
+	 in
+
+	 debug pdr
+               "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+               (pp_print_list Term.pp_print_term "@,") 
+               (Clause.elements core)
+	 in
+	 
+
 	 (* Entailment holds, no counterexample *)
-	 (true, (Clause.union core prop_core, Clause.union rest prop_rest)))
+	 (true, (core, Clause.union (Clause.union rest rest') prop_rest)))
 
       )
 
@@ -919,28 +937,28 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 		  "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
 		  Clause.pp_print_clause core_block_clause
             in
-
+(*
 	    let core_block_clause =
 
-	      if not (Flags.pdr_inductively_generalize () ) then core_block_clause else
-		
-		let reduced, discarded = trim_clause
-					   solver_init
-					   solver_frames
-					   core_block_clause
-					   term_tbl
-		in
+	      let reduced, discarded = trim_clause
+					 solver_init
+					 solver_frames
+					 core_block_clause
+					 term_tbl
+	      in
 
-		debug pdr
-                      "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                      (pp_print_list Term.pp_print_term "@,") 
-                      (Clause.elements reduced)
-	    in
+	      debug pdr
+                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                    (pp_print_list Term.pp_print_term "@,") 
+                    (Clause.elements reduced)
+	      in
 	    
-	    reduced
+	      reduced
 	      
 	    in
-
+	    
+	    let block_clause = core_block_clause, rest_block_clause in
+ *)
             (* Add blocking clause to all frames up to where it has
                to be blocked *)
             let r_i' = CNF.add_subsume core_block_clause r_i in 
@@ -1020,7 +1038,8 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 						    props
 						    r_pred_i_full
 						    block_clause
-						    block_clause)
+						    block_clause
+						    term_tbl)
 
           with Bad_state_reachable -> 
 
@@ -1051,7 +1070,7 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
       with
 
       (* No counterexample, nothing to block in lower frames *)
-      | true, ((core_block_clause, _) as block_clause) -> 
+      | true, (core_block_clause, rest) -> 
 
          Event.log L_trace
                    "Counterexample is unreachable in R_%d"
@@ -1072,29 +1091,29 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 				   Format.fprintf ppf "-%d" (succ (List.length block_tl)))
                 Clause.pp_print_clause core_block_clause
           in
-
+(*
 	  let core_block_clause =
-	    
-	    if not (Flags.pdr_inductively_generalize () ) then core_block_clause else
 
-	      let reduced, discarded = trim_clause
-					 solver_init
-					 solver_frames
-					 core_block_clause
-					 term_tbl
-	      in
+	    let reduced, discarded = trim_clause
+				       solver_init
+				       solver_frames
+				       core_block_clause
+				       term_tbl
+	    in
 
-	      debug pdr
-                    "@[<v>Reduced blocking clause to@,@[<v>%a@]"
-                    (pp_print_list Term.pp_print_term "@,") 
-                    (Clause.elements reduced)
+	    debug pdr
+                  "@[<v>Reduced blocking clause to@,@[<v>%a@]"
+                  (pp_print_list Term.pp_print_term "@,") 
+                  (Clause.elements reduced)
 	  in
 	  
 	  reduced
 	    
 	  in
-
-
+	  
+	  let block_clause = core_block_clause, rest in
+ *)
+ 
           (* Add blocking clause to all frames up to where it has
                   to be blocked *)
           let r_i' = CNF.add_subsume core_block_clause r_i in 
@@ -1154,117 +1173,118 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 
    The list of frames must not be empty, we start with k=1. *)
 let rec strengthen
-    ((_, solver_frames, _) as solvers) trans_sys props term_tbl = 
+	  ((_, solver_frames, _) as solvers) trans_sys props term_tbl = 
 
   function 
 
-    (* k > 0, must have at least one frame *)
-    | [] -> invalid_arg "strengthen"
+  (* k > 0, must have at least one frame *)
+  | [] -> invalid_arg "strengthen"
 
-    (* Head of frames is the last frame *)
-    | r_k :: frames_tl as frames -> 
+  (* Head of frames is the last frame *)
+  | r_k :: frames_tl as frames -> 
 
-      (debug smt
-          "strengthen: asserting clauses of R_k"
-       in
-
-       S.push solver_frames;
-
-       (* Assert all clauses of R_k in this context *)
-       CNF.iter 
-         (function c -> S.assert_term solver_frames (Clause.to_term c)) 
-         r_k);
-
-      let prop_clause = 
-        Clause.singleton props, Clause.empty
+     (debug smt
+            "strengthen: asserting clauses of R_k"
       in
-      
-      match 
-        
-        (try
 
-            (* Find counterexamples where we can get outside the property
+      S.push solver_frames;
+
+      (* Assert all clauses of R_k in this context *)
+      CNF.iter 
+        (function c -> S.assert_term solver_frames (Clause.to_term c)) 
+        r_k);
+
+     let prop_clause = 
+       Clause.singleton props, Clause.empty
+     in
+     
+     match 
+       
+       (try
+
+           (* Find counterexamples where we can get outside the property
                in one step and generalize to a cube. The counterexample
                does not hold in the initial state. *)
-            Stat.time_fun Stat.pdr_find_cex_time (fun () ->
-                find_cex 
-                  solvers 
-                  trans_sys 
-                  props
-                  r_k
-                  (Clause.top, Clause.empty)
-                  prop_clause)
+           Stat.time_fun Stat.pdr_find_cex_time (fun () ->
+						 find_cex 
+						   solvers 
+						   trans_sys 
+						   props
+						   r_k
+						   (Clause.top, Clause.empty)
+						   prop_clause
+						   term_tbl)
 
-          with Bad_state_reachable -> 
-            
-            (
+         with Bad_state_reachable -> 
+           
+           (
 
-              (* Remove assertions of frame from context *)
-              S.pop solver_frames;
-              
-              raise (Counterexample [prop_clause]))
+             (* Remove assertions of frame from context *)
+             S.pop solver_frames;
+             
+             raise (Counterexample [prop_clause]))
 
-        )
+       )
 
 
-      with
+     with
 
-        (* No counterexample, return frames unchanged *)
-        | true, _ -> 
+     (* No counterexample, return frames unchanged *)
+     | true, _ -> 
 
-          (debug pdr
-              "Property holds in all states reachable from the last frame"
-           in
+        (debug pdr
+               "Property holds in all states reachable from the last frame"
+         in
 
-           debug pdr
+         debug pdr
                "@[<v>Current context@,@[<hv>%a@]@]"
                HStringSExpr.pp_print_sexpr_list
                (let r, a = 
-                 S.T.execute_custom_command 
-                   solver_frames 
-                   "get-assertions" 
-                   [] 
-                   1 
+                  S.T.execute_custom_command 
+                    solver_frames 
+                    "get-assertions" 
+                    [] 
+                    1 
                 in
                 S.fail_on_smt_error r;
                 a)
-           in
+         in
 
-           (* Remove assertions of frame from context *)
-           S.pop solver_frames;
+         (* Remove assertions of frame from context *)
+         S.pop solver_frames;
 
-           (* Return frames and counterexamples *)
-           (r_k :: frames_tl))
+         (* Return frames and counterexamples *)
+         (r_k :: frames_tl))
 
-        (* We have found a counterexample we need to block
+     (* We have found a counterexample we need to block
            recursively *)
-        | false, ((_, _) as block_clause) -> 
+     | false, ((_, _) as block_clause) -> 
 
-          (debug pdr
-              "Trying to block counterexample in all frames"
-           in
+        (debug pdr
+               "Trying to block counterexample in all frames"
+         in
 
-           Stat.incr Stat.pdr_counterexamples_total;
-           Stat.incr_last Stat.pdr_counterexamples;
+         Stat.incr Stat.pdr_counterexamples_total;
+         Stat.incr_last Stat.pdr_counterexamples;
 
-           Event.log L_trace
-             "Counterexample to induction in last frame R_%d, \
-              blocking recursively"
-             (List.length frames);
+         Event.log L_trace
+		   "Counterexample to induction in last frame R_%d, \
+		    blocking recursively"
+		   (List.length frames);
 
-           (* Block counterexample in all lower frames *)
-           let frames' = 
-             block 
-               solvers 
-               trans_sys 
-               props
-	       term_tbl
-               [([block_clause, [prop_clause]], r_k)] 
-	       frames_tl
-           in
+         (* Block counterexample in all lower frames *)
+         let frames' = 
+           block 
+             solvers 
+             trans_sys 
+             props
+	     term_tbl
+             [([block_clause, [prop_clause]], r_k)] 
+	     frames_tl
+         in
 
-           (* Find next counterexample to block *)
-           strengthen solvers trans_sys props term_tbl frames')
+         (* Find next counterexample to block *)
+         strengthen solvers trans_sys props term_tbl frames')
         
 
 
