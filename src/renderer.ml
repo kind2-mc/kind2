@@ -61,23 +61,43 @@ let header_train =
     "  {======|_|\"\"\"\"\"|_|\"\"\"\"\"|_|\"\"\"\"\"|_|\"\"\"\"\"|_|\"\"\"\"\"| " ;
     " ./o--000'\"`-0-0-'\"`-0-0-'\"`-0-0-'\"`-0-0-'\"`-0-0-' " ; ]
 
+(* Module for sliders to render animations. A slider is a list of
+   lines, and the animation is created by moving cursors deciding what
+   is render over the lines.*)
 module Slider = struct
 
+  (* Type for a slider. *)
   type t = {
+    (* The lines of the slider. *)
     lines : string list ;
+    (* The character used to fill empy columns of the slider. *)
     fill_char : char ;
+    (* The height of the slider. *)
     height : int ;
+    (* The index of the last character of a line of the slider. *)
     last : int ;
+    (* The width of the screen this slider is to be rendered in. *)
     screen_width : int ;
+    (* The length of the prefix used to last render the slider. *)
     mutable pref : int ;
+    (* The length of the suffix used to last render the slider. *)
     mutable suff : int ;
+    (* Index of the first char of the lines of the slider in the last
+       frame. *)
     mutable from : int ;
+    (* Index of the last char of the lines of the slider in the last
+       frame. *)
     mutable too : int ;
+    (* Counter used to know if we should render the next frame. If it
+       is zero then the next frame will be computed, otherwise the
+       last frame is computed. *)
     mutable count: int ;
   }
 
+  (* We change frame every 10 ticks by default. *)
   let count_default = 10
 
+  (* Creates a slider for a given screen width. *)
   let create_slider screen_width = function
 
     | (line :: tail) as lines ->
@@ -96,15 +116,20 @@ module Slider = struct
          too = 0 ;
          count = count_default ; }
 
-    | _ -> failwith "Empty header."
+    | _ -> failwith "Empty slider."
 
+  (* The height of a slider. *)
   let get_height { height } = height
 
+  (* Adds 'n' times character 'char' at the end of string 's'. *)
   let rec fill s n char =
     if n > 0 then
       fill (Printf.sprintf "%s%c" s char) (n-1) char
     else s
 
+  (* Builds the line consisting of 'pref' times character 'fill_char',
+     the substring of 'line' from 'from' to 'to', and 'suff' times
+     'fill_char'. *)
   let build_line fill_char pref suff from too line =
     Printf.sprintf
       "%s%s%s"
@@ -112,6 +137,7 @@ module Slider = struct
       (String.sub line from (too - from + 1))
       (fill "" suff fill_char)
 
+  (* Updates a slider so that it is ready for the next frame. *)
   let stage_next_frame
         ({ last ; screen_width ; pref ; suff ; from ; too ; count }
          as slider)=
@@ -133,6 +159,8 @@ module Slider = struct
     )
 
 
+  (* Returns the current frame of a slider as a list of strings,
+     staging the next frame (if necessary) in the process. *)
   let get_frame
         ({ lines ; fill_char ;
            pref ; suff ; from ; too } as slider) =
@@ -147,49 +175,73 @@ module Slider = struct
 
 end
 
+(* This module abstracts ansii escape sequences to functions like
+   'go_up', 'save', 'restore'... *)
+module Cursor = struct
 
+  open Printf
+
+  (* Builds an ansii escape sequence. *)
+  let escape s = sprintf "\x1b[%s" s
+  (* Builds the escape sequence reverting everything to default. *)
+  let escape_normal = "\x1b[0m"
+
+  (* Builds an escape sequence and prints it. *)
+  let escape_print s = escape s |> printf "%s"
+
+  (* Moves the cursor to 'row' 'col'. *)
+  let go_to (row, col) =
+    sprintf "%i;%if" row col |> escape_print
+
+  (* Saves the cursor's position. *)
+  let save () = escape_print "s"
+
+  (* Restores the cursor's position. *)
+  let restore () = escape_print "u"
+
+  (* Moves the cursor up 'n' lines. *)
+  let go_up n =
+    sprintf "%iA" n |> escape_print
+  (* Moves the cursor down 'n' lines. *)
+  let go_down n =
+    sprintf "%iB" n |> escape_print
+  (* Moves the cursor right 'n' lines. *)
+  let go_right n =
+    sprintf "%iC" n |> escape_print
+  (* Moves the cursor left 'n' lines. *)
+  let go_left n =
+    sprintf "%iD" n |> escape_print
+
+  (* Moves the cursor up by 'row' and right by 'col'. *)
+  let go_to_relative (row,col) =
+    go_up row ; go_right col
+
+end
+
+(* Renders information in a table. *)
 module TableRenderer = struct
 
   open Printf
 
-  module Cursor = struct
-
-    let escape s = sprintf "\x1b[%s" s
-    let escape_normal = "\x1b[0m"
-
-    let escape_print s = escape s |> printf "%s"
-
-    let go_to (row, col) =
-      sprintf "%i;%if" row col |> escape_print
-
-    let save () = escape_print "s"
-
-    let restore () = escape_print "u"
-
-    let go_up n =
-      sprintf "%iA" n |> escape_print
-    let go_down n =
-      sprintf "%iB" n |> escape_print
-    let go_right n =
-      sprintf "%iC" n |> escape_print
-    let go_left n =
-      sprintf "%iD" n |> escape_print
-
-    let go_to_relative (row,col) =
-      go_up row ; go_right col
-
-  end
-
+  (* Type for a table renderer. *)
   type t = {
+    (* Number of columns. *)
     col_count: int  ;
+    (* Number of rows. *)
     row_count: int  ;
+    (* Width of a column. *)
     col_width: int  ;
+    (* Height of a column. *)
     row_height: int ;
+    (* Height of the log. *)
     log_height: int ;
+    (* Lines of the log. *)
     mutable log: string list ;
+    (* Optional slider. *)
     slider: (bool * (int*int) * Slider.t) option ;
   }
 
+  (* Creates a table with a tchoo slider in the last column. *)
   let create_tchoo_table
         (col_count, row_count)
 	(col_width, row_height)
@@ -202,13 +254,16 @@ module TableRenderer = struct
       log = []                ;
       slider =
         let n = col_count * row_count in
-        let row,col = ((n-1) / col_count + 1, ((n-1) mod col_count) + 1) in
+        let row,col =
+          ((n-1) / col_count + 1, ((n-1) mod col_count) + 1) in
         Some (
             false,
             (log_height + 1 + (row_count - row + 1) * (row_height+1),
              1 + (col - 1) * (col_width + 1) ),
             Slider.create_slider col_width header_train) }
 
+  (* Creates a table with a futuristic header at the top of the
+     table. *)
   let create_header_table
         (col_count, row_count)
 	(col_width, row_height)
@@ -222,11 +277,13 @@ module TableRenderer = struct
       slider =
         Some (
             true,
-            ((row_height * row_count) + row_count + log_height + 4 + (List.length header_lines_3D),
-             0),
+            ( (row_height * row_count) + row_count
+              + log_height + 4 + (List.length header_lines_3D), 0 ),
             Slider.create_slider
-              ((col_width * col_count) + col_count + 1) header_lines_3D) }
+              ((col_width * col_count) + col_count + 1)
+              header_lines_3D) }
 
+  (* Creates a table without any slider. *)
   let create_table
         (col_count, row_count)
 	(col_width, row_height)
@@ -239,74 +296,101 @@ module TableRenderer = struct
       log = []                ;
       slider = None           }
 
-  let create_default_table () =
-    { col_count = 2  ;
-      row_count = 3  ;
-      col_width = 40 ;
-      row_height = 7 ;
-      log_height = 7 ;
-      log = []       ;
-      slider = None  }
-
+  (* Number of columns in a table. *)
   let get_col_count { col_count } = col_count
+  (* Number of rows in a table. *)
   let get_row_count { row_count } = row_count
+  (* Width of the columns of a table. *)
   let get_col_width { col_width } = col_width
+  (* Height of the rows of a table. *)
   let get_row_height { row_height } = row_height
+  (* Height of the log of a table. *)
   let get_log_height { log_height } = log_height
+  (* Content of a table's log. *)
   let get_log { log } = log
 
+  (* Actual width of a table. *)
   let real_width { col_count ; col_width } =
     (col_width * col_count) + col_count + 1
 
+  (* Actual height of a table. *)
   let real_height { row_count ; row_height ; log_height } =
     (row_height * row_count) + row_count + log_height + 2
 
+  (* Right offset of the title of a cell. *)
   let cell_title_offset = 1
+  (* Offset of a regular line of a cell. *)
   let cell_line_offset = 2
 
-  let vert_sep, hori_sep = '|', '-'
-  let no_sep, ne_sep, se_sep, so_sep = '/', '\\', '/', '\\'
+  let
+    (* Vertical separator used to draw the table. *)
+    vert_sep,
+    (* Horizontal separator used to draw the table. *)
+    hori_sep = '|', '-'
+  let
+    (* North west separator used to draw the table. *)
+    nw_sep,
+    (* North east separator used to draw the table. *)
+    ne_sep,
+    (* South east separator used to draw the table. *)
+    se_sep,
+    (* South west separator used to draw the table. *)
+    sw_sep = '/', '\\', '/', '\\'
   let char_to_string c = sprintf "%c" c
+
+  (* String versions of the separators. *)
   let vert_sep_string,
       hori_sep_string,
-      no_sep_string,
+      nw_sep_string,
       ne_sep_string,
       se_sep_string,
-      so_sep_string = char_to_string vert_sep,
+      sw_sep_string = char_to_string vert_sep,
                       char_to_string hori_sep,
-                      char_to_string no_sep,
+                      char_to_string nw_sep,
                       char_to_string ne_sep,
                       char_to_string se_sep,
-                      char_to_string so_sep
+                      char_to_string sw_sep
 
+  (* Width of the log window. *)
   let log_width table = (real_width table) - 2
+  (* Offset of the log lines. *)
   let log_offset = 1
+                     
+  (* Position of the south west corner of the log. *)
   let south_west_of_log = 1, 1 + log_offset
+  (* Position of the north west corner of the log. *)
   let north_west_of_log { log_height } =
     1 + log_height, 1 + log_offset
 
+  (* Builds the string made of 'prefix', then 'n' times character 'c',
+     and then 'suffix'. *)
   let rec repeat_char prefix suffix n c =
     if n <= 0 then sprintf "%s%s" prefix suffix
     else repeat_char (sprintf "%s%c" prefix c) suffix (n-1) c
 
+  (* Builds the string made of 'prefix', then 'n' times 's', and then
+     'suffix'. *)
   let rec repeat_string prefix suffix n s =
     if n <= 0 then sprintf "%s%s" prefix suffix
     else repeat_string (sprintf "%s%s" prefix s) suffix (n-1) s
 
+  (* The line at the very top of the table creating the 3D effect. *)
   let top_top_line table =
     repeat_char
-      (sprintf " %c" no_sep)
+      (sprintf " %c" nw_sep)
       ne_sep_string
       ((real_width table) - 1)
       hori_sep
 
+  (* The top line of the table. *)
   let top_line table =
     repeat_char
-      no_sep_string
+      nw_sep_string
       ne_sep_string
       ((real_width table) - 2)
       hori_sep
 
+  (* A separation line, including column separation. *)
   let sep_line { col_count ; col_width } =
     repeat_string
       ""
@@ -318,6 +402,8 @@ module TableRenderer = struct
           col_width
           hori_sep )
 
+  (* A separation line without column separation, for log and
+     lines. *)
   let full_sep_line table =
     repeat_char
       vert_sep_string
@@ -325,14 +411,15 @@ module TableRenderer = struct
       ((real_width table) - 2)
       hori_sep
 
+  (* The bottom line of the table. *)
   let bot_line table =
     repeat_char
-      so_sep_string
+      sw_sep_string
       se_sep_string
       ((real_width table) - 2)
       hori_sep
 
- 
+  (* A line with nothing but vertical separators. *) 
   let empty_line { col_count ; col_width } =
     let col =
       sprintf "%c%s"
@@ -343,7 +430,8 @@ module TableRenderer = struct
     repeat_string
       "" vert_sep_string col_count col
       
-
+  (* A line with nothing but the left-most and right-most vertical
+     separators. *)
   let empty_log_line table =
     repeat_char
       vert_sep_string
@@ -351,12 +439,16 @@ module TableRenderer = struct
       ((real_width table) - 2)
       ' '
 
+  (* Does 'f' 'n' times. *)
   let rec do_n_times n f =
     if n <= 0 then ()
     else (f () ; do_n_times (n-1) f)
 
+  (* Prints a line with a newline at the end. *)
   let println s = printf "%s\n" s
 
+  (* Turns a line into a list of lines of width 'width' If the last
+     line is shorter than 'width' it is filled with 'char'. *)
   let clamp_line_fill_rev width char line =
 
     let rec loop l res =
@@ -375,10 +467,14 @@ module TableRenderer = struct
 
     loop line []
 
+  (* Transforms the index of a cell into its row column
+     coordinates. Indices go from left to right top to bottom from
+     1. *)
   let index_to_cell { col_count ; row_count } n =
     assert ( (0 <= n) && (n <= col_count * row_count) ) ;
     (n-1) / col_count + 1, ((n-1) mod col_count) + 1
 
+  (* The cursor position of the north west corner of a cell. *)
   let north_west_of_cell { col_count ;
 			   row_count ;
 			   col_width ;
@@ -390,6 +486,7 @@ module TableRenderer = struct
     log_height + 1 + (row_count - row + 1) * (row_height+1),
     1 + (col - 1) * (col_width + 1)
 
+  (* The cursor position of the north east corner of a cell. *)
   let north_east_of_cell { col_count ;
 			   row_count ;
 			   col_width ;
@@ -409,6 +506,7 @@ module TableRenderer = struct
 
   open Cursor
 
+  (* Initializes the slider, if any. *)
   let init_slider ({ slider } as context) =
     match slider with
     | Some (true, _, slider) ->
@@ -420,6 +518,7 @@ module TableRenderer = struct
             ( printf "%s\n" )
     | _ -> ()
 
+  (* Prints a frame of the slider. *)
   let print_slider ({ slider } as context) =
     match slider with
     | None -> ()
@@ -441,6 +540,7 @@ module TableRenderer = struct
        |> ignore ;
        restore ()
 
+  (* Draws a table. *)
   let draw_table ({ col_count ;
 		    row_count ;
 		    col_width ;
@@ -496,20 +596,25 @@ module TableRenderer = struct
 
     print_slider table
 
+  (* The position of the first character of the title of a cell. *)
   let title_of_cell table cell =
     let row,col = north_west_of_cell table cell in
     row, col + cell_title_offset
 
+  (* The position of the first character of some line of a cell. *)
   let line_of_cell ({ row_height } as table) cell line =
     assert ( (0 <= line) && (line <= row_height - 1) ) ;
     let row,col = title_of_cell table cell in
     row - line, col + cell_line_offset
 
+  (* Sets the title of a cell from its row/col coordinates. *)
   let set_title_pair table cell title =
     restore () ;
     title_of_cell table cell |> go_to_relative ;
     printf "%s%s%s" (escape "1m") title escape_normal ;
     restore ()
+
+  (* Sets the title of a cell from its index. *)
   let set_title ({ col_width } as table)
 	        cell_index
 	        title =
@@ -526,11 +631,14 @@ module TableRenderer = struct
          clamped
     | [] -> assert false
 
+  (* Prints a line for a cell based on its row/col coordinates. *)
   let update_line_pair table cell line_index line =
     restore () ;
     line_of_cell table cell line_index |> go_to_relative ;
     printf "%s" line ;
     restore ()
+
+  (* Prints a line for cell based on its idex. *)
   let update_line ({ col_width } as  table )
 		  cell_index
 		  line_index
@@ -552,6 +660,8 @@ module TableRenderer = struct
     | [] -> assert false
 
 
+  (* Clamps the log content so that it fits in the log window
+     height-wise. *)
   let clamp_log table =
     let rec loop n res = function
       | head :: tail when n > 0 ->
@@ -560,6 +670,7 @@ module TableRenderer = struct
     in
     table.log <- loop table.log_height [] table.log
 
+  (* Draws the content of the log window. *)
   let draw_log table =
     clamp_log table ;
     restore () ;
@@ -579,6 +690,7 @@ module TableRenderer = struct
     |> ignore ;
     restore ()
 
+  (* Adds a line to the log content. *)
   let log_add_line table line =
     let lines_rev =
       clamp_line_fill_rev
@@ -741,6 +853,15 @@ let update_ind_stats table index =
        (Stat.get Stat.ind_compress_same_successors)
        (Stat.get Stat.ind_compress_same_predecessors))
 
+(* Updates the statistics of the IND module. *)
+let update_pdr_stats table index =
+
+  (* The k at which ind currently is. *)
+  TableRenderer.update_line
+    table index 1
+    (Printf.sprintf
+       "Currently at k = %i" (Stat.get Stat.pdr_k))
+
 (* Updates the statistics of a module. *)
 let update_module_stats { table ; map} mdl =
   try
@@ -748,6 +869,7 @@ let update_module_stats { table ; map} mdl =
     match mdl with
     | `BMC -> update_bmc_stats table index
     | `IND -> update_ind_stats table index
+    | `PDR -> update_pdr_stats table index
     | _ -> ()
   with
   | Not_found -> ()
@@ -821,7 +943,7 @@ let init modules =
       (* Colums are 40 characters wide, rows are 7 lines high. *)
       (40,7)
       (* Log is 7 lines high. *)
-      7
+      15
   in
 
   (* List.iter *)
