@@ -275,7 +275,7 @@ module TableRenderer: sig
   val create_header_table: int * int -> int * int -> int -> t
 
   (* Creates a table with a tchoo slider in the last column. *)
-  val create_tchoo_table: int * int -> int * int -> int -> t
+  val create_tchoo_table: bool -> int * int -> int * int -> int -> t
 
   (* Creates a table without any slider. *)
   val create_table: int * int -> int * int -> int -> t
@@ -321,6 +321,7 @@ struct
 
   (* Creates a table with a tchoo slider in the last column. *)
   let create_tchoo_table
+        double_col
         (col_count, row_count)
 	(col_width, row_height)
 	log_height =
@@ -336,9 +337,18 @@ struct
           ((n-1) / col_count + 1, ((n-1) mod col_count) + 1) in
         Some (
             false,
-            (log_height + 1 + (row_count - row + 1) * (row_height+1),
-             1 + (col - 1) * (col_width + 1) ),
-            Slider.create_slider col_width header_train) }
+            ( if double_col
+              then
+                (log_height + 1 + (row_count - row + 1) * (row_height+1),
+                 1 )
+              else
+                (log_height + 1 + (row_count - row + 1) * (row_height+1),
+                 1 + (col - 1) * (col_width + 1) ) ),
+            Slider.create_slider
+              (if double_col
+               then 1 + (col_width * 2)
+               else col_width)
+              header_train) }
 
   (* Creates a table with a futuristic header at the top of the
      table. *)
@@ -1018,15 +1028,18 @@ let init modules =
                          (40,7)
                          (* Log is 7 lines high. *)
                          15
-    | (true, false) -> TableRenderer.create_tchoo_table
-                         (columns,
-                          if module_count mod 2 = 0
-                          then rows + 1 else rows)
-                         (* Colums are 40 characters wide, rows are
+    | (true, false) ->
+       let two_col_tchoo = module_count mod 2 = 0 in
+       TableRenderer.create_tchoo_table
+         two_col_tchoo
+         (columns,
+          if two_col_tchoo
+          then rows + 1 else rows)
+         (* Colums are 40 characters wide, rows are
                               7 lines high. *)
-                         (40,7)
-                         (* Log is 7 lines high. *)
-                         15
+         (40,7)
+         (* Log is 7 lines high. *)
+         15
     | (true, true) -> TableRenderer.create_header_table
                         (columns, rows)
                         (* Colums are 40 characters wide, rows are
