@@ -1008,7 +1008,7 @@ let trans_sys_update trans_sys =
   | _ -> ()
 
 (* Updates the renderer. *)
-let renderer_update trans_sys =
+let update_log trans_sys =
   match !log_format with
   | F_renderer context ->
      trans_sys_update trans_sys ;

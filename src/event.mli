@@ -139,7 +139,7 @@ val update_trans_sys_tsugi :
   Term.t list * (string * Term.t) list * (string * Term.t) list
 
 (** Updates the renderer. *)
-val renderer_update : TransSys.t -> unit
+val update_log : TransSys.t -> unit
 
 
 (** {1 Messaging} *)

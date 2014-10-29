@@ -108,8 +108,8 @@ struct
     mutable count: int ;
   }
 
-  (* We change frame every 10 ticks by default. *)
-  let count_default = 10
+  (* We change frame every ticks by default. *)
+  let count_default = 0
 
   (* Creates a slider for a given screen width. *)
   let create_slider screen_width = function
@@ -1042,19 +1042,62 @@ let init modules =
   (* Returning the context of the renderer. *)
   { table ; map }
 
+(* Removes the newline from a string and returns the corresponding
+   list of lines. *)
+let split_string_newline s =
 
+  let rec loop lines_rev string =
+    try
+
+      (* Index of the next newline char. *)
+      let nl_index = String.index string '\n' in
+
+      let string_length = String.length string in
+
+      (* Substring of s before the first newline. *)
+      let lines_rev' =
+        (String.sub string 0 nl_index)
+        :: lines_rev
+      in
+
+      (* Substring of s after the first newline. *)
+      ( String.sub
+          string
+          (nl_index + 1)
+          ((String.length string) - nl_index - 1) )
+
+        |> loop lines_rev'
+      
+    with
+      Not_found -> match string with
+                   | "" -> List.rev lines_rev
+                   | _ -> List.rev (string :: lines_rev)
+                                       
+  in
+
+  loop [] s
+    
 (* Updates the renderer with a new log message. *)
 let printf_rendr ({ table ; map } as context) mdl level fmt =
   let res = Format.fprintf (Format.str_formatter) fmt in
-  let string = Format.flush_str_formatter () in
-  if string <> "" then (
-    if_level_do
-      level
-      (fun () ->
-       TableRenderer.log_add_line
-         table
-         (Printf.sprintf "%s" string)) ;
-    Pervasives.flush stdout) ;
+  
+  ( match
+      (* Getting the formatted string. *)
+      Format.flush_str_formatter ()
+      (* Splitting it at newlines. *)
+      |> split_string_newline
+    with
+    | [] -> ()
+    | strings ->
+       if_level_do
+         level
+         (fun () ->
+          strings
+          |> List.iter
+               (TableRenderer.log_add_line table) ;
+          Pervasives.flush stdout )
+  ) ;
+  
   update_module_stats context mdl ;
   res
 
