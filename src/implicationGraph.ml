@@ -35,7 +35,6 @@ let term_bottom = Term.mk_false ()
 let term_is_bottom term = term = term_bottom
 
 let check_graph_sanity = true
-let print_graph = true
 let print_stats = false
 
 module Stats = struct
@@ -687,6 +686,8 @@ sig
 
   val print: t -> unit
 
+  val check_links: t -> bool
+
 
   (* The context passed down during graph rewriting. *)
   type context
@@ -992,21 +993,19 @@ struct
                  iteration ; history ;
                  creation_index ; creation_from } as node) =
 
-      check_links node |> ignore ;
-
       (* Doing nothing if already seen. *)
       if already_seen node then () else (
 
         fprintf oc
-                "  %10i [label=\"%s {%i}\\n(%i,%s)\\n%s\"]\n"
+                "  %10i [label=\"%s {%i}\"]\n"
                 (* "  %10i [label=\"%s {%i}\\n(%i,%s)\\n%s\\n%s\"]\n" *)
                 (Term.tag representative)
                 (term_to_string representative)
-                (TermSet.cardinal members)
-                creation_index
-                (term_to_string creation_from)
+                (TermSet.cardinal members) ;
+                (* creation_index *)
+                (* (term_to_string creation_from) *)
                 (* (term_set_to_string members) *)
-                (history_to_string history) ;
+                (* (history_to_string history) ; *)
 
         remember node ;
 
@@ -1026,10 +1025,10 @@ struct
     |> NodeS.iter
          ( fun ({ representative ; parents ; kids }) ->
 
-           fprintf oc "\n// Node %s:\n" (term_to_string representative) ;
+           fprintf oc "\n// Node %i:\n" (Term.tag representative) ;
 
            (* Printing parents relations. *)
-           fprintf oc "// Parents of %s:\n" (term_to_string representative) ;
+           fprintf oc "// Parents of %i:\n" (Term.tag representative) ;
            parents
            |> NodeS.iter
                 ( fun parent ->
@@ -1050,14 +1049,6 @@ struct
 
     fprintf oc "\n\n}\n" ;
     close_out oc ;
-
-    (* Checking the links of all the nodes now that the graph has been
-       printed. *)
-    if check_graph_sanity then
-      assert ( NodeS.fold
-                 (fun n b -> b && (check_links n))
-                 !mem
-                 true ) ;
     
     ()
 
@@ -1311,6 +1302,14 @@ let create members = {
 let build_graph_container graph =
 
   let all_nodes = Node.all_nodes_of graph in
+
+  (* Checking the links of all the nodes now that the graph has been
+       printed. *)
+  if check_graph_sanity then
+    assert ( NodeS.fold
+               (fun n b -> b && (Node.check_links n))
+               all_nodes
+               true ) ;
 
   let eq_classes, non_trivial_implications, trivial_implications =
     NodeS.fold
