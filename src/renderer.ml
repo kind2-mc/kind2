@@ -64,7 +64,21 @@ let header_train =
 (* Module for sliders to render animations. A slider is a list of
    lines, and the animation is created by moving cursors deciding what
    is render over the lines.*)
-module Slider = struct
+module Slider: sig
+
+  (* Type for a slider. *)
+  type t
+
+  (* Creates a slider for a given screen width. *)
+  val create_slider: int -> string list -> t
+
+  (* Returns the current frame of a slider as a list of strings,
+     staging the next frame (if necessary) in the process. *)
+  val get_frame: t -> string list
+
+end =
+
+struct
 
   (* Type for a slider. *)
   type t = {
@@ -177,12 +191,44 @@ end
 
 (* This module abstracts ansii escape sequences to functions like
    'go_up', 'save', 'restore'... *)
-module Cursor = struct
+module Cursor: sig
+
+  (* Builds an ansii escape sequence. *)
+  val escape: string -> string
+                         
+  (* Builds the escape sequence reverting everything to default. *)
+  val escape_normal: string
+
+  (* Moves the cursor up by 'row' and right by 'col'. *)
+  val go_to_relative: int * int -> unit
+                                     
+  (* Moves the cursor up 'n' lines. *)
+  val go_up: int -> unit
+                         
+  (* Moves the cursor down 'n' lines. *)
+  val go_down: int -> unit
+                                     
+  (* Moves the cursor left 'n' lines. *)
+  val go_left: int -> unit
+                         
+  (* Moves the cursor right 'n' lines. *)
+  val go_right: int -> unit
+
+  (* Saves the cursor's position. *)
+  val save: unit -> unit
+
+  (* Restores the cursor's position. *)
+  val restore: unit -> unit
+
+end =
+
+struct
 
   open Printf
 
   (* Builds an ansii escape sequence. *)
   let escape s = sprintf "\x1b[%s" s
+                         
   (* Builds the escape sequence reverting everything to default. *)
   let escape_normal = "\x1b[0m"
 
@@ -219,7 +265,39 @@ module Cursor = struct
 end
 
 (* Renders information in a table. *)
-module TableRenderer = struct
+module TableRenderer: sig
+
+  (* Type for a table renderer. *)
+  type t
+         
+  (* Creates a table with a futuristic header at the top of the
+     table. *)
+  val create_header_table: int * int -> int * int -> int -> t
+
+  (* Creates a table with a tchoo slider in the last column. *)
+  val create_tchoo_table: int * int -> int * int -> int -> t
+
+  (* Creates a table without any slider. *)
+  val create_table: int * int -> int * int -> int -> t
+
+  (* Prints a frame of the slider. *)
+  val print_slider: t -> unit
+
+  (* Sets the title of a cell from its index. *)
+  val set_title: t -> int -> string -> unit
+
+  (* Prints a line for cell based on its idex. *)
+  val update_line: t -> int -> int -> string -> unit
+
+  (* Draws a table. *)
+  val draw_table: t -> unit
+
+  (* Adds a line to the log content. *)
+  val log_add_line: t -> string -> unit
+    
+end =
+
+struct
 
   open Printf
 
