@@ -399,6 +399,15 @@ let node_of_name name nodes =
       (* raise Not_found *)
 
 
+let rec ident_of_top = function 
+  
+  | [] -> raise (Invalid_argument "ident_of_top")
+
+  | [{ name }] -> name 
+
+  | h :: tl -> ident_of_top tl
+
+
 (* Calculate dependencies of variables *)
 let rec node_var_dependencies nodes node accum = 
 
@@ -1361,11 +1370,16 @@ let reduce_to_separate_property_cois nodes main_name =
 (* Reduce set of nodes to cone of influence of given state variables *)
 let reduce_to_coi nodes main_name state_vars = 
   
+    debug lustreNode
+      "@[<v>reduce_to_coi nodes'@,%a@]"
+      (pp_print_list (pp_print_node false) "@,") nodes
+    in
+    
   (* Compute input output dependencies for all nodes *)
   let nodes' = 
     List.fold_right
       (fun node accum -> compute_output_input_dep accum node :: accum)
-      nodes
+      (List.rev nodes)
       []
   in
 

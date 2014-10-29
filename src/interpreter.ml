@@ -71,6 +71,8 @@ let main input_file trans_sys =
 
   Event.set_module `Interpreter;
 
+  let input_scope = TransSys.get_scope trans_sys in
+
   if input_file = "" then 
 
     (* Counterexample *)
@@ -95,7 +97,7 @@ let main input_file trans_sys =
 
       try
 
-        InputParser.read_file input_file 
+        InputParser.read_file input_scope input_file 
 
       with Sys_error e -> 
 
