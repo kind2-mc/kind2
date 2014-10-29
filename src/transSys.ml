@@ -18,9 +18,23 @@
 
 open Lib
 
-type input = 
+type source = 
   | Lustre of LustreNode.t list 
   | Native 
+
+(* Global is_init state var *)
+let is_init_svar =
+  StateVar.mk_state_var "x_is_init_x" [] Type.t_bool
+
+(* Global is_init uf *)
+let is_init_uf =
+  StateVar.uf_symbol_of_state_var is_init_svar
+
+(* Instantiate is_init at k *)
+let is_init_var = Var.mk_state_var_instance is_init_svar
+
+let _ = LustreExpr.set_state_var_source is_init_svar LustreExpr.Abstract
+
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
@@ -69,68 +83,74 @@ let prop_status_known = function
   | PropFalse _ -> true
 
 
-type t = 
+(* Offset of state variables in initial state constraint *)
+let init_base = Numeral.zero
 
-  {
+(* Offset of primed state variables in transition relation *)
+let trans_base = Numeral.one
 
-    (* Definitions of uninterpreted function symbols for initial state
-       constraint and transition relation *)
-    uf_defs : (pred_def * pred_def) list;
-
-    (* State variables of top node *)
-    state_vars : StateVar.t list;
-
-    (* Topmost predicate definition for initial state with map of
-       formal to actual parameters *)
-    init_top : UfSymbol.t * (Var.t * Term.t) list;
-
-    (* Topmost predicate definition for transition relation with
-       map of formal to actual parameters *)
-    trans_top : UfSymbol.t * (Var.t * Term.t) list;
-
-    (* Properties to prove invariant *)
-    props : (string * Term.t) list; 
-
-    (* The input which produced this system. *)
-    input : input;
-
-    (* Invariants *)
-    mutable invars : Term.t list;
-
-    (* Status of property *)
-    mutable prop_status : (string * prop_status) list;
-    
-  }
+(* Offset of primed state variables in properties and invariants *)
+let prop_base = Numeral.zero
 
 
-(* Return the term for the initial state constraint *)
-let init_term t = 
-
-  (* Get symbol and map from formal to actual parameters *)
-  let init_uf_symbol, params_map = t.init_top in
+type t = {
   
-  (* Call to top node *)
-  Term.mk_uf init_uf_symbol (List.map snd params_map)
+  (* Scope of state variables *)
+  scope : string list;
+
+  (* Init and trans pairs of this system and its subsystems in
+     topological order. *)
+  uf_defs: (pred_def * pred_def) list ;
+
+  (* State variables of top node *)
+  state_vars: StateVar.t list ;
+
+  (* Initial predicate of the system. *)
+  init: pred_def ;
+
+  (* Transition predicate of the system. *)
+  trans: pred_def ;
+
+  (* The subsystems of this system. *)
+  subsystems: t list ;
+
+  (* Properties to hopefully prove invariant. *)
+  props: (string * Term.t) list ;
+
+  (* The source which produced this system. *)
+  source: source ;
+
+  (* Invariants *)
+  mutable invars: Term.t list ;
+
+  (* Status of property *)
+  mutable prop_status: (string * prop_status) list
+
+}
 
 
-(* Return the term for the transition relation *)
-let trans_term t = 
+(* Return the predicate for the initial state constraint *)
+let init_uf_symbol { init = (s, _) } = s
 
-  (* Get symbol and map from formal to actual parameters *)
-  let trans_uf_symbol, params_map = t.trans_top in
-  
-  (* Call to top node *)
-  Term.mk_uf trans_uf_symbol (List.map snd params_map)
+(* Return the predicate for the transition relation *)
+let trans_uf_symbol { trans = (s, _) } = s
+
+(* Return the variables in the initial state constraint *)
+let init_vars { init = (_, (v, _)) } = v
+
+(* Return the variables in the transition relation *)
+let trans_vars { trans = (_, (v, _)) } = v
+
+(* Return the definition of the initial state constraint *)
+let init_term { init = (_, (_, t)) } = t
+
+(* Return the definition of the transition relation *)
+let trans_term { trans = (_, (_, t)) } = t
 
 
-(* Return topmost predicate definition for initial state constraint
-   with map of formal to actual parameters *)
-let init_top { init_top } = init_top
 
-
-(* Return topmost predicate definition for transition relation with
-   map of formal to actual parameters *)
-let trans_top { trans_top } = trans_top
+(* Returns the subsystems of a system. *)
+let get_subsystems { subsystems } = subsystems
 
 
 let pp_print_state_var ppf state_var = 
@@ -158,19 +178,6 @@ let pp_print_uf_def ppf (uf_symbol, (vars, term)) =
     (pp_print_list pp_print_var "@ ") vars
     Term.pp_print_term term
 
-
-let pp_print_prop ppf (prop_name, prop_term) = 
-
-  Format.fprintf 
-    ppf
-    "@[<hv 1>(%s@ %a)@]"
-    prop_name
-    Term.pp_print_term prop_term
-
-let pp_print_prop_status ppf (p, s) =
-  Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
-
-
 let pp_print_uf_defs 
     ppf
     ((init_uf_symbol, (init_vars, init_term)), 
@@ -187,36 +194,20 @@ let pp_print_uf_defs
     Term.pp_print_term trans_term
 
 
-let pp_print_trans_sys 
-    ppf
-    ({ uf_defs; 
-       state_vars; 
-       init_top; 
-       trans_top; 
-       props;
-       invars;
-       prop_status } as trans_sys) = 
+let pp_print_prop ppf (prop_name, prop_term) = 
 
   Format.fprintf 
     ppf
-    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-          %a@,\
-          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(status@ (@[<v>%a@]))@]@."
-    (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_uf_defs "@ ") uf_defs
-    Term.pp_print_term (init_term trans_sys)
-    Term.pp_print_term (trans_term trans_sys)
-    (pp_print_list pp_print_prop "@ ") props
-    (pp_print_list Term.pp_print_term "@ ") invars
-    (pp_print_list pp_print_prop_status "@ ") prop_status
+    "@[<hv 1>(%s@ %a)@]"
+    prop_name
+    Term.pp_print_term prop_term
+
+let pp_print_prop_status ppf (p, s) =
+  Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
 
 
 (* Create a transition system *)
-let mk_trans_sys uf_defs state_vars init_top trans_top props input = 
+let mk_trans_sys scope state_vars init trans subsystems props source = 
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -245,13 +236,38 @@ let mk_trans_sys uf_defs state_vars init_top trans_top props input =
       state_vars
   in
 
-  { uf_defs = uf_defs;
-    state_vars = List.sort StateVar.compare_state_vars state_vars;
-    init_top = init_top;
-    trans_top = trans_top;
-    props = props;
-    input = input;
-    prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props;
+  (* Goes through the subsystems and constructs the list of
+     uf_defs. *)
+  let rec get_uf_defs result = function
+    | { uf_defs } :: tail ->
+
+       (* Removing uf_defs of the subsystem from the result. *)
+       let result' =
+         result
+         |> List.filter
+              ( fun pair ->
+                not (List.mem pair uf_defs) )
+       in
+
+       get_uf_defs
+         (* Adding uf_defs of the subsystem to the result. *)
+         (List.concat [ uf_defs ; result' ])
+         tail
+
+    | [] -> result
+  in
+
+  { scope = scope;
+    uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
+    state_vars =
+      is_init_svar :: state_vars
+      |> List.sort StateVar.compare_state_vars ;
+    init = init ;
+    trans = trans ;
+    props = props ;
+    subsystems = subsystems ;
+    source = source ;
+    prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props ;
     invars = invars_of_types }
 
 
@@ -265,25 +281,28 @@ let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
 let state_vars t = t.state_vars
 
 (* Return the input used to create the transition system *)
-let get_input t = t.input
+let get_source t = t.source
+
+(* Return the input used to create the transition system *)
+let get_scope t = t.scope
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 
 
   (* Return when upper bound below lower bound *)
-  if Numeral.(ubound < lbound) then accum else
+  if Numeral.(ubound < lbound)
+  then accum
+  else
+    trans_sys.state_vars
 
     (* Add state variables at upper bound instant  *)
-    let accum' = 
-      List.fold_left
-        (fun accum sv -> 
-           Var.mk_state_var_instance sv ubound :: accum)
-        accum
-        trans_sys.state_vars
-    in
+    |> List.fold_left
+         ( fun accum sv -> 
+           Var.mk_state_var_instance sv ubound :: accum )
+         accum
 
     (* Recurse to next lower bound *)
-    vars_of_bounds' trans_sys lbound (Numeral.pred ubound) accum'
+    |> vars_of_bounds' trans_sys lbound (Numeral.pred ubound)
 
 let vars_of_bounds trans_sys lbound ubound = 
   vars_of_bounds' trans_sys lbound ubound []
@@ -293,24 +312,35 @@ let vars_of_bounds trans_sys lbound ubound =
 (* Instantiate the initial state constraint to the bound *)
 let init_of_bound t i = 
 
-  (* Get term of initial state constraint *)
-  let init_term = init_term t in
+  let init_term =
+    Term.mk_and [
+        (* Get term of initial state constraint *)
+        init_term t ;
+        (* Adding is_init. *)
+        Term.mk_var (is_init_var Numeral.zero) ]
+  in
 
   (* Bump bound if greater than zero *)
-  if Numeral.(i = zero) then init_term else Term.bump_state i init_term
+  if Numeral.(i = zero)
+  then init_term
+  else Term.bump_state i init_term
 
 
-(* Instantiate the transition relation to the bound *)
+(* Instantiate the transition relation to the bound. *)
 let trans_of_bound t i = 
 
-  (* Get term of initial state constraint *)
-  let trans_term = trans_term t in
+  let trans_term =
+    Term.mk_and [
+        (* Get term of transition predicate. *)
+        trans_term t ;
+        (* The next state cannot be initial. *)
+        (is_init_var Numeral.one |> Term.mk_var |> Term.mk_not) ]
+  in
 
   (* Bump bound if greater than zero *)
-  if Numeral.(i = one) then 
-    trans_term 
-  else 
-    Term.bump_state (Numeral.(i - one)) trans_term
+  if Numeral.(i = one)
+  then trans_term 
+  else Term.bump_state (Numeral.(i - one)) trans_term
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -353,14 +383,14 @@ let add_invariant t invar = t.invars <- invar :: t.invars
 
 
 (* Return current status of all properties *)
-let get_prop_status_all trans_sys = trans_sys.prop_status
+let get_prop_status_all t = t.prop_status
 
 (* Return current status of all properties *)
-let get_prop_status_all_unknown trans_sys = 
+let get_prop_status_all_unknown t = 
 
   List.filter
     (fun (_, s) -> not (prop_status_known s))
-    trans_sys.prop_status
+    t.prop_status
 
 
 (* Return current status of property *)
@@ -484,77 +514,113 @@ let set_prop_status t p = function
 
 
 (* Return true if the property is proved invariant *)
-let is_proved trans_sys prop = 
+let is_proved t prop = 
 
   try 
-
-    (match List.assoc prop trans_sys.prop_status with
+    ( match List.assoc prop t.prop_status with
       | PropInvariant -> true
-      | _ -> false)
+      | _ -> false )
         
-  with Not_found -> false
+  with
+    Not_found -> false
 
 
 (* Return true if the property is proved not invariant *)
-let is_disproved trans_sys prop = 
+let is_disproved t prop = 
 
   try 
-
-    (match List.assoc prop trans_sys.prop_status with
+    ( match List.assoc prop t.prop_status with
       | PropFalse _ -> true
-      | _ -> false)
+      | _ -> false )
         
-  with Not_found -> false
+  with
+    Not_found -> false
 
 
 
 (* Return true if all properties are either valid or invalid *)
-let all_props_proved trans_sys =
+let all_props_proved t =
 
   List.for_all
     (fun (p, _) -> 
        try 
-         (match List.assoc p trans_sys.prop_status with
+         (match List.assoc p t.prop_status with
            | PropUnknown
            | PropKTrue _ -> false
            | PropInvariant
            | PropFalse _ -> true)
        with Not_found -> false)
-    trans_sys.props 
-      
+    t.props
 
 (* Return declarations for uninterpreted symbols *)
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
 
-
-(* Return uninterpreted function symbol definitions *)
-let uf_defs { uf_defs } = 
-
-  List.fold_left 
-    (fun a (i, t) -> i :: t :: a)
-    []
-    uf_defs
+(* Return uninterpreted function symbol definitions sorted by
+   topological order. *)
+let uf_defs { uf_defs } =
+  uf_defs
+  |> List.fold_left
+       ( fun list (init,trans) ->
+         (* We'll reverse for topological order, so trans is first. *)
+         trans :: init :: list )
+       []
+  (* Reversing for topological order. *)
+  |> List.rev
 
 (* Return uninterpreted function symbol definitions as pairs of
-    initial state and transition relation definitions *)
+   initial state and transition relation definitions sorted by
+   topological order. *)
 let uf_defs_pairs { uf_defs } = uf_defs
+         
+  
 
 
-(* Return [true] if the uninterpreted symbol is a transition relation *)
-let is_trans_uf_def trans_sys uf_symbol = 
+let pp_print_trans_sys 
+    ppf
+    ({ uf_defs;
+       state_vars;
+       props;
+       invars;
+       prop_status; 
+       source } as trans_sys) = 
 
-  List.exists
-    (function (_, (t, _)) -> UfSymbol.equal_uf_symbols uf_symbol t)
-    trans_sys.uf_defs
+  Format.fprintf 
+    ppf
+    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+          %a@,\
+          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(status@ (@[<v>%a@]))@]@,\
+          @[<hv 2>;; (source@ (@[<v>%a@]))@]@."
+    (pp_print_list pp_print_state_var "@ ") state_vars
+    (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
+    Term.pp_print_term (init_term trans_sys)
+    Term.pp_print_term (trans_term trans_sys)
+    (pp_print_list pp_print_prop "@ ") props
+    (pp_print_list Term.pp_print_term "@ ") invars
+    (pp_print_list pp_print_prop_status "@ ") prop_status
+    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+
  
 
 (* Return [true] if the uninterpreted symbol is an initial state constraint *)
-let is_init_uf_def trans_sys uf_symbol = 
+let is_init_uf_def { uf_defs } uf_symbol = 
 
-  List.exists
-    (function ((i, _), _) -> UfSymbol.equal_uf_symbols uf_symbol i)
-    trans_sys.uf_defs
+  uf_defs
+  |> List.exists
+       (function ((i, _), _) ->
+                 UfSymbol.equal_uf_symbols uf_symbol i)
+
+(* Return [true] if the uninterpreted symbol is a transition relation *)
+let is_trans_uf_def { uf_defs } uf_symbol = 
+
+  uf_defs
+  |> List.exists
+       (function (_, (t, _)) ->
+                 UfSymbol.equal_uf_symbols uf_symbol t)
  
 
 (* Apply [f] to all uninterpreted function symbols of the transition
@@ -563,10 +629,10 @@ let iter_state_var_declarations { state_vars } f =
   List.iter (fun sv -> f (StateVar.uf_symbol_of_state_var sv)) state_vars
   
 (* Apply [f] to all function definitions of the transition system *)
-let iter_uf_definitions { uf_defs } f = 
-  List.iter 
-    (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt) 
-      uf_defs
+let iter_uf_definitions t f = 
+  uf_defs_pairs t
+  |> List.iter 
+       (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt)
   
 
 (* Extract a path in the transition system, return an association list

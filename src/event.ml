@@ -94,7 +94,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
   (* Reduce nodes to cone of influence of property *)
   let nodes' = 
     LustreNode.reduce_to_coi 
-      (List.rev nodes)
+      nodes
       main_name
       (StateVar.StateVarSet.elements (Term.state_vars_of_term prop'))
   in
@@ -413,10 +413,15 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
     (
 
       (* Distinguish between input formats *)
-      match TransSys.get_input trans_sys with
+      match TransSys.get_source trans_sys with
 
         (* Lustre input *)
         | TransSys.Lustre nodes ->
+
+          debug event
+              "Nodes in transition system: %a"
+              (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") nodes
+          in
 
           (* Reduce nodes to cone of influence of property *)
           let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
@@ -429,10 +434,14 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
         (* Native input *)
         | TransSys.Native ->
 
+          assert false
+
+      (*
           (* Output counterexample *)
           Format.fprintf ppf 
             "Counterexample:@,%a"
             NativeInput.pp_print_path_pt cex
+*)
 
     )
 
@@ -441,7 +450,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
 let pp_print_path_pt trans_sys init ppf path = 
 
   (* Distinguish between input formats *)
-  match TransSys.get_input trans_sys with
+  match TransSys.get_source trans_sys with
         
     (* Lustre input *)
     | TransSys.Lustre nodes ->
@@ -453,12 +462,17 @@ let pp_print_path_pt trans_sys init ppf path =
           
     (* Native input *)
     | TransSys.Native ->
+
+      (*
       
       (* Output path *)
       Format.fprintf ppf 
         "%a"
         NativeInput.pp_print_path_pt path
 
+      *)
+
+      assert false
 
 (* Output execution path as XML *)
 let execution_path_pt level trans_sys path = 
@@ -658,7 +672,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
     (
 
       (* Distinguish between input formats *)
-      match TransSys.get_input trans_sys with
+      match TransSys.get_source trans_sys with
 
         (* Lustre input *)
         | TransSys.Lustre nodes ->
@@ -674,10 +688,14 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
         (* Native input *)
         | TransSys.Native ->
 
+(*
           (* Output counterexample *)
           Format.fprintf ppf 
             "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
             NativeInput.pp_print_path_xml cex
+*)
+
+          assert false
 
     )
 
@@ -686,7 +704,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
 let pp_print_path_xml trans_sys init ppf path = 
 
   (* Distinguish between input formats *)
-  match TransSys.get_input trans_sys with
+  match TransSys.get_source trans_sys with
         
     (* Lustre input *)
     | TransSys.Lustre nodes ->
@@ -699,11 +717,14 @@ let pp_print_path_xml trans_sys init ppf path =
     (* Native input *)
     | TransSys.Native ->
       
+(*
       (* Output path *)
       Format.fprintf ppf 
         "%a"
         NativeInput.pp_print_path_xml path
+*)
 
+      assert false
 
 (* Output execution path as XML *)
 let execution_path_xml level trans_sys path = 

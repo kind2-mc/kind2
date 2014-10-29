@@ -50,6 +50,210 @@ type tree_path =
 
 
 (* ********************************************************************** *)
+(* Printing helpers                                                       *)
+(* ********************************************************************** *)
+
+
+(* Pretty-print a value *)
+let rec pp_print_value ppf term =
+
+  (* We expect values to be constants *)
+  if Term.is_numeral term then 
+
+    (* Pretty-print as a numeral *)
+    Numeral.pp_print_numeral 
+      ppf
+      (Term.numeral_of_term term)
+
+  (* Constant is a decimal? *)
+  else if Term.is_decimal term then 
+    
+    (* Pretty-print as a decimal *)
+    Decimal.pp_print_decimal 
+      ppf
+      (Term.decimal_of_term term)
+      
+  (* Constant is a Boolean? *)
+  else if Term.is_bool term then 
+    
+    (* Get Boolean value of constant *)
+    if Term.bool_of_term term then 
+      
+      (* Pretty-print as Boolean value *)
+      Format.fprintf ppf "true"
+        
+    else
+      
+      (* Pretty-print as Boolean value *)
+      Format.fprintf ppf "false"
+        
+  else
+    
+    (* Fall back to pretty-print as a term *)
+    Term.pp_print_term ppf term 
+
+
+(* ********************************************************************** *)
+(* Plain text output                                                      *)
+(* ********************************************************************** *)
+
+(* Pretty-print a file position *)
+let pp_print_file_pt ppf pos_file = 
+
+  if pos_file = "" then () else
+    Format.fprintf ppf "(%s)" pos_file
+
+
+(* Pretty-print a position as XML attributes *)
+let pp_print_pos_pt ppf pos = 
+
+  (* Do not print anything for a dummy position *)
+  if A.is_dummy_pos pos then () else 
+
+    (* Get file, line and column of position *)
+    let pos_file, pos_lnum, pos_cnum = 
+      A.file_row_col_of_pos pos
+    in
+    
+    (* Print attributes *)
+    Format.fprintf 
+      ppf
+      "[%al%dc%d]"
+      pp_print_file_pt pos_file
+      pos_lnum
+      pos_cnum
+
+
+(* Pretty-print a single value of a stream at an instant *)
+let pp_print_stream_value val_width ppf i t =
+  Format.fprintf 
+    ppf
+    "%-*s"
+    val_width
+    (string_of_t pp_print_value t)    
+
+
+(* pretty prints a stream as its identifier followed by its values at each 
+  instance. gives [ident_width] space to its identifier column and [val_width]
+  space to each of its value columns. *)
+let pp_print_stream_pt 
+    ident_width 
+    val_width 
+    ppf 
+    (sv, stream_values) =
+
+  (* Get identifier without scope *)
+  let stream_ident, ident_scope = LustreExpr.ident_of_state_var sv in
+
+  Format.fprintf
+    ppf
+    "%-*s %a"
+    ident_width
+    (string_of_t (LustreIdent.pp_print_ident false) stream_ident)
+    (pp_print_arrayi (pp_print_stream_value val_width) " ") stream_values
+
+
+(* pretty prints a tree_path, giving width [ident_width] to the stream 
+   identifier column, width [val_width] to each value column, and
+   displaying its ordered list of tree ancestor identifiers [ancestor_idents] 
+   in a header. *)
+let rec pp_print_tree_path_pt 
+    ident_width 
+    val_width
+    ancestor_idents
+    ppf 
+  = function N (node_ident, node_pos, stream_map, call_map) ->
+
+    (* Get all streams in the node *)
+    let streams = SVMap.bindings stream_map in
+
+    (* Filter for inputs *)
+    let inputs = 
+      List.filter (fun (sv, _) -> E.state_var_is_input sv) streams 
+    in
+
+    (* Filter for outputs *)
+    let outputs = 
+      List.filter (fun (sv, _) -> E.state_var_is_output sv) streams 
+    in
+
+    (* Filter for local variables *)
+    let locals = 
+      List.filter (fun (sv, _) -> E.state_var_is_local sv) streams 
+    in    
+
+    Format.fprintf
+      ppf 
+      "Node %a (%a)@,"
+      (I.pp_print_ident false) node_ident
+      (pp_print_list 
+         (function ppf -> function (n, p) -> 
+           Format.fprintf ppf 
+             "%a%a"
+               (I.pp_print_ident false) n
+               pp_print_pos_pt p)
+         " / ")
+      (List.rev ancestor_idents);
+
+    let children = snd (List.split (CallMap.bindings call_map)) in 
+
+    let children = CallMap.bindings call_map in 
+
+    let ident_path = (node_ident, node_pos) :: ancestor_idents in
+
+    let print_child ((_, pos), child) =
+      pp_print_tree_path_pt
+        ident_width
+        val_width
+        ((node_ident, pos) :: ancestor_idents)
+        ppf 
+        child
+    in
+
+    (* Pretty-print input streams if any *)
+    (match inputs with 
+      | [] -> ()
+      | _ -> 
+        Format.fprintf
+          ppf
+          "== Inputs ==@,%a@,"
+          (pp_print_list 
+             (pp_print_stream_pt ident_width val_width)
+             "@,")
+          inputs);
+
+    (* Pretty-print output streams if any *)
+    (match outputs with 
+      | [] -> ()
+      | _ -> 
+        Format.fprintf
+          ppf
+          "== Outputs ==@,%a@,"
+          (pp_print_list 
+             (pp_print_stream_pt ident_width val_width)
+             "@,")
+          outputs);
+
+    (* Pretty-print local streams if any *)
+    (match locals with 
+      | [] -> ()
+      | _ -> 
+        Format.fprintf
+          ppf
+          "== Locals ==@,%a@,"
+          (pp_print_list 
+             (pp_print_stream_pt ident_width val_width)
+             "@,")
+          locals);
+
+    (* Empty line at end of node *)
+    Format.fprintf ppf "@,";
+    
+    (* Pretty-print called nodes *)
+    List.iter print_child children
+
+
+(* ********************************************************************** *)
 (* Conversion of model to a hierarchical model                            *)
 (* ********************************************************************** *)
 
@@ -88,13 +292,7 @@ let rec tree_path_of_model model =
 
            (* Add modified node content to map, replaces previous entry *)
            let call_map' = CallMap.add call_key node_model' call_map in
-(*
-           debug lustrePath
-               "State variable %a is an instance of %a"
-               StateVar.pp_print_state_var state_var
-               StateVar.pp_print_state_var call_state_var
-           in
-*)
+
            (* Continue with modified node calls *)
            call_map')
         call_map
@@ -106,7 +304,7 @@ let rec tree_path_of_model model =
 
   in
 
-  (* Create a hierarchival model for variables of node *)
+  (* Create a hierarchical model for variables of node *)
   let node_of_model (call_node_id, call_pos) model =
 
     (* Streams of this node and stream in called nodes  *)
@@ -287,7 +485,7 @@ let rec tree_path_of_nodes
            (fun sv -> E.get_state_var_source sv = E.Local) 
            (List.map fst locals))))
   in
-
+  
   (* Add streams in node to hierarchic model *)
   let tree_path' = 
     List.fold_left
@@ -398,10 +596,25 @@ let reduced_tree_path_of_model start_at_init nodes model =
   (* Convert flat model to a hierarchical model *)
   let stream_map, call_map = tree_path_of_model model in
 
+  (*
   (* Get the single element of the map *)
   let N (node_name, node_pos, _, _) as orig_tree_path = 
     snd (CallMap.choose call_map)
   in
+*)
+
+  let main_node = List.hd nodes in
+
+  let node_name = main_node.N.name in
+
+  let node_pos = A.dummy_pos in
+  
+  let orig_tree_path = N (node_name, node_pos, stream_map, call_map) in
+    
+    debug lustrePath
+    "%a" (pp_print_tree_path_pt 8 8 [])  orig_tree_path
+    in
+  
 
   (* Return hierarchical model corresponding to original definition of
      node *)
@@ -411,50 +624,6 @@ let reduced_tree_path_of_model start_at_init nodes model =
     (List.hd (List.rev nodes)) 
     orig_tree_path
     (N (node_name, node_pos, SVMap.empty, CallMap.empty))
-
-
-(* ********************************************************************** *)
-(* Printing helpers                                                       *)
-(* ********************************************************************** *)
-
-
-(* Pretty-print a value *)
-let rec pp_print_value ppf term =
-
-  (* We expect values to be constants *)
-  if Term.is_numeral term then 
-
-    (* Pretty-print as a numeral *)
-    Numeral.pp_print_numeral 
-      ppf
-      (Term.numeral_of_term term)
-
-  (* Constant is a decimal? *)
-  else if Term.is_decimal term then 
-    
-    (* Pretty-print as a decimal *)
-    Decimal.pp_print_decimal 
-      ppf
-      (Term.decimal_of_term term)
-      
-  (* Constant is a Boolean? *)
-  else if Term.is_bool term then 
-    
-    (* Get Boolean value of constant *)
-    if Term.bool_of_term term then 
-      
-      (* Pretty-print as Boolean value *)
-      Format.fprintf ppf "true"
-        
-    else
-      
-      (* Pretty-print as Boolean value *)
-      Format.fprintf ppf "false"
-        
-  else
-    
-    (* Fall back to pretty-print as a term *)
-    Term.pp_print_term ppf term 
 
 
 (* ********************************************************************** *)
@@ -587,164 +756,6 @@ let pp_print_path_xml nodes start_at_init ppf model =
   pp_print_tree_path_xml ppf reconstructed
 
 
-(* ********************************************************************** *)
-(* Plain text output                                                      *)
-(* ********************************************************************** *)
-
-(* Pretty-print a file position *)
-let pp_print_file_pt ppf pos_file = 
-
-  if pos_file = "" then () else
-    Format.fprintf ppf "(%s)" pos_file
-
-
-(* Pretty-print a position as XML attributes *)
-let pp_print_pos_pt ppf pos = 
-
-  (* Do not print anything for a dummy position *)
-  if A.is_dummy_pos pos then () else 
-
-    (* Get file, line and column of position *)
-    let pos_file, pos_lnum, pos_cnum = 
-      A.file_row_col_of_pos pos
-    in
-    
-    (* Print attributes *)
-    Format.fprintf 
-      ppf
-      "[%al%dc%d]"
-      pp_print_file_pt pos_file
-      pos_lnum
-      pos_cnum
-
-
-(* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value val_width ppf i t =
-  Format.fprintf 
-    ppf
-    "%-*s"
-    val_width
-    (string_of_t pp_print_value t)    
-
-
-(* pretty prints a stream as its identifier followed by its values at each 
-  instance. gives [ident_width] space to its identifier column and [val_width]
-  space to each of its value columns. *)
-let pp_print_stream_pt 
-    ident_width 
-    val_width 
-    ppf 
-    (sv, stream_values) =
-
-  (* Get identifier without scope *)
-  let stream_ident, _ = LustreExpr.ident_of_state_var sv in
-
-  Format.fprintf
-    ppf
-    "%-*s %a"
-    ident_width
-    (string_of_t (LustreIdent.pp_print_ident false) stream_ident)
-    (pp_print_arrayi (pp_print_stream_value val_width) " ") stream_values
-
-
-(* pretty prints a tree_path, giving width [ident_width] to the stream 
-   identifier column, width [val_width] to each value column, and
-   displaying its ordered list of tree ancestor identifiers [ancestor_idents] 
-   in a header. *)
-let rec pp_print_tree_path_pt 
-    ident_width 
-    val_width
-    ancestor_idents
-    ppf 
-  = function N (node_ident, node_pos, stream_map, call_map) ->
-
-    (* Get all streams in the node *)
-    let streams = SVMap.bindings stream_map in
-
-    (* Filter for inputs *)
-    let inputs = 
-      List.filter (fun (sv, _) -> E.state_var_is_input sv) streams 
-    in
-
-    (* Filter for outputs *)
-    let outputs = 
-      List.filter (fun (sv, _) -> E.state_var_is_output sv) streams 
-    in
-
-    (* Filter for local variables *)
-    let locals = 
-      List.filter (fun (sv, _) -> E.state_var_is_local sv) streams 
-    in    
-
-    Format.fprintf
-      ppf 
-      "Node %a (%a)@,"
-      (I.pp_print_ident false) node_ident
-      (pp_print_list 
-         (function ppf -> function (n, p) -> 
-           Format.fprintf ppf 
-             "%a%a"
-               (I.pp_print_ident false) n
-               pp_print_pos_pt p)
-         " / ")
-      (List.rev ancestor_idents);
-
-    let children = snd (List.split (CallMap.bindings call_map)) in 
-
-    let children = CallMap.bindings call_map in 
-
-    let ident_path = (node_ident, node_pos) :: ancestor_idents in
-
-    let print_child ((_, pos), child) =
-      pp_print_tree_path_pt
-        ident_width
-        val_width
-        ((node_ident, pos) :: ancestor_idents)
-        ppf 
-        child
-    in
-
-    (* Pretty-print input streams if any *)
-    (match inputs with 
-      | [] -> ()
-      | _ -> 
-        Format.fprintf
-          ppf
-          "== Inputs ==@,%a@,"
-          (pp_print_list 
-             (pp_print_stream_pt ident_width val_width)
-             "@,")
-          inputs);
-
-    (* Pretty-print output streams if any *)
-    (match outputs with 
-      | [] -> ()
-      | _ -> 
-        Format.fprintf
-          ppf
-          "== Outputs ==@,%a@,"
-          (pp_print_list 
-             (pp_print_stream_pt ident_width val_width)
-             "@,")
-          outputs);
-
-    (* Pretty-print local streams if any *)
-    (match locals with 
-      | [] -> ()
-      | _ -> 
-        Format.fprintf
-          ppf
-          "== Locals ==@,%a@,"
-          (pp_print_list 
-             (pp_print_stream_pt ident_width val_width)
-             "@,")
-          locals);
-
-    (* Empty line at end of node *)
-    Format.fprintf ppf "@,";
-    
-    (* Pretty-print called nodes *)
-    List.iter print_child children
 
 
 (* Return width of widest identifier and widest value *)
@@ -805,10 +816,13 @@ let rec widths_of_model = function
    reconstructed *)
 let pp_print_path_pt nodes start_at_init ppf model =
 
-  let reconstructed = reduced_tree_path_of_model start_at_init nodes model in
+  let reconstructed =
+    reduced_tree_path_of_model start_at_init nodes model
+  in
 
   (* Get maximum widths of identifiers and values *)
   let ident_width, val_width = widths_of_model reconstructed in
+
   pp_print_tree_path_pt ident_width val_width [] ppf reconstructed
 
 
