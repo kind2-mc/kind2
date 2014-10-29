@@ -1010,18 +1010,31 @@ let init modules =
   in
 
   (* Creating the table. *)
-  let table =
-    ( match Flags.log_format_renderer () with
-      | (false, true) -> TableRenderer.create_table
-      | (true, false) -> TableRenderer.create_tchoo_table
-      | (true, true) -> TableRenderer.create_header_table
-      | (false, false) -> failwith "Rendering is deactivated." )
-
-      (columns, rows)
-      (* Colums are 40 characters wide, rows are 7 lines high. *)
-      (40,7)
-      (* Log is 7 lines high. *)
-      15
+  let table = match Flags.log_format_renderer () with
+    | (false, true) -> TableRenderer.create_table
+                         (columns, rows)
+                         (* Colums are 40 characters wide, rows are
+                              7 lines high. *)
+                         (40,7)
+                         (* Log is 7 lines high. *)
+                         15
+    | (true, false) -> TableRenderer.create_tchoo_table
+                         (columns,
+                          if module_count mod 2 = 0
+                          then rows + 1 else rows)
+                         (* Colums are 40 characters wide, rows are
+                              7 lines high. *)
+                         (40,7)
+                         (* Log is 7 lines high. *)
+                         15
+    | (true, true) -> TableRenderer.create_header_table
+                        (columns, rows)
+                        (* Colums are 40 characters wide, rows are
+                              7 lines high. *)
+                        (40,7)
+                        (* Log is 7 lines high. *)
+                        15
+    | (false, false) -> failwith "Rendering is deactivated."
   in
 
   (* List.iter *)
@@ -1095,6 +1108,8 @@ let printf_rendr ({ table ; map } as context) mdl level fmt =
           strings
           |> List.iter
                (TableRenderer.log_add_line table) ;
+               (* let l = Printf.sprintf "[%s]" line in *)
+               (* (TableRenderer.log_add_line table l) ; *)
           Pervasives.flush stdout )
   ) ;
   
