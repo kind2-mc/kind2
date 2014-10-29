@@ -22,6 +22,7 @@ open Lib
 (* Termination message received *)
 exception Terminate
 
+
 (* ********************************************************************** *)
 (* Helper functions                                                       *)
 (* ********************************************************************** *)
@@ -864,6 +865,7 @@ let stat_relay stats =
 
 *)
 
+
 (* ********************************************************************** *)
 (* State of the logger                                                    *)
 (* ********************************************************************** *)
@@ -874,7 +876,7 @@ type log_format =
   | F_pt
   | F_xml
   | F_relay
-
+  | F_renderer of Renderer.t
 
 (* Current log format *)
 let log_format = ref F_pt
@@ -894,6 +896,16 @@ let set_log_format_xml () =
 (* Relay log messages to invariant manager *)
 let set_relay_log () = log_format := F_relay
 
+(* Set log format to renderer. *)
+let set_log_format_renderer modules =
+  (* Not doing it if in relay mode. *)
+  if !log_format <> F_relay then (
+    (* Initializing the renderer. *)
+    let context = Renderer.init modules in
+    (* Memorizing the context. *)
+    log_format := F_renderer(context)
+  )
+
 
 (* ********************************************************************** *)
 (* Generic logging functions                                              *)
@@ -905,72 +917,103 @@ let log level fmt =
   let mdl = get_module () in
 
   match !log_format with 
-    | F_pt -> printf_pt mdl level fmt
-    | F_xml -> printf_xml mdl level fmt
-    | F_relay -> printf_relay mdl level fmt
+  | F_pt -> printf_pt mdl level fmt
+  | F_xml -> printf_xml mdl level fmt
+  | F_relay -> printf_relay mdl level fmt
+  | F_renderer(context) ->
+     Renderer.printf_rendr context mdl level fmt
 
 
 (* Log a message with source and log level *)
 let log_proved mdl level trans_sys k prop =
   match !log_format with 
-    | F_pt -> proved_pt mdl level trans_sys k prop
-    | F_xml -> proved_xml mdl level trans_sys k prop
-    | F_relay -> ()
+  | F_pt -> proved_pt mdl level trans_sys k prop
+  | F_xml -> proved_xml mdl level trans_sys k prop
+  | F_relay -> ()
+  | F_renderer(context) ->
+     Renderer.proved_rendr context mdl level trans_sys k prop
 
 
 (* Log a message with source and log level *)
 let log_disproved mdl level trans_sys prop cex =
   match !log_format with 
-    | F_pt -> disproved_pt mdl level trans_sys prop cex 
-    | F_xml -> disproved_xml mdl level trans_sys prop cex
-    | F_relay -> ()
+  | F_pt -> disproved_pt mdl level trans_sys prop cex 
+  | F_xml -> disproved_xml mdl level trans_sys prop cex
+  | F_relay -> ()
+  | F_renderer(context) ->
+     Renderer.disproved_rendr context mdl level trans_sys prop cex
 
 
 (* Log an exection path *)
 let log_execution_path mdl level trans_sys path =
-
-  (match !log_format with 
-    | F_pt -> execution_path_pt level trans_sys path
-    | F_xml -> execution_path_xml level trans_sys path 
-    | F_relay -> ())
+  match !log_format with 
+  | F_pt -> execution_path_pt level trans_sys path
+  | F_xml -> execution_path_xml level trans_sys path 
+  | F_relay -> ()
+  | F_renderer(context) -> ()
 
 
 (* Output summary of status of properties *)
 let log_prop_status level prop_status =
   match !log_format with 
-    | F_pt -> prop_status_pt level prop_status
-    | F_xml -> prop_status_xml level prop_status
-    | F_relay -> ()
+  | F_pt -> prop_status_pt level prop_status
+  | F_xml -> prop_status_xml level prop_status
+  | F_relay -> ()
+  | F_renderer(context) -> ()
 
 
 (* Output statistics of a section of a source *)
 let log_stat mdl level stats =
   match !log_format with 
-    | F_pt -> stat_pt mdl level stats
-    | F_xml -> stat_xml mdl level stats
-    | F_relay -> ()
-  
+  | F_pt -> stat_pt mdl level stats
+  | F_xml -> stat_xml mdl level stats
+  | F_relay -> ()
+  | F_renderer(context) ->
+     Renderer.stats_rendr context mdl level
+                 
 
 (* Output progress indicator of a source *)
-let log_progress mdl level k = 
+let log_progress mdl level k =
+  ( match mdl with
+    | `BMC -> Stat.set k Stat.bmc_k
+    | `IND -> Stat.set k Stat.ind_k
+    | `PDR -> Stat.set k Stat.pdr_k
+    | _ -> () ) ;
   match !log_format with 
-    | F_pt -> ()
-    | F_xml -> progress_xml mdl level k
-    | F_relay -> ()
-  
+  | F_pt -> ()
+  | F_xml -> progress_xml mdl level k
+  | F_relay -> ()
+  | F_renderer(context) ->
+     Renderer.progress_rendr context mdl level k
+                 
 
 (* Terminate log output *)
 let terminate_log () = 
   match !log_format with 
-    | F_pt -> ()
-    | F_xml -> print_xml_trailer ()
-    | F_relay -> ()
+  | F_pt -> ()
+  | F_xml -> print_xml_trailer ()
+  | F_relay -> ()
+  | F_renderer(context) -> ()
 
 
 (* ********************************************************************** *)
 (* Events                                                                 *)
 (* ********************************************************************** *)
 
+(* Function to call if the transition system has been updated. *)
+let trans_sys_update trans_sys =
+  match !log_format with
+  | F_renderer context ->
+     Renderer.update_master_stats context trans_sys
+  | _ -> ()
+
+(* Updates the renderer. *)
+let update_log trans_sys =
+  match !log_format with
+  | F_renderer context ->
+     trans_sys_update trans_sys ;
+     Renderer.update_slider context
+  | _ -> ()
 
 (* Broadcast an invariant *)
 let invariant term = 
@@ -1012,6 +1055,20 @@ let execution_path trans_sys path =
   let mdl = get_module () in
 
   log_execution_path mdl L_warn trans_sys path
+
+
+(* Send path compression stats. *)
+(* let path_compression eq succ pred = *)
+(*   match get_module () with *)
+(*   | `IND -> *)
+(*      Stat.set eq Stat.ind_compress_equal_mod_input ; *)
+(*      Stat.set succ Stat.ind_compress_same_successors ; *)
+(*      Stat.set pred Stat.ind_compress_same_predecessors *)
+(*   | `PDR -> *)
+(*      Stat.set eq Stat.pdr_compress_equal_mod_input ; *)
+(*      Stat.set succ Stat.pdr_compress_same_successors ; *)
+(*      Stat.set pred Stat.pdr_compress_same_predecessors *)
+(*   | _ -> () *)
 
 
 (* Send progress indicator *)
@@ -1145,7 +1202,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+               log (log_level_of_int lvl) "%s" msg;
 
                (* No relay message *)
                accum
@@ -1203,6 +1260,12 @@ let update_trans_sys trans_sys events =
     (* Invariant discovered *)
     | (m, Invariant t) :: tl -> 
 
+       ( match m with
+         | `PDR -> Stat.set
+                     (1 + Stat.get Stat.pdr_invariants)
+                     Stat.pdr_invariants
+         | _ -> () ) ;
+
       (* Property status if received invariant is a property *)
       let tl' =
         List.fold_left
@@ -1235,7 +1298,7 @@ let update_trans_sys trans_sys events =
         tl'
 
     (* Property found unknown *)
-    | (_, PropStatus (p, TransSys.PropUnknown)) :: tl -> 
+    | (m, PropStatus (p, TransSys.PropUnknown)) :: tl ->
 
       (* Continue without changes *)
       update_trans_sys' trans_sys invars prop_status tl
@@ -1246,7 +1309,7 @@ let update_trans_sys trans_sys events =
       (* Change property status in transition system *)
       TransSys.set_prop_ktrue trans_sys k p;
 
-      (* Continue with propert status added to accumulator *)
+      (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys
         invars
@@ -1255,6 +1318,20 @@ let update_trans_sys trans_sys events =
 
     (* Property found invariant *)
     | (m, PropStatus (p, (TransSys.PropInvariant as s))) :: tl -> 
+
+       ( match m with
+         | `IND ->
+            Stat.set
+              (1 + Stat.get Stat.ind_proved)
+              Stat.ind_proved ;
+            Stat.set
+              ((Stat.get Stat.ind_unknowns) - 1)
+              Stat.ind_unknowns
+         | `PDR ->
+            Stat.set
+              (1 + Stat.get Stat.pdr_proved)
+              Stat.pdr_proved
+         | _ -> () ) ;
 
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
@@ -1282,6 +1359,20 @@ let update_trans_sys trans_sys events =
     (* Property found false *)
     | (m, PropStatus (p, (TransSys.PropFalse cex as s))) :: tl -> 
 
+       ( match m with
+         | `BMC ->
+            Stat.set
+              (1 + Stat.get Stat.bmc_disproved)
+              Stat.bmc_disproved ;
+            Stat.set
+              ((Stat.get Stat.bmc_unknowns) - 1)
+              Stat.bmc_unknowns
+         | `PDR ->
+            Stat.set
+              (1 + Stat.get Stat.pdr_disproved)
+              Stat.pdr_disproved
+         | _ -> () ) ;
+
       (* Output disproved property *)
       log_disproved m L_warn trans_sys p cex;
 
@@ -1297,7 +1388,12 @@ let update_trans_sys trans_sys events =
 
   in
 
-  update_trans_sys' trans_sys [] [] events
+  let result = update_trans_sys' trans_sys [] [] events in
+
+  (* Updating log. *)
+  trans_sys_update trans_sys ;
+
+  result
 
 
 

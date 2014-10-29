@@ -148,6 +148,9 @@ val prop_of_name : t -> string -> Term.t
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : t -> Numeral.t -> Term.t
 
+(** Returns the number of invariants discovered. *)
+val invars_count : t -> int
+
 (** Return uninterpreted function symbols to be declared in the SMT solver *)
 val uf_symbols_of_trans_sys : t -> UfSymbol.t list
 

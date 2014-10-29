@@ -163,6 +163,9 @@ val log_level : unit -> Lib.log_level
 (** Output in XML format *)
 val log_format_xml : unit -> bool
 
+(** Output using renderer *)
+val log_format_renderer : unit -> bool * bool
+
 (** Order variables in polynomials by order of elimination **)
 type cooper_order_var_by_elim = bool
 val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim

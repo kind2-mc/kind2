@@ -330,10 +330,14 @@ let on_exit_child messaging_thread process exn =
 
 
 (* Fork and run a child process *)
-let run_process messaging_setup process = 
+let run_process messaging_setup process =
+
+  (* Starting timer. *)
+  Stat.start_timer Stat.total_time ;
 
   (* Fork a new process *)
   let pid = Unix.fork () in
+
 
   match pid with 
 
@@ -449,8 +453,8 @@ let run_process messaging_setup process =
     (* We are the parent process *)
     | _ -> 
 
-      (* Keep PID of child process and return *)
-      child_pids := (pid, process) :: !child_pids
+       (* Keep PID of child process and return *)
+       child_pids := (pid, process) :: !child_pids
 
 
 (* Check which SMT solver is available *)  
@@ -532,7 +536,7 @@ let check_smtsolver () =
         mathsat5_exec
 
 
-    (* User chose MathSat5 *)
+    (* User chose Yices *)
     | `Yices_SMTLIB -> 
 
       let yices_exec = 
@@ -670,7 +674,13 @@ let main () =
     );
 
   (* Set log format to XML if requested *)
-  if Flags.log_format_xml () then Event.set_log_format_xml ();
+  if Flags.log_format_xml ()
+  then Event.set_log_format_xml ();
+
+  (* Set log format to rendering if requested *)
+  let using_renderer = Flags.log_format_renderer () in
+  if (fst using_renderer) || (snd using_renderer)
+  then Event.set_log_format_renderer (Flags.enable ()) ;
 
   (* No output at all? *)
   if not (Flags.log_level () = L_off) then
@@ -779,10 +789,22 @@ let main () =
         (get !trans_sys)
      end);
 
+    (* Set stat of unknown properties for all modules. *)
+    let props_count =
+      TransSys.props_list_of_bound (get !trans_sys) Numeral.zero
+      |> List.length
+    in
+
+    [ Stat.bmc_unknowns ;
+      Stat.ind_unknowns ]
+    |> List.iter
+         ( fun s -> Stat.set props_count s) ;
+    
+
     if 
 
       (* Warn if list of properties is empty *)
-      TransSys.props_list_of_bound (get !trans_sys) Numeral.zero = []
+      props_count < 1
 
     then
 

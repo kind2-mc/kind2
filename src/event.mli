@@ -40,6 +40,10 @@ val set_log_format_xml : unit -> unit
 (** Relay log messages to invariant manager *)
 val set_relay_log : unit -> unit
 
+(** Set log format to renderer. Allocates enough rows and columns in
+    the table so that everything fites. *)
+val set_log_format_renderer : Lib.kind_module list -> unit
+
 (** Log a disproved property
 
     Should only be used by the invariant manager, other modules must use
@@ -91,9 +95,8 @@ val pp_print_event : Format.formatter -> event -> unit
 (** Return the last statistics received *)
 val all_stats : unit -> (Lib.kind_module * (string * Stat.stat_item list) list) list
 
-(** [log m l f v ...] outputs a message from module [m] on level [l],
-    formatted with the parameterized string [f] and the values [v
-    ...] *)
+(** [log l f v ...] outputs a message on level [l], formatted with the
+    parameterized string [f] and the values [v ...] *)
 val log : Lib.log_level -> ('a, Format.formatter, unit) format -> 'a
 
 (** Output the statistics of the module *)
@@ -134,6 +137,10 @@ val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind
 val update_trans_sys_tsugi :
   TransSys.t -> (Lib.kind_module * event) list ->
   Term.t list * (string * Term.t) list * (string * Term.t) list
+
+(** Updates the renderer. *)
+val update_log : TransSys.t -> unit
+
 
 (** {1 Messaging} *)
 

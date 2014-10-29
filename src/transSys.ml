@@ -322,6 +322,9 @@ let invars_of_bound t i =
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
 
+(* Returns the number of invariants discovered. *)
+let invars_count t = List.length t.invars
+
 
 (* Instantiate terms in association list to the bound *)
 let named_terms_list_of_bound l i = 

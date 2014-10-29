@@ -372,6 +372,10 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;
      Event.progress k_int ;
+     (* Event.path_compression *)
+     (*   (Stat.get Stat.ind_compress_equal_mod_input) *)
+     (*   (Stat.get Stat.ind_compress_same_successors) *)
+     (*   (Stat.get Stat.ind_compress_same_predecessors) ; *)
      Stat.update_time Stat.ind_total_time ;
 
      (* Notifying compression *)

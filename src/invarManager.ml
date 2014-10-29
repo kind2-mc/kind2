@@ -128,50 +128,60 @@ let handle_events trans_sys =
   ()
 
 (* Polling loop *)
-let rec loop child_pids trans_sys = 
+let rec loop last_log_update child_pids trans_sys = 
 
   handle_events trans_sys;
 
-  (* All properties proved? *)
-  if TransSys.all_props_proved trans_sys then 
+  (* New time of the last log update. *)
+  let last_log_update' =
     
-    ( 
+    (* Getting the time it is. *)
+    let now = Unix.gettimeofday () in
+    
+    if now -. last_log_update > 0.07 then (
+      (* Updating log every tenth of a second. This is mostly for
+         rendering. *)
+      Event.update_log trans_sys ;
+      now
+    ) else last_log_update
+
+  in
+
+  (* All properties proved? *)
+  if TransSys.all_props_proved trans_sys then ( 
       
-      Event.log L_info "All properties proved or disproved";
+    Event.log L_info "All properties proved or disproved";
       
-      Event.terminate ()
+    Event.terminate ()
         
-    );
+  );
 
 
   (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then 
-
-    (
-      
-      (* Get messages after termination of all processes *)
-      handle_events trans_sys
-
-    )
+  if wait_for_children child_pids then (
     
-  else 
+    (* Get messages after termination of all processes *)
+    handle_events trans_sys
 
-    (
+  ) else (
 
-      (* Sleep *)
-      minisleep 0.01;
+    (* Sleep *)
+    minisleep 0.01;
 
-      (* Continue polling loop *)
-      loop child_pids trans_sys
+    (* Continue polling loop *)
+    loop last_log_update' child_pids trans_sys
 
-    )
+  )
   
 
 (* Entry point *)
-let main child_pids transSys =
+let main child_pids trans_sys =
+
+  (* Updating the log. *)
+  Event.update_log trans_sys ;
 
   (* Run main loop *)
-  loop child_pids transSys
+  loop (Unix.gettimeofday ()) child_pids trans_sys
 
 (* 
    Local Variables:

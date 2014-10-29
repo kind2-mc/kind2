@@ -114,6 +114,12 @@ val pp_print_stats_xml : Format.formatter -> stat_item list -> unit
 (** Highest k reached *)
 val bmc_k : int_item 
 
+(** Number of unknown properties *)
+val bmc_unknowns : int_item 
+
+(** Number of disproved properties *)
+val bmc_disproved : int_item 
+
 (** Total time in BMC *)
 val bmc_total_time : float_item
 
@@ -132,7 +138,16 @@ val pp_print_bmc_stats : Format.formatter -> unit
 (** {2 Inductive step} *)
 
 (** Highest k reached *)
-val ind_k : int_item 
+val ind_k : int_item
+
+(** Number of unknown properties. *)
+val ind_unknowns : int_item
+
+(** Number of unfalsifiable properties (optimistics). *)
+val ind_unfalsifiables : int_item
+
+(** Number of properties proved by k-induction. *)
+val ind_proved : int_item
 
 (** Number clauses to compress inductive counterexamples *)
 val ind_compress_equal_mod_input : int_item 
@@ -165,6 +180,15 @@ val pp_print_ind_stats : Format.formatter -> unit
 
 (** Highest k reached *)
 val pdr_k : int_item 
+
+(** Number of properties proved by pdr. *)
+val pdr_proved : int_item
+
+(** Number of properties disproved by pdr. *)
+val pdr_disproved : int_item
+
+(** Number of invariants discovered. *)
+val pdr_invariants : int_item 
 
 (** Number of restarts *)
 val pdr_restarts : int_item 
@@ -216,6 +240,15 @@ val pdr_tightened_blocking_clauses : int_item
 
 (** Number of tightened clauses in forward propagation *)
 val pdr_tightened_propagated_clauses : int_item
+
+(** Number clauses to compress inductive counterexamples *)
+val pdr_compress_equal_mod_input : int_item 
+
+(** Number clauses to compress inductive counterexamples *)
+val pdr_compress_same_successors : int_item 
+
+(** Number clauses to compress inductive counterexamples *)
+val pdr_compress_same_predecessors : int_item 
 
 (** Stop and record all timers *)
 val pdr_stop_timers : unit -> unit 

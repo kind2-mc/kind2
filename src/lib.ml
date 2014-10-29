@@ -852,8 +852,8 @@ let set_log_level l = log_level := l
 let output_on_level level = compare_levels level !log_level <= 0
 
 
-(* Return Format.fprintf if level is is of higher or equal priority
-   than current log level, otherwise return Format.ifprintf *)
+(* Return Format.fprintf if level is of higher or equal priority than
+   current log level, otherwise return Format.ifprintf *)
 let ignore_or_fprintf level = 
   if output_on_level level then Format.fprintf else Format.ifprintf
 
