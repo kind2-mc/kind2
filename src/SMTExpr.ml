@@ -450,7 +450,7 @@ let rec expr_of_string_sexpr' bound_vars = function
        variables *)
     let bound_vars' = 
       List.map 
-        (function (v, _) -> (Var.hstring_of_temp_var v, v))
+        (function (v, _) -> (Var.hstring_of_free_var v, v))
         bindings 
     in
 
@@ -472,7 +472,7 @@ let rec expr_of_string_sexpr' bound_vars = function
        variables *)
     let bound_vars' = 
       List.map 
-        (function v -> (Var.hstring_of_temp_var v, v))
+        (function v -> (Var.hstring_of_free_var v, v))
         quantified_vars
     in
 
@@ -571,7 +571,7 @@ and bindings_of_string_sexpr b accum = function
     let expr_type = Term.type_of_term expr in
 
     (* Create a variable of the identifier and the type of the expression *)
-    let tvar = Var.mk_temp_var var expr_type in
+    let tvar = Var.mk_free_var var expr_type in
 
     (* Add bound expresssion to accumulator *)
     bindings_of_string_sexpr b ((tvar, expr) :: accum) tl
@@ -597,7 +597,7 @@ and bound_vars_of_string_sexpr b accum = function
     let var_type = type_of_string_sexpr t in
 
     (* Create a variable of the identifier and the type of the expression *)
-    let tvar = Var.mk_temp_var v var_type in
+    let tvar = Var.mk_free_var v var_type in
 
     (* Add bound expresssion to accumulator *)
     bound_vars_of_string_sexpr b (tvar :: accum) tl
@@ -800,7 +800,7 @@ let quantified_smtexpr_of_term quantifier vars term =
          (* Create temporary variable of state variable instance with
             type converted to an SMT sort *)
          let v' = 
-           Var.mk_temp_var 
+           Var.mk_free_var 
              (HString.mk_hstring (sv ^ Numeral.string_of_numeral o))
              t'
          in

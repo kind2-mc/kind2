@@ -344,7 +344,13 @@ and tree_path_of_streams
 
       (* Reconstruct values of stream from mode and definition *)
       let terms = 
-        reconstruct_single_var start_at_init stream_map stream_map' expr
+        reconstruct_single_var 
+          start_at_init
+          stream_map
+          stream_map'
+          (match expr with 
+            | [], e -> e 
+            | _ -> assert false)
       in
 
       (* Return source and values of variable *)

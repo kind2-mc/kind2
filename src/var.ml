@@ -238,6 +238,7 @@ let offset_of_state_var_instance = function
   | { Hashcons.node = FreeVar _ } -> 
     raise (Invalid_argument "offset_of_state_var_instance")
 
+(* Return a string for a free variable *)
 let hstring_of_free_var = function 
 
   | { Hashcons.node = StateVarInstance _ } -> 
@@ -318,7 +319,7 @@ let import = function
 
   | { Hashcons.node = FreeVar (s, t) } ->
 
-    mk_temp_var (HString.import s) (Type.import t)
+    mk_free_var (HString.import s) (Type.import t)
 
 
 (* Counter for index of fresh uninterpreted symbols *)

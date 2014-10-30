@@ -67,6 +67,17 @@ module LustreIndexSet : Set.S with type elt = index
 (** A map of indexes *)
 module LustreIndexMap : Map.S with type key = index
 
+(** A trie of indexes *)
+module LustreIndexTrie : Trie.M with type key = index
+
+(** A trie of identifiers *)
+module LustreIdentTrie : 
+  (sig
+    include Trie.M with type key = t 
+    val find_prefix : key -> 'a t -> 'a LustreIndexTrie.t
+    val to_map : 'a t -> 'a LustreIndexMap.t
+  end)
+
 (** Pretty-print an identifier *)
 val pp_print_ident : bool -> Format.formatter -> t -> unit 
 

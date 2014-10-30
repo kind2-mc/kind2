@@ -84,6 +84,9 @@ val state_var_of_state_var_instance : t -> StateVar.t
 (** Return the offset of a state variable instance *)
 val offset_of_state_var_instance : t -> Numeral.t
 
+(** Return a string for a free variable *)
+val hstring_of_free_var : t -> HString.t
+
 (** Return true if the variable is an instance of a state variable *)
 val is_state_var_instance : t -> bool
 

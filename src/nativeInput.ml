@@ -294,7 +294,7 @@ let rec term_of_sexpr scope bound_vars = function
        variables *)
     let bound_vars' = 
       List.map 
-        (function (v, _) -> (Var.hstring_of_temp_var v, v))
+        (function (v, _) -> (Var.hstring_of_free_var v, v))
         bindings 
     in
 
@@ -466,7 +466,7 @@ and bindings_of_sexpr scope b accum = function
     let term_type = Term.type_of_term term in
 
     (* Create a variable of the identifier and the type of the expression *)
-    let var = Var.mk_temp_var v term_type in
+    let var = Var.mk_free_var v term_type in
 
     (* Add bound expresssion to accumulator *)
     bindings_of_sexpr scope b ((var, term) :: accum) tl

@@ -64,6 +64,9 @@ module N = LustreNode
 module ISet = I.LustreIdentSet
 module IMap = I.LustreIdentMap
 module IdxMap = I.LustreIndexMap
+module ITrie = I.LustreIdentTrie
+module IdxTrie = I.LustreIndexTrie
+
 
 (* Node not found, possible forward reference 
 
@@ -110,27 +113,14 @@ type lustre_context =
   { 
 
     (* Type identifiers and their types *)
-    basic_types : Type.t IMap.t; 
-
-    (* Map of prefix of a type identifiers to their suffixes and their
-       types.  *)
-    indexed_types : (Type.t IdxMap.t) IMap.t; 
+    type_of_ident : Type.t ITrie.t; 
 
     (* Type identifiers for free types *)
-    free_types : unit IMap.t; 
+    free_types : unit ITrie.t; 
 
-    (* Types of identifiers *)
-    type_ctx : Type.t IMap.t; 
+    (* Identifiers and the expresssions they are bound to *)
+    expr_of_ident : E.t ITrie.t;
 
-    (* Map of prefix of an identifier to its suffixes
-
-       Pair the suffix with a unit value to reuse function for
-       [indexed_types]. *)
-    index_ctx :  (unit IdxMap.t) IMap.t; 
-    
-    (* Values of constants *)
-    consts : E.t IMap.t;
-    
     (* Nodes *)
     nodes : N.t list;
     
@@ -139,101 +129,49 @@ type lustre_context =
 
 (* Initial, empty context *)
 let init_lustre_context = 
-  { basic_types = I.LustreIdentMap.empty;
-    indexed_types = I.LustreIdentMap.empty;
-    free_types = I.LustreIdentMap.empty;
-    type_ctx = I.LustreIdentMap.empty;
-    index_ctx = I.LustreIdentMap.empty;
-    consts = I.LustreIdentMap.empty;
+  { type_of_ident = ITrie.empty;
+    free_types = ITrie.empty;
+    expr_of_ident = ITrie.empty;
     nodes = [] }
 
-
-(* Pretty-print a type identifier *)
-let pp_print_basic_type safe ppf (i, t) = 
-  Format.fprintf ppf 
-    "%a: %a" 
-    (I.pp_print_ident safe) i 
-    Type.pp_print_type t
-
-
-(* Pretty-print an identifier suffix and its type *)
-let pp_print_index_type safe ppf (i, t) = 
-  Format.fprintf ppf 
-    "%a: %a" 
-    (I.pp_print_index safe) i 
-    Type.pp_print_type t
-
-
-(* Pretty-print a prefix and its suffixes with their types *)
-let pp_print_indexed_type safe ppf (i, t) = 
-
-  Format.fprintf ppf 
-    "%a: @[<hv 1>[%a]@]" 
-    (I.pp_print_ident safe) i 
-    (pp_print_list (pp_print_index_type safe) ";@ ") 
-    (IdxMap.bindings t)
-
-
-(* Pretty-print types of identifiers *)
-let pp_print_type_ctx safe ppf (i, t) = 
-  Format.fprintf ppf "%a: %a" 
-    (I.pp_print_ident safe) i 
-    Type.pp_print_type t
-
-
-(* Pretty-print suffixes of identifiers *)
-let pp_print_index_ctx safe ppf (i, j) = 
-
-  Format.fprintf ppf 
-    "%a: @[<hv 1>[%a]@]" 
-    (I.pp_print_ident safe) i 
-    (pp_print_list 
-       (fun ppf (i, _) -> I.pp_print_index safe ppf i)
-       ";@ ") 
-    (IdxMap.bindings j)
-
-
-(* Pretty-print values of constants *)
-let pp_print_consts safe ppf (i, e) = 
-  Format.fprintf ppf 
-    "%a: %a" 
-    (I.pp_print_ident safe) i 
-    (E.pp_print_lustre_expr safe) e
-
-  
 
 (* Pretty-print a context for type checking *)
 let pp_print_lustre_context 
     safe
     ppf 
-    { basic_types;
-      indexed_types; 
+    { type_of_ident;
       free_types; 
-      type_ctx; 
-      index_ctx; 
-      consts } =
+      expr_of_ident } =
   
   Format.fprintf ppf
-    "@[<v>@[<v>*** basic_types:@,%a@]@,\
-          @[<v>*** indexed_types:@,%a@]@,\
-          @[<v>*** free_types:@,@[<hv>%a@]@,@]\
-          @[<v>*** type_ctx:@,%a@]@,\
-          @[<v>*** index_ctx:@,%a@]@,\
-          @[<v>*** consts:@,%a@]@,\
+    "@[<v>@[<v>type_of_ident:@,%t@]\
+          @[<v>free_types:@,%t@]\
+          @[<v>expr_of_ident:@,%t@]\
      @]" 
-    (pp_print_list (pp_print_basic_type safe) "@,") 
-    (IMap.bindings basic_types)
-    (pp_print_list (pp_print_indexed_type safe) "@,") 
-    (IMap.bindings indexed_types)
-    (pp_print_list (I.pp_print_ident safe) ",@ ") 
-    (List.map fst (IMap.bindings free_types))
-    (pp_print_list (pp_print_type_ctx safe) "@,") 
-    (IMap.bindings type_ctx)
-    (pp_print_list (pp_print_index_ctx safe) "@,") 
-    (IMap.bindings index_ctx)
-    (pp_print_list (pp_print_consts safe) "@,") 
-    (IMap.bindings consts)
-
+    (fun ppf -> 
+       ITrie.iter
+         (fun i t -> 
+            Format.fprintf ppf 
+              "%a: %a@," 
+              (I.pp_print_ident safe) i 
+              Type.pp_print_type t)
+         type_of_ident)
+    (fun ppf -> 
+       ITrie.iter
+         (fun i () -> 
+            Format.fprintf ppf 
+              "%a@," 
+              (I.pp_print_ident safe) i)
+         free_types)
+    (fun ppf -> 
+       ITrie.iter
+         (fun i e -> 
+            Format.fprintf ppf 
+              "%a: %a@," 
+              (I.pp_print_ident safe) i 
+              (E.pp_print_lustre_expr safe) e)
+         expr_of_ident)
+    
 
 (* Environment when simplifying an expression *)
 type abstraction_context = 
@@ -384,11 +322,12 @@ let rec eval_ast_expr'
        new_calls;
        new_oracles;
        new_observers } as abstractions)
-    context
-    index_contexts
-    index = 
+    ({ type_of_ident;
+       free_types;
+       expr_of_ident;
+       nodes } as context) =
 
-
+(*
   (* Augmented context for index *)
   let 
     ({ basic_types; 
@@ -432,30 +371,21 @@ let rec eval_ast_expr'
     with Not_found -> context
 
   in
-      
+*)
+
   (* Evaluate the argument of a unary expression and construct a unary
      expression of the result with the given constructor *)
-  let eval_unary_ast_expr mk expr pos tl = 
+  let eval_unary_ast_expr mk expr = 
 
     let expr', abstractions' = 
-      unary_apply_to 
-        context 
-        abstractions
-        mk
-        expr 
-        pos
-        result 
-    in  
+      eval_ast_expr' abstractions context expr 
+    in
 
-    eval_ast_expr' 
-      context 
-      abstractions'
-      expr'
-      tl
+    (IdxTrie.map mk expr', abstractions')
 
   in
 
-
+(*
   (* Evaluate the arguments of a binary expression and construct a
      binary expression of the result with the given constructor *)
   let eval_binary_ast_expr mk expr1 expr2 pos tl = 
@@ -505,57 +435,30 @@ let rec eval_ast_expr'
                (I.pp_print_ident false) ident)
 
   in    
+*)
 
   function
-    
-    (* An identifier without suffixes: a constant or a variable *)
-    | A.Ident (pos, ident) when List.mem_assoc ident type_ctx -> 
-      
-      (* Construct expression *)
-      let res_expr = eval_ident pos ident in
-      
-      (* Add expression to result *)
-      let result' = IdxMap.add result index res_expr in
-      
-      (* Return abstractions unchanged and expression in result map *)
-      (result', abstractions)
-        
-      
-    (* A nested identifier with suffixes *)
-    | A.Ident (pos, ident) when List.mem_assoc ident index_ctx -> 
 
-      (* Expand indexed identifier and add to result map *)
-      let result' = 
-
-        List.fold_left 
-
-          (fun result (index', _) -> 
-
-             (* Evalute identifier with index added *)
-             let res_expr = 
-               eval_ident pos (I.push_back_index index' ident) 
-             in
-
-             (* Add expression to result *)
-             IdxMap.add result (I.push_back_index index' index) res_expr)
-
-          result
-          (List.assoc ident index_ctx)
-
-      in
-
-      (* Return abstractions unchanged and expression in result map *)
-      (result', abstractions)
-        
-
-    (* Identifier must have a type or indexes *)
+    (* Indexed identifier *)
     | A.Ident (pos, ident) -> 
 
-      fail_at_position 
-        pos
-        (Format.asprintf 
-           "Undeclared identifier %a" 
-           (I.pp_print_ident false) ident)
+      (try 
+
+         (* Get map of suffixes of identifier to expressions *)
+         let res = 
+           ITrie.find_prefix ident expr_of_ident
+         in
+
+         (* Return expresssion and no new abstractions *)
+         (res, abstractions)
+
+       with Not_found -> 
+
+         fail_at_position
+           pos
+           (Format.asprintf 
+              "Undeclared identifier %a"
+              (I.pp_print_ident false) ident))
 
 
     (* Projection to a record field *)
@@ -563,115 +466,115 @@ let rec eval_ast_expr'
 
       (* Evaluate record expression *)
       let expr', abstractions' = 
-        eval_ast_expr 
-          context'
+        eval_ast_expr' 
           abstractions
-          IdxMap.empty
+          context
+          expr
       in
 
-      try 
+      (try 
 
-        (* Get value for index of projected field *)
-        let res_expr = IdxMap.find expr' field in
+         (* Get value for index of projected field *)
+         let res = ITrie.find_prefix expr' field in
 
-        (* Add expression to result *)
-        IdxMap.add result index res_expr 
+         (* Return expresssion and new abstractions *)
+         (res, abstractions')
 
-      with Not_found ->
+       with Not_found ->
 
-        fail_at_position 
-          pos
-          (Format.asprintf 
-             "Identifier %a does not have field %a" 
-             (I.pp_print_ident false) ident
-             (I.pp_print_index false) field)
+         fail_at_position 
+           pos
+           (Format.asprintf 
+              "Record does not have field %a" 
+              (I.pp_print_index false) field))
 
 
     (* Projection to a tuple or array field *)
-    | A.TupleProject (pos, expr, field_expr) :: tl -> 
+    | A.TupleProject (pos, expr, field_expr) -> 
 
       (* Evaluate expression to an integer constant *)
       let field = 
         I.mk_int_index (int_const_of_ast_expr context pos field_expr) 
       in
 
-      (* Append index to identifier *)
-      let ident' = I.push_index field ident in
-
-      (* Check if identifier has index *)
-      if List.mem_assoc ident' index_ctx || List.mem_assoc ident' type_ctx then
-
-        let expr' = A.Ident (pos, ident') in
-
-        (* Continue with record field *)
+      (* Evaluate record expression *)
+      let expr', abstractions' = 
         eval_ast_expr' 
-          context 
           abstractions
-          result 
-          (expr' :: tl)
+          context
+          expr
+      in
 
-      else
+      (try 
 
-        fail_at_position 
-          pos
-          (Format.asprintf 
-             "Identifier %a does not have field %a" 
-             (I.pp_print_ident false) ident
-             (I.pp_print_index false) field)
+         (* Get value for index of projected field *)
+         let res = ITrie.find_prefix expr' field in
+
+         (* Return expresssion and new abstractions *)
+         (res, abstractions')
+
+       with Not_found ->
+
+         fail_at_position 
+           pos
+           (Format.asprintf 
+              "Tuple does not have field %a" 
+              (I.pp_print_index false) field))
 
 
     (* Boolean constant true *)
     | A.True pos -> 
 
-      (* Add expression to result *)
-      let result' = I.LustreIndexMap.add result index E.t_true in
-      
-      (* Return abstractions unchanged and expression in result map *)
-      (result', abstractions)
-        
+      (* Add expression to trie with empty index *)
+      let res = IdxTrie.add I.empty_index E.t_true IdxTrie.empty in
+
+      (* Return trie and no new abstractions *)
+      (res, abstractions)
 
     (* Boolean constant false *)
-    | A.False pos :: tl -> 
+    | A.False pos -> 
 
-      (* Add expression to result *)
-      let result' = I.LustreIndexMap.add result index E.t_false in
-      
-      (* Return abstractions unchanged and expression in result map *)
-      (result', abstractions)
-        
+      (* Add expression to trie with empty index *)
+      let res = IdxTrie.add I.empty_index E.t_true IdxTrie.empty in
+
+      (* Return trie and no new abstractions *)
+      (res, abstractions)
+
 
     (* Integer constant *)
-    | A.Num (pos, d) :: tl -> 
+    | A.Num (pos, d) -> 
 
-      (* Add expression to result *)
-      eval_ast_expr' 
-        context 
-        abstractions
-        ((I.empty_index, E.mk_int (Numeral.of_string d)) :: result) 
-        tl
+      (* Construct numeral expression *)
+      let expr = E.mk_int (Numeral.of_string d) in
 
+      (* Add expression to trie with empty index *)
+      let res = IdxTrie.add I.empty_index E.t_true IdxTrie.empty in
+      
+      (* Return trie and no new abstractions *)
+      (res, abstractions)
 
     (* Real constant *)
-    | A.Dec (pos, f) :: tl -> 
+    | A.Dec (pos, f) -> 
 
-      (* Add expression to result *)
-      eval_ast_expr' 
-        context 
-        abstractions
-        ((I.empty_index, E.mk_real (Decimal.of_string f)) :: result) 
-        tl
+      (* Construct decimal expression *)
+      let expr = E.mk_real (Decimal.of_string f) in
 
+      (* Add expression to trie with empty index *)
+      let res = IdxTrie.add I.empty_index E.t_true IdxTrie.empty in
+      
+      (* Return trie and no new abstractions *)
+      (res, abstractions)
 
     (* Conversion to an integer number *)
-    | A.ToInt (pos, expr) :: tl -> 
+    | A.ToInt (pos, expr)  -> 
 
-      eval_unary_ast_expr E.mk_to_int expr pos tl
+      eval_unary_ast_expr E.mk_to_int expr 
 
 
     (* Conversion to a real number *)
-    | A.ToReal (pos, expr) :: tl -> 
+    | A.ToReal (pos, expr) -> 
 
-      eval_unary_ast_expr E.mk_to_real expr pos tl
+      eval_unary_ast_expr E.mk_to_real expr
 
 
     (* An expression list, flatten nested lists and add an index to
@@ -1679,7 +1582,7 @@ and unary_apply_to
 
     (* Evaluate expression *)
     let expr', abstractions' = 
-      eval_ast_expr 
+      eval_ast_expr' 
         context 
         abstractions
         expr 
@@ -1757,9 +1660,9 @@ and eval_ast_expr
     index_contexts
     index_ast_expr = 
 
-(* FIXME: call with
-   (I.LustreIndexMap.singleton I.empty_index ast_expr)
-   from parse_node_equation etc. *)
+  (* FIXME: call with
+     (I.LustreIndexMap.singleton I.empty_index ast_expr)
+     from parse_node_equation etc. *)
 
   (* Evaluate expression *)
   let index_expr_map, abstractions' = 
@@ -1780,7 +1683,7 @@ and eval_ast_expr
          index_expr_map
          [])
   in
-      
+
   (* Return result and abstractions *)
   (indexed_exprs, abstractions')
 
@@ -1886,7 +1789,7 @@ and eval_node_call
       N.outputs = node_outputs; 
       N.observers = node_observers;
       N.props = node_props } = 
-    
+
     try 
 
       (* Get node context by identifier *)
@@ -1902,10 +1805,10 @@ and eval_node_call
   in
 
   debug lustreSimplify
-    "@[<hv>Node call at %a: observers @[<hv>%a@]@]"
-    A.pp_print_position pos
-    (pp_print_list StateVar.pp_print_state_var ",@ ")
-    node_observers
+      "@[<hv>Node call at %a: observers @[<hv>%a@]@]"
+      A.pp_print_position pos
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      node_observers
   in
 
 
