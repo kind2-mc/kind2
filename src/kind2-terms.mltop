@@ -1,9 +1,11 @@
 Kind2Config
 Version
+Debug
 Decimal
 HString
 Hashcons
 Lib
+Trie
 Ltree
 Numeral
 StateVar
@@ -14,3 +16,9 @@ Type
 UfSymbol
 Var
 
+LustreParser
+LustreLexer
+LustreAst
+LustreIdent
+LustreExpr
+LustreNode

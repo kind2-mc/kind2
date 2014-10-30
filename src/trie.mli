@@ -16,25 +16,19 @@
 
 *)
 
-(**************************************************************************)
-(*                                                                        *)
-(*  Copyright (C) Jean-Christophe Filliatre                               *)
-(*                                                                        *)
-(*  This software is free software; you can redistribute it and/or        *)
-(*  modify it under the terms of the GNU Library General Public           *)
-(*  License version 2.1, with the special exception on linking            *)
-(*  described in file LICENSE.                                            *)
-(*                                                                        *)
-(*  This software is distributed in the hope that it will be useful,      *)
-(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
-(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                  *)
-(*                                                                        *)
-(**************************************************************************)
+(** Trie over 
 
-(*s This module implements {\em tries}. Given a map [M] over an
-    arbitrary type [M.key], the following functor constructs a new map
-    over type [M.key list]. *)
+    Tries in this implementation contain data at the leaves only. An
+    inner node contains only the subtries for each key.
 
+    This module is inspired by Jean-Christophe Filliatre's
+    implementation at
+    https://www.lri.fr/~filliatr/ftp/ocaml/ds/trie.ml.html
+
+    @author Christoph Sticksel*)
+
+
+(** Input signature of a map *)
 module type M = sig
   type key
   type +'a t
@@ -52,10 +46,65 @@ module type M = sig
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
 end
 
+
+(** Output signature is map extended with [find_prefix] *)
 module type S = sig
-  include M 
+
+  (** Type of keys in trie *)
+  type key
+
+  (** Type of Trie *)
+  type +'a t
+
+  (** Empty trie *)
+  val empty : 'a t
+
+  (** Return [true] if trie is empty *)
+  val is_empty : 'a t -> bool
+
+  (** Insert value for a key into the trie
+
+      Overwrite if the value if the leaf already exists, fail if the
+      sequence of keys is a prefix of a previous sequence, or if a
+      previous sequence is a prefix of the given sequence. *)
+  val add : key -> 'a -> 'a t -> 'a t
+
+  (** Return the value for the key in the trie *)
+  val find : key -> 'a t -> 'a
+
+  (** Remove key from trie
+
+      Do not fail if key does not exist. *)
+  val remove : key -> 'a t -> 'a t
+
+  (** Return [true] if there is a value for the key in the trie *)
+  val mem : key -> 'a t -> bool
+
+  (** Apply unit-valued function to each value in trie *)
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
+
+  (** Return a new trie with the function applied to the values *)
+  val map : ('a -> 'b) -> 'a t -> 'b t
+      
+  (** Return a new trie with the function applied to the values 
+
+      Give the key as first argument to the function. *)
+  val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
+
+  (** Reduce trie to a value by applying the function to all values *)
+  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+
+  (** Comparision function on tries *)
+  val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
+
+  (** Equality predicate on tries *)
+  val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+
+  (** Return the subtrie starting at the given key prefix *)
   val find_prefix : key -> 'a t -> 'a t
+
 end
 
 
+(** Trie over sequences of keys of map *)
 module Make(M : M) : S with type key = M.key list
