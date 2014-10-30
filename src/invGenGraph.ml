@@ -267,16 +267,49 @@ let on_exit _ =
 (* Module entry point. *)
 let main trans_sys =
 
-  Event.set_module `INVGEN ;
+  ()
 
-  let lsd = LSD.create trans_sys in
+  (* printf "\n" ; *)
 
-  (* Skipping k=0. *)
-  LSD.increment lsd ;
+  (* let scope_to_string = String.concat "/" in *)
+  (* let scope_of ts = TransSys.get_scope ts |> scope_to_string in *)
+  (* let subs_of ts = TransSys.get_subsystems ts in *)
+  (* let string_of_uf uf = UfSymbol.string_of_uf_symbol uf in *)
 
-  lsd_ref := Some lsd ;
+  (* let rec print_scope_subsys prefix ts = *)
+  (*   printf "%-40s" *)
+  (*          ( sprintf "%sNode [%s]" *)
+  (*                    prefix *)
+  (*                    (scope_of ts) ) ; *)
+  (*   printf "%-40s" *)
+  (*          ( sprintf "| init: [%s]" *)
+  (*                    (TransSys.init_uf_symbol ts |> string_of_uf) ); *)
+  (*   printf "%-40s\n" *)
+  (*          ( sprintf "| trans: [%s]" *)
+  (*                    (TransSys.trans_uf_symbol ts |> string_of_uf) ); *)
+  (*   subs_of ts *)
+  (*   |> List.iter *)
+  (*        (print_scope_subsys (sprintf "%s%s" prefix "  ")) *)
+  (* in *)
 
-  generate_invariants trans_sys lsd
+  (* print_scope_subsys "" trans_sys ; *)
+
+  (* printf "\n" ; *)
+
+  
+  (* Event.set_module `INVGEN ; *)
+
+  (* let lsd = LSD.create trans_sys in *)
+
+  (* (\* Skipping k=0. *\) *)
+  (* LSD.increment lsd ; *)
+
+  (* lsd_ref := Some lsd ; *)
+
+  (* generate_invariants trans_sys lsd *)
+
+
+                      
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -96,7 +96,7 @@ let prop_base = Numeral.zero
 type t = {
   
   (* Scope of state variables *)
-  scope : string list;
+  scope: string list;
 
   (* Init and trans pairs of this system and its subsystems in
      topological order. *)
@@ -124,10 +124,16 @@ type t = {
   mutable invars: Term.t list ;
 
   (* Status of property *)
-  mutable prop_status: (string * prop_status) list
+  mutable prop_status: (string * prop_status) list ;
+
+  (* Associates a system instantiating this system with a map from the
+     variables of this system to the argument of the instantiation in
+     the over-system. *)
+  mutable instantiation_maps: (t * ((StateVar.t * Term.t) list list)) list
 
 }
-
+           
+           
 
 (* Return the predicate for the initial state constraint *)
 let init_uf_symbol { init = (s, _) } = s
@@ -147,6 +153,96 @@ let init_term { init = (_, (_, t)) } = t
 (* Return the definition of the transition relation *)
 let trans_term { trans = (_, (_, t)) } = t
 
+(* Adds an instantiation map (subsystem / var association pair) to a
+   system. *)
+let add_instantiation_map t (sys', map) =
+  
+  let rec loop prefix = function
+
+    | (sys, maps) :: tail when sys.scope = sys'.scope ->
+       (* Adding the new maps. *)
+       (sys, map :: maps) :: tail
+       |> List.rev_append prefix
+         
+    | head :: tail ->
+       loop (head :: prefix) tail
+
+    (* The new map was not in here, adding it. *)
+    | [] -> (sys',[map]) :: prefix
+  in
+
+  t.instantiation_maps <- (loop [] t.instantiation_maps)
+
+
+let instantiate_term { instantiation_maps } term =
+
+  (* Gets the term corresponding to 'var' in 'map' and bumps it if
+     'var' is not a constant. Raises Not_found if 'var' is not defined
+     in 'map'. *)
+  let term_of_var map var =
+    
+    (* Getting the state variable. *)
+    let sv = Var.state_var_of_state_var_instance var in
+    (* Getting corresponding term. *)
+    let term = List.assq sv map in
+    
+    (* Checking if we need to bump. *)
+    if Var.is_const_state_var var
+    then (* We don't. *)
+      term
+    else ( (* We do. *)
+      (* Bumping by the offset of 'var'. *)
+      Term.bump_state
+        (Var.offset_of_state_var_instance var)
+        term
+    )
+  in
+
+  (* Instantiates variables according to map. *)
+  let substitute_fun_of_map map =
+    (* This function is for Term.map. The first argument is the de
+       Bruijn index and is ignored. *)
+    ( fun _ term ->
+
+      (* Is the term a free variable?. *)
+      if Term.is_free_var term
+                          
+      then
+        
+        try
+          (* Extracting state variable. *)
+          Term.free_var_of_term term
+          (* Getting corresponding term, bumping if
+                           necessary. *)
+          |> term_of_var map
+
+        with
+          (* Variable is not in map, nothing to do. *)
+          Not_found -> term
+
+      else
+        (* Term is not a var, nothing to do. *)
+        term )
+  in
+
+  instantiation_maps
+  |> List.map
+       ( fun (sys, maps) ->
+         
+         (* Building one new term per instantiation mapping for
+            sys. *)
+         let terms =
+           maps
+           |> List.map
+                (* For each map of this over-system, substitute the
+                   variables of term according to map. *)
+                ( fun map ->
+                  Term.map
+                    (substitute_fun_of_map map)
+                    term )
+         in
+
+         sys, terms )
 
 
 (* Returns the subsystems of a system. *)
@@ -206,6 +302,21 @@ let pp_print_prop_status ppf (p, s) =
   Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
 
 
+(* Determine the required logic for the SMT solver 
+
+   TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
+let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+
+
+(* Return the state variables of the transition system *)
+let state_vars t = t.state_vars
+
+(* Return the input used to create the transition system *)
+let get_source t = t.source
+
+(* Return the input used to create the transition system *)
+let get_scope t = t.scope
+
 (* Create a transition system *)
 let mk_trans_sys scope state_vars init trans subsystems props source = 
 
@@ -241,7 +352,8 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   let rec get_uf_defs result = function
     | { uf_defs } :: tail ->
 
-       (* Removing uf_defs of the subsystem from the result. *)
+       (* Removing uf_defs of the subsystem from the result to ensure
+          topological order. *)
        let result' =
          result
          |> List.filter
@@ -257,34 +369,238 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | [] -> result
   in
 
-  { scope = scope;
-    uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
-    state_vars =
-      is_init_svar :: state_vars
-      |> List.sort StateVar.compare_state_vars ;
-    init = init ;
-    trans = trans ;
-    props = props ;
-    subsystems = subsystems ;
-    source = source ;
-    prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props ;
-    invars = invars_of_types }
+  (* Looks in the subsystems for one such that 'f' applied to the
+     subsys is uf. *)
+  let find_subsystem f uf =
+    List.find (fun subsys -> uf = f subsys) subsystems
+  in
 
+  (* Checks if a flat term is an application of a uf such that 'f' on
+     a subsystem. Returns Some of the subsystem if yes, None
+     otherwise. *)
+  let is_flat_uf_such_that f = function
+      
+    | Term.T.App (sym,params) when Symbol.is_uf sym ->
+       ( try Some (Symbol.uf_of_symbol sym |> find_subsystem f,
+                   params)
+         with Not_found -> None )
+         
+    | Term.T.Const sym when Symbol.is_uf sym ->
+       ( try Some (Symbol.uf_of_symbol sym |> find_subsystem f,
+                   [])
+         with Not_found -> None )
 
-(* Determine the required logic for the SMT solver 
+    | _ -> None
+  in
 
-   TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+  (* Builds a mapping from vars@0 to terms. Inputs 'vars' and 'terms'
+     come from init and trans and therefore need to be bumped. *)
+  let build_mapping vars terms =
+    (* Making sure both lists are the same length. *)
+    assert ( (List.length vars) = (List.length terms) ) ;
 
+    let rec loop map = function
+        
+      | v :: v_tail, t :: t_tail ->
+         (* Bump value necessary to get the var to 0. *)
+         let bump_val =
+           if Var.is_const_state_var v then Numeral.zero
+           else
+             Numeral.(~- (Var.offset_of_state_var_instance v))
+         in
 
-(* Return the state variables of the transition system *)
-let state_vars t = t.state_vars
+         (* Getting the statevar and bumping the term. *)
+         let state_var, bumped_t =
+           Var.state_var_of_state_var_instance v,
+           Term.bump_state bump_val t
+         in
 
-(* Return the input used to create the transition system *)
-let get_source t = t.source
+         (* Building the new map. *)
+         let map' =
+           try
+             (* If the var is already mapped to a term... *)
+             let mapped_to = List.assoc state_var map in
+             (* ... then it should be the same term... *)
+             assert ( mapped_to == bumped_t ) ;
+             (* ... and we leave the map as it is. *)
+             map
+           with
+             Not_found ->
+             (* If the var is not mapped then we add the mapping. *)
+             (state_var, bumped_t) :: map
+         in
 
-(* Return the input used to create the transition system *)
-let get_scope t = t.scope
+         loop map' (v_tail, t_tail)
+           
+      | [], [] -> map
+                    
+      | _ -> failwith "The universe is collapsing."
+    in
+
+    loop [] (vars, terms)
+  in
+
+  let string_of_map map =
+    map
+    |> List.map
+         ( fun (v,t) ->
+           Printf.sprintf "(%s -> %s)"
+                          (StateVar.string_of_state_var v)
+                          (Term.string_of_term t) )
+    |> String.concat ", "
+  in
+
+  (* Printf.printf "\nCreating system [%s]\n" (String.concat "/" scope) ; *)
+
+  (* Going through init to find instantiations of subsystems. *)
+  let init_maps = match init with
+    | (_, (_, init_term)) ->
+       init_term
+       |> Term.eval_t
+            ( fun op maps ->
+              match is_flat_uf_such_that init_uf_symbol op with
+              | None ->  List.concat maps
+              | Some (sub,params) ->
+                 (sub, build_mapping (init_vars sub) params)
+                 :: (List.concat maps) )
+  in
+
+  (* Going through trans to find instantiations of subsystems. *)
+  let trans_maps = match trans with
+    | (_, (_, trans_term)) ->
+       trans_term
+       |> Term.eval_t
+            ( fun op maps ->
+              match is_flat_uf_such_that trans_uf_symbol op with
+              | None ->  List.concat maps
+              | Some (sub,params) ->
+                 (sub, build_mapping (trans_vars sub) params)
+                 :: (List.concat maps) )
+  in
+
+  let print_map =
+    List.map
+      (fun (sub,map) ->
+       Printf.printf "  Mapping to [%s]:\n"
+                     (String.concat "/" sub.scope) ;
+       Printf.printf "  > %s\n\n" (string_of_map map) )
+  in
+
+  let print_instantiation_maps =
+    List.map
+      (fun (sub,maps) ->
+       Printf.printf "  Mapping to [%s]:\n"
+                     (String.concat "/" sub.scope) ;
+       maps
+       |> List.iter
+            ( fun map ->
+              Printf.printf "  > %s\n" (string_of_map map) ) ;
+       Printf.printf "\n")
+  in
+
+  (* Crashes if two maps are not the same. *)
+  let rec map_eq = function
+    | (var, term) :: tail, (var', term') :: tail' ->
+       assert (var == var') ;
+       assert (term == term') ;
+       map_eq (tail,tail')
+    | [], [] -> ()
+    | _ -> assert false
+  in
+
+  (* Crashes if two association lists between subsystems and mappings
+     are not the same. *)
+  let rec maps_eq = function
+    | (sub, map) :: tail, (sub', map') :: tail' ->
+       assert ( (sub.scope) = (sub'.scope) ) ;
+       map_eq (map, map') ;
+       maps_eq (tail, tail')
+    | [], [] -> ()
+    | [], map ->
+       Printf.printf "Trans map is not []:\n" ;
+       print_map map ;
+       assert false
+    | map, [] ->
+       Printf.printf "Init map is not []:\n" ;
+       print_map map ;
+       assert false
+  in
+
+  (* Making sure init and trans mappings are the same. *)
+  maps_eq (init_maps, trans_maps) ;
+
+  (* Printf.printf "Maps:\n" ; *)
+  (* print_map init_maps ; *)
+  (* Printf.printf "\n" ; *)
+
+  let system =
+    { scope = scope;
+      uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
+      state_vars =
+        is_init_svar :: state_vars
+        |> List.sort StateVar.compare_state_vars ;
+      init = init ;
+      trans = trans ;
+      props = props ;
+      subsystems = subsystems ;
+      source = source ;
+      prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props ;
+      invars = invars_of_types ;
+      instantiation_maps = [] }
+  in
+
+  (* Adding instantiation maps to subsystems. *)
+  init_maps
+  |> List.iter
+       ( fun (sub,map) -> add_instantiation_map sub (system,map) ) ;
+
+  (* Printf.printf "Done updating subsystems:\n" ; *)
+  (* subsystems *)
+  (* |> List.iter *)
+  (*      ( fun { scope ; instantiation_maps } -> *)
+  (*        Printf.printf "  Subsystem [%s]:\n" (String.concat "/" scope) ; *)
+  (*        print_instantiation_maps instantiation_maps |> ignore ) ; *)
+
+  (* Printf.printf "Trying to instantiate terms:\n" ; *)
+  (* subsystems *)
+  (* |> List.iter *)
+       
+  (*      ( fun ({ scope ; state_vars } as sys) -> *)
+
+  (*        Printf.printf "\nTesting system [%s]:\n" (String.concat "/" scope) ; *)
+         
+  (*        let term = *)
+  (*          match state_vars with *)
+             
+  (*          | _ :: sv :: sv' :: _ -> *)
+  (*             Term.mk_eq *)
+  (*               [ Var.mk_state_var_instance sv Numeral.one *)
+  (*                 |> Term.mk_var ; *)
+  (*                 Var.mk_state_var_instance sv' (Numeral.of_int 10) *)
+  (*                 |> Term.mk_var ] *)
+  (*          | _ :: sv :: _ -> *)
+  (*             Term.mk_eq *)
+  (*               [ Var.mk_state_var_instance sv Numeral.one *)
+  (*                 |> Term.mk_var ; *)
+  (*                 Var.mk_state_var_instance sv (Numeral.of_int 10) *)
+  (*                 |> Term.mk_var ] *)
+  (*          | [] -> assert false *)
+  (*        in *)
+
+  (*        Printf.printf "Original term:\n" ; *)
+  (*        Printf.printf "  %s\n" (Term.string_of_term term) ; *)
+         
+  (*        instantiate_term sys term *)
+  (*        |> List.iter *)
+  (*             ( fun (sys, terms) -> *)
+  (*               Printf.printf "Instantiation for [%s]:\n" *)
+  (*                             (String.concat "/" sys.scope) ; *)
+  (*               terms *)
+  (*               |> List.iter *)
+  (*                    (fun t -> Term.string_of_term t *)
+  (*                              |> Printf.printf "  %s\n") ) ) ; *)
+
+  system
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' trans_sys lbound ubound accum = 
@@ -746,7 +1062,6 @@ let rec exists_eval_on_path' uf_defs p term k path =
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
   exists_eval_on_path' uf_defs pred term Numeral.zero path 
-  
 
 
 (* 
