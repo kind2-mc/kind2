@@ -91,6 +91,14 @@ val pp_print_trans_sys : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
 val get_logic : t -> SMTExpr.logic
+                       
+(** Instantiates a term for all (over)systems instantiating, possibly
+    more than once, the input system. *)
+val instantiate_term: t -> Term.t -> (t * Term.t list) list
+
+(** Instantiates a term for the top system by going up the system
+    hierarchy, for all instantiations of the input system. *)
+val instantiate_term_top: t -> Term.t -> Term.t list
 
 
 (** Predicate for the initial state constraint *)

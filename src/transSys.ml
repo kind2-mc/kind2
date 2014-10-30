@@ -153,6 +153,30 @@ let init_term { init = (_, (_, t)) } = t
 (* Return the definition of the transition relation *)
 let trans_term { trans = (_, (_, t)) } = t
 
+(* Prints the instantiation maps of a transition system. *)
+let print_instantiation_maps { instantiation_maps } =
+  (* Turns a map from state vars to terms into a string. *)
+  let string_of_map map =
+    map
+    |> List.map
+         ( fun (v,t) ->
+           Printf.sprintf "(%s -> %s)"
+                          (StateVar.string_of_state_var v)
+                          (Term.string_of_term t) )
+    |> String.concat ", "
+  in
+  
+  instantiation_maps
+  |> List.map
+       (fun (sub,maps) ->
+        Printf.printf "  Mapping to [%s]:\n"
+                      (String.concat "/" sub.scope) ;
+        maps
+        |> List.iter
+             ( fun map ->
+               Printf.printf "  > %s\n" (string_of_map map) ) ;
+        Printf.printf "\n")
+
 (* Adds an instantiation map (subsystem / var association pair) to a
    system. *)
 let add_instantiation_map t (sys', map) =
@@ -174,6 +198,8 @@ let add_instantiation_map t (sys', map) =
   t.instantiation_maps <- (loop [] t.instantiation_maps)
 
 
+(* Instantiates a term for all systems instantiating the input
+   system. *)
 let instantiate_term { instantiation_maps } term =
 
   (* Gets the term corresponding to 'var' in 'map' and bumps it if
@@ -243,6 +269,41 @@ let instantiate_term { instantiation_maps } term =
          in
 
          sys, terms )
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. *)
+let instantiate_term_top t term =
+
+  let rec loop at_top = function
+      
+    | (sys, ((term :: term_tail) as list)) :: tail ->
+       
+       (* Instantiating this term upward. *)
+       ( match instantiate_term sys term with
+           
+         | [] ->
+            (* Nothing, so sys is the top node. *)
+            loop (List.rev_append list at_top)
+                 tail
+
+         | list' ->
+            (* Sys is not the top node. *)
+            loop at_top
+                 (List.rev_append
+                    (* Looping on the new (sys,terms) pairs... *)
+                    list'
+                    (* ...and the (sys,terms) pairs we haven't looked
+                       at yet. *)
+                    ((sys, term_tail)
+                     :: tail)) )
+         
+    | (sys, []) :: tail -> loop at_top tail
+                                
+    | [] -> at_top
+  in
+
+  loop [] (instantiate_term t term)
 
 
 (* Returns the subsystems of a system. *)
@@ -440,17 +501,24 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     loop [] (vars, terms)
   in
 
-  let string_of_map map =
-    map
-    |> List.map
-         ( fun (v,t) ->
-           Printf.sprintf "(%s -> %s)"
-                          (StateVar.string_of_state_var v)
-                          (Term.string_of_term t) )
-    |> String.concat ", "
+  let print_map =
+    (* Turns a map from state vars to terms into a string. *)
+    let string_of_map map =
+      map
+      |> List.map
+           ( fun (v,t) ->
+             Printf.sprintf "(%s -> %s)"
+                            (StateVar.string_of_state_var v)
+                            (Term.string_of_term t) )
+      |> String.concat ", "
+    in
+    
+    List.map
+      (fun (sub,map) ->
+       Printf.printf "  Mapping to [%s]:\n"
+                     (String.concat "/" sub.scope) ;
+       Printf.printf "  > %s\n\n" (string_of_map map) )
   in
-
-  (* Printf.printf "\nCreating system [%s]\n" (String.concat "/" scope) ; *)
 
   (* Going through init to find instantiations of subsystems. *)
   let init_maps = match init with
@@ -476,26 +544,6 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
               | Some (sub,params) ->
                  (sub, build_mapping (trans_vars sub) params)
                  :: (List.concat maps) )
-  in
-
-  let print_map =
-    List.map
-      (fun (sub,map) ->
-       Printf.printf "  Mapping to [%s]:\n"
-                     (String.concat "/" sub.scope) ;
-       Printf.printf "  > %s\n\n" (string_of_map map) )
-  in
-
-  let print_instantiation_maps =
-    List.map
-      (fun (sub,maps) ->
-       Printf.printf "  Mapping to [%s]:\n"
-                     (String.concat "/" sub.scope) ;
-       maps
-       |> List.iter
-            ( fun map ->
-              Printf.printf "  > %s\n" (string_of_map map) ) ;
-       Printf.printf "\n")
   in
 
   (* Crashes if two maps are not the same. *)
@@ -529,10 +577,6 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   (* Making sure init and trans mappings are the same. *)
   maps_eq (init_maps, trans_maps) ;
 
-  (* Printf.printf "Maps:\n" ; *)
-  (* print_map init_maps ; *)
-  (* Printf.printf "\n" ; *)
-
   let system =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
@@ -553,53 +597,6 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   init_maps
   |> List.iter
        ( fun (sub,map) -> add_instantiation_map sub (system,map) ) ;
-
-  (* Printf.printf "Done updating subsystems:\n" ; *)
-  (* subsystems *)
-  (* |> List.iter *)
-  (*      ( fun { scope ; instantiation_maps } -> *)
-  (*        Printf.printf "  Subsystem [%s]:\n" (String.concat "/" scope) ; *)
-  (*        print_instantiation_maps instantiation_maps |> ignore ) ; *)
-
-  (* Printf.printf "Trying to instantiate terms:\n" ; *)
-  (* subsystems *)
-  (* |> List.iter *)
-       
-  (*      ( fun ({ scope ; state_vars } as sys) -> *)
-
-  (*        Printf.printf "\nTesting system [%s]:\n" (String.concat "/" scope) ; *)
-         
-  (*        let term = *)
-  (*          match state_vars with *)
-             
-  (*          | _ :: sv :: sv' :: _ -> *)
-  (*             Term.mk_eq *)
-  (*               [ Var.mk_state_var_instance sv Numeral.one *)
-  (*                 |> Term.mk_var ; *)
-  (*                 Var.mk_state_var_instance sv' (Numeral.of_int 10) *)
-  (*                 |> Term.mk_var ] *)
-  (*          | _ :: sv :: _ -> *)
-  (*             Term.mk_eq *)
-  (*               [ Var.mk_state_var_instance sv Numeral.one *)
-  (*                 |> Term.mk_var ; *)
-  (*                 Var.mk_state_var_instance sv (Numeral.of_int 10) *)
-  (*                 |> Term.mk_var ] *)
-  (*          | [] -> assert false *)
-  (*        in *)
-
-  (*        Printf.printf "Original term:\n" ; *)
-  (*        Printf.printf "  %s\n" (Term.string_of_term term) ; *)
-         
-  (*        instantiate_term sys term *)
-  (*        |> List.iter *)
-  (*             ( fun (sys, terms) -> *)
-  (*               Printf.printf "Instantiation for [%s]:\n" *)
-  (*                             (String.concat "/" sys.scope) ; *)
-  (*               terms *)
-  (*               |> List.iter *)
-  (*                    (fun t -> Term.string_of_term t *)
-  (*                              |> Printf.printf "  %s\n") ) ) ; *)
-
   system
 
 (* Return the variables of the transition system between given instants *)
