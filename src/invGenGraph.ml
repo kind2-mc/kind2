@@ -24,6 +24,7 @@ module Graph = ImplicationGraph
 module LSD = LockStepDriver
 
 let lsd_ref = ref None
+let confirmation_lsd_ref = ref None
 
 (* Inserts a system / graph pair in a list ordered by decreasing
    instantiation count. *)
@@ -49,6 +50,20 @@ let generate_implication_graphs trans_sys =
   let flat_to_term = Term.construct in
 
   let bool_type = Type.mk_bool () in
+
+  (* Only keep terms with vars in them. *)
+  let must_have_var_rule =
+    TSet.filter
+      ( fun term ->
+        not (Term.vars_of_term term |> Var.VarSet.is_empty)
+        &&  (term != ((TransSys.init_flag_var Numeral.zero) |> Term.mk_var))
+        &&  (term != ((TransSys.init_flag_var Numeral.(~-one)) |> Term.mk_var)) )
+  in
+
+  (* Only keep terms which are a var. *)
+  let must_be_var =
+    TSet.filter Term.is_free_var
+  in
 
   (* If a term only contains variables at -1 (resp. 0), also create
      the same term at 0 (resp. -1). *)
@@ -105,7 +120,9 @@ let generate_implication_graphs trans_sys =
   (* List of (rule,condition). Rule will be used to generate candidate
      terms iff 'condition ()' evaluates to true. *)
   let rule_list =
-    [ offset_rule  , true_of_unit ;
+    [ must_have_var_rule , true_of_unit ;
+      (* must_be_var , true_of_unit ; *)
+      offset_rule, true_of_unit ;
       negation_rule, true_of_unit ]
   in
 
@@ -169,10 +186,10 @@ let generate_implication_graphs trans_sys =
          in
 
          debug invGen "System [%s]:" (scope |> String.concat "/") in
-         debug invGen
-               "  > %i candidate terms."
-               (TSet.cardinal candidates)
-         in
+         candidates
+         |> TSet.iter
+              (fun candidate ->
+               debug invGen "%s" (Term.string_of_term candidate) in ()) ;
 
          let sorted_result =
            insert_sys_graph
@@ -242,32 +259,170 @@ let rewrite_graph_until_unsat lsd sys graph =
          loop (iteration + 1) fixed_point graph'
 
       | None ->
-         debug invGen "Unsat." in
+         (* debug invGen "Unsat." in *)
 
          (* Returning current graph. *)
          graph
     )
   in
 
-  debug invGen
-        "Starting graph rewriting for [%s] at k = %i."
-        (TransSys.get_scope sys |> String.concat "/")
-        (LSD.get_k lsd |> Numeral.to_int)
-  in
+  (* debug invGen *)
+  (*       "Starting graph rewriting for [%s] at k = %i." *)
+  (*       (TransSys.get_scope sys |> String.concat "/") *)
+  (*       (LSD.get_k lsd |> Numeral.to_int) *)
+  (* in *)
 
   loop 1 false graph
 
-(* Removes implications from a set of term for step. *)
-let filter_step_implications term_set = term_set
+(* Removes implications from a set of term for step. CRASHES if not
+   applied to implications. *)
+let filter_step_implications implications =
+
+  (* Tests if 'rhs' is an or containing 'lhs', or a negated and
+     containing the complement of 'lhs'. *)
+  let trivial_rhs_or lhs rhs =
+
+    (* Returns true if 'negated' is an or containing the complement of
+       'lhs'. Used if 'rhs' is a not. *)
+    let negated_and negated =
+      if Term.is_node negated
+      then
+        
+        if Term.node_symbol_of_term negated == Symbol.s_and
+        then
+          (* Term is an and. *)
+          Term.node_args_of_term negated
+          |> List.mem (Term.negate lhs)
+                      
+        else false
+      else false
+    in     
+    
+    (* Is rhs an application? *)
+    if Term.is_node rhs
+    then
+      
+      if Term.node_symbol_of_term rhs == Symbol.s_or
+      then
+        (* Rhs is an or. *)
+        Term.node_args_of_term rhs |> List.mem lhs
+
+      else if Term.node_symbol_of_term rhs == Symbol.s_not
+      then
+        (* Rhs is a not, need to check if there is an and below. *)
+        ( match Term.node_args_of_term rhs with
+
+          (* Well founded not. *)
+          | [ negated ] -> negated_and negated
+
+          (* Dunno what that is. *)
+          | _ -> false )
+
+      else false
+    else false
+
+  in
+
+  (* Tests if 'lhs' is an and containing 'rhs', or a negated or
+     containing the complement of 'rhs'. *)
+  let trivial_lhs_and lhs rhs =
+
+    (* Returns true if 'negated' is an and containing the complement of
+       'rhs'. Used if 'lhs' is a not. *)
+    let negated_or negated =
+      if Term.is_node negated
+      then
+        
+        if Term.node_symbol_of_term negated == Symbol.s_or
+        then
+          (* Term is an or. *)
+          Term.node_args_of_term negated
+          |> List.mem (Term.negate rhs)
+                      
+        else false
+      else false
+    in     
+    
+    (* Is rhs an application? *)
+    if Term.is_node lhs
+    then
+      
+      if Term.node_symbol_of_term lhs == Symbol.s_and
+      then
+        (* Lhs is an and. *)
+        Term.node_args_of_term lhs |> List.mem rhs
+
+
+      else if Term.node_symbol_of_term lhs == Symbol.s_not
+      then
+        (* Lhs is a not, need to check if there is an or below. *)
+        ( match Term.node_args_of_term lhs with
+
+          (* Well founded not. *)
+          | [ negated ] -> negated_or negated
+
+          (* Dunno what that is. *)
+          | _ -> false )
+
+      else false
+    else false
+
+  in
+
+  (* Number of implications removed. *)
+  let rm_count = ref 0 in
+
+  (* Function returning false for the implications to prune. *)
+  let filter_implication term =
+    
+    (* Node should be an application. *)
+    assert (Term.is_node term) ;
+    
+    if Term.node_symbol_of_term term == Symbol.s_implies
+    then
+      (* Term is indeed an implication. *)
+      ( match Term.node_args_of_term term with
+
+        (* Term is a well founded implication. *)
+        | [ lhs ; rhs ] ->
+           if
+             (* Checking if rhs is an and containing lhs, or a negated
+               or containing the negation of lhs. *)
+             (trivial_rhs_or lhs rhs)
+             (* Checking if lhs is an or containing lhs, or a negated
+               or containing the negation of lhs. *)
+             || (trivial_lhs_and lhs rhs)
+           then (
+             rm_count := !rm_count + 1 ; false
+           ) else true
+
+        (* Implication is not well founded, crashing. *)
+        | _ -> assert false )
+        
+    (* Node is not an implication, crashing. *)
+    else assert false
+  in
+  
+  let result = List.filter filter_implication implications in
+
+  (* debug invGen "  Pruned %i step implications." !rm_count in *)
+
+  result
 
 (* Queries step to find invariants to communicate. *)
 let find_invariants lsd invariants sys graph =
 
-  debug invGen
-        "Check step for [%s] at k = %i."
-        (TransSys.get_scope sys |> String.concat "/")
-        (LSD.get_k lsd |> Numeral.to_int)
-  in
+  (* Graph.to_dot *)
+  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
+  (*            (TransSys.get_scope sys |> String.concat "-") *)
+  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
+  (*   graph ; *)
+
+  (* debug invGen *)
+  (*       "Check step for [%s] at k = %i." *)
+  (*       (TransSys.get_scope sys |> String.concat "/") *)
+  (*       (LSD.get_k lsd |> Numeral.to_int) *)
+  (* in *)
 
   (* Equivalence classes as binary equalities. *)
   let eq_classes =
@@ -320,36 +475,95 @@ let find_invariants lsd invariants sys graph =
   match new_invariants with
     
   | [] ->
-     debug invGen "  No new invariants /T_T\\." in
+     (* debug invGen "  No new invariants /T_T\\." in *)
 
      invariants
       
   | _ ->
+
+     let impl_count =
+       new_invariants
+       |> List.fold_left
+            ( fun sum inv ->
+              if (Term.is_node inv)
+                 && (Term.node_symbol_of_term inv = Symbol.s_implies)
+              then sum + 1
+              else sum )
+            0
+     in
+     
      debug invGen
-           "  %i invariants discovered \\*o*/."
+           "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
-    in
+           impl_count
+           (TransSys.get_scope sys |> String.concat "/")
+     in
+     
+     (* new_invariants *)
+     (* |> List.iter *)
+     (*      (fun inv -> *)
+     (*       debug invGen "%s" (Term.string_of_term inv) in ()) ; *)
 
-    new_invariants
-    (* Instantiating new invariants at top level. *)
-    |> List.map (TransSys.instantiate_term_top sys)
-    |> List.flatten
-    (* And-ing them. *)
-    |> Term.mk_and
-    (* Broadcasting them. *)
-    |> Event.invariant ;
+     let top_level_inv =
+       new_invariants
+       (* Instantiating new invariants at top level. *)
+       |> List.map (TransSys.instantiate_term_top sys)
+       |> List.flatten
+       (* And-ing them. *)
+       |> Term.mk_and
+       (* Guarding with init. *)
+       |> (fun t ->
+           Term.mk_or [ TransSys.init_flag_var Numeral.zero
+                        |> Term.mk_var ;
+                        t ])
+     in
 
-    (* Adding the new invariants to the old ones. *)
-    new_invariants
-    |> List.fold_left
-         ( fun set t -> TSet.add t set )
-         invariants
+     debug invGen
+           "Confirming top level invariant."
+     in
+
+     debug invGen
+           "%s" (Term.string_of_term top_level_inv)
+     in
+
+     (* Confirming invariant. *)
+     ( match !confirmation_lsd_ref with
+       | Some conf_lsd ->
+          ( match LSD.query_base
+                    conf_lsd
+                    [ top_level_inv ]
+            with
+            | None -> ()
+            | _ -> assert false ) ;
+          ( match LSD.query_step
+                    conf_lsd
+                    [ top_level_inv ]
+            with
+            | [],_ ->
+               debug invGen
+                     "Confirmed."
+               in
+               ()
+            | _ -> assert false )
+       | None -> () ) ;
+
+     top_level_inv
+     (* Broadcasting them. *)
+     |> Event.invariant ;
+
+     (* Adding the new invariants to the old ones. *)
+     new_invariants
+     |> List.fold_left
+          ( fun set t -> TSet.add t set )
+          invariants
 
 let rewrite_graph_find_invariants lsd invariants (sys,graph) =
   (* Rewriting the graph. *)
   let graph' = rewrite_graph_until_unsat lsd sys graph in
   (* At this point base is unsat, discovering invariants. *)
-  let invariants' = find_invariants lsd invariants sys graph in
+  let invariants' = find_invariants lsd invariants sys graph' in
+  (* Receiving messages. *)
+  Event.recv () |> ignore ;
   (* Returning new mapping and the new invariants. *)
   (sys, graph'), invariants'
 
@@ -388,6 +602,15 @@ let generate_invariants trans_sys lsd =
     (* Incrementing the k. *)
     LSD.increment lsd ;
 
+    (* Incrementing the k in confirmation lsd. *)
+    ( match !confirmation_lsd_ref with
+      | Some conf_lsd ->
+         LSD.increment conf_lsd
+      | None -> () ) ;
+
+    (* if Numeral.(one < (LSD.get_k lsd)) then () *)
+    (* else loop invariants' map' *)
+
     loop invariants' map'
 
   in
@@ -396,8 +619,14 @@ let generate_invariants trans_sys lsd =
 
 (* Cleans up things on exit. *)
 let on_exit _ =
+  
   (* Destroying lsd if one was created. *)
   match !lsd_ref with
+  | None -> ()
+  | Some lsd -> LSD.delete lsd ;
+                
+  (* Destroying confirmation lsd if one was created. *)
+  match !confirmation_lsd_ref with
   | None -> ()
   | Some lsd -> LSD.delete lsd
 
@@ -406,10 +635,14 @@ let main trans_sys =
 
   let lsd = LSD.create trans_sys in
 
+  let confirmation_lsd = LSD.create trans_sys in
+
   (* Skipping k=0. *)
   LSD.increment lsd ;
+  LSD.increment confirmation_lsd ;
 
   lsd_ref := Some lsd ;
+  confirmation_lsd_ref := Some confirmation_lsd ;
 
   generate_invariants trans_sys lsd
 

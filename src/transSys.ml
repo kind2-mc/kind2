@@ -303,7 +303,10 @@ let instantiate_term_top t term =
     | [] -> at_top
   in
 
-  loop [] (instantiate_term t term)
+  match loop [] (instantiate_term t term) with
+  (* Empty result means that sys is the top node already. *)
+  | [] -> [term]
+  | list -> list
 
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { instantiation_maps } =
@@ -634,8 +637,8 @@ let vars_of_bounds trans_sys lbound ubound =
 let init_of_bound t i = 
 
   let init_term =
-    Term.mk_and [
-        (* Get term of initial state constraint *)
+    Term.mk_and
+      [ (* Get term of initial state constraint *)
         init_term t ;
         (* Adding is_init. *)
         Term.mk_var (init_flag_var Numeral.zero) ]
@@ -651,8 +654,8 @@ let init_of_bound t i =
 let trans_of_bound t i = 
 
   let trans_term =
-    Term.mk_and [
-        (* Get term of transition predicate. *)
+    Term.mk_and
+      [ (* Get term of transition predicate. *)
         trans_term t ;
         (* The next state cannot be initial. *)
         (init_flag_var Numeral.one |> Term.mk_var |> Term.mk_not) ]

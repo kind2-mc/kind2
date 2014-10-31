@@ -51,17 +51,6 @@ let create trans =
     |> Solver.new_solver ~produce_assignments: true
   in
 
-  (* (\* Building the list of top node vars at 0, declaring their *)
-  (*    uninterpreted function symbols at the same time. *\) *)
-  (* let top_node_vars = *)
-  (*   TransSys.state_vars trans *)
-  (*   |> List.map *)
-  (*        ( fun sv -> *)
-  (*          StateVar.uf_symbol_of_state_var sv *)
-  (*          |> Solver.declare_fun solver ; *)
-  (*          Var.mk_state_var_instance sv Numeral.zero ) *)
-  (* in *)
-
   (* Declaring the init flag. *)
   TransSys.init_flag_uf
   |> Solver.declare_fun solver ;
@@ -99,7 +88,14 @@ let create trans =
            t_term :: trans_list,
            List.rev_append i_vars var_list)
          
-         ([], [], [])
+         ([ TransSys.init_flag_var Numeral.zero
+            |> Term.mk_var ],
+          
+          [ TransSys.init_flag_var Numeral.one
+            |> Term.mk_var
+            |> Term.mk_not ],
+          
+          [ TransSys.init_flag_var Numeral.zero ])
   in
 
   (* Declaring path compression function. *)
@@ -131,7 +127,7 @@ let create trans =
   (* Return the context of the solver. *)
   { trans = trans ;
     solver = solver ;
-    all_vars = (TransSys.init_flag_var Numeral.zero) :: all_vars ;
+    all_vars = all_vars ;
     all_transitions = all_transitions_conj ;
     init_actlit = init_actlit_term ;
     k = Numeral.zero ;
@@ -175,7 +171,7 @@ let unroll_term_up_to_k k term =
       Term.bump_state i term :: unrolled
       |> loop Numeral.(i - one)
     else if Numeral.(i = zero) then
-      (Term.bump_state i term) :: unrolled
+      unrolled
     else
       Failure
         (Printf.sprintf "Illegal negative k: %i." (Numeral.to_int i))
