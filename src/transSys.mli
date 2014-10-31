@@ -100,6 +100,18 @@ val instantiate_term: t -> Term.t -> (t * Term.t list) list
     hierarchy, for all instantiations of the input system. *)
 val instantiate_term_top: t -> Term.t -> Term.t list
 
+(** Number of times this system is instantiated in other systems. *)
+val instantiation_count: t -> int
+
+
+(** Global init flag state var *)
+val init_flag_svar: StateVar.t
+
+(** Global init flag uf *)
+val init_flag_uf: UfSymbol.t
+
+(** Instantiate init flag at k *)
+val init_flag_var: Numeral.t -> Var.t
 
 (** Predicate for the initial state constraint *)
 val init_uf_symbol : t -> UfSymbol.t

@@ -37,11 +37,14 @@ val create: term_set -> t
 val create_of_list: term list -> t
 
 (** The equivalence classes of a graph. *)
-val eq_classes_of: t -> term_set list
+val eq_classes: t -> term_set list
 
-(** The non trivial implications and the trivial implications of a
-    graph between its representative. *)
-val implications_of: t -> term list * term list
+(** The non trivial implications of a graph between its
+    representative. *)
+val non_trivial_implications: t -> term list
+
+(** The trivial implications of a graph between its representative. *)
+val trivial_implications: t -> term list
 
 (* 
    Local Variables:

@@ -51,16 +51,20 @@ let create trans =
     |> Solver.new_solver ~produce_assignments: true
   in
 
-  (* Building the list of top node vars at 0, declaring their
-     uninterpreted function symbols at the same time. *)
-  let top_node_vars =
-    TransSys.state_vars trans
-    |> List.map
-         ( fun sv ->
-           StateVar.uf_symbol_of_state_var sv
-           |> Solver.declare_fun solver ;
-           Var.mk_state_var_instance sv Numeral.zero )
-  in
+  (* (\* Building the list of top node vars at 0, declaring their *)
+  (*    uninterpreted function symbols at the same time. *\) *)
+  (* let top_node_vars = *)
+  (*   TransSys.state_vars trans *)
+  (*   |> List.map *)
+  (*        ( fun sv -> *)
+  (*          StateVar.uf_symbol_of_state_var sv *)
+  (*          |> Solver.declare_fun solver ; *)
+  (*          Var.mk_state_var_instance sv Numeral.zero ) *)
+  (* in *)
+
+  (* Declaring the init flag. *)
+  TransSys.init_flag_uf
+  |> Solver.declare_fun solver ;
 
   (* Creating the list of all initial predicates, the list of all
      transition predicates and the list of all vars at 0. Also does
@@ -94,9 +98,8 @@ let create trans =
            i_term :: init_list,
            t_term :: trans_list,
            List.rev_append i_vars var_list)
-         ([ TransSys.init_of_bound trans Numeral.zero ],
-          [ TransSys.trans_of_bound trans Numeral.one ],
-          top_node_vars)
+         
+         ([], [], [])
   in
 
   (* Declaring path compression function. *)
@@ -128,7 +131,7 @@ let create trans =
   (* Return the context of the solver. *)
   { trans = trans ;
     solver = solver ;
-    all_vars = all_vars ;
+    all_vars = (TransSys.init_flag_var Numeral.zero) :: all_vars ;
     all_transitions = all_transitions_conj ;
     init_actlit = init_actlit_term ;
     k = Numeral.zero ;

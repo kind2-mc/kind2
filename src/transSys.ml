@@ -20,20 +20,20 @@ open Lib
 
 type source = 
   | Lustre of LustreNode.t list 
-  | Native 
+  | Native
 
-(* Global is_init state var *)
-let is_init_svar =
-  StateVar.mk_state_var "x_is_init_x" [] Type.t_bool
+(* Global init flag state var *)
+let init_flag_svar =
+  StateVar.mk_state_var "x_init_flag_x" [] Type.t_bool
 
-(* Global is_init uf *)
-let is_init_uf =
-  StateVar.uf_symbol_of_state_var is_init_svar
+(* Global init flag uf *)
+let init_flag_uf =
+  StateVar.uf_symbol_of_state_var init_flag_svar
 
-(* Instantiate is_init at k *)
-let is_init_var = Var.mk_state_var_instance is_init_svar
+(* Instantiate init flag at k *)
+let init_flag_var = Var.mk_state_var_instance init_flag_svar
 
-let _ = LustreExpr.set_state_var_source is_init_svar LustreExpr.Abstract
+let _ = LustreExpr.set_state_var_source init_flag_svar LustreExpr.Abstract
 
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
@@ -304,6 +304,14 @@ let instantiate_term_top t term =
   in
 
   loop [] (instantiate_term t term)
+
+(* Number of times this system is instantiated in other systems. *)
+let instantiation_count { instantiation_maps } =
+  instantiation_maps
+  |> List.fold_left
+       ( fun sum (sys,maps) ->
+         sum + (List.length maps) )
+       0
 
 
 (* Returns the subsystems of a system. *)
@@ -581,7 +589,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
       state_vars =
-        is_init_svar :: state_vars
+        init_flag_svar :: state_vars
         |> List.sort StateVar.compare_state_vars ;
       init = init ;
       trans = trans ;
@@ -630,7 +638,7 @@ let init_of_bound t i =
         (* Get term of initial state constraint *)
         init_term t ;
         (* Adding is_init. *)
-        Term.mk_var (is_init_var Numeral.zero) ]
+        Term.mk_var (init_flag_var Numeral.zero) ]
   in
 
   (* Bump bound if greater than zero *)
@@ -647,7 +655,7 @@ let trans_of_bound t i =
         (* Get term of transition predicate. *)
         trans_term t ;
         (* The next state cannot be initial. *)
-        (is_init_var Numeral.one |> Term.mk_var |> Term.mk_not) ]
+        (init_flag_var Numeral.one |> Term.mk_var |> Term.mk_not) ]
   in
 
   (* Bump bound if greater than zero *)

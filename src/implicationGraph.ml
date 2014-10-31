@@ -1284,11 +1284,13 @@ type t = {
   trivial_implications: term list ;
 }
 
-let eq_classes_of { eq_classes } = eq_classes
+let eq_classes { eq_classes } = eq_classes
 
-let implications_of { non_trivial_implications ;
-                      trivial_implications } =
-  non_trivial_implications, trivial_implications
+let non_trivial_implications
+      { non_trivial_implications } = non_trivial_implications
+
+let trivial_implications
+      { trivial_implications } = trivial_implications
 
 let to_dot file { graph } = Node.graph_to_dot file graph
 
