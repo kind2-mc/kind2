@@ -390,7 +390,7 @@ let get_source t = t.source
 let get_scope t = t.scope
 
 (* Create a transition system *)
-let mk_trans_sys scope state_vars init trans subsystems props source = 
+let mk_trans_sys scope state_vars init trans subsystems props source =
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -444,7 +444,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   (* Looks in the subsystems for one such that 'f' applied to the
      subsys is uf. *)
   let find_subsystem f uf =
-    List.find (fun subsys -> uf = f subsys) subsystems
+    List.find (fun subsys -> uf == f subsys) subsystems
   in
 
   (* Checks if a flat term is an application of a uf such that 'f' on
