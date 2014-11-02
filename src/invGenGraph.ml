@@ -409,6 +409,36 @@ let filter_step_implications implications =
 
   result
 
+
+(* Gets the top level new invariants and adds all intermediary
+   invariants into lsd. *)
+let get_top_inv_add_invariants lsd sys invs =
+  
+  invs
+    
+  (* Instantiating each invariant at all levels. *)
+  |> List.map
+       (TransSys.instantiate_term_all_levels sys)
+       
+  |> List.fold_left
+       ( fun top ((_,top'), intermediary) ->
+
+         (* Adding top level invariants as new invariants. *)
+         LSD.new_invariants lsd top' ;
+
+         (* Adding subsystems invariants as new invariants. *)
+         intermediary
+         (* Folding intermediary as a list of terms. *)
+         |> List.fold_left
+              ( fun terms (_,terms') -> List.rev_append terms' terms)
+              []
+         (* Adding it into lsd. *)
+         |> LSD.new_invariants lsd ;
+
+         (* Appending new top invariants. *)
+         List.rev_append top' top )
+       []
+
 (* Queries step to find invariants to communicate. *)
 let find_invariants lsd invariants sys graph =
 
@@ -481,6 +511,30 @@ let find_invariants lsd invariants sys graph =
       
   | _ ->
 
+     debug invGen
+           "Confirming invariants."
+     in
+     
+     (* Confirming invariant. *)
+     ( match !confirmation_lsd_ref with
+       | Some conf_lsd ->
+          ( match LSD.query_base
+                    conf_lsd new_invariants
+            with
+            | None -> ()
+            | _ -> assert false ) ;
+          ( match LSD.query_step
+                    conf_lsd new_invariants
+            with
+            | [],_ ->
+               debug invGen
+                     "Confirmed."
+               in
+               ()
+            | _ -> assert false )
+       | None -> () ) ;
+
+
      let impl_count =
        new_invariants
        |> List.fold_left
@@ -504,11 +558,11 @@ let find_invariants lsd invariants sys graph =
      (*      (fun inv -> *)
      (*       debug invGen "%s" (Term.string_of_term inv) in ()) ; *)
 
+
      let top_level_inv =
        new_invariants
        (* Instantiating new invariants at top level. *)
-       |> List.map (TransSys.instantiate_term_top sys)
-       |> List.flatten
+       |> get_top_inv_add_invariants lsd sys
        (* And-ing them. *)
        |> Term.mk_and
        (* Guarding with init. *)
@@ -518,34 +572,9 @@ let find_invariants lsd invariants sys graph =
                         t ])
      in
 
-     debug invGen
-           "Confirming top level invariant."
-     in
-
-     debug invGen
-           "%s" (Term.string_of_term top_level_inv)
-     in
-
-     (* Confirming invariant. *)
-     ( match !confirmation_lsd_ref with
-       | Some conf_lsd ->
-          ( match LSD.query_base
-                    conf_lsd
-                    [ top_level_inv ]
-            with
-            | None -> ()
-            | _ -> assert false ) ;
-          ( match LSD.query_step
-                    conf_lsd
-                    [ top_level_inv ]
-            with
-            | [],_ ->
-               debug invGen
-                     "Confirmed."
-               in
-               ()
-            | _ -> assert false )
-       | None -> () ) ;
+     (* debug invGen *)
+     (*       "%s" (Term.string_of_term top_level_inv) *)
+     (* in *)
 
      top_level_inv
      (* Broadcasting them. *)

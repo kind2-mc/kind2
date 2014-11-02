@@ -270,6 +270,92 @@ let instantiate_term { instantiation_maps } term =
 
          sys, terms )
 
+let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
+  
+  try
+    (* Getting the terms associated with the system. *)
+    let old_terms = List.assq sys assoc_list in
+    (* Removing old association. *)
+    let list = List.remove_assq sys assoc_list in
+    (* Updating with new association. *)
+    (sys, List.rev_append terms old_terms) :: list
+
+  with
+    Not_found ->
+    (* Sys is not in the association list. *)
+    (sys,terms) :: assoc_list
+
+
+(* Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding terms, paired with the
+   intermediary systems and terms. Note that the input system term of
+   the function will be in the result, either as intermediary or top
+   level. *)
+let instantiate_term_all_levels t term =
+
+  (* Parameter 'at_top' is an option of a pair containing the top
+     system and the terms for the top system; 'intermediary' is a list
+     associating subsystems to the terms at that level. Top level
+     terms are NOT in 'intermediary'. *)
+  let rec loop at_top intermediary = function
+      
+    | (sys, ((term :: term_tail) as list)) :: tail ->
+       
+       (* Instantiating this term upward. *)
+       ( match instantiate_term sys term with
+           
+         | [] ->
+            (* Nothing, so sys is the top node. *)
+            ( match at_top with
+              | Some (sys, terms) ->
+                 loop
+                   (Some (sys, List.rev_append list terms))
+                   intermediary
+                   tail
+              | None ->
+                 loop (Some (sys,list)) intermediary tail )
+
+         | list' ->
+            (* Sys is not the top node. *)
+
+            (* Updating the list of intermediary terms. *)
+            let intermediary' =
+              list'
+              |> List.fold_left
+                   ( fun interm sys_terms ->
+                     insert_in_sys_term_map interm sys_terms )
+                   intermediary
+            in
+
+            loop
+              at_top
+              
+              (* Updated intermediary terms. *)
+              intermediary'
+              
+              (List.rev_append
+                 (* Looping on the new (sys,terms) pairs... *)
+                 list'
+                 (* ...and the (sys,terms) pairs we haven't looked
+                       at yet. *)
+                 ((sys, term_tail)
+                  :: tail)) )
+         
+    | (sys, []) :: tail -> loop at_top intermediary tail
+                                
+    | [] ->
+       ( match at_top with
+         | None ->
+            assert (intermediary = []) ;
+            (* Empty 'at_top', 't' is the top system. *)
+            (t, [term]), []
+         | Some top ->
+            top, (t,[term]) :: intermediary )
+  in
+
+  loop None [] (instantiate_term t term)
+
 
 (* Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. *)
@@ -300,13 +386,14 @@ let instantiate_term_top t term =
          
     | (sys, []) :: tail -> loop at_top tail
                                 
-    | [] -> at_top
+    | [] ->
+       ( match at_top with
+         (* If at_top is empty, 't' is already the top system. *)
+         | [] -> [term]
+         | list -> list )
   in
 
-  match loop [] (instantiate_term t term) with
-  (* Empty result means that sys is the top node already. *)
-  | [] -> [term]
-  | list -> list
+  loop [] (instantiate_term t term)
 
 (* Number of times this system is instantiated in other systems. *)
 let instantiation_count { instantiation_maps } =

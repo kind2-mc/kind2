@@ -95,6 +95,13 @@ val get_logic : t -> SMTExpr.logic
 (** Instantiates a term for all (over)systems instantiating, possibly
     more than once, the input system. *)
 val instantiate_term: t -> Term.t -> (t * Term.t list) list
+                                                       
+(** Instantiates a term for the top system by going up the system
+   hierarchy, for all instantiations of the input system. Returns the
+   top system and the corresponding instantiated terms, paired with
+   the intermediary systems and term instantiations. *)
+val instantiate_term_all_levels:
+  t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
 (** Instantiates a term for the top system by going up the system
     hierarchy, for all instantiations of the input system. *)
