@@ -591,8 +591,6 @@ let rewrite_graph_find_invariants lsd invariants (sys,graph) =
   let graph' = rewrite_graph_until_unsat lsd sys graph in
   (* At this point base is unsat, discovering invariants. *)
   let invariants' = find_invariants lsd invariants sys graph' in
-  (* Receiving messages. *)
-  Event.recv () |> ignore ;
   (* Returning new mapping and the new invariants. *)
   (sys, graph'), invariants'
 
@@ -603,6 +601,17 @@ let generate_invariants trans_sys lsd =
   let sys_graph_map = generate_implication_graphs [trans_sys] in
 
   let rec loop invariants map =
+
+    (* Getting new invariants from the framework. *)
+    let new_invariants, _, _ =
+      (* Receiving messages. *)
+      Event.recv ()
+      (* Updating transition system. *)
+      |> Event.update_trans_sys_tsugi trans_sys
+    in
+
+    (* Adding new invariants to LSD. *)
+    LSD.new_invariants lsd new_invariants ;
 
     debug invGen
           "Main loop at k = %i."
