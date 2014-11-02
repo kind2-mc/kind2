@@ -602,6 +602,11 @@ let generate_invariants trans_sys lsd =
 
   let rec loop invariants map =
 
+    debug invGen
+          "Main loop at k = %i."
+          (LSD.get_k lsd |> Numeral.to_int)
+    in
+
     (* Getting new invariants from the framework. *)
     let new_invariants, _, _ =
       (* Receiving messages. *)
@@ -612,11 +617,6 @@ let generate_invariants trans_sys lsd =
 
     (* Adding new invariants to LSD. *)
     LSD.new_invariants lsd new_invariants ;
-
-    debug invGen
-          "Main loop at k = %i."
-          (LSD.get_k lsd |> Numeral.to_int)
-    in
 
     (* Generating new invariants and updated map by going through the
        sys/graph map. *)
