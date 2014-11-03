@@ -252,6 +252,9 @@ let split_closure
 
   let rec loop falsifiable list =
 
+    (* Checking if we should terminate. *)
+    Event.check_termination () ;
+
     (* Building negative term. *)
     let neg_term =
       list

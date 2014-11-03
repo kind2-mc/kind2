@@ -115,7 +115,11 @@ val execution_path : TransSys.t -> (StateVar.t * Term.t list) list -> unit
 val terminate : unit -> unit 
 
 (** Receive all queued events *)
-val recv : unit -> (Lib.kind_module * event) list 
+val recv : unit -> (Lib.kind_module * event) list
+                                             
+(** Terminates if a termination message was received. Does NOT modified
+    received messages. *)
+val check_termination: unit -> unit
 
 (** Update transition system from events and return new invariants and
     properties with changed status

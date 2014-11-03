@@ -1210,6 +1210,11 @@ let recv () =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
 
+(* Terminates if a termination message was received. Does NOT modified
+   received messages. *)
+let check_termination () =
+  if EventMessaging.check_termination ()
+  then raise Terminate else ()
 
 
 (* Update transition system from event list *)
