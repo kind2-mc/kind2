@@ -586,7 +586,20 @@ let find_invariants lsd invariants sys graph =
           ( fun set t -> TSet.add t set )
           invariants
 
-let rewrite_graph_find_invariants lsd invariants (sys,graph) =
+let rewrite_graph_find_invariants
+      trans_sys lsd invariants (sys,graph) =
+
+  (* Getting new invariants from the framework. *)
+  let new_invariants, _, _ =
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys_tsugi trans_sys
+  in
+
+  (* Adding new invariants to LSD. *)
+  LSD.new_invariants lsd new_invariants ;
+  
   (* Rewriting the graph. *)
   let graph' = rewrite_graph_until_unsat lsd sys graph in
   (* At this point base is unsat, discovering invariants. *)
@@ -607,17 +620,6 @@ let generate_invariants trans_sys lsd =
           (LSD.get_k lsd |> Numeral.to_int)
     in
 
-    (* Getting new invariants from the framework. *)
-    let new_invariants, _, _ =
-      (* Receiving messages. *)
-      Event.recv ()
-      (* Updating transition system. *)
-      |> Event.update_trans_sys_tsugi trans_sys
-    in
-
-    (* Adding new invariants to LSD. *)
-    LSD.new_invariants lsd new_invariants ;
-
     (* Generating new invariants and updated map by going through the
        sys/graph map. *)
     let invariants', map' =
@@ -627,7 +629,7 @@ let generate_invariants trans_sys lsd =
              (* Getting updated mapping and invariants. *)
              let mapping, invs' =
                rewrite_graph_find_invariants
-                 lsd invs sys_graph
+                 trans_sys lsd invs sys_graph
              in
              (invs', (mapping :: mp)) )
            (invariants, [])

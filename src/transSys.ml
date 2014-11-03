@@ -270,20 +270,27 @@ let instantiate_term { instantiation_maps } term =
 
          sys, terms )
 
+(* Inserts a system / terms pair in an associative list from systems to terms.
+   Updates the biding by the old terms and the new ones if it's already there, 
+   adds a new biding otherwise. *)
 let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
-  
-  try
-    (* Getting the terms associated with the system. *)
-    let old_terms = List.assq sys assoc_list in
-    (* Removing old association. *)
-    let list = List.remove_assq sys assoc_list in
-    (* Updating with new association. *)
-    (sys, List.rev_append terms old_terms) :: list
 
-  with
-    Not_found ->
-    (* Sys is not in the association list. *)
-    (sys,terms) :: assoc_list
+  let rec loop prefix = function
+      
+    | (sys',terms') :: tail when sys == sys' ->
+       (* Updating the binding and returning. *)
+       List.rev_append
+         prefix
+         ( (sys, List.rev_append terms terms') :: tail )
+
+    (* Looping. *)
+    | head :: tail -> loop (head :: prefix) tail
+
+    (* 'sys' was not there, adding the biding. *)
+    | [] -> pair :: assoc_list
+  in
+
+  loop [] assoc_list
 
 
 (* Instantiates a term for the top system by going up the system
