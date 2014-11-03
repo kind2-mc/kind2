@@ -26,47 +26,37 @@ module LSD = LockStepDriver
 let lsd_ref = ref None
 let confirmation_lsd_ref = ref None
 
-(* Inserts a system / graph pair in a list ordered by decreasing
-   instantiation count. *)
-let insert_sys_graph list ((sys,_) as pair) =
+let confirmation_lsd_do f =
+  match !confirmation_lsd_ref with
+  | Some lsd -> f lsd | None -> ()
 
-  let count = TransSys.instantiation_count in
-  let sys_count = count sys in
+(* Gathers everything related to candidate term generation .*)
+module CandidateTerms: sig
 
-  let rec loop prefix = function
-    | ((sys',_) :: _) as l when sys_count >= count sys' ->
-       List.rev_append prefix (pair :: l)
-    | head :: tail ->
-       loop (head :: prefix) tail
-    | [] -> List.rev (pair :: prefix)
-  in
+  val generate_implication_graphs:
+    TransSys.t list -> (TransSys.t * Graph.t) list
 
-  loop [] list
-       
+end = struct
 
-(* Generates a set of candidate terms from the transition system. *)
-let generate_implication_graphs trans_sys =
-
-  let flat_to_term = Term.construct in
-
-  let bool_type = Type.mk_bool () in
+  (********** Rules for candidate term generation. ***********)
+  
 
   (* Only keep terms with vars in them. *)
   let must_have_var_rule =
     TSet.filter
       ( fun term ->
         not (Term.vars_of_term term |> Var.VarSet.is_empty)
-        &&  (term != ((TransSys.init_flag_var Numeral.zero) |> Term.mk_var))
-        &&  (term != ((TransSys.init_flag_var Numeral.(~-one)) |> Term.mk_var)) )
-  in
+        &&  (term != ((TransSys.init_flag_var Numeral.zero)
+                      |> Term.mk_var))
+        &&  (term != ((TransSys.init_flag_var Numeral.(~-one))
+                      |> Term.mk_var)) )
 
   (* Only keep terms which are a var. *)
   let must_be_var =
     TSet.filter Term.is_free_var
-  in
 
-  (* If a term only contains variables at -1 (resp. 0), also create
-     the same term at 0 (resp. -1). *)
+  (* If a term only contains variables at -1 (resp. 0), also
+     create the same term at 0 (resp. -1). *)
   let offset_rule set =
     TSet.fold
       ( fun term ->
@@ -92,119 +82,225 @@ let generate_implication_graphs trans_sys =
 
           | _ ->
              (* Term is either two-state or no-state, nothing to do
-                either way. *)
+                    either way. *)
              TSet.singleton term
         in
 
         TSet.union set )
       set
       TSet.empty
-  in
 
   (* For all boolean term, also add its negation. *)
   let negation_rule set =
     TSet.fold
       (fun term -> TSet.add (Term.negate term))
-      set
-      set
-  in
+      set set
 
   (* Returns true when given unit. *)
-  let true_of_unit () = true in
+  let true_of_unit () = true
 
-  (* Term set with true and false. *)
-  let true_false_set =
-    (TSet.of_list [ Term.mk_true () ; Term.mk_false () ])
-  in
-
-  (* List of (rule,condition). Rule will be used to generate candidate
-     terms iff 'condition ()' evaluates to true. *)
+  (* List of (rule,condition). Rule will be used to generate
+       candidate terms iff 'condition ()' evaluates to true. *)
   let rule_list =
     [ must_have_var_rule , true_of_unit ;
       (* must_be_var , true_of_unit ; *)
       offset_rule, true_of_unit ;
       negation_rule, true_of_unit ]
-  in
 
-  (* Applies the rules for the condition of which evaluates to
-     true on a set of terms. *)
+  (* Applies the rules for the condition of which evaluates to true
+       on a set of terms. *)
   let apply_rules set =
     List.fold_left
       ( fun set (rule, condition) ->
         if condition () then rule set else set )
       set
       rule_list
-  in
 
-  (* Builds a set of candidate terms from a term. *)
-  let set_of_term t =
-    ( Term.eval_t
-        (* Getting all the subterms of t. *)
-        ( fun term ->
-          List.fold_left
-            TSet.union
-            (TSet.singleton (Term.construct term)) )
-        t )
-    (* Remove non boolean atoms. *)
-    |> TSet.filter
-         ( fun t -> (Term.type_of_term t) = bool_type )
-    (* Apply the candidate term generation rules. *)
-    |> apply_rules
-    (* Adding true and false. *)
-    |> TSet.union true_false_set
-  in
 
-  (* Creates an associative list between systems and their implication graph. *)
-  let rec all_sys_graphs_maps result = function
+
+  (*************** Lucky candidate terms *************)
+
+  let int_ge_0_lucky sys set =
+    TransSys.state_vars sys
+    |> List.fold_left
+         ( fun set sv ->
+           ( match StateVar.type_of_state_var sv
+                   |> Type.node_of_type
+             with
+             | Type.Int ->
+                let var =
+                  Var.mk_state_var_instance
+                    sv Numeral.zero
+                  |> Term.mk_var
+                in
+                
+                TSet.add
+                  (Term.mk_geq [Term.mk_num Numeral.zero ; var])
+                  set
+             | _ -> set ) )
+         set
+
+  let lucky_list =
+    [ int_ge_0_lucky, true_of_unit ]
+
+  let add_lucky sys set =
+    List.fold_left
+      ( fun set (luck, condition) ->
+        if condition () then luck sys set else set )
+      set
+      lucky_list
       
-    | system :: tail ->
-       (* Getting the scope of the system. *)
-       let scope = TransSys.get_scope system in
 
-       (* Do we know that system already?. *)
-       if List.exists
-            ( fun (sys,_) ->
-              TransSys.get_scope sys = scope )
-            result
-            
-       then
-         (* We do, discarding it. *)
-         all_sys_graphs_maps result tail
 
-       else
-         (* We don't, getting init and trans. *)
-         let init, trans =
-           TransSys.init_of_bound system Numeral.zero,
-           (* Getting trans at [-1,0]. *)
-           TransSys.trans_of_bound system Numeral.zero
-         in
 
-         (* Getting their candidate terms. *)
-         let candidates =
-           TSet.union (set_of_term init) (set_of_term trans)
-           |> TSet.union true_false_set
-         in
+      
+  (* Inserts or updates a sys/terms binding in an associative list
+     sorted by topological order.  If sys is already in the list, then
+     its terms are updated with the union of the old ones and the new
+     ones. If it's not then it is inserted at the right place wrt
+     topological order. *)
+  let update_sys_graph ((sys,terms) as pair) =
 
-         debug invGen "System [%s]:" (scope |> String.concat "/") in
-         candidates
-         |> TSet.iter
-              (fun candidate ->
-               debug invGen "%s" (Term.string_of_term candidate) in ()) ;
+    (* Checks if 'sys' is a subsystem of 'sys''. *)
+    let shall_insert_here sys' =
+      TransSys.get_subsystems sys'
+      |> List.mem sys
+    in
 
-         let sorted_result =
-           insert_sys_graph
+    let rec loop prefix = function
+
+      (* System is already in the list. *)
+      | (sys',terms') :: tail when sys == sys' ->
+         List.rev_append
+           prefix
+           (* Updating the term list. *)
+           ( (sys, TSet.union terms terms') :: tail )
+           
+      (* sys' has sys as a subsystem, we insert here. *)
+      | ((sys',_) :: _) as l when shall_insert_here sys' ->
+         List.rev_append prefix (pair :: l)
+
+      (* Looping. *)
+      | head :: tail ->
+         loop (head :: prefix) tail
+
+      (* Could not find sys, adding it at the end. *)
+      | [] -> pair :: prefix |> List.rev
+    in
+
+    loop []
+         
+
+  (* Generates a set of candidate terms from the transition system. *)
+  let generate_implication_graphs trans_sys =
+
+    (* Term set with true and false. *)
+    let true_false_set =
+      (TSet.of_list [ Term.mk_true () ; Term.mk_false () ])
+    in
+
+    let flat_to_term = Term.construct in
+
+    let bool_type = Type.mk_bool () in
+
+    (* Builds a set of candidate terms from a term. *)
+    let set_of_term sys t =
+      ( Term.eval_t
+          (* Getting all the subterms of t. *)
+          ( fun term ->
+            List.fold_left
+              TSet.union
+              (TSet.singleton (Term.construct term)) )
+          t )
+      (* Remove non boolean atoms. *)
+      |> TSet.filter
+           ( fun t -> (Term.type_of_term t) = bool_type )
+      |> add_lucky sys
+      (* Apply the candidate term generation rules. *)
+      |> apply_rules
+      (* Adding true and false. *)
+      |> TSet.union true_false_set
+    in
+
+    (* Creates an associative list between systems and their
+       implication graph. *)
+    let rec all_sys_graphs_maps result = function
+        
+      | system :: tail ->
+         (* Getting the scope of the system. *)
+         let scope = TransSys.get_scope system in
+
+         (* Do we know that system already?. *)
+         if List.exists
+              ( fun (sys,_) ->
+                TransSys.get_scope sys = scope )
+              result
+              
+         then
+           (* We do, discarding it. *)
+           all_sys_graphs_maps result tail
+
+         else
+           (* We don't, getting init and trans. *)
+           let init, trans =
+             TransSys.init_of_bound system Numeral.zero,
+             (* Getting trans at [-1,0]. *)
+             TransSys.trans_of_bound system Numeral.zero
+           in
+
+           (* Getting their candidate terms. *)
+           let candidates =
+             TSet.union (set_of_term system init)
+                        (set_of_term system trans)
+             |> TSet.union true_false_set
+           in
+
+           let sorted_result =
              result
-             (system, Graph.create candidates)
-         in
+             |> TSet.fold
+                  ( fun term map ->
+                    TransSys.instantiate_term_all_levels
+                      system term
+                    |> (function | (top,others) -> top :: others)
+                    |> List.fold_left
+                         ( fun map (sys,terms) ->
+                           update_sys_graph
+                             (sys, TSet.of_list terms) map )
+                         map )
+                  candidates
+             |> update_sys_graph (system, candidates)
+           in
 
-         all_sys_graphs_maps
-           sorted_result
-           (List.concat [ TransSys.get_subsystems system ; tail ])
+           all_sys_graphs_maps
+             sorted_result
+             (List.concat [ TransSys.get_subsystems system ; tail ])
 
-    | [] -> result
-  in
+      | [] -> result
+    in
 
-  all_sys_graphs_maps [] trans_sys
+    all_sys_graphs_maps [] trans_sys
+    (* Building the graphs. *)
+    |> List.map ( fun (sys,term_set) ->
+
+                  debug invGenInit
+                        "System [%s]:"
+                        (TransSys.get_scope sys |> String.concat "/")
+                  in
+                  
+                  let _ =
+                    term_set
+                    |> TSet.iter
+                         (fun candidate ->
+                          debug invGenInit
+                                "%s" (Term.string_of_term candidate)
+                          in ())
+                  in
+
+                  debug invGenInit "" in
+                  
+                  (sys, Graph.create term_set) )
+
+end
 
 (* Rewrites a graph until the base instance becomes unsat. *)
 let rewrite_graph_until_unsat lsd sys graph =
@@ -215,7 +311,7 @@ let rewrite_graph_until_unsat lsd sys graph =
     
     if fixed_point then (
       
-      debug invGen "  Fixed point reached." in
+      debug invGenControl "  Fixed point reached." in
       graph
         
     ) else (
@@ -259,18 +355,18 @@ let rewrite_graph_until_unsat lsd sys graph =
          loop (iteration + 1) fixed_point graph'
 
       | None ->
-         (* debug invGen "Unsat." in *)
+         debug invGenControl "Unsat." in
 
          (* Returning current graph. *)
          graph
     )
   in
 
-  (* debug invGen *)
-  (*       "Starting graph rewriting for [%s] at k = %i." *)
-  (*       (TransSys.get_scope sys |> String.concat "/") *)
-  (*       (LSD.get_k lsd |> Numeral.to_int) *)
-  (* in *)
+  debug invGenControl
+        "Starting graph rewriting for [%s] at k = %i."
+        (TransSys.get_scope sys |> String.concat "/")
+        (LSD.get_k lsd |> Numeral.to_int)
+  in
 
   loop 1 false graph
 
@@ -405,7 +501,7 @@ let filter_step_implications implications =
   
   let result = List.filter filter_implication implications in
 
-  (* debug invGen "  Pruned %i step implications." !rm_count in *)
+  debug invGenPruning "  Pruned %i step implications." !rm_count in
 
   result
 
@@ -425,6 +521,7 @@ let get_top_inv_add_invariants lsd sys invs =
 
          (* Adding top level invariants as new invariants. *)
          LSD.new_invariants lsd top' ;
+         confirmation_lsd_do (fun lsd -> LSD.new_invariants lsd top') ;
 
          (* Adding subsystems invariants as new invariants. *)
          intermediary
@@ -433,7 +530,9 @@ let get_top_inv_add_invariants lsd sys invs =
               ( fun terms (_,terms') -> List.rev_append terms' terms)
               []
          (* Adding it into lsd. *)
-         |> LSD.new_invariants lsd ;
+         |> (fun invs ->
+             LSD.new_invariants lsd invs ;
+             confirmation_lsd_do (fun lsd -> LSD.new_invariants lsd invs)) ;
 
          (* Appending new top invariants. *)
          List.rev_append top' top )
@@ -448,11 +547,11 @@ let find_invariants lsd invariants sys graph =
   (*            (LSD.get_k lsd |> Numeral.to_int)) *)
   (*   graph ; *)
 
-  (* debug invGen *)
-  (*       "Check step for [%s] at k = %i." *)
-  (*       (TransSys.get_scope sys |> String.concat "/") *)
-  (*       (LSD.get_k lsd |> Numeral.to_int) *)
-  (* in *)
+  debug invGenControl
+        "Check step for [%s] at k = %i."
+        (TransSys.get_scope sys |> String.concat "/")
+        (LSD.get_k lsd |> Numeral.to_int)
+  in
 
   (* Equivalence classes as binary equalities. *)
   let eq_classes =
@@ -505,13 +604,13 @@ let find_invariants lsd invariants sys graph =
   match new_invariants with
     
   | [] ->
-     (* debug invGen "  No new invariants /T_T\\." in *)
+     debug invGenControl "  No new invariants /T_T\\." in
 
      invariants
       
   | _ ->
 
-     debug invGen
+     debug invGenControl
            "Confirming invariants."
      in
      
@@ -527,11 +626,16 @@ let find_invariants lsd invariants sys graph =
                     conf_lsd new_invariants
             with
             | [],_ ->
-               debug invGen
+               debug invGenControl
                      "Confirmed."
                in
                ()
-            | _ -> assert false )
+            | list,_ ->
+               printf "Could not confirm invariant(s):\n" ;
+               new_invariants
+               |> List.iter
+                    ( fun t -> Term.string_of_term t |> printf "%s\n" ) ;
+             assert false )
        | None -> () ) ;
 
 
@@ -553,10 +657,10 @@ let find_invariants lsd invariants sys graph =
            (TransSys.get_scope sys |> String.concat "/")
      in
      
-     (* new_invariants *)
-     (* |> List.iter *)
-     (*      (fun inv -> *)
-     (*       debug invGen "%s" (Term.string_of_term inv) in ()) ; *)
+     new_invariants
+     |> List.iter
+          (fun inv ->
+           debug invGenInv "%s" (Term.string_of_term inv) in ()) ;
 
 
      let top_level_inv =
@@ -572,9 +676,9 @@ let find_invariants lsd invariants sys graph =
                         t ])
      in
 
-     (* debug invGen *)
-     (*       "%s" (Term.string_of_term top_level_inv) *)
-     (* in *)
+     debug invGenInv
+           "%s" (Term.string_of_term top_level_inv)
+     in
 
      top_level_inv
      (* Broadcasting them. *)
@@ -611,11 +715,22 @@ let rewrite_graph_find_invariants
 let generate_invariants trans_sys lsd =
 
   (* Associative list from systems to candidate terms. *)
-  let sys_graph_map = generate_implication_graphs [trans_sys] in
+  let sys_graph_map =
+    CandidateTerms.generate_implication_graphs [trans_sys] in
 
+  debug invGenInit
+        "Graph generation result:"
+  in
+
+  sys_graph_map
+  |> List.iter
+       ( fun (sys,_) ->
+         debug invGenInit "  %s" (TransSys.get_scope sys
+                                  |> String.concat "/") in () ) ;
+  
   let rec loop invariants map =
 
-    debug invGen
+    debug invGenControl
           "Main loop at k = %i."
           (LSD.get_k lsd |> Numeral.to_int)
     in
