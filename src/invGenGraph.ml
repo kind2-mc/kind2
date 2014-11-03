@@ -308,6 +308,9 @@ let rewrite_graph_until_unsat lsd sys graph =
   (* Rewrites a graph until the base instance becomes unsat. Returns
      the final version of the graph. *)
   let rec loop iteration fixed_point graph =
+
+    (* Checking if we should terminate. *)
+    Event.check_termination () ;
     
     if fixed_point then (
       
