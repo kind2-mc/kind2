@@ -38,8 +38,15 @@ module CandidateTerms: sig
 
 end = struct
 
-  (********** Rules for candidate term generation. ***********)
+  let bool_type = Type.t_bool
+
+  (********** Rules for candidate term set generation. ***********)
+
   
+  (* Only keep boolean atoms. *)
+  let must_be_bool_rule =
+    TSet.filter
+      ( fun t -> (Term.type_of_term t) = bool_type )
 
   (* Only keep terms with vars in them. *)
   let must_have_var_rule =
@@ -77,8 +84,9 @@ end = struct
                  [ term ; Term.bump_state Numeral.(~-one) term ]
                  
              else
-               failwith "Unexpected offset %i."
-                        (Numeral.string_of_numeral offset1)
+               failwith
+                 (sprintf "Unexpected offset %s."
+                          (Numeral.string_of_numeral offset1))
 
           | _ ->
              (* Term is either two-state or no-state, nothing to do
@@ -102,14 +110,15 @@ end = struct
   (* List of (rule,condition). Rule will be used to generate
        candidate terms iff 'condition ()' evaluates to true. *)
   let rule_list =
-    [ must_have_var_rule , true_of_unit ;
+    [ must_be_bool_rule, true_of_unit ;
+      must_have_var_rule, true_of_unit ;
       (* must_be_var , true_of_unit ; *)
       offset_rule, true_of_unit ;
       negation_rule, true_of_unit ]
 
   (* Applies the rules for the condition of which evaluates to true
        on a set of terms. *)
-  let apply_rules set =
+  let apply_set_rules set =
     List.fold_left
       ( fun set (rule, condition) ->
         if condition () then rule set else set )
@@ -118,37 +127,158 @@ end = struct
 
 
 
-  (*************** Lucky candidate terms *************)
+  (************ Flat term rules. ************)
 
-  let int_ge_0_lucky sys set =
-    TransSys.state_vars sys
-    |> List.fold_left
-         ( fun set sv ->
-           ( match StateVar.type_of_state_var sv
+
+  (* If term is an arithmetic equation among {=,ge,le}, generate the
+     other ones. *)
+  let arith_equations_fanning_rule term set =
+    match term with
+    | Term.T.App (sym,kids) ->
+       
+       ( if Symbol.equal_symbols sym Symbol.s_eq then
+           ( match List.hd kids
+                   |> Term.type_of_term
                    |> Type.node_of_type
              with
-             | Type.Int ->
-                let var =
-                  Var.mk_state_var_instance
-                    sv Numeral.zero
-                  |> Term.mk_var
-                in
-                
-                TSet.add
-                  (Term.mk_geq [Term.mk_num Numeral.zero ; var])
-                  set
-             | _ -> set ) )
+             | Type.Int
+             | Type.Real ->
+                [ Term.mk_gt kids ; Term.mk_lt kids ]
+             | _ -> [] )
+             
+         else if Symbol.equal_symbols sym Symbol.s_leq then
+           ( match List.hd kids
+                   |> Term.type_of_term
+                   |> Type.node_of_type
+             with
+             | Type.Int
+             | Type.Real ->
+                [ Term.mk_eq kids ; Term.mk_geq kids ]
+             | _ -> [] )
+             
+         else if Symbol.equal_symbols sym Symbol.s_geq then
+           ( match List.hd kids
+                   |> Term.type_of_term
+                   |> Type.node_of_type
+             with
+             | Type.Int
+             | Type.Real ->
+                [ Term.mk_eq kids ; Term.mk_leq kids ]
+             | _ -> [] )
+             
+         else if Symbol.equal_symbols sym Symbol.s_gt then
+           ( match List.hd kids
+                   |> Term.type_of_term
+                   |> Type.node_of_type
+             with
+             | Type.Int
+             | Type.Real ->
+                [ Term.mk_eq kids ; Term.mk_lt kids ]
+             | _ -> [] )
+             
+         else if Symbol.equal_symbols sym Symbol.s_lt then
+           ( match List.hd kids
+                   |> Term.type_of_term
+                   |> Type.node_of_type
+             with
+             | Type.Int
+             | Type.Real ->
+                [ Term.mk_eq kids ; Term.mk_gt kids ]
+             | _ -> [] )
+
+         else [] )
+
+       |> List.fold_left (fun set term -> TSet.add term set) set
+
+    | _ -> set
+
+
+  let flat_rules =
+    [ arith_equations_fanning_rule, true_of_unit ]
+
+  let apply_flat_rules term set =
+    flat_rules
+    |> List.fold_left
+         ( fun set (rule,condition) ->
+           if condition () then rule term set else set )
          set
 
-  let lucky_list =
-    [ int_ge_0_lucky, true_of_unit ]
+  (*************** Lucky candidate terms *************)
 
+  (* (\* If svar is of type int or real, add svar >= 0 as a candidate *)
+  (*    term. *\) *)
+  (* let svar_ge_0_lucky svar set = *)
+  (*   match StateVar.type_of_state_var svar *)
+  (*         |> Type.node_of_type *)
+  (*   with *)
+
+  (*   (\* If 'svar' is of type int, add svar >= 0. *\) *)
+  (*   | Type.Int -> *)
+  (*      let var = *)
+  (*        Var.mk_state_var_instance *)
+  (*          svar Numeral.zero *)
+  (*        |> Term.mk_var *)
+  (*      in *)
+       
+  (*      TSet.add *)
+  (*        (Term.mk_geq [Term.mk_num Numeral.zero ; var]) *)
+  (*        set *)
+
+  (*   (\* If 'svar' is of type real, add svar >= 0.0. *\) *)
+  (*   | Type.Real -> *)
+  (*      let var = *)
+  (*        Var.mk_state_var_instance *)
+  (*          svar Numeral.zero *)
+  (*        |> Term.mk_var *)
+  (*      in *)
+       
+  (*      TSet.add *)
+  (*        (Term.mk_geq [Term.mk_dec Decimal.zero ; var]) *)
+  (*        set *)
+
+  (*   (\* Otherwise do nothing. *\) *)
+  (*   | _ -> set *)
+
+  (* If svar is of type IntRange low up, add svar = i where low <= i
+     and i <= up to set. *)
+  let svar_unroll_range_lucky svar set =
+    let rec unroll_range set low up var =
+      if Numeral.(low > up) then set
+      else
+        unroll_range
+          (TSet.add (Term.mk_eq [var ; Term.mk_num low]) set)
+          (Numeral.succ low)
+          up
+          var
+    in
+
+    match StateVar.type_of_state_var svar
+          |> Type.node_of_type
+    with
+      
+    | IntRange (low,up) ->
+       Var.mk_state_var_instance svar Numeral.zero
+       |> Term.mk_var
+       |> unroll_range set low up
+
+    | _ -> set
+
+  (* List of lucky candidate terms. *)
+  let lucky_list =
+    (* [ svar_ge_0_lucky, true_of_unit ; *)
+    [ svar_unroll_range_lucky, true_of_unit ]
+
+  (* Adds lucky candidate terms. *)
   let add_lucky sys set =
-    List.fold_left
-      ( fun set (luck, condition) ->
-        if condition () then luck sys set else set )
-      set
-      lucky_list
+    TransSys.state_vars sys
+    |> List.fold_left
+         ( fun set var ->
+           lucky_list
+           |> List.fold_left
+                ( fun set (luck, condition) ->
+                  if condition () then luck var set else set )
+                set )
+         set
       
 
 
@@ -201,25 +331,20 @@ end = struct
 
     let flat_to_term = Term.construct in
 
-    let bool_type = Type.mk_bool () in
-
     (* Builds a set of candidate terms from a term. *)
-    let set_of_term sys t =
+    let set_of_term term set =
+      let set_ref = ref set in
+      let set_commit set' = set_ref := TSet.union !set_ref set' in
       ( Term.eval_t
-          (* Getting all the subterms of t. *)
-          ( fun term ->
-            List.fold_left
-              TSet.union
-              (TSet.singleton (Term.construct term)) )
-          t )
-      (* Remove non boolean atoms. *)
-      |> TSet.filter
-           ( fun t -> (Term.type_of_term t) = bool_type )
-      |> add_lucky sys
-      (* Apply the candidate term generation rules. *)
-      |> apply_rules
-      (* Adding true and false. *)
-      |> TSet.union true_false_set
+          ( fun term _ ->
+            
+            (* Applying rules and adding to set. *)
+            set_commit
+              (TSet.singleton (Term.construct term)
+               |> apply_flat_rules term
+               |> apply_set_rules) )
+          term ) ;
+      !set_ref
     in
 
     (* Creates an associative list between systems and their
@@ -250,8 +375,10 @@ end = struct
 
            (* Getting their candidate terms. *)
            let candidates =
-             TSet.union (set_of_term system init)
-                        (set_of_term system trans)
+             set_of_term init TSet.empty
+             |> set_of_term trans
+             (* Generate lucky candidate terms from system. *)
+             |> add_lucky system
              |> TSet.union true_false_set
            in
 
@@ -337,9 +464,13 @@ let rewrite_graph_until_unsat lsd sys graph =
                       Graph.trivial_implications graph ]
       in
 
+      debug invGenControl "Checking base." in
+
       match LSD.query_base lsd candidate_invariants with
         
       | Some model ->
+
+         debug invGenControl "Sat." in
 
          (* Building eval function. *)
          let eval term =
@@ -696,6 +827,8 @@ let find_invariants lsd invariants sys graph =
 let rewrite_graph_find_invariants
       trans_sys lsd invariants (sys,graph) =
 
+  debug invGenControl "Event.recv." in
+
   (* Getting new invariants from the framework. *)
   let new_invariants, _, _ =
     (* Receiving messages. *)
@@ -703,6 +836,8 @@ let rewrite_graph_find_invariants
     (* Updating transition system. *)
     |> Event.update_trans_sys_tsugi trans_sys
   in
+
+  debug invGenControl "Adding new invariants in LSD." in
 
   (* Adding new invariants to LSD. *)
   LSD.new_invariants lsd new_invariants ;
@@ -756,6 +891,8 @@ let generate_invariants trans_sys lsd =
       |> ( fun (invars, rev_map) ->
            invars, List.rev rev_map )
     in
+
+    debug invGenControl "Incrementing k in LSD." in
 
     (* Incrementing the k. *)
     LSD.increment lsd ;

@@ -330,6 +330,9 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
      |> Term.mk_implies
      |> Solver.assert_term solver ;
 
+     (* Checking if we received a termination message. *)
+     Event.check_termination ;
+
      (* Building a small continuation to deactivate the actlit before
         we go on. *)
      let continue =
