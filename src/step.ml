@@ -40,7 +40,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats ();
+  print_stats () ;
 
   (* Deleting solver instance if created. *)
   (try
@@ -483,7 +483,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      in
 
      (* Output statistics *)
-     if output_on_level L_info then print_stats ();
+     print_stats () ;
 
      (* Int k plus one. *)
      let k_p_1_int = Numeral.to_int k_p_1 in

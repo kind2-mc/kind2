@@ -26,6 +26,35 @@ module LSD = LockStepDriver
 let lsd_ref = ref None
 let confirmation_lsd_ref = ref None
 
+let only_top_node = true
+
+let print_stats () =
+
+  Event.stat
+    [ Stat.misc_stats_title, Stat.misc_stats ;
+      Stat.invgen_stats_title, Stat.invgen_stats ;
+      Stat.smt_stats_title, Stat.smt_stats ]
+
+(* Cleans up things on exit. *)
+let on_exit _ =
+
+  (* Stop all timers. *)
+  Stat.invgen_stop_timers () ;
+  Stat.smt_stop_timers () ;
+
+  (* Output statistics. *)
+  print_stats () ;
+  
+  (* Destroying lsd if one was created. *)
+  ( match !lsd_ref with
+    | None -> ()
+    | Some lsd -> LSD.delete lsd ) ;
+                
+  (* Destroying confirmation lsd if one was created. *)
+  ( match !confirmation_lsd_ref with
+    | None -> ()
+    | Some lsd -> LSD.delete lsd )
+
 let confirmation_lsd_do f =
   match !confirmation_lsd_ref with
   | Some lsd -> f lsd | None -> ()
@@ -342,7 +371,7 @@ end = struct
             set_commit
               (TSet.singleton (Term.construct term)
                |> apply_flat_rules term
-               |> apply_set_rules) )
+               |> apply_set_rules) ) ;
           term ) ;
       !set_ref
     in
@@ -402,7 +431,16 @@ end = struct
              sorted_result
              (List.concat [ TransSys.get_subsystems system ; tail ])
 
-      | [] -> result
+      | [] ->
+         let rec get_last = function
+           | head :: [] -> [head]
+           | [] -> assert false;
+           | _ :: t -> get_last t
+         in
+
+         if only_top_node
+         then get_last result
+         else result
     in
 
     all_sys_graphs_maps [] trans_sys
@@ -424,7 +462,15 @@ end = struct
                   in
 
                   debug invGenInit "" in
-                  
+
+                  (* Updating statistics. *)
+                  let cand_count =
+                    Stat.get Stat.invgen_candidate_term_count
+                  in
+                  Stat.set (cand_count + (TSet.cardinal term_set))
+                           Stat.invgen_candidate_term_count ;
+
+                  (* Creating graph. *)
                   (sys, Graph.create term_set) )
 
 end
@@ -481,10 +527,16 @@ let rewrite_graph_until_unsat lsd sys graph =
            |> Eval.bool_of_value
          in
 
+         (* Timing graph rewriting. *)
+         Stat.start_timer Stat.invgen_graph_rewriting_time ;
+
          (* Rewriting graph. *)
          let fixed_point, graph' =
            Graph.rewrite_graph eval graph
          in
+
+         (* Timing graph rewriting. *)
+         Stat.record_time Stat.invgen_graph_rewriting_time ;
 
          loop (iteration + 1) fixed_point graph'
 
@@ -773,7 +825,7 @@ let find_invariants lsd invariants sys graph =
        | None -> () ) ;
 
 
-     let impl_count =
+     let impl_count' =
        new_invariants
        |> List.fold_left
             ( fun sum inv ->
@@ -787,9 +839,19 @@ let find_invariants lsd invariants sys graph =
      debug invGen
            "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
-           impl_count
+           impl_count'
            (TransSys.get_scope sys |> String.concat "/")
      in
+
+     (* Updating statistics. *)
+     let inv_count = Stat.get Stat.invgen_invariant_count in
+     let impl_count = Stat.get Stat.invgen_implication_count in
+     Stat.set
+       (inv_count + (List.length new_invariants))
+       Stat.invgen_invariant_count ;
+     Stat.set
+       (impl_count + impl_count') Stat.invgen_implication_count ;
+     Stat.update_time Stat.invgen_total_time ;
      
      new_invariants
      |> List.iter
@@ -903,6 +965,18 @@ let generate_invariants trans_sys lsd =
          LSD.increment conf_lsd
       | None -> () ) ;
 
+    (* Updating statistics. *)
+    let k_int = LSD.get_k lsd |> Numeral.to_int in
+    Stat.set k_int Stat.invgen_k ;
+    Event.progress k_int ;
+    Stat.update_time Stat.invgen_total_time ;
+    print_stats () ;
+
+    (* Output current progress. *)
+    Event.log
+      L_info
+      "INVGEN loop at k =  %i" k_int ;
+
     (* if Numeral.(one < (LSD.get_k lsd)) then () *)
     (* else loop invariants' map' *)
 
@@ -911,19 +985,6 @@ let generate_invariants trans_sys lsd =
   in
 
   loop TSet.empty sys_graph_map |> ignore
-
-(* Cleans up things on exit. *)
-let on_exit _ =
-  
-  (* Destroying lsd if one was created. *)
-  match !lsd_ref with
-  | None -> ()
-  | Some lsd -> LSD.delete lsd ;
-                
-  (* Destroying confirmation lsd if one was created. *)
-  match !confirmation_lsd_ref with
-  | None -> ()
-  | Some lsd -> LSD.delete lsd
 
 (* Module entry point. *)
 let main trans_sys =
@@ -935,6 +996,11 @@ let main trans_sys =
   (* Skipping k=0. *)
   LSD.increment lsd ;
   LSD.increment confirmation_lsd ;
+
+  (* Updating statistics. *)
+  Stat.set 1 Stat.invgen_k ;
+  Event.progress 1 ;
+  Stat.start_timer Stat.invgen_total_time ;
 
   lsd_ref := Some lsd ;
   confirmation_lsd_ref := Some confirmation_lsd ;

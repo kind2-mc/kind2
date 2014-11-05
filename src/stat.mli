@@ -227,7 +227,41 @@ val pdr_stats_title : string
 val pdr_stats : stat_item list
 
 (** Print statistics for PDR *)
-val pp_print_pdr_stats : Format.formatter -> unit 
+val pp_print_pdr_stats : Format.formatter -> unit
+
+(** {2 INVGEN} *)
+
+(** Hightest k reached. *)
+val invgen_k : int_item
+
+(** Total number of candidate terms. *)
+val invgen_candidate_term_count : int_item
+
+(** Total number of invariants discovered by invariant generation for
+    all systems. *)
+val invgen_invariant_count : int_item
+
+(** Total number of invariants discovered by invariant generation
+    which were implications. *)
+val invgen_implication_count : int_item
+
+(** Time spent rewriting graphs. *)
+val invgen_graph_rewriting_time : float_item
+
+(** Time spent rewriting graphs. *)
+val invgen_total_time : float_item
+
+(** Title for INVGEN statistics *)
+val invgen_stats_title : string
+
+(** All INVGEN statistics *)
+val invgen_stats : stat_item list
+
+(** Stop and record all timers *)
+val invgen_stop_timers : unit -> unit
+
+(** Pretty-print INVGEN statistics items *)
+val pp_print_invgen_stats : Format.formatter -> unit
 
 (** {2 SMT} *)
 

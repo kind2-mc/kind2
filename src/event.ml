@@ -966,6 +966,7 @@ let log_prop_status level prop_status =
 
 (* Output statistics of a section of a source *)
 let log_stat mdl level stats =
+
   match !log_format with 
     | F_pt -> stat_pt mdl level stats
     | F_xml -> stat_xml mdl level stats

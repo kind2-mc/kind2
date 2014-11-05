@@ -261,7 +261,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      |> ignore ;
 
      (* Output statistics *)
-     if output_on_level L_info then print_stats ();
+     print_stats ();
 
      (* K plus one. *)
      let k_p_1 = Numeral.succ k in
