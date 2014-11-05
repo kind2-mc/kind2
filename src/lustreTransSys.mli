@@ -92,9 +92,6 @@
 (** *)
 val trans_sys_of_nodes : LustreNode.t list -> TransSys.t
 
-(** *)
-val props_of_nodes : LustreIdent.t -> LustreNode.t list -> (string * Term.t) list
-
 (* 
    Local Variables:
    compile-command: "make -k -C .."
