@@ -40,7 +40,9 @@ type t = {
   (* All transition predicates for all the nodes of the system. *)
   all_transitions: Term.t ;
   (* Invariants asserted up to k+1. *)
-  mutable invariants: Term.t list
+  mutable invariants: Term.t list ;
+  (* True if we are in step mode, i.e. T[k,k+1] is asserted. *)
+  mutable is_in_step_mode: bool
 }
 
 (* Creates a lock step driver based on a transition system. *)
@@ -119,7 +121,7 @@ let create trans =
   |> Term.mk_implies
   |> Solver.assert_term solver ;
 
-  (* Asserting all transitions predicates at one for step. *)
+  (* Asserting all transitions predicates at zero for step. *)
   all_transitions_conj
   |> Term.bump_state Numeral.zero
   |> Solver.assert_term solver ;
@@ -131,7 +133,51 @@ let create trans =
     all_transitions = all_transitions_conj ;
     init_actlit = init_actlit_term ;
     k = Numeral.zero ;
-    invariants = [] }
+    invariants = [] ;
+    is_in_step_mode = false }
+
+(* Asserts all transition relations at k and all invariants at k+1. *)
+let assert_all_trans_at_k
+      ({ solver ; k ; all_transitions ;
+         invariants ; is_in_step_mode } as context) =
+
+  (* Making sure we are not in step mode already. *)
+  assert (not is_in_step_mode) ;
+
+  (* k plus 1. *)
+  let kp1 = Numeral.succ k in
+
+  (* Asserting all transitions predicates at k+1. *)
+  all_transitions
+  |> Term.bump_state k
+  |> Solver.assert_term solver ;
+
+  (* Asserting all invariants at k. *)
+  invariants
+  |> Term.mk_and
+  |> Term.bump_state kp1
+  |> Solver.assert_term solver ;
+
+  context.is_in_step_mode <- true
+  
+
+(* Increments the k of a lock step driver. If we are already in step
+   mode, the transition relations and the invariants for base at the
+   next k are already asserted. If we are not in step mode, then they
+   will be asserted. *)
+let increment
+      ({ solver ; k ; all_transitions ;
+         invariants ; is_in_step_mode } as context) =
+
+  (* If we are not in step mode, then the transition relations are not
+     asserted at k/k+1. *)
+  if not is_in_step_mode then assert_all_trans_at_k context ;
+
+  (* Updating context. *)
+  context.k <- Numeral.succ k ;
+
+  (* We are now in base mode. *)
+  context.is_in_step_mode <- false
 
 (* Deletes a lock step driver. *)
 let delete context =
@@ -139,30 +185,6 @@ let delete context =
 
 (* The k of the lock step driver. *)
 let get_k { k } = k
-
-(* Increments the k of a lock step driver. Basically asserts the
-   transition relation and unrolls the invariants one step further. *)
-let increment
-      ({ solver ; k ; all_transitions ; invariants } as context) =
-
-  (* New k. *)
-  let new_k = Numeral.(k + one) in
-  (* New k + 1. *)
-  let new_kp1 = Numeral.(new_k + one) in
-
-  (* Asserting all transitions predicates at k+1. *)
-  all_transitions
-  |> Term.bump_state new_k
-  |> Solver.assert_term solver ;
-
-  (* Asserting all invariants at k. *)
-  invariants
-  |> Term.mk_and
-  |> Term.bump_state new_kp1
-  |> Solver.assert_term solver ;
-
-  (* Updating context. *)
-  context.k <- Numeral.(context.k + one)
 
 (* Unrolls a term from 0 to k, returns the list of unrolled terms. *)
 let unroll_term_up_to_k k term =
@@ -204,7 +226,10 @@ let new_invariants ({ solver ; k ; invariants } as context)
 
 (* Checks if some of the input terms are falsifiable k steps from the
    initial states. Returns Some of a counterexample if some are, None
-   otherwise. *)
+   otherwise.  Note that query_base is only safe to call if no
+   query_step was performed since the last increment. Otherwise, the
+   transition relations are asserted at k/k+1 and the invariants at
+   k+1. *)
 let query_base { solver ; k ; init_actlit ; all_vars } terms =
 
   (* Getting a fresh actlit. *)
@@ -397,162 +422,28 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
      (* No term left, we're done. *)
      (falsifiable, [])
 
-(* (\* Splits terms between those that are falsifiable at k+1 and those *)
-(*    that are not.  *)
-
-(*    Optimisation: while getting the values, prepare terms for the *)
-(*    next iteration. *\) *)
-(* let rec split_closure_path_comp *)
-(*           trans solver k kp1 all_vars falsifiable terms = *)
-(*   match terms with *)
-(*   | _ :: _ -> *)
-
-(*      (\* Getting a fresh actlit. *\) *)
-(*      let terms_actlit = fresh_actlit () in *)
-
-(*      (\* Declaring it. *\) *)
-(*      terms_actlit |> Solver.declare_fun solver ; *)
-
-(*      (\* Term version of the actlit. *\) *)
-(*      let terms_actlit_term = term_of_actlit terms_actlit in *)
-
-(*      (\* Building the list of terms at k+1. At the same time, we create *)
-(*         the implications between actlit and terms from 0 to k. *\) *)
-(*      let terms_at_kp1 = *)
-(*        terms *)
-(*        |> List.map *)
-(*             ( fun term -> *)
-
-(*               (\* Asserting that actlit implies term from 0 to k. The *)
-(*                  actlit gets overloaded for each term. *\) *)
-(*               [ terms_actlit_term ; *)
-(*                 unroll_term_up_to_k k term |> Term.mk_and ] *)
-(*               |> Term.mk_implies *)
-(*               |> Solver.assert_term solver ; *)
-
-(*               (\* Bumping term to kp1. *\) *)
-(*               Term.bump_state kp1 term ) *)
-(*      in *)
-
-(*      (\* Overloading the actlit one last time for the negation of the *)
-(*         terms. *\) *)
-(*      [ terms_actlit_term ; *)
-(*        (terms_at_kp1 |> Term.mk_and |> Term.mk_not) ] *)
-(*      |> Term.mk_implies *)
-(*      |> Solver.assert_term solver ; *)
-
-(*      (\* Building a small continuation to deactivate the actlit before *)
-(*         we go on. *\) *)
-(*      let continue = *)
-(*        let rec loop () = *)
-(*          ( match *)
-(*              (\* Check-sat-assuming time. *\) *)
-(*              Solver.check_sat_assuming *)
-(*                solver *)
-
-(*                (\* Function ran if sat. Returns Some of the falsifiable *)
-(*                   terms, INCLUDING THE ONES WE ALREADY KNOW ARE *)
-(*                   FALSIFIABLE, and the unknown ones. *\) *)
-(*                ( fun () -> *)
-(*                  (\* Get-model function. *\) *)
-(*                  let get_model = Solver.get_model solver in *)
-(*                  (\* Extracting the counterexample. *\) *)
-(*                  let cex = *)
-(*                    TransSys.path_from_model trans get_model k in *)
-(*                  (\* Attempting to compress path. *\) *)
-(*                  ( match *)
-(*                      Compress.check_and_block *)
-(*                        (Solver.declare_fun solver) trans cex *)
-(*                    with *)
-
-(*                    | [] -> *)
-(*                       Solver.get_values solver terms_at_kp1 *)
-(*                       |> List.fold_left *)
-(*                            ( fun (flsbl_list, uknwn_list) *)
-(*                                  (term_at_kp1, value) -> *)
-(*                              (\* Unbumping term. *\) *)
-(*                              let term_at_0 = *)
-(*                                Term.bump_state *)
-(*                                  Numeral.(~- kp1) term_at_kp1 *)
-(*                              in *)
-
-(*                              if not (Term.bool_of_term value) then *)
-(*                                (\* Term is falsifiable. *\) *)
-(*                                term_at_0 :: flsbl_list, uknwn_list *)
-(*                              else *)
-(*                                (\* Term is unknown. *\) *)
-(*                                flsbl_list, term_at_0 :: uknwn_list ) *)
-(*                            (\* Note that we add the new falsifiable *)
-(*                               terms to the old ones to avoid going *)
-(*                               through the list again. *\) *)
-(*                            (falsifiable, []) *)
-(*                       |> (fun p -> Some p ) *)
-
-(*                    | compressor -> *)
-(*                       (\* Path compressing. *\) *)
-(*                       compressor |> Term.mk_and *)
-(*                       |> Solver.assert_term solver ; *)
-
-(*                       (\* Returning nothing. *\) *)
-(*                       Printf.printf "Path compressing, looping.\n" ; *)
-(*                       Some ( [], [] ) *)
-                      
-(*                  ) *)
-
-(*                ) *)
-
-(*                (\* Function ran if unsat. Returns None. *\) *)
-(*                ( fun () -> None ) *)
-
-(*                (\* The actlit activates everything. *\) *)
-(*                [ terms_actlit_term ] *)
-(*            with *)
-
-(*            | Some ([], []) -> *)
-(*               (\* Path compressing, we need to recheck. *\) *)
-(*               Printf.printf "Path compressing, looping.\n" ; *)
-(*               loop () *)
-
-(*            | Some (new_falsifiable, new_unknown) -> *)
-(*               (\* Some terms are falsifiable, we shall loop. *\) *)
-(*               fun () -> *)
-(*               split_closure_path_comp *)
-(*                 trans solver k kp1 all_vars new_falsifiable new_unknown *)
-
-(*            | None -> *)
-(*               (\* The terms left are unfalsifiable, we shall return the *)
-(*                result. *\) *)
-(*               fun () -> (falsifiable, terms) *)
-(*          ) *)
-(*        in *)
-
-(*        loop () *)
-(*      in *)
-
-(*      (\* Deactivating actlit. *\) *)
-(*      terms_actlit_term *)
-(*      |> Term.mk_not *)
-(*      |> Solver.assert_term solver ; *)
-
-(*      (\* Calling the tiny continuation. *\) *)
-(*      continue () *)
-
-(*   | _ -> *)
-(*      (\* No term left, we're done. *\) *)
-(*      (falsifiable, []) *)
+       
 
 
 (* Checks if some of the input terms are k-inductive. Returns a pair
-   composed of the falsifiable terms and the unfalsifiable ones. *)
-let query_step { solver ; k ; all_vars } terms =
+   composed of the falsifiable terms and the unfalsifiable ones.  The
+   first time this function is called after an increment, the
+   transition relations are asserted at k/k+1, and the invariants are
+   asserted at k+1. *)
+let query_step
+      ({ solver ; k ; all_vars ; is_in_step_mode } as context)
+      terms =
+
+  (* If we are not in step mode, we need to assert the transition
+     relations at k/k+1. *)
+  if not is_in_step_mode then assert_all_trans_at_k context ;
+
+  (* Spliting the terms. *)
   split_closure solver k Numeral.(k + one) all_vars [] terms
 
-(* (\* Checks if some of the input terms are k-inductive. Returns a pair *)
-(*    composed of the falsifiable terms and the unfalsifiable ones. *\) *)
-(* let query_step_path_comp { trans ; solver ; k ; all_vars } terms = *)
-(*   split_closure_path_comp *)
-(*     trans solver k Numeral.(k + one) all_vars [] terms *)
 
+
+                                           
 (* Tests the lock step driver on the system below. *)
 let test trans =
   let lsk = create trans in
