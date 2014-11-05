@@ -561,7 +561,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
 
   (* Builds a mapping from vars@0 to terms. Inputs 'vars' and 'terms'
      come from init and trans and therefore need to be bumped. *)
-  let build_mapping vars terms =
+  let build_mapping term vars terms =
     (* Making sure both lists are the same length. *)
     assert ( (List.length vars) = (List.length terms) ) ;
 
@@ -586,6 +586,13 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
            try
              (* If the var is already mapped to a term... *)
              let mapped_to = List.assoc state_var map in
+             if mapped_to != bumped_t then (
+               debug transSys "Term: %s" (Term.construct term |> Term.string_of_term) in
+               debug transSys "Var: %s" (StateVar.string_of_state_var state_var) in
+               debug transSys "mapped_to: %s" (Term.string_of_term mapped_to) in
+               debug transSys "bumped_t: %s" (Term.string_of_term bumped_t) in
+               ()
+             ) ;
              (* ... then it should be the same term... *)
              assert ( mapped_to == bumped_t ) ;
              (* ... and we leave the map as it is. *)
@@ -634,7 +641,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
               match is_flat_uf_such_that init_uf_symbol op with
               | None ->  List.concat maps
               | Some (sub,params) ->
-                 (sub, build_mapping (init_vars sub) params)
+                 (sub, build_mapping op (init_vars sub) params)
                  :: (List.concat maps) )
   in
 
@@ -647,7 +654,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
               match is_flat_uf_such_that trans_uf_symbol op with
               | None ->  List.concat maps
               | Some (sub,params) ->
-                 (sub, build_mapping (trans_vars sub) params)
+                 (sub, build_mapping op (trans_vars sub) params)
                  :: (List.concat maps) )
   in
 
