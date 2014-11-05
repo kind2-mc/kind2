@@ -29,7 +29,7 @@ end
 
 module BMC = Base
 module IND = Step
-module InvGen = InvGenGraph
+module InvGen = InvGenGraph2
 
 (* module PDR = Dummy *)
 
