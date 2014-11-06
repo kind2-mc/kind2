@@ -635,6 +635,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   (* Going through init to find instantiations of subsystems. *)
   let init_maps = match init with
     | (_, (_, init_term)) ->
+       debug transSys "%s" (Term.string_of_term init_term) in
        init_term
        |> Term.eval_t
             ( fun op maps ->
@@ -648,6 +649,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   (* Going through trans to find instantiations of subsystems. *)
   let trans_maps = match trans with
     | (_, (_, trans_term)) ->
+       debug transSys "%s" (Term.string_of_term trans_term) in
        trans_term
        |> Term.eval_t
             ( fun op maps ->
@@ -661,6 +663,13 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   (* Crashes if two maps are not the same. *)
   let rec map_eq = function
     | (var, term) :: tail, (var', term') :: tail' ->
+       if (term != term')
+       then (
+         debug transSys "Terms for var %s don't match:" (StateVar.string_of_state_var var)  in
+         debug transSys "init  %s" (Term.string_of_term term)  in
+         debug transSys "trans %s" (Term.string_of_term term')  in
+         ()
+       ) ;
        assert (var == var') ;
        assert (term == term') ;
        map_eq (tail,tail')
