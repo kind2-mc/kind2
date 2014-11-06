@@ -371,7 +371,7 @@ end = struct
             set_commit
               (TSet.singleton (Term.construct term)
                |> apply_flat_rules term
-               |> apply_set_rules) ) ;
+               |> apply_set_rules) )
           term ) ;
       !set_ref
     in

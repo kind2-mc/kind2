@@ -735,17 +735,17 @@ let get_top_inv_add_invariants lsd sys invs =
 (* Queries step to find invariants to communicate. *)
 let find_invariants lsd invariants sys graph =
 
-  (* Graph.to_dot *)
-  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
-  (*            (TransSys.get_scope sys |> String.concat "-") *)
-  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
-  (*   graph ; *)
-
   debug invGenControl
         "Check step for [%s] at k = %i."
         (TransSys.get_scope sys |> String.concat "/")
         (LSD.get_k lsd |> Numeral.to_int)
   in
+
+  (* Graph.to_dot *)
+  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
+  (*            (TransSys.get_scope sys |> String.concat "-") *)
+  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
+  (*   graph ; *)
 
   (* Equivalence classes as binary equalities. *)
   let eq_classes =
