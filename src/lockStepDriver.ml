@@ -121,10 +121,10 @@ let create trans =
   |> Term.mk_implies
   |> Solver.assert_term solver ;
 
-  (* Asserting all transitions predicates at zero for step. *)
-  all_transitions_conj
-  |> Term.bump_state Numeral.zero
-  |> Solver.assert_term solver ;
+  (* (\* Asserting all transitions predicates at zero for step. *\) *)
+  (* all_transitions_conj *)
+  (* |> Term.bump_state Numeral.zero *)
+  (* |> Solver.assert_term solver ; *)
 
   (* Return the context of the solver. *)
   { trans = trans ;
@@ -189,15 +189,11 @@ let get_k { k } = k
 (* Unrolls a term from 0 to k, returns the list of unrolled terms. *)
 let unroll_term_up_to_k k term =
   let rec loop i unrolled =
-    if Numeral.(i > zero) then
+    if Numeral.(i >= zero) then
       Term.bump_state i term :: unrolled
       |> loop Numeral.(i - one)
-    else if Numeral.(i = zero) then
-      unrolled
     else
-      Failure
-        (Printf.sprintf "Illegal negative k: %i." (Numeral.to_int i))
-      |> raise
+      unrolled
   in
   loop k []
 
@@ -281,7 +277,6 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
       (* Function ran if sat. Returns Some of the
          model. *)
       ( fun () ->
-        Solver.get_values solver terms_at_k |> ignore ;
         Some
           (* Getting the model. *)
           ( let model = Solver.get_model solver var_at_k in

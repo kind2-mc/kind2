@@ -1286,7 +1286,7 @@ struct
   let check_termination () =
 
     if !initialized_process = None
-    then raise NotInitialized
+    then false
     else
       queue_exists
         ( fun msg ->

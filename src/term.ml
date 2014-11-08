@@ -1046,6 +1046,33 @@ let negate t = match T.destruct t with
   | _ -> mk_not t
 
 
+
+(* Negates a term by modifying the top node if it is a not, true,
+   false, or an arithmetic inequality. *)
+let negate_simplify t = match T.destruct t with 
+
+  | T.App (symb, kids) ->
+     ( match Symbol.node_of_symbol symb, kids with
+
+       (* Top symbol is a negation, removing it. *)
+       | `NOT, [term] -> term
+
+       (* Bool constants. *)
+       | `TRUE, [] -> t_false
+       | `FALSE, [] -> t_true
+
+       (* Aritmetic inequalities. *)
+       | `LEQ, kids -> mk_gt kids
+       | `LT, kids -> mk_geq kids
+       | `GT, kids -> mk_leq kids
+       | `GEQ, kids -> mk_lt kids
+
+       | _ -> mk_not t )
+
+  (* Top symbol is not a negation, then negate given term *)
+  | _ -> mk_not t
+
+
 (* Remove negation if it is the topmost symbol *)
 let unnegate t = match T.destruct t with
 

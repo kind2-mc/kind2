@@ -26,8 +26,6 @@ module LSD = LockStepDriver
 let lsd_ref = ref None
 let confirmation_lsd_ref = ref None
 
-let only_top_node = true
-
 let print_stats () =
 
   Event.stat
@@ -60,256 +58,312 @@ let confirmation_lsd_do f =
   | Some lsd -> f lsd | None -> ()
 
 (* Gathers everything related to candidate term generation .*)
-module CandidateTerms: sig
+module ImplicationGraphs: sig
 
-  val generate_implication_graphs:
-    TransSys.t list -> (TransSys.t * Graph.t) list
+  val generate:
+    TransSys.t -> (TransSys.t * Graph.t * Graph.t) list
 
 end = struct
 
   let bool_type = Type.t_bool
 
-  (********** Rules for candidate term set generation. ***********)
-
-  
-  (* Only keep boolean atoms. *)
-  let must_be_bool_rule =
-    TSet.filter
-      ( fun t -> (Term.type_of_term t) = bool_type )
-
-  (* Only keep terms with vars in them. *)
-  let must_have_var_rule =
-    TSet.filter
-      ( fun term ->
-        not (Term.vars_of_term term |> Var.VarSet.is_empty)
-        &&  (term != ((TransSys.init_flag_var Numeral.zero)
-                      |> Term.mk_var))
-        &&  (term != ((TransSys.init_flag_var Numeral.(~-one))
-                      |> Term.mk_var)) )
-
-  (* Only keep terms which are a var. *)
-  let must_be_var =
-    TSet.filter Term.is_free_var
-
-  (* If a term only contains variables at -1 (resp. 0), also
-     create the same term at 0 (resp. -1). *)
-  let offset_rule set =
-    TSet.fold
-      ( fun term ->
-
-        let set =
-          match Term.var_offsets_of_term term with
-          | Some offset1, Some offset2
-               when Numeral.(offset1 = offset2) ->
-             
-             if Numeral.(offset1 = ~- one) then
-               (* Term offset is -1, adding the same term at 0. *)
-               TSet.of_list
-                 [ term ; Term.bump_state Numeral.one term ]
-                 
-             else if Numeral.(offset1 = zero) then
-               (* Term offset is 0, adding the same term at -1. *)
-               TSet.of_list
-                 [ term ; Term.bump_state Numeral.(~-one) term ]
-                 
-             else
-               failwith
-                 (sprintf "Unexpected offset %s."
-                          (Numeral.string_of_numeral offset1))
-
-          | _ ->
-             (* Term is either two-state or no-state, nothing to do
-                    either way. *)
-             TSet.singleton term
-        in
-
-        TSet.union set )
-      set
-      TSet.empty
-
-  (* For all boolean term, also add its negation. *)
-  let negation_rule set =
-    TSet.fold
-      (fun term -> TSet.add (Term.negate term))
-      set set
-
   (* Returns true when given unit. *)
   let true_of_unit () = true
 
-  (* List of (rule,condition). Rule will be used to generate
+  (* Returns false when given unit. *)
+  let false_of_unit () = false
+
+
+  (* Rules generating candidate terms from a system without looking at
+     the init and trans terms. *)
+  module SynthesisRules : sig
+
+    (* Applies rules to a system to synthesize candidate terms without
+       looking at the init and trans terms. *)
+    val apply : TransSys.t -> TSet.t -> TSet.t
+
+  end = struct
+
+    (* Creates x=n terms where x is an IntRange (low,up) and
+       (n\in[low,up]). *)
+    let rec unroll_ranges svar set =
+      
+      (* Creates the terms for an intrange. *)
+      let rec unroll_range set low up var =
+        if Numeral.(low > up)
+        then set
+        else
+          unroll_range
+            (TSet.add (Term.mk_eq [var ; Term.mk_num low]) set)
+            (Numeral.succ low)
+            up
+            var
+      in
+
+      let var =
+        Var.mk_state_var_instance svar Numeral.zero
+        |> Term.mk_var
+      in
+
+      match StateVar.type_of_state_var svar |> Type.node_of_type with
+
+      | Type.IntRange (low,up) ->
+         unroll_range set low up var
+         |> TSet.add
+              (Term.mk_leq [ Term.mk_num low ; var ])
+         |> TSet.add
+              (Term.mk_leq [ var ; Term.mk_num up ])
+
+      | _ -> set
+
+    (* Creates x=0, x>=0 and x<=0 for int and real variables. *)
+    let arith_zero_eqs svar set =
+
+      match StateVar.type_of_state_var svar |> Type.node_of_type with
+
+      | Type.Int ->
+
+         let var =
+           Var.mk_state_var_instance svar Numeral.zero
+           |> Term.mk_var
+         in
+
+         (* Adding the new equations to the set. *)
+         set
+         (* |> TSet.add (Term.mk_eq  [ var ; Term.mk_num Numeral.zero ]) *)
+         |> TSet.add (Term.mk_geq [ var ; Term.mk_num Numeral.zero ])
+         (* |> TSet.add (Term.mk_leq [ var ; Term.mk_num Numeral.zero ]) *)
+
+      | Type.Real ->
+
+         let var =
+           Var.mk_state_var_instance svar Numeral.zero
+           |> Term.mk_var
+         in
+
+         (* Adding the new equations to the set. *)
+         set
+         (* |> TSet.add (Term.mk_eq  [ var ; Term.mk_dec Decimal.zero ]) *)
+         |> TSet.add (Term.mk_geq [ var ; Term.mk_dec Decimal.zero ])
+         (* |> TSet.add (Term.mk_leq [ var ; Term.mk_dec Decimal.zero ]) *)
+
+      | _ -> set
+
+
+    (* Add boolean variables. *)
+    let bool_vars svar set =
+      match StateVar.type_of_state_var svar |> Type.node_of_type with
+
+      | Type.Bool when svar != TransSys.init_flag_svar ->
+         TSet.add
+           (Var.mk_state_var_instance svar Numeral.zero |> Term.mk_var)
+           set
+
+      | _ -> set
+
+
+    (* List of rule/activation condition pairs. *)
+    let rule_list =
+      [ unroll_ranges,  true_of_unit ;
+        arith_zero_eqs, true_of_unit ;
+        bool_vars, true_of_unit ]
+
+
+    (* Applies rules to a system to synthesize candidate terms without
+       looking at the init and trans terms. *)
+    let apply sys set =
+      
+      TransSys.state_vars sys
+      (* For all state variables in trans sys... *)
+      |> List.fold_left
+           
+           ( fun set' svar ->
+             rule_list
+             (* ...apply all rules... *)
+             |> List.fold_left
+                  
+                  ( fun set'' (rule, condition) ->
+                    (* ...if their activation condition applies.*)
+                    if condition ()
+                    then rule svar set''
+                    else set'' )
+                  
+                  set' )
+           
+           set
+  end
+
+
+  (* Rules generating candidate terms from a flat term from the eval_t
+     of init or trans. *)
+  module FlatRules : sig
+
+    (* Applies rules to a flat term from init or trans to generate new
+       candidate terms. *)
+    val apply : Term.T.flat -> TSet.t -> TSet.t
+
+  end = struct
+
+    (* Term must be of type bool to be a candidate invariant. *)
+    let bool_terms term set =
+
+      (* Constructing term. *)
+      let term = Term.construct term in
+
+      if term |> Term.type_of_term == Type.t_bool
+      then TSet.add term set
+      else set
+
+
+    (* If term is an arithmetic equation among {=,ge,le,gt,lt},
+       generate the other ones. Keep in mind that the set rules come
+       after, so in particular everything will be negated. *)
+    let arith_eqs_fanning_rule term set =
+      match term with
+        
+      | Term.T.App (sym,kids) ->
+
+         ( match Symbol.node_of_symbol sym with
+         
+           | `EQ ->
+              
+              (* Making sure it's not a bool equality. *)
+              ( match List.hd kids
+                      |> Term.type_of_term
+                      |> Type.node_of_type
+                with
+                | Type.Int
+                | Type.Real ->
+                   (* If it's not add terms. *)
+                   set
+                   |> TSet.add (Term.construct term)
+                   |> TSet.add (Term.mk_gt kids)
+                   |> TSet.add (Term.mk_lt kids)
+                | _ -> set )
+               
+           | `LEQ -> set
+                     |> TSet.add (Term.construct term)
+                     |> TSet.add (Term.mk_eq kids)
+                     |> TSet.add (Term.mk_geq kids)
+               
+           | `GEQ -> set
+                     |> TSet.add (Term.construct term)
+                     |> TSet.add (Term.mk_eq kids)
+                     |> TSet.add (Term.mk_leq kids)
+               
+           | `GT -> set
+                    |> TSet.add (Term.construct term)
+                    |> TSet.add (Term.mk_eq kids)
+                    |> TSet.add (Term.mk_lt kids)
+               
+           | `LT -> set
+                    |> TSet.add (Term.construct term)
+                    |> TSet.add (Term.mk_eq kids)
+                    |> TSet.add (Term.mk_gt kids)
+
+           | _ -> set )
+
+      | _ -> set
+
+
+    (* All rules and activation conditions. *)
+    let rule_list =
+      [ bool_terms, ( fun () -> not (Flags.invgen_atoms_only ())) ;
+        arith_eqs_fanning_rule, false_of_unit ]
+        
+    (* Checks if a flat term mentions at least one variable. *)
+    let has_vars flat_term =
+      Term.construct flat_term
+      |> Term.state_vars_of_term
+      |> StateVar.StateVarSet.exists
+           ( fun svar -> svar != TransSys.init_flag_svar )
+
+
+    (* Applies flat rules depending on their activation condition. *)
+    let apply flat_term set =
+
+      (* If the term mentions state variables... *)
+      if has_vars flat_term then
+        rule_list
+        (* ...apply rules depending on their activation condition. *)
+        |> List.fold_left
+             ( fun set' (rule, condition) -> if condition ()
+                                             then rule flat_term set'
+                                             else set' )
+             set
+
+      else set
+
+  end
+
+
+  (* Rules expanding a set of candidate terms. *)
+  module SetRules : sig
+
+    val apply : TSet.t -> TSet.t
+
+  end = struct
+
+    (* If a term only contains variables at -1 (resp. 0), also
+     create the same term at 0 (resp. -1). *)
+    let offset_rule set =
+      TSet.fold
+        ( fun term ->
+
+          let set =
+            match Term.var_offsets_of_term term with
+            | Some offset1, Some offset2
+                 when Numeral.(offset1 = offset2) ->
+               
+               if Numeral.(offset1 = ~- one) then
+                 (* Term offset is -1, adding the same term at 0. *)
+                 TSet.of_list
+                   [ term ; Term.bump_state Numeral.one term ]
+                   
+               else if Numeral.(offset1 = zero) then
+                 (* Term offset is 0, adding the same term at -1. *)
+                 TSet.of_list
+                   [ term ; Term.bump_state Numeral.(~-one) term ]
+                   
+               else
+                 failwith
+                   (sprintf "Unexpected offset %s."
+                            (Numeral.string_of_numeral offset1))
+
+            | _ ->
+               (* Term is either two-state or no-state, nothing to do
+                    either way. *)
+               TSet.singleton term
+          in
+
+          TSet.union set )
+        set
+        TSet.empty
+
+    (* For all boolean term, also add its negation. *)
+    let negation_rule set =
+      TSet.fold
+        (fun term ->
+         if Term.is_free_var term
+         then TSet.add (Term.negate_simplify term)
+         else (fun a -> a))
+        set set
+
+    (* List of (rule,condition). Rule will be used to generate
        candidate terms iff 'condition ()' evaluates to true. *)
-  let rule_list =
-    [ must_be_bool_rule, true_of_unit ;
-      must_have_var_rule, true_of_unit ;
-      (* must_be_var , true_of_unit ; *)
-      offset_rule, true_of_unit ;
-      negation_rule, true_of_unit ]
+    let rule_list =
+      [ negation_rule, true_of_unit ;
+        offset_rule, true_of_unit ]
 
-  (* Applies the rules for the condition of which evaluates to true
-       on a set of terms. *)
-  let apply_set_rules set =
-    List.fold_left
-      ( fun set (rule, condition) ->
-        if condition () then rule set else set )
-      set
-      rule_list
+    (* Applies the rules depending on their activation condition. *)
+    let apply set =
+      List.fold_left
+        ( fun set (rule, condition) ->
+          if condition () then rule set else set )
+        set
+        rule_list
 
-
-
-  (************ Flat term rules. ************)
-
-
-  (* If term is an arithmetic equation among {=,ge,le}, generate the
-     other ones. *)
-  let arith_equations_fanning_rule term set =
-    match term with
-    | Term.T.App (sym,kids) ->
-       
-       ( if Symbol.equal_symbols sym Symbol.s_eq then
-           ( match List.hd kids
-                   |> Term.type_of_term
-                   |> Type.node_of_type
-             with
-             | Type.Int
-             | Type.Real ->
-                [ Term.mk_gt kids ; Term.mk_lt kids ]
-             | _ -> [] )
-             
-         else if Symbol.equal_symbols sym Symbol.s_leq then
-           ( match List.hd kids
-                   |> Term.type_of_term
-                   |> Type.node_of_type
-             with
-             | Type.Int
-             | Type.Real ->
-                [ Term.mk_eq kids ; Term.mk_geq kids ]
-             | _ -> [] )
-             
-         else if Symbol.equal_symbols sym Symbol.s_geq then
-           ( match List.hd kids
-                   |> Term.type_of_term
-                   |> Type.node_of_type
-             with
-             | Type.Int
-             | Type.Real ->
-                [ Term.mk_eq kids ; Term.mk_leq kids ]
-             | _ -> [] )
-             
-         else if Symbol.equal_symbols sym Symbol.s_gt then
-           ( match List.hd kids
-                   |> Term.type_of_term
-                   |> Type.node_of_type
-             with
-             | Type.Int
-             | Type.Real ->
-                [ Term.mk_eq kids ; Term.mk_lt kids ]
-             | _ -> [] )
-             
-         else if Symbol.equal_symbols sym Symbol.s_lt then
-           ( match List.hd kids
-                   |> Term.type_of_term
-                   |> Type.node_of_type
-             with
-             | Type.Int
-             | Type.Real ->
-                [ Term.mk_eq kids ; Term.mk_gt kids ]
-             | _ -> [] )
-
-         else [] )
-
-       |> List.fold_left (fun set term -> TSet.add term set) set
-
-    | _ -> set
-
-
-  let flat_rules =
-    [ arith_equations_fanning_rule, true_of_unit ]
-
-  let apply_flat_rules term set =
-    flat_rules
-    |> List.fold_left
-         ( fun set (rule,condition) ->
-           if condition () then rule term set else set )
-         set
-
-  (*************** Lucky candidate terms *************)
-
-  (* (\* If svar is of type int or real, add svar >= 0 as a candidate *)
-  (*    term. *\) *)
-  (* let svar_ge_0_lucky svar set = *)
-  (*   match StateVar.type_of_state_var svar *)
-  (*         |> Type.node_of_type *)
-  (*   with *)
-
-  (*   (\* If 'svar' is of type int, add svar >= 0. *\) *)
-  (*   | Type.Int -> *)
-  (*      let var = *)
-  (*        Var.mk_state_var_instance *)
-  (*          svar Numeral.zero *)
-  (*        |> Term.mk_var *)
-  (*      in *)
-       
-  (*      TSet.add *)
-  (*        (Term.mk_geq [Term.mk_num Numeral.zero ; var]) *)
-  (*        set *)
-
-  (*   (\* If 'svar' is of type real, add svar >= 0.0. *\) *)
-  (*   | Type.Real -> *)
-  (*      let var = *)
-  (*        Var.mk_state_var_instance *)
-  (*          svar Numeral.zero *)
-  (*        |> Term.mk_var *)
-  (*      in *)
-       
-  (*      TSet.add *)
-  (*        (Term.mk_geq [Term.mk_dec Decimal.zero ; var]) *)
-  (*        set *)
-
-  (*   (\* Otherwise do nothing. *\) *)
-  (*   | _ -> set *)
-
-  (* If svar is of type IntRange low up, add svar = i where low <= i
-     and i <= up to set. *)
-  let svar_unroll_range_lucky svar set =
-    let rec unroll_range set low up var =
-      if Numeral.(low > up) then set
-      else
-        unroll_range
-          (TSet.add (Term.mk_eq [var ; Term.mk_num low]) set)
-          (Numeral.succ low)
-          up
-          var
-    in
-
-    match StateVar.type_of_state_var svar
-          |> Type.node_of_type
-    with
-      
-    | IntRange (low,up) ->
-       Var.mk_state_var_instance svar Numeral.zero
-       |> Term.mk_var
-       |> unroll_range set low up
-
-    | _ -> set
-
-  (* List of lucky candidate terms. *)
-  let lucky_list =
-    (* [ svar_ge_0_lucky, true_of_unit ; *)
-    [ svar_unroll_range_lucky, true_of_unit ]
-
-  (* Adds lucky candidate terms. *)
-  let add_lucky sys set =
-    TransSys.state_vars sys
-    |> List.fold_left
-         ( fun set var ->
-           lucky_list
-           |> List.fold_left
-                ( fun set (luck, condition) ->
-                  if condition () then luck var set else set )
-                set )
-         set
-      
-
+  end
 
 
       
@@ -318,7 +372,7 @@ end = struct
      its terms are updated with the union of the old ones and the new
      ones. If it's not then it is inserted at the right place wrt
      topological order. *)
-  let update_sys_graph ((sys,terms) as pair) =
+  let insert_sys_terms ((sys,terms) as pair) =
 
     (* Checks if 'sys' is a subsystem of 'sys''. *)
     let shall_insert_here sys' =
@@ -351,28 +405,30 @@ end = struct
          
 
   (* Generates a set of candidate terms from the transition system. *)
-  let generate_implication_graphs trans_sys =
+  let generate trans_sys =
 
     (* Term set with true and false. *)
     let true_false_set =
-      (TSet.of_list [ Term.mk_true () ; Term.mk_false () ])
+      (TSet.of_list [ Term.t_true ; Term.t_false ])
     in
 
     let flat_to_term = Term.construct in
 
-    (* Builds a set of candidate terms from a term. *)
+    (* Builds a set of candidate terms from a term. Basically applies
+       flat rules on all subterms. *)
     let set_of_term term set =
       let set_ref = ref set in
-      let set_commit set' = set_ref := TSet.union !set_ref set' in
+      let set_update set' = set_ref := set' in
+      
       ( Term.eval_t
-          ( fun term _ ->
+          ( fun flat_term _ ->
             
             (* Applying rules and adding to set. *)
-            set_commit
-              (TSet.singleton (Term.construct term)
-               |> apply_flat_rules term
-               |> apply_set_rules) )
+            set_update
+              (FlatRules.apply flat_term !set_ref) )
+          
           term ) ;
+
       !set_ref
     in
 
@@ -395,6 +451,7 @@ end = struct
            all_sys_graphs_maps result tail
 
          else
+           
            (* We don't, getting init and trans. *)
            let init, trans =
              TransSys.init_of_bound system Numeral.zero,
@@ -402,29 +459,37 @@ end = struct
              TransSys.trans_of_bound system Numeral.zero
            in
 
-           (* Getting their candidate terms. *)
            let candidates =
-             set_of_term init TSet.empty
+
+             true_false_set
+               
+             (* Synthesizing candidates. *)
+             |> SynthesisRules.apply system
+                                  
+             (* Candidates from init. *)
+             |> set_of_term init
+                            
+             (* Candidates from trans. *)
              |> set_of_term trans
-             (* Generate lucky candidate terms from system. *)
-             |> add_lucky system
-             |> TSet.union true_false_set
+                            
+             (* Applying set rules. *)
+             |> SetRules.apply
            in
 
            let sorted_result =
              result
-             |> TSet.fold
-                  ( fun term map ->
-                    TransSys.instantiate_term_all_levels
-                      system term
-                    |> (function | (top,others) -> top :: others)
-                    |> List.fold_left
-                         ( fun map (sys,terms) ->
-                           update_sys_graph
-                             (sys, TSet.of_list terms) map )
-                         map )
-                  candidates
-             |> update_sys_graph (system, candidates)
+             (* |> TSet.fold *)
+             (*      ( fun term map -> *)
+             (*        TransSys.instantiate_term_all_levels *)
+             (*          system term *)
+             (*        |> (function | (top,others) -> top :: others) *)
+             (*        |> List.fold_left *)
+             (*             ( fun map (sys,terms) -> *)
+             (*               insert_sys_terms *)
+             (*                 (sys, TSet.of_list terms) map ) *)
+             (*             map ) *)
+             (*      candidates *)
+             |> insert_sys_terms (system, candidates)
            in
 
            all_sys_graphs_maps
@@ -438,20 +503,41 @@ end = struct
            | _ :: t -> get_last t
          in
 
-         if only_top_node
+         if Flags.invgen_top_only ()
          then get_last result
          else result
     in
 
-    all_sys_graphs_maps [] trans_sys
+    all_sys_graphs_maps [] [ trans_sys ]
     (* Building the graphs. *)
     |> List.map ( fun (sys,term_set) ->
+
+                  (* Building the set of one-state candidates. *)
+                  let term_set_one_state =
+                    TSet.filter
+                      ( fun term ->
+                        match Term.var_offsets_of_term term with
+                        | (Some low), (Some hi)
+                             when Numeral.(low = zero)
+                                  && Numeral.(hi = zero) ->
+                           true
+                        | _ -> false )
+                      term_set
+                    |> TSet.union true_false_set
+                  in
+
+                  debug invGenControl
+                        "System [%s]: %i candidate invariants (%i one-state)."
+                        (TransSys.get_scope sys |> String.concat "/")
+                        (TSet.cardinal term_set)
+                        (TSet.cardinal term_set_one_state)
+                  in
 
                   debug invGenInit
                         "System [%s]:"
                         (TransSys.get_scope sys |> String.concat "/")
                   in
-                  
+
                   let _ =
                     term_set
                     |> TSet.iter
@@ -460,6 +546,21 @@ end = struct
                                 "%s" (Term.string_of_term candidate)
                           in ())
                   in
+
+                  debug invGenInit
+                        "System [%s], one state:"
+                        (TransSys.get_scope sys |> String.concat "/")
+                  in
+
+                  let _ =
+                    term_set_one_state
+                    |> TSet.iter
+                         (fun candidate ->
+                          debug invGenInit
+                                "%s" (Term.string_of_term candidate)
+                          in ())
+                  in
+
 
                   debug invGenInit "" in
 
@@ -471,7 +572,9 @@ end = struct
                            Stat.invgen_candidate_term_count ;
 
                   (* Creating graph. *)
-                  (sys, Graph.create term_set) )
+                  (sys,
+                   Graph.create term_set_one_state,
+                   Graph.create term_set) )
 
 end
 
@@ -481,6 +584,14 @@ let rewrite_graph_until_unsat lsd sys graph =
   (* Rewrites a graph until the base instance becomes unsat. Returns
      the final version of the graph. *)
   let rec loop iteration fixed_point graph =
+
+    (* Graph.to_dot *)
+    (*   (sprintf "dot/graph-[%s]-%i-%i.dot" *)
+    (*            (TransSys.get_scope sys |> String.concat "-") *)
+    (*            (LSD.get_k lsd |> Numeral.to_int) *)
+    (*            (iteration)) *)
+    (*   graph ; *)
+
 
     (* Checking if we should terminate. *)
     Event.check_termination () ;
@@ -495,22 +606,29 @@ let rewrite_graph_until_unsat lsd sys graph =
       (* Getting candidates invariants from equivalence classes and
          implications. *)
       let candidate_invariants =
-        let eq_classes =
-          Graph.eq_classes graph
-          |> List.fold_left
-               ( fun list set ->
-                 match TSet.elements set with
-                 | [t] -> list
-                 | l -> (Term.mk_eq l) :: list )
-               []
-        in
-                           
-        List.concat [ eq_classes ;
-                      Graph.non_trivial_implications graph ;
-                      Graph.trivial_implications graph ]
+        Graph.eq_classes graph
+        |> List.fold_left
+             ( fun list set ->
+               (* If there is only one element in the set there is no
+                  equality to add. *)
+               if TSet.cardinal set <= 1 then list
+               else
+                 (* Otherwise we choose a representative. *)
+                 let rep = TSet.choose set in
+                 
+                 TSet.fold
+                   (* And we build all the equalities. *)
+                   (fun term list' ->
+                    (Term.mk_eq [rep ; term]) :: list')
+                   set
+                   list )
+             
+             ( List.rev_append
+                 (Graph.non_trivial_implications graph)
+                 (Graph.trivial_implications graph) )
       in
-
-      debug invGenControl "Checking base." in
+      
+      debug invGenControl "Checking base (%i)." iteration in
 
       match LSD.query_base lsd candidate_invariants with
         
@@ -727,17 +845,17 @@ let get_top_inv_add_invariants lsd sys invs =
 (* Queries step to find invariants to communicate. *)
 let find_invariants lsd invariants sys graph =
 
-  (* Graph.to_dot *)
-  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
-  (*            (TransSys.get_scope sys |> String.concat "-") *)
-  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
-  (*   graph ; *)
-
   debug invGenControl
         "Check step for [%s] at k = %i."
         (TransSys.get_scope sys |> String.concat "/")
         (LSD.get_k lsd |> Numeral.to_int)
   in
+
+  (* Graph.to_dot *)
+  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
+  (*            (TransSys.get_scope sys |> String.concat "-") *)
+  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
+  (*   graph ; *)
 
   (* Equivalence classes as binary equalities. *)
   let eq_classes =
@@ -770,7 +888,7 @@ let find_invariants lsd invariants sys graph =
 
   (* Candidate invariants. *)
   let candidate_invariants =
-    List.concat [ eq_classes ; implications ]
+    List.rev_append eq_classes implications
   in
 
   (* New invariants discovered at this step. *)
@@ -836,7 +954,7 @@ let find_invariants lsd invariants sys graph =
             0
      in
      
-     debug invGen
+     debug invGenControl
            "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
            impl_count'
@@ -889,8 +1007,6 @@ let find_invariants lsd invariants sys graph =
 let rewrite_graph_find_invariants
       trans_sys lsd invariants (sys,graph) =
 
-  debug invGenControl "Event.recv." in
-
   (* Getting new invariants from the framework. *)
   let new_invariants, _, _ =
     (* Receiving messages. *)
@@ -915,8 +1031,7 @@ let rewrite_graph_find_invariants
 let generate_invariants trans_sys lsd =
 
   (* Associative list from systems to candidate terms. *)
-  let sys_graph_map =
-    CandidateTerms.generate_implication_graphs [trans_sys] in
+  let sys_graph_map = ImplicationGraphs.generate trans_sys in
 
   debug invGenInit
         "Graph generation result:"
@@ -924,9 +1039,49 @@ let generate_invariants trans_sys lsd =
 
   sys_graph_map
   |> List.iter
-       ( fun (sys,_) ->
+       ( fun (sys,_,_) ->
          debug invGenInit "  %s" (TransSys.get_scope sys
                                   |> String.concat "/") in () ) ;
+
+    
+  let invariants_at_0 =
+    if Flags.invgen_one_step () then (
+
+      (debug invGenControl
+             "Running on one-state invariants."
+       in ()) ;
+      
+      sys_graph_map
+      |> List.fold_left
+           ( fun invs (sys, graph, _) ->
+             let _, invs' =
+               rewrite_graph_find_invariants
+                 trans_sys lsd invs (sys,graph)
+             in
+             invs' )
+           TSet.empty
+           
+    ) else TSet.empty
+  in
+
+  (* Removing graphs at 0. *)
+  let sys_graph_map' =
+    sys_graph_map |> List.map (fun (sys, _, graph) -> (sys,graph))
+  in
+
+  (* Incrementing k. *)
+  LSD.increment lsd ;
+  ( match !confirmation_lsd_ref with
+    | Some conf_lsd ->
+       LSD.increment conf_lsd
+    | None -> () ) ;
+
+  (* Updating stats. *)
+  Stat.set 1 Stat.invgen_k ;
+  Event.progress 1 ;
+  Stat.update_time Stat.invgen_total_time ;
+  print_stats () ;
+  
   
   let rec loop invariants map =
 
@@ -984,7 +1139,7 @@ let generate_invariants trans_sys lsd =
 
   in
 
-  loop TSet.empty sys_graph_map |> ignore
+  loop invariants_at_0 sys_graph_map' |> ignore
 
 (* Module entry point. *)
 let main trans_sys =
@@ -993,13 +1148,9 @@ let main trans_sys =
 
   let confirmation_lsd = LSD.create trans_sys in
 
-  (* Skipping k=0. *)
-  LSD.increment lsd ;
-  LSD.increment confirmation_lsd ;
-
   (* Updating statistics. *)
-  Stat.set 1 Stat.invgen_k ;
-  Event.progress 1 ;
+  Stat.set 0 Stat.invgen_k ;
+  Event.progress 0 ;
   Stat.start_timer Stat.invgen_total_time ;
 
   lsd_ref := Some lsd ;

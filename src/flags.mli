@@ -171,6 +171,14 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
+(** Invgen things **)
+type invgen_top_only = bool
+val invgen_top_only : unit -> invgen_top_only
+type invgen_atoms_only = bool
+val invgen_atoms_only : unit -> invgen_atoms_only
+type invgen_one_step = bool
+val invgen_one_step : unit -> invgen_one_step
+
 (** Read input from file **)
 type interpreter_input_file = string
 val interpreter_input_file : unit -> interpreter_input_file
