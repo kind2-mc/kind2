@@ -53,7 +53,11 @@ module E = LustreExpr
 
 module SVS = StateVar.StateVarSet
 module SVMap = StateVar.StateVarMap
+
 module ISet = I.LustreIdentSet
+module IdxMap = I.LustreIndexMap
+module ITrie = I.LustreIdentTrie
+module IdxTrie = I.LustreIndexTrie
 
 (* Set of state variables of list *)
 let svs_of_list list = 
@@ -71,7 +75,7 @@ type node_call =
   { 
 
     (* Variables capturing the outputs *)
-    call_returns : StateVar.t list;
+    call_returns : StateVar.t IdxTrie.t;
 
     (* Variables capturing the outputs *)
     call_observers : StateVar.t list;
@@ -86,17 +90,12 @@ type node_call =
     call_pos : LustreAst.position;
 
     (* Expressions for input parameters *)
-    call_inputs : StateVar.t list;
+    call_inputs : StateVar.t IdxTrie.t;
 
     (* Expression for initial return values *)
-    call_defaults : LustreExpr.t list;
+    call_defaults : LustreExpr.t IdxTrie.t;
 
   }
-
-(*
-  { call_returns; call_clock; call_node_name; call_pos; call_inputs; call_defaults }
-*)
-
 
 
 (* A Lustre node *)
@@ -108,30 +107,21 @@ type t =
     name : LustreIdent.t;
 
     (* Input variables of node together with their index in the
-       original model
-
-       The order of the list is important, it is the order of the
-       indexes and of the parameters in the declaration. *)
-    inputs : (StateVar.t * I.index) list;
+       original model *)
+    inputs : StateVar.t IdxTrie.t;
 
     (* Oracle inputs *)
     oracles : StateVar.t list;
 
     (* Output variables of node together with their index in the
-       original model
-
-       The order of the list is important, it is the order of the
-       indexes and of the parameters in the declaration. *)
-    outputs : (StateVar.t * I.index) list;
+       original model *)
+    outputs : StateVar.t IdxTrie.t;
 
     (* Observer outputs *)
     observers : StateVar.t list;
 
-    (* Local variables of node
-
-       The order of the list is irrelevant, we are doing dependency
-       analysis and cone of influence reduction later. *)
-    locals : (StateVar.t * I.index) list; 
+    (* Local variables of node *)
+    locals : StateVar.t list;
 
     (* Equations for local and output variables, with a list of
        indexes and their bounds *)
@@ -160,7 +150,10 @@ type t =
     is_main : bool;
 
     (* Dependencies of the output variables on input variables *)
-    output_input_dep : int list list;
+    output_input_dep : I.index list IdxTrie.t;
+
+    (* Dependencies of the observer variables on input variables *)
+    observer_input_dep : I.index list list;
 
     (* Index of last abstraction state variable *)
     fresh_state_var_index : Numeral.t ref;
@@ -177,9 +170,9 @@ type t =
 (* An empty node *)
 let empty_node name = 
   { name = name;
-    inputs = [];
+    inputs =  IdxTrie.empty;
     oracles = [];
-    outputs = [];
+    outputs = IdxTrie.empty;
     observers = [];
     locals = [];
     equations = [];
@@ -189,7 +182,8 @@ let empty_node name =
     requires = [];
     ensures = [];
     is_main = false;
-    output_input_dep = [];
+    output_input_dep = IdxTrie.empty;
+    observer_input_dep = [];
     fresh_state_var_index = ref Numeral.(- one);
     fresh_oracle_index = ref Numeral.(- one); 
     state_var_oracle_map = StateVar.StateVarHashtbl.create 7 }
@@ -197,7 +191,7 @@ let empty_node name =
 
 
 (* Pretty-print a node input *)
-let pp_print_input safe ppf (var, _) =
+let pp_print_input safe ppf (_, var) =
 
   Format.fprintf ppf
     "%t%a: %a"
@@ -208,7 +202,7 @@ let pp_print_input safe ppf (var, _) =
 
 
 (* Pretty-print a node output *)
-let pp_print_output safe ppf (var, _) =
+let pp_print_output safe ppf (_, var) =
 
   Format.fprintf ppf
     "%a: %a"
@@ -217,7 +211,7 @@ let pp_print_output safe ppf (var, _) =
 
 
 (* Pretty-print a node local variable *)
-let pp_print_local safe ppf (var, _) =
+let pp_print_local safe ppf var =
 
   Format.fprintf ppf
     "%a: %a"
@@ -226,11 +220,18 @@ let pp_print_local safe ppf (var, _) =
 
 
 (* Pretty-print a node equation *)
-let pp_print_node_equation safe ppf (var, (_, expr)) = 
+let pp_print_node_equation safe ppf (var, (idx_vars, expr)) = 
 
   Format.fprintf ppf
-    "@[<hv 2>%a =@ %a;@]"
+    "@[<hv 2>%a%a =@ %a;@]"
     (E.pp_print_lustre_var safe) var
+    (pp_print_list
+       (function ppf -> function (v, _) ->
+         Format.fprintf ppf 
+           "[%a]"
+           (E.pp_print_lustre_var safe) v)
+       "")
+    idx_vars
     (E.pp_print_lustre_expr safe) expr
 
 
@@ -249,9 +250,10 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (out_vars @ observer_vars)
+      (List.map snd (IdxTrie.bindings out_vars) @ observer_vars)
       (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (List.map snd (IdxTrie.bindings in_vars))
 
   (* Node call not on the base clock is a condact *)
   |  { call_returns = out_vars; 
@@ -266,12 +268,14 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (out_vars @ observer_vars)
+      (List.map snd (IdxTrie.bindings out_vars) @ observer_vars)
       (E.pp_print_lustre_expr safe) act_expr
       (I.pp_print_ident safe) node
-      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") in_vars
+      (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
+      (List.map snd (IdxTrie.bindings in_vars))
       (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
-      (init_exprs @ (List.map (fun _ -> E.t_true) observer_vars))
+      (List.map snd (IdxTrie.bindings init_exprs)
+       @ (List.map (fun _ -> E.t_true) observer_vars))
           
 
 (* Pretty-print an assertion *)
@@ -334,8 +338,7 @@ let pp_print_node
   Format.fprintf ppf 
     "@[<hv>@[<hv 2>node %a@ @[<hv 1>(%a)@]@;<1 -2>\
      returns@ @[<hv 1>(%a)@];@]@ \
-     @[<v>%a@]%t\
-     %t%t\
+     @[<v>%t@]\
      @[<hv 2>let@ \
      %a%t\
      %a%t\
@@ -345,36 +348,52 @@ let pp_print_node
      %a%t\
      %a@;<1 -2>\
      tel;@]@]"  
+
+    (* %a *)
     (I.pp_print_ident safe) name
+
+    (* %a *)
     (pp_print_list (pp_print_input safe) ";@ ") 
-    (inputs @ (List.map (fun sv -> (sv, I.empty_index)) oracles))
+    (IdxTrie.bindings inputs @
+     (List.map (fun sv -> (I.empty_index, sv)) oracles))
+
+    (* %a *)
     (pp_print_list (pp_print_output safe) ";@ ") 
-    (outputs @ (List.map (fun sv -> (sv, I.empty_index)) observers))
-    (pp_print_list  
-       (fun ppf l -> 
-          Format.fprintf ppf "@[<h>-- %a@]"
-            (pp_print_list Format.pp_print_int "@ ")
-            l)
-       "@,")
-    output_input_dep
-    (space_if_nonempty output_input_dep)
+    (IdxTrie.bindings outputs @
+     (List.map (fun sv -> (I.empty_index, sv)) observers))
+
+    (* %t *)
     (function ppf -> 
-      if locals = [] then () else 
+      if not (locals = []) then
         Format.fprintf ppf 
-          "@[<hv 2>var@ %a;@]" 
-          (pp_print_list (pp_print_local safe) ";@ ") locals)
-    (space_if_nonempty locals)
+          "@[<hv 2>var@ %a;@]@ " 
+          (pp_print_list (pp_print_local safe) ";@ ") 
+          locals)
+
+    (* %a%t *)
     (pp_print_list (pp_print_call safe) "@ ") calls
-    (space_if_nonempty calls)
+    (space_if_nonempty equations)
+
+    (* %a%t *)
     (pp_print_list (pp_print_node_equation safe) "@ ") equations
     (space_if_nonempty equations)
+
+    (* %a%t *)
     (pp_print_list (pp_print_assert safe) "@ ") asserts
     (space_if_nonempty asserts)
+
+    (* %t *)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
+
+    (* %a%t *)
     (pp_print_list (pp_print_requires safe) "@ ") requires
     (space_if_nonempty requires)
+
+    (* %a%t *)
     (pp_print_list (pp_print_ensures safe) "@ ") ensures
     (space_if_nonempty ensures)
+
+    (* %a*)
     (pp_print_list (pp_print_prop safe) "@ ") props
     
 
@@ -382,41 +401,14 @@ let pp_print_node
 (* Return the node of the given name from a list of nodes *)
 let node_of_name name nodes =
 
-  try 
-
-    List.find
-      (function { name = node_name } -> name = node_name)
-      nodes
-      
-  with Not_found -> 
-
-    debug lustreNode 
-      "@[<v>Node %a not found@,%a@]"
-      (I.pp_print_ident false) name
-      (pp_print_list (pp_print_node false) "@,") nodes
-    in
-    
-    assert false
-
-      (* raise Not_found *)
+  List.find
+    (function { name = node_name } -> name = node_name)
+    nodes
 
 
 (* Calculate dependencies of variables *)
 let rec node_var_dependencies nodes node accum = 
 
-(*
-  (* Return expression either for the initial state or a step state *)
-  let init_or_step_of_expr { E.expr_init; E.expr_step } = 
-    if init_or_step then 
-      E.base_term_of_expr E.base_offset expr_init 
-    else 
-      E.cur_term_of_expr E.cur_offset expr_step 
-  in
-
-  let init_or_step_offset = 
-    if init_or_step then E.base_offset else E.cur_offset
-  in
-*)
   function 
 
     (* Return all calculated dependencies *)
@@ -426,20 +418,11 @@ let rec node_var_dependencies nodes node accum =
        in [dep] depend on *)
     | (state_var, dep) :: tl -> 
 
-(*
-      debug lustreNode
-        "@[<v>node_var_dependencies %a @[<h>(%a)@]@,%a@]@."
-        StateVar.pp_print_state_var state_var
-        (pp_print_list StateVar.pp_print_state_var "@ ") dep 
-        (pp_print_list (pp_print_node false) "@,") nodes
-      in
-*)
-
       if 
 
         (* Variable is an input variable *)
-        List.exists 
-          (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+        IdxTrie.exists 
+          (fun _ sv -> StateVar.equal_state_vars sv state_var)
           node.inputs 
 
       then 
@@ -480,96 +463,109 @@ let rec node_var_dependencies nodes node accum =
 
             try
 
-              (* Iterate over node calls to find identifier in
-                 variables capturing the output *)
-              let rec aux ident = function
-                | [] -> raise Not_found
-                | { call_returns = o; call_observers = b } as n :: tl -> 
+              (* Find state variables this state variable depends on
+                 if captures the output of a node call *)
+              let rec dependent_state_vars_of_output = function 
+                | [] -> raise Not_found 
+                | { call_returns; call_node_name } :: tl -> 
 
-                  (* Iterate over variables capturing the output to
-                     find variable and return the node call and the
-                     position of the variable in the output
-                     parameters *)
-                  let rec aux2 i = function
-                    | [] -> raise Not_found 
-                    | sv :: _ 
-                      when StateVar.equal_state_vars sv state_var -> (n, i)
-                    | _ :: tl -> aux2 (succ i) tl
+                  match 
+
+                    (* Collect indexes the given state variable occurs
+                       with in the output *)
+                    IdxTrie.fold
+                      (fun i v a -> 
+                         if 
+                           StateVar.equal_state_vars 
+                             state_var
+                             v 
+                         then
+                           i :: a 
+                         else 
+                           a)
+                      call_returns
+                      []
+
+                  with
+
+                    (* State variable does not occur in the ouput:
+                       continue search *)
+                    | [] -> dependent_state_vars_of_output tl
+
+                    (* State variable occurs in output at index *)
+                    | [index] -> 
+
+                      (* Get dependencies of outputs on input for
+                         called node *)
+                      let { output_input_dep } =
+                        node_of_name call_node_name nodes 
+                      in
+
+                      (* Get inputs of node call that depend on
+                         outputs of node call *)
+                      List.map
+                        (fun i -> IdxTrie.find i node.inputs)
+                        (IdxTrie.find index output_input_dep)
+
+                    (* State variable occurs in more than one
+                       output *)
+                    | _ -> assert false 
+
+              in
+
+              dependent_state_vars_of_output node.calls
+
+            (* Variable is not an output of a node call *)
+            with Not_found -> 
+
+              (* Find state variables this state variable depends on
+                 if captures an observer of a node call *)
+              let rec dependent_state_vars_of_observer = function 
+                | [] -> raise Not_found 
+                | { call_observers; call_node_name } :: tl -> 
+
+                  (* Get dependencies of observers on input for called node *)
+                  let { observer_input_dep } =
+                    node_of_name call_node_name nodes 
                   in
 
-                  try aux2 0 (o @ b) with Not_found -> aux ident tl
+                  match 
+                    
+                    List.fold_left2
+                      (fun a v i -> 
+                         if 
+                           StateVar.equal_state_vars 
+                             state_var
+                             v 
+                         then
+                           i :: a 
+                         else 
+                           a)
+                      []
+                      call_observers
+                      observer_input_dep
+
+                  with
+
+                    (* State variable does not occur in the ouput:
+                       continue search *)
+                    | [] -> dependent_state_vars_of_observer tl
+
+                    (* State variable depends on input variables at index *)
+                    | [index] -> 
+
+                      (* Get inputs of node call at indexes *)
+                      List.map
+                        (fun i -> IdxTrie.find i node.inputs)
+                        index
+
+                    (* State variable occurs in more than one
+                       observer *)
+                    | _ -> assert false 
 
               in
 
-              (* Return node call and position of variable in output
-                 parameters *)
-              let 
-                { call_node_name = node_ident; call_inputs = call_params }, 
-                input_pos = 
-                aux state_var node.calls 
-              in
-
-(*
-              Format.printf 
-                "%a is at position %d in call to node %a@."
-                (I.pp_print_ident false) ident 
-                input_pos
-                (I.pp_print_ident false) node_ident;
-*)
-
-              (* Get dependencies of output parameters on input
-                 parameters from called node *)
-              let { output_input_dep } = 
-                node_of_name node_ident nodes
-              in
-(*
-              debug lustreNode
-                "@[<v>Input output dependencies of node %a:@[<v>%a@]@]"
-                (I.pp_print_ident false) node_ident
-                (pp_print_list
-                  (fun ppf l -> 
-                    Format.fprintf ppf "@[<h>%a@]"
-                      (pp_print_list Format.pp_print_int "@ ")
-                      l)
-                  "@,")
-                output_input_dep
-              in
-*)
-              (* Get expressions that output of node depends on *)
-              let dep_expr = 
-                List.fold_left
-                  (fun a d -> 
-                     (List.nth call_params d :: a))
-                  []
-                  (List.nth output_input_dep input_pos)
-              in
-(*
-              (* Get variables in expression *)
-              SVS.elements
-                (List.fold_left
-                   (fun a e -> 
-                      SVS.union
-                        (SVS.union 
-                           (Term.state_vars_at_offset_of_term
-                              E.base_offset
-                              (E.base_term_of_expr 
-                                 E.base_offset 
-                                 e.E.expr_init))
-                           (Term.state_vars_at_offset_of_term
-                              E.cur_offset
-                              (E.cur_term_of_expr 
-                                 E.cur_offset 
-                                 e.E.expr_step)))
-                        a)
-                   SVS.empty
-                   dep_expr)
-*)
-              
-              dep_expr
-
-            (* Variable is not input or defined in an equation or node
-               call, it could be in an assertion *)
-            with Not_found -> []
+              dependent_state_vars_of_observer node.calls
 
         in
 
@@ -616,7 +612,7 @@ let rec node_var_dependencies nodes node accum =
             tl
 
         else
-          
+
         if 
 
           (* Circular dependency: a variable that this variable
@@ -649,38 +645,77 @@ let rec node_var_dependencies nodes node accum =
 (* Calculate dependencies of outputs on inputs *) 
 let output_input_dep_of_var_dep node var_deps =
 
-  (* Return a list of positions in inputs for each output *)
-  List.map
-    (fun (o, _) -> 
+  (* Return indexes in inputs for each output *)
+  IdxTrie.map
+    (fun o -> 
 
        (* Get dependencies of output variable *)
        let deps = List.assoc o var_deps in 
 
        (* Iterate over all dependent variables to find input variables
           and their positions *)
-       List.fold_left 
-         (fun a v -> 
-            try
+       SVS.fold
+         (fun v a -> 
 
-              (* Iterate over input variables and return position of
-                 given variable *)
-              let rec aux i = function 
-                | [] -> raise Not_found
-                | (ident, _) :: tl 
-                  when StateVar.equal_state_vars ident v -> i
-                | _ :: tl -> aux (succ i) tl 
-              in
+            match 
 
-              (* Append position of input variable if found *)
-              (aux 0 node.inputs) :: a 
+              (* Collect indexes the given state variable occurs with
+                 in the input *)
+              IdxTrie.fold
+                (fun i v' a ->
+                   if StateVar.equal_state_vars v' v then i :: a else a)
+                node.inputs
+                []
 
-            (* Variable is not input *)
-            with Not_found -> a)
-         []
-         (SVS.elements deps)
-    )
+            with 
+
+              (* We expect the list to contain at most one index. *)
+              | [] -> a 
+              | [v] -> v :: a
+
+              (* Variable occurs in input twice *)
+              | _ -> assert false)
+         deps
+         [])
     node.outputs
 
+
+(* Calculate dependencies of observers on inputs *) 
+let observer_input_dep_of_var_dep node var_deps =
+
+  (* Return indexes in inputs for each output *)
+  List.map
+    (fun sv -> 
+
+       (* Get dependencies of output variable *)
+       let deps = List.assoc sv var_deps in 
+
+       (* Iterate over all dependent variables to find input variables
+          and their positions *)
+       SVS.fold
+         (fun v a -> 
+
+            match 
+
+              (* Collect indexes the given state variable occurs with
+                 in the input *)
+              IdxTrie.fold
+                (fun i v' a ->
+                   if StateVar.equal_state_vars v' v then i :: a else a)
+                node.inputs
+                []
+
+            with 
+
+              (* We expect the list to contain at most one index. *)
+              | [] -> a 
+              | [v] -> v :: a
+
+              (* Variable occurs in input twice *)
+              | _ -> assert false)
+         deps
+         [])
+    node.observers
 
 
 
@@ -733,7 +768,7 @@ let equations_order_by_dep nodes node =
       node
       []
       ((List.map (fun (v, _) -> (v, [])) node.equations) @
-       (List.map (fun (v, _) -> (v, [])) node.outputs))
+       (List.map (fun (_, v) -> (v, [])) (IdxTrie.bindings node.outputs)))
   in
 
   (* Order variables such that variables defined in terms of other
@@ -764,20 +799,27 @@ let compute_output_input_dep nodes node =
       node
       []
       ((List.map (fun (v, _) -> (v, [])) node.equations) @
-       (List.map (fun (v, _) -> (v, [])) node.outputs))
+       (List.map (fun (_, v) -> (v, [])) (IdxTrie.bindings node.outputs)))
   in
-  
+(*  
   (* Order variables such that variables defined in terms of other
      variables occur first *)
   let vars_ordered = order_by_dep [] var_dep in
-  
+*)
   (* Compute dependencies of output variables on inputs *)
   let output_input_dep = 
     output_input_dep_of_var_dep node var_dep 
   in
 
+  (* Compute dependencies of output variables on inputs *)
+  let observer_input_dep = 
+    observer_input_dep_of_var_dep node var_dep 
+  in
+
   (* Return node with equations in dependency order *)
-  { node with output_input_dep = output_input_dep }
+  { node with 
+      output_input_dep = output_input_dep; 
+      observer_input_dep = observer_input_dep }
 
 
 (* If x = y and x captures the output of a node, substitute y *)
@@ -789,19 +831,19 @@ let solve_eqs_node_calls node =
        variables *)
     List.fold_left 
       (fun 
-        (accum_calls, accum_vars_eliminated) 
-        ({ call_returns = o } as n) -> 
+        (calls, vars_eliminated) 
+        ({ call_returns } as n) -> 
 
          
          (* Modify list of variables capturing the output, add to list
               of eliminated variables *)
-         let o', accum_vars_eliminated' = 
-           
-           (* Iterate over output variables from right to left, need
+        let call_returns', vars_eliminated' = 
+          
+          (* Iterate over output variables from right to left, need
               to preserve the order *)
-           List.fold_right 
-             (fun v (accum_outputs, accum_vars_eliminated) ->
-
+          IdxTrie.fold 
+            (fun i v (call_returns', vars_eliminated)  ->
+               
                 try 
 
                   let v' =
@@ -834,17 +876,18 @@ let solve_eqs_node_calls node =
                     (fun (p, n, v'') -> E.set_state_var_instance v' p n v'')
                     (E.get_state_var_instances v);
 
-                  (v' :: accum_outputs, v :: accum_vars_eliminated))
+                  (IdxTrie.add i v' call_returns', v :: vars_eliminated))
 
                 (* Variable not found in a variable alias equation *)
                 with Not_found -> 
 
-                    (v :: accum_outputs, accum_vars_eliminated))
+                    (IdxTrie.add i v call_returns', vars_eliminated))
              
-             o
-             ([], accum_vars_eliminated)
+             call_returns
+             (IdxTrie.empty, vars_eliminated)
          in
-         { n with call_returns = o' }:: accum_calls, accum_vars_eliminated')
+         { n with call_returns = call_returns' } :: calls, 
+         vars_eliminated')
       ([], [])
       node.calls
   in
@@ -858,7 +901,7 @@ let solve_eqs_node_calls node =
   (* Remove eliminated variables from local variable declarations *)
   let locals' = 
     List.filter
-      (fun (sv, _) -> not (List.memq sv vars_eliminated))
+      (fun sv -> not (List.memq sv vars_eliminated))
       node.locals
   in
 
@@ -907,7 +950,7 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
                         to be abstracted *)
                      (fun _ -> assert false) [] e)))) 
            args @ *)
-        inits @ 
+        (IdxTrie.values inits) @ 
          accum)
       exprs_equations
       calls
@@ -934,8 +977,8 @@ let stateful_vars_of_node
   let stateful_vars =
     add_to_svs
       SVS.empty
-      ((List.map fst inputs)
-       @ (List.map fst outputs)
+      ((IdxTrie.values inputs)
+       @ (IdxTrie.values outputs)
        @ oracles 
        @ observers)
   in
@@ -979,7 +1022,9 @@ let stateful_vars_of_node
               (E.state_vars_of_expr act_cond)
 
               (* Input and output variables are always stateful *)
-              (rets @ obs @ args))))
+              ((IdxTrie.values rets) @ 
+               obs @ 
+               (IdxTrie.values args)))))
       stateful_vars
       calls
   in
@@ -1053,18 +1098,19 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   (* All dependencies for this node processed, add to accumulator *)
   | ([], 
      sv_visited, 
-     ({ outputs; 
-        inputs; 
-        oracles;
-        observers;
-        locals; 
-        asserts; 
-        props; 
-        requires; 
-        ensures; 
-        is_main; 
-        output_input_dep;
-        fresh_state_var_index } as node_orig), 
+     { outputs; 
+       inputs; 
+       oracles;
+       observers;
+       locals; 
+       asserts; 
+       props; 
+       requires; 
+       ensures; 
+       is_main; 
+       output_input_dep;
+       observer_input_dep;
+       fresh_state_var_index }, 
      ({ name = node_name } as node_coi)) :: ntl -> 
 
     (* Eliminate unused inputs, outputs and locals, record indexes of
@@ -1080,11 +1126,12 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           oracles = oracles;
           observers = observers;
           output_input_dep = output_input_dep;
+          observer_input_dep = observer_input_dep;
 
           (* Keep only local variables with definitions *)
           locals = 
             List.filter
-              (fun (sv, _) -> 
+              (fun sv -> 
                  List.exists (StateVar.equal_state_vars sv) sv_visited) 
               locals;
 
@@ -1117,7 +1164,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
 
   (* Head of state variable list has not been seen *)
-  | ((state_var :: svtl as svl), 
+  | ((state_var :: svtl), 
      sv_visited, 
      ({ name = node_name } as node_orig), 
      node_coi) :: ntl as nl -> 
@@ -1176,10 +1223,14 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
               (* Find variable in result of a node call *)
               List.find 
-                (fun { call_returns = o; call_observers = b } -> 
+                (fun { call_returns; call_observers } -> 
+                   IdxTrie.exists
+                     (fun _ sv -> StateVar.equal_state_vars state_var sv) 
+                     call_returns 
+                   ||
                    List.exists 
-                     (fun sv -> StateVar.equal_state_vars state_var sv) 
-                     (o @ b))
+                     (fun sv ->  StateVar.equal_state_vars state_var sv)
+                     call_observers) 
                 node_orig.calls
             in
 
@@ -1199,14 +1250,16 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
                   (fun a e -> 
                      (SVS.elements
                         (LustreExpr.state_vars_of_expr e)) @ a)
-                  (svtl @ call_inputs)
-                  (call_act :: call_defaults)
+                  (IdxTrie.values call_inputs @ svtl)
+                  (call_act :: IdxTrie.values call_defaults)
               in
 
               (* Add called node to sliced node *)
               (call_coi :: node_coi.calls), 
               svtl', 
-              (call_outputs @ call_observers @ sv_visited)
+              (IdxTrie.values call_outputs @
+               call_observers @ 
+               sv_visited)
 
             else
 
@@ -1283,9 +1336,11 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
       reduce_to_coi' 
         nodes
         accum
-        (((List.map fst push_node_outputs) @ 
-          push_node_observers @ 
-          (state_vars_in_asserts push_node), 
+        ((IdxTrie.fold 
+            (fun _ v a -> v :: a) 
+            push_node_outputs 
+            (push_node_observers @ 
+             (state_vars_in_asserts push_node)), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
@@ -1295,20 +1350,23 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
   given list 
 *)
 let state_vars_of_node (node : t) =
-  
+
   (* the set of all state variables in this nodes locals, outputs, & inputs *)
   let ret = 
-    List.fold_left 
-      (fun acc (sv,_) -> SVS.add sv acc) 
-      SVS.empty 
-      (node.locals @ node.outputs @ node.inputs)
+    IdxTrie.fold
+      (fun _ v a -> SVS.add v a)
+      node.inputs
+      (IdxTrie.fold
+         (fun _ v a -> SVS.add v a)
+         node.outputs
+         SVS.empty)
   in
 
   (* ret with oracles added *)
   List.fold_left
     (fun acc sv -> SVS.add sv acc)
     ret
-    (node.oracles @ node.observers)
+    (node.locals @ node.oracles @ node.observers)
 
 (* 
 Given that [nodes] is the set of nodes in the lustre program and

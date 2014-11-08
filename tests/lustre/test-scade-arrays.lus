@@ -1,6 +1,6 @@
 type rational = { n: int; d: int };
 
-node X(s: int; const array_size: int) returns ();
+node X(s: int; const array_size: int) returns (A8: int^2);
 const array_default = 0;
 var 
   A1, A2, A7: int^array_size;
@@ -39,5 +39,8 @@ let
 
   -- Temporal operator applied to running variable: legal?
   A7[i] = 0 -> pre i;
+
+  -- Return an array from a node call
+  A8[i] = 0;
 
 tel

@@ -32,22 +32,37 @@ module type M = sig
   type +'a t
   val empty : 'a t
   val is_empty : 'a t -> bool
-  val add : key -> 'a -> 'a t -> 'a t
-  val find : key -> 'a t -> 'a
-  val remove : key -> 'a t -> 'a t
   val mem : key -> 'a t -> bool
-  val iter : (key -> 'a -> unit) -> 'a t -> unit
-  val map : ('a -> 'b) -> 'a t -> 'b t
-  val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
-  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val add : key -> 'a -> 'a t -> 'a t
+  (* val singleton: key -> 'a -> 'a t *)
+  val remove : key -> 'a t -> 'a t
+  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
+  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val for_all : (key -> 'a -> bool) -> 'a t -> bool
+  val exists : (key -> 'a -> bool) -> 'a t -> bool
+  (* val filter: (key -> 'a -> bool) -> 'a t -> 'a t *)
+  (* val partition: (key -> 'a -> bool) -> 'a t -> 'a t * 'a t *)
+  val cardinal: 'a t -> int
+  val bindings : 'a t -> (key * 'a) list
+  val min_binding: 'a t -> (key * 'a)
+  val max_binding: 'a t -> (key * 'a)
+  (* val choose: 'a t -> (key * 'a) *)
+  (* val split: key -> 'a t -> 'a t * 'a option * 'a t *)
+  val find : key -> 'a t -> 'a 
+  val map : ('a -> 'b) -> 'a t -> 'b t
+  val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
+  
 end
 
 (* Output signature is map extended with find_prefix *)
 module type S = sig
   include M 
   val find_prefix : key -> 'a t -> 'a t
+  val keys : 'a t -> key list
+  val values : 'a t -> 'a list
 end
 
 module Make (M : M) = struct
@@ -311,11 +326,66 @@ module Make (M : M) = struct
 
     (* Two empty tries are equal *)
     | Empty, Empty -> true
-      
+
+  
+  let keys t = fold (fun k _ a -> k :: a) t []
+
+  let values t = fold (fun _ v a -> v :: a) t []
+
+  let bindings t = fold (fun k v a -> (k, v) :: a) t []
+
+  let cardinal t = fold (fun k v a -> succ a) t 0
+
+  let exists p t =
+
+    let rec exists' k p = function
+      | Empty -> false
+      | Leaf v -> p (List.rev k) v
+      | Node m -> M.exists (fun k' t -> exists' (k' :: k) p t) m
+                    
+    in
+
+    exists' [] p t
+
+
+  let for_all p t =
+
+    let rec for_all' k p = function
+      | Empty -> true
+      | Leaf v -> p (List.rev k) v
+      | Node m -> M.for_all (fun k' t -> for_all' (k' :: k) p t) m
+                    
+    in
+
+    for_all' [] p t
+
+
+  let max_binding t = 
+    
+    let rec max_binding' k = function
+      | Empty -> raise Not_found
+      | Leaf v -> (List.rev k, v)
+      | Node m -> let k', v = M.max_binding m in max_binding' (k' :: k) v
+    in
+
+    max_binding' [] t
+
+
+  let min_binding t = 
+    
+    let rec min_binding' k = function
+      | Empty -> raise Not_found
+      | Leaf v -> (List.rev k, v)
+      | Node m -> let k', v = M.min_binding m in min_binding' (k' :: k) v
+    in
+
+    min_binding' [] t
+
+
 end
 
-(* Test code *)
 (*
+(* Test code *)
 module CharMap = Map.Make(Char);;
 
 module T = Make(CharMap);;
@@ -420,5 +490,31 @@ T.iter (fun k v -> Format.printf "%a: %d@." (pp_print_list Format.pp_print_char 
 T.fold (fun k v a -> (k, v) :: a) T.empty [];;
 
 T.equal (=) a1b2 T.empty;;
+
+T.keys a1;;
+T.keys a1b2;;
+T.keys a1b2cd3;;
+T.keys a1b2cd3ce4;;
+
+T.bindings a1;;
+T.bindings a1b2;;
+T.bindings a1b2cd3;;
+T.bindings a1b2cd3ce4;;
+
+T.min_binding a1;;
+T.min_binding a1b2;;
+T.min_binding a1b2cd3;;
+T.min_binding a1b2cd3ce4;;
+
+T.max_binding a1;;
+T.max_binding a1b2;;
+T.max_binding a1b2cd3;;
+T.max_binding a1b2cd3ce4;;
+
+
+T.exists (fun k v -> v > 2)  T.empty;;
+T.for_all (fun k v -> v > 2)  T.empty;;
+T.exists (fun k v -> v = 1)  a1b2cd3;;
+T.for_all (fun k v -> v > 0)  a1b2cd3ce4;;
 
 *)

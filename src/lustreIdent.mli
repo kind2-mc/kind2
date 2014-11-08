@@ -68,7 +68,7 @@ module LustreIndexSet : Set.S with type elt = index
 module LustreIndexMap : Map.S with type key = index
 
 (** A trie of indexes *)
-module LustreIndexTrie : Trie.M with type key = index
+module LustreIndexTrie : Trie.S with type key = index
 
 (** A trie of identifiers *)
 module LustreIdentTrie : 

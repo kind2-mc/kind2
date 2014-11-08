@@ -24,6 +24,10 @@ module A = LustreAst
 module E = LustreExpr
 module N = LustreNode
 
+module ISet = I.LustreIdentSet
+module IdxMap = I.LustreIndexMap
+module ITrie = I.LustreIdentTrie
+module IdxTrie = I.LustreIndexTrie
 
 (* Identifier of a call with total ordering *)
 module CallId = 
@@ -278,14 +282,14 @@ let rec tree_path_of_nodes
   (* Show only inputs, outputs and local variables *)
   let visible_vars = 
     props @
-    (List.map fst inputs) @ 
+    (IdxTrie.fold (fun _ v a -> v :: a) inputs []) @ 
     (sort_defined_vars 
        []
        equations
-       ((List.map fst outputs) @ 
+       ((IdxTrie.fold (fun _ v a -> v :: a) outputs []) @ 
         (List.filter 
            (fun sv -> E.get_state_var_source sv = E.Local) 
-           (List.map fst locals))))
+           (locals))))
   in
 
   (* Add streams in node to hierarchic model *)

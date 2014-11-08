@@ -138,29 +138,14 @@ module LustreIdentTrie = struct
   (* Delegate to trie module *)
   let is_empty = LustreIndexTrie.is_empty
 
-  (* Convert identifier to indexes before adding *)
-  let add k = LustreIndexTrie.add (index_of_ident k)
-
-  (* Convert identifier to indexes before querying *)
-  let find k = LustreIndexTrie.find (index_of_ident k)
-
-  (* Convert identifier to indexes before removing *)
-  let remove k = LustreIndexTrie.remove (index_of_ident k)
-
   (* Convert identifier to indexes before querying *)
   let mem k = LustreIndexTrie.mem (index_of_ident k)
 
-  (* Convert indexes to identifier before evaluating function *)
-  let iter f = LustreIndexTrie.iter (function k -> f (ident_of_index k))
+  (* Convert identifier to indexes before adding *)
+  let add k = LustreIndexTrie.add (index_of_ident k)
 
-  (* Delegate to trie module *)
-  let map = LustreIndexTrie.map
-
-  (* Convert indexes to identifier before evaluating function *)
-  let mapi f = LustreIndexTrie.mapi (function k -> f (ident_of_index k))
-
-  (* Convert indexes to identifier before evaluating function *)
-  let fold f = LustreIndexTrie.fold (function k -> f (ident_of_index k))
+  (* Convert identifier to indexes before removing *)
+  let remove k = LustreIndexTrie.remove (index_of_ident k)
 
   (* Delegate to trie module *)
   let compare = LustreIndexTrie.compare
@@ -168,7 +153,45 @@ module LustreIdentTrie = struct
   (* Delegate to trie module *)
   let equal = LustreIndexTrie.equal
 
+  (* Convert indexes to identifier before evaluating function *)
+  let iter f = LustreIndexTrie.iter (function k -> f (ident_of_index k))
+
+  (* Convert indexes to identifier before evaluating function *)
+  let fold f = LustreIndexTrie.fold (function k -> f (ident_of_index k))
+
+  (* Convert indexes to identifier before evaluating function *)
+  let for_all p = LustreIndexTrie.for_all (function k -> p (ident_of_index k))
+
+  (* Convert indexes to identifier before evaluating function *)
+  let exists p = LustreIndexTrie.exists (function k -> p (ident_of_index k))
+
+  (* Convert indexes to identifier before returning *)
+  let bindings t = 
+    LustreIndexTrie.fold 
+      (fun k v a -> ((ident_of_index k), v) :: a)
+      t
+      []
+
+  let max_binding t = 
+    let k, v = LustreIndexTrie.max_binding t in
+    (ident_of_index k, v)
+
+  let min_binding t = 
+    let k, v = LustreIndexTrie.min_binding t in
+    (ident_of_index k, v)
+
+  let cardinal = LustreIndexTrie.cardinal
+
   (* Convert identifier to indexes before querying *)
+  let find k = LustreIndexTrie.find (index_of_ident k)
+
+  (* Convert identifier to indexes before querying *)
+  (* Delegate to trie module *)
+  let map = LustreIndexTrie.map
+
+  (* Convert indexes to identifier before evaluating function *)
+  let mapi f = LustreIndexTrie.mapi (function k -> f (ident_of_index k))
+
   let find_prefix k = LustreIndexTrie.find_prefix  (index_of_ident k)
 
   (* Convert a subtrie of a trie of identifiers to a map of its indexes *)
