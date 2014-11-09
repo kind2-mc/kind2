@@ -108,11 +108,14 @@ end = struct
       match StateVar.type_of_state_var svar |> Type.node_of_type with
 
       | Type.IntRange (low,up) ->
-         unroll_range set low up var
-         |> TSet.add
-              (Term.mk_leq [ Term.mk_num low ; var ])
-         |> TSet.add
-              (Term.mk_leq [ var ; Term.mk_num up ])
+
+         if Numeral.(low = up) then set
+         else
+           unroll_range set low up var
+           |> TSet.add
+                (Term.mk_leq [ Term.mk_num low ; var ])
+           |> TSet.add
+                (Term.mk_leq [ var ; Term.mk_num up ])
 
       | _ -> set
 
@@ -164,8 +167,8 @@ end = struct
 
     (* List of rule/activation condition pairs. *)
     let rule_list =
-      [ unroll_ranges,  true_of_unit ;
-        arith_zero_eqs, true_of_unit ;
+      [ unroll_ranges,  false_of_unit ;
+        arith_zero_eqs, false_of_unit ;
         bool_vars, true_of_unit ]
 
 
@@ -204,8 +207,8 @@ end = struct
 
   end = struct
 
-    (* Term must be of type bool to be a candidate invariant. *)
-    let bool_terms term set =
+    (* Adds term to set if the type of term is bool. *)
+    let must_be_bool term set =
 
       (* Constructing term. *)
       let term = Term.construct term in
@@ -213,6 +216,16 @@ end = struct
       if term |> Term.type_of_term == Type.t_bool
       then TSet.add term set
       else set
+
+    (* Term must be of type bool and not be an and to be a candidate
+       invariant. *)
+    let bool_terms term set = match term with
+      | Term.T.App (symb, _) ->
+         ( match Symbol.node_of_symbol symb with
+           (* If it is an and we don't need it. *)
+           | `AND -> set
+           | _ -> must_be_bool term set )
+      | _ -> must_be_bool term set
 
 
     (* If term is an arithmetic equation among {=,ge,le,gt,lt},
@@ -463,7 +476,7 @@ end = struct
                
              (* Synthesizing candidates. *)
              |> SynthesisRules.apply system
-                                  
+                                     
              (* Candidates from init. *)
              |> set_of_term init
                             
@@ -627,7 +640,11 @@ let rewrite_graph_until_unsat lsd sys graph =
                  (Graph.trivial_implications graph) )
       in
       
-      debug invGenControl "Checking base (%i)." iteration in
+      debug invGenControl "Checking base (%i) [%s at %s]."
+            iteration
+            (TransSys.get_scope sys |> String.concat "/")
+            (LSD.get_k lsd |> Numeral.string_of_numeral)
+      in
 
       match LSD.query_base lsd candidate_invariants with
         
@@ -1044,7 +1061,7 @@ let generate_invariants trans_sys lsd =
 
     
   let invariants_at_0 =
-    if Flags.invgen_one_step () then (
+    if Flags.invgen_one_state () then (
 
       (debug invGenControl
              "Running on one-state invariants."

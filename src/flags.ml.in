@@ -459,9 +459,9 @@ type invgen_atoms_only = bool
 
 let invgen_atoms_only_default = false
 
-type invgen_one_step = bool
+type invgen_one_state = bool
 
-let invgen_one_step_default = false
+let invgen_one_state_default = false
 
 (* ********** *) 
 
@@ -561,7 +561,7 @@ type flags =
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable invgen_top_only : invgen_top_only;
       mutable invgen_atoms_only : invgen_atoms_only;
-      mutable invgen_one_step : invgen_one_step;
+      mutable invgen_one_state : invgen_one_state;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -607,7 +607,7 @@ let flags =
     cooper_general_lbound = cooper_general_lbound_default;
     invgen_top_only = invgen_top_only_default;
     invgen_atoms_only = invgen_atoms_only_default;
-    invgen_one_step = invgen_one_step_default;
+    invgen_one_state = invgen_one_state_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -920,12 +920,12 @@ let invgen_atoms_only_spec =
    Arg.Unit invgen_atoms_only_action,
    "Invariant generation will only consider atoms as candidate terms.")
   
-let invgen_one_step_action o = flags.invgen_one_step <- true
+let invgen_one_state_action o = flags.invgen_one_state <- true
                                        
-let invgen_one_step_spec = 
-  ("--invgen_one_step", 
-   Arg.Unit invgen_one_step_action,
-   "Invariant generation will attempt to discover one step invariants first.")
+let invgen_one_state_spec = 
+  ("--invgen_one_state", 
+   Arg.Unit invgen_one_state_action,
+   "Invariant generation will attempt to discover one state invariants first.")
 
 (* ********** *) 
 
@@ -1104,7 +1104,7 @@ let invgen_top_only () = flags.invgen_top_only
 
 let invgen_atoms_only () = flags.invgen_atoms_only
 
-let invgen_one_step () = flags.invgen_one_step
+let invgen_one_state () = flags.invgen_one_state
 
 let interpreter_input_file () = flags.interpreter_input_file
 
@@ -1236,7 +1236,7 @@ and speclist =
     (* Set invgen options. *)
     invgen_top_only_spec;
     invgen_atoms_only_spec;
-    invgen_one_step_spec;
+    invgen_one_state_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;

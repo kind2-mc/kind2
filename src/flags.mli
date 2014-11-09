@@ -176,8 +176,8 @@ type invgen_top_only = bool
 val invgen_top_only : unit -> invgen_top_only
 type invgen_atoms_only = bool
 val invgen_atoms_only : unit -> invgen_atoms_only
-type invgen_one_step = bool
-val invgen_one_step : unit -> invgen_one_step
+type invgen_one_state = bool
+val invgen_one_state : unit -> invgen_one_state
 
 (** Read input from file **)
 type interpreter_input_file = string

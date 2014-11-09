@@ -1049,17 +1049,22 @@ let negate t = match T.destruct t with
 
 (* Negates a term by modifying the top node if it is a not, true,
    false, or an arithmetic inequality. *)
-let negate_simplify t = match T.destruct t with 
+let negate_simplify t = match T.destruct t with
+
+  | T.Const symb ->
+     ( match Symbol.node_of_symbol symb with
+
+       (* Bool constants. *)
+       | `TRUE -> t_false
+       | `FALSE -> t_true
+                     
+       | _ -> mk_not t )
 
   | T.App (symb, kids) ->
      ( match Symbol.node_of_symbol symb, kids with
 
        (* Top symbol is a negation, removing it. *)
        | `NOT, [term] -> term
-
-       (* Bool constants. *)
-       | `TRUE, [] -> t_false
-       | `FALSE, [] -> t_true
 
        (* Aritmetic inequalities. *)
        | `LEQ, kids -> mk_gt kids
