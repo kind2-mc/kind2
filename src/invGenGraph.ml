@@ -344,9 +344,7 @@ end = struct
     let negation_rule set =
       TSet.fold
         (fun term ->
-         if Term.is_free_var term
-         then TSet.add (Term.negate_simplify term)
-         else (fun a -> a))
+         TSet.add (Term.negate_simplify term))
         set set
 
     (* List of (rule,condition). Rule will be used to generate
@@ -521,6 +519,7 @@ end = struct
                              when Numeral.(low = zero)
                                   && Numeral.(hi = zero) ->
                            true
+                        | None, None -> true
                         | _ -> false )
                       term_set
                     |> TSet.union true_false_set
