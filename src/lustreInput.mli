@@ -84,10 +84,10 @@
 
 
 (** Parse from the channel *)
-val of_channel : in_channel -> TransSys.t
+val of_channel : bool -> in_channel -> TransSys.t
 
 (** Parse from the file *)
-val of_file : string -> TransSys.t
+val of_file : bool -> string -> TransSys.t
 
 
 

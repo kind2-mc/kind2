@@ -1285,12 +1285,14 @@ and int_const_of_ast_expr context pos expr =
         let ei' = (ei :> Term.t) in let es' = (es :> Term.t) in 
         Term.equal ei' es' -> 
 
-      (match Term.destruct (E.base_term_of_expr E.base_offset ei) with 
-        | Term.T.Const c when Symbol.is_numeral c ->
-          Symbol.numeral_of_symbol c
+      (* Get term for initial value of expression, is equal to step *)
+      let ti = E.base_term_of_expr E.base_offset ei in
 
-        (* Expression is not a constant integer *)
-        | _ ->       
+      (if Term.is_numeral ti then
+
+         Term.numeral_of_term ti
+
+       else
 
           fail_at_position pos "Expression must be an integer")
 

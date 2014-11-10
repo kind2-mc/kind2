@@ -172,12 +172,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
   in
 
   match nu_unknowns with
-  | _ when Flags.bmc_max () > 0 && (Numeral.to_int k) > Flags.bmc_max () ->
-     Event.log
-       L_info
-       "BMC reached maximal number of iterations"
-  | [] ->
-    ()
+  | [] -> ()
 
   | _ ->
      let k_int = Numeral.to_int k in
@@ -268,8 +263,19 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Output statistics *)
      if output_on_level L_info then print_stats ();
 
-     (* Looping. *)
-     next (trans, solver, Numeral.(k+one), nu_invariants, unfalsifiable)
+     (* K plus one. *)
+     let k_p_1 = Numeral.succ k in
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
+
+     (* Checking if we have reached max k. *)
+     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+       Event.log
+         L_info
+         "BMC reached maximal number of iterations."
+     else
+       (* Looping. *)
+       next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
 let init trans =

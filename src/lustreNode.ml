@@ -1472,30 +1472,42 @@ let reduce_to_coi nodes main_name state_vars =
 
 
 (* Reduce set of nodes to cone of influence of properties of main node *)
+let reduce_wo_coi nodes main_name = 
+
+  (* Get properties of main node *)
+  let main_node = node_of_name main_name nodes in
+
+  reduce_to_coi
+    nodes 
+    main_name
+    (SVS.elements (state_vars_of_node main_node))
+
+
+(* Reduce set of nodes to cone of influence of properties of main node *)
 let reduce_to_props_coi nodes main_name = 
 
-    (* Get properties of main node *)
-    let { props; observers; inputs; outputs; locals } as main_node = 
-      node_of_name main_name nodes 
-    in
+  (* Get properties of main node *)
+  let { props; observers; inputs; outputs; locals } as main_node = 
+    node_of_name main_name nodes 
+  in
 
-    let props' = 
-
-      match props @ observers with
-
-        (* No properties, don't reduce *)
-        | [] -> SVS.elements (state_vars_of_node main_node)
-
-      (* Reduce to cone of influence of all properties *)
-      | _ -> 
-
-        SVS.elements 
-          (SVS.union
-             (svs_of_list props)
-             (svs_of_list observers))
-    in
+  match props @ observers with
     
-    reduce_to_coi nodes main_name props'
+    (* No properties, don't reduce *)
+    | [] -> reduce_wo_coi nodes main_name
+              
+    (* Reduce to cone of influence of all properties *)
+    | _ -> 
+      
+      let props' = 
+      SVS.elements 
+        (SVS.union
+           (svs_of_list props)
+           (svs_of_list observers))
+      in
+      
+      reduce_to_coi nodes main_name props'
+        
       
 (* 
    Local Variables:

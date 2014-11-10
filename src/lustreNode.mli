@@ -191,6 +191,8 @@ val extract_state_vars : t list -> StateVar.StateVarSet.t
     their callers. *)
 val reduce_to_coi : t list -> LustreIdent.t -> StateVar.t list -> t list 
 
+val reduce_wo_coi : t list -> LustreIdent.t -> t list 
+
 val reduce_to_props_coi : t list -> LustreIdent.t -> t list 
 
 (*
