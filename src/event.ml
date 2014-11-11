@@ -395,7 +395,7 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hov>Success: Property %s is valid %tby %a after %.3fs.@.@.") 
+      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
       prop
       (function ppf -> match k with
          | None -> ()
@@ -496,7 +496,7 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v>Failure: Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
+      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
       prop
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with
