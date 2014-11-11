@@ -156,7 +156,7 @@ end = struct
     (* List of rule/activation condition pairs. *)
     let rule_list =
       [ unroll_ranges,  true_of_unit ;
-        arith_zero_eqs, false_of_unit ;
+        arith_zero_eqs, true_of_unit ;
         bool_vars, true_of_unit ]
 
 
@@ -352,7 +352,7 @@ end = struct
        candidate terms iff 'condition ()' evaluates to true. *)
     let rule_list =
       [ negation_rule, true_of_unit ;
-        offset_rule, false_of_unit ]
+        offset_rule, true_of_unit ]
 
     (* Applies the rules depending on their activation condition. *)
     let apply set =
