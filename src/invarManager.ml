@@ -136,7 +136,7 @@ let rec loop child_pids trans_sys =
   if TransSys.all_props_proved trans_sys then (
     
     Event.log L_info
-              "Waiting for children to terminate." ;
+              "All properties proved or disproved,@ waiting for children to terminate." ;
     
     Event.terminate ()
                     
@@ -153,7 +153,7 @@ let rec loop child_pids trans_sys =
     if TransSys.all_props_proved trans_sys then (
       
       Event.log L_info
-                "All properties proved or disproved in %.3fs."
+                "<Done> All properties proved or disproved in %.3fs."
                 (Stat.get_float Stat.total_time);
       
       Event.terminate ()
