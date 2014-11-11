@@ -34,135 +34,7 @@ let term_is_top term = term = term_top
 let term_bottom = Term.mk_false ()
 let term_is_bottom term = term = term_bottom
 
-let check_graph_sanity = true
-let print_stats = false
-
-module Stats = struct
-
-  type timer =
-    | Total | Split | Uplinks | Conditional of int | Downlinks
-
-  let total_timer = ref 0.0
-  let split_timer = ref 0.0
-  let uplinks_timer = ref 0.0
-  let conditional_timer = ref 0.0
-  let conditional_timer_1 = ref 0.0
-  let conditional_timer_2 = ref 0.0
-  let downlinks_timer = ref 0.0
-
-  let frontier_down_avr = ref 0.0
-  let frontier_down_count = ref 0.0
-  let conditional_avr = ref 0.0
-  let conditional_count = ref 0.0
-
-  let redundant_adds = ref 0
-
-  let get_total_time () = !total_timer
-
-  let reset_stats () =
-
-    total_timer := 0.0 ;
-    split_timer := 0.0 ;
-    uplinks_timer := 0.0 ;
-    conditional_timer := 0.0 ;
-    conditional_timer_1 := 0.0 ;
-    conditional_timer_2 := 0.0 ;
-    downlinks_timer := 0.0 ;
-
-    frontier_down_avr := 0.0 ;
-    frontier_down_count := 0.0 ;
-    conditional_avr := 0.0 ;
-    conditional_count := 0.0 ;
-
-    redundant_adds := 0
-
-  let print_timers () =
-    printf "|-------------------|\n" ;
-    printf "| Statistics:       |\n" ;
-    printf "|-------------------|---------------------\n" ;
-    printf "|   split:          | %f\n" (!split_timer) ;
-    printf "|   uplinks:        | %f\n" (!uplinks_timer) ;
-    printf "|   conditional:    | %f\n" (!conditional_timer) ;
-    printf "|   conditional_1:  | %f\n" (!conditional_timer_1) ;
-    printf "|   conditional_2:  | %f\n" (!conditional_timer_2) ;
-    printf "|   downlinks:      | %f\n" (!downlinks_timer) ;
-    printf "|   total:          | %f\n" (!total_timer) ;
-    printf "|-------------------|---------------------\n"(*  ; *)
-    (* printf "|   frontier down:  | %f (%i)\n" *)
-    (*        (!frontier_down_avr) (int_of_float !frontier_down_count) ; *)
-    (* printf "|   conditional:    | %f (%i)\n" *)
-    (*        (!conditional_avr) (int_of_float !conditional_count) ; *)
-    (* printf "|-------------------|---------------------\n" ; *)
-    (* printf "|   redundant add-s:| %i\n" !redundant_adds ; *)
-    (* printf "|-------------------|---------------------\n" *)
-    
-                         
-  let total_aux_timer = ref 0.0
-  let split_aux_timer = ref 0.0
-  let uplinks_aux_timer = ref 0.0
-  let conditional_aux_timer = ref 0.0
-  let conditional_aux_timer_1 = ref 0.0
-  let conditional_aux_timer_2 = ref 0.0
-  let downlinks_aux_timer = ref 0.0
-
-  let start_timer = function
-    | Total ->
-       total_aux_timer := Sys.time ()
-    | Split ->
-       split_aux_timer := Sys.time ()
-    | Uplinks ->
-       uplinks_aux_timer := Sys.time ()
-    | Conditional 0 ->
-       conditional_aux_timer := Sys.time ()
-    | Conditional 1 ->
-       conditional_aux_timer_1 := Sys.time ()
-    | Conditional _ ->
-       conditional_aux_timer_2 := Sys.time ()
-    | Downlinks ->
-       downlinks_aux_timer := Sys.time ()
-
-  let stop_timer = function
-    | Total ->
-       total_timer :=
-         !total_timer +. (Sys.time ()) -. !total_aux_timer
-    | Split ->
-       split_timer :=
-         !split_timer +. (Sys.time ()) -. !split_aux_timer
-    | Uplinks ->
-       uplinks_timer :=
-         !uplinks_timer +. (Sys.time ()) -. !uplinks_aux_timer
-    | Conditional 0 ->
-       conditional_timer :=
-         !conditional_timer +. (Sys.time ()) -. !conditional_aux_timer
-    | Conditional 1 ->
-       conditional_timer_1 :=
-         !conditional_timer_1 +. (Sys.time ()) -. !conditional_aux_timer_1
-    | Conditional _ ->
-       conditional_timer_2 :=
-         !conditional_timer_2 +. (Sys.time ()) -. !conditional_aux_timer_2
-    | Downlinks ->
-       downlinks_timer :=
-         !downlinks_timer +. (Sys.time ()) -. !downlinks_aux_timer
-
-  let log_frontier_down i =
-    frontier_down_avr :=
-      ( (!frontier_down_count *. !frontier_down_avr)
-        +. (float_of_int i) )
-      /. (!frontier_down_count +. 1.0) ;
-    frontier_down_count := !frontier_down_count +. 1.0
-
-  let log_conditional i =
-    conditional_avr :=
-      ( (!conditional_count *. !conditional_avr)
-        +. (float_of_int i) )
-      /. (!conditional_count +. 1.0) ;
-    conditional_count := !conditional_count +. 1.0
-
-  let redundant_relation () = redundant_adds := !redundant_adds + 1
-end
-
-open Stats
-
+let check_graph_sanity = false
 
 module rec FrontierUp :
 sig
@@ -392,8 +264,6 @@ struct
 
   let update_downlinks downs c_rels up =
 
-    start_timer (Conditional 1) ;
-
     ( match up with
 
       | FrontierUp.TrueFalse (true_up, false_up_opt)->
@@ -452,10 +322,6 @@ struct
 
       | FrontierUp.Nothing -> () ) ;
 
-    stop_timer (Conditional 1) ;
-    
-    start_timer (Conditional 2) ;
-
     c_rels
     |> ConditionalRelation.iter
          ( function
@@ -484,8 +350,6 @@ struct
                      Node.update_down_frontier
                        [TrueFalses (true_kid, false_nodes)]
                        parent ) ) ;
-
-    stop_timer (Conditional 2)
 
 
 
@@ -1150,7 +1014,7 @@ struct
               updated_down_frontier = FrontierDown.set_empty () ;
 
               iteration = iteration + 1 ;
-              history = true :: history ;
+              history = [] ; (* true :: history ; *)
               creation_index = creation_index ;
               creation_from = representative ;
             } ),
@@ -1174,7 +1038,7 @@ struct
               updated_down_frontier = FrontierDown.set_empty () ;
 
               iteration = iteration + 1 ;
-              history = false :: history ;
+              history = [] ; (* false :: history ; *)
               creation_index = creation_index ;
               creation_from = representative ;
             } )
@@ -1233,35 +1097,19 @@ struct
         split_result
         parents frontier_down_set =
 
-    start_timer Uplinks ;
     let frontier_up' =
-      (* printf "Updating uplinks with context %s.\n" *)
-      (*        (FrontierUp.to_string frontier_up) ; *)
       FrontierUp.update_uplinks
         frontier_up split_result
     in
-    stop_timer Uplinks ;
 
-    start_timer (Conditional 0) ;
     let conditional_parents' =
-      (* printf "Updating conditional parents %s.\n" *)
-      (*        (ConditionalRelation.set_to_string conditional_parents) ; *)
       ConditionalRelation.set_update
         conditional_parents parents split_result
     in
-    stop_timer (Conditional 0) ;
 
-    (* printf "Updating downlinks:\n" ; *)
-    (* FrontierDown.elements frontier_down_set *)
-    (* |> List.iter (fun down -> printf "  %s\n" (FrontierDown.to_string down)) ; *)
-    (* printf "with context: %s.\n" (FrontierUp.to_string frontier_up'); *)
-
-    log_frontier_down (FrontierDown.cardinal frontier_down_set) ;
-    log_conditional (ConditionalRelation.cardinal conditional_parents') ;
-    start_timer Downlinks ;
+    
     FrontierDown.update_downlinks
       frontier_down_set conditional_parents' frontier_up' ;
-    stop_timer Downlinks ;
 
     { frontier_up = frontier_up' ;
       conditional_parents = conditional_parents' }
@@ -1349,12 +1197,9 @@ let create_of_list members =
   create (TermSet.of_list members)
 
 let rewrite_graph eval { graph } =
-  reset_stats () ;
 
   (* Making sure this node is the top node. *)
   assert ( Node.is_top graph ) ;
-
-  start_timer Total ;
 
   let creation_index = ref 0 in
   let mem = ref TermSet.empty in
@@ -1381,21 +1226,19 @@ let rewrite_graph eval { graph } =
   let rec loop changed context node continuation =
 
     if shall_skip node then
+
       continue loop changed continuation
+
     else (
 
       remember node ;
 
       creation_index := 1 + !creation_index ;
-      (* printf "\nStarting creation %i.\n" !creation_index ; *)
-      (* Node.print_context context ; *)
 
-      start_timer Split ;
       let node_changed, node_kids, node_parents,
           down_frontier_set, split_result =
         Node.split !creation_index eval node
       in
-      stop_timer Split ;
 
       let new_context =
         Node.update_context
@@ -1405,19 +1248,6 @@ let rewrite_graph eval { graph } =
           down_frontier_set
       in
 
-      (* ( match split_result with *)
-      (*   | SplitResult.Split (n1,n2) -> *)
-      (*      printf "Split: true node:\n" ; *)
-      (*      Node.print n1 ; *)
-      (*      printf "Split: false node:\n" ; *)
-      (*      Node.print n2 *)
-      (*   | SplitResult.True n -> *)
-      (*      printf "True: true node:\n" ; *)
-      (*      Node.print n *)
-      (*   | SplitResult.False n -> *)
-      (*      printf "False: false node:\n" ; *)
-      (*      Node.print n ) ; *)
-
       continue loop
                (node_changed || changed)
                ((new_context, node_kids) :: continuation)
@@ -1425,14 +1255,10 @@ let rewrite_graph eval { graph } =
            
   in
 
-  (* printf "\nStarting creation %i.\n" !creation_index ; *)
-
-  start_timer Split ;
   (* We begin by splitting the top node. *)
   let top_changed, top_kids, top_parents, _, top_result =
     Node.split !creation_index eval graph
   in
-  stop_timer Split ;
 
   (* Top node should have no parents. *)
   assert ( NodeS.is_empty top_parents ) ;
@@ -1464,9 +1290,6 @@ let rewrite_graph eval { graph } =
     let changed =
       loop top_changed context first_kid [ (context, other_kids) ]
     in
-
-    stop_timer Total ;
-    if print_stats then print_timers () ;
 
     (not changed, build_graph_container top_node )
 
