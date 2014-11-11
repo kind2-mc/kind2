@@ -24,7 +24,7 @@ type source =
 
 (* Global is_init state var *)
 let is_init_svar =
-  StateVar.mk_state_var "x_is_init_x" [] Type.t_bool
+  StateVar.mk_state_var ~for_inv_gen:false "x_is_init_x" [] Type.t_bool
 
 (* Global is_init uf *)
 let is_init_uf =
@@ -156,10 +156,15 @@ let get_subsystems { subsystems } = subsystems
 let pp_print_state_var ppf state_var = 
 
   Format.fprintf ppf
-    "@[<hv 1>(%a %a)@]" 
+    "@[<hv 1>(%a@ %a%t%t%t)@]" 
     StateVar.pp_print_state_var state_var
     Type.pp_print_type (StateVar.type_of_state_var state_var)
-
+    (function ppf -> 
+      if StateVar.is_const state_var then Format.fprintf ppf "@ :const")
+    (function ppf -> 
+      if StateVar.is_input state_var then Format.fprintf ppf "@ :input")
+    (function ppf -> 
+      if StateVar.for_inv_gen state_var then Format.fprintf ppf "@ :for-inv-gen")
   
 let pp_print_var ppf var = 
 
