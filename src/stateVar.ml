@@ -59,6 +59,9 @@ type state_var_prop =
     (* State variable is constant *)
     is_const : bool;
 
+    (* Use as candidate in invariant generation *)
+    for_inv_gen : bool;
+
   }
 
 (* A hashconsed state variable *)
@@ -225,6 +228,9 @@ let is_input { Hashcons.prop = { is_input } } = is_input
 (* Return true if state variable is constant *)
 let is_const { Hashcons.prop = { is_const } } = is_const
 
+(* Return true if state variable is to be used in invariant generation *)
+let for_inv_gen { Hashcons.prop = { for_inv_gen } } = for_inv_gen
+
 
 (* ********************************************************************* *)
 (* Constructors                                                          *)
@@ -235,6 +241,7 @@ let is_const { Hashcons.prop = { is_const } } = is_const
 let mk_state_var 
     ?(is_input:bool = false)
     ?(is_const:bool = false)
+    ?(for_inv_gen:bool = true)
     state_var_name
     state_var_scope
     state_var_type = 
@@ -306,7 +313,8 @@ let mk_state_var
            { var_type = state_var_type; 
              uf_symbol = state_var_uf_symbol;
              is_input = is_input;
-             is_const = is_const } 
+             is_const = is_const;
+             for_inv_gen = for_inv_gen } 
        in
 
        (* Remember association of uninterpreted function symbol with
@@ -326,6 +334,7 @@ let import v =
   mk_state_var 
     ~is_input:(is_input v)
     ~is_const:(is_const v)
+    ~for_inv_gen:(for_inv_gen v)
     (name_of_state_var v) 
     (scope_of_state_var v) 
     (Type.import (type_of_state_var v))
