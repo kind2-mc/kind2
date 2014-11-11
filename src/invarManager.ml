@@ -133,38 +133,42 @@ let rec loop child_pids trans_sys =
   handle_events trans_sys;
 
   (* All properties proved? *)
-  if TransSys.all_props_proved trans_sys then 
+  if TransSys.all_props_proved trans_sys then (
     
-    ( 
-      
-      Event.log L_info "All properties proved or disproved";
-      
-      Event.terminate ()
-        
-    );
+    Event.log L_info
+              "Waiting for children to terminate." ;
+    
+    Event.terminate ()
+                    
+  );
 
 
   (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then 
-
-    (
-      
-      (* Get messages after termination of all processes *)
-      handle_events trans_sys
-
-    )
+  if wait_for_children child_pids then (
     
-  else 
+    (* Get messages after termination of all processes *)
+    handle_events trans_sys ;
 
-    (
-
-      (* Sleep *)
-      minisleep 0.01;
-
-      (* Continue polling loop *)
-      loop child_pids trans_sys
-
+    (* All properties proved? *)
+    if TransSys.all_props_proved trans_sys then (
+      
+      Event.log L_info
+                "All properties proved or disproved in %.3fs."
+                (Stat.get_float Stat.total_time);
+      
+      Event.terminate ()
+                      
     )
+
+  ) else (
+
+    (* Sleep *)
+    minisleep 0.01;
+
+    (* Continue polling loop *)
+    loop child_pids trans_sys
+
+  )
   
 
 (* Entry point *)
