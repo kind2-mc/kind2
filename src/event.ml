@@ -395,13 +395,13 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hov>Success: Property %s is valid %tby %a@.@.") 
+      ("@[<hov>Success: Property %s is valid %tby %a after %.3fs.@.@.") 
       prop
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
       pp_print_kind_module_pt mdl
-
+      (Stat.get_float Stat.total_time)
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt level trans_sys prop_name ppf = function
@@ -496,12 +496,13 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v>Failure: Property %s is invalid %tby %a@,@,%a@]@.") 
+      ("@[<v>Failure: Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
       prop
+      pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-      pp_print_kind_module_pt mdl
+      (Stat.get_float Stat.total_time)
       (pp_print_counterexample_pt level trans_sys prop) cex
 
   else
@@ -637,9 +638,6 @@ let printf_xml mdl level fmt =
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
 
-  (* Update time *)
-  Stat.update_time Stat.total_time;
-
   (* Only ouptut if status was unknown *)
   if 
 
@@ -740,9 +738,6 @@ let execution_path_xml level trans_sys path =
 (* Output disproved property as XML *)
 let disproved_xml mdl level trans_sys prop cex = 
 
-  (* Update time *)
-  Stat.update_time Stat.total_time;
-
   (* Only ouptut if status was unknown *)
   if 
 
@@ -808,8 +803,8 @@ let prop_status_xml level prop_status =
             Format.fprintf 
               ppf
               "@[<hv 2><Property name=\"%s\">@,\
-               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]\
-               %a\
+               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
+               %a@,\
                @;<0 -2></Property>@]"
               p
               (function ppf -> function 
@@ -1148,6 +1143,8 @@ let terminate () =
 (* Receive all queued messages *)
 let recv () = 
 
+  Stat.update_time Stat.total_time;
+  
   try
 
     List.rev
