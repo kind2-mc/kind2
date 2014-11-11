@@ -24,7 +24,6 @@ module Graph = ImplicationGraph
 module LSD = LockStepDriver
 
 let lsd_ref = ref None
-let confirmation_lsd_ref = ref None
 
 let print_stats () =
 
@@ -47,15 +46,6 @@ let on_exit _ =
   ( match !lsd_ref with
     | None -> ()
     | Some lsd -> LSD.delete lsd ) ;
-                
-  (* Destroying confirmation lsd if one was created. *)
-  ( match !confirmation_lsd_ref with
-    | None -> ()
-    | Some lsd -> LSD.delete lsd )
-
-let confirmation_lsd_do f =
-  match !confirmation_lsd_ref with
-  | Some lsd -> f lsd | None -> ()
 
 (* Gathers everything related to candidate term generation .*)
 module ImplicationGraphs: sig
@@ -107,15 +97,13 @@ end = struct
 
       match StateVar.type_of_state_var svar |> Type.node_of_type with
 
-      | Type.IntRange (low,up) ->
-
-         if Numeral.(low = up) then set
-         else
-           unroll_range set low up var
-           |> TSet.add
-                (Term.mk_leq [ Term.mk_num low ; var ])
-           |> TSet.add
-                (Term.mk_leq [ var ; Term.mk_num up ])
+      | Type.IntRange (low,up) when not Numeral.(low = up) ->
+         
+         unroll_range set low up var
+         |> TSet.add
+              (Term.mk_leq [ Term.mk_num low ; var ])
+         |> TSet.add
+              (Term.mk_leq [ var ; Term.mk_num up ])
 
       | _ -> set
 
@@ -167,7 +155,7 @@ end = struct
 
     (* List of rule/activation condition pairs. *)
     let rule_list =
-      [ unroll_ranges,  false_of_unit ;
+      [ unroll_ranges,  true_of_unit ;
         arith_zero_eqs, false_of_unit ;
         bool_vars, true_of_unit ]
 
@@ -282,7 +270,7 @@ end = struct
     (* All rules and activation conditions. *)
     let rule_list =
       [ bool_terms, ( fun () -> not (Flags.invgen_atoms_only ())) ;
-        arith_eqs_fanning_rule, false_of_unit ]
+        arith_eqs_fanning_rule, true_of_unit ]
         
     (* Checks if a flat term mentions at least one variable. *)
     let has_vars flat_term =
@@ -364,7 +352,7 @@ end = struct
        candidate terms iff 'condition ()' evaluates to true. *)
     let rule_list =
       [ negation_rule, true_of_unit ;
-        offset_rule, true_of_unit ]
+        offset_rule, false_of_unit ]
 
     (* Applies the rules depending on their activation condition. *)
     let apply set =
@@ -525,29 +513,41 @@ end = struct
 
                   (* Building the set of one-state candidates. *)
                   let term_set_one_state =
-                    TSet.filter
-                      ( fun term ->
-                        match Term.var_offsets_of_term term with
-                        | (Some low), (Some hi)
-                             when Numeral.(low = zero)
-                                  && Numeral.(hi = zero) ->
-                           true
-                        | None, None -> true
-                        | _ -> false )
-                      term_set
-                    |> TSet.union true_false_set
-                  in
+                    if Flags.invgen_one_state () then (
+                      let res =
+                        TSet.filter
+                          ( fun term ->
+                            match Term.var_offsets_of_term term with
+                            | (Some low), (Some hi)
+                                 when Numeral.(low = zero)
+                                      && Numeral.(hi = zero) ->
+                               true
+                            | None, None -> true
+                            | _ -> false )
+                          term_set
+                        |> TSet.union true_false_set
+                      in
 
-                  debug invGenControl
-                        "System [%s]: %i candidate invariants (%i one-state)."
-                        (TransSys.get_scope sys |> String.concat "/")
-                        (TSet.cardinal term_set)
-                        (TSet.cardinal term_set_one_state)
+                      debug invGenControl
+                            "System [%s]: %i candidate invariants (%i one-state)."
+                            (TransSys.get_scope sys |> String.concat "/")
+                            (TSet.cardinal term_set)
+                            (TSet.cardinal res)
+                      in
+
+                      res
+                    ) else true_false_set
                   in
 
                   debug invGenInit
                         "System [%s]:"
                         (TransSys.get_scope sys |> String.concat "/")
+                  in
+
+                  debug invGenControl
+                        "System [%s]: %i candidate invariants."
+                        (TransSys.get_scope sys |> String.concat "/")
+                        (TSet.cardinal term_set)
                   in
 
                   let _ =
@@ -593,6 +593,8 @@ end
 (* Rewrites a graph until the base instance becomes unsat. *)
 let rewrite_graph_until_unsat lsd sys graph =
 
+  LSD.check_satisfiability lsd ;
+
   (* Rewrites a graph until the base instance becomes unsat. Returns
      the final version of the graph. *)
   let rec loop iteration fixed_point graph =
@@ -611,6 +613,7 @@ let rewrite_graph_until_unsat lsd sys graph =
     if fixed_point then (
       
       debug invGenControl "  Fixed point reached." in
+      assert false ;
       graph
         
     ) else (
@@ -676,7 +679,7 @@ let rewrite_graph_until_unsat lsd sys graph =
 
       | None ->
          debug invGenControl "Unsat." in
-
+      
          (* Returning current graph. *)
          graph
     )
@@ -829,6 +832,17 @@ let filter_step_implications implications =
 (* Gets the top level new invariants and adds all intermediary
    invariants into lsd. *)
 let get_top_inv_add_invariants lsd sys invs =
+
+  debug invGenInvariants
+        "Getting top invariants on"
+  in
+
+  invs
+  |> List.iter
+       ( fun term ->
+         debug invGenInvariants
+               "%s" (Term.string_of_term term)
+         in () ) ;
   
   invs
     
@@ -839,9 +853,10 @@ let get_top_inv_add_invariants lsd sys invs =
   |> List.fold_left
        ( fun top ((_,top'), intermediary) ->
 
+         debug invGenInvariants "Adding top level invariants." in
+
          (* Adding top level invariants as new invariants. *)
          LSD.new_invariants lsd top' ;
-         confirmation_lsd_do (fun lsd -> LSD.new_invariants lsd top') ;
 
          (* Adding subsystems invariants as new invariants. *)
          intermediary
@@ -851,8 +866,8 @@ let get_top_inv_add_invariants lsd sys invs =
               []
          (* Adding it into lsd. *)
          |> (fun invs ->
-             LSD.new_invariants lsd invs ;
-             confirmation_lsd_do (fun lsd -> LSD.new_invariants lsd invs)) ;
+             debug invGenInvariants "Adding intermediary invariants." in
+             LSD.new_invariants lsd invs) ;
 
          (* Appending new top invariants. *)
          List.rev_append top' top )
@@ -867,45 +882,63 @@ let find_invariants lsd invariants sys graph =
         (LSD.get_k lsd |> Numeral.to_int)
   in
 
-  (* Graph.to_dot *)
-  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
-  (*            (TransSys.get_scope sys |> String.concat "-") *)
-  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
-  (*   graph ; *)
-
-  (* Equivalence classes as binary equalities. *)
-  let eq_classes =
+  (* Getting candidates invariants from equivalence classes and
+         implications. *)
+  let candidate_invariants =
     Graph.eq_classes graph
     |> List.fold_left
          ( fun list set ->
-           match TSet.elements set with
+           (* If there is only one element in the set there is no
+                  equality to add. *)
+           if TSet.cardinal set <= 1 then list
+           else
+             (* Otherwise we choose a representative. *)
+             let rep = TSet.choose set in
              
-           (* No equality to construct. *)
-           | [t] -> list
+             TSet.fold
+               (* And we build all the equalities. *)
+               (fun term list' ->
+                (Term.mk_eq [rep ; term]) :: list')
+               set
+               list )
+         
+         ( (Graph.non_trivial_implications graph)
+           |> filter_step_implications )
+  in
+    
+  (* (\* Equivalence classes as binary equalities. *\) *)
+  (* let eq_classes = *)
+  (*   Graph.eq_classes graph *)
+  (*   |> List.fold_left *)
+  (*        ( fun list set -> *)
+  (*          match TSet.elements set with *)
+             
+  (*          (\* No equality to construct. *\) *)
+  (*          | [t] -> list *)
                       
-           | t :: tail ->
-              (* Building equalities pair-wise. *)
-              tail
-              |> List.fold_left
-                   ( fun (t',list) t'' ->
-                     (t'', (Term.mk_eq [t';t'']) :: list) )
-                   (t, [])
-              (* Only keeping the list of equalities *)
-              |> snd
-           | [] -> failwith "Graph equivalence class is empty.")
-         []
-  in
+  (*          | t :: tail -> *)
+  (*             (\* Building equalities pair-wise. *\) *)
+  (*             tail *)
+  (*             |> List.fold_left *)
+  (*                  ( fun (t',list) t'' -> *)
+  (*                    (t'', (Term.mk_eq [t';t'']) :: list) ) *)
+  (*                  (t, []) *)
+  (*             (\* Only keeping the list of equalities *\) *)
+  (*             |> snd *)
+  (*          | [] -> failwith "Graph equivalence class is empty.") *)
+  (*        [] *)
+  (* in *)
 
-  (* Non trivial equivalence classes between equivalence classes. *)
-  let implications =
-    Graph.non_trivial_implications graph
-    |> filter_step_implications
-  in
+  (* (\* Non trivial equivalence classes between equivalence classes. *\) *)
+  (* let implications = *)
+  (*   Graph.non_trivial_implications graph *)
+  (*   |> filter_step_implications *)
+  (* in *)
 
-  (* Candidate invariants. *)
-  let candidate_invariants =
-    List.rev_append eq_classes implications
-  in
+  (* (\* Candidate invariants. *\) *)
+  (* let candidate_invariants = *)
+  (*   List.rev_append eq_classes implications *)
+  (* in *)
 
   (* New invariants discovered at this step. *)
   let new_invariants =
@@ -929,35 +962,6 @@ let find_invariants lsd invariants sys graph =
      invariants
       
   | _ ->
-
-     debug invGenControl
-           "Confirming invariants."
-     in
-     
-     (* Confirming invariant. *)
-     ( match !confirmation_lsd_ref with
-       | Some conf_lsd ->
-          ( match LSD.query_base
-                    conf_lsd new_invariants
-            with
-            | None -> ()
-            | _ -> assert false ) ;
-          ( match LSD.query_step
-                    conf_lsd new_invariants
-            with
-            | [],_ ->
-               debug invGenControl
-                     "Confirmed."
-               in
-               ()
-            | list,_ ->
-               printf "Could not confirm invariant(s):\n" ;
-               new_invariants
-               |> List.iter
-                    ( fun t -> Term.string_of_term t |> printf "%s\n" ) ;
-             assert false )
-       | None -> () ) ;
-
 
      let impl_count' =
        new_invariants
@@ -1038,11 +1042,21 @@ let rewrite_graph_find_invariants
   
   (* Rewriting the graph. *)
   let graph' = rewrite_graph_until_unsat lsd sys graph in
+
+  (* Graph.to_dot *)
+  (*   (sprintf "dot/graph-[%s]-%i.dot" *)
+  (*            (TransSys.get_scope sys |> String.concat ".") *)
+  (*            (LSD.get_k lsd |> Numeral.to_int)) *)
+  (*   graph' ; *)
+
   (* At this point base is unsat, discovering invariants. *)
   let invariants' = find_invariants lsd invariants sys graph' in
+  
   (* Returning new mapping and the new invariants. *)
   (sys, graph'), invariants'
 
+
+                   
 (* Generates invariants by splitting an implication graph. *)
 let generate_invariants trans_sys lsd =
 
@@ -1085,12 +1099,8 @@ let generate_invariants trans_sys lsd =
     sys_graph_map |> List.map (fun (sys, _, graph) -> (sys,graph))
   in
 
-  (* Incrementing k. *)
+  (* Incrementing lsd to 1 .*)
   LSD.increment lsd ;
-  ( match !confirmation_lsd_ref with
-    | Some conf_lsd ->
-       LSD.increment conf_lsd
-    | None -> () ) ;
 
   (* Updating stats. *)
   Stat.set 1 Stat.invgen_k ;
@@ -1130,12 +1140,6 @@ let generate_invariants trans_sys lsd =
     (* Incrementing the k. *)
     LSD.increment lsd ;
 
-    (* Incrementing the k in confirmation lsd. *)
-    ( match !confirmation_lsd_ref with
-      | Some conf_lsd ->
-         LSD.increment conf_lsd
-      | None -> () ) ;
-
     (* Updating statistics. *)
     let k_int = LSD.get_k lsd |> Numeral.to_int in
     Stat.set k_int Stat.invgen_k ;
@@ -1162,15 +1166,12 @@ let main trans_sys =
 
   let lsd = LSD.create trans_sys in
 
-  let confirmation_lsd = LSD.create trans_sys in
-
   (* Updating statistics. *)
   Stat.set 0 Stat.invgen_k ;
   Event.progress 0 ;
   Stat.start_timer Stat.invgen_total_time ;
 
   lsd_ref := Some lsd ;
-  confirmation_lsd_ref := Some confirmation_lsd ;
 
   generate_invariants trans_sys lsd
 

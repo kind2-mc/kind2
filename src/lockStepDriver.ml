@@ -40,9 +40,7 @@ type t = {
   (* All transition predicates for all the nodes of the system. *)
   all_transitions: Term.t ;
   (* Invariants asserted up to k+1. *)
-  mutable invariants: Term.t list ;
-  (* True if we are in step mode, i.e. T[k,k+1] is asserted. *)
-  mutable is_in_step_mode: bool
+  mutable invariants: Term.t list
 }
 
 (* Creates a lock step driver based on a transition system. *)
@@ -121,10 +119,10 @@ let create trans =
   |> Term.mk_implies
   |> Solver.assert_term solver ;
 
-  (* (\* Asserting all transitions predicates at zero for step. *\) *)
-  (* all_transitions_conj *)
-  (* |> Term.bump_state Numeral.zero *)
-  (* |> Solver.assert_term solver ; *)
+  (* Asserting all transitions predicates at zero for step. *)
+  all_transitions_conj
+  |> Term.bump_state Numeral.zero
+  |> Solver.assert_term solver ;
 
   (* Return the context of the solver. *)
   { trans = trans ;
@@ -133,16 +131,23 @@ let create trans =
     all_transitions = all_transitions_conj ;
     init_actlit = init_actlit_term ;
     k = Numeral.zero ;
-    invariants = [] ;
-    is_in_step_mode = false }
+    invariants = [] }
+
+
+let check_satisfiability { solver } =
+  (* Making sure the transitions are satisfiable. *)
+  debug lsd "Checking if instance is sat." in
+  if Solver.check_sat solver
+  then (
+    debug lsd "Sat." in ()
+  ) else (
+    debug lsd "Unsat, crashing." in assert false
+  )
 
 (* Asserts all transition relations at k and all invariants at k+1. *)
 let assert_all_trans_at_k
       ({ solver ; k ; all_transitions ;
-         invariants ; is_in_step_mode } as context) =
-
-  (* Making sure we are not in step mode already. *)
-  assert (not is_in_step_mode) ;
+         invariants } as context) =
 
   (* k plus 1. *)
   let kp1 = Numeral.succ k in
@@ -156,9 +161,7 @@ let assert_all_trans_at_k
   invariants
   |> Term.mk_and
   |> Term.bump_state kp1
-  |> Solver.assert_term solver ;
-
-  context.is_in_step_mode <- true
+  |> Solver.assert_term solver
   
 
 (* Increments the k of a lock step driver. If we are already in step
@@ -166,18 +169,13 @@ let assert_all_trans_at_k
    next k are already asserted. If we are not in step mode, then they
    will be asserted. *)
 let increment
-      ({ solver ; k ; all_transitions ;
-         invariants ; is_in_step_mode } as context) =
-
-  (* If we are not in step mode, then the transition relations are not
-     asserted at k/k+1. *)
-  if not is_in_step_mode then assert_all_trans_at_k context ;
+      ({ solver ; k ; all_transitions ; invariants } as context) =
 
   (* Updating context. *)
   context.k <- Numeral.succ k ;
 
-  (* We are now in base mode. *)
-  context.is_in_step_mode <- false
+  (* Asserting all transition relations. *)
+  assert_all_trans_at_k context
 
 (* Deletes a lock step driver. *)
 let delete context =
@@ -186,10 +184,10 @@ let delete context =
 (* The k of the lock step driver. *)
 let get_k { k } = k
 
-(* Unrolls a term from 0 to k, returns the list of unrolled terms. *)
+(* Unrolls a term from 1 to k, returns the list of unrolled terms. *)
 let unroll_term_up_to_k k term =
   let rec loop i unrolled =
-    if Numeral.(i >= zero) then
+    if Numeral.(i > zero) then
       Term.bump_state i term :: unrolled
       |> loop Numeral.(i - one)
     else
@@ -200,6 +198,17 @@ let unroll_term_up_to_k k term =
 (* Adds new invariants to a lock step driver. *)
 let new_invariants ({ solver ; k ; invariants } as context)
                    new_invariants =
+
+  debug lsdInvariants
+        "New invariants:"
+  in
+
+  new_invariants
+  |> List.iter
+       (fun t ->
+        debug lsdInvariants
+              "%s" (Term.string_of_term t)
+        in ()) ;
 
   (* We will be asserting them up to k+1 for step. *)
   let kp1 = Numeral.(k + one) in
@@ -217,7 +226,10 @@ let new_invariants ({ solver ; k ; invariants } as context)
          (* Appending to old invariants. *)
          inv :: list )
        invariants
-  |> (fun invs -> context.invariants <- invs)
+  |> (fun invs -> context.invariants <- invs) ;
+
+  (* Checking if the solver instance is still satisfiable. *)
+  check_satisfiability context
 
 
 (* Checks if some of the input terms are falsifiable k steps from the
@@ -421,17 +433,9 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 
 
 (* Checks if some of the input terms are k-inductive. Returns a pair
-   composed of the falsifiable terms and the unfalsifiable ones.  The
-   first time this function is called after an increment, the
-   transition relations are asserted at k/k+1, and the invariants are
-   asserted at k+1. *)
+   composed of the falsifiable terms and the unfalsifiable ones. *)
 let query_step
-      ({ solver ; k ; all_vars ; is_in_step_mode } as context)
-      terms =
-
-  (* If we are not in step mode, we need to assert the transition
-     relations at k/k+1. *)
-  if not is_in_step_mode then assert_all_trans_at_k context ;
+      ({ solver ; k ; all_vars } as context) terms =
 
   (* Spliting the terms. *)
   split_closure solver k Numeral.(k + one) all_vars [] terms
