@@ -937,7 +937,13 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   
 
 (* Create state variable of identifier *)
-let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
+let mk_state_var_of_ident 
+    ?is_input
+    ?is_const
+    ?for_inv_gen
+    scope_index
+    ident
+    state_var_type =
   
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -948,8 +954,9 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
   (* Create state variable *)
   let state_var = 
     StateVar.mk_state_var 
-      ~is_input:is_input
-      ~is_const:is_const
+      ?is_input:is_input
+      ?is_const:is_const
+      ?for_inv_gen:for_inv_gen
       ident_string
       scope
       state_var_type
@@ -968,8 +975,9 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
 
 (* Create state variable of identifier *)
 let mk_fresh_state_var 
-    is_input
-    is_const
+    ?is_input
+    ?is_const
+    ?for_inv_gen
     scope_index
     ident
     state_var_type
@@ -978,8 +986,9 @@ let mk_fresh_state_var
   Numeral.incr index_ref; 
 
   mk_state_var_of_ident
-    is_input
-    is_const
+    ?is_input:is_input
+    ?is_const:is_const
+    ?for_inv_gen:for_inv_gen
     scope_index
     (I.push_int_index !index_ref ident)
     state_var_type

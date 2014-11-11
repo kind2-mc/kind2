@@ -47,13 +47,12 @@ let trans_uf_symbol_name_of_node n =
 (* TODO: use Set.S.of_list of OCaml 4.02 for better performance *)
 
 (* Set of state variables of list *)
-let svs_of_list list = 
-  List.fold_left (fun a e -> SVS.add e a) SVS.empty list
+let svs_of_list = SVS.of_list
 
 
 (* Add a list of state variables to a set *)
 let add_to_svs set list = 
-  List.fold_left (fun a e -> SVS.add e a) set list 
+  List.fold_left (fun a e -> SVS.add e a) set list
   
 
 
@@ -251,7 +250,7 @@ let rec definitions_of_equations vars init trans = function
 *)
 let rec definitions_of_node_calls 
     mk_ticked_state_var
-    mk_new_state_var
+    (mk_new_state_var : ?for_inv_gen:bool -> Type.t -> StateVar.t)
     node_defs
     local_vars
     init
@@ -637,7 +636,11 @@ let rec definitions_of_node_calls
                 else
 
                   (* Create fresh shadow variable for input *)
-                  let sv' = mk_new_state_var (StateVar.type_of_state_var sv) in
+                  let sv' = 
+                    mk_new_state_var
+                      ~for_inv_gen:false
+                      (StateVar.type_of_state_var sv) 
+                  in
 
                   (* State variable is locally created *)
                   E.set_state_var_source sv' E.Abstract;
@@ -1068,8 +1071,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       (* Create fresh state variable *)
       let state_var =
         E.mk_fresh_state_var
-          false
-          false
+          ~is_input:false
+          ~is_const:false
+          ~for_inv_gen:false
           (LustreIdent.index_of_ident node_name)
           I.ticked_ident
           Type.t_bool
@@ -1087,10 +1091,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     in
 
     (* Create a fresh state variable for abstractions *)
-    let mk_new_state_var state_var_type = 
+    let mk_new_state_var ?for_inv_gen state_var_type = 
       E.mk_fresh_state_var
-        false
-        false
+        ~is_input:false
+        ~is_const:false
+        ?for_inv_gen:for_inv_gen
         scope
         I.abs_ident
         state_var_type

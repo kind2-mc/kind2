@@ -2653,8 +2653,8 @@ let add_node_input_decl
   (* Create state variable as input and contant *)
   let state_var = 
     E.mk_state_var_of_ident
-      true
-      is_const
+      ~is_input:true
+      ~is_const:is_const
       scope
       (I.push_back_index index ident) 
       basic_type
@@ -2713,8 +2713,8 @@ let add_node_output_decl
   (* Create state variable as neither constant nor input *)
   let state_var = 
     E.mk_state_var_of_ident
-      false
-      false
+      ~is_input:false
+      ~is_const:false
       scope
       (I.push_back_index index ident)
       basic_type
@@ -2763,8 +2763,8 @@ let add_node_var_decl
   (* Create state variable as neither constant nor input *)
   let state_var = 
     E.mk_state_var_of_ident
-      false
-      false
+      ~is_input:false
+      ~is_const:false
       scope
       (I.push_back_index index ident) 
       basic_type
@@ -2820,8 +2820,8 @@ let add_node_oracle_decl
     (* Create state variable as constant and input *)
     let state_var =
       E.mk_state_var_of_ident
-        true
-        true
+        ~is_input:true
+        ~is_const:true
         scope
         (I.push_back_index index ident)
         basic_type
@@ -2873,8 +2873,8 @@ let add_node_observer_decl
   (* Create state variable as constant and input *)
   let state_var =
     E.mk_state_var_of_ident
-      false
-      false
+      ~is_input:false
+      ~is_const:false
       scope
       (I.push_back_index index ident)
       basic_type
@@ -3752,8 +3752,8 @@ let parse_node
   (* Create a new state variable for abstractions *)
   let mk_new_state_var is_const state_var_type = 
     E.mk_fresh_state_var
-      false
-      is_const
+      ~is_input:false
+      ~is_const:is_const
       scope
       I.abs_ident
       state_var_type
@@ -3776,8 +3776,8 @@ let parse_node
       (* Create a fresh oracle *)
       let oracle = 
         E.mk_fresh_state_var
-          true
-          true
+          ~is_input:true
+          ~is_const:true
           scope
           I.oracle_ident
           (StateVar.type_of_state_var state_var)
@@ -3798,8 +3798,8 @@ let parse_node
   (* Create a new oracle of type *)
   let mk_new_oracle oracle_type = 
     E.mk_fresh_state_var
-      true
-      true
+      ~is_input:true
+      ~is_const:true
       scope
       I.oracle_ident
       oracle_type
@@ -3812,8 +3812,8 @@ let parse_node
     fun observer_type ->
       Numeral.incr r;
       E.mk_state_var_of_ident
-        false
-        false
+        ~is_input:false
+        ~is_const:false
         scope
         (I.push_int_index !r I.observer_ident)
         observer_type
