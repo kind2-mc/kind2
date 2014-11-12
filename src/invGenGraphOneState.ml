@@ -147,12 +147,10 @@ end = struct
 
       | Type.Bool ->
          TSet.add
-           (Var.mk_state_var_instance svar Numeral.zero
-            |> Term.mk_var)
+           (Var.mk_state_var_instance svar Numeral.zero |> Term.mk_var)
            set
          |> TSet.add
-              (Var.mk_state_var_instance svar Numeral.zero
-               |> Term.mk_var |> Term.mk_not)
+              (Var.mk_state_var_instance svar Numeral.zero |> Term.mk_var |> Term.mk_not)
 
       | _ -> set
 
@@ -246,30 +244,25 @@ end = struct
                 | Type.Real ->
                    (* If it's not add terms. *)
                    set
-                   |> TSet.add (Term.construct term)
-                   |> TSet.add (Term.mk_gt kids)
-                   |> TSet.add (Term.mk_lt kids)
+                   |> TSet.add (Term.mk_geq kids)
+                   |> TSet.add (Term.mk_leq kids)
                 | _ -> set )
                
-           | `LEQ -> set
-                     |> TSet.add (Term.construct term)
-                     |> TSet.add (Term.mk_eq kids)
-                     |> TSet.add (Term.mk_geq kids)
+           (* | `LEQ -> set *)
+           (*           |> TSet.add (Term.construct term) *)
+           (*           |> TSet.add (Term.mk_geq kids) *)
                
-           | `GEQ -> set
-                     |> TSet.add (Term.construct term)
-                     |> TSet.add (Term.mk_eq kids)
-                     |> TSet.add (Term.mk_leq kids)
+           (* | `GEQ -> set *)
+           (*           |> TSet.add (Term.construct term) *)
+           (*           |> TSet.add (Term.mk_leq kids) *)
                
-           | `GT -> set
-                    |> TSet.add (Term.construct term)
-                    |> TSet.add (Term.mk_eq kids)
-                    |> TSet.add (Term.mk_lt kids)
+           (* | `GT -> set *)
+           (*          |> TSet.add (Term.mk_geq kids) *)
+           (*          |> TSet.add (Term.mk_leq kids) *)
                
-           | `LT -> set
-                    |> TSet.add (Term.construct term)
-                    |> TSet.add (Term.mk_eq kids)
-                    |> TSet.add (Term.mk_gt kids)
+           (* | `LT -> set *)
+           (*          |> TSet.add (Term.mk_geq kids) *)
+           (*          |> TSet.add (Term.mk_leq kids) *)
 
            | _ -> set )
 
@@ -279,7 +272,7 @@ end = struct
     (* All rules and activation conditions. *)
     let rule_list =
       [ bool_terms, false_of_unit ; (* ( fun () -> not (Flags.invgen_atoms_only ())) ; *)
-        arith_eqs_fanning_rule, true_of_unit ]
+        arith_eqs_fanning_rule, false_of_unit ]
         
     (* Checks if a flat term mentions at least one variable. *)
     let has_vars flat_term =
@@ -361,7 +354,7 @@ end = struct
        candidate terms iff 'condition ()' evaluates to true. *)
     let rule_list =
       [ negation_rule, false_of_unit ;
-        offset_rule, true_of_unit ]
+        offset_rule, false_of_unit ]
 
     (* Applies the rules depending on their activation condition. *)
     let apply set =
@@ -519,39 +512,40 @@ end = struct
     all_sys_graphs_maps [] [ trans_sys ]
     (* Building the graphs. *)
     |> List.map
-         ( fun (sys,term_set) ->
+         (fun (sys,term_set) ->
 
-           debug invGenTSControl
-                 "System [%s]: %i candidate invariants."
-                 (TransSys.get_scope sys |> String.concat "/")
-                 (TSet.cardinal term_set)
-           in
+          debug invGenOSControl
+                "System [%s]: %i candidate invariants."
+                (TransSys.get_scope sys |> String.concat "/")
+                (TSet.cardinal term_set)
+          in
 
-           debug invGenTSInit
-                 "System [%s]:"
-                 (TransSys.get_scope sys |> String.concat "/")
-           in
 
-           let _ =
-             term_set
-             |> TSet.iter
-                  (fun candidate ->
-                   debug invGenTSInit
-                         "%s" (Term.string_of_term candidate)
-                   in ())
-           in
+          debug invGenOSInit
+                "System [%s]:"
+                (TransSys.get_scope sys |> String.concat "/")
+          in
 
-           debug invGenTSInit "" in
+          let _ =
+            term_set
+            |> TSet.iter
+                 (fun candidate ->
+                  debug invGenOSInit
+                        "%s" (Term.string_of_term candidate)
+                  in ())
+          in
 
-           (* Updating statistics. *)
-           let cand_count =
-             Stat.get Stat.invgen_candidate_term_count
-           in
-           Stat.set (cand_count + (TSet.cardinal term_set))
-                    Stat.invgen_candidate_term_count ;
+          debug invGenOSInit "" in
 
-           (* Creating graph. *)
-           (sys, Graph.create term_set) )
+          (* Updating statistics. *)
+          let cand_count =
+            Stat.get Stat.invgen_candidate_term_count
+          in
+          Stat.set (cand_count + (TSet.cardinal term_set))
+                   Stat.invgen_candidate_term_count ;
+
+          (* Creating graph. *)
+          (sys, Graph.create term_set) )
 
 end
 
@@ -577,7 +571,7 @@ let rewrite_graph_until_unsat lsd sys graph =
     
     if fixed_point then (
       
-      debug invGenTSControl "  Fixed point reached." in
+      debug invGenOSControl "  Fixed point reached." in
       assert false ;
       graph
         
@@ -608,7 +602,7 @@ let rewrite_graph_until_unsat lsd sys graph =
                  (Graph.trivial_implications graph) )
       in
       
-      debug invGenTSControl "Checking base (%i) [%s at %s]."
+      debug invGenOSControl "Checking base (%i) [%s at %s]."
             iteration
             (TransSys.get_scope sys |> String.concat "/")
             (LSD.get_k lsd |> Numeral.string_of_numeral)
@@ -618,7 +612,7 @@ let rewrite_graph_until_unsat lsd sys graph =
         
       | Some model ->
 
-         debug invGenTSControl "Sat." in
+         debug invGenOSControl "Sat." in
 
          (* Building eval function. *)
          let eval term =
@@ -643,14 +637,14 @@ let rewrite_graph_until_unsat lsd sys graph =
          loop (iteration + 1) fixed_point graph'
 
       | None ->
-         debug invGenTSControl "Unsat." in
+         debug invGenOSControl "Unsat." in
       
          (* Returning current graph. *)
          graph
     )
   in
 
-  debug invGenTSControl
+  debug invGenOSControl
         "Starting graph rewriting for [%s] at k = %i."
         (TransSys.get_scope sys |> String.concat "/")
         (LSD.get_k lsd |> Numeral.to_int)
@@ -789,7 +783,7 @@ let filter_step_implications implications =
   
   let result = List.filter filter_implication implications in
 
-  debug invGenTSPruning "  Pruned %i step implications." !rm_count in
+  debug invGenOSPruning "  Pruned %i step implications." !rm_count in
 
   result
 
@@ -798,14 +792,14 @@ let filter_step_implications implications =
    invariants into lsd. *)
 let get_top_inv_add_invariants lsd sys invs =
 
-  debug invGenTSInvariants
+  debug invGenOSInvariants
         "Getting top invariants on"
   in
 
   invs
   |> List.iter
        ( fun term ->
-         debug invGenTSInvariants
+         debug invGenOSInvariants
                "%s" (Term.string_of_term term)
          in () ) ;
   
@@ -818,7 +812,7 @@ let get_top_inv_add_invariants lsd sys invs =
   |> List.fold_left
        ( fun top ((_,top'), intermediary) ->
 
-         debug invGenTSInvariants "Adding top level invariants." in
+         debug invGenOSInvariants "Adding top level invariants." in
 
          (* Adding top level invariants as new invariants. *)
          LSD.new_invariants lsd top' ;
@@ -831,7 +825,7 @@ let get_top_inv_add_invariants lsd sys invs =
               []
          (* Adding it into lsd. *)
          |> (fun invs ->
-             debug invGenTSInvariants "Adding intermediary invariants." in
+             debug invGenOSInvariants "Adding intermediary invariants." in
              LSD.new_invariants lsd invs) ;
 
          (* Appending new top invariants. *)
@@ -841,7 +835,7 @@ let get_top_inv_add_invariants lsd sys invs =
 (* Queries step to find invariants to communicate. *)
 let find_invariants lsd invariants sys graph =
 
-  debug invGenTSControl
+  debug invGenOSControl
         "Check step for [%s] at k = %i."
         (TransSys.get_scope sys |> String.concat "/")
         (LSD.get_k lsd |> Numeral.to_int)
@@ -922,7 +916,7 @@ let find_invariants lsd invariants sys graph =
   match new_invariants with
     
   | [] ->
-     debug invGenTSControl "  No new invariants /T_T\\." in
+     debug invGenOSControl "  No new invariants /T_T\\." in
 
      invariants
       
@@ -939,7 +933,7 @@ let find_invariants lsd invariants sys graph =
             0
      in
      
-     debug invGenTSControl
+     debug invGenOSControl
            "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
            impl_count'
@@ -959,7 +953,7 @@ let find_invariants lsd invariants sys graph =
      new_invariants
      |> List.iter
           (fun inv ->
-           debug invGenTSInv "%s" (Term.string_of_term inv) in ()) ;
+           debug invGenOSInv "%s" (Term.string_of_term inv) in ()) ;
 
 
      let top_level_inv =
@@ -973,10 +967,6 @@ let find_invariants lsd invariants sys graph =
            Term.mk_or [ TransSys.init_flag_var Numeral.zero
                         |> Term.mk_var ;
                         t ])
-     in
-
-     debug invGenTSInv
-           "%s" (Term.string_of_term top_level_inv)
      in
 
      top_level_inv
@@ -1000,7 +990,7 @@ let rewrite_graph_find_invariants
     |> Event.update_trans_sys_tsugi trans_sys
   in
 
-  debug invGenTSControl "Adding new invariants in LSD." in
+  debug invGenOSControl "Adding new invariants in LSD." in
 
   (* Adding new invariants to LSD. *)
   LSD.new_invariants lsd new_invariants ;
@@ -1026,21 +1016,11 @@ let rewrite_graph_find_invariants
 let generate_invariants trans_sys lsd =
 
   (* Associative list from systems to candidate terms. *)
-  let sys_graph_map = ImplicationGraphs.generate trans_sys in
-
-  (* Incrementing lsd to 1 .*)
-  LSD.increment lsd ;
-
-  (* Updating stats. *)
-  Stat.set 1 Stat.invgen_k ;
-  Event.progress 1 ;
-  Stat.update_time Stat.invgen_total_time ;
-  print_stats () ;
-  
+  let sys_graph_map = ImplicationGraphs.generate trans_sys in  
   
   let rec loop invariants map =
 
-    debug invGenTSControl
+    debug invGenOSControl
           "Main loop at k = %i."
           (LSD.get_k lsd |> Numeral.to_int)
     in
@@ -1064,7 +1044,7 @@ let generate_invariants trans_sys lsd =
            invars, List.rev rev_map )
     in
 
-    debug invGenTSControl "Incrementing k in LSD." in
+    debug invGenOSControl "Incrementing k in LSD." in
 
     (* Incrementing the k. *)
     LSD.increment lsd ;

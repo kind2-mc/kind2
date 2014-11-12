@@ -900,6 +900,7 @@ type kind_module =
   | `BMC 
   | `IND
   | `INVGEN
+  | `INVGENOS
   | `INVMAN
   | `Interpreter
   | `Parser ]
@@ -911,6 +912,7 @@ let pp_print_kind_module ppf = function
   | `BMC -> Format.fprintf ppf "BMC"
   | `IND -> Format.fprintf ppf "inductive step"
   | `INVGEN -> Format.fprintf ppf "invariant generator"
+  | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Parser -> Format.fprintf ppf "parser"
@@ -926,6 +928,7 @@ let suffix_of_kind_module = function
  | `BMC -> "bmc"
  | `IND -> "ind"
  | `INVGEN -> "inv"
+ | `INVGENOS -> "invos"
  | `INVMAN -> "man"
  | `Interpreter -> "interp"
  | `Parser -> "parse"
@@ -937,6 +940,7 @@ let kind_module_of_string = function
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
+  | "INVGENOS" -> `INVGENOS
   | "INVMAN" -> `INVMAN
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
