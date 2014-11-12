@@ -234,7 +234,7 @@ end = struct
       | Term.T.App (sym,kids) ->
 
          ( match Symbol.node_of_symbol sym with
-         
+
            | `EQ ->
               
               (* Making sure it's not a bool equality. *)
@@ -246,30 +246,45 @@ end = struct
                 | Type.Real ->
                    (* If it's not add terms. *)
                    set
-                   |> TSet.add (Term.construct term)
-                   |> TSet.add (Term.mk_gt kids)
-                   |> TSet.add (Term.mk_lt kids)
+                   |> TSet.add (Term.mk_geq kids)
+                   |> TSet.add (Term.mk_leq kids)
                 | _ -> set )
+
+           (* | `EQ -> *)
+              
+           (*    (\* Making sure it's not a bool equality. *\) *)
+           (*    ( match List.hd kids *)
+           (*            |> Term.type_of_term *)
+           (*            |> Type.node_of_type *)
+           (*      with *)
+           (*      | Type.Int *)
+           (*      | Type.Real -> *)
+           (*         (\* If it's not add terms. *\) *)
+           (*         set *)
+           (*         |> TSet.add (Term.construct term) *)
+           (*         |> TSet.add (Term.mk_gt kids) *)
+           (*         |> TSet.add (Term.mk_lt kids) *)
+           (*      | _ -> set ) *)
                
-           | `LEQ -> set
-                     |> TSet.add (Term.construct term)
-                     |> TSet.add (Term.mk_eq kids)
-                     |> TSet.add (Term.mk_geq kids)
+           (* | `LEQ -> set *)
+           (*           |> TSet.add (Term.construct term) *)
+           (*           |> TSet.add (Term.mk_eq kids) *)
+           (*           |> TSet.add (Term.mk_geq kids) *)
                
-           | `GEQ -> set
-                     |> TSet.add (Term.construct term)
-                     |> TSet.add (Term.mk_eq kids)
-                     |> TSet.add (Term.mk_leq kids)
+           (* | `GEQ -> set *)
+           (*           |> TSet.add (Term.construct term) *)
+           (*           |> TSet.add (Term.mk_eq kids) *)
+           (*           |> TSet.add (Term.mk_leq kids) *)
                
-           | `GT -> set
-                    |> TSet.add (Term.construct term)
-                    |> TSet.add (Term.mk_eq kids)
-                    |> TSet.add (Term.mk_lt kids)
+           (* | `GT -> set *)
+           (*          |> TSet.add (Term.construct term) *)
+           (*          |> TSet.add (Term.mk_eq kids) *)
+           (*          |> TSet.add (Term.mk_lt kids) *)
                
-           | `LT -> set
-                    |> TSet.add (Term.construct term)
-                    |> TSet.add (Term.mk_eq kids)
-                    |> TSet.add (Term.mk_gt kids)
+           (* | `LT -> set *)
+           (*          |> TSet.add (Term.construct term) *)
+           (*          |> TSet.add (Term.mk_eq kids) *)
+           (*          |> TSet.add (Term.mk_gt kids) *)
 
            | _ -> set )
 
@@ -278,7 +293,7 @@ end = struct
 
     (* All rules and activation conditions. *)
     let rule_list =
-      [ bool_terms, false_of_unit ; (* ( fun () -> not (Flags.invgen_atoms_only ())) ; *)
+      [ bool_terms, ( fun () -> not (Flags.invgen_atoms_only ()) ) ;
         arith_eqs_fanning_rule, true_of_unit ]
         
     (* Checks if a flat term mentions at least one variable. *)
@@ -476,8 +491,8 @@ end = struct
                                      
              (* Candidates from init. *)
              |> set_of_term init
-                            
-             (* (\* Candidates from trans. *\) *)
+
+             (* Candidates from trans. *)
              (* |> set_of_term trans *)
                             
              (* Applying set rules. *)
@@ -992,16 +1007,32 @@ let find_invariants lsd invariants sys graph =
 let rewrite_graph_find_invariants
       trans_sys lsd invariants (sys,graph) =
 
-  (* Getting new invariants from the framework. *)
+  (* Getting new invariants and updating transition system. *)
   let new_invariants =
-    (* Receiving messages. *)
-    Event.recv ()
-    (* Updating transition system. *)
-    |> Event.update_trans_sys trans_sys
-    (* Extracting invariant module/term pairs. *)
-    |> fst
-    (* Extracting invariant terms. *)
-    |> List.map snd
+
+
+    let new_invs, updated_props =
+      (* Receiving messages. *)
+      Event.recv ()
+      (* Updating transition system. *)
+      |> Event.update_trans_sys trans_sys
+      (* Extracting invariant module/term pairs. *)
+    in
+
+    updated_props
+    (* Looking for new invariant properties. *)
+    |> List.fold_left
+         ( fun list (_, (name,status)) ->
+           if status = TransSys.PropInvariant
+           then
+             (* Memorizing new invariant property. *)
+             ( TransSys.prop_of_name trans_sys name )
+             :: list
+           else
+             list )
+         (* New invariant properties are added to new invariants. *)
+         ( List.map snd new_invs )
+           
   in
 
   debug invGenTSControl "Adding new invariants in LSD." in

@@ -271,8 +271,8 @@ end = struct
 
     (* All rules and activation conditions. *)
     let rule_list =
-      [ bool_terms, false_of_unit ; (* ( fun () -> not (Flags.invgen_atoms_only ())) ; *)
-        arith_eqs_fanning_rule, false_of_unit ]
+      [ bool_terms, false_of_unit ; (* ( fun () -> not (Flags.invgen_atoms_only ()) ) ; *)
+        arith_eqs_fanning_rule, true_of_unit ]
         
     (* Checks if a flat term mentions at least one variable. *)
     let has_vars flat_term =
@@ -791,17 +791,6 @@ let filter_step_implications implications =
 (* Gets the top level new invariants and adds all intermediary
    invariants into lsd. *)
 let get_top_inv_add_invariants lsd sys invs =
-
-  debug invGenOSInvariants
-        "Getting top invariants on"
-  in
-
-  invs
-  |> List.iter
-       ( fun term ->
-         debug invGenOSInvariants
-               "%s" (Term.string_of_term term)
-         in () ) ;
   
   invs
     
@@ -811,8 +800,6 @@ let get_top_inv_add_invariants lsd sys invs =
        
   |> List.fold_left
        ( fun top ((_,top'), intermediary) ->
-
-         debug invGenOSInvariants "Adding top level invariants." in
 
          (* Adding top level invariants as new invariants. *)
          LSD.new_invariants lsd top' ;
@@ -824,9 +811,7 @@ let get_top_inv_add_invariants lsd sys invs =
               ( fun terms (_,terms') -> List.rev_append terms' terms)
               []
          (* Adding it into lsd. *)
-         |> (fun invs ->
-             debug invGenOSInvariants "Adding intermediary invariants." in
-             LSD.new_invariants lsd invs) ;
+         |> LSD.new_invariants lsd ;
 
          (* Appending new top invariants. *)
          List.rev_append top' top )
@@ -939,6 +924,12 @@ let find_invariants lsd invariants sys graph =
            impl_count'
            (TransSys.get_scope sys |> String.concat "/")
      in
+     debug invGenOSInvariants
+           "  %i invariants discovered (%i implications) \\*o*/ [%s]."
+           (List.length new_invariants)
+           impl_count'
+           (TransSys.get_scope sys |> String.concat "/")
+     in
 
      (* Updating statistics. *)
      let inv_count = Stat.get Stat.invgen_invariant_count in
@@ -962,11 +953,6 @@ let find_invariants lsd invariants sys graph =
        |> get_top_inv_add_invariants lsd sys
        (* And-ing them. *)
        |> Term.mk_and
-       (* Guarding with init. *)
-       |> (fun t ->
-           Term.mk_or [ TransSys.init_flag_var Numeral.zero
-                        |> Term.mk_var ;
-                        t ])
      in
 
      top_level_inv
@@ -982,16 +968,32 @@ let find_invariants lsd invariants sys graph =
 let rewrite_graph_find_invariants
       trans_sys lsd invariants (sys,graph) =
 
-  (* Getting new invariants from the framework. *)
+  (* Getting new invariants and updating transition system. *)
   let new_invariants =
-    (* Receiving messages. *)
-    Event.recv ()
-    (* Updating transition system. *)
-    |> Event.update_trans_sys trans_sys
-    (* Extracting invariant module/term pairs. *)
-    |> fst
-    (* Extracting invariant terms. *)
-    |> List.map snd
+
+
+    let new_invs, updated_props =
+      (* Receiving messages. *)
+      Event.recv ()
+      (* Updating transition system. *)
+      |> Event.update_trans_sys trans_sys
+      (* Extracting invariant module/term pairs. *)
+    in
+
+    updated_props
+    (* Looking for new invariant properties. *)
+    |> List.fold_left
+         ( fun list (_, (name,status)) ->
+           if status = TransSys.PropInvariant
+           then
+             (* Memorizing new invariant property. *)
+             ( TransSys.prop_of_name trans_sys name )
+             :: list
+           else
+             list )
+         (* New invariant properties are added to new invariants. *)
+         ( List.map snd new_invs )
+           
   in
 
   debug invGenOSControl "Adding new invariants in LSD." in
