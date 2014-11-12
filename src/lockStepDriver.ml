@@ -196,40 +196,38 @@ let unroll_term_up_to_k k term =
   loop k []
 
 (* Adds new invariants to a lock step driver. *)
-let new_invariants ({ solver ; k ; invariants } as context)
-                   new_invariants =
+let new_invariants ({ solver ; k ; invariants } as context) = function
+  | [] -> ()
+  | new_invariants ->
 
-  debug lsdInvariants
-        "New invariants:"
-  in
+     debug lsdInvariants
+           "New invariants:"
+    in
 
-  new_invariants
-  |> List.iter
-       (fun t ->
-        debug lsdInvariants
-              "%s" (Term.string_of_term t)
-        in ()) ;
+    new_invariants
+    |> List.iter
+         (fun t ->
+          debug lsdInvariants
+                "%s" (Term.string_of_term t)
+          in ()) ;
 
-  (* We will be asserting them up to k+1 for step. *)
-  let kp1 = Numeral.(k + one) in
-  
-  (* Asserting new invariants from 0 to k+1, memorizing them at the
+    (* We will be asserting them up to k+1 for step. *)
+    let kp1 = Numeral.(k + one) in
+    
+    (* Asserting new invariants from 0 to k+1, memorizing them at the
      same time. *)
-  new_invariants
-  |> List.fold_left
-       (* Taking one invariant. *)
-       ( fun list inv ->
-         (* Asserting it from 0 to k+1 as a conjunction. *)
-         unroll_term_up_to_k kp1 inv
-         |> Term.mk_and
-         |> Solver.assert_term solver ;
-         (* Appending to old invariants. *)
-         inv :: list )
-       invariants
-  |> (fun invs -> context.invariants <- invs) ;
-
-  (* Checking if the solver instance is still satisfiable. *)
-  check_satisfiability context
+    new_invariants
+    |> List.fold_left
+         (* Taking one invariant. *)
+         ( fun list inv ->
+           (* Asserting it from 0 to k+1 as a conjunction. *)
+           unroll_term_up_to_k kp1 inv
+           |> Term.mk_and
+           |> Solver.assert_term solver ;
+           (* Appending to old invariants. *)
+           inv :: list )
+         invariants
+    |> (fun invs -> context.invariants <- invs)
 
 
 (* Checks if some of the input terms are falsifiable k steps from the
