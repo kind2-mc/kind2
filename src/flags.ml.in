@@ -255,6 +255,7 @@ let kind_module_of_string = function
   | "BMC" -> `BMC
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
+  | "INVGENOS" -> `INVGENOS
   | "interpreter" -> `Interpreter
   | _ -> raise (Arg.Bad "Bad value for --enable")
 
@@ -263,6 +264,7 @@ let string_of_kind_module = function
   | `BMC -> "BMC"
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
+  | `INVGENOS -> "INVGENOS"
   | `Interpreter -> "interpreter"
 
 let rec string_of_enable' accum = function 
@@ -275,7 +277,7 @@ let rec string_of_enable' accum = function
 
 let string_of_enable = string_of_enable' ""
 
-let enable_values = "PDR, BMC, IND, INVGEN, interpreter"
+let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
@@ -446,6 +448,19 @@ let cooper_general_lbound_values = "true, false"
  
 let cooper_general_lbound_default = false
 
+
+(* ********** *)
+
+(* INVGEN things. *)
+
+type invgen_top_only = bool
+
+let invgen_top_only_default = false
+
+type invgen_atoms_only = bool
+
+let invgen_atoms_only_default = false
+
 (* ********** *) 
 
 type interpreter_input_file = string 
@@ -542,6 +557,8 @@ type flags =
       mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
+      mutable invgen_top_only : invgen_top_only;
+      mutable invgen_atoms_only : invgen_atoms_only;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -585,6 +602,8 @@ let flags =
     pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
+    invgen_top_only = invgen_top_only_default;
+    invgen_atoms_only = invgen_atoms_only_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -880,7 +899,23 @@ let cooper_general_lbound_spec =
   ("--cooper_general_lbound", 
    Arg.Bool cooper_general_lbound_action, 
    Format.sprintf "(Cooper QE) Choose lower bounds containing variables (available: %s, default: %B)" cooper_general_lbound_values cooper_general_lbound_default)
-
+  
+(* ********** *) 
+  
+let invgen_top_only_action o = flags.invgen_top_only <- true
+                                       
+let invgen_top_only_spec = 
+  ("--invgen_top_only", 
+   Arg.Unit invgen_top_only_action,
+   "Invariant generation will only look for top node invariants.")
+  
+let invgen_atoms_only_action o = flags.invgen_atoms_only <- true
+                                       
+let invgen_atoms_only_spec = 
+  ("--invgen_atoms_only", 
+   Arg.Unit invgen_atoms_only_action,
+   "Invariant generation will only consider atoms as candidate terms.")
+  
 (* ********** *) 
 
 let interpreter_input_file_action o = flags.interpreter_input_file <- o
@@ -1054,6 +1089,10 @@ let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
 
+let invgen_top_only () = flags.invgen_top_only
+
+let invgen_atoms_only () = flags.invgen_atoms_only
+
 let interpreter_input_file () = flags.interpreter_input_file
 
 let interpreter_steps () = flags.interpreter_steps
@@ -1180,6 +1219,10 @@ and speclist =
     (* Set option in Cooper QE*)
     cooper_order_var_by_elim_spec;
     cooper_general_lbound_spec;
+
+    (* Set invgen options. *)
+    invgen_top_only_spec;
+    invgen_atoms_only_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;

@@ -253,6 +253,7 @@ type kind_module =
   | `BMC
   | `IND
   | `INVGEN
+  | `INVGENOS
   | `INVMAN
   | `Interpreter
   | `Parser ]

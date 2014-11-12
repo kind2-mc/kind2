@@ -484,6 +484,18 @@ let s_implies = mk_symbol `IMPLIES
 (* Constant conjunction symbol *)
 let s_eq = mk_symbol `EQ
 
+(* Constant conjunction symbol *)
+let s_geq = mk_symbol `GEQ
+
+(* Constant conjunction symbol *)
+let s_leq = mk_symbol `LEQ
+
+(* Constant conjunction symbol *)
+let s_gt = mk_symbol `GEQ
+
+(* Constant conjunction symbol *)
+let s_lt = mk_symbol `LEQ
+
 (* Constant modulus operator symbol *)
 let s_mod = mk_symbol `MOD
 

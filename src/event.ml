@@ -318,6 +318,7 @@ module MdlMap =
         | `IND -> 2
         | `PDR -> 3
         | `INVGEN -> 4
+        | `INVGENOS -> 5
           
       let compare m1 m2 = 
         compare (int_of_kind_module m1) (int_of_kind_module m2)
@@ -362,6 +363,7 @@ let pt_string_of_kind_module = function
   | `BMC -> "BMC"
   | `IND -> "inductive step"
   | `INVGEN -> "invariant generator"
+  | `INVGENOS -> "one state invariant generator"
   | `INVMAN -> "invariant manager"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
@@ -395,13 +397,13 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hov>Success: Property %s is valid %tby %a@.@.") 
+      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
       prop
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
       pp_print_kind_module_pt mdl
-
+      (Stat.get_float Stat.total_time)
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt level trans_sys prop_name ppf = function
@@ -496,12 +498,13 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v>Failure: Property %s is invalid %tby %a@,@,%a@]@.") 
+      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
       prop
+      pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-      pp_print_kind_module_pt mdl
+      (Stat.get_float Stat.total_time)
       (pp_print_counterexample_pt level trans_sys prop) cex
 
   else
@@ -597,6 +600,7 @@ let xml_src_of_kind_module = function
   | `BMC -> "bmc"
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
+  | `INVGENOS -> "invgenos"
   | `INVMAN -> "invman"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
@@ -636,9 +640,6 @@ let printf_xml mdl level fmt =
 
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
-
-  (* Update time *)
-  Stat.update_time Stat.total_time;
 
   (* Only ouptut if status was unknown *)
   if 
@@ -740,9 +741,6 @@ let execution_path_xml level trans_sys path =
 (* Output disproved property as XML *)
 let disproved_xml mdl level trans_sys prop cex = 
 
-  (* Update time *)
-  Stat.update_time Stat.total_time;
-
   (* Only ouptut if status was unknown *)
   if 
 
@@ -808,8 +806,8 @@ let prop_status_xml level prop_status =
             Format.fprintf 
               ppf
               "@[<hv 2><Property name=\"%s\">@,\
-               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]\
-               %a\
+               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
+               %a@,\
                @;<0 -2></Property>@]"
               p
               (function ppf -> function 
@@ -966,6 +964,7 @@ let log_prop_status level prop_status =
 
 (* Output statistics of a section of a source *)
 let log_stat mdl level stats =
+
   match !log_format with 
     | F_pt -> stat_pt mdl level stats
     | F_xml -> stat_xml mdl level stats
@@ -1147,6 +1146,8 @@ let terminate () =
 (* Receive all queued messages *)
 let recv () = 
 
+  Stat.update_time Stat.total_time;
+  
   try
 
     List.rev
@@ -1210,6 +1211,11 @@ let recv () =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
 
+(* Terminates if a termination message was received. Does NOT modified
+   received messages. *)
+let check_termination () =
+  if EventMessaging.check_termination ()
+  then raise Terminate else ()
 
 
 (* Update transition system from event list *)

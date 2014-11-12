@@ -36,6 +36,11 @@ val get_k: t -> Numeral.t
    transition relation and unrolls the invariants one step further. *)
 val increment: t -> unit
 
+(** Checks if the current state of the LSD is satisfiable. It only
+    consists of transition relations and invariants, so it should
+    always be. Crashes if it is not. *)
+val check_satisfiability: t -> unit
+
 (** Adds new invariants to a lock step driver. *)
 val new_invariants: t -> Term.t list -> unit
 
