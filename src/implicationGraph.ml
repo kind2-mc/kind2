@@ -575,7 +575,7 @@ sig
   val relate: t -> t -> unit
 
   val split:
-    int -> (term -> bool) -> t ->
+    (t -> unit) -> int -> (term -> bool) -> t ->
     (bool * NodeS.t * NodeS.t * FrontierDown.set * SplitResult.t)
 
   (* All the nodes of a graph. *)
@@ -977,7 +977,8 @@ struct
 
   (* Splits a node based on an evaluation function. Links the nodes
      created if necessary. *)
-  let split creation_index
+  let split remember_node
+            creation_index
             eval
             ({ representative ; members ; value ; history ; iteration }
              as node) =
@@ -1045,6 +1046,8 @@ struct
     with
 
     | Some true_node, Some false_node ->
+       remember_node true_node ;
+       remember_node false_node ;
        (* printf "Splitting %s to %s <- %s.\n" *)
        (*        (to_string node) (to_string true_node) (to_string false_node) ; *)
        relate false_node true_node ;
@@ -1055,6 +1058,7 @@ struct
        SplitResult.Split (true_node, false_node)
 
     | Some true_node, None ->
+       remember_node true_node ;
        (* printf "Splitting %s to %s (true).\n" *)
        (*        (to_string node) (to_string true_node) ; *)
        not value,
@@ -1064,6 +1068,7 @@ struct
        SplitResult.True true_node
 
     | None, Some false_node ->
+       remember_node false_node ;
        (* printf "Splitting %s to %s (false).\n" *)
        (*        (to_string node) (to_string false_node) ; *)
        value,
@@ -1149,22 +1154,22 @@ let create members = {
   trivial_implications = [] ;
 }
 
-let build_graph_container graph =
+let build_graph_container all_nodes graph =
 
-  let all_nodes = Node.all_nodes_of graph in
+  (* let all_nodes = Node.all_nodes_of graph in *)
 
   (* Checking the links of all the nodes now that the graph has been
        printed. *)
   if check_graph_sanity then
-    assert ( NodeS.fold
-               (fun n b -> b && (Node.check_links n))
-               all_nodes
-               true ) ;
+    assert ( List.fold_left
+               (fun b n -> b && (Node.check_links n))
+               true
+               all_nodes ) ;
 
   let eq_classes, non_trivial_implications, trivial_implications =
-    NodeS.fold
+    List.fold_left
 
-      ( fun node (eq_cls, nt_impls, t_impls) ->
+      ( fun (eq_cls, nt_impls, t_impls) node ->
         
         let nt_impls', t_impls' =
           NodeS.fold
@@ -1185,9 +1190,9 @@ let build_graph_container graph =
         
         ((Node.members node) :: eq_cls, nt_impls', t_impls') )
       
-      all_nodes
-      
       ([], [], [])
+      
+      all_nodes
   in
 
   { graph ; eq_classes ;
@@ -1223,6 +1228,9 @@ let rewrite_graph eval { graph } =
     | _ -> changed
   in
 
+  let all_nodes_ref = ref [] in
+  let remember_node node = all_nodes_ref := node :: !all_nodes_ref in
+
   let rec loop changed context node continuation =
 
     if shall_skip node then
@@ -1237,7 +1245,7 @@ let rewrite_graph eval { graph } =
 
       let node_changed, node_kids, node_parents,
           down_frontier_set, split_result =
-        Node.split !creation_index eval node
+        Node.split remember_node !creation_index eval node
       in
 
       let new_context =
@@ -1257,7 +1265,7 @@ let rewrite_graph eval { graph } =
 
   (* We begin by splitting the top node. *)
   let top_changed, top_kids, top_parents, _, top_result =
-    Node.split !creation_index eval graph
+    Node.split remember_node !creation_index eval graph
   in
 
   (* Top node should have no parents. *)
@@ -1291,12 +1299,12 @@ let rewrite_graph eval { graph } =
       loop top_changed context first_kid [ (context, other_kids) ]
     in
 
-    (not changed, build_graph_container top_node )
+    (not changed, build_graph_container !all_nodes_ref top_node )
 
   with
     Not_found ->
     if (Node.is_bottom graph)
-    then (not top_changed, build_graph_container top_node)
+    then (not top_changed, build_graph_container !all_nodes_ref top_node)
     else assert false ;
 
 
