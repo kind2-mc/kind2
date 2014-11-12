@@ -983,11 +983,15 @@ let rewrite_graph_find_invariants
       trans_sys lsd invariants (sys,graph) =
 
   (* Getting new invariants from the framework. *)
-  let new_invariants, _, _ =
+  let new_invariants =
     (* Receiving messages. *)
     Event.recv ()
     (* Updating transition system. *)
-    |> Event.update_trans_sys_tsugi trans_sys
+    |> Event.update_trans_sys trans_sys
+    (* Extracting invariant module/term pairs. *)
+    |> fst
+    (* Extracting invariant terms. *)
+    |> List.map snd
   in
 
   debug invGenOSControl "Adding new invariants in LSD." in
