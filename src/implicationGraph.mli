@@ -24,6 +24,14 @@ type term_set = Term.TermSet.t
 (** Type of an implication graph. *)
 type t
 
+(** Generates one state implication graphs for a transition system,
+    and its subsystems if the flags require it. *)
+val generate_graphs_one_state: TransSys.t -> (TransSys.t * t) list
+
+(** Generates two state implication graphs for a transition system,
+    and its subsystems if the flags require it. *)
+val generate_graphs_two_state: TransSys.t -> (TransSys.t * t) list
+
 (** Prints a graph in a file as a dot graph. *)
 val to_dot: string -> t -> unit
 
