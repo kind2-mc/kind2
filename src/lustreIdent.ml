@@ -165,6 +165,9 @@ module LustreIdentTrie = struct
   (* Convert indexes to identifier before evaluating function *)
   let exists p = LustreIndexTrie.exists (function k -> p (ident_of_index k))
 
+  (* Return trie with only bindings that satisfy the predicate *)
+  let filter p = LustreIndexTrie.filter (function k -> p (ident_of_index k))
+
   (* Convert indexes to identifier before returning *)
   let bindings t = 
     LustreIndexTrie.fold 
@@ -197,6 +200,25 @@ module LustreIdentTrie = struct
   (* Convert a subtrie of a trie of identifiers to a map of its indexes *)
   let to_map t  = 
     LustreIndexTrie.fold LustreIndexMap.add t LustreIndexMap.empty 
+
+  let iter2 f = 
+    LustreIndexTrie.iter2 (fun k v1 v2 -> f (ident_of_index k) v1 v2)
+
+  let map2 f = 
+    LustreIndexTrie.map2 
+       (fun k v1 v2 -> f (ident_of_index k) v1 v2)
+
+  let fold2 f = 
+    LustreIndexTrie.fold2 
+       (fun k v1 v2 a -> f (ident_of_index k) v1 v2 a)
+
+  let values = LustreIndexTrie.values
+
+  let keys t = 
+    LustreIndexTrie.fold 
+      (fun k _ a -> (ident_of_index k) :: a)
+      t
+      []
 
 end
 

@@ -45,7 +45,7 @@ module type M = sig
   val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
   val for_all : (key -> 'a -> bool) -> 'a t -> bool
   val exists : (key -> 'a -> bool) -> 'a t -> bool
-  (* val filter: (key -> 'a -> bool) -> 'a t -> 'a t *)
+  val filter: (key -> 'a -> bool) -> 'a t -> 'a t
   (* val partition: (key -> 'a -> bool) -> 'a t -> 'a t * 'a t *)
   val cardinal: 'a t -> int
   val bindings : 'a t -> (key * 'a) list
@@ -109,7 +109,7 @@ module type S = sig
 
   val exists : (key -> 'a -> bool) -> 'a t -> bool
 
-  (* val filter: (key -> 'a -> bool) -> 'a t -> 'a t *)
+  val filter: (key -> 'a -> bool) -> 'a t -> 'a t
 
   (** Return the number of bindings in the trie *)
   val cardinal : 'a t -> int
@@ -148,6 +148,34 @@ module type S = sig
 
       The values are returned in reverse lexicographic order. *)
   val values : 'a t -> 'a list
+
+  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
+
+  (** Fold over two tries with identical keys
+
+      [fold2 f t1 t2 a] applies [f] to each pair of values in of [t1]
+      and [t2] that have identical keys. The keys are presented in
+      lexicographic order. Raise exception [Invalid_argument
+      "Trie.fold2"] if the sets of keys the trie are not equal *)
+  val fold2 : (key -> 'a -> 'b -> 'c -> 'c) -> 'a t -> 'b t -> 'c -> 'c
+    
+  (** Map over two tries with identical keys
+
+      [map2 f t1 t2] applies [f] to each pair of values in of [t1] and
+      [t2] that have identical keys and produces a new trie from the
+      result. The keys are presented in lexicographic order. Raise
+      exception [Invalid_argument "Trie.map2"] if the sets of keys
+      the trie are not equal *)
+  val map2 : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
+
+  (** Iterate over two tries with identical keys
+
+      [iter2 f t1 t2] applies the unit valued function [f] to each
+      pair of values in of [t1] and [t2] that have identical keys. The
+      keys are presented in lexicographic order. Raise exception
+      [Invalid_argument "Trie.iter2"] if the sets of keys the trie are
+      not equal *)
+  val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
 
 end
 
