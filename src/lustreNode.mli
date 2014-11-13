@@ -51,7 +51,7 @@ type node_call =
   { 
 
     (** Variables capturing the outputs *)
-    call_returns : StateVar.t list;
+    call_returns : StateVar.t LustreIdent.LustreIndexTrie.t;
 
     (** Variables capturing the observer streams *)
     call_observers : StateVar.t list;
@@ -66,10 +66,10 @@ type node_call =
     call_pos : LustreAst.position;
 
     (** Expressions for input parameters *)
-    call_inputs : StateVar.t list;
+    call_inputs : StateVar.t LustreIdent.LustreIndexTrie.t;
 
     (** Expression for initial return values *)
-    call_defaults : LustreExpr.t list;
+    call_defaults : LustreExpr.t LustreIdent.LustreIndexTrie.t;
 
   }
 
@@ -85,7 +85,7 @@ type t =
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
-    inputs : (StateVar.t * LustreIdent.index) list;
+    inputs : StateVar.t LustreIdent.LustreIndexTrie.t;
 
     (** Oracle inputs of node
 
@@ -97,7 +97,7 @@ type t =
 
         The order of the list is important, it is the order the
         parameters in the declaration. *)
-    outputs : (StateVar.t * LustreIdent.index) list;
+    outputs : StateVar.t LustreIdent.LustreIndexTrie.t;
 
     (** Observer outputs *)
     observers : StateVar.t list;
@@ -106,7 +106,7 @@ type t =
 
         The order of the list is irrelevant, we are doing dependency
         analysis and cone of influence reduction later. *)
-    locals : (StateVar.t * LustreIdent.index) list;
+    locals : StateVar.t list;
 
     (** Equations for local and output variables *)
     equations : (StateVar.t * ((StateVar.t * LustreExpr.t) list * LustreExpr.t)) list;
@@ -133,7 +133,10 @@ type t =
     is_main : bool;
 
     (** Dependencies of the output variables on input variables *)
-    output_input_dep : int list list;
+    output_input_dep : LustreIdent.index list LustreIdent.LustreIndexTrie.t;
+
+    (** Dependencies of the observer variables on input variables *)
+    observer_input_dep : LustreIdent.index list list;
 
     (** Index of last abstraction state variable *)
     fresh_state_var_index : Numeral.t ref;

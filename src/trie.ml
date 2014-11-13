@@ -32,22 +32,40 @@ module type M = sig
   type +'a t
   val empty : 'a t
   val is_empty : 'a t -> bool
-  val add : key -> 'a -> 'a t -> 'a t
-  val find : key -> 'a t -> 'a
-  val remove : key -> 'a t -> 'a t
   val mem : key -> 'a t -> bool
-  val iter : (key -> 'a -> unit) -> 'a t -> unit
-  val map : ('a -> 'b) -> 'a t -> 'b t
-  val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
-  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val add : key -> 'a -> 'a t -> 'a t
+  (* val singleton: key -> 'a -> 'a t *)
+  val remove : key -> 'a t -> 'a t
+  (* val merge: (key -> 'a option -> 'b option -> 'c option) -> 'a t -> 'b t -> 'c *)
   val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
   val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
+  val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
+  val for_all : (key -> 'a -> bool) -> 'a t -> bool
+  val exists : (key -> 'a -> bool) -> 'a t -> bool
+  val filter: (key -> 'a -> bool) -> 'a t -> 'a t
+  (* val partition: (key -> 'a -> bool) -> 'a t -> 'a t * 'a t *)
+  val cardinal: 'a t -> int
+  val bindings : 'a t -> (key * 'a) list
+  val min_binding: 'a t -> (key * 'a)
+  val max_binding: 'a t -> (key * 'a)
+  (* val choose: 'a t -> (key * 'a) *)
+  (* val split: key -> 'a t -> 'a t * 'a option * 'a t *)
+  val find : key -> 'a t -> 'a 
+  val map : ('a -> 'b) -> 'a t -> 'b t
+  val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
+  
 end
 
 (* Output signature is map extended with find_prefix *)
 module type S = sig
   include M 
   val find_prefix : key -> 'a t -> 'a t
+  val keys : 'a t -> key list
+  val values : 'a t -> 'a list
+  val fold2 : (key-> 'a -> 'b -> 'c -> 'c) -> 'a t -> 'b t -> 'c -> 'c
+  val map2 : (key -> 'a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
+  val iter2 : (key -> 'a -> 'b -> unit) -> 'a t -> 'b t -> unit
 end
 
 module Make (M : M) = struct
@@ -311,11 +329,194 @@ module Make (M : M) = struct
 
     (* Two empty tries are equal *)
     | Empty, Empty -> true
+
+  
+  let keys t = fold (fun k _ a -> k :: a) t []
+
+  let values t = fold (fun _ v a -> v :: a) t []
+
+  let bindings t = fold (fun k v a -> (k, v) :: a) t []
+
+  let cardinal t = fold (fun k v a -> succ a) t 0
+
+  let exists p t =
+
+    let rec exists' k p = function
+      | Empty -> false
+      | Leaf v -> p (List.rev k) v
+      | Node m -> M.exists (fun k' t -> exists' (k' :: k) p t) m
+                    
+    in
+
+    exists' [] p t
+
+  let for_all p t =
+
+    let rec for_all' k p = function
+      | Empty -> true
+      | Leaf v -> p (List.rev k) v
+      | Node m -> M.for_all (fun k' t -> for_all' (k' :: k) p t) m
+                    
+    in
+
+    for_all' [] p t
+
+
+
+  let filter p t = 
+
+    let rec filter' k p = function
+      | Empty -> Empty
+      | Leaf v -> if p (List.rev k) v then Leaf v else Empty
+      | Node m -> 
+
+        let m' = 
+          M.fold
+            (fun k' t m -> 
+               let t' = filter' (k' :: k) p t in
+               if t' = Empty then m else M.add k' t' m)
+            m
+            M.empty
+        in
+
+        if M.is_empty m' then Empty else Node m' 
+
+    in
+
+
+    filter' [] p t  
+          
+
+
+  let max_binding t = 
+    
+    let rec max_binding' k = function
+      | Empty -> raise Not_found
+      | Leaf v -> (List.rev k, v)
+      | Node m -> let k', v = M.max_binding m in max_binding' (k' :: k) v
+    in
+
+    max_binding' [] t
+
+
+  let min_binding t = 
+    
+    let rec min_binding' k = function
+      | Empty -> raise Not_found
+      | Leaf v -> (List.rev k, v)
+      | Node m -> let k', v = M.min_binding m in min_binding' (k' :: k) v
+    in
+
+    min_binding' [] t
+
+
+  (* TODO: Rewrite fold2, map2 and iter2 with Map.merge to avoid using
+     Map.bindings *)
+
+  (* Fold over values at leaves *)
+  let fold2 f t1 t2 acc =
+
+    (* Keys are pushed to revp in reverse order *)
+    let rec fold2' revp t1 t2 acc = match t1, t2 with
+
+      (* Recurse to sub-tries of inner node *)
+      | Node m1, Node m2 -> 
+
+        List.fold_left2 
+          (fun acc (k1, t1) (k2, t2) -> 
+             if k1 = k2 then 
+               fold2' (k1 :: revp) t1 t2 acc
+             else
+               raise (Invalid_argument "Trie.fold2"))
+          acc
+          (M.bindings m1)
+          (M.bindings m2)
+
+      (* Return value after function application *)
+      | Leaf v1, Leaf v2 -> f (List.rev revp) v1 v2 acc
+
+      (* Return accumulator on empty trie *)
+      | Empty, Empty -> acc
       
+      | _ -> raise (Invalid_argument "Trie.fold2")
+  
+    in
+
+    (* Evaluate recursive function with initially empty path *)
+    fold2' [] t1 t2 acc 
+
+
+  (* Map over two tries *)
+  let map2 f t1 t2 =
+
+    (* Keys are pushed to revp in reverse order *)
+    let rec map2' revp t1 t2 = match t1, t2 with
+
+      (* Recurse to sub-tries of inner node *)
+      | Node m1, Node m2 -> 
+
+        Node
+          (List.fold_left2 
+             (fun acc (k1, t1) (k2, t2) -> 
+                if k1 = k2 then 
+                  M.add k1 (map2' (k1 :: revp) t1 t2) acc
+                else
+                  raise (Invalid_argument "Trie.map2"))
+             M.empty
+             (M.bindings m1)
+             (M.bindings m2))
+
+      (* Return value after function application *)
+      | Leaf v1, Leaf v2 -> Leaf (f (List.rev revp) v1 v2)
+
+      (* Return accumulator on empty trie *)
+      | Empty, Empty -> Empty
+
+      | _ -> raise (Invalid_argument "Trie.map2")
+
+    in
+
+    (* Evaluate recursive function with initially empty path *)
+    map2' [] t1 t2 
+
+
+  (* Iterate over two tries *)
+  let iter2 f t1 t2 =
+
+    (* Keys are pushed to revp in reverse order *)
+    let rec iter2' revp t1 t2 = match t1, t2 with
+
+      (* Recurse to sub-tries of inner node *)
+      | Node m1, Node m2 -> 
+
+        List.iter2 
+          (fun (k1, t1) (k2, t2) -> 
+             if k1 = k2 then 
+               (iter2' (k1 :: revp) t1 t2) 
+             else
+               raise (Invalid_argument "Trie.iter2"))
+          (M.bindings m1)
+          (M.bindings m2)
+
+      (* Return value after function application *)
+      | Leaf v1, Leaf v2 -> f (List.rev revp) v1 v2
+
+      (* Return accumulator on empty trie *)
+      | Empty, Empty -> ()
+
+      | _ -> raise (Invalid_argument "Trie.iter2")
+
+    in
+
+    (* Evaluate recursive function with initially empty path *)
+    iter2' [] t1 t2 
+
+
 end
 
-(* Test code *)
+
 (*
+(* Test code *)
 module CharMap = Map.Make(Char);;
 
 module T = Make(CharMap);;
@@ -420,5 +621,70 @@ T.iter (fun k v -> Format.printf "%a: %d@." (pp_print_list Format.pp_print_char 
 T.fold (fun k v a -> (k, v) :: a) T.empty [];;
 
 T.equal (=) a1b2 T.empty;;
+
+T.keys a1;;
+T.keys a1b2;;
+T.keys a1b2cd3;;
+T.keys a1b2cd3ce4;;
+
+T.bindings a1;;
+T.bindings a1b2;;
+T.bindings a1b2cd3;;
+T.bindings a1b2cd3ce4;;
+
+T.min_binding a1;;
+T.min_binding a1b2;;
+T.min_binding a1b2cd3;;
+T.min_binding a1b2cd3ce4;;
+
+T.max_binding a1;;
+T.max_binding a1b2;;
+T.max_binding a1b2cd3;;
+T.max_binding a1b2cd3ce4;;
+
+let a2b3cd4ce5 = T.map ((+) 1) a1b2cd3ce4;;
+
+T.exists (fun k v -> v > 2)  T.empty;;
+T.for_all (fun k v -> v > 2)  T.empty;;
+T.exists (fun k v -> v = 1)  a1b2cd3;;
+T.for_all (fun k v -> v > 0)  a1b2cd3ce4;;
+
+T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) T.empty T.empty [];;
+T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) T.empty a1 [];;
+T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) a1 a1 [];;
+T.fold2 (fun k v1 v2 a -> (k, (v1, v2)) :: a) a1b2cd3ce4 a2b3cd4ce5 [];;
+
+T.map2 (fun k v1 v2 -> v1 + v2) T.empty T.empty;;
+T.map2 (fun k v1 v2 -> v1 + v2) T.empty a1;;
+T.bindings (T.map2 (fun k v1 v2 -> v1 + v2) a1 a1);;
+T.bindings (T.map2 (fun k v1 v2 -> v1 + v2) a1b2cd3ce4 a1b2cd3ce4);;
+T.bindings (T.map2 (fun k v1 v2 -> v1 + v2) a1b2cd3ce4 a2b3cd4ce5);;
+
+
+T.iter2 (fun k v1 v2 -> Format.printf "%d, %d@." v1 v2) T.empty T.empty;;
+T.iter2 (fun k v1 v2 -> Format.printf "%d, %d@." v1 v2) a1 T.empty;;
+T.iter2 (fun k v1 v2 -> Format.printf "%d, %d@." v1 v2) a1 a1;;
+T.iter2 (fun k v1 v2 -> Format.printf "%d, %d@." v1 v2) a1b2cd3ce4 a1b2cd3ce4;;
+T.iter2 (fun k v1 v2 -> Format.printf "%d, %d@." v1 v2) a1b2cd3ce4 a2b3cd4ce5;;
+T.map2 (fun k v1 v2 -> v1 + v2) T.empty a1;;
+T.bindings (T.map2 (fun k v1 v2 -> v1 + v2) a1 a1);;
+T.bindings (T.map2 (fun k v1 v2 -> v1 + v2) a1b2cd3ce4 a1b2cd3ce4);;
+T.bindings (T.map2 (fun k v1 v2 -> v1 + v2) a1b2cd3ce4 a2b3cd4ce5);;
+
+T.bindings (T.filter (fun k v -> v > 2) T.empty);;
+T.filter (fun k v -> v > 2) a1;;
+T.bindings (T.filter (fun k v -> v < 2) a1);;
+T.bindings (T.filter (fun k v -> v >= 2) a1b2);;
+T.bindings (T.filter (fun k v -> v < 2) a1b2);;
+T.bindings (T.filter (fun k v -> v > 2) a1b2cd3ce4);;
+T.bindings (T.filter (fun k v -> v < 2) a1b2cd3ce4);;
+
+T.bindings (T.filter (fun k v -> k = ['a']) T.empty);;
+T.bindings (T.filter (fun k v -> k = ['a']) a1);;
+T.filter (fun k v -> k = ['b']) a1;;
+T.bindings (T.filter (fun k v -> k = ['a']) a1b2);;
+T.bindings (T.filter (fun k v -> k = ['b']) a1b2);;
+T.bindings (T.filter (fun k v -> not (k = ['a'] || k = ['c';'e'])) a1b2cd3ce4);;
+T.bindings (T.filter (fun k v -> k = ['a'] || k = ['c';'e']) a1b2cd3ce4);;
 
 *)
