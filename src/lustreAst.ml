@@ -265,21 +265,25 @@ type node_local_decl =
   | NodeVarDecl of position * clocked_typed_decl
 
 
+(* Structural assignment in left-hand side of equation *)
 type struct_item =
   | SingleIdent of position * ident
-  | IndexedIdent of position * ident * ident list
-
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
 
 
+(* The left-hand side of an equation *)
+type eq_lhs =
+  | ArrayDef of position * ident * ident list
+  | StructDef of position * struct_item list
+
 
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
-  | Equation of position * struct_item list * expr 
+  | Equation of position * eq_lhs * expr 
   | AnnotMain
   | AnnotProperty of position * expr
 
@@ -715,12 +719,6 @@ let rec pp_print_struct_item ppf = function
 
   | SingleIdent (pos, s) -> Format.fprintf ppf "%a" (I.pp_print_ident false) s
 
-  | IndexedIdent (pos, s, i) -> 
-    Format.fprintf ppf
-      "%a%a" 
-      (I.pp_print_ident false) s 
-      (pp_print_list (I.pp_print_ident false) "") i
-
   | TupleStructItem (pos, l) -> 
 
     Format.fprintf ppf 
@@ -749,6 +747,27 @@ let rec pp_print_struct_item ppf = function
       (pp_print_list pp_print_array_slice ",@ ") i
 
 
+let pp_print_array_def_index ppf ident =
+
+  Format.fprintf ppf
+    "[%a]"
+    (I.pp_print_ident false) ident
+
+
+let pp_print_eq_lhs ppf = function
+
+  | StructDef (pos, [l]) -> pp_print_struct_item ppf l
+      
+  | StructDef (pos, l) -> (pp_print_list pp_print_struct_item "@,") ppf l
+                            
+  | ArrayDef (pos, i, l) ->
+
+    Format.fprintf ppf
+      "%a%a"
+      (I.pp_print_ident false) i
+      (pp_print_list pp_print_array_def_index "") l
+  
+
 (* Pretty-print a node equation *)
 let pp_print_node_equation ppf = function
 
@@ -756,18 +775,11 @@ let pp_print_node_equation ppf = function
 
     Format.fprintf ppf "assert %a;" pp_print_expr e
 
-  | Equation (pos, [l], e) -> 
+  | Equation (pos, lhs, e) -> 
     
     Format.fprintf ppf 
       "@[<hv 2>%a =@ %a;@]" 
-      pp_print_struct_item l
-      pp_print_expr e
-
-  | Equation (pos, l, e) -> 
-    
-    Format.fprintf ppf 
-      "@[<hv 2>@[<hv 1>(%a)@] =@ %a;@]" 
-      (pp_print_list pp_print_struct_item ",@ ") l
+      pp_print_eq_lhs lhs
       pp_print_expr e
 
   | AnnotMain -> Format.fprintf ppf "--%%MAIN;"

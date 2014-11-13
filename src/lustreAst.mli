@@ -176,20 +176,23 @@ type node_local_decl =
   | NodeConstDecl of position * const_decl 
   | NodeVarDecl of position * clocked_typed_decl
 
-(** The left-hand side of an equation *)
+(** Structural assignment in left-hand side of equation *)
 type struct_item =
   | SingleIdent of position * ident
-  | IndexedIdent of position * ident * ident list
-
   | TupleStructItem of position * struct_item list
   | TupleSelection of position * ident * expr
   | FieldSelection of position * ident * ident
   | ArraySliceStructItem of position * ident * (expr * expr) list
 
+(** The left-hand side of an equation *)
+type eq_lhs = 
+  | ArrayDef of position * ident * ident list
+  | StructDef of position * struct_item list
+
 (** An Equation, assertion or annotation in the body of a node *)
 type node_equation =
   | Assert of position * expr
-  | Equation of position * struct_item list * expr
+  | Equation of position * eq_lhs * expr
   | AnnotMain 
   | AnnotProperty of position * expr
 
