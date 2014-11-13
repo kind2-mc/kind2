@@ -352,15 +352,15 @@ let trim_clause solver_init solver_frames clause term_tbl =
   let kept_woc = Clause.remove c kept in
 
   let block_term = Clause.to_term kept_woc in
-  let primed_term = Clause.to_term (Clause.map (Term.bump_state Numeral.one) kept_woc) in
+  let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (Clause.elements clause)) in
 
-  (*let init = S.check_sat_term solver_init [Term.negate block_term] in*)
+  let init = S.check_sat_term solver_init [Term.negate block_term] in
   let (cons, model) = S.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
 
   (* If, by removing the literal c, the blocking clause then
        either a. becomes reachable in the inital state or b. satisfies
        consecution then we need to keep it *)
-  if (not cons) (*|| init*) then 
+  if cons || init then 
 
     (debug pdr
            "@[<v>%a@]"
@@ -1084,6 +1084,13 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
             in
 
 	    let core_block_clause, rest_block_clause' =
+	      (*
+	      S.push solver_frames;
+
+	      S.assert_term solver_frames (TransSys.invars_of_bound trans_sys Numeral.zero);
+	      S.assert_term solver_frames (TransSys.invars_of_bound trans_sys Numeral.one);
+	      S.assert_term solver_frames (TransSys.init_of_bound trans_sys Numeral.zero);
+
 
 	      let reduced, discarded = trim_clause
 					 solver_init
@@ -1091,9 +1098,12 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 					 core_block_clause
 					 term_tbl
 	      in
-
 	      
+	      S.pop solver_frames;
+
 	      reduced,discarded
+	       *)
+	      core_block_clause, Clause.empty
 			
 	    in
 
