@@ -100,11 +100,11 @@ let mk_pos = A.position_of_lexing
 (* Tokens for annotations *)
 %token PROPERTY
 %token MAIN
-%token REQUIRES
-%token ENSURES
 
-(* Token for assertions *)
+(* Token for assertions and contracts *)
 %token ASSERT
+%token ASSUME
+%token GUARANTEE
     
 (* Tokens for Boolean operations *)
 %token TRUE
@@ -163,7 +163,7 @@ let mk_pos = A.position_of_lexing
 %nonassoc WHEN CURRENT 
 %nonassoc NOT 
 %left CARET 
-%nonassoc LSQBRACKET DOT
+%left LSQBRACKET DOT
 
 (* Start token *)
 %start <LustreAst.t> main
@@ -333,7 +333,6 @@ node_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    r = contract;
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -345,8 +344,7 @@ node_decl:
        List.flatten i, 
        List.flatten o, 
        (List.flatten l), 
-       e,
-       r)  }
+       e)  }
 
 
 (* A node declaration as an instance of a paramterized node *)
@@ -364,17 +362,6 @@ node_param_inst:
 
 (* A node declaration is optionally terminated by a period or a semicolon *)
 node_sep: DOT | SEMICOLON { } 
-
-(* A list of contract clauses *)
-contract:
-  | l = list(contract_clause) { l }
-
-
-(* A requires or ensures annotation *)
-contract_clause:
-  | REQUIRES; e = expr; SEMICOLON { A.Requires (mk_pos $startpos, e) }
-  | ENSURES; e = expr; SEMICOLON { A.Ensures (mk_pos $startpos, e) }
-
 
 (* A static parameter is a type *)
 static_param:
@@ -414,6 +401,14 @@ node_equation:
   (* An assertion *)
   | ASSERT; e = expr; SEMICOLON
     { A.Assert (mk_pos $startpos, e) }
+
+  (* A named observer for assumptions *)
+  | ASSUME; i = ident; COLON; e = expr; SEMICOLON 
+    { A.Assume (mk_pos $startpos, i, e) }
+
+  (* A named observer for guarantees *)
+  | GUARANTEE; i = ident; COLON; e = expr; SEMICOLON 
+    { A.Guarantee (mk_pos $startpos, i, e) }
 
   (* An equation, multiple (optionally parenthesized) identifiers on 
      the left-hand side, an expression on the right *)

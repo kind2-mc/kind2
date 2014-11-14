@@ -283,20 +283,14 @@ type eq_lhs =
 (* An equation or assertion in the node body *)
 type node_equation =
   | Assert of position * expr
+  | Assume of position * ident * expr
+  | Guarantee of position * ident * expr
   | Equation of position * eq_lhs * expr 
   | AnnotMain
   | AnnotProperty of position * expr
 
-(* A contract clause *)
-type contract_clause =
-  | Requires of position * expr
-  | Ensures of position * expr
-
-(* A contract as a list of clauses *)
-type contract = contract_clause list 
-
 (* A node declaration *)
-type node_decl = ident * node_param list * const_clocked_typed_decl list * clocked_typed_decl list * node_local_decl list * node_equation list * contract 
+type node_decl = ident * node_param list * const_clocked_typed_decl list * clocked_typed_decl list * node_local_decl list * node_equation list
   
 
 (* A function declaration *)
@@ -786,28 +780,20 @@ let pp_print_node_equation ppf = function
 
   | AnnotProperty (pos, e) -> Format.fprintf ppf "--%%PROPERTY %a;" pp_print_expr e 
 
-
-(* Pretty-print a contract clause *)
-let pp_print_contract_clause ppf = function 
-
-  | Requires (pos, e) -> 
-
-    Format.fprintf ppf "--%@requires %a;" pp_print_expr e
-
-  | Ensures (pos, e) -> 
-
-    Format.fprintf ppf "--%@ensures %a;" pp_print_expr e
-
-
-(* Pretty-print a node contract *)
-let pp_print_contract ppf c = 
-
-  if c = [] then () else
+  | Assume (pos, i, e) -> 
 
     Format.fprintf ppf 
-      "@[<v>%a@,@]" 
-      (pp_print_list pp_print_contract_clause "@,") c
-  
+      "assume %a: %a;" 
+      (I.pp_print_ident false) i 
+      pp_print_expr e
+
+  | Guarantee (pos, i, e) -> 
+
+    Format.fprintf ppf
+      "guarantee %a: %a;" 
+      (I.pp_print_ident false) i 
+      pp_print_expr e
+
 
 (* Pretty-print a declaration *)
 let pp_print_declaration ppf = function
@@ -818,13 +804,12 @@ let pp_print_declaration ppf = function
 
   | ConstDecl (pos, c) -> pp_print_const_decl ppf c
 
-  | NodeDecl (pos, (n, p, i, o, l, e, r)) -> 
+  | NodeDecl (pos, (n, p, i, o, l, e)) -> 
 
     Format.fprintf ppf
       "@[<hv>@[<hv 2>node %a%t@ \
        @[<hv 1>(%a)@]@;<1 -2>\
        returns@ @[<hv 1>(%a)@];@]@ \
-       %a\
        %a\
        @[<hv 2>let@ \
        %a@;<1 -2>\
@@ -833,7 +818,6 @@ let pp_print_declaration ppf = function
       (function ppf -> pp_print_node_param_list ppf p)
       (pp_print_list pp_print_const_clocked_typed_ident ";@ ") i
       (pp_print_list pp_print_clocked_typed_ident ";@ ") o
-      pp_print_contract r
       pp_print_node_local_decl l
       (pp_print_list pp_print_node_equation "@ ") e 
 

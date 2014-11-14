@@ -192,17 +192,11 @@ type eq_lhs =
 (** An Equation, assertion or annotation in the body of a node *)
 type node_equation =
   | Assert of position * expr
+  | Assume of position * ident * expr 
+  | Guarantee of position * ident * expr
   | Equation of position * eq_lhs * expr
   | AnnotMain 
   | AnnotProperty of position * expr
-
-(** A clause of an assume guarantee contract *)
-type contract_clause = 
-  | Requires of position * expr 
-  | Ensures of position * expr
-
-(** The contract of a node as a list of clauses *)
-type contract = contract_clause list
 
 (** Declaration of a node as a tuple of 
 
@@ -210,14 +204,12 @@ type contract = contract_clause list
     - its type parameters, 
     - the list of its inputs,
     - the list of its outputs,
-    - the list of its local constant and variable declarations,
-    - its equations, assertions and annotiations, and
-    - its contract. 
+    - the list of its local constant and variable declarations, and
+    - its equations, assertions and annotiations. 
 *)
 type node_decl =
   ident * node_param list * const_clocked_typed_decl list * 
-  clocked_typed_decl list * node_local_decl list * node_equation list * 
-  contract
+  clocked_typed_decl list * node_local_decl list * node_equation list
 
 (** Declaration of a function as a tuple of 
 
@@ -270,8 +262,6 @@ val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
 val pp_print_node_equation : Format.formatter -> node_equation -> unit
-val pp_print_contract_clause : Format.formatter -> contract_clause -> unit
-val pp_print_contract : Format.formatter -> contract_clause list -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 

@@ -70,6 +70,8 @@ type t = private
     
   }
 
+module ExprHashtbl : Hashtbl.S with type key = t
+
 (** Equality of expressions *)
 val equal_expr : t -> t -> bool
 
@@ -188,7 +190,7 @@ val mk_arrow : t -> t -> t
     fresh variable and the expression is added to [d] and it is
     returned along with an expression of the fresh variable at the
     previous state. *)
-val mk_pre : (Type.t -> StateVar.t) -> (StateVar.t * t) list -> t -> (t * (StateVar.t * t) list)
+val mk_pre : ('a -> t -> StateVar.t * 'a) -> 'a -> t -> t * 'a
 
 
 (** {1 Conversions to terms} *)

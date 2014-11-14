@@ -234,6 +234,8 @@ let keyword_table =
       
       (* Assertion *)
       ("assert", ASSERT);
+      ("assume", ASSUME);
+      ("guarantee", GUARANTEE);
       
       (* Boolean operators *)
       ("true", TRUE);
@@ -457,20 +459,6 @@ and comment = parse
 
         (* Warn and ignore rest of line *)
         | _ -> (Format.printf "Warninng: unknown annotation %s skipped@." p; 
-                skip_to_eol lexbuf ) }
-
-  (* Contract *)
-  | "@" (id as p) 
-      { match p with 
-
-        (* Return token, continue with rest of line *)
-        | "requires" -> REQUIRES
-
-        (* Return token, continue with rest of line *)
-        | "ensures" -> ENSURES
-
-        (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warninng: unknown contract %s skipped@." p; 
                 skip_to_eol lexbuf ) }
 
   (* Count new line and resume *)

@@ -141,10 +141,10 @@ type t =
     props : StateVar.t list;
 
     (* Contract for node, assumptions *)
-    requires : LustreExpr.t list;
+    assumptions : (I.t * E.t) list;
 
     (* Contract for node, guarantees *)
-    ensures : LustreExpr.t list;
+    guarantees : (I.t * E.t) list;
 
     (* Node is annotated as main node *)
     is_main : bool;
@@ -164,6 +164,9 @@ type t =
     (* Map of state variables to their oracles *)
     state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
 
+    (* Map of state variables to their oracles *)
+    expr_state_var_map : StateVar.t E.ExprHashtbl.t;
+
   }
 
 
@@ -179,14 +182,15 @@ let empty_node name =
     calls = [];
     asserts = [];
     props = [];
-    requires = [];
-    ensures = [];
+    assumptions = [];
+    guarantees = [];
     is_main = false;
     output_input_dep = IdxTrie.empty;
     observer_input_dep = [];
     fresh_state_var_index = ref Numeral.(- one);
     fresh_oracle_index = ref Numeral.(- one); 
-    state_var_oracle_map = StateVar.StateVarHashtbl.create 7 }
+    state_var_oracle_map = StateVar.StateVarHashtbl.create 7;
+    expr_state_var_map = E.ExprHashtbl.create 7 }
 
 
 
@@ -295,18 +299,20 @@ let pp_print_prop safe ppf var =
     
 
 (* Pretty-print an assumption *)
-let pp_print_requires safe ppf expr = 
+let pp_print_assumption safe ppf (ident, expr) = 
 
   Format.fprintf ppf
-    "@[<hv 2>--@@requires@ @[<h>%a@];@]"
+    "@[<hv 2>assume %a :@ %a;@]"
+    (I.pp_print_ident safe) ident
     (E.pp_print_lustre_expr safe) expr
 
 
 (* Pretty-print a guarantee *)
-let pp_print_ensures safe ppf expr = 
+let pp_print_guarantee safe ppf (ident, expr) = 
 
   Format.fprintf ppf
-    "@[<hv 2>--@@ensures @[<h>%a@];@]"
+    "@[<hv 2>guarantee %a :@ %a;@]"
+    (I.pp_print_ident safe) ident
     (E.pp_print_lustre_expr safe) expr
 
 
@@ -324,8 +330,8 @@ let pp_print_node
       calls; 
       asserts; 
       props; 
-      requires; 
-      ensures;
+      assumptions; 
+      guarantees;
       output_input_dep;
       is_main } = 
 
@@ -386,12 +392,12 @@ let pp_print_node
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
 
     (* %a%t *)
-    (pp_print_list (pp_print_requires safe) "@ ") requires
-    (space_if_nonempty requires)
+    (pp_print_list (pp_print_assumption safe) "@ ") assumptions
+    (space_if_nonempty assumptions)
 
     (* %a%t *)
-    (pp_print_list (pp_print_ensures safe) "@ ") ensures
-    (space_if_nonempty ensures)
+    (pp_print_list (pp_print_guarantee safe) "@ ") guarantees
+    (space_if_nonempty guarantees)
 
     (* %a*)
     (pp_print_list (pp_print_prop safe) "@ ") props
@@ -919,7 +925,7 @@ let solve_eqs_node_calls node =
 
 
 (* Return all expressions of a node *)
-let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
+let exprs_of_node { equations; calls; asserts; props; assumptions; guarantees } =
 
   (* Start with expressions in equations *)
   let exprs_equations = 
@@ -960,13 +966,13 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   let exprs_asserts = asserts @ exprs_calls in
 
   (* Add expressions in assumptions *)
-  let exprs_requires = requires @ exprs_asserts in
+  let exprs_assumptions = List.map snd assumptions @ exprs_asserts in
 
   (* Add expressions in guarantees *)
-  let exprs_ensures = ensures @ exprs_requires in
+  let exprs_guarantees = List.map snd guarantees @ exprs_assumptions in
 
   (* Return collected expressions *)
-  exprs_ensures
+  exprs_guarantees
 
 
 (* Return all stateful variables from expressions in a node *)
@@ -1105,8 +1111,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
        locals; 
        asserts; 
        props; 
-       requires; 
-       ensures; 
+       assumptions; 
+       guarantees; 
        is_main; 
        output_input_dep;
        observer_input_dep;
@@ -1138,8 +1144,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           (* Keep assertions, properties and main annotations *)
           asserts = asserts;
           props = props;
-          requires = requires;
-          ensures = ensures;
+          assumptions = assumptions;
+          guarantees = guarantees;
           is_main = is_main;
           fresh_state_var_index = fresh_state_var_index }
 

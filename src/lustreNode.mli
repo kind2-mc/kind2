@@ -124,10 +124,10 @@ type t =
     props : StateVar.t list;
 
     (** Contract for node, assumptions *)
-    requires : LustreExpr.t list;
+    assumptions : (LustreIdent.t * LustreExpr.t) list;
 
     (** Contract for node, guarantees *)
-    ensures : LustreExpr.t list;
+    guarantees : (LustreIdent.t * LustreExpr.t) list;
 
     (** Node is annotated as main node *)
     is_main : bool;
@@ -146,6 +146,10 @@ type t =
 
     (** Map of state variables to their oracles *)
     state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+
+    (** Map of abstracted expressions to state variables *)
+    expr_state_var_map : StateVar.t LustreExpr.ExprHashtbl.t;
+
   }
 
 (** The empty node *)

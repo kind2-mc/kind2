@@ -214,11 +214,15 @@ type abstraction_context =
     scope : I.index;
 
     (* Create a new identifier for a variable *)
-    mk_new_state_var : bool -> Type.t -> StateVar.t;
+    mk_fresh_state_var : bool -> Type.t -> StateVar.t;
+
+    (* Define an expression with a state variable or re-use previous
+       definition *)
+    mk_state_var_for_expr : bool -> (StateVar.t * E.t) list -> E.t -> StateVar.t * (StateVar.t * E.t) list;
 
     (* Create a new oracle input to guard pre operation on state
        variable *)
-    mk_new_oracle_for_state_var : StateVar.t -> StateVar.t;
+    mk_oracle_for_state_var : StateVar.t -> StateVar.t;
 
     (* Create a new oracle input *)
     mk_new_oracle : Type.t -> StateVar.t;
@@ -247,8 +251,9 @@ let void_abstraction_context pos =
   let msg = "Expression must be constant" in
 
   { scope = I.empty_index;
-    mk_new_state_var = (fun _ -> fail_at_position pos msg); 
-    mk_new_oracle_for_state_var = (fun _ -> fail_at_position pos msg);
+    mk_fresh_state_var = (fun _ -> fail_at_position pos msg); 
+    mk_state_var_for_expr = (fun _ -> fail_at_position pos msg); 
+    mk_oracle_for_state_var = (fun _ -> fail_at_position pos msg);
     mk_new_oracle = (fun _ -> fail_at_position pos msg);
     mk_new_observer = (fun _ -> fail_at_position pos msg);
     new_vars = []; 
@@ -350,8 +355,9 @@ let pp_print_abstraction_context
 *)
 let rec eval_ast_expr     
     ({ scope;
-       mk_new_state_var; 
-       mk_new_oracle_for_state_var; 
+       mk_fresh_state_var; 
+       mk_state_var_for_expr; 
+       mk_oracle_for_state_var; 
        mk_new_oracle; 
        mk_new_observer; 
        new_vars;
@@ -489,7 +495,8 @@ let rec eval_ast_expr
        fail_at_position 
          pos
          (Format.asprintf 
-            "Expression does not have index %a" 
+            "Expression %a does not have index %a" 
+            A.pp_print_expr expr
             (I.pp_print_index false) index))
 
   in
@@ -509,7 +516,7 @@ let rec eval_ast_expr
             i
             state_var
             ({ E.expr_type } as expr)
-            (accum, ({ new_vars; mk_new_state_var } as abstractions)) ->
+            (accum, ({ mk_state_var_for_expr } as abstractions)) ->
 
             if 
 
@@ -521,16 +528,18 @@ let rec eval_ast_expr
             then 
 
               (* New variable for abstraction, is constant if input is *)
-              let state_var' = 
-                mk_new_state_var (StateVar.is_const state_var) expr_type 
+              let state_var', new_vars' = 
+                mk_state_var_for_expr
+                  (StateVar.is_const state_var) 
+                  abstractions.new_vars
+                  expr 
               in
 
               E.set_state_var_instance state_var' pos ident state_var;
 
               (* Add definition of variable *)
               let abstractions' =
-                { abstractions with
-                    new_vars = (state_var', expr) :: abstractions.new_vars }
+                { abstractions with new_vars = new_vars' } 
               in
 
               (* Add expression as input *)
@@ -668,7 +677,7 @@ let rec eval_ast_expr
       IdxTrie.map
         (fun node_sv -> 
            let sv = 
-             mk_new_state_var false (StateVar.type_of_state_var node_sv)
+             mk_fresh_state_var false (StateVar.type_of_state_var node_sv)
            in
            E.set_state_var_instance sv pos ident node_sv;
            sv)
@@ -887,7 +896,7 @@ let rec eval_ast_expr
              (* Apply pre operator to expression, abstract
                 non-variable term and re-use previous variables *)
              let expr', new_vars' = 
-               E.mk_pre (mk_new_state_var false) new_vars expr 
+               E.mk_pre (mk_state_var_for_expr false) new_vars expr 
              in
 
              (IdxTrie.add index expr' accum,
@@ -1131,14 +1140,19 @@ let rec eval_ast_expr
         then
 
           (* New variable for abstraction, not a constant *)
-          let state_var = mk_new_state_var false cond'.E.expr_type in
+          let state_var, new_vars' = 
+            mk_state_var_for_expr
+              false
+              new_vars
+              cond'
+          in
 
           E.set_state_var_source state_var E.Abstract;
 
           (* Add definition of variable *)
           let abstractions'' =
             { abstractions' with
-                new_vars = (state_var, cond') :: abstractions'.new_vars }
+                new_vars = new_vars' }
           in
 
           (* Use abstracted variable as input parameter *)
@@ -1319,7 +1333,7 @@ let close_ast_expr pos (expr, abstractions) =
   let expr', oracles' =
     E.oracles_for_unguarded_pres
       pos
-      abstractions.mk_new_oracle_for_state_var
+      abstractions.mk_oracle_for_state_var
       warn_at_position
       abstractions.new_oracles
       expr
@@ -1724,11 +1738,6 @@ let add_node_decl_to_trie
          (* State variable is an input *)
          E.set_state_var_source state_var state_var_source;
 
-         Format.printf
-           "add_node_decl_to_trie: %a: %a@."
-           (I.pp_print_index false) index'
-           StateVar.pp_print_state_var state_var;
-
          (* Add expression to trie of identifier *)
          (ITrie.add ident' (E.mk_var state_var E.base_clock) expr_of_ident,
 
@@ -2104,14 +2113,14 @@ let rec parse_node_locals context node = function
 
 (* Add an expression as a property *)
 let rec property_to_node 
-    ({ mk_new_state_var } as abstractions)
+    ({ mk_state_var_for_expr; new_vars } as abstractions)
     context
     node
     pos
     expr =
 
   (* State variable for property and changed environment *)
-  let abstractions', context', node', state_var =
+  let abstractions', state_var =
 
     if 
 
@@ -2124,54 +2133,45 @@ let rec property_to_node
       let state_var = E.state_var_of_expr expr in
 
       (* No abstraction necessary *)
-      (abstractions, context, node, state_var)
+      (abstractions, state_var)
 
     else
 
       (* State variable of abstraction variable *)
-      let state_var = mk_new_state_var false Type.t_bool in
+      let state_var, new_vars' = 
+        mk_state_var_for_expr false new_vars expr 
+      in
       
       (* State variable is a locally abstracted variable *)
       E.set_state_var_source state_var E.Abstract;
 
-      (* Add definition of abstraction variable to node *)
-      let abstractions', context', node' = 
-        equation_to_node
-          abstractions
-          context
-          node
-          A.dummy_pos  
-          state_var
-          expr
-      in
-
       (* Property is new state variable *)
-      (abstractions', context', node', state_var)
+      ({ abstractions with new_vars = new_vars' }, state_var)
       
   in
 
   (* Add declatation of variable to observers *)
-  let node_observers' = node'.N.observers @ [state_var] in
+  let node_observers' = node.N.observers @ [state_var] in
 
   (* Remove declaration of variable from locals *)
   let node_locals' = 
     List.filter
       (fun sv -> not (StateVar.equal_state_vars sv state_var))
-      node'.N.locals
+      node.N.locals
   in
 
   (* Remove declaration of variable from outputs *)
   let node_outputs' = 
     IdxTrie.filter
       (fun _ sv -> not (StateVar.equal_state_vars sv state_var))
-      node'.N.outputs
+      node.N.outputs
   in
 
   (* Add property to node *)
   (abstractions',
-   context', 
-   { node' with 
-       N.props = (state_var :: node'.N.props); 
+   context, 
+   { node with 
+       N.props = (state_var :: node.N.props); 
        N.observers = node_observers';
        N.locals = node_locals';
        N.outputs = node_outputs' }
@@ -2187,17 +2187,21 @@ and assertion_to_node abstractions context node pos expr =
 
 
 (* Add an expression as a contact clause *)
-and requires_to_node abstractions context node pos expr =
+and assumption_to_node abstractions context node pos ident expr =
 
-  let node' = { node with N.requires = expr :: node.N.requires } in
+  let node' = 
+    { node with N.assumptions = (ident, expr) :: node.N.assumptions } 
+  in
 
   (abstractions, context, node')
 
 
 (* Add an expression as a contact clause *)
-and ensures_to_node abstractions context node pos expr =
+and guarantee_to_node abstractions context node pos ident expr =
 
-  let node' = { node with N.ensures = expr :: node.N.ensures } in
+  let node' = 
+    { node with N.guarantees = (ident, expr) :: node.N.guarantees } 
+  in
 
   (abstractions, context, node')
 
@@ -2215,7 +2219,7 @@ and equation_to_node
   let expr', oracles' = 
     E.oracles_for_unguarded_pres
       pos
-      abstractions.mk_new_oracle_for_state_var
+      abstractions.mk_oracle_for_state_var
       warn_at_position
       abstractions.new_oracles
       expr
@@ -2292,12 +2296,330 @@ and equation_to_node
    { node' with N.equations = (state_var, ([], expr')) :: node'.N.equations })
 
 
+(* Parse a statement (equation, assert or annotation) in a node *)
+let rec parse_node_equations 
+    abstractions 
+    ({ expr_of_ident } as context) 
+    ({ N.name = node_ident;
+       N.outputs = node_outputs;
+       N.locals = node_locals } as node ) = 
+
+  function
+
+    (* No more statements *)
+    | [] -> abstractions, context, node 
+
+    (* Assertion *)
+    | A.Assert (pos, ast_expr) :: tl -> 
+
+      (* Evaluate Boolean expression and guard all pre operators *)
+      let expr', abstractions = 
+        close_ast_expr
+          pos
+          (bool_expr_of_ast_expr 
+             abstractions
+             context 
+             pos
+             ast_expr)
+      in
+
+      (* Add assertion to node *)
+      let abstractions', context', node' = 
+        assertion_to_node abstractions context node pos expr'
+      in
+
+      (* Continue with next node statements, and restart with previous
+         empty abstractions *)
+      parse_node_equations 
+        abstractions'
+        context'
+        node' 
+        tl
+
+    (* Property annotation *)
+    | A.AnnotProperty (pos, ast_expr) :: tl -> 
+
+      (* Evaluate Boolean expression and guard all pre operators *)
+      let expr', abstractions = 
+        close_ast_expr
+          pos
+          (bool_expr_of_ast_expr 
+             abstractions
+             context 
+             pos
+             ast_expr)
+      in
+
+      (* Add assertion to node *)
+      let abstractions', context', node' = 
+        property_to_node abstractions context node pos expr'
+      in
+
+      (* Continue with next node statements, and restart with previous
+         empty abstractions *)
+      parse_node_equations 
+        abstractions'
+        context'
+        node' 
+        tl
+
+
+    (* Equations with possibly more than one variable on the left-hand side
+
+       The expression is without node calls, those have been
+       abstracted *)
+    | A.Equation (pos, lhs, ast_expr) :: tl -> 
+
+(*
+      debug lustreSimplify
+          "parse_node_equation %a"
+          A.pp_print_node_equation (A.Equation (pos, lhs, ast_expr))
+      in
+*)
+
+      (* State variables and types of their assigned expressions *)
+      let eq_lhs, context' = match lhs with 
+
+        | A.StructDef (pos, struct_items) -> 
+
+          let eq_lhs = 
+
+            List.fold_left
+              (function eq_lhs -> function 
+
+                 (* Left-hand side is a single identifier *)
+                 | A.SingleIdent (pos, ident) -> 
+
+                   (* Trie of expressions for indexes of identifier *)
+                   let ident_exprs = 
+
+                     try 
+
+                       (* Get expressions for each index of identifier *)
+                       ITrie.find_prefix
+                         ident
+                         expr_of_ident
+
+                     with Not_found -> 
+
+                       fail_at_position 
+                         pos 
+                         "Undefined variable in assignment" 
+
+                   in
+
+                   (* Get next top index of accumulator, use empty
+                      index if left-hand side contains only one
+                      variable *)
+                   let top_index =
+                     match struct_items with 
+                       | [] -> assert false
+                       | [_] -> I.empty_index
+                       | _ -> next_top_index_of_idx_trie eq_lhs
+                   in
+
+                   (* Add types of indexes to accumulator *)
+                   let eq_lhs' = 
+                     IdxTrie.fold
+                       (fun i e a -> 
+
+                          (* Expression must be a variable *)
+                          if not (E.is_var e) then 
+                            
+                            fail_at_position 
+                              pos 
+                              "Not assigning to variable";
+
+                          (* Get state variable from expression *)
+                          let state_var = 
+                            E.state_var_of_expr e
+                          in
+                          
+                          if 
+
+                            (* State variable must be an output *)
+                            IdxTrie.exists 
+                              (fun _ sv -> 
+                                 StateVar.equal_state_vars sv state_var)
+                              node_outputs
+
+                            || 
+                          
+                            (* Or state variable must be a local variable *)
+                            List.exists 
+                              (fun sv -> 
+                                 StateVar.equal_state_vars sv state_var)
+                              node_locals
+
+                          then
+
+                            
+                            (* Add type of state variable to accumulator *)
+                            IdxTrie.add
+                              (I.push_back_index_to_index top_index i)
+                              state_var
+                              a
+
+                          else
+
+                              fail_at_position 
+                                pos 
+                                "Assignment to neither output nor \
+                                 local variable")
+                       ident_exprs
+                       eq_lhs
+                   in
+
+                   (* Return state variables on left-hand side *)
+                   eq_lhs'
+
+                 (* TODO: Structural assignments *)
+                 | _ -> 
+                   fail_at_position
+                      pos
+                     "Structural assignments not supported")
+              IdxTrie.empty
+              struct_items
+
+          in
+
+          (eq_lhs, context)
+
+        | A.ArrayDef (pos, ident, indexes) -> 
+                        
+          fail_at_position
+            pos
+            "Recursive array definitions not supported"
+          
+      in
+
+          (* Evaluate expression and guard all pre operators *)
+          let eq_rhs, abstractions = 
+            close_indexed_ast_expr
+              pos
+              (eval_ast_expr 
+                 abstractions
+                 context' 
+                 ast_expr)
+
+          in
+
+(*
+          debug lustreSimplify
+              "@[<v>abstractions:@,%a@]"
+              pp_print_abstraction_context abstractions
+          in
+*)
+
+
+          (* Add all equations to node *)
+          let abstractions', context', node' = 
+
+            try 
+
+              IdxTrie.fold2
+                (fun _ state_var expr (abstractions, context, node) -> 
+
+                  (* Add equation to node *)
+                   equation_to_node 
+                     abstractions
+                     context 
+                     node
+                     pos
+                     state_var
+                     expr)
+                
+                eq_lhs
+                eq_rhs
+                
+                (abstractions, context, node)
+
+            with Invalid_argument _ -> 
+              
+              fail_at_position 
+                pos
+                "Type mismatch in equation"
+
+          in
+
+          (* Continue, and restart with previous empty abstractions *)
+          parse_node_equations 
+            abstractions'
+            context'
+            node'
+            tl
+
+
+        (* Annotation for main node *)
+        | A.AnnotMain :: tl -> 
+
+          parse_node_equations 
+            abstractions
+            context 
+            { node with N.is_main = true }
+            tl
+
+    (* Assumption *)
+    | A.Assume (pos, ident, expr) :: tl -> 
+
+      (* Evaluate Boolean expression and guard all pre operators *)
+      let expr', abstractions = 
+        close_ast_expr
+          pos
+          (bool_expr_of_ast_expr 
+             abstractions
+             context 
+             pos
+             expr)
+      in
+
+      (* Add assertion to node *)
+      let abstractions', context', node' = 
+        assumption_to_node abstractions context node pos ident expr'
+      in
+      
+      (* Continue with next contract clauses, and restart with
+         previous empty abstractions *)
+      parse_node_equations
+        abstractions'
+        context' 
+        node'
+        tl
+
+
+    (* Guarantee *)
+    | A.Guarantee (pos, ident, expr) :: tl -> 
+
+      (* Evaluate Boolean expression and guard all pre operators *)
+      let expr', abstractions = 
+        close_ast_expr
+          pos
+          (bool_expr_of_ast_expr 
+             abstractions
+             context 
+             pos
+             expr)
+      in
+
+      (* Add assertion to node *)
+      let abstractions', context', node' = 
+        guarantee_to_node abstractions context node pos ident expr'
+      in
+      
+      (* Continue with next contract clauses, and restart with
+         previous empty abstractions *)
+      parse_node_equations
+        abstractions'
+        context' 
+        node'
+        tl
+
+
 (* Add abstracted variables and node calls to context *)
 let abstractions_to_context_and_node 
     ({ new_vars } as abstractions)
     context 
-    node
-    pos =
+    node =
 
   (* Add declaration of variables to context
 
@@ -2328,7 +2650,12 @@ let abstractions_to_context_and_node
 
          (* Add equation to node *)
          let abstractions', context', node' = 
-           equation_to_node abstractions context' node' pos state_var expr 
+           equation_to_node 
+             abstractions context'
+             node'
+             A.dummy_pos 
+             state_var 
+             expr 
          in
 
          (abstractions', context', node'))
@@ -2472,389 +2799,6 @@ let abstractions_to_context_and_node
   abstractions', context', node'
 
 
-(* Parse a statement (equation, assert or annotation) in a node *)
-let rec parse_node_equations 
-    empty_abstractions 
-    ({ expr_of_ident } as context) 
-    ({ N.name = node_ident;
-       N.outputs = node_outputs;
-       N.locals = node_locals } as node ) = 
-
-  function
-
-    (* No more statements *)
-    | [] -> node 
-
-    (* Assertion *)
-    | A.Assert (pos, ast_expr) :: tl -> 
-
-      (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
-        close_ast_expr
-          pos
-          (bool_expr_of_ast_expr 
-             empty_abstractions
-             context 
-             pos
-             ast_expr)
-      in
-
-      (* Add assertion to node *)
-      let abstractions', context', node' = 
-        assertion_to_node abstractions context node pos expr'
-      in
-
-      (* Add new definitions to context *)
-      let abstractions', context', node' = 
-        abstractions_to_context_and_node abstractions' context' node' pos
-      in
-
-      (* Continue with next node statements, and restart with previous
-         empty abstractions *)
-      parse_node_equations 
-        empty_abstractions
-        context'
-        node' 
-        tl
-
-    (* Property annotation *)
-    | A.AnnotProperty (pos, ast_expr) :: tl -> 
-
-      (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
-        close_ast_expr
-          pos
-          (bool_expr_of_ast_expr 
-             empty_abstractions
-             context 
-             pos
-             ast_expr)
-      in
-
-      (* Add assertion to node *)
-      let abstractions', context', node' = 
-        property_to_node abstractions context node pos expr'
-      in
-
-      (* Add new definitions to context *)
-      let abstractions', context', node' = 
-        abstractions_to_context_and_node abstractions' context' node' pos
-      in
-
-      (* Continue with next node statements, and restart with previous
-         empty abstractions *)
-      parse_node_equations 
-        empty_abstractions
-        context'
-        node' 
-        tl
-
-
-    (* Equations with possibly more than one variable on the left-hand side
-
-       The expression is without node calls, those have been
-       abstracted *)
-    | A.Equation (pos, lhs, ast_expr) :: tl -> 
-
-(*
-      debug lustreSimplify
-          "parse_node_equation %a"
-          A.pp_print_node_equation (A.Equation (pos, lhs, ast_expr))
-      in
-*)
-
-      (* State variables and types of their assigned expressions *)
-      let eq_lhs, context' = match lhs with 
-
-        | A.StructDef (pos, struct_items) -> 
-
-          let eq_lhs = 
-
-            List.fold_left
-              (function eq_lhs -> function 
-
-                 (* Left-hand side is a single identifier *)
-                 | A.SingleIdent (pos, ident) -> 
-
-                   (* Trie of expressions for indexes of identifier *)
-                   let ident_exprs = 
-
-                     try 
-
-                       (* Get expressions for each index of identifier *)
-                       ITrie.find_prefix
-                         ident
-                         expr_of_ident
-
-                     with Not_found -> 
-
-                       fail_at_position 
-                         pos 
-                         "Undefined variable in assignment" 
-
-                   in
-
-                   (* Get next top index of accumulator, use empty
-                      index if left-hand side contains only one
-                      variable *)
-                   let top_index =
-                     match struct_items with 
-                       | [] -> assert false
-                       | [_] -> I.empty_index
-                       | _ -> next_top_index_of_idx_trie eq_lhs
-                   in
-
-                   (* Add types of indexes to accumulator *)
-                   let eq_lhs' = 
-                     IdxTrie.fold
-                       (fun i e a -> 
-
-                          (* Expression must be a variable *)
-                          if not (E.is_var e) then 
-                            
-                            fail_at_position 
-                              pos 
-                              "Not assigning to variable";
-
-                          (* Get state variable from expression *)
-                          let state_var = 
-                            E.state_var_of_expr e
-                          in
-                          
-                          if 
-
-                            (* State variable must be an output *)
-                            IdxTrie.exists 
-                              (fun _ sv -> 
-                                 StateVar.equal_state_vars sv state_var)
-                              node_outputs
-
-                            || 
-                          
-                            (* Or state variable must be a local variable *)
-                            List.exists 
-                              (fun sv -> 
-                                 StateVar.equal_state_vars sv state_var)
-                              node_locals
-
-                          then
-
-                            
-                            (* Add type of state variable to accumulator *)
-                            IdxTrie.add
-                              (I.push_back_index_to_index top_index i)
-                              state_var
-                              a
-
-                          else
-
-                              fail_at_position 
-                                pos 
-                                "Assignment to neither output nor \
-                                 local variable")
-                       ident_exprs
-                       eq_lhs
-                   in
-
-                   (* Return state variables on left-hand side *)
-                   eq_lhs'
-
-                 (* TODO: Structural assignments *)
-                 | _ -> 
-                   fail_at_position
-                      pos
-                     "Structural assignments not supported")
-              IdxTrie.empty
-              struct_items
-
-          in
-
-          (eq_lhs, context)
-
-        | A.ArrayDef (pos, ident, indexes) -> 
-                        
-          fail_at_position
-            pos
-            "Recursive array definitions not supported"
-          
-      in
-
-          (* Evaluate expression and guard all pre operators *)
-          let eq_rhs, abstractions = 
-            close_indexed_ast_expr
-              pos
-              (eval_ast_expr 
-                 empty_abstractions
-                 context' 
-                 ast_expr)
-
-          in
-
-(*
-          debug lustreSimplify
-              "@[<v>abstractions:@,%a@]"
-              pp_print_abstraction_context abstractions
-          in
-*)
-
-
-          Format.printf
-            "@[<v>eq_lhs:@,%t@]@."
-            (function ppf -> 
-              IdxTrie.iter
-                (fun i v -> 
-                   Format.fprintf ppf 
-                     "%a: %a@," 
-                     (I.pp_print_index false) i
-                     StateVar.pp_print_state_var v)
-                eq_lhs);
-            
-          Format.printf
-            "@[<v>eq_rhs:@,%t@]@."
-            (function ppf -> 
-              IdxTrie.iter
-                (fun i e -> 
-                   Format.fprintf ppf 
-                     "%a: %a@," 
-                     (I.pp_print_index false) i
-                     (E.pp_print_lustre_expr false) e)
-                eq_rhs);
-            
-          (* Add all equations to node *)
-          let abstractions', context', node' = 
-
-            try 
-
-              IdxTrie.fold2
-                (fun _ state_var expr (abstractions, context, node) -> 
-
-                  (* Add equation to node *)
-                   equation_to_node 
-                     abstractions
-                     context 
-                     node
-                     pos
-                     state_var
-                     expr)
-                
-                eq_lhs
-                eq_rhs
-                
-                (abstractions, context, node)
-
-            with Invalid_argument _ -> 
-              
-              fail_at_position 
-                pos
-                "Type mismatch in equation"
-
-          in
-
-          (* Add abstractions to context and node *)
-          let abstractions', context', node' =
-            abstractions_to_context_and_node 
-              abstractions' 
-              context' 
-              node' 
-              pos
-          in
-
-          (* Continue, and restart with previous empty abstractions *)
-          parse_node_equations 
-            empty_abstractions
-            context'
-            node'
-            tl
-
-
-        (* Annotation for main node *)
-        | A.AnnotMain :: tl -> 
-
-          parse_node_equations 
-            empty_abstractions
-            context 
-            { node with N.is_main = true }
-            tl
-
-
-(* Parse a contract annotation of a node *)
-let rec parse_node_contract 
-    empty_abstractions
-    context 
-    ({ N.name = node_ident } as node) = 
-
-  function
-
-    (* No more contract clauses *)
-    | [] -> node 
-
-
-    (* Assumption *)
-    | A.Requires (pos, expr) :: tl -> 
-
-      (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
-        close_ast_expr
-          pos
-          (bool_expr_of_ast_expr 
-             empty_abstractions
-             context 
-             pos
-             expr)
-      in
-
-      (* Add assertion to node *)
-      let abstractions', context', node' = 
-        requires_to_node abstractions context node pos expr'
-      in
-      
-      (* Add new definitions to context *)
-      let abstractions' , context', node' = 
-        abstractions_to_context_and_node abstractions' context' node' pos
-      in
-
-      (* Continue with next contract clauses, and restart with
-         previous empty abstractions *)
-      parse_node_contract 
-        empty_abstractions
-        context' 
-        node'
-        tl
-
-
-    (* Guarantee *)
-    | A.Ensures (pos, expr) :: tl -> 
-
-      (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
-        close_ast_expr
-          pos
-          (bool_expr_of_ast_expr 
-             empty_abstractions
-             context 
-             pos
-             expr)
-      in
-
-      (* Add assertion to node *)
-      let abstractions', context', node' = 
-        ensures_to_node abstractions context node pos expr'
-      in
-      
-      (* Add new definitions to context *)
-      let abstractions', context', node' = 
-        abstractions_to_context_and_node abstractions' context' node' pos
-      in
-
-      (* Continue with next contract clauses, and restart with
-         previous empty abstractions *)
-      parse_node_contract 
-        empty_abstractions
-        context' 
-        node'
-        tl
-
-
 (* Return a LustreNode.t from a node LustreAst.node_decl *)
 let parse_node  
     node_ident
@@ -2862,8 +2806,7 @@ let parse_node
     inputs 
     outputs 
     locals 
-    equations 
-    contract =
+    equations =
 
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
@@ -2872,7 +2815,7 @@ let parse_node
   let node = N.empty_node node_ident in
 
   (* Create a new state variable for abstractions *)
-  let mk_new_state_var is_const state_var_type = 
+  let mk_fresh_state_var is_const state_var_type = 
     E.mk_fresh_state_var
       false
       is_const
@@ -2882,8 +2825,47 @@ let parse_node
       node.N.fresh_state_var_index
   in
 
+  (* Create a new state variable for abstractions *)
+  let mk_state_var_for_expr is_const new_vars ({ E.expr_type } as expr) = 
+
+    try 
+
+      (* Find previous definition of expression *)
+      let state_var =
+        E.ExprHashtbl.find
+          node.N.expr_state_var_map
+          expr
+      in
+
+      (* Return state variable and no new defintiion *)
+      (state_var, new_vars)
+
+    with Not_found ->
+
+      (* Create a fresh state variable for definition *)
+      let state_var =
+        E.mk_fresh_state_var
+          false
+          is_const
+          scope
+          I.abs_ident
+          expr_type
+          node.N.fresh_state_var_index
+      in
+
+      (* Record definition of expression by state variable *)
+      E.ExprHashtbl.add
+        node.N.expr_state_var_map
+        expr
+        state_var;
+
+      (* Return variable and add definition *)
+      (state_var, ((state_var, expr) :: new_vars))
+
+  in
+
   (* Create a new constant to guard pre operator on state variable *)
-  let mk_new_oracle_for_state_var state_var = 
+  let mk_oracle_for_state_var state_var = 
 
     try 
 
@@ -2944,8 +2926,9 @@ let parse_node
   (* Initial, empty abstraction context *)
   let empty_abstractions = 
     { scope;
-      mk_new_state_var = mk_new_state_var;
-      mk_new_oracle_for_state_var = mk_new_oracle_for_state_var;
+      mk_fresh_state_var = mk_fresh_state_var;
+      mk_state_var_for_expr = mk_state_var_for_expr;
+      mk_oracle_for_state_var = mk_oracle_for_state_var;
       mk_new_oracle = mk_new_oracle;
       mk_new_observer = mk_new_observer;
       new_vars = [];
@@ -2955,47 +2938,43 @@ let parse_node
   in
 
   (* Parse inputs, add to global context and node context *)
-  let local_context, node = 
+  let context', node' = 
     parse_node_inputs global_context node inputs
   in
 
   (* Parse outputs, add to local context and node context *)
-  let local_context, node = 
+  let context', node' = 
     parse_node_outputs
-      local_context 
-      node 
+      context' 
+      node' 
       outputs
   in
 
-  (* Parse contract
-
-     Must check before adding local variable to context, may not use
-     local variables *)
-  let node = 
-    parse_node_contract 
-      empty_abstractions
-      local_context 
-      node 
-      contract
-  in
-
   (* Parse local declarations, add to local context and node context *)
-  let local_context, node = 
-    parse_node_locals local_context node locals
+  let context', node' = 
+    parse_node_locals context' node' locals
   in
 
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
-  let node = 
+  let abstractions', context', node' = 
     parse_node_equations 
       empty_abstractions
-      local_context 
-      node 
+      context' 
+      node' 
       equations
   in
 
+  (* Add abstractions to context and node *)
+  let _, _, node' =
+    abstractions_to_context_and_node 
+      abstractions' 
+      context' 
+      node' 
+  in
+
   (* Simplify by substituting variables that are aliases *)
-  N.solve_eqs_node_calls node
+  N.solve_eqs_node_calls node'
 
 
 (* ******************************************************************** *)
@@ -3100,8 +3079,7 @@ let rec declarations_to_nodes'
            inputs, 
            outputs, 
            locals, 
-           equations, 
-           contract))) :: decls ->
+           equations))) :: decls ->
 
       (try 
 
@@ -3114,7 +3092,6 @@ let rec declarations_to_nodes'
             outputs
             locals
             equations 
-            contract
         in
         
         (* Recurse for next declarations *)
@@ -3131,7 +3108,7 @@ let rec declarations_to_nodes'
           (* Is the referenced node declared later? *)
           List.exists 
             (function 
-              | A.NodeDecl (_, (i, _, _, _, _, _, _)) when i = ident -> true 
+              | A.NodeDecl (_, (i, _, _, _, _, _)) when i = ident -> true 
               | _ -> false)
             decls
 
