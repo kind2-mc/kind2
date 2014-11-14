@@ -149,7 +149,7 @@ type expr =
   | ArrayConstr of position * expr * expr 
 
   (* Slice of array *)
-  | ArraySlice of position * ident * (expr * expr) list
+  | ArraySlice of position * expr * (expr * expr) 
 
   (* Array concatenation *)
   | ArrayConcat of position * expr * expr
@@ -414,8 +414,8 @@ let rec pp_print_expr ppf =
       Format.fprintf ppf 
         "%a@[<hv 1>%a@[<hv 1>[%a]@]@]" 
         ppos p 
-        (I.pp_print_ident false) e
-        (pp_print_list pp_print_array_slice ",@ ") l 
+        pp_print_expr e
+        pp_print_array_slice l 
 
     | ArrayConcat (p, e1, e2) -> 
 

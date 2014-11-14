@@ -250,10 +250,10 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (List.map snd (IdxTrie.bindings out_vars) @ observer_vars)
+      (List.rev_map snd (IdxTrie.bindings out_vars) @ observer_vars)
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
-      (List.map snd (IdxTrie.bindings in_vars))
+      (List.rev_map snd (IdxTrie.bindings in_vars))
 
   (* Node call not on the base clock is a condact *)
   |  { call_returns = out_vars; 
@@ -268,13 +268,13 @@ let pp_print_call safe ppf = function
       (pp_print_list 
          (E.pp_print_lustre_var safe)
          ",@ ") 
-      (List.map snd (IdxTrie.bindings out_vars) @ observer_vars)
+      (List.rev_map snd (IdxTrie.bindings out_vars) @ observer_vars)
       (E.pp_print_lustre_expr safe) act_expr
       (I.pp_print_ident safe) node
       (pp_print_list (E.pp_print_lustre_var safe) ",@ ") 
-      (List.map snd (IdxTrie.bindings in_vars))
+      (List.rev_map snd (IdxTrie.bindings in_vars))
       (pp_print_list (E.pp_print_lustre_expr safe) ",@ ") 
-      (List.map snd (IdxTrie.bindings init_exprs)
+      (List.rev_map snd (IdxTrie.bindings init_exprs)
        @ (List.map (fun _ -> E.t_true) observer_vars))
           
 
@@ -354,12 +354,12 @@ let pp_print_node
 
     (* %a *)
     (pp_print_list (pp_print_input safe) ";@ ") 
-    (IdxTrie.bindings inputs @
+    (List.rev (IdxTrie.bindings inputs) @
      (List.map (fun sv -> (I.empty_index, sv)) oracles))
 
     (* %a *)
     (pp_print_list (pp_print_output safe) ";@ ") 
-    (IdxTrie.bindings outputs @
+    (List.rev (IdxTrie.bindings outputs) @
      (List.map (fun sv -> (I.empty_index, sv)) observers))
 
     (* %t *)

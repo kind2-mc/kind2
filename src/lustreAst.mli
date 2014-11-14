@@ -96,7 +96,7 @@ type expr =
   | ExprList of position * expr list
   | TupleExpr of position * expr list
   | ArrayConstr of position * expr * expr
-  | ArraySlice of position * ident * (expr * expr) list
+  | ArraySlice of position * expr * (expr * expr) 
   | ArrayConcat of position * expr * expr
   | RecordConstruct of position * ident * (ident * expr) list
   | Not of position * expr

@@ -158,17 +158,20 @@ let mk_pos = A.position_of_lexing
 %left LT LTE EQUALS NEQ GTE GT
 %left PLUS MINUS
 %left MULT INTDIV MOD DIV
-%nonassoc WHEN
-%nonassoc NOT 
-%nonassoc CURRENT 
 %nonassoc PRE 
-%left CARET 
 %nonassoc INT REAL 
+%nonassoc WHEN CURRENT 
+%nonassoc NOT 
+%left CARET 
+%nonassoc LSQBRACKET DOT
 
 (* Start token *)
 %start <LustreAst.t> main
+%start <LustreAst.expr> one_expr
 
 %%
+
+one_expr: e = expr EOF { e }
 
 
 (* A Lustre program is a list of declarations *)
@@ -507,15 +510,13 @@ expr:
   (* An array constructor *)
   | e1 = expr; CARET; e2 = expr { A.ArrayConstr (mk_pos $startpos, e1, e2) }
 
-  (* A tuple projection 
-
-     TODO: allow multiple projections, return a list: a[0][0][0] *)
-  | e = expr; LSQBRACKET; i = expr ; RSQBRACKET
-    { A.TupleProject (mk_pos $startpos, e, i) }
-
-  (* A multidimensional array slice *)
-  | e = ident; LSQBRACKET; l = array_slice_list; RSQBRACKET
-    { A.ArraySlice (mk_pos $startpos, e, l) }
+  (* An array slice or tuple projection *)
+  | e = expr; LSQBRACKET; s = array_slice; RSQBRACKET
+    { let (l, u) = s in 
+      if l = u then 
+        A.TupleProject (mk_pos $startpos, e, l) 
+      else
+        A.ArraySlice (mk_pos $startpos, e, (l, u)) }
 
   (* A record field projection *)
   | s = expr; DOT; t = ident 
@@ -612,10 +613,9 @@ expr_list: l = separated_nonempty_list(COMMA, expr) { l }
 
 
 (* An array slice *)
-array_slice: il = expr; DOTDOT; iu = expr { il, iu }
-
-(* A list of array slices *)
-array_slice_list: l = separated_nonempty_list(COMMA, array_slice) { l }
+array_slice: 
+   | il = expr; DOTDOT; iu = expr { il, iu }
+   | i = expr { i, i }
 
 
 (* An assignment to a record field *)
