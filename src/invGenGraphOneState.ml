@@ -578,7 +578,7 @@ let generate_invariants trans_sys lsd =
 (* Module entry point. *)
 let main trans_sys =
 
-  let lsd = LSD.create trans_sys in
+  let lsd = LSD.create false trans_sys in
 
   (* Updating statistics. *)
   Stat.set 0 Stat.invgen_k ;

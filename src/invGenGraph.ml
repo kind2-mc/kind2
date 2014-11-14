@@ -436,6 +436,12 @@ let find_invariants lsd invariants sys graph =
            impl_count'
            (TransSys.get_scope sys |> String.concat "/")
      in
+     debug invGenTSInvariants
+           "  %i invariants discovered (%i implications) \\*o*/ [%s]."
+           (List.length new_invariants)
+           impl_count'
+           (TransSys.get_scope sys |> String.concat "/")
+     in
 
      (* Updating statistics. *)
      let inv_count = Stat.get Stat.invgen_invariant_count in
@@ -604,7 +610,7 @@ let generate_invariants trans_sys lsd =
 (* Module entry point. *)
 let main trans_sys =
 
-  let lsd = LSD.create trans_sys in
+  let lsd = LSD.create true trans_sys in
 
   (* Updating statistics. *)
   Stat.set 0 Stat.invgen_k ;
