@@ -1580,7 +1580,8 @@ module CandidateTermGen = struct
     (* List of rules over flat terms and their activation
        condition. *)
     let rule_list =
-      [ bool_terms, ( fun () -> not (Flags.invgen_atoms_only ()) ) ;
+      [ bool_terms, false_of_unit ;
+        (*( fun () -> not (Flags.invgen_atoms_only ()) ) ;*)
         arith_atoms, true_of_unit ]
 
     let apply flat set =
@@ -1760,7 +1761,9 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> set_of_term trans
+             |> if Flags.invgen_scan_trans ()
+                then set_of_term trans
+                else (fun set -> set)
            in
 
            let candidates =

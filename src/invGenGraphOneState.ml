@@ -282,7 +282,7 @@ let filter_step_implications implications =
   
   let result = List.filter filter_implication implications in
 
-  debug invGenOSPruning "  Pruned %i step implications." !rm_count in
+  debug invGenOSControl "  Pruned %i step implications." !rm_count in
 
   result
 
@@ -443,7 +443,9 @@ let find_invariants lsd invariants sys graph =
      new_invariants
      |> List.iter
           (fun inv ->
-           debug invGenOSInv "%s" (Term.string_of_term inv) in ()) ;
+           debug invGenOSInvariants
+                 "%s" (Term.string_of_term inv)
+           in ()) ;
 
 
      let top_level_inv =
