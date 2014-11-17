@@ -138,7 +138,7 @@ let top_int_index_of_idx_trie t =
     |> fst
     |> (function i -> match I.split_index i with
         | I.IntIndex i :: _ -> i
-        | _ -> assert false)
+        | _ -> raise (Invalid_argument "top_int_index_of_idx_trie"))
 
   with Not_found -> (-1)
     
@@ -1393,7 +1393,11 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
 
 
   (* Integer range type, constructed from evaluated expressions for
-     bounds, and add to empty trie with empty index needs *)
+     bounds, and add to empty trie with empty index needs
+
+     TODO: should allow constant node arguments as bounds, but then
+     we'd have to check if in each node call the lower bound is less
+     than or equal to the upper bound. *)
   | A.IntRange (pos, lbound, ubound) -> 
 
     (* Evaluate expressions for bounds to constants *)
@@ -1402,7 +1406,7 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
        int_const_of_ast_expr context pos ubound) 
     in
 
-    (* Ass to empty trie with empty index *)
+    (* Add to empty trie with empty index *)
     IdxTrie.add 
       I.empty_index
       (Type.mk_int_range const_lbound const_ubound)
@@ -2213,6 +2217,7 @@ and equation_to_node
     node 
     pos
     state_var
+    indexes
     ({ E.expr_type } as expr) = 
 
   (* Replace unguarded pre with oracle constants *)
@@ -2293,12 +2298,13 @@ and equation_to_node
   (* Add equation and abstractions *)
   (abstractions',
    context', 
-   { node' with N.equations = (state_var, ([], expr')) :: node'.N.equations })
+   { node' with 
+       N.equations = (state_var, (indexes, expr')) :: node'.N.equations })
 
 
 (* Parse a statement (equation, assert or annotation) in a node *)
 let rec parse_node_equations 
-    abstractions 
+    ({ mk_fresh_state_var } as abstractions)
     ({ expr_of_ident } as context) 
     ({ N.name = node_ident;
        N.outputs = node_outputs;
@@ -2378,7 +2384,7 @@ let rec parse_node_equations
 *)
 
       (* State variables and types of their assigned expressions *)
-      let eq_lhs, context' = match lhs with 
+      let eq_lhs, indexes, context' = match lhs with 
 
         | A.StructDef (pos, struct_items) -> 
 
@@ -2425,7 +2431,7 @@ let rec parse_node_equations
 
                           (* Expression must be a variable *)
                           if not (E.is_var e) then 
-                            
+
                             fail_at_position 
                               pos 
                               "Not assigning to variable";
@@ -2434,7 +2440,7 @@ let rec parse_node_equations
                           let state_var = 
                             E.state_var_of_expr e
                           in
-                          
+
                           if 
 
                             (* State variable must be an output *)
@@ -2444,7 +2450,7 @@ let rec parse_node_equations
                               node_outputs
 
                             || 
-                          
+
                             (* Or state variable must be a local variable *)
                             List.exists 
                               (fun sv -> 
@@ -2453,7 +2459,7 @@ let rec parse_node_equations
 
                           then
 
-                            
+
                             (* Add type of state variable to accumulator *)
                             IdxTrie.add
                               (I.push_back_index_to_index top_index i)
@@ -2462,10 +2468,10 @@ let rec parse_node_equations
 
                           else
 
-                              fail_at_position 
-                                pos 
-                                "Assignment to neither output nor \
-                                 local variable")
+                            fail_at_position 
+                              pos 
+                              "Assignment to neither output nor \
+                               local variable")
                        ident_exprs
                        eq_lhs
                    in
@@ -2476,33 +2482,82 @@ let rec parse_node_equations
                  (* TODO: Structural assignments *)
                  | _ -> 
                    fail_at_position
-                      pos
+                     pos
                      "Structural assignments not supported")
               IdxTrie.empty
               struct_items
 
           in
 
-          (eq_lhs, context)
+          (eq_lhs, [], context)
 
         | A.ArrayDef (pos, ident, indexes) -> 
-                        
-          fail_at_position
-            pos
-            "Recursive array definitions not supported"
-          
+
+          let indexes', context' = 
+            List.fold_left 
+              (fun (indexes', context') index_ident -> 
+
+                 (* Fresh state variable for index *)
+                 let state_var = 
+                   mk_fresh_state_var 
+                     false 
+                     Type.t_int
+                 in
+
+                 (* Associate index identifier with state variable *)
+                 let expr_of_ident' = 
+                   ITrie.add
+                     ident
+                     (E.mk_var state_var E.base_clock)
+                     expr_of_ident
+                 in
+
+                 (* Get array size from trie *)
+                 let array_size = 
+
+                   try 
+
+                     top_int_index_of_idx_trie
+
+                       (try 
+
+                          ITrie.find_prefix 
+                            index_ident 
+                            expr_of_ident
+
+                        with Not_found ->
+
+                          fail_at_position
+                            pos
+                            "Undefined variable in assignment")
+
+                   with _ -> 
+
+                     fail_at_position
+                       pos
+                       "Variable is not an array in assignment"
+
+                 in
+
+                 (indexes))
+
+                 indexes
+          in
+
+          eq_lhs, indexes', context'
+
       in
 
-          (* Evaluate expression and guard all pre operators *)
-          let eq_rhs, abstractions = 
-            close_indexed_ast_expr
-              pos
-              (eval_ast_expr 
-                 abstractions
-                 context' 
-                 ast_expr)
+      (* Evaluate expression and guard all pre operators *)
+      let eq_rhs, abstractions = 
+        close_indexed_ast_expr
+          pos
+          (eval_ast_expr 
+             abstractions
+             context' 
+             ast_expr)
 
-          in
+      in
 
 (*
           debug lustreSimplify
@@ -2512,52 +2567,56 @@ let rec parse_node_equations
 *)
 
 
-          (* Add all equations to node *)
-          let abstractions', context', node' = 
+      (* Add all equations to node *)
+      let abstractions', context', node' = 
 
-            try 
+        try 
 
-              IdxTrie.fold2
-                (fun _ state_var expr (abstractions, context, node) -> 
+          IdxTrie.fold2
+            (fun _ state_var expr (abstractions, context, node) -> 
 
-                  (* Add equation to node *)
-                   equation_to_node 
-                     abstractions
-                     context 
-                     node
-                     pos
-                     state_var
-                     expr)
-                
-                eq_lhs
-                eq_rhs
-                
-                (abstractions, context, node)
+               (* Add equation to node *)
+               equation_to_node 
+                 abstractions
 
-            with Invalid_argument _ -> 
-              
-              fail_at_position 
-                pos
-                "Type mismatch in equation"
+                 (* Use previous with indexes removed *)
+                 context 
 
-          in
+                 node
+                 pos
+                 state_var
+                 indexes
+                 expr)
 
-          (* Continue, and restart with previous empty abstractions *)
-          parse_node_equations 
-            abstractions'
-            context'
-            node'
-            tl
+            eq_lhs
+            eq_rhs
+
+            (abstractions, context, node)
+
+        with Invalid_argument _ -> 
+
+          fail_at_position 
+            pos
+            "Type mismatch in equation"
+
+      in
+
+      (* Continue, and restart with previous empty abstractions *)
+      parse_node_equations 
+        abstractions'
+        context'
+        node'
+        tl
 
 
-        (* Annotation for main node *)
-        | A.AnnotMain :: tl -> 
+    (* Annotation for main node *)
+    | A.AnnotMain :: tl -> 
 
-          parse_node_equations 
-            abstractions
-            context 
-            { node with N.is_main = true }
-            tl
+      parse_node_equations 
+        abstractions
+        context 
+        { node with N.is_main = true }
+        tl
 
     (* Assumption *)
     | A.Assume (pos, ident, expr) :: tl -> 
@@ -2577,7 +2636,7 @@ let rec parse_node_equations
       let abstractions', context', node' = 
         assumption_to_node abstractions context node pos ident expr'
       in
-      
+
       (* Continue with next contract clauses, and restart with
          previous empty abstractions *)
       parse_node_equations
@@ -2605,7 +2664,7 @@ let rec parse_node_equations
       let abstractions', context', node' = 
         guarantee_to_node abstractions context node pos ident expr'
       in
-      
+
       (* Continue with next contract clauses, and restart with
          previous empty abstractions *)
       parse_node_equations
@@ -2655,6 +2714,7 @@ let abstractions_to_context_and_node
              node'
              A.dummy_pos 
              state_var 
+             []
              expr 
          in
 
