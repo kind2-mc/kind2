@@ -562,7 +562,15 @@ let launch trans =
   next trans solver Numeral.zero [] [] unknowns
 
 (* Runs the step instance. *)
-let main trans = launch trans
+let main trans = 
+
+  if not (List.mem `BMC (Flags.enable ())) then
+
+    Event.log 
+      L_warn 
+      "@[<v>Inductive step without BMC will not be able to prove or disprove any properties.@,Use both options --enable BMC --enable IND together.@]";
+      
+  launch trans
 
 
 (* 
