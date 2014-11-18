@@ -1537,7 +1537,7 @@ module CandidateTermGen = struct
            const, const op var, orr var op var. *)
         if ( (is_var kid1) && (is_const kid2) )
           || ( (is_var kid2) && (is_const kid1) )
-          || ( (is_var kid1) && (is_var kid2) )
+          (* || ( (is_var kid1) && (is_var kid2) ) *)
         then
 
           ( match Symbol.node_of_symbol sym with

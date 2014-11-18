@@ -318,23 +318,22 @@ let filter_step_implications implications =
                x>=n  x>=n' and n  >= n'
                n>=x n'>=x  and n' >= n *)
             (compare Symbol.s_geq term_geq)
-              
+                
             (* Returns true if
                x>n  x>n'   and n  >= n'
                n>x n'>x    and n' >= n *)
             || (compare Symbol.s_gt term_geq)
-              
+                
             (* Returns true if
                x<=n  x<=n' and n  <= n'
                n<=x n'<=x  and n' <= n *)
             || (compare Symbol.s_leq (fun t1 t2 -> term_geq t2 t1))
-              
+                
             (* Returns true if
                x<n  x<n'   and n  <= n'
                n<x n'<x    and n' <= n *)
             || (compare Symbol.s_lt (fun t1 t2 -> term_geq t2 t1))
-
-
+              
           (* Kid count does not fit the template, returning false. *)
           | _ -> false
 
