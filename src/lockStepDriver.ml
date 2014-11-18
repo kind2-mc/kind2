@@ -27,6 +27,8 @@ module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 type t = {
   (* The transition system. *)
   trans: TransSys.t ;
+  (* Indicates whether the lsd is two state. *)
+  two_state: bool ;
   (* The solver. *)
   solver: Solver.t ;
   (* The k we are currently at. Means that the transition predicates
@@ -40,11 +42,13 @@ type t = {
   (* All transition predicates for all the nodes of the system. *)
   all_transitions: Term.t ;
   (* Invariants asserted up to k+1. *)
-  mutable invariants: Term.t list
+  mutable invariants: Term.t list ;
+  mutable step_mode: bool
 }
 
 (* Creates a lock step driver based on a transition system. *)
-let create trans =
+let create two_state trans =
+  
   (* Creating solver. *)
   let solver =
     TransSys.get_logic trans
@@ -119,19 +123,21 @@ let create trans =
   |> Term.mk_implies
   |> Solver.assert_term solver ;
 
-  (* Asserting all transitions predicates at zero for step. *)
-  all_transitions_conj
-  |> Term.bump_state Numeral.zero
-  |> Solver.assert_term solver ;
+  (* (\* Asserting all transitions predicates at zero for step. *\) *)
+  (* all_transitions_conj *)
+  (* |> Term.bump_state Numeral.zero *)
+  (* |> Solver.assert_term solver ; *)
 
   (* Return the context of the solver. *)
   { trans = trans ;
+    two_state = two_state ;
     solver = solver ;
     all_vars = all_vars ;
     all_transitions = all_transitions_conj ;
     init_actlit = init_actlit_term ;
     k = Numeral.zero ;
-    invariants = [] }
+    invariants = [] ;
+    step_mode = false }
 
 
 let check_satisfiability { solver } =
@@ -147,7 +153,10 @@ let check_satisfiability { solver } =
 (* Asserts all transition relations at k and all invariants at k+1. *)
 let assert_all_trans_at_k
       ({ solver ; k ; all_transitions ;
-         invariants } as context) =
+         invariants ; step_mode } as context) =
+
+  (* Making sure we are not in step mode. *)
+  assert (not step_mode) ;
 
   (* k plus 1. *)
   let kp1 = Numeral.succ k in
@@ -158,10 +167,14 @@ let assert_all_trans_at_k
   |> Solver.assert_term solver ;
 
   (* Asserting all invariants at k. *)
-  invariants
-  |> Term.mk_and
-  |> Term.bump_state kp1
-  |> Solver.assert_term solver
+  if invariants <> [] then
+    invariants
+    |> Term.mk_and
+    |> Term.bump_state kp1
+    |> Solver.assert_term solver ;
+
+  (* We are now in base mode. *)
+  context.step_mode <- true
   
 
 (* Increments the k of a lock step driver. If we are already in step
@@ -169,13 +182,17 @@ let assert_all_trans_at_k
    next k are already asserted. If we are not in step mode, then they
    will be asserted. *)
 let increment
-      ({ solver ; k ; all_transitions ; invariants } as context) =
+      ({ solver ; k ; all_transitions ; invariants ; step_mode } as context) =
+
+  (* Asserting transition relations at current k if not in
+     step_mode. *)
+  if not step_mode then assert_all_trans_at_k context ;
 
   (* Updating context. *)
   context.k <- Numeral.succ k ;
 
-  (* Asserting all transition relations. *)
-  assert_all_trans_at_k context
+  (* We are now in base mode. *)
+  context.step_mode <- false
 
 (* Deletes a lock step driver. *)
 let delete context =
@@ -185,9 +202,14 @@ let delete context =
 let get_k { k } = k
 
 (* Unrolls a term from 1 to k, returns the list of unrolled terms. *)
-let unroll_term_up_to_k k term =
+let unroll_term_up_to_k exclude_zero k term =
+  let condition =
+    if exclude_zero
+    then (fun num -> Numeral.(num > zero))
+    else (fun num -> Numeral.(num >= zero))
+  in
   let rec loop i unrolled =
-    if Numeral.(i > zero) then
+    if condition i then
       Term.bump_state i term :: unrolled
       |> loop Numeral.(i - one)
     else
@@ -196,32 +218,21 @@ let unroll_term_up_to_k k term =
   loop k []
 
 (* Adds new invariants to a lock step driver. *)
-let new_invariants ({ solver ; k ; invariants } as context) = function
+let new_invariants ({ solver ; k ; invariants ; step_mode } as context) = function
   | [] -> ()
   | new_invariants ->
 
-     debug lsdInvariants
-           "New invariants:"
-    in
-
-    new_invariants
-    |> List.iter
-         (fun t ->
-          debug lsdInvariants
-                "%s" (Term.string_of_term t)
-          in ()) ;
-
-    (* We will be asserting them up to k+1 for step. *)
-    let kp1 = Numeral.(k + one) in
+    (* Maximal k at which the invariants will be asserted. *)
+    let up_to = if step_mode then Numeral.(k + one) else k in
     
     (* Asserting new invariants from 0 to k+1, memorizing them at the
-     same time. *)
+       same time. *)
     new_invariants
     |> List.fold_left
          (* Taking one invariant. *)
          ( fun list inv ->
            (* Asserting it from 0 to k+1 as a conjunction. *)
-           unroll_term_up_to_k kp1 inv
+           unroll_term_up_to_k false up_to inv
            |> Term.mk_and
            |> Solver.assert_term solver ;
            (* Appending to old invariants. *)
@@ -322,7 +333,7 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
 
    Optimisation: while getting the values, prepare terms for the
    next iteration. *)
-let rec split_closure solver k kp1 all_vars falsifiable terms =
+let rec split_closure two_state solver k kp1 all_vars falsifiable terms =
   match terms with
   | _ :: _ ->
 
@@ -345,7 +356,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
               (* Asserting that actlit implies term from 0 to k. The
                  actlit gets overloaded for each term. *)
               [ terms_actlit_term ;
-                unroll_term_up_to_k k term |> Term.mk_and ]
+                unroll_term_up_to_k two_state k term |> Term.mk_and ]
               |> Term.mk_implies
               |> Solver.assert_term solver ;
 
@@ -406,7 +417,8 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
          | Some (new_falsifiable, new_unknown) ->
             (* Some terms are falsifiable, we shall loop. *)
             fun () ->
-            split_closure solver k kp1 all_vars new_falsifiable new_unknown
+            split_closure
+              two_state solver k kp1 all_vars new_falsifiable new_unknown
 
          | None ->
             (* The terms left are unfalsifiable, we shall return the
@@ -433,176 +445,18 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (* Checks if some of the input terms are k-inductive. Returns a pair
    composed of the falsifiable terms and the unfalsifiable ones. *)
 let query_step
-      ({ solver ; k ; all_vars } as context) terms =
+      ({ solver ; two_state ; k ; all_vars ; step_mode } as context) terms =
+
+  debug lsd "Query step." in
+
+  terms
+  |> List.iter
+       ( fun t -> debug lsd "%s" (Term.string_of_term t) in () ) ;
+
+  if not step_mode then assert_all_trans_at_k context ;
 
   (* Spliting the terms. *)
-  split_closure solver k Numeral.(k + one) all_vars [] terms
-
-
-
-                                           
-(* Tests the lock step driver on the system below. *)
-let test trans =
-  let lsk = create trans in
-
-  let build_var string =
-    UfSymbol.uf_symbol_of_string string
-    |> StateVar.state_var_of_uf_symbol
-    |> (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
-    |> Term.mk_var
-  in
-
-  let corrupted, warning =
-    build_var "relCount.corrupted", build_var "relCount.warning"
-  in
-
-  let invariant = Term.mk_implies [ corrupted ; warning ] in
-
-  let not_invariant_1 = Term.mk_not corrupted in
-
-  let not_invariant_2 =
-    Term.mk_implies
-      [ Term.mk_not corrupted |> Term.bump_state Numeral.(~- one) ;
-        corrupted ]
-  in
-
-  let terms_to_try = [ invariant ;
-                       not_invariant_1 ;
-                       not_invariant_2 ] in
-
-  let print_terms prefix terms =
-    Printf.printf "%s\n" prefix ;
-    terms
-    |> List.iter
-         ( fun t -> Printf.printf "  - %s\n" (Term.string_of_term t) )
-  in
-
-  let print_model prefix model =
-    Printf.printf "%s\n" prefix ;
-    model
-    |> List.iter
-         ( fun (v,t) ->
-           Printf.printf
-             "  - %s = %s\n"
-             (Var.string_of_var v)
-             (Term.string_of_term t) )
-  in
-
-  let space () = Printf.printf "\n" in
-
-  print_terms "Running with:" terms_to_try ;
-  space () ;
-
-  let readLine () =
-    match read_line () with
-    | "exit" ->
-       delete lsk ;
-       exit 0
-    | _ -> ()
-  in
-
-  let rec base_loop falsifiable unknown =
-    print_terms "Querying base with" unknown ;
-    match
-      query_base lsk unknown
-    with
-    | None ->
-       Printf.printf "Unsat.\n" ;
-       let _ = readLine () in
-       unknown
-    | Some model ->
-       print_model "Got a model" model ;
-       Printf.printf "Evaluating.\n" ;
-       let nu_unknwn, nu_flsbl =
-         unknown
-         |> List.partition
-              ( fun t -> Eval.bool_of_value (Eval.eval_term [] model t) )
-       in
-       print_terms "Nu falsifiable:" nu_flsbl ;
-       print_terms "Nu unknown:" nu_unknwn ;
-       let _ = readLine () in
-       base_loop
-         (List.rev_append nu_flsbl falsifiable)
-         nu_unknwn
-  in
-
-  let rec loop unknown =
-    Printf.printf "Now at %i.\n" (Numeral.to_int (get_k lsk)) ;
-    match unknown with
-    | [] -> Printf.printf "No more unknown, done.\n"
-    | _ ->
-       (match base_loop [] unknown with
-        | [] -> Printf.printf "No more unknown, done.\n"
-        | new_unknown ->
-           Printf.printf "Querying step.\n" ;
-           let (nu_unknown, proved) =
-             query_step lsk new_unknown
-           in
-           print_terms "Proved:" proved ;
-           print_terms "Unknown:" nu_unknown ;
-           let _ = readLine () in
-           Printf.printf "\nIncrementing k.\n" ;
-           increment lsk ;
-           loop nu_unknown)
-  in
-
-  loop terms_to_try ;
-
-(*
-node relCount(a,b,c:bool) returns(warning, corrupted:bool);
-var
-  pre_x,x,pre_y,y: int;
-  nX,nY: int;
-let
-
-  -- Ranges over the state variables, can be found easily
-  -- by AI or template-based techniques.
-  assert (0 <= x) and (x <= nX) and (0 <= y) and (y <= nY);
-
-  nX=10;
-  nY=2;
-  pre_x = 0-> pre(x);
-  pre_y = 0-> pre(y);
-
-  x = if (b or c) then 0
-      else (if (a and pre_x < nX) then pre_x + 1 else pre_x);
-
-  y = if (c) then 0 
-      else (if (a and pre_y < nY) then pre_y + 1 else pre_y);
-
-
-  corrupted = x >= nX;
-  warning = y >= nY;
-
-  -- Proof objective.
-  -- ok = ((x = nX) => (y = nY));
-
--- PROPERTY ok;
--- MAIN;
-tel
-
-node master(in: real) returns (out: real; warning, corrupted: bool);
-var
-  safe, min, max, sat: real;
-  outOfRange: bool;
-let
-  safe = 0.0;
-  min = -1.0;
-  max =  1.0;
-  sat = if in < min then min
-        else if in > max then max
-             else in;
-
-  outOfRange = in < min or max < in;
-
-  warning, corrupted =
-    relCount(outOfRange,
-             not outOfRange,
-             not outOfRange and (false -> not pre outOfRange));
-
-  out = if corrupted then safe else sat;
-tel
- *)
+  split_closure two_state solver k Numeral.(k + one) all_vars [] terms
 
 
 (* 
