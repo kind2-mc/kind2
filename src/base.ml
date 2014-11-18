@@ -113,8 +113,8 @@ let split_closure trans solver k actlits to_split =
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
     (* Asserting implication. *)
-    Term.mk_or
-        [ actlit |> term_of_actlit |> Term.mk_not ; term ]
+    Term.mk_implies
+        [ actlit |> term_of_actlit ; term ]
     |> Solver.assert_term solver ;
     (* All actlits. *)
     let all_actlits = (term_of_actlit actlit) ::  actlits in
@@ -162,14 +162,36 @@ let rec next (trans, solver, k, invariants, unknowns) =
     |> Solver.assert_term solver
   in
 
-  (* Getting new invariants and valid / falsified properties. *)
-  let new_invariants, new_valids, new_falsifieds =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
+  (* Getting new invariants and updating transition system. *)
+  let new_invariants =
+
+
+    let new_invs, updated_props =
+      (* Receiving messages. *)
+      Event.recv ()
+      (* Updating transition system. *)
+      |> Event.update_trans_sys trans
+      (* Extracting invariant module/term pairs. *)
+    in
+
+    updated_props
+    (* Looking for new invariant properties. *)
+    |> List.fold_left
+         ( fun list (_, (name,status)) ->
+           if status = TransSys.PropInvariant
+           then
+             (* Memorizing new invariant property. *)
+             ( TransSys.prop_of_name trans name )
+             :: list
+           else
+             list )
+         (* New invariant properties are added to new invariants. *)
+         ( List.map snd new_invs )
+           
   in
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
-  let nu_unknowns = unknowns |> List.filter (shall_keep trans)
-  in
+  let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
 
   match nu_unknowns with
   | [] -> ()
@@ -218,10 +240,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
               (* Appending it to the list of actlits. *)
               actlit_term :: actlits,
               (* Building the implication and appending. *)
-              (Term.mk_or [
-                   Term.mk_not actlit_term ;
-                   Term.bump_state Numeral.(k-one) term
-              ]) :: implications )
+              (Term.mk_implies
+                 [ actlit_term ;
+                   Term.bump_state Numeral.(k-one) term])
+              :: implications )
             ([], [])
      in
 

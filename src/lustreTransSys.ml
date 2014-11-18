@@ -638,7 +638,7 @@ let rec definitions_of_node_calls
                   (* Create fresh shadow variable for input *)
                   let sv' = 
                     mk_new_state_var
-                      ~for_inv_gen:false
+                      ~for_inv_gen:true
                       (StateVar.type_of_state_var sv) 
                   in
 
@@ -1073,7 +1073,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         E.mk_fresh_state_var
           ~is_input:false
           ~is_const:false
-          ~for_inv_gen:false
+          ~for_inv_gen:true
           (LustreIdent.index_of_ident node_name)
           I.ticked_ident
           Type.t_bool

@@ -23,8 +23,10 @@ open Actlit
 (** Type of a lock step kind context. *)
 type t
 
-(** Creates a lock step driver based on a transition system. *)
-val create: TransSys.t -> t
+(** Creates a lock step driver based on a transition system. The
+    boolean parameters indicates whether the lsd should be two states
+    or not. *)
+val create: bool -> TransSys.t -> t
 
 (** Deletes a lock step driver. *)
 val delete: t -> unit
@@ -52,10 +54,6 @@ val query_base: t -> Term.t list -> ((Var.t * Term.t) list) option
 (** Checks if some of the input terms are k-inductive. Returns a pair
     composed of the falsifiable terms and the unfalsifiable ones. *)
 val query_step: t -> Term.t list -> Term.t list * Term.t list
-
-(** Checks the lock step driver on the system below its implementation
-    in the ml file. *)
-val test: TransSys.t -> unit
 
 (* 
    Local Variables:

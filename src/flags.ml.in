@@ -461,6 +461,10 @@ type invgen_atoms_only = bool
 
 let invgen_atoms_only_default = false
 
+type invgen_scan_trans = bool
+
+let invgen_scan_trans_default = false
+
 (* ********** *) 
 
 type interpreter_input_file = string 
@@ -559,6 +563,7 @@ type flags =
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable invgen_top_only : invgen_top_only;
       mutable invgen_atoms_only : invgen_atoms_only;
+      mutable invgen_scan_trans : invgen_scan_trans;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -604,6 +609,7 @@ let flags =
     cooper_general_lbound = cooper_general_lbound_default;
     invgen_top_only = invgen_top_only_default;
     invgen_atoms_only = invgen_atoms_only_default;
+    invgen_scan_trans = invgen_scan_trans_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -916,6 +922,13 @@ let invgen_atoms_only_spec =
    Arg.Unit invgen_atoms_only_action,
    "Invariant generation will only consider atoms as candidate terms.")
   
+let invgen_scan_trans_action o = flags.invgen_scan_trans <- true
+                                       
+let invgen_scan_trans_spec = 
+  ("--invgen_scan_trans", 
+   Arg.Unit invgen_scan_trans_action,
+   "Invariant generation will extract candidate terms from the transition predicate.")
+  
 (* ********** *) 
 
 let interpreter_input_file_action o = flags.interpreter_input_file <- o
@@ -1093,6 +1106,8 @@ let invgen_top_only () = flags.invgen_top_only
 
 let invgen_atoms_only () = flags.invgen_atoms_only
 
+let invgen_scan_trans () = flags.invgen_scan_trans
+
 let interpreter_input_file () = flags.interpreter_input_file
 
 let interpreter_steps () = flags.interpreter_steps
@@ -1223,6 +1238,7 @@ and speclist =
     (* Set invgen options. *)
     invgen_top_only_spec;
     invgen_atoms_only_spec;
+    invgen_scan_trans_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;
