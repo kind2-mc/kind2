@@ -246,6 +246,106 @@ let filter_step_implications implications =
 
   in
 
+  (* Tests if 'lhs' and 'rhs' are arithmetic operators that trivially
+     imply each other, such as x<=2 and x<=0. *)
+  let trivial_impl_arith lhs rhs =
+
+    (* Returns true if the two input terms are arith constants and the
+       first one is greater than or equal to the second one. *)
+    let term_geq t1 t2 =
+      if (Term.is_numeral t1) && (Term.is_numeral t2)
+      then
+        (* Comparing numerals. *)
+        Numeral.( (Term.numeral_of_term t1) >= (Term.numeral_of_term t2) )
+      else if (Term.is_decimal t1) && (Term.is_decimal t2)
+      then
+        (* Comparing decimals. *)
+        Decimal.( (Term.decimal_of_term t1) >= (Term.decimal_of_term t2) )
+      else
+        (* Uncomparable terms. *)
+        false
+    in
+
+    (* Are lhs and rhs applications? *)
+    if (Term.is_node lhs) && (Term.is_node rhs)
+    then
+
+      (* Are rhs and lhs similar applications? *)
+      if (Term.node_symbol_of_term lhs) == (Term.node_symbol_of_term rhs)
+      then (
+
+        match (Term.node_args_of_term lhs), (Term.node_args_of_term rhs) with
+
+          | [kid1 ; kid2], [kid1' ; kid2'] ->
+
+            (* If lhs and rhs are applications of [symbol], and if
+               [kid1] and [kid1'] are the same variables then return
+               [operator kid2 kid2']. Else, if [kid2] and [kid2'] are the
+               same variables then return [operator kid1'
+               kid1]. Otherwise return false. *)
+            let compare symbol operator =
+
+              if (Term.node_symbol_of_term lhs) == symbol
+              then (
+
+                if
+                  (Term.is_free_var kid1) && (Term.is_free_var kid1')
+                then
+
+                  ( (Term.free_var_of_term kid1) ==
+                      (Term.free_var_of_term kid1') )
+                  && ( operator kid2 kid2' )
+
+                else if
+                    (Term.is_free_var kid2)
+                    && (Term.is_free_var kid2')
+                then
+
+                  ( (Term.free_var_of_term kid2) ==
+                      (Term.free_var_of_term kid2') )
+                  && ( operator kid1' kid1 )
+
+                else
+
+                  false
+                    
+              ) else false
+                
+            in
+
+
+            (* Returns true if
+               x>=n  x>=n' and n  >= n'
+               n>=x n'>=x  and n' >= n *)
+            (compare Symbol.s_geq term_geq)
+              
+            (* Returns true if
+               x>n  x>n'   and n  >= n'
+               n>x n'>x    and n' >= n *)
+            || (compare Symbol.s_gt term_geq)
+              
+            (* Returns true if
+               x<=n  x<=n' and n  <= n'
+               n<=x n'<=x  and n' <= n *)
+            || (compare Symbol.s_leq (fun t1 t2 -> term_geq t2 t1))
+              
+            (* Returns true if
+               x<n  x<n'   and n  <= n'
+               n<x n'<x    and n' <= n *)
+            || (compare Symbol.s_lt (fun t1 t2 -> term_geq t2 t1))
+
+
+          (* Kid count does not fit the template, returning false. *)
+          | _ -> false
+
+      (* [rhs] and [lhs] are not similar applications, returning false. *)
+      ) else false
+
+    (* [rhs] and [lhs] are not applications, returning false. *)
+    else false
+
+  in
+
   (* Number of implications removed. *)
   let rm_count = ref 0 in
 
@@ -269,6 +369,9 @@ let filter_step_implications implications =
              (* Checking if lhs is an or containing lhs, or a negated
                or containing the negation of lhs. *)
              || (trivial_lhs_and lhs rhs)
+             (* Checking if lhs and rhs are arith operator and lhs
+                trivially implies rhs. *)
+             || (trivial_impl_arith lhs rhs)
            then (
              rm_count := !rm_count + 1 ; false
            ) else true

@@ -1533,46 +1533,49 @@ module CandidateTermGen = struct
 
       | Term.T.App (sym, ((kid1 :: kid2 :: []) as kids)) ->
 
-         if ( (is_var kid1) && (is_const kid2) )
-            || ( (is_var kid2) && (is_const kid1) )
-         then
+        (* The inequality has to be a 'small' one. Either var op
+           const, const op var, orr var op var. *)
+        if ( (is_var kid1) && (is_const kid2) )
+          || ( (is_var kid2) && (is_const kid1) )
+          || ( (is_var kid1) && (is_var kid2) )
+        then
 
-           ( match Symbol.node_of_symbol sym with
+          ( match Symbol.node_of_symbol sym with
 
-             | `EQ ->
+            | `EQ ->
 
                 (* Making sure it's an arith equality. *)
-                ( match
-                    kid1 |> Term.type_of_term |> Type.node_of_type
-                  with
+              ( match
+                  kid1 |> Term.type_of_term |> Type.node_of_type
+                with
 
                   | Type.Int
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
-                     set
-                     |> TSet.add (Term.mk_geq kids)
-                     |> TSet.add (Term.mk_leq kids)
+                    set
+                  |> TSet.add (Term.mk_geq kids)
+                  |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
-             | `LEQ -> set
-                       |> TSet.add (Term.mk_geq kids)
-                       |> TSet.add (Term.mk_leq kids)
+            | `LEQ -> set
+            |> TSet.add (Term.mk_geq kids)
+            |> TSet.add (Term.mk_leq kids)
 
-             | `GEQ -> set
-                       |> TSet.add (Term.mk_geq kids)
-                       |> TSet.add (Term.mk_leq kids)
+            | `GEQ -> set
+            |> TSet.add (Term.mk_geq kids)
+            |> TSet.add (Term.mk_leq kids)
 
-             | `GT  -> set
-                       |> TSet.add (Term.mk_geq kids)
-                       |> TSet.add (Term.mk_leq kids)
+            | `GT  -> set
+            |> TSet.add (Term.mk_geq kids)
+            |> TSet.add (Term.mk_leq kids)
 
-             | `LT  -> set
-                       |> TSet.add (Term.mk_geq kids)
-                       |> TSet.add (Term.mk_leq kids)
+            | `LT  -> set
+            |> TSet.add (Term.mk_geq kids)
+            |> TSet.add (Term.mk_leq kids)
 
-             | _ -> set )
+            | _ -> set )
 
-         else set
+        else set
              
       | _ -> set
 
