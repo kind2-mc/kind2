@@ -953,12 +953,6 @@ let rec trans_sys_of_nodes'
        N.requires = node_requires; 
        N.ensures = node_ensures } as node) :: tl ->
 
-
-    debug lustreTransSys
-        "@[<v>trans_sys_of_node:@,@[<hv 1>%a@]@]"
-        (N.pp_print_node false) node
-    in
-
     (* Create scope from node name *)
     let scope = 
       LustreIdent.index_of_ident node_name
