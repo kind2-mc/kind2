@@ -164,17 +164,18 @@ let trans_term { trans = (_, (_, t)) } = t
 
 
 (* Add entry for new system instantiation to the transition system *)
-let add_caller t c = 
+let add_caller callee caller c = 
  
   (* Fold over the association list and add to the existing entry, or
      to the end *)
   let rec add_caller' accum = function
-    | [] ->  (t, [c]) :: accum
-    | (t', c') :: tl when t'.scope = t.scope -> (t', (c :: c')) :: accum
+    | [] ->  (caller, [c]) :: accum
+    | (caller', c') :: tl when 
+        caller'.scope = caller.scope -> (caller', (c :: c')) :: accum
     | h :: tl -> add_caller' (h :: accum) tl 
   in
 
-  t.callers <- add_caller' [] t.callers
+  callee.callers <- add_caller' [] callee.callers
 
 
 (* Prints the instantiation maps of a transition system. *)
