@@ -1585,16 +1585,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
           ()))
       state_var_maps;
     
-    List.iter 
-      (fun (n, c) -> 
-         let { trans_sys = callee } = List.assoc n node_defs in 
-         (debug lustreTransSys
-             "@[<v>Added caller:@,@[<hv>%a@]@]"
-             TransSys.pp_print_trans_sys callee
-          in
-          ()))
-      state_var_maps;
-    
     (* Create record for this node *)
     let node_def = 
       { trans_sys = trans_sys;
