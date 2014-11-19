@@ -1521,17 +1521,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         props
     in
 
-    List.iter 
-      (fun (n, c) -> 
-         let { trans_sys } = List.assoc n node_defs in 
-         TransSys.add_caller trans_sys c;
-         (debug lustreTransSys
-             "@[<v>Added caller:@,@[<hv>%a@]@]"
-             TransSys.pp_print_trans_sys trans_sys
-          in
-          ()))
-      state_var_maps;
-    
     (* Get list of transition systems of called nodes *)
     let called_trans_sys, called_nodes = 
       
@@ -1585,6 +1574,27 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       TransSys.pp_print_trans_sys trans_sys
     in
 
+    List.iter 
+      (fun (n, c) -> 
+         let { trans_sys = callee } = List.assoc n node_defs in 
+         TransSys.add_caller callee trans_sys c;
+         (debug lustreTransSys
+             "@[<v>Added caller:@,@[<hv>%a@]@]"
+             TransSys.pp_print_trans_sys callee
+          in
+          ()))
+      state_var_maps;
+    
+    List.iter 
+      (fun (n, c) -> 
+         let { trans_sys = callee } = List.assoc n node_defs in 
+         (debug lustreTransSys
+             "@[<v>Added caller:@,@[<hv>%a@]@]"
+             TransSys.pp_print_trans_sys callee
+          in
+          ()))
+      state_var_maps;
+    
     (* Create record for this node *)
     let node_def = 
       { trans_sys = trans_sys;
