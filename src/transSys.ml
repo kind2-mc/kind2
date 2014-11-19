@@ -224,7 +224,7 @@ let add_instantiation_map t (sys', map) =
 
 (* Instantiates a term for all systems instantiating the input
    system. *)
-let instantiate_term { instantiation_maps } term =
+let instantiate_term { callers } term =
 
   (* Gets the term corresponding to 'var' in 'map' and bumps it if
      'var' is not a constant. Raises Not_found if 'var' is not defined
@@ -233,19 +233,18 @@ let instantiate_term { instantiation_maps } term =
     
     (* Getting the state variable. *)
     let sv = Var.state_var_of_state_var_instance var in
-    (* Getting corresponding term. *)
-    let term = List.assq sv map in
+    (* Getting corresponding state variable. *)
+    let sv' = List.assq sv map in
     
-    (* Checking if we need to bump. *)
     if Var.is_const_state_var var
-    then (* We don't. *)
-      term
-    else ( (* We do. *)
-      (* Bumping by the offset of 'var'. *)
-      Term.bump_state
+    then (* Var is a const. *)
+      Var.mk_const_state_var sv'
+      |> Term.mk_var
+    else (* Var is not a const.. *)
+      Var.mk_state_var_instance
+        sv'
         (Var.offset_of_state_var_instance var)
-        term
-    )
+      |> Term.mk_var
   in
 
   (* Instantiates variables according to map. *)
@@ -255,10 +254,8 @@ let instantiate_term { instantiation_maps } term =
     ( fun _ term ->
 
       (* Is the term a free variable?. *)
-      if Term.is_free_var term
-                          
-      then
-        
+      if Term.is_free_var term then
+
         try
           (* Extracting state variable. *)
           Term.free_var_of_term term
@@ -275,7 +272,7 @@ let instantiate_term { instantiation_maps } term =
         term )
   in
 
-  instantiation_maps
+  callers
   |> List.map
        ( fun (sys, maps) ->
          
@@ -284,12 +281,13 @@ let instantiate_term { instantiation_maps } term =
          let terms =
            maps
            |> List.map
-                (* For each map of this over-system, substitute the
-                   variables of term according to map. *)
-                ( fun map ->
-                  Term.map
-                    (substitute_fun_of_map map)
-                    term )
+               (* For each map of this over-system, substitute the
+                  variables of term according to map. *)
+               ( fun (map,f,f') ->
+                 Term.map
+                   (substitute_fun_of_map map)
+                   term
+                 |> f )
          in
 
          sys, terms )
@@ -318,7 +316,7 @@ let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
 
 
 (* Returns true iff the input system has no parent systems. *)
-let is_top { instantiation_maps } = instantiation_maps = []
+let is_top { callers } = callers = []
 
 
 (* Instantiates a term for the top system by going up the system
@@ -332,13 +330,17 @@ let instantiate_term_all_levels t term =
   let rec loop at_top intermediary = function
     | (sys, ((term :: term_tail) as list)) :: tail ->
 
+      debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
+
        (* Instantiating this term upward. *)
        let at_top', intermediary', recursive' =
          instantiate_term sys term
          |> List.fold_left
               ( fun (at_top'', intermediary'', recursive'')
                     ((sys',_) as pair) ->
-                
+
+                      debug transSys "[loop] inst sys: %s" (sys'.scope |> String.concat "/") in
+
                 if is_top sys' then
                   (* Top system, no need to recurse on these terms. *)
                   insert_in_sys_term_map at_top'' pair,
@@ -350,7 +352,7 @@ let instantiate_term_all_levels t term =
                   at_top'',
                   insert_in_sys_term_map intermediary'' pair,
                   insert_in_sys_term_map recursive'' pair )
-              
+
               (at_top, intermediary, ((sys,term_tail) :: tail))
        in
 
@@ -374,12 +376,15 @@ let instantiate_term_all_levels t term =
 
 
   if is_top t
-  then
+  then (
+    debug transSys "Instantiate: system is already top." in
     (* If the system is already the top one, there is no instantiating
        to do. *)
     (t, [term]), []
-  else
+  ) else (
+    debug transSys "Instantiate: system is not top." in
     loop [] [t, [term]] [t, [term]]
+)
 
 
 (* Instantiates a term for the top system by going up the system

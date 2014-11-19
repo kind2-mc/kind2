@@ -443,7 +443,9 @@ let find_invariants lsd invariants sys graph =
              TSet.fold
                (* And we build all the equalities. *)
                (fun term list' ->
-                (Term.mk_eq [rep ; term]) :: list')
+                 if rep != term then
+                   (Term.mk_eq [rep ; term]) :: list'
+                 else list')
                set
                list )
          
