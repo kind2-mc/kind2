@@ -1,26 +1,13 @@
 /*  =========================================================================
     zmutex - working with mutexes
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -59,7 +46,10 @@ zmutex_new (void)
 
     self = (zmutex_t *) zmalloc (sizeof (zmutex_t));
 #if defined (__UNIX__)
-    pthread_mutex_init (&self->mutex, NULL);
+    if (pthread_mutex_init (&self->mutex, NULL) != 0) {
+        free (self);
+        return NULL;
+    }
 #elif defined (__WINDOWS__)
     InitializeCriticalSection (&self->mutex);
 #endif
@@ -94,6 +84,7 @@ zmutex_destroy (zmutex_t **self_p)
 void
 zmutex_lock (zmutex_t *self)
 {
+    assert (self);
 #if defined (__UNIX__)
     pthread_mutex_lock (&self->mutex);
 #elif defined (__WINDOWS__)
@@ -108,6 +99,7 @@ zmutex_lock (zmutex_t *self)
 void
 zmutex_unlock (zmutex_t *self)
 {
+    assert (self);
 #if defined (__UNIX__)
     pthread_mutex_unlock (&self->mutex);
 #elif defined (__WINDOWS__)
@@ -115,6 +107,27 @@ zmutex_unlock (zmutex_t *self)
 #endif
 }
 
+//  --------------------------------------------------------------------------
+//  Try to lock mutex.
+//  Returns:
+//    0 if the mutex is already locked
+//    1 if the mutex lock has successfully been acquired
+//    -1 on error
+
+int
+zmutex_try_lock (zmutex_t *self)
+{
+    assert (self);
+#if defined (__UNIX__)
+    // rc is either EBUSY or 0
+    int rc = pthread_mutex_trylock (&self->mutex);
+    return rc == EBUSY ? 0 : 1;
+#elif defined (__WINDOWS__)
+    // rc is nonzero if the mutex lock has been acquired
+    int rc = TryEnterCriticalSection (&self->mutex);
+    return rc != 0 ? 1 : 0;
+#endif
+}
 
 //  --------------------------------------------------------------------------
 //  Selftest

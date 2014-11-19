@@ -8,31 +8,15 @@ OCAMLOPT=@OCAMLOPT@
 
 all: czmq_stubs
 
-# Rules to configure and compile ZeroMQ 
-
-# autogen-zeromq: zeromq/configure.in
-# 	cd zeromq && sh autogen.sh
-
-# configure-zeromq: autogen-zeromq
-# 	 cd zeromq && ./configure --prefix=$(CURDIR)
-
 .PHONY: zeromq
 
-zeromq: # configure-zeromq
+zeromq:
 	make -C zeromq
 	make -C zeromq install
 
-# Rules to configure and compile CZMQ 
-
-# autogen-czmq: zeromq/configure.in
-# 	cd czmq && sh autogen.sh
-
-# configure-czmq: autogen-czmq
-# 	 cd czmq && ./configure --prefix=$(CURDIR) --with-libzmq=$(CURDIR)
-
 .PHONY: czmq
 
-czmq: zeromq # configure-czmq
+czmq: zeromq
 	make -C czmq
 	make -C czmq install
 
@@ -47,26 +31,6 @@ clean:
 
 zmq_test: zmq_test.ml
 	$(OCAMLOPT) -I lib ZMQ.cmxa zmq_test.ml -o zmq_test
-
-# .PHONY: ocamlczmq
-
-# ocamlczmq: czmq
-# 	make -C src
-
-# .PHONY: czmq
-
-# czmq: 
-# 	cd czmq && sh autogen.sh && ./configure @CZMQ_CONFFLAGS@ --prefix=@prefix@
-# 	make -C czmq
-
-# clean: Makefile
-# 	make -C src clean
-
-# .PHONY: install 
-
-# install: 
-# 	make -C czmq install	
-# 	cd src && cp dll_wrap_stubs.so lib_wrap_stubs.a ZMQ.cmi ZMQ.a ZMQ.cmxa ZMQ.cma ../lib
 
 
 # Remake this Makefile if configuration has changed 
