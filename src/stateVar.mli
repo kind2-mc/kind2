@@ -106,6 +106,9 @@ val is_const : t -> bool
 (** Return true if state variable is to be used in invariant generation *)
 val for_inv_gen : t -> bool
 
+(** Set or unset flag to use state variable in invariant generation *)
+val set_for_inv_gen : bool -> t -> unit
+
 (** {1 Iterators over defined state variables} *)
 
 (** [fold f a] computes [(f sN tN uN ... (f s2 t2 u2 (f s1 t1 u1

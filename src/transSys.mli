@@ -83,6 +83,9 @@ val mk_trans_sys :
   source ->
   t
 
+(** Add entry for new system instantiation to the transition system *)
+val add_caller : t -> (StateVar.t * StateVar.t) list * (Term.t -> Term.t) * (Term.t -> Term.t) -> unit
+
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
 
