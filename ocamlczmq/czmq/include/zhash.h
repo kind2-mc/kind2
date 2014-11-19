@@ -1,26 +1,13 @@
 /*  =========================================================================
     zhash - generic type-free hash container
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -100,22 +87,64 @@ CZMQ_EXPORT zlist_t *
 CZMQ_EXPORT int
     zhash_foreach (zhash_t *self, zhash_foreach_fn *callback, void *argument);
 
+//  Add comment to hash table before saving to disk. You can add as many
+//  comment lines as you like. These comment lines are discarded when loading
+//  the file. If you use a null format, all comments are deleted.
+CZMQ_EXPORT void
+    zhash_comment (zhash_t *self, const char *format, ...);
+
 //  Save hash table to a text file in name=value format. Hash values must be
 //  printable strings; keys may not contain '=' character. Returns 0 if OK,
 //  else -1 if a file error occurred.
 CZMQ_EXPORT int
-    zhash_save (zhash_t *self, char *filename);
+    zhash_save (zhash_t *self, const char *filename);
 
 //  Load hash table from a text file in name=value format; hash table must
 //  already exist. Hash values must printable strings; keys may not contain
 //  '=' character. Returns 0 if OK, else -1 if a file was not readable.
 CZMQ_EXPORT int
-    zhash_load (zhash_t *self, char *filename);
+    zhash_load (zhash_t *self, const char *filename);
+
+//  When a hash table was loaded from a file by zhash_load, this method will
+//  reload the file if it has been modified since, and is "stable", i.e. not
+//  still changing. Returns 0 if OK, -1 if there was an error reloading the 
+//  file.
+CZMQ_EXPORT int
+    zhash_refresh (zhash_t *self);
 
 //  Set hash for automatic value destruction
 CZMQ_EXPORT void
     zhash_autofree (zhash_t *self);
     
+//  Serialize hash table to a binary frame that can be sent in a message.
+//  The packed format is compatible with the 'dictionary' type defined in
+//  http://rfc.zeromq.org/spec:35/FILEMQ, and implemented by zproto:
+//
+//     ; A list of name/value pairs
+//     dictionary      = dict-count *( dict-name dict-value )
+//     dict-count      = number-4
+//     dict-value      = longstr
+//     dict-name       = string
+//
+//     ; Strings are always length + text contents
+//     longstr         = number-4 *VCHAR
+//     string          = number-1 *VCHAR
+//
+//     ; Numbers are unsigned integers in network byte order
+//     number-1        = 1OCTET
+//     number-4        = 4OCTET
+//
+//  Comments are not included in the packed data. Item values MUST be
+//  strings.
+CZMQ_EXPORT zframe_t *
+    zhash_pack (zhash_t *self);
+    
+//  Unpack binary frame into a new hash table. Packed data must follow format
+//  defined by zhash_pack. Hash table is set to autofree. An empty frame
+//  unpacks to an empty hash table.
+CZMQ_EXPORT zhash_t *
+    zhash_unpack (zframe_t *frame);
+
 //  Self test of this class
 CZMQ_EXPORT void
     zhash_test (int verbose);
