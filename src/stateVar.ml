@@ -60,7 +60,7 @@ type state_var_prop =
     is_const : bool;
 
     (* Use as candidate in invariant generation *)
-    for_inv_gen : bool;
+    mutable for_inv_gen : bool;
 
   }
 
@@ -230,6 +230,9 @@ let is_const { Hashcons.prop = { is_const } } = is_const
 
 (* Return true if state variable is to be used in invariant generation *)
 let for_inv_gen { Hashcons.prop = { for_inv_gen } } = for_inv_gen
+
+(* Set or unset flag to use state variable in invariant generation *)
+let set_for_inv_gen flag { Hashcons.prop } = prop.for_inv_gen <- flag
 
 
 (* ********************************************************************* *)
