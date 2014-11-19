@@ -126,10 +126,19 @@ type t = {
   (* Status of property *)
   mutable prop_status: (string * prop_status) list ;
 
+
+  (* Systems instantiating this system, and for each instantiation a
+     map from state variables of this system to the state variables of
+     the instantiating system as well as a function to guard Boolean
+     terms. *)
+  mutable callers : 
+    (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t) * (Term.t -> Term.t)) list)) list;
+
+
   (* Associates a system instantiating this system with a map from the
      variables of this system to the argument of the instantiation in
      the over-system. *)
-  mutable instantiation_maps: (t * ((StateVar.t * Term.t) list list)) list
+  mutable instantiation_maps: (t * ((StateVar.t * Term.t) list list)) list;
 
 }
            
@@ -152,6 +161,21 @@ let init_term { init = (_, (_, t)) } = t
 
 (* Return the definition of the transition relation *)
 let trans_term { trans = (_, (_, t)) } = t
+
+
+(* Add entry for new system instantiation to the transition system *)
+let add_caller t c = 
+ 
+  (* Fold over the association list and add to the existing entry, or
+     to the end *)
+  let rec add_caller' accum = function
+    | [] ->  (t, [c]) :: accum
+    | (t', c') :: tl when t'.scope = t.scope -> (t', (c :: c')) :: accum
+    | h :: tl -> add_caller' (h :: accum) tl 
+  in
+
+  t.callers <- add_caller' [] t.callers
+
 
 (* Prints the instantiation maps of a transition system. *)
 let print_instantiation_maps { instantiation_maps } =
@@ -467,6 +491,31 @@ let pp_print_prop_status ppf (p, s) =
   Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
 
 
+let pp_print_caller ppf (m, i, t) = 
+
+  Format.fprintf ppf 
+    "@[<hv 1>(%a)@,%a@,%a@]"
+    (pp_print_list 
+       (fun ppf (s, t) ->
+          Format.fprintf ppf
+            "@[<hv 1>(@[<hv>%a@]@ @[<hv>%a@])@]"
+            StateVar.pp_print_state_var s
+            StateVar.pp_print_state_var t)
+       "@ ")
+    m
+    Term.pp_print_term (i Term.t_true)
+    Term.pp_print_term (t Term.t_true)
+
+
+
+let pp_print_callers ppf (t, c) = 
+  
+  Format.fprintf ppf
+    "@[<hv 1>(%a@ %a)@]"
+    (pp_print_list Format.pp_print_string ".") t.scope
+    (pp_print_list pp_print_caller "@ ") c
+
+
 (* Determine the required logic for the SMT solver 
 
    TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
@@ -710,6 +759,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
       source = source ;
       prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props ;
       invars = invars_of_types ;
+      callers = [];
       instantiation_maps = [] }
   in
 
@@ -1016,7 +1066,8 @@ let pp_print_trans_sys
        props;
        invars;
        prop_status; 
-       source } as trans_sys) = 
+       source;
+       callers } as trans_sys) = 
 
   Format.fprintf 
     ppf
@@ -1027,7 +1078,8 @@ let pp_print_trans_sys
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(status@ (@[<v>%a@]))@]@,\
-          @[<hv 2>;; (source@ (@[<v>%a@]))@]@."
+          @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
@@ -1036,7 +1088,8 @@ let pp_print_trans_sys
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list pp_print_prop_status "@ ") prop_status
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
-
+    (pp_print_list pp_print_callers "@,") callers
+      
  
 
 (* Return [true] if the uninterpreted symbol is an initial state constraint *)
