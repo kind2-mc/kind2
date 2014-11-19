@@ -1,26 +1,13 @@
 /*  =========================================================================
     zctx - working with 0MQ contexts
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -49,7 +36,6 @@
     * Sets up signal (SIGINT and SIGTERM) handling so that blocking calls
     such as zmq_recv() and zmq_poll() will return when the user presses
     Ctrl-C.
-
 @discuss
 @end
 */
@@ -61,9 +47,13 @@
 struct _zctx_t {
     void *context;              //  Our 0MQ context
     zlist_t *sockets;           //  Sockets held by this thread
-    bool main;                  //  True if we're the main thread
+    zmutex_t* mutex;            //  Make zctx threadsafe
+    bool shadow;                //  True if this is a shadow context
     int iothreads;              //  Number of IO threads, default 1
     int linger;                 //  Linger timeout, default 0
+    int pipehwm;                //  Send/receive HWM for pipes
+    int sndhwm;                 //  ZMQ_SNDHWM for normal sockets
+    int rcvhwm;                 //  ZMQ_RCVHWM for normal sockets
 };
 
 
@@ -86,20 +76,22 @@ s_signal_handler (int signal_value)
 zctx_t *
 zctx_new (void)
 {
-    zctx_t
-        *self;
-
-    self = (zctx_t *) zmalloc (sizeof (zctx_t));
+    zctx_t *self = (zctx_t *) zmalloc (sizeof (zctx_t));
     if (!self)
         return NULL;
 
     self->sockets = zlist_new ();
-    if (!self->sockets) {
+    self->mutex = zmutex_new ();
+    if (!self->sockets || !self->mutex) {
+        zlist_destroy (&self->sockets);
+        zmutex_destroy (&self->mutex);
         free (self);
         return NULL;
     }
     self->iothreads = 1;
-    self->main = true;
+    self->pipehwm = 1000;   
+    self->sndhwm = 1000;
+    self->rcvhwm = 1000;
     zsys_handler_set (s_signal_handler);
     return self;
 }
@@ -114,11 +106,17 @@ zctx_destroy (zctx_t **self_p)
     assert (self_p);
     if (*self_p) {
         zctx_t *self = *self_p;
+
+        //  Destroy all sockets
         while (zlist_size (self->sockets))
             zctx__socket_destroy (self, zlist_first (self->sockets));
         zlist_destroy (&self->sockets);
-        if (self->main && self->context)
+        zmutex_destroy (&self->mutex);
+
+        //  ZMQ context may not yet be instantiated
+        if (self->context && !self->shadow)
             zmq_term (self->context);
+
         free (self);
         *self_p = NULL;
     }
@@ -132,35 +130,79 @@ zctx_destroy (zctx_t **self_p)
 zctx_t *
 zctx_shadow (zctx_t *ctx)
 {
-    zctx_t
-        *self;
-
+    assert (ctx);
+    // Initialize the original context now if necessary
+    if (!ctx->context) {
+        zctx__initialize_underlying (ctx);
+        if (!ctx->context)
+            return NULL;
+    }
     //  Shares same 0MQ context but has its own list of sockets so that
     //  we create, use, and destroy sockets only within a single thread.
-    self = (zctx_t *) zmalloc (sizeof (zctx_t));
+    zctx_t *self = (zctx_t *) zmalloc (sizeof (zctx_t));
     if (!self)
         return NULL;
 
-    self->context = ctx->context;
     self->sockets = zlist_new ();
-    if (!self->sockets) {
+    self->mutex = zmutex_new ();
+    if (!self->sockets || !self->mutex) {
+        zlist_destroy (&self->sockets);
+        zmutex_destroy (&self->mutex);
         free (self);
         return NULL;
     }
+    self->context = ctx->context;
+    self->pipehwm = ctx->pipehwm;
+    self->sndhwm = ctx->sndhwm;
+    self->rcvhwm = ctx->rcvhwm;
+    self->linger = ctx->linger;
+    self->shadow = true;             //  This is a shadow context
+    return self;
+}
+
+//  --------------------------------------------------------------------------
+//  Create new context that shadows the given ZMQ context
+
+zctx_t *
+zctx_shadow_zmq_ctx (void *zmqctx)
+{
+    assert (zmqctx);
+
+    //  Shares same 0MQ context but has its own list of sockets so that
+    //  we create, use, and destroy sockets only within a single thread.
+    zctx_t *self = (zctx_t *) zmalloc (sizeof (zctx_t));
+    if (!self)
+        return NULL;
+
+    self->sockets = zlist_new ();
+    self->mutex = zmutex_new ();
+    if (!self->sockets || !self->mutex) {
+        zlist_destroy (&self->sockets);
+        zmutex_destroy (&self->mutex);
+        free (self);
+        return NULL;
+    }
+    self->context = zmqctx;
+    self->pipehwm = 1000;   
+    self->sndhwm = 1000;
+    self->rcvhwm = 1000;
+    self->shadow = true;             //  This is a shadow context
     return self;
 }
 
 
 //  --------------------------------------------------------------------------
 //  Configure number of I/O threads in context, only has effect if called
-//  before creating first socket. Default I/O threads is 1, sufficient for
-//  all except very high volume applications.
+//  before creating first socket, or calling zctx_shadow. Default I/O 
+//  threads is 1, sufficient for all except very high volume applications.
 
 void
 zctx_set_iothreads (zctx_t *self, int iothreads)
 {
     assert (self);
+    zmutex_lock (self->mutex);
     self->iothreads = iothreads;
+    zmutex_unlock (self->mutex);
 }
 
 
@@ -173,28 +215,59 @@ void
 zctx_set_linger (zctx_t *self, int linger)
 {
     assert (self);
+    zmutex_lock (self->mutex);
     self->linger = linger;
+    zmutex_unlock (self->mutex);
 }
 
 
 //  --------------------------------------------------------------------------
-//  Deprecated method, does nothing - to be removed after 2013/05/14
+//  Set initial high-water mark for inter-thread pipe sockets. Note that
+//  this setting is separate from the default for normal sockets. You 
+//  should change the default for pipe sockets *with care*. Too low values
+//  will cause blocked threads, and an infinite setting can cause memory
+//  exhaustion. The default, no matter the underlying ZeroMQ version, is
+//  1,000.
 
 void
-zctx_set_hwm (zctx_t *self, int hwm)
+zctx_set_pipehwm (zctx_t *self, int pipehwm)
 {
     assert (self);
+    zmutex_lock (self->mutex);
+    self->pipehwm = pipehwm;
+    zmutex_unlock (self->mutex);
 }
 
+    
 //  --------------------------------------------------------------------------
-//  Deprecated method, does nothing - to be removed after 2013/05/14
+//  Set initial send HWM for all new normal sockets created in context.
+//  You can set this per-socket after the socket is created.
+//  The default, no matter the underlying ZeroMQ version, is 1,000.
 
-int
-zctx_hwm (zctx_t *self)
+void
+zctx_set_sndhwm (zctx_t *self, int sndhwm)
 {
     assert (self);
-    return 0;
+    zmutex_lock (self->mutex);
+    self->sndhwm = sndhwm;
+    zmutex_unlock (self->mutex);
 }
+
+    
+//  --------------------------------------------------------------------------
+//  Set initial receive HWM for all new normal sockets created in context.
+//  You can set this per-socket after the socket is created.
+//  The default, no matter the underlying ZeroMQ version, is 1,000.
+
+void
+zctx_set_rcvhwm (zctx_t *self, int rcvhwm)
+{
+    assert (self);
+    zmutex_lock (self->mutex);
+    self->rcvhwm = rcvhwm;
+    zmutex_unlock (self->mutex);
+}
+
 
 //  --------------------------------------------------------------------------
 //  Return low-level 0MQ context object
@@ -208,6 +281,20 @@ zctx_underlying (zctx_t *self)
 
 
 //  --------------------------------------------------------------------------
+//  Initialize the low-level 0MQ context object
+
+void
+zctx__initialize_underlying (zctx_t *self)
+{
+	assert (self);
+	zmutex_lock (self->mutex);
+    if (!self->context)
+        self->context = zmq_init (self->iothreads);
+    zmutex_unlock (self->mutex);
+}
+
+
+//  --------------------------------------------------------------------------
 //  Create socket within this context, for CZMQ use only
 
 void *
@@ -215,21 +302,46 @@ zctx__socket_new (zctx_t *self, int type)
 {
     //  Initialize context now if necessary
     assert (self);
-    if (!self->context)
-        self->context = zmq_init (self->iothreads);
-    if (!self->context)
-        return NULL;
-
+    if (!self->context) {
+        zctx__initialize_underlying (self);
+        if (!self->context)
+            return NULL;
+    }
     //  Create and register socket
     void *zocket = zmq_socket (self->context, type);
     if (!zocket)
         return NULL;
-
+    
+#if (ZMQ_VERSION_MAJOR == 2)
+    //  For ZeroMQ/2.x we use sndhwm for both send and receive
+    zsocket_set_hwm (zocket, self->sndhwm);
+#else
+    //  For later versions we use separate SNDHWM and RCVHWM
+    zsocket_set_sndhwm (zocket, self->sndhwm);
+    zsocket_set_rcvhwm (zocket, self->rcvhwm);
+#endif
+    zmutex_lock (self->mutex);
     if (zlist_push (self->sockets, zocket)) {
+        zmutex_unlock (self->mutex);
         zmq_close (zocket);
         return NULL;
     }
+    zmutex_unlock (self->mutex);
     return zocket;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Create pipe socket within this context, for CZMQ use only
+
+void *
+zctx__socket_pipe (zctx_t *self)
+{
+    assert (self);
+    void *pipe = zctx__socket_new (self, ZMQ_PAIR);
+    if (pipe)
+        zsocket_set_hwm (pipe, self->pipehwm);
+    return pipe;
 }
 
 
@@ -243,7 +355,10 @@ zctx__socket_destroy (zctx_t *self, void *zocket)
     assert (zocket);
     zsocket_set_linger (zocket, self->linger);
     zmq_close (zocket);
+
+    zmutex_lock (self->mutex);
     zlist_remove (self->sockets, zocket);
+    zmutex_unlock (self->mutex);
 }
 
 

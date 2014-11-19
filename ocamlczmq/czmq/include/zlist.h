@@ -1,26 +1,13 @@
 /*  =========================================================================
     zlist - generic type-free list container
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -37,6 +24,9 @@ typedef struct _zlist_t zlist_t;
 //  @interface
 //  Comparison function for zlist_sort method
 typedef bool (zlist_compare_fn) (void *item1, void *item2);
+
+// Callback function for zlist_freefn method
+typedef void (zlist_free_fn) (void *data);
 
 //  Create a new list container
 CZMQ_EXPORT zlist_t *
@@ -66,11 +56,13 @@ CZMQ_EXPORT void *
 CZMQ_EXPORT void *
     zlist_next (zlist_t *self);
 
-//  Append an item to the end of the list
+//  Append an item to the end of the list, return 0 if OK
+//  or -1 if this failed for some reason (out of memory).
 CZMQ_EXPORT int
     zlist_append (zlist_t *self, void *item);
 
-//  Push an item to the start of the list
+//  Push an item to the start of the list, return 0 if OK
+//  or -1 if this failed for some reason (out of memory).
 CZMQ_EXPORT int
     zlist_push (zlist_t *self, void *item);
 
@@ -82,23 +74,34 @@ CZMQ_EXPORT void *
 CZMQ_EXPORT void
     zlist_remove (zlist_t *self, void *item);
 
-//  Copy the entire list, return the copy
+// Add an explicit free function to the item including a hint as to
+// whether it can be found at the tail
+CZMQ_EXPORT void *
+    zlist_freefn (zlist_t *self, void *item, zlist_free_fn *fn, bool at_tail);
+
+//  Make a copy of list. If the list has autofree set, the copied list will
+//  duplicate all items, which must be strings. Otherwise, the list will hold
+//  pointers back to the items in the original list.
 CZMQ_EXPORT zlist_t *
     zlist_dup (zlist_t *self);
-
-//  Copy the entire list, return the copy (deprecated)
-CZMQ_EXPORT zlist_t *
-    zlist_copy (zlist_t *self);
 
 //  Return number of items in the list
 CZMQ_EXPORT size_t
     zlist_size (zlist_t *self);
 
-//  Sort list
+//  Sort the list by ascending key value using a straight ASCII comparison.
+//  The sort is not stable, so may reorder items with the same keys.
 CZMQ_EXPORT void
     zlist_sort (zlist_t *self, zlist_compare_fn *compare);
 
-//  Set list for automatic item destruction
+//  Set list for automatic item destruction; item values MUST be strings.
+//  By default a list item refers to a value held elsewhere. When you set
+//  this, each time you append or push a list item, zlist will take a copy
+//  of the string value. Then, when you destroy the list, it will free all
+//  item values automatically. If you use any other technique to allocate
+//  list values, you must free them explicitly before destroying the list.
+//  The usual technique is to pop list items and destroy them, until the
+//  list is empty.
 CZMQ_EXPORT void
     zlist_autofree (zlist_t *self);
 
