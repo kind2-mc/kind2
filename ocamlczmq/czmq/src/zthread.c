@@ -1,26 +1,13 @@
 /*  =========================================================================
     zthread - working with system threads
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -180,7 +167,7 @@ zthread_fork (zctx_t *ctx, zthread_attached_fn *thread_fn, void *args)
 {
     shim_t *shim = NULL;
     //  Create our end of the pipe
-    void *pipe = zsocket_new (ctx, ZMQ_PAIR);
+    void *pipe = zctx__socket_pipe (ctx);
     if (pipe)
         zsocket_bind (pipe, "inproc://zctx-pipe-%p", pipe);
     else
@@ -192,16 +179,20 @@ zthread_fork (zctx_t *ctx, zthread_attached_fn *thread_fn, void *args)
         shim->attached = thread_fn;
         shim->args = args;
         shim->ctx = zctx_shadow (ctx);
-        if (!shim->ctx)
+        if (!shim->ctx) {
+            zctx__socket_destroy (ctx, pipe);
             return NULL;
+        }
     }
     else
         return NULL;
     
     //  Connect child pipe to our pipe
-    shim->pipe = zsocket_new (shim->ctx, ZMQ_PAIR);
-    if (!shim->pipe)
+    shim->pipe = zctx__socket_pipe (shim->ctx);
+    if (!shim->pipe) {
+        zctx__socket_destroy (ctx, pipe);
         return NULL;
+    }
     zsocket_connect (shim->pipe, "inproc://zctx-pipe-%p", pipe);
     
     s_thread_start (shim);
@@ -232,7 +223,8 @@ s_test_attached (void *args, zctx_t *ctx, void *pipe)
     //  Create a socket to check it'll be automatically deleted
     zsocket_new (ctx, ZMQ_PUSH);
     //  Wait for our parent to ping us, and pong back
-    free (zstr_recv (pipe));
+    char *ping = zstr_recv (pipe);
+    zstr_free (&ping);
     zstr_send (pipe, "pong");
 }
 
@@ -259,7 +251,7 @@ zthread_test (bool verbose)
     zstr_send (pipe, "ping");
     char *pong = zstr_recv (pipe);
     assert (streq (pong, "pong"));
-    free (pong);
+    zstr_free (&pong);
 
     //  Everything should be cleanly closed now
     zctx_destroy (&ctx);

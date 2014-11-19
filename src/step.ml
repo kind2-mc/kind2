@@ -338,9 +338,16 @@ let split_closure
    to be unfalsifiable.  It should be sorted by decreasing k. *)
 let rec next trans solver k invariants unfalsifiables unknowns =
 
-  (* Receiving things. *)
-  let new_invariants,_,_ =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
+  (* Getting new invariants and updating transition system. *)
+  let new_invariants =
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys trans
+    (* Extracting invariant module/term pairs. *)
+    |> fst
+    (* Extracting invariant terms. *)
+    |> List.map snd
   in
 
   (* Cleaning unknowns and unfalsifiables. *)
@@ -348,12 +355,19 @@ let rec next trans solver k invariants unfalsifiables unknowns =
     clean_properties trans unknowns unfalsifiables
   in
 
-
-  (* Communicating new invariants. *)
+  (* Communicating confirmed properties. *)
   confirmed
   |> List.iter
        ( fun (s,_) ->
          Event.prop_status TransSys.PropInvariant trans s ) ;
+
+  (* Adding confirmed properties to new invariants. *)
+  let new_invariants' =
+    confirmed
+    |> List.fold_left
+         ( fun invs (_,term) -> term :: invs)
+         new_invariants
+  in
 
   match unknowns', unfalsifiables' with
   | [], [] ->
@@ -386,7 +400,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      |> ignore ;
 
      (* Asserting new invariants from 0 to k+1. *)
-     ( match new_invariants with
+     ( match new_invariants' with
        | [] -> ()
        | l -> l
               |> Term.mk_and
@@ -403,7 +417,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
 
      (* Building the list of new invariants. *)
      let invariants' =
-       List.rev_append new_invariants invariants
+       List.rev_append new_invariants' invariants
      in
 
      (* Asserting positive implications at k for unknowns. *)
@@ -548,7 +562,15 @@ let launch trans =
   next trans solver Numeral.zero [] [] unknowns
 
 (* Runs the step instance. *)
-let main trans = launch trans
+let main trans = 
+
+  if not (List.mem `BMC (Flags.enable ())) then
+
+    Event.log 
+      L_warn 
+      "@[<v>Inductive step without BMC will not be able to prove or disprove any properties.@,Use both options --enable BMC --enable IND together.@]";
+      
+  launch trans
 
 
 (* 
