@@ -311,13 +311,13 @@ let ind_compress_equal_default = true
 
 type ind_compress_same_succ = bool
     
-let ind_compress_same_succ_default = true
+let ind_compress_same_succ_default = false
 
 (* ********** *) 
 
 type ind_compress_same_pred = bool
     
-let ind_compress_same_pred_default = true
+let ind_compress_same_pred_default = false
 
 (* ********** *) 
 

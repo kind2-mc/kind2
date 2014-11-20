@@ -2356,6 +2356,16 @@ let rec pdr
 *)
 let main trans_sys =
 
+  if 
+    not (Flags.pdr_qe () = `Cooper) && 
+    not (Flags.smtsolver () = `Z3_SMTLIB) 
+  then
+ 
+    (Event.log L_fatal "Precise quantifier elimination needs Z3 as SMT solver";
+
+     failwith "Unsupported SMT solver for options");
+        
+
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
 
@@ -2686,7 +2696,13 @@ let main trans_sys =
                 "Problem contains real valued variables, \
                  switching off approximate QE";
 
-              Flags.set_pdr_qe `Z3;
+              if Flags.smtsolver () = `Z3_SMTLIB then 
+                Flags.set_pdr_qe `Z3
+              else
+                (Event.log 
+                   L_fatal
+                   "Precise quantifier elimination needs Z3 as SMT solver";
+                 failwith "Unsupported SMT solver for options");              
 
               props
 

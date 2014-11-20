@@ -46,7 +46,7 @@ let get_solver_instance trans_sys =
       let solver =     
         Solver.new_solver 
           ~produce_assignments:true
-          `UFLIA
+          (TransSys.get_logic trans_sys)
       in
       
       (* Declare uninterpreted function symbols *)

@@ -150,6 +150,8 @@ caml_zctx_set_linger(value context_val, value linger_val)
     CAMLreturn (Val_unit);
 }
 
+/*
+
 // need to take a closer look at these ctx options;
 // hwm not reporting changes made via set_hwm
 CAMLprim value 
@@ -175,6 +177,7 @@ caml_zctx_hwm(value context_val)
     CAMLreturn (Val_int(hwm));
 }
 
+*/
 
 /******************
  *  zsocket       *
