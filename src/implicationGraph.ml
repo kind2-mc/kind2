@@ -1755,7 +1755,7 @@ module CandidateTermGen = struct
 
            let candidates' =
 
-             true_false_set
+             TSet.empty
                
              (* Synthesizing candidates. *)
              |> StateVarRules.apply (TransSys.state_vars system)
@@ -1779,27 +1779,21 @@ module CandidateTermGen = struct
              else candidates'
            in
 
-           debug candTermGen "Bla1" in
-
            let sorted_result =
              result
              |> TSet.fold
                   ( fun term map ->
-                    debug candTermGen "Instantiating." in
                     TransSys.instantiate_term_all_levels
                       system term
                     |> (function | (top,others) -> top :: others)
                     |> List.fold_left
                         ( fun map (sys,terms) ->
-                          debug candTermGen "Adding to %s." (name_of_sys sys) in
                            insert_sys_terms
                              (sys, TSet.of_list terms) map )
                          map )
                   candidates
              |> insert_sys_terms (system, candidates)
            in
-
-           debug candTermGen "Bla2" in
 
            sys_graphs_map
              sorted_result
@@ -1859,7 +1853,7 @@ module CandidateTermGen = struct
         in
 
         (* Creating graph. *)
-        (sys, create term_set) )
+        (sys, create (TSet.union true_false_set term_set)) )
 
 end
 

@@ -238,7 +238,9 @@ let new_invariants ({ solver ; k ; invariants ; step_mode } as context) = functi
            (* Appending to old invariants. *)
            inv :: list )
          invariants
-    |> (fun invs -> context.invariants <- invs)
+    |> (fun invs -> context.invariants <- invs) ;
+
+    check_satisfiability context
 
 
 (* Checks if some of the input terms are falsifiable k steps from the

@@ -92,7 +92,9 @@ let rewrite_graph_until_unsat lsd sys graph =
                  TSet.fold
                    (* And we build all the equalities. *)
                    (fun term list' ->
-                    (Term.mk_eq [rep ; term]) :: list')
+                     if rep != term then
+                       (Term.mk_eq [rep ; term]) :: list'
+                     else list')
                    set
                    list )
              
@@ -521,6 +523,12 @@ let find_invariants lsd invariants sys graph =
             0
      in
      
+     debug invGenOSInv
+           "  %i invariants discovered (%i implications) \\*o*/ [%s]."
+           (List.length new_invariants)
+           impl_count'
+           (TransSys.get_scope sys |> String.concat "/")
+     in
      debug invGenOSControl
            "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
