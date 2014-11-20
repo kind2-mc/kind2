@@ -129,7 +129,7 @@ let status_of_exn process = function
     (
 
       Event.log L_error 
-        "Wallclock timeout";
+        "<Timeout> Wallclock timeout";
 
       status_timeout
 
@@ -141,7 +141,7 @@ let status_of_exn process = function
     (
       
       Event.log L_error
-        "CPU timeout"; 
+        "<Timeout> CPU timeout"; 
 
       status_timeout
 
@@ -153,7 +153,7 @@ let status_of_exn process = function
     (
       
       Event.log L_fatal
-        "Caught signal%t. Terminating." 
+        "<Interruption> Caught signal%t. Terminating." 
         (function ppf -> 
           match s with 
             | 0 -> () 
@@ -173,7 +173,7 @@ let status_of_exn process = function
       let backtrace = Printexc.get_backtrace () in
 
       Event.log L_fatal
-        "Runtime error: %s" 
+        "<Error> Runtime error: %s" 
         (Printexc.to_string e);
 
       if Printexc.backtrace_status () then
