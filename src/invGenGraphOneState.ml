@@ -21,6 +21,7 @@ open Printf
 
 module TSet = Term.TermSet
 module Graph = ImplicationGraph
+module CandTerm = InvGenCandTermGen
 module LSD = LockStepDriver
 
 let lsd_ref = ref None
@@ -639,7 +640,7 @@ let rewrite_graph_find_invariants
 let generate_invariants trans_sys lsd =
 
   (* Associative list from systems to candidate terms. *)
-  let sys_graph_map = Graph.generate_graphs_one_state trans_sys in  
+  let sys_graph_map = CandTerm.generate_graphs_one_state trans_sys in  
   
   let rec loop invariants map =
 
