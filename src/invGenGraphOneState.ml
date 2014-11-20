@@ -493,7 +493,10 @@ let find_invariants lsd invariants sys graph =
   let new_invariants =
     match LSD.query_step lsd sys candidate_invariants with
     (* No unfalsifiable candidate invariants. *)
-    | _, [] -> []
+    | _, [] ->
+      debug invGenOSInvs "  No invariants /T_T\\ [%s]."
+        (TransSys.get_scope sys |> String.concat "/") in
+      []
     | _, unfalsifiable ->
        unfalsifiable
        (* Removing the invariants we already know. *)
@@ -506,7 +509,8 @@ let find_invariants lsd invariants sys graph =
   match new_invariants with
     
   | [] ->
-     debug invGenOSControl "  No new invariants /T_T\\." in
+    debug invGenOSInvs "  No new invariants /T_T\\ [%s]."
+      (TransSys.get_scope sys |> String.concat "/") in
 
      invariants
       
@@ -523,7 +527,7 @@ let find_invariants lsd invariants sys graph =
             0
      in
      
-     debug invGenOSInv
+     debug invGenOSInvs
            "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
            impl_count'
