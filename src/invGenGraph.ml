@@ -50,7 +50,7 @@ let on_exit _ =
 (* Rewrites a graph until the base instance becomes unsat. *)
 let rewrite_graph_until_unsat lsd sys graph =
 
-  LSD.check_satisfiability lsd ;
+  LSD.check_consistency lsd ;
 
   (* Rewrites a graph until the base instance becomes unsat. Returns
      the final version of the graph. *)
@@ -108,7 +108,7 @@ let rewrite_graph_until_unsat lsd sys graph =
             (LSD.get_k lsd |> Numeral.string_of_numeral)
       in
 
-      match LSD.query_base lsd candidate_invariants with
+      match LSD.query_base lsd sys candidate_invariants with
         
       | Some model ->
 
@@ -393,47 +393,30 @@ let filter_step_implications implications =
 
 (* Gets the top level new invariants and adds all intermediary
    invariants into lsd. *)
-let get_top_inv_add_invariants lsd sys invs =
+let get_top_inv_add_invariants lsd sys inv =
 
-  debug invGenTSInvariants
-        "Getting top invariants on"
+  let ((_,top), intermediary) =
+    (* Instantiating invariant at all levels. *)
+    TransSys.instantiate_term_all_levels sys inv
   in
 
-  invs
-  |> List.iter
-       ( fun term ->
-         debug invGenTSInvariants
-               "%s" (Term.string_of_term term)
-         in () ) ;
-  
-  invs
-    
-  (* Instantiating each invariant at all levels. *)
-  |> List.map
-       (TransSys.instantiate_term_all_levels sys)
-       
+  debug invGenTSInvariants "Adding top level invariants." in
+
+  (* Adding top level invariants as new invariants. *)
+  LSD.add_invariants lsd top ;
+
+  (* Adding subsystems invariants as new invariants. *)
+  intermediary
+  (* Folding intermediary as a list of terms. *)
   |> List.fold_left
-       ( fun top ((_,top'), intermediary) ->
-
-         debug invGenTSInvariants "Adding top level invariants." in
-
-         (* Adding top level invariants as new invariants. *)
-         LSD.new_invariants lsd top' ;
-
-         (* Adding subsystems invariants as new invariants. *)
-         intermediary
-         (* Folding intermediary as a list of terms. *)
-         |> List.fold_left
-              ( fun terms (_,terms') -> List.rev_append terms' terms)
-              []
-         (* Adding it into lsd. *)
-         |> (fun invs ->
-             debug invGenTSInvariants "Adding intermediary invariants." in
-             LSD.new_invariants lsd invs) ;
-
-         (* Appending new top invariants. *)
-         List.rev_append top' top )
+       ( fun terms (_,terms') -> List.rev_append terms' terms )
        []
+  (* Adding it into lsd. *)
+  |> (fun invs ->
+      debug invGenTSInvariants "Adding intermediary invariants." in
+      LSD.add_invariants lsd invs) ;
+
+  top
 
 (* Queries step to find invariants to communicate. *)
 let find_invariants lsd invariants sys graph =
@@ -506,7 +489,7 @@ let find_invariants lsd invariants sys graph =
 
   (* New invariants discovered at this step. *)
   let new_invariants =
-    match LSD.query_step lsd candidate_invariants with
+    match LSD.query_step lsd sys candidate_invariants with
     (* No unfalsifiable candidate invariants. *)
     | _, [] -> []
     | _, unfalsifiable ->
@@ -522,6 +505,7 @@ let find_invariants lsd invariants sys graph =
     
   | [] ->
      debug invGenTSControl "  No new invariants /T_T\\." in
+     debug invGenTSInvs "  No new invariants /T_T\\." in
 
      invariants
       
@@ -538,7 +522,7 @@ let find_invariants lsd invariants sys graph =
             0
      in
      
-     debug invGenTSInv
+     debug invGenTSInvs
            "  %i invariants discovered (%i implications) \\*o*/ [%s]."
            (List.length new_invariants)
            impl_count'
@@ -575,8 +559,6 @@ let find_invariants lsd invariants sys graph =
 
      let top_level_inv =
        new_invariants
-       (* Instantiating new invariants at top level. *)
-       |> get_top_inv_add_invariants lsd sys
        (* And-ing them. *)
        |> Term.mk_and
        (* Guarding with init. *)
@@ -584,6 +566,9 @@ let find_invariants lsd invariants sys graph =
            Term.mk_or [ TransSys.init_flag_var Numeral.zero
                         |> Term.mk_var ;
                         t ])
+       (* Instantiating new invariants at top level. *)
+       |> (fun inv -> get_top_inv_add_invariants lsd sys inv)
+       |> Term.mk_and
      in
 
      debug invGenTSInv
@@ -634,7 +619,7 @@ let rewrite_graph_find_invariants
   debug invGenTSControl "Adding new invariants in LSD." in
 
   (* Adding new invariants to LSD. *)
-  LSD.new_invariants lsd new_invariants ;
+  LSD.add_invariants lsd new_invariants ;
   
   (* Rewriting the graph. *)
   let graph' = rewrite_graph_until_unsat lsd sys graph in
@@ -658,9 +643,6 @@ let generate_invariants trans_sys lsd =
 
   (* Associative list from systems to candidate terms. *)
   let sys_graph_map = Graph.generate_graphs_two_state trans_sys in
-
-  (* Incrementing lsd to 1 .*)
-  LSD.increment lsd ;
 
   (* Updating stats. *)
   Stat.set 1 Stat.invgen_k ;

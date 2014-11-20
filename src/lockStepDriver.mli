@@ -41,19 +41,21 @@ val increment: t -> unit
 (** Checks if the current state of the LSD is satisfiable. It only
     consists of transition relations and invariants, so it should
     always be. Crashes if it is not. *)
-val check_satisfiability: t -> unit
+val check_consistency: t -> unit
 
 (** Adds new invariants to a lock step driver. *)
-val new_invariants: t -> Term.t list -> unit
+val add_invariants: t -> Term.t list -> unit
 
 (** Checks if some of the input terms are falsifiable k steps from the
     initial states. Returns Some of a model at 0 if some are, None
     otherwise. *)
-val query_base: t -> Term.t list -> ((Var.t * Term.t) list) option
+val query_base:
+  t -> TransSys.t -> Term.t list -> ((Var.t * Term.t) list) option
 
 (** Checks if some of the input terms are k-inductive. Returns a pair
     composed of the falsifiable terms and the unfalsifiable ones. *)
-val query_step: t -> Term.t list -> Term.t list * Term.t list
+val query_step:
+  t -> TransSys.t -> Term.t list -> Term.t list * Term.t list
 
 (* 
    Local Variables:

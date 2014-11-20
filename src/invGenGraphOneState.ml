@@ -51,7 +51,7 @@ let on_exit _ =
 (* Rewrites a graph until the base instance becomes unsat. *)
 let rewrite_graph_until_unsat lsd sys graph =
 
-  LSD.check_satisfiability lsd ;
+  LSD.check_consistency lsd ;
 
   (* Rewrites a graph until the base instance becomes unsat. Returns
      the final version of the graph. *)
@@ -109,7 +109,7 @@ let rewrite_graph_until_unsat lsd sys graph =
             (LSD.get_k lsd |> Numeral.string_of_numeral)
       in
 
-      match LSD.query_base lsd candidate_invariants with
+      match LSD.query_base lsd sys candidate_invariants with
         
       | Some model ->
 
@@ -405,7 +405,7 @@ let get_top_inv_add_invariants lsd sys invs =
        ( fun top ((_,top'), intermediary) ->
 
          (* Adding top level invariants as new invariants. *)
-         LSD.new_invariants lsd top' ;
+         LSD.add_invariants lsd top' ;
 
          (* Adding subsystems invariants as new invariants. *)
          intermediary
@@ -414,7 +414,7 @@ let get_top_inv_add_invariants lsd sys invs =
               ( fun terms (_,terms') -> List.rev_append terms' terms)
               []
          (* Adding it into lsd. *)
-         |> LSD.new_invariants lsd ;
+         |> LSD.add_invariants lsd ;
 
          (* Appending new top invariants. *)
          List.rev_append top' top )
@@ -491,7 +491,7 @@ let find_invariants lsd invariants sys graph =
 
   (* New invariants discovered at this step. *)
   let new_invariants =
-    match LSD.query_step lsd candidate_invariants with
+    match LSD.query_step lsd sys candidate_invariants with
     (* No unfalsifiable candidate invariants. *)
     | _, [] -> []
     | _, unfalsifiable ->
@@ -612,7 +612,7 @@ let rewrite_graph_find_invariants
   debug invGenOSControl "Adding new invariants in LSD." in
 
   (* Adding new invariants to LSD. *)
-  LSD.new_invariants lsd new_invariants ;
+  LSD.add_invariants lsd new_invariants ;
   
   (* Rewriting the graph. *)
   let graph' = rewrite_graph_until_unsat lsd sys graph in
