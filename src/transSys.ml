@@ -285,17 +285,27 @@ let instantiate_term { callers } term =
                (* For each map of this over-system, substitute the
                   variables of term according to map. *)
                ( fun (map,f,f') ->
-                 Term.map
-                   (substitute_fun_of_map map)
-                   term
-                 |> f )
+                 let substed =
+                   Term.map
+                     (substitute_fun_of_map map)
+                     term
+                 in
+                 match Term.var_offsets_of_term substed with
+                   | Some lo, _ when Numeral.(lo = ~- one) ->
+                     (* Term mentions variables at -1, using trans
+                        guarding function. *)
+                     f' substed
+                   | _ ->
+                     (* Otherwise, using init trans guarding
+                        function. *)
+                     f substed )
          in
 
          sys, terms )
 
-(* Inserts a system / terms pair in an associative list from systems to terms.
-   Updates the biding by the old terms and the new ones if it's already there, 
-   adds a new biding otherwise. *)
+(* Inserts a system / terms pair in an associative list from systems
+   to terms.  Updates the biding by the old terms and the new ones if
+   it's already there, adds a new biding otherwise. *)
 let insert_in_sys_term_map assoc_list ((sys,terms) as pair) =
 
   let rec loop prefix = function
@@ -536,6 +546,9 @@ let get_source t = t.source
 
 (* Return the input used to create the transition system *)
 let get_scope t = t.scope
+
+(* Name of the system. *)
+let get_name t = t.scope |> String.concat "/"
 
 (* Create a transition system *)
 let mk_trans_sys scope state_vars init trans subsystems props source =

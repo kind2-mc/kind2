@@ -29,8 +29,8 @@ end
 
 module BMC = Base
 module IND = Step
-module InvGen = InvGenGraph
-module InvGenOS = InvGenGraphOneState
+module InvGenTS = InvGenGraph.TwoState
+module InvGenOS = InvGenGraph.OneState
 
 (* module PDR = Dummy *)
 
@@ -52,7 +52,7 @@ let main_of_process = function
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
   | `IND -> IND.main 
-  | `INVGEN -> InvGen.main
+  | `INVGEN -> InvGenTS.main
   | `INVGENOS -> InvGenOS.main
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
@@ -64,7 +64,7 @@ let on_exit_of_process = function
   | `PDR -> PDR.on_exit
   | `BMC -> BMC.on_exit 
   | `IND -> IND.on_exit 
-  | `INVGEN -> InvGen.on_exit  
+  | `INVGEN -> InvGenTS.on_exit  
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
@@ -85,8 +85,8 @@ let debug_ext_of_process = function
   | `PDR -> "pdr"
   | `BMC -> "bmc"
   | `IND -> "ind"
-  | `INVGEN -> "invgen"
-  | `INVGENOS -> "invgen one state"
+  | `INVGEN -> "invgenTS"
+  | `INVGENOS -> "invgenOS"
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"

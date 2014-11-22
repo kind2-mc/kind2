@@ -436,7 +436,7 @@ module CandidateTermGen = struct
        need to look at the subsystems and instantiate their candidate
        terms. *)
     let rec sys_graphs_map result = function
-        
+
       | system :: tail ->
          (* Getting the scope of the system. *)
          let scope = TransSys.get_scope system in
@@ -471,9 +471,8 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgen_scan_trans ()
-                then set_of_term trans
-                else (fun set -> set)
+             |> if Flags.invgengraph_scan_trans ()
+                then set_of_term trans else identity
            in
 
            let candidates =
@@ -481,8 +480,7 @@ module CandidateTermGen = struct
                 required. One-state-ification will take place at the
                 very end to avoid missing candidate terms through
                 instantiation. *)
-             if two_state
-             then two_state_complement candidates'
+             if two_state then two_state_complement candidates'
              else candidates'
            in
 
@@ -508,75 +506,61 @@ module CandidateTermGen = struct
 
       | [] ->
 
-         let final =
-           if Flags.invgen_top_only ()
-           then get_last result
-           else result
-         in
+        let final =
+          (* Only getting to system if required. *)
+          if Flags.invgengraph_top_only ()
+          then get_last result else result
+          |> (
+            (* One state-ing everything if required. *)
+            if two_state then identity
+            else
+              List.map
+                (fun (sys,set) ->
+                  (sys, one_state_only set))
+          )
+        in
 
-         if two_state then final
-         else
-           (* One state-ing everything if required. *)
-           List.map
-             (fun (sys,set) ->
-              (sys, one_state_only set))
-             final
+        (* Returning the candidate terms... *)
+        final,
+        (* ...and candidate term count for stats. *)
+        final
+        |> List.fold_left
+            ( fun count (_, term_set) ->
+              count + (TSet.cardinal term_set) )
+            (* Starting at two, true and false are not there yet. *)
+            2
     in
 
     sys_graphs_map [] [ trans_sys ]
 
 
-  let build_graphs two_state =
-    let string =
-      if two_state then "two state" else "one state"
-    in
+  let build_graphs =
     
     (* Building the graphs. *)
     List.map
       ( fun (sys,term_set) ->
 
-        (* Updating statistics. *)
-        let cand_count =
-          Stat.get Stat.invgen_candidate_term_count
-        in
-        Stat.set (cand_count + (TSet.cardinal term_set))
-                 Stat.invgen_candidate_term_count ;
-
-        let _ =
-          debug candTermGen
-                "%4i %s candidate terms for [%s]."
-                (TSet.cardinal term_set)
-                string
-                (name_of_sys sys)
-          in
-
-          term_set
-          |> TSet.iter
-               ( fun term ->
-                 debug candTermGenVerb
-                       "%s"
-                       (Term.string_of_term term)
-                 in () )
-        in
-
-      (* Creating graph. *)
-      (sys,
-       ImplicationGraph.create
-         (TSet.union true_false_set term_set)) )
+        (* Creating graph. *)
+        (sys,
+         ImplicationGraph.create
+           (TSet.union true_false_set term_set)) )
 
 end
 
-(* Generates one state implication graphs for a transition system,
-     and its subsystems if the flags require it. *)
-let generate_graphs_one_state trans =
-  CandidateTermGen.candidate_terms_of_trans false trans
-  |> CandidateTermGen.build_graphs false
+(* Generates candidate terms for a transition system, and its
+   subsystems if the flags require it.
+   /!\ The sets do NOT contain true and false /!\ *)
+let generate_candidate_terms two_state trans =
+  CandidateTermGen.candidate_terms_of_trans two_state trans
 
-(* Generates two state implication graphs for a transition system,
-     and its subsystems if the flags require it. *)
-let generate_graphs_two_state trans =
-  CandidateTermGen.candidate_terms_of_trans true trans
-  |> CandidateTermGen.build_graphs true
+(* Generates implication graphs for a transition system, and its
+   subsystems if the flags require it. *)
+let generate_graphs two_state trans =
+  let candidate_terms, count =
+    generate_candidate_terms two_state trans
+  in
+  (* Returning implication graphs and candidate term count. *)
+  CandidateTermGen.build_graphs candidate_terms, count
 
 
     

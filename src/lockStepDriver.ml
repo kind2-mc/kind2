@@ -146,12 +146,13 @@ let increment ({ systems ; k ; solver ; invariants } as context) =
   |> List.iter
        (fun (sys, _) -> soft_increment context sys) ;
 
-  (* Asserting invariants at k+1. *)
+  (* Asserting invariants at k+2 (k+1+1, for step. Invariants are
+     already asserted at k+1.). *)
   ( match invariants with
     | [] -> ()
     | invariants ->
        Term.mk_and invariants
-       |> Term.bump_state Numeral.(succ k)
+       |> Term.bump_state Numeral.(succ (succ k))
        |> Solver.assert_term solver ) ;
 
   (* Incrementing the k. *)
@@ -311,6 +312,9 @@ let query_base ({ systems ; solver ; two_state ; k } as context)
     (* Function to run if unsat. *)
     let if_unsat () = None in
 
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
+
     (* Checksat-ing. *)
     let result =
       Solver.check_sat_assuming
@@ -336,6 +340,7 @@ let query_base ({ systems ; solver ; two_state ; k } as context)
 
 
 let rec split_closure solver two_state k falsifiable = function
+
   | [] -> (falsifiable, [])
 
   | terms_to_check ->
@@ -426,6 +431,9 @@ let rec split_closure solver two_state k falsifiable = function
        (* Returning result. *)
        falsifiable, terms_to_check
      in
+
+     (* Checking if we should terminate before doing anything. *)
+     Event.check_termination () ;
 
      (* Checksat-ing. *)
      Solver.check_sat_assuming

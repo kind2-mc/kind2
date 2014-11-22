@@ -21,6 +21,9 @@
     @author Christoph Sticksel
 *)
 
+(** {1 Helper functions} *)
+val identity : 'a -> 'a
+
 (** {1 Option types} *)
 
 (** Return the value of an option type, raise [Invalid_argument "get"]

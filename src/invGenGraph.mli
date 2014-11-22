@@ -14,13 +14,30 @@
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
 
- *)
+*)
 
-(** Clean up before exit. *)
-val on_exit: TransSys.t option -> unit
 
-(** Runs the base instance. *)
-val main: TransSys.t -> unit
+(** One state graph-based invariant generation module. *)
+module OneState : sig
+
+  (** Invariant generation entry point. *)
+  val main : TransSys.t -> unit
+
+  (** Destroys the underlying solver and cleans things up. *)
+  val on_exit : TransSys.t option -> unit
+
+end
+
+(** Two state graph-based invariant generation module. *)
+module TwoState : sig
+
+  (** Invariant generation entry point. *)
+  val main : TransSys.t -> unit
+
+  (** Destroys the underlying solver and cleans things up. *)
+  val on_exit : TransSys.t option -> unit
+
+end
 
 (* 
    Local Variables:

@@ -453,17 +453,17 @@ let cooper_general_lbound_default = false
 
 (* INVGEN things. *)
 
-type invgen_top_only = bool
+type invgengraph_top_only = bool
 
-let invgen_top_only_default = false
+let invgengraph_top_only_default = false
 
-type invgen_atoms_only = bool
+type invgengraph_atoms_only = bool
 
-let invgen_atoms_only_default = false
+let invgengraph_atoms_only_default = false
 
-type invgen_scan_trans = bool
+type invgengraph_scan_trans = bool
 
-let invgen_scan_trans_default = false
+let invgengraph_scan_trans_default = false
 
 (* ********** *) 
 
@@ -561,9 +561,9 @@ type flags =
       mutable pdr_check_inductive_invariant : pdr_check_inductive_invariant;
       mutable cooper_order_var_by_elim : cooper_order_var_by_elim;
       mutable cooper_general_lbound : cooper_general_lbound;
-      mutable invgen_top_only : invgen_top_only;
-      mutable invgen_atoms_only : invgen_atoms_only;
-      mutable invgen_scan_trans : invgen_scan_trans;
+      mutable invgengraph_top_only : invgengraph_top_only;
+      mutable invgengraph_atoms_only : invgengraph_atoms_only;
+      mutable invgengraph_scan_trans : invgengraph_scan_trans;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -607,9 +607,9 @@ let flags =
     pdr_check_inductive_invariant = pdr_check_inductive_invariant_default;
     cooper_order_var_by_elim = cooper_order_var_by_elim_default;
     cooper_general_lbound = cooper_general_lbound_default;
-    invgen_top_only = invgen_top_only_default;
-    invgen_atoms_only = invgen_atoms_only_default;
-    invgen_scan_trans = invgen_scan_trans_default;
+    invgengraph_top_only = invgengraph_top_only_default;
+    invgengraph_atoms_only = invgengraph_atoms_only_default;
+    invgengraph_scan_trans = invgengraph_scan_trans_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -908,25 +908,25 @@ let cooper_general_lbound_spec =
   
 (* ********** *) 
   
-let invgen_top_only_action o = flags.invgen_top_only <- true
+let invgengraph_top_only_action o = flags.invgengraph_top_only <- true
                                        
-let invgen_top_only_spec = 
+let invgengraph_top_only_spec = 
   ("--invgen_top_only", 
-   Arg.Unit invgen_top_only_action,
+   Arg.Unit invgengraph_top_only_action,
    "Invariant generation will only look for top node invariants.")
   
-let invgen_atoms_only_action o = flags.invgen_atoms_only <- true
+let invgengraph_atoms_only_action o = flags.invgengraph_atoms_only <- true
                                        
-let invgen_atoms_only_spec = 
+let invgengraph_atoms_only_spec = 
   ("--invgen_atoms_only", 
-   Arg.Unit invgen_atoms_only_action,
+   Arg.Unit invgengraph_atoms_only_action,
    "Invariant generation will only consider atoms as candidate terms.")
   
-let invgen_scan_trans_action o = flags.invgen_scan_trans <- true
+let invgengraph_scan_trans_action o = flags.invgengraph_scan_trans <- true
                                        
-let invgen_scan_trans_spec = 
+let invgengraph_scan_trans_spec = 
   ("--invgen_scan_trans", 
-   Arg.Unit invgen_scan_trans_action,
+   Arg.Unit invgengraph_scan_trans_action,
    "Invariant generation will extract candidate terms from the transition predicate.")
   
 (* ********** *) 
@@ -1102,11 +1102,11 @@ let cooper_order_var_by_elim () = flags.cooper_order_var_by_elim
 
 let cooper_general_lbound () = flags.cooper_general_lbound
 
-let invgen_top_only () = flags.invgen_top_only
+let invgengraph_top_only () = flags.invgengraph_top_only
 
-let invgen_atoms_only () = flags.invgen_atoms_only
+let invgengraph_atoms_only () = flags.invgengraph_atoms_only
 
-let invgen_scan_trans () = flags.invgen_scan_trans
+let invgengraph_scan_trans () = flags.invgengraph_scan_trans
 
 let interpreter_input_file () = flags.interpreter_input_file
 
@@ -1236,9 +1236,9 @@ and speclist =
     cooper_general_lbound_spec;
 
     (* Set invgen options. *)
-    invgen_top_only_spec;
-    invgen_atoms_only_spec;
-    invgen_scan_trans_spec;
+    invgengraph_top_only_spec;
+    invgengraph_atoms_only_spec;
+    invgengraph_scan_trans_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;

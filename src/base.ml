@@ -52,7 +52,7 @@ let on_exit _ =
     with
     | e -> 
        Event.log L_error
-                 "Error deleting solver_init: %s" 
+                 "BMC @[<v>Error deleting solver_init:@ %s@]" 
                  (Printexc.to_string e))
 
 (* Returns true if the property is not falsified or valid. *)
@@ -207,7 +207,8 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Output current progress. *)
      Event.log
        L_info
-       "BMC loop at k = %d\nBMC unknowns:   %d"
+       "BMC @[<v>at k = %i@,\
+                 %i unfalsifiable properties.@]"
        (Numeral.to_int k) (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
@@ -294,7 +295,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
        Event.log
          L_info
-         "BMC reached maximal number of iterations."
+         "BMC @[<v>reached maximal number of iterations.@]"
      else
        (* Looping. *)
        next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)

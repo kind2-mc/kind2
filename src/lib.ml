@@ -17,6 +17,13 @@
 *)
 
 (* ********************************************************************** *)
+(* Helper functions                                                       *)
+(* ********************************************************************** *)
+
+(* Identity function. *)
+let identity anything = anything
+
+(* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
 
@@ -908,10 +915,10 @@ type kind_module =
 
 (* Pretty-print the type of the process *)
 let pp_print_kind_module ppf = function
-  | `PDR -> Format.fprintf ppf "PDR"
-  | `BMC -> Format.fprintf ppf "BMC"
+  | `PDR -> Format.fprintf ppf "property directed reachability"
+  | `BMC -> Format.fprintf ppf "bounded model checking"
   | `IND -> Format.fprintf ppf "inductive step"
-  | `INVGEN -> Format.fprintf ppf "invariant generator"
+  | `INVGEN -> Format.fprintf ppf "two state invariant generator"
   | `INVGENOS -> Format.fprintf ppf "one state invariant generator"
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"

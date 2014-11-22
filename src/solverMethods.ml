@@ -414,6 +414,7 @@ struct
   (* Checks satisfiability of some literals, runs if_sat if sat and
      if_unsat if unsat. *)
   let check_sat_assuming solver if_sat if_unsat literals =
+
     if SMTLIBSolver.check_sat_assuming_supported ()
 
     then
