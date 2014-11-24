@@ -219,6 +219,11 @@ module CandidateTermGen = struct
            
            ( match Symbol.node_of_symbol sym with
 
+             | `EQ
+             | `GEQ
+             | `LEQ
+             | `GT
+             | `LT
              | `IMPLIES
              | `OR
              | `XOR
@@ -260,25 +265,26 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                  |> TSet.add (Term.mk_geq kids)
-                  |> TSet.add (Term.mk_leq kids)
+                    |> TSet.add (flat_to_term term)
+                    |> TSet.add (Term.mk_geq kids)
+                    |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
             | `LEQ -> set
-            |> TSet.add (Term.mk_geq kids)
-            |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (Term.mk_leq kids)
 
             | `GEQ -> set
-            |> TSet.add (Term.mk_geq kids)
-            |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
-            |> TSet.add (Term.mk_geq kids)
-            |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (Term.mk_leq kids)
 
             | `LT  -> set
-            |> TSet.add (Term.mk_geq kids)
-            |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (Term.mk_leq kids)
 
             | _ -> set )
 
@@ -290,8 +296,8 @@ module CandidateTermGen = struct
     (* List of rules over flat terms and their activation
        condition. *)
     let rule_list =
-      [ bool_terms, false_of_unit ;
-        (*( fun () -> not (Flags.invgen_atoms_only ()) ) ;*)
+      [ bool_terms,
+        ( fun () -> not (Flags.invgengraph_atoms_only ()) ) ;
         arith_atoms, true_of_unit ]
 
     let apply flat set =
@@ -471,8 +477,9 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgengraph_scan_trans ()
-                then set_of_term trans else identity
+             (* |> if Flags.invgengraph_scan_trans () *)
+             (*    then set_of_term trans else identity *)
+             |> set_of_term trans
            in
 
            let candidates =
@@ -508,11 +515,12 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          if Flags.invgengraph_top_only ()
-          then get_last result else result
+          ( if Flags.invgengraph_top_only ()
+            then get_last result else result )
           |> (
             (* One state-ing everything if required. *)
-            if two_state then identity
+            if two_state then
+              identity
             else
               List.map
                 (fun (sys,set) ->
@@ -520,15 +528,21 @@ module CandidateTermGen = struct
           )
         in
 
+        let count =
+          final
+          |> List.fold_left
+              ( fun count (_, term_set) ->
+                count + (TSet.cardinal term_set) )
+              (* Starting at two, true and false are not there yet. *)
+              2
+        in
+
+        debug invGenCandidates "%i candidates" count in
+
         (* Returning the candidate terms... *)
         final,
         (* ...and candidate term count for stats. *)
-        final
-        |> List.fold_left
-            ( fun count (_, term_set) ->
-              count + (TSet.cardinal term_set) )
-            (* Starting at two, true and false are not there yet. *)
-            2
+        count
     in
 
     sys_graphs_map [] [ trans_sys ]
