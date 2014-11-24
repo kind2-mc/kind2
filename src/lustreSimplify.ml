@@ -116,7 +116,7 @@ type lustre_context =
   { 
 
     (* Type identifiers and their types *)
-    type_of_ident : Type.t ITrie.t; 
+    type_of_ident : (E.t list * Type.t) ITrie.t; 
 
     (* Identifiers and the expresssions they are bound to
 
@@ -184,15 +184,21 @@ let pp_print_lustre_context
   
   Format.fprintf ppf
     "@[<v>@[<v>type_of_ident:@,%t@]\
-          @[<v>free_types:@,%t@]\
           @[<v>expr_of_ident:@,%t@]\
      @]" 
     (fun ppf -> 
        ITrie.iter
-         (fun i t -> 
+         (fun i (d, t) -> 
             Format.fprintf ppf 
-              "%a: %a@," 
+              "%a%a: %a@," 
               (I.pp_print_ident safe) i 
+              (pp_print_list 
+                (function ppf ->
+                  Format.fprintf ppf 
+                    "[0..%a]"
+                    (E.pp_print_lustre_expr false))
+                "")
+              d
               Type.pp_print_type t)
          type_of_ident)
     (fun ppf -> 
@@ -1369,27 +1375,132 @@ let close_indexed_ast_expr pos (expr, abstractions) =
       expr
       (IdxTrie.empty, abstractions)
   in
-
+ 
   (expr', abstractions')
+
+
+(* ******************************************************************** *)
+(* Arrays helpers                                                       *)
+(* ******************************************************************** *)
+
+
+(* Return a list of index variables for any list *)
+let index_vars_of_list l = 
+
+  let rec index_vars' accum = function 
+    | [] -> List.rev accum
+    | h :: tl -> 
+      index_vars' 
+        ((E.mk_state_var_of_ident
+            false
+            true
+            I.empty_index
+            (I.push_int_index
+               (Numeral.of_int (List.length accum))
+               I.index_ident)
+            Type.t_int) :: accum)
+        tl
+  in
+
+  index_vars' [] l
+
+
+
+(* Take a tuple expression [a, b, c] and convert it to 
+   if v=0 then a else if v=1 then b else c *)
+let array_of_tuple pos index_vars expr =  
+
+  (* Create map of conditions to expresssions per remaining index *)
+  let expr' = 
+    IdxTrie.fold
+      (fun index expr accum -> 
+
+         let rec aux a vl il = match vl, il with
+
+           (* Condition for all index variables created *)
+           | [], _ -> 
+
+             (* Lookup previous expressions for remaining index *)
+             let m = 
+               try
+                 IdxTrie.find (I.index_of_one_index_list il) accum
+               with Not_found -> [] 
+             in
+
+             (* Add condition and value *)
+             IdxTrie.add
+               (I.index_of_one_index_list il)
+               ((List.fold_left E.mk_and E.t_true a, expr) :: m)
+               accum
+
+           (* First index variable and first index of expression *)
+           | index_var :: vtl, I.IntIndex i :: itl -> 
+
+             (* Add equality between variable and index to condition *)
+             aux
+               ((E.mk_eq 
+                   (E.mk_var index_var E.base_clock) 
+                   (E.mk_int Numeral.(of_int i)))
+                :: a)
+               vtl 
+               itl
+
+           | _ -> 
+
+             fail_at_position 
+               pos
+               (Format.asprintf 
+                  "Invalid expression for array")
+
+         in
+
+         (* Associate condition on indexes with value *)
+         aux [] index_vars (I.split_index index))
+
+      expr
+      IdxTrie.empty
+  in
+
+  (* Convert maps of conditions to expression to if-then-else
+     expression *)
+  IdxTrie.map
+    (fun t -> 
+       let rec aux = function
+         | [] -> assert false
+
+         (* Last or only condition *)
+         | (c, e) :: [] -> e
+
+         (* If condition, then expression, recurse for else *)
+         | (c, e) :: tl -> E.mk_ite c e (aux tl)
+       in
+       aux t)
+    expr'
 
 
 (* ******************************************************************** *)
 (* Type declarations                                                    *)
 (* ******************************************************************** *)
-
+    
 (* Evalute a parsed type expression to a trie of types of indexes *)
-let rec eval_ast_type ({ type_of_ident } as context) = function
+let rec eval_ast_type ({ type_of_ident } as context) array_bounds = function
 
   (* Basic type bool, add to empty trie with empty index *)
-  | A.Bool pos -> IdxTrie.add I.empty_index Type.t_bool IdxTrie.empty 
+  | A.Bool pos -> 
+
+    IdxTrie.add I.empty_index (array_bounds, Type.t_bool) IdxTrie.empty 
 
 
   (* Basic type integer, add to empty trie with empty index *)
-  | A.Int pos -> IdxTrie.add I.empty_index Type.t_int IdxTrie.empty 
+  | A.Int pos -> 
+
+    IdxTrie.add I.empty_index (array_bounds, Type.t_int) IdxTrie.empty 
 
 
   (* Basic type real, add to empty trie with empty index *)
-  | A.Real pos -> IdxTrie.add I.empty_index Type.t_real IdxTrie.empty 
+  | A.Real pos -> 
+
+    IdxTrie.add I.empty_index (array_bounds, Type.t_real) IdxTrie.empty 
 
 
   (* Integer range type, constructed from evaluated expressions for
@@ -1409,7 +1520,7 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
     (* Add to empty trie with empty index *)
     IdxTrie.add 
       I.empty_index
-      (Type.mk_int_range const_lbound const_ubound)
+      (array_bounds, Type.mk_int_range const_lbound const_ubound)
       IdxTrie.empty 
 
 
@@ -1459,14 +1570,14 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
                 a)
 
            (* Evaluate type expression for field to a trie *)
-           (eval_ast_type context t)
+           (eval_ast_type context array_bounds t)
 
            (* Add to trie in accumulator *)
            a)
 
       (* Start with empty trie *)
       IdxTrie.empty
-      
+
       record_fields
 
   (* Tuple type, return trie of indexes in tuple fields *)
@@ -1479,7 +1590,7 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
 
          (* Count up index of field, each field has a separate type *)
          (fun (i, a) t -> 
-            
+
             (* Increment counter for field index *)
             (Numeral.succ i,
 
@@ -1487,7 +1598,7 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
              IdxTrie.fold 
 
                (fun j t a -> 
-                  
+
                   (* Add index of tuple field to index of type and add
                      to trie *)
                   IdxTrie.add
@@ -1497,7 +1608,7 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
 
                (* Evaluate type expression for field to a map of index
                   to type *)
-               (eval_ast_type context t)
+               (eval_ast_type context array_bounds t)
 
                (* Add to trie in accumulator *)
                a))
@@ -1511,57 +1622,39 @@ let rec eval_ast_type ({ type_of_ident } as context) = function
   (* Array type, return trie of indexes in tuple fields *)
   | A.ArrayType (pos, (type_expr, size_expr)) -> 
 
-    (* Evaluate size of array to a constant integer *)
-    let array_size = int_const_of_ast_expr context pos size_expr in
+    (* Evaluate size of array *)
+    let array_size = 
 
-    (* Evaluate type expression for elements*)
-    let element_type = eval_ast_type context type_expr in
+      try 
 
-    (* Array size must must be at least one *)
-    if Numeral.(array_size <= zero) then 
+        (* Expression must evaluate without indexes *)
+        IdxTrie.find
+          I.empty_index
+          (fst 
+             (eval_ast_expr
+                (void_abstraction_context pos)
+                context
+                size_expr))
 
-      fail_at_position 
-        pos
-        (Format.asprintf 
-           "Expression %a must be positive as array size" 
-           A.pp_print_expr size_expr);
+      with Not_found -> 
 
-    (* Iterate indexes from bound to zero *)
-    let rec aux a = function
-      
-      (* Return accumulator below zero *)
-      | i when Numeral.(i < zero) -> a
-
-      | i -> 
-
-        aux
-
-          (* Take all indexes and their defined types *)
-          (IdxTrie.fold 
-             
-             (fun j t a -> 
-
-                (* Add index of array field to index of type and add
-                   to trie *)
-                IdxTrie.add
-                  (I.push_index_to_index (I.mk_int_index i) j)
-                  t
-                  a)
-
-             (* All elements are of the same type *)
-             element_type
-
-             (* Add to trie in accumulator *)
-             a)
-          
-          (* Count down index *)
-          (Numeral.pred i)
+        fail_at_position 
+          pos
+          (Format.asprintf 
+             "Invalid expression for array size")
 
     in
 
-    (* Add indexes of array fields to empty trie *)
-    aux IdxTrie.empty array_size
+    (* Evaluate type expression for elements*)
+    let element_type = eval_ast_type context array_bounds type_expr in
+
+    (* Add array bounds to type *)
+    IdxTrie.map
+      (fun (b, t) -> (array_size :: b), t)
+      element_type
     
+
+
 
 (* Return true if type [t] has been declared in the context *)
 let type_in_context { type_of_ident } t = 
@@ -1605,12 +1698,12 @@ let add_alias_type_decl
   let type_of_ident' = 
     IdxTrie.fold
       (fun i t a -> ITrie.add (I.push_index i ident) t a)
-      (eval_ast_type context ident_type)
+      (eval_ast_type context [] ident_type)
       type_of_ident
   in
 
   (* Add association of type identifier with indexes to types *)
-  { context with type_of_ident = type_of_ident'  }
+  { context with type_of_ident = type_of_ident' }
 
 
 (* ******************************************************************** *)
@@ -1646,12 +1739,12 @@ let add_typed_const_decl
       | Some t -> 
 
         (* Evaluate type expression *)
-        let type_expr' = eval_ast_type context t in 
+        let type_expr' = eval_ast_type context [] t in 
 
         (* Check if type of expression is a subtype of the defined
            type at each index *)
         IdxTrie.iter2
-          (fun _ def_type { E.expr_type } ->
+          (fun _ (_, def_type) { E.expr_type } ->
              if not (Type.check_type expr_type def_type) then
                raise E.Type_mismatch)
           type_expr'
@@ -1659,8 +1752,12 @@ let add_typed_const_decl
 
     (* Add expressions for indexes of identifier to trie *)
     let expr_of_ident' = 
-      IdxTrie.fold
-        (fun i e a -> ITrie.add (I.push_index i ident) e a)
+      IdxTrie.fold2
+        (fun i (b, _) e a -> 
+           ITrie.add 
+             (I.push_index i ident) 
+             (array_of_tuple pos (index_vars_of_list b)  e 
+             a)
         expr_val
         expr_of_ident
     in

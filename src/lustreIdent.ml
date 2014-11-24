@@ -469,7 +469,9 @@ let scope_of_index index =
 let scope_of_ident (ident, index) = ident :: (scope_of_index index)
 
 
-(* Reserved identifiers for abstrations *)
+(* Reserved identifiers *)
+let index_ident_string =  "__index" 
+
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
 let observer_ident_string =  "__observer" 
@@ -487,7 +489,8 @@ let ident_is_reserved ident =
   let ident_string, _ : t :> string * _ = ident in
 
   (* Return false if identical to any reserved identifier *)
-  string_starts_with ident_string abs_ident_string
+  string_starts_with ident_string index_ident_string
+  || string_starts_with ident_string abs_ident_string
   || string_starts_with ident_string oracle_ident_string
   || string_starts_with ident_string observer_ident_string
   || string_starts_with ident_string ticked_ident_string
@@ -495,6 +498,9 @@ let ident_is_reserved ident =
   || string_starts_with ident_string trans_uf_string
   || string_starts_with ident_string top_scope_string
   
+
+(* Identifier for new variables from abstrations *)
+let index_ident = mk_string_ident index_ident_string
 
 (* Identifier for new variables from abstrations *)
 let abs_ident = mk_string_ident abs_ident_string

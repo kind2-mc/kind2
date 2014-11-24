@@ -1,5 +1,9 @@
 type rational = { n: int; d: int };
 
+const C1 = [1, 2, 3];
+const C2 = 1^3;
+const C3[i] : int^3 = i; -- need size declaration
+
 node X(s: int; const array_size: int) returns (A8: int^2);
 const array_default = 0;
 var 
@@ -42,5 +46,9 @@ let
 
   -- Return an array from a node call
   A8[i] = 0;
+
+  A9[i] = C1[i] -> pre A[i] + 1;
+
+  A10[i] = C3[i] -> pre A[i] + 1;
 
 tel

@@ -202,6 +202,9 @@ val get_suffix : t -> t -> index
 (** Return [true] if identifier is reserved for itnernal use *)
 val ident_is_reserved : t -> bool
 
+(** Identifier for array index *)
+val index_ident : t
+
 (** Identifier for abstracted variable *)
 val abs_ident : t
 
