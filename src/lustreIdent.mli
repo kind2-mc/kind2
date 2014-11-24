@@ -42,12 +42,14 @@
 (** An index element *)
 type one_index = private
 
-  (* String as index *)
+  (** String as index *)
   | StringIndex of string
 
-  (* Integer as index *)
+  (** Integer as index *)
   | IntIndex of int
 
+  (** Variable as index *)
+  | VarIndex 
 
 (** An index *)
 type index = private one_index list 
@@ -193,13 +195,7 @@ val get_index_suffix : index -> index -> index
 *)
 
 
-(** [get_suffix i j] assumes that [i] and [j] index the same
-    identifier and the indexes of [i] are a prefix of the indexes of
-    [j]. Return the suffix of [j] with the common prefix with [i]
-    removed, raise [Not_found] otherwise. *)
-val get_suffix : t -> t -> index
-
-(** Return [true] if identifier is reserved for itnernal use *)
+(** Return [true] if identifier is reserved for internal use *)
 val ident_is_reserved : t -> bool
 
 (** Identifier for array index *)

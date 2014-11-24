@@ -79,10 +79,6 @@ module Event = struct let log _ = Format.printf end
 exception Node_not_found of I.t * A.position
 
 
-(* Sort a list of indexed expressions *)
-let sort_indexed_pairs list =
-  List.sort (fun (i1, _) (i2, _) -> I.compare_index i1 i2) list
-
 (* Raise parsing exception *)
 let fail_at_position pos msg = 
 
@@ -116,13 +112,13 @@ type lustre_context =
   { 
 
     (* Type identifiers and their types *)
-    type_of_ident : (E.t list * Type.t) ITrie.t; 
+    type_of_ident : (Type.t * E.t list) ITrie.t; 
 
     (* Identifiers and the expresssions they are bound to
 
        Contains a state variable if the identifier denotes a stream,
        and a term if the identifier denotes a constant *)
-    expr_of_ident : E.t ITrie.t;
+    expr_of_ident : (E.t * E.t list) ITrie.t;
 
     (* Nodes *)
     nodes : N.t list;
@@ -188,9 +184,9 @@ let pp_print_lustre_context
      @]" 
     (fun ppf -> 
        ITrie.iter
-         (fun i (d, t) -> 
+         (fun i (t, b) -> 
             Format.fprintf ppf 
-              "%a%a: %a@," 
+              "%a %a: %a@," 
               (I.pp_print_ident safe) i 
               (pp_print_list 
                 (function ppf ->
@@ -198,15 +194,22 @@ let pp_print_lustre_context
                     "[0..%a]"
                     (E.pp_print_lustre_expr false))
                 "")
-              d
+              b
               Type.pp_print_type t)
          type_of_ident)
     (fun ppf -> 
        ITrie.iter
-         (fun i e -> 
+         (fun i (e, b) -> 
             Format.fprintf ppf 
-              "%a: %a@," 
+              "%a %a: %a@," 
               (I.pp_print_ident safe) i 
+              (pp_print_list 
+                (function ppf ->
+                  Format.fprintf ppf 
+                    "[0..%a]"
+                    (E.pp_print_lustre_expr false))
+                "")
+              b
               (E.pp_print_lustre_expr safe) e)
          expr_of_ident)
     
@@ -1488,19 +1491,19 @@ let rec eval_ast_type ({ type_of_ident } as context) array_bounds = function
   (* Basic type bool, add to empty trie with empty index *)
   | A.Bool pos -> 
 
-    IdxTrie.add I.empty_index (array_bounds, Type.t_bool) IdxTrie.empty 
+    IdxTrie.add I.empty_index (Type.t_bool, array_bounds) IdxTrie.empty 
 
 
   (* Basic type integer, add to empty trie with empty index *)
   | A.Int pos -> 
 
-    IdxTrie.add I.empty_index (array_bounds, Type.t_int) IdxTrie.empty 
+    IdxTrie.add I.empty_index (Type.t_int, array_bounds) IdxTrie.empty 
 
 
   (* Basic type real, add to empty trie with empty index *)
   | A.Real pos -> 
 
-    IdxTrie.add I.empty_index (array_bounds, Type.t_real) IdxTrie.empty 
+    IdxTrie.add I.empty_index (Type.t_real, array_bounds) IdxTrie.empty 
 
 
   (* Integer range type, constructed from evaluated expressions for
@@ -1520,7 +1523,7 @@ let rec eval_ast_type ({ type_of_ident } as context) array_bounds = function
     (* Add to empty trie with empty index *)
     IdxTrie.add 
       I.empty_index
-      (array_bounds, Type.mk_int_range const_lbound const_ubound)
+      (Type.mk_int_range const_lbound const_ubound, array_bounds)
       IdxTrie.empty 
 
 
@@ -1650,7 +1653,7 @@ let rec eval_ast_type ({ type_of_ident } as context) array_bounds = function
 
     (* Add array bounds to type *)
     IdxTrie.map
-      (fun (b, t) -> (array_size :: b), t)
+      (fun (t, b) -> (t, array_size :: b))
       element_type
     
 
@@ -1757,7 +1760,7 @@ let add_typed_const_decl
            ITrie.add 
              (I.push_index i ident) 
              (array_of_tuple pos (index_vars_of_list b)  e 
-             a)
+             a))
         expr_val
         expr_of_ident
     in

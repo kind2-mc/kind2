@@ -36,6 +36,9 @@ type one_index =
   (* Integer as index *)
   | IntIndex of int
 
+  (* Variable as index *)
+  | VarIndex 
+
 
 (* A list of indexes *)
 type index = one_index list
@@ -49,7 +52,7 @@ let empty_index = []
 type t = string * index
 
 
-(* Comparision of indexes *)
+(* Comparision of indexes: *)
 let compare_one_index a b = match a, b with 
 
   (* Compare strings *)
@@ -58,11 +61,28 @@ let compare_one_index a b = match a, b with
   (* Compare integers *)
   | IntIndex a, IntIndex b -> compare a b
 
+  (* Compare variables
+
+     Do implicit alpha conversion, two variables are equal *)
+  | VarIndex, VarIndex -> 0
+
   (* String indexes are greater than integer indexes *)
   | StringIndex _, IntIndex _ -> 1 
 
+  (* String indexes are greater than variable indexes *)
+  | StringIndex _, VarIndex -> 1 
+
+  (* Integer indexes are greater than variable indexes *)
+  | IntIndex _, VarIndex -> 1 
+
   (* Integer indexes are smaller than string indexes *)
-  | IntIndex _, StringIndex _ -> 1 
+  | IntIndex _, StringIndex _ -> -1 
+
+  (* Variable  indexes are smaller than string indexes *)
+  | VarIndex, StringIndex _ -> -1 
+
+  (* Variable indexes are smaller than integer indexes *)
+  | VarIndex, IntIndex _ -> -1 
 
 
 (* Lexicographic comparison of lists of indexes *)
@@ -91,7 +111,7 @@ let rec compare_index a b = match a, b with
 module LustreIndexSet = Set.Make 
     (struct 
       type t = index
-      let compare = compare
+      let compare = compare_index
     end)
 
 
@@ -99,7 +119,7 @@ module LustreIndexSet = Set.Make
 module LustreIndexMap = Map.Make 
     (struct 
       type t = index
-      let compare = compare
+      let compare = compare_index
     end)
 
 
@@ -107,7 +127,7 @@ module LustreIndexMap = Map.Make
 module LustreOneIndexMap = Map.Make 
     (struct 
       type t = one_index
-      let compare = compare
+      let compare = compare_one_index
     end)
 
 
@@ -265,25 +285,35 @@ module LustreIdentMap = Map.Make
 
 
 (* Pretty-print an index *)
-let pp_print_one_index = function 
+let pp_print_one_index' db = function 
   
   | false -> 
     
     (function ppf -> function 
        | StringIndex i -> Format.fprintf ppf ".%s" i
-       | IntIndex i -> Format.fprintf ppf "[%d]" i)
+       | IntIndex i -> Format.fprintf ppf "[%d]" i
+       | VarIndex -> Format.fprintf ppf "X%d" db)
 
   | true -> 
     
     (function ppf -> function 
        | StringIndex i -> Format.fprintf ppf "_%s" i
-       | IntIndex i -> Format.fprintf ppf "_%d" i)
+       | IntIndex i -> Format.fprintf ppf "_%d" i
+       | VarIndex -> Format.fprintf ppf "_x%d" db)
 
+(* Pretty-print an index with variable at index 0 *)
+let pp_print_one_index safe ppf index = 
+  pp_print_one_index' 0 safe ppf index
 
 (* Pretty-print a list of indexes *)
-let pp_print_index safe ppf index = 
-  List.iter (pp_print_one_index safe ppf) index
+let rec pp_print_index' db safe ppf = function 
+  | [] -> ()
+  | h :: tl -> 
+    pp_print_one_index' db safe ppf h; 
+    pp_print_index' (succ db) safe ppf tl
 
+(* Pretty-print a list of indexes with variable index at starting 0 *)
+let pp_print_index safe ppf index = pp_print_index' 0 safe ppf index
 
 (* Pretty-print an identifier *)
 let rec pp_print_ident safe ppf (s, i) = 
@@ -291,6 +321,7 @@ let rec pp_print_ident safe ppf (s, i) =
   Format.fprintf ppf "%s%a" s (pp_print_index safe) i
 
 
+(* Return a string representation of an identifier *)
 let string_of_ident safe = string_of_t (pp_print_ident safe)
 
 
@@ -425,44 +456,15 @@ let add_int_to_index i j = i @ [IntIndex j]
 (* Utility functions                                                      *)
 (* ********************************************************************** *)
 
-(* Remove i as prefix from j and return remainder of j *)
-let rec get_index_suffix i j = match i, j with 
-
-  (* All of i consumed, return j *)
-  | [], j -> j
-
-  (* i is not a prefix of j *)
-  | _, [] -> raise Not_found
-
-  (* First element is identical *)
-  | StringIndex i :: itl, StringIndex j :: jtl when i = j -> 
-
-    get_index_suffix itl jtl
-
-  (* First element is identical *)
-  | IntIndex i :: itl, IntIndex j :: jtl when i = j -> 
-
-    get_index_suffix itl jtl
-
-  (* First element is different, no common prefix *)
-  | StringIndex _ :: _, StringIndex _ :: _
-  | IntIndex _ :: _, IntIndex _ :: _
-  | IntIndex _ :: _, StringIndex _ :: _
-  | StringIndex _ :: _, IntIndex _ :: _ -> raise Not_found
-
-
-(* [i] is a prefix of [j], return the indexes of [j] with the common
-   prefix removed *)
-let get_suffix (i, li) (j, lj) = 
-
-  if i = j then get_index_suffix li lj else raise Not_found
-
 
 (* Return a list of strings for index *)
 let scope_of_index index =
 
   List.map 
-    (function StringIndex i -> i | IntIndex i -> string_of_int i)
+    (function 
+      | StringIndex i -> i
+      | IntIndex i -> string_of_int i
+      | VarIndex -> raise (Invalid_argument "scope_of_index"))
     index
 
 (* Return a list of strings for indexed identifier *)
