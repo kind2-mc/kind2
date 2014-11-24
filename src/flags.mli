@@ -172,15 +172,15 @@ type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
 (** InvGen will only look for top level invariants. **)
-type invgen_top_only = bool
-val invgen_top_only : unit -> invgen_top_only
+type invgengraph_top_only = bool
+val invgengraph_top_only : unit -> invgengraph_top_only
 (** InvGen will only consider atomic candidate terms. *)
-type invgen_atoms_only = bool
-val invgen_atoms_only : unit -> invgen_atoms_only
+type invgengraph_atoms_only = bool
+val invgengraph_atoms_only : unit -> invgengraph_atoms_only
 (** InvGen will look for candidate terms in the transition
     predicate. *)
-type invgen_scan_trans = bool
-val invgen_scan_trans : unit -> invgen_scan_trans
+type invgengraph_no_subterms = bool
+val invgengraph_no_subterms : unit -> invgengraph_no_subterms
 
 (** Read input from file **)
 type interpreter_input_file = string

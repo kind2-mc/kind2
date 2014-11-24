@@ -154,6 +154,9 @@ val get_source : t -> source
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
 
+(** Return the name of the transition system *)
+val get_name : t -> string
+
 (** Return the variables at current and previous instants of the
    transition system *)
 val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list

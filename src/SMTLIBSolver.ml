@@ -51,53 +51,66 @@ type t =
 (* Configurations                                                        *)
 (* ********************************************************************* *)
 
-(* Path and name of Z3 executable *)
-let z3_bin = Flags.z3_bin () 
-
 
 (* Configuration for Z3 *)
-let smtlibsolver_config_z3 = 
+let smtlibsolver_config_z3 () = 
+
+  (* Path and name of Z3 executable *)
+  let z3_bin = Flags.z3_bin () in
+
   { solver_cmd = [| z3_bin; "-smt2"; "-in" |] }
 
 
-(* Path and name of CVC4 executable *)
-let cvc4_bin = Flags.cvc4_bin () 
-
-
 (* Configuration for CVC4 *)
-let smtlibsolver_config_cvc4 = 
-  { solver_cmd = 
-      [| cvc4_bin; 
-         "--lang"; "smt2";
-         "--rewrite-divk";
-         "--tear-down-incremental";
-         "--produce-unsat-cores" |] }
+let smtlibsolver_config_cvc4 () = 
 
+  (* Path and name of CVC4 executable *)
+  let cvc4_bin = Flags.cvc4_bin () in
 
-(* Path and name of MathSAT5 executable *)
-let mathsat5_bin = Flags.mathsat5_bin () 
+  if Flags.pdr_tighten_to_unsat_core () then 
+
+    (* Use unsat core option *)
+    { solver_cmd = 
+        [| cvc4_bin; 
+           "--lang"; "smt2";
+           "--rewrite-divk";
+           "--tear-down-incremental";
+           "--produce-unsat-cores" |] }
+
+  else
+
+    (* Omit unsat core option for version older than 1.5 *)
+    { solver_cmd = 
+        [| cvc4_bin; 
+           "--lang"; "smt2";
+           "--rewrite-divk";
+           "--incremental" |] }
 
 
 (* Configuration for MathSAT5 *)
-let smtlibsolver_config_mathsat5 = 
+let smtlibsolver_config_mathsat5 () = 
+
+  (* Path and name of MathSAT5 executable *)
+  let mathsat5_bin = Flags.mathsat5_bin () in
+  
   { solver_cmd = [| mathsat5_bin; "-input=smt2" |] }
 
 
-(* Path and name of Yices executable *)
-let yices_bin = Flags.yices_bin () 
-
-
 (* Configuration for Yices *)
-let smtlibsolver_config_yices = 
+let smtlibsolver_config_yices () = 
+
+  (* Path and name of Yices executable *)
+  let yices_bin = Flags.yices_bin () in
+
   { solver_cmd = [| yices_bin; "--incremental" |] }
 
 
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with 
-  | `Z3_SMTLIB -> smtlibsolver_config_z3
-  | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
-  | `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5
-  | `Yices_SMTLIB -> smtlibsolver_config_yices
+  | `Z3_SMTLIB -> smtlibsolver_config_z3 ()
+  | `CVC4_SMTLIB -> smtlibsolver_config_cvc4 ()
+  | `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5 ()
+  | `Yices_SMTLIB -> smtlibsolver_config_yices ()
   | _ -> 
     (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.config_of_flags"

@@ -229,39 +229,74 @@ val pdr_stats : stat_item list
 (** Print statistics for PDR *)
 val pp_print_pdr_stats : Format.formatter -> unit
 
-(** {2 INVGEN} *)
+(** {2 INVGENOS} *)
 
 (** Hightest k reached. *)
-val invgen_k : int_item
+val invgengraph_os_k : int_item
 
 (** Total number of candidate terms. *)
-val invgen_candidate_term_count : int_item
+val invgengraph_os_candidate_term_count : int_item
 
 (** Total number of invariants discovered by invariant generation for
     all systems. *)
-val invgen_invariant_count : int_item
+val invgengraph_os_invariant_count : int_item
 
 (** Total number of invariants discovered by invariant generation
     which were implications. *)
-val invgen_implication_count : int_item
+val invgengraph_os_implication_count : int_item
 
 (** Time spent rewriting graphs. *)
-val invgen_graph_rewriting_time : float_item
+val invgengraph_os_graph_rewriting_time : float_item
 
 (** Time spent rewriting graphs. *)
-val invgen_total_time : float_item
+val invgengraph_os_total_time : float_item
 
-(** Title for INVGEN statistics *)
-val invgen_stats_title : string
+(** Title for INVGENOS statistics *)
+val invgengraph_os_stats_title : string
 
-(** All INVGEN statistics *)
-val invgen_stats : stat_item list
+(** All INVGENOS statistics *)
+val invgengraph_os_stats : stat_item list
 
 (** Stop and record all timers *)
-val invgen_stop_timers : unit -> unit
+val invgengraph_os_stop_timers : unit -> unit
 
-(** Pretty-print INVGEN statistics items *)
-val pp_print_invgen_stats : Format.formatter -> unit
+(** Pretty-print INVGENOS statistics items *)
+val pp_print_invgengraph_os_stats : Format.formatter -> unit
+
+
+(** {2 INVGENTS} *)
+
+(** Hightest k reached. *)
+val invgengraph_ts_k : int_item
+
+(** Total number of candidate terms. *)
+val invgengraph_ts_candidate_term_count : int_item
+
+(** Total number of invariants discovered by invariant generation for
+    all systems. *)
+val invgengraph_ts_invariant_count : int_item
+
+(** Total number of invariants discovered by invariant generation
+    which were implications. *)
+val invgengraph_ts_implication_count : int_item
+
+(** Time spent rewriting graphs. *)
+val invgengraph_ts_graph_rewriting_time : float_item
+
+(** Time spent rewriting graphs. *)
+val invgengraph_ts_total_time : float_item
+
+(** Title for INVGENTS statistics *)
+val invgengraph_ts_stats_title : string
+
+(** All INVGENTS statistics *)
+val invgengraph_ts_stats : stat_item list
+
+(** Stop and record all timers *)
+val invgengraph_ts_stop_timers : unit -> unit
+
+(** Pretty-print INVGENTS statistics items *)
+val pp_print_invgengraph_ts_stats : Format.formatter -> unit
 
 (** {2 SMT} *)
 

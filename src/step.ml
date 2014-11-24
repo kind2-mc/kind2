@@ -52,7 +52,7 @@ let on_exit _ =
     with
     | e -> 
        Event.log L_error
-                 "Error deleting solver_init: %s" 
+                 "IND @[<v>Error deleting solver_init:@ %s@]"
                  (Printexc.to_string e))
 
 let stop () = ()
@@ -483,7 +483,9 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      (* Output current progress. *)
      Event.log
        L_info
-       "IND loop at k =  %d\nIND unknowns:    %d\nIND optimistics: %d"
+       "IND @[<v>at k = %i@,\
+                 %i unknowns@,\
+                 %i unfalsifiables.@]"
        (Numeral.to_int k)
        (List.length unknowns') (List.length unfalsifiable_props);
 
@@ -506,7 +508,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
        Event.log
          L_info
-         "IND reached maximal number of iterations."
+         "IND @[<v>reached maximal number of iterations.@]"
      else
        (* Looping. *)
        next
@@ -565,7 +567,15 @@ let launch trans =
   next trans solver Numeral.zero [] [] unknowns
 
 (* Runs the step instance. *)
-let main trans = launch trans
+let main trans = 
+
+  if not (List.mem `BMC (Flags.enable ())) then
+
+    Event.log 
+      L_warn 
+      "@[<v>Inductive step without BMC will not be able to prove or disprove any properties.@,Use both options --enable BMC --enable IND together.@]";
+      
+  launch trans
 
 
 (* 

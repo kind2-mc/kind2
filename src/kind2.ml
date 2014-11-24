@@ -29,8 +29,8 @@ end
 
 module BMC = Base
 module IND = Step
-module InvGen = InvGenGraph
-module InvGenOS = InvGenGraphOneState
+module InvGenTS = InvGenGraph.TwoState
+module InvGenOS = InvGenGraph.OneState
 
 (* module PDR = Dummy *)
 
@@ -52,7 +52,7 @@ let main_of_process = function
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
   | `IND -> IND.main 
-  | `INVGEN -> InvGen.main
+  | `INVGEN -> InvGenTS.main
   | `INVGENOS -> InvGenOS.main
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
@@ -64,7 +64,7 @@ let on_exit_of_process = function
   | `PDR -> PDR.on_exit
   | `BMC -> BMC.on_exit 
   | `IND -> IND.on_exit 
-  | `INVGEN -> InvGen.on_exit  
+  | `INVGEN -> InvGenTS.on_exit  
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
@@ -85,8 +85,8 @@ let debug_ext_of_process = function
   | `PDR -> "pdr"
   | `BMC -> "bmc"
   | `IND -> "ind"
-  | `INVGEN -> "invgen"
-  | `INVGENOS -> "invgen one state"
+  | `INVGEN -> "invgenTS"
+  | `INVGENOS -> "invgenOS"
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
@@ -129,7 +129,7 @@ let status_of_exn process = function
     (
 
       Event.log L_error 
-        "Wallclock timeout";
+        "<Timeout> Wallclock timeout";
 
       status_timeout
 
@@ -141,7 +141,7 @@ let status_of_exn process = function
     (
       
       Event.log L_error
-        "CPU timeout"; 
+        "<Timeout> CPU timeout"; 
 
       status_timeout
 
@@ -153,7 +153,7 @@ let status_of_exn process = function
     (
       
       Event.log L_fatal
-        "Caught signal%t. Terminating." 
+        "<Interruption> Caught signal%t. Terminating." 
         (function ppf -> 
           match s with 
             | 0 -> () 
@@ -173,7 +173,7 @@ let status_of_exn process = function
       let backtrace = Printexc.get_backtrace () in
 
       Event.log L_fatal
-        "Runtime error: %s" 
+        "<Error> Runtime error: %s" 
         (Printexc.to_string e);
 
       if Printexc.backtrace_status () then

@@ -362,7 +362,7 @@ let pt_string_of_kind_module = function
   | `PDR -> "PDR"
   | `BMC -> "BMC"
   | `IND -> "inductive step"
-  | `INVGEN -> "invariant generator"
+  | `INVGEN -> "two state invariant generator"
   | `INVGENOS -> "one state invariant generator"
   | `INVMAN -> "invariant manager"
   | `Interpreter -> "interpreter"

@@ -843,8 +843,34 @@ let rec definitions_of_node_calls
 
           (* Guard formula with activation condition *)
           let guard_formula_trans = 
-            function t ->  
-              Term.mk_implies [act_cond_trans; t]
+            function t ->
+              (* Hi, this is your good friend
+                 Adrien-from-the-past. Haven't slept much so I might
+                 do things stupidier than usual. I'm hacking this
+                 thing, the previous version is: *)
+              (* Term.mk_implies [act_cond_trans; t] *)
+
+              (* Now here is how I mess up everything. *)
+              Term.mk_implies [
+                Term.mk_and
+                  [ (* So first of all, I'm using act_cond@0. I hope
+                       you don't mind. Actually I know you do but let
+                       me go ahead and do it anyway. *)
+                    act_cond_trans_pre ;
+                    (* Now I'm really gonna piss you off. I need
+                       ticked@-1, so I take the version at 0 and
+                       negatively bump it. I can almost hear you
+                       cry. *)
+                    Term.bump_state
+                      Numeral.(~- one)
+                      ticked_trans_pre ] ;
+                (* Well that's pretty much it. By the way you other
+                   good friend
+                   Adrien-from-the-future-for-me-but-present-for-you
+                   is totally not responsible for this. He would never
+                   do such a thing. *)
+                t
+              ]
           in
 
           (* Local variables extended by state variable indicating if
