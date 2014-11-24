@@ -477,9 +477,8 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             (* |> if Flags.invgengraph_scan_trans () *)
-             (*    then set_of_term trans else identity *)
-             |> set_of_term trans
+             |> if Flags.invgengraph_no_subterms ()
+                then identity else set_of_term trans
            in
 
            let candidates =

@@ -461,9 +461,9 @@ type invgengraph_atoms_only = bool
 
 let invgengraph_atoms_only_default = false
 
-type invgengraph_scan_trans = bool
+type invgengraph_no_subterms = bool
 
-let invgengraph_scan_trans_default = false
+let invgengraph_no_subterms_default = false
 
 (* ********** *) 
 
@@ -563,7 +563,7 @@ type flags =
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable invgengraph_top_only : invgengraph_top_only;
       mutable invgengraph_atoms_only : invgengraph_atoms_only;
-      mutable invgengraph_scan_trans : invgengraph_scan_trans;
+      mutable invgengraph_no_subterms : invgengraph_no_subterms;
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -609,7 +609,7 @@ let flags =
     cooper_general_lbound = cooper_general_lbound_default;
     invgengraph_top_only = invgengraph_top_only_default;
     invgengraph_atoms_only = invgengraph_atoms_only_default;
-    invgengraph_scan_trans = invgengraph_scan_trans_default;
+    invgengraph_no_subterms = invgengraph_no_subterms_default;
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -922,11 +922,11 @@ let invgengraph_atoms_only_spec =
    Arg.Unit invgengraph_atoms_only_action,
    "Invariant generation will only consider atoms as candidate terms.")
   
-let invgengraph_scan_trans_action o = flags.invgengraph_scan_trans <- true
+let invgengraph_no_subterms_action o = flags.invgengraph_no_subterms <- true
                                        
-let invgengraph_scan_trans_spec = 
-  ("--invgen_scan_trans", 
-   Arg.Unit invgengraph_scan_trans_action,
+let invgengraph_no_subterms_spec = 
+  ("--invgen_no_subterms", 
+   Arg.Unit invgengraph_no_subterms_action,
    "Invariant generation will extract candidate terms from the transition predicate.")
   
 (* ********** *) 
@@ -1106,7 +1106,7 @@ let invgengraph_top_only () = flags.invgengraph_top_only
 
 let invgengraph_atoms_only () = flags.invgengraph_atoms_only
 
-let invgengraph_scan_trans () = flags.invgengraph_scan_trans
+let invgengraph_no_subterms () = flags.invgengraph_no_subterms
 
 let interpreter_input_file () = flags.interpreter_input_file
 
@@ -1238,7 +1238,7 @@ and speclist =
     (* Set invgen options. *)
     invgengraph_top_only_spec;
     invgengraph_atoms_only_spec;
-    invgengraph_scan_trans_spec;
+    invgengraph_no_subterms_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;
