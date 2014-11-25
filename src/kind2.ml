@@ -52,8 +52,50 @@ let main_of_process = function
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
   | `IND -> IND.main 
-  | `INVGEN -> InvGenTS.main
-  | `INVGENOS -> InvGenOS.main
+
+  | `INVGEN -> 
+
+    let nice =  (Flags.invgengraph_renice ()) in
+
+    (if nice < 0 then 
+
+       Event.log
+         L_info 
+         "Ignoring negative niceness value for invariant generation."
+
+     else
+
+       let nice' = Unix.nice nice in
+
+       Event.log
+         L_info 
+         "Renicing invariant generation to %d"
+         nice');
+
+    InvGenTS.main
+
+
+  | `INVGENOS -> 
+
+    let nice =  (Flags.invgengraph_renice ()) in
+
+    (if nice < 0 then 
+
+       Event.log
+         L_info 
+         "Ignoring negative niceness value for invariant generation."
+
+     else
+
+       let nice' = Unix.nice (Flags.invgengraph_renice ()) in
+
+       Event.log
+         L_info 
+         "Renicing invariant generation to %d"
+         nice');
+
+    InvGenOS.main
+
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
   | `Parser -> ignore
