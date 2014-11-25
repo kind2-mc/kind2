@@ -182,6 +182,10 @@ val invgengraph_atoms_only : unit -> invgengraph_atoms_only
 type invgengraph_no_subterms = bool
 val invgengraph_no_subterms : unit -> invgengraph_no_subterms
 
+(** Renice invariant generation process *)
+type invgengraph_renice = int
+val invgengraph_renice : unit -> invgengraph_renice
+
 (** Read input from file **)
 type interpreter_input_file = string
 val interpreter_input_file : unit -> interpreter_input_file
