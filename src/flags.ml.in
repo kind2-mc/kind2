@@ -465,6 +465,10 @@ type invgengraph_no_trans_subterms = bool
 
 let invgengraph_no_trans_subterms_default = false
 
+type invgengraph_renice = int
+
+let invgengraph_renice_default = 0
+
 (* ********** *) 
 
 type interpreter_input_file = string 
@@ -563,7 +567,12 @@ type flags =
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable invgengraph_top_only : invgengraph_top_only;
       mutable invgengraph_atoms_only : invgengraph_atoms_only;
+<<<<<<< HEAD
       mutable invgengraph_no_trans_subterms : invgengraph_no_trans_subterms;
+=======
+      mutable invgengraph_no_subterms : invgengraph_no_subterms;
+      mutable invgengraph_renice : invgengraph_renice;
+>>>>>>> upstream/inv-gen
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -609,7 +618,12 @@ let flags =
     cooper_general_lbound = cooper_general_lbound_default;
     invgengraph_top_only = invgengraph_top_only_default;
     invgengraph_atoms_only = invgengraph_atoms_only_default;
+<<<<<<< HEAD
     invgengraph_no_trans_subterms = invgengraph_no_trans_subterms_default;
+=======
+    invgengraph_no_subterms = invgengraph_no_subterms_default;
+    invgengraph_renice = invgengraph_renice_default;
+>>>>>>> upstream/inv-gen
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -929,6 +943,13 @@ let invgengraph_no_trans_subterms_spec =
    Arg.Unit invgengraph_no_trans_subterms_action,
    "Invariant generation will extract candidate terms from the transition predicate.")
   
+let invgengraph_renice_action o = flags.invgengraph_renice <- o
+                                       
+let invgengraph_renice_spec = 
+  ("--invgen_renice", 
+   Arg.Int invgengraph_renice_action,
+   "Renice invariant generation process. Give a positive argument to lower priority.")
+  
 (* ********** *) 
 
 let interpreter_input_file_action o = flags.interpreter_input_file <- o
@@ -1108,6 +1129,8 @@ let invgengraph_atoms_only () = flags.invgengraph_atoms_only
 
 let invgengraph_no_trans_subterms () = flags.invgengraph_no_trans_subterms
 
+let invgengraph_renice () = flags.invgengraph_renice
+
 let interpreter_input_file () = flags.interpreter_input_file
 
 let interpreter_steps () = flags.interpreter_steps
@@ -1239,6 +1262,7 @@ and speclist =
     invgengraph_top_only_spec;
     invgengraph_atoms_only_spec;
     invgengraph_no_trans_subterms_spec;
+    invgengraph_renice_spec;
 
     (* Read input from file *)
     interpreter_input_file_spec;
