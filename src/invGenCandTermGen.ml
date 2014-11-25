@@ -279,10 +279,12 @@ module CandidateTermGen = struct
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
+              |> TSet.add (flat_to_term term)
               |> TSet.add (Term.mk_geq kids)
               |> TSet.add (Term.mk_leq kids)
 
             | `LT  -> set
+              |> TSet.add (flat_to_term term)
               |> TSet.add (Term.mk_geq kids)
               |> TSet.add (Term.mk_leq kids)
 
@@ -477,7 +479,7 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgengraph_no_subterms ()
+             |> if Flags.invgengraph_no_trans_subterms ()
                 then identity else set_of_term trans
            in
 

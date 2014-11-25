@@ -179,8 +179,8 @@ type invgengraph_atoms_only = bool
 val invgengraph_atoms_only : unit -> invgengraph_atoms_only
 (** InvGen will look for candidate terms in the transition
     predicate. *)
-type invgengraph_no_subterms = bool
-val invgengraph_no_subterms : unit -> invgengraph_no_subterms
+type invgengraph_no_trans_subterms = bool
+val invgengraph_no_trans_subterms : unit -> invgengraph_no_trans_subterms
 
 (** Read input from file **)
 type interpreter_input_file = string
