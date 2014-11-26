@@ -993,7 +993,7 @@ let atom_of_term t =
   let tt = Term.type_of_term t in 
 
   (* Term is of type integer *)
-  if Type.is_int tt then
+  if Type.is_int tt || Type.is_int_range tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
     Num (Numeral.zero, [Numeral.one, [t]])

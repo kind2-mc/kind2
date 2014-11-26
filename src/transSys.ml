@@ -797,6 +797,7 @@ let rec vars_of_bounds' trans_sys lbound ubound accum =
   else
     trans_sys.state_vars
 
+    |> List.rev
     (* Add state variables at upper bound instant  *)
     |> List.fold_left
          ( fun accum sv -> 
@@ -844,6 +845,64 @@ let trans_of_bound t i =
   then trans_term 
   else Term.bump_state (Numeral.(i - one)) trans_term
 
+(* Builds a call to the transition relation function linking state [k]
+   and [k']. *)
+let trans_fun_of { uf_defs } k k' =
+  match List.rev uf_defs with
+    (* uf_defs are in topological order, so the last one is the top one. *)
+    | (_, (trans_uf, (vars,_))) :: _ ->
+      let trans_base_pre = Numeral.( pred trans_base ) in
+
+      let rec bump_as_needed res = function
+        | var :: tail ->
+          let bumped_term =
+            if Var.is_const_state_var var then Term.mk_var var
+            else (
+              let offset = Var.offset_of_state_var_instance var in
+              if Numeral.( offset = trans_base ) then
+                (* Unprimed state variable, bumping to k'. *)
+                Var.bump_offset_of_state_var_instance
+                  Numeral.( k' - offset ) var
+                  |> Term.mk_var
+              else if Numeral. (offset = trans_base_pre ) then
+                (* Primed state variable, bumping to k. *)
+                Var.bump_offset_of_state_var_instance
+                  Numeral.( k - offset ) var
+                  |> Term.mk_var
+              else
+                (* This cannot happen. *)
+                assert false
+            )
+          in
+          bump_as_needed (bumped_term :: res) tail
+        | [] -> List.rev res
+      in
+      
+      Term.mk_uf trans_uf (bump_as_needed [] vars)
+        
+    | _ -> assert false
+
+  (* debug transSys "@[<v>%a@]" *)
+  (*   (Lib.pp_print_list StateVar.pp_print_state_var "@,") t.state_vars in *)
+
+  (* (\* Variables at [k]. *\) *)
+  (* let vars_at_k' = vars_of_bounds t k' k' in *)
+
+  (* debug transSys "@[<v>%a@]" *)
+  (*   (Lib.pp_print_list Var.pp_print_var "@,") vars_at_k' in *)
+
+  (* (\* Variables at [k'] appended to [vars_at_k], as terms. *\) *)
+  (* let all_vars = *)
+  (*   vars_of_bounds' t k k vars_at_k' *)
+  (*   |> List.map Term.mk_var *)
+  (* in *)
+
+  (* debug transSys "@[<v>%a@]" *)
+  (*   (Lib.pp_print_list Term.pp_print_term "@,") all_vars in *)
+
+  (* (\* Building the uf application. *\) *)
+  (* Term.mk_uf (trans_uf_symbol t) all_vars *)
+
 
 (* Instantiate the initial state constraint to the bound *)
 let invars_of_bound t i = 
@@ -853,6 +912,9 @@ let invars_of_bound t i =
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
+
+
+let get_invars { invars } = invars
 
 
 (* Instantiate terms in association list to the bound *)

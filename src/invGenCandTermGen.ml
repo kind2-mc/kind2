@@ -200,14 +200,14 @@ module CandidateTermGen = struct
       match Term.destruct term with
       | Term.T.App (_,_) -> false
       | Term.T.Var _ -> false
-      | Term.T.Attr (kid,_) -> is_var_or_const kid
+      | Term.T.Attr (kid,_) -> is_const kid
       | _ -> true
 
     let rec is_var term =
       match Term.destruct term with
       | Term.T.App (_,_) -> false
       | Term.T.Const _ -> false
-      | Term.T.Attr (kid,_) -> is_var_or_const kid
+      | Term.T.Attr (kid,_) -> is_var kid
       | _ -> true
 
     (* Adds term to set if term is bool and is not [AND|NOT]. *)
@@ -215,16 +215,14 @@ module CandidateTermGen = struct
 
       | Term.T.App (sym, kids) ->
 
-         if List.for_all is_var_or_const kids then
+        (* if ( (is_var kid1) && (is_const kid2) ) *)
+        (*   || ( (is_var kid2) && (is_const kid1) ) then *)
+        if List.for_all is_var_or_const kids then
            
            ( match Symbol.node_of_symbol sym with
 
-             | `EQ
-             | `GEQ
-             | `LEQ
              | `GT
              | `LT
-             | `IMPLIES
              | `OR
              | `XOR
              | `DISTINCT
@@ -249,7 +247,7 @@ module CandidateTermGen = struct
            const, const op var, orr var op var. *)
         if ( (is_var kid1) && (is_const kid2) )
           || ( (is_var kid2) && (is_const kid1) )
-          (* || ( (is_var kid1) && (is_var kid2) ) *)
+          (*|| ( (is_var kid1) && (is_var kid2) ) *)
         then
 
           ( match Symbol.node_of_symbol sym with
@@ -265,7 +263,7 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                    |> TSet.add (flat_to_term term)
+                    (* |> TSet.add (flat_to_term term) *)
                     |> TSet.add (Term.mk_geq kids)
                     |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
@@ -494,8 +492,9 @@ module CandidateTermGen = struct
 
            let sorted_result =
              result
-             |> TSet.fold
-                  ( fun term map ->
+             |> (if true then identity else
+                 TSet.fold
+                   ( fun term map ->
                     TransSys.instantiate_term_all_levels
                       system term
                     |> (function | (top,others) -> top :: others)
@@ -504,7 +503,7 @@ module CandidateTermGen = struct
                            insert_sys_terms
                              (sys, TSet.of_list terms) map )
                          map )
-                  candidates
+                  candidates )
              |> insert_sys_terms (system, candidates)
            in
 

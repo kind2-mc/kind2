@@ -167,6 +167,10 @@ val init_of_bound : t -> Numeral.t -> Term.t
 (** Instantiate the transition relation constraint to the bound.  The
     bound given is the bound of the state after the transition *)
 val trans_of_bound : t -> Numeral.t -> Term.t
+  
+(** Builds a call to the transition relation function linking state
+    [k] and [k']. *)
+val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
 
 (** Instantiate all properties to the bound *)
 val props_of_bound : t -> Numeral.t -> Term.t
@@ -179,6 +183,9 @@ val prop_of_name : t -> string -> Term.t
 
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : t -> Numeral.t -> Term.t
+
+(** The list of invariants and valid properties at zero. *)
+val get_invars : t -> Term.t list
 
 (** Return uninterpreted function symbols to be declared in the SMT
     solver *)

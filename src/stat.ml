@@ -279,6 +279,12 @@ let ind_compress_same_predecessors =
 let ind_restarts = 
   empty_item "Restarts" 0
 
+let ind_lazy_invariants_count = 
+  empty_item "Asserted invariants at one state" 0
+
+let ind_lazy_invariants_time = 
+  empty_item "Lazy invariants time" 0.
+
 let ind_total_time = 
   empty_item "Total time" 0.
 
@@ -292,6 +298,8 @@ let ind_stats =
     I ind_compress_same_successors;
     I ind_compress_same_predecessors;
     I ind_restarts;
+    I ind_lazy_invariants_count;
+    F ind_lazy_invariants_time;
     F ind_total_time ] 
 
 (* Stop and record all times *)

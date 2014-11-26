@@ -179,8 +179,7 @@ module Make (InModule : In) : Out = struct
     (* Returning result. *)
     result
 
-  (* Removes trivial implications from a set of term for step. CRASHES
-     if not applied to implications. *)
+  (* Filters candidate invariants from a set of term for step. *)
   let filter_step_candidates invariants to_prune =
       
 
@@ -406,32 +405,36 @@ module Make (InModule : In) : Out = struct
         assert (Term.is_node term) ;
 
         if Term.node_symbol_of_term term == Symbol.s_implies
-        then
+        then (
 
-          (* Term is indeed an implication. *)
-          ( match Term.node_args_of_term term with
+          if (Term.vars_of_term term |> Var.VarSet.cardinal) <= 1 then
+            false
+          else
 
-            (* Term is a well founded implication. *)
-            | [ lhs ; rhs ] ->
-              if
-                (* Checking if rhs is an and containing lhs, or a
-                   negated or containing the negation of lhs. *)
-                (trivial_rhs_or lhs rhs)
-                (* Checking if lhs is an or containing lhs, or a
-                   negated or containing the negation of lhs. *)
-                || (trivial_lhs_and lhs rhs)
+            (* Term is indeed an implication. *)
+            ( match Term.node_args_of_term term with
+
+              (* Term is a well founded implication. *)
+              | [ lhs ; rhs ] ->
+                if
+                  (* Checking if rhs is an and containing lhs, or a
+                     negated or containing the negation of lhs. *)
+                  (trivial_rhs_or lhs rhs)
+                  (* Checking if lhs is an or containing lhs, or a
+                     negated or containing the negation of lhs. *)
+                  || (trivial_lhs_and lhs rhs)
                 (* Checking if lhs and rhs are arith operator and lhs
                    trivially implies rhs. *)
-                || (trivial_impl_arith lhs rhs)
-              then
-                ( rm_count := !rm_count + 1 ; false )
-              else true
+              (* || (trivial_impl_arith lhs rhs) *)
+                then
+                  ( rm_count := !rm_count + 1 ; false )
+                else true
 
-            (* Implication is not well-founded, crashing. *)
-            | _ -> assert false )
+              (* Implication is not well-founded, crashing. *)
+              | _ -> assert false )
           
         (* Node is not an implication. *)
-        else true
+        ) else true
       )
     in
   
@@ -539,6 +542,9 @@ module Make (InModule : In) : Out = struct
     LSD.add_invariants lsd top ;
 
     (* Returning top level invariants. *)
+    (* match intermediary with *)
+    (*   | [] -> top *)
+    (*   | _ -> [] *)
     top
 
   (* Queries step to find invariants to communicate. *)
@@ -615,17 +621,29 @@ module Make (InModule : In) : Out = struct
             new_invariants
         in
 
-        (* And-ing the new invariants. *)
-        Term.mk_and new_invariants
-        (* Guarding with init if necessary. *)
-        |> sanitize_term
-        (* Getting top level invariants, adding it and intermediary
-           ones in LSD. *)
-        |> get_top_inv_add_invariants lsd sys
-        (* Anding top level invariants. *)
-        |> Term.mk_and
-        (* Broadcasting new invariant. *)
-        |> Event.invariant ;
+        if Flags.ind_lazy_invariants () then (
+          new_invariants
+          |> List.fold_left
+              (fun list inv ->
+                (* Guarding with init if necessary. *)
+                sanitize_term inv
+                (* Getting top level invariants, adding it and intermediary
+                   ones in LSD. *)
+                |> get_top_inv_add_invariants lsd sys
+                |> List.rev_append list)
+              []
+          (* Broadcasting new invariant. *)
+          |> List.iter Event.invariant
+        ) else (
+          match new_invariants with
+            | [] -> ()
+            | _ ->
+              new_invariants
+              |> Term.mk_and
+              |> sanitize_term
+              |> get_top_inv_add_invariants lsd sys
+              |> List.iter Event.invariant
+        );
 
         (* Returning updated invariant set. *)
         invariants'
@@ -753,7 +771,12 @@ module Make (InModule : In) : Out = struct
   let main trans_sys =
 
     (* Creating lsd instance. *)
-    let lsd = LSD.create two_state trans_sys in
+    let lsd =
+      LSD.create
+        two_state
+        (Flags.invgengraph_top_only ())
+        trans_sys
+    in
 
     (* Memorizing lsd for clean exit. *)
     lsd_ref := Some lsd ;

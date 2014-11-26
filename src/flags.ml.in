@@ -297,6 +297,12 @@ let bmc_max_default = 0
 
 (* ********** *) 
 
+type ind_backward = bool
+    
+let ind_backward_default = true
+
+(* ********** *) 
+
 type ind_compress = bool
     
 let ind_compress_default = true
@@ -318,6 +324,12 @@ let ind_compress_same_succ_default = false
 type ind_compress_same_pred = bool
     
 let ind_compress_same_pred_default = false
+
+(* ********** *) 
+
+type ind_lazy_invariants = bool
+    
+let ind_lazy_invariants_default = false
 
 (* ********** *) 
 
@@ -547,10 +559,12 @@ type flags =
       mutable enable : enable;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
+      mutable ind_backward : ind_backward;
       mutable ind_compress : ind_compress;
       mutable ind_compress_equal : ind_compress_equal;
       mutable ind_compress_same_succ : ind_compress_same_succ;
       mutable ind_compress_same_pred : ind_compress_same_pred;
+      mutable ind_lazy_invariants : ind_lazy_invariants;
       mutable ind_print_inductive_cex : ind_print_inductive_cex;
       mutable pdr_qe : pdr_qe;
       mutable pdr_extract : pdr_extract;
@@ -567,12 +581,8 @@ type flags =
       mutable cooper_general_lbound : cooper_general_lbound;
       mutable invgengraph_top_only : invgengraph_top_only;
       mutable invgengraph_atoms_only : invgengraph_atoms_only;
-<<<<<<< HEAD
       mutable invgengraph_no_trans_subterms : invgengraph_no_trans_subterms;
-=======
-      mutable invgengraph_no_subterms : invgengraph_no_subterms;
       mutable invgengraph_renice : invgengraph_renice;
->>>>>>> upstream/inv-gen
       mutable interpreter_input_file : interpreter_input_file;
       mutable interpreter_steps : interpreter_steps;
       mutable lustre_main : lustre_main;
@@ -598,10 +608,12 @@ let flags =
     enable = enable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
+    ind_backward = ind_backward_default;
     ind_compress = ind_compress_default;
     ind_compress_equal = ind_compress_equal_default;
     ind_compress_same_succ = ind_compress_same_succ_default;
     ind_compress_same_pred = ind_compress_same_pred_default;
+    ind_lazy_invariants = ind_lazy_invariants_default;
     ind_print_inductive_cex = ind_print_inductive_cex_default;
     pdr_qe = pdr_qe_default;
     pdr_extract = pdr_extract_default;
@@ -618,12 +630,8 @@ let flags =
     cooper_general_lbound = cooper_general_lbound_default;
     invgengraph_top_only = invgengraph_top_only_default;
     invgengraph_atoms_only = invgengraph_atoms_only_default;
-<<<<<<< HEAD
     invgengraph_no_trans_subterms = invgengraph_no_trans_subterms_default;
-=======
-    invgengraph_no_subterms = invgengraph_no_subterms_default;
     invgengraph_renice = invgengraph_renice_default;
->>>>>>> upstream/inv-gen
     interpreter_input_file = interpreter_input_file_default;
     interpreter_steps = interpreter_steps_default;
     lustre_main = lustre_main_default;
@@ -757,6 +765,15 @@ let bmc_max_spec =
 
 (* ********** *) 
 
+let ind_backward_action o = flags.ind_backward <- o
+  
+let ind_backward_spec = 
+  ("--ind_backward", 
+   Arg.Bool ind_backward_action, 
+   Format.sprintf "(IND) Unrolls the transition relation backwards (default: %B)" ind_backward_default)
+
+(* ********** *) 
+
 let ind_compress_action o = flags.ind_compress <- o
   
 let ind_compress_spec = 
@@ -790,6 +807,15 @@ let ind_compress_same_pred_spec =
   ("--ind_compress_same_pred", 
    Arg.Bool ind_compress_same_pred_action, 
    Format.sprintf "(IND) Compress inductive counterexamples for states with same predecessors (default: %B)" ind_compress_same_pred_default)
+
+(* ********** *) 
+
+let ind_lazy_invariants_action o = flags.ind_lazy_invariants <- o
+  
+let ind_lazy_invariants_spec = 
+  ("--ind_lazy_invariants", 
+   Arg.Bool ind_lazy_invariants_action, 
+   Format.sprintf "(IND) Asserts invariants lazily (default: %B)" ind_lazy_invariants_default)
 
 (* ********** *) 
 
@@ -1083,6 +1109,8 @@ let check_version () = flags.check_version
 
 let bmc_max () = flags.bmc_max 
 
+let ind_backward () = flags.ind_backward
+
 let ind_compress () = flags.ind_compress 
 
 let ind_compress_equal () = flags.ind_compress_equal 
@@ -1090,6 +1118,8 @@ let ind_compress_equal () = flags.ind_compress_equal
 let ind_compress_same_succ () = flags.ind_compress_same_succ 
 
 let ind_compress_same_pred () = flags.ind_compress_same_pred 
+
+let ind_lazy_invariants () = flags.ind_lazy_invariants
 
 let ind_print_inductive_cex () = flags.ind_print_inductive_cex 
 
@@ -1206,6 +1236,9 @@ and speclist =
     bmc_max_spec;
 
     (* Compress inductive counterexamples *)
+    ind_backward_spec;
+
+    (* Compress inductive counterexamples *)
     ind_compress_spec;
 
     (* Compress inductive counterexamples when states are equal modulo
@@ -1217,6 +1250,9 @@ and speclist =
 
     (* Compress inductive counterexamples when states have same predecessors *)
     ind_compress_same_pred_spec;
+
+    (* Compress inductive counterexamples when states have same predecessors *)
+    ind_lazy_invariants_spec;
 
     (* Compress inductive counterexamples *)
     ind_print_inductive_cex_spec;

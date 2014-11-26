@@ -16,23 +16,12 @@
 
 *)
 
-open Lib
+(** Clean up before exit *)
+val on_exit: TransSys.t option -> unit
 
-(** Returns an actlit built from a string. Beware of name
-   collisions. *)
-val actlit_of_string: string -> UfSymbol.t
+(** Runs the step instance. *)
+val main: TransSys.t -> unit
 
-(** Creates a positive actlit as a bool UF constant. *)
-val generate_actlit: Term.t -> UfSymbol.t
-
-(** Creates a negative actlit as a bool UF constant. *)
-val generate_negative_actlit: Term.t -> UfSymbol.t
-
-(** Creates a fresh actlit as a bool UF constant. *)
-val fresh_actlit: unit -> UfSymbol.t
-
-(** Returns the term corresponding to the input actlit. *)
-val term_of_actlit: UfSymbol.t -> Term.t
 
 (* 
    Local Variables:
