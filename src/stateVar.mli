@@ -91,6 +91,9 @@ val scope_of_state_var : t -> string list
 (** Return the type of the variable *)
 val type_of_state_var : t -> Type.t
 
+(** Return the indexes of the variable *)
+val indexes_of_state_var : t -> Type.t list
+
 (** Return the uninterpreted function symbol of the variable *)
 val uf_symbol_of_state_var : t -> UfSymbol.t
 

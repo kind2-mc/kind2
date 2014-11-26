@@ -515,7 +515,7 @@ expr:
 
   (* A record field projection *)
   | s = expr; DOT; t = ident 
-    { A.RecordProject (mk_pos $startpos, s, I.index_of_ident t) }
+    { A.RecordProject (mk_pos $startpos, s, I.one_index_of_ident t) }
 
   (* A record *)
   | t = ident; 

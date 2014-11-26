@@ -112,13 +112,10 @@ let file_row_col_of_pos = function
 (* An identifier *)
 type ident = LustreIdent.t
 
+type one_index = LustreIdent.one_index
+
 type index = LustreIdent.index
 
-(* An index expression *)
-type one_index = 
-  | FieldIndex of position * ident 
-  | NumIndex of position * int
-  | VarIndex of position * ident
 
 
 (* A Lustre expression *)
@@ -126,7 +123,7 @@ type expr =
 
   (* Identifier *)
   | Ident of position * ident
-  | RecordProject of position * expr * index
+  | RecordProject of position * expr * one_index
   | TupleProject of position * expr * expr
 
   (* Values *)
@@ -425,7 +422,7 @@ let rec pp_print_expr ppf =
         "%a%a%a" 
         ppos p 
         pp_print_expr e 
-        (I.pp_print_index false) f
+        (I.pp_print_one_index false) f
 
     | RecordConstruct (p, t, l) -> 
 

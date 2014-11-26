@@ -227,7 +227,7 @@ type abstraction_context =
 
     (* Define an expression with a state variable or re-use previous
        definition *)
-    mk_state_var_for_expr : bool -> (StateVar.t * E.t) list -> E.t -> StateVar.t * (StateVar.t * E.t) list;
+    mk_state_var_for_expr : bool -> (StateVar.t * E.t) list -> E.t -> E.t list -> StateVar.t * (StateVar.t * E.t) list;
 
     (* Create a new oracle input to guard pre operation on state
        variable *)
@@ -416,12 +416,15 @@ let rec eval_ast_expr
      expression of the result with the given constructor *)
   let eval_unary_ast_expr pos mk expr = 
 
+    (* Evaluate expression *)
     let expr', abstractions' = 
       eval_ast_expr abstractions context expr 
     in
-
-    (IdxTrie.map mk expr', abstractions')
-
+ 
+    (* Apply given constructor to each expression and keep bounds *)
+    (IdxTrie.map (fun (e, b) -> (mk e, b)) expr', 
+     abstractions')
+    
   in
 
 
@@ -453,7 +456,19 @@ let rec eval_ast_expr
 
 
           (* Apply operator to arguments *)
-          (fun _ e1 e2 -> mk e1 e2)
+          (fun _ (b1, e1) (b2, e2) -> 
+
+             (* Bounds for array variables must be identical *)
+             if b1 = b2 then
+
+               (* Apply given constructor to expression pair and keep
+                  bounds of first, which are identical to bounds of
+                  second *)
+               (mk e1 e2, b1) 
+
+             else 
+
+               raise E.Type_mismatch)
 
           expr1'
           expr2'
@@ -524,7 +539,7 @@ let rec eval_ast_expr
           (fun 
             i
             state_var
-            ({ E.expr_type } as expr)
+            ({ E.expr_type } as expr, expr_bounds)
             (accum, ({ mk_state_var_for_expr } as abstractions)) ->
 
             if 
@@ -532,7 +547,11 @@ let rec eval_ast_expr
               (* Expression must be of a subtype of input type *)
               Type.check_type 
                 expr_type
-                (StateVar.type_of_state_var state_var) 
+                (StateVar.type_of_state_var state_var) &&
+
+              (* Number of indexes must match *)
+              (List.length expr_bounds = 
+               List.length (StateVar.indexes_of_state_var state_var))
 
             then 
 
@@ -542,6 +561,7 @@ let rec eval_ast_expr
                   (StateVar.is_const state_var) 
                   abstractions.new_vars
                   expr 
+                  expr_bounds
               in
 
               E.set_state_var_instance state_var' pos ident state_var;
@@ -737,7 +757,7 @@ let rec eval_ast_expr
 
       (* Evaluate expression to an integer constant *)
       let field = 
-        I.mk_int_index (int_const_of_ast_expr context pos field_expr) 
+        I.mk_int_one_index (int_const_of_ast_expr context pos field_expr) 
       in
 
       eval_ast_projection pos expr field

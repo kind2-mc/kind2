@@ -330,11 +330,19 @@ let mk_string_ident string = (string, empty_index)
 
 
 (* Construct an identifier of a string *)
-let mk_string_index string = [StringIndex string]
+let mk_string_one_index string = StringIndex string
 
 
 (* Construct an identifier of a string *)
-let mk_int_index num = [IntIndex (Numeral.to_int num)]
+let mk_string_index string = [mk_string_one_index string]
+
+
+(* Construct an identifier of a string *)
+let mk_int_one_index num = IntIndex (Numeral.to_int num)
+
+
+(* Construct an identifier of a string *)
+let mk_int_index num = [mk_int_one_index num]
 
 
 
@@ -424,6 +432,11 @@ let index_of_one_index_list one_index_list = one_index_list
 (* Constructors                                                           *)
 (* ********************************************************************** *)
 
+
+(* Construct an index of an identifier *)
+let one_index_of_ident = function 
+  | (s, []) -> StringIndex s
+  | _ -> raise (Invalid_argument "one_index_of_ident")
 
 (* Construct an index of an identifier *)
 let index_of_ident (s, i) = StringIndex s :: i

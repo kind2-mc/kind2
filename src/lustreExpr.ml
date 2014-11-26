@@ -928,7 +928,13 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   
 
 (* Create state variable of identifier *)
-let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
+let mk_state_var_of_ident
+    is_input
+    is_const
+    scope_index
+    ident
+    state_var_type
+    state_var_indexes = 
   
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -944,7 +950,7 @@ let mk_state_var_of_ident is_input is_const scope_index ident state_var_type =
       ident_string
       scope
       state_var_type
-      []
+      state_var_indexes
   in
   
   (* Add to hashtable, don't create duplicates if state variable was
@@ -965,6 +971,7 @@ let mk_fresh_state_var
     scope_index
     ident
     state_var_type
+    state_var_indexes
     index_ref =
   
   Numeral.incr index_ref; 
@@ -975,6 +982,7 @@ let mk_fresh_state_var
     scope_index
     (I.push_int_index !index_ref ident)
     state_var_type
+    state_var_indexes
 
 
 

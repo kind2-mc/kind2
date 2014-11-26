@@ -116,23 +116,29 @@ val compare : t -> t -> int
 val equal : t -> t -> bool
 
 
-(** Construct an identifier with empty index of a string *)
+(** Construct a single index of a string *)
+val mk_string_one_index : string -> one_index
+
+(** Construct an index of a string *)
 val mk_string_index : string -> index
 
+(** Construct a single index of an integer *)
+val mk_int_one_index : Numeral.t -> one_index
 
-(** Construct a singleton index of an integer *)
+(** Construct an index of an integer *)
 val mk_int_index : Numeral.t -> index
-
 
 (** Construct a singleton index of a string *)
 val mk_string_ident : string -> t
-
 
 (** An empty index *)
 val empty_index : index
 
 (** Construct an index of an identifier *)
 val index_of_ident : t -> index 
+
+(** Construct a single index of an identifier *)
+val one_index_of_ident : t -> one_index 
 
 
 val push_string_index : string -> t -> t 

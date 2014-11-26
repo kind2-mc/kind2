@@ -73,19 +73,16 @@ val position_of_lexing : Lexing.position -> position
 (** An identifier *)
 type ident = LustreIdent.t
 
+(** An single index *)
+type one_index = LustreIdent.one_index
+
 (** An index *)
 type index = LustreIdent.index
-
-(** An index expression *)
-type one_index = 
-  | FieldIndex of position * ident 
-  | NumIndex of position * int
-  | VarIndex of position * ident
 
 (** An expression *)
 type expr =
     Ident of position * ident
-  | RecordProject of position * expr * index
+  | RecordProject of position * expr * one_index
   | TupleProject of position * expr * expr
   | True of position
   | False of position
