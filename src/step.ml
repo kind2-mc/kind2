@@ -498,7 +498,7 @@ let rec next trans solver k unfalsifiables unknowns =
      |> ignore ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
-     if false then (
+     if not (Flags.ind_lazy_invariants ()) then (
        (* Asserting new invariants from 0 to k. *)
        ( match new_invariants' with
          | [] -> ()
@@ -508,7 +508,7 @@ let rec next trans solver k unfalsifiables unknowns =
                     (Solver.assert_term solver) k) ;
 
        (* Asserts old invariants at k+1. *)
-       TransSys.invars_of_bound trans k_p_1 |> Solver.assert_term solver
+       TransSys.invars_of_bound trans k_p_1 |> Solver.assert_term solver ;
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)
