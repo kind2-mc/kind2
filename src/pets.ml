@@ -646,9 +646,9 @@ let launch trans =
   solver_ref := Some solver ;
 
   (* Declaring uninterpreted function symbols. *)
-  TransSys.iter_state_var_declarations
-    trans
-    (Solver.declare_fun solver) ;
+  (* TransSys.iter_state_var_declarations *)
+  (*   trans *)
+  (*   (Solver.declare_fun solver) ; *)
 
   (* Declaring positive actlits. *)
   List.iter

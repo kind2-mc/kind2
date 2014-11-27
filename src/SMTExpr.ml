@@ -620,28 +620,15 @@ let expr_of_string_sexpr = expr_of_string_sexpr' []
 
 
 (* Convert a variable to an SMT expression *)
-let smtexpr_of_var v =
+let smtexpr_of_var declare var =
 
-  (* Get the state variable contained in the variable *) 
-  let sv = Var.state_var_of_state_var_instance v in
-
-  (* Get the uninterpreted function symbol associated with the state
-       variable *)
-  let u = StateVar.uf_symbol_of_state_var sv in 
-    
-  (* Variable is constant? *)
-  if Var.is_const_state_var v then 
-    
-    (* Convert a state variable instance to a uninterpreted constant *) 
-    Term.mk_uf u [] 
-
-  else
-
-    (* Get the offset of the state variable instance *)
-    let o = Var.offset_of_state_var_instance v in
-    
-    (* Convert a state variable instance to a uninterpreted function *) 
-    Term.mk_uf u [Term.mk_num o] 
+  (* Building the uf application. *)
+  Term.mk_uf
+    (* Getting the unrolled uf corresponding to the state var
+       instance. *)
+    (Var.unrolled_uf_of_state_var_instance var declare)
+    (* No arguments. *)
+    []
 
 
 (* Convert an SMT expression to a variable *)
@@ -658,98 +645,28 @@ let rec var_of_smtexpr e =
     (* Check top symbol of SMT expression *)
     match Term.destruct e with
 
-      (* Unary uninterpreted function *)
-      | Term.T.App (su, [a]) when Symbol.is_uf su -> 
+      (* An unrolled variable is a constant term if it is not an
+         array. *)
+      | Term.T.Const sym -> (
 
-         let num =
-           (* Check argument of uninterpreted function *)
-           ( match Term.destruct a with
-
-             (* Unary uninterpreted function with a positive numeral
-                argument *)
-             | Term.T.Const sn when Symbol.is_numeral sn ->
-                Symbol.numeral_of_symbol sn
-
-             (* Unary uninterpreted function with a negative numeral
-                argument (maybe). *)
-             | Term.T.App (sym, [a]) when sym == Symbol.s_minus ->
-                ( match Term.destruct a with
-
-                  | Term.T.Const sn when Symbol.is_numeral sn ->
-                     (* Negative numeral indeed. *)
-                     Numeral.(~- (Symbol.numeral_of_symbol sn))
-
-                  (* Actually not a negative numeral, failing. *)
-                  | _ -> 
-
-                     invalid_arg 
-                       (Format.asprintf 
-                          "var_of_smtexpr: %a\
-                           Invalid argument to uninterpreted function"
-                          Term.pp_print_term e) )
-
-             (* Unary uninterpreted function with a non-numeral
-                argument *)
-             | _ -> 
-
-                invalid_arg 
-                  (Format.asprintf 
-                     "var_of_smtexpr: %a\
-                      Invalid argument to uninterpreted function"
-                     Term.pp_print_term e) )
-         in
-
-         let sv = 
-
-           try 
-
-             (* Get state variable associated with function symbol *)
-             StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol su)
-
-           with Not_found -> 
-
-             invalid_arg 
-               (Format.asprintf 
-                  "var_of_smtexpr: %a\
-                   No state variable found for uninterpreted function symbol"
-                  Term.pp_print_term e)
-         in
-
-         (* Create state variable instance *)
-         Var.mk_state_var_instance sv num
-
-      (* Uninterpreted function symbol with invalid arity *)
-      | Term.T.Const s -> 
-
-        let sv = 
-          
-          try 
+        try
+          (* Retrieving unrolled and constant state vars. *)
+          Var.state_var_instance_of_symbol sym
+        with
+          | Not_found ->
             
-            (* Get state variable associated with function symbol *)
-            StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol s)
-              
-          with Not_found -> 
-            
-            invalid_arg 
-              (Format.asprintf 
+            invalid_arg
+              (Format.asprintf
                  "var_of_smtexpr: %a\
                   No state variable found for uninterpreted function symbol"
                  Term.pp_print_term e)
-        in
-        
-        if StateVar.is_const sv then 
+      )
 
-          (* Create state variable instance *)
-          Var.mk_const_state_var sv
+      (* An unrolled variable might be an array in which case it would
+         show up as an application. *)
+      | Term.T.App (su, args) when Symbol.is_uf su ->
 
-        else
-          
-        invalid_arg 
-          "var_of_smtexpr: \
-           Invalid arity of uninterpreted function"
-
-
-      | Term.T.App (s, _) when Symbol.is_uf s -> 
+        (* Array are unsupported atm. *)
 
         invalid_arg 
           "var_of_smtexpr: \
@@ -778,7 +695,7 @@ let term_of_smtexpr term =
 
 
 (* Convert a term to an SMT expression *)
-let quantified_smtexpr_of_term quantifier vars term = 
+let quantified_smtexpr_of_term declare quantifier vars term = 
 
   (* Map all variables to temporary variables and convert types to SMT
      sorts, in particular convert IntRange types to Ints *)
@@ -828,7 +745,7 @@ let quantified_smtexpr_of_term quantifier vars term =
               uninterpreted function *)
            (try 
               Term.mk_var (List.assq v var_to_temp_var) 
-            with Not_found -> smtexpr_of_var v)
+            with Not_found -> smtexpr_of_var declare v)
 
          (* Change divisibility symbol to modulus operator *)
          | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
@@ -849,8 +766,8 @@ let quantified_smtexpr_of_term quantifier vars term =
 
 
 (* Convert an expression from the SMT solver to a term *)
-let smtexpr_of_term term = 
-  quantified_smtexpr_of_term false [] term
+let smtexpr_of_term declare term = 
+  quantified_smtexpr_of_term declare false [] term
 
 
 (* Declare uninterpreted symbols in the SMT solver

@@ -628,9 +628,29 @@ let launch trans =
   solver_ref := Some solver ;
 
   (* Declaring uninterpreted function symbols. *)
-  TransSys.iter_state_var_declarations
+  (* TransSys.iter_state_var_declarations *)
+  (*   trans *)
+  (*   (Solver.declare_fun solver) ; *)
+
+  (* Declaring path compression actlit. *)
+  path_comp_actlit |> Solver.declare_fun solver ;
+
+  if Flags.ind_compress () then
+    (* Declaring path compression function. *)
+    Compress.init (Solver.declare_fun solver) trans ;
+
+  (* Defining functions. *)
+  TransSys.iter_uf_definitions
     trans
-    (Solver.declare_fun solver) ;
+    (Solver.define_fun solver) ;
+
+  (* Declaring unrolled vars at 0. *)
+  TransSys.vars_of_bounds trans Numeral.zero Numeral.zero
+  |> Var.declare_vars (Solver.declare_fun solver) ;
+
+  (* Invariants of the system at 0. *)
+  TransSys.invars_of_bound trans Numeral.zero
+  |> Solver.assert_term solver ;
 
   (* Declaring positive actlits. *)
   List.iter
@@ -638,21 +658,6 @@ let launch trans =
      generate_actlit prop
      |> Solver.declare_fun solver)
     unknowns ;
-
-  (* Declaring path compression actlit. *)
-  path_comp_actlit |> Solver.declare_fun solver ;
-
-  (* Declaring path compression function. *)
-  Compress.init (Solver.declare_fun solver) trans ;
-
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
-    trans
-    (Solver.define_fun solver) ;
-
-  (* Invariants of the system at 0. *)
-  TransSys.invars_of_bound trans Numeral.zero
-  |> Solver.assert_term solver ;
 
   (* Launching step. *)
   next trans solver Numeral.zero [] unknowns

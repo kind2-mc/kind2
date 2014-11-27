@@ -105,6 +105,10 @@ let soft_increment ({ systems ; k ; solver } as context) system =
        
        if Numeral.( k = sys_k ) then
          let kp1 = Numeral.succ k in
+         
+         (* Declaring unrolled vars at k. *)
+         TransSys.vars_of_bounds sys kp1 kp1
+         |> Var.declare_vars (Solver.declare_fun solver) ;
          (* Asserting transition relation at [k+1]. *)
          TransSys.trans_of_bound sys kp1
          |> Solver.assert_term solver ;
@@ -227,10 +231,19 @@ let create two_state top_only sys =
         ( fun list (sys, (zero, actlit)) ->
 
           (* Declaring things. *)
-          TransSys.iter_state_var_declarations
-            sys (fun sv ->
-              if sv != TransSys.init_flag_uf
-              then Solver.declare_fun solver sv) ;
+          (* TransSys.iter_state_var_declarations *)
+          (*   sys (fun sv -> *)
+          (*     if sv != TransSys.init_flag_uf *)
+          (*     then Solver.declare_fun solver sv) ; *)
+          
+          (* Declaring unrolled vars at 0. *)
+          TransSys.vars_of_bounds sys Numeral.zero Numeral.zero
+          |> Var.declare_vars (Solver.declare_fun solver) ;
+
+          if two_state then
+            (* Declaring unrolled vars at -1. *)
+            TransSys.vars_of_bounds sys Numeral.(~- one) Numeral.(~- one)
+            |> Var.declare_vars (Solver.declare_fun solver) ;
          
           (* Building the init implication. *)
           Term.mk_implies
