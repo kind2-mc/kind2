@@ -491,6 +491,11 @@ let rec next trans solver k unfalsifiables unknowns =
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
 
+     
+     (* Declaring unrolled vars at k+1. *)
+     TransSys.vars_of_bounds trans k_p_1 k_p_1
+     |> Var.declare_vars (Solver.declare_fun solver) ;
+
      (* Asserting transition relation. *)
      (* TransSys.trans_fun_of trans k k_p_1 *)
      TransSys.trans_of_bound trans k_p_1
