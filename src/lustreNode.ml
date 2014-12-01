@@ -83,7 +83,7 @@ type node_call =
     call_node_name : LustreIdent.t;
     
     (* Position of node call in input file *)
-    call_pos : LustreAst.position;
+    call_pos : position;
 
     (* Expressions for input parameters *)
     call_inputs : StateVar.t list;

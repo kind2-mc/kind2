@@ -58,7 +58,7 @@ type state_var_source =
 
 
 (* Stream is identical to a stream in a node instance at position *)
-type state_var_instance =  A.position * I.t * StateVar.t
+type state_var_instance =  position * I.t * StateVar.t
 
 
 (* Map from state variables to indexed identifiers *)

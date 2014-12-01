@@ -252,7 +252,7 @@ type state_var_source =
 
 
 (** Stream from node call at position *)
-type state_var_instance =  LustreAst.position * LustreIdent.t * StateVar.t
+type state_var_instance =  Lib.position * LustreIdent.t * StateVar.t
 
 
 (** Pretty-print a source of a state variable *)
@@ -281,10 +281,10 @@ val set_state_var_source : StateVar.t -> state_var_source -> unit
 val get_state_var_source : StateVar.t -> state_var_source
 
 (** State variable is identical to a state variable in a node instance *)
-val set_state_var_instance : StateVar.t -> LustreAst.position -> LustreIdent.t -> StateVar.t -> unit
+val set_state_var_instance : StateVar.t -> Lib.position -> LustreIdent.t -> StateVar.t -> unit
 
 
-val lift_term :  LustreAst.position -> LustreIdent.t -> Term.t -> Term.t
+val lift_term :  Lib.position -> LustreIdent.t -> Term.t -> Term.t
 
 (** Return identical state variable in a node instance if any *)
 val get_state_var_instances : StateVar.t -> state_var_instance list
@@ -345,7 +345,7 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : LustreAst.position -> (StateVar.t -> StateVar.t) -> (LustreAst.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : Lib.position -> (StateVar.t -> StateVar.t) -> (Lib.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 

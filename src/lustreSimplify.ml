@@ -68,7 +68,7 @@ module ISet = I.LustreIdentSet
    This is just failing at the moment, we'd need some dependency
    analysis to recognize cycles to fully support forward
    referencing. *)
-exception Node_not_found of I.t * A.position
+exception Node_not_found of I.t * position
 
 
 (* Sort a list of indexed expressions *)
@@ -81,7 +81,7 @@ let fail_at_position pos msg =
   Event.log
     L_warn
     "Parser error in %a: %s"
-    A.pp_print_position pos
+    pp_print_position pos
     msg;
 
   raise A.Parser_error
@@ -93,7 +93,7 @@ let warn_at_position pos msg =
   Event.log
     L_warn
     "Parser warning in %a: %s"
-    A.pp_print_position pos
+    pp_print_position pos
     msg
 
 
@@ -1229,7 +1229,7 @@ let rec eval_ast_expr'
         context
         abstractions
         result
-        (A.Not (A.dummy_pos, A.Eq (pos, expr1, expr2)) :: tl)
+        (A.Not (dummy_pos, A.Eq (pos, expr1, expr2)) :: tl)
 
 
     (* Less than or equal *)
@@ -1543,7 +1543,7 @@ let rec eval_ast_expr'
               (Format.asprintf 
                  "Node %a not defined or forward-referenced in %a" 
                  (I.pp_print_ident false) ident
-                 A.pp_print_position A.dummy_pos)))
+                 A.pp_print_position dummy_pos)))
 
 *)
 
@@ -1817,7 +1817,7 @@ and eval_node_call
       N.outputs = node_outputs; 
       N.observers = node_observers;
       N.props = node_props } = 
-    
+
     try 
 
       (* Get node context by identifier *)
@@ -1833,10 +1833,10 @@ and eval_node_call
   in
 
   debug lustreSimplify
-    "@[<hv>Node call at %a: observers @[<hv>%a@]@]"
-    A.pp_print_position pos
-    (pp_print_list StateVar.pp_print_state_var ",@ ")
-    node_observers
+      "@[<hv>Node call at %a: properties @[<hv>%a@]@]"
+      pp_print_position pos
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      node_props
   in
 
 
@@ -1885,70 +1885,129 @@ and eval_node_call
       (A.ExprList (pos, args))
   in
 
-
-  (* Fresh state variables for oracle inputs of called node *)
-  let oracle_state_vars = 
-    List.map 
-      (fun node_sv ->
-         let sv = mk_new_oracle (StateVar.type_of_state_var node_sv) in
-         E.set_state_var_instance sv pos ident node_sv;
-         sv)
-      node_oracles 
-  in
-
-  (* Fresh state variables for observer outputs of called node *)
-  let observer_state_vars = 
-    List.map 
-      (fun node_sv -> 
-         let sv = 
-           mk_new_observer_state_var (StateVar.type_of_state_var node_sv) 
-         in
-         E.set_state_var_instance sv pos ident node_sv;
-         sv)
-      node_observers
-
-  in
-
-
   (* Type check and flatten indexed expressions for input into list
          without indexes *)
   let node_input_state_vars, abstractions' =
     node_inputs_of_exprs node_inputs abstractions' pos expr_list'
   in
 
-  let result', output_vars = 
-    List.fold_left
-      (fun (result, output_vars) (node_sv, index) -> 
+  try 
 
-         let sv = 
-           mk_new_state_var false (StateVar.type_of_state_var node_sv)
-         in
+    let node_call = 
+      List.find
+        (fun { N.call_clock = cond';
+               N.call_node_name = ident';
+               N.call_inputs = inputs';
+               N.call_returns = node_outputs } -> 
 
-         E.set_state_var_instance sv pos ident node_sv;
-         (index, E.mk_var sv E.base_clock) :: result, 
-         sv :: output_vars)
+          (* Call to the same node *)
+          (I.equal ident ident') &&
 
-      (result, [])
-      node_outputs
-  in
+          (* Same activation condition *)
+          (E.equal_expr cond' cond) &&
 
-  (* Add expression to result *)
-  eval_ast_expr' 
-    context 
-    { abstractions' 
-      with new_calls = { N.call_returns = (List.rev output_vars);
-                         N.call_observers = observer_state_vars;
-                         N.call_clock = cond;
-                         N.call_node_name = ident;
-                         N.call_pos = pos;
-                         N.call_inputs = 
-                           node_input_state_vars @ oracle_state_vars;
-                         N.call_defaults = List.map snd defaults } 
-                       :: abstractions'.new_calls;
-           new_oracles = abstractions'.new_oracles @ oracle_state_vars;
-           new_observers = abstractions'.new_observers @ observer_state_vars }
-    result' 
-    tl
+          (let rec aux = 
+            function 
+              | [] -> (function _ -> true)
+              | h :: tl -> 
+                (function
+                  | [] -> false
+                  | h' :: tl' -> 
+                    if StateVar.equal_state_vars h h' then 
+                      aux tl tl'
+                    else
+                      false)
+           in
+           aux node_input_state_vars inputs'))
+        abstractions'.new_calls
+    in
+
+    let result', output_vars = 
+      List.fold_left
+        (fun (result, output_vars) (node_sv, index) -> 
+
+           let sv = 
+             mk_new_state_var false (StateVar.type_of_state_var node_sv)
+           in
+
+           E.set_state_var_instance sv pos ident node_sv;
+           (index, E.mk_var sv E.base_clock) :: result, 
+           sv :: output_vars)
+
+        (result, [])
+        node_outputs
+    in
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      abstractions' 
+      result' 
+      tl
+
+  with Not_found -> 
+
+    (* Fresh state variables for oracle inputs of called node *)
+    let oracle_state_vars = 
+      List.map 
+        (fun node_sv ->
+           let sv = mk_new_oracle (StateVar.type_of_state_var node_sv) in
+           E.set_state_var_instance sv pos ident node_sv;
+           sv)
+        node_oracles 
+    in
+
+    (* Fresh state variables for observer outputs of called node *)
+    let observer_state_vars = 
+      List.map 
+        (fun node_sv -> 
+           let sv = 
+             mk_new_observer_state_var (StateVar.type_of_state_var node_sv) 
+           in
+           E.set_state_var_instance sv pos ident node_sv;
+           sv)
+        (List.filter
+           (fun sv -> 
+              List.for_all
+                (fun (sv', _) -> not (StateVar.equal_state_vars sv sv'))
+                node_outputs)
+           node_props)
+    in
+
+
+    let result', output_vars = 
+      List.fold_left
+        (fun (result, output_vars) (node_sv, index) -> 
+
+           let sv = 
+             mk_new_state_var false (StateVar.type_of_state_var node_sv)
+           in
+
+           E.set_state_var_instance sv pos ident node_sv;
+           (index, E.mk_var sv E.base_clock) :: result, 
+           sv :: output_vars)
+
+        (result, [])
+        node_outputs
+    in
+
+    (* Add expression to result *)
+    eval_ast_expr' 
+      context 
+      { abstractions' 
+        with new_calls = { N.call_returns = (List.rev output_vars);
+                           N.call_observers = observer_state_vars;
+                           N.call_clock = cond;
+                           N.call_node_name = ident;
+                           N.call_pos = pos;
+                           N.call_inputs = 
+                             node_input_state_vars @ oracle_state_vars;
+                           N.call_defaults = List.map snd defaults } 
+                         :: abstractions'.new_calls;
+             new_oracles = abstractions'.new_oracles @ oracle_state_vars;
+             new_observers = abstractions'.new_observers @ observer_state_vars }
+      result' 
+      tl
 
 
 (* Evaluate expression to an integer constant *)
@@ -1985,7 +2044,7 @@ and int_const_of_ast_expr context pos expr =
 
        else
 
-          fail_at_position pos "Expression must be an integer")
+         fail_at_position pos "Expression must be an integer")
 
     (* Expression is not a constant integer *)
     | _ ->       
@@ -2773,7 +2832,7 @@ let add_node_var_decl
   (* State variable is locally defined or abstract variable *)
   E.set_state_var_source 
     state_var 
-    (if A.is_dummy_pos pos then E.Abstract else E.Local);
+    (if is_dummy_pos pos then E.Abstract else E.Local);
 
   (* Add state variable to local variables *)
   let node_locals' = (state_var, index) :: node.N.locals in
@@ -2811,7 +2870,7 @@ let add_node_oracle_decl
     (* Add to typing context *)
     let type_ctx' = 
       (ident', basic_type) :: 
-      (add_enum_to_context type_ctx A.dummy_pos basic_type) 
+      (add_enum_to_context type_ctx dummy_pos basic_type) 
     in
 
     (* Add indexed identifier to context *)
@@ -2864,7 +2923,7 @@ let add_node_observer_decl
   (* Add to typing context *)
   let type_ctx' = 
     (ident', basic_type) :: 
-      (add_enum_to_context type_ctx A.dummy_pos basic_type) 
+      (add_enum_to_context type_ctx dummy_pos basic_type) 
   in
 
   (* Add indexed identifier to context *)
@@ -3073,7 +3132,7 @@ let rec property_to_node
 
       (* State variable of abstraction variable *)
       let state_var = mk_new_state_var false Type.t_bool in
-      
+
       (* State variable is a locally abstracted variable *)
       E.set_state_var_source state_var E.Abstract;
 
@@ -3083,40 +3142,57 @@ let rec property_to_node
           context
           node
           abstractions
-          A.dummy_pos  
+          dummy_pos  
           (state_var, expr)
       in
 
       (* Property is new state variable *)
       (state_var, context', node', abstractions')
-      
+
   in
 
-  (* Add declatation of variable to observers *)
-  let node_observers' = node'.N.observers @ [state_var] in
+  if 
 
-  (* Remove declaration of variable from locals *)
-  let node_locals' = 
-    List.filter
-      (fun (sv, _) -> not (StateVar.equal_state_vars sv state_var))
-      node'.N.locals
-  in
+    (* Skip if property already in node *)
+    List.exists
+      (fun sv -> StateVar.equal_state_vars state_var sv)
+      node.N.props 
 
-  (* Remove declaration of variable from outputs *)
-  let node_outputs' = 
-    List.filter
-      (fun (sv, _) -> not (StateVar.equal_state_vars sv state_var))
-      node'.N.outputs
-  in
+  then
 
-  (* Add property to node *)
-  (context', 
-   { node' with 
-       N.props = (state_var :: node'.N.props); 
-       N.observers = node_observers';
-       N.locals = node_locals';
-       N.outputs = node_outputs' },
-   abstractions')
+    (* Add property to node *)
+    (context, node, abstractions)
+
+  else
+
+    (* Add declaration of variable to observers if not already an
+       output *)
+    let node_observers' = 
+      node'.N.observers @
+      (if 
+        List.exists
+          (fun (sv, _) -> StateVar.equal_state_vars sv state_var)
+          node'.N.outputs
+       then
+         []
+       else
+         [state_var])
+    in
+
+    (* Remove declaration of variable from locals *)
+    let node_locals' = 
+      List.filter
+        (fun (sv, _) -> not (StateVar.equal_state_vars sv state_var))
+        node'.N.locals
+    in
+
+    (* Add property to node *)
+    (context', 
+     { node' with 
+         N.props = (state_var :: node'.N.props); 
+         N.observers = node_observers';
+         N.locals = node_locals' },
+     abstractions')
 
 
 (* Add an expression as an assertion *)
@@ -3207,7 +3283,7 @@ and equation_to_node
             context 
             node
             abstractions 
-            A.dummy_pos 
+            dummy_pos 
             range_expr
 
         | t, s -> 
@@ -3257,7 +3333,7 @@ let abstractions_to_context_and_node
          let context', node' = 
            add_node_var_decl 
              base_ident
-             A.dummy_pos
+             dummy_pos
              (context, node)
              (I.index_of_one_index_list index)
              (StateVar.type_of_state_var state_var)
@@ -3351,7 +3427,7 @@ let abstractions_to_context_and_node
                     (* Add new local variable to node *)
                     add_node_var_decl 
                       base_ident
-                      A.dummy_pos
+                      dummy_pos
                       (context, node)
                       (I.index_of_one_index_list index)
                       (StateVar.type_of_state_var state_var)

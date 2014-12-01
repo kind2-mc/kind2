@@ -431,11 +431,11 @@ let rec definitions_of_node_calls
         let pp_print_pos ppf pos = 
 
           (* Do not print anything for a dummy position *)
-          if LustreAst.is_dummy_pos pos then () else 
+          if is_dummy_pos pos then () else 
 
             (* Get file, line and column of position *)
             let pos_file, pos_lnum, pos_cnum = 
-              LustreAst.file_row_col_of_pos pos
+              file_row_col_of_pos pos
             in
 
             (* Print attributes *)
