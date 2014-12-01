@@ -147,19 +147,17 @@ let split_closure trans solver k actlits to_split =
 let rec next (trans, solver, k, invariants, unknowns) =
 
   (* Asserts terms from 0 to k. *)
-  let assert_new_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_and_apply_k
-         (Solver.assert_term solver) k
+  let assert_new_invariants =
+    List.iter
+      (Term.bump_and_apply_k
+         (Solver.assert_term solver) k)
   in
 
   (* Asserts terms at k. *)
-  let assert_old_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_state k
-    |> Solver.assert_term solver
+  let assert_old_invariants =
+    List.iter
+      (fun term -> Term.bump_state k term
+                   |> Solver.assert_term solver)
   in
 
   (* Getting new invariants and updating transition system. *)
@@ -341,7 +339,12 @@ let init trans =
   |> Solver.assert_term solver
   |> ignore ;
 
-  (trans, solver, Numeral.zero, [], unknowns)
+  (* Invariants if the system at 0. *)
+  let invariants =
+    TransSys.invars_of_bound trans Numeral.zero
+  in
+
+  (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
 let main trans =

@@ -147,6 +147,12 @@ val ind_compress_same_predecessors : int_item
 val ind_restarts : int_item 
 
 (** Total time in BMC *)
+val ind_lazy_invariants_count : int_item
+
+(** Total time in BMC *)
+val ind_lazy_invariants_time : float_item
+
+(** Total time in BMC *)
 val ind_total_time : float_item
 
 (** Stop and record all timers *)
