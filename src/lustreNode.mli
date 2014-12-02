@@ -143,6 +143,10 @@ type t =
 
     (** Map of state variables to their oracles *)
     state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+
+    (** Map of expressions to state variables *)
+    expr_state_var_map : StateVar.t LustreExpr.ExprHashtbl.t;
+
   }
 
 (** The empty node *)

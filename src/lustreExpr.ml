@@ -365,6 +365,18 @@ let equal_expr
 
   Term.equal init1 init2 && Term.equal step1 step2 && clock1 = clock2
 
+(* Hashing of expressions *)
+let hash_expr { expr_init; expr_step; expr_clock } =
+  Hashtbl.hash
+    (Term.hash expr_init, Term.hash expr_step (* , Term.hash expr_clock *) )
+
+module ExprHashtbl = Hashtbl.Make
+    (struct
+      type z = t
+      type t = z (* avoid cyclic type abbreviation *)
+      let equal = equal_expr
+      let hash = hash_expr
+    end)
 
 (* ********************************************************************** *)
 (* Pretty-printing                                                        *)
@@ -2030,7 +2042,7 @@ let mk_arrow expr1 expr2 =
 
 (* Pre expression *)
 let mk_pre 
-    mk_new_state_var
+    mk_state_var_for_expr
     new_vars
     ({ expr_init; expr_step; expr_type; expr_clock } as expr) = 
 
@@ -2059,13 +2071,13 @@ let mk_pre
     | _ -> 
       
       (* Fresh state variable for identifier *)
-      let state_var = mk_new_state_var expr_type in 
+      let state_var, new_vars' = mk_state_var_for_expr new_vars expr in 
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var pre_base_offset in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, (state_var, expr) :: new_vars)
+      (Term.mk_var var, new_vars')
       
   in
 
@@ -2090,13 +2102,13 @@ let mk_pre
     | _ -> 
       
       (* Fresh state variable for expression *)
-      let state_var = mk_new_state_var expr_type in
+      let state_var, new_vars' = mk_state_var_for_expr new_vars' expr in
 
       (* Variable at previous instant *)
       let var = Var.mk_state_var_instance state_var Numeral.(- one) in
 
       (* Return term and new definitions *)
-      (Term.mk_var var, (state_var, expr) :: new_vars')
+      (Term.mk_var var, new_vars')
       
   in
 
