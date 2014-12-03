@@ -299,7 +299,7 @@ let bmc_max_default = 0
 
 type ind_backward = bool
     
-let ind_backward_default = false
+let ind_backward_default = true
 
 (* ********** *) 
 
