@@ -593,7 +593,7 @@ module Make (InModule : In) : Out = struct
 
         (* Discovering new invariants. *)
         let new_invariants =
-          LSD.query_step lsd sys candidates |> snd
+          LSD.query_step lsd sys candidates
         in
 
         (* Counting implications for statistics. *)
