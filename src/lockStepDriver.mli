@@ -52,10 +52,10 @@ val add_invariants: t -> Term.t list -> unit
 val query_base:
   t -> TransSys.t -> Term.t list -> ((Var.t * Term.t) list) option
 
-(** Checks if some of the input terms are k-inductive. Returns a pair
-    composed of the falsifiable terms and the unfalsifiable ones. *)
+(** Checks if some of the input terms are k-inductive. Returns the
+    terms unfalsifiable in the next state. *)
 val query_step:
-  t -> TransSys.t -> Term.t list -> Term.t list * Term.t list
+  t -> TransSys.t -> Term.t list -> Term.t list
 
 (* 
    Local Variables:
