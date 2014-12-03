@@ -492,7 +492,7 @@ module CandidateTermGen = struct
 
            let sorted_result =
              result
-             |> (if then identity else
+             |> (if false then identity else
                  TSet.fold
                    ( fun term map ->
                     TransSys.instantiate_term_all_levels
