@@ -40,7 +40,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
   (* Properties are always state variables *) 
   let prop = 
-    try TransSys.prop_of_name trans_sys prop_name
+    try TransSys.named_term_of_prop_name trans_sys prop_name
     with Not_found -> assert false
   in 
 
