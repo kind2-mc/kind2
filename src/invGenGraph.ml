@@ -670,7 +670,7 @@ module Make (InModule : In) : Out = struct
             if status = TransSys.PropInvariant
             then
               (* Memorizing new invariant property. *)
-              ( TransSys.prop_of_name trans_sys name )
+              ( TransSys.named_term_of_prop_name trans_sys name )
               :: list
             else
               list )

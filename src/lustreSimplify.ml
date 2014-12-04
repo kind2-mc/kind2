@@ -1849,7 +1849,7 @@ and eval_node_call
       "@[<hv>Node call at %a:@ properties @[<hv>%a@]@ observers @[<hv>%a@]@]"
       pp_print_position pos
       (pp_print_list StateVar.pp_print_state_var ",@ ")
-      node_props
+      (List.map fst node_props)
       (pp_print_list StateVar.pp_print_state_var ",@ ")
       node_observers
   in
@@ -3123,6 +3123,7 @@ let rec property_to_node
     node
     ({ mk_state_var_for_expr; new_vars } as abstractions)
     pos
+    source
     expr =
 
   (* State variable for property and changed environment *)
@@ -3176,7 +3177,7 @@ let rec property_to_node
 
     (* Skip if property already in node *)
     List.exists
-      (fun sv -> StateVar.equal_state_vars state_var sv)
+      (fun (sv, _) -> StateVar.equal_state_vars state_var sv)
       node.N.props 
 
   then
@@ -3210,7 +3211,7 @@ let rec property_to_node
     (* Add property to node *)
     (context', 
      { node' with 
-         N.props = (state_var :: node'.N.props); 
+         N.props = (state_var, source) :: node'.N.props; 
          N.observers = node_observers';
          N.locals = node_locals' },
      abstractions')
@@ -3305,6 +3306,7 @@ and equation_to_node
             node
             abstractions 
             dummy_pos 
+            (Generated pos)
             range_expr
 
         | t, s -> 
@@ -3552,7 +3554,7 @@ let rec parse_node_equations
       
       (* Add assertion to node *)
       let context', node', abstractions' = 
-        property_to_node context node abstractions' pos expr'
+        property_to_node context node abstractions' pos (PropAnnot pos) expr'
       in
       
       (* Continue with next node statements *)
