@@ -475,7 +475,7 @@ let rec tree_path_of_nodes
  
   (* Show only inputs, outputs and local variables *)
   let visible_vars = 
-    props @
+    (List.map fst props) @
     (List.map fst inputs) @ 
     (sort_defined_vars 
        []
