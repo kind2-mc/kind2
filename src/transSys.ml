@@ -53,6 +53,25 @@ type prop_status =
   | PropFalse of (StateVar.t * Term.t list) list
 
 
+(*
+(* Source of a property *)
+type prop_source =
+
+  (* Property is from an annotation *)
+  | PropAnnot of position
+
+  (* Property is part of a contract *)
+  | Contract of position
+
+  (* Property was generated, for example, from a subrange
+     constraint *)
+  | Generated of position
+
+  (* Property is an instance of a property in a called node *)
+  | Instantiated of position
+*)
+
+
 (* Return the length of the counterexample *)
 let length_of_cex = function 
 
