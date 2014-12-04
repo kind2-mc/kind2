@@ -74,7 +74,7 @@ type node_def =
     locals : StateVar.t list;
 
     (* Properties in node *)
-    props : (string * Term.t) list;
+    props : (string * prop_source * Term.t) list;
 
     (* Assumptions in contract of node *)
     requires : Term.t list;
@@ -602,8 +602,9 @@ let rec definitions_of_node_calls
 
         (* Lift properties in subnode to properties of calling node *)
         List.map 
-          (function (n, t) -> 
+          (function (n, s, t) -> 
             (lift_prop_name node_name pos n, 
+             Instantiated (I.scope_of_ident node_name, n),
              LustreExpr.lift_term pos node_name t))
           props 
 
@@ -1531,7 +1532,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         List.fold_left
           (fun accum (_, e) -> SVS.union accum (E.state_vars_of_expr e))
           (SVS.of_list 
-             (node_props @ node_observers @ List.map fst node_outputs))
+             (List.map fst node_props @ 
+              node_observers @ 
+              List.map fst node_outputs))
           node_equations
       in
 
@@ -1743,7 +1746,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
     let props = 
       (List.map 
-         (function state_var -> 
+         (function (state_var, source) -> 
 
            (* Name of state variable is name of property *)
            let prop_name = StateVar.name_of_state_var state_var in
@@ -1754,7 +1757,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                TransSys.init_base
                state_var
            in
-           (prop_name, prop_term))
+           (prop_name, source, prop_term))
          node_props)
       @ lifted_props
     in
@@ -1763,11 +1766,28 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         "@[<hv>Properties of node %a@ @[<hv>%a@]@]"
         (LustreIdent.pp_print_ident false) node_name
         (pp_print_list
-           (function ppf -> function (n, t) -> 
+           (function ppf -> function (n, s, t) -> 
               Format.fprintf ppf 
-                "%s: %a"
+                "%s (%a): %a"
                 n
-                Term.pp_print_term t)
+                Term.pp_print_term t
+                (function ppf -> function 
+                  | PropAnnot p -> 
+                    Format.fprintf ppf "annot at %a" pp_print_position p
+
+                  | Contract p ->
+                    Format.fprintf ppf "contract at %a" pp_print_position p
+
+                  | Generated p -> 
+                    Format.fprintf ppf "generated at %a" pp_print_position p
+
+                  | Instantiated (s, n) -> 
+                    Format.fprintf ppf
+                      "instantiated from %s in %a" 
+                      n
+                      (pp_print_list Format.pp_print_string ".")
+                      s)
+                s)
            ",@ ")
         props
     in

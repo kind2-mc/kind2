@@ -79,7 +79,7 @@ val mk_trans_sys :
   UfSymbol.t * (Var.t list * Term.t) ->
   UfSymbol.t * (Var.t list * Term.t) ->
   t list ->
-  (string * Term.t) list ->
+  (string * Lib.prop_source * Term.t) list ->
   source ->
   t
 
@@ -179,8 +179,8 @@ val props_of_bound : t -> Numeral.t -> Term.t
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
 
 (** Get property by name *)
-val prop_of_name : t -> string -> Term.t
-
+val named_term_of_prop_name : t -> string -> Term.t
+                                               
 (** Instantiate invariants and valid properties to the bound *)
 val invars_of_bound : t -> Numeral.t -> Term.t
 

@@ -121,7 +121,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (** Proof obligations for node *)
-    props : StateVar.t list;
+    props : (StateVar.t * Lib.prop_source) list;
 
     (** Contract for node, assumptions *)
     requires : LustreExpr.t list;

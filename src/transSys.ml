@@ -38,6 +38,7 @@ let _ = LustreExpr.set_state_var_source init_flag_svar LustreExpr.Abstract
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
+(* Current status of a property *)
 type prop_status =
 
   (* Status of property is unknown *)
@@ -53,23 +54,25 @@ type prop_status =
   | PropFalse of (StateVar.t * Term.t list) list
 
 
-(*
-(* Source of a property *)
-type prop_source =
+(* A property of a transition system *)
+type property = 
 
-  (* Property is from an annotation *)
-  | PropAnnot of position
+  { 
 
-  (* Property is part of a contract *)
-  | Contract of position
+    (* Identifier for the property *)
+    prop_name : string;
 
-  (* Property was generated, for example, from a subrange
-     constraint *)
-  | Generated of position
+    (* Source of the property *)
+    prop_source : prop_source;
 
-  (* Property is an instance of a property in a called node *)
-  | Instantiated of position
-*)
+    (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
+    prop_term : Term.t;
+
+    (* Current status *)
+    mutable prop_status : prop_status 
+
+  }
+
 
 
 (* Return the length of the counterexample *)
@@ -133,18 +136,14 @@ type t = {
   (* The subsystems of this system. *)
   subsystems: t list ;
 
-  (* Properties to hopefully prove invariant. *)
-  props: (string * Term.t) list ;
+  (* Properties of the transition system to prove invariant *)
+  properties : property list; 
 
   (* The source which produced this system. *)
   source: source ;
 
   (* Invariants *)
-  mutable invars: Term.t list ;
-
-  (* Status of property *)
-  mutable prop_status: (string * prop_status) list ;
-
+  mutable invars: Term.t list;
 
   (* Systems instantiating this system, and for each instantiation a
      map from state variables of this system to the state variables of
@@ -514,17 +513,21 @@ let pp_print_uf_defs
     Term.pp_print_term trans_term
 
 
-let pp_print_prop ppf (prop_name, prop_term) = 
+let pp_print_prop_source ppf = function 
+  | PropAnnot _ -> Format.fprintf ppf ":user"
+  | Contract _ -> Format.fprintf ppf ":contract"
+  | Generated p -> Format.fprintf ppf ":generated"
+  | Instantiated _ -> Format.fprintf ppf ":subsystem"
+
+let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 
   Format.fprintf 
     ppf
-    "@[<hv 1>(%s@ %a)@]"
+    "@[<hv 1>(%s@ %a@ %a@ %a)@]"
     prop_name
     Term.pp_print_term prop_term
-
-let pp_print_prop_status ppf (p, s) =
-  Format.fprintf ppf "@[<hv 2>(%s %a)@]" p pp_print_prop_status_pt s
-
+    pp_print_prop_source prop_source
+    pp_print_prop_status_pt prop_status
 
 let pp_print_caller ppf (m, i, t) = 
 
@@ -792,10 +795,16 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
         |> List.sort StateVar.compare_state_vars ;
       init = init ;
       trans = trans ;
-      props = props ;
+      properties =
+        List.map
+          (fun (n, s, t) -> 
+             { prop_name = n;
+               prop_source = s; 
+               prop_term = t; 
+               prop_status = PropUnknown })
+          props ;
       subsystems = subsystems ;
       source = source ;
-      prop_status = List.map (fun (n, _) -> (n, PropUnknown)) props ;
       invars = invars_of_types ;
       callers = [];
       instantiation_maps = [] }
@@ -943,14 +952,20 @@ let named_terms_list_of_bound l i =
   if
     Numeral.(i = zero)
   then
-    l
+    List.map 
+      (fun { prop_name; prop_term } -> 
+         (prop_name, prop_term)) 
+      l
   else
-    List.map (fun (n, t) -> (n, Term.bump_state i t)) l
-
+    List.map 
+      (fun { prop_name; prop_term } -> 
+         (prop_name, Term.bump_state i prop_term)) 
+      l
+      
 
 (* Instantiate all properties to the bound *)
 let props_list_of_bound t i = 
-  named_terms_list_of_bound t.props i
+  named_terms_list_of_bound t.properties i
 
 
 (* Instantiate all properties to the bound *)
@@ -958,22 +973,42 @@ let props_of_bound t i =
   Term.mk_and (List.map snd (props_list_of_bound t i))
 
 (* Get property by name *)
-let prop_of_name t name =
-  List.assoc name t.props 
+let property_of_name t name =
+
+  List.find
+    (fun { prop_name } -> prop_name = name )
+    t.properties
+
+(* Get property by name *)
+let named_term_of_prop_name t name =
+
+  (property_of_name t name).prop_term
 
 (* Add an invariant to the transition system *)
 let add_invariant t invar = t.invars <- invar :: t.invars
 
 
 (* Return current status of all properties *)
-let get_prop_status_all t = t.prop_status
+let get_prop_status_all t = 
+  
+  List.map 
+    (fun { prop_name; prop_status } -> (prop_name, prop_status))
+    t.properties
 
 (* Return current status of all properties *)
 let get_prop_status_all_unknown t = 
 
-  List.filter
-    (fun (_, s) -> not (prop_status_known s))
-    t.prop_status
+  List.fold_left 
+    (function accum -> function 
+
+       | { prop_name; prop_status } 
+         when not (prop_status_known prop_status) -> 
+
+         (prop_name, prop_status) :: accum 
+
+       | _ -> accum)
+    []
+    t.properties
 
 
 (* Return current status of property *)
@@ -981,7 +1016,7 @@ let get_prop_status trans_sys p =
 
   try 
 
-    List.assoc p trans_sys.prop_status
+    (property_of_name trans_sys p).prop_status
 
   with Not_found -> PropUnknown
 
@@ -989,99 +1024,90 @@ let get_prop_status trans_sys p =
 (* Mark property as invariant *)
 let set_prop_invariant t prop =
 
-  t.prop_status <- 
-    
-    List.map 
+  (* Get property by name *)
+  let p = property_of_name t prop in
 
-      (fun (n, s) -> if n = prop then 
+  (* Modify status *)
+  p.prop_status <- 
 
-          match s with
-            
-            (* Mark property as invariant if it was unknown, k-true or
-               invariant *)
-            | PropUnknown
-            | PropKTrue _
-            | PropInvariant -> (n, PropInvariant) 
-                               
-            (* Fail if property was false or k-false *)
-            | PropFalse _ -> raise (Failure "prop_invariant") 
+    (* Check current status *)
+    match p.prop_status with
 
-        else (n, s))
+      (* Mark property as invariant if it was unknown, k-true or
+         invariant *)
+      | PropUnknown
+      | PropKTrue _
+      | PropInvariant -> PropInvariant
 
-      t.prop_status
+      (* Fail if property was false or k-false *)
+      | PropFalse _ -> raise (Failure "prop_invariant") 
 
 
 (* Mark property as k-false *)
 let set_prop_false t prop cex =
 
-  t.prop_status <- 
+  (* Get property by name *)
+  let p = property_of_name t prop in
 
-    List.map 
+  (* Modify status *)
+  p.prop_status <- 
 
-      (fun (n, s) -> if n = prop then 
+    (* Check current status *)
+    match p.prop_status with
 
-          match s with
+      (* Mark property as k-false if it was unknown, l-true for l <
+         k or invariant *)
+      | PropUnknown -> PropFalse cex
 
-            (* Mark property as k-false if it was unknown, l-true for l <
-               k or invariant *)
-            | PropUnknown -> (n, PropFalse cex)
+      (* Fail if property was invariant *)
+      | PropInvariant -> 
+        raise (Failure "prop_false")
 
-            (* Fail if property was invariant *)
-            | PropInvariant -> 
-              raise (Failure "prop_false")
+      (* Fail if property was l-true for l >= k *)
+      | PropKTrue l when l > (length_of_cex cex) -> 
+        raise (Failure "prop_false")
 
-            (* Fail if property was l-true for l >= k *)
-            | PropKTrue l when l > (length_of_cex cex) -> 
-              raise (Failure "prop_false")
+      (* Mark property as false if it was l-true for l < k *)
+      | PropKTrue _ -> PropFalse cex
 
-            (* Mark property as false if it was l-true for l < k *)
-            | PropKTrue _ -> (n, PropFalse cex)
+      (* Keep if property was l-false for l <= k *)
+      | PropFalse cex' when (length_of_cex cex') <= (length_of_cex cex) -> 
+        p.prop_status
 
-            (* Keep if property was l-false for l <= k *)
-            | PropFalse cex' when (length_of_cex cex') <= (length_of_cex cex) -> 
-              (n, s)
-
-            (* Mark property as k-false *)
-            | PropFalse _ -> (n, PropFalse cex) 
-
-        else (n, s))
-
-      t.prop_status
+      (* Mark property as k-false *)
+      | PropFalse _ -> PropFalse cex
 
 
 (* Mark property as k-true *)
 let set_prop_ktrue t k prop =
 
-  t.prop_status <- 
+  (* Get property by name *)
+  let p = property_of_name t prop in
 
-    List.map 
+  (* Modify status *)
+  p.prop_status <- 
 
-      (fun (n, s) -> if n = prop then 
+    (* Check current status *)
+    match p.prop_status with
 
-          match s with
+      (* Mark as k-true if it was unknown *)
+      | PropUnknown -> PropKTrue k
 
-            (* Mark as k-true if it was unknown *)
-            | PropUnknown -> (n, PropKTrue k)
+      (* Keep if it was l-true for l > k *)
+      | PropKTrue l when l > k -> p.prop_status
 
-            (* Keep if it was l-true for l > k *)
-            | PropKTrue l when l > k -> (n, s)
+      (* Mark as k-true if it was l-true for l <= k *)
+      | PropKTrue _ -> PropKTrue k
 
-            (* Mark as k-true if it was l-true for l <= k *)
-            | PropKTrue _ -> (n, PropKTrue k)
+      (* Keep if it was invariant *)
+      | PropInvariant -> p.prop_status
 
-            (* Keep if it was invariant *)
-            | PropInvariant -> (n, s)
+      (* Keep if property was l-false for l > k *)
+      | PropFalse cex when (length_of_cex cex) > k -> p.prop_status
 
-            (* Keep if property was l-false for l > k *)
-            | PropFalse cex when (length_of_cex cex) > k -> (n, s)
-
-            (* Fail if property was l-false for l <= k *)
-            | PropFalse _ -> 
-              raise (Failure "prop_kfalse") 
-
-        else (n, s))
-
-      t.prop_status
+      (* Fail if property was l-false for l <= k *)
+      | PropFalse _ -> 
+        raise (Failure "prop_kfalse") 
 
 
 (* Mark property status *)
@@ -1100,7 +1126,7 @@ let set_prop_status t p = function
 let is_proved t prop = 
 
   try 
-    ( match List.assoc prop t.prop_status with
+    ( match (property_of_name t prop).prop_status with
       | PropInvariant -> true
       | _ -> false )
         
@@ -1112,7 +1138,7 @@ let is_proved t prop =
 let is_disproved t prop = 
 
   try 
-    ( match List.assoc prop t.prop_status with
+    ( match (property_of_name t prop).prop_status with
       | PropFalse _ -> true
       | _ -> false )
         
@@ -1125,15 +1151,15 @@ let is_disproved t prop =
 let all_props_proved t =
 
   List.for_all
-    (fun (p, _) -> 
+    (fun p -> 
        try 
-         (match List.assoc p t.prop_status with
+         (match p.prop_status with
            | PropUnknown
            | PropKTrue _ -> false
            | PropInvariant
            | PropFalse _ -> true)
        with Not_found -> false)
-    t.props
+    t.properties
 
 (* Return declarations for uninterpreted symbols *)
 let uf_symbols_of_trans_sys { state_vars } = 
@@ -1163,9 +1189,8 @@ let pp_print_trans_sys
     ppf
     ({ uf_defs;
        state_vars;
-       props;
+       properties;
        invars;
-       prop_status; 
        source;
        callers } as trans_sys) = 
 
@@ -1177,16 +1202,14 @@ let pp_print_trans_sys
           @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(status@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
-    (pp_print_list pp_print_prop "@ ") props
+    (pp_print_list pp_print_property "@ ") properties
     (pp_print_list Term.pp_print_term "@ ") invars
-    (pp_print_list pp_print_prop_status "@ ") prop_status
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
     (pp_print_list pp_print_callers "@,") callers
       
