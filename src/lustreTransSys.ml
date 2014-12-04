@@ -101,8 +101,8 @@ type node_def =
 
    Assume that definitions of variables that are not free do not contain
    variables that are only defined later in the list. *)
-let rec definitions_of_equations vars init trans = function 
-
+let rec definitions_of_equations sig_vars pre_vars init trans = function 
+  
   (* All equations consumed, return terms for initial state constraint
      and transition relation *)
   | [] -> (init, trans)
@@ -116,7 +116,7 @@ let rec definitions_of_equations vars init trans = function
       if 
 
         (* Variable must to have a definition? *)
-        SVS.mem state_var vars
+        SVS.mem state_var sig_vars
 
       then 
 
@@ -154,8 +154,24 @@ let rec definitions_of_equations vars init trans = function
           (* Define variable with a let *)
           let trans' = 
             Term.mk_let
-              [(E.cur_var_of_state_var TransSys.trans_base state_var, 
-                E.cur_term_of_expr TransSys.trans_base expr_step)] 
+              ((E.cur_var_of_state_var TransSys.trans_base state_var, 
+                E.cur_term_of_expr TransSys.trans_base expr_step) ::
+
+               if 
+                 (* Does state variable occur under a pre? *)
+                 SVS.mem state_var pre_vars 
+               then
+                 (
+                   
+                   (* Definition of state variable must not contain a
+                      pre *)
+                   assert (not (E.has_pre_var E.base_offset expr));
+
+                   (* Also define pre of state variable *)
+                   [(E.pre_var_of_state_var TransSys.trans_base state_var, 
+                     E.pre_term_of_expr TransSys.trans_base expr_step)])
+               else 
+                 [])
               (Term.mk_and trans)
           in
 
@@ -165,7 +181,7 @@ let rec definitions_of_equations vars init trans = function
     in
     
     (* Continue with next equations *)
-    definitions_of_equations vars init' trans' tl
+    definitions_of_equations sig_vars pre_vars init' trans' tl
 
 
 (* Fold list of node calls and return terms
@@ -250,9 +266,11 @@ let rec definitions_of_equations vars init trans = function
 *)
 let rec definitions_of_node_calls 
     mk_ticked_state_var
-    (mk_new_state_var : ?for_inv_gen:bool -> Type.t -> StateVar.t)
+    (mk_new_state_var : ?for_inv_gen:bool -> ?is_const:bool -> Type.t -> StateVar.t)
+    node_equations
     node_defs
     local_vars
+    (* input_defs *)
     init
     trans
     lifted_props
@@ -262,7 +280,52 @@ let rec definitions_of_node_calls
 
     (* All node calls consumed, return term for initial state
        constraint and transition relation, and properties  *)
-    | [] -> (local_vars, init, trans, lifted_props, state_var_maps)
+    | [] -> 
+ 
+(*
+      (* Create let bindings from definitions for primed and unprimed
+         state variables in the transition relation, and for unprimed
+         variables in the initial state *)
+      let init_input_defs, trans_input_defs =
+        List.fold_left
+          (fun
+            (init_input_defs, trans_input_defs)
+            (sv, { E.expr_init; E.expr_step } ) -> 
+            ((E.base_var_of_state_var TransSys.init_base sv, 
+              E.base_term_of_expr TransSys.init_base expr_init) ::
+             init_input_defs,
+             (E.cur_var_of_state_var TransSys.trans_base sv, 
+               E.cur_term_of_expr TransSys.trans_base expr_step) :: 
+             (E.pre_var_of_state_var TransSys.trans_base sv, 
+              E.pre_term_of_expr TransSys.trans_base expr_step) ::
+             trans_input_defs))
+          ([], []) 
+          input_defs
+      in
+
+      debug lustreTransSys
+          "@[<hv>definitions for calls:@,%a@]"
+          (pp_print_list 
+             (fun ppf (s, d) -> 
+                Format.fprintf ppf 
+                  "%a = %a"
+                  StateVar.pp_print_state_var s
+                  (E.pp_print_lustre_expr false) d)
+          ",@ ")
+          input_defs
+      in
+*)
+      (* Return conjunction of initial state constraints and
+         conjunction of transition relations where input variables
+         whose definition does not contain a pre are defined in the
+         let binding. *)
+      (local_vars, 
+(*       [Term.mk_let init_input_defs (Term.mk_and init)], *)
+(*       [Term.mk_let trans_input_defs (Term.mk_and trans)], *)
+       init,
+       trans, 
+       lifted_props, 
+       state_var_maps)
 
     (* Node call with or without activation condition *)
     | { N.call_returns = output_vars;
@@ -283,7 +346,7 @@ let rec definitions_of_node_calls
         (* Get additional information about called node *)
         { trans_sys;
           inputs; 
-          outputs; 
+          outputs;
           locals;
           props;
           requires;
@@ -297,6 +360,69 @@ let rec definitions_of_node_calls
         with Not_found -> assert false
 
       in
+
+(*
+      (* Find equational definitions of inputs *)
+      let input_defs' = 
+
+        (* Iterate over the equations of the node, add an equation to
+           the resulting list if it was in the list before, or if its
+           state variable is an input. This ensures that we keep the
+           list of equations ordered by dependencies. *)
+        let rec aux accum = 
+
+          function
+
+            (* At the end of the equations *)
+            | [] -> 
+              (function 
+
+                (* Sublist must also be empty, return sublist in
+                   original order *)
+                | [] -> List.rev accum
+
+                (* The sublist must not contain more elements *)
+                | _ -> assert false)
+
+            (* Take the first equation *)
+            | (sv, d) :: tl -> 
+
+              (function 
+
+                (* Equation is also in the sublist? *)
+                | (sv', d) :: tl when StateVar.equal_state_vars sv sv' -> 
+
+                  (* Keep equation in sublist and continue *)
+                  aux ((sv, d) :: accum) tl tl
+
+                | l -> 
+
+                  if
+
+                    (* Defined state variable is an input? *)
+                    (List.exists
+                       (fun sv' -> StateVar.equal_state_vars sv sv')
+                       input_vars) ||  
+
+                    (* Definition does not contain a pre operator? *)
+                    (E.has_pre_var E.base_offset d)
+
+                  then 
+                    
+                    (* Copy definition to sublist *)
+                    aux ((sv, d) :: accum) tl l
+
+                  else
+
+                    (* Skip definition *)
+                    aux accum tl l)
+
+        in
+
+        aux [] node_equations input_defs 
+
+      in
+*)
 
       (* Predicate for initial state constraint *)
       let init_uf_symbol = TransSys.init_uf_symbol trans_sys in
@@ -353,6 +479,13 @@ let rec definitions_of_node_calls
          previous state *)
       let observer_terms_trans_pre = 
         List.map (E.pre_term_of_state_var TransSys.trans_base) observer_vars
+      in 
+
+      debug lustreTransSys
+          "@[<v>outputs:@,@[<hv>%a@]@,output_vars:@,@[<hv>%a@]@,observer_vars:@,@[<hv>%a@]@]"
+          (pp_print_list StateVar.pp_print_state_var ",@ ") outputs
+          (pp_print_list StateVar.pp_print_state_var ",@ ") output_vars
+          (pp_print_list StateVar.pp_print_state_var ",@ ") observer_vars
       in
 
       (* Initialize map of state variables with output and observer
@@ -362,7 +495,7 @@ let rec definitions_of_node_calls
         List.fold_left2 
           (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
           []
-          (outputs)
+          outputs
           (output_vars @ observer_vars)
       in
 
@@ -380,7 +513,11 @@ let rec definitions_of_node_calls
              let var_name = StateVar.string_of_state_var state_var in
 
              (* New state variable for node call *)
-             let local_state_var = mk_new_state_var var_type in
+             let local_state_var = 
+               mk_new_state_var 
+                 ~is_const:(StateVar.is_const state_var)
+                 var_type 
+             in
 
              (* State variable is not defined in input *)
              E.set_state_var_source local_state_var E.Abstract;
@@ -431,11 +568,11 @@ let rec definitions_of_node_calls
         let pp_print_pos ppf pos = 
 
           (* Do not print anything for a dummy position *)
-          if LustreAst.is_dummy_pos pos then () else 
+          if is_dummy_pos pos then () else 
 
             (* Get file, line and column of position *)
             let pos_file, pos_lnum, pos_cnum = 
-              LustreAst.file_row_col_of_pos pos
+              file_row_col_of_pos pos
             in
 
             (* Print attributes *)
@@ -568,7 +705,7 @@ let rec definitions_of_node_calls
 
               (* Current state local variables *)
               call_local_vars_trans @
-                
+
               [ TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
                 |> Term.mk_var ] @
 
@@ -616,7 +753,7 @@ let rec definitions_of_node_calls
             state_var_map,
             id,
             id
-            
+
 
           )
 
@@ -807,7 +944,7 @@ let rec definitions_of_node_calls
 
             (* Current state local variables *)
             call_local_vars_trans @
-                
+
             [ TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
               |> Term.mk_var ] @
 
@@ -994,8 +1131,10 @@ let rec definitions_of_node_calls
       definitions_of_node_calls 
         mk_ticked_state_var
         mk_new_state_var
+        node_equations
         node_defs
         local_vars''
+        (* input_defs' *)
         (init_call_act_cond :: init)
         (trans_call_act_cond :: trans) 
         lifted_props''
@@ -1222,10 +1361,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     in
 
     (* Create a fresh state variable for abstractions *)
-    let mk_new_state_var ?for_inv_gen state_var_type = 
+    let mk_new_state_var ?for_inv_gen ?is_const state_var_type = 
       E.mk_fresh_state_var
         ~is_input:false
-        ~is_const:false
+        ?is_const:is_const
         ?for_inv_gen:for_inv_gen
         scope
         I.abs_ident
@@ -1255,7 +1394,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       definitions_of_node_calls 
         mk_ticked_state_var
         mk_new_state_var
+        node_equations
         node_defs
+        (* [] *)
         []
         []
         []
@@ -1341,7 +1482,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       List.fold_left 
         add_to_svs 
         locals_set
-        [inputs; outputs; oracles; observers]
+        [outputs; oracles; observers]
     in
 
     debug lustreTransSys
@@ -1363,13 +1504,67 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         node_asserts
     in
 
+    let pre_state_vars =
+      List.fold_left 
+        (fun a t -> 
+           SVS.union
+             (Term.state_vars_at_offset_of_term 
+                (Numeral.(TransSys.trans_base - one))
+                t)
+             a)
+        SVS.empty
+        trans_defs_asserts
+    in
+
+    debug lustreTransSys
+      "@[<v>State variables under pre:@,@[<hv>%a@]@]"
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      (SVS.elements pre_state_vars)
+    in
+
+    (* Slice node equations again to eliminate variables that were
+       only abstracted for node inputs and are now bound by a let *)
+    let node_equations' =
+
+      (* State variables in equations *)
+      let state_vars_in_equations =
+        List.fold_left
+          (fun accum (_, e) -> SVS.union accum (E.state_vars_of_expr e))
+          (SVS.of_list 
+             (node_props @ node_observers @ List.map fst node_outputs))
+          node_equations
+      in
+
+      (* State variables in node calls and assertions *)
+      let state_vars_in_node =
+        state_vars_in_equations
+        |> (fun s -> 
+            List.fold_left 
+              (fun a t -> SVS.union a (Term.state_vars_of_term t))
+              s
+              init_defs_asserts)
+        |> (fun s -> 
+            List.fold_left 
+              (fun a t -> SVS.union a (Term.state_vars_of_term t))
+              s
+              trans_defs_asserts)
+      in
+
+      (* Remove equations *)
+      List.filter
+        (fun (sv, _) -> SVS.mem sv state_vars_in_node)
+        node_equations
+
+    in
+
     (* Constraints from equations *)
     let (init_defs_eqs, trans_defs_eqs) = 
       definitions_of_equations 
         signature_vars_set
+        pre_state_vars
         init_defs_asserts
         trans_defs_asserts
-        (List.rev node_equations)
+        (List.rev node_equations')
     in
 
     (* Types of variables in the signature *)

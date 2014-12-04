@@ -28,8 +28,8 @@ module N = LustreNode
 (* Identifier of a call with total ordering *)
 module CallId = 
 struct
-  type t = I.t * A.position       
-  let compare = compare_pairs I.compare A.compare_pos
+  type t = I.t * position       
+  let compare = compare_pairs I.compare compare_pos
 end
 
 
@@ -46,7 +46,7 @@ module SVMap = StateVar.StateVarMap
    Need to have a single constructor, otherwise the type would be
    cylic *)
 type tree_path = 
-  | N of I.t * A.position * Term.t array SVMap.t * tree_path CallMap.t 
+  | N of I.t * position * Term.t array SVMap.t * tree_path CallMap.t 
 
 
 (* ********************************************************************** *)
@@ -108,11 +108,11 @@ let pp_print_file_pt ppf pos_file =
 let pp_print_pos_pt ppf pos = 
 
   (* Do not print anything for a dummy position *)
-  if A.is_dummy_pos pos then () else 
+  if is_dummy_pos pos then () else 
 
     (* Get file, line and column of position *)
     let pos_file, pos_lnum, pos_cnum = 
-      A.file_row_col_of_pos pos
+      file_row_col_of_pos pos
     in
     
     (* Print attributes *)
@@ -607,7 +607,7 @@ let reduced_tree_path_of_model start_at_init nodes model =
 
   let node_name = main_node.N.name in
 
-  let node_pos = A.dummy_pos in
+  let node_pos = dummy_pos in
   
   let orig_tree_path = N (node_name, node_pos, stream_map, call_map) in
     
@@ -642,11 +642,11 @@ let pp_print_file_xml ppf pos_file =
 let pp_print_pos_xml ppf pos = 
 
   (* Do not print anything for a dummy position *)
-  if A.is_dummy_pos pos then () else 
+  if is_dummy_pos pos then () else 
 
     (* Get file, line and column of position *)
     let pos_file, pos_lnum, pos_cnum = 
-      A.file_row_col_of_pos pos
+      file_row_col_of_pos pos
     in
     
     (* Print attributes *)

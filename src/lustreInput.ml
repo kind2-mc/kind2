@@ -47,7 +47,7 @@ let of_channel keep_all_coi in_ch =
         in
 
         LustreSimplify.fail_at_position
-          (A.position_of_lexing lexer_pos)
+          (position_of_lexing lexer_pos)
           "Syntax error"
 
   in
