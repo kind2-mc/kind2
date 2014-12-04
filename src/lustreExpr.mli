@@ -352,7 +352,7 @@ val oracles_for_unguarded_pres : Lib.position -> (StateVar.t -> StateVar.t) -> (
 (** {1 Predicates} *)
 
 (** Return true if the expression contains a previous state variable *)
-val has_pre_var : t -> bool
+val has_pre_var : Numeral.t -> t -> bool
 
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool

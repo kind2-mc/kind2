@@ -2123,11 +2123,11 @@ let mk_pre
 
 
 (* Return true if expression is a previous state variable *)
-let has_pre_var { expr_step } = 
+let has_pre_var zero_offset { expr_step } = 
 
   (* Previous state variables have negative offset *)
   match Term.var_offsets_of_term expr_step with 
-    | Some n, _ when Numeral.(n < cur_offset) -> true
+    | Some n, _ when Numeral.(n <= zero_offset + pre_offset) -> true
     | _ -> false
 
 

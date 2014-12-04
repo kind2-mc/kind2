@@ -1311,7 +1311,7 @@ let rec eval_ast_expr'
         if 
 
           (* Input must not contain variable at previous state *)
-          E.has_pre_var cond'
+          E.has_pre_var E.base_offset cond'
 
         then
 
@@ -1846,10 +1846,12 @@ and eval_node_call
   in
 
   debug lustreSimplify
-      "@[<hv>Node call at %a: properties @[<hv>%a@]@]"
+      "@[<hv>Node call at %a:@ properties @[<hv>%a@]@ observers @[<hv>%a@]@]"
       pp_print_position pos
       (pp_print_list StateVar.pp_print_state_var ",@ ")
       node_props
+      (pp_print_list StateVar.pp_print_state_var ",@ ")
+      node_observers
   in
 
 
@@ -1911,6 +1913,7 @@ and eval_node_call
     let node_call = 
       List.find
         (fun { N.call_clock = cond';
+               N.call_defaults = defaults';
                N.call_node_name = ident';
                N.call_inputs = inputs';
                N.call_returns = node_outputs } -> 
@@ -1920,6 +1923,12 @@ and eval_node_call
 
           (* Same activation condition *)
           (E.equal_expr cond' cond) &&
+
+          (* Same defaults *)
+          (List.for_all2
+             (fun (_, sv1) sv2 -> E.equal_expr sv1 sv2)
+             defaults 
+             defaults') &&
 
           (* Inputs are the same up to oracles *)
           (let rec aux = 
@@ -1940,7 +1949,7 @@ and eval_node_call
 
     let result' = 
       List.fold_left2
-        (fun result sv (index, _) -> 
+        (fun result sv (_, index) -> 
            (index, E.mk_var sv E.base_clock) :: result)
         result
         node_call.N.call_returns
@@ -1975,12 +1984,7 @@ and eval_node_call
            in
            E.set_state_var_instance sv pos ident node_sv;
            sv)
-        (List.filter
-           (fun sv -> 
-              List.for_all
-                (fun (sv', _) -> not (StateVar.equal_state_vars sv sv'))
-                node_outputs)
-           node_props)
+        node_observers
     in
 
 
@@ -3498,42 +3502,37 @@ let abstractions_to_context_and_node
 (* Parse a statement (equation, assert or annotation) in a node *)
 let rec parse_node_equations 
     context 
-    empty_abstractions 
+    abstractions 
     ({ N.name = node_ident } as node ) = 
 
   function
 
     (* No more statements *)
-    | [] -> node 
+    | [] -> abstractions, context, node 
 
     (* Assertion *)
     | A.Assert (pos, ast_expr) :: tl -> 
 
       (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
+      let expr', abstractions' = 
         close_ast_expr
           pos
           (bool_expr_of_ast_expr 
              context 
-             empty_abstractions
+             abstractions
              pos
              ast_expr)
       in
       
       (* Add assertion to node *)
       let context', node', abstractions' = 
-        assertion_to_node context node abstractions pos expr'
+        assertion_to_node context node abstractions' pos expr'
       in
       
-      (* Add new definitions to context *)
-      let context', node', abstractions' = 
-        abstractions_to_context_and_node context' node' abstractions' pos
-      in
-
       (* Continue with next node statements *)
       parse_node_equations 
         context'
-        empty_abstractions
+        abstractions'
         node' 
         tl
 
@@ -3541,30 +3540,25 @@ let rec parse_node_equations
     | A.AnnotProperty (pos, ast_expr) :: tl -> 
 
       (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
+      let expr', abstractions' = 
         close_ast_expr
           pos
           (bool_expr_of_ast_expr 
              context 
-             empty_abstractions
+             abstractions
              pos
              ast_expr)
       in
       
       (* Add assertion to node *)
       let context', node', abstractions' = 
-        property_to_node context node abstractions pos expr'
+        property_to_node context node abstractions' pos expr'
       in
       
-      (* Add new definitions to context *)
-      let context', node', abstractions' = 
-        abstractions_to_context_and_node context' node' abstractions' pos
-      in
-
       (* Continue with next node statements *)
       parse_node_equations 
         context'
-        empty_abstractions
+        abstractions'
         node' 
         tl
 
@@ -3586,7 +3580,7 @@ let rec parse_node_equations
           pos
           (eval_ast_expr 
              context 
-             empty_abstractions
+             abstractions
              ast_expr)
 
       in
@@ -3723,19 +3717,10 @@ let rec parse_node_equations
 
       in
 
-      (* Add abstractions to context and node *)
-      let context', node', abstractions' =
-        abstractions_to_context_and_node 
-          context' 
-          node' 
-          abstractions' 
-          pos
-      in
-
       (* Continue *)
       parse_node_equations 
         context'
-        empty_abstractions
+        abstractions'
         node'
         tl
 
@@ -3745,7 +3730,7 @@ let rec parse_node_equations
 
       parse_node_equations 
         context 
-        empty_abstractions
+        abstractions
         { node with N.is_main = true }
         tl
 
@@ -3998,7 +3983,7 @@ let parse_node
 
   (* Parse equations and assertions, add to node context, local
      context is not modified *)
-  let node = 
+  let abstractions', context', node = 
     parse_node_equations 
       local_context 
       empty_abstractions
@@ -4006,8 +3991,14 @@ let parse_node
       equations
   in
 
+  (* Add new definitions to context *)
+  let _, node', _ = 
+    abstractions_to_context_and_node context' node abstractions' dummy_pos
+  in
+
   (* Simplify by substituting variables that are aliases *)
-  N.solve_eqs_node_calls node
+  (* N.solve_eqs_node_calls node' *)
+  node'
 
 
 (* ******************************************************************** *)
