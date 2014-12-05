@@ -281,7 +281,7 @@ let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`PDR; `BMC; `IND]
+let enable_default_after = [`BMC; `IND; `INVGEN]
 
 (* ********** *) 
 
@@ -299,19 +299,19 @@ let bmc_max_default = 0
 
 type ind_backward = bool
     
-let ind_backward_default = true
+let ind_backward_default = false
 
 (* ********** *) 
 
 type ind_compress = bool
     
-let ind_compress_default = true
+let ind_compress_default = false
 
 (* ********** *) 
 
 type ind_compress_equal = bool
     
-let ind_compress_equal_default = true
+let ind_compress_equal_default = false
 
 (* ********** *) 
 
