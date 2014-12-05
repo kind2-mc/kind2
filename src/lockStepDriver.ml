@@ -550,7 +550,7 @@ let query_step ({ systems ; solver ; two_state ; k } as context)
   (* Splitting terms. *)
   split_closure solver two_state k [] terms_to_check
     (* Pruning direct consequences of the transition relation. *)
-  |> snd |> prune_obvious solver []
+  |> snd (*|> prune_obvious solver []*)
 
 
 (* 
