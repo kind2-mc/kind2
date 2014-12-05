@@ -490,7 +490,7 @@ let rec split_closure solver two_state k falsifiable = function
 
 (* Prunes the terms which are a direct consequence of the transition
    relation. Assumes [T(0,1)] is asserted. *)
-let rec prune_obvious solver result = function
+let rec prune_trivial solver result = function
   | [] -> result
   | terms ->
 
@@ -550,7 +550,7 @@ let rec prune_obvious solver result = function
          (* Deactivating actlit. *)
          Term.mk_not actlit |> Solver.assert_term solver ;
          (* Looping. *)
-         prune_obvious
+         prune_trivial
            solver (List.concat [ result ; falsifiables ]) unknowns
 
 let query_step ({ systems ; solver ; two_state ; k } as context)
@@ -563,7 +563,9 @@ let query_step ({ systems ; solver ; two_state ; k } as context)
   (* Splitting terms. *)
   split_closure solver two_state k [] terms_to_check
     (* Pruning direct consequences of the transition relation. *)
-  |> snd |> prune_obvious solver []
+  |> snd
+  |> (if Flags.invgengraph_prune_trivial ()
+      then prune_trivial solver [] else identity)
 
 
 (* 
