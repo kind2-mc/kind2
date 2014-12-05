@@ -24,6 +24,22 @@ open SMTExpr
 (* Types                                                                 *)
 (* ********************************************************************* *)
 
+type any_response =
+  | NoResp
+  | Resp of response
+  | CheckSatResp of check_sat_response
+  | GetValueResp of (response * (SMTExpr.t * SMTExpr.t) list)
+  | GetUnsatCoreResp of (response * (string list))
+  | CustomResp of (response * (HStringSExpr.t list))
+
+type command_type =
+  | NoRespCmd
+  | Cmd
+  | CheckSatCmd
+  | GetValueCmd
+  | GetUnsatCoreCmd
+  | CustomCmd of int
+
 (* Configuration *)
 type config =
     { solver_cmd : string array;    (* Command line arguments for the
@@ -43,6 +59,11 @@ type t =
                                            stdout *)
       solver_stderr : Unix.file_descr;  (* File descriptor of solver's
                                            stderr *)
+      solver_trace_cmd : string -> unit;
+      (* Tracing function for commands *)
+      
+      solver_trace_res : any_response -> unit;
+      (* Tracing function for responses *)
     }
 
 
@@ -285,14 +306,39 @@ let get_custom_command_response num_res solver timeout =
       (r, []) 
 
 
+let get_any_response solver timeout = function
+  | NoRespCmd -> NoResp
+  | Cmd -> Resp (get_command_response solver timeout)
+  | CheckSatCmd -> CheckSatResp (get_check_sat_response solver timeout)
+  | GetValueCmd -> GetValueResp (get_get_value_response solver timeout)
+  | GetUnsatCoreCmd ->
+     GetUnsatCoreResp (get_get_unsat_core_response solver timeout)
+  | CustomCmd num_res ->
+     CustomResp (get_custom_command_response num_res solver timeout)
+
+
+let pp_print_any_response ppf = function
+  | NoResp -> ()
+  | Resp res -> SMTExpr.pp_print_response ppf res
+  | CheckSatResp res -> SMTExpr.pp_print_check_sat_response ppf res
+  | GetValueResp res -> SMTExpr.pp_print_get_value_response ppf res
+  | GetUnsatCoreResp (r, c) ->
+     Format.fprintf ppf "%a@,(@[<hv 1>%a@])"
+             SMTExpr.pp_print_response r
+             (pp_print_list Format.pp_print_string "@ ") c
+  | CustomResp (r, e) ->
+     Format.fprintf ppf "%a@,(@[<hv 1>%a@])" 
+             SMTExpr.pp_print_response r
+             (pp_print_list HStringSExpr.pp_print_sexpr "@ ") e  
+
+
 (* Send the command to the solver instance *)
 let send_command 
     ({ solver_stdin = solver_stdin; } as solver)
+    cmd_type
     command 
-    parse_response 
-    pp_print_response 
     timeout = 
-  
+
   (* Get an output channel to write to solver's stdin *)
   let solver_stdin_ch = Unix.out_channel_of_descr solver_stdin in
 
@@ -308,77 +354,78 @@ let send_command
   Format.pp_print_newline solver_stdin_formatter ();
 
   (* Wait for response without timeout *)
-  let res = parse_response solver timeout in
+  let res = get_any_response solver timeout cmd_type in
 
   (* Return response *)
   res
 
+(* Samme as above but additionnaly trace the commands and responses *)
+let send_command_and_trace solver cmd_type command timeout = 
+
+  (* Trace the command *)
+  solver.solver_trace_cmd command;
+
+  (* Send the command to the solver and get the response *)
+  let res = send_command solver cmd_type command timeout in
+
+  (* Trace the response of the solver *)
+  solver.solver_trace_res res;
+
+  res
 
 (* Execute a command and return the response *)
 let execute_command solver command timeout = 
 
-  send_command 
-    solver 
-    command 
-    get_command_response 
-    pp_print_response 
-    timeout
+  match send_command_and_trace solver Cmd command timeout with
+  | Resp res -> res
+  | _ -> assert false
 
+(* Execute a command without logging in the trace and return the response *)
+let execute_command_no_trace solver command timeout = 
 
+  match send_command solver Cmd command timeout with
+  | Resp res -> res
+  | _ -> assert false
+
+  
 (* Execute a command and do not parse a response *)
 let execute_command_no_response solver command timeout = 
 
-  send_command 
-    solver 
-    command 
-    (function _ -> function _ -> NoResponse)
-    pp_print_response 
-    timeout
+  match send_command_and_trace solver NoRespCmd command timeout with
+  | NoResp -> NoResponse
+  | _ -> assert false
 
 
 (* Execute a check-sat command and return the response *)
 let execute_check_sat_command solver command timeout = 
 
-  send_command 
-    solver 
-    command
-    get_check_sat_response 
-    pp_print_check_sat_response 
-    timeout
+  match send_command_and_trace solver CheckSatCmd command timeout with
+  | CheckSatResp res -> res
+  | _ -> assert false
 
 
 (* Execute a get-value command and return the response *)
 let execute_get_value_command solver command timeout = 
 
-  send_command 
-    solver 
-    command 
-    get_get_value_response 
-    pp_print_get_value_response 
-    timeout
+  match send_command_and_trace solver GetValueCmd command timeout with
+  | GetValueResp res -> res
+  | _ -> assert false
 
 
 (* Execute a get-unsat-core command and return the response *)
 let execute_get_unsat_core_command solver command timeout = 
 
-  send_command 
-    solver 
-    command 
-    get_get_unsat_core_response 
-    pp_print_get_unsat_core_response 
-    timeout
+  match send_command_and_trace solver GetUnsatCoreCmd command timeout with
+  | GetUnsatCoreResp res -> res
+  | _ -> assert false
 
 
 (* Execute a custom command and return the response *)
 let execute_custom_command' solver command timeout num_res = 
 
-  send_command 
-    solver 
-    command 
-    (get_custom_command_response num_res)
-    pp_print_custom_command_response 
-    timeout
-
+  match send_command_and_trace solver (CustomCmd num_res) command timeout with
+  | CustomResp res -> res
+  | _ -> assert false  
 
 
 (* ********************************************************************* *)
@@ -391,7 +438,7 @@ let declare_fun solver fun_symbol arg_sorts res_sort =
 
   let cmd = 
     Format.sprintf 
-      "@[<hv 1>(declare-fun %s %s %s)@]" 
+      "@[<hv 1>(declare-fun@ %s@ @[<hv 1>%s@]@ %s)@]" 
       fun_symbol
       (paren_string_of_string_list (List.map string_of_sort arg_sorts))
       (string_of_sort res_sort)
@@ -404,19 +451,19 @@ let declare_fun solver fun_symbol arg_sorts res_sort =
 (* Define a new function symbol as an abbreviation for an expression *)
 let define_fun solver fun_symbol arg_vars res_sort defn = 
 
-  let cmd = 
-    Format.sprintf 
-      "@[<hv 1>(define-fun %s %s %s %s)@]" 
+  let cmd =
+    Format.asprintf
+      "@[<hv 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %s@ %a)@]" 
       fun_symbol
-      (paren_string_of_string_list
-         (List.map 
-            (fun var -> 
-               Format.sprintf "(%s %s)" 
-                 (Var.string_of_var var)
-                 (string_of_sort (Var.type_of_var var)))
-            arg_vars))
+      (pp_print_list
+         (fun ppf var -> 
+          Format.fprintf ppf "(%s %s)" 
+                         (Var.string_of_var var)
+                         (string_of_sort (Var.type_of_var var)))
+         "@ ")
+      arg_vars
       (string_of_sort res_sort)
-      (string_of_expr defn)
+      pp_print_expr defn
   in
 
   (* Send command to the solver without timeout *)
@@ -427,8 +474,8 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 let assert_expr solver expr = 
 
   let cmd = 
-    Format.sprintf 
-      "@[<hv 1>(assert@ %s)@]" 
+    Format.sprintf
+      "@[<hv 1>(assert@ @[<hv>%s@])@]" 
       (string_of_expr expr) in
   
   (* Send command to the solver without timeout *)
@@ -438,7 +485,7 @@ let assert_expr solver expr =
 (* Push a number of empty assertion sets to the stack *)
 let push solver scopes = 
 
-  let cmd = Format.sprintf "(push %d)" scopes in
+  let cmd = Format.sprintf "@[<hv 1>(push@ %d)@]" scopes in
 
   (* Send command to the solver without timeout *)
   execute_command solver cmd 0
@@ -447,7 +494,7 @@ let push solver scopes =
 (* Pop a number of assertion sets from the stack *)
 let pop solver scopes  = 
 
-  let cmd = Format.sprintf "(pop %d)" scopes in
+  let cmd = Format.sprintf "@[<hv 1>(pop@ %d)@]" scopes in
 
   (* Send command to the solver without timeout *)
   execute_command solver cmd 0
@@ -457,7 +504,7 @@ let pop solver scopes  =
 let check_sat ?(timeout = 0) solver = 
 
   let cmd = match timeout with 
-    | i when i <= 0 -> Format.sprintf "(check-sat)"
+    | i when i <= 0 -> Format.sprintf "@[<hv 1>(check-sat)@]"
     | _ -> check_sat_limited_cmd timeout
   in
 
@@ -508,9 +555,9 @@ let get_value solver expr_list =
 
   (* The command to send to the solver *)
   let cmd = 
-    Format.sprintf 
-      "@[<hv 1>(get-value@ %s)@]" 
-      (paren_string_of_string_list (List.map string_of_expr expr_list))
+    Format.asprintf
+      "@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]" 
+      (pp_print_list pp_print_expr "@ ") expr_list;
   in
 
   (* Send command to the solver without timeout *)
@@ -522,7 +569,7 @@ let get_unsat_core solver =
 
   (* The command to send to the solver *)
   let cmd = 
-    Format.sprintf "(get-unsat-core)" 
+    Format.sprintf "@[<hv 1>(get-unsat-core)@]"
   in
 
   (* Send command to the solver without timeout *)
@@ -561,13 +608,88 @@ let execute_custom_check_sat_command cmd solver =
 (* ********************************************************************* *)
 
 
+(* ********************************************************************* *)
+(* Solver commands tracing                                               *)
+(* ********************************************************************* *)
+
+(* Formatter writing to SMT trace file *)
+let create_trace_ppf id = 
+
+  (* Tracing of SMT commands enabled? *)
+  if Flags.smt_trace () then 
+    
+    (* Name of SMT trace file *)
+    let trace_filename = 
+      Filename.concat
+        (Flags.smt_trace_dir ())
+        (Format.sprintf "%s.%s.%d.smt2" 
+                        (Filename.basename (Flags.input_file ()))
+                        (suffix_of_kind_module (Event.get_module ()))
+                        id)
+    in
+    
+    try
+      
+      (* Open file for output, may fail *)
+      let trace_oc = open_out trace_filename in
+      
+      Event.log L_debug
+                "Tracing output of SMT solver instace to %s"
+                trace_filename;
+
+      (* Return formatter *)
+      Some (Format.formatter_of_out_channel trace_oc)
+           
+    (* Silently fail *)
+    with Sys_error e -> 
+
+      Event.log L_debug
+                "Failed to open trace file for SMT solver %s"
+                e;
+      
+      None 
+        
+  else
+
+    (* Do not trace SMT commands *)
+    None 
+
+(* Tracing of commands *)
+let trace_cmd solver_ppf cmd = match solver_ppf with
+  | Some ppf -> Format.fprintf ppf "%s@." cmd
+  | None -> ()
+
+(* Tracing of responses *)
+let trace_res solver_ppf res = match solver_ppf with
+  | Some ppf ->
+     let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
+
+     let reset_ppf ppf = 
+       Format.fprintf ppf "@?";
+       Format.pp_set_formatter_out_functions ppf fmt_out_fun;
+       Format.fprintf ppf "@.";
+       Format.fprintf ppf "@\n"
+     in
+
+     Format.pp_set_formatter_out_functions 
+       ppf 
+       { fmt_out_fun with 
+         Format.out_newline = 
+           fun () -> fmt_out_fun.Format.out_string "\n;; " 0 4  };
+
+     Format.kfprintf reset_ppf ppf ";; %a" pp_print_any_response res
+
+  | None -> ()
+
+
 (* Create an instance of the solver *)
-let create_instance 
+let create_instance
     ?produce_assignments
     ?produce_models
     ?produce_proofs
     ?produce_cores
-    logic =
+    logic
+    id =
 
   (* Get autoconfigured configuration *)
   let ({ solver_cmd = solver_cmd } as config) = config_of_flags () in
@@ -604,6 +726,12 @@ let create_instance
   (* Create a lexing buffer on solver's stdout *)
   let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
 
+  (* Create trace functions *)
+  let trace_ppf = create_trace_ppf id in
+  (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
+  let ftrace_cmd = trace_cmd trace_ppf in
+  let ftrace_res = trace_res trace_ppf in
+  
   (* Create the solver instance *)
   let solver =
     { solver_config = config;
@@ -611,7 +739,9 @@ let create_instance
       solver_stdin = solver_stdin_out; 
       solver_lexbuf = solver_lexbuf; 
       solver_stdout = solver_stdout_in; 
-      solver_stderr = solver_stderr_in; }
+      solver_stderr = solver_stderr_in;
+      solver_trace_cmd = ftrace_cmd;
+      solver_trace_res = ftrace_res; }
   in
 
   (* Print success after commands, default is false per SMTLIB
@@ -632,7 +762,7 @@ let create_instance
       (match 
          let cmd = "(set-option :interactive-mode true)" in
          (debug smt "%s" cmd in
-          execute_command solver cmd 0)
+          execute_command_no_trace solver cmd 0)
        with 
          | Success -> () 
          | _ -> raise (Failure ("Cannot set option interactive-mode")))
@@ -733,6 +863,7 @@ let delete_instance
      response to (exit) will be the response to the previous
      command. Hence, ignore these stale respones on the output
      channel *)
+
   let _ = execute_command_no_response solver "(exit)" 0 in
 
   (* Wait for process to terminate *)
