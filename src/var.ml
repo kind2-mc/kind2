@@ -99,7 +99,15 @@ module Var_node = struct
     | _ -> false
 
   (* Return hash of a variable *)
-  let hash = Hashtbl.hash
+  let hash = function
+
+    | StateVarInstance (sv, i) -> 
+      
+      (abs ((StateVar.hash_state_var sv) * (Numeral.to_int i)) mod max_int)
+      
+    | ConstStateVar sv -> StateVar.hash_state_var sv
+
+    | TempVar (s, _) -> HString.hash s
 
 end
 
@@ -186,7 +194,7 @@ let pp_print_var_node ppf = function
       "%a.%a" 
       StateVar.pp_print_state_var v
       Numeral.pp_print_numeral o
-      
+
   (* Pretty-print a constant state variable *)
   | ConstStateVar v ->
     Format.fprintf ppf 
@@ -198,7 +206,7 @@ let pp_print_var_node ppf = function
     Format.fprintf ppf "%a" HString.pp_print_hstring s
 
 (* Pretty-print a variable to the standard formatter *)
-let print_var_node = pp_print_var_node Format.std_formatter 
+let print_var_node = pp_print_var_node Format.std_formatter
 
 (* Pretty-print a hashconsed variable *)
 let pp_print_var ppf { Hashcons.node = v } = pp_print_var_node ppf v

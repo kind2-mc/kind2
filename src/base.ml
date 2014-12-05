@@ -179,7 +179,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
            if status = TransSys.PropInvariant
            then
              (* Memorizing new invariant property. *)
-             ( TransSys.prop_of_name trans name )
+             ( TransSys.named_term_of_prop_name trans name )
              :: list
            else
              list )

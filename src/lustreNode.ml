@@ -83,7 +83,7 @@ type node_call =
     call_node_name : LustreIdent.t;
     
     (* Position of node call in input file *)
-    call_pos : LustreAst.position;
+    call_pos : position;
 
     (* Expressions for input parameters *)
     call_inputs : StateVar.t list;
@@ -146,7 +146,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (* Proof obligations for node *)
-    props : StateVar.t list;
+    props : (StateVar.t * prop_source) list;
 
     (* Contract for node, assumptions *)
     requires : LustreExpr.t list;
@@ -169,6 +169,9 @@ type t =
     (* Map of state variables to their oracles *)
     state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
 
+    (* Map of expressions to state variables *)
+    expr_state_var_map : StateVar.t E.ExprHashtbl.t;
+
   }
 
 
@@ -190,7 +193,8 @@ let empty_node name =
     output_input_dep = [];
     fresh_state_var_index = ref Numeral.(- one);
     fresh_oracle_index = ref Numeral.(- one); 
-    state_var_oracle_map = StateVar.StateVarHashtbl.create 7 }
+    state_var_oracle_map = StateVar.StateVarHashtbl.create 7;
+    expr_state_var_map = E.ExprHashtbl.create 7 }
 
 
 
@@ -281,7 +285,7 @@ let pp_print_assert safe ppf expr =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf var = 
+let pp_print_prop safe ppf (var, _) = 
 
   Format.fprintf ppf
     "@[<hv 2>--%%PROPERTY@ @[<h>%a@];@]"
@@ -957,7 +961,7 @@ let stateful_vars_of_node
   in
 
   (* Add property variables *)
-  let stateful_vars = add_to_svs stateful_vars props in
+  let stateful_vars = add_to_svs stateful_vars (List.map fst props) in
 
   (* Add stateful variables from assertions *)
   let stateful_vars = 
@@ -1314,6 +1318,8 @@ let state_vars_of_node (node : t) =
     ret
     (node.oracles @ node.observers)
 
+(*
+
 (* 
 Given that [nodes] is the set of nodes in the lustre program and
 [main_name] is the name of the main node, return a map which
@@ -1365,6 +1371,7 @@ let reduce_to_separate_property_cois nodes main_name =
          (Format.asprintf
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
+*)
 
 
 (* Reduce set of nodes to cone of influence of given state variables *)
@@ -1442,21 +1449,37 @@ let reduce_to_props_coi nodes main_name =
     node_of_name main_name nodes 
   in
 
-  match props @ observers with
+  match 
+
+    List.fold_left
+      (fun accum (state_var, prop_source) -> match prop_source with 
+
+         (* Property annotations, contracts and generated constraints
+            are in the cone of influence *)
+         | PropAnnot _ 
+         | Contract _ 
+         | Generated _ -> state_var :: accum
+
+         (* Properties instantiated from subnodes are not *)
+         | Instantiated _-> accum) 
+      []
+      props 
+
+  with
     
     (* No properties, don't reduce *)
     | [] -> reduce_wo_coi nodes main_name
               
     (* Reduce to cone of influence of all properties *)
-    | _ -> 
-      
+    | props' -> 
+(*      
       let props' = 
       SVS.elements 
         (SVS.union
-           (svs_of_list props)
+           (svs_of_list (List.map fst props))
            (svs_of_list observers))
       in
-      
+  *)    
       reduce_to_coi nodes main_name props'
         
       
