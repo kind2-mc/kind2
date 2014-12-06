@@ -492,18 +492,19 @@ module CandidateTermGen = struct
 
            let sorted_result =
              result
-             |> (if true then identity else
-                 TSet.fold
-                   ( fun term map ->
-                    TransSys.instantiate_term_all_levels
-                      system term
-                    |> (function | (top,others) -> top :: others)
-                    |> List.fold_left
-                        ( fun map (sys,terms) ->
-                           insert_sys_terms
-                             (sys, TSet.of_list terms) map )
-                         map )
-                  candidates )
+             |> ( if Flags.invgengraph_lift_candidates () then
+                    TSet.fold
+                      ( fun term map ->
+                        TransSys.instantiate_term_all_levels
+                          system term
+                          |> (function | (top,others) -> top :: others)
+                          |> List.fold_left
+                              ( fun map (sys,terms) ->
+                                insert_sys_terms
+                                  (sys, TSet.of_list terms) map )
+                              map )
+                      candidates
+                  else identity )
              |> insert_sys_terms (system, candidates)
            in
 

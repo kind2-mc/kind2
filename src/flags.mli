@@ -179,6 +179,13 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
 
+(** InvGen will remove trivial invariants, i.e. invariants implied by
+    the transition relation.. **)
+type invgengraph_prune_trivial = bool
+val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
+(** InvGen will lift candidate terms from subsystems.. **)
+type invgengraph_lift_candidates = bool
+val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
 (** InvGen will only look for top level invariants. **)
 type invgengraph_top_only = bool
 val invgengraph_top_only : unit -> invgengraph_top_only
