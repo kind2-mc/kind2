@@ -3562,7 +3562,6 @@ let rec restart_loop trans_sys solver props =
     (* Restart with remaining properties *)
     restart_loop trans_sys solver props'
     
-*)
     
    
 (* Check if the property is valid in the initial state and in the
@@ -3726,28 +3725,30 @@ let main trans_sys =
 
   (* Save solver instance for clean exit *)
   ref_solver := Some solver;
-  
+
   (* Get invariants of transition system *)
   let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
-  
+
   (* Get invariants for current state *)
   let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
-  
+
   (* Assert invariants for current state if not empty *)
   if not (invars_0 == Term.t_true) then 
-    
-    (S.assert_term solver invars_0;
+
+    (S.trace_comment "Invariants";
+     S.assert_term solver invars_0;
      S.assert_term solver invars_1);
-  
+
   (* Create activation literal for frame R_0 *)
   let actconst_r0, actlit_r0 = actlit_of_frame 0 in 
-  
+
   (* Declare symbol in solver *)
   S.declare_fun solver actconst_r0;
 
   (* Assert initial state constraint guarded with activation literal
 
      a_R0 => I[x] *)
+  S.trace_comment "Guarded initial state";
   S.assert_term 
     solver
     (Term.mk_implies
@@ -3757,6 +3758,7 @@ let main trans_sys =
   (* Assert transition relation unguarded
 
      T[x,x'] *)
+  S.trace_comment "Unguarded transition relation"; 
   S.assert_term 
     solver
     (TransSys.trans_of_bound trans_sys Numeral.one);
@@ -3797,7 +3799,7 @@ let main trans_sys =
           to BMC process.";
 
        trans_sys_props)
-      
+
     else
 
       (* BMC is not running, must check here *)
@@ -3805,26 +3807,26 @@ let main trans_sys =
         solver
         trans_sys
         trans_sys_props
-        
+
   in
-  
+
   (* restart_loop trans_sys solver props' *)
 
   (* Just testing below *)
-  
+
   (* Get activation literals for current property set *)
   let prop_set =
     actlits_of_prop_set solver props'
   in
-  
+
   match
 
     find_cti 
-          solver
-          trans_sys
-          prop_set
-          []
-          prop_set.clause
+      solver
+      trans_sys
+      prop_set
+      []
+      prop_set.clause
 
   with _ -> ()
   
