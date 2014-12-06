@@ -3306,7 +3306,7 @@ and equation_to_node
             node
             abstractions 
             dummy_pos 
-            (Generated pos)
+            (TermLib.Generated [state_var])
             range_expr
 
         | t, s -> 
@@ -3554,7 +3554,13 @@ let rec parse_node_equations
       
       (* Add assertion to node *)
       let context', node', abstractions' = 
-        property_to_node context node abstractions' pos (PropAnnot pos) expr'
+        property_to_node 
+          context 
+          node
+          abstractions'
+          pos
+          (TermLib.PropAnnot pos) 
+          expr'
       in
       
       (* Continue with next node statements *)

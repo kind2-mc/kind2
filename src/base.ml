@@ -17,7 +17,7 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
@@ -184,7 +184,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
            else
              list )
          (* New invariant properties are added to new invariants. *)
-         ( List.map snd new_invs )
+         ( Event.top_invariants_of_invariants new_invs )
            
   in
 

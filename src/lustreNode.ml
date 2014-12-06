@@ -146,7 +146,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (* Proof obligations for node *)
-    props : (StateVar.t * prop_source) list;
+    props : (StateVar.t * TermLib.prop_source) list;
 
     (* Contract for node, assumptions *)
     requires : LustreExpr.t list;
@@ -285,7 +285,7 @@ let pp_print_assert safe ppf expr =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf (var, _) = 
+let pp_print_prop safe ppf var = 
 
   Format.fprintf ppf
     "@[<hv 2>--%%PROPERTY@ @[<h>%a@];@]"
@@ -377,7 +377,7 @@ let pp_print_node
     (space_if_nonempty requires)
     (pp_print_list (pp_print_ensures safe) "@ ") ensures
     (space_if_nonempty ensures)
-    (pp_print_list (pp_print_prop safe) "@ ") props
+    (pp_print_list (pp_print_prop safe) "@ ") ((List.map fst props) @ observers)
     
 
 
@@ -1043,6 +1043,28 @@ let state_vars_in_asserts { asserts } =
     []
     asserts
 
+
+(* 
+  produces the set of all state variables contained in any of the nodes in the
+  given list 
+*)
+let state_vars_of_node (node : t) =
+  
+  (* the set of all state variables in this nodes locals, outputs, & inputs *)
+  let ret = 
+    List.fold_left 
+      (fun acc (sv,_) -> SVS.add sv acc) 
+      SVS.empty 
+      (node.locals @ node.outputs @ node.inputs)
+  in
+
+  (* ret with oracles added *)
+  List.fold_left
+    (fun acc sv -> SVS.add sv acc)
+    ret
+    (node.oracles @ node.observers)
+
+
 (* Execption for reduce_to_coi: need to reduce node first *)
 exception Push_node of I.t
 
@@ -1069,6 +1091,7 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         oracles;
         observers;
         locals; 
+        equations;
         asserts; 
         props; 
         requires; 
@@ -1101,7 +1124,10 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
           (* Keep assertions, properties and main annotations *)
           asserts = asserts;
+
+          (* Keep only property variables with definitions *)
           props = props;
+
           requires = requires;
           ensures = ensures;
           is_main = is_main;
@@ -1292,31 +1318,11 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         nodes
         accum
         (((List.map fst push_node_outputs) @ 
-          push_node_observers @ 
+          push_node_observers @
           (state_vars_in_asserts push_node), 
           [], 
           push_node,
           (empty_node push_name)) :: nl)
-
-(* 
-  produces the set of all state variables contained in any of the nodes in the
-  given list 
-*)
-let state_vars_of_node (node : t) =
-  
-  (* the set of all state variables in this nodes locals, outputs, & inputs *)
-  let ret = 
-    List.fold_left 
-      (fun acc (sv,_) -> SVS.add sv acc) 
-      SVS.empty 
-      (node.locals @ node.outputs @ node.inputs)
-  in
-
-  (* ret with oracles added *)
-  List.fold_left
-    (fun acc sv -> SVS.add sv acc)
-    ret
-    (node.oracles @ node.observers)
 
 (*
 
@@ -1456,12 +1462,12 @@ let reduce_to_props_coi nodes main_name =
 
          (* Property annotations, contracts and generated constraints
             are in the cone of influence *)
-         | PropAnnot _ 
-         | Contract _ 
-         | Generated _ -> state_var :: accum
+         | TermLib.PropAnnot _ 
+         | TermLib.Contract _ 
+         | TermLib.Generated _ -> state_var :: accum
 
          (* Properties instantiated from subnodes are not *)
-         | Instantiated _-> accum) 
+         | TermLib.Instantiated _-> accum) 
       []
       props 
 
