@@ -64,6 +64,8 @@ sig
 
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 
+  val trace_comment : t -> string -> unit
+
 end
 
 let smtsolver_module () = match Flags.smtsolver () with 
@@ -115,6 +117,8 @@ sig
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
 
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
+                                                          
+  val trace_comment : t -> string -> unit
 
 end
 
@@ -225,6 +229,9 @@ struct
 
     S.execute_custom_check_sat_command c solver
 
+  let trace_comment { solver } c = 
+
+    S.trace_comment solver c
 
 end
 

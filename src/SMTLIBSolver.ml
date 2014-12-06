@@ -31,6 +31,7 @@ type any_response =
   | GetValueResp of (response * (SMTExpr.t * SMTExpr.t) list)
   | GetUnsatCoreResp of (response * (string list))
   | CustomResp of (response * (HStringSExpr.t list))
+  | Comment of string 
 
 type command_type =
   | NoRespCmd
@@ -330,7 +331,27 @@ let pp_print_any_response ppf = function
      Format.fprintf ppf "%a@,(@[<hv 1>%a@])" 
              SMTExpr.pp_print_response r
              (pp_print_list HStringSExpr.pp_print_sexpr "@ ") e  
+  | Comment s -> 
+    
+    (* Use newline function of Format module instead of \n in string,
+       necessary to preserve comment character at beginning of line *)
+    let rec aux p = 
+      try 
+        let newline_pos = String.index_from s p '\n' in
+        Format.pp_print_string 
+          ppf
+          (String.sub s p (newline_pos - p));
+        Format.pp_print_newline ppf ();
+        aux (newline_pos + 1)
+      with Not_found -> 
+        Format.pp_print_string 
+          ppf
+          (String.sub s p (String.length s - p))
+    in
 
+    aux 0 
+
+        
 
 (* Send the command to the solver instance *)
 let send_command 
@@ -604,11 +625,6 @@ let execute_custom_check_sat_command cmd solver =
 
 
 (* ********************************************************************* *)
-(* Creating and deleting solver instances                                *)
-(* ********************************************************************* *)
-
-
-(* ********************************************************************* *)
 (* Solver commands tracing                                               *)
 (* ********************************************************************* *)
 
@@ -671,6 +687,8 @@ let trace_res solver_ppf res = match solver_ppf with
        Format.fprintf ppf "@\n"
      in
 
+     Format.fprintf ppf "@?";
+
      Format.pp_set_formatter_out_functions 
        ppf 
        { fmt_out_fun with 
@@ -680,6 +698,16 @@ let trace_res solver_ppf res = match solver_ppf with
      Format.kfprintf reset_ppf ppf ";; %a" pp_print_any_response res
 
   | None -> ()
+
+
+(* Output a comment into the trace *)
+let trace_comment solver comment = 
+  solver.solver_trace_res (Comment comment)
+
+
+(* ********************************************************************* *)
+(* Creating and deleting solver instances                                *)
+(* ********************************************************************* *)
 
 
 (* Create an instance of the solver *)
