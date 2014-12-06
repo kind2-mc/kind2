@@ -72,7 +72,7 @@ let get_solver_instance trans_sys =
       ignore
         (Solver.T.execute_custom_command 
            solver
-v           "set-option"
+           "set-option"
            [SMTExpr.ArgString ":pp.max_depth"; 
             SMTExpr.ArgString "65536"]
            0);
