@@ -16,28 +16,34 @@
 
 *)
 
-(** Simplify a Lustre AST to normalized Lustre nodes 
 
-    
+(** One state graph-based invariant generation module. *)
+module OneState : sig
 
-    @author Christoph Sticksel
-*)
+  (** Invariant generation entry point. *)
+  val main : TransSys.t -> unit
 
+  (** Destroys the underlying solver and cleans things up. *)
+  val on_exit : TransSys.t option -> unit
 
-(** Output a fatal error at position and raise an error *)
-val fail_at_position : Lib.position -> string -> 'a
+end
 
-(** Output a warning at position *)
-val warn_at_position : Lib.position -> string -> unit 
+(** Two state graph-based invariant generation module. *)
+module TwoState : sig
 
-(** Return a list of nodes from a parsed input file *)
-val declarations_to_nodes : LustreAst.declaration list -> LustreNode.t list
+  (** Invariant generation entry point. *)
+  val main : TransSys.t -> unit
 
+  (** Destroys the underlying solver and cleans things up. *)
+  val on_exit : TransSys.t option -> unit
+
+end
 
 (* 
    Local Variables:
-   compile-command: "make -k -C .."
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)
-  
+

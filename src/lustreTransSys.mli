@@ -90,10 +90,7 @@
     @author Christoph Sticksel *)
 
 (** *)
-val trans_sys_of_nodes : LustreIdent.t -> LustreNode.t list -> (UfSymbol.t * (Var.t list * Term.t)) list * (UfSymbol.t * (Var.t list * Term.t)) list * StateVar.t list * (UfSymbol.t * (Var.t * Term.t) list) * (UfSymbol.t * (Var.t * Term.t) list) * (string * Term.t) list
-
-(** *)
-val props_of_nodes : LustreIdent.t -> LustreNode.t list -> (string * Term.t) list
+val trans_sys_of_nodes : LustreNode.t list -> TransSys.t
 
 (* 
    Local Variables:

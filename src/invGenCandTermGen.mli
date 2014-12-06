@@ -16,13 +16,20 @@
 
 *)
 
-(** Parser for a CSV input file 
+(** Generates candidate terms for a transition system, and its
+    subsystems if the flags require it. The first parameter is a flag
+    for two state candidate terms generation. The result features the
+    number of candidate terms generated.
+    {b These sets do NOT contain [true] and [false].} *)
+val generate_candidate_terms :
+  bool -> TransSys.t -> (TransSys.t * Term.TermSet.t) list * int
 
-    @author Baoluo Meng, Christoph Sticksel *)
-
-(** Parse a CSV input file *)
-val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
-
+(** Generates implication graphs for a transition system, and its
+    subsystems if the flags require it. The first parameter is a flag
+    for two state candidate terms generation. The result features the
+    number of candidate terms generated. *)
+val generate_graphs :
+  bool -> TransSys.t -> (TransSys.t * ImplicationGraph.t) list * int
 
 (* 
    Local Variables:
@@ -31,3 +38,4 @@ val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
    indent-tabs-mode: nil
    End: 
 *)
+

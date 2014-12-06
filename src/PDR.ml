@@ -57,6 +57,17 @@ let ref_solver_frames = ref None
 (* Solver instance if created *)
 let ref_solver_misc = ref None
 
+let solvers_declare uf =
+  (match !ref_solver_init with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()) ;
+  (match !ref_solver_frames with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()) ;
+  match !ref_solver_misc with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()
+
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
@@ -529,10 +540,11 @@ let find_cex
 	   a)
     in
 
-    debug pdr
-	  "@[<v>Current frames@,@[<hv>%a@]@]"
-	  SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
-    in
+  debug pdr
+      "@[<v>Current frames@,@[<hv>%a@]@]"
+    SMTExpr.pp_print_expr
+    (SMTExpr.smtexpr_of_term solvers_declare (CNF.to_term frame))
+  in
 
     (* Push a new scope to the context *)
     S.push solver_frames;
@@ -1685,28 +1697,28 @@ let fwd_propagate
                     inductive_terms
 
                 );
-	      *)
-             (* Send invariant *)
-             List.iter 
-               (fun c -> Event.invariant (Clause.to_term c))
-               inductive;
+*)
+              (* Send invariant *)
+              List.iter 
+                (fun c -> Event.invariant [] (Clause.to_term c))
+                inductive;
 
-             Stat.record_time Stat.pdr_inductive_check_time;
+              Stat.record_time Stat.pdr_inductive_check_time;
 
-             (* Pop scope level in generic solver *)
-             S.pop solver_misc;
+              (* Pop scope level in generic solver *)
+              S.pop solver_misc;
 
-             Stat.incr 
-               ~by:(List.length inductive_terms) 
-               Stat.pdr_inductive_blocking_clauses;
+              Stat.incr 
+                ~by:(List.length inductive_terms) 
+                Stat.pdr_inductive_blocking_clauses;
 
-             (debug pdr 
-                    "@[<v>New inductive terms:@,@[<hv>%t@]@]"
-                    (function ppf -> 
-			      (List.iter 
-				 (Format.fprintf ppf "%a@," Term.pp_print_term) 
-				 inductive_terms)) 
-              in
+              (debug pdr 
+                  "@[<v>New inductive terms:@,@[<hv>%t@]@]"
+                  (function ppf -> 
+                    (List.iter 
+                       (Format.fprintf ppf "%a@," Term.pp_print_term) 
+                       inductive_terms)) 
+               in
 
               (* Add inductive blocking clauses as invariants *)
               List.iter (TransSys.add_invariant trans_sys) inductive_terms);
@@ -2469,7 +2481,7 @@ let handle_events
   in
 
   (* Assert all received invariants *)
-  List.iter (fun (_, i) -> add_invariant i) invariants_recvd;
+  List.iter add_invariant (Event.top_invariants_of_invariants invariants_recvd);
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
@@ -2707,7 +2719,7 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init);
+  (* TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init); *)
 
   (* Define functions *)
   TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
@@ -2746,9 +2758,9 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations 
-    trans_sys 
-    (S.declare_fun solver_frames);
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys  *)
+  (*   (S.declare_fun solver_frames); *)
 
   (* Define functions *)
   TransSys.iter_uf_definitions 
@@ -2777,9 +2789,9 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations 
-    trans_sys
-    (S.declare_fun solver_misc);
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys *)
+  (*   (S.declare_fun solver_misc); *)
 
   (* Define functions *)
   TransSys.iter_uf_definitions

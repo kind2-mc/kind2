@@ -82,7 +82,7 @@ val terminate_log : unit -> unit
 
 (** Events exposed to callers *)
 type event = 
-  | Invariant of Term.t 
+  | Invariant of string list * Term.t 
   | PropStatus of string * TransSys.prop_status
 
 (** Pretty-print an event *)
@@ -103,7 +103,7 @@ val stat : (string * Stat.stat_item list) list -> unit
 val progress : int -> unit
 
 (** Broadcast a discovered invariant *)
-val invariant : Term.t -> unit 
+val invariant : string list -> Term.t -> unit 
 
 (** Broadcast a property status *)
 val prop_status : TransSys.prop_status -> TransSys.t -> string -> unit
@@ -115,7 +115,11 @@ val execution_path : TransSys.t -> (StateVar.t * Term.t list) list -> unit
 val terminate : unit -> unit 
 
 (** Receive all queued events *)
-val recv : unit -> (Lib.kind_module * event) list 
+val recv : unit -> (Lib.kind_module * event) list
+                                             
+(** Terminates if a termination message was received. Does NOT modified
+    received messages. *)
+val check_termination: unit -> unit
 
 (** Update transition system from events and return new invariants and
     properties with changed status
@@ -128,7 +132,12 @@ val recv : unit -> (Lib.kind_module * event) list
     proved properties are added as invariants.
 
     Counterexamples are ignored. *)
-val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * TransSys.prop_status)) list
+val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * (string list * Term.t)) list * (Lib.kind_module * (string * TransSys.prop_status)) list
+
+(** Filter list of invariants with their scope for invariants of empty
+    (top) scope *)
+val top_invariants_of_invariants : (Lib.kind_module * (string list * Term.t)) list -> Term.t list
+
 
 (** {1 Messaging} *)
 
