@@ -276,16 +276,21 @@ let rec next (trans, solver, k, invariants, unknowns) =
                   (TransSys.PropFalse cex) trans s )
               p ) ;
 
+     (* K plus one. *)
+     let k_p_1 = Numeral.succ k in
+     
+     (* Declaring unrolled vars at k+1. *)
+     TransSys.declare_vars_of_bounds
+       trans (Solver.declare_fun solver) k_p_1 k_p_1 ;
+     
      (* Asserting transition relation for next iteration. *)
-     TransSys.trans_of_bound trans Numeral.(k + one)
+     TransSys.trans_of_bound trans k_p_1
      |> Solver.assert_term solver
      |> ignore ;
 
      (* Output statistics *)
      print_stats ();
 
-     (* K plus one. *)
-     let k_p_1 = Numeral.succ k in
      (* Int k plus one. *)
      let k_p_1_int = Numeral.to_int k_p_1 in
 
@@ -317,17 +322,16 @@ let init trans =
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
 
-  (* Declaring uninterpreted function symbols. *)
-  (* TransSys.iter_state_var_declarations *)
-  (*   trans *)
-  (*   (Solver.declare_fun solver) ; *)
-
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
      generate_actlit prop
      |> Solver.declare_fun solver)
     unknowns ;
+
+  (* Declaring variables at 0. *)
+  TransSys.declare_vars_of_bounds
+    trans (Solver.declare_fun solver) Numeral.zero Numeral.zero ;
 
   (* Defining functions. *)
   TransSys.iter_uf_definitions

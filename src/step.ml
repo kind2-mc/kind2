@@ -490,11 +490,10 @@ let rec next trans solver k unfalsifiables unknowns =
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
-
      
      (* Declaring unrolled vars at k+1. *)
-     TransSys.vars_of_bounds trans k_p_1 k_p_1
-     |> Var.declare_vars (Solver.declare_fun solver) ;
+     TransSys.declare_vars_of_bounds
+       trans (Solver.declare_fun solver) k_p_1 k_p_1 ;
 
      (* Asserting transition relation. *)
      (* TransSys.trans_fun_of trans k k_p_1 *)
@@ -650,8 +649,8 @@ let launch trans =
     (Solver.define_fun solver) ;
 
   (* Declaring unrolled vars at 0. *)
-  TransSys.vars_of_bounds trans Numeral.zero Numeral.zero
-  |> Var.declare_vars (Solver.declare_fun solver) ;
+  TransSys.declare_vars_of_bounds
+    trans (Solver.declare_fun solver) Numeral.zero Numeral.zero ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero

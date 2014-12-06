@@ -1354,7 +1354,13 @@ let rec exists_eval_on_path' uf_defs p term k path =
 
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
-  exists_eval_on_path' uf_defs pred term Numeral.zero path 
+  exists_eval_on_path' uf_defs pred term Numeral.zero path
+
+
+(* Declares variables of the transition system between two offsets. *)
+let declare_vars_of_bounds t declare lbound ubound =
+  vars_of_bounds t lbound ubound
+  |> Var.declare_vars declare
 
 
 (* 

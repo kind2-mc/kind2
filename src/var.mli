@@ -123,6 +123,7 @@ val unrolled_uf_of_state_var_instance :
 val state_var_instance_of_symbol :
   Symbol.t -> t
 
+(** Declares variables as constant ufsymbols using the provided function. *)
 val declare_vars : (UfSymbol.t -> unit) -> t list -> unit
 
 (* 
