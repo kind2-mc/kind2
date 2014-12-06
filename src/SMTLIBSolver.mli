@@ -116,8 +116,10 @@ val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SM
 (** Execute a custom check-sat command and return its result *)
 val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 
-(** {2 Solver features} *)
+(** Output a comment into the trace *)
+val trace_comment : t -> string -> unit
 
+(** {2 Solver features} *)
 
 (** Indicates whether the solver supports the check-sat-assuming
     command. *)
