@@ -176,7 +176,7 @@ struct
   let assert_term solver term = 
 
     (* Convert term to SMT expression *)
-    let expr = SMTExpr.smtexpr_of_term term in
+    let expr = SMTExpr.smtexpr_of_term (declare_fun solver)term in
     
     (* Assert SMT expression in solver instance and fail on error *)
     fail_on_smt_error (S.assert_expr solver expr)
@@ -228,7 +228,10 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_var vars) 
+        S.get_value solver
+          (List.map
+             (SMTExpr.smtexpr_of_var (declare_fun solver))
+             vars)
           
       with 
 
@@ -288,7 +291,10 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_term terms) 
+        S.get_value solver
+          (List.map
+             (SMTExpr.smtexpr_of_term (declare_fun solver))
+             terms)
           
       with 
 

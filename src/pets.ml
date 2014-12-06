@@ -509,6 +509,10 @@ let rec next trans solver k unfalsifiables unknowns =
 
      (* k-1. *)
      let k_m_1 = Numeral.pred k in
+     
+     (* Declaring unrolled vars at k+1. *)
+     TransSys.declare_vars_of_bounds
+       trans (Solver.declare_fun solver) k_m_1 k_m_1 ;
 
      (* Asserting reversed transition relation. *)
      TransSys.trans_of_bound trans k
@@ -645,10 +649,9 @@ let launch trans =
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
 
-  (* Declaring uninterpreted function symbols. *)
-  TransSys.iter_state_var_declarations
-    trans
-    (Solver.declare_fun solver) ;
+  (* Declaring unrolled vars at 0. *)
+  TransSys.declare_vars_of_bounds
+    trans (Solver.declare_fun solver) Numeral.zero Numeral.zero ;
 
   (* Declaring positive actlits. *)
   List.iter
@@ -656,13 +659,6 @@ let launch trans =
      generate_actlit prop
      |> Solver.declare_fun solver)
     unknowns ;
-
-  (* Declaring negative actlits. *)
-  (* List.iter *)
-  (*   ( fun (_, prop) -> *)
-  (*     Actlit.generate_negative_actlit prop *)
-  (*     |> Solver.declare_fun solver) *)
-  (*   unknowns ; *)
   
   (* Declaring path compression actlit. *)
   path_comp_actlit |> Solver.declare_fun solver ;

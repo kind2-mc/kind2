@@ -57,6 +57,17 @@ let ref_solver_frames = ref None
 (* Solver instance if created *)
 let ref_solver_misc = ref None
 
+let solvers_declare uf =
+  (match !ref_solver_init with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()) ;
+  (match !ref_solver_frames with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()) ;
+  match !ref_solver_misc with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()
+
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
@@ -390,7 +401,8 @@ let find_cex
 
   debug pdr
       "@[<v>Current frames@,@[<hv>%a@]@]"
-      SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
+    SMTExpr.pp_print_expr
+    (SMTExpr.smtexpr_of_term solvers_declare (CNF.to_term frame))
   in
 
   (* Push a new scope to the context *)
@@ -2383,7 +2395,7 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init);
+  (* TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init); *)
 
   (* Define functions *)
   TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
@@ -2422,9 +2434,9 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations 
-    trans_sys 
-    (S.declare_fun solver_frames);
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys  *)
+  (*   (S.declare_fun solver_frames); *)
 
   (* Define functions *)
   TransSys.iter_uf_definitions 
@@ -2453,9 +2465,9 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations 
-    trans_sys
-    (S.declare_fun solver_misc);
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys *)
+  (*   (S.declare_fun solver_misc); *)
 
   (* Define functions *)
   TransSys.iter_uf_definitions

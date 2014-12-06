@@ -161,6 +161,9 @@ val get_name : t -> string
    transition system *)
 val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
 
+(** Declares variables of the transition system between two offsets. *)
+val declare_vars_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t
 
