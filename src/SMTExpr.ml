@@ -60,6 +60,7 @@ type logic =
   | `QF_IDL
   | `QF_LIA
   | `QF_LRA
+  | `QF_LIRA
   | `QF_NIA
   | `QF_NRA
   | `QF_RDL
@@ -89,6 +90,7 @@ let string_of_logic = function
   | `QF_IDL -> "QF_IDL"
   | `QF_LIA -> "QF_LIA"
   | `QF_LRA -> "QF_LRA"
+  | `QF_LIRA -> "QF_LIRA"
   | `QF_NIA -> "QF_NIA"
   | `QF_NRA -> "QF_NRA"
   | `QF_RDL -> "QF_RDL"

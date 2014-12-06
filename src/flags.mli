@@ -46,7 +46,7 @@ val smtsolver : unit -> smtsolver
 val set_smtsolver : smtsolver -> string -> unit
 
 (** SMT Logic to use *)
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
