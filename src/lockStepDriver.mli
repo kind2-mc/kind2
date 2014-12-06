@@ -17,7 +17,7 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 (** Type of a lock step kind context. *)

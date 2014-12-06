@@ -74,7 +74,7 @@ type node_def =
     locals : StateVar.t list;
 
     (* Properties in node *)
-    props : (string * prop_source * Term.t) list;
+    props : (string * TermLib.prop_source * Term.t) list;
 
     (* Assumptions in contract of node *)
     requires : Term.t list;
@@ -604,7 +604,7 @@ let rec definitions_of_node_calls
         List.map 
           (function (n, s, t) -> 
             (lift_prop_name node_name pos n, 
-             Instantiated (I.scope_of_ident node_name, n),
+             TermLib.Instantiated (I.scope_of_ident node_name, n),
              LustreExpr.lift_term pos node_name t))
           props 
 
@@ -1772,16 +1772,17 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                 n
                 Term.pp_print_term t
                 (function ppf -> function 
-                  | PropAnnot p -> 
+                  | TermLib.PropAnnot p -> 
                     Format.fprintf ppf "annot at %a" pp_print_position p
 
-                  | Contract p ->
+                  | TermLib.Contract p ->
                     Format.fprintf ppf "contract at %a" pp_print_position p
 
-                  | Generated p -> 
-                    Format.fprintf ppf "generated at %a" pp_print_position p
+                  | TermLib.Generated l -> 
+                    Format.fprintf ppf "generated for %a" 
+                      (pp_print_list StateVar.pp_print_state_var ",@ ") l
 
-                  | Instantiated (s, n) -> 
+                  | TermLib.Instantiated (s, n) -> 
                     Format.fprintf ppf
                       "instantiated from %s in %a" 
                       n

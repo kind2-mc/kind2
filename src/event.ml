@@ -120,15 +120,17 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
 (* Messages to be relayed between processes *)
 type event = 
-  | Invariant of Term.t 
+  | Invariant of string list * Term.t 
   | PropStatus of string * TransSys.prop_status
 
 
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant t -> 
-    Format.fprintf ppf "@[<hv>Invariant@ %a@]" Term.pp_print_term t
+  | Invariant (s, t) -> 
+    Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
+      (pp_print_list Format.pp_print_string ".") s
+      Term.pp_print_term t
 
   | PropStatus (p, TransSys.PropUnknown) -> 
     Format.fprintf ppf "@[<hv>Property %s is unknown@]" p 
@@ -165,7 +167,11 @@ struct
 
       let t = Term.import (Marshal.from_string f 0 : Term.t) in 
 
-      Invariant t
+      let f = pop () in
+
+      let l = (Marshal.from_string f 0 : string list) in 
+
+      Invariant (l, t)
 
     | "PROP_UNKNOWN" -> 
 
@@ -219,12 +225,15 @@ struct
   (* Convert a message to strings *)
   let strings_of_message = function 
 
-    | Invariant t -> 
+    | Invariant (s, t) -> 
 
       (* Serialize term to string *)
       let term_string = Marshal.to_string t [Marshal.No_sharing] in
       
-      [term_string; "INVAR"]
+      (* Serialize scope to string *)
+      let scope_string = Marshal.to_string s [Marshal.No_sharing] in
+      
+      [scope_string; term_string; "INVAR"]
 
     | PropStatus (p, TransSys.PropUnknown) -> 
 
@@ -993,12 +1002,12 @@ let terminate_log () =
 
 
 (* Broadcast an invariant *)
-let invariant term = 
+let invariant scope term = 
   
   try
     
     (* Send invariant message *)
-    EventMessaging.send_relay_message (Invariant term)
+    EventMessaging.send_relay_message (Invariant (scope, term))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -1228,7 +1237,7 @@ let update_trans_sys trans_sys events =
     | [] -> (invars, prop_status)
 
     (* Invariant discovered *)
-    | (m, Invariant t) :: tl -> 
+    | (m, Invariant (s, t)) :: tl -> 
 
       (* Property status if received invariant is a property *)
       let tl' =
@@ -1257,7 +1266,7 @@ let update_trans_sys trans_sys events =
       (* Continue with invariant added to accumulator *)
       update_trans_sys'
         trans_sys
-        ((m, t) :: invars)
+        ((m, (s, t)) :: invars)
         prop_status
         tl'
 
@@ -1325,6 +1334,22 @@ let update_trans_sys trans_sys events =
   in
 
   update_trans_sys' trans_sys [] [] events
+
+
+(* Filter list of invariants with their scope for invariants of empty
+   (top) scope *)
+let top_invariants_of_invariants invariants = 
+
+  (* Only keep invariants with empty scope *)
+  (List.fold_left
+     (function accum -> function 
+        | (_, ([], t)) -> t :: accum
+        | _ -> accum)
+     []
+     invariants)
+     
+  (* Return in original order *)
+  |> List.rev
 
 
 let exit t = EventMessaging.exit t

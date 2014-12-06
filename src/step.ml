@@ -17,7 +17,7 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
@@ -440,7 +440,7 @@ let rec next trans solver k unfalsifiables unknowns =
     (* Extracting invariant module/term pairs. *)
     |> fst
     (* Extracting invariant terms. *)
-    |> List.map snd
+    |> Event.top_invariants_of_invariants
   in
 
   (* Cleaning unknowns and unfalsifiables. *)
