@@ -633,7 +633,7 @@ module Make (InModule : In) : Out = struct
                 |> List.rev_append list)
               []
           (* Broadcasting new invariant. *)
-          |> List.iter Event.invariant
+          |> List.iter (Event.invariant [])
         ) else (
           match new_invariants with
             | [] -> ()
@@ -642,7 +642,7 @@ module Make (InModule : In) : Out = struct
               |> Term.mk_and
               |> sanitize_term
               |> get_top_inv_add_invariants lsd sys
-              |> List.iter Event.invariant
+              |> List.iter (Event.invariant [])
         );
 
         (* Returning updated invariant set. *)
@@ -675,7 +675,7 @@ module Make (InModule : In) : Out = struct
             else
               list )
           (* New invariant properties are added to new invariants. *)
-          ( List.map snd new_invs )
+          ( Event.top_invariants_of_invariants new_invs )
     in
 
     (* Adding new invariants to LSD. *)

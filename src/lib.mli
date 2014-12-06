@@ -325,27 +325,6 @@ val file_row_col_of_pos : position -> string * int * int
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
  
-(** {1 Properties of transition systems} *)
-
-
-(** Source of a property *)
-type prop_source =
-
-  (** Property is from an annotation *)
-  | PropAnnot of position
-
-  (** Property is part of a contract *)
-  | Contract of position
-
-  (** Property was generated, for example, from a subrange
-      constraint *)
-  | Generated of position
-
-  (** Property is an instance of a property in a called node
-
-      Reference the instantiated property by the [scope] of the
-      subsystem and the name of the property *)
-  | Instantiated of string list * string 
 
 (* 
    Local Variables:
