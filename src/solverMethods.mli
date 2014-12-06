@@ -136,6 +136,9 @@ sig
   (** For a model return a conjunction of equations representing the model *)
   val term_of_model : (Var.t * Term.t) list -> Term.t
 
+  (** Output a comment into the trace *)
+  val trace_comment : t -> string -> unit
+
 end
 
 (** Create high-level methods for a certain solver module *)

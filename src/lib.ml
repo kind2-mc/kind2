@@ -413,7 +413,7 @@ let pp_print_paren_list ppf list =
   Format.pp_print_string ppf "(";
   
   (* Output elements of list *)
-  pp_print_list Format.pp_print_string " " ppf list;
+  pp_print_list Format.pp_print_string "@ " ppf list;
 
   (* End expression with closing parenthesis *)
   Format.pp_print_string ppf ")"

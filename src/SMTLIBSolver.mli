@@ -45,18 +45,19 @@ type config =
 
 (** {1 Managing solver instances} *)
 
-(** [create_instance c l] creates a new instance of the a generic
+(** [create_instance c l id] creates a new instance of the a generic
     SMTLIB solver that is executed as [c], initialized to the logic
     [l] and produces assignments if the optional labelled argument
     [produce_assignments] is [true], models if [produce_models] is
     true, proofs if [produce_proofs] is true and unsatisfiable cores
-    if [produce_cores] is true. *)
+    if [produce_cores] is true. It is identified by a unique [id].*)
 val create_instance : 
   ?produce_assignments:bool -> 
   ?produce_models:bool -> 
   ?produce_proofs:bool -> 
   ?produce_cores:bool -> 
-  SMTExpr.logic -> 
+  SMTExpr.logic ->
+  int ->
   t
 
 (** [delete_instance s] deletes the solver instance [s] by sending the
@@ -115,8 +116,10 @@ val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SM
 (** Execute a custom check-sat command and return its result *)
 val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 
-(** {2 Solver features} *)
+(** Output a comment into the trace *)
+val trace_comment : t -> string -> unit
 
+(** {2 Solver features} *)
 
 (** Indicates whether the solver supports the check-sat-assuming
     command. *)
