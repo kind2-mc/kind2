@@ -322,6 +322,9 @@ let pdr_fwd_propagated =
 let pdr_inductive_blocking_clauses = 
   empty_item "Inductive blocking clauses" 0
 
+let pdr_literals_removed =
+  empty_item "Literals removed" 0
+
 let pdr_fwd_fixpoint = 
   empty_item "Fixpoint at" 0
 
@@ -372,6 +375,7 @@ let pdr_stats =
     I pdr_fwd_propagated; 
     I pdr_fwd_fixpoint; 
     I pdr_inductive_blocking_clauses; 
+    I pdr_literals_removed;
     I pdr_tightened_blocking_clauses;
     I pdr_tightened_propagated_clauses;
     L pdr_counterexamples; 
