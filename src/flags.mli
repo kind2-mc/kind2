@@ -147,6 +147,10 @@ val pdr_print_to_file : unit -> pdr_print_to_file
 type pdr_tighten_to_unsat_core = bool
 val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
 
+(** Tighten blocking clauses to an unsatisfiable core *)
+type pdr_inductively_generalize = int
+val pdr_inductively_generalize : unit -> pdr_inductively_generalize
+
 (** Block counterexample in future frames *)
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future

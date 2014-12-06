@@ -72,6 +72,8 @@ sig
 
   val term_of_model : (Var.t * Term.t) list -> Term.t
 
+  val trace_comment : t -> string -> unit
+
 end
 
 module Make (S : SMTSolver.S) : S with type t = S.t and type T.t = S.t =
@@ -141,6 +143,10 @@ struct
 
     (* Delete solver instance *)
     S.delete_instance solver 
+
+
+  (* Output a comment into the trace *)
+  let trace_comment solver comment = S.trace_comment solver comment
 
 
   (* ******************************************************************** *)
