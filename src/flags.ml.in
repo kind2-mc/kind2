@@ -281,7 +281,7 @@ let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `INVGEN]
+let enable_default_after = [`BMC; `IND; `INVGEN; `INVGENOS]
 
 (* ********** *) 
 
@@ -311,7 +311,7 @@ let ind_compress_default = false
 
 type ind_compress_equal = bool
     
-let ind_compress_equal_default = false
+let ind_compress_equal_default = true
 
 (* ********** *) 
 
@@ -467,11 +467,11 @@ let cooper_general_lbound_default = false
 
 type invgengraph_prune_trivial = bool
 
-let invgengraph_prune_trivial_default = false
+let invgengraph_prune_trivial_default = true
 
 type invgengraph_lift_candidates = bool
 
-let invgengraph_lift_candidates_default = false
+let invgengraph_lift_candidates_default = true
 
 type invgengraph_top_only = bool
 
@@ -960,19 +960,19 @@ let cooper_general_lbound_spec =
   
 (* ********** *) 
   
-let invgengraph_prune_trivial_action o = flags.invgengraph_prune_trivial <- true
+let invgengraph_prune_trivial_action o = flags.invgengraph_prune_trivial <- o
                                        
 let invgengraph_prune_trivial_spec = 
   ("--invgen_prune_trivial", 
-   Arg.Unit invgengraph_prune_trivial_action,
-   "Invariant generation will only look for top node invariants.")
+   Arg.Bool invgengraph_prune_trivial_action,
+   Format.sprintf "Invariant generation will only look for top node invariants (default: %B)." invgengraph_prune_trivial_default)
   
-let invgengraph_lift_candidates_action o = flags.invgengraph_lift_candidates <- true
+let invgengraph_lift_candidates_action o = flags.invgengraph_lift_candidates <- o
                                        
 let invgengraph_lift_candidates_spec = 
   ("--invgen_lift_candidates", 
-   Arg.Unit invgengraph_lift_candidates_action,
-   "Invariant generation will only look for top node invariants.")
+   Arg.Bool invgengraph_lift_candidates_action,
+   Format.sprintf "Invariant generation will only look for top node invariants (default: %B)." invgengraph_lift_candidates_default)
   
 let invgengraph_top_only_action o = flags.invgengraph_top_only <- true
                                        
