@@ -24,7 +24,7 @@ type source =
 
 (* Global is_init state var *)
 let init_flag_svar =
-  StateVar.mk_state_var ~for_inv_gen:false "x_is_init_x" [] Type.t_bool
+  StateVar.mk_state_var ~for_inv_gen:false "x_is_init_x" ["transSys"] Type.t_bool
 
 (* Global init flag uf *)
 let init_flag_uf =
