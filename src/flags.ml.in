@@ -275,7 +275,16 @@ let rec string_of_enable' accum = function
           (if not (tl = []) then ", " else ""))
       tl
 
-let string_of_enable = string_of_enable' ""
+(* let string_of_enable = string_of_enable' "" *)
+
+let string_of_enable = function
+  | head :: tail ->
+    ( List.fold_left
+        ( fun s m -> s ^ ", " ^ (string_of_kind_module m) )
+        ("[" ^ (string_of_kind_module head))
+        tail )
+    ^ "]"
+  | [] -> "[]"
 
 let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
