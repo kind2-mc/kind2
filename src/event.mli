@@ -130,11 +130,6 @@ val recv : unit -> (Lib.kind_module * event) list
     Counterexamples are ignored. *)
 val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * TransSys.prop_status)) list
 
-(** Same as 'update_trans_sys' with optimized output for tsugi. *)
-val update_trans_sys_tsugi :
-  TransSys.t -> (Lib.kind_module * event) list ->
-  Term.t list * (string * Term.t) list * (string * Term.t) list
-
 (** {1 Messaging} *)
 
 (** Setup of the messaging system *)

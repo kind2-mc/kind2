@@ -2,17 +2,17 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
 #
-# Change the version number below after doing a public release.
+# The version number is extracted from include/czmq.h using
+# the version.sh script. Hence, it should be updated there.
 # The version in git should reflect the *next* version planned.
-# Version must be MAJOR.MINOR.PATCH otherwise things will break.
-# Make sure you also updated include/czmq.h to match.
 #
-AC_INIT([czmq],[1.4.1],[zeromq-dev@lists.zeromq.org])
+AC_INIT([czmq],[m4_esyscmd([./version.sh czmq])],[zeromq-dev@lists.zeromq.org])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
 AC_CONFIG_HEADERS([src/platform.h])
-AM_INIT_AUTOMAKE(tar-ustar)
+AM_INIT_AUTOMAKE([tar-ustar foreign])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # This defines PACKAGE_VERSION_... in src/platform.h
 PV_MAJOR=`echo $PACKAGE_VERSION | cut -d . -f 1`
@@ -30,12 +30,12 @@ AC_SUBST(PACKAGE_VERSION)
 #
 # Libtool -version-info (ABI version)
 #
-# Currently 1.0.0 ("stable"). Don't change this unless you
+# Currently 2.0.1 ("stable"). Don't change this unless you
 # know exactly what you're doing and have read and understand
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 #
 # libczmq -version-info
-LTVER="1:0:0"
+LTVER="2:0:1"
 AC_SUBST(LTVER)
 
 # Capture c flags
@@ -52,7 +52,45 @@ AC_PROG_AWK
 
 # Checks for libraries
 AC_CHECK_LIB([pthread], [pthread_create])
-AC_CHECK_LIB([sodium], [sodium_init])
+AC_CHECK_LIB([uuid], [uuid_generate])
+
+# Allow libsodium to be installed in a custom path:
+AC_ARG_WITH([libsodium],
+            [AS_HELP_STRING([--with-libsodium],
+                            [Specify libsodium prefix])],
+            [zmq_search_libsodium="yes"],
+            [])
+
+if test "x$zmq_search_libsodium" = "xyes"; then
+    if test -r "${with_libsodium}/include/sodium.h"; then
+        CPPFLAGS="-I${with_libsodium}/include ${CPPFLAGS}"
+        LDFLAGS="-L${with_libsodium}/lib ${LDFLAGS}"
+    fi
+fi
+
+AC_ARG_WITH([libsodium-include-dir],
+            [AS_HELP_STRING([--with-libsodium-include-dir],
+                            [Specify libsodium include prefix])],
+            [zmq_search_libsodium_include="yes"],
+            [])
+
+if test "x$zmq_search_libsodium_include" = "xyes"; then
+    if test -r "${with_libsodium_include_dir}/sodium.h"; then
+        CPPFLAGS="-I${with_libsodium_include_dir}/include ${CPPFLAGS}"
+    fi
+fi
+
+AC_ARG_WITH([libsodium_lib_dir],
+            [AS_HELP_STRING([--with-libsodium-lib-dir],
+                            [Specify libsodium library prefix])],
+            [zmq_search_libsodium_lib="yes"],
+            [])
+
+if test "x$zmq_search_libsodium_lib" = "xyes"; then
+    if test -r "${with_libsodium_lib_dir}/libsodium.{a|so|dylib}"; then
+        LDFLAGS="-L${with_libsodium}/lib ${LDFLAGS}"
+    fi
+fi
 
 # Code coverage
 AC_ARG_WITH(gcov, [AS_HELP_STRING([--with-gcov=yes/no],
@@ -67,21 +105,59 @@ if test "x${CZMQ_GCOV}" == "xyes"; then
     fi
 fi
 
-# libzmq integration
-AC_ARG_WITH([libzmq],
-            [AS_HELP_STRING([--with-libzmq],
-                            [Specify libzmq prefix])],
-            [czmq_search_libzmq="yes"],
-            [])
+# Check for libzmq library
+libzmq_prefix=detect
+AC_ARG_WITH([libzmq], 
+    [AS_HELP_STRING([--with-libzmq=PREFIX], 
+        [build with ZeroMQ library installed in PREFIX [default=autodetect]])],
+    [case "x$withval" in
+        xno)
+            AC_MSG_ERROR([czmq requires the ZeroMQ library])
+            ;;
+        xyes|x)
+            ;;
+        *)
+            CPPFLAGS="$CPPFLAGS -I${withval}/include"
+            LDFLAGS="$LDFLAGS -L${withval}/lib"
+            zeromq_prefix=${withval}
+            ;;
+    esac ]
+)
+if test "x$libzmq_prefix" = "xdetect"; then
+    PKG_CHECK_MODULES(
+        [ZeroMQ], [libzmq], [libzmq_prefix=pkgconfig], [libzmq_prefix=])
+        if test "x$libzmq_prefix" = "xpkgconfig"; then
+            CPPFLAGS="$CPPFLAGS ${ZeroMQ_CFLAGS}"
+            LDFLAGS="$LDFLAGS ${ZeroMQ_LIBS}"
+        fi
+fi
 
 if test "x$czmq_search_libzmq" = "xyes"; then
     if test -r "${with_libzmq}/include/zmq.h"; then
         CFLAGS="-I${with_libzmq}/include ${CFLAGS}"
         LDFLAGS="-L${with_libzmq}/lib ${LDFLAGS}"
-    else
-        AC_MSG_ERROR([${with_libzmq}/include/zmq.h not found. Please check libzmq prefix])
     fi
 fi
+
+AC_ARG_WITH([libzmq-include-dir],
+            [AS_HELP_STRING([--with-libzmq-include-dir],
+                            [Specify libzmq include prefix])],
+            [czmq_search_libzmq_include="yes"],
+            [])
+
+if test "x$czmq_search_libzmq_include" = "xyes"; then
+    if test -r "${with_libzmq_include_dir}/include/zmq.h"; then
+        CFLAGS="-I${with_libzmq_include_dir}/include ${CFLAGS}"
+    fi
+fi
+
+AC_ARG_WITH([libzmq_lib_dir],
+            [AS_HELP_STRING([--with-libzmq-lib-dir],
+                            [Specify libzmq library prefix])],
+            [czmq_search_libzmq_lib="yes"],
+            [])
+
+AC_CHECK_HEADER([zmq.h], [], [AC_MSG_ERROR([cannot find zmq.h])])
 
 AC_CHECK_LIB(zmq, zmq_init, ,[AC_MSG_ERROR([cannot link with -lzmq, install libzmq.])])
 
@@ -141,6 +217,7 @@ case "${host_os}" in
         # Define on Solaris to enable all library features
         CPPFLAGS="-D_PTHREADS $CPPFLAGS"
         AC_DEFINE(CZMQ_HAVE_SOLARIS, 1, [Have Solaris OS])
+        CFLAGS="${CFLAGS} -lsocket -lssp"
         ;;
     *freebsd*)
         # Define on FreeBSD to enable all library features
@@ -190,15 +267,20 @@ case "${host_os}" in
         ;;
 esac
 
+# Check for libsodium
+AC_CHECK_LIB([sodium], [sodium_init],,AC_MSG_WARN(libsodium is needed for CURVE security))
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS(errno.h arpa/inet.h netinet/tcp.h netinet/in.h stddef.h \
-stdlib.h string.h sys/socket.h sys/time.h unistd.h limits.h)
+                 stdlib.h string.h sys/socket.h sys/time.h unistd.h \
+                 limits.h ifaddrs.h)
 AC_CHECK_HEADERS([net/if.h net/if_media.h linux/wireless.h], [], [],
 [
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
+#include <stdint.h>
 ])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -226,5 +308,10 @@ AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(perror gettimeofday memset getifaddrs freeifaddrs)
 
 # Specify output files
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile src/libczmq.pc])
+AC_CONFIG_FILES([Makefile \
+                src/Makefile \
+                src/libczmq.pc \
+                doc/Makefile \
+                addons/Makefile \
+                model/Makefile])
 AC_OUTPUT

@@ -1,26 +1,13 @@
 /*  =========================================================================
     czmq_prelude.h - CZMQ environment
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -89,10 +76,9 @@
 #   define __WINDOWS__
 #   undef __MSDOS__
 #   define __MSDOS__
-#   if _MSC_VER == 1500
-#       ifndef _CRT_SECURE_NO_DEPRECATE
-#           define _CRT_SECURE_NO_DEPRECATE   1
-#       endif
+//  Stop cheeky warnings about "deprecated" functions like fopen
+#   if _MSC_VER >= 1500
+#       define _CRT_SECURE_NO_DEPRECATE
 #       pragma warning(disable: 4996)
 #   endif
 #endif
@@ -157,9 +143,6 @@
 #elif (defined (BSD) || defined (bsd))
 #   define __UTYPE_BSDOS
 #   define __UNIX__
-#elif (defined (APPLE) || defined (__APPLE__))
-#   define __UTYPE_GENERIC
-#   define __UNIX__
 #elif (defined (__ANDROID__))
 #   define __UTYPE_ANDROID
 #   define __UNIX__
@@ -168,6 +151,9 @@
 #   define __UNIX__
 #   ifndef __NO_CTYPE
 #   define __NO_CTYPE                   //  Suppress warnings on tolower()
+#   endif
+#   ifndef _BSD_SOURCE
+#   define _BSD_SOURCE                  //  Include stuff from 4.3 BSD Unix
 #   endif
 #elif (defined (Mips))
 #   define __UTYPE_MIPS
@@ -181,7 +167,7 @@
 #elif (defined (OpenBSD) || defined (__OpenBSD__))
 #   define __UTYPE_OPENBSD
 #   define __UNIX__
-#elif (defined (__APPLE__))
+#elif (defined (APPLE) || defined (__APPLE__))
 #   define __UTYPE_OSX
 #   define __UNIX__
 #elif (defined (NeXT))
@@ -233,6 +219,10 @@
 
 #if (defined (__MSDOS__))
 #   if (defined (__WINDOWS__))
+#       if (_WIN32_WINNT < 0x0501)
+#           undef _WIN32_WINNT
+#           define _WIN32_WINNT 0x0501
+#       endif
 #       if (!defined (FD_SETSIZE))
 #           define FD_SETSIZE 1024      //  Max. filehandles/sockets
 #       endif
@@ -240,6 +230,8 @@
 #       include <winsock2.h>
 #       include <windows.h>
 #       include <process.h>
+#       include <ws2tcpip.h>            //  For getnameinfo ()
+#       include <iphlpapi.h>            //  For GetAdaptersAddresses ()
 #   endif
 #   include <malloc.h>
 #   include <dos.h>
@@ -249,12 +241,6 @@
 #   include <sys/stat.h>
 #   include <sys/utime.h>
 #   include <share.h>
-#   if _MSC_VER == 1500
-#       ifndef _CRT_SECURE_NO_DEPRECATE
-#           define _CRT_SECURE_NO_DEPRECATE   1
-#       endif
-#       pragma warning(disable: 4996)
-#   endif
 #endif
 
 #if (defined (__UNIX__))
@@ -266,8 +252,8 @@
 #   include <pwd.h>
 #   include <grp.h>
 #   include <utime.h>
-#   include <syslog.h>
 #   include <inttypes.h>
+#   include <syslog.h>
 #   include <sys/types.h>
 #   include <sys/param.h>
 #   include <sys/socket.h>
@@ -276,10 +262,15 @@
 #   include <sys/ioctl.h>
 #   include <sys/file.h>
 #   include <sys/wait.h>
-#   include <sys/uio.h>                 //  This is required to make CZMQ compile with libzmq/3.x
-#   include <netinet/in.h>              //  Must come before arpa/inet.h
-#   if (!defined (__UTYPE_ANDROID)) && (!defined (__UTYPE_IBMAIX)) && (!defined (__UTYPE_HPUX)) && (!defined (__UTYPE_SUNOS))
+#   include <sys/un.h>
+#   include <sys/uio.h>             //  Let CZMQ build with libzmq/3.x
+#   include <netinet/in.h>          //  Must come before arpa/inet.h
+#   if (!defined (__UTYPE_ANDROID)) && (!defined (__UTYPE_IBMAIX)) \
+    && (!defined (__UTYPE_HPUX))
 #       include <ifaddrs.h>
+#   endif
+#   if defined (__UTYPE_SUNSOLARIS) || defined (__UTYPE_SUNOS)
+#       include <sys/sockio.h>
 #   endif
 #   if (!defined (__UTYPE_BEOS))
 #       include <arpa/inet.h>
@@ -293,12 +284,12 @@
 #   if (defined (__UTYPE_BEOS))
 #       include <NetKit.h>
 #   endif
-#   if ((defined (_XOPEN_REALTIME) && (_XOPEN_REALTIME >= 1)) || \
-        (defined (_POSIX_VERSION)  && (_POSIX_VERSION  >= 199309L)))
+#   if ((defined (_XOPEN_REALTIME) && (_XOPEN_REALTIME >= 1)) \
+     || (defined (_POSIX_VERSION)  && (_POSIX_VERSION  >= 199309L)))
 #       include <sched.h>
 #   endif
 #   if (defined (__UTYPE_OSX))
-#       include <crt_externs.h>         /* For _NSGetEnviron()               */
+#       include <crt_externs.h>         //  For _NSGetEnviron()
 #   endif
 #endif
 
@@ -350,6 +341,17 @@
 #   endif
 #endif
 
+//  Add missing defines for Android
+#ifdef __UTYPE_ANDROID
+#   ifndef S_IREAD
+#       define S_IREAD S_IRUSR
+#   endif
+#   ifndef S_IWRITE
+#       define S_IWRITE S_IWUSR
+#   endif
+#endif
+
+
 //- Check compiler data type sizes ------------------------------------------
 
 #if (UCHAR_MAX != 0xFF)
@@ -367,6 +369,7 @@
 typedef unsigned char   byte;           //  Single unsigned byte = 8 bits
 typedef unsigned short  dbyte;          //  Double byte = 16 bits
 typedef unsigned int    qbyte;          //  Quad byte = 32 bits
+typedef struct sockaddr_in inaddr_t;    //  Internet socket address structure
 
 //- Inevitable macros -------------------------------------------------------
 
@@ -374,7 +377,8 @@ typedef unsigned int    qbyte;          //  Quad byte = 32 bits
 #define strneq(s1,s2)   (strcmp ((s1), (s2)))
 
 //  Provide random number from 0..(num-1)
-#if (defined (__WINDOWS__)) || (defined (__UTYPE_IBMAIX)) || (defined (__UTYPE_HPUX)) || (defined (__UTYPE_SUNOS))
+#if (defined (__WINDOWS__)) || (defined (__UTYPE_IBMAIX)) \
+ || (defined (__UTYPE_HPUX)) || (defined (__UTYPE_SUNOS))
 #   define randof(num)  (int) ((float) (num) * rand () / (RAND_MAX + 1.0))
 #else
 #   define randof(num)  (int) ((float) (num) * random () / (RAND_MAX + 1.0))
@@ -382,19 +386,24 @@ typedef unsigned int    qbyte;          //  Quad byte = 32 bits
 
 // Windows MSVS doesn't have stdbool
 #if (defined (__WINDOWS__))
-#    if (!defined(__cplusplus) && (!defined (true)))
-#        define true 1
-#        define false 0
-         typedef char bool;
-#    endif
+#   if (!defined (__cplusplus) && (!defined (true)))
+#       define true 1
+#       define false 0
+        typedef char bool;
+#   endif
 #else
 #   include <stdbool.h>
 #endif
 
 //- A number of POSIX and C99 keywords and data types -----------------------
+//  CZMQ uses uint for array indices; equivalent to unsigned int, but more
+//  convenient in code. We define it in czmq_prelude.h on systems that do
+//  not define it by default.
 
 #if (defined (__WINDOWS__))
-#   define inline __inline
+#   if (!defined (__cplusplus) && (!defined (inline)))
+#       define inline __inline
+#   endif
 #   define strtoull _strtoui64
 #   define srandom srand
 #   define TIMEZONE _timezone
@@ -404,45 +413,39 @@ typedef unsigned int    qbyte;          //  Quad byte = 32 bits
 #   endif
     typedef unsigned long ulong;
     typedef unsigned int  uint;
-#   if (!defined (__MINGW32__)) 
+#   if (!defined (__MINGW32__))
     typedef int mode_t;
+    typedef long ssize_t;
     typedef __int32 int32_t;
     typedef __int64 int64_t;
     typedef unsigned __int32 uint32_t;
     typedef unsigned __int64 uint64_t;
-    typedef long ssize_t;
-#   endif 
-#elif (defined (__APPLE__))
+#   endif
+#   if (!defined (va_copy))
+    //  MSVC does not support C99's va_copy so we use a regular assignment
+#       define va_copy(dest,src) (dest) = (src)
+#   endif
+#elif (defined (__UTYPE_OSX))
     typedef unsigned long ulong;
     typedef unsigned int uint;
 #endif
 
 //- Error reporting ---------------------------------------------------------
-// If the compiler is GCC or supports C99, include enclosing function
-// in CZMQ assertions
-#if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-#   define CZMQ_ASSERT_SANE_FUNCTION    __func__
-#elif defined (__GNUC__) && (__GNUC__ >= 2)
-#   define CZMQ_ASSERT_SANE_FUNCTION    __FUNCTION__
-#else
-#   define CZMQ_ASSERT_SANE_FUNCTION    "<unknown>"
-#endif
 
 //  Replacement for malloc() which asserts if we run out of heap, and
 //  which zeroes the allocated block.
 static inline void *
     safe_malloc (
     size_t size,
-    char *file,
-    unsigned line,
-    const char *func)
+    const char *file,
+    unsigned line)
 {
     void
         *mem;
 
     mem = calloc (1, size);
     if (mem == NULL) {
-        fprintf (stderr, "FATAL ERROR at %s:%u, in %s\n", file, line, func);
+        fprintf (stderr, "FATAL ERROR at %s:%u\n", file, line);
         fprintf (stderr, "OUT OF MEMORY (malloc returned NULL)\n");
         fflush (stderr);
         abort ();
@@ -458,13 +461,42 @@ static inline void *
 #if defined _ZMALLOC_DEBUG || _ZMALLOC_PEDANTIC
 #   define zmalloc(size) calloc(1,(size))
 #else
-#   define zmalloc(size) safe_malloc((size), __FILE__, __LINE__, CZMQ_ASSERT_SANE_FUNCTION)
+#   define zmalloc(size) safe_malloc((size), __FILE__, __LINE__)
+#endif
+
+//  GCC supports validating format strings for functions that act like printf
+#if defined (__GNUC__) && (__GNUC__ >= 2)
+#   define CHECK_PRINTF(a)   __attribute__((format (printf, a, a + 1)))
+#else
+#   define CHECK_PRINTF(a)
+#endif
+
+//- Socket header files -----------------------------------------------------
+
+#if defined (HAVE_LINUX_WIRELESS_H)
+#   include <linux/wireless.h>
+#else
+#   if defined (HAVE_NET_IF_H)
+#       include <net/if.h>
+#   endif
+#   if defined (HAVE_NET_IF_MEDIA_H)
+#       include <net/if_media.h>
+#   endif
+#endif
+//  Lets us write code that compiles both on Windows and normal platforms
+#if !defined (__WINDOWS__)
+typedef int SOCKET;
+#   define closesocket close
+#   define INVALID_SOCKET -1
+#   define SOCKET_ERROR -1
 #endif
 
 //- DLL exports -------------------------------------------------------------
 
-#if defined (_WINDLL)
-#   if defined LIBCZMQ_EXPORTS
+#if defined (__WINDOWS__)
+#   if defined LIBCZMQ_STATIC
+#       define CZMQ_EXPORT
+#   elif defined LIBCZMQ_EXPORTS
 #       define CZMQ_EXPORT __declspec(dllexport)
 #   else
 #       define CZMQ_EXPORT __declspec(dllimport)
@@ -476,31 +508,35 @@ static inline void *
 //- Always include ZeroMQ header file ---------------------------------------
 
 #include "zmq.h"
+#include "zmq_utils.h"
 
-//  Older libzmq APIs will be missing some aspects of libzmq/3.0
+#if ZMQ_VERSION_MAJOR == 4
+#   define ZMQ_POLL_MSEC    1           //  zmq_poll is msec
 
-#ifndef ZMQ_ROUTER
-#   define ZMQ_ROUTER       ZMQ_XREP
-#endif
-#ifndef ZMQ_DEALER
-#   define ZMQ_DEALER       ZMQ_XREQ
-#endif
-#ifndef ZMQ_DONTWAIT
-#   define ZMQ_DONTWAIT     ZMQ_NOBLOCK
-#endif
-#ifndef ZMQ_XSUB
-#   error "please upgrade to latest stable libzmq from http://zeromq.org"
-#endif
-#if ZMQ_VERSION_MAJOR == 2
+#elif ZMQ_VERSION_MAJOR == 3
+#   define ZMQ_POLL_MSEC    1           //  zmq_poll is msec
+
+#elif ZMQ_VERSION_MAJOR == 2
+#   define ZMQ_POLL_MSEC    1000        //  zmq_poll is usec
+#   define zmq_sendmsg      zmq_send    //  Smooth out 2.x changes
+#   define zmq_recvmsg      zmq_recv
+    //  Older libzmq APIs may be missing some aspects of libzmq v3.0
+#   ifndef ZMQ_ROUTER
+#       define ZMQ_ROUTER       ZMQ_XREP
+#   endif
+#   ifndef ZMQ_DEALER
+#       define ZMQ_DEALER       ZMQ_XREQ
+#   endif
+#   ifndef ZMQ_DONTWAIT
+#       define ZMQ_DONTWAIT     ZMQ_NOBLOCK
+#   endif
+#   ifndef ZMQ_XSUB
+#       error "please upgrade your libzmq from http://zeromq.org"
+#   endif
 #   if  ZMQ_VERSION_MINOR == 0 \
     || (ZMQ_VERSION_MINOR == 1 && ZMQ_VERSION_PATCH < 7)
 #       error "CZMQ requires at least libzmq/2.1.7 stable"
 #   endif
-#   define zmq_sendmsg      zmq_send
-#   define zmq_recvmsg      zmq_recv
-#   define ZMQ_POLL_MSEC    1000        //  zmq_poll is usec
-#elif ZMQ_VERSION_MAJOR == 3 || ZMQ_VERSION_MAJOR == 4
-#   define ZMQ_POLL_MSEC    1           //  zmq_poll is msec
 #endif
 
 #endif

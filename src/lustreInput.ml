@@ -22,7 +22,7 @@ module A = LustreAst
 module I = LustreIdent
 
 (* Parse from input channel *)
-let of_channel in_ch = 
+let of_channel keep_all_coi in_ch = 
 
   (* Create lexing buffer *)
   let lexbuf = Lexing.from_function LustreLexer.read_from_lexbuf_stack in
@@ -81,7 +81,10 @@ let of_channel in_ch =
 
   (* Consider only nodes called by main node *)
   let nodes_coi = 
-    LustreNode.reduce_to_props_coi nodes main_node
+    if keep_all_coi then 
+      LustreNode.reduce_wo_coi nodes main_node
+    else
+      LustreNode.reduce_to_props_coi nodes main_node
   in
 
   debug lustreInput
@@ -150,13 +153,13 @@ let of_channel in_ch =
 
 
 (* Open and parse from file *)
-let of_file filename = 
+let of_file keep_all_coi filename = 
 
     (* Open the given file for reading *)
     let use_file = open_in filename in
     let in_ch = use_file in
 
-    of_channel in_ch
+    of_channel keep_all_coi in_ch
 
 
 

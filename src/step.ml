@@ -338,9 +338,16 @@ let split_closure
    to be unfalsifiable.  It should be sorted by decreasing k. *)
 let rec next trans solver k invariants unfalsifiables unknowns =
 
-  (* Receiving things. *)
-  let new_invariants,_,_ =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
+  (* Getting new invariants and updating transition system. *)
+  let new_invariants =
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys trans
+    (* Extracting invariant module/term pairs. *)
+    |> fst
+    (* Extracting invariant terms. *)
+    |> List.map snd
   in
 
   (* Cleaning unknowns and unfalsifiables. *)
@@ -348,12 +355,19 @@ let rec next trans solver k invariants unfalsifiables unknowns =
     clean_properties trans unknowns unfalsifiables
   in
 
-
-  (* Communicating new invariants. *)
+  (* Communicating confirmed properties. *)
   confirmed
   |> List.iter
        ( fun (s,_) ->
          Event.prop_status TransSys.PropInvariant trans s ) ;
+
+  (* Adding confirmed properties to new invariants. *)
+  let new_invariants' =
+    confirmed
+    |> List.fold_left
+         ( fun invs (_,term) -> term :: invs)
+         new_invariants
+  in
 
   match unknowns', unfalsifiables' with
   | [], [] ->
@@ -386,7 +400,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      |> ignore ;
 
      (* Asserting new invariants from 0 to k+1. *)
-     ( match new_invariants with
+     ( match new_invariants' with
        | [] -> ()
        | l -> l
               |> Term.mk_and
@@ -403,7 +417,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
 
      (* Building the list of new invariants. *)
      let invariants' =
-       List.rev_append new_invariants invariants
+       List.rev_append new_invariants' invariants
      in
 
      (* Asserting positive implications at k for unknowns. *)
@@ -463,6 +477,13 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      |> Term.mk_and
      |> Solver.assert_term solver ;
 
+     (* Output current progress. *)
+     Event.log
+       L_info
+       "IND loop at k =  %d\nIND unknowns:    %d\nIND optimistics: %d"
+       (Numeral.to_int k)
+       (List.length unknowns') (List.length unfalsifiable_props);
+
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
        split_closure
@@ -472,13 +493,26 @@ let rec next trans solver k invariants unfalsifiables unknowns =
          unknowns'
      in
 
-     next
-       trans solver k_p_1
-       invariants'
-       (* Adding the new unfalsifiables. *)
-       ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
-       (* Iterating on the properties left. *)
-       falsifiables_at_k
+     (* Output statistics *)
+     if output_on_level L_info then print_stats ();
+
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
+
+     (* Checking if we have reached max k. *)
+     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+       Event.log
+         L_info
+         "IND reached maximal number of iterations."
+     else
+       (* Looping. *)
+       next
+         trans solver k_p_1
+         invariants'
+         (* Adding the new unfalsifiables. *)
+         ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
+         (* Iterating on the properties left. *)
+         falsifiables_at_k
          
 
 
@@ -528,7 +562,15 @@ let launch trans =
   next trans solver Numeral.zero [] [] unknowns
 
 (* Runs the step instance. *)
-let main trans = launch trans
+let main trans = 
+
+  if not (List.mem `BMC (Flags.enable ())) then
+
+    Event.log 
+      L_warn 
+      "@[<v>Inductive step without BMC will not be able to prove or disprove any properties.@,Use both options --enable BMC --enable IND together.@]";
+      
+  launch trans
 
 
 (* 

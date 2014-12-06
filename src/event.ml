@@ -395,13 +395,13 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<hov>Success: Property %s is valid %tby %a@.@.") 
+      ("@[<hov><Success> Property %s is valid %tby %a after %.3fs.@.@.") 
       prop
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
       pp_print_kind_module_pt mdl
-
+      (Stat.get_float Stat.total_time)
 
 (* Pretty-print a counterexample *)
 let pp_print_counterexample_pt level trans_sys prop_name ppf = function
@@ -482,12 +482,13 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v>Failure: Property %s is invalid %tby %a@,@,%a@]@.") 
+      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
       prop
+      pp_print_kind_module_pt mdl
       (function ppf -> match cex with
          | [] -> ()
          | ((_, c) :: _) -> Format.fprintf ppf "for k=%d " (List.length c))
-      pp_print_kind_module_pt mdl
+      (Stat.get_float Stat.total_time)
       (pp_print_counterexample_pt level trans_sys prop) cex
 
   else
@@ -623,9 +624,6 @@ let printf_xml mdl level fmt =
 (* Output proved property as XML *)
 let proved_xml mdl level trans_sys k prop = 
 
-  (* Update time *)
-  Stat.update_time Stat.total_time;
-
   (* Only ouptut if status was unknown *)
   if 
 
@@ -719,9 +717,6 @@ let execution_path_xml level trans_sys path =
 (* Output disproved property as XML *)
 let disproved_xml mdl level trans_sys prop cex = 
 
-  (* Update time *)
-  Stat.update_time Stat.total_time;
-
   (* Only ouptut if status was unknown *)
   if 
 
@@ -787,8 +782,8 @@ let prop_status_xml level prop_status =
             Format.fprintf 
               ppf
               "@[<hv 2><Property name=\"%s\">@,\
-               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]\
-               %a\
+               @[<hv 2><Answer>@,%a@;<0 -2></Answer>@]@,\
+               %a@,\
                @;<0 -2></Property>@]"
               p
               (function ppf -> function 
@@ -1126,6 +1121,8 @@ let terminate () =
 (* Receive all queued messages *)
 let recv () = 
 
+  Stat.update_time Stat.total_time;
+  
   try
 
     List.rev
@@ -1298,102 +1295,6 @@ let update_trans_sys trans_sys events =
   in
 
   update_trans_sys' trans_sys [] [] events
-
-
-
-(* Same as 'update_trans_sys' with optimized output for tsugi. *)
-let update_trans_sys_tsugi trans_sys events = 
-
-  (* Tail-recursive iteration *)
-  let rec update_trans_sys'
-            trans_sys invars prop_inv new_prop_false = function 
-
-    (* No more events, return new invariants and changed property status *)
-    | [] -> (invars, prop_inv, new_prop_false)
-
-    (* Invariant discovered *)
-    | (m, Invariant t) :: tl -> 
-
-      (* Property status if received invariant is a property *)
-      let tl' =
-        List.fold_left
-
-          (fun accum (p, t') -> 
-
-             (* Invariant is equal to property term? *)
-             if Term.equal t t' then
-
-               (* Inject property status event *)
-               ((m, PropStatus (p, TransSys.PropInvariant)) :: accum)
-
-             else
-
-               accum)
-
-          tl
-          (TransSys.props_list_of_bound trans_sys Numeral.zero)
-
-      in
-      
-      (* Add invariant to transtion system *)
-      TransSys.add_invariant trans_sys t;
-
-      (* Continue with invariant added to accumulator *)
-      update_trans_sys'
-        trans_sys (t :: invars) prop_inv new_prop_false tl'
-
-    (* Property found unknown *)
-    | (_, PropStatus (p, TransSys.PropUnknown)) :: tl -> 
-
-      (* Continue without changes *)
-      update_trans_sys'
-        trans_sys invars prop_inv new_prop_false tl
-
-    (* Property found true for k steps *)
-    | (_, PropStatus (p, (TransSys.PropKTrue k))) :: tl -> 
-
-      (* Change property status in transition system *)
-      TransSys.set_prop_ktrue trans_sys k p;
-
-      (* Continue without propert status added to accumulator *)
-      update_trans_sys'
-        trans_sys invars prop_inv new_prop_false tl
-
-    (* Property found invariant *)
-    | (_, PropStatus (p, TransSys.PropInvariant)) :: tl -> 
-
-       (* Change property status in transition system *)
-       TransSys.set_prop_invariant trans_sys p;
-
-       (try 
-
-           (* Add proved property as invariant *)
-           TransSys.add_invariant 
-             trans_sys 
-             (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
-
-         (* Skip if named property not found *)
-         with Not_found -> ());
-
-       (* Continue with propert status added to accumulator *)
-       let prop = (p,TransSys.prop_of_name trans_sys p) in
-       update_trans_sys'
-         trans_sys invars (prop :: prop_inv) new_prop_false tl
-
-    (* Property found false *)
-    | (_, PropStatus (p, TransSys.PropFalse cex)) :: tl ->
-
-       (* Change property status in transition system *)
-       TransSys.set_prop_false trans_sys p cex;
-
-       (* Continue with property status added to accumulator *)
-       let prop = (p,TransSys.prop_of_name trans_sys p) in
-       update_trans_sys'
-         trans_sys invars prop_inv (prop :: new_prop_false) tl
-
-  in
-
-  update_trans_sys' trans_sys [] [] [] events
 
 
 let exit t = EventMessaging.exit t

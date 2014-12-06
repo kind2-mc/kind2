@@ -1,26 +1,13 @@
 /*  =========================================================================
     zframe - working with single message frames
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -39,17 +26,13 @@ typedef struct _zframe_t zframe_t;
 #define ZFRAME_REUSE    2
 #define ZFRAME_DONTWAIT 4
 
-//  Callback function for zframe_free_fn method
-typedef void (zframe_free_fn) (void *data, void *arg);
-
 //  Create a new frame with optional size, and optional data
 CZMQ_EXPORT zframe_t *
     zframe_new (const void *data, size_t size);
 
-//  Create a zero-copy frame
+//  Create an empty (zero-sized) frame
 CZMQ_EXPORT zframe_t *
-    zframe_new_zero_copy (void *data, size_t size,
-                          zframe_free_fn *free_fn, void *arg);
+    zframe_new_empty (void);
 
 //  Destroy a frame
 CZMQ_EXPORT void
@@ -66,8 +49,8 @@ CZMQ_EXPORT zframe_t *
 CZMQ_EXPORT zframe_t *
     zframe_recv_nowait (void *socket);
 
-// Send a frame to a socket, destroy frame after sending.  Returns
-// non-zero error code on failure.
+// Send a frame to a socket, destroy frame after sending.
+// Return -1 on error, 0 on success.
 CZMQ_EXPORT int
     zframe_send (zframe_t **self_p, void *socket, int flags);
 
@@ -95,18 +78,24 @@ CZMQ_EXPORT char *
 CZMQ_EXPORT bool
     zframe_streq (zframe_t *self, const char *string);
 
-// Return frame zero copy indicator (1 or 0)
+//  Return frame MORE indicator (1 or 0), set when reading frame from socket
+//  or by the zframe_set_more() method
 CZMQ_EXPORT int
-    zframe_zero_copy (zframe_t *self);
+    zframe_more (zframe_t *self);
 
-//  Return frame 'more' property
-CZMQ_EXPORT int
-    zframe_more (const zframe_t *self);
-
+//  Set frame MORE indicator (1 or 0). Note this is NOT used when sending 
+//  frame to socket, you have to specify flag explicitly.
+CZMQ_EXPORT void
+    zframe_set_more (zframe_t *self, int more);
+    
 //  Return TRUE if two frames have identical size and data
 //  If either frame is NULL, equality is always false.
 CZMQ_EXPORT bool
     zframe_eq (zframe_t *self, zframe_t *other);
+
+//   Print contents of the frame to FILE stream.
+CZMQ_EXPORT void
+    zframe_fprint (zframe_t *self, const char *prefix, FILE *file);
 
 //  Print contents of frame to stderr
 CZMQ_EXPORT void
@@ -116,14 +105,17 @@ CZMQ_EXPORT void
 CZMQ_EXPORT void
     zframe_reset (zframe_t *self, const void *data, size_t size);
 
-//  Set the free callback for frame
-CZMQ_EXPORT void
-    zframe_freefn(zframe_t *self, zframe_free_fn *free_fn, void *arg);
+//  Put a block of data to the frame payload.
+CZMQ_EXPORT int
+    zframe_put_block (zframe_t *self, byte *data, size_t size);
 
 //  Self test of this class
 CZMQ_EXPORT int
     zframe_test (bool verbose);
 //  @end
+
+//  Deprecated method aliases
+#define zframe_print_to_stream(s,p,F) zframe_fprint(s,p,F)
 
 #ifdef __cplusplus
 }

@@ -546,6 +546,7 @@ let rec definitions_of_node_calls
                term at previous instant, equation with corresponding
                inputs, and equation with previous state value *)
             (local_vars'', 
+             input_shadow_terms_trans, 
              input_shadow_terms_trans_pre, 
              propagate_inputs, 
              propagate_inputs_init, 
@@ -555,13 +556,23 @@ let rec definitions_of_node_calls
               (fun
                 sv
                 ((local_vars'',
+                  input_shadow_terms_trans, 
                   input_shadow_terms_trans_pre, 
                   propagate_inputs, 
                   propagate_inputs_init, 
                   interpolate_inputs) as accum) -> 
 
                 (* Skip over constant inputs *)
-                if StateVar.is_const sv then accum else 
+                if StateVar.is_const sv then
+
+                  (local_vars'',
+                   E.cur_term_of_state_var cur_offset sv :: input_shadow_terms_trans, 
+                   input_shadow_terms_trans_pre, 
+                   propagate_inputs, 
+                   propagate_inputs_init, 
+                   interpolate_inputs) 
+                  
+                else 
 
                   (* Create fresh shadow variable for input *)
                   let sv' = mk_new_state_var (StateVar.type_of_state_var sv) in
@@ -570,7 +581,10 @@ let rec definitions_of_node_calls
                   E.set_state_var_source sv' E.Abstract;
 
                   (* Shadow variable at previous instant *)
-                  let t = E.pre_term_of_state_var cur_offset sv' in
+                  let t = E.cur_term_of_state_var cur_offset sv' in
+
+                  (* Shadow variable at previous instant *)
+                  let tp = E.pre_term_of_state_var cur_offset sv' in
 
                   (* Shadow variable takes value of input *)
                   let p = 
@@ -595,12 +609,13 @@ let rec definitions_of_node_calls
 
                   (* Add shadow variable and equations to accumulator *)
                   (sv' :: local_vars'',
-                   t :: input_shadow_terms_trans_pre, 
+                   t :: input_shadow_terms_trans, 
+                   tp :: input_shadow_terms_trans_pre, 
                    p :: propagate_inputs, 
                    p_i :: propagate_inputs_init, 
                    i :: interpolate_inputs))
               input_vars
-              (local_vars', [], [], [], [])
+              (local_vars', [], [], [], [], [])
 
           in
 
@@ -608,7 +623,7 @@ let rec definitions_of_node_calls
           let init_call_trans_args = 
 
             (* Current state input variables *)
-            input_terms_trans @ 
+            input_shadow_terms_trans @ 
 
             (* Current state output variables *)
             output_terms_trans @ 
@@ -630,7 +645,7 @@ let rec definitions_of_node_calls
           let trans_call_args = 
 
             (* Current state input variables *)
-            input_terms_trans @ 
+            input_shadow_terms_trans @ 
 
             (* Current state output variables *)
             output_terms_trans @ 

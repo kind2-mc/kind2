@@ -113,8 +113,8 @@ let split_closure trans solver k actlits to_split =
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
     (* Asserting implication. *)
-    Term.mk_or
-        [ actlit |> term_of_actlit |> Term.mk_not ; term ]
+    Term.mk_implies
+        [ actlit |> term_of_actlit ; term ]
     |> Solver.assert_term solver ;
     (* All actlits. *)
     let all_actlits = (term_of_actlit actlit) ::  actlits in
@@ -162,24 +162,39 @@ let rec next (trans, solver, k, invariants, unknowns) =
     |> Solver.assert_term solver
   in
 
-  (* Getting new invariants and valid / falsified properties. *)
-  let new_invariants, new_valids, new_falsifieds =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
+  (* Getting new invariants and updating transition system. *)
+  let new_invariants =
+
+
+    let new_invs, updated_props =
+      (* Receiving messages. *)
+      Event.recv ()
+      (* Updating transition system. *)
+      |> Event.update_trans_sys trans
+      (* Extracting invariant module/term pairs. *)
+    in
+
+    updated_props
+    (* Looking for new invariant properties. *)
+    |> List.fold_left
+         ( fun list (_, (name,status)) ->
+           if status = TransSys.PropInvariant
+           then
+             (* Memorizing new invariant property. *)
+             ( TransSys.prop_of_name trans name )
+             :: list
+           else
+             list )
+         (* New invariant properties are added to new invariants. *)
+         ( List.map snd new_invs )
+           
   in
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
-  let nu_unknowns = unknowns |> List.filter (shall_keep trans)
-  in
-  debug base "[Base@%i] nu_unknowns: %i." (Numeral.to_int k) (List.length nu_unknowns) in
+  let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
 
   match nu_unknowns with
-  | _ when Flags.bmc_max () > 0 && (Numeral.to_int k) > Flags.bmc_max () ->
-     Event.log
-       L_info
-       "BMC reached maximal number of iterations"
-  | [] ->
-     debug base "[Base@%i] No more properties to falsify, exiting." (Numeral.to_int k) in
-    ()
+  | [] -> ()
 
   | _ ->
      let k_int = Numeral.to_int k in
@@ -189,8 +204,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
      Event.progress k_int ;
      Stat.update_time Stat.bmc_total_time ;
 
-     (* Output current step *)
-     Event.log L_info "BMC loop at k=%d" (Numeral.to_int k);
+     (* Output current progress. *)
+     Event.log
+       L_info
+       "BMC loop at k = %d\nBMC unknowns:   %d"
+       (Numeral.to_int k) (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
      let nu_invariants =
@@ -222,10 +240,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
               (* Appending it to the list of actlits. *)
               actlit_term :: actlits,
               (* Building the implication and appending. *)
-              (Term.mk_or [
-                   Term.mk_not actlit_term ;
-                   Term.bump_state Numeral.(k-one) term
-              ]) :: implications )
+              (Term.mk_implies
+                 [ actlit_term ;
+                   Term.bump_state Numeral.(k-one) term])
+              :: implications )
             ([], [])
      in
 
@@ -263,12 +281,23 @@ let rec next (trans, solver, k, invariants, unknowns) =
      TransSys.trans_of_bound trans Numeral.(k + one)
      |> Solver.assert_term solver
      |> ignore ;
-     
+
      (* Output statistics *)
      if output_on_level L_info then print_stats ();
 
-     (* Looping. *)
-     next (trans, solver, Numeral.(k+one), nu_invariants, unfalsifiable)
+     (* K plus one. *)
+     let k_p_1 = Numeral.succ k in
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
+
+     (* Checking if we have reached max k. *)
+     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+       Event.log
+         L_info
+         "BMC reached maximal number of iterations."
+     else
+       (* Looping. *)
+       next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
 let init trans =

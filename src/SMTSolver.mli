@@ -52,6 +52,7 @@ sig
     ?produce_proofs:bool -> 
     ?produce_cores:bool -> 
     SMTExpr.logic -> 
+    int ->
     t
 
   (** [delete_instance s] deletes the solver instance [s] *)

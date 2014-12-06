@@ -1,26 +1,13 @@
 /*  =========================================================================
     zclock - millisecond clocks and delays
 
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -45,10 +32,17 @@ CZMQ_EXPORT int64_t
 CZMQ_EXPORT void
     zclock_log (const char *format, ...);
 
+//  Return formatted date/time as fresh string. Free using zstr_free().
+CZMQ_EXPORT char *
+    zclock_timestr (void);
+
 //  Self test of this class
 CZMQ_EXPORT int
     zclock_test (bool verbose);
 //  @end
+
+//  Compiler hints
+CZMQ_EXPORT void zclock_log (const char *format, ...) CHECK_PRINTF (1);
 
 #ifdef __cplusplus
 }
