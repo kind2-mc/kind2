@@ -474,6 +474,72 @@ let rec split_closure solver two_state k falsifiable = function
        [ actlit ]
 
 
+
+(* Prunes the terms which are a direct consequence of the transition
+   relation. Assumes [T(0,1)] is asserted. *)
+let rec prune_trivial solver result = function
+  | [] -> result
+  | terms ->
+
+     (* Fresh actlit for the check (as a term). *)
+     let actlit =
+       (* Uf version. *)
+       let actlit_uf = Actlit.fresh_actlit () in
+       (* Declaring it. *)
+       Solver.declare_fun solver actlit_uf ;
+       (* Term version. *)
+       Actlit.term_of_actlit actlit_uf
+     in
+
+     (* Bumping terms to one. *)
+     let bumped_terms =
+       List.map (Term.bump_state Numeral.one) terms
+     in
+
+     (* Asserting implication between actlit and terms@1. *)
+     Term.mk_implies
+       [ actlit ;
+         Term.mk_and bumped_terms |> Term.mk_not ]
+     |> Solver.assert_term solver ;
+
+     let if_sat () =
+       Some (
+         (* Getting the values of terms@1. *)
+         Solver.get_values
+           solver bumped_terms
+         (* Partitioning the list based on the value of the terms. *)
+         |> List.fold_left
+             ( fun (unknowns,falsifiables) (term_at_1, value) ->
+               if value == Term.t_true then
+                 (Term.bump_state Numeral.(~- one) term_at_1)
+                 :: unknowns,
+                 falsifiables
+               else
+                 unknowns,
+                 (Term.bump_state Numeral.(~- one) term_at_1)
+                 :: falsifiables )
+             ([],[])
+       )
+     in
+
+     let if_unsat () = None in
+
+     match Solver.check_sat_assuming
+       solver if_sat if_unsat [actlit]
+     with
+       | None ->
+         debug lsd "Pruning %i invariants." (List.length terms) in
+         (* Deactivating actlit. *)
+         Term.mk_not actlit |> Solver.assert_term solver ;
+         (* Unsat, the terms cannot be falsified. *)
+         result
+       | Some (unknowns, falsifiables) ->
+         (* Deactivating actlit. *)
+         Term.mk_not actlit |> Solver.assert_term solver ;
+         (* Looping. *)
+         prune_trivial
+           solver (List.concat [ result ; falsifiables ]) unknowns
+
 let query_step ({ systems ; solver ; two_state ; k } as context)
                system
                terms_to_check =
@@ -483,6 +549,10 @@ let query_step ({ systems ; solver ; two_state ; k } as context)
 
   (* Splitting terms. *)
   split_closure solver two_state k [] terms_to_check
+    (* Pruning direct consequences of the transition relation. *)
+  |> snd
+  |> (if Flags.invgengraph_prune_trivial ()
+      then prune_trivial solver [] else identity)
 
 
 (* 
