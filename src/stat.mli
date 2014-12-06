@@ -181,6 +181,9 @@ val pdr_fwd_fixpoint : int_item
 (** Blocking clauses proved inductive *)
 val pdr_inductive_blocking_clauses : int_item
 
+(** Number of literals removed by inductive generalization *)
+val pdr_literals_removed : int_item
+
 (** Number of counterexamples per frame *)
 val pdr_counterexamples : int_list_item 
 
