@@ -16,7 +16,11 @@
 
 *)
 
-open Lib
+(** Utilty functions for transition systems 
+
+    Functions that use term data structures and can be used by
+    any module above {!TransSys} go here.
+*)
 
 type invariants = Term.t list
 type model = (Var.t * Term.t) list
@@ -26,3 +30,25 @@ type properties = property list
 type cex = (property list * path)
 type cexs = cex list
 
+
+(** {1 Properties of transition systems} *)
+
+
+(** Source of a property *)
+type prop_source =
+
+  (** Property is from an annotation *)
+  | PropAnnot of Lib.position
+
+  (** Property is part of a contract *)
+  | Contract of Lib.position
+
+  (** Property was generated, for example, from a subrange
+      constraint *)
+  | Generated of StateVar.t list
+
+  (** Property is an instance of a property in a called node
+
+      Reference the instantiated property by the [scope] of the
+      subsystem and the name of the property *)
+  | Instantiated of string list * string 

@@ -63,7 +63,7 @@ type property =
     prop_name : string;
 
     (* Source of the property *)
-    prop_source : prop_source;
+    prop_source : TermLib.prop_source;
 
     (* Term with variables at offsets [prop_base] and [prop_base - 1] *)
     prop_term : Term.t;
@@ -514,10 +514,10 @@ let pp_print_uf_defs
 
 
 let pp_print_prop_source ppf = function 
-  | PropAnnot _ -> Format.fprintf ppf ":user"
-  | Contract _ -> Format.fprintf ppf ":contract"
-  | Generated p -> Format.fprintf ppf ":generated"
-  | Instantiated _ -> Format.fprintf ppf ":subsystem"
+  | TermLib.PropAnnot _ -> Format.fprintf ppf ":user"
+  | TermLib.Contract _ -> Format.fprintf ppf ":contract"
+  | TermLib.Generated p -> Format.fprintf ppf ":generated"
+  | TermLib.Instantiated _ -> Format.fprintf ppf ":subsystem"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 

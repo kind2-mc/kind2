@@ -79,7 +79,7 @@ val mk_trans_sys :
   UfSymbol.t * (Var.t list * Term.t) ->
   UfSymbol.t * (Var.t list * Term.t) ->
   t list ->
-  (string * Lib.prop_source * Term.t) list ->
+  (string * TermLib.prop_source * Term.t) list ->
   source ->
   t
 
