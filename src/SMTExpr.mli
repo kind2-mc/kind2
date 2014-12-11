@@ -89,101 +89,120 @@ type check_sat_response =
   | Unknown
 
 
-(** {1 Conversions between SMT expressions and terms} *)
+(** {1 Pretty-printing and String Conversions} *)
 
-(** Convert a variable to an SMT expression *)
-val smtsort_of_type : Type.t -> sort
+module type Conv =
+  sig 
 
-(** Convert a variable to an SMT expression *)
-val smtexpr_of_var : Var.t -> t
+    (** {2 Conversions between SMT expressions and terms} *)
 
-(** Convert a term to an SMT expression *)
-val smtexpr_of_term : t -> t
+    (** Convert a variable to an SMT expression *)
+    val smtsort_of_type : Type.t -> sort
 
-(** Convert a term to an SMT expression, quantifying over the given variables 
+    (** Convert a variable to an SMT expression *)
+    val smtexpr_of_var : Var.t -> t
+
+
+    (** {2 Pretty-printing and String Conversions} *)
+    
+    (** Convert an S-expression of strings to a type *)
+    val type_of_string_sexpr : HStringSExpr.t -> sort
+                                                   
+    (** Convert an S-expression of strings to a term *)
+    val expr_of_string_sexpr : HStringSExpr.t -> t
+
+    (** Return an SMTLIB string expression for the logic *)
+    val string_of_logic : logic -> string 
+
+    (** Pretty-print a logic in SMTLIB format *)
+    val pp_print_logic : Format.formatter -> logic -> unit
+
+    (** Pretty-print a sort in SMTLIB format *)
+    val pp_print_sort : Format.formatter -> sort -> unit
+
+    (** Return an SMTLIB string expression of a sort *)
+    val string_of_sort : sort -> string
+
+    (** Pretty-print a term in SMTLIB format *)
+    val pp_print_expr : Format.formatter -> t -> unit
+
+    (** Pretty-print a term in SMTLIB format to the standard formatter *)
+    val print_expr : t -> unit
+
+    (** Return an SMTLIB string expression of a term *)
+    val string_of_expr : t -> string
+
+    (** Convert a term to an SMT expression *)
+    val smtexpr_of_term : t -> t
+
+    (** Convert a term to an SMT expression, quantifying over
+        the given variables 
 
     [quantified_smtexpr_of_term q v t] returns the SMT expression
     [exists (v) t] or [forall (v) t] if q is true or false,
     respectively, where all variables in [t] except those in [v] are
     converted to uninterpreted functions. *)
-val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
+    val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
 
-(** Convert an SMT expression to a variable *)
-val var_of_smtexpr : t -> Var.t
+    (** Convert an SMT expression to a variable *)
+    val var_of_smtexpr : t -> Var.t
 
-(** Convert an SMT expression to a term *)
-val term_of_smtexpr : t -> t
+    (** Convert an SMT expression to a term *)
+    val term_of_smtexpr : t -> t
 
-(** Declare uninterpreted symbols in the SMT solver *)
-val declare_smt_symbols : (string -> sort list -> sort -> response) -> response
-
-(** {1 Conversions from S-expressions} *)
-
-(** Convert an S-expression of strings to a term *)
-val type_of_string_sexpr : HStringSExpr.t -> sort
-
-(** Convert an S-expression of strings to a term *)
-val expr_of_string_sexpr : HStringSExpr.t -> t
-
-(** Convert an S-expression of strings to a command response *)
-val response_of_sexpr : HStringSExpr.t -> response
-
-(** Convert an S-expression of strings to a check-sat command response *)
-val check_sat_response_of_sexpr : HStringSExpr.t -> check_sat_response
-
-(** Convert an S-expression of strings to a get-value response *)
-val get_value_response_of_sexpr : HStringSExpr.t -> response * (t * t) list
-
-(** Convert an S-expression of strings to a get-unsat-core response *)
-val get_unsat_core_response_of_sexpr : HStringSExpr.t -> response * (string list)
-
-(** Convert an S-expression of strings to a response for a custom command *)
-val get_custom_command_response_of_sexpr : HStringSExpr.t -> response
+    (** Declare uninterpreted symbols in the SMT solver *)
+    val declare_smt_symbols :
+      (string -> sort list -> sort -> response) -> response
 
 
-(** {1 Pretty-printing and String Conversions} *)
+    (** {2 Responses conversions } *)
 
-(** Return an SMTLIB string expression for the logic *)
-val string_of_logic : logic -> string 
+    (** Convert an S-expression of strings to a command response *)
+    val response_of_sexpr : HStringSExpr.t -> response
 
-(** Pretty-print a logic in SMTLIB format *)
-val pp_print_logic : Format.formatter -> logic -> unit
+    (** Convert an S-expression of strings to a check-sat command response *)
+    val check_sat_response_of_sexpr : HStringSExpr.t -> check_sat_response
 
-(** Pretty-print a sort in SMTLIB format *)
-val pp_print_sort : Format.formatter -> sort -> unit
+    (** Convert an S-expression of strings to a get-value response *)
+    val get_value_response_of_sexpr : HStringSExpr.t -> response * (t * t) list
 
-(** Return an SMTLIB string expression of a sort *)
-val string_of_sort : sort -> string
+    (** Convert an S-expression of strings to a get-unsat-core response *)
+    val get_unsat_core_response_of_sexpr :
+      HStringSExpr.t -> response * (string list)
 
-(** Pretty-print a term in SMTLIB format *)
-val pp_print_expr : Format.formatter -> t -> unit
+    (** Convert an S-expression of strings to a response for a custom command *)
+    val get_custom_command_response_of_sexpr : HStringSExpr.t -> response
+                                                                   
+    (** Pretty-print a custom argument *)
+    val pp_print_custom_arg : Format.formatter -> custom_arg -> unit
 
-(** Pretty-print a term in SMTLIB format to the standard formatter *)
-val print_expr : t -> unit
+    (** Return an string representation of a custom argument  *)
+    val string_of_custom_arg : custom_arg -> string
 
-(** Return an SMTLIB string expression of a term *)
-val string_of_expr : t -> string
+    (** Pretty-print a response to a command *)
+    val pp_print_response :  Format.formatter -> response -> unit
 
-(** Pretty-print a custom argument *)
-val pp_print_custom_arg : Format.formatter -> custom_arg -> unit
+    (** Pretty-print a response to a check-sat command *)
+    val pp_print_check_sat_response :
+      Format.formatter -> check_sat_response -> unit
 
-(** Return an string representation of a custom argument  *)
-val string_of_custom_arg : custom_arg -> string
+    (** Pretty-print a response to a get-value command *)
+    val pp_print_get_value_response :
+      Format.formatter -> response * (t * t) list -> unit
 
-(** Pretty-print a response to a command *)
-val pp_print_response :  Format.formatter -> response -> unit
+    (** Pretty-print a response to a get-unsat-core command *)
+    val pp_print_get_unsat_core_response :
+      Format.formatter -> response * (string list) -> unit
 
-(** Pretty-print a response to a check-sat command *)
-val pp_print_check_sat_response :  Format.formatter -> check_sat_response -> unit
+    (** Pretty-print a response to a custom command *)
+    val pp_print_custom_command_response :
+      Format.formatter -> response * (HStringSExpr.t list) -> unit
 
-(** Pretty-print a response to a get-value command *)
-val pp_print_get_value_response :  Format.formatter -> response * (t * t) list -> unit
+  end
 
-(** Pretty-print a response to a get-unsat-core command *)
-val pp_print_get_unsat_core_response :  Format.formatter -> response * (string list) -> unit
+module SMTLIB : Conv
 
-(** Pretty-print a response to a custom command *)
-val pp_print_custom_command_response :  Format.formatter -> response * (HStringSExpr.t list) -> unit
+module Yices : Conv
 
 (* 
    Local Variables:

@@ -31,6 +31,8 @@ sig
 
   type t
 
+  module Conv : SMTExpr.Conv
+
   val create_instance : 
     ?produce_assignments:bool -> 
     ?produce_models:bool -> 
@@ -56,6 +58,8 @@ sig
 
   val check_sat_assuming : t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
+  val check_sat_assuming_supported: unit -> bool
+
   val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
 
   val get_unsat_core : t -> SMTExpr.response * string list
@@ -72,6 +76,8 @@ let smtsolver_module () = match Flags.smtsolver () with
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
   | `Yices_SMTLIB -> (module SMTLIBSolver : Solver)
+                       
+  | `Yices_native -> (module YicesNative : Solver)
 
   | `detect -> raise (Invalid_argument "smtsolver_module")
 
@@ -83,6 +89,8 @@ sig
   type solver_t 
 
   type t
+
+  module Conv : SMTExpr.Conv
 
   val create_instance : 
     ?produce_assignments:bool -> 
@@ -108,6 +116,8 @@ sig
 
   val check_sat_assuming : t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
+  val check_sat_assuming_supported: unit -> bool
+
   val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
 
   val get_unsat_core : t -> SMTExpr.response * string list
@@ -121,6 +131,8 @@ end
 (* Functor to create a generic SMT solver *)
 module Make (S : Solver) : S with type solver_t = S.t = 
 struct
+
+  module Conv = S.Conv
   
   type solver_t = S.t
 
@@ -202,7 +214,8 @@ struct
     Stat.record_time Stat.smt_check_sat_time;
     res
 
-
+  let check_sat_assuming_supported () = S.check_sat_assuming_supported ()
+        
   let get_value { solver } e = 
 
     Stat.start_timer Stat.smt_get_value_time;
@@ -227,6 +240,9 @@ struct
 
 
 end
+
+
+module Selected : Solver = (val (smtsolver_module ()))
 
 (* 
    Local Variables:

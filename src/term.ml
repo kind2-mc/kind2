@@ -1102,7 +1102,7 @@ let mod_to_divisible term =
   | _ -> term
 
 
-(* Convert (= 0 (mod t n)) to (divisble n t) *)
+(* Convert (divisble n t) to (= 0 (mod t n)) *)
 let divisible_to_mod term = 
 
   match T.node_of_t term with

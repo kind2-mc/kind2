@@ -37,6 +37,7 @@ type smtsolver =
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
   | `Yices_SMTLIB
+  | `Yices_native
   | `detect ]
 
 (** Return SMT solver *)
@@ -64,6 +65,10 @@ val mathsat5_bin : unit -> mathsat5_bin
 (** Executable of Yices solver *)
 type yices_bin = string
 val yices_bin : unit -> yices_bin
+
+(** Executable of Yices2 SMT2 solver *)
+type yices2smt2_bin = string
+val yices2smt2_bin : unit -> yices2smt2_bin
 
 (** Write all SMT commands to files *)
 type smt_trace = bool

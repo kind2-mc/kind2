@@ -21,7 +21,10 @@ open Lib
 module VS = Var.VarSet
 
 (* Use configured SMT solver *)
-module ConfiguredSolver = SMTSolver.Make (SMTLIBSolver)
+module ConfiguredSolver = SMTSolver.Make (SMTSolver.Selected)
+
+(* Use converters for SMTLIB complient solvers *)
+module Conv = ConfiguredSolver.Conv
 
 (* Extended functions *)
 module Solver = SolverMethods.Make (ConfiguredSolver)
@@ -159,7 +162,7 @@ let rec conj_of_goal accum = function
   | t :: tl -> 
 
      conj_of_goal 
-       (SMTExpr.term_of_smtexpr (SMTExpr.expr_of_string_sexpr t) :: accum)
+       (Conv.term_of_smtexpr (Conv.expr_of_string_sexpr t) :: accum)
        tl
 
 
@@ -289,21 +292,21 @@ let check_generalize trans_sys model elim term term' =
   (* Substitute fresh variables for terms to be eliminated and
      existentially quantify formula *)
   let qe_term = 
-    SMTExpr.quantified_smtexpr_of_term true elim term
+    Conv.quantified_smtexpr_of_term true elim term
   in
 
   check_implication 
     trans_sys
     "model"
     "exact generalization" 
-    (SMTExpr.smtexpr_of_term (formula_of_model model))
-    (SMTExpr.smtexpr_of_term term');
+    (Conv.smtexpr_of_term (formula_of_model model))
+    (Conv.smtexpr_of_term term');
 
   check_implication
     trans_sys
     "exact generalization" 
     "formula"
-    (SMTExpr.smtexpr_of_term term') 
+    (Conv.smtexpr_of_term term') 
     qe_term
     
 
@@ -632,10 +635,10 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
         let qe_term = 
           match pdr_qe with 
             | `Z3 -> 
-              SMTExpr.quantified_smtexpr_of_term true elim term
+              Conv.quantified_smtexpr_of_term true elim term
             | `Z3_impl
             | `Z3_impl2 -> 
-              SMTExpr.quantified_smtexpr_of_term true elim extract_int
+              Conv.quantified_smtexpr_of_term true elim extract_int
         in
         
         let solver_qe = get_solver_instance trans_sys in

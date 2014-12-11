@@ -36,7 +36,7 @@ exception Restart
 
 
 (* Use configured SMT solver *)
-module PDRSolver = SMTSolver.Make (SMTLIBSolver)
+module PDRSolver = SMTSolver.Make (SMTSolver.Selected)
 
 
 (* High-level methods for PDR solver *)

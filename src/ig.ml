@@ -22,10 +22,10 @@ open Lib
 
 
 (* Solver for SMTLIB 2.0, used in z3. *)
-module MySolver2 = SMTSolver.Make (SMTLIBSolver)
+module MySolver2 = SMTSolver.Make (SMTSolver.Selected)
 
 (* Solver for SMTLIB 1.2, used in iZ3. *)
-module MySolver1 = SMTSolver.Make (SMTLIB1Solver)
+module MySolver1 = SMTSolver.Make (SMTSolver.Selected)
 
 (* Instantiate the term to the bound *)
 let term_of_bound i term = 

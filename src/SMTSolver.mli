@@ -39,6 +39,8 @@ sig
   (** Solver instance *)
   type t
 
+  module Conv : SMTExpr.Conv
+
   (** {1 Create and delete solver instances} *)
 
   (** [create_instance l] creates a new instance of the SMT solver,
@@ -87,6 +89,10 @@ sig
       input literals. *)
   val check_sat_assuming : t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
+  (** Indicates whether the solver supports the check-sat-assuming
+    command. *)
+  val check_sat_assuming_supported: unit -> bool
+
   (** Get the assigned values of expressions in the current model *)
   val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
 
@@ -117,6 +123,8 @@ sig
 
   (** Solver instance *)
   type t
+
+  module Conv : SMTExpr.Conv
 
   (** {1 Create and delete solver instances} *)
 
@@ -161,6 +169,8 @@ sig
   (** Check satisfiability of the asserted expressions *)
   val check_sat_assuming : t -> SMTExpr.t list -> SMTExpr.check_sat_response
 
+  val check_sat_assuming_supported: unit -> bool
+
   (** Get the assigned values of expressions in the current model *)
   val get_value : t -> SMTExpr.t list -> SMTExpr.response * (SMTExpr.t * SMTExpr.t) list
 
@@ -178,12 +188,14 @@ sig
 
   (** Execute a custom check-sat command and return its result *)
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
-
+                                                          
 end
 
 (** Functor to create a generic SMT solver *)
 module Make (S : Solver) : S with type solver_t = S.t 
 
+module Selected : Solver
+                                                    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

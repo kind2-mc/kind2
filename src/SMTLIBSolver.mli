@@ -123,6 +123,11 @@ val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
     command. *)
 val check_sat_assuming_supported: unit -> bool
 
+
+(** {2 Solver specific features }*)
+
+module Conv : SMTExpr.Conv
+                                            
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

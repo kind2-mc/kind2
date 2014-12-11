@@ -21,7 +21,7 @@ open TypeLib
 open Actlit
 
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
+module Solver = SolverMethods.Make(SMTSolver.Make(SMTSolver.Selected))
 
 (* Type of a lock step kind context. *)
 type t = {

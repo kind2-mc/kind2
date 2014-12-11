@@ -1,7 +1,7 @@
 open Lib
 
 (* Use SMTLIB1 solver *)
-module MySolver = SMTSolver.Make (SMTLIB1Solver)
+module MySolver = SMTSolver.Make (SMTSolver.Selected)
 
 
 (* Testing interpolant generation with iZ3 *)

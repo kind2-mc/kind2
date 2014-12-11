@@ -20,7 +20,7 @@ open Lib
 open TypeLib
 open Actlit
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
+module Solver = SolverMethods.Make(SMTSolver.Make(SMTSolver.Selected))
 
 let solver_ref = ref None
 

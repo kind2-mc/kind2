@@ -176,7 +176,7 @@ struct
   let assert_term solver term = 
 
     (* Convert term to SMT expression *)
-    let expr = SMTExpr.smtexpr_of_term term in
+    let expr = S.Conv.smtexpr_of_term term in
     
     (* Assert SMT expression in solver instance and fail on error *)
     fail_on_smt_error (S.assert_expr solver expr)
@@ -228,7 +228,7 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_var vars) 
+        S.get_value solver (List.map S.Conv.smtexpr_of_var vars) 
           
       with 
 
@@ -256,7 +256,7 @@ struct
       List.map
         (function (v, e) -> 
           (let v', e' = 
-            SMTExpr.var_of_smtexpr v, SMTExpr.term_of_smtexpr e 
+            S.Conv.var_of_smtexpr v, S.Conv.term_of_smtexpr e 
            in
            let tv', te' = 
              Var.type_of_var v', Term.type_of_term e'
@@ -288,7 +288,7 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_term terms) 
+        S.get_value solver (List.map S.Conv.smtexpr_of_term terms) 
           
       with 
 
@@ -316,7 +316,7 @@ struct
       List.map
         (function (v, e) -> 
           (let v', e' = 
-            SMTExpr.term_of_smtexpr v, SMTExpr.term_of_smtexpr e 
+            S.Conv.term_of_smtexpr v, S.Conv.term_of_smtexpr e 
            in
            let tv', te' = 
              Term.type_of_term v', Term.type_of_term e'
@@ -414,7 +414,7 @@ struct
   (* Checks satisfiability of some literals, runs if_sat if sat and
      if_unsat if unsat. *)
   let check_sat_assuming solver if_sat if_unsat literals =
-    if SMTLIBSolver.check_sat_assuming_supported ()
+    if S.check_sat_assuming_supported ()
 
     then
       (* Solver supports check-sat-assuming, let's do this. *)

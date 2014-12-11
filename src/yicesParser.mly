@@ -17,15 +17,9 @@
 
 *)
 
-
+  open Lexing
   open Parsing
-  open SExprBase
-
-  type yices_resp_p =
-    | YRespSat of (HStringSExpr.t * HStringSExpr.t) list
-    | YRespUnknown of (HStringSExpr.t * HStringSExpr.t) list
-    | YRespUnsat of int list
-
+  open YicesResponse
  
   let parse_failure pos what =
     (* Removed for menhir *)
@@ -37,16 +31,17 @@
 
 %}
 
-%token UNSAT SAT UNKNOWN
+%token SAT UNSAT UNKNOWN ERROR
 %token ID CORE IDS UNSATISFIED ASSERTION
 %token LEFTPAR RIGHTPAR COLON EQ
 %token <string> IDENT
+%token <string> LINE
 %token <int> INT
+%token SUCCESS
 %token EOF
 
-
 %start resp
-%type <yices_resp_p> resp
+%type <YicesResponse.yices_resp_p> resp
 
 %start assertion_id
 %type <int> assertion_id
@@ -54,60 +49,63 @@
 %%
 
 resp:
-| unsat_resp { #1 }
-| sat_resp { #1 }
-| unknown_resp { #1 }
+| unsat_resp SUCCESS { $1 }
+| sat_resp SUCCESS { $1 }
+| unknown_resp SUCCESS { $1 }
+| error_resp EOF { $1 }
+| SUCCESS { YSuccess }
+(* | EOF { Format.eprintf "parse EOF@."; YNoResp } *)
+;
+
+error_resp:
+| ERROR { YError "" }
+| ERROR COLON LINE { YError $3 }
 ;
 
 unsat_resp:
 | UNSAT { YRespUnsat [] }
-| UNSAT UNSAT CORE IDS COLON integer_list { YRespUnsat #6 }
+| UNSAT UNSAT CORE IDS COLON id_list { YRespUnsat $6 }
 ;
 
 sat_resp:
 | SAT { YRespSat [] }
-| SAT model { YRespSat #2 }
+| SAT model { YRespSat $2 }
 ;
 
 unknown_resp:
 | UNKNOWN { YRespUnknown [] }
-| UNKNOWN model { YRespUnknown #2 }
+| UNKNOWN model { YRespUnknown $2 }
 ;
 
 assertion_id:
-| ID COLON INT { #3 }
+| ID COLON INT EOF { $3 }
 ;
 
-integer_list:
+id_list:
 | { [] }
-| INT integer_list { $1 :: $2 }
+| INT id_list { (YicesResponse.yices_id_of_int $1) :: $2 }
 ;
 
-ident:
-| IDENT { Atom (Hstring.make $1) }
-;
-  
-ident_list:
-| { [] }
-| ident ident_list { $1 :: $2 }
+expr:
+| INT { HStringSExpr.Atom (HString.mk_hstring (string_of_int $1)) }
+| IDENT { HStringSExpr.Atom (HString.mk_hstring $1) }
 ;
 
 sexpr:
-| LEFTPAR ident_list RIGHTPAR { List $2 }
-| LEFTPAR sexpr_list RIGHTPAR { List $2 }
+| expr { $1 }
+| LEFTPAR sexpr_list RIGHTPAR { HStringSExpr.List $2 }
 ;
 
-sexpr_list
+sexpr_list:
 | { [] }
-| sexpr sexpr_list { $2 :: $1 }
+| sexpr sexpr_list { $1 :: $2 }
 ;
 
-eq_term_value
-| LEFTPAR EQ sexpr ident RIGHTPAR { ($3, $4) }
+eq_term_value:
 | LEFTPAR EQ sexpr sexpr RIGHTPAR { ($3, $4) }
 ;
 
-model
+model:
 | eq_term_value { [$1] }
 | eq_term_value model { $1 :: $2 }
 ;

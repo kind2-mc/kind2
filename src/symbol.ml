@@ -314,84 +314,191 @@ module SymbolMap = Map.Make (OrderedSymbol)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
+module type Printer = sig
+    
+    val pp_print_symbol : Format.formatter -> t -> unit
 
-(* Pretty-print a symbol *)
-let rec pp_print_symbol_node ppf = function 
+    val string_of_symbol : t -> string 
 
-  | `TRUE -> Format.pp_print_string ppf "true"
-  | `FALSE -> Format.pp_print_string ppf "false"
-  | `NOT -> Format.pp_print_string ppf "not"
-  | `IMPLIES -> Format.pp_print_string ppf "=>"
-  | `AND  -> Format.pp_print_string ppf "and"
-  | `OR -> Format.pp_print_string ppf "or"
-  | `XOR -> Format.pp_print_string ppf "xor"
+    val string_of_symbol_node : symbol -> string 
+    
+end
 
-  | `EQ -> Format.pp_print_string ppf "="
-  | `DISTINCT -> Format.pp_print_string ppf "distinct"
-  | `ITE -> Format.pp_print_string ppf "ite" 
+module SMTLIBPrinter : Printer =
+  struct
 
-  | `NUMERAL i -> Numeral.pp_print_numeral ppf i
-  | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
-  | `BV b -> pp_print_bitvector_b ppf b
+    (* Pretty-print a symbol *)
+    let rec pp_print_symbol_node ppf = function 
 
-  | `MINUS -> Format.pp_print_string ppf "-"
-  | `PLUS -> Format.pp_print_string ppf "+"
-  | `TIMES -> Format.pp_print_string ppf "*"
-  | `DIV -> Format.pp_print_string ppf "/"
-  | `INTDIV -> Format.pp_print_string ppf "div"
-  | `MOD -> Format.pp_print_string ppf "mod"
-  | `ABS -> Format.pp_print_string ppf "abs"
+      | `TRUE -> Format.pp_print_string ppf "true"
+      | `FALSE -> Format.pp_print_string ppf "false"
+      | `NOT -> Format.pp_print_string ppf "not"
+      | `IMPLIES -> Format.pp_print_string ppf "=>"
+      | `AND  -> Format.pp_print_string ppf "and"
+      | `OR -> Format.pp_print_string ppf "or"
+      | `XOR -> Format.pp_print_string ppf "xor"
 
-  | `LEQ -> Format.pp_print_string ppf "<="
-  | `LT -> Format.pp_print_string ppf "<"
-  | `GEQ -> Format.pp_print_string ppf ">="
-  | `GT -> Format.pp_print_string ppf ">"
+      | `EQ -> Format.pp_print_string ppf "="
+      | `DISTINCT -> Format.pp_print_string ppf "distinct"
+      | `ITE -> Format.pp_print_string ppf "ite" 
 
-  | `TO_REAL -> Format.pp_print_string ppf "to_real"
-  | `TO_INT -> Format.pp_print_string ppf "to_int"
-  | `IS_INT -> Format.pp_print_string ppf "is_int"
+      | `NUMERAL i -> Numeral.pp_print_numeral ppf i
+      | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
+      | `BV b -> pp_smtlib_print_bitvector_b ppf b
 
-  | `DIVISIBLE n -> 
-    Format.pp_print_string ppf "divisible";
-    Format.pp_print_space ppf ();
-    Numeral.pp_print_numeral ppf n
+      | `MINUS -> Format.pp_print_string ppf "-"
+      | `PLUS -> Format.pp_print_string ppf "+"
+      | `TIMES -> Format.pp_print_string ppf "*"
+      | `DIV -> Format.pp_print_string ppf "/"
+      | `INTDIV -> Format.pp_print_string ppf "div"
+      | `MOD -> Format.pp_print_string ppf "mod"
+      | `ABS -> Format.pp_print_string ppf "abs"
 
-  | `CONCAT -> Format.pp_print_string ppf "to_real"
-  | `EXTRACT (i, j) -> 
-    Format.fprintf 
-      ppf 
-      "(_ extract %a %a)" 
-      Numeral.pp_print_numeral i
-      Numeral.pp_print_numeral j
+      | `LEQ -> Format.pp_print_string ppf "<="
+      | `LT -> Format.pp_print_string ppf "<"
+      | `GEQ -> Format.pp_print_string ppf ">="
+      | `GT -> Format.pp_print_string ppf ">"
 
-  | `BVNOT -> Format.pp_print_string ppf "bvnot"
-  | `BVNEG -> Format.pp_print_string ppf "bvneg"
-  | `BVAND -> Format.pp_print_string ppf "bvand"
-  | `BVOR -> Format.pp_print_string ppf "bvor"
-  | `BVADD -> Format.pp_print_string ppf "bvadd"
-  | `BVMUL -> Format.pp_print_string ppf "bvmul"
-  | `BVDIV -> Format.pp_print_string ppf "bvdiv"
-  | `BVUREM -> Format.pp_print_string ppf "bvurem"
-  | `BVSHL -> Format.pp_print_string ppf "bvshl"
-  | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
-  | `BVULT -> Format.pp_print_string ppf "bvult"
+      | `TO_REAL -> Format.pp_print_string ppf "to_real"
+      | `TO_INT -> Format.pp_print_string ppf "to_int"
+      | `IS_INT -> Format.pp_print_string ppf "is_int"
 
-  | `SELECT -> Format.pp_print_string ppf "select"
-  | `STORE -> Format.pp_print_string ppf "store"
+      | `DIVISIBLE n -> 
+         Format.pp_print_string ppf "divisible";
+         Format.pp_print_space ppf ();
+         Numeral.pp_print_numeral ppf n
 
-  | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+      | `CONCAT -> Format.pp_print_string ppf "concat"
+      | `EXTRACT (i, j) -> 
+         Format.fprintf 
+           ppf 
+           "(_ extract %a %a)" 
+           Numeral.pp_print_numeral i
+           Numeral.pp_print_numeral j
 
-(* Pretty-print a hashconsed symbol *)
-and pp_print_symbol ppf { Hashcons.node = n } =
-  pp_print_symbol_node ppf n
+      | `BVNOT -> Format.pp_print_string ppf "bvnot"
+      | `BVNEG -> Format.pp_print_string ppf "bvneg"
+      | `BVAND -> Format.pp_print_string ppf "bvand"
+      | `BVOR -> Format.pp_print_string ppf "bvor"
+      | `BVADD -> Format.pp_print_string ppf "bvadd"
+      | `BVMUL -> Format.pp_print_string ppf "bvmul"
+      | `BVDIV -> Format.pp_print_string ppf "bvdiv"
+      | `BVUREM -> Format.pp_print_string ppf "bvurem"
+      | `BVSHL -> Format.pp_print_string ppf "bvshl"
+      | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
+      | `BVULT -> Format.pp_print_string ppf "bvult"
+
+      | `SELECT -> Format.pp_print_string ppf "select"
+      | `STORE -> Format.pp_print_string ppf "store"
+
+      | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+
+    (* Pretty-print a hashconsed symbol *)
+    and pp_print_symbol ppf { Hashcons.node = n } =
+      pp_print_symbol_node ppf n
 
 
-(* Return a string representation of a hashconsed symbol *)
-let string_of_symbol s = string_of_t pp_print_symbol s
+    (* Return a string representation of a hashconsed symbol *)
+    let string_of_symbol s = string_of_t pp_print_symbol s
 
 
-(* Return a string representation of a symbol *)
-let string_of_symbol_node s = string_of_t pp_print_symbol_node s
+    (* Return a string representation of a symbol *)
+    let string_of_symbol_node s = string_of_t pp_print_symbol_node s
+  end
+                                   
+module YicesPrinter : Printer =
+  struct
+
+    (* Pretty-print a symbol *)
+    let rec pp_print_symbol_node ppf = function 
+
+      | `TRUE -> Format.pp_print_string ppf "true"
+      | `FALSE -> Format.pp_print_string ppf "false"
+      | `NOT -> Format.pp_print_string ppf "not"
+      | `IMPLIES -> Format.pp_print_string ppf "=>"
+      | `AND  -> Format.pp_print_string ppf "and"
+      | `OR -> Format.pp_print_string ppf "or"
+      | `XOR -> failwith "xor not implemented for yices"
+
+      | `EQ -> Format.pp_print_string ppf "="
+      | `DISTINCT -> failwith "distinct not implemented for yices"
+      | `ITE -> Format.pp_print_string ppf "ite" 
+
+      | `NUMERAL i -> Numeral.pp_print_numeral ppf i
+      | `DECIMAL f -> Decimal.pp_print_decimal ppf f
+      | `BV b -> pp_yices_print_bitvector_b ppf b
+
+      | `MINUS -> Format.pp_print_string ppf "-"
+      | `PLUS -> Format.pp_print_string ppf "+"
+      | `TIMES -> Format.pp_print_string ppf "*"
+      | `DIV -> Format.pp_print_string ppf "/"
+      | `INTDIV -> Format.pp_print_string ppf "div"
+      | `MOD -> Format.pp_print_string ppf "mod"
+      | `ABS -> failwith "abs not implemented for yices"
+
+      | `LEQ -> Format.pp_print_string ppf "<="
+      | `LT -> Format.pp_print_string ppf "<"
+      | `GEQ -> Format.pp_print_string ppf ">="
+      | `GT -> Format.pp_print_string ppf ">"
+
+      | `TO_REAL -> Format.pp_print_string ppf "to_real"
+      | `TO_INT -> Format.pp_print_string ppf "to_int"
+      | `IS_INT -> failwith "is_int not implemented for yices"
+
+      | `DIVISIBLE n -> 
+         Format.pp_print_string ppf "divisible";
+         Format.pp_print_space ppf ();
+         Numeral.pp_print_numeral ppf n
+
+      | `CONCAT -> Format.pp_print_string ppf "bv-concat"
+      | `EXTRACT (i, j) -> 
+         Format.fprintf 
+           ppf 
+           "bv-extract %a %a" 
+           Numeral.pp_print_numeral j
+           Numeral.pp_print_numeral i
+
+      | `BVNOT -> Format.pp_print_string ppf "bv-not"
+      | `BVNEG -> Format.pp_print_string ppf "bv-neg"
+      | `BVAND -> Format.pp_print_string ppf "bv-and"
+      | `BVOR -> Format.pp_print_string ppf "bv-or"
+      | `BVADD -> Format.pp_print_string ppf "bv-add"
+      | `BVMUL -> Format.pp_print_string ppf "bv-mul"
+      | `BVDIV -> Format.pp_print_string ppf "bv-div"
+      | `BVUREM -> Format.pp_print_string ppf "bvurem"
+      | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
+      | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
+      | `BVULT -> Format.pp_print_string ppf "bv-lt"
+
+      | `SELECT -> Format.pp_print_string ppf ""
+      | `STORE -> Format.pp_print_string ppf "update"
+
+      | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+
+    (* Pretty-print a hashconsed symbol *)
+    and pp_print_symbol ppf { Hashcons.node = n } =
+      pp_print_symbol_node ppf n
+
+
+    (* Return a string representation of a hashconsed symbol *)
+    let string_of_symbol s = string_of_t pp_print_symbol s
+
+
+    (* Return a string representation of a symbol *)
+    let string_of_symbol_node s = string_of_t pp_print_symbol_node s
+  end
+
+
+(* Select apropriate printer based on solver *)
+let select_printer () =
+  match Flags.smtsolver () with
+  | `Yices_native -> (module YicesPrinter : Printer)
+  | _ -> (module SMTLIBPrinter : Printer)
+
+module SelectedPrinter : Printer = (val (select_printer ()))
+  
+include SelectedPrinter
+
 
 (* Return true if the symbol is a numeral *)
 let is_numeral = function 

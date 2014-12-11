@@ -18,13 +18,16 @@
 
 open Lib
 open SMTExpr
-module Conv = SMTExpr.SMTLIB
+module Conv = SMTExpr.Yices
 open Conv
 
 (* ********************************************************************* *)
 (* Types                                                                 *)
 (* ********************************************************************* *)
 
+(* Map of sexprs to store models *)
+module SMTExprMap = Map.Make(Term)
+       
 type any_response =
   | NoResp
   | Resp of response
@@ -41,13 +44,20 @@ type command_type =
   | GetUnsatCoreCmd
   | CustomCmd of int
 
+type yices_state =
+  | YNone
+  | YError
+  | YUnsat of YicesResponse.yices_id list
+  | YModel of SMTExpr.t SMTExprMap.t
+
+                   
 (* Configuration *)
 type config =
     { solver_cmd : string array;    (* Command line arguments for the
                                        solver *)
       
     }
-      
+
 (* Solver instance *)
 type t = 
     { solver_config : config;           (* Configuration of the solver
@@ -65,6 +75,21 @@ type t =
       
       solver_trace_res : any_response -> unit;
       (* Tracing function for responses *)
+
+      mutable solver_state : yices_state;
+      (* Used to record response to last command from which to extract values or
+         unsat cores. *)
+
+      mutable solver_last_id : YicesResponse.yices_id;
+      (* Yices identifier that was last asserted. Remember to reset this to 0
+         when restarting the solver or deleting the instance. *)
+
+      solver_id_names : (YicesResponse.yices_id, int) Hashtbl.t;
+      (* Associates yices assertion ids to smtlib names of named formulas *)
+
+      solver_push_stack : YicesResponse.yices_id Stack.t;
+      (* The internal push stack of assertions identiers. This should be
+         cleared on deletion or resets. *)
     }
 
 
@@ -73,249 +98,146 @@ type t =
 (* Configurations                                                        *)
 (* ********************************************************************* *)
 
+(* Configuration for Yices *)
 
-(* Configuration for Z3 *)
-let smtlibsolver_config_z3 () = 
+let config_yices () = 
 
   (* Path and name of Z3 executable *)
-  let z3_bin = Flags.z3_bin () in
-
-  { solver_cmd = [| z3_bin; "-smt2"; "-in" |] }
-
-
-(* Configuration for CVC4 *)
-let smtlibsolver_config_cvc4 () = 
-
-  (* Path and name of CVC4 executable *)
-  let cvc4_bin = Flags.cvc4_bin () in
-
-  if Flags.pdr_tighten_to_unsat_core () then 
-
-    (* Use unsat core option *)
-    { solver_cmd = 
-        [| cvc4_bin; 
-           "--lang"; "smt2";
-           "--rewrite-divk";
-           "--tear-down-incremental";
-           "--produce-unsat-cores" |] }
-
-  else
-
-    (* Omit unsat core option for version older than 1.5 *)
-    { solver_cmd = 
-        [| cvc4_bin; 
-           "--lang"; "smt2";
-           "--rewrite-divk";
-           "--incremental" |] }
-
-
-(* Configuration for MathSAT5 *)
-let smtlibsolver_config_mathsat5 () = 
-
-  (* Path and name of MathSAT5 executable *)
-  let mathsat5_bin = Flags.mathsat5_bin () in
-  
-  { solver_cmd = [| mathsat5_bin; "-input=smt2" |] }
-
-
-(* Configuration for Yices *)
-let smtlibsolver_config_yices () = 
-
-  (* Path and name of Yices executable *)
   let yices_bin = Flags.yices_bin () in
 
-  { solver_cmd = [| yices_bin; "--incremental" |] }
+  { solver_cmd = [| yices_bin |] }
 
 
 (* Configuration for current SMT solver *)
-let config_of_flags () = match Flags.smtsolver () with 
-  | `Z3_SMTLIB -> smtlibsolver_config_z3 ()
-  | `CVC4_SMTLIB -> smtlibsolver_config_cvc4 ()
-  | `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5 ()
-  | `Yices_SMTLIB -> smtlibsolver_config_yices ()
-  | _ -> 
-    (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
-    failwith "SMTLIBSolver.config_of_flags"
-    
-
-(* Command to limit check-sat in Z3 to run for the given numer of ms
-   at most *)
-let z3_check_sat_limited_cmd ms = 
-  Format.sprintf "(check-sat-using (try-for smt %d))" ms
-
-
-(* Command to limit check-sat in CVC4 to run for the given numer of ms
-   at most *)
-let cvc4_check_sat_limited_cmd _ = 
-  failwith "check-sat with timeout not implemented for CVC4"
-
-
-(* Command to limit check-sat in MathSAT5 to run for the given numer of ms
-   at most *)
-let mathsat5_check_sat_limited_cmd _ = 
-  failwith "check-sat with timeout not implemented for MathSAT5"
-
-
-(* Command to limit check-sat in Yices to run for the given numer of ms
-   at most *)
-let yices_check_sat_limited_cmd _ = 
-  failwith "check-sat with timeout not implemented for Yices"
+let config_of_flags () = config_yices ()
 
 
 (* Command to limit check-sat to run for the given numer of ms at most *)
-let check_sat_limited_cmd ms = match Flags.smtsolver () with 
-  | `Z3_SMTLIB -> z3_check_sat_limited_cmd ms
-  | `CVC4_SMTLIB -> cvc4_check_sat_limited_cmd ms
-  | `MathSat5_SMTLIB -> mathsat5_check_sat_limited_cmd ms
-  | `Yices_SMTLIB -> yices_check_sat_limited_cmd ms
-  | _ -> 
+let check_sat_limited_cmd ms =
     (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
-    failwith "SMTLIBSolver.check_sat_limited_cmd"
+    failwith "Yices.check_sat_limited_cmd"
 
 
 (* Indicates whether the solver supports the check-sat-assuming
    command. *)
-let check_sat_assuming_supported () = match Flags.smtsolver () with 
-  | `Z3_SMTLIB -> true
-  | `CVC4_SMTLIB -> false
-  | `MathSat5_SMTLIB -> false
-  | `Yices_SMTLIB -> false
-  | _ -> 
-    (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
-    failwith "SMTLIBSolver.check_sat_assuming_cmd"
-
-
-let z3_check_sat_assumptions_cmd assumptions = 
-  Format.asprintf 
-    "(check-sat %a)"
-    (pp_print_list pp_print_expr "@ ")
-    assumptions
-
-let cvc4_check_sat_assumptions_cmd _ = 
-  failwith "check-sat with assumptions not implemented for CVC4"
-
-let mathsat5_check_sat_assumptions_cmd assumptions = 
-  Format.asprintf 
-    "(check-sat-assumptions (%a))"
-    (pp_print_list pp_print_expr "@ ")
-    assumptions
-
-let yices_check_sat_assumptions_cmd _ = 
-  failwith "check-sat with assumptions not implemented for Yices"
+let check_sat_assuming_supported () = true
 
 
 (* Command to run check-sat with given assumptions *)
-let check_sat_assumptions_cmd assumptions = match Flags.smtsolver () with 
-  | `Z3_SMTLIB -> z3_check_sat_assumptions_cmd assumptions
-  | `CVC4_SMTLIB -> cvc4_check_sat_assumptions_cmd assumptions
-  | `MathSat5_SMTLIB -> mathsat5_check_sat_assumptions_cmd assumptions
-  | `Yices_SMTLIB -> yices_check_sat_assumptions_cmd assumptions
-  | _ -> 
-    (* (Event.log `INVMAN Event.L_fatal "Not using an SMTLIB solver"); *)
-    failwith "SMTLIBSolver.check_sat_limited_cmd"
+let check_sat_assumptions_cmd assumptions =
+  failwith "check-sat with assumptions not implemented for Yices"
 
+
+let next_id solver =
+  solver.solver_last_id
+  |> YicesResponse.int_of_yices_id
+  |> succ
+  |> YicesResponse.yices_id_of_int  
+
+
+let name_of_yices_id solver id =
+  let n = Hashtbl.find solver.solver_id_names id in
+  "t"^(string_of_int n)
+       
+    
+
+
+let register_unsat_core solver uc =
+  (* Get the corresponding SMTLIB names *)
+  solver.solver_state <- YUnsat uc
+
+
+let register_model solver model =
+  let m =
+    List.fold_left
+      (fun acc (e, v) ->
+       let e_smte = Conv.expr_of_string_sexpr e in
+       let v_smte = Conv.expr_of_string_sexpr v in
+       Format.eprintf "in model (= %a %a)@."
+                      pp_print_expr e_smte
+                      pp_print_expr v_smte;
+       SMTExprMap.add e_smte v_smte acc)
+      SMTExprMap.empty model in
+  solver.solver_state <- YModel m
 
 (* ********************************************************************* *)
 (* Helper functions to execute commands                                  *)
 (* ********************************************************************* *)
 
 
-(* Read an S-expression from the solver output *)
-let expr_of_solver_lexbuf { solver_lexbuf = lexbuf } = 
+(* Read the answer returned by yices *)                   
+let parse_yices_output { solver_lexbuf = lexbuf } =
+  (* Parse yices response and return *)
+  YicesParser.resp YicesLexer.token lexbuf
 
-  (* Parse S-expression and return *)
-  SExprParser.sexp SExprLexer.main lexbuf 
-  
 
 (* Parse the solver response to a command *)
 let get_command_response solver timeout = 
 
   (* Return response *)
-  response_of_sexpr (expr_of_solver_lexbuf solver)
+  match parse_yices_output solver with
+    
+  | YicesResponse.YSuccess ->
+     Success
+    
+  | YicesResponse.YNoResp ->
+     NoResponse (* or success maybe *)
+
+  | YicesResponse.YError msg ->
+     solver.solver_state <- YError;
+     Error msg
+     
+  | _ ->
+     failwith "Yices returned an unexpected response"
 
 
 (* Parse the solver response to a check-sat command *)
 let get_check_sat_response solver timeout = 
 
   (* Return response *)
-  check_sat_response_of_sexpr (expr_of_solver_lexbuf solver)
+  match parse_yices_output solver with
+    
+  | YicesResponse.YRespSat model ->
+     register_model solver model;
+     Sat
+       
+  | YicesResponse.YRespUnknown model ->
+     register_model solver model;
+     Unknown
+       
+  | YicesResponse.YRespUnsat uc ->
+     register_unsat_core solver uc;
+     Unsat
 
+  | YicesResponse.YSuccess ->
+     Response Success
 
-(* Parse the solver response to a get-value command *)
-let get_get_value_response solver timeout = 
+  | YicesResponse.YNoResp ->
+     Response NoResponse
 
-  (* Return response *)
-  get_value_response_of_sexpr (expr_of_solver_lexbuf solver)
-      
+  | YicesResponse.YError msg ->
+     solver.solver_state <- YError;
+     Response (Error msg)
 
-(* Parse the solver response to a get-unsat-core command *)
-let get_get_unsat_core_response solver timeout = 
-
-  (* Return response *)
-  get_unsat_core_response_of_sexpr (expr_of_solver_lexbuf solver)
-      
 
 (* Get n S-expressions from the solver *)
-let rec get_custom_command_result solver accum = function 
-
-  (* Terminate recursion and return result *)
-  | i when i <= 0 -> List.rev accum
-
-  (* Get one S-expression and recurse to get remaining results *)
-  | i -> 
-
-    get_custom_command_result 
-      solver
-      (expr_of_solver_lexbuf solver :: accum) 
-      (pred i)
+let rec get_custom_command_result solver accum i =
+  failwith "Yices get_custom_command_result not implemented"
 
 
 (* Parse the solver response to a custom command *)
 let get_custom_command_response num_res solver timeout = 
+  failwith "Yices get_custom_command_response not implemented"
 
-  (* Get response from solver *)
-  let response = expr_of_solver_lexbuf solver in
-
-  (* Get result only upon success *)
-  match get_custom_command_response_of_sexpr response with 
-
-    (* First line of reply is success status *)
-    | Success -> 
-
-      (* Get remaining results *)
-      let result = get_custom_command_result solver [] num_res in
-
-      (* Return response and result *)
-      (Success, result) 
-        
-    (* First line of reply is neither error nor success *)
-    | NoResponse -> 
-
-      (* Use already consumed first result and get remaining results *)
-      let result = 
-        response :: get_custom_command_result solver [] (pred num_res) 
-      in
-      
-      (* Return success and result *)
-      (Success, result) 
-        
-    (* First line of reply is error or unsupported *)
-    | (Error _ as r) 
-    | (Unsupported as r) -> 
-
-      (* Return response and empty result *)
-      (r, []) 
 
 
 let get_any_response solver timeout = function
   | NoRespCmd -> NoResp
   | Cmd -> Resp (get_command_response solver timeout)
   | CheckSatCmd -> CheckSatResp (get_check_sat_response solver timeout)
-  | GetValueCmd -> GetValueResp (get_get_value_response solver timeout)
-  | GetUnsatCoreCmd ->
-     GetUnsatCoreResp (get_get_unsat_core_response solver timeout)
   | CustomCmd num_res ->
      CustomResp (get_custom_command_response num_res solver timeout)
+  | GetUnsatCoreCmd | GetValueCmd -> assert false
 
 
 let pp_print_any_response ppf = function
@@ -335,10 +257,11 @@ let pp_print_any_response ppf = function
 
 (* Send the command to the solver instance *)
 let send_command 
-    ({ solver_stdin = solver_stdin; } as solver)
-    cmd_type
-    command 
-    timeout = 
+      ({ solver_stdin = solver_stdin; } as solver)
+      ~wait
+      cmd_type
+      command 
+      timeout = 
 
   (* Get an output channel to write to solver's stdin *)
   let solver_stdin_ch = Unix.out_channel_of_descr solver_stdin in
@@ -348,26 +271,32 @@ let send_command
     Format.formatter_of_out_channel solver_stdin_ch 
   in
 
+  (* Add the success marker if we need to parse the response *)
+  let cmd =
+    if wait then
+      Format.sprintf "%s\n(echo \"%s\\n\")" command YicesResponse.success
+    else command
+  in
+  
   (* Send command to solver *)
-  Format.pp_print_string solver_stdin_formatter command;
+  Format.pp_print_string solver_stdin_formatter cmd;
 
   (* Print newline and flush formatter *)
   Format.pp_print_newline solver_stdin_formatter ();
 
   (* Wait for response without timeout *)
-  let res = get_any_response solver timeout cmd_type in
+  if wait then get_any_response solver timeout cmd_type
+  else Resp Success
 
-  (* Return response *)
-  res
 
 (* Samme as above but additionnaly trace the commands and responses *)
-let send_command_and_trace solver cmd_type command timeout = 
+let send_command_and_trace ~wait solver cmd_type command timeout = 
 
   (* Trace the command *)
   solver.solver_trace_cmd command;
 
   (* Send the command to the solver and get the response *)
-  let res = send_command solver cmd_type command timeout in
+  let res = send_command ~wait solver cmd_type command timeout in
 
   (* Trace the response of the solver *)
   solver.solver_trace_res res;
@@ -377,14 +306,14 @@ let send_command_and_trace solver cmd_type command timeout =
 (* Execute a command and return the response *)
 let execute_command solver command timeout = 
 
-  match send_command_and_trace solver Cmd command timeout with
+  match send_command_and_trace ~wait:true solver Cmd command timeout with
   | Resp res -> res
   | _ -> assert false
 
 (* Execute a command without logging in the trace and return the response *)
 let execute_command_no_trace solver command timeout = 
 
-  match send_command solver Cmd command timeout with
+  match send_command ~wait:true solver Cmd command timeout with
   | Resp res -> res
   | _ -> assert false
 
@@ -392,57 +321,82 @@ let execute_command_no_trace solver command timeout =
 (* Execute a command and do not parse a response *)
 let execute_command_no_response solver command timeout = 
 
-  match send_command_and_trace solver NoRespCmd command timeout with
-  | NoResp -> NoResponse
+  match send_command_and_trace ~wait:false solver NoRespCmd command timeout with
+  | NoResp | Resp Success -> Success
   | _ -> assert false
 
 
 (* Execute a check-sat command and return the response *)
 let execute_check_sat_command solver command timeout = 
 
-  match send_command_and_trace solver CheckSatCmd command timeout with
+  match send_command_and_trace ~wait:true solver CheckSatCmd command timeout with
   | CheckSatResp res -> res
-  | _ -> assert false
-
-
-(* Execute a get-value command and return the response *)
-let execute_get_value_command solver command timeout = 
-
-  match send_command_and_trace solver GetValueCmd command timeout with
-  | GetValueResp res -> res
-  | _ -> assert false
-
-
-(* Execute a get-unsat-core command and return the response *)
-let execute_get_unsat_core_command solver command timeout = 
-
-  match send_command_and_trace solver GetUnsatCoreCmd command timeout with
-  | GetUnsatCoreResp res -> res
   | _ -> assert false
 
 
 (* Execute a custom command and return the response *)
 let execute_custom_command' solver command timeout num_res = 
 
-  match send_command_and_trace solver (CustomCmd num_res) command timeout with
+  match
+    send_command_and_trace ~wait:true
+       solver (CustomCmd num_res) command timeout with
   | CustomResp res -> res
   | _ -> assert false  
+
+
+(* ********************************************************************* *)
+(* Helper functions for printing commands                                *)
+(* ********************************************************************* *)
+
+(* Print function type *)
+let pp_print_function_type ppf (arg_sorts, res_sort) =
+  
+  match arg_sorts with
+  (* Not an arrow type (constant symbol) *)
+  | [] -> Format.fprintf ppf "%s" (string_of_sort res_sort)
+
+  (* Arrow type *)
+  | _ ->  Format.fprintf ppf "@[<hv 1>(-> @[%a@]@ %s)@]"
+                         (pp_print_list Format.pp_print_string "@ ")
+                           (List.map string_of_sort arg_sorts)
+                         (string_of_sort res_sort)
+
+
+
+(* Print one binding, i.e. variable with type annotation *)
+let pp_print_binding ppf var =
+  Format.fprintf ppf "%s :: %s"
+                 (Var.string_of_var var)
+                 (string_of_sort (Var.type_of_var var))
+
+
+(* Print a list of bindings, i.e. variables with their type *)
+let pp_print_bindings ppf vars =
+  match vars with
+  (* Bindings cannot be empty *)
+  | [] -> assert false
+  | _ ->
+     Format.fprintf ppf "(@[<hv 1>%a@])"
+                    (pp_print_list pp_print_binding "@ ") vars
+
+(* Print lambda expression *)
+let pp_print_lambda ppf (arg_vars, defn)  =
+  Format.fprintf ppf "(lambda@ @[<hv 1>%a@]@ %a)"
+                 pp_print_bindings arg_vars
+                 pp_print_expr defn
 
 
 (* ********************************************************************* *)
 (* Commands                                                              *)
 (* ********************************************************************* *)
 
-
 (* Declare a new function symbol *)
 let declare_fun solver fun_symbol arg_sorts res_sort = 
 
   let cmd = 
-    Format.sprintf 
-      "@[<hv 1>(declare-fun@ %s@ @[<hv 1>%s@]@ %s)@]" 
-      fun_symbol
-      (paren_string_of_string_list (List.map string_of_sort arg_sorts))
-      (string_of_sort res_sort)
+    Format.asprintf 
+      "@[<hv 1>(define@ %s ::@ @[<hv 1>%a@])@]"
+      fun_symbol pp_print_function_type (arg_sorts, res_sort)
   in
 
   (* Send command to the solver without timeout *)
@@ -450,21 +404,17 @@ let declare_fun solver fun_symbol arg_sorts res_sort =
 
 
 (* Define a new function symbol as an abbreviation for an expression *)
-let define_fun solver fun_symbol arg_vars res_sort defn = 
+let define_fun solver fun_symbol arg_vars res_sort defn =
 
+  (* Get type of arguments *)
+  let arg_sorts = List.map Var.type_of_var arg_vars in
+  
   let cmd =
     Format.asprintf
-      "@[<hv 1>(define-fun@ %s@ @[<hv 1>(%a)@]@ %s@ %a)@]" 
+      "@[<hv 1>(define@ %s ::@ @[<hv 1>%a@]@ @[<hv 1>%a@])@]" 
       fun_symbol
-      (pp_print_list
-         (fun ppf var -> 
-          Format.fprintf ppf "(%s %s)" 
-                         (Var.string_of_var var)
-                         (string_of_sort (Var.type_of_var var)))
-         "@ ")
-      arg_vars
-      (string_of_sort res_sort)
-      pp_print_expr defn
+      pp_print_function_type (arg_sorts, res_sort)
+      pp_print_lambda (arg_vars, defn)
   in
 
   (* Send command to the solver without timeout *)
@@ -474,38 +424,131 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 (* Assert the expression *)
 let assert_expr solver expr = 
 
+  (* Take the next id *)
+  let id = next_id solver in
+  
+  let t = Conv.term_of_smtexpr expr in
+  let t', name_info =
+    if Term.is_named t then
+      (* Open the named term and map the yices id to the name *)
+      begin
+        let name = Term.name_of_named t in
+        Hashtbl.add solver.solver_id_names id name; 
+        Term.term_of_named t, " -> t"^(string_of_int name)
+      end
+    else t, ""  in
+  let expr = Conv.smtexpr_of_term t' in
+  
+
   let cmd = 
-    Format.sprintf
-      "@[<hv 1>(assert@ @[<hv>%s@])@]" 
-      (string_of_expr expr) in
+    Format.asprintf
+      "@[<hv 1>(assert+@ @[<hv>%s@]) ;; id %a%s@]" 
+      (string_of_expr expr)
+      YicesResponse.pp_print_yices_id id
+      name_info
+  in
   
   (* Send command to the solver without timeout *)
-  execute_command solver cmd 0
+  let res = execute_command solver cmd 0 in
 
-    
+  (* Register the new asserted id once the solver has asserted it
+     and update state to indicate context has been modified *)
+  solver.solver_last_id <- id;
+  solver.solver_state <- YNone;
+  
+  (* Return result of command *)
+  res
+
+
+(* Retract an assertion from the context of Yices *)
+let retract solver id =
+
+  let cmd = Format.asprintf
+              "@[<hv 1>(retract %a)@]"
+              YicesResponse.pp_print_yices_id id
+  in
+
+  (* Send command to the solver without timeout *)
+  ignore(execute_command solver cmd 0)
+
+  
+
+(* Push one empty assertion to the stack *)
+let push_1 solver =
+  let cmd = Format.sprintf "@[<hv 1>(push)@]" in
+
+  (* Send command to the solver without timeout *)
+  execute_command solver cmd 0
+  
+
 (* Push a number of empty assertion sets to the stack *)
-let push solver scopes = 
+let rec push solver = function
+  | 0 -> Success
+  | 1 -> push_1 solver
+  | n when n > 0 ->
+     (match push_1 solver with
+      | Success | NoResponse -> ()
+      | _ -> failwith "Could not push");
+     push solver (pred 1)
+  | _ -> assert false
 
-  let cmd = Format.sprintf "@[<hv 1>(push@ %d)@]" scopes in
+
+(* Pop one empty assertion to the stack *)
+let pop_1 solver =
+  let cmd = Format.sprintf "@[<hv 1>(pop)@]" in
 
   (* Send command to the solver without timeout *)
   execute_command solver cmd 0
+  
+
+(* Pop a number of empty assertion sets to the stack *)
+let rec pop solver = function
+  | 0 -> Success
+  | 1 -> pop_1 solver
+  | n when n > 0 -> 
+     (match pop_1 solver with
+      | Success | NoResponse -> ()
+      | _ -> failwith "Could not pop");
+     pop solver (pred 1)
+  | _ -> assert false
 
 
-(* Pop a number of assertion sets from the stack *)
-let pop solver scopes  = 
+(* Same as before but more efficient *)
+let fast_push_1 solver =
+  Stack.push solver.solver_last_id solver.solver_push_stack
 
-  let cmd = Format.sprintf "@[<hv 1>(pop@ %d)@]" scopes in
+let rec fast_push solver = function
+  | 0 -> ()
+  | 1 -> fast_push_1 solver
+  | n when n > 0 -> fast_push_1 solver; fast_push solver (pred 1)
+  | _ -> assert false
 
-  (* Send command to the solver without timeout *)
-  execute_command solver cmd 0
+(* Get last element of multiple pops *)
+let rec popn_stack_ids s = function
+  | 1 -> Stack.pop s
+  | n when n > 0 ->
+     ignore (Stack.pop s); popn_stack_ids s (pred n)
+  | _ -> assert false
+                   
+let fast_pop solver = function
+  | 0 -> ()
+  | n when n > 0 ->
+     (try
+         let id = popn_stack_ids solver.solver_push_stack n in
+         for i = YicesResponse.int_of_yices_id solver.solver_last_id
+             downto YicesResponse.int_of_yices_id id + 1 do
+           retract solver (YicesResponse.yices_id_of_int i)
+         done
+       with Stack.Empty -> failwith "Yices stack empty: cannot pop")
+  | _ -> failwith "Yices: cannot pop negative number of times"
+                                  
 
 
 (* Check satisfiability of the asserted expressions *)
 let check_sat ?(timeout = 0) solver = 
 
   let cmd = match timeout with 
-    | i when i <= 0 -> Format.sprintf "@[<hv 1>(check-sat)@]"
+    | i when i <= 0 -> Format.sprintf "@[<hv 1>(check)\n@]"
     | _ -> check_sat_limited_cmd timeout
   in
 
@@ -515,66 +558,112 @@ let check_sat ?(timeout = 0) solver =
 
 (* Check satisfiability of the asserted expressions *)
 let check_sat_assuming solver exprs =
-  (* Retrieving command from solver info. *)
-  let command = match Flags.smtsolver () with 
-    | `Z3_SMTLIB -> "check-sat"
-    | `CVC4_SMTLIB -> failwith "CVC4 does not support check_sat_assuming."
-    | `MathSat5_SMTLIB -> failwith "MathSat5 does not support check_sat_assuming."
-    | `Yices_SMTLIB -> failwith "Yices does not support check_sat_assuming."
-    | _ -> 
-       (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
-       failwith "SMTLIBSolver.check_sat_assuming"
+
+  (* We use retract feature of Yices to keep internal context *)
+  fast_push solver 1;
+  let res =
+    List.fold_left (fun acc expr -> assert_expr solver expr) NoResponse exprs
   in
-
-  (* Building the complete command. *)
-  let cmd =
-    exprs
-    |> List.fold_left
-         ( fun s e -> 
-           Format.sprintf "%s %s" s (string_of_expr e) )
-         command
-    |> Format.sprintf "(%s)"
-  in
-
-  (* Send command to the solver without timeout *)
-  execute_check_sat_command solver cmd 0
-
-
-(* Check satisfiability of the asserted expressions under the given
-   assumptions *)
-let check_sat_assumptions solver assumptions = 
-
-  (* Create command per solver *)
-  let cmd = check_sat_assumptions_cmd assumptions in
-
-  (* Send command to the solver without timeout *)
-  execute_check_sat_command solver cmd 0
+  match res with
+  | Error _ | Unsupported -> Response res
+  | Success
+  | NoResponse ->
+     let res = check_sat ~timeout:0 solver in
+     (* Remove assumed expressions from context while keeping state *)
+     fast_pop solver 1;
+     res
 
 
 (* Get values of expressions in the model *)
 let get_value solver expr_list = 
 
-  (* The command to send to the solver *)
+  (* get-value is not supported by Yices so we simulate the command by looking
+     up values in the registered model of the solver state *)
+  
+  (* The fake SMTLIB command  *)
   let cmd = 
     Format.asprintf
       "@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]" 
       (pp_print_list pp_print_expr "@ ") expr_list;
   in
 
-  (* Send command to the solver without timeout *)
-  execute_get_value_command solver cmd 0
+  (* Trace the fake command but comment it *)
+  solver.solver_trace_cmd (";; "^cmd);
+
+  match solver.solver_state with
+  | YModel model ->
+
+     let varterm_model =
+       SMTExprMap.fold
+         (fun e v acc ->
+          try (Conv.var_of_smtexpr e, Conv.term_of_smtexpr v) :: acc
+          with Invalid_argument _ -> acc)
+         model []
+     in
+     
+     let smt_expr_values =
+       List.fold_left
+         (fun acc e ->
+          let v =
+            try SMTExprMap.find e model
+            with Not_found ->
+              (* Try to evaluate the term in this model if we cannot find
+                 it in yices' model *)
+              let ev =
+                Eval.eval_term [] varterm_model (Conv.term_of_smtexpr e) in
+              Conv.smtexpr_of_term (Eval.term_of_value ev)
+          in
+          (e, v) :: acc) [] expr_list
+     in
+
+     (* construct the response with the desired values *)
+     let res = Success, smt_expr_values in
+       
+     (* Trace the response of the solver *)
+     solver.solver_trace_res (GetValueResp res);
+
+     (* return the computed values *)
+     res
+
+  | _ -> failwith "Yices: No model to compute get-values"
 
 
 (* Get an unsatisfiable core *)
 let get_unsat_core solver = 
 
-  (* The command to send to the solver *)
+  (* get-unsat-core is not supported by Yices so we simulate the command by
+     looking up names in the registered unsat core of the solver state *)
+
+  (* The fake SMTLIB command  *)
   let cmd = 
     Format.sprintf "@[<hv 1>(get-unsat-core)@]"
   in
+  
+  (* Trace the fake command but comment it *)
+  solver.solver_trace_cmd (";; "^cmd);
 
-  (* Send command to the solver without timeout *)
-  execute_get_unsat_core_command solver cmd 0
+  match solver.solver_state with
+  | YUnsat uc ->
+
+     (* Get the names for the unsat core ids *)
+     let uc_names =
+       List.fold_left (fun acc id ->
+                 try name_of_yices_id solver id :: acc
+                 with Not_found ->
+                    (* This means that this assertion was not originally named
+                       so we're not interrested in its appearance in the
+                       unsat core. Ignore it. *)
+                   acc) [] uc in
+
+     let res = Success, uc_names in
+     
+     (* Trace the response of the solver *)
+     solver.solver_trace_res (GetUnsatCoreResp res);
+
+     (* return the computed values *)
+     res
+
+  | _ -> failwith "Yices: No unsat core to return"
 
 
 (* Execute a custom command and return the response *)
@@ -623,7 +712,7 @@ let create_trace_ppf id =
     let trace_filename = 
       Filename.concat
         (Flags.smt_trace_dir ())
-        (Format.sprintf "%s.%s.%d.smt2" 
+        (Format.sprintf "%s.%s.%d.ys" 
                         (Filename.basename (Flags.input_file ()))
                         (suffix_of_kind_module (Event.get_module ()))
                         id)
@@ -656,12 +745,12 @@ let create_trace_ppf id =
     None 
 
 (* Tracing of commands *)
-let trace_cmd solver_ppf cmd = match solver_ppf with
-  | Some ppf -> Format.fprintf ppf "%s@." cmd
-  | None -> ()
+let trace_cmd = function
+  | Some ppf -> fun cmd -> Format.fprintf ppf "%s@." cmd
+  | None -> fun _ -> ()
 
 (* Tracing of responses *)
-let trace_res solver_ppf res = match solver_ppf with
+let trace_res = function
   | Some ppf ->
      let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
 
@@ -678,9 +767,10 @@ let trace_res solver_ppf res = match solver_ppf with
          Format.out_newline = 
            fun () -> fmt_out_fun.Format.out_string "\n;; " 0 4  };
 
+     fun res ->
      Format.kfprintf reset_ppf ppf ";; %a" pp_print_any_response res
 
-  | None -> ()
+  | None -> fun _ -> ()
 
 
 (* Create an instance of the solver *)
@@ -705,6 +795,7 @@ let create_instance
   let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
   let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
 
+  
   (* Create solver process *)
   let solver_pid = 
     Unix.create_process 
@@ -714,12 +805,14 @@ let create_instance
       solver_stdout_out
       solver_stderr_out
   in
-
+  
+  
   (* Close our end of the pipe which has been duplicated by the
      process *)
   Unix.close solver_stdin_in;
-  Unix.close solver_stdout_out; 
-  Unix.close solver_stderr_out; 
+  Unix.close solver_stdout_out;
+  Unix.close solver_stderr_out;
+
 
   (* Get an output channel to read from solver's stdout *)
   let solver_stdout_ch = Unix.in_channel_of_descr solver_stdout_in in
@@ -742,108 +835,47 @@ let create_instance
       solver_stdout = solver_stdout_in; 
       solver_stderr = solver_stderr_in;
       solver_trace_cmd = ftrace_cmd;
-      solver_trace_res = ftrace_res; }
+      solver_trace_res = ftrace_res;
+      solver_state = YNone;
+      solver_last_id = YicesResponse.yices_id_of_int 0;
+      solver_id_names = Hashtbl.create 19;
+      solver_push_stack = Stack.create ();
+    }
   in
 
-  (* Print success after commands, default is false per SMTLIB
-     specification *)
+  (* Produce assignments to be queried with get-values, default is
+     false per SMTLIB specification *)
+  
+  let evidence =
+    (match produce_cores with Some o -> o | None -> false) ||
+    (match produce_assignments with Some o -> o | None -> false) ||
+    (match produce_models with Some o -> o | None -> false) in
+  
   (match 
-     let cmd = "(set-option :print-success true)" in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> raise (Failure ("Cannot set option print-success")));
+      let cmd =
+        Format.sprintf "(set-evidence! %B)" evidence
+      in
+      (debug smt "%s" cmd in
+       execute_command solver cmd 0)
+    with 
+    | Success | NoResponse -> () 
+    | _ -> raise (Failure ("Cannot set option evidence")));
 
-  (* Interactive mode not needed for MathSAT5 *)
-  (match Flags.smtsolver () with 
-    | `Z3_SMTLIB ->
-
-      (* Run in interactive mode *)
-      (match 
-         let cmd = "(set-option :interactive-mode true)" in
-         (debug smt "%s" cmd in
-          execute_command_no_trace solver cmd 0)
-       with 
-         | Success -> () 
-         | _ -> raise (Failure ("Cannot set option interactive-mode")))
-
-    | _ -> ()
-
-  );
-
-  (* Produce assignments to be queried with get-values, default is
-     false per SMTLIB specification *)
-  (match Flags.smtsolver () with 
-    | `Yices_SMTLIB -> ()
-    | _ -> 
-
-      (match produce_models with
-        | None -> ()
-        | Some o ->
-          (match 
-             let cmd =
-               Format.sprintf "(set-option :produce-models %B)" o 
-             in
-             (debug smt "%s" cmd in
-              execute_command solver cmd 0)
-           with 
-             | Success -> () 
-             | _ -> raise (Failure ("Cannot set option produce-models")))));
-
-  (* Produce assignments to be queried with get-values, default is
-     false per SMTLIB specification *)
-  (match Flags.smtsolver () with 
-    | `Yices_SMTLIB -> ()
-    | _ -> 
-
-      (match produce_assignments with
-        | None -> ()
-        | Some o ->
-          (match 
-             let cmd =
-               Format.sprintf "(set-option :produce-assignments %B)" o 
-             in
-             (debug smt "%s" cmd in
-              execute_command solver cmd 0)
-           with 
-             | Success -> () 
-             | _ -> raise
-                      (Failure ("Cannot set option produce-assignments")))));
-
-  (* Produce unsatisfiable cores, default is false per SMTLIB
-     specification *)
-  (match Flags.smtsolver () with 
-    | `Yices_SMTLIB -> ()
-    | _ -> 
-      (match produce_cores with
-        | None -> ()
-        | Some o ->
-          (match 
-             let cmd =
-               Format.sprintf "(set-option :produce-unsat-cores %B)" o in
-             (debug smt "%s" cmd in
-              execute_command solver cmd 0)
-           with 
-             | Success -> () 
-             | _ -> 
-               raise
-                 (Failure ("Cannot set option produce-unsat-cores")))));
-      
   (* Set logic *)
   (match logic with 
-    | `detect -> () 
-    | _ -> 
+    | `LIA | `LRA -> 
       (match
-         let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
+         let cmd = "(set-arith-only! true)" in
          (debug smt "%s" cmd in
           execute_command solver cmd 0)
        with 
-         | Success -> () 
+         | Success | NoResponse -> () 
          | _ -> 
            raise 
              (Failure 
-                ("Cannot set logic " ^ (string_of_logic logic)))));
+                ("Cannot set logic " ^ (string_of_logic logic))))
+  
+    | `detect | _ -> () );
 
   (* Return solver instance *)
   solver
@@ -865,8 +897,14 @@ let delete_instance
      command. Hence, ignore these stale respones on the output
      channel *)
 
-  let _ = execute_command_no_response solver "(exit)" 0 in
+  ignore (execute_command_no_response solver "(exit)" 0);
 
+  (* Reset internal state of yices *)
+  solver.solver_last_id <- YicesResponse.yices_id_of_int 0;
+  solver.solver_state <- YNone;
+  Hashtbl.clear solver.solver_id_names;
+  Stack.clear solver.solver_push_stack;
+  
   (* Wait for process to terminate *)
   let _, process_status = Unix.waitpid [] solver_pid in
 

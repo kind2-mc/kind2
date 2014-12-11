@@ -20,7 +20,6 @@
   open Printf
   open Lexing
   open YicesParser
-  open SExprParser
 
   let keywords = Hashtbl.create 97
   let () = 
@@ -34,6 +33,9 @@
         "ids", IDS;
 	"unsatisfied", UNSATISFIED;
         "assertion", ASSERTION;
+        "Error", ERROR;
+        "error", ERROR;
+        YicesResponse.success, SUCCESS;
       ]
 	       
   let newline lexbuf =
@@ -42,22 +44,29 @@
       { pos with pos_lnum = pos.pos_lnum + 1; pos_bol = pos.pos_cnum }
 }
 
+
+let lf = '\010'
+let lf_cr = ['\010' '\013']
+let dos_newline = "\013\010"
+let blank = [' ' '\009' '\012']
 let newline = '\n'
-let space = [' ' '\t' '\r']
+let space = [' ' '\t' '\r' '\009' '\012']
 let digit = ['0' - '9']
 let integer = digit+
-let ident = ['0'-'9' 'a'-'z' 'A'-'Z' '_' '@' '$' '#' '%' '!' '.' '^' '~' '\' '[' '\' ']']
+let ident = ['0'-'9' 'a'-'z' 'A'-'Z' '_' '@' '$' '#' '%' '!' '.' '^' '~' '\\' '['  ']']+
+let line = [^ '\n']*
 
+                
 rule token = parse
   | newline 
       { newline lexbuf; token lexbuf }
-  | space+  
+  | space+
       { token lexbuf }
   | integer as i
       { INT (int_of_string i) }
   | ident as id
       {
-        try Hashtbl.find keywords other
+        try Hashtbl.find keywords id
 	with Not_found -> IDENT id
       }
   | "("
@@ -68,7 +77,9 @@ rule token = parse
       { COLON }
   | "="
       { EQ }
-  | eof 
+  | eof
       { EOF }
+  (* | line as l *)
+  (*     { LINE l } *)
   | _ as c
-      { raise (Lexical_error ("illegal character: " ^ String.make 1 c)) }
+      { failwith ("YicesLexer: illegal character: " ^ String.make 1 c) }
