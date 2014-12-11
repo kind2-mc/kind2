@@ -1199,8 +1199,11 @@ module Yices_Keywords =
     (* Pretty-print a logic identifier *)
     let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
-                             
     let pp_print_sort ppf t = Type.pp_print_type ppf t
+
+    (* let pp_print_sort ppf t = match Type.node_of_type t with *)
+    (*     | Type.IntRange _ -> Format.fprintf ppf "int" *)
+    (*     | _ -> Type.pp_print_type ppf t *)
 
 
     let string_of_sort = string_of_t pp_print_sort
