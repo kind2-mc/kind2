@@ -52,7 +52,7 @@ let blank = [' ' '\009' '\012']
 let newline = '\n'
 let space = [' ' '\t' '\r' '\009' '\012']
 let digit = ['0' - '9']
-let integer = digit+
+let integer = ('-')? digit+
 let ident = ['0'-'9' 'a'-'z' 'A'-'Z' '_' '@' '$' '#' '%' '!' '.' '^' '~' '\\' '['  ']']+
 let line = [^ '\n']*
 
@@ -77,6 +77,8 @@ rule token = parse
       { COLON }
   | "="
       { EQ }
+  | "-" | "+" | "*" | "/" as op
+      { IDENT (String.make 1 op) }
   | eof
       { EOF }
   (* | line as l *)

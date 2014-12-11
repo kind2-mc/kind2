@@ -207,10 +207,7 @@ sig
 
   (** Prefix operator to create an numeral *)
   val ( ?%@ ) : int -> t
-(*
-  (** Prefix operator to create an decimal *)
-  val ( ?/@ ) : float -> t
-*)
+
   (** Prefix operator to create an Boolean negation *)
   val ( !@ ) : t -> t
 

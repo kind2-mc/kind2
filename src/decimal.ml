@@ -97,6 +97,9 @@ let string_of_decimal = string_of_t pp_print_decimal
 (* ********************************************************************** *)
 
 
+(* Convert an interger to a rational number *)
+let of_int = Num.num_of_int
+ 
 (* Convert an integer to a rational number *)
 let of_int = Num.num_of_int
 

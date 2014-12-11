@@ -153,9 +153,9 @@ let register_model solver model =
       (fun acc (e, v) ->
        let e_smte = Conv.expr_of_string_sexpr e in
        let v_smte = Conv.expr_of_string_sexpr v in
-       Format.eprintf "in model (= %a %a)@."
-                      pp_print_expr e_smte
-                      pp_print_expr v_smte;
+       (* Format.eprintf "in model (= %a %a)@." *)
+       (*                pp_print_expr e_smte *)
+       (*                pp_print_expr v_smte; *)
        SMTExprMap.add e_smte v_smte acc)
       SMTExprMap.empty model in
   solver.solver_state <- YModel m
@@ -164,10 +164,40 @@ let register_model solver model =
 (* Helper functions to execute commands                                  *)
 (* ********************************************************************* *)
 
+(* Default values for types (used to compensate for yices' incomplete models) *)
+let default_type_term =
+  let open Type in
+  let open Term in
+  function
+  (* Default boolean: false *)
+  | Bool -> mk_bool false
+  (* Default integer: 0 *)
+  | Int -> mk_num Numeral.zero
+  (* Take the first value of the range as its default *)
+  | IntRange (i, _) -> mk_num i
+  (* Default real: 0.0 *)
+  | Real -> mk_dec Decimal.zero
+  (* Take first constructor of scalar type as its default *)
+  | Scalar (_, c::_) ->
+     mk_const (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string c)))
+  (* Take the bitvector 00000000...0 as default *)
+  | BV n -> mk_bv (Lib.bitvector_of_string (String.make n '0'))
+  (* We shouldn't ask default value for a whole array *)
+  | Array _ -> failwith "No defaut value for arrays"
+  | Scalar (_, []) -> failwith "No defaut value for empty scalars"
+
+(* Default SMTExpr.t value for a type *)
+let default_of_type ty =
+  ty
+  |> Type.node_of_type
+  |> default_type_term
+  |> Conv.smtexpr_of_term
+    
 
 (* Read the answer returned by yices *)                   
 let parse_yices_output { solver_lexbuf = lexbuf } =
   (* Parse yices response and return *)
+  (* Format.eprintf "parsing <%s>" lexbuf.Lexing.lex_buffer; *)
   YicesParser.resp YicesLexer.token lexbuf
 
 
@@ -434,17 +464,18 @@ let assert_expr solver expr =
       begin
         let name = Term.name_of_named t in
         Hashtbl.add solver.solver_id_names id name; 
-        Term.term_of_named t, " -> t"^(string_of_int name)
+        Term.term_of_named t,
+        Format.asprintf "[id: %a, name: t%d]"
+                       YicesResponse.pp_print_yices_id id name
       end
-    else t, ""  in
+    else t, Format.asprintf "[id: %a]" YicesResponse.pp_print_yices_id id in
   let expr = Conv.smtexpr_of_term t' in
   
 
   let cmd = 
     Format.asprintf
-      "@[<hv 1>(assert+@ @[<hv>%s@]) ;; id %a%s@]" 
+      "@[<hv 1>(assert+@ @[<hv>%s@])@]\n;; %s" 
       (string_of_expr expr)
-      YicesResponse.pp_print_yices_id id
       name_info
   in
   
@@ -593,25 +624,15 @@ let get_value solver expr_list =
   match solver.solver_state with
   | YModel model ->
 
-     let varterm_model =
-       SMTExprMap.fold
-         (fun e v acc ->
-          try (Conv.var_of_smtexpr e, Conv.term_of_smtexpr v) :: acc
-          with Invalid_argument _ -> acc)
-         model []
-     in
-     
      let smt_expr_values =
        List.fold_left
          (fun acc e ->
           let v =
             try SMTExprMap.find e model
             with Not_found ->
-              (* Try to evaluate the term in this model if we cannot find
-                 it in yices' model *)
-              let ev =
-                Eval.eval_term [] varterm_model (Conv.term_of_smtexpr e) in
-              Conv.smtexpr_of_term (Eval.term_of_value ev)
+              (* If the variable is not found in the model, use the default
+                 value for its type *)
+              default_of_type (Var.type_of_var (Conv.var_of_smtexpr e))
           in
           (e, v) :: acc) [] expr_list
      in
@@ -651,7 +672,7 @@ let get_unsat_core solver =
                  try name_of_yices_id solver id :: acc
                  with Not_found ->
                     (* This means that this assertion was not originally named
-                       so we're not interrested in its appearance in the
+                       so we're not interrested in its appearing in the
                        unsat core. Ignore it. *)
                    acc) [] uc in
 

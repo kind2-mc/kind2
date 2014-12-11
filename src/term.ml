@@ -893,19 +893,6 @@ let mk_num_of_int i = mk_num (Numeral.of_int i)
 (* Hashcons a real decimal *)
 let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
 
-(*
-
-(* Hashcons a floating-point decimal given a float *)
-let mk_dec_of_float = function
-
-  (* Positive decimal *)
-  | f when f >= 0. -> 
-    mk_const_of_symbol_node (`DECIMAL (decimal_of_float f))
-
-  (* Negative decimal *)
-  | f -> 
-    mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
-*)
 
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
@@ -1313,10 +1300,6 @@ module Abbrev =
 struct
 
   let ( ?%@ ) i = mk_num_of_int i
-
-(*
-  let ( ?/@ ) f = mk_dec_of_float f
-*)
 
   let ( !@ ) t = mk_not t
 

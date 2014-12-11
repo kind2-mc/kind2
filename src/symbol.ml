@@ -445,10 +445,8 @@ module YicesPrinter : Printer =
       | `TO_INT -> Format.pp_print_string ppf "to_int"
       | `IS_INT -> failwith "is_int not implemented for yices"
 
-      | `DIVISIBLE n -> 
-         Format.pp_print_string ppf "divisible";
-         Format.pp_print_space ppf ();
-         Numeral.pp_print_numeral ppf n
+      | `DIVISIBLE n ->
+         failwith "divisible not implemented for yices"
 
       | `CONCAT -> Format.pp_print_string ppf "bv-concat"
       | `EXTRACT (i, j) -> 
