@@ -26,6 +26,10 @@ module OneState : sig
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
 
+  (** Launches invariant generation with a max [k] and a set of
+      candidate terms. *)
+  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+
 end
 
 (** Two state graph-based invariant generation module. *)
@@ -36,6 +40,10 @@ module TwoState : sig
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
+
+  (** Launches invariant generation with a max [k] and a set of
+      candidate terms. *)
+  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
 
 end
 

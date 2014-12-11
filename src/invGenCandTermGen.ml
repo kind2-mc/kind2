@@ -577,6 +577,15 @@ let generate_graphs two_state trans =
   (* Returning implication graphs and candidate term count. *)
   CandidateTermGen.build_graphs candidate_terms, count
 
+(* Creates a graph for a transition system using the specified list of
+   invariants. *)
+let create_graph trans candidates =
+  match
+    CandidateTermGen.build_graphs [ (trans, candidates) ]
+  with
+    | (_, graph) :: _ -> graph
+    | _ -> assert false
+
 
     
 (* 

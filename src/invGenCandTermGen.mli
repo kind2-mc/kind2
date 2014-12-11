@@ -30,6 +30,10 @@ val generate_candidate_terms :
     number of candidate terms generated. *)
 val generate_graphs :
   bool -> TransSys.t -> (TransSys.t * ImplicationGraph.t) list * int
+  
+(** Creates a graph for a transition system using the specified list
+    of invariants. *)
+val create_graph : TransSys.t -> Term.TermSet.t -> ImplicationGraph.t
 
 (* 
    Local Variables:
