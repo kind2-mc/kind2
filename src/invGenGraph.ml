@@ -41,6 +41,10 @@ module type Out = sig
   (* Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
 
+  (* Launches invariant generation with a max [k] and a set of
+     candidate terms. *)
+  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+
 end
 
 (* Builds an invariant generation technique from an [In] module. *)
@@ -783,6 +787,60 @@ module Make (InModule : In) : Out = struct
 
     (* Generating invariants. *)
     generate_invariants trans_sys lsd
+
+
+  (* Launches invariant generation with a max [k] and a set of
+     candidate terms. *)
+  let run sys maxK candidates =
+
+    let lsd =
+      (* Creating lsd instance. *)
+      LSD.create
+        two_state
+        (Flags.invgengraph_top_only ())
+        sys
+    in
+
+    let rec loop invariants k graph =
+
+      if Numeral.(k > maxK) then
+
+        (* Maximal number of iterations reached, returning
+           invariants. *)
+        TSet.elements invariants
+        
+      else (
+
+        (* Rewriting graph in the base case. *)
+        let graph' =
+          rewrite_graph_until_base_unsat lsd sys graph
+        in
+
+        (* Extracting invariants at k. *)
+        let invariants' =
+          find_and_communicate_invariants lsd invariants sys graph'
+        in
+
+        (* Incrementing k in lsd. *)
+        LSD.increment lsd ;
+
+        (* Looping with new invariants. *)
+        loop invariants' Numeral.(succ k) graph'
+
+      )
+
+    in
+
+    (* Memorizing invariants to return to delete lsd. *)
+    let res =
+      InvGenCandTermGen.create_graph sys ( TSet.of_list candidates )
+      |> loop TSet.empty Numeral.zero
+    in
+
+    (* Deleting lsd. *)
+    LSD.delete lsd ;
+
+    res
 
 end
 
