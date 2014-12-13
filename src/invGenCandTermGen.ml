@@ -27,12 +27,6 @@ module CandidateTermGen = struct
   (* Bool type. *)
   let bool_type = Type.t_bool
 
-  (* Returns true when given unit. *)
-  let true_of_unit () = true
-
-  (* Returns false when given unit. *)
-  let false_of_unit () = false
-
   (* Constructs a term. *)
   let flat_to_term = Term.construct
 

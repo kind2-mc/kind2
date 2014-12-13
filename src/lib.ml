@@ -23,6 +23,12 @@
 (* Identity function. *)
 let identity anything = anything
 
+(* Returns true when given unit. *)
+let true_of_unit () = true
+
+(* Returns false when given unit. *)
+let false_of_unit () = false
+
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)
 (* ********************************************************************** *)
