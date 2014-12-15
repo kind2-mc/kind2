@@ -22,7 +22,14 @@
 *)
 
 (** {1 Helper functions} *)
+(** Identity function. *)
 val identity : 'a -> 'a
+
+(** Returns true when given unit. *)
+val true_of_unit : unit -> bool
+
+(** Returns false when given unit. *)
+val false_of_unit : unit -> bool
 
 (** {1 Option types} *)
 

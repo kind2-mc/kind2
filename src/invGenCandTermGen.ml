@@ -27,12 +27,6 @@ module CandidateTermGen = struct
   (* Bool type. *)
   let bool_type = Type.t_bool
 
-  (* Returns true when given unit. *)
-  let true_of_unit () = true
-
-  (* Returns false when given unit. *)
-  let false_of_unit () = false
-
   (* Constructs a term. *)
   let flat_to_term = Term.construct
 
@@ -175,20 +169,17 @@ module CandidateTermGen = struct
   end = struct
 
     (* Adds term to set if term has type bool. *)
-    let must_be_bool flat set =
-      (* Constructing term. *)
-      let term = flat_to_term flat in
-
-      if term |> Term.type_of_term == bool_type
+    let must_be_bool term set =
+      if Term.type_of_term term == bool_type
       then TSet.add term set
       else set
 
     (* Returns true if the term mentions at least a non-constant
        variable. *)
-    let has_var flat =
-      flat_to_term flat
-      |> Term.vars_of_term
-      |> Var.VarSet.exists ( fun var -> not (Var.is_const_state_var var) )
+    let has_var term =
+      Term.vars_of_term term
+      |> Var.VarSet.exists
+           ( fun var -> not (Var.is_const_state_var var) )
 
     let rec is_var_or_const term =
       match Term.destruct term with
@@ -211,13 +202,13 @@ module CandidateTermGen = struct
       | _ -> true
 
     (* Adds term to set if term is bool and is not [AND|NOT]. *)
-    let bool_terms term set = match term with
+    let bool_terms flat set = match flat with
 
       | Term.T.App (sym, kids) ->
 
-        (* if ( (is_var kid1) && (is_const kid2) ) *)
-        (*   || ( (is_var kid2) && (is_const kid1) ) then *)
-        if List.for_all is_var_or_const kids then
+         (* if ( (is_var kid1) && (is_const kid2) ) *)
+         (*   || ( (is_var kid2) && (is_const kid1) ) then *)
+         if List.for_all is_var_or_const kids then
            
            ( match Symbol.node_of_symbol sym with
 
@@ -228,7 +219,7 @@ module CandidateTermGen = struct
              | `DISTINCT
              | `BVULT
              | `IS_INT ->
-                TSet.add (flat_to_term term) set
+                TSet.add (flat_to_term flat) set
 
              | _ -> set )
 
@@ -239,15 +230,15 @@ module CandidateTermGen = struct
 
     (* If term is an arithmetic atom "lhs op rhs" add "lhs >= rhs" and
        "lhs <= rhs". *)
-    let arith_atoms term set = match term with
+    let arith_atoms flat set = match flat with
 
       | Term.T.App (sym, ((kid1 :: kid2 :: []) as kids)) ->
 
         (* The inequality has to be a 'small' one. Either var op
            const, const op var, orr var op var. *)
         if ( (is_var kid1) && (is_const kid2) )
-          || ( (is_var kid2) && (is_const kid1) )
-          (*|| ( (is_var kid1) && (is_var kid2) ) *)
+           || ( (is_var kid2) && (is_const kid1) )
+           || ( (is_var kid1) && (is_var kid2) )
         then
 
           ( match Symbol.node_of_symbol sym with
@@ -277,12 +268,12 @@ module CandidateTermGen = struct
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set
-              |> TSet.add (flat_to_term term)
+              |> TSet.add (flat_to_term flat)
               |> TSet.add (Term.mk_geq kids)
               |> TSet.add (Term.mk_leq kids)
 
             | `LT  -> set
-              |> TSet.add (flat_to_term term)
+              |> TSet.add (flat_to_term flat)
               |> TSet.add (Term.mk_geq kids)
               |> TSet.add (Term.mk_leq kids)
 
@@ -302,19 +293,15 @@ module CandidateTermGen = struct
 
     let apply flat set =
       
-      if has_var flat
-      then
-        rule_list
-        (* Apply all rules... *)
-        |> List.fold_left
-             ( fun set' (rule, condition) ->
-               (* If their condition is true. *)
-               if condition ()
-               then rule flat set'
-               else set' )
-             set
-             
-      else set
+      rule_list
+      (* Apply all rules... *)
+      |> List.fold_left
+           ( fun set' (rule, condition) ->
+             (* If their condition is true. *)
+             if condition ()
+             then rule flat set'
+             else set' )
+           set
 
   end
 
@@ -457,7 +444,10 @@ module CandidateTermGen = struct
            (* We do, discarding it. *)
            sys_graphs_map result tail
 
-         else
+         else (
+
+           debug invGenCand "Looking at [%s]."
+                 (TransSys.get_scope system |> String.concat "/") in
            
            (* We don't, getting init and trans. *)
            let init, trans =
@@ -465,6 +455,8 @@ module CandidateTermGen = struct
              (* Getting trans at [-1,0]. *)
              TransSys.trans_of_bound system Numeral.zero
            in
+
+           debug invGenCand "Generating candidates." in
 
            let candidates' =
 
@@ -511,6 +503,7 @@ module CandidateTermGen = struct
            sys_graphs_map
              sorted_result
              (List.concat [ TransSys.get_subsystems system ; tail ])
+         )
 
       | [] ->
 
@@ -538,7 +531,7 @@ module CandidateTermGen = struct
               2
         in
 
-        debug invGenCandidates "%i candidates" count in
+        debug invGenCand "%i candidates" count in
 
         (* Returning the candidate terms... *)
         final,
