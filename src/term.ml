@@ -891,7 +891,17 @@ let mk_num_of_int i = mk_num (Numeral.of_int i)
 
 
 (* Hashcons a real decimal *)
-let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
+let mk_dec d = 
+
+  (* Positive rational or zero *)
+  if Decimal.(d >= zero) then 
+    
+    mk_const_of_symbol_node (`DECIMAL d)
+
+  else
+
+    (* Wrap a negative rational in a unary minus *)
+    mk_minus [(mk_const_of_symbol_node (`DECIMAL (Decimal.(~- d))))]
 
 (*
 
