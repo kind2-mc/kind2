@@ -26,9 +26,11 @@ module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 type t = {
 
   (* Associates a transition systems to the k at which they are
-     unrolled in the solver, and an actlit (as a term) activating
-     their initial state at 0. *)
-  mutable systems: (TransSys.t * (Numeral.t * Term.t)) list ;
+     unrolled in the solver, an actlit (as a term) activating their
+     initial state at 0, and an actlit (as a term) activating the
+     transition relations. *)
+  mutable systems :
+    (TransSys.t * (Numeral.t * Term.t * Term.t)) list ;
 
   (* The solver used to query step and base. *)
   solver: Solver.t ;
@@ -56,8 +58,8 @@ let check_consistency { systems ; k ; solver } =
   assert
     ( systems
       |> List.for_all
-           ( fun (_, (k',_)) -> Numeral.(k' = k)
-                                || Numeral.(k' = kp1) ) ) ;
+           ( fun (_, (k',_,_)) -> Numeral.(k' = k)
+                               || Numeral.(k' = kp1) ) ) ;
 
   (* Making sure the solver instance is satisfiable. *)
   assert
@@ -101,7 +103,8 @@ let soft_increment ({ systems ; k ; solver } as context) system =
 
   let rec loop prefix = function
       
-    | (sys, (sys_k,actlit)) :: tail when sys == system ->
+    | (sys, (sys_k, init_actlit, trans_actlit)) :: tail
+      when sys == system ->
        
        if Numeral.( k = sys_k ) then
          let kp1 = Numeral.succ k in
@@ -109,12 +112,15 @@ let soft_increment ({ systems ; k ; solver } as context) system =
          (* Declaring unrolled vars at k. *)
          TransSys.declare_vars_of_bounds
            sys (Solver.declare_fun solver) kp1 kp1 ;
-         (* Asserting transition relation at [k+1]. *)
-         TransSys.trans_of_bound sys kp1
+
+         (* Conditionally asserting transition relation at [k+1]. *)
+         Term.mk_implies
+           [ trans_actlit ; TransSys.trans_of_bound sys kp1 ]
          |> Solver.assert_term solver ;
+
          (* Updating with updated associative list. *)
          context.systems <-
-           (sys, (kp1, actlit)) :: tail
+           (sys, (kp1, init_actlit, trans_actlit)) :: tail
            |> List.rev_append prefix
 
        else
@@ -176,7 +182,7 @@ let create two_state top_only sys =
   in
 
   (* Building the associative list from (sub)systems to the k up to
-     which they are asserted and their init actlit. *)
+     which they are asserted, their init and trans actlit. *)
   let systems =
     let rec loop all_sys = function
         
@@ -190,15 +196,24 @@ let create two_state top_only sys =
            (* First time seeing [sys], adding it to [all_sys] and
               recursing on its kids and the tail of unvisited sys. *)
 
-           (* Fresh actlit. *)
-           let actlit = Actlit.fresh_actlit () in
+           (* Fresh actlit for init predicate. *)
+           let init_actlit = Actlit.fresh_actlit () in
            (* Declaring it. *)
-           Solver.declare_fun solver actlit ;
+           Solver.declare_fun solver init_actlit ;
            (* Term version. *)
-           let actlit_term = Actlit.term_of_actlit actlit in
+           let init_actlit_term = Actlit.term_of_actlit init_actlit in
+
+           (* Fresh actlit for transition predicates. *)
+           let trans_actlit = Actlit.fresh_actlit () in
+           (* Declaring it. *)
+           Solver.declare_fun solver trans_actlit ;
+           (* Term version. *)
+           let trans_actlit_term = Actlit.term_of_actlit trans_actlit in
 
            let all_sys' =
-             (sys, (Numeral.zero, actlit_term)) :: all_sys
+             (sys, (Numeral.zero,
+                    init_actlit_term,
+                    trans_actlit_term)) :: all_sys
            in
 
            if top_only then
@@ -228,7 +243,7 @@ let create two_state top_only sys =
   let invariants =
     systems
     |> List.fold_left
-        ( fun list (sys, (zero, actlit)) ->
+        ( fun list (sys, (zero, init_actlit, _)) ->
 
           (* Declaring things. *)
           (* TransSys.iter_state_var_declarations *)
@@ -244,7 +259,7 @@ let create two_state top_only sys =
          
           (* Building the init implication. *)
           Term.mk_implies
-            [ actlit ; TransSys.init_of_bound sys zero ]
+            [ init_actlit ; TransSys.init_of_bound sys zero ]
             |> Solver.assert_term solver ;
 
           (* Invariants if the system at 0. *)
@@ -299,7 +314,7 @@ let query_base ({ systems ; solver ; two_state ; k } as context)
   try
 
     (* Getting the actlit for the init predicate of [system]. *)
-    let _, init_actlit =
+    let _, init_actlit, trans_actlit =
       List.assq system systems
     in
 
@@ -359,7 +374,8 @@ let query_base ({ systems ; solver ; two_state ; k } as context)
     (* Checksat-ing. *)
     let result =
       Solver.check_sat_assuming
-        solver if_sat if_unsat [ actlit ; init_actlit ]
+        solver
+          if_sat if_unsat [ actlit ; init_actlit ; trans_actlit ]
     in
 
     (* Deactivating actlit. *)
@@ -380,7 +396,8 @@ let query_base ({ systems ; solver ; two_state ; k } as context)
 
 
 
-let rec split_closure solver two_state k falsifiable = function
+let rec split_closure
+  solver two_state trans_actlit k falsifiable = function
 
   | [] -> (falsifiable, [])
 
@@ -459,7 +476,8 @@ let rec split_closure solver two_state k falsifiable = function
        |> Solver.assert_term solver ;
 
        (* Looping. *)
-       split_closure solver two_state k falsifiable' unknown
+       split_closure
+        solver two_state trans_actlit k falsifiable' unknown
                      
      in
 
@@ -481,7 +499,7 @@ let rec split_closure solver two_state k falsifiable = function
        solver
        if_sat
        if_unsat
-       [ actlit ]
+       [ actlit ; trans_actlit ]
 
 
 
@@ -557,8 +575,21 @@ let query_step ({ systems ; solver ; two_state ; k } as context)
   (* Soft incrementing the system. *)
   soft_increment context system ;
 
+  let trans_actlit =
+    try
+      List.assq system systems
+      |> function | _,_,third -> third
+    with
+    | Not_found ->
+      raise 
+        (Invalid_argument
+          (Printf.sprintf
+            "Unexpected system [%s]."
+            (TransSys.get_scope system |> String.concat "/")))
+  in
+
   (* Splitting terms. *)
-  split_closure solver two_state k [] terms_to_check
+  split_closure solver two_state trans_actlit k [] terms_to_check
     (* Pruning direct consequences of the transition relation. *)
   |> snd
   |> (if Flags.invgengraph_prune_trivial ()
