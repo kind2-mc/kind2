@@ -20,15 +20,8 @@ open Lib
 
 module VS = Var.VarSet
 
-(* Use configured SMT solver *)
-module ConfiguredSolver = SMTSolver.Make (SMTSolver.Selected)
-
-(* Use converters for SMTLIB complient solvers *)
-module Conv = ConfiguredSolver.Conv
-
-(* Extended functions *)
-module Solver = SolverMethods.Make (ConfiguredSolver)
-
+(* We only use Z3 here, so we read and send SMTLIB2 commands *)
+module Conv = SMTExpr.Converter (Z3Driver)
 
 (* The current solver instance in use *)
 let solver_qe = ref None 
@@ -45,18 +38,19 @@ let get_solver_instance trans_sys =
     (* Need to create a new instance *)
     | None -> 
  
-      (* Create solver instance *)
-      let solver =     
-        Solver.new_solver 
+      (* Create solver instance : only Z3 for the moment *)
+      let solver = SMTSolver.create_instance
           ~produce_assignments:true
           (TransSys.get_logic trans_sys)
+          `Z3_SMTLIB
       in
       
       (* Declare uninterpreted function symbols *)
-      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
+      TransSys.iter_state_var_declarations
+        trans_sys (SMTSolver.declare_fun solver);
   
       (* Define functions *)
-      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+      TransSys.iter_uf_definitions trans_sys (SMTSolver.define_fun solver);
 
       (* Save instance *)
       solver_qe := Some solver;
@@ -65,7 +59,7 @@ let get_solver_instance trans_sys =
       (* Z3 needs this option, default is 5 and we get let definitions
          for deeper terms *)
       ignore
-        (Solver.T.execute_custom_command 
+        (SMTSolver.T.execute_custom_command 
            solver
            "set-option"
            [SMTExpr.ArgString ":pp.max_depth"; 
@@ -93,16 +87,17 @@ let get_checking_solver_instance trans_sys =
 
       (* Create solver instance *)
       let solver =     
-        Solver.new_solver 
+        SMTSolver.create_instance 
           ~produce_assignments:true
           `UFLIA
+          (Flags.smtsolver ())
       in
       
       (* Declare uninterpreted function symbols *)
-      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
+      TransSys.iter_state_var_declarations trans_sys (SMTSolver.declare_fun solver);
   
       (* Define functions *)
-      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+      TransSys.iter_uf_definitions trans_sys (SMTSolver.define_fun solver);
 
       (* Save instance *)
       solver_check := Some solver;
@@ -121,7 +116,7 @@ let on_exit () =
   (try 
      match !solver_qe with 
        | Some s -> 
-         Solver.delete_solver s; 
+         SMTSolver.delete_instance s; 
          solver_qe := None
        | None -> ()
    with 
@@ -135,7 +130,7 @@ let on_exit () =
   (try 
      match !solver_check with 
        | Some s -> 
-         Solver.delete_solver s; 
+         SMTSolver.delete_instance s; 
          solver_check := None
        | None -> ()
    with 
@@ -249,27 +244,21 @@ let check_implication trans_sys prem_str conc_str prem conc =
   let solver_check = get_checking_solver_instance trans_sys in
 
   (* Push context *)
-  Solver.push solver_check;
+  SMTSolver.push solver_check;
 
   (* Assert constraint for premise *)
-  Solver.fail_on_smt_error 
-    (Solver.T.assert_expr 
-       solver_check 
-       prem);
+  SMTSolver.assert_expr solver_check prem;
 
   (* Assert negation of conclusion *)
-  Solver.fail_on_smt_error 
-    (Solver.T.assert_expr 
-       solver_check 
-       (Term.mk_not conc));
+  SMTSolver.assert_expr solver_check (Term.mk_not conc);
 
   (match 
-      Solver.T.execute_custom_check_sat_command 
-        "(check-sat-using (then qe smt))" 
-        solver_check 
+     SMTSolver.execute_custom_check_sat_command 
+       "(check-sat-using (then qe smt))" 
+       solver_check 
    with
-     | SMTExpr.Unsat -> (debug qe "%s implies %s" prem_str conc_str end)
-     | SMTExpr.Sat -> failwith (prem_str ^ " does not imply " ^ conc_str)
+     | `Unsat -> (debug qe "%s implies %s" prem_str conc_str end)
+     | `Sat -> failwith (prem_str ^ " does not imply " ^ conc_str)
      | _ -> failwith "Failed to check implication");
   
   
@@ -282,7 +271,7 @@ let check_implication trans_sys prem_str conc_str prem conc =
 *)
 
   (* Pop context *)
-  Solver.pop solver_check
+  SMTSolver.pop solver_check
   
 (* Check generalization: model must imply quantifier eliminated term
    and quantifier eliminated term must imply the original quantifier
@@ -567,7 +556,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>with the model@ @[<hv>%a@]@]@."
-     Term.pp_print_term (Solver.term_of_model model)
+     Term.pp_print_term (SMTSolver.term_of_model model)
      end);
   
   (* Extract active path from term and model *)
@@ -656,18 +645,17 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
   *)
         
         (* Increment scope level *)
-        Solver.push solver_qe;
+        SMTSolver.push solver_qe;
         
         (* Assert expression to eliminate quantifiers from *)
-        Solver.fail_on_smt_error 
-          (Solver.T.assert_expr solver_qe qe_term);
+        SMTSolver.assert_expr solver_qe qe_term;
         
         (* Eliminate quantifiers *)
         let res = 
           match 
             
             (* Execute custom command (apply qe) *)
-            Solver.T.execute_custom_command 
+            SMTSolver.execute_custom_command 
               solver_qe 
               "apply"
               [SMTExpr.ArgString "qe"]
@@ -676,31 +664,31 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           with
 
             (* Catch error *)
-            | SMTExpr.Error e, _ -> 
+            | `Error e -> 
               raise 
                 (Failure ("SMT solver failed: " ^ e))
 
-            (* Catch unsupported command *)
-            | SMTExpr.Unsupported, _ -> 
-              raise 
-                (Failure 
-                   ("SMT solver reported not implemented"))
+            (* (\* Catch unsupported command *\) *)
+            (* | `Unsupported ->  *)
+            (*   raise  *)
+            (*     (Failure  *)
+            (*        ("SMT solver reported not implemented")) *)
                 
-            (* Catch silence *)
-            | SMTExpr.NoResponse, _ ->
-              raise 
-                (Failure 
-                   ("SMT solver did not produce a reply"))
+            (* (\* Catch silence *\) *)
+            (* | `NoResponse -> *)
+            (*   raise  *)
+            (*     (Failure  *)
+            (*        ("SMT solver did not produce a reply")) *)
                 
             (* Return result on success *)
-            | SMTExpr.Success, r -> r
+            | `Custom r -> r
         in
         
         (* Take first goal as quantifier eliminated term *)
         let term'_int = goals_to_terms (List.hd res) in
         
         (* Decrement scope level to remove assertion *)
-        Solver.pop solver_qe;
+        SMTSolver.pop solver_qe;
 (*
         (* Check generalizations *)
         check_generalize 

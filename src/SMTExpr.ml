@@ -17,7 +17,7 @@
 *)
 
 open Lib
-
+open SolverResponse
 
 (* An SMT expression is a term *)
 type t = Term.t
@@ -25,6 +25,10 @@ type t = Term.t
 (* An SMT variable is a variable *)
 type var = Var.t
 
+
+type custom_arg = 
+  | ArgString of string
+  | ArgExpr of t
 
 (* ********************************************************************* *)
 (* Logics                                                                *)
@@ -103,74 +107,16 @@ let string_of_sort s = string_of_t pp_print_sort s
 
 *)
 
-(* ********************************************************************* *)
-(* Responses from solver instances                                       *)
-(* ********************************************************************* *)
-
-
-(* Arguments to a custom command *)
-type custom_arg = 
-  | ArgString of string  (* String argument *)
-  | ArgExpr of t         (* Expression argument *)
-
-(* Response from the solver *)
-type response =
-  | NoResponse
-  | Unsupported
-  | Success 
-  | Error of string
-      
-
-(* Response from the solver to a (check-sat) command *)
-type check_sat_response =
-  | Response of response
-  | Sat
-  | Unsat
-  | Unknown
-
 (* Static hashconsed strings *)
 let s_let = HString.mk_hstring "let"
 let s_forall = HString.mk_hstring "forall"
 let s_exists = HString.mk_hstring "exists"
-let s_success = HString.mk_hstring "success"
-let s_unsupported = HString.mk_hstring "unsupported"
-let s_error = HString.mk_hstring "error"
-let s_sat = HString.mk_hstring "sat"
-let s_unsat = HString.mk_hstring "unsat"
-let s_unknown = HString.mk_hstring "unknown"
 
 
 
 (* ********************************************************************* *)
 (* Conversions from S-expressions to terms                               *)
 (* ********************************************************************* *)
-
-
-module type SolverKeywords =
-  sig 
-    (* Convert a logic to a string *)
-    val string_of_logic : logic -> string
-
-    (* Pretty-print a logic identifier *)
-    val pp_print_logic : Format.formatter -> logic -> unit
-
-    val pp_print_sort : Format.formatter -> sort -> unit
-
-    val string_of_sort : sort -> string
-
-    (* Convert an S-expression to a sort *)
-    val type_of_string_sexpr : HStringSExpr.t -> sort
-
-    (* Convert a type to an SMT sort *)
-    val smtsort_of_type : Type.t -> sort
-
-    (* Association list of strings to function symbols *) 
-    val string_symbol_list : (string * Symbol.t) list
-
-    (* Reserved words that we don't support *)
-    val reserved_word_list : HString.t list
-
-  end
 
 module type Conv =
   sig 
@@ -205,44 +151,16 @@ module type Conv =
 
     val term_of_smtexpr : t -> t
 
-    val declare_smt_symbols :
-      (string -> sort list -> sort -> response) -> response
-
-    val response_of_sexpr : HStringSExpr.t -> response
-
-    val check_sat_response_of_sexpr : HStringSExpr.t -> check_sat_response
-
-    val get_value_response_of_sexpr : HStringSExpr.t -> response * (t * t) list
-
-    val get_unsat_core_response_of_sexpr :
-      HStringSExpr.t -> response * (string list)
-
-    val get_custom_command_response_of_sexpr : HStringSExpr.t -> response
-                                                                   
     val pp_print_custom_arg : Format.formatter -> custom_arg -> unit
 
     val string_of_custom_arg : custom_arg -> string
-
-    val pp_print_response :  Format.formatter -> response -> unit
-
-    val pp_print_check_sat_response :
-      Format.formatter -> check_sat_response -> unit
-
-    val pp_print_get_value_response :
-      Format.formatter -> response * (t * t) list -> unit
-
-    val pp_print_get_unsat_core_response :
-      Format.formatter -> response * (string list) -> unit
-
-    val pp_print_custom_command_response :
-      Format.formatter -> response * (HStringSExpr.t list) -> unit
                                 
   end
 
-module Converter ( K : SolverKeywords ) : Conv =
+module Converter ( Driver : SolverDriver.S ) : Conv =
   struct
 
-    include K
+    include Driver
     
     (* Hashtable for hashconsed strings to function symbols *)
     let hstring_symbol_table = HString.HStringHashtbl.create 50 
@@ -271,7 +189,7 @@ module Converter ( K : SolverKeywords ) : Conv =
       with Not_found -> 
 
         (* Check if string is a reserved word *)
-        if List.memq s K.reserved_word_list then 
+        if List.memq s reserved_word_list then 
           
           (* Cannot parse S-expression *)
           raise 
@@ -310,7 +228,6 @@ module Converter ( K : SolverKeywords ) : Conv =
 
           (* String is not a decimal *)
           with Invalid_argument _ -> 
-
             try 
 
               (* Return decimal of string *)
@@ -352,8 +269,8 @@ module Converter ( K : SolverKeywords ) : Conv =
                     with Not_found -> 
 
                       debug smtexpr 
-                            "const_of_smtlib_token %s failed" 
-                            (HString.string_of_hstring t)
+                        "const_of_smtlib_token %s failed" 
+                        (HString.string_of_hstring t)
       in
 
       (* Cannot convert to an expression *)
@@ -535,7 +452,7 @@ module Converter ( K : SolverKeywords ) : Conv =
       | HStringSExpr.List [HStringSExpr.Atom v; t] :: tl -> 
 
          (* Get the type of the expression *)
-         let var_type = K.type_of_string_sexpr t in
+         let var_type = type_of_string_sexpr t in
 
          (* Create a variable of the identifier and the type of the expression *)
          let tvar = Var.mk_temp_var v var_type in
@@ -572,6 +489,9 @@ module Converter ( K : SolverKeywords ) : Conv =
     (* ********************************************************************* *)
     (* Conversions from terms to SMT expressions                             *)
     (* ********************************************************************* *)
+
+    (* Convert a type to an SMT sort : no conversion for yices *)
+    let rec smtsort_of_type t = interpr_type t
 
 
     (* Convert a variable to an SMT expression *)
@@ -639,7 +559,7 @@ module Converter ( K : SolverKeywords ) : Conv =
 
                        invalid_arg 
                          (Format.asprintf 
-                            "var_of_smtexpr: %a\
+                            "var_of_smtexpr: %a \
                              Invalid argument to uninterpreted function"
                             Term.pp_print_term e) )
 
@@ -649,7 +569,7 @@ module Converter ( K : SolverKeywords ) : Conv =
 
                   invalid_arg 
                     (Format.asprintf 
-                       "var_of_smtexpr: %a\
+                       "var_of_smtexpr: %a \
                         Invalid argument to uninterpreted function"
                        Term.pp_print_term e) )
            in
@@ -665,7 +585,7 @@ module Converter ( K : SolverKeywords ) : Conv =
 
                invalid_arg 
                  (Format.asprintf 
-                    "var_of_smtexpr: %a\
+                    "var_of_smtexpr: %a \
                      No state variable found for uninterpreted function symbol"
                     Term.pp_print_term e)
            in
@@ -687,7 +607,7 @@ module Converter ( K : SolverKeywords ) : Conv =
                
                invalid_arg 
                  (Format.asprintf 
-                    "var_of_smtexpr: %a\
+                    "var_of_smtexpr: %a \
                      No state variable found for uninterpreted function symbol"
                     Term.pp_print_term e)
            in
@@ -714,7 +634,6 @@ module Converter ( K : SolverKeywords ) : Conv =
         | Term.T.Attr (t, _) -> var_of_smtexpr t
 
         (* Other expressions *)
-        | Term.T.Const _
         | Term.T.App _ 
         | Term.T.Var _ -> 
 
@@ -728,7 +647,7 @@ module Converter ( K : SolverKeywords ) : Conv =
 
       Term.map
         (function _ -> function t -> 
-                                try Term.mk_var (var_of_smtexpr t) with Invalid_argument _ -> t)
+           try Term.mk_var (var_of_smtexpr t) with Invalid_argument _ -> t)
         term
 
 
@@ -810,498 +729,17 @@ module Converter ( K : SolverKeywords ) : Conv =
       quantified_smtexpr_of_term false [] term
 
 
-    (* Declare uninterpreted symbols in the SMT solver
-
-   TODO: Flag declarations to avoid redeclaring symbols and enable
-   incremental declarations
-     *)
-    let declare_smt_symbols declare_fun =
-
-      UfSymbol.fold_uf_declarations 
-        (fun symbol arg_type res_type error ->
-         
-         if error = Success then
-           declare_fun 
-             symbol
-             (List.map smtsort_of_type arg_type)
-             (smtsort_of_type res_type)
-         else 
-           error)
-        Success
-
-        
     (* Pretty-print a custom argument *)
     let pp_print_custom_arg ppf = function 
-      | ArgString s -> Format.pp_print_string ppf s
-      | ArgExpr e -> pp_print_expr ppf e
-
+    | ArgString s -> Format.pp_print_string ppf s
+    | ArgExpr e -> pp_print_expr ppf e
+                     
 
     (* Return a string representation of a custom argument *)
     let string_of_custom_arg t = 
       string_of_t pp_print_custom_arg t
 
-
-    (* Pretty-print a command response *)
-    let pp_print_response ppf = function
-      | NoResponse -> Format.pp_print_string ppf "NoResponse"
-      | Unsupported -> Format.pp_print_string ppf "Unsupported"
-      | Success -> Format.pp_print_string ppf "Success"
-      | Error e -> 
-         Format.pp_print_string ppf "Error: "; 
-         Format.pp_print_string ppf e
-                                
-
-    (* Pretty-print a response to a (chek-sat) command *)
-    let pp_print_check_sat_response ppf = function
-      | Response r -> pp_print_response ppf r
-      | Sat -> Format.pp_print_string ppf "Sat"
-      | Unsat -> Format.pp_print_string ppf "Unsat"
-      | Unknown -> Format.pp_print_string ppf "Unknown"
-                                          
-
-    (* Pretty-print a response to a list of expression pairs *)
-    let rec pp_print_values ppf = function 
-
-      | [] -> ()
-
-      | (e, v) :: [] -> 
-         
-         Format.pp_open_hvbox ppf 2;
-         Format.pp_print_string ppf "(";
-         pp_print_expr ppf e;
-         Format.pp_print_space ppf ();
-         pp_print_expr ppf v;
-         Format.pp_print_string ppf ")";
-         Format.pp_close_box ppf ()
-
-      | (e, v) :: tl -> 
-
-         pp_print_values ppf [(e,v)];
-         Format.pp_print_space ppf ();
-         pp_print_values ppf tl
-
-
-    (* Pretty-print a response to a (get-value) command *)
-    let pp_print_get_value_response ppf = function
-
-      | Success, v -> 
-         pp_print_response ppf Success; 
-         Format.pp_print_space ppf ();
-         Format.pp_open_hvbox ppf 1;
-         Format.pp_print_string ppf "(";
-         pp_print_values ppf v;
-         Format.pp_print_string ppf ")";
-         Format.pp_close_box ppf ()
-
-      | r, _ -> 
-         pp_print_response ppf r
-
-
-    (* Pretty-print a response to a (get-unsat-core) command *)
-    let pp_print_get_unsat_core_response ppf = function
-
-      | Success, c -> 
-
-         Format.fprintf 
-           ppf 
-           "@[<v>%a@,@[<hv 1>(%a)@]"
-           pp_print_response Success
-           (pp_print_list Format.pp_print_string "@ ") c
-
-      | r, _ -> 
-         pp_print_response ppf r
-
-
-    (* Pretty-print a response to a custom command *)
-    let pp_print_custom_command_response ppf = function 
-
-      | Success, r -> 
-         pp_print_response ppf Success; 
-         Format.pp_print_newline ppf ();
-         Format.pp_open_vbox ppf 0;
-         pp_print_list HStringSExpr.pp_print_sexpr "" ppf r;
-         Format.pp_close_box ppf ()
-                             
-      | r, _ -> 
-         pp_print_response ppf r
-
-
-                           
-    (* Return a solver response of an S-expression *)
-    let response_of_sexpr = function 
-
-      (* Successful command *)
-      | HStringSExpr.Atom s when s == s_success -> Success 
-
-      (* Unsupported command *)
-      | HStringSExpr.Atom s when s == s_unsupported -> Unsupported
-
-      (* Error *)
-      | HStringSExpr.List 
-          [HStringSExpr.Atom s; HStringSExpr.Atom e ] when s == s_error -> 
-         Error (HString.string_of_hstring e)
-
-      (* Invalid response *)
-      | e -> 
-
-         raise 
-           (Failure 
-              ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
-
-
-    (* Return a solver response to a check-sat command of an S-expression *)
-    let check_sat_response_of_sexpr = function 
-
-      | HStringSExpr.Atom s when s == s_sat -> Sat
-      | HStringSExpr.Atom s when s == s_unsat -> Unsat
-      | HStringSExpr.Atom s when s == s_unknown -> Unknown
-      | r -> Response (response_of_sexpr r)
-
-
-    (* Helper function to return a solver response to a get-value command
-   as expression pairs *)
-    let rec get_value_response_of_sexpr' accum = function 
-      | [] -> (Success, List.rev accum)
-      | HStringSExpr.List [ e; v ] :: tl -> 
-
-         (debug smtexpr
-                "get_value_response_of_sexpr: %a is %a"
-                HStringSExpr.pp_print_sexpr e
-                HStringSExpr.pp_print_sexpr v
-          in
-          
-          get_value_response_of_sexpr' 
-            ((((expr_of_string_sexpr e) :> t), 
-              ((expr_of_string_sexpr v :> t))) :: 
-               accum) 
-            tl)
-
-      | _ -> invalid_arg "get_value_response_of_sexpr"
-
-    (* Return a solver response to a get-value command as expression pairs *)
-    let get_value_response_of_sexpr = function 
-
-      (* Solver returned error message 
-
-     Must match for error first, because we may get (error "xxx") or
-     ((x 1)) which are both lists *)
-      | HStringSExpr.List 
-        [HStringSExpr.Atom s; 
-         HStringSExpr.Atom e ] when s == s_error -> 
-         (Error (HString.string_of_hstring e), [])
-
-      (* Solver returned a list not starting with an error atom  *)
-      | HStringSExpr.List l -> get_value_response_of_sexpr' [] l
-
-      (* Solver returned other response *)
-      | r -> (response_of_sexpr r, [])
-
-
-    (* Return a solver response to a get-unsat-core command as list of strings *)
-    let get_unsat_core_response_of_sexpr = function 
-
-      (* Solver returned error message 
-
-     Must match for error first *)
-      | HStringSExpr.List 
-        [HStringSExpr.Atom s; HStringSExpr.Atom e ]
-           when s == s_error -> 
-         (Error (HString.string_of_hstring e), [])
-
-      (* Solver returned a list not starting with an error atom *)
-      | HStringSExpr.List l -> 
-
-         (* Convert list of atoms to list of strings *)
-         (Success,
-          List.map
-            (function 
-              | HStringSExpr.Atom n -> (HString.string_of_hstring n)
-              | _ -> invalid_arg "get_unsat_core_response_of_sexpr")
-            l)
-
-      (* Solver returned other response *)
-      | r -> (response_of_sexpr r, [])
-
-
-    (* Return a solver response to a custom command *)
-    let get_custom_command_response_of_sexpr = function 
-
-      (* Solver returned error message 
-
-     Must match for error first, because we may get (error "xxx") or
-     ((x 1)) which are both lists *)
-      | HStringSExpr.List 
-        [HStringSExpr.Atom s; HStringSExpr.Atom e ] 
-           when s == s_error -> 
-         Error (HString.string_of_hstring e)
-
-      (* Solver returned unsupported message *)
-      | HStringSExpr.Atom s when s == s_unsupported -> Unsupported
-
-      (* Solver returned success message *)
-      | HStringSExpr.Atom s when s == s_success -> Success 
-
-      | _ -> NoResponse
-
-                  
-  end
-    
-module SMTLIB_Keywords =
-  struct
-    
-    (* Convert a logic to a string *)
-    let string_of_logic = function
-      | `AUFLIA -> "AUFLIA"
-      | `AUFLIRA -> "AUFLIRA"
-      | `AUFNIRA -> "AUFNIRA"
-      | `LRA -> "LRA"
-      | `LIA -> "LIA"
-      | `QF_ABV -> "QF_ABV"
-      | `QF_AUFBV -> "QF_AUFBV"
-      | `QF_AUFLIA -> "QF_AUFLIA"
-      | `QF_AX -> "QF_AX"
-      | `QF_BV -> "QF_BV"
-      | `QF_IDL -> "QF_IDL"
-      | `QF_LIA -> "QF_LIA"
-      | `QF_LRA -> "QF_LRA"
-      | `QF_NIA -> "QF_NIA"
-      | `QF_NRA -> "QF_NRA"
-      | `QF_RDL -> "QF_RDL"
-      | `QF_UF -> "QF_UF"
-      | `QF_UFBV -> "QF_UFBV"
-      | `QF_UFIDL -> "QF_UFIDL"
-      | `QF_UFLIA -> "QF_UFLIA"
-      | `QF_UFLRA -> "QF_UFLRA"
-      | `QF_UFNRA -> "QF_UFNRA"
-      | `UFLIA -> "UFLIA"
-      | `UFLRA -> "UFLRA"
-      | `UFNIA -> "UFNIA"
-      | _ -> raise (Invalid_argument "Unsupported logic")
-
-
-    (* Pretty-print a logic identifier *)
-    let pp_print_logic ppf l = 
-      Format.pp_print_string ppf (string_of_logic l) 
-
-
-                             
-    let pp_print_sort ppf t = 
-      let p = Format.fprintf ppf in 
-      match Type.node_of_type t with
-      | Type.IntRange _ -> p "Int"
-      | Type.Bool -> p "Bool"
-      | Type.Int -> p "Int"
-      | Type.Real -> p "Real"
-      | _ -> failwith ((Type.string_of_type t)^" not supported")
-
-
-
-    let string_of_sort = string_of_t pp_print_sort
-
-    (* Static hashconsed strings *)
-    let s_int = HString.mk_hstring "Int"
-    let s_real = HString.mk_hstring "Real"
-    let s_bool = HString.mk_hstring "Bool"
-
-
-    (* Convert an S-expression to a sort *)
-    let type_of_string_sexpr = function 
-        
-      | HStringSExpr.Atom s when s == s_int -> Type.t_int
-
-      | HStringSExpr.Atom s when s == s_real -> Type.t_real
-
-      | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
-
-      | HStringSExpr.Atom _
-      | HStringSExpr.List _ as s -> 
-         
-         raise
-           (Invalid_argument 
-              (Format.asprintf 
-                 "Sort %a not supported" 
-                 HStringSExpr.pp_print_sexpr s))
-
-
-    (* Convert a type to an SMT sort *)
-    let rec smtsort_of_type t = match Type.node_of_type t with
-        
-      (* Convert integer range to integer type *)
-      | Type.IntRange _ -> Type.mk_int ()
-
-      (* Recursively convert index and value type of array type *)
-      | Type.Array (i, t) -> 
-         Type.mk_array (smtsort_of_type i) (smtsort_of_type t)
-
-      (* Keep basic types unchanged *)
-      | Type.Bool -> t
-      | Type.Int -> t
-      | Type.Real -> t
-      | Type.BV m -> t
-      | _ -> failwith ((Type.string_of_type t)^" not supported")
-
-    (* Association list of strings to function symbols *) 
-    let string_symbol_list =
-      [("not", Symbol.mk_symbol `NOT);
-       ("=>", Symbol.mk_symbol `IMPLIES);
-       ("and", Symbol.mk_symbol `AND);
-       ("or", Symbol.mk_symbol `OR);
-       ("xor", Symbol.mk_symbol `XOR);
-       ("=", Symbol.mk_symbol `EQ);
-       ("distinct", Symbol.mk_symbol `DISTINCT);
-       ("ite", Symbol.mk_symbol `ITE);
-       ("-", Symbol.mk_symbol `MINUS);
-       ("+", Symbol.mk_symbol `PLUS);
-       ("*", Symbol.mk_symbol `TIMES);
-       ("/", Symbol.mk_symbol `DIV);
-       ("div", Symbol.mk_symbol `INTDIV);
-       ("mod", Symbol.mk_symbol `MOD);
-       ("abs", Symbol.mk_symbol `ABS);
-       ("<=", Symbol.mk_symbol `LEQ);
-       ("<", Symbol.mk_symbol `LT);
-       (">=", Symbol.mk_symbol `GEQ);
-       (">", Symbol.mk_symbol `GT);
-       ("to_real", Symbol.mk_symbol `TO_REAL);
-       ("to_int", Symbol.mk_symbol `TO_INT);
-       ("is_int", Symbol.mk_symbol `IS_INT);
-       ("concat", Symbol.mk_symbol `CONCAT);
-       ("bvnot", Symbol.mk_symbol `BVNOT);
-       ("bvneg", Symbol.mk_symbol `BVNEG);
-       ("bvand", Symbol.mk_symbol `BVAND);
-       ("bvor", Symbol.mk_symbol `BVOR);
-       ("bvadd", Symbol.mk_symbol `BVADD);
-       ("bvmul", Symbol.mk_symbol `BVMUL);
-       ("bvdiv", Symbol.mk_symbol `BVDIV);
-       ("bvurem", Symbol.mk_symbol `BVUREM);
-       ("bvshl", Symbol.mk_symbol `BVSHL);
-       ("bvlshr", Symbol.mk_symbol `BVLSHR);
-       ("bvult", Symbol.mk_symbol `BVULT);
-       ("select", Symbol.mk_symbol `SELECT);
-       ("store", Symbol.mk_symbol `STORE)]
-
-
-    (* Reserved words that we don't support *)
-    let reserved_word_list = 
-      List.map 
-        HString.mk_hstring 
-        ["par"; "_"; "!"; "as" ]
-
-  end
-
-
-
-module Yices_Keywords =
-  struct
-    
-    (* Convert a logic to a string *)
-    let string_of_logic _ = failwith "no logic selection in yices"
-
-    (* Pretty-print a logic identifier *)
-    let pp_print_logic ppf l =  failwith "no logic selection in yices"
-
-    let pp_print_sort ppf t = Type.pp_print_type ppf t
-
-    (* let pp_print_sort ppf t = match Type.node_of_type t with *)
-    (*     | Type.IntRange _ -> Format.fprintf ppf "int" *)
-    (*     | _ -> Type.pp_print_type ppf t *)
-
-
-    let string_of_sort = string_of_t pp_print_sort
-
-    (* Static hashconsed strings *)
-    let s_int = HString.mk_hstring "int"
-    let s_real = HString.mk_hstring "real"
-    let s_bool = HString.mk_hstring "bool"
-    let s_subrange = HString.mk_hstring "subrange"
-
-
-    (* Convert an S-expression to a sort *)
-    let type_of_string_sexpr = function 
-        
-      | HStringSExpr.Atom s when s == s_int -> Type.t_int
-
-      | HStringSExpr.Atom s when s == s_real -> Type.t_real
-
-      | HStringSExpr.Atom s when s == s_bool -> Type.t_bool 
-
-      | HStringSExpr.List [HStringSExpr.Atom s;
-                           HStringSExpr.Atom i; HStringSExpr.Atom j]
-           when s == s_subrange ->
-         Type.mk_int_range (Numeral.of_string (HString.string_of_hstring i))
-                           (Numeral.of_string (HString.string_of_hstring j))
-
-      | HStringSExpr.Atom _
-      | HStringSExpr.List _ as s -> 
-         
-         raise
-           (Invalid_argument 
-              (Format.asprintf 
-                 "Sort %a not supported" 
-                 HStringSExpr.pp_print_sexpr s))
-
-
-    (* Convert a type to an SMT sort : no conversion for yices *)
-    let rec smtsort_of_type t = t
-
-                                  
-    (* Association list of strings to function symbols *) 
-    let string_symbol_list =
-      [("not", Symbol.mk_symbol `NOT);
-       ("=>", Symbol.mk_symbol `IMPLIES);
-       ("and", Symbol.mk_symbol `AND);
-       ("or", Symbol.mk_symbol `OR);
-       (* ("xor", Symbol.mk_symbol `XOR); *)
-       ("=", Symbol.mk_symbol `EQ);
-       (* ("distinct", Symbol.mk_symbol `DISTINCT); *)
-       ("ite", Symbol.mk_symbol `ITE);
-       ("-", Symbol.mk_symbol `MINUS);
-       ("+", Symbol.mk_symbol `PLUS);
-       ("*", Symbol.mk_symbol `TIMES);
-       ("/", Symbol.mk_symbol `DIV);
-       ("div", Symbol.mk_symbol `INTDIV);
-       ("mod", Symbol.mk_symbol `MOD);
-       (* ("abs", Symbol.mk_symbol `ABS); *)
-       ("<=", Symbol.mk_symbol `LEQ);
-       ("<", Symbol.mk_symbol `LT);
-       (">=", Symbol.mk_symbol `GEQ);
-       (">", Symbol.mk_symbol `GT);
-       ("to_real", Symbol.mk_symbol `TO_REAL);
-       ("to_int", Symbol.mk_symbol `TO_INT);
-       (* ("is_int", Symbol.mk_symbol `IS_INT); *)
-       ("bv-concat", Symbol.mk_symbol `CONCAT);
-       ("bv-not", Symbol.mk_symbol `BVNOT);
-       ("bv-neg", Symbol.mk_symbol `BVNEG);
-       ("bv-and", Symbol.mk_symbol `BVAND);
-       ("bv-or", Symbol.mk_symbol `BVOR);
-       ("bv-add", Symbol.mk_symbol `BVADD);
-       ("bv-mul", Symbol.mk_symbol `BVMUL);
-       ("bv-div", Symbol.mk_symbol `BVDIV);
-       (* ("bvurem", Symbol.mk_symbol `BVUREM); *)
-       ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
-       ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
-       ("bv-lt", Symbol.mk_symbol `BVULT);
-       (* ("select", Symbol.mk_symbol `SELECT); *)
-       ("update", Symbol.mk_symbol `STORE)]
-
-    (* TODO add support for arrays by keeping info on which function symbols are
-       in fact arrays *)
-
-    (* Reserved words that we don't support *)
-    let reserved_word_list = 
-      List.map 
-        HString.mk_hstring 
-        [ "maxsat"; "mk-tuple"; "tuple"; "record" ]
-
-  end
-
-module SMTLIB = Converter(SMTLIB_Keywords)
-
-module Yices = Converter(Yices_Keywords)
-
-(* ********************************************************************* *)
-(* Responses from solver instances                                       *)
-(* ********************************************************************* *)
-
+end
 
 
 (* 

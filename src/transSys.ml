@@ -258,7 +258,7 @@ let mk_trans_sys uf_defs state_vars init_top trans_top props input =
 (* Determine the required logic for the SMT solver 
 
    TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+let get_logic _ = ((Flags.smtlogic ()) :> Term.logic)
 
 
 (* Return the state variables of the transition system *)

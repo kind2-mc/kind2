@@ -46,6 +46,12 @@ val smtsolver : unit -> smtsolver
 (** Set SMT solver and executable *)
 val set_smtsolver : smtsolver -> string -> unit
 
+(* (\** Return SMT solver to use with PDR *\) *)
+(* val pdr_smtsolver : unit -> smtsolver  *)
+
+(* (\** Return SMT solver to use with Quantifier Elimination *\) *)
+(* val qe_smtsolver : unit -> smtsolver  *)
+
 (** SMT Logic to use *)
 type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 

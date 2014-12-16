@@ -20,8 +20,6 @@ open Lib
 open TypeLib
 open Actlit
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTSolver.Selected))
-
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -47,7 +45,7 @@ let on_exit _ =
       match !solver_ref with
       | None -> ()
       | Some solver ->
-         Solver.delete_solver solver |> ignore ;
+         SMTSolver.delete_instance solver |> ignore ;
          solver_ref := None
     with
     | e -> 
@@ -68,7 +66,7 @@ let split trans solver k falsifiable to_split actlits =
   (* Function to run if sat. *)
   let if_sat () =
     (* Get-model function. *)
-    let get_model = Solver.get_model solver in
+    let get_model = SMTSolver.get_model solver in
     (* Getting the model. *)
     let model = TransSys.vars_of_bounds trans k k
                 |> get_model in
@@ -95,7 +93,7 @@ let split trans solver k falsifiable to_split actlits =
   in
 
   (* Check sat assuming with actlits. *)
-  Solver.check_sat_assuming solver if_sat if_unsat actlits
+  SMTSolver.check_sat_assuming solver if_sat if_unsat actlits
 
 (* Splits its input list of properties between those that can be
    falsified and those that cannot after asserting the actlit
@@ -111,11 +109,11 @@ let split_closure trans solver k actlits to_split =
     (* Getting actlit for it. *)
     let actlit = generate_actlit term in
     (* Declaring actlit. *)
-    actlit |> Solver.declare_fun solver ;
+    actlit |> SMTSolver.declare_fun solver ;
     (* Asserting implication. *)
     Term.mk_implies
         [ actlit |> term_of_actlit ; term ]
-    |> Solver.assert_term solver ;
+    |> SMTSolver.assert_term solver ;
     (* All actlits. *)
     let all_actlits = (term_of_actlit actlit) ::  actlits in
     (* Splitting. *)
@@ -151,7 +149,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
     terms
     |> Term.mk_and
     |> Term.bump_and_apply_k
-         (Solver.assert_term solver) k
+         (SMTSolver.assert_term solver) k
   in
 
   (* Asserts terms at k. *)
@@ -159,7 +157,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
     terms
     |> Term.mk_and
     |> Term.bump_state k
-    |> Solver.assert_term solver
+    |> SMTSolver.assert_term solver
   in
 
   (* Getting new invariants and updating transition system. *)
@@ -251,7 +249,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
      if Numeral.(k > zero) then
        implications
        |> Term.mk_and
-       |> Solver.assert_term solver ;
+       |> SMTSolver.assert_term solver ;
 
      (* Splitting. *)
      let unfalsifiable, falsifiable =
@@ -279,7 +277,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
 
      (* Asserting transition relation for next iteration. *)
      TransSys.trans_of_bound trans Numeral.(k + one)
-     |> Solver.assert_term solver
+     |> SMTSolver.assert_term solver
      |> ignore ;
 
      (* Output statistics *)
@@ -311,8 +309,8 @@ let init trans =
 
   (* Creating solver. *)
   let solver =
-    TransSys.get_logic trans
-    |> Solver.new_solver ~produce_assignments:true
+    SMTSolver.create_instance ~produce_assignments:true
+      (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -321,23 +319,23 @@ let init trans =
   (* Declaring uninterpreted function symbols. *)
   TransSys.iter_state_var_declarations
     trans
-    (Solver.declare_fun solver) ;
+    (SMTSolver.declare_fun solver) ;
 
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
      generate_actlit prop
-     |> Solver.declare_fun solver)
+     |> SMTSolver.declare_fun solver)
     unknowns ;
 
   (* Defining functions. *)
   TransSys.iter_uf_definitions
     trans
-    (Solver.define_fun solver) ;
+    (SMTSolver.define_fun solver) ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
   |> ignore ;
 
   (trans, solver, Numeral.zero, [], unknowns)

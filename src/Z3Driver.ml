@@ -16,21 +16,24 @@
 
 *)
 
-(** An interface to any SMT solver that accepts the SMTLIB2 command
-    language 
+include GenericSMTLIBDriver
 
-    Use this module as input to the {!SMTSolver.Make} functor 
+(* Configuration for Z3 *)
+let cmd_line () = 
 
-    @author Christoph Sticksel
- *)
+  (* Path and name of Z3 executable *)
+  let z3_bin = Flags.z3_bin () in
+  [| z3_bin; "-smt2"; "-in" |]
 
 
-module Make : functor (D : SolverDriver.S) -> SolverSig.S
-                                            
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
+(* Command to limit check-sat in Z3 to run for the given numer of ms
+   at most *)
+let check_sat_limited_cmd ms = 
+  Format.sprintf "(check-sat-using (try-for smt %d))" ms
+
+
+let check_sat_assuming_supported () = true
+
+let check_sat_assuming_cmd () = "check-sat"
+
+let headers = [ "(set-option :interactive-mode true)" ]

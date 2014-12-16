@@ -99,7 +99,14 @@ type t (* = private
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
-val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> UfSymbol.t * (Var.t * Term.t) list -> UfSymbol.t * (Var.t * Term.t) list -> (string * Term.t) list -> input -> t
+val mk_trans_sys :
+  (pred_def * pred_def) list ->
+  StateVar.t list ->
+  UfSymbol.t * (Var.t * Term.t) list ->
+  UfSymbol.t * (Var.t * Term.t) list ->
+  (string * Term.t) list ->
+  input ->
+  t
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -108,7 +115,7 @@ val pp_print_uf_def : Format.formatter -> pred_def -> unit
 val pp_print_trans_sys : Format.formatter -> t -> unit
 
 (** Get the required logic for the SMT solver *)
-val get_logic : t -> SMTExpr.logic
+val get_logic : t -> Term.logic
                        
 (** Return topmost predicate definition for initial state with map of
     formal to actual parameters *)

@@ -21,14 +21,12 @@ open TypeLib
 open Actlit
 
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTSolver.Selected))
-
 (* Type of a lock step kind context. *)
 type t = {
   (* The transition system. *)
   trans: TransSys.t ;
   (* The solver. *)
-  solver: Solver.t ;
+  solver: SMTSolver.t ;
   (* The k we are currently at. Means that the transition predicates
      are unrolled up to k+1 (so that step is meaningful). *)
   mutable k: Numeral.t ;
@@ -47,8 +45,8 @@ type t = {
 let create trans =
   (* Creating solver. *)
   let solver =
-    TransSys.get_logic trans
-    |> Solver.new_solver ~produce_assignments: true
+    SMTSolver.new_solver ~produce_assignments:true
+      (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
   (* Building the list of top node vars at 0, declaring their
@@ -58,7 +56,7 @@ let create trans =
     |> List.map
          ( fun sv ->
            StateVar.uf_symbol_of_state_var sv
-           |> Solver.declare_fun solver ;
+           |> SMTSolver.declare_fun solver ;
            Var.mk_state_var_instance sv Numeral.zero )
   in
 
@@ -81,13 +79,13 @@ let create trans =
                 (fun var ->
                  Var.state_var_of_state_var_instance var
                  |> StateVar.uf_symbol_of_state_var
-                 |> Solver.declare_fun solver) ;
+                 |> SMTSolver.declare_fun solver) ;
 
            (* Defining this node's init predicate. *)
-           Solver.define_fun solver i_uf i_vars i_term ;
+           SMTSolver.define_fun solver i_uf i_vars i_term ;
 
            (* Defining this node's transition predicate. *)
-           Solver.define_fun solver t_uf t_vars t_term ;
+           SMTSolver.define_fun solver t_uf t_vars t_term ;
 
            (* Building the list of all init and transition
                  terms. *)
@@ -100,7 +98,7 @@ let create trans =
   in
 
   (* Declaring path compression function. *)
-  Compress.init (Solver.declare_fun solver) trans ;
+  Compress.init (SMTSolver.declare_fun solver) trans ;
 
   (* Building the conjunction of all transition predicates. *)
   let all_transitions_conj =
@@ -110,7 +108,7 @@ let create trans =
   (* Getting a fresh actlit for init. *)
   let init_actlit = fresh_actlit () in
   (* Declaring it. *)
-  init_actlit |> Solver.declare_fun solver ;
+  init_actlit |> SMTSolver.declare_fun solver ;
   (* Term version for init_actlit. *)
   let init_actlit_term = term_of_actlit init_actlit in
 
@@ -118,12 +116,12 @@ let create trans =
         predicates. *)
   [ init_actlit_term ; (Term.mk_and all_inits) ]
   |> Term.mk_implies
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Asserting all transitions predicates at one for step. *)
   all_transitions_conj
   |> Term.bump_state Numeral.zero
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Return the context of the solver. *)
   { trans = trans ;
@@ -136,7 +134,7 @@ let create trans =
 
 (* Deletes a lock step driver. *)
 let delete context =
-  Solver.delete_solver context.solver
+  SMTSolver.delete_solver context.solver
 
 (* The k of the lock step driver. *)
 let get_k { k } = k
@@ -154,13 +152,13 @@ let increment
   (* Asserting all transitions predicates at k+1. *)
   all_transitions
   |> Term.bump_state new_k
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Asserting all invariants at k. *)
   invariants
   |> Term.mk_and
   |> Term.bump_state new_kp1
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Updating context. *)
   context.k <- Numeral.(context.k + one)
@@ -196,7 +194,7 @@ let new_invariants ({ solver ; k ; invariants } as context)
          (* Asserting it from 0 to k+1 as a conjunction. *)
          unroll_term_up_to_k kp1 inv
          |> Term.mk_and
-         |> Solver.assert_term solver ;
+         |> SMTSolver.assert_term solver ;
          (* Appending to old invariants. *)
          inv :: list )
        invariants
@@ -212,7 +210,7 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
   let terms_actlit = fresh_actlit () in
 
   (* Declaring it. *)
-  terms_actlit |> Solver.declare_fun solver ;
+  terms_actlit |> SMTSolver.declare_fun solver ;
 
   (* Term version of the actlit. *)
   let terms_actlit_term = term_of_actlit terms_actlit in
@@ -230,7 +228,7 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
   [ terms_actlit_term ;
     terms_at_k |> Term.mk_and |> Term.mk_not ]
   |> Term.mk_implies
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   let k_m_1 = Numeral.pred k in
 
@@ -250,7 +248,7 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
   let result =
 
     (* Check-sat-assuming time. *)
-    Solver.check_sat_assuming
+    SMTSolver.check_sat_assuming
 
       solver
 
@@ -259,7 +257,7 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
       ( fun () ->
         Some
           (* Getting the model. *)
-          ( Solver.get_model solver var_at_k
+          ( SMTSolver.get_model solver var_at_k
             |> List.map
                  ( fun (v,t) ->
                    Var.bump_offset_of_state_var_instance
@@ -275,7 +273,7 @@ let query_base { solver ; k ; init_actlit ; all_vars } terms =
   (* Deactivating actlits. *)
   terms_actlit_term
   |> Term.mk_not
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Returning the result. *)
   result
@@ -293,7 +291,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
      let terms_actlit = fresh_actlit () in
 
      (* Declaring it. *)
-     terms_actlit |> Solver.declare_fun solver ;
+     terms_actlit |> SMTSolver.declare_fun solver ;
 
      (* Term version of the actlit. *)
      let terms_actlit_term = term_of_actlit terms_actlit in
@@ -310,7 +308,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
               [ terms_actlit_term ;
                 unroll_term_up_to_k k term |> Term.mk_and ]
               |> Term.mk_implies
-              |> Solver.assert_term solver ;
+              |> SMTSolver.assert_term solver ;
 
               (* Bumping term to kp1. *)
               Term.bump_state kp1 term )
@@ -321,21 +319,21 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
      [ terms_actlit_term ;
        (terms_at_kp1 |> Term.mk_and |> Term.mk_not) ]
      |> Term.mk_implies
-     |> Solver.assert_term solver ;
+     |> SMTSolver.assert_term solver ;
 
      (* Building a small continuation to deactivate the actlit before
         we go on. *)
      let continue =
        ( match
            (* Check-sat-assuming time. *)
-           Solver.check_sat_assuming
+           SMTSolver.check_sat_assuming
              solver
 
              (* Function ran if sat. Returns Some of the falsifiable
                 terms, INCLUDING THE ONES WE ALREADY KNOW ARE
                 FALSIFIABLE, and the unknown ones. *)
              ( fun () ->
-               Solver.get_values solver terms_at_kp1
+               SMTSolver.get_values solver terms_at_kp1
                |> List.fold_left
                     ( fun (flsbl_list, uknwn_list)
                           (term_at_kp1, value) ->
@@ -378,7 +376,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
      (* Deactivating actlits. *)
      term_of_actlit terms_actlit
      |> Term.mk_not
-     |> Solver.assert_term solver ;
+     |> SMTSolver.assert_term solver ;
 
      (* Calling the tiny continuation. *)
      continue ()
@@ -401,7 +399,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*      let terms_actlit = fresh_actlit () in *)
 
 (*      (\* Declaring it. *\) *)
-(*      terms_actlit |> Solver.declare_fun solver ; *)
+(*      terms_actlit |> SMTSolver.declare_fun solver ; *)
 
 (*      (\* Term version of the actlit. *\) *)
 (*      let terms_actlit_term = term_of_actlit terms_actlit in *)
@@ -418,7 +416,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*               [ terms_actlit_term ; *)
 (*                 unroll_term_up_to_k k term |> Term.mk_and ] *)
 (*               |> Term.mk_implies *)
-(*               |> Solver.assert_term solver ; *)
+(*               |> SMTSolver.assert_term solver ; *)
 
 (*               (\* Bumping term to kp1. *\) *)
 (*               Term.bump_state kp1 term ) *)
@@ -429,7 +427,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*      [ terms_actlit_term ; *)
 (*        (terms_at_kp1 |> Term.mk_and |> Term.mk_not) ] *)
 (*      |> Term.mk_implies *)
-(*      |> Solver.assert_term solver ; *)
+(*      |> SMTSolver.assert_term solver ; *)
 
 (*      (\* Building a small continuation to deactivate the actlit before *)
 (*         we go on. *\) *)
@@ -437,7 +435,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*        let rec loop () = *)
 (*          ( match *)
 (*              (\* Check-sat-assuming time. *\) *)
-(*              Solver.check_sat_assuming *)
+(*              SMTSolver.check_sat_assuming *)
 (*                solver *)
 
 (*                (\* Function ran if sat. Returns Some of the falsifiable *)
@@ -445,18 +443,18 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*                   FALSIFIABLE, and the unknown ones. *\) *)
 (*                ( fun () -> *)
 (*                  (\* Get-model function. *\) *)
-(*                  let get_model = Solver.get_model solver in *)
+(*                  let get_model = SMTSolver.get_model solver in *)
 (*                  (\* Extracting the counterexample. *\) *)
 (*                  let cex = *)
 (*                    TransSys.path_from_model trans get_model k in *)
 (*                  (\* Attempting to compress path. *\) *)
 (*                  ( match *)
 (*                      Compress.check_and_block *)
-(*                        (Solver.declare_fun solver) trans cex *)
+(*                        (SMTSolver.declare_fun solver) trans cex *)
 (*                    with *)
 
 (*                    | [] -> *)
-(*                       Solver.get_values solver terms_at_kp1 *)
+(*                       SMTSolver.get_values solver terms_at_kp1 *)
 (*                       |> List.fold_left *)
 (*                            ( fun (flsbl_list, uknwn_list) *)
 (*                                  (term_at_kp1, value) -> *)
@@ -481,7 +479,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*                    | compressor -> *)
 (*                       (\* Path compressing. *\) *)
 (*                       compressor |> Term.mk_and *)
-(*                       |> Solver.assert_term solver ; *)
+(*                       |> SMTSolver.assert_term solver ; *)
 
 (*                       (\* Returning nothing. *\) *)
 (*                       Printf.printf "Path compressing, looping.\n" ; *)
@@ -522,7 +520,7 @@ let rec split_closure solver k kp1 all_vars falsifiable terms =
 (*      (\* Deactivating actlit. *\) *)
 (*      terms_actlit_term *)
 (*      |> Term.mk_not *)
-(*      |> Solver.assert_term solver ; *)
+(*      |> SMTSolver.assert_term solver ; *)
 
 (*      (\* Calling the tiny continuation. *\) *)
 (*      continue () *)

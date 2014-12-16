@@ -170,129 +170,52 @@ module TypeMap = Map.Make (OrderedType)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
-module type Printer =
-  sig
+(* Pretty-print a type *)
+let rec pp_print_type_node ppf = function 
 
-    val pp_print_type_node : Format.formatter -> kindtype -> unit
+  | Bool -> Format.pp_print_string ppf "Bool"
 
-    val pp_print_type : Format.formatter -> t -> unit
+  | Int -> Format.pp_print_string ppf "Int"
 
-    val string_of_type : t -> string
+  | IntRange (i, j) -> 
 
-  end
+    Format.fprintf
+      ppf 
+      "IntRange %a %a" 
+      Numeral.pp_print_numeral i 
+      Numeral.pp_print_numeral j
 
-module SMTLIBPrinter : Printer =
-  struct
+  | Real -> Format.pp_print_string ppf "Real"
 
-    (* Pretty-print a type *)
-    let rec pp_print_type_node ppf = function 
+  | BV i -> 
 
-      | Bool -> Format.pp_print_string ppf "Bool"
+    Format.fprintf
+      ppf 
+      "BitVec %d" 
+      i 
 
-      | Int -> Format.pp_print_string ppf "Int"
+  | Array (s, t) -> 
+    Format.fprintf
+      ppf 
+      "Array %a %a" 
+      pp_print_type s 
+      pp_print_type t
 
-      | IntRange (i, j) -> 
+  | Scalar (s, l) -> 
 
-         Format.fprintf
-           ppf 
-           "IntRange %a %a" 
-           Numeral.pp_print_numeral i 
-           Numeral.pp_print_numeral j
+    Format.fprintf
+      ppf 
+      "%s %a" 
+      s 
+      (pp_print_list Format.pp_print_string " ") l
 
-      | Real -> Format.pp_print_string ppf "Real"
-
-      | BV i -> 
-
-         Format.fprintf
-           ppf 
-           "BitVec %d" 
-           i 
-
-      | Array (s, t) -> 
-         Format.fprintf
-           ppf 
-           "Array %a %a" 
-           pp_print_type s 
-           pp_print_type t
-
-      | Scalar (s, l) -> 
-
-         Format.fprintf
-           ppf 
-           "%s %a" 
-           s 
-           (pp_print_list Format.pp_print_string " ") l
-
-    (* Pretty-print a hashconsed variable *)
-    and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
+(* Pretty-print a hashconsed variable *)
+and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
 
 
-    (* Return a string representation of a type *)
-    let string_of_type t = string_of_t pp_print_type t
+(* Return a string representation of a type *)
+let string_of_type t = string_of_t pp_print_type t
 
-  end
-
-module YicesPrinter : Printer =
-  struct
-
-    (* Pretty-print a type *)
-    let rec pp_print_type_node ppf = function 
-
-      | Bool -> Format.pp_print_string ppf "bool"
-
-      | Int -> Format.pp_print_string ppf "int"
-
-      | IntRange (i, j) -> 
-
-         Format.fprintf
-           ppf 
-           "(subrange %a %a)" 
-           Numeral.pp_print_numeral i 
-           Numeral.pp_print_numeral j
-
-      | Real -> Format.pp_print_string ppf "real"
-
-      | BV i -> 
-
-         Format.fprintf
-           ppf 
-           "(bitvector %d)" 
-           i 
-
-      | Array (s, t) -> 
-         Format.fprintf
-           ppf 
-           "(-> %a %a)" 
-           pp_print_type s 
-           pp_print_type t
-
-      | Scalar (s, l) -> 
-
-         Format.fprintf
-           ppf 
-           "(scalar %s %a)" 
-           s 
-           (pp_print_list Format.pp_print_string " ") l
-
-    (* Pretty-print a hashconsed variable *)
-    and pp_print_type ppf { Hashcons.node = t } = pp_print_type_node ppf t
-
-
-    (* Return a string representation of a type *)
-    let string_of_type t = string_of_t pp_print_type t
-
-  end
-
-
-(* Select apropriate printer based on solver *)
-let select_printer () =
-  match Flags.smtsolver () with
-  | `Yices_native -> (module YicesPrinter : Printer)
-  | _ -> (module SMTLIBPrinter : Printer)
-
-module SelectedPrinter : Printer = (val (select_printer ()))
-  
-include SelectedPrinter
 
 (* ********************************************************************* *)
 (* Constructors                                                          *)

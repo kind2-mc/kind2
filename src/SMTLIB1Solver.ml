@@ -311,7 +311,6 @@ let execute_custom_check_sat_command solver cmd =
 (* Create an instance of the solver *)
 let create_instance 
     ?(produce_assignments = false)
-    ?(produce_models = false) 
     ?(produce_proofs = false) 
     ?(produce_cores = false)     
     ({ solver_cmd = solver_cmd } as config)

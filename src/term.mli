@@ -36,6 +36,39 @@
 *)
 
 
+(** {1 Logics} *)
+
+(** The defined logics in SMTLIB *)
+type logic = 
+  [ `detect
+  | `AUFLIA
+  | `AUFLIRA
+  | `AUFNIRA
+  | `LRA 
+  | `LIA
+  | `QF_ABV
+  | `QF_AUFBV
+  | `QF_AUFLIA
+  | `QF_AX
+  | `QF_BV
+  | `QF_IDL
+  | `QF_LIA
+  | `QF_LRA
+  | `QF_NIA
+  | `QF_NRA
+  | `QF_RDL
+  | `QF_UF
+  | `QF_UFBV
+  | `QF_UFIDL
+  | `QF_UFLIA
+  | `QF_UFLRA
+  | `QF_UFNRA
+  | `UFLIA
+  | `UFLRA
+  | `UFNIA
+  ]
+
+
 (** {1 Types and hash-consing} *)
 
 module T : Ltree.S

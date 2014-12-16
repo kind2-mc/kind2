@@ -20,37 +20,7 @@
 
     @author Christoph Sticksel *)
 
-(** {1 Logics} *)
-
-(** The defined logics in SMTLIB *)
-type logic = 
-  [ `detect
-  | `AUFLIA
-  | `AUFLIRA
-  | `AUFNIRA
-  | `LRA 
-  | `LIA
-  | `QF_ABV
-  | `QF_AUFBV
-  | `QF_AUFLIA
-  | `QF_AX
-  | `QF_BV
-  | `QF_IDL
-  | `QF_LIA
-  | `QF_LRA
-  | `QF_NIA
-  | `QF_NRA
-  | `QF_RDL
-  | `QF_UF
-  | `QF_UFBV
-  | `QF_UFIDL
-  | `QF_UFLIA
-  | `QF_UFLRA
-  | `QF_UFNRA
-  | `UFLIA
-  | `UFLRA
-  | `UFNIA
-  ]
+open SolverResponse
 
 
 (** {1 Sorts} *)
@@ -64,29 +34,11 @@ type t = Term.t
 (** An SMT variable is of type {!Var.t} *)
 type var = Var.t
 
-(** {1 Solver commands and responses} *)
-
 
 (** Arguments to a custom command *)
 type custom_arg = 
-  | ArgString of string  (** String argument *)
-  | ArgExpr of t      (** Expression argument *)
-
-
-(** Solver response from a command *)
-type response =
-  | NoResponse
-  | Unsupported
-  | Success 
-  | Error of string
-
-     
-(** Solver response from a [(check-sat)] command *) 
-type check_sat_response =
-  | Response of response
-  | Sat
-  | Unsat
-  | Unknown
+| ArgString of string  (** String argument *)
+| ArgExpr of t      (** Expression argument *)
 
 
 (** {1 Pretty-printing and String Conversions} *)
@@ -112,10 +64,10 @@ module type Conv =
     val expr_of_string_sexpr : HStringSExpr.t -> t
 
     (** Return an SMTLIB string expression for the logic *)
-    val string_of_logic : logic -> string 
+    val string_of_logic : Term.logic -> string 
 
     (** Pretty-print a logic in SMTLIB format *)
-    val pp_print_logic : Format.formatter -> logic -> unit
+    val pp_print_logic : Format.formatter -> Term.logic -> unit
 
     (** Pretty-print a sort in SMTLIB format *)
     val pp_print_sort : Format.formatter -> sort -> unit
@@ -137,11 +89,11 @@ module type Conv =
 
     (** Convert a term to an SMT expression, quantifying over
         the given variables 
-
-    [quantified_smtexpr_of_term q v t] returns the SMT expression
-    [exists (v) t] or [forall (v) t] if q is true or false,
-    respectively, where all variables in [t] except those in [v] are
-    converted to uninterpreted functions. *)
+        
+        [quantified_smtexpr_of_term q v t] returns the SMT expression
+        [exists (v) t] or [forall (v) t] if q is true or false,
+        respectively, where all variables in [t] except those in [v] are
+        converted to uninterpreted functions. *)
     val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
 
     (** Convert an SMT expression to a variable *)
@@ -150,59 +102,17 @@ module type Conv =
     (** Convert an SMT expression to a term *)
     val term_of_smtexpr : t -> t
 
-    (** Declare uninterpreted symbols in the SMT solver *)
-    val declare_smt_symbols :
-      (string -> sort list -> sort -> response) -> response
-
-
-    (** {2 Responses conversions } *)
-
-    (** Convert an S-expression of strings to a command response *)
-    val response_of_sexpr : HStringSExpr.t -> response
-
-    (** Convert an S-expression of strings to a check-sat command response *)
-    val check_sat_response_of_sexpr : HStringSExpr.t -> check_sat_response
-
-    (** Convert an S-expression of strings to a get-value response *)
-    val get_value_response_of_sexpr : HStringSExpr.t -> response * (t * t) list
-
-    (** Convert an S-expression of strings to a get-unsat-core response *)
-    val get_unsat_core_response_of_sexpr :
-      HStringSExpr.t -> response * (string list)
-
-    (** Convert an S-expression of strings to a response for a custom command *)
-    val get_custom_command_response_of_sexpr : HStringSExpr.t -> response
-                                                                   
     (** Pretty-print a custom argument *)
     val pp_print_custom_arg : Format.formatter -> custom_arg -> unit
 
     (** Return an string representation of a custom argument  *)
     val string_of_custom_arg : custom_arg -> string
 
-    (** Pretty-print a response to a command *)
-    val pp_print_response :  Format.formatter -> response -> unit
-
-    (** Pretty-print a response to a check-sat command *)
-    val pp_print_check_sat_response :
-      Format.formatter -> check_sat_response -> unit
-
-    (** Pretty-print a response to a get-value command *)
-    val pp_print_get_value_response :
-      Format.formatter -> response * (t * t) list -> unit
-
-    (** Pretty-print a response to a get-unsat-core command *)
-    val pp_print_get_unsat_core_response :
-      Format.formatter -> response * (string list) -> unit
-
-    (** Pretty-print a response to a custom command *)
-    val pp_print_custom_command_response :
-      Format.formatter -> response * (HStringSExpr.t list) -> unit
-
   end
 
-module SMTLIB : Conv
 
-module Yices : Conv
+module Converter : functor (D : SolverDriver.S) -> Conv
+
 
 (* 
    Local Variables:

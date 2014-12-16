@@ -26,14 +26,6 @@ module N = LustreNode
 module VS = Var.VarSet
 module SVS = StateVar.StateVarSet
 
-(*
-(* Use configured SMT solver *)
-module MySolver = SMTSolver.Make (Config.SMTSolver)
-
-(* High-level methods for PDR solver *)
-module S = SolverMethods.Make (MySolver)
-*)
-
 
 let base_offset = Numeral.zero
 
