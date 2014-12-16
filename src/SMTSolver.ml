@@ -22,9 +22,6 @@ open SolverResponse
 
 exception Unknown
 
-(* Hashtable associating generated names to terms *)
-let term_names = Hashtbl.create 7 
-
 
 let gentag =
   let r = ref 0 in
@@ -309,7 +306,7 @@ let get_unsat_core s =
       in
 
       List.fold_left 
-        (fun a n -> Hashtbl.find term_names n :: a)
+        (fun a n -> Hashtbl.find s.term_names n :: a)
         []
         core_names
 
