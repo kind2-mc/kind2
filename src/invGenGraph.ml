@@ -191,24 +191,11 @@ module Make (InModule : In) : Out = struct
   let lazy_offset_criterion =
     lazy
       ( if two_state then
-          (* In two state, we need to check if one-state is
-             running. *)
-          if is_one_state_running () then
-            (* One state is running, only keeping candidates
-               mentioning -1 and 0. *)
-            (fun candidate ->
-             match Term.var_offsets_of_term candidate with
-             | Some lbound, Some ubound ->
-                Numeral.(lbound = ~- one) && Numeral.(ubound = zero)
-             | _ -> false)
-          else
-            (* One state is not running, only keeping candidates
-               mentioning -1 and 0, and only 0 (not -1). *)
-            (fun candidate ->
-             match Term.var_offsets_of_term candidate with
-             | Some lbound, Some ubound ->
-                Numeral.(lbound >= ~- one) && Numeral.(ubound = zero)
-             | _ -> false)
+          (* In two state, ignore terms only mentioning -1. *)
+          (fun candidate ->
+           match Term.var_offsets_of_term candidate with
+           | _, Some ubound -> Numeral.(ubound = zero)
+           | _ -> false)
         else
           (* We are in one state mode, keeping everything. *)
           (fun candidate -> true) )
@@ -570,11 +557,12 @@ module Make (InModule : In) : Out = struct
               (* Adding invariants to the transition system. *)
               terms'
               |> List.map
-                   (TransSys.add_invariant sys) ;
+                   (TransSys.add_invariant sub_sys) ;
               (* Broadcasting invariants. *)
               terms'
               |> List.iter
-                   (TransSys.get_scope sys |> Event.invariant) ) ;
+                   (TransSys.get_scope sub_sys
+                    |> Event.invariant) ) ;
 
        let top_scope = TransSys.get_scope top_sys in
 
@@ -685,7 +673,17 @@ module Make (InModule : In) : Out = struct
            (List.length new_invariants)
            (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
            (TransSys.get_scope sys |> String.concat "/")
-           top_count ) ;
+           top_count ;
+
+         (debug
+            invGen
+            "%s @[<v>%a@]"
+            name
+            (pp_print_list Term.pp_print_term "@ ")
+            new_invariants
+          in ())
+
+    ) ;
 
     (* Returning updated invariant set. *)
     invariants'

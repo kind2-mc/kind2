@@ -43,8 +43,8 @@ type t = {
 }
 
 (* Makes sure the solver of a lsd instance is consistent. *)
-let check_consistency { systems ; solver } =
-  if false then
+let check_consistency { systems ; solver } called_by =
+  if true then
 
     (* Making sure the solver instance is satisfiable for every
        system. *)
@@ -60,11 +60,13 @@ let check_consistency { systems ; solver } =
                 (fun () ->
                  (* Instance is unsat, let's crash. *)
                  Event.log
-                   L_error
-                   "LSD solver inconsistent at %i@ \
-                    for system [%s]."
+                   L_info
+                   "LSD @[<v>solver inconsistent at %i@ \
+                    for system [%s].@ \
+                    called by [%s].@]"
                    (Numeral.to_int k)
-                   (TransSys.get_scope sys |> String.concat "/") ;
+                   (TransSys.get_scope sys |> String.concat "/")
+                   called_by ;
                  assert false) )
 
 (* Applies [f] to term bumped from [lbound] to [ubound]. *)
@@ -79,15 +81,21 @@ let rec bump_and_apply_bounds f lbound ubound term =
 (* Adds new invariants to a lsd instance for system [sys]. Invariants
    are asserted up to the system [k]. *)
 let add_invariants
-      ({ systems ; solver ; two_state } as lsd)
+      ({ systems ; solver } as lsd)
       sys = function
   | [] -> ()
   | invariants ->
 
      (* Finding the right system. *)
-     let k, _, trans_actlit, trivial_actlit =
+     let k, _, trans_actlit, _ =
        List.assq sys systems
      in
+
+     Printf.sprintf
+       "add_invariant at %i for [%s]."
+       (Numeral.to_int k)
+       (TransSys.get_scope sys |> String.concat "/")
+     |> Solver.trace_comment solver ;
 
      Term.mk_and invariants
      |> Term.bump_and_apply_k
@@ -97,39 +105,14 @@ let add_invariants
            |> Solver.assert_term solver)
           k ;
 
-     (* invariants *)
-     (* |> List.iter *)
-     (*      (\* Bumping each invariant between [0] and [k]. *\) *)
-     (*      (Term.bump_and_apply_k *)
-     (*         (fun inv -> *)
-     (*          (\* Building implication. *\) *)
-     (*          Term.mk_implies [trans_actlit ; inv] *)
-     (*          (\* Asserting it .*\) *)
-     (*          |> Solver.assert_term solver) *)
-     (*         k) ; *)
-
-     Term.mk_and invariants
-     |> Term.bump_and_apply_k
-          (fun inv ->
-           Term.mk_implies [trivial_actlit ; inv]
-           |> Solver.assert_term solver)
-          ( if two_state
-            then Numeral.(succ one)
-            else Numeral.one );
-
-     (* (\* Adding invariants to trivial checks. *\) *)
-     (* invariants *)
-     (* |> List.iter *)
-     (*      (Term.bump_and_apply_k *)
-     (*         (fun inv -> *)
-     (*          (\* Building implication. *\) *)
-     (*          Term.mk_implies [trivial_actlit ; inv] *)
-     (*          (\* Asserting it .*\) *)
-     (*          |> Solver.assert_term solver) *)
-     (*         (if two_state then Numeral.(succ one) *)
-     (*          else Numeral.one)) ; *)
+     (* Term.mk_and invariants *)
+     (* |> Term.bump_and_apply_k *)
+     (*      (fun inv -> *)
+     (*       Term.mk_implies [trivial_actlit ; inv] *)
+     (*       |> Solver.assert_term solver) *)
+     (*      Numeral.one ; *)
      
-     check_consistency lsd
+     check_consistency lsd "add_invariants"
 
 (* If mapping key [system] is defined in mapping [systems], swaps its
    value [info] with the result of applying [f] to [info]. *)
@@ -171,6 +154,12 @@ let unroll_sys ({ systems ; solver } as lsd) system =
 
           (* Getting the next [k]. *)
           let kp1 = Numeral.succ k in
+
+          Printf.sprintf
+            "unroll_sys at %i for [%s]."
+            (Numeral.to_int kp1)
+            (TransSys.get_scope system |> String.concat "/")
+          |> Solver.trace_comment solver ;
           
           (* Declaring unrolled vars at [k+1]. *)
           TransSys.declare_vars_of_bounds
@@ -193,7 +182,7 @@ let unroll_sys ({ systems ; solver } as lsd) system =
           kp1, init_actlit, trans_actlit, trivial_actlit)
   ) ;
 
-  check_consistency lsd ;
+  check_consistency lsd "unroll_sys" ;
 
   ()
 
@@ -278,18 +267,9 @@ let create two_state top_only sys =
            Term.mk_implies
              [ trivial_actlit_term ;
                Term.mk_and
-                 (TransSys.trans_of_bound sys Numeral.one
-                  :: TransSys.invars_of_bound sys Numeral.zero
-                  :: TransSys.invars_of_bound sys Numeral.one
-                  :: ( if two_state then 
-                         [ TransSys.trans_of_bound
-                             sys Numeral.(succ one) ;
-                           TransSys.invars_of_bound
-                             sys Numeral.(succ one) ]
-                       else
-                         []
-                     )
-                 ) ]
+                 [ TransSys.trans_of_bound sys Numeral.one ;
+                   TransSys.invars_of_bound sys Numeral.zero ;
+                   TransSys.invars_of_bound sys Numeral.one ] ]
            |> Solver.assert_term solver ;
 
            (* Updating the map of all systems. *)
@@ -346,6 +326,12 @@ let query_base
   let k, init_actlit, trans_actlit, _ =
     List.assq system systems
   in
+
+  Printf.sprintf
+    "query_base at %i for [%s]."
+    (Numeral.to_int k)
+    (TransSys.get_scope system |> String.concat "/")
+  |> Solver.trace_comment solver ;
 
   (* Fresh actlit for the check (as a term). *)
   let actlit =
@@ -523,7 +509,8 @@ let rec split_closure
 
 (* Prunes the terms which are a direct consequence of the transition
    relation. Assumes [T(0,1)] is asserted. *)
-let rec prune_trivial solver result trivial_actlit = function
+let rec prune_trivial
+          solver result trivial_actlit = function
   | [] -> result, []
   | terms ->
 
@@ -537,9 +524,15 @@ let rec prune_trivial solver result trivial_actlit = function
        Actlit.term_of_actlit actlit_uf
      in
 
+     let bump_num = Numeral.one in
+
+     let unbump_num = Numeral.(~- bump_num) in
+
      (* Bumping terms to one. *)
      let bumped_terms =
-       List.map (Term.bump_state Numeral.one) terms
+       terms
+       |> List.map
+            (Term.bump_state bump_num)
      in
 
      (* Asserting implication between actlit and terms@1. *)
@@ -555,14 +548,14 @@ let rec prune_trivial solver result trivial_actlit = function
            solver bumped_terms
          (* Partitioning the list based on the value of the terms. *)
          |> List.fold_left
-             ( fun (unknowns,falsifiables) (term_at_1, value) ->
+             ( fun (unknowns,falsifiables) (bumped_term, value) ->
                if value == Term.t_true then
-                 (Term.bump_state Numeral.(~- one) term_at_1)
+                 (Term.bump_state unbump_num bumped_term)
                  :: unknowns,
                  falsifiables
                else
                  unknowns,
-                 (Term.bump_state Numeral.(~- one) term_at_1)
+                 (Term.bump_state unbump_num bumped_term)
                  :: falsifiables )
              ([],[])
        )
@@ -602,19 +595,30 @@ let increment_and_query_step
   (* Unrolling [system] one step further. *)
   unroll_sys lsd system ;
 
-  match terms_to_check with
-  | [] -> 
-     Solver.trace_comment solver "no candidate invariants" ;
-     [], []
+  Printf.sprintf
+    "prune_trivial for [%s]."
+    (TransSys.get_scope system |> String.concat "/")
+  |> Solver.trace_comment solver ;
+
+  let not_trivial, trivial =
+    (* Pruning direct consequences of the transition relation if
+          the flag requests it. *)
+    if Flags.invgengraph_prune_trivial () then
+      prune_trivial
+        solver [] trivial_actlit terms_to_check
+    else terms_to_check, []
+  in
+
+  match not_trivial with
+  | [] ->
+     [], trivial
   | _ ->
 
-     let not_trivial, trivial =
-       (* Pruning direct consequences of the transition relation if
-          the flag requests it. *)
-       if Flags.invgengraph_prune_trivial () then
-         prune_trivial solver [] trivial_actlit terms_to_check
-       else terms_to_check, []
-     in
+     Printf.sprintf
+       "query_step at %i for [%s]."
+       (Numeral.to_int k)
+       (TransSys.get_scope system |> String.concat "/")
+     |> Solver.trace_comment solver ;
 
      let invariants =
        (* Splitting terms. *)

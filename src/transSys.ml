@@ -1159,7 +1159,6 @@ let set_prop_status t p = function
 
   | PropFalse c -> set_prop_false t p c
 
-
 (* Return true if the property is proved invariant *)
 let is_proved t prop = 
 

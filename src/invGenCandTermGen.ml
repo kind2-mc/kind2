@@ -380,7 +380,7 @@ module CandidateTermGen = struct
        TSet.add
          (Term.bump_state Numeral.one term)
          set
-         
+
     | _ -> set
 
   (* Term set with true and false. *)

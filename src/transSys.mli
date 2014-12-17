@@ -239,7 +239,7 @@ val set_prop_invariant : t -> string -> unit
 val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
 
 (** Mark property as k-true *)
-val set_prop_ktrue : t -> int -> string -> unit 
+val set_prop_ktrue : t -> int -> string -> unit
 
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
