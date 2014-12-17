@@ -23,7 +23,9 @@
 
 
 include SolverSig.S
-                                            
+
+(* module S :  SolverSig.S *)
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

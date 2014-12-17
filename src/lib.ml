@@ -1091,7 +1091,6 @@ let find_on_path exec =
 
     (* Return full path if file exists, fail otherwise *)
     if Sys.file_exists exec_path then exec_path else raise Not_found
- 
 
 (* 
    Local Variables:

@@ -15,7 +15,6 @@
    permissions and limitations under the License. 
 
 *)
-
 open Lib
 
 open YicesDriver
@@ -905,66 +904,39 @@ let delete_instance
   Unix.close solver_stdout;
   Unix.close solver_stderr
 
-   
-(* ********************************************************************* *)
-(* Toplevel testing code                                                 *)
-(* ********************************************************************* *)
-
-(*
-
-let pp_print_expr_pair ppf (s, t) = 
-  pp_print_expr ppf s;
-  Format.pp_print_space ppf ();
-  pp_print_expr ppf t
 
 
-let test () = 
 
-  let config = 
-    { solver_cmd = "/home/chris/z3/bin/external/z3 -smt2 -in -v:5"; 
-      debug_channel = Some Pervasives.stdout }
-  in
+module Create (P : SolverSig.Params) : SolverSig.Inst = struct
 
-  let solver = 
-    create_instance 
-      config
-      ~produce_models:true
-      `QF_LIA
-  in
+  module Conv = Conv
 
-  ignore (declare_fun solver "a" [] (sort_expr_of_sort INT));
-  
-  ignore (declare_fun solver "a" [] (sort_expr_of_sort INT));
+  let solver = create_instance
+      ~produce_assignments:P.produce_assignments
+      ~produce_cores:P.produce_cores
+      ~produce_proofs:P.produce_proofs
+      P.logic P.id
 
-  let e1 = Tree.L (`UF "a") in
-  let e2 = Tree.N (`EQ, [e1; Tree.L (`NUMERAL (numeral_of_int 1))]) in
-
-  let res = assert_expr solver e2 in 
-  Format.printf ";; %a@." pp_print_response res;
-
-  let res = check_sat solver in 
-  Format.printf ";; %a@." pp_print_check_sat_response res;
-
-  (match get_value solver [e1; e2] with 
-    | Success, v -> 
-      Format.printf 
-        "%a@." 
-        (pp_print_list pp_print_expr_pair " ") 
-        v
-    | r, _ -> 
-      Format.printf ";; %a@." pp_print_response r
-  );
-
-  delete_instance solver
- 
-
-;;
-
-test ()
+  let delete_instance () = delete_instance solver
 
 
-*)
+  let declare_fun = declare_fun solver
+  let define_fun = define_fun solver
+  let assert_expr = assert_expr solver
 
+  let push = push solver
+  let pop = pop solver
+  let check_sat ?(timeout = 0) () = check_sat ~timeout solver
+  let check_sat_assuming = check_sat_assuming solver
+
+  let check_sat_assuming_supported = check_sat_assuming_supported
+  let get_value = get_value solver
+  let get_unsat_core () = get_unsat_core solver
+
+  let execute_custom_command = execute_custom_command solver
+  let execute_custom_check_sat_command cmd = execute_custom_check_sat_command cmd solver
+
+end
 
 (* 
    Local Variables:

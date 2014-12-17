@@ -173,7 +173,7 @@ let string_of_smtsolver = function
 
 let smtsolver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
 
-let smtsolver_default = `Yices_native
+let smtsolver_default = `detect
 
 (* ********** *) 
 

@@ -30,15 +30,20 @@ let gentag =
 
 type expr = SMTExpr.t
 
-type solver = YicesNative.t
+(* type solver = YicesNative.S.t *)
+
+module Z3SMTLIB : SolverSig.S = SMTLIBSolver.Make (Z3Driver)
+module CVC4SMTLIB : SolverSig.S = SMTLIBSolver.Make (CVC4Driver)
+module MathSat5SMTLIB : SolverSig.S = SMTLIBSolver.Make (MathSAT5Driver)
+module Yices2SMTLIB : SolverSig.S = SMTLIBSolver.Make (Yices2SMT2Driver)
 
 type t =
-  { solver : solver;
-    solver_kind : Flags.smtsolver;
-    solver_module : (module SolverSig.S with type t = solver);
+  { solver_kind : Flags.smtsolver;
+    solver_inst : (module SolverSig.Inst);
     (* Hashtable associating generated names to terms *)
     term_names : (int, expr) Hashtbl.t;
-    id : int }
+    id : int
+  }
 
 
 (* Raise an exception on error responses from the SMT solver *)
@@ -58,55 +63,53 @@ let fail_on_smt_error = function
   | _ -> () 
 
 
-
 (* ******************************************************************** *)
 (* Creating and finalizing a solver instance                            *)
 (* ******************************************************************** *)
 
+let bool_of_bool_option = function
+  | None -> false
+  | Some b -> b
+
 (* Create a new instance of an SMT solver, declare all currently created
    uninterpreted function symbols *)
-let create_instance 
+let create_instance
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
     l
     kind =
-
+      
   let id = gentag () in
-  
-  (* let fomodule = *)
-  (*   match kind with *)
-  (*   | `Z3_SMTLIB -> (module SMTLIBSolver.Make (Z3Driver) : SolverSig.S) *)
-  (*   | `CVC4_SMTLIB -> (module SMTLIBSolver.Make (CVC4Driver) : SolverSig.S) *)
-  (*   | `MathSat5_SMTLIB -> (module SMTLIBSolver.Make (MathSAT5Driver) : SolverSig.S) *)
-  (*   | `Yices_SMTLIB -> (module SMTLIBSolver.Make (Yices2SMT2Driver) : SolverSig.S) *)
-  (*   | `Yices_native -> (module YicesNative : SolverSig.S) *)
-  (*   | `detect -> assert false *)
-  (* in *)
 
-  let fomodule = (module YicesNative : SolverSig.S with type t = YicesNative.t) in
+  let module Params = struct
+    let produce_assignments = bool_of_bool_option produce_assignments
+    let produce_proofs = bool_of_bool_option produce_proofs
+    let produce_cores = bool_of_bool_option produce_cores
+    let logic = l
+    let id = id
+  end
+  in
   
-  let module S = (val fomodule : SolverSig.S with type t = YicesNative.t) in
-  
-  let s = 
-    S.create_instance 
-      ?produce_assignments 
-      ?produce_proofs
-      ?produce_cores
-      l
-      id
+  let fomodule =
+    match kind with
+    | `Z3_SMTLIB -> (module Z3SMTLIB.Create(Params) : SolverSig.Inst)
+    | `CVC4_SMTLIB -> (module CVC4SMTLIB.Create(Params) : SolverSig.Inst)
+    | `MathSat5_SMTLIB -> (module MathSat5SMTLIB.Create(Params) : SolverSig.Inst)
+    | `Yices_SMTLIB ->  (module Yices2SMTLIB.Create(Params) : SolverSig.Inst)
+    | `Yices_native -> (module YicesNative.Create(Params) : SolverSig.Inst)
+    | `detect -> assert false
   in
 
-  { solver = s;
-    solver_kind = kind;
-    solver_module = fomodule;
+  { solver_kind = kind;
+    solver_inst = fomodule;
     term_names = Hashtbl.create 19;
     id = id }
 
 (* Delete a solver instance *)
 let delete_instance s =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
-  S.delete_instance s.solver
+  let module S = (val s.solver_inst) in
+  S.delete_instance ()
 
 
 (* ******************************************************************** *)
@@ -114,22 +117,20 @@ let delete_instance s =
 (* ******************************************************************** *)
 
 let declare_fun s uf_symbol =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
 
   fail_on_smt_error 
     (S.declare_fun
-       s.solver
        (UfSymbol.string_of_uf_symbol uf_symbol)
        (UfSymbol.arg_type_of_uf_symbol uf_symbol)
        (UfSymbol.res_type_of_uf_symbol uf_symbol))
 
 
 let define_fun s uf_symbol vars term =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
 
   fail_on_smt_error 
     (S.define_fun
-       s.solver
        (UfSymbol.string_of_uf_symbol uf_symbol)
        vars
        (UfSymbol.res_type_of_uf_symbol uf_symbol)
@@ -142,20 +143,20 @@ let define_fun s uf_symbol vars term =
 (* ******************************************************************** *)
 
 let assert_expr s expr =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
   (* Assert SMT expression in solver instance and fail on error *)
-  fail_on_smt_error (S.assert_expr s.solver expr)
+  fail_on_smt_error (S.assert_expr expr)
 
 
 (* Assert a formula in the current context *)
-let assert_term s term = 
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+let assert_term s term =
+  let module S = (val s.solver_inst) in
 
   (* Convert term to SMT expression *)
   let expr = S.Conv.smtexpr_of_term term in
 
   (* Assert SMT expression in solver instance and fail on error *)
-  fail_on_smt_error (S.assert_expr s.solver expr)
+  fail_on_smt_error (S.assert_expr expr)
 
 
 let assert_named_term s term = 
@@ -169,38 +170,38 @@ let assert_named_term s term =
 
 (* Push a new scope to the context and fail on error *)
 let push ?(n = 1) s =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
-  fail_on_smt_error (S.push s.solver n)
+  let module S = (val s.solver_inst) in
+  fail_on_smt_error (S.push n)
 
 
 (* Pop a new scope from the context and fail on error *)
 let pop ?(n = 1) s =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
-  fail_on_smt_error (S.pop s.solver n)
+  let module S = (val s.solver_inst) in
+  fail_on_smt_error (S.pop n)
 
 
 (* ******************************************************************** *)
 (* Satisfiability checks                                                *)
 (* ******************************************************************** *)
 
-let prof_check_sat ?(timeout = 0) s = 
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+let prof_check_sat ?(timeout = 0) s =
+  let module S = (val s.solver_inst) in
   Stat.start_timer Stat.smt_check_sat_time;
-  let res = S.check_sat ~timeout s.solver in
+  let res = S.check_sat ~timeout () in
   Stat.record_time Stat.smt_check_sat_time;
   res
 
-let prof_check_sat_assuming s exprs = 
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+let prof_check_sat_assuming s exprs =
+  let module S = (val s.solver_inst) in
   Stat.start_timer Stat.smt_check_sat_time;
-  let res = S.check_sat_assuming s.solver exprs in
+  let res = S.check_sat_assuming exprs in
   Stat.record_time Stat.smt_check_sat_time;
   res
 
-let prof_get_value s e = 
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+let prof_get_value s e =
+  let module S = (val s.solver_inst) in
   Stat.start_timer Stat.smt_get_value_time;
-  let res = S.get_value s.solver e in
+  let res = S.get_value e in
   Stat.record_time Stat.smt_get_value_time;
   res
 
@@ -223,13 +224,13 @@ let check_sat ?(timeout = 0) s =
   (* Fail on error *)
   | `Error _ as r -> 
     fail_on_smt_error r; 
-    failwith "SMT solver returned Success on check-sat" 
+    failwith "SMT solver returned Success on check-sat"
 
 
 (* Convert models given as pairs of SMT expressions to pairs of variables and
    terms *)
 let values_of_smt_model conv_left type_left s smt_values =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
   List.map
     (function (v, e) -> 
       (let v', e' = 
@@ -254,8 +255,8 @@ let values_of_smt_model conv_left type_left s smt_values =
 
 
 (* Get model of the current context *)
-let get_model s vars =  
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+let get_model s vars =
+  let module S = (val s.solver_inst) in
 
   match 
     (* Get values of SMT expressions in current context *)
@@ -271,7 +272,7 @@ let get_model s vars =
 
 (* Get values of state variables in the current context *)
 let get_values s terms =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
 
   match 
     (* Get values of SMT expressions in current context *)
@@ -286,9 +287,9 @@ let get_values s terms =
 
 (* Get unsat core of the current context *)
 let get_unsat_core s =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
 
-  match  S.get_unsat_core s.solver with 
+  match S.get_unsat_core () with 
 
   | `Error e -> 
     raise 
@@ -346,7 +347,7 @@ let check_sat_term ?(timeout = 0) solver terms =
 (* Checks satisfiability of some literals, runs if_sat if sat and if_unsat if
    unsat. *)
 let check_sat_assuming s if_sat if_unsat literals =
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
+  let module S = (val s.solver_inst) in
   if S.check_sat_assuming_supported ()
 
   then
@@ -354,7 +355,7 @@ let check_sat_assuming s if_sat if_unsat literals =
     let sat =
       match
         (* Performing the check-sat. *)
-        S.check_sat_assuming s.solver literals
+        S.check_sat_assuming literals
       with
 
       (* Fail on error *)
@@ -499,13 +500,13 @@ let check_entailment_cex ?(timeout = 0) solver prems conc =
   (* Return result and model *)
   res, model
 
-let execute_custom_command s cmd args num_res = 
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
-  S.execute_custom_command s.solver cmd args num_res
+let execute_custom_command s cmd args num_res =
+  let module S = (val s.solver_inst) in
+  S.execute_custom_command cmd args num_res
 
-let execute_custom_check_sat_command cmd s = 
-  let module S = (val s.solver_module : SolverSig.S with type t = solver) in
-  S.execute_custom_check_sat_command cmd s.solver
+let execute_custom_check_sat_command cmd s =
+  let module S = (val s.solver_inst) in
+  S.execute_custom_check_sat_command cmd
 
 (* ******************************************************************** *)
 (* Utiliy functions                                                     *)
