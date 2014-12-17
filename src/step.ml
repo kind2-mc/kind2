@@ -439,9 +439,15 @@ let rec next trans solver k unfalsifiables unknowns =
     |> Event.update_trans_sys trans
     (* Extracting invariant module/term pairs. *)
     |> fst
-    (* Extracting invariant terms. *)
-    |> Event.top_invariants_of_invariants
   in
+
+  (* ( match new_invariants with *)
+  (*   | [] -> () *)
+  (*   | _ -> *)
+  (*      Event.log *)
+  (*        L_info *)
+  (*        "IND @[<v> received %i invariants.@]" *)
+  (*        (List.length new_invariants) ) ; *)
 
   (* Cleaning unknowns and unfalsifiables. *)
   let confirmed, unknowns', unfalsifiables' =
@@ -486,7 +492,8 @@ let rec next trans solver k unfalsifiables unknowns =
      Stat.update_time Stat.ind_total_time ;
 
      (* Notifying compression *)
-     Compress.incr_k ();
+     if Flags.ind_compress () then
+       Compress.incr_k () ;
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
@@ -507,12 +514,15 @@ let rec next trans solver k unfalsifiables unknowns =
        ( match new_invariants' with
          | [] -> ()
          | l -> l
-                |> Term.mk_and
-                |> Term.bump_and_apply_k
-                    (Solver.assert_term solver) k) ;
+                |> List.iter
+                     (Term.bump_and_apply_k
+                        (Solver.assert_term solver) k) ) ;
 
-       (* Asserts old invariants at k+1. *)
-       TransSys.invars_of_bound trans k_p_1 |> Solver.assert_term solver ;
+       (* Asserts all invariants at k+1. *)
+       TransSys.get_invars trans
+       |> List.iter
+            (fun inv ->
+             Term.bump_state k_p_1 inv |> Solver.assert_term solver) ;
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)
@@ -523,8 +533,7 @@ let rec next trans solver k unfalsifiables unknowns =
             Term.mk_implies
               [ generate_actlit term |> term_of_actlit ;
                 Term.bump_state k term ] )
-     |> Term.mk_and
-     |> Solver.assert_term solver ;
+     |> List.iter (Solver.assert_term solver) ;
      
 
      (* Actlits, properties and implications at k for unfalsifiables. *)

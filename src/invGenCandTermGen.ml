@@ -238,7 +238,7 @@ module CandidateTermGen = struct
            const, const op var, orr var op var. *)
         if ( (is_var kid1) && (is_const kid2) )
            || ( (is_var kid2) && (is_const kid1) )
-           || ( (is_var kid1) && (is_var kid2) )
+                (*|| ( (is_var kid1) && (is_var kid2) )*)
         then
 
           ( match Symbol.node_of_symbol sym with
@@ -551,7 +551,8 @@ module CandidateTermGen = struct
         (* Creating graph. *)
         (sys,
          ImplicationGraph.create
-           (TSet.union true_false_set term_set)) )
+           (TSet.union true_false_set term_set),
+         TSet.cardinal term_set) )
 
 end
 
@@ -576,7 +577,7 @@ let create_graph trans candidates =
   match
     CandidateTermGen.build_graphs [ (trans, candidates) ]
   with
-    | (_, graph) :: _ -> graph
+    | (_, graph, _) :: _ -> graph
     | _ -> assert false
 
 

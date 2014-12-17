@@ -984,9 +984,47 @@ let named_term_of_prop_name t name =
 
   (property_of_name t name).prop_term
 
-(* Add an invariant to the transition system *)
-let add_invariant t invar = t.invars <- invar :: t.invars
+(* Finds the subsystem of [t] corresponding to [scope]. *)
+let subsystem_of_scope t scope =
 
+  (* Goes through [t] and its subsystems looking for [scope], stopping
+     at the first occurence. Fails if [scope] cannot be found. *)
+  let rec loop subs_left t =
+    (* Is [t] the right system? *)
+    if t.scope = scope then t
+    else
+    (* Its not, checking if it has any subsystems. *)
+    ( match t.subsystems with
+      | [] ->
+        (* It does not, checking the other subsystems. *)
+        (match subs_left with
+          | [] ->
+            (* Could not find [scope], failing. *)
+            raise
+              (Invalid_argument
+                (Printf.sprintf
+                  "Unexpected scope [%s]."
+                  (String.concat "/" scope)))
+          | sub :: subs ->
+            (* Looping on remaining systems. *)
+            loop subs sub)
+      | sub :: subs ->
+        (* System has subsystems, looping. *)
+        loop (List.rev_append subs subs_left) sub )
+  in
+
+  (* Looking for the right subsystem in t *)
+  loop [] t
+
+(* Add an invariant to the transition system *)
+let add_scoped_invariant t scope invar =
+  (* Finding the right system. *)
+  let sys = subsystem_of_scope t scope in
+  (* Adding invariant to the right system. *)
+  sys.invars <- invar :: sys.invars
+
+(* Add an invariant to the transition system *)
+let add_invariant t invar = add_scoped_invariant t t.scope invar
 
 (* Return current status of all properties *)
 let get_prop_status_all t = 

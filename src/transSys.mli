@@ -102,7 +102,9 @@ val instantiate_term: t -> Term.t -> (t * Term.t list) list
 (** Instantiates a term for the top system by going up the system
    hierarchy, for all instantiations of the input system. Returns the
    top system and the corresponding instantiated terms, paired with
-   the intermediary systems and term instantiations. *)
+   the intermediary systems and term instantiations. Note that the
+   input system/term of the function will be in the result, either as
+   intermediary or top level. *)
 val instantiate_term_all_levels:
   t -> Term.t -> (t * Term.t list) * ((t * Term.t list) list)
 
@@ -153,6 +155,9 @@ val get_source : t -> source
 
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
+
+(** Finds the subsystem of [t] corresponding to [scope]. *)
+val subsystem_of_scope : t -> string list -> t
 
 (** Return the name of the transition system *)
 val get_name : t -> string
@@ -211,6 +216,9 @@ val is_init_uf_def : t -> UfSymbol.t -> bool
 
 (** Add an invariant to the transition system *)
 val add_invariant : t -> Term.t -> unit
+
+(** Add an invariant to the transition system *)
+val add_scoped_invariant : t -> string list -> Term.t -> unit
 
 (** Return current status of all properties *)
 val get_prop_status_all : t -> (string * prop_status) list

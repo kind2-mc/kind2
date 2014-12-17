@@ -44,7 +44,7 @@ val increment: t -> unit
 val check_consistency: t -> unit
 
 (** Adds new invariants to a lock step driver. *)
-val add_invariants: t -> Term.t list -> unit
+val add_invariants: t -> TransSys.t -> Term.t list -> unit
 
 (** Checks if some of the input terms are falsifiable k steps from the
     initial states. Returns Some of a model at 0 if some are, None

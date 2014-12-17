@@ -76,20 +76,28 @@ let rec bump_and_apply_bounds f lbound ubound term =
 
 (* Adds new invariants to a lsd instance. Invariants are asserted up
    to k+1 so that they are active for step. *)
-let add_invariants ({ k ; solver ; invariants } as context)
+let add_invariants
+      ({ systems ; k ; solver ; invariants } as context)
+      sys
   = function
   | [] -> ()
   | invariants' ->
-     
-     let kp1 = Numeral.succ k in
+
+     let sys_k, trans_actlit =
+       systems
+       |> List.assq sys
+       |> (function | (sys_k,_,actlit) -> sys_k, actlit)
+     in
      
      (* Building the conjunction of new invariants. *)
      Term.mk_and invariants'
      (* Asserting all invariants from 0 to k+1. *)
      |> bump_and_apply_bounds
-          (Solver.assert_term solver)
+          (fun inv ->
+           Term.mk_implies [trans_actlit ; inv]
+           |> Solver.assert_term solver)
           Numeral.zero
-          kp1 ;
+          sys_k ;
      
      (* Updating context. *)
      context.invariants <- List.rev_append invariants' invariants
@@ -116,6 +124,13 @@ let soft_increment ({ systems ; k ; solver } as context) system =
          (* Conditionally asserting transition relation at [k+1]. *)
          Term.mk_implies
            [ trans_actlit ; TransSys.trans_of_bound sys kp1 ]
+         (* TransSys.trans_of_bound sys kp1 *)
+         |> Solver.assert_term solver ;
+
+         (* Conditionally asserting invariants at [k+1]. *)
+         Term.mk_implies
+           [ trans_actlit ;
+             TransSys.invars_of_bound sys kp1 ]
          |> Solver.assert_term solver ;
 
          (* Updating with updated associative list. *)
@@ -158,12 +173,12 @@ let increment ({ systems ; k ; solver ; invariants } as context) =
 
   (* Asserting invariants at k+2 (k+1+1, for step. Invariants are
      already asserted at k+1.). *)
-  ( match invariants with
-    | [] -> ()
-    | invariants ->
-       Term.mk_and invariants
-       |> Term.bump_state Numeral.(succ (succ k))
-       |> Solver.assert_term solver ) ;
+  (* ( match invariants with *)
+  (*   | [] -> () *)
+  (*   | invariants -> *)
+  (*      Term.mk_and invariants *)
+  (*      |> Term.bump_state Numeral.(succ (succ k)) *)
+  (*      |> Solver.assert_term solver ) ; *)
 
   (* Incrementing the k. *)
   context.k <- Numeral.succ context.k
@@ -243,7 +258,7 @@ let create two_state top_only sys =
   let invariants =
     systems
     |> List.fold_left
-        ( fun list (sys, (zero, init_actlit, _)) ->
+        ( fun list (sys, (zero, init_actlit, trans_actlit)) ->
 
           (* Declaring things. *)
           (* TransSys.iter_state_var_declarations *)
@@ -262,15 +277,13 @@ let create two_state top_only sys =
             [ init_actlit ; TransSys.init_of_bound sys zero ]
             |> Solver.assert_term solver ;
 
-          (* Invariants if the system at 0. *)
-          let invariants =
-            TransSys.invars_of_bound sys Numeral.zero
-          in
-
-          (* Asserting trans sys invariants. *)
-          Solver.assert_term solver invariants ;
+          (* Conditionally asserting Invariants of the system at 0. *)
+          Term.mk_implies
+            [ trans_actlit ;
+              TransSys.invars_of_bound sys Numeral.zero ]
+          |> Solver.assert_term solver ;
           
-          invariants :: list )
+          list )
         []
   in
 
@@ -290,10 +303,10 @@ let create two_state top_only sys =
   (* Incrementing if we are in two state mode. *)
   if two_state then (
     (* Asserting invariants at 1 if in two_state mode. *)
-    List.iter
-      (fun inv -> Term.bump_state Numeral.one inv
-                  |> Solver.assert_term solver)
-      invariants ;
+    (* List.iter *)
+    (*   (fun inv -> Term.bump_state Numeral.one inv *)
+    (*               |> Solver.assert_term solver) *)
+    (*   invariants ; *)
     
     increment lsd
   ) ;
@@ -590,7 +603,7 @@ let query_step ({ systems ; solver ; two_state ; k } as context)
 
   (* Splitting terms. *)
   split_closure solver two_state trans_actlit k [] terms_to_check
-    (* Pruning direct consequences of the transition relation. *)
+  (* Pruning direct consequences of the transition relation. *)
   |> snd
   |> (if Flags.invgengraph_prune_trivial ()
       then prune_trivial solver [] else identity)

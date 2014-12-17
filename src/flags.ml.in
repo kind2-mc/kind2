@@ -494,7 +494,7 @@ let invgengraph_prune_trivial_default = true
 
 type invgengraph_lift_candidates = bool
 
-let invgengraph_lift_candidates_default = true
+let invgengraph_lift_candidates_default = false
 
 type invgengraph_top_only = bool
 
@@ -502,7 +502,7 @@ let invgengraph_top_only_default = false
 
 type invgengraph_atoms_only = bool
 
-let invgengraph_atoms_only_default = false
+let invgengraph_atoms_only_default = true
 
 type invgengraph_no_trans_subterms = bool
 

@@ -1001,7 +1001,7 @@ let terminate_log () =
 (* ********************************************************************** *)
 
 
-(* Broadcast an invariant *)
+(* Broadcast a scoped invariant *)
 let invariant scope term = 
   
   try
@@ -1228,7 +1228,7 @@ let check_termination () =
 
 
 (* Update transition system from event list *)
-let update_trans_sys trans_sys events = 
+let update_trans_sys_sub trans_sys events = 
 
   (* Tail-recursive iteration *)
   let rec update_trans_sys' trans_sys invars prop_status = function 
@@ -1261,7 +1261,7 @@ let update_trans_sys trans_sys events =
       in
       
       (* Add invariant to transtion system *)
-      TransSys.add_invariant trans_sys t;
+      TransSys.add_scoped_invariant trans_sys s t ;
 
       (* Continue with invariant added to accumulator *)
       update_trans_sys'
@@ -1302,13 +1302,13 @@ let update_trans_sys trans_sys events =
 
          (* Add proved property as invariant *)
         TransSys.add_invariant 
-          trans_sys 
+          trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
 
        (* Skip if named property not found *)
        with Not_found -> ());
 
-      (* Continue with propert status added to accumulator *)
+      (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys 
         invars
@@ -1338,18 +1338,28 @@ let update_trans_sys trans_sys events =
 
 (* Filter list of invariants with their scope for invariants of empty
    (top) scope *)
-let top_invariants_of_invariants invariants = 
+let top_invariants_of_invariants sys invariants = 
+
+  let top = TransSys.get_scope sys in
 
   (* Only keep invariants with empty scope *)
   (List.fold_left
-     (function accum -> function 
-        | (_, ([], t)) -> t :: accum
-        | _ -> accum)
+     (fun accum (_, (scope, t)) ->
+      if scope = top then t :: accum else accum)
      []
      invariants)
      
   (* Return in original order *)
   |> List.rev
+
+let update_trans_sys trans_sys events =
+  match
+    (* Calling the scoped update function. *)
+    update_trans_sys_sub trans_sys events
+  with
+  | invs,valids ->
+    (* Filtering top level invariants. *)
+    top_invariants_of_invariants trans_sys invs, valids
 
 
 let exit t = EventMessaging.exit t
