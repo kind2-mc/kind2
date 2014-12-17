@@ -513,27 +513,25 @@ let rec next trans solver k unfalsifiables unknowns =
        (* Asserting new invariants from 0 to k. *)
        ( match new_invariants' with
          | [] -> ()
-         | l -> l
-                |> List.iter
-                     (Term.bump_and_apply_k
-                        (Solver.assert_term solver) k) ) ;
+         | _ ->
+            Term.mk_and new_invariants'
+            |> Term.bump_and_apply_k
+                 (Solver.assert_term solver) k ) ;
 
        (* Asserts all invariants at k+1. *)
-       TransSys.get_invars trans
-       |> List.iter
-            (fun inv ->
-             Term.bump_state k_p_1 inv |> Solver.assert_term solver) ;
+       TransSys.invars_of_bound trans k_p_1
+       |> Solver.assert_term solver ;
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)
      unknowns'
-     |> List.map
+     |> List.iter
           ( fun (_,term) ->
             (* Building implication. *)
             Term.mk_implies
               [ generate_actlit term |> term_of_actlit ;
-                Term.bump_state k term ] )
-     |> List.iter (Solver.assert_term solver) ;
+                Term.bump_state k term ]
+            |> Solver.assert_term solver ) ;
      
 
      (* Actlits, properties and implications at k for unfalsifiables. *)

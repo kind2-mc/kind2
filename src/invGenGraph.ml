@@ -21,7 +21,7 @@ open Lib
 module TSet = Term.TermSet
 module Graph = ImplicationGraph
 module CandTerm = InvGenCandTermGen
-module LSD = LockStepDriver2
+module LSD = LockStepDriver
 
 
 (* Input signature of a graph-based invariant generation technique. *)
@@ -141,16 +141,15 @@ module Make (InModule : In) : Out = struct
       Stat.update_time time_stat ;
       (* Printing info if not in top only mode (since
          [update_progress] would be ran right afterwards). *)
-      if not (Flags.invgengraph_top_only ()) then
-        Event.log
-          L_info
-          "%s @[<v>%i (%i) invariants discovered@,\
-                   at %i for system [%s].@]"
-          name
-          inv_count
-          impl_count
-          k_int
-          sys_name
+      Event.log
+        L_info
+        "%s @[<v>%i (%i) invariants discovered@,\
+         at %i for system [%s].@]"
+        name
+        inv_count
+        impl_count
+        k_int
+        sys_name
     )
 
   (* Updates progress related stats. *)
@@ -454,7 +453,7 @@ module Make (InModule : In) : Out = struct
                    || (trivial_lhs_and lhs rhs)
                    (* Checking if lhs and rhs are arith operator and lhs
                       trivially implies rhs. *)
-                   (* || (trivial_impl_arith lhs rhs) *)
+                   || (trivial_impl_arith lhs rhs)
 
                 (* Implication is not well-founded, crashing. *)
                 | _ -> assert false )
@@ -547,17 +546,20 @@ module Make (InModule : In) : Out = struct
 
   (* Lifts [invariants] for all the systems calling [sys] and
      communicates them to the framework. *)
-  let communicate_invariants lsd sys = function
+  let communicate_invariants top_sys lsd sys = function
     | [] -> 0
     | invariants ->
        
        (* All intermediary invariants and top level ones. *)
-       let ((top_sys,top_invariants), intermediary_invariants) =
-         Term.mk_and invariants
-         (* Guarding with init if needed. *)
-         |> sanitize_term
-         (* Instantiating at all levels. *)
-         |> TransSys.instantiate_term_all_levels sys
+       let ((_, top_invariants), intermediary_invariants) =
+         if top_sys == sys then
+           (top_sys, invariants), []
+         else
+           Term.mk_and invariants
+           (* Guarding with init if needed. *)
+           |> sanitize_term
+           (* Instantiating at all levels. *)
+           |> TransSys.instantiate_term_all_levels sys
        in
 
        intermediary_invariants
@@ -625,7 +627,7 @@ module Make (InModule : In) : Out = struct
     in
 
     (* Discovering new invariants. *)
-    let new_invariants =
+    let new_invariants, trivial =
       LSD.increment_and_query_step lsd sys candidate_invariants
     in
 
@@ -651,33 +653,36 @@ module Make (InModule : In) : Out = struct
       List.fold_left
         ( fun inv_set new_invariant ->
           TSet.add new_invariant inv_set )
-        invariants
+        (List.fold_left
+           ( fun inv_set new_invariant ->
+             TSet.add new_invariant inv_set )
+           invariants
+           trivial)
         new_invariants
     in
 
     (* Lifting, adding to lsd, and communicating invariants. *)
     let top_count =
-      communicate_invariants lsd sys new_invariants
+      communicate_invariants top_sys lsd sys new_invariants
     in
 
     ( match new_invariants with
-      | [] ->
-         ( match candidate_invariants with
-           | [] ->
-              Event.log
-                L_info
-                "%s No candidate invariants."
-                name
-           | _ -> () )
+      | [] -> ()
+         (* ( match candidate_invariants with *)
+         (*   | [] -> *)
+         (*      Event.log *)
+         (*        L_info *)
+         (*        "%s No candidate invariants." *)
+         (*        name *)
+         (*   | _ -> () ) *)
       | _ ->
          Event.log
            L_info
-           "%s @[<v>%i invariants discovered (%i total)@ \
+           "%s @[<v>%i invariants discovered@ \
             at %i for [%s],@ \
-            %i top level invariant generated.@]"
+            %i top level invariants generated.@]"
            name
            (List.length new_invariants)
-           (TSet.cardinal invariants')
            (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
            (TransSys.get_scope sys |> String.concat "/")
            top_count ) ;
@@ -761,8 +766,8 @@ module Make (InModule : In) : Out = struct
 
     let rec loop count ((sys,_,invs) as binding) =
       let k = LSD.get_k lsd sys in
-      Event.log
-        L_info
+      debug
+        invGen
         "%s @[<v>rewriting [%s]@ \
          lsd at %i, %i invariants discovered@ \
          from %i candidate terms.@]"
@@ -770,14 +775,15 @@ module Make (InModule : In) : Out = struct
         (TransSys.get_scope sys |> String.concat "/")
         (k |> Numeral.to_int)
         (TSet.cardinal invs)
-        cand_count ;
+        cand_count in
       (* Getting new binding and base flag. *)
       let binding', base_unsat_on_first_check =
         rewrite_graph_find_invariants top_sys lsd binding
       in
       let k' = LSD.get_k lsd sys in
       if
-        Numeral.(k = k') || count >= 20 (*base_unsat_on_first_check || max_successive count*)
+        base_unsat_on_first_check
+        || Flags.invgengraph_max_succ () <= count
       then
         (* Done, returning new binding. *)
         binding', cand_count
@@ -786,7 +792,7 @@ module Make (InModule : In) : Out = struct
         loop (count + 1) binding'
     in
 
-    loop 0 binding
+    loop 1 binding
 
   (* Generates invariants by splitting an implication graph. *)
   let generate_invariants top_sys lsd =
@@ -857,7 +863,7 @@ module Make (InModule : In) : Out = struct
     let lsd =
       LSD.create
         two_state
-        (Flags.invgengraph_top_only ())
+        false
         trans_sys
     in
 

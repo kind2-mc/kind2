@@ -32,16 +32,7 @@ val create: bool -> bool -> TransSys.t -> t
 val delete: t -> unit
 
 (** The k of the lock step driver. *)
-val get_k: t -> Numeral.t
-
-(** Increments the k of a lock step driver. Basically asserts the
-   transition relation and unrolls the invariants one step further. *)
-val increment: t -> unit
-
-(** Checks if the current state of the LSD is satisfiable. It only
-    consists of transition relations and invariants, so it should
-    always be. Crashes if it is not. *)
-val check_consistency: t -> unit
+val get_k: t -> TransSys.t -> Numeral.t
 
 (** Adds new invariants to a lock step driver. *)
 val add_invariants: t -> TransSys.t -> Term.t list -> unit
@@ -52,10 +43,11 @@ val add_invariants: t -> TransSys.t -> Term.t list -> unit
 val query_base:
   t -> TransSys.t -> Term.t list -> ((Var.t * Term.t) list) option
 
-(** Checks if some of the input terms are k-inductive. Returns the
-    terms unfalsifiable in the next state. *)
-val query_step:
-  t -> TransSys.t -> Term.t list -> Term.t list
+(** Increments the lsd and checks if some of the input terms are
+    k-inductive. Returns the terms unfalsifiable in the next state and
+    the trivial terms pruned from the input list. *)
+val increment_and_query_step:
+  t -> TransSys.t -> Term.t list -> Term.t list * Term.t list
 
 (* 
    Local Variables:
