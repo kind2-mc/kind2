@@ -24,7 +24,6 @@
 
 include SolverSig.S
 
-(* module S :  SolverSig.S *)
 
 (* 
    Local Variables:
