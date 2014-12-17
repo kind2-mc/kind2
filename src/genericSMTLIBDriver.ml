@@ -137,3 +137,85 @@ let reserved_word_list =
     HString.mk_hstring 
     ["par"; "_"; "!"; "as" ]
 
+
+
+(* Pretty-print a symbol *)
+let rec pp_print_symbol_node ppf = function 
+
+  | `TRUE -> Format.pp_print_string ppf "true"
+  | `FALSE -> Format.pp_print_string ppf "false"
+  | `NOT -> Format.pp_print_string ppf "not"
+  | `IMPLIES -> Format.pp_print_string ppf "=>"
+  | `AND  -> Format.pp_print_string ppf "and"
+  | `OR -> Format.pp_print_string ppf "or"
+  | `XOR -> Format.pp_print_string ppf "xor"
+
+  | `EQ -> Format.pp_print_string ppf "="
+  | `DISTINCT -> Format.pp_print_string ppf "distinct"
+  | `ITE -> Format.pp_print_string ppf "ite" 
+
+  | `NUMERAL i -> Numeral.pp_print_numeral ppf i
+  | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
+  | `BV b -> pp_smtlib_print_bitvector_b ppf b
+
+  | `MINUS -> Format.pp_print_string ppf "-"
+  | `PLUS -> Format.pp_print_string ppf "+"
+  | `TIMES -> Format.pp_print_string ppf "*"
+  | `DIV -> Format.pp_print_string ppf "/"
+  | `INTDIV -> Format.pp_print_string ppf "div"
+  | `MOD -> Format.pp_print_string ppf "mod"
+  | `ABS -> Format.pp_print_string ppf "abs"
+
+  | `LEQ -> Format.pp_print_string ppf "<="
+  | `LT -> Format.pp_print_string ppf "<"
+  | `GEQ -> Format.pp_print_string ppf ">="
+  | `GT -> Format.pp_print_string ppf ">"
+
+  | `TO_REAL -> Format.pp_print_string ppf "to_real"
+  | `TO_INT -> Format.pp_print_string ppf "to_int"
+  | `IS_INT -> Format.pp_print_string ppf "is_int"
+
+  | `DIVISIBLE n -> 
+    Format.pp_print_string ppf "divisible";
+    Format.pp_print_space ppf ();
+    Numeral.pp_print_numeral ppf n
+
+  | `CONCAT -> Format.pp_print_string ppf "concat"
+  | `EXTRACT (i, j) -> 
+    Format.fprintf 
+      ppf 
+      "(_ extract %a %a)" 
+      Numeral.pp_print_numeral i
+      Numeral.pp_print_numeral j
+
+  | `BVNOT -> Format.pp_print_string ppf "bvnot"
+  | `BVNEG -> Format.pp_print_string ppf "bvneg"
+  | `BVAND -> Format.pp_print_string ppf "bvand"
+  | `BVOR -> Format.pp_print_string ppf "bvor"
+  | `BVADD -> Format.pp_print_string ppf "bvadd"
+  | `BVMUL -> Format.pp_print_string ppf "bvmul"
+  | `BVDIV -> Format.pp_print_string ppf "bvdiv"
+  | `BVUREM -> Format.pp_print_string ppf "bvurem"
+  | `BVSHL -> Format.pp_print_string ppf "bvshl"
+  | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
+  | `BVULT -> Format.pp_print_string ppf "bvult"
+
+  | `SELECT -> Format.pp_print_string ppf "select"
+  | `STORE -> Format.pp_print_string ppf "store"
+
+  | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+
+(* Pretty-print a hashconsed symbol *)
+and pp_print_symbol ppf s =
+  pp_print_symbol_node ppf (Symbol.node_of_symbol s)
+
+
+(* Return a string representation of a hashconsed symbol *)
+let string_of_symbol s = string_of_t pp_print_symbol s
+
+
+(* Return a string representation of a symbol *)
+let string_of_symbol_node s = string_of_t pp_print_symbol_node s
+
+
+

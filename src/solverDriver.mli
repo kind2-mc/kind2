@@ -74,5 +74,14 @@ module type S = sig
   (** Pretty-print a logic in SMTLIB format *)
   val pp_print_logic : Format.formatter -> Term.logic -> unit
 
+
+
+  (** Pretty-print a symbol *)
+  val pp_print_symbol : Format.formatter -> Symbol.t -> unit
+
+  (** Return a string representation of a symbol *)
+  val string_of_symbol : Symbol.t -> string 
+
+  
   
 end

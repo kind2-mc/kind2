@@ -177,6 +177,11 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
         string_symbol_list 
 
 
+
+    let pp_print_term ppf t =  Term.T.pp_print_term_w Driver.pp_print_symbol ppf t
+        
+    
+    
     (* Lookup symbol of a hashconsed string *)
     let symbol_of_hstring s = 
 
@@ -281,7 +286,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
         debug smtexpr 
               "const_of_smtlib_token %s is %a" 
               (HString.string_of_hstring t)
-              Term.pp_print_term res
+              pp_print_term res
         in
 
         res
@@ -473,7 +478,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
 
     (* Pretty-print an expression *)
-    let pp_print_expr = Term.pp_print_term
+    let pp_print_expr = pp_print_term
 
 
     (* Pretty-print an expression to the standard formatter *)
@@ -561,7 +566,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
                          (Format.asprintf 
                             "var_of_smtexpr: %a \
                              Invalid argument to uninterpreted function"
-                            Term.pp_print_term e) )
+                            pp_print_term e) )
 
                (* Unary uninterpreted function with a non-numeral
                 argument *)
@@ -571,7 +576,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
                     (Format.asprintf 
                        "var_of_smtexpr: %a \
                         Invalid argument to uninterpreted function"
-                       Term.pp_print_term e) )
+                       pp_print_term e) )
            in
 
            let sv = 
@@ -587,7 +592,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
                  (Format.asprintf 
                     "var_of_smtexpr: %a \
                      No state variable found for uninterpreted function symbol"
-                    Term.pp_print_term e)
+                    pp_print_term e)
            in
 
            (* Create state variable instance *)
@@ -609,7 +614,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
                  (Format.asprintf 
                     "var_of_smtexpr: %a \
                      No state variable found for uninterpreted function symbol"
-                    Term.pp_print_term e)
+                    pp_print_term e)
            in
            
            if StateVar.is_const sv then 
@@ -738,6 +743,17 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
     (* Return a string representation of a custom argument *)
     let string_of_custom_arg t = 
       string_of_t pp_print_custom_arg t
+
+
+
+
+
+
+
+
+
+
+
 
 end
 
