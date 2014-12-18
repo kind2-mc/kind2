@@ -43,6 +43,8 @@ let check_sat_assuming_cmd _ =
 
 
 let headers = [
+  (* Only use QF_LIRA *)
+  (* "(set-arith-only! true)"; *)
   (* Define functions for int / real conversions *)
   "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
   "(define to_real::(-> x::int (subtype (y::real) (= y x))))";

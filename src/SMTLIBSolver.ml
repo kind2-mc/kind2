@@ -675,17 +675,20 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         solver_trace_res = ftrace_res; }
     in
 
-    let add_logic h = function
-      | `detect -> h
-      | _ -> Format.sprintf "(set-logic %s)" (string_of_logic logic) :: h
+    let header_logic = function
+      | `detect -> []
+      | _ -> [Format.sprintf "(set-logic %s)" (string_of_logic logic)]
     in
     
     let headers =
       "(set-option :print-success true)" ::
-      (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
-      Format.sprintf "(set-option :produce-assignments %B)" produce_assignments ::
-      Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores ::
-      (add_logic headers logic)
+      headers @
+      [ 
+        (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
+        Format.sprintf "(set-option :produce-assignments %B)" produce_assignments;
+        Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
+      ] @
+      headers
     in
     
 

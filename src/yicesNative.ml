@@ -525,6 +525,13 @@ let fast_pop solver = function
        with Stack.Empty -> failwith "Yices stack empty: cannot pop")
   | _ -> failwith "Yices: cannot pop negative number of times"
                                   
+(* let push s d = *)
+(*   fast_push s d; *)
+(*   `Success *)
+
+(* let pop s d = *)
+(*   fast_pop s d; *)
+(*   `Success *)
 
 
 (* Check satisfiability of the asserted expressions *)
@@ -722,27 +729,35 @@ let trace_cmd = function
   | None -> fun _ -> ()
 
 (* Tracing of responses *)
-let trace_res = function
-  | Some ppf ->
-     let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
+  let trace_res solver_ppf res = match solver_ppf with
+    | Some ppf ->
+      let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
 
-     let reset_ppf ppf = 
-       Format.fprintf ppf "@?";
-       Format.pp_set_formatter_out_functions ppf fmt_out_fun;
-       Format.fprintf ppf "@.";
-       Format.fprintf ppf "@\n"
-     in
+      let reset_ppf ppf = 
+        Format.fprintf ppf "@?";
+        Format.pp_set_formatter_out_functions ppf fmt_out_fun;
+        Format.fprintf ppf "@.";
+        Format.fprintf ppf "@\n"
+      in
 
-     Format.pp_set_formatter_out_functions 
-       ppf 
-       { fmt_out_fun with 
-         Format.out_newline = 
-           fun () -> fmt_out_fun.Format.out_string "\n;; " 0 4  };
+      let op, cl = comment_delims in
+      
+      Format.pp_set_formatter_out_functions 
+        ppf 
+        { fmt_out_fun with 
+          Format.out_newline = (fun () ->
+            fmt_out_fun.Format.out_string
+              (" "^cl^"\n"^op^" ")
+              0 (3 + String.length op + String.length cl ));
+          Format.out_flush = (fun n ->
+              fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
+              fmt_out_fun.Format.out_flush n
+            );
+        };
+      
+      Format.kfprintf reset_ppf ppf "%s %a" op pp_print_response res
 
-     fun res ->
-     Format.kfprintf reset_ppf ppf ";; %a" pp_print_response res
-
-  | None -> fun _ -> ()
+    | None -> ()
 
 
 (* Create an instance of the solver *)
@@ -822,32 +837,27 @@ let create_instance
     (match produce_cores with Some o -> o | None -> false) ||
     (match produce_assignments with Some o -> o | None -> false)
   in
-  
-  (match 
-      let cmd =
-        Format.sprintf "(set-evidence! %B)" evidence
-      in
-      (debug smt "%s" cmd in
-       execute_command solver cmd 0)
-    with 
-    | `Success | `NoResponse -> () 
-    | _ -> raise (Failure ("Cannot set option evidence")));
 
-  (* Set logic *)
-  (match logic with 
-    | `LIA | `LRA -> 
-      (match
-         let cmd = "(set-arith-only! true)" in
-         (debug smt "%s" cmd in
-          execute_command solver cmd 0)
-       with 
-         | `Success | `NoResponse -> () 
-         | _ -> 
-           raise 
-             (Failure 
-                ("Cannot set logic " ^ (string_of_logic logic))))
+  let header_logic = function
+    | `LIA | `LRA -> ["(set-arith-only! true)"]
+    | _ -> []
+  in
+    
   
-    | `detect | _ -> () );
+  let headers =
+    (Format.sprintf "(set-evidence! %B)" evidence) ::
+    (header_logic logic) @
+    headers
+  in
+  
+  (* Print specific headers specifications *)
+  List.iter (fun cmd ->
+      match (debug smt "%s" cmd in
+             execute_command solver cmd 0)
+      with 
+      | `Success -> () 
+      | _ -> raise (Failure ("Failed to add header: "^cmd))
+  ) headers;
 
   (* Return solver instance *)
   solver
@@ -934,7 +944,8 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let get_unsat_core () = get_unsat_core solver
 
   let execute_custom_command = execute_custom_command solver
-  let execute_custom_check_sat_command cmd = execute_custom_check_sat_command cmd solver
+  let execute_custom_check_sat_command cmd =
+    execute_custom_check_sat_command cmd solver
 
 end
 

@@ -521,6 +521,12 @@ let term_of_model model =
        (function (v, e) -> Term.mk_eq [Term.mk_var v; e])
        model)
 
+
+let converter s =
+  let module S = (val s.solver_inst) in
+  (module S.Conv : SMTExpr.Conv)
+  
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

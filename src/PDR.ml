@@ -341,6 +341,8 @@ let find_cex
     (state_core, state_rest)
     (prop_core, prop_rest) = 
 
+  let module Conv = (val SMTSolver.converter solver_frames) in
+  
   (* Prime variables in property *)
   let prop_core', prop_rest' =
     (Clause.map (Term.bump_state Numeral.one) prop_core, 
@@ -373,16 +375,16 @@ let find_cex
   debug pdr
       "@[<v>Current context@,@[<hv>%a@]@]"
       HStringSExpr.pp_print_sexpr_list
-      (let r, a =
-        SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 
-       in
-       SMTSolver.fail_on_smt_error r;
-       a)
+      (match SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 with
+       | `Custom a -> a
+       | _ -> assert false
+      )
   in
 
   debug pdr
       "@[<v>Current frames@,@[<hv>%a@]@]"
-      SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
+      Conv.pp_print_expr
+      (Conv.smtexpr_of_term (CNF.to_term frame))
   in
 
   (* Push a new scope to the context *)
@@ -525,11 +527,11 @@ let find_cex
           debug pdr
               "@[<v>Current context@,@[<hv>%a@]@]"
               HStringSExpr.pp_print_sexpr_list
-              (let r, a = 
+              (match
                 SMTSolver.execute_custom_command solver_init "get-assertions" [] 1 
-               in
-               SMTSolver.fail_on_smt_error r;
-               a)
+               with
+               | `Custom a -> a
+               | _ -> assert false)
           in
 
           (* Pop scope level from the context *)
@@ -689,11 +691,11 @@ let extract_cex_path
   debug pdr
       "@[<v>Current context@,@[<hv>%a@]@]"
       HStringSExpr.pp_print_sexpr_list
-      (let r, a = 
-        SMTSolver.execute_custom_command solver_misc "get-assertions" [] 1 
-       in
-       SMTSolver.fail_on_smt_error r;
-       a)
+      (match
+         SMTSolver.execute_custom_command solver_misc "get-assertions" [] 1 
+       with
+       | `Custom a -> a
+       | _ -> assert false)      
   in
 
   SMTSolver.push solver_misc;
@@ -883,11 +885,11 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
           debug pdr
               "@[<v>Context before visiting or re-visiting frame@,@[<hv>%a@]@]"
               HStringSExpr.pp_print_sexpr_list
-              (let r, a = 
+              (match
                 SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 
-               in
-               SMTSolver.fail_on_smt_error r;
-               a)
+               with
+               | `Custom a -> a
+               | _ -> assert false)
           in
 
           debug pdr
@@ -945,11 +947,13 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
                  (debug pdr
                      "@[<v>Current context@,@[<hv>%a@]@]"
                      HStringSExpr.pp_print_sexpr_list
-                     (let r, a = 
-                       SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 
-                      in
-                      SMTSolver.fail_on_smt_error r;
-                      a)
+                     (match
+                        SMTSolver.execute_custom_command solver_frames
+                          "get-assertions" [] 1 
+                      with
+                      | `Custom a -> a
+                      | _ -> assert false)
+
                  in
                  
                  raise (Counterexample (block_clause :: block_trace)))
@@ -1104,15 +1108,13 @@ let rec strengthen
            debug pdr
                "@[<v>Current context@,@[<hv>%a@]@]"
                HStringSExpr.pp_print_sexpr_list
-               (let r, a = 
-                 SMTSolver.execute_custom_command 
-                   solver_frames 
-                   "get-assertions" 
-                   [] 
-                   1 
-                in
-                SMTSolver.fail_on_smt_error r;
-                a)
+               (match
+                  SMTSolver.execute_custom_command
+                    solver_frames "get-assertions" [] 1 
+                with
+                | `Custom a -> a
+                | _ -> assert false)
+              
            in
 
            (* Remove assertions of frame from context *)
@@ -2235,12 +2237,12 @@ let rec pdr
        "@[<v>Context only contains properties, invariants and the \
         transition relation@,@[<hv>%a@]@]"
        HStringSExpr.pp_print_sexpr_list
-       (let r, a = 
-         SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 
-        in
-        SMTSolver.fail_on_smt_error r;
-        a)
-    in
+       (match
+          SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1
+        with
+        | `Custom a -> a
+        | _ -> assert false)
+   in
     
     Stat.start_timer Stat.pdr_fwd_prop_time);
 
@@ -2354,7 +2356,6 @@ let main trans_sys =
   then
  
     (Event.log L_fatal "Precise quantifier elimination needs Z3 as SMT solver";
-
      failwith "Unsupported SMT solver for options");
         
 
