@@ -194,8 +194,8 @@ type invgengraph_lift_candidates = bool
 val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
 (** InvGen will look for candidate terms in the transition
     predicate. *)
-type invgengraph_no_trans_subterms = bool
-val invgengraph_no_trans_subterms : unit -> invgengraph_no_trans_subterms
+type invgengraph_mine_trans = bool
+val invgengraph_mine_trans : unit -> invgengraph_mine_trans
 
 (** Renice invariant generation process *)
 type invgengraph_renice = int

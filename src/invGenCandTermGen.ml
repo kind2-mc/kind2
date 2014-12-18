@@ -468,7 +468,7 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgengraph_no_trans_subterms ()
+             |> if Flags.invgengraph_mine_trans ()
                 then identity else set_of_term trans
            in
 
