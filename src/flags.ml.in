@@ -792,7 +792,7 @@ let bmc_max_action o = flags.bmc_max <- o
 let bmc_max_spec = 
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
-   Format.sprintf "(BMC) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+   Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
 
 (* ********** *) 
 
