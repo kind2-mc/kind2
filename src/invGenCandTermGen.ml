@@ -238,7 +238,7 @@ module CandidateTermGen = struct
            const, const op var, orr var op var. *)
         if ( (is_var kid1) && (is_const kid2) )
            || ( (is_var kid2) && (is_const kid1) )
-           || ( (is_var kid1) && (is_var kid2) )
+           (*|| ( (is_var kid1) && (is_var kid2) )*)
         then
 
           ( match Symbol.node_of_symbol sym with
@@ -287,8 +287,7 @@ module CandidateTermGen = struct
     (* List of rules over flat terms and their activation
        condition. *)
     let rule_list =
-      [ bool_terms,
-        ( fun () -> not (Flags.invgengraph_atoms_only ()) ) ;
+      [ bool_terms, false_of_unit ;
         arith_atoms, true_of_unit ]
 
     let apply flat set =
@@ -381,7 +380,7 @@ module CandidateTermGen = struct
        TSet.add
          (Term.bump_state Numeral.one term)
          set
-         
+
     | _ -> set
 
   (* Term set with true and false. *)
@@ -469,7 +468,7 @@ module CandidateTermGen = struct
              |> set_of_term init
 
              (* Candidates from trans. *)
-             |> if Flags.invgengraph_no_trans_subterms ()
+             |> if Flags.invgengraph_mine_trans ()
                 then identity else set_of_term trans
            in
 
@@ -509,7 +508,7 @@ module CandidateTermGen = struct
 
         let final =
           (* Only getting to system if required. *)
-          ( if Flags.invgengraph_top_only ()
+          ( if false_of_unit ()
             then get_last result else result )
           |> (
             (* One state-ing everything if required. *)
@@ -551,7 +550,8 @@ module CandidateTermGen = struct
         (* Creating graph. *)
         (sys,
          ImplicationGraph.create
-           (TSet.union true_false_set term_set)) )
+           (TSet.union true_false_set term_set),
+         TSet.cardinal term_set) )
 
 end
 
@@ -576,7 +576,7 @@ let create_graph trans candidates =
   match
     CandidateTermGen.build_graphs [ (trans, candidates) ]
   with
-    | (_, graph) :: _ -> graph
+    | (_, graph, _) :: _ -> graph
     | _ -> assert false
 
 

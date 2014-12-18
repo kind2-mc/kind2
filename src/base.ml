@@ -184,7 +184,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
            else
              list )
          (* New invariant properties are added to new invariants. *)
-         ( Event.top_invariants_of_invariants new_invs )
+         new_invs
            
   in
 

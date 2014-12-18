@@ -187,19 +187,15 @@ val cooper_general_lbound : unit -> cooper_general_lbound
     the transition relation.. **)
 type invgengraph_prune_trivial = bool
 val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
+type invgengraph_max_succ = int
+val invgengraph_max_succ : unit -> invgengraph_max_succ
 (** InvGen will lift candidate terms from subsystems.. **)
 type invgengraph_lift_candidates = bool
 val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
-(** InvGen will only look for top level invariants. **)
-type invgengraph_top_only = bool
-val invgengraph_top_only : unit -> invgengraph_top_only
-(** InvGen will only consider atomic candidate terms. *)
-type invgengraph_atoms_only = bool
-val invgengraph_atoms_only : unit -> invgengraph_atoms_only
 (** InvGen will look for candidate terms in the transition
     predicate. *)
-type invgengraph_no_trans_subterms = bool
-val invgengraph_no_trans_subterms : unit -> invgengraph_no_trans_subterms
+type invgengraph_mine_trans = bool
+val invgengraph_mine_trans : unit -> invgengraph_mine_trans
 
 (** Renice invariant generation process *)
 type invgengraph_renice = int
