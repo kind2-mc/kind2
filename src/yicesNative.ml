@@ -68,7 +68,7 @@ type t =
                                            stdout *)
       solver_stderr : Unix.file_descr;  (* File descriptor of solver's
                                            stderr *)
-      solver_trace_cmd : string -> unit;
+      solver_trace_cmd : ?commented:bool -> string -> unit;
       (* Tracing function for commands *)
       
       solver_trace_res : response -> unit;
@@ -370,6 +370,36 @@ let execute_custom_command' solver command timeout num_res =
 (* Helper functions for printing commands                                *)
 (* ********************************************************************* *)
 
+(* Set the formatter to print commented and return a function to reset the
+   printing of the formatter *)
+let set_commented_formatter ppf =
+  let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
+
+  let reset_ppf ppf = 
+    Format.fprintf ppf "@?";
+    Format.pp_set_formatter_out_functions ppf fmt_out_fun;
+    Format.fprintf ppf "@.";
+    Format.fprintf ppf "@\n"
+  in
+
+  let op, cl = comment_delims in
+
+  Format.pp_set_formatter_out_functions 
+    ppf 
+    { fmt_out_fun with 
+      Format.out_newline = (fun () ->
+          fmt_out_fun.Format.out_string
+            (" "^cl^"\n"^op^" ")
+            0 (3 + String.length op + String.length cl ));
+      Format.out_flush = (fun n ->
+          fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
+          fmt_out_fun.Format.out_flush n
+        );
+    };
+
+  reset_ppf
+
+
 (* Print function type *)
 let pp_print_function_type ppf (arg_sorts, res_sort) =
   
@@ -610,14 +640,14 @@ let get_value solver expr_list =
      up values in the registered model of the solver state *)
   
   (* The fake SMTLIB command  *)
-  let cmd = 
+  let cmd =
     Format.asprintf
       "@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]" 
       (pp_print_list pp_print_expr "@ ") expr_list;
   in
-
+  
   (* Trace the fake command but comment it *)
-  solver.solver_trace_cmd (";; "^cmd);
+  solver.solver_trace_cmd ~commented:true cmd;
 
   match solver.solver_state with
   | YModel model ->
@@ -659,7 +689,7 @@ let get_unsat_core solver =
   in
   
   (* Trace the fake command but comment it *)
-  solver.solver_trace_cmd (";; "^cmd);
+  solver.solver_trace_cmd ~commented:true cmd;
 
   match solver.solver_state with
   | YUnsat uc ->
@@ -767,39 +797,26 @@ let create_trace_ppf id =
     None 
 
 (* Tracing of commands *)
-let trace_cmd = function
-  | Some ppf -> fun cmd -> Format.fprintf ppf "%s@." cmd
+let trace_cmd ppf ?(commented=false) =
+  match ppf with
+  | Some ppf ->
+    fun cmd ->
+      let op, cl = comment_delims in
+      let cmd = 
+        if commented then
+          op^" "^(Str.global_replace (Str.regexp_string "\n")
+                    (" "^cl^"\n"^op^" ") cmd)
+        else cmd
+      in
+      Format.fprintf ppf "%s@." cmd
   | None -> fun _ -> ()
 
 (* Tracing of responses *)
   let trace_res solver_ppf res = match solver_ppf with
     | Some ppf ->
-      let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
-
-      let reset_ppf ppf = 
-        Format.fprintf ppf "@?";
-        Format.pp_set_formatter_out_functions ppf fmt_out_fun;
-        Format.fprintf ppf "@.";
-        Format.fprintf ppf "@\n"
-      in
-
-      let op, cl = comment_delims in
-      
-      Format.pp_set_formatter_out_functions 
-        ppf 
-        { fmt_out_fun with 
-          Format.out_newline = (fun () ->
-            fmt_out_fun.Format.out_string
-              (" "^cl^"\n"^op^" ")
-              0 (3 + String.length op + String.length cl ));
-          Format.out_flush = (fun n ->
-              fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
-              fmt_out_fun.Format.out_flush n
-            );
-        };
-      
+      let op, _ = comment_delims in
+      let reset_ppf = set_commented_formatter ppf in
       Format.kfprintf reset_ppf ppf "%s %a" op pp_print_response res
-
     | None -> ()
 
 
