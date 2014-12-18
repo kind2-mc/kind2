@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configure 
-./configure $* 
+./configure "$@"
 
 # Build ocamlczmq first 
 pushd ocamlczmq && ./build.sh && popd
