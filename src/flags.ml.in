@@ -768,7 +768,7 @@ let ind_compress_equal_action o = flags.ind_compress_equal <- o
 let ind_compress_equal_spec = 
   ("--ind_compress_equal", 
    Arg.Bool ind_compress_equal_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states equal\
+   Format.sprintf "(IND) Compress inductive counterexamples for states equal \
                    modulo inputs (default: %B)" ind_compress_equal_default)
 
 (* ********** *) 
@@ -778,7 +778,7 @@ let ind_compress_same_succ_action o = flags.ind_compress_same_succ <- o
 let ind_compress_same_succ_spec = 
   ("--ind_compress_same_succ", 
    Arg.Bool ind_compress_same_succ_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states\
+   Format.sprintf "(IND) Compress inductive counterexamples for states \
                    with same successors (default: %B)"
                   ind_compress_same_succ_default)
 
@@ -789,7 +789,7 @@ let ind_compress_same_pred_action o = flags.ind_compress_same_pred <- o
 let ind_compress_same_pred_spec = 
   ("--ind_compress_same_pred", 
    Arg.Bool ind_compress_same_pred_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states\
+   Format.sprintf "(IND) Compress inductive counterexamples for states \
                    with same predecessors (default: %B)"
                   ind_compress_same_pred_default)
 
@@ -810,7 +810,7 @@ let pdr_qe_action o = flags.pdr_qe <- (pdr_qe_of_string o)
 let pdr_qe_spec = 
   ("--pdr_qe", 
    Arg.String pdr_qe_action, 
-   Format.sprintf "(PDR) choose quantifier elimination algorithm\
+   Format.sprintf "(PDR) choose quantifier elimination algorithm \
                    (available: %s, default: %s)"
                   pdr_qe_values (string_of_pdr_qe pdr_qe_default))
 
@@ -821,7 +821,7 @@ let pdr_extract_action o = flags.pdr_extract <- (pdr_extract_of_string o)
 let pdr_extract_spec = 
   ("--pdr_extract", 
    Arg.String pdr_extract_action, 
-   Format.sprintf "(PDR) Heuristics for extraction of implicant\
+   Format.sprintf "(PDR) Heuristics for extraction of implicant \
                    (available: %s, default: %s)"
                   pdr_extract_values
                   (string_of_pdr_extract pdr_extract_default))
@@ -933,7 +933,7 @@ let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
 let cooper_order_var_by_elim_spec = 
   ("--cooper_order_var_by_elim", 
    Arg.Bool cooper_order_var_by_elim_action, 
-   Format.sprintf "(Cooper QE) Order variables in polynomials by order of\
+   Format.sprintf "(Cooper QE) Order variables in polynomials by order of \
                    elimination (available: %s, default: %B)"
                   cooper_order_var_by_elim_values
                   cooper_order_var_by_elim_default)
@@ -945,7 +945,7 @@ let cooper_general_lbound_action o = flags.cooper_general_lbound <- o
 let cooper_general_lbound_spec = 
   ("--cooper_general_lbound", 
    Arg.Bool cooper_general_lbound_action, 
-   Format.sprintf "(Cooper QE) Choose lower bounds containing variables\
+   Format.sprintf "(Cooper QE) Choose lower bounds containing variables \
                    (available: %s, default: %B)"
                   cooper_general_lbound_values cooper_general_lbound_default)
 
@@ -965,7 +965,7 @@ let interpreter_steps_action o = flags.interpreter_steps <- o
 let interpreter_steps_spec = 
   ("--interpreter_steps", 
    Arg.Int interpreter_steps_action, 
-   Format.sprintf "(Interpreter) Run number of steps, override the number of\
+   Format.sprintf "(Interpreter) Run number of steps, override the number of \
                    steps given in the input file")
 
 (* ********** *) 
@@ -975,7 +975,7 @@ let lustre_main_action o = flags.lustre_main <- Some o
 let lustre_main_spec = 
   ("--lustre-main", 
    Arg.String lustre_main_action, 
-   Format.sprintf "Use the given node as top node in Lustre input\
+   Format.sprintf "Use the given node as top node in Lustre input \
                    (default: --%%MAIN annotation)")
 
 (* ********** *) 
@@ -985,7 +985,7 @@ let debug_action o = flags.debug <- o :: flags.debug
 let debug_spec = 
   ("--debug", 
    Arg.String debug_action, 
-   Format.sprintf "enable debug output for a section, give one --debug option\
+   Format.sprintf "enable debug output for a section, give one --debug option \
                    for each section to be enabled")
 
 (* ********** *) 
