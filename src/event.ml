@@ -40,7 +40,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
   (* Properties are always state variables *) 
   let prop = 
-    try TransSys.prop_of_name trans_sys prop_name
+    try TransSys.named_term_of_prop_name trans_sys prop_name
     with Not_found -> assert false
   in 
 
@@ -94,7 +94,7 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
   (* Reduce nodes to cone of influence of property *)
   let nodes' = 
     LustreNode.reduce_to_coi 
-      (List.rev nodes)
+      nodes
       main_name
       (StateVar.StateVarSet.elements (Term.state_vars_of_term prop'))
   in
@@ -120,15 +120,17 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
 
 (* Messages to be relayed between processes *)
 type event = 
-  | Invariant of Term.t 
+  | Invariant of string list * Term.t 
   | PropStatus of string * TransSys.prop_status
 
 
 (* Pretty-print an event *)
 let pp_print_event ppf = function 
 
-  | Invariant t -> 
-    Format.fprintf ppf "@[<hv>Invariant@ %a@]" Term.pp_print_term t
+  | Invariant (s, t) -> 
+    Format.fprintf ppf "@[<hv>Invariant for %a@ %a@]" 
+      (pp_print_list Format.pp_print_string ".") s
+      Term.pp_print_term t
 
   | PropStatus (p, TransSys.PropUnknown) -> 
     Format.fprintf ppf "@[<hv>Property %s is unknown@]" p 
@@ -165,7 +167,11 @@ struct
 
       let t = Term.import (Marshal.from_string f 0 : Term.t) in 
 
-      Invariant t
+      let f = pop () in
+
+      let l = (Marshal.from_string f 0 : string list) in 
+
+      Invariant (l, t)
 
     | "PROP_UNKNOWN" -> 
 
@@ -219,12 +225,15 @@ struct
   (* Convert a message to strings *)
   let strings_of_message = function 
 
-    | Invariant t -> 
+    | Invariant (s, t) -> 
 
       (* Serialize term to string *)
       let term_string = Marshal.to_string t [Marshal.No_sharing] in
       
-      [term_string; "INVAR"]
+      (* Serialize scope to string *)
+      let scope_string = Marshal.to_string s [Marshal.No_sharing] in
+      
+      [scope_string; term_string; "INVAR"]
 
     | PropStatus (p, TransSys.PropUnknown) -> 
 
@@ -318,6 +327,7 @@ module MdlMap =
         | `IND -> 2
         | `PDR -> 3
         | `INVGEN -> 4
+        | `INVGENOS -> 5
           
       let compare m1 m2 = 
         compare (int_of_kind_module m1) (int_of_kind_module m2)
@@ -361,7 +371,8 @@ let pt_string_of_kind_module = function
   | `PDR -> "PDR"
   | `BMC -> "BMC"
   | `IND -> "inductive step"
-  | `INVGEN -> "invariant generator"
+  | `INVGEN -> "two state invariant generator"
+  | `INVGENOS -> "one state invariant generator"
   | `INVMAN -> "invariant manager"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
@@ -413,10 +424,15 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
     (
 
       (* Distinguish between input formats *)
-      match TransSys.get_input trans_sys with
+      match TransSys.get_source trans_sys with
 
         (* Lustre input *)
         | TransSys.Lustre nodes ->
+
+          debug event
+              "Nodes in transition system: %a"
+              (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") nodes
+          in
 
           (* Reduce nodes to cone of influence of property *)
           let nodes' = reduce_nodes_to_coi trans_sys nodes prop_name in
@@ -429,10 +445,14 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
         (* Native input *)
         | TransSys.Native ->
 
+          assert false
+
+      (*
           (* Output counterexample *)
           Format.fprintf ppf 
             "Counterexample:@,%a"
             NativeInput.pp_print_path_pt cex
+*)
 
     )
 
@@ -441,7 +461,7 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
 let pp_print_path_pt trans_sys init ppf path = 
 
   (* Distinguish between input formats *)
-  match TransSys.get_input trans_sys with
+  match TransSys.get_source trans_sys with
         
     (* Lustre input *)
     | TransSys.Lustre nodes ->
@@ -453,12 +473,17 @@ let pp_print_path_pt trans_sys init ppf path =
           
     (* Native input *)
     | TransSys.Native ->
+
+      (*
       
       (* Output path *)
       Format.fprintf ppf 
         "%a"
         NativeInput.pp_print_path_pt path
 
+      *)
+
+      assert false
 
 (* Output execution path as XML *)
 let execution_path_pt level trans_sys path = 
@@ -584,6 +609,7 @@ let xml_src_of_kind_module = function
   | `BMC -> "bmc"
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
+  | `INVGENOS -> "invgenos"
   | `INVMAN -> "invman"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
@@ -656,7 +682,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
     (
 
       (* Distinguish between input formats *)
-      match TransSys.get_input trans_sys with
+      match TransSys.get_source trans_sys with
 
         (* Lustre input *)
         | TransSys.Lustre nodes ->
@@ -672,10 +698,14 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
         (* Native input *)
         | TransSys.Native ->
 
+(*
           (* Output counterexample *)
           Format.fprintf ppf 
             "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
             NativeInput.pp_print_path_xml cex
+*)
+
+          assert false
 
     )
 
@@ -684,7 +714,7 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
 let pp_print_path_xml trans_sys init ppf path = 
 
   (* Distinguish between input formats *)
-  match TransSys.get_input trans_sys with
+  match TransSys.get_source trans_sys with
         
     (* Lustre input *)
     | TransSys.Lustre nodes ->
@@ -697,11 +727,14 @@ let pp_print_path_xml trans_sys init ppf path =
     (* Native input *)
     | TransSys.Native ->
       
+(*
       (* Output path *)
       Format.fprintf ppf 
         "%a"
         NativeInput.pp_print_path_xml path
+*)
 
+      assert false
 
 (* Output execution path as XML *)
 let execution_path_xml level trans_sys path = 
@@ -940,6 +973,7 @@ let log_prop_status level prop_status =
 
 (* Output statistics of a section of a source *)
 let log_stat mdl level stats =
+
   match !log_format with 
     | F_pt -> stat_pt mdl level stats
     | F_xml -> stat_xml mdl level stats
@@ -967,13 +1001,13 @@ let terminate_log () =
 (* ********************************************************************** *)
 
 
-(* Broadcast an invariant *)
-let invariant term = 
+(* Broadcast a scoped invariant *)
+let invariant scope term = 
   
   try
     
     (* Send invariant message *)
-    EventMessaging.send_relay_message (Invariant term)
+    EventMessaging.send_relay_message (Invariant (scope, term))
 
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> ()
@@ -1186,10 +1220,15 @@ let recv () =
   (* Don't fail if not initialized *) 
   with Messaging.NotInitialized -> []
 
+(* Terminates if a termination message was received. Does NOT modified
+   received messages. *)
+let check_termination () =
+  if EventMessaging.check_termination ()
+  then raise Terminate else ()
 
 
 (* Update transition system from event list *)
-let update_trans_sys trans_sys events = 
+let update_trans_sys_sub trans_sys events = 
 
   (* Tail-recursive iteration *)
   let rec update_trans_sys' trans_sys invars prop_status = function 
@@ -1198,7 +1237,7 @@ let update_trans_sys trans_sys events =
     | [] -> (invars, prop_status)
 
     (* Invariant discovered *)
-    | (m, Invariant t) :: tl -> 
+    | (m, Invariant (s, t)) :: tl -> 
 
       (* Property status if received invariant is a property *)
       let tl' =
@@ -1222,12 +1261,12 @@ let update_trans_sys trans_sys events =
       in
       
       (* Add invariant to transtion system *)
-      TransSys.add_invariant trans_sys t;
+      TransSys.add_scoped_invariant trans_sys s t ;
 
       (* Continue with invariant added to accumulator *)
       update_trans_sys'
         trans_sys
-        ((m, t) :: invars)
+        ((m, (s, t)) :: invars)
         prop_status
         tl'
 
@@ -1263,13 +1302,13 @@ let update_trans_sys trans_sys events =
 
          (* Add proved property as invariant *)
         TransSys.add_invariant 
-          trans_sys 
+          trans_sys
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
 
        (* Skip if named property not found *)
        with Not_found -> ());
 
-      (* Continue with propert status added to accumulator *)
+      (* Continue with property status added to accumulator *)
       update_trans_sys'
         trans_sys 
         invars
@@ -1295,6 +1334,32 @@ let update_trans_sys trans_sys events =
   in
 
   update_trans_sys' trans_sys [] [] events
+
+
+(* Filter list of invariants with their scope for invariants of empty
+   (top) scope *)
+let top_invariants_of_invariants sys invariants = 
+
+  let top = TransSys.get_scope sys in
+
+  (* Only keep invariants with empty scope *)
+  (List.fold_left
+     (fun accum (_, (scope, t)) ->
+      if scope = top then t :: accum else accum)
+     []
+     invariants)
+     
+  (* Return in original order *)
+  |> List.rev
+
+let update_trans_sys trans_sys events =
+  match
+    (* Calling the scoped update function. *)
+    update_trans_sys_sub trans_sys events
+  with
+  | invs,valids ->
+    (* Filtering top level invariants. *)
+    top_invariants_of_invariants trans_sys invs, valids
 
 
 let exit t = EventMessaging.exit t

@@ -284,6 +284,10 @@ val mk_pred : t -> t
 (** Negate term, avoiding double negation *)
 val negate : t -> t 
 
+(** Negates a term by modifying the top node if it is a not, true,
+    false, or an arithmetic inequality. *)
+val negate_simplify : t -> t 
+
 (** Remove top negation from term, otherwise return term unchanged *)
 val unnegate : t -> t 
 

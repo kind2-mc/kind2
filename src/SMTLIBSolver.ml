@@ -96,8 +96,7 @@ let smtlibsolver_config_cvc4 () =
         [| cvc4_bin; 
            "--lang"; "smt2";
            "--rewrite-divk";
-           "--tear-down-incremental";
-           "--produce-unsat-cores" |] }
+           "--tear-down-incremental" |] }
 
   else
 

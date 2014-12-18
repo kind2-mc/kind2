@@ -278,6 +278,12 @@ let actlits_of_prop_set solver props =
 let ref_solver = ref None
 
 
+let solvers_declare uf =
+  match !ref_solver with
+    | Some solver -> S.declare_fun solver uf
+    | None -> ()
+
+
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
@@ -400,7 +406,7 @@ let handle_events
   in
 
   (* Assert all received invariants *)
-  List.iter (fun (_, i) -> add_invariant i) invariants_recvd;
+  List.iter (fun i -> add_invariant i) invariants_recvd;
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
@@ -903,10 +909,11 @@ let find_cex
            a)
     in
 
-    debug pdr
-          "@[<v>Current frames@,@[<hv>%a@]@]"
-          SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
-    in
+  debug pdr
+      "@[<v>Current frames@,@[<hv>%a@]@]"
+    SMTExpr.pp_print_expr
+    (SMTExpr.smtexpr_of_term solvers_declare (CNF.to_term frame))
+  in
 
     (* Push a new scope to the context *)
     S.push solver_frames;
@@ -2101,28 +2108,30 @@ let fwd_propagate
                     inductive_terms
 
                 );
-              *)
-             (* Send invariant *)
-             List.iter 
-               (fun c -> Event.invariant (Clause.to_term c))
-               inductive;
+*)
+              (* Send invariant *)
+              List.iter 
+                (fun c ->
+                  Event.invariant
+                    (TransSys.get_scope trans_sys) (Clause.to_term c))
+                inductive;
 
-             Stat.record_time Stat.pdr_inductive_check_time;
+              Stat.record_time Stat.pdr_inductive_check_time;
 
-             (* Pop scope level in generic solver *)
-             S.pop solver_misc;
+              (* Pop scope level in generic solver *)
+              S.pop solver_misc;
 
-             Stat.incr 
-               ~by:(List.length inductive_terms) 
-               Stat.pdr_inductive_blocking_clauses;
+              Stat.incr 
+                ~by:(List.length inductive_terms) 
+                Stat.pdr_inductive_blocking_clauses;
 
-             (debug pdr 
-                    "@[<v>New inductive terms:@,@[<hv>%t@]@]"
-                    (function ppf -> 
-                              (List.iter 
-                                 (Format.fprintf ppf "%a@," Term.pp_print_term) 
-                                 inductive_terms)) 
-              in
+              (debug pdr 
+                  "@[<v>New inductive terms:@,@[<hv>%t@]@]"
+                  (function ppf -> 
+                    (List.iter 
+                       (Format.fprintf ppf "%a@," Term.pp_print_term) 
+                       inductive_terms)) 
+               in
 
               (* Add inductive blocking clauses as invariants *)
               List.iter (TransSys.add_invariant trans_sys) inductive_terms);
@@ -2801,7 +2810,7 @@ let handle_events
   in
 
   (* Assert all received invariants *)
-  List.iter (fun (_, i) -> add_invariant i) invariants_recvd;
+  List.iter add_invariant invariants_recvd;
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
@@ -3029,6 +3038,9 @@ let rec restart_loop props =
         (* Assert invariants for current state if not empty *)
         if not (invars_0 == Term.t_true) then 
 
+  (* Declare uninterpreted function symbols *)
+  (* TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init); *)
+
           (
 
             (debug smt 
@@ -3052,6 +3064,11 @@ let rec restart_loop props =
               to BMC process.")
 
         else
+
+  (* Declare uninterpreted function symbols *)
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys  *)
+  (*   (S.declare_fun solver_frames); *)
 
           (* Do check for zero and one step counterexample in solver
              instance [solver_init] *)
@@ -3843,7 +3860,9 @@ let fwd_propagate solver trans_sys prop_set frames =
                 in
 
                 (* Broadcast inductive clauses as invariants *)
-                List.iter Event.invariant inductive_terms;
+                List.iter 
+                  (Event.invariant (TransSys.get_scope trans_sys))
+                  inductive_terms;
 
                 (* Increment statistics *)
                 Stat.incr 

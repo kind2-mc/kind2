@@ -383,7 +383,7 @@ let multiply_polynomials mult is_zero zero (c1, m1) (c2, m2) =
    Return the sign of the factor, [true] for positive and [false] for
    negative together with the normalized result *)
 let subtract_and_normalize_polynomials
-    add_polynomials negate_polynomial zero p q =
+    add_polynomials negate_polynomial zero is_zero lt_zero p q =
 
   (* Subtract second polynomial from first *)
   let r = add_polynomials [p; negate_polynomial q] in
@@ -393,16 +393,16 @@ let subtract_and_normalize_polynomials
   match r with 
 
     (* Polynomial is the constanst zero *)
-    | (c, []) when c = zero -> true, r
+    | (c, []) when is_zero c -> true, r
 
     (* Constant is zero, first coefficient is negative *)
-    | (c, (h, _) :: tl) when c = zero && h < zero -> false, negate_polynomial r
+    | (c, (h, _) :: tl) when is_zero c && lt_zero h -> false, negate_polynomial r
 
     (* Constant is zero, first coefficient is not negative *)
-    | (c, (h, _) :: tl) when c = zero -> true, r
+    | (c, (h, _) :: tl) when is_zero c -> true, r
 
     (* Constant is not zero and negative *)
-    | (c, _) when c < zero -> false, negate_polynomial r
+    | (c, _) when lt_zero c -> false, negate_polynomial r
 
     (* Constant is not zero and positive *)
     | (c, _) -> true, r
@@ -433,7 +433,8 @@ let subtract_and_normalize_num_polynomials =
     add_num_polynomials 
     negate_num_polynomial 
     Numeral.zero
-
+    (Numeral.equal Numeral.zero)
+    (Numeral.gt Numeral.zero)
 
 (* ********************************************************************** *)
 (* Real arithmetic functions on polynomials                               *)
@@ -460,7 +461,8 @@ let subtract_and_normalize_dec_polynomials =
     add_dec_polynomials 
     negate_dec_polynomial 
     Decimal.zero
-
+    (Decimal.equal Decimal.zero) 
+    (Decimal.gt Decimal.zero) 
 
 (* ********************************************************************** *)
 (* Functions used in {!simplify_term_node}                                *)
@@ -991,7 +993,7 @@ let atom_of_term t =
   let tt = Term.type_of_term t in 
 
   (* Term is of type integer *)
-  if Type.is_int tt then
+  if Type.is_int tt || Type.is_int_range tt then
 
     (* Integer polynomial for a variable is (0 + 1 * x) *)
     Num (Numeral.zero, [Numeral.one, [t]])
