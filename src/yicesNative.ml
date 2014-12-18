@@ -162,10 +162,23 @@ let default_of_type ty =
 (* Read the answer returned by yices *)                   
 let parse_yices_output { solver_lexbuf = lexbuf } =
   (* Parse yices response and return *)
-  (* Format.eprintf "parsing <%s>" lexbuf.Lexing.lex_buffer; *)
+  (* Format.eprintf "parsing <%s>@." lexbuf.Lexing.lex_buffer; *)
   YicesParser.resp YicesLexer.token lexbuf
 
 
+(* Read the error messge returned by yices *)
+let get_yices_errmsg { solver_stderr = stderr } =
+  
+  (* Get an output channel to read from solver's stdout *)
+  let ech = Unix.in_channel_of_descr stderr in
+
+  (* Create a lexing buffer on solver's sterr *)
+  let errlb = Lexing.from_channel ech in
+
+  errlb.Lexing.lex_buffer
+  
+
+  
 (* Parse the solver response to a command *)
 let get_command_response solver timeout = 
 
@@ -178,9 +191,9 @@ let get_command_response solver timeout =
   | YicesResponse.YNoResp ->
      `NoResponse (* or success maybe *)
 
-  | YicesResponse.YError msg ->
+  | YicesResponse.YError ->
      solver.solver_state <- YError;
-     `Error msg
+     `Error (get_yices_errmsg solver)
      
   | _ ->
      failwith "Yices returned an unexpected response"
@@ -204,18 +217,45 @@ let get_check_sat_response solver timeout =
      register_unsat_core solver uc;
      `Unsat
      
+  | YicesResponse.YError ->
+     solver.solver_state <- YError;
+     `Error (get_yices_errmsg solver)
+       
   | _ ->
      failwith "Yices returned an unexpected response"
 
 
 (* Get n S-expressions from the solver *)
 let rec get_custom_command_result solver accum i =
-  failwith "Yices get_custom_command_result not implemented"
+  (* Return response *)
+  match parse_yices_output solver with
+  
+  | YicesResponse.YCustom r ->
+    `Custom [HStringSExpr.Atom (HString.mk_hstring r)]
+
+  | YicesResponse.YError ->
+     solver.solver_state <- YError;
+     `Error (get_yices_errmsg solver)
+
+  | _ ->
+    failwith "Yices get_custom_command_result got unexpected answer"
 
 
 (* Parse the solver response to a custom command *)
 let get_custom_command_response num_res solver timeout = 
-  failwith "Yices get_custom_command_response not implemented"
+(* Return response *)
+  match parse_yices_output solver with
+  
+  | YicesResponse.YCustom r ->
+    `Custom [HStringSExpr.Atom (HString.mk_hstring r)]
+
+  | YicesResponse.YError ->
+     solver.solver_state <- YError;
+     `Error (get_yices_errmsg solver)
+
+  | _ ->
+    failwith "Yices get_custom_command_response got unexpected answer"
+  
 
 
 let get_any_response : type r. t -> int -> r command_type -> r =
@@ -260,7 +300,7 @@ let send_command
 
 let send_command_async 
       cmd_type
-      ({ solver_stdin = solver_stdin; } as solver)
+      { solver_stdin = solver_stdin }
       command 
       timeout = 
 
@@ -652,7 +692,7 @@ let execute_custom_command solver cmd args num_res =
   let cmd = 
     if args = [] then 
       Format.sprintf 
-        "@[<hv 1>(%s)@]" 
+        "@[<hv 1>(%s)@]"
         cmd
     else
       Format.sprintf 
@@ -661,6 +701,9 @@ let execute_custom_command solver cmd args num_res =
         (string_of_t (pp_print_list pp_print_custom_arg " ") args)
   in
 
+  (* add custom start marker *)
+  let cmd = Format.sprintf "(echo \"%s\\n\")@ %s" YicesResponse.custom cmd in
+    
   (* Send command to the solver without timeout *)
   execute_custom_command' solver cmd 0 num_res 
 

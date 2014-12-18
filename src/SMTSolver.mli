@@ -166,6 +166,8 @@ val term_of_model : (Var.t * Term.t) list -> Term.t
 
 val converter : t -> (module SMTExpr.Conv)
 
+val kind : t -> Flags.smtsolver
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

@@ -32,12 +32,14 @@
 %}
 
 %token SAT UNSAT UNKNOWN ERROR
-%token ID CORE IDS UNSATISFIED ASSERTION
+%token ID CORE IDS // UNSATISFIED ASSERTION
 %token LEFTPAR RIGHTPAR COLON EQ
 %token <string> IDENT
-%token <string> LINE
+// %token <string> LINE
 %token <int> INT
-%token SUCCESS
+%token SUCCESS CUSTOM
+%token <string> ERROR_MSG
+%token <string> CUSTOM_RESP
 %token EOF
 
 %start resp
@@ -52,14 +54,20 @@ resp:
 | unsat_resp SUCCESS { $1 }
 | sat_resp SUCCESS { $1 }
 | unknown_resp SUCCESS { $1 }
-| error_resp EOF { $1 }
+(* | error_resp { $1 } *)
+| custom_resp { $1 }
 | SUCCESS { YSuccess }
+| EOF { YError }
 (* | EOF { Format.eprintf "parse EOF@."; YNoResp } *)
 ;
 
-error_resp:
-| ERROR { YError "" }
-| ERROR COLON LINE { YError $3 }
+(* error_resp: *)
+(* | ERROR { YError "" } *)
+(* | ERROR_MSG { YError $1 } *)
+(* ; *)
+
+custom_resp:
+| CUSTOM_RESP { YCustom $1 }
 ;
 
 unsat_resp:

@@ -313,6 +313,12 @@ let partition_core solver clause =
   core_clause, rest_clause
 
 
+let get_context_cmd solver =
+  match SMTSolver.kind solver with
+  | `Z3_SMTLIB -> "get-assertions"
+  | `Yices_native -> "dump-context"
+  | _ -> failwith "No functionality to extract context"
+
 
 (* Check if [prop] is always satisfied in one step from [state] and
    return a generalized counterexample if not. If the counterexample
@@ -375,7 +381,7 @@ let find_cex
   debug pdr
       "@[<v>Current context@,@[<hv>%a@]@]"
       HStringSExpr.pp_print_sexpr_list
-      (match SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 with
+      (match SMTSolver.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1 with
        | `Custom a -> a
        | _ -> assert false
       )
@@ -434,7 +440,7 @@ let find_cex
           "@[<v>Current context@,@[<hv>%a@]@]"
           HStringSExpr.pp_print_sexpr_list
           (let r, a = 
-            S.T.execute_custom_command solver_frames "get-assertions" [] 1 
+            S.T.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1 
            in
            S.fail_on_smt_error r;
            a)
@@ -528,7 +534,7 @@ let find_cex
               "@[<v>Current context@,@[<hv>%a@]@]"
               HStringSExpr.pp_print_sexpr_list
               (match
-                SMTSolver.execute_custom_command solver_init "get-assertions" [] 1 
+                SMTSolver.execute_custom_command solver_init (get_context_cmd solver_init) [] 1 
                with
                | `Custom a -> a
                | _ -> assert false)
@@ -692,7 +698,7 @@ let extract_cex_path
       "@[<v>Current context@,@[<hv>%a@]@]"
       HStringSExpr.pp_print_sexpr_list
       (match
-         SMTSolver.execute_custom_command solver_misc "get-assertions" [] 1 
+         SMTSolver.execute_custom_command solver_misc (get_context_cmd solver_misc) [] 1 
        with
        | `Custom a -> a
        | _ -> assert false)      
@@ -886,7 +892,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
               "@[<v>Context before visiting or re-visiting frame@,@[<hv>%a@]@]"
               HStringSExpr.pp_print_sexpr_list
               (match
-                SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1 
+                SMTSolver.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1 
                with
                | `Custom a -> a
                | _ -> assert false)
@@ -949,7 +955,7 @@ let rec block ((_, solver_frames, solver_misc) as solvers) trans_sys props =
                      HStringSExpr.pp_print_sexpr_list
                      (match
                         SMTSolver.execute_custom_command solver_frames
-                          "get-assertions" [] 1 
+                          (get_context_cmd solver_frames) [] 1 
                       with
                       | `Custom a -> a
                       | _ -> assert false)
@@ -1110,7 +1116,7 @@ let rec strengthen
                HStringSExpr.pp_print_sexpr_list
                (match
                   SMTSolver.execute_custom_command
-                    solver_frames "get-assertions" [] 1 
+                    solver_frames (get_context_cmd solver_frames) [] 1 
                 with
                 | `Custom a -> a
                 | _ -> assert false)
@@ -1487,7 +1493,7 @@ let fwd_propagate
               (let r, a = 
                 SMTSolver.execute_custom_command 
                   solver_frames
-                  "get-assertions"
+                  (get_context_cmd solver_frames)
                   [] 
                   1 
                in
@@ -1631,7 +1637,7 @@ let fwd_propagate
                          (let r, a = 
                            SMTSolver.execute_custom_command 
                              solver_frames
-                             "get-assertions"
+                             (get_context_cmd solver_frames)
                              [] 
                              1 
                           in
@@ -2238,7 +2244,7 @@ let rec pdr
         transition relation@,@[<hv>%a@]@]"
        HStringSExpr.pp_print_sexpr_list
        (match
-          SMTSolver.execute_custom_command solver_frames "get-assertions" [] 1
+          SMTSolver.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1
         with
         | `Custom a -> a
         | _ -> assert false)

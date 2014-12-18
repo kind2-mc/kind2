@@ -526,6 +526,7 @@ let converter s =
   let module S = (val s.solver_inst) in
   (module S.Conv : SMTExpr.Conv)
   
+let kind s = s.solver_kind
 
 (* 
    Local Variables:
