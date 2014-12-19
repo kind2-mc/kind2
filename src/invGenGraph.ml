@@ -534,13 +534,14 @@ module Make (InModule : In) : Out = struct
   (* Lifts [invariants] for all the systems calling [sys] and
      communicates them to the framework. *)
   let communicate_invariants top_sys lsd sys = function
-    | [] -> 0
+    | [] ->
+       0
     | invariants ->
        
        (* All intermediary invariants and top level ones. *)
        let ((_, top_invariants), intermediary_invariants) =
          if top_sys == sys then
-           (top_sys, invariants), []
+           (top_sys, List.map sanitize_term invariants), []
          else
            Term.mk_and invariants
            (* Guarding with init if needed. *)
