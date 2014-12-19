@@ -37,6 +37,7 @@
 %token <string> IDENT
 // %token <string> LINE
 %token <int> INT
+%token <Decimal.t> DECIMAL
 %token SUCCESS CUSTOM
 %token <string> ERROR_MSG
 %token <string> CUSTOM_RESP
@@ -73,7 +74,7 @@ custom_resp:
 
 unsat_resp:
 | UNSAT { YRespUnsat [] }
-| UNSAT UNSAT CORE IDS COLON id_list { YRespUnsat $6 }
+| UNSAT UNSAT CORE IDS id_list { YRespUnsat $5 }
 ;
 
 sat_resp:
@@ -96,6 +97,8 @@ id_list:
 ;
 
 expr:
+| DECIMAL { HStringSExpr.HStringSExpr.Atom
+              (HString.mk_hstring (Decimal.string_of_decimal $1)) }
 | INT { HStringSExpr.Atom (HString.mk_hstring (string_of_int $1)) }
 | IDENT { HStringSExpr.Atom (HString.mk_hstring $1) }
 ;

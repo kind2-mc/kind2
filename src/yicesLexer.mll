@@ -30,7 +30,7 @@
 	"sat", SAT;
 	"unknown", UNKNOWN;
 	"core", CORE;
-        "ids", IDS;
+        "ids:", IDS;
 	(* "unsatisfied", UNSATISFIED; *)
         (* "assertion", ASSERTION; *)
         "Error", ERROR;
@@ -56,9 +56,9 @@ let newline = '\n'
 let space = [' ' '\t' '\r' '\009' '\012']
 let digit = ['0' - '9']
 let integer = ('-')? digit+
-let ident = ['0'-'9' 'a'-'z' 'A'-'Z' '_' '@' '$' '#' '%' '!' '.' '^' '~' '\\' '['  ']' '-' ]+
+let ident = ['0'-'9' 'a'-'z' 'A'-'Z' '_' '@' '$' '#' '%' '!' '.' '^' '~' '\\' '['  ']' '-' ':' ]+
 let line = [^ '\n']*
-
+let ratio = integer+ '/' integer+
                 
 rule token = parse
   | newline 
@@ -67,6 +67,8 @@ rule token = parse
       { token lexbuf }
   | integer as i
       { INT (int_of_string i) }
+  | ratio as r
+      { DECIMAL (Decimal.of_num (Num.num_of_string r)) }
   | ident as id
       { try
           let k = Hashtbl.find keywords id in

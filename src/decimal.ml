@@ -277,6 +277,9 @@ let s_unimus = HString.mk_hstring "-"
 (* Convert an arbitrary large integer to a rational number *)
 let of_big_int n = Num.num_of_big_int n
 
+(* Convert an ocaml Num to a rational *)
+let of_num n = n
+
 
 (* Convert a rational number to an integer *)
 let to_int d = 

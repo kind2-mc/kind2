@@ -206,6 +206,13 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
               Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
 
             with Invalid_argument _ -> 
+            try 
+
+              (* Return decimal of string *)
+              Term.mk_dec (Decimal.of_num (Num.num_of_string
+                                             (HString.string_of_hstring t)))
+
+            with Invalid_argument _ | Failure "num_of_string" -> 
 
               try 
 

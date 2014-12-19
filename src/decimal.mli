@@ -46,6 +46,9 @@ val of_int : int -> t
 (** Convert an arbitrary large integer to a rational *)
 val of_big_int : Big_int.big_int -> t
 
+(** Convert an ocaml Num to a rational *)
+val of_num : Num.num -> t
+
 (** Convert a string in floating-point notation [1.2E3] to rational number *)
 val of_string : string -> t
 

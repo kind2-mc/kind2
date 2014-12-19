@@ -113,16 +113,27 @@ let register_unsat_core solver uc =
   solver.solver_state <- YUnsat uc
 
 
+    
 let register_model solver model =
+  (* Drop auxiliary variables *)
+  let model =
+    List.filter (fun (e, _) ->
+        match e with
+        | HStringSExpr.Atom x ->
+          (try HString.sub x 0 4 <> "aux:"
+           with Invalid_argument _ -> true)
+        | _ -> true
+      ) model
+  in
   let m =
     List.fold_left
       (fun acc (e, v) ->
-       let e_smte = Conv.expr_of_string_sexpr e in
-       let v_smte = Conv.expr_of_string_sexpr v in
-       (* Format.eprintf "in model (= %a %a)@." *)
-       (*                pp_print_expr e_smte *)
-       (*                pp_print_expr v_smte; *)
-       SMTExprMap.add e_smte v_smte acc)
+         (* Format.eprintf "in model (= %a %a)@." *)
+         (*   HStringSExpr.pp_print_sexpr e *)
+         (*   HStringSExpr.pp_print_sexpr v; *)
+         let e_smte = Conv.expr_of_string_sexpr e in
+         let v_smte = Conv.expr_of_string_sexpr v in
+         SMTExprMap.add e_smte v_smte acc)
       SMTExprMap.empty model in
   solver.solver_state <- YModel m
 
@@ -630,7 +641,8 @@ let check_sat_assuming solver exprs =
     List.fold_left (fun acc expr -> assert_expr solver expr) `NoResponse exprs
   in
   (match res with
-   | `Error _  | `Unsupported -> failwith "Yices: check-sat assumed failed while assuming"
+   | `Error _  | `Unsupported ->
+     failwith "Yices: check-sat assumed failed while assuming"
    | _ -> ());
   let res = check_sat ~timeout:0 solver in
   (* Remove assumed expressions from context while keeping state *)
@@ -693,7 +705,7 @@ let get_value solver expr_list =
 
 
      (* construct the response with the desired values *)
-     let res = `Values smt_expr_values in
+     let res = `Values (List.rev smt_expr_values) in
        
      (* Trace the response of the solver *)
      solver.solver_trace_res res;
