@@ -476,7 +476,7 @@ let assert_expr solver expr =
   (* Take the next id *)
   let id = next_id solver in
   
-  let t = Conv.term_of_smtexpr expr in
+  let t = expr in (* Conv.term_of_smtexpr expr in *)
   let t', name_info =
     if Term.is_named t then
       (* Open the named term and map the yices id to the name *)
