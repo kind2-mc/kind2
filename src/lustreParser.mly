@@ -32,7 +32,7 @@
 module I = LustreIdent
 module A = LustreAst
 
-let mk_pos = A.position_of_lexing 
+let mk_pos = Lib.position_of_lexing 
 
 %}
 

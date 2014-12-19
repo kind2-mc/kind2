@@ -30,40 +30,7 @@ type custom_arg =
   | ArgString of string
   | ArgExpr of t
 
-(* ********************************************************************* *)
-(* Logics                                                                *)
-(* ********************************************************************* *)
 
-
-(* The defined logics in SMTLIB *)
-type logic = 
-  [ `detect
-  | `AUFLIA
-  | `AUFLIRA
-  | `AUFNIRA
-  | `LRA 
-  | `LIA
-  | `QF_ABV
-  | `QF_AUFBV
-  | `QF_AUFLIA
-  | `QF_AX
-  | `QF_BV
-  | `QF_IDL
-  | `QF_LIA
-  | `QF_LRA
-  | `QF_NIA
-  | `QF_NRA
-  | `QF_RDL
-  | `QF_UF
-  | `QF_UFBV
-  | `QF_UFIDL
-  | `QF_UFLIA
-  | `QF_UFLRA
-  | `QF_UFNRA
-  | `UFLRA
-  | `UFLIA
-  | `UFNIA
-  ]
 
 (* ********************************************************************* *)
 (* Sorts                                                                 *)
@@ -123,15 +90,15 @@ module type Conv =
 
     val smtsort_of_type : Type.t -> sort
 
-    val smtexpr_of_var : Var.t -> t
+    val smtexpr_of_var : (UfSymbol.t -> unit) -> Var.t -> t
 
     val type_of_string_sexpr : HStringSExpr.t -> sort
                                                    
     val expr_of_string_sexpr : HStringSExpr.t -> t
 
-    val string_of_logic : logic -> string 
+    val string_of_logic : Term.logic -> string 
 
-    val pp_print_logic : Format.formatter -> logic -> unit
+    val pp_print_logic : Format.formatter -> Term.logic -> unit
 
     val pp_print_sort : Format.formatter -> sort -> unit
 
@@ -143,9 +110,9 @@ module type Conv =
 
     val string_of_expr : t -> string
 
-    val smtexpr_of_term : t -> t
+    val smtexpr_of_term : (UfSymbol.t -> unit) -> t -> t
 
-    val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
+    val quantified_smtexpr_of_term : (UfSymbol.t -> unit) -> bool -> Var.t list -> t -> t
 
     val var_of_smtexpr : t -> Var.t
 
@@ -477,6 +444,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
     let expr_of_string_sexpr = expr_of_string_sexpr' []
 
 
+
     (* Pretty-print an expression *)
     let pp_print_expr = pp_print_term
 
@@ -500,28 +468,27 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
 
     (* Convert a variable to an SMT expression *)
-    let smtexpr_of_var v =
+    let smtexpr_of_var declare var =
 
-      (* Get the state variable contained in the variable *) 
-      let sv = Var.state_var_of_state_var_instance v in
+      (* Building the uf application. *)
+      Term.mk_uf
+        (* Getting the unrolled uf corresponding to the state var
+           instance. *)
+        (Var.unrolled_uf_of_state_var_instance var declare)
+        (* No arguments. *)
+        []
 
-      (* Get the uninterpreted function symbol associated with the state
-       variable *)
-      let u = StateVar.uf_symbol_of_state_var sv in 
-      
-      (* Variable is constant? *)
-      if Var.is_const_state_var v then 
-        
-        (* Convert a state variable instance to a uninterpreted constant *) 
-        Term.mk_uf u [] 
 
-      else
+    (* Convert a variable to an SMT expression *)
+    let smtexpr_of_var declare var =
 
-        (* Get the offset of the state variable instance *)
-        let o = Var.offset_of_state_var_instance v in
-        
-        (* Convert a state variable instance to a uninterpreted function *) 
-        Term.mk_uf u [Term.mk_num o] 
+      (* Building the uf application. *)
+      Term.mk_uf
+        (* Getting the unrolled uf corresponding to the state var
+           instance. *)
+        (Var.unrolled_uf_of_state_var_instance var declare)
+        (* No arguments. *)
+        []
 
 
     (* Convert an SMT expression to a variable *)
@@ -538,113 +505,44 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
         (* Check top symbol of SMT expression *)
         match Term.destruct e with
 
-        (* Unary uninterpreted function *)
-        | Term.T.App (su, [a]) when Symbol.is_uf su -> 
+        (* An unrolled variable is a constant term if it is not an
+           array. *)
+        | Term.T.Const sym -> (
 
-           let num =
-             (* Check argument of uninterpreted function *)
-             ( match Term.destruct a with
+            try
+              (* Retrieving unrolled and constant state vars. *)
+              Var.state_var_instance_of_symbol sym
+            with
+            | Not_found ->
 
-               (* Unary uninterpreted function with a positive numeral
-                argument *)
-               | Term.T.Const sn when Symbol.is_numeral sn ->
-                  Symbol.numeral_of_symbol sn
+              invalid_arg
+                (Format.asprintf
+                   "var_of_smtexpr: %a\
+                    No state variable found for uninterpreted function symbol"
+                   Term.pp_print_term e)
+          )
 
-               (* Unary uninterpreted function with a negative numeral
-                argument (maybe). *)
-               | Term.T.App (sym, [a]) when sym == Symbol.s_minus ->
-                  ( match Term.destruct a with
+        (* An unrolled variable might be an array in which case it would
+           show up as an application. *)
+        | Term.T.App (su, args) when Symbol.is_uf su ->
 
-                    | Term.T.Const sn when Symbol.is_numeral sn ->
-                       (* Negative numeral indeed. *)
-                       Numeral.(~- (Symbol.numeral_of_symbol sn))
+          (* Array are unsupported atm. *)
 
-                    (* Actually not a negative numeral, failing. *)
-                    | _ -> 
-
-                       invalid_arg 
-                         (Format.asprintf 
-                            "var_of_smtexpr: %a \
-                             Invalid argument to uninterpreted function"
-                            pp_print_term e) )
-
-               (* Unary uninterpreted function with a non-numeral
-                argument *)
-               | _ -> 
-
-                  invalid_arg 
-                    (Format.asprintf 
-                       "var_of_smtexpr: %a \
-                        Invalid argument to uninterpreted function"
-                       pp_print_term e) )
-           in
-
-           let sv = 
-
-             try 
-
-               (* Get state variable associated with function symbol *)
-               StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol su)
-
-             with Not_found -> 
-
-               invalid_arg 
-                 (Format.asprintf 
-                    "var_of_smtexpr: %a \
-                     No state variable found for uninterpreted function symbol"
-                    pp_print_term e)
-           in
-
-           (* Create state variable instance *)
-           Var.mk_state_var_instance sv num
-
-        (* Uninterpreted function symbol with invalid arity *)
-        | Term.T.Const s -> 
-
-           let sv = 
-             
-             try 
-               
-               (* Get state variable associated with function symbol *)
-               StateVar.state_var_of_uf_symbol (Symbol.uf_of_symbol s)
-                                               
-             with Not_found -> 
-               
-               invalid_arg 
-                 (Format.asprintf 
-                    "var_of_smtexpr: %a \
-                     No state variable found for uninterpreted function symbol"
-                    pp_print_term e)
-           in
-           
-           if StateVar.is_const sv then 
-
-             (* Create state variable instance *)
-             Var.mk_const_state_var sv
-
-           else
-             
-             invalid_arg 
-               "var_of_smtexpr: \
-                Invalid arity of uninterpreted function"
-
-
-        | Term.T.App (s, _) when Symbol.is_uf s -> 
-
-           invalid_arg 
-             "var_of_smtexpr: \
-              Invalid arity of uninterpreted function"
+          invalid_arg 
+            "var_of_smtexpr: \
+             Invalid arity of uninterpreted function"
 
         (* Annotated term *)
         | Term.T.Attr (t, _) -> var_of_smtexpr t
 
         (* Other expressions *)
+        | Term.T.Const _
         | Term.T.App _ 
         | Term.T.Var _ -> 
 
-           invalid_arg 
-             "var_of_smtexpr: \
-              Must be an uninterpreted function"
+          invalid_arg 
+            "var_of_smtexpr: \
+             Must be an uninterpreted function"
 
 
     (* Convert a term to an expression for the SMT solver *)
@@ -656,8 +554,8 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
         term
 
 
-    (* Convert a term to an SMT expression *)
-    let quantified_smtexpr_of_term quantifier vars term = 
+  (* Convert a term to an SMT expression *)
+  let quantified_smtexpr_of_term declare quantifier vars term = 
 
       (* Map all variables to temporary variables and convert types to SMT
      sorts, in particular convert IntRange types to Ints *)
@@ -694,45 +592,44 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
       (* Convert variables to uninterpreted functions for SMT solver and
      variables to be quantified over to variables of SMT sorts *)
-      let term' = 
-        Term.map
-          (function _ -> function
+  let term' = 
+    Term.map
+      (function _ -> function
 
-             (* Term is a free variable *)
-             | t when Term.is_free_var t -> 
+         (* Term is a free variable *)
+         | t when Term.is_free_var t -> 
 
-                (* Get variable of term *)
-                let v = Term.free_var_of_term t in
+           (* Get variable of term *)
+           let v = Term.free_var_of_term t in
 
-                (* Try to convert free variable to temporary variable for
-                   quantification, otherwise convert variable to
-                   uninterpreted function *)
-                (try 
-                    Term.mk_var (List.assq v var_to_temp_var) 
-                  with Not_found -> smtexpr_of_var v)
+           (* Try to convert free variable to temporary variable for
+              quantification, otherwise convert variable to
+              uninterpreted function *)
+           (try 
+              Term.mk_var (List.assq v var_to_temp_var) 
+            with Not_found -> smtexpr_of_var declare v)
 
-             (* Change divisibility symbol to modulus operator *)
-             | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
+         (* Change divisibility symbol to modulus operator *)
+         | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
 
-          )
-
-
-          term
-      in
-
-      (* Return if list of variables is empty *)
-      if vars = [] then term' else
-
-        (* Quantify all variables *)
-        (if quantifier then Term.mk_exists else Term.mk_forall)
-          (List.map snd var_to_temp_var)
-          term'
+      )
 
 
-    (* Convert an expression from the SMT solver to a term *)
-    let smtexpr_of_term term = 
-      quantified_smtexpr_of_term false [] term
+      term
+  in
 
+  (* Return if list of variables is empty *)
+  if vars = [] then term' else
+
+    (* Quantify all variables *)
+    (if quantifier then Term.mk_exists else Term.mk_forall)
+      (List.map snd var_to_temp_var)
+      term'
+
+
+  (* Convert an expression from the SMT solver to a term *)
+  let smtexpr_of_term declare term = 
+  quantified_smtexpr_of_term declare false [] term
 
     (* Pretty-print a custom argument *)
     let pp_print_custom_arg ppf = function 

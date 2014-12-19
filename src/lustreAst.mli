@@ -42,32 +42,6 @@
 (** Error while parsing *)
 exception Parser_error
 
-(** {1 Positions in the input} *)
-
-(** A position in the input *)
-type position 
-
-(** Dummy position different from any valid position *)
-val dummy_pos : position
-
-(** Comparision on positions *)
-val compare_pos : position -> position -> int
-
-(** Return [true] if the position is not a valid position in the
-    input *)
-val is_dummy_pos : position -> bool
-
-(** Pretty-print a position *)
-val pp_print_position : Format.formatter -> position -> unit
-
-(** Return the file, line and column of a position; fail with
-    [Invalid_argument "file_row_col_of_pos"] if the position is a dummy
-    position *)
-val file_row_col_of_pos : position -> string * int * int
-
-(** Convert a position of the lexer to a position *)
-val position_of_lexing : Lexing.position -> position
- 
 (** {1 Supporting Types} *)
 
 (** An identifier *)
@@ -78,68 +52,68 @@ type index = LustreIdent.index
 
 (** An index expression *)
 type one_index = 
-  | FieldIndex of position * ident 
-  | NumIndex of position * int
-  | VarIndex of position * ident
+  | FieldIndex of Lib.position * ident 
+  | NumIndex of Lib.position * int
+  | VarIndex of Lib.position * ident
 
 (** An expression *)
 type expr =
-    Ident of position * ident
-  | RecordProject of position * ident * index
-  | TupleProject of position * ident * expr
-  | True of position
-  | False of position
-  | Num of position * string
-  | Dec of position * string
-  | ToInt of position * expr
-  | ToReal of position * expr
-  | ExprList of position * expr list
-  | TupleExpr of position * expr list
-  | ArrayConstr of position * expr * expr
-  | ArraySlice of position * ident * (expr * expr) list
-  | ArrayConcat of position * expr * expr
-  | RecordConstruct of position * ident * (ident * expr) list
-  | Not of position * expr
-  | And of position * expr * expr
-  | Or of position * expr * expr
-  | Xor of position * expr * expr
-  | Impl of position * expr * expr
-  | OneHot of position * expr list
-  | Uminus of position * expr
-  | Mod of position * expr * expr
-  | Minus of position * expr * expr
-  | Plus of position * expr * expr
-  | Div of position * expr * expr
-  | Times of position * expr * expr
-  | IntDiv of position * expr * expr
-  | Ite of position * expr * expr * expr
-  | With of position * expr * expr * expr
-  | Eq of position * expr * expr
-  | Neq of position * expr * expr
-  | Lte of position * expr * expr
-  | Lt of position * expr * expr
-  | Gte of position * expr * expr
-  | Gt of position * expr * expr
-  | When of position * expr * expr
-  | Current of position * expr
-  | Condact of position * expr * ident * expr list * expr list
-  | Pre of position * expr
-  | Fby of position * expr * int * expr
-  | Arrow of position * expr * expr
-  | Call of position * ident * expr list
-  | CallParam of position * ident * lustre_type list * expr list
+    Ident of Lib.position * ident
+  | RecordProject of Lib.position * ident * index
+  | TupleProject of Lib.position * ident * expr
+  | True of Lib.position
+  | False of Lib.position
+  | Num of Lib.position * string
+  | Dec of Lib.position * string
+  | ToInt of Lib.position * expr
+  | ToReal of Lib.position * expr
+  | ExprList of Lib.position * expr list
+  | TupleExpr of Lib.position * expr list
+  | ArrayConstr of Lib.position * expr * expr
+  | ArraySlice of Lib.position * ident * (expr * expr) list
+  | ArrayConcat of Lib.position * expr * expr
+  | RecordConstruct of Lib.position * ident * (ident * expr) list
+  | Not of Lib.position * expr
+  | And of Lib.position * expr * expr
+  | Or of Lib.position * expr * expr
+  | Xor of Lib.position * expr * expr
+  | Impl of Lib.position * expr * expr
+  | OneHot of Lib.position * expr list
+  | Uminus of Lib.position * expr
+  | Mod of Lib.position * expr * expr
+  | Minus of Lib.position * expr * expr
+  | Plus of Lib.position * expr * expr
+  | Div of Lib.position * expr * expr
+  | Times of Lib.position * expr * expr
+  | IntDiv of Lib.position * expr * expr
+  | Ite of Lib.position * expr * expr * expr
+  | With of Lib.position * expr * expr * expr
+  | Eq of Lib.position * expr * expr
+  | Neq of Lib.position * expr * expr
+  | Lte of Lib.position * expr * expr
+  | Lt of Lib.position * expr * expr
+  | Gte of Lib.position * expr * expr
+  | Gt of Lib.position * expr * expr
+  | When of Lib.position * expr * expr
+  | Current of Lib.position * expr
+  | Condact of Lib.position * expr * ident * expr list * expr list
+  | Pre of Lib.position * expr
+  | Fby of Lib.position * expr * int * expr
+  | Arrow of Lib.position * expr * expr
+  | Call of Lib.position * ident * expr list
+  | CallParam of Lib.position * ident * lustre_type list * expr list
 
 (** A type *)
 and lustre_type =
-    Bool of position
-  | Int of position
-  | IntRange of position * expr * expr
-  | Real of position
-  | UserType of position * ident
-  | TupleType of position * lustre_type list
-  | RecordType of position * typed_ident list
-  | ArrayType of position * (lustre_type * expr)
-  | EnumType of position * ident list
+    Bool of Lib.position
+  | Int of Lib.position
+  | IntRange of Lib.position * expr * expr
+  | Real of Lib.position
+  | UserType of Lib.position * ident
+  | TupleType of Lib.position * lustre_type list
+  | RecordType of Lib.position * typed_ident list
+  | ArrayType of Lib.position * (lustre_type * expr)
+  | EnumType of Lib.position * ident list
 
 (** An identifier with a type *)
 and typed_ident = ident * lustre_type
@@ -148,24 +122,24 @@ and typed_ident = ident * lustre_type
 
 (** A declaration of an alias or free type *)
 type type_decl = 
-  | AliasType of position * ident * lustre_type 
-  | FreeType of position * ident
+  | AliasType of Lib.position * ident * lustre_type 
+  | FreeType of Lib.position * ident
 
 (** A clock expression *)
 type clock_expr = ClockPos of ident | ClockNeg of ident | ClockTrue
 
 (** An identifier with a type and a clock as used for the type of variables *)
-type clocked_typed_decl = position * ident * lustre_type * clock_expr
+type clocked_typed_decl = Lib.position * ident * lustre_type * clock_expr
 
 (** An identifier, possibly flagged as constant, with a type and a
     clock as used for the type of variables *)
-type const_clocked_typed_decl = position * ident * lustre_type * clock_expr * bool
+type const_clocked_typed_decl = Lib.position * ident * lustre_type * clock_expr * bool
 
 (** A constant declaration *)
 type const_decl =
-    FreeConst of position * ident * lustre_type
-  | UntypedConst of position * ident * expr
-  | TypedConst of position * ident * expr * lustre_type
+    FreeConst of Lib.position * ident * lustre_type
+  | UntypedConst of Lib.position * ident * expr
+  | TypedConst of Lib.position * ident * expr * lustre_type
 
 (** A type parameter of a node *)
 type node_param =
@@ -173,30 +147,30 @@ type node_param =
 
 (** A local constant or variable declaration of a node *)
 type node_local_decl = 
-  | NodeConstDecl of position * const_decl 
-  | NodeVarDecl of position * clocked_typed_decl
+  | NodeConstDecl of Lib.position * const_decl 
+  | NodeVarDecl of Lib.position * clocked_typed_decl
 
 (** The left-hand side of an equation *)
 type struct_item =
-  | SingleIdent of position * ident
-  | IndexedIdent of position * ident * one_index list
+  | SingleIdent of Lib.position * ident
+  | IndexedIdent of Lib.position * ident * one_index list
 
-  | TupleStructItem of position * struct_item list
-  | TupleSelection of position * ident * expr
-  | FieldSelection of position * ident * ident
-  | ArraySliceStructItem of position * ident * (expr * expr) list
+  | TupleStructItem of Lib.position * struct_item list
+  | TupleSelection of Lib.position * ident * expr
+  | FieldSelection of Lib.position * ident * ident
+  | ArraySliceStructItem of Lib.position * ident * (expr * expr) list
 
 (** An Equation, assertion or annotation in the body of a node *)
 type node_equation =
-  | Assert of position * expr
-  | Equation of position * struct_item list * expr
+  | Assert of Lib.position * expr
+  | Equation of Lib.position * struct_item list * expr
   | AnnotMain 
-  | AnnotProperty of position * expr
+  | AnnotProperty of Lib.position * expr
 
 (** A clause of an assume guarantee contract *)
 type contract_clause = 
-  | Requires of position * expr 
-  | Ensures of position * expr
+  | Requires of Lib.position * expr 
+  | Ensures of Lib.position * expr
 
 (** The contract of a node as a list of clauses *)
 type contract = contract_clause list
@@ -233,11 +207,11 @@ type node_param_inst = ident * ident * lustre_type list
 (** A declaration of a type, a constant, a node, a function or an
     instance of a parametric node *)
 type declaration =
-  | TypeDecl of position * type_decl
-  | ConstDecl of position * const_decl
-  | NodeDecl of position * node_decl
-  | FuncDecl of position * func_decl
-  | NodeParamInst of position * node_param_inst
+  | TypeDecl of Lib.position * type_decl
+  | ConstDecl of Lib.position * const_decl
+  | NodeDecl of Lib.position * node_decl
+  | FuncDecl of Lib.position * func_decl
+  | NodeParamInst of Lib.position * node_param_inst
 
 (** A Lustre program as a list of declarations *) 
 type t = declaration list
@@ -252,12 +226,12 @@ val pp_print_clock_expr : Format.formatter -> clock_expr -> unit
 val pp_print_lustre_type : Format.formatter -> lustre_type -> unit
 val pp_print_typed_ident : Format.formatter -> typed_ident -> unit
 val pp_print_clocked_typed_ident :
-  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_clocked_typed_ident :
-  Format.formatter -> position * ident * lustre_type * clock_expr * bool -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr * bool -> unit
 val pp_print_type_decl : Format.formatter -> type_decl -> unit
 val pp_print_var_decl :
-  Format.formatter -> position * ident * lustre_type * clock_expr -> unit
+  Format.formatter -> Lib.position * ident * lustre_type * clock_expr -> unit
 val pp_print_const_decl : Format.formatter -> const_decl -> unit
 val pp_print_node_local_decl_var :
   Format.formatter -> node_local_decl -> unit

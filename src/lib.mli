@@ -21,6 +21,16 @@
     @author Christoph Sticksel
 *)
 
+(** {1 Helper functions} *)
+(** Identity function. *)
+val identity : 'a -> 'a
+
+(** Returns true when given unit. *)
+val true_of_unit : unit -> bool
+
+(** Returns false when given unit. *)
+val false_of_unit : unit -> bool
+
 (** {1 Option types} *)
 
 (** Return the value of an option type, raise [Invalid_argument "get"]
@@ -256,6 +266,7 @@ type kind_module =
   | `BMC
   | `IND
   | `INVGEN
+  | `INVGENOS
   | `INVMAN
   | `Interpreter
   | `Parser ]
@@ -298,6 +309,32 @@ val minisleep : float -> unit
     and current working directory *)
 val find_on_path : string -> string 
 
+(** {1 Positions in the input} *)
+
+(** A position in the input *)
+type position 
+
+(** Dummy position different from any valid position *)
+val dummy_pos : position
+
+(** Comparision on positions *)
+val compare_pos : position -> position -> int
+
+(** Return [true] if the position is not a valid position in the
+    input *)
+val is_dummy_pos : position -> bool
+
+(** Pretty-print a position *)
+val pp_print_position : Format.formatter -> position -> unit
+
+(** Return the file, line and column of a position; fail with
+    [Invalid_argument "file_row_col_of_pos"] if the position is a dummy
+    position *)
+val file_row_col_of_pos : position -> string * int * int
+
+(** Convert a position of the lexer to a position *)
+val position_of_lexing : Lexing.position -> position
+ 
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

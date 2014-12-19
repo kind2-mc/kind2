@@ -211,6 +211,18 @@ val s_implies : t
 (** Constant equality symbol *)
 val s_eq : t
 
+(** Constant greater than or equal symbol *)
+val s_geq : t
+
+(** Constant less than or equal symbol *)
+val s_leq : t
+
+(** Constant greater than symbol *)
+val s_gt : t
+
+(** Constant less than symbol *)
+val s_lt : t
+
 (** Constant modulus operator symbol *)
 val s_mod : t
 

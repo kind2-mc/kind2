@@ -20,6 +20,8 @@ open Lib
 open TermLib
 open Actlit
 
+module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
+
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -45,7 +47,7 @@ let on_exit _ =
       match !solver_ref with
       | None -> ()
       | Some solver ->
-         SMTSolver.delete_instance solver |> ignore ;
+         Solver.delete_solver solver |> ignore ;
          solver_ref := None
     with
     | e -> 
@@ -54,6 +56,12 @@ let on_exit _ =
                  (Printexc.to_string e))
 
 let stop () = ()
+
+let pos_actlit_term term =
+  Actlit.generate_actlit term |> Actlit.term_of_actlit
+
+let neg_actlit_term term =
+  Actlit.generate_negative_actlit term |> Actlit.term_of_actlit
 
 (* Returns true if the input property is not an invariant and has not
    been disproved. *)
@@ -70,6 +78,7 @@ let clean_unknowns trans = List.filter (is_unknown trans)
 (* Splits the input list of properties in three lists: disproved, true
    up to k, and others. ALSO, REMOVES PROVED PROPERTIES. *)
 let split_unfalsifiable_rm_proved trans k =
+  let k_int = Numeral.to_int k in
   List.fold_left
     ( fun (dis,true_k,others) ((s,_) as p) ->
       match TransSys.get_prop_status trans s with
@@ -77,7 +86,7 @@ let split_unfalsifiable_rm_proved trans k =
          (dis, true_k, others)
       | TransSys.PropFalse _ ->
          (p :: dis, true_k, others)
-      | TransSys.PropKTrue n when n >= k ->
+      | TransSys.PropKTrue n when n >= k_int ->
          (dis, p :: true_k, others)
       | _ ->
          (dis, true_k, p :: others) )
@@ -94,7 +103,9 @@ let clean_properties trans unknowns unfalsifiables =
     | (k, unfls_k) :: tail as list ->
 
        (* Handling unfalsifiable properties at k. *)
-       ( match split_unfalsifiable_rm_proved trans k unfls_k with
+      ( match
+          split_unfalsifiable_rm_proved trans k unfls_k
+        with
 
          | ([], confirmed', []) ->
             (* Only confirmed properties, base is above k so we loop. *)
@@ -166,7 +177,7 @@ let clean_properties trans unknowns unfalsifiables =
 let deactivate solver actlit =
   actlit
   |> Term.mk_not
-  |> SMTSolver.assert_term solver
+  |> Solver.assert_term solver
 
 (* Creating a fresh actlit for path compression. *)
 let path_comp_actlit = fresh_actlit ()
@@ -194,7 +205,7 @@ let eval_terms_assert_first_false trans solver eval k =
             loop_at_k k' tail
           (* Term evaluates to false, asserting it and returning true. *)
           else (
-            SMTSolver.assert_term solver term_at_k ;
+            Solver.assert_term solver term_at_k ;
             true
           )
         with
@@ -207,7 +218,7 @@ let eval_terms_assert_first_false trans solver eval k =
   in
 
   let rec loop_all_k k' =
-    if Numeral.(k' > k) then false
+    if Numeral.(k' > Numeral.zero) then false
     else (
       (* Attempting to block the model represented by [eval]. *)
       let blocked = loop_at_k k' (TransSys.get_invars trans) in
@@ -221,7 +232,7 @@ let eval_terms_assert_first_false trans solver eval k =
 
   (* Timing the blocking for stats. *)
   Stat.start_timer Stat.ind_lazy_invariants_time ;
-  let result = loop_all_k Numeral.zero in
+  let result = loop_all_k k in
   Stat.record_time Stat.ind_lazy_invariants_time ;
 
   if result then Stat.incr Stat.ind_lazy_invariants_count ;
@@ -235,7 +246,7 @@ let split trans solver k to_split actlits =
   let if_sat () =
     
     (* Get-model function. *)
-    let get_model = SMTSolver.get_model solver in
+    let get_model = Solver.get_model solver in
     
     (* Getting counterexample for path compression is needed. *)
     let cex =
@@ -248,10 +259,12 @@ let split trans solver k to_split actlits =
     let model =
       if Flags.ind_lazy_invariants () then
         (* Lazy invariant mode, we need the full model. *)
-        TransSys.vars_of_bounds trans Numeral.zero k |> get_model
+        TransSys.vars_of_bounds trans k Numeral.zero |> get_model
       else
         (* Not in lazy invariant mode, we only need model at [0]. *)
-        TransSys.vars_of_bounds trans k k |> get_model
+        TransSys.vars_of_bounds
+          trans Numeral.zero Numeral.zero
+        |> get_model
     in
     
     Some (cex, model)
@@ -263,11 +276,12 @@ let split trans solver k to_split actlits =
   (* Appending to the list of actlits. *)
   let all_actlits = path_comp_act_term :: actlits in
 
-  (* Loops as long as counterexamples can be compressed. *)
+  (* Loops as long as counterexamples can be compressed or blocked by
+     invariants. *)
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
-      SMTSolver.check_sat_assuming
+      Solver.check_sat_assuming
         solver if_sat if_unsat all_actlits
     with
 
@@ -300,16 +314,16 @@ let split trans solver k to_split actlits =
         ( match
             if not (Flags.ind_compress ()) then [] else
               Compress.check_and_block
-                (SMTSolver.declare_fun solver) trans cex
+                (Solver.declare_fun solver) trans cex
           with
 
             | [] ->
               (* Splitting properties. *)
               let new_to_split, new_falsifiable =
                 List.partition
-                  ( fun (_, term) ->
-                    Term.bump_state k term |> eval )
-                  to_split in
+                  ( fun (_, term) -> eval term )
+                  to_split
+              in
               (* Building result. *)
               Some (new_to_split, new_falsifiable)
 
@@ -318,7 +332,7 @@ let split trans solver k to_split actlits =
               Term.mk_or
                 [ path_comp_act_term |> Term.mk_not ;
                   compressor |> Term.mk_and ]
-                |> SMTSolver.assert_term solver ;
+                |> Solver.assert_term solver ;
               (* Rechecking satisfiability. *)
               loop () )
 
@@ -343,67 +357,58 @@ let split_closure
     (* Checking if we should terminate. *)
     Event.check_termination () ;
 
-    (* Building negative term. *)
-    let neg_term =
+    (* Appending positive activation literal terms to optimistic
+       ones. *)
+    let almost_all_actlits =
       list
-      |> List.map snd
-      |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
-
-    (* Adding optimistic properties at k. *)
-    let term =
-      neg_term ::
-        ( optimistic_terms
-          |> List.map
-               (fun (_, t) -> t |> Term.bump_state k) )
-      |> Term.mk_and
+      |> List.fold_left
+          ( fun list (_, term) ->
+            (pos_actlit_term term) :: list )
+          optimistic_actlits
     in
 
-    (* Getting a fresh actlit for it. *)
-    let actlit = fresh_actlit () in
+    let all_actlits, deactivate_neg_actlit =
+      (* Getting a fresh actlits for optimistic at [0]. *)
+      let actlit = Actlit.fresh_actlit () in
+      (* Declaring it. *)
+      Solver.declare_fun solver actlit ;
+      (* Getting its term version. *)
+      let actlit_term = term_of_actlit actlit in
+          
+      (* Building the negative implication. *)
+      Term.mk_implies
+        [ actlit_term ;
+          Term.mk_and
+            ( (list |> List.map snd |> Term.mk_and |> Term.mk_not)
+              :: optimistic_terms ) ]
+            (* Asserting it. *)
+          |> Solver.assert_term solver ;
 
-    (* Declaring actlit. *)
-    actlit |> SMTSolver.declare_fun solver ;
-
-    (* Transforming it to a term. *)
-    let actlit_term = actlit |> term_of_actlit in
-
-    (* Asserting implication. *)
-    Term.mk_implies [ actlit_term ; term ]
-    |> SMTSolver.assert_term solver ;
-
-    (* Getting positive actlits for the list of properties, appending
-       them to the optimistic actlits and adding the negative
-       actlit. *)
-    let all_actlits =
-      actlit_term :: (
-        list
-        |> List.fold_left
-             ( fun l (_,t) ->
-               (generate_actlit t |> term_of_actlit) :: l )
-             optimistic_actlits )
+          actlit_term :: almost_all_actlits,
+          (fun () -> deactivate solver actlit_term)
     in
 
     (* Splitting. *)
     match split trans solver k list all_actlits with
 
     | None ->
-       (* Unsat. *)
-       (* Deactivating negative actlit. *)
-       deactivate solver actlit_term ;
-       (* Returning result. *)
-       list, falsifiable
+      (* Unsat. *)
+      (* Deactivating optimistic actlit if needed. *)
+      deactivate_neg_actlit () ;
+      (* Returning result. *)
+      list, falsifiable
 
     | Some ([], new_falsifiable) ->
        (* Sat, no more properties to split. *)
        (* Deactivating negative actlit. *)
-       deactivate solver actlit_term ;
+       deactivate_neg_actlit () ;
        (* Returning result. *)
        [], List.rev_append new_falsifiable falsifiable
 
     | Some (new_list, new_falsifiable) ->
        (* Sat. *)
        (* Deactivating negative actlit. *)
-       deactivate solver actlit_term ;
+       deactivate_neg_actlit () ;
        (* Looping to split remaining properties. *)
        loop (List.rev_append new_falsifiable falsifiable) new_list
   in
@@ -428,6 +433,21 @@ let split_closure
    links unfalsifiable properties with the k at which they were found
    to be unfalsifiable.  It should be sorted by decreasing k. *)
 let rec next trans solver k unfalsifiables unknowns =
+
+  (* Event.log *)
+  (*   L_info *)
+  (*   "next @[<v>at %a@]" Numeral.pp_print_numeral k ; *)
+  (* unfalsifiables *)
+  (* |> List.iter *)
+  (*     (fun (num,list) -> *)
+  (*       Event.log L_info *)
+  (*         "unfalsifiables @[<v>at %a@[%a@]@]" *)
+  (*         Numeral.pp_print_numeral num *)
+  (*         (Lib.pp_print_list *)
+  (*            (fun ppf (_,term) -> *)
+  (*              Format.fprintf ppf "%a" Term.pp_print_term term) *)
+  (*            "@,") *)
+  (*         list) ; *)
 
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
@@ -476,7 +496,7 @@ let rec next trans solver k unfalsifiables unknowns =
   | _ ->
 
      (* Integer version of k. *)
-     let k_int = Numeral.to_int k in
+     let k_int = Numeral.(to_int (~- k)) in
 
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;
@@ -484,19 +504,19 @@ let rec next trans solver k unfalsifiables unknowns =
      Stat.update_time Stat.ind_total_time ;
 
      (* Notifying compression *)
-     Compress.incr_k ();
+     if Flags.ind_compress () then
+       Compress.incr_k ();
 
-     (* k+1. *)
-     let k_p_1 = Numeral.succ k in
+     (* k-1. *)
+     let k_m_1 = Numeral.pred k in
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
-       trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
+       trans (Solver.declare_fun solver) k_m_1 k_m_1 ;
 
-     (* Asserting transition relation. *)
-     (* TransSys.trans_fun_of trans k k_p_1 *)
-     TransSys.trans_of_bound trans k_p_1
-     |> SMTSolver.assert_term solver
+     (* Asserting reversed transition relation. *)
+     TransSys.trans_of_bound trans k
+     |> Solver.assert_term solver
      |> ignore ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
@@ -507,25 +527,25 @@ let rec next trans solver k unfalsifiables unknowns =
          | l -> l
                 |> Term.mk_and
                 |> Term.bump_and_apply_k
-                    (SMTSolver.assert_term solver) k) ;
+                    (Solver.assert_term solver) k) ;
 
-       (* Asserts old invariants at k+1. *)
-       TransSys.invars_of_bound trans k_p_1 |> SMTSolver.assert_term solver ;
+       (* Asserts old invariants at k-1. *)
+       TransSys.invars_of_bound trans k_m_1 |> Solver.assert_term solver ;
      ) ;
 
-     (* Asserting positive implications at k for unknowns. *)
+     (* Asserting positive implications at [k+1] for unknowns. *)
      unknowns'
      |> List.map
           ( fun (_,term) ->
             (* Building implication. *)
             Term.mk_implies
               [ generate_actlit term |> term_of_actlit ;
-                Term.bump_state k term ] )
+                Term.bump_state k_m_1 term ] )
      |> Term.mk_and
-     |> SMTSolver.assert_term solver ;
-     
+     |> Solver.assert_term solver ;
 
-     (* Actlits, properties and implications at k for unfalsifiables. *)
+     (* Actlits, properties and implications at [k__1] for
+        unfalsifiables. *)
      let unfalsifiable_actlits,
          unfalsifiable_props,
          unfalsifiable_impls =
@@ -538,7 +558,7 @@ let rec next trans solver k unfalsifiables unknowns =
                              ((_, term) as p) ->
                          (* Building positive actlit. *)
                          let actlit_term =
-                           generate_actlit term |> term_of_actlit
+                           pos_actlit_term term
                          in
 
                          (* Actlit. *)
@@ -547,7 +567,8 @@ let rec next trans solver k unfalsifiables unknowns =
                          p :: terms,
                          (* Implication. *)
                          ( Term.mk_implies
-                             [ actlit_term ; Term.bump_state k term ]
+                             [ actlit_term ;
+                               Term.bump_state k_m_1 term ]
                          ) :: impls
                        )
                        ([],[],[])
@@ -566,9 +587,12 @@ let rec next trans solver k unfalsifiables unknowns =
      in
 
      (* Asserting unfalsifiable implications at k. *)
-     unfalsifiable_impls
-     |> Term.mk_and
-     |> SMTSolver.assert_term solver ;
+     ( match unfalsifiable_impls with
+       | [] -> ()
+       | _ ->
+         unfalsifiable_impls
+       |> Term.mk_and
+       |> Solver.assert_term solver ) ;
 
      (* Output current progress. *)
      Event.log
@@ -576,35 +600,31 @@ let rec next trans solver k unfalsifiables unknowns =
        "IND @[<v>at k = %i@,\
                  %i unknowns@,\
                  %i unfalsifiables.@]"
-       (Numeral.to_int k)
-       (List.length unknowns') (List.length unfalsifiable_props);
+       k_int (List.length unknowns') (List.length unfalsifiable_props);
 
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
        split_closure
-         trans solver k_p_1
+         trans solver k_m_1
          unfalsifiable_actlits
-         unfalsifiable_props
+         (unfalsifiable_props |> List.map snd)
          unknowns'
      in
 
      (* Output statistics *)
      print_stats () ;
 
-     (* Int k plus one. *)
-     let k_p_1_int = Numeral.to_int k_p_1 in
-
      (* Checking if we have reached max k. *)
-     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+     if Flags.bmc_max () > 0 && k_int >= Flags.bmc_max () then
        Event.log
          L_info
          "IND @[<v>reached maximal number of iterations.@]"
      else
        (* Looping. *)
        next
-         trans solver k_p_1
+         trans solver k_m_1
          (* Adding the new unfalsifiables. *)
-         ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
+         ( (Numeral.(~- k), unfalsifiables_at_k) :: unfalsifiables' )
          (* Iterating on the properties left. *)
          falsifiables_at_k
          
@@ -622,44 +642,44 @@ let launch trans =
 
   (* Creating solver. *)
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
-      (TransSys.get_logic trans) (Flags.smtsolver ())
+    TransSys.get_logic trans
+    |> Solver.new_solver ~produce_assignments:true
   in
 
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
 
-  (* Declaring uninterpreted function symbols. *)
-  (* TransSys.iter_state_var_declarations *)
-  (*   trans *)
-  (*   (SMTSolver.declare_fun solver) ; *)
-
-  (* Declaring path compression actlit. *)
-  path_comp_actlit |> SMTSolver.declare_fun solver ;
-
-  if Flags.ind_compress () then
-    (* Declaring path compression function. *)
-    Compress.init (SMTSolver.declare_fun solver) trans ;
-
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
-    trans
-    (SMTSolver.define_fun solver) ;
-
   (* Declaring unrolled vars at 0. *)
   TransSys.declare_vars_of_bounds
-    trans (SMTSolver.declare_fun solver) Numeral.zero Numeral.zero ;
-
-  (* Invariants of the system at 0. *)
-  TransSys.invars_of_bound trans Numeral.zero
-  |> SMTSolver.assert_term solver ;
+    trans (Solver.declare_fun solver) Numeral.zero Numeral.zero ;
 
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
      generate_actlit prop
-     |> SMTSolver.declare_fun solver)
+     |> Solver.declare_fun solver)
     unknowns ;
+  
+  (* Declaring path compression actlit. *)
+  path_comp_actlit |> Solver.declare_fun solver ;
+
+  if Flags.ind_compress () then (
+    (* Declaring path compression function. *)
+    Compress.init (Solver.declare_fun solver) trans
+  ) ;
+
+  (* Defining functions. *)
+  TransSys.iter_uf_definitions
+    trans
+    (Solver.define_fun solver) ;
+
+  (* Invariants of the system at 0. *)
+  let invariants =
+    TransSys.invars_of_bound trans Numeral.zero
+  in
+
+  (* Asserting trans sys invariants. *)
+  Solver.assert_term solver invariants ;
 
   (* Launching step. *)
   next trans solver Numeral.zero [] unknowns

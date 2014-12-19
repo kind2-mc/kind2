@@ -17,692 +17,551 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 
-(* Type of a lock step kind context. *)
 type t = {
-  (* The transition system. *)
-  trans: TransSys.t ;
-  (* The solver. *)
+
+  (* Associates a transition systems to the k at which they are
+     unrolled in the solver, and an actlit (as a term) activating
+     their initial state at 0. *)
+  mutable systems: (TransSys.t * (Numeral.t * Term.t)) list ;
+
+  (* The solver used to query step and base. *)
   solver: SMTSolver.t ;
-  (* The k we are currently at. Means that the transition predicates
-     are unrolled up to k+1 (so that step is meaningful). *)
+
+  (* Indicates whether this instance is two state or not. *)
+  two_state: bool ;
+
+  (* The k at which this lsd instance is. *)
   mutable k: Numeral.t ;
-  (* Actlit for the initial predicates of all the nodes of the
-     systems. *)
-  init_actlit: Term.t ;
-  (* All variables for all nodes of the system. *)
-  all_vars: Var.t list ;
-  (* All transition predicates for all the nodes of the system. *)
-  all_transitions: Term.t ;
-  (* Invariants asserted up to k+1. *)
-  mutable invariants: Term.t list
+
+  (* Invariants asserted up to [k+1]. *)
+  mutable invariants: Term.t list ;
+  
 }
 
-(* Creates a lock step driver based on a transition system. *)
-let create trans =
-  (* Creating solver. *)
-  let solver =
-    SMTSolver.new_solver ~produce_assignments:true
-      (TransSys.get_logic trans) (Flags.smtsolver ())
-  in
-
-  (* Building the list of top node vars at 0, declaring their
-     uninterpreted function symbols at the same time. *)
-  let top_node_vars =
-    TransSys.state_vars trans
-    |> List.map
-         ( fun sv ->
-           StateVar.uf_symbol_of_state_var sv
-           |> SMTSolver.declare_fun solver ;
-           Var.mk_state_var_instance sv Numeral.zero )
-  in
-
-  (* Creating the list of all initial predicates, the list of all
-     transition predicates and the list of all vars at 0. Also does
-     all the necessary declare/define-fun-s. *)
-  let all_inits, all_transitions, all_vars =
-    (* Iterating on all the predicates of the system. *)
-    TransSys.uf_defs_pairs trans
-    |> List.fold_left
-         ( fun
-             (init_list, trans_list, var_list)
-             ((i_uf,(i_vars,i_term)),
-              (t_uf,(t_vars,t_term))) ->
-
-           (* Declaring i_vars to be able to use this node's init
-                 predicate directly as a term. *)
-           i_vars
-           |> List.iter
-                (fun var ->
-                 Var.state_var_of_state_var_instance var
-                 |> StateVar.uf_symbol_of_state_var
-                 |> SMTSolver.declare_fun solver) ;
-
-           (* Defining this node's init predicate. *)
-           SMTSolver.define_fun solver i_uf i_vars i_term ;
-
-           (* Defining this node's transition predicate. *)
-           SMTSolver.define_fun solver t_uf t_vars t_term ;
-
-           (* Building the list of all init and transition
-                 terms. *)
-           i_term :: init_list,
-           t_term :: trans_list,
-           List.rev_append i_vars var_list)
-         ([ TransSys.init_of_bound trans Numeral.zero ],
-          [ TransSys.trans_of_bound trans Numeral.one ],
-          top_node_vars)
-  in
-
-  (* Declaring path compression function. *)
-  Compress.init (SMTSolver.declare_fun solver) trans ;
-
-  (* Building the conjunction of all transition predicates. *)
-  let all_transitions_conj =
-    all_transitions |> Term.mk_and
-  in
-
-  (* Getting a fresh actlit for init. *)
-  let init_actlit = fresh_actlit () in
-  (* Declaring it. *)
-  init_actlit |> SMTSolver.declare_fun solver ;
-  (* Term version for init_actlit. *)
-  let init_actlit_term = term_of_actlit init_actlit in
-
-  (* Asserting implication between the init actlit and all init
-        predicates. *)
-  [ init_actlit_term ; (Term.mk_and all_inits) ]
-  |> Term.mk_implies
-  |> SMTSolver.assert_term solver ;
-
-  (* Asserting all transitions predicates at one for step. *)
-  all_transitions_conj
-  |> Term.bump_state Numeral.zero
-  |> SMTSolver.assert_term solver ;
-
-  (* Return the context of the solver. *)
-  { trans = trans ;
-    solver = solver ;
-    all_vars = all_vars ;
-    all_transitions = all_transitions_conj ;
-    init_actlit = init_actlit_term ;
-    k = Numeral.zero ;
-    invariants = [] }
-
-(* Deletes a lock step driver. *)
-let delete context =
-  SMTSolver.delete_solver context.solver
-
-(* The k of the lock step driver. *)
+(* The k this lsd instance is at. *)
 let get_k { k } = k
 
-(* Increments the k of a lock step driver. Basically asserts the
-   transition relation and unrolls the invariants one step further. *)
-let increment
-      ({ solver ; k ; all_transitions ; invariants } as context) =
+(* Makes sure the solver of a lsd instance is consistent. *)
+let check_consistency { systems ; k ; solver } =
 
-  (* New k. *)
-  let new_k = Numeral.(k + one) in
-  (* New k + 1. *)
-  let new_kp1 = Numeral.(new_k + one) in
+  let kp1 = Numeral.succ k in
 
-  (* Asserting all transitions predicates at k+1. *)
-  all_transitions
-  |> Term.bump_state new_k
-  |> SMTSolver.assert_term solver ;
+  (* Making sure the systems are unrolled at k or k+1.*)
+  assert
+    ( systems
+      |> List.for_all
+           ( fun (_, (k',_)) -> Numeral.(k' = k)
+                                || Numeral.(k' = kp1) ) ) ;
 
-  (* Asserting all invariants at k. *)
-  invariants
-  |> Term.mk_and
-  |> Term.bump_state new_kp1
-  |> SMTSolver.assert_term solver ;
+  (* Making sure the solver instance is satisfiable. *)
+  assert
+    ( SMTSolver.check_sat solver )
 
-  (* Updating context. *)
-  context.k <- Numeral.(context.k + one)
+(* Applies [f] to term bumped from [lbound] to [ubound]. *)
+let rec bump_and_apply_bounds f lbound ubound term =
+  if Numeral.( lbound <= ubound ) then (
+    (* Bumping and applying f. *)
+    Term.bump_state lbound term |> f ;
+    (* Looping. *)
+    bump_and_apply_bounds f Numeral.(succ lbound) ubound term
+  )
 
-(* Unrolls a term from 0 to k, returns the list of unrolled terms. *)
-let unroll_term_up_to_k k term =
-  let rec loop i unrolled =
-    if Numeral.(i > zero) then
-      Term.bump_state i term :: unrolled
-      |> loop Numeral.(i - one)
-    else if Numeral.(i = zero) then
-      (Term.bump_state i term) :: unrolled
-    else
-      Failure
-        (Printf.sprintf "Illegal negative k: %i." (Numeral.to_int i))
-      |> raise
-  in
-  loop k []
+(* Adds new invariants to a lsd instance. Invariants are asserted up
+   to k+1 so that they are active for step. *)
+let add_invariants ({ k ; solver ; invariants } as context)
+  = function
+  | [] -> ()
+  | invariants' ->
+     
+     let kp1 = Numeral.succ k in
+     
+     (* Building the conjunction of new invariants. *)
+     Term.mk_and invariants'
+     (* Asserting all invariants from 0 to k+1. *)
+     |> bump_and_apply_bounds
+          (SMTSolver.assert_term solver)
+          Numeral.zero
+          kp1 ;
+     
+     (* Updating context. *)
+     context.invariants <- List.rev_append invariants' invariants
 
-(* Adds new invariants to a lock step driver. *)
-let new_invariants ({ solver ; k ; invariants } as context)
-                   new_invariants =
+     (* Making sure everything makes sense. *)
+     (* check_consistency context *)
 
-  (* We will be asserting them up to k+1 for step. *)
-  let kp1 = Numeral.(k + one) in
-  
-  (* Asserting new invariants from 0 to k+1, memorizing them at the
-     same time. *)
-  new_invariants
-  |> List.fold_left
-       (* Taking one invariant. *)
-       ( fun list inv ->
-         (* Asserting it from 0 to k+1 as a conjunction. *)
-         unroll_term_up_to_k kp1 inv
-         |> Term.mk_and
+
+(* Unrolls [sys] at [k+1] if it is only unrolled up to [k]. *)
+let soft_increment ({ systems ; k ; solver } as context) system =
+
+  let rec loop prefix = function
+      
+    | (sys, (sys_k,actlit)) :: tail when sys == system ->
+       
+       if Numeral.( k = sys_k ) then
+         let kp1 = Numeral.succ k in
+         
+         (* Declaring unrolled vars at k. *)
+         TransSys.declare_vars_of_bounds
+           sys (SMTSolver.declare_fun solver) kp1 kp1 ;
+         (* Asserting transition relation at [k+1]. *)
+         TransSys.trans_of_bound sys kp1
          |> SMTSolver.assert_term solver ;
-         (* Appending to old invariants. *)
-         inv :: list )
-       invariants
-  |> (fun invs -> context.invariants <- invs)
+         (* Updating with updated associative list. *)
+         context.systems <-
+           (sys, (kp1, actlit)) :: tail
+           |> List.rev_append prefix
+
+       else
+         (* Making sure [sys_k] is legal. *)
+         assert ( Numeral.( sys_k = succ k ) ) ;
+         (* Nothing to do. *)
+       ()
+
+    | head :: tail -> loop (head :: prefix) tail
+
+    | [] -> raise Not_found
+
+  in
+       
+  
+  try
+    loop [] systems
+  with
+  | Not_found ->
+     raise
+       (Invalid_argument
+          (Printf.sprintf
+             "Unexpected system [%s]."
+             (TransSys.get_scope system |> String.concat "/")))
 
 
-(* Checks if some of the input terms are falsifiable k steps from the
-   initial states. Returns Some of a counterexample if some are, None
-   otherwise. *)
-let query_base { solver ; k ; init_actlit ; all_vars } terms =
+(* Increments the [k] of a lsd instance. Performs soft increment while
+   doing so. *)
+let increment ({ systems ; k ; solver ; invariants } as context) =
 
-  (* Getting a fresh actlit. *)
-  let terms_actlit = fresh_actlit () in
+  (* Soft incrementing every system. *)
+  systems
+  |> List.iter
+       (fun (sys, _) -> soft_increment context sys) ;
 
-  (* Declaring it. *)
-  terms_actlit |> SMTSolver.declare_fun solver ;
+  (* Asserting invariants at k+2 (k+1+1, for step. Invariants are
+     already asserted at k+1.). *)
+  ( match invariants with
+    | [] -> ()
+    | invariants ->
+       Term.mk_and invariants
+       |> Term.bump_state Numeral.(succ (succ k))
+       |> SMTSolver.assert_term solver ) ;
 
-  (* Term version of the actlit. *)
-  let terms_actlit_term = term_of_actlit terms_actlit in
+  (* Incrementing the k. *)
+  context.k <- Numeral.succ context.k
 
-  (* Building the list of terms at k. *)
-  let terms_at_k =
-    terms
-    |> List.map
-         (* Bumping term to kp1. *)
-         ( Term.bump_state k )
+  (* Making sure everything is legal. *)
+  (* check_consistency context *)
+
+  
+(* Creates a lsd instance. *)
+let create two_state top_only sys =
+
+  (* Creating solver. *)
+  let solver =
+    SMTSolver.create_instance ~produce_assignments:true
+      (TransSys.get_logic sys) (Flags.smtsolver ())
+    
   in
 
-  (* Asserting the implication between the actlit and the negation
-        of the terms. *)
-  [ terms_actlit_term ;
-    terms_at_k |> Term.mk_and |> Term.mk_not ]
-  |> Term.mk_implies
-  |> SMTSolver.assert_term solver ;
+  (* Building the associative list from (sub)systems to the k up to
+     which they are asserted and their init actlit. *)
+  let systems =
+    let rec loop all_sys = function
+        
+      | sys :: tail ->
+         
+         if List.mem_assq sys all_sys then
+           (* We already know [sys], skipping. *)
+           loop all_sys tail
+                
+         else
+           (* First time seeing [sys], adding it to [all_sys] and
+              recursing on its kids and the tail of unvisited sys. *)
 
-  let k_m_1 = Numeral.pred k in
+           (* Fresh actlit. *)
+           let actlit = Actlit.fresh_actlit () in
+           (* Declaring it. *)
+           SMTSolver.declare_fun solver actlit ;
+           (* Term version. *)
+           let actlit_term = Actlit.term_of_actlit actlit in
 
-  (* Bumping the variables to k. *)
-  let var_at_k =
-    all_vars
+           let all_sys' =
+             (sys, (Numeral.zero, actlit_term)) :: all_sys
+           in
+
+           if top_only then
+             (* If top only then we do not recurse. *)
+             all_sys'
+           else
+             (* Otherwise recursing. *)
+             loop
+               all_sys'
+               (List.rev_append (TransSys.get_subsystems sys) tail)
+
+      | [] -> all_sys
+    in
+
+    loop [] [sys]
+  in
+
+  (* Declaring the init flag. *)
+  SMTSolver.declare_fun solver TransSys.init_flag_uf ;
+
+  (* Defining things. *)
+  TransSys.iter_uf_definitions sys (SMTSolver.define_fun solver) ;
+
+  (* For each system, declare things and assert the implication
+     between its init actlit and its init predicate. Also, declare
+     system invariants at 0 and extract them. *)
+  let invariants =
+    systems
     |> List.fold_left
-         ( fun var_list v ->
-           ( (Var.bump_offset_of_state_var_instance k v) ::
-               (Var.bump_offset_of_state_var_instance k_m_1 v) ::
-                 var_list ))
-         []
+        ( fun list (sys, (zero, actlit)) ->
+
+          (* Declaring things. *)
+          (* TransSys.iter_state_var_declarations *)
+          (*   sys (fun sv -> *)
+          (*     if sv != TransSys.init_flag_uf *)
+          (*     then SMTSolver.declare_fun solver sv) ; *)
+          
+          (* Declaring unrolled vars at 0. *)
+          TransSys.declare_vars_of_bounds
+            sys (SMTSolver.declare_fun solver)
+            (if two_state then Numeral.(~- one) else Numeral.zero)
+            Numeral.zero ;
+         
+          (* Building the init implication. *)
+          Term.mk_implies
+            [ actlit ; TransSys.init_of_bound sys zero ]
+            |> SMTSolver.assert_term solver ;
+
+          (* Invariants if the system at 0. *)
+          let invariants =
+            TransSys.invars_of_bound sys Numeral.zero
+          in
+
+          (* Asserting trans sys invariants. *)
+          SMTSolver.assert_term solver invariants ;
+          
+          invariants :: list )
+        []
   in
 
-  (* Memorizing the result so that we can deactivate the actlit
-     before returning. *)
-  let result =
 
-    (* Check-sat-assuming time. *)
-    SMTSolver.check_sat_assuming
+  (* Constructing the lsd context. *)
+  let lsd = {
+    systems ;
+    solver ;
+    two_state ;
+    k = Numeral.zero ;
+    invariants = invariants ;
+  } in
 
-      solver
+  (* Making the lsd instance is consistent. *)
+  (* check_consistency lsd ; *)
 
-      (* Function ran if sat. Returns Some of the
-         model. *)
-      ( fun () ->
-        Some
-          (* Getting the model. *)
-          ( SMTSolver.get_model solver var_at_k
-            |> List.map
-                 ( fun (v,t) ->
-                   Var.bump_offset_of_state_var_instance
-                     Numeral.(~-k) v,
-                   t ) ) )
+  (* Incrementing if we are in two state mode. *)
+  if two_state then (
+    (* Asserting invariants at 1 if in two_state mode. *)
+    List.iter
+      (fun inv -> Term.bump_state Numeral.one inv
+                  |> SMTSolver.assert_term solver)
+      invariants ;
+    
+    increment lsd
+  ) ;
 
-      (* Function ran if unsat. Returns None. *)
-      ( fun () -> None )
-      (* The actlit activates everything. *)
-      [ init_actlit ; terms_actlit_term ]
-  in
+  (* Returning the lsd instance. *)
+  lsd
 
-  (* Deactivating actlits. *)
-  terms_actlit_term
-  |> Term.mk_not
-  |> SMTSolver.assert_term solver ;
 
-  (* Returning the result. *)
-  result
+(* Deletes the lsd solver. *)
+let delete { solver } = SMTSolver.delete_instance solver
 
-(* Splits terms between those that are falsifiable at k+1 and those
-   that are not. 
 
-   Optimisation: while getting the values, prepare terms for the
-   next iteration. *)
-let rec split_closure solver k kp1 all_vars falsifiable terms =
-  match terms with
-  | _ :: _ ->
 
-     (* Getting a fresh actlit. *)
-     let terms_actlit = fresh_actlit () in
+let query_base ({ systems ; solver ; two_state ; k } as context)
+               system
+               terms_to_check =
 
-     (* Declaring it. *)
-     terms_actlit |> SMTSolver.declare_fun solver ;
+  try
 
-     (* Term version of the actlit. *)
-     let terms_actlit_term = term_of_actlit terms_actlit in
+    (* Getting the actlit for the init predicate of [system]. *)
+    let _, init_actlit =
+      List.assq system systems
+    in
 
-     (* Building the list of terms at k+1. At the same time, we create
-        the implications between actlit and terms from 0 to k. *)
-     let terms_at_kp1 =
-       terms
-       |> List.map
-            ( fun term ->
+    (* Fresh actlit for the check (as a term). *)
+    let actlit =
+      (* Uf version. *)
+      let actlit_uf = Actlit.fresh_actlit () in
+      (* Declaring it. *)
+      SMTSolver.declare_fun solver actlit_uf ;
+      (* Term version. *)
+      Actlit.term_of_actlit actlit_uf
+    in
 
-              (* Asserting that actlit implies term from 0 to k. The
-                 actlit gets overloaded for each term. *)
-              [ terms_actlit_term ;
-                unroll_term_up_to_k k term |> Term.mk_and ]
-              |> Term.mk_implies
-              |> SMTSolver.assert_term solver ;
+    (* Bumped, negated conjunction of the terms to check. *)
+    let terms_falsification_at_k =
+      (* Making a conjunction of the terms to check. *)
+      Term.mk_and terms_to_check
+      (* Negating it. *)
+      |> Term.mk_not
+      (* Bumping it. *)
+      |> Term.bump_state k
+    in
 
-              (* Bumping term to kp1. *)
-              Term.bump_state kp1 term )
+    (* Building the implication. *)
+    Term.mk_implies [ actlit ; terms_falsification_at_k ]
+    (* Asserting it. *)
+    |> SMTSolver.assert_term solver ;
+
+    (* Function to run if sat. *)
+    let if_sat () =
+
+      let minus_k = Numeral.(~- k) in
+
+      (* Variables we want to know the value of. *)
+      TransSys.vars_of_bounds
+        system
+        (if two_state then Numeral.pred k else k)
+        k
+      (* Getting their value. *)
+      |> SMTSolver.get_model solver
+      (* Bumping to -k. *)
+      |> List.map
+           ( fun (v,t) ->
+             (Var.bump_offset_of_state_var_instance
+                minus_k v),
+             t )
+      (* Making an option out of it. *)
+      |> (fun model -> Some model)
+    in
+
+    (* Function to run if unsat. *)
+    let if_unsat () = None in
+
+    (* Checking if we should terminate before doing anything. *)
+    Event.check_termination () ;
+
+    (* Checksat-ing. *)
+    let result =
+      SMTSolver.check_sat_assuming
+        solver if_sat if_unsat [ actlit ; init_actlit ]
+    in
+
+    (* Deactivating actlit. *)
+    Term.mk_not actlit
+    |> SMTSolver.assert_term solver ;
+
+    (* Returning result. *)
+    result
+
+
+  with
+  | Not_found ->
+     raise
+       (Invalid_argument
+          (Printf.sprintf
+             "Unexpected system [%s]."
+             (TransSys.get_scope system |> String.concat "/")))
+
+
+
+let rec split_closure solver two_state k falsifiable = function
+
+  | [] -> (falsifiable, [])
+
+  | terms_to_check ->
+
+     (* Fresh actlit for the check (as a term). *)
+     let actlit =
+       (* Uf version. *)
+       let actlit_uf = Actlit.fresh_actlit () in
+       (* Declaring it. *)
+       SMTSolver.declare_fun solver actlit_uf ;
+       (* Term version. *)
+       Actlit.term_of_actlit actlit_uf
      in
 
-     (* Overloading the actlit one last time for the negation of the
-        terms. *)
-     [ terms_actlit_term ;
-       (terms_at_kp1 |> Term.mk_and |> Term.mk_not) ]
-     |> Term.mk_implies
+     (* Conjunction of terms to check. *)
+     let conjunction =
+       Term.mk_and terms_to_check
+     in
+     
+     (* Asserting positive implications. *)
+     bump_and_apply_bounds
+       ( fun bumped ->
+         (* Building the implication. *)
+         Term.mk_implies [ actlit ; bumped ]
+         (* Asserting it. *)
+         |> SMTSolver.assert_term solver )
+       (* In the two state case we start at one. *)
+       (if two_state then Numeral.one else Numeral.zero)
+       (* Going up to k. *)
+       k
+       conjunction ;
+
+     let kp1 = Numeral.succ k in
+
+     (* Asserting negative implication. *)
+     SMTSolver.assert_term
+       solver
+       (Term.mk_implies
+          [ actlit ;
+            (* Bumping conjunction. *)
+            Term.bump_state kp1 conjunction
+            (* Negating it. *)
+            |> Term.mk_not ]) ;
+
+     (* Function to run if sat. *)
+     let if_sat () =
+
+       let minus_kp1 = Numeral.(~- kp1) in
+       
+       let falsifiable', unknown =
+         terms_to_check
+         (* We want the value of the terms a k+1. *)
+         |> List.map (Term.bump_state kp1)
+         |> SMTSolver.get_values solver
+
+         (* Separating falsifiable ones from the rest, bumping back at
+            the same time. *)
+         |> List.fold_left
+
+              ( fun (falsifiable, unknown) (term,value) ->                
+                (* Unbumping term. *)
+                let unbumped_term =
+                  Term.bump_state minus_kp1 term
+                in
+                if value == Term.t_true then
+                  falsifiable, unbumped_term :: unknown
+                else
+                  unbumped_term :: falsifiable, unknown )
+              
+              (falsifiable, [])
+       in
+
+       (* Deactivating actlit. *)
+       Term.mk_not actlit
+       |> SMTSolver.assert_term solver ;
+
+       (* Looping. *)
+       split_closure solver two_state k falsifiable' unknown
+                     
+     in
+
+     (* Function to run if unsat. *)
+     let if_unsat () =
+       (* Deactivating actlit. *)
+       Term.mk_not actlit
+       |> SMTSolver.assert_term solver ;
+       
+       (* Returning result. *)
+       falsifiable, terms_to_check
+     in
+
+     (* Checking if we should terminate before doing anything. *)
+     Event.check_termination () ;
+
+     (* Checksat-ing. *)
+     SMTSolver.check_sat_assuming
+       solver
+       if_sat
+       if_unsat
+       [ actlit ]
+
+
+
+(* Prunes the terms which are a direct consequence of the transition
+   relation. Assumes [T(0,1)] is asserted. *)
+let rec prune_trivial solver result = function
+  | [] -> result
+  | terms ->
+
+     (* Fresh actlit for the check (as a term). *)
+     let actlit =
+       (* Uf version. *)
+       let actlit_uf = Actlit.fresh_actlit () in
+       (* Declaring it. *)
+       SMTSolver.declare_fun solver actlit_uf ;
+       (* Term version. *)
+       Actlit.term_of_actlit actlit_uf
+     in
+
+     (* Bumping terms to one. *)
+     let bumped_terms =
+       List.map (Term.bump_state Numeral.one) terms
+     in
+
+     (* Asserting implication between actlit and terms@1. *)
+     Term.mk_implies
+       [ actlit ;
+         Term.mk_and bumped_terms |> Term.mk_not ]
      |> SMTSolver.assert_term solver ;
 
-     (* Building a small continuation to deactivate the actlit before
-        we go on. *)
-     let continue =
-       ( match
-           (* Check-sat-assuming time. *)
-           SMTSolver.check_sat_assuming
-             solver
-
-             (* Function ran if sat. Returns Some of the falsifiable
-                terms, INCLUDING THE ONES WE ALREADY KNOW ARE
-                FALSIFIABLE, and the unknown ones. *)
-             ( fun () ->
-               SMTSolver.get_values solver terms_at_kp1
-               |> List.fold_left
-                    ( fun (flsbl_list, uknwn_list)
-                          (term_at_kp1, value) ->
-                      (* Unbumping term. *)
-                      let term_at_0 =
-                        Term.bump_state Numeral.(~- kp1) term_at_kp1
-                      in
-
-                      if not (Term.bool_of_term value) then
-                        (* Term is falsifiable. *)
-                        term_at_0 :: flsbl_list, uknwn_list
-                      else
-                        (* Term is unknown. *)
-                        flsbl_list, term_at_0 :: uknwn_list )
-                    (* Note that we add the new falsifiable terms to
-                       the old ones to avoid going through the list
-                       again. *)
-                    (falsifiable, [])
-               |> (fun p -> Some p ) )
-
-             (* Function ran if unsat. Returns None. *)
-             ( fun () -> None )
-
-             (* The actlit activates everything. *)
-             [ term_of_actlit terms_actlit ]
-         with
-
-         | Some (new_falsifiable, new_unknown) ->
-            (* Some terms are falsifiable, we shall loop. *)
-            fun () ->
-            split_closure solver k kp1 all_vars new_falsifiable new_unknown
-
-         | None ->
-            (* The terms left are unfalsifiable, we shall return the
-               result. *)
-            fun () -> (falsifiable, terms)
+     let if_sat () =
+       Some (
+         (* Getting the values of terms@1. *)
+         SMTSolver.get_values
+           solver bumped_terms
+         (* Partitioning the list based on the value of the terms. *)
+         |> List.fold_left
+             ( fun (unknowns,falsifiables) (term_at_1, value) ->
+               if value == Term.t_true then
+                 (Term.bump_state Numeral.(~- one) term_at_1)
+                 :: unknowns,
+                 falsifiables
+               else
+                 unknowns,
+                 (Term.bump_state Numeral.(~- one) term_at_1)
+                 :: falsifiables )
+             ([],[])
        )
      in
 
-     (* Deactivating actlits. *)
-     term_of_actlit terms_actlit
-     |> Term.mk_not
-     |> SMTSolver.assert_term solver ;
+     let if_unsat () = None in
 
-     (* Calling the tiny continuation. *)
-     continue ()
+     match SMTSolver.check_sat_assuming
+       solver if_sat if_unsat [actlit]
+     with
+       | None ->
+         debug lsd "Pruning %i invariants." (List.length terms) in
+         (* Deactivating actlit. *)
+         Term.mk_not actlit |> SMTSolver.assert_term solver ;
+         (* Unsat, the terms cannot be falsified. *)
+         result
+       | Some (unknowns, falsifiables) ->
+         (* Deactivating actlit. *)
+         Term.mk_not actlit |> SMTSolver.assert_term solver ;
+         (* Looping. *)
+         prune_trivial
+           solver (List.concat [ result ; falsifiables ]) unknowns
 
-  | _ ->
-     (* No term left, we're done. *)
-     (falsifiable, [])
+let query_step ({ systems ; solver ; two_state ; k } as context)
+               system
+               terms_to_check =
 
-(* (\* Splits terms between those that are falsifiable at k+1 and those *)
-(*    that are not.  *)
+  (* Soft incrementing the system. *)
+  soft_increment context system ;
 
-(*    Optimisation: while getting the values, prepare terms for the *)
-(*    next iteration. *\) *)
-(* let rec split_closure_path_comp *)
-(*           trans solver k kp1 all_vars falsifiable terms = *)
-(*   match terms with *)
-(*   | _ :: _ -> *)
-
-(*      (\* Getting a fresh actlit. *\) *)
-(*      let terms_actlit = fresh_actlit () in *)
-
-(*      (\* Declaring it. *\) *)
-(*      terms_actlit |> SMTSolver.declare_fun solver ; *)
-
-(*      (\* Term version of the actlit. *\) *)
-(*      let terms_actlit_term = term_of_actlit terms_actlit in *)
-
-(*      (\* Building the list of terms at k+1. At the same time, we create *)
-(*         the implications between actlit and terms from 0 to k. *\) *)
-(*      let terms_at_kp1 = *)
-(*        terms *)
-(*        |> List.map *)
-(*             ( fun term -> *)
-
-(*               (\* Asserting that actlit implies term from 0 to k. The *)
-(*                  actlit gets overloaded for each term. *\) *)
-(*               [ terms_actlit_term ; *)
-(*                 unroll_term_up_to_k k term |> Term.mk_and ] *)
-(*               |> Term.mk_implies *)
-(*               |> SMTSolver.assert_term solver ; *)
-
-(*               (\* Bumping term to kp1. *\) *)
-(*               Term.bump_state kp1 term ) *)
-(*      in *)
-
-(*      (\* Overloading the actlit one last time for the negation of the *)
-(*         terms. *\) *)
-(*      [ terms_actlit_term ; *)
-(*        (terms_at_kp1 |> Term.mk_and |> Term.mk_not) ] *)
-(*      |> Term.mk_implies *)
-(*      |> SMTSolver.assert_term solver ; *)
-
-(*      (\* Building a small continuation to deactivate the actlit before *)
-(*         we go on. *\) *)
-(*      let continue = *)
-(*        let rec loop () = *)
-(*          ( match *)
-(*              (\* Check-sat-assuming time. *\) *)
-(*              SMTSolver.check_sat_assuming *)
-(*                solver *)
-
-(*                (\* Function ran if sat. Returns Some of the falsifiable *)
-(*                   terms, INCLUDING THE ONES WE ALREADY KNOW ARE *)
-(*                   FALSIFIABLE, and the unknown ones. *\) *)
-(*                ( fun () -> *)
-(*                  (\* Get-model function. *\) *)
-(*                  let get_model = SMTSolver.get_model solver in *)
-(*                  (\* Extracting the counterexample. *\) *)
-(*                  let cex = *)
-(*                    TransSys.path_from_model trans get_model k in *)
-(*                  (\* Attempting to compress path. *\) *)
-(*                  ( match *)
-(*                      Compress.check_and_block *)
-(*                        (SMTSolver.declare_fun solver) trans cex *)
-(*                    with *)
-
-(*                    | [] -> *)
-(*                       SMTSolver.get_values solver terms_at_kp1 *)
-(*                       |> List.fold_left *)
-(*                            ( fun (flsbl_list, uknwn_list) *)
-(*                                  (term_at_kp1, value) -> *)
-(*                              (\* Unbumping term. *\) *)
-(*                              let term_at_0 = *)
-(*                                Term.bump_state *)
-(*                                  Numeral.(~- kp1) term_at_kp1 *)
-(*                              in *)
-
-(*                              if not (Term.bool_of_term value) then *)
-(*                                (\* Term is falsifiable. *\) *)
-(*                                term_at_0 :: flsbl_list, uknwn_list *)
-(*                              else *)
-(*                                (\* Term is unknown. *\) *)
-(*                                flsbl_list, term_at_0 :: uknwn_list ) *)
-(*                            (\* Note that we add the new falsifiable *)
-(*                               terms to the old ones to avoid going *)
-(*                               through the list again. *\) *)
-(*                            (falsifiable, []) *)
-(*                       |> (fun p -> Some p ) *)
-
-(*                    | compressor -> *)
-(*                       (\* Path compressing. *\) *)
-(*                       compressor |> Term.mk_and *)
-(*                       |> SMTSolver.assert_term solver ; *)
-
-(*                       (\* Returning nothing. *\) *)
-(*                       Printf.printf "Path compressing, looping.\n" ; *)
-(*                       Some ( [], [] ) *)
-                      
-(*                  ) *)
-
-(*                ) *)
-
-(*                (\* Function ran if unsat. Returns None. *\) *)
-(*                ( fun () -> None ) *)
-
-(*                (\* The actlit activates everything. *\) *)
-(*                [ terms_actlit_term ] *)
-(*            with *)
-
-(*            | Some ([], []) -> *)
-(*               (\* Path compressing, we need to recheck. *\) *)
-(*               Printf.printf "Path compressing, looping.\n" ; *)
-(*               loop () *)
-
-(*            | Some (new_falsifiable, new_unknown) -> *)
-(*               (\* Some terms are falsifiable, we shall loop. *\) *)
-(*               fun () -> *)
-(*               split_closure_path_comp *)
-(*                 trans solver k kp1 all_vars new_falsifiable new_unknown *)
-
-(*            | None -> *)
-(*               (\* The terms left are unfalsifiable, we shall return the *)
-(*                result. *\) *)
-(*               fun () -> (falsifiable, terms) *)
-(*          ) *)
-(*        in *)
-
-(*        loop () *)
-(*      in *)
-
-(*      (\* Deactivating actlit. *\) *)
-(*      terms_actlit_term *)
-(*      |> Term.mk_not *)
-(*      |> SMTSolver.assert_term solver ; *)
-
-(*      (\* Calling the tiny continuation. *\) *)
-(*      continue () *)
-
-(*   | _ -> *)
-(*      (\* No term left, we're done. *\) *)
-(*      (falsifiable, []) *)
-
-
-(* Checks if some of the input terms are k-inductive. Returns a pair
-   composed of the falsifiable terms and the unfalsifiable ones. *)
-let query_step { solver ; k ; all_vars } terms =
-  split_closure solver k Numeral.(k + one) all_vars [] terms
-
-(* (\* Checks if some of the input terms are k-inductive. Returns a pair *)
-(*    composed of the falsifiable terms and the unfalsifiable ones. *\) *)
-(* let query_step_path_comp { trans ; solver ; k ; all_vars } terms = *)
-(*   split_closure_path_comp *)
-(*     trans solver k Numeral.(k + one) all_vars [] terms *)
-
-(* Tests the lock step driver on the system below. *)
-let test trans =
-  let lsk = create trans in
-
-  let build_var string =
-    UfSymbol.uf_symbol_of_string string
-    |> StateVar.state_var_of_uf_symbol
-    |> (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
-    |> Term.mk_var
-  in
-
-  let corrupted, warning =
-    build_var "relCount.corrupted", build_var "relCount.warning"
-  in
-
-  let invariant = Term.mk_implies [ corrupted ; warning ] in
-
-  let not_invariant_1 = Term.mk_not corrupted in
-
-  let not_invariant_2 =
-    Term.mk_implies
-      [ Term.mk_not corrupted |> Term.bump_state Numeral.(~- one) ;
-        corrupted ]
-  in
-
-  let terms_to_try = [ invariant ;
-                       not_invariant_1 ;
-                       not_invariant_2 ] in
-
-  let print_terms prefix terms =
-    Printf.printf "%s\n" prefix ;
-    terms
-    |> List.iter
-         ( fun t -> Printf.printf "  - %s\n" (Term.string_of_term t) )
-  in
-
-  let print_model prefix model =
-    Printf.printf "%s\n" prefix ;
-    model
-    |> List.iter
-         ( fun (v,t) ->
-           Printf.printf
-             "  - %s = %s\n"
-             (Var.string_of_var v)
-             (Term.string_of_term t) )
-  in
-
-  let space () = Printf.printf "\n" in
-
-  print_terms "Running with:" terms_to_try ;
-  space () ;
-
-  let readLine () =
-    match read_line () with
-    | "exit" ->
-       delete lsk ;
-       exit 0
-    | _ -> ()
-  in
-
-  let rec base_loop falsifiable unknown =
-    print_terms "Querying base with" unknown ;
-    match
-      query_base lsk unknown
-    with
-    | None ->
-       Printf.printf "Unsat.\n" ;
-       let _ = readLine () in
-       unknown
-    | Some model ->
-       print_model "Got a model" model ;
-       Printf.printf "Evaluating.\n" ;
-       let nu_unknwn, nu_flsbl =
-         unknown
-         |> List.partition
-              ( fun t -> Eval.bool_of_value (Eval.eval_term [] model t) )
-       in
-       print_terms "Nu falsifiable:" nu_flsbl ;
-       print_terms "Nu unknown:" nu_unknwn ;
-       let _ = readLine () in
-       base_loop
-         (List.rev_append nu_flsbl falsifiable)
-         nu_unknwn
-  in
-
-  let rec loop unknown =
-    Printf.printf "Now at %i.\n" (Numeral.to_int (get_k lsk)) ;
-    match unknown with
-    | [] -> Printf.printf "No more unknown, done.\n"
-    | _ ->
-       (match base_loop [] unknown with
-        | [] -> Printf.printf "No more unknown, done.\n"
-        | new_unknown ->
-           Printf.printf "Querying step.\n" ;
-           let (nu_unknown, proved) =
-             query_step lsk new_unknown
-           in
-           print_terms "Proved:" proved ;
-           print_terms "Unknown:" nu_unknown ;
-           let _ = readLine () in
-           Printf.printf "\nIncrementing k.\n" ;
-           increment lsk ;
-           loop nu_unknown)
-  in
-
-  loop terms_to_try ;
-
-(*
-node relCount(a,b,c:bool) returns(warning, corrupted:bool);
-var
-  pre_x,x,pre_y,y: int;
-  nX,nY: int;
-let
-
-  -- Ranges over the state variables, can be found easily
-  -- by AI or template-based techniques.
-  assert (0 <= x) and (x <= nX) and (0 <= y) and (y <= nY);
-
-  nX=10;
-  nY=2;
-  pre_x = 0-> pre(x);
-  pre_y = 0-> pre(y);
-
-  x = if (b or c) then 0
-      else (if (a and pre_x < nX) then pre_x + 1 else pre_x);
-
-  y = if (c) then 0 
-      else (if (a and pre_y < nY) then pre_y + 1 else pre_y);
-
-
-  corrupted = x >= nX;
-  warning = y >= nY;
-
-  -- Proof objective.
-  -- ok = ((x = nX) => (y = nY));
-
--- PROPERTY ok;
--- MAIN;
-tel
-
-node master(in: real) returns (out: real; warning, corrupted: bool);
-var
-  safe, min, max, sat: real;
-  outOfRange: bool;
-let
-  safe = 0.0;
-  min = -1.0;
-  max =  1.0;
-  sat = if in < min then min
-        else if in > max then max
-             else in;
-
-  outOfRange = in < min or max < in;
-
-  warning, corrupted =
-    relCount(outOfRange,
-             not outOfRange,
-             not outOfRange and (false -> not pre outOfRange));
-
-  out = if corrupted then safe else sat;
-tel
- *)
+  (* Splitting terms. *)
+  split_closure solver two_state k [] terms_to_check
+    (* Pruning direct consequences of the transition relation. *)
+  |> snd
+  |> (if Flags.invgengraph_prune_trivial ()
+      then prune_trivial solver [] else identity)
 
 
 (* 

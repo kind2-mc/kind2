@@ -52,8 +52,7 @@ module type Conv =
     val smtsort_of_type : Type.t -> sort
 
     (** Convert a variable to an SMT expression *)
-    val smtexpr_of_var : Var.t -> t
-
+    val smtexpr_of_var : (UfSymbol.t -> unit) -> Var.t -> t
 
     (** {2 Pretty-printing and String Conversions} *)
     
@@ -85,16 +84,14 @@ module type Conv =
     val string_of_expr : t -> string
 
     (** Convert a term to an SMT expression *)
-    val smtexpr_of_term : t -> t
+    val smtexpr_of_term : (UfSymbol.t -> unit) -> t -> t
 
-    (** Convert a term to an SMT expression, quantifying over
-        the given variables 
-        
-        [quantified_smtexpr_of_term q v t] returns the SMT expression
-        [exists (v) t] or [forall (v) t] if q is true or false,
-        respectively, where all variables in [t] except those in [v] are
-        converted to uninterpreted functions. *)
-    val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
+    (** Convert a term to an SMT expression, quantifying over the given
+        variables [quantified_smtexpr_of_term q v t] returns the SMT expression
+        [exists (v) t] or [forall (v) t] if q is true or false, respectively,
+        where all variables in [t] except those in [v] are converted to
+        uninterpreted functions. *)
+    val quantified_smtexpr_of_term : (UfSymbol.t -> unit) -> bool -> Var.t list -> t -> t
 
     (** Convert an SMT expression to a variable *)
     val var_of_smtexpr : t -> Var.t

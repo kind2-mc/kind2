@@ -279,6 +279,12 @@ let ind_compress_same_predecessors =
 let ind_restarts = 
   empty_item "Restarts" 0
 
+let ind_lazy_invariants_count = 
+  empty_item "Asserted invariants at one state" 0
+
+let ind_lazy_invariants_time = 
+  empty_item "Lazy invariants time" 0.
+
 let ind_total_time = 
   empty_item "Total time" 0.
 
@@ -292,6 +298,8 @@ let ind_stats =
     I ind_compress_same_successors;
     I ind_compress_same_predecessors;
     I ind_restarts;
+    I ind_lazy_invariants_count;
+    F ind_lazy_invariants_time;
     F ind_total_time ] 
 
 (* Stop and record all times *)
@@ -321,6 +329,9 @@ let pdr_fwd_propagated =
 
 let pdr_inductive_blocking_clauses = 
   empty_item "Inductive blocking clauses" 0
+
+let pdr_literals_removed =
+  empty_item "Literals removed" 0
 
 let pdr_fwd_fixpoint = 
   empty_item "Fixpoint at" 0
@@ -372,6 +383,7 @@ let pdr_stats =
     I pdr_fwd_propagated; 
     I pdr_fwd_fixpoint; 
     I pdr_inductive_blocking_clauses; 
+    I pdr_literals_removed;
     I pdr_tightened_blocking_clauses;
     I pdr_tightened_propagated_clauses;
     L pdr_counterexamples; 
@@ -394,6 +406,92 @@ let pp_print_pdr_stats ppf =
   Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
     pdr_stats_title
     pp_print_stats pdr_stats
+
+
+(* ********** INVGENOS statistics ********** *)
+
+let invgengraph_os_k = 
+  empty_item "k" 0
+
+let invgengraph_os_candidate_term_count = 
+  empty_item "Total number of candidate terms" 0
+
+let invgengraph_os_invariant_count =
+  empty_item "Total number of (sub)invariants discovered" 0
+
+let invgengraph_os_implication_count =
+  empty_item "Number of (sub)invariants which were implications" 0
+
+let invgengraph_os_graph_rewriting_time = 
+  empty_item "Graph rewriting time" 0.
+
+let invgengraph_os_total_time = 
+  empty_item "Total time" 0.
+
+(* Title for INVGENOS statistics *)
+let invgengraph_os_stats_title = "INVGENOS"
+
+(* All INVGENOS statistics *)
+let invgengraph_os_stats = 
+  [ I invgengraph_os_k ;
+    I invgengraph_os_candidate_term_count ;
+    I invgengraph_os_invariant_count ;
+    I invgengraph_os_implication_count ;
+    F invgengraph_os_graph_rewriting_time ;
+    F invgengraph_os_total_time ] 
+
+(* Stop and record all timers *)
+let invgengraph_os_stop_timers () = stop_all_timers invgengraph_os_stats
+
+(* Pretty-print INVGENOS statistics items *)
+let pp_print_invgengraph_os_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    invgengraph_os_stats_title
+    pp_print_stats invgengraph_os_stats
+
+
+(* ********** INVGENTS statistics ********** *)
+
+let invgengraph_ts_k = 
+  empty_item "k" 0
+
+let invgengraph_ts_candidate_term_count = 
+  empty_item "Total number of candidate terms" 0
+
+let invgengraph_ts_invariant_count =
+  empty_item "Total number of (sub)invariants discovered" 0
+
+let invgengraph_ts_implication_count =
+  empty_item "Number of (sub)invariants which were implications" 0
+
+let invgengraph_ts_graph_rewriting_time = 
+  empty_item "Graph rewriting time" 0.
+
+let invgengraph_ts_total_time = 
+  empty_item "Total time" 0.
+
+(* Title for INVGENTS statistics *)
+let invgengraph_ts_stats_title = "INVGENTS"
+
+(* All INVGENTS statistics *)
+let invgengraph_ts_stats = 
+  [ I invgengraph_ts_k ;
+    I invgengraph_ts_candidate_term_count ;
+    I invgengraph_ts_invariant_count ;
+    I invgengraph_ts_implication_count ;
+    F invgengraph_ts_graph_rewriting_time ;
+    F invgengraph_ts_total_time ] 
+
+(* Stop and record all timers *)
+let invgengraph_ts_stop_timers () = stop_all_timers invgengraph_ts_stats
+
+(* Pretty-print INVGENTS statistics items *)
+let pp_print_invgengraph_ts_stats ppf = 
+
+  Format.fprintf ppf "@[<v>@,[%s]@,%a@]"
+    invgengraph_ts_stats_title
+    pp_print_stats invgengraph_ts_stats
 
 
 (* ********** SMT statistics ********** *)

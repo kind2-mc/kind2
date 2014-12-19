@@ -153,7 +153,7 @@ let assert_term s term =
   let module S = (val s.solver_inst) in
 
   (* Convert term to SMT expression *)
-  let expr = S.Conv.smtexpr_of_term term in
+  let expr = S.Conv.smtexpr_of_term (declare_fun s) term in
 
   (* Assert SMT expression in solver instance and fail on error *)
   fail_on_smt_error (S.assert_expr expr)
@@ -260,7 +260,7 @@ let get_model s vars =
 
   match 
     (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map S.Conv.smtexpr_of_var vars) 
+    prof_get_value s (List.map (S.Conv.smtexpr_of_var (declare_fun s)) vars)
   with 
   | `Error e -> 
       raise 
@@ -276,7 +276,7 @@ let get_values s terms =
 
   match 
     (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map S.Conv.smtexpr_of_term terms) 
+    prof_get_value s (List.map (S.Conv.smtexpr_of_term (declare_fun s)) terms) 
   with 
   | `Error e -> 
     raise 
@@ -508,6 +508,8 @@ let execute_custom_check_sat_command cmd s =
   let module S = (val s.solver_inst) in
   S.execute_custom_check_sat_command cmd
 
+
+
 (* ******************************************************************** *)
 (* Utiliy functions                                                     *)
 (* ******************************************************************** *)
@@ -525,8 +527,15 @@ let term_of_model model =
 let converter s =
   let module S = (val s.solver_inst) in
   (module S.Conv : SMTExpr.Conv)
-  
+
+
 let kind s = s.solver_kind
+
+
+let trace_comment s c =
+  let module S = (val s.solver_inst) in
+  S.trace_comment c
+
 
 (* 
    Local Variables:

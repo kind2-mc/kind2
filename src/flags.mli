@@ -53,7 +53,7 @@ val set_smtsolver : smtsolver -> string -> unit
 (* val qe_smtsolver : unit -> smtsolver  *)
 
 (** SMT Logic to use *)
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
@@ -96,6 +96,10 @@ val bmc_max : unit -> bmc_max
 type check_version = bool
 val check_version : unit -> check_version
 
+(** Unroll the system backwards *)
+type ind_backward = bool
+val ind_backward : unit -> ind_backward
+
 (** Compresss inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
@@ -112,6 +116,10 @@ val ind_compress_same_succ : unit -> ind_compress_same_succ
 (** Compresss inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
+
+(** Lazy assertion of invariants. *)
+type ind_lazy_invariants = bool
+val ind_lazy_invariants : unit -> ind_lazy_invariants
 
 (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool
@@ -150,6 +158,10 @@ val pdr_print_to_file : unit -> pdr_print_to_file
 type pdr_tighten_to_unsat_core = bool
 val pdr_tighten_to_unsat_core : unit -> pdr_tighten_to_unsat_core
 
+(** Tighten blocking clauses to an unsatisfiable core *)
+type pdr_inductively_generalize = int
+val pdr_inductively_generalize : unit -> pdr_inductively_generalize
+
 (** Block counterexample in future frames *)
 type pdr_block_in_future = bool
 val pdr_block_in_future : unit -> pdr_block_in_future
@@ -181,6 +193,28 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 (** Choose lower bounds containing variables **)
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
+
+(** InvGen will remove trivial invariants, i.e. invariants implied by
+    the transition relation.. **)
+type invgengraph_prune_trivial = bool
+val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
+(** InvGen will lift candidate terms from subsystems.. **)
+type invgengraph_lift_candidates = bool
+val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will only look for top level invariants. **)
+type invgengraph_top_only = bool
+val invgengraph_top_only : unit -> invgengraph_top_only
+(** InvGen will only consider atomic candidate terms. *)
+type invgengraph_atoms_only = bool
+val invgengraph_atoms_only : unit -> invgengraph_atoms_only
+(** InvGen will look for candidate terms in the transition
+    predicate. *)
+type invgengraph_no_trans_subterms = bool
+val invgengraph_no_trans_subterms : unit -> invgengraph_no_trans_subterms
+
+(** Renice invariant generation process *)
+type invgengraph_renice = int
+val invgengraph_renice : unit -> invgengraph_renice
 
 (** Read input from file **)
 type interpreter_input_file = string

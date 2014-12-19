@@ -16,6 +16,8 @@
 
 *)
 
+open Lib
+
 type invariants = Term.t list
 type model = (Var.t * Term.t) list
 type path = (StateVar.t * Term.t list) list
@@ -23,3 +25,30 @@ type property = (string * Term.t)
 type properties = property list
 type cex = (property list * path)
 type cexs = cex list
+
+
+
+(* ********************************************************************** *)
+(* Properties of transition systems                                       *)
+(* ********************************************************************** *)
+
+(* Source of a property *)
+type prop_source =
+
+  (* Property is from an annotation *)
+  | PropAnnot of position
+
+  (* Property is part of a contract *)
+  | Contract of position
+
+  (* Property was generated, for example, from a subrange
+     constraint *)
+  | Generated of StateVar.t list
+
+  (* Property is an instance of a property in a called node
+
+     Reference the instantiated property by the [scope] of the
+     subsystem and the name of the property *)
+  | Instantiated of string list * string 
+
+

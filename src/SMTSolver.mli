@@ -168,6 +168,9 @@ val converter : t -> (module SMTExpr.Conv)
 
 val kind : t -> Flags.smtsolver
 
+(** Output a comment into the trace *)
+val trace_comment : t -> string -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

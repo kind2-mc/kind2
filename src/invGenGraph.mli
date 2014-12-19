@@ -16,13 +16,36 @@
 
 *)
 
-(** Parser for a CSV input file 
 
-    @author Baoluo Meng, Christoph Sticksel *)
+(** One state graph-based invariant generation module. *)
+module OneState : sig
 
-(** Parse a CSV input file *)
-val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
+  (** Invariant generation entry point. *)
+  val main : TransSys.t -> unit
 
+  (** Destroys the underlying solver and cleans things up. *)
+  val on_exit : TransSys.t option -> unit
+
+  (** Launches invariant generation with a max [k] and a set of
+      candidate terms. *)
+  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+
+end
+
+(** Two state graph-based invariant generation module. *)
+module TwoState : sig
+
+  (** Invariant generation entry point. *)
+  val main : TransSys.t -> unit
+
+  (** Destroys the underlying solver and cleans things up. *)
+  val on_exit : TransSys.t option -> unit
+
+  (** Launches invariant generation with a max [k] and a set of
+      candidate terms. *)
+  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+
+end
 
 (* 
    Local Variables:
@@ -31,3 +54,4 @@ val read_file: string list -> string -> (StateVar.t * (Term.t list)) list
    indent-tabs-mode: nil
    End: 
 *)
+

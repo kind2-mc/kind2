@@ -16,17 +16,12 @@
 
 *)
 
-(** Dummy invariant generator
+(** Clean up before exit *)
+val on_exit: TransSys.t option -> unit
 
-    Periodically sends a tautological invariant.
+(** Runs the step instance. *)
+val main: TransSys.t -> unit
 
-    @author Christoph Sticksel *)
-
-(** Entry point *)
-val main : TransSys.t -> unit
-
-(** Cleanup before exit *)
-val on_exit : TransSys.t option -> unit
 
 (* 
    Local Variables:
@@ -35,4 +30,4 @@ val on_exit : TransSys.t option -> unit
    indent-tabs-mode: nil
    End: 
 *)
-  
+

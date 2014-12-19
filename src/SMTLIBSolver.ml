@@ -69,6 +69,9 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
       solver_trace_res : response -> unit;
       (* Tracing function for responses *)
+
+      solver_trace_coms : string -> unit;
+      (* Tracing function for outputing comments *)
     }
 
     
@@ -571,6 +574,35 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       (* Do not trace SMT commands *)
       None 
 
+  (* Set the formatter to print commented and return a function to reset the
+   printing of the formatter *)
+  let set_commented_formatter ppf =
+    let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
+
+    let reset_ppf ppf = 
+      Format.fprintf ppf "@?";
+      Format.pp_set_formatter_out_functions ppf fmt_out_fun;
+      Format.fprintf ppf "@.";
+      Format.fprintf ppf "@\n"
+    in
+
+    let op, cl = comment_delims in
+
+    Format.pp_set_formatter_out_functions 
+      ppf 
+      { fmt_out_fun with 
+        Format.out_newline = (fun () ->
+            fmt_out_fun.Format.out_string
+              (" "^cl^"\n"^op^" ")
+              0 (3 + String.length op + String.length cl ));
+        Format.out_flush = (fun n ->
+            fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
+            fmt_out_fun.Format.out_flush n
+          );
+      };
+
+    reset_ppf
+
   (* Tracing of commands *)
   let trace_cmd solver_ppf cmd = match solver_ppf with
     | Some ppf -> Format.fprintf ppf "%s@." cmd
@@ -579,32 +611,17 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
   (* Tracing of responses *)
   let trace_res solver_ppf res = match solver_ppf with
     | Some ppf ->
-      let fmt_out_fun = Format.pp_get_formatter_out_functions ppf () in
-
-      let reset_ppf ppf = 
-        Format.fprintf ppf "@?";
-        Format.pp_set_formatter_out_functions ppf fmt_out_fun;
-        Format.fprintf ppf "@.";
-        Format.fprintf ppf "@\n"
-      in
-
-      let op, cl = comment_delims in
-      
-      Format.pp_set_formatter_out_functions 
-        ppf 
-        { fmt_out_fun with 
-          Format.out_newline = (fun () ->
-            fmt_out_fun.Format.out_string
-              (" "^cl^"\n"^op^" ")
-              0 (3 + String.length op + String.length cl ));
-          Format.out_flush = (fun n ->
-              fmt_out_fun.Format.out_string (" "^cl) 0 (1 + String.length cl);
-              fmt_out_fun.Format.out_flush n
-            );
-        };
-      
+      let op, _ = comment_delims in
+      let reset_ppf = set_commented_formatter ppf in
       Format.kfprintf reset_ppf ppf "%s %a" op pp_print_response res
+    | None -> ()
 
+  (* Tracing of comments *)
+  let trace_coms solver_ppf com = match solver_ppf with
+    | Some ppf ->
+      let op, _ = comment_delims in
+      let reset_ppf = set_commented_formatter ppf in
+      Format.kfprintf reset_ppf ppf "%s %s" op com
     | None -> ()
 
 
@@ -662,6 +679,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
     let ftrace_cmd = trace_cmd trace_ppf in
     let ftrace_res = trace_res trace_ppf in
+    let ftrace_coms = trace_coms trace_ppf in
 
     (* Create the solver instance *)
     let solver =
@@ -672,7 +690,8 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         solver_stdout = solver_stdout_in; 
         solver_stderr = solver_stderr_in;
         solver_trace_cmd = ftrace_cmd;
-        solver_trace_res = ftrace_res; }
+        solver_trace_res = ftrace_res;
+        solver_trace_coms = ftrace_coms; }
     in
 
     let header_logic = function
@@ -688,9 +707,8 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         Format.sprintf "(set-option :produce-assignments %B)" produce_assignments;
         Format.sprintf "(set-option :produce-unsat-cores %B)" produce_cores
       ] @
-      headers
+      (header_logic logic)
     in
-    
 
     (* Print specific headers specifications *)
     List.iter (fun cmd ->
@@ -752,6 +770,12 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     Unix.close solver_stderr
 
 
+    (* Output a comment into the trace *)
+    let trace_comment solver comment = 
+      solver.solver_trace_coms comment
+
+    
+
 
 
   module Create (P : SolverSig.Params) : SolverSig.Inst = struct
@@ -782,7 +806,8 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
     let execute_custom_command = execute_custom_command solver
     let execute_custom_check_sat_command cmd = execute_custom_check_sat_command cmd solver
-  
+    let trace_comment = trace_comment solver
+    
   end
 
 
