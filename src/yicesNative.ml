@@ -58,37 +58,38 @@ type config =
 
 (* Solver instance *)
 type t = 
-    { solver_config : config;           (* Configuration of the solver
-                                           instance *)
-      solver_pid : int;                 (* PID of the solver process *)
-      solver_stdin : Unix.file_descr;   (* File descriptor of solver's stdin *)
-      solver_lexbuf : Lexing.lexbuf;    (* Lexing buffer on solver's
-                                           stdout *)
-      solver_stdout : Unix.file_descr;  (* File descriptor of solver's
-                                           stdout *)
-      solver_stderr : Unix.file_descr;  (* File descriptor of solver's
-                                           stderr *)
-      solver_trace_cmd : ?commented:bool -> string -> unit;
-      (* Tracing function for commands *)
-      
-      solver_trace_res : response -> unit;
-      (* Tracing function for responses *)
+  { solver_config : config;           (* Configuration of the solver
+                                         instance *)
+    solver_pid : int;                 (* PID of the solver process *)
+    solver_stdin : Unix.file_descr;   (* File descriptor of solver's stdin *)
+    solver_lexbuf : Lexing.lexbuf;    (* Lexing buffer on solver's stdout *)
+    solver_errlexbuf : Lexing.lexbuf; (* Lexing buffer on solver's stderr *)
+    solver_stdout : Unix.file_descr;  (* File descriptor of solver's stdout *)
+    solver_stderr : Unix.file_descr;  (* File descriptor of solver's stderr *)
+    solver_trace_cmd : ?commented:bool -> string -> unit;
+    (* Tracing function for commands *)
 
-      mutable solver_state : yices_state;
-      (* Used to record response to last command from which to extract values or
-         unsat cores. *)
+    solver_trace_res : response -> unit;
+    (* Tracing function for responses *)
 
-      mutable solver_last_id : YicesResponse.yices_id;
-      (* Yices identifier that was last asserted. Remember to reset this to 0
-         when restarting the solver or deleting the instance. *)
+    solver_trace_coms : string -> unit;
+    (* Tracing function for outputing comments *)
 
-      solver_id_names : (YicesResponse.yices_id, int) Hashtbl.t;
-      (* Associates yices assertion ids to smtlib names of named formulas *)
+    mutable solver_state : yices_state;
+    (* Used to record response to last command from which to extract values or
+       unsat cores. *)
 
-      solver_push_stack : YicesResponse.yices_id Stack.t;
-      (* The internal push stack of assertions identiers. This should be
-         cleared on deletion or resets. *)
-    }
+    mutable solver_last_id : YicesResponse.yices_id;
+    (* Yices identifier that was last asserted. Remember to reset this to 0
+       when restarting the solver or deleting the instance. *)
+
+    solver_id_names : (YicesResponse.yices_id, int) Hashtbl.t;
+    (* Associates yices assertion ids to smtlib names of named formulas *)
+
+    solver_push_stack : YicesResponse.yices_id Stack.t;
+    (* The internal push stack of assertions identiers. This should be
+       cleared on deletion or resets. *)
+  }
 
 
 
@@ -128,35 +129,6 @@ let register_model solver model =
 (* ********************************************************************* *)
 (* Helper functions to execute commands                                  *)
 (* ********************************************************************* *)
-
-(* Default values for types (used to compensate for yices' incomplete models) *)
-let default_type_term =
-  let open Type in
-  let open Term in
-  function
-  (* Default boolean: false *)
-  | Bool -> mk_bool false
-  (* Default integer: 0 *)
-  | Int -> mk_num Numeral.zero
-  (* Take the first value of the range as its default *)
-  | IntRange (i, _) -> mk_num i
-  (* Default real: 0.0 *)
-  | Real -> mk_dec Decimal.zero
-  (* Take first constructor of scalar type as its default *)
-  | Scalar (_, c::_) ->
-     mk_const (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string c)))
-  (* Take the bitvector 00000000...0 as default *)
-  | BV n -> mk_bv (Lib.bitvector_of_string (String.make n '0'))
-  (* We shouldn't ask default value for a whole array *)
-  | Array _ -> failwith "No defaut value for arrays"
-  | Scalar (_, []) -> failwith "No defaut value for empty scalars"
-
-(* Default SMTExpr.t value for a type *)
-let default_of_type ty =
-  ty
-  |> Type.node_of_type
-  |> default_type_term
-  |> Conv.smtexpr_of_term
     
 
 (* Read the answer returned by yices *)                   
@@ -167,15 +139,11 @@ let parse_yices_output { solver_lexbuf = lexbuf } =
 
 
 (* Read the error messge returned by yices *)
-let get_yices_errmsg { solver_stderr = stderr } =
-  
-  (* Get an output channel to read from solver's stdout *)
-  let ech = Unix.in_channel_of_descr stderr in
-
-  (* Create a lexing buffer on solver's sterr *)
-  let errlb = Lexing.from_channel ech in
-
-  errlb.Lexing.lex_buffer
+let get_yices_errmsg { solver_errlexbuf = errlb } =
+  (* Wrong *)
+  let yemsg = YicesParser.error_msg YicesLexer.error_msg errlb in
+  Lexing.flush_input errlb;
+  yemsg
   
 
   
@@ -438,6 +406,9 @@ let pp_print_lambda ppf (arg_vars, defn)  =
                  pp_print_expr defn
 
 
+
+
+
 (* ********************************************************************* *)
 (* Commands                                                              *)
 (* ********************************************************************* *)
@@ -491,7 +462,7 @@ let assert_expr solver expr =
                        YicesResponse.pp_print_yices_id id name
       end
     else t, Format.asprintf "[id: %a]" YicesResponse.pp_print_yices_id id in
-  let expr = Conv.smtexpr_of_term t' in
+  let expr = Conv.smtexpr_of_term (fun _ -> ()) t' in
   
 
   let cmd = 
@@ -616,6 +587,40 @@ let check_sat ?(timeout = 0) solver =
   execute_check_sat_command solver cmd 0
 
 
+(* ********************************************************************* *)
+(* Default values                                                        *)
+(* ********************************************************************* *)
+
+(* Default values for types (used to compensate for yices' incomplete models) *)
+let default_type_term =
+  let open Type in
+  let open Term in
+  function
+  (* Default boolean: false *)
+  | Bool -> mk_bool false
+  (* Default integer: 0 *)
+  | Int -> mk_num Numeral.zero
+  (* Take the first value of the range as its default *)
+  | IntRange (i, _) -> mk_num i
+  (* Default real: 0.0 *)
+  | Real -> mk_dec Decimal.zero
+  (* Take first constructor of scalar type as its default *)
+  | Scalar (_, c::_) ->
+    mk_const (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string c)))
+  (* Take the bitvector 00000000...0 as default *)
+  | BV n -> mk_bv (Lib.bitvector_of_string (String.make n '0'))
+  (* We shouldn't ask default value for a whole array *)
+  | Array _ -> failwith "No defaut value for arrays"
+  | Scalar (_, []) -> failwith "No defaut value for empty scalars"
+
+(* Default SMTExpr.t value for a type *)
+let default_of_type solver ty =
+  ty
+  |> Type.node_of_type
+  |> default_type_term
+  |> Conv.smtexpr_of_term (fun _ -> ())
+
+
 (* Check satisfiability of the asserted expressions *)
 let check_sat_assuming solver exprs =
 
@@ -625,8 +630,8 @@ let check_sat_assuming solver exprs =
     List.fold_left (fun acc expr -> assert_expr solver expr) `NoResponse exprs
   in
   (match res with
-  | `Error _  | `Unsupported -> failwith "Yices: check-sat assumed failed while assuming"
-  | _ -> ());
+   | `Error _  | `Unsupported -> failwith "Yices: check-sat assumed failed while assuming"
+   | _ -> ());
   let res = check_sat ~timeout:0 solver in
   (* Remove assumed expressions from context while keeping state *)
   fast_pop solver 1;
@@ -652,18 +657,40 @@ let get_value solver expr_list =
   match solver.solver_state with
   | YModel model ->
 
-     let smt_expr_values =
-       List.fold_left
-         (fun acc e ->
-          let v =
-            try SMTExprMap.find e model
-            with Not_found ->
-              (* If the variable is not found in the model, use the default
-                 value for its type *)
-              default_of_type (Var.type_of_var (Conv.var_of_smtexpr e))
-          in
-          (e, v) :: acc) [] expr_list
+    (* Construct an assignment of state variables found in the model *)
+    let vars_assign =
+      SMTExprMap.fold (fun e v acc ->
+          try
+            (Conv.var_of_smtexpr e, Conv.term_of_smtexpr v) :: acc
+          with Invalid_argument _ ->
+            (* Ignore expressions that are not state variables *)
+            acc
+        ) model []
+    in
+
+
+    let smt_expr_values =
+      List.fold_left
+        (fun acc e ->
+           let v =
+             try SMTExprMap.find e model
+             with Not_found ->
+               (* If the variable is not found in the model, use the default
+                   value for its type *)
+               try
+                 default_of_type solver
+                   (Var.type_of_var (Conv.var_of_smtexpr e))
+               with Invalid_argument _ ->
+                (* If the expression e is not a state variable, we evaluate it
+                   in the assignment of the model *)
+                 let ve =
+                   Eval.eval_term [] vars_assign (Conv.term_of_smtexpr e) in
+                 Eval.term_of_value ve
+           in
+           (e, v) :: acc
+         ) [] expr_list
      in
+
 
      (* construct the response with the desired values *)
      let res = `Values smt_expr_values in
@@ -812,12 +839,21 @@ let trace_cmd ppf ?(commented=false) =
   | None -> fun _ -> ()
 
 (* Tracing of responses *)
-  let trace_res solver_ppf res = match solver_ppf with
-    | Some ppf ->
-      let op, _ = comment_delims in
-      let reset_ppf = set_commented_formatter ppf in
-      Format.kfprintf reset_ppf ppf "%s %a" op pp_print_response res
-    | None -> ()
+let trace_res solver_ppf res = match solver_ppf with
+  | Some ppf ->
+    let op, _ = comment_delims in
+    let reset_ppf = set_commented_formatter ppf in
+    Format.kfprintf reset_ppf ppf "%s %a" op pp_print_response res
+  | None -> ()
+
+
+(* Tracing of comments *)
+let trace_coms solver_ppf com = match solver_ppf with
+  | Some ppf ->
+    let op, _ = comment_delims in
+    let reset_ppf = set_commented_formatter ppf in
+    Format.kfprintf reset_ppf ppf "%s %s" op com
+  | None -> ()
 
 
 (* Create an instance of the solver *)
@@ -867,22 +903,31 @@ let create_instance
   (* Create a lexing buffer on solver's stdout *)
   let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
 
+  (* Get an output channel to read from solver's stdout *)
+  let solver_stderr_ch = Unix.in_channel_of_descr solver_stderr_in in
+
+  (* Create a lexing buffer on solver's stdout *)
+  let solver_errlexbuf = Lexing.from_channel solver_stderr_ch in
+
   (* Create trace functions *)
   let trace_ppf = create_trace_ppf id in
   (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
   let ftrace_cmd = trace_cmd trace_ppf in
   let ftrace_res = trace_res trace_ppf in
+  let ftrace_coms = trace_coms trace_ppf in
   
   (* Create the solver instance *)
   let solver =
     { solver_config = config;
       solver_pid = solver_pid;
       solver_stdin = solver_stdin_out; 
-      solver_lexbuf = solver_lexbuf; 
+      solver_lexbuf = solver_lexbuf;
+      solver_errlexbuf = solver_errlexbuf;
       solver_stdout = solver_stdout_in; 
       solver_stderr = solver_stderr_in;
       solver_trace_cmd = ftrace_cmd;
       solver_trace_res = ftrace_res;
+      solver_trace_coms = ftrace_coms;
       solver_state = YNone;
       solver_last_id = YicesResponse.yices_id_of_int 0;
       solver_id_names = Hashtbl.create 19;
@@ -976,6 +1021,11 @@ let delete_instance
 
 
 
+(* Output a comment into the trace *)
+let trace_comment solver comment = 
+  solver.solver_trace_coms comment
+
+
 
 module Create (P : SolverSig.Params) : SolverSig.Inst = struct
 
@@ -1006,6 +1056,7 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let execute_custom_command = execute_custom_command solver
   let execute_custom_check_sat_command cmd =
     execute_custom_check_sat_command cmd solver
+  let trace_comment = trace_comment solver
 
 end
 

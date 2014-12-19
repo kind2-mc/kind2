@@ -94,6 +94,7 @@ module type Inst = sig
 
   val execute_custom_check_sat_command : string -> check_sat_response
   
+  val trace_comment : string -> unit
   
 end
 

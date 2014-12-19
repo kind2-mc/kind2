@@ -54,6 +54,7 @@ type logic =
   | `QF_IDL
   | `QF_LIA
   | `QF_LRA
+  | `QF_LIRA
   | `QF_NIA
   | `QF_NRA
   | `QF_RDL

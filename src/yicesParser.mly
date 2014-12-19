@@ -45,6 +45,9 @@
 %start resp
 %type <YicesResponse.yices_resp_p> resp
 
+%start error_msg
+%type <string> error_msg
+
 %start assertion_id
 %type <int> assertion_id
 
@@ -54,17 +57,15 @@ resp:
 | unsat_resp SUCCESS { $1 }
 | sat_resp SUCCESS { $1 }
 | unknown_resp SUCCESS { $1 }
-(* | error_resp { $1 } *)
 | custom_resp { $1 }
 | SUCCESS { YSuccess }
 | EOF { YError }
 (* | EOF { Format.eprintf "parse EOF@."; YNoResp } *)
 ;
 
-(* error_resp: *)
-(* | ERROR { YError "" } *)
-(* | ERROR_MSG { YError $1 } *)
-(* ; *)
+error_msg:
+| ERROR_MSG { $1 }
+;
 
 custom_resp:
 | CUSTOM_RESP { YCustom $1 }
