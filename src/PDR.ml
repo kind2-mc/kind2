@@ -1707,7 +1707,9 @@ let fwd_propagate
 *)
               (* Send invariant *)
               List.iter 
-                (fun c -> Event.invariant [] (Clause.to_term c))
+                (fun c ->
+                  Event.invariant
+                    (TransSys.get_scope trans_sys) (Clause.to_term c))
                 inductive;
 
               Stat.record_time Stat.pdr_inductive_check_time;
@@ -2489,7 +2491,7 @@ let handle_events
   in
 
   (* Assert all received invariants *)
-  List.iter add_invariant (Event.top_invariants_of_invariants invariants_recvd);
+  List.iter add_invariant invariants_recvd;
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter

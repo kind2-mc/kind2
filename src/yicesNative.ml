@@ -720,6 +720,9 @@ let get_value solver expr_list =
      in
 
 
+     List.iter (fun (e, v) ->
+         assert(not (Term.equal e v)) ) smt_expr_values;
+
      (* construct the response with the desired values *)
      let res = `Values (List.rev smt_expr_values) in
        

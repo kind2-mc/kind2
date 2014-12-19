@@ -52,15 +52,6 @@ module Make (InModule : In) : Out = struct
 
   (* Two state mode flag. *)
   let two_state = InModule.two_state
-
-  (* Guards a term with init if in two state mode. *)
-  let sanitize_term =
-    if two_state then
-      ( fun term ->
-        Term.mk_or
-          [ TransSys.init_flag_var Numeral.zero |> Term.mk_var ;
-            term ] )
-    else identity
     
   (* Getting the right stats. *)
   let (
@@ -150,16 +141,15 @@ module Make (InModule : In) : Out = struct
       Stat.update_time time_stat ;
       (* Printing info if not in top only mode (since
          [update_progress] would be ran right afterwards). *)
-      if not (Flags.invgengraph_top_only ()) then
-        Event.log
-          L_info
-          "%s @[<v>%i (%i) invariants discovered@,\
-                   at %i for system [%s].@]"
-          name
-          inv_count
-          impl_count
-          k_int
-          sys_name
+      Event.log
+        L_info
+        "%s @[<v>%i (%i) invariants discovered@,\
+         at %i for system [%s].@]"
+        name
+        inv_count
+        impl_count
+        k_int
+        sys_name
     )
 
   (* Updates progress related stats. *)
@@ -183,9 +173,36 @@ module Make (InModule : In) : Out = struct
     (* Returning result. *)
     result
 
+  (* Checks if one state is enabled. *)
+  let is_one_state_running () = Flags.enable () |> List.mem `INVGENOS
+
+  (* Guards a term with init if in two state mode. *)
+  let sanitize_term =
+    if two_state then
+      ( fun term ->
+        Term.mk_or
+          [ TransSys.init_flag_var Numeral.zero |> Term.mk_var ;
+            term ] )
+    else identity
+
+  (* Lazy function deciding if a term should be kept or not depending
+     on the lower bound and upper bound of the offsets of its state
+     variables. *)
+  let lazy_offset_criterion =
+    lazy
+      ( if two_state then
+          (* In two state, ignore terms only mentioning -1. *)
+          (fun candidate ->
+           match Term.var_offsets_of_term candidate with
+           | _, Some ubound -> Numeral.(ubound = zero)
+           | _ -> false)
+        else
+          (* We are in one state mode, keeping everything. *)
+          (fun candidate -> true) )
+                                    
+
   (* Filters candidate invariants from a set of term for step. *)
-  let filter_step_candidates invariants to_prune =
-      
+  let filter_step_candidates invariants =
 
     (* Tests if [rhs] is an [or] containing [lhs], or a negated and
        containing the complement of [lhs]. *)
@@ -394,55 +411,49 @@ module Make (InModule : In) : Out = struct
 
     in
 
-    (* Number of implications removed. *)
-    let rm_count = ref 0 in
-
-    (* Function returning false for the implications to prune. *)
-    let filter_implication term =
+    (* Function returning false for the candidate invariants to prune
+       out. *)
+    let filter_candidates term =
 
       if TSet.mem term invariants then
-        (* This term is an invariant, filtering it. *)
+        (* This term is known to be an invariant, pruning it. *)
         false
       else (
 
-        (* Node should be an application. *)
-        assert (Term.is_node term) ;
+        (* Applying offset criterion. *)
+        let offset_filter =
+          (Lazy.force lazy_offset_criterion) term
+        in
 
-        if Term.node_symbol_of_term term == Symbol.s_implies
-        then (
+        let structural_criterion () =
+          if Term.node_symbol_of_term term == Symbol.s_implies then
+              (* Term is indeed an implication. *)
+              ( match Term.node_args_of_term term with
 
-          if (Term.vars_of_term term |> Var.VarSet.cardinal) <= 1 then
-            false
+                (* Term is a well founded implication. *)
+                | [ lhs ; rhs ] ->
+                   (* Checking if rhs is an and containing lhs, or a
+                      negated or containing the negation of lhs. *)
+                   (trivial_rhs_or lhs rhs)
+                   (* Checking if lhs is an or containing lhs, or a
+                      negated or containing the negation of lhs. *)
+                   || (trivial_lhs_and lhs rhs)
+                   (* Checking if lhs and rhs are arith operator and lhs
+                      trivially implies rhs. *)
+                   || (trivial_impl_arith lhs rhs)
+
+                (* Implication is not well-founded, crashing. *)
+                | _ -> assert false )
           else
+            (* Node is not an implication. *)
+            true
+        in
 
-            (* Term is indeed an implication. *)
-            ( match Term.node_args_of_term term with
-
-              (* Term is a well founded implication. *)
-              | [ lhs ; rhs ] ->
-                if
-                  (* Checking if rhs is an and containing lhs, or a
-                     negated or containing the negation of lhs. *)
-                  (trivial_rhs_or lhs rhs)
-                  (* Checking if lhs is an or containing lhs, or a
-                     negated or containing the negation of lhs. *)
-                  || (trivial_lhs_and lhs rhs)
-                (* Checking if lhs and rhs are arith operator and lhs
-                   trivially implies rhs. *)
-              (* || (trivial_impl_arith lhs rhs) *)
-                then
-                  ( rm_count := !rm_count + 1 ; false )
-                else true
-
-              (* Implication is not well-founded, crashing. *)
-              | _ -> assert false )
-          
-        (* Node is not an implication. *)
-        ) else true
+        offset_filter
       )
     in
   
-    List.filter filter_implication to_prune
+    List.filter filter_candidates
 
   (* Rewrites a graph until the base instance of the input lsd becomes
      unsat. *)
@@ -450,10 +461,7 @@ module Make (InModule : In) : Out = struct
 
     (* Rewrites a graph until the base instance becomes unsat. Returns
        the final version of the graph. *)
-    let rec loop iteration fixed_point graph =
-
-      (* Making sure the last rewriting actually changed something. *)
-      assert (not fixed_point) ;
+    let rec loop iteration graph =
 
       (* Getting candidates invariants from equivalence classes and
          implications. *)
@@ -512,47 +520,66 @@ module Make (InModule : In) : Out = struct
           in
 
           (* LSD base instance is not unsat, looping. *)
-          loop (iteration + 1) fixed_point graph'
+          loop (iteration + 1) graph'
 
         | None ->
-          (* Returning current graph. *)
-          graph
+           (* Returning current graph. *)
+           graph, iteration = 1
     in
 
     (* Starting graph rewriting process. *)
-    loop 1 false graph
+    loop 1 graph
 
 
-  (* Gets the top level new invariants and adds all intermediary
-     invariants into lsd. *)
-  let get_top_inv_add_invariants lsd sys inv =
+  (* Lifts [invariants] for all the systems calling [sys] and
+     communicates them to the framework. *)
+  let communicate_invariants top_sys lsd sys = function
+    | [] -> 0
+    | invariants ->
+       
+       (* All intermediary invariants and top level ones. *)
+       let ((_, top_invariants), intermediary_invariants) =
+         if top_sys == sys then
+           (top_sys, invariants), []
+         else
+           Term.mk_and invariants
+           (* Guarding with init if needed. *)
+           |> sanitize_term
+           (* Instantiating at all levels. *)
+           |> TransSys.instantiate_term_all_levels sys
+       in
 
-    (* Getting top invariants and intermediary ones. *)
-    let ((_,top), intermediary) =
-      (* Instantiating invariant at all levels. *)
-      TransSys.instantiate_term_all_levels sys inv
-    in
+       intermediary_invariants
+       |> List.iter
+            ( fun (sub_sys, terms') ->
+              (* Adding invariants to the lsd. *)
+              LSD.add_invariants lsd sub_sys terms' ;
+              (* Adding invariants to the transition system. *)
+              terms'
+              |> List.map
+                   (TransSys.add_invariant sub_sys) ;
+              (* Broadcasting invariants. *)
+              terms'
+              |> List.iter
+                   (TransSys.get_scope sub_sys
+                    |> Event.invariant) ) ;
 
-    (* Adding subsystem invariants as new invariants. *)
-    intermediary
-    (* Folding intermediary as a list of terms. *)
-    |> List.fold_left
-        ( fun terms (_,terms') -> List.rev_append terms' terms )
-        []
-    (* Adding it into lsd. *)
-    |> LSD.add_invariants lsd ;
+       let top_scope = TransSys.get_scope top_sys in
 
-    (* Adding top level invariants as new invariants. *)
-    LSD.add_invariants lsd top ;
+       top_invariants
+       |> List.iter
+            (fun inv ->
+             (* Adding top level invariants to transition system. *)
+             TransSys.add_invariant top_sys inv ;
+             (* Adding top level invariants to LSD. *)
+             LSD.add_invariants lsd top_sys [ inv ] ;
+             Event.invariant top_scope inv ) ;
 
-    (* Returning top level invariants. *)
-    (* match intermediary with *)
-    (*   | [] -> top *)
-    (*   | _ -> [] *)
-    top
+       List.length top_invariants
 
   (* Queries step to find invariants to communicate. *)
-  let find_and_communicate_invariants lsd invariants sys graph =
+  let find_and_communicate_invariants
+        top_sys lsd invariants sys graph =
 
     (* Getting candidates invariants from equivalence classes and
        implications. *)
@@ -587,173 +614,229 @@ module Make (InModule : In) : Out = struct
       |> filter_step_candidates invariants
     in
 
-    match candidate_invariants with
-
-      | [] ->
-        (* Nothing to try. *)
-        invariants
-
-      | candidates ->
-
-        (* Discovering new invariants. *)
-        let new_invariants =
-          LSD.query_step lsd sys candidates
-        in
-
-        (* Counting implications for statistics. *)
-        new_invariants
-        |> List.fold_left
-            ( fun sum inv ->
-              if
-                (Term.is_node inv)
-                && (Term.node_symbol_of_term inv = Symbol.s_implies)
-              then sum + 1
-              else sum )
-            0
-        (* Updating invariant discovery related statistics. *)
-        |> update_invariant_stats
-            (TransSys.get_name sys)
-            (LSD.get_k lsd |> Numeral.to_int)
-            (List.length new_invariants) ;
-
-        (* Updating the set of invariants. *)
-        let invariants' =
-          List.fold_left
-            ( fun inv_set new_invariant ->
-              TSet.add new_invariant inv_set )
-            invariants
-            new_invariants
-        in
-
-        if Flags.ind_lazy_invariants () then (
-          new_invariants
-          |> List.fold_left
-              (fun list inv ->
-                (* Guarding with init if necessary. *)
-                sanitize_term inv
-                (* Getting top level invariants, adding it and intermediary
-                   ones in LSD. *)
-                |> get_top_inv_add_invariants lsd sys
-                |> List.rev_append list)
-              []
-          (* Broadcasting new invariant. *)
-          |> List.iter (Event.invariant [])
-        ) else (
-          match new_invariants with
-            | [] -> ()
-            | _ ->
-              new_invariants
-              |> Term.mk_and
-              |> sanitize_term
-              |> get_top_inv_add_invariants lsd sys
-              |> List.iter (Event.invariant [])
-        );
-
-        (* Returning updated invariant set. *)
-        invariants'
-
-
-  let rewrite_graph_find_invariants
-      trans_sys lsd invariants (sys,graph) =
-
-    (* Getting new invariants from the framework and updating
-       transition system. *)
-    let new_invariants =
-    
-      (* Receiving things. *)
-      let new_invs, updated_props =
-        Event.recv ()
-        (* Updating transition system. *)
-        |> Event.update_trans_sys trans_sys
-      in
-
-      updated_props
-      (* Looking for new invariant properties. *)
-      |> List.fold_left
-          ( fun list (_, (name,status)) ->
-            if status = TransSys.PropInvariant
-            then
-              (* Memorizing new invariant property. *)
-              ( TransSys.named_term_of_prop_name trans_sys name )
-              :: list
-            else
-              list )
-          (* New invariant properties are added to new invariants. *)
-          ( Event.top_invariants_of_invariants new_invs )
+    (* Discovering new invariants. *)
+    let new_invariants, trivial =
+      LSD.increment_and_query_step lsd sys candidate_invariants
     in
 
-    (* Adding new invariants to LSD. *)
-    LSD.add_invariants lsd new_invariants ;
-  
-    (* BASE CASE: rewriting the graph until base is unsat. *)
-    let graph' =
+    (* (\* Counting implications for statistics. *\) *)
+    (* new_invariants *)
+    (* |> List.fold_left *)
+    (*     ( fun sum inv -> *)
+    (*       if *)
+    (*         (Term.is_node inv) *)
+    (*         && (Term.node_symbol_of_term inv = Symbol.s_implies) *)
+    (*       then sum + 1 *)
+    (*       else sum ) *)
+    (*     0 *)
+
+    (* (\* Updating invariant discovery related statistics. *\) *)
+    (* |> update_invariant_stats *)
+    (*     (TransSys.get_name sys) *)
+    (*     (LSD.get_k lsd |> Numeral.to_int) *)
+    (*     (List.length new_invariants) ; *)
+
+    (* Updating the set of invariants. *)
+    let invariants' =
+      List.fold_left
+        ( fun inv_set new_invariant ->
+          TSet.add new_invariant inv_set )
+        (List.fold_left
+           ( fun inv_set new_invariant ->
+             TSet.add new_invariant inv_set )
+           invariants
+           trivial)
+        new_invariants
+    in
+
+    (* Lifting, adding to lsd, and communicating invariants. *)
+    let top_count =
+      communicate_invariants top_sys lsd sys new_invariants
+    in
+
+    ( match new_invariants with
+      | [] -> ()
+         (* ( match candidate_invariants with *)
+         (*   | [] -> *)
+         (*      Event.log *)
+         (*        L_info *)
+         (*        "%s No candidate invariants." *)
+         (*        name *)
+         (*   | _ -> () ) *)
+      | _ ->
+         Event.log
+           L_info
+           "%s @[<v>%i invariants discovered@ \
+            at %i for [%s],@ \
+            %i top level invariants generated.@]"
+           name
+           (List.length new_invariants)
+           (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
+           (TransSys.get_scope sys |> String.concat "/")
+           top_count ;
+
+         (debug
+            invGen
+            "%s @[<v>%a@]"
+            name
+            (pp_print_list Term.pp_print_term "@ ")
+            new_invariants
+          in ())
+
+    ) ;
+
+    (* Returning updated invariant set. *)
+    invariants'
+
+  (* Receives messages, updates transition system, asserts new
+     invariants in lsd. *)
+  let recv_update_top_sys_lsd top_sys lsd =
+
+    (* Receiving messages. *)
+    Event.recv ()
+
+    (* Updating transition system. *)
+    |> Event.update_trans_sys_sub top_sys
+
+    (* Handling new invariants and property statuses. *)
+    |> ( fun (invariants, properties) ->
+
+         (* Adding new invariants to lsd. *)
+         invariants
+         |> List.iter
+              ( fun (_, (scope,inv)) ->
+                LSD.add_invariants
+                  lsd
+                  (TransSys.subsystem_of_scope top_sys scope)
+                  [ inv ] ) ;
+
+         (* Adding valid properties to lsd. *)
+         properties
+         |> List.iter
+              ( function
+                | (_, (name,status))
+                     when status = TransSys.PropInvariant ->
+                   (* Getting term from property name. *)
+                   [ TransSys.named_term_of_prop_name top_sys name ]
+                   (* Adding it to lsd. *)
+                   |> LSD.add_invariants lsd top_sys
+                | _ -> () ) ; )
+
+  (* Rewrites the graph until the base instance becomes unsat, then
+     extracts invariants from the step instance. Returns the new
+     binding, i.e. the updated graph and the new invariants. *)
+  let rewrite_graph_find_invariants
+        top_sys lsd (sys, graph, invariants) =
+
+    (* BASE INSTANCE: rewriting the graph until base is unsat. *)
+    let graph', unsat_on_first_check =
       rewrite_graph_until_base_unsat lsd sys graph
     in
- 
-    (* STEP CASE: checking which properties are k inductive, asserting
-       them in lsd, and broadcast. *)
+
+    (* Receiving things. *)
+    recv_update_top_sys_lsd top_sys lsd ;
+
+    (* STEP INSTANCE: checking which properties are k inductive,
+       asserting them in lsd, and broadcast. *)
     let invariants' =
-      find_and_communicate_invariants lsd invariants sys graph'
+      find_and_communicate_invariants
+        top_sys lsd invariants sys graph'
     in
   
-    (* Returning new mapping and the new invariants. *)
-    (sys, graph'), invariants'
+    (* Returning new binding and base instance flag. *)
+    (sys, graph', invariants'), unsat_on_first_check
+
+  let lazy_max_successive =
+    lazy
+      ( (* match *)
+        (*   Flags.invgengraph_max_successive () *)
+        (* with *)
+        (* | n when n > 0 -> *)
+        (*    (fun count -> count > n) *)
+        (* | _ -> *)
+           (fun count -> false) )
+
+  (* Iterates on a [sys], [graph], [invariants] until the base
+     instance is unsat on the first check or the upper bound given by
+     the flags has been reached. *)
+  let iterate_on_binding top_sys lsd (binding, cand_count) =
+    let max_successive = Lazy.force lazy_max_successive in
+
+    let rec loop count ((sys,_,invs) as binding) =
+      let k = LSD.get_k lsd sys in
+      debug
+        invGen
+        "%s @[<v>rewriting [%s]@ \
+         lsd at %i, %i invariants discovered@ \
+         from %i candidate terms.@]"
+        name
+        (TransSys.get_scope sys |> String.concat "/")
+        (k |> Numeral.to_int)
+        (TSet.cardinal invs)
+        cand_count in
+      (* Getting new binding and base flag. *)
+      let binding', base_unsat_on_first_check =
+        rewrite_graph_find_invariants top_sys lsd binding
+      in
+      let k' = LSD.get_k lsd sys in
+      if
+        base_unsat_on_first_check
+        || Flags.invgengraph_max_succ () <= count
+      then
+        (* Done, returning new binding. *)
+        binding', cand_count
+      else
+        (* Looping. *)
+        loop (count + 1) binding'
+    in
+
+    loop 1 binding
 
   (* Generates invariants by splitting an implication graph. *)
-  let generate_invariants trans_sys lsd =
+  let generate_invariants top_sys lsd =
 
-    (* Generating the candidate terms and building the graphs. *)
+    (* Generating the candidate terms and building the graphs. Result is a list
+       of triplets: system, graph, invariants. *)
     let sys_graph_map, candidate_term_count =
-      trans_sys |> CandTerm.generate_graphs two_state
+      top_sys
+      |> CandTerm.generate_graphs two_state
+      |> ( fun (list, count) ->
+            list
+            |> List.map
+                 ( fun (sys,graph,cand_count) ->
+                   (* Building triplet. *)
+                   (sys, graph, TSet.empty), cand_count )
+            |> (fun list' -> list', count) )
     in
+
+    Event.log
+      L_info
+      "%s Starting with %i candidate terms total."
+      name
+      candidate_term_count ;
 
     (* Updating stats. *)
     update_candidate_count_stats candidate_term_count ;
 
     (* Initializing statistics. *)
-    init_stats () ;
+    (* init_stats () ; *)
 
     (* Looks for invariants for all the systems in the system graph
        map. *)
-    let rec loop invariants map =
+    let rec loop map =
 
-      (* Generating new invariants and updated map by going through
-         the sys/graph map. *)
-      let invariants', map' =
-        map
-        |> List.fold_left
-
-            ( fun (invs, mp) sys_graph ->
-
-              (* Getting updated mapping and invariants. *)
-              let mapping, invs' =
-                rewrite_graph_find_invariants
-                  trans_sys lsd invs sys_graph
-              in
-              (invs', (mapping :: mp)) )
-
-            (invariants, [])
-          
-        (* Reversing the map to keep the ordering by reversed
-           topological order. *)
-        |> ( fun (invars, rev_map) ->
-          invars, List.rev rev_map )
+      (* Going through the map to generate invariants and generate the
+         new map for the next iteration. *)
+      let map' =
+        List.map (iterate_on_binding top_sys lsd) map
       in
 
-      (* Incrementing the k. *)
-      LSD.increment lsd ;
-
-      (* Updating statistics. *)
-      LSD.get_k lsd
-      |> Numeral.to_int
-      |> update_progress_stats ;
-
       (* Recursing with updated invariants and sys/graph mapping. *)
-      loop invariants' map'
+      loop map'
 
     in
 
-    loop TSet.empty sys_graph_map
+    loop sys_graph_map
 
 
   (* Reference to lsd for easy clean up. *)
@@ -778,7 +861,7 @@ module Make (InModule : In) : Out = struct
     let lsd =
       LSD.create
         two_state
-        (Flags.invgengraph_top_only ())
+        false
         trans_sys
     in
 
@@ -791,56 +874,57 @@ module Make (InModule : In) : Out = struct
 
   (* Launches invariant generation with a max [k] and a set of
      candidate terms. *)
-  let run sys maxK candidates =
+  let run sys maxK candidates = candidates
 
-    let lsd =
-      (* Creating lsd instance. *)
-      LSD.create
-        two_state
-        (Flags.invgengraph_top_only ())
-        sys
-    in
+    (* let lsd = *)
+    (*   (\* Creating lsd instance. *\) *)
+    (*   LSD.create *)
+    (*     two_state *)
+    (*     (Flags.invgengraph_top_only ()) *)
+    (*     sys *)
+    (* in *)
 
-    let rec loop invariants k graph =
+    (* let rec loop invariants k graph = *)
 
-      if Numeral.(k > maxK) then
+    (*   if Numeral.(k > maxK) then *)
 
-        (* Maximal number of iterations reached, returning
-           invariants. *)
-        TSet.elements invariants
+    (*     (\* Maximal number of iterations reached, returning *)
+    (*        invariants. *\) *)
+    (*     TSet.elements invariants *)
         
-      else (
+    (*   else ( *)
 
-        (* Rewriting graph in the base case. *)
-        let graph' =
-          rewrite_graph_until_base_unsat lsd sys graph
-        in
+    (*     (\* Rewriting graph in the base case. *\) *)
+    (*     let graph' = *)
+    (*       rewrite_graph_until_base_unsat lsd sys graph *)
+    (*     in *)
 
-        (* Extracting invariants at k. *)
-        let invariants' =
-          find_and_communicate_invariants lsd invariants sys graph'
-        in
+    (*     (\* Extracting invariants at k. *\) *)
+    (*     let invariants' = *)
+    (*       find_and_communicate_invariants *)
+    (*         sys lsd invariants sys graph' *)
+    (*     in *)
 
-        (* Incrementing k in lsd. *)
-        LSD.increment lsd ;
+    (*     (\* Incrementing k in lsd. *\) *)
+    (*     LSD.increment lsd ; *)
 
-        (* Looping with new invariants. *)
-        loop invariants' Numeral.(succ k) graph'
+    (*     (\* Looping with new invariants. *\) *)
+    (*     loop invariants' Numeral.(succ k) graph' *)
 
-      )
+    (*   ) *)
 
-    in
+    (* in *)
 
-    (* Memorizing invariants to return to delete lsd. *)
-    let res =
-      InvGenCandTermGen.create_graph sys ( TSet.of_list candidates )
-      |> loop TSet.empty Numeral.zero
-    in
+    (* (\* Memorizing invariants to return to delete lsd. *\) *)
+    (* let res = *)
+    (*   InvGenCandTermGen.create_graph sys ( TSet.of_list candidates ) *)
+    (*   |> loop TSet.empty Numeral.zero *)
+    (* in *)
 
-    (* Deleting lsd. *)
-    LSD.delete lsd ;
+    (* (\* Deleting lsd. *\) *)
+    (* LSD.delete lsd ; *)
 
-    res
+    (* res *)
 
 end
 

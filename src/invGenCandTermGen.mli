@@ -29,7 +29,7 @@ val generate_candidate_terms :
     for two state candidate terms generation. The result features the
     number of candidate terms generated. *)
 val generate_graphs :
-  bool -> TransSys.t -> (TransSys.t * ImplicationGraph.t) list * int
+  bool -> TransSys.t -> (TransSys.t * ImplicationGraph.t * int) list * int
   
 (** Creates a graph for a transition system using the specified list
     of invariants. *)

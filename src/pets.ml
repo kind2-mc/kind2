@@ -455,8 +455,6 @@ let rec next trans solver k unfalsifiables unknowns =
     |> Event.update_trans_sys trans
     (* Extracting invariant module/term pairs. *)
     |> fst
-    (* Extracting invariant terms. *)
-    |> Event.top_invariants_of_invariants
   in
 
   (* Cleaning unknowns and unfalsifiables. *)
@@ -472,7 +470,8 @@ let rec next trans solver k unfalsifiables unknowns =
 
   (* Adding confirmed properties to the system. *)
   confirmed |> List.iter
-      (fun (_,term) -> TransSys.add_invariant trans term) ;
+      (fun (_,term) ->
+        TransSys.add_invariant trans term) ;
 
   (* Adding confirmed properties to new invariants. *)
   let new_invariants' =
