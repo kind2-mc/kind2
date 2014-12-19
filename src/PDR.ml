@@ -76,22 +76,6 @@ type clause =
   } 
 
 
-(* All remaining properties are valid *)
-exception Success of int
-
-(* A bad state is reachable *)
-exception Bad_state_reachable
-
-(* Counterexample trace for some property *)
-exception Counterexample of clause list 
-
-(* Property disproved by other module *)
-exception Disproved of string
-
-(* Restart for other reason *)
-exception Restart
-
-
 (* Return disjunction of literals from a clause *)
 let term_of_clause { literals } = Term.mk_or literals
 
@@ -4132,13 +4116,118 @@ let rec pdr solver trans_sys prop_set frames =
   pdr solver trans_sys prop_set frames''
 
 
+let add_to_path get_model state_vars path i = 
+
+  (* Get a model for the variables at instant [i] *)
+  let model_i =
+    get_model
+      (List.map
+         (fun sv -> 
+            Var.mk_state_var_instance sv i)
+         state_vars)
+  in
+  
+  (* Turn variable instances to state variables and sort list 
+     
+     TODO: It is not necessary to sort the list, if the SMT solver
+     returns the list in the order it was input. *)
+  let model_i' =
+    List.sort
+      (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
+      (List.map
+         (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
+         model_i)
+  in
+  
+  (* Join values of model at current instant to result *)
+  let path' = 
+    list_join
+      StateVar.equal_state_vars
+      model_i'
+      path
+  in
+
+  let state = 
+    List.map 
+      (fun (v, t) -> 
+         Term.mk_eq 
+           [Term.mk_var
+              (Var.mk_state_var_instance
+                 (Var.state_var_of_state_var_instance v)
+                 Numeral.zero);
+            t])
+      model_i
+    |> Term.mk_and
+  in
+  
+  (path', state)
+
+
 (* 
 
    TODO: Extract without unrolling the transition relation from a
    sequence of blocking clauses given with their activation
    literals. *)
-let extract_cex_path _ _ _ = []
+let extract_cex_path solver trans_sys trace = 
 
+  let state_vars = TransSys.state_vars trans_sys in
+
+  let rec extract_cex_path' path pre_state = function
+    
+    (* Counterexamples have at least two states *)
+    | [] -> assert false
+      
+    (* Two successive Blocking clauses *)
+    | r_i :: tl -> 
+      
+      (* Find a pair of states satisfying the *)
+      S.check_sat_assuming
+        solver
+
+        (fun () -> 
+           
+           (* Add unprimed state to path *)
+           let path', state = 
+             add_to_path
+               (S.get_model solver)
+               state_vars
+               path
+               Numeral.zero
+           in
+
+           (* At the end of the sequence of blocking clauses *)
+           match tl with 
+
+             | [] -> 
+
+               (* Add primed path to path *)
+               add_to_path
+                 (S.get_model solver)
+                 state_vars
+                 path
+                 Numeral.one
+               |> fst
+
+             | _ -> 
+
+               (* Clause with activation literal to constrain path *)
+               
+
+
+               (* Recurse to continue path out of succeeding blocking
+                  clause *)
+               extract_cex_path' path' state (r_i :: tl)
+
+        )
+        
+        (* Counterexample trace must be satisfiable *)
+        (fun _ -> assert false)
+        
+        [actlit_p0_of_clause r_i; pre_state]
+        
+  in
+
+  extract_cex_path' [] (actlit_of_frame 0 |> snd) trace
 
 (* 
 
@@ -4499,7 +4588,12 @@ let main trans_sys =
 
   (* Declare uninterpreted function symbols *)
   S.trace_comment solver "main: Declare state variables";
-  TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver);
+
+  TransSys.declare_vars_of_bounds 
+    trans_sys
+    (S.declare_fun solver)
+    Numeral.zero
+    Numeral.one;
 
   (* Define functions in transition system *)
   S.trace_comment solver "main: Define predicates";

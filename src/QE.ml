@@ -56,12 +56,28 @@ let get_solver_instance trans_sys =
           ~produce_assignments:true
           (TransSys.get_logic trans_sys)
       in
+
+      Solver.trace_comment 
+        solver
+        (Format.sprintf 
+           "Declaring state variables: %s"
+           (string_of_t 
+              (pp_print_list Var.pp_print_var ",@ ") 
+              (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
       
       (* Declare uninterpreted function symbols *)
-      (* TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver); *)
-  
+      TransSys.declare_vars_of_bounds
+        trans_sys
+        (Solver.declare_fun solver)
+        Numeral.zero
+        Numeral.one;
+      
+      Solver.trace_comment solver "Defining predicates";
+
       (* Define functions *)
-      (* TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver); *)
+      TransSys.iter_uf_definitions 
+        trans_sys
+        (Solver.define_fun solver); 
 
       (* Save instance *)
       solver_qe := Some solver;
@@ -102,12 +118,18 @@ let get_checking_solver_instance trans_sys =
           ~produce_assignments:true
           `UFLIA
       in
-      
+
       (* Declare uninterpreted function symbols *)
-      (* TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver); *)
-  
+      TransSys.declare_vars_of_bounds
+        trans_sys
+        (Solver.declare_fun solver)
+        Numeral.zero
+        Numeral.one;
+
       (* Define functions *)
-      (* TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver); *)
+      TransSys.iter_uf_definitions 
+        trans_sys
+        (Solver.define_fun solver); 
 
       (* Save instance *)
       solver_check := Some solver;
