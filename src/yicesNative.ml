@@ -147,7 +147,7 @@ let register_model solver model =
            else v_smte
          in
          
-         assert (Term.type_of_term e_smte = Term.type_of_term v_smte);
+         (* assert (Term.type_of_term e_smte = Term.type_of_term v_smte); *)
          SMTExprMap.add e_smte v_smte acc)
       SMTExprMap.empty model in
   solver.solver_state <- YModel m
@@ -720,8 +720,8 @@ let get_value solver expr_list =
      in
 
 
-     List.iter (fun (e, v) ->
-         assert(not (Term.equal e v)) ) smt_expr_values;
+     (* List.iter (fun (e, v) -> *)
+     (*     assert(not (Term.equal e v)) ) smt_expr_values; *)
 
      (* construct the response with the desired values *)
      let res = `Values (List.rev smt_expr_values) in
