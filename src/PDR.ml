@@ -442,59 +442,57 @@ let frame_sizes frames =
 
 
 (* Check if for two successive frames R_i-1 & T |= R_i *)
-let check_frames solver prop_set frames = 
+let rec check_frames' solver accum = function
 
-  let rec check_frames' solver accum = function
+  | [] -> true
 
-    | [] -> true
+  | r_i :: tl ->
 
-    | r_i :: tl ->
+    S.trace_comment 
+      solver
+      (Format.sprintf 
+         "check_frames: Does R_%d & T |= R_%d hold?"
+         (List.length tl)
+         (List.length tl |> succ));
 
-      S.trace_comment solver "check_frames: Does R_i-1 & T |= R_i hold?";
+    let actlit_n1 = 
+      create_and_assert_fresh_actlit 
+        solver
+        "check_frames" 
+        (List.map term_of_clause (r_i @ accum) |> Term.mk_and)
+        Actlit_n1
+    in
 
-      let actlit_n1 = 
-        create_and_assert_fresh_actlit 
-          solver
-          "check_frames" 
-          ((term_of_clause prop_set.clause) :: 
-           (List.map term_of_clause (r_i @ accum)) |> Term.mk_and)
-          Actlit_n1
-      in
-      
-      (* Check R_i-1 & T |= R_i *)
-      S.check_sat_assuming solver
+    (* Check R_i-1 & T |= R_i *)
+    S.check_sat_assuming solver
 
-        (* Fail if entailment does not hold *)
-        (fun () -> false)
+      (* Fail if entailment does not hold *)
+      (fun () -> false)
 
-        (* Check preceding frames if entailment hold *)
-        (fun () -> check_frames' solver (r_i @ accum) tl)
+      (* Check preceding frames if entailment hold *)
+      (fun () -> check_frames' solver (r_i @ accum) tl)
 
 
-        ((* Clauses of R_i are on rhs of entailment *)
-          actlit_n1 ::
+      ((* Clauses of R_i are on rhs of entailment *)
+        actlit_n1 ::
 
-          (match tl with 
+        (match tl with 
 
-            (* Preceding frame is not R_0 *)
-            | r_pred_i :: _ -> 
+          (* Preceding frame is not R_0 *)
+          | r_pred_i :: _ -> 
 
-              prop_set.clause.actlit_p0 :: 
+            List.map actlit_p0_of_clause accum @ 
 
-              List.map actlit_p0_of_clause accum @ 
+            (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
+            List.map actlit_p0_of_clause r_i @ 
 
-              (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
-              List.map actlit_p0_of_clause r_i @ 
+            (* Assert clauses of R_i-1 on lhs of entailment *)
+            List.map actlit_p0_of_clause r_pred_i
 
-              (* Assert clauses of R_i-1 on lhs of entailment *)
-              List.map actlit_p0_of_clause r_pred_i
+          (* Preceding frame is R_0, assert initial state only *)
+          | [] -> [actlit_of_frame 0 |> snd]))
 
-            (* Preceding frame is R_0, assert initial state only *)
-            | [] -> [actlit_of_frame 0 |> snd]))
-
-  in
-
-  check_frames' solver [] frames 
+let check_frames solver frames = check_frames' solver [] frames 
 
 (*
 
@@ -3273,6 +3271,7 @@ let generalize trans_sys state f g =
     Term.mk_and 
       [f; 
        TransSys.trans_of_bound trans_sys Numeral.one; 
+       TransSys.invars_of_bound trans_sys Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
        Term.bump_state Numeral.one g]
   in
@@ -3321,7 +3320,7 @@ let find_cti solver trans_sys prop_set frame clause =
         trans_sys 
         cex 
         (Term.mk_and
-           (term_of_prop_set prop_set :: 
+           ((* term_of_prop_set prop_set :: *)
             term_of_clause clause :: 
             List.map term_of_clause frame))
         (term_of_clause clause |> Term.negate)
@@ -3365,7 +3364,7 @@ let find_cti solver trans_sys prop_set frame clause =
     (* Check R[x] & P[x] |= C[x'] *)
     (clause.actlit_p0 ::
      clause.actlit_n1 ::
-     prop_set.clause.actlit_p0 ::
+     (* prop_set.clause.actlit_p0 :: *)
      List.map actlit_p0_of_clause frame)
 
 
@@ -3432,13 +3431,26 @@ let rec block solver trans_sys prop_set term_tbl =
 
           S.trace_comment 
             solver
-            "block: Blocking reached R_1";
+            "block: Is blocking clause reachable from initial state?";
 
+          (* Check if blocking clause can be reached from the initial state *)
+          S.check_sat_assuming
+            solver
+
+            (* Counterexample if reachable *)
+            (fun () -> raise (Counterexample (block_clause :: block_trace)))
+
+            (* Continue if not *)
+            (fun () -> ())
+
+            (* Check I & T |= B' *)
+            ([actlit_of_frame 0 |> snd; block_clause.actlit_n1]);
+          
           (* Add blocking clause to all frames up to where it has to
              be blocked *)
           let r_i' = block_clause :: r_i in
 
-          assert (check_frames solver prop_set [r_i']);
+          assert (check_frames solver [r_i']);
 
           (* Add cube to block to next higher frame if flag is set *)
           let block_tl' = 
@@ -3516,7 +3528,7 @@ let rec block solver trans_sys prop_set term_tbl =
               (* Add blocking clause to frame *)
               let r_i' = block_clause :: r_i in
 
-              assert (check_frames solver prop_set (r_i' :: frames));
+              assert (check_frames solver (r_i' :: frames));
 
               (* Add cube to block to next higher frame if flag is set *)
               let block_tl' = 
@@ -3728,19 +3740,14 @@ let rec partition_rel_inductive
 let partition_fwd_prop
     solver
     trans_sys
-    prop_set
     frame
     clauses = 
 
   (* Assert p0 => C_1 & ... & C_n
 
-     Use the same activation literal on rhs for all checks *)
-  let actlit_p0 = 
-    create_and_assert_fresh_actlit 
-      solver
-      "fwd_prop"
-      (List.map term_of_clause frame |> Term.mk_and)
-      Actlit_p0
+     Use the same activation literal on lhs for all checks *)
+  let actlits_p0 =
+    List.map actlit_p0_of_clause (frame @ clauses) 
   in
 
   (* Check until we find a set of clauses that can be propagated
@@ -3782,7 +3789,7 @@ let partition_fwd_prop
       let keep' = keep @ keep_new in
 
       (* No clauses can be propagated? *)
-      if maybe_prop = [] then (keep', []) else
+      if maybe_prop' = [] then (keep', []) else
 
         (* Continue checking if remaining clauses are inductive *)
         partition_fwd_prop' 
@@ -3793,7 +3800,7 @@ let partition_fwd_prop
 
     S.trace_comment
       solver
-      "Checking for forward propagation of clauses";
+      "partition_fwd_prop: Checking for forward propagation of clause set";
 
     (* Assert n1 => ~(C_1' & ... & C_n') *)
     let actlit_n1 = 
@@ -3804,7 +3811,7 @@ let partition_fwd_prop
         Actlit_n1
     in
 
-    (* Are all clauses inductive? 
+    (* Can all clauses be propagated? 
 
        Check R & T |= C_1' & ... & C_n'
     *)
@@ -3812,7 +3819,7 @@ let partition_fwd_prop
       solver
       keep_some
       prop_all
-      [prop_set.clause.actlit_p0; actlit_p0; actlit_n1]
+      (actlit_n1 :: actlits_p0)
     
   in
 
@@ -3888,7 +3895,7 @@ let fwd_propagate solver trans_sys prop_set frames =
             (* Add a new frame with the non-inductive clauses *)
             let frames' = non_inductive_clauses :: frames in
 
-            assert (check_frames solver prop_set frames');
+            assert (check_frames solver frames');
 
             frames'
 
@@ -3899,7 +3906,7 @@ let fwd_propagate solver trans_sys prop_set frames =
           (* Add a new frame with clauses to propagate *)
           let frames' = prop :: frames in
 
-          assert (check_frames solver prop_set frames');
+          assert (check_frames solver frames');
 
           frames'
 
@@ -3908,13 +3915,16 @@ let fwd_propagate solver trans_sys prop_set frames =
       (* Frames in ascending order *)
       | frame :: frames_tl -> 
 
+        S.trace_comment
+          solver
+          (Format.sprintf 
+             "fwd_propagate: Checking forward propagation of clauses \
+              in frame %d."
+             (succ (List.length frames)));
 
-          S.trace_comment
-            solver
-            (Format.sprintf 
-               "fwd_propagate: Checking forward propagation of clauses \
-                in frame %d."
-               (List.length frames));
+        let frames_tl_full = 
+          List.fold_left (fun a f -> f @ a) [] frames_tl
+        in
 
         (* Separate clauses that propagate from clauses to keep in
            this frame *)
@@ -3922,8 +3932,7 @@ let fwd_propagate solver trans_sys prop_set frames =
           partition_fwd_prop
             solver
             trans_sys
-            prop_set
-            (List.fold_left (fun a f -> f @ a) (frame @ prop) frames_tl)
+            frames_tl_full
             (frame @ prop)
         in
 
@@ -3932,17 +3941,21 @@ let fwd_propagate solver trans_sys prop_set frames =
           ~by:(List.length fwd) 
           Stat.pdr_fwd_propagated;
 
-        assert (check_frames solver prop_set (keep :: frames));
-        
+        assert
+          (check_frames'
+             solver
+             (frames_tl_full @ fwd)
+             (keep :: frames));
+           
         (* All clauses propagate? *)
         if keep = [] then 
 
           (
-            
+
             let ind_inv = 
               (List.fold_left 
                  (fun a c -> List.map term_of_clause c @ a) 
-                 (List.map term_of_clause (prop_set.clause :: prop))
+                 (List.map term_of_clause fwd)
                  frames_tl)
               |> Term.mk_and
             in
@@ -3965,7 +3978,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                  solver
                  (function _ -> false)
                  (function _ -> true)
-                 [actlit_of_frame 0 |> snd; ind_inv_n1]); 
+                 [actlit_of_frame 0 |> snd; ind_inv_n0]); 
 
             assert
               (S.check_sat_assuming
@@ -3978,10 +3991,11 @@ let fwd_propagate solver trans_sys prop_set frames =
             raise (Success (List.length frames))
 
           )
+
         else
 
           (
-            
+
             (* Propagate clauses in next frame *)
             fwd_propagate' 
               solver
