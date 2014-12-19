@@ -133,6 +133,21 @@ let register_model solver model =
          (*   HStringSExpr.pp_print_sexpr v; *)
          let e_smte = Conv.expr_of_string_sexpr e in
          let v_smte = Conv.expr_of_string_sexpr v in
+
+         (* Convert to real if it should be *)
+         let v_smte =
+           if Term.is_numeral v_smte &&
+              Type.is_real (Term.type_of_term e_smte)
+           then
+             v_smte
+             |> Term.numeral_of_term
+             |> Numeral.to_big_int
+             |> Decimal.of_big_int
+             |> Term.mk_dec
+           else v_smte
+         in
+         
+         assert (Term.type_of_term e_smte = Term.type_of_term v_smte);
          SMTExprMap.add e_smte v_smte acc)
       SMTExprMap.empty model in
   solver.solver_state <- YModel m
@@ -695,6 +710,7 @@ let get_value solver expr_list =
                with Invalid_argument _ ->
                 (* If the expression e is not a state variable, we evaluate it
                    in the assignment of the model *)
+                 (* Format.eprintf "eval : %a@." Conv.pp_print_expr e; *)
                  let ve =
                    Eval.eval_term [] vars_assign (Conv.term_of_smtexpr e) in
                  Eval.term_of_value ve

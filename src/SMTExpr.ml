@@ -180,7 +180,8 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
    The first argument is an association list of strings to variables
    that are currently bound to distinguish between uninterpreted
-   function symbols and variables. *)
+       function symbols and variables. *)
+
     let const_of_smtlib_token b t = 
 
       let res = 
