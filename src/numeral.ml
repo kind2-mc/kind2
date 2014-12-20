@@ -38,6 +38,17 @@ let one = Big_int.unit_big_int
 
 
 (* Pretty-print a numeral *)
+let pp_print_positive_numeral_sexpr ppf n = 
+  Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
+
+
+let pp_print_numeral_sexpr ppf n =
+  if (Big_int.lt_big_int n zero) then
+    Format.fprintf ppf "@[<hv 1>(-@ %a)@]"
+      pp_print_positive_numeral_sexpr  (Big_int.minus_big_int n)
+  else pp_print_positive_numeral_sexpr ppf n
+
+
 let pp_print_numeral ppf n = 
   Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
 

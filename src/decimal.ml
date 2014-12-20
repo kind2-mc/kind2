@@ -40,7 +40,7 @@ let one = Num.num_of_int 1
 
 
 (* Pretty-print a numeral as an S-expression *)
-let pp_print_decimal_sexpr ppf = function
+let pp_print_positive_decimal_sexpr ppf = function
 
   | Num.Int i -> Format.fprintf ppf "%d.0" i
 
@@ -60,6 +60,13 @@ let pp_print_decimal_sexpr ppf = function
       "@[<hv 1>(/@ %s@ %s)@]" 
       (Big_int.string_of_big_int rn)
       (Big_int.string_of_big_int rd)
+
+
+let pp_print_decimal_sexpr ppf d =
+  if (Num.lt_num d zero) then
+    Format.fprintf ppf "@[<hv 1>(-@ %a)@]"
+      pp_print_positive_decimal_sexpr  (Num.minus_num d)
+  else pp_print_positive_decimal_sexpr ppf d
 
 
 (* Pretty-print a numeral as an S-expression *)

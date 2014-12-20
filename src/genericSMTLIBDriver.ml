@@ -154,7 +154,7 @@ let rec pp_print_symbol_node ppf = function
   | `DISTINCT -> Format.pp_print_string ppf "distinct"
   | `ITE -> Format.pp_print_string ppf "ite" 
 
-  | `NUMERAL i -> Numeral.pp_print_numeral ppf i
+  | `NUMERAL i -> Numeral.pp_print_numeral_sexpr ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
   | `BV b -> pp_smtlib_print_bitvector_b ppf b
 

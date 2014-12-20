@@ -107,7 +107,8 @@ let pp_print_logic ppf l =  failwith "no logic selection in yices"
 
 
 let interpr_type t = match Type.node_of_type t with
-  | Type.IntRange _ | Type.Bool | Type.Int | Type.Real -> t
+  | Type.IntRange _ (* -> Type.mk_int () *)
+  | Type.Bool | Type.Int | Type.Real -> t
   | _ -> failwith ((Type.string_of_type t)^" not supported")
 
 
