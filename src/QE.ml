@@ -33,14 +33,6 @@ let solver_qe = ref None
 (* The current solver instance in use *)
 let solver_check = ref None
 
-let solvers_declare uf =
-  (match !solver_qe with
-    | Some solver -> Solver.declare_fun solver uf
-    | None -> ()) ;
-  match !solver_check with
-    | Some solver -> Solver.declare_fun solver uf
-    | None -> ()
-
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
 
@@ -297,21 +289,21 @@ let check_generalize trans_sys model elim term term' =
   (* Substitute fresh variables for terms to be eliminated and
      existentially quantify formula *)
   let qe_term = 
-    SMTExpr.quantified_smtexpr_of_term solvers_declare true elim term
+    SMTExpr.quantified_smtexpr_of_term true elim term
   in
 
   check_implication 
     trans_sys
     "model"
     "exact generalization" 
-    (SMTExpr.smtexpr_of_term solvers_declare (formula_of_model model))
-    (SMTExpr.smtexpr_of_term solvers_declare term');
+    (SMTExpr.smtexpr_of_term (formula_of_model model))
+    (SMTExpr.smtexpr_of_term term');
 
   check_implication
     trans_sys
     "exact generalization" 
     "formula"
-    (SMTExpr.smtexpr_of_term solvers_declare term')
+    (SMTExpr.smtexpr_of_term term')
     qe_term
     
 
@@ -641,11 +633,11 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           match pdr_qe with 
             | `Z3 -> 
               SMTExpr.quantified_smtexpr_of_term
-                solvers_declare true elim term
+                true elim term
             | `Z3_impl
             | `Z3_impl2 -> 
               SMTExpr.quantified_smtexpr_of_term
-                solvers_declare true elim extract_int
+                true elim extract_int
         in
         
         let solver_qe = get_solver_instance trans_sys in

@@ -115,13 +115,11 @@ val string_of_var : t -> string
 val stats : unit -> int * int * int * int * int * int
 
 (** The constant uf representing an unrolled state var instance. *)
-val unrolled_uf_of_state_var_instance :
-  t -> (UfSymbol.t -> unit) -> UfSymbol.t
+val unrolled_uf_of_state_var_instance : t -> UfSymbol.t
 
 (** Gets the state var instance associated with a constant unrolled
     uf. Throws [Not_found] if the uf is unknown. *)
-val state_var_instance_of_symbol :
-  Symbol.t -> t
+val state_var_instance_of_symbol : Symbol.t -> t
 
 (** Declares variables as constant ufsymbols using the provided function. *)
 val declare_vars : (UfSymbol.t -> unit) -> t list -> unit

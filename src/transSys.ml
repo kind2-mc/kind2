@@ -26,12 +26,19 @@ type source =
 let init_flag_svar =
   StateVar.mk_state_var ~for_inv_gen:false "x_is_init_x" ["transSys"] Type.t_bool
 
-(* Global init flag uf *)
-let init_flag_uf =
-  StateVar.uf_symbol_of_state_var init_flag_svar
-
 (* Instantiate init flag at k *)
 let init_flag_var = Var.mk_state_var_instance init_flag_svar
+
+(* Tests if a var is an instanciation of the init_flag. *)
+let is_var_init_flag var =
+  Var.state_var_of_state_var_instance var == init_flag_svar
+
+(* Tests if a uf is an instanciation of the init_flag. *)
+let is_uf_init_flag uf =
+  try
+    StateVar.state_var_of_uf_symbol uf == init_flag_svar
+  with
+  | Not_found -> false
 
 let _ = LustreExpr.set_state_var_source init_flag_svar LustreExpr.Abstract
 
@@ -817,13 +824,13 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   system
 
 (* Return the variables of the transition system between given instants *)
-let rec vars_of_bounds' trans_sys lbound ubound accum = 
+let rec vars_of_bounds' state_vars lbound ubound accum = 
 
   (* Return when upper bound below lower bound *)
   if Numeral.(ubound < lbound)
   then accum
   else
-    trans_sys.state_vars
+    state_vars
 
     |> List.rev
     (* Add state variables at upper bound instant  *)
@@ -833,11 +840,16 @@ let rec vars_of_bounds' trans_sys lbound ubound accum =
          accum
 
     (* Recurse to next lower bound *)
-    |> vars_of_bounds' trans_sys lbound (Numeral.pred ubound)
+    |> vars_of_bounds' state_vars lbound (Numeral.pred ubound)
 
 let vars_of_bounds trans_sys lbound ubound = 
-  vars_of_bounds' trans_sys lbound ubound []
+  vars_of_bounds' trans_sys.state_vars lbound ubound []
 
+let declare_vars_of_bounds_no_init sys declare lbound ubound =
+  vars_of_bounds'
+    (sys.state_vars |> List.filter (fun sv -> sv != init_flag_svar))
+    lbound ubound []
+  |> Var.declare_vars declare
 
 
 (* Instantiate the initial state constraint to the bound *)

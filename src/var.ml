@@ -408,18 +408,13 @@ let unrolled_var_map = ref StringMap.empty
 (* Adds a mapping between [string] and [var]. Returns [true] if
    [string] was already bound in the map. *)
 let update_unrolled_var_map string var =
-  if StringMap.mem string !unrolled_var_map then false
-  else (
-    unrolled_var_map :=
-      StringMap.add string var !unrolled_var_map ;
-    true
-  )
+  unrolled_var_map := StringMap.add string var !unrolled_var_map
 (* Looks for the value associated to [string]. *)
 let find_unrolled_var_map string =
   StringMap.find string !unrolled_var_map
 
 (* The constant uf representing an unrolled state var instance. *)
-let unrolled_uf_of_state_var_instance var declare =
+let unrolled_uf_of_state_var_instance var =
   debug var "Unrolling." in
   match var with
 
@@ -437,38 +432,24 @@ let unrolled_uf_of_state_var_instance var declare =
             Numeral.string_of_numeral o ]
       in
 
-      (* Updating the map if necessary. *)
-      let undeclared =
-        update_unrolled_var_map string var
-      in
+      (* Updating the map. *)
+      update_unrolled_var_map string var ;
       
-      (* Creating the uf. *)
-      let uf = UfSymbol.(
+      (* Returning the uf. *)
+      UfSymbol.(
         mk_uf_symbol
-          string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf))
-      in
-
-      (* Declaring the uf if necessary. *)
-      if undeclared then declare uf ;
-
-      (* Returning the unrolled uf. *)
-      uf
+          string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
+      )
 
     | { Hashcons.node = ConstStateVar sv } ->
 
       (* Getting the uf symbol of the state var. *)
       let uf = StateVar.uf_symbol_of_state_var sv in
 
-      debug var "Checking if [%a] is declared" pp_print_var var in
+      (* Updating the map. *)
+      update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var ;
 
-      (* Updating the map if necessary. *)
-      let undeclared =
-        update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var
-      in
-
-      (* Declaring the uf if necessary. *)
-      if undeclared then declare uf ;
-
+      (* Returning the uf. *)
       uf
 
     | { Hashcons.node = TempVar _ } -> 
@@ -476,8 +457,9 @@ let unrolled_uf_of_state_var_instance var declare =
 
 let declare_vars declare =
   List.iter
-    (fun var -> unrolled_uf_of_state_var_instance var declare
-        |> ignore)
+    ( fun var ->
+      unrolled_uf_of_state_var_instance var
+      |> declare )
 
 (* Gets the state var instance associated with a unrolled
    symbol. Throws [Not_found] if the sym is unknown. *)

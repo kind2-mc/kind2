@@ -39,6 +39,8 @@ type t = {
 
   (* Indicates whether this instance is two state or not. *)
   two_state: bool ;
+
+  mutable last_k : Numeral.t ;
   
 }
 
@@ -144,7 +146,7 @@ let swap_system_binding system f =
   loop []
 
 (* Unrolls a system one step further. *)
-let unroll_sys ({ systems ; solver } as lsd) system =
+let unroll_sys ({ systems ; solver ; last_k } as lsd) system =
 
   lsd.systems <- (
     systems
@@ -156,14 +158,27 @@ let unroll_sys ({ systems ; solver } as lsd) system =
           let kp1 = Numeral.succ k in
 
           Printf.sprintf
+            "last_k: %i" Numeral.(to_int k)
+          |> Solver.trace_comment solver ;
+
+          if Numeral.(kp1 > last_k) then (
+            lsd.last_k <- kp1 ;
+            TransSys.init_flag_var kp1
+            |> Var.unrolled_uf_of_state_var_instance
+            |> Solver.declare_fun solver
+          ) ;
+
+          Printf.sprintf
             "unroll_sys at %i for [%s]."
             (Numeral.to_int kp1)
             (TransSys.get_scope system |> String.concat "/")
           |> Solver.trace_comment solver ;
           
           (* Declaring unrolled vars at [k+1]. *)
-          TransSys.declare_vars_of_bounds
-            system (Solver.declare_fun solver) kp1 kp1 ;
+          TransSys.declare_vars_of_bounds_no_init
+            system
+            (Solver.declare_fun solver)
+            kp1 kp1 ;
           
           (* Building implication. *)
           Term.mk_implies
@@ -195,11 +210,16 @@ let create two_state top_only sys =
     |> Solver.new_solver ~produce_assignments: true
   in
 
-  (* Declaring the init flag. *)
-  Solver.declare_fun solver TransSys.init_flag_uf ;
-
   (* Defining things. *)
   TransSys.iter_uf_definitions sys (Solver.define_fun solver) ;
+
+  (* Declaring init flag. *)
+  TransSys.init_flag_var Numeral.(~- one)
+  |> Var.unrolled_uf_of_state_var_instance
+  |> Solver.declare_fun solver ;
+  TransSys.init_flag_var Numeral.zero
+  |> Var.unrolled_uf_of_state_var_instance
+  |> Solver.declare_fun solver ;
 
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)
@@ -234,11 +254,12 @@ let create two_state top_only sys =
            let trans_actlit_term =
              Actlit.term_of_actlit trans_actlit
            in
-           
+
            (* Declaring unrolled vars. *)
-           TransSys.declare_vars_of_bounds
-             sys (Solver.declare_fun solver)
-             Numeral.zero Numeral.zero ;
+           TransSys.declare_vars_of_bounds_no_init
+             sys
+             (Solver.declare_fun solver)
+             Numeral.(~- one) Numeral.zero ;
            
            (* Conditionally asserting the initial constraint. *)
            Term.mk_implies
@@ -297,9 +318,10 @@ let create two_state top_only sys =
 
   (* Constructing the lsd context. *)
   let lsd =
-    { systems   ;
-      solver    ;
-      two_state }
+    { systems ;
+      solver ;
+      two_state ;
+      last_k = Numeral.zero }
   in
 
   if two_state then
