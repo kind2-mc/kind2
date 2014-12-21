@@ -850,7 +850,7 @@ let vars_of_bounds trans_sys lbound ubound =
 
 let declare_vars_of_bounds_no_init sys declare lbound ubound =
   vars_of_bounds'
-    (sys.state_vars |> List.tl)
+    (sys.state_vars |> List.filter (fun sv -> sv != init_flag_svar))
     lbound ubound []
   |> Var.declare_vars declare
 
