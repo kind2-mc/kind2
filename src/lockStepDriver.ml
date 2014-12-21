@@ -32,44 +32,70 @@ type t = {
      term) activating the transition relation at zero (and one for two
      state). *)
   mutable systems :
-    (TransSys.t * (Numeral.t * Term.t * Term.t * Term.t)) list ;
+    (TransSys.t * (Numeral.t * Term.t)) list ;
 
-  (* The solver used to query step and base. *)
-  solver: Solver.t ;
+  (* Solver used to query base. *)
+  base_solver: Solver.t ;
+
+  (* Solver used to query step. *)
+  step_solver: Solver.t ;
+
+  (* Solver used to prune trivial invariants. *)
+  pruning_solver: Solver.t ;
+
+  mutable last_k : Numeral.t ;
 
   (* Indicates whether this instance is two state or not. *)
   two_state: bool ;
-
-  mutable last_k : Numeral.t ;
   
 }
 
+let name = TransSys.get_name
+
+let shall_check_consistency = true
+
+let check_consistency_sys solver k sys actlit called_by =
+
+  name sys
+  |> Printf.sprintf
+       "Checking consistency at %i for [%s]."
+       Numeral.(to_int k)
+  |> Solver.trace_comment solver ;
+
+  Solver.check_sat_assuming
+    solver
+    (fun () ->
+     (* Instance is sat for [sys], fine. *)
+     ())
+    (fun () ->
+     (* Instance is unsat, let's crash. *)
+     Event.log
+       L_info
+       "LSD @[<v>solver inconsistent at %i@ \
+        for system [%s].@ \
+        called by [%s].@]"
+       (Numeral.to_int k)
+       (TransSys.get_scope sys |> String.concat "/")
+       called_by ;
+     assert false)
+    [ actlit ]
+
 (* Makes sure the solver of a lsd instance is consistent. *)
-let check_consistency { systems ; solver } called_by =
-  if true then
+let check_consistency
+      { systems ; base_solver ; step_solver }
+      called_by =
+
+  if shall_check_consistency then
 
     (* Making sure the solver instance is satisfiable for every
        system. *)
     systems
     |> List.iter
-         ( fun (sys, (k, _, trans_actlit, _)) ->
-           [ trans_actlit]
-           |> Solver.check_sat_assuming
-                solver
-                (fun () ->
-                 (* Instance is sat for [sys], fine. *)
-                 ())
-                (fun () ->
-                 (* Instance is unsat, let's crash. *)
-                 Event.log
-                   L_info
-                   "LSD @[<v>solver inconsistent at %i@ \
-                    for system [%s].@ \
-                    called by [%s].@]"
-                   (Numeral.to_int k)
-                   (TransSys.get_scope sys |> String.concat "/")
-                   called_by ;
-                 assert false) )
+         ( fun (sys, (k, actlit)) ->
+           (* Checking base consistency. *)
+           check_consistency_sys base_solver k sys actlit called_by ;
+           (* Checking step consistency. *)
+           check_consistency_sys step_solver k sys actlit called_by )
 
 (* Applies [f] to term bumped from [lbound] to [ubound]. *)
 let rec bump_and_apply_bounds f lbound ubound term =
@@ -80,39 +106,139 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
+let common_setup (solver,sys,actlit) =
+
+  name sys
+  |> Printf.sprintf
+       "Setting up system [%s]."
+  |> Solver.trace_comment solver ;
+
+  
+  Solver.declare_fun solver actlit ;
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    sys
+    (Solver.define_fun solver)
+    (Solver.declare_fun solver)
+    Numeral.zero Numeral.(~- one) ;
+
+  (* Declaring unrolled vars at [-1] and [0]. *)
+  TransSys.declare_vars_of_bounds_no_init
+    sys
+    (Solver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
+
+  solver, sys, Actlit.term_of_actlit actlit
+
+let base_setup (solver,sys,actlit) =
+
+  Solver.trace_comment solver "Base setup." ;
+
+  (* Conditionally asserting initial predicate at [0]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.init_of_bound sys Numeral.zero ]
+  |> Solver.assert_term solver ;
+
+  (* Conditionally asserting invariants of the system at [0]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
+  |> Solver.assert_term solver
+
+let step_setup (solver, sys, actlit) =
+
+  Solver.trace_comment solver "Step setup." ;
+
+  (* Conditionally asserting invariants of the system at [0]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
+  |> Solver.assert_term solver ;
+
+  (* Declaring unrolled vars at [1]. *)
+  TransSys.declare_vars_of_bounds_no_init
+    sys
+    (Solver.declare_fun solver)
+    Numeral.one Numeral.one ;
+  
+  (* Conditionally asserting transition predicate at [1]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.trans_of_bound sys Numeral.one ]
+  |> Solver.assert_term solver ;
+
+  (* Conditionally asserting invariants of the system at [1]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.invars_of_bound sys Numeral.one ]
+  |> Solver.assert_term solver
+
+let pruning_setup = step_setup
+
+let unroll_solver solver sys actlit k =
+
+  name sys
+  |> Printf.sprintf
+       "Unroll at %i for [%s]."
+       Numeral.(to_int k)
+  |> Solver.trace_comment solver ;
+
+  (* Declaring unrolled vars at [k+1]. *)
+  TransSys.declare_vars_of_bounds_no_init
+    sys (Solver.declare_fun solver) k k ;
+
+  (* Conditionally asserting transition predicate at [k]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.trans_of_bound sys k ]
+  |> Solver.assert_term solver ;
+
+  (* Conditionally asserting invariants of the system at [k]. *)
+  Term.mk_implies
+    [ actlit ; TransSys.invars_of_bound sys k ]
+  |> Solver.assert_term solver
+
+let add_invariants_solver solver sys actlit k invariants =
+
+  name sys
+  |> Printf.sprintf
+       "Add invariants at %i for [%s]."
+       Numeral.(to_int k)
+  |> Solver.trace_comment solver ;
+
+  Term.mk_and invariants
+  |> Term.bump_and_apply_k
+       (fun inv ->
+        Term.mk_implies [ actlit ; inv ]
+        |> Solver.assert_term solver)
+       k
+
+
+(* Deletes the lsd solver. *)
+let delete { base_solver ; step_solver ; pruning_solver } =
+  Solver.delete_solver base_solver ;
+  Solver.delete_solver step_solver ;
+  Solver.delete_solver pruning_solver
+
+(* Returns the [k] at which a system is unrolled. *)
+let get_k { systems } system =
+  let k, _ = List.assq system systems in k
+
 (* Adds new invariants to a lsd instance for system [sys]. Invariants
    are asserted up to the system [k]. *)
 let add_invariants
-      ({ systems ; solver } as lsd)
+      ({ systems ; base_solver ; step_solver } as lsd)
       sys = function
   | [] -> ()
   | invariants ->
 
      (* Finding the right system. *)
-     let k, _, trans_actlit, _ =
+     let k, actlit =
        List.assq sys systems
      in
 
-     Printf.sprintf
-       "add_invariant at %i for [%s]."
-       (Numeral.to_int k)
-       (TransSys.get_scope sys |> String.concat "/")
-     |> Solver.trace_comment solver ;
-
-     Term.mk_and invariants
-     |> Term.bump_and_apply_k
-          (fun inv ->
-           Term.mk_implies
-             [ trans_actlit ; inv ]
-           |> Solver.assert_term solver)
-          k ;
-
-     (* Term.mk_and invariants *)
-     (* |> Term.bump_and_apply_k *)
-     (*      (fun inv -> *)
-     (*       Term.mk_implies [trivial_actlit ; inv] *)
-     (*       |> Solver.assert_term solver) *)
-     (*      Numeral.one ; *)
+     (* Adding invariants in base at [k]. *)
+     add_invariants_solver
+       base_solver sys actlit k invariants ;
+     (* Adding invariants in base at [k+1]. *)
+     add_invariants_solver
+       step_solver sys actlit Numeral.(succ k) invariants ;
      
      check_consistency lsd "add_invariants"
 
@@ -146,55 +272,37 @@ let swap_system_binding system f =
   loop []
 
 (* Unrolls a system one step further. *)
-let unroll_sys ({ systems ; solver ; last_k } as lsd) system =
+let unroll_sys
+      ( { systems ;
+          base_solver ; step_solver ;
+          last_k }
+        as lsd)
+      system =
 
   lsd.systems <- (
     systems
     |> swap_system_binding
          system
-         (fun (k, init_actlit, trans_actlit, trivial_actlit) ->
+         (fun (k, actlit) ->
 
           (* Getting the next [k]. *)
           let kp1 = Numeral.succ k in
 
-          Printf.sprintf
-            "last_k: %i" Numeral.(to_int k)
-          |> Solver.trace_comment solver ;
-
           if Numeral.(kp1 > last_k) then (
-            lsd.last_k <- kp1 ;
-            TransSys.init_flag_var kp1
-            |> Var.unrolled_uf_of_state_var_instance
-            |> Solver.declare_fun solver
+            TransSys.init_flag_uf kp1
+            |> Solver.declare_fun base_solver ;
+            TransSys.init_flag_uf Numeral.(succ kp1)
+            |> Solver.declare_fun step_solver ;
+            lsd.last_k <- kp1
           ) ;
 
-          Printf.sprintf
-            "unroll_sys at %i for [%s]."
-            (Numeral.to_int kp1)
-            (TransSys.get_scope system |> String.concat "/")
-          |> Solver.trace_comment solver ;
-          
-          (* Declaring unrolled vars at [k+1]. *)
-          TransSys.declare_vars_of_bounds_no_init
-            system
-            (Solver.declare_fun solver)
-            kp1 kp1 ;
-          
-          (* Building implication. *)
-          Term.mk_implies
-            [ trans_actlit ;
-              TransSys.trans_of_bound system kp1 ]
-          (* Asserting it. *)
-          |> Solver.assert_term solver ;
-
-          (* Conditionally asserting invariants a [k+1]. *)
-          Term.mk_implies
-            [ trans_actlit ;
-              TransSys.invars_of_bound system kp1 ]
-          |> Solver.assert_term solver ;
+          (* Unrolling base solver at [k+1]. *)
+          unroll_solver base_solver system actlit kp1 ;
+          (* Unrolling step solver at [k+2]. *)
+          unroll_solver step_solver system actlit Numeral.(succ kp1) ;
 
           (* Building new value for [system] in [systems]. *)
-          kp1, init_actlit, trans_actlit, trivial_actlit)
+          kp1, actlit)
   ) ;
 
   check_consistency lsd "unroll_sys" ;
@@ -204,22 +312,36 @@ let unroll_sys ({ systems ; solver ; last_k } as lsd) system =
 (* Creates a lsd instance. *)
 let create two_state top_only sys =
 
-  (* Creating solver. *)
-  let solver =
+  (* Solvers. *)
+  let base_solver, step_solver, pruning_solver =
+    TransSys.get_logic sys
+    |> Solver.new_solver ~produce_assignments: true,
+    TransSys.get_logic sys
+    |> Solver.new_solver ~produce_assignments: true,
     TransSys.get_logic sys
     |> Solver.new_solver ~produce_assignments: true
   in
 
-  (* Defining things. *)
-  TransSys.iter_uf_definitions sys (Solver.define_fun solver) ;
+  let minus_one = Numeral.(~- one) in
 
-  (* Declaring init flag. *)
-  TransSys.init_flag_var Numeral.(~- one)
-  |> Var.unrolled_uf_of_state_var_instance
-  |> Solver.declare_fun solver ;
-  TransSys.init_flag_var Numeral.zero
-  |> Var.unrolled_uf_of_state_var_instance
-  |> Solver.declare_fun solver ;
+  let init_solver solver =
+    TransSys.init_flag_uf Numeral.(~- one)
+    |> Solver.declare_fun solver ;
+    TransSys.init_flag_uf Numeral.zero
+    |> Solver.declare_fun solver ;
+  in
+
+  init_solver base_solver ;
+  init_solver step_solver ;
+  TransSys.init_flag_uf Numeral.one
+  |> Solver.declare_fun step_solver ;
+  init_solver pruning_solver ;
+  TransSys.init_flag_uf Numeral.one
+  |> Solver.declare_fun pruning_solver ;
+
+  (* declare_init_flag base_solver minus_one Numeral.zero ; *)
+  (* declare_init_flag step_solver minus_one Numeral.one ; *)
+  (* declare_init_flag pruning_solver minus_one Numeral.one ; *)
 
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)
@@ -237,68 +359,26 @@ let create two_state top_only sys =
               everything up in the solver and recursing on its kids
               and the tail of unvisited sys if not it top mode. *)
 
-           (* Fresh actlit for init predicate. *)
-           let init_actlit = Actlit.fresh_actlit () in
-           (* Declaring it. *)
-           Solver.declare_fun solver init_actlit ;
-           (* Term version. *)
-           let init_actlit_term =
-             Actlit.term_of_actlit init_actlit
-           in
+           (* Getting a fresh actlit for [sys]. *)
+           let actlit = Actlit.fresh_actlit () in
 
-           (* Fresh actlit for transition predicates. *)
-           let trans_actlit = Actlit.fresh_actlit () in
-           (* Declaring it. *)
-           Solver.declare_fun solver trans_actlit ;
-           (* Term version. *)
-           let trans_actlit_term =
-             Actlit.term_of_actlit trans_actlit
-           in
+           (* Setting up base. *)
+           (base_solver, sys, actlit)
+           |> common_setup |> base_setup ;
 
-           (* Declaring unrolled vars. *)
-           TransSys.declare_vars_of_bounds_no_init
-             sys
-             (Solver.declare_fun solver)
-             Numeral.(~- one) Numeral.zero ;
-           
-           (* Conditionally asserting the initial constraint. *)
-           Term.mk_implies
-             [ init_actlit_term ;
-               TransSys.init_of_bound sys Numeral.zero ]
-           |> Solver.assert_term solver ;
+           (* Setting up step. *)
+           (step_solver, sys, actlit)
+           |> common_setup |> step_setup ;
 
-           (* Conditionally asserting invariants of the system at
-              0. *)
-           Term.mk_implies
-             [ trans_actlit_term ;
-               TransSys.invars_of_bound sys Numeral.zero ]
-           |> Solver.assert_term solver ;
+           (* Setting up pruning. *)
+           (pruning_solver, sys, actlit)
+           |> common_setup |> pruning_setup ;
 
-           (* Fresh actlit for trivial invariant pruning. *)
-           let trivial_actlit = Actlit.fresh_actlit () in
-           (* Declaring it. *)
-           Solver.declare_fun solver trivial_actlit ;
-           (* Term version. *)
-           let trivial_actlit_term =
-             Actlit.term_of_actlit trivial_actlit
-           in
-
-           (* Declaring implication between trivial actlit and
-              transition relation. *)
-           Term.mk_implies
-             [ trivial_actlit_term ;
-               Term.mk_and
-                 [ TransSys.trans_of_bound sys Numeral.one ;
-                   TransSys.invars_of_bound sys Numeral.zero ;
-                   TransSys.invars_of_bound sys Numeral.one ] ]
-           |> Solver.assert_term solver ;
+           let actlit_term = Actlit.term_of_actlit actlit in
 
            (* Updating the map of all systems. *)
            let all_sys' =
-             (sys, (Numeral.zero,
-                    init_actlit_term,
-                    trans_actlit_term,
-                    trivial_actlit_term)) :: all_sys
+             (sys, (Numeral.zero, actlit_term)) :: all_sys
            in
 
            if top_only then
@@ -319,9 +399,11 @@ let create two_state top_only sys =
   (* Constructing the lsd context. *)
   let lsd =
     { systems ;
-      solver ;
-      two_state ;
-      last_k = Numeral.zero }
+      base_solver ;
+      step_solver ;
+      pruning_solver ;
+      last_k = Numeral.zero ;
+      two_state }
   in
 
   if two_state then
@@ -332,20 +414,12 @@ let create two_state top_only sys =
   lsd
 
 
-(* Deletes the lsd solver. *)
-let delete { solver } = Solver.delete_solver solver
-
-
-let get_k { systems } system =
-  let k, _, _, _ = List.assq system systems in k
-
-
 let query_base
-      { systems ; solver ; two_state }
+      { systems ; base_solver ; two_state }
       system terms_to_check =
 
   (* Getting the system info. *)
-  let k, init_actlit, trans_actlit, _ =
+  let k, sys_actlit =
     List.assq system systems
   in
 
@@ -353,14 +427,14 @@ let query_base
     "query_base at %i for [%s]."
     (Numeral.to_int k)
     (TransSys.get_scope system |> String.concat "/")
-  |> Solver.trace_comment solver ;
+  |> Solver.trace_comment base_solver ;
 
   (* Fresh actlit for the check (as a term). *)
   let actlit =
     (* Uf version. *)
     let actlit_uf = Actlit.fresh_actlit () in
     (* Declaring it. *)
-    Solver.declare_fun solver actlit_uf ;
+    Solver.declare_fun base_solver actlit_uf ;
     (* Term version. *)
     Actlit.term_of_actlit actlit_uf
   in
@@ -375,7 +449,7 @@ let query_base
       (* Bumping it. *)
       |> Term.bump_state k ]
   (* Asserting implication. *)
-  |> Solver.assert_term solver ;
+  |> Solver.assert_term base_solver ;
 
   (* Function to run if sat. *)
   let if_sat () =
@@ -388,7 +462,7 @@ let query_base
       (if two_state then Numeral.pred k else k)
       k
     (* Getting their value. *)
-    |> Solver.get_model solver
+    |> Solver.get_model base_solver
     (* Bumping to -k. *)
     |> List.map
          ( fun (v,t) ->
@@ -408,13 +482,13 @@ let query_base
   (* Checksat-ing. *)
   let result =
     Solver.check_sat_assuming
-      solver
-      if_sat if_unsat [ actlit ; init_actlit ; trans_actlit ]
+      base_solver
+      if_sat if_unsat [ actlit ; sys_actlit ]
   in
 
   (* Deactivating actlit. *)
   Term.mk_not actlit
-  |> Solver.assert_term solver ;
+  |> Solver.assert_term base_solver ;
 
   (* Returning result. *)
   result
@@ -607,47 +681,51 @@ let rec prune_trivial
    from [terms_to_check] which are unfalsifiable in the [k]-induction
    step instance. *)
 let increment_and_query_step
-      ({ systems ; solver ; two_state } as lsd)
+      ({ systems ; step_solver ; pruning_solver ; two_state } as lsd)
       system
       terms_to_check =
 
   (* Getting system info. *)
-  let k, _, trans_actlit, trivial_actlit = List.assq system systems in
+  let k, actlit = List.assq system systems in
 
-  (* Unrolling [system] one step further. *)
-  unroll_sys lsd system ;
-
-  Printf.sprintf
-    "prune_trivial for [%s]."
-    (TransSys.get_scope system |> String.concat "/")
-  |> Solver.trace_comment solver ;
+  name system
+  |> Printf.sprintf
+       "prune_trivial for [%s]."
+  |> Solver.trace_comment pruning_solver ;
 
   let not_trivial, trivial =
     (* Pruning direct consequences of the transition relation if
           the flag requests it. *)
     if Flags.invgengraph_prune_trivial () then
       prune_trivial
-        solver [] trivial_actlit terms_to_check
+        pruning_solver [] actlit terms_to_check
     else terms_to_check, []
   in
 
   match not_trivial with
   | [] ->
+     (* Unrolling system. *)
+     unroll_sys lsd system ;
+     
      [], trivial
   | _ ->
 
-     Printf.sprintf
-       "query_step at %i for [%s]."
-       (Numeral.to_int k)
-       (TransSys.get_scope system |> String.concat "/")
-     |> Solver.trace_comment solver ;
+     name system
+     |> Printf.sprintf
+          "query_step at %i for [%s]."
+          (Numeral.to_int k)
+     |> Solver.trace_comment step_solver ;
 
      let invariants =
        (* Splitting terms. *)
-       split_closure solver two_state trans_actlit k [] not_trivial
+       split_closure
+         step_solver two_state actlit k [] not_trivial
        (* Discarding falsifiable terms. *)
        |> snd
      in
+
+     (* Unrolling system. *)
+     unroll_sys lsd system ;
 
      invariants, trivial
 

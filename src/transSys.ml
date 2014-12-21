@@ -29,6 +29,9 @@ let init_flag_svar =
 (* Instantiate init flag at k *)
 let init_flag_var = Var.mk_state_var_instance init_flag_svar
 
+let init_flag_uf k =
+  init_flag_var k |> Var.unrolled_uf_of_state_var_instance
+
 (* Tests if a var is an instanciation of the init_flag. *)
 let is_var_init_flag var =
   Var.state_var_of_state_var_instance var == init_flag_svar
@@ -824,7 +827,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
   system
 
 (* Return the variables of the transition system between given instants *)
-let rec vars_of_bounds' state_vars lbound ubound accum = 
+let rec vars_of_bounds' state_vars lbound ubound accum =
 
   (* Return when upper bound below lower bound *)
   if Numeral.(ubound < lbound)
@@ -840,16 +843,21 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
          accum
 
     (* Recurse to next lower bound *)
-    |> vars_of_bounds' state_vars lbound (Numeral.pred ubound)
+    |> vars_of_bounds' state_vars lbound Numeral.(pred ubound)
 
-let vars_of_bounds trans_sys lbound ubound = 
+let vars_of_bounds trans_sys lbound ubound =
   vars_of_bounds' trans_sys.state_vars lbound ubound []
 
 let declare_vars_of_bounds_no_init sys declare lbound ubound =
   vars_of_bounds'
-    (sys.state_vars |> List.filter (fun sv -> sv != init_flag_svar))
+    (sys.state_vars |> List.tl)
     lbound ubound []
   |> Var.declare_vars declare
+
+
+(* Declares variables of the transition system between two offsets. *)
+let declare_vars_of_bounds t declare lbound ubound =
+  vars_of_bounds t lbound ubound |> Var.declare_vars declare
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -1291,6 +1299,24 @@ let iter_uf_definitions t f =
   uf_defs_pairs t
   |> List.iter 
        (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt)
+
+(* Define uf definitions, declare constant state variables and declare
+   variables from [lbound] to [upbound]. *)
+let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
+  ( match t.callers with
+    | [] ->
+       (* Define ufs. *)
+       iter_uf_definitions t define ;
+    | _ -> () ) ;
+
+  let l_vars = vars_of_bounds t lbound lbound in
+
+  (* Declaring constant variables. *)
+  Var.declare_constant_vars declare l_vars ;
+
+  (* Declaring other variables. *)
+  declare_vars_of_bounds t declare lbound ubound
+  
   
 
 (* Extract a path in the transition system, return an association list
@@ -1404,12 +1430,6 @@ let rec exists_eval_on_path' uf_defs p term k path =
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
   exists_eval_on_path' uf_defs pred term Numeral.zero path
-
-
-(* Declares variables of the transition system between two offsets. *)
-let declare_vars_of_bounds t declare lbound ubound =
-  vars_of_bounds t lbound ubound
-  |> Var.declare_vars declare
 
 
 (* 

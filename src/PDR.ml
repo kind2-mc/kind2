@@ -2722,9 +2722,13 @@ let main trans_sys =
 
   (* Declare uninterpreted function symbols *)
   (* TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init); *)
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_init)
+    (S.declare_fun solver_init)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save solver instance for clean exit *)
   ref_solver_init := Some solver_init;
@@ -2763,11 +2767,13 @@ let main trans_sys =
   (* TransSys.iter_state_var_declarations  *)
   (*   trans_sys  *)
   (*   (S.declare_fun solver_frames); *)
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions 
-    trans_sys 
-    (S.define_fun solver_frames);
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_frames)
+    (S.declare_fun solver_frames)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save solver instance for clean exit *)
   ref_solver_frames := Some solver_frames;
@@ -2794,11 +2800,13 @@ let main trans_sys =
   (* TransSys.iter_state_var_declarations  *)
   (*   trans_sys *)
   (*   (S.declare_fun solver_misc); *)
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans_sys
-    (S.define_fun solver_misc);
+    (S.define_fun solver_misc)
+    (S.declare_fun solver_misc)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save Solver instance for clean exit *)
   ref_solver_misc := Some solver_misc;

@@ -123,6 +123,8 @@ val init_flag_svar: StateVar.t
 
 (** Instantiate init flag at k *)
 val init_flag_var: Numeral.t -> Var.t
+
+val init_flag_uf: Numeral.t -> UfSymbol.t
                                   
 (** Tests if a var is an instanciation of the init_flag. *)
 val is_var_init_flag: Var.t -> bool
@@ -263,8 +265,17 @@ val all_props_proved : t -> bool
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
   
-(** Apply [f] to all function definitions of the transition system *)
-val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit
+(* (\** Apply [f] to all function definitions of the transition system *\) *)
+(* val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit *)
+                                                                 
+(** Define uf definitions, declare constant state variables and declare
+    variables from [lbound] to [upbound]. *)
+val init_define_fun_declare_vars_of_bounds :
+      t ->
+      (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+      (UfSymbol.t -> unit) ->
+      Numeral.t -> Numeral.t ->
+      unit
 
 
 (** Extract a path in the transition system, return an association
