@@ -30,6 +30,7 @@ module S = SolverMethods.Make (PDRSolver)
 type actlit_type = 
   | Actlit_p0  (* positive unprimed *)
   | Actlit_n0  (* negative unprimed *)
+  | Actlit_p1  (* positive primed *)
   | Actlit_n1  (* negative primed *)
 
 
@@ -37,6 +38,7 @@ type actlit_type =
 let tag_of_actlit_type = function 
   | Actlit_p0 -> "p0"
   | Actlit_n0 -> "n0"
+  | Actlit_p1 -> "p1"
   | Actlit_n1 -> "n1"
 
 
@@ -49,6 +51,9 @@ let term_for_actlit_type term = function
   (* Negate term *)
   | Actlit_n0 -> Term.negate term 
 
+  (* Prime term *)
+  | Actlit_p1 -> Term.bump_state Numeral.one term
+
   (* Negate and prime term *)
   | Actlit_n1 -> Term.bump_state Numeral.one term |> Term.negate 
 
@@ -60,6 +65,9 @@ type clause =
     
     (* Activation literal for positive, unprimed conjunction of properties *)
     actlit_p0 : Term.t;
+
+    (* Activation literal for positive, unprimed conjunction of properties *)
+    actlit_p1 : Term.t;
 
     (* Activation literal for negated, unprimed conjunction of properties *)
     actlit_n0 : Term.t;
@@ -81,6 +89,9 @@ let term_of_clause { literals } = Term.mk_or literals
 
 (* Activation literal for positve, unprimed clause *)
 let actlit_p0_of_clause { actlit_p0 } = actlit_p0
+
+(* Activation literal for positve, unprimed clause *)
+let actlit_p1_of_clause { actlit_p1 } = actlit_p1
 
 (*
 (* Activation literal for negative, unprimed clause *)
@@ -210,13 +221,13 @@ let clause_of_literals solver parent literals =
   let term = Term.mk_or literals in
 
   (* Create activation literals for terms *)
-  let (actlit_p0, actlit_n0, actlit_n1) =
+  let (actlit_p0, actlit_n0, actlit_p1, actlit_n1) =
     let mk = create_and_assert_fresh_actlit solver "clause" term in
-    mk Actlit_p0,  mk Actlit_n0, mk Actlit_n1
+    mk Actlit_p0,  mk Actlit_n0, mk Actlit_p1, mk Actlit_n1
   in
 
   (* Return clause with activation literals *)
-  { actlit_p0; actlit_n0; actlit_n1; literals; parent }
+  { actlit_p0; actlit_n0; actlit_p1; actlit_n1; literals; parent }
 
 
 (* Number of property sets considered *)
@@ -243,13 +254,14 @@ let actlits_of_prop_set solver props =
   let literals = [term] in
 
   (* Create activation literals for terms *)
-  let (actlit_p0, actlit_n0, actlit_n1) =
+  let (actlit_p0, actlit_n0, actlit_p1, actlit_n1) =
     let mk = create_and_assert_fresh_actlit solver "prop" term in
-    (mk Actlit_p0, mk Actlit_n0, mk Actlit_n1)
+    (mk Actlit_p0, mk Actlit_n0, mk Actlit_p1, mk Actlit_n1)
   in
 
   (* Return together with clause with activation literals *)
-  { clause = { actlit_p0; actlit_n0; actlit_n1; literals; parent = None } ;
+  { clause = 
+      { actlit_p0; actlit_n0; actlit_p1; actlit_n1; literals; parent = None } ;
     props }
 
 
@@ -3573,6 +3585,13 @@ let rec strengthen solver trans_sys prop_set =
            "strengthen: Check if all successors of R_%d are safe."
            (List.length frames));
 
+      let block_trace = 
+        [clause_of_literals 
+           solver
+           None
+           [term_of_clause prop_set.clause |> Term.negate]]
+      in
+
       match 
 
         (try
@@ -3590,8 +3609,14 @@ let rec strengthen solver trans_sys prop_set =
 
          with Bad_state_reachable -> 
 
-           raise (Counterexample [prop_set.clause])
+           (S.trace_comment
+              solver
+              "strengthen: bad state is reachable.";
 
+           raise 
+             (Counterexample block_trace)
+
+           )
         )
 
       with
@@ -3628,7 +3653,7 @@ let rec strengthen solver trans_sys prop_set =
               trans_sys 
               prop_set
               ()
-              [([block_clause, [prop_set.clause]], r_k)] 
+              [([block_clause, block_trace], r_k)] 
               frames_tl
           in
 
@@ -4115,7 +4140,9 @@ let rec pdr solver trans_sys prop_set frames =
   (* No reachable state violates the property, continue with next k *)
   pdr solver trans_sys prop_set frames''
 
-
+(* Get a values for the state variables at offset [i], add values to
+   path, and return an equational constraint at offset zero for values
+   from the model *)
 let add_to_path get_model state_vars path i = 
 
   (* Get a model for the variables at instant [i] *)
@@ -4127,10 +4154,7 @@ let add_to_path get_model state_vars path i =
          state_vars)
   in
   
-  (* Turn variable instances to state variables and sort list 
-     
-     TODO: It is not necessary to sort the list, if the SMT solver
-     returns the list in the order it was input. *)
+  (* Turn variable instances to state variables and sort list *)
   let model_i' =
     List.sort
       (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
@@ -4147,6 +4171,8 @@ let add_to_path get_model state_vars path i =
       path
   in
 
+  (* Conjunction of equations to constrain previous state to be equal
+     to unprimed state in model *)
   let state = 
     List.map 
       (fun (v, t) -> 
@@ -4160,74 +4186,121 @@ let add_to_path get_model state_vars path i =
     |> Term.mk_and
   in
   
+  (* Return path with state added and constraint for state *)
   (path', state)
 
 
-(* 
-
-   TODO: Extract without unrolling the transition relation from a
-   sequence of blocking clauses given with their activation
-   literals. *)
+(* Extract a concrete counterexample from a sequence of blocking
+   clauses *)
 let extract_cex_path solver trans_sys trace = 
 
+  (* State variables of the transition system*)
   let state_vars = TransSys.state_vars trans_sys in
 
+  S.trace_comment
+    solver
+    "extract_cex_path: extracting concrete counterexample trace.";
+
+  (* Find a state in the head of the sequence of blocking clauses and
+     add to the path. Use the activation literal [pre_state] to
+     constrain the previous state to the one in the path. *)
   let rec extract_cex_path' path pre_state = function
     
-    (* Counterexamples have at least two states *)
-    | [] -> assert false
+    | [] -> 
+
+      (* Return trace in order *)
+      List.map 
+        (fun (sv, vl) -> (sv, List.rev vl))
+        path
       
-    (* Two successive Blocking clauses *)
+    (* Take first blocking clause *)
     | r_i :: tl -> 
       
-      (* Find a pair of states satisfying the *)
+      (* Find a state in the blocking clause, starting from the given
+         state *)
       S.check_sat_assuming
         solver
 
         (fun () -> 
            
-           (* Add unprimed state to path *)
+           (* Add primed state to path, get equational constraint for
+              state *)
            let path', state = 
              add_to_path
                (S.get_model solver)
                state_vars
                path
-               Numeral.zero
+               Numeral.one
            in
 
-           (* At the end of the sequence of blocking clauses *)
-           match tl with 
-
-             | [] -> 
-
-               (* Add primed path to path *)
-               add_to_path
-                 (S.get_model solver)
-                 state_vars
-                 path
-                 Numeral.one
-               |> fst
-
-             | _ -> 
-
-               (* Clause with activation literal to constrain path *)
-               
-
-
-               (* Recurse to continue path out of succeeding blocking
-                  clause *)
-               extract_cex_path' path' state (r_i :: tl)
-
-        )
+           (* Activation literal for state *)
+           let actlit_p0_state =
+             create_and_assert_fresh_actlit
+               solver
+               "cex_path"
+               state
+               Actlit_p0
+           in
+           
+           (* Recurse to continue path out of succeeding blocking
+              clause *)
+           extract_cex_path' path' actlit_p0_state tl)
         
         (* Counterexample trace must be satisfiable *)
         (fun _ -> assert false)
         
-        [actlit_p0_of_clause r_i; pre_state]
+        (* Assume previous state and blocking clause *)
+        [pre_state; actlit_p1_of_clause r_i]
         
   in
 
-  extract_cex_path' [] (actlit_of_frame 0 |> snd) trace
+  (* Start path from initial state into first blocking clause, get
+     activation literal for state in R_1 *)
+  let init_path, state_init = 
+    match trace with 
+
+      (* Must have at lease one state *)
+      | [] -> assert false
+
+      (* First blocking clause is successor of initial state *)
+      | r_1 :: _ -> 
+
+        (* Find an initial state with the first blocking clause as
+           successor *)
+        S.check_sat_assuming 
+          solver
+
+          (fun () ->
+
+             (* Add unprimed state to empty path, get equational
+                constraint for state *)
+             add_to_path
+               (S.get_model solver)
+               state_vars
+               []
+               Numeral.zero)
+
+          (* Counterexample trace must be satisfiable *)
+          (fun _ -> assert false)
+
+          (* Assyme initial state and blocking clause *)
+          [actlit_of_frame 0 |> snd; actlit_p1_of_clause r_1]
+
+  in
+
+  (* Activation literal for state *)
+  let actlit_p0_state_init =
+    create_and_assert_fresh_actlit
+      solver
+      "cex_path"
+      state_init
+      Actlit_p0
+  in
+
+  (* Extract concrete counterexample starting in a state leading to
+     the first blocking clause *)
+  extract_cex_path' init_path actlit_p0_state_init trace
+
 
 (* 
 
