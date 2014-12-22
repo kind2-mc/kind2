@@ -90,7 +90,7 @@ module type Conv =
 
     val smtsort_of_type : Type.t -> sort
 
-    val smtexpr_of_var : (UfSymbol.t -> unit) -> Var.t -> t
+    val smtexpr_of_var : Var.t -> t
 
     val type_of_string_sexpr : HStringSExpr.t -> sort
                                                    
@@ -110,9 +110,9 @@ module type Conv =
 
     val string_of_expr : t -> string
 
-    val smtexpr_of_term : (UfSymbol.t -> unit) -> t -> t
+    val smtexpr_of_term : t -> t
 
-    val quantified_smtexpr_of_term : (UfSymbol.t -> unit) -> bool -> Var.t list -> t -> t
+    val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
 
     val var_of_smtexpr : t -> Var.t
 
@@ -145,7 +145,8 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
 
 
-    let pp_print_term ppf t =  Term.T.pp_print_term_w Driver.pp_print_symbol ppf t
+    let pp_print_term ppf t =
+      Term.T.pp_print_term_w Driver.pp_print_symbol ppf t
         
     
     
@@ -475,29 +476,17 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
     let rec smtsort_of_type t = interpr_type t
 
 
+
     (* Convert a variable to an SMT expression *)
-    let smtexpr_of_var declare var =
+    let smtexpr_of_var var =
 
       (* Building the uf application. *)
       Term.mk_uf
         (* Getting the unrolled uf corresponding to the state var
            instance. *)
-        (Var.unrolled_uf_of_state_var_instance var declare)
+        (Var.unrolled_uf_of_state_var_instance var)
         (* No arguments. *)
         []
-
-
-    (* Convert a variable to an SMT expression *)
-    let smtexpr_of_var declare var =
-
-      (* Building the uf application. *)
-      Term.mk_uf
-        (* Getting the unrolled uf corresponding to the state var
-           instance. *)
-        (Var.unrolled_uf_of_state_var_instance var declare)
-        (* No arguments. *)
-        []
-
 
     (* Convert an SMT expression to a variable *)
     let rec var_of_smtexpr e = 
@@ -563,7 +552,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
 
   (* Convert a term to an SMT expression *)
-  let quantified_smtexpr_of_term declare quantifier vars term = 
+  let quantified_smtexpr_of_term quantifier vars term = 
 
       (* Map all variables to temporary variables and convert types to SMT
      sorts, in particular convert IntRange types to Ints *)
@@ -615,7 +604,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
               uninterpreted function *)
            (try 
               Term.mk_var (List.assq v var_to_temp_var) 
-            with Not_found -> smtexpr_of_var declare v)
+            with Not_found -> smtexpr_of_var v)
 
          (* Change divisibility symbol to modulus operator *)
          | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
@@ -636,18 +625,18 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
 
   (* Convert an expression from the SMT solver to a term *)
-  let smtexpr_of_term declare term = 
-  quantified_smtexpr_of_term declare false [] term
+  let smtexpr_of_term term = 
+    quantified_smtexpr_of_term false [] term
 
-    (* Pretty-print a custom argument *)
-    let pp_print_custom_arg ppf = function 
+  (* Pretty-print a custom argument *)
+  let pp_print_custom_arg ppf = function 
     | ArgString s -> Format.pp_print_string ppf s
     | ArgExpr e -> pp_print_expr ppf e
                      
 
-    (* Return a string representation of a custom argument *)
-    let string_of_custom_arg t = 
-      string_of_t pp_print_custom_arg t
+  (* Return a string representation of a custom argument *)
+  let string_of_custom_arg t = 
+    string_of_t pp_print_custom_arg t
 
 
 

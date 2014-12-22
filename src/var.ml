@@ -408,76 +408,76 @@ let unrolled_var_map = ref StringMap.empty
 (* Adds a mapping between [string] and [var]. Returns [true] if
    [string] was already bound in the map. *)
 let update_unrolled_var_map string var =
-  if StringMap.mem string !unrolled_var_map then false
-  else (
-    unrolled_var_map :=
-      StringMap.add string var !unrolled_var_map ;
-    true
-  )
+  unrolled_var_map := StringMap.add string var !unrolled_var_map
 (* Looks for the value associated to [string]. *)
 let find_unrolled_var_map string =
   StringMap.find string !unrolled_var_map
 
-(* The constant uf representing an unrolled state var instance. *)
-let unrolled_uf_of_state_var_instance var declare =
-  debug var "Unrolling." in
-  match var with
-
-    | { Hashcons.node = StateVarInstance (v, o) } ->
-
-      (* Getting the uf symbol of the state var. *)
-      let uf = StateVar.uf_symbol_of_state_var v in
-
-      (* Building the string representing the unrolled state var. *)
-      let string =
-        String.concat
-          "@"
-          [ UfSymbol.name_of_uf_symbol uf ;
-          (* String representation of the offset. *)
-            Numeral.string_of_numeral o ]
-      in
-
-      (* Updating the map if necessary. *)
-      let undeclared =
-        update_unrolled_var_map string var
-      in
-      
-      (* Creating the uf. *)
-      let uf = UfSymbol.(
-        mk_uf_symbol
-          string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf))
-      in
-
-      (* Declaring the uf if necessary. *)
-      if undeclared then declare uf ;
-
-      (* Returning the unrolled uf. *)
-      uf
-
-    | { Hashcons.node = ConstStateVar sv } ->
+let unrolled_uf_of_state_var_instance = function
+  | ({ Hashcons.node = ConstStateVar sv } as var) ->
 
       (* Getting the uf symbol of the state var. *)
       let uf = StateVar.uf_symbol_of_state_var sv in
 
-      debug var "Checking if [%a] is declared" pp_print_var var in
-
-      (* Updating the map if necessary. *)
-      let undeclared =
-        update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var
-      in
-
-      (* Declaring the uf if necessary. *)
-      if undeclared then declare uf ;
+      (* Updating the map. *)
+      update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var ;
 
       uf
 
-    | { Hashcons.node = TempVar _ } -> 
-      raise (Invalid_argument "unrolled_uf_of_state_var_instance")
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var) ->
 
-let declare_vars declare =
-  List.iter
-    (fun var -> unrolled_uf_of_state_var_instance var declare
-        |> ignore)
+     (* Getting the uf symbol of the state var. *)
+     let uf = StateVar.uf_symbol_of_state_var v in
+
+     (* Building the string representing the unrolled state var. *)
+     let string =
+       String.concat
+         "@"
+         [ UfSymbol.name_of_uf_symbol uf ;
+           (* String representation of the offset. *)
+           Numeral.string_of_numeral o ]
+     in
+
+     (* Updating the map. *)
+     update_unrolled_var_map string var ;
+     
+     (* Declaring the uf. *)
+     UfSymbol.(
+       mk_uf_symbol
+         string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
+     )
+
+(* Declares constant variables as constant ufsymbols using the
+    provided function. *)
+let rec declare_constant_vars declare = function
+  | ({ Hashcons.node = ConstStateVar sv } as var) :: tail ->
+
+      (* Declaring the uf. *)
+      declare (unrolled_uf_of_state_var_instance var) ;
+
+      (* Looping. *)
+      declare_constant_vars declare tail
+
+  | _ :: tail -> declare_constant_vars declare tail
+
+  | [] -> ()
+
+(* Declares non constant variables as constant ufsymbols using the
+    provided function. *)
+let rec declare_vars declare = function
+
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var)
+    :: tail ->
+     
+     (* Declaring the uf. *)
+     declare (unrolled_uf_of_state_var_instance var) ;
+
+     (* Looping. *)
+     declare_vars declare tail
+
+  | _ :: tail -> declare_vars declare tail
+
+  | [] -> ()
 
 (* Gets the state var instance associated with a unrolled
    symbol. Throws [Not_found] if the sym is unknown. *)
@@ -485,7 +485,7 @@ let state_var_instance_of_symbol sym =
   Symbol.string_of_symbol sym |> find_unrolled_var_map
 
 
-(* 
+(*
    Local Variables:
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"

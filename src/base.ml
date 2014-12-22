@@ -327,14 +327,12 @@ let init trans =
      |> SMTSolver.declare_fun solver)
     unknowns ;
 
-  (* Declaring variables at 0. *)
-  TransSys.declare_vars_of_bounds
-    trans (SMTSolver.declare_fun solver) Numeral.zero Numeral.zero ;
-
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (SMTSolver.define_fun solver) ;
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero

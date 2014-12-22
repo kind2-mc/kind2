@@ -153,7 +153,7 @@ let assert_term s term =
   let module S = (val s.solver_inst) in
 
   (* Convert term to SMT expression *)
-  let expr = S.Conv.smtexpr_of_term (declare_fun s) term in
+  let expr = S.Conv.smtexpr_of_term term in
 
   (* Assert SMT expression in solver instance and fail on error *)
   fail_on_smt_error (S.assert_expr expr)
@@ -260,7 +260,7 @@ let get_model s vars =
 
   match 
     (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map (S.Conv.smtexpr_of_var (declare_fun s)) vars)
+    prof_get_value s (List.map S.Conv.smtexpr_of_var vars)
   with 
   | `Error e -> 
       raise 
@@ -276,7 +276,7 @@ let get_values s terms =
 
   match 
     (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map (S.Conv.smtexpr_of_term (declare_fun s)) terms) 
+    prof_get_value s (List.map S.Conv.smtexpr_of_term terms) 
   with 
   | `Error e -> 
     raise 

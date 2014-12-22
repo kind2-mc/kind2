@@ -645,10 +645,13 @@ let launch trans =
 
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
-
-  (* Declaring unrolled vars at 0. *)
-  TransSys.declare_vars_of_bounds
-    trans (SMTSolver.declare_fun solver) Numeral.zero Numeral.zero ;
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
 
   (* Declaring positive actlits. *)
   List.iter
@@ -664,11 +667,6 @@ let launch trans =
     (* Declaring path compression function. *)
     Compress.init (SMTSolver.declare_fun solver) trans
   ) ;
-
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
-    trans
-    (SMTSolver.define_fun solver) ;
 
   (* Invariants of the system at 0. *)
   let invariants =

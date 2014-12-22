@@ -583,7 +583,7 @@ let assert_expr solver expr =
         Format.asprintf "[name removed: t%d]" name
       end
     else t, "" in
-  let expr = Conv.smtexpr_of_term (fun _ -> ()) t' in
+  let expr = Conv.smtexpr_of_term t' in
   
 
   let cmd = 
@@ -623,7 +623,7 @@ let assert_removable_expr solver expr =
                        YicesResponse.pp_print_yices_id id name
       end
     else t, Format.asprintf "[id: %a]" YicesResponse.pp_print_yices_id id in
-  let expr = Conv.smtexpr_of_term (fun _ -> ()) t' in
+  let expr = Conv.smtexpr_of_term t' in
   
 
   let cmd = 
@@ -779,7 +779,7 @@ let default_of_type solver ty =
   ty
   |> Type.node_of_type
   |> default_type_term
-  |> Conv.smtexpr_of_term (fun _ -> ())
+  |> Conv.smtexpr_of_term
 
 
 (* Check satisfiability of the asserted expressions *)

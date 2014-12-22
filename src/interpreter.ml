@@ -167,16 +167,13 @@ let main input_file trans_sys =
 
     (* Create a reference for the solver. Only used in on_exit. *)
     ref_solver := Some solver;
-
-    (* Declare uninterpreted function symbols *)
-    TransSys.iter_state_var_declarations
+    
+    (* Defining uf's and declaring variables. *)
+    TransSys.init_define_fun_declare_vars_of_bounds
       trans_sys
-      (SMTSolver.declare_fun solver);
-
-    (* Define functions *)
-    TransSys.iter_uf_definitions
-      trans_sys
-      (SMTSolver.define_fun solver);
+      (SMTSolver.define_fun solver)
+      (SMTSolver.declare_fun solver)
+      Numeral.(~- one) Numeral.(of_int steps) ;
 
     (* Assert initial state constraint *)
     SMTSolver.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
@@ -184,7 +181,7 @@ let main input_file trans_sys =
     (* Assert transition relation up to number of steps *)
     assert_trans solver trans_sys (Numeral.of_int steps);
 
-    (* Assert equation of state varariable and its value at each
+    (* Assert equation of state variable and its value at each
        instant *)
     List.iter
 

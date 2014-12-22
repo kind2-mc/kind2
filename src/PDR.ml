@@ -49,17 +49,6 @@ let ref_solver_frames = ref None
 (* Solver instance if created *)
 let ref_solver_misc = ref None
 
-let solvers_declare uf =
-  (match !ref_solver_init with
-    | Some solver -> SMTSolver.declare_fun solver uf
-    | None -> ()) ;
-  (match !ref_solver_frames with
-    | Some solver -> SMTSolver.declare_fun solver uf
-    | None -> ()) ;
-  match !ref_solver_misc with
-    | Some solver -> SMTSolver.declare_fun solver uf
-    | None -> ()
-
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
@@ -545,7 +534,7 @@ let find_cex
   debug pdr
       "@[<v>Current frames@,@[<hv>%a@]@]"
       Conv.pp_print_expr
-      (Conv.smtexpr_of_term solvers_declare (CNF.to_term frame))
+      (Conv.smtexpr_of_term (CNF.to_term frame))
   in
 
   (* Push a new scope to the context *)
@@ -2729,10 +2718,15 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  (* TransSys.iter_state_var_declarations trans_sys (SMTSolver.declare_fun solver_init); *)
 
-  (* Define functions *)
-  TransSys.iter_uf_definitions trans_sys (SMTSolver.define_fun solver_init);
+  (* TransSys.iter_state_var_declarations trans_sys (SMTSolver.declare_fun solver_init); *)
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (SMTSolver.define_fun solver_init)
+    (SMTSolver.declare_fun solver_init)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save solver instance for clean exit *)
   ref_solver_init := Some solver_init;
@@ -2771,11 +2765,13 @@ let main trans_sys =
   (* TransSys.iter_state_var_declarations  *)
   (*   trans_sys  *)
   (*   (SMTSolver.declare_fun solver_frames); *)
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions 
-    trans_sys 
-    (SMTSolver.define_fun solver_frames);
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (SMTSolver.define_fun solver_frames)
+    (SMTSolver.declare_fun solver_frames)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save solver instance for clean exit *)
   ref_solver_frames := Some solver_frames;
@@ -2802,11 +2798,13 @@ let main trans_sys =
   (* TransSys.iter_state_var_declarations  *)
   (*   trans_sys *)
   (*   (SMTSolver.declare_fun solver_misc); *)
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans_sys
-    (SMTSolver.define_fun solver_misc);
+    (SMTSolver.define_fun solver_misc)
+    (SMTSolver.declare_fun solver_misc)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save Solver instance for clean exit *)
   ref_solver_misc := Some solver_misc;

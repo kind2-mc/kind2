@@ -495,6 +495,9 @@ let rec next trans solver k unfalsifiables unknowns =
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
+
+     Printf.sprintf
+       "Unrolling step at %i." Numeral.(to_int k_p_1) ;
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
@@ -648,14 +651,12 @@ let launch trans =
     (* Declaring path compression function. *)
     Compress.init (SMTSolver.declare_fun solver) trans ;
 
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (SMTSolver.define_fun solver) ;
-
-  (* Declaring unrolled vars at 0. *)
-  TransSys.declare_vars_of_bounds
-    trans (SMTSolver.declare_fun solver) Numeral.zero Numeral.zero ;
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero
@@ -678,7 +679,9 @@ let main trans =
 
     Event.log 
       L_warn 
-      "@[<v>Inductive step without BMC will not be able to prove or disprove any properties.@,Use both options --enable BMC --enable IND together.@]";
+      "@[<v>Inductive step without BMC will not be able to prove or@ \
+       disprove any properties.@,\
+       Use both options --enable BMC --enable IND together.@]";
       
   launch trans
 
