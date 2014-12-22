@@ -10,7 +10,7 @@ let check_sat_assuming_supported () = failwith "Not implemented"
 
 (*-------------------------- Default values ------------------------------*)
 
-let headers = []
+let headers () = []
 
 let trace_extension = "smt2"
 

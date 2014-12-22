@@ -36,4 +36,4 @@ let check_sat_assuming_supported () = true
 
 let check_sat_assuming_cmd () = "check-sat"
 
-let headers = [ "(set-option :interactive-mode true)" ]
+let headers () = [ "(set-option :interactive-mode true)" ]

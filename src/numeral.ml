@@ -38,21 +38,12 @@ let one = Big_int.unit_big_int
 
 
 (* Pretty-print a numeral *)
-let pp_print_positive_numeral_sexpr ppf n =
-  assert (Big_int.ge_big_int n zero);
-  Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
-
-
 let pp_print_numeral_sexpr ppf n =
-  pp_print_positive_numeral_sexpr ppf n
-
-
-let pp_print_positive_numeral ppf n =
-  assert (Big_int.ge_big_int n zero);
   Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
+
 
 let pp_print_numeral ppf n =
-  pp_print_positive_numeral ppf n
+  Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
 
 
 (* Return a string representation of a numeral *)

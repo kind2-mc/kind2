@@ -72,6 +72,10 @@ val mathsat5_bin : unit -> mathsat5_bin
 type yices_bin = string
 val yices_bin : unit -> yices_bin
 
+(** Executable of Yices solver *)
+type yices_arith_only = bool
+val yices_arith_only : unit -> yices_arith_only
+
 (** Executable of Yices2 SMT2 solver *)
 type yices2smt2_bin = string
 val yices2smt2_bin : unit -> yices2smt2_bin

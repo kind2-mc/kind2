@@ -701,7 +701,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     
     let headers =
       "(set-option :print-success true)" ::
-      headers @
+      (headers ()) @
       [ 
         (* Format.sprintf "(set-option :produce-models %B)" produce_models :: *)
         Format.sprintf "(set-option :produce-assignments %B)" produce_assignments;

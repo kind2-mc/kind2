@@ -152,6 +152,8 @@ let register_model solver model =
       SMTExprMap.empty model in
   solver.solver_state <- YModel m
 
+
+
 (* ********************************************************************* *)
 (* Helper functions to execute commands                                  *)
 (* ********************************************************************* *)
@@ -431,9 +433,103 @@ let pp_print_lambda ppf (arg_vars, defn)  =
                  pp_print_bindings arg_vars
                  pp_print_expr defn
 
+(* Returns true if the symbol is in the combination of SAT U equality U linear
+   aritmetic *)
+let ensure_symbol_qf_lira s =
+  match Symbol.node_of_symbol s with
+  | `TRUE
+  | `FALSE
+  | `NOT
+  | `IMPLIES
+  | `AND
+  | `OR
+  | `XOR
+  | `EQ
+  | `DISTINCT
+  | `ITE
+  | `NUMERAL _
+  | `DECIMAL _
+  | `MINUS
+  | `PLUS
+  | `TIMES
+  | `DIV
+  | `LEQ
+  | `LT
+  | `GEQ
+  | `GT
+  | `TO_REAL
+  | `TO_INT
+  | `IS_INT
+  | `UF _
+    -> ()
+
+  (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
+
+  | `BV _
+  | `INTDIV
+  | `DIVISIBLE _
+  | `MOD
+  | `ABS
+  | `CONCAT
+  | `EXTRACT _
+  | `BVNOT
+  | `BVNEG
+  | `BVAND
+  | `BVOR
+  | `BVADD
+  | `BVMUL
+  | `BVDIV
+  | `BVUREM
+  | `BVSHL
+  | `BVLSHR
+  | `BVULT
+  | `SELECT
+  | `STORE
+    ->
+    let msg = Format.sprintf "Yices was run with set-arith-only, but the \
+                              symbol %s is out of the supported theories."
+        (Symbol.string_of_symbol s)
+    in
+    Event.log L_error "%s" msg;
+    failwith msg
 
 
 
+let rec ensure_lambda_qf_lira l =
+  let open Term.T in
+  match node_of_lambda l with
+  | L (_, t) -> ensure_term_qf_lira t
+  
+and ensure_term_qf_lira t =
+  let open Term.T in
+  match node_of_t t with
+  | FreeVar _ | BoundVar _ -> ()
+  | Leaf s -> ensure_symbol_qf_lira s
+  | Node (s, a) ->
+    ensure_symbol_qf_lira s;
+    List.iter ensure_term_qf_lira a
+  | Let (lam, a) ->
+    ensure_lambda_qf_lira lam;
+    List.iter ensure_term_qf_lira a
+  | Exists lam | Forall lam -> ensure_lambda_qf_lira lam
+  | Annot (t, _) -> ensure_term_qf_lira t
+
+let fail_when_arith t =
+  if Flags.yices_arith_only () then ensure_term_qf_lira t
+
+
+let fail_symbol_when_arith s =
+  if Flags.yices_arith_only () then ensure_symbol_qf_lira s    
+
+let fail_declare_when_arith f arg_sorts res_sort =
+  if Flags.yices_arith_only () && arg_sorts <> [] then
+    let msg = Format.asprintf "Yices was run with set-arith-only, but the \
+                               symbol %s has type %a."
+        f pp_print_function_type (arg_sorts, res_sort) in
+    Event.log L_error "%s" msg;
+    failwith msg
+
+    
 
 (* ********************************************************************* *)
 (* Commands                                                              *)
@@ -441,6 +537,8 @@ let pp_print_lambda ppf (arg_vars, defn)  =
 
 (* Declare a new function symbol *)
 let declare_fun solver fun_symbol arg_sorts res_sort = 
+
+  fail_declare_when_arith fun_symbol arg_sorts res_sort;
 
   let cmd = 
     Format.asprintf 
@@ -457,7 +555,7 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 
   (* Get type of arguments *)
   let arg_sorts = List.map Var.type_of_var arg_vars in
-  
+    
   let cmd =
     Format.asprintf
       "@[<hv 1>(define@ %s ::@ @[<hv 1>%a@]@ @[<hv 1>%a@])@]" 
@@ -473,6 +571,8 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 (* Assert the expression *)
 let assert_expr solver expr = 
 
+  fail_when_arith expr;
+  
   let t = expr in
   let t', name_info =
     if Term.is_named t then
@@ -506,6 +606,8 @@ let assert_expr solver expr =
 (* Assert a removable expression, costly *)
 let assert_removable_expr solver expr = 
 
+  fail_when_arith expr;
+  
   (* Take the next id *)
   let id = next_id solver in
   
@@ -702,7 +804,7 @@ let check_sat_assuming solver exprs =
 (* Check satisfiability of the asserted expressions *)
 let naive_check_sat_assuming solver exprs =
 
-  push solver 1;
+  ignore (push solver 1);
   let res =
     List.fold_left
       (fun acc expr -> assert_expr solver expr) `NoResponse exprs
@@ -713,7 +815,7 @@ let naive_check_sat_assuming solver exprs =
    | _ -> ());
   let res = check_sat ~timeout:0 solver in
   (* Remove assumed expressions from context while keeping state *)
-  pop solver 1;
+  ignore (pop solver 1);
   res
 
 
@@ -1027,7 +1129,7 @@ let create_instance
   in
 
   let header_logic = function
-    | `LIA | `LRA -> ["(set-arith-only! true)"]
+    | `LIA | `LRA | `QF_LIA | `QF_LRA | `QF_LIRA -> ["(set-arith-only! true)"]
     | _ -> []
   in
     
@@ -1035,7 +1137,7 @@ let create_instance
   let headers =
     (Format.sprintf "(set-evidence! %B)" evidence) ::
     (header_logic logic) @
-    headers
+    (headers ())
   in
   
   (* Print specific headers specifications *)

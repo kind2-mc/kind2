@@ -63,7 +63,7 @@ let pp_print_positive_decimal_sexpr ppf = function
 
 
 let pp_print_decimal_sexpr ppf d =
-  assert (Num.ge_num d zero);
+  (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal_sexpr ppf d
 
 
@@ -91,7 +91,7 @@ let pp_print_positive_decimal ppf = function
 
 
 let pp_print_decimal ppf d =
-  assert (Num.ge_num d zero);
+  (* assert (Num.ge_num d zero); *)
   pp_print_positive_decimal ppf d
 
 
