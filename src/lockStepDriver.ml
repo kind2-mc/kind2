@@ -52,33 +52,36 @@ type t = {
 
 let name = TransSys.get_name
 
-let shall_check_consistency = true
+let shall_check_consistency = false
 
 let check_consistency_sys solver k sys actlit called_by =
 
-  name sys
-  |> Printf.sprintf
-       "Checking consistency at %i for [%s]."
-       Numeral.(to_int k)
-  |> Solver.trace_comment solver ;
+  if shall_check_consistency then (
 
-  Solver.check_sat_assuming
-    solver
-    (fun () ->
-     (* Instance is sat for [sys], fine. *)
-     ())
-    (fun () ->
-     (* Instance is unsat, let's crash. *)
-     Event.log
-       L_info
-       "LSD @[<v>solver inconsistent at %i@ \
-        for system [%s].@ \
-        called by [%s].@]"
-       (Numeral.to_int k)
-       (TransSys.get_scope sys |> String.concat "/")
-       called_by ;
-     assert false)
-    [ actlit ]
+    name sys
+    |> Printf.sprintf
+         "Checking consistency at %i for [%s]."
+         Numeral.(to_int k)
+    |> Solver.trace_comment solver ;
+
+    Solver.check_sat_assuming
+      solver
+      (fun () ->
+       (* Instance is sat for [sys], fine. *)
+       ())
+      (fun () ->
+       (* Instance is unsat, let's crash. *)
+       Event.log
+         L_info
+         "LSD @[<v>solver inconsistent at %i@ \
+          for system [%s].@ \
+          called by [%s].@]"
+         (Numeral.to_int k)
+         (TransSys.get_scope sys |> String.concat "/")
+         called_by ;
+       assert false)
+      [ actlit ]
+  )
 
 (* Makes sure the solver of a lsd instance is consistent. *)
 let check_consistency
@@ -321,8 +324,6 @@ let create two_state top_only sys =
     TransSys.get_logic sys
     |> Solver.new_solver ~produce_assignments: true
   in
-
-  let minus_one = Numeral.(~- one) in
 
   let init_solver solver =
     TransSys.init_flag_uf Numeral.(~- one)
