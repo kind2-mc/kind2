@@ -63,14 +63,12 @@ let pp_print_positive_decimal_sexpr ppf = function
 
 
 let pp_print_decimal_sexpr ppf d =
-  if (Num.lt_num d zero) then
-    Format.fprintf ppf "@[<hv 1>(-@ %a)@]"
-      pp_print_positive_decimal_sexpr  (Num.minus_num d)
-  else pp_print_positive_decimal_sexpr ppf d
+  assert (Num.ge_num d zero);
+  pp_print_positive_decimal_sexpr ppf d
 
 
 (* Pretty-print a numeral as an S-expression *)
-let pp_print_decimal ppf = function
+let pp_print_positive_decimal ppf = function
 
   | Num.Int i -> Format.fprintf ppf "%d" i
 
@@ -90,6 +88,11 @@ let pp_print_decimal ppf = function
       "%s/%s" 
       (Big_int.string_of_big_int rn)
       (Big_int.string_of_big_int rd)
+
+
+let pp_print_decimal ppf d =
+  assert (Num.ge_num d zero);
+  pp_print_positive_decimal ppf d
 
 
 (* Return a string representation of a decimal *)

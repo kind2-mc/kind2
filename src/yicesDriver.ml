@@ -44,7 +44,7 @@ let check_sat_assuming_cmd _ =
 
 let headers = [
   (* Only use QF_LIRA *)
-  (* "(set-arith-only! true)"; *)
+  "(set-arith-only! true)";
   (* Define functions for int / real conversions *)
   "(define to_int::(-> x::real (subtype (y::int) (and (<= y x) (< x (+ y 1))))))";
   "(define to_real::(-> x::int (subtype (y::real) (= y x))))";
@@ -206,7 +206,7 @@ let reserved_word_list =
 
 
 (* Pretty-print a symbol *)
-let rec pp_print_symbol_node ppf = function 
+let rec pp_print_symbol_node ?arity ppf = function 
 
   | `TRUE -> Format.pp_print_string ppf "true"
   | `FALSE -> Format.pp_print_string ppf "false"
@@ -223,6 +223,9 @@ let rec pp_print_symbol_node ppf = function
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal ppf f
   | `BV b -> pp_yices_print_bitvector_b ppf b
+
+  (* Special case for unary minus : print -a as (- 0 a) *)
+  | `MINUS when arity = Some 1 -> Format.pp_print_string ppf "- 0"
 
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"
@@ -269,16 +272,11 @@ let rec pp_print_symbol_node ppf = function
 
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
+
 (* Pretty-print a hashconsed symbol *)
-and pp_print_symbol ppf s =
-  pp_print_symbol_node ppf (Symbol.node_of_symbol s)
+and pp_print_symbol ?arity ppf s =
+  pp_print_symbol_node ?arity ppf (Symbol.node_of_symbol s)
 
 
 (* Return a string representation of a hashconsed symbol *)
-let string_of_symbol s = string_of_t pp_print_symbol s
-
-
-(* Return a string representation of a symbol *)
-let string_of_symbol_node s = string_of_t pp_print_symbol_node s
-
-
+let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s

@@ -144,7 +144,7 @@ sig
 
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
-  val pp_print_term_w : (Format.formatter -> symbol -> unit) ->
+  val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   val stats : unit -> int * int * int * int * int * int
@@ -530,14 +530,14 @@ struct
     | { H.node = BoundVar db } -> Format.fprintf ppf "X%i" db
 
     (* Delegate printing of leaf to function in input module *)
-    | { H.node = Leaf s } -> pp_symbol ppf s
+    | { H.node = Leaf s } -> pp_symbol ?arity:(Some 0) ppf s
 
     (* Print a function application as S-expression *)
     | { H.node = Node (s, a) } -> 
 
       Format.fprintf ppf 
         "@[<hv 1>(%a@ %a)@]" 
-        pp_symbol s 
+        (pp_symbol ?arity:(Some (List.length a))) s 
         (pp_print_term_list pp_symbol db) a
 
     (* Print a let binding *)
@@ -640,7 +640,7 @@ struct
 
 
   
-  let pp_print_term = pp_print_term_w T.pp_print_symbol
+  let pp_print_term = pp_print_term_w (fun ?arity -> T.pp_print_symbol)
 
 
 (*
@@ -704,14 +704,14 @@ struct
 
     | Var v -> Format.fprintf ppf "Var@ %a" T.pp_print_var v
 
-    | Const s -> Format.fprintf ppf "Const@ %a" pp_symbol s
+    | Const s -> Format.fprintf ppf "Const@ %a" (pp_symbol ?arity:(Some 0)) s
 
     | App (s, l) -> 
 
       Format.fprintf 
         ppf 
         "App@ (%a,@ %a)" 
-        pp_symbol s 
+        (pp_symbol ?arity:None) s 
         (pp_print_term_list pp_symbol 0) l
 
     | Attr (t, a) -> 
@@ -722,7 +722,7 @@ struct
         (pp_print_term ~db:0) t 
         T.pp_print_attr a
 
-  let pp_print_flat = pp_print_flat T.pp_print_symbol
+  let pp_print_flat = pp_print_flat (fun ?arity -> T.pp_print_symbol)
 
   (* ********************************************************************* *)
   (* Auxiliary functions                                                   *)

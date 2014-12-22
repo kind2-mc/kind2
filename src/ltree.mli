@@ -247,7 +247,7 @@ sig
   (** Pretty-print a higher-order abstract syntax term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
-  val pp_print_term_w : (Format.formatter -> symbol -> unit) ->
+  val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   val stats : unit -> int * int * int * int * int * int

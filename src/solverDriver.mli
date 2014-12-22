@@ -77,11 +77,10 @@ module type S = sig
 
 
   (** Pretty-print a symbol *)
-  val pp_print_symbol : Format.formatter -> Symbol.t -> unit
+  val pp_print_symbol :  ?arity:int -> Format.formatter -> Symbol.t -> unit
 
   (** Return a string representation of a symbol *)
-  val string_of_symbol : Symbol.t -> string 
+  val string_of_symbol : ?arity:int -> Symbol.t -> string 
 
-  
   
 end
