@@ -96,10 +96,10 @@ type check_sat_response =
 val smtsort_of_type : Type.t -> sort
 
 (** Convert a variable to an SMT expression *)
-val smtexpr_of_var : (UfSymbol.t -> unit) -> Var.t -> t
+val smtexpr_of_var : Var.t -> t
 
 (** Convert a term to an SMT expression *)
-val smtexpr_of_term : (UfSymbol.t -> unit) -> t -> t
+val smtexpr_of_term : t -> t
 
 (** Convert a term to an SMT expression, quantifying over the given variables 
 
@@ -107,7 +107,7 @@ val smtexpr_of_term : (UfSymbol.t -> unit) -> t -> t
     [exists (v) t] or [forall (v) t] if q is true or false,
     respectively, where all variables in [t] except those in [v] are
     converted to uninterpreted functions. *)
-val quantified_smtexpr_of_term : (UfSymbol.t -> unit) -> bool -> Var.t list -> t -> t
+val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
 
 (** Convert an SMT expression to a variable *)
 val var_of_smtexpr : t -> Var.t
