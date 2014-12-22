@@ -473,6 +473,39 @@ let define_fun solver fun_symbol arg_vars res_sort defn =
 (* Assert the expression *)
 let assert_expr solver expr = 
 
+  let t = expr in
+  let t', name_info =
+    if Term.is_named t then
+      (* Open the named term and forget the name *)
+      begin
+        let name = Term.name_of_named t in
+        Term.term_of_named t,
+        Format.asprintf "[name removed: t%d]" name
+      end
+    else t, "" in
+  let expr = Conv.smtexpr_of_term (fun _ -> ()) t' in
+  
+
+  let cmd = 
+    Format.asprintf
+      "@[<hv 1>(assert@ @[<hv>%s@])@]\n;; %s" 
+      (string_of_expr expr)
+      name_info
+  in
+  
+  (* Send command to the solver without timeout *)
+  let res = execute_command solver cmd 0 in
+
+  (* Update state to indicate context has been modified *)
+  solver.solver_state <- YNone;
+  
+  (* Return result of command *)
+  res
+
+
+(* Assert a removable expression, costly *)
+let assert_removable_expr solver expr = 
+
   (* Take the next id *)
   let id = next_id solver in
   
@@ -653,7 +686,8 @@ let check_sat_assuming solver exprs =
   (* We use retract feature of Yices to keep internal context *)
   fast_push solver 1;
   let res =
-    List.fold_left (fun acc expr -> assert_expr solver expr) `NoResponse exprs
+    List.fold_left
+      (fun acc expr -> assert_removable_expr solver expr) `NoResponse exprs
   in
   (match res with
    | `Error _  | `Unsupported ->
@@ -662,6 +696,24 @@ let check_sat_assuming solver exprs =
   let res = check_sat ~timeout:0 solver in
   (* Remove assumed expressions from context while keeping state *)
   fast_pop solver 1;
+  res
+
+
+(* Check satisfiability of the asserted expressions *)
+let naive_check_sat_assuming solver exprs =
+
+  push solver 1;
+  let res =
+    List.fold_left
+      (fun acc expr -> assert_expr solver expr) `NoResponse exprs
+  in
+  (match res with
+   | `Error _  | `Unsupported ->
+     failwith "Yices: check-sat assumed failed while assuming"
+   | _ -> ());
+  let res = check_sat ~timeout:0 solver in
+  (* Remove assumed expressions from context while keeping state *)
+  pop solver 1;
   res
 
 
