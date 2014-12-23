@@ -17,7 +17,13 @@
  *)
 
 
-(* Typical usage of external calls follows:
+(* When calling invariant generation, remember to call [no_more_lsd]
+   in your [on_exit] function, otherwise a running lsd instance
+   would not be killed.
+
+
+   Typical usage of external calls follows. The [ignore] set is to
+   prune candidate invariants as early as possible.
 
    [ let system_candidates =
        mine_system
@@ -109,6 +115,9 @@ module OneState : sig
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
 
+  (** Destroys the underlying lsd instance. *)
+  val no_more_lsd : unit -> unit
+
   (** Launches invariant generation with a max [k] and a set of
       candidate terms. More precisely, [run sys ignore maxK
       candidates] will find invariants from set [candidates] by going
@@ -148,6 +157,9 @@ module TwoState : sig
 
   (** Invariant generation entry point. *)
   val main : TransSys.t -> unit
+
+  (** Destroys the underlying lsd instance. *)
+  val no_more_lsd : unit -> unit
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit

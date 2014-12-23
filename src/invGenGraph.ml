@@ -41,6 +41,9 @@ module type Out = sig
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
 
+  (** Destroys the underlying lsd instance. *)
+  val no_more_lsd : unit -> unit
+
   (** Launches invariant generation with a max [k] and a set of
       candidate terms. More precisely, [run sys ignore maxK
       candidates] will find invariants from set [candidates] by going
@@ -863,6 +866,12 @@ module Make (InModule : In) : Out = struct
   (* Reference to lsd for easy clean up. *)
   let lsd_ref = ref None
 
+  let no_more_lsd () =
+    (* Destroying lsd if one was created. *)
+    match !lsd_ref with
+    | None -> ()
+    | Some lsd -> LSD.delete lsd
+
   (* Cleans up things on exit. *)
   let on_exit _ =
     (* Stop all timers. *)
@@ -870,10 +879,7 @@ module Make (InModule : In) : Out = struct
     Stat.smt_stop_timers () ;
     (* Output statistics. *)
     print_stats () ;
-    (* Destroying lsd if one was created. *)
-    ( match !lsd_ref with
-      | None -> ()
-      | Some lsd -> LSD.delete lsd )
+    no_more_lsd ()
 
   (* Module entry point. *)
   let main trans_sys =
@@ -904,6 +910,9 @@ module Make (InModule : In) : Out = struct
         true
         sys
     in
+
+    (* Memorizing lsd for clean exit. *)
+    lsd_ref := Some lsd ;
 
     let rec loop invariants ignore k graph =
 
