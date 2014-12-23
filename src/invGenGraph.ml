@@ -868,9 +868,10 @@ module Make (InModule : In) : Out = struct
 
   let no_more_lsd () =
     (* Destroying lsd if one was created. *)
-    match !lsd_ref with
-    | None -> ()
-    | Some lsd -> LSD.delete lsd
+    ( match !lsd_ref with
+      | None -> ()
+      | Some lsd -> LSD.delete lsd ) ;
+    lsd_ref := None
 
   (* Cleans up things on exit. *)
   let on_exit _ =
@@ -949,7 +950,7 @@ module Make (InModule : In) : Out = struct
     in
 
     (* Deleting lsd. *)
-    LSD.delete lsd ;
+    no_more_lsd () ;
 
     res
 
