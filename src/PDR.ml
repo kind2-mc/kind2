@@ -3444,10 +3444,10 @@ let rec block solver trans_sys prop_set term_tbl =
             (* Continue if not *)
             (fun () -> ())
 
-            (* Check I & ~C & T |= ~C' *)
+            (* Check I & C & T |= C' *)
             ([actlit_of_frame 0 |> snd; 
-              block_clause.actlit_n0; 
-              block_clause.actlit_p1]);
+              block_clause.actlit_n1; 
+              block_clause.actlit_p0]);
           
           (* Add blocking clause to all frames up to where it has to
              be blocked *)
@@ -3593,10 +3593,7 @@ let rec strengthen solver trans_sys prop_set =
            (List.length frames));
 
       let block_trace = 
-        [clause_of_literals 
-           solver
-           None
-           [term_of_clause prop_set.clause |> Term.negate]]
+           [prop_set.clause]
       in
 
       match 
@@ -4201,7 +4198,7 @@ let add_to_path get_model state_vars path i =
    clauses *)
 let extract_cex_path solver trans_sys trace = 
 
-  (* State variables of the transition system*)
+  (* State variables of the transition system *)
   let state_vars = TransSys.state_vars trans_sys in
 
   S.trace_comment
@@ -4257,7 +4254,7 @@ let extract_cex_path solver trans_sys trace =
         (fun _ -> assert false)
         
         (* Assume previous state and blocking clause *)
-        [pre_state; actlit_n0_of_clause r_i; actlit_p1_of_clause r_i]
+        [pre_state; actlit_n1_of_clause r_i; actlit_p0_of_clause r_i]
         
   in
 
@@ -4292,8 +4289,8 @@ let extract_cex_path solver trans_sys trace =
 
           (* Assyme initial state and blocking clause *)
           [actlit_of_frame 0 |> snd; 
-           actlit_n0_of_clause r_1; 
-           actlit_p1_of_clause r_1]
+           actlit_n1_of_clause r_1; 
+           actlit_p0_of_clause r_1]
 
   in
 
