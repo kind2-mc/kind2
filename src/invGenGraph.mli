@@ -14,7 +14,90 @@
    implied. See the License for the specific language governing
    permissions and limitations under the License. 
 
-*)
+ *)
+
+
+(* Typical usage of external calls follows:
+
+   [ let system_candidates =
+       mine_system
+         synthesis mine_init mine_trans system
+     in
+
+     let rec loop ignore =
+
+       // Generate some terms to mine.
+       let terms = generate_terms () in
+
+       // Then, either...
+       if you_want then
+         // ...first mine candidates...
+         let all_candidates =
+           mine_terms
+             // Mined candidates are added to [system_candidates].
+             system terms system_candidates
+         in
+
+         Term.TermSet.cardinal all_candidates
+         |> Event.log L_ino "Got %i candidate terms."
+
+         // ...then run invariant generation.
+         let invariants', ignore' =
+           run system ignore maxK all_candidates
+         in
+
+         // Bla.
+         Term.TermSet.cardinal invariants'
+         |> Event.log L_info "Found %i invariants."
+
+         loop ignore'
+
+       else
+         // ...or just run directly.
+         let invariants', ignore' =
+           mine_terms_run
+             system ignore maxK terms system_candidates
+         in
+
+         // Bla.
+         Term.TermSet.cardinal invariants'
+         |> Event.log L_info "Found %i invariants."
+
+         loop ignore'
+    in
+
+    loop Term.TermSet.empty
+  ]
+
+  Note that you can accumulate candidate terms:
+
+   [ let rec loop ignore candidates =
+       // Generate terms.
+       let terms = generate_terms () in
+
+       // Mine them, adding to the candidate accumulator.
+       let candidates' =
+         mine_terms system terms candidates
+       in
+
+       // Run invariant generation on all candidates.
+       let invariants', ignore' =
+         run system ignore maxK candidates'
+       in
+
+       // Bla.
+       Term.TermSet.cardinal invariants'
+       |> Event.log L_info "Found %i invariants."
+
+       loop ignore' candidates'
+     in
+
+     mine_system
+       synthesis mine_init mine_trans system
+     |> loop Term.TermSet.empty
+   ]
+
+ *)
 
 
 (** One state graph-based invariant generation module. *)
