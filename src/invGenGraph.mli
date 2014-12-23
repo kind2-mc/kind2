@@ -26,40 +26,40 @@
 
      let rec loop ignore =
 
-       // Generate some terms to mine.
+       (* Generate some terms to mine. *)
        let terms = generate_terms () in
 
-       // Then, either...
+       (* Then, either... *)
        if you_want then
-         // ...first mine candidates...
+         (* ...first mine candidates... *)
          let all_candidates =
            mine_terms
-             // Mined candidates are added to [system_candidates].
+             (* Mined candidates are added to [system_candidates]. *)
              system terms system_candidates
          in
 
          Term.TermSet.cardinal all_candidates
          |> Event.log L_ino "Got %i candidate terms."
 
-         // ...then run invariant generation.
+         (* ...then run invariant generation. *)
          let invariants', ignore' =
            run system ignore maxK all_candidates
          in
 
-         // Bla.
+         (* Bla. *)
          Term.TermSet.cardinal invariants'
          |> Event.log L_info "Found %i invariants."
 
          loop ignore'
 
        else
-         // ...or just run directly.
+         (* ...or just run directly. *)
          let invariants', ignore' =
            mine_terms_run
              system ignore maxK terms system_candidates
          in
 
-         // Bla.
+         (* Bla. *)
          Term.TermSet.cardinal invariants'
          |> Event.log L_info "Found %i invariants."
 
@@ -72,20 +72,20 @@
   Note that you can accumulate candidate terms:
 
    [ let rec loop ignore candidates =
-       // Generate terms.
+       (* Generate terms. *)
        let terms = generate_terms () in
 
-       // Mine them, adding to the candidate accumulator.
+       (* Mine them, adding to the candidate accumulator. *)
        let candidates' =
          mine_terms system terms candidates
        in
 
-       // Run invariant generation on all candidates.
+       (* Run invariant generation on all candidates. *)
        let invariants', ignore' =
          run system ignore maxK candidates'
        in
 
-       // Bla.
+       (* Bla. *)
        Term.TermSet.cardinal invariants'
        |> Event.log L_info "Found %i invariants."
 
