@@ -39,7 +39,7 @@
          in
 
          Term.TermSet.cardinal all_candidates
-         |> Event.log L_ino "Got %i candidate terms."
+         |> Event.log L_info "Got %i candidate terms."
 
          (* ...then run invariant generation. *)
          let invariants', ignore' =
