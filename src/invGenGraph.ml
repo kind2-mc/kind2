@@ -35,15 +35,43 @@ end
 (* Output signature of a graph-based invariant generation technique. *)
 module type Out = sig
 
-  (* Invariant generation entry point. *)
+  (** Invariant generation entry point. *)
   val main : TransSys.t -> unit
 
-  (* Destroys the underlying solver and cleans things up. *)
+  (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
 
-  (* Launches invariant generation with a max [k] and a set of
-     candidate terms. *)
-  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+  (** Launches invariant generation with a max [k] and a set of
+      candidate terms. More precisely, [run sys ignore maxK
+      candidates] will find invariants from set [candidates] by going
+      up to [maxK] for [sys] and ignoring any term appearing in
+      [ignore]. The result is a pair composed of the invariants
+      discovered and the new set of ignored terms. *)
+  val run :
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
+    Term.TermSet.t * Term.TermSet.t
+
+  (** Mines candidate terms from a system.  First bool flag activates
+      synthesis, i.e. mining based on the state variables of the
+      system. Second (resp. third) bool flag activates init
+      (resp. transition) predicate mining. *)
+  val mine_system :
+    bool -> bool -> bool -> TransSys.t -> Term.TermSet.t
+
+  (** Mines candidate terms from a list of terms, and adds them to the
+      input set. *)
+  val mine_terms :
+    TransSys.t -> Term.t list -> Term.TermSet.t -> Term.TermSet.t
+
+  (** Mines candidate terms from the list of terms. More precisely,
+      [mine_terms_run sys ignore maxK candidates set] will mine
+      candidate terms from list of terms [candidates], and add them to
+      [set].  It then runs goes up to [maxK] for [sys] and ignores any
+      term appearing in [ignore]. The result is a pair composed of the
+      invariants discovered and the new set of ignored terms. *)
+  val mine_terms_run :
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.t list -> Term.TermSet.t ->
+    Term.TermSet.t * Term.TermSet.t
 
 end
 
@@ -202,7 +230,7 @@ module Make (InModule : In) : Out = struct
                                     
 
   (* Filters candidate invariants from a set of term for step. *)
-  let filter_step_candidates invariants =
+  let filter_step_candidates invariants ignore =
 
     (* Tests if [rhs] is an [or] containing [lhs], or a negated and
        containing the complement of [lhs]. *)
@@ -418,6 +446,8 @@ module Make (InModule : In) : Out = struct
       if TSet.mem term invariants then
         (* This term is known to be an invariant, pruning it. *)
         false
+      else if TSet.mem term ignore then
+        false
       else (
 
         (* Applying offset criterion. *)
@@ -580,7 +610,7 @@ module Make (InModule : In) : Out = struct
 
   (* Queries step to find invariants to communicate. *)
   let find_and_communicate_invariants
-        top_sys lsd invariants sys graph =
+        top_sys lsd invariants ignore sys graph =
 
     (* Getting candidates invariants from equivalence classes and
        implications. *)
@@ -612,7 +642,7 @@ module Make (InModule : In) : Out = struct
           ( Graph.non_trivial_implications graph )
       (* Removing previously discovered invariants and
          uninteresting implications. *)
-      |> filter_step_candidates invariants
+      |> filter_step_candidates invariants ignore
     in
 
     (* Discovering new invariants. *)
@@ -642,12 +672,17 @@ module Make (InModule : In) : Out = struct
       List.fold_left
         ( fun inv_set new_invariant ->
           TSet.add new_invariant inv_set )
-        (List.fold_left
-           ( fun inv_set new_invariant ->
-             TSet.add new_invariant inv_set )
-           invariants
-           trivial)
+        invariants
         new_invariants
+    in
+
+    (* Udating the set of ignored candidates. *)
+    let ignore' =
+      (List.fold_left
+         ( fun inv_set new_invariant ->
+           TSet.add new_invariant inv_set )
+         ignore
+         trivial)
     in
 
     (* Lifting, adding to lsd, and communicating invariants. *)
@@ -657,37 +692,21 @@ module Make (InModule : In) : Out = struct
 
     ( match new_invariants with
       | [] -> ()
-         (* ( match candidate_invariants with *)
-         (*   | [] -> *)
-         (*      Event.log *)
-         (*        L_info *)
-         (*        "%s No candidate invariants." *)
-         (*        name *)
-         (*   | _ -> () ) *)
       | _ ->
          Event.log
            L_info
-           "%s @[<v>%i invariants discovered@ \
+           "%s @[<v>%i invariants discovered (%i total)@ \
             at %i for [%s],@ \
             %i top level invariants generated.@]"
            name
            (List.length new_invariants)
+           (TSet.cardinal invariants')
            (LSD.get_k lsd sys |> Numeral.pred |> Numeral.to_int)
            (TransSys.get_scope sys |> String.concat "/")
-           top_count ;
-
-         (debug
-            invGen
-            "%s @[<v>%a@]"
-            name
-            (pp_print_list Term.pp_print_term "@ ")
-            new_invariants
-          in ())
-
-    ) ;
+           top_count ) ;
 
     (* Returning updated invariant set. *)
-    invariants'
+    invariants', ignore'
 
   (* Receives messages, updates transition system, asserts new
      invariants in lsd. *)
@@ -727,7 +746,7 @@ module Make (InModule : In) : Out = struct
      extracts invariants from the step instance. Returns the new
      binding, i.e. the updated graph and the new invariants. *)
   let rewrite_graph_find_invariants
-        top_sys lsd (sys, graph, invariants) =
+        top_sys lsd (sys, graph, invariants, ignore) =
 
     (* BASE INSTANCE: rewriting the graph until base is unsat. *)
     let graph', unsat_on_first_check =
@@ -739,13 +758,13 @@ module Make (InModule : In) : Out = struct
 
     (* STEP INSTANCE: checking which properties are k inductive,
        asserting them in lsd, and broadcast. *)
-    let invariants' =
+    let invariants', ignore' =
       find_and_communicate_invariants
-        top_sys lsd invariants sys graph'
+        top_sys lsd invariants ignore sys graph'
     in
   
     (* Returning new binding and base instance flag. *)
-    (sys, graph', invariants'), unsat_on_first_check
+    (sys, graph', invariants', ignore'), unsat_on_first_check
 
   let lazy_max_successive =
     lazy
@@ -763,7 +782,7 @@ module Make (InModule : In) : Out = struct
   let iterate_on_binding top_sys lsd (binding, cand_count) =
     let max_successive = Lazy.force lazy_max_successive in
 
-    let rec loop count ((sys,_,invs) as binding) =
+    let rec loop count ((sys,_,invs,_) as binding) =
       let k = LSD.get_k lsd sys in
       debug
         invGen
@@ -806,7 +825,8 @@ module Make (InModule : In) : Out = struct
             |> List.map
                  ( fun (sys,graph,cand_count) ->
                    (* Building triplet. *)
-                   (sys, graph, TSet.empty), cand_count )
+                   (sys, graph, TSet.empty, TSet.empty),
+                   cand_count )
             |> (fun list' -> list', count) )
     in
 
@@ -875,57 +895,72 @@ module Make (InModule : In) : Out = struct
 
   (* Launches invariant generation with a max [k] and a set of
      candidate terms. *)
-  let run sys maxK candidates = candidates
+  let run sys ignore maxK candidates =
 
-    (* let lsd = *)
-    (*   (\* Creating lsd instance. *\) *)
-    (*   LSD.create *)
-    (*     two_state *)
-    (*     (Flags.invgengraph_top_only ()) *)
-    (*     sys *)
-    (* in *)
+    let lsd =
+      (* Creating lsd instance. *)
+      LSD.create
+        two_state
+        true
+        sys
+    in
 
-    (* let rec loop invariants k graph = *)
+    let rec loop invariants ignore k graph =
 
-    (*   if Numeral.(k > maxK) then *)
+      if Numeral.(k > maxK) then
 
-    (*     (\* Maximal number of iterations reached, returning *)
-    (*        invariants. *\) *)
-    (*     TSet.elements invariants *)
+        (* Maximal number of iterations reached, returning
+           invariants. *)
+        invariants, ignore
         
-    (*   else ( *)
+      else (
 
-    (*     (\* Rewriting graph in the base case. *\) *)
-    (*     let graph' = *)
-    (*       rewrite_graph_until_base_unsat lsd sys graph *)
-    (*     in *)
+        (* Rewriting graph in the base case. *)
+        let graph', _ =
+          rewrite_graph_until_base_unsat lsd sys graph
+        in
 
-    (*     (\* Extracting invariants at k. *\) *)
-    (*     let invariants' = *)
-    (*       find_and_communicate_invariants *)
-    (*         sys lsd invariants sys graph' *)
-    (*     in *)
+        (* Extracting invariants at k. *)
+        let invariants', ignore' =
+          find_and_communicate_invariants
+            sys lsd invariants ignore sys graph'
+        in
 
-    (*     (\* Incrementing k in lsd. *\) *)
-    (*     LSD.increment lsd ; *)
+        (* Looping with new invariants. *)
+        loop invariants' ignore' Numeral.(succ k) graph'
 
-    (*     (\* Looping with new invariants. *\) *)
-    (*     loop invariants' Numeral.(succ k) graph' *)
+      )
 
-    (*   ) *)
+    in
 
-    (* in *)
+    (* Memorizing invariants to return to delete lsd. *)
+    let res =
+      InvGenCandTermGen.create_graph sys candidates
+      |> loop TSet.empty ignore Numeral.zero
+    in
 
-    (* (\* Memorizing invariants to return to delete lsd. *\) *)
-    (* let res = *)
-    (*   InvGenCandTermGen.create_graph sys ( TSet.of_list candidates ) *)
-    (*   |> loop TSet.empty Numeral.zero *)
-    (* in *)
+    (* Deleting lsd. *)
+    LSD.delete lsd ;
 
-    (* (\* Deleting lsd. *\) *)
-    (* LSD.delete lsd ; *)
+    res
 
-    (* res *)
+  (* Mines candidates terms from a system. *)
+  let mine_system
+        synthesis mine_init mine_trans sys =
+    InvGenCandTermGen.mine_term
+      synthesis mine_init mine_trans
+      two_state sys [] TSet.empty
+
+  (* Mines candidate terms from a list of terms and adds them to the
+     set. *)
+  let mine_terms sys terms set =
+    InvGenCandTermGen.mine_term
+      false false false two_state sys [] TSet.empty
+
+  (* Mines candidate terms from a list of terms, adds them to [set],
+     and runs invariant generation up to [maxK]. *)
+  let mine_terms_run sys ignore maxK terms set =
+    mine_terms sys terms set |> run sys ignore maxK
 
 end
 

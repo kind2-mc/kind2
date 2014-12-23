@@ -27,8 +27,36 @@ module OneState : sig
   val on_exit : TransSys.t option -> unit
 
   (** Launches invariant generation with a max [k] and a set of
-      candidate terms. *)
-  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+      candidate terms. More precisely, [run sys ignore maxK
+      candidates] will find invariants from set [candidates] by going
+      up to [maxK] for [sys] and ignoring any term appearing in
+      [ignore]. The result is a pair composed of the invariants
+      discovered and the new set of ignored terms. *)
+  val run :
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
+    Term.TermSet.t * Term.TermSet.t
+
+  (** Mines candidate terms from a system.  First bool flag activates
+      synthesis, i.e. mining based on the state variables of the
+      system. Second (resp. third) bool flag activates init
+      (resp. transition) predicate mining. *)
+  val mine_system :
+    bool -> bool -> bool -> TransSys.t -> Term.TermSet.t
+
+  (** Mines candidate terms from a list of terms, and adds them to the
+      input set. *)
+  val mine_terms :
+    TransSys.t -> Term.t list -> Term.TermSet.t -> Term.TermSet.t
+
+  (** Mines candidate terms from the list of terms. More precisely,
+      [mine_terms_run sys ignore maxK candidates set] will mine
+      candidate terms from list of terms [candidates], and add them to
+      [set].  It then runs goes up to [maxK] for [sys] and ignores any
+      term appearing in [ignore]. The result is a pair composed of the
+      invariants discovered and the new set of ignored terms. *)
+  val mine_terms_run :
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.t list -> Term.TermSet.t ->
+    Term.TermSet.t * Term.TermSet.t
 
 end
 
@@ -42,8 +70,36 @@ module TwoState : sig
   val on_exit : TransSys.t option -> unit
 
   (** Launches invariant generation with a max [k] and a set of
-      candidate terms. *)
-  val run : TransSys.t -> Numeral.t -> Term.t list -> Term.t list
+      candidate terms. More precisely, [run sys ignore maxK
+      candidates] will find invariants from set [candidates] by going
+      up to [maxK] for [sys] and ignoring any term appearing in
+      [ignore]. The result is a pair composed of the invariants
+      discovered and the new set of ignored terms. *)
+  val run :
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
+    Term.TermSet.t * Term.TermSet.t
+
+  (** Mines candidate terms from a system.  First bool flag activates
+      synthesis, i.e. mining based on the state variables of the
+      system. Second (resp. third) bool flag activates init
+      (resp. transition) predicate mining. *)
+  val mine_system :
+    bool -> bool -> bool -> TransSys.t -> Term.TermSet.t
+
+  (** Mines candidate terms from a list of terms, and adds them to the
+      input set. *)
+  val mine_terms :
+    TransSys.t -> Term.t list -> Term.TermSet.t -> Term.TermSet.t
+
+  (** Mines candidate terms from the list of terms. More precisely,
+      [mine_terms_run sys ignore maxK candidates set] will mine
+      candidate terms from list of terms [candidates], and add them to
+      [set].  It then runs goes up to [maxK] for [sys] and ignores any
+      term appearing in [ignore]. The result is a pair composed of the
+      invariants discovered and the new set of ignored terms. *)
+  val mine_terms_run :
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.t list -> Term.TermSet.t ->
+    Term.TermSet.t * Term.TermSet.t
 
 end
 
