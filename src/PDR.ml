@@ -273,12 +273,6 @@ let actlits_of_prop_set solver props =
 let ref_solver = ref None
 
 
-let solvers_declare uf =
-  match !ref_solver with
-    | Some solver -> S.declare_fun solver uf
-    | None -> ()
-
-
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
@@ -905,7 +899,7 @@ let find_cex
   debug pdr
       "@[<v>Current frames@,@[<hv>%a@]@]"
     SMTExpr.pp_print_expr
-    (SMTExpr.smtexpr_of_term solvers_declare (CNF.to_term frame))
+    (SMTExpr.smtexpr_of_term (CNF.to_term frame))
   in
 
     (* Push a new scope to the context *)
@@ -3033,8 +3027,13 @@ let rec restart_loop props =
 
   (* Declare uninterpreted function symbols *)
   (* TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init); *)
-
-          (
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_init)
+    (S.declare_fun solver_init)
+    Numeral.(~- one) Numeral.one ;
 
             (debug smt 
                 "Permanently asserting invariants"
@@ -3062,10 +3061,13 @@ let rec restart_loop props =
   (* TransSys.iter_state_var_declarations  *)
   (*   trans_sys  *)
   (*   (S.declare_fun solver_frames); *)
-
-          (* Do check for zero and one step counterexample in solver
-             instance [solver_init] *)
-          (bmc_checks solver_init trans_sys props);
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_frames)
+    (S.declare_fun solver_frames)
+    Numeral.(~- one) Numeral.one ;
 
         (debug smt 
             "Permanently asserting property constraint"
@@ -3091,6 +3093,17 @@ let rec restart_loop props =
 
         (* All propertes are valid *)
         | Success k -> 
+  (* Declare uninterpreted function symbols *)
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys *)
+  (*   (S.declare_fun solver_misc); *)
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_misc)
+    (S.declare_fun solver_misc)
+    Numeral.(~- one) Numeral.one ;
 
           (
 
@@ -4665,6 +4678,9 @@ let main trans_sys =
       logic
   in
 
+  (* Save solver instance for clean exit *)
+  ref_solver := Some solver;
+
   (* Declare uninterpreted function symbols *)
   S.trace_comment solver "main: Declare state variables";
 
@@ -4676,10 +4692,13 @@ let main trans_sys =
 
   (* Define functions in transition system *)
   S.trace_comment solver "main: Define predicates";
-  TransSys.iter_uf_definitions trans_sys (S.define_fun solver);
 
-  (* Save solver instance for clean exit *)
-  ref_solver := Some solver;
+  (* Declare uninterpreted function symbols *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver)
+    (S.declare_fun solver)
+    Numeral.(~- one) Numeral.one;
 
   (* Get invariants of transition system *)
   let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in

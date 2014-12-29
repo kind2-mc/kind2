@@ -33,14 +33,6 @@ let solver_qe = ref None
 (* The current solver instance in use *)
 let solver_check = ref None
 
-let solvers_declare uf =
-  (match !solver_qe with
-    | Some solver -> Solver.declare_fun solver uf
-    | None -> ()) ;
-  match !solver_check with
-    | Some solver -> Solver.declare_fun solver uf
-    | None -> ()
-
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
 
@@ -65,20 +57,22 @@ let get_solver_instance trans_sys =
               (pp_print_list Var.pp_print_var ",@ ") 
               (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
       
-      (* Declare uninterpreted function symbols *)
-      TransSys.declare_vars_of_bounds
+      (* Defining uf's and declaring variables. *)
+      TransSys.init_define_fun_declare_vars_of_bounds
         trans_sys
+        (Solver.define_fun solver)
         (Solver.declare_fun solver)
-        Numeral.zero
-        Numeral.one;
+        Numeral.(~- one) Numeral.zero;
       
       Solver.trace_comment solver "Defining predicates";
 
+      (*
       (* Define functions *)
       TransSys.iter_uf_definitions 
         trans_sys
         (Solver.define_fun solver); 
-
+      *)
+      
       (* Save instance *)
       solver_qe := Some solver;
 
@@ -118,7 +112,7 @@ let get_checking_solver_instance trans_sys =
           ~produce_assignments:true
           `UFLIA
       in
-
+(*
       (* Declare uninterpreted function symbols *)
       TransSys.declare_vars_of_bounds
         trans_sys
@@ -130,6 +124,13 @@ let get_checking_solver_instance trans_sys =
       TransSys.iter_uf_definitions 
         trans_sys
         (Solver.define_fun solver); 
+*)
+  (* Defining uf's and declaring variables. *)
+      TransSys.init_define_fun_declare_vars_of_bounds
+        trans_sys
+        (Solver.define_fun solver)
+        (Solver.declare_fun solver)
+        Numeral.(~- one) Numeral.zero;
 
       (* Save instance *)
       solver_check := Some solver;
@@ -319,21 +320,21 @@ let check_generalize trans_sys model elim term term' =
   (* Substitute fresh variables for terms to be eliminated and
      existentially quantify formula *)
   let qe_term = 
-    SMTExpr.quantified_smtexpr_of_term solvers_declare true elim term
+    SMTExpr.quantified_smtexpr_of_term true elim term
   in
 
   check_implication 
     trans_sys
     "model"
     "exact generalization" 
-    (SMTExpr.smtexpr_of_term solvers_declare (formula_of_model model))
-    (SMTExpr.smtexpr_of_term solvers_declare term');
+    (SMTExpr.smtexpr_of_term (formula_of_model model))
+    (SMTExpr.smtexpr_of_term term');
 
   check_implication
     trans_sys
     "exact generalization" 
     "formula"
-    (SMTExpr.smtexpr_of_term solvers_declare term')
+    (SMTExpr.smtexpr_of_term term')
     qe_term
     
 
@@ -663,11 +664,11 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
           match pdr_qe with 
             | `Z3 -> 
               SMTExpr.quantified_smtexpr_of_term
-                solvers_declare true elim term
+                true elim term
             | `Z3_impl
             | `Z3_impl2 -> 
               SMTExpr.quantified_smtexpr_of_term
-                solvers_declare true elim extract_int
+                true elim extract_int
         in
         
         let solver_qe = get_solver_instance trans_sys in

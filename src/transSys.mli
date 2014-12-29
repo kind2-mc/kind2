@@ -115,15 +115,22 @@ val instantiate_term_top: t -> Term.t -> Term.t list
 (** Number of times this system is instantiated in other systems. *)
 val instantiation_count: t -> int
 
+(** Returns true if the system is the top level system. *)
+val is_top : t -> bool
 
 (** Global init flag state var *)
 val init_flag_svar: StateVar.t
 
-(** Global init flag uf *)
-val init_flag_uf: UfSymbol.t
-
 (** Instantiate init flag at k *)
 val init_flag_var: Numeral.t -> Var.t
+
+val init_flag_uf: Numeral.t -> UfSymbol.t
+                                  
+(** Tests if a var is an instanciation of the init_flag. *)
+val is_var_init_flag: Var.t -> bool
+                                  
+(** Tests if a uf is an instanciation of the init_flag. *)
+val is_uf_init_flag: UfSymbol.t -> bool
 
 (** Predicate for the initial state constraint *)
 val init_uf_symbol : t -> UfSymbol.t
@@ -168,6 +175,10 @@ val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
 
 (** Declares variables of the transition system between two offsets. *)
 val declare_vars_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+
+(** Declares variables of the transition system between two offsets. *)
+val declare_vars_of_bounds_no_init :
+  t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t
@@ -254,8 +265,17 @@ val all_props_proved : t -> bool
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
   
-(** Apply [f] to all function definitions of the transition system *)
-val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit
+(* (\** Apply [f] to all function definitions of the transition system *\) *)
+(* val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit *)
+                                                                 
+(** Define uf definitions, declare constant state variables and declare
+    variables from [lbound] to [upbound]. *)
+val init_define_fun_declare_vars_of_bounds :
+      t ->
+      (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+      (UfSymbol.t -> unit) ->
+      Numeral.t -> Numeral.t ->
+      unit
 
 
 (** Extract a path in the transition system, return an association

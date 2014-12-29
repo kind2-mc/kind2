@@ -622,13 +622,13 @@ let expr_of_string_sexpr = expr_of_string_sexpr' []
 
 
 (* Convert a variable to an SMT expression *)
-let smtexpr_of_var declare var =
+let smtexpr_of_var var =
 
   (* Building the uf application. *)
   Term.mk_uf
     (* Getting the unrolled uf corresponding to the state var
        instance. *)
-    (Var.unrolled_uf_of_state_var_instance var declare)
+    (Var.unrolled_uf_of_state_var_instance var)
     (* No arguments. *)
     []
 
@@ -697,7 +697,7 @@ let term_of_smtexpr term =
 
 
 (* Convert a term to an SMT expression *)
-let quantified_smtexpr_of_term declare quantifier vars term = 
+let quantified_smtexpr_of_term quantifier vars term = 
 
   (* Map all variables to temporary variables and convert types to SMT
      sorts, in particular convert IntRange types to Ints *)
@@ -747,7 +747,7 @@ let quantified_smtexpr_of_term declare quantifier vars term =
               uninterpreted function *)
            (try 
               Term.mk_var (List.assq v var_to_temp_var) 
-            with Not_found -> smtexpr_of_var declare v)
+            with Not_found -> smtexpr_of_var v)
 
          (* Change divisibility symbol to modulus operator *)
          | t -> Term.divisible_to_mod (Term.nums_to_pos_nums t)
@@ -768,8 +768,8 @@ let quantified_smtexpr_of_term declare quantifier vars term =
 
 
 (* Convert an expression from the SMT solver to a term *)
-let smtexpr_of_term declare term = 
-  quantified_smtexpr_of_term declare false [] term
+let smtexpr_of_term term = 
+  quantified_smtexpr_of_term false [] term
 
 
 (* Declare uninterpreted symbols in the SMT solver
