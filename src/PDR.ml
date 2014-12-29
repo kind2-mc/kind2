@@ -4684,12 +4684,6 @@ let main trans_sys =
   (* Declare uninterpreted function symbols *)
   S.trace_comment solver "main: Declare state variables";
 
-  TransSys.declare_vars_of_bounds 
-    trans_sys
-    (S.declare_fun solver)
-    Numeral.zero
-    Numeral.one;
-
   (* Define functions in transition system *)
   S.trace_comment solver "main: Define predicates";
 
