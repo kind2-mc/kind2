@@ -513,7 +513,7 @@ let rec check_frames' solver accum = function
     let rec is_initial = function 
 
       (* Check if first clause is initial *)
-      | c :: tl -> 
+      | c :: ctl -> 
 
         S.trace_comment 
           solver
@@ -529,7 +529,7 @@ let rec check_frames' solver accum = function
           (fun () -> false)
 
           (* If unsat: continue with next clause *)
-          (fun () -> is_initial tl)
+          (fun () -> is_initial ctl)
 
           (* Check I |= C *)
           ((actlit_of_frame 0 |> snd) :: c.actlits_n0)
@@ -584,9 +584,6 @@ let incr_binding term term_tbl =
    initial, find a smaller subclause of [clause] that is still
    relatively inductive to [frame] and initial. *)
 let ind_generalize solver frame clause literals =
-
-  (* Get activation literals for clauses in frame *)
-  let actlit_p0_of_frame = List.map actlit_p0_of_clause frame in
 
   (* Linearly traverse the list of literals in the clause, and remove
      a literal the clause without the literal remains relatively
@@ -654,7 +651,7 @@ let ind_generalize solver frame clause literals =
           drop_literal
 
           (* Check R[x] & C[x] & T[x,x'] |= C[x'] *)
-          (clause'_actlit_p0 :: clause'_actlit_n1 :: actlit_p0_of_frame)
+          (clause'_actlit_p0 :: clause'_actlit_n1 :: frame)
 
       in
 
@@ -991,22 +988,28 @@ let rec block solver trans_sys prop_set term_tbl =
       (function frames -> 
 
         (* Combine clauses from higher frames to get the actual
-           clauses of the delta-encoded frame R_i *)
-        let r_i_full = 
+           clauses of the delta-encoded frame R_i-1
+
+           Get clauses in R_i..R_k from [trace], R_i-1 is first frame
+           in [frames]. *)
+        let clauses_r_pred_i, actlits_p0_r_pred_i = 
+
           List.fold_left
-            (fun a (_, r) -> r @ a)
-            []
+
+            (* Join lists of clauses *)
+            (fun (ac, al) (_, r) -> r @ ac, List.map actlit_p0_of_clause r @ al)
+
+            (* May be empty *)
+            (match frames with 
+              (* Special case: R_0 = I *)
+              | [] -> ([], [actlit_of_frame 0 |> snd])
+              | r_pred_i :: _ -> 
+                (r_pred_i, List.map actlit_p0_of_clause r_pred_i))
+            
             trace
+
         in
               
-        (* Special case: R_0 = I *)
-        let r_pred_i_full = 
-          match frames with 
-            | [] -> [actlit_of_frame 0 |> snd]
-            | r_pred_i :: _ -> 
-              List.map actlit_p0_of_clause (r_pred_i @ r_i_full)
-        in
-
         (* Clause is relative inductive to this frame *)
         let is_rel_inductive () = 
 
@@ -1066,12 +1069,12 @@ let rec block solver trans_sys prop_set term_tbl =
                Term.pp_print_term (Term.mk_or block_clause_literals_core));
            
           (* Inductively generalize clause *)
-          let block_clause_gen = 
-            ind_generalize 
+          let block_clause_gen = block_clause 
+(*            ind_generalize 
               solver
-              r_i_full
+              actlits_p0_r_pred_i
               block_clause
-              block_clause_literals_core
+              block_clause_literals_core *)
           in
 
           S.trace_comment
@@ -1147,7 +1150,7 @@ let rec block solver trans_sys prop_set term_tbl =
                   trans_sys 
                   cti
                   ((term_of_clause block_clause ::
-                    List.map term_of_clause (r_pred_i @ r_i_full))
+                      List.map term_of_clause clauses_r_pred_i)
                    |> Term.mk_and)
                   (term_of_clause block_clause |> Term.negate)
               in
@@ -1188,7 +1191,7 @@ let rec block solver trans_sys prop_set term_tbl =
           (* Check R_i-1[x] & C[x] & T[x,x'] |= C[x'] *)
           (block_clause.actlit_p0 :: 
            block_clause.actlits_n1 @
-           r_pred_i_full)
+           actlits_p0_r_pred_i)
 
       )
 
