@@ -63,17 +63,19 @@ type clause =
 
   {
     
-    (* Activation literal for positive, unprimed conjunction of properties *)
+    (* One activation literal for the positive, unprimed clause *)
     actlit_p0 : Term.t;
 
-    (* Activation literal for positive, unprimed conjunction of properties *)
+    (* One activation literal for the positive, primed clause  *)
     actlit_p1 : Term.t;
 
-    (* Activation literal for negated, unprimed conjunction of properties *)
-    actlit_n0 : Term.t;
+    (* One activation literal for each negated unprimed literal in
+       clause *)
+    actlits_n0 : Term.t list;
     
-    (* Activation literal for negated, primed conjunction of properties *)
-    actlit_n1 : Term.t;
+    (* One activation literal for each negated primed literal in
+       clause *)
+    actlits_n1 : Term.t list;
 
     (* Literals in clause, to be treated as disjunction *)
     literals: Term.t list;
@@ -94,11 +96,15 @@ let actlit_p0_of_clause { actlit_p0 } = actlit_p0
 let actlit_p1_of_clause { actlit_p1 } = actlit_p1
 
 (* Activation literal for negative, unprimed clause *)
-let actlit_n0_of_clause { actlit_n0 } = actlit_n0
+let actlits_n0_of_clause { actlits_n0 } = actlits_n0
 
 (* Activation literal for negative, primed clause *)
-let actlit_n1_of_clause { actlit_n1 } = actlit_n1
+let actlits_n1_of_clause { actlits_n1 } = actlits_n1
 
+(* Get parent of clause *)
+let rec parent_of_clause = function 
+  | { parent = None } as clause -> clause 
+  | { parent = Some c } -> parent_of_clause c
 
 (* Set of properties *)
 type prop_set =
@@ -219,14 +225,25 @@ let clause_of_literals solver parent literals =
   (* Disjunction of literals *)
   let term = Term.mk_or literals in
 
-  (* Create activation literals for terms *)
-  let (actlit_p0, actlit_n0, actlit_p1, actlit_n1) =
+  (* Create activation literals for positive clause *)
+  let (actlit_p0, actlit_p1) =
     let mk = create_and_assert_fresh_actlit solver "clause" term in
-    mk Actlit_p0,  mk Actlit_n0, mk Actlit_p1, mk Actlit_n1
+    mk Actlit_p0, mk Actlit_p1
+  in
+
+  (* Create activation literals for negated literals in clause *)
+  let actlits_n0, actlits_n1 =
+    let mk t = 
+      List.map 
+        (fun l -> 
+           create_and_assert_fresh_actlit solver "clause_lit" l t)
+        literals
+    in
+    mk Actlit_n0, mk Actlit_n1
   in
 
   (* Return clause with activation literals *)
-  { actlit_p0; actlit_n0; actlit_p1; actlit_n1; literals; parent }
+  { actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; parent }
 
 
 (* Number of property sets considered *)
@@ -260,7 +277,12 @@ let actlits_of_prop_set solver props =
 
   (* Return together with clause with activation literals *)
   { clause = 
-      { actlit_p0; actlit_n0; actlit_p1; actlit_n1; literals; parent = None } ;
+      { actlit_p0; 
+        actlits_n0 = [actlit_n0]; 
+        actlit_p1; 
+        actlits_n1 = [actlit_n1]; 
+        literals; 
+        parent = None } ;
     props }
 
 
@@ -437,49 +459,91 @@ let rec check_frames' solver accum = function
 
   | r_i :: tl ->
 
-    S.trace_comment 
-      solver
-      (Format.sprintf 
-         "check_frames: Does R_%d & T |= R_%d hold?"
-         (List.length tl)
-         (List.length tl |> succ));
+    (* Check if all successors of frame are in the next frame *)
+    let is_rel_ind () = 
 
-    let actlit_n1 = 
-      create_and_assert_fresh_actlit 
+      S.trace_comment 
         solver
-        "check_frames" 
-        (List.map term_of_clause (r_i @ accum) |> Term.mk_and)
-        Actlit_n1
+        (Format.sprintf 
+           "check_frames: Does R_%d & T |= R_%d hold?"
+           (List.length tl)
+           (List.length tl |> succ));
+
+      (* Activation literal for conjunction of clauses *)
+      let actlit_n1 = 
+        create_and_assert_fresh_actlit 
+          solver
+          "check_frames" 
+          (List.map term_of_clause (r_i @ accum) |> Term.mk_and)
+          Actlit_n1
+      in
+
+      (* Check R_i-1 & T |= R_i *)
+      S.check_sat_assuming solver
+
+        (* Fail if entailment does not hold *)
+        (fun () -> false)
+
+        (* Check preceding frames if entailment holds *)
+        (fun () -> check_frames' solver (r_i @ accum) tl)
+
+
+        ((* Clauses of R_i are on rhs of entailment *)
+          actlit_n1 ::
+
+          (match tl with 
+
+            (* Preceding frame is not R_0 *)
+            | r_pred_i :: _ -> 
+
+              List.map actlit_p0_of_clause accum @ 
+
+              (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
+              List.map actlit_p0_of_clause r_i @ 
+
+              (* Assert clauses of R_i-1 on lhs of entailment *)
+              List.map actlit_p0_of_clause r_pred_i
+
+            (* Preceding frame is R_0, assert initial state only *)
+            | [] -> [actlit_of_frame 0 |> snd]))
+
     in
 
-    (* Check R_i-1 & T |= R_i *)
-    S.check_sat_assuming solver
+    (* Check if all clauses in frame are initial *)
+    let rec is_initial = function 
 
-      (* Fail if entailment does not hold *)
-      (fun () -> false)
+      (* Check if first clause is initial *)
+      | c :: tl -> 
 
-      (* Check preceding frames if entailment hold *)
-      (fun () -> check_frames' solver (r_i @ accum) tl)
+        S.trace_comment 
+          solver
+          (Format.sprintf 
+             "check_frames: Does I & T |= C for C in R_%d hold?"
+             (List.length tl));
 
+        (* Check if clause is initial *)
+        S.check_sat_assuming 
+          solver
 
-      ((* Clauses of R_i are on rhs of entailment *)
-        actlit_n1 ::
+          (* If sat: Clause is not initial *)
+          (fun () -> false)
 
-        (match tl with 
+          (* If unsat: continue with next clause *)
+          (fun () -> is_initial tl)
 
-          (* Preceding frame is not R_0 *)
-          | r_pred_i :: _ -> 
+          (* Check I |= C *)
+          ((actlit_of_frame 0 |> snd) :: c.actlits_n0)
 
-            List.map actlit_p0_of_clause accum @ 
+      (* All clauses are initial, now check if frame successors of
+         frame are in the next frame *)
+      | [] -> is_rel_ind ()
 
-            (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
-            List.map actlit_p0_of_clause r_i @ 
+    in
 
-            (* Assert clauses of R_i-1 on lhs of entailment *)
-            List.map actlit_p0_of_clause r_pred_i
+    (* Check if clauses are initial, then check if successors of frame
+       are in the next frame *)
+    is_initial r_i
 
-          (* Preceding frame is R_0, assert initial state only *)
-          | [] -> [actlit_of_frame 0 |> snd]))
 
 let check_frames solver frames = check_frames' solver [] frames 
 
@@ -519,7 +583,7 @@ let incr_binding term term_tbl =
    Assuming that [clause] is relatively inductive to [frame] and
    initial, find a smaller subclause of [clause] that is still
    relatively inductive to [frame] and initial. *)
-let ind_generalize solver frame clause =
+let ind_generalize solver frame clause literals =
 
   (* Get activation literals for clauses in frame *)
   let actlit_p0_of_frame = List.map actlit_p0_of_clause frame in
@@ -536,8 +600,10 @@ let ind_generalize solver frame clause =
     (* All literals considered, return literals that had to be kept *)
     | [] -> 
 
+      (* Could we drop literals? *)
       if List.length kept = List.length clause.literals then 
 
+        (* Return clause unchanged *)
         clause
 
       else
@@ -548,25 +614,21 @@ let ind_generalize solver frame clause =
             (Format.sprintf 
                "ind_generalize: Dropped %d literals from clause."
                (List.length clause.literals - List.length kept));
-          
+
+          (* New clause with generalized clause as parent *)
           clause_of_literals solver (Some clause) kept
 
         )
 
     | l :: tl ->
 
+      (* Clause without current literal *)
       let clause' = kept @ tl |> Term.mk_or in
 
-      let clause'_actlit_p0 = 
-        create_and_assert_fresh_actlit solver "ind_gen" clause' Actlit_p0 
-      in
-
-      let clause'_actlit_n0 = 
-        create_and_assert_fresh_actlit solver "ind_gen" clause' Actlit_n0 
-      in
-
-      let clause'_actlit_n1 = 
-        create_and_assert_fresh_actlit solver "ind_gen" clause' Actlit_n1
+      (* Actiation literal for clause *)
+      let clause'_actlit_p0, clause'_actlit_n0, clause'_actlit_n1 = 
+        let mk = create_and_assert_fresh_actlit solver "ind_gen" clause' in 
+        mk Actlit_p0, mk Actlit_n0, mk Actlit_n1
       in
 
       (* Keep literal and try with following literals *)
@@ -614,7 +676,8 @@ let ind_generalize solver frame clause =
 
   in
 
-  linear_search [] clause.literals
+  (* FIXME: swap the arguments to do inductive generalization *)
+  linear_search literals []
 
 (*
 
@@ -895,7 +958,7 @@ let rec block solver trans_sys prop_set term_tbl =
             r_k_is_safe
 
             (* Check R_k[x] & T[x,x'] |= P[x'] *)
-            (prop_set.clause.actlit_n1 :: 
+            (prop_set.clause.actlits_n1 @
              List.map actlit_p0_of_clause r_k)
 
       )
@@ -936,17 +999,88 @@ let rec block solver trans_sys prop_set term_tbl =
             trace
         in
               
+        (* Special case: R_0 = I *)
+        let r_pred_i_full = 
+          match frames with 
+            | [] -> [actlit_of_frame 0 |> snd]
+            | r_pred_i :: _ -> 
+              List.map actlit_p0_of_clause (r_pred_i @ r_i_full)
+        in
+
         (* Clause is relative inductive to this frame *)
         let is_rel_inductive () = 
 
+          (* Activation literals in unsat core of query *)
+          let core_actlits_trans = S.get_unsat_core_lits solver in
+
+          (* Activation literals in unsat core of I |= C *)
+          let core_actlits_init = 
+            S.check_sat_assuming
+              solver
+
+              (* Must be unsat *)
+              (fun () -> assert false)
+
+              (* Get literals in unsat core *)
+              (fun () -> S.get_unsat_core_lits solver)
+              
+              (* Check I |= C *)
+              ((actlit_of_frame 0 |> snd) :: block_clause.actlits_n0)
+          in
+              
+          (* Reduce clause to unsat core of R & T |= C *)
+          let block_clause_literals_core_n1 = 
+            List.fold_left2 
+              (fun a t l ->
+                 if 
+                   List.exists (Term.equal t) core_actlits_trans
+                 then
+                   l :: a
+                 else
+                   a)
+              []
+              block_clause.actlits_n1 
+              block_clause.literals
+          in
+          
+          (* Reduce clause to unsat core of I |= C *)
+          let block_clause_literals_core = 
+            List.fold_left2 
+              (fun a t l ->
+                 if 
+                   List.exists (Term.equal t) core_actlits_init
+                 then
+                   if List.exists (Term.equal l) a then a else l :: a
+                 else
+                   a)
+              block_clause_literals_core_n1
+              block_clause.actlits_n0
+              block_clause.literals
+          in
+          
+          S.trace_comment
+            solver
+            (Format.asprintf
+               "@[<hv>block: Reduced clause@ %a@ with unsat core to@ %a@]"
+               Term.pp_print_term (term_of_clause block_clause)
+               Term.pp_print_term (Term.mk_or block_clause_literals_core));
+           
           (* Inductively generalize clause *)
           let block_clause_gen = 
             ind_generalize 
               solver
               r_i_full
               block_clause
+              block_clause_literals_core
           in
 
+          S.trace_comment
+            solver
+            (Format.asprintf
+               "@[<hv>block: Reduced clause@ %a@ with ind. gen. to@ %a@]"
+               Term.pp_print_term (Term.mk_or block_clause_literals_core)
+               Term.pp_print_term (term_of_clause block_clause_gen));
+            
           (* Add blocking clause to all frames up to where it has to
              be blocked *)
           let r_i' = block_clause_gen :: r_i in
@@ -1053,14 +1187,8 @@ let rec block solver trans_sys prop_set term_tbl =
 
           (* Check R_i-1[x] & C[x] & T[x,x'] |= C[x'] *)
           (block_clause.actlit_p0 :: 
-           block_clause.actlit_n1 :: 
-           
-           (* Special case: R_0 = I *)
-           (match frames with 
-             | [] -> [actlit_of_frame 0 |> snd]
-             | r_pred_i :: _ -> 
-               List.map actlit_p0_of_clause (r_pred_i @ r_i_full)))
-
+           block_clause.actlits_n1 @
+           r_pred_i_full)
 
       )
 
@@ -1321,7 +1449,6 @@ let fwd_propagate solver trans_sys prop_set frames =
           assert (check_frames solver frames');
 
           frames'
-
 
 
       (* Frames in ascending order *)
@@ -1655,7 +1782,7 @@ let extract_cex_path solver trans_sys trace =
         (fun _ -> assert false)
         
         (* Assume previous state and blocking clause *)
-        [pre_state; actlit_n1_of_clause r_i; actlit_p0_of_clause r_i]
+        (pre_state :: actlits_n1_of_clause r_i)
         
   in
 
@@ -1688,10 +1815,9 @@ let extract_cex_path solver trans_sys trace =
           (* Counterexample trace must be satisfiable *)
           (fun _ -> assert false)
 
-          (* Assyme initial state and blocking clause *)
-          [actlit_of_frame 0 |> snd; 
-           actlit_n1_of_clause r_1; 
-           actlit_p0_of_clause r_1]
+          (* Assume initial state and blocking clause *)
+          ((actlit_of_frame 0 |> snd) ::
+           actlits_n1_of_clause r_1)
 
   in
 
@@ -1985,9 +2111,11 @@ let rec bmc_checks solver trans_sys props =
              (if check_primed then Numeral.one else Numeral.zero))
           (all_entailed props)
           (if check_primed then
-             [actlit_R0; prop_set.clause.actlit_p0; prop_set.clause.actlit_n1]
+             (actlit_R0 :: 
+              prop_set.clause.actlit_p0 :: 
+              prop_set.clause.actlits_n1)
            else
-             [actlit_R0; prop_set.clause.actlit_n0])
+             (actlit_R0 :: prop_set.clause.actlits_n0))
       in
 
       (* Some properties falsified? *)

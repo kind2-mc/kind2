@@ -51,7 +51,9 @@ sig
 
   val get_values : t -> Term.t list -> (Term.t * Term.t) list
 
-  val get_unsat_core : t -> Term.t list
+  val get_unsat_core_of_names : t -> Term.t list
+
+  val get_unsat_core_lits : t -> Term.t list
 
   val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
@@ -350,8 +352,8 @@ struct
 
 
   (* Get model of the current context *)
-  let get_unsat_core solver =  
-
+  let get_unsat_core_of_names solver =  
+    
     match 
 
       (* Get values of SMT expressions in current context *)
@@ -399,6 +401,46 @@ struct
             raise (Failure "Invalid string in reply from SMT solver")
 
           
+  let get_unsat_core_lits solver = 
+
+    match 
+
+      (* Get values of SMT expressions in current context *)
+      S.get_unsat_core solver
+
+    with 
+
+      | SMTExpr.Error e, _ -> 
+
+        raise 
+          (Failure ("SMT solver failed: " ^ e))
+
+      | SMTExpr.Unsupported, _ -> 
+        raise 
+          (Failure 
+             ("SMT solver reported not implemented"))
+
+      | SMTExpr.NoResponse, _ ->
+        raise 
+          (Failure 
+             ("SMT solver did not produce a reply"))
+
+      | SMTExpr.Success, c -> 
+
+        (* Convert strings t<int> to integer *)
+        List.fold_left  
+          (fun a s -> 
+             try 
+               (Term.mk_uf 
+                  (UfSymbol.uf_symbol_of_string s)
+                  []) :: a
+             with Not_found -> assert false)
+          []
+          c
+              
+
+
+
 
   (* ******************************************************************** *)
   (* Higher level functions                                               *)
