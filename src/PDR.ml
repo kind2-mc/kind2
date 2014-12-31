@@ -2706,7 +2706,7 @@ let main trans_sys =
   ref_solver_init := Some solver_init;
 
   (debug smt
-      "Permanently asserting initial state constraint"
+	 "Permanently asserting initial state constraint"
    in
 
    (* Assert initial state constraint in solver instance *)
@@ -2714,7 +2714,7 @@ let main trans_sys =
      solver_init
      (TransSys.init_of_bound trans_sys Numeral.zero));
 
-(*
+  (*
   (debug smt 
       "Permanently asserting transition relation"
    in
@@ -2723,7 +2723,7 @@ let main trans_sys =
    S.assert_term 
      solver_init
      (TransSys.trans_of_bound trans_sys Numeral.one));
-*)
+   *)
 
   (* Create new solver instance to reason about counterexamples in
      frames *)
@@ -2749,7 +2749,7 @@ let main trans_sys =
   ref_solver_frames := Some solver_frames;
 
   (debug smt 
-      "Permanently asserting transition relation"
+	 "Permanently asserting transition relation"
    in
 
    (* Assert transition relation from current frame *)
@@ -2781,17 +2781,17 @@ let main trans_sys =
 
   (match Flags.pdr_print_to_file () with 
 
-    (* Keep default formatter *)
-    | None -> ()
+   (* Keep default formatter *)
+   | None -> ()
 
-    (* Output to given file *)
-    | Some f -> 
+   (* Output to given file *)
+   | Some f -> 
 
       (* Output channel on file *)
       let oc = 
         try open_out f with
-          | Sys_error _ -> 
-            failwith "Could not open file for inductive assertions"
+        | Sys_error _ -> 
+           failwith "Could not open file for inductive assertions"
       in 
 
       (* Create formatter and store in reference *)
@@ -2819,7 +2819,7 @@ let main trans_sys =
           if not (invars_0 == Term.t_true) then 
 
             (debug smt 
-                "Permanently asserting invariants"
+                   "Permanently asserting invariants"
              in
 
              S.assert_term solver_init invars_0;
@@ -2831,7 +2831,7 @@ let main trans_sys =
             (
 
               (debug smt 
-                  "Permanently asserting invariants"
+                     "Permanently asserting invariants"
                in
 
                S.assert_term solver_frames invars_0;
@@ -2847,8 +2847,8 @@ let main trans_sys =
           if List.mem `BMC (Flags.enable ()) then 
 
             (Event.log L_info
-               "Delegating check for zero and one step counterexamples \
-                to BMC process.")
+		       "Delegating check for zero and one step counterexamples \
+			to BMC process.")
 
           else
 
@@ -2857,7 +2857,7 @@ let main trans_sys =
             (bmc_checks solver_init trans_sys props);
 
           (debug smt 
-              "Permanently asserting property constraint"
+		 "Permanently asserting property constraint"
            in
 
            (* The property is implicit in every R_i *)      
@@ -2875,152 +2875,152 @@ let main trans_sys =
              trans_sys 
              props
 	     Term.TermHashtbl.(create 100)
-             [])
-	     
+				[])
+	    
 
         with 
 
-          (* All propertes are valid *)
-          | Success k -> 
+        (* All propertes are valid *)
+        | Success k -> 
 
-            (
+           (
 
-              (* Send out valid properties *)
-              List.iter
-                (fun (p, _) -> 
-                   Event.prop_status TransSys.PropInvariant trans_sys p) 
-                props;
+             (* Send out valid properties *)
+             List.iter
+               (fun (p, _) -> 
+                Event.prop_status TransSys.PropInvariant trans_sys p) 
+               props;
 
-              (* No more properties remaining *)
-              []
+             (* No more properties remaining *)
+             []
 
-            )
+           )
 
-          (* Some property is invalid *)
-          | Counterexample trace -> 
+        (* Some property is invalid *)
+        | Counterexample trace -> 
 
-            (
+           (
 
-              (* Extract counterexample from sequence of blocking
+             (* Extract counterexample from sequence of blocking
                  clauses *)
-              let cex_path =
-                extract_cex_path
-                  (solver_init, solver_frames, solver_misc)
-                  trans_sys
-                  trace
-              in
+             let cex_path =
+               extract_cex_path
+                 (solver_init, solver_frames, solver_misc)
+                 trans_sys
+                 trace
+             in
 
-              debug pdr
-                "@[<v>Counterexample:@,@[<hv>%a@]@]"
-                (Event.pp_print_path_pt trans_sys false) cex_path
-              in
+             debug pdr
+                   "@[<v>Counterexample:@,@[<hv>%a@]@]"
+                   (Event.pp_print_path_pt trans_sys false) cex_path
+             in
 
-              (* Check which properties are disproved *)
-              let props', props_false =
+             (* Check which properties are disproved *)
+             let props', props_false =
 
-                List.fold_left
-                  (fun (props', props_false) (p, t) -> 
+               List.fold_left
+                 (fun (props', props_false) (p, t) -> 
 
-                     if 
+                  if 
 
-                       (* Property is false along path? *)
-                       TransSys.exists_eval_on_path
-                         (TransSys.uf_defs trans_sys)
-                         ((=) (Eval.ValBool false))
-                         t
-                         cex_path
+                    (* Property is false along path? *)
+                    TransSys.exists_eval_on_path
+                      (TransSys.uf_defs trans_sys)
+                      ((=) (Eval.ValBool false))
+                      t
+                      cex_path
 
-                     then
+                  then
 
-                       (Event.prop_status 
-                          (TransSys.PropFalse cex_path) 
-                          trans_sys 
-                          p;
+                    (Event.prop_status 
+                       (TransSys.PropFalse cex_path) 
+                       trans_sys 
+                       p;
 
-                        Event.log
-                          L_info 
-                          "Property %s disproved by PDR"
-                          p;
+                     Event.log
+                       L_info 
+                       "Property %s disproved by PDR"
+                       p;
 
-                        (props', p :: props_false))
+                     (props', p :: props_false))
 
-                     else
+                  else
 
-                       (Event.log
-                          L_info 
-                          "Property %s not disproved by PDR"
-                          p;
-                        
-                        ((p, t) :: props', props_false)))
+                    (Event.log
+                       L_info 
+                       "Property %s not disproved by PDR"
+                       p;
+                     
+                     ((p, t) :: props', props_false)))
 
-                  ([], [])
-                  props
-              in
-              
-              debug pdr
-                  "Disproved %a, continuing with %a"
-                  (pp_print_list
-                     (fun ppf n -> Format.fprintf ppf "%s" n)
-                     "@ ")
-                  props_false
-                  (pp_print_list
-                     (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
-                     "@ ")
-                  props'
-              in
+                 ([], [])
+                 props
+             in
+             
+             debug pdr
+                   "Disproved %a, continuing with %a"
+                   (pp_print_list
+                      (fun ppf n -> Format.fprintf ppf "%s" n)
+                      "@ ")
+                   props_false
+                   (pp_print_list
+                      (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+                      "@ ")
+                   props'
+             in
 
-              assert (not (props_false = []));
+             assert (not (props_false = []));
 
-              props'
+             props'
 
-            )
+           )
 
-          | Disproved prop -> 
+        | Disproved prop -> 
 
 
-            (* Check which properties are disproved *)
-            let props' =
+           (* Check which properties are disproved *)
+           let props' =
 
-              List.fold_left
-                (fun accum (p, t) -> 
+             List.fold_left
+               (fun accum (p, t) -> 
 
-                   (* Property is disproved? *)
-                   if TransSys.is_disproved trans_sys p then
+                (* Property is disproved? *)
+                if TransSys.is_disproved trans_sys p then
 
-                     (* Remove property disproved property from
+                  (* Remove property disproved property from
                           properties to prove *)
-                     accum
+                  accum
 
-                   else 
+                else 
 
-                     (* Keep property *)
-                     (p, t) :: accum)
+                  (* Keep property *)
+                  (p, t) :: accum)
 
-                []
-                props
-            in
+               []
+               props
+           in
 
-            props'
+           props'
 
-          (* Formuala is not in linear intege arithmetic *)
-          | Presburger.Not_in_LIA -> 
+        (* Formuala is not in linear intege arithmetic *)
+        | Presburger.Not_in_LIA -> 
 
-            (
+           (
 
-              Event.log
-                L_info
-                "Problem contains real valued variables, \
-                 switching off approximate QE";
+             Event.log
+               L_info
+               "Problem contains real valued variables, \
+                switching off approximate QE";
 
-              Flags.set_pdr_qe `Z3;
+             Flags.set_pdr_qe `Z3;
 
-              props
+             props
 
-            )
+           )
 
-          (* Restart for other reason *)
-          | Restart -> props
-            
+        (* Restart for other reason *)
+        | Restart -> props
+		       
       in
 
       S.pop solver_frames;

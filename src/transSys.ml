@@ -103,6 +103,9 @@ type t =
   }
 
 
+let get_invars t =
+  t.invars
+
 (* Return the term for the initial state constraint *)
 let init_term t = 
 

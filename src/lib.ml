@@ -902,7 +902,8 @@ type kind_module =
   | `INVGEN
   | `INVMAN
   | `Interpreter
-  | `Parser ]
+  | `Parser 
+  | `Interpolator]
 
 
 (* Pretty-print the type of the process *)
@@ -914,6 +915,7 @@ let pp_print_kind_module ppf = function
   | `INVMAN -> Format.fprintf ppf "invariant manager"
   | `Interpreter -> Format.fprintf ppf "interpreter"
   | `Parser -> Format.fprintf ppf "parser"
+  | `Interpolator -> Format.fprintf ppf "interpolator"
 
 
 (* String representation of a process type *)
@@ -929,6 +931,7 @@ let suffix_of_kind_module = function
  | `INVMAN -> "man"
  | `Interpreter -> "interp"
  | `Parser -> "parse"
+ | `Interpolator -> "pol"
                 
 
 (* Process type of a string *)
@@ -938,6 +941,7 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "INVMAN" -> `INVMAN
+  | "Interpolator" -> `Interpolator 
   | _ -> raise (Invalid_argument "kind_module_of_string")
 
 

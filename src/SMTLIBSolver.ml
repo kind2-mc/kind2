@@ -91,6 +91,11 @@ let yices_bin = Flags.yices_bin ()
 let smtlibsolver_config_yices = 
   { solver_cmd = [| yices_bin; "--incremental" |] }
 
+let smtinterpol_bin = Flags.smtinterpol_bin ()
+
+let smtlibsolver_config_smtinterpol =
+  { solver_cmd = [| smtinterpol_bin; "-jar"; "smtinterpol.jar" |] }
+
 
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with 
@@ -98,6 +103,7 @@ let config_of_flags () = match Flags.smtsolver () with
   | `CVC4_SMTLIB -> smtlibsolver_config_cvc4
   | `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5
   | `Yices_SMTLIB -> smtlibsolver_config_yices
+  | `SMTInterpol_SMTLIB -> smtlibsolver_config_smtinterpol
   | _ -> 
     (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
     failwith "SMTLIBSolver.config_of_flags"
@@ -550,11 +556,11 @@ let execute_custom_check_sat_command cmd solver =
 
 (* Create an instance of the solver *)
 let create_instance 
-    ?produce_assignments
-    ?produce_models
-    ?produce_proofs
-    ?produce_cores
-    logic =
+      ?produce_assignments
+      ?produce_models
+      ?produce_proofs
+      ?produce_cores
+      logic =
 
   (* Get autoconfigured configuration *)
   let ({ solver_cmd = solver_cmd } as config) = config_of_flags () in
@@ -568,7 +574,14 @@ let create_instance
   let solver_stdin_in, solver_stdin_out = Unix.pipe () in
   let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
   let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
+  
+  Array.iter (
+      fun s -> Event.log L_info "%s" s
+    ) solver_cmd;
 
+  Event.log L_info "exe: %s" solver_executable;
+  
+  
   (* Create solver process *)
   let solver_pid = 
     Unix.create_process 
@@ -604,99 +617,118 @@ let create_instance
   (* Print success after commands, default is false per SMTLIB
      specification *)
   (match 
-     let cmd = "(set-option :print-success true)" in
-     (debug smt "%s" cmd in
-      execute_command solver cmd 0)
-   with 
-     | Success -> () 
-     | _ -> raise (Failure ("Cannot set option print-success")));
+      let cmd = "(set-option :print-success true)" in
+      (debug smt "%s" cmd in
+       execute_command solver cmd 0)
+    with 
+    | Success -> () 
+    | _ -> raise (Failure ("Cannot set option print-success")));
 
   (* Interactive mode not needed for MathSAT5 *)
   (match Flags.smtsolver () with 
-    | `Z3_SMTLIB ->
+   | `Z3_SMTLIB ->
 
       (* Run in interactive mode *)
       (match 
-         let cmd = "(set-option :interactive-mode true)" in
-         (debug smt "%s" cmd in
-          execute_command solver cmd 0)
-       with 
-         | Success -> () 
-         | _ -> raise (Failure ("Cannot set option interactive-mode")))
+          let cmd = "(set-option :interactive-mode true)" in
+          (debug smt "%s" cmd in
+           execute_command solver cmd 0)
+        with 
+        | Success -> () 
+        | _ -> raise (Failure ("Cannot set option interactive-mode")))
 
-    | _ -> ()
+   | _ -> ()
 
   );
 
   (* Produce assignments to be queried with get-values, default is
      false per SMTLIB specification *)
   (match Flags.smtsolver () with 
-    | `Yices_SMTLIB -> ()
-    | _ -> 
+   | `Yices_SMTLIB -> ()
+   | _ -> 
 
       (match produce_models with
-        | None -> ()
-        | Some o ->
+       | None -> ()
+       | Some o ->
           (match 
-             let cmd =
-               Format.sprintf "(set-option :produce-models %B)" o 
-             in
-             (debug smt "%s" cmd in
-              execute_command solver cmd 0)
-           with 
-             | Success -> () 
-             | _ -> raise (Failure ("Cannot set option produce-models")))));
+              let cmd =
+                Format.sprintf "(set-option :produce-models %B)" o 
+              in
+              (debug smt "%s" cmd in
+               execute_command solver cmd 0)
+            with 
+            | Success -> () 
+            | _ -> raise (Failure ("Cannot set option produce-models")))));
 
   (* Produce assignments to be queried with get-values, default is
      false per SMTLIB specification *)
   (match Flags.smtsolver () with 
-    | `Yices_SMTLIB -> ()
-    | _ -> 
+   | `Yices_SMTLIB -> ()
+   | _ -> 
 
       (match produce_assignments with
-        | None -> ()
-        | Some o ->
+       | None -> ()
+       | Some o ->
           (match 
-             let cmd =
-               Format.sprintf "(set-option :produce-assignments %B)" o 
-             in
-             (debug smt "%s" cmd in
-              execute_command solver cmd 0)
-           with 
-             | Success -> () 
-             | _ -> raise
-                      (Failure ("Cannot set option produce-assignments")))));
+              let cmd =
+                Format.sprintf "(set-option :produce-assignments %B)" o 
+              in
+              (debug smt "%s" cmd in
+               execute_command solver cmd 0)
+            with 
+            | Success -> () 
+            | _ -> raise
+                     (Failure ("Cannot set option produce-assignments")))));
 
   (* Produce unsatisfiable cores, default is false per SMTLIB
      specification *)
   (match Flags.smtsolver () with 
-    | `Yices_SMTLIB -> ()
-    | _ -> 
+   | `Yices_SMTLIB -> ()
+   | _ -> 
       (match produce_cores with
-        | None -> ()
-        | Some o ->
+       | None -> ()
+       | Some o ->
           (match 
-             let cmd =
-               Format.sprintf "(set-option :produce-unsat-cores %B)" o in
-             (debug smt "%s" cmd in
-              execute_command solver cmd 0)
-           with 
-             | Success -> () 
-             | _ -> 
+              let cmd =
+                Format.sprintf "(set-option :produce-unsat-cores %B)" o in
+              (debug smt "%s" cmd in
+               execute_command solver cmd 0)
+            with 
+            | Success -> () 
+            | _ -> 
                raise
                  (Failure ("Cannot set option produce-unsat-cores")))));
-      
+
+  (* Produce proofs, default is false per SMTLIB
+     specification *)
+  (match Flags.smtsolver () with 
+   | `Yices_SMTLIB -> ()
+   | _ -> 
+      (match produce_proofs with
+       | None -> ()
+       | Some o ->
+          (match 
+              let cmd =
+                Format.sprintf "(set-option :produce-proofs %B)" o in
+              (debug smt "%s" cmd in
+               execute_command solver cmd 0)
+            with 
+            | Success -> () 
+            | _ -> 
+               raise
+                 (Failure ("Cannot set option produce-proofs")))));
+  
   (* Set logic *)
   (match logic with 
-    | `detect -> () 
-    | _ -> 
+   | `detect -> () 
+   | _ -> 
       (match
-         let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
-         (debug smt "%s" cmd in
-          execute_command solver cmd 0)
-       with 
-         | Success -> () 
-         | _ -> 
+          let cmd = Format.sprintf "(set-logic %s)" (string_of_logic logic) in
+          (debug smt "%s" cmd in
+           execute_command solver cmd 0)
+        with 
+        | Success -> () 
+        | _ -> 
            raise 
              (Failure 
                 ("Cannot set logic " ^ (string_of_logic logic)))));

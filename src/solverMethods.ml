@@ -28,9 +28,9 @@ sig
   type t
 
   val new_solver : ?produce_assignments:bool -> ?produce_models:bool -> ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
-    
+                                                                                                                                          
   val delete_solver : t -> unit
-    
+                             
   val declare_fun : t -> UfSymbol.t -> unit
 
   val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
@@ -38,6 +38,8 @@ sig
   val fail_on_smt_error : SMTExpr.response -> unit
 
   val assert_term : t -> Term.t -> unit
+
+  val assert_named_term_wr : t -> SMTExpr.t -> string
 
   val assert_named_term : t -> SMTExpr.t -> unit
 
@@ -71,6 +73,8 @@ sig
   val check_entailment_cex : ?timeout:int -> t -> Term.t list -> Term.t -> bool * (Var.t * Term.t) list 
 
   val term_of_model : (Var.t * Term.t) list -> Term.t
+                                                 
+  val get_interpolants : t -> SMTExpr.custom_arg list -> Term.t 
 
 end
 
@@ -180,6 +184,16 @@ struct
     
     (* Assert SMT expression in solver instance and fail on error *)
     fail_on_smt_error (S.assert_expr solver expr)
+
+  let  assert_named_term_wr solver term = 
+
+    let term_name, term' = Term.mk_named term in
+
+    Hashtbl.add term_names term_name term;
+
+    assert_term solver term';
+    
+    "t" ^ (string_of_int term_name)
       
 
   let assert_named_term solver term = 
@@ -549,6 +563,11 @@ struct
          (function (v, e) -> Term.mk_eq [Term.mk_var v; e])
          model)
 
+  let get_interpolants solver args =
+    
+    let r,i = T.execute_custom_command solver "get-interpolants" args 1 in
+
+    Term.mk_and (List.map (fun h -> SMTExpr.term_of_smtexpr (SMTExpr.expr_of_string_sexpr h)) i)
 
 end
       

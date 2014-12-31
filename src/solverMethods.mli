@@ -39,10 +39,10 @@ sig
   (** Create a new instance of an SMT solver, declare all currently
       created uninterpreted function symbols *)
   val new_solver : ?produce_assignments:bool -> ?produce_models:bool -> ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
-    
+                                                                                                                                          
   (** Delete an instance of an SMT solver *)
   val delete_solver : t -> unit
-    
+                             
   (** {1 Declarations} *)
 
   (** Define uninterpreted symbol *)
@@ -59,6 +59,9 @@ sig
 
   (** Assert a formula in the current context *)
   val assert_term : t -> Term.t -> unit
+
+  (** Assert the expression, and return the name to the caller *)
+  val assert_named_term_wr : t -> SMTExpr.t -> string
 
   (** Assert the expression, naming it internally to retrieve it from
       an unsatisfiable core later *)
@@ -135,6 +138,8 @@ sig
 
   (** For a model return a conjunction of equations representing the model *)
   val term_of_model : (Var.t * Term.t) list -> Term.t
+
+  val get_interpolants : t -> SMTExpr.custom_arg list -> Term.t
 
 end
 

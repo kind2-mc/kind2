@@ -256,6 +256,7 @@ let kind_module_of_string = function
   | "IND" -> `IND
   | "INVGEN" -> `INVGEN
   | "interpreter" -> `Interpreter
+  | "interpolator" -> `Interpolator
   | _ -> raise (Arg.Bad "Bad value for --enable")
 
 let string_of_kind_module = function
@@ -264,6 +265,7 @@ let string_of_kind_module = function
   | `IND -> "IND"
   | `INVGEN -> "INVGEN"
   | `Interpreter -> "interpreter"
+  | `Interpolator -> "interpoator"
 
 let rec string_of_enable' accum = function 
   | [] -> accum
@@ -275,7 +277,7 @@ let rec string_of_enable' accum = function
 
 let string_of_enable = string_of_enable' ""
 
-let enable_values = "PDR, BMC, IND, INVGEN, interpreter"
+let enable_values = "PDR, BMC, IND, INVGEN, interpreter, interpolator"
 
 let enable_default_init = []
 

@@ -55,6 +55,7 @@ let main_of_process = function
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
   | `Parser -> ignore
+  | `Interpolator -> Interp.main
                        
 
 (* Cleanup function of the process *)
@@ -66,6 +67,7 @@ let on_exit_of_process = function
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
   | `Parser -> ignore
+  | `Interpolator -> Interp.on_exit
 
 (*
 (* Messaging type of the process *)
@@ -86,6 +88,7 @@ let debug_ext_of_process = function
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
+  | `Interpolator -> "pol"
 
 (* Exit status if child terminated normally *)
 let status_ok = 0
@@ -459,172 +462,172 @@ let check_smtsolver () =
   (* SMT solver from command-line *)
   match Flags.smtsolver () with 
 
-    (* User chose Z3 *)
-    | `Z3_SMTLIB -> 
+  (* User chose Z3 *)
+  | `Z3_SMTLIB -> 
 
-      let z3_exec = 
+     let z3_exec = 
 
-        (* Check if Z3 is on the path *)
-        try find_on_path (Flags.z3_bin ()) with 
+       (* Check if Z3 is on the path *)
+       try find_on_path (Flags.z3_bin ()) with 
 
-          | Not_found -> 
+       | Not_found -> 
 
-            (* Fail if not *)
-            Event.log 
-              L_fatal 
-              "Z3 executable %s not found."
-              (Flags.z3_bin ());
+          (* Fail if not *)
+          Event.log 
+            L_fatal 
+            "Z3 executable %s not found."
+            (Flags.z3_bin ());
 
-            exit 2
+          exit 2
 
-      in
+     in
 
-      Event.log L_info "Using Z3 executable %s." z3_exec
+     Event.log L_info "Using Z3 executable %s." z3_exec
 
-    (* User chose CVC4 *)
-    | `CVC4_SMTLIB -> 
+  (* User chose CVC4 *)
+  | `CVC4_SMTLIB -> 
 
-      let cvc4_exec = 
+     let cvc4_exec = 
 
-        (* Check if CVC4 is on the path *)
-        try find_on_path (Flags.cvc4_bin ()) with 
+       (* Check if CVC4 is on the path *)
+       try find_on_path (Flags.cvc4_bin ()) with 
 
-          | Not_found -> 
+       | Not_found -> 
 
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "CVC4 executable %s not found."
-              (Flags.cvc4_bin ());
+          (* Fail if not *)
+          Event.log 
+            L_fatal
+            "CVC4 executable %s not found."
+            (Flags.cvc4_bin ());
 
-            exit 2
+          exit 2
 
-      in
+     in
 
-      Event.log
-        L_info
-        "Using CVC4 executable %s."
-        cvc4_exec
+     Event.log
+       L_info
+       "Using CVC4 executable %s."
+       cvc4_exec
 
-    (* User chose MathSat5 *)
-    | `MathSat5_SMTLIB -> 
+  (* User chose MathSat5 *)
+  | `MathSat5_SMTLIB -> 
 
-      let mathsat5_exec = 
+     let mathsat5_exec = 
 
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.mathsat5_bin ()) with 
+       (* Check if MathSat5 is on the path *)
+       try find_on_path (Flags.mathsat5_bin ()) with 
 
-          | Not_found -> 
+       | Not_found -> 
 
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "MathSat5 executable %s not found."
-              (Flags.mathsat5_bin ());
+          (* Fail if not *)
+          Event.log 
+            L_fatal
+            "MathSat5 executable %s not found."
+            (Flags.mathsat5_bin ());
 
-            exit 2
+          exit 2
 
-      in
+     in
 
-      Event.log
-        L_info
-        "Using MathSat5 executable %s." 
-        mathsat5_exec
-
-
-    (* User chose MathSat5 *)
-    | `Yices_SMTLIB -> 
-
-      let yices_exec = 
-
-        (* Check if MathSat5 is on the path *)
-        try find_on_path (Flags.yices_bin ()) with 
-
-          | Not_found -> 
-
-            (* Fail if not *)
-            Event.log 
-              L_fatal
-              "Yices executable %s not found."
-              (Flags.yices_bin ());
-
-            exit 2
-
-      in
-
-      Event.log
-        L_info
-        "Using Yices executable %s." 
-        yices_exec
+     Event.log
+       L_info
+       "Using MathSat5 executable %s." 
+       mathsat5_exec
 
 
-    (* User did not choose SMT solver *)
-    | `detect -> 
+  (* User chose MathSat5 *)
+  | `Yices_SMTLIB -> 
 
-      try 
+     let yices_exec = 
 
-        let z3_exec = find_on_path (Flags.z3_bin ()) in
+       (* Check if MathSat5 is on the path *)
+       try find_on_path (Flags.yices_bin ()) with 
 
-        Event.log L_info "Using Z3 executable %s." z3_exec;
+       | Not_found -> 
 
-        (* Z3 is on path? *)
-        Flags.set_smtsolver 
-          `Z3_SMTLIB
-          z3_exec
+          (* Fail if not *)
+          Event.log 
+            L_fatal
+            "Yices executable %s not found."
+            (Flags.yices_bin ());
 
-      with Not_found -> 
+          exit 2
 
-        try 
+     in
 
-          let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
+     Event.log
+       L_info
+       "Using Yices executable %s." 
+       yices_exec
 
-          Event.log
-            L_info
-            "Using CVC4 executable %s." 
-            cvc4_exec;
 
-          (* CVC4 is on path? *)
-          Flags.set_smtsolver 
-            `CVC4_SMTLIB
-            cvc4_exec
+  (* User did not choose SMT solver *)
+  | `detect -> 
 
-        with Not_found -> 
+     try 
 
-          try 
+       let z3_exec = find_on_path (Flags.z3_bin ()) in
 
-            let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
+       Event.log L_info "Using Z3 executable %s." z3_exec;
 
-            Event.log
-              L_info
-              "Using MatSat5 executable %s." 
-              mathsat5_exec;
+       (* Z3 is on path? *)
+       Flags.set_smtsolver 
+         `Z3_SMTLIB
+         z3_exec
 
-            (* MathSat5 is on path? *)
-            Flags.set_smtsolver 
-              `MathSat5_SMTLIB
-              mathsat5_exec
+     with Not_found -> 
 
-          with Not_found -> 
+       try 
 
-            try 
+         let cvc4_exec = find_on_path (Flags.cvc4_bin ()) in
 
-              let yices_exec = find_on_path (Flags.yices_bin ()) in
+         Event.log
+           L_info
+           "Using CVC4 executable %s." 
+           cvc4_exec;
 
-              Event.log
-                L_info
-                "Using Yices executable %s." 
-                yices_exec;
+         (* CVC4 is on path? *)
+         Flags.set_smtsolver 
+           `CVC4_SMTLIB
+           cvc4_exec
 
-              (* Yices is on path? *)
-              Flags.set_smtsolver 
-                `Yices_SMTLIB
-                yices_exec
-                
-            with Not_found -> 
-              
-              Event.log L_fatal "No SMT Solver found"; 
-              
-              exit 2
+       with Not_found -> 
+
+         try 
+
+           let mathsat5_exec = find_on_path (Flags.mathsat5_bin ()) in
+
+           Event.log
+             L_info
+             "Using MatSat5 executable %s." 
+             mathsat5_exec;
+
+           (* MathSat5 is on path? *)
+           Flags.set_smtsolver 
+             `MathSat5_SMTLIB
+             mathsat5_exec
+
+         with Not_found -> 
+
+           try 
+
+             let yices_exec = find_on_path (Flags.yices_bin ()) in
+
+             Event.log
+               L_info
+               "Using Yices executable %s." 
+               yices_exec;
+
+             (* Yices is on path? *)
+             Flags.set_smtsolver 
+               `Yices_SMTLIB
+               yices_exec
+               
+           with Not_found -> 
+             
+             Event.log L_fatal "No SMT Solver found"; 
+             
+             exit 2
                 
 
 (* Entry point *)    
@@ -648,17 +651,17 @@ let main () =
 
         match Flags.debug_log () with 
 
-          (* Write to stdout by default *)
-          | None -> Format.std_formatter
+        (* Write to stdout by default *)
+        | None -> Format.std_formatter
 
-          (* Open channel to given file and create formatter on channel *)
-          | Some f ->
+        (* Open channel to given file and create formatter on channel *)
+        | Some f ->
 
-            let oc = 
-              try open_out f with
-                | Sys_error _ -> failwith "Could not open debug logfile"
-            in 
-            Format.formatter_of_out_channel oc
+           let oc = 
+             try open_out f with
+             | Sys_error _ -> failwith "Could not open debug logfile"
+           in 
+           Format.formatter_of_out_channel oc
 
       in
 
@@ -751,29 +754,29 @@ let main () =
   try 
 
     Event.log L_info 
-      "Parsing input file %s" (Flags.input_file ()); 
+              "Parsing input file %s" (Flags.input_file ()); 
 
     (* Parse file into two-state transition system *)
     trans_sys := (match (Flags.input_format ()) with 
 
-        | `Lustre -> 
-          
-          Some (LustreInput.of_file (Flags.input_file ()))
-            
-        | `Native -> 
-          
-          Some (NativeInput.of_file (Flags.input_file ()))
+                  | `Lustre -> 
+                     
+                     Some (LustreInput.of_file (Flags.input_file ()))
+                          
+                  | `Native -> 
+                     
+                     Some (NativeInput.of_file (Flags.input_file ()))
 
-        | `Horn -> 
-          
-          (* Horn.of_file (Flags.input_file ()) *)
-          assert false);
+                  | `Horn -> 
+                     
+                     (* Horn.of_file (Flags.input_file ()) *)
+                     assert false);
 
     (* Output the transition system *)
     (debug parse
-        "%a"
-        TransSys.pp_print_trans_sys
-        (get !trans_sys)
+           "%a"
+           TransSys.pp_print_trans_sys
+           (get !trans_sys)
      end);
 
     if 
@@ -790,17 +793,17 @@ let main () =
     (* Which modules are enabled? *)
     (match Flags.enable () with
 
-      (* No modules enabled *)
-      | [] -> 
+     (* No modules enabled *)
+     | [] -> 
         (Event.log L_fatal "Need at least one process enabled") 
 
-      (* Single module enabled *)
-      | [p] -> 
+     (* Single module enabled *)
+     | [p] -> 
 
         (
 
           Event.log L_info 
-            "Running as a single process";
+                    "Running as a single process";
 
           (* Set module currently running *)
           Event.set_module p;
@@ -812,31 +815,31 @@ let main () =
           Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
 
           (* Cleanup before exiting process *)
-          on_exit_child None p Exit
-            
+          on_exit_child None p Exit;
+
         )
-        
-      (* Run some modules in parallel *)
-      | ps -> 
+          
+     (* Run some modules in parallel *)
+     | ps -> 
         
         (
 
           Event.log L_info
-            "@[<hov>Running %a in parallel mode@]"
-            (pp_print_list pp_print_kind_module ",@ ")
-            ps;
-         
+                    "@[<hov>Running %a in parallel mode@]"
+                    (pp_print_list pp_print_kind_module ",@ ")
+                    ps;
+          
           let messaging_setup = Event.setup () in
 
           Event.log L_trace
-            "Messaging initialized in invariant manager";
+                    "Messaging initialized in invariant manager";
 
           (* Start all child processes *)
           List.iter 
             (function p -> 
-              run_process messaging_setup p)
+                      run_process messaging_setup p)
             ps;
-              
+          
           (* Set module currently running *)
           Event.set_module `INVMAN;
           
@@ -853,39 +856,49 @@ let main () =
 
           (* Run invariant manager *)
           InvarManager.main child_pids (get !trans_sys);
-          
+
           (* Exit without error *)
-          on_exit `INVMAN Exit
-        
+          on_exit `INVMAN;
+          
+          Flags.set_smtsolver
+            `SMTInterpol_SMTLIB
+            (Flags.smtinterpol_bin ());
+          
+          (* Run interplation engine *)
+          Interp.main (get !trans_sys);
+
+          Interp.on_exit Exit
+
+                         
         );
 
     );
 
   with
 
-    (* Exit with error *)
-    | e -> 
+  (* Exit with error *)
+  | e -> 
 
-      (* Which modules are enabled? *)
-      (match Flags.enable () with
+     (* Which modules are enabled? *)
+     (match Flags.enable () with
 
-        (* No modules enabled *)
-        | [] -> ()
+      (* No modules enabled *)
+      | [] -> ()
 
 
-        (* Single module enabled *)
-        | [p] -> 
-          
-          (* Cleanup before exiting process *)
-          on_exit_child None p e
-            
-       
-        (* Run some modules in parallel *)
-        | _ -> 
-        
-          on_exit `INVMAN e
-            
-      )
+      (* Single module enabled *)
+      | [p] -> 
+         
+         (* Cleanup before exiting process *)
+         on_exit_child None p e
+                       
+                       
+      (* Run some modules in parallel *)
+      | _ -> 
+         
+         on_exit `INVMAN e
+                 
+     )
 
 ;;
 

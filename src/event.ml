@@ -318,6 +318,7 @@ module MdlMap =
         | `IND -> 2
         | `PDR -> 3
         | `INVGEN -> 4
+        | `Interpolator -> 5
           
       let compare m1 m2 = 
         compare (int_of_kind_module m1) (int_of_kind_module m2)
@@ -365,6 +366,7 @@ let pt_string_of_kind_module = function
   | `INVMAN -> "invariant manager"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
+  | `Interpolator -> "interpolator"
 
 
 (* Pretty-print kind module  for plain text output *)
@@ -586,6 +588,7 @@ let xml_src_of_kind_module = function
   | `INVMAN -> "invman"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
+  | `Interpolator -> "interpolator"
 
 
 (* Pretty-print kind module as source attribute of log tag *)

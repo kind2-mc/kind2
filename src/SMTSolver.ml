@@ -62,6 +62,8 @@ sig
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
 
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
+                                                          
+
 
 end
 
@@ -70,6 +72,7 @@ let smtsolver_module () = match Flags.smtsolver () with
   | `Z3_SMTLIB
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
+  | `SMTInterpol_SMTLIB
   | `Yices_SMTLIB -> (module SMTLIBSolver : Solver)
 
   | `detect -> raise (Invalid_argument "smtsolver_module")

@@ -99,6 +99,9 @@ type t (* = private
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
+
+val get_invars : t -> Term.t list
+
 val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> UfSymbol.t * (Var.t * Term.t) list -> UfSymbol.t * (Var.t * Term.t) list -> (string * Term.t) list -> input -> t
 
 (** Pretty-print a predicate definition *)
