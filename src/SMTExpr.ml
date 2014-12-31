@@ -486,13 +486,8 @@ let rec expr_of_string_sexpr' bound_vars = function
       quantified_vars
       (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
 
-  (* A singleton list *)
-  | HStringSExpr.List [_] as e -> 
-
-    (* Cannot convert to an expression *)
-    failwith 
-      ("Invalid singleton list in S-expression " ^ 
-         (string_of_t HStringSExpr.pp_print_sexpr e))
+  (* A singleton list: treat as atom *)
+  | HStringSExpr.List [e] -> expr_of_string_sexpr' bound_vars e
 
   (* A list with a non-atom at the head *)
   | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
