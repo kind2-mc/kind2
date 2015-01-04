@@ -17,7 +17,7 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
@@ -52,7 +52,7 @@ let on_exit _ =
     with
     | e -> 
        Event.log L_error
-                 "Error deleting solver_init: %s" 
+                 "BMC @[<v>Error deleting solver_init:@ %s@]" 
                  (Printexc.to_string e))
 
 (* Returns true if the property is not falsified or valid. *)
@@ -113,8 +113,8 @@ let split_closure trans solver k actlits to_split =
     (* Declaring actlit. *)
     actlit |> Solver.declare_fun solver ;
     (* Asserting implication. *)
-    Term.mk_or
-        [ actlit |> term_of_actlit |> Term.mk_not ; term ]
+    Term.mk_implies
+        [ actlit |> term_of_actlit ; term ]
     |> Solver.assert_term solver ;
     (* All actlits. *)
     let all_actlits = (term_of_actlit actlit) ::  actlits in
@@ -147,39 +147,52 @@ let split_closure trans solver k actlits to_split =
 let rec next (trans, solver, k, invariants, unknowns) =
 
   (* Asserts terms from 0 to k. *)
-  let assert_new_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_and_apply_k
-         (Solver.assert_term solver) k
+  let assert_new_invariants =
+    List.iter
+      (Term.bump_and_apply_k
+         (Solver.assert_term solver) k)
   in
 
   (* Asserts terms at k. *)
-  let assert_old_invariants terms =
-    terms
-    |> Term.mk_and
-    |> Term.bump_state k
-    |> Solver.assert_term solver
+  let assert_old_invariants =
+    List.iter
+      (fun term -> Term.bump_state k term
+                   |> Solver.assert_term solver)
   in
 
-  (* Getting new invariants and valid / falsified properties. *)
-  let new_invariants, new_valids, new_falsifieds =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
+  (* Getting new invariants and updating transition system. *)
+  let new_invariants =
+
+
+    let new_invs, updated_props =
+      (* Receiving messages. *)
+      Event.recv ()
+      (* Updating transition system. *)
+      |> Event.update_trans_sys trans
+      (* Extracting invariant module/term pairs. *)
+    in
+
+    updated_props
+    (* Looking for new invariant properties. *)
+    |> List.fold_left
+         ( fun list (_, (name,status)) ->
+           if status = TransSys.PropInvariant
+           then
+             (* Memorizing new invariant property. *)
+             ( TransSys.named_term_of_prop_name trans name )
+             :: list
+           else
+             list )
+         (* New invariant properties are added to new invariants. *)
+         new_invs
+           
   in
 
   (* Cleaning unknowns by removing invariants and falsifieds. *)
-  let nu_unknowns = unknowns |> List.filter (shall_keep trans)
-  in
-  debug base "[Base@%i] nu_unknowns: %i." (Numeral.to_int k) (List.length nu_unknowns) in
+  let nu_unknowns = unknowns |> List.filter (shall_keep trans) in
 
   match nu_unknowns with
-  | _ when Flags.bmc_max () > 0 && (Numeral.to_int k) > Flags.bmc_max () ->
-     Event.log
-       L_info
-       "BMC reached maximal number of iterations"
-  | [] ->
-     debug base "[Base@%i] No more properties to falsify, exiting." (Numeral.to_int k) in
-    ()
+  | [] -> ()
 
   | _ ->
      let k_int = Numeral.to_int k in
@@ -189,8 +202,12 @@ let rec next (trans, solver, k, invariants, unknowns) =
      Event.progress k_int ;
      Stat.update_time Stat.bmc_total_time ;
 
-     (* Output current step *)
-     Event.log L_info "BMC loop at k=%d" (Numeral.to_int k);
+     (* Output current progress. *)
+     Event.log
+       L_info
+       "BMC @[<v>at k = %i@,\
+                 %i unfalsifiable properties.@]"
+       (Numeral.to_int k) (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
      let nu_invariants =
@@ -222,10 +239,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
               (* Appending it to the list of actlits. *)
               actlit_term :: actlits,
               (* Building the implication and appending. *)
-              (Term.mk_or [
-                   Term.mk_not actlit_term ;
-                   Term.bump_state Numeral.(k-one) term
-              ]) :: implications )
+              (Term.mk_implies
+                 [ actlit_term ;
+                   Term.bump_state Numeral.(k-one) term])
+              :: implications )
             ([], [])
      in
 
@@ -259,16 +276,32 @@ let rec next (trans, solver, k, invariants, unknowns) =
                   (TransSys.PropFalse cex) trans s )
               p ) ;
 
+     (* K plus one. *)
+     let k_p_1 = Numeral.succ k in
+     
+     (* Declaring unrolled vars at k+1. *)
+     TransSys.declare_vars_of_bounds
+       trans (Solver.declare_fun solver) k_p_1 k_p_1 ;
+     
      (* Asserting transition relation for next iteration. *)
-     TransSys.trans_of_bound trans Numeral.(k + one)
+     TransSys.trans_of_bound trans k_p_1
      |> Solver.assert_term solver
      |> ignore ;
-     
-     (* Output statistics *)
-     if output_on_level L_info then print_stats ();
 
-     (* Looping. *)
-     next (trans, solver, Numeral.(k+one), nu_invariants, unfalsifiable)
+     (* Output statistics *)
+     print_stats ();
+
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
+
+     (* Checking if we have reached max k. *)
+     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+       Event.log
+         L_info
+         "BMC @[<v>reached maximal number of iterations.@]"
+     else
+       (* Looping. *)
+       next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
 let init trans =
@@ -289,11 +322,6 @@ let init trans =
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
 
-  (* Declaring uninterpreted function symbols. *)
-  TransSys.iter_state_var_declarations
-    trans
-    (Solver.declare_fun solver) ;
-
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
@@ -301,17 +329,24 @@ let init trans =
      |> Solver.declare_fun solver)
     unknowns ;
 
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (Solver.define_fun solver) ;
+    (Solver.define_fun solver)
+    (Solver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
   |> Solver.assert_term solver
   |> ignore ;
 
-  (trans, solver, Numeral.zero, [], unknowns)
+  (* Invariants if the system at 0. *)
+  let invariants =
+    TransSys.invars_of_bound trans Numeral.zero
+  in
+
+  (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
 let main trans =

@@ -1,3 +1,4 @@
+Debug
 Kind2Config
 Version
 Decimal
@@ -13,4 +14,9 @@ TermAttr
 Type
 UfSymbol
 Var
-
+HString
+SExprLexer
+SExprParser
+SExprBase
+HStringSExpr
+SMTExpr

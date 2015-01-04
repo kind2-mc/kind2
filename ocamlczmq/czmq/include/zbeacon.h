@@ -1,26 +1,13 @@
 /*  =========================================================================
-    zbeacon - LAN service announcement and discovery
+    zbeacon - LAN discovery and presence
     
-    -------------------------------------------------------------------------
-    Copyright (c) 1991-2013 iMatix Corporation <www.imatix.com>
-    Copyright other contributors as noted in the AUTHORS file.
-
+    Copyright (c) the Contributors as noted in the AUTHORS file.
     This file is part of CZMQ, the high-level C binding for 0MQ:
     http://czmq.zeromq.org.
 
-    This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or (at
-    your option) any later version.
-
-    This software is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this program. If not, see
-    <http://www.gnu.org/licenses/>.
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
     =========================================================================
 */
 
@@ -37,7 +24,7 @@ typedef struct _zbeacon_t zbeacon_t;
 //  @interface
 //  Create a new beacon on a certain UDP port
 CZMQ_EXPORT zbeacon_t *
-    zbeacon_new (int port_nbr);
+    zbeacon_new (zctx_t *ctx, int port_nbr);
     
 //  Destroy a beacon
 CZMQ_EXPORT void
@@ -71,9 +58,9 @@ CZMQ_EXPORT void
 CZMQ_EXPORT void
     zbeacon_unsubscribe (zbeacon_t *self);
 
-//  Get beacon pipe, for polling or receiving messages
+//  Get beacon ZeroMQ socket, for polling or receiving messages
 CZMQ_EXPORT void *
-    zbeacon_pipe (zbeacon_t *self);
+    zbeacon_socket (zbeacon_t *self);
 
 //  Self test of this class
 CZMQ_EXPORT void

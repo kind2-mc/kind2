@@ -529,10 +529,11 @@ let find_cex
 	   a)
     in
 
-    debug pdr
-	  "@[<v>Current frames@,@[<hv>%a@]@]"
-	  SMTExpr.pp_print_expr (SMTExpr.smtexpr_of_term (CNF.to_term frame))
-    in
+  debug pdr
+      "@[<v>Current frames@,@[<hv>%a@]@]"
+    SMTExpr.pp_print_expr
+    (SMTExpr.smtexpr_of_term (CNF.to_term frame))
+  in
 
     (* Push a new scope to the context *)
     S.push solver_frames;
@@ -1685,28 +1686,30 @@ let fwd_propagate
                     inductive_terms
 
                 );
-	      *)
-             (* Send invariant *)
-             List.iter 
-               (fun c -> Event.invariant (Clause.to_term c))
-               inductive;
+*)
+              (* Send invariant *)
+              List.iter 
+                (fun c ->
+                  Event.invariant
+                    (TransSys.get_scope trans_sys) (Clause.to_term c))
+                inductive;
 
-             Stat.record_time Stat.pdr_inductive_check_time;
+              Stat.record_time Stat.pdr_inductive_check_time;
 
-             (* Pop scope level in generic solver *)
-             S.pop solver_misc;
+              (* Pop scope level in generic solver *)
+              S.pop solver_misc;
 
-             Stat.incr 
-               ~by:(List.length inductive_terms) 
-               Stat.pdr_inductive_blocking_clauses;
+              Stat.incr 
+                ~by:(List.length inductive_terms) 
+                Stat.pdr_inductive_blocking_clauses;
 
-             (debug pdr 
-                    "@[<v>New inductive terms:@,@[<hv>%t@]@]"
-                    (function ppf -> 
-			      (List.iter 
-				 (Format.fprintf ppf "%a@," Term.pp_print_term) 
-				 inductive_terms)) 
-              in
+              (debug pdr 
+                  "@[<v>New inductive terms:@,@[<hv>%t@]@]"
+                  (function ppf -> 
+                    (List.iter 
+                       (Format.fprintf ppf "%a@," Term.pp_print_term) 
+                       inductive_terms)) 
+               in
 
               (* Add inductive blocking clauses as invariants *)
               List.iter (TransSys.add_invariant trans_sys) inductive_terms);
@@ -2469,7 +2472,7 @@ let handle_events
   in
 
   (* Assert all received invariants *)
-  List.iter (fun (_, i) -> add_invariant i) invariants_recvd;
+  List.iter add_invariant invariants_recvd;
 
   (* Restart if one of the properties to prove has been disproved *)
   List.iter
@@ -2680,6 +2683,16 @@ let rec pdr
 *)
 let main trans_sys =
 
+  if 
+    not (Flags.pdr_qe () = `Cooper) && 
+    not (Flags.smtsolver () = `Z3_SMTLIB) 
+  then
+ 
+    (Event.log L_fatal "Precise quantifier elimination needs Z3 as SMT solver";
+
+     failwith "Unsupported SMT solver for options");
+        
+
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
 
@@ -2697,10 +2710,14 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init);
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions trans_sys (S.define_fun solver_init);
+  (* TransSys.iter_state_var_declarations trans_sys (S.declare_fun solver_init); *)
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_init)
+    (S.declare_fun solver_init)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save solver instance for clean exit *)
   ref_solver_init := Some solver_init;
@@ -2736,14 +2753,16 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations 
-    trans_sys 
-    (S.declare_fun solver_frames);
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions 
-    trans_sys 
-    (S.define_fun solver_frames);
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys  *)
+  (*   (S.declare_fun solver_frames); *)
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (S.define_fun solver_frames)
+    (S.declare_fun solver_frames)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save solver instance for clean exit *)
   ref_solver_frames := Some solver_frames;
@@ -2767,14 +2786,16 @@ let main trans_sys =
   in
 
   (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations 
+  (* TransSys.iter_state_var_declarations  *)
+  (*   trans_sys *)
+  (*   (S.declare_fun solver_misc); *)
+  
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans_sys
-    (S.declare_fun solver_misc);
-
-  (* Define functions *)
-  TransSys.iter_uf_definitions
-    trans_sys
-    (S.define_fun solver_misc);
+    (S.define_fun solver_misc)
+    (S.declare_fun solver_misc)
+    Numeral.(~- one) Numeral.one ;
 
   (* Save Solver instance for clean exit *)
   ref_solver_misc := Some solver_misc;
@@ -3012,7 +3033,13 @@ let main trans_sys =
                "Problem contains real valued variables, \
                 switching off approximate QE";
 
-             Flags.set_pdr_qe `Z3;
+              if Flags.smtsolver () = `Z3_SMTLIB then 
+                Flags.set_pdr_qe `Z3
+              else
+                (Event.log 
+                   L_fatal
+                   "Precise quantifier elimination needs Z3 as SMT solver";
+                 failwith "Unsupported SMT solver for options");              
 
              props
 

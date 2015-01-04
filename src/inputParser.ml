@@ -28,44 +28,51 @@ module E = LustreExpr
 let lexer = make_lexer [","; "true"; "false"]
 
 (* Parse one line in CSV file *)
-let rec parse_stream = parser
+let rec parse_stream input_scope = parser
     
     (* A line starting with an identifier, followed by a comma and a
        sequence of values *)
-  | [< 'Ident name; 'Kwd ","; sequence = parse_sequence >] ->
+  | [< 'Ident input_name; 'Kwd ","; sequence = parse_sequence >] ->
     
-    try
-    
-      (* Find the state variable of top scope *) 
-      let state_var = 
-        E.state_var_of_ident I.top_scope_index (I.mk_string_ident name)
-      in
-      
-      (* State variable must be an input *)
-      if StateVar.is_input state_var then 
+    (
+
+      try
         
-        (* Return state variable and its input *)
-        (state_var, sequence)
+        (* Find the state variable of top scope *) 
+        let state_var = 
+          StateVar.state_var_of_string (input_name, input_scope) 
+        in
         
-      else
+        (* State variable must be an input *)
+        if StateVar.is_input state_var then 
+
+          (* Return state variable and its input *)
+          (state_var, sequence)
+          
+        else
+          
+          (* Fail *)
+          (Event.log
+             L_fatal
+             "State variable %s is not an input" 
+             input_name;
+           
+           raise (Invalid_argument "parse_stream"))
+          
+      with Not_found ->
         
         (* Fail *)
         (Event.log
            L_fatal
-           "State variable %s is not an input" 
-           name;
+           "State variable %s not found" 
+           input_name;
          
          raise (Invalid_argument "parse_stream"))
         
-    with Not_found ->
-      
-      (* Fail *)
-      (Event.log
-         L_fatal
-         "State variable %s not found" 
-         name;
-       
-       raise (Invalid_argument "parse_stream"))
+    )
+
+  (* No more input *)
+  | [< >] -> raise End_of_file
       
 
 (* Parse a sequence of values *)
@@ -90,14 +97,16 @@ and parse_sequence = parser
   (* Sequence starting with the Boolean value true *)
   | [< 'Kwd "true"; 
        bool_sequence = 
-         parse_bool_sequence [Term.t_true] >] -> bool_sequence
+         parse_bool_sequence [Term.t_true] >] -> 
+
+    bool_sequence
 
   (* Sequence starting with the Boolean value false *)
   | [< 'Kwd "false"; 
        bool_sequence = 
          parse_bool_sequence [Term.t_false] >] -> 
   
-  bool_sequence
+    bool_sequence
 
 
 (* Parse a sequence of integers *)
@@ -166,11 +175,11 @@ and parse_bool_sequence_aux l = parser
 
 
 (* Parse from a lexer stream *)
-let parse s = parse_stream (lexer (Stream.of_string s))
+let parse top_scope_index s = parse_stream top_scope_index (lexer (Stream.of_string s))
 
 
 (* Read in a csv file *)
-let read_file filename = 
+let read_file top_scope_index filename = 
 
   (* Open the file *)
   let chan = open_in filename in
@@ -184,7 +193,7 @@ let read_file filename =
       let line = input_line chan in
       
       (* Parse line and add to accumulator *)
-      parse_chan ((parse line) :: acc)
+      parse_chan ((parse top_scope_index line) :: acc)
 
     (* End of file reached *)
     with End_of_file ->

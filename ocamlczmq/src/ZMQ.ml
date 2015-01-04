@@ -47,11 +47,13 @@ external zctx_set_iothreads : zctx -> int -> unit = "caml_zctx_set_iothreads"
 (*  Set msecs to flush sockets when closing them *)
 external zctx_set_linger : zctx -> int -> unit = "caml_zctx_set_linger"
 
+(*
 (*  Set HWM value *)
 external zctx_set_hwm : zctx -> int -> unit = "caml_zctx_set_hwm"
 
 (* Get HWM value *)
 external zctx_hwm : zctx -> int = "caml_zctx_hwm"
+*)
 
 
 (************************)

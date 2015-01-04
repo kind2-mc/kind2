@@ -28,8 +28,8 @@ end
 *)
 
 module BMC = Base
-module IND = Step
-module InvGen = InvGenDummy
+module InvGenTS = InvGenGraph.TwoState
+module InvGenOS = InvGenGraph.OneState
 
 (* module PDR = Dummy *)
 
@@ -50,8 +50,51 @@ let trans_sys = ref None
 let main_of_process = function 
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
-  | `IND -> IND.main 
-  | `INVGEN -> InvGen.main 
+  | `IND -> if Flags.ind_backward () then Pets.main else Step.main
+
+  | `INVGEN -> 
+
+    let nice =  (Flags.invgengraph_renice ()) in
+
+    (if nice < 0 then 
+
+       Event.log
+         L_info 
+         "Ignoring negative niceness value for invariant generation."
+
+     else
+
+       let nice' = Unix.nice nice in
+
+       Event.log
+         L_info 
+         "Renicing invariant generation to %d"
+         nice');
+
+    InvGenTS.main
+
+
+  | `INVGENOS -> 
+
+    let nice =  (Flags.invgengraph_renice ()) in
+
+    (if nice < 0 then 
+
+       Event.log
+         L_info 
+         "Ignoring negative niceness value for invariant generation."
+
+     else
+
+       let nice' = Unix.nice (Flags.invgengraph_renice ()) in
+
+       Event.log
+         L_info 
+         "Renicing invariant generation to %d"
+         nice');
+
+    InvGenOS.main
+
   | `Interpreter -> Interpreter.main (Flags.interpreter_input_file ())
   | `INVMAN -> InvarManager.main child_pids
   | `Parser -> ignore
@@ -62,8 +105,9 @@ let main_of_process = function
 let on_exit_of_process = function 
   | `PDR -> PDR.on_exit
   | `BMC -> BMC.on_exit 
-  | `IND -> IND.on_exit 
-  | `INVGEN -> InvGen.on_exit  
+  | `IND -> if Flags.ind_backward () then Pets.on_exit else Step.on_exit
+  | `INVGEN -> InvGenTS.on_exit  
+  | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit
   | `INVMAN -> InvarManager.on_exit                       
   | `Parser -> ignore
@@ -84,7 +128,8 @@ let debug_ext_of_process = function
   | `PDR -> "pdr"
   | `BMC -> "bmc"
   | `IND -> "ind"
-  | `INVGEN -> "invgen"
+  | `INVGEN -> "invgenTS"
+  | `INVGENOS -> "invgenOS"
   | `INVMAN -> "invman"
   | `Interpreter -> "interp"
   | `Parser -> "parser"
@@ -128,7 +173,7 @@ let status_of_exn process = function
     (
 
       Event.log L_error 
-        "Wallclock timeout";
+        "<Timeout> Wallclock timeout";
 
       status_timeout
 
@@ -140,7 +185,7 @@ let status_of_exn process = function
     (
       
       Event.log L_error
-        "CPU timeout"; 
+        "<Timeout> CPU timeout"; 
 
       status_timeout
 
@@ -152,7 +197,7 @@ let status_of_exn process = function
     (
       
       Event.log L_fatal
-        "Caught signal%t. Terminating." 
+        "<Interruption> Caught signal%t. Terminating." 
         (function ppf -> 
           match s with 
             | 0 -> () 
@@ -172,7 +217,7 @@ let status_of_exn process = function
       let backtrace = Printexc.get_backtrace () in
 
       Event.log L_fatal
-        "Runtime error: %s" 
+        "<Error> Runtime error: %s" 
         (Printexc.to_string e);
 
       if Printexc.backtrace_status () then
@@ -761,11 +806,24 @@ let main () =
 
                   | `Lustre -> 
                      
-                     Some (LustreInput.of_file (Flags.input_file ()))
-                          
+                     Some
+                       (LustreInput.of_file
+                          (Flags.enable () = [`Interpreter])
+                          (Flags.input_file ()))
+                       
                   | `Native -> 
                      
-                     Some (NativeInput.of_file (Flags.input_file ()))
+                     (
+
+                       (* Some (NativeInput.of_file (Flags.input_file ())) *)
+
+                       Event.log
+                         L_fatal
+                         "Native input deactivated while refactoring transition system.";
+                       
+                       assert false
+
+                     )
 
                   | `Horn -> 
                      

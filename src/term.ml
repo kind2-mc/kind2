@@ -199,37 +199,37 @@ let name_of_named t =  match node_of_term t with
 
 
 (* Return true if the term is an integer constant *)
-let rec is_numeral t = match node_of_term t with 
+let rec is_numeral t = match destruct t with 
 
   (* Term is a numeral constant *)
-  | T.Leaf s when Symbol.is_numeral s -> true
+  | T.Const s when Symbol.is_numeral s -> true
 
   (* Term is a decimal constant coinciding with an integer *)
-  | T.Leaf s when 
+  | T.Const s when 
       Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
 
     true
 
   (* Term is a negated numeral constant *)
-  | T.Node (s, [a]) when s == Symbol.s_minus && is_numeral a -> true
+  | T.App (s, [a]) when s == Symbol.s_minus && is_numeral a -> true
 
   | _ -> false
 
 
 (* Return integer constant of a term *)
-let rec numeral_of_term t = match node_of_term t with 
+let rec numeral_of_term t = match destruct t with 
 
   (* Term is a numeral constant *)
-  | T.Leaf s when Symbol.is_numeral s -> Symbol.numeral_of_symbol s
+  | T.Const s when Symbol.is_numeral s -> Symbol.numeral_of_symbol s
 
   (* Term is a decimal constant coinciding with an integer *)
-  | T.Leaf s when 
+  | T.Const s when 
       Symbol.is_decimal s && Decimal.is_int (Symbol.decimal_of_symbol s) -> 
 
     Numeral.of_big_int (Decimal.to_big_int (Symbol.decimal_of_symbol s))
 
   (* Term is a negated numeral constant *)
-  | T.Node (s, [a]) when s == Symbol.s_minus && is_numeral a -> 
+  | T.App (s, [a]) when s == Symbol.s_minus && is_numeral a -> 
 
     Numeral.(~- (numeral_of_term a))
 
@@ -891,7 +891,17 @@ let mk_num_of_int i = mk_num (Numeral.of_int i)
 
 
 (* Hashcons a real decimal *)
-let mk_dec d = mk_const_of_symbol_node (`DECIMAL d)
+let mk_dec d = 
+
+  (* Positive rational or zero *)
+  if Decimal.(d >= zero) then 
+    
+    mk_const_of_symbol_node (`DECIMAL d)
+
+  else
+
+    (* Wrap a negative rational in a unary minus *)
+    mk_minus [(mk_const_of_symbol_node (`DECIMAL (Decimal.(~- d))))]
 
 (*
 
@@ -1046,6 +1056,38 @@ let negate t = match T.destruct t with
   | _ -> mk_not t
 
 
+
+(* Negates a term by modifying the top node if it is a not, true,
+   false, or an arithmetic inequality. *)
+let negate_simplify t = match T.destruct t with
+
+  | T.Const symb ->
+     ( match Symbol.node_of_symbol symb with
+
+       (* Bool constants. *)
+       | `TRUE -> t_false
+       | `FALSE -> t_true
+                     
+       | _ -> mk_not t )
+
+  | T.App (symb, kids) ->
+     ( match Symbol.node_of_symbol symb, kids with
+
+       (* Top symbol is a negation, removing it. *)
+       | `NOT, [term] -> term
+
+       (* Aritmetic inequalities. *)
+       | `LEQ, kids -> mk_gt kids
+       | `LT, kids -> mk_geq kids
+       | `GT, kids -> mk_leq kids
+       | `GEQ, kids -> mk_lt kids
+
+       | _ -> mk_not t )
+
+  (* Top symbol is not a negation, then negate given term *)
+  | _ -> mk_not t
+
+
 (* Remove negation if it is the topmost symbol *)
 let unnegate t = match T.destruct t with
 
@@ -1162,18 +1204,17 @@ let bump_state i term =
 (* Apply function to term for instants 0..k *)
 let rec bump_and_apply_k f k term =
 
-  (* Terminate when when at the base instant *)
-  if Numeral.(k < zero) then () else 
-
-    (
-
-      (* Apply to term at instant k *)
-      f (bump_state k term);
-      
-      (* Recurse for instants 0..k-1 *)
-      bump_and_apply_k f (Numeral.pred k) term
-
+  let rec loop lbound ubound =
+    if Numeral.(lbound > ubound) then ()
+    else (
+      bump_state lbound term |> f ;
+      loop Numeral.(succ lbound) ubound
     )
+  in
+
+  if Numeral.(k >= zero)
+  then loop Numeral.zero k
+  else loop k Numeral.zero
 
 
 (* Return all state variables in term *)

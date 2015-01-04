@@ -82,7 +82,7 @@ val terminate_log : unit -> unit
 
 (** Events exposed to callers *)
 type event = 
-  | Invariant of Term.t 
+  | Invariant of string list * Term.t 
   | PropStatus of string * TransSys.prop_status
 
 (** Pretty-print an event *)
@@ -102,8 +102,8 @@ val stat : (string * Stat.stat_item list) list -> unit
 (** Output the progress of the module *)
 val progress : int -> unit
 
-(** Broadcast a discovered invariant *)
-val invariant : Term.t -> unit 
+(** Broadcast a discovered top level invariant *)
+val invariant : string list -> Term.t -> unit
 
 (** Broadcast a property status *)
 val prop_status : TransSys.prop_status -> TransSys.t -> string -> unit
@@ -115,25 +115,54 @@ val execution_path : TransSys.t -> (StateVar.t * Term.t list) list -> unit
 val terminate : unit -> unit 
 
 (** Receive all queued events *)
-val recv : unit -> (Lib.kind_module * event) list 
+val recv : unit -> (Lib.kind_module * event) list
+                                             
+(** Terminates if a termination message was received. Does NOT modified
+    received messages. *)
+val check_termination: unit -> unit
 
-(** Update transition system from events and return new invariants and
-    properties with changed status
+(** Filter list of invariants with their scope for invariants of empty
+    (top) scope *)
+val top_invariants_of_invariants :
+  TransSys.t ->
+  (Lib.kind_module * (string list * Term.t)) list ->
+  Term.t list
+
+(** Update transition system from events and return new invariants
+    INCLUDING subsystem ones, scoped and properties with changed
+    status.
 
     For a property status message the status saved in the transition
     system is updated if the status is more general (k-true for a
-    greater k, k-false for a smaller k, etc.) 
+    greater k, k-false for a smaller k, etc.).
 
     Received invariants are stored in the transition system, also
     proved properties are added as invariants.
 
     Counterexamples are ignored. *)
-val update_trans_sys : TransSys.t -> (Lib.kind_module * event) list -> (Lib.kind_module * Term.t) list * (Lib.kind_module * (string * TransSys.prop_status)) list
+val update_trans_sys_sub :
+  TransSys.t ->
+  (Lib.kind_module * event) list ->
+  (Lib.kind_module * (string list * Term.t)) list *
+  (Lib.kind_module * (string * TransSys.prop_status)) list
 
-(** Same as 'update_trans_sys' with optimized output for tsugi. *)
-val update_trans_sys_tsugi :
-  TransSys.t -> (Lib.kind_module * event) list ->
-  Term.t list * (string * Term.t) list * (string * Term.t) list
+(** Update transition system from events and return new top level
+    invariants and properties with changed status.
+
+    For a property status message the status saved in the transition
+    system is updated if the status is more general (k-true for a
+    greater k, k-false for a smaller k, etc.).
+
+    Received invariants are stored in the transition system, also
+    proved properties are added as invariants.
+
+    Counterexamples are ignored. *)
+val update_trans_sys :
+  TransSys.t ->
+  (Lib.kind_module * event) list ->
+  Term.t list * 
+  (Lib.kind_module * (string * TransSys.prop_status)) list
+
 
 (** {1 Messaging} *)
 

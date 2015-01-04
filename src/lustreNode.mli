@@ -63,7 +63,7 @@ type node_call =
     call_node_name : LustreIdent.t;
     
     (** Position of node call in input file *)
-    call_pos : LustreAst.position;
+    call_pos : Lib.position;
 
     (** Expressions for input parameters *)
     call_inputs : StateVar.t list;
@@ -121,7 +121,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (** Proof obligations for node *)
-    props : StateVar.t list;
+    props : (StateVar.t * TermLib.prop_source) list;
 
     (** Contract for node, assumptions *)
     requires : LustreExpr.t list;
@@ -143,6 +143,10 @@ type t =
 
     (** Map of state variables to their oracles *)
     state_var_oracle_map : StateVar.t StateVar.StateVarHashtbl.t;
+
+    (** Map of expressions to state variables *)
+    expr_state_var_map : StateVar.t LustreExpr.ExprHashtbl.t;
+
   }
 
 (** The empty node *)
@@ -156,6 +160,11 @@ val pp_print_call : bool -> Format.formatter -> node_call -> unit
 
 (** Return the node of the given name from a list of nodes *)
 val node_of_name : LustreIdent.t -> t list -> t 
+
+(** Return the identifier of the top node
+
+    Fail with [Invalid_argument "ident_of_top"] if list of nodes is empty *)
+val ident_of_top : t list -> LustreIdent.t 
 
 (** Order the equations of the node such that an equation defining a
    variable always occurs before all equations using the variable *)
@@ -187,6 +196,8 @@ val extract_state_vars : t list -> StateVar.StateVarSet.t
     ordered by dependencies, such that called nodes appear before
     their callers. *)
 val reduce_to_coi : t list -> LustreIdent.t -> StateVar.t list -> t list 
+
+val reduce_wo_coi : t list -> LustreIdent.t -> t list 
 
 val reduce_to_props_coi : t list -> LustreIdent.t -> t list 
 

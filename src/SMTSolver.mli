@@ -52,6 +52,7 @@ sig
     ?produce_proofs:bool -> 
     ?produce_cores:bool -> 
     SMTExpr.logic -> 
+    int ->
     t
 
   (** [delete_instance s] deletes the solver instance [s] *)
@@ -102,6 +103,8 @@ sig
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
 
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
+  (** Output a comment into the trace *)
+  val trace_comment : t -> string -> unit
 
 end
 
@@ -177,6 +180,9 @@ sig
 
   (** Execute a custom check-sat command and return its result *)
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
+
+  (** Output a comment into the trace *)
+  val trace_comment : t -> string -> unit
 
 end
 

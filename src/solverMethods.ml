@@ -76,6 +76,8 @@ sig
                                                  
   val get_interpolants : t -> SMTExpr.custom_arg list -> Term.t 
 
+  val trace_comment : t -> string -> unit
+
 end
 
 module Make (S : SMTSolver.S) : S with type t = S.t and type T.t = S.t =
@@ -145,6 +147,10 @@ struct
 
     (* Delete solver instance *)
     S.delete_instance solver 
+
+
+  (* Output a comment into the trace *)
+  let trace_comment solver comment = S.trace_comment solver comment
 
 
   (* ******************************************************************** *)
@@ -242,7 +248,10 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_var vars) 
+        S.get_value solver
+          (List.map
+             SMTExpr.smtexpr_of_var
+             vars)
           
       with 
 
@@ -269,7 +278,23 @@ struct
     let model =
       List.map
         (function (v, e) -> 
-          (SMTExpr.var_of_smtexpr v, SMTExpr.term_of_smtexpr e))
+          (let v', e' = 
+            SMTExpr.var_of_smtexpr v, SMTExpr.term_of_smtexpr e 
+           in
+           let tv', te' = 
+             Var.type_of_var v', Term.type_of_term e'
+           in
+           if
+             Type.equal_types tv' te'
+           then 
+             (v', e') 
+           else if 
+             Type.equal_types tv' Type.t_real && 
+             Type.equal_types te' Type.t_int 
+           then
+             (v', Term.mk_to_real e')
+           else
+             (v', e')))
         smt_model
     in
 
@@ -286,7 +311,8 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_term terms) 
+        S.get_value solver
+          (List.map SMTExpr.smtexpr_of_term terms)
           
       with 
 
@@ -313,7 +339,23 @@ struct
     let values =
       List.map
         (function (v, e) -> 
-          (SMTExpr.term_of_smtexpr v, SMTExpr.term_of_smtexpr e))
+          (let v', e' = 
+            SMTExpr.term_of_smtexpr v, SMTExpr.term_of_smtexpr e 
+           in
+           let tv', te' = 
+             Term.type_of_term v', Term.type_of_term e'
+           in
+           if
+             Type.equal_types tv' te'
+           then 
+             (v', e') 
+           else if 
+             Type.equal_types tv' Type.t_real && 
+             Type.equal_types te' Type.t_int 
+           then
+             (v', Term.mk_to_real e')
+           else
+             (v', e')))
         smt_values
     in
 
@@ -396,6 +438,7 @@ struct
   (* Checks satisfiability of some literals, runs if_sat if sat and
      if_unsat if unsat. *)
   let check_sat_assuming solver if_sat if_unsat literals =
+
     if SMTLIBSolver.check_sat_assuming_supported ()
 
     then

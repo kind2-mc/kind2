@@ -139,7 +139,12 @@ sig
   (** For a model return a conjunction of equations representing the model *)
   val term_of_model : (Var.t * Term.t) list -> Term.t
 
+<<<<<<< HEAD
   val get_interpolants : t -> SMTExpr.custom_arg list -> Term.t
+=======
+  (** Output a comment into the trace *)
+  val trace_comment : t -> string -> unit
+>>>>>>> origin/develop
 
 end
 

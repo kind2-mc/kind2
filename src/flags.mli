@@ -47,7 +47,7 @@ val smtsolver : unit -> smtsolver
 val set_smtsolver : smtsolver -> string -> unit
 
 (** SMT Logic to use *)
-type smtlogic = [ `QF_UFLIA | `QF_UFLRA | `detect ]
+type smtlogic = [ `QF_LIA | `QF_LRA | `QF_LIRA |`QF_UFLIA | `QF_UFLRA | `detect ]
 val smtlogic : unit -> smtlogic 
 
 (** Executable of Z3 solver *)
@@ -90,6 +90,10 @@ val bmc_max : unit -> bmc_max
 type check_version = bool
 val check_version : unit -> check_version
 
+(** Unroll the system backwards *)
+type ind_backward = bool
+val ind_backward : unit -> ind_backward
+
 (** Compresss inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
@@ -106,6 +110,10 @@ val ind_compress_same_succ : unit -> ind_compress_same_succ
 (** Compresss inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
+
+(** Lazy assertion of invariants. *)
+type ind_lazy_invariants = bool
+val ind_lazy_invariants : unit -> ind_lazy_invariants
 
 (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool
@@ -179,6 +187,24 @@ val cooper_order_var_by_elim : unit -> cooper_order_var_by_elim
 (** Choose lower bounds containing variables **)
 type cooper_general_lbound = bool
 val cooper_general_lbound : unit -> cooper_general_lbound
+
+(** InvGen will remove trivial invariants, i.e. invariants implied by
+    the transition relation.. **)
+type invgengraph_prune_trivial = bool
+val invgengraph_prune_trivial : unit -> invgengraph_prune_trivial
+type invgengraph_max_succ = int
+val invgengraph_max_succ : unit -> invgengraph_max_succ
+(** InvGen will lift candidate terms from subsystems.. **)
+type invgengraph_lift_candidates = bool
+val invgengraph_lift_candidates : unit -> invgengraph_lift_candidates
+(** InvGen will look for candidate terms in the transition
+    predicate. *)
+type invgengraph_mine_trans = bool
+val invgengraph_mine_trans : unit -> invgengraph_mine_trans
+
+(** Renice invariant generation process *)
+type invgengraph_renice = int
+val invgengraph_renice : unit -> invgengraph_renice
 
 (** Read input from file **)
 type interpreter_input_file = string

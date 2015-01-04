@@ -31,7 +31,7 @@ module Solver = SolverMethods.Make (ConfiguredSolver)
 let solver_qe = ref None 
 
 (* The current solver instance in use *)
-let solver_check = ref None 
+let solver_check = ref None
 
 (* Get the current solver instance or create a new instance *)
 let get_solver_instance trans_sys = 
@@ -46,14 +46,14 @@ let get_solver_instance trans_sys =
       let solver =     
         Solver.new_solver 
           ~produce_assignments:true
-          `UFLIA
+          (TransSys.get_logic trans_sys)
       in
       
       (* Declare uninterpreted function symbols *)
-      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
+      (* TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver); *)
   
       (* Define functions *)
-      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+      (* TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver); *)
 
       (* Save instance *)
       solver_qe := Some solver;
@@ -96,10 +96,10 @@ let get_checking_solver_instance trans_sys =
       in
       
       (* Declare uninterpreted function symbols *)
-      TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver);
+      (* TransSys.iter_state_var_declarations trans_sys (Solver.declare_fun solver); *)
   
       (* Define functions *)
-      TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver);
+      (* TransSys.iter_uf_definitions trans_sys (Solver.define_fun solver); *)
 
       (* Save instance *)
       solver_check := Some solver;
@@ -284,7 +284,7 @@ let check_implication trans_sys prem_str conc_str prem conc =
 (* Check generalization: model must imply quantifier eliminated term
    and quantifier eliminated term must imply the original quantifier
    term *)
-let check_generalize trans_sys model elim term term' = 
+let check_generalize trans_sys model elim term term' =
 
   (* Substitute fresh variables for terms to be eliminated and
      existentially quantify formula *)
@@ -303,7 +303,7 @@ let check_generalize trans_sys model elim term term' =
     trans_sys
     "exact generalization" 
     "formula"
-    (SMTExpr.smtexpr_of_term term') 
+    (SMTExpr.smtexpr_of_term term')
     qe_term
     
 
@@ -632,10 +632,12 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
         let qe_term = 
           match pdr_qe with 
             | `Z3 -> 
-              SMTExpr.quantified_smtexpr_of_term true elim term
+              SMTExpr.quantified_smtexpr_of_term
+                true elim term
             | `Z3_impl
             | `Z3_impl2 -> 
-              SMTExpr.quantified_smtexpr_of_term true elim extract_int
+              SMTExpr.quantified_smtexpr_of_term
+                true elim extract_int
         in
         
         let solver_qe = get_solver_instance trans_sys in

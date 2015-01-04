@@ -17,7 +17,7 @@
 *)
 
 open Lib
-open TypeLib
+open TermLib
 open Actlit
 
 module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
@@ -40,7 +40,7 @@ let on_exit _ =
   Stat.smt_stop_timers ();
 
   (* Output statistics *)
-  print_stats ();
+  print_stats () ;
 
   (* Deleting solver instance if created. *)
   (try
@@ -52,7 +52,7 @@ let on_exit _ =
     with
     | e -> 
        Event.log L_error
-                 "Error deleting solver_init: %s" 
+                 "IND @[<v>Error deleting solver_init:@ %s@]"
                  (Printexc.to_string e))
 
 let stop () = ()
@@ -175,16 +175,88 @@ let path_comp_actlit = fresh_actlit ()
 (* Term version. *)
 let path_comp_act_term = path_comp_actlit |> term_of_actlit
 
+(* Evaluates a list of terms at zero, then at 1 etc. up to [k].
+   If a term@i evaluates to [false], asserts it and returns [true].
+   otherwise returns [false].
+   In short, attempts to block the model represented by [eval] with a
+   term from [terms] at [i] where [0 <= i <= k]. *)
+let eval_terms_assert_first_false trans solver eval k =
+
+  (* Unrolls terms of the list at [k], asserting the first one
+     evaluating to false and in that case returning [true]. If all
+     terms@k evaluate to [true], returns false. *)
+  let rec loop_at_k k' = function
+    | term :: tail ->
+      (* Bumping term at [k]. *)
+      let term_at_k = Term.bump_state k' term in
+      ( try
+          if eval term_at_k
+          (* Term evaluates to true, recursing. *)
+          then
+            loop_at_k k' tail
+          (* Term evaluates to false, asserting it and returning true. *)
+          else (
+            Solver.assert_term solver term_at_k ;
+            true
+          )
+        with
+          | Invalid_argument _ ->
+            (* This should only happen when the term is two state and
+               [k'] is 0. *)
+            (* The term was not evaluable in this model, skipping it. *)
+            loop_at_k k' tail )
+    | [] -> false
+  in
+
+  let rec loop_all_k k' =
+    if Numeral.(k' > k) then false
+    else (
+      (* Attempting to block the model represented by [eval]. *)
+      let blocked = loop_at_k k' (TransSys.get_invars trans) in
+      if blocked
+      (* Blocked, returning. *)
+      then true
+      (* Not blocked, incrementing [k]. *)
+      else loop_all_k Numeral.(k' + one)
+    )
+  in
+
+  (* Timing the blocking for stats. *)
+  Stat.start_timer Stat.ind_lazy_invariants_time ;
+  let result = loop_all_k Numeral.zero in
+  Stat.record_time Stat.ind_lazy_invariants_time ;
+
+  if result then Stat.incr Stat.ind_lazy_invariants_count ;
+
+  result
+
 (* Check-sat and splits properties.. *)
 let split trans solver k to_split actlits =
-
+  
   (* Function to run if sat. *)
   let if_sat () =
+    
     (* Get-model function. *)
     let get_model = Solver.get_model solver in
-    (* Extracting the counterexample and returning it. *)
-    Some(TransSys.path_from_model trans get_model k,
-         TransSys.vars_of_bounds trans k k |> get_model)
+    
+    (* Getting counterexample for path compression is needed. *)
+    let cex =
+      if Flags.ind_compress () then
+        TransSys.path_from_model trans get_model k
+      else []
+    in
+    
+    (* Getting model for evaluation. *)
+    let model =
+      if Flags.ind_lazy_invariants () then
+        (* Lazy invariant mode, we need the full model. *)
+        TransSys.vars_of_bounds trans Numeral.zero k |> get_model
+      else
+        (* Not in lazy invariant mode, we only need model at [0]. *)
+        TransSys.vars_of_bounds trans k k |> get_model
+    in
+    
+    Some (cex, model)
   in
 
   (* Function to run if unsat. *)
@@ -202,42 +274,59 @@ let split trans solver k to_split actlits =
     with
 
     | Some (cex,model) ->
-       (* Attempting to compress path. *)
-       ( match
-           if not (Flags.ind_compress ()) then [] else
-             Compress.check_and_block
-               (Solver.declare_fun solver) trans cex
-         with
+        
+      (* Evaluation function. *)
+      let term_to_val =
+        Eval.eval_term (TransSys.uf_defs trans) model
+      in
+      (* Bool evaluation function. *)
+      let eval term =
+        term_to_val term |> Eval.bool_of_value
+      in
 
-         | [] ->
-            (* Cannot compress path, splitting properties. *)
+      (* Attempting to block counterexample with invariants. *)
+      let blocked_by_invariant =
+        if Flags.ind_lazy_invariants () then
+          (* We are in lazy invariants mode, trying to block model. *)
+          eval_terms_assert_first_false trans solver eval k
+        else false
+      in
 
-            (* Evaluation function. *)
-            let eval term =
-              Eval.eval_term (TransSys.uf_defs trans) model term
-              |> Eval.bool_of_value in
+      if blocked_by_invariant
+      (* Blocked model with an invariant, rechecking
+         satisfiability. *)
+      then loop ()
+      else
+      
+        (* Attempting to compress path. *)
+        ( match
+            if not (Flags.ind_compress ()) then [] else
+              Compress.check_and_block
+                (Solver.declare_fun solver) trans cex
+          with
 
-            (* Splitting properties. *)
-            let new_to_split, new_falsifiable =
-              List.partition
-                ( fun (_, term) ->
-                  Term.bump_state k term |> eval )
-                to_split in
-            (* Building result. *)
-            Some (new_to_split, new_falsifiable)
+            | [] ->
+              (* Splitting properties. *)
+              let new_to_split, new_falsifiable =
+                List.partition
+                  ( fun (_, term) ->
+                    Term.bump_state k term |> eval )
+                  to_split in
+              (* Building result. *)
+              Some (new_to_split, new_falsifiable)
 
-         | compressor ->
-            (* Path compressing, building term and asserting it. *)
-            Term.mk_or
-              [ path_comp_act_term |> Term.mk_not ;
-                compressor |> Term.mk_and ]
-            |> Solver.assert_term solver ;
-            (* Rechecking satisfiability. *)
-            loop () )
+            | compressor ->
+              (* Path compressing, building term and asserting it. *)
+              Term.mk_or
+                [ path_comp_act_term |> Term.mk_not ;
+                  compressor |> Term.mk_and ]
+                |> Solver.assert_term solver ;
+              (* Rechecking satisfiability. *)
+              loop () )
 
     | None ->
-       (* Returning the unsat result. *)
-       None
+      (* Returning the unsat result. *)
+      None
   in
 
   loop ()
@@ -248,9 +337,13 @@ let split trans solver k to_split actlits =
    same actlit. This makes backtracking easy since positive actlits
    are not overloaded. *)
 let split_closure
-      trans solver k optimistic_actlits optimistic_terms to_split =
+    trans solver k
+    optimistic_actlits optimistic_terms to_split =
 
   let rec loop falsifiable list =
+
+    (* Checking if we should terminate. *)
+    Event.check_termination () ;
 
     (* Building negative term. *)
     let neg_term =
@@ -336,24 +429,48 @@ let split_closure
    List 'unfalsifiables' has type (Numeral.t * properties) list and
    links unfalsifiable properties with the k at which they were found
    to be unfalsifiable.  It should be sorted by decreasing k. *)
-let rec next trans solver k invariants unfalsifiables unknowns =
+let rec next trans solver k unfalsifiables unknowns =
 
-  (* Receiving things. *)
-  let new_invariants,_,_ =
-    Event.recv () |> Event.update_trans_sys_tsugi trans
+  (* Getting new invariants and updating transition system. *)
+  let new_invariants =
+    (* Receiving messages. *)
+    Event.recv ()
+    (* Updating transition system. *)
+    |> Event.update_trans_sys trans
+    (* Extracting invariant module/term pairs. *)
+    |> fst
   in
+
+  (* ( match new_invariants with *)
+  (*   | [] -> () *)
+  (*   | _ -> *)
+  (*      Event.log *)
+  (*        L_info *)
+  (*        "IND @[<v> received %i invariants.@]" *)
+  (*        (List.length new_invariants) ) ; *)
 
   (* Cleaning unknowns and unfalsifiables. *)
   let confirmed, unknowns', unfalsifiables' =
     clean_properties trans unknowns unfalsifiables
   in
 
-
-  (* Communicating new invariants. *)
+  (* Communicating confirmed properties. *)
   confirmed
   |> List.iter
        ( fun (s,_) ->
          Event.prop_status TransSys.PropInvariant trans s ) ;
+
+  (* Adding confirmed properties to the system. *)
+  confirmed |> List.iter
+      (fun (_,term) -> TransSys.add_invariant trans term) ;
+
+  (* Adding confirmed properties to new invariants. *)
+  let new_invariants' =
+    confirmed
+    |> List.fold_left
+         ( fun invs (_,term) -> term :: invs)
+         new_invariants
+  in
 
   match unknowns', unfalsifiables' with
   | [], [] ->
@@ -363,7 +480,7 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;
      next
-       trans solver k invariants unfalsifiables' unknowns'
+       trans solver k unfalsifiables' unknowns'
   | _ ->
 
      (* Integer version of k. *)
@@ -375,47 +492,49 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      Stat.update_time Stat.ind_total_time ;
 
      (* Notifying compression *)
-     Compress.incr_k ();
+     if Flags.ind_compress () then
+       Compress.incr_k () ;
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
 
+     Printf.sprintf
+       "Unrolling step at %i." Numeral.(to_int k_p_1) ;
+     
+     (* Declaring unrolled vars at k+1. *)
+     TransSys.declare_vars_of_bounds
+       trans (Solver.declare_fun solver) k_p_1 k_p_1 ;
+
      (* Asserting transition relation. *)
+     (* TransSys.trans_fun_of trans k k_p_1 *)
      TransSys.trans_of_bound trans k_p_1
      |> Solver.assert_term solver
      |> ignore ;
 
-     (* Asserting new invariants from 0 to k+1. *)
-     ( match new_invariants with
-       | [] -> ()
-       | l -> l
-              |> Term.mk_and
-              |> Term.bump_and_apply_k
-                   (Solver.assert_term solver) k_p_1 ) ;
+     (* Asserting invariants if we are not in lazy invariants mode. *)
+     if not (Flags.ind_lazy_invariants ()) then (
+       (* Asserting new invariants from 0 to k. *)
+       ( match new_invariants' with
+         | [] -> ()
+         | _ ->
+            Term.mk_and new_invariants'
+            |> Term.bump_and_apply_k
+                 (Solver.assert_term solver) k ) ;
 
-     (* Asserts old invariants at k+1. *)
-     ( match invariants with
-       | [] -> ()
-       | l -> l
-              |> Term.mk_and
-              |> Term.bump_state k_p_1
-              |> Solver.assert_term solver ) ;
-
-     (* Building the list of new invariants. *)
-     let invariants' =
-       List.rev_append new_invariants invariants
-     in
+       (* Asserts all invariants at k+1. *)
+       TransSys.invars_of_bound trans k_p_1
+       |> Solver.assert_term solver ;
+     ) ;
 
      (* Asserting positive implications at k for unknowns. *)
      unknowns'
-     |> List.map
+     |> List.iter
           ( fun (_,term) ->
             (* Building implication. *)
             Term.mk_implies
               [ generate_actlit term |> term_of_actlit ;
-                Term.bump_state k term ] )
-     |> Term.mk_and
-     |> Solver.assert_term solver ;
+                Term.bump_state k term ]
+            |> Solver.assert_term solver ) ;
      
 
      (* Actlits, properties and implications at k for unfalsifiables. *)
@@ -463,6 +582,15 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      |> Term.mk_and
      |> Solver.assert_term solver ;
 
+     (* Output current progress. *)
+     Event.log
+       L_info
+       "IND @[<v>at k = %i@,\
+                 %i unknowns@,\
+                 %i unfalsifiables.@]"
+       (Numeral.to_int k)
+       (List.length unknowns') (List.length unfalsifiable_props);
+
      (* Splitting. *)
      let unfalsifiables_at_k, falsifiables_at_k =
        split_closure
@@ -472,13 +600,25 @@ let rec next trans solver k invariants unfalsifiables unknowns =
          unknowns'
      in
 
-     next
-       trans solver k_p_1
-       invariants'
-       (* Adding the new unfalsifiables. *)
-       ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
-       (* Iterating on the properties left. *)
-       falsifiables_at_k
+     (* Output statistics *)
+     print_stats () ;
+
+     (* Int k plus one. *)
+     let k_p_1_int = Numeral.to_int k_p_1 in
+
+     (* Checking if we have reached max k. *)
+     if Flags.bmc_max () > 0 && k_p_1_int > Flags.bmc_max () then
+       Event.log
+         L_info
+         "IND @[<v>reached maximal number of iterations.@]"
+     else
+       (* Looping. *)
+       next
+         trans solver k_p_1
+         (* Adding the new unfalsifiables. *)
+         ( (k_int, unfalsifiables_at_k) :: unfalsifiables' )
+         (* Iterating on the properties left. *)
+         falsifiables_at_k
          
 
 
@@ -502,9 +642,27 @@ let launch trans =
   solver_ref := Some solver ;
 
   (* Declaring uninterpreted function symbols. *)
-  TransSys.iter_state_var_declarations
+  (* TransSys.iter_state_var_declarations *)
+  (*   trans *)
+  (*   (Solver.declare_fun solver) ; *)
+
+  (* Declaring path compression actlit. *)
+  path_comp_actlit |> Solver.declare_fun solver ;
+
+  if Flags.ind_compress () then
+    (* Declaring path compression function. *)
+    Compress.init (Solver.declare_fun solver) trans ;
+
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (Solver.declare_fun solver) ;
+    (Solver.define_fun solver)
+    (Solver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
+
+  (* Invariants of the system at 0. *)
+  TransSys.invars_of_bound trans Numeral.zero
+  |> Solver.assert_term solver ;
 
   (* Declaring positive actlits. *)
   List.iter
@@ -513,22 +671,21 @@ let launch trans =
      |> Solver.declare_fun solver)
     unknowns ;
 
-  (* Declaring path compression actlit. *)
-  path_comp_actlit |> Solver.declare_fun solver ;
-
-  (* Declaring path compression function. *)
-  Compress.init (Solver.declare_fun solver) trans ;
-
-  (* Defining functions. *)
-  TransSys.iter_uf_definitions
-    trans
-    (Solver.define_fun solver) ;
-
   (* Launching step. *)
-  next trans solver Numeral.zero [] [] unknowns
+  next trans solver Numeral.zero [] unknowns
 
 (* Runs the step instance. *)
-let main trans = launch trans
+let main trans = 
+
+  if not (List.mem `BMC (Flags.enable ())) then
+
+    Event.log 
+      L_warn 
+      "@[<v>Inductive step without BMC will not be able to prove or@ \
+       disprove any properties.@,\
+       Use both options --enable BMC --enable IND together.@]";
+      
+  launch trans
 
 
 (* 

@@ -128,50 +128,56 @@ let handle_events trans_sys =
   ()
 
 (* Polling loop *)
-let rec loop child_pids trans_sys = 
+let rec loop is_done child_pids trans_sys = 
 
   handle_events trans_sys;
 
-  (* All properties proved? *)
-  if TransSys.all_props_proved trans_sys then 
-    
-    ( 
-      
-      Event.log L_info "All properties proved or disproved";
-      
-      Event.terminate ()
-        
-    );
+  let is_done' =
+    (* All properties proved? *)
+    if TransSys.all_props_proved trans_sys then (
 
+      ( if not is_done then
+          Event.log L_info
+            "<Done> All properties proved or disproved in %.3fs."
+            (Stat.get_float Stat.total_time)
+        else
+          Event.log L_info
+            "All properties proved or disproved,@ \
+             waiting for children to terminate." ) ;
+      
+      Event.terminate () ;
+
+      true
+
+    ) else false
+  in
 
   (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then 
-
-    (
-      
-      (* Get messages after termination of all processes *)
-      handle_events trans_sys
-
-    )
+  if wait_for_children child_pids then (
     
-  else 
+    (* Get messages after termination of all processes *)
+    handle_events trans_sys ;
 
-    (
+    (* All properties proved? *)
+    if TransSys.all_props_proved trans_sys then
+      Event.terminate ()
 
-      (* Sleep *)
-      minisleep 0.01;
+  ) else (
 
-      (* Continue polling loop *)
-      loop child_pids trans_sys
+    (* Sleep *)
+    minisleep 0.01;
 
-    )
+    (* Continue polling loop *)
+    loop is_done' child_pids trans_sys
+
+  )
   
 
 (* Entry point *)
 let main child_pids transSys =
 
   (* Run main loop *)
-  loop child_pids transSys
+  loop false child_pids transSys
 
 (* 
    Local Variables:
