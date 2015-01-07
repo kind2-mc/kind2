@@ -330,11 +330,8 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
            ("Invalid singleton list in S-expression " ^ 
               (string_of_t HStringSExpr.pp_print_sexpr e))
 
-      (* A list with a non-atom at the head *)
-      | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
-
-         (* Cannot convert to an expression *)
-         failwith "Invalid list element at head in S-expression"
+      (* A singleton list: treat as atom *)
+      | HStringSExpr.List [e] -> expr_of_string_sexpr' bound_vars e
 
       (* Atom or singleton list *)
       | HStringSExpr.Atom s ->

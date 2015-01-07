@@ -382,6 +382,14 @@ let pp_print_node
 
 
 (* Return the node of the given name from a list of nodes *)
+let exists_node_of_name name nodes =
+
+  List.exists
+    (function { name = node_name } -> name = node_name)
+    nodes
+
+
+(* Return the node of the given name from a list of nodes *)
 let node_of_name name nodes =
 
   try 
@@ -398,9 +406,7 @@ let node_of_name name nodes =
       (pp_print_list (pp_print_node false) "@,") nodes
     in
     
-    assert false
-
-      (* raise Not_found *)
+    raise Not_found 
 
 
 let rec ident_of_top = function 
@@ -1175,10 +1181,10 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
             if 
               
               (* Called node is sliced already? *)
-              not 
-                (List.exists 
-                   (function { name } -> name = n)
-                   accum)
+              not (exists_node_of_name n accum) &&
+
+                (* Called node is not sliced away *)
+                (exists_node_of_name n accum)
                 
             then 
               
@@ -1305,12 +1311,17 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
 
     with Push_node push_name ->
       
-      (* Find called node *)
+      (* Outputs and observers of node *)
       let { outputs = push_node_outputs; 
             observers = push_node_observers } as push_node = 
+
         try 
+
+          (* Find node by name *)
           node_of_name push_name nodes 
+
         with Not_found -> assert false 
+          
       in 
 
       (* Reduce called node first, then revisit calling node *)
