@@ -18,10 +18,11 @@
 
 open Lib
 open SMTExpr
+open Actlit
 
 
 (* Use configured SMT solver *)
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
+module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBInterpolator))
 
 
 (* ********************************************************************** *)
@@ -33,6 +34,12 @@ module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 let ref_solver = ref None
 
 let interp solver trans_sys k =
+
+  (* Invariants if the system at 0. *)
+  let invariants =
+    TransSys.invars_of_bound trans_sys Numeral.zero
+  in
+  
   
   Event.log
     L_info
@@ -53,10 +60,10 @@ let interp solver trans_sys k =
   in
 
 
-  let rec interp i r_i = 
+  let rec interp i r_i interpolants = 
     
-    if i > k then () else (
-
+    if i > k then interpolants else (
+      
       Solver.push solver;
 
       let a = Term.mk_and (r_i :: trans 1 i []) in
@@ -69,7 +76,7 @@ let interp solver trans_sys k =
         Event.log
           L_info
           "Reached end";
-        ()
+        interpolants
       )
       else (
         Event.log
@@ -78,17 +85,20 @@ let interp solver trans_sys k =
         let p = Solver.get_interpolants solver [ArgString n1; ArgString n2] in
         
         Solver.pop solver;
-        interp (i+1) (Term.mk_or [p;r_i])
+        interp (i+1) (Term.mk_or [p;r_i]) (p :: interpolants)
       )
     )
 
   in
 
-  interp 2 (TransSys.init_of_bound trans_sys Numeral.zero)
+  interp 2 (TransSys.init_of_bound trans_sys Numeral.zero) []
 ;;
 
 
 let on_exit _ =
+  
+  InvGenGraph.OneState.no_more_lsd ();
+
 
   (* Delete solver instance if created. *)
   (try
@@ -106,10 +116,6 @@ let on_exit _ =
 (* Entry point *)
 let main trans_sys =
 
-  Flags.set_smtsolver 
-    `SMTInterpol_SMTLIB
-    (Flags.smtinterpol_bin ());
-
   Event.log
     L_info
     "Starting interpolator";
@@ -122,7 +128,7 @@ let main trans_sys =
   Event.log
     L_info
     "Creating solver instance";
-  
+
   (* Create solver instance *)
   let solver = 
     Solver.new_solver ~produce_proofs:true logic
@@ -131,28 +137,65 @@ let main trans_sys =
   (* Create a reference for the solver. Only used in on_exit. *)
   ref_solver := Some solver;
   
-  (* Declare uninterpreted function symbols *)
-  TransSys.iter_state_var_declarations
-    trans_sys
-    (Solver.declare_fun solver);
   
-  (* Define functions *)
-  TransSys.iter_uf_definitions
-    trans_sys
-    (Solver.define_fun solver);
+  (* Getting properties. *)
+  let unknowns =
+    (TransSys.props_list_of_bound trans_sys Numeral.zero)
+  in
 
-  (* Assert initial state constraint *)
-  Solver.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
+
+  (* Declaring positive actlits. *)
+  List.iter
+    (fun (_, prop) ->
+     generate_actlit prop
+     |> Solver.declare_fun solver)
+    unknowns ;
+
+  (* Defining uf's and declaring variables. *)
+  TransSys.init_define_fun_declare_vars_of_bounds
+    trans_sys
+    (Solver.define_fun solver)
+    (Solver.declare_fun solver)
+    Numeral.(~- one) (Numeral.of_int 5)  ;
+  
+
+  (* Asserting init. *)
+  TransSys.init_of_bound trans_sys Numeral.zero
+  |> Solver.assert_term solver
+  |> ignore ;
 
   Event.log
     L_info
     "Calling main interpolation loop";
+
   
+
   (* Enter the bounded model checking loop *)
-  interp 
-    solver 
-    trans_sys 
-    5
+  let candidates = interp 
+                     solver 
+                     trans_sys 
+                     5
+  in
+
+  let system_candidates =
+    InvGenGraph.OneState.mine_system
+      true true true trans_sys
+  in
+
+  List.length candidates
+  |> Event.log L_info "Found %i interpolants.";
+
+
+  let invariants', ignore' =
+    InvGenGraph.OneState.mine_terms_run
+      trans_sys Term.TermSet.empty (Numeral.of_int 10) candidates system_candidates
+  in
+
+  (* Bla. *)
+  Term.TermSet.cardinal invariants'
+  |> Event.log L_info "Found %i invariants."
+    
+    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

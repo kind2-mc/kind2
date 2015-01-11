@@ -149,12 +149,6 @@ type t = {
   (* Properties of the transition system to prove invariant *)
   properties : property list; 
 
-let get_invars t =
-  t.invars
-
-(* Return the term for the initial state constraint *)
-let init_term t = 
-
   (* The source which produced this system. *)
   source: source ;
 

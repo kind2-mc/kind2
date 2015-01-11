@@ -75,8 +75,6 @@ type t
     constraint to the invariants. *)
 val get_invars : t -> Term.t list
 
-val mk_trans_sys : (pred_def * pred_def) list -> StateVar.t list -> UfSymbol.t * (Var.t * Term.t) list -> UfSymbol.t * (Var.t * Term.t) list -> (string * Term.t) list -> input -> t
-=======
 val mk_trans_sys :
   string list ->
   StateVar.t list ->
@@ -269,8 +267,8 @@ val all_props_proved : t -> bool
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
   
-(* (\** Apply [f] to all function definitions of the transition system *\) *)
-(* val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit *)
+(* Apply [f] to all function definitions of the transition system  *)
+val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit 
                                                                  
 (** Define uf definitions, declare constant state variables and declare
     variables from [lbound] to [upbound]. *)

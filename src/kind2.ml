@@ -918,10 +918,6 @@ let main () =
           (* Exit without error *)
           on_exit `INVMAN;
           
-          Flags.set_smtsolver
-            `SMTInterpol_SMTLIB
-            (Flags.smtinterpol_bin ());
-          
           (* Run interplation engine *)
           Interp.main (get !trans_sys);
 

@@ -37,7 +37,7 @@ type smtsolver =
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
   | `Yices_SMTLIB
-  | `SMTInterpol_SMTLIB
+  | `Smtinterpol_SMTLIB
   | `detect ]
 
 (** Return SMT solver *)

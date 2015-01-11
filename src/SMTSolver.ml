@@ -75,7 +75,7 @@ let smtsolver_module () = match Flags.smtsolver () with
   | `Z3_SMTLIB
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
-  | `SMTInterpol_SMTLIB
+  | `Smtinterpol_SMTLIB
   | `Yices_SMTLIB -> (module SMTLIBSolver : Solver)
 
   | `detect -> raise (Invalid_argument "smtsolver_module")
