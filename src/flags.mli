@@ -86,6 +86,10 @@ val enable : unit -> enable
 type bmc_max = int
 val bmc_max : unit -> bmc_max
 
+(** Maximal number of iterations in Interpolation *)
+type interp_max = int
+val interp_max : unit -> interp_max
+
 (** Output version information and exit *)
 type check_version = bool
 val check_version : unit -> check_version

@@ -174,7 +174,7 @@ let main trans_sys =
   let candidates = interp 
                      solver 
                      trans_sys 
-                     5
+                     (Flags.interp_max ())
   in
 
   let system_candidates =

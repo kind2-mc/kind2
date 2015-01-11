@@ -317,6 +317,12 @@ let bmc_max_default = 0
 
 (* ********** *) 
 
+type interp_max = int
+    
+let interp_max_default = 20
+
+(* ********** *) 
+
 type ind_backward = bool
     
 let ind_backward_default = false
@@ -592,6 +598,7 @@ type flags =
       mutable enable : enable;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
+      mutable interp_max : interp_max;
       mutable ind_backward : ind_backward;
       mutable ind_compress : ind_compress;
       mutable ind_compress_equal : ind_compress_equal;
@@ -644,6 +651,7 @@ let flags =
     enable = enable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
+    interp_max = interp_max_default;
     ind_backward = ind_backward_default;
     ind_compress = ind_compress_default;
     ind_compress_equal = ind_compress_equal_default;
@@ -810,6 +818,15 @@ let bmc_max_spec =
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
    Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
+
+(* ********** *) 
+
+let interp_max_action o = flags.interp_max <- o
+  
+let interp_max_spec = 
+  ("--interp_max", 
+   Arg.Int interp_max_action, 
+   Format.sprintf "(Interpolation) Maximal number of iterations (default: %d, unlimited: 0)" interp_max_default)
 
 (* ********** *) 
 
