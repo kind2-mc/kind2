@@ -1200,6 +1200,8 @@ let check_version () = flags.check_version
 
 let bmc_max () = flags.bmc_max 
 
+let interp_max () = flags.interp_max 
+
 let ind_backward () = flags.ind_backward
 
 let ind_compress () = flags.ind_compress 
@@ -1332,6 +1334,9 @@ and speclist =
 
     (* Maximal number of iterations in BMC *)
     bmc_max_spec;
+
+    (* Maximal number of iterations in BMC *)
+    interp_max_spec;
 
     (* Compress inductive counterexamples *)
     ind_backward_spec;

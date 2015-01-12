@@ -732,12 +732,6 @@ let create_instance
   let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
   let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
   
-  Array.iter (
-      fun s -> Event.log L_info "%s" s
-    ) solver_cmd;
-
-  Event.log L_info "exe: %s" solver_executable;
-  
   
   (* Create solver process *)
   let solver_pid = 

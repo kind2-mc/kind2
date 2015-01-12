@@ -41,10 +41,6 @@ let interp solver trans_sys k =
   in
   
   
-  Event.log
-    L_info
-    "Interpolating at step ";
-  
   let rec trans i hi acc =
     if i >= hi then
       acc
@@ -125,10 +121,6 @@ let main trans_sys =
   (* Determine logic for the SMT solver *)
   let logic = `QF_UFLIA in
 
-  Event.log
-    L_info
-    "Creating solver instance";
-
   (* Create solver instance *)
   let solver = 
     Solver.new_solver ~produce_proofs:true logic
@@ -156,7 +148,7 @@ let main trans_sys =
     trans_sys
     (Solver.define_fun solver)
     (Solver.declare_fun solver)
-    Numeral.(~- one) (Numeral.of_int 5)  ;
+    Numeral.(~- one) (Numeral.of_int (Flags.interp_max ()))  ;
   
 
   (* Asserting init. *)
@@ -164,11 +156,6 @@ let main trans_sys =
   |> Solver.assert_term solver
   |> ignore ;
 
-  Event.log
-    L_info
-    "Calling main interpolation loop";
-
-  
 
   (* Enter the bounded model checking loop *)
   let candidates = interp 
