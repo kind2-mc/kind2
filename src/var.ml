@@ -191,7 +191,7 @@ let pp_print_var_node ppf = function
   (* Pretty-print an instance of a state variable *)
   | StateVarInstance (v, o) ->
     Format.fprintf ppf 
-      "%a.%a" 
+      "%a@%a" 
       StateVar.pp_print_state_var v
       Numeral.pp_print_numeral o
 
