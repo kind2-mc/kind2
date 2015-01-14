@@ -50,8 +50,9 @@ type interpreted_symbol =
   | `NUMERAL of Numeral.t   (* Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t 
                        (* Infinite precision floating-point decimal (nullary) *)
+(*
   | `BV of bitvector      (* Constant bitvector *)
-
+*)
   | `MINUS                (* Difference or unary negation (left-associative) *)
   | `PLUS                 (* Sum (left-associative) *)
   | `TIMES                (* Product (left-associative) *)
@@ -69,7 +70,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t 
                           (* Divisible by [n] (unary) *)
-
+(*
   | `CONCAT               (* Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (* Extract subsequence from bitvector (unary) *)
@@ -87,7 +88,7 @@ type interpreted_symbol =
 
   | `SELECT               (* Selection from array (binary) *)
   | `STORE                (* Update of an array (ternary) *)
-
+*)
   ]
 
 
@@ -95,6 +96,7 @@ type interpreted_symbol =
 type symbol = 
   [ interpreted_symbol
   | `UF of UfSymbol.t     (* Uninterpreted symbol (variadic) *)
+  | `READ of Var.t        (* Read from an array valued variable *)
   ]
 
 
@@ -138,16 +140,24 @@ module Symbol_node = struct
     | `NUMERAL n1, `NUMERAL n2 -> Numeral.equal n1 n2
     | `DECIMAL d1, `DECIMAL d2 -> Decimal.equal d1 d2
     | `DIVISIBLE n1, `DIVISIBLE n2 -> Numeral.equal n1 n2
+(*
     | `EXTRACT (i1, j1), `EXTRACT (i2, j2) -> Numeral.equal i1 i2 && Numeral.equal j1 j2
     | `BV i, `BV j -> i = j
+*)
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
+
+    | `READ v1, `READ v2 -> Var.equal_vars v1 v2
 
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
+(*
     | `EXTRACT _, _
     | `BV _, _
-    | `UF _, _ -> false
+*)
+    | `UF _, _ 
+
+    | `READ _, _ -> false
 
     (* Non-parametric symbols *)
     | `TRUE, `TRUE
@@ -174,6 +184,7 @@ module Symbol_node = struct
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
     | `IS_INT, `IS_INT
+(*
     | `CONCAT, `CONCAT
     | `BVNOT, `BVNOT 
     | `BVNEG, `BVNEG
@@ -188,7 +199,7 @@ module Symbol_node = struct
     | `BVULT, `BVULT
     | `SELECT, `SELECT
     | `STORE, `STORE -> true
-
+*)
     | `TRUE, _
     | `FALSE, _
     | `NOT, _
@@ -212,7 +223,8 @@ module Symbol_node = struct
     | `GT, _
     | `TO_REAL, _
     | `TO_INT, _
-    | `IS_INT, _
+    | `IS_INT, _ -> false
+(*
     | `CONCAT, _
     | `BVNOT, _ 
     | `BVNEG, _
@@ -227,7 +239,7 @@ module Symbol_node = struct
     | `BVULT, _
     | `SELECT, _
     | `STORE, _ -> false
-
+*)
 
 
   (* Return hash of a symbol *)
@@ -332,8 +344,9 @@ let rec pp_print_symbol_node ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
+(*
   | `BV b -> pp_print_bitvector_b ppf b
-
+*)
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"
   | `TIMES -> Format.pp_print_string ppf "*"
@@ -355,7 +368,7 @@ let rec pp_print_symbol_node ppf = function
     Format.pp_print_string ppf "divisible";
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
-
+(*
   | `CONCAT -> Format.pp_print_string ppf "to_real"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
@@ -378,8 +391,9 @@ let rec pp_print_symbol_node ppf = function
 
   | `SELECT -> Format.pp_print_string ppf "select"
   | `STORE -> Format.pp_print_string ppf "store"
-
+*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
+  | `READ v -> Format.fprintf ppf "read@ %a" Var.pp_print_var v
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ppf { Hashcons.node = n } =
@@ -402,12 +416,12 @@ let is_numeral = function
 let is_decimal = function 
   | { Hashcons.node = `DECIMAL _ } -> true 
   | _ -> false
-
+(*
 (* Return true if the symbol is a bitvector *)
 let is_bitvector = function 
   | { Hashcons.node = `BV _ } -> true 
   | _ -> false
-
+*)
 (* Return true if the symbol is [`TRUE] or [`FALSE] *)
 let is_bool = function 
   | { Hashcons.node = `TRUE } 
@@ -423,12 +437,12 @@ let numeral_of_symbol = function
 let decimal_of_symbol = function 
   | { Hashcons.node = `DECIMAL n } -> n 
   | _ -> raise (Invalid_argument "decimal_of_symbol")
-
+(*
 (* Return the bitvector in a `BV symbol  *)
 let bitvector_of_symbol = function 
   | { Hashcons.node = `BV n } -> n 
   | _ -> raise (Invalid_argument "bitvector_of_symbol")
-
+*)
 (* Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 let bool_of_symbol = function 

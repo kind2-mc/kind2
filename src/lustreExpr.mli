@@ -254,7 +254,7 @@ type state_var_source =
 
 
 (** Stream from node call at position *)
-type state_var_instance =  LustreAst.position * LustreIdent.t * StateVar.t
+type state_var_instance = Lib.position * LustreIdent.t * StateVar.t
 
 
 (** Pretty-print a source of a state variable *)
@@ -272,9 +272,9 @@ val pp_print_state_var_source : Format.formatter -> state_var_source -> unit
     The association of the variable to the identifier it was created
     of is memoized in a hash table, so that the identifier can be
     retrieved via {!ident_of_state_var}. *)
-val mk_state_var_of_ident : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Type.t list -> StateVar.t
+val mk_state_var_of_ident : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Type.t list -> StateVar.t
 
-val mk_fresh_state_var : bool -> bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Type.t list -> Numeral.t ref -> StateVar.t
+val mk_fresh_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> LustreIdent.index -> LustreIdent.t -> Type.t -> Type.t list -> Numeral.t ref -> StateVar.t
 
 (** Set source of state variable *)
 val set_state_var_source : StateVar.t -> state_var_source -> unit
@@ -283,10 +283,10 @@ val set_state_var_source : StateVar.t -> state_var_source -> unit
 val get_state_var_source : StateVar.t -> state_var_source
 
 (** State variable is identical to a state variable in a node instance *)
-val set_state_var_instance : StateVar.t -> LustreAst.position -> LustreIdent.t -> StateVar.t -> unit
+val set_state_var_instance : StateVar.t -> Lib.position -> LustreIdent.t -> StateVar.t -> unit
 
 
-val lift_term :  LustreAst.position -> LustreIdent.t -> Term.t -> Term.t
+val lift_term :  Lib.position -> LustreIdent.t -> Term.t -> Term.t
 
 (** Return identical state variable in a node instance if any *)
 val get_state_var_instances : StateVar.t -> state_var_instance list
@@ -347,12 +347,12 @@ val pre_is_unguarded : t -> bool
     An unguarded pre is a previous state variable occuring in the
     initial state expression, since the arrow operator has been lifted
     to the top of the expression. *)
-val oracles_for_unguarded_pres : LustreAst.position -> (StateVar.t -> StateVar.t) -> (LustreAst.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
+val oracles_for_unguarded_pres : Lib.position -> (StateVar.t -> StateVar.t) -> (Lib.position -> string -> unit) ->  StateVar.t list -> t -> t * StateVar.t list
 
 (** {1 Predicates} *)
 
 (** Return true if the expression contains a previous state variable *)
-val has_pre_var : t -> bool
+val has_pre_var : Numeral.t -> t -> bool
 
 (** Return true if expression is a current state variable *)
 val is_var : t -> bool

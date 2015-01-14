@@ -99,7 +99,15 @@ module Var_node = struct
     | _ -> false
 
   (* Return hash of a variable *)
-  let hash = Hashtbl.hash
+  let hash = function
+
+    | StateVarInstance (sv, i) -> 
+      
+      (abs ((StateVar.hash_state_var sv) * (Numeral.to_int i)) mod max_int)
+      
+    | ConstStateVar sv -> StateVar.hash_state_var sv
+
+    | FreeVar (s, _) -> HString.hash s
 
 end
 
@@ -186,7 +194,7 @@ let pp_print_var_node ppf = function
       "%a.%a" 
       StateVar.pp_print_state_var v
       Numeral.pp_print_numeral o
-      
+
   (* Pretty-print a constant state variable *)
   | ConstStateVar v ->
     Format.fprintf ppf 
@@ -389,9 +397,95 @@ let bump_offset_of_state_var_instance i = function
   | { Hashcons.node = StateVarInstance (v, o) } -> 
     mk_state_var_instance v Numeral.(o + i)
 
-  | { Hashcons.node = ConstStateVar _ } as v -> v
+  | { Hashcons.node = ConstStateVar _ } as v-> v
 
-  | { Hashcons.node = FreeVar _ } as v -> v
+  | { Hashcons.node = FreeVar _ } -> 
+    raise (Invalid_argument "bump_offset_of_state_var_instance")
+
+module StringMap = Map.Make(String)
+
+(* Maps strings to state var instances. *)
+let unrolled_var_map = ref StringMap.empty
+(* Adds a mapping between [string] and [var]. Returns [true] if
+   [string] was already bound in the map. *)
+let update_unrolled_var_map string var =
+  unrolled_var_map := StringMap.add string var !unrolled_var_map
+(* Looks for the value associated to [string]. *)
+let find_unrolled_var_map string =
+  StringMap.find string !unrolled_var_map
+
+let unrolled_uf_of_state_var_instance = function
+  | ({ Hashcons.node = ConstStateVar sv } as var) ->
+
+      (* Getting the uf symbol of the state var. *)
+      let uf = StateVar.uf_symbol_of_state_var sv in
+
+      (* Updating the map. *)
+      update_unrolled_var_map (UfSymbol.name_of_uf_symbol uf) var ;
+
+      uf
+
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var) ->
+
+     (* Getting the uf symbol of the state var. *)
+     let uf = StateVar.uf_symbol_of_state_var v in
+
+     (* Building the string representing the unrolled state var. *)
+     let string =
+       String.concat
+         "@"
+         [ UfSymbol.name_of_uf_symbol uf ;
+           (* String representation of the offset. *)
+           Numeral.string_of_numeral o ]
+     in
+
+     (* Updating the map. *)
+     update_unrolled_var_map string var ;
+     
+     (* Declaring the uf. *)
+     UfSymbol.(
+       mk_uf_symbol
+         string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
+     )
+
+  | _ -> raise (Invalid_argument "unrolled_uf_of_state_var_instance")
+
+(* Declares constant variables as constant ufsymbols using the
+    provided function. *)
+let rec declare_constant_vars declare = function
+  | ({ Hashcons.node = ConstStateVar sv } as var) :: tail ->
+
+      (* Declaring the uf. *)
+      declare (unrolled_uf_of_state_var_instance var) ;
+
+      (* Looping. *)
+      declare_constant_vars declare tail
+
+  | _ :: tail -> declare_constant_vars declare tail
+
+  | [] -> ()
+
+(* Declares non constant variables as constant ufsymbols using the
+    provided function. *)
+let rec declare_vars declare = function
+
+  | ({ Hashcons.node = StateVarInstance (v, o) } as var)
+    :: tail ->
+     
+     (* Declaring the uf. *)
+     declare (unrolled_uf_of_state_var_instance var) ;
+
+     (* Looping. *)
+     declare_vars declare tail
+
+  | _ :: tail -> declare_vars declare tail
+
+  | [] -> ()
+
+(* Gets the state var instance associated with a unrolled
+   symbol. Throws [Not_found] if the sym is unknown. *)
+let state_var_instance_of_symbol sym =
+  Symbol.string_of_symbol sym |> find_unrolled_var_map
 
 
 (* 

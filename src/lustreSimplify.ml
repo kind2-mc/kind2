@@ -68,15 +68,16 @@ module ITrie = I.LustreIdentTrie
 module IdxTrie = I.LustreIndexTrie
 
 
-
+(* FIXME: Remove unless debugging *)
 module Event = struct let log _ = Format.printf end
+
 
 (* Node not found, possible forward reference 
 
    This is just failing at the moment, we'd need some dependency
    analysis to recognize cycles to fully support forward
    referencing. *)
-exception Node_not_found of I.t * A.position
+exception Node_not_found of I.t * position
 
 
 (* Raise parsing exception *)
@@ -84,8 +85,8 @@ let fail_at_position pos msg =
 
   Event.log
     L_warn
-    "Parser error in %a: %s"
-    A.pp_print_position pos
+    "Parser error at %a: %s"
+    Lib.pp_print_position pos
     msg;
 
   raise A.Parser_error
@@ -96,8 +97,8 @@ let warn_at_position pos msg =
 
   Event.log
     L_warn
-    "Parser warning in %a: %s"
-    A.pp_print_position pos
+    "Parser warning at %a: %s"
+    Lib.pp_print_position pos
     msg
 
 
@@ -111,14 +112,14 @@ type lustre_context =
 
   { 
 
-    (* Type identifiers and their types *)
+    (* Type identifiers and their types and bounds of their indexes *)
     type_of_ident : (Type.t * E.t list) ITrie.t; 
 
     (* Identifiers and the expresssions they are bound to
 
        Contains a state variable if the identifier denotes a stream,
        and a term if the identifier denotes a constant *)
-    expr_of_ident : (E.t * E.t list) ITrie.t;
+    expr_of_ident : E.t ITrie.t;
 
     (* Nodes *)
     nodes : N.t list;
@@ -199,17 +200,10 @@ let pp_print_lustre_context
          type_of_ident)
     (fun ppf -> 
        ITrie.iter
-         (fun i (e, b) -> 
+         (fun i e -> 
             Format.fprintf ppf 
-              "%a %a: %a@," 
+              "%a %a@," 
               (I.pp_print_ident safe) i 
-              (pp_print_list 
-                (function ppf ->
-                  Format.fprintf ppf 
-                    "[0..%a]"
-                    (E.pp_print_lustre_expr false))
-                "")
-              b
               (E.pp_print_lustre_expr safe) e)
          expr_of_ident)
     
@@ -227,9 +221,9 @@ type abstraction_context =
 
     (* Define an expression with a state variable or re-use previous
        definition *)
-    mk_state_var_for_expr : bool -> (StateVar.t * E.t) list -> E.t -> E.t list -> StateVar.t * (StateVar.t * E.t) list;
+    mk_state_var_for_expr : bool -> (StateVar.t * E.t) list -> E.t -> StateVar.t * (StateVar.t * E.t) list;
 
-    (* Create a new oracle input to guard pre operation on state
+    (* Create a new oracle input to guard pre operator on state
        variable *)
     mk_oracle_for_state_var : StateVar.t -> StateVar.t;
 
@@ -239,32 +233,34 @@ type abstraction_context =
     (* Create a new identifier for an observer output *)
     mk_new_observer : Type.t -> StateVar.t;
 
-    (* Definitions of new variables to add *)
+    (* Definitions of new variables *)
     new_vars : (StateVar.t * E.t) list;
 
-    (* Definitions of node calls to add *)
+    (* Definitions of node calls *)
     new_calls : N.node_call list;
 
-    (* Oracle inputs to add to the inputs of the node *)
+    (* Oracle inputs *)
     new_oracles : StateVar.t list;
 
-    (* Observer oututs to add to the ouptuts of the node *)
+    (* Observer outputs *)
     new_observers : StateVar.t list;
 
   }
 
 
 (* Environment without abstrations allowed *)
-let void_abstraction_context pos = 
+let no_abstraction pos = 
   
   let msg = "Expression must be constant" in
 
+  let fail _ = fail_at_position pos msg in
+
   { scope = I.empty_index;
-    mk_fresh_state_var = (fun _ -> fail_at_position pos msg); 
-    mk_state_var_for_expr = (fun _ -> fail_at_position pos msg); 
-    mk_oracle_for_state_var = (fun _ -> fail_at_position pos msg);
-    mk_new_oracle = (fun _ -> fail_at_position pos msg);
-    mk_new_observer = (fun _ -> fail_at_position pos msg);
+    mk_fresh_state_var = fail; 
+    mk_state_var_for_expr = fail;
+    mk_oracle_for_state_var = fail;
+    mk_new_oracle = fail;
+    mk_new_observer = fail;
     new_vars = []; 
     new_calls = [];
     new_oracles = [];
@@ -400,6 +396,7 @@ let rec eval_ast_expr
 
   in
 
+
   (* Return the constant inserted into an empty trie *)
   let eval_nullary_ast_expr pos expr = 
 
@@ -421,9 +418,8 @@ let rec eval_ast_expr
       eval_ast_expr abstractions context expr 
     in
  
-    (* Apply given constructor to each expression and keep bounds *)
-    (IdxTrie.map (fun (e, b) -> (mk e, b)) expr', 
-     abstractions')
+    (* Apply given constructor to each expression *)
+    (IdxTrie.map mk expr', abstractions')
     
   in
 
@@ -452,34 +448,19 @@ let rec eval_ast_expr
            If tries contain the same indexes, the association list
            returned by bindings contain the same keys in the same
            order. *)
-        IdxTrie.map2 
-
-
-          (* Apply operator to arguments *)
-          (fun _ (b1, e1) (b2, e2) -> 
-
-             (* Bounds for array variables must be identical *)
-             if b1 = b2 then
-
-               (* Apply given constructor to expression pair and keep
-                  bounds of first, which are identical to bounds of
-                  second *)
-               (mk e1 e2, b1) 
-
-             else 
-
-               raise E.Type_mismatch)
-
-          expr1'
-          expr2'
+        IdxTrie.map2 (fun _ -> mk) expr1' expr2'
 
       with 
+
         | Invalid_argument _ ->
 
           fail_at_position
             pos
-            "Index mismatch for expressions %a and %a" 
-
+            (Format.asprintf
+               "Index mismatch for expressions %a and %a" 
+               A.pp_print_expr expr1
+               A.pp_print_expr expr2)
+            
         | E.Type_mismatch ->
 
           fail_at_position
@@ -539,7 +520,7 @@ let rec eval_ast_expr
           (fun 
             i
             state_var
-            ({ E.expr_type } as expr, expr_bounds)
+            ({ E.expr_type } as expr)
             (accum, ({ mk_state_var_for_expr } as abstractions)) ->
 
             if 
@@ -547,11 +528,7 @@ let rec eval_ast_expr
               (* Expression must be of a subtype of input type *)
               Type.check_type 
                 expr_type
-                (StateVar.type_of_state_var state_var) &&
-
-              (* Number of indexes must match *)
-              (List.length expr_bounds = 
-               List.length (StateVar.indexes_of_state_var state_var))
+                (StateVar.type_of_state_var state_var)
 
             then 
 
@@ -560,8 +537,7 @@ let rec eval_ast_expr
                 mk_state_var_for_expr
                   (StateVar.is_const state_var) 
                   abstractions.new_vars
-                  expr 
-                  expr_bounds
+                  expr
               in
 
               E.set_state_var_instance state_var' pos ident state_var;
@@ -749,24 +725,11 @@ let rec eval_ast_expr
     (* Identifier *)
     | A.Ident (pos, ident) -> eval_ident pos ident
 
-    (* Projection to a record field [expr.field] *)
-    | A.RecordProject (pos, expr, field) -> eval_ast_projection pos expr field
-
-    (* Projection to a tuple or array field [expr[field_expr]] *)
-    | A.TupleProject (pos, expr, field_expr) -> 
-
-      (* Evaluate expression to an integer constant *)
-      let field = 
-        I.mk_int_one_index (int_const_of_ast_expr context pos field_expr) 
-      in
-
-      eval_ast_projection pos expr field
-
     (* Boolean constant true [true] *)
     | A.True pos -> eval_nullary_ast_expr pos E.t_true
 
     (* Boolean constant false [false] *)
-    | A.False pos ->  eval_nullary_ast_expr pos E.t_false
+    | A.False pos -> eval_nullary_ast_expr pos E.t_false
 
     (* Integer constant [d] *)
     | A.Num (pos, d) -> 
@@ -881,7 +844,7 @@ let rec eval_ast_expr
       eval_ast_expr
         abstractions
         context
-        (A.Not (A.dummy_pos, A.Eq (pos, expr1, expr2)))
+        (A.Not (Lib.dummy_pos, A.Eq (pos, expr1, expr2)))
 
     (* Less than or equal [expr1 <= expr2] *)
     | A.Lte (pos, expr1, expr2) -> 
@@ -925,10 +888,10 @@ let rec eval_ast_expr
              (* Apply pre operator to expression, abstract
                 non-variable term and re-use previous variables *)
              let expr', new_vars' = 
-               E.mk_pre (mk_state_var_for_expr false) new_vars expr 
+               E.mk_pre (mk_state_var_for_expr false) new_vars expr
              in
 
-             (IdxTrie.add index expr' accum,
+             (IdxTrie.add index expr accum,
               { abstractions with new_vars = new_vars' }))
 
           expr'
@@ -942,6 +905,24 @@ let rec eval_ast_expr
     | A.Arrow (pos, expr1, expr2) -> 
 
       eval_binary_ast_expr pos E.mk_arrow expr1 expr2 
+
+    (* Projection to a record field [expr.field] *)
+    | A.RecordProject (pos, expr, field) -> 
+
+      eval_ast_projection 
+        pos
+        expr
+        (I.index_of_one_index_list [field])
+
+    (* Projection to a tuple or array field [expr[field_expr]] *)
+    | A.TupleProject (pos, expr, field_expr) -> 
+
+      (* Evaluate expression to an integer constant *)
+      let field = 
+        I.mk_int_index (int_const_of_ast_expr context pos field_expr) 
+      in
+
+      eval_ast_projection pos expr field
 
     (* An expression list, flatten nested lists and add an index to
        each elements [(expr1, expr2)] *)
@@ -1164,7 +1145,7 @@ let rec eval_ast_expr
         if 
 
           (* Input must not contain variable at previous state *)
-          E.has_pre_var cond'
+          E.has_pre_var E.base_offset cond'
 
         then
 
@@ -1280,7 +1261,7 @@ and int_const_of_ast_expr context pos expr =
 
     (* Evaluate expression to trie *)
     eval_ast_expr 
-      (void_abstraction_context pos)
+      (no_abstraction pos)
       context
       expr
     |> fst 
@@ -1290,8 +1271,7 @@ and int_const_of_ast_expr context pos expr =
 
     (* Expression must evaluate to a singleton list of an integer
        expression without index and without new definitions *)
-    | [ index, { E.expr_init = ei; 
-                 E.expr_step = es } ]
+    | [ index, ({ E.expr_init = ei; E.expr_step = es }) ]
       when 
         index = I.empty_index && 
         let ei' = (ei :> Term.t) in let es' = (es :> Term.t) in 
@@ -1655,7 +1635,7 @@ let rec eval_ast_type ({ type_of_ident } as context) array_bounds = function
           I.empty_index
           (fst 
              (eval_ast_expr
-                (void_abstraction_context pos)
+                (no_abstractions pos)
                 context
                 size_expr))
 
@@ -1748,7 +1728,7 @@ let add_typed_const_decl
        node calls *)
     let expr_val, abstractions = 
       eval_ast_expr 
-        (void_abstraction_context pos)
+        (no_abstractions pos)
         context 
         expr 
     in

@@ -59,6 +59,9 @@ type state_var_prop =
     (* State variable is constant *)
     is_const : bool;
 
+    (* Use as candidate in invariant generation *)
+    mutable for_inv_gen : bool;
+
     (* Array variable if list is not empty, types are types of indexes *)
     indexes : Type.t list;
 
@@ -176,26 +179,9 @@ let string_of_state_var_name (n, s) =
 let pp_print_state_var_node ppf (n, s) = 
   pp_print_state_var_name ppf (n, s)
 
-(*
-(* Pretty-print a state variable as it occurred in the original input *)
-let pp_print_state_var_node_original ppf s = 
-  Format.pp_print_string ppf (Kind1.Tables.internal_name_to_original_name s)
-*)
-
 (* Pretty-print a hashconsed state variable *)
 let pp_print_state_var ppf { Hashcons.node = (n, s) } =
   pp_print_state_var_node ppf (n, s)
-
-(*
-(* Pretty-print a hashconsed state variable as it occurred in the
-   original input *)
-let pp_print_state_var_original ppf = function 
-
-  | { Hashcons.node = (n, s) } -> pp_print_state_var_node_original ppf n
-
-  (* Cannot have scopes in old parser *)
-  | _ -> invalid_arg "pp_print_state_var_original"
-*)
 
 (* Return a string representation of a hashconsed state variable *)
 let string_of_state_var s = string_of_t pp_print_state_var s
@@ -231,6 +217,12 @@ let is_input { Hashcons.prop = { is_input } } = is_input
 (* Return true if state variable is constant *)
 let is_const { Hashcons.prop = { is_const } } = is_const
 
+(* Return true if state variable is to be used in invariant generation *)
+let for_inv_gen { Hashcons.prop = { for_inv_gen } } = for_inv_gen
+
+(* Set or unset flag to use state variable in invariant generation *)
+let set_for_inv_gen flag { Hashcons.prop } = prop.for_inv_gen <- flag
+
 
 (* ********************************************************************* *)
 (* Constructors                                                          *)
@@ -241,6 +233,7 @@ let is_const { Hashcons.prop = { is_const } } = is_const
 let mk_state_var 
     ?(is_input:bool = false)
     ?(is_const:bool = false)
+    ?(for_inv_gen:bool = true)
     state_var_name
     state_var_scope
     state_var_type
@@ -311,7 +304,8 @@ let mk_state_var
          UfSymbol.mk_uf_symbol 
            (string_of_state_var_name 
               (state_var_name, state_var_scope))
-           (if is_const then [] else [Type.mk_int ()])
+           []
+           (* (if is_const then [] else [Type.mk_int ()]) *)
            state_var_type 
        in
 
@@ -324,6 +318,7 @@ let mk_state_var
              uf_symbol = state_var_uf_symbol;
              is_input = is_input;
              is_const = is_const;
+             for_inv_gen = for_inv_gen;
              indexes = state_var_indexes } 
        in
 
@@ -344,12 +339,12 @@ let import v =
   mk_state_var 
     ~is_input:(is_input v)
     ~is_const:(is_const v)
+    ~for_inv_gen:(for_inv_gen v)
     (name_of_state_var v) 
     (scope_of_state_var v) 
     (Type.import (type_of_state_var v))
     (List.map Type.import (indexes_of_state_var v))
     
-
 (* Return a previously declared state variable *)
 let state_var_of_string (state_var_name, state_var_scope) = 
 

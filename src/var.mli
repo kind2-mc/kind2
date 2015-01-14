@@ -114,6 +114,20 @@ val string_of_var : t -> string
 
 val stats : unit -> int * int * int * int * int * int
 
+(** Gets the state var instance associated with a constant unrolled
+    uf. Throws [Not_found] if the uf is unknown. *)
+val state_var_instance_of_symbol : Symbol.t -> t
+
+val unrolled_uf_of_state_var_instance : t -> UfSymbol.t
+
+(** Declares constant variables as constant ufsymbols using the
+    provided function. *)
+val declare_constant_vars : (UfSymbol.t -> unit) -> t list -> unit
+
+(** Declares non constant variables as constant ufsymbols using the
+    provided function. *)
+val declare_vars : (UfSymbol.t -> unit) -> t list -> unit
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

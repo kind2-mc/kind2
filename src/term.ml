@@ -425,10 +425,10 @@ let rec type_of_term t = match T.destruct t with
 
         (* Real constant *)
         | `DECIMAL _ -> Type.mk_real ()
-
+(*
         (* Bitvector constant *)
         | `BV b -> Type.mk_bv (length_of_bitvector b)
-          
+*)        
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
 
@@ -458,9 +458,10 @@ let rec type_of_term t = match T.destruct t with
         | `LT
         | `GEQ
         | `GT
-        | `DIVISIBLE _
+        | `DIVISIBLE _ -> Type.mk_bool ()
+(*
         | `BVULT -> Type.mk_bool ()
-
+*)
         (* Integer-valued functions *)
         | `TO_INT
         | `MOD
@@ -470,7 +471,7 @@ let rec type_of_term t = match T.destruct t with
         (* Real-valued functions *)
         | `TO_REAL
         | `DIV -> Type.mk_real ()
-          
+(*          
         (* Bitvector-valued function *)
         | `CONCAT -> 
 
@@ -514,11 +515,19 @@ let rec type_of_term t = match T.destruct t with
                 | _ -> assert false)
 
             | _ -> assert false)
-
+*)
         (* Return type of first argument *)
         | `MINUS
         | `PLUS
-        | `TIMES
+        | `TIMES -> 
+
+          (match l with 
+              
+            (* Function must be at least binary *)
+            | a :: _ -> type_of_term a
+            | _ -> assert false)
+
+(*
         | `BVNOT
         | `BVNEG
         | `BVAND
@@ -536,6 +545,7 @@ let rec type_of_term t = match T.destruct t with
             (* Function must be at least binary *)
             | a :: _ -> type_of_term a
             | _ -> assert false)
+*)
 
         (* Return type of second argument *)
         | `ITE -> 
@@ -548,14 +558,17 @@ let rec type_of_term t = match T.destruct t with
             
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
-            
+  
+        | `READ v -> 
+      
         (* Ill-formed terms *)
         | `TRUE
         | `FALSE
         | `NUMERAL _
-        | `DECIMAL _
+        | `DECIMAL _ -> assert false
+(*
         | `BV _ -> assert false
-
+*)
     )
 
   (* Return type of term *)
@@ -1032,6 +1045,12 @@ let mk_succ t = mk_app_of_symbol_node `PLUS [t; (mk_num_of_int 1)]
 (* Hashcons a decrement of the term by one *)
 let mk_pred t = mk_app_of_symbol_node `MINUS [t; (mk_num_of_int 1)]
 
+
+(* Hashcons an array read *)
+let rec mk_select v = function 
+  | [] -> mk_var v
+  | h :: tl -> mk_app_of_symbol_node `SELECT [mk_select v tl; h]
+  
 
 (* Hashcons a negation of the term, avoiding double negation *)
 let negate t = match T.destruct t with 

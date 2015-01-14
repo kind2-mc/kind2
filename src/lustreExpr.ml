@@ -58,7 +58,7 @@ type state_var_source =
 
 
 (* Stream is identical to a stream in a node instance at position *)
-type state_var_instance =  A.position * I.t * StateVar.t
+type state_var_instance =  position * I.t * StateVar.t
 
 
 (* Map from state variables to indexed identifiers *)
@@ -147,12 +147,15 @@ let get_state_var_instances state_var =
   with Not_found -> []
 
 
-
+(* Return instance of state variable from call in given node at given
+   position *)
 let lift_state_var pos node state_var = 
 
   match 
 
+    (* Iterate over map of state variables to instances *)
     StateVar.StateVarHashtbl.fold
+
       (fun state_var_caller instances -> function 
          
          (* Return first match *)
@@ -163,17 +166,23 @@ let lift_state_var pos node state_var =
            
            try 
              
-             (* Find state variable in instances *)
+             (* Find state variable to lift to in instances *)
              let (_, node, state_var_callee) =
+
                List.find
+
                  (function (pos', node', state_var') -> 
+
+                   (* State variable, position and node must match *)
                    StateVar.equal_state_vars state_var state_var' &&
                    pos = pos' &&
                    node = node')
+                 
                  instances
+
              in 
              
-             (* Return *)
+             (* Return state variable if found *)
              Some state_var_caller 
 
            (* State variable is not in instance *)
@@ -183,6 +192,8 @@ let lift_state_var pos node state_var =
       None
       
   with 
+
+    (* No instance of state variable found *)
     | None -> 
       
       debug lustreExpr 
@@ -192,6 +203,7 @@ let lift_state_var pos node state_var =
       
       state_var
         
+    (* Return instance of state variable *)
     | Some state_var' -> 
       
       debug lustreExpr 
@@ -203,29 +215,45 @@ let lift_state_var pos node state_var =
       state_var'
         
 
+(* Instantiate the variables of the term to the scope of a different
+   node.*)
 let lift_term pos node term = 
 
   Term.map
+
     (function _ -> function 
+
+       (* Need to instantiate free variables *)
        | term when Term.is_free_var term -> 
          
+         (* Get variable of term, this will not fail *)
          let var = Term.free_var_of_term term in
-
+         
+         (* Only if variable is an instance of a state variable *)
          if Var.is_state_var_instance var then 
            
+           (* Get state variable of free variable *)
            let state_var = Var.state_var_of_state_var_instance var in
            
+           (* Get offset of variable instance *) 
            let offset = Var.offset_of_state_var_instance var in
            
+           (* Lift state variable to scope of calling node *)
            let state_var' = lift_state_var pos node state_var in
            
+           (* Return state variable instance of the lifted state
+              variable at the same offset *)
            Term.mk_var (Var.mk_state_var_instance state_var' offset)
 
          else
            
+           (* No change if free variable is not an instance of a state
+              variable *)
            term
-           
+             
+       (* No change term that are not free variables *)
        | term -> term)
+
     term
 
 
@@ -340,22 +368,18 @@ let equal_expr
 
   Term.equal init1 init2 && Term.equal step1 step2 && clock1 = clock2
 
-
 (* Hashing of expressions *)
-let hash_expr { expr_init; expr_step; expr_clock } = 
-  
+let hash_expr { expr_init; expr_step; expr_clock } =
   Hashtbl.hash
     (Term.hash expr_init, Term.hash expr_step (* , Term.hash expr_clock *) )
 
-
 module ExprHashtbl = Hashtbl.Make
-    (struct 
-      type z = t 
+    (struct
+      type z = t
       type t = z (* avoid cyclic type abbreviation *)
-      let equal = equal_expr 
-      let hash = hash_expr 
+      let equal = equal_expr
+      let hash = hash_expr
     end)
-
 
 (* ********************************************************************** *)
 (* Pretty-printing                                                        *)
@@ -928,13 +952,14 @@ let mk_ternary eval type_of expr1 expr2 expr3 =
   
 
 (* Create state variable of identifier *)
-let mk_state_var_of_ident
-    is_input
-    is_const
+let mk_state_var_of_ident 
+    ?is_input
+    ?is_const
+    ?for_inv_gen
     scope_index
     ident
     state_var_type
-    state_var_indexes = 
+    state_var_indexes =
   
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -945,8 +970,9 @@ let mk_state_var_of_ident
   (* Create state variable *)
   let state_var = 
     StateVar.mk_state_var 
-      ~is_input:is_input
-      ~is_const:is_const
+      ?is_input:is_input
+      ?is_const:is_const
+      ?for_inv_gen:for_inv_gen
       ident_string
       scope
       state_var_type
@@ -966,8 +992,9 @@ let mk_state_var_of_ident
 
 (* Create state variable of identifier *)
 let mk_fresh_state_var 
-    is_input
-    is_const
+    ?is_input
+    ?is_const
+    ?for_inv_gen
     scope_index
     ident
     state_var_type
@@ -977,8 +1004,9 @@ let mk_fresh_state_var
   Numeral.incr index_ref; 
 
   mk_state_var_of_ident
-    is_input
-    is_const
+    ?is_input:is_input
+    ?is_const:is_const
+    ?for_inv_gen:for_inv_gen
     scope_index
     (I.push_int_index !index_ref ident)
     state_var_type
@@ -2102,11 +2130,11 @@ let mk_pre
 
 
 (* Return true if expression is a previous state variable *)
-let has_pre_var { expr_step } = 
+let has_pre_var zero_offset { expr_step } = 
 
   (* Previous state variables have negative offset *)
   match Term.var_offsets_of_term expr_step with 
-    | Some n, _ when Numeral.(n < cur_offset) -> true
+    | Some n, _ when Numeral.(n <= zero_offset + pre_offset) -> true
     | _ -> false
 
 
@@ -2277,7 +2305,7 @@ let oracles_for_unguarded_pres
     
     (warn_at_position
        pos
-       "Unguarded pre in expression, adding oracle input for variable.";
+       "Unguarded pre in expression, adding new oracle input.";
        
      (* New oracle for each state variable *)
      let oracle_substs, oracles' =
@@ -2303,10 +2331,7 @@ let oracles_for_unguarded_pres
             
             (* Substitute oracle variable for variable *)
             ((var, Term.mk_var oracle_var) :: accum, 
-             if List.exists (StateVar.equal_state_vars state_var) oracles then
-               oracles 
-             else
-               state_var :: oracles))
+             state_var :: oracles))
          
          init_pre_vars
          ([], oracles)

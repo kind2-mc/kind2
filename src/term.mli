@@ -281,6 +281,9 @@ val mk_succ : t -> t
 (** Decrement integer or real term by one *)
 val mk_pred : t -> t
 
+(** Select from an array *)
+val mk_select : Var.t -> t list -> t
+
 (** Negate term, avoiding double negation *)
 val negate : t -> t 
 

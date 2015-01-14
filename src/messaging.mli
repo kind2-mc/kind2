@@ -119,6 +119,10 @@ sig
   (** Receive messages queued by the background thread *)
   val recv : unit -> (Lib.kind_module * message) list
 
+  (** Returns true if a termination message was received. Does NOT
+      modify received message in any way. *)
+  val check_termination : unit -> bool
+
   (** Request the background thread of a worker process to terminate *)
   val exit : thread -> unit 
 

@@ -29,10 +29,12 @@
 
 %{
 
+open Lib
+
 module I = LustreIdent
 module A = LustreAst
 
-let mk_pos = A.position_of_lexing 
+let mk_pos = position_of_lexing 
 
 %}
 

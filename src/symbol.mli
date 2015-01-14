@@ -110,8 +110,9 @@ type interpreted_symbol =
 
   | `NUMERAL of Numeral.t (** Infinite precision integer numeral (nullary) *)
   | `DECIMAL of Decimal.t  (** infinite precision floating-point decimal (nullary) *)
+(*
   | `BV of Lib.bitvector    (** Constant bitvector *)
-
+*)
   | `MINUS                (** Difference or unary negation (left-associative) *)
   | `PLUS                 (** Sum (left-associative) *)
   | `TIMES                (** Product (left-associative) *)
@@ -129,7 +130,7 @@ type interpreted_symbol =
 
   | `DIVISIBLE of Numeral.t
                           (** Divisible by [n] (unary) *)
-
+(*
   | `CONCAT               (** Concatenation of bitvectors (binary) *)
   | `EXTRACT of Numeral.t * Numeral.t 
                           (** Extract subsequence from bitvector (unary) *)
@@ -147,6 +148,7 @@ type interpreted_symbol =
 
   | `SELECT               (** Selection from array (binary) *)
   | `STORE                (** Update of an array (ternary) *)
+*)
   ]
 
 (** Adding uninterpreted function symbols separately for conversions
@@ -154,6 +156,7 @@ type interpreted_symbol =
 type symbol =
   [ interpreted_symbol
   | `UF of UfSymbol.t     (** Uninterpreted symbol (fixed arity) *)
+  | `READ of Var.t        (** Read from an array valued variable *)
   ]
 
 (** Hashconsed symbol *)
@@ -232,10 +235,10 @@ val is_numeral : t -> bool
 
 (** Return true if the symbol is a decimal *)
 val is_decimal : t -> bool
-
+(*
 (** Return true if the symbol is a bitvector *)
 val is_bitvector : t -> bool
-
+*)
 (** Return true if the symbol is [`TRUE] or [`FALSE] *)
 val is_bool : t -> bool
 
@@ -244,10 +247,10 @@ val numeral_of_symbol : t -> Numeral.t
 
 (** Return the decimal in a [`DECIMAL _] symbol *)
 val decimal_of_symbol : t -> Decimal.t 
-
+(*
 (** Return the bitvector in a [`BV _] symbol *)
 val bitvector_of_symbol : t -> Lib.bitvector 
-
+*)
 (** Return [true] for the [`TRUE] symbol and [false] for the [`FALSE]
     symbol *)
 val bool_of_symbol : t -> bool 
