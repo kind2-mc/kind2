@@ -103,7 +103,9 @@ module Var_node = struct
 
     | StateVarInstance (sv, i) -> 
       
-      (abs ((StateVar.hash_state_var sv) * (Numeral.to_int i)) mod max_int)
+      (abs
+         ((StateVar.hash_state_var sv) *
+          (Numeral.(succ i |> succ |> to_int)) mod max_int))
       
     | ConstStateVar sv -> StateVar.hash_state_var sv
 
