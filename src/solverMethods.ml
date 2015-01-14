@@ -72,6 +72,8 @@ sig
 
   val term_of_model : (Var.t * Term.t) list -> Term.t
 
+  val trace_comment : t -> string -> unit
+
 end
 
 module Make (S : SMTSolver.S) : S with type t = S.t and type T.t = S.t =
@@ -141,6 +143,10 @@ struct
 
     (* Delete solver instance *)
     S.delete_instance solver 
+
+
+  (* Output a comment into the trace *)
+  let trace_comment solver comment = S.trace_comment solver comment
 
 
   (* ******************************************************************** *)
@@ -228,7 +234,10 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_var vars) 
+        S.get_value solver
+          (List.map
+             SMTExpr.smtexpr_of_var
+             vars)
           
       with 
 
@@ -288,7 +297,8 @@ struct
       match 
     
         (* Get values of SMT expressions in current context *)
-        S.get_value solver (List.map SMTExpr.smtexpr_of_term terms) 
+        S.get_value solver
+          (List.map SMTExpr.smtexpr_of_term terms)
           
       with 
 
@@ -414,6 +424,7 @@ struct
   (* Checks satisfiability of some literals, runs if_sat if sat and
      if_unsat if unsat. *)
   let check_sat_assuming solver if_sat if_unsat literals =
+
     if SMTLIBSolver.check_sat_assuming_supported ()
 
     then

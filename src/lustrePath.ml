@@ -92,13 +92,7 @@ let rec tree_path_of_model model =
 
            (* Add modified node content to map, replaces previous entry *)
            let call_map' = CallMap.add call_key node_model' call_map in
-(*
-           debug lustrePath
-               "State variable %a is an instance of %a"
-               StateVar.pp_print_state_var state_var
-               StateVar.pp_print_state_var call_state_var
-           in
-*)
+
            (* Continue with modified node calls *)
            call_map')
         call_map
@@ -110,7 +104,7 @@ let rec tree_path_of_model model =
 
   in
 
-  (* Create a hierarchival model for variables of node *)
+  (* Create a hierarchical model for variables of node *)
   let node_of_model (call_node_id, call_pos) model =
 
     (* Streams of this node and stream in called nodes  *)
@@ -291,7 +285,7 @@ let rec tree_path_of_nodes
            (fun sv -> E.get_state_var_source sv = E.Local) 
            (locals))))
   in
-
+  
   (* Add streams in node to hierarchic model *)
   let tree_path' = 
     List.fold_left
@@ -408,10 +402,25 @@ let reduced_tree_path_of_model start_at_init nodes model =
   (* Convert flat model to a hierarchical model *)
   let stream_map, call_map = tree_path_of_model model in
 
+  (*
   (* Get the single element of the map *)
   let N (node_name, node_pos, _, _) as orig_tree_path = 
     snd (CallMap.choose call_map)
   in
+*)
+
+  let main_node = List.hd nodes in
+
+  let node_name = main_node.N.name in
+
+  let node_pos = dummy_pos in
+  
+  let orig_tree_path = N (node_name, node_pos, stream_map, call_map) in
+    
+    debug lustrePath
+    "%a" (pp_print_tree_path_pt 8 8 [])  orig_tree_path
+    in
+  
 
   (* Return hierarchical model corresponding to original definition of
      node *)
@@ -421,50 +430,6 @@ let reduced_tree_path_of_model start_at_init nodes model =
     (List.hd (List.rev nodes)) 
     orig_tree_path
     (N (node_name, node_pos, SVMap.empty, CallMap.empty))
-
-
-(* ********************************************************************** *)
-(* Printing helpers                                                       *)
-(* ********************************************************************** *)
-
-
-(* Pretty-print a value *)
-let rec pp_print_value ppf term =
-
-  (* We expect values to be constants *)
-  if Term.is_numeral term then 
-
-    (* Pretty-print as a numeral *)
-    Numeral.pp_print_numeral 
-      ppf
-      (Term.numeral_of_term term)
-
-  (* Constant is a decimal? *)
-  else if Term.is_decimal term then 
-    
-    (* Pretty-print as a decimal *)
-    Decimal.pp_print_decimal 
-      ppf
-      (Term.decimal_of_term term)
-      
-  (* Constant is a Boolean? *)
-  else if Term.is_bool term then 
-    
-    (* Get Boolean value of constant *)
-    if Term.bool_of_term term then 
-      
-      (* Pretty-print as Boolean value *)
-      Format.fprintf ppf "true"
-        
-    else
-      
-      (* Pretty-print as Boolean value *)
-      Format.fprintf ppf "false"
-        
-  else
-    
-    (* Fall back to pretty-print as a term *)
-    Term.pp_print_term ppf term 
 
 
 (* ********************************************************************** *)
@@ -815,10 +780,13 @@ let rec widths_of_model = function
    reconstructed *)
 let pp_print_path_pt nodes start_at_init ppf model =
 
-  let reconstructed = reduced_tree_path_of_model start_at_init nodes model in
+  let reconstructed =
+    reduced_tree_path_of_model start_at_init nodes model
+  in
 
   (* Get maximum widths of identifiers and values *)
   let ident_width, val_width = widths_of_model reconstructed in
+
   pp_print_tree_path_pt ident_width val_width [] ppf reconstructed
 
 

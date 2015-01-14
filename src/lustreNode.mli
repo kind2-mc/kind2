@@ -121,7 +121,7 @@ type t =
     asserts : LustreExpr.t list;
 
     (** Proof obligations for node *)
-    props : StateVar.t list;
+    props : (StateVar.t * TermLib.prop_source) list;
 
     (** Contract for node, assumptions *)
     assumptions : (LustreIdent.t * LustreExpr.t) list;
@@ -163,6 +163,11 @@ val pp_print_call : bool -> Format.formatter -> node_call -> unit
 
 (** Return the node of the given name from a list of nodes *)
 val node_of_name : LustreIdent.t -> t list -> t 
+
+(** Return the identifier of the top node
+
+    Fail with [Invalid_argument "ident_of_top"] if list of nodes is empty *)
+val ident_of_top : t list -> LustreIdent.t 
 
 (** Order the equations of the node such that an equation defining a
    variable always occurs before all equations using the variable *)

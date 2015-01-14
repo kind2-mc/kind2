@@ -71,6 +71,8 @@ let main input_file trans_sys =
 
   Event.set_module `Interpreter;
 
+  let input_scope = TransSys.get_scope trans_sys in
+
   if input_file = "" then 
 
     (* Counterexample *)
@@ -95,7 +97,7 @@ let main input_file trans_sys =
 
       try
 
-        InputParser.read_file input_file 
+        InputParser.read_file input_scope input_file 
 
       with Sys_error e -> 
 
@@ -173,16 +175,13 @@ let main input_file trans_sys =
 
     (* Create a reference for the solver. Only used in on_exit. *)
     ref_solver := Some solver;
-
-    (* Declare uninterpreted function symbols *)
-    TransSys.iter_state_var_declarations
+    
+    (* Defining uf's and declaring variables. *)
+    TransSys.init_define_fun_declare_vars_of_bounds
       trans_sys
-      (S.declare_fun solver);
-
-    (* Define functions *)
-    TransSys.iter_uf_definitions
-      trans_sys
-      (S.define_fun solver);
+      (S.define_fun solver)
+      (S.declare_fun solver)
+      Numeral.(~- one) Numeral.(of_int steps) ;
 
     (* Assert initial state constraint *)
     S.assert_term solver (TransSys.init_of_bound trans_sys Numeral.zero);
@@ -190,7 +189,7 @@ let main input_file trans_sys =
     (* Assert transition relation up to number of steps *)
     assert_trans solver trans_sys (Numeral.of_int steps);
 
-    (* Assert equation of state varariable and its value at each
+    (* Assert equation of state variable and its value at each
        instant *)
     List.iter
 

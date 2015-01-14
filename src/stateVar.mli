@@ -54,7 +54,7 @@ val hash_state_var : t -> int
 module StateVarHashtbl : Hashtbl.S with type key = t
 
 (** Set over state variables *)
-module StateVarSet : Set.S with type elt = t
+module StateVarSet : sig include Set.S with type elt = t end
 
 (** Map over state variables *)
 module StateVarMap : Map.S with type key = t

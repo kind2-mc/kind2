@@ -2037,8 +2037,8 @@ let add_node_observer_decl
   (* Create state variable as constant and input *)
   let state_var' =
     E.mk_state_var_of_ident
-      false
-      false
+      ~is_input:false
+      ~is_const:false
       scope
       ident
       state_var_type
@@ -2221,6 +2221,7 @@ let rec property_to_node
     context
     node
     pos
+    source
     expr =
 
   (* State variable for property and changed environment *)
@@ -2977,8 +2978,8 @@ let parse_node
   (* Create a new state variable for abstractions *)
   let mk_fresh_state_var is_const state_var_type = 
     E.mk_fresh_state_var
-      false
-      is_const
+      ~is_input:false
+      ~is_const:is_const
       scope
       I.abs_ident
       state_var_type
@@ -3040,8 +3041,8 @@ let parse_node
       (* Create a fresh oracle *)
       let oracle = 
         E.mk_fresh_state_var
-          true
-          true
+          ~is_input:true
+          ~is_const:true
           scope
           I.oracle_ident
           (StateVar.type_of_state_var state_var)
@@ -3062,8 +3063,8 @@ let parse_node
   (* Create a new oracle of type *)
   let mk_new_oracle oracle_type = 
     E.mk_fresh_state_var
-      true
-      true
+      ~is_input:true
+      ~is_const:true
       scope
       I.oracle_ident
       oracle_type
@@ -3076,8 +3077,8 @@ let parse_node
     fun observer_type ->
       Numeral.incr r;
       E.mk_state_var_of_ident
-        false
-        false
+        ~is_input:false
+        ~is_const:false
         scope
         (I.push_int_index !r I.observer_ident)
         observer_type

@@ -1,8 +1,8 @@
+Debug
 Kind2Config
 Version
 Debug
 Decimal
-HString
 Hashcons
 Lib
 Trie
@@ -15,10 +15,16 @@ TermAttr
 Type
 UfSymbol
 Var
-
 LustreParser
 LustreLexer
 LustreAst
 LustreIdent
 LustreExpr
 LustreNode
+
+HString
+SExprLexer
+SExprParser
+SExprBase
+HStringSExpr
+SMTExpr
