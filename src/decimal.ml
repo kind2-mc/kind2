@@ -40,7 +40,7 @@ let one = Num.num_of_int 1
 
 
 (* Pretty-print a numeral as an S-expression *)
-let pp_print_decimal_sexpr ppf = function
+let pp_print_positive_decimal_sexpr ppf = function
 
   | Num.Int i -> Format.fprintf ppf "%d.0" i
 
@@ -62,8 +62,13 @@ let pp_print_decimal_sexpr ppf = function
       (Big_int.string_of_big_int rd)
 
 
+let pp_print_decimal_sexpr ppf d =
+  (* assert (Num.ge_num d zero); *)
+  pp_print_positive_decimal_sexpr ppf d
+
+
 (* Pretty-print a numeral as an S-expression *)
-let pp_print_decimal ppf = function
+let pp_print_positive_decimal ppf = function
 
   | Num.Int i -> Format.fprintf ppf "%d" i
 
@@ -83,6 +88,11 @@ let pp_print_decimal ppf = function
       "%s/%s" 
       (Big_int.string_of_big_int rn)
       (Big_int.string_of_big_int rd)
+
+
+let pp_print_decimal ppf d =
+  (* assert (Num.ge_num d zero); *)
+  pp_print_positive_decimal ppf d
 
 
 (* Return a string representation of a decimal *)
@@ -276,6 +286,9 @@ let s_unimus = HString.mk_hstring "-"
 
 (* Convert an arbitrary large integer to a rational number *)
 let of_big_int n = Num.num_of_big_int n
+
+(* Convert an ocaml Num to a rational *)
+let of_num n = n
 
 
 (* Convert a rational number to an integer *)

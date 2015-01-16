@@ -3295,11 +3295,17 @@ and equation_to_node
                (E.mk_lte expr (E.mk_int ubound)))
           in
 
-          warn_at_position
-            pos
-            "Cannot determine correctness of subrange type, \
-             adding constraint as property.";
+          let msg =
+            Format.sprintf
+              "Cannot determine correctness of subrange type, \
+               adding constraint as property and reverting to type int for
+               variable %s." (StateVar.string_of_state_var state_var) in
 
+          warn_at_position pos msg;
+
+          (* Expanding type of state variable to int *)
+          StateVar.change_type_of_state_var state_var (Type.mk_int ());
+          
           (* Add property to node *)
           property_to_node 
             context 

@@ -20,8 +20,6 @@ open Lib
 open TermLib
 open Actlit
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
-
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -47,7 +45,7 @@ let on_exit _ =
       match !solver_ref with
       | None -> ()
       | Some solver ->
-         Solver.delete_solver solver |> ignore ;
+         SMTSolver.delete_instance solver |> ignore ;
          solver_ref := None
     with
     | e -> 
@@ -177,7 +175,7 @@ let clean_properties trans unknowns unfalsifiables =
 let deactivate solver actlit =
   actlit
   |> Term.mk_not
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
 
 (* Creating a fresh actlit for path compression. *)
 let path_comp_actlit = fresh_actlit ()
@@ -205,7 +203,7 @@ let eval_terms_assert_first_false trans solver eval k =
             loop_at_k k' tail
           (* Term evaluates to false, asserting it and returning true. *)
           else (
-            Solver.assert_term solver term_at_k ;
+            SMTSolver.assert_term solver term_at_k ;
             true
           )
         with
@@ -246,7 +244,7 @@ let split trans solver k to_split actlits =
   let if_sat () =
     
     (* Get-model function. *)
-    let get_model = Solver.get_model solver in
+    let get_model = SMTSolver.get_model solver in
     
     (* Getting counterexample for path compression is needed. *)
     let cex =
@@ -281,7 +279,7 @@ let split trans solver k to_split actlits =
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
-      Solver.check_sat_assuming
+      SMTSolver.check_sat_assuming
         solver if_sat if_unsat all_actlits
     with
 
@@ -314,7 +312,7 @@ let split trans solver k to_split actlits =
         ( match
             if not (Flags.ind_compress ()) then [] else
               Compress.check_and_block
-                (Solver.declare_fun solver) trans cex
+                (SMTSolver.declare_fun solver) trans cex
           with
 
             | [] ->
@@ -332,7 +330,7 @@ let split trans solver k to_split actlits =
               Term.mk_or
                 [ path_comp_act_term |> Term.mk_not ;
                   compressor |> Term.mk_and ]
-                |> Solver.assert_term solver ;
+                |> SMTSolver.assert_term solver ;
               (* Rechecking satisfiability. *)
               loop () )
 
@@ -371,7 +369,7 @@ let split_closure
       (* Getting a fresh actlits for optimistic at [0]. *)
       let actlit = Actlit.fresh_actlit () in
       (* Declaring it. *)
-      Solver.declare_fun solver actlit ;
+      SMTSolver.declare_fun solver actlit ;
       (* Getting its term version. *)
       let actlit_term = term_of_actlit actlit in
           
@@ -382,7 +380,7 @@ let split_closure
             ( (list |> List.map snd |> Term.mk_and |> Term.mk_not)
               :: optimistic_terms ) ]
             (* Asserting it. *)
-          |> Solver.assert_term solver ;
+          |> SMTSolver.assert_term solver ;
 
           actlit_term :: almost_all_actlits,
           (fun () -> deactivate solver actlit_term)
@@ -511,11 +509,11 @@ let rec next trans solver k unfalsifiables unknowns =
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
-       trans (Solver.declare_fun solver) k_m_1 k_m_1 ;
+       trans (SMTSolver.declare_fun solver) k_m_1 k_m_1 ;
 
      (* Asserting reversed transition relation. *)
      TransSys.trans_of_bound trans k
-     |> Solver.assert_term solver
+     |> SMTSolver.assert_term solver
      |> ignore ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
@@ -526,10 +524,10 @@ let rec next trans solver k unfalsifiables unknowns =
          | l -> l
                 |> Term.mk_and
                 |> Term.bump_and_apply_k
-                    (Solver.assert_term solver) k) ;
+                    (SMTSolver.assert_term solver) k) ;
 
        (* Asserts old invariants at k-1. *)
-       TransSys.invars_of_bound trans k_m_1 |> Solver.assert_term solver ;
+       TransSys.invars_of_bound trans k_m_1 |> SMTSolver.assert_term solver ;
      ) ;
 
      (* Asserting positive implications at [k+1] for unknowns. *)
@@ -541,7 +539,7 @@ let rec next trans solver k unfalsifiables unknowns =
               [ generate_actlit term |> term_of_actlit ;
                 Term.bump_state k_m_1 term ] )
      |> Term.mk_and
-     |> Solver.assert_term solver ;
+     |> SMTSolver.assert_term solver ;
 
      (* Actlits, properties and implications at [k__1] for
         unfalsifiables. *)
@@ -591,7 +589,7 @@ let rec next trans solver k unfalsifiables unknowns =
        | _ ->
          unfalsifiable_impls
        |> Term.mk_and
-       |> Solver.assert_term solver ) ;
+       |> SMTSolver.assert_term solver ) ;
 
      (* Output current progress. *)
      Event.log
@@ -641,8 +639,8 @@ let launch trans =
 
   (* Creating solver. *)
   let solver =
-    TransSys.get_logic trans
-    |> Solver.new_solver ~produce_assignments:true
+    SMTSolver.create_instance ~produce_assignments:true
+      (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -651,23 +649,23 @@ let launch trans =
   (* Defining uf's and declaring variables. *)
   TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (Solver.define_fun solver)
-    (Solver.declare_fun solver)
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
      generate_actlit prop
-     |> Solver.declare_fun solver)
+     |> SMTSolver.declare_fun solver)
     unknowns ;
   
   (* Declaring path compression actlit. *)
-  path_comp_actlit |> Solver.declare_fun solver ;
+  path_comp_actlit |> SMTSolver.declare_fun solver ;
 
   if Flags.ind_compress () then (
     (* Declaring path compression function. *)
-    Compress.init (Solver.declare_fun solver) trans
+    Compress.init (SMTSolver.declare_fun solver) trans
   ) ;
 
   (* Invariants of the system at 0. *)
@@ -676,7 +674,7 @@ let launch trans =
   in
 
   (* Asserting trans sys invariants. *)
-  Solver.assert_term solver invariants ;
+  SMTSolver.assert_term solver invariants ;
 
   (* Launching step. *)
   next trans solver Numeral.zero [] unknowns

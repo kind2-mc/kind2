@@ -153,23 +153,25 @@ let timeout_virtual_default = 0.
 
 (* ********** *) 
 
-type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `detect ]
+type smtsolver = [ `Z3_SMTLIB | `CVC4_SMTLIB | `MathSat5_SMTLIB | `Yices_SMTLIB | `Yices_native | `detect ]
     
 let smtsolver_of_string = function
   | "Z3" -> `Z3_SMTLIB
   | "CVC4" -> `CVC4_SMTLIB
   | "MathSat5" -> `MathSat5_SMTLIB
-  | "Yices" -> `Yices_SMTLIB
+  | "Yices2" -> `Yices_SMTLIB
+  | "Yices" -> `Yices_native
   | _ -> raise (Arg.Bad "Bad value for --smtsolver")
 
 let string_of_smtsolver = function 
   | `Z3_SMTLIB -> "Z3"
   | `CVC4_SMTLIB -> "CVC4"
-  | `Yices_SMTLIB -> "Yices"
+  | `Yices_SMTLIB -> "Yices2"
+  | `Yices_native -> "Yices"
   | `MathSat5_SMTLIB -> "MathSat5"
   | `detect -> "detect"
 
-let smtsolver_values = "Z3, CVC4, MathSat5, yices"
+let smtsolver_values = "Z3, CVC4, MathSat5, Yices, Yices2"
 
 let smtsolver_default = `detect
 
@@ -236,7 +238,27 @@ let yices_bin_of_string s = s
 
 let string_of_yices_bin s = s 
 
-let yices_bin_default = "yices-smt2"
+let yices_bin_default = "yices"
+
+(* ********** *) 
+
+type yices_arith_only = bool
+
+let yices_arith_only_of_bool b = b
+
+let bool_of_yices_arith_only s = s 
+
+let yices_arith_only_default = false
+
+(* ********** *) 
+
+type yices2smt2_bin = string 
+
+let yices2smt2_bin_of_string s = s
+
+let string_of_yices2smt2_bin s = s 
+
+let yices2smt2_bin_default = "yices-smt2"
 
 (* ********** *) 
 
@@ -581,6 +603,8 @@ type flags =
       mutable cvc4_bin : cvc4_bin;
       mutable mathsat5_bin : mathsat5_bin;
       mutable yices_bin : yices_bin;
+      mutable yices_arith_only : yices_arith_only;
+      mutable yices2smt2_bin : yices2smt2_bin;
       mutable smt_trace : smt_trace;
       mutable smt_trace_dir : smt_trace_dir;
       mutable enable : enable;
@@ -632,6 +656,8 @@ let flags =
     cvc4_bin = cvc4_bin_default;
     mathsat5_bin = mathsat5_bin_default;
     yices_bin = yices_bin_default;
+    yices_arith_only = yices_arith_only_default;
+    yices2smt2_bin = yices2smt2_bin_default;
     smt_trace = smt_trace_default;
     smt_trace_dir = smt_trace_dir_default;
     enable = enable_default_init;
@@ -698,7 +724,8 @@ let smtsolver_action o = flags.smtsolver <- (smtsolver_of_string o)
 let smtsolver_spec = 
   ("--smtsolver", 
    Arg.String smtsolver_action, 
-   Format.sprintf "choose SMT solver (available: %s, default: %s)" smtsolver_values (string_of_smtsolver smtsolver_default))
+   Format.sprintf "choose SMT solver (available: %s, default: %s)"
+                  smtsolver_values (string_of_smtsolver smtsolver_default))
 
 (* ********** *) 
 
@@ -707,7 +734,8 @@ let smtlogic_action o = flags.smtlogic <- (smtlogic_of_string o)
 let smtlogic_spec = 
   ("--smtlogic", 
    Arg.String smtlogic_action, 
-   Format.sprintf "choose SMT logic (available: %s, default: %s)" smtlogic_values (string_of_smtlogic smtlogic_default))
+   Format.sprintf "choose SMT logic (available: %s, default: %s)"
+                  smtlogic_values (string_of_smtlogic smtlogic_default))
 
 (* ********** *) 
 
@@ -716,7 +744,8 @@ let z3_bin_action o = flags.z3_bin <- (z3_bin_of_string o)
 let z3_bin_spec = 
   ("--z3_bin", 
    Arg.String z3_bin_action, 
-   Format.sprintf "executable of Z3 solver (default: %s)" (string_of_z3_bin z3_bin_default))
+   Format.sprintf "executable of Z3 solver (default: %s)"
+                  (string_of_z3_bin z3_bin_default))
 
 (* ********** *) 
 
@@ -725,7 +754,8 @@ let cvc4_bin_action o = flags.cvc4_bin <- (cvc4_bin_of_string o)
 let cvc4_bin_spec = 
   ("--cvc4_bin", 
    Arg.String cvc4_bin_action, 
-   Format.sprintf "executable of CVC4 solver (default: %s)" (string_of_cvc4_bin cvc4_bin_default))
+   Format.sprintf "executable of CVC4 solver (default: %s)"
+                  (string_of_cvc4_bin cvc4_bin_default))
 
 (* ********** *) 
 
@@ -734,7 +764,8 @@ let mathsat5_bin_action o = flags.mathsat5_bin <- (mathsat5_bin_of_string o)
 let mathsat5_bin_spec = 
   ("--mathsat5_bin", 
    Arg.String mathsat5_bin_action, 
-   Format.sprintf "executable of MathSAT5 solver (default: %s)" (string_of_mathsat5_bin mathsat5_bin_default))
+   Format.sprintf "executable of MathSAT5 solver (default: %s)"
+                  (string_of_mathsat5_bin mathsat5_bin_default))
 
 (* ********** *) 
 
@@ -743,7 +774,30 @@ let yices_bin_action o = flags.yices_bin <- (yices_bin_of_string o)
 let yices_bin_spec = 
   ("--yices_bin", 
    Arg.String yices_bin_action, 
-   Format.sprintf "executable of Yices solver (default: %s)" (string_of_yices_bin yices_bin_default))
+   Format.sprintf "executable of Yices solver (default: %s)"
+                  (string_of_yices_bin yices_bin_default))
+
+(* ********** *) 
+
+let yices_arith_only_action o =
+  flags.yices_arith_only <- true
+  
+let yices_arith_only_spec = 
+  ("--yices_arith_only", 
+   Arg.Unit yices_arith_only_action, 
+   "Tell Yices to deactivate all theories excepted SAT and linear arithmetic. \
+    Will fail if this is not possible.")
+
+(* ********** *) 
+
+let yices2smt2_bin_action o =
+  flags.yices2smt2_bin <- (yices2smt2_bin_of_string o)
+  
+let yices2smt2_bin_spec = 
+  ("--yices2_bin", 
+   Arg.String yices2smt2_bin_action, 
+   Format.sprintf "executable of Yices2 SMT2 solver (default: %s)"
+                  (string_of_yices2smt2_bin yices2smt2_bin_default))
 
 (* ********** *) 
 
@@ -761,7 +815,8 @@ let smt_trace_dir_action o = flags.smt_trace_dir <- o
 let smt_trace_dir_spec = 
   ("--smt_trace_dir", 
    Arg.String smt_trace_dir_action, 
-   Format.sprintf "Directory for trace logs of SMT commands (default: %s)" smt_trace_dir_default)
+   Format.sprintf "Directory for trace logs of SMT commands (default: %s)"
+                  smt_trace_dir_default)
 
 (* ********** *) 
 
@@ -774,7 +829,8 @@ let enable_action o =
 let enable_spec = 
   ("--enable", 
    Arg.String enable_action, 
-   Format.sprintf "enable Kind module (available: %s, default: %s)" enable_values (string_of_enable enable_default_after))
+   Format.sprintf "enable Kind module (available: %s, default: %s)"
+                  enable_values (string_of_enable enable_default_after))
 
 (* ********** *) 
 
@@ -810,7 +866,8 @@ let ind_compress_action o = flags.ind_compress <- o
 let ind_compress_spec = 
   ("--ind_compress", 
    Arg.Bool ind_compress_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)" ind_compress_default)
+   Format.sprintf "(IND) Compress inductive counterexamples (default: %B)"
+                  ind_compress_default)
 
 (* ********** *) 
 
@@ -819,7 +876,8 @@ let ind_compress_equal_action o = flags.ind_compress_equal <- o
 let ind_compress_equal_spec = 
   ("--ind_compress_equal", 
    Arg.Bool ind_compress_equal_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states equal modulo inputs (default: %B)" ind_compress_equal_default)
+   Format.sprintf "(IND) Compress inductive counterexamples for states equal \
+                   modulo inputs (default: %B)" ind_compress_equal_default)
 
 (* ********** *) 
 
@@ -828,7 +886,9 @@ let ind_compress_same_succ_action o = flags.ind_compress_same_succ <- o
 let ind_compress_same_succ_spec = 
   ("--ind_compress_same_succ", 
    Arg.Bool ind_compress_same_succ_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states with same successors (default: %B)" ind_compress_same_succ_default)
+   Format.sprintf "(IND) Compress inductive counterexamples for states \
+                   with same successors (default: %B)"
+                  ind_compress_same_succ_default)
 
 (* ********** *) 
 
@@ -837,7 +897,9 @@ let ind_compress_same_pred_action o = flags.ind_compress_same_pred <- o
 let ind_compress_same_pred_spec = 
   ("--ind_compress_same_pred", 
    Arg.Bool ind_compress_same_pred_action, 
-   Format.sprintf "(IND) Compress inductive counterexamples for states with same predecessors (default: %B)" ind_compress_same_pred_default)
+   Format.sprintf "(IND) Compress inductive counterexamples for states \
+                   with same predecessors (default: %B)"
+                  ind_compress_same_pred_default)
 
 (* ********** *) 
 
@@ -855,7 +917,8 @@ let ind_print_inductive_cex_action o = flags.ind_print_inductive_cex <- o
 let ind_print_inductive_cex_spec = 
   ("--ind_print_inductive_cex", 
    Arg.Bool ind_print_inductive_cex_action, 
-   Format.sprintf "(IND) Print inductive counterexamples (default: %B)" ind_print_inductive_cex_default)
+   Format.sprintf "(IND) Print inductive counterexamples (default: %B)"
+                  ind_print_inductive_cex_default)
 
 (* ********** *) 
 
@@ -864,7 +927,9 @@ let pdr_qe_action o = flags.pdr_qe <- (pdr_qe_of_string o)
 let pdr_qe_spec = 
   ("--pdr_qe", 
    Arg.String pdr_qe_action, 
-   Format.sprintf "(PDR) choose quantifier elimination algorithm (available: %s, default: %s)" pdr_qe_values (string_of_pdr_qe pdr_qe_default))
+   Format.sprintf "(PDR) choose quantifier elimination algorithm \
+                   (available: %s, default: %s)"
+                  pdr_qe_values (string_of_pdr_qe pdr_qe_default))
 
 (* ********** *) 
 
@@ -873,7 +938,10 @@ let pdr_extract_action o = flags.pdr_extract <- (pdr_extract_of_string o)
 let pdr_extract_spec = 
   ("--pdr_extract", 
    Arg.String pdr_extract_action, 
-   Format.sprintf "(PDR) Heuristics for extraction of implicant (available: %s, default: %s)" pdr_extract_values (string_of_pdr_extract pdr_extract_default))
+   Format.sprintf "(PDR) Heuristics for extraction of implicant \
+                   (available: %s, default: %s)"
+                  pdr_extract_values
+                  (string_of_pdr_extract pdr_extract_default))
 
 (* ********** *) 
 
@@ -882,7 +950,8 @@ let pdr_check_inductive_action o = flags.pdr_check_inductive <- o
 let pdr_check_inductive_spec = 
   ("--pdr_check_inductive", 
    Arg.Bool pdr_check_inductive_action, 
-   Format.sprintf "(PDR) Check inductiveness of blocking clauses (default: %s)" (string_of_pdr_check_inductive pdr_check_inductive_default))
+   Format.sprintf "(PDR) Check inductiveness of blocking clauses (default: %s)"
+                  (string_of_pdr_check_inductive pdr_check_inductive_default))
 
 (* ********** *) 
 
@@ -891,7 +960,9 @@ let pdr_fwd_prop_check_multi_action o = flags.pdr_fwd_prop_check_multi <- o
 let pdr_fwd_prop_check_multi_spec = 
   ("--pdr_fwd_prop_check_multi", 
    Arg.Bool pdr_fwd_prop_check_multi_action, 
-   Format.sprintf "(PDR) Simultaneous check for forward propagation (default: %s)" (string_of_pdr_fwd_prop_check_multi pdr_fwd_prop_check_multi_default))
+   Format.sprintf
+     "(PDR) Simultaneous check for forward propagation (default: %s)"
+     (string_of_pdr_fwd_prop_check_multi pdr_fwd_prop_check_multi_default))
 
 (* ********** *) 
 
@@ -901,7 +972,9 @@ let pdr_print_inductive_assertions_action o =
 let pdr_print_inductive_assertions_spec = 
   ("--pdr_print_inductive_assertions", 
    Arg.Bool pdr_print_inductive_assertions_action, 
-   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)" (string_of_pdr_print_inductive_assertions pdr_print_inductive_assertions_default))
+   Format.sprintf "(PDR) Output inductive blocking clauses (default: %s)"
+                  (string_of_pdr_print_inductive_assertions
+                     pdr_print_inductive_assertions_default))
 
 (* ********** *) 
 
@@ -911,7 +984,9 @@ let pdr_print_blocking_clauses_action o =
 let pdr_print_blocking_clauses_spec = 
   ("--pdr_print_blocking_clauses", 
    Arg.Bool pdr_print_blocking_clauses_action, 
-   Format.sprintf "(PDR) Output all blocking clauses (default: %s)" (string_of_pdr_print_blocking_clauses pdr_print_blocking_clauses_default))
+   Format.sprintf "(PDR) Output all blocking clauses (default: %s)"
+                  (string_of_pdr_print_blocking_clauses
+                     pdr_print_blocking_clauses_default))
 
 (* ********** *) 
 
@@ -930,7 +1005,9 @@ let pdr_tighten_to_unsat_core_action o = flags.pdr_tighten_to_unsat_core <- o
 let pdr_tighten_to_unsat_core_spec = 
   ("--pdr_tighten_to_unsat_core", 
    Arg.Bool pdr_tighten_to_unsat_core_action, 
-   Format.sprintf "(PDR) Tighten blocking clauses to an unsatisfiable core (default: %s)" (string_of_pdr_tighten_to_unsat_core pdr_tighten_to_unsat_core_default))
+   Format.sprintf
+     "(PDR) Tighten blocking clauses to an unsatisfiable core (default: %s)"
+     (string_of_pdr_tighten_to_unsat_core pdr_tighten_to_unsat_core_default))
 
 (* ********** *) 
 
@@ -948,25 +1025,32 @@ let pdr_block_in_future_action o = flags.pdr_block_in_future <- o
 let pdr_block_in_future_spec = 
   ("--pdr_block_in_future", 
    Arg.Bool pdr_block_in_future_action, 
-   Format.sprintf "(PDR) Block counterexample in future frames (default: %s)" (string_of_pdr_block_in_future pdr_block_in_future_default))
+   Format.sprintf "(PDR) Block counterexample in future frames (default: %s)"
+                  (string_of_pdr_block_in_future pdr_block_in_future_default))
 
 (* ********** *) 
  
-let pdr_print_inductive_invariant_action o = flags.pdr_print_inductive_invariant <- o
+let pdr_print_inductive_invariant_action o =
+  flags.pdr_print_inductive_invariant <- o
   
 let pdr_print_inductive_invariant_spec = 
   ("--pdr_print_inductive_invariant", 
    Arg.Bool pdr_print_inductive_invariant_action, 
-   Format.sprintf "(PDR) Print inductive invariant if property proved (default: %s)" (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
+   Format.sprintf
+     "(PDR) Print inductive invariant if property proved (default: %s)"
+     (string_of_pdr_print_inductive_invariant pdr_block_in_future_default))
 
 (* ********** *) 
 
-let pdr_check_inductive_invariant_action o = flags.pdr_check_inductive_invariant <- o
+let pdr_check_inductive_invariant_action o =
+  flags.pdr_check_inductive_invariant <- o
   
 let pdr_check_inductive_invariant_spec = 
   ("--pdr_check_inductive_invariant", 
    Arg.Bool pdr_check_inductive_invariant_action, 
-   Format.sprintf "(PDR) Check inductive invariant if property proved (default: %s)" (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
+   Format.sprintf
+     "(PDR) Check inductive invariant if property proved (default: %s)"
+     (string_of_pdr_check_inductive_invariant pdr_block_in_future_default))
 
 (* ********** *) 
 
@@ -975,7 +1059,10 @@ let cooper_order_var_by_elim_action o = flags.cooper_order_var_by_elim <- o
 let cooper_order_var_by_elim_spec = 
   ("--cooper_order_var_by_elim", 
    Arg.Bool cooper_order_var_by_elim_action, 
-   Format.sprintf "(Cooper QE) Order variables in polynomials by order of elimination (available: %s, default: %B)" cooper_order_var_by_elim_values cooper_order_var_by_elim_default)
+   Format.sprintf "(Cooper QE) Order variables in polynomials by order of \
+                   elimination (available: %s, default: %B)"
+                  cooper_order_var_by_elim_values
+                  cooper_order_var_by_elim_default)
   
 (* ********** *) 
   
@@ -1047,7 +1134,8 @@ let interpreter_steps_action o = flags.interpreter_steps <- o
 let interpreter_steps_spec = 
   ("--interpreter_steps", 
    Arg.Int interpreter_steps_action, 
-   Format.sprintf "(Interpreter) Run number of steps, override the number of steps given in the input file")
+   Format.sprintf "(Interpreter) Run number of steps, override the number of \
+                   steps given in the input file")
 
 (* ********** *) 
 
@@ -1056,7 +1144,8 @@ let lustre_main_action o = flags.lustre_main <- Some o
 let lustre_main_spec = 
   ("--lustre-main", 
    Arg.String lustre_main_action, 
-   Format.sprintf "Use the given node as top node in Lustre input (default: --%%MAIN annotation)")
+   Format.sprintf "Use the given node as top node in Lustre input \
+                   (default: --%%MAIN annotation)")
 
 (* ********** *) 
 
@@ -1065,7 +1154,8 @@ let debug_action o = flags.debug <- o :: flags.debug
 let debug_spec = 
   ("--debug", 
    Arg.String debug_action, 
-   Format.sprintf "enable debug output for a section, give one --debug option for each section to be enabled")
+   Format.sprintf "enable debug output for a section, give one --debug option \
+                   for each section to be enabled")
 
 (* ********** *) 
 
@@ -1126,7 +1216,9 @@ let input_format_action o = flags.input_format <- (input_format_of_string o)
 let input_format_spec = 
   ("--input-format", 
    Arg.String input_format_action, 
-   Format.sprintf "Format of input file (available: %s, default: %s)" input_format_values (string_of_input_format input_format_default))
+   Format.sprintf "Format of input file (available: %s, default: %s)"
+                  input_format_values
+                  (string_of_input_format input_format_default))
 
 
 (* ********************************************************************** *)
@@ -1153,6 +1245,10 @@ let cvc4_bin () = flags.cvc4_bin
 let mathsat5_bin () = flags.mathsat5_bin
 
 let yices_bin () = flags.yices_bin
+
+let yices_arith_only () = flags.yices_arith_only
+
+let yices2smt2_bin () = flags.yices_bin
 
 let smt_trace () = flags.smt_trace
 
@@ -1278,6 +1374,12 @@ and speclist =
 
     (* Set executable for Yices solver *)
     yices_bin_spec;
+
+    (* Set arith only option of yices *)
+    yices_arith_only_spec;
+
+    (* Set executable for Yices2 SMT2 solver *)
+    yices2smt2_bin_spec;
 
     (* Write all SMT commands to files *)
     smt_trace_spec;
@@ -1431,11 +1533,17 @@ let set_smtsolver = function
       flags.smtsolver <- smtsolver; 
       flags.mathsat5_bin <- mathsat5_bin)
 
-  | `Yices_SMTLIB as smtsolver -> 
+  | `Yices_native as smtsolver -> 
 
     (function yices_bin -> 
       flags.smtsolver <- smtsolver; 
       flags.yices_bin <- yices_bin)
+
+  | `Yices_SMTLIB as smtsolver -> 
+
+    (function yices2smt2_bin -> 
+      flags.smtsolver <- smtsolver; 
+      flags.yices2smt2_bin <- yices2smt2_bin)
 
   | `detect -> (function _ -> ())
 
