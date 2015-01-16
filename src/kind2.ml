@@ -229,6 +229,43 @@ let status_of_exn process = function
 (* Clean up before exit *)
 let on_exit process exn = 
 
+(*
+  let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
+
+    Format.fprintf
+      ppf
+      "Number of buckets: %d@,\
+       Number of entries in table: %d@,\
+       Sum of sizes of buckets: %d@,\
+       Size of smallest bucket: %d@,\
+       Median bucket size: %d@,\
+       Size of greatest bucket: %d@,"
+      l
+      c
+      t
+      s
+      m
+      g
+
+  in
+
+  Event.log L_info
+    "@[<hv>Hashconsing for state variables:@,%a@]"
+    pp_print_hashcons_stat (StateVar.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for variables:@,%a@]"
+    pp_print_hashcons_stat (Var.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for terms:@,%a@]"
+    pp_print_hashcons_stat (Term.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for symbols:@,%a@]"
+    pp_print_hashcons_stat (Symbol.stats ());
+*)
+
   let clean_exit status =
 
     (* Log termination status *)
@@ -262,7 +299,7 @@ let on_exit process exn =
 
   (* Clean exit from invariant manager *)
   InvarManager.on_exit !trans_sys;
-
+  
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
