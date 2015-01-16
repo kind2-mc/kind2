@@ -38,7 +38,11 @@ let one = Big_int.unit_big_int
 
 
 (* Pretty-print a numeral *)
-let pp_print_numeral ppf n = 
+let pp_print_numeral_sexpr ppf n =
+  Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
+
+
+let pp_print_numeral ppf n =
   Format.fprintf ppf "%s" (Big_int.string_of_big_int n)
 
 

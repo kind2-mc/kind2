@@ -614,8 +614,8 @@ let check_smtsolver () =
         mathsat5_exec
 
 
-    (* User chose MathSat5 *)
-    | `Yices_SMTLIB -> 
+    (* User chose Yices *)
+    | `Yices_native -> 
 
       let yices_exec = 
 
@@ -637,6 +637,32 @@ let check_smtsolver () =
       Event.log
         L_info
         "Using Yices executable %s." 
+        yices_exec
+
+
+    (* User chose Yices2 *)
+    | `Yices_SMTLIB -> 
+
+      let yices_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.yices2smt2_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal
+              "Yices2 SMT2 executable %s not found."
+              (Flags.yices2smt2_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        L_info
+        "Using Yices2 SMT2 executable %s." 
         yices_exec
 
 
@@ -937,6 +963,7 @@ let main () =
           
           Event.log L_trace "Starting invariant manager";
 
+          
           (* Initialize messaging for invariant manager, obtain a background
              thread *)
           let _ = 

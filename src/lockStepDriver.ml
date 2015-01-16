@@ -21,8 +21,6 @@ open TermLib
 open Actlit
 
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
-
 type t = {
 
   (* Associates a transition systems to the k at which they are
@@ -35,13 +33,13 @@ type t = {
     (TransSys.t * (Numeral.t * Term.t)) list ;
 
   (* Solver used to query base. *)
-  base_solver: Solver.t ;
+  base_solver: SMTSolver.t ;
 
   (* Solver used to query step. *)
-  step_solver: Solver.t ;
+  step_solver: SMTSolver.t ;
 
   (* Solver used to prune trivial invariants. *)
-  pruning_solver: Solver.t ;
+  pruning_solver: SMTSolver.t ;
 
   mutable last_k : Numeral.t ;
 
@@ -62,9 +60,9 @@ let check_consistency_sys solver k sys actlit called_by =
     |> Printf.sprintf
          "Checking consistency at %i for [%s]."
          Numeral.(to_int k)
-    |> Solver.trace_comment solver ;
+    |> SMTSolver.trace_comment solver ;
 
-    Solver.check_sat_assuming
+    SMTSolver.check_sat_assuming
       solver
       (fun () ->
        (* Instance is sat for [sys], fine. *)
@@ -94,6 +92,7 @@ let check_consistency
        system. *)
     systems
     |> List.iter
+
          ( fun (sys, (k, actlit)) ->
            (* Checking base consistency. *)
            check_consistency_sys base_solver k sys actlit called_by ;
@@ -114,64 +113,64 @@ let common_setup (solver,sys,actlit) =
   name sys
   |> Printf.sprintf
        "Setting up system [%s]."
-  |> Solver.trace_comment solver ;
+  |> SMTSolver.trace_comment solver ;
 
   
-  Solver.declare_fun solver actlit ;
+  SMTSolver.declare_fun solver actlit ;
   
   (* Defining uf's and declaring variables. *)
   TransSys.init_define_fun_declare_vars_of_bounds
     sys
-    (Solver.define_fun solver)
-    (Solver.declare_fun solver)
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
     Numeral.zero Numeral.(~- one) ;
 
   (* Declaring unrolled vars at [-1] and [0]. *)
   TransSys.declare_vars_of_bounds_no_init
     sys
-    (Solver.declare_fun solver)
+    (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
   solver, sys, Actlit.term_of_actlit actlit
 
 let base_setup (solver,sys,actlit) =
 
-  Solver.trace_comment solver "Base setup." ;
+  SMTSolver.trace_comment solver "Base setup." ;
 
   (* Conditionally asserting initial predicate at [0]. *)
   Term.mk_implies
     [ actlit ; TransSys.init_of_bound sys Numeral.zero ]
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
     [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
 
 let step_setup (solver, sys, actlit) =
 
-  Solver.trace_comment solver "Step setup." ;
+  SMTSolver.trace_comment solver "Step setup." ;
 
   (* Conditionally asserting invariants of the system at [0]. *)
   Term.mk_implies
     [ actlit ; TransSys.invars_of_bound sys Numeral.zero ]
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
   TransSys.declare_vars_of_bounds_no_init
     sys
-    (Solver.declare_fun solver)
+    (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
   
   (* Conditionally asserting transition predicate at [1]. *)
   Term.mk_implies
     [ actlit ; TransSys.trans_of_bound sys Numeral.one ]
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [1]. *)
   Term.mk_implies
     [ actlit ; TransSys.invars_of_bound sys Numeral.one ]
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
 
 let pruning_setup = step_setup
 
@@ -181,21 +180,21 @@ let unroll_solver solver sys actlit k =
   |> Printf.sprintf
        "Unroll at %i for [%s]."
        Numeral.(to_int k)
-  |> Solver.trace_comment solver ;
+  |> SMTSolver.trace_comment solver ;
 
   (* Declaring unrolled vars at [k+1]. *)
   TransSys.declare_vars_of_bounds_no_init
-    sys (Solver.declare_fun solver) k k ;
+    sys (SMTSolver.declare_fun solver) k k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
   Term.mk_implies
     [ actlit ; TransSys.trans_of_bound sys k ]
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Conditionally asserting invariants of the system at [k]. *)
   Term.mk_implies
     [ actlit ; TransSys.invars_of_bound sys k ]
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
 
 let add_invariants_solver solver sys actlit k invariants =
 
@@ -203,21 +202,21 @@ let add_invariants_solver solver sys actlit k invariants =
   |> Printf.sprintf
        "Add invariants at %i for [%s]."
        Numeral.(to_int k)
-  |> Solver.trace_comment solver ;
+  |> SMTSolver.trace_comment solver ;
 
   Term.mk_and invariants
   |> Term.bump_and_apply_k
        (fun inv ->
         Term.mk_implies [ actlit ; inv ]
-        |> Solver.assert_term solver)
+        |> SMTSolver.assert_term solver)
        k
 
 
 (* Deletes the lsd solver. *)
 let delete { base_solver ; step_solver ; pruning_solver } =
-  Solver.delete_solver base_solver ;
-  Solver.delete_solver step_solver ;
-  Solver.delete_solver pruning_solver
+  SMTSolver.delete_instance base_solver ;
+  SMTSolver.delete_instance step_solver ;
+  SMTSolver.delete_instance pruning_solver
 
 (* Returns the [k] at which a system is unrolled. *)
 let get_k { systems } system =
@@ -293,9 +292,9 @@ let unroll_sys
 
           if Numeral.(kp1 > last_k) then (
             TransSys.init_flag_uf kp1
-            |> Solver.declare_fun base_solver ;
+            |> SMTSolver.declare_fun base_solver ;
             TransSys.init_flag_uf Numeral.(succ kp1)
-            |> Solver.declare_fun step_solver ;
+            |> SMTSolver.declare_fun step_solver ;
             lsd.last_k <- kp1
           ) ;
 
@@ -315,30 +314,30 @@ let unroll_sys
 (* Creates a lsd instance. *)
 let create two_state top_only sys =
 
+  let new_inst_sys () =
+    SMTSolver.create_instance ~produce_assignments: true
+      (TransSys.get_logic sys) (Flags.smtsolver ())
+  in
+
   (* Solvers. *)
   let base_solver, step_solver, pruning_solver =
-    TransSys.get_logic sys
-    |> Solver.new_solver ~produce_assignments: true,
-    TransSys.get_logic sys
-    |> Solver.new_solver ~produce_assignments: true,
-    TransSys.get_logic sys
-    |> Solver.new_solver ~produce_assignments: true
+    new_inst_sys (), new_inst_sys (), new_inst_sys ()
   in
 
   let init_solver solver =
     TransSys.init_flag_uf Numeral.(~- one)
-    |> Solver.declare_fun solver ;
+    |> SMTSolver.declare_fun solver ;
     TransSys.init_flag_uf Numeral.zero
-    |> Solver.declare_fun solver ;
+    |> SMTSolver.declare_fun solver ;
   in
 
   init_solver base_solver ;
   init_solver step_solver ;
   TransSys.init_flag_uf Numeral.one
-  |> Solver.declare_fun step_solver ;
+  |> SMTSolver.declare_fun step_solver ;
   init_solver pruning_solver ;
   TransSys.init_flag_uf Numeral.one
-  |> Solver.declare_fun pruning_solver ;
+  |> SMTSolver.declare_fun pruning_solver ;
 
   (* declare_init_flag base_solver minus_one Numeral.zero ; *)
   (* declare_init_flag step_solver minus_one Numeral.one ; *)
@@ -428,14 +427,14 @@ let query_base
     "query_base at %i for [%s]."
     (Numeral.to_int k)
     (TransSys.get_scope system |> String.concat "/")
-  |> Solver.trace_comment base_solver ;
+  |> SMTSolver.trace_comment base_solver ;
 
   (* Fresh actlit for the check (as a term). *)
   let actlit =
     (* Uf version. *)
     let actlit_uf = Actlit.fresh_actlit () in
     (* Declaring it. *)
-    Solver.declare_fun base_solver actlit_uf ;
+    SMTSolver.declare_fun base_solver actlit_uf ;
     (* Term version. *)
     Actlit.term_of_actlit actlit_uf
   in
@@ -450,7 +449,7 @@ let query_base
       (* Bumping it. *)
       |> Term.bump_state k ]
   (* Asserting implication. *)
-  |> Solver.assert_term base_solver ;
+  |> SMTSolver.assert_term base_solver ;
 
   (* Function to run if sat. *)
   let if_sat () =
@@ -463,7 +462,7 @@ let query_base
       (if two_state then Numeral.pred k else k)
       k
     (* Getting their value. *)
-    |> Solver.get_model base_solver
+    |> SMTSolver.get_model base_solver
     (* Bumping to -k. *)
     |> List.map
          ( fun (v,t) ->
@@ -482,14 +481,14 @@ let query_base
 
   (* Checksat-ing. *)
   let result =
-    Solver.check_sat_assuming
+    SMTSolver.check_sat_assuming
       base_solver
       if_sat if_unsat [ actlit ; sys_actlit ]
   in
 
   (* Deactivating actlit. *)
   Term.mk_not actlit
-  |> Solver.assert_term base_solver ;
+  |> SMTSolver.assert_term base_solver ;
 
   (* Returning result. *)
   result
@@ -509,7 +508,7 @@ let rec split_closure
        (* Uf version. *)
        let actlit_uf = Actlit.fresh_actlit () in
        (* Declaring it. *)
-       Solver.declare_fun solver actlit_uf ;
+       SMTSolver.declare_fun solver actlit_uf ;
        (* Term version. *)
        Actlit.term_of_actlit actlit_uf
      in
@@ -525,7 +524,7 @@ let rec split_closure
          (* Building the implication. *)
          Term.mk_implies [ actlit ; bumped ]
          (* Asserting it. *)
-         |> Solver.assert_term solver )
+         |> SMTSolver.assert_term solver )
        (* In the two state case we start at one. *)
        (if two_state then Numeral.one else Numeral.zero)
        (* Going up to k. *)
@@ -535,7 +534,7 @@ let rec split_closure
      let kp1 = Numeral.succ k in
 
      (* Asserting negative implication. *)
-     Solver.assert_term
+     SMTSolver.assert_term
        solver
        (Term.mk_implies
           [ actlit ;
@@ -553,7 +552,7 @@ let rec split_closure
          terms_to_check
          (* We want the value of the terms a k+1. *)
          |> List.map (Term.bump_state kp1)
-         |> Solver.get_values solver
+         |> SMTSolver.get_values solver
 
          (* Separating falsifiable ones from the rest, bumping back at
             the same time. *)
@@ -574,7 +573,7 @@ let rec split_closure
 
        (* Deactivating actlit. *)
        Term.mk_not actlit
-       |> Solver.assert_term solver ;
+       |> SMTSolver.assert_term solver ;
 
        (* Looping. *)
        split_closure
@@ -586,7 +585,7 @@ let rec split_closure
      let if_unsat () =
        (* Deactivating actlit. *)
        Term.mk_not actlit
-       |> Solver.assert_term solver ;
+       |> SMTSolver.assert_term solver ;
        
        (* Returning result. *)
        falsifiable, terms_to_check
@@ -596,7 +595,7 @@ let rec split_closure
      Event.check_termination () ;
 
      (* Checksat-ing. *)
-     Solver.check_sat_assuming
+     SMTSolver.check_sat_assuming
        solver
        if_sat
        if_unsat
@@ -616,7 +615,7 @@ let rec prune_trivial
        (* Uf version. *)
        let actlit_uf = Actlit.fresh_actlit () in
        (* Declaring it. *)
-       Solver.declare_fun solver actlit_uf ;
+       SMTSolver.declare_fun solver actlit_uf ;
        (* Term version. *)
        Actlit.term_of_actlit actlit_uf
      in
@@ -636,12 +635,12 @@ let rec prune_trivial
      Term.mk_implies
        [ actlit ;
          Term.mk_and bumped_terms |> Term.mk_not ]
-     |> Solver.assert_term solver ;
+     |> SMTSolver.assert_term solver ;
 
      let if_sat () =
        Some (
          (* Getting the values of terms@1. *)
-         Solver.get_values
+         SMTSolver.get_values
            solver bumped_terms
          (* Partitioning the list based on the value of the terms. *)
          |> List.fold_left
@@ -660,17 +659,17 @@ let rec prune_trivial
 
      let if_unsat () = None in
 
-     match Solver.check_sat_assuming
+     match SMTSolver.check_sat_assuming
        solver if_sat if_unsat [actlit ; trivial_actlit]
      with
        | None ->
           (* Deactivating actlit. *)
-          Term.mk_not actlit |> Solver.assert_term solver ;
+          Term.mk_not actlit |> SMTSolver.assert_term solver ;
           (* Unsat, the terms cannot be falsified. *)
           result, terms
        | Some (unknowns, falsifiables) ->
           (* Deactivating actlit. *)
-          Term.mk_not actlit |> Solver.assert_term solver ;
+          Term.mk_not actlit |> SMTSolver.assert_term solver ;
           (* Looping. *)
           prune_trivial
             solver
@@ -692,7 +691,7 @@ let increment_and_query_step
   name system
   |> Printf.sprintf
        "prune_trivial for [%s]."
-  |> Solver.trace_comment pruning_solver ;
+  |> SMTSolver.trace_comment pruning_solver ;
 
   let not_trivial, trivial =
     (* Pruning direct consequences of the transition relation if
@@ -715,7 +714,7 @@ let increment_and_query_step
      |> Printf.sprintf
           "query_step at %i for [%s]."
           (Numeral.to_int k)
-     |> Solver.trace_comment step_solver ;
+     |> SMTSolver.trace_comment step_solver ;
 
      let invariants =
        (* Splitting terms. *)

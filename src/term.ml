@@ -18,6 +18,36 @@
 
 open Lib
 
+type logic = 
+  [ `detect
+  | `AUFLIA
+  | `AUFLIRA
+  | `AUFNIRA
+  | `LRA 
+  | `LIA
+  | `QF_ABV
+  | `QF_AUFBV
+  | `QF_AUFLIA
+  | `QF_AX
+  | `QF_BV
+  | `QF_IDL
+  | `QF_LIA
+  | `QF_LRA
+  | `QF_LIRA
+  | `QF_NIA
+  | `QF_NRA
+  | `QF_RDL
+  | `QF_UF
+  | `QF_UFBV
+  | `QF_UFIDL
+  | `QF_UFLIA
+  | `QF_UFLRA
+  | `QF_UFNRA
+  | `UFLIA
+  | `UFLRA
+  | `UFNIA
+  ]
+
 (* We have three hashconsed types: uninterpreted function symbols,
    symbols and terms. Hashconsing has been extended to store a record
    of properties with each value, here we store mainly type
@@ -873,16 +903,16 @@ let mk_minus a = mk_app_of_symbol_node `MINUS a
 
 
 (* Hashcons an integer numeral *)
-let mk_num n = 
-
-  (* Positive numeral or zero *)
-  if Numeral.(n >= zero) then 
-    
-    mk_const_of_symbol_node (`NUMERAL n)
-
-  else
-
-    (* Wrap a negative numeral in a unary minus *)
+let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
+		
+  (* Positive numeral or zero *)		
+  if Numeral.(n >= zero) then 		
+    		
+    mk_const_of_symbol_node (`NUMERAL n)		
+		
+  else		
+		
+    (* Wrap a negative numeral in a unary minus *)		
     mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.(~- n))))]
 
 
@@ -891,31 +921,18 @@ let mk_num_of_int i = mk_num (Numeral.of_int i)
 
 
 (* Hashcons a real decimal *)
-let mk_dec d = 
+(* let mk_dec d = mk_const_of_symbol_node (`DECIMAL d) *)
+let mk_dec d =
 
-  (* Positive rational or zero *)
-  if Decimal.(d >= zero) then 
-    
-    mk_const_of_symbol_node (`DECIMAL d)
-
-  else
-
-    (* Wrap a negative rational in a unary minus *)
+  (* Positive rational or zero *)		
+  if Decimal.(d >= zero) then 		
+    		
+    mk_const_of_symbol_node (`DECIMAL d)		
+		
+  else		
+		
+    (* Wrap a negative rational in a unary minus *)		
     mk_minus [(mk_const_of_symbol_node (`DECIMAL (Decimal.(~- d))))]
-
-(*
-
-(* Hashcons a floating-point decimal given a float *)
-let mk_dec_of_float = function
-
-  (* Positive decimal *)
-  | f when f >= 0. -> 
-    mk_const_of_symbol_node (`DECIMAL (decimal_of_float f))
-
-  (* Negative decimal *)
-  | f -> 
-    mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
-*)
 
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
@@ -1144,7 +1161,7 @@ let mod_to_divisible term =
   | _ -> term
 
 
-(* Convert (= 0 (mod t n)) to (divisble n t) *)
+(* Convert (divisble n t) to (= 0 (mod t n)) *)
 let divisible_to_mod term = 
 
   match T.node_of_t term with
@@ -1354,10 +1371,6 @@ module Abbrev =
 struct
 
   let ( ?%@ ) i = mk_num_of_int i
-
-(*
-  let ( ?/@ ) f = mk_dec_of_float f
-*)
 
   let ( !@ ) t = mk_not t
 

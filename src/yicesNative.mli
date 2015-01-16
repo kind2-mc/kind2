@@ -16,17 +16,15 @@
 
 *)
 
-(** An interface to any SMT solver that accepts the SMTLIB2 command
-    language 
+(** An interface to the Yices SMT solver in native format.
 
     Use this module as input to the {!SMTSolver.Make} functor 
-
-    @author Christoph Sticksel
  *)
 
 
-module Make : functor (D : SolverDriver.S) -> SolverSig.S
-                                            
+include SolverSig.S
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
