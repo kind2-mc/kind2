@@ -179,8 +179,8 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
     (* Convert a string to a postive numeral or decimal
 
-   The first argument is an association list of strings to variables
-   that are currently bound to distinguish between uninterpreted
+       The first argument is an association list of strings to variables
+       that are currently bound to distinguish between uninterpreted
        function symbols and variables. *)
 
     let const_of_smtlib_token b t = 
@@ -202,70 +202,72 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
 
           (* String is not a decimal *)
           with Invalid_argument _ -> 
+
             try 
 
               (* Return decimal of string *)
               Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
 
             with Invalid_argument _ -> 
-            try 
-
-              (* Return decimal of string *)
-              Term.mk_dec (Decimal.of_num (Num.num_of_string
-                                             (HString.string_of_hstring t)))
-
-            with Invalid_argument _ | Failure "num_of_string" -> 
 
               try 
 
-                (* Return bitvector of string *)
-                Term.mk_bv (bitvector_of_hstring t)
-
-              with Invalid_argument _ -> 
+                (* Return decimal of string *)
+                Term.mk_dec (Decimal.of_num (Num.num_of_string
+                                               (HString.string_of_hstring t)))
+                  
+              with Invalid_argument _ | Failure "num_of_string" -> 
 
                 try 
 
-                  (* Return symbol of string *)
-                  Term.mk_bool (bool_of_hstring t)
+                  (* Return bitvector of string *)
+                  Term.mk_bv (bitvector_of_hstring t)
 
-                (* String is not an interpreted symbol *)
                 with Invalid_argument _ -> 
 
                   try 
 
-                    (* Return bound symbol *)
-                    Term.mk_var (List.assq t b)
+                    (* Return symbol of string *)
+                    Term.mk_bool (bool_of_hstring t)
 
-                  (* String is not a bound variable *)
-                  with Not_found -> 
+                  (* String is not an interpreted symbol *)
+                  with Invalid_argument _ -> 
 
                     try 
 
-                      (* Return uninterpreted constant *)
-                      Term.mk_uf 
-                        (UfSymbol.uf_symbol_of_string
-                           (HString.string_of_hstring t))
-                        []
+                      (* Return bound symbol *)
+                      Term.mk_var (List.assq t b)
 
+                    (* String is not a bound variable *)
                     with Not_found -> 
 
-                      debug smtexpr 
-                        "const_of_smtlib_token %s failed" 
-                        (HString.string_of_hstring t)
+                      try 
+
+                        (* Return uninterpreted constant *)
+                        Term.mk_uf 
+                          (UfSymbol.uf_symbol_of_string
+                             (HString.string_of_hstring t))
+                          []
+
+                      with Not_found -> 
+
+                        debug smtexpr 
+                            "const_of_smtlib_token %s failed" 
+                            (HString.string_of_hstring t)
+                        in
+
+                        (* Cannot convert to an expression *)
+                        failwith "Invalid constant symbol in S-expression"
+
       in
 
-      (* Cannot convert to an expression *)
-      failwith "Invalid constant symbol in S-expression"
+      debug smtexpr 
+          "const_of_smtlib_token %s is %a" 
+          (HString.string_of_hstring t)
+          pp_print_term res
+      in
 
-        in
-
-        debug smtexpr 
-              "const_of_smtlib_token %s is %a" 
-              (HString.string_of_hstring t)
-              pp_print_term res
-        in
-
-        res
+      res
 
     (* Convert a string S-expression to an expression *)
     let rec expr_of_string_sexpr' bound_vars = function 
@@ -321,14 +323,6 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
           else assert false)
            quantified_vars
            (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
-
-      (* A singleton list *)
-      | HStringSExpr.List [_] as e -> 
-
-         (* Cannot convert to an expression *)
-         failwith 
-           ("Invalid singleton list in S-expression " ^ 
-              (string_of_t HStringSExpr.pp_print_sexpr e))
 
       (* A singleton list: treat as atom *)
       | HStringSExpr.List [e] -> expr_of_string_sexpr' bound_vars e
