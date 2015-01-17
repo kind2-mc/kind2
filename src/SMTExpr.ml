@@ -75,6 +75,8 @@ let string_of_sort s = string_of_t pp_print_sort s
 *)
 
 (* Static hashconsed strings *)
+let s_minus = HString.mk_hstring "-"
+let s_div = HString.mk_hstring "/"
 let s_let = HString.mk_hstring "let"
 let s_forall = HString.mk_hstring "forall"
 let s_exists = HString.mk_hstring "exists"
@@ -278,16 +280,22 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
          (* Cannot convert to an expression *)
          failwith "Invalid Nil in S-expression"
 
-      (*  A let binding *)
+      (* An empty list *)
+      | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
+
+         (* Cannot convert to an expression *)
+         failwith "Invalid S-expression"
+
+      (* A let binding *)
       | HStringSExpr.List 
           ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
            when s == s_let -> 
 
-         (* Convert bindings and obtain a list of bound variables *)
+        (* Convert bindings and obtain a list of bound variables *)
          let bindings = bindings_of_string_sexpr bound_vars [] v in
 
          (* Convert bindings to an association list from strings to
-       variables *)
+            variables *)
          let bound_vars' = 
            List.map 
              (function (v, _) -> (Var.hstring_of_temp_var v, v))
@@ -295,12 +303,12 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
          in
 
          (* Parse the subterm, giving an association list of bound
-       variables and return a let bound term *)
+            variables and return a let bound term *)
          Term.mk_let 
            bindings
            (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
-
-      (*  A universal or existential quantifier *)
+           
+      (* A universal or existential quantifier *)
       | HStringSExpr.List 
           ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
            when s == s_forall || s == s_exists -> 
@@ -323,6 +331,54 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
           else assert false)
            quantified_vars
            (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
+
+
+      | HStringSExpr.List
+          [HStringSExpr.Atom n; HStringSExpr.Atom s; HStringSExpr.Atom d] 
+        when s == s_div && 
+             (try
+                let _ =
+                  Numeral.of_string (HString.string_of_hstring n) 
+                in
+                true
+              with _ -> false) &&
+             (try
+                let _ =
+                  Numeral.of_string (HString.string_of_hstring d) 
+                in
+                true
+              with _ -> false) ->
+        
+        Term.mk_dec
+          Decimal.
+            ((HString.string_of_hstring n |> of_string) /
+             (HString.string_of_hstring d |> of_string))
+        
+      | HStringSExpr.List
+          [HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom n]; 
+           HStringSExpr.Atom s2; 
+           HStringSExpr.Atom d] 
+        when s1 == s_minus && 
+             s2 == s_div && 
+             (try
+                let _ =
+                  Numeral.of_string (HString.string_of_hstring n) 
+                in
+                true
+              with _ -> false) &&
+             (try
+                let _ =
+                  Numeral.of_string (HString.string_of_hstring d) 
+                in
+                true
+              with _ -> false) ->
+        
+        Term.mk_dec
+          Decimal.
+            (- 
+            (HString.string_of_hstring n |> of_string) /
+            (HString.string_of_hstring d |> of_string))
+        
 
       (* A singleton list: treat as atom *)
       | HStringSExpr.List [e] -> expr_of_string_sexpr' bound_vars e
@@ -524,7 +580,6 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
         | Term.T.Attr (t, _) -> var_of_smtexpr t
 
         (* Other expressions *)
-        | Term.T.Const _
         | Term.T.App _ 
         | Term.T.Var _ -> 
 
