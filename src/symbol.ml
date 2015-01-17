@@ -85,8 +85,10 @@ type interpreted_symbol =
   | `BVSHL                (* Logical shift left (unary) *)
   | `BVLSHR               (* Logical shift right (unary) *)
   | `BVULT                (* Arithmetic comparision (binary) *)
+*)
 
   | `SELECT               (* Selection from array (binary) *)
+(*
   | `STORE                (* Update of an array (ternary) *)
 *)
   ]
@@ -96,7 +98,6 @@ type interpreted_symbol =
 type symbol = 
   [ interpreted_symbol
   | `UF of UfSymbol.t     (* Uninterpreted symbol (variadic) *)
-  | `READ of Var.t        (* Read from an array valued variable *)
   ]
 
 
@@ -146,8 +147,6 @@ module Symbol_node = struct
 *)
     | `UF u1, `UF u2 -> UfSymbol.equal_uf_symbols u1 u2
 
-    | `READ v1, `READ v2 -> Var.equal_vars v1 v2
-
     | `NUMERAL _, _
     | `DECIMAL _, _
     | `DIVISIBLE _, _
@@ -155,9 +154,7 @@ module Symbol_node = struct
     | `EXTRACT _, _
     | `BV _, _
 *)
-    | `UF _, _ 
-
-    | `READ _, _ -> false
+    | `UF _, _  -> false
 
     (* Non-parametric symbols *)
     | `TRUE, `TRUE
@@ -184,6 +181,11 @@ module Symbol_node = struct
     | `TO_REAL, `TO_REAL
     | `TO_INT, `TO_INT
     | `IS_INT, `IS_INT
+    | `SELECT, `SELECT -> true
+(*
+    | `STORE, `STORE -> true
+*)
+
 (*
     | `CONCAT, `CONCAT
     | `BVNOT, `BVNOT 
@@ -197,9 +199,8 @@ module Symbol_node = struct
     | `BVSHL, `BVSHL
     | `BVLSHR, `BVLSHR
     | `BVULT, `BVULT
-    | `SELECT, `SELECT
-    | `STORE, `STORE -> true
 *)
+
     | `TRUE, _
     | `FALSE, _
     | `NOT, _
@@ -223,7 +224,12 @@ module Symbol_node = struct
     | `GT, _
     | `TO_REAL, _
     | `TO_INT, _
-    | `IS_INT, _ -> false
+    | `IS_INT, _
+    | `SELECT, _ -> false
+
+(*
+    | `STORE, _ -> false
+*)
 (*
     | `CONCAT, _
     | `BVNOT, _ 
@@ -237,8 +243,6 @@ module Symbol_node = struct
     | `BVSHL, _
     | `BVLSHR, _
     | `BVULT, _
-    | `SELECT, _
-    | `STORE, _ -> false
 *)
 
 
@@ -388,12 +392,13 @@ let rec pp_print_symbol_node ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bvshl"
   | `BVLSHR -> Format.pp_print_string ppf "bvlshr"
   | `BVULT -> Format.pp_print_string ppf "bvult"
+*)
 
   | `SELECT -> Format.pp_print_string ppf "select"
+(*
   | `STORE -> Format.pp_print_string ppf "store"
 *)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
-  | `READ v -> Format.fprintf ppf "read@ %a" Var.pp_print_var v
 
 (* Pretty-print a hashconsed symbol *)
 and pp_print_symbol ppf { Hashcons.node = n } =
@@ -518,6 +523,9 @@ let s_minus = mk_symbol `MINUS
 
 (* Constant division operator *)
 let s_div = mk_symbol `DIV
+
+(* Array read operator *)
+let s_select = mk_symbol `SELECT
 
 
 

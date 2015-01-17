@@ -230,6 +230,13 @@ let type_of_var = function
   | { Hashcons.node = FreeVar (_, t) } -> t
 
 
+(* Return the type of the variable *)
+let indexes_of_var = function 
+  | { Hashcons.node = StateVarInstance (v, _) } -> StateVar.indexes_of_state_var v
+  | { Hashcons.node = ConstStateVar v } -> StateVar.indexes_of_state_var v
+  | { Hashcons.node = FreeVar (_, t) } -> []
+
+
 (* Return the state variable of a state variable instance *)
 let state_var_of_state_var_instance = function 
   | { Hashcons.node = StateVarInstance (v, _) }-> v
@@ -486,6 +493,8 @@ let rec declare_vars declare = function
    symbol. Throws [Not_found] if the sym is unknown. *)
 let state_var_instance_of_symbol sym =
   Symbol.string_of_symbol sym |> find_unrolled_var_map
+
+
 
 
 (*

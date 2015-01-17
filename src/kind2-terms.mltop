@@ -15,12 +15,14 @@ TermAttr
 Type
 UfSymbol
 Var
-LustreParser
-LustreLexer
-LustreAst
-LustreIdent
-LustreExpr
-LustreNode
+# LustreParser
+# LustreLexer
+# LustreAst
+# LustreIdent
+# LustreExpr
+# LustreNode
+Simplify
+Eval
 
 HString
 SExprLexer

@@ -123,10 +123,10 @@ val mk_dec : Decimal.t -> t
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
 *)
-
+(*
 (** Create a constant bitvector *)
 val mk_bv : Lib.bitvector -> t
-
+*)
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 
@@ -171,6 +171,9 @@ val mk_is_int : t -> t
 
 (** Create a predicate for divisibility by a constant integer *)
 val mk_divisible : Numeral.t -> t -> t
+
+(** Create a predicate for divisibility by a constant integer *)
+val mk_select : t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)
@@ -280,9 +283,6 @@ val mk_succ : t -> t
 
 (** Decrement integer or real term by one *)
 val mk_pred : t -> t
-
-(** Select from an array *)
-val mk_select : Var.t -> t list -> t
 
 (** Negate term, avoiding double negation *)
 val negate : t -> t 

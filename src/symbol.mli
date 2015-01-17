@@ -145,8 +145,10 @@ type interpreted_symbol =
   | `BVSHL                (** Logical shift left (unary) *)
   | `BVLSHR               (** Logical shift right (unary) *)
   | `BVULT                (** Arithmetic comparision (binary) *)
+*)
 
   | `SELECT               (** Selection from array (binary) *)
+(*
   | `STORE                (** Update of an array (ternary) *)
 *)
   ]
@@ -156,7 +158,6 @@ type interpreted_symbol =
 type symbol =
   [ interpreted_symbol
   | `UF of UfSymbol.t     (** Uninterpreted symbol (fixed arity) *)
-  | `READ of Var.t        (** Read from an array valued variable *)
   ]
 
 (** Hashconsed symbol *)
@@ -234,6 +235,9 @@ val s_minus : t
 
 (** Constant division operator symbol *)
 val s_div : t
+
+(** Array read operator *)
+val s_select : t
 
 
 

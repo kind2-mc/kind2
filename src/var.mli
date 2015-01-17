@@ -78,6 +78,9 @@ val import : t -> t
 (** Return the type of the variable *)
 val type_of_var : t -> Type.t
 
+(** Return the indexes of the variable *)
+val indexes_of_var : t -> Type.t list
+
 (** Return the state variable of a state variable instance *)
 val state_var_of_state_var_instance : t -> StateVar.t
 
@@ -127,6 +130,7 @@ val declare_constant_vars : (UfSymbol.t -> unit) -> t list -> unit
 (** Declares non constant variables as constant ufsymbols using the
     provided function. *)
 val declare_vars : (UfSymbol.t -> unit) -> t list -> unit
+
 
 (* 
    Local Variables:

@@ -291,7 +291,7 @@ let pp_print_assert safe ppf expr =
 
 
 (* Pretty-print a property *)
-let pp_print_prop safe ppf var = 
+let pp_print_prop safe ppf (var, _) = 
 
   Format.fprintf ppf
     "@[<hv 2>--%%PROPERTY@ @[<h>%a@];@]"
@@ -299,7 +299,7 @@ let pp_print_prop safe ppf var =
     
 
 (* Pretty-print an assumption *)
-let pp_print_assumption safe ppf (ident, expr) = 
+let pp_print_requires safe ppf (ident, expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>assume %a :@ %a;@]"
@@ -308,7 +308,7 @@ let pp_print_assumption safe ppf (ident, expr) =
 
 
 (* Pretty-print a guarantee *)
-let pp_print_guarantee safe ppf (ident, expr) = 
+let pp_print_ensures safe ppf (ident, expr) = 
 
   Format.fprintf ppf
     "@[<hv 2>guarantee %a :@ %a;@]"
@@ -1484,7 +1484,6 @@ let reduce_to_separate_property_cois nodes main_name =
          (Format.asprintf
             "Main node %a not found."
             (I.pp_print_ident false) main_name))
-*)
 
 
 (* Reduce set of nodes to cone of influence of given state variables *)

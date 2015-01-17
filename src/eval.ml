@@ -613,7 +613,7 @@ let term_of_value = function
 
 
 (* Convert a term to a value *)
-let value_of_term term = match Term.destruct term with 
+let rec value_of_term term = match Term.destruct term with 
 
   (* Term is a constant *)
   | Term.T.Const s -> 
@@ -632,10 +632,10 @@ let value_of_term term = match Term.destruct term with
         (* Term is a propositional constant *)
         | `TRUE -> ValBool true
         | `FALSE -> ValBool false
-
+(*
         (* Bitvectors not implemented *)
         | `BV _ -> assert false
-
+*)
         (* Uninterpreted constant *)
         | `UF u -> ValTerm term 
 

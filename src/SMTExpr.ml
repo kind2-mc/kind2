@@ -153,14 +153,15 @@ let string_of_sort s = string_of_t pp_print_sort s
 
 *)
 
-let pp_print_sort ppf t = 
+let rec pp_print_sort ppf t = 
   let p = Format.fprintf ppf in 
   match Type.node_of_type t with
     | Type.IntRange _ -> p "Int"
     | Type.Bool -> p "Bool"
     | Type.Int -> p "Int"
     | Type.Real -> p "Real"
-
+    | Type.Array (a, i) -> Format.fprintf ppf "Array %a %a" pp_print_sort a pp_print_sort i
+    | Type.Scalar _ -> assert false
 
 
 let string_of_sort = string_of_t pp_print_sort
@@ -204,7 +205,8 @@ let rec smtsort_of_type t = match Type.node_of_type t with
   | Type.Bool -> t
   | Type.Int -> t
   | Type.Real -> t
-  | Type.BV m -> t
+  | Type.Scalar _ -> t
+(*  | Type.BV m -> t *)
 
 
 (* ********************************************************************* *)
@@ -272,6 +274,7 @@ let string_symbol_list =
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
    ("is_int", Symbol.mk_symbol `IS_INT);
+(*
    ("concat", Symbol.mk_symbol `CONCAT);
    ("bvnot", Symbol.mk_symbol `BVNOT);
    ("bvneg", Symbol.mk_symbol `BVNEG);
@@ -285,7 +288,9 @@ let string_symbol_list =
    ("bvlshr", Symbol.mk_symbol `BVLSHR);
    ("bvult", Symbol.mk_symbol `BVULT);
    ("select", Symbol.mk_symbol `SELECT);
-   ("store", Symbol.mk_symbol `STORE)]
+   ("store", Symbol.mk_symbol `STORE)
+*)
+  ]
 
 
 (* Reserved words that we don't support *)
@@ -380,14 +385,14 @@ let const_of_smtlib_token b t =
           Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
 
         with Invalid_argument _ -> 
-
+(*
           try 
 
             (* Return bitvector of string *)
             Term.mk_bv (bitvector_of_hstring t)
 
           with Invalid_argument _ -> 
-
+*)
             try 
 
               (* Return symbol of string *)
@@ -614,7 +619,6 @@ let expr_of_string_sexpr = expr_of_string_sexpr' []
 (* ********************************************************************* *)
 (* Conversions from terms to SMT expressions                             *)
 (* ********************************************************************* *)
-
 
 (* Convert a variable to an SMT expression *)
 let smtexpr_of_var var =

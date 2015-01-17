@@ -500,7 +500,7 @@ let rec type_of_term t = match T.destruct t with
           (* Compute width of resulting bitvector *)
           Type.mk_bv
             ((Numeral.to_int j) - (Numeral.to_int i) + 1)
-
+*)
             
         (* Array-valued function *)
         | `SELECT -> 
@@ -515,7 +515,7 @@ let rec type_of_term t = match T.destruct t with
                 | _ -> assert false)
 
             | _ -> assert false)
-*)
+
         (* Return type of first argument *)
         | `MINUS
         | `PLUS
@@ -538,6 +538,8 @@ let rec type_of_term t = match T.destruct t with
         | `BVUREM
         | `BVSHL
         | `BVLSHR
+*)
+(*
         | `STORE -> 
 
           (match l with 
@@ -546,6 +548,7 @@ let rec type_of_term t = match T.destruct t with
             | a :: _ -> type_of_term a
             | _ -> assert false)
 *)
+
 
         (* Return type of second argument *)
         | `ITE -> 
@@ -559,8 +562,6 @@ let rec type_of_term t = match T.destruct t with
         (* Uninterpreted constant *)
         | `UF s -> UfSymbol.res_type_of_uf_symbol s
   
-        | `READ v -> 
-      
         (* Ill-formed terms *)
         | `TRUE
         | `FALSE
@@ -693,7 +694,7 @@ let type_check_app s a =
 let mk_const = T.mk_const
 
 
-(* Return a hashconsed variable *)
+(* Return a hashconsed variable with an empty index *)
 let mk_var = T.mk_var
 
 
@@ -930,9 +931,10 @@ let mk_dec_of_float = function
     mk_minus [mk_const_of_symbol_node (`DECIMAL (decimal_of_float (-. f)))]
 *)
 
+(*
 (* Hashcons a bitvector *)
 let mk_bv b = mk_const_of_symbol_node (`BV b)
-
+*)
 
 (* Hashcons an addition *)
 let mk_plus = function
@@ -1013,6 +1015,8 @@ let mk_is_int t = mk_app_of_symbol_node `IS_INT [t]
 (* Hashcons a divisibility predicate for the given divisor *)
 let mk_divisible n t = mk_app_of_symbol_node (`DIVISIBLE n) [t]
 
+(* Hashcons an array read *)
+let mk_select a i = mk_app_of_symbol_node `SELECT [a; i]
 
 (* Generate a new tag *)
 let newid =
@@ -1055,12 +1059,6 @@ let mk_succ t = mk_app_of_symbol_node `PLUS [t; (mk_num_of_int 1)]
 (* Hashcons a decrement of the term by one *)
 let mk_pred t = mk_app_of_symbol_node `MINUS [t; (mk_num_of_int 1)]
 
-
-(* Hashcons an array read *)
-let rec mk_select v = function 
-  | [] -> mk_var v
-  | h :: tl -> mk_app_of_symbol_node `SELECT [mk_select v tl; h]
-  
 
 (* Hashcons a negation of the term, avoiding double negation *)
 let negate t = match T.destruct t with 
@@ -1214,8 +1212,8 @@ let bump_state i term =
     (function _ -> function 
        | t when is_free_var t -> 
          mk_var 
-           (Var.bump_offset_of_state_var_instance i
-              (free_var_of_term t))
+           (let v = free_var_of_term t in
+            Var.bump_offset_of_state_var_instance i v)
        | _ as t -> t)
     term
 
