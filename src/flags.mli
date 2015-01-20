@@ -37,6 +37,7 @@ type smtsolver =
   | `CVC4_SMTLIB
   | `MathSat5_SMTLIB
   | `Yices_SMTLIB
+  | `Smtinterpol_SMTLIB
   | `detect ]
 
 (** Return SMT solver *)
@@ -65,6 +66,10 @@ val mathsat5_bin : unit -> mathsat5_bin
 type yices_bin = string
 val yices_bin : unit -> yices_bin
 
+(** Executable of Z3 solver *)
+type smtinterpol_bin = string
+val smtinterpol_bin : unit -> smtinterpol_bin
+
 (** Write all SMT commands to files *)
 type smt_trace = bool
 val smt_trace : unit -> smt_trace
@@ -80,6 +85,10 @@ val enable : unit -> enable
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
 val bmc_max : unit -> bmc_max
+
+(** Maximal number of iterations in Interpolation *)
+type interp_max = int
+val interp_max : unit -> interp_max
 
 (** Output version information and exit *)
 type check_version = bool

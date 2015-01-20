@@ -126,15 +126,15 @@ let smtlibsolver_config_yices () =
   { solver_cmd = [| yices_bin; "--incremental" |] }
 
 
+let smtlibsolver_config_smtinterpol () =
+
+  let smtinterpol_bin = Flags.smtinterpol_bin () in
+
+  { solver_cmd = [| smtinterpol_bin; "-jar"; "smtinterpol.jar" |] }
+
+
 (* Configuration for current SMT solver *)
-let config_of_flags () = match Flags.smtsolver () with
-| `Z3_SMTLIB -> smtlibsolver_config_z3 ()
-| `CVC4_SMTLIB -> smtlibsolver_config_cvc4 ()
-| `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5 ()
-| `Yices_SMTLIB -> smtlibsolver_config_yices ()
-| _ ->
-(* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
-failwith "SMTLIBSolver.config_of_flags"
+let config_of_flags () = smtlibsolver_config_smtinterpol
     
 
 (* Command to limit check-sat in Z3 to run for the given numer of ms
@@ -720,7 +720,7 @@ let create_instance
     id =
 
   (* Get autoconfigured configuration *)
-  let ({ solver_cmd = solver_cmd } as config) = (config_of_flags ()) in
+  let ({ solver_cmd = solver_cmd } as config) = (config_of_flags ()) () in
 
   (* Name of executable is first argument 
 

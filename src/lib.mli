@@ -266,7 +266,8 @@ type kind_module =
   | `INVGENOS
   | `INVMAN
   | `Interpreter
-  | `Parser ]
+  | `Parser 
+  | `Interpolator]
 
 
 (** Wallclock timeout *)

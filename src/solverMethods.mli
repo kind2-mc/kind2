@@ -23,123 +23,128 @@
 
 (** Output signature of the {!Make} functor *)
 module type S =
-sig
+  sig
 
-  (** Solver returned an unknown as result *)
-  exception Unknown
+    (** Solver returned an unknown as result *)
+    exception Unknown
 
-  (** The encapsulated module for lower level access to the solver *)
-  module T : SMTSolver.S
+    (** The encapsulated module for lower level access to the solver *)
+    module T : SMTSolver.S
 
-  (** Type of a solver instance *)
-  type t
+    (** Type of a solver instance *)
+    type t
 
-  (** {1 Creating and finalizing a solver instance} *)
+    (** {1 Creating and finalizing a solver instance} *)
 
-  (** Create a new instance of an SMT solver, declare all currently
+    (** Create a new instance of an SMT solver, declare all currently
       created uninterpreted function symbols *)
-  val new_solver : ?produce_assignments:bool -> ?produce_models:bool -> ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
-    
-  (** Delete an instance of an SMT solver *)
-  val delete_solver : t -> unit
-    
-  (** {1 Declarations} *)
+    val new_solver : ?produce_assignments:bool -> ?produce_models:bool -> ?produce_proofs:bool -> ?produce_cores:bool -> SMTExpr.logic -> t
+                                                                                                                                            
+    (** Delete an instance of an SMT solver *)
+    val delete_solver : t -> unit
+                               
+    (** {1 Declarations} *)
 
-  (** Define uninterpreted symbol *)
-  val declare_fun : t -> UfSymbol.t -> unit
+    (** Define uninterpreted symbol *)
+    val declare_fun : t -> UfSymbol.t -> unit
 
-  (** Define uninterpreted symbol *)
-  val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
+    (** Define uninterpreted symbol *)
+    val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
 
-  (** {1 Primitives} *)
+    (** {1 Primitives} *)
 
-  (** Raise an exception if the response is not success *)
-  val fail_on_smt_error : SMTExpr.response -> unit
+    (** Raise an exception if the response is not success *)
+    val fail_on_smt_error : SMTExpr.response -> unit
 
-  (** Assert a formula in the current context *)
-  val assert_term : t -> Term.t -> unit
+    (** Assert a formula in the current context *)
+    val assert_term : t -> Term.t -> unit
 
-  (** Assert the expression, naming it internally to retrieve it from
+    (** Assert the expression, and return the name to the caller *)
+    val assert_named_term_wr : t -> SMTExpr.t -> string
+
+    (** Assert the expression, naming it internally to retrieve it from
       an unsatisfiable core later *)
-  val assert_named_term : t -> SMTExpr.t -> unit
+    val assert_named_term : t -> SMTExpr.t -> unit
 
-  (** Push a new scope to the context stack *)
-  val push : ?n:int -> t -> unit
+    (** Push a new scope to the context stack *)
+    val push : ?n:int -> t -> unit
 
-  (** Pop one scope from the context stack *)
-  val pop : ?n:int -> t -> unit
+    (** Pop one scope from the context stack *)
+    val pop : ?n:int -> t -> unit
 
-  (** Check satisfiability of the current context 
+    (** Check satisfiability of the current context 
 
       The optional parameter [timeout] limits the maximum runtime to
       the given number of milliseconds *)
-  val check_sat : ?timeout:int -> t -> bool
+    val check_sat : ?timeout:int -> t -> bool
 
-  (** Return a model of the current context if satisfiable *)
-  val get_model : t -> Var.t list -> (Var.t * Term.t) list
+    (** Return a model of the current context if satisfiable *)
+    val get_model : t -> Var.t list -> (Var.t * Term.t) list
 
-  (** Return a values of the terms in the current context if
+    (** Return a values of the terms in the current context if
       satisfiable *)
-  val get_values : t -> Term.t list -> (Term.t * Term.t) list
+    val get_values : t -> Term.t list -> (Term.t * Term.t) list
 
-  (** Return an unsatisfiable core of named expressions if the current
+    (** Return an unsatisfiable core of named expressions if the current
       context is unsatisfiable *)
-  val get_unsat_core : t -> Term.t list
+    val get_unsat_core : t -> Term.t list
 
-  (** {1 Higher-level functions} 
+    (** {1 Higher-level functions} 
 
       These functions operate on a new scope level that is popped at
       the end of the functions. Hence, there are no side-effects on
       the context. *)
 
-  (** Check satisfiability of the formula in the current context
+    (** Check satisfiability of the formula in the current context
 
       The optional parameter [timeout] limits the maximum runtime to
       the given number of milliseconds *)
-  val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
+    val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
 
-  val check_sat_assuming : t ->
-                           (* If sat. *)
-                           (unit -> 'a) ->
-                           (* If unsat. *)
-                           (unit -> 'a) ->
-                           (* Literals to assert. *)
-                           Term.t list ->
-                           'a
+    val check_sat_assuming : t ->
+                             (* If sat. *)
+                             (unit -> 'a) ->
+                             (* If unsat. *)
+                             (unit -> 'a) ->
+                             (* Literals to assert. *)
+                             Term.t list ->
+                             'a
 
-  (** Check satisfiability of the formula in the current context and
+    (** Check satisfiability of the formula in the current context and
       return a model
 
       The optional parameter [timeout] limits the maximum runtime to
       the given number of milliseconds *)
-  val check_sat_term_model : ?timeout:int -> t -> Term.t list -> bool * (Var.t * Term.t) list 
+    val check_sat_term_model : ?timeout:int -> t -> Term.t list -> bool * (Var.t * Term.t) list 
 
-  (** Check entailment of the second formula by the conjunction of the
+    (** Check entailment of the second formula by the conjunction of the
       first formulas in the current context
 
       The optional parameter [timeout] limits the maximum runtime to
       the given number of milliseconds *)
-  val check_entailment : ?timeout:int -> t -> Term.t list -> Term.t -> bool
+    val check_entailment : ?timeout:int -> t -> Term.t list -> Term.t -> bool
 
-  (** Check entailment of the second formula by conjunction of the
+    (** Check entailment of the second formula by conjunction of the
       first formulas in the current context and return a
       counterexample if the entailment is not valid
 
       The optional parameter [timeout] limits the maximum runtime to
       the given number of milliseconds *)
-  val check_entailment_cex : ?timeout:int -> t -> Term.t list -> Term.t -> bool * (Var.t * Term.t) list 
+    val check_entailment_cex : ?timeout:int -> t -> Term.t list -> Term.t -> bool * (Var.t * Term.t) list 
 
 
-  (** {1 Utility functions} *)
+    (** {1 Utility functions} *)
 
-  (** For a model return a conjunction of equations representing the model *)
-  val term_of_model : (Var.t * Term.t) list -> Term.t
+    (** For a model return a conjunction of equations representing the model *)
+    val term_of_model : (Var.t * Term.t) list -> Term.t
 
-  (** Output a comment into the trace *)
-  val trace_comment : t -> string -> unit
+    val get_interpolants : t -> SMTExpr.custom_arg list -> Term.t
 
-end
+    (** Output a comment into the trace *)
+    val trace_comment : t -> string -> unit
+
+  end
 
 (** Create high-level methods for a certain solver module *)
 module Make (S : SMTSolver.S) : S with type t = S.t and type T.t = S.t  
