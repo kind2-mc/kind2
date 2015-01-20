@@ -113,6 +113,8 @@ val get_unsat_core : t -> SMTExpr.response * string list
     S-expressions. *)
 val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
 
+val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.response * HStringSExpr.t list
+
 (** Execute a custom check-sat command and return its result *)
 val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
 

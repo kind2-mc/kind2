@@ -22,7 +22,7 @@ open Actlit
 
 
 (* Use configured SMT solver *)
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBInterpolator))
+module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
 
 
 (* ********************************************************************** *)
@@ -33,7 +33,7 @@ module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBInterpolator))
 (* Solver instance if created *)
 let ref_solver = ref None
 
-let interp solver trans_sys k =
+let interp solver trans_sys =
 
   (* Invariants if the system at 0. *)
   let invariants =
@@ -56,7 +56,7 @@ let interp solver trans_sys k =
   in
 
 
-  let rec interp i r_i interpolants = 
+  let rec interp i k r_i interpolants = 
     
     if i > k then interpolants else (
       
@@ -81,13 +81,20 @@ let interp solver trans_sys k =
         let p = Solver.get_interpolants solver [ArgString n1; ArgString n2] in
         
         Solver.pop solver;
-        interp (i+1) (Term.mk_or [p;r_i]) (p :: interpolants)
+        interp (i+1) k (Term.mk_or [p;r_i]) (p :: interpolants)
       )
     )
 
   in
-
-  interp 2 (TransSys.init_of_bound trans_sys Numeral.zero) []
+  
+  let rec aux k acc = 
+    if k > Flags.interp_max () then
+      acc 
+    else
+      aux (k+1) ((interp 2 k (TransSys.init_of_bound trans_sys Numeral.zero) []) @ acc)
+  in
+  
+  aux 2 []  
 ;;
 
 
@@ -121,10 +128,18 @@ let main trans_sys =
   (* Determine logic for the SMT solver *)
   let logic = `QF_UFLIA in
 
+  let tmp = Flags.smtsolver () in
+
+  Flags.set_smtsolver `Smtinterpol_SMTLIB "java";
+
+  assert (Flags.smtsolver () = `Smtinterpol_SMTLIB);
+  
   (* Create solver instance *)
   let solver = 
     Solver.new_solver ~produce_proofs:true logic
   in
+
+  Flags.set_smtsolver tmp "z3";
   
   (* Create a reference for the solver. Only used in on_exit. *)
   ref_solver := Some solver;
@@ -161,7 +176,6 @@ let main trans_sys =
   let candidates = interp 
                      solver 
                      trans_sys 
-                     (Flags.interp_max ())
   in
 
   let system_candidates =
@@ -170,7 +184,11 @@ let main trans_sys =
   in
 
   List.length candidates
-  |> Event.log L_info "Found %i interpolants.";
+  |> Event.log L_info "Found %i interpolants:";
+  
+  List.iter (
+      fun t -> Event.log L_info "%s" (Term.string_of_term t)
+    ) candidates;
 
 
   let invariants', ignore' =
@@ -180,7 +198,11 @@ let main trans_sys =
 
   (* Bla. *)
   Term.TermSet.cardinal invariants'
-  |> Event.log L_info "Found %i invariants."
+  |> Event.log L_info "Found %i invariants: ";
+
+  List.iter (
+      fun t -> Event.log L_info "%s" (Term.string_of_term t)
+    ) (Term.TermSet.elements invariants');
     
     
 (* 

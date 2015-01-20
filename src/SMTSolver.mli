@@ -67,7 +67,7 @@ sig
   val define_fun : t -> string -> SMTExpr.var list -> SMTExpr.sort -> SMTExpr.t -> SMTExpr.response
 
   (** {1 Commands} *)
-    
+                                                                                     
   (** Assert the expression *)
   val assert_expr : t -> SMTExpr.t -> SMTExpr.response
 
@@ -101,6 +101,8 @@ sig
       returns a pair of the success response and a list of
       S-expressions. *)
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+
+  val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.response * HStringSExpr.t list
 
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
   (** Output a comment into the trace *)
@@ -177,6 +179,8 @@ sig
       returns a pair of the success response and a list of
       S-expressions. *)
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+
+  val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.response * HStringSExpr.t list
 
   (** Execute a custom check-sat command and return its result *)
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response

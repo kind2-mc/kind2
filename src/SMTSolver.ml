@@ -62,6 +62,8 @@ sig
 
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
 
+  val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.response * HStringSExpr.t list
+
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
                                                           
 
@@ -118,6 +120,8 @@ sig
   val get_unsat_core : t -> SMTExpr.response * string list
 
   val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int -> SMTExpr.response * HStringSExpr.t list
+
+  val get_interpolants : t -> SMTExpr.custom_arg list -> SMTExpr.response * HStringSExpr.t list
 
   val execute_custom_check_sat_command : string -> t -> SMTExpr.check_sat_response
                                                           
@@ -231,6 +235,10 @@ struct
   let execute_custom_check_sat_command c { solver } =
 
     S.execute_custom_check_sat_command c solver
+                                       
+  let get_interpolants { solver } a =
+    
+    S.get_interpolants solver a 
 
   let trace_comment { solver } c = 
 

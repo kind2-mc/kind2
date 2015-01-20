@@ -125,6 +125,12 @@ let smtlibsolver_config_yices () =
 
   { solver_cmd = [| yices_bin; "--incremental" |] }
 
+let smtlibsolver_config_smtinterpol () =
+
+  let smtinterpol_bin = Flags.smtinterpol_bin () in
+
+  { solver_cmd = [| smtinterpol_bin; "-jar"; "smtinterpol.jar" |] }
+
 
 (* Configuration for current SMT solver *)
 let config_of_flags () = match Flags.smtsolver () with
@@ -132,6 +138,7 @@ let config_of_flags () = match Flags.smtsolver () with
 | `CVC4_SMTLIB -> smtlibsolver_config_cvc4 ()
 | `MathSat5_SMTLIB -> smtlibsolver_config_mathsat5 ()
 | `Yices_SMTLIB -> smtlibsolver_config_yices ()
+| `Smtinterpol_SMTLIB -> smtlibsolver_config_smtinterpol ()
 | _ ->
 (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
 failwith "SMTLIBSolver.config_of_flags"
@@ -176,6 +183,19 @@ let check_sat_limited_cmd ms = match Flags.smtsolver () with
    command. *)
 let check_sat_assuming_supported () = match Flags.smtsolver () with 
   | `Z3_SMTLIB -> true
+  | `CVC4_SMTLIB -> false
+  | `MathSat5_SMTLIB -> false
+  | `Yices_SMTLIB -> false
+  | `Smtinterpol_SMTLIB -> false
+  | _ -> 
+     (* (Event.log `INVMAN L_fatal "Not using an SMTLIB solver"); *)
+     failwith "SMTLIBSolver.check_sat_assuming_cmd"
+
+(* Indicates whether the solver supports the check-sat-assuming
+   command. *)
+let get_interpolants_supported () = match Flags.smtsolver () with 
+  | `Smtinterpol_SMTLIB -> true
+  | `Z3_SMTLIB -> false
   | `CVC4_SMTLIB -> false
   | `MathSat5_SMTLIB -> false
   | `Yices_SMTLIB -> false
@@ -569,7 +589,6 @@ let check_sat_assumptions solver assumptions =
   (* Send command to the solver without timeout *)
   execute_check_sat_command solver cmd 0
 
-
 (* Get values of expressions in the model *)
 let get_value solver expr_list = 
 
@@ -615,6 +634,19 @@ let execute_custom_command solver cmd args num_res =
   (* Send command to the solver without timeout *)
   execute_custom_command' solver cmd 0 num_res 
 
+let get_interpolants solver args =
+
+  execute_custom_command solver "get-interpolants" args 1 
+  
+(*
+  if get_interpolants_supported () then
+
+    execute_custom_command solver "get-interpolants" args 1 
+
+  else
+    
+    failwith "Solver does not support interpolation"
+ *)
 
 (* Execute a custom command and return the response *)
 let execute_custom_check_sat_command cmd solver = 
@@ -731,6 +763,10 @@ let create_instance
   let solver_stdin_in, solver_stdin_out = Unix.pipe () in
   let solver_stdout_in, solver_stdout_out = Unix.pipe () in 
   let solver_stderr_in, solver_stderr_out = Unix.pipe () in 
+
+  Array.iter (
+      Event.log L_info "%s"
+    ) solver_cmd;
   
   
   (* Create solver process *)

@@ -608,7 +608,7 @@ struct
 
   let get_interpolants solver args =
     
-    let r,i = T.execute_custom_command solver "get-interpolants" args 1 in
+    let r,i = T.get_interpolants solver args in
 
     Term.mk_and (List.map (fun h -> SMTExpr.term_of_smtexpr (SMTExpr.expr_of_string_sexpr h)) i)
 
