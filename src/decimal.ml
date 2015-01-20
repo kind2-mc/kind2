@@ -162,7 +162,7 @@ let of_string s =
       match String.get s (start_pos + pos) with
 
         (* Continue parsing exponent part *)
-        | 'E' -> scan_exp (start_pos + (succ pos)) 0
+        | 'E' when pos > 0 -> scan_exp (start_pos + (succ pos)) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
@@ -193,7 +193,7 @@ let of_string s =
         | '.' -> scan_frac (succ pos) 0
 
         (* Continue parsing exponent part *)
-        | 'E' -> scan_exp (succ pos) 0
+        | 'E'  when pos > 0 -> scan_exp (succ pos) 0
 
         (* Allow digits, append to buffer *)
         | '0'..'9' as c -> 
