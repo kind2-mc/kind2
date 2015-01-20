@@ -51,13 +51,13 @@ val equal_types : t -> t -> bool
 (** Hashing function on types *)
 val hash_type : t -> int
 
-(** Hash table over variables *)
+(** Hash table over types *)
 module TypeHashtbl : Hashtbl.S with type key = t
 
-(** Set over variables *)
+(** Set over types *)
 module TypeSet : Set.S with type elt = t
 
-(** Map over variables *)
+(** Map over types *)
 module TypeMap : Map.S with type key = t
 
 

@@ -128,6 +128,8 @@ sig
 
   val node_of_t : t -> t_node
 
+  val node_of_lambda : lambda -> lambda_node
+
   val sorts_of_lambda : lambda -> sort list
 
   val tag_of_t : t -> int
@@ -147,6 +149,9 @@ sig
   val import : t -> t
 
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
+    
+  val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+    ?db:int -> Format.formatter -> t -> unit
 
   val print_term : ?db:int -> t -> unit
 
@@ -491,18 +496,18 @@ struct
 
   (* Pretty-print a lambda abstraction given the de Bruijn index of
      the most recent bound variable *)
-  let rec pp_print_lambda db ppf = function { H.node = L (l, t) } ->
+  let rec pp_print_lambda pp_symbol db ppf = function { H.node = L (l, t) } ->
 
     (* Print variables bound in abstraction and recurse with an
        incremented de Bruijn index *)
     Format.fprintf ppf
       "@[<hv 0>@[<hv 2>(%a).@]%a@]"
       (pp_print_var_seq db) l
-      (pp_print_term' (db + (List.length l))) t
+      (pp_print_term' pp_symbol (db + (List.length l))) t
 
 
   (* Pretty-print a list of variable term bindings *)
-  and pp_print_let_bindings i db ppf = function 
+  and pp_print_let_bindings pp_symbol i db ppf = function 
 
     (* Print nothing for the empty list *)
     | [] -> ()
@@ -518,17 +523,17 @@ struct
         ppf 
         "@[<hv 1>(X%i@ %a)@]" 
         db' 
-        (pp_print_term' (db - i)) t;
+        (pp_print_term' pp_symbol (db - i)) t;
 
       (* Add space and recurse if more bindings follow *)
       if not (tl = []) then 
         (Format.pp_print_space ppf (); 
-         pp_print_let_bindings (succ i) db' ppf tl)
+         pp_print_let_bindings pp_symbol (succ i) db' ppf tl)
 
 
   (* Pretty-print a higer-order abstract syntax term given the de
      Bruijn index of the most recent bound variable *)
-  and pp_print_term' db ppf = function 
+  and pp_print_term' pp_symbol db ppf = function 
 
     (* Delegate printing of free variables to function in input module *)
     | { H.node = FreeVar v } -> T.pp_print_var ppf v
@@ -537,23 +542,23 @@ struct
     | { H.node = BoundVar db } -> Format.fprintf ppf "X%i" db
 
     (* Delegate printing of leaf to function in input module *)
-    | { H.node = Leaf s } -> T.pp_print_symbol ppf s
+    | { H.node = Leaf s } -> pp_symbol ?arity:(Some 0) ppf s
 
     (* Print a function application as S-expression *)
     | { H.node = Node (s, a) } -> 
 
       Format.fprintf ppf 
         "@[<hv 1>(%a@ %a)@]" 
-        T.pp_print_symbol s 
-        (pp_print_term_list db) a
+        (pp_symbol ?arity:(Some (List.length a))) s 
+        (pp_print_term_list pp_symbol db) a
 
     (* Print a let binding *)
     | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
 
       Format.fprintf ppf 
         "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
-        (pp_print_let_bindings 0 db) b
-        (pp_print_term' (db + List.length b)) t
+        (pp_print_let_bindings pp_symbol 0 db) b
+        (pp_print_term' pp_symbol (db + List.length b)) t
 
     (* Print an existential quantification *)
     | { H.node = Exists { H.node = L (x, t) } } -> 
@@ -561,7 +566,7 @@ struct
       Format.fprintf ppf 
         "@[<hv 1>(exists@ @[<hv 1>(%a)@ %a@])@]" 
         (pp_print_typed_var_list db) x
-        (pp_print_term' (db + List.length x)) t
+        (pp_print_term' pp_symbol (db + List.length x)) t
 
     (* Print a universal quantification *)
     | { H.node = Forall { H.node = L (x, t) } } -> 
@@ -569,20 +574,20 @@ struct
       Format.fprintf ppf 
         "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
         (pp_print_typed_var_list db) x
-        (pp_print_term' (db + List.length x)) t
+        (pp_print_term' pp_symbol (db + List.length x)) t
 
     (* Print an annotated term *)
     | { H.node = Annot (t, a) } ->
 
       Format.fprintf ppf 
         "@[<hv 1>(!@ @[<hv 1>%a@] @[<hv 1>%a@])@]" 
-        (pp_print_term' db) t
+        (pp_print_term' pp_symbol db) t
         T.pp_print_attr a
 
 
   (* Pretty-print a list of higher-order abstract syntax terms given
      the de Bruijn index of the most recent bound variable *)
-  and pp_print_term_list db ppf = function
+  and pp_print_term_list pp_symbol db ppf = function
 
     (* Terminate at end of list *)
     | [] -> ()
@@ -590,17 +595,17 @@ struct
     | t :: tl -> 
 
       (* Print term a head of list *)
-      pp_print_term' db ppf t;
+      pp_print_term' pp_symbol db ppf t;
 
       (* Continue if not at the end of the list *)
       if not (tl = []) then
         (Format.pp_print_space ppf ();
-         pp_print_term_list db ppf tl)
+         pp_print_term_list pp_symbol db ppf tl)
 
 
   (* Top-level pretty-printing function, start with given de Bruijn
      index or default to zero *)
-  let pp_print_term ?(db = 0) ppf term = 
+  let pp_print_term_w pp_symbol ?(db = 0) ppf term = 
 
     (* This breaks indentation and is going to fail when the meaning
        of indexes is reversed. *)
@@ -643,10 +648,13 @@ struct
 *)
 
     (* Pretty-print term into buffer *)
-    pp_print_term' db ppf term
+    pp_print_term' pp_symbol db ppf term
 
-  let print_term ?db t = pp_print_term ?db Format.std_formatter t 
-          
+
+  
+  let pp_print_term = pp_print_term_w (fun ?arity -> T.pp_print_symbol)
+
+  let print_term ?db = pp_print_term ?db Format.std_formatter
 
 (*
 
@@ -705,19 +713,19 @@ struct
 
 
   (* Pretty-print a flattened term *)
-  let rec pp_print_flat ppf = function 
+  let rec pp_print_flat pp_symbol ppf = function 
 
     | Var v -> Format.fprintf ppf "Var@ %a" T.pp_print_var v
 
-    | Const s -> Format.fprintf ppf "Const@ %a" T.pp_print_symbol s
+    | Const s -> Format.fprintf ppf "Const@ %a" (pp_symbol ?arity:(Some 0)) s
 
     | App (s, l) -> 
 
       Format.fprintf 
         ppf 
         "App@ (%a,@ %a)" 
-        T.pp_print_symbol s 
-        (pp_print_term_list 0) l
+        (pp_symbol ?arity:None) s 
+        (pp_print_term_list pp_symbol 0) l
 
     | Attr (t, a) -> 
 
@@ -727,6 +735,7 @@ struct
         (pp_print_term ~db:0) t 
         T.pp_print_attr a
 
+  let pp_print_flat = pp_print_flat (fun ?arity -> T.pp_print_symbol)
 
   (* ********************************************************************* *)
   (* Auxiliary functions                                                   *)
@@ -857,6 +866,9 @@ struct
 
   (* Return the sorts of a hashconsed lambda abstraction *)
   let sorts_of_lambda { Hashcons.node = L (v, _) } = v
+
+  (* Return the node of a hashconsed lamda abstraction *)
+  let node_of_lambda { Hashcons.node = l } = l
 
   (* Return the tag of a hashconsed term *)
   let tag_of_t { Hashcons.tag = n } = n

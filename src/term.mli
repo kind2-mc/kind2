@@ -36,6 +36,40 @@
 *)
 
 
+(** {1 Logics} *)
+
+(** The defined logics in SMTLIB *)
+type logic = 
+  [ `detect
+  | `AUFLIA
+  | `AUFLIRA
+  | `AUFNIRA
+  | `LRA 
+  | `LIA
+  | `QF_ABV
+  | `QF_AUFBV
+  | `QF_AUFLIA
+  | `QF_AX
+  | `QF_BV
+  | `QF_IDL
+  | `QF_LIA
+  | `QF_LRA
+  | `QF_LIRA
+  | `QF_NIA
+  | `QF_NRA
+  | `QF_RDL
+  | `QF_UF
+  | `QF_UFBV
+  | `QF_UFIDL
+  | `QF_UFLIA
+  | `QF_UFLRA
+  | `QF_UFNRA
+  | `UFLIA
+  | `UFLRA
+  | `UFNIA
+  ]
+
+
 (** {1 Types and hash-consing} *)
 
 module T : Ltree.S
@@ -210,10 +244,7 @@ sig
 
   (** Prefix operator to create an numeral *)
   val ( ?%@ ) : int -> t
-(*
-  (** Prefix operator to create an decimal *)
-  val ( ?/@ ) : float -> t
-*)
+
   (** Prefix operator to create an Boolean negation *)
   val ( !@ ) : t -> t
 

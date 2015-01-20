@@ -567,7 +567,7 @@ let pp_print_callers ppf (t, c) =
 (* Determine the required logic for the SMT solver 
 
    TODO: Fix this to QF_UFLIA for now, dynamically determine later *)
-let get_logic _ = ((Flags.smtlogic ()) :> SMTExpr.logic)
+let get_logic _ = ((Flags.smtlogic ()) :> Term.logic)
 
 
 (* Return the state variables of the transition system *)

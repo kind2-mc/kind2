@@ -47,8 +47,9 @@ type state_var_prop =
 
   { 
 
-    (* The type of the variable *)
-    var_type : Type.t;
+    (* The type of the variable: can be changed later if we find out
+       that it's not general enough (e.g. subranges) *)
+    mutable var_type : Type.t;
 
     (* The uninterpreted symbol associated with the variable *)
     uf_symbol : UfSymbol.t;
@@ -200,6 +201,9 @@ let scope_of_state_var { Hashcons.node = (_, s) } = s
 
 (* Type of a state variable *)
 let type_of_state_var { Hashcons.prop = { var_type = t } } = t
+
+(* Change the type of a state variable *)
+let change_type_of_state_var { Hashcons.prop = v } t = v.var_type <- t
 
 (* Uninterpreted function symbol of a state variable *)
 let uf_symbol_of_state_var { Hashcons.prop = { uf_symbol = u } } = u

@@ -20,8 +20,6 @@ open Lib
 open TermLib
 open Actlit
 
-module Solver = SolverMethods.Make(SMTSolver.Make(SMTLIBSolver))
-
 let solver_ref = ref None
 
 (* Output statistics *)
@@ -47,7 +45,7 @@ let on_exit _ =
       match !solver_ref with
       | None -> ()
       | Some solver ->
-         Solver.delete_solver solver |> ignore ;
+         SMTSolver.delete_instance solver |> ignore ;
          solver_ref := None
     with
     | e -> 
@@ -168,7 +166,7 @@ let clean_properties trans unknowns unfalsifiables =
 let deactivate solver actlit =
   actlit
   |> Term.mk_not
-  |> Solver.assert_term solver
+  |> SMTSolver.assert_term solver
 
 (* Creating a fresh actlit for path compression. *)
 let path_comp_actlit = fresh_actlit ()
@@ -196,7 +194,7 @@ let eval_terms_assert_first_false trans solver eval k =
             loop_at_k k' tail
           (* Term evaluates to false, asserting it and returning true. *)
           else (
-            Solver.assert_term solver term_at_k ;
+            SMTSolver.assert_term solver term_at_k ;
             true
           )
         with
@@ -237,7 +235,7 @@ let split trans solver k to_split actlits =
   let if_sat () =
     
     (* Get-model function. *)
-    let get_model = Solver.get_model solver in
+    let get_model = SMTSolver.get_model solver in
     
     (* Getting counterexample for path compression is needed. *)
     let cex =
@@ -269,7 +267,7 @@ let split trans solver k to_split actlits =
   let rec loop () = 
     match
       (* Check sat assuming with actlits. *)
-      Solver.check_sat_assuming
+      SMTSolver.check_sat_assuming
         solver if_sat if_unsat all_actlits
     with
 
@@ -302,7 +300,7 @@ let split trans solver k to_split actlits =
         ( match
             if not (Flags.ind_compress ()) then [] else
               Compress.check_and_block
-                (Solver.declare_fun solver) trans cex
+                (SMTSolver.declare_fun solver) trans cex
           with
 
             | [] ->
@@ -320,7 +318,7 @@ let split trans solver k to_split actlits =
               Term.mk_or
                 [ path_comp_act_term |> Term.mk_not ;
                   compressor |> Term.mk_and ]
-                |> Solver.assert_term solver ;
+                |> SMTSolver.assert_term solver ;
               (* Rechecking satisfiability. *)
               loop () )
 
@@ -364,14 +362,14 @@ let split_closure
     let actlit = fresh_actlit () in
 
     (* Declaring actlit. *)
-    actlit |> Solver.declare_fun solver ;
+    actlit |> SMTSolver.declare_fun solver ;
 
     (* Transforming it to a term. *)
     let actlit_term = actlit |> term_of_actlit in
 
     (* Asserting implication. *)
     Term.mk_implies [ actlit_term ; term ]
-    |> Solver.assert_term solver ;
+    |> SMTSolver.assert_term solver ;
 
     (* Getting positive actlits for the list of properties, appending
        them to the optimistic actlits and adding the negative
@@ -503,12 +501,12 @@ let rec next trans solver k unfalsifiables unknowns =
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds
-       trans (Solver.declare_fun solver) k_p_1 k_p_1 ;
+       trans (SMTSolver.declare_fun solver) k_p_1 k_p_1 ;
 
      (* Asserting transition relation. *)
      (* TransSys.trans_fun_of trans k k_p_1 *)
      TransSys.trans_of_bound trans k_p_1
-     |> Solver.assert_term solver
+     |> SMTSolver.assert_term solver
      |> ignore ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
@@ -519,11 +517,11 @@ let rec next trans solver k unfalsifiables unknowns =
          | _ ->
             Term.mk_and new_invariants'
             |> Term.bump_and_apply_k
-                 (Solver.assert_term solver) k ) ;
+                 (SMTSolver.assert_term solver) k ) ;
 
        (* Asserts all invariants at k+1. *)
        TransSys.invars_of_bound trans k_p_1
-       |> Solver.assert_term solver ;
+       |> SMTSolver.assert_term solver ;
      ) ;
 
      (* Asserting positive implications at k for unknowns. *)
@@ -534,7 +532,7 @@ let rec next trans solver k unfalsifiables unknowns =
             Term.mk_implies
               [ generate_actlit term |> term_of_actlit ;
                 Term.bump_state k term ]
-            |> Solver.assert_term solver ) ;
+            |> SMTSolver.assert_term solver ) ;
      
 
      (* Actlits, properties and implications at k for unfalsifiables. *)
@@ -580,7 +578,7 @@ let rec next trans solver k unfalsifiables unknowns =
      (* Asserting unfalsifiable implications at k. *)
      unfalsifiable_impls
      |> Term.mk_and
-     |> Solver.assert_term solver ;
+     |> SMTSolver.assert_term solver ;
 
      (* Output current progress. *)
      Event.log
@@ -634,8 +632,8 @@ let launch trans =
 
   (* Creating solver. *)
   let solver =
-    TransSys.get_logic trans
-    |> Solver.new_solver ~produce_assignments:true
+    SMTSolver.create_instance ~produce_assignments:true
+      (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -644,31 +642,31 @@ let launch trans =
   (* Declaring uninterpreted function symbols. *)
   (* TransSys.iter_state_var_declarations *)
   (*   trans *)
-  (*   (Solver.declare_fun solver) ; *)
+  (*   (SMTSolver.declare_fun solver) ; *)
 
   (* Declaring path compression actlit. *)
-  path_comp_actlit |> Solver.declare_fun solver ;
+  path_comp_actlit |> SMTSolver.declare_fun solver ;
 
   if Flags.ind_compress () then
     (* Declaring path compression function. *)
-    Compress.init (Solver.declare_fun solver) trans ;
+    Compress.init (SMTSolver.declare_fun solver) trans ;
 
   (* Defining uf's and declaring variables. *)
   TransSys.init_define_fun_declare_vars_of_bounds
     trans
-    (Solver.define_fun solver)
-    (Solver.declare_fun solver)
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero
-  |> Solver.assert_term solver ;
+  |> SMTSolver.assert_term solver ;
 
   (* Declaring positive actlits. *)
   List.iter
     (fun (_, prop) ->
      generate_actlit prop
-     |> Solver.declare_fun solver)
+     |> SMTSolver.declare_fun solver)
     unknowns ;
 
   (* Launching step. *)

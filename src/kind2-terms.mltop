@@ -1,4 +1,5 @@
 Debug
+Flags
 Kind2Config
 Version
 Debug
@@ -29,4 +30,3 @@ SExprLexer
 SExprParser
 SExprBase
 HStringSExpr
-SMTExpr

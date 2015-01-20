@@ -45,6 +45,27 @@ type t =
   | Bool of Term.t 
 
 
+let pp_print_monomial pp ppf ((c, t) : 'a monomial) = 
+  Format.fprintf 
+    ppf
+    "%a * %a"
+    pp c
+    (pp_print_list Term.pp_print_term "@ *") t
+
+let pp_print_polynomial pp ppf (c, p) = 
+  Format.fprintf ppf
+    "%a + %a"
+    pp c
+    (pp_print_list (pp_print_monomial pp) "@ +")
+    p
+  
+
+let pp_print_int_polynomial = pp_print_polynomial Numeral.pp_print_numeral
+
+let pp_print_dec_polynomial = pp_print_polynomial Decimal.pp_print_decimal
+
+
+
 (* ********************************************************************** *)
 (* Conversions from normal forms to terms                                 *)
 (* ********************************************************************** *)
@@ -207,8 +228,8 @@ let const_of_num_polynomial = function
 (* Return the constant of a real polynomial *)
 let const_of_dec_polynomial = function 
   | Dec p -> const_of_polynomial p
+  | Num p -> const_of_polynomial p |> Numeral.to_big_int  |> Decimal.of_big_int 
   | _ -> assert false 
-  
 
 (* ********************************************************************** *)
 (* Arithmetic functions on polynomials (polymorphic)                      *)

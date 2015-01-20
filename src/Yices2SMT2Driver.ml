@@ -16,21 +16,24 @@
 
 *)
 
-(** An interface to any SMT solver that accepts the SMTLIB2 command
-    language 
-
-    Use this module as input to the {!SMTSolver.Make} functor 
-
-    @author Christoph Sticksel
- *)
+include GenericSMTLIBDriver
 
 
-module Make : functor (D : SolverDriver.S) -> SolverSig.S
-                                            
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
+(* Configuration for Yices *)
+let cmd_line () = 
+
+  (* Path and name of Yices executable *)
+  let yices2smt2_bin = Flags.yices2smt2_bin () in
+  [| yices2smt2_bin; "--incremental" |]
+
+
+let check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for Yices2"
+
+
+let check_sat_assuming_cmd () =
+  failwith "No check-sat-assuming command for Yices2"
+
+
+let check_sat_assuming_supported () = false
+

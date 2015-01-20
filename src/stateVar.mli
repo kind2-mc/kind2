@@ -96,6 +96,9 @@ val type_of_state_var : t -> Type.t
 (** Return the indexes of the variable *)
 val indexes_of_state_var : t -> Type.t list
 
+(** Change the type of a state variable *)
+val change_type_of_state_var : t -> Type.t -> unit
+
 (** Return the uninterpreted function symbol of the variable *)
 val uf_symbol_of_state_var : t -> UfSymbol.t
 
