@@ -131,7 +131,22 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
           accum) 
          tl)
 
-    | _ -> invalid_arg "get_value_response_of_sexpr"
+    (* Hack for CVC4's (- 1).0 expressions *)
+    | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 
+      when d == HString.mk_hstring ".0" ->
+      
+      get_value_response_of_sexpr' 
+        accum
+        (HStringSExpr.List [ e; v ] :: tl)
+
+    | e :: _ -> 
+
+      (debug smtexpr
+          "get_value_response_of_sexpr: %a"
+          HStringSExpr.pp_print_sexpr e
+       in
+
+       invalid_arg "get_value_response_of_sexpr")
 
 
   (* Return a solver response to a get-value command as expression pairs *)
