@@ -26,8 +26,11 @@ type t
 
 (** {1 Pretty-printing and String Representation} *)
 
-(** Pretty-print a numeral *)
+(** Pretty-print a numeral, e.g. -1 *)
 val pp_print_numeral : Format.formatter -> t -> unit
+
+(** Pretty-print a numeral in s-expression, e.g. (- 1) *)
+val pp_print_numeral_sexpr : Format.formatter -> t -> unit
 
 (** Return a string representation of a numeral *)
 val string_of_numeral : t -> string
