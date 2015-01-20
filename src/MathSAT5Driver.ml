@@ -16,21 +16,26 @@
 
 *)
 
-(** An interface to any SMT solver that accepts the SMTLIB2 command
-    language 
+include GenericSMTLIBDriver
 
-    Use this module as input to the {!SMTSolver.Make} functor 
+(* Configuration for MathSAT5 *)
+let cmd_line () = 
+  
+  (* Path and name of MathSAT5 executable *)
+  let mathsat5_bin = Flags.mathsat5_bin () in
+  [| mathsat5_bin; "-input=smt2" |]
 
-    @author Christoph Sticksel
- *)
+
+let check_sat_limited_cmd _ = 
+  failwith "check-sat with timeout not implemented for MathSAT5"
 
 
-module Make : functor (D : SolverDriver.S) -> SolverSig.S
-                                            
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
+let check_sat_assuming_cmd () = "check-sat-assumptions"
+  
+
+let check_sat_assuming_supported () = false
+
+
+let check_sat_assumptions_cmd () = "(check-sat-assumptions (%a))"
+
+
