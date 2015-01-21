@@ -901,9 +901,10 @@ let rec definitions_of_node_calls
 
           (* Arguments for node call in initial state constraint
              with state variables at next trans *)
-          let init_call_trans_args = 
-            [ TransSys.init_flag_var TransSys.trans_base
-              |> Term.mk_var ] @
+          let init_call_trans_args =
+            (* The init flag has no meaning in a call to init at next
+               trans. For the subsystem, it is true. *)
+            [ Term.t_true ] @
 
             (* Current state input variables *)
             input_shadow_terms_trans @
@@ -921,7 +922,7 @@ let rec definitions_of_node_calls
 
           (* Constraint for node call in initial state *)
           let init_call_init =
-            Term.mk_uf init_uf_symbol init_call_init_args 
+            Term.mk_uf init_uf_symbol init_call_init_args
           in
 
           (* Constraint for node call in trans *)
