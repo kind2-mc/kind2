@@ -1,5 +1,6 @@
 Debug
 Flags
+Stat
 Kind2Config
 Version
 Debug
@@ -30,3 +31,12 @@ SExprLexer
 SExprParser
 SExprBase
 HStringSExpr
+
+GenericSMTLIBDriver
+YicesNative
+YicesDriver
+SolverDriver
+SolverResponse
+SMTExpr
+SMTLIBSolver
+SMTSolver

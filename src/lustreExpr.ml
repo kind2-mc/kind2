@@ -968,8 +968,7 @@ let mk_state_var_of_ident
     ?for_inv_gen
     scope_index
     ident
-    state_var_type
-    state_var_indexes =
+    state_var_type =
   
   (* Convert index to a scope *)
   let scope = I.scope_of_index scope_index in
@@ -986,7 +985,6 @@ let mk_state_var_of_ident
       ident_string
       scope
       state_var_type
-      state_var_indexes
   in
   
   (* Add to hashtable, don't create duplicates if state variable was
@@ -1008,7 +1006,6 @@ let mk_fresh_state_var
     scope_index
     ident
     state_var_type
-    state_var_indexes
     index_ref =
   
   Numeral.incr index_ref; 
@@ -1020,7 +1017,6 @@ let mk_fresh_state_var
     scope_index
     (I.push_int_index !index_ref ident)
     state_var_type
-    state_var_indexes
 
 
 

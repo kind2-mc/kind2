@@ -33,7 +33,6 @@ module type S = sig
   (** Special command for check-sat-assuming *)
   val check_sat_assuming_cmd : unit -> string
 
-
   (** Solver spcific headers to add at the beginning of the file *)
   val headers : unit -> string list
 
@@ -51,8 +50,9 @@ module type S = sig
 
   (** Line comment delimiters *)
   val comment_delims : string * string
-
-
+(*
+  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
+*)
   (** {2 Sort conversions } *)
 
   (** Can interpret type in a supported sort. Fails on unsupported sorts. *)
@@ -74,7 +74,7 @@ module type S = sig
   (** Pretty-print a logic in SMTLIB format *)
   val pp_print_logic : Format.formatter -> Term.logic -> unit
 
-
+(*
 
   (** Pretty-print a symbol *)
   val pp_print_symbol :  ?arity:int -> Format.formatter -> Symbol.t -> unit
@@ -82,5 +82,14 @@ module type S = sig
   (** Return a string representation of a symbol *)
   val string_of_symbol : ?arity:int -> Symbol.t -> string 
 
-  
+  (** Pretty-print a term *)
+  val pp_print_expr :  Format.formatter -> Term.t -> unit
+
+  (** Return a string representation of a term *)
+  val string_of_expr : Term.t -> string
+
+  (** Pretty-print a term to standard output *)
+  val print_expr : Term.t -> unit
+*)
+
 end

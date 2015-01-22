@@ -55,13 +55,13 @@ module type Conv =
     val smtexpr_of_var :  Var.t -> t
 
     (** {2 Pretty-printing and String Conversions} *)
-    
+(*    
     (** Convert an S-expression of strings to a type *)
     val type_of_string_sexpr : HStringSExpr.t -> sort
                                                    
     (** Convert an S-expression of strings to a term *)
     val expr_of_string_sexpr : HStringSExpr.t -> t
-
+*)
     (** Return an SMTLIB string expression for the logic *)
     val string_of_logic : Term.logic -> string 
 

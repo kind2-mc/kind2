@@ -18,6 +18,12 @@
 
 open Lib
 open SolverResponse
+
+module Event = struct 
+  let get_module () = `Parser
+  let log _ = Format.printf
+end
+
   
 (* ********************************************************************* *)
 (* Types                                                                 *)

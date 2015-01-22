@@ -133,6 +133,9 @@ module T = Ltree.Make (BaseTypes)
 (* Hashconsed term over symbols, variables and sorts *)
 type t = T.t
 
+(* Hashconsed lambda expression *)
+type lambda = T.lambda
+
 
 let stats = T.stats
 
@@ -736,6 +739,10 @@ let mk_app = T.mk_app
 
 (* Return a hashconsed tree *)
 let mk_term = T.mk_term
+
+
+(* Return a hashconsed tree *)
+let mk_lambda = T.mk_lambda
 
 
 (* Return a hashconsed let binding *)

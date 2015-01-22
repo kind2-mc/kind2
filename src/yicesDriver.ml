@@ -78,14 +78,14 @@ let rec pp_print_type_node ppf =
       Numeral.pp_print_numeral j
 
   | Real -> Format.pp_print_string ppf "real"
-
+(*
   | BV i -> 
 
     Format.fprintf
       ppf 
       "(bitvector %d)" 
       i 
-
+*)
   | Array (s, t) -> 
     Format.fprintf
       ppf 
@@ -182,6 +182,7 @@ let string_symbol_list =
    ("to_real", Symbol.mk_symbol `TO_REAL);
    ("to_int", Symbol.mk_symbol `TO_INT);
    (* ("is_int", Symbol.mk_symbol `IS_INT); *)
+(*
    ("bv-concat", Symbol.mk_symbol `CONCAT);
    ("bv-not", Symbol.mk_symbol `BVNOT);
    ("bv-neg", Symbol.mk_symbol `BVNEG);
@@ -194,8 +195,13 @@ let string_symbol_list =
    ("bv-shift-left0", Symbol.mk_symbol `BVSHL);
    ("bv-shift-right0", Symbol.mk_symbol `BVLSHR);
    ("bv-lt", Symbol.mk_symbol `BVULT);
+*)
    (* ("select", Symbol.mk_symbol `SELECT); *)
-   ("update", Symbol.mk_symbol `STORE)]
+(*
+   ("update", Symbol.mk_symbol `STORE)
+*)
+
+  ]
 
 (* TODO add support for arrays by keeping info on which function symbols are
    in fact arrays *)
@@ -225,8 +231,9 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal ppf f
+(*
   | `BV b -> pp_yices_print_bitvector_b ppf b
-
+*)
   (* Special case for unary minus : print -a as (- 0 a) *)
   | `MINUS when arity = Some 1 -> Format.pp_print_string ppf "- 0"
 
@@ -249,7 +256,7 @@ let rec pp_print_symbol_node ?arity ppf = function
 
   | `DIVISIBLE n ->
     failwith "divisible not implemented for yices"
-
+(*
   | `CONCAT -> Format.pp_print_string ppf "bv-concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
@@ -269,10 +276,11 @@ let rec pp_print_symbol_node ?arity ppf = function
   | `BVSHL -> Format.pp_print_string ppf "bv-shift-left0"
   | `BVLSHR -> Format.pp_print_string ppf "bv-shift-right0"
   | `BVULT -> Format.pp_print_string ppf "bv-lt"
-
+*)
   | `SELECT -> Format.pp_print_string ppf ""
+(*
   | `STORE -> Format.pp_print_string ppf "update"
-
+*)
   | `UF u -> UfSymbol.pp_print_uf_symbol ppf u
 
 
@@ -283,3 +291,22 @@ and pp_print_symbol ?arity ppf s =
 
 (* Return a string representation of a hashconsed symbol *)
 let string_of_symbol ?arity s = string_of_t (pp_print_symbol ?arity) s
+
+
+let pp_print_term ppf t =
+  Term.T.pp_print_term_w pp_print_symbol ppf t
+        
+    
+(* Pretty-print an expression *)
+let pp_print_expr = pp_print_term
+
+
+(* Pretty-print an expression to the standard formatter *)
+let print_expr = pp_print_expr Format.std_formatter
+
+
+(* Return a string representation of an expression *)
+let string_of_expr t = string_of_t pp_print_expr t
+
+
+

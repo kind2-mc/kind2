@@ -63,7 +63,7 @@ module StateVarMap : Map.S with type key = t
 (** {1 Constructor} *)
 
 (** [mk_state_var n s t i] declares a state variable of name [n] with
-    scope [s], type [t] and indexes [i]. The optional labeled
+    scope [s], and type [t]. The optional labeled
     arguments [?is_input], [?is_const] and [?for_inv_gen] flag the
     variable as an input, as constant and as usable as a candidate for
     invariant generation, respectively. Their defaults are [false],
@@ -73,7 +73,7 @@ module StateVarMap : Map.S with type key = t
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> string -> string list -> Type.t -> Type.t list -> t
+val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> string -> string list -> Type.t -> t
 
 (** Import a state variable from a different instance into this
    hashcons table *)
@@ -92,9 +92,6 @@ val scope_of_state_var : t -> string list
 
 (** Return the type of the variable *)
 val type_of_state_var : t -> Type.t
-
-(** Return the indexes of the variable *)
-val indexes_of_state_var : t -> Type.t list
 
 (** Change the type of a state variable *)
 val change_type_of_state_var : t -> Type.t -> unit
