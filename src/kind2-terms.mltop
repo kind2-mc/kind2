@@ -7,7 +7,7 @@ Debug
 Decimal
 Hashcons
 Lib
-Trie
+# Trie
 Ltree
 Numeral
 StateVar
@@ -33,6 +33,13 @@ SExprBase
 HStringSExpr
 
 GenericSMTLIBDriver
+Z3Driver
+CVC4Driver
+MathSAT5Driver
+Yices2SMT2Driver
+YicesLexer
+YicesParser
+YicesResponse
 YicesNative
 YicesDriver
 SolverDriver
