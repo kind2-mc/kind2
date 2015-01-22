@@ -332,9 +332,9 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
            quantified_vars
            (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
 
-
+      (* Parse (/ n d) as rational constant *)
       | HStringSExpr.List
-          [HStringSExpr.Atom n; HStringSExpr.Atom s; HStringSExpr.Atom d] 
+          [HStringSExpr.Atom s; HStringSExpr.Atom n; HStringSExpr.Atom d] 
         when s == s_div && 
              (try
                 let _ =
@@ -354,9 +354,11 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
             ((HString.string_of_hstring n |> of_string) /
              (HString.string_of_hstring d |> of_string))
         
+
+      (* Parse (/ (- n) d) as rational constant *)
       | HStringSExpr.List
-          [HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom n]; 
-           HStringSExpr.Atom s2; 
+          [HStringSExpr.Atom s2;
+           HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom n]; 
            HStringSExpr.Atom d] 
         when s1 == s_minus && 
              s2 == s_div && 
@@ -383,11 +385,13 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
       (* A singleton list: treat as atom *)
       | HStringSExpr.List [e] -> expr_of_string_sexpr' bound_vars e
 
+
       (* Atom or singleton list *)
       | HStringSExpr.Atom s ->
 
          (* Leaf in the symbol tree *)
          (const_of_smtlib_token bound_vars s)
+
 
       (*  A list with more than one element *)
       | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
