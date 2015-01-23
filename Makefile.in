@@ -62,6 +62,7 @@ install:
 	for i in $(install_files); do \
 		install -m 0755 $(addprefix $(LOCAL_BINDIR)/,$$i) $(addsuffix ${bin_suffix},$(addprefix ${bindir}/,$$i)); \
 	 done
+	if [ -n ${bin_suffix} ]; then echo "Suffix for binaries is ${bin_suffix}"; fi
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
