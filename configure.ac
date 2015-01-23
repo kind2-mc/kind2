@@ -51,7 +51,7 @@ AC_ARG_WITH(
     [with_version_suffix=no])
 
 if test "x$with_version_suffix" = "xyes"; then
-   bin_suffix='`git rev-parse --short HEAD`'
+   bin_suffix='-`git rev-parse --short HEAD`'
 
 elif test "x$with_version_suffix" = "xno"; then
    bin_suffix=''

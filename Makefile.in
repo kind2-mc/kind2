@@ -59,7 +59,9 @@ lustre-checker:
 
 install: 
 	mkdir -p ${bindir}
-	for i in $(addprefix $(LOCAL_BINDIR)/,$(addsuffix $(bin_suffix),$(install_files))); do install -m 0755 $$i ${bindir}; done
+	for i in $(install_files); do \
+		install -m 0755 $(addprefix $(LOCAL_BINDIR)/,$$i) $(addsuffix ${bin_suffix},$(addprefix ${bindir}/,$$i)); \
+	 done
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
