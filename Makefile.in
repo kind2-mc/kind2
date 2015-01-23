@@ -14,6 +14,7 @@ distdir=$(tarname)-$(version).`date +%Y.%m.%d`
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
+bin_suffix=@bin_suffix@
 
 install_files=@PACKAGE_NAME@
 
@@ -58,7 +59,7 @@ lustre-checker:
 
 install: 
 	mkdir -p ${bindir}
-	for i in $(addprefix $(LOCAL_BINDIR)/,$(install_files)); do install -m 0755 $$i ${bindir}; done
+	for i in $(addprefix $(LOCAL_BINDIR)/,$(addsuffix $(bin_suffix),$(install_files))); do install -m 0755 $$i ${bindir}; done
 
 clean-@PACKAGE_NAME@:
 	make -C src clean
