@@ -19,13 +19,20 @@
 (** An interface to any SMT solver that accepts the SMTLIB2 command
     language 
 
-    Use this module as input to the {!SMTSolver.Make} functor 
+    @author Alain Mebsout, Christoph Sticksel
 
-    @author Christoph Sticksel
  *)
 
+module type SMTLIBSolverDriver = sig
+  include SolverDriver.S
 
-module Make : functor (D : SolverDriver.S) -> SolverSig.S
+  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
+
+  val lambda_of_string_sexpr : HStringSExpr.t -> Term.lambda
+end
+
+
+module Make : functor (D : SMTLIBSolverDriver) -> SolverSig.S
                                             
 (* 
    Local Variables:

@@ -157,7 +157,7 @@ let rec conj_of_goal accum = function
   | t :: tl -> 
 
      conj_of_goal 
-       (Conv.term_of_smtexpr (Conv.expr_of_string_sexpr t) :: accum)
+       (Conv.term_of_smtexpr (GenericSMTLIBDriver.expr_of_string_sexpr t) :: accum)
        tl
 
 

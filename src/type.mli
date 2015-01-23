@@ -30,7 +30,7 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t
   | Real
-  | BV of int
+(*  | BV of int *)
   | Array of t * t
   | Scalar of string * string list
 
@@ -77,10 +77,10 @@ val mk_int_range : Numeral.t -> Numeral.t -> t
 
 (** Return the real decimal type *)
 val mk_real : unit -> t
-
+(*
 (** Return the bitvector type *)
 val mk_bv : int -> t
-
+*)
 (** Return an array type of index sort and element sort *)
 val mk_array : t -> t -> t
 
@@ -117,10 +117,10 @@ val is_int_range : t -> bool
 
 (** Return [true] if the type is the real type *)
 val is_real : t -> bool
-
+(*
 (** Return [true] if the type is a bitvector type *)
 val is_bv : t -> bool
-
+*)
 (** Return [true] if the type is an array type *)
 val is_array : t -> bool
 

@@ -24,13 +24,12 @@ open Conv
 
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel
+(* Dummy Event module when compiling a custom toplevel *)
 module Event = 
 struct
   let get_module () = `Parser
   let log _ = Format.printf
 end
-*)
 
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -99,6 +98,30 @@ type t =
        cleared on deletion or resets. *)
   }
 
+ 
+(* Conversions for SMTLIB *)
+let smtlib_string_sexpr_conv = 
+
+  GenericSMTLIBDriver.
+    ({ s_let = HString.mk_hstring "let";
+       s_forall = HString.mk_hstring "forall";
+       s_exists = HString.mk_hstring "exists";
+       s_div = HString.mk_hstring "/";
+       s_minus = HString.mk_hstring "-";
+       s_define_fun = HString.mk_hstring "define-fun";
+       const_of_atom = GenericSMTLIBDriver.const_of_smtlib_atom;
+       symbol_of_atom = GenericSMTLIBDriver.symbol_of_smtlib_atom;
+       type_of_sexpr = GenericSMTLIBDriver.type_of_smtlib_sexpr;
+       expr_of_string_sexpr = gen_expr_of_string_sexpr';
+       lambda_of_string_sexpr = gen_lambda_of_string_sexpr' } )
+ 
+
+let yices_expr_of_string_sexpr = 
+  GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv
+
+let yices_lambda_of_string_sexpr = 
+  GenericSMTLIBDriver.gen_lambda_of_string_sexpr smtlib_string_sexpr_conv
+
 
 
 
@@ -139,8 +162,8 @@ let register_model solver model =
          (* Format.eprintf "in model (= %a %a)@." *)
          (*   HStringSExpr.pp_print_sexpr e *)
          (*   HStringSExpr.pp_print_sexpr v; *)
-         let e_smte = Conv.expr_of_string_sexpr e in
-         let v_smte = Conv.expr_of_string_sexpr v in
+         let e_smte = yices_expr_of_string_sexpr e in
+         let v_smte = yices_expr_of_string_sexpr v in
 
          (* Convert to real if it should be *)
          let v_smte =
@@ -473,11 +496,12 @@ let ensure_symbol_qf_lira s =
 
   (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
 
-  | `BV _
+(*  | `BV _ *)
   | `INTDIV
   | `DIVISIBLE _
   | `MOD
   | `ABS
+(*
   | `CONCAT
   | `EXTRACT _
   | `BVNOT
@@ -491,8 +515,9 @@ let ensure_symbol_qf_lira s =
   | `BVSHL
   | `BVLSHR
   | `BVULT
+*)
   | `SELECT
-  | `STORE
+(*  | `STORE *)
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
                               symbol %s is out of the supported theories."
@@ -777,7 +802,9 @@ let default_type_term =
   | Scalar (_, c::_) ->
     mk_const (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string c)))
   (* Take the bitvector 00000000...0 as default *)
+(*
   | BV n -> mk_bv (Lib.bitvector_of_string (String.make n '0'))
+*)
   (* We shouldn't ask default value for a whole array *)
   | Array _ -> failwith "No defaut value for arrays"
   | Scalar (_, []) -> failwith "No defaut value for empty scalars"

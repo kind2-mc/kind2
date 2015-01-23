@@ -19,13 +19,12 @@
 open Lib
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel
+(* Dummy Event module when compiling a custom toplevel*)
 module Event = 
 struct
   let get_module () = `Parser
   let log _ = Format.printf
 end
-*)
   
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -47,7 +46,16 @@ let s_sat = HString.mk_hstring "sat"
 let s_unsat = HString.mk_hstring "unsat"
 let s_unknown = HString.mk_hstring "unknown"
 
-module Make (Driver : SolverDriver.S) : SolverSig.S = struct
+module type SMTLIBSolverDriver = sig
+  include SolverDriver.S
+
+  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
+
+  val lambda_of_string_sexpr : HStringSExpr.t -> Term.lambda
+end
+
+
+module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
   open Driver
   module Conv = SMTExpr.Converter(Driver)
@@ -58,7 +66,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     { solver_cmd : string array;    (* Command line arguments for the
                                        solver *)
     }
-
+    
 
   (* Solver instance *)
   type t = 

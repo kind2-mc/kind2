@@ -712,7 +712,11 @@ let rec negate_nnf term = match Term.destruct term with
       | `GT, _
       | `IS_INT, _
       | `DIVISIBLE _, _
-      | `UF _, _ -> Term.mk_not term
+      | `UF _, _
+      | `SELECT, _ -> Term.mk_not term
+(*
+      | `STORE, _ -> Term.mk_not term
+*)
 
       (* Negate both cases of ite term *)
       | `ITE, [p; l; r] -> 
@@ -728,9 +732,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `FALSE, _
       | `TRUE, _
       | `NUMERAL _, _
-      | `DECIMAL _, _ 
+      | `DECIMAL _, _  -> assert false
+(*
       | `BV _, _ -> assert false
-
+*)
       (* Can only negate Boolean terms *)
       | `MINUS, _
       | `PLUS, _
@@ -740,7 +745,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `MOD, _
       | `ABS, _
       | `TO_REAL, _
-      | `TO_INT, _
+      | `TO_INT, _ -> assert false 
+(*
       | `CONCAT, _
       | `EXTRACT _, _
       | `BVNOT, _
@@ -754,8 +760,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSHL, _
       | `BVLSHR, _
       | `BVULT, _
-      | `SELECT, _
-      | `STORE, _ -> assert false 
+*)
 
     )    
 
@@ -1078,10 +1083,10 @@ let rec simplify_term_node uf_defs model fterm args =
           (* Propositional constant *)
           | `TRUE -> Bool (Term.t_true)
           | `FALSE -> Bool (Term.t_false)
-
+(*
           (* Bitvectors not implemented *)
           | `BV _ -> assert false
-
+*)
           (* Constant with a definition *)
           | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
             
@@ -1163,6 +1168,21 @@ let rec simplify_term_node uf_defs model fterm args =
           | `UF u -> 
 
             atom_of_term (Term.mk_uf u (List.map term_of_nf args))
+
+          (* Array operations not implemented *)
+          | `SELECT ->
+
+            let a', i' = 
+              match args with 
+                | [a; i] -> term_of_nf a, term_of_nf i
+                | _ -> assert false 
+            in
+
+            atom_of_term (Term.mk_select a' i')
+
+(*
+          | `STORE -> assert false
+*)
 
           (* Boolean negation *)
           | `NOT -> 
@@ -1733,7 +1753,7 @@ let rec simplify_term_node uf_defs model fterm args =
 
           (* Distinct not implemented *)
           | `DISTINCT -> assert false
-
+(*
           (* Bitvectors not implemented *)
           | `BVADD
           | `BVAND
@@ -1748,18 +1768,16 @@ let rec simplify_term_node uf_defs model fterm args =
           | `BVUREM
           | `CONCAT
           | `EXTRACT _ -> assert false
-
-          (* Array operations not implemented *)
-          | `SELECT
-          | `STORE -> assert false
+*)
 
           (* Constant symbols *)
           | `TRUE
           | `FALSE
           | `NUMERAL _
-          | `DECIMAL _
+          | `DECIMAL _ -> assert false
+(*
           | `BV _ -> assert false
-            
+*)          
       )
 
     (* Skip over attributed term *)

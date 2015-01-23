@@ -74,14 +74,6 @@ let string_of_sort s = string_of_t pp_print_sort s
 
 *)
 
-(* Static hashconsed strings *)
-let s_minus = HString.mk_hstring "-"
-let s_div = HString.mk_hstring "/"
-let s_let = HString.mk_hstring "let"
-let s_forall = HString.mk_hstring "forall"
-let s_exists = HString.mk_hstring "exists"
-
-
 
 (* ********************************************************************* *)
 (* Conversions from S-expressions to terms                               *)
@@ -93,11 +85,11 @@ module type Conv =
     val smtsort_of_type : Type.t -> sort
 
     val smtexpr_of_var : Var.t -> t
-
+(*
     val type_of_string_sexpr : HStringSExpr.t -> sort
                                                    
     val expr_of_string_sexpr : HStringSExpr.t -> t
-
+*)
     val string_of_logic : Term.logic -> string 
 
     val pp_print_logic : Format.formatter -> Term.logic -> unit
@@ -129,402 +121,20 @@ module type Conv =
 module Converter ( Driver : SolverDriver.S ) : Conv =
   struct
 
+
+    (* TODO: don't include, pick only the required values *)
     include Driver
-    
-    (* Hashtable for hashconsed strings to function symbols *)
-    let hstring_symbol_table = HString.HStringHashtbl.create 50 
 
+    (* 
 
-    (* Populate hashtable with hashconsed strings and their symbol *)
-    let _ = 
-      List.iter
-        (function (s, v) -> 
-                  HString.HStringHashtbl.add 
-                    hstring_symbol_table 
-                    (HString.mk_hstring s)
-                    v)
-        string_symbol_list 
-
-
-
-    let pp_print_term ppf t =
-      Term.T.pp_print_term_w Driver.pp_print_symbol ppf t
-        
-    
-    
-    (* Lookup symbol of a hashconsed string *)
-    let symbol_of_hstring s = 
-
-      try 
-
-        (* Map hashconsed string to symbol *)
-        HString.HStringHashtbl.find hstring_symbol_table s
-
-                                    (* String is not one of our symbols *)
-      with Not_found -> 
-
-        (* Check if string is a reserved word *)
-        if List.memq s reserved_word_list then 
-          
-          (* Cannot parse S-expression *)
-          raise 
-            (Invalid_argument 
-               (Format.sprintf 
-                  "Unsupported reserved word '%s' in S-expression"
-                  (HString.string_of_hstring s)))
-
-        else
-
-          (* String is not a symbol *)
-          raise Not_found 
-
-
-    (* Convert a string to a postive numeral or decimal
-
-       The first argument is an association list of strings to variables
-       that are currently bound to distinguish between uninterpreted
-       function symbols and variables. *)
-
-    let const_of_smtlib_token b t = 
-
-      let res = 
-
-        (* Empty strings are invalid *)
-        if HString.length t = 0 then
-
-          (* String is empty *)
-          raise (Invalid_argument "num_expr_of_smtlib_token")
-
-        else
-
-          try
-
-            (* Return numeral of string *)
-            Term.mk_num (Numeral.of_string (HString.string_of_hstring t))
-
-          (* String is not a decimal *)
-          with Invalid_argument _ -> 
-
-            try 
-
-              (* Return decimal of string *)
-              Term.mk_dec (Decimal.of_string (HString.string_of_hstring t))
-
-            with Invalid_argument _ -> 
-
-              try 
-
-                (* Return decimal of string *)
-                Term.mk_dec (Decimal.of_num (Num.num_of_string
-                                               (HString.string_of_hstring t)))
-                  
-              with Invalid_argument _ | Failure "num_of_string" -> 
-
-                try 
-
-                  (* Return bitvector of string *)
-                  Term.mk_bv (bitvector_of_hstring t)
-
-                with Invalid_argument _ -> 
-
-                  try 
-
-                    (* Return symbol of string *)
-                    Term.mk_bool (bool_of_hstring t)
-
-                  (* String is not an interpreted symbol *)
-                  with Invalid_argument _ -> 
-
-                    try 
-
-                      (* Return bound symbol *)
-                      Term.mk_var (List.assq t b)
-
-                    (* String is not a bound variable *)
-                    with Not_found -> 
-
-                      try 
-
-                        (* Return uninterpreted constant *)
-                        Term.mk_uf 
-                          (UfSymbol.uf_symbol_of_string
-                             (HString.string_of_hstring t))
-                          []
-
-                      with Not_found -> 
-
-                        debug smtexpr 
-                            "const_of_smtlib_token %s failed" 
-                            (HString.string_of_hstring t)
-                        in
-
-                        (* Cannot convert to an expression *)
-                        failwith "Invalid constant symbol in S-expression"
-
-      in
-
-      debug smtexpr 
-          "const_of_smtlib_token %s is %a" 
-          (HString.string_of_hstring t)
-          pp_print_term res
-      in
-
-      res
-
-    (* Convert a string S-expression to an expression *)
-    let rec expr_of_string_sexpr' bound_vars = function 
-
-      (* An empty list *)
-      | HStringSExpr.List [] -> 
-
-         (* Cannot convert to an expression *)
-         failwith "Invalid Nil in S-expression"
-
-      (* An empty list *)
-      | HStringSExpr.List (HStringSExpr.List _ :: _) -> 
-
-         (* Cannot convert to an expression *)
-         failwith "Invalid S-expression"
-
-      (* A let binding *)
-      | HStringSExpr.List 
-          ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
-           when s == s_let -> 
-
-        (* Convert bindings and obtain a list of bound variables *)
-         let bindings = bindings_of_string_sexpr bound_vars [] v in
-
-         (* Convert bindings to an association list from strings to
-            variables *)
-         let bound_vars' = 
-           List.map 
-             (function (v, _) -> (Var.hstring_of_temp_var v, v))
-             bindings 
-         in
-
-         (* Parse the subterm, giving an association list of bound
-            variables and return a let bound term *)
-         Term.mk_let 
-           bindings
-           (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
-           
-      (* A universal or existential quantifier *)
-      | HStringSExpr.List 
-          ((HStringSExpr.Atom s) :: [HStringSExpr.List v; t]) 
-           when s == s_forall || s == s_exists -> 
-
-         (* Get list of variables bound by the quantifier *)
-         let quantified_vars = bound_vars_of_string_sexpr bound_vars [] v in
-
-         (* Convert bindings to an association list from strings to
-            variables *)
-         let bound_vars' = 
-           List.map 
-             (function v -> (Var.hstring_of_temp_var v, v))
-             quantified_vars
-         in
-
-         (* Parse the subterm, giving an association list of bound variables
-            and return a universally or existenially quantified term *)
-         (if s == s_forall then Term.mk_forall 
-          else if s == s_exists then Term.mk_exists
-          else assert false)
-           quantified_vars
-           (expr_of_string_sexpr' (bound_vars @ bound_vars') t)
-
-      (* Parse (/ n d) as rational constant *)
-      | HStringSExpr.List
-          [HStringSExpr.Atom s; HStringSExpr.Atom n; HStringSExpr.Atom d] 
-        when s == s_div && 
-             (try
-                let _ =
-                  Numeral.of_string (HString.string_of_hstring n) 
-                in
-                true
-              with _ -> false) &&
-             (try
-                let _ =
-                  Numeral.of_string (HString.string_of_hstring d) 
-                in
-                true
-              with _ -> false) ->
-        
-        Term.mk_dec
-          Decimal.
-            ((HString.string_of_hstring n |> of_string) /
-             (HString.string_of_hstring d |> of_string))
-        
-
-      (* Parse (/ (- n) d) as rational constant *)
-      | HStringSExpr.List
-          [HStringSExpr.Atom s2;
-           HStringSExpr.List [HStringSExpr.Atom s1; HStringSExpr.Atom n]; 
-           HStringSExpr.Atom d] 
-        when s1 == s_minus && 
-             s2 == s_div && 
-             (try
-                let _ =
-                  Numeral.of_string (HString.string_of_hstring n) 
-                in
-                true
-              with _ -> false) &&
-             (try
-                let _ =
-                  Numeral.of_string (HString.string_of_hstring d) 
-                in
-                true
-              with _ -> false) ->
-        
-        Term.mk_dec
-          Decimal.
-            (- 
-            (HString.string_of_hstring n |> of_string) /
-            (HString.string_of_hstring d |> of_string))
-        
-
-      (* A singleton list: treat as atom *)
-      | HStringSExpr.List [e] -> expr_of_string_sexpr' bound_vars e
-
-
-      (* Atom or singleton list *)
-      | HStringSExpr.Atom s ->
-
-         (* Leaf in the symbol tree *)
-         (const_of_smtlib_token bound_vars s)
-
-
-      (*  A list with more than one element *)
-      | HStringSExpr.List ((HStringSExpr.Atom h) :: tl) -> 
-
-         (
-
-           (* Symbol from string *)
-           let s = 
-
-             try 
-
-               (* Map the string to an interpreted function symbol *)
-               symbol_of_hstring h 
-
-             with 
-
-             (* Function symbol is uninterpreted *)
-             | Not_found -> 
-
-                (* Uninterpreted symbol from string *)
-                let u = 
-
-                  try 
-
-                    UfSymbol.uf_symbol_of_string (HString.string_of_hstring h)
-
-                  with Not_found -> 
-
-                    (* Cannot convert to an expression *)
-                    failwith 
-                      (Format.sprintf 
-                         "Undeclared uninterpreted function symbol %s in \
-                          S-expression"
-                         (HString.string_of_hstring h))
-                in
-
-                (* Get the uninterpreted symbol of the string *)
-                Symbol.mk_symbol (`UF u)
-
-
-           in
-
-           (* Create an application of the function symbol to the subterms *)
-           let t = 
-             Term.mk_app s (List.map (expr_of_string_sexpr' bound_vars) tl)
-           in
-
-           (* Convert (= 0 (mod t n)) to (t divisible n) *)
-           Term.mod_to_divisible t
-
-         )
-
-    (* Convert a list of bindings *)
-    and bindings_of_string_sexpr b accum = function 
-
-      (* All bindings consumed: return accumulator in original order *)
-      | [] -> List.rev accum
-
-      (* Take first binding *)
-      | HStringSExpr.List [HStringSExpr.Atom var; expr] :: tl -> 
-
-         (* Convert to an expression *)
-         let expr = expr_of_string_sexpr' b expr in
-
-         (* Get the type of the expression *)
-         let expr_type = Term.type_of_term expr in
-
-         (* Create a variable of the identifier and the type of
-            the expression *)
-         let tvar = Var.mk_temp_var var expr_type in
-
-         (* Add bound expresssion to accumulator *)
-         bindings_of_string_sexpr b ((tvar, expr) :: accum) tl
-
-      (* Expression must be a pair *)
-      | e :: _ -> 
-
-         failwith 
-           ("Invalid expression in let binding: " ^
-              (string_of_t HStringSExpr.pp_print_sexpr e))
-           
-
-    (* Convert a list of typed variables *)
-    and bound_vars_of_string_sexpr b accum = function 
-
-      (* All bindings consumed: return accumulator in original order *)
-      | [] -> List.rev accum
-
-      (* Take first binding *)
-      | HStringSExpr.List [HStringSExpr.Atom v; t] :: tl -> 
-
-         (* Get the type of the expression *)
-         let var_type = type_of_string_sexpr t in
-
-         (* Create a variable of the identifier and the type of the expression *)
-         let tvar = Var.mk_temp_var v var_type in
-
-         (* Add bound expresssion to accumulator *)
-         bound_vars_of_string_sexpr b (tvar :: accum) tl
-
-      (* Expression must be a pair *)
-      | e :: _ -> 
-
-         failwith 
-           ("Invalid expression in let binding: " ^
-              (string_of_t HStringSExpr.pp_print_sexpr e))
-           
-
-    (* Call function with an empty list of bound variables *)      
-    let expr_of_string_sexpr = expr_of_string_sexpr' []
-
-
-
-    (* Pretty-print an expression *)
-    let pp_print_expr = pp_print_term
-
-
-    (* Pretty-print an expression to the standard formatter *)
-    let print_expr = pp_print_expr Format.std_formatter
-
-
-    (* Return a string representation of an expression *)
-    let string_of_expr t = 
-      string_of_t pp_print_expr t
-
-
+*)
 
     (* ********************************************************************* *)
     (* Conversions from terms to SMT expressions                             *)
     (* ********************************************************************* *)
 
     (* Convert a type to an SMT sort : no conversion for yices *)
-    let rec smtsort_of_type t = interpr_type t
+    let rec smtsort_of_type t = Driver.interpr_type t
 
 
 
@@ -625,7 +235,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
              (* Create temporary variable of state variable instance with
             type converted to an SMT sort *)
              let v' = 
-               Var.mk_temp_var 
+               Var.mk_free_var 
                  (HString.mk_hstring (sv ^ Numeral.string_of_numeral o))
                  t'
              in
@@ -681,7 +291,7 @@ module Converter ( Driver : SolverDriver.S ) : Conv =
   (* Pretty-print a custom argument *)
   let pp_print_custom_arg ppf = function 
     | ArgString s -> Format.pp_print_string ppf s
-    | ArgExpr e -> pp_print_expr ppf e
+    | ArgExpr e -> Term.pp_print_term ppf e
                      
 
   (* Return a string representation of a custom argument *)

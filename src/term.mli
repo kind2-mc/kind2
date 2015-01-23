@@ -80,6 +80,9 @@ module T : Ltree.S
 (** Terms are hashconsed abstract syntax trees *)
 type t = T.t
     
+(** Terms are hashconsed abstract syntax trees *)
+type lambda = T.lambda
+    
 (** {1 Hashtables, maps and sets} *)
 
 (** Comparison function on terms *)
@@ -108,6 +111,9 @@ module TermMap : Map.S with type key = t
 
 (** Create a hashconsed term *)
 val mk_term : T.t_node -> t
+
+(** Create a hashconsed lambda expression *)
+val mk_lambda : Var.t list -> t -> lambda
 
 (** Import a term from a different instance into this hashcons table *)
 val import : t -> t
@@ -157,10 +163,10 @@ val mk_dec : Decimal.t -> t
 (** Create a floating point decimal *)
 val mk_dec_of_float : float -> t
 *)
-
+(*
 (** Create a constant bitvector *)
 val mk_bv : Lib.bitvector -> t
-
+*)
 (** Create an integer or real difference *)
 val mk_minus : t list -> t
 
@@ -205,6 +211,9 @@ val mk_is_int : t -> t
 
 (** Create a predicate for divisibility by a constant integer *)
 val mk_divisible : Numeral.t -> t -> t
+
+(** Create a predicate for divisibility by a constant integer *)
+val mk_select : t -> t -> t
 
 (** Uniquely name a term with an integer and return a named term and
     its name *)

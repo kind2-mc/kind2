@@ -33,7 +33,9 @@ type kindtype =
   | Int
   | IntRange of Numeral.t * Numeral.t
   | Real
+(*
   | BV of int
+*)
   | Array of t * t
   | Scalar of string * string list 
 
@@ -82,8 +84,10 @@ module Kindtype_node = struct
     | IntRange _, _ -> false
     | Real, Real -> true
     | Real, _ -> false
+(*
     | BV i, BV j -> i = j
     | BV i, _ -> false
+*)
     | Array (i1, t1), Array (i2, t2) -> (i1 == i2) && (t1 == t2)
     | Array (i1, t1), _ -> false
     | Scalar (s1, l1), Scalar (s2, l2) -> 
@@ -186,14 +190,14 @@ let rec pp_print_type_node ppf = function
       Numeral.pp_print_numeral j
 
   | Real -> Format.pp_print_string ppf "Real"
-
+(*
   | BV i -> 
 
     Format.fprintf
       ppf 
       "BitVec %d" 
       i 
-
+*)
   | Array (s, t) -> 
     Format.fprintf
       ppf 
@@ -232,9 +236,9 @@ let mk_int () = Hkindtype.hashcons ht Int ()
 let mk_int_range l u = Hkindtype.hashcons ht (IntRange (l, u)) ()
 
 let mk_real () = Hkindtype.hashcons ht Real ()
-
+(*
 let mk_bv w = Hkindtype.hashcons ht (BV w) ()
-
+*)
 let mk_array i t = Hkindtype.hashcons ht (Array (i, t)) ()
 
 let mk_scalar s l = Hkindtype.hashcons ht (Scalar (s, l)) ()
@@ -247,8 +251,9 @@ let rec import { Hashcons.node = n } = match n with
   | Bool
   | Int
   | IntRange _
-  | Real
-  | BV _ as t -> mk_type t
+(*  | BV _ *)
+  | Real as t -> mk_type t
+
 
   (* Import index and value types of array type *)
   | Array (i, t) -> mk_array (import i) (import t)
@@ -271,7 +276,7 @@ let is_int { Hashcons.node = t } = match t with
   | IntRange _
   | Bool 
   | Real
-  | BV _
+(*  | BV _ *)
   | Array _ 
   | Scalar _ -> false
 
@@ -280,7 +285,7 @@ let is_int_range { Hashcons.node = t } = match t with
   | Int
   | Bool 
   | Real
-  | BV _
+(* | BV _ *)
   | Array _ 
   | Scalar _ -> false
 
@@ -289,19 +294,20 @@ let is_bool { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
-  | BV _
+(*  | BV _ *)
   | Array _ 
   | Scalar _ -> false
 
 let is_real { Hashcons.node = t } = match t with
   | Real -> true
-  | BV _
+(*   | BV _ *)
   | Array _
   | Bool
   | Int
   | IntRange _ 
   | Scalar _ -> false
 
+(*
 let is_bv { Hashcons.node = t } = match t with
   | BV _ -> true
   | Bool
@@ -310,6 +316,7 @@ let is_bv { Hashcons.node = t } = match t with
   | Real
   | Array _ 
   | Scalar _ -> false
+*)
 
 let is_array { Hashcons.node = t } = match t with
   | Array _ -> true
@@ -317,7 +324,7 @@ let is_array { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
-  | BV _ 
+(*  | BV _ *)
   | Scalar _ -> false
 
 let is_scalar { Hashcons.node = t } = match t with
@@ -326,7 +333,7 @@ let is_scalar { Hashcons.node = t } = match t with
   | Int
   | IntRange _
   | Real
-  | BV _ 
+(*  | BV _ *)
   | Array _ -> false
 
 

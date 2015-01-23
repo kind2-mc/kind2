@@ -164,7 +164,7 @@ sig
   (** Term over symbols, variables and sort of the types given where
       the topmost symbol is not a binding *)
   and flat = private 
-    | Var of var 
+    | Var of var
     | Const of symbol 
     | App of symbol * t list
     | Attr of t * attr
@@ -181,10 +181,16 @@ sig
   (** Unique identifier for term *)
   val tag : t -> int
 
+  (** Constructor for a lambda expression *)
+  val mk_lambda : var list -> t -> lambda
+
+  (** Beta-evaluate a lambda expression *)
+  val eval_lambda : lambda -> t list -> t
+
   (** Constructor for a term *)
   val mk_term : t_node -> t
 
-  (** Constructor for a free variable *)
+  (** Constructor for a free variable with indexes *)
   val mk_var : var -> t
 
   (** Constructor for a constant *)
@@ -196,13 +202,15 @@ sig
   (** Constructor for a let binding *)
   val mk_let : (var * t) list -> t -> t
 
-  (** Constructor for an existential quantification *)
+  (** Constructor for an existential quantification over an indexed
+      free variable *)
   val mk_exists : var list -> t -> t
 
-  (** Constructor for a universal quantification *)
+  (** Constructor for a universal quantification over an indexed
+      free variable *)
   val mk_forall : var list -> t -> t
 
-  (** Constructor for a universal quantification *)
+  (** Constructor for an annotated term *)
   val mk_annot : t -> attr -> t
 
   (** Return the node of a hashconsed term *)
@@ -252,6 +260,9 @@ sig
     
   val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
+
+  (** Pretty-print a higher-order abstract syntax term *)
+  val print_term : ?db:int -> t -> unit
 
   val stats : unit -> int * int * int * int * int * int
   

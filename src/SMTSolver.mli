@@ -16,28 +16,9 @@
 
 *)
 
-(* This file is part of the Kind 2 model checker.
-
-   Copyright (c) 2014 by the Board of Trustees of the University of Iowa
-
-   Licensed under the Apache License, Version 2.0 (the "License"); you
-   may not use this file except in compliance with the License.  You
-   may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0 
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-   implied. See the License for the specific language governing
-   permissions and limitations under the License. 
-
-*)
-
 (** High-level methods for an SMT solver 
 
-    @author Christoph Sticksel *)
-
+    @author Alain Mebsout, Christoph Sticksel *)
 
 
 (** Type of a solver instance *)
@@ -45,8 +26,8 @@ type t
 
 (** {1 Creating and finalizing a solver instance} *)
 
-(** Create a new instance of an SMT solver, declare all currently
-    created uninterpreted function symbols *)
+(** Create a new instance of an SMT solver of the given kind and with
+    the given flags *)
 val create_instance :
   ?produce_assignments:bool ->
   ?produce_proofs:bool ->
@@ -68,18 +49,17 @@ val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
 
 (** {1 Primitives} *)
-
+(*
 (** Raise an exception if the response is not success *)
 val fail_on_smt_error : SolverResponse.response -> unit
-
-(** Assert an smt expression in the current context *)
+*)
+(** Assert an SMT expression in the current context *)
 val assert_expr : t -> SMTExpr.t -> unit
 
-(** Assert a formula in the current context *)
+(** Convert a term to an SMT expression and assert *)
 val assert_term : t -> Term.t -> unit
 
-(** Assert the expression, naming it internally to retrieve it from
-    an unsatisfiable core later *)
+(** Name a term, convert a term to an SMT expression and assert *)
 val assert_named_term : t -> SMTExpr.t -> unit
 
 (** Push a new scope to the context stack *)
@@ -91,7 +71,7 @@ val pop : ?n:int -> t -> unit
 (** Check satisfiability of the current context 
 
     The optional parameter [timeout] limits the maximum runtime to
-    the given number of milliseconds *)
+    the given number of milliseconds. *)
 val check_sat : ?timeout:int -> t -> bool
 
 (** Return a model of the current context if satisfiable *)
@@ -105,25 +85,40 @@ val get_values : t -> Term.t list -> (Term.t * Term.t) list
     context is unsatisfiable *)
 val get_unsat_core : t -> Term.t list
 
-(** {1 Higher-level functions} 
-
-    These functions operate on a new scope level that is popped at
-    the end of the functions. Hence, there are no side-effects on
-    the context. *)
-
+(** {1 Higher-level functions} *)
+(*
 (** Check satisfiability of the formula in the current context
 
     The optional parameter [timeout] limits the maximum runtime to
     the given number of milliseconds *)
 val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
+*)
 
+(** Checks satisfiability of the current context assuming the given
+    list of literals, and evaluate one of two continuation functions
+    depending on the result
+
+    [check_sat_assuming s t f l] assumes each of the literals in [l]
+    to be true, and checks satisfiablilty of the context of the SMT
+    solver instance [s]. If the solver returns satisfiable, the
+    continuation [t] is evaluated, and if the solver returns
+    unsatisfiable, the continuation [f] is evaluated.
+
+    The list [l] should contain only positive Boolean constants,
+    although this is not enforced. If the solver does not support the
+    [check-sat-assuming] command it is simulated by asserting the
+    literals on a new context. *)
 val check_sat_assuming : t ->
+
   (* If sat. *)
   (unit -> 'a) ->
+
   (* If unsat. *)
   (unit -> 'a) ->
+
   (* Literals to assert. *)
   Term.t list ->
+
   'a
 
 (** Check satisfiability of the formula in the current context and
@@ -134,6 +129,7 @@ val check_sat_assuming : t ->
 val check_sat_term_model :
   ?timeout:int -> t -> Term.t list -> bool * (Var.t * Term.t) list 
 
+(*
 (** Check entailment of the second formula by the conjunction of the
     first formulas in the current context
 
@@ -149,11 +145,14 @@ val check_entailment : ?timeout:int -> t -> Term.t list -> Term.t -> bool
     the given number of milliseconds *)
 val check_entailment_cex :
   ?timeout:int -> t -> Term.t list -> Term.t -> bool * (Var.t * Term.t) list 
+*)
 
-
+(** Execute the a custom command with the given arguments, and expect
+    the given number of S-expressions as a result *)
 val execute_custom_command : t -> string -> SMTExpr.custom_arg list -> int ->
   SolverResponse.custom_response
 
+(** Execute the a custom command in place of check-sat *)
 val execute_custom_check_sat_command :
   string -> t -> SolverResponse.check_sat_response
 
@@ -162,7 +161,6 @@ val execute_custom_check_sat_command :
 
 (** For a model return a conjunction of equations representing the model *)
 val term_of_model : (Var.t * Term.t) list -> Term.t
-
 
 val converter : t -> (module SMTExpr.Conv)
 

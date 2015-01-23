@@ -19,7 +19,7 @@
 
 module type S = sig
 
-  (** {2 Solver configuration options }*)
+  (** {2 Solver configuration options} *)
 
   (** Command line options *)
   val cmd_line : unit -> string array
@@ -33,7 +33,6 @@ module type S = sig
   (** Special command for check-sat-assuming *)
   val check_sat_assuming_cmd : unit -> string
 
-
   (** Solver spcific headers to add at the beginning of the file *)
   val headers : unit -> string list
 
@@ -42,16 +41,6 @@ module type S = sig
 
   (** Begin / end delimiters for comments *)
   val comment_delims : string * string
-
-  (** Association list of strings to function symbols *) 
-  val string_symbol_list : (string * Symbol.t) list
-
-  (** Reserved words that are not supported *)
-  val reserved_word_list : HString.t list
-
-  (** Line comment delimiters *)
-  val comment_delims : string * string
-
 
   (** {2 Sort conversions } *)
 
@@ -64,17 +53,11 @@ module type S = sig
   (** Return an SMTLIB string expression of a sort *)
   val string_of_sort : Type.t -> string
 
-  (** Convert an S-expression of strings to a type *)
-  val type_of_string_sexpr : HStringSExpr.t -> Type.t
-
-
   (** Return an SMTLIB string expression for the logic *)
   val string_of_logic : Term.logic -> string 
 
   (** Pretty-print a logic in SMTLIB format *)
   val pp_print_logic : Format.formatter -> Term.logic -> unit
-
-
 
   (** Pretty-print a symbol *)
   val pp_print_symbol :  ?arity:int -> Format.formatter -> Symbol.t -> unit
@@ -82,5 +65,13 @@ module type S = sig
   (** Return a string representation of a symbol *)
   val string_of_symbol : ?arity:int -> Symbol.t -> string 
 
-  
+  (** Pretty-print an expression *)
+  val pp_print_expr : Format.formatter -> Term.t -> unit
+
+  (** Pretty-print an expression to the default formatter *)
+  val print_expr : Term.t -> unit
+
+  (** Return a string representation of an expression *)
+  val string_of_expr : Term.t -> string
+
 end

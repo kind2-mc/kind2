@@ -337,7 +337,7 @@ let incr_binding term term_tbl =
   let v = try Term.TermHashtbl.find term_tbl term
 	  with Not_found -> 0 in
   Term.TermHashtbl.add term_tbl term (v+1)
-
+(*
 let trim_clause solver_init solver_frames clause term_tbl =
 
   
@@ -462,6 +462,7 @@ let trim_clause solver_init solver_frames clause term_tbl =
 
     k,d
 
+*)
 
   (* Check if [prop] is always satisfied in one step from [state] and
    return a generalized counterexample if not. If the counterexample
@@ -797,7 +798,7 @@ let find_cex
 
             Stat.incr Stat.pdr_tightened_blocking_clauses);
 
-	 let core, rest' = trim_clause solver_init solver_frames (Clause.union core prop_core) term_tbl in
+	 let core, rest' = (* trim_clause solver_init solver_frames (Clause.union core prop_core) term_tbl *) core, rest in
 	 
 
 	 (* Entailment holds, no counterexample *)
@@ -1114,7 +1115,7 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 	    assert (check_frames solver_misc trans_sys (r_i' :: []));
 
 
-	    
+(*	    
 	    SMTSolver.push solver_init;
 
 	    SMTSolver.assert_term 
@@ -1125,11 +1126,11 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
 	      solver_init
 	      (TransSys.init_of_bound trans_sys Numeral.one);
 
-	    let x,m = SMTSolver.check_sat_term_model solver_init ((Clause.to_term core_block_clause) :: (Term.negate (Term.bump_state Numeral.one (Clause.to_term core_block_clause)) :: [])) in
+     let x,m = SMTSolver.check_sat_term_model solver_init ((Clause.to_term core_block_clause) :: (Term.negate (Term.bump_state Numeral.one (Clause.to_term core_block_clause)) :: [])) in
 	    
 	    SMTSolver.pop solver_init;
 	    assert (not x);
-
+*)
 
             (* Add cube to block to next higher frame if flag is set *)
             let block_tl' = 
