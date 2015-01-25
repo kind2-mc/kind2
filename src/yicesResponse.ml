@@ -16,21 +16,23 @@
 
 *)
 
-(** An interface to any SMT solver that accepts the SMTLIB2 command
-    language 
+type yices_id = int
 
-    Use this module as input to the {!SMTSolver.Make} functor 
+type yices_resp_p =
+  | YNoResp
+  | YSuccess
+  | YCustom of string
+  | YError
+  | YRespSat of (HStringSExpr.t * HStringSExpr.t) list
+  | YRespUnknown of (HStringSExpr.t * HStringSExpr.t) list
+  | YRespUnsat of (yices_id list)
 
-    @author Christoph Sticksel
- *)
+let success = "SUCCESS"
 
+let custom = "CUSTOM"
 
-module Make : functor (D : SolverDriver.S) -> SolverSig.S
-                                            
-(* 
-   Local Variables:
-   compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
-   indent-tabs-mode: nil
-   End: 
-*)
+let yices_id_of_int id = id
+
+let int_of_yices_id id = id 
+
+let pp_print_yices_id = Format.pp_print_int

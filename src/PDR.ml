@@ -18,14 +18,6 @@
 
 open Lib
 
-(* Use configured SMT solver *)
-module PDRSolver = SMTSolver.Make (SMTLIBSolver)
-
-
-(* High-level methods for PDR solver *)
-module S = SolverMethods.Make (PDRSolver)
-
-
 (* Type of activation literal *)
 type actlit_type = 
   | Actlit_p0  (* positive unprimed *)
@@ -179,7 +171,7 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
   (* Increment counter for tag *)
   incr actlit_count_ref;
 
-  S.trace_comment 
+  SMTSolver.trace_comment 
     solver
     (Format.sprintf
        "create_and_assert_fresh_actlit: Assert activation literal %s for %s %d"
@@ -204,13 +196,13 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
   let actlit = Term.mk_uf uf_symbol [] in
 
   (* Declare symbols in solver *)
-  S.declare_fun solver uf_symbol;
+  SMTSolver.declare_fun solver uf_symbol;
   
   (* Prepare term for activation literal type *)
   let term' = term_for_actlit_type term actlit_type in
 
   (* Assert term in solver instance *)
-  S.assert_term 
+  SMTSolver.assert_term 
     solver
     (Term.mk_implies [actlit; term']);
 
@@ -257,7 +249,7 @@ let actlits_of_prop_set solver props =
   (* Increment refercent for property set *)
   incr prop_set_count;
 
-  S.trace_comment 
+  SMTSolver.trace_comment 
     solver
     (Format.sprintf
        "actlits_of_propset: Assert activation literals for property set %d"
@@ -321,7 +313,7 @@ let on_exit _ =
   (try 
      match !ref_solver with 
        | Some solver -> 
-         S.delete_solver solver; 
+         SMTSolver.delete_instance solver; 
          ref_solver := None
        | None -> ()
    with 
@@ -411,8 +403,8 @@ let handle_events
     let inv_1 = Term.bump_state Numeral.one inv in
 
     (* Assert invariant in solver instance for initial state *)
-    S.assert_term solver inv;
-    S.assert_term solver inv_1;
+    SMTSolver.assert_term solver inv;
+    SMTSolver.assert_term solver inv_1;
 
   in
 
@@ -462,7 +454,7 @@ let rec check_frames' solver prop_set accum = function
     (* Check if all successors of frame are in the next frame *)
     let is_rel_ind () = 
 
-      S.trace_comment 
+      SMTSolver.trace_comment 
         solver
         (Format.sprintf 
            "check_frames: Does R_%d & T |= R_%d hold?"
@@ -479,7 +471,7 @@ let rec check_frames' solver prop_set accum = function
       in
 
       (* Check P[x] & R_i-1[x] & T[x,x'] |= R_i[x'] & P[x'] *)
-      S.check_sat_assuming solver
+      SMTSolver.check_sat_assuming solver
 
         (* Fail if entailment does not hold *)
         (fun () -> false)
@@ -517,14 +509,14 @@ let rec check_frames' solver prop_set accum = function
       (* Check if first clause is initial *)
       | c :: ctl -> 
 
-        S.trace_comment 
+        SMTSolver.trace_comment 
           solver
           (Format.sprintf 
              "check_frames: Does I |= C for C in R_%d hold?"
              (List.length tl |> succ));
 
         (* Check if clause is initial *)
-        S.check_sat_assuming 
+        SMTSolver.check_sat_assuming 
           solver
 
           (* If sat: Clause is not initial *)
@@ -542,13 +534,13 @@ let rec check_frames' solver prop_set accum = function
 
     in
 
-    S.trace_comment 
+    SMTSolver.trace_comment 
       solver
       (Format.sprintf 
          "check_frames: Does R_%d |= P hold?"
          (List.length tl |> succ));
 
-    S.check_sat_assuming
+    SMTSolver.check_sat_assuming
       solver
 
       (* If sat: property is not implied by frame *)
@@ -564,7 +556,7 @@ let rec check_frames' solver prop_set accum = function
 
 let check_frames solver prop_set clauses frames =
 
-  S.trace_comment
+  SMTSolver.trace_comment
     solver
     (Format.asprintf
        "@[<v>check_frames:@,%a@]"
@@ -644,7 +636,7 @@ let ind_generalize solver prop_set frame clause literals =
 
         (
 
-          S.trace_comment solver
+          SMTSolver.trace_comment solver
             (Format.sprintf 
                "ind_generalize: Dropped %d literals from clause."
                (List.length clause.literals - List.length kept));
@@ -674,11 +666,11 @@ let ind_generalize solver prop_set frame clause literals =
       (* Clause without literal is initial *)
       let is_initial () = 
 
-        S.trace_comment solver
+        SMTSolver.trace_comment solver
           "ind_generalize: Checking if clause without literal is \
            relatively inductive.";
 
-        S.check_sat_assuming 
+        SMTSolver.check_sat_assuming 
           solver
 
           (* If sat: Clause without literal is not relatively inductive *)
@@ -692,10 +684,10 @@ let ind_generalize solver prop_set frame clause literals =
 
       in
 
-      S.trace_comment solver
+      SMTSolver.trace_comment solver
         "ind_generalize: Checking if clause without literal is initial.";
 
-      S.check_sat_assuming 
+      SMTSolver.check_sat_assuming 
         solver
 
         (* If sat: Clause without literal is not initial *)
@@ -720,8 +712,8 @@ let ind_generalize solver prop_set frame clause literals =
   let block_term = Clause.to_term kept_woc in
   let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (Clause.elements kept_woc)) in
 
-  let init = S.check_sat_term solver_init [Term.negate block_term] in
-  let (cons, model) = S.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
+  let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
+  let (cons, model) = SMTSolver.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
 
   (* If, by removing the literal c, the blocking clause then
        either a. becomes reachable in the inital state or b. satisfies
@@ -767,8 +759,8 @@ let ind_generalize solver prop_set frame clause literals =
         let block_term = Clause.to_term (Clause.of_literals kept) in
         let primed_term = Term.mk_and (List.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) kept) in
         
-        let init = S.check_sat_term solver_init [Term.negate block_term] in
-        let cons = S.check_sat_term solver_frames [(Term.mk_and [block_term;primed_term])] in
+        let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
+        let cons = SMTSolver.check_sat_term solver_frames [(Term.mk_and [block_term;primed_term])] in
         
         if not (cons || init) then (
           discarded := !discarded @ (Array.to_list clause);
@@ -794,8 +786,8 @@ let ind_generalize solver prop_set frame clause literals =
     let block_term = Clause.to_term clause in
     let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (Clause.elements clause)) in
 
-    let init = S.check_sat_term solver_init [Term.negate block_term] in
-    let (cons,model) = S.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
+    let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
+    let (cons,model) = SMTSolver.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
 
     (debug pdr
            "@[<v>%a@]"
@@ -919,7 +911,7 @@ let rec block solver trans_sys prop_set term_tbl =
           (* All successors of R_k are safe *)
           let r_k_is_safe () = 
 
-            S.trace_comment 
+            SMTSolver.trace_comment 
               solver
               (Format.sprintf 
                  "block: All successors of R_%d are safe."
@@ -936,7 +928,7 @@ let rec block solver trans_sys prop_set term_tbl =
             (* Get counterexample as a pair of states from satisfiable
                query *)
             let cti = 
-              S.get_model 
+              SMTSolver.get_model 
                 solver
                 (TransSys.vars_of_bounds
                    trans_sys
@@ -977,13 +969,13 @@ let rec block solver trans_sys prop_set term_tbl =
 
           in
 
-          S.trace_comment 
+          SMTSolver.trace_comment 
             solver
             (Format.sprintf 
                "block: Check if all successors of frontier R_%d are safe."
                (List.length frames));
 
-          S.check_sat_assuming 
+          SMTSolver.check_sat_assuming 
             solver 
 
             (* If sat: we have a state in R_k that has a successor
@@ -1008,7 +1000,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
       (function frames ->
 
-        S.trace_comment 
+        SMTSolver.trace_comment 
           solver
           (Format.sprintf 
              "block: All counterexamples blocked in R_%d"
@@ -1066,22 +1058,22 @@ let rec block solver trans_sys prop_set term_tbl =
         let is_rel_inductive () = 
 
           (* Activation literals in unsat core of query *)
-          let core_actlits_trans = S.get_unsat_core_lits solver in
+          let core_actlits_trans = SMTSolver.get_unsat_core_lits solver in
 
-          S.trace_comment 
+          SMTSolver.trace_comment 
             solver
             "block: Check I |= C to get unsat core.";
 	  
           (* Activation literals in unsat core of I |= C *)
           let core_actlits_init = 
-            S.check_sat_assuming
+            SMTSolver.check_sat_assuming
               solver
 
               (* Must be unsat *)
               (fun () -> assert false)
 
               (* Get literals in unsat core *)
-              (fun () -> S.get_unsat_core_lits solver)
+              (fun () -> SMTSolver.get_unsat_core_lits solver)
               
               (* Check I |= C *)
               ((actlit_of_frame 0 |> snd) :: block_clause.actlits_n0)
@@ -1150,7 +1142,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
           in
           
-          S.trace_comment
+          SMTSolver.trace_comment
             solver
             (Format.asprintf
                "@[<hv>block: Reduced clause@ %a@ with unsat core to@ %a@]"
@@ -1179,7 +1171,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
 	  in
 
-          S.trace_comment
+          SMTSolver.trace_comment
             solver
             (Format.asprintf
                "@[<hv>block: Reduced clause@ %a@ with ind. gen. to@ %a@]"
@@ -1236,7 +1228,7 @@ let rec block solver trans_sys prop_set term_tbl =
               
               (* Get counterexample from satisfiable query *)
               let cti = 
-                S.get_model 
+                SMTSolver.get_model 
                   solver
                   (TransSys.vars_of_bounds
                      trans_sys
@@ -1274,13 +1266,13 @@ let rec block solver trans_sys prop_set term_tbl =
 		
         in
 
-        S.trace_comment 
+        SMTSolver.trace_comment 
           solver
           (Format.sprintf 
              "block: Is blocking clause relative inductive to R_%d?"
              (List.length frames));
 
-        S.check_sat_assuming 
+        SMTSolver.check_sat_assuming 
           solver
           
           (* If sat: bad state is reachable *)
@@ -1316,7 +1308,7 @@ let rec partition_rel_inductive
     
     (* Get model for failed entailment check *)
     let model = 
-      S.get_model
+      SMTSolver.get_model
         solver
         (TransSys.vars_of_bounds trans_sys Numeral.one Numeral.one)
     in
@@ -1352,7 +1344,7 @@ let rec partition_rel_inductive
         
   in
 
-  S.trace_comment
+  SMTSolver.trace_comment
     solver
     "Checking for inductiveness of clauses";
 
@@ -1373,7 +1365,7 @@ let rec partition_rel_inductive
 
      Check R & C_1 & ... & C_n & T |= C_1' & ... & C_n'
   *)
-  S.check_sat_assuming 
+  SMTSolver.check_sat_assuming 
     solver
     some_clauses_not_inductive 
     all_clauses_inductive
@@ -1410,7 +1402,7 @@ let partition_fwd_prop
 
       (* Get model for failed entailment check *)
       let model = 
-        S.get_model
+        SMTSolver.get_model
           solver
           (TransSys.vars_of_bounds trans_sys Numeral.one Numeral.one)
       in
@@ -1444,7 +1436,7 @@ let partition_fwd_prop
 
     in
 
-    S.trace_comment
+    SMTSolver.trace_comment
       solver
       "partition_fwd_prop: Checking for forward propagation of clause set";
 
@@ -1461,7 +1453,7 @@ let partition_fwd_prop
 
        Check P[x] & R[x] & T[x,x'] |= C_1[x'] & ... & C_n[x']
     *)
-    S.check_sat_assuming 
+    SMTSolver.check_sat_assuming 
       solver
       keep_some
       prop_all
@@ -1487,7 +1479,7 @@ let fwd_propagate solver trans_sys prop_set frames =
 
           (
 
-            S.trace_comment
+            SMTSolver.trace_comment
               solver
               "fwd_propagate: Checking for inductiveness of clauses \
                in last frame.";
@@ -1525,15 +1517,15 @@ let fwd_propagate solver trans_sys prop_set frames =
                 (* Add inductive blocking clauses as invariants *)
                 List.iter (TransSys.add_invariant trans_sys) inductive_terms;
 
-                S.trace_comment
+                SMTSolver.trace_comment
                   solver
                   "fwd_propagate: Asserting new invariants.";
 
                 (* Add invariants to solver instance *)
                 List.iter 
                   (function t -> 
-                    S.assert_term solver t;
-                    Term.bump_state Numeral.one t |> S.assert_term solver) 
+                    SMTSolver.assert_term solver t;
+                    Term.bump_state Numeral.one t |> SMTSolver.assert_term solver) 
                   inductive_terms
 
               );
@@ -1560,7 +1552,7 @@ let fwd_propagate solver trans_sys prop_set frames =
       (* Frames in ascending order *)
       | frame :: frames_tl -> 
 
-        S.trace_comment
+        SMTSolver.trace_comment
           solver
           (Format.sprintf 
              "fwd_propagate: Checking forward propagation of clauses \
@@ -1621,14 +1613,14 @@ let fwd_propagate solver trans_sys prop_set frames =
             in
 
             assert
-              (S.check_sat_assuming
+              (SMTSolver.check_sat_assuming
                  solver
                  (function _ -> false)
                  (function _ -> true)
                  [actlit_of_frame 0 |> snd; ind_inv_n0]); 
 
             assert
-              (S.check_sat_assuming
+              (SMTSolver.check_sat_assuming
                  solver
                  (function _ -> false)
                  (function _ -> true)
@@ -1837,7 +1829,7 @@ let extract_cex_path solver trans_sys trace =
   (* State variables of the transition system *)
   let state_vars = TransSys.state_vars trans_sys in
 
-  S.trace_comment
+  SMTSolver.trace_comment
     solver
     "extract_cex_path: extracting concrete counterexample trace.";
 
@@ -1858,7 +1850,7 @@ let extract_cex_path solver trans_sys trace =
       
       (* Find a state in the blocking clause, starting from the given
          state *)
-      S.check_sat_assuming
+      SMTSolver.check_sat_assuming
         solver
 
         (fun () -> 
@@ -1867,7 +1859,7 @@ let extract_cex_path solver trans_sys trace =
               state *)
            let path', state = 
              add_to_path
-               (S.get_model solver)
+               (SMTSolver.get_model solver)
                state_vars
                path
                Numeral.one
@@ -1907,7 +1899,7 @@ let extract_cex_path solver trans_sys trace =
 
         (* Find an initial state with the first blocking clause as
            successor *)
-        S.check_sat_assuming 
+        SMTSolver.check_sat_assuming 
           solver
 
           (fun () ->
@@ -1915,7 +1907,7 @@ let extract_cex_path solver trans_sys trace =
              (* Add unprimed state to empty path, get equational
                 constraint for state *)
              add_to_path
-               (S.get_model solver)
+               (SMTSolver.get_model solver)
                state_vars
                []
                Numeral.zero)
@@ -2156,12 +2148,12 @@ let rec bmc_checks solver trans_sys props =
     (* Get model for all variables of transition system *)
     let model = 
       TransSys.vars_of_bounds trans_sys k k
-      |> S.get_model solver
+      |> SMTSolver.get_model solver
     in
 
     (* Extract counterexample from solver *)
     let cex =
-      TransSys.path_from_model trans_sys (S.get_model solver) k 
+      TransSys.path_from_model trans_sys (SMTSolver.get_model solver) k 
     in
 
     (* Evaluate term in model *)
@@ -2205,14 +2197,14 @@ let rec bmc_checks solver trans_sys props =
       (* Check satsifiability of I & ~P for all not falsified
          properties P, and partition into not falsified and
          falsifiable *)
-      S.trace_comment 
+      SMTSolver.trace_comment 
         solver
         (Format.sprintf
            "bmc_checks: Check for %s-step counterexample"
            (if check_primed then "one" else "zero"));
 
       let props', props_falsifiable = 
-        S.check_sat_assuming
+        SMTSolver.check_sat_assuming
           solver
           (not_entailed
              props
@@ -2296,25 +2288,26 @@ let main trans_sys =
 
   (* Create new solver instance *)
   let solver = 
-    S.new_solver
+    SMTSolver.create_instance
       ~produce_assignments:true
       ~produce_cores:produce_cores
       logic
+      (Flags.smtsolver ())
   in
 
   (* Save solver instance for clean exit *)
   ref_solver := Some solver;
 
   (* Declare uninterpreted function symbols *)
-  S.trace_comment 
+  SMTSolver.trace_comment 
     solver
     "main: Declare state variables and define predicates";
 
   (* Declare uninterpreted function symbols *)
   TransSys.init_define_fun_declare_vars_of_bounds
     trans_sys
-    (S.define_fun solver)
-    (S.declare_fun solver)
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.one;
 
   (* Get invariants of transition system *)
@@ -2326,22 +2319,22 @@ let main trans_sys =
   (* Assert invariants for current state if not empty *)
   if not (invars_0 == Term.t_true) then 
 
-    (S.trace_comment solver "main: Assert invariants";
-     S.assert_term solver invars_0;
-     S.assert_term solver invars_1);
+    (SMTSolver.trace_comment solver "main: Assert invariants";
+     SMTSolver.assert_term solver invars_0;
+     SMTSolver.assert_term solver invars_1);
 
   (* Create activation literal for frame R_0 *)
   let actconst_r0, actlit_r0 = actlit_of_frame 0 in 
 
   (* Declare symbol in solver *)
-  S.declare_fun solver actconst_r0;
+  SMTSolver.declare_fun solver actconst_r0;
 
 
   (* Assert initial state constraint guarded with activation literal
 
      a_R0 => I[x] *)
-  S.trace_comment solver "main: Assert guarded initial state";
-  S.assert_term 
+  SMTSolver.trace_comment solver "main: Assert guarded initial state";
+  SMTSolver.assert_term 
     solver
     (Term.mk_implies
        [actlit_r0;
@@ -2350,8 +2343,8 @@ let main trans_sys =
   (* Assert transition relation unguarded
 
      T[x,x'] *)
-  S.trace_comment solver "main: Assert unguarded transition relation"; 
-  S.assert_term 
+  SMTSolver.trace_comment solver "main: Assert unguarded transition relation"; 
+  SMTSolver.assert_term 
     solver
     (TransSys.trans_of_bound trans_sys Numeral.one);
 

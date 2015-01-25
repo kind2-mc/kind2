@@ -314,6 +314,7 @@ module SymbolMap = Map.Make (OrderedSymbol)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
+(* Print in SMTlib syntax by default *)
 
 (* Pretty-print a symbol *)
 let rec pp_print_symbol_node ppf = function 
@@ -332,7 +333,7 @@ let rec pp_print_symbol_node ppf = function
 
   | `NUMERAL i -> Numeral.pp_print_numeral ppf i
   | `DECIMAL f -> Decimal.pp_print_decimal_sexpr ppf f
-  | `BV b -> pp_print_bitvector_b ppf b
+  | `BV b -> pp_smtlib_print_bitvector_b ppf b
 
   | `MINUS -> Format.pp_print_string ppf "-"
   | `PLUS -> Format.pp_print_string ppf "+"
@@ -356,7 +357,7 @@ let rec pp_print_symbol_node ppf = function
     Format.pp_print_space ppf ();
     Numeral.pp_print_numeral ppf n
 
-  | `CONCAT -> Format.pp_print_string ppf "to_real"
+  | `CONCAT -> Format.pp_print_string ppf "concat"
   | `EXTRACT (i, j) -> 
     Format.fprintf 
       ppf 
@@ -392,6 +393,8 @@ let string_of_symbol s = string_of_t pp_print_symbol s
 
 (* Return a string representation of a symbol *)
 let string_of_symbol_node s = string_of_t pp_print_symbol_node s
+
+
 
 (* Return true if the symbol is a numeral *)
 let is_numeral = function 

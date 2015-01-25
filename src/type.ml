@@ -170,7 +170,6 @@ module TypeMap = Map.Make (OrderedType)
 (* Pretty-printing                                                       *)
 (* ********************************************************************* *)
 
-
 (* Pretty-print a type *)
 let rec pp_print_type_node ppf = function 
 

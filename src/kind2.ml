@@ -229,6 +229,43 @@ let status_of_exn process = function
 (* Clean up before exit *)
 let on_exit process exn = 
 
+(*
+  let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
+
+    Format.fprintf
+      ppf
+      "Number of buckets: %d@,\
+       Number of entries in table: %d@,\
+       Sum of sizes of buckets: %d@,\
+       Size of smallest bucket: %d@,\
+       Median bucket size: %d@,\
+       Size of greatest bucket: %d@,"
+      l
+      c
+      t
+      s
+      m
+      g
+
+  in
+
+  Event.log L_info
+    "@[<hv>Hashconsing for state variables:@,%a@]"
+    pp_print_hashcons_stat (StateVar.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for variables:@,%a@]"
+    pp_print_hashcons_stat (Var.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for terms:@,%a@]"
+    pp_print_hashcons_stat (Term.stats ());
+
+  Event.log L_info
+    "@[<hv>Hashconsing for symbols:@,%a@]"
+    pp_print_hashcons_stat (Symbol.stats ());
+*)
+
   let clean_exit status =
 
     (* Log termination status *)
@@ -262,7 +299,7 @@ let on_exit process exn =
 
   (* Clean exit from invariant manager *)
   InvarManager.on_exit !trans_sys;
-
+  
   Event.log L_info "Killing all remaining child processes";
 
   (* Kill all child processes *)
@@ -577,8 +614,8 @@ let check_smtsolver () =
         mathsat5_exec
 
 
-    (* User chose MathSat5 *)
-    | `Yices_SMTLIB -> 
+    (* User chose Yices *)
+    | `Yices_native -> 
 
       let yices_exec = 
 
@@ -600,6 +637,32 @@ let check_smtsolver () =
       Event.log
         L_info
         "Using Yices executable %s." 
+        yices_exec
+
+
+    (* User chose Yices2 *)
+    | `Yices_SMTLIB -> 
+
+      let yices_exec = 
+
+        (* Check if MathSat5 is on the path *)
+        try find_on_path (Flags.yices2smt2_bin ()) with 
+
+          | Not_found -> 
+
+            (* Fail if not *)
+            Event.log 
+              L_fatal
+              "Yices2 SMT2 executable %s not found."
+              (Flags.yices2smt2_bin ());
+
+            exit 2
+
+      in
+
+      Event.log
+        L_info
+        "Using Yices2 SMT2 executable %s." 
         yices_exec
 
 
@@ -900,6 +963,7 @@ let main () =
           
           Event.log L_trace "Starting invariant manager";
 
+          
           (* Initialize messaging for invariant manager, obtain a background
              thread *)
           let _ = 

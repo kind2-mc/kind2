@@ -526,16 +526,14 @@ let rec pp_print_bitvector_b' ppf = function
   | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
 
 
-(* Pretty-print a bitvector in binary format *)
-let pp_print_bitvector_b ppf b = 
+(* Pretty-print a bitvector in SMTLIB binary format *)
+let pp_smtlib_print_bitvector_b ppf b = 
   Format.fprintf ppf "#b%a" pp_print_bitvector_b' b
 
 
-(* Pretty-print a bitvector in binary format without #b prefix *)
-let rec pp_print_bitvector_b' ppf = function 
-  | [] -> ()
-  | true :: tl -> Format.pp_print_int ppf 1; pp_print_bitvector_b' ppf tl
-  | false :: tl -> Format.pp_print_int ppf 0; pp_print_bitvector_b' ppf tl
+(* Pretty-print a bitvector in Yices' binary format *)
+let pp_yices_print_bitvector_b ppf b = 
+  Format.fprintf ppf "0b%a" pp_print_bitvector_b' b
 
 
 (* Association list of bitvectors to hexadecimal digits *)
@@ -737,7 +735,7 @@ let bitvector_of_string s =
   with 
       
     (* Convert from a binary string *)
-    | "#b" -> bitvector_of_string_b [] ((String.length s) - 1) s
+    | "#b" | "0b" -> bitvector_of_string_b [] ((String.length s) - 1) s
 
     (* Convert from a hexadecimal string *)
     | "#x" -> bitvector_of_string_x [] ((String.length s) - 1) s
@@ -1117,7 +1115,6 @@ let find_on_path exec =
 
     (* Return full path if file exists, fail otherwise *)
     if Sys.file_exists exec_path then exec_path else raise Not_found
- 
 
 (* ********************************************************************** *)
 (* Parser and lexer functions                                             *)

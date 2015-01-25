@@ -58,8 +58,11 @@ val bitvector_of_hstring : HString.t -> bitvector
 (** Convert a hashconsed string to a Boolean value *)
 val bool_of_hstring : HString.t -> bool
 
-(** Pretty-print a constant bitvector in binary format *)
-val pp_print_bitvector_b : Format.formatter -> bitvector -> unit
+(** Pretty-print a constant bitvector in SMTLIB binary format *)
+val pp_smtlib_print_bitvector_b : Format.formatter -> bitvector -> unit
+
+(** Pretty-print a constant bitvector in Yices' binary format *)
+val pp_yices_print_bitvector_b : Format.formatter -> bitvector -> unit
 
 (** Pretty-print a constant bitvector in hexadeciaml format *)
 val pp_print_bitvector_x : Format.formatter -> bitvector -> unit
@@ -332,7 +335,6 @@ val file_row_col_of_pos : position -> string * int * int
 (** Convert a position of the lexer to a position *)
 val position_of_lexing : Lexing.position -> position
  
-
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
