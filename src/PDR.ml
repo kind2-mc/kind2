@@ -1201,7 +1201,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
             then
 
-              add_to_block_tl block_clause_gen block_trace block_tl
+              add_to_block_tl block_clause block_trace block_tl
 
             else
 
