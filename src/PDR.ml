@@ -474,11 +474,11 @@ let rec check_frames' solver prop_set accum = function
         create_and_assert_fresh_actlit 
           solver
           "check_frames" 
-          (List.map term_of_clause (r_i @ accum) |> Term.mk_and)
+          (List.map term_of_clause (prop_set.clause :: r_i @ accum) |> Term.mk_and)
           Actlit_n1
       in
 
-      (* Check R_i-1 & T |= R_i *)
+      (* Check P[x] & R_i-1[x] & T[x,x'] |= R_i[x'] & P[x'] *)
       S.check_sat_assuming solver
 
         (* Fail if entailment does not hold *)
@@ -496,6 +496,8 @@ let rec check_frames' solver prop_set accum = function
             (* Preceding frame is not R_0 *)
             | r_pred_i :: _ -> 
 
+	      prop_set.clause.actlit_p0 :: 
+	      
               List.map actlit_p0_of_clause accum @ 
 
               (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
@@ -519,7 +521,7 @@ let rec check_frames' solver prop_set accum = function
           solver
           (Format.sprintf 
              "check_frames: Does I |= C for C in R_%d hold?"
-             (List.length tl));
+             (List.length tl |> succ));
 
         (* Check if clause is initial *)
         S.check_sat_assuming 
@@ -544,7 +546,7 @@ let rec check_frames' solver prop_set accum = function
       solver
       (Format.sprintf 
          "check_frames: Does R_%d |= P hold?"
-         (List.length tl));
+         (List.length tl |> succ));
 
     S.check_sat_assuming
       solver
@@ -560,8 +562,27 @@ let rec check_frames' solver prop_set accum = function
       (prop_set.clause.actlits_n0 @ List.map actlit_p0_of_clause (r_i @ accum))
 
 
-let check_frames solver prop_set frames = 
-  check_frames' solver prop_set [] frames 
+let check_frames solver prop_set clauses frames =
+
+  S.trace_comment
+    solver
+    (Format.asprintf
+       "@[<v>check_frames:@,%a@]"
+       (pp_print_list
+          (fun ppf r_i -> 
+            Format.fprintf ppf
+              "@,Frame:@,%a"
+              (pp_print_list
+                 (fun ppf c ->
+                   Format.fprintf ppf
+                     "%a"
+                     Term.pp_print_term c.actlit_p0)
+                 "@,")
+              r_i)
+          "@,")
+       frames);
+  
+  check_frames' solver prop_set clauses frames 
 
 
 let order_terms terms term_tbl =
@@ -599,7 +620,7 @@ let incr_binding term term_tbl =
    Assuming that [clause] is relatively inductive to [frame] and
    initial, find a smaller subclause of [clause] that is still
    relatively inductive to [frame] and initial. *)
-let ind_generalize solver frame clause literals =
+let ind_generalize solver prop_set frame clause literals =
 
   (* Linearly traverse the list of literals in the clause, and remove
      a literal the clause without the literal remains relatively
@@ -666,8 +687,8 @@ let ind_generalize solver frame clause literals =
           (* If unsat: Clause without literal is relatively inductive *)
           drop_literal
 
-          (* Check R[x] & C[x] & T[x,x'] |= C[x'] *)
-          (clause'_actlit_p0 :: clause'_actlit_n1 :: frame)
+          (* Check P[x] & R[x] & C[x] & T[x,x'] |= C[x'] *)
+          (prop_set.clause.actlit_p0 :: clause'_actlit_p0 :: clause'_actlit_n1 :: frame)
 
       in
 
@@ -933,8 +954,8 @@ let rec block solver trans_sys prop_set term_tbl =
                 trans_sys 
                 cti 
                 (term_of_clause prop_set.clause :: 
-                 List.map term_of_clause r_k 
-                 |> Term.mk_and)
+                   List.map term_of_clause r_k 
+                    |> Term.mk_and)
                 (term_of_clause prop_set.clause |> Term.negate) 
             in
 
@@ -977,8 +998,8 @@ let rec block solver trans_sys prop_set term_tbl =
 
                R_k does not imply P[x] yet *)
             (prop_set.clause.actlit_p0 :: 
-             prop_set.clause.actlits_n1 @
-             List.map actlit_p0_of_clause r_k)
+               prop_set.clause.actlits_n1 @
+               List.map actlit_p0_of_clause r_k)
 
       )
 
@@ -1014,6 +1035,13 @@ let rec block solver trans_sys prop_set term_tbl =
 
            Get clauses in R_i..R_k from [trace], R_i-1 is first frame
            in [frames]. *)
+        let clauses_r_succ_i, actlits_p0_r_succ_i = 
+          List.fold_left
+            (fun (ac, al) (_, r) -> r @ ac, List.map actlit_p0_of_clause r @ al)
+            ([], [])
+            trace
+        in
+
         let clauses_r_pred_i, actlits_p0_r_pred_i = 
 
           List.fold_left
@@ -1028,18 +1056,22 @@ let rec block solver trans_sys prop_set term_tbl =
               | r_pred_i :: _ -> 
                 (prop_set.clause :: r_pred_i, 
                  prop_set.clause.actlit_p0 :: 
-                 List.map actlit_p0_of_clause r_pred_i)))
+                   List.map actlit_p0_of_clause r_pred_i)))
             
             trace
 
         in
-              
+        
         (* Clause is relative inductive to this frame *)
         let is_rel_inductive () = 
 
           (* Activation literals in unsat core of query *)
           let core_actlits_trans = S.get_unsat_core_lits solver in
 
+          S.trace_comment 
+            solver
+            "block: Check I |= C to get unsat core.";
+	  
           (* Activation literals in unsat core of I |= C *)
           let core_actlits_init = 
             S.check_sat_assuming
@@ -1053,36 +1085,69 @@ let rec block solver trans_sys prop_set term_tbl =
               
               (* Check I |= C *)
               ((actlit_of_frame 0 |> snd) :: block_clause.actlits_n0)
+	      
           in
-              
+          
           (* Reduce clause to unsat core of R & T |= C *)
           let block_clause_literals_core_n1 = 
+
             List.fold_left2 
+
               (fun a t l ->
-                 if 
-                   List.exists (Term.equal t) core_actlits_trans
-                 then
-                   l :: a
-                 else
-                   a)
+
+		if 
+
+		  (* Keep clause literal [l] if activation literals
+		     [t] is in unsat core *)
+                  List.exists (Term.equal t) core_actlits_trans
+		    
+                then
+
+                  l :: a
+
+                else
+
+		  a)
+
+	      (* Start with empty clause *)
               []
+
+	      (* Fold over clause literals and their activation literals *)
               block_clause.actlits_n1 
               block_clause.literals
+
           in
           
           (* Reduce clause to unsat core of I |= C *)
           let block_clause_literals_core = 
+
             List.fold_left2 
+
               (fun a t l ->
-                 if 
-                   List.exists (Term.equal t) core_actlits_init
-                 then
-                   if List.exists (Term.equal l) a then a else l :: a
-                 else
-                   a)
+
+		if 
+
+		  (* Keep clause literal [l] if activation literal [t]
+		     is in unsat core *)
+		  List.exists (Term.equal t) core_actlits_init
+		    
+                then
+
+		  (* Drop clause literal [l] if it is in accumulator
+		     to prevent duplicates *)
+                  if List.exists (Term.equal l) a then a else l :: a
+		    
+                else
+		  
+                  a)
+
+	      (* Start with literal in core of consecution query *)
               block_clause_literals_core_n1
-              block_clause.actlits_n0
+
+	      (* Fold over clause literals and their activation literals *)
+	      block_clause.actlits_n0
               block_clause.literals
+
           in
           
           S.trace_comment
@@ -1091,15 +1156,28 @@ let rec block solver trans_sys prop_set term_tbl =
                "@[<hv>block: Reduced clause@ %a@ with unsat core to@ %a@]"
                Term.pp_print_term (term_of_clause block_clause)
                Term.pp_print_term (Term.mk_or block_clause_literals_core));
-           
+          
           (* Inductively generalize clause *)
-          let block_clause_gen = block_clause
-(*            ind_generalize 
-              solver
-              actlits_p0_r_pred_i
-              block_clause
-              block_clause_literals_core *)
-          in
+          let block_clause_gen =
+
+	    (* Skip unsat core and inductive generalization? *)
+	    if false then block_clause else
+
+	      (* Skip inductive generaliztion? *)
+	      if false then
+
+		clause_of_literals solver (Some block_clause) block_clause_literals_core
+
+	      else
+		
+		ind_generalize 
+		  solver
+		  prop_set
+		  actlits_p0_r_pred_i
+		  block_clause
+		  block_clause_literals_core
+
+	  in
 
           S.trace_comment
             solver
@@ -1107,12 +1185,12 @@ let rec block solver trans_sys prop_set term_tbl =
                "@[<hv>block: Reduced clause@ %a@ with ind. gen. to@ %a@]"
                Term.pp_print_term (Term.mk_or block_clause_literals_core)
                Term.pp_print_term (term_of_clause block_clause_gen));
-            
+          
           (* Add blocking clause to all frames up to where it has to
              be blocked *)
           let r_i' = block_clause_gen :: r_i in
 
-          assert (check_frames solver prop_set (r_i' :: frames));
+          assert (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames));
 
           (* Add cube to block to next higher frame if flag is set *)
           let block_tl' = 
@@ -1148,11 +1226,11 @@ let rec block solver trans_sys prop_set term_tbl =
           
           (* Are there frames below R_i? *)
           match frames with 
-            
+              
             (* Bad state is reachable from R_0, we have found a
                counterexample path *)
             | [] -> raise (Counterexample (block_clause :: block_trace))
-                      
+              
             (* i > 1 and bad state is reachable from R_i-1 *)
             | r_pred_i :: frames_tl -> 
               
@@ -1175,7 +1253,7 @@ let rec block solver trans_sys prop_set term_tbl =
                   cti
                   ((term_of_clause block_clause ::
                       List.map term_of_clause clauses_r_pred_i)
-                   |> Term.mk_and)
+                      |> Term.mk_and)
                   (term_of_clause block_clause |> Term.negate)
               in
               
@@ -1193,7 +1271,7 @@ let rec block solver trans_sys prop_set term_tbl =
                 (([block_clause', (block_clause :: block_trace)], 
                   r_pred_i) :: trace) 
                 frames_tl
-      
+		
         in
 
         S.trace_comment 
@@ -1212,10 +1290,10 @@ let rec block solver trans_sys prop_set term_tbl =
              not reachable *)
           is_rel_inductive
 
-          (* Check R_i-1[x] & C[x] & T[x,x'] |= C[x'] *)
+          (* Check P[x] & R_i-1[x] & C[x] & T[x,x'] |= C[x'] *)
           (block_clause.actlit_p0 :: 
-           block_clause.actlits_n1 @
-           actlits_p0_r_pred_i)
+             block_clause.actlits_n1 @
+             actlits_p0_r_pred_i)
 
       )
 
@@ -1307,6 +1385,7 @@ let rec partition_rel_inductive
 let partition_fwd_prop
     solver
     trans_sys
+    prop_set
     frame
     clauses = 
 
@@ -1380,13 +1459,13 @@ let partition_fwd_prop
 
     (* Can all clauses be propagated? 
 
-       Check R & T |= C_1' & ... & C_n'
+       Check P[x] & R[x] & T[x,x'] |= C_1[x'] & ... & C_n[x']
     *)
     S.check_sat_assuming 
       solver
       keep_some
       prop_all
-      (actlit_n1 :: actlits_p0)
+      (prop_set.clause.actlit_p0 :: actlit_n1 :: actlits_p0)
     
   in
 
@@ -1462,7 +1541,7 @@ let fwd_propagate solver trans_sys prop_set frames =
             (* Add a new frame with the non-inductive clauses *)
             let frames' = non_inductive_clauses :: frames in
 
-            assert (check_frames solver prop_set frames');
+            assert (check_frames solver prop_set [] frames');
 
             frames'
 
@@ -1473,7 +1552,7 @@ let fwd_propagate solver trans_sys prop_set frames =
           (* Add a new frame with clauses to propagate *)
           let frames' = prop :: frames in
 
-          assert (check_frames solver prop_set frames');
+          assert (check_frames solver prop_set [] frames');
 
           frames'
 
@@ -1489,7 +1568,7 @@ let fwd_propagate solver trans_sys prop_set frames =
              (succ (List.length frames)));
 
         let frames_tl_full = 
-          List.fold_left (fun a f -> f @ a) [prop_set.clause] frames_tl
+          List.fold_left (fun a f -> f @ a) [] frames_tl
         in
 
         (* Separate clauses that propagate from clauses to keep in
@@ -1498,6 +1577,7 @@ let fwd_propagate solver trans_sys prop_set frames =
           partition_fwd_prop
             solver
             trans_sys
+	    prop_set
             frames_tl_full
             (frame @ prop)
         in
@@ -1552,7 +1632,7 @@ let fwd_propagate solver trans_sys prop_set frames =
                  solver
                  (function _ -> false)
                  (function _ -> true)
-                 [ind_inv_p0; ind_inv_n1]); 
+                 [prop_set.clause.actlit_p0; ind_inv_p0; ind_inv_n1]); 
 
             (* Fixpoint found, this frame is equal to the next *)
             raise (Success (List.length frames))
@@ -1596,9 +1676,9 @@ let rec pdr solver trans_sys prop_set frames =
     (* Every property is either invariant or at least 1-true *)
     List.for_all 
       (fun (p, _) -> match TransSys.get_prop_status trans_sys p with
-         | TransSys.PropInvariant -> true
-         | TransSys.PropKTrue k when k >= 1 -> true
-         | _ -> false)
+        | TransSys.PropInvariant -> true
+        | TransSys.PropKTrue k when k >= 1 -> true
+        | _ -> false)
       prop_set.props
 
   in
@@ -1624,7 +1704,7 @@ let rec pdr solver trans_sys prop_set frames =
         trans_sys
         prop_set
         frames
-
+	
     (* Fixed point reached *)
     with Success pdr_k -> 
 
