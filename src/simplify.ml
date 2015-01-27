@@ -1058,13 +1058,24 @@ let rec simplify_term_node uf_defs model fterm args =
 
   match fterm with 
 
-    (* Free variable with assignment in model *)
-    | Term.T.Var v when List.mem_assq v model -> 
+    | Term.T.Var v -> 
 
-      Term.eval_t (simplify_term_node uf_defs model) (List.assq v model)
-      
-    (* Free variable without assignment in model *)
-    | Term.T.Var v -> atom_of_term (Term.mk_var v)
+      (match Var.VarHashtbl.find model v with
+        
+        (* Free variable with assignment in model *)
+        | Model.Term v' ->
+
+          Term.eval_t
+            (simplify_term_node uf_defs model)
+            v'
+           
+        (* Variable must not evaluate to a lambda abstraction *)
+        | Model.Lambda _ -> assert false 
+
+        (* Free variable without assignment in model *)
+        | exception Not_found -> 
+        
+          atom_of_term (Term.mk_var v))
                    
     (* Polynomial of a constant depends on symbol *)
     | Term.T.Const s -> 
@@ -1172,13 +1183,10 @@ let rec simplify_term_node uf_defs model fterm args =
           (* Array operations not implemented *)
           | `SELECT ->
 
-            let a', i' = 
-              match args with 
-                | [a; i] -> term_of_nf a, term_of_nf i
-                | _ -> assert false 
-            in
+            (* TODO: all arguments of are select operators, collect
+               indexes and evaluate *)
 
-            atom_of_term (Term.mk_select a' i')
+            assert false 
 
 (*
           | `STORE -> assert false
@@ -1793,16 +1801,18 @@ let rec simplify_term_node uf_defs model fterm args =
 let simplify_term_model uf_defs model term = 
 
   debug simplify 
-    "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
+    "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%t@]"
     Term.pp_print_term term
-    (pp_print_list 
-       (fun ppf (v, t) -> 
-          Format.fprintf ppf
-            "@[<hv 2>%a =@ %a@]" 
-            Var.pp_print_var v 
-            Term.pp_print_term t) 
-       "@ ")
-    model 
+    (fun ppf -> 
+       Var.VarHashtbl.iter
+         (function 
+           | (v, Value t) -> 
+             Format.fprintf ppf
+               "@[<hv 2>%a =@ %a@]" 
+               Var.pp_print_var v 
+               Term.pp_print_term t
+           | _ -> assert false)
+         model) 
   in
 
   (* Simplify term to a normal form and convert back to a term *)
@@ -1820,7 +1830,8 @@ let simplify_term_model uf_defs model term =
   res
 
 (* Simplify a term *)
-let simplify_term uf_defs term = simplify_term_model uf_defs [] term
+let simplify_term uf_defs term = 
+  simplify_term_model uf_defs Model.empty_model term
 
 
 

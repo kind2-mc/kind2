@@ -113,14 +113,14 @@ let smtlib_string_sexpr_conv =
        symbol_of_atom = GenericSMTLIBDriver.symbol_of_smtlib_atom;
        type_of_sexpr = GenericSMTLIBDriver.type_of_smtlib_sexpr;
        expr_of_string_sexpr = gen_expr_of_string_sexpr';
-       lambda_of_string_sexpr = gen_lambda_of_string_sexpr' } )
+       expr_or_lambda_of_string_sexpr = gen_expr_or_lambda_of_string_sexpr' } )
  
 
 let yices_expr_of_string_sexpr = 
   GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv
 
 let yices_lambda_of_string_sexpr = 
-  GenericSMTLIBDriver.gen_lambda_of_string_sexpr smtlib_string_sexpr_conv
+  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
 
 
 
@@ -1272,6 +1272,8 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
   let check_sat_assuming_supported = check_sat_assuming_supported
   let get_value = get_value solver
   let get_unsat_core () = get_unsat_core solver
+
+  let get_model _ = failwith "Not implemented"
 
   let execute_custom_command = execute_custom_command solver
   let execute_custom_check_sat_command cmd =

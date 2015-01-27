@@ -247,23 +247,34 @@ sig
 
   val instantiate : lambda -> t list -> t
 
-  (** Convert the flattened representation back into a higher-oder
-      abstract syntax term. *)
+  (** Convert the flattened representation back into a term *)
   val construct : flat -> t
 
   (** Import a term into the hashcons table by rebuilding it bottom
       up *)
   val import : t -> t
 
-  (** Pretty-print a higher-order abstract syntax term *)
+  (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
+  (** Pretty-print a term *)
+  val pp_print_term : ?db:int -> Format.formatter -> t -> unit
+    
+  val pp_print_lambda_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+    ?db:int -> Format.formatter -> lambda -> unit
+
   val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
-  (** Pretty-print a higher-order abstract syntax term *)
+  (** Pretty-print a term *)
   val print_term : ?db:int -> t -> unit
 
+  (** Pretty-print a lambda abstraction *)
+  val pp_print_lambda : ?db:int -> Format.formatter -> lambda -> unit
+    
+  (** Pretty-print a lambda abstraction *)
+  val print_lambda : ?db:int -> lambda -> unit
+    
   val stats : unit -> int * int * int * int * int * int
   
 end

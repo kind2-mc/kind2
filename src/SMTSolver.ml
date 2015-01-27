@@ -57,7 +57,6 @@ type t =
 
   }
 
-
 (* Raise an exception on error responses from the SMT solver *)
 let fail_on_smt_error = function       
 
@@ -230,6 +229,13 @@ let prof_get_value s e =
   Stat.record_time Stat.smt_get_value_time;
   res
 
+let prof_get_model s e =
+  let module S = (val s.solver_inst) in
+  Stat.start_timer Stat.smt_get_value_time;
+  let res = S.get_model e in
+  Stat.record_time Stat.smt_get_value_time;
+  res
+
 
 (* Check satisfiability of current context *)
 let check_sat ?(timeout = 0) s = 
@@ -252,50 +258,102 @@ let check_sat ?(timeout = 0) s =
     failwith "SMT solver returned Success on check-sat"
 
 
-(* Convert models given as pairs of SMT expressions to pairs of variables and
-   terms *)
-let values_of_smt_model conv_left type_left s smt_values =
+(* Convert models given as pairs of SMT expressions to pairs of
+   variables and terms *)
+let values_of_smt_values conv_left type_left s smt_values =
   let module S = (val s.solver_inst) in
+
+  (* Convert association list for get-value call to an association
+     list of variables to terms *)
   List.map
+
+    (* Map pair of SMT expressions to a pair of variable and term *)
     (function (v, e) -> 
-      (let v', e' = 
+
+      (* Convert to variable or term and term *)
+      let v', e' = 
         conv_left v, S.Conv.term_of_smtexpr e 
-       in
-       let tv', te' = 
-         type_left v', Term.type_of_term e'
-       in
-       if
-         Type.equal_types tv' te'
-       then 
-         (v', e') 
-       else if 
-         Type.equal_types tv' Type.t_real && 
-         Type.equal_types te' Type.t_int 
-       then
-         (v', Term.mk_to_real e')
-       else
-         (v', e')))
+      in
+
+      (* Get type of variable or term and term *)
+      let tv', te' = 
+        type_left v', Term.type_of_term e'
+      in
+
+      if 
+        (* Assignment of integer value to a real variable or term? *)
+        Type.equal_types tv' Type.t_real && 
+        Type.equal_types te' Type.t_int 
+
+      then
+
+        (* Convert integer to real *)
+        (v', Term.mk_to_real e')
+
+      else
+
+        (* Keep assignment *)
+        (v', e'))
+
     smt_values
 
 
-
-(* Get model of the current context *)
-let get_model s vars =
+let model_of_smt_values conv_left type_left s smt_values = 
   let module S = (val s.solver_inst) in
 
-  match 
-    (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map S.Conv.smtexpr_of_var vars)
-  with 
-  | `Error e -> 
-      raise 
-        (Failure ("SMT solver failed: " ^ e))
-        
-  | `Values m -> values_of_smt_model S.Conv.var_of_smtexpr Var.type_of_var s m
+  (* Create hash table with size matching the number of values *)
+  let model = Var.VarHashtbl.create (List.length smt_values) in
+
+  (* Add all variable term pairs to the hash table *)
+  List.iter
+
+    (* Convert a pair of SMT expressions to a variable and a term, and
+       add to the hash table *)
+    (function (v, e) ->
+
+      (* Convert expression on lhs to a variable and expression on rhs
+         to a term *)
+      let v', e' = 
+        S.Conv.var_of_smtexpr v, S.Conv.term_of_smtexpr e 
+      in
+
+      (* Get types of variable and term *)
+      let tv', te' = 
+        Var.type_of_var v', Term.type_of_term e'
+      in
+
+      (* Hack to make integer values match reals *)
+      let e'' =
+
+        if 
+
+          (* Rhs is of type real, variable is of type integer? *)
+          Type.is_real tv' && 
+          (Type.is_int te' || Type.is_int_range te')
+          
+        then
+
+          (* Convert term to a real *)
+          Term.mk_to_real e'
+
+        else
+          
+          (* Return term as is *)
+          e'
+
+      in        
+
+      (* Add assignment to hash table *)
+      Var.VarHashtbl.add model v' (Value e''))
+
+    (* Iterate over all pairs from get-value call *)
+    smt_values;
+
+  (* Return hash table *)
+  model
 
 
-
-(* Get values of state variables in the current context *)
+(* Get values of terms in the current context *)
 let get_values s terms =
   let module S = (val s.solver_inst) in
 
@@ -307,7 +365,26 @@ let get_values s terms =
     raise 
       (Failure ("SMT solver failed: " ^ e))
 
-  | `Values m -> values_of_smt_model S.Conv.term_of_smtexpr Term.type_of_term s m
+  | `Values m -> 
+    values_of_smt_values S.Conv.term_of_smtexpr Term.type_of_term s m
+
+
+(* Get model of the current context *)
+let get_model s vars =
+  let module S = (val s.solver_inst) in
+
+  (* TODO: use get-model if variables contain function symbols *)
+  match 
+    (* Get values of SMT expressions in current context *)
+    prof_get_value s (List.map S.Conv.smtexpr_of_var vars)
+  with 
+  | `Error e -> 
+      raise 
+        (Failure ("SMT solver failed: " ^ e))
+        
+  | `Values v -> 
+    model_of_smt_values S.Conv.var_of_smtexpr Var.type_of_var s v
+
 
 
 (* Get unsat core of the current context *)
@@ -457,7 +534,7 @@ let check_sat_term_model ?(timeout = 0) solver terms =
     else
 
       (* Return an empty model *)
-      []
+      Var.VarHashtbl.create 1
 
   in
 

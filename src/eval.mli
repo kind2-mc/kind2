@@ -52,7 +52,7 @@ val value_is_unknown : value -> bool
 
 (** Evaluate a term to a value, given an assignment to all free
     variables *)
-val eval_term : (UfSymbol.t * (Var.t list * Term.t)) list -> (Var.t * Term.t) list -> Term.t -> value
+val eval_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> value
 
 (*
 (** Evaluate all subterms of the term to values and add to the hash

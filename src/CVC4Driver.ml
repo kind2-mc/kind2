@@ -56,9 +56,36 @@ let check_sat_assuming_supported () = false
 
 let s_lambda = HString.mk_hstring "LAMBDA"
 
-let cvc4_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
+let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
 
   function 
+
+    (* (define-fun c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_define_fun -> 
+
+      Term.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
+
+    (* (LAMBDA c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_lambda -> 
+
+      Term.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
 
     (* (define-fun A ((x1 Int) (x2 Int)) Bool t) *)
     | HStringSExpr.List 
@@ -81,9 +108,10 @@ let cvc4_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
-      Term.mk_lambda
-        vars
-        (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)
+      Term.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
 
 
     (* (LAMBDA ((_ufmt_1 Int) (_ufmt_2 Int)) (ite (= _ufmt_1 0) (= _ufmt_2 0) false)) *)
@@ -105,19 +133,21 @@ let cvc4_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
-      Term.mk_lambda
-        vars
-        (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)
+      Term.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
 
-
+    (* Interpret as a term *)
     | e ->
 
-      failwith 
-        ("Invalid lambda expression: " ^
-         (string_of_t HStringSExpr.pp_print_sexpr e))
+      Term.Term
+        (gen_expr_of_string_sexpr' conv bound_vars e)
+
+      
 
 let lambda_of_string_sexpr = 
-  cvc4_lambda_of_string_sexpr'
+  cvc4_expr_or_lambda_of_string_sexpr'
     { smtlib_string_sexpr_conv with
-        lambda_of_string_sexpr = cvc4_lambda_of_string_sexpr' }
+        expr_or_lambda_of_string_sexpr = cvc4_expr_or_lambda_of_string_sexpr' }
     []

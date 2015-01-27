@@ -136,7 +136,6 @@ type t = T.t
 (* Hashconsed lambda expression *)
 type lambda = T.lambda
 
-
 let stats = T.stats
 
 (* Return the type of a term *)
@@ -396,16 +395,15 @@ let print_term t = pp_print_term Format.std_formatter t
 
 (* Return a string representation of a term *)
 let string_of_term t = string_of_t pp_print_term t
-(*
-(* Pretty-print a term in infix notation *)
-let pp_print_term_infix = T.pp_print_term_infix ppf t
-*)
+
+(* Pretty-print a term *)
+let pp_print_lambda ppf t = T.pp_print_lambda ppf t
+
 (* Pretty-print a hashconsed term to the standard formatter *)
-let print_term t = pp_print_term Format.std_formatter t
+let print_lambda t = pp_print_lambda Format.std_formatter t
 
 (* Return a string representation of a term *)
-let string_of_term t = string_of_t pp_print_term t
-
+let string_of_lambda t = string_of_t pp_print_lambda t
 
 (* ********************************************************************* *)
 (* Folding and utility functions on terms                                *)

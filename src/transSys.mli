@@ -278,15 +278,8 @@ val init_define_fun_declare_vars_of_bounds :
       unit
 
 
-(** Extract a path in the transition system, return an association
-    list of state variables to a list of their values.
-
-    The second argument is a function returning assignments to the
-    variables, see {!SolverMethods.S.get_model}. The path is extracted
-    from instant zero up to instant [k], which is the third argument. *)
-val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
-
 val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> (StateVar.t * Term.t list) list -> bool
+
 
 (* 
    Local Variables:

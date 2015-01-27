@@ -91,11 +91,11 @@ type expr_of_string_sexpr_conv =
       Term.t;
 
     (* Conversion of an S-expression to a lambda abstraction *)
-    lambda_of_string_sexpr : 
+    expr_or_lambda_of_string_sexpr : 
       expr_of_string_sexpr_conv -> 
       (HString.t * Var.t) list -> 
       HStringSExpr.t -> 
-      Term.lambda
+      Term.t_or_lambda
   }
 
 
@@ -177,7 +177,7 @@ let gen_expr_of_string_sexpr'
        const_of_atom; 
        symbol_of_atom;
        expr_of_string_sexpr;
-       lambda_of_string_sexpr } as conv)
+       expr_or_lambda_of_string_sexpr } as conv)
     bound_vars = 
 
   function 
@@ -365,9 +365,23 @@ let gen_expr_of_string_sexpr'
 (* Convert a string S-expression to a lambda abstraction 
 
    This function is generic, and also used from {!YicesDriver} *)
-let gen_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
+let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
 
   function 
+
+    (* (define-fun c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_define_fun -> 
+
+      Term.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
 
     (* (define-fun A ((x1 Int) (x2 Int)) Bool t) *)
     | HStringSExpr.List 
@@ -390,23 +404,25 @@ let gen_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
-      Term.mk_lambda
-        vars
-        (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)
+      Term.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
 
-    (* Any other expression *)
+    (* Interpret as a term *)
     | e ->
 
-      failwith 
-        ("Invalid lambda expression: " ^
-         (string_of_t HStringSExpr.pp_print_sexpr e))
-    
+      Term.Term
+        (gen_expr_of_string_sexpr' conv bound_vars e)
+
 
 (* Call function with an empty list of bound variables *)      
-let gen_expr_of_string_sexpr conv = gen_expr_of_string_sexpr' conv [] 
+let gen_expr_of_string_sexpr conv = 
+  gen_expr_of_string_sexpr' conv [] 
 
 (* Call function with an empty list of bound variables *)      
-let gen_lambda_of_string_sexpr conv = gen_lambda_of_string_sexpr' conv [] 
+let gen_expr_or_lambda_of_string_sexpr conv = 
+  gen_expr_or_lambda_of_string_sexpr' conv [] 
 
 
 (* ********************************************************************** *)
@@ -785,7 +801,7 @@ let smtlib_string_sexpr_conv =
     symbol_of_atom = symbol_of_smtlib_atom;
     type_of_sexpr = type_of_smtlib_sexpr;
     expr_of_string_sexpr = gen_expr_of_string_sexpr';
-    lambda_of_string_sexpr = gen_lambda_of_string_sexpr' }
+    expr_or_lambda_of_string_sexpr = gen_expr_or_lambda_of_string_sexpr' }
  
 
 (* Convert an S-expression in SMTLIB format to a term *)
@@ -793,5 +809,5 @@ let expr_of_string_sexpr =
   gen_expr_of_string_sexpr smtlib_string_sexpr_conv
 
 (* Convert an S-expression in SMTLIB format to a lambda abstraction *)
-let lambda_of_string_sexpr = 
-  gen_lambda_of_string_sexpr smtlib_string_sexpr_conv
+let expr_or_lambda_of_string_sexpr = 
+  gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv

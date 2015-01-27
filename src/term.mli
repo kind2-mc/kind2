@@ -82,7 +82,7 @@ type t = T.t
     
 (** Terms are hashconsed abstract syntax trees *)
 type lambda = T.lambda
-    
+
 (** {1 Hashtables, maps and sets} *)
 
 (** Comparison function on terms *)
@@ -421,8 +421,17 @@ val pp_print_term : Format.formatter -> t -> unit
 (** Pretty-print a term to the standard formatter *)
 val print_term : t -> unit
 
-(** Return a string representation of a t *)
+(** Return a string representation of a term *)
 val string_of_term : t -> string 
+
+(** Pretty-print a lambda abstraction *)
+val pp_print_lambda : Format.formatter -> lambda -> unit
+
+(** Pretty-print a lambda abstraction to the standard formatter *)
+val print_lambda : lambda -> unit
+
+(** Return a string representation of a lambda abstraction *)
+val string_of_lambda : lambda -> string 
 
 (** {1 Conversions} *)
 

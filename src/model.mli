@@ -16,29 +16,32 @@
 
 *)
 
-(** An interface to any SMT solver that accepts the SMTLIB2 command
-    language 
 
-    @author Alain Mebsout, Christoph Sticksel
+(** Term or lambda expression *)
+type term_or_lambda = Term of Term.t | Lambda of Term.lambda
+    
+(** A model is a list of variables and assignemnts *)
+type t = term_or_lambda Var.VarHashtbl.t
 
- *)
+(** A path is a map of state variables to assignments *)
+type path = term_or_lambda list StateVar.StateVarHashtbl.t
 
-module type SMTLIBSolverDriver = sig
-  include SolverDriver.S
-
-  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
-
-  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> Term.t_or_lambda
-
-end
+(** An empty model *)
+val empty_model : t
 
 
-module Make : functor (D : SMTLIBSolverDriver) -> SolverSig.S
-                                            
+(** Extract a path in the transition system, return an association
+    list of state variables to a list of their values.
+
+    The second argument is a function returning assignments to the
+    variables, see {!SolverMethods.S.get_model}. The path is extracted
+    from instant zero up to instant [k], which is the third argument. *)
+val path_from_model : StateVar.t list -> (Var.t list -> t) -> Numeral.t -> path
+
+
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
-   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
    End: 
 *)

@@ -150,10 +150,17 @@ sig
 
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
+  val pp_print_lambda_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+    ?db:int -> Format.formatter -> lambda -> unit
+
   val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
 
   val print_term : ?db:int -> t -> unit
+
+  val pp_print_lambda : ?db:int -> Format.formatter -> lambda -> unit
+
+  val print_lambda : ?db:int -> lambda -> unit
 
   val stats : unit -> int * int * int * int * int * int
 
@@ -496,14 +503,16 @@ struct
 
   (* Pretty-print a lambda abstraction given the de Bruijn index of
      the most recent bound variable *)
-  let rec pp_print_lambda pp_symbol db ppf = function { H.node = L (l, t) } ->
+  let rec pp_print_lambda' pp_symbol db ppf = function 
 
-    (* Print variables bound in abstraction and recurse with an
-       incremented de Bruijn index *)
-    Format.fprintf ppf
-      "@[<hv 0>@[<hv 2>(%a).@]%a@]"
-      (pp_print_var_seq db) l
-      (pp_print_term' pp_symbol (db + (List.length l))) t
+    | { H.node = L (l, t) } ->
+
+      (* Print variables bound in abstraction and recurse with an
+         incremented de Bruijn index *)
+      Format.fprintf ppf
+        "@[<hv 0>@[<hv 2>(%a).@]%a@]"
+        (pp_print_var_seq db) l
+        (pp_print_term' pp_symbol (db + (List.length l))) t
 
 
   (* Pretty-print a list of variable term bindings *)
@@ -607,110 +616,26 @@ struct
      index or default to zero *)
   let pp_print_term_w pp_symbol ?(db = 0) ppf term = 
 
-    (* This breaks indentation and is going to fail when the meaning
-       of indexes is reversed. *)
-    (*
-    (* String representation of term *)
-    let term_string = 
-
-      (* Get cached string *)
-      match prop_of_term term with
-
-        (* No cached string of term *)
-        | { to_string = None } -> 
-          
-          (* Create a buffer and formatter to write into buffer *)
-          let buf = Buffer.create 80 in 
-          let bppf = Format.formatter_of_buffer buf in
-          
-          (* Pretty-print term into buffer *)
-          pp_print_term' db bppf term;
-          
-          (* Flush formatter *)
-          Format.pp_print_flush bppf ();
-          
-          (* Return string representation of term from buffer *)
-          let term_string = Buffer.contents buf in
-
-          (* Write string representaion to cache *)
-          set_to_string term term_string;
-
-          (* Return string representation *)
-          term_string
-
-        (* Return cached string of term *)
-        | { to_string = Some s } -> s
-
-    in
-    
-    (* Print string representation of term to formatter *)
-    Format.fprintf ppf "%s" term_string
-*)
-
     (* Pretty-print term into buffer *)
     pp_print_term' pp_symbol db ppf term
 
+ 
+  (* Top-level pretty-printing function, start with given de Bruijn
+     index or default to zero *)
+  let pp_print_lambda_w pp_symbol ?(db = 0) ppf term = 
 
+    (* Pretty-print term into buffer *)
+    pp_print_lambda' pp_symbol db ppf term
+
+ 
   
   let pp_print_term = pp_print_term_w (fun ?arity -> T.pp_print_symbol)
 
+  let pp_print_lambda = pp_print_lambda_w (fun ?arity -> T.pp_print_symbol)
+
   let print_term ?db = pp_print_term ?db Format.std_formatter
 
-(*
-
-  let pp_print_term_infix' db ppf = function 
-
-    (* Delegate printing of free variables to function in input module *)
-    | { H.node = FreeVar v } -> T.pp_print_var ppf v
-
-    (* Print bound variable with its de Bruijn index *)
-    | { H.node = BoundVar db } -> Format.fprintf ppf "X%i" db
-
-    (* Delegate printing of leaf to function in input module *)
-    | { H.node = Leaf s } -> T.pp_print_symbol ppf s
-
-    (* Print a function application as S-expression *)
-    | { H.node = Node (s, a) } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(%a)@]" 
-        T.pp_print_node s a 
-        (pp_print_term_list db) a
-
-    (* Print a let binding *)
-    | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
-        (pp_print_let_bindings db) b
-        (pp_print_term' (db + List.length b)) t
-
-    (* Print an existential quantification *)
-    | { H.node = Exists { H.node = L (x, t) } } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(exists@ @[<hv 1>(%a)@ %a@])@]" 
-        (pp_print_typed_var_list db) x
-        (pp_print_term' (db + List.length x)) t
-
-    (* Print a universal quantification *)
-    | { H.node = Forall { H.node = L (x, t) } } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
-        (pp_print_typed_var_list db) x
-        (pp_print_term' (db + List.length x)) t
-
-    (* Print an annotated term *)
-    | { H.node = Annot (t, a) } ->
-
-      Format.fprintf ppf 
-        "@[<hv 1>(!@ @[<hv 1>%a@] @[<hv 1>%a@])@]" 
-        (pp_print_term' db) t
-        T.pp_print_attr a
-
-*)
-
+  let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
 
   (* Pretty-print a flattened term *)
   let rec pp_print_flat pp_symbol ppf = function 

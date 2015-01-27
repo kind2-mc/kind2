@@ -16,7 +16,7 @@
 
 *)
 
-(** Conversion of a counterexampe to a Lustre model 
+(** Conversion of a counterexample to a Lustre model 
 
     @author Kevin Clancy, Christoph Sticksel *)
 

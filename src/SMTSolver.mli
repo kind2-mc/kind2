@@ -75,7 +75,7 @@ val pop : ?n:int -> t -> unit
 val check_sat : ?timeout:int -> t -> bool
 
 (** Return a model of the current context if satisfiable *)
-val get_model : t -> Var.t list -> (Var.t * Term.t) list
+val get_model : t -> Var.t list -> Term.model
 
 (** Return a values of the terms in the current context if
     satisfiable *)
@@ -127,7 +127,7 @@ val check_sat_assuming : t ->
     The optional parameter [timeout] limits the maximum runtime to
     the given number of milliseconds *)
 val check_sat_term_model :
-  ?timeout:int -> t -> Term.t list -> bool * (Var.t * Term.t) list 
+  ?timeout:int -> t -> Term.t list -> bool * Term.model 
 
 (*
 (** Check entailment of the second formula by the conjunction of the

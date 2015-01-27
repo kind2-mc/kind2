@@ -365,7 +365,12 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
         let stream_terms = stream in
 
-        (var, stream_terms.(0)) :: substitutions                                   
+        StateVar.StateVarHashtbl.replace
+          substitutions
+          var
+          (try 
+             stream_terms.(0)) :: substitutions
+
       else
 
         let curr_var = Var.mk_state_var_instance sv E.cur_offset in

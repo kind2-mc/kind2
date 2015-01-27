@@ -1318,58 +1318,6 @@ let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
   declare_vars_of_bounds t declare lbound ubound
   
   
-
-(* Extract a path in the transition system, return an association list
-   of state variables to a list of their values *)
-let path_from_model trans_sys get_model k =
-
-  let rec path_from_model' accum state_vars = function 
-
-    (* Terminate after the base instant *)
-    | i when Numeral.(i < zero) -> accum
-
-    | i -> 
-
-      (* Get a model for the variables at instant [i] *)
-      let model =
-        get_model
-          (List.map (fun sv -> Var.mk_state_var_instance sv i) state_vars)
-      in
-
-      (* Turn variable instances to state variables and sort list 
-
-         TODO: It is not necessary to sort the list, if the SMT solver
-         returns the list in the order it was input. *)
-      let model' =
-        List.sort
-          (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
-          (List.map
-             (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
-             model)
-      in
-
-      (* Join values of model at current instant to result *)
-      let accum' = 
-        list_join
-          StateVar.equal_state_vars
-          model'
-          accum
-      in
-
-      (* Recurse for remaining instants  *)
-      path_from_model'
-        accum'
-        state_vars
-        (Numeral.pred i)
-
-  in
-
-  path_from_model'
-    (List.map (fun sv -> (sv, [])) (state_vars trans_sys))
-    (state_vars trans_sys)
-    k
-
-
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let rec exists_eval_on_path' uf_defs p term k path =
 
@@ -1430,6 +1378,8 @@ let rec exists_eval_on_path' uf_defs p term k path =
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
   exists_eval_on_path' uf_defs pred term Numeral.zero path
+
+
 
 
 (* 
