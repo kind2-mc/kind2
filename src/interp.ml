@@ -63,11 +63,12 @@ let interp solver trans_sys =
       Solver.push solver;
 
       let a = Term.mk_and (r_i :: trans 1 i []) in
-      let negprops = Term.negate (Term.mk_and (props i k [])) in
+      let negprops = Term.negate (Term.mk_and (props (i-1) k [])) in
       let b = Term.mk_and (negprops :: trans i k []) in
       
       let n1 = Solver.assert_named_term_wr solver a in
       let n2 = Solver.assert_named_term_wr solver b in
+
       if Solver.check_sat solver then (
         Event.log
           L_info
@@ -86,15 +87,13 @@ let interp solver trans_sys =
     )
 
   in
+
+  interp 2 (Flags.interp_max ()) (TransSys.init_of_bound trans_sys Numeral.zero) []
   
-  let rec aux k acc = 
-    if k > Flags.interp_max () then
-      acc 
-    else
-      aux (k+1) ((interp 2 k (TransSys.init_of_bound trans_sys Numeral.zero) []) @ acc)
-  in
-  
-  aux 2 []  
+  (* let rec aux k acc = if k > Flags.interp_max () then acc else aux
+  (k+1) ((interp 2 k (TransSys.init_of_bound trans_sys Numeral.zero)
+  []) @ acc) in 
+  aux 2 []  *)
 ;;
 
 
