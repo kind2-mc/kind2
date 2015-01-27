@@ -281,7 +281,7 @@ let rec definitions_of_node_calls
     (* All node calls consumed, return term for initial state
        constraint and transition relation, and properties  *)
     | [] -> 
- 
+
 (*
       (* Create let bindings from definitions for primed and unprimed
          state variables in the transition relation, and for unprimed
@@ -320,8 +320,8 @@ let rec definitions_of_node_calls
          whose definition does not contain a pre are defined in the
          let binding. *)
       (local_vars, 
-(*       [Term.mk_let init_input_defs (Term.mk_and init)], *)
-(*       [Term.mk_let trans_input_defs (Term.mk_and trans)], *)
+       (*       [Term.mk_let init_input_defs (Term.mk_and init)], *)
+       (*       [Term.mk_let trans_input_defs (Term.mk_and trans)], *)
        init,
        trans, 
        lifted_props, 
@@ -408,7 +408,7 @@ let rec definitions_of_node_calls
                     (E.has_pre_var E.base_offset d)
 
                   then 
-                    
+
                     (* Copy definition to sublist *)
                     aux ((sv, d) :: accum) tl l
 
@@ -429,21 +429,6 @@ let rec definitions_of_node_calls
 
       (* Predicate for initial state constraint *)
       let trans_uf_symbol = TransSys.trans_uf_symbol trans_sys in
-
-      (* Initial state value of activation condition *)
-      let act_cond_init = 
-        E.base_term_of_expr TransSys.init_base act_cond.E.expr_init 
-      in 
-
-      (* Step state value of activation condition *)
-      let act_cond_trans = 
-        E.cur_term_of_expr TransSys.trans_base act_cond.E.expr_step 
-      in 
-
-      (* Previous step state value of activation condition *)
-      let act_cond_trans_pre = 
-        E.pre_term_of_expr TransSys.trans_base act_cond.E.expr_step 
-      in
 
       (* Variables capturing the output of the node in the initial
          state *)
@@ -625,59 +610,281 @@ let rec definitions_of_node_calls
         guard_formula_init,
         guard_formula_trans = 
 
-        if 
+        match act_cond with 
 
           (* Activation condition of node is constant true *)
-          E.equal_expr act_cond E.t_true
+          | None ->
 
-        then 
+            (
 
-          (
+              (* Initial state values of default values *)
+              let init_terms_init = 
+                List.map 
+                  (function { E.expr_init } -> 
+                    E.base_term_of_expr TransSys.init_base expr_init) 
+                  init_exprs
+              in
 
-            (* Initial state values of default values *)
-            let init_terms_init = 
-              List.map 
-                (function { E.expr_init } -> 
-                  E.base_term_of_expr TransSys.init_base expr_init) 
-                init_exprs
+              (* Input for node call in initial state *)
+              let input_terms_init =
+                List.map
+                  (E.base_term_of_state_var TransSys.init_base)
+                  input_vars
+              in
+
+              (* Input for node call in step state *)
+              let input_terms_trans = 
+                List.map
+                  (E.cur_term_of_state_var TransSys.trans_base)
+                  input_vars
+              in
+
+              (* Input for node call in step state
+
+                 Skip over constant state variables *)
+              let input_terms_trans_pre = 
+                List.fold_right2
+                  (fun sv sv' accum -> 
+                     if StateVar.is_const sv then 
+                       accum 
+                     else
+                       E.pre_term_of_state_var TransSys.trans_base sv' :: accum)  
+                  inputs
+                  input_vars
+                  []
+              in
+
+              (* Arguments for node call in initial state *)
+              let init_call_args = 
+                [ TransSys.init_flag_var TransSys.init_base
+                  |> Term.mk_var ] @
+
+                (* Current state input variables *)
+                input_terms_init @ 
+
+                (* Current state output variables *)
+                output_terms_init @ 
+
+                (* Current state output variables *)
+                observer_terms_init @ 
+
+                (* Current state local variables *)
+                call_local_vars_init
+
+              in
+
+              (* Arguments for node call in transition relation *)
+              let trans_call_args = 
+                [ TransSys.init_flag_var TransSys.trans_base
+                  |> Term.mk_var ] @
+
+                (* Current state input variables *)
+                input_terms_trans @ 
+
+                (* Current state output variables *)
+                output_terms_trans @ 
+
+                (* Current state output variables *)
+                observer_terms_trans @ 
+
+                (* Current state local variables *)
+                call_local_vars_trans @
+
+                [ TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
+                  |> Term.mk_var ] @
+
+                (* Previous state input variables *)
+                input_terms_trans_pre @
+
+                (* Previous state output variables *)
+                output_terms_trans_pre @
+
+                (* Previous state output variables *)
+                observer_terms_trans_pre @
+
+                (* Previous state local variables *)
+                call_local_vars_trans_pre  
+
+              in
+
+              (* Constraint for node call in initial state *)
+              let init_call = 
+                Term.mk_uf init_uf_symbol init_call_args 
+              in
+
+              (* Constraint for node call in transition relation *)
+              let trans_call = 
+                Term.mk_uf trans_uf_symbol trans_call_args 
+              in
+
+              (* Add input variables to map *)
+              let state_var_map = 
+                List.fold_left2
+                  (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
+                  state_var_map
+                  inputs
+                  input_vars
+              in
+
+              (* No guards needed without activation condition *)
+              let id = function t -> t in
+
+              (* Return predicates unguarded *)
+              local_vars', 
+              init_call, 
+              trans_call, 
+              lifted_props @ lifted_props',
+              state_var_map,
+              id,
+              id
+
+
+            )
+
+          | Some act_cond_state_var ->
+
+            (* Initial state value of activation condition *)
+            let act_cond_init = 
+              E.base_term_of_state_var TransSys.init_base act_cond_state_var
+            in 
+
+            (* Step state value of activation condition *)
+            let act_cond_trans = 
+              E.cur_term_of_state_var TransSys.trans_base act_cond_state_var 
+            in 
+
+            (* Previous step state value of activation condition *)
+            let act_cond_trans_pre = 
+              E.pre_term_of_state_var TransSys.trans_base act_cond_state_var 
             in
 
-            (* Input for node call in initial state *)
-            let input_terms_init =
-              List.map
-                (E.base_term_of_state_var TransSys.init_base)
+            (* Create fresh state variable for node call *)
+            let ticked_state_var = mk_ticked_state_var () in
+
+            (* State variable to mark if clock has ever ticked in the
+               initial state *)
+            let ticked_init =
+              E.base_term_of_state_var TransSys.init_base ticked_state_var 
+            in
+
+            (* State variable to mark if clock has ever ticked in the
+               current state *)
+            let ticked_trans =
+              E.cur_term_of_state_var TransSys.trans_base ticked_state_var 
+            in
+
+            (* State variable to mark if clock has ever ticked in the
+               previous state *)
+            let ticked_trans_pre =
+              E.pre_term_of_state_var TransSys.trans_base ticked_state_var 
+            in
+
+            (* Create shadow variable for each non-constant input *)
+            let 
+
+              (* Add shadow state variable to local variables, return
+                 term at previous instant, equation with corresponding
+                 inputs, and equation with previous state value *)
+              (local_vars'',
+               input_shadow_vars,
+               input_shadow_terms_init, 
+               input_shadow_terms_trans,
+               input_shadow_terms_trans_pre, 
+               propagate_inputs, 
+               propagate_inputs_init, 
+               interpolate_inputs) =
+
+              List.fold_right
+                (fun
+                  sv
+                  ((local_vars'',
+                    input_shadow_vars,
+                    input_shadow_terms_init, 
+                    input_shadow_terms_trans,
+                    input_shadow_terms_trans_pre, 
+                    propagate_inputs, 
+                    propagate_inputs_init, 
+                    interpolate_inputs) as accum) -> 
+
+                  (* Skip over constant inputs *)
+                  if StateVar.is_const sv then
+
+                    (local_vars'',
+                     sv :: input_shadow_vars,
+                     E.base_term_of_state_var TransSys.init_base sv :: input_shadow_terms_init,
+                     E.cur_term_of_state_var TransSys.trans_base sv :: input_shadow_terms_trans,
+                     input_shadow_terms_trans_pre,
+                     propagate_inputs,
+                     propagate_inputs_init,
+                     interpolate_inputs)
+
+                  else
+
+                    (* Create fresh shadow variable for input *)
+                    let sv' = 
+                      mk_new_state_var
+                        ~for_inv_gen:true
+                        (StateVar.type_of_state_var sv) 
+                    in
+
+                    (* Do not use shadowed state variable in invariant
+                       generation *)
+                    StateVar.set_for_inv_gen false sv;
+
+                    (* State variable is locally created *)
+                    E.set_state_var_source sv' E.Abstract;
+
+                    (* Shadow variable at init. *)
+                    let ti = E.base_term_of_state_var TransSys.init_base sv' in
+
+                    (* Shadow variable at current instant *)
+                    let t = E.cur_term_of_state_var TransSys.trans_base sv' in 
+                    (* Shadow variable at previous instant *)
+                    let tp = E.pre_term_of_state_var TransSys.trans_base sv' in
+
+                    (* Shadow variable takes value of input *)
+                    let p = 
+                      Term.mk_eq
+                        [E.cur_term_of_state_var TransSys.trans_base sv'; 
+                         E.cur_term_of_state_var TransSys.trans_base sv]
+                    in
+
+                    (* Shadow variable takes value of input *)
+                    let p_i = 
+                      Term.mk_eq
+                        [E.base_term_of_state_var TransSys.init_base sv'; 
+                         E.base_term_of_state_var TransSys.init_base sv]
+                    in
+
+                    (* Shadow variable takes its previous value *)
+                    let i = 
+                      Term.mk_eq
+                        [E.cur_term_of_state_var TransSys.trans_base sv'; 
+                         E.pre_term_of_state_var TransSys.trans_base sv']
+                    in
+
+                    (* Add shadow variable and equations to accumulator *)
+                    (sv' :: local_vars'',
+                     sv' :: input_shadow_vars,
+                     ti :: input_shadow_terms_init,
+                     t :: input_shadow_terms_trans,
+                     tp :: input_shadow_terms_trans_pre,
+                     p :: propagate_inputs, 
+                     p_i :: propagate_inputs_init, 
+                     i :: interpolate_inputs))
                 input_vars
+                (local_vars', [], [], [], [], [], [], [])
+
             in
 
-            (* Input for node call in step state *)
-            let input_terms_trans = 
-              List.map
-                (E.cur_term_of_state_var TransSys.trans_base)
-                input_vars
-            in
-
-            (* Input for node call in step state
-
-               Skip over constant state variables *)
-            let input_terms_trans_pre = 
-              List.fold_right2
-                (fun sv sv' accum -> 
-                   if StateVar.is_const sv then 
-                     accum 
-                   else
-                     E.pre_term_of_state_var TransSys.trans_base sv' :: accum)  
-                inputs
-                input_vars
-                []
-            in
-
-            (* Arguments for node call in initial state *)
-            let init_call_args = 
+            (* Arguments for node call in initial state constraint
+               with state variables at init. *)
+            let init_call_init_args = 
               [ TransSys.init_flag_var TransSys.init_base
                 |> Term.mk_var ] @
 
               (* Current state input variables *)
-              input_terms_init @ 
+              input_shadow_terms_init @
 
               (* Current state output variables *)
               output_terms_init @ 
@@ -690,13 +897,43 @@ let rec definitions_of_node_calls
 
             in
 
+            (* Arguments for node call in initial state constraint
+               with state variables at next trans *)
+            let init_call_trans_args = 
+              [ TransSys.init_flag_var TransSys.trans_base
+                |> Term.mk_var ] @
+
+              (* Current state input variables *)
+              input_shadow_terms_trans @
+
+              (* Current state output variables *)
+              output_terms_trans @ 
+
+              (* Current state output variables *)
+              observer_terms_trans @ 
+
+              (* Current state local variables *)
+              call_local_vars_trans 
+
+            in
+
+            (* Constraint for node call in initial state *)
+            let init_call_init =
+              Term.mk_uf init_uf_symbol init_call_init_args 
+            in
+
+            (* Constraint for node call in trans *)
+            let init_call_trans =
+              Term.mk_uf init_uf_symbol init_call_trans_args 
+            in
+
             (* Arguments for node call in transition relation *)
             let trans_call_args = 
               [ TransSys.init_flag_var TransSys.trans_base
                 |> Term.mk_var ] @
 
               (* Current state input variables *)
-              input_terms_trans @ 
+              input_shadow_terms_trans @ 
 
               (* Current state output variables *)
               output_terms_trans @ 
@@ -711,7 +948,7 @@ let rec definitions_of_node_calls
                 |> Term.mk_var ] @
 
               (* Previous state input variables *)
-              input_terms_trans_pre @
+              input_shadow_terms_trans_pre @
 
               (* Previous state output variables *)
               output_terms_trans_pre @
@@ -724,247 +961,8 @@ let rec definitions_of_node_calls
 
             in
 
-            (* Constraint for node call in initial state *)
-            let init_call = 
-              Term.mk_uf init_uf_symbol init_call_args 
-            in
-
             (* Constraint for node call in transition relation *)
-            let trans_call = 
-              Term.mk_uf trans_uf_symbol trans_call_args 
-            in
-
-            (* Add input variables to map *)
-            let state_var_map = 
-              List.fold_left2
-                (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
-                state_var_map
-                inputs
-                input_vars
-            in
-
-            (* No guards needed without activation condition *)
-            let id = function t -> t in
-
-            (* Return predicates unguarded *)
-            local_vars', 
-            init_call, 
-            trans_call, 
-            lifted_props @ lifted_props',
-            state_var_map,
-            id,
-            id
-
-
-          )
-
-        else
-
-          (* Create fresh state variable for node call *)
-          let ticked_state_var = mk_ticked_state_var () in
-
-          (* State variable to mark if clock has ever ticked in the
-             initial state *)
-          let ticked_init =
-            E.base_term_of_state_var TransSys.init_base ticked_state_var 
-          in
-
-          (* State variable to mark if clock has ever ticked in the
-             current state *)
-          let ticked_trans =
-            E.cur_term_of_state_var TransSys.trans_base ticked_state_var 
-          in
-
-          (* State variable to mark if clock has ever ticked in the
-             previous state *)
-          let ticked_trans_pre =
-            E.pre_term_of_state_var TransSys.trans_base ticked_state_var 
-          in
-
-          (* Create shadow variable for each non-constant input *)
-          let 
-
-            (* Add shadow state variable to local variables, return
-               term at previous instant, equation with corresponding
-               inputs, and equation with previous state value *)
-            (local_vars'',
-             input_shadow_vars,
-             input_shadow_terms_init, 
-             input_shadow_terms_trans,
-             input_shadow_terms_trans_pre, 
-             propagate_inputs, 
-             propagate_inputs_init, 
-             interpolate_inputs) =
-
-            List.fold_right
-              (fun
-                sv
-                ((local_vars'',
-                  input_shadow_vars,
-                  input_shadow_terms_init, 
-                  input_shadow_terms_trans,
-                  input_shadow_terms_trans_pre, 
-                  propagate_inputs, 
-                  propagate_inputs_init, 
-                  interpolate_inputs) as accum) -> 
-
-                (* Skip over constant inputs *)
-                if StateVar.is_const sv then
-
-                  (local_vars'',
-                   sv :: input_shadow_vars,
-                   E.base_term_of_state_var TransSys.init_base sv :: input_shadow_terms_init,
-                   E.cur_term_of_state_var TransSys.trans_base sv :: input_shadow_terms_trans,
-                   input_shadow_terms_trans_pre,
-                   propagate_inputs,
-                   propagate_inputs_init,
-                   interpolate_inputs)
-
-                else
-
-                  (* Create fresh shadow variable for input *)
-                  let sv' = 
-                    mk_new_state_var
-                      ~for_inv_gen:true
-                      (StateVar.type_of_state_var sv) 
-                  in
-
-                  (* Do not use shadowed state variable in invariant
-                     generation *)
-                  StateVar.set_for_inv_gen false sv;
-
-                  (* State variable is locally created *)
-                  E.set_state_var_source sv' E.Abstract;
-
-                  (* Shadow variable at init. *)
-                  let ti = E.base_term_of_state_var TransSys.init_base sv' in
-
-                  (* Shadow variable at current instant *)
-                  let t = E.cur_term_of_state_var TransSys.trans_base sv' in 
-                  (* Shadow variable at previous instant *)
-                  let tp = E.pre_term_of_state_var TransSys.trans_base sv' in
-
-                  (* Shadow variable takes value of input *)
-                  let p = 
-                    Term.mk_eq
-                      [E.cur_term_of_state_var TransSys.trans_base sv'; 
-                       E.cur_term_of_state_var TransSys.trans_base sv]
-                  in
-
-                  (* Shadow variable takes value of input *)
-                  let p_i = 
-                    Term.mk_eq
-                      [E.base_term_of_state_var TransSys.init_base sv'; 
-                       E.base_term_of_state_var TransSys.init_base sv]
-                  in
-
-                  (* Shadow variable takes its previous value *)
-                  let i = 
-                    Term.mk_eq
-                      [E.cur_term_of_state_var TransSys.trans_base sv'; 
-                       E.pre_term_of_state_var TransSys.trans_base sv']
-                  in
-
-                  (* Add shadow variable and equations to accumulator *)
-                  (sv' :: local_vars'',
-                   sv' :: input_shadow_vars,
-                   ti :: input_shadow_terms_init,
-                   t :: input_shadow_terms_trans,
-                   tp :: input_shadow_terms_trans_pre,
-                   p :: propagate_inputs, 
-                   p_i :: propagate_inputs_init, 
-                   i :: interpolate_inputs))
-              input_vars
-              (local_vars', [], [], [], [], [], [], [])
-
-          in
-
-          (* Arguments for node call in initial state constraint
-             with state variables at init. *)
-          let init_call_init_args = 
-            [ TransSys.init_flag_var TransSys.init_base
-              |> Term.mk_var ] @
-
-            (* Current state input variables *)
-            input_shadow_terms_init @
-
-            (* Current state output variables *)
-            output_terms_init @ 
-
-            (* Current state output variables *)
-            observer_terms_init @ 
-
-            (* Current state local variables *)
-            call_local_vars_init
-
-          in
-
-          (* Arguments for node call in initial state constraint
-             with state variables at next trans *)
-          let init_call_trans_args = 
-            [ TransSys.init_flag_var TransSys.trans_base
-              |> Term.mk_var ] @
-
-            (* Current state input variables *)
-            input_shadow_terms_trans @
-
-            (* Current state output variables *)
-            output_terms_trans @ 
-
-            (* Current state output variables *)
-            observer_terms_trans @ 
-
-            (* Current state local variables *)
-            call_local_vars_trans 
-
-          in
-
-          (* Constraint for node call in initial state *)
-          let init_call_init =
-            Term.mk_uf init_uf_symbol init_call_init_args 
-          in
-
-          (* Constraint for node call in trans *)
-          let init_call_trans =
-            Term.mk_uf init_uf_symbol init_call_trans_args 
-          in
-
-          (* Arguments for node call in transition relation *)
-          let trans_call_args = 
-            [ TransSys.init_flag_var TransSys.trans_base
-              |> Term.mk_var ] @
-
-            (* Current state input variables *)
-            input_shadow_terms_trans @ 
-
-            (* Current state output variables *)
-            output_terms_trans @ 
-
-            (* Current state output variables *)
-            observer_terms_trans @ 
-
-            (* Current state local variables *)
-            call_local_vars_trans @
-
-            [ TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
-              |> Term.mk_var ] @
-
-            (* Previous state input variables *)
-            input_shadow_terms_trans_pre @
-
-            (* Previous state output variables *)
-            output_terms_trans_pre @
-
-            (* Previous state output variables *)
-            observer_terms_trans_pre @
-
-            (* Previous state local variables *)
-            call_local_vars_trans_pre  
-
-          in
-
-          (* Constraint for node call in transition relation *)
-          let trans_call = Term.mk_uf trans_uf_symbol trans_call_args in
+            let trans_call = Term.mk_uf trans_uf_symbol trans_call_args in
 
 (*
           debug lustreTransSys
@@ -980,151 +978,151 @@ let rec definitions_of_node_calls
           in
 *)
 
-          (* Add input variables to map *)
-          let state_var_map = 
-            List.fold_left2
-              (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
-              state_var_map
-              inputs
-              input_shadow_vars
-          in
+            (* Add input variables to map *)
+            let state_var_map = 
+              List.fold_left2
+                (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
+                state_var_map
+                inputs
+                input_shadow_vars
+            in
 
-          (* Guard formula with activation condition *)
-          let guard_formula_init = 
-            function t ->  
-              Term.mk_implies [act_cond_init; t]
-          in
+            (* Guard formula with activation condition *)
+            let guard_formula_init = 
+              function t ->  
+                Term.mk_implies [act_cond_init; t]
+            in
 
-          (* Guard formula with activation condition *)
-          let guard_formula_trans = 
-            function t ->
-              (* Hi, this is your good friend
-                 Adrien-from-the-past. Haven't slept much so I might
-                 do things stupidier than usual. I'm hacking this
-                 thing, the previous version is: *)
-              (* Term.mk_implies [act_cond_trans; t] *)
+            (* Guard formula with activation condition *)
+            let guard_formula_trans = 
+              function t ->
+                (* Hi, this is your good friend
+                   Adrien-from-the-past. Haven't slept much so I might
+                   do things stupidier than usual. I'm hacking this
+                   thing, the previous version is: *)
+                (* Term.mk_implies [act_cond_trans; t] *)
 
-              (* Now here is how I mess up everything. *)
-              Term.mk_implies [
-                Term.mk_and
-                  [ (* So first of all, I'm using act_cond@0. I hope
-                       you don't mind. Actually I know you do but let
-                       me go ahead and do it anyway. *)
-                    act_cond_trans_pre ;
-                    (* Now I'm really gonna piss you off. I need
-                       ticked@-1, so I take the version at 0 and
-                       negatively bump it. I can almost hear you
-                       cry. *)
-                    Term.bump_state
-                      Numeral.(~- one)
-                      ticked_trans_pre ] ;
-                (* Well that's pretty much it. By the way you other
-                   good friend
-                   Adrien-from-the-future-for-me-but-present-for-you
-                   is totally not responsible for this. He would never
-                   do such a thing. *)
-                t
-              ]
-          in
-
-          (* Local variables extended by state variable indicating if
-             node has ticked once *)
-          (ticked_state_var :: local_vars'',
-
-           Term.mk_and
-
-             (* Initial state constraint *)
-             [
-
-               (* Equation for ticked state variable *)
-               Term.mk_eq [ticked_init; act_cond_init];
-
-               (* Propagate input values to shadow variable on clock tick *)
-               Term.mk_implies 
-                 [act_cond_init; Term.mk_and propagate_inputs_init];
-
-               (* Initial state constraint with true activation
-                  condition *)
-               Term.mk_implies [act_cond_init; init_call_init];
-
-               (* Initial state constraint with false activation
-                  condition *)
-               Term.mk_implies 
-                 [Term.mk_not act_cond_init;
+                (* Now here is how I mess up everything. *)
+                Term.mk_implies [
                   Term.mk_and
-                    (List.fold_left2 
-                       (fun accum state_var { E.expr_init } ->
-                          Term.mk_eq 
-                            [E.base_term_of_state_var
-                               TransSys.init_base
-                               state_var; 
-                             E.base_term_of_expr
-                               TransSys.init_base
-                               expr_init] :: 
-                          accum)
-                       []
-                       (output_vars @ observer_vars)
-                       (init_exprs @ 
-                        (List.map (fun _ -> E.t_true) observer_vars)))]
+                    [ (* So first of all, I'm using act_cond@0. I hope
+                         you don't mind. Actually I know you do but let
+                         me go ahead and do it anyway. *)
+                      act_cond_trans_pre ;
+                      (* Now I'm really gonna piss you off. I need
+                         ticked@-1, so I take the version at 0 and
+                         negatively bump it. I can almost hear you
+                         cry. *)
+                      Term.bump_state
+                        Numeral.(~- one)
+                        ticked_trans_pre ] ;
+                  (* Well that's pretty much it. By the way you other
+                     good friend
+                     Adrien-from-the-future-for-me-but-present-for-you
+                     is totally not responsible for this. He would never
+                     do such a thing. *)
+                  t
+                ]
+            in
 
-             ],
+            (* Local variables extended by state variable indicating if
+               node has ticked once *)
+            (ticked_state_var :: local_vars'',
 
-           (* Transition relation *)
-           Term.mk_and
+             Term.mk_and
 
-             [
+               (* Initial state constraint *)
+               [
 
-               (* State variable is false if the clock has not ticked before *)
-               Term.mk_eq 
-                 [ticked_trans;
-                  Term.mk_or [act_cond_trans; ticked_trans_pre]];
+                 (* Equation for ticked state variable *)
+                 Term.mk_eq [ticked_init; act_cond_init];
 
-               (* Propagate input values to shadow variable on clock tick *)
-               Term.mk_implies 
-                 [act_cond_trans; Term.mk_and propagate_inputs];
+                 (* Propagate input values to shadow variable on clock tick *)
+                 Term.mk_implies 
+                   [act_cond_init; Term.mk_and propagate_inputs_init];
 
-               (* Interpolate input values in shadow variable between
-                  clock ticks *)
-               Term.mk_implies 
-                 [Term.mk_not act_cond_trans; Term.mk_and interpolate_inputs];
+                 (* Initial state constraint with true activation
+                    condition *)
+                 Term.mk_implies [act_cond_init; init_call_init];
 
-               (* Transition relation with true activation condition
-                  on the first clock tick *)
-               Term.mk_implies
-                 [Term.mk_and 
-                    [act_cond_trans; Term.mk_not ticked_trans_pre];
-                  init_call_trans];
+                 (* Initial state constraint with false activation
+                    condition *)
+                 Term.mk_implies 
+                   [Term.mk_not act_cond_init;
+                    Term.mk_and
+                      (List.fold_left2 
+                         (fun accum state_var { E.expr_init } ->
+                            Term.mk_eq 
+                              [E.base_term_of_state_var
+                                 TransSys.init_base
+                                 state_var; 
+                               E.base_term_of_expr
+                                 TransSys.init_base
+                                 expr_init] :: 
+                            accum)
+                         []
+                         (output_vars @ observer_vars)
+                         (init_exprs @ 
+                          (List.map (fun _ -> E.t_true) observer_vars)))]
 
-               (* Transition relation with true activation condition
-                  on following clock ticks *)
-               Term.mk_implies
-                 [Term.mk_and 
-                    [act_cond_trans; ticked_trans_pre];
-                  trans_call];
+               ],
 
-               (* Transition relation with false activation condition *)
-               Term.mk_implies 
-                 [Term.mk_not act_cond_trans;
-                  Term.mk_and 
-                    (List.fold_left
-                       (fun accum state_var ->
-                          Term.mk_eq 
-                            [E.cur_term_of_state_var
-                               TransSys.trans_base 
-                               state_var; 
-                             E.pre_term_of_state_var
-                               TransSys.trans_base
-                               state_var] :: 
-                          accum)
-                       []
-                       (output_vars @ observer_vars @ call_local_vars))];
+             (* Transition relation *)
+             Term.mk_and
 
-             ],
+               [
 
-           lifted_props @ lifted_props',
-           state_var_map,
-           guard_formula_init,
-           guard_formula_trans)
+                 (* State variable is false if the clock has not ticked before *)
+                 Term.mk_eq 
+                   [ticked_trans;
+                    Term.mk_or [act_cond_trans; ticked_trans_pre]];
+
+                 (* Propagate input values to shadow variable on clock tick *)
+                 Term.mk_implies 
+                   [act_cond_trans; Term.mk_and propagate_inputs];
+
+                 (* Interpolate input values in shadow variable between
+                    clock ticks *)
+                 Term.mk_implies 
+                   [Term.mk_not act_cond_trans; Term.mk_and interpolate_inputs];
+
+                 (* Transition relation with true activation condition
+                    on the first clock tick *)
+                 Term.mk_implies
+                   [Term.mk_and 
+                      [act_cond_trans; Term.mk_not ticked_trans_pre];
+                    init_call_trans];
+
+                 (* Transition relation with true activation condition
+                    on following clock ticks *)
+                 Term.mk_implies
+                   [Term.mk_and 
+                      [act_cond_trans; ticked_trans_pre];
+                    trans_call];
+
+                 (* Transition relation with false activation condition *)
+                 Term.mk_implies 
+                   [Term.mk_not act_cond_trans;
+                    Term.mk_and 
+                      (List.fold_left
+                         (fun accum state_var ->
+                            Term.mk_eq 
+                              [E.cur_term_of_state_var
+                                 TransSys.trans_base 
+                                 state_var; 
+                               E.pre_term_of_state_var
+                                 TransSys.trans_base
+                                 state_var] :: 
+                            accum)
+                         []
+                         (output_vars @ observer_vars @ call_local_vars))];
+
+               ],
+
+             lifted_props @ lifted_props',
+             state_var_map,
+             guard_formula_init,
+             guard_formula_trans)
 
       in
 
