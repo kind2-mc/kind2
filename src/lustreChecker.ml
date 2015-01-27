@@ -19,14 +19,6 @@
 open Lib
 
 
-(* Use configured SMT solver *)
-module PDRSolver = SMTSolver.Make (SMTLIBSolver)
-
-
-(* High-level methods for PDR solver *)
-module S = SolverMethods.Make (PDRSolver)
-
-
 let pp_print_position ppf 
     { Lexing.pos_fname;
       Lexing.pos_lnum;
@@ -152,28 +144,28 @@ let main () =
 
     (* Create solver instance *)
     let solver = 
-      S.new_solver
-        ~produce_models:true
+      SMTSolver.new_solver
         ~produce_assignments:true 
         `QF_UFLIA
+        (Flags.smtsolver ())
     in
 
     List.iter
-      (S.declare_fun solver)
+      (SMTSolver.declare_fun solver)
       (TransSys.uf_symbols_of_trans_sys trans_sys);
 
     List.iter 
-      (fun (u, (v, t)) -> S.define_fun solver u v t)
+      (fun (u, (v, t)) -> SMTSolver.define_fun solver u v t)
       fun_defs;
 
-    S.assert_term solver init;
+    SMTSolver.assert_term solver init;
 
-    S.assert_term solver trans;
+    SMTSolver.assert_term solver trans;
 
-    (if S.check_sat solver then 
+    (if SMTSolver.check_sat solver then 
        
        let val_0 = 
-         S.get_model
+         SMTSolver.get_model
            solver
            (List.map
               (fun sv -> Var.mk_state_var_instance sv Numeral.zero)
@@ -181,7 +173,7 @@ let main () =
        in
 
        let val_1 = 
-         S.get_model
+         SMTSolver.get_model
            solver
            (List.map
               (fun sv -> Var.mk_state_var_instance sv Numeral.one)

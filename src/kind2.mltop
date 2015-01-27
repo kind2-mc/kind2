@@ -19,6 +19,9 @@ Type
 TermAttr
 Term
 
+LustreIdent
+LustreExpr
+LustreAst
 TransSys
 
 Messaging
@@ -32,8 +35,8 @@ SExprLexer
 SMTExpr
 SMTSolver
 SMTLIBSolver
-SMTLIB1Solver
-SolverMethods
+YicesNative
+
 
 Literal
 Clause

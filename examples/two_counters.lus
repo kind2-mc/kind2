@@ -21,7 +21,7 @@ let
   b = greycounter(reset);
   d = intcounter(reset, 3);
   OK = b = d;
-  -- OK2 = not d;
+  OK2 = not d;
   --%PROPERTY OK;
-  -- --%PROPERTY OK2;
+  --%PROPERTY OK2;
 tel
