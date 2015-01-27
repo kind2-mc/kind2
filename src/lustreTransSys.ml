@@ -430,6 +430,25 @@ let rec definitions_of_node_calls
       (* Predicate for initial state constraint *)
       let trans_uf_symbol = TransSys.trans_uf_symbol trans_sys in
 
+      (* Initial state value of the trans sys init flag. *)
+      let init_flag_init =
+        TransSys.init_flag_var TransSys.init_base
+        |> Term.mk_var
+      in
+
+      (* Step state value of the init flag in the current state. *)
+      let init_flag_trans =
+        TransSys.init_flag_var TransSys.trans_base
+        |> Term.mk_var
+      in
+
+      (* Step state value of the init flag in the current state. *)
+      let init_flag_trans_pre =
+        TransSys.init_flag_var
+          Numeral.(pred TransSys.trans_base)
+        |> Term.mk_var
+      in
+
       (* Initial state value of activation condition *)
       let act_cond_init = 
         E.base_term_of_expr TransSys.init_base act_cond.E.expr_init 
@@ -441,8 +460,14 @@ let rec definitions_of_node_calls
       in 
 
       (* Previous step state value of activation condition *)
-      let act_cond_trans_pre = 
-        E.pre_term_of_expr TransSys.trans_base act_cond.E.expr_step 
+      let act_cond_trans_pre =
+        (* E.pre_term_of_expr TransSys.trans_base act_cond.E.expr_step *)
+        Term.mk_or
+          [ Term.mk_and [ init_flag_trans_pre ; act_cond_init ] ;
+            Term.mk_and
+              [ Term.mk_not init_flag_trans_pre ;
+                E.pre_term_of_expr
+                  TransSys.trans_base act_cond.E.expr_step ] ]
       in
 
       (* Variables capturing the output of the node in the initial
@@ -673,8 +698,7 @@ let rec definitions_of_node_calls
 
             (* Arguments for node call in initial state *)
             let init_call_args = 
-              [ TransSys.init_flag_var TransSys.init_base
-                |> Term.mk_var ] @
+              [ init_flag_init ] @
 
               (* Current state input variables *)
               input_terms_init @ 
@@ -692,8 +716,7 @@ let rec definitions_of_node_calls
 
             (* Arguments for node call in transition relation *)
             let trans_call_args = 
-              [ TransSys.init_flag_var TransSys.trans_base
-                |> Term.mk_var ] @
+              [ init_flag_trans ] @
 
               (* Current state input variables *)
               input_terms_trans @ 
@@ -707,8 +730,7 @@ let rec definitions_of_node_calls
               (* Current state local variables *)
               call_local_vars_trans @
 
-              [ TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
-                |> Term.mk_var ] @
+              [ init_flag_trans_pre ] @
 
               (* Previous state input variables *)
               input_terms_trans_pre @
@@ -770,7 +792,8 @@ let rec definitions_of_node_calls
           in
 
           (* State variable to mark if clock has ever ticked in the
-             current state *)
+             past. Changes to true the state AFTER the first clock
+             tick. *)
           let ticked_trans =
             E.cur_term_of_state_var TransSys.trans_base ticked_state_var 
           in
@@ -879,11 +902,30 @@ let rec definitions_of_node_calls
 
           in
 
+          (* Init flag for trans call. *)
+          let cond_act_init_flag_trans =
+            Term.mk_and
+              [ act_cond_trans ;
+                Term.mk_not ticked_trans ]
+          in
+
+          (* Init flag in the previous state for trans call. *)
+          let cond_act_init_flag_trans_pre =
+            Term.mk_and
+              [ act_cond_trans_pre ;
+                Term.mk_not ticked_trans_pre ]
+          in
+
+          (* Init flag for the init call. *)
+          let cond_act_init_flag_init =
+            act_cond_init
+            (* cond_act_init_flag_trans_pre *)
+          in
+
           (* Arguments for node call in initial state constraint
              with state variables at init. *)
           let init_call_init_args = 
-            [ TransSys.init_flag_var TransSys.init_base
-              |> Term.mk_var ] @
+            [ cond_act_init_flag_init ] @
 
             (* Current state input variables *)
             input_shadow_terms_init @
@@ -902,15 +944,14 @@ let rec definitions_of_node_calls
           (* Arguments for node call in initial state constraint
              with state variables at next trans *)
           let init_call_trans_args =
-            (* The init flag has no meaning in a call to init at next
-               trans. For the subsystem, it is true. *)
-            [ Term.t_true ] @
+            (* Init flag for condact. *)
+            [ cond_act_init_flag_trans ] @
 
             (* Current state input variables *)
             input_shadow_terms_trans @
 
             (* Current state output variables *)
-            output_terms_trans @ 
+            output_terms_trans @
 
             (* Current state output variables *)
             observer_terms_trans @ 
@@ -932,8 +973,9 @@ let rec definitions_of_node_calls
 
           (* Arguments for node call in transition relation *)
           let trans_call_args = 
-            [ TransSys.init_flag_var TransSys.trans_base
-              |> Term.mk_var ] @
+            (* [ TransSys.init_flag_var TransSys.trans_base *)
+            (*   |> Term.mk_var ] @ *)
+            [ cond_act_init_flag_trans ] @
 
             (* Current state input variables *)
             input_shadow_terms_trans @ 
@@ -947,8 +989,11 @@ let rec definitions_of_node_calls
             (* Current state local variables *)
             call_local_vars_trans @
 
-            [ TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
-              |> Term.mk_var ] @
+            (* [ TransSys.init_flag_var *)
+            (*     Numeral.(pred TransSys.trans_base) *)
+            (*   |> Term.mk_var ] @ *)
+
+            [ cond_act_init_flag_trans_pre ] @
 
             (* Previous state input variables *)
             input_shadow_terms_trans_pre @
@@ -965,7 +1010,9 @@ let rec definitions_of_node_calls
           in
 
           (* Constraint for node call in transition relation *)
-          let trans_call = Term.mk_uf trans_uf_symbol trans_call_args in
+          let trans_call =
+            Term.mk_uf trans_uf_symbol trans_call_args
+          in
 
 (*
           debug lustreTransSys
@@ -1076,12 +1123,12 @@ let rec definitions_of_node_calls
              [
 
                (* State variable is false if the clock has not ticked before *)
-               Term.mk_eq 
+               Term.mk_eq
                  [ticked_trans;
-                  Term.mk_or [act_cond_trans; ticked_trans_pre]];
+                  Term.mk_or [act_cond_trans_pre; ticked_trans_pre]];
 
                (* Propagate input values to shadow variable on clock tick *)
-               Term.mk_implies 
+               Term.mk_implies
                  [act_cond_trans; Term.mk_and propagate_inputs];
 
                (* Interpolate input values in shadow variable between
@@ -1093,14 +1140,14 @@ let rec definitions_of_node_calls
                   on the first clock tick *)
                Term.mk_implies
                  [Term.mk_and 
-                    [act_cond_trans; Term.mk_not ticked_trans_pre];
+                    [act_cond_trans; Term.mk_not ticked_trans];
                   init_call_trans];
 
                (* Transition relation with true activation condition
                   on following clock ticks *)
                Term.mk_implies
                  [Term.mk_and 
-                    [act_cond_trans; ticked_trans_pre];
+                    [act_cond_trans; ticked_trans];
                   trans_call];
 
                (* Transition relation with false activation condition *)
@@ -1111,7 +1158,7 @@ let rec definitions_of_node_calls
                        (fun accum state_var ->
                           Term.mk_eq 
                             [E.cur_term_of_state_var
-                               TransSys.trans_base 
+                               TransSys.trans_base
                                state_var; 
                              E.pre_term_of_state_var
                                TransSys.trans_base
