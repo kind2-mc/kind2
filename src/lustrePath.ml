@@ -263,6 +263,10 @@ let rec tree_path_of_model model =
   (* Add state variables to node or to node calls *)
   let fold_state_var (stream_map, call_map) (state_var, terms) =
 
+    Format.printf
+      "Looking for %a@."
+      StateVar.pp_print_state_var state_var ;
+
     (* Get source of state variable *)
     let src = E.get_state_var_source state_var in
 
