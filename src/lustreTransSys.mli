@@ -87,6 +87,59 @@
     node calls. Equational definitions of not stateful variable are
     substituted by binding the variable to a [let] definition.
 
+
+    {2 Condact Encoding}
+
+    If a node call has an activation condition that is not the constant
+    true, additional fresh variables are generated. One variable is
+    initially false and becomes and remains true on the first time the
+    activation condition is true. Further, all input variables are
+    duplicated to shadow input variables that freeze the input values
+    at the last instant the activation condition has been true.
+
+    The [first_tick] flag is [true] from the first state up to the
+    state when the clock first ticks, including that state. After that
+    state, the flag is false forever.
+    For example:
+    {[ state      0     1     2    3     4     5     ...
+       clock      false false true false true  false ...
+       first_tick true  true  true false false false ... ]}
+    Thus [clock and first_tick] is true when and only when clock ticks
+    for the first time.
+
+
+    The initial state constraint of the called node is a conjunction of
+    formulas representing the following:
+    - the first_tick flag is true (see paragraph above),
+    - the shadow input variables take the values of the actual input
+      variables if the activation condition is true, and
+    - the initial state predicate of the called node with the
+      parameters as above, except for the input variables that are
+      replaced by the shadow input variables.
+
+    The transition relation of the called node is a conjunction of
+    formulas representing the following facts:
+
+    - the first_tick flag is true in the current state iff it was
+      true in the previous instant and the activation condition was
+      false in the previous instant.
+
+    - the shadow input variables in the next state take the values of
+      the actual input variables if the activation condition is true,
+      and their previous values if the activation condition is false.
+
+    - the initial state predicate of the called node with the
+      parameters as above, except for the input variables that are
+      replaced by the shadow input variables, if the activation
+      condition is true in the next step and the first_tick flag is
+      true in the next step, and
+
+    - the transition relation predicate of the called node with the
+      parameters as above, except for the input variables that are
+      replaced by the shadow input variables, if the activation
+      condition is true and the first_tick flag is false in the next
+      step.
+
     @author Christoph Sticksel *)
 
 (** *)
