@@ -1021,8 +1021,7 @@ let rec definitions_of_node_calls
 
             (* Guard formula with activation condition *)
             let guard_formula = 
-              function t ->  
-                Term.mk_implies [act_cond_init; t]
+              function t -> Term.mk_implies [act_cond_init; t]
             in
 
             (* Local variables extended by state variable indicating if

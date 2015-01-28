@@ -1927,8 +1927,8 @@ and eval_node_call
       let state_var, new_vars' = 
         mk_state_var_for_expr
           false
-          abstractions.new_vars
-          cond 
+          abstractions'.new_vars
+          cond
       in
 
       E.set_state_var_source state_var E.Abstract ;
