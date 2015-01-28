@@ -344,7 +344,7 @@ let model_of_smt_values conv_left type_left s smt_values =
       in        
 
       (* Add assignment to hash table *)
-      Var.VarHashtbl.add model v' (Value e''))
+      Var.VarHashtbl.add model v' (Model.Term e''))
 
     (* Iterate over all pairs from get-value call *)
     smt_values;

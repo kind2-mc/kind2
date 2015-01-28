@@ -22,6 +22,7 @@
     any module above {!TransSys} go here.
 *)
 
+(*
 type invariants = Term.t list
 type model = (Var.t * Term.t) list
 type path = (StateVar.t * Term.t list) list
@@ -29,7 +30,7 @@ type property = (string * Term.t)
 type properties = property list
 type cex = (property list * path)
 type cexs = cex list
-
+*)
 
 (** {1 Properties of transition systems} *)
 

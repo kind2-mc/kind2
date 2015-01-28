@@ -118,6 +118,9 @@ val mk_lambda : Var.t list -> t -> lambda
 (** Import a term from a different instance into this hashcons table *)
 val import : t -> t
 
+(** Import a term from a different instance into this hashcons table *)
+val import_lambda : lambda -> lambda
+
 (** Create the propositional constant [true] *)
 val mk_true : unit -> t
 

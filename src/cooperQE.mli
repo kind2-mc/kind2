@@ -25,7 +25,7 @@
 val pp_print_model : Format.formatter -> (Var.t * Term.t) list -> unit
 
 (** Eliminate quantifiers of a list of variables in a formula *)
-val eliminate : (Var.t * Term.t) list -> Var.t list -> Poly.cformula -> Poly.cformula
+val eliminate : Model.t -> Var.t list -> Poly.cformula -> Poly.cformula
 
 (* 
    Local Variables:

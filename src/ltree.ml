@@ -148,6 +148,8 @@ sig
 
   val import : t -> t
 
+  val import_lambda : lambda -> lambda
+
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
   val pp_print_lambda_w : (?arity:int -> Format.formatter -> symbol -> unit) ->

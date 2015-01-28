@@ -61,7 +61,7 @@ type prop_status =
   | PropInvariant 
 
   (* Property is false at some step *)
-  | PropFalse of (StateVar.t * Term.t list) list
+  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
 
 
 (* A property of a transition system *)
@@ -1317,6 +1317,7 @@ let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
   (* Declaring other variables. *)
   declare_vars_of_bounds t declare lbound ubound
   
+(*
   
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let rec exists_eval_on_path' uf_defs p term k path =
@@ -1374,11 +1375,18 @@ let rec exists_eval_on_path' uf_defs p term k path =
   (* Predicate has never been true *)
   with Exit -> false 
 
+*)
 
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
-  exists_eval_on_path' uf_defs pred term Numeral.zero path
 
+  Model.exists_on_path
+    (fun model -> pred (Eval.eval_term uf_defs model term))
+    path
+
+(*
+  exists_eval_on_path' uf_defs pred term Numeral.zero path
+*)
 
 
 

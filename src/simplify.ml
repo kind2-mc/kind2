@@ -1831,7 +1831,7 @@ let simplify_term_model uf_defs model term =
 
 (* Simplify a term *)
 let simplify_term uf_defs term = 
-  simplify_term_model uf_defs Model.empty_model term
+  simplify_term_model uf_defs (Var.VarHashtbl.create 7) term
 
 
 

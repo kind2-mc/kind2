@@ -41,7 +41,7 @@ type get_value_response = [
 ]
 
 type get_model_response = [
-  | `Model of (UfSymbol.t * Term.t_or_lambda) list
+  | `Model of (UfSymbol.t * Model.term_or_lambda) list
   | error_response
 ]
 
@@ -91,7 +91,7 @@ let rec pp_print_model ppf = function
 
   | [] -> ()
 
-  | (f, Term.Term t) :: [] -> 
+  | (f, Model.Term t) :: [] -> 
 
     Format.pp_open_hvbox ppf 2;
     Format.pp_print_string ppf "(";
@@ -101,7 +101,7 @@ let rec pp_print_model ppf = function
     Format.pp_print_string ppf ")";
     Format.pp_close_box ppf ()
 
-  | (f, Term.Lambda l) :: [] -> 
+  | (f, Model.Lambda l) :: [] -> 
 
     Format.pp_open_hvbox ppf 2;
     Format.pp_print_string ppf "(";

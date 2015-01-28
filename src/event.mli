@@ -44,7 +44,7 @@ val set_relay_log : unit -> unit
 
     Should only be used by the invariant manager, other modules must use
     {!prop_status} to send it as a message. *)
-val log_disproved : Lib.kind_module -> Lib.log_level -> TransSys.t -> string -> (StateVar.t * Term.t list) list -> unit 
+val log_disproved : Lib.kind_module -> Lib.log_level -> TransSys.t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
 
 (** Log a proved property
 
@@ -109,7 +109,7 @@ val invariant : string list -> Term.t -> unit
 val prop_status : TransSys.prop_status -> TransSys.t -> string -> unit
 
 (** Broadcast an execution path *)
-val execution_path : TransSys.t -> (StateVar.t * Term.t list) list -> unit
+val execution_path : TransSys.t -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (** Broadcast a termination message *)
 val terminate : unit -> unit 
@@ -191,7 +191,7 @@ val run_process : Lib.kind_module -> messaging_setup -> (exn -> unit) -> mthread
 val exit : mthread -> unit
 
 
-val pp_print_path_pt : TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Term.t list) list -> unit
+val pp_print_path_pt : TransSys.t -> 'a -> Format.formatter -> (StateVar.t * Model.term_or_lambda list) list -> unit
 
 (* 
    Local Variables:

@@ -956,8 +956,8 @@ let extract_cex_path
 
     (* Extract concrete values from model *)
     let res = 
-      TransSys.path_from_model 
-        trans_sys
+      Model.path_from_model 
+        (TransSys.state_vars trans_sys)
         (SMTSolver.get_model solver_misc)
         k_plus_one
     in
@@ -2964,7 +2964,8 @@ let main trans_sys =
                      then
 
                        (Event.prop_status 
-                          (TransSys.PropFalse cex_path) 
+                          (TransSys.PropFalse 
+                             (Model.path_to_list cex_path))
                           trans_sys 
                           p;
 

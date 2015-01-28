@@ -758,6 +758,9 @@ let mk_forall = T.mk_forall
 (* Import a term from a different instance into this hashcons table *)
 let import = T.import 
 
+(* Import a term from a different instance into this hashcons table *)
+let import_lambda = T.import_lambda 
+
 (* Flatten top node of term *)
 let construct = T.construct
 

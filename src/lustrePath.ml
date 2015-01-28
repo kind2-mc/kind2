@@ -24,6 +24,8 @@ module A = LustreAst
 module E = LustreExpr
 module N = LustreNode
 
+module VT = Var.VarHashtbl
+module SVT = StateVar.StateVarHashtbl
 
 (* Identifier of a call with total ordering *)
 module CallId = 
@@ -46,7 +48,7 @@ module SVMap = StateVar.StateVarMap
    Need to have a single constructor, otherwise the type would be
    cylic *)
 type tree_path = 
-  | N of I.t * position * Term.t array SVMap.t * tree_path CallMap.t 
+  | N of I.t * position * Model.term_or_lambda array SVMap.t * tree_path CallMap.t 
 
 
 (* ********************************************************************** *)
@@ -125,12 +127,21 @@ let pp_print_pos_pt ppf pos =
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value val_width ppf i t =
-  Format.fprintf 
-    ppf
-    "%-*s"
-    val_width
-    (string_of_t pp_print_value t)    
+let pp_print_stream_value val_width ppf i = function
+
+  | Model.Term t -> 
+
+    Format.fprintf 
+      ppf
+      "%-*s"
+      val_width
+      (string_of_t pp_print_value t)    
+
+  | Model.Lambda _ -> 
+
+    (* TODO: output an array *)
+    assert false
+
 
 
 (* pretty prints a stream as its identifier followed by its values at each 
@@ -261,14 +272,12 @@ let rec pp_print_tree_path_pt
 let rec tree_path_of_model model =
 
   (* Add state variables to node or to node calls *)
-  let fold_state_var (stream_map, call_map) (state_var, terms) =
-
-    (* Get source of state variable *)
-    let src = E.get_state_var_source state_var in
+  let fold_state_var state_var terms (stream_map, call_map) =
 
     (* Add variable to streams *)
     let stream_map' = 
-      SVMap.add state_var 
+      SVMap.add 
+        state_var 
         (Array.of_list terms) 
         stream_map
     in
@@ -284,18 +293,23 @@ let rec tree_path_of_model model =
 
            (* Find content of node instance or initialize as empty *)
            let node_model = 
-             try CallMap.find call_key call_map with Not_found -> []
+             try 
+               CallMap.find call_key call_map 
+             with Not_found -> 
+               StateVar.StateVarHashtbl.create 7
            in
 
            (* Add instantiated variable to node *)
-           let node_model' = (call_state_var, terms) :: node_model in
+           StateVar.StateVarHashtbl.add node_model call_state_var terms;
 
            (* Add modified node content to map, replaces previous entry *)
-           let call_map' = CallMap.add call_key node_model' call_map in
+           let call_map' = CallMap.add call_key node_model call_map in
 
            (* Continue with modified node calls *)
            call_map')
+
         call_map
+
         (E.get_state_var_instances state_var)
 
     in
@@ -317,7 +331,10 @@ let rec tree_path_of_model model =
 
   (* Add each state variable to node or to node calls *)
   let stream_map, node_map = 
-    List.fold_left fold_state_var (SVMap.empty, CallMap.empty) model 
+    StateVar.StateVarHashtbl.fold
+      fold_state_var
+      model 
+      (SVMap.empty, CallMap.empty) 
   in
 
   (* Recursively create hierarchical model in all called nodes *)
@@ -350,7 +367,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
     (* prepend the var*term binding(s) for [sv] at cur instance [i]
        (and pre instance [i]-1 when [i]>0) onto substitutions *)
-    let fold_stream sv stream substitutions =
+    let iter_stream (substitutions : Model.t) sv stream =
 
       if i = 0 then
 
@@ -365,11 +382,7 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
         let stream_terms = stream in
 
-        StateVar.StateVarHashtbl.replace
-          substitutions
-          var
-          (try 
-             stream_terms.(0)) :: substitutions
+        VT.add substitutions var stream_terms.(0)
 
       else
 
@@ -379,19 +392,16 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
         let stream_terms = stream in
 
-        let curr_binding = (curr_var, stream_terms.(i)) in
-
-        let prev_binding = (prev_var, stream_terms.(i-1)) in
-
-        curr_binding :: prev_binding :: substitutions
+        VT.add substitutions curr_var stream_terms.(i);
+        VT.add substitutions curr_var stream_terms.(i - 1);
 
     in
 
-    let substitutions = SVMap.fold fold_stream stream_map [] in
+    let substitutions = VT.create 7 in
 
-    let substitutions' = 
-      SVMap.fold fold_stream ancestors_stream_map substitutions 
-    in
+    SVMap.iter (iter_stream substitutions) stream_map;
+
+    SVMap.iter (iter_stream substitutions) ancestors_stream_map;
 
     let src_expr = 
 
@@ -405,9 +415,9 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
     in
 
-    let value = Eval.eval_term [] substitutions' (src_expr :> Term.t) in
+    let value = Eval.eval_term [] substitutions (src_expr :> Term.t) in
 
-    (Eval.term_of_value value) :: var_model
+    (Model.Term (Eval.term_of_value value)) :: var_model
 
   in
 
@@ -677,12 +687,21 @@ let pp_print_stream_prop_xml ppf = function
 
 
 (* Pretty-print a single value of a stream at an instant *)
-let pp_print_stream_value ppf i t =
-  Format.fprintf 
-    ppf
-    "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
-    i
-    pp_print_value t    
+let pp_print_stream_value ppf i = function
+
+  | Model.Term t -> 
+
+    Format.fprintf 
+      ppf
+      "@[<hv 2><Value instant=\"%d\">@,@[<hv 2>%a@]@;<0 -2></Value>@]" 
+      i
+      pp_print_value t    
+
+  | Model.Lambda _ -> 
+
+    (* TODO: output an array *)
+    assert false
+
 
 
 (* Pretty-print a single stream *)
@@ -776,9 +795,11 @@ let rec widths_of_model = function
            (string_of_t (LustreIdent.pp_print_ident false) ident))
        in
        
-       let val_width t =
-         let formatted_val = (string_of_t Term.pp_print_term t) in
-         (String.length formatted_val)
+       let val_width = function
+         | Model.Term t -> 
+           let formatted_val = (string_of_t Term.pp_print_term t) in
+           (String.length formatted_val)
+         | Model.Lambda _ -> 0
        in
        
        let max_val_width =

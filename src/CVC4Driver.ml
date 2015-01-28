@@ -70,7 +70,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
         ]
       when s == s_define_fun -> 
 
-      Term.Term
+      Model.Term
         (gen_expr_of_string_sexpr' conv bound_vars t)
 
 
@@ -83,7 +83,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
         ]
       when s == s_lambda -> 
 
-      Term.Term
+      Model.Term
         (gen_expr_of_string_sexpr' conv bound_vars t)
 
 
@@ -108,7 +108,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
-      Term.Lambda
+      Model.Lambda
         (Term.mk_lambda
            vars
            (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
@@ -133,7 +133,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
-      Term.Lambda
+      Model.Lambda
         (Term.mk_lambda
            vars
            (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
@@ -141,7 +141,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
     (* Interpret as a term *)
     | e ->
 
-      Term.Term
+      Model.Term
         (gen_expr_of_string_sexpr' conv bound_vars e)
 
       

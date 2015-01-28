@@ -859,69 +859,76 @@ let get_value solver expr_list =
 
   (* get-value is not supported by Yices so we simulate the command by looking
      up values in the registered model of the solver state *)
-  
+
   (* The fake SMTLIB command  *)
   let cmd =
     Format.asprintf
       "@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]" 
       (pp_print_list pp_print_expr "@ ") expr_list;
   in
-  
+
   (* Trace the fake command but comment it *)
   solver.solver_trace_cmd ~commented:true cmd;
 
   match solver.solver_state with
-  | YModel model ->
+    | YModel model ->
 
-    (* Construct an assignment of state variables found in the model *)
-    let vars_assign =
-      SMTExprMap.fold (fun e v acc ->
-          try
-            (Conv.var_of_smtexpr e, Conv.term_of_smtexpr v) :: acc
-          with Invalid_argument _ ->
-            (* Ignore expressions that are not state variables *)
-            acc
-        ) model []
-    in
+      let vars_assign = Var.VarHashtbl.create (List.length expr_list) in
 
+      (* Construct an assignment of state variables found in the model *)
+      SMTExprMap.iter
+        (fun e v ->
 
-    let smt_expr_values =
-      List.fold_left
-        (fun acc e ->
-           let v =
-             try SMTExprMap.find e model
-             with Not_found ->
-               (* If the variable is not found in the model, use the default
-                   value for its type *)
-               try
-                 default_of_type solver
-                   (Var.type_of_var (Conv.var_of_smtexpr e))
-               with Invalid_argument _ ->
-                (* If the expression e is not a state variable, we evaluate it
-                   in the assignment of the model *)
-                 (* Format.eprintf "eval : %a@." Conv.pp_print_expr e; *)
-                 let ve =
-                   Eval.eval_term [] vars_assign (Conv.term_of_smtexpr e) in
-                 Eval.term_of_value ve
-           in
-           (e, v) :: acc
-         ) [] expr_list
-     in
+           try
+
+             Var.VarHashtbl.add
+               vars_assign 
+               (Conv.var_of_smtexpr e)
+               (Model.Term (Conv.term_of_smtexpr v))
+
+           (* Ignore expressions that are not state variables *)
+           with Invalid_argument _ -> ()
+        ) 
+        model;
 
 
-     (* List.iter (fun (e, v) -> *)
-     (*     assert(not (Term.equal e v)) ) smt_expr_values; *)
+      let smt_expr_values =
+        List.fold_left
+          (fun acc e ->
+             let v =
+               try SMTExprMap.find e model
+               with Not_found ->
+                 (* If the variable is not found in the model, use the default
+                     value for its type *)
+                 try
+                   default_of_type solver
+                     (Var.type_of_var (Conv.var_of_smtexpr e))
+                 with Invalid_argument _ ->
+                   (* If the expression e is not a state variable, we evaluate it
+                      in the assignment of the model *)
+                   (* Format.eprintf "eval : %a@." Conv.pp_print_expr e; *)
+                   let ve =
+                     Eval.eval_term [] vars_assign (Conv.term_of_smtexpr e) in
+                   Eval.term_of_value ve
+             in
+             (e, v) :: acc
+          ) [] expr_list
+      in
 
-     (* construct the response with the desired values *)
-     let res = `Values (List.rev smt_expr_values) in
-       
-     (* Trace the response of the solver *)
-     solver.solver_trace_res res;
 
-     (* return the computed values *)
-     res
+      (* List.iter (fun (e, v) -> *)
+      (*     assert(not (Term.equal e v)) ) smt_expr_values; *)
 
-  | _ -> failwith "Yices: No model to compute get-values"
+      (* construct the response with the desired values *)
+      let res = `Values (List.rev smt_expr_values) in
+
+      (* Trace the response of the solver *)
+      solver.solver_trace_res res;
+
+      (* return the computed values *)
+      res
+
+    | _ -> failwith "Yices: No model to compute get-values"
 
 
 (* Get an unsatisfiable core *)

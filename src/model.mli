@@ -26,9 +26,26 @@ type t = term_or_lambda Var.VarHashtbl.t
 (** A path is a map of state variables to assignments *)
 type path = term_or_lambda list StateVar.StateVarHashtbl.t
 
-(** An empty model *)
-val empty_model : t
+(** Create a model of the given size *)
+val create : int -> t
 
+(** Create a path of the given size *)
+val create_path : int -> path
+
+(** Import a variable assignment from a different instance *)
+val import_term_or_lambda : term_or_lambda -> term_or_lambda
+
+(** Create a model of an association list *)
+val of_list : (Var.t * term_or_lambda) list -> t
+
+(** Return an association list with the assignments in the model *)
+val to_list : t -> (Var.t * term_or_lambda) list
+
+(** Return an association list with the assignments in the model *)
+val path_to_list : path -> (StateVar.t * term_or_lambda list) list
+
+(** Create a model of an association list *)
+val path_of_list : (StateVar.t * term_or_lambda list) list -> path
 
 (** Extract a path in the transition system, return an association
     list of state variables to a list of their values.
@@ -38,6 +55,28 @@ val empty_model : t
     from instant zero up to instant [k], which is the third argument. *)
 val path_from_model : StateVar.t list -> (Var.t list -> t) -> Numeral.t -> path
 
+(** Extract values at instant [k] from the path and return a model *)
+val model_at_k_of_path : path -> Numeral.t -> t
+
+(** Return a list of models, one for each step on the path *)
+val models_of_path : path -> t list 
+
+(** Return true if the predicate [p] applies at one step of the path *)
+val exists_on_path : (t -> bool) -> path -> bool
+
+(** Return true if the predicate [p] applies at each step of the path *)
+val for_all_on_path : (t -> bool) -> path -> bool
+
+(** Add [k] to offset of all variables in model *)
+val bump_var : Numeral.t -> t -> t
+
+(** Set offset of all variables in model to [k] *)
+val set_var_offset : Numeral.t -> t -> t
+
+(** Combine assignments of two models into one. If a variable has an
+    assignment in both models, it gets the assignment in the second
+    model. *)
+val merge : t -> t -> t 
 
 (* 
    Local Variables:

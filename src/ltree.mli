@@ -254,6 +254,10 @@ sig
       up *)
   val import : t -> t
 
+  (** Import a lambda abstraction into the hashcons table by
+      rebuilding it bottom up *)
+  val import_lambda : lambda -> lambda
+
   (** Pretty-print a term *)
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     

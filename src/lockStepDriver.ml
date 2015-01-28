@@ -464,11 +464,7 @@ let query_base
     (* Getting their value. *)
     |> SMTSolver.get_model base_solver
     (* Bumping to -k. *)
-    |> Var.VarHashtbl.map
-         ( fun (v,t) ->
-           (Var.bump_offset_of_state_var_instance
-              minus_k v),
-           t )
+    |> Model.bump_var minus_k 
     (* Making an option out of it. *)
     |> (fun model -> Some model)
   in

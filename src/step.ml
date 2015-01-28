@@ -240,8 +240,9 @@ let split trans solver k to_split actlits =
     (* Getting counterexample for path compression is needed. *)
     let cex =
       if Flags.ind_compress () then
-        TransSys.path_from_model trans get_model k
-      else []
+        Model.path_from_model (TransSys.state_vars trans) get_model k
+      else 
+        Model.create_path 7
     in
     
     (* Getting model for evaluation. *)
