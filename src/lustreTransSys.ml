@@ -228,10 +228,20 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
    duplicated to shadow input variables that freeze the input values
    at the last instant the activation condition has been true.
 
+   The [first_tick] flag is [true] from the first state up to the
+   state when the clock first ticks, including that state. After that
+   state, the flag is false forever.
+   For example:
+   {[ state      0     1     2    3     4     5     ...
+      clock      false false true false true  false ...
+      first_tick true  true  true false false false ... ]}
+   Thus [clock and first_tick] is true when and only when clock ticks
+   for the first time.
+
+
    The initial state constraint of the called node is a conjunction of
    formulas representing the following:
-   - the ticked flag is true if and only if to the activation
-     condition is true in the initial instant,
+   - the first_tick flag is true (see paragraph above),
    - the shadow input variables take the values of the actual input
      variables if the activation condition is true, and
    - the initial state predicate of the called node with the
@@ -241,9 +251,9 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
    The transition relation of the called node is a conjunction of
    formulas representing the following facts:
 
-   - the ticked flag is true in the current state if it has been true
-     in the previous instant, or if the activation condition was true
-     in the previous state.,
+   - the first_tick flag is true in the current state iff it was
+     true in the previous instant and the activation condition was
+     false in the previous instant.
 
    - the shadow input variables in the next state take the values of
      the actual input variables if the activation condition is true,
@@ -252,13 +262,13 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
    - the initial state predicate of the called node with the
      parameters as above, except for the input variables that are
      replaced by the shadow input variables, if the activation
-     condition is true in the next step and the ticked flag is false
-     in the previous step, and
+     condition is true in the next step and the first_tick flag is
+     true in the next step, and
 
    - the transition relation predicate of the called node with the
      parameters as above, except for the input variables that are
      replaced by the shadow input variables, if the activation
-     condition is true and the ticked flag is true in the previous
+     condition is true and the first_tick flag is false in the next
      step.
 
  *)
@@ -772,23 +782,28 @@ let rec definitions_of_node_calls
               E.pre_term_of_state_var TransSys.trans_base act_cond_state_var 
             in
 
-            (* [change] Create fresh state first_tick variable for node call *)
+            (* Create fresh state first_tick variable for node
+               call. This stream will be true from the first state to
+               the state when the clock ticks for the first time,
+               including that state. It then will be forever false. *)
             let first_tick_state_var = mk_first_tick_state_var () in
 
-            (* [change] State variable to mark if clock has ever
-               ticked in the initial state *)
+            (* State variable to mark if clock has ever ticked in the
+               initial state. This will be constrained to be [true]
+               since if the clock ticks in the first state, then it is
+               the first tick. *)
             let first_tick_init =
               E.base_term_of_state_var TransSys.init_base first_tick_state_var 
             in
 
-            (* [change] State variable to mark if clock has ever
-               ticked in the current state *)
+            (* State variable to mark if clock has ever ticked in the
+               past --trans current state version. *)
             let first_tick_trans =
               E.cur_term_of_state_var TransSys.trans_base first_tick_state_var 
             in
 
-            (* [change] State variable to mark if clock has ever
-               ticked in the previous state *)
+            (* State variable to mark if clock has ever ticked in the
+               past --trans previous state version. *)
             let first_tick_trans_pre =
               E.pre_term_of_state_var TransSys.trans_base first_tick_state_var 
             in
@@ -905,7 +920,8 @@ let rec definitions_of_node_calls
             (* Arguments for node call in initial state constraint
                with state variables at init. *)
             let init_call_init_args =
-              (* [change] Actual parameter for the init flag of the node. *)
+              (* Actual parameter for the init flag of the node is the
+                 first_tick flag. *)
               [ first_tick_init ] @
 
               (* Current state input variables *)
@@ -925,7 +941,8 @@ let rec definitions_of_node_calls
             (* Arguments for node call in initial state constraint
                with state variables at next trans *)
             let init_call_trans_args =
-              (* [change] Actual parameter for the init flag of the node. *)
+              (* Actual parameter for the init flag of the node is the
+                 first_tick flag in the current state. *)
               [ first_tick_trans ] @
 
               (* Current state input variables *)
@@ -954,8 +971,8 @@ let rec definitions_of_node_calls
 
             (* Arguments for node call in transition relation *)
             let trans_call_args =
-              (* [change] Actual parameter for the init flag of the node
-                 (current state). *)
+              (* Actual parameter for the init flag of the node is the
+                 first_tick flag (current state). *)
               [ first_tick_trans ] @
 
               (* Current state input variables *)
@@ -970,8 +987,8 @@ let rec definitions_of_node_calls
               (* Current state local variables *)
               call_local_vars_trans @
 
-              (* [change] Actual parameter for the init flag of the node
-                 (previous state). *)
+              (* Actual parameter for the init flag of the node is the
+                 first_tick flag (previous state). *)
               [ first_tick_trans_pre ] @
 
               (* Previous state input variables *)
@@ -1025,7 +1042,7 @@ let rec definitions_of_node_calls
             in
 
             (* Local variables extended by state variable indicating if
-               node has ticked once *)
+               the clock tick is the first one or not. *)
             (first_tick_state_var :: local_vars'',
 
              Term.mk_and
@@ -1033,7 +1050,7 @@ let rec definitions_of_node_calls
                (* Initial state constraint *)
                [
 
-                 (* Equation for ticked state variable *)
+                 (* Equation for first_tick state variable *)
                  Term.mk_eq [first_tick_init; Term.t_true];
 
                  (* Propagate input values to shadow variable on clock tick *)
@@ -1071,8 +1088,8 @@ let rec definitions_of_node_calls
 
                [
 
-                 (* [change] State variable is false if the clock has
-                    not ticked before the current state. *)
+                 (* The first_tick flag is true iff it was true before
+                    and the clock did not tick in the previous state. *)
                  Term.mk_eq 
                    [ first_tick_trans;
                      Term.mk_and
@@ -1330,11 +1347,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     (* Create scope from node name *)
     let scope = LustreIdent.index_of_ident node_name in
 
-    (* Previous value of index of ticked flag for condact
+    (* Previous value of index of first_tick flag for condact
        Keep in this function to reset index for each node *)
     let first_tick_state_var_index = ref Numeral.(- one) in
 
-    (* Create a fresh state variable to flag first tick of node *)
+    (* Create a fresh state variable to first_tick flag of node *)
     let mk_first_tick_state_var () = 
 
       (* Create fresh state variable *)
