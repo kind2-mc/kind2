@@ -184,7 +184,7 @@ val oracle_ident : t
 val observer_ident : t
 
 (** Identifier for clock initialization flag *)
-val ticked_ident : t 
+val first_tick_ident : t 
 
 (** Identifier of uninterpreted symbol for initial state constraint *)
 val init_uf_string : string 

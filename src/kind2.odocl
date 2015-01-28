@@ -32,7 +32,6 @@ SExprLexer
 SMTExpr
 SMTLIBSolver
 SMTSolver
-SolverMethods
 
 UfSymbol
 Symbol
@@ -58,14 +57,15 @@ Presburger
 CooperQE
 QE
 
-InvGenDummy
-
 PDR
 
-Bmc
+Base
+
+InvGenCandTermGen
+InvGenGraph
 
 Compress
-IndStep
+Step
 
 Interpreter
 
