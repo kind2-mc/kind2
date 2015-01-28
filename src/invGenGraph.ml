@@ -964,8 +964,22 @@ module Make (InModule : In) : Out = struct
   (* Mines candidate terms from a list of terms and adds them to the
      set. *)
   let mine_terms sys terms set =
+    (* Bumping all terms to 0. *)
+    let terms' =
+      terms
+      |> List.map
+           ( fun term ->
+             match Term.var_offsets_of_term term with
+             | _, Some offset ->
+                if Numeral.(offset = zero) then
+                  term
+                else
+                  Term.bump_state Numeral.(- offset) term
+             | _ -> term )
+    in
+    (* Mining terms. *)
     InvGenCandTermGen.mine_term
-      false false false two_state sys [] TSet.empty
+      false false false two_state sys terms' set
 
   (* Mines candidate terms from a list of terms, adds them to [set],
      and runs invariant generation up to [maxK]. *)
