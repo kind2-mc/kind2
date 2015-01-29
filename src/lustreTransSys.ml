@@ -76,11 +76,8 @@ type node_def =
     (* Properties in node *)
     props : (string * TermLib.prop_source * Term.t) list;
 
-    (* Assumptions in contract of node *)
-    requires : Term.t list;
-
-    (* Guarantees in contract of node *)
-    ensures : Term.t list;
+    (* Contracts on the node. *)
+    contracts : (string * Term.t list * Term.t list) list ;
 
   }
 
@@ -376,8 +373,7 @@ let rec definitions_of_node_calls
           outputs;
           locals;
           props;
-          requires;
-          ensures } = 
+          contracts } = 
 
         (* Find called node by name *)
         try 
@@ -1236,17 +1232,20 @@ let definitions_of_asserts = definitions_of_exprs
 
 
 (* Return assumptions and guarantees from contract *)
-let definitions_of_contract requires ensures = 
+let definitions_of_contract =
 
-  let init_requires, step_requires = 
-    definitions_of_exprs [] [] requires 
-  in
+  List.map
+    ( fun (name, requires, ensures) ->
 
-  let init_ensures, step_ensures = 
-    definitions_of_exprs [] [] ensures 
-  in
+      let init_requires, step_requires = 
+        definitions_of_exprs [] [] requires 
+      in
 
-  (init_requires, init_ensures), (step_requires, step_ensures)
+      let init_ensures, step_ensures = 
+        definitions_of_exprs [] [] ensures 
+      in
+
+      name, (init_requires, init_ensures), (step_requires, step_ensures) )
 
 
 (* Return node definitions of nodes *)
@@ -1946,8 +1945,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         outputs = outputs @ observers;
         locals = locals;
         props = props;
-        requires = [];
-        ensures = [] }
+        contracts = [] }
     in
 
     (* Continue with next nodes *)
