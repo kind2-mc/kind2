@@ -447,6 +447,8 @@ let get_contracts_implications { contracts } =
   |> List.map
        ( fun (name, requires, ensures) ->
          (name,
+          (* Building the implication between the requires and the
+             ensures. *)
           Term.mk_implies
             [ Term.mk_and requires ;
               Term.mk_and ensures ]) )
