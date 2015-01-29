@@ -307,23 +307,23 @@ let pp_print_abstraction_context
        (fun ppf -> function 
           | { N.call_returns = ret;
               N.call_observers = obs;
-              N.call_clock = clk;
+              N.call_clock = None;
               N.call_node_name = node;
               N.call_inputs = inp;
-              N.call_defaults = init } when E.equal_expr clk E.t_true -> 
+              N.call_defaults = init } -> 
             Format.fprintf ppf "@[<hv>%a =@ %a(%a)@]"
               (pp_print_list StateVar.pp_print_state_var ",@,") (ret @ obs)
               (I.pp_print_ident false) node
               (pp_print_list (E.pp_print_lustre_var false) ",@,") inp
           | { N.call_returns = ret;
               N.call_observers = obs;
-              N.call_clock = clk;
+              N.call_clock = Some clk;
               N.call_node_name = node;
               N.call_inputs = inp;
               N.call_defaults = init } -> 
             Format.fprintf ppf "@[<hv>%a =@ condact(%a,%a(%a),%a)@]"
               (pp_print_list StateVar.pp_print_state_var ",@,") (ret @ obs)
-              (E.pp_print_lustre_expr false) clk
+              (E.pp_print_lustre_var false) clk
               (I.pp_print_ident false) node
               (pp_print_list (E.pp_print_lustre_var false) ",@,") inp
               (pp_print_list (E.pp_print_lustre_expr false) ",@,") 
@@ -1800,7 +1800,9 @@ and eval_node_call
                 expr 
             in
 
-            E.set_state_var_instance state_var pos ident in_var;
+            E.set_state_var_instance state_var pos ident in_var ;
+
+            E.set_state_var_source state_var E.Abstract ;
 
             (* Add definition of variable *)
             let abstractions' =
@@ -1906,6 +1908,41 @@ and eval_node_call
     node_inputs_of_exprs node_inputs abstractions' pos expr_list'
   in
 
+  (* State variable for activation condition *)
+  let cond_state_var, abstractions' = 
+
+    if 
+    
+      (* Node call has activation condition  *)
+      E.equal_expr cond E.t_true
+        
+    then
+      
+      (* No state variable and context is unchanged *)
+      None, abstractions'
+
+    else
+
+      (* New variable for activation condition *)
+      let state_var, new_vars' = 
+        mk_state_var_for_expr
+          false
+          abstractions'.new_vars
+          cond
+      in
+
+      E.set_state_var_source state_var E.Abstract ;
+      
+      (* Add definition of variable *)
+      let abstractions' =
+        { abstractions' with new_vars = new_vars' }
+      in
+
+      (* Return state variable and changed context *)
+      Some state_var, abstractions'
+
+  in
+
   try 
 
     (* Find a call to the same node on the same clock with the same
@@ -1921,14 +1958,23 @@ and eval_node_call
           (* Call to the same node *)
           (I.equal ident ident') &&
 
-          (* Same activation condition *)
-          (E.equal_expr cond' cond) &&
+          (match cond_state_var, cond' with 
 
-          (* Same defaults *)
-          (List.for_all2
-             (fun (_, sv1) sv2 -> E.equal_expr sv1 sv2)
-             defaults 
-             defaults') &&
+            | Some v, Some v' -> 
+
+              (* Same activation condition *)
+              StateVar.equal_state_vars v v' &&
+
+              (* Same defaults *)
+              (List.for_all2
+                 (fun (_, sv1) sv2 -> E.equal_expr sv1 sv2)
+                 defaults 
+                 defaults')
+
+            (* No activation condtion *)
+            | None, None -> true
+
+            | _ -> false) &&
 
           (* Inputs are the same up to oracles *)
           (let rec aux = 
@@ -2010,7 +2056,7 @@ and eval_node_call
       { abstractions' 
         with new_calls = { N.call_returns = (List.rev output_vars);
                            N.call_observers = observer_state_vars;
-                           N.call_clock = cond;
+                           N.call_clock = cond_state_var;
                            N.call_node_name = ident;
                            N.call_pos = pos;
                            N.call_inputs = 

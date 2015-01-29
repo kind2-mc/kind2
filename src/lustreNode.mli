@@ -57,7 +57,7 @@ type node_call =
     call_observers : StateVar.t list;
 
     (** Boolean activation condition *)
-    call_clock : LustreExpr.t;
+    call_clock : StateVar.t option;
 
     (** Name of called node *)
     call_node_name : LustreIdent.t;
