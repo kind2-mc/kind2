@@ -83,6 +83,10 @@ type property =
 
   }
 
+(* A contract of a transition system. *)
+type contract =
+    string * Term.t list * Term.t list
+
 
 
 (* Return the length of the counterexample *)
@@ -147,7 +151,10 @@ type t = {
   subsystems: t list ;
 
   (* Properties of the transition system to prove invariant *)
-  properties : property list; 
+  properties : property list;
+
+  (* The contracts of this system. *)
+  contracts : contract list ;
 
   (* The source which produced this system. *)
   source: source ;
@@ -431,6 +438,19 @@ let instantiation_count { callers } =
        0
 
 
+(* Returns the contracts of a system. *)
+let get_contracts { contracts } = contracts
+
+(* Returns the contracts of a system as a list of implications. *)
+let get_contracts_implications { contracts } =
+  contracts
+  |> List.map
+       ( fun (name, requires, ensures) ->
+         (name,
+          Term.mk_implies
+            [ Term.mk_and requires ;
+              Term.mk_and ensures ]) )
+
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
 
@@ -630,6 +650,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
                prop_term = t; 
                prop_status = PropUnknown })
           props ;
+      contracts = [] ;
       subsystems = subsystems ;
       source = source ;
       invars = invars_of_types ;

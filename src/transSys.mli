@@ -150,6 +150,12 @@ val init_term : t -> Term.t
 (** Definition of the transition relation *)
 val trans_term : t -> Term.t
 
+(** The contracts of a system. *)
+val get_contracts : t -> (string * Term.t list * Term.t list) list
+
+(** The contracts of a system, as a list of implications. *)
+val get_contracts_implications : t -> (string * Term.t) list
+
 
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list
