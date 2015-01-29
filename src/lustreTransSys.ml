@@ -76,7 +76,8 @@ type node_def =
     (* Properties in node *)
     props : (string * TermLib.prop_source * Term.t) list;
 
-    (* Contracts on the node. *)
+    (* Contracts on the node. A contract is a name, a list of
+       requires, and a list of ensures. *)
     contracts : (string * Term.t list * Term.t list) list ;
 
   }
