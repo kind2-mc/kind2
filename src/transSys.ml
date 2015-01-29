@@ -1123,7 +1123,12 @@ let set_prop_false t prop cex =
 
       (* Fail if property was l-true for l >= k *)
       | PropKTrue l when l > (length_of_cex cex) -> 
-        raise (Failure "prop_false")
+        raise 
+          (Failure
+             (Format.sprintf
+                "prop_false: was %d-true before, now cex of length %d"
+                l
+                (length_of_cex cex)))
 
       (* Mark property as false if it was l-true for l < k *)
       | PropKTrue _ -> PropFalse cex

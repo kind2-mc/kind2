@@ -118,24 +118,34 @@ let path_from_model state_vars get_model k =
            (* Get state variable from variable instance *)
            let state_var = Var.state_var_of_state_var_instance var in
 
-           try 
-
-             (* Get path for variable *)
-             let var_values = SVT.find path state_var in
-
-             (* Append value to path for variable *)
-             SVT.replace path state_var (var_values @ [value])
-
-           (* No netry for variable in path *)
-           with Not_found -> 
+           (* At the first offset? *)
+           if Numeral.(equal i k) then 
              
-             (* Must have had values unless i = 0 *)
-             assert Numeral.(i > zero);
-
              (* Start path with value for variable *)
-             SVT.add path state_var [value])
+             SVT.add path state_var [value]
+               
+           else
 
-        model
+             (
+               
+               (* Get current path for variable *)
+               let var_values = 
+                 try 
+                   SVT.find path state_var 
+                 with Not_found -> assert false
+               in
+
+               (* Append value to path for variable *)
+               SVT.replace path state_var (value :: var_values)
+
+             )
+             
+        )
+        
+        model;
+
+      (* Add values until i = 0 *)
+      path_from_model' state_vars Numeral.(pred i)
 
   in
 
