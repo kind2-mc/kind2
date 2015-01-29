@@ -619,8 +619,7 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
       state_vars =
-        init_flag_svar :: state_vars
-        |> List.sort StateVar.compare_state_vars ;
+        state_vars |> List.sort StateVar.compare_state_vars ;
       init = init ;
       trans = trans ;
       properties =

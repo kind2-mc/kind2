@@ -293,6 +293,7 @@ first_tick true  true  true false false false ... ]}
 let rec definitions_of_node_calls 
     mk_first_tick_state_var
     (mk_new_state_var : ?for_inv_gen:bool -> ?is_const:bool -> Type.t -> StateVar.t)
+    depth_input
     node_equations
     node_defs
     local_vars
@@ -490,7 +491,7 @@ let rec definitions_of_node_calls
          previous state *)
       let observer_terms_trans_pre = 
         List.map (E.pre_term_of_state_var TransSys.trans_base) observer_vars
-      in 
+      in
 
       debug lustreTransSys
           "@[<v>outputs:@,@[<hv>%a@]@,output_vars:@,@[<hv>%a@]@,observer_vars:@,@[<hv>%a@]@]"
@@ -621,6 +622,12 @@ let rec definitions_of_node_calls
 
       in
 
+      (* The actual value of the depth_input parameter for the called
+         node is the depth_input of the caller plus one. *)
+      let actual_depth_input =
+        Term.mk_plus [ depth_input ; Term.mk_num Numeral.one ]
+      in
+
       (* TODO: lift assumptions of contract of called node as
          properties *)
 
@@ -697,6 +704,9 @@ let rec definitions_of_node_calls
 
               (* Arguments for node call in initial state *)
               let init_call_args =
+                (* Depth input. *)
+                [ actual_depth_input ] @
+
                 (* Init flag. *)
                 [ init_flag_init ] @
 
@@ -716,6 +726,9 @@ let rec definitions_of_node_calls
 
               (* Arguments for node call in transition relation *)
               let trans_call_args =
+                (* Depth input. *)
+                [ actual_depth_input ] @
+
                 (* Current state init flag. *)
                 [ init_flag_trans ] @
 
@@ -959,6 +972,8 @@ let rec definitions_of_node_calls
             (* Arguments for node call in initial state constraint
                with state variables at next trans *)
             let init_call_trans_args =
+              (* Depth input. *)
+              [ actual_depth_input ] @
               (* Actual parameter for the init flag of the node is the
                  first_tick flag in the current state. *)
               [ first_tick_trans ] @
@@ -989,6 +1004,9 @@ let rec definitions_of_node_calls
 
             (* Arguments for node call in transition relation *)
             let trans_call_args =
+              (* Depth input. *)
+              [ actual_depth_input ] @
+
               (* Actual parameter for the init flag of the node is the
                  first_tick flag (current state). *)
               [ first_tick_trans ] @
@@ -1166,6 +1184,7 @@ let rec definitions_of_node_calls
       definitions_of_node_calls 
         mk_first_tick_state_var
         mk_new_state_var
+        depth_input
         node_equations
         node_defs
         local_vars''
@@ -1406,8 +1425,29 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         node.N.fresh_state_var_index
     in
 
+    (* Depth input. Passed by the caller, constant. *)
+    let depth_input_svar =
+      E.mk_state_var_of_ident
+        ~is_input:true
+        ~is_const:true
+        ~for_inv_gen:false
+        (I.index_of_ident node_name)
+        I.depth_input_ident
+        Type.t_int
+    in
+
+    E.set_state_var_source depth_input_svar E.Abstract;
+
+    Format.printf
+      "Depth_input created: %a\n"
+      StateVar.pp_print_state_var depth_input_svar ;
+
+    let init_flag_svar = TransSys.init_flag_svar in
+
     (* Input variables *)
-    let inputs = List.map fst node_inputs in
+    let inputs =
+      (List.map fst node_inputs)
+    in
 
     (* Oracle input variables *)
     let oracles = node_oracles in
@@ -1428,6 +1468,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       definitions_of_node_calls 
         mk_first_tick_state_var
         mk_new_state_var
+        (depth_input_svar |> Var.mk_const_state_var |> Term.mk_var)
         node_equations
         node_defs
         (* [] *)
@@ -1603,7 +1644,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     in
 
     (* Types of variables in the signature *)
-    let signature_types = 
+    let signature_types =
+      (StateVar.type_of_state_var init_flag_svar) ::
       (List.map StateVar.type_of_state_var inputs) @ 
       (List.map StateVar.type_of_state_var oracles) @ 
       (List.map StateVar.type_of_state_var outputs) @ 
@@ -1654,7 +1696,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         (init_uf_symbol_name_of_node node_name)
 
         (* Types of variables in the signature *)
-        signature_types 
+        (StateVar.type_of_state_var depth_input_svar :: signature_types)
 
         (* Symbol is a predicate *)
         Type.t_bool
@@ -1667,8 +1709,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       (* Name of symbol *)
       (init_uf_symbol,
 
-       (((* Init flag. *)
-         [ TransSys.init_flag_var TransSys.init_base ] @
+       (((* Depth input. *)
+         (Var.mk_const_state_var depth_input_svar) ::
+           
+         (* Init flag. *)
+         (Var.mk_state_var_instance init_flag_svar TransSys.init_base) ::
 
          (* Input variables *)
          (List.map (E.base_var_of_state_var TransSys.init_base) inputs) @
@@ -1703,7 +1748,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         (trans_uf_symbol_name_of_node node_name)
 
         (* Types of variables in the signature *)
-        (signature_types @ signature_types)
+        (StateVar.type_of_state_var depth_input_svar
+         :: (signature_types @ signature_types))
 
         (* Symbol is a predicate *)
         Type.t_bool
@@ -1715,8 +1761,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
       (trans_uf_symbol,
 
-       (((* Init flag. *)
-         [ TransSys.init_flag_var TransSys.trans_base ] @
+       (((* Depth input. *)
+         (Var.mk_const_state_var depth_input_svar) ::
+           
+         (* Init flag. *)
+         (Var.mk_state_var_instance init_flag_svar TransSys.trans_base) ::
          
          (* Input variables *)
          (List.map (E.cur_var_of_state_var TransSys.trans_base) inputs) @
@@ -1738,7 +1787,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (List.map (E.cur_var_of_state_var TransSys.trans_base) locals) @
 
          (* Init flag. *)
-         [ TransSys.init_flag_var Numeral.( pred TransSys.trans_base ) ] @
+         [ Var.mk_state_var_instance
+             init_flag_svar Numeral.( pred TransSys.trans_base ) ] @
 
          (* Input variables *)
          (List.fold_right 
@@ -1865,7 +1915,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        (inputs @ oracles @ outputs @ observers @ locals)
+        ([depth_input_svar; init_flag_svar] @ inputs @ oracles @ outputs @ observers @ locals)
         pred_def_init
         pred_def_trans
         called_trans_sys

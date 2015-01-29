@@ -327,7 +327,8 @@ let scope_of_ident (ident, index) = ident :: (scope_of_index index)
 let abs_ident_string =  "__abs" 
 let oracle_ident_string =  "__nondet" 
 let observer_ident_string =  "__observer" 
-let first_tick_ident_string =  "__first_tick" 
+let first_tick_ident_string =  "__first_tick"
+let depth_input_ident_string =  "__depth_input"
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
 
@@ -345,6 +346,7 @@ let ident_is_reserved ident =
   || string_starts_with ident_string oracle_ident_string
   || string_starts_with ident_string observer_ident_string
   || string_starts_with ident_string first_tick_ident_string
+  || string_starts_with ident_string depth_input_ident_string
   || string_starts_with ident_string init_uf_string
   || string_starts_with ident_string trans_uf_string
 (*  || string_starts_with ident_string top_scope_string *)
@@ -361,6 +363,9 @@ let observer_ident = mk_string_ident observer_ident_string
 
 (* Identifier for new clock initialization flag *)
 let first_tick_ident = mk_string_ident first_tick_ident_string
+
+(* Identifier for depth input of a node *)
+let depth_input_ident = mk_string_ident depth_input_ident_string
 
 (*
 (* Scope for top-level variables *)
