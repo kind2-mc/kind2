@@ -603,13 +603,7 @@ let find_cex
 
 	(debug pdr
                "@[<v>%a@]"
-               (pp_print_list 
-		  (fun ppf (v, t) -> 
-		     Format.fprintf ppf 
-		       "(%a %a)"
-		       Var.pp_print_var v
-		       Term.pp_print_term t)
-		  "@,")
+               Model.pp_print_model
                cex
 	 in
 
@@ -2943,7 +2937,8 @@ let main trans_sys =
 
               debug pdr
                 "@[<v>Counterexample:@,@[<hv>%a@]@]"
-                (Event.pp_print_path_pt trans_sys false) cex_path
+                (Event.pp_print_path_pt trans_sys false) 
+                (Model.path_to_list cex_path)
               in
 
               (* Check which properties are disproved *)

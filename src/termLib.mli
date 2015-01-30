@@ -53,3 +53,12 @@ type prop_source =
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
   | Instantiated of string list * string 
+
+
+(** Return the default value of the type: 
+
+    By default, a Boolean value is false, integer and real values are
+    zero, values in a range are equal to the lower bound of the
+    range. Array scalar types do not have defaults. The function fails
+    with [Invalid_argument] in this case. *)
+val default_of_type : Type.t -> Term.t

@@ -95,7 +95,7 @@ type expr_of_string_sexpr_conv =
       expr_of_string_sexpr_conv -> 
       (HString.t * Var.t) list -> 
       HStringSExpr.t -> 
-      Model.term_or_lambda
+      (HString.t * Model.term_or_lambda)
   }
 
 
@@ -372,21 +372,22 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
     (* (define-fun c () Bool t) *)
     | HStringSExpr.List 
         [HStringSExpr.Atom s; (* define-fun *)
-         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List []; (* Parameters *)
          _; (* Result type *)
          t (* Expression *)
         ]
       when s == s_define_fun -> 
 
-      Model.Term
-        (gen_expr_of_string_sexpr' conv bound_vars t)
+      (i, 
+       Model.Term
+         (gen_expr_of_string_sexpr' conv bound_vars t))
 
 
     (* (define-fun A ((x1 Int) (x2 Int)) Bool t) *)
     | HStringSExpr.List 
         [HStringSExpr.Atom s; (* define-fun *)
-         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List v; (* Parameters *)
          _; (* Result type *)
          t (* Expression *)
@@ -404,16 +405,13 @@ let gen_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
           vars
       in
 
-      Model.Lambda
-        (Term.mk_lambda
-           vars
-           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
+      (i,
+       Model.Lambda
+         (Term.mk_lambda
+            vars
+            (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t)))
 
-    (* Interpret as a term *)
-    | e ->
-
-      Model.Term
-        (gen_expr_of_string_sexpr' conv bound_vars e)
+    | _ -> invalid_arg "gen_expr_of_lambda_string_sexpr"
 
 
 (* Call function with an empty list of bound variables *)      

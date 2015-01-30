@@ -34,7 +34,9 @@
     Let bindings are unfolded. In order to evaluate a term with a
     partial model for its variables, bind each variable in the model
     to its value or use the convenience function
-    {!simplify_term_model}.
+    {!simplify_term_model}. To make a model total, give a function in
+    the optional argument [~default_of_var] that returns the value to
+    assign to the variable given as parameter.
 
     @author Christoph Sticksel
 *)
@@ -42,8 +44,11 @@
 (** Simplify a term *)
 val simplify_term : (UfSymbol.t * (Var.t list * Term.t)) list -> Term.t -> Term.t
 
-(** Simplify a term given an assignment to variables *)
-val simplify_term_model : (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> Term.t
+(** Simplify a term given an assignment to variables
+
+    
+ *)
+val simplify_term_model : ?default_of_var:(Var.t -> Term.t) -> (UfSymbol.t * (Var.t list * Term.t)) list -> Model.t -> Term.t -> Term.t
 
 (* 
    Local Variables:

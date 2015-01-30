@@ -30,6 +30,23 @@ type t = term_or_lambda VT.t
 (* A path is a map of state variables to assignments *)
 type path = term_or_lambda list SVT.t
 
+(* Pretty-print a model *)
+let pp_print_model ppf model = 
+
+  Var.VarHashtbl.iter
+    (function v -> function
+       | Term t -> 
+         Format.fprintf ppf
+           "@[<hv 2>%a =@ %a@]@ " 
+           Var.pp_print_var v 
+           Term.pp_print_term t
+       | Lambda l -> 
+         Format.fprintf ppf
+           "@[<hv 2>%a =@ %a@]@ " 
+           Var.pp_print_var v 
+           Term.pp_print_lambda l)
+    model
+
 (* Create a model of the given size *)
 let create sz = VT.create sz
 

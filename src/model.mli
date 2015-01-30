@@ -18,13 +18,18 @@
 
 
 (** Term or lambda expression *)
-type term_or_lambda = Term of Term.t | Lambda of Term.lambda
-    
+type term_or_lambda = 
+  | Term of Term.t 
+  | Lambda of Term.lambda
+
 (** A model is a list of variables and assignemnts *)
 type t = term_or_lambda Var.VarHashtbl.t
 
 (** A path is a map of state variables to assignments *)
 type path = term_or_lambda list StateVar.StateVarHashtbl.t
+
+(** Pretty-print a model *)
+val pp_print_model : Format.formatter -> t -> unit
 
 (** Create a model of the given size *)
 val create : int -> t

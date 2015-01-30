@@ -346,6 +346,45 @@ let rec bool_of_term t = match node_of_term t with
   | _ -> invalid_arg "bool_of_term"
 
 
+(* Return true if the term is an application of the select operator *)
+let is_select t = 
+
+  (* Must not destruct a bound variable *)
+  if is_bound_var t then false else 
+
+    (* Make sure we don't miss terms under let bindings *)
+    match T.destruct t with 
+
+      (* Top symbol is a select operator *)
+      | T.App (s, [a; i]) -> s == Symbol.s_select
+
+      | _ -> false
+
+
+(* Return the indexes of the select operator 
+
+   The array argument of a select is either another select operation
+   or a variable. For the expression [(select (select A j) k)] return
+   the pair [A] and [[j; k]]. *)
+let rec indexes_and_var_of_select' accum t = match T.destruct t with 
+
+  | T.Var v -> (v, List.rev accum)
+
+  | T.App (s, [a; i]) when s == Symbol.s_select -> 
+
+    indexes_and_var_of_select' (i :: accum) a
+
+  | T.Const _ 
+  | T.App _ -> invalid_arg "indexes_of_select"
+
+  | T.Attr (t, _) ->  indexes_and_var_of_select' accum t
+
+
+(* Return the indexes of the select operator *)
+let indexes_and_var_of_select t = indexes_and_var_of_select' [] t
+
+ 
+
 
 (* ********************************************************************* *)
 (* Hashtables, maps and sets                                             *)
@@ -417,6 +456,10 @@ let eval = T.eval
 (* Evaluate a term bottom-up right-to-left, given the flattened term
    as argument *)
 let eval_t = T.eval_t 
+
+(* Evaluate a term bottom-up right-to-left, given the flattened term
+   as argument *)
+let eval_lambda = T.eval_lambda
 
 (* Bottom-up right-to-left map of the term 
 
@@ -540,9 +583,9 @@ let rec type_of_term t = match T.destruct t with
 
             (* Select is binary *)
             | [a; _] -> 
-    
+
               (match Type.node_of_type (type_of_term a) with
-                | Type.Array (_, t) -> t
+                | Type.Array (t, _) -> t
                 | _ -> assert false)
 
             | _ -> assert false)
@@ -926,15 +969,15 @@ let mk_minus a = mk_app_of_symbol_node `MINUS a
 
 (* Hashcons an integer numeral *)
 let mk_num n = (* mk_const_of_symbol_node (`NUMERAL n) *)
-		
-  (* Positive numeral or zero *)		
-  if Numeral.(n >= zero) then 		
-    		
-    mk_const_of_symbol_node (`NUMERAL n)		
-		
-  else		
-		
-    (* Wrap a negative numeral in a unary minus *)		
+                
+  (* Positive numeral or zero *)                
+  if Numeral.(n >= zero) then           
+                
+    mk_const_of_symbol_node (`NUMERAL n)                
+                
+  else          
+                
+    (* Wrap a negative numeral in a unary minus *)              
     mk_minus [(mk_const_of_symbol_node (`NUMERAL (Numeral.(~- n))))]
 
 
@@ -946,14 +989,14 @@ let mk_num_of_int i = mk_num (Numeral.of_int i)
 (* let mk_dec d = mk_const_of_symbol_node (`DECIMAL d) *)
 let mk_dec d =
 
-  (* Positive rational or zero *)		
-  if Decimal.(d >= zero) then 		
-    		
-    mk_const_of_symbol_node (`DECIMAL d)		
-		
-  else		
-		
-    (* Wrap a negative rational in a unary minus *)		
+  (* Positive rational or zero *)               
+  if Decimal.(d >= zero) then           
+                
+    mk_const_of_symbol_node (`DECIMAL d)                
+                
+  else          
+                
+    (* Wrap a negative rational in a unary minus *)             
     mk_minus [(mk_const_of_symbol_node (`DECIMAL (Decimal.(~- d))))]
 
 (*

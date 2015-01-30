@@ -512,7 +512,7 @@ struct
       (* Print variables bound in abstraction and recurse with an
          incremented de Bruijn index *)
       Format.fprintf ppf
-        "@[<hv 0>@[<hv 2>(%a).@]%a@]"
+        "@[<hv 1>(lambda@ (%a)@ (%a)@]"
         (pp_print_var_seq db) l
         (pp_print_term' pp_symbol (db + (List.length l))) t
 

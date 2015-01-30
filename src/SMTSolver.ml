@@ -314,7 +314,10 @@ let model_of_smt_values conv_left type_left s smt_values =
       (* Convert expression on lhs to a variable and expression on rhs
          to a term *)
       let v', e' = 
-        S.Conv.var_of_smtexpr v, S.Conv.term_of_smtexpr e 
+        let t = S.Conv.var_term_of_smtexpr v in
+        (* TODO: deal with arrays *)
+        assert (Term.is_free_var t);
+        Term.free_var_of_term t, S.Conv.term_of_smtexpr e 
       in
 
       (* Get types of variable and term *)
@@ -352,6 +355,36 @@ let model_of_smt_values conv_left type_left s smt_values =
   (* Return hash table *)
   model
 
+let model_of_smt_model s smt_model vars = 
+  let module S = (val s.solver_inst) in
+
+  (* Create hash table with size matching the number of values *)
+  let model = Var.VarHashtbl.create (List.length smt_model) in
+
+  (* Add all variable term pairs to the hash table *)
+  List.iter
+    (fun v -> 
+
+       let uf_sym = Var.unrolled_uf_of_state_var_instance v in
+
+       try
+
+         let t_or_l = List.assq uf_sym smt_model in
+
+         Var.VarHashtbl.add model v t_or_l 
+
+       with Not_found -> ()
+
+(*
+         Event.log L_debug "No assignment to %a" Var.pp_print_var v;
+
+         assert false
+*)
+    )
+    vars;
+
+  model
+  
 
 (* Get values of terms in the current context *)
 let get_values s terms =
@@ -368,23 +401,70 @@ let get_values s terms =
   | `Values m -> 
     values_of_smt_values S.Conv.term_of_smtexpr Term.type_of_term s m
 
+(* Raise when encountering an array variable to switch to get-model
+   instead of get-value *)
+exception Var_is_array
 
 (* Get model of the current context *)
 let get_model s vars =
   let module S = (val s.solver_inst) in
 
-  (* TODO: use get-model if variables contain function symbols *)
   match 
+
     (* Get values of SMT expressions in current context *)
-    prof_get_value s (List.map S.Conv.smtexpr_of_var vars)
+    prof_get_value s
+
+      (* Map variables to terms and raise exception if a variable is
+         of array type *)
+      (List.map
+         (fun v -> 
+            if true (* Var.type_of_var v |> Type.is_array *) then
+              raise Var_is_array
+            else
+              S.Conv.smtexpr_of_var v [])
+         vars)
+
   with 
-  | `Error e -> 
+
+    | `Error e -> 
       raise 
         (Failure ("SMT solver failed: " ^ e))
-        
-  | `Values v -> 
-    model_of_smt_values S.Conv.var_of_smtexpr Var.type_of_var s v
 
+    | `Values v -> 
+
+      model_of_smt_values 
+
+        (* Convert an SMT term back to a variable *)
+        (fun v -> 
+           let t = S.Conv.var_term_of_smtexpr v in
+
+           (* We are sure that there are no array typed variables *)
+           assert (Term.is_free_var t); 
+           (Term.free_var_of_term t))
+
+        Var.type_of_var 
+        s 
+        v
+
+    | exception Var_is_array -> 
+
+      (
+        match 
+
+          (* Get model in current context *)
+          prof_get_model s ()
+
+        with 
+
+          | `Error e -> 
+            raise 
+              (Failure ("SMT solver failed: " ^ e))
+              
+          | `Model m ->
+
+            model_of_smt_model s m vars
+
+      )
 
 
 (* Get unsat core of the current context *)

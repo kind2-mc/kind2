@@ -54,3 +54,25 @@ type prop_source =
   | Instantiated of string list * string 
 
 
+(* Return the default value of the type *)
+let default_of_type t = 
+
+  match Type.node_of_type t with
+
+    (* Booleans are false by default *)
+    | Type.Bool -> Term.t_false
+
+    (* Integers are zero by default *)
+    | Type.Int -> Term.mk_num Numeral.zero
+
+    (* Integer range values are their lower bound by default *)
+    | Type.IntRange (l, _) -> Term.mk_num l
+
+    (* Reals are zero by default *)
+    | Type.Real -> Term.mk_dec Decimal.zero
+
+    (* No defaults for scalars and arrays *)
+    | Type.Scalar _
+    | Type.Array _ -> invalid_arg "default_of_type"
+
+

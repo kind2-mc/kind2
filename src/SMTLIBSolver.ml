@@ -46,13 +46,14 @@ let s_error = HString.mk_hstring "error"
 let s_sat = HString.mk_hstring "sat"
 let s_unsat = HString.mk_hstring "unsat"
 let s_unknown = HString.mk_hstring "unknown"
+let s_model = HString.mk_hstring "model"
 
 module type SMTLIBSolverDriver = sig
   include SolverDriver.S
 
   val expr_of_string_sexpr : HStringSExpr.t -> Term.t
 
-  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> Model.term_or_lambda
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
 
 end
 
@@ -167,42 +168,38 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
        invalid_arg "get_value_response_of_sexpr")
 
 
-  (* Helper function to return a solver response to a get-value command
+  (* Helper function to return a solver response to a get-model command
      as expression pairs *)
   let rec get_model_response_of_sexpr' accum = function 
 
     | [] -> `Model accum
 
-    | HStringSExpr.List [ HStringSExpr.Atom f; v ] :: tl -> 
+    | e :: tl -> 
 
       (debug smtexpr
-          "get_model_response_of_sexpr: %a is %a"
-          HString.pp_print_hstring f
-          HStringSExpr.pp_print_sexpr v
+          "get_model_response_of_sexpr: %a"
+          HStringSExpr.pp_print_sexpr e
        in
 
-       get_model_response_of_sexpr' 
-         ((((UfSymbol.uf_symbol_of_string (HString.string_of_hstring f))), 
-           (expr_or_lambda_of_string_sexpr v)) :: 
-          accum) 
-         tl)
+       (* Get name of variable and its assignment *)
+       let s, t_or_l = expr_or_lambda_of_string_sexpr e in
 
-    (* Hack for CVC4's (- 1).0 expressions *)
-    | HStringSExpr.List [ e; v; HStringSExpr.Atom d ] :: tl 
-      when d == HString.mk_hstring ".0" ->
-      
-      get_model_response_of_sexpr' 
-        accum
-        (HStringSExpr.List [ e; v ] :: tl)
+       (* Get uninterpreted function symbol by name *)
+       let u =
+         UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+       in
+
+       (* Continue with next model assignment *)
+       get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
 
     | e :: _ -> 
 
       (debug smtexpr
-          "get_value_response_of_sexpr: %a"
+          "get_model_response_of_sexpr: %a"
           HStringSExpr.pp_print_sexpr e
        in
 
-       invalid_arg "get_value_response_of_sexpr")
+       invalid_arg "get_model_response_of_sexpr")
 
 
   (* Return a solver response to a get-value command as expression pairs *)
@@ -240,7 +237,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       `Error (HString.string_of_hstring e)
 
     (* Solver returned a list not starting with an error atom  *)
-    | HStringSExpr.List l -> get_model_response_of_sexpr' [] l
+    | HStringSExpr.List 
+        (HStringSExpr.Atom s :: l) when s == s_model -> 
+
+      get_model_response_of_sexpr' [] l
 
     (* Solver returned other response *)
     | e -> 

@@ -546,7 +546,7 @@ let solve_eqs vars terms =
 
 
 
-let generalize trans_sys uf_defs model (elim : Var.t list) term =
+let generalize trans_sys uf_defs model elim term =
 
   (debug qe
      "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
@@ -556,7 +556,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>with the model@ @[<hv>%a@]@]@."
-     Term.pp_print_term (SMTSolver.term_of_model model)
+     Model.pp_print_model model
      end);
   
   (* Extract active path from term and model *)

@@ -144,6 +144,9 @@ val pp_print_type_node : Format.formatter -> kindtype -> unit
 (** Pretty-print a type *)
 val pp_print_type : Format.formatter -> t -> unit
 
+(** Pretty-print a type to the standard formatter *)
+val print_type : t -> unit
+
 (** Return a string representation of a type *)
 val string_of_type : t -> string
 

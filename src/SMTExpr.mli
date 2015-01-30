@@ -51,17 +51,9 @@ sig
   val smtsort_of_type : Type.t -> sort
 
   (** Convert a variable to an SMT expression *)
-  val smtexpr_of_var :  Var.t -> t
+  val smtexpr_of_var :  Var.t -> Term.t list -> t
 
   (** {2 Pretty-printing and String Conversions} *)
-
-  (*    
-    (** Convert an S-expression of strings to a type *)
-    val type_of_string_sexpr : HStringSExpr.t -> sort
-
-    (** Convert an S-expression of strings to a term *)
-    val expr_of_string_sexpr : HStringSExpr.t -> t
-*)
 
   (** Return an SMTLIB string expression for the logic *)
   val string_of_logic : Term.logic -> string 
@@ -95,7 +87,7 @@ sig
   val quantified_smtexpr_of_term : bool -> Var.t list -> t -> t
 
   (** Convert an SMT expression to a variable *)
-  val var_of_smtexpr : t -> Var.t
+  val var_term_of_smtexpr : t -> t
 
   (** Convert an SMT expression to a term *)
   val term_of_smtexpr : t -> t

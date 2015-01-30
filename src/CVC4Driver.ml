@@ -63,7 +63,7 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
     (* (define-fun c () Bool t) *)
     | HStringSExpr.List 
         [HStringSExpr.Atom s; (* define-fun *)
-         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.Atom i; (* identifier *)
          HStringSExpr.List []; (* Parameters *)
          _; (* Result type *)
          t (* Expression *)
@@ -139,15 +139,9 @@ let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars =
            (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
 
     (* Interpret as a term *)
-    | e ->
-
-      Model.Term
-        (gen_expr_of_string_sexpr' conv bound_vars e)
+    | _ -> invalid_arg "cvc4_expr_or_lambda_of_string_sexpr"
 
       
 
 let lambda_of_string_sexpr = 
-  cvc4_expr_or_lambda_of_string_sexpr'
-    { smtlib_string_sexpr_conv with
-        expr_or_lambda_of_string_sexpr = cvc4_expr_or_lambda_of_string_sexpr' }
-    []
+  gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv

@@ -415,6 +415,15 @@ val is_bool : t -> bool
 (** Return Boolean constant of a term *)
 val bool_of_term : t -> bool
 
+(** Return true if the term is an application of the select operator *)
+val is_select : t -> bool
+
+(** Return the indexes and the array variable of the select operator
+
+    The array argument of a select is either another select operation
+    or a variable. For the expression [(select (select A j) k)] return
+    the pair [A] and [[j; k]]. *)
+val indexes_and_var_of_select : t -> Var.t * t list
 
 (** {1 Pretty-printing} *)
 
@@ -443,6 +452,9 @@ val string_of_lambda : lambda -> string
     being evaluated, and the list of values computed for the
     subterms. Let bindings are lazily unfolded. *)
 val eval_t : (T.flat -> 'a list -> 'a) -> t -> 'a
+
+(** Beta-evaluate a lambda expression *)
+val eval_lambda : lambda -> t list -> t
 
 (** Tail-recursive bottom-up right-to-left map on the term
     
