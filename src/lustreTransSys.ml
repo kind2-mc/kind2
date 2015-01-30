@@ -948,6 +948,8 @@ let rec definitions_of_node_calls
             (* Arguments for node call in initial state constraint
                with state variables at init. *)
             let init_call_init_args =
+              (* Depth input. *)
+              [ actual_depth_input ] @
               (* Actual parameter for the init flag of the node is the
                  first_tick flag. *)
               [ first_tick_init ] @
