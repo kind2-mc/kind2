@@ -85,8 +85,14 @@ type property =
 
 (* A contract of a transition system. *)
 type contract =
-    string * Term.t list * Term.t list
-
+    { (* Name of the contract. *)
+      name : string ;
+      (* Requirements of the contract. *)
+      requires : Term.t list ;
+      (* Ensures of the contract. *)
+      ensures: Term.t list ;
+      (* Current status. *)
+      mutable status : prop_status }
 
 
 (* Return the length of the counterexample *)
@@ -152,7 +158,7 @@ type t = {
 
   (* The length of the longest branch of the call graph underneath
      this system. *)
-  max_depth: int ;
+  max_depth : int ;
 
   (* Properties of the transition system to prove invariant *)
   properties : property list;
@@ -210,56 +216,31 @@ let add_caller callee caller c =
 
   callee.callers <- add_caller' [] callee.callers
 
+(* Instantiates some terms from a subsystem to a system calling
+   it. System [subsys] is the subsystem [terms] comes from, [sys] is
+   the system [terms] will be instantiated to. *)
+let instantiate_terms_for_sys ({ callers } as subsys) terms sys =
+  try
+    (* Looking for [sys] in the callers. *)
+    List.assq sys callers
+    (* Iterating on the list of maps and lift functions. *)
+    |> List.map
+         (fun (map, lift_fun) ->
+          terms
+          (* Applying lift function. *)
+          |> List.map
+               (fun t ->
+                (* Substituting variables. *)
+                Term.substitute_variables map t
+                (* Applying lift function. *)
+                |> lift_fun))
+  with
+  | Not_found -> []
+
 
 (* Instantiates a term for all systems instantiating the input
    system. *)
 let instantiate_term { callers } term =
-
-  (* Gets the term corresponding to 'var' in 'map' and bumps it if
-     'var' is not a constant. Raises Not_found if 'var' is not defined
-     in 'map'. *)
-  let term_of_var map var =
-    
-    (* Getting the state variable. *)
-    let sv = Var.state_var_of_state_var_instance var in
-    (* Getting corresponding state variable. *)
-    let sv' = List.assq sv map in
-    
-    if Var.is_const_state_var var
-    then (* Var is a const. *)
-      Var.mk_const_state_var sv'
-      |> Term.mk_var
-    else (* Var is not a const.. *)
-      Var.mk_state_var_instance
-        sv'
-        (Var.offset_of_state_var_instance var)
-      |> Term.mk_var
-  in
-
-  (* Instantiates variables according to map. *)
-  let substitute_fun_of_map map =
-    (* This function is for Term.map. The first argument is the de
-       Bruijn index and is ignored. *)
-    ( fun _ term ->
-
-      (* Is the term a free variable?. *)
-      if Term.is_free_var term then
-
-        try
-          (* Extracting state variable. *)
-          Term.free_var_of_term term
-          (* Getting corresponding term, bumping if
-                           necessary. *)
-          |> term_of_var map
-
-        with
-          (* Variable is not in map, nothing to do. *)
-          Not_found -> term
-
-      else
-        (* Term is not a var, nothing to do. *)
-        term )
-  in
 
   callers
   |> List.map
@@ -292,10 +273,7 @@ let instantiate_term { callers } term =
                (* For each map of this over-system, substitute the
                   variables of term according to map. *)
                ( fun (map,f) ->
-                 Term.map
-                   (substitute_fun_of_map map)
-                   term
-                 |> f )
+                 Term.substitute_variables map term |> f )
          in
 
          sys, terms )
@@ -443,13 +421,17 @@ let instantiation_count { callers } =
 
 
 (* Returns the contracts of a system. *)
-let get_contracts { contracts } = contracts
+let get_contracts { contracts } =
+  contracts
+  |> List.map
+       ( fun { name ; requires ; ensures ; status } ->
+         name, requires, ensures, status )
 
 (* Returns the contracts of a system as a list of implications. *)
 let get_contracts_implications { contracts } =
   contracts
   |> List.map
-       ( fun (name, requires, ensures) ->
+       ( fun { name ; requires ; ensures } ->
          (name,
           (* Building the implication between the requires and the
              ensures. *)
@@ -546,6 +528,51 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list Format.pp_print_string ".") t.scope
     (pp_print_list pp_print_caller "@ ") c
 
+let pp_print_contract
+      ppf { name ; requires ; ensures ; status } =
+  Format.fprintf
+    ppf
+    "@[<hv 2>%s (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<v>%a@]@]@]"
+    name
+    pp_print_prop_status_pt status
+    (pp_print_list Term.pp_print_term "@ ") requires
+    (pp_print_list Term.pp_print_term "@ ") ensures
+
+
+let pp_print_trans_sys 
+    ppf
+    ({ uf_defs;
+       state_vars;
+       properties;
+       contracts;
+       invars;
+       source;
+       max_depth;
+       callers } as trans_sys) = 
+
+  Format.fprintf 
+    ppf
+    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
+          %a@,\
+          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(contracts@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(max depth@ %i)@]@,\
+          @[<hv 2>(callers@ (@[<v>%a@]))@]@."
+    (pp_print_list pp_print_state_var "@ ") state_vars
+    (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
+    Term.pp_print_term (init_term trans_sys)
+    Term.pp_print_term (trans_term trans_sys)
+    (pp_print_list pp_print_property "@ ") properties
+    (pp_print_list pp_print_contract "@ ") contracts
+    (pp_print_list Term.pp_print_term "@ ") invars
+    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    max_depth
+    (pp_print_list pp_print_callers "@,") callers
+
 
 (* Determine the required logic for the SMT solver 
 
@@ -566,7 +593,7 @@ let get_scope t = t.scope
 let get_name t = t.scope |> String.concat "/"
 
 (* Create a transition system *)
-let mk_trans_sys scope state_vars init trans subsystems props source =
+let mk_trans_sys scope state_vars init trans subsystems props contracts source =
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -641,28 +668,60 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | _ -> None
   in
 
-  let max_depth = 0 in
+  let name = String.concat "/" scope in
 
-  { scope = scope;
-    uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
-    state_vars =
-      state_vars |> List.sort StateVar.compare_state_vars ;
-    init = init ;
-    trans = trans ;
-    properties =
-      props
-      |> List.map
-           (fun (n, s, t) -> 
-            { prop_name = n;
-              prop_source = s; 
-              prop_term = t; 
-              prop_status = PropUnknown }) ;
-    contracts = [] ;
-    subsystems = subsystems ;
-    max_depth = max_depth ;
-    source = source ;
-    invars = invars_of_types ;
-    callers = []; }
+  let max_depth =
+    let rec loop max_so_far = function
+      | [] ->
+         (* No more subsystems, returning max depth. *)
+         max_so_far
+      | { max_depth } :: tail ->
+         (* Keeping the max of the max_depth, looping. *)
+         loop (max (max_depth + 1) max_so_far) tail
+    in
+    loop 0 subsystems
+  in
+
+  Format.printf
+    "Max depth for %s: %i.\n" name max_depth ;
+
+  let contracts =
+    contracts
+    |> List.map
+         (fun (name, reqs, ens) ->
+          { name = name ;
+            requires = reqs ;
+            ensures = ens ;
+            status = PropUnknown })
+  in
+
+  let system = 
+    { scope = scope;
+      uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
+      state_vars =
+        state_vars |> List.sort StateVar.compare_state_vars ;
+      init = init ;
+      trans = trans ;
+      properties =
+        props
+        |> List.map
+             (fun (n, s, t) -> 
+              { prop_name = n;
+                prop_source = s; 
+                prop_term = t; 
+                prop_status = PropUnknown }) ;
+      contracts = contracts ;
+      subsystems = subsystems ;
+      max_depth = max_depth ;
+      source = source ;
+      invars = invars_of_types ;
+      callers = []; }
+  in
+
+  debug transSys "Done creating system:@ " in
+  debug transSys "%a" pp_print_trans_sys system in
+
+  system
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' state_vars lbound ubound accum =
@@ -1070,40 +1129,6 @@ let uf_defs { uf_defs } =
    initial state and transition relation definitions sorted by
    topological order. *)
 let uf_defs_pairs { uf_defs } = uf_defs
-         
-  
-
-
-let pp_print_trans_sys 
-    ppf
-    ({ uf_defs;
-       state_vars;
-       properties;
-       invars;
-       source;
-       max_depth;
-       callers } as trans_sys) = 
-
-  Format.fprintf 
-    ppf
-    "@[<v>@[<hv 2>(state-vars@ (@[<v>%a@]))@]@,\
-          %a@,\
-          @[<hv 2>(init@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(trans@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(props@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(source@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(max depth@ %i)@]@,\
-          @[<hv 2>(callers@ (@[<v>%a@]))@]@."
-    (pp_print_list pp_print_state_var "@ ") state_vars
-    (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
-    Term.pp_print_term (init_term trans_sys)
-    Term.pp_print_term (trans_term trans_sys)
-    (pp_print_list pp_print_property "@ ") properties
-    (pp_print_list Term.pp_print_term "@ ") invars
-    (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
-    max_depth
-    (pp_print_list pp_print_callers "@,") callers
       
  
 

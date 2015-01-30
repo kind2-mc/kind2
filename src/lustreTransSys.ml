@@ -1852,21 +1852,29 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                 Term.pp_print_term t
                 (function ppf -> function 
                   | TermLib.PropAnnot p -> 
-                    Format.fprintf ppf "annot at %a" pp_print_position p
+                     Format.fprintf
+                       ppf "annot at %a" pp_print_position p
 
-                  | TermLib.Contract p ->
-                    Format.fprintf ppf "contract at %a" pp_print_position p
+                  | TermLib.Contract (name, p) ->
+                     Format.fprintf
+                       ppf "contract %s at %a" name pp_print_position p
+
+                  | TermLib.SubRequirement (scope, p) ->
+                     Format.fprintf
+                       ppf "requirement from subsystem %s at %a"
+                       (String.concat "/" scope)
+                       pp_print_position p
 
                   | TermLib.Generated l -> 
-                    Format.fprintf ppf "generated for %a" 
-                      (pp_print_list StateVar.pp_print_state_var ",@ ") l
+                     Format.fprintf
+                       ppf "generated for %a" 
+                       (pp_print_list StateVar.pp_print_state_var ",@ ") l
 
                   | TermLib.Instantiated (s, n) -> 
-                    Format.fprintf ppf
-                      "instantiated from %s in %a" 
+                     Format.fprintf
+                       ppf "instantiated from %s in %a" 
                       n
-                      (pp_print_list Format.pp_print_string ".")
-                      s)
+                      (pp_print_list Format.pp_print_string ".") s)
                 s)
            ",@ ")
         props
@@ -1959,6 +1967,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         pred_def_trans
         called_trans_sys
         props
+        contracts
         (TransSys.Lustre (List.rev (node :: called_nodes)))
     in
 

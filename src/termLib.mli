@@ -40,8 +40,12 @@ type prop_source =
   (** Property is from an annotation *)
   | PropAnnot of Lib.position
 
-  (** Property is part of a contract *)
-  | Contract of Lib.position
+  (** Property is part of a contract: contract name and position. *)
+  | Contract of (string * Lib.position)
+
+  (** Property is a requirement for a subsystem: scope of the
+      subsystem and position. *)
+  | SubRequirement of (string list * Lib.position)
 
   (** Property was generated, for example, from a subrange
       constraint *)

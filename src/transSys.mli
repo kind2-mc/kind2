@@ -80,6 +80,7 @@ val mk_trans_sys :
   UfSymbol.t * (Var.t list * Term.t) ->
   t list ->
   (string * TermLib.prop_source * Term.t) list ->
+  (string * Term.t list * Term.t list) list ->
   source ->
   t
 
@@ -151,7 +152,7 @@ val init_term : t -> Term.t
 val trans_term : t -> Term.t
 
 (** The contracts of a system. *)
-val get_contracts : t -> (string * Term.t list * Term.t list) list
+val get_contracts : t -> (string * Term.t list * Term.t list * prop_status) list
 
 (** The contracts of a system, as a list of implications. *)
 val get_contracts_implications : t -> (string * Term.t) list
