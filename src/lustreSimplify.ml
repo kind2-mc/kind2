@@ -3270,21 +3270,14 @@ and assertion_to_node context node abstractions pos expr =
 
   (context, node', abstractions)
 
+(* Add a contract to a node. *)
+and contract_to_node context node abstractions pos contract =
 
-(* Add an expression as a contact clause *)
-and requires_to_node context node abstractions pos expr =
+  let node' =
+    { node with N.contracts = contract :: node.N.contracts }
+  in
 
-  let node' = { node with N.requires = expr :: node.N.requires } in
-
-  (context, node', abstractions)
-
-
-(* Add an expression as a contact clause *)
-and ensures_to_node context node abstractions pos expr =
-
-  let node' = { node with N.ensures = expr :: node.N.ensures } in
-
-  (context, node', abstractions)
+  context, node', abstractions
 
 
 (* Add equational definition of a variable *)
@@ -3796,79 +3789,71 @@ let rec parse_node_equations
 
 
 (* Parse a contract annotation of a node *)
-let rec parse_node_contract 
+let rec parse_node_contracts
     context 
-    empty_abstractions
-    ({ N.name = node_ident } as node) = 
+    abstractions
+    ({ N.name = node_ident } as node) = function
 
-  function
-
-    (* No more contract clauses *)
-    | [] -> node 
+  (* No more contract clauses *)
+  | [] -> (abstractions, context, node)
 
 
-    (* Assumption *)
-    | A.Requires (pos, expr) :: tl -> 
+  (* Assumption *)
+  | (pos, name, requires, ensures) :: tail ->
 
-      (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
-        close_ast_expr
-          pos
-          (bool_expr_of_ast_expr 
-             context 
-             empty_abstractions
-             pos
-             expr)
-      in
+     let requires', abstractions' =
+       requires
+       |> List.fold_left
+            ( fun (list,abs) (pos, req) ->
 
-      (* Add assertion to node *)
-      let context', node', abstractions' = 
-        requires_to_node context node abstractions pos expr'
-      in
-      
-      (* Add new definitions to context *)
-      let context', node', abstractions' = 
-        abstractions_to_context_and_node context' node' abstractions' pos
-      in
+              (* Evaluate Boolean expression and guard all pre
+                 operators *)
+              let expr', abs' = 
+                close_ast_expr
+                  pos
+                  (bool_expr_of_ast_expr 
+                     context 
+                     abs
+                     pos
+                     req)
+              in
 
-      (* Continue with next contract clauses *)
-      parse_node_contract 
-        context' 
-        empty_abstractions
-        node'
-        tl
+              expr' :: list, abs' )
+            ([], abstractions)
+     in
 
+     let ensures', abstractions' =
+       ensures
+       |> List.fold_left
+            ( fun (list,abs) (pos, ens) ->
 
-    (* Guarantee *)
-    | A.Ensures (pos, expr) :: tl -> 
+              (* Evaluate Boolean expression and guard all pre
+                 operators *)
+              let expr', abs' = 
+                close_ast_expr
+                  pos
+                  (bool_expr_of_ast_expr 
+                     context 
+                     abs
+                     pos
+                     ens)
+              in
 
-      (* Evaluate Boolean expression and guard all pre operators *)
-      let expr', abstractions = 
-        close_ast_expr
-          pos
-          (bool_expr_of_ast_expr 
-             context 
-             empty_abstractions
-             pos
-             expr)
-      in
+              expr' :: list, abs' )
+            ([], abstractions')
+     in
 
-      (* Add assertion to node *)
-      let context', node', abstractions' = 
-        ensures_to_node context node abstractions pos expr'
-      in
-      
-      (* Add new definitions to context *)
-      let context', node', abstractions' = 
-        abstractions_to_context_and_node context' node' abstractions' pos
-      in
+     (* Add contract to node *)
+     let context', node', abstractions' = 
+       contract_to_node context node abstractions' pos (name, requires', ensures')
+     in
 
-      (* Continue with next contract clauses *)
-      parse_node_contract 
-        context' 
-        empty_abstractions
-        node'
-        tl
+     (* Continue with next contract clauses *)
+     parse_node_contracts
+       context' 
+       abstractions'
+       node'
+       tail
 
 
 (* Return a LustreNode.t from a node LustreAst.node_decl *)
@@ -3879,7 +3864,7 @@ let parse_node
     outputs 
     locals 
     equations 
-    contract =
+    contracts =
 
   (* Node name is scope for naming of variables *)
   let scope = I.index_of_ident node_ident in 
@@ -4028,12 +4013,12 @@ let parse_node
 
      Must check before adding local variable to context, may not use
      local variables *)
-  let node = 
-    parse_node_contract 
+  let abstractions, local_context, node = 
+    parse_node_contracts
       local_context 
       empty_abstractions
       node 
-      contract
+      contracts
   in
 
   (* Parse local declarations, add to local context and node context *)
@@ -4046,7 +4031,7 @@ let parse_node
   let abstractions', context', node = 
     parse_node_equations 
       local_context 
-      empty_abstractions
+      abstractions
       node 
       equations
   in
@@ -4174,7 +4159,7 @@ let rec declarations_to_nodes'
            outputs, 
            locals, 
            equations, 
-           contract))) :: decls ->
+           contracts))) :: decls ->
 
       (try 
 
@@ -4187,7 +4172,7 @@ let rec declarations_to_nodes'
             outputs
             locals
             equations 
-            contract
+            contracts
         in
         
         (* Recurse for next declarations *)

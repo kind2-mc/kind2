@@ -1352,9 +1352,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
        N.equations = node_equations; 
        N.calls = node_calls; 
        N.asserts = node_asserts; 
-       N.props = node_props; 
-       N.requires = node_requires; 
-       N.ensures = node_ensures } as node) :: tl ->
+       N.props = node_props;
+       N.contracts = node_contracts } as node) :: tl ->
 
 (*
     debug lustreTransSys
@@ -1875,6 +1874,48 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         props
     in
 
+    let contracts =
+      let init_at_init =
+        TransSys.init_flag_var TransSys.init_base
+        |> Term.mk_var
+      in
+      let lustre_expr_to_term
+            { E.expr_init = init ; E.expr_step = step } =
+        if init == step then
+          E.base_term_of_expr TransSys.init_base init
+        else
+          Term.mk_or
+            [ Term.mk_and
+                [ init_at_init ;
+                  E.base_term_of_expr TransSys.init_base init ] ;
+              Term.mk_and
+                [ init_at_init |> Term.mk_not ;
+                  E.base_term_of_expr TransSys.init_base step ] ]
+      in
+      
+      node_contracts
+      |> List.map
+           ( fun (name, reqs, ens) ->
+             name,
+             reqs |> List.map lustre_expr_to_term ,
+             ens |> List.map lustre_expr_to_term )
+    in
+
+    debug lustreTransSys
+          "@[<hv>Contracts of node %a@ @[<hv>%a@]@]"
+          (LustreIdent.pp_print_ident false) node_name
+          (pp_print_list
+             (function ppf -> function (name, reqs, ens) ->
+                       Format.fprintf
+                         ppf
+                         "contract %s@   @[<hv>requires: %a@ ensures:  %a@]"
+                         name
+                         (pp_print_list Term.pp_print_term ",@ ") reqs
+                         (pp_print_list Term.pp_print_term ",@ ") ens)
+             ",@ ")
+          contracts
+    in
+
     (* Get list of transition systems of called nodes *)
     let called_trans_sys, called_nodes = 
       
@@ -1946,7 +1987,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         outputs = outputs @ observers;
         locals = locals;
         props = props;
-        contracts = [] }
+        contracts = contracts }
     in
 
     (* Continue with next nodes *)

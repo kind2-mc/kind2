@@ -167,13 +167,28 @@ type node_equation =
   | AnnotMain 
   | AnnotProperty of Lib.position * expr
 
-(** A clause of an assume guarantee contract *)
-type contract_clause = 
-  | Requires of Lib.position * expr 
-  | Ensures of Lib.position * expr
+(** A require for a contract. *)
+type require =
+    Lib.position * expr
 
-(** The contract of a node as a list of clauses *)
-type contract = contract_clause list
+(** Constructs a require for a contract. *)
+val mk_require : Lib.position -> expr -> require
+
+(** An ensure for a contract. *)
+type ensure =
+    Lib.position * expr
+
+(** Constructs an enuser for a contract. *)
+val mk_ensure : Lib.position -> expr -> ensure
+
+(** A contract clause *)
+type contract =
+    Lib.position * string * require list * ensure list
+
+(** Creates a contract from a name, a list of requires and a list of
+    ensures. *)
+val mk_contract :
+  Lib.position -> LustreIdent.t -> require list -> ensure list -> contract
 
 (** Declaration of a node as a tuple of 
 
@@ -183,12 +198,16 @@ type contract = contract_clause list
     - the list of its outputs,
     - the list of its local constant and variable declarations,
     - its equations, assertions and annotiations, and
-    - its contract. 
+    - its contracts.
 *)
 type node_decl =
-  ident * node_param list * const_clocked_typed_decl list * 
-  clocked_typed_decl list * node_local_decl list * node_equation list * 
-  contract
+    ident
+    * node_param list
+    * const_clocked_typed_decl list
+    * clocked_typed_decl list
+    * node_local_decl list
+    * node_equation list
+    * contract list
 
 (** Declaration of a function as a tuple of 
 
@@ -241,8 +260,9 @@ val pp_print_node_local_decl :
   Format.formatter -> node_local_decl list -> unit
 val pp_print_struct_item : Format.formatter -> struct_item -> unit
 val pp_print_node_equation : Format.formatter -> node_equation -> unit
-val pp_print_contract_clause : Format.formatter -> contract_clause -> unit
-val pp_print_contract : Format.formatter -> contract_clause list -> unit
+val pp_print_require  : Format.formatter -> require -> unit
+val pp_print_ensure   : Format.formatter -> ensure -> unit
+val pp_print_contract : Format.formatter -> contract -> unit
 val pp_print_declaration : Format.formatter -> declaration -> unit
 val pp_print_program : Format.formatter -> t -> unit
 

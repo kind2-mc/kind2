@@ -148,11 +148,8 @@ type t =
     (* Proof obligations for node *)
     props : (StateVar.t * TermLib.prop_source) list;
 
-    (* Contract for node, assumptions *)
-    requires : LustreExpr.t list;
-
-    (* Contract for node, guarantees *)
-    ensures : LustreExpr.t list;
+    (* The contracts of the node. *)
+    contracts : (string * LustreExpr.t list * LustreExpr.t list) list;
 
     (* Node is annotated as main node *)
     is_main : bool;
@@ -187,8 +184,7 @@ let empty_node name =
     calls = [];
     asserts = [];
     props = [];
-    requires = [];
-    ensures = [];
+    contracts = [];
     is_main = false;
     output_input_dep = [];
     fresh_state_var_index = ref Numeral.(- one);
@@ -293,7 +289,7 @@ let pp_print_prop safe ppf var =
     
 
 (* Pretty-print an assumption *)
-let pp_print_requires safe ppf expr = 
+let pp_print_require safe ppf expr = 
 
   Format.fprintf ppf
     "@[<hv 2>--@@requires@ @[<h>%a@];@]"
@@ -301,12 +297,20 @@ let pp_print_requires safe ppf expr =
 
 
 (* Pretty-print a guarantee *)
-let pp_print_ensures safe ppf expr = 
+let pp_print_ensure safe ppf expr = 
 
   Format.fprintf ppf
     "@[<hv 2>--@@ensures @[<h>%a@];@]"
     (E.pp_print_lustre_expr safe) expr
 
+(* Pretty-print a contract. *)
+let pp_print_contract safe ppf (name, requires, ensures) =
+  Format.fprintf
+    ppf
+    "@[<hv 2>--@@contract : %s ;@ @[<v>%a@ %a@]@]"
+    name
+    (pp_print_list (pp_print_require safe) "@ ") requires
+    (pp_print_list (pp_print_ensure safe) "@ ") ensures
 
 (* Pretty-print a node *)
 let pp_print_node 
@@ -321,9 +325,8 @@ let pp_print_node
       equations; 
       calls; 
       asserts; 
-      props; 
-      requires; 
-      ensures;
+      props;
+      contracts;
       output_input_dep;
       is_main } = 
 
@@ -343,7 +346,6 @@ let pp_print_node
      %a%t\
      %a%t\
      %t\
-     %a%t\
      %a%t\
      %a@;<1 -2>\
      tel;@]@]"  
@@ -373,10 +375,8 @@ let pp_print_node
     (pp_print_list (pp_print_assert safe) "@ ") asserts
     (space_if_nonempty asserts)
     (function ppf -> if is_main then Format.fprintf ppf "--%%MAIN@,")
-    (pp_print_list (pp_print_requires safe) "@ ") requires
-    (space_if_nonempty requires)
-    (pp_print_list (pp_print_ensures safe) "@ ") ensures
-    (space_if_nonempty ensures)
+    (pp_print_list (pp_print_contract safe) "@ ") contracts
+    (space_if_nonempty contracts)
     (pp_print_list (pp_print_prop safe) "@ ") ((List.map fst props) @ observers)
     
 
@@ -893,7 +893,7 @@ let solve_eqs_node_calls node =
 
 
 (* Return all expressions of a node *)
-let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
+let exprs_of_node { equations; calls; asserts; props; contracts } =
 
   (* Start with expressions in equations *)
   let exprs_equations = 
@@ -908,7 +908,7 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
     List.fold_left
       (fun
         accum
-        { call_clock = act_cond; call_inputs = args; call_defaults = inits } -> 
+        { call_clock = act_cond; call_inputs = args; call_defaults = inits } ->
 
 (*
         (List.map (E.cur_expr_of_state_var E.cur_offset) args) @
@@ -932,14 +932,12 @@ let exprs_of_node { equations; calls; asserts; props; requires; ensures } =
   (* Add expressions in assertions *)
   let exprs_asserts = asserts @ exprs_calls in
 
-  (* Add expressions in assumptions *)
-  let exprs_requires = requires @ exprs_asserts in
-
-  (* Add expressions in guarantees *)
-  let exprs_ensures = ensures @ exprs_requires in
-
-  (* Return collected expressions *)
-  exprs_ensures
+  (* Add all the expressions appearing in the contract. *)
+  contracts
+  |> List.fold_left
+       ( fun list (_, reqs, ens) ->
+         reqs @ ens @ list )
+       exprs_asserts
 
 
 (* Return all stateful variables from expressions in a node *)
@@ -1097,9 +1095,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
         locals; 
         equations;
         asserts; 
-        props; 
-        requires; 
-        ensures; 
+        props;
+        contracts;
         is_main; 
         output_input_dep;
         fresh_state_var_index } as node_orig), 
@@ -1132,8 +1129,8 @@ let rec reduce_to_coi' nodes accum : (StateVar.t list * StateVar.t list * t * t)
           (* Keep only property variables with definitions *)
           props = props;
 
-          requires = requires;
-          ensures = ensures;
+          contracts = contracts;
+          
           is_main = is_main;
           fresh_state_var_index = fresh_state_var_index }
 
@@ -1461,7 +1458,7 @@ let reduce_wo_coi nodes main_name =
 let reduce_to_props_coi nodes main_name = 
 
   (* Get properties of main node *)
-  let { props; observers; inputs; outputs; locals } as main_node = 
+  let { props; contracts; observers; inputs; outputs; locals } as main_node = 
     node_of_name main_name nodes 
   in
 
