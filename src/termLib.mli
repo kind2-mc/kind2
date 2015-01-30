@@ -40,9 +40,6 @@ type prop_source =
   (** Property is from an annotation *)
   | PropAnnot of Lib.position
 
-  (** Property is part of a contract: contract name and position. *)
-  | Contract of (string * Lib.position)
-
   (** Property is a requirement for a subsystem: scope of the
       subsystem and position. *)
   | SubRequirement of (string list * Lib.position)
@@ -56,3 +53,9 @@ type prop_source =
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
   | Instantiated of string list * string 
+
+(** Source of a contract. *)
+type contract_source =
+
+  (** Contract is from an annotation. *)
+  | ContractAnnot of Lib.position

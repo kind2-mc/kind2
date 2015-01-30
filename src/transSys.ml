@@ -87,6 +87,8 @@ type property =
 type contract =
     { (* Name of the contract. *)
       name : string ;
+      (* Source of the contract. *)
+      source : TermLib.contract_source ;
       (* Requirements of the contract. *)
       requires : Term.t list ;
       (* Ensures of the contract. *)
@@ -424,8 +426,8 @@ let instantiation_count { callers } =
 let get_contracts { contracts } =
   contracts
   |> List.map
-       ( fun { name ; requires ; ensures ; status } ->
-         name, requires, ensures, status )
+       ( fun { name ; source ; requires ; ensures ; status } ->
+         name, source, requires, ensures, status )
 
 (* Returns the contracts of a system as a list of implications. *)
 let get_contracts_implications { contracts } =
@@ -491,9 +493,12 @@ let pp_print_uf_defs
 
 let pp_print_prop_source ppf = function 
   | TermLib.PropAnnot _ -> Format.fprintf ppf ":user"
-  | TermLib.Contract _ -> Format.fprintf ppf ":contract"
+  | TermLib.SubRequirement _ -> Format.fprintf ppf ":requirement"
   | TermLib.Generated p -> Format.fprintf ppf ":generated"
   | TermLib.Instantiated _ -> Format.fprintf ppf ":subsystem"
+
+let pp_print_contract_source ppf = function 
+  | TermLib.ContractAnnot _ -> Format.fprintf ppf ":user"
 
 let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } = 
 
@@ -529,11 +534,12 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list pp_print_caller "@ ") c
 
 let pp_print_contract
-      ppf { name ; requires ; ensures ; status } =
+      ppf { name ; source ; requires ; ensures ; status } =
   Format.fprintf
     ppf
-    "@[<hv 2>%s (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<v>%a@]@]@]"
+    "@[<hv 2>%s %a (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<v>%a@]@]@]"
     name
+    pp_print_contract_source source
     pp_print_prop_status_pt status
     (pp_print_list Term.pp_print_term "@ ") requires
     (pp_print_list Term.pp_print_term "@ ") ensures
@@ -593,11 +599,13 @@ let get_scope t = t.scope
 let get_name t = t.scope |> String.concat "/"
 
 (* Create a transition system *)
-let mk_trans_sys scope state_vars init trans subsystems props contracts source =
+let mk_trans_sys
+      scope state_vars init trans
+      subsystems props contracts source =
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
-    
+
     List.fold_left 
       (fun accum state_var -> 
 
@@ -688,8 +696,9 @@ let mk_trans_sys scope state_vars init trans subsystems props contracts source =
   let contracts =
     contracts
     |> List.map
-         (fun (name, reqs, ens) ->
+         (fun (name, source, reqs, ens) ->
           { name = name ;
+            source = source ;
             requires = reqs ;
             ensures = ens ;
             status = PropUnknown })

@@ -183,12 +183,16 @@ val mk_ensure : Lib.position -> expr -> ensure
 
 (** A contract clause *)
 type contract =
-    Lib.position * string * require list * ensure list
+    TermLib.contract_source * string * require list * ensure list
 
 (** Creates a contract from a name, a list of requires and a list of
     ensures. *)
 val mk_contract :
-  Lib.position -> LustreIdent.t -> require list -> ensure list -> contract
+  TermLib.contract_source ->
+  LustreIdent.t ->
+  require list ->
+  ensure list ->
+  contract
 
 (** Declaration of a node as a tuple of 
 

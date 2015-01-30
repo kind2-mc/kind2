@@ -78,7 +78,11 @@ type node_def =
 
     (* Contracts on the node. A contract is a name, a list of
        requires, and a list of ensures. *)
-    contracts : (string * Term.t list * Term.t list) list ;
+    contracts :
+      (string
+       * TermLib.contract_source
+       * Term.t list
+       * Term.t list) list ;
 
   }
 
@@ -1855,10 +1859,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                      Format.fprintf
                        ppf "annot at %a" pp_print_position p
 
-                  | TermLib.Contract (name, p) ->
-                     Format.fprintf
-                       ppf "contract %s at %a" name pp_print_position p
-
                   | TermLib.SubRequirement (scope, p) ->
                      Format.fprintf
                        ppf "requirement from subsystem %s at %a"
@@ -1901,8 +1901,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       
       node_contracts
       |> List.map
-           ( fun (name, reqs, ens) ->
+           ( fun (name, source, reqs, ens) ->
              name,
+             source,
              reqs |> List.map lustre_expr_to_term ,
              ens |> List.map lustre_expr_to_term )
     in
@@ -1911,11 +1912,13 @@ let rec trans_sys_of_nodes' nodes node_defs = function
           "@[<hv>Contracts of node %a@ @[<hv>%a@]@]"
           (LustreIdent.pp_print_ident false) node_name
           (pp_print_list
-             (function ppf -> function (name, reqs, ens) ->
+             (function ppf -> function (name, source, reqs, ens) ->
                        Format.fprintf
                          ppf
-                         "contract %s@   @[<hv>requires: %a@ ensures:  %a@]"
+                         "@[<hv 2>contract %s %s@ requires: @[<v>%a@]@ ensures:  @[<v>%a@]@]"
                          name
+                         (match source with
+                          | TermLib.ContractAnnot _ -> ":user")
                          (pp_print_list Term.pp_print_term ",@ ") reqs
                          (pp_print_list Term.pp_print_term ",@ ") ens)
              ",@ ")

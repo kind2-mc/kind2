@@ -149,7 +149,11 @@ type t =
     props : (StateVar.t * TermLib.prop_source) list;
 
     (* The contracts of the node. *)
-    contracts : (string * LustreExpr.t list * LustreExpr.t list) list;
+    contracts :
+      (string
+       * TermLib.contract_source
+       * LustreExpr.t list
+       * LustreExpr.t list) list;
 
     (* Node is annotated as main node *)
     is_main : bool;
@@ -304,7 +308,7 @@ let pp_print_ensure safe ppf expr =
     (E.pp_print_lustre_expr safe) expr
 
 (* Pretty-print a contract. *)
-let pp_print_contract safe ppf (name, requires, ensures) =
+let pp_print_contract safe ppf (name, _, requires, ensures) =
   Format.fprintf
     ppf
     "@[<hv 2>--@@contract : %s ;@ @[<v>%a@ %a@]@]"
@@ -935,7 +939,7 @@ let exprs_of_node { equations; calls; asserts; props; contracts } =
   (* Add all the expressions appearing in the contract. *)
   contracts
   |> List.fold_left
-       ( fun list (_, reqs, ens) ->
+       ( fun list (_, _, reqs, ens) ->
          reqs @ ens @ list )
        exprs_asserts
 
@@ -1470,7 +1474,7 @@ let reduce_to_props_coi nodes main_name =
          (* Property annotations, contracts and generated constraints
             are in the cone of influence *)
          | TermLib.PropAnnot _ 
-         | TermLib.Contract _ 
+         | TermLib.SubRequirement _
          | TermLib.Generated _ -> state_var :: accum
 
          (* Properties instantiated from subnodes are not *)

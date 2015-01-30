@@ -3271,7 +3271,7 @@ and assertion_to_node context node abstractions pos expr =
   (context, node', abstractions)
 
 (* Add a contract to a node. *)
-and contract_to_node context node abstractions pos contract =
+and contract_to_node context node abstractions contract =
 
   let node' =
     { node with N.contracts = contract :: node.N.contracts }
@@ -3799,7 +3799,7 @@ let rec parse_node_contracts
 
 
   (* Assumption *)
-  | (pos, name, requires, ensures) :: tail ->
+  | (source, name, requires, ensures) :: tail ->
 
      let requires', abstractions' =
        requires
@@ -3845,7 +3845,7 @@ let rec parse_node_contracts
 
      (* Add contract to node *)
      let context', node', abstractions' = 
-       contract_to_node context node abstractions' pos (name, requires', ensures')
+       contract_to_node context node abstractions' (name, source, requires', ensures')
      in
 
      (* Continue with next contract clauses *)

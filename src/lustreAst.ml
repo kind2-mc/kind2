@@ -217,12 +217,12 @@ let mk_ensure pos e = pos, e
 
 (* A contract clause *)
 type contract =
-    Lib.position * string * require list * ensure list
+    TermLib.contract_source * string * require list * ensure list
 
 (* Creates a contract from a name, a list of requires and a list of
    ensures. *)
-let mk_contract pos lustre_ident requires ensures =
-  pos, LustreIdent.string_of_ident true lustre_ident, requires, ensures
+let mk_contract source lustre_ident requires ensures =
+  source, LustreIdent.string_of_ident true lustre_ident, requires, ensures
 
 (* A node declaration *)
 type node_decl =

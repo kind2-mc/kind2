@@ -124,7 +124,10 @@ type t =
     props : (StateVar.t * TermLib.prop_source) list;
 
     (** Contracts for node. *)
-    contracts: (string * LustreExpr.t list * LustreExpr.t list) list;
+    contracts: (string
+                * TermLib.contract_source
+                * LustreExpr.t list
+                * LustreExpr.t list) list;
 
     (** Node is annotated as main node *)
     is_main : bool;
