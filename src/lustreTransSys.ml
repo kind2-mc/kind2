@@ -1439,10 +1439,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
     E.set_state_var_source depth_input_svar E.Abstract;
 
-    Format.printf
-      "Depth_input created: %a\n"
-      StateVar.pp_print_state_var depth_input_svar ;
-
     let init_flag_svar = TransSys.init_flag_svar in
 
     (* Input variables *)

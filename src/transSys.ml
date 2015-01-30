@@ -150,6 +150,10 @@ type t = {
   (* The subsystems of this system. *)
   subsystems: t list ;
 
+  (* The length of the longest branch of the call graph underneath
+     this system. *)
+  max_depth: int ;
+
   (* Properties of the transition system to prove invariant *)
   properties : property list;
 
@@ -637,29 +641,28 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | _ -> None
   in
 
-  let system =
-    { scope = scope;
-      uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
-      state_vars =
-        state_vars |> List.sort StateVar.compare_state_vars ;
-      init = init ;
-      trans = trans ;
-      properties =
-        List.map
-          (fun (n, s, t) -> 
-             { prop_name = n;
-               prop_source = s; 
-               prop_term = t; 
-               prop_status = PropUnknown })
-          props ;
-      contracts = [] ;
-      subsystems = subsystems ;
-      source = source ;
-      invars = invars_of_types ;
-      callers = []; }
-  in
+  let max_depth = 0 in
 
-  system
+  { scope = scope;
+    uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
+    state_vars =
+      state_vars |> List.sort StateVar.compare_state_vars ;
+    init = init ;
+    trans = trans ;
+    properties =
+      props
+      |> List.map
+           (fun (n, s, t) -> 
+            { prop_name = n;
+              prop_source = s; 
+              prop_term = t; 
+              prop_status = PropUnknown }) ;
+    contracts = [] ;
+    subsystems = subsystems ;
+    max_depth = max_depth ;
+    source = source ;
+    invars = invars_of_types ;
+    callers = []; }
 
 (* Return the variables of the transition system between given instants *)
 let rec vars_of_bounds' state_vars lbound ubound accum =
@@ -1078,6 +1081,7 @@ let pp_print_trans_sys
        properties;
        invars;
        source;
+       max_depth;
        callers } as trans_sys) = 
 
   Format.fprintf 
@@ -1089,6 +1093,7 @@ let pp_print_trans_sys
           @[<hv 2>(props@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
+          @[<hv 2>(max depth@ %i)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
@@ -1097,6 +1102,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_property "@ ") properties
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
+    max_depth
     (pp_print_list pp_print_callers "@,") callers
       
  

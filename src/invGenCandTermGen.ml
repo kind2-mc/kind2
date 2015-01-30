@@ -254,17 +254,17 @@ module CandidateTermGen = struct
                   | Type.Real ->
                      (* It is, adding >= and <=. *)
                     set
-                    (* |> TSet.add (flat_to_term term) *)
+                    |> TSet.add (flat_to_term flat)
                     |> TSet.add (Term.mk_geq kids)
                     |> TSet.add (Term.mk_leq kids)
                   | _ -> set )
 
             | `LEQ -> set
               |> TSet.add (Term.mk_geq kids)
-              |> TSet.add (Term.mk_leq kids)
+              |> TSet.add (flat_to_term flat)
 
             | `GEQ -> set
-              |> TSet.add (Term.mk_geq kids)
+              |> TSet.add (flat_to_term flat)
               |> TSet.add (Term.mk_leq kids)
 
             | `GT  -> set

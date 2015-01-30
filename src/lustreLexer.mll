@@ -463,13 +463,13 @@ and comment = parse
   | "@" (id as p) 
         { match p with
 
-          | "contract" -> Format.printf "Lexing contract@." ; CONTRACT
+          | "contract" -> CONTRACT
 
           (* Return token, continue with rest of line *)
-          | "require" -> Format.printf "Lexing require@." ; REQUIRES
+          | "require" -> REQUIRES
 
           (* Return token, continue with rest of line *)
-          | "ensure" -> Format.printf "Lexing ensure@." ; ENSURES
+          | "ensure" -> ENSURES
 
           (* Warn and ignore rest of line *)
           | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
