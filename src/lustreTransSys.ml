@@ -295,7 +295,7 @@ first_tick true  true  true false false false ... ]}
 let rec definitions_of_node_calls 
     mk_first_tick_state_var
     (mk_new_state_var : ?for_inv_gen:bool -> ?is_const:bool -> Type.t -> StateVar.t)
-    depth_input
+    actual_depth_input
     node_equations
     node_defs
     local_vars
@@ -566,68 +566,90 @@ let rec definitions_of_node_calls
         List.map (E.pre_term_of_state_var TransSys.trans_base) call_local_vars
       in
 
-      (* Lift properties from called node *)
-      let lifted_props' = 
+      (* Pretty-print a file position *)
+      let pp_print_file ppf pos_file = 
 
-        (* Pretty-print a file position *)
-        let pp_print_file ppf pos_file = 
+        if pos_file = "" then () else
+          Format.fprintf ppf "%s" pos_file
 
-          if pos_file = "" then () else
-            Format.fprintf ppf "%s" pos_file
+      in
 
-        in
+      (* Pretty-print a position as attributes *)
+      let pp_print_pos ppf pos = 
 
-        (* Pretty-print a position as attributes *)
-        let pp_print_pos ppf pos = 
+        (* Do not print anything for a dummy position *)
+        if is_dummy_pos pos then () else 
 
-          (* Do not print anything for a dummy position *)
-          if is_dummy_pos pos then () else 
+          (* Get file, line and column of position *)
+          let pos_file, pos_lnum, pos_cnum = 
+            file_row_col_of_pos pos
+          in
 
-            (* Get file, line and column of position *)
-            let pos_file, pos_lnum, pos_cnum = 
-              file_row_col_of_pos pos
-            in
+          (* Print attributes *)
+          Format.fprintf 
+            ppf
+            "[%al%dc%d]"
+            pp_print_file pos_file
+            pos_lnum
+            pos_cnum
 
-            (* Print attributes *)
-            Format.fprintf 
-              ppf
-              "[%al%dc%d]"
-              pp_print_file pos_file
-              pos_lnum
-              pos_cnum
+      in
 
-        in
-
-        (* Lift the name of a property in a subnode by adding the
+      (* Lift the name of a property in a subnode by adding the
            position of the node call *)
-        let lift_prop_name node_name pos prop_name =
+      let lift_prop_name node_name pos prop_name =
 
-          string_of_t 
-            (function ppf -> function prop_name -> 
-               Format.fprintf ppf 
-                 "%a%a.%s"
-                 (LustreIdent.pp_print_ident true) node_name
-                 pp_print_pos pos
-                 prop_name)
-            prop_name
+        string_of_t 
+          (function ppf -> function prop_name -> 
+                                    Format.fprintf ppf 
+                                                   "%a%a.%s"
+                                                   (LustreIdent.pp_print_ident true) node_name
+                                                   pp_print_pos pos
+                                                   prop_name)
+          prop_name
 
-        in
+      in
+
+      (* Lift properties from called node *)
+      let lifted_props' =
 
         (* Lift properties in subnode to properties of calling node *)
         List.map 
           (function (n, s, t) -> 
             (lift_prop_name node_name pos n, 
              TermLib.Instantiated (I.scope_of_ident node_name, n),
-             LustreExpr.lift_term pos node_name t))
+             (* Guard property lifting by a depth condition, so that
+                properties lifted from a node that is being abstracted
+                are not taken into account. *)
+             Term.mk_or
+               [ Term.mk_gt [ actual_depth_input ;
+                              TransSys.max_contract_depth_var
+                              |> Term.mk_var ] ;
+                 LustreExpr.lift_term pos node_name t ]
+
+            ))
           props 
 
       in
 
-      (* The actual value of the depth_input parameter for the called
-         node is the depth_input of the caller plus one. *)
-      let actual_depth_input =
-        Term.mk_plus [ depth_input ; Term.mk_num Numeral.one ]
+      (* Lift requirements from called node as properties. *)
+      let lifted_requirements =
+        match contracts with
+        | [] -> []
+        | _ ->
+           [ contracts
+             |> List.map
+                  ( fun (_,_,reqs,_) ->
+                    reqs
+                    |> Term.mk_and )
+             |> Term.mk_or
+             |> ( fun term ->
+                  lift_prop_name node_name pos "contract",
+                  TermLib.SubRequirement
+                    (I.scope_of_ident node_name, pos),
+                  term ) ]
       in
+               
 
       (* TODO: lift assumptions of contract of called node as
          properties *)
@@ -789,7 +811,12 @@ let rec definitions_of_node_calls
               local_vars', 
               init_call, 
               trans_call, 
-              lifted_props @ lifted_props',
+              (lifted_requirements
+               |> List.map
+                    (fun (name,source,term) ->
+                     name, source,
+                     Term.substitute_variables state_var_map term))
+              @ lifted_props @ lifted_props',
               state_var_map,
               identity
 
@@ -1187,7 +1214,7 @@ let rec definitions_of_node_calls
       definitions_of_node_calls 
         mk_first_tick_state_var
         mk_new_state_var
-        depth_input
+        actual_depth_input
         node_equations
         node_defs
         local_vars''
@@ -1430,6 +1457,88 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         node.N.fresh_state_var_index
     in
 
+    let contracts, abstract_contract_init, abstract_contract_trans =
+      let init_at_init =
+        TransSys.init_flag_var TransSys.init_base
+        |> Term.mk_var
+      in
+      let lustre_expr_to_term
+            { E.expr_init = init ; E.expr_step = step } =
+        if init == step then
+          E.base_term_of_expr TransSys.init_base init
+        else
+          Term.mk_or
+            [ Term.mk_and
+                [ init_at_init ;
+                  E.base_term_of_expr TransSys.init_base init ] ;
+              Term.mk_and
+                [ init_at_init |> Term.mk_not ;
+                  E.base_term_of_expr TransSys.init_base step ] ]
+      in
+
+      node_contracts
+      |> List.fold_left
+           ( fun (contracts, abs_init, abs_trans)
+                 (name, source, reqs, ens) ->
+
+             (* Building the list of contracts used to construct the
+                transition system. *)
+             (name, source,
+              reqs |> List.map lustre_expr_to_term ,
+              ens |> List.map lustre_expr_to_term)
+             :: contracts,
+
+             (* Building the abstract contract init predicate. *)
+             (Term.mk_implies
+                [ reqs
+                  |> List.map
+                       (fun { E.expr_init = init } ->
+                        E.base_term_of_expr TransSys.init_base init)
+                  |> Term.mk_and ;
+                  ens
+                  |> List.map
+                       (fun { E.expr_init = init } ->
+                        E.base_term_of_expr TransSys.init_base init)
+                  |> Term.mk_and ])
+             :: abs_init,
+
+             (* Building the abstract contract init predicate. *)
+             (Term.mk_implies
+                [ reqs
+                  |> List.map
+                       (fun { E.expr_step = step } ->
+                        E.base_term_of_expr TransSys.trans_base step)
+                  |> Term.mk_and ;
+                  ens
+                  |> List.map
+                       (fun { E.expr_step = step } ->
+                        E.base_term_of_expr TransSys.trans_base step)
+                  |> Term.mk_and ])
+             :: abs_trans )
+           ([], [], [])
+      |> (fun (contracts, abs_init, abs_trans) ->
+          contracts,
+          Term.mk_and abs_init,
+          Term.mk_and abs_trans)
+    in
+
+    debug lustreTransSys
+          "@[<hv>Contracts of node %a@ @[<hv>%a@]@]"
+          (LustreIdent.pp_print_ident false) node_name
+          (pp_print_list
+             (function ppf -> function (name, source, reqs, ens) ->
+                       Format.fprintf
+                         ppf
+                         "@[<hv 2>contract %s %s@ requires: @[<v>%a@]@ ensures:  @[<v>%a@]@]"
+                         name
+                         (match source with
+                          | TermLib.ContractAnnot _ -> ":user")
+                         (pp_print_list Term.pp_print_term ",@ ") reqs
+                         (pp_print_list Term.pp_print_term ",@ ") ens)
+             ",@ ")
+          contracts
+    in
+
     (* Depth input. Passed by the caller, constant. *)
     let depth_input_svar =
       E.mk_state_var_of_ident
@@ -1441,7 +1550,67 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         Type.t_int
     in
 
+    (* Setting the source of the depth input. *)
     E.set_state_var_source depth_input_svar E.Abstract;
+
+    (* If the node does not have any contracts, then the actual
+       depth_input is the same as this node's formal one. *)
+    let actual_depth_input,
+        add_contract_conditional_on_depth_init,
+        add_contract_conditional_on_depth_trans =
+      depth_input_svar
+      |> Var.mk_const_state_var
+      |> Term.mk_var
+      |> (match contracts with
+          | [] ->
+             ( fun di ->
+               (* No contract on this node. *)
+               di, identity, identity )
+
+          | _ ->
+             (* There are some contracts on this node, incrementing
+                depth input and creating the functions to add the
+                conditional abstract version of the node. *)
+             ( fun di ->
+               (* Condition triggering the abstract versions of init
+                  and trans. *)
+               let depth_condition_abstract =
+                 Term.mk_gt [ di ;
+                              TransSys.max_contract_depth_var
+                              |> Term.mk_var ]
+               in
+
+               (* The depth actual input is the formal one of this
+                  node plus one. *)
+               Term.mk_plus
+                 [ di ; Term.mk_num Numeral.one ],
+
+               (* Concrete init predicate is made conditional on the
+                  depth. If above the max depth, then the abstract
+                  contract init is activated. *)
+               (fun concrete_init ->
+                Term.mk_and
+                  [ Term.mk_implies
+                      [ depth_condition_abstract ;
+                        abstract_contract_init ] ;
+                    Term.mk_implies
+                      [ depth_condition_abstract
+                        |> Term.mk_not ;
+                        concrete_init ] ]),
+
+               (* Concrete trans predicate is made conditional on the
+                  depth. If above the max depth, then the abstract
+                  contract trans is activated. *)
+               (fun concrete_trans ->
+                Term.mk_and
+                  [ Term.mk_implies
+                      [ depth_condition_abstract ;
+                        abstract_contract_trans ] ;
+                    Term.mk_implies
+                      [ depth_condition_abstract
+                        |> Term.mk_not ;
+                        concrete_trans ] ]) ))
+    in
 
     let init_flag_svar = TransSys.init_flag_svar in
 
@@ -1469,7 +1638,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       definitions_of_node_calls 
         mk_first_tick_state_var
         mk_new_state_var
-        (depth_input_svar |> Var.mk_const_state_var |> Term.mk_var)
+        actual_depth_input
         node_equations
         node_defs
         (* [] *)
@@ -1735,9 +1904,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (* Local variables *)
          (List.map (E.base_var_of_state_var TransSys.init_base) locals)),
 
-        (Term.mk_and (
-          (TransSys.init_flag_var TransSys.init_base |> Term.mk_var)
-          :: init_defs_eqs))))
+        (Term.mk_and
+           ((TransSys.init_flag_var TransSys.init_base |> Term.mk_var)
+            :: init_defs_eqs)
+         |> add_contract_conditional_on_depth_init )))
 
     in
 
@@ -1810,10 +1980,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (* Local variables *)
          (List.map (E.pre_var_of_state_var TransSys.trans_base) locals)),
 
-        (Term.mk_and (
-          (TransSys.init_flag_var TransSys.trans_base
-           |> Term.mk_var |> Term.mk_not)
-          :: trans_defs_eqs ))))
+        (Term.mk_and
+           ( (TransSys.init_flag_var TransSys.trans_base
+              |> Term.mk_var |> Term.mk_not)
+             :: trans_defs_eqs )
+         |> add_contract_conditional_on_depth_trans)))
 
     in
 
@@ -1878,51 +2049,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                 s)
            ",@ ")
         props
-    in
-
-    let contracts =
-      let init_at_init =
-        TransSys.init_flag_var TransSys.init_base
-        |> Term.mk_var
-      in
-      let lustre_expr_to_term
-            { E.expr_init = init ; E.expr_step = step } =
-        if init == step then
-          E.base_term_of_expr TransSys.init_base init
-        else
-          Term.mk_or
-            [ Term.mk_and
-                [ init_at_init ;
-                  E.base_term_of_expr TransSys.init_base init ] ;
-              Term.mk_and
-                [ init_at_init |> Term.mk_not ;
-                  E.base_term_of_expr TransSys.init_base step ] ]
-      in
-      
-      node_contracts
-      |> List.map
-           ( fun (name, source, reqs, ens) ->
-             name,
-             source,
-             reqs |> List.map lustre_expr_to_term ,
-             ens |> List.map lustre_expr_to_term )
-    in
-
-    debug lustreTransSys
-          "@[<hv>Contracts of node %a@ @[<hv>%a@]@]"
-          (LustreIdent.pp_print_ident false) node_name
-          (pp_print_list
-             (function ppf -> function (name, source, reqs, ens) ->
-                       Format.fprintf
-                         ppf
-                         "@[<hv 2>contract %s %s@ requires: @[<v>%a@]@ ensures:  @[<v>%a@]@]"
-                         name
-                         (match source with
-                          | TermLib.ContractAnnot _ -> ":user")
-                         (pp_print_list Term.pp_print_term ",@ ") reqs
-                         (pp_print_list Term.pp_print_term ",@ ") ens)
-             ",@ ")
-          contracts
     in
 
     (* Get list of transition systems of called nodes *)

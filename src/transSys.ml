@@ -22,13 +22,22 @@ type source =
   | Lustre of LustreNode.t list 
   | Native
 
-(* Global is_init state var *)
+(* Global init flag state var. *)
 let init_flag_svar =
-  StateVar.mk_state_var ~for_inv_gen:false "x_is_init_x" ["transSys"] Type.t_bool
+  let res =
+    StateVar.mk_state_var
+      ~for_inv_gen:false
+      "x_is_init_x"
+      ["transSys"]
+      Type.t_bool
+  in
+  LustreExpr.set_state_var_source res LustreExpr.Abstract ;
+  res
 
-(* Instantiate init flag at k *)
+(* Instantiate init flag at k. *)
 let init_flag_var = Var.mk_state_var_instance init_flag_svar
 
+(* UF version of the init flag. *)
 let init_flag_uf k =
   init_flag_var k |> Var.unrolled_uf_of_state_var_instance
 
@@ -43,7 +52,23 @@ let is_uf_init_flag uf =
   with
   | Not_found -> false
 
-let _ = LustreExpr.set_state_var_source init_flag_svar LustreExpr.Abstract
+(* Global max contract depth state var *)
+let max_contract_depth_svar =
+  let res =
+    StateVar.mk_state_var
+      ~is_input:false
+      ~is_const:true
+      ~for_inv_gen:false
+      "x_max_depth_x"
+      ["transSys"]
+      Type.t_int
+  in
+  LustreExpr.set_state_var_source res LustreExpr.Abstract ;
+  res
+
+(* Global max contract depth state var. *)
+let max_contract_depth_var =
+  Var.mk_const_state_var max_contract_depth_svar
 
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 

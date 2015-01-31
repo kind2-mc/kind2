@@ -119,12 +119,13 @@ val instantiation_count: t -> int
 (** Returns true if the system is the top level system. *)
 val is_top : t -> bool
 
-(** Global init flag state var *)
+(** Global init flag state var. *)
 val init_flag_svar: StateVar.t
 
-(** Instantiate init flag at k *)
+(** Instantiate init flag at k. *)
 val init_flag_var: Numeral.t -> Var.t
 
+(** UF version of the init flag. *)
 val init_flag_uf: Numeral.t -> UfSymbol.t
                                   
 (** Tests if a var is an instanciation of the init_flag. *)
@@ -132,6 +133,12 @@ val is_var_init_flag: Var.t -> bool
                                   
 (** Tests if a uf is an instanciation of the init_flag. *)
 val is_uf_init_flag: UfSymbol.t -> bool
+
+(** Global max contract depth state var *)
+val max_contract_depth_svar : StateVar.t
+
+(** Global max contract depth state var. *)
+val max_contract_depth_var : Var.t
 
 (** Predicate for the initial state constraint *)
 val init_uf_symbol : t -> UfSymbol.t
