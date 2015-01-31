@@ -334,6 +334,12 @@ let init trans =
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
+  SMTSolver.trace_comment solver "Declaring global consts." ;
+
+  (* Declaring constant global state variables. *)
+  TransSys.declare_vars_global_const
+    (SMTSolver.declare_fun solver) ;
+
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
   |> SMTSolver.assert_term solver

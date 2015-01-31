@@ -657,6 +657,10 @@ let launch trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
+  
+  (* Declaring constant global state variables. *)
+  TransSys.declare_vars_global_const
+    (SMTSolver.declare_fun solver) ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero

@@ -115,7 +115,6 @@ let common_setup (solver,sys,actlit) =
        "Setting up system [%s]."
   |> SMTSolver.trace_comment solver ;
 
-  
   SMTSolver.declare_fun solver actlit ;
   
   (* Defining uf's and declaring variables. *)
@@ -125,8 +124,10 @@ let common_setup (solver,sys,actlit) =
     (SMTSolver.declare_fun solver)
     Numeral.zero Numeral.(~- one) ;
 
+  SMTSolver.trace_comment solver "Done defining, declaring now." ;
+
   (* Declaring unrolled vars at [-1] and [0]. *)
-  TransSys.declare_vars_of_bounds_no_init
+  TransSys.declare_vars_of_bounds_no_global
     sys
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
@@ -157,7 +158,7 @@ let step_setup (solver, sys, actlit) =
   |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
-  TransSys.declare_vars_of_bounds_no_init
+  TransSys.declare_vars_of_bounds_no_global
     sys
     (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
@@ -183,7 +184,7 @@ let unroll_solver solver sys actlit k =
   |> SMTSolver.trace_comment solver ;
 
   (* Declaring unrolled vars at [k+1]. *)
-  TransSys.declare_vars_of_bounds_no_init
+  TransSys.declare_vars_of_bounds_no_global
     sys (SMTSolver.declare_fun solver) k k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
@@ -325,17 +326,18 @@ let create two_state top_only sys =
   in
 
   let init_solver solver =
-    TransSys.init_flag_uf Numeral.(~- one)
-    |> SMTSolver.declare_fun solver ;
-    TransSys.init_flag_uf Numeral.zero
-    |> SMTSolver.declare_fun solver ;
+    TransSys.declare_vars_of_bounds_global
+      (SMTSolver.declare_fun solver)
+      Numeral.(~- one) Numeral.zero ;
+    TransSys.declare_vars_global_const
+      (SMTSolver.declare_fun solver)
   in
 
   init_solver base_solver ;
   init_solver step_solver ;
+  init_solver pruning_solver ;
   TransSys.init_flag_uf Numeral.one
   |> SMTSolver.declare_fun step_solver ;
-  init_solver pruning_solver ;
   TransSys.init_flag_uf Numeral.one
   |> SMTSolver.declare_fun pruning_solver ;
 

@@ -70,6 +70,12 @@ let max_contract_depth_svar =
 let max_contract_depth_var =
   Var.mk_const_state_var max_contract_depth_svar
 
+(* Global non-constant state variables. *)
+let global_svars = [ init_flag_svar ]
+
+(* Global constant state variables. *)
+let global_constant_svars = [ max_contract_depth_svar ]
+
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
@@ -776,14 +782,30 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
     (* Recurse to next lower bound *)
     |> vars_of_bounds' state_vars lbound Numeral.(pred ubound)
 
+(* Declares variables of the transition system between two offsets. *)
 let vars_of_bounds trans_sys lbound ubound =
   vars_of_bounds' trans_sys.state_vars lbound ubound []
 
-let declare_vars_of_bounds_no_init sys declare lbound ubound =
+(* Declares non global state variables of the transition system
+   between two offsets. *)
+let declare_vars_of_bounds_no_global sys declare lbound ubound =
   vars_of_bounds'
     (sys.state_vars |> List.filter (fun sv -> sv != init_flag_svar))
     lbound ubound []
   |> Var.declare_vars declare
+
+(* Declares global state variables of the transition system between
+   two offsets. *)
+let declare_vars_of_bounds_global declare lbound ubound =
+  vars_of_bounds' global_svars lbound ubound []
+  |> Var.declare_vars declare
+
+(* Declares global constant state variables of the transition system between
+   two offsets. *)
+let declare_vars_global_const declare =
+  global_constant_svars
+  |> List.map (Var.mk_const_state_var)
+  |> Var.declare_constant_vars declare
 
 
 (* Declares variables of the transition system between two offsets. *)
