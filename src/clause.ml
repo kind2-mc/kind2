@@ -18,225 +18,299 @@
 
 open Lib
 
+(* Clause *)
+type t = 
 
-(* Abbreviation for module name *)
-module T = Term.TermSet
+  {
+    
+    (* One activation literal for the positive, unprimed clause *)
+    actlit_p0 : Term.t;
 
+    (* One activation literal for the positive, primed clause  *)
+    actlit_p1 : Term.t;
 
-(* A clause is a set of terms *)
-type t = T.t
+    (* One activation literal for each negated unprimed literal in
+       clause *)
+    actlits_n0 : Term.t list;
+    
+    (* One activation literal for each negated primed literal in
+       clause *)
+    actlits_n1 : Term.t list;
 
+    (* Literals in clause, to be treated as disjunction *)
+    literals: Term.t list;
 
-(* Construct a clause of a set of literals *)
-let of_literals l = 
-  List.fold_left (fun a e -> T.add e a) T.empty l
-
-
-(* Return the literals of a set of disjuncts *)
-let rec literals_of_term accum = function 
-
-  (* All disjuncts processed, return accumulator *)
-  | [] -> accum 
-
-  (* Take the first potential [h] disjunct and its polarity [p] *)
-  | (p, t) :: tl -> 
-
-    (* Flatten disjunct *)
-    match Term.T.destruct t with 
-
-      (* Term is a negation *)
-      | Term.T.App (s, [t]) when s == Symbol.s_not -> 
-
-        (* Get literals from positive term with opposite polarity *)
-        literals_of_term accum ((not p, t) :: tl)
-
-      (* Term is a disjunction with positive polarity *)
-      | Term.T.App (s, l) when s == Symbol.s_or && p -> 
-
-        (* Get the literals from each disjunct *)
-        literals_of_term 
-          accum 
-          ((List.map (function e -> (true, e)) l) @ tl)
-(*
-      (* Disjunction with negative polarity is not a clause *)
-      | Term.T.App (s, _) when s == Symbol.s_or -> 
-        invalid_arg "of_term: not a clause" 
-*)
-      (* Term is a conjunction with negative polarity *)
-      | Term.T.App (s, l) when s == Symbol.s_and && not p -> 
-
-        (* Get the literals from each conjunct *)
-        literals_of_term 
-          accum 
-          ((List.map (function e -> (false, e)) l) @ tl)
-(*
-      (* Conjunction with positive polarity is not a clause *)
-      | Term.T.App (s, _) when s == Symbol.s_and -> 
-        invalid_arg "of_term: not a clause" 
-*)
-      (* Term is neither conjunction nor disjunction and has negative
-         polarity *)
-      | _ when not p -> 
-
-        (* Term must be a Boolean atom *)
-        (* assert (Term.is_atom t); *)
-
-        (* Add term to literals *)
-        literals_of_term ((Term.negate t) :: accum) tl
-
-      (* Term is neither conjunction nor disjunction and has positive
-         polarity *)
-      | _ -> 
-
-        (* Term must be a Boolean atom *)
-        (* assert (Term.is_atom t); *)
-
-        (* Add term to literals *)
-        literals_of_term (t :: accum) tl
-
-
-(* Construct a clause of a term *)
-let of_term t = 
-
-  (* Construct a clause from the literals of the term *)
-  Stat.time_fun Stat.clause_of_term_time  (fun () ->
-      of_literals (literals_of_term [] [(true, t)])
-    )
-
-let elements = T.elements 
-
-(*
-(* Return the elements of a clause *)
-let elements c = match Term.destruct c with 
-
-  (* Clause is a disjunction of literals *)
-  | Term.T.App (s, d) when s == Symbol.s_or -> d
-
-  (* Clause is empty, then it is the Boolean false *)
-  | Term.T.Const s when s == Symbol.s_false -> []
-
-  (* Clause is unit *)
-  | _ as t -> [Term.construct t]
-*)
-
-(* Pretty-print a clause as list of literals without parenthes *)
-let rec pp_print_clause' ppf = function 
-
-  | [] -> ()
-
-  | l :: tl -> 
-
-    Format.fprintf 
-      ppf 
-      "@[<hv>%a@]%t" 
-      Term.pp_print_term l 
-      (function ppf -> if not (tl = []) then Format.fprintf ppf ";@ " else ());
-
-    pp_print_clause' ppf tl
+    (* Clause before inductive generalization *)
+    parent: t option;
       
+  } 
 
-(* Pretty-print a clause *)
-let pp_print_clause ppf clause = 
-  Format.fprintf ppf "@[<hv 1>{%a}@]" pp_print_clause' (elements clause)
+    
+(* Set of properties *)
+type prop_set =
+
+  {
+
+    (* Clause of property set *)
+    clause: t;
+
+    (* Named properties *)
+    props : (string * Term.t) list
+    
+  } 
+
+(* ********************************************************************** *)
+(* Activation literals                                                    *)
+(* ********************************************************************** *)
+    
+(* Type of activation literal *)
+type actlit_type = 
+  | Actlit_p0  (* positive unprimed *)
+  | Actlit_n0  (* negative unprimed *)
+  | Actlit_p1  (* positive primed *)
+  | Actlit_n1  (* negative primed *)
+
+
+(* Get string tag for type of activation literal *)
+let tag_of_actlit_type = function 
+  | Actlit_p0 -> "p0"
+  | Actlit_n0 -> "n0"
+  | Actlit_p1 -> "p1"
+  | Actlit_n1 -> "n1"
+
+(* Counters for activation literal groups *)
+let actlit_counts = ref []
   
 
-(* Pretty-print a clause to the standard formatter *)
-let print_clause = pp_print_clause Format.std_formatter
+(* Number of property sets considered *)
+let prop_set_count = ref (- 1)
+
+  
+(* Prefix for name of activation literals to avoid name clashes *)
+let actlit_prefix = "__pdr"
 
 
-(* The empty clause *)
-let empty = T.empty
+(* Process term for type of type of activation literal *)
+let term_for_actlit_type term = function
+
+  (* Return term unchanged *)
+  | Actlit_p0 -> term
+
+  (* Negate term *)
+  | Actlit_n0 -> Term.negate term 
+
+  (* Prime term *)
+  | Actlit_p1 -> Term.bump_state Numeral.one term
+
+  (* Negate and prime term *)
+  | Actlit_n1 -> Term.bump_state Numeral.one term |> Term.negate 
+
+      
+(* Create an activation literal of given type for term, and assert
+   term guarded with activation literal *)
+let create_and_assert_fresh_actlit solver tag term actlit_type = 
+
+  (* Get reference for counter of activation literal group *)
+  let actlit_count_ref = 
+
+    try 
+
+      (* Return reference in association list *)
+      List.assoc tag !actlit_counts 
+
+    with Not_found ->
+
+      (* Initialize reference *)
+      let c = ref (-1) in 
+
+      (* Add reference in association list *)
+      actlit_counts := (tag, c) :: !actlit_counts;
+
+      (* Return reference *)
+      c
+
+  in
+
+  (* Increment counter for tag *)
+  incr actlit_count_ref;
+
+  SMTSolver.trace_comment 
+    solver
+    (Format.sprintf
+       "create_and_assert_fresh_actlit: Assert activation literal %s for %s %d"
+       (tag_of_actlit_type actlit_type)
+       tag
+       !actlit_count_ref);
+
+  (* Name of uninterpreted function symbol primed negative *)
+  let uf_symbol_name = 
+    Format.asprintf "%s_%s_%d" 
+      actlit_prefix
+      tag
+      !actlit_count_ref
+  in
+
+  (* Create uninterpreted constant *)
+  let uf_symbol = 
+    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
+  in
+
+  (* Return term of uninterpreted constant *)
+  let actlit = Term.mk_uf uf_symbol [] in
+
+  (* Declare symbols in solver *)
+  SMTSolver.declare_fun solver uf_symbol;
+  
+  (* Prepare term for activation literal type *)
+  let term' = term_for_actlit_type term actlit_type in
+
+  (* Assert term in solver instance *)
+  SMTSolver.assert_term 
+    solver
+    (Term.mk_implies [actlit; term']);
+
+  (* Return activation literal *)
+  actlit 
 
 
-(* The true clause *)
-let top = T.singleton Term.t_true
+(* Create or return activation literal for frame [k] *)
+let actlit_and_symbol_of_frame k = 
 
+  (* Name of uninterpreted function symbol *)
+  let uf_symbol_name = 
+    Format.asprintf "%s_frame_%d" actlit_prefix k
+  in
 
-(* A clause is empty if it is the Boolean false *)
-let is_empty = T.is_empty
+  (* Create or retrieve uninterpreted constant *)
+  let uf_symbol = 
+    UfSymbol.mk_uf_symbol uf_symbol_name [] Type.t_bool
+  in
 
-
-(* Literal is in a clause? *)
-let mem = T.mem
-   
-
-(* Add a literal to a clause *)
-let add = T.add
-
-
-(* Construct a unit clause *)
-let singleton = T.singleton
-
-
-(* Remove a literal from a clause *)
-let remove = T.remove
-
-
-(* Construct the disjunction of two clauses *)
-let union = T.union
-
-
-(* Return a clause only containing literals in both clauses *)
-let inter = T.inter
+  (* Return term of uninterpreted constant *)
+  let actlit = Term.mk_uf uf_symbol [] in
     
+  (* Return uninterpreted constant and term *)
+  (uf_symbol, actlit)
 
-(* Return a clause only containing the literals in the first but not
-   in the second clause *)
-let diff = T.diff
+let actlit_of_frame k = actlit_and_symbol_of_frame k |> snd
 
+let actlit_symbol_of_frame k = actlit_and_symbol_of_frame k |> fst
+        
+    
+(* ********************************************************************** *)
+(* Clauses                                                                *)
+(* ********************************************************************** *)
+    
+    
+(* Create three fresh activation literals for a list of literals and
+   declare in the given solver instance *)
+let clause_of_literals solver parent literals =
+  
+  (* Disjunction of literals *)
+  let term = Term.mk_or literals in
 
-(* Compare two clauses *)
-let compare = T.compare
+  (* Create activation literals for positive clause *)
+  let (actlit_p0, actlit_p1) =
+    let mk = create_and_assert_fresh_actlit solver "clause" term in
+    mk Actlit_p0, mk Actlit_p1
+  in
 
+  (* Create activation literals for negated literals in clause *)
+  let actlits_n0, actlits_n1 =
+    let mk t = 
+      List.map 
+        (fun l -> 
+           create_and_assert_fresh_actlit solver "clause_lit" l t)
+        literals
+    in
+    mk Actlit_n0, mk Actlit_n1
+  in
 
-(* Equality of two clauses *)
-let equal = T.equal
-
-
-(* Return true if all literals in the second clause are in the first clause *)
-let subset = T.subset
-
-
-(* Apply function to each literal in the clause *)
-let iter = T.iter
-
-
-(* Fold literals in clause with function *)
-let fold = T.fold
-
-
-(* Return true if the predicate [f] returned true for all literals *)
-let for_all = T.for_all
-
-
-(* Return true if the predicate [f] returned true for some literal *)
-let exists = T.exists
-
-
-(* Return a clause containing only the literals the predicate [f] is true for *)
-let filter = T.filter
-
-(* Return a pair of clauses, where the literals in the first pair
-   satify the predicate [f] and the literals in the second don't *)
-let partition = T.partition
-
-
-(* Return the number of literals in the clause *)
-let cardinal = T.cardinal
+  (* Return clause with activation literals *)
+  { actlit_p0; actlits_n0; actlit_p1; actlits_n1; literals; parent }
 
 
-(* Return one element of the clause *)
-let choose = T.choose 
+(* Return disjunction of literals from a clause *)
+let term_of_clause { literals } = Term.mk_or literals
 
+(* Return literals from a clause *)
+let literals_of_clause { literals } = literals
 
-(* Apply [f] to each literal and return a new clause *)
-let map f c = 
-  of_literals (List.map f (elements c))
+(* Activation literal for positve, unprimed clause *)
+let actlit_p0_of_clause { actlit_p0 } = actlit_p0
 
+(* Activation literal for positve, unprimed clause *)
+let actlit_p1_of_clause { actlit_p1 } = actlit_p1
 
-(* Convert a clause to a term *)
-let to_term c = Term.mk_or (elements c)
+(* Activation literal for negative, unprimed clause *)
+let actlits_n0_of_clause { actlits_n0 } = actlits_n0
 
+(* Activation literal for negative, primed clause *)
+let actlits_n1_of_clause { actlits_n1 } = actlits_n1
+
+(* Get parent of clause *)
+let rec parent_of_clause = function 
+  | { parent = None } as clause -> clause 
+  | { parent = Some c } -> parent_of_clause c
+
+let length_of_clause { literals } = List.length literals
+
+  
+(* ********************************************************************** *)
+(* Property sets                                                          *)    
+(* ********************************************************************** *)
+
+(* Create three fresh activation literals for a set of properties and
+   declare in the given solver instance *)
+let prop_set_of_props solver props = 
+
+  (* Increment refercent for property set *)
+  incr prop_set_count;
+
+  SMTSolver.trace_comment 
+    solver
+    (Format.sprintf
+       "actlits_of_propset: Assert activation literals for property set %d"
+       !prop_set_count);
+
+  (* Conjunction of property terms *)
+  let term = List.map snd props |> Term.mk_and in
+
+  (* Unit clause of term *)
+  let literals = [term] in
+
+  (* Create activation literals for terms *)
+  let (actlit_p0, actlit_n0, actlit_p1, actlit_n1) =
+    let mk = create_and_assert_fresh_actlit solver "prop" term in
+    (mk Actlit_p0, mk Actlit_n0, mk Actlit_p1, mk Actlit_n1)
+  in
+
+  (* Return together with clause with activation literals *)
+  { clause = 
+      { actlit_p0; 
+        actlits_n0 = [actlit_n0]; 
+        actlit_p1; 
+        actlits_n1 = [actlit_n1]; 
+        literals; 
+        parent = None } ;
+    props }
+
+(* Return conjunction of properties *)
+let term_of_prop_set { clause } = term_of_clause clause
+
+(* Return clause for property set *)
+let clause_of_prop_set { clause } = clause
+
+let props_of_prop_set { props } = props
+  
+let actlit_p0_of_prop_set { clause = { actlit_p0 } } = actlit_p0
+  
+let actlit_p1_of_prop_set { clause = { actlit_p1 } } = actlit_p1
+
+let actlits_n0_of_prop_set { clause = { actlits_n0 } } = actlits_n0
+
+let actlits_n1_of_prop_set { clause = { actlits_n1 } } = actlits_n1
+    
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
