@@ -332,6 +332,16 @@ let depth_input_ident_string =  "__depth_input"
 let init_uf_string = "__node_init"
 let trans_uf_string = "__node_trans"
 
+let reserved_strings =
+  [ abs_ident_string ;
+    oracle_ident_string ;
+    observer_ident_string ;
+    first_tick_ident_string ;
+    depth_input_ident_string ;
+    init_uf_string ;
+    trans_uf_string ]
+  @ StateVar.reserved_strings
+
 (* let top_scope_string = "__top" *)
 
 
@@ -341,15 +351,9 @@ let ident_is_reserved ident =
   (* Get string part of identifier *)
   let ident_string, _ : t :> string * _ = ident in
 
-  (* Return false if identical to any reserved identifier *)
-  string_starts_with ident_string abs_ident_string
-  || string_starts_with ident_string oracle_ident_string
-  || string_starts_with ident_string observer_ident_string
-  || string_starts_with ident_string first_tick_ident_string
-  || string_starts_with ident_string depth_input_ident_string
-  || string_starts_with ident_string init_uf_string
-  || string_starts_with ident_string trans_uf_string
-(*  || string_starts_with ident_string top_scope_string *)
+  reserved_strings
+  |> List.exists
+       (string_starts_with ident_string)
   
 
 (* Identifier for new variables from abstrations *)

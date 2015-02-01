@@ -292,7 +292,8 @@ first_tick true  true  true false false false ... ]}
       {[(clock' and not first_tick') => trans(first_tick',args',first_tick,args)]}
 
  *)
-let rec definitions_of_node_calls 
+let rec definitions_of_node_calls
+    init_flag_svar
     mk_first_tick_state_var
     (mk_new_state_var : ?for_inv_gen:bool -> ?is_const:bool -> Type.t -> StateVar.t)
     actual_depth_input
@@ -672,20 +673,23 @@ let rec definitions_of_node_calls
 
             (
 
-              (* Init flag in the initial state. *)
-              let init_flag_init =
-                TransSys.init_flag_var TransSys.init_base |> Term.mk_var
-              in
-
-              (* Init flag in the current state. *)
-              let init_flag_trans =
-                TransSys.init_flag_var TransSys.trans_base |> Term.mk_var
-              in
-
-              (* Init flag in the previous state. *)
-              let init_flag_trans_pre =
-                TransSys.init_flag_var Numeral.(pred TransSys.trans_base)
-                |>  Term.mk_var
+              let
+                (* Init flag in the initial state. *)
+                init_flag_init,
+                (* Init flag in the current state. *)
+                init_flag_trans,
+                (* Init flag in the previous state. *)
+                init_flag_trans_pre =
+                
+                Var.mk_state_var_instance
+                  init_flag_svar TransSys.init_base
+                |> Term.mk_var,
+                Var.mk_state_var_instance
+                  init_flag_svar TransSys.trans_base
+                |> Term.mk_var,
+                Var.mk_state_var_instance
+                  init_flag_svar Numeral.(pred TransSys.trans_base)
+                |> Term.mk_var
               in
 
               (* Initial state values of default values *)
@@ -798,7 +802,8 @@ let rec definitions_of_node_calls
               let state_var_map =
                 (* Init flag formal parameter of the subnode is mapped
                    to the init flag of the caller. *)
-                (TransSys.init_flag_svar, TransSys.init_flag_svar)
+                (I.scope_of_ident node_name |> StateVar.mk_init_flag,
+                 init_flag_svar)
                 (* Add input variables to map *)
                 :: List.fold_left2
                      (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
@@ -1092,7 +1097,7 @@ let rec definitions_of_node_calls
             let state_var_map =
               (* The init flag formal parameter is mapped to the
                  [first_tick] state variable defined by the caller. *)
-              (TransSys.init_flag_svar,
+              (I.scope_of_ident node_name |> StateVar.mk_init_flag,
                first_tick_state_var)
               (* Add input variables to map *)
               :: List.fold_left2
@@ -1211,7 +1216,8 @@ let rec definitions_of_node_calls
       in
 
       (* Continue with next node call *)
-      definitions_of_node_calls 
+      definitions_of_node_calls
+        init_flag_svar
         mk_first_tick_state_var
         mk_new_state_var
         actual_depth_input
@@ -1416,6 +1422,36 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     (* Create scope from node name *)
     let scope = LustreIdent.index_of_ident node_name in
 
+    (* Scoped init flag state variable. *)
+    let init_flag_svar =
+      I.scope_of_ident node_name
+      |> StateVar.mk_init_flag
+    in
+
+    (* Setting the init flag source to abstract. *)
+    E.set_state_var_source init_flag_svar E.Abstract ;
+
+    (* Scoped init flag at init. *)
+    let init_flag_init =
+      Var.mk_state_var_instance
+        init_flag_svar
+        TransSys.init_base
+    in
+
+    (* Scoped init flag at trans, current state. *)
+    let init_flag_trans =
+      Var.mk_state_var_instance
+        init_flag_svar
+        TransSys.trans_base
+    in
+
+    (* Scoped init flag at trans, previous state. *)
+    let init_flag_trans_pre =
+      Var.mk_state_var_instance
+        init_flag_svar
+        Numeral.(pred TransSys.trans_base)
+    in
+
     (* Previous value of index of first_tick flag for condact
        Keep in this function to reset index for each node *)
     let first_tick_state_var_index = ref Numeral.(- one) in
@@ -1458,10 +1494,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     in
 
     let contracts, abstract_contract_init, abstract_contract_trans =
-      let init_at_init =
-        TransSys.init_flag_var TransSys.init_base
-        |> Term.mk_var
-      in
+      let init_at_init = init_flag_init |> Term.mk_var in
       let lustre_expr_to_term
             { E.expr_init = init ; E.expr_step = step } =
         if init == step then
@@ -1612,8 +1645,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                         concrete_trans ] ]) ))
     in
 
-    let init_flag_svar = TransSys.init_flag_svar in
-
     (* Input variables *)
     let inputs =
       (List.map fst node_inputs)
@@ -1635,7 +1666,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         lifted_props, 
         state_var_maps = 
 
-      definitions_of_node_calls 
+      definitions_of_node_calls
+        init_flag_svar
         mk_first_tick_state_var
         mk_new_state_var
         actual_depth_input
@@ -1883,7 +1915,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (Var.mk_const_state_var depth_input_svar) ::
            
          (* Init flag. *)
-         (Var.mk_state_var_instance init_flag_svar TransSys.init_base) ::
+         (init_flag_init) ::
 
          (* Input variables *)
          (List.map (E.base_var_of_state_var TransSys.init_base) inputs) @
@@ -1905,7 +1937,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (List.map (E.base_var_of_state_var TransSys.init_base) locals)),
 
         (Term.mk_and
-           ((TransSys.init_flag_var TransSys.init_base |> Term.mk_var)
+           ( (init_flag_init |> Term.mk_var)
             :: init_defs_eqs)
          |> add_contract_conditional_on_depth_init )))
 
@@ -1933,10 +1965,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       (trans_uf_symbol,
 
        (((* Depth input. *)
-         (Var.mk_const_state_var depth_input_svar) ::
+         [ Var.mk_const_state_var depth_input_svar ] @
            
          (* Init flag. *)
-         (Var.mk_state_var_instance init_flag_svar TransSys.trans_base) ::
+         [ init_flag_trans ] @
          
          (* Input variables *)
          (List.map (E.cur_var_of_state_var TransSys.trans_base) inputs) @
@@ -1958,8 +1990,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (List.map (E.cur_var_of_state_var TransSys.trans_base) locals) @
 
          (* Init flag. *)
-         [ Var.mk_state_var_instance
-             init_flag_svar Numeral.( pred TransSys.trans_base ) ] @
+         [ init_flag_trans_pre ] @
 
          (* Input variables *)
          (List.fold_right 
@@ -1981,8 +2012,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (List.map (E.pre_var_of_state_var TransSys.trans_base) locals)),
 
         (Term.mk_and
-           ( (TransSys.init_flag_var TransSys.trans_base
-              |> Term.mk_var |> Term.mk_not)
+           ( (init_flag_trans |> Term.mk_var |> Term.mk_not)
              :: trans_defs_eqs )
          |> add_contract_conditional_on_depth_trans)))
 
@@ -2091,7 +2121,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        ([depth_input_svar; init_flag_svar] @ inputs @ oracles @ outputs @ observers @ locals)
+        ( [ depth_input_svar ; init_flag_svar ]
+          @ inputs @ oracles @ outputs @ observers @ locals )
         pred_def_init
         pred_def_trans
         called_trans_sys

@@ -73,6 +73,12 @@ module StateVarMap : Map.S with type key = t
     signature will raise an [Invalid_argument] exception. *)
 val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> string -> string list -> Type.t -> t
 
+(** Creates a scoped init_flag. *)
+val mk_init_flag : string list -> t
+
+(** State var reserved strings. *)
+val reserved_strings : string list
+
 (** Import a state variable from a different instance into this
    hashcons table *)
 val import : t -> t

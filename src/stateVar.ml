@@ -335,6 +335,22 @@ let mk_state_var
        (* Return state variable *)
        state_var
 
+(* Init flag string. *)
+let init_flag_string = "__init_flag"
+
+(* Transition system reserved strings. *)
+let reserved_strings = [ init_flag_string ]
+
+(* Returns a scope init flag. *)
+let mk_init_flag scope =
+  mk_state_var
+    ~is_input:false
+    ~is_const:false
+    ~for_inv_gen:false
+    init_flag_string
+    scope
+    Type.t_bool
+
 
 (* Import a state variable from a different instance into this
    hashcons table *)
