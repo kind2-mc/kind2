@@ -71,10 +71,18 @@ module StateVarMap : Map.S with type key = t
     harmless and will simply return the previously declared state
     variable. However, re-declaring a state variable with a different
     signature will raise an [Invalid_argument] exception. *)
-val mk_state_var : ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool -> string -> string list -> Type.t -> t
+val mk_state_var :
+  ?is_input:bool -> ?is_const:bool -> ?for_inv_gen:bool ->
+  string -> string list -> Type.t -> t
 
-(** Creates a scoped init_flag. *)
+(** Creates a scoped init flag. *)
 val mk_init_flag : string list -> t
+
+(** Creates a scoped depth input. *)
+val mk_depth_input : string list -> t
+
+(** Creates a scoped depth input. *)
+val mk_max_depth_input : string list -> t
 
 (** State var reserved strings. *)
 val reserved_strings : string list

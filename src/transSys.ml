@@ -22,60 +22,6 @@ type source =
   | Lustre of LustreNode.t list 
   | Native
 
-(* Global init flag state var. *)
-let init_flag_svar =
-  let res =
-    StateVar.mk_state_var
-      ~for_inv_gen:false
-      "x_is_init_x"
-      ["transSys"]
-      Type.t_bool
-  in
-  LustreExpr.set_state_var_source res LustreExpr.Abstract ;
-  res
-
-(* Instantiate init flag at k. *)
-let init_flag_var = Var.mk_state_var_instance init_flag_svar
-
-(* UF version of the init flag. *)
-let init_flag_uf k =
-  init_flag_var k |> Var.unrolled_uf_of_state_var_instance
-
-(* Tests if a var is an instanciation of the init_flag. *)
-let is_var_init_flag var =
-  Var.state_var_of_state_var_instance var == init_flag_svar
-
-(* Tests if a uf is an instanciation of the init_flag. *)
-let is_uf_init_flag uf =
-  try
-    StateVar.state_var_of_uf_symbol uf == init_flag_svar
-  with
-  | Not_found -> false
-
-(* Global max contract depth state var *)
-let max_contract_depth_svar =
-  let res =
-    StateVar.mk_state_var
-      ~is_input:false
-      ~is_const:true
-      ~for_inv_gen:false
-      "x_max_depth_x"
-      ["transSys"]
-      Type.t_int
-  in
-  LustreExpr.set_state_var_source res LustreExpr.Abstract ;
-  res
-
-(* Global max contract depth state var. *)
-let max_contract_depth_var =
-  Var.mk_const_state_var max_contract_depth_svar
-
-(* Global non-constant state variables. *)
-let global_svars = [ init_flag_svar ]
-
-(* Global constant state variables. *)
-let global_constant_svars = [ max_contract_depth_svar ]
-
 
 type pred_def = (UfSymbol.t * (Var.t list * Term.t)) 
 
@@ -191,7 +137,7 @@ type t = {
 
   (* The length of the longest branch of the call graph underneath
      this system. *)
-  max_depth : int ;
+  max_depth : Numeral.t ;
 
   (* Properties of the transition system to prove invariant *)
   properties : property list;
@@ -213,7 +159,21 @@ type t = {
     (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list;
 
 }
-           
+
+(* The init flag of a system. *)
+let init_flag_of_trans_sys { scope } =
+  StateVar.mk_init_flag scope
+  |> Var.mk_state_var_instance
+
+(* The depth input of a system. *)
+let depth_input_of_trans_sys { scope } =
+  StateVar.mk_depth_input scope
+  |> Var.mk_const_state_var
+
+(* The max depth input of a system. *)
+let max_depth_input_of_trans_sys { scope } =
+  StateVar.mk_max_depth_input scope
+  |> Var.mk_const_state_var
            
 
 (* Return the predicate for the initial state constraint *)
@@ -597,7 +557,7 @@ let pp_print_trans_sys
           @[<hv 2>(contracts@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(max depth@ %i)@]@,\
+          @[<hv 2>(max depth@ %a)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
@@ -607,7 +567,7 @@ let pp_print_trans_sys
     (pp_print_list pp_print_contract "@ ") contracts
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
-    max_depth
+    Numeral.pp_print_numeral max_depth
     (pp_print_list pp_print_callers "@,") callers
 
 
@@ -622,6 +582,9 @@ let state_vars t = t.state_vars
 
 (* Return the input used to create the transition system *)
 let get_source t = t.source
+
+(* Returns the max depth of a transition system. *)
+let get_max_depth t = t.max_depth
 
 (* Return the input used to create the transition system *)
 let get_scope t = t.scope
@@ -716,13 +679,10 @@ let mk_trans_sys
          max_so_far
       | { max_depth } :: tail ->
          (* Keeping the max of the max_depth, looping. *)
-         loop (max (max_depth + 1) max_so_far) tail
+         loop Numeral.(max (succ max_depth) max_so_far) tail
     in
-    loop 0 subsystems
+    loop Numeral.zero subsystems
   in
-
-  Format.printf
-    "Max depth for %s: %i.\n" name max_depth ;
 
   let contracts =
     contracts
@@ -782,46 +742,26 @@ let rec vars_of_bounds' state_vars lbound ubound accum =
     (* Recurse to next lower bound *)
     |> vars_of_bounds' state_vars lbound Numeral.(pred ubound)
 
-(* Declares variables of the transition system between two offsets. *)
-let vars_of_bounds trans_sys lbound ubound =
+(* Returns the variables of the transition system between two
+   bounds. *)
+let vars_of_bounds
+      trans_sys lbound ubound =
   vars_of_bounds' trans_sys.state_vars lbound ubound []
 
-(* Declares non global state variables of the transition system
-   between two offsets. *)
-let declare_vars_of_bounds_no_global sys declare lbound ubound =
-  vars_of_bounds'
-    (sys.state_vars |> List.filter (fun sv -> sv != init_flag_svar))
-    lbound ubound []
-  |> Var.declare_vars declare
-
-(* Declares global state variables of the transition system between
-   two offsets. *)
-let declare_vars_of_bounds_global declare lbound ubound =
-  vars_of_bounds' global_svars lbound ubound []
-  |> Var.declare_vars declare
-
-(* Declares global constant state variables of the transition system between
-   two offsets. *)
-let declare_vars_global_const declare =
-  global_constant_svars
-  |> List.map (Var.mk_const_state_var)
-  |> Var.declare_constant_vars declare
-
 
 (* Declares variables of the transition system between two offsets. *)
-let declare_vars_of_bounds t declare lbound ubound =
-  vars_of_bounds t lbound ubound |> Var.declare_vars declare
+let declare_vars_of_bounds
+      t declare lbound ubound =
+  (* Declaring non-constant variables. *)
+  vars_of_bounds t lbound ubound
+  |> Var.declare_vars declare
 
 
 (* Instantiate the initial state constraint to the bound *)
 let init_of_bound t i = 
 
   let init_term =
-    Term.mk_and
-      [ (* Get term of initial state constraint *)
-        init_term t ;
-        (* Adding is_init. *)
-        Term.mk_var (init_flag_var Numeral.zero) ]
+    init_term t
   in
 
   (* Bump bound if greater than zero *)
@@ -908,7 +848,45 @@ let invars_of_bound t i =
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
 
+(* Constrains the top level depth and max depth inputs. *)
+let depth_inputs_constraint sys max_depth =
 
+  (* Building the constraint on the depth input and the max depth
+     input for input system. *)
+  Term.mk_and
+
+    [ (* Depth input constraint. *)
+      Term.mk_eq
+        [ (* Getting depth input var. *)
+          depth_input_of_trans_sys sys
+          (* Creating corresponding term. *)
+          |> Term.mk_var ;
+
+          (* Value for depth input is always zero. *)
+          Numeral.zero |> Term.mk_num ] ;
+
+      (* Max depth input constraint. *)
+      Term.mk_eq
+        [ (* Getting max depth input var. *)
+          max_depth_input_of_trans_sys sys
+          (* Creating corresponding term. *)
+          |> Term.mk_var ;
+          
+          let _ =
+            (* Making sure value for max depth input is legal. *)
+            assert Numeral.(max_depth <= sys.max_depth)
+          in
+          (* Using specified value. *)
+          max_depth |> Term.mk_num ] ]
+
+(* Creates the constraints setting the depth input constant to a
+   value. *)
+let abstraction_depth_input_constraint sys value =
+  Term.mk_eq
+    [ depth_input_of_trans_sys sys |> Term.mk_var ;
+      Term.mk_num value ]
+
+(* The invariants of a transition system. *)
 let get_invars { invars } = invars
 
 
@@ -1218,7 +1196,8 @@ let iter_uf_definitions t f =
 
 (* Define uf definitions, declare constant state variables and declare
    variables from [lbound] to [upbound]. *)
-let init_define_fun_declare_vars_of_bounds t define declare lbound ubound =
+let init_define_fun_declare_vars_of_bounds
+      t define declare lbound ubound =
   ( match t.callers with
     | [] ->
        (* Define ufs. *)

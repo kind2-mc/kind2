@@ -122,17 +122,26 @@ let common_setup (solver,sys,actlit) =
     sys
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
-    Numeral.zero Numeral.(~- one) ;
+    Numeral.zero Numeral.(~- one);
 
   SMTSolver.trace_comment solver "Done defining, declaring now." ;
 
   (* Declaring unrolled vars at [-1] and [0]. *)
-  TransSys.declare_vars_of_bounds_no_global
+  TransSys.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
-  solver, sys, Actlit.term_of_actlit actlit
+  let actlit_term = Actlit.term_of_actlit actlit in
+
+  (* Constraining max depth. *)
+  Term.mk_implies
+    [ actlit_term ;
+      TransSys.get_max_depth sys
+      |> TransSys.depth_inputs_constraint sys ]
+  |> SMTSolver.assert_term solver ;
+
+  solver, sys, actlit_term
 
 let base_setup (solver,sys,actlit) =
 
@@ -158,7 +167,7 @@ let step_setup (solver, sys, actlit) =
   |> SMTSolver.assert_term solver ;
 
   (* Declaring unrolled vars at [1]. *)
-  TransSys.declare_vars_of_bounds_no_global
+  TransSys.declare_vars_of_bounds
     sys
     (SMTSolver.declare_fun solver)
     Numeral.one Numeral.one ;
@@ -184,7 +193,7 @@ let unroll_solver solver sys actlit k =
   |> SMTSolver.trace_comment solver ;
 
   (* Declaring unrolled vars at [k+1]. *)
-  TransSys.declare_vars_of_bounds_no_global
+  TransSys.declare_vars_of_bounds
     sys (SMTSolver.declare_fun solver) k k ;
 
   (* Conditionally asserting transition predicate at [k]. *)
@@ -291,14 +300,6 @@ let unroll_sys
           (* Getting the next [k]. *)
           let kp1 = Numeral.succ k in
 
-          if Numeral.(kp1 > last_k) then (
-            TransSys.init_flag_uf kp1
-            |> SMTSolver.declare_fun base_solver ;
-            TransSys.init_flag_uf Numeral.(succ kp1)
-            |> SMTSolver.declare_fun step_solver ;
-            lsd.last_k <- kp1
-          ) ;
-
           (* Unrolling base solver at [k+1]. *)
           unroll_solver base_solver system actlit kp1 ;
           (* Unrolling step solver at [k+2]. *)
@@ -325,25 +326,14 @@ let create two_state top_only sys =
     new_inst_sys (), new_inst_sys (), new_inst_sys ()
   in
 
-  let init_solver solver =
-    TransSys.declare_vars_of_bounds_global
-      (SMTSolver.declare_fun solver)
-      Numeral.(~- one) Numeral.zero ;
-    TransSys.declare_vars_global_const
-      (SMTSolver.declare_fun solver)
-  in
+  (* let init_solver solver = *)
+  (*   TransSys.declare_vars_global_const *)
+  (*     (SMTSolver.declare_fun solver) *)
+  (* in *)
 
-  init_solver base_solver ;
-  init_solver step_solver ;
-  init_solver pruning_solver ;
-  TransSys.init_flag_uf Numeral.one
-  |> SMTSolver.declare_fun step_solver ;
-  TransSys.init_flag_uf Numeral.one
-  |> SMTSolver.declare_fun pruning_solver ;
-
-  (* declare_init_flag base_solver minus_one Numeral.zero ; *)
-  (* declare_init_flag step_solver minus_one Numeral.one ; *)
-  (* declare_init_flag pruning_solver minus_one Numeral.one ; *)
+  (* init_solver base_solver ; *)
+  (* init_solver step_solver ; *)
+  (* init_solver pruning_solver ; *)
 
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)

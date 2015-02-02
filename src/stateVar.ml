@@ -338,18 +338,47 @@ let mk_state_var
 (* Init flag string. *)
 let init_flag_string = "__init_flag"
 
-(* Transition system reserved strings. *)
-let reserved_strings = [ init_flag_string ]
+(* Abstraction depth input string. *)
+let depth_input_string = "__depth_input"
 
-(* Returns a scope init flag. *)
+(* Abstraction depth input string. *)
+let max_depth_input_string = "__max_depth_input"
+
+(* Transition system reserved strings. *)
+let reserved_strings =
+  [ init_flag_string ;
+    depth_input_string ;
+    max_depth_input_string ]
+
+(* Returns a scoped init flag. *)
 let mk_init_flag scope =
   mk_state_var
-    ~is_input:false
+    ~is_input:true
     ~is_const:false
     ~for_inv_gen:false
     init_flag_string
     scope
     Type.t_bool
+
+(* Returns a scoped depth input. *)
+let mk_depth_input scope =
+  mk_state_var
+    ~is_input:true
+    ~is_const:true
+    ~for_inv_gen:false
+    depth_input_string
+    scope
+    Type.t_int
+
+(* Returns a scoped max depth input. *)
+let mk_max_depth_input scope =
+  mk_state_var
+    ~is_input:true
+    ~is_const:true
+    ~for_inv_gen:false
+    max_depth_input_string
+    scope
+    Type.t_int
 
 
 (* Import a state variable from a different instance into this

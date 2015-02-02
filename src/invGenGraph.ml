@@ -208,11 +208,12 @@ module Make (InModule : In) : Out = struct
   let is_one_state_running () = Flags.enable () |> List.mem `INVGENOS
 
   (* Guards a term with init if in two state mode. *)
-  let sanitize_term =
+  let sanitize_term sys =
     if two_state then
       ( fun term ->
         Term.mk_or
-          [ TransSys.init_flag_var Numeral.zero |> Term.mk_var ;
+          [ TransSys.init_flag_of_trans_sys sys Numeral.zero
+            |> Term.mk_var ;
             term ] )
     else identity
 
@@ -574,11 +575,13 @@ module Make (InModule : In) : Out = struct
        (* All intermediary invariants and top level ones. *)
        let ((_, top_invariants), intermediary_invariants) =
          if top_sys == sys then
-           (top_sys, List.map sanitize_term invariants), []
+           (top_sys,
+            List.map (sanitize_term sys) invariants),
+           []
          else
            Term.mk_and invariants
            (* Guarding with init if needed. *)
-           |> sanitize_term
+           |> sanitize_term sys
            (* Instantiating at all levels. *)
            |> TransSys.instantiate_term_all_levels sys
        in

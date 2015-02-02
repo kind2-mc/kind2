@@ -297,6 +297,7 @@ let rec definitions_of_node_calls
     mk_first_tick_state_var
     (mk_new_state_var : ?for_inv_gen:bool -> ?is_const:bool -> Type.t -> StateVar.t)
     actual_depth_input
+    max_depth_input
     node_equations
     node_defs
     local_vars
@@ -619,16 +620,7 @@ let rec definitions_of_node_calls
           (function (n, s, t) -> 
             (lift_prop_name node_name pos n, 
              TermLib.Instantiated (I.scope_of_ident node_name, n),
-             (* Guard property lifting by a depth condition, so that
-                properties lifted from a node that is being abstracted
-                are not taken into account. *)
-             Term.mk_or
-               [ Term.mk_gt [ actual_depth_input ;
-                              TransSys.max_contract_depth_var
-                              |> Term.mk_var ] ;
-                 LustreExpr.lift_term pos node_name t ]
-
-            ))
+             LustreExpr.lift_term pos node_name t))
           props 
 
       in
@@ -731,11 +723,14 @@ let rec definitions_of_node_calls
 
               (* Arguments for node call in initial state *)
               let init_call_args =
-                (* Depth input. *)
-                [ actual_depth_input ] @
+                [ (* Depth input. *)
+                  actual_depth_input ;
 
-                (* Init flag. *)
-                [ init_flag_init ] @
+                  (* Max depth input. *)
+                  max_depth_input ;
+
+                  (* Init flag. *)
+                  init_flag_init ] @
 
                 (* Current state input variables *)
                 input_terms_init @ 
@@ -753,11 +748,14 @@ let rec definitions_of_node_calls
 
               (* Arguments for node call in transition relation *)
               let trans_call_args =
-                (* Depth input. *)
-                [ actual_depth_input ] @
+                [ (* Depth input. *)
+                  actual_depth_input ;
 
-                (* Current state init flag. *)
-                [ init_flag_trans ] @
+                  (* Max depth input. *)
+                  max_depth_input ;
+
+                  (* Current state init flag. *)
+                  init_flag_trans ] @
 
                 (* Current state input variables *)
                 input_terms_trans @ 
@@ -984,11 +982,16 @@ let rec definitions_of_node_calls
             (* Arguments for node call in initial state constraint
                with state variables at init. *)
             let init_call_init_args =
-              (* Depth input. *)
-              [ actual_depth_input ] @
-              (* Actual parameter for the init flag of the node is the
-                 first_tick flag. *)
-              [ first_tick_init ] @
+              
+              [ (* Depth input. *)
+                actual_depth_input ;
+
+                (* Max depth input. *)
+                max_depth_input ;
+
+                (* Actual parameter for the init flag of the node is
+                   the first_tick flag. *)
+                first_tick_init ] @
 
               (* Current state input variables *)
               input_shadow_terms_init @
@@ -1007,11 +1010,15 @@ let rec definitions_of_node_calls
             (* Arguments for node call in initial state constraint
                with state variables at next trans *)
             let init_call_trans_args =
-              (* Depth input. *)
-              [ actual_depth_input ] @
-              (* Actual parameter for the init flag of the node is the
-                 first_tick flag in the current state. *)
-              [ first_tick_trans ] @
+              [ (* Depth input. *)
+                actual_depth_input ;
+
+                (* Max depth input. *)
+                max_depth_input ;
+
+                (* Actual parameter for the init flag of the node is the
+                   first_tick flag in the current state. *)
+                first_tick_trans ] @
 
               (* Current state input variables *)
               input_shadow_terms_trans @
@@ -1039,12 +1046,15 @@ let rec definitions_of_node_calls
 
             (* Arguments for node call in transition relation *)
             let trans_call_args =
-              (* Depth input. *)
-              [ actual_depth_input ] @
+              [ (* Depth input. *)
+                actual_depth_input ;
 
-              (* Actual parameter for the init flag of the node is the
-                 first_tick flag (current state). *)
-              [ first_tick_trans ] @
+                (* Max depth input. *)
+                max_depth_input ;
+
+                (* Actual parameter for the init flag of the node is
+                   the first_tick flag (current state). *)
+                first_tick_trans ] @
 
               (* Current state input variables *)
               input_shadow_terms_trans @ 
@@ -1221,6 +1231,7 @@ let rec definitions_of_node_calls
         mk_first_tick_state_var
         mk_new_state_var
         actual_depth_input
+        max_depth_input
         node_equations
         node_defs
         local_vars''
@@ -1464,7 +1475,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         E.mk_fresh_state_var
           ~is_input:false
           ~is_const:false
-          ~for_inv_gen:false
+          ~for_inv_gen:true
           (LustreIdent.index_of_ident node_name)
           I.first_tick_ident
           Type.t_bool
@@ -1574,17 +1585,26 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
     (* Depth input. Passed by the caller, constant. *)
     let depth_input_svar =
-      E.mk_state_var_of_ident
-        ~is_input:true
-        ~is_const:true
-        ~for_inv_gen:false
-        (I.index_of_ident node_name)
-        I.depth_input_ident
-        Type.t_int
+      I.scope_of_ident node_name
+      |> StateVar.mk_depth_input
     in
 
     (* Setting the source of the depth input. *)
     E.set_state_var_source depth_input_svar E.Abstract;
+
+    (* Max depth input. Passed by the caller, constant. *)
+    let max_depth_input_svar =
+      I.scope_of_ident node_name
+      |> StateVar.mk_max_depth_input
+    in
+
+    (* Setting the source of the max depth input. *)
+    E.set_state_var_source max_depth_input_svar E.Abstract;
+
+    (* Max depth input, var version. *)
+    let max_depth_input_var =
+      Var.mk_const_state_var max_depth_input_svar
+    in
 
     (* If the node does not have any contracts, then the actual
        depth_input is the same as this node's formal one. *)
@@ -1601,16 +1621,17 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                di, identity, identity )
 
           | _ ->
+
              (* There are some contracts on this node, incrementing
                 depth input and creating the functions to add the
                 conditional abstract version of the node. *)
              ( fun di ->
+
                (* Condition triggering the abstract versions of init
                   and trans. *)
                let depth_condition_abstract =
-                 Term.mk_gt [ di ;
-                              TransSys.max_contract_depth_var
-                              |> Term.mk_var ]
+                 Term.mk_gt
+                   [ di ; max_depth_input_var |> Term.mk_var ]
                in
 
                (* The depth actual input is the formal one of this
@@ -1671,6 +1692,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         mk_first_tick_state_var
         mk_new_state_var
         actual_depth_input
+        (max_depth_input_var |> Term.mk_var)
         node_equations
         node_defs
         (* [] *)
@@ -1898,7 +1920,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         (init_uf_symbol_name_of_node node_name)
 
         (* Types of variables in the signature *)
-        (StateVar.type_of_state_var depth_input_svar :: signature_types)
+        ([ StateVar.type_of_state_var depth_input_svar ;
+           StateVar.type_of_state_var max_depth_input_svar ]
+         @ signature_types)
 
         (* Symbol is a predicate *)
         Type.t_bool
@@ -1911,11 +1935,14 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       (* Name of symbol *)
       (init_uf_symbol,
 
-       (((* Depth input. *)
-         (Var.mk_const_state_var depth_input_svar) ::
+       (([ (* Depth input. *)
+           Var.mk_const_state_var depth_input_svar ;
+
+           (* Max depth input. *)
+           max_depth_input_var ;
            
-         (* Init flag. *)
-         (init_flag_init) ::
+           (* Init flag. *)
+           init_flag_init ] @
 
          (* Input variables *)
          (List.map (E.base_var_of_state_var TransSys.init_base) inputs) @
@@ -1951,8 +1978,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         (trans_uf_symbol_name_of_node node_name)
 
         (* Types of variables in the signature *)
-        (StateVar.type_of_state_var depth_input_svar
-         :: (signature_types @ signature_types))
+        ([ StateVar.type_of_state_var depth_input_svar ;
+           StateVar.type_of_state_var max_depth_input_svar ]
+         @ signature_types @ signature_types)
 
         (* Symbol is a predicate *)
         Type.t_bool
@@ -1964,12 +1992,15 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
       (trans_uf_symbol,
 
-       (((* Depth input. *)
-         [ Var.mk_const_state_var depth_input_svar ] @
-           
-         (* Init flag. *)
-         [ init_flag_trans ] @
-         
+       (([(* Depth input. *)
+          Var.mk_const_state_var depth_input_svar ;
+
+          (* Max depth input. *)
+          max_depth_input_var ;
+          
+          (* Init flag. *)
+          init_flag_trans ] @
+
          (* Input variables *)
          (List.map (E.cur_var_of_state_var TransSys.trans_base) inputs) @
 
@@ -2121,7 +2152,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        ( [ depth_input_svar ; init_flag_svar ]
+        ( [ depth_input_svar ; max_depth_input_svar ; init_flag_svar ]
           @ inputs @ oracles @ outputs @ observers @ locals )
         pred_def_init
         pred_def_trans

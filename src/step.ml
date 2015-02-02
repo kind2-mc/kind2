@@ -651,16 +651,21 @@ let launch trans =
     (* Declaring path compression function. *)
     Compress.init (SMTSolver.declare_fun solver) trans ;
 
+  SMTSolver.trace_comment
+    solver
+    "Init define fun." ;
+
   (* Defining uf's and declaring variables. *)
   TransSys.init_define_fun_declare_vars_of_bounds
     trans
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
-  
-  (* Declaring constant global state variables. *)
-  TransSys.declare_vars_global_const
-    (SMTSolver.declare_fun solver) ;
+
+  (* Constraining max depth. *)
+  TransSys.get_max_depth trans
+  |> TransSys.depth_inputs_constraint trans
+  |> SMTSolver.assert_term solver ;
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero

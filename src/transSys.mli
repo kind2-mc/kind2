@@ -119,27 +119,6 @@ val instantiation_count: t -> int
 (** Returns true if the system is the top level system. *)
 val is_top : t -> bool
 
-(** Global init flag state var. *)
-val init_flag_svar: StateVar.t
-
-(** Instantiate init flag at k. *)
-val init_flag_var: Numeral.t -> Var.t
-
-(** UF version of the init flag. *)
-val init_flag_uf: Numeral.t -> UfSymbol.t
-                                  
-(** Tests if a var is an instanciation of the init_flag. *)
-val is_var_init_flag: Var.t -> bool
-                                  
-(** Tests if a uf is an instanciation of the init_flag. *)
-val is_uf_init_flag: UfSymbol.t -> bool
-
-(** Global max contract depth state var *)
-val max_contract_depth_svar : StateVar.t
-
-(** Global max contract depth state var. *)
-val max_contract_depth_var : Var.t
-
 (** Predicate for the initial state constraint *)
 val init_uf_symbol : t -> UfSymbol.t
 
@@ -180,6 +159,9 @@ val state_vars : t -> StateVar.t list
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
 
+(** Returns the max depth of a transition system. *)
+val get_max_depth : t -> Numeral.t
+
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
 
@@ -189,28 +171,29 @@ val subsystem_of_scope : t -> string list -> t
 (** Return the name of the transition system *)
 val get_name : t -> string
 
-(** Return the variables at current and previous instants of the
-   transition system *)
-val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
+(** Returns the variables of the transition system between two
+    bounds. *)
+val vars_of_bounds :
+  t -> Numeral.t -> Numeral.t ->
+  Var.t list
 
 (** Declares variables of the transition system between two
     offsets. *)
 val declare_vars_of_bounds :
-  t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+  t -> (UfSymbol.t -> unit) ->
+  Numeral.t -> Numeral.t -> unit
 
-(** Declares non global state variables of the transition system
-    between two offsets. *)
-val declare_vars_of_bounds_no_global :
-  t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+(** The init flag of a transition system, as a [Var]. *)
+val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
 
-(** Declares global state variables of the transition system between
-    two offsets. *)
-val declare_vars_of_bounds_global :
-  (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+(** The depth input of a transition system, as a [Var]. *)
+val depth_input_of_trans_sys : t -> Var.t
 
-(** Declares global constant state variables of the transition
-    system. *)
-val declare_vars_global_const : (UfSymbol.t -> unit) -> unit
+(** The max depth input of a transition system, as a [Var]. *)
+val max_depth_input_of_trans_sys : t -> Var.t
+
+(** Constrains the top level depth and max depth inputs. *)
+val depth_inputs_constraint : t -> Numeral.t -> Term.t
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t
@@ -303,11 +286,11 @@ val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit
 (** Define uf definitions, declare constant state variables and declare
     variables from [lbound] to [upbound]. *)
 val init_define_fun_declare_vars_of_bounds :
-      t ->
-      (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
-      (UfSymbol.t -> unit) ->
-      Numeral.t -> Numeral.t ->
-      unit
+  t ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (UfSymbol.t -> unit) ->
+  Numeral.t -> Numeral.t ->
+  unit
 
 
 (** Extract a path in the transition system, return an association
