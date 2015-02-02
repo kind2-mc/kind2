@@ -129,11 +129,28 @@ let path_from_model state_vars get_model k =
           (List.map (fun sv -> Var.mk_state_var_instance sv i) state_vars)
       in
 
-      VT.iter
-        (fun var value ->  
+      (* Iterate over state variables, not all state variables are
+         necessarily in a partial model *)
+      List.iter
+        (fun state_var -> 
 
-           (* Get state variable from variable instance *)
-           let state_var = Var.state_var_of_state_var_instance var in
+           (* Value for variable at i *)
+           let value = 
+             try 
+
+               (* Find value in model *)
+               VT.find
+                 model
+                 (Var.mk_state_var_instance state_var i)
+
+             with Not_found -> 
+
+               (* Use default value if not defined in model *)
+               Term
+                 (TermLib.default_of_type
+                    (StateVar.type_of_state_var state_var))
+
+           in
 
            (* At the first offset? *)
            if Numeral.(equal i k) then 
@@ -145,21 +162,23 @@ let path_from_model state_vars get_model k =
 
              (
                
-               (* Get current path for variable *)
-               let var_values = 
-                 try 
-                   SVT.find path state_var 
-                 with Not_found -> assert false
-               in
+               try 
 
-               (* Append value to path for variable *)
-               SVT.replace path state_var (value :: var_values)
+                 (* Get current path for variable *)
+                 let var_values = SVT.find path state_var in
+
+                 (* Append value to path for variable *)
+                 SVT.replace path state_var (value :: var_values)
+
+               (* Skip if no model for variable *)
+               with Not_found -> ()
 
              )
              
+           
+
         )
-        
-        model;
+        state_vars;
 
       (* Add values until i = 0 *)
       path_from_model' state_vars Numeral.(pred i)

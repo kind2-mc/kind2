@@ -347,18 +347,12 @@ let rec bool_of_term t = match node_of_term t with
 
 
 (* Return true if the term is an application of the select operator *)
-let is_select t = 
+let is_select t = match node_of_term t with
 
-  (* Must not destruct a bound variable *)
-  if is_bound_var t then false else 
-
-    (* Make sure we don't miss terms under let bindings *)
-    match T.destruct t with 
-
-      (* Top symbol is a select operator *)
-      | T.App (s, [a; i]) -> s == Symbol.s_select
-
-      | _ -> false
+  (* Top symbol is a select operator *)
+  | T.Node (s, [a; i]) -> s == Symbol.s_select
+                                 
+  | _ -> false
 
 
 (* Return the indexes of the select operator 
@@ -366,18 +360,18 @@ let is_select t =
    The array argument of a select is either another select operation
    or a variable. For the expression [(select (select A j) k)] return
    the pair [A] and [[j; k]]. *)
-let rec indexes_and_var_of_select' accum t = match T.destruct t with 
+let rec indexes_and_var_of_select' accum t = match node_of_term t with 
 
-  | T.Var v -> (v, List.rev accum)
+  | T.FreeVar v -> (v, List.rev accum)
 
-  | T.App (s, [a; i]) when s == Symbol.s_select -> 
+  | T.Node (s, [a; i]) when s == Symbol.s_select -> 
 
     indexes_and_var_of_select' (i :: accum) a
 
-  | T.Const _ 
-  | T.App _ -> invalid_arg "indexes_of_select"
+  | T.Annot (t, _) ->  indexes_and_var_of_select' accum t
 
-  | T.Attr (t, _) ->  indexes_and_var_of_select' accum t
+  |  _ -> invalid_arg "indexes_of_select"
+
 
 
 (* Return the indexes of the select operator *)

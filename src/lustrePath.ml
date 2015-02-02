@@ -50,6 +50,11 @@ module SVMap = StateVar.StateVarMap
 type tree_path = 
   | N of I.t * position * Model.term_or_lambda array SVMap.t * tree_path CallMap.t 
 
+(* Return the length of any entry in the map, assuming they are all of
+   the same length. Raise [Not_found] if the map is empty *)
+let length_of_stream_map m = Array.length (snd (SVMap.choose m)) 
+        
+      
 
 (* ********************************************************************** *)
 (* Printing helpers                                                       *)
@@ -392,8 +397,15 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
 
         let stream_terms = stream in
 
+        debug lustrePath
+          "reconstruct_single_var: stream_terms for %a is of length %d, i=%d"
+          StateVar.pp_print_state_var sv
+          (Array.length stream_terms)
+          i
+        in
+
         VT.add substitutions curr_var stream_terms.(i);
-        VT.add substitutions curr_var stream_terms.(i - 1);
+        VT.add substitutions curr_var stream_terms.(i - 1)
 
     in
 
@@ -422,21 +434,10 @@ let reconstruct_single_var start_at_init ancestors_stream_map stream_map expr =
   in
 
   let stream_len = 
-
-    if SVMap.is_empty stream_map then 
-
-      if SVMap.is_empty ancestors_stream_map then 
-
-        assert false
-          
-      else
-
-        Array.length (snd (SVMap.choose ancestors_stream_map)) 
-
-    else
-      
-      Array.length (snd (SVMap.choose stream_map)) 
-
+    try 
+      length_of_stream_map stream_map
+    with Not_found -> 
+      length_of_stream_map ancestors_stream_map
   in
 
   let indices = list_init (fun i -> i) stream_len in
@@ -539,30 +540,36 @@ and tree_path_of_streams
     (* Stream is not in the model *)
     with Not_found -> 
 
-      (* Get defining equation for stream *)
-      let expr = 
-        try List.assq state_var equations with Not_found -> 
+      try
 
-          debug lustrePath 
-            "State variable %a not found in %a"
-            StateVar.pp_print_state_var state_var 
-            (LustreIdent.pp_print_ident false) node_name
-          in
+        (* Get defining equation for stream *)
+        let expr = List.assq state_var equations in
+        
+        (* Need to get the source of the variable *)
+        let src = E.get_state_var_source state_var in 
+        
+        debug lustrePath
+          "reconstruct_single_var %a with expression %a"
+          StateVar.pp_print_state_var state_var
+          (E.pp_print_lustre_expr false) expr
+        in
 
-          assert false 
-      in 
+        (* Reconstruct values of stream from mode and definition *)
+        let terms = 
+          reconstruct_single_var start_at_init stream_map stream_map' expr
+        in
+        
+        (* Return source and values of variable *)
+        terms
 
-      (* Need to get the source of the variable *)
-      let src = E.get_state_var_source state_var in 
-
-      (* Reconstruct values of stream from mode and definition *)
-      let terms = 
-        reconstruct_single_var start_at_init stream_map stream_map' expr
-      in
-
-      (* Return source and values of variable *)
-      terms
-
+      with Not_found ->
+        
+        (* Use default value for type *)
+        Array.make
+          (length_of_stream_map stream_map + 1)
+          (Model.Term 
+             (TermLib.default_of_type (StateVar.type_of_state_var state_var)))
+            
   in
 
   (* Add stream to resulting hierarchical model *)

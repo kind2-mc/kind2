@@ -743,10 +743,20 @@ struct
     let x_and_db = List.mapi (fun i x -> (x, succ i)) x in
 
     (* Return existential quantification *)
-    hl_lambda 
-      (List.map T.sort_of_var x) 
-      (bump_and_bind x_and_db 1 t)
+    let res = 
+      hl_lambda 
+        (List.map T.sort_of_var x) 
+        (bump_and_bind x_and_db 1 t)
+    in
 
+    debug ltree
+      "mk_lambda@ @[<hv 1>(%a)@]@ @[<hv>%a:@]@ @[<hv>%a@]"
+      (pp_print_list T.pp_print_var "@ ") x
+      (pp_print_term ~db:0) t
+      (pp_print_lambda ~db:0) res
+    in
+
+    res
 
   (* Beta-evaluate a lambda expression *)
   let eval_lambda ({ Hashcons.node = L (v, t) } as l) b = 
@@ -863,8 +873,13 @@ struct
 
     (* Let binding of a bound variable with a higher index than the
        number of bound variables must not occur *)
-    | { H.node = Let ({ H.node = L (j, { H.node = BoundVar i }) }, _) }
+    | { H.node = Let ({ H.node = L (j, { H.node = BoundVar i }) }, _) } as t
       when i > (List.length j) + ofs -> 
+
+      debug ltree
+        "destruct failed: %a"
+        (pp_print_term ~db:0) t
+      in
 
       assert false
 
