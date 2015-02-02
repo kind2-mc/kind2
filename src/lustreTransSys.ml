@@ -186,14 +186,16 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
 
 (* Fold list of node calls and return terms
 
+   The init flag indicates whether this node ticks for the first time
+   or not. It is an input of the node, in the case of a condact call
+   the value of the init flag is [clock and first_tick] (see below).
+   Otherwise it is simply the init flag of the caller node.
+
    Local variables of the called node are instantiated to fresh local
    variables of the calling node and returned. 
 
    Properties of the called node are instantiated to properties of the
    calling node and returned.
-
-   Assumptions in the contract of the called node are instantiated to
-   properties of the calling node and returned.
 
    A node call always has an activation condition, which may be the
    constant true. In this case the default values for the outputs are
@@ -204,24 +206,51 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
    analogously for the transition relation.
 
    The parameters of the initial state predicate are (in this order) 
+   - the depth input,
+   - the max depth input,
+   - the init flag,
    - the inputs, 
    - the variables capturing the outputs, 
    - the observer variables for the properties of the called node, and 
    - the instances of the local variables of the called node.
 
    The parameters of the transition relation are (in this order) 
+   - the depth input,
+   - the max depth input,
+   - the init flag at the next step,
    - the inputs at the next step, including constant inputs 
    - the variables capturing the outputs at the next step,
    - the observer variables for the properties of the called node at
      the next step, 
    - the instances of the local variables of the called node at the
      next step,
+   - the init flag at the previous step,
    - the inputs at the previous step, excluding constant inputs,
    - the variables capturing the outputs at the previous step,
    - the observer variables for the properties of the called node at
      the previous step, and
    - the instances of the local variables of the called node at the
      previous step.
+
+   The [depth_input] and [max_depth_input] control the abstraction of
+   the nodes for which a contract is available. Both are constants and
+   are inputs of the node. When instantiating a node with a contract,
+   the value of the depth input is the caller's depth input plus one,
+   meaning that since this node has a contract we are going down one
+   abstraction level. The max depth input always has the same value
+   and is passed as an input for the sake of uniformity.
+
+   The init / trans predicates are conditional on the depth input.  If
+   the value of the depth input is greater than the max depth input,
+   then the contract definition of the node is used instead of the
+   actual init / trans predicate. In this case, lifting the properties
+   of the subnode might not make sense since the actual init / trans
+   predicate is not used. The abstract predicates therefore constrain
+   all the properties to evaluate to true.
+
+   Predicates are thus defined as
+   {[     (depth_input < max_depth_input) => contract ]}
+   {[ not (depth_input < max_depth_input) => concrete_predicate ]}
 
    If a node call has an activation condition that is not the constant
    true, additional fresh variables are generated. One variable is
@@ -293,6 +322,7 @@ first_tick true  true  true false false false ... ]}
 
  *)
 let rec definitions_of_node_calls
+    scope
     init_flag_svar
     mk_first_tick_state_var
     (mk_new_state_var : ?for_inv_gen:bool -> ?is_const:bool -> Type.t -> StateVar.t)
@@ -798,10 +828,15 @@ let rec definitions_of_node_calls
 
               (* Building the rest of the state var map. *)
               let state_var_map =
+                (* Max depth input formal parameter of the subnode is
+                   mapped to the init flag of the caller. *)
+                (TransSys.get_scope trans_sys
+                 |> StateVar.mk_max_depth_input,
+                 StateVar.mk_max_depth_input scope)
                 (* Init flag formal parameter of the subnode is mapped
                    to the init flag of the caller. *)
-                (I.scope_of_ident node_name |> StateVar.mk_init_flag,
-                 init_flag_svar)
+                :: (I.scope_of_ident node_name |> StateVar.mk_init_flag,
+                    init_flag_svar)
                 (* Add input variables to map *)
                 :: List.fold_left2
                      (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
@@ -1105,10 +1140,15 @@ let rec definitions_of_node_calls
 
             (* Building the rest of the state var map. *)
             let state_var_map =
+              (* Max depth input formal parameter of the subnode is
+                   mapped to the init flag of the caller. *)
+              (TransSys.get_scope trans_sys
+               |> StateVar.mk_max_depth_input,
+               StateVar.mk_max_depth_input scope)
               (* The init flag formal parameter is mapped to the
                  [first_tick] state variable defined by the caller. *)
-              (I.scope_of_ident node_name |> StateVar.mk_init_flag,
-               first_tick_state_var)
+              :: (I.scope_of_ident node_name |> StateVar.mk_init_flag,
+                  first_tick_state_var)
               (* Add input variables to map *)
               :: List.fold_left2
                    (fun accum sv1 sv2 -> (sv1, sv2) :: accum)
@@ -1227,6 +1267,7 @@ let rec definitions_of_node_calls
 
       (* Continue with next node call *)
       definitions_of_node_calls
+        scope
         init_flag_svar
         mk_first_tick_state_var
         mk_new_state_var
@@ -1617,6 +1658,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       |> (match contracts with
           | [] ->
              ( fun di ->
+               let identity = (fun _ t -> t) in
                (* No contract on this node. *)
                di, identity, identity )
 
@@ -1642,27 +1684,42 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                (* Concrete init predicate is made conditional on the
                   depth. If above the max depth, then the abstract
                   contract init is activated. *)
-               (fun concrete_init ->
+               (fun props concrete_init ->
+                let bla: Term.t list =
+                  List.map
+                    (fun (_,_,term) ->
+                     Term.mk_eq [ term ; Term.t_true ])
+                    props
+                in
+                let abstract_init: Term.t =
+                  Term.mk_and
+                    (abstract_contract_init
+                     :: (bla))
+                in
                 Term.mk_and
                   [ Term.mk_implies
-                      [ depth_condition_abstract ;
-                        abstract_contract_init ] ;
+                      [ depth_condition_abstract ; abstract_init ] ;
                     Term.mk_implies
-                      [ depth_condition_abstract
-                        |> Term.mk_not ;
+                      [ depth_condition_abstract |> Term.mk_not ;
                         concrete_init ] ]),
 
                (* Concrete trans predicate is made conditional on the
                   depth. If above the max depth, then the abstract
                   contract trans is activated. *)
-               (fun concrete_trans ->
+               (fun props concrete_trans ->
+                let abstract_trans =
+                  Term.mk_and
+                    (abstract_contract_trans
+                     :: (props
+                         |> List.map
+                              (fun (_,_,term) ->
+                               Term.mk_eq [ term ; Term.t_true ])))
+                in
                 Term.mk_and
                   [ Term.mk_implies
-                      [ depth_condition_abstract ;
-                        abstract_contract_trans ] ;
+                      [ depth_condition_abstract ; abstract_trans ];
                     Term.mk_implies
-                      [ depth_condition_abstract
-                        |> Term.mk_not ;
+                      [ depth_condition_abstract |> Term.mk_not ;
                         concrete_trans ] ]) ))
     in
 
@@ -1688,6 +1745,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         state_var_maps = 
 
       definitions_of_node_calls
+        (I.scope_of_ident node_name)
         init_flag_svar
         mk_first_tick_state_var
         mk_new_state_var
@@ -1912,6 +1970,59 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         locals
     in
 
+    let props =
+      (List.map 
+         (function (state_var, source) -> 
+
+           (* Name of state variable is name of property *)
+           let prop_name = StateVar.name_of_state_var state_var in
+
+           (* Term of property *)
+           let prop_term = 
+             E.base_term_of_state_var 
+               TransSys.init_base
+               state_var
+           in
+           (prop_name, source, prop_term))
+         node_props)
+      @ lifted_props
+    in
+
+    debug lustreTransSys
+        "@[<hv>Properties of node %a@ @[<hv>%a@]@]"
+        (LustreIdent.pp_print_ident false) node_name
+        (pp_print_list
+           (function ppf -> function (n, s, t) -> 
+              Format.fprintf ppf 
+                "%s (%a): %a"
+                n
+                Term.pp_print_term t
+                (function ppf -> function 
+                  | TermLib.PropAnnot p -> 
+                     Format.fprintf
+                       ppf "annot at %a" pp_print_position p
+
+                  | TermLib.SubRequirement (scope, p) ->
+                     Format.fprintf
+                       ppf "requirement from subsystem %s at %a"
+                       (String.concat "/" scope)
+                       pp_print_position p
+
+                  | TermLib.Generated l -> 
+                     Format.fprintf
+                       ppf "generated for %a" 
+                       (pp_print_list StateVar.pp_print_state_var ",@ ") l
+
+                  | TermLib.Instantiated (s, n) -> 
+                     Format.fprintf
+                       ppf "instantiated from %s in %a" 
+                      n
+                      (pp_print_list Format.pp_print_string ".") s)
+                s)
+           ",@ ")
+        props
+    in
+
     (* Symbol for initial state constraint for node *)
     let init_uf_symbol = 
       UfSymbol.mk_uf_symbol
@@ -1966,7 +2077,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         (Term.mk_and
            ( (init_flag_init |> Term.mk_var)
             :: init_defs_eqs)
-         |> add_contract_conditional_on_depth_init )))
+         |> add_contract_conditional_on_depth_init props )))
 
     in
 
@@ -2045,7 +2156,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         (Term.mk_and
            ( (init_flag_trans |> Term.mk_var |> Term.mk_not)
              :: trans_defs_eqs )
-         |> add_contract_conditional_on_depth_trans)))
+         |> add_contract_conditional_on_depth_trans props)))
 
     in
 
@@ -2057,59 +2168,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     debug lustreTransSys
         "@[<v>Transition relation:@,%a@]"
         TransSys.pp_print_uf_def pred_def_init
-    in
-
-    let props = 
-      (List.map 
-         (function (state_var, source) -> 
-
-           (* Name of state variable is name of property *)
-           let prop_name = StateVar.name_of_state_var state_var in
-
-           (* Term of property *)
-           let prop_term = 
-             E.base_term_of_state_var 
-               TransSys.init_base
-               state_var
-           in
-           (prop_name, source, prop_term))
-         node_props)
-      @ lifted_props
-    in
-
-    debug lustreTransSys
-        "@[<hv>Properties of node %a@ @[<hv>%a@]@]"
-        (LustreIdent.pp_print_ident false) node_name
-        (pp_print_list
-           (function ppf -> function (n, s, t) -> 
-              Format.fprintf ppf 
-                "%s (%a): %a"
-                n
-                Term.pp_print_term t
-                (function ppf -> function 
-                  | TermLib.PropAnnot p -> 
-                     Format.fprintf
-                       ppf "annot at %a" pp_print_position p
-
-                  | TermLib.SubRequirement (scope, p) ->
-                     Format.fprintf
-                       ppf "requirement from subsystem %s at %a"
-                       (String.concat "/" scope)
-                       pp_print_position p
-
-                  | TermLib.Generated l -> 
-                     Format.fprintf
-                       ppf "generated for %a" 
-                       (pp_print_list StateVar.pp_print_state_var ",@ ") l
-
-                  | TermLib.Instantiated (s, n) -> 
-                     Format.fprintf
-                       ppf "instantiated from %s in %a" 
-                      n
-                      (pp_print_list Format.pp_print_string ".") s)
-                s)
-           ",@ ")
-        props
     in
 
     (* Get list of transition systems of called nodes *)

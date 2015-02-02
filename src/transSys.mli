@@ -192,7 +192,8 @@ val depth_input_of_trans_sys : t -> Var.t
 (** The max depth input of a transition system, as a [Var]. *)
 val max_depth_input_of_trans_sys : t -> Var.t
 
-(** Constrains the top level depth and max depth inputs. *)
+(** Constrains the top level depth and max depth inputs. The second
+    argument is the value to constrain the max depth input to. *)
 val depth_inputs_constraint : t -> Numeral.t -> Term.t
 
 (** Instantiate the initial state constraint to the bound *)
