@@ -360,6 +360,9 @@ let pdr_generalize_time =
 let pdr_find_cex_time = 
   empty_item "Counterexample search time" 0.
 
+let pdr_ind_gen_time = 
+  empty_item "Inductive generalization time" 0.
+
 let pdr_inductive_check_time = 
   empty_item "Inductiveness check time" 0.
 
@@ -394,6 +397,7 @@ let pdr_stats =
     F pdr_strengthen_time;
     F pdr_generalize_time; 
     F pdr_find_cex_time; 
+    F pdr_ind_gen_time; 
     F pdr_inductive_check_time; 
     F pdr_tighten_to_subset_time; ] 
 

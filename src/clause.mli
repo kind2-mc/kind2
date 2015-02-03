@@ -16,114 +16,134 @@
 
 *)
 
-(** Clauses: sets of literals 
-
-    A clause is really just a set of terms which is to be understood
-    as a disjunction. There is no guarantee that the terms are
-    actually literals, see {!Literal} and {!CNF}.
-
-    The sets do not contain duplicate literals, all function of a set
-    from the standard library are supported. 
+(** Clause, properties and activation literals for PDR
 
     @author Christoph Sticksel *)
 
+(** Clause *)
+type t
 
-(** A set of literals *)
-type t  
+(** Set of properties *)
+type prop_set
 
-(** The empty clause *)
-val empty : t
+(** Type of activation literal *)
+type actlit_type = 
+  | Actlit_p0  (** positive unprimed *)
+  | Actlit_n0  (** negative unprimed *)
+  | Actlit_p1  (** positive primed *)
+  | Actlit_n1  (** negative primed *)
 
-(** The empty clause *)
-val top : t
+(** {1 Activation literals} *)
 
-(** Return [true] if the clause is empty *)
-val is_empty : t -> bool
+(** Create a fresh activation literal, declare it in the solver, and
+    assert a term guarded with it
 
-(** Return [true] if the literal is the clause *)
-val mem : Literal.t -> t -> bool
+    [create_and_assert_fresh_actlit s h t a] declares a fresh
+    uninterpreted Boolean constant in the solver instance [s], and
+    asserts the term [t] guarded by this activation literal in the
+    same solver instance. The parameter [h] is a tag used to name the
+    constant, together with a counter that is maintained per tag. *)
+val create_and_assert_fresh_actlit : SMTSolver.t -> string -> Term.t -> actlit_type -> Term.t
 
-(** Add the literal to a clause *)
-val add : Literal.t -> t -> t
+(** {1 Clauses} *)
 
-(** Return the unit clause containing only the literal *)
-val singleton : Literal.t -> t
+(** Create a clause from a set of literals, create a fresh activation
+    literal for the clause, and assert the clause guarded with the
+    activation literal in the solver instance. The second parameter is
+    the parent clause that this clause was derived from.
 
-(** Remove the literal from the clause *)
-val remove : Literal.t -> t -> t
+    For every clause [C = L1, ..., Ln] two activation literals [p0]
+    and [p1] are generated per clause, in addition also two activation
+    literals [n0i] and [n1i] per literal Li. The following terms are
+    then asserted:
 
-(** Return the union of two sets of literals *)
-val union : t -> t -> t
+    {{ 
+    p0 => C
+    p1 => C'
+    n01 => ~L1
+    n11 => ~L1'
+    ...
+    n0n => ~Ln
+    n1n => ~Ln'
+    }}
 
-(** Return the clause only containing literals in both clauses *)
-val inter : t -> t -> t
+    where the C' and Li' are the clause and the literals,
+    respectively, at the next instant.
+    
+*)
+val clause_of_literals : SMTSolver.t -> t option -> Term.t list -> t
 
-(** Return the clause only containing the literals in the first but
-    not in the second clause *)
-val diff : t -> t -> t
+(** Return the number of literals in the clause 
 
-(** Total ordering on sets of literals *)
-val compare : t -> t -> int
+    Since duplicate literals are eliminated, this is not necessarily
+    equal to the number of literals given when creating the clause. *)
+val length_of_clause : t -> int
 
-(** Equality predicate on sets of literals *)
-val equal : t -> t -> bool
+(** Return the conjunction of all literals in the clause *)
+val term_of_clause : t -> Term.t
 
-(** Return [true] if all literals in the first clause are in the
-    second clause *)
-val subset : t -> t -> bool
+(** Return the literals in the clause 
 
-(** Apply the function to each literal in the clause, the order of
-    literals is not guaranteed *)
-val iter : (Literal.t -> unit) -> t -> unit
+    Since duplicate literals are eliminated and ordered, this is not
+    necessarily equal to the list of literals given when creating the
+    clause. *)
+val literals_of_clause : t -> Term.t list
 
-(** Fold the literals in the clause with the function, the order of
-    literals is not guaranteed *)
-val fold : (Literal.t -> 'a -> 'a) -> t -> 'a -> 'a
+(** Return the activation literal for the positive clause *)
+val actlit_p0_of_clause : t -> Term.t
 
-(** Return [true] if the predicate is true for all literals in the clause *)
-val for_all : (Literal.t -> bool) -> t -> bool
+(** Return the activation literal for the positive primed clause *)
+val actlit_p1_of_clause : t -> Term.t
 
-(** Return [true] if the predicate is true for some literal in the clause *)
-val exists : (Literal.t -> bool) -> t -> bool
+(** Return the activation literals for the negated literals *)
+val actlits_n0_of_clause : t -> Term.t list
 
-(** Return the clause containing only the literals the predicate is
-    [true] for *)
-val filter : (Literal.t -> bool) -> t -> t
+(** Return the activation literals for the negated, primed literals *)
+val actlits_n1_of_clause : t -> Term.t list
 
-(** Return a pair of clauses, where the literals in the first clause
-    satisfy the predicate and the literals in the second do not *)
-val partition : (Literal.t -> bool) -> t -> t * t
+(** {1 Property sets} *)
 
-(** Return the number of distinct literals in the clause *)
-val cardinal : t -> int
+(** Create a property set from a list of named properties 
 
-(** Return the literals of the clause as a list *)
-val elements : t -> Literal.t list
+    The conjunction of properties is viewed as a single literal of a
+    clause, and this clause is asserted with activation literals in
+    the given solver instance. *)
+val prop_set_of_props : SMTSolver.t -> (string * Term.t) list -> prop_set
 
-(** Return one literal of the clause *)
-val choose : t -> Literal.t
+(** Return the unit clause containing the conjunction of the
+    properties as a literals *)
+val clause_of_prop_set : prop_set -> t
 
-(** Apply [f] to each literal and return a new clause *)
-val map : (Literal.t -> Literal.t) -> t -> t 
+(** Return the conjunction of the properties *)
+val term_of_prop_set : prop_set -> Term.t
 
-(** Return the clause containing all literals in the list *)
-val of_literals : Literal.t list -> t
+(** Return the named properties of the property set *)
+val props_of_prop_set : prop_set -> (string * Term.t) list
+  
+(** Return the activation literal for the positive conjunction of properties *)
+val actlit_p0_of_prop_set : prop_set -> Term.t
 
-(** If the the top symbol of the term is a disjunction, return the
-    clause containing the disjuncts as literals. Otherwise return a
-    unit clause containing only the term. If the term contains nested
-    disjunctions, they are flattened. *)
-val of_term : Term.t -> t
+(** Return the activation literal for the positive primed conjunction
+    of properties *)
+val actlit_p1_of_prop_set : prop_set -> Term.t
+  
+(** Return the (singleton list of) activation literals for the negated
+    conjunction of properties *)
+val actlits_n0_of_prop_set : prop_set -> Term.t list
+  
+(** Return the (singleton list of) activation literals for the negated
+    primed conjunction of properties *)
+val actlits_n1_of_prop_set : prop_set -> Term.t list
+  
+(** {1 Frames} *)
 
-(** Return the disjunction of the literals in the clause *)
-val to_term : t -> Term.t
-
-(** Pretty-print a clause *)
-val pp_print_clause : Format.formatter -> t -> unit
-
-(** Pretty-print a clause to the standard formatter *)
-val print_clause : t -> unit 
-
+(** Create or return an activation literal for the given frame *)
+val actlit_of_frame : int -> Term.t
+  
+(** Create or return the uninterpreted functoin symbol for the
+    activation literal for the given frame *)
+val actlit_symbol_of_frame : int -> UfSymbol.t
+  
 (* 
    Local Variables:
    compile-command: "make -C .. -k"

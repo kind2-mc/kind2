@@ -193,7 +193,7 @@ let pp_print_var_node ppf = function
   (* Pretty-print an instance of a state variable *)
   | StateVarInstance (v, o) ->
     Format.fprintf ppf 
-      "%a.%a" 
+      "%a@%a" 
       StateVar.pp_print_state_var v
       Numeral.pp_print_numeral o
 
@@ -391,6 +391,18 @@ let mk_fresh_var var_type =
   mk_free_var v var_type 
 
 
+(* Return a state variable at the given offset *)
+let set_offset_of_state_var_instance i = function 
+
+  | { Hashcons.node = StateVarInstance (v, o) } -> 
+    mk_state_var_instance v i
+
+  | { Hashcons.node = ConstStateVar _ } as v -> v
+
+  | { Hashcons.node = FreeVar _ } -> 
+    raise (Invalid_argument "bump_offset_of_state_var_instance")
+
+
 (* Add to the offset of a state variable instance
 
    Negative values are allowed *)
@@ -403,6 +415,7 @@ let bump_offset_of_state_var_instance i = function
 
   | { Hashcons.node = FreeVar _ } -> 
     raise (Invalid_argument "bump_offset_of_state_var_instance")
+
 
 module StringMap = Map.Make(String)
 

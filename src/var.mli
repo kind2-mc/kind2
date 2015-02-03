@@ -101,6 +101,9 @@ val is_free_var : t -> bool
     Negative values are allowed *)
 val bump_offset_of_state_var_instance : Numeral.t -> t -> t   
 
+(** Return a state variable instance at the given offset *)
+val set_offset_of_state_var_instance : Numeral.t -> t -> t   
+
 (** {1 Pretty-printing} *)
 
 (** Pretty-print a hashconsed variable *)

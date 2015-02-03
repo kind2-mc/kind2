@@ -84,7 +84,7 @@ val mk_trans_sys :
   t
 
 (** Add entry for new system instantiation to the transition system *)
-val add_caller : t -> t -> (StateVar.t * StateVar.t) list * (Term.t -> Term.t) * (Term.t -> Term.t) -> unit
+val add_caller : t -> t -> (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -201,7 +201,7 @@ val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list
 val named_term_of_prop_name : t -> string -> Term.t
                                                
 (** Instantiate invariants and valid properties to the bound *)
-val invars_of_bound : t -> Numeral.t -> Term.t
+val invars_of_bound : ?one_state_only:bool -> t -> Numeral.t -> Term.t
 
 (** The list of invariants and valid properties at zero. *)
 val get_invars : t -> Term.t list

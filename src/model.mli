@@ -52,6 +52,9 @@ val path_to_list : path -> (StateVar.t * term_or_lambda list) list
 (** Create a model of an association list *)
 val path_of_list : (StateVar.t * term_or_lambda list) list -> path
 
+(** Create a model of an association list *)
+val path_of_term_list : (StateVar.t * Term.t list) list -> path
+
 (** Convert a model to a path
 
     [path_from_model s m k] extracts from the model [m] a path of
@@ -83,6 +86,11 @@ val set_var_offset : Numeral.t -> t -> t
     assignment in both models, it gets the assignment in the second
     model. *)
 val merge : t -> t -> t 
+
+(** Combine assignments of two models into one as in {!merge}, but
+    bump the variables in the second model by the given offset before
+    merging. *)
+val bump_and_merge : Numeral.t -> t -> t -> t 
 
 (* 
    Local Variables:

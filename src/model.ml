@@ -98,6 +98,21 @@ let path_of_list l =
   path
 
 
+(* Create a path of an association list *)
+let path_of_term_list l = 
+
+  (* Create hash table of initial size *)
+  let path = SVT.create 7 in
+
+  (* Add associations from list to hash table *)
+  List.iter 
+    (fun (v, t) -> SVT.add path v (List.map (fun t -> Term t) t))
+    l;
+
+  (* Return hash table *)
+  path
+
+
 (* Return an association list with the assignments of the path *)
 let path_to_list p = 
 
@@ -343,10 +358,11 @@ let set_var_offset k model =
     model
 
 
-(* Combine assignments of two models into one. If a variable has an
-    assignment in both models, it gets the assignment in the second
-    model. *)
-let merge model1 model2 = 
+(* Apply function to variables and assignments in second model and
+   combine with assignments of th first model. If a variable has an
+   assignment in both models, it gets the assignment in the second
+   model. *)
+let apply_and_merge f model1 model2 = 
 
   (* Make a deep copy of the hash table *)
   let model' = VT.copy model1 in
@@ -354,14 +370,31 @@ let merge model1 model2 =
   (* Add all assignments from second model, replace possibly existing
      assignments in first model *)
   VT.iter
-    (fun v t_or_l -> VT.replace model' v t_or_l)
+    (fun v t_or_l -> 
+       let v', t_or_l' = f v t_or_l in
+       VT.replace model' v' t_or_l')
     model2;
 
   (* Return fresh model *)
   model'
 
-       
+(* Combine assignments of two models into one. If a variable has an
+    assignment in both models, it gets the assignment in the second
+    model. *)
+let merge model1 model2 = 
+  apply_and_merge (fun a b -> (a, b)) model1 model2
 
+       
+(* Combine assignments of two models into one with the offsets of
+    variables in the second model bumped. If a variable has an
+    assignment in both models, it gets the assignment in the second
+    model. *)
+let bump_and_merge k model1 model2 = 
+  apply_and_merge 
+    (fun v t_or_l -> Var.bump_offset_of_state_var_instance k v, t_or_l)
+    model1 
+    model2
+  
 
 (* 
    Local Variables:

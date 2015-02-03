@@ -990,7 +990,11 @@ let stateful_vars_of_node
 
         (SVS.union accum
            (* Input and output variables are always stateful *)
-           (add_to_svs SVS.empty (rets @ obs @ args))))
+           (add_to_svs
+              (match act_cond with
+               | Some var -> SVS.singleton var
+               | None -> SVS.empty)
+              (rets @ obs @ args))))
       stateful_vars
       calls
   in

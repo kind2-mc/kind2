@@ -431,7 +431,7 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
     (* Return response *)
     res
 
-  (* Samme as above but additionnaly trace the co mmands and responses *)
+  (* Samme as above but additionnaly trace the commands and responses *)
   let send_command_and_trace =
     fun cmd_type solver command timeout -> 
 

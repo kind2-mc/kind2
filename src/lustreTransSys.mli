@@ -87,7 +87,79 @@
     node calls. Equational definitions of not stateful variable are
     substituted by binding the variable to a [let] definition.
 
-    @author Christoph Sticksel *)
+
+    {1 Condact Encoding}
+
+    If a node call has an activation condition that is not the constant
+    true, additional fresh variables are generated. One variable is
+    initially false and becomes and remains true on the first time the
+    activation condition is true. Further, all input variables are
+    duplicated to shadow input variables that freeze the input values
+    at the last instant the activation condition has been true.
+
+    The [first_tick] flag is [true] from the first state up to the
+    state when the clock first ticks, including that state. After that
+    state, the flag is false forever.
+    For example:
+    {[
+state      0     1     2    3     4     5     ...
+clock      false false true false true  false ...
+first_tick true  true  true false false false ... ]}
+    Thus [clock and first_tick] is true when and only when clock ticks
+    for the first time. The [first_tick] flag will be passed down to
+    the called node as its init flag. It is mandatory for invariant
+    lifting: two state invariants are guarded by [init_flag or inv],
+    and substitution takes care of rewriting that as
+    [clock => first_tick or inv].
+
+
+    The initial state constraint of the called node is a conjunction of
+    formulas representing the following:
+    - the [first_tick] flag is true (see paragraph above):
+      {[first_tick = true]}
+    - the shadow input variables take the values of the actual input
+      variables if the activation condition is true:
+      {[clock => shadow_input = actual_input]}
+    - the initial state predicate of the called node with the
+      parameters as above, except for the input variables that are
+      replaced by the shadow input variables:
+      {[clock => init(first_tick,args)]}
+    - if the activation condition is false then the outputs are
+      constrained to their default values:
+      {[not clock => out = default]}
+
+    The transition relation of the called node is a conjunction of
+    formulas representing the following facts:
+
+    - the [first_tick] flag is true in the current state iff it was
+      true in the previous instant and the activation condition was
+      false in the previous instant:
+      {[first_tick' = first_tick and not clock ]}
+
+    - the shadow input variables in the next state take the values of
+      the actual input variables if the activation condition is true:
+      {[clock' => shadow_input' = actual_input']}
+      and their previous values if the activation condition is false.
+      More generally, all the arguments of the subnode init/trans stay
+      the same:
+      {[not clock' => (args' = args)]}
+
+    - the initial state predicate of the called node with the
+      parameters as above, except for the input variables that are
+      replaced by the shadow input variables, if the activation
+      condition is true in the next step and the [first_tick] flag is
+      true in the next step:
+      {[(clock' and first_tick') => init(first_tick',args')]}
+
+    - the transition relation predicate of the called node with the
+      parameters as above, except for the input variables that are
+      replaced by the shadow input variables, if the activation
+      condition is true and the [first_tick] flag is false in the next
+      step.
+      {[(clock' and not first_tick') => trans(first_tick',args',first_tick,args)]}
+
+    @author Christoph Sticksel
+    @author Adrien Champion *)
 
 (** *)
 val trans_sys_of_nodes : LustreNode.t list -> TransSys.t

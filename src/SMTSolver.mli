@@ -87,7 +87,14 @@ val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
 
 (** Return an unsatisfiable core of named expressions if the current
     context is unsatisfiable *)
-val get_unsat_core : t -> Term.t list
+val get_unsat_core_of_names : t -> Term.t list
+
+(** Interpret unsatisfiable core as names and return corresponing terms *)
+val get_unsat_core_of_names : t -> Term.t list
+  
+(** Interpret unsatisfiable core as literals and return as terms *)
+val get_unsat_core_lits : t -> Term.t list
+
 
 (** {1 Higher-level functions} *)
 (*

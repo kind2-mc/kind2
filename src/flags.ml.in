@@ -318,7 +318,7 @@ let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `INVGEN; `INVGENOS]
+let enable_default_after = [`BMC; `IND; `PDR; `INVGEN; `INVGENOS]
 
 (* ********** *) 
 

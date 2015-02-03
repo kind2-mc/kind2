@@ -160,13 +160,7 @@ type t = {
      the instantiating system as well as a function to guard Boolean
      terms. *)
   mutable callers : 
-    (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t) * (Term.t -> Term.t)) list)) list;
-
-
-  (* Associates a system instantiating this system with a map from the
-     variables of this system to the argument of the instantiation in
-     the over-system. *)
-  mutable instantiation_maps: (t * ((StateVar.t * Term.t) list list)) list;
+    (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list;
 
 }
            
@@ -204,51 +198,6 @@ let add_caller callee caller c =
   in
 
   callee.callers <- add_caller' [] callee.callers
-
-
-(* Prints the instantiation maps of a transition system. *)
-let print_instantiation_maps { instantiation_maps } =
-  (* Turns a map from state vars to terms into a string. *)
-  let string_of_map map =
-    map
-    |> List.map
-         ( fun (v,t) ->
-           Printf.sprintf "(%s -> %s)"
-                          (StateVar.string_of_state_var v)
-                          (Term.string_of_term t) )
-    |> String.concat ", "
-  in
-  
-  instantiation_maps
-  |> List.map
-       (fun (sub,maps) ->
-        Printf.printf "  Mapping to [%s]:\n"
-                      (String.concat "/" sub.scope) ;
-        maps
-        |> List.iter
-             ( fun map ->
-               Printf.printf "  > %s\n" (string_of_map map) ) ;
-        Printf.printf "\n")
-
-(* Adds an instantiation map (subsystem / var association pair) to a
-   system. *)
-let add_instantiation_map t (sys', map) =
-  
-  let rec loop prefix = function
-
-    | (sys, maps) :: tail when sys.scope = sys'.scope ->
-       (* Adding the new maps. *)
-       (sys, map :: maps) :: tail
-       |> List.rev_append prefix
-         
-    | head :: tail ->
-       loop (head :: prefix) tail
-
-    (* The new map was not in here, adding it. *)
-    | [] -> (sys',[map]) :: prefix
-  in
-
-  t.instantiation_maps <- (loop [] t.instantiation_maps)
 
 
 (* Instantiates a term for all systems instantiating the input
@@ -304,6 +253,25 @@ let instantiate_term { callers } term =
   callers
   |> List.map
        ( fun (sys, maps) ->
+
+         let print_map =
+           (* Turns a map from state vars to terms into a string. *)
+           let string_of_map map =
+             map
+             |> List.map
+                  ( fun (v,t) ->
+                    Printf.sprintf "(%s -> %s)"
+                                   (StateVar.string_of_state_var v)
+                                   (StateVar.string_of_state_var t) )
+             |> String.concat ", "
+           in
+           
+           List.map
+             (fun map ->
+              Printf.printf "  Mapping to [%s]:\n"
+                            (String.concat "/" sys.scope) ;
+              Printf.printf "  > %s\n\n" (string_of_map map) )
+         in
          
          (* Building one new term per instantiation mapping for
             sys. *)
@@ -312,21 +280,11 @@ let instantiate_term { callers } term =
            |> List.map
                (* For each map of this over-system, substitute the
                   variables of term according to map. *)
-               ( fun (map,f,f') ->
-                 let substed =
-                   Term.map
-                     (substitute_fun_of_map map)
-                     term
-                 in
-                 match Term.var_offsets_of_term substed with
-                   | Some lo, _ when Numeral.(lo = ~- one) ->
-                     (* Term mentions variables at -1, using trans
-                        guarding function. *)
-                     f' substed
-                   | _ ->
-                     (* Otherwise, using init trans guarding
-                        function. *)
-                     f substed )
+               ( fun (map,f) ->
+                 Term.map
+                   (substitute_fun_of_map map)
+                   term
+                 |> f )
          in
 
          sys, terms )
@@ -465,8 +423,8 @@ let instantiate_term_top t term =
   loop [] (instantiate_term t term)
 
 (* Number of times this system is instantiated in other systems. *)
-let instantiation_count { instantiation_maps } =
-  instantiation_maps
+let instantiation_count { callers } =
+  callers
   |> List.fold_left
        ( fun sum (sys,maps) ->
          sum + (List.length maps) )
@@ -539,10 +497,10 @@ let pp_print_property ppf { prop_name; prop_source; prop_term; prop_status } =
     pp_print_prop_source prop_source
     pp_print_prop_status_pt prop_status
 
-let pp_print_caller ppf (m, i, t) = 
+let pp_print_caller ppf (m, t) = 
 
   Format.fprintf ppf 
-    "@[<hv 1>(%a)@,%a@,%a@]"
+    "@[<hv 1>(%a)@,%a@]"
     (pp_print_list 
        (fun ppf (s, t) ->
           Format.fprintf ppf
@@ -551,7 +509,6 @@ let pp_print_caller ppf (m, i, t) =
             StateVar.pp_print_state_var t)
        "@ ")
     m
-    Term.pp_print_term (i Term.t_true)
     Term.pp_print_term (t Term.t_true)
 
 
@@ -658,145 +615,6 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
     | _ -> None
   in
 
-  (* Builds a mapping from vars@0 to terms. Inputs 'vars' and 'terms'
-     come from init and trans and therefore need to be bumped. *)
-  let build_mapping term vars terms =
-    (* Making sure both lists are the same length. *)
-    assert ( (List.length vars) = (List.length terms) ) ;
-
-    let rec loop map = function
-        
-      | v :: v_tail, t :: t_tail ->
-         (* Bump value necessary to get the var to 0. *)
-         let bump_val =
-           if Var.is_const_state_var v then Numeral.zero
-           else
-             Numeral.(~- (Var.offset_of_state_var_instance v))
-         in
-
-         (* Getting the statevar and bumping the term. *)
-         let state_var, bumped_t =
-           Var.state_var_of_state_var_instance v,
-           Term.bump_state bump_val t
-         in
-
-         (* Building the new map. *)
-         let map' =
-           try
-             (* If the var is already mapped to a term... *)
-             let mapped_to = List.assoc state_var map in
-             if mapped_to != bumped_t then (
-               debug transSys "Term: %s" (Term.construct term |> Term.string_of_term) in
-               debug transSys "Var: %s" (StateVar.string_of_state_var state_var) in
-               debug transSys "mapped_to: %s" (Term.string_of_term mapped_to) in
-               debug transSys "bumped_t: %s" (Term.string_of_term bumped_t) in
-               ()
-             ) ;
-             (* ... then it should be the same term... *)
-             assert ( mapped_to == bumped_t ) ;
-             (* ... and we leave the map as it is. *)
-             map
-           with
-             Not_found ->
-             (* If the var is not mapped then we add the mapping. *)
-             (state_var, bumped_t) :: map
-         in
-
-         loop map' (v_tail, t_tail)
-           
-      | [], [] -> map
-                    
-      | _ -> failwith "The universe is collapsing."
-    in
-
-    loop [] (vars, terms)
-  in
-
-  let print_map =
-    (* Turns a map from state vars to terms into a string. *)
-    let string_of_map map =
-      map
-      |> List.map
-           ( fun (v,t) ->
-             Printf.sprintf "(%s -> %s)"
-                            (StateVar.string_of_state_var v)
-                            (Term.string_of_term t) )
-      |> String.concat ", "
-    in
-    
-    List.map
-      (fun (sub,map) ->
-       Printf.printf "  Mapping to [%s]:\n"
-                     (String.concat "/" sub.scope) ;
-       Printf.printf "  > %s\n\n" (string_of_map map) )
-  in
-
-  (* Going through init to find instantiations of subsystems. *)
-  let init_maps = match init with
-    | (_, (_, init_term)) ->
-       debug transSys "%s" (Term.string_of_term init_term) in
-       init_term
-       |> Term.eval_t
-            ( fun op maps ->
-              match is_flat_uf_such_that init_uf_symbol op with
-              | None ->  List.concat maps
-              | Some (sub,params) ->
-                 (sub, build_mapping op (init_vars sub) params)
-                 :: (List.concat maps) )
-  in
-
-  (* Going through trans to find instantiations of subsystems. *)
-  let trans_maps = match trans with
-    | (_, (_, trans_term)) ->
-       debug transSys "%s" (Term.string_of_term trans_term) in
-       trans_term
-       |> Term.eval_t
-            ( fun op maps ->
-              match is_flat_uf_such_that trans_uf_symbol op with
-              | None ->  List.concat maps
-              | Some (sub,params) ->
-                 (sub, build_mapping op (trans_vars sub) params)
-                 :: (List.concat maps) )
-  in
-
-  (* Crashes if two maps are not the same. *)
-  let rec map_eq = function
-    | (var, term) :: tail, (var', term') :: tail' ->
-       if (term != term')
-       then (
-         debug transSys "Terms for var %s don't match:" (StateVar.string_of_state_var var)  in
-         debug transSys "init  %s" (Term.string_of_term term)  in
-         debug transSys "trans %s" (Term.string_of_term term')  in
-         ()
-       ) ;
-       assert (var == var') ;
-       assert (term == term') ;
-       map_eq (tail,tail')
-    | [], [] -> ()
-    | _ -> assert false
-  in
-
-  (* Crashes if two association lists between subsystems and mappings
-     are not the same. *)
-  let rec maps_eq = function
-    | (sub, map) :: tail, (sub', map') :: tail' ->
-       assert ( (sub.scope) = (sub'.scope) ) ;
-       map_eq (map, map') ;
-       maps_eq (tail, tail')
-    | [], [] -> ()
-    | [], map ->
-       Printf.printf "Trans map is not []:\n" ;
-       print_map map ;
-       assert false
-    | map, [] ->
-       Printf.printf "Init map is not []:\n" ;
-       print_map map ;
-       assert false
-  in
-
-  (* Making sure init and trans mappings are the same. *)
-  maps_eq (init_maps, trans_maps) ;
-
   let system =
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
@@ -816,14 +634,9 @@ let mk_trans_sys scope state_vars init trans subsystems props source =
       subsystems = subsystems ;
       source = source ;
       invars = invars_of_types ;
-      callers = [];
-      instantiation_maps = [] }
+      callers = []; }
   in
 
-  (* Adding instantiation maps to subsystems. *)
-  init_maps
-  |> List.iter
-       ( fun (sub,map) -> add_instantiation_map sub (system,map) ) ;
   system
 
 (* Return the variables of the transition system between given instants *)
@@ -880,13 +693,7 @@ let init_of_bound t i =
 (* Instantiate the transition relation to the bound. *)
 let trans_of_bound t i = 
 
-  let trans_term =
-    Term.mk_and
-      [ (* Get term of transition predicate. *)
-        trans_term t ;
-        (* The next state cannot be initial. *)
-        (init_flag_var Numeral.one |> Term.mk_var |> Term.mk_not) ]
-  in
+  let trans_term = trans_term t in
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = one)
@@ -953,10 +760,30 @@ let trans_fun_of { uf_defs } k k' =
 
 
 (* Instantiate the initial state constraint to the bound *)
-let invars_of_bound t i = 
+let invars_of_bound ?(one_state_only = false) t i = 
 
   (* Create conjunction of property terms *)
-  let invars_0 = Term.mk_and t.invars in 
+  let invars_0 = 
+    Term.mk_and 
+
+      (* Only one-state invariants? *)
+      (if one_state_only then
+
+         (* Filter for invariants at zero *)
+         List.filter
+           (fun t -> match Term.var_offsets_of_term t with 
+              | Some l, Some u when 
+                  Numeral.(equal l zero) && Numeral.(equal u zero) -> 
+                true
+              | _ -> false)
+           t.invars
+
+       else
+         
+         (* Return all invariants *)
+         t.invars) 
+
+  in 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
