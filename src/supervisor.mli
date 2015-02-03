@@ -20,6 +20,9 @@
 
     @author Christoph Sticksel *)
 
+(** Entry point. *)
+val entry_point : TransSys.t -> unit
+
 (** Entry point *)
 val main : (int * Lib.kind_module) list ref -> TransSys.t -> unit
 

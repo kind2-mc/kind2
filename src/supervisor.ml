@@ -179,6 +179,12 @@ let main child_pids transSys =
   (* Run main loop *)
   loop false child_pids transSys
 
+
+let entry_point sys =
+
+  ()
+
+       
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
