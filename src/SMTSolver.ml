@@ -440,7 +440,7 @@ let get_var_values s vars =
          of array type *)
       (List.map
          (fun v -> 
-            if true (* Var.type_of_var v |> Type.is_array *) then
+            if Var.type_of_var v |> Type.is_array then
               raise Var_is_array
             else
               S.Conv.smtexpr_of_var v [])
