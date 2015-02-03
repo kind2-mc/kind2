@@ -52,13 +52,14 @@ val path_to_list : path -> (StateVar.t * term_or_lambda list) list
 (** Create a model of an association list *)
 val path_of_list : (StateVar.t * term_or_lambda list) list -> path
 
-(** Extract a path in the transition system, return an association
-    list of state variables to a list of their values.
+(** Convert a model to a path
 
-    The second argument is a function returning assignments to the
-    variables, see {!SolverMethods.S.get_model}. The path is extracted
-    from instant zero up to instant [k], which is the third argument. *)
-val path_from_model : StateVar.t list -> (Var.t list -> t) -> Numeral.t -> path
+    [path_from_model s m k] extracts from the model [m] a path of
+    values for each of the state variables in [s] from the offset zero
+    up to [k]. The lists of values for each state variable are of
+    equal length. Values that are not defined in the model are filled
+    with {!TermLib.default_of_type}. *)
+val path_from_model : StateVar.t list -> t -> Numeral.t -> path
 
 (** Extract values at instant [k] from the path and return a model *)
 val model_at_k_of_path : path -> Numeral.t -> t

@@ -187,7 +187,9 @@ let init_equal_mod_input declare_fun trans_sys =
               StateVar.type_of_state_var sv :: a 
             else a)
          []
-         (TransSys.state_vars trans_sys))
+         (List.sort 
+            StateVar.compare_state_vars
+            (TransSys.state_vars trans_sys)))
       Type.t_int
   in
   
@@ -733,7 +735,10 @@ let check_and_block declare_fun trans_sys path =
                     (Numeral.of_int i),
                   t))
               t)
-         (Model.path_to_list path))
+         (List.sort 
+            (fun (sv1, p) (sv2, p) ->
+               StateVar.compare_state_vars sv1 sv2)
+            (Model.path_to_list path)))
   in
 
   (* Initialize list of blocking terms *)

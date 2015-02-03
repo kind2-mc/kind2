@@ -243,30 +243,63 @@ let split trans solver k to_split actlits =
   (* Function to run if sat. *)
   let if_sat () =
     
+    (* Extract a model *)
+    let model = 
+
+      (* Do we need the full model? *)
+      if (Flags.ind_compress ()) || (Flags.ind_lazy_invariants ()) then 
+
+        (* Get model for all variables *)
+        SMTSolver.get_model solver
+        
+      else
+        
+        (* We only need the model at zero *)
+        TransSys.vars_of_bounds
+          trans
+          Numeral.zero
+          Numeral.zero
+        |> (SMTSolver.get_var_values solver)
+        
+    in
+
+    Some model
+
+(*
+
     (* Get-model function. *)
-    let get_model = SMTSolver.get_model solver in
+    let get_var_values = SMTSolver.get_var_values solver in
     
-    (* Getting counterexample for path compression is needed. *)
     let cex =
+      
+      (* Getting counterexample for path compression is needed. *)
       if Flags.ind_compress () then
-        Model.path_from_model (TransSys.state_vars trans) get_model k
+
+        let model = SMTSolver.get_model solver in
+
+        Model.path_from_model (TransSys.state_vars trans) model k
+
       else 
+
         Model.create_path 7
+
     in
     
     (* Getting model for evaluation. *)
     let model =
       if Flags.ind_lazy_invariants () then
         (* Lazy invariant mode, we need the full model. *)
-        TransSys.vars_of_bounds trans k Numeral.zero |> get_model
+        TransSys.vars_of_bounds trans k Numeral.zero |> get_var_values
       else
         (* Not in lazy invariant mode, we only need model at [0]. *)
         TransSys.vars_of_bounds
           trans Numeral.zero Numeral.zero
-        |> get_model
+        |> get_var_values
     in
     
     Some (cex, model)
+*)
+    
   in
 
   (* Function to run if unsat. *)
@@ -284,7 +317,7 @@ let split trans solver k to_split actlits =
         solver if_sat if_unsat all_actlits
     with
 
-    | Some (cex,model) ->
+    | Some model ->
         
       (* Evaluation function. *)
       let term_to_val =
@@ -312,6 +345,13 @@ let split trans solver k to_split actlits =
         (* Attempting to compress path. *)
         ( match
             if not (Flags.ind_compress ()) then [] else
+
+              let cex = 
+                Model.path_from_model
+                  (TransSys.state_vars trans) 
+                  model 
+                  k 
+              in
               Compress.check_and_block
                 (SMTSolver.declare_fun solver) trans cex
           with

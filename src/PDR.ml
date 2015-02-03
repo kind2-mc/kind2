@@ -596,7 +596,7 @@ let find_cex
 
 	(* Get counterexample to entailment from satisfiable formula *)
 	let cex = 
-          SMTSolver.get_model 
+          SMTSolver.get_var_values 
             solver_frames
             (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
 	in
@@ -1549,7 +1549,7 @@ let rec partition_propagate solver accum = function
         in
 
         (* Get a model of the satisfiable context *)
-        let model = SMTSolver.get_model solver vars in
+        let model = SMTSolver.get_var_values solver vars in
 
         (* Separate clauses that can certainly not be propagated from
            clauses that may be propagated.

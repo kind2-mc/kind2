@@ -489,6 +489,11 @@ let rec declare_vars declare = function
 let state_var_instance_of_symbol sym =
   Symbol.string_of_symbol sym |> find_unrolled_var_map
 
+(* Gets the state var instance associated with an unrolled
+   uninterpreted symbol. Throws [Not_found] if the sym is unknown. *)
+let state_var_instance_of_uf_symbol uf_sym =
+  UfSymbol.string_of_uf_symbol uf_sym |> find_unrolled_var_map
+
 
 
 

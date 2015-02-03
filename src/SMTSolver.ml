@@ -386,8 +386,30 @@ let model_of_smt_model s smt_model vars =
   model
   
 
+let partial_model_of_smt_model s smt_model = 
+  let module S = (val s.solver_inst) in
+
+  (* Create hash table with size matching the number of values *)
+  let model = Var.VarHashtbl.create (List.length smt_model) in
+
+  (* Add all variable term pairs to the hash table *)
+  List.iter
+    (fun (uf_sym, t_or_l) -> 
+
+       try 
+
+         let var = Var.state_var_instance_of_uf_symbol uf_sym in
+         
+         Var.VarHashtbl.add model var t_or_l
+
+       with Not_found -> ())
+    smt_model;
+
+  model
+  
+
 (* Get values of terms in the current context *)
-let get_values s terms =
+let get_term_values s terms =
   let module S = (val s.solver_inst) in
 
   match 
@@ -406,7 +428,7 @@ let get_values s terms =
 exception Var_is_array
 
 (* Get model of the current context *)
-let get_model s vars =
+let get_var_values s vars =
   let module S = (val s.solver_inst) in
 
   match 
@@ -465,6 +487,26 @@ let get_model s vars =
             model_of_smt_model s m vars
 
       )
+
+
+(* Get model of the current context *)
+let get_model s =
+  let module S = (val s.solver_inst) in
+
+  match 
+    
+    (* Get model in current context *)
+    prof_get_model s ()
+
+  with 
+    
+    | `Error e -> 
+      raise 
+        (Failure ("SMT solver failed: " ^ e))
+        
+    | `Model m ->
+      
+      partial_model_of_smt_model s m 
 
 
 (* Get unsat core of the current context *)
@@ -609,7 +651,7 @@ let check_sat_term_model ?(timeout = 0) solver terms =
       let vars = Var.VarSet.elements (Term.vars_of_term (Term.mk_and terms)) in
 
       (* Get model of context *)
-      get_model solver vars 
+      get_var_values solver vars 
 
     else
 
@@ -702,7 +744,7 @@ let execute_custom_check_sat_command cmd s =
 (* Utiliy functions                                                     *)
 (* ******************************************************************** *)
 
-
+(*
 (* For a model return a conjunction of equations representing the model *)
 let term_of_model model = 
 
@@ -710,7 +752,7 @@ let term_of_model model =
     (List.map 
        (function (v, e) -> Term.mk_eq [Term.mk_var v; e])
        model)
-
+*)
 
 let converter s =
   let module S = (val s.solver_inst) in

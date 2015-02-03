@@ -109,7 +109,7 @@ let path_to_list p =
 
 (* Extract a path in the transition system, return an association list
    of state variables to a list of their values *)
-let path_from_model state_vars get_model k =
+let path_from_model state_vars model k =
 
   (* Initialize hash table with a size equal to the number of
      variables *)
@@ -122,12 +122,6 @@ let path_from_model state_vars get_model k =
     | i when Numeral.(i < zero) -> ()
 
     | i -> 
-
-      (* Get a model for the variables at instant [i] *)
-      let model =
-        get_model
-          (List.map (fun sv -> Var.mk_state_var_instance sv i) state_vars)
-      in
 
       (* Iterate over state variables, not all state variables are
          necessarily in a partial model *)
@@ -174,8 +168,6 @@ let path_from_model state_vars get_model k =
                with Not_found -> ()
 
              )
-             
-           
 
         )
         state_vars;
@@ -192,7 +184,7 @@ let path_from_model state_vars get_model k =
   path
 
 
-(* Extract va at intant [k] from the path and return a model *)
+(* Extract value at instant [k] from the path and return a model *)
 let model_at_k_of_path path k = 
 
   (* Convert numeral to integer *)

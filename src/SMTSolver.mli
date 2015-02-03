@@ -75,11 +75,15 @@ val pop : ?n:int -> t -> unit
 val check_sat : ?timeout:int -> t -> bool
 
 (** Return a model of the current context if satisfiable *)
-val get_model : t -> Var.t list -> Model.t
+val get_model : t -> Model.t
 
 (** Return a values of the terms in the current context if
     satisfiable *)
-val get_values : t -> Term.t list -> (Term.t * Term.t) list
+val get_var_values : t -> Var.t list -> Model.t
+
+(** Return a values of the terms in the current context if
+    satisfiable *)
+val get_term_values : t -> Term.t list -> (Term.t * Term.t) list
 
 (** Return an unsatisfiable core of named expressions if the current
     context is unsatisfiable *)
@@ -159,8 +163,10 @@ val execute_custom_check_sat_command :
 
 (** {1 Utility functions} *)
 
+(*
 (** For a model return a conjunction of equations representing the model *)
 val term_of_model : (Var.t * Term.t) list -> Term.t
+*)
 
 val converter : t -> (module SMTExpr.Conv)
 
