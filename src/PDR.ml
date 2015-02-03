@@ -118,7 +118,7 @@ let handle_events
     SMTSolver.trace_comment 
       solver
       "handle_event: Asserting one-state invariants at zero";
-    
+(*    
     (* Assert one-state invariants only at offsets zero *)
     SMTSolver.assert_term 
       solver 
@@ -132,8 +132,8 @@ let handle_events
       solver 
       (TransSys.invars_of_bound 
          trans_sys
-         Numeral.one);
-
+         Numeral.one)
+*)
   in
 
   (* Assert all received invariants *)
@@ -570,8 +570,10 @@ let extrapolate trans_sys state f g =
     Term.mk_and 
       [f; 
        TransSys.trans_of_bound trans_sys Numeral.one; 
+(*
        TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
+*)
        Term.bump_state Numeral.one g]
   in
 
@@ -806,7 +808,24 @@ let rec block solver trans_sys prop_set term_tbl =
               solver
 
               (* Must be unsat *)
-              (fun () -> assert false)
+              (fun () -> 
+
+                 (* This should only happen when we are faster than
+                    BMC, who has not yet discovered at one-step
+                    violation of a property. We wait for messages *)
+                 (* Receive messages and update transition system *)
+                 let rec wait () = 
+                   handle_events 
+                     solver
+                     trans_sys
+                     (C.props_of_prop_set prop_set);
+                   minisleep 0.01;
+                   wait ()
+                 in
+                 ignore (wait ()); 
+
+                 (* We won't return from waiting *)
+                 assert false)
 
               (* Get literals in unsat core *)
               (fun () -> SMTSolver.get_unsat_core_lits solver)
@@ -894,16 +913,21 @@ let rec block solver trans_sys prop_set term_tbl =
               (* Skip inductive generaliztion? *)
               if false then
 
-                C.clause_of_literals solver (Some block_clause) block_clause_literals_core
+                C.clause_of_literals 
+                  solver
+                  (Some block_clause)
+                  block_clause_literals_core
 
               else
-                
-                ind_generalize 
-                  solver
-                  prop_set
-                  actlits_p0_r_pred_i
-                  block_clause
-                  block_clause_literals_core
+
+                (Stat.time_fun Stat.pdr_ind_gen_time
+                   (fun () -> 
+                      ind_generalize 
+                        solver
+                        prop_set
+                        actlits_p0_r_pred_i
+                        block_clause
+                        block_clause_literals_core))
 
           in
 
@@ -939,6 +963,9 @@ let rec block solver trans_sys prop_set term_tbl =
               block_tl
 
           in
+
+          (* Update frame size statistics *)
+          (* Stat.set_int_list (frame_sizes frames) Stat.pdr_frame_sizes; *)
 
           (* Add clause to frame and continue with next clauses in
              this frame *)
@@ -1645,7 +1672,7 @@ let extract_cex_path solver trans_sys trace =
   let init_path, state_init = 
     match trace with 
 
-      (* Must have at lease one state *)
+      (* Must have at least one state *)
       | [] -> assert false
 
       (* First blocking clause is successor of initial state *)
