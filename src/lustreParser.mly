@@ -102,6 +102,7 @@ let mk_pos = Lib.position_of_lexing
 %token MAIN
 %token REQUIRES
 %token ENSURES
+%token CONTRACT
 
 (* Token for assertions *)
 %token ASSERT
@@ -330,7 +331,7 @@ node_decl:
     RETURNS; 
     o = tlist(LPAREN, SEMICOLON, RPAREN, clocked_typed_idents); 
     SEMICOLON;
-    r = contract;
+    r = list(contract);
     l = list(node_local_decl);
     LET;
     e = list(node_equation);
@@ -364,13 +365,22 @@ node_sep: DOT | SEMICOLON { }
 
 (* A list of contract clauses *)
 contract:
-  | l = list(contract_clause) { l }
+  | CONTRACT;
+    COLON;
+    n = ident;
+    SEMICOLON;
+    reqs = list(require);
+    ens = list(ensure); { A.mk_contract
+                            (TermLib.ContractAnnot (mk_pos $startpos))
+                            n reqs ens }
 
+(* A require for a contract. *)
+require:
+  | REQUIRES; e = expr; SEMICOLON { A.mk_require (mk_pos $startpos) e }
 
-(* A requires or ensures annotation *)
-contract_clause:
-  | REQUIRES; e = expr; SEMICOLON { A.Requires (mk_pos $startpos, e) }
-  | ENSURES; e = expr; SEMICOLON { A.Ensures (mk_pos $startpos, e) }
+(* A ensure for a contract. *)
+ensure:
+  | ENSURES; e = expr; SEMICOLON { A.mk_ensure (mk_pos $startpos) e }
 
 
 (* A static parameter is a type *)

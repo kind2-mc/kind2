@@ -456,22 +456,24 @@ and comment = parse
         | "PROPERTY" -> PROPERTY
 
         (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warninng: unknown annotation %s skipped@." p; 
+        | _ -> (Format.printf "Warning: unknown annotation %s skipped@." p; 
                 skip_to_eol lexbuf ) }
 
   (* Contract *)
   | "@" (id as p) 
-      { match p with 
+        { match p with
 
-        (* Return token, continue with rest of line *)
-        | "requires" -> REQUIRES
+          | "contract" -> CONTRACT
 
-        (* Return token, continue with rest of line *)
-        | "ensures" -> ENSURES
+          (* Return token, continue with rest of line *)
+          | "require" -> REQUIRES
 
-        (* Warn and ignore rest of line *)
-        | _ -> (Format.printf "Warninng: unknown contract %s skipped@." p; 
-                skip_to_eol lexbuf ) }
+          (* Return token, continue with rest of line *)
+          | "ensure" -> ENSURES
+
+          (* Warn and ignore rest of line *)
+          | _ -> (Format.printf "Warning: unknown contract %s skipped@." p; 
+                  skip_to_eol lexbuf ) }
 
   (* Count new line and resume *)
   | newline { Lexing.new_line lexbuf; token lexbuf } 

@@ -80,6 +80,7 @@ val mk_trans_sys :
   UfSymbol.t * (Var.t list * Term.t) ->
   t list ->
   (string * TermLib.prop_source * Term.t) list ->
+  (string * TermLib.contract_source * Term.t list * Term.t list) list ->
   source ->
   t
 
@@ -118,20 +119,6 @@ val instantiation_count: t -> int
 (** Returns true if the system is the top level system. *)
 val is_top : t -> bool
 
-(** Global init flag state var *)
-val init_flag_svar: StateVar.t
-
-(** Instantiate init flag at k *)
-val init_flag_var: Numeral.t -> Var.t
-
-val init_flag_uf: Numeral.t -> UfSymbol.t
-                                  
-(** Tests if a var is an instanciation of the init_flag. *)
-val is_var_init_flag: Var.t -> bool
-                                  
-(** Tests if a uf is an instanciation of the init_flag. *)
-val is_uf_init_flag: UfSymbol.t -> bool
-
 (** Predicate for the initial state constraint *)
 val init_uf_symbol : t -> UfSymbol.t
 
@@ -150,6 +137,18 @@ val init_term : t -> Term.t
 (** Definition of the transition relation *)
 val trans_term : t -> Term.t
 
+(** The contracts of a system. *)
+val get_contracts :
+  t ->
+  (string
+   * TermLib.contract_source
+   * Term.t list
+   * Term.t list
+   * prop_status) list
+
+(** The contracts of a system, as a list of implications. *)
+val get_contracts_implications : t -> (string * Term.t) list
+
 
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list
@@ -160,6 +159,9 @@ val state_vars : t -> StateVar.t list
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
 
+(** Returns the max depth of a transition system. *)
+val get_max_depth : t -> Numeral.t
+
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
 
@@ -169,16 +171,30 @@ val subsystem_of_scope : t -> string list -> t
 (** Return the name of the transition system *)
 val get_name : t -> string
 
-(** Return the variables at current and previous instants of the
-   transition system *)
-val vars_of_bounds : t -> Numeral.t -> Numeral.t -> Var.t list
+(** Returns the variables of the transition system between two
+    bounds. *)
+val vars_of_bounds :
+  t -> Numeral.t -> Numeral.t ->
+  Var.t list
 
-(** Declares variables of the transition system between two offsets. *)
-val declare_vars_of_bounds : t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+(** Declares variables of the transition system between two
+    offsets. *)
+val declare_vars_of_bounds :
+  t -> (UfSymbol.t -> unit) ->
+  Numeral.t -> Numeral.t -> unit
 
-(** Declares variables of the transition system between two offsets. *)
-val declare_vars_of_bounds_no_init :
-  t -> (UfSymbol.t -> unit) -> Numeral.t -> Numeral.t -> unit
+(** The init flag of a transition system, as a [Var]. *)
+val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
+
+(** The depth input of a transition system, as a [Var]. *)
+val depth_input_of_trans_sys : t -> Var.t
+
+(** The max depth input of a transition system, as a [Var]. *)
+val max_depth_input_of_trans_sys : t -> Var.t
+
+(** Constrains the top level depth and max depth inputs. The second
+    argument is the value to constrain the max depth input to. *)
+val depth_inputs_constraint : t -> Numeral.t -> Term.t
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t
@@ -271,11 +287,11 @@ val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit
 (** Define uf definitions, declare constant state variables and declare
     variables from [lbound] to [upbound]. *)
 val init_define_fun_declare_vars_of_bounds :
-      t ->
-      (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
-      (UfSymbol.t -> unit) ->
-      Numeral.t -> Numeral.t ->
-      unit
+  t ->
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (UfSymbol.t -> unit) ->
+  Numeral.t -> Numeral.t ->
+  unit
 
 
 (** Extract a path in the transition system, return an association

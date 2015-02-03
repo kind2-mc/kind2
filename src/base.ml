@@ -68,8 +68,10 @@ let split trans solver k falsifiable to_split actlits =
     (* Get-model function. *)
     let get_model = SMTSolver.get_model solver in
     (* Getting the model. *)
-    let model = TransSys.vars_of_bounds trans k k
-                |> get_model in
+    let model =
+      TransSys.vars_of_bounds trans k k
+      |> get_model
+    in
     (* Extracting the counterexample. *)
     let cex =
       TransSys.path_from_model trans get_model k in
@@ -333,6 +335,11 @@ let init trans =
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
+
+  (* Constraining max depth. *)
+  TransSys.get_max_depth trans
+  |> TransSys.depth_inputs_constraint trans
+  |> SMTSolver.assert_term solver ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero

@@ -87,6 +87,26 @@
     node calls. Equational definitions of not stateful variable are
     substituted by binding the variable to a [let] definition.
 
+    The [depth_input] and [max_depth_input] control the abstraction of
+    the nodes for which a contract is available. Both are constants
+    and are inputs of the node. When instantiating a node with a
+    contract, the value of the depth input is the caller's depth input
+    plus one, meaning that since this node has a contract we are going
+    down one abstraction level. The max depth input always has the
+    same value and is passed as an input for the sake of uniformity.
+
+    The init / trans predicates are conditional on the depth input.
+    If the value of the depth input is greater than the max depth
+    input, then the contract definition of the node is used instead of
+    the actual init / trans predicate. In this case, lifting the
+    properties of the subnode might not make sense since the actual
+    init / trans predicate is not used. The abstract predicates
+    therefore constrain all the properties to evaluate to true.
+
+    Predicates are thus defined as
+    {[     (depth_input < max_depth_input) => contract and (props = true) ]}
+    {[ not (depth_input < max_depth_input) => concrete_predicate ]}
+
 
     {1 Condact Encoding}
 
