@@ -760,10 +760,30 @@ let trans_fun_of { uf_defs } k k' =
 
 
 (* Instantiate the initial state constraint to the bound *)
-let invars_of_bound t i = 
+let invars_of_bound ?(one_state_only = false) t i = 
 
   (* Create conjunction of property terms *)
-  let invars_0 = Term.mk_and t.invars in 
+  let invars_0 = 
+    Term.mk_and 
+
+      (* Only one-state invariants? *)
+      (if one_state_only then
+
+         (* Filter for invariants at zero *)
+         List.filter
+           (fun t -> match Term.var_offsets_of_term t with 
+              | Some l, Some u when 
+                  Numeral.(equal l zero) && Numeral.(equal u zero) -> 
+                true
+              | _ -> false)
+           t.invars
+
+       else
+         
+         (* Return all invariants *)
+         t.invars) 
+
+  in 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0

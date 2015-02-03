@@ -93,7 +93,9 @@ exception Restart
 (* Utility functions                                                      *)
 (* ********************************************************************** *)
 
+(* Receive and handle events 
 
+   Assert new invariants received and terminate on message *)
 let handle_events
     solver
     trans_sys
@@ -113,12 +115,40 @@ let handle_events
      instances *)
   let add_invariant inv = 
 
-    (* Add prime to invariant *)
+    (* Invariants are at offset -1 and zero, bump offset to one and
+       zero *)
     let inv_1 = Term.bump_state Numeral.one inv in
 
-    (* Assert invariant in solver instance for initial state *)
-    SMTSolver.assert_term solver inv;
-    SMTSolver.assert_term solver inv_1;
+    match Term.var_offsets_of_term inv_1 with 
+
+      (* Ignore invariants without state variables *)
+      | None, None -> ()
+
+      (* One state invariant at offset zero only *)
+      | Some l, Some u when 
+          Numeral.(equal l zero) && Numeral.(equal u zero) -> 
+
+        SMTSolver.trace_comment 
+          solver
+          "handle_event: Asserting one-state invariant";
+
+        (* Assert one-state invariant at offsets zero and one *)
+        SMTSolver.assert_term solver inv;
+        SMTSolver.assert_term solver inv_1
+
+      (* Two-state invariant *)
+      | Some l, Some u when 
+          Numeral.(equal l zero) && Numeral.(equal u one) -> 
+
+        SMTSolver.trace_comment 
+          solver
+          "handle_event: Asserting two-state invariant";
+
+        (* Assert two-state invariant at offset one only *)
+        SMTSolver.assert_term solver inv_1
+
+      (* Ignore other cases *)
+      | _ -> ()
 
   in
 
@@ -204,8 +234,8 @@ let rec check_frames' solver prop_set accum = function
             (* Preceding frame is not R_0 *)
             | r_pred_i :: _ -> 
 
-	      C.actlit_p0_of_prop_set prop_set :: 
-	      
+              C.actlit_p0_of_prop_set prop_set :: 
+              
               List.map C.actlit_p0_of_clause accum @ 
 
               (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
@@ -548,7 +578,6 @@ let ind_generalize solver prop_set frame clause literals =
 
    (1) x = s |= B[x] 
    (2) B[x] |= exists x' (F[x] & T[x,x'] & G[x']) *)
-
 let extrapolate trans_sys state f g = 
 
   (* Construct term to be generalized with the transition relation and
@@ -557,7 +586,7 @@ let extrapolate trans_sys state f g =
     Term.mk_and 
       [f; 
        TransSys.trans_of_bound trans_sys Numeral.one; 
-       TransSys.invars_of_bound trans_sys Numeral.zero; 
+       TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
        TransSys.invars_of_bound trans_sys Numeral.one; 
        Term.bump_state Numeral.one g]
   in
@@ -689,6 +718,9 @@ let rec block solver trans_sys prop_set term_tbl =
 
           in
 
+          (* Receive and assert new invariants *)
+          handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
           SMTSolver.trace_comment 
             solver
             (Format.sprintf 
@@ -783,7 +815,7 @@ let rec block solver trans_sys prop_set term_tbl =
           SMTSolver.trace_comment 
             solver
             "block: Check I |= C to get unsat core.";
-	  
+          
           (* Activation literals in unsat core of I |= C *)
           let core_actlits_init = 
             SMTSolver.check_sat_assuming
@@ -797,7 +829,7 @@ let rec block solver trans_sys prop_set term_tbl =
               
               (* Check I |= C *)
               ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause block_clause)
-	      
+              
           in
           
           (* Reduce clause to unsat core of R & T |= C *)
@@ -807,24 +839,24 @@ let rec block solver trans_sys prop_set term_tbl =
 
               (fun a t l ->
 
-		if 
+                if 
 
-		  (* Keep clause literal [l] if activation literals
-		     [t] is in unsat core *)
+                  (* Keep clause literal [l] if activation literals
+                     [t] is in unsat core *)
                   List.exists (Term.equal t) core_actlits_trans
-		    
+                    
                 then
 
                   l :: a
 
                 else
 
-		  a)
+                  a)
 
-	      (* Start with empty clause *)
+              (* Start with empty clause *)
               []
 
-	      (* Fold over clause literals and their activation literals *)
+              (* Fold over clause literals and their activation literals *)
               (C.actlits_n1_of_clause block_clause)
               (C.literals_of_clause block_clause)
 
@@ -837,27 +869,27 @@ let rec block solver trans_sys prop_set term_tbl =
 
               (fun a t l ->
 
-		if 
+                if 
 
-		  (* Keep clause literal [l] if activation literal [t]
-		     is in unsat core *)
-		  List.exists (Term.equal t) core_actlits_init
-		    
+                  (* Keep clause literal [l] if activation literal [t]
+                     is in unsat core *)
+                  List.exists (Term.equal t) core_actlits_init
+                    
                 then
 
-		  (* Drop clause literal [l] if it is in accumulator
-		     to prevent duplicates *)
+                  (* Drop clause literal [l] if it is in accumulator
+                     to prevent duplicates *)
                   if List.exists (Term.equal l) a then a else l :: a
-		    
+                    
                 else
-		  
+                  
                   a)
 
-	      (* Start with literal in core of consecution query *)
+              (* Start with literal in core of consecution query *)
               block_clause_literals_core_n1
 
-	      (* Fold over clause literals and their activation literals *)
-	      (C.actlits_n0_of_clause block_clause)
+              (* Fold over clause literals and their activation literals *)
+              (C.actlits_n0_of_clause block_clause)
               (C.literals_of_clause block_clause)
 
           in
@@ -872,24 +904,24 @@ let rec block solver trans_sys prop_set term_tbl =
           (* Inductively generalize clause *)
           let block_clause_gen =
 
-	    (* Skip unsat core and inductive generalization? *)
-	    if false then block_clause else
+            (* Skip unsat core and inductive generalization? *)
+            if false then block_clause else
 
-	      (* Skip inductive generaliztion? *)
-	      if false then
+              (* Skip inductive generaliztion? *)
+              if false then
 
-		C.clause_of_literals solver (Some block_clause) block_clause_literals_core
+                C.clause_of_literals solver (Some block_clause) block_clause_literals_core
 
-	      else
-		
-		ind_generalize 
-		  solver
-		  prop_set
-		  actlits_p0_r_pred_i
-		  block_clause
-		  block_clause_literals_core
+              else
+                
+                ind_generalize 
+                  solver
+                  prop_set
+                  actlits_p0_r_pred_i
+                  block_clause
+                  block_clause_literals_core
 
-	  in
+          in
 
           SMTSolver.trace_comment
             solver
@@ -983,8 +1015,11 @@ let rec block solver trans_sys prop_set term_tbl =
                 (([block_clause', (block_clause :: block_trace)], 
                   r_pred_i) :: trace) 
                 frames_tl
-		
+                
         in
+
+        (* Receive and assert new invariants *)
+        handle_events solver trans_sys (C.props_of_prop_set prop_set);
 
         SMTSolver.trace_comment 
           solver
@@ -1194,6 +1229,9 @@ let fwd_propagate solver trans_sys prop_set frames =
       (* After the last frame *)
       | [] -> 
 
+        (* Receive and assert new invariants *)
+        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
         (* Check inductiveness of blocking clauses? *)
         if Flags.pdr_check_inductive () then 
 
@@ -1272,6 +1310,9 @@ let fwd_propagate solver trans_sys prop_set frames =
       (* Frames in ascending order *)
       | frame :: frames_tl -> 
 
+        (* Receive and assert new invariants *)
+        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
         SMTSolver.trace_comment
           solver
           (Format.sprintf 
@@ -1289,7 +1330,7 @@ let fwd_propagate solver trans_sys prop_set frames =
           partition_fwd_prop
             solver
             trans_sys
-	    prop_set
+            prop_set
             frames_tl_full
             (frame @ prop)
         in
@@ -1416,7 +1457,7 @@ let rec pdr solver trans_sys prop_set frames =
         trans_sys
         prop_set
         frames
-	
+        
     (* Fixed point reached *)
     with Success pdr_k -> 
 
@@ -2031,10 +2072,17 @@ let main trans_sys =
     Numeral.(~- one) Numeral.one;
 
   (* Get invariants of transition system *)
-  let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
+  let invars_1 = 
+    TransSys.invars_of_bound trans_sys Numeral.one 
+  in
 
   (* Get invariants for current state *)
-  let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
+  let invars_0 = 
+    TransSys.invars_of_bound
+      trans_sys
+       ~one_state_only:true 
+       Numeral.zero 
+  in
 
   (* Assert invariants for current state if not empty *)
   if not (invars_0 == Term.t_true) then 
