@@ -44,14 +44,31 @@ let get_solver_instance trans_sys =
           (TransSys.get_logic trans_sys)
           `Z3_SMTLIB
       in
+
+      SMTSolver.trace_comment 
+        solver
+        (Format.sprintf 
+           "Declaring state variables: %s"
+           (string_of_t 
+              (pp_print_list Var.pp_print_var ",@ ") 
+              (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)));
       
-      (* Declare uninterpreted function symbols *)
-      (* TransSys.iter_state_var_declarations trans_sys (SMTSolver.declare_fun solver); *)
-  
+      (* Defining uf's and declaring variables. *)
+      TransSys.init_define_fun_declare_vars_of_bounds
+        trans_sys
+        (SMTSolver.define_fun solver)
+        (SMTSolver.declare_fun solver)
+        Numeral.(~- one) Numeral.zero;
+      
+      SMTSolver.trace_comment solver "Defining predicates";
+
+      (*
       (* Define functions *)
-      (* TransSys.iter_uf_definitions trans_sys (SMTSolver.define_fun solver); *)
-
-
+      TransSys.iter_uf_definitions 
+        trans_sys
+        (SMTSolver.define_fun solver); 
+      *)
+      
       (* Save instance *)
       solver_qe := Some solver;
 
@@ -92,12 +109,25 @@ let get_checking_solver_instance trans_sys =
           `UFLIA
           (Flags.smtsolver ())
       in
-      
+(*
       (* Declare uninterpreted function symbols *)
-      (* TransSys.iter_state_var_declarations trans_sys (SMTSolver.declare_fun solver); *)
-  
+      TransSys.declare_vars_of_bounds
+        trans_sys
+        (SMTSolver.declare_fun solver)
+        Numeral.zero
+        Numeral.one;
+
       (* Define functions *)
-      (* TransSys.iter_uf_definitions trans_sys (SMTSolver.define_fun solver); *)
+      TransSys.iter_uf_definitions 
+        trans_sys
+        (SMTSolver.define_fun solver); 
+*)
+  (* Defining uf's and declaring variables. *)
+      TransSys.init_define_fun_declare_vars_of_bounds
+        trans_sys
+        (SMTSolver.define_fun solver)
+        (SMTSolver.declare_fun solver)
+        Numeral.(~- one) Numeral.zero;
 
       (* Save instance *)
       solver_check := Some solver;

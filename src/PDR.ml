@@ -18,21 +18,7 @@
 
 open Lib
 
-
-(* All remaining properties are valid *)
-exception Success of int
-
-(* A bad state is reachable *)
-exception Bad_state_reachable
-
-(* Counterexample trace for some property *)
-exception Counterexample of (Clause.t * Clause.t) list 
-
-(* Property disproved by other module *)
-exception Disproved of string
-
-(* Restart for other reason *)
-exception Restart
+module C = Clause
 
 
 (* ********************************************************************** *)
@@ -41,18 +27,13 @@ exception Restart
 
 
 (* Solver instance if created *)
-let ref_solver_init = ref None
+let ref_solver = ref None
 
-(* Solver instance if created *)
-let ref_solver_frames = ref None
-
-(* Solver instance if created *)
-let ref_solver_misc = ref None
-
+  
 (* Formatter to output inductive clauses to *)
 let ppf_inductive_assertions = ref Format.std_formatter
 
-
+  
 (* Output statistics *)
 let print_stats () = 
 
@@ -74,77 +55,96 @@ let on_exit _ =
 
   (* Delete solver instance if created *)
   (try 
-     match !ref_solver_init with 
-       | Some solver_init -> 
-         SMTSolver.delete_instance solver_init; 
-         ref_solver_init := None
+     match !ref_solver with 
+       | Some solver -> 
+         SMTSolver.delete_instance solver; 
+         ref_solver := None
        | None -> ()
    with 
      | e -> 
        Event.log L_error 
-         "Error deleting solver_init: %s" 
-         (Printexc.to_string e));
-
-  (* Delete solver instance if created *)
-  (try 
-     match !ref_solver_frames with 
-       | Some solver_frames -> 
-         SMTSolver.delete_instance solver_frames;
-         ref_solver_frames := None
-       | None -> ()
-   with 
-     | e -> 
-       Event.log L_error 
-         "Error deleting solver_frames: %s" 
-         (Printexc.to_string e));
-
-  (* Delete solver instance if created *)
-  (try 
-     match !ref_solver_misc with 
-       | Some solver_misc -> 
-         SMTSolver.delete_instance solver_misc;
-         ref_solver_misc := None
-       | None -> ()
-   with 
-     | e -> 
-       Event.log L_error 
-         "Error deleting solver_misc: %s" 
+         "Error deleting solver: %s" 
          (Printexc.to_string e));
 
   (* Delete solvers in quantifier elimination*)
   QE.on_exit ()
 
 
-  
 (* ********************************************************************** *)
-(* Pretty-printing                                                        *)
+(* Exception raised in proof process                                      *)
 (* ********************************************************************** *)
 
 
-(* Pretty-print the list of frames with the index of each frame *)
-let rec pp_print_frames' ppf i = function 
+(* All remaining properties are valid *)
+exception Success of int
 
-  | [] -> ()
+(* Counterexample trace for some property *)
+exception Counterexample of C.t list 
 
-  | r :: tl -> 
+(* Property disproved by other module *)
+exception Disproved of string
 
-    Format.fprintf 
-      ppf 
-      "Frame R_k%t@\n%a%t" 
-      (function ppf -> if i = 0 then () else Format.fprintf ppf "-%d" i)
-      CNF.pp_print_cnf r
-      (function ppf -> if not (tl = []) then Format.fprintf ppf "@\n" else ());
+(* Restart for other reason *)
+exception Restart
 
-    pp_print_frames' ppf (succ i) tl
-
-
-(* Pretty-print the list of frames *)
-let pp_print_frames ppf frames = pp_print_frames' ppf 0 frames
 
 
 (* ********************************************************************** *)
 (* Utility functions                                                      *)
 (* ********************************************************************** *)
+
+(* Receive and handle events 
+
+   Assert new invariants received and terminate on message *)
+let handle_events
+    solver
+    trans_sys
+    props =
+  
+  (* Receive queued messages 
+
+     Side effect: Terminate when ControlMessage TERM is received.*)
+  let messages = Event.recv () in
+
+  (* Update transition system from messages *)
+  let invariants_recvd, prop_status = 
+    Event.update_trans_sys trans_sys messages 
+  in
+
+  (* Add invariant to the transition system and assert in solver
+     instances *)
+  let add_invariant inv = 
+
+    SMTSolver.trace_comment 
+      solver
+      "handle_event: Asserting one-state invariants at zero";
+(*    
+    (* Assert one-state invariants only at offsets zero *)
+    SMTSolver.assert_term 
+      solver 
+      (TransSys.invars_of_bound 
+         ~one_state_only:true
+         trans_sys
+         Numeral.zero);
+    
+    (* Assert all invariants at offset one *)
+    SMTSolver.assert_term 
+      solver 
+      (TransSys.invars_of_bound 
+         trans_sys
+         Numeral.one)
+*)
+  in
+
+  (* Assert all received invariants *)
+  List.iter (fun i -> add_invariant i) invariants_recvd;
+
+  (* Restart if one of the properties to prove has been disproved *)
+  List.iter
+    (fun (p, _) -> match TransSys.get_prop_status trans_sys p with 
+       | TransSys.PropFalse _ -> raise (Disproved p)
+       | _ -> ())
+    props
 
 
 (* Compute the frame sizes of a delta-encoded list of frames *)
@@ -154,17 +154,17 @@ let frame_sizes frames =
 
     (* All frames added up, return accumulator *)
     | [] -> accum
-      
+
     (* Take first frame *)
     | f :: tl -> 
 
       match accum with 
 
         (* No previous frame: take size of frame *)
-        | [] -> aux [CNF.cardinal f] tl
+        | [] -> aux [List.length f] tl
 
         (* Add size of frame to size of previous frame *)
-        | h :: _ -> aux (((CNF.cardinal f) + h) :: accum) tl
+        | h :: _ -> aux (((List.length f) + h) :: accum) tl
 
   in
 
@@ -172,187 +172,279 @@ let frame_sizes frames =
   aux [] frames
 
 
-(* Convert the delta-encoded set of clauses of a list of frames to a
-   formula of the last frame *)
-let term_of_frames frames =
+(* Check if for two successive frames R_i-1 & T |= R_i *)
+let rec check_frames' solver prop_set accum = function
 
-  (* Append clauses of each frame to accumulator and finally return a
-     conjunction of clauses *)
-  let rec aux accum = function 
+  | [] -> true
 
-    (* Make one conjunction of all clauses in all frames *)
-    | [] -> Term.mk_and accum
+  | r_i :: tl ->
 
-    (* Append list of clauses of current frame to accumulator *)
-    | f :: tl -> 
-      aux 
-        (List.rev_append (List.map Clause.to_term (CNF.elements f)) accum) 
-        tl
-  in
+    (* Check if all successors of frame are in the next frame *)
+    let is_rel_ind () = 
 
-  (* Start with empty accumulator *)
-  aux [] frames 
+      SMTSolver.trace_comment 
+        solver
+        (Format.sprintf 
+           "check_frames: Does R_%d & T |= R_%d hold?"
+           (List.length tl)
+           (List.length tl |> succ));
 
-
-(* Given a model and a two formulas f and g return a conjunction of
-   literals such that 
-   (1) x = s |= B[x] 
-   (2) B[x] |= exists y.f[x] & T[x,x'] & g[x'] *)
-let generalize trans_sys state f g = 
-
-  let term, primed_vars = 
-
-(*
-
-    (* Eliminate only input variables, unfold all definitions *)
-    if trans_sys.TransSys.init_constr = [] && trans_sys.TransSys.constr_constr = [] then 
-
-      (* Get invariants of transition system *)
-      let invars = TransSys.invars_of_bound 0 trans_sys in
-      let invars' = TransSys.invars_of_bound 1 trans_sys in
- 
-      (* Get state variables occurring primed in g[x'] and in invariants *)
-      let var_defs = 
-        TransSys.constr_defs_of_state_vars 
-          trans_sys 
-          ((List.map 
-              Var.state_var_of_state_var_instance 
-              (TransSys.vars_at_offset_of_term 0 g)) @
-             (List.map 
-                Var.state_var_of_state_var_instance 
-                (TransSys.vars_at_offset_of_term 1 invars)))
-      in
-      
-      (* Bind variables to their definitions *)
-      let constr_def_g = 
-        List.fold_left
-          (fun a d -> Term.mk_let [d] a)
-          (Term.mk_and [Term.bump_state Numeral.one g; invars; invars'])
-          var_defs
-      in
-      
-      debug pdr
-          "@[<v>G and invariants with variables bound to definitions:@,@[<hv>%a@]@]" 
-          Term.pp_print_term constr_def_g 
+      (* Activation literal for conjunction of clauses *)
+      let actlit_n1 = 
+        C.create_and_assert_fresh_actlit 
+          solver
+          "check_frames" 
+          (List.map
+             C.term_of_clause
+             ((C.clause_of_prop_set prop_set) :: r_i @ accum) |> Term.mk_and)
+          C.Actlit_n1
       in
 
-      (* Equivalent to f[x] & T[x,x'] & g[x'] with all primed
-         variables being input *)
-      let term = Term.mk_and [f; constr_def_g] in
-      
-      (* Get primed variables in term *)
-      let primed_vars = TransSys.vars_at_offset_of_term 1 constr_def_g in
-      
-      term, primed_vars 
+      (* Check P[x] & R_i-1[x] & T[x,x'] |= R_i[x'] & P[x'] *)
+      SMTSolver.check_sat_assuming solver
 
-    (* Eliminate all primed variables (old) *)
-    else
+        (* Fail if entailment does not hold *)
+        (fun () -> false)
 
-*)
-      
-      (* Construct term to be generalized with the transition relation and
-         the invariants *)
-      let term = 
-        Term.mk_and 
-          [f; 
-           TransSys.trans_of_bound trans_sys Numeral.one; 
-           TransSys.invars_of_bound trans_sys Numeral.one; 
-           Term.bump_state Numeral.one g]
-      in
-      
-      (* Get primed variables in the transition system *)
-      let primed_vars = 
-        Var.VarSet.elements
-          (Term.vars_at_offset_of_term (Numeral.one) term) 
-      in 
-      
-      term, primed_vars 
+        (* Check preceding frames if entailment holds *)
+        (fun () -> check_frames' solver prop_set (r_i @ accum) tl)
 
-  in
 
-    Stat.start_timer Stat.pdr_generalize_time;
-    
-    (* Generalize term by quantifying over and eliminating primed
-       variables *)
-    let gen_term = 
-      QE.generalize 
-        trans_sys
-        (TransSys.uf_defs trans_sys) 
-        state
-        primed_vars
-        term 
+        ((* Clauses of R_i are on rhs of entailment *)
+          actlit_n1 ::
+
+          (match tl with 
+
+            (* Preceding frame is not R_0 *)
+            | r_pred_i :: _ -> 
+
+              C.actlit_p0_of_prop_set prop_set :: 
+              
+              List.map C.actlit_p0_of_clause accum @ 
+
+              (* Clauses of R_i are in R_i-1, assert on lhs of entailment *)     
+              List.map C.actlit_p0_of_clause r_i @ 
+
+              (* Assert clauses of R_i-1 on lhs of entailment *)
+              List.map C.actlit_p0_of_clause r_pred_i
+
+            (* Preceding frame is R_0, assert initial state only *)
+            | [] -> [C.actlit_of_frame 0]))
+
     in
-    
-    Stat.record_time Stat.pdr_generalize_time;
-    
-    (* Return generalized term *)
-    gen_term
+
+    (* Check if all clauses in frame are initial *)
+    let rec is_initial = function 
+
+      (* Check if first clause is initial *)
+      | c :: ctl -> 
+
+        SMTSolver.trace_comment 
+          solver
+          (Format.sprintf 
+             "check_frames: Does I |= C for C in R_%d hold?"
+             (List.length tl |> succ));
+
+        (* Check if clause is initial *)
+        SMTSolver.check_sat_assuming 
+          solver
+
+          (* If sat: Clause is not initial *)
+          (fun () -> false)
+
+          (* If unsat: continue with next clause *)
+          (fun () -> is_initial ctl)
+
+          (* Check I |= C *)
+          ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause c)
+
+      (* All clauses are initial, now check if frame successors of
+         frame are in the next frame *)
+      | [] -> is_rel_ind ()
+
+    in
+
+    SMTSolver.trace_comment 
+      solver
+      (Format.sprintf 
+         "check_frames: Does R_%d |= P hold?"
+         (List.length tl |> succ));
+
+    SMTSolver.check_sat_assuming
+      solver
+
+      (* If sat: property is not implied by frame *)
+      (fun () -> is_initial r_i)
+
+      (* If unsat: Check if clauses are initial, then check if
+         successors of frame are in the next frame *)
+      (fun () -> is_initial r_i)
+
+      (* Check R_i |= P *)
+      (C.actlits_n0_of_prop_set prop_set @
+         List.map C.actlit_p0_of_clause (r_i @ accum))
 
 
+let check_frames solver prop_set clauses frames =
 
-(* Partition list of terms into two lists, the first list containing
-   terms in the unsatisfiable core, the second list the other terms
-
-   [partition_core s m t] gets an unsatisfiable core from the solver
-   instance [s], uses the association list [m] to map the
-   unsatisfiable core to terms and returns those terms in the first
-   list, the terms that are not in the first list but in the list [t]
-   as the second list. *)
-let partition_core solver clause =
-
-  (* Get names of terms in the unsatifiable core *)
-  let terms_in_core = SMTSolver.get_unsat_core solver in
-
-  (* Create set of terms in unsat core *)
-  let core_clause = Clause.of_literals terms_in_core in
-
-  (* Subtract term in core from all terms *)
-  let rest_clause = Clause.diff clause core_clause in
-
-  (* Return list of terms in core and remaining terms *)
-  core_clause, rest_clause
-
-
-
-let get_context_cmd solver =
-  match SMTSolver.kind solver with
-  | `Z3_SMTLIB -> "get-assertions"
-  | `Yices_native -> "dump-context"
-  | _ -> failwith "No functionality to extract context"
+  SMTSolver.trace_comment
+    solver
+    (Format.asprintf
+       "@[<v>check_frames:@,%a@]"
+       (pp_print_list
+          (fun ppf r_i -> 
+            Format.fprintf ppf
+              "@,Frame:@,%a"
+              (pp_print_list
+                 (fun ppf c ->
+                   Format.fprintf ppf
+                     "%a"
+                     Term.pp_print_term (C.actlit_p0_of_clause c))
+                 "@,")
+              r_i)
+          "@,")
+       frames);
+  
+  check_frames' solver prop_set clauses frames 
 
 
 let order_terms terms term_tbl =
-  List.sort (
-      fun t1 t2 -> (
-	let v1 = try Term.TermHashtbl.find term_tbl t1 
-		 with Not_found -> 0 in
-	let v2 = try Term.TermHashtbl.find term_tbl t2 
-		 with Not_found -> 0 in
-	v1 - v2
-	
-      )
-    ) terms
+
+  List.sort 
+    (fun t1 t2 -> 
+       let v1 = 
+         try Term.TermHashtbl.find term_tbl t1 with Not_found -> 0 
+       in
+       let v2 = 
+         try Term.TermHashtbl.find term_tbl t2 with Not_found -> 0 
+       in
+       v1 - v2)
+    terms
+
 
 let incr_binding term term_tbl =
-  let v = try Term.TermHashtbl.find term_tbl term
-	  with Not_found -> 0 in
+
+  let v = 
+
+    try
+
+      Term.TermHashtbl.find term_tbl term
+
+    with Not_found -> 
+
+      0 
+
+  in
+
   Term.TermHashtbl.add term_tbl term (v+1)
 
-let trim_clause solver_init solver_frames clause term_tbl =
+(* Inductively generalize [clause] relative to [frame]
 
-  
-  (* Linearly traverse the list of literals in the clause, trying to remove one at a time and maintain unsatisfiability *)
-  
-  let rec linear_search kept discarded = function
-      
-    | c :: cs ->
+   Assuming that [clause] is relatively inductive to [frame] and
+   initial, find a smaller subclause of [clause] that is still
+   relatively inductive to [frame] and initial. *)
+let ind_generalize solver prop_set frame clause literals =
 
-       debug pdr "Checking literal: %a" Term.pp_print_term c in
+  (* Linearly traverse the list of literals in the clause, and remove
+     a literal the clause without the literal remains relatively
+     inductive and initial
 
-  let kept_woc = Clause.remove c kept in
+     [kept] are the literals that cannot be removed. 
 
-  let block_term = Clause.to_term kept_woc in
-  let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (Clause.elements kept_woc)) in
+  *)
+  let rec linear_search kept = function
+
+    (* All literals considered, return literals that had to be kept *)
+    | [] -> 
+
+      (* Could we drop literals? *)
+      if List.length kept = C.length_of_clause clause then 
+
+        (* Return clause unchanged *)
+        clause
+
+      else
+
+        (
+
+          SMTSolver.trace_comment solver
+            (Format.sprintf 
+               "ind_generalize: Dropped %d literals from clause."
+               (C.length_of_clause clause - List.length kept));
+
+          (* New clause with generalized clause as parent *)
+          C.clause_of_literals solver (Some clause) kept
+
+        )
+
+    | l :: tl ->
+
+      (* Clause without current literal *)
+      let clause' = kept @ tl |> Term.mk_or in
+
+      (* Actiation literal for clause *)
+      let clause'_actlit_p0, clause'_actlit_n0, clause'_actlit_n1 = 
+        let mk = C.create_and_assert_fresh_actlit solver "ind_gen" clause' in 
+        mk C.Actlit_p0, mk C.Actlit_n0, mk C.Actlit_n1
+      in
+
+      (* Keep literal and try with following literals *)
+      let keep_literal () = linear_search (l :: kept) tl in
+
+      (* Drop literal and try with following literals *)
+      let drop_literal () = linear_search kept tl in
+
+      (* Clause without literal is initial *)
+      let is_initial () = 
+
+        SMTSolver.trace_comment solver
+          "ind_generalize: Checking if clause without literal is \
+           relatively inductive.";
+
+        SMTSolver.check_sat_assuming 
+          solver
+
+          (* If sat: Clause without literal is not relatively inductive *)
+          keep_literal
+
+          (* If unsat: Clause without literal is relatively inductive *)
+          drop_literal
+
+          (* Check P[x] & R[x] & C[x] & T[x,x'] |= C[x'] *)
+          (C.actlit_p0_of_prop_set prop_set ::
+             clause'_actlit_p0 ::
+             clause'_actlit_n1 ::
+             frame)
+
+      in
+
+      SMTSolver.trace_comment solver
+        "ind_generalize: Checking if clause without literal is initial.";
+
+      SMTSolver.check_sat_assuming 
+        solver
+
+        (* If sat: Clause without literal is not initial *)
+        keep_literal
+
+        (* If unsat: Clause without literal is initial *)
+        is_initial 
+
+        (* Check I |= C *)
+        ([clause'_actlit_n0; C.actlit_of_frame 0])
+
+
+  in
+
+  linear_search [] literals
+
+(*
+
+
+      let kept_woc = C.remove c kept in
+
+  let block_term = C.to_term kept_woc in
+  let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (C.elements kept_woc)) in
 
   let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
   let (cons, model) = SMTSolver.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
@@ -365,12 +457,12 @@ let trim_clause solver_init solver_frames clause term_tbl =
     (debug pdr
            "@[<v>%a@]"
            (pp_print_list 
-	      (fun ppf (v, t) -> 
-	       Format.fprintf ppf 
-			      "(%a %a)"
-			      Var.pp_print_var v
-			      Term.pp_print_term t)
-	      "@,")
+              (fun ppf (v, t) -> 
+               Format.fprintf ppf 
+                              "(%a %a)"
+                              Var.pp_print_var v
+                              Term.pp_print_term t)
+              "@,")
            model
      in
 
@@ -387,10 +479,10 @@ let trim_clause solver_init solver_frames clause term_tbl =
     linear_search kept_woc (c :: discarded) cs
 
   )
-  | [] ->  kept, Clause.of_literals discarded
-				    
+  | [] ->  kept, C.of_literals discarded
+                                    
 
-				    
+                                    
     in
 
     let binary_search kept clause =
@@ -398,35 +490,35 @@ let trim_clause solver_init solver_frames clause term_tbl =
       let discarded = ref [] in
       
       let rec binary_search kept clause =
-	let block_term = Clause.to_term (Clause.of_literals kept) in
-	let primed_term = Term.mk_and (List.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) kept) in
-	
-	let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
-	let cons = SMTSolver.check_sat_term solver_frames [(Term.mk_and [block_term;primed_term])] in
-	
-	if not (cons || init) then (
-	  discarded := !discarded @ (Array.to_list clause);
-	  []
-	)
-	else if Array.length clause < 2 then
-	  Array.to_list clause
-	else
-	  let m = (Array.length clause) / 2 in
-	  let t1 = Array.sub clause 0 (m/2) in
-	  let t2 = Array.sub clause ((m/2)+1) m in
-	  let m2 = binary_search (kept @ (Array.to_list t1)) t2 in
-	  let m1 = binary_search (kept @ m2) t1 in	
-	  m1 @ m2
+        let block_term = C.to_term (C.of_literals kept) in
+        let primed_term = Term.mk_and (List.map (fun t -> Term.bump_state Numeral.one (Term.negate t)) kept) in
+        
+        let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
+        let cons = SMTSolver.check_sat_term solver_frames [(Term.mk_and [block_term;primed_term])] in
+        
+        if not (cons || init) then (
+          discarded := !discarded @ (Array.to_list clause);
+          []
+        )
+        else if Array.length clause < 2 then
+          Array.to_list clause
+        else
+          let m = (Array.length clause) / 2 in
+          let t1 = Array.sub clause 0 (m/2) in
+          let t2 = Array.sub clause ((m/2)+1) m in
+          let m2 = binary_search (kept @ (Array.to_list t1)) t2 in
+          let m1 = binary_search (kept @ m2) t1 in      
+          m1 @ m2
       in
       
-      (Clause.of_literals (binary_search kept clause)), (Clause.of_literals !discarded)
+      (C.of_literals (binary_search kept clause)), (C.of_literals !discarded)
 
     in
 
 
     
-    let block_term = Clause.to_term clause in
-    let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (Clause.elements clause)) in
+    let block_term = C.to_term clause in
+    let primed_term = Term.mk_and (List.map (fun t -> Term.negate (Term.bump_state Numeral.one t)) (C.elements clause)) in
 
     let init = SMTSolver.check_sat_term solver_init [Term.negate block_term] in
     let (cons,model) = SMTSolver.check_sat_term_model solver_frames [(Term.mk_and [block_term;primed_term])] in
@@ -434,22 +526,22 @@ let trim_clause solver_init solver_frames clause term_tbl =
     (debug pdr
            "@[<v>%a@]"
            (pp_print_list 
-	      (fun ppf (v, t) -> 
-	       Format.fprintf ppf 
-			      "(%a %a)"
-			      Var.pp_print_var v
-			      Term.pp_print_term t)
-	      "@,")
+              (fun ppf (v, t) -> 
+               Format.fprintf ppf 
+                              "(%a %a)"
+                              Var.pp_print_var v
+                              Term.pp_print_term t)
+              "@,")
            model
      in
 
      assert (not cons));
     
     let k,d = match Flags.pdr_inductively_generalize() with
-      | 1 -> linear_search clause [] (Clause.elements clause)
-      | 2 -> linear_search clause [] (order_terms (Clause.elements clause) term_tbl)
-      | 3 -> binary_search [] (Array.of_list (Clause.elements clause))
-      | _ -> clause , Clause.empty
+      | 1 -> linear_search clause [] (C.elements clause)
+      | 2 -> linear_search clause [] (order_terms (C.elements clause) term_tbl)
+      | 3 -> binary_search [] (Array.of_list (C.elements clause))
+      | _ -> clause , C.empty
     in
 
 
@@ -457,830 +549,412 @@ let trim_clause solver_init solver_frames clause term_tbl =
     debug pdr
           "@[<v>Reduced blocking clause to@,@[<v>%a@]"
           (pp_print_list Term.pp_print_term "@,") 
-          (Clause.elements k)
+          (C.elements k)
     in
 
     k,d
 
+*)
 
-  (* Check if [prop] is always satisfied in one step from [state] and
-   return a generalized counterexample if not. If the counterexample
-   holds in the initial state, raise the exception
-   {!Counterexample} 
 
-   [find_cex s z frame state prop] takes a pair of solver instances
-   [s], a transition system [z], the set of clauses [frame] of a
-   frame, an additional constraint [state] on the frame and a property
-   [prop]. The solver instance [solver_frame] must have the transition
-   relation, invariants and all clauses in [frame] already asserted.
+(* Given a model and two formulas f and g return a conjunction of
+   literals such that 
 
-   If the entailment f & state & T |= prop' holds, the function
-   returns [true, _]. If the entailment does not hold, the
-   counterexample is generalized to a cube [cex_gen]. If the [cex_gen]
-   holds in the initial state (checked in [solver_init]), the
-   exception [Counterexample] is raised. If [cex_gen] does not hold in
-   the initial state, [false, cex_gen] is returned.
+   (1) x = s |= B[x] 
+   (2) B[x] |= exists x' (F[x] & T[x,x'] & G[x']) *)
+let extrapolate trans_sys state f g = 
 
-   *)
-let find_cex 
-      ((solver_init, solver_frames, _) as solvers) 
-      trans_sys 
-      all_props
-      frame 
-      (state_core, state_rest)
-      (prop_core, prop_rest)
-      term_tbl = 
-
-  let module Conv = (val SMTSolver.converter solver_frames) in
-  
-  (* Prime variables in property *)
-  let prop_core', prop_rest' =
-    (Clause.map (Term.bump_state Numeral.one) prop_core, 
-     Clause.map (Term.bump_state Numeral.one) prop_rest)
+  (* Construct term to be generalized with the transition relation and
+     the invariants *)
+  let term = 
+    Term.mk_and 
+      [f; 
+       TransSys.trans_of_bound trans_sys Numeral.one; 
+(*
+       TransSys.invars_of_bound trans_sys ~one_state_only:true Numeral.zero; 
+       TransSys.invars_of_bound trans_sys Numeral.one; 
+*)
+       Term.bump_state Numeral.one g]
   in
 
-  (* Join the two subclauses *)
-  let state_clause, prop_clause, neg_prop_clause' = 
-    (Clause.union state_core state_rest, 
-     Clause.union prop_core prop_rest,
-     Clause.map Term.negate (Clause.union prop_core' prop_rest'))
+  (* Get primed variables in the transition system *)
+  let primed_vars = 
+    Var.VarSet.elements
+      (Term.vars_at_offset_of_term (Numeral.one) term) 
+  in 
+
+  Stat.start_timer Stat.pdr_generalize_time;
+
+  (* Generalize term by quantifying over and eliminating primed
+     variables *)
+  let gen_term = 
+    QE.generalize 
+      trans_sys
+      (TransSys.uf_defs trans_sys) 
+      state
+      primed_vars
+      term 
   in
 
-  (* List of literals in clauses *)
-  let state_terms, neg_prop_terms' = 
-    (Clause.elements state_clause, 
-     Clause.elements neg_prop_clause')
-  in
+  Stat.record_time Stat.pdr_generalize_time;
 
-  (* Clause of two subclauses *)
-  let state, prop = 
-    (Clause.to_term state_clause, 
-     Clause.to_term prop_clause) 
-  in
+  (* Return generalized term *)
+  gen_term
 
-  debug pdr
-	"Searching for counterexample"
-    in
-
-  debug pdr
-      "@[<v>Current context@,@[<hv>%a@]@]"
-      HStringSExpr.pp_print_sexpr_list
-      (match SMTSolver.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1 with
-       | `Custom a -> a
-       | _ -> assert false
-      )
-  in
-
-  debug pdr
-      "@[<v>Current frames@,@[<hv>%a@]@]"
-      Conv.pp_print_expr
-      (Conv.smtexpr_of_term (CNF.to_term frame))
-  in
-
-  (* Push a new scope to the context *)
-  SMTSolver.push solver_frames;
-
-    (debug smt
-	   "Asserting constraints on current frame"
-     in
-
-
-     (* Assert blocking clause in current frame *)
-     SMTSolver.assert_term solver_frames state);
-
-    (debug smt
-	   "Asserting bad property"
-     in
-
-     (* Assert bad property of next frame *)
-     List.iter 
-       ((if Flags.pdr_tighten_to_unsat_core () then
-           SMTSolver.assert_named_term
-         else
-           SMTSolver.assert_term)
-          solver_frames) 
-       neg_prop_terms');
-
-    if 
-
-      (debug smt
-             "Checking entailment"
-       in
-
-       (* Check if we can get outside the property in one step 
-
-         R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
-       SMTSolver.check_sat solver_frames)
-
-    then
-
-      (
-
-	debug pdr 
-              "Counterexample found"
-	in
-
-	(*      
-      debug pdr
-          "@[<v>Current context@,@[<hv>%a@]@]"
-          HStringSExpr.pp_print_sexpr_list
-          (let r, a = 
-            SMTSolver.T.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1 
-           in
-           SMTSolver.fail_on_smt_error r;
-           a)
-      in
-
-	 *)     
-
-	(* Get counterexample to entailment from satisfiable formula *)
-	let cex = 
-          SMTSolver.get_model 
-            solver_frames
-            (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one) 
-	in
-
-	(debug pdr
-               "@[<v>%a@]"
-               (pp_print_list 
-		  (fun ppf (v, t) -> 
-		     Format.fprintf ppf 
-		       "(%a %a)"
-		       Var.pp_print_var v
-		       Term.pp_print_term t)
-		  "@,")
-               cex
-	 in
-
-	 (* Remove scope from the context *)
-	 SMTSolver.pop solver_frames);
-
-	(* R_k[x] & state[x] & T[x,x'] |= prop[x'] *)
-	(* exists y.f[x] & T[x,x'] & g[x'] *)
-
-	(* Generalize the counterexample to a formula *)
-	let cex_gen = 
-          generalize 
-            trans_sys 
-            cex 
-            (Term.mk_and 
-               [all_props; CNF.to_term frame; state])
-            (Term.negate prop)
-	in
-
-	debug pdr 
-              "@[<v>Generalized counterexample:@,@[<hv>%a@]@]"
-              (pp_print_list Term.pp_print_term ",@,")
-              cex_gen
-	in
-
-	(* Create clause of counterexample, must negate all literals
-
-         later but not now *)
-	let cex_gen_clause = 
-          List.fold_left 
-            (fun a t -> Clause.add t a)
-            Clause.empty
-            cex_gen
-	in              
-
-
-        (* Push a new scope level to the context *)
-        SMTSolver.push solver_init;
-
-	(* Assert each literal of the counterexample in the initial
-         state *)
-        List.iter 
-          ((if Flags.pdr_tighten_to_unsat_core () then
-              SMTSolver.assert_named_term
-            else
-              SMTSolver.assert_term) 
-             solver_init) 
-          cex_gen;
-
-        if
-
-            debug smt
-               "Checking if counterexample holds in the initial state"
-            in
-
-          (* Is the counterexample a model of the initial state? 
-
-           We must check with the generalized counterexample here, not
-           with the specific model. *)
-          SMTSolver.check_sat solver_init 
-
-	then
-
-          (
-
-            debug pdr 
-		  "Counterexample holds in the initial state"
-            in
-
-
-            debug pdr
-              "@[<v>Current context@,@[<hv>%a@]@]"
-              HStringSExpr.pp_print_sexpr_list
-              (match
-                 SMTSolver.execute_custom_command solver_init (get_context_cmd solver_init) [] 1 
-               with
-               | `Custom a -> a
-               | _ -> assert false)
-           in
-
-           (* Pop scope level from the context *)
-           SMTSolver.pop solver_init;
-
-           (* Counterexample holds in the initial state *)
-           raise Bad_state_reachable
-
-          )
-
-	else
-
-          (
-
-            (debug pdr 
-		   "Counterexample does not hold in the initial state"
-             in
-
-             (* Partition counterexample into subclause in the unsat
-              core and subclause of remaining literals *)
-             let core, rest = 
-
-               if Flags.pdr_tighten_to_unsat_core () then 
-
-		 partition_core 
-                   solver_init 
-                   cex_gen_clause
-
-               else
-
-		 cex_gen_clause, Clause.empty
-
-             in
-
-             debug pdr
-		   "@[<v>Unsat core of cube is@,@[<v>%a@]"
-		   (pp_print_list Term.pp_print_term "@,") 
-		   (Clause.elements core)
-             in
-
-             if Clause.is_empty core then 
-
-               (Event.log
-                  L_info
-                  "Reduced blocking clause to empty clause. Restarting.";
-		
-		raise Restart);
-
-             SMTSolver.pop solver_init;
-
-             (* Negate all literals in clause now *)
-             let ncore, nrest = 
-               Clause.map Term.negate core,
-               Clause.map Term.negate rest
-             in
-
-             (* Return generalized counterexample *)
-             false, ( ncore, nrest))
-
-          )
-
-      )
-
-    else
-
-      (
-
-	(debug pdr 
-               "No counterexample found"
-	 in
-
-	 (* Partition counterexample into subclause in the unsat core
-          and subclause of remaining literals *)
-	 let core', rest' = 
-
-           if Flags.pdr_tighten_to_unsat_core () then 
-
-             partition_core 
-               solver_frames 
-               neg_prop_clause'
-
-           else
-
-             neg_prop_clause', Clause.empty 
-
-	 in
-
-	 (* Unprime and unnegate variables in literals of core and rest *)
-	 let core, rest = 
-           (Clause.map 
-              Term.negate
-              (Clause.map (Term.bump_state Numeral.(- one)) core'),
-            Clause.map 
-              Term.negate
-              (Clause.map (Term.bump_state Numeral.(- one)) rest'))
-	 in
-
-	 (* Remove scope from the context *)
-	 SMTSolver.pop solver_frames;
-
-	 if not (Clause.is_empty rest) then 
-
-           (debug pdr
-		  "@[<v>Reduced blocking clause to unsat core:@,%a@,%a@]"
-		  Clause.pp_print_clause core
-		  Clause.pp_print_clause rest
-            in
-
-            Stat.incr Stat.pdr_tightened_blocking_clauses);
-
-	 let core, rest' = trim_clause solver_init solver_frames (Clause.union core prop_core) term_tbl in
-	 
-
-	 (* Entailment holds, no counterexample *)
-	 (true, (core , Clause.union (Clause.union rest rest') prop_rest)))
-
-      )
-
-      
-      
-(* ********************************************************************** *)
-(* Counterexample extraction                                              *)
-(* ********************************************************************** *)
-
-  let check_rel_inductive solver_misc trans_sys r_pred_i r_i =
-    SMTSolver.push solver_misc;
-    if CNF.is_empty r_pred_i then
-      (* Assert transition relation from previous frame *)
-      SMTSolver.assert_term
-	solver_misc
-	(TransSys.init_of_bound trans_sys Numeral.zero)
-    else
-      (
-	(* Assert all clauses in R_i-1 *)
-	CNF.iter
-	  (fun c -> c |> Clause.to_term |> SMTSolver.assert_term solver_misc)
-	  (CNF.union r_pred_i r_i)
-      );
-    (* Assert transition relation from previous frame *)
-    SMTSolver.assert_term
-      solver_misc
-      (TransSys.trans_of_bound trans_sys Numeral.one);
-
-    SMTSolver.assert_term
-      solver_misc
-      (TransSys.invars_of_bound trans_sys Numeral.zero);
-
-    SMTSolver.assert_term
-      solver_misc
-      (TransSys.invars_of_bound trans_sys Numeral.one);
-
-    SMTSolver.assert_term
-      solver_misc
-      (TransSys.props_of_bound trans_sys Numeral.zero);
-
-    SMTSolver.assert_term
-      solver_misc
-      (TransSys.props_of_bound trans_sys Numeral.one);
-
-    SMTSolver.assert_term
-      solver_misc
-      (Term.negate
-	 (Term.mk_and
-	    (CNF.fold
-	       (fun c a -> Term.bump_state Numeral.one (Clause.to_term c) :: a)
-	       r_i
-	       []
-	    )
-	 )
-      );
-
-    let res = SMTSolver.check_sat solver_misc in
-    SMTSolver.pop solver_misc;
-    not res
-
-
-  let rec check_frames solver_misc trans_sys = function
-    | [] -> true
-    | r_i :: tl ->
-       let r_pred_i = match tl with
-	 | [] -> CNF.empty
-	 | r_pred_i :: _ -> r_pred_i
-       in
-       let tl = match tl with
-	 | [] -> []
-	 | r_pred_i :: rest -> (CNF.union r_pred_i r_i) :: rest
-       in
-       if
-	 check_rel_inductive solver_misc trans_sys r_pred_i r_i
-       then
-	 (debug pdr
-		"PDR Invariant R_%d & T |= R_%d holds"
-		(List.length tl)
-		((List.length tl) + 1)
-	  in
-	  check_frames solver_misc trans_sys tl)
-       else
-	 (debug pdr
-		"PDR Invariant R_%d & T |= R_%d does not hold"
-		(List.length tl)
-		((List.length tl) + 1)
-	  in
-	  false)
-
-
-(* Assert current blocking clauses from frames, and transition relation *)
-let rec assert_block_clauses solver trans_sys i = function 
-
-  (* Finish when blocking clauses for all frames asserted *)
-  | [] -> ()
-
-  (* Only assert core literals *)
-  | (b_i, _) :: tl -> 
-
-     (* Blocking clause to term at instant i *)
-     let t_i = 
-       Term.bump_state
-         i
-         (Clause.to_term b_i)
-     in
-
-    (* Assert blocking clause *)
-    SMTSolver.assert_term solver (Term.negate t_i);
-
-    (* Assert transition relation from previous frame *)
-    SMTSolver.assert_term 
-      solver
-      (TransSys.trans_of_bound trans_sys i);
-
-     (* Recurse for remaining blocking clauses *)
-     assert_block_clauses solver trans_sys (Numeral.succ i) tl
-
-
-
-(* Extract a concrete counterexample from a trace of blocking clauses *)
-let extract_cex_path
-    (solver_init, solver_frames, solver_misc) 
-    trans_sys 
-    trace = 
-
-  debug pdr
-      "@[<v>Current context@,@[<hv>%a@]@]"
-      HStringSExpr.pp_print_sexpr_list
-      (match
-         SMTSolver.execute_custom_command solver_misc (get_context_cmd solver_misc) [] 1 
-       with
-       | `Custom a -> a
-       | _ -> assert false)      
-  in
-
-  SMTSolver.push solver_misc;
-
-  let k_plus_one = Numeral.(of_int (List.length trace)) in
-
-  (* Assert initial state constraint *)
-  SMTSolver.assert_term 
-    solver_misc
-    (TransSys.init_of_bound trans_sys Numeral.zero);
-
-  (* Assert blocking clause and transition relation for tail of
-     trace *)
-  assert_block_clauses solver_misc trans_sys Numeral.one trace;
-
-  (* Get a model of the execution path *)
-  if SMTSolver.check_sat solver_misc then 
-
-    (* Extract concrete values from model *)
-    let res = 
-      TransSys.path_from_model 
-        trans_sys
-        (SMTSolver.get_model solver_misc)
-        k_plus_one
-    in
-
-    SMTSolver.pop solver_misc;
-
-    res
-
-  else
-
-    (* Must be satisfiable *)
-    assert false
-  
-
-
-(* ********************************************************************** *)
-(* Blocking of counterexamples to induction                               *)
-(* ********************************************************************** *)
 
 
 (* Add cube to block in future frames *)
 let add_to_block_tl block_clause block_trace = function
-  
+
   (* Last frame has no successors *)
   | [] -> [] 
-          
+
   (* Add cube as proof obligation in next frame *)
   | (block_clauses, r_succ_i) :: block_clauses_tl -> 
+
     (block_clauses @ [block_clause, block_trace], r_succ_i) :: block_clauses_tl
 
 
+(* Block sets of bad states in frames
 
-(* Recursively block counterexamples 
+   The last two arguments [frames] and [trace] are lists of frames and
+   cubes to block. 
 
-   [block s z c f] takes a pair of solver instances [s], the
-   transition system [z], a stack of pairs of counterexamples and
-   their frame [c] and the list of lower frames in descending order
-   [f].
+   [frames] is the list of frames below the current frame in
+   descencing order, with R_i-1 at the head and R_1 last. 
 
-   The frames on the stack [c] are in ascending order such that
-   reversing them and appending the frames [f] yields the frames in
-   descending order. Each element on the stack is a pair of a
-   generalized cube and a frame where this cube has to be blocked. In
-   the solver instance [solver_frames] the clauses of each frame on
-   the stack have been asserted on a new scope in the order they were
-   pushed onto the stack.
-
-   If there are no lower frames in [f], we are in frame R_1 and know
-   the counterexample is not reachable from the initial state. We pop
-   the counterexample and the frame from the stack, add the cube as
-   blocking clause to its accompanying frame and pop one scope from
-   the solver instance, thus removing the assertions of R_1.
-
-   If we are in some frame R_i with i > 1 and have a counterexample
-   cube B_i on the stack, we assert the clauses of R_i-1 on a new
-   scope level of the solver instance and check if there is a
-   counterexample to the unreachability of B_i.
-
-   If B_i is reachable from R_i-1, we push the frame R_i-1 and the
-   witness B_i-1 to the stack and recurse to block this new
-   counterexample B_i-1.
-
-   If B_i is not reachable from R_i-1, we pop the counterexample B_i
-   and the frame R_i from the stack, add the cube as blocking clause
-   to R_i and pop two scope levels from the solver instance to remove
-   both the clauses in R_i-1 and R_i. We then recurse to block the
-   remaining counterexamples on the stack.
+   [trace] is the list of frames above the current frame in ascending
+   order with R_i at the head and R_k last. Each frame is paired with
+   a list of cubes that are to be shown unreachable in that frame.
 
 *)
-let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys props term_tbl = 
+let rec block solver trans_sys prop_set term_tbl = 
 
   function 
 
-  (* No more proof obligations, return frames *)
-  | [] -> 
+    (* Nothing to block in frames above, current frame is R_k *)
+    | [] -> 
 
-     (function frames ->           
+      (function 
 
-               debug pdr
-		     "All counterexamples in R_k blocked"
-      in
+        (* k > 0, we must have at least one frame *)
+        | [] ->  raise (Invalid_argument "block")
 
-      (* Return frames unchanged and no new counterexamples *)
-      frames
+        (* Head of frames is the last frame *)
+        | r_k :: frames_tl as frames -> 
 
-     )
+          (* All successors of R_k are safe *)
+          let r_k_is_safe () = 
 
+            SMTSolver.trace_comment 
+              solver
+              (Format.sprintf 
+                 "block: All successors of R_%d are safe."
+                 (List.length frames));
 
-  (* No more cubes to block in R_i *)
-  | ([], r_i) :: block_tl -> 
+            (* Return frames *)
+            frames
 
-     (function frames ->
-       
-       (debug pdr
-	  "All cubes blocked in R_%d"
-		      (succ (List.length frames))
-	in
- 
-        (* Pop clauses in R_i *)
-        SMTSolver.pop solver_frames;
-		
-	(* Return to counterexamples to block in R_i+1 *)
-	block solvers trans_sys props term_tbl block_tl (r_i :: frames)))
+          in
 
+          (* We can violate the property in one step from R_k *)
+          let block_in_r_k () = 
 
-  (* Take the first cube to be blocked in current frame *)
-  | (((((core_block_clause, rest_block_clause) as block_clause), 
-       block_trace)
-      :: block_clauses_tl), r_i)
-    :: block_tl as trace -> 
-
-     (function 
-         
-       (* No preceding frames, we are in the lowest frame R_1 *)
-       | [] -> 
-
-
-
-	  
-          
-          (debug pdr
-		 "Blocking reached successor of initial state"
-           in
-
-
-
-           
-           Event.log L_trace "Blocking reached R_1";
-
-	   (*
-           if Flags.pdr_print_blocking_clauses () then
-             
-             (Format.fprintf 
-                !ppf_inductive_assertions
-                "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
-                Lustre.pp_print_term (Clause.to_term core_block_clause));
-	    *)
-
-	   
-
-	   
-	   
-           (debug pdr
-		  "@[<v>Adding blocking clause to R_1@,@[<hv>%a@]@]"
-		  Clause.pp_print_clause core_block_clause
+            (* Get counterexample as a pair of states from satisfiable
+               query *)
+            let cti = 
+              SMTSolver.get_model 
+                solver
+                (TransSys.vars_of_bounds
+                   trans_sys
+                   Numeral.zero
+                   Numeral.one) 
             in
 
+            (* Extrapolate from counterexample to a cube in R_k
+
+               P[x] & R_k[x] & T[x,x'] & ~P[x'] is sat
+
+               R_k does not imply P[x] yet *)
+            let cti_gen = 
+              extrapolate 
+                trans_sys 
+                cti 
+                (C.term_of_prop_set prop_set :: 
+                   List.map C.term_of_clause r_k 
+                    |> Term.mk_and)
+                (C.term_of_prop_set prop_set |> Term.negate) 
+            in
+
+            (* Create a clause with activation literals from generalized
+               counterexample *)
+            let clause = 
+              C.clause_of_literals solver None (List.map Term.negate cti_gen) 
+            in
+
+            (* Recursively block cube by showing that clause is
+               relatively inductive *)
+            block 
+              solver
+              trans_sys 
+              prop_set
+              ()
+              [([clause, [C.clause_of_prop_set prop_set]], r_k)] 
+              frames_tl
+
+          in
+
+          (* Receive and assert new invariants *)
+          handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
+          SMTSolver.trace_comment 
+            solver
+            (Format.sprintf 
+               "block: Check if all successors of frontier R_%d are safe."
+               (List.length frames));
+
+          SMTSolver.check_sat_assuming 
+            solver 
+
+            (* If sat: we have a state in R_k that has a successor
+               outside the property *)
+            block_in_r_k
+
+            (* If unsat: Frames are safe, cannot get outside property
+               in one step in all frames up to R_k *)
+            r_k_is_safe
+
+            (* Check P[x] & R_k[x] & T[x,x'] |= P[x']
+
+               R_k does not imply P[x] yet *)
+            (C.actlit_p0_of_prop_set prop_set :: 
+               C.actlits_n1_of_prop_set prop_set @
+               List.map C.actlit_p0_of_clause r_k)
+
+      )
+
+    (* No more cubes to block in R_i *)
+    | ([], r_i) :: block_tl -> 
+
+      (function frames ->
+
+        SMTSolver.trace_comment 
+          solver
+          (Format.sprintf 
+             "block: All counterexamples blocked in R_%d"
+             (succ (List.length frames)));
+
+        (* Return to counterexamples to block in R_i+1 *)
+        block 
+          solver
+          trans_sys
+          prop_set
+          term_tbl
+          block_tl
+          (r_i :: frames))
 
 
-	    
-            (* Add blocking clause to all frames up to where it has
-               to be blocked *)
-            let r_i' = CNF.add_subsume core_block_clause r_i in 
+    (* Take the first cube to be blocked in current frame *)
+    | (((block_clause, block_trace) :: block_clauses_tl), r_i) 
+      :: block_tl as trace -> 
 
-	    assert (check_frames solver_misc trans_sys (r_i' :: []));
+      (function frames -> 
 
+        (* Combine clauses from higher frames to get the actual
+           clauses of the delta-encoded frame R_i-1
 
-	    
-	    SMTSolver.push solver_init;
+           Get clauses in R_i..R_k from [trace], R_i-1 is first frame
+           in [frames]. *)
+        let clauses_r_succ_i, actlits_p0_r_succ_i = 
+          List.fold_left
+            (fun (ac, al) (_, r) -> r @ ac, List.map C.actlit_p0_of_clause r @ al)
+            ([], [])
+            trace
+        in
 
-	    SMTSolver.assert_term 
-	      solver_init
-	      (TransSys.init_of_bound trans_sys Numeral.zero);
+        let clauses_r_pred_i, actlits_p0_r_pred_i = 
 
-	    SMTSolver.assert_term 
-	      solver_init
-	      (TransSys.init_of_bound trans_sys Numeral.one);
+          List.fold_left
 
-	    let x,m = SMTSolver.check_sat_term_model solver_init ((Clause.to_term core_block_clause) :: (Term.negate (Term.bump_state Numeral.one (Clause.to_term core_block_clause)) :: [])) in
-	    
-	    SMTSolver.pop solver_init;
-	    assert (not x);
+            (* Join lists of clauses *)
+            (fun (ac, al) (_, r) -> r @ ac, List.map C.actlit_p0_of_clause r @ al)
 
+            (* May be empty *)
+            ((match frames with 
+              (* Special case: R_0 = I *)
+              | [] -> ([], [C.actlit_of_frame 0])
+              | r_pred_i :: _ -> 
+                (C.clause_of_prop_set prop_set :: r_pred_i, 
+                 C.actlit_p0_of_prop_set prop_set :: 
+                   List.map C.actlit_p0_of_clause r_pred_i)))
+            
+            trace
 
-            (* Add cube to block to next higher frame if flag is set *)
-            let block_tl' = 
+        in
+        
+        (* Clause is relative inductive to this frame *)
+        let is_rel_inductive () = 
 
-              if Flags.pdr_block_in_future () then 
+          (* Activation literals in unsat core of query *)
+          let core_actlits_trans = SMTSolver.get_unsat_core_lits solver in
 
-		add_to_block_tl block_clause block_trace block_tl
+          SMTSolver.trace_comment 
+            solver
+            "block: Check I |= C to get unsat core.";
+          
+          (* Activation literals in unsat core of I |= C *)
+          let core_actlits_init = 
+            SMTSolver.check_sat_assuming
+              solver
+
+              (* Must be unsat *)
+              (fun () -> 
+
+                 (* This should only happen when we are faster than
+                    BMC, who has not yet discovered at one-step
+                    violation of a property. We wait for messages *)
+                 (* Receive messages and update transition system *)
+                 let rec wait () = 
+                   handle_events 
+                     solver
+                     trans_sys
+                     (C.props_of_prop_set prop_set);
+                   minisleep 0.01;
+                   wait ()
+                 in
+                 ignore (wait ()); 
+
+                 (* We won't return from waiting *)
+                 assert false)
+
+              (* Get literals in unsat core *)
+              (fun () -> SMTSolver.get_unsat_core_lits solver)
+              
+              (* Check I |= C *)
+              ((C.actlit_of_frame 0) :: C.actlits_n0_of_clause block_clause)
+              
+          in
+          
+          (* Reduce clause to unsat core of R & T |= C *)
+          let block_clause_literals_core_n1 = 
+
+            List.fold_left2 
+
+              (fun a t l ->
+
+                if 
+
+                  (* Keep clause literal [l] if activation literals
+                     [t] is in unsat core *)
+                  List.exists (Term.equal t) core_actlits_trans
+                    
+                then
+
+                  l :: a
+
+                else
+
+                  a)
+
+              (* Start with empty clause *)
+              []
+
+              (* Fold over clause literals and their activation literals *)
+              (C.actlits_n1_of_clause block_clause)
+              (C.literals_of_clause block_clause)
+
+          in
+          
+          (* Reduce clause to unsat core of I |= C *)
+          let block_clause_literals_core = 
+
+            List.fold_left2 
+
+              (fun a t l ->
+
+                if 
+
+                  (* Keep clause literal [l] if activation literal [t]
+                     is in unsat core *)
+                  List.exists (Term.equal t) core_actlits_init
+                    
+                then
+
+                  (* Drop clause literal [l] if it is in accumulator
+                     to prevent duplicates *)
+                  if List.exists (Term.equal l) a then a else l :: a
+                    
+                else
+                  
+                  a)
+
+              (* Start with literal in core of consecution query *)
+              block_clause_literals_core_n1
+
+              (* Fold over clause literals and their activation literals *)
+              (C.actlits_n0_of_clause block_clause)
+              (C.literals_of_clause block_clause)
+
+          in
+          
+          SMTSolver.trace_comment
+            solver
+            (Format.asprintf
+               "@[<hv>block: Reduced clause@ %a@ with unsat core to@ %a@]"
+               Term.pp_print_term (C.term_of_clause block_clause)
+               Term.pp_print_term (Term.mk_or block_clause_literals_core));
+          
+          (* Inductively generalize clause *)
+          let block_clause_gen =
+
+            (* Skip unsat core and inductive generalization? *)
+            if false then block_clause else
+
+              (* Skip inductive generaliztion? *)
+              if false then
+
+                C.clause_of_literals 
+                  solver
+                  (Some block_clause)
+                  block_clause_literals_core
 
               else
 
-		block_tl
+                (Stat.time_fun Stat.pdr_ind_gen_time
+                   (fun () -> 
+                      ind_generalize 
+                        solver
+                        prop_set
+                        actlits_p0_r_pred_i
+                        block_clause
+                        block_clause_literals_core))
 
-            in
-
-            (* Return frame with blocked counterexample *)
-            block 
-              solvers 
-              trans_sys 
-              props
-	      term_tbl
-              ((block_clauses_tl, r_i') :: block_tl') 
-              []))
-
-        (* Block counterexample in preceding frame *)
-    | r_pred_i :: frames_tl as frames -> 
-
-      debug pdr
-        "@[<v>Context before visiting or re-visiting frame@,@[<hv>%a@]@]"
-        HStringSExpr.pp_print_sexpr_list
-        (match
-           SMTSolver.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1 
-         with
-         | `Custom a -> a
-         | _ -> assert false)
-      in
-      
-      debug pdr
-        "Adding clauses in frame R_%d, %d clauses to block" 
-        (succ (List.length frames_tl))
-        ((List.length block_clauses_tl) + 1)
-      in
-
-      (* Push a new scope onto the context *)
-      SMTSolver.push solver_frames;
-
-      (* Assert all clauses only in R_i in this context
-
-             The property is implicit in every frame and has been
-             asserted in the context before *)
-      CNF.iter 
-	(function c -> SMTSolver.assert_term solver_frames (Clause.to_term c)) 
-	r_pred_i;
-
-      (* Combine clauses from higher frames to get the actual
-             clauses of the delta-encoded frame R_i *)
-      let r_pred_i_full =
-	List.fold_left
-          (fun a (_, r) -> CNF.union r a)
-          r_pred_i
-          trace
-      in
-
-      
-      match 
-
-	(try
-
-            (* Find counterexamples where we can get outside the
-                  property in one step and generalize to a cube. The
-                  counterexample does not hold in the initial state. *)
-            Stat.time_fun Stat.pdr_find_cex_time (fun () ->
-						  find_cex 
-						    solvers 
-						    trans_sys 
-						    props
-						    r_pred_i_full
-						    block_clause
-						    block_clause
-						    term_tbl)
-
-          with Bad_state_reachable -> 
-
-            (
-              List.iter
-                (fun _ -> SMTSolver.pop solver_frames)
-                block_tl;
-              
-              SMTSolver.pop solver_frames;
-              
-              (debug pdr
-                 "@[<v>Current context@,@[<hv>%a@]@]"
-                 HStringSExpr.pp_print_sexpr_list
-                 (match
-                    SMTSolver.execute_custom_command solver_frames
-                      (get_context_cmd solver_frames) [] 1 
-                  with
-                  | `Custom a -> a
-                  | _ -> assert false)
-                 
-               in
-               
-               raise (Counterexample (block_clause :: block_trace)))
-
-            )
-
-	)
-
-      with
-
-      (* No counterexample, nothing to block in lower frames *)
-      | true, (core_block_clause, rest) -> 
-
-	 Event.log L_trace
-                   "Counterexample is unreachable in R_%d"
-                   (succ (List.length frames_tl));
-
-	 (*
-              if Flags.pdr_print_blocking_clauses () then
-                
-                (Format.fprintf 
-                   !ppf_inductive_assertions
-                   "@[<v>-- Blocking clause@,@[<hv 2>assert@ %a;@]@]@." 
-                   Lustre.pp_print_term (Clause.to_term core_block_clause));
-	  *)
-	 
-	 (debug pdr
-		"@[<v>Adding blocking clause to R_k%t@,@[<hv>%a@]@]"
-		(function ppf -> if block_tl = [] then () else 
-				   Format.fprintf ppf "-%d" (succ (List.length block_tl)))
-		Clause.pp_print_clause core_block_clause
           in
 
-	  let r_i'' = CNF.add_subsume (Clause.union core_block_clause rest) r_i in
-	  
-	  assert (check_frames solver_misc trans_sys (r_i'' :: frames));
+          SMTSolver.trace_comment
+            solver
+            (Format.asprintf
+               "@[<hv>block: Reduced clause@ %a@ with ind. gen. to@ %a@]"
+               Term.pp_print_term (Term.mk_or block_clause_literals_core)
+               Term.pp_print_term (C.term_of_clause block_clause_gen));
+          
+          (* Add blocking clause to all frames up to where it has to
+             be blocked *)
+          let r_i' = block_clause_gen :: r_i in
 
-	  
-	  
-          (* Add blocking clause to all frames up to where it has
-                  to be blocked *)
-          let r_i' = CNF.add_subsume core_block_clause r_i in 
-
-	  assert (check_frames solver_misc trans_sys (r_i' :: frames)); 
-
-          (* Pop the previous frame from the context *)
-          SMTSolver.pop solver_frames;
+          (* DEBUG only 
+          assert
+            (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames));
+          *)
 
           (* Add cube to block to next higher frame if flag is set *)
           let block_tl' = 
 
-            if Flags.pdr_block_in_future () then 
+            if 
+
+              Flags.pdr_block_in_future ()
+
+            then
 
               add_to_block_tl block_clause block_trace block_tl
 
@@ -1289,1331 +963,544 @@ let rec block ((solver_init, solver_frames, solver_misc) as solvers) trans_sys p
               block_tl
 
           in
-	  
 
+          (* Update frame size statistics *)
+          (* Stat.set_int_list (frame_sizes frames) Stat.pdr_frame_sizes; *)
 
-          (* Return frame with blocked counterexample *)
+          (* Add clause to frame and continue with next clauses in
+             this frame *)
           block 
-            solvers 
+            solver
             trans_sys 
-            props
-	    term_tbl
+            prop_set
+            term_tbl
             ((block_clauses_tl, r_i') :: block_tl') 
-            frames)
+            frames
 
-      (* We have found a counterexample we need to block recursively *)
-      | false, block_clause' ->
+        in
 
-	 (debug pdr
-		"Trying to block counterexample in preceding frame"
-          in
+        (* Clause is not relative inductive to this frame *)
+        let block_in_r_i () =
+          
+          (* Are there frames below R_i? *)
+          match frames with 
+              
+            (* Bad state is reachable from R_0, we have found a
+               counterexample path *)
+            | [] -> raise (Counterexample (block_clause :: block_trace))
+              
+            (* i > 1 and bad state is reachable from R_i-1 *)
+            | r_pred_i :: frames_tl -> 
+              
+              (* Get counterexample from satisfiable query *)
+              let cti = 
+                SMTSolver.get_model 
+                  solver
+                  (TransSys.vars_of_bounds
+                     trans_sys
+                     Numeral.zero
+                     Numeral.one) 
+              in
+              
+              (* Generalize the counterexample to a list of literals
+                 
+                 R_i-1[x] & C[x] & T[x,x'] & ~C[x'] is sat *)
+              let cti_gen = 
+                extrapolate 
+                  trans_sys 
+                  cti
+                  ((C.term_of_clause block_clause ::
+                      List.map C.term_of_clause clauses_r_pred_i)
+                      |> Term.mk_and)
+                  (C.term_of_clause block_clause |> Term.negate)
+              in
+              
+              (* Create a clause with activation literals from generalized
+                 counterexample *)
+              let block_clause' = 
+                C.clause_of_literals solver None (List.map Term.negate cti_gen) 
+              in
+              
+              block 
+                solver
+                trans_sys 
+                prop_set
+                term_tbl
+                (([block_clause', (block_clause :: block_trace)], 
+                  r_pred_i) :: trace) 
+                frames_tl
+                
+        in
 
-          Event.log L_trace
-                    "Counterexample is reachable in R_%d, blocking recursively"
-                    (succ (List.length frames_tl));
+        (* Receive and assert new invariants *)
+        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
+        SMTSolver.trace_comment 
+          solver
+          (Format.sprintf 
+             "block: Is blocking clause relative inductive to R_%d?"
+             (List.length frames));
+
+        SMTSolver.check_sat_assuming 
+          solver
+          
+          (* If sat: bad state is reachable *)
+          block_in_r_i
+
+          (* If unsat: clause is relative inductive and bad state is
+             not reachable *)
+          is_rel_inductive
+
+          (* Check P[x] & R_i-1[x] & C[x] & T[x,x'] |= C[x'] *)
+          (C.actlit_p0_of_clause block_clause :: 
+             C.actlits_n1_of_clause block_clause @
+             actlits_p0_r_pred_i)
+
+      )
 
 
-          block 
-            solvers 
-            trans_sys 
-            props
-	    term_tbl
-            (([block_clause', (block_clause :: block_trace)], 
-              r_pred_i) :: trace) 
-            frames_tl))
-	    
+(* *)
+let rec partition_rel_inductive
+    solver
+    trans_sys
+    frame
+    not_inductive
+    maybe_inductive = 
+  
+  (* All candidate clause are inductive: return clauses show not to be
+     inductive and inductive clauses *)
+  let all_clauses_inductive () = not_inductive, maybe_inductive in
+
+  (* Some candidate clauses are not inductive: filter out the ones
+     that could still be *)
+  let some_clauses_not_inductive () =
+    
+    (* Get model for failed entailment check *)
+    let model = 
+      SMTSolver.get_model
+        solver
+        (TransSys.vars_of_bounds trans_sys Numeral.one Numeral.one)
+    in
+        
+    (* Separate not inductive terms from potentially inductive terms 
+       
+       C_1 & ... & C_n & T & ~ (C_1' & ... & C_n') is satisfiable,
+       partition C_1', ..., C_n' by their model value, false terms are
+       certainly not inductive, true terms can be inductive. *)
+    let maybe_inductive', not_inductive_new = 
+      List.partition 
+        (function c -> 
+          C.term_of_clause c
+          |> Term.bump_state Numeral.one
+          |> Eval.eval_term [] model
+          |> Eval.bool_of_value)
+        maybe_inductive
+    in
+
+    (* Clauses found to be not inductive *)
+    let not_inductive' = not_inductive @ not_inductive_new in
+    
+    (* No clauses are inductive? *)
+    if maybe_inductive = [] then (not_inductive', []) else
+
+      (* Continue checking if remaining clauses are inductive *)
+      partition_rel_inductive 
+        solver
+        trans_sys 
+        frame
+        not_inductive'
+        maybe_inductive'
+        
+  in
+
+  SMTSolver.trace_comment
+    solver
+    "Checking for inductiveness of clauses";
+
+  (* Conjunction of clauses *)
+  let clauses = Term.mk_and (List.map C.term_of_clause maybe_inductive) in
+
+  (* Assert p0 => C_1 & ... & C_n *)
+  let actlit_p0 = 
+    C.create_and_assert_fresh_actlit solver "rel_ind" clauses C.Actlit_p0
+  in
+
+  (* Assert p0 => ~(C_1' & ... & C_n') *)
+  let actlit_n1 = 
+    C.create_and_assert_fresh_actlit solver "rel_ind" clauses C.Actlit_n1
+  in
+
+  (* Are all clauses inductive? 
+
+     Check R & C_1 & ... & C_n & T |= C_1' & ... & C_n'
+  *)
+  SMTSolver.check_sat_assuming 
+    solver
+    some_clauses_not_inductive 
+    all_clauses_inductive
+    (actlit_p0 :: actlit_n1 :: List.map C.actlit_p0_of_clause frame)
+    
 
 
-(* Find counterexamples to induction, that is, where we get outside
-   the property in one step from the last frame. Then strengthen the
-   last frame and recursively all lower frames by blocking
-   counterexamples reaching ~P in one step until all successors of the
-   last frame are within P, see {!block}.
+(* *)
+let partition_fwd_prop
+    solver
+    trans_sys
+    prop_set
+    frame
+    clauses = 
 
-   The list of frames must not be empty, we start with k=1. *)
-let rec strengthen
-	  ((solver_init, solver_frames, solver_misc) as solvers) trans_sys props term_tbl = 
+  (* Assert p0 => C_1 & ... & C_n
 
-  function 
+     Use the same activation literal on lhs for all checks *)
+  let actlits_p0 =
+    List.map C.actlit_p0_of_clause (frame @ clauses) 
+  in
 
-  (* k > 0, must have at least one frame *)
-  | [] -> invalid_arg "strengthen"
+  (* Check until we find a set of clauses that can be propagated
+     together *)
+  let rec partition_fwd_prop' keep maybe_prop = 
 
-  (* Head of frames is the last frame *)
-  | r_k :: frames_tl as frames -> 
+    (* All clause can be forward propagated: return clauses to keep and
+       clauses to propagate *)
+    let prop_all () = keep, maybe_prop in
 
-     (debug smt
-            "strengthen: asserting clauses of R_k"
+    (* Some candidate clauses cannot be propagated: filter out the ones
+       that could still be *)
+    let keep_some () =
+
+      (* Get model for failed entailment check *)
+      let model = 
+        SMTSolver.get_model
+          solver
+          (TransSys.vars_of_bounds trans_sys Numeral.one Numeral.one)
       in
 
-      SMTSolver.push solver_frames;
-
-      (* Assert all clauses of R_k in this context *)
-      CNF.iter 
-        (function c -> SMTSolver.assert_term solver_frames (Clause.to_term c)) 
-        r_k);
-
-     let prop_clause = 
-       Clause.singleton props, Clause.empty
-     in
-     
-     match 
-       
-       (try
-
-           (* Find counterexamples where we can get outside the property
-               in one step and generalize to a cube. The counterexample
-               does not hold in the initial state. *)
-           Stat.time_fun Stat.pdr_find_cex_time (fun () ->
-						 find_cex 
-						   solvers 
-						   trans_sys 
-						   props
-						   r_k
-						   (Clause.top, Clause.empty)
-						   prop_clause
-						   term_tbl)
-
-         with Bad_state_reachable -> 
-           
-           (
-
-             (* Remove assertions of frame from context *)
-             SMTSolver.pop solver_frames;
-             
-             raise (Counterexample [prop_clause]))
-
-       )
-
-
-     with
-
-     (* No counterexample, return frames unchanged *)
-     | true, _ -> 
-
-        (debug pdr
-               "Property holds in all states reachable from the last frame"
-         in
-
-         debug pdr
-               "@[<v>Current context@,@[<hv>%a@]@]"
-               HStringSExpr.pp_print_sexpr_list
-
-               (match
-                  SMTSolver.execute_custom_command
-                    solver_frames (get_context_cmd solver_frames) [] 1 
-                with
-                | `Custom a -> a
-                | _ -> assert false)
-              
-           in
-
-           (* Remove assertions of frame from context *)
-           SMTSolver.pop solver_frames;
-
-	 assert (check_frames solver_misc trans_sys (r_k :: frames_tl));
-
-         (* Return frames and counterexamples *)
-         (r_k :: frames_tl))
-
-     (* We have found a counterexample we need to block
-           recursively *)
-     | false, block_clause -> 
-
-        (debug pdr
-               "Trying to block counterexample in all frames"
-         in
-
-         Stat.incr Stat.pdr_counterexamples_total;
-         Stat.incr_last Stat.pdr_counterexamples;
-
-         Event.log L_trace
-		   "Counterexample to induction in last frame R_%d, \
-		    blocking recursively"
-		   (List.length frames);
-
-
-
-         (* Block counterexample in all lower frames *)
-         let frames' = 
-           block 
-             solvers 
-             trans_sys 
-             props
-	     term_tbl
-             [([block_clause, [prop_clause]], r_k)] 
-	     frames_tl
-         in
-
-	 assert (check_frames solver_misc trans_sys frames');
-
-         (* Find next counterexample to block *)
-         strengthen solvers trans_sys props term_tbl frames')
-        
-
-
-(* ********************************************************************** *)
-(* Forward propagation                                                    *)
-(* ********************************************************************** *)
-
-(* Check for inductive clauses simultaneously
-
-   The context of the solver must contain the transition relation and
-   the invariants. *)
-let rec partition_inductive solver accum terms =
-
-  (* Add prime to all terms *)
-  let terms' = List.map (Term.bump_state Numeral.one) terms in 
-
-  match 
-
-    (* Check if all clauses are inductive *)
-    SMTSolver.check_sat_term_model 
-      solver 
-      ((Term.mk_not (Term.mk_and terms')) :: terms)
-
-  with 
-
-    (* Some clauses are not inductive *)
-    | true, model -> 
-      
-      (* Separate not inductive terms from potentially inductive
-         terms. 
+      (* Separate not propagateable terms from potentially propagateable
+         terms
 
          C_1 & ... & C_n & T & ~ (C_1' & ... & C_n') is satisfiable,
-         partition C_1', ..., C_n' by their model value, false terms
-         are certainly not inductive, true terms can be inductive *)
-      let maybe_inductive', not_inductive' =
+         partition C_1', ..., C_n' by their model value, false terms are
+         certainly not propagateable, true terms might be propagated. *)
+      let maybe_prop', keep_new = 
         List.partition 
-          (function t -> Eval.bool_of_value (Eval.eval_term [] model t))
-          terms'
+          (function c -> 
+            C.term_of_clause c
+            |> Term.bump_state Numeral.one
+            |> Eval.eval_term [] model
+            |> Eval.bool_of_value)
+          maybe_prop
       in
 
-      (* Remove primes from not inductive terms *)
-      let not_inductive = 
-        List.map (Term.bump_state Numeral.(- one)) not_inductive' 
-      in
+      (* Clauses found not propagateable *)
+      let keep' = keep @ keep_new in
 
-      (* Remove primes from potentially inductive terms *)
-      let maybe_inductive =
-        List.map (Term.bump_state Numeral.(- one)) maybe_inductive' 
-      in
+      (* No clauses can be propagated? *)
+      if maybe_prop' = [] then (keep', []) else
 
-      Event.log L_trace
-        "%d clauses not inductive, %d maybe" 
-        (List.length not_inductive)
-        (List.length maybe_inductive);
+        (* Continue checking if remaining clauses are inductive *)
+        partition_fwd_prop' 
+          keep'
+          maybe_prop'
 
-      (* Continue checking remaining terms for inductiveness *)
-      partition_inductive solver (not_inductive @ accum) maybe_inductive 
-        
-    (* All term are inductive, return not inductive and inductive terms *)
-    | false, _ -> 
+    in
 
-      Event.log L_trace
-        "All %d clauses inductive" 
-        (List.length terms);
+    SMTSolver.trace_comment
+      solver
+      "partition_fwd_prop: Checking for forward propagation of clause set";
 
-      terms, accum
-      
+    (* Assert n1 => ~(C_1' & ... & C_n') *)
+    let actlit_n1 = 
+      C.create_and_assert_fresh_actlit 
+        solver
+        "fwd_prop" 
+        (List.map C.term_of_clause maybe_prop |> Term.mk_and) 
+        C.Actlit_n1
+    in
 
-(* Check which clauses can be propagated to the next frame simultaneously
+    (* Can all clauses be propagated? 
 
-   The context of the solver must contain the transition relation,
-   the invariants and the clauses in the previous frame. 
+       Check P[x] & R[x] & T[x,x'] |= C_1[x'] & ... & C_n[x']
+    *)
+    SMTSolver.check_sat_assuming 
+      solver
+      keep_some
+      prop_all
+      (C.actlit_p0_of_prop_set prop_set :: actlit_n1 :: actlits_p0)
+    
+  in
 
-   Clauses that cannot be propagated are in [accum], clauses in [term]
-   can possibly be propagated. *)
-let rec partition_propagate solver accum = function
-
-  (* No clause can be propagated *)
-  | [] -> [], accum
-
-  | terms -> 
-
-    (* Add prime to all terms *)
-    let terms' = List.map (Term.bump_state Numeral.one) terms in 
-
-    (* Assert ~ (C_1' & ... & C_n') where the C_i are the possibly
-       propagatable clauses *)
-    SMTSolver.assert_term solver (Term.mk_not (Term.mk_and terms'));
-
-    match 
-
-      (* Check if all clauses can be forward propagated simultaneously *)
-      SMTSolver.check_sat solver 
-
-    with 
-
-      (* Some clauses cannot be propagated *)
-      | true -> 
-
-        (* Get variables in clauses *)
-        let vars = 
-          Var.VarSet.elements (Term.vars_of_term (Term.mk_and terms')) 
-        in
-
-        (* Get a model of the satisfiable context *)
-        let model = SMTSolver.get_model solver vars in
-
-        (* Separate clauses that can certainly not be propagated from
-           clauses that may be propagated.
-
-           R & T & ~ (C_1' & ... & C_n') is satisfiable, partition the
-           clauses in C_1', ..., C_n' by their model value, false terms
-           can certainly not be propagated, true terms may be
-           propagated. *)
-        let maybe_propagate', cannot_propagate' =
-          List.partition 
-            (function t -> Eval.bool_of_value (Eval.eval_term [] model t))
-            terms'
-        in
-
-        (* Remove primes from not propagatable terms *)
-        let cannot_propagate = 
-          List.map (Term.bump_state Numeral.(- one)) cannot_propagate' 
-        in
-
-        (* Remove primes from potentially propagatable terms *)
-        let maybe_propagate =
-          List.map (Term.bump_state Numeral.(- one)) maybe_propagate' 
-        in
-
-        Event.log L_trace
-          "%d clauses cannot be propagated, %d maybe" 
-          (List.length cannot_propagate)
-          (List.length maybe_propagate);
-
-        (* Continue checking remaining terms for inductiveness *)
-        partition_propagate solver (cannot_propagate @ accum) maybe_propagate 
-
-      (* All clauses can be propagated, return propagated and
-         not propagated terms *)
-      | false -> 
-
-        Event.log L_trace
-          "All %d clauses can be propagated" 
-          (List.length terms);
-
-        terms, accum
+  (* Check if all clauses can be propagated *)
+  partition_fwd_prop' [] clauses
 
 
-(* Assert each clause in the CNF in a new scope in the solver instance *)
-let push_and_assert solver cnf =
+let fwd_propagate solver trans_sys prop_set frames = 
 
-  (* Push context *)
-  SMTSolver.push solver;
-  
-  (* Assert each clause in in the cnf *)
-  CNF.iter (function c -> SMTSolver.assert_term solver (Clause.to_term c)) cnf
-      
-
-(* Forward propagate clauses to higher frames and add a new frame at
-   the end
-
-   Frames are delta-encoded and in a list in descending order. The
-   clauses of each frame are asserted on a new scope, then we iterate
-   over the frames in reverse, i.e. ascending order, check for each
-   clause C in R_i if R_i & T |= C' and move C to R_i+1 if the
-   entailment holds. After all clauses of one frame have been
-   processed, we pop one scope of the solver instance and continue
-   with the clauses of the next frame. After all frames have been
-   processed, a new frame is added and initialised with the clauses
-   that could be propagated from the highest frame if any.
-
-   If at some point all clauses of one frame could be propagated to
-   the next, we have two equal frames, reached a fixpoint and can
-   terminate having proved all properties.
-
-   TODO: 
-
-   - For each clause check if it is invariant: C & T |= C'
-
-   - For each clause being propagated check for forward and backward
-     subsumption in its new frame
-
-*)
-let fwd_propagate
-      ((solver_init, solver_frames, solver_misc) as solvers) 
-      trans_sys 
-      frames =
-
-  (* Recursively forward propagate from lower frame to higher frames *)
-  let rec fwd_propagate_aux 
-	    ((solver_init, solver_frames, solver_misc) as solvers) 
-	    trans_sys 
-	    prop 
-	    accum = 
+  let rec fwd_propagate' solver trans_sys prop frames =
 
     function 
 
-    (* After the last frame *)
-    | [] -> 
-
-       (
-
-         (* Check inductiveness of blocking clauses? *)
-         if Flags.pdr_check_inductive () then 
-
-           (
-
-             (* Push new scope level in generic solver *)
-             SMTSolver.push solver_misc;
-
-             Stat.start_timer Stat.pdr_inductive_check_time;
-
-             (* Assert transition relation from current frame *)
-             SMTSolver.assert_term 
-               solver_misc
-               (TransSys.trans_of_bound trans_sys Numeral.one);
-
-             (* Partition clause into inductive and non-inductive *)
-             let inductive_terms, non_inductive_terms = 
-               partition_inductive 
-                 solver_misc
-                 []
-                 (List.map Clause.to_term (CNF.elements prop))
-             in
-
-             (* Turn terms into clauses *)
-             let inductive, non_inductive = 
-               List.map Clause.of_term inductive_terms,
-               List.map Clause.of_term non_inductive_terms
-             in
-	     (*
-              if Flags.pdr_print_inductive_assertions () then
-
-                (
-
-                  List.iter
-                    (Format.fprintf 
-                       !ppf_inductive_assertions
-                       "@[<v>-- Inductive clause@,@[<hv 2>assert@ %a;@]@]@." 
-                       Lustre.pp_print_term) 
-                    inductive_terms
-
-                );
-*)
-              (* Send invariant *)
-              List.iter 
-                (fun c ->
-                  Event.invariant
-                    (TransSys.get_scope trans_sys) (Clause.to_term c))
-                inductive;
-
-              Stat.record_time Stat.pdr_inductive_check_time;
-
-              (* Pop scope level in generic solver *)
-              SMTSolver.pop solver_misc;
-
-              Stat.incr 
-                ~by:(List.length inductive_terms) 
-                Stat.pdr_inductive_blocking_clauses;
-
-              (debug pdr 
-                  "@[<v>New inductive terms:@,@[<hv>%t@]@]"
-                  (function ppf -> 
-                    (List.iter 
-                       (Format.fprintf ppf "%a@," Term.pp_print_term) 
-                       inductive_terms)) 
-               in
-
-              (* Add inductive blocking clauses as invariants *)
-              List.iter (TransSys.add_invariant trans_sys) inductive_terms);
-
-             (* Add invariants to solver instance *)
-             List.iter 
-               (SMTSolver.assert_term solver_init)
-               inductive_terms;
-
-             (* Add invariants to solver instance *)
-             List.iter 
-               (SMTSolver.assert_term solver_init)
-               (List.map (Term.bump_state Numeral.one) inductive_terms);
-
-             (* Add invariants to solver instance *)
-             List.iter 
-               (SMTSolver.assert_term solver_frames)
-               inductive_terms;
-
-             (* Add invariants to solver instance *)
-             List.iter 
-               (SMTSolver.assert_term solver_frames)
-               (List.map (Term.bump_state Numeral.one) inductive_terms);
-
-             (* Add a new frame with the non-inductive clauses *)
-             (CNF.of_list non_inductive) :: accum
-
-           )
-
-         else
-
-           (
-
-             (* Add a new clause with propagated clauses *)
-             prop :: accum
-
-           )
-
-       )
-
-    (* Take the first frame from the list, which is the lowest frame *)
-    | f :: tl -> 
-
-       debug pdr
-             "forward propagating for frame R_k%t"
-             (function ppf -> 
-		       if accum = [] then () else 
-			 Format.fprintf ppf "-%d" (List.length accum))
-  in
-
-  debug pdr 
-        "@[<v>Frames before forward propagation@,@[<hv>%a@]@]"
-        pp_print_frames (f :: accum)
-    in
-
-    (* Assert clauses propagated to this frame *)
-    CNF.iter
-      (fun c -> SMTSolver.assert_term solver_frames (Clause.to_term c))
-      prop;
-
-    (*
-        if not (SMTSolver.check_sat solver_frames) then 
-
-          (debug pdr 
-              "Frame is unsatisfiable without propagated clauses:@,%a@,%a"
-              CNF.pp_print_cnf prop
-              HStringSExpr.pp_print_sexpr_list
-              (let r, a = 
-                SMTSolver.execute_custom_command 
-                  solver_frames
-                  (get_context_cmd solver_frames)
-                  [] 
-                  1 
-               in
-               SMTSolver.fail_on_smt_error r;
-               a)
-           in
-
-           assert false);
-     *)
-
-    (* Add clauses propagated from the previous frame 
-
-           No check for subsumption necessary: if a clause is not
-           subsumed in one frame, it cannot be subsumed in the next
-           frame, which is a subset of the previous frame *)
-    let f' = CNF.union_subsume prop f in
-
-    (*
-        (* Split into clauses that can and cannot be propagated 
-
-           Check if context is satisfiable with negated clause of the
-           next state.
-
-           This is equivalent to checking R_i[x] & T[x,x'] |= C[x'] *)
-        let keep, fwd =
-        in
-     *)
-
-    (* Turn terms into clauses *)
-    let keep, fwd = 
-
-      (* Simultaneous check for propagation? *)
-      if Flags.pdr_fwd_prop_check_multi () then
-
-        (* Partition clauses into propagatable and not propagatable *)
-        let fwd_terms, keep_terms = 
-          partition_propagate
-            solver_frames 
-            []
-            (List.map Clause.to_term (CNF.elements f'))
-        in
-
-        (* Convert list of terms to sets of clauses *)
-        CNF.of_list (List.map Clause.of_term keep_terms),
-        CNF.of_list (List.map Clause.of_term fwd_terms)
-
-      else (
-
-	CNF.fold
-	  (fun clause (keep, fwd) ->
-
-	   debug pdr
-		 "@[<v>Checking if clause can be propagated@,%a@]"
-		 Clause.pp_print_clause clause
-	   in
-
-	   assert (
-	       (* Assert that the frames are relatively inductive *)
-	       let tl  = match tl with
-		 | h :: tl -> (CNF.union fwd h) :: tl
-		 | [] -> [fwd]
-	       in
-	       
-	       check_frames solver_misc trans_sys (List.rev ((List.rev accum) @ (f' :: tl)))
-	     );
-	   
-
-
-
-
-	   (* Negate and prime literals *)
-	   let clause' = 
-	     Clause.map 
-	       (fun c -> (Term.negate (Term.bump_state Numeral.one c)))
-	       clause
-	   in
-	   let literals' = Clause.elements clause' in
-
-
-	   SMTSolver.push solver_frames;
-
-	   (* Assert negated literals *)
-	   List.iter
-	     ((if Flags.pdr_tighten_to_unsat_core () then
-		 SMTSolver.assert_named_term
-	       else
-		 SMTSolver.assert_term)
-		solver_frames)
-	     literals';
-
-	   (* Check for entailment *)
-	   if SMTSolver.check_sat solver_frames then (
-
-	     (debug pdr
-		    "@[<v>Cannot propagate clause@,%a@]"
-		    Clause.pp_print_clause clause
-	      in ());
-
-	     (SMTSolver.pop solver_frames;
-
-	      (* Clause does not propagate *)
-	      (CNF.add_subsume clause keep, fwd))
-	   )
-
-	   else (
-	     
-	     (debug pdr
-		    "@[<v>Can propagate clause@,%a@]"
-		    Clause.pp_print_clause clause
-	      in ());
-
-	     (* Get clause literals in unsat core *)
-	     let clause'_core, clause'_rest = 
-
-	       (* Get unsat core only if flag is set *)
-	       if Flags.pdr_tighten_to_unsat_core () then 
-
-		 partition_core
-		   solver_frames
-		   (Clause.of_literals literals')
-
-	       else
-
-		 (* Return entire clause as core, empty clause
-                          as rest *)
-		 (Clause.of_literals literals'), Clause.empty
-
-	     in
-
-	     SMTSolver.pop solver_frames;
-
-	     (* Remove primes and negate literals *)
-	     let clause_core =
-	       Clause.map
-		 (fun l -> 
-		  (Term.negate (Term.bump_state Numeral.(- one) l)))
-		 clause'_core
-	     in
-
-
-
-	     if Clause.is_empty clause_core then 
-
-	       (Event.log
-		  L_info
-		  "Reduced blocking clause to empty clause. Restarting.";
-		
-		raise Restart);
-
-	     (*
-                   if Clause.is_empty clause_core then 
-
-                     (debug pdr 
-                         "Context is unsatisfiable without clause:@,%a@,%a"
-                         Clause.pp_print_clause clause
-                         HStringSExpr.pp_print_sexpr_list
-                         (let r, a = 
-                           SMTSolver.execute_custom_command 
-                             solver_frames
-                             (get_context_cmd solver_frames)
-                             [] 
-                             1 
-                          in
-                          SMTSolver.fail_on_smt_error r;
-                          a)
-                      in
-
-                      assert false);
-	      *)
-
-
-	     (* Clause was tightened? *)
-	     if not (Clause.is_empty clause'_rest) then 
-
-	       (
-
-
-		 (* Get literals in clause *)
-		 let literals = 
-		   List.map
-		     Term.negate
-		     (Clause.elements clause) 
-		 in
-
-		 SMTSolver.push solver_init;
-
-		 (* Assert literals in initial state *)
-		 List.iter
-		   (SMTSolver.assert_named_term solver_init)
-		   literals;
-
-		 (* Check for entailment *)
-		 if SMTSolver.check_sat solver_init then
-
-		   (debug pdr
-			  "Blocking clause intersects with initial state@ %a"
-			  Clause.pp_print_clause clause
-		    in
-
-		    assert false)
-
-		 else
-
-		   (
-
-		     (* Get clause literals in unsat core *)
-		     let clause_core_init, clause_rest_init = 
-
-		       if Flags.pdr_tighten_to_unsat_core () then 
-
-			 partition_core
-			   solver_init
-			   (Clause.of_literals literals)
-
-		       else
-
-			 (* Return entire clause as core, empty clause
-                          as rest *)
-			 (Clause.of_literals literals), Clause.empty
-
-		     in
-
-		     SMTSolver.pop solver_init;
-
-		     let clause_core = 
-		       Clause.union 
-			 clause_core
-			 (Clause.map Term.negate clause_core_init)
-		     in
-
-		     (debug pdr
-			    "Tightened clause@ %a to@ %a@ dropping@ %a"
-			    Clause.pp_print_clause clause
-			    Clause.pp_print_clause clause_core
-			    Clause.pp_print_clause clause'_rest
-		      in
-
-		      (* Extra checks
-                               SMTSolver.push solver_frames;
-
-                               SMTSolver.assert_term 
-                               solver_frames
-                               (Clause.to_term clause_core);
-
-                               (* Shortening the clause must not make the frame
-                               unsatisfiable *)
-                               assert (SMTSolver.check_sat solver_frames);
-
-                               SMTSolver.assert_term 
-                               solver_frames 
-                               (Term.negate 
-                                 (Term.bump_state
-                                    1
-                                    (Clause.to_term clause_core)));
-
-                               (* The shortened clause must propagate *)
-                               assert (not (SMTSolver.check_sat solver_frames));
-
-                               SMTSolver.pop solver_frames;
-		       *)
-
-		      Stat.incr Stat.pdr_tightened_propagated_clauses;
-
-		      (keep, CNF.add_subsume clause_core fwd))))
-
-	     else
-
-	       (
-
-		 (* Propagate unchanged clause *)
-		 (keep, CNF.add_subsume clause fwd))))
-	  f'
-	  (CNF.empty, CNF.empty) 
-
-      )
-	     
-
-    in
-
-    Stat.incr 
-      ~by:(CNF.cardinal fwd) 
-      Stat.pdr_fwd_propagated;
-
-    Event.log L_trace
-              "Propagating %d clauses from F_%d to F_%d"
-              (CNF.cardinal fwd)
-              (succ (List.length accum))
-              (succ (succ (List.length accum)));
-
-    (debug pdr 
-           "@[<v>Frames after forward propagation@,@[<hv>%a@]@]"
-           pp_print_frames 
-           (match tl with 
-            | [] -> (CNF.union fwd  keep) :: accum 
-            | h :: tl -> (CNF.union fwd h) :: keep :: accum)
-     in
-
-     ());
-
-    assert
-      (check_rel_inductive
-	 solver_misc
-	 trans_sys
-	 (List.fold_left
-	    CNF.union
-	    keep
-	    accum)
-	 (match tl with [] -> fwd | h :: _ -> CNF.union fwd h));
-
-    (* All clauses in R_i-1 \ R_i can be propagated to R_i, hence
-            we have R_i-1 = R_i and terminate *)
-    if CNF.cardinal keep = 0 then 
-
-      (
-
-        Event.log L_trace
-		  "Fixpoint reached: F_%d and F_%d are equal"
-		  (succ (List.length accum))
-		  (succ (succ (List.length accum)));
-
-        Stat.set 
-          (succ (List.length accum))
-          Stat.pdr_fwd_fixpoint;
-            (*            
-            if Flags.pdr_print_inductive_invariant () then
-
-              (Format.fprintf 
-                 !ppf_inductive_assertions
-                 "@[<v>-- Inductive invariant:@,assert@ %a@]"
-                 Lustre.pp_print_term (term_of_frames (fwd :: tl)));
-  *)          
-
-            (* Unprimed property *)
-            let props = TransSys.props_of_bound trans_sys Numeral.zero in
-
-            (* Unprimed inductive invariant *)
-            let ind_inv = 
-              Term.mk_and
-                [term_of_frames (fwd :: tl); props] 
+      (* After the last frame *)
+      | [] -> 
+
+        (* Receive and assert new invariants *)
+        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
+        (* Check inductiveness of blocking clauses? *)
+        if Flags.pdr_check_inductive () then 
+
+          (
+
+            SMTSolver.trace_comment
+              solver
+              "fwd_propagate: Checking for inductiveness of clauses \
+               in last frame.";
+
+            (* Find which clauses are inductive relative to the empty
+               frame *)
+            let non_inductive_clauses, inductive_clauses =
+              partition_rel_inductive
+                solver
+                trans_sys
+                []
+                []
+                prop
             in
 
-            if Flags.pdr_print_inductive_invariant () then 
-
-              Event.log L_off
-                "@[<hv>Inductive invariant:@ %a@]"
-                Term.pp_print_term ind_inv;
-
-            if Flags.pdr_check_inductive_invariant () then 
-
+            if not (inductive_clauses = []) then 
 
               (
 
-                (* Initial state constraint *)
-                let init = TransSys.init_of_bound trans_sys Numeral.zero in
+                (* Convert clauses to terms *)
+                let inductive_terms =
+                  List.map C.term_of_clause inductive_clauses 
+                in
 
-                (* Transition relation *)
-                let trans_01 = TransSys.trans_of_bound trans_sys Numeral.one in
+                (* Broadcast inductive clauses as invariants *)
+                List.iter 
+                  (Event.invariant (TransSys.get_scope trans_sys))
+                  inductive_terms;
 
-                (* Transition relation to constrain unprimed variables *)
-                let trans_0 = TransSys.trans_of_bound trans_sys Numeral.zero in
+                (* Increment statistics *)
+                Stat.incr 
+                  ~by:(List.length inductive_clauses) 
+                  Stat.pdr_inductive_blocking_clauses;
 
-                (* Unprimed nvariants *)
-                let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
+                (* Add inductive blocking clauses as invariants *)
+                List.iter (TransSys.add_invariant trans_sys) inductive_terms;
 
-                (* Primed invariants *)
-                let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
+                SMTSolver.trace_comment
+                  solver
+                  "fwd_propagate: Asserting new invariants.";
 
-                (* Primed inductive invariant *)
-                let ind_inv_1 = Term.bump_state Numeral.one ind_inv in
-
-                (* Push new scope level in generic solver *)
-                SMTSolver.push solver_misc;
-
-                (* Assert initial state constraint *)
-                SMTSolver.assert_term solver_misc init;
-
-                (* Assert unprimed invariants if not empty *)
-                if not (invars_0 == Term.t_true) then 
-                  SMTSolver.assert_term solver_misc invars_0;
-
-                (* Assert negation of inductive invariant *)
-                SMTSolver.assert_term solver_misc (Term.mk_not ind_inv);
-
-                (* Check I |= R_i *)
-                if not (SMTSolver.check_sat solver_misc) then 
-
-                  (Event.log L_off
-                     "OK: The initial state implies the inductive \
-                      invariant.")
-
-                else
-
-                  (Event.log L_off
-                     "FAILURE: The initial state does not imply the \
-                      inductive invariant.");
-
-                (* Pop scope level *)
-                SMTSolver.pop solver_misc;
-
-                (* Push new scope level *)
-                SMTSolver.push solver_misc;
-
-                (* Assert transition relation between unprimed and primed variables *)
-                SMTSolver.assert_term solver_misc trans_01;
-
-                (* Assert transition relation to constrain unprimed variables *)
-                (* SMTSolver.assert_term solver_misc trans_0; *)
-
-                (* Assert unprimed and primed invariants if not empty *)
-                if not (invars_0 == Term.t_true) then 
-                  (SMTSolver.assert_term solver_misc invars_0;
-                   SMTSolver.assert_term solver_misc invars_1);
-
-                (* Assert unprimed inductive invariant *)
-                SMTSolver.assert_term solver_misc ind_inv;
-
-                (* Assert negated primed inductive invariant *)
-                SMTSolver.assert_term solver_misc (Term.mk_not ind_inv_1);
-
-                (* Check R_i & T |= R_i' *)
-                if not (SMTSolver.check_sat solver_misc) then 
-
-                  (Event.log L_off
-                     "OK: The inductive invariant is preserved by the \
-                      transition relation.")
-
-                else
-
-                  (Event.log L_off 
-                     "FAILURE: The inductive invariant is not preserved by \
-                      the transition relation.");
-
-                (* Pop scope level in generic solver *)
-                SMTSolver.pop solver_misc;
+                (* Add invariants to solver instance *)
+                List.iter 
+                  (function t -> 
+                    SMTSolver.assert_term solver t;
+                    Term.bump_state Numeral.one t |> SMTSolver.assert_term solver) 
+                  inductive_terms
 
               );
 
-            SMTSolver.pop solver_frames;
+            (* Add a new frame with the non-inductive clauses *)
+            let frames' = non_inductive_clauses :: frames in
 
+            (* DEBUG only
+            assert (check_frames solver prop_set [] frames');
+            *)
+
+            frames'
+
+          )
+
+        else
+
+          (* Add a new frame with clauses to propagate *)
+          let frames' = prop :: frames in
+
+          (* DEBUG only
+          assert (check_frames solver prop_set [] frames');
+          *)
+
+          frames'
+
+
+      (* Frames in ascending order *)
+      | frame :: frames_tl -> 
+
+        (* Receive and assert new invariants *)
+        handle_events solver trans_sys (C.props_of_prop_set prop_set);
+
+        SMTSolver.trace_comment
+          solver
+          (Format.sprintf 
+             "fwd_propagate: Checking forward propagation of clauses \
+              in frame %d."
+             (succ (List.length frames)));
+
+        let frames_tl_full = 
+          List.fold_left (fun a f -> f @ a) [] frames_tl
+        in
+
+        (* Separate clauses that propagate from clauses to keep in
+           this frame *)
+        let keep, fwd = 
+          partition_fwd_prop
+            solver
+            trans_sys
+            prop_set
+            frames_tl_full
+            (frame @ prop)
+        in
+
+        (* Update statistics *)
+        Stat.incr 
+          ~by:(List.length fwd) 
+          Stat.pdr_fwd_propagated;
+
+        (* DEBUG only
+        assert
+          (check_frames'
+             solver
+             prop_set
+             (frames_tl_full @ fwd)
+             (keep :: frames));
+        *)
+
+        (* All clauses propagate? *)
+        if keep = [] then 
+
+          (
+
+            let ind_inv = 
+              (List.fold_left 
+                 (fun a c -> List.map C.term_of_clause c @ a) 
+                 (List.map C.term_of_clause fwd)
+                 frames_tl)
+              |> Term.mk_and
+            in
+
+            let ind_inv_p0, ind_inv_n0, ind_inv_n1 = 
+
+              let mk = 
+                C.create_and_assert_fresh_actlit
+                  solver
+                  "ind_inv"
+                  ind_inv
+              in
+
+              mk C.Actlit_p0, mk C.Actlit_n0, mk C.Actlit_n1
+
+            in
+
+            assert
+              (SMTSolver.check_sat_assuming
+                 solver
+                 (function _ -> false)
+                 (function _ -> true)
+                 [C.actlit_of_frame 0; ind_inv_n0]); 
+
+            assert
+              (SMTSolver.check_sat_assuming
+                 solver
+                 (function _ -> false)
+                 (function _ -> true)
+                 [C.actlit_p0_of_prop_set prop_set; ind_inv_p0; ind_inv_n1]); 
+
+            (* Fixpoint found, this frame is equal to the next *)
             raise (Success (List.length frames))
 
-          );
+          )
 
-        (* Remove clauses of this frame from the context *)
-        SMTSolver.pop solver_frames;
+        else
 
-        (* Propagate in next frame *)
-        fwd_propagate_aux solvers trans_sys fwd (keep :: accum) tl
+          (
+
+            (* Propagate clauses in next frame *)
+            fwd_propagate' 
+              solver
+              trans_sys
+              fwd
+              (keep :: frames)
+              frames_tl
+
+          )
 
   in
-
-  (debug smt
-      "forward propagating: asserting all frames"
-   in
-
-   (* Assert clauses in CNF of each frame on a new scope starting with
-      the last frame. The top context contains the clauses only in the
-      lowest frame. *)
-   List.iter (push_and_assert solver_frames) frames);
 
   (* Forward propagate all clauses and add a new frame *)
-  fwd_propagate_aux
-    solvers
+  fwd_propagate'
+    solver
     trans_sys
-    CNF.empty
+    []
     []
     (List.rev frames)
-  
 
-(* Check if the property is valid in the initial state and in the
-   successor of the initial state, raise exception [Counterexample] if
-   not *)
-let bmc_checks solver_init trans_sys props =
-
-  (* Conjunction of property terms *)
-  let props_term = Term.mk_and (List.map snd props) in
-
-  (* Push new scope onto context of solver *)
-  SMTSolver.push solver_init;
-
-  (* Assert negated property in the first state *)
-  SMTSolver.assert_term 
-    solver_init 
-    (Term.negate props_term);
-
-  (* Check if the property is violated in the initial state *)
-  if SMTSolver.check_sat solver_init then 
-
-    (SMTSolver.pop solver_init;
-
-     raise (Counterexample []));
-
-  (* Remove assertions for 0-step counterexample check *)
-  SMTSolver.pop solver_init;
-
-  (* Mark all properties as 0-true *)
-  List.iter
-    (fun (p, _) -> TransSys.set_prop_ktrue trans_sys 0 p)
-    props;
-
-  Event.log L_info "All properties hold in the initial state.";
-
-  (* Push new scope onto context of solver *)
-  SMTSolver.push solver_init;
-
-  (debug smt 
-      "Asserting negated property in the second state"
-   in
-
-   (* Assert negated property in the second state *)
-   SMTSolver.assert_term 
-     solver_init 
-     (Term.negate (Term.bump_state Numeral.one props_term)));
-
-  (debug smt 
-      "Asserting transition relation"
-   in
-
-   (* Assert transition relation *)
-   SMTSolver.assert_term solver_init (TransSys.trans_of_bound trans_sys Numeral.one));
-
-  (debug smt 
-      "Asserting invariants for second state"
-   in
-
-   (* Assert invariants for second state *)
-   SMTSolver.assert_term 
-     solver_init
-     (TransSys.invars_of_bound trans_sys Numeral.one));
-
-  (* Check if the property is violated in the second state *)
-  if SMTSolver.check_sat solver_init then 
-
-    (SMTSolver.pop solver_init;
-
-     raise
-       (Counterexample
-          [Clause.singleton 
-             (TransSys.props_of_bound trans_sys Numeral.zero), 
-           Clause.empty]));
-
-  (* Remove assertions for 1-step counterexample check *)
-  SMTSolver.pop solver_init;
-
-  (* Mark all properties as 1-true *)
-  List.iter
-    (fun (p, _) -> TransSys.set_prop_ktrue trans_sys 1 p)
-    props;
-
-  Event.log L_info
-    "All properties hold in the successor states of the initial state."
-
-
-(* ********************************************************************** *)
-(* Main loop and top-level function                                       *)
-(* ********************************************************************** *)
-
+             
 (*
+   TODO: After a restart we want to propagate all used blocking
+   clauses into R_1. *)
+let rec pdr solver trans_sys prop_set frames =
 
-(* Handle events from the queue and return the current k in the BMC process *)
-let handle_events
-    ((solver_init, solver_frames, _) as solvers) 
-    trans_sys 
-    bmc_k = 
-  
-  (* Add invariant to the transition system and assert in solver
-     instances *)
-  let add_invariant inv = 
+  (* Must have checked for 0 and 1 step counterexamples, either by
+     delegating to BMC or before this point *)
+  let bmc_checks_passed prop_set =
 
-    (* Add invariant to the transition system *)
-    TransSys.add_invariant trans_sys inv;
-
-    (* Add prime to invariant *)
-    let inv_1 = Term.bump_state Numeral.one inv in
-
-    (* Assert invariant in solver instance for initial state *)
-    SMTSolver.assert_term solver_init inv;
-    SMTSolver.assert_term solver_init inv_1;
-    
-    (* Assert invariant and primed invariant in solver instance for
-       transition relation *)
-    SMTSolver.assert_term solver_frames inv;
-    SMTSolver.assert_term solver_frames inv_1
-
-  in
-
-  (* Receive all queued messages 
-
-     Side effect: Terminate when ControlMessage TERM is received.*)
-  let messages = Event.recv () in
-
-  List.fold_left 
-    (function bmc_k -> function
-        
-         (* Invariant discovered by other module *)
-         | Event.Invariant (_, inv) -> 
-           
-           (debug pdr
-              "@[<hv>Received invariant@ @[<hv>%a@]@]"
-              Term.pp_print_term inv 
-            in
-    
-            (* Add invariant to the transition system and assert in
-               solver instances *)
-            add_invariant inv);
-       
-            (* No new k in BMC *)
-            bmc_k
-           
-         (* Pass new k in BMC *)
-         | Event.BMCState (bmc_k', _) -> bmc_k'
-
-         (* Property has been proved by other module *)
-         | Event.Proved (_, _, prop) -> 
-
-           (debug pdr
-               "@[<hv>Received proved property %s@]"
-               prop
-            in
-            
-            (try 
-               
-               (* Add invariant to the transition system and assert in
-                  solver instances *)
-               add_invariant 
-                 (List.assoc prop trans_sys.TransSys.props)
-                 
-             with Not_found -> ()));
-           
-           (* No new k in BMC *)
-           bmc_k
-           
-         (* Property has been disproved by other module *)
-         | Event.Disproved (_, _, prop) -> 
-
-           if 
-
-             (* Property already disproved here? *)
-             List.exists
-               (fun (p, _) -> p = prop)
-               trans_sys.TransSys.props_invalid
-
-           then
-
-             (* Skip *)
-             bmc_k
-
-           else
-           
-             (* Restart upon disproved property *)
-             raise (Disproved prop)
-           
-       )
-       bmc_k
-       messages
-
-  *)
-
-let handle_events
-    ((solver_init, solver_frames, _) as solvers) 
-    trans_sys
-    props =
-
-  (* Receive queued messages 
-
-     Side effect: Terminate when ControlMessage TERM is received.*)
-  let messages = Event.recv () in
-
-  (* Update transition system from messages *)
-  let invariants_recvd, prop_status = 
-    Event.update_trans_sys trans_sys messages 
-  in
-
-  (* Add invariant to the transition system and assert in solver
-     instances *)
-  let add_invariant inv = 
-
-    (* Add prime to invariant *)
-    let inv_1 = Term.bump_state Numeral.one inv in
-
-    (* Assert invariant in solver instance for initial state *)
-    SMTSolver.assert_term solver_init inv;
-    SMTSolver.assert_term solver_init inv_1;
-
-    (* Assert invariant and primed invariant in solver instance for
-       transition relation *)
-    SMTSolver.assert_term solver_frames inv;
-    SMTSolver.assert_term solver_frames inv_1
-
-  in
-
-  (* Assert all received invariants *)
-  List.iter add_invariant invariants_recvd;
-
-  (* Restart if one of the properties to prove has been disproved *)
-  List.iter
-    (fun (p, _) -> match TransSys.get_prop_status trans_sys p with 
-       | TransSys.PropFalse _ -> raise (Disproved p)
-       | _ -> ())
-    props
-
-
-(* PDR main loop
-
-   [frames] is a list of clause sets in reverse order, the head of the
-   list is the highest frame.
-
-   Frames are delta-encoded, that is, every frame stores only the
-   difference to the previous frame. The property is implicit in each
-   frame and not stored there. The initial state is not a frame.
-
-   Let [frames = \[ F_k; ... F_1 \], then let R_i be the union of all
-   F_j with j <= i. Let R_0 be the initial state I.
-
-   By construction two invariants of PDR are satisfied:
-
-   (1) R_0 = I
-   (2) R_i+1 is a subset of R_i for i = 1,...,k-1
-
-   The procedure further maintains the invariants 
-
-   (3) R_i |= P for i = 1,...,k
-   (4) R_i & T |= R'_i+1 for i = 0,...,k
-
-   and uses two SMT solver instances [solver_init] and [solver_frames].
-
-   The instance [solver_init] is assumed to have the initial state
-   constraint as well as the unprimed invariants asserted. The
-   instance [solver_frames] is assumed to have the transition
-   relation, the unprimed and primed invariants and the unprimed
-   property asserted. The procedure restores the state of the solver
-   instances to the state upon entry.
-
-   A new frame is added to the head of [frames] and beginning with k=1
-   all clauses are moved to the highest frame they can be propagated
-   to, see {!fwd_propagate}. The last frame is strengthened by adding
-   clauses to F_k and lower frames until the all successor states of
-   R_k are within the property. If this fails, the exception
-   [Counterexample] is raised, see {!strengthen}.
-
-*)
-let rec pdr
-	  ((solver_init, solver_frames, solver_misc) as solvers) 
-	  trans_sys
-	  props
-	  term_tbl
-	  frames = 
-
-  (* Conjunction of property terms *)
-  let props_term = Term.mk_and (List.map snd props) in
-
-  (* Must have checked for 0 and 1 step counterexamples *)
-  let bmc_checks_passed props =
-    
+    (* Every property is either invariant or at least 1-true *)
     List.for_all 
       (fun (p, _) -> match TransSys.get_prop_status trans_sys p with
-		     | TransSys.PropInvariant -> true
-		     | TransSys.PropKTrue k when k >= 1 -> true
-		     | _ -> false)
-      props
+        | TransSys.PropInvariant -> true
+        | TransSys.PropKTrue k when k >= 1 -> true
+        | _ -> false)
+      (C.props_of_prop_set prop_set)
 
   in
 
-  (debug pdr 
-	 "Main loop, k=%d" 
-	 (succ (List.length frames))
-   in
+  (* Current k is length of trace *)
+  let pdr_k = succ (List.length frames) in
 
-   let pdr_k = succ (List.length frames) in
+  Event.log L_info "PDR main loop at k=%d" pdr_k;
 
-   Event.log L_info "PDR main loop at k=%d" pdr_k;
+  Event.progress pdr_k;
 
-   Event.progress pdr_k;
+  Stat.set pdr_k Stat.pdr_k;
 
-   Stat.set pdr_k Stat.pdr_k);
+  Stat.start_timer Stat.pdr_fwd_prop_time;
 
-  handle_events solvers trans_sys props;
-
-  (debug pdr 
-	 "@[<v>Frames before forward propagation@,@[<hv>%a@]@]"
-	 pp_print_frames frames
-   in
-   
-   debug pdr
-       "@[<v>Context only contains properties, invariants and the \
-        transition relation@,@[<hv>%a@]@]"
-       HStringSExpr.pp_print_sexpr_list
-       (match
-          SMTSolver.execute_custom_command solver_frames (get_context_cmd solver_frames) [] 1
-        with
-        | `Custom a -> a
-        | _ -> assert false)
-   in
-    
-    Stat.start_timer Stat.pdr_fwd_prop_time);
-
-  (* Frames after forward propagation *)
-  let frames' = 
+  let frames' =
 
     try 
 
-      (* Forward propagate and add a new frame *)
-      fwd_propagate solvers trans_sys frames 
-
+      (* Forward propagate clauses in all frames *)
+      fwd_propagate
+        solver
+        trans_sys
+        prop_set
+        frames
+        
     (* Fixed point reached *)
     with Success pdr_k -> 
 
       if 
 
         (* No 0- or 1-step countexample? *)
-        bmc_checks_passed props 
-
+        bmc_checks_passed prop_set 
+          
       then
 
+        (* Property is proved *)
         raise (Success pdr_k) 
 
       else
-        
+
         (* Wait until BMC process has passed k=1 *)
         let rec wait_for_bmc () = 
 
           (* Receive messages and update transition system *)
-          handle_events solvers trans_sys props;
+          handle_events solver trans_sys (C.props_of_prop_set prop_set);
 
           (* No 0- or 1-step countexample? *)
-          if bmc_checks_passed props then
+          if bmc_checks_passed prop_set then
 
             (* Raise exception again *)
             raise (Success pdr_k)
@@ -2637,50 +1524,530 @@ let rec pdr
 
   in
 
-  assert (check_frames solver_misc trans_sys frames');
-
   Stat.record_time Stat.pdr_fwd_prop_time;
 
   Stat.set_int_list (frame_sizes frames') Stat.pdr_frame_sizes;
 
-  (debug pdr 
-	 "@[<v>Frames after forward propagation@,@[<hv>%a@]@]"
-	 pp_print_frames frames'
-   in
+  Stat.start_timer Stat.pdr_strengthen_time;
 
-   Stat.append 0 Stat.pdr_counterexamples;
+  (* Recursively block counterexamples in frontier frame *)
+  let frames'' = 
+    block
+      solver
+      trans_sys
+      prop_set
+      ()
+      []
+      frames' 
+  in
 
-   Stat.start_timer Stat.pdr_strengthen_time;
+  Stat.record_time Stat.pdr_strengthen_time;
 
-   (* Recursively block counterexamples in frontier state *)
-   let frames'' = 
-     strengthen
-       solvers
-       trans_sys
-       props_term
-       term_tbl
-       frames' 
-   in
+  Stat.set_int_list (frame_sizes frames'') Stat.pdr_frame_sizes;
 
-   Stat.record_time Stat.pdr_strengthen_time;
+  Stat.update_time Stat.pdr_total_time; 
 
-   Stat.set_int_list (frame_sizes frames'') Stat.pdr_frame_sizes;
+  (* Output statistics *)
+  if output_on_level L_info then print_stats ();
 
-   Stat.update_time Stat.pdr_total_time; 
+  (* No reachable state violates the property, continue with next k *)
+  pdr solver trans_sys prop_set frames''
 
-   (* Output statistics *)
-   if output_on_level L_info then print_stats ();
+(* Get a values for the state variables at offset [i], add values to
+   path, and return an equational constraint at offset zero for values
+   from the model *)
+let add_to_path get_model state_vars path i = 
 
-   (* No reachable state violates the property, continue with next k *)
-   pdr solvers trans_sys props term_tbl frames'')
+  (* Get a model for the variables at instant [i] *)
+  let model_i =
+    get_model
+      (List.map
+         (fun sv -> 
+            Var.mk_state_var_instance sv i)
+         state_vars)
+  in
+  
+  (* Turn variable instances to state variables and sort list *)
+  let model_i' =
+    List.sort
+      (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
+      (List.map
+         (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
+         model_i)
+  in
+  
+  (* Join values of model at current instant to result *)
+  let path' = 
+    list_join
+      StateVar.equal_state_vars
+      model_i'
+      path
+  in
 
+  (* Conjunction of equations to constrain previous state to be equal
+     to unprimed state in model *)
+  let state = 
+    List.map 
+      (fun (v, t) -> 
+         Term.mk_eq 
+           [Term.mk_var
+              (Var.mk_state_var_instance
+                 (Var.state_var_of_state_var_instance v)
+                 Numeral.zero);
+            t])
+      model_i
+    |> Term.mk_and
+  in
+  
+  (* Return path with state added and constraint for state *)
+  (path', state)
+
+
+(* Extract a concrete counterexample from a sequence of blocking
+   clauses *)
+let extract_cex_path solver trans_sys trace = 
+
+  (* State variables of the transition system *)
+  let state_vars = TransSys.state_vars trans_sys in
+
+  SMTSolver.trace_comment
+    solver
+    "extract_cex_path: extracting concrete counterexample trace.";
+
+  (* Find a state in the head of the sequence of blocking clauses and
+     add to the path. Use the activation literal [pre_state] to
+     constrain the previous state to the one in the path. *)
+  let rec extract_cex_path' path pre_state = function
+    
+    | [] -> 
+
+      (* Return trace in order *)
+      List.map 
+        (fun (sv, vl) -> (sv, List.rev vl))
+        path
+      
+    (* Take first blocking clause *)
+    | r_i :: tl -> 
+      
+      (* Find a state in the blocking clause, starting from the given
+         state *)
+      SMTSolver.check_sat_assuming
+        solver
+
+        (fun () -> 
+           
+           (* Add primed state to path, get equational constraint for
+              state *)
+           let path', state = 
+             add_to_path
+               (SMTSolver.get_model solver)
+               state_vars
+               path
+               Numeral.one
+           in
+
+           (* Activation literal for state *)
+           let actlit_p0_state =
+             C.create_and_assert_fresh_actlit
+               solver
+               "cex_path"
+               state
+               C.Actlit_p0
+           in
+           
+           (* Recurse to continue path out of succeeding blocking
+              clause *)
+           extract_cex_path' path' actlit_p0_state tl)
+        
+        (* Counterexample trace must be satisfiable *)
+        (fun _ -> assert false)
+        
+        (* Assume previous state and blocking clause *)
+        (pre_state :: C.actlits_n1_of_clause r_i)
+        
+  in
+
+  (* Start path from initial state into first blocking clause, get
+     activation literal for state in R_1 *)
+  let init_path, state_init = 
+    match trace with 
+
+      (* Must have at least one state *)
+      | [] -> assert false
+
+      (* First blocking clause is successor of initial state *)
+      | r_1 :: _ -> 
+
+        (* Find an initial state with the first blocking clause as
+           successor *)
+        SMTSolver.check_sat_assuming 
+          solver
+
+          (fun () ->
+
+             (* Add unprimed state to empty path, get equational
+                constraint for state *)
+             add_to_path
+               (SMTSolver.get_model solver)
+               state_vars
+               []
+               Numeral.zero)
+
+          (* Counterexample trace must be satisfiable *)
+          (fun _ -> assert false)
+
+          (* Assume initial state and blocking clause *)
+          ((C.actlit_of_frame 0) ::
+           C.actlits_n1_of_clause r_1)
+
+  in
+
+  (* Activation literal for state *)
+  let actlit_p0_state_init =
+    C.create_and_assert_fresh_actlit
+      solver
+      "cex_path"
+      state_init
+      C.Actlit_p0
+  in
+
+  (* Extract concrete counterexample starting in a state leading to
+     the first blocking clause *)
+  extract_cex_path' init_path actlit_p0_state_init trace
+
+
+(* 
+
+   TODO: Return the maximal R for which P & R & T |= P holds, where R
+   contains the blocking clauses before a restart. Therefore we know
+   that I |= R. *)
+let add_to_r1 clauses = []
+
+
+(* Helper function for restarts *)
+let rec restart_loop trans_sys solver props = 
+
+  (* Exit if no properties left to prove *)
+  if props = [] then () else
+
+    (* Properties to prove after restart *)
+    let props' = 
+      
+      try 
+        
+        (* Reset statistics about frames on restart *)
+        Stat.set_int_list [] Stat.pdr_frame_sizes;
+        Stat.set_int_list [] Stat.pdr_counterexamples;
+
+        (* Get activation literals for current property set *)
+        let prop_set =
+          C.prop_set_of_props solver props
+        in
+        
+        (* Run PDR procedure *)
+        pdr
+          solver 
+          trans_sys 
+          prop_set
+          []
+
+      with 
+
+        (* All propertes are valid *)
+        | Success k -> 
+
+          (
+
+            (* Send out valid properties *)
+            List.iter
+              (fun (p, _) -> 
+                 Event.prop_status TransSys.PropInvariant trans_sys p) 
+              props;
+
+            (* No more properties remaining *)
+            []
+
+          )
+          
+        (* Some property is invalid *)
+        | Counterexample trace -> 
+
+          (
+
+            (* Extract counterexample from sequence of blocking
+               clauses *)
+            let cex_path =
+              extract_cex_path
+                solver
+                trans_sys
+                trace
+            in
+
+            debug pdr
+                "@[<v>Counterexample:@,@[<hv>%a@]@]"
+                (Event.pp_print_path_pt trans_sys false) cex_path
+            in
+
+            (* Check which properties are disproved *)
+            let props', props_false =
+
+              List.fold_left
+                (fun (props', props_false) (p, t) -> 
+
+                   if 
+
+                     (* Property is false along path? *)
+                     TransSys.exists_eval_on_path
+                       (TransSys.uf_defs trans_sys)
+                       ((=) (Eval.ValBool false))
+                       t
+                       cex_path
+
+                   then
+
+                     (Event.prop_status 
+                        (TransSys.PropFalse cex_path) 
+                        trans_sys 
+                        p;
+
+                      Event.log
+                        L_info 
+                        "Property %s disproved by PDR"
+                        p;
+
+                      (props', p :: props_false))
+
+                   else
+
+                     (Event.log
+                        L_info 
+                        "Property %s not disproved by PDR"
+                        p;
+
+                      ((p, t) :: props', props_false)))
+
+                ([], [])
+                props
+            in
+
+            debug pdr
+                "Disproved %a, continuing with %a"
+                (pp_print_list
+                   (fun ppf n -> Format.fprintf ppf "%s" n)
+                   "@ ")
+                props_false
+                (pp_print_list
+                   (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+                   "@ ")
+                props'
+            in
+
+            assert (not (props_false = []));
+
+            props'
+
+          )
+
+        | Disproved prop -> 
+
+
+          (* Check which properties are disproved *)
+          let props' =
+
+            List.fold_left
+              (fun accum (p, t) -> 
+
+                 (* Property is disproved? *)
+                 if TransSys.is_disproved trans_sys p then
+
+                   (* Remove property disproved property from
+                        properties to prove *)
+                   accum
+
+                 else 
+
+                   (* Keep property *)
+                   (p, t) :: accum)
+
+              []
+              props
+          in
+
+          props'
+
+        (* Formuala is not in linear integer arithmetic *)
+        | Presburger.Not_in_LIA -> 
+
+          (
+
+            Event.log
+              L_info
+              "Problem contains real valued variables, \
+               switching off approximate QE";
+
+            Flags.set_pdr_qe `Z3;
+
+            props
+
+          )
+
+        (* Restart for other reason *)
+        | Restart -> props
+
+    in
+
+    if not (props' = []) then 
+
+      (              
+
+        Event.log
+          L_info 
+          "@[<h>Restarting PDR with properties @[<h>%a@]@]"
+          (pp_print_list
+             (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
+             "@ ")
+          props';
+
+        Stat.incr Stat.pdr_restarts);
+
+    (* Restart with remaining properties *)
+    restart_loop trans_sys solver props'
+    
+   
+(* Check if the property is valid in the initial state and in the
+   successor of the initial state, raise exception [Counterexample] if
+   not *)
+let rec bmc_checks solver trans_sys props =
+
+  (* Activation literal for frame, is symbol has been declared *)
+  let actlit_R0 = C.actlit_of_frame 0 in
+
+  (* Entailment does not hold: split properties in not falsified and
+     falsifiable properties *)
+  let not_entailed props k () = 
+
+    (* Get model for all variables of transition system *)
+    let model = 
+      TransSys.vars_of_bounds trans_sys k k
+      |> SMTSolver.get_model solver
+    in
+
+    (* Extract counterexample from solver *)
+    let cex =
+      TransSys.path_from_model trans_sys (SMTSolver.get_model solver) k 
+    in
+
+    (* Evaluate term in model *)
+    let eval term =
+      Eval.eval_term (TransSys.uf_defs trans_sys) model term
+      |> Eval.bool_of_value 
+    in
+
+    (* Split properties *)
+    let not_falsified, falsifiable =
+      List.partition
+        (fun (_, term) -> Term.bump_state k term |> eval )
+        props
+    in
+
+    (* Return not falsified and falsifiable properties with
+       counterexample *)
+    (not_falsified, Some (cex, falsifiable))
+
+  in
+
+  (* Entailment does hold: return all properties as not falsified and
+     none as falsifiable *)
+  let all_entailed props () = (props, None) in
+
+  (* Check I |= P for given list of properties *)
+  let rec bmc_check check_primed = function 
+
+    (* Terminate if all properties falsifiable *)
+    | [] -> [] 
+
+    (* Some properties left to check *)
+    | props -> 
+
+      (* Create activation literals and assert formulas for property
+         set *)
+      let prop_set =
+        C.prop_set_of_props solver props
+      in 
+      
+      (* Check satsifiability of I & ~P for all not falsified
+         properties P, and partition into not falsified and
+         falsifiable *)
+      SMTSolver.trace_comment 
+        solver
+        (Format.sprintf
+           "bmc_checks: Check for %s-step counterexample"
+           (if check_primed then "one" else "zero"));
+
+      let props', props_falsifiable = 
+        SMTSolver.check_sat_assuming
+          solver
+          (not_entailed
+             props
+             (if check_primed then Numeral.one else Numeral.zero))
+          (all_entailed props)
+          (if check_primed then
+             (actlit_R0 :: 
+                (C.actlit_p0_of_prop_set prop_set :: 
+                   C.actlits_n1_of_prop_set prop_set))
+           else
+             (actlit_R0 :: C.actlits_n0_of_prop_set prop_set))
+      in
+
+      (* Some properties falsified? *)
+      match props_falsifiable with
+
+        (* Some properties falsifiable *)
+        | Some (cex, falsifiable) -> 
+          
+          (* Broadcast properties as falsified with counterexample *)
+          List.iter
+            (fun (s, _) ->
+               Event.prop_status
+                 (TransSys.PropFalse cex)
+                 trans_sys
+                 s)
+            falsifiable;
+          
+          (* Check remaining properties *)
+          bmc_check check_primed props'
+
+        (* No properties falsifiable *)
+        | None -> 
+          
+          (* Broadcast properties as 0-true or 1-true *)
+          List.iter 
+            (fun (s, _) -> 
+               Event.prop_status
+                 (TransSys.PropKTrue
+                    (if check_primed then 1 else 0))
+                 trans_sys
+                 s)
+            props';
+          
+          (* Return properties not falsified *)
+          props'
+          
+  in
+
+  (* Check if properties hold in the initial state and filter out
+     those that don't *)
+  let props' = bmc_check false props in
+
+  (* Check if properties hold in the successor of the initial state
+     and filter out those that don't *)
+  let props'' = bmc_check true props' in
+
+  (* Return 0-true and 1-true properties *)
+  props'' 
+  
 
 (* Entry point
-
-     Create two solver instances: [solver_init] which has the initial
-     state constraint and the invariants permanently asserted and
-     [solver_frames] which has the transition relation and the
-     invariants for the current and the next state permanently asserted.
 
      If BMC is not running in parallel, check for zero and one step
      counterexamples.
@@ -2691,25 +2058,17 @@ let rec pdr
 *)
 let main trans_sys =
 
-  if 
-    not (Flags.pdr_qe () = `Cooper) && 
-    not (Flags.smtsolver () = `Z3_SMTLIB) 
-  then
- 
-    (Event.log L_fatal "Precise quantifier elimination needs Z3 as SMT solver";
-     failwith "Unsupported SMT solver for options");
-        
-
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
 
   (* Determine logic for the SMT solver *)
   let logic = TransSys.get_logic trans_sys in
 
+  (* Produce unsat cores in SMT solver if flag is set *)
   let produce_cores = Flags.pdr_tighten_to_unsat_core () in
 
-  (* Create new solver instance to reason about the initial state *)
-  let solver_init = 
+  (* Create new solver instance *)
+  let solver = 
     SMTSolver.create_instance
       ~produce_assignments:true
       ~produce_cores:produce_cores
@@ -2717,98 +2076,69 @@ let main trans_sys =
       (Flags.smtsolver ())
   in
 
-  (* Declare uninterpreted function symbols *)
+  (* Save solver instance for clean exit *)
+  ref_solver := Some solver;
 
-  (* TransSys.iter_state_var_declarations trans_sys (SMTSolver.declare_fun solver_init); *)
-  
-  (* Defining uf's and declaring variables. *)
+  (* Declare uninterpreted function symbols *)
+  SMTSolver.trace_comment 
+    solver
+    "main: Declare state variables and define predicates";
+
+  (* Declare uninterpreted function symbols *)
   TransSys.init_define_fun_declare_vars_of_bounds
     trans_sys
-    (SMTSolver.define_fun solver_init)
-    (SMTSolver.declare_fun solver_init)
-    Numeral.(~- one) Numeral.one ;
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.one;
 
-  (* Save solver instance for clean exit *)
-  ref_solver_init := Some solver_init;
-
-  (debug smt
-      "Permanently asserting initial state constraint"
-   in
-
-   (* Assert initial state constraint in solver instance *)
-   SMTSolver.assert_term 
-     solver_init
-     (TransSys.init_of_bound trans_sys Numeral.zero));
-
-(*
-  (debug smt 
-      "Permanently asserting transition relation"
-   in
-
-   (* Assert transition relation from current frame *)
-   SMTSolver.assert_term 
-     solver_init
-     (TransSys.trans_of_bound trans_sys Numeral.one));
-*)
-
-  (* Create new solver instance to reason about counterexamples in
-     frames *)
-  let solver_frames = 
-    SMTSolver.create_instance
-      ~produce_assignments:true
-      ~produce_cores:produce_cores
-      logic
-      (Flags.smtsolver ())
+  (* Get invariants of transition system *)
+  let invars_1 = 
+    TransSys.invars_of_bound trans_sys Numeral.one 
   in
 
-  (* Declare uninterpreted function symbols *)
-  (* TransSys.iter_state_var_declarations  *)
-  (*   trans_sys  *)
-  (*   (SMTSolver.declare_fun solver_frames); *)
-  
-  (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
-    trans_sys
-    (SMTSolver.define_fun solver_frames)
-    (SMTSolver.declare_fun solver_frames)
-    Numeral.(~- one) Numeral.one ;
-
-  (* Save solver instance for clean exit *)
-  ref_solver_frames := Some solver_frames;
-
-  (debug smt 
-      "Permanently asserting transition relation"
-   in
-
-   (* Assert transition relation from current frame *)
-   SMTSolver.assert_term 
-     solver_frames
-     (TransSys.trans_of_bound trans_sys Numeral.one));
-
-  (* Create new solver instance for all other queries (subsumption,
-     invariance of blocking clauses) *)
-  let solver_misc = 
-    SMTSolver.create_instance
-      ~produce_assignments:true 
-      logic
-      (Flags.smtsolver ())
+  (* Get invariants for current state *)
+  let invars_0 = 
+    TransSys.invars_of_bound
+      trans_sys
+       ~one_state_only:true 
+       Numeral.zero 
   in
 
-  (* Declare uninterpreted function symbols *)
-  (* TransSys.iter_state_var_declarations  *)
-  (*   trans_sys *)
-  (*   (SMTSolver.declare_fun solver_misc); *)
-  
-  (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
-    trans_sys
-    (SMTSolver.define_fun solver_misc)
-    (SMTSolver.declare_fun solver_misc)
-    Numeral.(~- one) Numeral.one ;
+  (* Assert invariants for current state if not empty *)
+  if not (invars_0 == Term.t_true) then 
 
-  (* Save Solver instance for clean exit *)
-  ref_solver_misc := Some solver_misc;
+    (SMTSolver.trace_comment solver "main: Assert invariants";
+     SMTSolver.assert_term solver invars_0;
+     SMTSolver.assert_term solver invars_1);
 
+  (* Create activation literal for frame R_0 *)
+  let actconst_r0, actlit_r0 =
+    C.actlit_symbol_of_frame 0, C.actlit_of_frame 0
+  in 
+
+  (* Declare symbol in solver *)
+  SMTSolver.declare_fun solver actconst_r0;
+
+
+  (* Assert initial state constraint guarded with activation literal
+
+     a_R0 => I[x] *)
+  SMTSolver.trace_comment solver "main: Assert guarded initial state";
+  SMTSolver.assert_term 
+    solver
+    (Term.mk_implies
+       [actlit_r0;
+        (TransSys.init_of_bound trans_sys Numeral.zero)]);
+
+  (* Assert transition relation unguarded
+
+     T[x,x'] *)
+  SMTSolver.trace_comment solver "main: Assert unguarded transition relation"; 
+  SMTSolver.assert_term 
+    solver
+    (TransSys.trans_of_bound trans_sys Numeral.one);
+
+  (* Print inductive assertions to file? *)
   (match Flags.pdr_print_to_file () with 
 
     (* Keep default formatter *)
@@ -2827,262 +2157,36 @@ let main trans_sys =
       (* Create formatter and store in reference *)
       ppf_inductive_assertions := Format.formatter_of_out_channel oc);
 
-  (* Helper function for restarts *)
-  let rec restart_loop props = 
-
-    if props = [] then () else
-
-      (* Properties to prove after restart *)
-      let props' = 
-
-        try 
-
-          SMTSolver.push solver_frames;
-
-          (* Get invariants of transition system *)
-          let invars_1 = TransSys.invars_of_bound trans_sys Numeral.one in
-
-          (* Get invariants for current state *)
-          let invars_0 = TransSys.invars_of_bound trans_sys Numeral.zero in
-
-          (* Assert invariants for current state if not empty *)
-          if not (invars_0 == Term.t_true) then 
-
-            (debug smt 
-                "Permanently asserting invariants"
-             in
-
-             SMTSolver.assert_term solver_init invars_0;
-             SMTSolver.assert_term solver_init invars_1);
-
-          (* Assert invariants for current state if not empty *)
-          if not (invars_0 == Term.t_true) then 
-
-            (
-
-              (debug smt 
-                  "Permanently asserting invariants"
-               in
-
-               SMTSolver.assert_term solver_frames invars_0;
-               SMTSolver.assert_term solver_frames invars_1)
-
-            );
-
-          (* BMC module running in parallel? 
-
-             If BMC is running in parallel, delegate check for zero and one
-             step counterexamples to it. All results are tentative until BMC
-             has shown that there are no such counterexamples. *)
-          if List.mem `BMC (Flags.enable ()) then 
-
-            (Event.log L_info
-               "Delegating check for zero and one step counterexamples \
-                to BMC process.")
-
-          else
-
-            (* Do check for zero and one step counterexample in solver
-               instance [solver_init] *)
-            (bmc_checks solver_init trans_sys props);
-
-          (debug smt 
-              "Permanently asserting property constraint"
-           in
-
-           (* The property is implicit in every R_i *)      
-           SMTSolver.assert_term 
-             solver_frames
-             (Term.mk_and (List.map snd props));
-
-           (* Reset statistics about frames on restart *)
-           Stat.set_int_list [] Stat.pdr_frame_sizes;
-           Stat.set_int_list [] Stat.pdr_counterexamples;
-
-           (* Run PDR procedure *)
-           pdr
-             (solver_init, solver_frames, solver_misc) 
-             trans_sys 
-             props
-	     Term.TermHashtbl.(create 100)
-             [])
-	     
-
-        with 
-
-          (* All propertes are valid *)
-          | Success k -> 
-
-            (
-
-              (* Send out valid properties *)
-              List.iter
-                (fun (p, _) -> 
-                   Event.prop_status TransSys.PropInvariant trans_sys p) 
-                props;
-
-              (* No more properties remaining *)
-              []
-
-            )
-
-          (* Some property is invalid *)
-          | Counterexample trace -> 
-
-            (
-
-              (* Extract counterexample from sequence of blocking
-                 clauses *)
-              let cex_path =
-                extract_cex_path
-                  (solver_init, solver_frames, solver_misc)
-                  trans_sys
-                  trace
-              in
-
-              debug pdr
-                "@[<v>Counterexample:@,@[<hv>%a@]@]"
-                (Event.pp_print_path_pt trans_sys false) cex_path
-              in
-
-              (* Check which properties are disproved *)
-              let props', props_false =
-
-                List.fold_left
-                  (fun (props', props_false) (p, t) -> 
-
-                     if 
-
-                       (* Property is false along path? *)
-                       TransSys.exists_eval_on_path
-                         (TransSys.uf_defs trans_sys)
-                         ((=) (Eval.ValBool false))
-                         t
-                         cex_path
-
-                     then
-
-                       (Event.prop_status 
-                          (TransSys.PropFalse cex_path) 
-                          trans_sys 
-                          p;
-
-                        Event.log
-                          L_info 
-                          "Property %s disproved by PDR"
-                          p;
-
-                        (props', p :: props_false))
-
-                     else
-
-                       (Event.log
-                          L_info 
-                          "Property %s not disproved by PDR"
-                          p;
-                        
-                        ((p, t) :: props', props_false)))
-
-                  ([], [])
-                  props
-              in
-              
-              debug pdr
-                  "Disproved %a, continuing with %a"
-                  (pp_print_list
-                     (fun ppf n -> Format.fprintf ppf "%s" n)
-                     "@ ")
-                  props_false
-                  (pp_print_list
-                     (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
-                     "@ ")
-                  props'
-              in
-
-              assert (not (props_false = []));
-
-              props'
-
-            )
-
-          | Disproved prop -> 
-
-
-            (* Check which properties are disproved *)
-            let props' =
-
-              List.fold_left
-                (fun accum (p, t) -> 
-
-                   (* Property is disproved? *)
-                   if TransSys.is_disproved trans_sys p then
-
-                     (* Remove property disproved property from
-                          properties to prove *)
-                     accum
-
-                   else 
-
-                     (* Keep property *)
-                     (p, t) :: accum)
-
-                []
-                props
-            in
-
-            props'
-
-          (* Formuala is not in linear intege arithmetic *)
-          | Presburger.Not_in_LIA -> 
-
-            (
-
-              Event.log
-                L_info
-                "Problem contains real valued variables, \
-                 switching off approximate QE";
-
-              if Flags.smtsolver () = `Z3_SMTLIB then 
-                Flags.set_pdr_qe `Z3
-              else
-                (Event.log 
-                   L_fatal
-                   "Precise quantifier elimination needs Z3 as SMT solver";
-                 failwith "Unsupported SMT solver for options");              
-
-              props
-
-            )
-
-          (* Restart for other reason *)
-          | Restart -> props
-            
-      in
-
-      SMTSolver.pop solver_frames;
-
-      if not (props' = []) then 
-
-        (              
-
-          Event.log
-            L_info 
-            "@[<h>Restarting PDR with properties @[<h>%a@]@]"
-            (pp_print_list
-               (fun ppf (n, _) -> Format.fprintf ppf "%s" n)
-               "@ ")
-            props';
-          
-          Stat.incr Stat.pdr_restarts);
-
-      (* Restart with remaining properties *)
-      restart_loop props'
+  (* Properties to prove from the transition system *)
+  let trans_sys_props = 
+    TransSys.props_list_of_bound trans_sys Numeral.zero 
+  in
+
+  (* Check for zero and one step counterexamples and continue with
+     remaining properties *)
+  let props' =
+
+    (* Is BMC running in parallel? *)
+    if List.mem `BMC (Flags.enable ()) then 
+
+      (Event.log L_info
+         "Delegating check for zero and one step counterexamples \
+          to BMC process.";
+
+       trans_sys_props)
+
+    else
+
+      (* BMC is not running, must check here *)
+      bmc_checks
+        solver
+        trans_sys
+        trans_sys_props
 
   in
 
-  (* Prove all properties with restarting after invalid counterexamples *)
-  restart_loop (TransSys.props_list_of_bound trans_sys Numeral.zero)
-
+  (* Run and restart on disproved properties *)
+  restart_loop trans_sys solver props'
 
 
 (* 
@@ -3090,4 +2194,5 @@ let main trans_sys =
    compile-command: "make -C .. -k"
    tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
    indent-tabs-mode: nil
+   End:
 *)

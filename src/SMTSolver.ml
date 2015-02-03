@@ -286,7 +286,7 @@ let get_values s terms =
 
 
 (* Get unsat core of the current context *)
-let get_unsat_core s =
+let get_unsat_core_of_names s =
   let module S = (val s.solver_inst) in
 
   match S.get_unsat_core () with 
@@ -319,9 +319,31 @@ let get_unsat_core s =
     | Failure _ -> 
       raise (Failure "Invalid string in reply from SMT solver")
 
+        
+(* Get unsat core of the current context *)
+let get_unsat_core_lits s =
+  let module S = (val s.solver_inst) in
 
+  match S.get_unsat_core () with 
 
+  | `Error e -> 
+    raise 
+      (Failure ("SMT solver failed: " ^ e))
 
+  | `Unsat_core c -> 
+
+    (* Convert strings to literals *)
+    List.fold_left  
+      (fun a s -> 
+        try 
+          (Term.mk_uf 
+             (UfSymbol.uf_symbol_of_string s)
+             []) :: a
+        with Not_found -> assert false)
+      []
+      c
+
+      
 (* ******************************************************************** *)
 (* Higher level functions                                               *)
 (* ******************************************************************** *)

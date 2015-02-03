@@ -211,6 +211,9 @@ val pdr_strengthen_time : float_item
 (** Time spent searching counterexamples *)
 val pdr_find_cex_time : float_item
 
+(** Time spent inductively generalizing counterexample *)
+val pdr_ind_gen_time : float_item
+
 (** Time spent generalizing *)
 val pdr_generalize_time : float_item
 
