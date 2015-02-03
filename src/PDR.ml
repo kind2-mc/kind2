@@ -115,40 +115,24 @@ let handle_events
      instances *)
   let add_invariant inv = 
 
-    (* Invariants are at offset -1 and zero, bump offset to one and
-       zero *)
-    let inv_1 = Term.bump_state Numeral.one inv in
-
-    match Term.var_offsets_of_term inv_1 with 
-
-      (* Ignore invariants without state variables *)
-      | None, None -> ()
-
-      (* One state invariant at offset zero only *)
-      | Some l, Some u when 
-          Numeral.(equal l zero) && Numeral.(equal u zero) -> 
-
-        SMTSolver.trace_comment 
-          solver
-          "handle_event: Asserting one-state invariant";
-
-        (* Assert one-state invariant at offsets zero and one *)
-        SMTSolver.assert_term solver inv;
-        SMTSolver.assert_term solver inv_1
-
-      (* Two-state invariant *)
-      | Some l, Some u when 
-          Numeral.(equal l zero) && Numeral.(equal u one) -> 
-
-        SMTSolver.trace_comment 
-          solver
-          "handle_event: Asserting two-state invariant";
-
-        (* Assert two-state invariant at offset one only *)
-        SMTSolver.assert_term solver inv_1
-
-      (* Ignore other cases *)
-      | _ -> ()
+    SMTSolver.trace_comment 
+      solver
+      "handle_event: Asserting one-state invariants at zero";
+    
+    (* Assert one-state invariants only at offsets zero *)
+    SMTSolver.assert_term 
+      solver 
+      (TransSys.invars_of_bound 
+         ~one_state_only:true
+         trans_sys
+         Numeral.zero);
+    
+    (* Assert all invariants at offset one *)
+    SMTSolver.assert_term 
+      solver 
+      (TransSys.invars_of_bound 
+         trans_sys
+         Numeral.one);
 
   in
 
@@ -934,7 +918,10 @@ let rec block solver trans_sys prop_set term_tbl =
              be blocked *)
           let r_i' = block_clause_gen :: r_i in
 
-          assert (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames));
+          (* DEBUG only 
+          assert
+            (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames));
+          *)
 
           (* Add cube to block to next higher frame if flag is set *)
           let block_tl' = 
@@ -1291,7 +1278,9 @@ let fwd_propagate solver trans_sys prop_set frames =
             (* Add a new frame with the non-inductive clauses *)
             let frames' = non_inductive_clauses :: frames in
 
+            (* DEBUG only
             assert (check_frames solver prop_set [] frames');
+            *)
 
             frames'
 
@@ -1302,7 +1291,9 @@ let fwd_propagate solver trans_sys prop_set frames =
           (* Add a new frame with clauses to propagate *)
           let frames' = prop :: frames in
 
+          (* DEBUG only
           assert (check_frames solver prop_set [] frames');
+          *)
 
           frames'
 
@@ -1340,13 +1331,15 @@ let fwd_propagate solver trans_sys prop_set frames =
           ~by:(List.length fwd) 
           Stat.pdr_fwd_propagated;
 
+        (* DEBUG only
         assert
           (check_frames'
              solver
              prop_set
              (frames_tl_full @ fwd)
              (keep :: frames));
-           
+        *)
+
         (* All clauses propagate? *)
         if keep = [] then 
 
