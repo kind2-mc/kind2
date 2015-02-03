@@ -1685,16 +1685,12 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                   depth. If above the max depth, then the abstract
                   contract init is activated. *)
                (fun props concrete_init ->
-                let bla: Term.t list =
-                  List.map
-                    (fun (_,_,term) ->
-                     Term.mk_eq [ term ; Term.t_true ])
-                    props
-                in
-                let abstract_init: Term.t =
+                let abstract_init =
                   Term.mk_and
                     (abstract_contract_init
-                     :: (bla))
+                     :: (props
+                         |> List.map
+                              (fun (_,_,term) -> term)))
                 in
                 Term.mk_and
                   [ Term.mk_implies
@@ -1712,8 +1708,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                     (abstract_contract_trans
                      :: (props
                          |> List.map
-                              (fun (_,_,term) ->
-                               Term.mk_eq [ term ; Term.t_true ])))
+                              (fun (_,_,term) -> term)))
                 in
                 Term.mk_and
                   [ Term.mk_implies
