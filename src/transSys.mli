@@ -43,7 +43,7 @@ type prop_status =
   | PropInvariant 
 
   (** Property is false at some step *)
-  | PropFalse of (StateVar.t * Term.t list) list
+  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
 
 (** Pretty-print a property status *)
 val pp_print_prop_status_pt : Format.formatter -> prop_status -> unit
@@ -53,7 +53,7 @@ val pp_print_prop_status_pt : Format.formatter -> prop_status -> unit
 val prop_status_known : prop_status -> bool
 
 (** Return the length of the counterexample *)
-val length_of_cex : (StateVar.t * Term.t list) list -> int
+val length_of_cex : (StateVar.t * 'a list) list -> int
 
 (** Offset of state variables in initial state constraint *)
 val init_base : Numeral.t
@@ -247,7 +247,7 @@ val set_prop_status : t -> string -> prop_status -> unit
 val set_prop_invariant : t -> string -> unit 
 
 (** Mark property as false *)
-val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 
+val set_prop_false : t -> string -> (StateVar.t * Model.term_or_lambda list) list -> unit 
 
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
@@ -278,15 +278,8 @@ val init_define_fun_declare_vars_of_bounds :
       unit
 
 
-(** Extract a path in the transition system, return an association
-    list of state variables to a list of their values.
+val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool
 
-    The second argument is a function returning assignments to the
-    variables, see {!SolverMethods.S.get_model}. The path is extracted
-    from instant zero up to instant [k], which is the third argument. *)
-val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
-
-val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> (StateVar.t * Term.t list) list -> bool
 
 (* 
    Local Variables:

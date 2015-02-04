@@ -48,6 +48,12 @@ type get_value_response = [
   | error_response
 ]
 
+(** Type of reponses for get-model commands. It carries the model. *)
+type get_model_response = [
+  | `Model of (UfSymbol.t * Model.term_or_lambda) list
+  | error_response
+]
+
 (** Type of reponses for get-unsat-core commands. It carries the unsat core. *)
 type get_unsat_core_response = [
   | `Unsat_core of string list
@@ -65,6 +71,7 @@ type response = [
   | decl_response
   | check_sat_response
   | get_value_response
+  | get_model_response
   | get_unsat_core_response
   | custom_response
 ]

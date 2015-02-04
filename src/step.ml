@@ -234,14 +234,38 @@ let split trans solver k to_split actlits =
   (* Function to run if sat. *)
   let if_sat () =
     
+    (* Extract a model *)
+    let model = 
+
+      (* Do we need the full model? *)
+      if (Flags.ind_compress ()) || (Flags.ind_lazy_invariants ()) then 
+
+        (* Get model for all variables *)
+        SMTSolver.get_model solver
+        
+      else
+        
+        (* We only need the model at [k] *)
+        TransSys.vars_of_bounds
+          trans
+          k
+          k
+        |> (SMTSolver.get_var_values solver)
+        
+    in
+
+    Some model
+
+(*
     (* Get-model function. *)
     let get_model = SMTSolver.get_model solver in
     
     (* Getting counterexample for path compression is needed. *)
     let cex =
       if Flags.ind_compress () then
-        TransSys.path_from_model trans get_model k
-      else []
+        Model.path_from_model (TransSys.state_vars trans) get_model k
+      else 
+        Model.create_path 7
     in
     
     (* Getting model for evaluation. *)
@@ -255,6 +279,8 @@ let split trans solver k to_split actlits =
     in
     
     Some (cex, model)
+*)
+
   in
 
   (* Function to run if unsat. *)
@@ -271,7 +297,7 @@ let split trans solver k to_split actlits =
         solver if_sat if_unsat all_actlits
     with
 
-    | Some (cex,model) ->
+    | Some model ->
         
       (* Evaluation function. *)
       let term_to_val =
@@ -299,6 +325,12 @@ let split trans solver k to_split actlits =
         (* Attempting to compress path. *)
         ( match
             if not (Flags.ind_compress ()) then [] else
+               let cex = 
+                Model.path_from_model
+                  (TransSys.state_vars trans) 
+                  model 
+                  k 
+              in
               Compress.check_and_block
                 (SMTSolver.declare_fun solver) trans cex
           with

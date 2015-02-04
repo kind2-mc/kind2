@@ -19,13 +19,12 @@
 open Lib
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel
+(* Dummy Event module when compiling a custom toplevel*)
 module Event = 
 struct
   let get_module () = `Parser
   let log _ = Format.printf
 end
-*)
   
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -36,6 +35,7 @@ type _ command_type =
   | Cmd : decl_response command_type
   | CheckSatCmd : check_sat_response command_type
   | GetValueCmd : get_value_response command_type
+  | GetModelCmd : get_model_response command_type
   | GetUnsatCoreCmd : get_unsat_core_response command_type
   | CustomCmd : (int -> custom_response command_type) 
 
@@ -46,8 +46,19 @@ let s_error = HString.mk_hstring "error"
 let s_sat = HString.mk_hstring "sat"
 let s_unsat = HString.mk_hstring "unsat"
 let s_unknown = HString.mk_hstring "unknown"
+let s_model = HString.mk_hstring "model"
 
-module Make (Driver : SolverDriver.S) : SolverSig.S = struct
+module type SMTLIBSolverDriver = sig
+  include SolverDriver.S
+
+  val expr_of_string_sexpr : HStringSExpr.t -> Term.t
+
+  val expr_or_lambda_of_string_sexpr : HStringSExpr.t -> (HString.t * Model.term_or_lambda)
+
+end
+
+
+module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
 
   open Driver
   module Conv = SMTExpr.Converter(Driver)
@@ -58,7 +69,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     { solver_cmd : string array;    (* Command line arguments for the
                                        solver *)
     }
-
+    
 
   (* Solver instance *)
   type t = 
@@ -157,6 +168,40 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
        invalid_arg "get_value_response_of_sexpr")
 
 
+  (* Helper function to return a solver response to a get-model command
+     as expression pairs *)
+  let rec get_model_response_of_sexpr' accum = function 
+
+    | [] -> `Model accum
+
+    | e :: tl -> 
+
+      (debug smtexpr
+          "get_model_response_of_sexpr: %a"
+          HStringSExpr.pp_print_sexpr e
+       in
+
+       (* Get name of variable and its assignment *)
+       let s, t_or_l = expr_or_lambda_of_string_sexpr e in
+
+       (* Get uninterpreted function symbol by name *)
+       let u =
+         UfSymbol.uf_symbol_of_string (HString.string_of_hstring s) 
+       in
+
+       (* Continue with next model assignment *)
+       get_model_response_of_sexpr' ((u, t_or_l) :: accum) tl)
+
+    | e :: _ -> 
+
+      (debug smtexpr
+          "get_model_response_of_sexpr: %a"
+          HStringSExpr.pp_print_sexpr e
+       in
+
+       invalid_arg "get_model_response_of_sexpr")
+
+
   (* Return a solver response to a get-value command as expression pairs *)
   let get_value_response_of_sexpr = function 
 
@@ -171,6 +216,31 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
     (* Solver returned a list not starting with an error atom  *)
     | HStringSExpr.List l -> get_value_response_of_sexpr' [] l
+
+    (* Solver returned other response *)
+    | e -> 
+      raise 
+        (Failure 
+           ("Invalid solver response " ^ HStringSExpr.string_of_sexpr e))
+
+
+  (* Return a solver response to a get-value command as expression pairs *)
+  let get_model_response_of_sexpr = function 
+
+    (* Solver returned error message 
+
+       Must match for error first, because we may get (error "xxx") or
+       ((x 1)) which are both lists *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; 
+         HStringSExpr.Atom e ] when s == s_error -> 
+      `Error (HString.string_of_hstring e)
+
+    (* Solver returned a list not starting with an error atom  *)
+    | HStringSExpr.List 
+        (HStringSExpr.Atom s :: l) when s == s_model -> 
+
+      get_model_response_of_sexpr' [] l
 
     (* Solver returned other response *)
     | e -> 
@@ -258,6 +328,13 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     get_value_response_of_sexpr (expr_of_solver_lexbuf solver)
 
 
+  (* Parse the solver response to a get-model command *)
+  let get_get_model_response solver timeout = 
+
+    (* Return response *)
+    get_model_response_of_sexpr (expr_of_solver_lexbuf solver)
+
+
   (* Parse the solver response to a get-unsat-core command *)
   let get_get_unsat_core_response solver timeout = 
 
@@ -322,6 +399,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       | Cmd -> get_command_response solver timeout
       | CheckSatCmd -> get_check_sat_response solver timeout
       | GetValueCmd -> get_get_value_response solver timeout
+      | GetModelCmd -> get_get_model_response solver timeout
       | GetUnsatCoreCmd -> get_get_unsat_core_response solver timeout
       | CustomCmd num_res -> get_custom_command_response num_res solver timeout
 
@@ -382,6 +460,9 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
   (* Execute a get-value command and return the response *)
   let execute_get_value_command = send_command_and_trace GetValueCmd
+
+  (* Execute a get-model command and return the response *)
+  let execute_get_model_command = send_command_and_trace GetModelCmd
 
   (* Execute a get-unsat-core command and return the response *)
   let execute_get_unsat_core_command = send_command_and_trace GetUnsatCoreCmd
@@ -508,6 +589,16 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
     (* Send command to the solver without timeout *)
     execute_get_value_command solver cmd 0
+
+
+  (* Get values of expressions in the model *)
+  let get_model solver () = 
+
+    (* The command to send to the solver *)
+    let cmd = Format.sprintf "@[<hv 1>(get-model)@]" in
+
+    (* Send command to the solver without timeout *)
+    execute_get_model_command solver cmd 0
 
 
   (* Get an unsatisfiable core *)
@@ -825,6 +916,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
 
     let check_sat_assuming_supported = check_sat_assuming_supported
     let get_value = get_value solver
+    let get_model = get_model solver
     let get_unsat_core () = get_unsat_core solver
 
     let execute_custom_command = execute_custom_command solver

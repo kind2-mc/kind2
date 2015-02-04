@@ -24,13 +24,12 @@ open Conv
 
 open SolverResponse
 
-(* Dummy Event module when compiling a custom toplevel
+(* Dummy Event module when compiling a custom toplevel *)
 module Event = 
 struct
   let get_module () = `Parser
   let log _ = Format.printf
 end
-*)
 
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -99,6 +98,30 @@ type t =
        cleared on deletion or resets. *)
   }
 
+ 
+(* Conversions for SMTLIB *)
+let smtlib_string_sexpr_conv = 
+
+  GenericSMTLIBDriver.
+    ({ s_let = HString.mk_hstring "let";
+       s_forall = HString.mk_hstring "forall";
+       s_exists = HString.mk_hstring "exists";
+       s_div = HString.mk_hstring "/";
+       s_minus = HString.mk_hstring "-";
+       s_define_fun = HString.mk_hstring "define-fun";
+       const_of_atom = GenericSMTLIBDriver.const_of_smtlib_atom;
+       symbol_of_atom = GenericSMTLIBDriver.symbol_of_smtlib_atom;
+       type_of_sexpr = GenericSMTLIBDriver.type_of_smtlib_sexpr;
+       expr_of_string_sexpr = gen_expr_of_string_sexpr';
+       expr_or_lambda_of_string_sexpr = gen_expr_or_lambda_of_string_sexpr' } )
+ 
+
+let yices_expr_of_string_sexpr = 
+  GenericSMTLIBDriver.gen_expr_of_string_sexpr smtlib_string_sexpr_conv
+
+let yices_lambda_of_string_sexpr = 
+  GenericSMTLIBDriver.gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv
+
 
 
 
@@ -139,8 +162,8 @@ let register_model solver model =
          (* Format.eprintf "in model (= %a %a)@." *)
          (*   HStringSExpr.pp_print_sexpr e *)
          (*   HStringSExpr.pp_print_sexpr v; *)
-         let e_smte = Conv.expr_of_string_sexpr e in
-         let v_smte = Conv.expr_of_string_sexpr v in
+         let e_smte = yices_expr_of_string_sexpr e in
+         let v_smte = yices_expr_of_string_sexpr v in
 
          (* Convert to real if it should be *)
          let v_smte =
@@ -473,11 +496,12 @@ let ensure_symbol_qf_lira s =
 
   (* | `UF f when UfSymbol.arg_type_of_uf_symbol f = [] -> () *)
 
-  | `BV _
+(*  | `BV _ *)
   | `INTDIV
   | `DIVISIBLE _
   | `MOD
   | `ABS
+(*
   | `CONCAT
   | `EXTRACT _
   | `BVNOT
@@ -491,8 +515,9 @@ let ensure_symbol_qf_lira s =
   | `BVSHL
   | `BVLSHR
   | `BVULT
+*)
   | `SELECT
-  | `STORE
+(*  | `STORE *)
     ->
     let msg = Format.sprintf "Yices was run with set-arith-only, but the \
                               symbol %s is out of the supported theories."
@@ -760,34 +785,10 @@ let check_sat ?(timeout = 0) solver =
 (* Default values                                                        *)
 (* ********************************************************************* *)
 
-(* Default values for types (used to compensate for yices' incomplete models) *)
-let default_type_term =
-  let open Type in
-  let open Term in
-  function
-  (* Default boolean: false *)
-  | Bool -> mk_bool false
-  (* Default integer: 0 *)
-  | Int -> mk_num Numeral.zero
-  (* Take the first value of the range as its default *)
-  | IntRange (i, _) -> mk_num i
-  (* Default real: 0.0 *)
-  | Real -> mk_dec Decimal.zero
-  (* Take first constructor of scalar type as its default *)
-  | Scalar (_, c::_) ->
-    mk_const (Symbol.mk_symbol (`UF (UfSymbol.uf_symbol_of_string c)))
-  (* Take the bitvector 00000000...0 as default *)
-  | BV n -> mk_bv (Lib.bitvector_of_string (String.make n '0'))
-  (* We shouldn't ask default value for a whole array *)
-  | Array _ -> failwith "No defaut value for arrays"
-  | Scalar (_, []) -> failwith "No defaut value for empty scalars"
 
 (* Default SMTExpr.t value for a type *)
-let default_of_type solver ty =
-  ty
-  |> Type.node_of_type
-  |> default_type_term
-  |> Conv.smtexpr_of_term
+let default_of_type t =
+  TermLib.default_of_type t |> Conv.smtexpr_of_term
 
 
 (* Check satisfiability of the asserted expressions *)
@@ -832,69 +833,127 @@ let get_value solver expr_list =
 
   (* get-value is not supported by Yices so we simulate the command by looking
      up values in the registered model of the solver state *)
-  
+
   (* The fake SMTLIB command  *)
   let cmd =
     Format.asprintf
       "@[<hv 1>(get-value@ @[<hv 1>(%a)@])@]" 
       (pp_print_list pp_print_expr "@ ") expr_list;
   in
-  
+
   (* Trace the fake command but comment it *)
   solver.solver_trace_cmd ~commented:true cmd;
 
   match solver.solver_state with
-  | YModel model ->
+    | YModel model ->
 
-    (* Construct an assignment of state variables found in the model *)
-    let vars_assign =
-      SMTExprMap.fold (fun e v acc ->
-          try
-            (Conv.var_of_smtexpr e, Conv.term_of_smtexpr v) :: acc
-          with Invalid_argument _ ->
-            (* Ignore expressions that are not state variables *)
-            acc
-        ) model []
-    in
+      let vars_assign = Var.VarHashtbl.create (List.length expr_list) in
 
+      (* Construct an assignment of state variables found in the model *)
+      SMTExprMap.iter
+        (fun e v ->
 
-    let smt_expr_values =
-      List.fold_left
-        (fun acc e ->
-           let v =
-             try SMTExprMap.find e model
-             with Not_found ->
-               (* If the variable is not found in the model, use the default
-                   value for its type *)
-               try
-                 default_of_type solver
-                   (Var.type_of_var (Conv.var_of_smtexpr e))
-               with Invalid_argument _ ->
-                (* If the expression e is not a state variable, we evaluate it
-                   in the assignment of the model *)
-                 (* Format.eprintf "eval : %a@." Conv.pp_print_expr e; *)
-                 let ve =
-                   Eval.eval_term [] vars_assign (Conv.term_of_smtexpr e) in
-                 Eval.term_of_value ve
-           in
-           (e, v) :: acc
-         ) [] expr_list
-     in
+           try
+
+             Var.VarHashtbl.add
+               vars_assign 
+               (let t = Conv.var_term_of_smtexpr e in 
+                (* TODO: deal with arrays*)
+                assert (Term.is_free_var t);
+                Term.free_var_of_term t)
+               (Model.Term (Conv.term_of_smtexpr v))
+
+           (* Ignore expressions that are not state variables *)
+           with Invalid_argument _ -> ()
+        ) 
+        model;
 
 
-     (* List.iter (fun (e, v) -> *)
-     (*     assert(not (Term.equal e v)) ) smt_expr_values; *)
+      let smt_expr_values =
+        List.fold_left
+          (fun acc e ->
+             let v =
+               try 
+                 SMTExprMap.find e model
+               with Not_found ->
 
-     (* construct the response with the desired values *)
-     let res = `Values (List.rev smt_expr_values) in
-       
-     (* Trace the response of the solver *)
-     solver.solver_trace_res res;
+                 (* If the variable is not found in the model, use the default
+                     value for its type *)
+                 try
+                   default_of_type
+                     (Term.type_of_term (Conv.var_term_of_smtexpr e))
+                 with Invalid_argument _ ->
+                   (* If the expression e is not a state variable, we evaluate it
+                      in the assignment of the model *)
+                   (* Format.eprintf "eval : %a@." Conv.pp_print_expr e; *)
+                   let ve =
+                     Eval.eval_term [] vars_assign (Conv.term_of_smtexpr e) in
+                   Eval.term_of_value ve
+             in
+             (e, v) :: acc
+          ) [] expr_list
+      in
 
-     (* return the computed values *)
-     res
 
-  | _ -> failwith "Yices: No model to compute get-values"
+      (* List.iter (fun (e, v) -> *)
+      (*     assert(not (Term.equal e v)) ) smt_expr_values; *)
+
+      (* construct the response with the desired values *)
+      let res = `Values (List.rev smt_expr_values) in
+
+      (* Trace the response of the solver *)
+      solver.solver_trace_res res;
+
+      (* return the computed values *)
+      res
+
+    | _ -> failwith "Yices: No model to compute get-values"
+
+
+let get_model solver = 
+
+  (* get-value is not supported by Yices so we simulate the command by looking
+     up values in the registered model of the solver state *)
+
+  (* The fake SMTLIB command  *)
+  let cmd =
+    Format.asprintf
+      "@[<hv 1>(get-model)@]" 
+  in
+
+  (* Trace the fake command but comment it *)
+  solver.solver_trace_cmd ~commented:true cmd;
+
+  match solver.solver_state with
+    | YModel model ->
+
+      let vars_assign = 
+
+        (* Construct an assignment of state variables found in the model *)
+        SMTExprMap.fold
+          (fun e v a ->
+             
+             try
+               
+               (let t = Conv.var_term_of_smtexpr e in 
+                (* TODO: deal with arrays*)
+                assert (Term.is_free_var t);
+                Term.free_var_of_term t |> 
+                Var.unrolled_uf_of_state_var_instance,
+                Model.Term (Conv.term_of_smtexpr v)) :: a
+                 
+             (* Ignore expressions that are not state variables *)
+             with Invalid_argument _ -> a
+          ) 
+          model
+          []
+      in
+
+      `Model vars_assign
+
+    | _ -> failwith "Yices: No model to compute get-values"
+
+
 
 
 (* Get an unsatisfiable core *)
@@ -1244,7 +1303,9 @@ module Create (P : SolverSig.Params) : SolverSig.Inst = struct
 
   let check_sat_assuming_supported = check_sat_assuming_supported
   let get_value = get_value solver
+  let get_model () = get_model solver
   let get_unsat_core () = get_unsat_core solver
+
 
   let execute_custom_command = execute_custom_command solver
   let execute_custom_check_sat_command cmd =

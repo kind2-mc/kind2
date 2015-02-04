@@ -41,6 +41,28 @@ if test "x$CC" = "xno"; then
 fi
 
 # ######################################################################
+# git version suffix      
+# ######################################################################
+
+AC_ARG_WITH(
+    [version-suffix],
+    AS_HELP_STRING([--with-version-suffix@<:@=VER@:>@], [Append version suffix to binary @<:@default: no, --with-version-suffix adds the git hash, --with-version-suffix=VER adds the suffix VER@:>@]),
+    [],
+    [with_version_suffix=no])
+
+if test "x$with_version_suffix" = "xyes"; then
+   bin_suffix='-`git rev-parse --short HEAD`'
+
+elif test "x$with_version_suffix" = "xno"; then
+   bin_suffix=''
+     
+else
+   bin_suffix=$with_version_suffix
+fi
+
+AC_SUBST(bin_suffix)
+
+# ######################################################################
 # Debug builds            
 # ######################################################################
 

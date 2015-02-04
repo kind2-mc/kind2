@@ -65,14 +65,14 @@ let split trans solver k falsifiable to_split actlits =
 
   (* Function to run if sat. *)
   let if_sat () =
-    (* Get-model function. *)
-    let get_model = SMTSolver.get_model solver in
-    (* Getting the model. *)
-    let model = TransSys.vars_of_bounds trans k k
-                |> get_model in
-    (* Extracting the counterexample. *)
+
+    (* Get the full model *)
+    let model = SMTSolver.get_model solver in
+
+    (* Extract counterexample from model *)
     let cex =
-      TransSys.path_from_model trans get_model k in
+      Model.path_from_model (TransSys.state_vars trans) model k in
+
     (* Evaluation function. *)
     let eval term =
       Eval.eval_term (TransSys.uf_defs trans) model term
@@ -271,7 +271,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
             List.iter
               ( fun (s,_) ->
                 Event.prop_status
-                  (TransSys.PropFalse cex) trans s )
+                  (TransSys.PropFalse (Model.path_to_list cex)) trans s )
               p ) ;
 
      (* K plus one. *)

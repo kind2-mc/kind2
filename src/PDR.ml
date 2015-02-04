@@ -662,14 +662,7 @@ let rec block solver trans_sys prop_set term_tbl =
 
             (* Get counterexample as a pair of states from satisfiable
                query *)
-            let cti = 
-              SMTSolver.get_model 
-                solver
-                (TransSys.vars_of_bounds
-                   trans_sys
-                   Numeral.zero
-                   Numeral.one) 
-            in
+            let cti = SMTSolver.get_model solver in
 
             (* Extrapolate from counterexample to a cube in R_k
 
@@ -993,14 +986,7 @@ let rec block solver trans_sys prop_set term_tbl =
             | r_pred_i :: frames_tl -> 
               
               (* Get counterexample from satisfiable query *)
-              let cti = 
-                SMTSolver.get_model 
-                  solver
-                  (TransSys.vars_of_bounds
-                     trans_sys
-                     Numeral.zero
-                     Numeral.one) 
-              in
+              let cti = SMTSolver.get_model solver in
               
               (* Generalize the counterexample to a list of literals
                  
@@ -1076,11 +1062,7 @@ let rec partition_rel_inductive
   let some_clauses_not_inductive () =
     
     (* Get model for failed entailment check *)
-    let model = 
-      SMTSolver.get_model
-        solver
-        (TransSys.vars_of_bounds trans_sys Numeral.one Numeral.one)
-    in
+    let model = SMTSolver.get_model solver in
         
     (* Separate not inductive terms from potentially inductive terms 
        
@@ -1170,11 +1152,7 @@ let partition_fwd_prop
     let keep_some () =
 
       (* Get model for failed entailment check *)
-      let model = 
-        SMTSolver.get_model
-          solver
-          (TransSys.vars_of_bounds trans_sys Numeral.one Numeral.one)
-      in
+      let model = SMTSolver.get_model solver in
 
       (* Separate not propagateable terms from potentially propagateable
          terms
@@ -1556,48 +1534,57 @@ let rec pdr solver trans_sys prop_set frames =
 (* Get a values for the state variables at offset [i], add values to
    path, and return an equational constraint at offset zero for values
    from the model *)
-let add_to_path get_model state_vars path i = 
+let add_to_path model path state_vars i = 
 
-  (* Get a model for the variables at instant [i] *)
-  let model_i =
-    get_model
-      (List.map
-         (fun sv -> 
-            Var.mk_state_var_instance sv i)
-         state_vars)
-  in
-  
   (* Turn variable instances to state variables and sort list *)
-  let model_i' =
-    List.sort
-      (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
-      (List.map
-         (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
-         model_i)
+  let model_i, state_eqs =
+
+    List.fold_left
+      (fun (m, eq) sv -> 
+
+         let v = Var.mk_state_var_instance sv i in
+
+         let t = 
+
+           match Var.VarHashtbl.find model v with 
+             
+             | Model.Term t as t_or_l -> t
+               
+             | exception Not_found -> 
+
+               TermLib.default_of_type 
+                 (StateVar.type_of_state_var sv)
+                                         
+             | Model.Lambda _ -> assert false
+               
+         in
+
+         (* Create equation *)
+         ((sv, Model.Term t) :: m), 
+         Term.mk_eq 
+           [Term.mk_var 
+              (Var.set_offset_of_state_var_instance Numeral.zero v);
+            t]
+         :: eq)
+
+      ([], [])
+      state_vars
+
   in
   
   (* Join values of model at current instant to result *)
   let path' = 
     list_join
       StateVar.equal_state_vars
-      model_i'
+      (List.sort
+         (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
+         model_i)
       path
   in
 
   (* Conjunction of equations to constrain previous state to be equal
      to unprimed state in model *)
-  let state = 
-    List.map 
-      (fun (v, t) -> 
-         Term.mk_eq 
-           [Term.mk_var
-              (Var.mk_state_var_instance
-                 (Var.state_var_of_state_var_instance v)
-                 Numeral.zero);
-            t])
-      model_i
-    |> Term.mk_and
-  in
+  let state = Term.mk_and state_eqs in
   
   (* Return path with state added and constraint for state *)
   (path', state)
@@ -1641,8 +1628,8 @@ let extract_cex_path solver trans_sys trace =
            let path', state = 
              add_to_path
                (SMTSolver.get_model solver)
-               state_vars
                path
+               (TransSys.state_vars trans_sys)
                Numeral.one
            in
 
@@ -1689,8 +1676,8 @@ let extract_cex_path solver trans_sys trace =
                 constraint for state *)
              add_to_path
                (SMTSolver.get_model solver)
-               state_vars
                []
+               (TransSys.state_vars trans_sys)
                Numeral.zero)
 
           (* Counterexample trace must be satisfiable *)
@@ -1801,7 +1788,7 @@ let rec restart_loop trans_sys solver props =
                        (TransSys.uf_defs trans_sys)
                        ((=) (Eval.ValBool false))
                        t
-                       cex_path
+                       (Model.path_of_list cex_path)
 
                    then
 
@@ -1927,14 +1914,14 @@ let rec bmc_checks solver trans_sys props =
   let not_entailed props k () = 
 
     (* Get model for all variables of transition system *)
-    let model = 
-      TransSys.vars_of_bounds trans_sys k k
-      |> SMTSolver.get_model solver
-    in
+    let model = SMTSolver.get_model solver in
 
     (* Extract counterexample from solver *)
     let cex =
-      TransSys.path_from_model trans_sys (SMTSolver.get_model solver) k 
+      Model.path_from_model
+        (TransSys.state_vars trans_sys)
+        model
+        k 
     in
 
     (* Evaluate term in model *)
@@ -2009,7 +1996,7 @@ let rec bmc_checks solver trans_sys props =
           List.iter
             (fun (s, _) ->
                Event.prop_status
-                 (TransSys.PropFalse cex)
+                 (TransSys.PropFalse (Model.path_to_list cex))
                  trans_sys
                  s)
             falsifiable;

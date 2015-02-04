@@ -187,7 +187,7 @@ let rec conj_of_goal accum = function
   | t :: tl -> 
 
      conj_of_goal 
-       (Conv.term_of_smtexpr (Conv.expr_of_string_sexpr t) :: accum)
+       (Conv.term_of_smtexpr (GenericSMTLIBDriver.expr_of_string_sexpr t) :: accum)
        tl
 
 
@@ -267,7 +267,7 @@ let term_of_pformula = function
   | [t] -> term_of_pterm t
   | l -> Term.mk_and (List.map term_of_pterm l)
 
-
+(*
 let check_implication trans_sys prem_str conc_str prem conc = 
 
   (* Get or create a Z3 instance to check the results *)
@@ -328,7 +328,7 @@ let check_generalize trans_sys model elim term term' =
     (Conv.smtexpr_of_term term')
     qe_term
     
-
+*)
 
 (* From a conjunction of Boolean state variables return a conjunction
    only containing the state variables not to be eliminated *)
@@ -576,7 +576,7 @@ let solve_eqs vars terms =
 
 
 
-let generalize trans_sys uf_defs model (elim : Var.t list) term =
+let generalize trans_sys uf_defs model elim term =
 
   (debug qe
      "@[<hv>Generalizing@ @[<hv>%a@]@]@ for variables@ @[<hv>%a@]@."
@@ -586,7 +586,7 @@ let generalize trans_sys uf_defs model (elim : Var.t list) term =
 
   (debug qe
      "@[<hv>with the model@ @[<hv>%a@]@]@."
-     Term.pp_print_term (SMTSolver.term_of_model model)
+     Model.pp_print_model model
      end);
   
   (* Extract active path from term and model *)

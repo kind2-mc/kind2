@@ -217,7 +217,9 @@ module CandidateTermGen = struct
              | `OR
              | `XOR
              | `DISTINCT
+(*
              | `BVULT
+*)
              | `IS_INT ->
                 TSet.add (flat_to_term flat) set
 
