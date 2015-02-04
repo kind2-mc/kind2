@@ -49,10 +49,7 @@ val define_fun : t -> UfSymbol.t -> Var.t list -> Term.t -> unit
 
 
 (** {1 Primitives} *)
-(*
-(** Raise an exception if the response is not success *)
-val fail_on_smt_error : SolverResponse.response -> unit
-*)
+
 (** Assert an SMT expression in the current context *)
 val assert_expr : t -> SMTExpr.t -> unit
 
@@ -97,13 +94,6 @@ val get_unsat_core_lits : t -> Term.t list
 
 
 (** {1 Higher-level functions} *)
-(*
-(** Check satisfiability of the formula in the current context
-
-    The optional parameter [timeout] limits the maximum runtime to
-    the given number of milliseconds *)
-val check_sat_term : ?timeout:int -> t -> Term.t list -> bool
-*)
 
 (** Checks satisfiability of the current context assuming the given
     list of literals, and evaluate one of two continuation functions
@@ -131,32 +121,6 @@ val check_sat_assuming : t ->
   Term.t list ->
 
   'a
-(*
-(** Check satisfiability of the formula in the current context and
-    return a model
-
-    The optional parameter [timeout] limits the maximum runtime to
-    the given number of milliseconds *)
-val check_sat_term_model :
-  ?timeout:int -> t -> Term.t list -> bool * Model.t
-*)
-(*
-(** Check entailment of the second formula by the conjunction of the
-    first formulas in the current context
-
-    The optional parameter [timeout] limits the maximum runtime to
-    the given number of milliseconds *)
-val check_entailment : ?timeout:int -> t -> Term.t list -> Term.t -> bool
-
-(** Check entailment of the second formula by conjunction of the
-    first formulas in the current context and return a
-    counterexample if the entailment is not valid
-
-    The optional parameter [timeout] limits the maximum runtime to
-    the given number of milliseconds *)
-val check_entailment_cex :
-  ?timeout:int -> t -> Term.t list -> Term.t -> bool * (Var.t * Term.t) list 
-*)
 
 (** Execute the a custom command with the given arguments, and expect
     the given number of S-expressions as a result *)
@@ -169,11 +133,6 @@ val execute_custom_check_sat_command :
 
 
 (** {1 Utility functions} *)
-
-(*
-(** For a model return a conjunction of equations representing the model *)
-val term_of_model : (Var.t * Term.t) list -> Term.t
-*)
 
 val converter : t -> (module SMTExpr.Conv)
 

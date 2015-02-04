@@ -572,24 +572,6 @@ let get_unsat_core_lits s =
 (* Higher level functions                                               *)
 (* ******************************************************************** *)
 
-(* Check satisfiability of formula in current context *)
-let check_sat_term ?(timeout = 0) solver terms = 
-
-  (* Push context *)
-  push solver;
-
-  (* Assert formulas *)
-  List.iter (assert_term solver) terms;
-
-  (* Result of check-sat was Sat? *)
-  let res = check_sat ~timeout solver in
-
-  (* Pop context *)
-  pop solver;
-
-  res
-
-
 (* Checks satisfiability of some literals, runs if_sat if sat and if_unsat if
    unsat. *)
 let check_sat_assuming s if_sat if_unsat literals =
@@ -648,110 +630,6 @@ let check_sat_assuming s if_sat if_unsat literals =
     
     res
     
-
-
-(* Check satisfiability of formula in current context and return a
-   model for variables in formula if satisfiable *)
-let check_sat_term_model ?(timeout = 0) solver terms = 
-
-  (* Push context *)
-  push solver;
-
-  (* Assert formula *)
-  List.iter (assert_term solver) terms;
-
-  (* Result of check-sat was Sat? *)
-  let res = check_sat ~timeout solver in
-
-  (* Model of context *)
-  let model = 
-
-    (* Context is satisfiable? *)
-    if res then 
-
-      (* Get variables of term *)
-      let vars = Var.VarSet.elements (Term.vars_of_term (Term.mk_and terms)) in
-
-      (* Get model of context *)
-      get_var_values solver vars 
-
-    else
-
-      (* Return an empty model *)
-      Var.VarHashtbl.create 1
-
-  in
-
-  (* Pop context *)
-  pop solver;
-
-  (* Return result and model *)
-  res, model
-
-(*
-
-(* Check satisfiability of formula in current context *)
-let check_entailment ?(timeout = 0) solver prems conc = 
-
-  (* Push context *)
-  push solver;
-
-  (* Assert premise and negated conclusion *)
-  List.iter (assert_term solver) prems;
-  assert_term solver (Term.mk_not conc);
-
-  (* Result of check-sat was Sat? *)
-  let res = not (check_sat ~timeout solver) in
-
-  (* Pop context *)
-  pop solver;
-
-  res
-
-
-(* Check satisfiability of formula in current context *)
-let check_entailment_cex ?(timeout = 0) solver prems conc = 
-
-  (* Push context *)
-  push solver;
-
-  (* Assert premise and negated conclusion *)
-  List.iter (assert_term solver) prems;
-  assert_term solver (Term.mk_not conc);
-
-  (* Result of check-sat was Sat? *)
-  let res = not (check_sat ~timeout solver) in
-
-  (* Model of context *)
-  let model = 
-
-    (* Entailment holds? *)
-    if res then 
-
-      (* Return an empty model *)
-      []
-
-    else
-
-      (* Get variables of term *)
-      let vars = 
-        Var.VarSet.elements 
-          (Term.vars_of_term 
-             (Term.mk_and ((Term.mk_not conc) :: prems)))
-      in
-
-      (* Get model of context *)
-      get_model solver vars 
-
-  in
-
-  (* Pop context *)
-  pop solver;
-
-  (* Return result and model *)
-  res, model
-*)
-
 let execute_custom_command s cmd args num_res =
   let module S = (val s.solver_inst) in
   S.execute_custom_command cmd args num_res
@@ -765,16 +643,6 @@ let execute_custom_check_sat_command cmd s =
 (* ******************************************************************** *)
 (* Utiliy functions                                                     *)
 (* ******************************************************************** *)
-
-(*
-(* For a model return a conjunction of equations representing the model *)
-let term_of_model model = 
-
-  Term.mk_and
-    (List.map 
-       (function (v, e) -> Term.mk_eq [Term.mk_var v; e])
-       model)
-*)
 
 let converter s =
   let module S = (val s.solver_inst) in
