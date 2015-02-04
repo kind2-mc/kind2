@@ -322,7 +322,7 @@ module MdlMap =
       let int_of_kind_module = function
         | `Parser -> -3
         | `Interpreter -> -2
-        | `INVMAN -> -1
+        | `Supervisor -> -1
         | `BMC -> 1
         | `IND -> 2
         | `PDR -> 3
@@ -373,7 +373,7 @@ let pt_string_of_kind_module = function
   | `IND -> "inductive step"
   | `INVGEN -> "two state invariant generator"
   | `INVGENOS -> "one state invariant generator"
-  | `INVMAN -> "invariant manager"
+  | `Supervisor -> "supervisor"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
 
@@ -610,7 +610,7 @@ let xml_src_of_kind_module = function
   | `IND -> "indstep"
   | `INVGEN -> "invgen"
   | `INVGENOS -> "invgenos"
-  | `INVMAN -> "invman"
+  | `Supervisor -> "supervisor"
   | `Interpreter -> "interpreter"
   | `Parser -> "parser"
 

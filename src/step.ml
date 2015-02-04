@@ -30,12 +30,17 @@ let print_stats () =
      Stat.ind_stats_title, Stat.ind_stats;
      Stat.smt_stats_title, Stat.smt_stats]
 
+(* Stops the timers of the base stats. *)
+let stop_timers () =
+  (* Stopping all timers. *)
+  Stat.ind_stop_timers ();
+  Stat.smt_stop_timers ()
+
 (* Clean up before exit *)
 let on_exit _ =
 
-  (* Stopping all timers. *)
-  Stat.ind_stop_timers ();
-  Stat.smt_stop_timers ();
+  (* Stopping timers. *)
+  stop_timers () ;
 
   (* Output statistics *)
   print_stats () ;
@@ -52,8 +57,6 @@ let on_exit _ =
        Event.log L_error
                  "IND @[<v>Error deleting solver_init:@ %s@]"
                  (Printexc.to_string e))
-
-let stop () = ()
 
 (* Returns true if the input property is not an invariant and has not
    been disproved. *)
@@ -473,7 +476,7 @@ let rec next trans solver k unfalsifiables unknowns =
   match unknowns', unfalsifiables' with
   | [], [] ->
      (* Nothing left to do. *)
-     stop ()
+     stop_timers ()
   | [], _ ->
      (* Need to wait for base confirmation. *)
      minisleep 0.001 ;

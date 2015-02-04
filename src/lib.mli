@@ -31,6 +31,23 @@ val true_of_unit : unit -> bool
 (** Returns false when given unit. *)
 val false_of_unit : unit -> bool
 
+
+(** {1 Event tags} *)
+
+(** Timeout tag. *)
+val timeout_tag : string
+(** Success tag. *)
+val success_tag : string
+(** Failure tag. *)
+val failure_tag : string
+(** Error tag. *)
+val error_tag : string
+(** Interruption tag. *)
+val interruption_tag : string
+
+
+
+
 (** {1 Option types} *)
 
 (** Return the value of an option type, raise [Invalid_argument "get"]
@@ -267,8 +284,8 @@ type kind_module =
   | `IND
   | `INVGEN
   | `INVGENOS
-  | `INVMAN
   | `Interpreter
+  | `Supervisor
   | `Parser ]
 
 

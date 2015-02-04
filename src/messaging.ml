@@ -35,8 +35,8 @@ exception NotInitialized
 
 
 (* Return true if the process is the invariant manages *)
-let is_invariant_manager = function 
-  | `INVMAN -> true
+let is_supervisor = function 
+  | `Supervisor -> true
   | _ -> false
 
 
@@ -607,7 +607,7 @@ struct
               | Terminate -> 
 
                 enqueue
-                  (`INVMAN, payload) 
+                  (`Supervisor, payload) 
                   incoming_handled
 
               (* Workers do not resend messages *)
@@ -653,7 +653,7 @@ struct
 
                     (* Accept message *)
                     enqueue 
-                      (`INVMAN, payload) 
+                      (`Supervisor, payload) 
                       incoming_handled;
 
                     (* Store message *)
@@ -718,7 +718,7 @@ struct
               let sender, message = (msg_of_zmsg (zmsg)) in
 
               enqueue
-                (`INVMAN, message) 
+                (`Supervisor, message) 
                 incoming_handled
 
             );
@@ -1095,7 +1095,7 @@ struct
              (
 
                (* get any messages from invariant manager *)
-               recv_messages sub_sock (is_invariant_manager proc);
+               recv_messages sub_sock (is_supervisor proc);
 
                (* handle incoming messages *)
                if (not !debug_mode) then 
@@ -1231,7 +1231,7 @@ struct
             on_exit 
         in
 
-        initialized_process := Some(`INVMAN);
+        initialized_process := Some(`Supervisor);
 
         ignore(p) (* thread identifier, might come in handy *)
 
