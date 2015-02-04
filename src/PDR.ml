@@ -1534,48 +1534,41 @@ let rec pdr solver trans_sys prop_set frames =
 (* Get a values for the state variables at offset [i], add values to
    path, and return an equational constraint at offset zero for values
    from the model *)
-let add_to_path model path i = 
+let add_to_path model path state_vars i = 
 
   (* Turn variable instances to state variables and sort list *)
   let model_i, state_eqs =
 
-    Var.VarHashtbl.fold
+    List.fold_left
+      (fun (m, eq) sv -> 
 
-      (fun v t_or_l (m, eq) ->
+         let v = Var.mk_state_var_instance sv i in
 
-         if 
+         let t = 
 
-           (* Only consider variables at given offset *)
-           Var.is_const_state_var v ||
-           Numeral.(equal (Var.offset_of_state_var_instance v) i) 
-
-         then
-
-           (* Add to association list for path *)
-           ((Var.state_var_of_state_var_instance v, t_or_l) :: m), 
-
-           (* Distinguish array and term values *)
-           match t_or_l with 
-
-             | Model.Term t -> 
+           match Var.VarHashtbl.find model v with 
+             
+             | Model.Term t as t_or_l -> t
                
-               (* Create equation *)
-               Term.mk_eq 
-                 [Term.mk_var 
-                    (Var.set_offset_of_state_var_instance Numeral.zero v);
-                  t]
-               :: eq
+             | exception Not_found -> 
 
-             (* TODO: support arrays *)
+               TermLib.default_of_type 
+                 (StateVar.type_of_state_var sv)
+                                         
              | Model.Lambda _ -> assert false
+               
+         in
 
-         else 
-
-           m, eq)
-
-      model
+         (* Create equation *)
+         ((sv, Model.Term t) :: m), 
+         Term.mk_eq 
+           [Term.mk_var 
+              (Var.set_offset_of_state_var_instance Numeral.zero v);
+            t]
+         :: eq)
 
       ([], [])
+      state_vars
 
   in
   
@@ -1636,6 +1629,7 @@ let extract_cex_path solver trans_sys trace =
              add_to_path
                (SMTSolver.get_model solver)
                path
+               (TransSys.state_vars trans_sys)
                Numeral.one
            in
 
@@ -1683,6 +1677,7 @@ let extract_cex_path solver trans_sys trace =
              add_to_path
                (SMTSolver.get_model solver)
                []
+               (TransSys.state_vars trans_sys)
                Numeral.zero)
 
           (* Counterexample trace must be satisfiable *)
