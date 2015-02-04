@@ -50,7 +50,7 @@ let trans_sys = ref None
 let main_of_process = function 
   | `PDR -> PDR.main
   | `BMC -> BMC.main 
-  | `IND -> if Flags.ind_backward () then Pets.main else Step.main
+  | `IND -> Step.main
 
   | `INVGEN -> 
 
@@ -104,7 +104,7 @@ let main_of_process = function
 let on_exit_of_process = function 
   | `PDR -> PDR.on_exit
   | `BMC -> BMC.on_exit 
-  | `IND -> if Flags.ind_backward () then Pets.on_exit else Step.on_exit
+  | `IND -> Step.on_exit
   | `INVGEN -> InvGenTS.on_exit  
   | `INVGENOS -> InvGenOS.on_exit  
   | `Interpreter -> Interpreter.on_exit

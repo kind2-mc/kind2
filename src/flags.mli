@@ -100,10 +100,6 @@ val bmc_max : unit -> bmc_max
 type check_version = bool
 val check_version : unit -> check_version
 
-(** Unroll the system backwards *)
-type ind_backward = bool
-val ind_backward : unit -> ind_backward
-
 (** Compresss inductive counterexample *)
 type ind_compress = bool
 val ind_compress : unit -> ind_compress
