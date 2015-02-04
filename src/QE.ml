@@ -267,7 +267,7 @@ let term_of_pformula = function
   | [t] -> term_of_pterm t
   | l -> Term.mk_and (List.map term_of_pterm l)
 
-
+(*
 let check_implication trans_sys prem_str conc_str prem conc = 
 
   (* Get or create a Z3 instance to check the results *)
@@ -328,7 +328,7 @@ let check_generalize trans_sys model elim term term' =
     (Conv.smtexpr_of_term term')
     qe_term
     
-
+*)
 
 (* From a conjunction of Boolean state variables return a conjunction
    only containing the state variables not to be eliminated *)

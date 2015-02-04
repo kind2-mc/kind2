@@ -131,7 +131,7 @@ val check_sat_assuming : t ->
   Term.t list ->
 
   'a
-
+(*
 (** Check satisfiability of the formula in the current context and
     return a model
 
@@ -139,7 +139,7 @@ val check_sat_assuming : t ->
     the given number of milliseconds *)
 val check_sat_term_model :
   ?timeout:int -> t -> Term.t list -> bool * Model.t
-
+*)
 (*
 (** Check entailment of the second formula by the conjunction of the
     first formulas in the current context
