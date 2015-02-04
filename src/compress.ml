@@ -153,7 +153,7 @@ let offset_of_vars m =
            (* Ensure all variable have the same offset *)
            assert 
              (if Var.is_state_var_instance v then 
-                Var.offset_of_state_var_instance v = o
+                Numeral.(equal (Var.offset_of_state_var_instance v) o)
               else
                 true);
 
