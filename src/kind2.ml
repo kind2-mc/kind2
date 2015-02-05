@@ -236,8 +236,19 @@ module Stop = struct
        |> Event.log_prop_status
             L_fatal
 
+  (* Actually exits with an exit code. *)
+  let actually_exit status =
+
+    (* Close tags in XML output. *)
+    Event.terminate_log () ;
+
+    (* Exit with status. *)
+    exit status
+
   (* Clean exit depending on a status. *)
-  let clean_exit status =
+  let clean_exit
+        ?(exit_after_killing_kids = true)
+        status =
 
     (* Log termination status. *)
     if not (!child_pids = []) then
@@ -264,15 +275,12 @@ module Stop = struct
 
     print_final_statistics () ;
 
-    (* Close tags in XML output. *)
-    Event.terminate_log () ;
-
-    (* Exit with status. *)
-    exit status
+    if exit_after_killing_kids then
+        actually_exit status
 
 
   (* Clean up before exit. *)
-  let on_exit process exn =
+  let on_exit ?(exit_after_killing_kids = true) process exn =
 
     (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
@@ -375,7 +383,7 @@ module Stop = struct
 
         with TimeoutWall -> () ) ;
 
-      clean_exit status
+      clean_exit exit_after_killing_kids status
 
     with
 
@@ -386,7 +394,7 @@ module Stop = struct
          L_info 
          "All child processes terminated.";
 
-       clean_exit status
+       clean_exit exit_after_killing_kids status
 
     (* Unix.wait was interrupted. *)
     | Unix.Unix_error (Unix.EINTR, _, _) ->
@@ -394,7 +402,7 @@ module Stop = struct
        (* Get new exit status. *)
        let status' = status_of_exn process (Signal 0) in
 
-       clean_exit status'
+       clean_exit exit_after_killing_kids status'
 
     (* Exception in Unix.wait loop. *)
     | e ->
@@ -402,7 +410,7 @@ module Stop = struct
        (* Get new exit status. *)
        let status' = status_of_exn process e in
 
-       clean_exit status'
+       clean_exit exit_after_killing_kids status'
 
 
   (* Call cleanup function of process and exit. 
