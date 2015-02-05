@@ -268,11 +268,13 @@ let on_exit process exn =
 
   (* Ignore SIGALRM from now on. *)
   Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
+  (* Ignore SIGINT from now on. *)
+  Sys.set_signal Sys.sigint Sys.Signal_ignore;
+  (* Ignore SIGTERM from now on. *)
+  Sys.set_signal Sys.sigterm Sys.Signal_ignore;
 
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process exn in
-
-  Event.terminate () ;
   
   Event.log L_info "Killing all remaining child processes." ;
 
@@ -302,7 +304,7 @@ let on_exit process exn =
     let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
       Unix.setitimer
         Unix.ITIMER_REAL 
-        { Unix.it_interval = 0. ; Unix.it_value = 10. }
+        { Unix.it_interval = 0. ; Unix.it_value = 1. }
     in
 
     ( try
@@ -345,7 +347,7 @@ let on_exit process exn =
   (* Unix.wait was interrupted. *)
   | Unix.Unix_error (Unix.EINTR, _, _) -> 
 
-     Event.log L_info "unix.wait was interrupted." ;
+     Format.printf "unix.wait was interrupted@." ;
 
      (* Get new exit status. *)
      let status' = status_of_exn process (Signal 0) in
@@ -355,7 +357,7 @@ let on_exit process exn =
   (* Exception in Unix.wait loop. *)
   | e ->
 
-     Event.log L_info "Exception in unix.wait loop." ;
+      Format.printf "Exception in unix.wait loop@." ;
 
      (* Get new exit status. *)
      let status' = status_of_exn process e in
@@ -537,9 +539,9 @@ let run_process messaging_setup process =
        ( try
 
            (* Install generic signal handler for SIGTERM. *)
-           (* Sys.set_signal *)
-           (*   Sys.sigterm *)
-           (*   (Sys.Signal_handle exception_on_signal) ; *)
+           Sys.set_signal
+             Sys.sigterm
+             (Sys.Signal_handle exception_on_signal) ;
 
            (* Install generic signal handler for SIGINT. *)
            (* Sys.set_signal *)
@@ -631,6 +633,10 @@ let run_process messaging_setup process =
         (* Termination message received. *)
         | Event.Terminate as e ->
            on_exit_child None process e
+
+        (* Propagating signal exceptions. *)
+        | Signal s ->
+           exception_on_signal s
 
         (* Catch all other exceptions. *)
         | e -> 
@@ -1112,7 +1118,6 @@ let main () =
   with
 
   | e ->
-     (* Exit with error. *)
 
      (* Which modules are enabled? *)
      ( match Flags.enable () with
@@ -1127,7 +1132,11 @@ let main () =
           on_exit_child None p e
 
        | _ ->
-          on_exit `Supervisor e )
+          ( match Event.get_module () with
+            | `Supervisor ->
+               on_exit `Supervisor e
+            | m ->
+               on_exit_child None m e ) )
 
 ;;
 
