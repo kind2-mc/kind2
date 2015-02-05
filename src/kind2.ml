@@ -141,14 +141,17 @@ let status_of_exn process = function
 
   (* Signal caught. *)
   | Signal s ->
-     Event.log
-       L_fatal
-       "%s Caught signal%t. Terminating."
-       interruption_tag
-       ( fun ppf ->
-         match s with
-         | 0 -> ()
-         | _ -> string_of_signal s |> Format.fprintf ppf " %s" ) ;
+     ( match Event.get_module () with
+       | `Supervisor ->
+          Event.log
+            L_fatal
+            "%s Caught signal%t. Terminating."
+            interruption_tag
+            ( fun ppf ->
+              match s with
+              | 0 -> ()
+              | _ -> string_of_signal s |> Format.fprintf ppf " %s" ) ;
+       | _ -> () ) ;
      (* Return exit status and signal number. *)
      status_signal + s
 
@@ -196,6 +199,27 @@ let print_final_statistics () =
      |> Event.log_prop_status
           L_fatal
 
+(* Handle events by broadcasting messages, updating local transition
+   system version etc. *)
+let handle_events trans_sys = 
+
+  (* Receive queued events. *)
+  let events = Event.recv () in
+
+  (* Output events. *)
+  List.iter 
+    (function (m, e) -> 
+      Event.log
+        L_debug
+        "Message received from %a: %a"
+        pp_print_kind_module m
+        Event.pp_print_event e)
+    events;
+
+  (* Update transition system from events. *)
+  Event.update_trans_sys trans_sys events
+  |> ignore
+
 (* Clean exit depending on a status. *)
 let clean_exit status =
 
@@ -216,6 +240,11 @@ let clean_exit status =
        ( fun (pid, _) ->
          try Unix.kill (- pid) Sys.sigkill
          with _ -> () ) ;
+
+  (* Receiving last messages. *)
+  ( match !trans_sys with
+    | None -> ()
+    | Some sys -> handle_events sys ) ;
 
   print_final_statistics () ;
 
@@ -276,14 +305,11 @@ let on_exit process exn =
   (* Exit status of process depends on exception. *)
   let status = status_of_exn process exn in
   
-  Event.log L_info "Killing all remaining child processes." ;
+  Event.log L_info "Terminating all remaining child processes." ;
 
   (* Kill all child processes. *)
   List.iter 
-    (function pid, _ -> 
-
-      Event.log L_info "Sending SIGTERM to PID %d." pid ;
-
+    (function pid, _ ->
       Unix.kill pid Sys.sigterm)
 
     !child_pids ;
@@ -318,14 +344,24 @@ let on_exit process exn =
           ( try Unix.kill (- pid) Sys.sigkill
             with _ -> () );
 
-          (* Remove killed process from list. *)
-          child_pids := List.remove_assoc pid !child_pids;
-
           (* Log termination status. *)
           Event.log
             L_info
-            "Process %d %a."
-            pid pp_print_process_status status
+            "Process %a (pid %d) %a."
+            (* Pretty printer for [kind_module] option. *)
+            ( fun ppf module_opt ->
+              match module_opt with
+              | Some m ->
+                 Format.fprintf
+                   ppf "%a" pp_print_kind_module m
+              | None -> Format.fprintf ppf "unknown" )
+            (* Finding the module corresponding to the pid. *)
+            (try Some(List.assoc pid !child_pids) with Not_found -> None)
+            pid
+            pp_print_process_status status ;
+
+          (* Remove killed process from list. *)
+          child_pids := List.remove_assoc pid !child_pids
 
         done
 
@@ -345,9 +381,7 @@ let on_exit process exn =
      clean_exit status
 
   (* Unix.wait was interrupted. *)
-  | Unix.Unix_error (Unix.EINTR, _, _) -> 
-
-     Format.printf "unix.wait was interrupted@." ;
+  | Unix.Unix_error (Unix.EINTR, _, _) ->
 
      (* Get new exit status. *)
      let status' = status_of_exn process (Signal 0) in
@@ -356,8 +390,6 @@ let on_exit process exn =
 
   (* Exception in Unix.wait loop. *)
   | e ->
-
-      Format.printf "Exception in unix.wait loop@." ;
 
      (* Get new exit status. *)
      let status' = status_of_exn process e in
@@ -458,69 +490,32 @@ let rec wait_for_children child_pids =
 
   )
 
-(* Handle events by broadcasting messages, updating local transition
-   system version etc. *)
-let handle_events trans_sys = 
-
-  (* Receive queued events. *)
-  let events = Event.recv () in
-
-  (* Output events. *)
-  List.iter 
-    (function (m, e) -> 
-      Event.log
-        L_debug
-        "Message received from %a: %a"
-        pp_print_kind_module m
-        Event.pp_print_event e)
-    events;
-
-  (* Update transition system from events. *)
-  Event.update_trans_sys trans_sys events
-  |> ignore
-
 (* Polling loop. *)
-let rec polling_loop is_done child_pids trans_sys = 
+let rec polling_loop child_pids trans_sys = 
 
   handle_events trans_sys ;
 
-  let is_done' =
-    (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then (
+  if TransSys.all_props_proved trans_sys then (
+    Event.log
+      L_info
+      "<Done> All properties proved or disproved in %.3fs."
+      (Stat.get_float Stat.total_time) ;
 
-      ( if not is_done then
-          Event.log L_info
-            "<Done> All properties proved or disproved in %.3fs."
-            (Stat.get_float Stat.total_time)
-        else
-          Event.log L_info
-            "All properties proved or disproved,@ \
-             waiting for children to terminate." ) ;
-      
-      Event.terminate () ;
+    on_exit `Supervisor Exit
 
-      true
+  ) else if
+    (* Check if child processes have died and exit if necessary *)
+    wait_for_children child_pids
+  then
+    on_exit `Supervisor Exit
 
-    ) else false
-  in
-
-  (* Check if child processes have died and exit if necessary *)
-  if wait_for_children child_pids then (
-
-    (* Get messages after termination of all processes. *)
-    handle_events trans_sys ;
-
-    (* All properties proved? *)
-    if TransSys.all_props_proved trans_sys then
-      Event.terminate ()
-
-  ) else (
+  else (
 
     (* Sleep. *)
     minisleep 0.01 ;
 
     (* Continue polling loop. *)
-    polling_loop is_done' child_pids trans_sys
+    polling_loop child_pids trans_sys
 
   )
 
@@ -1106,7 +1101,7 @@ let main () =
         in
 
         (* Run invariant manager *)
-        polling_loop false child_pids (get !trans_sys) ;
+        polling_loop child_pids (get !trans_sys) ;
         
         (* Exit without error *)
         on_exit `Supervisor Exit
