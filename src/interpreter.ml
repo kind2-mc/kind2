@@ -162,7 +162,11 @@ let main input_file trans_sys =
 
     (* Create solver instance *)
     let solver = 
-      SMTSolver.create_instance ~produce_assignments:true logic (Flags.smtsolver ())
+      SMTSolver.create_instance
+        ~produce_assignments:true
+        (TransSys.get_scope trans_sys)
+        42
+        logic (Flags.smtsolver ())
     in
 
     (* Create a reference for the solver. Only used in on_exit. *)

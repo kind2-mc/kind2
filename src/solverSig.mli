@@ -27,6 +27,12 @@ module type Params = sig
 
   val produce_proofs : bool
 
+  (* The scope of the (sub)system under analysis. *)
+  val scope : string list
+
+  (* The max depth of the analysis currently running. *)
+  val max_depth : int
+
   val logic : Term.logic
 
   val id : int

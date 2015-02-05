@@ -41,7 +41,8 @@ type t =
   { solver_kind : Flags.smtsolver;
     solver_inst : (module SolverSig.Inst);
     (* Hashtable associating generated names to terms *)
-    term_names : (int, expr) Hashtbl.t;
+    term_names : (int, expr) Hashtbl.t ;
+    analysis_id : string list * int ;
     id : int
   }
 
@@ -77,6 +78,10 @@ let create_instance
     ?produce_assignments
     ?produce_proofs
     ?produce_cores
+    (* Scope of the (sub)system under analysis. *)
+    scope
+    (* Maximal depth of the analysis. *)
+    max_depth
     l
     kind =
       
@@ -86,6 +91,8 @@ let create_instance
     let produce_assignments = bool_of_bool_option produce_assignments
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
+    let scope = scope
+    let max_depth = max_depth
     let logic = l
     let id = id
   end
@@ -101,9 +108,10 @@ let create_instance
     | `detect -> assert false
   in
 
-  { solver_kind = kind;
-    solver_inst = fomodule;
-    term_names = Hashtbl.create 19;
+  { solver_kind = kind ;
+    solver_inst = fomodule ;
+    term_names = Hashtbl.create 19 ;
+    analysis_id =  scope, max_depth ;
     id = id }
 
 (* Delete a solver instance *)

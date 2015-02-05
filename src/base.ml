@@ -315,7 +315,10 @@ let init trans =
 
   (* Creating solver. *)
   let solver =
-    SMTSolver.create_instance ~produce_assignments:true
+    SMTSolver.create_instance
+      ~produce_assignments:true
+      (TransSys.get_scope trans)
+      42
       (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 

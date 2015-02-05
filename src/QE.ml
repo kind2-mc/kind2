@@ -37,12 +37,15 @@ let get_solver_instance trans_sys =
 
     (* Need to create a new instance *)
     | None -> 
- 
-      (* Create solver instance : only Z3 for the moment *)
-      let solver = SMTSolver.create_instance
-          ~produce_assignments:true
-          (TransSys.get_logic trans_sys)
-          `Z3_SMTLIB
+
+       (* Create solver instance : only Z3 for the moment *)
+       let solver =
+         SMTSolver.create_instance
+           ~produce_assignments:true
+           (TransSys.get_scope trans_sys)
+           42
+           (TransSys.get_logic trans_sys)
+           `Z3_SMTLIB
       in
       
       (* Declare uninterpreted function symbols *)
@@ -89,6 +92,8 @@ let get_checking_solver_instance trans_sys =
       let solver =     
         SMTSolver.create_instance 
           ~produce_assignments:true
+          (TransSys.get_scope trans_sys)
+          42
           `UFLIA
           (Flags.smtsolver ())
       in

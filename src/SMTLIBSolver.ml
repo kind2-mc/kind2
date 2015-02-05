@@ -554,7 +554,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
   (* ********************************************************************* *)
 
   (* Formatter writing to SMT trace file *)
-  let create_trace_ppf id = 
+  let create_trace_ppf scope max_depth id = 
 
     (* Tracing of SMT commands enabled? *)
     if Flags.smt_trace () then 
@@ -563,8 +563,11 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       let trace_filename = 
         Filename.concat
           (Flags.smt_trace_dir ())
-          (Format.sprintf "%s.%s.%d.%s" 
+          (Format.sprintf
+             "%s.%s-%d.%s.%d.%s"
              (Filename.basename (Flags.input_file ()))
+             (String.concat "-" scope)
+             max_depth
              (suffix_of_kind_module (Event.get_module ()))
              id
              trace_extension
@@ -658,6 +661,10 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       ?(produce_assignments=false)
       ?(produce_proofs=false)
       ?(produce_cores=false)
+      (* Scope of the (sub)system under analysis. *)
+      scope
+      (* Max depth of the analysis currently running. *)
+      max_depth
       logic
       id =
 
@@ -698,7 +705,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
 
     (* Create trace functions *)
-    let trace_ppf = create_trace_ppf id in
+    let trace_ppf = create_trace_ppf scope max_depth id in
     (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
     let ftrace_cmd = trace_cmd trace_ppf in
     let ftrace_res = trace_res trace_ppf in
@@ -809,6 +816,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
         ~produce_proofs:P.produce_proofs
+        P.scope P.max_depth
         P.logic P.id
 
     let delete_instance () = delete_instance solver

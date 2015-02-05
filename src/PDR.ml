@@ -2713,6 +2713,8 @@ let main trans_sys =
     SMTSolver.create_instance
       ~produce_assignments:true
       ~produce_cores:produce_cores
+      (TransSys.get_scope trans_sys)
+      42
       logic
       (Flags.smtsolver ())
   in
@@ -2757,6 +2759,8 @@ let main trans_sys =
     SMTSolver.create_instance
       ~produce_assignments:true
       ~produce_cores:produce_cores
+      (TransSys.get_scope trans_sys)
+      42
       logic
       (Flags.smtsolver ())
   in
@@ -2789,7 +2793,9 @@ let main trans_sys =
      invariance of blocking clauses) *)
   let solver_misc = 
     SMTSolver.create_instance
-      ~produce_assignments:true 
+      ~produce_assignments:true
+      (TransSys.get_scope trans_sys)
+      42
       logic
       (Flags.smtsolver ())
   in

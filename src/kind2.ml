@@ -246,7 +246,7 @@ module Stop = struct
     exit status
 
   (* Clean exit depending on a status. *)
-  let clean_exit status =
+  let clean_exit exit_after_killing_kids status =
 
     (* Log termination status. *)
     if not (!child_pids = []) then

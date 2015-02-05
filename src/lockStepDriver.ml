@@ -317,7 +317,9 @@ let unroll_sys
 let create two_state top_only sys =
 
   let new_inst_sys () =
-    SMTSolver.create_instance ~produce_assignments: true
+    SMTSolver.create_instance
+      ~produce_assignments: true
+      (TransSys.get_scope sys) 42
       (TransSys.get_logic sys) (Flags.smtsolver ())
   in
 
