@@ -31,173 +31,20 @@ module InvGenOS = InvGenGraph.OneState
   after an exception. *)
 let child_pids = ref []
 
+(* Pretty prints a kind module from a pid by looking in
+   [child_pids]. *)
+let pp_print_kind_module_of_pid ppf pid =
+  try
+    List.assoc pid !child_pids
+    |> Format.fprintf
+         ppf "%a" pp_print_kind_module
+  with Not_found ->
+    Format.fprintf ppf "unknown"
+
 (* Reference to the transition system under analysis for clean
    exit. *)
 let trans_sys = ref None
 
-(* Renices a process. *)
-let renice_process module_string nice =
-  if nice < 0 then
-    (* Ignoring negative value. *)
-    Event.log
-      L_info
-      "Ignoring negative niceness value for %s."
-      module_string
-  else if nice > 0 then
-    (* Legal renicing value. *)
-    Unix.nice nice
-    |> Event.log
-         L_info
-         "Renicing %s to %d."
-         module_string
-
-(* Returns the main function of a process. *)
-let main_of_process = function
-  | `BMC -> BMC.main
-
-  | `IND -> IND.main
-
-  | `PDR -> PDR.main
-
-  | `INVGEN ->
-     (* Renicing two state invgen. *)
-     Flags.invgengraph_renice ()
-     |> renice_process "two state invariant generation" ;
-     (* Returning main function. *)
-     InvGenTS.main
-
-  | `INVGENOS ->
-     (* Renicing one state invgen. *)
-     Flags.invgengraph_renice ()
-     |> renice_process "one state invariant generation" ;
-     (* Returning main function. *)
-     InvGenOS.main
-
-  | `Interpreter ->
-     (* Launches the interpreter on the input file. *)
-     Flags.interpreter_input_file ()
-     |> Interpreter.main
-
-  | `Supervisor
-  | `Parser ->
-     (* This should never happen. *)
-     assert false
-
-(* Cleanup function of a process. *)
-let on_exit_of_process = function
-  | `PDR -> PDR.on_exit
-  | `BMC -> BMC.on_exit
-  | `IND -> IND.on_exit
-  | `INVGEN -> InvGenTS.on_exit
-  | `INVGENOS -> InvGenOS.on_exit
-  | `Interpreter -> Interpreter.on_exit
-  | `Supervisor
-  | `Parser ->
-     Format.printf "Requested on_exit on supervisor or parser.\n" ;
-     (* This should never happen. *)
-     assert false
-
-(* Debug name of a process. *)
-let debug_ext_of_process = suffix_of_kind_module
-
-(* Exit status if child terminated normally. *)
-let status_ok = 0
-
-(* Exit status if child caught a signal, the signal number is added
-   to the value. *)
-let status_signal = 128
-
-(* Exit status if child raised an exception. *)
-let status_error = 2
-
-(* Exit status if timed out. *)
-let status_timeout = 3
-
-(* Returns the status corresponding to an exception, possibly
-   notifying the user in the process. *)
-let status_of_exn process = function
-
-  (* Normal termination. *)
-  | Exit ->
-     status_ok
-
-  (* Termination message. *)
-  | Event.Terminate ->
-     Event.log
-       L_info "Received termination message." ;
-     status_ok
-
-  (* Catch wallclock timeout. *)
-  | TimeoutWall ->
-     Event.log
-       L_error "%s Wallclock timeout." timeout_tag ;
-     status_timeout
-
-  (* Catch CPU timeout. *)
-  | TimeoutVirtual ->
-     Event.log
-       L_error "%s CPU timeout." timeout_tag ;
-     status_timeout
-
-  (* Signal caught. *)
-  | Signal s ->
-     ( match Event.get_module () with
-       | `Supervisor ->
-          Event.log
-            L_fatal
-            "%s Caught signal%t. Terminating."
-            interruption_tag
-            ( fun ppf ->
-              match s with
-              | 0 -> ()
-              | _ -> string_of_signal s |> Format.fprintf ppf " %s" ) ;
-       | _ -> () ) ;
-     (* Return exit status and signal number. *)
-     status_signal + s
-
-  (* Other exception. *)
-  | e ->
-     (* Get backtrace now, Printf changes it. *)
-     let backtrace = Printexc.get_backtrace () in
-     (* Outputting info about the error. *)
-     Printexc.to_string e
-     |> Event.log
-          L_fatal
-          "%s Runtime error: %s"
-          error_tag ;
-     if Printexc.backtrace_status () then
-       (* Outputting backtrace. *)
-       Event.log
-         L_debug "Backtrace:@\n%s" backtrace ;
-     (* Return exit status for error. *)
-     status_error
-
-(* Prints the final statistics of the analysis. *)
-let print_final_statistics () =
-
-  (* Printing header. *)
-  Event.log
-    L_info
-    "@[<v>%a@,Final statistics:@]"
-    pp_print_hline () ;
-
-  (* Printing stats for each module. *)
-  Event.all_stats ()
-  |> List.iter
-       ( fun (mdl, stat) ->
-         Event.log_stat mdl L_info stat ) ;
-
-  (* Printing result for the properties of the top level. *)
-  (* TODO: this should be factored and changed for compositional
-       analysis. Probably a function printing the (sub)system(s)
-       should be passed as an argument, or should be set statically by
-       looking at the flags. *)
-  match !trans_sys with
-  | None -> ()
-  | Some sys ->
-     TransSys.get_prop_status_all_unknown sys
-     |> Event.log_prop_status
-          L_fatal
 
 (* Handle events by broadcasting messages, updating local transition
    system version etc. *)
@@ -220,45 +67,214 @@ let handle_events trans_sys =
   Event.update_trans_sys trans_sys events
   |> ignore
 
-(* Clean exit depending on a status. *)
-let clean_exit status =
+(* Aggregates functions related to starting processes. *)
+module Start = struct
 
-  (* Log termination status. *)
-  if not (!child_pids = []) then
+  (* Renices a process. *)
+  let renice_process module_string nice =
+    if nice < 0 then
+      (* Ignoring negative value. *)
+      Event.log
+        L_info
+        "Ignoring negative niceness value for %s."
+        module_string
+    else if nice > 0 then
+      (* Legal renicing value. *)
+      Unix.nice nice
+      |> Event.log
+           L_info
+           "Renicing %s to %d."
+           module_string
 
+  (* Returns the main function of a process. *)
+  let main_of_process = function
+    | `BMC -> BMC.main
+
+    | `IND -> IND.main
+
+    | `PDR -> PDR.main
+
+    | `INVGEN ->
+       (* Renicing two state invgen. *)
+       Flags.invgengraph_renice ()
+       |> renice_process "two state invariant generation" ;
+       (* Returning main function. *)
+       InvGenTS.main
+
+    | `INVGENOS ->
+       (* Renicing one state invgen. *)
+       Flags.invgengraph_renice ()
+       |> renice_process "one state invariant generation" ;
+       (* Returning main function. *)
+       InvGenOS.main
+
+    | `Interpreter ->
+       (* Launches the interpreter on the input file. *)
+       Flags.interpreter_input_file ()
+       |> Interpreter.main
+
+    | `Supervisor
+    | `Parser ->
+       (* This should never happen. *)
+       assert false
+
+end
+
+(* Aggregates functions related to stopping processes. *)
+module Stop = struct
+
+  (* Cleanup function of a process. *)
+  let on_exit_of_process = function
+    | `PDR -> PDR.on_exit
+    | `BMC -> BMC.on_exit
+    | `IND -> IND.on_exit
+    | `INVGEN -> InvGenTS.on_exit
+    | `INVGENOS -> InvGenOS.on_exit
+    | `Interpreter -> Interpreter.on_exit
+    | `Supervisor
+    | `Parser ->
+       Format.printf "Requested on_exit on supervisor or parser.\n" ;
+       (* This should never happen. *)
+       assert false
+
+  (* Exit status if child terminated normally. *)
+  let status_ok = 0
+
+  (* Exit status if child caught a signal, the signal number is added
+   to the value. *)
+  let status_signal = 128
+
+  (* Exit status if child raised an exception. *)
+  let status_error = 2
+
+  (* Exit status if timed out. *)
+  let status_timeout = 3
+
+  (* Returns the status corresponding to an exception, possibly
+   notifying the user in the process. *)
+  let status_of_exn process = function
+
+    (* Normal termination. *)
+    | Exit ->
+       status_ok
+
+    (* Termination message. *)
+    | Event.Terminate ->
+       Event.log
+         L_info "Received termination message." ;
+       status_ok
+
+    (* Catch wallclock timeout. *)
+    | TimeoutWall ->
+       Event.log
+         L_error "%s Wallclock timeout." timeout_tag ;
+       status_timeout
+
+    (* Catch CPU timeout. *)
+    | TimeoutVirtual ->
+       Event.log
+         L_error "%s CPU timeout." timeout_tag ;
+       status_timeout
+
+    (* Signal caught. *)
+    | Signal s ->
+       ( match Event.get_module () with
+         | `Supervisor ->
+            Event.log
+              L_fatal
+              "%s Caught signal%t. Terminating."
+              interruption_tag
+              ( fun ppf ->
+                match s with
+                | 0 -> ()
+                | _ -> string_of_signal s |> Format.fprintf ppf " %s" ) ;
+         | _ -> () ) ;
+       (* Return exit status and signal number. *)
+       status_signal + s
+
+    (* Other exception. *)
+    | e ->
+       (* Get backtrace now, Printf changes it. *)
+       let backtrace = Printexc.get_backtrace () in
+       (* Outputting info about the error. *)
+       Printexc.to_string e
+       |> Event.log
+            L_fatal
+            "%s Runtime error: %s"
+            error_tag ;
+       if Printexc.backtrace_status () then
+         (* Outputting backtrace. *)
+         Event.log
+           L_debug "Backtrace:@\n%s" backtrace ;
+       (* Return exit status for error. *)
+       status_error
+
+  (* Prints the final statistics of the analysis. *)
+  let print_final_statistics () =
+
+    (* Printing header. *)
     Event.log
       L_info
-      "Processe(s) (%a) did not exit, killing them."
-      (pp_print_list 
-         (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
-      !child_pids;
+      "@[<v>%a@,Final statistics:@]"
+      pp_print_hline () ;
 
-  (* Kill all remaining processes in the process groups of child
-     processes. *)
-  !child_pids
-  |> List.iter
-       ( fun (pid, _) ->
-         try Unix.kill (- pid) Sys.sigkill
-         with _ -> () ) ;
+    (* Printing stats for each module. *)
+    Event.all_stats ()
+    |> List.iter
+         ( fun (mdl, stat) ->
+           Event.log_stat mdl L_info stat ) ;
 
-  (* Receiving last messages. *)
-  ( match !trans_sys with
+    (* Printing result for the properties of the top level. *)
+    (* TODO: this should be factored and changed for compositional
+       analysis. Probably a function printing the (sub)system(s)
+       should be passed as an argument, or should be set statically by
+       looking at the flags. *)
+    match !trans_sys with
     | None -> ()
-    | Some sys -> handle_events sys ) ;
+    | Some sys ->
+       TransSys.get_prop_status_all_unknown sys
+       |> Event.log_prop_status
+            L_fatal
 
-  print_final_statistics () ;
+  (* Clean exit depending on a status. *)
+  let clean_exit status =
 
-  (* Close tags in XML output. *)
-  Event.terminate_log () ;
+    (* Log termination status. *)
+    if not (!child_pids = []) then
 
-  (* Exit with status. *)
-  exit status
+      Event.log
+        L_info
+        "Processe(s) (%a) did not exit, killing them."
+        (pp_print_list 
+           (fun ppf (pid, _) -> Format.pp_print_int ppf pid) ",@ ") 
+        !child_pids;
+
+    (* Kill all remaining processes in the process groups of child
+     processes. *)
+    !child_pids
+    |> List.iter
+         ( fun (pid, _) ->
+           try Unix.kill (- pid) Sys.sigkill
+           with _ -> () ) ;
+
+    (* Receiving last messages. *)
+    ( match !trans_sys with
+      | None -> ()
+      | Some sys -> handle_events sys ) ;
+
+    print_final_statistics () ;
+
+    (* Close tags in XML output. *)
+    Event.terminate_log () ;
+
+    (* Exit with status. *)
+    exit status
 
 
-(* Clean up before exit. *)
-let on_exit process exn =
+  (* Clean up before exit. *)
+  let on_exit process exn =
 
-(*
+    (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
 
     Format.fprintf
@@ -293,142 +309,139 @@ let on_exit process exn =
   Event.log L_info
     "@[<hv>Hashconsing for symbols:@,%a@]"
     pp_print_hashcons_stat (Symbol.stats ());
-*)
+     *)
 
-  (* Ignore SIGALRM from now on. *)
-  Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
-  (* Ignore SIGINT from now on. *)
-  Sys.set_signal Sys.sigint Sys.Signal_ignore;
-  (* Ignore SIGTERM from now on. *)
-  Sys.set_signal Sys.sigterm Sys.Signal_ignore;
+    (* Ignore SIGALRM from now on. *)
+    Sys.set_signal Sys.sigalrm Sys.Signal_ignore;
+    (* Ignore SIGINT from now on. *)
+    Sys.set_signal Sys.sigint Sys.Signal_ignore;
+    (* Ignore SIGTERM from now on. *)
+    Sys.set_signal Sys.sigterm Sys.Signal_ignore;
 
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn process exn in
-  
-  Event.log L_info "Terminating all remaining child processes." ;
+    (* Exit status of process depends on exception. *)
+    let status = status_of_exn process exn in
+    
+    Event.log L_info "Terminating all remaining child processes." ;
 
-  (* Kill all child processes. *)
-  List.iter 
-    (function pid, _ ->
-      Unix.kill pid Sys.sigterm)
+    (* Kill all child processes. *)
+    List.iter 
+      (function pid, _ ->
+                     Unix.kill pid Sys.sigterm)
 
-    !child_pids ;
+      !child_pids ;
 
-  Event.log
-    L_info
-    "Waiting for remaining child processes to terminate." ;
+    Event.log
+      L_info
+      "Waiting for remaining child processes to terminate." ;
 
-  try
+    try
 
-    (* Install signal handler for SIGALRM after wallclock timeout. *)
-    Sys.set_signal
-      Sys.sigalrm
-      ( Sys.Signal_handle
-          (fun _ -> raise TimeoutWall) ) ;
+      (* Install signal handler for SIGALRM after wallclock timeout. *)
+      Sys.set_signal
+        Sys.sigalrm
+        ( Sys.Signal_handle
+            (fun _ -> raise TimeoutWall) ) ;
 
-    (* Set interval timer for wallclock timeout. *)
-    let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
-      Unix.setitimer
-        Unix.ITIMER_REAL 
-        { Unix.it_interval = 0. ; Unix.it_value = 1. }
-    in
+      (* Set interval timer for wallclock timeout. *)
+      let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+        Unix.setitimer
+          Unix.ITIMER_REAL 
+          { Unix.it_interval = 0. ; Unix.it_value = 1. }
+      in
 
-    ( try
+      ( try
 
-        while true do
+          while true do
 
-          (* Wait for child process to terminate. *)
-          let pid, status = Unix.wait () in
+            (* Wait for child process to terminate. *)
+            let pid, status = Unix.wait () in
 
-          (* Kill processes left in process group of child process. *)
-          ( try Unix.kill (- pid) Sys.sigkill
-            with _ -> () );
+            (* Kill processes left in process group of child process. *)
+            ( try Unix.kill (- pid) Sys.sigkill
+              with _ -> () );
 
-          (* Log termination status. *)
-          Event.log
-            L_info
-            "Process %a (pid %d) %a."
-            (* Pretty printer for [kind_module] option. *)
-            ( fun ppf module_opt ->
-              match module_opt with
-              | Some m ->
-                 Format.fprintf
-                   ppf "%a" pp_print_kind_module m
-              | None -> Format.fprintf ppf "unknown" )
-            (* Finding the module corresponding to the pid. *)
-            (try Some(List.assoc pid !child_pids) with Not_found -> None)
-            pid
-            pp_print_process_status status ;
+            (* Log termination status. *)
+            Event.log
+              L_info
+              "Process %5d %a [%a]."
+              pid
+              pp_print_process_status status
+              pp_print_kind_module_of_pid pid ;
 
-          (* Remove killed process from list. *)
-          child_pids := List.remove_assoc pid !child_pids
+            (* Remove killed process from list. *)
+            child_pids := List.remove_assoc pid !child_pids
 
-        done
+          done
 
-      with TimeoutWall -> () ) ;
+        with TimeoutWall -> () ) ;
 
-    clean_exit status
+      clean_exit status
 
-  with
+    with
 
-  (* No more child processes, this is the normal exit. *)
-  | Unix.Unix_error (Unix.ECHILD, _, _) -> 
+    (* No more child processes, this is the normal exit. *)
+    | Unix.Unix_error (Unix.ECHILD, _, _) -> 
 
-     Event.log
-       L_info 
-       "All child processes terminated.";
+       Event.log
+         L_info 
+         "All child processes terminated.";
 
-     clean_exit status
+       clean_exit status
 
-  (* Unix.wait was interrupted. *)
-  | Unix.Unix_error (Unix.EINTR, _, _) ->
+    (* Unix.wait was interrupted. *)
+    | Unix.Unix_error (Unix.EINTR, _, _) ->
 
-     (* Get new exit status. *)
-     let status' = status_of_exn process (Signal 0) in
+       (* Get new exit status. *)
+       let status' = status_of_exn process (Signal 0) in
 
-     clean_exit status'
+       clean_exit status'
 
-  (* Exception in Unix.wait loop. *)
-  | e ->
+    (* Exception in Unix.wait loop. *)
+    | e ->
 
-     (* Get new exit status. *)
-     let status' = status_of_exn process e in
+       (* Get new exit status. *)
+       let status' = status_of_exn process e in
 
-     clean_exit status'
+       clean_exit status'
 
 
-(* Call cleanup function of process and exit. 
+  (* Call cleanup function of process and exit. 
 
    Give the exception [exn] that was raised or [Exit] on normal
    termination. *)
-let on_exit_child messaging_thread process exn =
+  let on_exit_child messaging_thread process exn =
 
-  (* Exit status of process depends on exception. *)
-  let status = status_of_exn process exn in
+    (* Exit status of process depends on exception. *)
+    let status = status_of_exn process exn in
 
-  (* Call cleanup of process. *)
-  (on_exit_of_process process) !trans_sys ;
+    (* Call cleanup of process. *)
+    (on_exit_of_process process) !trans_sys ;
 
-  (* Logging termination event. *)
-  Unix.getpid ()
-  |> Event.log
-       L_info 
-       "Process %d terminating." ;
+    (* Logging termination event. *)
+    Unix.getpid ()
+    |> Event.log
+         L_info 
+         "Process %d terminating." ;
 
-  Event.terminate_log ();
-  
-  (match messaging_thread with 
-    | Some t -> Event.exit t
-    | None -> ());
+    Event.terminate_log ();
+    
+    (match messaging_thread with 
+     | Some t -> Event.exit t
+     | None -> ());
 
-  ( debug
-      kind2
-      "Process %a terminating."
-      pp_print_kind_module process
-    in
+    ( debug
+        kind2
+        "Process %a terminating."
+        pp_print_kind_module process
+      in
 
-    (* Exit process with status. *)
-    exit status )
+      (* Exit process with status. *)
+      exit status )
+
+end
+
+(* Debug name of a process. *)
+let debug_ext_of_process = suffix_of_kind_module
 
 
 (* Remove terminated child processed from list of running processes.
@@ -439,12 +452,12 @@ let rec wait_for_children child_pids =
   match 
     
     ( try
-       (* Check if any child process has died, return immediately. *)
-       Unix.waitpid [Unix.WNOHANG] (- 1) 
+        (* Check if any child process has died, return immediately. *)
+        Unix.waitpid [Unix.WNOHANG] (- 1) 
 
-     with
-       (* Catch error if there is no child process. *)
-       Unix.Unix_error (Unix.ECHILD, _, _) -> 0, Unix.WEXITED 0 )
+      with
+        (* Catch error if there is no child process. *)
+        Unix.Unix_error (Unix.ECHILD, _, _) -> 0, Unix.WEXITED 0 )
 
   with 
 
@@ -464,11 +477,11 @@ let rec wait_for_children child_pids =
       pp_print_kind_module (List.assoc child_pid !child_pids) 
       pp_print_process_status status ;
 
-        (* Remove child process from list *)
-        child_pids := List.remove_assoc child_pid !child_pids;
+    (* Remove child process from list *)
+    child_pids := List.remove_assoc child_pid !child_pids;
 
-        (* Check if more child processes have died *)
-        wait_for_children child_pids
+    (* Check if more child processes have died *)
+    wait_for_children child_pids
 
   )
 
@@ -501,13 +514,13 @@ let rec polling_loop child_pids trans_sys =
       "<Done> All properties proved or disproved in %.3fs."
       (Stat.get_float Stat.total_time) ;
 
-    on_exit `Supervisor Exit
+    Stop.on_exit `Supervisor Exit
 
   ) else if
     (* Check if child processes have died and exit if necessary *)
     wait_for_children child_pids
   then
-    on_exit `Supervisor Exit
+    Stop.on_exit `Supervisor Exit
 
   else (
 
@@ -556,7 +569,7 @@ let run_process messaging_setup process =
              Event.run_process
                process
                messaging_setup
-               (on_exit_child None process)
+               (Stop.on_exit_child None process)
            in
 
            (* All log messages are sent to the invariant manager
@@ -617,17 +630,17 @@ let run_process messaging_setup process =
                   | Sys_error _ -> () );
 
           (* Run main function of process. *)
-          get !trans_sys |> main_of_process process ;
+          get !trans_sys |> Start.main_of_process process ;
 
           (* Cleanup and exit. *)
-          on_exit_child
+          Stop.on_exit_child
             (Some messaging_thread) process Exit
 
         with 
 
         (* Termination message received. *)
         | Event.Terminate as e ->
-           on_exit_child None process e
+           Stop.on_exit_child None process e
 
         (* Propagating signal exceptions. *)
         | Signal s ->
@@ -652,7 +665,7 @@ let run_process messaging_setup process =
                L_debug "Backtrace:@\n%s" backtrace ;
 
            (* Cleanup and exit. *)
-           on_exit_child None process e
+           Stop.on_exit_child None process e
 
       )
 
@@ -1055,14 +1068,14 @@ let main () =
         Event.set_module p ;
 
         (* Run main function of process. *)
-        (main_of_process p) (get !trans_sys) ;
+        (Start.main_of_process p) (get !trans_sys) ;
           
         (* Ignore SIGALRM from now on *)
         Sys.set_signal
           Sys.sigalrm Sys.Signal_ignore ;
 
         (* Cleanup before exiting process *)
-        on_exit_child None p Exit
+        Stop.on_exit_child None p Exit
             
       )
 
@@ -1097,14 +1110,14 @@ let main () =
           Event.run_im
             messaging_setup
             !child_pids
-            (on_exit `INVMAN)
+            (Stop.on_exit `INVMAN)
         in
 
         (* Run invariant manager *)
         polling_loop child_pids (get !trans_sys) ;
         
         (* Exit without error *)
-        on_exit `Supervisor Exit
+        Stop.on_exit `Supervisor Exit
         
       );
 
@@ -1124,14 +1137,14 @@ let main () =
        | [p] ->
           (* Single module enabled. *)
           (* Cleanup before exiting process. *)
-          on_exit_child None p e
+          Stop.on_exit_child None p e
 
        | _ ->
           ( match Event.get_module () with
             | `Supervisor ->
-               on_exit `Supervisor e
+               Stop.on_exit `Supervisor e
             | m ->
-               on_exit_child None m e ) )
+               Stop.on_exit_child None m e ) )
 
 ;;
 
