@@ -277,7 +277,7 @@ let models_of_path path =
            (fun i t_or_l m -> 
 
               (* Add assignment to variable to model *)
-              VT.add m (Var.mk_state_var_instance sv i) t_or_l;
+              VT.add m (Var.mk_state_var_instance sv Numeral.zero) t_or_l;
 
               (* Increment counter for zero *)
               Numeral.(succ i))
