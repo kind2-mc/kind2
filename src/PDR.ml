@@ -172,6 +172,15 @@ let frame_sizes frames =
   aux [] frames
 
 
+(* Compute the frame sizes of a delta-encoded list of frames *)
+let frame_sizes_block frames trace = 
+
+  (* Frames with frames from trace *)
+  let frames' = List.rev_append (List.map snd trace) frames in
+
+  frame_sizes frames'
+
+
 (* Check if for two successive frames R_i-1 & T |= R_i *)
 let rec check_frames' solver prop_set accum = function
 
@@ -958,7 +967,9 @@ let rec block solver trans_sys prop_set term_tbl =
           in
 
           (* Update frame size statistics *)
-          (* Stat.set_int_list (frame_sizes frames) Stat.pdr_frame_sizes; *)
+          Stat.set_int_list
+            (frame_sizes_block frames trace) 
+            Stat.pdr_frame_sizes; 
 
           (* Add clause to frame and continue with next clauses in
              this frame *)
