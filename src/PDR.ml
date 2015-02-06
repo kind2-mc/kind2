@@ -2689,7 +2689,7 @@ let rec pdr
      exceptions.
 
 *)
-let main trans_sys =
+let main trans_sys depth_opt =
 
   if 
     not (Flags.pdr_qe () = `Cooper) && 
@@ -2714,7 +2714,7 @@ let main trans_sys =
       ~produce_assignments:true
       ~produce_cores:produce_cores
       (TransSys.get_scope trans_sys)
-      42
+      depth_opt
       logic
       (Flags.smtsolver ())
   in
@@ -2760,7 +2760,7 @@ let main trans_sys =
       ~produce_assignments:true
       ~produce_cores:produce_cores
       (TransSys.get_scope trans_sys)
-      42
+      depth_opt
       logic
       (Flags.smtsolver ())
   in
@@ -2795,7 +2795,7 @@ let main trans_sys =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_scope trans_sys)
-      42
+      depth_opt
       logic
       (Flags.smtsolver ())
   in

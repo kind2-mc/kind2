@@ -31,7 +31,7 @@ module type Params = sig
   val scope : string list
 
   (* The max depth of the analysis currently running. *)
-  val max_depth : int
+  val max_depth : int option
 
   val logic : Term.logic
 

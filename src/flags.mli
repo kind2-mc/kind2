@@ -92,6 +92,22 @@ val smt_trace_dir : unit -> smt_trace_dir
 type enable = Lib.kind_module list
 val enable : unit -> enable 
 
+(** Compositional analysis *)
+type compositional = bool
+val compositional : unit -> compositional
+
+(** Contract-based analysis. *)
+type contracts = bool
+val contracts : unit -> contracts
+
+(** Optional contracts max abstraction depth. *)
+type contracts_max_abstr_depth = int option
+val contracts_max_abstr_depth : unit -> contracts_max_abstr_depth
+
+(** Verification of subnodes requirements. *)
+type contracts_subrequirements = bool
+val contracts_subrequirements : unit -> contracts_subrequirements
+
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
 val bmc_max : unit -> bmc_max

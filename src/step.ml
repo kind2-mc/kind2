@@ -624,7 +624,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
 
 (* Initializes the solver for the first check. *)
-let launch trans =
+let launch trans depth_opt =
   (* Starting the timer. *)
   Stat.start_timer Stat.ind_total_time;
 
@@ -637,7 +637,7 @@ let launch trans =
   let solver =
     SMTSolver.create_instance
       ~produce_assignments:true
-      (TransSys.get_scope trans) 42
+      (TransSys.get_scope trans) depth_opt
       (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
@@ -668,7 +668,9 @@ let launch trans =
     Numeral.(~- one) Numeral.zero ;
 
   (* Constraining max depth. *)
-  TransSys.get_max_depth trans
+  ( match depth_opt with
+    | None -> TransSys.get_max_depth trans
+    | Some n -> Numeral.of_int n )
   |> TransSys.depth_inputs_constraint trans
   |> SMTSolver.assert_term solver ;
 
@@ -687,17 +689,17 @@ let launch trans =
   next trans solver Numeral.zero [] unknowns
 
 (* Runs the step instance. *)
-let main trans = 
+let main trans depth_opt =
 
   if not (List.mem `BMC (Flags.enable ())) then
 
-    Event.log 
+    Event.log
       L_warn 
       "@[<v>Inductive step without BMC will not be able to prove or@ \
        disprove any properties.@,\
        Use both options --enable BMC --enable IND together.@]";
       
-  launch trans
+  launch trans depth_opt
 
 
 (* 

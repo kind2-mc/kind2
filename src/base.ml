@@ -304,7 +304,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
        next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
-let init trans =
+let init trans depth_opt =
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
@@ -318,7 +318,7 @@ let init trans =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_scope trans)
-      42
+      depth_opt
       (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
@@ -340,7 +340,9 @@ let init trans =
     Numeral.(~- one) Numeral.zero ;
 
   (* Constraining max depth. *)
-  TransSys.get_max_depth trans
+  ( match depth_opt with
+    | None -> TransSys.get_max_depth trans
+    | Some n -> Numeral.of_int n )
   |> TransSys.depth_inputs_constraint trans
   |> SMTSolver.assert_term solver ;
 
@@ -357,8 +359,8 @@ let init trans =
   (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
-let main trans =
-  init trans |> next
+let main trans depth_opt =
+  init trans depth_opt |> next
 
 
 (* 

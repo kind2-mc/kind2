@@ -132,7 +132,7 @@ type t = {
   (* Transition predicate of the system. *)
   trans: pred_def ;
 
-  (* The subsystems of this system. *)
+  (* The direct subsystems of this system. *)
   subsystems: t list ;
 
   (* The length of the longest branch of the call graph underneath
@@ -435,6 +435,70 @@ let get_contracts_implications { contracts } =
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
 
+(* Return the input used to create the transition system *)
+let get_scope t = t.scope
+
+(* Name of the system. *)
+let get_name t = t.scope |> String.concat "/"
+
+(* Returns all the subsystems of a transition system, including that
+   system, by reverse topological order. *)
+let get_all_subsystems sys =
+
+  let name s = get_name s in
+
+  let insert_subsystem ({ subsystems } as sys) list =
+    let rec loop rev_prefix = function
+      | sys' :: _
+           when sys == sys' ->
+         (* [sys] is already in the list, nothing to do. *)
+         list
+      | ({ subsystems = subsystems' } as sys') :: tail ->
+         if List.memq sys subsystems' then
+           (* [sys] is a subsystem of [sys'], inserting here. *)
+           sys :: sys' :: tail |> List.rev_append rev_prefix
+         else
+           (* No relation between [sys] and [sys'], looping. *)
+           loop (sys' :: rev_prefix) tail
+      | [] -> sys :: rev_prefix |> List.rev
+    in
+    loop [] list
+  in
+
+  let rec iterate_over_subsystems ({subsystems} as sys) continuation result =
+    insert_subsystem sys result
+    |> continue subsystems continuation
+
+  and continue subsystems continuation result =
+
+    match subsystems with
+    | [] ->
+
+       (* No subsystems, let's look at the continuation. *)
+       ( match continuation with
+         | [] ->
+            (* Nothing to continue with, returning result. *)
+            result
+
+         | [] :: continuation_tail ->
+            (* Head of the continuation is empty, looping on its
+               tail. *)
+            continue
+              [] continuation_tail result
+
+         | (sys :: continuation_head) :: continuation_tail ->
+            (* Found one system to insert in the result. *)
+            iterate_over_subsystems
+              sys (continuation_head :: continuation_tail) result )
+
+    | sub_sys :: sub_sys_tail ->
+       (* There are some subsystems to insert, looping on the head and
+          adding the rest to the continuation. *)
+       iterate_over_subsystems
+         sub_sys (sub_sys_tail :: continuation) result
+  in
+ 
+  iterate_over_subsystems sys [] []
 
 let pp_print_state_var ppf state_var = 
 
@@ -585,12 +649,6 @@ let get_source t = t.source
 
 (* Returns the max depth of a transition system. *)
 let get_max_depth t = t.max_depth
-
-(* Return the input used to create the transition system *)
-let get_scope t = t.scope
-
-(* Name of the system. *)
-let get_name t = t.scope |> String.concat "/"
 
 (* Create a transition system *)
 let mk_trans_sys
@@ -1065,7 +1123,14 @@ let set_prop_false t prop cex =
 let set_prop_ktrue t k prop =
 
   (* Get property by name *)
-  let p = property_of_name t prop in
+  let p =
+    try
+      property_of_name t prop
+    with
+    | Not_found ->
+       Format.printf "Wrong system [%s].@ " (get_name t) ;
+       raise Not_found
+  in
 
   (* Modify status *)
   p.prop_status <- 

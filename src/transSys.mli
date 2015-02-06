@@ -153,6 +153,10 @@ val get_contracts_implications : t -> (string * Term.t) list
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list
 
+(** Returns all the subsystems of a system in reverse topological
+    order. *)
+val get_all_subsystems : t -> t list
+
 (** The state variables of a transition system. *)
 val state_vars : t -> StateVar.t list
 

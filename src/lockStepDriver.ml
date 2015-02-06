@@ -108,7 +108,7 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup (solver,sys,actlit) =
+let common_setup depth_opt (solver,sys,actlit) =
 
   name sys
   |> Printf.sprintf
@@ -137,7 +137,11 @@ let common_setup (solver,sys,actlit) =
   (* Constraining max depth. *)
   Term.mk_implies
     [ actlit_term ;
-      TransSys.get_max_depth sys
+      ( match depth_opt with
+        | None ->
+           TransSys.get_max_depth sys
+        | Some n ->
+           Numeral.of_int n)
       |> TransSys.depth_inputs_constraint sys ]
   |> SMTSolver.assert_term solver ;
 
@@ -314,12 +318,12 @@ let unroll_sys
   ()
 
 (* Creates a lsd instance. *)
-let create two_state top_only sys =
+let create two_state top_only sys depth_opt =
 
   let new_inst_sys () =
     SMTSolver.create_instance
       ~produce_assignments: true
-      (TransSys.get_scope sys) 42
+      (TransSys.get_scope sys) depth_opt
       (TransSys.get_logic sys) (Flags.smtsolver ())
   in
 
@@ -358,15 +362,15 @@ let create two_state top_only sys =
 
            (* Setting up base. *)
            (base_solver, sys, actlit)
-           |> common_setup |> base_setup ;
+           |> common_setup depth_opt |> base_setup ;
 
            (* Setting up step. *)
            (step_solver, sys, actlit)
-           |> common_setup |> step_setup ;
+           |> common_setup depth_opt |> step_setup ;
 
            (* Setting up pruning. *)
            (pruning_solver, sys, actlit)
-           |> common_setup |> pruning_setup ;
+           |> common_setup depth_opt |> pruning_setup ;
 
            let actlit_term = Actlit.term_of_actlit actlit in
 

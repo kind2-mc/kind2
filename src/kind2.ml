@@ -41,9 +41,11 @@ let pp_print_kind_module_of_pid ppf pid =
   with Not_found ->
     Format.fprintf ppf "unknown"
 
-(* Reference to the transition system under analysis for clean
-   exit. *)
+(* Reference to the top-most transition system for clean exit. *)
 let trans_sys = ref None
+
+(* Reference to the transition system currently under analysis. *)
+let current_trans_sys = ref None
 
 
 (* Handle events by broadcasting messages, updating local transition
@@ -229,7 +231,7 @@ module Stop = struct
        analysis. Probably a function printing the (sub)system(s)
        should be passed as an argument, or should be set statically by
        looking at the flags. *)
-    match !trans_sys with
+    match !current_trans_sys with
     | None -> ()
     | Some sys ->
        TransSys.get_prop_status_all_unknown sys
@@ -267,7 +269,7 @@ module Stop = struct
            with _ -> () ) ;
 
     (* Receiving last messages. *)
-    ( match !trans_sys with
+    ( match !current_trans_sys with
       | None -> ()
       | Some sys -> handle_events sys ) ;
 
@@ -278,7 +280,7 @@ module Stop = struct
 
 
   (* Clean up before exit. *)
-  let on_exit ?(exit_after_killing_kids = true) process exn =
+  let on_exit exit_after_killing_kids process exn =
 
     (*
   let pp_print_hashcons_stat ppf (l, c, t, s, m, g) =
@@ -386,7 +388,16 @@ module Stop = struct
     with
 
     (* No more child processes, this is the normal exit. *)
-    | Unix.Unix_error (Unix.ECHILD, _, _) -> 
+    | Unix.Unix_error (Unix.ECHILD, _, _) ->
+
+       (* Deactivate timer. *)
+       let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+         Unix.setitimer
+           Unix.ITIMER_REAL 
+           { Unix.it_interval = 0. ; Unix.it_value = 0. }
+       in
+
+       Event.log L_info "Unix timer deactivated." ;
 
        Event.log
          L_info 
@@ -397,18 +408,36 @@ module Stop = struct
     (* Unix.wait was interrupted. *)
     | Unix.Unix_error (Unix.EINTR, _, _) ->
 
+       (* Deactivate timer. *)
+       let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+         Unix.setitimer
+           Unix.ITIMER_REAL 
+           { Unix.it_interval = 0. ; Unix.it_value = 0. }
+       in
+
+       Event.log L_info "Unix timer deactivated." ;
+
        (* Get new exit status. *)
        let status' = status_of_exn process (Signal 0) in
 
-       clean_exit exit_after_killing_kids status'
+       clean_exit true status'
 
     (* Exception in Unix.wait loop. *)
     | e ->
 
+       (* Deactivate timer. *)
+       let _ (* { Unix.it_interval = i; Unix.it_value = v } *) =
+         Unix.setitimer
+           Unix.ITIMER_REAL 
+           { Unix.it_interval = 0. ; Unix.it_value = 0. }
+       in
+
+       Event.log L_info "Unix timer deactivated." ;
+
        (* Get new exit status. *)
        let status' = status_of_exn process e in
 
-       clean_exit exit_after_killing_kids status'
+       clean_exit true status'
 
 
   (* Call cleanup function of process and exit. 
@@ -421,7 +450,7 @@ module Stop = struct
     let status = status_of_exn process exn in
 
     (* Call cleanup of process. *)
-    (on_exit_of_process process) !trans_sys ;
+    (on_exit_of_process process) !current_trans_sys ;
 
     (* Logging termination event. *)
     Unix.getpid ()
@@ -510,7 +539,8 @@ let rec wait_for_children child_pids =
   )
 
 (* Polling loop. *)
-let rec polling_loop child_pids trans_sys = 
+let rec polling_loop
+          exit_after_killing_kids child_pids trans_sys = 
 
   handle_events trans_sys ;
 
@@ -520,13 +550,13 @@ let rec polling_loop child_pids trans_sys =
       "<Done> All properties proved or disproved in %.3fs."
       (Stat.get_float Stat.total_time) ;
 
-    Stop.on_exit `Supervisor Exit
+    Stop.on_exit exit_after_killing_kids `Supervisor Exit
 
   ) else if
     (* Check if child processes have died and exit if necessary *)
     wait_for_children child_pids
   then
-    Stop.on_exit `Supervisor Exit
+    Stop.on_exit exit_after_killing_kids `Supervisor Exit
 
   else (
 
@@ -534,14 +564,14 @@ let rec polling_loop child_pids trans_sys =
     minisleep 0.01 ;
 
     (* Continue polling loop. *)
-    polling_loop child_pids trans_sys
+    polling_loop exit_after_killing_kids child_pids trans_sys
 
   )
 
 
 
 (* Fork and run a child process *)
-let run_process messaging_setup process = 
+let run_process messaging_setup process trans_sys depth_opt =
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -636,7 +666,7 @@ let run_process messaging_setup process =
                   | Sys_error _ -> () );
 
           (* Run main function of process. *)
-          get !trans_sys |> Start.main_of_process process ;
+          Start.main_of_process process trans_sys depth_opt ;
 
           (* Cleanup and exit. *)
           Stop.on_exit_child
@@ -891,7 +921,166 @@ let check_smtsolver () =
               Event.log L_fatal "No SMT Solver found." ;
               
               exit 2
-                
+
+let launch_analysis
+      exit_after_killing_kids
+      trans_sys max_abstraction_depth_option =
+
+  if
+    (* Warn if list of properties is empty. *)
+    ( TransSys.props_list_of_bound
+        trans_sys
+        Numeral.zero ) = []
+  then Event.log
+         L_warn
+         "No properties to prove" ;
+
+  (* Which modules are enabled? *)
+  ( match Flags.enable () with
+
+    | [] -> 
+       (* No modules enabled. *)
+       Event.log
+         L_fatal "Need at least one process enabled"
+
+    | [p] -> (
+      (* Single module enabled. *)
+
+      Event.log
+        L_info
+        "Running as a single process";
+
+      (* Set module currently running. *)
+      Event.set_module p ;
+
+      (* Run main function of process. *)
+      (Start.main_of_process p) trans_sys ;
+      
+      (* Ignore SIGALRM from now on *)
+      Sys.set_signal
+        Sys.sigalrm Sys.Signal_ignore ;
+
+      (* Cleanup before exiting process *)
+      Stop.on_exit_child None p Exit
+                         
+    )
+
+    | ps -> (
+      (* Run some modules in parallel. *)
+
+      Event.log
+        L_info
+        "@[<hov>Running %a in parallel mode.@]"
+        (pp_print_list pp_print_kind_module ",@ ")
+        ps ;
+      
+      let messaging_setup = Event.setup () in
+
+      Event.log
+        L_trace
+        "Messaging initialized in invariant manager.";
+
+      (* Start all child processes. *)
+      List.iter 
+        ( fun p -> 
+          run_process
+            messaging_setup p trans_sys max_abstraction_depth_option)
+        ps ;
+      
+      (* Set module currently running. *)
+      Event.set_module `Supervisor ;
+      Event.log L_trace "Starting supervisor." ;
+
+      (* Initialize messaging for invariant manager, obtain a
+           background thread. *)
+      let _ = 
+        Event.run_im
+          messaging_setup
+          !child_pids
+          (Stop.on_exit
+             exit_after_killing_kids
+             `Supervisor)
+      in
+
+      (* Run supervisor *)
+      polling_loop exit_after_killing_kids child_pids trans_sys ;
+      
+      (* Exit without error *)
+      Stop.on_exit
+        exit_after_killing_kids
+        `Supervisor
+        Exit
+                   
+    );
+
+  )
+
+let launch_compositional_analysis trans_sys =
+
+  (* All subsystems of the top node, sorted by reverse topological
+     order. *)
+  let all_systems = TransSys.get_all_subsystems trans_sys in
+
+  (* Checks if a depth is greater than the system [max_depth]. *)
+  let reached_max_depth_sys sys n =
+    n > (TransSys.get_max_depth sys |> Numeral.to_int)
+  in
+
+  (* Checks if a depth is greater than the system [max_depth], or the
+     user-specified, optional max_abstraction_depth. *)
+  let reached_max_depth =
+    match Flags.contracts_max_abstr_depth () with
+    | None -> reached_max_depth_sys
+    | Some user_max_depth ->
+       (fun sys n ->
+        n > user_max_depth
+        || reached_max_depth_sys sys n)
+  in
+
+  Event.log
+    L_info
+    "@[<v 2>Launching compositional analysis@ in the following order:@ \
+     (@[<hv>%a@])@]"
+    (pp_print_list
+       (fun ppf sys ->
+        TransSys.get_scope sys
+        |> String.concat "/"
+        |> Format.fprintf ppf "%s")
+       ",@ ")
+    all_systems ;
+
+  let rec analyze sys depth =
+    if not (reached_max_depth sys depth) then (
+
+      current_trans_sys := Some sys ;
+
+      Event.log
+        L_info
+        "@[<v>Launching analysis on system %s.@ \
+         Max abstraction depth is %i.@]"
+        (TransSys.get_name sys)
+        depth ;
+
+      let _ = read_line () in
+
+      (* Launching analysis for [sys] with abstraction depth
+         [depth]. *)
+      launch_analysis
+        (* Don't exit when analysis ends. *)
+        false
+        sys (Some depth) ;
+
+      depth + 1 |> analyze sys
+    )
+  in
+
+  all_systems
+  |> List.iter
+       ( fun sys ->
+         analyze sys 0 ) ;
+
+  Stop.on_exit true `Supervisor Exit
+       
 
 (* Entry point. *)
 let main () =
@@ -1044,90 +1233,12 @@ let main () =
         "%a"
         TransSys.pp_print_trans_sys
         (get !trans_sys)
-      end );
+      end ) ;
 
-    if
-      (* Warn if list of properties is empty. *)
-      ( TransSys.props_list_of_bound
-          (get !trans_sys)
-          Numeral.zero ) = []
-    then Event.log
-           L_warn
-           "No properties to prove" ;
+    launch_compositional_analysis (get !trans_sys) ;
+    Stop.on_exit true `Supervisor Exit ;
 
-    (* Which modules are enabled? *)
-    ( match Flags.enable () with
-
-      | [] -> 
-         (* No modules enabled. *)
-         Event.log
-           L_fatal "Need at least one process enabled"
-
-      | [p] -> (
-        (* Single module enabled. *)
-
-        Event.log
-          L_info
-          "Running as a single process";
-
-        (* Set module currently running. *)
-        Event.set_module p ;
-
-        (* Run main function of process. *)
-        (Start.main_of_process p) (get !trans_sys) ;
-          
-        (* Ignore SIGALRM from now on *)
-        Sys.set_signal
-          Sys.sigalrm Sys.Signal_ignore ;
-
-        (* Cleanup before exiting process *)
-        Stop.on_exit_child None p Exit
-            
-      )
-
-      | ps -> (
-        (* Run some modules in parallel. *)
-
-        Event.log
-          L_info
-          "@[<hov>Running %a in parallel mode.@]"
-          (pp_print_list pp_print_kind_module ",@ ")
-          ps ;
-         
-        let messaging_setup = Event.setup () in
-
-        Event.log
-          L_trace
-          "Messaging initialized in invariant manager.";
-
-        (* Start all child processes. *)
-        List.iter 
-          ( fun p -> 
-            run_process messaging_setup p )
-          ps ;
-              
-        (* Set module currently running. *)
-        Event.set_module `Supervisor ;
-        Event.log L_trace "Starting supervisor." ;
-
-        (* Initialize messaging for invariant manager, obtain a
-           background thread. *)
-        let _ = 
-          Event.run_im
-            messaging_setup
-            !child_pids
-            (Stop.on_exit `INVMAN)
-        in
-
-        (* Run invariant manager *)
-        polling_loop child_pids (get !trans_sys) ;
-        
-        (* Exit without error *)
-        Stop.on_exit `Supervisor Exit
-        
-      );
-
-    );
+    launch_analysis true (get !trans_sys) None
 
   with
 
@@ -1148,7 +1259,7 @@ let main () =
        | _ ->
           ( match Event.get_module () with
             | `Supervisor ->
-               Stop.on_exit `Supervisor e
+               Stop.on_exit true `Supervisor e
             | m ->
                Stop.on_exit_child None m e ) )
 

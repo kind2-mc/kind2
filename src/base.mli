@@ -20,7 +20,7 @@
 val on_exit: TransSys.t option -> unit
 
 (** Runs the base instance. *)
-val main: TransSys.t -> unit
+val main: TransSys.t -> int option -> unit
 
 (* 
    Local Variables:

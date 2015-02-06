@@ -564,10 +564,12 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         Filename.concat
           (Flags.smt_trace_dir ())
           (Format.sprintf
-             "%s.%s-%d.%s.%d.%s"
+             "%s.%s%s.%s.%d.%s"
              (Filename.basename (Flags.input_file ()))
              (String.concat "-" scope)
-             max_depth
+             (match max_depth with
+              | None -> ""
+              | Some n -> Format.sprintf "-%d" n)
              (suffix_of_kind_module (Event.get_module ()))
              id
              trace_extension

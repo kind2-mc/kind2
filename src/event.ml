@@ -507,7 +507,8 @@ let disproved_pt mdl level trans_sys prop cex =
 
     (ignore_or_fprintf level)
       !log_ppf 
-      ("@[<v><Failure> Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.") 
+      ("@[<v>%s Property %s is invalid by %a %tafter %.3fs.@,@,%a@]@.")
+      failure_tag
       prop
       pp_print_kind_module_pt mdl
       (function ppf -> match cex with

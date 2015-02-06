@@ -42,7 +42,7 @@ type t =
     solver_inst : (module SolverSig.Inst);
     (* Hashtable associating generated names to terms *)
     term_names : (int, expr) Hashtbl.t ;
-    analysis_id : string list * int ;
+    analysis_id : string list * int option ;
     id : int
   }
 
