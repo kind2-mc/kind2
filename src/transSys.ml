@@ -1081,8 +1081,18 @@ let set_prop_invariant t prop =
       | PropInvariant -> PropInvariant
 
       (* Fail if property was false or k-false *)
-      | PropFalse _ -> raise (Failure "prop_invariant") 
+      | PropFalse _ -> raise (Failure "prop_invariant")
 
+(* Changes the status of k-true properties as unknown. Used for
+   contract-based analysis when lowering the abstraction depth. Since
+   the predicates have changed they might not be k-true anymore. *)
+let reset_prop_ktrue_to_unknown t =
+  t.properties
+  |> List.iter
+       (fun ( { prop_status } as prop) ->
+        match prop_status with
+        | PropKTrue _ -> prop.prop_status <- PropUnknown
+        | _ -> ())
 
 (* Mark property as k-false *)
 let set_prop_false t prop cex =
@@ -1128,7 +1138,11 @@ let set_prop_ktrue t k prop =
       property_of_name t prop
     with
     | Not_found ->
-       Format.printf "Wrong system [%s].@ " (get_name t) ;
+       Format.printf
+         "Trying to set [%s] true at %d on system [%s].@ "
+         prop
+         k
+         (get_name t) ;
        raise Not_found
   in
 
@@ -1262,12 +1276,17 @@ let iter_uf_definitions t f =
 (* Define uf definitions, declare constant state variables and declare
    variables from [lbound] to [upbound]. *)
 let init_define_fun_declare_vars_of_bounds
+      ?(sub_define_top_only = false)
       t define declare lbound ubound =
-  ( match t.callers with
-    | [] ->
-       (* Define ufs. *)
-       iter_uf_definitions t define ;
-    | _ -> () ) ;
+
+  ( if sub_define_top_only then
+      match t.callers with
+      | [] ->
+         (* Define ufs. *)
+         iter_uf_definitions t define
+      | _ -> ()
+    else
+      iter_uf_definitions t define ) ;
 
   let l_vars = vars_of_bounds t lbound lbound in
 

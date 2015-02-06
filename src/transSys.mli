@@ -272,6 +272,11 @@ val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
+(** Changes the status of k-true properties as unknown. Used for
+    contract-based analysis when lowering the abstraction depth. Since
+    the predicates have changed they might not be k-true anymore. *)
+val reset_prop_ktrue_to_unknown : t -> unit
+
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
 
@@ -291,6 +296,7 @@ val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit
 (** Define uf definitions, declare constant state variables and declare
     variables from [lbound] to [upbound]. *)
 val init_define_fun_declare_vars_of_bounds :
+  ?sub_define_top_only:bool ->
   t ->
   (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
   (UfSymbol.t -> unit) ->

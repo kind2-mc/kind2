@@ -31,7 +31,14 @@ let print_stats () =
      Stat.smt_stats_title, Stat.smt_stats]
 
 (* Clean up before exit *)
-let on_exit _ =
+let on_exit trans_opt =
+
+  Event.log
+    L_info
+    "BMC @[<v>exiting (%s)."
+    ( match trans_opt with
+      | None -> "<none>"
+      | Some t -> TransSys.get_name t ) ;
 
   (* Stop all timers. *)
   Stat.bmc_stop_timers ();
@@ -205,9 +212,12 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Output current progress. *)
      Event.log
        L_info
-       "BMC @[<v>at k = %i@,\
-                 %i unfalsifiable properties.@]"
-       (Numeral.to_int k) (List.length nu_unknowns);
+       "BMC @[<v>at k = %i for [%s] (pid: %d)@,\
+        %i unfalsifiable properties.@]"
+       (Numeral.to_int k)
+       (TransSys.get_name trans)
+       (Unix.getpid ())
+       (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)
      let nu_invariants =
@@ -305,6 +315,11 @@ let rec next (trans, solver, k, invariants, unknowns) =
 
 (* Initializes the solver for the first check. *)
 let init trans depth_opt =
+  Event.log
+    L_info
+    "@[<hv 2>BMC Init.@ %a@]"
+    TransSys.pp_print_trans_sys trans ;
+
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
 
@@ -355,6 +370,10 @@ let init trans depth_opt =
   let invariants =
     TransSys.invars_of_bound trans Numeral.zero
   in
+
+  Event.log
+    L_info
+    "BMC Going to next at 0." ;
 
   (trans, solver, Numeral.zero, [invariants], unknowns)
 

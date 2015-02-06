@@ -119,6 +119,7 @@ let common_setup depth_opt (solver,sys,actlit) =
   
   (* Defining uf's and declaring variables. *)
   TransSys.init_define_fun_declare_vars_of_bounds
+    ~sub_define_top_only:true
     sys
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)

@@ -31,6 +31,9 @@ module InvGenOS = InvGenGraph.OneState
   after an exception. *)
 let child_pids = ref []
 
+(* Remembers the messaging setup for restarts. *)
+let messaging_setup_opt = ref None
+
 (* Pretty prints a kind module from a pid by looking in
    [child_pids]. *)
 let pp_print_kind_module_of_pid ppf pid =
@@ -50,10 +53,25 @@ let current_trans_sys = ref None
 
 (* Handle events by broadcasting messages, updating local transition
    system version etc. *)
-let handle_events trans_sys = 
+let handle_events ?(silent_recv = false) trans_sys =
 
   (* Receive queued events. *)
-  let events = Event.recv () in
+  let events =
+
+    if silent_recv then (
+      (* Temporarily silencing log. *)
+      set_log_level L_warn ;
+    ) ;
+
+    let evts = Event.recv () in
+
+    if silent_recv then (
+    (* Reactivating log. *)
+      set_log_level (Flags.log_level ())
+    ) ;
+
+    evts
+  in
 
   (* Output events. *)
   List.iter 
@@ -66,8 +84,7 @@ let handle_events trans_sys =
     events;
 
   (* Update transition system from events. *)
-  Event.update_trans_sys trans_sys events
-  |> ignore
+  Event.update_trans_sys trans_sys events |> ignore
 
 (* Aggregates functions related to starting processes. *)
 module Start = struct
@@ -271,9 +288,21 @@ module Stop = struct
     (* Receiving last messages. *)
     ( match !current_trans_sys with
       | None -> ()
-      | Some sys -> handle_events sys ) ;
+      | Some sys ->
+         (* Minisleep to ensure messages send right before killing
+            kids arrive. *)
+         minisleep 0.01 ;
 
-    print_final_statistics () ;
+         Event.log
+           L_info
+           "Receiving last messages (ignoring stale info messages)." ;
+
+         handle_events ~silent_recv:true sys ) ;
+
+    Event.log
+      L_info
+      "<TODO> Reactivate printing of final statistics." ;
+    (* print_final_statistics () ; *)
 
     if exit_after_killing_kids then
         actually_exit status
@@ -547,9 +576,10 @@ let rec polling_loop
   if TransSys.all_props_proved trans_sys then (
     Event.log
       L_info
-      "<Done> All properties proved or disproved in %.3fs."
+      "%s All properties proved or disproved in %.3fs."
+      done_tag
       (Stat.get_float Stat.total_time) ;
-
+    
     Stop.on_exit exit_after_killing_kids `Supervisor Exit
 
   ) else if
@@ -954,7 +984,9 @@ let launch_analysis
       Event.set_module p ;
 
       (* Run main function of process. *)
-      (Start.main_of_process p) trans_sys ;
+      (Start.main_of_process p)
+        trans_sys
+        max_abstraction_depth_option ;
       
       (* Ignore SIGALRM from now on *)
       Sys.set_signal
@@ -967,49 +999,88 @@ let launch_analysis
 
     | ps -> (
       (* Run some modules in parallel. *)
-
       Event.log
         L_info
         "@[<hov>Running %a in parallel mode.@]"
         (pp_print_list pp_print_kind_module ",@ ")
         ps ;
-      
-      let messaging_setup = Event.setup () in
-
-      Event.log
-        L_trace
-        "Messaging initialized in invariant manager.";
 
       (* Start all child processes. *)
-      List.iter 
-        ( fun p -> 
-          run_process
-            messaging_setup p trans_sys max_abstraction_depth_option)
-        ps ;
-      
-      (* Set module currently running. *)
-      Event.set_module `Supervisor ;
-      Event.log L_trace "Starting supervisor." ;
-
-      (* Initialize messaging for invariant manager, obtain a
-           background thread. *)
-      let _ = 
-        Event.run_im
-          messaging_setup
-          !child_pids
-          (Stop.on_exit
-             exit_after_killing_kids
-             `Supervisor)
+      let start_child_processes messaging_setup =
+        (* Make sure the list of currently running child processes is
+           empty. *)
+        assert (!child_pids = []) ;
+        (* Actually starting processes and updating child processes
+           list. *)
+        List.iter 
+          ( fun p -> 
+            run_process
+              messaging_setup p trans_sys max_abstraction_depth_option)
+          ps ;
       in
-
-      (* Run supervisor *)
-      polling_loop exit_after_killing_kids child_pids trans_sys ;
       
+
+      ( match !messaging_setup_opt with
+
+        | None ->
+           (* First time launching, setup messaging things. *)
+           Event.log
+             L_info
+             "@[<v>Launching supervisor for the first time.@]" ;
+
+           (* Initializing messaging. *)
+           let messaging_setup = Event.setup () in
+
+           (* Remembering it for restarts. *)
+           messaging_setup_opt := Some messaging_setup ;
+
+           Event.log
+             L_trace
+             "Messaging initialized in supervisor." ;
+
+           (* Launching child processes. *)
+           start_child_processes messaging_setup ;
+           
+           (* Set module currently running. *)
+           Event.set_module `Supervisor ;
+           Event.log L_trace "Starting supervisor." ;
+
+           (* Initialize messaging for invariant manager, obtain a
+              background thread. *)
+           Event.run_im
+             messaging_setup
+             !child_pids
+             (Stop.on_exit
+                exit_after_killing_kids
+                `Supervisor)
+
+        | Some messaging_setup ->
+           (* Not the first time launching, updating background
+           thread. *)
+           Event.log
+             L_info
+             "@[<v>Restarting child processes [%a].@]"
+             (pp_print_list (fun ppf i -> Format.fprintf ppf "%d" i ) ",@ ")
+             (List.map fst !child_pids) ;
+
+           (* Launching child processes, updating process list. *)
+           start_child_processes messaging_setup ;
+
+           (* Updating background thread for new kids. *)
+           Event.update_child_processes_list !child_pids
+      ) ;
+
+      (* Going to polling loop. *)
+      polling_loop exit_after_killing_kids child_pids trans_sys ;
+
+      (* Following is not needed, this is done in [polling_loop] when it
+         exits. *)
       (* Exit without error *)
-      Stop.on_exit
-        exit_after_killing_kids
-        `Supervisor
-        Exit
+      (* Stop.on_exit *)
+      (*   exit_after_killing_kids *)
+      (*   `Supervisor *)
+      (*   Exit *)
+      ()
                    
     );
 
@@ -1056,8 +1127,7 @@ let launch_compositional_analysis trans_sys =
 
       Event.log
         L_info
-        "@[<v>Launching analysis on system %s.@ \
-         Max abstraction depth is %i.@]"
+        "Launching analysis for %s at %i."
         (TransSys.get_name sys)
         depth ;
 
@@ -1070,7 +1140,38 @@ let launch_compositional_analysis trans_sys =
         false
         sys (Some depth) ;
 
-      depth + 1 |> analyze sys
+      if TransSys.all_props_proved sys then (
+
+        Event.log
+          L_info
+          "%s %s at %i: all properties proved or disproved."
+          done_tag
+          (TransSys.get_name sys)
+          depth
+
+      ) else (
+
+        Event.log
+          L_info
+          "%s at %i: %i properties have unknown status."
+          (TransSys.get_name sys)
+          depth
+          (TransSys.get_prop_status_all_unknown sys
+           |> List.length);
+
+        Event.log
+          L_info
+          "Resetting k-true properties to unknown." ;
+
+        TransSys.reset_prop_ktrue_to_unknown sys ;
+
+        Event.log
+          L_info
+          "<TODO> Set KTrue properties to unknown since we are\
+           starting a different analysis." ;
+
+        depth + 1 |> analyze sys
+      )
     )
   in
 
@@ -1079,7 +1180,10 @@ let launch_compositional_analysis trans_sys =
        ( fun sys ->
          analyze sys 0 ) ;
 
-  Stop.on_exit true `Supervisor Exit
+  (* There should be no process left at this point. *)
+  assert ( !child_pids = [] ) ;
+
+  Stop.status_of_exn `Supervisor Exit |> Stop.actually_exit
        
 
 (* Entry point. *)

@@ -1152,7 +1152,6 @@ let terminate () =
 (* Receiving events                                                       *)
 (* ********************************************************************** *)
 
-
 (* Receive all queued messages *)
 let recv () = 
 
@@ -1177,7 +1176,7 @@ let recv () =
              | mdl, 
                EventMessaging.OutputMessage (EventMessaging.Log (lvl, msg)) ->
 
-               log (log_level_of_int lvl) "%s" msg; 
+                log (log_level_of_int lvl) "%s" msg ;
 
                (* No relay message *)
                accum
@@ -1226,6 +1225,15 @@ let recv () =
 let check_termination () =
   if EventMessaging.check_termination ()
   then raise Terminate else ()
+
+(* Notifies the background thread o a new list of child
+   processes. Used by the supervisor in a modular analysis when
+   restarting. *)
+let update_child_processes_list new_process_list =
+  try
+    EventMessaging.update_child_processes_list
+      new_process_list
+  with Messaging.NotInitialized -> ()
 
 
 (* Update transition system from event list *)

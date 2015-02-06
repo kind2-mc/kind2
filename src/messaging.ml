@@ -123,6 +123,8 @@ sig
     
   val recv : unit -> (Lib.kind_module * message) list
     
+  val update_child_processes_list : (int * Lib.kind_module) list -> unit
+    
   val check_termination : unit -> bool
 
   val exit : thread -> unit 
@@ -352,6 +354,39 @@ struct
 
 
   (* ******************************************************************** *)
+  (* Threadsafe list option                                               *)
+  (* ******************************************************************** *)
+        
+  type 'a locking_list_option =
+      { lock : Mutex.t ; mutable l_opt : 'a list option }
+
+  let new_locking_list_option () =
+    { lock = Mutex.create () ; l_opt = None }
+
+  let retrieve_locking_list_option list_option =
+    (* Taking a lock on the list_option. *)
+    Mutex.lock list_option.lock ;
+    (* Retrieving value. *)
+    let res = list_option.l_opt in
+    (* Setting stored value to [None]. *)
+    list_option.l_opt <- None ;
+    (* Releasing lock. *)
+    Mutex.unlock list_option.lock ;
+    (* Returning result. *)
+    res
+
+  let set_locking_list_option list_option list =
+    (* Taking a lock on the list option. *)
+    Mutex.lock list_option.lock ;
+    (* Making sure the list option value is currently None, i.e. the
+       last update was consumed by the background thread. *)
+    assert ( list_option.l_opt = None ) ;
+    (* Setting the new value of the list option. *)
+    list_option.l_opt <- Some list ;
+    (* Releasing lock. *)
+    Mutex.unlock list_option.lock
+
+  (* ******************************************************************** *)
   (* Threadsafe locking queue                                             *)
   (* ******************************************************************** *)
         
@@ -436,6 +471,10 @@ struct
      Keep messages in the order received, first message at the head of
      the list *)
   let incoming = new_locking_queue ()
+
+  (* Optional list of new child processes. Used to tell the background
+     thread we restarted with new child processes. *)
+  let new_workers_option = new_locking_list_option ()
 
   (* Messages to be sent
 
@@ -711,7 +750,7 @@ struct
 
             ) 
 
-          else 
+          else
 
             (
 
@@ -948,6 +987,9 @@ struct
       Hashtbl.add (worker_status) (List.nth workers i) (Unix.time ());
     done
 
+  let im_check_for_new_workers () =
+    retrieve_locking_list_option new_workers_option
+
 
   let im_check_workers_status workers worker_status pub_sock pull_sock = 
 
@@ -998,7 +1040,84 @@ struct
 
   let im_thread (bg_ctx, pub_sock, pull_sock) workers on_exit =
 
+    let invariant_id = ref 1 in
+
+    let rec init_and_run workers =
+      (* List of PIDs only. *)
+      let worker_pids = List.map fst workers in
+
+      (* Hashtable to store time each worker was last seen. *)
+      let worker_status =
+        (Hashtbl.create (List.length worker_pids))
+      in
+
+      ( debug messaging
+              "Waiting for workers (%a) to become ready."
+              (pp_print_list Format.pp_print_int ",@")
+              worker_pids
+        in () ) ;
+
+      (* Waiting for all workers to be ready. *)
+      wait_for_workers
+        worker_pids worker_status pub_sock pull_sock ;
+
+      ( debug messaging
+              "All workers are ready."
+        in () ) ;
+
+      (* Unique invariant identifier and invariants hash table. *)
+      invariant_id := 1 ;
+      let invariants = (Hashtbl.create 1000) in
+
+      (* Running with the workers pids, the time hashtable, and the
+         invariants. *)
+      run workers worker_pids worker_status invariants
+
+    and run workers worker_pids worker_status invariants =
+
+      (* Check for new workers, indicating a restart of the
+         supervisor. *)
+      match im_check_for_new_workers () with
+      | Some new_workers -> (
+         ( debug
+             messaging
+             "Child processes update, \
+              setting things up and resume running."
+           in () ) ;
+         init_and_run new_workers
+      )
+      | None -> (
+
+        (* Check on the workers. *)
+        im_check_workers_status
+          worker_pids worker_status pub_sock pull_sock ;
+
+        (* Get any messages from workers. *)
+        recv_messages
+          pull_sock true ;
+
+        (* Relay messages. *)
+        im_handle_messages
+          workers worker_status invariant_id invariants ;
+
+        (* Send any messages in outgoing queue. *)
+        im_send_messages pub_sock ;
+
+        minisleep 0.01 ;
+
+        run workers worker_pids worker_status invariants
+
+      )
+
+    in
+
     try
+
+      (* Initializes and runs the background thread. If new workers
+         are provided, reinitializes and relaunches itself. *)
+      init_and_run workers
+
+(*    Previous code did not handle restart of the child processes.
 
       (* List of PIDs only *)
       let worker_pids = List.map fst workers in
@@ -1006,43 +1125,32 @@ struct
       (* Hashtable to store time each worker was last seen *)
       let worker_status = (Hashtbl.create (List.length worker_pids)) in
 
-      (* wait for ready from all workers *)
-      debug messaging
-          "Waiting for workers (%a) to become ready"
-          (pp_print_list Format.pp_print_int ",@ ") worker_pids
-      in
+      (* unique invariant identifier and invariants hash table *)
+      let invariant_id = ref 1 in
+      let invariants = (Hashtbl.create 1000) in
 
-      wait_for_workers worker_pids worker_status pub_sock pull_sock;
+      while true do
 
-      (debug messaging
-          "All workers are ready"
-       in
+        (* check on the workers *)
+        im_check_workers_status
+          worker_pids
+          worker_status
+          pub_sock
+          pull_sock;
 
-       (* unique invariant identifier and invariants hash table *)
-       let invariant_id = ref 1 in
-       let invariants = (Hashtbl.create 1000) in 
+        (* get any messages from workers *)
+        recv_messages pull_sock true;
 
-       while true do
+        (* relay messages *)
+        im_handle_messages workers worker_status invariant_id invariants;
 
-         (* check on the workers *)
-         im_check_workers_status 
-           worker_pids 
-           worker_status 
-           pub_sock 
-           pull_sock;
+        (* send any messages in outgoing queue *)
+        im_send_messages pub_sock;
 
-         (* get any messages from workers *)
-         recv_messages pull_sock true;
+        minisleep 0.01
 
-         (* relay messages *)
-         im_handle_messages workers worker_status invariant_id invariants;
-
-         (* send any messages in outgoing queue *)
-         im_send_messages pub_sock;
-
-         minisleep 0.01
-
-       done)
+      done
+*)
 
     with e -> on_exit e
                 
@@ -1279,9 +1387,18 @@ struct
 
   let recv () = 
 
-    if !initialized_process = None then raise NotInitialized else
-      (empty_list incoming_handled)
+    if !initialized_process = None
+    then raise NotInitialized
+    else empty_list incoming_handled
 
+  let update_child_processes_list ps =
+    ( debug
+        messaging
+        "Updating child process list in background thread."
+      in () ) ;
+    if !initialized_process = None
+    then raise NotInitialized
+    else set_locking_list_option new_workers_option ps
 
   let check_termination () =
 

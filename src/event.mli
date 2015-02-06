@@ -121,6 +121,11 @@ val recv : unit -> (Lib.kind_module * event) list
     received messages. *)
 val check_termination: unit -> unit
 
+(** Notifies the background thread o a new list of child
+    processes. Used by the supervisor in a modular analysis when
+    restarting. *)
+val update_child_processes_list: (int * Lib.kind_module) list -> unit
+
 (** Filter list of invariants with their scope for invariants of empty
     (top) scope *)
 val top_invariants_of_invariants :

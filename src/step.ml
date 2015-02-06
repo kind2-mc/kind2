@@ -37,7 +37,14 @@ let stop_timers () =
   Stat.smt_stop_timers ()
 
 (* Clean up before exit *)
-let on_exit _ =
+let on_exit trans_opt =
+
+  Event.log
+    L_info
+    "IND @[<v>exiting (%s)."
+    ( match trans_opt with
+      | None -> "<none>"
+      | Some t -> TransSys.get_name t ) ;
 
   (* Stopping timers. *)
   stop_timers () ;
@@ -586,10 +593,12 @@ let rec next trans solver k unfalsifiables unknowns =
      (* Output current progress. *)
      Event.log
        L_info
-       "IND @[<v>at k = %i@,\
+       "IND @[<v>at k = %i for [%s] (pid: %d)@,\
                  %i unknowns@,\
                  %i unfalsifiables.@]"
        (Numeral.to_int k)
+       (TransSys.get_name trans)
+       (Unix.getpid ())
        (List.length unknowns') (List.length unfalsifiable_props);
 
      (* Splitting. *)

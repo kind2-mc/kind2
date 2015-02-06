@@ -46,6 +46,8 @@ let failure_tag = tagify "Failure"
 let error_tag = tagify "Error"
 (* Error tag. *)
 let interruption_tag = tagify "Interruption"
+(* Done tag. *)
+let done_tag = tagify "Done"
 
 (* ********************************************************************** *)
 (* Arithmetic functions                                                   *)

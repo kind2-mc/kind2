@@ -44,6 +44,8 @@ val failure_tag : string
 val error_tag : string
 (** Interruption tag. *)
 val interruption_tag : string
+(** Done tag. *)
+val done_tag : string
 
 
 
