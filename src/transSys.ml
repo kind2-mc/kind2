@@ -432,6 +432,121 @@ let get_contracts_implications { contracts } =
             [ Term.mk_and requires ;
               Term.mk_and ensures ]) )
 
+let rec abstracted_subsystems_of_depth'
+          result
+          continuation
+          (prefix,depth)
+          ({subsystems ; max_depth ; contracts ; scope}) =
+  (* if depth > Numeral.(to_int max_depth) then *)
+
+  (*   (\* Name of the system. *\) *)
+  (*   let name = *)
+  (*     String.concat "-" scope *)
+  (*   in *)
+
+  (*   Format.printf *)
+  (*     "Depth > max_depth for %s (%s,%d).\n" *)
+  (*     name prefix depth ; *)
+
+  (*   (\* Nothing will be abstracted in this branch. *\) *)
+  (*   continue result continuation (prefix,depth) [] *)
+
+  (* else ( *)
+
+    (* Name of the system. *)
+    let name =
+      String.concat "-" scope
+    in
+
+    (* Format.printf *)
+    (*   "Looking at %s (%s,%d).\n" *)
+    (*   name prefix depth ; *)
+
+    (* Prefix update function. *)
+    let prefix' sep =
+      if prefix = "" then name
+      else
+        [ prefix ; name ] |> String.concat sep
+    in
+
+    (* Does this node have contracts? *)
+    ( match contracts with
+      | [] ->
+         (* Format.printf *)
+         (*   "No contracts.\n" ; *)
+         (* System does not change the abstraction depth since it has
+            no contracts. *)
+         continue
+           result
+           continuation
+           (* Separating prefix by ["./"] to indicate the system has
+              no contracts and does not modify abstraction depth. *)
+           (prefix' "./", depth)
+           subsystems
+      | _ ->
+         (* Is this subsystem abstracted away? *)
+         if depth > 0 then (
+           (* Format.printf *)
+           (*   "Not abstracting.\n" ; *)
+           (* It's not, continuing with subsystems. *)
+           continue
+             result
+             continuation
+             (prefix' ".", depth - 1)
+             subsystems
+         ) else (
+           (* Format.printf *)
+           (*   "Abstracting.\n" ; *)
+           (* Subsystem is abstracted away, continuing. *)
+           continue
+             ((prefix' ".") :: result)
+             continuation
+             (prefix,depth)
+             [] ) )
+
+and continue result continuation ((prefix,depth) as info) = function
+  | [] ->
+     (* No subsystem provided, looking at continuation. *)
+
+     ( match continuation with
+
+       | [] ->
+          (* Continuation is empty, we're done. *)
+          result
+
+       | (_, _, []) :: continuation_tail ->
+          (* Head of the continuation contains no subsystems,
+             looping. *)
+          continue result continuation_tail info []
+
+       | (prefix, depth, sys :: sys_tail) :: continuation_tail ->
+          (* A subsystem is in the continuation, let's check it out. *)
+          abstracted_subsystems_of_depth'
+            result
+            ((prefix,depth,sys_tail) :: continuation_tail)
+            (prefix,depth)
+            sys )
+
+  | subsystem :: sub_tail ->
+     (* There is a subsystem to handle. *)
+     abstracted_subsystems_of_depth'
+       result
+       (* Adding the tail of subsystems to the continuation. *)
+       ((prefix,depth,sub_tail) :: continuation)
+       info
+       subsystem
+
+(* [abstracted_subsystems_of_depth sys depth] returns the subsystems
+   of [sys] abstracted when the abstraction depth is [depth]. *)
+let abstracted_subsystems_of_depth sys depth =
+
+  abstracted_subsystems_of_depth'
+    []
+    []
+    ("", if sys.contracts = [] then depth else depth + 1)
+    sys
+
+
 (* Returns the subsystems of a system. *)
 let get_subsystems { subsystems } = subsystems
 

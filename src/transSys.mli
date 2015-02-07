@@ -149,6 +149,10 @@ val get_contracts :
 (** The contracts of a system, as a list of implications. *)
 val get_contracts_implications : t -> (string * Term.t) list
 
+(** [abstracted_subsystems_of_depth sys depth] returns the subsystems
+    of [sys] abstracted when the abstraction depth is [depth]. *)
+val abstracted_subsystems_of_depth : t -> int -> string list
+
 
 (** The subsystems of a system. *)
 val get_subsystems : t -> t list

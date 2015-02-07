@@ -305,7 +305,25 @@ module Stop = struct
     (* print_final_statistics () ; *)
 
     if exit_after_killing_kids then
-        actually_exit status
+      actually_exit status
+    else (
+      (* Restore signal handlers. *)
+
+      (* Install generic signal handler for SIGINT. *)
+      Sys.set_signal
+        Sys.sigint
+        (Sys.Signal_handle exception_on_signal) ;
+
+      (* Install generic signal handler for SIGTERM. *)
+      Sys.set_signal
+        Sys.sigterm
+        (Sys.Signal_handle exception_on_signal) ;
+
+      (* Install generic signal handler for SIGQUIT. *)
+      Sys.set_signal
+        Sys.sigquit
+        (Sys.Signal_handle exception_on_signal)
+    )
 
 
   (* Clean up before exit. *)
@@ -426,8 +444,6 @@ module Stop = struct
            { Unix.it_interval = 0. ; Unix.it_value = 0. }
        in
 
-       Event.log L_info "Unix timer deactivated." ;
-
        Event.log
          L_info 
          "All child processes terminated.";
@@ -444,8 +460,6 @@ module Stop = struct
            { Unix.it_interval = 0. ; Unix.it_value = 0. }
        in
 
-       Event.log L_info "Unix timer deactivated." ;
-
        (* Get new exit status. *)
        let status' = status_of_exn process (Signal 0) in
 
@@ -460,8 +474,6 @@ module Stop = struct
            Unix.ITIMER_REAL 
            { Unix.it_interval = 0. ; Unix.it_value = 0. }
        in
-
-       Event.log L_info "Unix timer deactivated." ;
 
        (* Get new exit status. *)
        let status' = status_of_exn process e in
@@ -575,7 +587,7 @@ let rec polling_loop
 
   if TransSys.all_props_proved trans_sys then (
     Event.log
-      L_info
+      L_warn
       "%s All properties proved or disproved in %.3fs."
       done_tag
       (Stat.get_float Stat.total_time) ;
@@ -1109,8 +1121,8 @@ let launch_compositional_analysis trans_sys =
   in
 
   Event.log
-    L_info
-    "@[<v 2>Launching compositional analysis@ in the following order:@ \
+    L_warn
+    "@[<v 8>|=====| Launching compositional analysis@ in the following order:@ \
      (@[<hv>%a@])@]"
     (pp_print_list
        (fun ppf sys ->
@@ -1125,34 +1137,53 @@ let launch_compositional_analysis trans_sys =
 
       current_trans_sys := Some sys ;
 
-      Event.log
-        L_info
-        "Launching analysis for %s at %i."
-        (TransSys.get_name sys)
-        depth ;
-
-      let _ = read_line () in
-
-      (* Launching analysis for [sys] with abstraction depth
-         [depth]. *)
-      launch_analysis
-        (* Don't exit when analysis ends. *)
-        false
-        sys (Some depth) ;
-
-      if TransSys.all_props_proved sys then (
-
+      if not (TransSys.all_props_proved sys) then (
         Event.log
-          L_info
-          "%s %s at %i: all properties proved or disproved."
-          done_tag
+          L_warn
+          "@.|===| Launching analysis for %s at %i."
           (TransSys.get_name sys)
-          depth
+          depth ;
 
+        ( match
+            TransSys.abstracted_subsystems_of_depth
+              sys depth
+          with
+          | [] ->
+             Event.log L_warn "No subsystem to abstract." ;
+          | abstracted ->
+             Event.log
+               L_warn
+               "@[<hv 6>Abstracted nodes: @[<v>%a@]@]"
+               (pp_print_list
+                  (fun ppf s -> Format.fprintf ppf "%s" s)
+                  ",@ ")
+               abstracted ) ;
+
+        let _ = read_line () in
+
+        (* Launching analysis for [sys] with abstraction depth
+         [depth]. *)
+        launch_analysis
+          (* Don't exit when analysis ends. *)
+          false
+          sys (Some depth)
+      ) else if TransSys.get_prop_status_all sys = [] then (
+        Event.log
+          L_warn
+          "|===| Skipping sys %s, no property to prove."
+          (TransSys.get_name sys)
       ) else (
+        Event.log
+          L_warn
+          "|===| Skipping sys %s at %d, all properties already (dis)proved."
+          (TransSys.get_name sys)
+          depth ;
+      ) ;
+
+      if not (TransSys.all_props_proved sys) then (
 
         Event.log
-          L_info
+          L_warn
           "%s at %i: %i properties have unknown status."
           (TransSys.get_name sys)
           depth
@@ -1165,11 +1196,6 @@ let launch_compositional_analysis trans_sys =
 
         TransSys.reset_prop_ktrue_to_unknown sys ;
 
-        Event.log
-          L_info
-          "<TODO> Set KTrue properties to unknown since we are\
-           starting a different analysis." ;
-
         depth + 1 |> analyze sys
       )
     )
@@ -1179,6 +1205,8 @@ let launch_compositional_analysis trans_sys =
   |> List.iter
        ( fun sys ->
          analyze sys 0 ) ;
+
+  minisleep 0.01 ;
 
   (* There should be no process left at this point. *)
   assert ( !child_pids = [] ) ;

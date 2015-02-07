@@ -33,13 +33,6 @@ let print_stats () =
 (* Clean up before exit *)
 let on_exit trans_opt =
 
-  Event.log
-    L_info
-    "BMC @[<v>exiting (%s)."
-    ( match trans_opt with
-      | None -> "<none>"
-      | Some t -> TransSys.get_name t ) ;
-
   (* Stop all timers. *)
   Stat.bmc_stop_timers ();
   Stat.smt_stop_timers ();
@@ -315,10 +308,6 @@ let rec next (trans, solver, k, invariants, unknowns) =
 
 (* Initializes the solver for the first check. *)
 let init trans depth_opt =
-  Event.log
-    L_info
-    "@[<hv 2>BMC Init.@ %a@]"
-    TransSys.pp_print_trans_sys trans ;
 
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;

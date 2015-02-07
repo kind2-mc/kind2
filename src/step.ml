@@ -39,13 +39,6 @@ let stop_timers () =
 (* Clean up before exit *)
 let on_exit trans_opt =
 
-  Event.log
-    L_info
-    "IND @[<v>exiting (%s)."
-    ( match trans_opt with
-      | None -> "<none>"
-      | Some t -> TransSys.get_name t ) ;
-
   (* Stopping timers. *)
   stop_timers () ;
 
