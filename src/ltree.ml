@@ -18,9 +18,12 @@
 
 open Lib
 
-
 (* Abbreviation for module name *)
 module H = Hashcons
+
+
+(* Set over integers *)
+module IntegerSet = Set.Make (struct type t = int let compare = compare end)
 
 
 (* Input signature for functor *)
@@ -90,7 +93,7 @@ sig
 
   and t = private (t_node, t_prop) H.hash_consed
 
-  and t_prop = private { mutable to_string : string option } 
+  and t_prop = private { bound_vars : int list } 
 
   and flat = private
     | Var of var
@@ -119,6 +122,8 @@ sig
   val mk_app : symbol -> t list -> t
 
   val mk_let : (var * t) list -> t -> t
+
+  val mk_let_elim : (var * t) list -> t -> t
 
   val mk_exists : var list -> t -> t
 
@@ -233,7 +238,7 @@ struct
     | Annot of t * attr
 
   (* Property of a term node *)
-  and t_prop = { mutable to_string : string option } 
+  and t_prop = { bound_vars : int list } 
 
   (* Hashconsed abstract syntax term *)
   and t = (t_node, t_prop) H.hash_consed
@@ -250,9 +255,6 @@ struct
 
   (* Return property of term *)
   let prop_of_term { H.prop = p } = p
-
-  (* Set cached string representation of term *)
-  let set_to_string { H.prop = p } s = p.to_string <- Some s
 
   (* Hashconsed lambda abstraction *)
   module Lambda_node = 
@@ -410,8 +412,96 @@ struct
   (* Return unique identifier *)
   let tag { H.tag = i } = i
 
-  (* Initial property of term *)
-  let prop_of_term_node _ = { to_string = None }
+  (* Read bound variables from term properties and add to list without
+     duplicates *)
+  let bound_vars_of_terms accum t = 
+
+    (* Add lists of bound variables to a set and return elements of set *)
+    IntegerSet.elements
+      (List.fold_left 
+         (fun a { H.prop = { bound_vars } } -> 
+            IntegerSet.union a (IntegerSet.of_list bound_vars))
+         accum
+         t)
+
+  (* Reduce list of variables to those bound outside a lambda
+     abstraction of l variables, and adjust their indexes *)
+  let bound_vars_outside_lambda l b = 
+
+    (* Return in original order *)
+    List.rev
+
+      (List.fold_left
+
+         (fun a i -> 
+
+            (* Is the variable bound outside this lambda abstraction *)
+            if i > l then 
+
+              (* Adjust distance to bound term *)
+              i - l :: a 
+
+            else 
+
+              (* Discard variable bound by this lambda abstraction *)
+              a)
+
+         []
+
+         b)
+
+  (* Read bound variables of properties subterms and return as list *)
+  let bound_vars_of_term_node = function
+
+    (* Free variable or constant do not have bound variables *)
+    | FreeVar _ 
+    | Leaf _  -> []
+
+    (* Bound variable is the only bound variables *)
+    | BoundVar i -> [i]
+
+    (* Bound variables in a function application are the bound
+       variables in subterms *)
+    | Node (_, l) -> bound_vars_of_terms IntegerSet.empty l
+
+    (* Bound variables in let bindings are bound variables in term and
+       bound variables in substituted terms *)
+    | Let ({ H.node = L (_, { H.prop = { bound_vars } } ) }, l)  -> 
+
+      let bound_vars' =
+        bound_vars_outside_lambda (List.length l) bound_vars
+      in
+
+      bound_vars_of_terms (IntegerSet.of_list bound_vars') l 
+
+
+    (* Bound variables in quantifier are variables in quantified term *)
+    | Exists { H.node = L (i, { H.prop = { bound_vars } }) } 
+    | Forall { H.node = L (i, { H.prop = { bound_vars } }) } -> 
+
+      bound_vars_outside_lambda (List.length i) bound_vars
+
+    (* Bound variables in annotated term are bound variables in term *)
+    | Annot ({ H.prop = { bound_vars } }, _) -> bound_vars
+
+
+  (* Initilize property of term *)
+  let prop_of_term_node t = 
+
+    (* Get bound variables from term to construct *)
+    let bound_vars = bound_vars_of_term_node t in
+
+    (* Ensure list of bound variables is sorted *)
+    let _ = 
+      List.fold_left
+        (fun p i -> assert (i >= p); i)
+        0 
+        bound_vars
+    in
+
+    (* Return properties of term *)
+    { bound_vars } 
+   
 
   (* Unsafe constructor for a term *)
   let ht_term t = Ht.hashcons ht t (prop_of_term_node t)
@@ -523,7 +613,7 @@ struct
       (* Print variables bound in abstraction and recurse with an
          incremented de Bruijn index *)
       Format.fprintf ppf
-        "@[<hv 1>(lambda@ (%a)@ (%a)@]"
+        "@[<hv 1>(lambda@ (%a)@ (%a))@]"
         (pp_print_var_seq db) l
         (pp_print_term' pp_symbol (db + (List.length l))) t
 
@@ -1280,9 +1370,6 @@ struct
        |> snd)
 
 
-         
-
-
   (* Beta-evaluate a lambda expression *)
   let eval_lambda ({ Hashcons.node = L (v, t) } as l) b = 
 
@@ -1317,6 +1404,183 @@ struct
     (* Return let binding *)
     ht_let (mk_lambda x t) b
 
+  (* Create a let binding of terms to variables, eliminate bindings to
+     variables that do not occur in the term *)
+  let trim_let_domain 
+      offset
+      bvar_types 
+      bvar_terms
+      ({ H.prop = { bound_vars } } as term) =
+
+    (* Map of bound variable index to bound variable index without
+       eliminated variables 
+
+       Simply map the n-th variable in the ordered list of bound
+       variables to n *)
+    let _, bound_var_map = 
+      List.fold_left
+        (fun (c, a) i -> 
+           if i > List.length bvar_terms then
+             (c, a) 
+           else
+             (succ c, (i, c) :: a))
+        (1, [])
+        bound_vars
+    in
+
+    debug ltree
+      "@[<hv>trim_let_domain:@ %a@ \
+             terms@ @[<hv>%a@]@ \
+             bound vars@ @[<hv>%a@]@ \
+             map@ @[<hv>%a@]@]"
+      (pp_print_term ~db:0) term
+      (pp_print_list pp_print_term ",@ ") bvar_terms
+      (pp_print_list Format.pp_print_int ",@ ") bound_vars
+      (pp_print_list 
+         (fun ppf (i, j) -> Format.fprintf ppf "%d:%d" i j)
+         ",@ ") 
+      bound_var_map
+    in
+
+      (* Return the elements with indexes from the list
+
+       The list of indexes must be sorted, the first element in the
+       list has index 1 *)
+    let list_extract_indexes indexes list = 
+
+      let rec aux' count accum = function 
+
+        (* Return when all indexes extracted *)
+        | [] -> (function _ -> List.rev accum)
+
+        (* Take the first index to extract *)
+        | i :: itl as indexes -> (function
+
+            (* Return when list is empty *)
+            | [] -> List.rev accum
+
+            (* Index of first element is less than the next index to
+               extract *)
+            | _ :: ltl when count < i -> 
+
+              (* Drop element, and increment counter *)
+              aux' (succ count) accum indexes ltl
+
+            (* Index of first element is next in list of indexes *)
+            | h :: ltl -> 
+
+              (* List of indexes is sorted etc. *)
+              assert (count = i); 
+
+              (* Add element to accumulator, drop index, increment
+                 counter and continue *)
+              aux' (succ count) (h :: accum) itl ltl)
+
+      in
+
+      (* Start at first index with empty accumulator *)
+      aux' 1 [] indexes list 
+
+    in
+
+    (* Adjust indexes of all variables according to the map *)
+    let term_adjust_bound_indexes bound_var_map term =
+
+      map
+
+        (fun o -> function
+
+           (* May need to change the index of a bound variable *)
+           | { H.node = BoundVar i } as t -> 
+
+             (try 
+
+                (* Bound variable is bound outside this let binding? *)
+                if i > o + List.length bvar_terms then
+
+                  (* Adjust index with number of eliminated
+                     variables *)
+                  ht_bound_var
+                    (i - 
+                     (List.length bvar_terms - 
+                      List.length bound_var_map))
+
+                (* Bound variable is bound in this let binding? *)
+                else if i > o then 
+
+                  (* Replace with new index after eliminating
+                     variables *)
+                  ht_bound_var
+                    ((List.assoc (i - o) bound_var_map) + o)
+
+                (* Keep variables bound inside the term *)
+                else t
+
+              (* Every variable in the term the is bound outside has a
+                 new index *)
+              with Not_found -> 
+                
+                (debug ltree
+                   "No mapping for BoundVar %d at offset %d"
+                   i
+                   o
+                 in
+                 assert false))
+
+           (* Keep terms other than bound variables unchanged *)
+           | t -> t)
+
+        term
+
+    in
+
+    (* Adjust indexes in term to be bound *)
+    let term' = term_adjust_bound_indexes bound_var_map term in
+
+    (* Eliminate variables not bound in the term *)
+    let bvar_terms' = 
+      List.rev
+        (list_extract_indexes 
+           bound_vars 
+           (List.rev bvar_terms))
+    in 
+
+    (* Eliminate types of variables not bound in the term *)
+    let bvar_types' = 
+      List.rev
+        (list_extract_indexes 
+           bound_vars
+           (List.rev bvar_types))
+    in 
+
+    (* Is the list of variables to bind empty? *)
+    match bvar_terms' with 
+
+      (* Return term unchanged *)
+      | [] -> term'
+
+      (* Add non-empty let binding to term *)
+      | _ -> 
+
+        (* Create let binding with variables eliminated *)
+        ht_let
+          (hl_lambda bvar_types' term')
+          bvar_terms'
+
+
+  (* Testing only, this is inefficient *)
+  let mk_let_elim b t =
+
+    match mk_let b t with 
+      
+      | { H.node = Let ({ H.node = L (s, t)}, b) } -> 
+
+        (* Return let binding *)
+        trim_let_domain 0 s b t
+
+      | _ -> assert false
+
+
   (* Constructor for an existential quantification: 
      [exists x_1 : s_1; ...; x_n : s_n = t_n in s] *)
   let mk_exists x t = ht_exists (mk_lambda x t)
@@ -1344,7 +1608,6 @@ struct
   (* ********************************************************************* *)
   (* Accessing the top node of the term                                    *)
   (* ********************************************************************* *)
-
 
   (* Return the top symbol of a term along with its subterms
 
@@ -1380,16 +1643,19 @@ struct
       (* Distribute let binding over arguments of function application *)
       ht_node 
         s
-        (List.map (function r -> (ht_let (hl_lambda i r) b)) l)
+        (List.map
+           (function r -> trim_let_domain ofs i b r)
+           l)
 
     (* Let binding of a let binding *)
     | { H.node = Let ({ H.node = L (i, ({ H.node = Let _ } as t)) }, b) } ->
 
-      (* Destruct inner let binding to get a nnot let bound term at
+      (* Destruct inner let binding to get a not let bound term at
          the top, then destruct this term *)
       destruct' 
         ofs 
         (ht_let (hl_lambda i (destruct' (ofs + (List.length i)) t)) b)
+        (* (trim_let_domain ofs i b (destruct' (ofs + (List.length i)) t)) *)
 
     (* Let binding of a bound variable that is bound outside the let
        binding *)
