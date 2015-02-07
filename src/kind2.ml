@@ -1144,6 +1144,10 @@ let launch_compositional_analysis trans_sys =
           (TransSys.get_name sys)
           depth ;
 
+        Event.log
+          L_warn
+          "%a" TransSys.pp_print_trans_sys_contract_view sys ;
+
         ( match
             TransSys.abstracted_subsystems_of_depth
               sys depth

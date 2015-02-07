@@ -707,7 +707,7 @@ let pp_print_contract
       ppf { name ; source ; requires ; ensures ; status } =
   Format.fprintf
     ppf
-    "@[<hv 2>%s %a (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<v>%a@]@]@]"
+    "@[<hv 2>%s %a (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<hv 2>%a@]@]@]"
     name
     pp_print_contract_source source
     pp_print_prop_status_pt status
@@ -1208,6 +1208,16 @@ let reset_prop_ktrue_to_unknown t =
         match prop_status with
         | PropKTrue _ -> prop.prop_status <- PropUnknown
         | _ -> ())
+
+let rec pp_print_trans_sys_contract_view ppf sys =
+  Format.fprintf
+    ppf
+    "@[<hv 2>sys %s@ @[<v>@[<hv 2>contracts:@ %a@]@,@[<hv 2>properties:@ %a@]@,\
+     @[<hv 2>subsystems:@ %a@]@]@]"
+    (get_name sys)
+    (pp_print_list pp_print_contract "@ ") sys.contracts
+    (pp_print_list pp_print_property "@ ") sys.properties
+    (pp_print_list pp_print_trans_sys_contract_view "@ ") sys.subsystems
 
 (* Mark property as k-false *)
 let set_prop_false t prop cex =
