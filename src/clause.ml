@@ -160,6 +160,8 @@ let create_and_assert_fresh_actlit solver tag term actlit_type =
 
   (* Declare symbols in solver *)
   SMTSolver.declare_fun solver uf_symbol;
+
+  Stat.incr Stat.pdr_activation_literals;
   
   (* Prepare term for activation literal type *)
   let term' = term_for_actlit_type term actlit_type in

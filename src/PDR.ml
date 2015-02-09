@@ -671,7 +671,12 @@ let rec block solver trans_sys prop_set term_tbl =
 
             (* Get counterexample as a pair of states from satisfiable
                query *)
-            let cti = SMTSolver.get_model solver in
+            let cti =
+              (* SMTSolver.get_model solver *)
+              SMTSolver.get_var_values
+                solver
+                (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
+            in
 
             (* Extrapolate from counterexample to a cube in R_k
 
@@ -816,18 +821,18 @@ let rec block solver trans_sys prop_set term_tbl =
                     BMC, who has not yet discovered at one-step
                     violation of a property. We wait for messages *)
                  (* Receive messages and update transition system *)
-                 let rec wait () = 
-                   handle_events 
-                     solver
-                     trans_sys
-                     (C.props_of_prop_set prop_set);
-                   minisleep 0.01;
-                   wait ()
-                 in
-                 ignore (wait ()); 
+                let rec wait () = 
+                  handle_events 
+                    solver
+                    trans_sys
+                    (C.props_of_prop_set prop_set);
+                  minisleep 0.01;
+                  wait ()
+                in
+                ignore (wait ()); 
 
                  (* We won't return from waiting *)
-                 assert false)
+                assert false)
 
               (* Get literals in unsat core *)
               (fun () -> SMTSolver.get_unsat_core_lits solver)
@@ -924,12 +929,12 @@ let rec block solver trans_sys prop_set term_tbl =
 
                 (Stat.time_fun Stat.pdr_ind_gen_time
                    (fun () -> 
-                      ind_generalize 
-                        solver
-                        prop_set
-                        actlits_p0_r_pred_i
-                        block_clause
-                        block_clause_literals_core))
+                     ind_generalize 
+                       solver
+                       prop_set
+                       actlits_p0_r_pred_i
+                       block_clause
+                       block_clause_literals_core))
 
           in
 
@@ -945,8 +950,8 @@ let rec block solver trans_sys prop_set term_tbl =
           let r_i' = block_clause_gen :: r_i in
 
           (* DEBUG only 
-          assert
-            (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames));
+             assert
+             (check_frames solver prop_set clauses_r_succ_i (r_i' :: frames));
           *)
 
           (* Add cube to block to next higher frame if flag is set *)
@@ -997,7 +1002,12 @@ let rec block solver trans_sys prop_set term_tbl =
             | r_pred_i :: frames_tl -> 
               
               (* Get counterexample from satisfiable query *)
-              let cti = SMTSolver.get_model solver in
+              let cti =
+                (* SMTSolver.get_model solver *)
+                SMTSolver.get_var_values
+                  solver
+                  (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
+              in
               
               (* Generalize the counterexample to a list of literals
                  
@@ -1073,7 +1083,12 @@ let rec partition_rel_inductive
   let some_clauses_not_inductive () =
     
     (* Get model for failed entailment check *)
-    let model = SMTSolver.get_model solver in
+    let model =
+      (* SMTSolver.get_model solver *)
+      SMTSolver.get_var_values
+        solver
+        (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
+    in
         
     (* Separate not inductive terms from potentially inductive terms 
        
@@ -1163,7 +1178,12 @@ let partition_fwd_prop
     let keep_some () =
 
       (* Get model for failed entailment check *)
-      let model = SMTSolver.get_model solver in
+      let model =
+        (* SMTSolver.get_model solver *)
+        SMTSolver.get_var_values
+          solver
+          (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
+      in
 
       (* Separate not propagateable terms from potentially propagateable
          terms
@@ -1925,7 +1945,12 @@ let rec bmc_checks solver trans_sys props =
   let not_entailed props k () = 
 
     (* Get model for all variables of transition system *)
-    let model = SMTSolver.get_model solver in
+    let model =
+      (* SMTSolver.get_model solver *)
+      SMTSolver.get_var_values
+        solver
+        (TransSys.vars_of_bounds trans_sys Numeral.zero Numeral.one)
+    in
 
     (* Extract counterexample from solver *)
     let cex =
@@ -2117,7 +2142,8 @@ let main trans_sys =
   (* Declare symbol in solver *)
   SMTSolver.declare_fun solver actconst_r0;
 
-
+  Stat.incr Stat.pdr_activation_literals;
+  
   (* Assert initial state constraint guarded with activation literal
 
      a_R0 => I[x] *)
