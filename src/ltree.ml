@@ -106,6 +106,10 @@ sig
 
   val tag : t -> int
 
+  val mk_lambda : var list -> t -> lambda
+
+  val eval_lambda : lambda -> t list -> t
+
   val mk_term : t_node -> t
 
   val mk_var : var -> t
@@ -144,10 +148,21 @@ sig
 
   val import : t -> t
 
+  val import_lambda : lambda -> lambda
+
   val pp_print_term : ?db:int -> Format.formatter -> t -> unit
     
+  val pp_print_lambda_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
+    ?db:int -> Format.formatter -> lambda -> unit
+
   val pp_print_term_w : (?arity:int -> Format.formatter -> symbol -> unit) ->
     ?db:int -> Format.formatter -> t -> unit
+
+  val print_term : ?db:int -> t -> unit
+
+  val pp_print_lambda : ?db:int -> Format.formatter -> lambda -> unit
+
+  val print_lambda : ?db:int -> lambda -> unit
 
   val stats : unit -> int * int * int * int * int * int
 
@@ -284,8 +299,8 @@ struct
     (* Equality of two terms *)
     let equal t1 t2 = match t1, t2 with 
 
-      (* Physical equality on free variables *)
-      | FreeVar v1, FreeVar v2 -> v1 == v2 
+      (* Equality on free variables: variables are physically equal *)
+      | FreeVar v1, FreeVar v2 -> v1 == v2
 
       (* Equality on integer de Bruijn indexes *)
       | BoundVar v1, BoundVar v2 -> v1 = v2 
@@ -332,7 +347,11 @@ struct
     let hash = function 
 
       (* Hash of a free variable: delegate *)
-      | FreeVar v -> safe_hash_interleave (T.hash_of_var v) 8 0
+      | FreeVar v -> 
+
+        safe_hash_interleave
+          (T.hash_of_var v)
+          8 0
 
       (* Hash of bound variable is the de Bruijn index *)
       | BoundVar i -> safe_hash_interleave i 8 1
@@ -399,42 +418,42 @@ struct
  
   (* Unsafe constructor for free variable *)
   let ht_free_var v = 
-    let n = (FreeVar v) in 
+    let n = FreeVar v in 
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for bound variable *)
   let ht_bound_var i = 
-    let n = (BoundVar i) in
+    let n = BoundVar i in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for leaf *)
   let ht_leaf s = 
-    let n = (Leaf s) in
+    let n = Leaf s in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for node *)
   let ht_node s l = 
-    let n = (Node (s, l)) in
+    let n = Node (s, l) in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for let binding *)
   let ht_let l b = 
-    let n = (Let (l, b)) in
+    let n = Let (l, b) in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for existential quantifier *)
   let ht_exists l = 
-    let n = (Exists l) in
+    let n = Exists l in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for universal quantifier *)
   let ht_forall l = 
-    let n = (Forall l) in
+    let n = Forall l in
     Ht.hashcons ht n (prop_of_term_node n)
 
   (* Unsafe constructor for an annotated term *)
   let ht_annot t a = 
-    let n = (Annot (t, a)) in
+    let n = Annot (t, a) in
     Ht.hashcons ht n (prop_of_term_node n)
 
 
@@ -486,14 +505,16 @@ struct
 
   (* Pretty-print a lambda abstraction given the de Bruijn index of
      the most recent bound variable *)
-  let rec pp_print_lambda pp_symbol db ppf = function { H.node = L (l, t) } ->
+  let rec pp_print_lambda' pp_symbol db ppf = function 
 
-    (* Print variables bound in abstraction and recurse with an
-       incremented de Bruijn index *)
-    Format.fprintf ppf
-      "@[<hv 0>@[<hv 2>(%a).@]%a@]"
-      (pp_print_var_seq db) l
-      (pp_print_term' pp_symbol (db + (List.length l))) t
+    | { H.node = L (l, t) } ->
+
+      (* Print variables bound in abstraction and recurse with an
+         incremented de Bruijn index *)
+      Format.fprintf ppf
+        "@[<hv 1>(lambda@ (%a)@ (%a)@]"
+        (pp_print_var_seq db) l
+        (pp_print_term' pp_symbol (db + (List.length l))) t
 
 
   (* Pretty-print a list of variable term bindings *)
@@ -597,109 +618,26 @@ struct
      index or default to zero *)
   let pp_print_term_w pp_symbol ?(db = 0) ppf term = 
 
-    (* This breaks indentation and is going to fail when the meaning
-       of indexes is reversed. *)
-    (*
-    (* String representation of term *)
-    let term_string = 
-
-      (* Get cached string *)
-      match prop_of_term term with
-
-        (* No cached string of term *)
-        | { to_string = None } -> 
-          
-          (* Create a buffer and formatter to write into buffer *)
-          let buf = Buffer.create 80 in 
-          let bppf = Format.formatter_of_buffer buf in
-          
-          (* Pretty-print term into buffer *)
-          pp_print_term' db bppf term;
-          
-          (* Flush formatter *)
-          Format.pp_print_flush bppf ();
-          
-          (* Return string representation of term from buffer *)
-          let term_string = Buffer.contents buf in
-
-          (* Write string representaion to cache *)
-          set_to_string term term_string;
-
-          (* Return string representation *)
-          term_string
-
-        (* Return cached string of term *)
-        | { to_string = Some s } -> s
-
-    in
-    
-    (* Print string representation of term to formatter *)
-    Format.fprintf ppf "%s" term_string
-*)
-
     (* Pretty-print term into buffer *)
     pp_print_term' pp_symbol db ppf term
 
+ 
+  (* Top-level pretty-printing function, start with given de Bruijn
+     index or default to zero *)
+  let pp_print_lambda_w pp_symbol ?(db = 0) ppf term = 
 
+    (* Pretty-print term into buffer *)
+    pp_print_lambda' pp_symbol db ppf term
+
+ 
   
   let pp_print_term = pp_print_term_w (fun ?arity -> T.pp_print_symbol)
 
+  let pp_print_lambda = pp_print_lambda_w (fun ?arity -> T.pp_print_symbol)
 
-(*
+  let print_term ?db = pp_print_term ?db Format.std_formatter
 
-  let pp_print_term_infix' db ppf = function 
-
-    (* Delegate printing of free variables to function in input module *)
-    | { H.node = FreeVar v } -> T.pp_print_var ppf v
-
-    (* Print bound variable with its de Bruijn index *)
-    | { H.node = BoundVar db } -> Format.fprintf ppf "X%i" db
-
-    (* Delegate printing of leaf to function in input module *)
-    | { H.node = Leaf s } -> T.pp_print_symbol ppf s
-
-    (* Print a function application as S-expression *)
-    | { H.node = Node (s, a) } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(%a)@]" 
-        T.pp_print_node s a 
-        (pp_print_term_list db) a
-
-    (* Print a let binding *)
-    | { H.node = Let ({ H.node = L (_, t) }, b) } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(let@ @[<hv 1>(%a)@]@ %a)@]" 
-        (pp_print_let_bindings db) b
-        (pp_print_term' (db + List.length b)) t
-
-    (* Print an existential quantification *)
-    | { H.node = Exists { H.node = L (x, t) } } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(exists@ @[<hv 1>(%a)@ %a@])@]" 
-        (pp_print_typed_var_list db) x
-        (pp_print_term' (db + List.length x)) t
-
-    (* Print a universal quantification *)
-    | { H.node = Forall { H.node = L (x, t) } } -> 
-
-      Format.fprintf ppf 
-        "@[<hv 1>(forall@ @[<hv 1>(%a)@ %a@])@]" 
-        (pp_print_typed_var_list db) x
-        (pp_print_term' (db + List.length x)) t
-
-    (* Print an annotated term *)
-    | { H.node = Annot (t, a) } ->
-
-      Format.fprintf ppf 
-        "@[<hv 1>(!@ @[<hv 1>%a@] @[<hv 1>%a@])@]" 
-        (pp_print_term' db) t
-        T.pp_print_attr a
-
-*)
-
+  let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
 
   (* Pretty-print a flattened term *)
   let rec pp_print_flat pp_symbol ppf = function 
@@ -745,19 +683,19 @@ struct
   let rec bump_and_bind b k = function 
 
     (* Free variable *)
-    | { H.node = FreeVar s } -> 
+    | { H.node = FreeVar v } -> 
 
       (
 
         try 
 
           (* Bind variable and set de Bruijn index if in list *)
-          ht_bound_var (List.assoc s b)
+          ht_bound_var (List.assoc v b)
 
         with Not_found -> 
 
           (* Variable remains free *)
-          ht_free_var s
+          ht_free_var v
 
       )
 
@@ -798,11 +736,41 @@ struct
   (* Constructors                                                          *)
   (* ********************************************************************* *)
 
+  (* Constructor for a lambda expression *)
+  let mk_lambda x t =
+
+    (* Association list of variable names to de Bruijn indices *)
+    let x_and_db = List.mapi (fun i x -> (x, succ i)) x in
+
+    (* Return existential quantification *)
+    let res = 
+      hl_lambda 
+        (List.map T.sort_of_var x) 
+        (bump_and_bind x_and_db 1 t)
+    in
+
+    debug ltree
+      "mk_lambda@ @[<hv 1>(%a)@]@ @[<hv>%a:@]@ @[<hv>%a@]"
+      (pp_print_list T.pp_print_var "@ ") x
+      (pp_print_term ~db:0) t
+      (pp_print_lambda ~db:0) res
+    in
+
+    res
+
+  (* Beta-evaluate a lambda expression *)
+  let eval_lambda ({ Hashcons.node = L (v, t) } as l) b = 
+
+    if List.length v = List.length b then ht_let l b else 
+      
+      raise (Invalid_argument "eval_lambda")
+
+
   (* Constructor for a term *)
   let mk_term t = ht_term t
 
   (* Constructor for a free variable *)
-  let mk_var s = ht_free_var s
+  let mk_var v = ht_free_var v
 
   (* Constructor for a constant *)
   let mk_const s = ht_leaf s
@@ -821,39 +789,16 @@ struct
        terms they are to be bound to *)
     let x, b = List.split b in
 
-    (* Association list of variable names to de Bruijn indices *)
-    let x_and_db = List.mapi (fun i x -> (x, succ i)) x in
-
     (* Return let binding *)
-    ht_let 
-      (hl_lambda (List.map T.sort_of_var x) (bump_and_bind x_and_db 1 t))
-      b
+    ht_let (mk_lambda x t) b
 
   (* Constructor for an existential quantification: 
      [exists x_1 : s_1; ...; x_n : s_n = t_n in s] *)
-  let mk_exists x t = 
-
-    (* Association list of variable names to de Bruijn indices *)
-    let x_and_db = List.mapi (fun i x -> (x, succ i)) x in
-
-    (* Return existential quantification *)
-    ht_exists 
-      (hl_lambda 
-         (List.map T.sort_of_var x) 
-         (bump_and_bind x_and_db 1 t))
+  let mk_exists x t = ht_exists (mk_lambda x t)
 
   (* Constructor for a universal quantification: 
      [forall x_1 : s_1; ...; x_n : s_n = t_n in s] *)
-  let mk_forall x t = 
-
-    (* Association list of variable names to de Bruijn indices *)
-    let x_and_db = List.mapi (fun i x -> (x, succ i)) x in
-
-    (* Return universal quantification *)
-    ht_forall 
-      (hl_lambda 
-         (List.map T.sort_of_var x) 
-         (bump_and_bind x_and_db 1 t))
+  let mk_forall x t = ht_forall (mk_lambda x t)
 
   (* Constructor for annotated term *)
   let mk_annot t a = ht_annot t a 
@@ -904,7 +849,7 @@ struct
 
     (* Free variable *)
     | { H.node = FreeVar v }
-    | { H.node = Let ({ H.node = L (_, { H.node = FreeVar v}) }, _) } -> 
+    | { H.node = Let ({ H.node = L (_, { H.node = FreeVar v }) }, _) } -> 
 
       ht_free_var v
 
@@ -928,8 +873,13 @@ struct
 
     (* Let binding of a bound variable with a higher index than the
        number of bound variables must not occur *)
-    | { H.node = Let ({ H.node = L (j, { H.node = BoundVar i }) }, _) }
+    | { H.node = Let ({ H.node = L (j, { H.node = BoundVar i }) }, _) } as t
       when i > (List.length j) + ofs -> 
+
+      debug ltree
+        "destruct failed: %a"
+        (pp_print_term ~db:0) t
+      in
 
       assert false
 
@@ -974,12 +924,10 @@ struct
        Const s
 
     (* Free variable *)
-    | { H.node = FreeVar v } ->
-       Var v
+    | { H.node = FreeVar v } -> Var v
 
     (* Function application *)
-    | { H.node = Node (s, l) } -> 
-       App (s, l)
+    | { H.node = Node (s, l) } -> App (s, l)
 
     (* Bound variable *)
     | { H.node = BoundVar _ } -> 

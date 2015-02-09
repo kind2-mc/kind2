@@ -16,6 +16,8 @@
 
 *)
 
+open Lib
+
 include GenericSMTLIBDriver
 
 (* Configuration for CVC4 *)
@@ -51,3 +53,95 @@ let check_sat_assuming_cmd () =
 
 let check_sat_assuming_supported () = false
 
+
+let s_lambda = HString.mk_hstring "LAMBDA"
+
+let cvc4_expr_or_lambda_of_string_sexpr' ({ s_define_fun } as conv) bound_vars = 
+
+  function 
+
+    (* (define-fun c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom i; (* identifier *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_define_fun -> 
+
+      Model.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
+
+    (* (LAMBDA c () Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.List []; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_lambda -> 
+
+      Model.Term
+        (gen_expr_of_string_sexpr' conv bound_vars t)
+
+
+    (* (define-fun A ((x1 Int) (x2 Int)) Bool t) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* define-fun *)
+         HStringSExpr.Atom _; (* identifier *)
+         HStringSExpr.List v; (* Parameters *)
+         _; (* Result type *)
+         t (* Expression *)
+        ]
+      when s == s_define_fun -> 
+
+      (* Get list of variables bound by the quantifier *)
+      let vars = gen_bound_vars_of_string_sexpr conv bound_vars [] v in
+
+      (* Convert bindings to an association list from strings to
+         variables *)
+      let bound_vars' = 
+        List.map 
+          (function v -> (Var.hstring_of_free_var v, v))
+          vars
+      in
+
+      Model.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
+
+
+    (* (LAMBDA ((_ufmt_1 Int) (_ufmt_2 Int)) (ite (= _ufmt_1 0) (= _ufmt_2 0) false)) *)
+    | HStringSExpr.List 
+        [HStringSExpr.Atom s; (* LAMBDA *)
+         HStringSExpr.List v; (* Parameters *)
+         t (* Expression *)
+        ]
+      when s == s_lambda -> 
+
+      (* Get list of variables bound by the quantifier *)
+      let vars = gen_bound_vars_of_string_sexpr conv bound_vars [] v in
+
+      (* Convert bindings to an association list from strings to
+         variables *)
+      let bound_vars' = 
+        List.map 
+          (function v -> (Var.hstring_of_free_var v, v))
+          vars
+      in
+
+      Model.Lambda
+        (Term.mk_lambda
+           vars
+           (gen_expr_of_string_sexpr' conv (bound_vars @ bound_vars') t))
+
+    (* Interpret as a term *)
+    | _ -> invalid_arg "cvc4_expr_or_lambda_of_string_sexpr"
+
+      
+
+let lambda_of_string_sexpr = 
+  gen_expr_or_lambda_of_string_sexpr smtlib_string_sexpr_conv

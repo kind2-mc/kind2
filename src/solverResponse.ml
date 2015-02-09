@@ -40,6 +40,11 @@ type get_value_response = [
   | error_response
 ]
 
+type get_model_response = [
+  | `Model of (UfSymbol.t * Model.term_or_lambda) list
+  | error_response
+]
+
 type get_unsat_core_response = [
   | `Unsat_core of string list
   | error_response
@@ -54,6 +59,7 @@ type response = [
   | decl_response
   | check_sat_response
   | get_value_response
+  | get_model_response
   | get_unsat_core_response
   | custom_response
 ]
@@ -80,6 +86,37 @@ let rec pp_print_values ppf = function
     Format.pp_print_space ppf ();
     pp_print_values ppf tl
 
+(* Pretty-print a response to a list of expression pairs *)
+let rec pp_print_model ppf = function 
+
+  | [] -> ()
+
+  | (f, Model.Term t) :: [] -> 
+
+    Format.pp_open_hvbox ppf 2;
+    Format.pp_print_string ppf "(";
+    UfSymbol.pp_print_uf_symbol ppf f;
+    Format.pp_print_space ppf ();
+    Term.pp_print_term ppf t;
+    Format.pp_print_string ppf ")";
+    Format.pp_close_box ppf ()
+
+  | (f, Model.Lambda l) :: [] -> 
+
+    Format.pp_open_hvbox ppf 2;
+    Format.pp_print_string ppf "(";
+    UfSymbol.pp_print_uf_symbol ppf f;
+    Format.pp_print_space ppf ();
+    Term.pp_print_lambda ppf l;
+    Format.pp_print_string ppf ")";
+    Format.pp_close_box ppf ()
+
+  | (e, v) :: tl -> 
+
+    pp_print_model ppf [(e,v)];
+    Format.pp_print_space ppf ();
+    pp_print_model ppf tl
+
 
 (* Pretty-print a command response *)
 let pp_print_response ppf = function
@@ -105,6 +142,14 @@ let pp_print_response ppf = function
     Format.pp_open_hvbox ppf 1;
     Format.pp_print_string ppf "(";
     pp_print_values ppf v;
+    Format.pp_print_string ppf ")";
+    Format.pp_close_box ppf ()
+
+  | `Model m -> 
+    Format.pp_print_space ppf ();
+    Format.pp_open_hvbox ppf 1;
+    Format.pp_print_string ppf "(";
+    pp_print_model ppf m;
     Format.pp_print_string ppf ")";
     Format.pp_close_box ppf ()
 

@@ -318,7 +318,7 @@ let enable_values = "PDR, BMC, IND, INVGEN, INVGENOS, interpreter"
 
 let enable_default_init = []
 
-let enable_default_after = [`BMC; `IND; `INVGEN; `INVGENOS]
+let enable_default_after = [`BMC; `IND; `PDR; `INVGEN; `INVGENOS]
 
 (* ********** *) 
 
@@ -331,12 +331,6 @@ let check_version_default = false
 type bmc_max = int
     
 let bmc_max_default = 0
-
-(* ********** *) 
-
-type ind_backward = bool
-    
-let ind_backward_default = false
 
 (* ********** *) 
 
@@ -610,7 +604,6 @@ type flags =
       mutable enable : enable;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
-      mutable ind_backward : ind_backward;
       mutable ind_compress : ind_compress;
       mutable ind_compress_equal : ind_compress_equal;
       mutable ind_compress_same_succ : ind_compress_same_succ;
@@ -663,7 +656,6 @@ let flags =
     enable = enable_default_init;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
-    ind_backward = ind_backward_default;
     ind_compress = ind_compress_default;
     ind_compress_equal = ind_compress_equal_default;
     ind_compress_same_succ = ind_compress_same_succ_default;
@@ -849,15 +841,6 @@ let bmc_max_spec =
   ("--bmc_max", 
    Arg.Int bmc_max_action, 
    Format.sprintf "(BMC, IND) Maximal number of iterations (default: %d, unlimited: 0)" bmc_max_default)
-
-(* ********** *) 
-
-let ind_backward_action o = flags.ind_backward <- o
-  
-let ind_backward_spec = 
-  ("--ind_backward", 
-   Arg.Bool ind_backward_action, 
-   Format.sprintf "(IND) Unrolls the transition relation backwards (default: %B)" ind_backward_default)
 
 (* ********** *) 
 
@@ -1260,8 +1243,6 @@ let check_version () = flags.check_version
 
 let bmc_max () = flags.bmc_max 
 
-let ind_backward () = flags.ind_backward
-
 let ind_compress () = flags.ind_compress 
 
 let ind_compress_equal () = flags.ind_compress_equal 
@@ -1395,9 +1376,6 @@ and speclist =
 
     (* Maximal number of iterations in BMC *)
     bmc_max_spec;
-
-    (* Compress inductive counterexamples *)
-    ind_backward_spec;
 
     (* Compress inductive counterexamples *)
     ind_compress_spec;

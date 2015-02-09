@@ -358,8 +358,15 @@ let list_join equal l1 l2 =
              
   in
 
-  (* Call recursive function with initial accumulator *)
-  list_join' equal [] l1 l2
+  (* Second list is empty? *)
+  match l2 with 
+
+    (* Initialize with singleton elements from first list *)
+    | [] -> List.map (fun (k, v) -> (k, [v])) l1
+
+    (* Call recursive function with initial accumulator *)
+    | _ -> list_join' equal [] l1 l2
+
 
 (* ********************************************************************** *)
 (* Array functions                                                        *)
