@@ -182,60 +182,53 @@ let path_comp_actlit = fresh_actlit ()
 (* Term version. *)
 let path_comp_act_term = path_comp_actlit |> term_of_actlit
 
-(* Evaluates a list of terms at zero, then at 1 etc. up to [k].
-   If a term@i evaluates to [false], asserts it and returns [true].
-   otherwise returns [false].
-   In short, attempts to block the model represented by [eval] with a
-   term from [terms] at [i] where [0 <= i <= k]. *)
-let eval_terms_assert_first_false trans solver eval k =
+(* (\* Evaluates a list of terms at zero, then at 1 etc. up to [k]. *)
+(*    If a term@i evaluates to [false], asserts it and returns [true]. *)
+(*    otherwise returns [false]. *)
+(*    In short, attempts to block the model represented by [eval] with a *)
+(*    term from [terms] at [i] where [0 <= i <= k]. *\) *)
+(* let eval_terms_assert_first_false trans solver eval k = *)
 
-  (* Unrolls terms of the list at [k], asserting the first one
-     evaluating to false and in that case returning [true]. If all
-     terms@k evaluate to [true], returns false. *)
-  let rec loop_at_k k' = function
-    | term :: tail ->
-      (* Bumping term at [k]. *)
-      let term_at_k = Term.bump_state k' term in
-      ( try
-          if eval term_at_k
-          (* Term evaluates to true, recursing. *)
-          then
-            loop_at_k k' tail
-          (* Term evaluates to false, asserting it and returning true. *)
-          else (
-            SMTSolver.assert_term solver term_at_k ;
-            true
-          )
-        with
-          | Invalid_argument _ ->
-            (* This should only happen when the term is two state and
-               [k'] is 0. *)
-            (* The term was not evaluable in this model, skipping it. *)
-            loop_at_k k' tail )
-    | [] -> false
-  in
+(*   (\* Unrolls terms of the list at [k], asserting the first one *)
+(*      evaluating to false and in that case returning [true]. If all *)
+(*      terms@k evaluate to [true], returns false. *\) *)
+(*   let rec loop_at_k k' = function *)
+(*     | term :: tail -> *)
+(*       (\* Bumping term at [k]. *\) *)
+(*       let term_at_k = Term.bump_state k' term in *)
+(*       ( try *)
+(*           if eval term_at_k *)
+(*           (\* Term evaluates to true, recursing. *\) *)
+(*           then *)
+(*             loop_at_k k' tail *)
+(*           (\* Term evaluates to false, asserting it and returning true. *\) *)
+(*           else ( *)
+(*             SMTSolver.assert_term solver term_at_k ; *)
+(*             true *)
+(*           ) *)
+(*         with *)
+(*           | Invalid_argument _ -> *)
+(*             (\* This should only happen when the term is two state and *)
+(*                [k'] is 0. *\) *)
+(*             (\* The term was not evaluable in this model, skipping it. *\) *)
+(*             loop_at_k k' tail ) *)
+(*     | [] -> false *)
+(*   in *)
 
-  let rec loop_all_k k' =
-    if Numeral.(k' > Numeral.zero) then false
-    else (
-      (* Attempting to block the model represented by [eval]. *)
-      let blocked = loop_at_k k' (TransSys.get_invars trans) in
-      if blocked
-      (* Blocked, returning. *)
-      then true
-      (* Not blocked, incrementing [k]. *)
-      else loop_all_k Numeral.(k' + one)
-    )
-  in
+(*   let rec loop_all_k k' = *)
+(*     if Numeral.(k' > Numeral.zero) then false *)
+(*     else ( *)
+(*       (\* Attempting to block the model represented by [eval]. *\) *)
+(*       let blocked = loop_at_k k' (TransSys.get_invars trans) in *)
+(*       if blocked *)
+(*       (\* Blocked, returning. *\) *)
+(*       then true *)
+(*       (\* Not blocked, incrementing [k]. *\) *)
+(*       else loop_all_k Numeral.(k' + one) *)
+(*     ) *)
+(*   in *)
 
-  (* Timing the blocking for stats. *)
-  Stat.start_timer Stat.ind_lazy_invariants_time ;
-  let result = loop_all_k k in
-  Stat.record_time Stat.ind_lazy_invariants_time ;
-
-  if result then Stat.incr Stat.ind_lazy_invariants_count ;
-
-  result
+(*   result *)
 
 (* Check-sat and splits properties.. *)
 let split trans solver k to_split actlits =
@@ -255,14 +248,9 @@ let split trans solver k to_split actlits =
     
     (* Getting model for evaluation. *)
     let model =
-      if Flags.ind_lazy_invariants () then
-        (* Lazy invariant mode, we need the full model. *)
-        TransSys.vars_of_bounds trans k Numeral.zero |> get_model
-      else
-        (* Not in lazy invariant mode, we only need model at [0]. *)
-        TransSys.vars_of_bounds
-          trans Numeral.zero Numeral.zero
-        |> get_model
+      TransSys.vars_of_bounds
+        trans Numeral.zero Numeral.zero
+      |> get_model
     in
     
     Some (cex, model)
@@ -293,46 +281,32 @@ let split trans solver k to_split actlits =
       let eval term =
         term_to_val term |> Eval.bool_of_value
       in
-
-      (* Attempting to block counterexample with invariants. *)
-      let blocked_by_invariant =
-        if Flags.ind_lazy_invariants () then
-          (* We are in lazy invariants mode, trying to block model. *)
-          eval_terms_assert_first_false trans solver eval k
-        else false
-      in
-
-      if blocked_by_invariant
-      (* Blocked model with an invariant, rechecking
-         satisfiability. *)
-      then loop ()
-      else
       
-        (* Attempting to compress path. *)
-        ( match
-            if not (Flags.ind_compress ()) then [] else
-              Compress.check_and_block
-                (SMTSolver.declare_fun solver) trans cex
-          with
+      (* Attempting to compress path. *)
+      ( match
+          if not (Flags.ind_compress ()) then [] else
+            Compress.check_and_block
+              (SMTSolver.declare_fun solver) trans cex
+        with
 
-            | [] ->
-              (* Splitting properties. *)
-              let new_to_split, new_falsifiable =
-                List.partition
-                  ( fun (_, term) -> eval term )
-                  to_split
-              in
-              (* Building result. *)
-              Some (new_to_split, new_falsifiable)
+        | [] ->
+           (* Splitting properties. *)
+           let new_to_split, new_falsifiable =
+             List.partition
+               ( fun (_, term) -> eval term )
+               to_split
+           in
+           (* Building result. *)
+           Some (new_to_split, new_falsifiable)
 
-            | compressor ->
-              (* Path compressing, building term and asserting it. *)
-              Term.mk_or
-                [ path_comp_act_term |> Term.mk_not ;
-                  compressor |> Term.mk_and ]
-                |> SMTSolver.assert_term solver ;
-              (* Rechecking satisfiability. *)
-              loop () )
+        | compressor ->
+           (* Path compressing, building term and asserting it. *)
+           Term.mk_or
+             [ path_comp_act_term |> Term.mk_not ;
+               compressor |> Term.mk_and ]
+           |> SMTSolver.assert_term solver ;
+           (* Rechecking satisfiability. *)
+           loop () )
 
     | None ->
       (* Returning the unsat result. *)
@@ -515,20 +489,17 @@ let rec next trans solver k unfalsifiables unknowns =
      TransSys.trans_of_bound trans k
      |> SMTSolver.assert_term solver
      |> ignore ;
+     
+     (* Asserting new invariants from 0 to k. *)
+     ( match new_invariants' with
+       | [] -> ()
+       | l -> l
+              |> Term.mk_and
+              |> Term.bump_and_apply_k
+                   (SMTSolver.assert_term solver) k) ;
 
-     (* Asserting invariants if we are not in lazy invariants mode. *)
-     if not (Flags.ind_lazy_invariants ()) then (
-       (* Asserting new invariants from 0 to k. *)
-       ( match new_invariants' with
-         | [] -> ()
-         | l -> l
-                |> Term.mk_and
-                |> Term.bump_and_apply_k
-                    (SMTSolver.assert_term solver) k) ;
-
-       (* Asserts old invariants at k-1. *)
-       TransSys.invars_of_bound trans k_m_1 |> SMTSolver.assert_term solver ;
-     ) ;
+     (* Asserts old invariants at k-1. *)
+     TransSys.invars_of_bound trans k_m_1 |> SMTSolver.assert_term solver ;
 
      (* Asserting positive implications at [k+1] for unknowns. *)
      unknowns'

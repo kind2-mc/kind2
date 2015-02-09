@@ -92,21 +92,25 @@ val smt_trace_dir : unit -> smt_trace_dir
 type enable = Lib.kind_module list
 val enable : unit -> enable 
 
-(** Compositional analysis *)
-type compositional = bool
-val compositional : unit -> compositional
+(** Modular analysis *)
+type modular = bool
+val modular : unit -> modular
+
+(** Modular: timeout per analysis. *)
+type modular_timeout = float
+val modular_timeout : unit -> modular_timeout
 
 (** Contract-based analysis. *)
 type contracts = bool
 val contracts : unit -> contracts
 
-(** Optional contracts max abstraction depth. *)
-type contracts_max_abstr_depth = int option
-val contracts_max_abstr_depth : unit -> contracts_max_abstr_depth
+(** Activates contract abstraction. *)
+type contracts_abstract = bool
+val contracts_abstract : unit -> contracts_abstract
 
 (** Verification of subnodes requirements. *)
-type contracts_subrequirements = bool
-val contracts_subrequirements : unit -> contracts_subrequirements
+type contracts_subreqs = bool
+val contracts_subreqs : unit -> contracts_subreqs
 
 (** Maximal number of iterations in BMC *)
 type bmc_max = int
@@ -115,10 +119,6 @@ val bmc_max : unit -> bmc_max
 (** Output version information and exit *)
 type check_version = bool
 val check_version : unit -> check_version
-
-(** Unroll the system backwards *)
-type ind_backward = bool
-val ind_backward : unit -> ind_backward
 
 (** Compresss inductive counterexample *)
 type ind_compress = bool
@@ -136,10 +136,6 @@ val ind_compress_same_succ : unit -> ind_compress_same_succ
 (** Compresss inductive counterexample when states have same predecessors *)
 type ind_compress_same_pred = bool
 val ind_compress_same_pred : unit -> ind_compress_same_pred
-
-(** Lazy assertion of invariants. *)
-type ind_lazy_invariants = bool
-val ind_lazy_invariants : unit -> ind_lazy_invariants
 
 (** Output inductive counterexample *)
 type ind_print_inductive_cex = bool

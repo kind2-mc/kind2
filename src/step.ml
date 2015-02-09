@@ -223,13 +223,13 @@ let eval_terms_assert_first_false trans solver eval k =
   in
 
   (* Timing the blocking for stats. *)
-  Stat.start_timer Stat.ind_lazy_invariants_time ;
-  let result = loop_all_k Numeral.zero in
-  Stat.record_time Stat.ind_lazy_invariants_time ;
+  (* Stat.start_timer Stat.ind_lazy_invariants_time ; *)
+  (* let result = loop_all_k Numeral.zero in *)
+  (* Stat.record_time Stat.ind_lazy_invariants_time ; *)
 
-  if result then Stat.incr Stat.ind_lazy_invariants_count ;
+  (* if result then Stat.incr Stat.ind_lazy_invariants_count ; *)
 
-  result
+  false (* result *)
 
 (* Check-sat and splits properties.. *)
 let split trans solver k to_split actlits =
@@ -249,7 +249,7 @@ let split trans solver k to_split actlits =
     
     (* Getting model for evaluation. *)
     let model =
-      if Flags.ind_lazy_invariants () then
+      if false then
         (* Lazy invariant mode, we need the full model. *)
         TransSys.vars_of_bounds trans Numeral.zero k |> get_model
       else
@@ -284,46 +284,32 @@ let split trans solver k to_split actlits =
       let eval term =
         term_to_val term |> Eval.bool_of_value
       in
-
-      (* Attempting to block counterexample with invariants. *)
-      let blocked_by_invariant =
-        if Flags.ind_lazy_invariants () then
-          (* We are in lazy invariants mode, trying to block model. *)
-          eval_terms_assert_first_false trans solver eval k
-        else false
-      in
-
-      if blocked_by_invariant
-      (* Blocked model with an invariant, rechecking
-         satisfiability. *)
-      then loop ()
-      else
       
-        (* Attempting to compress path. *)
-        ( match
-            if not (Flags.ind_compress ()) then [] else
-              Compress.check_and_block
-                (SMTSolver.declare_fun solver) trans cex
-          with
+      (* Attempting to compress path. *)
+      ( match
+          if not (Flags.ind_compress ()) then [] else
+            Compress.check_and_block
+              (SMTSolver.declare_fun solver) trans cex
+        with
 
-            | [] ->
-              (* Splitting properties. *)
-              let new_to_split, new_falsifiable =
-                List.partition
-                  ( fun (_, term) ->
-                    Term.bump_state k term |> eval )
-                  to_split in
-              (* Building result. *)
-              Some (new_to_split, new_falsifiable)
+        | [] ->
+           (* Splitting properties. *)
+           let new_to_split, new_falsifiable =
+             List.partition
+               ( fun (_, term) ->
+                 Term.bump_state k term |> eval )
+               to_split in
+           (* Building result. *)
+           Some (new_to_split, new_falsifiable)
 
-            | compressor ->
-              (* Path compressing, building term and asserting it. *)
-              Term.mk_or
-                [ path_comp_act_term |> Term.mk_not ;
-                  compressor |> Term.mk_and ]
-                |> SMTSolver.assert_term solver ;
-              (* Rechecking satisfiability. *)
-              loop () )
+        | compressor ->
+           (* Path compressing, building term and asserting it. *)
+           Term.mk_or
+             [ path_comp_act_term |> Term.mk_not ;
+               compressor |> Term.mk_and ]
+           |> SMTSolver.assert_term solver ;
+           (* Rechecking satisfiability. *)
+           loop () )
 
     | None ->
       (* Returning the unsat result. *)
@@ -513,7 +499,7 @@ let rec next trans solver k unfalsifiables unknowns =
      |> ignore ;
 
      (* Asserting invariants if we are not in lazy invariants mode. *)
-     if not (Flags.ind_lazy_invariants ()) then (
+     if not (false) then (
        (* Asserting new invariants from 0 to k. *)
        ( match new_invariants' with
          | [] -> ()

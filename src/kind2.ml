@@ -52,7 +52,8 @@ let current_trans_sys = ref None
 
 
 (* Handle events by broadcasting messages, updating local transition
-   system version etc. *)
+   system version etc. Returns [true] iff it received at least one
+   message. *)
 let handle_events ?(silent_recv = false) trans_sys =
 
   (* Receive queued events. *)
@@ -292,10 +293,6 @@ module Stop = struct
          (* Minisleep to ensure messages send right before killing
             kids arrive. *)
          minisleep 0.01 ;
-
-         Event.log
-           L_info
-           "Receiving last messages (ignoring stale info messages)." ;
 
          handle_events ~silent_recv:true sys ) ;
 
@@ -1098,7 +1095,7 @@ let launch_analysis
 
   )
 
-let launch_compositional_analysis trans_sys =
+let launch_modular_analysis trans_sys =
 
   (* All subsystems of the top node, sorted by reverse topological
      order. *)
@@ -1109,20 +1106,9 @@ let launch_compositional_analysis trans_sys =
     n > (TransSys.get_max_depth sys |> Numeral.to_int)
   in
 
-  (* Checks if a depth is greater than the system [max_depth], or the
-     user-specified, optional max_abstraction_depth. *)
-  let reached_max_depth =
-    match Flags.contracts_max_abstr_depth () with
-    | None -> reached_max_depth_sys
-    | Some user_max_depth ->
-       (fun sys n ->
-        n > user_max_depth
-        || reached_max_depth_sys sys n)
-  in
-
   Event.log
     L_warn
-    "@[<v 8>|=====| Launching compositional analysis@ in the following order:@ \
+    "@[<v 8>|=====| Launching modular analysis@ in the following order:@ \
      (@[<hv>%a@])@]"
     (pp_print_list
        (fun ppf sys ->
@@ -1133,7 +1119,7 @@ let launch_compositional_analysis trans_sys =
     all_systems ;
 
   let rec analyze sys depth =
-    if not (reached_max_depth sys depth) then (
+    if not (reached_max_depth_sys sys depth) then (
 
       current_trans_sys := Some sys ;
 
@@ -1371,10 +1357,10 @@ let main () =
         (get !trans_sys)
       end ) ;
 
-    launch_compositional_analysis (get !trans_sys) ;
-    Stop.on_exit true `Supervisor Exit ;
-
-    launch_analysis true (get !trans_sys) None
+    if Flags.modular () then
+      launch_modular_analysis (get !trans_sys)
+    else
+      launch_analysis true (get !trans_sys) None
 
   with
 
