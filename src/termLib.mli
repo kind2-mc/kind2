@@ -34,11 +34,20 @@ type cexs = cex list
 (** {1 Properties of transition systems} *)
 
 
+(** Source of a contract. *)
+type contract_source =
+
+  (** Contract is from an annotation. *)
+  | ContractAnnot of Lib.position
+
 (** Source of a property *)
 type prop_source =
 
   (** Property is from an annotation *)
   | PropAnnot of Lib.position
+
+  (** Property comes from a contract of a node. *)
+  | Contract of contract_source
 
   (** Property is a requirement for a subsystem: scope of the
       subsystem and position. *)
@@ -53,9 +62,3 @@ type prop_source =
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
   | Instantiated of string list * string 
-
-(** Source of a contract. *)
-type contract_source =
-
-  (** Contract is from an annotation. *)
-  | ContractAnnot of Lib.position

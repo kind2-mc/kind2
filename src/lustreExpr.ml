@@ -265,7 +265,8 @@ let state_var_is_visible state_var =
 
     (* Oracle inputs and abstraced streams are invisible *)
     | Oracle
-    | Abstract -> false
+    | Abstract
+    | Observer -> false
 
     (* Inputs, outputs and defined locals are visible *)
     | Input
@@ -302,6 +303,8 @@ let state_var_is_local state_var =
     
 (* Pretty-print the source of a state variable *)
 let rec pp_print_state_var_source ppf = function
+
+  | Observer -> Format.fprintf ppf "observer"
   
   | Input -> Format.fprintf ppf "input"
 

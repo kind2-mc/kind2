@@ -64,6 +64,8 @@ type property =
 type contract =
     { (* Name of the contract. *)
       name : string ;
+      (* Property corresponding to this contract, at [trans_init]. *)
+      prop : Term.t ;
       (* Source of the contract. *)
       source : TermLib.contract_source ;
       (* Requirements of the contract. *)
@@ -212,7 +214,7 @@ let add_caller callee caller c =
 (* Instantiates some terms from a subsystem to a system calling
    it. System [subsys] is the subsystem [terms] comes from, [sys] is
    the system [terms] will be instantiated to. *)
-let instantiate_terms_for_sys ({ callers } as subsys) terms sys =
+let instantiate_terms_for_sys { callers } terms sys =
   try
     (* Looking for [sys] in the callers. *)
     List.assq sys callers
@@ -239,24 +241,24 @@ let instantiate_term { callers } term =
   |> List.map
        ( fun (sys, maps) ->
 
-         let print_map =
-           (* Turns a map from state vars to terms into a string. *)
-           let string_of_map map =
-             map
-             |> List.map
-                  ( fun (v,t) ->
-                    Printf.sprintf "(%s -> %s)"
-                                   (StateVar.string_of_state_var v)
-                                   (StateVar.string_of_state_var t) )
-             |> String.concat ", "
-           in
+         (* let print_map = *)
+         (*   (\* Turns a map from state vars to terms into a string. *\) *)
+         (*   let string_of_map map = *)
+         (*     map *)
+         (*     |> List.map *)
+         (*          ( fun (v,t) -> *)
+         (*            Printf.sprintf "(%s -> %s)" *)
+         (*                           (StateVar.string_of_state_var v) *)
+         (*                           (StateVar.string_of_state_var t) ) *)
+         (*     |> String.concat ", " *)
+         (*   in *)
            
-           List.map
-             (fun map ->
-              Printf.printf "  Mapping to [%s]:\n"
-                            (String.concat "/" sys.scope) ;
-              Printf.printf "  > %s\n\n" (string_of_map map) )
-         in
+         (*   List.map *)
+         (*     (fun map -> *)
+         (*      Printf.printf "  Mapping to [%s]:\n" *)
+         (*                    (String.concat "/" sys.scope) ; *)
+         (*      Printf.printf "  > %s\n\n" (string_of_map map) ) *)
+         (* in *)
          
          (* Building one new term per instantiation mapping for
             sys. *)
@@ -307,7 +309,7 @@ let is_top { callers } = callers = []
 let instantiate_term_all_levels t term =
 
   let rec loop at_top intermediary = function
-    | (sys, ((term :: term_tail) as list)) :: tail ->
+    | (sys, (term :: term_tail)) :: tail ->
 
       debug transSys "[loop] sys: %s" (sys.scope |> String.concat "/") in
 
@@ -419,6 +421,19 @@ let get_contracts { contracts } =
   |> List.map
        ( fun { name ; source ; requires ; ensures ; status } ->
          name, source, requires, ensures, status )
+
+(* For a system, returns [Some true] if all contracts are invariants,
+   [Some false] if at least one of the contracts is falsified, and
+   [None] otherwise --i.e. some contracts are unknown / k-true. *)
+let verifies_contracts { contracts } =
+  contracts
+  |> List.fold_left
+       ( fun bool_opt ->
+         function
+         | { status = PropInvariant } -> bool_opt
+         | { status = PropFalse(_) } -> Some false
+         | _ -> None )
+       (Some true)
 
 (* Returns the contracts of a system as a list of implications. *)
 let get_contracts_implications { contracts } =
@@ -560,8 +575,6 @@ let get_name t = t.scope |> String.concat "/"
    system, by reverse topological order. *)
 let get_all_subsystems sys =
 
-  let name s = get_name s in
-
   let insert_subsystem ({ subsystems } as sys) list =
     let rec loop rev_prefix = function
       | sys' :: _
@@ -663,6 +676,7 @@ let pp_print_uf_defs
 
 let pp_print_prop_source ppf = function 
   | TermLib.PropAnnot _ -> Format.fprintf ppf ":user"
+  | TermLib.Contract _ -> Format.fprintf ppf ":contract"
   | TermLib.SubRequirement _ -> Format.fprintf ppf ":requirement"
   | TermLib.Generated p -> Format.fprintf ppf ":generated"
   | TermLib.Instantiated _ -> Format.fprintf ppf ":subsystem"
@@ -819,32 +833,6 @@ let mk_trans_sys
     | [] -> result
   in
 
-  (* Looks in the subsystems for one such that 'f' applied to the
-     subsys is uf. *)
-  let find_subsystem f uf =
-    List.find (fun subsys -> uf == f subsys) subsystems
-  in
-
-  (* Checks if a flat term is an application of a uf such that 'f' on
-     a subsystem. Returns Some of the subsystem if yes, None
-     otherwise. *)
-  let is_flat_uf_such_that f = function
-      
-    | Term.T.App (sym,params) when Symbol.is_uf sym ->
-       ( try Some (Symbol.uf_of_symbol sym |> find_subsystem f,
-                   params)
-         with Not_found -> None )
-         
-    | Term.T.Const sym when Symbol.is_uf sym ->
-       ( try Some (Symbol.uf_of_symbol sym |> find_subsystem f,
-                   [])
-         with Not_found -> None )
-
-    | _ -> None
-  in
-
-  let name = String.concat "/" scope in
-
   let max_depth =
     let rec loop max_so_far = function
       | [] ->
@@ -862,6 +850,10 @@ let mk_trans_sys
     |> List.map
          (fun (name, source, reqs, ens) ->
           { name = name ;
+            prop =
+              Term.mk_implies
+                [ Term.mk_and reqs ;
+                  Term.mk_and ens ] ;
             source = source ;
             requires = reqs ;
             ensures = ens ;

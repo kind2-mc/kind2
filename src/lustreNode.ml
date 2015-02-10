@@ -1469,16 +1469,18 @@ let reduce_to_props_coi nodes main_name =
   match 
 
     List.fold_left
-      (fun accum (state_var, prop_source) -> match prop_source with 
+      (fun accum (state_var, prop_source) ->
+       match prop_source with 
 
-         (* Property annotations, contracts and generated constraints
+       (* Property annotations, contracts and generated constraints
             are in the cone of influence *)
-         | TermLib.PropAnnot _ 
-         | TermLib.SubRequirement _
-         | TermLib.Generated _ -> state_var :: accum
+       | TermLib.PropAnnot _ 
+       | TermLib.SubRequirement _
+       | TermLib.Contract _
+       | TermLib.Generated _ -> state_var :: accum
 
-         (* Properties instantiated from subnodes are not *)
-         | TermLib.Instantiated _-> accum) 
+       (* Properties instantiated from subnodes are not *)
+       | TermLib.Instantiated _-> accum) 
       []
       props 
 

@@ -1101,11 +1101,6 @@ let launch_modular_analysis trans_sys =
      order. *)
   let all_systems = TransSys.get_all_subsystems trans_sys in
 
-  (* Checks if a depth is greater than the system [max_depth]. *)
-  let reached_max_depth_sys sys n =
-    n > (TransSys.get_max_depth sys |> Numeral.to_int)
-  in
-
   Event.log
     L_warn
     "@[<v 8>|=====| Launching modular analysis@ in the following order:@ \
@@ -1118,23 +1113,41 @@ let launch_modular_analysis trans_sys =
        ",@ ")
     all_systems ;
 
+  let abstract_contracts = Flags.contracts_abstract() in
+
   let rec analyze sys depth =
-    if not (reached_max_depth_sys sys depth) then (
+    (* Getting the system max abstraction depth. *)
+    let max_depth =
+      TransSys.get_max_depth sys
+      |> Numeral.to_int
+    in
+
+    if depth <= max_depth then (
+      (* Not over [max_depth] yet, running analysis. *)
 
       current_trans_sys := Some sys ;
 
       if not (TransSys.all_props_proved sys) then (
-        Event.log
-          L_warn
-          "@.|===| Launching analysis for %s at %i."
-          (TransSys.get_name sys)
-          depth ;
+
+        ( if depth == max_depth then
+            Event.log
+              L_warn
+              "@.|===| Launching analysis for %s, no abstraction."
+              (TransSys.get_name sys)
+          else
+            Event.log
+              L_warn
+              "@.|===| Launching analysis for %s at %i/%i."
+              (TransSys.get_name sys)
+              depth
+              max_depth ) ;
 
         Event.log
           L_warn
           "%a" TransSys.pp_print_trans_sys_contract_view sys ;
 
-        ( match
+        if abstract_contracts then (
+          match
             TransSys.abstracted_subsystems_of_depth
               sys depth
           with
@@ -1147,7 +1160,8 @@ let launch_modular_analysis trans_sys =
                (pp_print_list
                   (fun ppf s -> Format.fprintf ppf "%s" s)
                   ",@ ")
-               abstracted ) ;
+               abstracted
+        ) ;
 
         let _ = read_line () in
 
@@ -1194,7 +1208,18 @@ let launch_modular_analysis trans_sys =
   all_systems
   |> List.iter
        ( fun sys ->
-         analyze sys 0 ) ;
+
+         ( if abstract_contracts then
+             (* Abstracting contracts, starting at 0. *)
+             0
+           else
+             (* Not abstracting contracts, starting directly at
+                [max_depth] for [sys]. *)
+             TransSys.get_max_depth sys
+             |> Numeral.to_int)
+
+         (* Launching analysis. *)
+         |> analyze sys ) ;
 
   minisleep 0.01 ;
 

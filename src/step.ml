@@ -176,61 +176,6 @@ let path_comp_actlit = fresh_actlit ()
 (* Term version. *)
 let path_comp_act_term = path_comp_actlit |> term_of_actlit
 
-(* Evaluates a list of terms at zero, then at 1 etc. up to [k].
-   If a term@i evaluates to [false], asserts it and returns [true].
-   otherwise returns [false].
-   In short, attempts to block the model represented by [eval] with a
-   term from [terms] at [i] where [0 <= i <= k]. *)
-let eval_terms_assert_first_false trans solver eval k =
-
-  (* Unrolls terms of the list at [k], asserting the first one
-     evaluating to false and in that case returning [true]. If all
-     terms@k evaluate to [true], returns false. *)
-  let rec loop_at_k k' = function
-    | term :: tail ->
-      (* Bumping term at [k]. *)
-      let term_at_k = Term.bump_state k' term in
-      ( try
-          if eval term_at_k
-          (* Term evaluates to true, recursing. *)
-          then
-            loop_at_k k' tail
-          (* Term evaluates to false, asserting it and returning true. *)
-          else (
-            SMTSolver.assert_term solver term_at_k ;
-            true
-          )
-        with
-          | Invalid_argument _ ->
-            (* This should only happen when the term is two state and
-               [k'] is 0. *)
-            (* The term was not evaluable in this model, skipping it. *)
-            loop_at_k k' tail )
-    | [] -> false
-  in
-
-  let rec loop_all_k k' =
-    if Numeral.(k' > k) then false
-    else (
-      (* Attempting to block the model represented by [eval]. *)
-      let blocked = loop_at_k k' (TransSys.get_invars trans) in
-      if blocked
-      (* Blocked, returning. *)
-      then true
-      (* Not blocked, incrementing [k]. *)
-      else loop_all_k Numeral.(k' + one)
-    )
-  in
-
-  (* Timing the blocking for stats. *)
-  (* Stat.start_timer Stat.ind_lazy_invariants_time ; *)
-  (* let result = loop_all_k Numeral.zero in *)
-  (* Stat.record_time Stat.ind_lazy_invariants_time ; *)
-
-  (* if result then Stat.incr Stat.ind_lazy_invariants_count ; *)
-
-  false (* result *)
-
 (* Check-sat and splits properties.. *)
 let split trans solver k to_split actlits =
   
@@ -484,9 +429,6 @@ let rec next trans solver k unfalsifiables unknowns =
 
      (* k+1. *)
      let k_p_1 = Numeral.succ k in
-
-     Printf.sprintf
-       "Unrolling step at %i." Numeral.(to_int k_p_1) ;
      
      (* Declaring unrolled vars at k+1. *)
      TransSys.declare_vars_of_bounds

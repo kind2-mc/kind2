@@ -328,9 +328,6 @@ let modular_default = false
 type modular_timeout = float
 let modular_timeout_default = 0.
 
-type contracts = bool
-let contracts_default = false
-
 type contracts_abstract = bool
 let contracts_abstract_default = false
 
@@ -615,7 +612,6 @@ type flags =
       mutable enable : enable;
       mutable modular : modular;
       mutable modular_timeout : modular_timeout;
-      mutable contracts : contracts;
       mutable contracts_abstract : contracts_abstract;
       mutable contracts_subreqs : contracts_subreqs;
       mutable check_version : check_version;
@@ -671,7 +667,6 @@ let flags =
     enable = enable_default_init;
     modular = modular_default;
     modular_timeout = modular_timeout_default;
-    contracts = contracts_default;
     contracts_abstract = contracts_abstract_default;
     contracts_subreqs = contracts_subreqs_default;
     check_version = check_version_default;
@@ -894,17 +889,6 @@ let modular_timeout_spec =
      "@[<v 7>@,(modular, default: %1.f)@ \
       Wallclock timeout for each subsystem of the modular analysis.@]"
      modular_timeout_default)
-
-(* ********** *) 
-
-let contracts_action () = flags.contracts <- true
-  
-let contracts_spec = 
-  ("--contracts",
-   Arg.Unit contracts_action,
-   Format.sprintf
-     "@[<v 7>@,\
-      Activates contract-based analysis.@]")
 
 (* ********** *) 
 
@@ -1415,8 +1399,6 @@ let modular () = flags.modular
 
 let modular_timeout () = flags.modular_timeout
 
-let contracts () = flags.contracts
-
 let contracts_abstract () = flags.contracts_abstract
 
 let contracts_subreqs () = flags.contracts_subreqs
@@ -1556,9 +1538,6 @@ and speclist =
 
     (* Modular timeout *)
     modular_timeout_spec;
-
-    (* Contract-based analysis *)
-    contracts_spec;
 
     (* Maximal abstraction depth in contract-based analysis *)
     contracts_abstract_spec;

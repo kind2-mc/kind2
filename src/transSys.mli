@@ -149,6 +149,11 @@ val get_contracts :
    * Term.t list
    * prop_status) list
 
+(** For a system, returns [Some true] if all contracts are invariants,
+    [Some false] if at least one of the contracts is falsified, and
+    [None] otherwise --i.e. some contracts are unknown / k-true. *)
+val verifies_contracts : t -> bool option
+
 (** The contracts of a system, as a list of implications. *)
 val get_contracts_implications : t -> (string * Term.t) list
 

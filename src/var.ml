@@ -449,6 +449,8 @@ let unrolled_uf_of_state_var_instance = function
          string (arg_type_of_uf_symbol uf) (res_type_of_uf_symbol uf)
      )
 
+  | { Hashcons.node = TempVar _ } -> assert false
+
 (* Declares constant variables as constant ufsymbols using the
     provided function. *)
 let rec declare_constant_vars declare = function

@@ -395,7 +395,7 @@ let rec definitions_of_node_calls
         N.call_node_name = node_name;
         N.call_inputs = input_vars;
         N.call_defaults = init_exprs;
-        N.call_pos = pos } as call :: tl -> 
+        N.call_pos = pos } :: tl -> 
 (*
       debug lustreTransSys
           "definitions_of_node_calls: %a"
@@ -554,9 +554,6 @@ let rec definitions_of_node_calls
              (* Type of state variable *)
              let var_type = StateVar.type_of_state_var state_var in
 
-             (* Name of state variable *)
-             let var_name = StateVar.string_of_state_var state_var in
-
              (* New state variable for node call *)
              let local_state_var = 
                mk_new_state_var 
@@ -712,14 +709,6 @@ let rec definitions_of_node_calls
                 Var.mk_state_var_instance
                   init_flag_svar Numeral.(pred TransSys.trans_base)
                 |> Term.mk_var
-              in
-
-              (* Initial state values of default values *)
-              let init_terms_init = 
-                List.map 
-                  (function { E.expr_init } -> 
-                    E.base_term_of_expr TransSys.init_base expr_init) 
-                  init_exprs
               in
 
               (* Input for node call in initial state *)
@@ -923,14 +912,14 @@ let rec definitions_of_node_calls
               List.fold_right
                 (fun
                   sv
-                  ((local_vars'',
-                    input_shadow_vars,
-                    input_shadow_terms_init, 
-                    input_shadow_terms_trans,
-                    input_shadow_terms_trans_pre, 
-                    propagate_inputs, 
-                    propagate_inputs_init, 
-                    interpolate_inputs) as accum) -> 
+                  (local_vars'',
+                   input_shadow_vars,
+                   input_shadow_terms_init, 
+                   input_shadow_terms_trans,
+                   input_shadow_terms_trans_pre, 
+                   propagate_inputs, 
+                   propagate_inputs_init, 
+                   interpolate_inputs) -> 
 
                   (* Skip over constant inputs *)
                   if StateVar.is_const sv then
@@ -1297,7 +1286,7 @@ let rec definitions_of_exprs init trans =
     | [] -> (init, trans)
 
     (* Assertion with term for initial state and term for transitions *)
-    | { E.expr_init; E.expr_step } as expr :: tl ->
+    | { E.expr_init; E.expr_step } :: tl ->
 
       (* Term for assertion in initial state *)
       let term_init = E.base_term_of_expr TransSys.init_base expr_init in 
@@ -1545,7 +1534,24 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         node.N.fresh_state_var_index
     in
 
-    let contracts, abstract_contract_init, abstract_contract_trans =
+    let
+      (* Actual contract tuple to pass to [mk_trans_sys]. *)
+      contracts,
+
+      (* Requirements of the contracts as a DNF. The system should
+         always be in one (disjunction) of the requirements
+         (conjunction) of a contract. *)
+      (* Init part. *)
+      assertions_from_requirements_init,
+      (* Trans part. *)
+      assertions_from_requirements_trans,
+
+      (* Contract-based abstraction of the node. *)
+      (* Init part. *)
+      abstract_contract_init,
+      (* Trans part. *)
+      abstract_contract_trans =
+
       let init_at_init = init_flag_init |> Term.mk_var in
       let lustre_expr_to_term
             { E.expr_init = init ; E.expr_step = step } =
@@ -1563,23 +1569,45 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
       node_contracts
       |> List.fold_left
-           ( fun (contracts, abs_init, abs_trans)
-                 (name, source, reqs, ens) ->
+           ( fun (
+               contracts,
+               asserts_from_reqs_init, asserts_from_reqs_trans,
+               abs_init, abs_trans
+             ) (name, source, reqs, ens) ->
+
+             (* Building the conjunction of requirements for init and
+                trans. *)
+             let reqs_conj_init, reqs_conj_trans =
+               reqs
+               |> List.map
+                    ( fun { E.expr_init = init } ->
+                      E.base_term_of_expr TransSys.init_base init )
+               |> Term.mk_and,
+               reqs
+               |> List.map
+                    ( fun { E.expr_step = step } ->
+                      E.base_term_of_expr TransSys.trans_base step )
+               |> Term.mk_and
+             in
 
              (* Building the list of contracts used to construct the
                 transition system. *)
              (name, source,
-              reqs |> List.map lustre_expr_to_term ,
+              reqs |> List.map lustre_expr_to_term,
               ens |> List.map lustre_expr_to_term)
              :: contracts,
 
+             (* Building the list --understood as a disjunction-- of
+                the conjunction of the requirements of each
+                contract. *)
+             (* Init version. *)
+             reqs_conj_init :: asserts_from_reqs_init,
+             (* Trans version. *)
+             reqs_conj_trans :: asserts_from_reqs_trans,
+
              (* Building the abstract contract init predicate. *)
              (Term.mk_implies
-                [ reqs
-                  |> List.map
-                       (fun { E.expr_init = init } ->
-                        E.base_term_of_expr TransSys.init_base init)
-                  |> Term.mk_and ;
+                [ reqs_conj_init ;
                   ens
                   |> List.map
                        (fun { E.expr_init = init } ->
@@ -1589,22 +1617,79 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
              (* Building the abstract contract init predicate. *)
              (Term.mk_implies
-                [ reqs
-                  |> List.map
-                       (fun { E.expr_step = step } ->
-                        E.base_term_of_expr TransSys.trans_base step)
-                  |> Term.mk_and ;
+                [ reqs_conj_trans ;
                   ens
                   |> List.map
                        (fun { E.expr_step = step } ->
                         E.base_term_of_expr TransSys.trans_base step)
                   |> Term.mk_and ])
              :: abs_trans )
-           ([], [], [])
-      |> (fun (contracts, abs_init, abs_trans) ->
-          contracts,
-          Term.mk_and abs_init,
-          Term.mk_and abs_trans)
+           ([], [], [], [], [])
+      |> ( fun (
+             contracts,
+             asserts_from_reqs_init, asserts_from_reqs_trans,
+             abs_init, abs_trans
+           ) ->
+
+           (* List of contracts for [mk_trans_sys]. *)
+           contracts,
+
+           ( (* Init version of the requirement DNF. *)
+             if List.memq Term.t_true asserts_from_reqs_init then
+               (* There is one [true] in there, not creating the
+                  disjunction. *)
+               Term.t_true
+             else
+               (* No [true] in the list. *)
+               ( match asserts_from_reqs_init with
+                 | [] ->
+                    (* No requirements, constraint is true. *)
+                    Term.t_true
+                 | _ ->
+                    (* Building the disjunction. *)
+                    asserts_from_reqs_init
+                    |> Term.mk_or ) ),
+
+           ( (* Trans version of the requirement DNF. *)
+             if List.memq Term.t_true asserts_from_reqs_trans then
+               (* There is one [true] in there, not creating the
+                  disjunction. *)
+               Term.t_true
+             else
+               (* No [true] in the list. *)
+               ( match asserts_from_reqs_trans with
+                 | [] ->
+                    (* No requirements, constraint is true. *)
+                    Term.t_true
+                 | _ ->
+                    (* Building the disjunction. *)
+                    asserts_from_reqs_trans
+                    |> Term.mk_or ) ),
+
+           (* Init version of the abstract init predicate. *)
+           Term.mk_and abs_init,
+           (* Trans version of the abstract trans predicate. *)
+           Term.mk_and abs_trans )
+    in
+
+    (* Building the list of contract-properties from the list of
+       contracts. *)
+    let contract_props =
+      contracts
+      |> List.map
+           ( fun (name, source, reqs, ens) ->
+
+             (* Prop name is the name of the contract. *)
+             name,
+
+             (* Source is [Contract] of the contract source. *) 
+             TermLib.Contract(source),
+
+             (* [/\reqs => /\ens], note that [reqs] and [ens] have
+                been guarded with init in case they are two state. *)
+             Term.mk_implies
+               [ Term.mk_and reqs ;
+                 Term.mk_and ens ] )
     in
 
     debug lustreTransSys
@@ -1614,7 +1699,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
              (function ppf -> function (name, source, reqs, ens) ->
                        Format.fprintf
                          ppf
-                         "@[<hv 2>contract %s %s@ requires: @[<v>%a@]@ ensures:  @[<v>%a@]@]"
+                         "@[<hv 2>contract %s %s@ requires: @[<v>%a@]\
+                          @ ensures:  @[<v>%a@]@]"
                          name
                          (match source with
                           | TermLib.ContractAnnot _ -> ":user")
@@ -1980,6 +2066,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
            in
            (prop_name, source, prop_term))
          node_props)
+      @ contract_props
       @ lifted_props
     in
 
@@ -1996,6 +2083,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                   | TermLib.PropAnnot p -> 
                      Format.fprintf
                        ppf "annot at %a" pp_print_position p
+
+                  | TermLib.Contract TermLib.ContractAnnot(p) ->
+                     Format.fprintf
+                       ppf "contract at %a" pp_print_position p
 
                   | TermLib.SubRequirement (scope, p) ->
                      Format.fprintf
@@ -2070,8 +2161,12 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (List.map (E.base_var_of_state_var TransSys.init_base) locals)),
 
         (Term.mk_and
-           ( (init_flag_init |> Term.mk_var)
-            :: init_defs_eqs)
+           ( (* Constraining init flag. *)
+             (init_flag_init |> Term.mk_var)
+             (* Assertions from requirements. *)
+             :: assertions_from_requirements_init
+             (* Other definitions. *)
+             :: init_defs_eqs)
          |> add_contract_conditional_on_depth_init props )))
 
     in
@@ -2149,7 +2244,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
          (List.map (E.pre_var_of_state_var TransSys.trans_base) locals)),
 
         (Term.mk_and
-           ( (init_flag_trans |> Term.mk_var |> Term.mk_not)
+           ( (* Constraint on the init flag. *)
+             (init_flag_trans |> Term.mk_var |> Term.mk_not)
+             (* Assertions from requirements. *)
+             :: assertions_from_requirements_init
+             (* Other definitions. *)
              :: trans_defs_eqs )
          |> add_contract_conditional_on_depth_trans props)))
 

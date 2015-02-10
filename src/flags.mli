@@ -100,10 +100,6 @@ val modular : unit -> modular
 type modular_timeout = float
 val modular_timeout : unit -> modular_timeout
 
-(** Contract-based analysis. *)
-type contracts = bool
-val contracts : unit -> contracts
-
 (** Activates contract abstraction. *)
 type contracts_abstract = bool
 val contracts_abstract : unit -> contracts_abstract
