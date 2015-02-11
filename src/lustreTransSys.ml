@@ -1683,7 +1683,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
              name,
 
              (* Source is [Contract] of the contract source. *) 
-             TermLib.Contract(source),
+             TermLib.Contract source,
 
              (* [/\reqs => /\ens], note that [reqs] and [ens] have
                 been guarded with init in case they are two state. *)
@@ -2084,9 +2084,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                      Format.fprintf
                        ppf "annot at %a" pp_print_position p
 
-                  | TermLib.Contract TermLib.ContractAnnot(p) ->
+                  | TermLib.Contract TermLib.ContractAnnot(n,p) ->
                      Format.fprintf
-                       ppf "contract at %a" pp_print_position p
+                       ppf "contract %s at %a" n pp_print_position p
 
                   | TermLib.SubRequirement (scope, p) ->
                      Format.fprintf

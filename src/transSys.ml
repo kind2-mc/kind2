@@ -779,6 +779,28 @@ let get_source t = t.source
 (* Returns the max depth of a transition system. *)
 let get_max_depth t = t.max_depth
 
+(* Returns [Some (e,e')] iff [list] contains two elements [e] and [e']
+   such that [f(e) == f(e')]. Not that this uses PHYSICAL
+   comparison. *)
+let find_element_clash f list =
+  let rec loop = function
+    | [] ->
+       (* No clash. *)
+       None
+    | e :: tail ->
+       ( match tail
+               (* Looking for an element in [tail]... *)
+               |> List.find
+                    (* ...which clashes with [e] modulo [f]. *)
+                    (fun e' -> f e == f e')
+         with
+         (* Clash detected. *)
+         | e' -> Some (e,e')
+         (* No clash, looping. *)
+         | exception Not_found -> loop tail )
+  in
+  loop list
+
 (* Create a transition system *)
 let mk_trans_sys
       scope state_vars init trans
@@ -860,6 +882,74 @@ let mk_trans_sys
             status = PropUnknown })
   in
 
+  let properties =
+    props
+    |> List.map
+         (fun (n, s, t) -> 
+          { prop_name = n;
+            prop_source = s; 
+            prop_term = t; 
+            prop_status = PropUnknown })
+  in
+
+  (* Making sure all properties have different terms. The contracts
+     should also be properties at this point, so this detects contract
+     clashes as well. *)
+  ( match
+      properties
+      |> find_element_clash
+           (fun { prop_term } -> prop_term)
+    with
+    (* No clash detected. *)
+    | None -> ()
+    (* Clash between [p] and [p']. *)
+    | Some(p,p') ->
+       let pp_print_prop_err ppf { prop_source ; prop_term } =
+         let pos, name =
+           match prop_source with
+           | TermLib.PropAnnot pos -> pos, None
+           | TermLib.Contract
+               TermLib.ContractAnnot (name, pos) ->
+              pos, Some(name)
+           | _ ->
+              (* Should never happen. *)
+              assert false
+         in
+         Format.fprintf
+           ppf
+           "@[<hv 1>property%a@ at %a@]"
+           ( fun ppf opt ->
+             match opt with
+             | None -> Format.fprintf ppf ""
+             | Some n ->
+                Format.fprintf
+                  ppf
+                  " generated from contract %s" n )
+           name
+           pp_print_position pos
+       in
+       let name = scope |> String.concat "/" in
+       (* Crashing with info. *)
+       Format.printf
+         "@[<hv 4>%s Property term clash detected for system [%s]:@ \
+          %a@;<0 -2>\
+          and@ \
+          %a@;<0 -2>\
+          correspond to the same term@ \
+          %a\
+          @]\n\n"
+         error_tag
+         name
+         pp_print_prop_err p
+         pp_print_prop_err p'
+         Term.pp_print_term p.prop_term ;
+       failwith(
+           Format.sprintf
+             "Redundant property terms in system [%s]."
+             name
+         )
+  ) ;
+
   let system = 
     { scope = scope;
       uf_defs = get_uf_defs [ (init, trans) ] subsystems ;
@@ -867,14 +957,7 @@ let mk_trans_sys
         state_vars |> List.sort StateVar.compare_state_vars ;
       init = init ;
       trans = trans ;
-      properties =
-        props
-        |> List.map
-             (fun (n, s, t) -> 
-              { prop_name = n;
-                prop_source = s; 
-                prop_term = t; 
-                prop_status = PropUnknown }) ;
+      properties = properties ;
       contracts = contracts ;
       subsystems = subsystems ;
       max_depth = max_depth ;

@@ -36,7 +36,7 @@ type cexs = cex list
 type contract_source =
 
   (* Contract is from an annotation. *)
-  | ContractAnnot of position
+  | ContractAnnot of string * position
 
 (* Source of a property *)
 type prop_source =

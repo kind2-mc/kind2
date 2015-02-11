@@ -371,7 +371,7 @@ contract:
     SEMICOLON;
     reqs = list(require);
     ens = list(ensure); { A.mk_contract
-                            (TermLib.ContractAnnot (mk_pos $startpos))
+                            (mk_pos $startpos)
                             n reqs ens }
 
 (* A require for a contract. *)

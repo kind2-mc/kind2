@@ -188,7 +188,7 @@ type contract =
 (** Creates a contract from a name, a list of requires and a list of
     ensures. *)
 val mk_contract :
-  TermLib.contract_source ->
+  Lib.position ->
   LustreIdent.t ->
   require list ->
   ensure list ->

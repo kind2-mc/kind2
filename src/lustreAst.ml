@@ -221,8 +221,9 @@ type contract =
 
 (* Creates a contract from a name, a list of requires and a list of
    ensures. *)
-let mk_contract source lustre_ident requires ensures =
-  source, LustreIdent.string_of_ident true lustre_ident, requires, ensures
+let mk_contract pos lustre_ident requires ensures =
+  let name = LustreIdent.string_of_ident true lustre_ident in
+  TermLib.ContractAnnot (name, pos), name, requires, ensures
 
 (* A node declaration *)
 type node_decl =
