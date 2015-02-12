@@ -3,6 +3,7 @@ Lib
 Kind2Config
 Flags
 Stat
+Log
 
 Messaging
 Event 
@@ -68,7 +69,5 @@ Compress
 Step
 
 Interpreter
-
-InvarManager
 
 Kind2

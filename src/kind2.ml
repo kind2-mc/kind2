@@ -18,6 +18,7 @@
 
 open Lib
 
+module Log = Log
 module BMC = Base
 module IND = Step
 module PDR = PDR

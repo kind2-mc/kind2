@@ -107,7 +107,8 @@ let split_closure trans solver k actlits to_split =
     let term =
       list
       |> List.map snd
-      |> Term.mk_and |> Term.mk_not |> Term.bump_state k in
+      |> Term.mk_and |> Term.mk_not |> Term.bump_state k
+    in
     (* Getting actlit for it. *)
     let actlit = generate_actlit term in
     (* Declaring actlit. *)
@@ -120,6 +121,7 @@ let split_closure trans solver k actlits to_split =
     let all_actlits = (term_of_actlit actlit) ::  actlits in
     (* Splitting. *)
     match split trans solver k falsifiable list all_actlits with
+    (* bla *)
     | None -> list, falsifiable
     | Some ([], new_falsifiable) ->
        [], new_falsifiable :: falsifiable

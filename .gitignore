@@ -21,6 +21,7 @@
 
 # Generated doc.
 /ocamldoc
+/src/kind2.docdir
 
 # Generated server stuff.
 /server/myocamlbuild.ml
