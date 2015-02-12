@@ -36,7 +36,7 @@ type prop_valid =
 type prop_info =
   | PropValid of (string list) * prop_valid
   | PropKTrue of  string       * Numeral.t
-  | PropFalse of  string       * kind_module * k
+  | PropFalse of  string       * kind_module * Numeral.t
 
 (* Sublog on an abstraction depth for a system. *)
 type depth_sublog =

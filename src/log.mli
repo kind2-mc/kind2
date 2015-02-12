@@ -79,10 +79,10 @@ val mk_log: TransSys.t list -> t
 
 (** Finds the sublog of a system.
     @raise Not_found if the system has no sublog. *)
-val sys_sublog: t -> sys_sublog
+val sys_sublog: t -> TransSys.t -> sys_sublog
 
 (** The depth sublogs of a system sublog. *)
-val depth_sublogs: sys_sublog -> depth_sublog
+val depth_sublogs: sys_sublog -> depth_sublog list
 
 (** Finds the sublog of an abstraction depth from the sublog of a
     system.
@@ -101,7 +101,7 @@ val sys_depth_sublog: t -> TransSys.t -> int -> depth_sublog
     @raise Not_found if the system has no sublog.
     @raise Invalid_argument if the system already has a depth sublog
     for this depth. *)
-val add_depth_sublog: t -> TransSys.t -> int -> depth_sublog
+val add_depth_sublog: t -> TransSys.t -> int -> unit
 
 (* 
    Local Variables:
