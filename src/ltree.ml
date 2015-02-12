@@ -633,9 +633,9 @@ struct
   
   let pp_print_term = pp_print_term_w (fun ?arity -> T.pp_print_symbol)
 
-  let pp_print_lambda = pp_print_lambda_w (fun ?arity -> T.pp_print_symbol)
-
   let print_term ?db = pp_print_term ?db Format.std_formatter
+
+  let pp_print_lambda = pp_print_lambda_w (fun ?arity -> T.pp_print_symbol)
 
   let print_lambda ?db = pp_print_lambda ?db Format.std_formatter
 
