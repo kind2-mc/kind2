@@ -310,7 +310,7 @@ let mk_state_var
               (state_var_name, state_var_scope))
            []
            (* (if is_const then [] else [Type.mk_int ()]) *)
-           state_var_type 
+           state_var_type
        in
 
        (* Hashcons state variable *)

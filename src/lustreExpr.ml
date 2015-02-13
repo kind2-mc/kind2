@@ -73,7 +73,8 @@ let state_var_source_map : state_var_source StateVar.StateVarHashtbl.t =
 
 (* Map from state variables to identical state variables in other
    scopes *)
-let state_var_instance_map : state_var_instance list StateVar.StateVarHashtbl.t = 
+let state_var_instance_map :
+      state_var_instance list StateVar.StateVarHashtbl.t = 
   StateVar.StateVarHashtbl.create 7
 
 

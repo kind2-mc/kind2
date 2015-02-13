@@ -345,13 +345,6 @@ let init trans depth_opt =
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
 
-  (* Constraining max depth. *)
-  ( match depth_opt with
-    | None -> TransSys.get_max_depth trans
-    | Some n -> Numeral.of_int n )
-  |> TransSys.depth_inputs_constraint trans
-  |> SMTSolver.assert_term solver ;
-
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
   |> SMTSolver.assert_term solver

@@ -65,15 +65,13 @@ type contract =
     { (* Name of the contract. *)
       name : string ;
       (* Property corresponding to this contract, at [trans_init]. *)
-      prop : Term.t ;
+      props : property list ;
       (* Source of the contract. *)
       source : TermLib.contract_source ;
       (* Requirements of the contract. *)
       requires : Term.t list ;
       (* Ensures of the contract. *)
-      ensures: Term.t list ;
-      (* Current status. *)
-      mutable status : prop_status }
+      ensures: Term.t list }
 
 
 (* Return the length of the counterexample *)
@@ -137,15 +135,11 @@ type t = {
   (* The direct subsystems of this system. *)
   subsystems: t list ;
 
-  (* The length of the longest branch of the call graph underneath
-     this system. *)
-  max_depth : Numeral.t ;
-
   (* Properties of the transition system to prove invariant *)
   properties : property list;
 
   (* The contracts of this system. *)
-  contracts : contract list ;
+  contracts : ( StateVar.t * contract list) option ;
 
   (* The source which produced this system. *)
   source: source ;
@@ -166,16 +160,6 @@ type t = {
 let init_flag_of_trans_sys { scope } =
   StateVar.mk_init_flag scope
   |> Var.mk_state_var_instance
-
-(* The depth input of a system. *)
-let depth_input_of_trans_sys { scope } =
-  StateVar.mk_depth_input scope
-  |> Var.mk_const_state_var
-
-(* The max depth input of a system. *)
-let max_depth_input_of_trans_sys { scope } =
-  StateVar.mk_max_depth_input scope
-  |> Var.mk_const_state_var
            
 
 (* Return the predicate for the initial state constraint *)
@@ -416,150 +400,41 @@ let instantiation_count { callers } =
 
 
 (* Returns the contracts of a system. *)
-let get_contracts { contracts } =
-  contracts
-  |> List.map
-       ( fun { name ; source ; requires ; ensures ; status } ->
-         name, source, requires, ensures, status )
+let get_contracts = function
+  | { contracts = None } -> []
+  | { contracts = Some(_,list) } ->
+     list
+     |> List.map
+          ( fun { name ; source ; requires ; ensures } ->
+            name, source, requires, ensures )
 
-(* For a system, returns [Some true] if all contracts are invariants,
-   [Some false] if at least one of the contracts is falsified, and
-   [None] otherwise --i.e. some contracts are unknown / k-true. *)
-let verifies_contracts { contracts } =
-  contracts
-  |> List.fold_left
-       ( fun bool_opt ->
-         function
-         | { status = PropInvariant } -> bool_opt
-         | { status = PropFalse(_) } -> Some false
-         | _ -> None )
-       (Some true)
+(* (\* For a system, returns [Some true] if all contracts are invariants, *)
+(*    [Some false] if at least one of the contracts is falsified, and *)
+(*    [None] otherwise. *\) *)
+(* let verifies_contracts { properties } = *)
+(*   contracts *)
+(*   |> List.fold_left *)
+(*        ( fun bool_opt -> *)
+(*          function *)
+(*          | { source = TermLib.Contract _ ; status } -> *)
+(*             ( match status with *)
+(*               | PropInvariant -> bool_opt *)
+(*               |  *)
+(*          | { status = PropFalse(_) } -> Some false *)
+(*          | _ -> None ) *)
+(*        (Some true) *)
 
-(* Returns the contracts of a system as a list of implications. *)
-let get_contracts_implications { contracts } =
-  contracts
-  |> List.map
-       ( fun { name ; requires ; ensures } ->
-         (name,
-          (* Building the implication between the requires and the
-             ensures. *)
-          Term.mk_implies
-            [ Term.mk_and requires ;
-              Term.mk_and ensures ]) )
-
-let rec abstracted_subsystems_of_depth'
-          result
-          continuation
-          (prefix,depth)
-          ({subsystems ; max_depth ; contracts ; scope}) =
-  (* if depth > Numeral.(to_int max_depth) then *)
-
-  (*   (\* Name of the system. *\) *)
-  (*   let name = *)
-  (*     String.concat "-" scope *)
-  (*   in *)
-
-  (*   Format.printf *)
-  (*     "Depth > max_depth for %s (%s,%d).\n" *)
-  (*     name prefix depth ; *)
-
-  (*   (\* Nothing will be abstracted in this branch. *\) *)
-  (*   continue result continuation (prefix,depth) [] *)
-
-  (* else ( *)
-
-    (* Name of the system. *)
-    let name =
-      String.concat "-" scope
-    in
-
-    (* Format.printf *)
-    (*   "Looking at %s (%s,%d).\n" *)
-    (*   name prefix depth ; *)
-
-    (* Prefix update function. *)
-    let prefix' sep =
-      if prefix = "" then name
-      else
-        [ prefix ; name ] |> String.concat sep
-    in
-
-    (* Does this node have contracts? *)
-    ( match contracts with
-      | [] ->
-         (* Format.printf *)
-         (*   "No contracts.\n" ; *)
-         (* System does not change the abstraction depth since it has
-            no contracts. *)
-         continue
-           result
-           continuation
-           (* Separating prefix by ["./"] to indicate the system has
-              no contracts and does not modify abstraction depth. *)
-           (prefix' "./", depth)
-           subsystems
-      | _ ->
-         (* Is this subsystem abstracted away? *)
-         if depth > 0 then (
-           (* Format.printf *)
-           (*   "Not abstracting.\n" ; *)
-           (* It's not, continuing with subsystems. *)
-           continue
-             result
-             continuation
-             (prefix' ".", depth - 1)
-             subsystems
-         ) else (
-           (* Format.printf *)
-           (*   "Abstracting.\n" ; *)
-           (* Subsystem is abstracted away, continuing. *)
-           continue
-             ((prefix' ".") :: result)
-             continuation
-             (prefix,depth)
-             [] ) )
-
-and continue result continuation ((prefix,depth) as info) = function
-  | [] ->
-     (* No subsystem provided, looking at continuation. *)
-
-     ( match continuation with
-
-       | [] ->
-          (* Continuation is empty, we're done. *)
-          result
-
-       | (_, _, []) :: continuation_tail ->
-          (* Head of the continuation contains no subsystems,
-             looping. *)
-          continue result continuation_tail info []
-
-       | (prefix, depth, sys :: sys_tail) :: continuation_tail ->
-          (* A subsystem is in the continuation, let's check it out. *)
-          abstracted_subsystems_of_depth'
-            result
-            ((prefix,depth,sys_tail) :: continuation_tail)
-            (prefix,depth)
-            sys )
-
-  | subsystem :: sub_tail ->
-     (* There is a subsystem to handle. *)
-     abstracted_subsystems_of_depth'
-       result
-       (* Adding the tail of subsystems to the continuation. *)
-       ((prefix,depth,sub_tail) :: continuation)
-       info
-       subsystem
-
-(* [abstracted_subsystems_of_depth sys depth] returns the subsystems
-   of [sys] abstracted when the abstraction depth is [depth]. *)
-let abstracted_subsystems_of_depth sys depth =
-
-  abstracted_subsystems_of_depth'
-    []
-    []
-    ("", if sys.contracts = [] then depth else depth + 1)
-    sys
+(* (\* Returns the contracts of a system as a list of implications. *\) *)
+(* let get_contracts_implications { contracts } = *)
+(*   contracts *)
+(*   |> List.map *)
+(*        ( fun { name ; requires ; ensures } -> *)
+(*          (name, *)
+(*           (\* Building the implication between the requires and the *)
+(*              ensures. *\) *)
+(*           Term.mk_implies *)
+(*             [ Term.mk_and requires ; *)
+(*               Term.mk_and ensures ]) ) *)
 
 
 (* Returns the subsystems of a system. *)
@@ -718,15 +593,25 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list pp_print_caller "@ ") c
 
 let pp_print_contract
-      ppf { name ; source ; requires ; ensures ; status } =
+      ppf { name ; source ; requires ; ensures ; } =
   Format.fprintf
     ppf
-    "@[<hv 2>%s %a (%a)@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<hv 2>%a@]@]@]"
+    "@[<hv 2>%s %a@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<hv 2>%a@]@]@]"
     name
     pp_print_contract_source source
-    pp_print_prop_status_pt status
     (pp_print_list Term.pp_print_term "@ ") requires
     (pp_print_list Term.pp_print_term "@ ") ensures
+
+let pp_print_contracts ppf = function
+  | None -> Format.fprintf ppf "None"
+  | Some (actlit,contracts) ->
+     Format.fprintf
+       ppf
+       "@[<hv>\
+        Actlit: %a@ \
+        @[<v 2>Contracts:@ %a@]"
+       StateVar.pp_print_state_var actlit
+       (pp_print_list pp_print_contract "@ ") contracts
 
 
 let pp_print_trans_sys 
@@ -737,7 +622,6 @@ let pp_print_trans_sys
        contracts;
        invars;
        source;
-       max_depth;
        callers } as trans_sys) = 
 
   Format.fprintf 
@@ -750,17 +634,15 @@ let pp_print_trans_sys
           @[<hv 2>(contracts@ (@[<v>%a@]))@]@,\
           @[<hv 2>(invar@ (@[<v>%a@]))@]@,\
           @[<hv 2>(source@ (@[<v>%a@]))@]@,\
-          @[<hv 2>(max depth@ %a)@]@,\
           @[<hv 2>(callers@ (@[<v>%a@]))@]@."
     (pp_print_list pp_print_state_var "@ ") state_vars
     (pp_print_list pp_print_uf_defs "@ ") (uf_defs)
     Term.pp_print_term (init_term trans_sys)
     Term.pp_print_term (trans_term trans_sys)
     (pp_print_list pp_print_property "@ ") properties
-    (pp_print_list pp_print_contract "@ ") contracts
+    pp_print_contracts contracts
     (pp_print_list Term.pp_print_term "@ ") invars
     (pp_print_list (fun ppf { LustreNode.name } -> LustreIdent.pp_print_ident false ppf name) "@ ") (match source with Lustre l -> l | _ -> [])
-    Numeral.pp_print_numeral max_depth
     (pp_print_list pp_print_callers "@,") callers
 
 
@@ -775,9 +657,6 @@ let state_vars t = t.state_vars
 
 (* Return the input used to create the transition system *)
 let get_source t = t.source
-
-(* Returns the max depth of a transition system. *)
-let get_max_depth t = t.max_depth
 
 (* Returns [Some (e,e')] iff [list] contains two elements [e] and [e']
    such that [f(e) == f(e')]. Not that this uses PHYSICAL
@@ -804,7 +683,8 @@ let find_element_clash f list =
 (* Create a transition system *)
 let mk_trans_sys
       scope state_vars init trans
-      subsystems props contracts source =
+      subsystems props contracts_option
+      source =
 
   (* Create constraints for integer ranges *)
   let invars_of_types = 
@@ -855,33 +735,6 @@ let mk_trans_sys
     | [] -> result
   in
 
-  let max_depth =
-    let rec loop max_so_far = function
-      | [] ->
-         (* No more subsystems, returning max depth. *)
-         max_so_far
-      | { max_depth } :: tail ->
-         (* Keeping the max of the max_depth, looping. *)
-         loop Numeral.(max (succ max_depth) max_so_far) tail
-    in
-    loop Numeral.zero subsystems
-  in
-
-  let contracts =
-    contracts
-    |> List.map
-         (fun (name, source, reqs, ens) ->
-          { name = name ;
-            prop =
-              Term.mk_implies
-                [ Term.mk_and reqs ;
-                  Term.mk_and ens ] ;
-            source = source ;
-            requires = reqs ;
-            ensures = ens ;
-            status = PropUnknown })
-  in
-
   let properties =
     props
     |> List.map
@@ -890,6 +743,32 @@ let mk_trans_sys
             prop_source = s; 
             prop_term = t; 
             prop_status = PropUnknown })
+  in
+
+  let contract_props =
+    List.filter
+      ( function
+        | { prop_source = TermLib.Contract (_) } -> true
+        | _ -> false )
+      properties
+  in
+           
+
+  let contracts =
+    match contracts_option with
+    | None -> None
+    | Some(actlit,list) ->
+       Some
+         ( actlit,
+           list
+           |> List.map
+                ( fun (name, source, requires, ensures) ->
+                  { name ;
+                    (* Retrieving property from contract name. *)
+                    props = contract_props ;
+                    source ;
+                    requires ;
+                    ensures } ) )
   in
 
   (* Making sure all properties have different terms. The contracts
@@ -960,7 +839,6 @@ let mk_trans_sys
       properties = properties ;
       contracts = contracts ;
       subsystems = subsystems ;
-      max_depth = max_depth ;
       source = source ;
       invars = invars_of_types ;
       callers = []; }
@@ -1095,44 +973,6 @@ let invars_of_bound t i =
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
-
-(* Constrains the top level depth and max depth inputs. *)
-let depth_inputs_constraint sys max_depth =
-
-  (* Building the constraint on the depth input and the max depth
-     input for input system. *)
-  Term.mk_and
-
-    [ (* Depth input constraint. *)
-      Term.mk_eq
-        [ (* Getting depth input var. *)
-          depth_input_of_trans_sys sys
-          (* Creating corresponding term. *)
-          |> Term.mk_var ;
-
-          (* Value for depth input is always zero. *)
-          Numeral.zero |> Term.mk_num ] ;
-
-      (* Max depth input constraint. *)
-      Term.mk_eq
-        [ (* Getting max depth input var. *)
-          max_depth_input_of_trans_sys sys
-          (* Creating corresponding term. *)
-          |> Term.mk_var ;
-          
-          let _ =
-            (* Making sure value for max depth input is legal. *)
-            assert Numeral.(max_depth <= sys.max_depth)
-          in
-          (* Using specified value. *)
-          max_depth |> Term.mk_num ] ]
-
-(* Creates the constraints setting the depth input constant to a
-   value. *)
-let abstraction_depth_input_constraint sys value =
-  Term.mk_eq
-    [ depth_input_of_trans_sys sys |> Term.mk_var ;
-      Term.mk_num value ]
 
 (* The invariants of a transition system. *)
 let get_invars { invars } = invars
@@ -1276,13 +1116,11 @@ let set_prop_invariant t prop =
 (* Changes the status of k-true properties as unknown. Used for
    contract-based analysis when lowering the abstraction depth. Since
    the predicates have changed they might not be k-true anymore. *)
-let reset_prop_ktrue_to_unknown t =
+let reset_props_to_unknown t =
   t.properties
   |> List.iter
-       (fun ( { prop_status } as prop) ->
-        match prop_status with
-        | PropKTrue _ -> prop.prop_status <- PropUnknown
-        | _ -> ())
+       ( fun prop ->
+         prop.prop_status <- PropUnknown )
 
 let rec pp_print_trans_sys_contract_view ppf sys =
   Format.fprintf
@@ -1290,7 +1128,7 @@ let rec pp_print_trans_sys_contract_view ppf sys =
     "@[<hv 2>sys %s@ @[<v>@[<hv 2>contracts:@ %a@]@,@[<hv 2>properties:@ %a@]@,\
      @[<hv 2>subsystems:@ %a@]@]@]"
     (get_name sys)
-    (pp_print_list pp_print_contract "@ ") sys.contracts
+    pp_print_contracts sys.contracts
     (pp_print_list pp_print_property "@ ") sys.properties
     (pp_print_list pp_print_trans_sys_contract_view "@ ") sys.subsystems
 
@@ -1473,11 +1311,29 @@ let iter_uf_definitions t f =
   |> List.iter 
        (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt)
 
+let rec declare_abstraction_actlits declare = function
+
+  | { contracts ; subsystems } :: tail ->
+
+     ( match contracts with
+       | None -> ()
+       | Some (v,_) ->
+          [ Var.mk_const_state_var v ]
+          |> Var.declare_constant_vars declare ) ;
+
+     declare_abstraction_actlits declare tail
+
+  | [] -> ()
+
 (* Define uf definitions, declare constant state variables and declare
    variables from [lbound] to [upbound]. *)
 let init_define_fun_declare_vars_of_bounds
       ?(sub_define_top_only = false)
       t define declare lbound ubound =
+
+  (* Getting the list of subsystems and declaring their abstraction
+     literals. *)
+  get_all_subsystems t |> declare_abstraction_actlits declare ;
 
   ( if sub_define_top_only then
       match t.callers with

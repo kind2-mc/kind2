@@ -69,19 +69,49 @@ val prop_base : Numeral.t
     Constructed with the function {!mk_trans_sys} *)
 type t
 
-(** Create a transition system
+(** Create a transition system. Arguments
+
+    - [scope]
+    - [state_variables]
+    - [init_pred_def]
+    - [trans_pred_def]
+    - [subsystems]
+    - [properties]
+    - [contracts]
+    - [abstraction_actlit_option]
+    - [source]
 
     For each state variable of a bounded integer type, add a
     constraint to the invariants. *)
 val mk_trans_sys :
+
   string list ->
+  (** Scope. *)
+
   StateVar.t list ->
+  (** State variables. *)
+
   UfSymbol.t * (Var.t list * Term.t) ->
+  (** Init predicate definition. *)
+
   UfSymbol.t * (Var.t list * Term.t) ->
+  (** Trans predicate definition. *)
+
   t list ->
+  (** Subsystems. *)
+
   (string * TermLib.prop_source * Term.t) list ->
-  (string * TermLib.contract_source * Term.t list * Term.t list) list ->
+  (** Properties. *)
+
+  (StateVar.t
+   * ( string * TermLib.contract_source
+       * Term.t list * Term.t list      ) list) option ->
+  (** Contracts option of [actlit] * ([name], [source], [requires],
+      [ensures]) list. *)
+
   source ->
+  (** Source of the system. *)
+
   t
 
 (** Add entry for new system instantiation to the transition system *)
@@ -146,20 +176,15 @@ val get_contracts :
   (string
    * TermLib.contract_source
    * Term.t list
-   * Term.t list
-   * prop_status) list
+   * Term.t list) list
 
 (** For a system, returns [Some true] if all contracts are invariants,
     [Some false] if at least one of the contracts is falsified, and
     [None] otherwise --i.e. some contracts are unknown / k-true. *)
-val verifies_contracts : t -> bool option
+(* val verifies_contracts : t -> bool option *)
 
 (** The contracts of a system, as a list of implications. *)
-val get_contracts_implications : t -> (string * Term.t) list
-
-(** [abstracted_subsystems_of_depth sys depth] returns the subsystems
-    of [sys] abstracted when the abstraction depth is [depth]. *)
-val abstracted_subsystems_of_depth : t -> int -> string list
+(* val get_contracts_implications : t -> (string * Term.t) list *)
 
 
 (** The subsystems of a system. *)
@@ -174,9 +199,6 @@ val state_vars : t -> StateVar.t list
 
 (** Return the source used to produce the transition system *)
 val get_source : t -> source
-
-(** Returns the max depth of a transition system. *)
-val get_max_depth : t -> Numeral.t
 
 (** Return the scope of the transition system *)
 val get_scope : t -> string list
@@ -201,16 +223,6 @@ val declare_vars_of_bounds :
 
 (** The init flag of a transition system, as a [Var]. *)
 val init_flag_of_trans_sys : t -> Numeral.t -> Var.t
-
-(** The depth input of a transition system, as a [Var]. *)
-val depth_input_of_trans_sys : t -> Var.t
-
-(** The max depth input of a transition system, as a [Var]. *)
-val max_depth_input_of_trans_sys : t -> Var.t
-
-(** Constrains the top level depth and max depth inputs. The second
-    argument is the value to constrain the max depth input to. *)
-val depth_inputs_constraint : t -> Numeral.t -> Term.t
 
 (** Instantiate the initial state constraint to the bound *)
 val init_of_bound : t -> Numeral.t -> Term.t
@@ -284,10 +296,10 @@ val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
-(** Changes the status of k-true properties as unknown. Used for
-    contract-based analysis when lowering the abstraction depth. Since
-    the predicates have changed they might not be k-true anymore. *)
-val reset_prop_ktrue_to_unknown : t -> unit
+(** Changes the status of all properties to unknown. Used in modular
+    analysis since the system has changed, so anything proved before
+    is not valid anymore. *)
+val reset_props_to_unknown : t -> unit
 
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 

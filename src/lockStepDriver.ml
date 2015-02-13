@@ -135,17 +135,6 @@ let common_setup depth_opt (solver,sys,actlit) =
 
   let actlit_term = Actlit.term_of_actlit actlit in
 
-  (* Constraining max depth. *)
-  Term.mk_implies
-    [ actlit_term ;
-      ( match depth_opt with
-        | None ->
-           TransSys.get_max_depth sys
-        | Some n ->
-           Numeral.of_int n)
-      |> TransSys.depth_inputs_constraint sys ]
-  |> SMTSolver.assert_term solver ;
-
   solver, sys, actlit_term
 
 let base_setup (solver,sys,actlit) =

@@ -35,6 +35,14 @@ let child_pids = ref []
 (* Remembers the messaging setup for restarts. *)
 let messaging_setup_opt = ref None
 
+(* Remember the log for quick access from anywhere. *)
+let log_ref = ref None
+
+(* Returns the log stored in [log_ref] if it's not [None]. *)
+let log (): Log.t = match !log_ref with
+  | None -> failwith "[log] Log ref is None."
+  | Some log -> log
+
 (* Pretty prints a kind module from a pid by looking in
    [child_pids]. *)
 let pp_print_kind_module_of_pid ppf pid =
@@ -55,7 +63,7 @@ let current_trans_sys = ref None
 (* Handle events by broadcasting messages, updating local transition
    system version etc. Returns [true] iff it received at least one
    message. *)
-let handle_events ?(silent_recv = false) trans_sys =
+let handle_events ?(silent_recv = false) trans_sys depth_opt =
 
   (* Receive queued events. *)
   let events =
@@ -86,7 +94,24 @@ let handle_events ?(silent_recv = false) trans_sys =
     events;
 
   (* Update transition system from events. *)
-  Event.update_trans_sys trans_sys events |> ignore
+  Event.update_trans_sys trans_sys events |> ignore ;
+
+  ( match events with
+    | [] -> ()
+    | _ ->
+       Log.update_of_events
+         (log ())
+         trans_sys
+         ( match depth_opt with
+           | Some d -> d
+           | None -> 0)
+         events ;
+
+       log ()
+       |> Event.log
+            L_warn
+            "%a"
+            Log.pp_print_log ) ;
 
 (* Aggregates functions related to starting processes. *)
 module Start = struct
@@ -280,7 +305,7 @@ module Stop = struct
         !child_pids;
 
     (* Kill all remaining processes in the process groups of child
-     processes. *)
+       processes. *)
     !child_pids
     |> List.iter
          ( fun (pid, _) ->
@@ -295,7 +320,7 @@ module Stop = struct
             kids arrive. *)
          minisleep 0.01 ;
 
-         handle_events ~silent_recv:true sys ) ;
+         handle_events ~silent_recv:true sys None ) ;
 
     Event.log
       L_info
@@ -579,9 +604,9 @@ let rec wait_for_children child_pids =
 
 (* Polling loop. *)
 let rec polling_loop
-          exit_after_killing_kids child_pids trans_sys = 
+          exit_after_killing_kids child_pids trans_sys depth_opt =
 
-  handle_events trans_sys ;
+  handle_events trans_sys depth_opt ;
 
   if TransSys.all_props_proved trans_sys then (
     Event.log
@@ -604,7 +629,8 @@ let rec polling_loop
     minisleep 0.01 ;
 
     (* Continue polling loop. *)
-    polling_loop exit_after_killing_kids child_pids trans_sys
+    polling_loop
+      exit_after_killing_kids child_pids trans_sys depth_opt
 
   )
 
@@ -1081,7 +1107,8 @@ let launch_analysis
       ) ;
 
       (* Going to polling loop. *)
-      polling_loop exit_after_killing_kids child_pids trans_sys ;
+      polling_loop
+        exit_after_killing_kids child_pids trans_sys max_abstraction_depth_option ;
 
       (* Following is not needed, this is done in [polling_loop] when it
          exits. *)
@@ -1119,14 +1146,16 @@ let launch_modular_analysis trans_sys =
   let rec analyze sys depth =
     (* Getting the system max abstraction depth. *)
     let max_depth =
-      TransSys.get_max_depth sys
-      |> Numeral.to_int
+      0
     in
 
     if depth <= max_depth then (
       (* Not over [max_depth] yet, running analysis. *)
 
       current_trans_sys := Some sys ;
+
+      (* Creating sub log in log. *)
+      Log.add_depth_sublog (log ()) sys depth ;
 
       if not (TransSys.all_props_proved sys) then (
 
@@ -1149,8 +1178,7 @@ let launch_modular_analysis trans_sys =
 
         if abstract_contracts then (
           match
-            TransSys.abstracted_subsystems_of_depth
-              sys depth
+            []
           with
           | [] ->
              Event.log L_warn "No subsystem to abstract." ;
@@ -1197,14 +1225,23 @@ let launch_modular_analysis trans_sys =
 
         Event.log
           L_info
-          "Resetting k-true properties to unknown." ;
+          "Resetting properties to unknown." ;
 
-        TransSys.reset_prop_ktrue_to_unknown sys ;
+        TransSys.reset_props_to_unknown sys ;
 
         depth + 1 |> analyze sys
       )
     )
   in
+
+  log_ref := Some (Log.mk_log all_systems) ;
+
+  log ()
+  |> Event.log
+       L_warn
+       "%a"
+       Log.pp_print_log ;
+    
 
   all_systems
   |> List.iter
@@ -1216,8 +1253,7 @@ let launch_modular_analysis trans_sys =
            else
              (* Not abstracting contracts, starting directly at
                 [max_depth] for [sys]. *)
-             TransSys.get_max_depth sys
-             |> Numeral.to_int)
+             0)
 
          (* Launching analysis. *)
          |> analyze sys ) ;

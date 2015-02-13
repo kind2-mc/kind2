@@ -23,7 +23,7 @@ open Lib
 
 (** Type for the info related to a list of valid property, proved at
     the same time in conjunction. *)
-type prop_valid =
+type valid_props_info =
   { modul: kind_module ;
     (** The kind module which proved this property. *)
 
@@ -32,10 +32,7 @@ type prop_valid =
         depends on the module used for the proof. Might not apply to
         future techniques. *)
 
-    in_conj_with: string list list ;
-    (** Properties this property was proved in conjunction with. *)
-
-    valid_props: string list list ;
+    valid_props: string list ;
     (** Valid properties at the time of the proof. *)
 
     invars: Term.t list
@@ -44,13 +41,14 @@ type prop_valid =
 (** Info about the status of (a list of) property(ies) at the end of
     an analysis. *)
 type prop_info =
-  | PropValid of (string list) * prop_valid
+  | PropsValid of (string list) * valid_props_info
   (** List of mutually valid properties. *)
 
-  | PropKTrue of  string       * Numeral.t
+  | PropKTrue  of  string       * Numeral.t
   (** A ktrue property. *)
 
-  | PropFalse of  string       * kind_module * Numeral.t
+  | PropFalse  of  string       * kind_module * Numeral.t
+                                * (StateVar.t * Term.t list) list
   (** A falsified property. *)
 
 (** Sublog on the abstraction depth of the analysis of a system. *)
@@ -74,6 +72,21 @@ type t =
     top]. Otherwise, one would typically do something like
     [TransSys.get_all_subsystems top |> mk_log]. *)
 val mk_log: TransSys.t list -> t
+
+(** Creates a mutually valid poperty info.
+    [mk_valid_props modul k valid_props invars proved_props]:
+    - [modul] is the module which proved,
+    - [k] the k for which the property was proved,
+    - [valid_props] valid properties at the time of proving,
+    - [invars] invariants known at that time,
+    - [proved_props] the actual properties found mutually valid. *)
+val mk_valid_props:
+  kind_module ->
+  Numeral.t ->
+  string list ->
+  Term.t list ->
+  string list ->
+  prop_info
 
 (** {1 Accessors} *)
 
@@ -102,6 +115,35 @@ val sys_depth_sublog: t -> TransSys.t -> int -> depth_sublog
     @raise Invalid_argument if the system already has a depth sublog
     for this depth. *)
 val add_depth_sublog: t -> TransSys.t -> int -> unit
+
+(** Adds a property info to a depth sublog of a sys sublog of a
+    log. *)
+val add_prop_info: t -> TransSys.t -> int -> prop_info -> unit
+
+(** Updates a log from a list of events. *)
+val update_of_events:
+  t -> TransSys.t -> int -> Event.event list -> unit
+
+(** Updates a log from a list of events. *)
+val update_of_events:
+  t -> TransSys.t -> int -> (kind_module * Event.event) list -> unit
+
+(** {1 Pretty printers} *)
+
+(** Pretty prints a [valid_props_info]. *)
+val pp_print_valid_props_info: Format.formatter -> valid_props_info -> unit
+
+(** Pretty prints a [prop_info]. *)
+val pp_print_prop_info: Format.formatter -> prop_info -> unit
+
+(** Pretty prints a [depth_sublog]. *)
+val pp_print_depth_sublog: Format.formatter -> depth_sublog -> unit
+
+(** Pretty prints a [sys_sublog]. *)
+val pp_print_sys_sublog: Format.formatter -> sys_sublog -> unit
+
+(** Pretty prints a [t] log. *)
+val pp_print_log: Format.formatter -> t -> unit
 
 (* 
    Local Variables:
