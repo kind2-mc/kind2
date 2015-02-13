@@ -1082,7 +1082,7 @@ let rec simplify_term_node default_of_var uf_defs model fterm args =
           let t' = default_of_var v in
 
           (* Break cycle if the the variable is its own default *)
-          if Term.equal t t' then Bool t else
+          if Term.equal t t' then atom_of_term t else
 
             (* Evaluate default value of variable *)
             Term.eval_t
