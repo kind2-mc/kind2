@@ -677,7 +677,7 @@ let rec definitions_of_node_calls
         ( List.fold_left
             (fun list (n, s, t) ->
              match s with
-             | TermLib.Contract (_) -> list
+             (* | TermLib.Contract (_) -> list *)
              | _ ->
                 (lift_prop_name node_name pos n, 
                  TermLib.Instantiated (I.scope_of_ident node_name, n),

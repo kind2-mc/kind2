@@ -189,9 +189,6 @@ let rec update_of_events log sys depth = function
               ( function
                 | (prop', TransSys.PropInvariant)
                      when prop <> prop' ->
-                   Event.log
-                     L_warn
-                     "[update_log] not ignoring %s" ;
                    true
                 | (p,s) ->
                    Event.log
