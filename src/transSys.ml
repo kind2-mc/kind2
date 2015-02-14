@@ -596,7 +596,7 @@ let pp_print_contract
       ppf { name ; source ; requires ; ensures ; } =
   Format.fprintf
     ppf
-    "@[<hv 2>%s %a@ @[<v>requires: @[<hv 2>%a@]@ ensures:  @[<hv 2>%a@]@]@]"
+    "@[<hv 2>%s %a@ @[<v>requires: @[<hv>%a@]@ ensures:  @[<hv>%a@]@]@]"
     name
     pp_print_contract_source source
     (pp_print_list Term.pp_print_term "@ ") requires

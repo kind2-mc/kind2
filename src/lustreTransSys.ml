@@ -677,7 +677,7 @@ let rec definitions_of_node_calls
         ( List.fold_left
             (fun list (n, s, t) ->
              match s with
-             (* | TermLib.Contract (_) -> list *)
+             | TermLib.Contract (_) -> list
              | _ ->
                 (lift_prop_name node_name pos n, 
                  TermLib.Instantiated (I.scope_of_ident node_name, n),
@@ -687,23 +687,6 @@ let rec definitions_of_node_calls
           @ lifted_requirements
 
       in
-
-      debug lustreTransSys
-            "Subnode properties: @[<v 2>@ %a@]"
-            (pp_print_list Term.pp_print_term "@ ")
-            (List.map (fun (_,_,t) -> t) props)
-      in
-
-      debug lustreTransSys
-            "Lifted properties: @[<v 2>@ %a@]"
-            (pp_print_list Term.pp_print_term "@ ")
-            (List.map (fun (_,_,t) -> t) lifted_props')
-      in
-
-      Format.printf
-            "Lifted requirements: @[<v 2>@ %a@]"
-            (pp_print_list Term.pp_print_term "@ ")
-            (List.map (fun (_,_,t) -> t) lifted_requirements) ;
 
 
       (* Constraint for node call in initial state and transition
@@ -1230,7 +1213,17 @@ let rec definitions_of_node_calls
 
                ],
 
-             lifted_props @ lifted_props',
+             lifted_props @ lifted_props'
+             (* Contracts might be two state, guarding if necessary. *)
+             |> List.map
+                  ( fun (n,s,t) ->
+                    match Term.var_offsets_of_term t with
+                    | Some mi, Some ma
+                         when Numeral.(mi < ma) ->
+                       (n, s,
+                        Term.mk_implies
+                          [ act_cond_init ; t ])
+                    | _ -> (n,s,t) ),
              state_var_map,
              guard_formula)
 

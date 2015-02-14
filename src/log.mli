@@ -16,10 +16,32 @@
 
  *)
 
-(** Module used to keep track of all property related events during a
-    (potentially modular and/or contract-based) analysis. *)
+(** A log is a tree of depth 4.
+
+    The first level is the root and contains the top node as well as
+    the kids at depth 2. They represent analyses of a specific
+    system. In non modular analysis, depth 2 will only have one node,
+    the top level. In modular analysis, then eventually depth 2 will
+    have a node for all systems of the hierarchy.
+
+    Nodes at depth 2 contain the system the analysis of which they
+    correspond to, and kids at depth 3. These distinguish analyses with
+    different subsystem, contract-based abstractions. They contain the
+    list of the subsystems (of their depth 2 parent) which have been
+    abstracted for the analysis they represent. When not running in
+    compositional mode, a depth 2 node can only have one kid with an
+    empty list of abstracted nodes.
+
+    The kids of a depth 3 node store detail about property related
+    events during the analysis their path corresponds to. They log
+    information about invariant and falsified property, as well as
+    k-true properties at the end of their analysis. *)
 
 open Lib
+
+(** Type for identifying abstraction sublogs. You get a key by
+    creating an abstraction sublog. *)
+type abstraction_key
 
 (** Type for the info related to a list of valid property, proved at
     the same time in conjunction. *)
@@ -51,8 +73,8 @@ type prop_info =
                                 * (StateVar.t * Term.t list) list
   (** A falsified property. *)
 
-(** Sublog on the abstraction depth of the analysis of a system. *)
-type depth_sublog
+(** Sublog on an abstraction for a system. *)
+type abstraction_sublog
 
 (** Sublog on a (sub)system. *)
 type sys_sublog
@@ -73,7 +95,7 @@ type t =
     [TransSys.get_all_subsystems top |> mk_log]. *)
 val mk_log: TransSys.t list -> t
 
-(** Creates a mutually valid poperty info.
+(** Creates a mutually valid property info.
     [mk_valid_props modul k valid_props invars proved_props]:
     - [modul] is the module which proved,
     - [k] the k for which the property was proved,
@@ -90,60 +112,80 @@ val mk_valid_props:
 
 (** {1 Accessors} *)
 
+(** Returns the list of abstracted systems from an abstraction key. *)
+val abstracted_systems_of_abstraction_key:
+  abstraction_key -> string list list
+val key_of_list:
+  string list list -> abstraction_key
+
 (** Finds the sublog of a system.
     @raise Not_found if the system has no sublog. *)
 val sys_sublog: t -> TransSys.t -> sys_sublog
 
-(** The depth sublogs of a system sublog. *)
-val depth_sublogs: sys_sublog -> depth_sublog list
+(** The abstraction sublogs of a system sublog. *)
+val abstraction_sublogs: sys_sublog -> abstraction_sublog list
 
-(** Finds the sublog of an abstraction depth from the sublog of a
+(** Finds the sublog of an abstraction from the sublog of a
     system.
-    @raise Not_found if the depth has no sublog. *)
-val depth_sublog: sys_sublog -> int -> depth_sublog
+    @raise Not_found if [abstraction] is not present for this
+    system. *)
+val abstraction_sublog:
+      sys_sublog -> abstraction_key -> abstraction_sublog
 
-(** Finds the sublog of an abstraction depth for a system from a
-    log.
-    @raise Not_found if the system or the depth have no sublog. *)
-val sys_depth_sublog: t -> TransSys.t -> int -> depth_sublog
+(** Finds the sublog of an abstraction key for a system from a log.
+    @raise Not_found if [sys] or [abstraction_key] is not present. *)
+val sys_abstraction_sublog:
+      t -> TransSys.t -> abstraction_key -> abstraction_sublog
 
 (** {1 Modifiers} *)
 
-(** Adds an empty abstraction depth sublog to a (sub)system sublog of
-    an analysis log.
-    @raise Not_found if the system has no sublog.
-    @raise Invalid_argument if the system already has a depth sublog
-    for this depth. *)
-val add_depth_sublog: t -> TransSys.t -> int -> unit
+(** Adds an empty abstraction sublog to a (sub)system sublog of an
+    analysis log.
+    @raise Not_found if [sys] is not present.
+    @raise Illegal_argument if the abstraction sublog already exists.
+    @Return The abstraction key to the sublog created. *)
+val add_abstraction_sublog:
+      t -> TransSys.t -> string list list -> abstraction_key
 
-(** Adds a property info to a depth sublog of a sys sublog of a
+(** Adds a property info to an abstraction sublog of a sys sublog of a
     log. *)
-val add_prop_info: t -> TransSys.t -> int -> prop_info -> unit
+val add_prop_info:
+  t -> TransSys.t -> abstraction_key -> prop_info -> unit
 
 (** Updates a log from a list of events. *)
 val update_of_events:
-  t -> TransSys.t -> int -> Event.event list -> unit
+  t -> TransSys.t -> abstraction_key -> Event.event list -> unit
 
 (** Updates a log from a list of events. *)
 val update_of_events:
-  t -> TransSys.t -> int -> (kind_module * Event.event) list -> unit
+  t -> TransSys.t -> abstraction_key ->
+  (kind_module * Event.event) list -> unit
 
 (** {1 Pretty printers} *)
 
 (** Pretty prints a [valid_props_info]. *)
-val pp_print_valid_props_info: Format.formatter -> valid_props_info -> unit
+val pp_print_valid_props_info:
+  Format.formatter -> valid_props_info -> unit
 
 (** Pretty prints a [prop_info]. *)
-val pp_print_prop_info: Format.formatter -> prop_info -> unit
+val pp_print_prop_info:
+  Format.formatter -> prop_info -> unit
 
-(** Pretty prints a [depth_sublog]. *)
-val pp_print_depth_sublog: Format.formatter -> depth_sublog -> unit
+(** Pretty prints an abstraction key. *)
+val pp_print_abstraction_key:
+  Format.formatter -> abstraction_key -> unit
+
+(** Pretty prints an [abstraction_sublog]. *)
+val pp_print_abstraction_sublog:
+  Format.formatter -> abstraction_sublog -> unit
 
 (** Pretty prints a [sys_sublog]. *)
-val pp_print_sys_sublog: Format.formatter -> sys_sublog -> unit
+val pp_print_sys_sublog:
+  Format.formatter -> sys_sublog -> unit
 
 (** Pretty prints a [t] log. *)
-val pp_print_log: Format.formatter -> t -> unit
+val pp_print_log:
+  Format.formatter -> t -> unit
 
 (* 
    Local Variables:

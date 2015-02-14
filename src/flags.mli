@@ -101,8 +101,8 @@ type modular_timeout = float
 val modular_timeout : unit -> modular_timeout
 
 (** Activates contract abstraction. *)
-type contracts_abstract = bool
-val contracts_abstract : unit -> contracts_abstract
+type compositional = bool
+val compositional : unit -> compositional
 
 (** Verification of subnodes requirements. *)
 type contracts_subreqs = bool

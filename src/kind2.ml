@@ -63,7 +63,7 @@ let current_trans_sys = ref None
 (* Handle events by broadcasting messages, updating local transition
    system version etc. Returns [true] iff it received at least one
    message. *)
-let handle_events ?(silent_recv = false) trans_sys depth_opt =
+let handle_events ?(silent_recv = false) trans_sys abstr_key_opt =
 
   (* Receive queued events. *)
   let events =
@@ -102,16 +102,16 @@ let handle_events ?(silent_recv = false) trans_sys depth_opt =
        Log.update_of_events
          (log ())
          trans_sys
-         ( match depth_opt with
-           | Some d -> d
-           | None -> 0)
+         ( match abstr_key_opt with
+           | Some key -> key
+           | None -> Log.key_of_list [])
          events ;
 
        log ()
        |> Event.log
             L_warn
             "%a"
-            Log.pp_print_log ) ;
+            Log.pp_print_log )
 
 (* Aggregates functions related to starting processes. *)
 module Start = struct
@@ -604,9 +604,9 @@ let rec wait_for_children child_pids =
 
 (* Polling loop. *)
 let rec polling_loop
-          exit_after_killing_kids child_pids trans_sys depth_opt =
+          exit_after_killing_kids child_pids trans_sys abstraction_key_opt =
 
-  handle_events trans_sys depth_opt ;
+  handle_events trans_sys abstraction_key_opt ;
 
   if TransSys.all_props_proved trans_sys then (
     Event.log
@@ -630,14 +630,14 @@ let rec polling_loop
 
     (* Continue polling loop. *)
     polling_loop
-      exit_after_killing_kids child_pids trans_sys depth_opt
+      exit_after_killing_kids child_pids trans_sys abstraction_key_opt
 
   )
 
 
 
 (* Fork and run a child process *)
-let run_process messaging_setup process trans_sys depth_opt =
+let run_process messaging_setup process trans_sys abstraction_key_opt =
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -732,7 +732,7 @@ let run_process messaging_setup process trans_sys depth_opt =
                   | Sys_error _ -> () );
 
           (* Run main function of process. *)
-          Start.main_of_process process trans_sys depth_opt ;
+          Start.main_of_process process trans_sys (Some 0) ; (* <--- TODO *)
 
           (* Cleanup and exit. *)
           Stop.on_exit_child
@@ -990,7 +990,7 @@ let check_smtsolver () =
 
 let launch_analysis
       exit_after_killing_kids
-      trans_sys max_abstraction_depth_option =
+      trans_sys abstraction_key_opt =
 
   if
     (* Warn if list of properties is empty. *)
@@ -1022,7 +1022,7 @@ let launch_analysis
       (* Run main function of process. *)
       (Start.main_of_process p)
         trans_sys
-        max_abstraction_depth_option ;
+        (Some 0) ; (* <--- TODO *)
       
       (* Ignore SIGALRM from now on *)
       Sys.set_signal
@@ -1051,7 +1051,7 @@ let launch_analysis
         List.iter 
           ( fun p -> 
             run_process
-              messaging_setup p trans_sys max_abstraction_depth_option)
+              messaging_setup p trans_sys abstraction_key_opt)
           ps ;
       in
       
@@ -1108,7 +1108,7 @@ let launch_analysis
 
       (* Going to polling loop. *)
       polling_loop
-        exit_after_killing_kids child_pids trans_sys max_abstraction_depth_option ;
+        exit_after_killing_kids child_pids trans_sys abstraction_key_opt ;
 
       (* Following is not needed, this is done in [polling_loop] when it
          exits. *)
@@ -1122,6 +1122,24 @@ let launch_analysis
     );
 
   )
+
+(* Refines an [abstraction], returns [None] if it is pointless / not
+   possible to refine further, and [Some abstraction'] otherwise. *)
+let refine_further sys abstraction =
+  (* Dummy for now. *)
+  let sub_systems = TransSys.get_subsystems sys in
+  match
+    abstraction
+    |> List.filter
+         (fun abstracted ->
+          List.exists
+            (fun sub_sys ->
+             abstracted = TransSys.get_scope sub_sys
+             |> not)
+            sub_systems)
+  with
+  | [] -> None
+  | l -> Some l
 
 let launch_modular_analysis trans_sys =
 
@@ -1141,96 +1159,106 @@ let launch_modular_analysis trans_sys =
        ",@ ")
     all_systems ;
 
-  let abstract_contracts = Flags.contracts_abstract() in
+  let abstract_contracts = Flags.compositional() in
 
-  let rec analyze sys depth =
-    (* Getting the system max abstraction depth. *)
-    let max_depth =
-      0
-    in
+  let string_of_strings_list list =
+    list
+    |> List.map
+         (String.concat ".")
+    |> String.concat ", "
+  in
 
-    if depth <= max_depth then (
-      (* Not over [max_depth] yet, running analysis. *)
+  let rec analyze sys abstraction =
+
+    if not (TransSys.all_props_proved sys) then (
 
       current_trans_sys := Some sys ;
 
       (* Creating sub log in log. *)
-      Log.add_depth_sublog (log ()) sys depth ;
+      let abstraction_key =
+        Log.add_abstraction_sublog (log ()) sys abstraction
+      in
 
-      if not (TransSys.all_props_proved sys) then (
+      Event.log
+        L_warn
+        "@.\
+         |===| Launching analysis for %s.@.\
+               abstraction: [%a]"
+        (TransSys.get_name sys)
+        Log.pp_print_abstraction_key abstraction_key ;
 
-        ( if depth == max_depth then
-            Event.log
-              L_warn
-              "@.|===| Launching analysis for %s, no abstraction."
-              (TransSys.get_name sys)
-          else
-            Event.log
-              L_warn
-              "@.|===| Launching analysis for %s at %i/%i."
-              (TransSys.get_name sys)
-              depth
-              max_depth ) ;
+      Event.log
+        L_warn
+        "%a"
+        TransSys.pp_print_trans_sys_contract_view
+        sys ;
 
-        Event.log
-          L_warn
-          "%a" TransSys.pp_print_trans_sys_contract_view sys ;
+      Event.log
+        L_warn "Press enter to launch analysis." ;
 
-        if abstract_contracts then (
-          match
-            []
-          with
-          | [] ->
-             Event.log L_warn "No subsystem to abstract." ;
-          | abstracted ->
-             Event.log
-               L_warn
-               "@[<hv 6>Abstracted nodes: @[<v>%a@]@]"
-               (pp_print_list
-                  (fun ppf s -> Format.fprintf ppf "%s" s)
-                  ",@ ")
-               abstracted
-        ) ;
+      let _ = read_line () in
 
-        let _ = read_line () in
-
-        (* Launching analysis for [sys] with abstraction depth
+      (* Launching analysis for [sys] with abstraction depth
          [depth]. *)
-        launch_analysis
-          (* Don't exit when analysis ends. *)
-          false
-          sys (Some depth)
-      ) else if TransSys.get_prop_status_all sys = [] then (
-        Event.log
-          L_warn
-          "|===| Skipping sys %s, no property to prove."
-          (TransSys.get_name sys)
-      ) else (
-        Event.log
-          L_warn
-          "|===| Skipping sys %s at %d, all properties already (dis)proved."
-          (TransSys.get_name sys)
-          depth ;
-      ) ;
+      launch_analysis
+        (* Don't exit when analysis ends. *)
+        false
+        sys
+        (Some abstraction_key)
 
-      if not (TransSys.all_props_proved sys) then (
+    ) else if TransSys.get_prop_status_all sys = [] then (
+      Event.log
+        L_warn
+        "|===| Skipping sys %s, no property to prove."
+        (TransSys.get_name sys)
+    ) else (
+      Event.log
+        L_warn
+        "|===| Skipping sys %s, all properties already (dis)proved.@.\
+               abstraction: [%s]"
+        (TransSys.get_name sys)
+        (string_of_strings_list abstraction) ;
+    ) ;
 
-        Event.log
-          L_warn
-          "%s at %i: %i properties have unknown status."
-          (TransSys.get_name sys)
-          depth
-          (TransSys.get_prop_status_all_unknown sys
-           |> List.length);
+    if not (TransSys.all_props_proved sys) then (
 
-        Event.log
-          L_info
-          "Resetting properties to unknown." ;
+      Event.log
+        L_warn
+        "%s: %i properties have unknown status.@.\
+             abstraction: [%s]"
+        (TransSys.get_name sys)
+        (TransSys.get_prop_status_all_unknown sys
+         |> List.length)
+        (string_of_strings_list abstraction) ;
 
-        TransSys.reset_props_to_unknown sys ;
+      Event.log
+        L_info
+        "Resetting properties to unknown." ;
 
-        depth + 1 |> analyze sys
-      )
+      TransSys.reset_props_to_unknown sys ;
+
+      match
+        refine_further sys abstraction
+      with
+      | None ->
+         Event.log
+           L_warn
+           "Can't refine further, done with %s."
+           (TransSys.get_name sys)
+      | Some nu_abs ->
+         analyze sys nu_abs
+    ) else (
+
+      Event.log
+        L_warn
+        "Proved all %i properties for %s.@.\
+         abstraction: [%s]@.@.\
+         Moving on."
+        (TransSys.get_prop_status_all sys
+         |> List.length)
+        (TransSys.get_name sys)
+        (string_of_strings_list abstraction)
+
     )
   in
 
@@ -1248,12 +1276,11 @@ let launch_modular_analysis trans_sys =
        ( fun sys ->
 
          ( if abstract_contracts then
-             (* Abstracting contracts, starting at 0. *)
-             0
+             TransSys.get_all_subsystems sys
+             |> List.filter (fun s -> sys != s)
+             |> List.map TransSys.get_scope
            else
-             (* Not abstracting contracts, starting directly at
-                [max_depth] for [sys]. *)
-             0)
+             [] )
 
          (* Launching analysis. *)
          |> analyze sys ) ;

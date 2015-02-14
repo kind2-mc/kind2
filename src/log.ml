@@ -18,6 +18,29 @@
 
 open Lib
 
+(* A log is a tree of depth 4.
+
+   The first level is the root and contains the top node as well as
+   the kids at depth 2. They represent analyses of a specific
+   system. In non modular analysis, depth 2 will only have one node,
+   the top level. In modular analysis, then eventually depth 2 will
+   have a node for all systems of the hierarchy.
+
+   Nodes at depth 2 contain the system the analysis of which they
+   correspond to, and kids at depth 3. These distinguish analyses with
+   different subsystem, contract-based abstractions. They contain the
+   list of the subsystems (of their depth 2 parent) which have been
+   abstracted for the analysis they represent. When not running in
+   compositional mode, a depth 2 node can only have one kid with an
+   empty list of abstracted nodes.
+
+   The kids of a depth 3 node store detail about property related
+   events during the analysis their path corresponds to. They log
+   information about invariant and falsified property, as well as
+   k-true properties at the end of their analysis. *)
+
+   
+
 (* Type for the info related to a valid property. *)
 type valid_props_info =
   { (* Proved by [modul]... *)
@@ -39,10 +62,22 @@ type prop_info =
   | PropFalse  of  string       * kind_module * Numeral.t
                                 * (StateVar.t * Term.t list) list
 
-(* Sublog on an abstraction depth for a system. *)
-type depth_sublog =
-  { (* Abstraction depth of the sub analysis. *)
-    depth: int ;
+(* Type for identifying abstraction sublogs. Hidden to the user so
+   that the order does not change. Upon creation of an asbtraction
+   sublog, the key to this sublog is returned. *)
+type abstraction_key = string list list
+
+(* String representation of a key. *)
+let string_of_abstraction key =
+  key
+  |> List.map (String.concat ".")
+  |> String.concat ", "
+
+(* Sublog on an abstraction for a system. *)
+type abstraction_sublog =
+  { (* Abstracted nodes of the sub analysis as a set of string
+       lists (scopes of transition systems). *)
+    abstraction: abstraction_key ;
     (* Property-related events. *)
     mutable prop_infos: prop_info list }
 
@@ -50,8 +85,8 @@ type depth_sublog =
 type sys_sublog =
   { (* (Sub)system of the sub analysis. *)
     sys: TransSys.t ;
-    (* Subanalyses on the abstraction depth. *)
-    mutable depth_sublogs: depth_sublog list }
+    (* Subanalyses on the abstracted subsystems. *)
+    mutable abstraction_sublogs: abstraction_sublog list }
 
 (* Log of a whole analysis. *)
 type t =
@@ -92,7 +127,7 @@ let mk_log all_sys =
              (* It is not top, propagating current value. *)
              top_opt
          in
-         ( { sys = sys ; depth_sublogs = [] } :: sublogs,
+         ( { sys = sys ; abstraction_sublogs = [] } :: sublogs,
            top_opt' ) )
        ([], None)
   (* Making sure we found a top level system. *)
@@ -106,7 +141,7 @@ let mk_log all_sys =
           failwith
             "[Log.mk_log] No top level system found." )
 
-(* Creates a mutually valid poperty info.
+(* Creates a mutually valid property info.
    - [modul] is the module which proved,
    - [k] the k for which the property was proved,
    - [valid_props] valid properties at the time of proving,
@@ -123,6 +158,11 @@ let mk_valid_props
 
 (* |===| Accessors. *)
 
+(* Returns the list of abstracted systems from an abstraction key. *)
+let abstracted_systems_of_abstraction_key = identity
+
+let key_of_list = identity
+
 (* Finds the sublog of a system. Throws [Not_found] if [sys'] is not
    present. *)
 let sys_sublog { sys_sublogs } sys' =
@@ -130,52 +170,62 @@ let sys_sublog { sys_sublogs } sys' =
     (fun ({ sys }: sys_sublog) -> sys' == sys)
     sys_sublogs
 
-(* The depth sublogs of a system sublog. *)
-let depth_sublogs { depth_sublogs } = depth_sublogs
+(* The abstraction sublogs of a system sublog. *)
+let abstraction_sublogs { abstraction_sublogs } =
+  abstraction_sublogs
 
-(* Finds the sublog of an abstraction depth from the sublog of a
-   system. Throws [Not_found] if [depth'] is not present. *)
-let depth_sublog { depth_sublogs } depth' =
+(* Finds the sublog of an abstraction from the sublog of a
+   system. Throws [Not_found] if [abstraction] is not present for this
+   system. *)
+let abstraction_sublog { abstraction_sublogs } abstraction_key =
   List.find
-    (fun { depth } -> depth' = depth)
-    depth_sublogs
+    ( fun { abstraction } ->
+      abstraction = abstraction_key )
+    abstraction_sublogs
 
-(* Finds the sublog of an abstraction depth for a system from a
-   log. Throws [Not_found] if [sys] or [depth] is not present. *)
-let sys_depth_sublog log sys depth =
+(* Finds the sublog of an abstraction key for a system from a
+   log. Throws [Not_found] if [sys] or [abstraction_key] is not
+   present. *)
+let sys_abstraction_sublog log sys abstraction_key =
   sys_sublog log sys
-  |> (fun depth_sublog' ->
-      depth_sublog depth_sublog' depth)
+  |> (fun abstraction_sublog' ->
+      abstraction_sublog abstraction_sublog' abstraction_key)
 
-(* Adds an empty abstraction depth sublog to a (sub)system sublog of
-   an analysis log. Throws [Not_found] if [sys] is not present. *)
-let add_depth_sublog log sys depth =
+(* Adds an empty abstraction sublog to a (sub)system sublog of an
+   analysis log. Throws [Not_found] if [sys] is not present and
+   [Illegal_argumen] if the abstraction sublog already exists.
+   Returns the abstraction key to the sublog created. *)
+let add_abstraction_sublog log sys strings_list =
   sys_sublog log sys
-  |> ( fun ({ depth_sublogs } as sys_sublog) ->
-       match depth_sublog sys_sublog depth with
+  |> ( fun ({ abstraction_sublogs } as sys_sublog) ->
+       match abstraction_sublog sys_sublog strings_list with
        | _ ->
-          (* Sublog for depth already exists, crashing. *)
-          TransSys.get_name sys
-          |> Format.sprintf
-               "[add_depth_sublog] Log already has a sublog \
-                at %d for (%s)."
-               depth
+          (* Sublog for key already exists, crashing. *)
+          Format.sprintf
+            "Log already has a sublog for %s with abstraction %s."
+            (TransSys.get_name sys)
+            ( strings_list
+              |> List.map (String.concat ".")
+              |> String.concat ", " )
           |> invalid_arg
        | exception
          Not_found ->
-         (* No sublog for depth, adding it. *)
-         sys_sublog.depth_sublogs <-
-           { depth = depth ; prop_infos = [] }
-           :: depth_sublogs )
+         (* No sublog for this key, adding it. *)
+         sys_sublog.abstraction_sublogs <-
+           { abstraction = strings_list ; prop_infos = [] }
+           :: abstraction_sublogs ) ;
+  (* Returning abstraction key. *)
+  strings_list
 
-(* Adds a property info to a depth sublog of a sys sublog of a log. *)
-let add_prop_info log sys depth prop_info =
-  sys_depth_sublog log sys depth
+(* Adds a property info to an abstraction sublog of a sys sublog of a
+   log. *)
+let add_prop_info log sys abstraction_key prop_info =
+  sys_abstraction_sublog log sys abstraction_key
   |> ( fun ({ prop_infos } as sublog) ->
        sublog.prop_infos <- prop_info :: prop_infos )
 
 (* Updates a log from a list of events. *)
-let rec update_of_events log sys depth = function
+let rec update_of_events log sys abstraction_key = function
   | (modul, Event.PropStatus (prop, TransSys.PropInvariant))
     :: tail ->
 
@@ -200,17 +250,9 @@ let rec update_of_events log sys depth = function
          |> List.map fst )
        ( TransSys.get_invars sys )
        [ prop ]
-     |> add_prop_info log sys depth ;
+     |> add_prop_info log sys abstraction_key ;
 
-     update_of_events log sys depth tail
-
-  | (modul, Event.PropStatus (prop, TransSys.PropKTrue k))
-    :: tail ->
-
-     (* PropKTrue (prop, Numeral.of_int k) *)
-     (* |> add_prop_info log sys depth ; *)
-
-     update_of_events log sys depth tail
+     update_of_events log sys abstraction_key tail
 
   | (modul, Event.PropStatus (prop, TransSys.PropFalse cex))
     :: tail ->
@@ -221,11 +263,13 @@ let rec update_of_events log sys depth = function
          (List.length cex) - 1
          |> Numeral.of_int,
          cex )
-     |> add_prop_info log sys depth ;
+     |> add_prop_info log sys abstraction_key ;
 
-     update_of_events log sys depth tail
+     update_of_events log sys abstraction_key tail
 
-  | _ :: tail -> update_of_events log sys depth tail
+  | _ :: tail ->
+
+     update_of_events log sys abstraction_key tail
 
   | _ -> ()
 
@@ -278,25 +322,36 @@ let pp_print_prop_info ppf = function
        Numeral.pp_print_numeral k
        pp_print_kind_module modul
 
-(* Pretty prints a [depth_sublog]. *)
-let pp_print_depth_sublog ppf { depth ; prop_infos } =
+(* Pretty prints an abstraction key. *)
+let pp_print_abstraction_key ppf key =
+  Format.fprintf
+    ppf
+    "@[<v 2>%a@]"
+    (pp_print_list
+       (pp_print_list
+          Format.pp_print_string ".")
+       ",@,")
+    key
+
+(* Pretty prints a [abstraction_sublog]. *)
+let pp_print_abstraction_sublog ppf { abstraction ; prop_infos } =
   Format.fprintf
     ppf "@[<hv 2>\
-         at depth %d@ \
+         abstraction: [%a]@ \
          %a\
          @]"
-    depth
+    pp_print_abstraction_key abstraction
     (pp_print_list pp_print_prop_info "@ ") prop_infos
 
 (* Pretty prints a [sys_sublog]. *)
-let pp_print_sys_sublog ppf { sys ; depth_sublogs } =
+let pp_print_sys_sublog ppf { sys ; abstraction_sublogs } =
   Format.fprintf
     ppf "@[<hv 2>\
          system %s {@ \
          %a\
          @;<1 -2>}@]"
     (TransSys.get_name sys)
-    (pp_print_list pp_print_depth_sublog "@ ") depth_sublogs
+    (pp_print_list pp_print_abstraction_sublog "@ ") abstraction_sublogs
 
 (* Pretty prints a [t] log. *)
 let pp_print_log ppf { sys ; sys_sublogs } =

@@ -328,8 +328,8 @@ let modular_default = false
 type modular_timeout = float
 let modular_timeout_default = 0.
 
-type contracts_abstract = bool
-let contracts_abstract_default = false
+type compositional = bool
+let compositional_default = false
 
 type contracts_subreqs = bool
 let contracts_subreqs_default = true
@@ -612,7 +612,7 @@ type flags =
       mutable enable : enable;
       mutable modular : modular;
       mutable modular_timeout : modular_timeout;
-      mutable contracts_abstract : contracts_abstract;
+      mutable compositional : compositional;
       mutable contracts_subreqs : contracts_subreqs;
       mutable check_version : check_version;
       mutable bmc_max : bmc_max;
@@ -667,7 +667,7 @@ let flags =
     enable = enable_default_init;
     modular = modular_default;
     modular_timeout = modular_timeout_default;
-    contracts_abstract = contracts_abstract_default;
+    compositional = compositional_default;
     contracts_subreqs = contracts_subreqs_default;
     check_version = check_version_default;
     bmc_max = bmc_max_default;
@@ -869,14 +869,15 @@ let enable_spec =
 
 (* ********** *) 
 
-let modular_action () = flags.modular <- true
+let modular_action b = flags.modular <- b
   
 let modular_spec =
   ("--modular",
-   Arg.Unit modular_action,
+   Arg.Bool modular_action,
    Format.sprintf
-     "@[<v 7>@,\
-      Activates bottom up modular analysis.@]")
+     "@[<v 7>@,(default: %b)@ \
+      Activates bottom up modular analysis.@]"
+     modular_default)
 
 (* ********** *) 
 
@@ -892,29 +893,31 @@ let modular_timeout_spec =
 
 (* ********** *) 
 
-let contracts_abstract_action () = flags.contracts_abstract <- true
+let compositional_action b = flags.compositional <- b
   
-let contracts_abstract_spec = 
-  ("--contracts_abstract",
-   Arg.Unit contracts_abstract_action,
+let compositional_spec = 
+  ("--compositional",
+   Arg.Bool compositional_action,
    Format.sprintf
-     "@[<v 7>@,(contracts)@ \
+     "@[<v 7>@,(contracts, default: %b)@ \
       Activates abstraction of subnodes during analysis of a node.@ \
       If the analysis does not succeed, the 'abstraction depth' is@ \
       lowered, i.e. previously abstracted nodes are not abstracted@ \
       anymore but their subnodes are.   Only nodes with a contract@ \
-      can/will be abstracted.@]")
+      can/will be abstracted.@]"
+     compositional_default)
 
 (* ********** *) 
 
-let contracts_subreqs_action () = flags.contracts_subreqs <- false
+let contracts_subreqs_action b = flags.contracts_subreqs <- b
   
 let contracts_subreqs_spec = 
-  ("--contracts_no_subreqs",
-   Arg.Unit contracts_subreqs_action,
+  ("--contracts_subreqs",
+   Arg.Bool contracts_subreqs_action,
    Format.sprintf
-     "@[<v 7>@,(contracts)@ \
-      Activates the verification of subnode requirements.@]")
+     "@[<v 7>@,(contracts, default %b)@ \
+      Activates the verification of subnode requirements.@]"
+     contracts_subreqs_default)
 
 (* ********** *) 
 
@@ -1399,7 +1402,7 @@ let modular () = flags.modular
 
 let modular_timeout () = flags.modular_timeout
 
-let contracts_abstract () = flags.contracts_abstract
+let compositional () = flags.compositional
 
 let contracts_subreqs () = flags.contracts_subreqs
 
@@ -1540,7 +1543,7 @@ and speclist =
     modular_timeout_spec;
 
     (* Maximal abstraction depth in contract-based analysis *)
-    contracts_abstract_spec;
+    compositional_spec;
 
     (* Verify subnodes requirements *)
     contracts_subreqs_spec;
