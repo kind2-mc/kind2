@@ -236,6 +236,13 @@ let prof_get_model s e =
   Stat.record_time Stat.smt_get_value_time;
   res
 
+let prof_get_unsat_core s =
+  let module S = (val s.solver_inst) in
+  Stat.start_timer Stat.smt_get_unsat_core_time;
+  let res = S.get_unsat_core () in
+  Stat.record_time Stat.smt_get_unsat_core_time;
+  res
+
 
 (* Check satisfiability of current context *)
 let check_sat ?(timeout = 0) s = 
@@ -511,9 +518,8 @@ let get_model s =
 
 (* Get unsat core of the current context *)
 let get_unsat_core_of_names s =
-  let module S = (val s.solver_inst) in
 
-  match S.get_unsat_core () with 
+  match prof_get_unsat_core s with 
 
   | `Error e -> 
     raise 
@@ -546,9 +552,8 @@ let get_unsat_core_of_names s =
         
 (* Get unsat core of the current context *)
 let get_unsat_core_lits s =
-  let module S = (val s.solver_inst) in
 
-  match S.get_unsat_core () with 
+  match prof_get_unsat_core s with 
 
   | `Error e -> 
     raise 
@@ -586,7 +591,7 @@ let check_sat_assuming s if_sat if_unsat literals =
       match
 
         (* Performing the check-sat. *)
-        S.check_sat_assuming literals
+        prof_check_sat_assuming s literals
 
       with
 
