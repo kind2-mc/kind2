@@ -62,3 +62,14 @@ type prop_source =
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
   | Instantiated of string list * string 
+
+
+
+(* 
+   Local Variables:
+   compile-command: "make -C .. -k"
+   tuareg-interactive-program: "./kind2.top -I ./_build -I ./_build/SExpr"
+   indent-tabs-mode: nil
+   End: 
+*)
+  

@@ -41,7 +41,7 @@ open Lib
 
 (** Type for identifying abstraction sublogs. You get a key by
     creating an abstraction sublog. *)
-type abstraction_key
+type abstraction_key = string list list
 
 (** Type for the info related to a list of valid property, proved at
     the same time in conjunction. *)
@@ -185,6 +185,10 @@ val pp_print_sys_sublog:
 
 (** Pretty prints a [t] log. *)
 val pp_print_log:
+  Format.formatter -> t -> unit
+
+(** Pretty prints a [t] log. *)
+val pp_print_log_shy:
   Format.formatter -> t -> unit
 
 (* 

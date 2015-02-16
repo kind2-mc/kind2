@@ -554,7 +554,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
 
 (* Initializes the solver for the first check. *)
-let launch trans depth_opt =
+let launch trans abstraction =
   (* Starting the timer. *)
   Stat.start_timer Stat.ind_total_time;
 
@@ -567,7 +567,7 @@ let launch trans depth_opt =
   let solver =
     SMTSolver.create_instance
       ~produce_assignments:true
-      (TransSys.get_scope trans) depth_opt
+      (TransSys.get_scope trans) abstraction
       (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
@@ -591,11 +591,18 @@ let launch trans depth_opt =
     "Init define fun." ;
 
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.init_solver
     trans
+    abstraction
+    (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
     Numeral.(~- one) Numeral.zero ;
+  (* TransSys.init_define_fun_declare_vars_of_bounds *)
+  (*   trans *)
+  (*   (SMTSolver.define_fun solver) *)
+  (*   (SMTSolver.declare_fun solver) *)
+  (*   Numeral.(~- one) Numeral.zero ; *)
 
   (* Invariants of the system at 0. *)
   TransSys.invars_of_bound trans Numeral.zero
@@ -612,7 +619,7 @@ let launch trans depth_opt =
   next trans solver Numeral.zero [] unknowns
 
 (* Runs the step instance. *)
-let main trans depth_opt =
+let main trans abstraction =
 
   if not (List.mem `BMC (Flags.enable ())) then
 
@@ -622,7 +629,7 @@ let main trans depth_opt =
        disprove any properties.@,\
        Use both options --enable BMC --enable IND together.@]";
       
-  launch trans depth_opt
+  launch trans abstraction
 
 
 (* 

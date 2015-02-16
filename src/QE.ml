@@ -43,7 +43,7 @@ let get_solver_instance trans_sys =
          SMTSolver.create_instance
            ~produce_assignments:true
            (TransSys.get_scope trans_sys)
-           None
+           []
            (TransSys.get_logic trans_sys)
            `Z3_SMTLIB
       in
@@ -93,7 +93,7 @@ let get_checking_solver_instance trans_sys =
         SMTSolver.create_instance 
           ~produce_assignments:true
           (TransSys.get_scope trans_sys)
-          None
+          [] (* <-- TODO *)
           `UFLIA
           (Flags.smtsolver ())
       in

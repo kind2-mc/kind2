@@ -30,8 +30,8 @@ module type Params = sig
   (* The scope of the (sub)system under analysis. *)
   val scope : string list
 
-  (* The max depth of the analysis currently running. *)
-  val max_depth : int option
+  (* The current abstraction. *)
+  val abstraction : string list list
 
   val logic : Term.logic
 

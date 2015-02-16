@@ -42,7 +42,7 @@ type t =
     solver_inst : (module SolverSig.Inst);
     (* Hashtable associating generated names to terms *)
     term_names : (int, expr) Hashtbl.t ;
-    analysis_id : string list * int option ;
+    analysis_id : string list * string list list ;
     id : int
   }
 
@@ -80,8 +80,7 @@ let create_instance
     ?produce_cores
     (* Scope of the (sub)system under analysis. *)
     scope
-    (* Maximal depth of the analysis. *)
-    max_depth
+    abstraction
     l
     kind =
       
@@ -92,7 +91,7 @@ let create_instance
     let produce_proofs = bool_of_bool_option produce_proofs
     let produce_cores = bool_of_bool_option produce_cores
     let scope = scope
-    let max_depth = max_depth
+    let abstraction = abstraction
     let logic = l
     let id = id
   end
@@ -111,7 +110,7 @@ let create_instance
   { solver_kind = kind ;
     solver_inst = fomodule ;
     term_names = Hashtbl.create 19 ;
-    analysis_id =  scope, max_depth ;
+    analysis_id =  scope, abstraction ;
     id = id }
 
 (* Delete a solver instance *)

@@ -59,7 +59,7 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file trans_sys depth_opt =
+let main input_file trans_sys abstraction =
 
   Event.set_module `Interpreter;
 
@@ -165,7 +165,7 @@ let main input_file trans_sys depth_opt =
       SMTSolver.create_instance
         ~produce_assignments:true
         (TransSys.get_scope trans_sys)
-        None
+        [] (* <-- TODO *)
         logic (Flags.smtsolver ())
     in
 

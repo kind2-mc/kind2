@@ -1261,25 +1261,31 @@ let rec definitions_of_exprs init trans =
     (* Assertion with term for initial state and term for transitions *)
     | { E.expr_init; E.expr_step } :: tl ->
 
-      (* Term for assertion in initial state *)
-      let term_init = E.base_term_of_expr TransSys.init_base expr_init in 
+       (* Term for assertion in initial state *)
+       let term_init =
+         E.base_term_of_expr TransSys.init_base expr_init
+       in
 
-      (* Term for assertion in step state *)
-      let term_step = E.cur_term_of_expr TransSys.trans_base expr_step in 
+       (* Term for assertion in step state *)
+       let term_step =
+         E.cur_term_of_expr TransSys.trans_base expr_step
+       in 
 
-      (* Add constraint unless it is true *)
-      let init' = 
-        if Term.equal term_init Term.t_true then init else term_init :: init 
-      in
+       (* Add constraint unless it is true *)
+       let init' = 
+         if Term.equal term_init Term.t_true
+         then init else term_init :: init 
+       in
 
-      (* Add constraint unless it is true *)
-      let trans' = 
-        if Term.equal term_step Term.t_true then trans else term_step :: trans 
-      in
+       (* Add constraint unless it is true *)
+       let trans' = 
+         if Term.equal term_step Term.t_true
+         then trans else term_step :: trans 
+       in
 
-      (* Continue with next assertions *)
-      definitions_of_exprs init' trans' tl
-      
+       (* Continue with next assertions *)
+       definitions_of_exprs init' trans' tl
+                            
 
 (* Fold list of assertions and return terms *)
 let definitions_of_asserts = definitions_of_exprs
@@ -1641,7 +1647,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       in
 
 
-
       contracts,
 
       Term.mk_or reqs_init_dnf,
@@ -1651,6 +1656,28 @@ let rec trans_sys_of_nodes' nodes node_defs = function
       abstraction_trans
 
     in
+
+    (* let print_term bla = *)
+    (*   Format.printf *)
+    (*     "@[<hv 4>%s:@.%a@]@.@." *)
+    (*     bla Term.pp_print_term *)
+    (* in *)
+
+    (* print_term *)
+    (*   "assertions from requirements init" *)
+    (*   assertions_from_requirements_init ; *)
+
+    (* print_term *)
+    (*   "assertions from requirements trans" *)
+    (*   assertions_from_requirements_trans ; *)
+
+    (* print_term *)
+    (*   "contract abstraction init" *)
+    (*   contract_abstraction_init ; *)
+
+    (* print_term *)
+    (*   "contract abstraction trans" *)
+    (*   contract_abstraction_trans ; *)
 
     (* (\* Building the list of contract-properties from the list of *)
     (*    contracts. *\) *)
@@ -1943,8 +1970,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
              ( (* Property name. *)
                name,
                (* Property source. *)
-               TermLib.Contract
-                 (source),
+               TermLib.Contract source,
                (* Property term. *)
                Term.mk_implies
                  [ Term.mk_and reqs ; Term.mk_and ens ] ) )
@@ -1965,7 +1991,6 @@ let rec trans_sys_of_nodes' nodes node_defs = function
            in
            (prop_name, source, prop_term))
          node_props)
-      @ contract_props
       @ lifted_props
     in
 
@@ -2051,7 +2076,13 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
          (* Terms of the properties of the node. *)
          let props_terms =
-           List.map (fun (_,_,t) -> t) props
+           List.fold_left
+             (fun list ->
+              function
+              | (_, TermLib.SubRequirement _ ,t) -> list
+              | (_, _, t) -> t :: list)
+             []
+             props
          in
 
          Some contracts_actlit_svar,
@@ -2312,7 +2343,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         pred_def_init
         pred_def_trans
         called_trans_sys
-        props
+        (contract_props @ props)
         contracts_option
         (TransSys.Lustre (List.rev (node :: called_nodes)))
     in

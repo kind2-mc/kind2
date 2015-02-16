@@ -56,12 +56,23 @@ let reduce_nodes_to_coi trans_sys nodes prop_name =
             StateVar.pp_print_state_var sv'
         in
         sv'
-      | _ -> 
-        debug event
-            "State variable %a has more than one instance" 
-        StateVar.pp_print_state_var sv
-        in
-        assert false
+      | list ->
+         if sv == StateVar.mk_init_flag (TransSys.get_scope trans_sys)
+         then (
+           failwith "redundant init flag mapping error, solve problem with condacts first"
+         ) else (
+
+           debug event
+                 "State variable %a has more than one instance" 
+                 StateVar.pp_print_state_var sv
+           in
+           debug event
+                 "  %a"
+                 (pp_print_list StateVar.pp_print_state_var ", ")
+                 (List.map (fun (_,_,sv) -> sv) list)
+           in
+           assert false
+         )
   in
 
   (* Get state variable in scope of main node *)

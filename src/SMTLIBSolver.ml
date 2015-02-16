@@ -554,7 +554,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
   (* ********************************************************************* *)
 
   (* Formatter writing to SMT trace file *)
-  let create_trace_ppf scope max_depth id = 
+  let create_trace_ppf scope abstraction id = 
 
     (* Tracing of SMT commands enabled? *)
     if Flags.smt_trace () then 
@@ -563,13 +563,15 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       let trace_filename = 
         Filename.concat
           (Flags.smt_trace_dir ())
-          (Format.sprintf
-             "%s.%s%s.%s.%d.%s"
+          (Format.asprintf
+             "%s.%s%s%a.%s.%d.%s"
              (Filename.basename (Flags.input_file ()))
              (String.concat "-" scope)
-             (match max_depth with
-              | None -> ""
-              | Some n -> Format.sprintf "-%d" n)
+             ( if abstraction = [] then "" else "-" )
+             (pp_print_list
+                (pp_print_list Format.pp_print_string ".")
+                "-")
+             abstraction
              (suffix_of_kind_module (Event.get_module ()))
              id
              trace_extension
@@ -665,8 +667,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
       ?(produce_cores=false)
       (* Scope of the (sub)system under analysis. *)
       scope
-      (* Max depth of the analysis currently running. *)
-      max_depth
+      abstraction
       logic
       id =
 
@@ -707,7 +708,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
     let solver_lexbuf = Lexing.from_channel solver_stdout_ch in
 
     (* Create trace functions *)
-    let trace_ppf = create_trace_ppf scope max_depth id in
+    let trace_ppf = create_trace_ppf scope abstraction id in
     (* TODO change params to erase pretty printing -- Format.pp_set_margin ppf *)
     let ftrace_cmd = trace_cmd trace_ppf in
     let ftrace_res = trace_res trace_ppf in
@@ -818,7 +819,7 @@ module Make (Driver : SolverDriver.S) : SolverSig.S = struct
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
         ~produce_proofs:P.produce_proofs
-        P.scope P.max_depth
+        P.scope P.abstraction
         P.logic P.id
 
     let delete_instance () = delete_instance solver

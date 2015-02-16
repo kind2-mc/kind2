@@ -115,7 +115,10 @@ val mk_trans_sys :
   t
 
 (** Add entry for new system instantiation to the transition system *)
-val add_caller : t -> t -> (StateVar.t * StateVar.t) list * (Term.t -> Term.t) -> unit
+val add_caller :
+  t -> t ->
+  (StateVar.t * StateVar.t) list * (Term.t -> Term.t) ->
+  unit
 
 (** Pretty-print a predicate definition *)
 val pp_print_uf_def : Format.formatter -> pred_def -> unit
@@ -301,6 +304,10 @@ val set_prop_ktrue : t -> int -> string -> unit
     is not valid anymore. *)
 val reset_props_to_unknown : t -> unit
 
+val proved_requirements_of : t -> string list -> bool
+
+val is_contract_proved : t -> bool
+
 (** Return true if the property is proved invariant *)
 val is_proved : t -> string -> bool 
 
@@ -309,6 +316,9 @@ val is_disproved : t -> string -> bool
 
 (** Return true if all properties are either valid or invalid *)
 val all_props_proved : t -> bool
+
+(** Return true if all properties are valid *)
+val all_props_actually_proved : t -> bool
 
 (** Apply [f] to all uninterpreted function symbols of the transition
     system *)
@@ -337,6 +347,51 @@ val init_define_fun_declare_vars_of_bounds :
 val path_from_model : t -> (Var.t list -> (Var.t * Term.t) list) -> Numeral.t -> (StateVar.t * Term.t list) list
 
 val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> (StateVar.t * Term.t list) list -> bool
+
+
+(** {1 Abstraction} *)
+
+(** Describes an abstraction of a system. *)
+type abstraction = string list list
+
+(** Pretty prints an abstraction. *)
+val pp_print_abstraction:
+  Format.formatter -> abstraction -> unit
+
+(** Builds an abstraction from the scopes of the system to analyze. *)
+val mk_abstraction: string list list -> abstraction
+
+(** Creates an empty abstraction.. *)
+val empty_abstraction: abstraction
+
+(** Initializes the solver for a system and an abstraction. *)
+val init_solver:
+  ?declare_top_vars_only:bool ->
+  (** Only declare top level variables. *)
+
+  t ->
+  (** Transition system. *)
+
+  abstraction ->
+  (** Abstraction. *)
+
+  (string -> unit) ->
+  (** Trace comment. *)
+
+  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
+  (** Define fun. *)
+
+  (UfSymbol.t -> unit) ->
+  (** Declare fun. *)
+
+  Numeral.t ->
+  (** Var declaration lower bound. *)
+
+  Numeral.t ->
+  (** Var declaration upper bound. *)
+
+  unit
+
 
 (* 
    Local Variables:

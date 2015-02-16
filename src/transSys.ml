@@ -64,14 +64,15 @@ type property =
 type contract =
     { (* Name of the contract. *)
       name : string ;
-      (* Property corresponding to this contract, at [trans_init]. *)
-      props : property list ;
       (* Source of the contract. *)
       source : TermLib.contract_source ;
       (* Requirements of the contract. *)
       requires : Term.t list ;
       (* Ensures of the contract. *)
-      ensures: Term.t list }
+      ensures: Term.t list ;
+
+      (* Status of the contract. *)
+      mutable status: prop_status }
 
 
 (* Return the length of the counterexample *)
@@ -82,6 +83,15 @@ let length_of_cex = function
 
   (* Length of counterexample from first state variable *)
   | (_, l) :: _ -> List.length l
+
+(* Pretty prints an abstraction. *)
+let pp_print_abstraction ppf =
+  Format.fprintf
+    ppf
+    "@[<v>%a@]"
+    (pp_print_list
+       (pp_print_list Format.pp_print_string ".")
+       ",@,")
 
 
 let pp_print_prop_status_pt ppf = function 
@@ -113,6 +123,9 @@ let trans_base = Numeral.one
 (* Offset of primed state variables in properties and invariants *)
 let prop_base = Numeral.zero
 
+(* Stores a list of systems to abstract, by scope. *)
+type abstraction = string list list
+
 
 type t = {
   
@@ -136,7 +149,7 @@ type t = {
   subsystems: t list ;
 
   (* Properties of the transition system to prove invariant *)
-  properties : property list;
+  properties : property list ;
 
   (* The contracts of this system. *)
   contracts : ( StateVar.t * contract list) option ;
@@ -503,6 +516,12 @@ let get_all_subsystems sys =
  
   iterate_over_subsystems sys [] []
 
+let pp_print_trans_sys_name ppf { scope } =
+  Format.fprintf
+    ppf "%a"
+    (pp_print_list Format.pp_print_string ".")
+    scope
+
 let pp_print_state_var ppf state_var = 
 
   Format.fprintf ppf
@@ -593,12 +612,18 @@ let pp_print_callers ppf (t, c) =
     (pp_print_list pp_print_caller "@ ") c
 
 let pp_print_contract
-      ppf { name ; source ; requires ; ensures ; } =
+      ppf { name ; source ; requires ; ensures ; status } =
   Format.fprintf
     ppf
-    "@[<hv 2>%s %a@ @[<v>requires: @[<hv>%a@]@ ensures:  @[<hv>%a@]@]@]"
+    "@[<hv 2>\
+     %s %a@ \
+     status:   %a@ \
+     @[<v>\
+     requires: @[<hv>%a@]@ \
+     ensures:  @[<hv>%a@]@]@]"
     name
     pp_print_contract_source source
+    pp_print_prop_status_pt status
     (pp_print_list Term.pp_print_term "@ ") requires
     (pp_print_list Term.pp_print_term "@ ") ensures
 
@@ -745,13 +770,23 @@ let mk_trans_sys
             prop_status = PropUnknown })
   in
 
-  let contract_props =
-    List.filter
-      ( function
-        | { prop_source = TermLib.Contract (_) } -> true
-        | _ -> false )
-      properties
-  in
+  (* let contract_prop name = *)
+  (*   try *)
+  (*     List.find *)
+  (*       ( function *)
+  (*         | { prop_source = *)
+  (*               TermLib.Contract *)
+  (*                 TermLib.ContractAnnot (name',_) } -> *)
+  (*            name = name' *)
+  (*         | _ -> false ) *)
+  (*       properties *)
+  (*   with *)
+  (*   | Not_found -> *)
+  (*      Format.sprintf *)
+  (*        "Could not locate property for contract %s." *)
+  (*        name *)
+  (*      |> failwith *)
+  (* in *)
            
 
   let contracts =
@@ -765,10 +800,11 @@ let mk_trans_sys
                 ( fun (name, source, requires, ensures) ->
                   { name ;
                     (* Retrieving property from contract name. *)
-                    props = contract_props ;
+                    (* prop = contract_prop name ; *)
                     source ;
                     requires ;
-                    ensures } ) )
+                    ensures ;
+                    status = PropUnknown } ) )
   in
 
   (* Making sure all properties have different terms. The contracts
@@ -1091,6 +1127,56 @@ let get_prop_status trans_sys p =
 
   with Not_found -> PropUnknown
 
+let contract_of_name ({ contracts } as sys) to_find =
+  try
+    match contracts with
+    | None ->
+       Format.asprintf
+         "System %a has no contracts."
+         pp_print_trans_sys_name sys
+       |> failwith
+    | Some (_, contracts) ->
+       List.find
+         (fun { name } -> to_find = name)
+         contracts
+  with
+  | Not_found ->
+     Format.sprintf
+       "Cannot locate contract %s."
+       to_find
+     |> failwith
+
+let proved_requirements_of { properties } scope =
+  let rec loop = function
+
+    (* Requirement for [scope]. *)
+    | { prop_status = status ;
+        prop_source =
+          TermLib.SubRequirement (scope', _) }
+      :: tail when scope = scope' ->
+       
+       ( match status with
+         (* Right system and subreq holds, looping. *)
+         | PropInvariant -> loop tail
+         (* Otherwise subreqirement is not known to hold, returning
+            false. *)
+         | _ -> false )
+
+    (* Not a subrequirement, skipping. *)
+    | _ :: tail -> loop tail
+
+    (* Did not exit early, so proved sub requirements. *)
+    | [] -> true
+  in
+
+  loop properties
+
+let is_contract_proved = function
+  | { contracts = None } -> raise Not_found
+  | { contracts = Some (_, contracts) } ->
+     contracts
+     |> List.for_all
+          ( fun { status } -> status = PropInvariant )
 
 (* Mark property as invariant *)
 let set_prop_invariant t prop =
@@ -1102,7 +1188,7 @@ let set_prop_invariant t prop =
   p.prop_status <- 
 
     (* Check current status *)
-    match p.prop_status with
+    ( match p.prop_status with
 
       (* Mark property as invariant if it was unknown, k-true or
          invariant *)
@@ -1111,7 +1197,15 @@ let set_prop_invariant t prop =
       | PropInvariant -> PropInvariant
 
       (* Fail if property was false or k-false *)
-      | PropFalse _ -> raise (Failure "prop_invariant")
+      | PropFalse _ -> raise (Failure "prop_invariant") ) ;
+
+  match p.prop_source with
+  | TermLib.Contract (TermLib.ContractAnnot(name,_)) ->
+     (* Property is a contract, updating. *)
+     let contract = contract_of_name t name in
+     contract.status <- PropInvariant
+          
+  | _ -> ()
 
 (* Changes the status of k-true properties as unknown. Used for
    contract-based analysis when lowering the abstraction depth. Since
@@ -1119,8 +1213,10 @@ let set_prop_invariant t prop =
 let reset_props_to_unknown t =
   t.properties
   |> List.iter
-       ( fun prop ->
-         prop.prop_status <- PropUnknown )
+       ( function
+         | { prop_status = PropInvariant } -> ()
+         | prop ->
+            prop.prop_status <- PropUnknown )
 
 let rec pp_print_trans_sys_contract_view ppf sys =
   Format.fprintf
@@ -1260,6 +1356,14 @@ let all_props_proved t =
        with Not_found -> false)
     t.properties
 
+let all_props_actually_proved { properties } =
+
+  List.for_all
+    (function
+      | { prop_status = PropInvariant } -> true
+      | _ -> false)
+    properties
+
 (* Return declarations for uninterpreted symbols *)
 let uf_symbols_of_trans_sys { state_vars } = 
   List.map StateVar.uf_symbol_of_state_var state_vars
@@ -1311,19 +1415,106 @@ let iter_uf_definitions t f =
   |> List.iter 
        (fun ((ui, (vi, ti)), (ut, (vt, tt))) -> f ui vi ti; f ut vt tt)
 
-let rec declare_abstraction_actlits declare = function
+(* Builds an abstraction. *)
+let mk_abstraction = identity
 
-  | { contracts ; subsystems } :: tail ->
+(* An empty abstraction. *)
+let empty_abstraction = []
 
-     ( match contracts with
-       | None -> ()
-       | Some (v,_) ->
-          [ Var.mk_const_state_var v ]
-          |> Var.declare_constant_vars declare ) ;
+(* Defines abstraction literals for a transition system base on some
+   abstraction. *)
+let define_abstraction_actlits
+      systems abstraction define =
 
-     declare_abstraction_actlits declare tail
+  let rec loop = function
 
-  | [] -> ()
+    | { scope ; contracts = None } :: tail ->
+       (* System cannot be abstracted, skipping. *)
+       loop tail
+
+    | { scope ; contracts = Some (actlit, _) } :: tail ->
+       (* Value the actlit will be defined as. *)
+       let value =
+         if List.mem scope abstraction
+         then Term.t_true else Term.t_false
+       in
+       (* Defining [actlit]. *)
+       define
+         (StateVar.uf_symbol_of_state_var actlit)
+         []
+         value ;
+       (* Looping. *)
+       loop tail
+
+    | _ -> ()
+  in
+
+  (* Defining actlits for all subsystems of [sys]. *)
+  loop systems
+
+(* Initializes the solver for a system and an abstraction. *)
+let init_solver
+      (* Only declare top level variables. *)
+      ?(declare_top_vars_only = true)
+      (* System and abstraction. *)
+      sys abstraction
+      (* Solver related functions. *)
+      comment define declare
+      (* Bounds for variable declaration. *)
+      lbound ubound =
+
+  Format.asprintf
+    "|=====| Setting up solver for system %a."
+    pp_print_trans_sys_name sys
+  |> comment ;
+
+
+  (* All subsystems of [sys], including [sys]. *)
+  let all_systems = get_all_subsystems sys in
+  
+  comment "|===| Defining abstraction actlits for all systems." ;
+  Format.sprintf
+    "|          abstracting [%s]"
+    (abstraction
+     |> List.map (String.concat ".")
+     |> String.concat ", ")
+  |> comment ;
+  define_abstraction_actlits all_systems abstraction define ;
+
+
+  (if declare_top_vars_only then [ sys ] else all_systems)
+  |> List.iter
+       ( fun sys ->
+
+         Format.asprintf
+           "|===| Declaring variables of %a for [%a,%a]."
+           pp_print_trans_sys_name sys
+           Numeral.pp_print_numeral lbound
+           Numeral.pp_print_numeral ubound
+         |> comment ;
+
+         comment "Constants." ;
+
+         (* Declaring constant variables. *)
+         let vars = vars_of_bounds sys lbound lbound in
+         Var.declare_constant_vars declare vars ;
+
+         comment "Non-constant state variables." ;
+
+         (* Declaring other variables. *)
+         declare_vars_of_bounds sys declare lbound ubound ) ;
+
+  
+  Format.asprintf
+    "|===| Defining init and trans predicates."
+  |> comment ;
+
+  iter_uf_definitions sys define ;
+
+
+  comment "|===| Done with initialization." ;
+  comment ""
+          
 
 (* Define uf definitions, declare constant state variables and declare
    variables from [lbound] to [upbound]. *)
@@ -1333,7 +1524,7 @@ let init_define_fun_declare_vars_of_bounds
 
   (* Getting the list of subsystems and declaring their abstraction
      literals. *)
-  get_all_subsystems t |> declare_abstraction_actlits declare ;
+  (* get_all_subsystems t |> declare_abstraction_actlits declare ; *)
 
   ( if sub_define_top_only then
       match t.callers with
@@ -1465,6 +1656,8 @@ let rec exists_eval_on_path' uf_defs p term k path =
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
   exists_eval_on_path' uf_defs pred term Numeral.zero path
+
+  
 
 
 (* 

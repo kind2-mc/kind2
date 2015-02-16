@@ -309,7 +309,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
        next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
-let init trans depth_opt =
+let init trans abstraction =
 
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
@@ -324,12 +324,27 @@ let init trans depth_opt =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_scope trans)
-      depth_opt
+      abstraction
       (TransSys.get_logic trans) (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
   solver_ref := Some solver ;
+
+  TransSys.init_solver
+    trans
+    abstraction
+    (SMTSolver.trace_comment solver)
+    (SMTSolver.define_fun solver)
+    (SMTSolver.declare_fun solver)
+    Numeral.(~- one) Numeral.zero ;
+
+  (* Defining uf's and declaring variables. *)
+  (* TransSys.init_define_fun_declare_vars_of_bounds *)
+  (*   trans *)
+  (*   (SMTSolver.define_fun solver) *)
+  (*   (SMTSolver.declare_fun solver) *)
+  (*   Numeral.(~- one) Numeral.zero ; *)
 
   (* Declaring positive actlits. *)
   List.iter
@@ -337,13 +352,6 @@ let init trans depth_opt =
      generate_actlit prop
      |> SMTSolver.declare_fun solver)
     unknowns ;
-
-  (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
-    trans
-    (SMTSolver.define_fun solver)
-    (SMTSolver.declare_fun solver)
-    Numeral.(~- one) Numeral.zero ;
 
   (* Asserting init. *)
   TransSys.init_of_bound trans Numeral.zero
@@ -362,8 +370,8 @@ let init trans depth_opt =
   (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
-let main trans depth_opt =
-  init trans depth_opt |> next
+let main trans abstraction =
+  init trans abstraction |> next
 
 
 (* 

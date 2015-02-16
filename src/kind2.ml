@@ -18,6 +18,7 @@
 
 open Lib
 
+module Refiner = Refiner
 module Log = Log
 module BMC = Base
 module IND = Step
@@ -37,6 +38,9 @@ let messaging_setup_opt = ref None
 
 (* Remember the log for quick access from anywhere. *)
 let log_ref = ref None
+
+(* Debug name of a process. *)
+let debug_ext_of_process = suffix_of_kind_module
 
 (* Returns the log stored in [log_ref] if it's not [None]. *)
 let log (): Log.t = match !log_ref with
@@ -63,7 +67,7 @@ let current_trans_sys = ref None
 (* Handle events by broadcasting messages, updating local transition
    system version etc. Returns [true] iff it received at least one
    message. *)
-let handle_events ?(silent_recv = false) trans_sys abstr_key_opt =
+let handle_events ?(silent_recv = false) trans_sys abstraction =
 
   (* Receive queued events. *)
   let events =
@@ -102,16 +106,8 @@ let handle_events ?(silent_recv = false) trans_sys abstr_key_opt =
        Log.update_of_events
          (log ())
          trans_sys
-         ( match abstr_key_opt with
-           | Some key -> key
-           | None -> Log.key_of_list [])
-         events ;
-
-       log ()
-       |> Event.log
-            L_warn
-            "%a"
-            Log.pp_print_log )
+         abstraction
+         events  )
 
 (* Aggregates functions related to starting processes. *)
 module Start = struct
@@ -320,7 +316,7 @@ module Stop = struct
             kids arrive. *)
          minisleep 0.01 ;
 
-         handle_events ~silent_recv:true sys None ) ;
+         handle_events ~silent_recv:true sys [] ) ;
 
     Event.log
       L_info
@@ -539,9 +535,6 @@ module Stop = struct
 
 end
 
-(* Debug name of a process. *)
-let debug_ext_of_process = suffix_of_kind_module
-
 
 (* Remove terminated child processed from list of running processes.
    Return [true] if the last child processes has terminated or some
@@ -604,9 +597,12 @@ let rec wait_for_children child_pids =
 
 (* Polling loop. *)
 let rec polling_loop
-          exit_after_killing_kids child_pids trans_sys abstraction_key_opt =
+          exit_after_killing_kids
+          child_pids
+          trans_sys
+          abstraction =
 
-  handle_events trans_sys abstraction_key_opt ;
+  handle_events trans_sys abstraction ;
 
   if TransSys.all_props_proved trans_sys then (
     Event.log
@@ -630,14 +626,14 @@ let rec polling_loop
 
     (* Continue polling loop. *)
     polling_loop
-      exit_after_killing_kids child_pids trans_sys abstraction_key_opt
+      exit_after_killing_kids child_pids trans_sys abstraction
 
   )
 
 
 
 (* Fork and run a child process *)
-let run_process messaging_setup process trans_sys abstraction_key_opt =
+let run_process messaging_setup process trans_sys abstraction =
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -732,7 +728,7 @@ let run_process messaging_setup process trans_sys abstraction_key_opt =
                   | Sys_error _ -> () );
 
           (* Run main function of process. *)
-          Start.main_of_process process trans_sys (Some 0) ; (* <--- TODO *)
+          Start.main_of_process process trans_sys abstraction ;
 
           (* Cleanup and exit. *)
           Stop.on_exit_child
@@ -990,7 +986,7 @@ let check_smtsolver () =
 
 let launch_analysis
       exit_after_killing_kids
-      trans_sys abstraction_key_opt =
+      trans_sys abstraction =
 
   if
     (* Warn if list of properties is empty. *)
@@ -1022,7 +1018,7 @@ let launch_analysis
       (* Run main function of process. *)
       (Start.main_of_process p)
         trans_sys
-        (Some 0) ; (* <--- TODO *)
+        abstraction ;
       
       (* Ignore SIGALRM from now on *)
       Sys.set_signal
@@ -1051,7 +1047,7 @@ let launch_analysis
         List.iter 
           ( fun p -> 
             run_process
-              messaging_setup p trans_sys abstraction_key_opt)
+              messaging_setup p trans_sys abstraction)
           ps ;
       in
       
@@ -1108,7 +1104,7 @@ let launch_analysis
 
       (* Going to polling loop. *)
       polling_loop
-        exit_after_killing_kids child_pids trans_sys abstraction_key_opt ;
+        exit_after_killing_kids child_pids trans_sys abstraction ;
 
       (* Following is not needed, this is done in [polling_loop] when it
          exits. *)
@@ -1125,21 +1121,7 @@ let launch_analysis
 
 (* Refines an [abstraction], returns [None] if it is pointless / not
    possible to refine further, and [Some abstraction'] otherwise. *)
-let refine_further sys abstraction =
-  (* Dummy for now. *)
-  let sub_systems = TransSys.get_subsystems sys in
-  match
-    abstraction
-    |> List.filter
-         (fun abstracted ->
-          List.exists
-            (fun sub_sys ->
-             abstracted = TransSys.get_scope sub_sys
-             |> not)
-            sub_systems)
-  with
-  | [] -> None
-  | l -> Some l
+let refine_further = Refiner.refine
 
 let launch_modular_analysis trans_sys =
 
@@ -1187,11 +1169,11 @@ let launch_modular_analysis trans_sys =
         (TransSys.get_name sys)
         Log.pp_print_abstraction_key abstraction_key ;
 
-      Event.log
-        L_warn
-        "%a"
-        TransSys.pp_print_trans_sys_contract_view
-        sys ;
+      (* Event.log *)
+      (*   L_warn *)
+      (*   "%a" *)
+      (*   TransSys.pp_print_trans_sys_contract_view *)
+      (*   sys ; *)
 
       Event.log
         L_warn "Press enter to launch analysis." ;
@@ -1204,7 +1186,7 @@ let launch_modular_analysis trans_sys =
         (* Don't exit when analysis ends. *)
         false
         sys
-        (Some abstraction_key)
+        abstraction_key
 
     ) else if TransSys.get_prop_status_all sys = [] then (
       Event.log
@@ -1220,15 +1202,25 @@ let launch_modular_analysis trans_sys =
         (string_of_strings_list abstraction) ;
     ) ;
 
-    if not (TransSys.all_props_proved sys) then (
+    if not (TransSys.all_props_actually_proved sys) then (
 
       Event.log
         L_warn
-        "%s: %i properties have unknown status.@.\
-             abstraction: [%s]"
+        "@[<hv 7>\
+         %s: not all properties are proved:@,\
+         %a@,\
+         abstraction: [%s]@]"
         (TransSys.get_name sys)
-        (TransSys.get_prop_status_all_unknown sys
-         |> List.length)
+        (pp_print_list
+           (fun ppf (s,status) ->
+            Format.fprintf
+              ppf
+              "@[<hv>%-20s - %a@]"
+              s
+              TransSys.pp_print_prop_status_pt
+              status)
+           "@,")
+        (TransSys.get_prop_status_all sys)
         (string_of_strings_list abstraction) ;
 
       Event.log
@@ -1251,13 +1243,25 @@ let launch_modular_analysis trans_sys =
 
       Event.log
         L_warn
-        "Proved all %i properties for %s.@.\
+        "Proved or disproved all %i properties for %s.@.\
          abstraction: [%s]@.@.\
          Moving on."
         (TransSys.get_prop_status_all sys
          |> List.length)
         (TransSys.get_name sys)
-        (string_of_strings_list abstraction)
+        (string_of_strings_list abstraction) ;
+
+      Event.log
+        L_warn
+        "%a"
+        TransSys.pp_print_trans_sys_contract_view
+        sys ;
+
+      log ()
+      |> Event.log
+           L_warn
+           "%a"
+           Log.pp_print_log_shy ;
 
     )
   in
@@ -1268,7 +1272,7 @@ let launch_modular_analysis trans_sys =
   |> Event.log
        L_warn
        "%a"
-       Log.pp_print_log ;
+       Log.pp_print_log_shy ;
     
 
   all_systems
@@ -1449,7 +1453,7 @@ let main () =
     if Flags.modular () then
       launch_modular_analysis (get !trans_sys)
     else
-      launch_analysis true (get !trans_sys) None
+      launch_analysis true (get !trans_sys) [] (* <--- TODO *)
 
   with
 

@@ -52,7 +52,7 @@ val create_instance :
   ?produce_proofs:bool ->
   ?produce_cores:bool ->
   string list ->
-  int option ->
+  string list list ->
   Term.logic ->
   Flags.smtsolver ->
   t

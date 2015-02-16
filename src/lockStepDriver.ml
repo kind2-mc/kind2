@@ -108,7 +108,7 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup depth_opt (solver,sys,actlit) =
+let common_setup abstraction (solver,sys,actlit) =
 
   name sys
   |> Printf.sprintf
@@ -308,12 +308,12 @@ let unroll_sys
   ()
 
 (* Creates a lsd instance. *)
-let create two_state top_only sys depth_opt =
+let create two_state top_only sys abstraction =
 
   let new_inst_sys () =
     SMTSolver.create_instance
       ~produce_assignments: true
-      (TransSys.get_scope sys) depth_opt
+      (TransSys.get_scope sys) abstraction
       (TransSys.get_logic sys) (Flags.smtsolver ())
   in
 
@@ -352,15 +352,15 @@ let create two_state top_only sys depth_opt =
 
            (* Setting up base. *)
            (base_solver, sys, actlit)
-           |> common_setup depth_opt |> base_setup ;
+           |> common_setup abstraction |> base_setup ;
 
            (* Setting up step. *)
            (step_solver, sys, actlit)
-           |> common_setup depth_opt |> step_setup ;
+           |> common_setup abstraction |> step_setup ;
 
            (* Setting up pruning. *)
            (pruning_solver, sys, actlit)
-           |> common_setup depth_opt |> pruning_setup ;
+           |> common_setup abstraction |> pruning_setup ;
 
            let actlit_term = Actlit.term_of_actlit actlit in
 
