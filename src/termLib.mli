@@ -51,7 +51,7 @@ type prop_source =
 
   (** Property is a requirement for a subsystem: scope of the
       subsystem and position. *)
-  | SubRequirement of (string list * Lib.position)
+  | SubRequirement of ((string list * Lib.position) list * string list * Lib.position)
 
   (** Property was generated, for example, from a subrange
       constraint *)

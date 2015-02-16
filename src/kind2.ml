@@ -1206,28 +1206,22 @@ let launch_modular_analysis trans_sys =
 
       Event.log
         L_warn
-        "@[<hv 7>\
+        "@[<hv 2>\
          %s: not all properties are proved:@,\
-         %a@,\
-         abstraction: [%s]@]"
+         @[<hv 2>abstraction: [%s]@,\
+         %a@]@]"
         (TransSys.get_name sys)
+        (string_of_strings_list abstraction)
         (pp_print_list
            (fun ppf (s,status) ->
             Format.fprintf
               ppf
-              "@[<hv>%-20s - %a@]"
+              "@[<hv>%-50s - %a@]"
               s
               TransSys.pp_print_prop_status_pt
               status)
            "@,")
-        (TransSys.get_prop_status_all sys)
-        (string_of_strings_list abstraction) ;
-
-      Event.log
-        L_info
-        "Resetting properties to unknown." ;
-
-      TransSys.reset_props_to_unknown sys ;
+        (TransSys.get_prop_status_all sys) ;
 
       match
         refine_further sys abstraction
@@ -1236,7 +1230,13 @@ let launch_modular_analysis trans_sys =
          Event.log
            L_warn
            "Can't refine further, done with %s."
-           (TransSys.get_name sys)
+           (TransSys.get_name sys) ;
+
+         log ()
+         |> Event.log
+              L_warn
+              "%a"
+              Log.pp_print_log_shy ;
       | Some nu_abs ->
          analyze sys nu_abs
     ) else (
@@ -1250,12 +1250,6 @@ let launch_modular_analysis trans_sys =
          |> List.length)
         (TransSys.get_name sys)
         (string_of_strings_list abstraction) ;
-
-      Event.log
-        L_warn
-        "%a"
-        TransSys.pp_print_trans_sys_contract_view
-        sys ;
 
       log ()
       |> Event.log
@@ -1280,11 +1274,8 @@ let launch_modular_analysis trans_sys =
        ( fun sys ->
 
          ( if abstract_contracts then
-             TransSys.get_all_subsystems sys
-             |> List.filter (fun s -> sys != s)
-             |> List.map TransSys.get_scope
-           else
-             [] )
+             Refiner.first_abstraction sys
+           else [] )
 
          (* Launching analysis. *)
          |> analyze sys ) ;

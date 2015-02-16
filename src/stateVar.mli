@@ -78,12 +78,6 @@ val mk_state_var :
 (** Creates a scoped init flag. *)
 val mk_init_flag : string list -> t
 
-(** Creates a scoped depth input. *)
-val mk_depth_input : string list -> t
-
-(** Creates a scoped depth input. *)
-val mk_max_depth_input : string list -> t
-
 (** State var reserved strings. *)
 val reserved_strings : string list
 

@@ -304,6 +304,8 @@ val set_prop_ktrue : t -> int -> string -> unit
     is not valid anymore. *)
 val reset_props_to_unknown : t -> unit
 
+val subrequirements_valid : t -> bool
+
 val proved_requirements_of : t -> string list -> bool
 
 val is_contract_proved : t -> bool

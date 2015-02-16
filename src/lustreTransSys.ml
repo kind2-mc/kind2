@@ -483,14 +483,6 @@ let rec definitions_of_node_calls
       in
 *)
 
-      E.set_state_var_instance
-        init_flag_svar
-        pos
-        node_name
-        (* Mapping the init flag to the caller's init flag. *)
-        ( I.scope_of_ident node_name
-          |> StateVar.mk_init_flag ) ;
-
       (* Predicate for initial state constraint *)
       let init_uf_symbol = TransSys.init_uf_symbol trans_sys in
 
@@ -650,26 +642,6 @@ let rec definitions_of_node_calls
 
       in
 
-      (* Lift requirements from called node as properties. *)
-      let lifted_requirements =
-        match contracts with
-        | [] ->
-           debug lustreTransSys "No contracts detected." in
-           []
-        | _ ->
-           [ contracts
-             |> List.map
-                  ( fun (name,_,reqs,_) ->
-                    reqs
-                    |> Term.mk_and )
-             |> Term.mk_or
-             |> ( fun term ->
-                  lift_prop_name node_name pos "__subnode_requirement",
-                  TermLib.SubRequirement
-                    (I.scope_of_ident node_name, pos),
-                  LustreExpr.lift_term pos node_name term ) ]
-      in
-
       (* Lift properties from called node *)
       let lifted_props' =
 
@@ -677,15 +649,24 @@ let rec definitions_of_node_calls
         ( List.fold_left
             (fun list (n, s, t) ->
              match s with
-             | TermLib.Contract (_) -> list
+             | TermLib.Contract (_) ->
+                (* Ignore contract properties. *)
+                list
+             | TermLib.SubRequirement (info, subscope, subpos) ->
+                list
+                (* ( lift_prop_name node_name pos n, *)
+                (*   (\* Lift subreuirements as subrequirements. *\) *)
+                (*   TermLib.SubRequirement *)
+                (*     ( (I.scope_of_ident node_name, pos) :: info, *)
+                (*       subscope, *)
+                (*       subpos ), *)
+                (*   LustreExpr.lift_term pos node_name t) :: list *)
              | _ ->
                 (lift_prop_name node_name pos n, 
                  TermLib.Instantiated (I.scope_of_ident node_name, n),
                  LustreExpr.lift_term pos node_name t) :: list)
             []
             props )
-          @ lifted_requirements
-
       in
 
 
@@ -1229,6 +1210,34 @@ let rec definitions_of_node_calls
 
       in
 
+      (* Lift requirements from called node as properties. *)
+      let lifted_requirements =
+        match contracts with
+        | [] ->
+           []
+        | _ ->
+           [ contracts
+             |> List.map
+                  ( fun (name,_,reqs,_) ->
+                    reqs
+                    |> Term.mk_and )
+             |> Term.mk_or
+             |> ( fun term ->
+                  lift_prop_name node_name pos "__subnode_requirement",
+                  TermLib.SubRequirement
+                    ([], I.scope_of_ident node_name, pos),
+                  LustreExpr.lift_term pos node_name term
+                  |> Term.substitute_variables state_var_map
+                  |> guard_formula) ]
+      in
+
+      let lifted_props =
+        lifted_props''
+        |> List.map
+             ( fun (name,s,t) ->
+               (name,s, Term.substitute_variables state_var_map t) )
+      in
+
       (* Continue with next node call *)
       definitions_of_node_calls
         scope
@@ -1241,7 +1250,7 @@ let rec definitions_of_node_calls
         (* input_defs' *)
         (init_call_act_cond :: init)
         (trans_call_act_cond :: trans) 
-        lifted_props''
+        (lifted_requirements @ lifted_props)
         ((node_name, 
           (state_var_map, guard_formula)) :: 
          state_var_maps)
@@ -2012,11 +2021,23 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                      Format.fprintf
                        ppf "contract %s at %a" n pp_print_position p
 
-                  | TermLib.SubRequirement (scope, p) ->
+                  | TermLib.SubRequirement (info, scope, p) ->
                      Format.fprintf
-                       ppf "requirement from subsystem %s at %a"
-                       (String.concat "/" scope)
+                       ppf "@[<hv 3>requirement from subsystem %s at %a@.\
+                            path: @[<v 6>%a@]@]"
+                       (String.concat "." scope)
                        pp_print_position p
+                       (pp_print_list
+                          (fun ppf (s,p) ->
+                           Format.fprintf
+                             ppf
+                             "%a:%a"
+                             (pp_print_list
+                                Format.pp_print_string ".")
+                             s
+                             pp_print_position p)
+                          "@ > ")
+                       info
 
                   | TermLib.Generated l -> 
                      Format.fprintf

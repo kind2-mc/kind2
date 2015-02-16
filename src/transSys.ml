@@ -1146,13 +1146,24 @@ let contract_of_name ({ contracts } as sys) to_find =
        to_find
      |> failwith
 
+let subrequirements_valid { properties } =
+  let rec loop = function
+    | { prop_status = status ;
+        prop_source = TermLib.SubRequirement (_,_,_) }
+      :: tail ->
+       if status = PropInvariant then loop tail
+       else false
+    | [] -> true
+  in
+  loop properties
+
 let proved_requirements_of { properties } scope =
   let rec loop = function
 
     (* Requirement for [scope]. *)
     | { prop_status = status ;
         prop_source =
-          TermLib.SubRequirement (scope', _) }
+          TermLib.SubRequirement (_, scope', _) }
       :: tail when scope = scope' ->
        
        ( match status with
