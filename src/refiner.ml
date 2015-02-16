@@ -31,21 +31,9 @@ let pp_print_abstraction ppf =
        ",@,")
 
 let first_abstraction sys =
-  Format.printf
-    "[first abstraction] %a\n"
-    (pp_print_list
-       Format.pp_print_string ", ")
-    (TransSys.get_all_subsystems sys
-     |> List.map (TransSys.get_name)) ;
   TransSys.get_all_subsystems sys
   |> List.filter
        (fun s ->
-        Format.printf
-          "[first abstraction] %s: %b, %b\n"
-          (TransSys.get_scope s
-           |> String.concat ".")
-          (sys != s)
-          (TransSys.get_contracts s <> []) ;
         sys != s
         && (TransSys.get_contracts s <> []))
   |> List.map TransSys.get_scope
@@ -69,11 +57,9 @@ let refine sys = function
      let rec loop = function
        | subsys :: tail ->
           let sub_scope = TransSys.get_scope subsys in
-          Format.printf "> Looking at sys %s\n" (TransSys.get_name subsys) ;
 
           if List.mem sub_scope abstraction then (
             (* [subsys] is currently abstracted, can we refine it? *)
-            Format.printf "> Checking refinement conditions.\n" ;
 
             if
               (* All subrequirements for [subsys] hold for [sys] *)
@@ -89,7 +75,9 @@ let refine sys = function
                 L_info
                 "Resetting properties to unknown." ;
 
-              TransSys.reset_props_to_unknown sys ;
+              
+              TransSys.reset_non_valid_props_to_unknown sys ;
+              TransSys.reset_invariants sys ;
 
               (* Refining [subsys], removing it from abstraction. *)
               Some
@@ -101,20 +89,14 @@ let refine sys = function
             )
 
             else (
-              Format.printf
-                "> Refine condition failed (%b,%b).\n"
-                (TransSys.proved_requirements_of sys sub_scope)
-                (TransSys.is_contract_proved subsys) ;
 
               (* Condition for refinement not satisfied. Looping. *)
               loop tail
             )
 
-          ) else (
-            Format.printf "> Not in abstraction.\n" ;
+          ) else
             (* [subsys is currently not abtracted, looping. *)
             loop tail
-          )
 
        | [] ->
           (* Found nothing to abstract. *)

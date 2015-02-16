@@ -1207,7 +1207,7 @@ let launch_modular_analysis trans_sys =
       Event.log
         L_warn
         "@[<hv 2>\
-         %s: not all properties are proved:@,\
+         Some properties could not be proved for %s:@,\
          @[<hv 2>abstraction: [%s]@,\
          %a@]@]"
         (TransSys.get_name sys)
@@ -1221,7 +1221,11 @@ let launch_modular_analysis trans_sys =
               TransSys.pp_print_prop_status_pt
               status)
            "@,")
-        (TransSys.get_prop_status_all sys) ;
+        (TransSys.get_prop_status_all sys
+         |> List.filter
+              ( function
+                | (_, TransSys.PropInvariant) -> false
+                | _ -> true ));
 
       match
         refine_further sys abstraction
@@ -1230,43 +1234,33 @@ let launch_modular_analysis trans_sys =
          Event.log
            L_warn
            "Can't refine further, done with %s."
-           (TransSys.get_name sys) ;
-
-         log ()
-         |> Event.log
-              L_warn
-              "%a"
-              Log.pp_print_log_shy ;
+           (TransSys.get_name sys)
       | Some nu_abs ->
+         Event.log
+           L_warn
+           "Refining contract-based abstraction for %s."
+           (TransSys.get_name sys) ;
          analyze sys nu_abs
     ) else (
 
       Event.log
         L_warn
-        "Proved or disproved all %i properties for %s.@.\
-         abstraction: [%s]@.@.\
-         Moving on."
+        "Proved all (%i) properties for %s.@.\
+         abstraction: [%s]"
         (TransSys.get_prop_status_all sys
          |> List.length)
         (TransSys.get_name sys)
         (string_of_strings_list abstraction) ;
 
-      log ()
-      |> Event.log
-           L_warn
-           "%a"
-           Log.pp_print_log_shy ;
+      Event.log
+        L_warn
+        "Done with %s"
+        (TransSys.get_name sys) ;
 
     )
   in
 
   log_ref := Some (Log.mk_log all_systems) ;
-
-  log ()
-  |> Event.log
-       L_warn
-       "%a"
-       Log.pp_print_log_shy ;
     
 
   all_systems
@@ -1281,6 +1275,12 @@ let launch_modular_analysis trans_sys =
          |> analyze sys ) ;
 
   minisleep 0.01 ;
+
+  log ()
+  |> Event.log
+       L_warn
+       "%a"
+       Log.pp_print_log_shy ;
 
   (* There should be no process left at this point. *)
   assert ( !child_pids = [] ) ;

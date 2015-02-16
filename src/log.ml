@@ -238,15 +238,8 @@ let rec update_of_events log sys abstraction_key = function
          |> List.filter
               ( function
                 | (prop', TransSys.PropInvariant)
-                     when prop <> prop' ->
-                   true
-                | (p,s) ->
-                   Event.log
-                     L_warn
-                     "[update_log] ignoring %s (%a)"
-                     p
-                     TransSys.pp_print_prop_status_pt s ;
-                   false )
+                     when prop <> prop' -> true
+                | (p,s) -> false )
          |> List.map fst )
        ( TransSys.get_invars sys )
        [ prop ]
@@ -346,7 +339,7 @@ let pp_print_abstraction_sublog ppf { abstraction ; prop_infos } =
 let pp_print_abstraction_sublog_shy
       ppf { abstraction ; prop_infos } =
   Format.fprintf
-    ppf "@[<hv 2>\
+    ppf "@[<v 2>\
          abstraction: [%a]@ \
          %a\
          @]"
@@ -400,11 +393,7 @@ let pp_print_log ppf { sys ; sys_sublogs } =
 (* Pretty prints a [t] log. *)
 let pp_print_log_shy ppf { sys ; sys_sublogs } =
   Format.fprintf
-    ppf "@[<v 2>\
-         log starting at root [%s]@,\
-         @[<v>%a@]\
-         @]"
-    (TransSys.get_name sys)
+    ppf "@[<v>%a@]"
     (pp_print_list pp_print_sys_sublog_shy "@ ") sys_sublogs
 
 (* 

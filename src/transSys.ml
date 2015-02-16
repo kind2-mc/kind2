@@ -916,7 +916,8 @@ let declare_vars_of_bounds
       t declare lbound ubound =
   (* Declaring non-constant variables. *)
   vars_of_bounds t lbound ubound
-  |> Var.declare_vars declare
+  |> (fun vars ->
+      Var.declare_vars declare vars)
 
 
 (* Instantiate the initial state constraint to the bound *)
@@ -1153,6 +1154,7 @@ let subrequirements_valid { properties } =
       :: tail ->
        if status = PropInvariant then loop tail
        else false
+    | _ :: tail -> loop tail
     | [] -> true
   in
   loop properties
@@ -1221,13 +1223,22 @@ let set_prop_invariant t prop =
 (* Changes the status of k-true properties as unknown. Used for
    contract-based analysis when lowering the abstraction depth. Since
    the predicates have changed they might not be k-true anymore. *)
-let reset_props_to_unknown t =
+let reset_non_valid_props_to_unknown t =
   t.properties
   |> List.iter
        ( function
          | { prop_status = PropInvariant } -> ()
          | prop ->
             prop.prop_status <- PropUnknown )
+
+let reset_invariants t =
+  t.invars <- [] ;
+  t.properties
+  |> List.iter
+       ( function
+         | { prop_term = term ; prop_status = PropInvariant } ->
+            t.invars <- term :: t.invars
+         | _ -> () )
 
 let rec pp_print_trans_sys_contract_view ppf sys =
   Format.fprintf
@@ -1507,8 +1518,8 @@ let init_solver
          comment "Constants." ;
 
          (* Declaring constant variables. *)
-         let vars = vars_of_bounds sys lbound lbound in
-         Var.declare_constant_vars declare vars ;
+         vars_of_bounds sys lbound lbound
+         |> Var.declare_constant_vars declare ;
 
          comment "Non-constant state variables." ;
 

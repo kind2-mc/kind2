@@ -1658,8 +1658,10 @@ let rec trans_sys_of_nodes' nodes node_defs = function
 
       contracts,
 
-      Term.mk_or reqs_init_dnf,
-      Term.mk_or reqs_trans_dnf,
+      ( match reqs_init_dnf with
+        | [] -> Term.t_true | _ -> Term.mk_or reqs_init_dnf ) ,
+      ( match reqs_trans_dnf with
+        | [] -> Term.t_true | _ -> Term.mk_or reqs_trans_dnf ) ,
 
       abstraction_init,
       abstraction_trans
@@ -2273,7 +2275,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
              (Term.mk_var init_flag_trans |> Term.mk_not)
              (* Assertions from requirements. *)
              :: (
-               assertions_from_requirements_init
+               assertions_from_requirements_trans
                (* Other definitions. *)
                :: trans_defs_eqs
                (* Applying contract modifier. *)

@@ -108,34 +108,34 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup abstraction (solver,sys,actlit) =
+let common_setup solver abstraction sys =
 
   name sys
   |> Printf.sprintf
        "Setting up system [%s]."
   |> SMTSolver.trace_comment solver ;
-
-  SMTSolver.declare_fun solver actlit ;
   
   (* Defining uf's and declaring variables. *)
-  TransSys.init_define_fun_declare_vars_of_bounds
-    ~sub_define_top_only:true
+  TransSys.init_solver
+    ~declare_top_vars_only:false
     sys
+    abstraction
+    (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
-    Numeral.zero Numeral.(~- one);
+    Numeral.(~- one) Numeral.zero
 
-  SMTSolver.trace_comment solver "Done defining, declaring now." ;
+  (* SMTSolver.trace_comment solver "Done defining, declaring now." ; *)
 
   (* Declaring unrolled vars at [-1] and [0]. *)
-  TransSys.declare_vars_of_bounds
-    sys
-    (SMTSolver.declare_fun solver)
-    Numeral.(~- one) Numeral.zero ;
+  (* TransSys.declare_vars_of_bounds *)
+  (*   sys *)
+  (*   (SMTSolver.declare_fun solver) *)
+  (*   Numeral.(~- one) Numeral.zero ; *)
 
-  let actlit_term = Actlit.term_of_actlit actlit in
+  (* let actlit_term = Actlit.term_of_actlit actlit in *)
 
-  solver, sys, actlit_term
+  (* solver, sys, actlit_term *)
 
 let base_setup (solver,sys,actlit) =
 
@@ -331,6 +331,10 @@ let create two_state top_only sys abstraction =
   (* init_solver step_solver ; *)
   (* init_solver pruning_solver ; *)
 
+  common_setup base_solver abstraction sys ;
+  common_setup step_solver abstraction sys ;
+  common_setup pruning_solver abstraction sys ;
+
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)
   let systems =
@@ -350,19 +354,20 @@ let create two_state top_only sys abstraction =
            (* Getting a fresh actlit for [sys]. *)
            let actlit = Actlit.fresh_actlit () in
 
-           (* Setting up base. *)
-           (base_solver, sys, actlit)
-           |> common_setup abstraction |> base_setup ;
-
-           (* Setting up step. *)
-           (step_solver, sys, actlit)
-           |> common_setup abstraction |> step_setup ;
-
-           (* Setting up pruning. *)
-           (pruning_solver, sys, actlit)
-           |> common_setup abstraction |> pruning_setup ;
+           SMTSolver.declare_fun base_solver actlit ;
+           SMTSolver.declare_fun step_solver actlit ;
+           SMTSolver.declare_fun pruning_solver actlit ;
 
            let actlit_term = Actlit.term_of_actlit actlit in
+
+           (* Setting up base. *)
+           (base_solver, sys, actlit_term) |> base_setup ;
+
+           (* Setting up step. *)
+           (step_solver, sys, actlit_term) |> step_setup ;
+
+           (* Setting up pruning. *)
+           (pruning_solver, sys, actlit_term) |> pruning_setup ;
 
            (* Updating the map of all systems. *)
            let all_sys' =

@@ -299,10 +299,14 @@ val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit
 (** Mark property as k-true *)
 val set_prop_ktrue : t -> int -> string -> unit
 
-(** Changes the status of all properties to unknown. Used in modular
-    analysis since the system has changed, so anything proved before
-    is not valid anymore. *)
-val reset_props_to_unknown : t -> unit
+(** Resets properties with a status different from [PropValid] to
+    [PropUnknown]. This is used in compositional and modular analysis
+    when restarting. *)
+val reset_non_valid_props_to_unknown : t -> unit
+
+(** Resets the list of invariants of a system to only the terms of the
+    valid properties. *)
+val reset_invariants : t -> unit
 
 val subrequirements_valid : t -> bool
 
