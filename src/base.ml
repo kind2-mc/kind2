@@ -110,7 +110,7 @@ let split_closure trans solver k actlits to_split =
       |> Term.mk_and |> Term.mk_not |> Term.bump_state k
     in
     (* Getting actlit for it. *)
-    let actlit = generate_actlit term in
+    let actlit = fresh_actlit () in
     (* Declaring actlit. *)
     actlit |> SMTSolver.declare_fun solver ;
     (* Asserting implication. *)
