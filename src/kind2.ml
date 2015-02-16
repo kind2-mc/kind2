@@ -318,14 +318,12 @@ module Stop = struct
 
          handle_events ~silent_recv:true sys [] ) ;
 
-    Event.log
-      L_info
-      "<TODO> Reactivate printing of final statistics." ;
-    (* print_final_statistics () ; *)
-
-    if exit_after_killing_kids then
+    if exit_after_killing_kids then (
+      if not (Flags.compositional ())
+         && not (Flags.modular ()) then
+        print_final_statistics () ;
       actually_exit status
-    else (
+    ) else (
       (* Restore signal handlers. *)
 
       (* Install generic signal handler for SIGINT. *)
@@ -1106,6 +1104,13 @@ let launch_analysis
       polling_loop
         exit_after_killing_kids child_pids trans_sys abstraction ;
 
+      let _ =
+        Unix.setitimer
+          Unix.ITIMER_REAL
+          { Unix.it_interval = 0. ;
+            Unix.it_value = 0. }
+      in
+
       (* Following is not needed, this is done in [polling_loop] when it
          exits. *)
       (* Exit without error *)
@@ -1180,13 +1185,31 @@ let launch_modular_analysis trans_sys =
 
       let _ = read_line () in
 
-      (* Launching analysis for [sys] with abstraction depth
-         [depth]. *)
-      launch_analysis
-        (* Don't exit when analysis ends. *)
-        false
-        sys
-        abstraction_key
+      if Flags.timeout_wall () > 0. then (
+        let _ =
+          (* Set interval timer for wallclock timeout. *)
+          Unix.setitimer 
+            Unix.ITIMER_REAL 
+            { Unix.it_interval = 0. ;
+              Unix.it_value = Flags.timeout_wall () }
+        in ()
+      ) ;
+
+      try
+        (* Launching analysis for [sys] with abstraction depth
+           [depth]. *)
+        launch_analysis
+          (* Don't exit when analysis ends. *)
+          false
+          sys
+          abstraction_key
+      with
+      | TimeoutWall ->
+         Event.log
+           L_error
+           "%s Timeout for %s."
+           timeout_tag
+           (TransSys.get_name sys)
 
     ) else if TransSys.get_prop_status_all sys = [] then (
       Event.log
@@ -1227,20 +1250,30 @@ let launch_modular_analysis trans_sys =
                 | (_, TransSys.PropInvariant) -> false
                 | _ -> true ));
 
-      match
-        refine_further sys abstraction
-      with
-      | None ->
-         Event.log
-           L_warn
-           "Can't refine further, done with %s."
-           (TransSys.get_name sys)
-      | Some nu_abs ->
-         Event.log
-           L_warn
-           "Refining contract-based abstraction for %s."
-           (TransSys.get_name sys) ;
-         analyze sys nu_abs
+      ( if Flags.compositional () then
+
+          ( match
+              refine_further sys abstraction
+            with
+            | None ->
+               Event.log
+                 L_warn
+                 "Can't refine further, done with %s."
+                 (TransSys.get_name sys)
+            | Some nu_abs ->
+               Event.log
+                 L_warn
+                 "Refining contract-based abstraction for %s."
+                 (TransSys.get_name sys) ;
+               analyze sys nu_abs )
+
+        else
+          Event.log
+            L_warn
+            "Done with %s."
+            (TransSys.get_name sys) )
+
+
     ) else (
 
       Event.log
@@ -1274,7 +1307,7 @@ let launch_modular_analysis trans_sys =
          (* Launching analysis. *)
          |> analyze sys ) ;
 
-  minisleep 0.01 ;
+  minisleep 0.1 ;
 
   log ()
   |> Event.log
