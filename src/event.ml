@@ -285,8 +285,7 @@ module EventMessaging = Messaging.Make (EventMessage)
 let this_module = ref `Parser
 
 (* Set module currently running *)
-let set_module mdl =
-  this_module := mdl
+let set_module mdl = this_module := mdl
 
 (* Get module currently running *)
 let get_module () = !this_module

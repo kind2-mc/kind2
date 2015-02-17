@@ -329,19 +329,6 @@ val all_props_actually_proved : t -> bool
 (** Apply [f] to all uninterpreted function symbols of the transition
     system *)
 val iter_state_var_declarations : t -> (UfSymbol.t -> unit) -> unit 
-  
-(* (\** Apply [f] to all function definitions of the transition system *\) *)
-(* val iter_uf_definitions : t -> (UfSymbol.t -> Var.t list -> Term.t -> unit) -> unit *)
-                                                                 
-(** Define uf definitions, declare constant state variables and declare
-    variables from [lbound] to [upbound]. *)
-val init_define_fun_declare_vars_of_bounds :
-  ?sub_define_top_only:bool ->
-  t ->
-  (UfSymbol.t -> Var.t list -> Term.t -> unit) ->
-  (UfSymbol.t -> unit) ->
-  Numeral.t -> Numeral.t ->
-  unit
 
 
 val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> Model.path -> bool

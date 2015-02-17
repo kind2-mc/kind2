@@ -1534,34 +1534,6 @@ let init_solver
 
   comment "|===| Done with initialization." ;
   comment ""
-          
-
-(* Define uf definitions, declare constant state variables and declare
-   variables from [lbound] to [upbound]. *)
-let init_define_fun_declare_vars_of_bounds
-      ?(sub_define_top_only = false)
-      t define declare lbound ubound =
-
-  (* Getting the list of subsystems and declaring their abstraction
-     literals. *)
-  (* get_all_subsystems t |> declare_abstraction_actlits declare ; *)
-
-  ( if sub_define_top_only then
-      match t.callers with
-      | [] ->
-         (* Define ufs. *)
-         iter_uf_definitions t define
-      | _ -> ()
-    else
-      iter_uf_definitions t define ) ;
-
-  let l_vars = vars_of_bounds t lbound lbound in
-
-  (* Declaring constant variables. *)
-  Var.declare_constant_vars declare l_vars ;
-
-  (* Declaring other variables. *)
-  declare_vars_of_bounds t declare lbound ubound
   
 (*
   

@@ -173,8 +173,10 @@ let main input_file trans_sys abstraction =
     ref_solver := Some solver;
     
     (* Defining uf's and declaring variables. *)
-    TransSys.init_define_fun_declare_vars_of_bounds
+    TransSys.init_solver
       trans_sys
+      []
+      (SMTSolver.trace_comment solver)
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)
       Numeral.(~- one) Numeral.(of_int steps) ;
