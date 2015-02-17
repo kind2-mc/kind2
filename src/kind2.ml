@@ -692,8 +692,9 @@ let run_process messaging_setup process trans_sys abstraction =
 
            Event.log
              L_info 
-             "Starting new process with PID %d" 
-             pid ;
+             "Starting new process with PID %d (%s)"
+             pid
+             (suffix_of_kind_module (Event.get_module ())) ;
 
           ( (* Change debug output to per process file. *)
             match Flags.debug_log () with

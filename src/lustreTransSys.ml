@@ -2051,6 +2051,65 @@ let rec trans_sys_of_nodes' nodes node_defs = function
         props
     in
 
+    (* All state variables of the transition system. *)
+    let state_vars =
+      init_flag_svar :: inputs @ oracles @ outputs @ observers @ locals
+    in
+
+    (* Constraints for integer ranges, concrete and abstract version.
+       Concrete version features all subrange constraints that could
+       be verified.  Abstract version only contain those mentioning
+       the outputs. *)
+    let invars_of_types_concrete_init,
+        invars_of_types_concrete_trans,
+        invars_of_types_abstract_init,
+        invars_of_types_abstract_trans =
+
+      state_vars
+      |> List.fold_left
+           ( fun (con_list,abs_list) state_var ->
+
+             (* Type of state variable *)
+             match StateVar.type_of_state_var state_var with
+               
+             (* Type is a bounded integer *)
+             | sv_type when Type.is_int_range sv_type -> (
+               
+               (* Get lower and upper bounds *)
+               let l, u = Type.bounds_of_int_range sv_type in
+
+               (* Building equation l <= v[0] <= u to invariants *)
+               let eq =
+                 Term.mk_leq
+                   [ Term.mk_num l ;
+                     Term.mk_var (Var.mk_state_var_instance
+                                    state_var Numeral.zero) ; 
+                     Term.mk_num u ]
+               in
+
+               (* Adding [eq] to list of concrete constraints. *)
+               eq :: con_list,
+               (* Only add [eq] to [abs_list] if [state_var] is an
+                  output. *)
+               ( if List.memq state_var outputs
+                 then eq :: abs_list else abs_list)
+             )
+
+             | _ -> con_list, abs_list )
+
+           ([], [])
+
+      |> (fun (concrete, abstract) ->
+          (* Concrete @ init. *)
+          concrete,
+          (* Concrete @ trans. *)
+          List.map (Term.bump_state Numeral.one) concrete,
+          (* Abstract @ init. *)
+          abstract,
+          (* Abstract @ trans. *)
+          List.map (Term.bump_state Numeral.one) abstract)
+    in
+
     let (
       (* Option of an actlit ([Var.t]) triggering contract-based
          abstraction.  None if there are no contracts. *)
@@ -2115,6 +2174,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                  get irrelevant counter examples. *)
               [ contracts_actlit_term ;
                 contract_abstraction_init :: props_terms
+                @ invars_of_types_abstract_init
                 |> Term.mk_and ] ;
 
             Term.mk_implies
@@ -2135,6 +2195,9 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                 :: ( List.map
                        (Term.bump_state Numeral.one)
                        props_terms )
+                @ ( List.map
+                      (Term.bump_state Numeral.one)
+                      invars_of_types_abstract_trans )
                 |> Term.mk_and ] ;
 
             Term.mk_implies
@@ -2194,7 +2257,8 @@ let rec trans_sys_of_nodes' nodes node_defs = function
                (* Assertions from requirements. *)
                assertions_from_requirements_init
                (* Other definitions. *)
-               :: init_defs_eqs
+               :: ( invars_of_types_concrete_init
+                    @ init_defs_eqs )
                (* Applying contract modifier. *)
                |> abstraction_modifier_init
              ) ))))
@@ -2272,10 +2336,11 @@ let rec trans_sys_of_nodes' nodes node_defs = function
              :: (
                assertions_from_requirements_trans
                (* Other definitions. *)
-               :: trans_defs_eqs
+               :: ( invars_of_types_concrete_trans
+                    @ ( trans_defs_eqs )
                (* Applying contract modifier. *)
                |> abstraction_modifier_trans
-             )))))
+             ))))))
 
     in
 
@@ -2354,10 +2419,7 @@ let rec trans_sys_of_nodes' nodes node_defs = function
     let trans_sys = 
       TransSys.mk_trans_sys 
         (I.scope_of_ident node_name)
-        ( init_flag_svar
-          :: inputs @ oracles
-          @ outputs @ observers
-          @ locals )
+        ( state_vars )
         pred_def_init
         pred_def_trans
         called_trans_sys

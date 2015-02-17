@@ -711,33 +711,6 @@ let mk_trans_sys
       subsystems props contracts_option
       source =
 
-  (* Create constraints for integer ranges *)
-  let invars_of_types = 
-
-    List.fold_left 
-      (fun accum state_var -> 
-
-         (* Type of state variable *)
-         match StateVar.type_of_state_var state_var with
-           
-           (* Type is a bounded integer *)
-           | sv_type when Type.is_int_range sv_type -> 
-             
-             (* Get lower and upper bounds *)
-             let l, u = Type.bounds_of_int_range sv_type in
-
-             (* Add equation l <= v[0] <= u to invariants *)
-             Term.mk_leq 
-               [Term.mk_num l; 
-                Term.mk_var
-                  (Var.mk_state_var_instance state_var Numeral.zero); 
-                Term.mk_num u] :: 
-             accum
-           | _ -> accum)
-      []
-      state_vars
-  in
-
   (* Goes through the subsystems and constructs the list of
      uf_defs. *)
   let rec get_uf_defs result = function
@@ -876,7 +849,7 @@ let mk_trans_sys
       contracts = contracts ;
       subsystems = subsystems ;
       source = source ;
-      invars = invars_of_types ;
+      invars = [] ;
       callers = []; }
   in
 

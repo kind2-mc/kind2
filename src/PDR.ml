@@ -2105,64 +2105,27 @@ let main trans_sys abstraction =
   ref_solver := Some solver;
 
   (* Declare uninterpreted function symbols *)
-  SMTSolver.trace_comment 
-    solver
-    "main: Declare state variables and define predicates";
-
-  (* Declare uninterpreted function symbols *)
-  TransSys.init_define_fun_declare_vars_of_bounds
+  TransSys.init_solver
     trans_sys
+    abstraction
+    (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
-    Numeral.(~- one) Numeral.one;
+    Numeral.(~- one) Numeral.one ;
 
-(* <<<<<<< HEAD *)
-(*   (\* Save solver instance for clean exit *\) *)
-(*   ref_solver_init := Some solver_init; *)
-
-(*   (debug smt *)
-(*       "Permanently asserting initial state constraint" *)
-(*    in *)
-
-(*    (\* Assert initial state constraint in solver instance *\) *)
-(*    SMTSolver.assert_term  *)
-(*      solver_init *)
-(*      (TransSys.init_of_bound trans_sys Numeral.zero)); *)
-
-(* (\* *)
-(*   (debug smt  *)
-(*       "Permanently asserting transition relation" *)
-(*    in *)
-
-(*    (\* Assert transition relation from current frame *\) *)
-(*    SMTSolver.assert_term  *)
-(*      solver_init *)
-(*      (TransSys.trans_of_bound trans_sys Numeral.one)); *)
-(* *\) *)
-
-(*   (\* Create new solver instance to reason about counterexamples in *)
-(*      frames *\) *)
-(*   let solver_frames =  *)
-(*     SMTSolver.create_instance *)
-(*       ~produce_assignments:true *)
-(*       ~produce_cores:produce_cores *)
-(*       (TransSys.get_scope trans_sys) *)
-(*       abstraction *)
-(*       logic *)
-(*       (Flags.smtsolver ()) *)
-(* ======= *)
   (* Get invariants of transition system *)
   let invars_1 = 
-    TransSys.invars_of_bound trans_sys Numeral.one 
-(* >>>>>>> upstream/develop *)
+    TransSys.invars_of_bound
+      trans_sys
+      Numeral.one
   in
 
   (* Get invariants for current state *)
   let invars_0 = 
     TransSys.invars_of_bound
       trans_sys
-       ~one_state_only:true 
-       Numeral.zero 
+      ~one_state_only:true 
+      Numeral.zero 
   in
 
   (* Assert invariants for current state if not empty *)
@@ -2175,23 +2138,10 @@ let main trans_sys abstraction =
   (* Create activation literal for frame R_0 *)
   let actconst_r0, actlit_r0 =
     C.actlit_symbol_of_frame 0, C.actlit_of_frame 0
-  in 
+  in
 
-(* <<<<<<< HEAD *)
-(*   (\* Create new solver instance for all other queries (subsumption, *)
-(*      invariance of blocking clauses) *\) *)
-(*   let solver_misc =  *)
-(*     SMTSolver.create_instance *)
-(*       ~produce_assignments:true *)
-(*       (TransSys.get_scope trans_sys) *)
-(*       abstraction *)
-(*       logic *)
-(*       (Flags.smtsolver ()) *)
-(*   in *)
-(* ======= *)
   (* Declare symbol in solver *)
   SMTSolver.declare_fun solver actconst_r0;
-(* >>>>>>> upstream/develop *)
 
   Stat.incr Stat.pdr_activation_literals;
   

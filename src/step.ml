@@ -186,7 +186,7 @@ let split trans solver k to_split actlits =
     let model = 
 
       (* Do we need the full model? *)
-      if (Flags.ind_compress ()) || (Flags.ind_lazy_invariants ()) then 
+      if Flags.ind_compress () then 
 
         (* Get model for all variables *)
         SMTSolver.get_model solver

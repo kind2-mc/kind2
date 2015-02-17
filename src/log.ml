@@ -60,7 +60,7 @@ type prop_info =
   | PropKTrue  of  string       * Numeral.t
   (* Falsified property with info. *)
   | PropFalse  of  string       * kind_module * Numeral.t
-                                * (StateVar.t * Term.t list) list
+                                * (StateVar.t * Model.term_or_lambda list) list
 
 (* Type for identifying abstraction sublogs. Hidden to the user so
    that the order does not change. Upon creation of an asbtraction

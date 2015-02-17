@@ -70,7 +70,7 @@ type prop_info =
   (** A ktrue property. *)
 
   | PropFalse  of  string       * kind_module * Numeral.t
-                                * (StateVar.t * Term.t list) list
+                                * (StateVar.t * Model.term_or_lambda list) list
   (** A falsified property. *)
 
 (** Sublog on an abstraction for a system. *)
