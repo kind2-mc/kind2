@@ -196,16 +196,17 @@ let sys_abstraction_sublog log sys =
    analysis log. Throws [Not_found] if [sys] is not present and
    [Illegal_argumen] if the abstraction sublog already exists.
    Returns the abstraction key to the sublog created. *)
-let add_abstraction_sublog log sys strings_list =
+let add_abstraction_sublog log sys =
+  let abstraction = TransSys.get_abstraction sys in
   sys_sublog log sys
   |> ( fun ({ abstraction_sublogs } as sys_sublog) ->
-       match abstraction_sublog sys_sublog strings_list with
+       match abstraction_sublog sys_sublog abstraction with
        | _ ->
           (* Sublog for key already exists, crashing. *)
           Format.sprintf
             "Log already has a sublog for %s with abstraction %s."
             (TransSys.get_name sys)
-            ( strings_list
+            ( abstraction
               |> List.map (String.concat ".")
               |> String.concat ", " )
           |> invalid_arg
@@ -213,10 +214,10 @@ let add_abstraction_sublog log sys strings_list =
          Not_found ->
          (* No sublog for this key, adding it. *)
          sys_sublog.abstraction_sublogs <-
-           { abstraction = strings_list ; prop_infos = [] }
+           { abstraction = abstraction ; prop_infos = [] }
            :: abstraction_sublogs ) ;
   (* Returning abstraction key. *)
-  strings_list
+  abstraction
 
 (* Adds a property info to an abstraction sublog of a sys sublog of a
    log. *)
