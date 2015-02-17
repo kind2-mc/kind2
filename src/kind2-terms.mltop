@@ -23,6 +23,8 @@ Var
 # LustreIdent
 # LustreExpr
 # LustreNode
+TermLib
+Model
 Simplify
 Eval
 

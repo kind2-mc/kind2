@@ -41,7 +41,7 @@ val add_invariants: t -> TransSys.t -> Term.t list -> unit
     initial states. Returns Some of a model at 0 if some are, None
     otherwise. *)
 val query_base:
-  t -> TransSys.t -> Term.t list -> ((Var.t * Term.t) list) option
+  t -> TransSys.t -> Term.t list -> Model.t option
 
 (** Increments the lsd and checks if some of the input terms are
     k-inductive. Returns the terms unfalsifiable in the next state and

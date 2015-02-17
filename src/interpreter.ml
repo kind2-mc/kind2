@@ -230,8 +230,8 @@ let main input_file trans_sys abstraction =
 
         (* Extract execution path from model *)
         let path = 
-          TransSys.path_from_model 
-            trans_sys
+          Model.path_from_model 
+            (TransSys.state_vars trans_sys)
             (SMTSolver.get_model solver)
             Numeral.(pred (of_int steps))
         in
@@ -239,7 +239,7 @@ let main input_file trans_sys abstraction =
         (* Output execution path *)
         Event.execution_path
           trans_sys 
-          path
+          (Model.path_to_list path)
 
       )
 

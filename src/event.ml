@@ -212,13 +212,15 @@ struct
 
       let cex_string = pop () in
       
-      let cex : (StateVar.t * Term.t list) list = 
+      let cex : (StateVar.t * Model.term_or_lambda list) list = 
         Marshal.from_string cex_string 0
       in
       
       let cex' =
         List.map
-          (fun (sv, t) -> (StateVar.import sv, List.map Term.import t))
+          (fun (sv, t) -> 
+             (StateVar.import sv, 
+              List.map Model.import_term_or_lambda t))
           cex
       in
 
@@ -454,7 +456,8 @@ let pp_print_counterexample_pt level trans_sys prop_name ppf = function
           (* Output counterexample *)
           Format.fprintf ppf 
             "Counterexample:@,%a"
-            (LustrePath.pp_print_path_pt nodes' true) cex
+            (LustrePath.pp_print_path_pt nodes' true) 
+            (Model.path_of_list cex)
 
         (* Native input *)
         | TransSys.Native ->
@@ -483,7 +486,8 @@ let pp_print_path_pt trans_sys init ppf path =
       (* Output path *)
       Format.fprintf ppf 
         "%a"
-        (LustrePath.pp_print_path_pt nodes true) path
+        (LustrePath.pp_print_path_pt nodes true) 
+        (Model.path_of_list path)
           
     (* Native input *)
     | TransSys.Native ->
@@ -708,7 +712,8 @@ let pp_print_counterexample_xml trans_sys prop_name ppf = function
           (* Output counterexample *)
           Format.fprintf ppf 
             "@[<hv 2><Counterexample>@,%a@;<0 -2></Counterexample>@]"
-            (LustrePath.pp_print_path_xml nodes' true) cex
+            (LustrePath.pp_print_path_xml nodes' true) 
+            (Model.path_of_list cex)
 
         (* Native input *)
         | TransSys.Native ->
@@ -737,7 +742,8 @@ let pp_print_path_xml trans_sys init ppf path =
       (* Output path *)
       Format.fprintf ppf 
         "%a"
-        (LustrePath.pp_print_path_xml nodes true) path
+        (LustrePath.pp_print_path_xml nodes true) 
+        (Model.path_of_list path)
           
     (* Native input *)
     | TransSys.Native ->
@@ -763,7 +769,7 @@ let execution_path_xml level trans_sys path =
   
 
 (* Output disproved property as XML *)
-let disproved_xml mdl level trans_sys prop cex = 
+let disproved_xml mdl level trans_sys prop (cex : (StateVar.t * Model.term_or_lambda list) list) = 
 
   (* Only ouptut if status was unknown *)
   if 
@@ -786,7 +792,8 @@ let disproved_xml mdl level trans_sys prop cex =
          | [] -> () 
          | cex -> Format.fprintf ppf "<K>%d</K>@," (TransSys.length_of_cex cex))
       pp_print_kind_module_xml_src mdl
-      (pp_print_counterexample_xml trans_sys prop) cex
+      (pp_print_counterexample_xml trans_sys prop) 
+      cex
   
 
 (* Output statistics section as XML *)

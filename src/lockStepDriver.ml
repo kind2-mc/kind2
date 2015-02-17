@@ -455,13 +455,9 @@ let query_base
       (if two_state then Numeral.pred k else k)
       k
     (* Getting their value. *)
-    |> SMTSolver.get_model base_solver
+    |> SMTSolver.get_var_values base_solver
     (* Bumping to -k. *)
-    |> List.map
-         ( fun (v,t) ->
-           (Var.bump_offset_of_state_var_instance
-              minus_k v),
-           t )
+    |> Model.bump_var minus_k 
     (* Making an option out of it. *)
     |> (fun model -> Some model)
   in
@@ -545,7 +541,7 @@ let rec split_closure
          terms_to_check
          (* We want the value of the terms a k+1. *)
          |> List.map (Term.bump_state kp1)
-         |> SMTSolver.get_values solver
+         |> SMTSolver.get_term_values solver
 
          (* Separating falsifiable ones from the rest, bumping back at
             the same time. *)
@@ -633,7 +629,7 @@ let rec prune_trivial
      let if_sat () =
        Some (
          (* Getting the values of terms@1. *)
-         SMTSolver.get_values
+         SMTSolver.get_term_values
            solver bumped_terms
          (* Partitioning the list based on the value of the terms. *)
          |> List.fold_left

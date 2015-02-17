@@ -85,6 +85,9 @@ module type Inst = sig
   (** Get the assigned values of expressions in the current model *)
   val get_value : SMTExpr.t list -> get_value_response
 
+  (** Get the assigned values of expressions in the current model *)
+  val get_model : unit -> get_model_response
+
   (** Get an unsatisfiable core of named expressions *)
   val get_unsat_core : unit -> get_unsat_core_response
 

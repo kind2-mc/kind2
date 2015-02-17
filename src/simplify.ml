@@ -712,7 +712,11 @@ let rec negate_nnf term = match Term.destruct term with
       | `GT, _
       | `IS_INT, _
       | `DIVISIBLE _, _
-      | `UF _, _ -> Term.mk_not term
+      | `UF _, _
+      | `SELECT, _ -> Term.mk_not term
+(*
+      | `STORE, _ -> Term.mk_not term
+*)
 
       (* Negate both cases of ite term *)
       | `ITE, [p; l; r] -> 
@@ -728,9 +732,10 @@ let rec negate_nnf term = match Term.destruct term with
       | `FALSE, _
       | `TRUE, _
       | `NUMERAL _, _
-      | `DECIMAL _, _ 
+      | `DECIMAL _, _  -> assert false
+(*
       | `BV _, _ -> assert false
-
+*)
       (* Can only negate Boolean terms *)
       | `MINUS, _
       | `PLUS, _
@@ -740,7 +745,8 @@ let rec negate_nnf term = match Term.destruct term with
       | `MOD, _
       | `ABS, _
       | `TO_REAL, _
-      | `TO_INT, _
+      | `TO_INT, _ -> assert false 
+(*
       | `CONCAT, _
       | `EXTRACT _, _
       | `BVNOT, _
@@ -754,8 +760,7 @@ let rec negate_nnf term = match Term.destruct term with
       | `BVSHL, _
       | `BVLSHR, _
       | `BVULT, _
-      | `SELECT, _
-      | `STORE, _ -> assert false 
+*)
 
     )    
 
@@ -1049,17 +1054,42 @@ let atom_of_term t =
    This function is recursive, it calls itself with modified
    arguments. It is not tail-recursive, but that is OK, because the
    the recursion depth is shallow. *)
-let rec simplify_term_node uf_defs model fterm args = 
+let rec simplify_term_node default_of_var uf_defs model fterm args = 
 
   match fterm with 
 
-    (* Free variable with assignment in model *)
-    | Term.T.Var v when List.mem_assq v model -> 
+    | Term.T.Var v -> 
 
-      Term.eval_t (simplify_term_node uf_defs model) (List.assq v model)
-      
-    (* Free variable without assignment in model *)
-    | Term.T.Var v -> atom_of_term (Term.mk_var v)
+      (match Var.VarHashtbl.find model v with
+        
+        (* Free variable with assignment in model *)
+        | Model.Term v' ->
+
+          Term.eval_t
+            (simplify_term_node default_of_var uf_defs model)
+            v'
+           
+        (* Defer evaluation of lambda abstraction *)
+        | Model.Lambda _ -> atom_of_term (Term.mk_var v)
+
+        (* Free variable without assignment in model *)
+        | exception Not_found -> 
+       
+          (* Term obtained by evaluating variable to itself *)
+          let t = Term.mk_var v in
+
+          (* Term obtained by evaluating variable to its default *)
+          let t' = default_of_var v in
+
+          (* Break cycle if the the variable is its own default *)
+          if Term.equal t t' then atom_of_term t else
+
+            (* Evaluate default value of variable *)
+            Term.eval_t
+              (simplify_term_node default_of_var uf_defs model)
+              t'
+
+      )
                    
     (* Polynomial of a constant depends on symbol *)
     | Term.T.Const s -> 
@@ -1078,10 +1108,10 @@ let rec simplify_term_node uf_defs model fterm args =
           (* Propositional constant *)
           | `TRUE -> Bool (Term.t_true)
           | `FALSE -> Bool (Term.t_false)
-
+(*
           (* Bitvectors not implemented *)
           | `BV _ -> assert false
-
+*)
           (* Constant with a definition *)
           | `UF uf_symbol when List.mem_assq uf_symbol uf_defs -> 
             
@@ -1108,7 +1138,9 @@ let rec simplify_term_node uf_defs model fterm args =
                 uf_def
             in
 
-            (Term.eval_t (simplify_term_node uf_defs model) term')
+            (Term.eval_t 
+               (simplify_term_node default_of_var uf_defs model) 
+               term')
 
           (* Uninterpreted constant *)
           | `UF u -> atom_of_term (Term.mk_uf u [])
@@ -1157,12 +1189,94 @@ let rec simplify_term_node uf_defs model fterm args =
                 Term.pp_print_term term'
             in
 
-            (Term.eval_t (simplify_term_node uf_defs model) term')
+            (Term.eval_t
+               (simplify_term_node default_of_var uf_defs model) 
+               term')
 
           (* Normal form for an uninterpreted function *)
           | `UF u -> 
 
             atom_of_term (Term.mk_uf u (List.map term_of_nf args))
+
+          (* Select from an array *)
+          | `SELECT ->
+
+            (match args with 
+
+              (* Arguments are array and index *)
+              | [a; i] -> 
+
+                (* Rebuild select operation with simplified index *)
+                let term' = Term.mk_select (term_of_nf a) (term_of_nf i) in
+
+                if 
+                  
+                  (* Result of select operation is of array type? *)
+                  Type.is_array
+                    (Term.type_of_term (Term.construct fterm))
+                    
+                then
+
+                  (
+                    
+                    (* Rebuild term with simplified index to evaluate
+                       later *)
+                    atom_of_term term'
+                    
+                  )
+
+                (* Select operation evaluates to a non-array type *)
+                else
+                  
+                  (* Get variable and indexes *)
+                  let v, i' = 
+                    Term.indexes_and_var_of_select term'
+                  in
+                  
+                  (* Get assignment to variable *)
+                  (match Var.VarHashtbl.find model v with
+              
+                    (* Variable must evaluate to a lambda abstraction *)
+                    | Model.Lambda l -> 
+                  
+                      (* Evaluate lambda abstraction with simplified
+                         indexes *)
+                      Term.eval_t 
+                        (simplify_term_node default_of_var uf_defs model)
+                        (Term.eval_lambda l i')
+                  
+                    (* Variable must not evaluate to a term *)
+                    | Model.Term _ -> assert false 
+                      
+                    (* Free variable without assignment in model *)
+                    | exception Not_found -> 
+
+                      let t' =                   
+                        List.fold_left
+                          Term.mk_select
+                          (Term.mk_var v)
+                          (List.rev i')
+                      in
+                      
+                      debug simplify
+                        "Simplified %a to %a"
+                        Term.pp_print_term (Term.construct fterm) 
+                        Term.pp_print_term t'
+                      in
+
+                      (* Return term *)
+                      atom_of_term t'
+
+                  ) 
+            
+              (* Select operation is binary *)
+              | _ -> assert false
+                        
+            )
+
+(*
+          | `STORE -> assert false
+*)
 
           (* Boolean negation *)
           | `NOT -> 
@@ -1362,7 +1476,11 @@ let rec simplify_term_node uf_defs model fterm args =
             let term' = Term.mk_or (List.map term_of_nf args') in
 
             (* Simplify disjunction *)
-            simplify_term_node uf_defs model (Term.destruct term') args' 
+            simplify_term_node 
+              default_of_var 
+              uf_defs model
+              (Term.destruct term') 
+              args' 
 
           (* Reduce exclusive disjunction (a xor b) to disjunction of
              conjunctions ((a & ~b) | (~a & b)) *)
@@ -1384,6 +1502,7 @@ let rec simplify_term_node uf_defs model fterm args =
                 let term_a' = 
                   bool_of_nf 
                     (simplify_term_node 
+                      default_of_var 
                       uf_defs
                       model
                       (Term.destruct (Term.mk_and [a; nb])) 
@@ -1394,6 +1513,7 @@ let rec simplify_term_node uf_defs model fterm args =
                 let term_b' = 
                   bool_of_nf
                     (simplify_term_node 
+                       default_of_var 
                        uf_defs
                        model
                        (Term.destruct (Term.mk_and [na; b])) 
@@ -1402,6 +1522,7 @@ let rec simplify_term_node uf_defs model fterm args =
 
                 (* Simplify ((a & ~b) | (~a & b)) and return *)
                 simplify_term_node 
+                  default_of_var 
                   uf_defs
                   model
                   (Term.destruct (Term.mk_or [term_a'; term_b']))
@@ -1414,6 +1535,7 @@ let rec simplify_term_node uf_defs model fterm args =
                 let term' = 
                   bool_of_nf
                     (simplify_term_node
+                       default_of_var 
                        uf_defs
                        model
                        (Term.destruct (Term.mk_xor [a; b]))
@@ -1424,6 +1546,7 @@ let rec simplify_term_node uf_defs model fterm args =
                    first two arguments and recursively simplify
                    exclusive disjunction with remaining arguments *)
                 simplify_term_node 
+                  default_of_var 
                   uf_defs
                   model
                   (Term.destruct 
@@ -1457,6 +1580,7 @@ let rec simplify_term_node uf_defs model fterm args =
                 let term_a' = 
                   bool_of_nf 
                     (simplify_term_node 
+                       default_of_var 
                        uf_defs
                        model
                        (Term.destruct (Term.mk_and [a; b])) 
@@ -1467,6 +1591,7 @@ let rec simplify_term_node uf_defs model fterm args =
                 let term_b' = 
                   bool_of_nf
                     (simplify_term_node 
+                       default_of_var      
                        uf_defs
                        model
                        (Term.destruct (Term.mk_and [na; nb])) 
@@ -1475,21 +1600,45 @@ let rec simplify_term_node uf_defs model fterm args =
 
                 (* Simplify ((a & b) | (~a & ~b)) and return *)
                 simplify_term_node 
+                  default_of_var 
                   uf_defs
                   model
                   (Term.destruct (Term.mk_or [term_a'; term_b']))
                   [Bool term_a'; Bool term_b']
 
               (* Equation between integers or reals *)
-              | _ -> relation_eq (simplify_term_node uf_defs model) args
+              | _ -> 
+
+                relation_eq
+                  (simplify_term_node default_of_var uf_defs model) 
+                  args
 
             )
 
           (* Relations *)
-          | `LEQ -> relation_leq (simplify_term_node uf_defs model) args
-          | `LT -> relation_lt (simplify_term_node uf_defs model) args
-          | `GEQ -> relation_geq (simplify_term_node uf_defs model) args
-          | `GT -> relation_gt (simplify_term_node uf_defs model) args
+          | `LEQ -> 
+
+            relation_leq
+              (simplify_term_node default_of_var uf_defs model) 
+              args
+
+          | `LT -> 
+
+            relation_lt
+              (simplify_term_node default_of_var uf_defs model) 
+              args
+
+          | `GEQ -> 
+
+            relation_geq
+              (simplify_term_node default_of_var uf_defs model) 
+              args
+
+          | `GT -> 
+
+            relation_gt
+              (simplify_term_node default_of_var uf_defs model) 
+              args
 
           (* If-then-else *)
           | `ITE -> 
@@ -1733,7 +1882,7 @@ let rec simplify_term_node uf_defs model fterm args =
 
           (* Distinct not implemented *)
           | `DISTINCT -> assert false
-
+(*
           (* Bitvectors not implemented *)
           | `BVADD
           | `BVAND
@@ -1748,18 +1897,16 @@ let rec simplify_term_node uf_defs model fterm args =
           | `BVUREM
           | `CONCAT
           | `EXTRACT _ -> assert false
-
-          (* Array operations not implemented *)
-          | `SELECT
-          | `STORE -> assert false
+*)
 
           (* Constant symbols *)
           | `TRUE
           | `FALSE
           | `NUMERAL _
-          | `DECIMAL _
+          | `DECIMAL _ -> assert false
+(*
           | `BV _ -> assert false
-            
+*)          
       )
 
     (* Skip over attributed term *)
@@ -1770,27 +1917,37 @@ let rec simplify_term_node uf_defs model fterm args =
 (* Top-level functions                                                    *)
 (* ********************************************************************** *)
 
+(* Return the default value of the type *)
+let type_default_of_var v = Var.type_of_var v |> TermLib.default_of_type
+
 
 (* Simplify a term with a model *)
-let simplify_term_model uf_defs model term = 
+let simplify_term_model ?default_of_var uf_defs model term = 
 
   debug simplify 
     "Simplifying@ @[<hv>%a@]@ with model@ @[<hv>%a@]"
     Term.pp_print_term term
-    (pp_print_list 
-       (fun ppf (v, t) -> 
-          Format.fprintf ppf
-            "@[<hv 2>%a =@ %a@]" 
-            Var.pp_print_var v 
-            Term.pp_print_term t) 
-       "@ ")
-    model 
+    Model.pp_print_model
+    model
+  in
+
+  (* Convert returned default value to a polynomial *)
+  let default_of_var' = match default_of_var with
+
+    (* Take the given function *)
+    | Some f -> fun v -> f v
+
+    (* Take default value for type if no function given *)
+    | None -> fun v -> type_default_of_var v
+
   in
 
   (* Simplify term to a normal form and convert back to a term *)
   let res = 
     term_of_nf
-      (Term.eval_t (simplify_term_node uf_defs model) term)
+      (Term.eval_t
+         (simplify_term_node default_of_var' uf_defs model) 
+         term)
   in
 
   debug simplify 
@@ -1802,7 +1959,13 @@ let simplify_term_model uf_defs model term =
   res
 
 (* Simplify a term *)
-let simplify_term uf_defs term = simplify_term_model uf_defs [] term
+let simplify_term uf_defs term = 
+
+  simplify_term_model 
+    ~default_of_var:Term.mk_var
+    uf_defs 
+    (Model.create 7) 
+    term
 
 
 
@@ -1858,6 +2021,37 @@ let vz =
 let tx = Term.mk_var vx;;
 let ty = Term.mk_var vy;;
 let tz = Term.mk_var vz;;
+
+
+
+let v_j = Var.mk_free_var (HString.mk_hstring "j") Type.t_int;;
+let v_k = Var.mk_free_var (HString.mk_hstring "k") Type.t_int;;
+let v_x = Var.mk_free_var (HString.mk_hstring "x") Type.t_int;;
+let v_y = Var.mk_free_var (HString.mk_hstring "y") Type.t_int;;
+let v_A = Var.mk_free_var (HString.mk_hstring "A") Type.(mk_array (mk_array t_int t_int) t_int);;
+let v_B = Var.mk_free_var (HString.mk_hstring "B") Type.(mk_array t_int t_int);;
+let l = Term.mk_lambda [v_j; v_k] Term.(mk_minus [(mk_var v_j); (mk_var v_k)]);;
+let t = Term.(mk_select (mk_select (mk_var v_A) (mk_var v_j)) (mk_var v_k));;
+Term.print_term t;;
+
+
+Term.print_term (Eval.term_of_value  (Eval.eval_term [] (Model.create 7) t));;
+
+Type.print_type (Var.type_of_var v_A);;
+Type.print_type (Term.type_of_term t);;
+
+let t2 = Term.(mk_select (mk_var v_B) (mk_var v_j));;
+Term.print_term t2;;
+Type.print_type (Term.type_of_term t2);;
+
+let m = 
+  Model.of_list 
+    [(v_j, Model.Term (Term.mk_num_of_int 1)); 
+     (v_k, Model.Term (Term.mk_num_of_int 2));
+     (v_A, Model.Lambda l)];;
+
+
+Term.print_term (Eval.term_of_value  (Eval.eval_term [] m t));;
 
 *)
 

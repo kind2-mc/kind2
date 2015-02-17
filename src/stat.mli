@@ -205,6 +205,9 @@ val pdr_strengthen_time : float_item
 (** Time spent searching counterexamples *)
 val pdr_find_cex_time : float_item
 
+(** Time spent inductively generalizing counterexample *)
+val pdr_ind_gen_time : float_item
+
 (** Time spent generalizing *)
 val pdr_generalize_time : float_item
 
@@ -220,6 +223,9 @@ val pdr_tightened_blocking_clauses : int_item
 (** Number of tightened clauses in forward propagation *)
 val pdr_tightened_propagated_clauses : int_item
 
+(** Number of activation literals *)
+val pdr_activation_literals : int_item
+  
 (** Stop and record all timers *)
 val pdr_stop_timers : unit -> unit 
 
@@ -308,6 +314,9 @@ val smt_check_sat_time : float_item
 
 (** Time in get-value calls *)
 val smt_get_value_time : float_item 
+
+(** Time in get-unsat-core calls *)
+val smt_get_unsat_core_time : float_item 
 
 (** Stop and record all timers *)
 val smt_stop_timers : unit -> unit 

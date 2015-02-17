@@ -22,6 +22,7 @@
     any module above {!TransSys} go here.
 *)
 
+(*
 type invariants = Term.t list
 type model = (Var.t * Term.t) list
 type path = (StateVar.t * Term.t list) list
@@ -29,7 +30,7 @@ type property = (string * Term.t)
 type properties = property list
 type cex = (property list * path)
 type cexs = cex list
-
+*)
 
 (** {1 Properties of transition systems} *)
 
@@ -64,6 +65,14 @@ type prop_source =
   | Instantiated of string list * string 
 
 
+(** Return the default value of the type: 
+
+    By default, a Boolean value is false, integer and real values are
+    zero, values in a range are equal to the lower bound of the
+    range. Array scalar types do not have defaults. The function fails
+    with [Invalid_argument] in this case. *)
+val default_of_type : Type.t -> Term.t
+
 
 (* 
    Local Variables:
@@ -72,4 +81,4 @@ type prop_source =
    indent-tabs-mode: nil
    End: 
 *)
-  
+

@@ -409,12 +409,12 @@ let pp_print_lustre_type _ ppf t = match Type.node_of_type t with
       ppf 
       "enum { %a }" 
       (pp_print_list Format.pp_print_string " ") l
-
+(*
   | Type.BV i -> 
 
     raise 
       (Invalid_argument "pp_print_lustre_type: BV is not a Lustre type")
-
+*)
   | Type.Array (s, t) -> 
 
     raise 
@@ -649,7 +649,7 @@ and pp_print_app safe ppf = function
   | `FALSE
   | `NUMERAL _
   | `DECIMAL _
-  | `BV _ -> (function _ -> assert false)
+  (* | `BV _ *) -> (function _ -> assert false)
 
   (* Unary symbols *) 
   | `NOT
@@ -748,6 +748,7 @@ and pp_print_app safe ppf = function
         
     (* Unsupported functions symbols *)
     | `DISTINCT
+(*
     | `CONCAT
     | `EXTRACT _
     | `BVNOT
@@ -761,8 +762,11 @@ and pp_print_app safe ppf = function
     | `BVSHL
     | `BVLSHR
     | `BVULT
+*)
     | `SELECT
+(*
     | `STORE
+*)
     | `IS_INT
     | `UF _ -> (function _ -> assert false)
       

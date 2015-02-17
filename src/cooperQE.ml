@@ -337,7 +337,7 @@ let substitute_summand_in_cformula (c: Var.t -> Var.t -> int) (v: Var.t) (pl: po
 
 
 (* Evaluate a poly pt with the model. *)
-let eval_poly (model: (Var.t * Term.t) list) (pt: poly) : Numeral.t = 
+let eval_poly model (pt: poly) : Numeral.t = 
   List.fold_left (
     fun accum (coe, v) ->
       match v with
@@ -356,7 +356,7 @@ let eval_poly (model: (Var.t * Term.t) list) (pt: poly) : Numeral.t =
 
 
 (* Find the maximum poly in the poly list. *)
-let find_max_in_poly_list (model: (Var.t * Term.t) list) (ptl: poly list) : poly =
+let find_max_in_poly_list model (ptl: poly list) : poly =
   match ptl with
   | [] ->
     failwith "find_max_in_poly_list doesn't take empty list."
@@ -640,7 +640,7 @@ let rec find_dividable_lower_bound (c: Term.term -> Term.term -> int) (model: (T
 (* Use the model to compute a polynomal that satisfies the formula
    including all divisibility constraints *)
 let find_divisible_lower_bound (c: Var.t -> Var.t -> int) 
-  (model: (Var.t * Term.t) list) (v: Var.t) (coe_lcm: Numeral.t) (pl: poly) : poly = 
+  model (v: Var.t) (coe_lcm: Numeral.t) (pl: poly) : poly = 
 
   (* (debug qe_detailed
      "find_divisible_lower_bound for %a...@."
@@ -687,7 +687,7 @@ let rec find_general_poly (l: poly list) : poly =
    Presburger formula [cf]. All occurrences of the variable [v] must
    have the coefficient [coe_lcm]. *)
 let find_lower_bound_in_cformula (c: Var.t -> Var.t -> int) 
-  (model: (Var.t * Term.t) list) (v: Var.t) (coe_lcm: Numeral.t) (cf: cformula) : poly =
+  model (v: Var.t) (coe_lcm: Numeral.t) (cf: cformula) : poly =
 
   (* Find all lower bounds for the variable to be eliminated *)
   let lower_bounds = find_rough_lower_bounds_in_cformula c v cf [] in
@@ -708,7 +708,7 @@ let find_lower_bound_in_cformula (c: Var.t -> Var.t -> int)
    satisfied and that substitute the variable with its actual value in the
    model in all remaining constraints. *)
 let handle_infinitely_small_case (c: Var.t -> Var.t -> int) 
-  (model: (Var.t * Term.t) list) (v: Var.t) (cf: cformula) : cformula = 
+    model (v: Var.t) (cf: cformula) : cformula = 
   
   (* Filter for atoms that do not contain the variable to be
      eliminated *)
@@ -761,7 +761,7 @@ let preAtom_is_trivial (pret: preAtom) : bool =
 
 (* Quantifier elimination for variable v in formula cf. *)
 let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int) 
-  (model: (Var.t * Term.t) list) (v: Var.t) (cf: cformula) : cformula =
+    model (v: Var.t) (cf: cformula) : cformula =
 
   (debug qe_detailed
      "Eliminating variable %a: @."
@@ -837,7 +837,7 @@ let eliminate_variable_in_cformula (c: Var.t -> Var.t -> int)
 
 
 (* Eliminate a list of existentially quantified variables *)
-let rec eliminate (model: (Var.t * Term.t) list) (v: Var.t list) (cf: cformula) : cformula = 
+let rec eliminate model (v: Var.t list) (cf: cformula) : cformula = 
 
   let c = compare_variables v in 
 

@@ -38,7 +38,7 @@ type prop_status =
   | PropInvariant 
 
   (* Property is false at some step *)
-  | PropFalse of (StateVar.t * Term.t list) list
+  | PropFalse of (StateVar.t * Model.term_or_lambda list) list
 
 
 (* A property of a transition system *)
@@ -1003,10 +1003,30 @@ let trans_fun_of { uf_defs } k k' =
 
 
 (* Instantiate the initial state constraint to the bound *)
-let invars_of_bound t i = 
+let invars_of_bound ?(one_state_only = false) t i = 
 
   (* Create conjunction of property terms *)
-  let invars_0 = Term.mk_and t.invars in 
+  let invars_0 = 
+    Term.mk_and 
+
+      (* Only one-state invariants? *)
+      (if one_state_only then
+
+         (* Filter for invariants at zero *)
+         List.filter
+           (fun t -> match Term.var_offsets_of_term t with 
+              | Some l, Some u when 
+                  Numeral.(equal l zero) && Numeral.(equal u zero) -> 
+                true
+              | _ -> false)
+           t.invars
+
+       else
+         
+         (* Return all invariants *)
+         t.invars) 
+
+  in 
 
   (* Bump bound if greater than zero *)
   if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
@@ -1272,7 +1292,12 @@ let set_prop_false t prop cex =
 
       (* Fail if property was l-true for l >= k *)
       | PropKTrue l when l > (length_of_cex cex) -> 
-        raise (Failure "prop_false")
+        raise 
+          (Failure
+             (Format.sprintf
+                "prop_false: was %d-true before, now cex of length %d"
+                l
+                (length_of_cex cex)))
 
       (* Mark property as false if it was l-true for l < k *)
       | PropKTrue _ -> PropFalse cex
@@ -1565,59 +1590,8 @@ let init_define_fun_declare_vars_of_bounds
   (* Declaring other variables. *)
   declare_vars_of_bounds t declare lbound ubound
   
+(*
   
-
-(* Extract a path in the transition system, return an association list
-   of state variables to a list of their values *)
-let path_from_model trans_sys get_model k =
-
-  let rec path_from_model' accum state_vars = function 
-
-    (* Terminate after the base instant *)
-    | i when Numeral.(i < zero) -> accum
-
-    | i -> 
-
-      (* Get a model for the variables at instant [i] *)
-      let model =
-        get_model
-          (List.map (fun sv -> Var.mk_state_var_instance sv i) state_vars)
-      in
-
-      (* Turn variable instances to state variables and sort list 
-
-         TODO: It is not necessary to sort the list, if the SMT solver
-         returns the list in the order it was input. *)
-      let model' =
-        List.sort
-          (fun (sv1, _) (sv2, _) -> StateVar.compare_state_vars sv1 sv2)
-          (List.map
-             (fun (v, t) -> (Var.state_var_of_state_var_instance v, t))
-             model)
-      in
-
-      (* Join values of model at current instant to result *)
-      let accum' = 
-        list_join
-          StateVar.equal_state_vars
-          model'
-          accum
-      in
-
-      (* Recurse for remaining instants  *)
-      path_from_model'
-        accum'
-        state_vars
-        (Numeral.pred i)
-
-  in
-
-  path_from_model'
-    (List.map (fun sv -> (sv, [])) (state_vars trans_sys))
-    (state_vars trans_sys)
-    k
-
-
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let rec exists_eval_on_path' uf_defs p term k path =
 
@@ -1674,10 +1648,19 @@ let rec exists_eval_on_path' uf_defs p term k path =
   (* Predicate has never been true *)
   with Exit -> false 
 
+*)
 
 (* Return true if the value of the term in some instant satisfies [pred] *)
 let exists_eval_on_path uf_defs pred term path = 
+
+  Model.exists_on_path
+    (fun model -> pred (Eval.eval_term uf_defs model term))
+    path
+
+(*
   exists_eval_on_path' uf_defs pred term Numeral.zero path
+*)
+
 
   
 
