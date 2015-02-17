@@ -87,22 +87,6 @@
     node calls. Equational definitions of not stateful variable are
     substituted by binding the variable to a [let] definition.
 
-    The [depth_input] and [max_depth_input] control the abstraction of
-    the nodes for which a contract is available. Both are constants
-    and are inputs of the node. When instantiating a node with a
-    contract, the value of the depth input is the caller's depth input
-    plus one, meaning that since this node has a contract we are going
-    down one abstraction level. The max depth input always has the
-    same value and is passed as an input for the sake of uniformity.
-
-    The init / trans predicates are conditional on the depth input.
-    If the value of the depth input is greater than the max depth
-    input, then the contract definition of the node is used instead of
-    the actual init / trans predicate. In this case, lifting the
-    properties of the subnode might not make sense since the actual
-    init / trans predicate is not used. The abstract predicates
-    therefore constrain all the properties to evaluate to true.
-
     Predicates are thus defined as
     {[     (depth_input < max_depth_input) => contract and (props = true) ]}
     {[ not (depth_input < max_depth_input) => concrete_predicate ]}
@@ -177,6 +161,20 @@ first_tick true  true  true false false false ... ]}
       condition is true and the [first_tick] flag is false in the next
       step.
       {[(clock' and not first_tick') => trans(first_tick',args',first_tick,args)]}
+
+   {1 Contracts}
+
+   A node with a contract conceptually has two predicates for init and
+   trans: a concrete and an abstract one. A dedicated boolean literal
+   activates one or the other:
+   {[(lit => abstract) and (not lit => concrete)]}
+   Actually, the literal also forces all non-contract properties to
+   be true. Indeed, since the outputs corresponding to these
+   properties are not constrained we would get bogus counterexamples
+   for systems calling abstracted subsystems.
+   Last, the concrete predicate is augmented with the requirements of
+   the contracts as assertions. So the final version is:
+   {[(lit => (abstract and properties)) and (not lit => (concrete and requirements))]}
 
     @author Christoph Sticksel
     @author Adrien Champion *)

@@ -207,18 +207,14 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
    analogously for the transition relation.
 
    The parameters of the initial state predicate are (in this order) 
-   - the depth input,
-   - the max depth input,
-   - the init flag,
+   - the init flag input,
    - the inputs, 
    - the variables capturing the outputs, 
    - the observer variables for the properties of the called node, and 
    - the instances of the local variables of the called node.
 
    The parameters of the transition relation are (in this order) 
-   - the depth input,
-   - the max depth input,
-   - the init flag at the next step,
+   - the init flag input at the next step,
    - the inputs at the next step, including constant inputs 
    - the variables capturing the outputs at the next step,
    - the observer variables for the properties of the called node at
@@ -232,22 +228,6 @@ let rec definitions_of_equations sig_vars pre_vars init trans = function
      the previous step, and
    - the instances of the local variables of the called node at the
      previous step.
-
-   The [depth_input] and [max_depth_input] control the abstraction of
-   the nodes for which a contract is available. Both are constants and
-   are inputs of the node. When instantiating a node with a contract,
-   the value of the depth input is the caller's depth input plus one,
-   meaning that since this node has a contract we are going down one
-   abstraction level. The max depth input always has the same value
-   and is passed as an input for the sake of uniformity.
-
-   The init / trans predicates are conditional on the depth input.  If
-   the value of the depth input is greater than the max depth input,
-   then the contract definition of the node is used instead of the
-   actual init / trans predicate. In this case, lifting the properties
-   of the subnode might not make sense since the actual init / trans
-   predicate is not used. The abstract predicates therefore constrain
-   all the properties to evaluate to true.
 
    Predicates are thus defined as
    {[     (depth_input < max_depth_input) => contract ]}
@@ -320,6 +300,21 @@ first_tick true  true  true false false false ... ]}
       condition is true and the [first_tick] flag is false in the next
       step.
       {[(clock' and not first_tick') => trans(first_tick',args',first_tick,args)]}
+
+   Contracts:
+
+   A node with a contract conceptually has two predicates for init and
+   trans: a concrete and an abstract one. A dedicated boolean literal
+   activates one or the other:
+   {[(lit => abstract) and (not lit => concrete)]}
+   Actually, the literal also forces all non-contract properties to
+   be true. Indeed, since the outputs corresponding to these
+   properties are not constrained we would get bogus counterexamples
+   for systems calling abstracted subsystems.
+   Last, the concrete predicate is augmented with the requirements of
+   the contracts as assertions. So the final version is:
+   {[(lit => (abstract and properties)) and (not lit => (concrete and requirements)) ]}
+   
 
  *)
 let rec definitions_of_node_calls

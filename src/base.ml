@@ -207,11 +207,10 @@ let rec next (trans, solver, k, invariants, unknowns) =
      (* Output current progress. *)
      Event.log
        L_info
-       "BMC @[<v>at k = %i for [%s] (pid: %d)@,\
+       "BMC @[<v>at k = %i for [%s]@,\
         %i unfalsifiable properties.@]"
        (Numeral.to_int k)
        (TransSys.get_name trans)
-       (Unix.getpid ())
        (List.length nu_unknowns);
 
      (* Merging old and new invariants and asserting them. *)

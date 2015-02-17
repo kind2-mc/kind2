@@ -87,7 +87,7 @@ type t =
     sys_sublogs: sys_sublog list
     (** Sub analysis on the (sub)systems. *) }
 
-(** {1 Constructor} *)
+(** {1 Constructors} *)
 
 (** Creates an analysis log from the list of all systems analysis will
     be ran on.  So, if only analyzing [top], do [mk_log
@@ -143,7 +143,7 @@ val sys_abstraction_sublog:
     analysis log.
     @raise Not_found if [sys] is not present.
     @raise Illegal_argument if the abstraction sublog already exists.
-    @Return The abstraction key to the sublog created. *)
+    @return The abstraction key to the sublog created. *)
 val add_abstraction_sublog:
       t -> TransSys.t -> string list list -> abstraction_key
 

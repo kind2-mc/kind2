@@ -514,12 +514,11 @@ let rec next trans solver k unfalsifiables unknowns =
      (* Output current progress. *)
      Event.log
        L_info
-       "IND @[<v>at k = %i for [%s] (pid: %d)@,\
+       "IND @[<v>at k = %i for [%s]@,\
                  %i unknowns@,\
                  %i unfalsifiables.@]"
        (Numeral.to_int k)
        (TransSys.get_name trans)
-       (Unix.getpid ())
        (List.length unknowns') (List.length unfalsifiable_props);
 
      (* Splitting. *)

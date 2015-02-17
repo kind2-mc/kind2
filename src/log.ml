@@ -336,6 +336,7 @@ let pp_print_abstraction_sublog ppf { abstraction ; prop_infos } =
     pp_print_abstraction_key abstraction
     (pp_print_list pp_print_prop_info "@ ") prop_infos
 
+(* Shy version of the [abstraction_sublog] pretty printer. *)
 let pp_print_abstraction_sublog_shy
       ppf { abstraction ; prop_infos } =
   Format.fprintf
@@ -374,6 +375,7 @@ let pp_print_sys_sublog ppf { sys ; abstraction_sublogs } =
     (pp_print_list pp_print_abstraction_sublog_shy "@ ")
     (List.rev abstraction_sublogs)
 
+(* Shy version of the [sys_sublog] pretty printer. *)
 let pp_print_sys_sublog_shy ppf {sys ; abstraction_sublogs} =
   Format.fprintf
     ppf "@[<v 2>\
