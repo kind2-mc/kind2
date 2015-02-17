@@ -113,11 +113,12 @@ let handle_events ?(silent_recv = false) trans_sys abstraction =
   ( match events with
     | [] -> ()
     | _ ->
-       Log.update_of_events
-         (log ())
-         trans_sys
-         abstraction
-         events  )
+       if Flags.compositional () || Flags.modular () then
+         Log.update_of_events
+           (log ())
+           trans_sys
+           abstraction
+           events )
 
 (* Aggregates functions related to starting processes. *)
 module Start = struct
@@ -1333,8 +1334,6 @@ let launch_modular_analysis trans_sys =
 
     )
   in
-
-  log_ref := Some (Log.mk_log all_systems) ;
     
 
   all_systems
@@ -1519,10 +1518,16 @@ let main () =
         (get !trans_sys)
       end ) ;
 
-    if Flags.modular () then
+    if Flags.modular () then (
+      let all_systems =
+        TransSys.get_all_subsystems (get !trans_sys)
+      in
+      log_ref := Some (Log.mk_log all_systems) ;
       launch_modular_analysis (get !trans_sys)
-    else
+    ) else (
+      log_ref := Some (Log.mk_log [get !trans_sys]) ;
       launch_analysis true (get !trans_sys) [] (* <--- TODO *)
+    )
 
   with
 
