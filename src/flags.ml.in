@@ -714,7 +714,11 @@ let timeout_wall_spec =
    Arg.Float timeout_wall_action, 
    Format.sprintf
      "@[<v 7>@,(default: %1.f)@ \
-      Wallclock timeout.@]"
+      Wallclock timeout for the analysis of lowest level.@ \
+      - in modular mode, specifies the timeout for the analysis@   \
+      of ONE (sub)system.@ \
+      - in compositional mode, specifies the timeout for the@   \
+      analysis in one abstraction configuration.@]"
      timeout_wall_default)
 
 (* ********** *) 
