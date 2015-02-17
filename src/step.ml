@@ -585,7 +585,7 @@ let rec next trans solver k unfalsifiables unknowns =
 
 
 (* Initializes the solver for the first check. *)
-let launch trans abstraction =
+let launch trans =
   (* Starting the timer. *)
   Stat.start_timer Stat.ind_total_time;
 
@@ -598,8 +598,10 @@ let launch trans abstraction =
   let solver =
     SMTSolver.create_instance
       ~produce_assignments:true
-      (TransSys.get_scope trans) abstraction
-      (TransSys.get_logic trans) (Flags.smtsolver ())
+      (TransSys.get_scope trans)
+      (TransSys.get_logic trans)
+      (TransSys.get_abstraction trans)
+      (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -624,7 +626,6 @@ let launch trans abstraction =
   (* Defining uf's and declaring variables. *)
   TransSys.init_solver
     trans
-    abstraction
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
@@ -650,7 +651,7 @@ let launch trans abstraction =
   next trans solver Numeral.zero [] unknowns
 
 (* Runs the step instance. *)
-let main trans abstraction =
+let main trans =
 
   if not (List.mem `BMC (Flags.enable ())) then
 
@@ -660,7 +661,7 @@ let main trans abstraction =
        disprove any properties.@,\
        Use both options --enable BMC --enable IND together.@]";
       
-  launch trans abstraction
+  launch trans
 
 
 (* 

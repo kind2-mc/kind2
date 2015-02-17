@@ -110,7 +110,7 @@
 module OneState : sig
 
   (** Invariant generation entry point. *)
-  val main : TransSys.t -> string list list -> unit
+  val main : TransSys.t -> unit
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
@@ -125,7 +125,7 @@ module OneState : sig
       [ignore]. The result is a pair composed of the invariants
       discovered and the new set of ignored terms. *)
   val run :
-    TransSys.t -> string list list -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
     Term.TermSet.t * Term.TermSet.t
 
   (** Mines candidate terms from a system.  First bool flag activates
@@ -147,7 +147,7 @@ module OneState : sig
       term appearing in [ignore]. The result is a pair composed of the
       invariants discovered and the new set of ignored terms. *)
   val mine_terms_run :
-    TransSys.t -> string list list -> Term.TermSet.t -> Numeral.t ->
+    TransSys.t -> Term.TermSet.t -> Numeral.t ->
     Term.t list -> Term.TermSet.t ->
     Term.TermSet.t * Term.TermSet.t
 
@@ -157,7 +157,7 @@ end
 module TwoState : sig
 
   (** Invariant generation entry point. *)
-  val main : TransSys.t -> string list list -> unit
+  val main : TransSys.t -> unit
 
   (** Destroys the underlying lsd instance. *)
   val no_more_lsd : unit -> unit
@@ -172,7 +172,7 @@ module TwoState : sig
       [ignore]. The result is a pair composed of the invariants
       discovered and the new set of ignored terms. *)
   val run :
-    TransSys.t -> string list list -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
     Term.TermSet.t * Term.TermSet.t
 
   (** Mines candidate terms from a system.  First bool flag activates
@@ -194,7 +194,7 @@ module TwoState : sig
       term appearing in [ignore]. The result is a pair composed of the
       invariants discovered and the new set of ignored terms. *)
   val mine_terms_run :
-    TransSys.t -> string list list -> Term.TermSet.t -> Numeral.t
+    TransSys.t -> Term.TermSet.t -> Numeral.t
     -> Term.t list -> Term.TermSet.t ->
     Term.TermSet.t * Term.TermSet.t
 

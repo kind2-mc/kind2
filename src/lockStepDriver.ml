@@ -108,7 +108,7 @@ let rec bump_and_apply_bounds f lbound ubound term =
     bump_and_apply_bounds f Numeral.(succ lbound) ubound term
   )
 
-let common_setup solver abstraction sys =
+let common_setup solver sys =
 
   name sys
   |> Printf.sprintf
@@ -119,7 +119,6 @@ let common_setup solver abstraction sys =
   TransSys.init_solver
     ~declare_top_vars_only:false
     sys
-    abstraction
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
@@ -308,13 +307,15 @@ let unroll_sys
   ()
 
 (* Creates a lsd instance. *)
-let create two_state top_only sys abstraction =
+let create two_state top_only sys =
 
   let new_inst_sys () =
     SMTSolver.create_instance
       ~produce_assignments: true
-      (TransSys.get_scope sys) abstraction
-      (TransSys.get_logic sys) (Flags.smtsolver ())
+      (TransSys.get_scope sys)
+      (TransSys.get_logic sys)
+      (TransSys.get_abstraction sys)
+      (Flags.smtsolver ())
   in
 
   (* Solvers. *)
@@ -331,9 +332,9 @@ let create two_state top_only sys abstraction =
   (* init_solver step_solver ; *)
   (* init_solver pruning_solver ; *)
 
-  common_setup base_solver abstraction sys ;
-  common_setup step_solver abstraction sys ;
-  common_setup pruning_solver abstraction sys ;
+  common_setup base_solver sys ;
+  common_setup step_solver sys ;
+  common_setup pruning_solver sys ;
 
   (* Building the associative list from (sub)systems to the k up to
      which they are asserted, their init and trans actlit. *)

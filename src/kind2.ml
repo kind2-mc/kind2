@@ -77,7 +77,7 @@ let sgl_sep_line_warn () =
 (* Handle events by broadcasting messages, updating local transition
    system version etc. Returns [true] iff it received at least one
    message. *)
-let handle_events ?(silent_recv = false) trans_sys abstraction =
+let handle_events ?(silent_recv = false) trans_sys =
 
   (* Receive queued events. *)
   let events =
@@ -117,7 +117,6 @@ let handle_events ?(silent_recv = false) trans_sys abstraction =
          Log.update_of_events
            (log ())
            trans_sys
-           abstraction
            events )
 
 (* Aggregates functions related to starting processes. *)
@@ -327,7 +326,7 @@ module Stop = struct
             kids arrive. *)
          minisleep 0.01 ;
 
-         handle_events ~silent_recv:true sys [] ) ;
+         handle_events ~silent_recv:true sys ) ;
 
     if exit_after_killing_kids then (
       if not (Flags.compositional ())
@@ -608,10 +607,9 @@ let rec wait_for_children child_pids =
 let rec polling_loop
           exit_after_killing_kids
           child_pids
-          trans_sys
-          abstraction =
+          trans_sys =
 
-  handle_events trans_sys abstraction ;
+  handle_events trans_sys ;
 
   if TransSys.all_props_proved trans_sys then (
     Event.log
@@ -635,14 +633,14 @@ let rec polling_loop
 
     (* Continue polling loop. *)
     polling_loop
-      exit_after_killing_kids child_pids trans_sys abstraction
+      exit_after_killing_kids child_pids trans_sys
 
   )
 
 
 
 (* Fork and run a child process *)
-let run_process messaging_setup process trans_sys abstraction =
+let run_process messaging_setup process trans_sys =
 
   (* Fork a new process *)
   let pid = Unix.fork () in
@@ -738,7 +736,7 @@ let run_process messaging_setup process trans_sys abstraction =
                   | Sys_error _ -> () );
 
           (* Run main function of process. *)
-          Start.main_of_process process trans_sys abstraction ;
+          Start.main_of_process process trans_sys ;
 
           (* Cleanup and exit. *)
           Stop.on_exit_child
@@ -994,9 +992,7 @@ let check_smtsolver () =
               
               exit 2
 
-let launch_analysis
-      exit_after_killing_kids
-      trans_sys abstraction =
+let launch_analysis exit_after_killing_kids trans_sys =
 
   if
     (* Warn if list of properties is empty. *)
@@ -1026,9 +1022,7 @@ let launch_analysis
       Event.set_module p ;
 
       (* Run main function of process. *)
-      (Start.main_of_process p)
-        trans_sys
-        abstraction ;
+      (Start.main_of_process p) trans_sys ;
       
       (* Ignore SIGALRM from now on *)
       Sys.set_signal
@@ -1057,7 +1051,7 @@ let launch_analysis
         List.iter 
           ( fun p -> 
             run_process
-              messaging_setup p trans_sys abstraction)
+              messaging_setup p trans_sys )
           ps ;
       in
       
@@ -1114,7 +1108,7 @@ let launch_analysis
 
       (* Going to polling loop. *)
       polling_loop
-        exit_after_killing_kids child_pids trans_sys abstraction ;
+        exit_after_killing_kids child_pids trans_sys ;
 
       let _ =
         Unix.setitimer
@@ -1167,7 +1161,7 @@ let launch_modular_analysis trans_sys =
     |> String.concat ", "
   in
 
-  let rec analyze sys abstraction =
+  let rec analyze sys =
 
     if not (TransSys.all_props_proved sys) then (
 
@@ -1175,7 +1169,7 @@ let launch_modular_analysis trans_sys =
 
       (* Creating sub log in log. *)
       let abstraction_key =
-        Log.add_abstraction_sublog (log ()) sys abstraction
+        Log.add_abstraction_sublog (log ()) sys
       in
 
       dbl_sep_line_warn () ;
@@ -1188,9 +1182,8 @@ let launch_modular_analysis trans_sys =
          abstracted systems: [%a]@]"
         (TransSys.get_name sys)
         Refiner.pp_print_abstraction
-        (Refiner.concretes_of_abstraction sys abstraction)
-        Refiner.pp_print_abstraction
-        abstraction ;
+        (Refiner.concretes_of_abstraction sys)
+        TransSys.pp_print_trans_sys_abstraction sys ;
 
       (* Event.log *)
       (*   L_warn *)
@@ -1214,13 +1207,11 @@ let launch_modular_analysis trans_sys =
       ) ;
 
       try
-        (* Launching analysis for [sys] with abstraction depth
-           [depth]. *)
+        (* Launching analysis for [sys]. *)
         launch_analysis
           (* Don't exit when analysis ends. *)
           false
           sys
-          abstraction
       with
       | TimeoutWall ->
          Event.log
@@ -1243,9 +1234,8 @@ let launch_modular_analysis trans_sys =
          abstracted systems: [%a]@]"
         (TransSys.get_name sys)
         Refiner.pp_print_abstraction
-        (Refiner.concretes_of_abstraction sys abstraction)
-        Refiner.pp_print_abstraction
-        abstraction ;
+        (Refiner.concretes_of_abstraction sys)
+        TransSys.pp_print_trans_sys_abstraction sys ;
     ) ;
 
     if not (TransSys.all_props_actually_proved sys) then (
@@ -1261,9 +1251,8 @@ let launch_modular_analysis trans_sys =
          %a@]@]"
         (TransSys.get_name sys)
         Refiner.pp_print_abstraction
-        (Refiner.concretes_of_abstraction sys abstraction)
-        Refiner.pp_print_abstraction
-        abstraction
+        (Refiner.concretes_of_abstraction sys)
+        TransSys.pp_print_trans_sys_abstraction sys
         (pp_print_list
            (fun ppf (s,status) ->
             Format.fprintf
@@ -1281,8 +1270,10 @@ let launch_modular_analysis trans_sys =
 
       ( if Flags.compositional () then
 
+          let abstraction = TransSys.get_abstraction sys in
+
           ( match
-              refine_further sys abstraction
+              refine_further sys
             with
             | None ->
                Event.log
@@ -1301,12 +1292,12 @@ let launch_modular_analysis trans_sys =
                   abstract: [%a]@]@]"
                  (TransSys.get_name sys)
                  Refiner.pp_print_abstraction
-                 (Refiner.concretes_of_abstraction sys abstraction)
+                 (Refiner.concretes_of_forced_abstraction sys abstraction)
                  Refiner.pp_print_abstraction abstraction
                  Refiner.pp_print_abstraction
-                 (Refiner.concretes_of_abstraction sys nu_abs)
-                 Refiner.pp_print_abstraction nu_abs ;
-               analyze sys nu_abs )
+                 (Refiner.concretes_of_abstraction sys)
+                 TransSys.pp_print_trans_sys_abstraction sys ;
+               analyze sys )
 
         else
           Event.log
@@ -1322,11 +1313,11 @@ let launch_modular_analysis trans_sys =
       Event.log
         L_warn
         "Proved all (%i) properties for %s.@.\
-         abstraction: [%s]"
+         abstraction: [%a]"
         (TransSys.get_prop_status_all sys
          |> List.length)
         (TransSys.get_name sys)
-        (string_of_strings_list abstraction) ;
+        TransSys.pp_print_trans_sys_abstraction sys ;
 
       Event.log
         L_warn
@@ -1342,11 +1333,16 @@ let launch_modular_analysis trans_sys =
        ( fun sys ->
 
          ( if abstract_contracts then
-             Refiner.first_abstraction sys
-           else [] )
+             TransSys.set_abstraction
+               sys
+               (Refiner.first_abstraction sys)
+           else
+             TransSys.set_abstraction
+               sys
+               [] ) ;
 
          (* Launching analysis. *)
-         |> analyze sys ) ;
+         analyze sys ) ;
 
   minisleep 0.1 ;
 
@@ -1527,7 +1523,7 @@ let main () =
       launch_modular_analysis (get !trans_sys)
     ) else (
       log_ref := Some (Log.mk_log [get !trans_sys]) ;
-      launch_analysis true (get !trans_sys) [] (* <--- TODO *)
+      launch_analysis true (get !trans_sys)
     )
 
   with

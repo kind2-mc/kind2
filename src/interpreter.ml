@@ -59,7 +59,7 @@ let rec assert_trans solver t i =
     
 
 (* Main entry point *)
-let main input_file trans_sys abstraction =
+let main input_file trans_sys =
 
   Event.set_module `Interpreter;
 
@@ -165,8 +165,9 @@ let main input_file trans_sys abstraction =
       SMTSolver.create_instance
         ~produce_assignments:true
         (TransSys.get_scope trans_sys)
-        [] (* <-- TODO *)
-        logic (Flags.smtsolver ())
+        logic
+        (TransSys.get_abstraction trans_sys)
+        (Flags.smtsolver ())
     in
 
     (* Create a reference for the solver. Only used in on_exit. *)
@@ -175,7 +176,6 @@ let main input_file trans_sys abstraction =
     (* Defining uf's and declaring variables. *)
     TransSys.init_solver
       trans_sys
-      []
       (SMTSolver.trace_comment solver)
       (SMTSolver.define_fun solver)
       (SMTSolver.declare_fun solver)

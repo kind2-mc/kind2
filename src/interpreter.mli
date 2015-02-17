@@ -21,7 +21,7 @@
     @author Baoluo Meng *)
 
 (** Entry point *)
-val main : string -> TransSys.t -> string list list -> unit
+val main : string -> TransSys.t -> unit
 
 (** Cleanup before exit *)
 val on_exit : TransSys.t option -> unit

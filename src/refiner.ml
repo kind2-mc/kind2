@@ -21,7 +21,7 @@ open Lib
 
 type abstraction = string list list
 
-let concretes_of_abstraction sys abstraction =
+let concretes_of_forced_abstraction sys abstraction =
   TransSys.get_all_subsystems sys
   |> List.fold_left
        ( fun list subsys ->
@@ -35,6 +35,10 @@ let concretes_of_abstraction sys abstraction =
            scope :: list
          else list )
        []
+
+let concretes_of_abstraction sys =
+  concretes_of_forced_abstraction
+    sys (TransSys.get_abstraction sys)
 
 (* Pretty prints an abstraction. *)
 let pp_print_abstraction ppf =
@@ -54,7 +58,8 @@ let first_abstraction sys =
   |> List.map TransSys.get_scope
 
 (* Looks for a system to refine. *)
-let refine sys = function
+let refine sys =
+  match TransSys.get_abstraction sys with
 
   | [] ->
      (* Cannot refine an empty abtsraction. *)
@@ -85,20 +90,19 @@ let refine sys = function
               && TransSys.subrequirements_valid subsys
             then (
 
-              Event.log
-                L_info
-                "Resetting properties to unknown." ;
+              let nu_abstraction =
+                abstraction
+                    |> List.filter
+                         (fun scope -> scope <> sub_scope)
+              in
 
               
               TransSys.reset_non_valid_props_to_unknown sys ;
               TransSys.reset_invariants sys ;
+              TransSys.set_abstraction sys nu_abstraction ;
 
               (* Refining [subsys], removing it from abstraction. *)
-              Some
-                  ( abstraction
-                    |> List.filter
-                         (fun scope -> scope <> sub_scope) )
-
+              Some ( nu_abstraction )
 
             )
 

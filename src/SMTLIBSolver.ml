@@ -18,13 +18,6 @@
 
 open Lib
 open SolverResponse
-
-(* Dummy Event module when compiling a custom toplevel*)
-module Event = 
-struct
-  let get_module () = `Parser
-  let log _ = Format.printf
-end
   
 (* ********************************************************************* *)
 (* Types                                                                 *)
@@ -674,9 +667,12 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         (* Open file for output, may fail *)
         let trace_oc = open_out trace_filename in
 
+        let mdl = Event.get_module () in
+
         Event.log L_debug
-          "Tracing output of SMT solver instance to %s"
-          trace_filename;
+          "Tracing output of SMT solver instance to %s (%s)@."
+          trace_filename
+          (suffix_of_kind_module mdl) ;
 
         (* Return formatter *)
         Some (Format.formatter_of_out_channel trace_oc)
@@ -758,8 +754,8 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
       ?(produce_cores=false)
       (* Scope of the (sub)system under analysis. *)
       scope
-      abstraction
       logic
+      abstraction
       id =
 
     (* Get autoconfigured configuration *)
@@ -910,8 +906,10 @@ module Make (Driver : SMTLIBSolverDriver) : SolverSig.S = struct
         ~produce_assignments:P.produce_assignments
         ~produce_cores:P.produce_cores
         ~produce_proofs:P.produce_proofs
-        P.scope P.abstraction
-        P.logic P.id
+        P.scope
+        P.logic
+        P.abstraction
+        P.id
 
     let delete_instance () = delete_instance solver
 

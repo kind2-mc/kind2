@@ -43,8 +43,8 @@ let get_solver_instance trans_sys =
          SMTSolver.create_instance
            ~produce_assignments:true
            (TransSys.get_scope trans_sys)
-           []
            (TransSys.get_logic trans_sys)
+           (TransSys.get_abstraction trans_sys)
            `Z3_SMTLIB
       in
 
@@ -59,7 +59,6 @@ let get_solver_instance trans_sys =
       (* Defining uf's and declaring variables. *)
       TransSys.init_solver
         trans_sys
-        []
         (SMTSolver.trace_comment solver)
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)
@@ -112,8 +111,8 @@ let get_checking_solver_instance trans_sys =
         SMTSolver.create_instance 
           ~produce_assignments:true
           (TransSys.get_scope trans_sys)
-          [] (* <-- TODO *)
           `UFLIA
+          (TransSys.get_abstraction trans_sys)
           (Flags.smtsolver ())
       in
 (*
@@ -132,7 +131,6 @@ let get_checking_solver_instance trans_sys =
   (* Defining uf's and declaring variables. *)
       TransSys.init_solver
         trans_sys
-        []
         (SMTSolver.trace_comment solver)
         (SMTSolver.define_fun solver)
         (SMTSolver.declare_fun solver)

@@ -186,10 +186,11 @@ let abstraction_sublog { abstraction_sublogs } abstraction_key =
 (* Finds the sublog of an abstraction key for a system from a
    log. Throws [Not_found] if [sys] or [abstraction_key] is not
    present. *)
-let sys_abstraction_sublog log sys abstraction_key =
+let sys_abstraction_sublog log sys =
+  let abstraction = TransSys.get_abstraction sys in
   sys_sublog log sys
   |> (fun abstraction_sublog' ->
-      abstraction_sublog abstraction_sublog' abstraction_key)
+      abstraction_sublog abstraction_sublog' abstraction)
 
 (* Adds an empty abstraction sublog to a (sub)system sublog of an
    analysis log. Throws [Not_found] if [sys] is not present and
@@ -219,13 +220,13 @@ let add_abstraction_sublog log sys strings_list =
 
 (* Adds a property info to an abstraction sublog of a sys sublog of a
    log. *)
-let add_prop_info log sys abstraction_key prop_info =
-  sys_abstraction_sublog log sys abstraction_key
+let add_prop_info log sys prop_info =
+  sys_abstraction_sublog log sys
   |> ( fun ({ prop_infos } as sublog) ->
        sublog.prop_infos <- prop_info :: prop_infos )
 
 (* Updates a log from a list of events. *)
-let rec update_of_events log sys abstraction_key = function
+let rec update_of_events log sys = function
   | (modul, Event.PropStatus (prop, TransSys.PropInvariant))
     :: tail ->
 
@@ -243,9 +244,9 @@ let rec update_of_events log sys abstraction_key = function
          |> List.map fst )
        ( TransSys.get_invars sys )
        [ prop ]
-     |> add_prop_info log sys abstraction_key ;
+     |> add_prop_info log sys ;
 
-     update_of_events log sys abstraction_key tail
+     update_of_events log sys tail
 
   | (modul, Event.PropStatus (prop, TransSys.PropFalse cex))
     :: tail ->
@@ -256,13 +257,13 @@ let rec update_of_events log sys abstraction_key = function
          (List.length cex) - 1
          |> Numeral.of_int,
          cex )
-     |> add_prop_info log sys abstraction_key ;
+     |> add_prop_info log sys ;
 
-     update_of_events log sys abstraction_key tail
+     update_of_events log sys tail
 
   | _ :: tail ->
 
-     update_of_events log sys abstraction_key tail
+     update_of_events log sys tail
 
   | _ -> ()
 

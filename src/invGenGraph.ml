@@ -36,7 +36,7 @@ end
 module type Out = sig
 
   (** Invariant generation entry point. *)
-  val main : TransSys.t -> string list list -> unit
+  val main : TransSys.t -> unit
 
   (** Destroys the underlying solver and cleans things up. *)
   val on_exit : TransSys.t option -> unit
@@ -51,7 +51,7 @@ module type Out = sig
       [ignore]. The result is a pair composed of the invariants
       discovered and the new set of ignored terms. *)
   val run :
-    TransSys.t -> string list list -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
+    TransSys.t -> Term.TermSet.t -> Numeral.t -> Term.TermSet.t ->
     Term.TermSet.t * Term.TermSet.t
 
   (** Mines candidate terms from a system.  First bool flag activates
@@ -73,7 +73,7 @@ module type Out = sig
       term appearing in [ignore]. The result is a pair composed of the
       invariants discovered and the new set of ignored terms. *)
   val mine_terms_run :
-    TransSys.t -> string list list -> Term.TermSet.t -> Numeral.t ->
+    TransSys.t -> Term.TermSet.t -> Numeral.t ->
     Term.t list -> Term.TermSet.t ->
     Term.TermSet.t * Term.TermSet.t
 
@@ -875,7 +875,7 @@ module Make (InModule : In) : Out = struct
     no_more_lsd ()
 
   (* Module entry point. *)
-  let main trans_sys abstraction =
+  let main trans_sys =
 
     (* Creating lsd instance. *)
     let lsd =
@@ -883,7 +883,6 @@ module Make (InModule : In) : Out = struct
         two_state
         false
         trans_sys
-        abstraction
     in
 
     (* Memorizing lsd for clean exit. *)
@@ -895,7 +894,7 @@ module Make (InModule : In) : Out = struct
 
   (* Launches invariant generation with a max [k] and a set of
      candidate terms. *)
-  let run sys abstraction ignore maxK candidates =
+  let run sys ignore maxK candidates =
 
     let lsd =
       (* Creating lsd instance. *)
@@ -903,7 +902,6 @@ module Make (InModule : In) : Out = struct
         two_state
         true
         sys
-        abstraction
     in
 
     (* Memorizing lsd for clean exit. *)
@@ -977,8 +975,8 @@ module Make (InModule : In) : Out = struct
 
   (* Mines candidate terms from a list of terms, adds them to [set],
      and runs invariant generation up to [maxK]. *)
-  let mine_terms_run sys abstraction ignore maxK terms set =
-    mine_terms sys terms set |> run sys abstraction ignore maxK
+  let mine_terms_run sys ignore maxK terms set =
+    mine_terms sys terms set |> run sys ignore maxK
 
 end
 

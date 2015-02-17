@@ -98,8 +98,8 @@ let create_instance
     ?produce_cores
     (* Scope of the (sub)system under analysis. *)
     scope
-    abstraction
     l
+    abstraction
     kind =
 
   (* New identifier for solver instance *)

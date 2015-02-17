@@ -135,7 +135,7 @@ val abstraction_sublog:
 (** Finds the sublog of an abstraction key for a system from a log.
     @raise Not_found if [sys] or [abstraction_key] is not present. *)
 val sys_abstraction_sublog:
-      t -> TransSys.t -> abstraction_key -> abstraction_sublog
+      t -> TransSys.t -> abstraction_sublog
 
 (** {1 Modifiers} *)
 
@@ -150,15 +150,15 @@ val add_abstraction_sublog:
 (** Adds a property info to an abstraction sublog of a sys sublog of a
     log. *)
 val add_prop_info:
-  t -> TransSys.t -> abstraction_key -> prop_info -> unit
+  t -> TransSys.t -> prop_info -> unit
 
 (** Updates a log from a list of events. *)
 val update_of_events:
-  t -> TransSys.t -> abstraction_key -> Event.event list -> unit
+  t -> TransSys.t -> Event.event list -> unit
 
 (** Updates a log from a list of events. *)
 val update_of_events:
-  t -> TransSys.t -> abstraction_key ->
+  t -> TransSys.t ->
   (kind_module * Event.event) list -> unit
 
 (** {1 Pretty printers} *)

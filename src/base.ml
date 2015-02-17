@@ -306,7 +306,7 @@ let rec next (trans, solver, k, invariants, unknowns) =
        next (trans, solver, k_p_1 , nu_invariants, unfalsifiable)
 
 (* Initializes the solver for the first check. *)
-let init trans abstraction =
+let init trans =
 
   (* Starting the timer. *)
   Stat.start_timer Stat.bmc_total_time;
@@ -321,8 +321,9 @@ let init trans abstraction =
     SMTSolver.create_instance
       ~produce_assignments:true
       (TransSys.get_scope trans)
-      abstraction
-      (TransSys.get_logic trans) (Flags.smtsolver ())
+      (TransSys.get_logic trans)
+      (TransSys.get_abstraction trans)
+      (Flags.smtsolver ())
   in
 
   (* Memorizing solver for clean on_exit. *)
@@ -330,7 +331,6 @@ let init trans abstraction =
 
   TransSys.init_solver
     trans
-    abstraction
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)
@@ -367,8 +367,8 @@ let init trans abstraction =
   (trans, solver, Numeral.zero, [invariants], unknowns)
 
 (* Runs the base instance. *)
-let main trans abstraction =
-  init trans abstraction |> next
+let main trans =
+  init trans |> next
 
 
 (* 

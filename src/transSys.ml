@@ -84,15 +84,6 @@ let length_of_cex = function
   (* Length of counterexample from first state variable *)
   | (_, l) :: _ -> List.length l
 
-(* Pretty prints an abstraction. *)
-let pp_print_abstraction ppf =
-  Format.fprintf
-    ppf
-    "@[<v>%a@]"
-    (pp_print_list
-       (pp_print_list Format.pp_print_string ".")
-       ",@,")
-
 
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
@@ -165,7 +156,18 @@ type t = {
      the instantiating system as well as a function to guard Boolean
      terms. *)
   mutable callers : 
-    (t * (((StateVar.t * StateVar.t) list * (Term.t -> Term.t)) list)) list;
+            (t
+             * ( ( (StateVar.t * StateVar.t) list
+                   * (Term.t -> Term.t)
+                 ) list
+               )
+            ) list;
+
+  (* Abstraction of the transition system. Contains the scopes of the
+     systems to abstract. Mutable, because it is changed by
+     compositional analysis. *)
+  mutable abstraction: string list list ;
+  
 
 }
 
@@ -410,6 +412,23 @@ let instantiation_count { callers } =
        ( fun sum (sys,maps) ->
          sum + (List.length maps) )
        0
+
+(* Pretty prints an abstraction. *)
+let pp_print_trans_sys_abstraction ppf { abstraction } =
+  Format.fprintf
+    ppf
+    "@[<v>%a@]"
+    (pp_print_list
+       (pp_print_list Format.pp_print_string ".")
+       ",@,")
+    abstraction
+
+(* The abstraction of the system. *)
+let get_abstraction { abstraction } = abstraction
+
+(* Sets the abstraction for a system. *)
+let set_abstraction sys abstraction =
+  sys.abstraction <- abstraction
 
 
 (* Returns the contracts of a system. *)
@@ -850,7 +869,8 @@ let mk_trans_sys
       subsystems = subsystems ;
       source = source ;
       invars = [] ;
-      callers = []; }
+      callers = [] ;
+      abstraction = [] }
   in
 
   debug transSys "Done creating system:@ " in
@@ -1477,11 +1497,14 @@ let init_solver
       (* Only declare top level variables. *)
       ?(declare_top_vars_only = true)
       (* System and abstraction. *)
-      sys abstraction
+      sys
       (* Solver related functions. *)
-      comment define declare
+      comment
+      define
+      declare
       (* Bounds for variable declaration. *)
-      lbound ubound =
+      lbound
+      ubound =
 
   Format.asprintf
     "|=====| Setting up solver for system %a."
@@ -1495,11 +1518,11 @@ let init_solver
   comment "|===| Defining abstraction actlits for all systems." ;
   Format.sprintf
     "|          abstracting [%s]"
-    (abstraction
+    (sys.abstraction
      |> List.map (String.concat ".")
      |> String.concat ", ")
   |> comment ;
-  define_abstraction_actlits all_systems abstraction define ;
+  define_abstraction_actlits all_systems sys.abstraction define ;
 
 
   (if declare_top_vars_only then [ sys ] else all_systems)

@@ -173,6 +173,12 @@ val init_term : t -> Term.t
 (** Definition of the transition relation *)
 val trans_term : t -> Term.t
 
+(** The abstraction of the system. *)
+val get_abstraction : t -> string list list
+
+(** Sets the abstraction for a system. *)
+val set_abstraction : t -> string list list -> unit
+
 (** The contracts of a system. *)
 val get_contracts :
   t ->
@@ -341,8 +347,8 @@ val exists_eval_on_path : pred_def list -> (Eval.value -> bool) -> Term.t -> Mod
 type abstraction = string list list
 
 (** Pretty prints an abstraction. *)
-val pp_print_abstraction:
-  Format.formatter -> abstraction -> unit
+val pp_print_trans_sys_abstraction:
+  Format.formatter -> t -> unit
 
 (** Builds an abstraction from the scopes of the system to analyze. *)
 val mk_abstraction: string list list -> abstraction
@@ -357,9 +363,6 @@ val init_solver:
 
   t ->
   (** Transition system. *)
-
-  abstraction ->
-  (** Abstraction. *)
 
   (string -> unit) ->
   (** Trace comment. *)

@@ -21,9 +21,13 @@ open Lib
 
 type abstraction = string list list
 
+(** Returns the concrete subsystems of a system. *)
+val concretes_of_abstraction:
+  TransSys.t -> string list list
+
 (** Returns the concrete subsystems of a system with respect to an
     abstraction. *)
-val concretes_of_abstraction:
+val concretes_of_forced_abstraction:
   TransSys.t -> abstraction -> string list list
 
 (** Pretty prints an abstraction. *)
@@ -34,7 +38,7 @@ val pp_print_abstraction:
 val first_abstraction: TransSys.t -> abstraction
 
 (** Looks for a system to refine. *)
-val refine: TransSys.t -> abstraction -> abstraction option
+val refine: TransSys.t -> abstraction option
 
 (* 
    Local Variables:

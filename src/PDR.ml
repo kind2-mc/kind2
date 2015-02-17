@@ -2079,7 +2079,7 @@ let rec bmc_checks solver trans_sys props =
      exceptions.
 
 *)
-let main trans_sys abstraction =
+let main trans_sys =
 
   (* PDR solving starts now *)
   Stat.start_timer Stat.pdr_total_time;
@@ -2096,8 +2096,8 @@ let main trans_sys abstraction =
       ~produce_assignments:true
       ~produce_cores:produce_cores
       (TransSys.get_scope trans_sys)
-      abstraction
       logic
+      (TransSys.get_abstraction trans_sys)
       (Flags.smtsolver ())
   in
 
@@ -2107,7 +2107,6 @@ let main trans_sys abstraction =
   (* Declare uninterpreted function symbols *)
   TransSys.init_solver
     trans_sys
-    abstraction
     (SMTSolver.trace_comment solver)
     (SMTSolver.define_fun solver)
     (SMTSolver.declare_fun solver)

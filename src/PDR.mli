@@ -23,7 +23,7 @@
     @author Christoph Sticksel *)
 
 (** Entry point *)
-val main : TransSys.t -> string list list -> unit
+val main : TransSys.t -> unit
 
 (** Cleanup before exit *)
 val on_exit : TransSys.t option -> unit
