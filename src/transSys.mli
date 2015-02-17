@@ -40,7 +40,7 @@ type prop_status =
   | PropKTrue of int
 
   (** Property is invariant *)
-  | PropInvariant 
+  | PropInvariant of Certificate.t
 
   (** Property is false at some step *)
   | PropFalse of (StateVar.t * Term.t list) list
@@ -180,7 +180,7 @@ val get_prop_status : t -> string -> prop_status
 val set_prop_status : t -> string -> prop_status -> unit
 
 (** Mark property as invariant *)
-val set_prop_invariant : t -> string -> unit 
+val set_prop_invariant : t -> string -> Certificate.t -> unit 
 
 (** Mark property as false *)
 val set_prop_false : t -> string -> (StateVar.t * Term.t list) list -> unit 

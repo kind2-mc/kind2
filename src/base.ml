@@ -58,7 +58,7 @@ let on_exit _ =
 (* Returns true if the property is not falsified or valid. *)
 let shall_keep trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant
+  | TransSys.PropInvariant _
   | TransSys.PropFalse _ -> false
   | _ -> true
 
@@ -177,14 +177,13 @@ let rec next (trans, solver, k, invariants, unknowns) =
     updated_props
     (* Looking for new invariant properties. *)
     |> List.fold_left
-         ( fun list (_, (name,status)) ->
-           if status = TransSys.PropInvariant
-           then
+         ( fun list (_, (name, status)) ->
+          match status with
+          | TransSys.PropInvariant cert ->
              (* Memorizing new invariant property. *)
              ( TransSys.prop_of_name trans name )
              :: list
-           else
-             list )
+          | _ -> list )
          (* New invariant properties are added to new invariants. *)
          ( List.map snd new_invs )
            

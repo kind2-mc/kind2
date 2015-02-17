@@ -20,7 +20,7 @@ open Lib
 
 
 (* All remaining properties are valid *)
-exception Success of int
+exception Success of int * Term.t
 
 (* A bad state is reachable *)
 exception Bad_state_reachable
@@ -1896,7 +1896,7 @@ let fwd_propagate
 
             S.pop solver_frames;
 
-            raise (Success (List.length frames))
+            raise (Success (List.length frames, ind_inv))
 
           );
 
@@ -2212,7 +2212,7 @@ let rec pdr
     
     List.for_all 
       (fun (p, _) -> match TransSys.get_prop_status trans_sys p with
-         | TransSys.PropInvariant -> true
+         | TransSys.PropInvariant _ -> true
          | TransSys.PropKTrue k when k >= 1 -> true
          | _ -> false)
       props
@@ -2261,7 +2261,7 @@ let rec pdr
       fwd_propagate solvers trans_sys frames 
 
     (* Fixed point reached *)
-    with Success pdr_k -> 
+    with Success (pdr_k, ind_inv) -> 
 
       if 
 
@@ -2270,7 +2270,7 @@ let rec pdr
 
       then
 
-        raise (Success pdr_k) 
+        raise (Success (pdr_k, ind_inv)) 
 
       else
         
@@ -2284,7 +2284,7 @@ let rec pdr
           if bmc_checks_passed props then
 
             (* Raise exception again *)
-            raise (Success pdr_k)
+            raise (Success (pdr_k, ind_inv))
 
           else
 
@@ -2565,14 +2565,16 @@ let main trans_sys =
         with 
 
           (* All propertes are valid *)
-          | Success k -> 
+          | Success (k, ind_inv) -> 
 
             (
-
+              (* Certificate = (0-)inductive invariant *)
+              let cert = 0, ind_inv in
+              
               (* Send out valid properties *)
               List.iter
                 (fun (p, _) -> 
-                   Event.prop_status TransSys.PropInvariant trans_sys p) 
+                   Event.prop_status (TransSys.PropInvariant cert) trans_sys p) 
                 props;
 
               (* No more properties remaining *)

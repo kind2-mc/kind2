@@ -61,7 +61,7 @@ let stop () = ()
    been disproved. *)
 let is_unknown trans (s,_) =
   match TransSys.get_prop_status trans s with
-  | TransSys.PropInvariant
+  | TransSys.PropInvariant _
   | TransSys.PropFalse _ -> false
   | _ -> true
 
@@ -75,7 +75,7 @@ let split_unfalsifiable_rm_proved trans k =
   List.fold_left
     ( fun (dis,true_k,others) ((s,_) as p) ->
       match TransSys.get_prop_status trans s with
-      | TransSys.PropInvariant ->
+      | TransSys.PropInvariant _ ->
          (dis, true_k, others)
       | TransSys.PropFalse _ ->
          (p :: dis, true_k, others)
@@ -338,6 +338,9 @@ let split_closure
    to be unfalsifiable.  It should be sorted by decreasing k. *)
 let rec next trans solver k invariants unfalsifiables unknowns =
 
+  (* Integer version of k. *)
+  let k_int = Numeral.to_int k in
+  
   (* Getting new invariants and updating transition system. *)
   let new_invariants =
     (* Receiving messages. *)
@@ -358,8 +361,10 @@ let rec next trans solver k invariants unfalsifiables unknowns =
   (* Communicating confirmed properties. *)
   confirmed
   |> List.iter
-       ( fun (s,_) ->
-         Event.prop_status TransSys.PropInvariant trans s ) ;
+    ( fun (s, phi) ->
+       (* certificate for k-induction *)
+       let cert = k_int, phi in 
+       Event.prop_status (TransSys.PropInvariant cert) trans s ) ;
 
   (* Adding confirmed properties to new invariants. *)
   let new_invariants' =
@@ -379,9 +384,6 @@ let rec next trans solver k invariants unfalsifiables unknowns =
      next
        trans solver k invariants unfalsifiables' unknowns'
   | _ ->
-
-     (* Integer version of k. *)
-     let k_int = Numeral.to_int k in
 
      (* Notifying framework of our progress. *)
      Stat.set k_int Stat.ind_k ;

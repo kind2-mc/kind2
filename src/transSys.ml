@@ -33,7 +33,7 @@ type prop_status =
   | PropKTrue of int
 
   (* Property is true in all reachable states *)
-  | PropInvariant 
+  | PropInvariant of Certificate.t
 
   (* Property is false at some step *)
   | PropFalse of (StateVar.t * Term.t list) list
@@ -52,7 +52,7 @@ let length_of_cex = function
 let pp_print_prop_status_pt ppf = function 
   | PropUnknown -> Format.fprintf ppf "unknown"
   | PropKTrue k -> Format.fprintf ppf "true-for %d" k
-  | PropInvariant -> Format.fprintf ppf "invariant"
+  | PropInvariant _ -> Format.fprintf ppf "invariant"
   | PropFalse [] -> Format.fprintf ppf "false"
   | PropFalse cex -> Format.fprintf ppf "false-at %d" (length_of_cex cex)
 
@@ -65,7 +65,7 @@ let prop_status_known = function
   | PropKTrue _ -> false
 
   (* Property is invariant or false *)
-  | PropInvariant
+  | PropInvariant _
   | PropFalse _ -> true
 
 
@@ -234,12 +234,13 @@ let mk_trans_sys uf_defs state_vars init_top trans_top props input =
              let l, u = Type.bounds_of_int_range sv_type in
 
              (* Add equation l <= v[0] <= u to invariants *)
-             Term.mk_leq 
-               [Term.mk_num l; 
-                Term.mk_var
-                  (Var.mk_state_var_instance state_var Numeral.zero); 
-                Term.mk_num u] :: 
-             accum
+             let eq =
+               Term.mk_leq 
+                 [Term.mk_num l; 
+                  Term.mk_var
+                    (Var.mk_state_var_instance state_var Numeral.zero); 
+                  Term.mk_num u] in
+              eq :: accum
            | _ -> accum)
       []
       state_vars
@@ -318,9 +319,10 @@ let invars_of_bound t i =
 
   (* Create conjunction of property terms *)
   let invars_0 = Term.mk_and t.invars in 
-
+  
   (* Bump bound if greater than zero *)
-  if Numeral.(i = zero) then invars_0 else Term.bump_state i invars_0
+  if Numeral.(i = zero) then invars_0
+  else Term.bump_state i invars_0
 
 
 (* Instantiate terms in association list to the bound *)
@@ -374,7 +376,7 @@ let get_prop_status trans_sys p =
 
 
 (* Mark property as invariant *)
-let set_prop_invariant t prop =
+let set_prop_invariant t prop certif =
 
   t.prop_status <- 
     
@@ -388,7 +390,7 @@ let set_prop_invariant t prop =
                invariant *)
             | PropUnknown
             | PropKTrue _
-            | PropInvariant -> (n, PropInvariant) 
+            | PropInvariant _ -> (n, PropInvariant certif) 
                                
             (* Fail if property was false or k-false *)
             | PropFalse _ -> raise (Failure "prop_invariant") 
@@ -414,7 +416,7 @@ let set_prop_false t prop cex =
             | PropUnknown -> (n, PropFalse cex)
 
             (* Fail if property was invariant *)
-            | PropInvariant -> 
+            | PropInvariant _ -> 
               raise (Failure "prop_false")
 
             (* Fail if property was l-true for l >= k *)
@@ -457,7 +459,7 @@ let set_prop_ktrue t k prop =
             | PropKTrue _ -> (n, PropKTrue k)
 
             (* Keep if it was invariant *)
-            | PropInvariant -> (n, s)
+            | PropInvariant _ -> (n, s)
 
             (* Keep if property was l-false for l > k *)
             | PropFalse cex when (length_of_cex cex) > k -> (n, s)
@@ -478,7 +480,7 @@ let set_prop_status t p = function
 
   | PropKTrue k -> set_prop_ktrue t k p
 
-  | PropInvariant -> set_prop_invariant t p
+  | PropInvariant cert -> set_prop_invariant t p cert
 
   | PropFalse c -> set_prop_false t p c
 
@@ -489,7 +491,7 @@ let is_proved trans_sys prop =
   try 
 
     (match List.assoc prop trans_sys.prop_status with
-      | PropInvariant -> true
+      | PropInvariant _ -> true
       | _ -> false)
         
   with Not_found -> false
@@ -517,7 +519,7 @@ let all_props_proved trans_sys =
          (match List.assoc p trans_sys.prop_status with
            | PropUnknown
            | PropKTrue _ -> false
-           | PropInvariant
+           | PropInvariant _
            | PropFalse _ -> true)
        with Not_found -> false)
     trans_sys.props 

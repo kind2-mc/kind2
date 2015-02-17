@@ -136,8 +136,8 @@ let pp_print_event ppf = function
   | PropStatus (p, TransSys.PropKTrue k) -> 
     Format.fprintf ppf "@[<hv>Property %s true for %d steps@]" p k
 
-  | PropStatus (p, TransSys.PropInvariant) -> 
-    Format.fprintf ppf "@[<hv>Property %s invariant@]" p
+  | PropStatus (p, TransSys.PropInvariant (k, _)) -> 
+    Format.fprintf ppf "@[<hv>Property %s invariant (%d-inductive)@]" p k
 
   | PropStatus (p, TransSys.PropFalse []) -> 
     Format.fprintf ppf "@[<hv>Property %s false@]" p
@@ -187,7 +187,15 @@ struct
 
       let p = pop () in
 
-      PropStatus (p, TransSys.PropInvariant)
+      let k = try int_of_string (pop ()) with 
+        | Failure _ -> raise Messaging.BadMessage 
+      in 
+
+      let f = pop () in
+
+      let phi = Term.import (Marshal.from_string f 0 : Term.t) in 
+
+      PropStatus (p, TransSys.PropInvariant (k, phi))
 
     | "PROP_FALSE" -> 
 
@@ -234,9 +242,12 @@ struct
 
       [string_of_int k; p; "PROP_KTRUE"]
 
-    | PropStatus (p, TransSys.PropInvariant) -> 
+    | PropStatus (p, TransSys.PropInvariant (k, phi)) -> 
 
-      [p; "PROP_INVAR"]
+      (* Serialize term to string *)
+      let phi_string = Marshal.to_string phi [Marshal.No_sharing] in
+      
+      [phi_string; string_of_int k; p; "PROP_INVAR"]
 
     | PropStatus (p, TransSys.PropFalse cex) ->
 
@@ -542,8 +553,8 @@ let prop_status_pt level prop_status =
                | TransSys.PropKTrue k -> 
                  Format.fprintf ppf "true up to %d steps" k
 
-               | TransSys.PropInvariant -> 
-                 Format.fprintf ppf "valid"
+               | TransSys.PropInvariant (k, _) -> 
+                 Format.fprintf ppf "valid (%d-inductive)" k
 
                | TransSys.PropFalse [] -> 
                  Format.fprintf ppf "invalid"
@@ -789,13 +800,13 @@ let prop_status_xml level prop_status =
               (function ppf -> function 
                  | TransSys.PropUnknown
                  | TransSys.PropKTrue _ -> Format.fprintf ppf "unknown"
-                 | TransSys.PropInvariant -> Format.fprintf ppf "valid"
+                 | TransSys.PropInvariant _ -> Format.fprintf ppf "valid"
                  | TransSys.PropFalse [] 
                  | TransSys.PropFalse _ -> Format.fprintf ppf "falsifiable")
               s
               (function ppf -> function
                  | TransSys.PropUnknown
-                 | TransSys.PropInvariant 
+                 | TransSys.PropInvariant _ 
                  | TransSys.PropFalse [] -> ()
                  | TransSys.PropKTrue k -> 
                    Format.fprintf 
@@ -985,9 +996,11 @@ let prop_status status trans_sys prop =
   let mdl = get_module () in
 
   (match status with
-    | TransSys.PropInvariant -> log_proved mdl L_warn trans_sys None prop
-    | TransSys.PropFalse cex -> log_disproved mdl L_warn trans_sys prop cex
-    | _ -> ());
+   | TransSys.PropInvariant cert ->
+     log_proved mdl L_warn trans_sys None prop
+   | TransSys.PropFalse cex ->
+     log_disproved mdl L_warn trans_sys prop cex
+   | _ -> ());
 
   (* Update status of property in transition system *)
   TransSys.set_prop_status trans_sys prop status;
@@ -1210,7 +1223,7 @@ let update_trans_sys trans_sys events =
              if Term.equal t t' then
 
                (* Inject property status event *)
-               ((m, PropStatus (p, TransSys.PropInvariant)) :: accum)
+               ((m, PropStatus (p, TransSys.PropInvariant (assert false (* TODO certificates *)))) :: accum)
 
              else
 
@@ -1251,13 +1264,13 @@ let update_trans_sys trans_sys events =
         tl
 
     (* Property found invariant *)
-    | (m, PropStatus (p, (TransSys.PropInvariant as s))) :: tl -> 
+    | (m, PropStatus (p, (TransSys.PropInvariant cert as s))) :: tl -> 
 
       (* Output proved property *)
       log_proved m L_warn trans_sys None p;
           
       (* Change property status in transition system *)
-      TransSys.set_prop_invariant trans_sys p;
+      TransSys.set_prop_invariant trans_sys p cert;
 
       (try 
 
@@ -1265,7 +1278,7 @@ let update_trans_sys trans_sys events =
         TransSys.add_invariant 
           trans_sys 
           (List.assoc p (TransSys.props_list_of_bound trans_sys Numeral.zero))
-
+          
        (* Skip if named property not found *)
        with Not_found -> ());
 
