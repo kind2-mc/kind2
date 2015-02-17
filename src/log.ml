@@ -339,8 +339,9 @@ let pp_print_abstraction_sublog ppf { abstraction ; prop_infos } =
 let pp_print_abstraction_sublog_shy
       ppf { abstraction ; prop_infos } =
   Format.fprintf
-    ppf "@[<v 2>\
-         abstraction: [%a]@ \
+    ppf "@ \
+         @[<v 2>\
+         by abstracting: [%a]@ \
          %a\
          @]"
     pp_print_abstraction_key abstraction
@@ -349,7 +350,7 @@ let pp_print_abstraction_sublog_shy
          function
          | PropsValid (props,_) ->
             Format.fprintf
-              ppf "@[<v 2>Valid: %a@]"
+              ppf "@[<hv 7>Valid: %a@]"
               (pp_print_list
                  Format.pp_print_string
                  ",@ ")
@@ -365,11 +366,13 @@ let pp_print_abstraction_sublog_shy
 let pp_print_sys_sublog ppf { sys ; abstraction_sublogs } =
   Format.fprintf
     ppf "@[<v 2>\
-         system %s@ \
-         %a\
+         system %s {@ \
+         %a@ \
+         @;<0 -2>}
          @]"
     (TransSys.get_name sys)
-    (pp_print_list pp_print_abstraction_sublog "@ ") abstraction_sublogs
+    (pp_print_list pp_print_abstraction_sublog_shy "@ ")
+    (List.rev abstraction_sublogs)
 
 let pp_print_sys_sublog_shy ppf {sys ; abstraction_sublogs} =
   Format.fprintf
@@ -378,17 +381,14 @@ let pp_print_sys_sublog_shy ppf {sys ; abstraction_sublogs} =
          %a\
          @]"
     (TransSys.get_name sys)
-    (pp_print_list pp_print_abstraction_sublog_shy "@ ") abstraction_sublogs
+    (pp_print_list pp_print_abstraction_sublog_shy "@ ")
+    (List.rev abstraction_sublogs)
 
 (* Pretty prints a [t] log. *)
 let pp_print_log ppf { sys ; sys_sublogs } =
   Format.fprintf
-    ppf "@[<v 2>\
-         log starting at root [%s]@ \
-         %a\
-         @]"
-    (TransSys.get_name sys)
-    (pp_print_list pp_print_sys_sublog "@ ") sys_sublogs
+    ppf "@[<v>%a@]"
+    (pp_print_list pp_print_sys_sublog "@ ") (List.rev sys_sublogs)
 
 (* Pretty prints a [t] log. *)
 let pp_print_log_shy ppf { sys ; sys_sublogs } =

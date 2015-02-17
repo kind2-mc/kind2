@@ -21,14 +21,29 @@ open Lib
 
 type abstraction = string list list
 
+let concretes_of_abstraction sys abstraction =
+  TransSys.get_all_subsystems sys
+  |> List.fold_left
+       ( fun list subsys ->
+         let scope = TransSys.get_scope subsys in
+         if
+           subsys != sys
+           && (not (List.mem
+                      scope
+                      abstraction))
+         then
+           scope :: list
+         else list )
+       []
+
 (* Pretty prints an abstraction. *)
 let pp_print_abstraction ppf =
   Format.fprintf
     ppf
-    "@[<v>%a@]"
+    "@[<hv>%a@]"
     (pp_print_list
        (pp_print_list Format.pp_print_string ".")
-       ",@,")
+       ",@ ")
 
 let first_abstraction sys =
   TransSys.get_all_subsystems sys
@@ -43,7 +58,6 @@ let refine sys = function
 
   | [] ->
      (* Cannot refine an empty abtsraction. *)
-     Format.printf "Cannot refine an empty abstraction.\n" ;
      None
 
   | abstraction ->

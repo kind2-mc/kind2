@@ -21,6 +21,11 @@ open Lib
 
 type abstraction = string list list
 
+(** Returns the concrete subsystems of a system with respect to an
+    abstraction. *)
+val concretes_of_abstraction:
+  TransSys.t -> abstraction -> string list list
+
 (** Pretty prints an abstraction. *)
 val pp_print_abstraction:
   Format.formatter -> abstraction -> unit

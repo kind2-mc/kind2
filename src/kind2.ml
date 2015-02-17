@@ -63,6 +63,16 @@ let trans_sys = ref None
 (* Reference to the transition system currently under analysis. *)
 let current_trans_sys = ref None
 
+let dbl_sep_line_warn () =
+  Event.log
+    L_warn
+    "|========================================|"
+
+let sgl_sep_line_warn () =
+  Event.log
+    L_warn
+    "   -----------------------------------   "
+
 
 (* Handle events by broadcasting messages, updating local transition
    system version etc. Returns [true] iff it received at least one
@@ -1136,7 +1146,7 @@ let launch_modular_analysis trans_sys =
 
   Event.log
     L_warn
-    "@[<v 8>|=====| Launching modular analysis@ in the following order:@ \
+    "@[<v 2>Launching modular analysis@ in the following order:@ \
      (@[<hv>%a@])@]"
     (pp_print_list
        (fun ppf sys ->
@@ -1166,13 +1176,19 @@ let launch_modular_analysis trans_sys =
         Log.add_abstraction_sublog (log ()) sys abstraction
       in
 
+      dbl_sep_line_warn () ;
+
       Event.log
         L_warn
         "@.\
-         |===| Launching analysis for %s.@.\
-               abstraction: [%a]"
+         @[<v 6>|===| Launching analysis for %s.@ \
+         concrete systems:   [%a]@ \
+         abstracted systems: [%a]@]"
         (TransSys.get_name sys)
-        Log.pp_print_abstraction_key abstraction_key ;
+        Refiner.pp_print_abstraction
+        (Refiner.concretes_of_abstraction sys abstraction)
+        Refiner.pp_print_abstraction
+        abstraction ;
 
       (* Event.log *)
       (*   L_warn *)
@@ -1202,7 +1218,7 @@ let launch_modular_analysis trans_sys =
           (* Don't exit when analysis ends. *)
           false
           sys
-          abstraction_key
+          abstraction
       with
       | TimeoutWall ->
          Event.log
@@ -1217,24 +1233,35 @@ let launch_modular_analysis trans_sys =
         "|===| Skipping sys %s, no property to prove."
         (TransSys.get_name sys)
     ) else (
+
       Event.log
         L_warn
-        "|===| Skipping sys %s, all properties already (dis)proved.@.\
-               abstraction: [%s]"
+        "@[<v 6>|===| Skipping sys %s, all properties already (dis)proved.@.\
+         concrete systems:   [%a]@ \
+         abstracted systems: [%a]@]"
         (TransSys.get_name sys)
-        (string_of_strings_list abstraction) ;
+        Refiner.pp_print_abstraction
+        (Refiner.concretes_of_abstraction sys abstraction)
+        Refiner.pp_print_abstraction
+        abstraction ;
     ) ;
 
     if not (TransSys.all_props_actually_proved sys) then (
 
+      sgl_sep_line_warn () ;
+
       Event.log
         L_warn
-        "@[<hv 2>\
+        "@[<v 2>\
          Some properties could not be proved for %s:@,\
-         @[<hv 2>abstraction: [%s]@,\
+         concrete systems:   [%a]@ \
+         abstracted systems: [%a]@ @ \
          %a@]@]"
         (TransSys.get_name sys)
-        (string_of_strings_list abstraction)
+        Refiner.pp_print_abstraction
+        (Refiner.concretes_of_abstraction sys abstraction)
+        Refiner.pp_print_abstraction
+        abstraction
         (pp_print_list
            (fun ppf (s,status) ->
             Format.fprintf
@@ -1263,8 +1290,20 @@ let launch_modular_analysis trans_sys =
             | Some nu_abs ->
                Event.log
                  L_warn
-                 "Refining contract-based abstraction for %s."
-                 (TransSys.get_name sys) ;
+                 "@[<v 5>Refining contract-based abstraction for %s@ \
+                  @[<v 2>from@ \
+                  concrete: [%a]@ \
+                  abstract: [%a]@]@ \
+                  @[<v 2>to@ \
+                  concrete: [%a]@ \
+                  abstract: [%a]@]@]"
+                 (TransSys.get_name sys)
+                 Refiner.pp_print_abstraction
+                 (Refiner.concretes_of_abstraction sys abstraction)
+                 Refiner.pp_print_abstraction abstraction
+                 Refiner.pp_print_abstraction
+                 (Refiner.concretes_of_abstraction sys nu_abs)
+                 Refiner.pp_print_abstraction nu_abs ;
                analyze sys nu_abs )
 
         else
@@ -1275,6 +1314,8 @@ let launch_modular_analysis trans_sys =
 
 
     ) else (
+
+      sgl_sep_line_warn () ;
 
       Event.log
         L_warn
@@ -1287,7 +1328,7 @@ let launch_modular_analysis trans_sys =
 
       Event.log
         L_warn
-        "Done with %s"
+        "Done with %s."
         (TransSys.get_name sys) ;
 
     )
@@ -1309,11 +1350,15 @@ let launch_modular_analysis trans_sys =
 
   minisleep 0.1 ;
 
+  dbl_sep_line_warn () ;
+
+  Event.log L_warn "Analysis breakdown:" ;
+
   log ()
   |> Event.log
        L_warn
        "%a"
-       Log.pp_print_log_shy ;
+       Log.pp_print_log ;
 
   (* There should be no process left at this point. *)
   assert ( !child_pids = [] ) ;
@@ -1504,8 +1549,7 @@ let main () =
 
 ;;
 
-main ()  
-      
+main ()
 (* 
    Local Variables:
    compile-command: "make -C .. -k"
