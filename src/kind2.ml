@@ -1011,27 +1011,27 @@ let launch_analysis exit_after_killing_kids trans_sys =
        Event.log
          L_fatal "Need at least one process enabled"
 
-    | [p] -> (
-      (* Single module enabled. *)
+    (* | [p] -> ( *)
+    (*   (\* Single module enabled. *\) *)
 
-      Event.log
-        L_info
-        "Running as a single process";
+    (*   Event.log *)
+    (*     L_warn *)
+    (*     "Running as a single process"; *)
 
-      (* Set module currently running. *)
-      Event.set_module p ;
+    (*   (\* Set module currently running. *\) *)
+    (*   Event.set_module p ; *)
 
-      (* Run main function of process. *)
-      (Start.main_of_process p) trans_sys ;
+    (*   (\* Run main function of process. *\) *)
+    (*   (Start.main_of_process p) trans_sys ; *)
       
-      (* Ignore SIGALRM from now on *)
-      Sys.set_signal
-        Sys.sigalrm Sys.Signal_ignore ;
+    (*   (\* Ignore SIGALRM from now on *\) *)
+    (*   Sys.set_signal *)
+    (*     Sys.sigalrm Sys.Signal_ignore ; *)
 
-      (* Cleanup before exiting process *)
-      Stop.on_exit_child None p Exit
+    (*   (\* Cleanup before exiting process *\) *)
+    (*   Stop.on_exit_child None p Exit *)
                          
-    )
+    (* ) *)
 
     | ps -> (
       (* Run some modules in parallel. *)
@@ -1134,6 +1134,17 @@ let launch_analysis exit_after_killing_kids trans_sys =
    possible to refine further, and [Some abstraction'] otherwise. *)
 let refine_further = Refiner.refine
 
+let reset_props sys =
+  TransSys.reset_non_valid_props_to_unknown sys
+
+let reset_invariants sys =
+  TransSys.reset_invariants sys
+
+let lift_valids sys =
+  TransSys.lift_valid_properties sys
+
+let clean_up sys = reset_props sys ; reset_invariants sys
+
 let launch_modular_analysis trans_sys =
 
   (* All subsystems of the top node, sorted by reverse topological
@@ -1177,7 +1188,7 @@ let launch_modular_analysis trans_sys =
       Event.log
         L_warn
         "@.\
-         @[<v 6>|===| Launching analysis for %s.@ \
+         @[<v 6>|===| Analyzing %s.@ \
          concrete systems:   [%a]@ \
          abstracted systems: [%a]@]"
         (TransSys.get_name sys)
@@ -1191,10 +1202,12 @@ let launch_modular_analysis trans_sys =
       (*   TransSys.pp_print_trans_sys_contract_view *)
       (*   sys ; *)
 
-      Event.log
-        L_warn "Press enter to launch analysis." ;
+      (* Event.log *)
+      (*   L_warn "Press enter to launch analysis." ; *)
 
-      let _ = read_line () in
+      (* let _ = read_line () in *)
+
+      minisleep 0.1 ;
 
       if Flags.timeout_wall () > 0. then (
         let _ =
@@ -1237,6 +1250,8 @@ let launch_modular_analysis trans_sys =
         (Refiner.concretes_of_abstraction sys)
         TransSys.pp_print_trans_sys_abstraction sys ;
     ) ;
+
+
 
     if not (TransSys.all_props_actually_proved sys) then (
 
@@ -1297,13 +1312,19 @@ let launch_modular_analysis trans_sys =
                  Refiner.pp_print_abstraction
                  (Refiner.concretes_of_abstraction sys)
                  TransSys.pp_print_trans_sys_abstraction sys ;
+
+               clean_up sys ;
+
                analyze sys )
 
-        else
+        else (
           Event.log
             L_warn
             "Done with %s."
-            (TransSys.get_name sys) )
+            (TransSys.get_name sys) ;
+
+          clean_up sys
+        ) )
 
 
     ) else (
@@ -1323,6 +1344,8 @@ let launch_modular_analysis trans_sys =
         L_warn
         "Done with %s."
         (TransSys.get_name sys) ;
+
+      clean_up sys
 
     )
   in

@@ -64,6 +64,28 @@ type prop_source =
   | Instantiated of string list * string
 
 
+let pp_print_prop_source ppf = function
+  | PropAnnot pos ->
+     Format.fprintf
+       ppf "%a" pp_print_position pos
+  | Contract (ContractAnnot (name,pos)) ->
+     Format.fprintf
+       ppf "contract at %a" pp_print_position pos
+  | SubRequirement (_, scope, position) ->
+     Format.fprintf
+       ppf
+       "requirement of %s at %a"
+       (String.concat "." scope)
+       pp_print_position position
+  | Generated _ ->
+     Format.fprintf ppf "subrange constraint"
+  | Instantiated (scope,_) ->
+     Format.fprintf
+       ppf
+       "instantiated from %s"
+       (String.concat "." scope)
+
+
 (* Return the default value of the type *)
 let default_of_type t = 
 

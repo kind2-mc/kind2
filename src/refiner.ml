@@ -59,6 +59,7 @@ let first_abstraction sys =
 
 (* Looks for a system to refine. *)
 let refine sys =
+
   match TransSys.get_abstraction sys with
 
   | [] ->
@@ -96,9 +97,6 @@ let refine sys =
                          (fun scope -> scope <> sub_scope)
               in
 
-              
-              TransSys.reset_non_valid_props_to_unknown sys ;
-              TransSys.reset_invariants sys ;
               TransSys.set_abstraction sys nu_abstraction ;
 
               (* Refining [subsys], removing it from abstraction. *)

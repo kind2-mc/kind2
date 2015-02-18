@@ -1050,9 +1050,22 @@ let named_terms_list_of_bound l i =
 let props_list_of_bound t i = 
   named_terms_list_of_bound t.properties i
 
+(* Instantiate all properties to the bound *)
+let props_list_of_bound_not_valid t i = 
+  named_terms_list_of_bound
+    ( t.properties
+      |> List.filter (function
+                       | { prop_status = PropInvariant } -> false
+                       | _ -> true) )
+    i
+
 
 (* Instantiate all properties to the bound *)
 let props_of_bound t i = 
+  Term.mk_and (List.map snd (props_list_of_bound t i))
+
+(* Instantiate all properties to the bound *)
+let props_of_bound_not_valid t i = 
   Term.mk_and (List.map snd (props_list_of_bound t i))
 
 (* Get property by name *)
@@ -1130,6 +1143,17 @@ let get_prop_status_all_unknown t =
        | _ -> accum)
     []
     t.properties
+
+
+(* Returns the source of a property. *)
+let get_prop_source { properties } name =
+  match
+    properties
+    |> List.find
+         ( fun { prop_name } -> prop_name = name )
+  with
+  | { prop_source } -> Some prop_source
+  | exception Not_found -> None
 
 
 (* Return current status of property *)
@@ -1244,6 +1268,7 @@ let reset_non_valid_props_to_unknown t =
          | prop ->
             prop.prop_status <- PropUnknown )
 
+(* Resets the list of invariants of the system. *)
 let reset_invariants t =
   t.invars <- [] ;
   t.properties
@@ -1252,6 +1277,74 @@ let reset_invariants t =
          | { prop_term = term ; prop_status = PropInvariant } ->
             t.invars <- term :: t.invars
          | _ -> () )
+
+(* Lifts valid properties of the system. ONLY lifts properties from
+   annotations or generated ones. *)
+let lift_valid_properties =
+  let rec lift_props
+            to_update
+            { scope ; properties ; callers } =
+    match
+      properties
+      |> List.filter
+           ( function
+             | { prop_source = TermLib.PropAnnot _ ;
+                 prop_status = PropInvariant }
+             | { prop_source = TermLib.Instantiated _ ;
+                 prop_status = PropInvariant }
+             | { prop_source = TermLib.Generated _ ;
+                 prop_status = PropInvariant } -> true
+             | _ -> false )
+
+    with
+
+    (* Nothing to lift, continuing. *)
+    | [] -> continue to_update
+
+    | props ->
+       
+       props
+       |> List.iter
+            ( fun { prop_name } ->
+
+              (* Iterate on all callers. *)
+              callers
+              |> List.iter
+                   ( fun (caller, _) ->
+
+                     (* Iterate on all properties of the caller. *)
+                     caller.properties
+                     |> List.iter
+                          ( function
+
+                            (* Find the correct instantiated property. *)
+                            | ({ prop_source =
+                                   TermLib.Instantiated (scope',name')
+                               } as prop) ->
+
+                               if scope = scope' && prop_name = name'
+                               then
+                                 (* Update its status. *)
+                                 prop.prop_status <- PropInvariant
+
+                            | prop -> () ) ) ) ;
+
+       ( callers
+         |> List.map (fun (caller,_) -> caller) )
+       @ to_update
+       |> continue
+
+  and continue = function
+    | [] -> ()
+    | head :: tail ->
+       lift_props
+         (* Removing redundant systems in continuation. *)
+         ( tail |> List.filter (fun sys -> sys.scope != head.scope) )
+         head
+  in
+
+  lift_props []
+       
 
 let rec pp_print_trans_sys_contract_view ppf sys =
   Format.fprintf

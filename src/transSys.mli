@@ -247,8 +247,14 @@ val trans_fun_of : t -> Numeral.t -> Numeral.t -> Term.t
 (** Instantiate all properties to the bound *)
 val props_of_bound : t -> Numeral.t -> Term.t
 
+(** Instantiate all not valid properties to the bound *)
+val props_of_bound_not_valid : t -> Numeral.t -> Term.t
+
 (** Instantiate all properties to the bound *)
 val props_list_of_bound : t -> Numeral.t -> (string * Term.t) list 
+
+(** Instantiate all not valid properties to the bound *)
+val props_list_of_bound_not_valid : t -> Numeral.t -> (string * Term.t) list 
 
 (** Get property by name *)
 val named_term_of_prop_name : t -> string -> Term.t
@@ -291,7 +297,10 @@ val get_prop_status_all : t -> (string * prop_status) list
 val get_prop_status_all_unknown : t -> (string * prop_status) list
 
 (** Return current status of property *)
-val get_prop_status : t -> string -> prop_status 
+val get_prop_status : t -> string -> prop_status
+
+(** Returns the source of a property. *)
+val get_prop_source : t -> string -> TermLib.prop_source option
 
 (** Mark current status of property *)
 val set_prop_status : t -> string -> prop_status -> unit
@@ -313,6 +322,11 @@ val reset_non_valid_props_to_unknown : t -> unit
 (** Resets the list of invariants of a system to only the terms of the
     valid properties. *)
 val reset_invariants : t -> unit
+
+(** Propagates the validity of the properties of a system to its
+    callers. Only properties from annotations and generated ones will
+    be lifted. *)
+val lift_valid_properties : t -> unit
 
 val subrequirements_valid : t -> bool
 

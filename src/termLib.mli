@@ -62,7 +62,9 @@ type prop_source =
 
       Reference the instantiated property by the [scope] of the
       subsystem and the name of the property *)
-  | Instantiated of string list * string 
+  | Instantiated of string list * string
+
+val pp_print_prop_source : Format.formatter -> prop_source -> unit
 
 
 (** Return the default value of the type: 

@@ -419,11 +419,15 @@ let proved_pt mdl level trans_sys k prop =
 
     (ignore_or_fprintf level)
       !log_ppf
-      ("@[<hov>%s Property (%s) is valid %tby %a after %.3fs.@.@.")
+      ("@[<hov>%s Property %s is valid %tby %a after %.3fs.@.@.")
       success_tag
       (* Term.pp_print_term *)
       (* (TransSys.named_term_of_prop_name trans_sys prop) *)
-      prop
+      (match TransSys.get_prop_source trans_sys prop with
+       | None -> assert false
+       | Some source ->
+          Format.asprintf
+            "%s (%a)" prop TermLib.pp_print_prop_source source)
       (function ppf -> match k with
          | None -> ()
          | Some k -> Format.fprintf ppf "for k=%d " k)
